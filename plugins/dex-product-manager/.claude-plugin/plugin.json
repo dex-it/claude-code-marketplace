@@ -1,0 +1,29 @@
+{
+  "name": "dex-product-manager",
+  "version": "2.0.0",
+  "description": "Product Manager plugin для планирования roadmap, управления бэклогом и анализа метрик",
+  "author": "DEX Team",
+  "tags": ["product-management", "roadmap", "backlog", "metrics", "agile"],
+  "agents": [
+    "agents/roadmap-planner.md",
+    "agents/backlog-manager.md",
+    "agents/metrics-analyst.md"
+  ],
+  "commands": [
+    "commands/create-epic.md",
+    "commands/prioritize.md",
+    "commands/release-notes.md"
+  ],
+  "skills": [
+    "skills/product-discovery",
+    "skills/prioritization",
+    "skills/agile-artifacts"
+  ],
+  "prompts": {
+    "system": "prompts/system-prompt.md"
+  },
+  "dependencies": {
+    "mcp": ["notion"]
+  },
+  "readme": "README.md"
+}
