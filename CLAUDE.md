@@ -29,19 +29,23 @@ claude-code-marketplace/
 
 ### dex-dotnet-developer
 
-**Для:** .NET разработчиков
+**Для:** .NET разработчиков (Full-stack с инфраструктурой)
 
-**Агенты:**
-- `coding-assistant` - написание кода
+**Агенты (6):**
+- `coding-assistant` - написание кода, SOLID, паттерны
 - `bug-hunter` - поиск и исправление багов
-- `code-reviewer` - code review
-- `test-writer` - генерация тестов
+- `code-reviewer` - code review, безопасность
+- `test-writer` - генерация тестов xUnit/Moq
+- `infrastructure-assistant` - PostgreSQL, RabbitMQ, Redis, ES, Docker
+- `performance-analyst` - N+1, профилирование, memory leaks
 
-**Команды:** `/build`, `/test`, `/debug`, `/refactor`, `/ef-migration`
+**Команды (11):** `/build`, `/test`, `/debug`, `/refactor`, `/ef-migration`, `/rabbit-status`, `/es-query`, `/redis-cache`, `/docker-build`, `/logs`, `/k8s-status`
 
-**Skills:** dotnet-patterns, ef-core, async-patterns, linq-optimization, api-development, testing-patterns
+**Skills (12):** dotnet-patterns, ef-core, async-patterns, linq-optimization, api-development, testing-patterns, rabbitmq-patterns, elasticsearch-patterns, redis-patterns, docker-patterns, logging-patterns, k8s-patterns
 
-**MCP:** GitLab, Supabase (PostgreSQL), Notion
+**MCP (9):** GitLab, PostgreSQL (postgres-mcp), Notion, RabbitMQ, Elasticsearch, Redis, Docker, Seq, Kubernetes
+
+**CLI Fallbacks:** psql, rabbitmqadmin, redis-cli, curl (ES), docker/docker-compose, kubectl/helm
 
 ---
 
@@ -237,6 +241,10 @@ allowed-tools: Read, Grep, Glob
 - **Тесты**: xUnit + Moq + Playwright
 - **CI/CD**: GitLab CI
 - **Контейнеры**: Docker, Kubernetes
+- **Messaging**: RabbitMQ + MassTransit
+- **Search**: Elasticsearch + NEST
+- **Caching**: Redis + StackExchange.Redis
+- **Logging**: Serilog + Seq
 
 ### Python ML Stack
 
@@ -258,6 +266,11 @@ allowed-tools: Read, Grep, Glob
 - `${NOTION_API_KEY}` - Notion API
 - `${DATABASE_URL}` - PostgreSQL connection string
 - `${GITHUB_TOKEN}` - GitHub API
+- `${RABBITMQ_HOST}`, `${RABBITMQ_PORT}`, `${RABBITMQ_USER}`, `${RABBITMQ_PASSWORD}` - RabbitMQ
+- `${ELASTICSEARCH_URL}`, `${ELASTICSEARCH_API_KEY}` - Elasticsearch
+- `${REDIS_URL}` - Redis connection string
+- `${SEQ_SERVER_URL}`, `${SEQ_API_KEY}` - Seq logging server
+- `${K8S_READONLY}` - Kubernetes read-only mode (true/false)
 
 ### Python ML Plugin
 - `${MLFLOW_TRACKING_URI}` - MLflow tracking server URL
@@ -271,6 +284,11 @@ allowed-tools: Read, Grep, Glob
 ### .NET
 - ConfigureAwait(false) НЕ нужен в ASP.NET Core
 - Для read-only запросов использовать `AsNoTracking()`
+- RabbitMQ: Implement idempotency, use dead-letter queues
+- Redis: Set TTL on all keys, use SCAN not KEYS
+- Elasticsearch: Use aliases for zero-downtime reindexing
+- Docker: Multi-stage builds, non-root user
+- Kubernetes: Health probes, HPA, resource limits
 
 ### Python ML
 - Type hints везде (Python 3.10+)
