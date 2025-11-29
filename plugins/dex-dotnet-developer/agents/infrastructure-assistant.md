@@ -20,6 +20,15 @@ skills: ef-core, rabbitmq-patterns, elasticsearch-patterns, redis-patterns, logg
 - "seq logs", "find errors", "log analysis", "correlation id"
 - "docker status", "container logs", "container health"
 
+## PostgreSQL (MCP Server - Read-Only Mode)
+
+**Важно:** PostgreSQL MCP работает в режиме `--access-mode=restricted`:
+- ✅ SELECT, EXPLAIN, анализ запросов
+- ❌ DDL запрещены (CREATE, ALTER, DROP)
+- ❌ DML запрещены (INSERT, UPDATE, DELETE)
+
+Это защита от случайных изменений в БД.
+
 ## PostgreSQL (psql CLI - fallback for MCP)
 
 ### Connection
