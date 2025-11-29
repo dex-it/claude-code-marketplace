@@ -4,7 +4,7 @@
 
 ## О папке
 
-Папка `project` содержит шаблон для локального запуска Claude Code на Windows с предварительной загрузкой переменных окружения и подключением MCP серверов (Confluence, Jira).
+Папка `run-claude` содержит шаблон для локального запуска Claude Code на Windows с предварительной загрузкой переменных окружения и подключением MCP серверов (Confluence, Jira).
 
 **⚠️ Важно:** Эта папка должна быть **скопирована в каждый конкретный проект**, где вы используете Claude Code. Переменные окружения уникальны для каждого проекта.
 
@@ -14,9 +14,9 @@
 
 ```bash
 # В корне вашего проекта
-cp -r claude-code-marketplace/project ./
+cp -r claude-code-marketplace/run-claude ./
 # или на Windows
-xcopy /E claude-code-marketplace\project .\project\
+xcopy /E claude-code-marketplace\run-claude .\run-claude\
 ```
 
 ### Шаг 2: Подготовка конфигурации
@@ -24,7 +24,7 @@ xcopy /E claude-code-marketplace\project .\project\
 Скопируйте файл шаблона в реальную конфигурацию:
 
 ```bash
-cd project
+cd run-claude
 copy "sample .env" .env
 ```
 
@@ -49,7 +49,7 @@ GITLAB_TOKEN=glpat-xxxxxxxxxxxxx
 
 ```env
 # PostgreSQL база данных ДЛЯ ЭТОГО ПРОЕКТА
-DATABASE_URL=postgresql://postgres:password@localhost:5432/my-project-db
+DATABASE_URL=postgresql://postgres:password@localhost:5432/my-run-claude-db
 
 # Elasticsearch этого проекта (опционально)
 ELASTICSEARCH_URL=http://localhost:9200
@@ -103,7 +103,7 @@ run-claude.bat
 ## Структура файлов
 
 ```
-project/
+run-claude/
 ├── run-claude.bat          # Батник для запуска Claude Code
 ├── .env                    # Переменные ОКП ВАШЕГО ПРОЕКТА (НЕ коммитится!)
 ├── sample .env             # Шаблон переменных (для примера)
@@ -176,7 +176,7 @@ copy "sample .env" .env
 ### Переменные окружения не загружаются
 
 **Решение:** Убедитесь что:
-1. `.env` находится в папке `project/`
+1. `.env` находится в папке `run-claude/`
 2. Синтаксис в `.env` корректный: `KEY=VALUE` (без пробелов)
 3. Нет пустых строк между парами
 4. Файл закодирован как UTF-8
@@ -201,19 +201,19 @@ copy "sample .env" .env
 
 ```
 my-project/
-├── project/
+├── run-claude/
 │   ├── .env (DATABASE_URL=postgresql://...my-project-db)
 │   ├── sample .env
 │   └── run-claude.bat
 ├── src/
-├── .gitignore (содержит project/.env)
+├── .gitignore (содержит run-claude/.env)
 └── ...
 ```
 
 ### ❌ Неправильно
 
 ```
-# НЕ используйте одну папку project/ для всех проектов
+# НЕ используйте одну папку run-claude/ для всех проектов
 # Каждый проект должен иметь свою копию с собственным .env
 ```
 
