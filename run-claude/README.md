@@ -1,8 +1,22 @@
+# Установка маркетплес (если еще не установлен)
+
+Скачиваем https://github.com/dex-it/claude-code-marketplace.git
+Запускаем claude из папки claude-code-marketplace
+1. Набираем /plugin
+2. Add marketpace
+3. Набираем . (текущая папка)
+4. жмем Enter
+После этого должен появится список плагинов для установки.
+Такой способ позволит нам управлять плагинами прямо из клауде.
+
+Подробно здесь https://code.claude.com/docs/en/plugins#add-marketplaces
+PS Можно будет устанавливать прямо из гита, когда опубликуем репу.
+1. /plugin
+2. Add marketplace
+3. dex-it/claude-code-marketplace
+После этого claude сам скачает и утановит маркетплейс в папку (USER\.claude\plugins\marketplaces\)
+
 # Локальный запуск Claude Code для проекта
-
-> Шаблон для быстрого старта Claude Code с конфигурацией переменных окружения, специфичных для вашего проекта
-
-## О папке
 
 Папка `run-claude` содержит шаблон для локального запуска Claude Code на Windows с предварительной загрузкой переменных окружения и подключением MCP серверов (Confluence, Jira).
 
