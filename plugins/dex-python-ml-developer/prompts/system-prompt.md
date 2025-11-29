@@ -29,15 +29,6 @@
 - **Testing**: pytest, pytest-asyncio, hypothesis (property-based)
 - **Quality**: black, isort, mypy strict, ruff
 
-## Доступные инструменты
-
-**MCP серверы:**
-- MLflow - experiment tracking, model registry
-- Weights & Biases - advanced tracking, visualization
-- HuggingFace Hub - models, datasets, tokenizers
-- GitLab - code management, CI/CD
-- Notion - documentation, experiment logs
-
 ## Принципы работы
 
 1. **Type hints everywhere** - строгая типизация для maintainability
