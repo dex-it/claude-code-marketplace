@@ -5,6 +5,7 @@ REM Поддерживает дефолтные ключи через CLAUDE_ARG
 
 if not exist ".env" (
     echo ERROR: Файл .env не найден!
+    pause
     exit /b 1
 )
 
@@ -21,11 +22,31 @@ for /f "usebackq tokens=1,* delims==" %%a in (".env") do (
     )
 )
 
-echo Добавляем глобальные jira + conflu MCP.
+echo Регистрируем MCP серверы...
 
-rem # Add a user server
-claude mcp add --transport http conflu --scope user https://confluence.mcp.dex-it.ru --header "Authorization: Token %CONFLUENCE_MCP_TOKEN%"
-claude mcp add --transport http jira --scope user https://jira.mcp.dex-it.ru --header "Authorization: Token %JIRA_MCP_TOKEN%"
+rem # Confluence MCP (если URL задан)
+if not "%CONFLUENCE_MCP_URL%"=="" (
+    if not "%CONFLUENCE_MCP_TOKEN%"=="" (
+        claude mcp add --transport http conflu --scope user %CONFLUENCE_MCP_URL% --header "Authorization: Token %CONFLUENCE_MCP_TOKEN%"
+        echo [OK] Confluence MCP зарегистрирован: %CONFLUENCE_MCP_URL%
+    ) else (
+        echo [SKIP] Confluence MCP пропущен: токен CONFLUENCE_MCP_TOKEN не заполнен
+    )
+) else (
+    echo [SKIP] Confluence MCP пропущен: URL CONFLUENCE_MCP_URL не заполнен
+)
+
+rem # Jira MCP (если URL задан)
+if not "%JIRA_MCP_URL%"=="" (
+    if not "%JIRA_MCP_TOKEN%"=="" (
+        claude mcp add --transport http jira --scope user %JIRA_MCP_URL% --header "Authorization: Token %JIRA_MCP_TOKEN%"
+        echo [OK] Jira MCP зарегистрирован: %JIRA_MCP_URL%
+    ) else (
+        echo [SKIP] Jira MCP пропущен: токен JIRA_MCP_TOKEN не заполнен
+    )
+) else (
+    echo [SKIP] Jira MCP пропущен: URL JIRA_MCP_URL не заполнен
+)
 
 echo Запускаем claude
 cd..

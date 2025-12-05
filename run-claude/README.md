@@ -1,4 +1,4 @@
-# Установка маркетплес (если еще не установлен)
+# Установка маркетплйес (если еще не установлен)
 
 Скачиваем https://github.com/dex-it/claude-code-marketplace.git
 Запускаем claude из папки claude-code-marketplace
@@ -39,7 +39,7 @@ xcopy /E claude-code-marketplace\run-claude .\run-claude\
 
 ```bash
 cd run-claude
-copy "sample .env" .env
+copy sample.env .env
 ```
 
 ### Шаг 3: Заполнение переменных окружения
@@ -49,10 +49,12 @@ copy "sample .env" .env
 #### Глобальные переменные (общие для всех проектов)
 
 ```env
-# Confluence MCP сервер (глобальный)
+# Confluence MCP сервер (оставить пусто, если не используется)
+CONFLUENCE_MCP_URL=https://confluence.mcp.dex-it.ru
 CONFLUENCE_MCP_TOKEN=<PAT>
 
-# Jira MCP сервер (глобальный)
+# Jira MCP сервер (оставить пусто, если не используется)
+JIRA_MCP_URL=https://jira.mcp.dex-it.ru
 JIRA_MCP_TOKEN=<PAT>
 
 # GitLab (может быть глобальным или специфичным для проекта)
@@ -80,7 +82,7 @@ MLFLOW_TRACKING_URI=http://localhost:5000
 NOTION_API_KEY=ntn-xxxxxxxxxxxxx
 ```
 
-**📖 Получение токенов:** см. [CREDENTIALS.md](../../CREDENTIALS.md) в корне репозитория
+**📖 Получение токенов:** см. [CREDENTIALS.md](../CREDENTIALS.md) в корне репозитория
 
 ### Шаг 4: Запуск Claude Code
 
@@ -104,10 +106,10 @@ run-claude.bat
     └─ Устанавливает их в текущую сессию cmd
     └─ Выводит список установленных переменных
 
-3️⃣  Подключение MCP серверов (глобальные)
-    └─ Confluence MCP: https://confluence.mcp.dex-it.ru
-    └─ Jira MCP: https://jira.mcp.dex-it.ru
-    └─ Используются токены из .env
+3️⃣  Подключение MCP серверов (условное, если URL не пусты)
+    └─ Confluence MCP: регистрируется если CONFLUENCE_MCP_URL и CONFLUENCE_MCP_TOKEN заполнены
+    └─ Jira MCP: регистрируется если JIRA_MCP_URL и JIRA_MCP_TOKEN заполнены
+    └─ Если URL или токены пусты → выводится [SKIP] сообщение в консоль
 
 4️⃣  Запуск Claude Code
     └─ Команда: claude
@@ -126,11 +128,13 @@ run-claude/
 
 ## Переменные окружения
 
-### Обязательные
+### Глобальные (для MCP серверов)
 
 | Переменная | Описание | Область видимости |
 |-----------|---------|------------------|
+| `CONFLUENCE_MCP_URL` | URL сервера Confluence MCP (оставить пусто для отключения) | Глобальная |
 | `CONFLUENCE_MCP_TOKEN` | Personal Access Token для Confluence | Глобальная (единая для всех проектов) |
+| `JIRA_MCP_URL` | URL сервера Jira MCP (оставить пусто для отключения) | Глобальная |
 | `JIRA_MCP_TOKEN` | Personal Access Token для Jira | Глобальная (единая для всех проектов) |
 
 ### Специфичные для проекта
@@ -182,9 +186,9 @@ run-claude/
 
 ### Ошибка: "Файл .env не найден"
 
-**Решение:** Скопируйте `sample .env` в `.env`:
+**Решение:** Скопируйте `sample.env` в `.env`:
 ```bash
-copy "sample .env" .env
+copy sample.env .env
 ```
 
 ### Переменные окружения не загружаются
@@ -195,15 +199,22 @@ copy "sample .env" .env
 3. Нет пустых строк между парами
 4. Файл закодирован как UTF-8
 
-### Ошибка при подключении MCP серверов
+### MCP серверы не регистрируются
 
-**Решение:**
-1. Проверьте что `CONFLUENCE_MCP_TOKEN` и `JIRA_MCP_TOKEN` заполнены
-2. Убедитесь что токены валидны и не истекли
-3. Проверьте доступность серверов:
-   ```bash
-   curl -v -H "Authorization: Token %CONFLUENCE_MCP_TOKEN%" https://confluence.mcp.dex-it.ru/health
-   ```
+Это нормально! Если вы видите `[SKIP]` сообщения в консоли:
+
+**Если хотите использовать MCP:**
+1. Заполните `CONFLUENCE_MCP_URL` и `JIRA_MCP_URL` в `.env`
+2. Заполните соответствующие токены `CONFLUENCE_MCP_TOKEN` и `JIRA_MCP_TOKEN`
+3. Перезапустите `run-claude.bat`
+
+**Если NOT хотите использовать MCP:**
+- Оставьте URL пусто в `.env`, батник автоматически их пропустит
+
+**Проверка доступности серверов:**
+```bash
+curl -v -H "Authorization: Token %CONFLUENCE_MCP_TOKEN%" %CONFLUENCE_MCP_URL%/health
+```
 
 ### Разные базы данных для разных проектов
 
