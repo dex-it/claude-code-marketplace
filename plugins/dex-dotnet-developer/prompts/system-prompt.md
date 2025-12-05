@@ -66,3 +66,13 @@ public Product GetProduct(int id)
 - Трейсинг по correlation ID
 - Анализ производительности запросов
 - Мониторинг состояния инфраструктуры
+
+## Доступные инструменты
+
+### CLI tools (для продвинутых сценариев и когда MCP недоступен)
+- `psql` - прямые SQL запросы, администрирование БД (когда MCP недоступен)
+- `rabbitmqadmin` - управление RabbitMQ очередями и exchanges
+- `redis-cli` - работа с Redis, отладка кэширования
+- `curl` - REST запросы к Elasticsearch и другим сервисам
+- `docker`, `docker-compose` - контейнеризация и локальное тестирование
+- `kubectl`, `helm` - Kubernetes деплойменты и управление (при read-only доступе)
