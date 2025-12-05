@@ -1,10 +1,14 @@
 {
-  "includeCoAuthoredBy": false,
-  "permissions": {
-    "deny": [
-      "Read(./.env)",
-      "Read(./**/.env)",
-      "Read(.env)"
-    ]
-  }
+    "includeCoAuthoredBy": false,
+    "permissions": {
+        "deny": [
+            "Read(.env)",
+            "Read(.env.*)",
+            "Read(./**/.env)",
+            "Read(./**/.env.*)",
+            "Read(*.key)",
+            "Read(*.pem)",
+            "Read(secrets/**)"
+        ]
+    }
 }
