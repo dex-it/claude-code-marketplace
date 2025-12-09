@@ -1,4 +1,4 @@
-# Установка маркетплйес (если еще не установлен)
+# Установка маркетплейс (если еще не установлен)
 
 Скачиваем https://github.com/dex-it/claude-code-marketplace.git
 Запускаем claude из папки claude-code-marketplace
@@ -18,7 +18,7 @@ PS Можно будет устанавливать прямо из гита, к
 
 # Локальный запуск Claude Code для проекта
 
-Папка `run-claude` содержит шаблон для локального запуска Claude Code на Windows с предварительной загрузкой переменных окружения и подключением MCP серверов (Confluence, Jira).
+Папка `run-claude` содержит шаблон для локального запуска Claude Code на Linux/Mac/Windows с предварительной загрузкой переменных окружения и подключением MCP серверов (Confluence, Jira).
 
 **⚠️ Важно:** Эта папка должна быть **скопирована в каждый конкретный проект**, где вы используете Claude Code. Переменные окружения уникальны для каждого проекта.
 
@@ -27,10 +27,14 @@ PS Можно будет устанавливать прямо из гита, к
 ### Шаг 1: Копирование шаблона в ваш проект
 
 ```bash
-# В корне вашего проекта
+# Linux/Mac - в корне вашего проекта
 cp -r claude-code-marketplace/run-claude ./
-# или на Windows
-xcopy /E claude-code-marketplace\run-claude .\run-claude\
+
+# Windows (PowerShell)
+Copy-Item -Recurse claude-code-marketplace\run-claude .\
+
+# Windows (CMD)
+xcopy /E /I claude-code-marketplace\run-claude .\run-claude\
 ```
 
 ### Шаг 2: Подготовка конфигурации
@@ -38,6 +42,11 @@ xcopy /E claude-code-marketplace\run-claude .\run-claude\
 Скопируйте файл шаблона в реальную конфигурацию:
 
 ```bash
+# Linux/Mac
+cd run-claude
+cp sample.env .env
+
+# Windows
 cd run-claude
 copy sample.env .env
 ```
@@ -86,43 +95,66 @@ NOTION_API_KEY=ntn-xxxxxxxxxxxxx
 
 ### Шаг 4: Запуск Claude Code
 
-Выполните батник:
+Выберите скрипт в зависимости от вашей операционной системы:
 
 ```bash
-run-claude.bat
+# Linux/Mac
+cd run-claude
+./run-claude-linux.sh
+
+# Windows (PowerShell - рекомендуется)
+cd run-claude
+.\run-claude.ps1
+
+# Для помощи по использованию
+./run-claude-linux.sh --help
+.\run-claude.ps1 --help
 ```
 
-## Что делает run-claude.bat
+**💡 Примечание:** В Windows рекомендуется использовать PowerShell версию (`run-claude.ps1`), так как она поддерживает все функции, включая загрузку системного промпта из файла.
 
-Батник автоматизирует процесс запуска Claude Code для вашего проекта:
+## Что делают скрипты запуска
+
+Скрипты автоматизируют процесс запуска Claude Code для вашего проекта:
 
 ```
-1️⃣  Проверка файла .env
+1️⃣  Проверка установки Claude CLI
+    └─ Если Claude CLI не найден → выход с ошибкой
+
+2️⃣  Проверка файла .env
     └─ Если .env не найден → выход с ошибкой
 
-2️⃣  Загрузка переменных окружения
+3️⃣  Загрузка переменных окружения
     └─ Читает все строки из .env
     └─ Парсит пары "ключ=значение"
-    └─ Устанавливает их в текущую сессию cmd
+    └─ Устанавливает их в текущую сессию
     └─ Выводит список установленных переменных
 
-3️⃣  Подключение MCP серверов (условное, если URL не пусты)
+4️⃣  Загрузка системного промпта
+    └─ Читает содержимое ./run-claude/system-prompt.md
+    └─ Автоматически добавляет через --append-system-prompt
+    └─ Если файл отсутствует → используется стандартный промпт
+
+5️⃣  Регистрация MCP серверов (условная, только если URL заполнены)
     └─ Confluence MCP: регистрируется если CONFLUENCE_MCP_URL и CONFLUENCE_MCP_TOKEN заполнены
     └─ Jira MCP: регистрируется если JIRA_MCP_URL и JIRA_MCP_TOKEN заполнены
-    └─ Если URL или токены пусты → выводится [SKIP] сообщение в консоль
+    └─ Если URL или токены пусты → выводится предупреждение
 
-4️⃣  Запуск Claude Code
-    └─ Команда: claude
-    └─ Все переменные доступны для плагинов вашего проекта
+6️⃣  Запуск Claude Code
+    └─ Команда: claude [CLAUDE_ARGS] [--append-system-prompt "..."] [пользовательские аргументы]
+    └─ Все переменные окружения доступны для плагинов
+    └─ Системный промпт применяется автоматически
 ```
 
 ## Структура файлов
 
 ```
 run-claude/
-├── run-claude.bat          # Батник для запуска Claude Code
-├── .env                    # Переменные ОКП ВАШЕГО ПРОЕКТА (НЕ коммитится!)
-├── sample .env             # Шаблон переменных (для примера)
+├── run-claude-linux.sh     # Скрипт запуска для Linux/Mac
+├── run-claude.ps1          # Скрипт запуска для Windows (PowerShell)
+├── system-prompt.md        # Системный промпт (загружается автоматически)
+├── .env                    # Переменные окружения ВАШЕГО ПРОЕКТА (НЕ коммитится!)
+├── sample.env              # Шаблон переменных (для примера)
 └── README.md               # Этот файл
 ```
 
@@ -188,6 +220,10 @@ run-claude/
 
 **Решение:** Скопируйте `sample.env` в `.env`:
 ```bash
+# Linux/Mac
+cp sample.env .env
+
+# Windows
 copy sample.env .env
 ```
 
@@ -201,18 +237,25 @@ copy sample.env .env
 
 ### MCP серверы не регистрируются
 
-Это нормально! Если вы видите `[SKIP]` сообщения в консоли:
+Это нормально! Если вы видите предупреждения о пропуске MCP серверов:
 
 **Если хотите использовать MCP:**
 1. Заполните `CONFLUENCE_MCP_URL` и `JIRA_MCP_URL` в `.env`
 2. Заполните соответствующие токены `CONFLUENCE_MCP_TOKEN` и `JIRA_MCP_TOKEN`
-3. Перезапустите `run-claude.bat`
+3. Перезапустите скрипт запуска
 
-**Если NOT хотите использовать MCP:**
-- Оставьте URL пусто в `.env`, батник автоматически их пропустит
+**Если НЕ хотите использовать MCP:**
+- Оставьте URL пусто в `.env`, скрипт автоматически их пропустит
 
 **Проверка доступности серверов:**
 ```bash
+# Linux/Mac
+curl -v -H "Authorization: Token $CONFLUENCE_MCP_TOKEN" $CONFLUENCE_MCP_URL/health
+
+# Windows (PowerShell)
+curl -v -H "Authorization: Token $env:CONFLUENCE_MCP_TOKEN" $env:CONFLUENCE_MCP_URL/health
+
+# Windows (CMD)
 curl -v -H "Authorization: Token %CONFLUENCE_MCP_TOKEN%" %CONFLUENCE_MCP_URL%/health
 ```
 
@@ -228,8 +271,10 @@ curl -v -H "Authorization: Token %CONFLUENCE_MCP_TOKEN%" %CONFLUENCE_MCP_URL%/he
 my-project/
 ├── run-claude/
 │   ├── .env (DATABASE_URL=postgresql://...my-project-db)
-│   ├── sample .env
-│   └── run-claude.bat
+│   ├── sample.env
+│   ├── system-prompt.md
+│   ├── run-claude-linux.sh
+│   └── run-claude.ps1
 ├── src/
 ├── .gitignore (содержит run-claude/.env)
 └── ...

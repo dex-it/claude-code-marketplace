@@ -11,8 +11,47 @@ function Write-ErrorColor { Write-Host $args -ForegroundColor Red }
 function Write-Header { Write-Host $args -ForegroundColor Magenta }
 function Write-Variable { Write-Host $args -ForegroundColor DarkGray }
 
+# Показать help
+if ($args -contains "--help" -or $args -contains "-h") {
+    Write-Host ""
+    Write-Header "======================================"
+    Write-Header "🚀 Claude Code Launcher"
+    Write-Header "======================================"
+    Write-Host ""
+    Write-Host "Использование: .\run-claude.ps1 [аргументы для Claude]"
+    Write-Host ""
+    Write-Host "Скрипт выполняет:"
+    Write-Host "  1. Загружает переменные из .env файла"
+    Write-Host "  2. Загружает системный промпт из system-prompt.md"
+    Write-Host "  3. Регистрирует MCP серверы (Confluence, Jira)"
+    Write-Host "  4. Запускает Claude Code с заданными параметрами"
+    Write-Host ""
+    Write-Host "Переменные окружения (.env):"
+    Write-Host "  CLAUDE_ARGS              - дефолтные аргументы для Claude"
+    Write-Host "  CONFLUENCE_MCP_URL       - URL Confluence MCP сервера"
+    Write-Host "  CONFLUENCE_MCP_TOKEN     - токен для Confluence MCP"
+    Write-Host "  JIRA_MCP_URL             - URL Jira MCP сервера"
+    Write-Host "  JIRA_MCP_TOKEN           - токен для Jira MCP"
+    Write-Host ""
+    Write-Host "Примеры:"
+    Write-Host "  .\run-claude.ps1"
+    Write-Host "  .\run-claude.ps1 /init"
+    Write-Host "  .\run-claude.ps1 --model opus"
+    Write-Host ""
+    exit 0
+}
+
+# Проверка установки Claude CLI
+if (-not (Get-Command claude -ErrorAction SilentlyContinue)) {
+    Write-ErrorColor "❌ ОШИБКА: Claude CLI не установлен!"
+    Write-ErrorColor "Установите Claude Code: https://claude.ai/code"
+    Read-Host "Нажмите Enter для выхода"
+    exit 1
+}
+
 if (-not (Test-Path ".env")) {
-    Write-ErrorColor "ОШИБКА: Файл .env не найден!"
+    Write-ErrorColor "❌ ОШИБКА: Файл .env не найден!"
+    Write-ErrorColor "Создайте файл .env на основе sample.env"
     Read-Host "Нажмите Enter для выхода"
     exit 1
 }
@@ -100,33 +139,46 @@ else {
 
 Write-Header ""
 Write-Header "======================================"
-Write-Header "Запуск Claude Code"
+Write-Header "🚀 Запуск Claude Code"
 Write-Header "======================================"
 Write-Header ""
 
-Set-Location ..
-
-# Комбинируем промпт из файла + CLAUDE_ARGS
-if ($SYSTEM_PROMPT_TEXT) {
-    $FINAL_ARGS = "$CLAUDE_ARGS --append-system-prompt `"$SYSTEM_PROMPT_TEXT`""
-    Write-Info "  Применяем кастомный системный промпт"
+try {
+    Set-Location ..
 }
-else {
-    $FINAL_ARGS = $CLAUDE_ARGS
+catch {
+    Write-ErrorColor "❌ ОШИБКА: Не удалось перейти в родительскую директорию"
+    Read-Host "Нажмите Enter для выхода"
+    exit 1
 }
 
-if ($FINAL_ARGS) {
-    Write-Variable "  Аргументы: $FINAL_ARGS"
+# Подготавливаем массив аргументов для безопасного вызова
+$ClaudeCmdArgs = @()
+
+# Добавляем CLAUDE_ARGS в массив (если есть)
+if (-not [string]::IsNullOrWhiteSpace($CLAUDE_ARGS)) {
+    # Разбиваем CLAUDE_ARGS на отдельные элементы
+    $ArgArray = $CLAUDE_ARGS -split '\s+'
+    $ClaudeCmdArgs += $ArgArray
+    Write-Variable "  🔧 Дефолтные аргументы: $CLAUDE_ARGS"
+}
+
+# Добавляем системный промпт через --append-system-prompt (если есть)
+if (-not [string]::IsNullOrWhiteSpace($SYSTEM_PROMPT_TEXT)) {
+    $ClaudeCmdArgs += "--append-system-prompt"
+    $ClaudeCmdArgs += $SYSTEM_PROMPT_TEXT
+    Write-Info "  📌 Применяем кастомный системный промпт"
+}
+
+# Добавляем пользовательские аргументы
+$ClaudeCmdArgs += $args
+
+if ($ClaudeCmdArgs.Count -gt 0) {
     Write-Host ""
 }
 
-# Запускаем Claude с финальными аргументами
-if ([string]::IsNullOrWhiteSpace($FINAL_ARGS)) {
-    claude @args
-}
-else {
-    Invoke-Expression "claude $FINAL_ARGS $args"
-}
+# Безопасный запуск Claude без Invoke-Expression
+& claude $ClaudeCmdArgs
 
 Write-Host ""
 Read-Host "Нажмите Enter для выхода"

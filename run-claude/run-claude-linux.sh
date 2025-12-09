@@ -23,9 +23,47 @@ print_info() { echo -e "${CYAN}$@${NC}"; }
 print_header() { echo -e "${MAGENTA}$@${NC}"; }
 print_variable() { echo -e "${GRAY}$@${NC}"; }
 
+# Показать help
+if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+    echo ""
+    print_header "======================================"
+    print_header "🚀 Claude Code Launcher"
+    print_header "======================================"
+    echo ""
+    echo "Использование: ./run-claude-linux.sh [аргументы для Claude]"
+    echo ""
+    echo "Скрипт выполняет:"
+    echo "  1. Загружает переменные из .env файла"
+    echo "  2. Загружает системный промпт из system-prompt.md"
+    echo "  3. Регистрирует MCP серверы (Confluence, Jira)"
+    echo "  4. Запускает Claude Code с заданными параметрами"
+    echo ""
+    echo "Переменные окружения (.env):"
+    echo "  CLAUDE_ARGS              - дефолтные аргументы для Claude"
+    echo "  CONFLUENCE_MCP_URL       - URL Confluence MCP сервера"
+    echo "  CONFLUENCE_MCP_TOKEN     - токен для Confluence MCP"
+    echo "  JIRA_MCP_URL             - URL Jira MCP сервера"
+    echo "  JIRA_MCP_TOKEN           - токен для Jira MCP"
+    echo ""
+    echo "Примеры:"
+    echo "  ./run-claude-linux.sh"
+    echo "  ./run-claude-linux.sh /init"
+    echo "  ./run-claude-linux.sh --model opus"
+    echo ""
+    exit 0
+fi
+
+# Проверка установки Claude CLI
+if ! command -v claude &> /dev/null; then
+    print_error "❌ ОШИБКА: Claude CLI не установлен!"
+    print_error "Установите Claude Code: https://claude.ai/code"
+    exit 1
+fi
+
 # Проверка наличия .env
 if [ ! -f ".env" ]; then
     print_error "❌ ОШИБКА: Файл .env не найден!"
+    print_error "Создайте файл .env на основе sample.env"
     exit 1
 fi
 
@@ -124,27 +162,37 @@ print_header "🚀 Запуск Claude Code"
 print_header "======================================"
 print_header ""
 
-cd ..
+cd .. || {
+    print_error "❌ ОШИБКА: Не удалось перейти в родительскую директорию"
+    exit 1
+}
 
-# Комбинируем промпт из файла + CLAUDE_ARGS
-if [ -n "$SYSTEM_PROMPT_TEXT" ]; then
-    FINAL_ARGS="$CLAUDE_ARGS --append-system-prompt \"$SYSTEM_PROMPT_TEXT\""
-    print_info "  📌 Применяем кастомный системный промпт"
-else
-    FINAL_ARGS="$CLAUDE_ARGS"
+# Подготавливаем массив аргументов для безопасного вызова
+CLAUDE_CMD_ARGS=()
+
+# Добавляем CLAUDE_ARGS в массив (если есть)
+if [ -n "$CLAUDE_ARGS" ]; then
+    # Разбиваем CLAUDE_ARGS на отдельные элементы массива
+    read -ra ARG_ARRAY <<< "$CLAUDE_ARGS"
+    CLAUDE_CMD_ARGS+=("${ARG_ARRAY[@]}")
+    print_variable "  🔧 Дефолтные аргументы: $CLAUDE_ARGS"
 fi
 
-if [ -n "$FINAL_ARGS" ]; then
-    print_variable "  🔧 Аргументы: $FINAL_ARGS"
+# Добавляем системный промпт через --append-system-prompt (если есть)
+if [ -n "$SYSTEM_PROMPT_TEXT" ]; then
+    CLAUDE_CMD_ARGS+=("--append-system-prompt" "$SYSTEM_PROMPT_TEXT")
+    print_info "  📌 Применяем кастомный системный промпт"
+fi
+
+# Добавляем пользовательские аргументы
+CLAUDE_CMD_ARGS+=("$@")
+
+if [ ${#CLAUDE_CMD_ARGS[@]} -gt 0 ]; then
     echo ""
 fi
 
-# Запускаем Claude с финальными аргументами
-if [ -z "$FINAL_ARGS" ]; then
-    claude "$@"
-else
-    eval "claude $FINAL_ARGS \"$@\""
-fi
+# Безопасный запуск Claude без eval
+claude "${CLAUDE_CMD_ARGS[@]}"
 
 echo ""
 read -p "Нажмите Enter для выхода..."
