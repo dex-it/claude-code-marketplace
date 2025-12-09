@@ -27,6 +27,7 @@ if ($args -contains "--help" -or $args -contains "-h") {
     Write-Host "  4. Запускает Claude Code с заданными параметрами"
     Write-Host ""
     Write-Host "Переменные окружения (.env):"
+    Write-Host "  LOAD_SYSTEM_PROMPT       - загружать системный промпт (true/false, по умолчанию: true)"
     Write-Host "  CLAUDE_ARGS              - дефолтные аргументы для Claude"
     Write-Host "  CONFLUENCE_MCP_URL       - URL Confluence MCP сервера"
     Write-Host "  CONFLUENCE_MCP_TOKEN     - токен для Confluence MCP"
@@ -93,16 +94,23 @@ Write-Header "Загрузка системного промпта"
 Write-Header "======================================"
 Write-Header ""
 
-$SYSTEM_PROMPT_FILE = ".\system-prompt.md"
-if (Test-Path $SYSTEM_PROMPT_FILE) {
-    Write-Info "  Читаем файл: $SYSTEM_PROMPT_FILE"
+# Проверяем значение LOAD_SYSTEM_PROMPT (по умолчанию true)
+$loadPrompt = if ($env:LOAD_SYSTEM_PROMPT) { $env:LOAD_SYSTEM_PROMPT } else { "true" }
+if ($loadPrompt -eq "true") {
+    $SYSTEM_PROMPT_FILE = ".\system-prompt.md"
+    if (Test-Path $SYSTEM_PROMPT_FILE) {
+        Write-Info "  Читаем файл: $SYSTEM_PROMPT_FILE"
 
-    $SYSTEM_PROMPT_TEXT = (Get-Content $SYSTEM_PROMPT_FILE -Encoding UTF8 -Raw).Trim()
+        $SYSTEM_PROMPT_TEXT = (Get-Content $SYSTEM_PROMPT_FILE -Encoding UTF8 -Raw).Trim()
 
-    Write-Success "  Промпт успешно загружен ($($SYSTEM_PROMPT_TEXT.Length) символов)"
+        Write-Success "  Промпт успешно загружен ($($SYSTEM_PROMPT_TEXT.Length) символов)"
+    }
+    else {
+        Write-Warning "  Файл $SYSTEM_PROMPT_FILE не найден - используется стандартный промпт"
+    }
 }
 else {
-    Write-Warning "  Файл $SYSTEM_PROMPT_FILE не найден - используется стандартный промпт"
+    Write-Warning "  Загрузка системного промпта отключена (LOAD_SYSTEM_PROMPT=false)"
 }
 
 Write-Header ""

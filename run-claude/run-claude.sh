@@ -39,6 +39,7 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
     echo "  4. Запускает Claude Code с заданными параметрами"
     echo ""
     echo "Переменные окружения (.env):"
+    echo "  LOAD_SYSTEM_PROMPT       - загружать системный промпт (true/false, по умолчанию: true)"
     echo "  CLAUDE_ARGS              - дефолтные аргументы для Claude"
     echo "  CONFLUENCE_MCP_URL       - URL Confluence MCP сервера"
     echo "  CONFLUENCE_MCP_TOKEN     - токен для Confluence MCP"
@@ -115,17 +116,22 @@ print_header "📝 Загрузка системного промпта"
 print_header "======================================"
 print_header ""
 
-SYSTEM_PROMPT_FILE="./system-prompt.md"
-if [ -f "$SYSTEM_PROMPT_FILE" ]; then
-    print_info "  ℹ️  Читаем файл: $SYSTEM_PROMPT_FILE"
+# Проверяем значение LOAD_SYSTEM_PROMPT (по умолчанию true)
+if [ "${LOAD_SYSTEM_PROMPT:-true}" = "true" ]; then
+    SYSTEM_PROMPT_FILE="./system-prompt.md"
+    if [ -f "$SYSTEM_PROMPT_FILE" ]; then
+        print_info "  ℹ️  Читаем файл: $SYSTEM_PROMPT_FILE"
 
-    # Читаем весь файл
-    SYSTEM_PROMPT_TEXT=$(cat "$SYSTEM_PROMPT_FILE")
+        # Читаем весь файл
+        SYSTEM_PROMPT_TEXT=$(cat "$SYSTEM_PROMPT_FILE")
 
-    CHAR_COUNT=$(echo -n "$SYSTEM_PROMPT_TEXT" | wc -c)
-    print_success "  ✅ Промпт успешно загружен ($CHAR_COUNT символов)"
+        CHAR_COUNT=$(echo -n "$SYSTEM_PROMPT_TEXT" | wc -c)
+        print_success "  ✅ Промпт успешно загружен ($CHAR_COUNT символов)"
+    else
+        print_warning "  ⚠️  Файл $SYSTEM_PROMPT_FILE не найден - используется стандартный промпт"
+    fi
 else
-    print_warning "  ⚠️  Файл $SYSTEM_PROMPT_FILE не найден - используется стандартный промпт"
+    print_warning "  ⏭️  Загрузка системного промпта отключена (LOAD_SYSTEM_PROMPT=false)"
 fi
 
 print_header ""
