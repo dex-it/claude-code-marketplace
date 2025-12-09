@@ -100,14 +100,14 @@ NOTION_API_KEY=ntn-xxxxxxxxxxxxx
 ```bash
 # Linux/Mac
 cd run-claude
-./run-claude-linux.sh
+./run-claude.sh
 
 # Windows (PowerShell - рекомендуется)
 cd run-claude
 .\run-claude.ps1
 
 # Для помощи по использованию
-./run-claude-linux.sh --help
+./run-claude.sh --help
 .\run-claude.ps1 --help
 ```
 
@@ -150,7 +150,7 @@ cd run-claude
 
 ```
 run-claude/
-├── run-claude-linux.sh     # Скрипт запуска для Linux/Mac
+├── run-claude.sh           # Скрипт запуска для Linux/Mac
 ├── run-claude.ps1          # Скрипт запуска для Windows (PowerShell)
 ├── system-prompt.md        # Системный промпт (загружается автоматически)
 ├── .env                    # Переменные окружения ВАШЕГО ПРОЕКТА (НЕ коммитится!)
@@ -273,7 +273,7 @@ my-project/
 │   ├── .env (DATABASE_URL=postgresql://...my-project-db)
 │   ├── sample.env
 │   ├── system-prompt.md
-│   ├── run-claude-linux.sh
+│   ├── run-claude.sh
 │   └── run-claude.ps1
 ├── src/
 ├── .gitignore (содержит run-claude/.env)

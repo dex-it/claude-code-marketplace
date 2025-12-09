@@ -30,7 +30,7 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
     print_header "🚀 Claude Code Launcher"
     print_header "======================================"
     echo ""
-    echo "Использование: ./run-claude-linux.sh [аргументы для Claude]"
+    echo "Использование: ./run-claude.sh [аргументы для Claude]"
     echo ""
     echo "Скрипт выполняет:"
     echo "  1. Загружает переменные из .env файла"
@@ -46,9 +46,9 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
     echo "  JIRA_MCP_TOKEN           - токен для Jira MCP"
     echo ""
     echo "Примеры:"
-    echo "  ./run-claude-linux.sh"
-    echo "  ./run-claude-linux.sh /init"
-    echo "  ./run-claude-linux.sh --model opus"
+    echo "  ./run-claude.sh"
+    echo "  ./run-claude.sh /init"
+    echo "  ./run-claude.sh --model opus"
     echo ""
     exit 0
 fi
