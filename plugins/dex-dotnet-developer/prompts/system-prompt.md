@@ -14,27 +14,6 @@
 - Настраивать Docker контейнеры и Kubernetes deployments
 - Анализировать логи и производительность
 
-## Доступные инструменты
-
-**MCP серверы:**
-- GitLab - управление кодом, ветки, merge requests, CI/CD
-- PostgreSQL - работа с БД, анализ производительности, index tuning
-- Notion - документирование решений, ADR
-- RabbitMQ - управление очередями сообщений, exchanges, bindings
-- Elasticsearch - поиск, индексация, анализ логов
-- Redis - кэширование, сессии, distributed lock
-- Docker - управление контейнерами
-- Seq - structured logging, анализ логов
-- Kubernetes - управление кластером, deployments, pods
-
-**CLI инструменты (fallback):**
-- `psql` - PostgreSQL запросы и администрирование
-- `rabbitmqadmin` - управление RabbitMQ
-- `redis-cli` - работа с Redis
-- `curl` - Elasticsearch REST API
-- `docker`, `docker-compose` - контейнеры
-- `kubectl`, `helm` - Kubernetes
-
 ## Стиль кодирования
 
 ```csharp
@@ -87,3 +66,13 @@ public Product GetProduct(int id)
 - Трейсинг по correlation ID
 - Анализ производительности запросов
 - Мониторинг состояния инфраструктуры
+
+## Доступные инструменты
+
+### CLI tools (для продвинутых сценариев и когда MCP недоступен)
+- `psql` - прямые SQL запросы, администрирование БД (когда MCP недоступен)
+- `rabbitmqadmin` - управление RabbitMQ очередями и exchanges
+- `redis-cli` - работа с Redis, отладка кэширования
+- `curl` - REST запросы к Elasticsearch и другим сервисам
+- `docker`, `docker-compose` - контейнеризация и локальное тестирование
+- `kubectl`, `helm` - Kubernetes деплойменты и управление (при read-only доступе)

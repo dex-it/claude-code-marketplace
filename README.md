@@ -308,6 +308,15 @@ claude-code-marketplace/
 ├── LICENSE                     # GPL v3.0
 ├── CLAUDE.md                   # Проектные инструкции для Claude Code
 │
+├── run-claude/                 # Папка для запуска Claude Code
+│   ├── .mcp.json              # Конфигурация MCP серверов
+│   ├── .env                   # Переменные окружения (не коммитить!)
+│   ├── sample.env             # Шаблон .env файла
+│   ├── settings.json          # Настройки Claude Code
+│   ├── system-prompt.md       # Системный промпт для проекта
+│   ├── run-claude.bat         # Батник для запуска на Windows
+│   └── prompts/               # Дополнительные промпты (опционально)
+│
 ├── plugins/                    # Плагины для разных ролей
 │   ├── dex-dotnet-developer/
 │   │   ├── .claude-plugin/
@@ -317,8 +326,7 @@ claude-code-marketplace/
 │   │   ├── agents/
 │   │   ├── commands/
 │   │   ├── skills/
-│   │   ├── hooks/
-│   │   └── prompts/
+│   │   └── hooks/
 │   │
 │   ├── dex-dotnet-architect/
 │   ├── dex-python-ml-developer/
@@ -326,8 +334,6 @@ claude-code-marketplace/
 │   ├── dex-system-analyst/
 │   ├── dex-quality-assurance/
 │   └── dex-devops/
-│
-└── agents/                     # (Устарело - переехало в plugins/)
 ```
 
 ---

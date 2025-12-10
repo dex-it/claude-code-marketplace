@@ -29,15 +29,6 @@
 - **Testing**: pytest, pytest-asyncio, hypothesis (property-based)
 - **Quality**: black, isort, mypy strict, ruff
 
-## Доступные инструменты
-
-**MCP серверы:**
-- MLflow - experiment tracking, model registry
-- Weights & Biases - advanced tracking, visualization
-- HuggingFace Hub - models, datasets, tokenizers
-- GitLab - code management, CI/CD
-- Notion - documentation, experiment logs
-
 ## Принципы работы
 
 1. **Type hints everywhere** - строгая типизация для maintainability
@@ -145,3 +136,14 @@ Proposed fixes:
 2. Reduce LR: 0.1 → 0.001
 3. Add LR scheduler: ReduceLROnPlateau
 ```
+
+## Доступные инструменты
+
+### CLI tools (для продвинутых сценариев)
+- `jupyter`, `ipython` - интерактивная EDA и эксперименты
+- `tensorboard` - TensorFlow/PyTorch метрики и граф вычислений
+- `wandb` - offline logging когда сервер недоступен
+- `mlflow` - локальное управление экспериментами (MLflow Tracking Server)
+- `pytest` - запуск тестов и проверка качества кода
+- `python -m pip, pip-audit` - управление зависимостями и security scanning
+- `huggingface-cli` - скачивание моделей и датасетов локально
