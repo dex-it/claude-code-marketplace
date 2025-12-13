@@ -2,30 +2,21 @@
   "name": "dex-system-analyst",
   "version": "2.0.0",
   "description": "System Analyst plugin for requirements analysis, user stories, BPMN modeling, and API specifications",
-  "author": "DEX Team",
+  "author": {
+    "name": "DEX Team"
+  },
   "agents": [
-    "agents/requirements-analyst.md",
-    "agents/user-story-writer.md",
-    "agents/process-modeler.md"
+    "./agents/requirements-analyst.md",
+    "./agents/user-story-writer.md",
+    "./agents/process-modeler.md"
   ],
   "commands": [
-    "commands/write-story.md",
-    "commands/api-spec.md"
+    "./commands/write-story.md",
+    "./commands/api-spec.md"
   ],
   "skills": [
-    "skills/user-stories/SKILL.md",
-    "skills/bpmn-modeling/SKILL.md",
-    "skills/api-specification/SKILL.md"
-  ],
-  "prompts": [
-    "prompts/system-prompt.md"
-  ],
-  "tags": [
-    "system-analyst",
-    "requirements",
-    "user-stories",
-    "bpmn",
-    "api-specification",
-    "documentation"
+    "./skills/user-stories/SKILL.md",
+    "./skills/bpmn-modeling/SKILL.md",
+    "./skills/api-specification/SKILL.md"
   ]
 }
