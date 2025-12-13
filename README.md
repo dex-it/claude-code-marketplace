@@ -207,6 +207,7 @@ claude
 
 **Agents:**
 - `requirements-analyst` — requirements gathering, analysis
+- `business-requirements-analyst` — business idea formulation, risk analysis, implementation planning
 - `user-story-writer` — User Stories, acceptance criteria
 - `process-modeler` — BPMN diagrams, workflow design
 

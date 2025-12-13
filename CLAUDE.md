@@ -89,6 +89,7 @@ claude-code-marketplace/
 
 **Агенты:**
 - `requirements-analyst` - анализ требований
+- `business-requirements-analyst` - бизнес-требования и планирование
 - `user-story-writer` - User Stories
 - `process-modeler` - BPMN моделирование
 
