@@ -210,7 +210,7 @@ claude
 - `user-story-writer` — User Stories, acceptance criteria
 - `process-modeler` — BPMN diagrams, workflow design
 
-**Skills:** user-stories, bpmn-modeling, api-specification
+**Skills:** user-stories, bpmn-modeling, api-specification, confluence-worker
 
 [**→ Подробная документация**](./plugins/dex-system-analyst/README.md)
 

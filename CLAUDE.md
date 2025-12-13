@@ -94,7 +94,7 @@ claude-code-marketplace/
 
 **Команды:** `/write-story`, `/api-spec`
 
-**Skills:** user-stories, bpmn-modeling, api-specification
+**Skills:** user-stories, bpmn-modeling, api-specification, confluence-worker
 
 **MCP:** Notion
 
