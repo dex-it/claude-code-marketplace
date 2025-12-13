@@ -363,7 +363,7 @@ T - Testable (clear acceptance criteria)
 
 ---
 
-**Version:** 2.0.0
+**Version:** 2.1.0
 **Author:** DEX Team
 **Requires:** Notion MCP server
 **Tags:** system-analyst, requirements, user-stories, bpmn, api-specification
