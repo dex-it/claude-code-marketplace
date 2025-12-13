@@ -1,35 +1,38 @@
 # DEX System Analyst Plugin
 
-> Comprehensive System Analyst toolkit для requirements analysis, User Stories, BPMN modeling и API specifications.
+> Comprehensive System Analyst toolkit для бизнес-анализа, requirements analysis, User Stories, BPMN modeling и API specifications.
 
 ## Описание
 
-Plugin для системных аналитиков. Предоставляет AI-ассистентов, команды и best practices для:
+Plugin для бизнес-аналитиков и системных аналитиков. Предоставляет AI-ассистентов, команды и best practices для:
 
-- Requirements analysis
+- Business requirements документирование (BRD)
+- Формализация бизнес-идей и планирование реализации
+- Requirements analysis и stakeholder management
 - User Stories creation (INVEST criteria)
 - BPMN process modeling
 - API specifications (OpenAPI/Swagger)
 - Acceptance criteria definition
+- Confluence documentation
 
 ## Компоненты
 
 ### 🤖 Agents
 
-**requirements-analyst** - Анализ требований
+**business-requirements-analyst** - Бизнес-требования и планирование
+- Формализация бизнес-идей в конкретные цели и задачи
+- Анализ вариантов использования и value proposition
+- Критический анализ предложений и выявление рисков
+- Декомпозиция от высокоуровневых целей до этапов реализации
+- Создание полного BRD документа: стейкхолдеры, данные, интеграции, критерии приемки
+- Triggers: `бизнес требования`, `business requirements`, `формализовать идею`, `analyze idea`, `план реализации`
+
+**requirements-analyst** - Системный анализ требований
 - Requirements gathering и elicitation
 - Stakeholder analysis
 - Functional/Non-functional requirements
 - Requirements prioritization
 - Triggers: `requirements`, `требования`, `analyze requirements`, `собрать требования`
-
-**business-requirements-analyst** - Бизнес-требования и планирование
-- Формализация бизнес-идей в цели и задачи
-- Анализ вариантов использования и value proposition
-- Критический анализ предложений и выявление рисков
-- Декомпозиция от высокоуровневых целей до этапов реализации
-- Создание полного плана: стейкхолдеры, данные, интеграции, критерии приемки
-- Triggers: `бизнес требования`, `business requirements`, `формализовать идею`, `analyze idea`, `план реализации`
 
 **user-story-writer** - Написание User Stories
 - User Story format (As a..., I want..., So that...)

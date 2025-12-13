@@ -206,8 +206,8 @@ claude
 - `/api-spec` — OpenAPI 3.0 specification generation
 
 **Agents:**
-- `requirements-analyst` — requirements gathering, analysis
-- `business-requirements-analyst` — business idea formulation, risk analysis, implementation planning
+- `business-requirements-analyst` — business idea formulation, BRD creation, risk analysis, implementation planning
+- `requirements-analyst` — requirements gathering, stakeholder analysis
 - `user-story-writer` — User Stories, acceptance criteria
 - `process-modeler` — BPMN diagrams, workflow design
 
