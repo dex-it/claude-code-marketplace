@@ -13,7 +13,7 @@ Plugin для бизнес-аналитиков и системных анали
 - BPMN process modeling
 - API specifications (OpenAPI/Swagger)
 - Acceptance criteria definition
-- Confluence documentation
+- Universal documentation management (Confluence, Notion, MkDocs, GitBook, Markdown)
 
 ## Компоненты
 
@@ -119,19 +119,21 @@ Plugin для бизнес-аналитиков и системных анали
 - Pagination patterns
 ```
 
-**confluence-worker** - Confluence documentation
+**doc-worker** - Universal documentation management
 ```
 Активируется при:
-- Confluence search, create, update
-- Documentation organization
-- Template management
+- Documentation work (docs, documentation, wiki, knowledge base)
+- Cross-platform: Confluence, Notion, GitBook, MkDocs, Markdown
+- Documentation organization and templates
 
 Включает:
-- Search/create/update Confluence pages
-- Cross-reference links management
+- Auto-detect documentation platform (MCP, filesystem, config files)
+- Search/create/update documents universally
+- Cross-reference links management and validation
 - Content duplication detection
-- Template-based page creation
-- Markdown/Wiki format support
+- Template-based document creation (ADR, API docs, User Stories, Runbooks, Release Notes)
+- Hierarchy and breadcrumbs support
+- Broken link detection and auto-fix suggestions
 ```
 
 ### 📝 System Prompt
@@ -374,7 +376,7 @@ T - Testable (clear acceptance criteria)
 
 ---
 
-**Version:** 2.2.0
+**Version:** 2.3.0
 **Author:** DEX Team
 **Requires:** Notion MCP server
 **Tags:** system-analyst, requirements, user-stories, bpmn, api-specification
