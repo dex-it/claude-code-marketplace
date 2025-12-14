@@ -1,21 +1,21 @@
 {
   "name": "dex-system-analyst",
-  "version": "2.3.1",
-  "description": "Comprehensive System Analyst toolkit для бизнес-анализа, requirements analysis, User Stories, BPMN modeling и API specifications.",
+  "version": "2.5.0",
+  "description": "System Analyst toolkit для детализации requirements, написания User Stories, BPMN моделирования и API спецификаций. Работает на уровне technical specifications и story-level details.",
   "author": {
     "name": "DEX Team"
   },
   "agents": [
     "./agents/requirements-analyst.md",
     "./agents/user-story-writer.md",
-    "./agents/process-modeler.md",
-    "./agents/business-requirements-analyst.md"
+    "./agents/process-modeler.md"
   ],
   "commands": [
     "./commands/write-story.md",
     "./commands/api-spec.md"
   ],
   "skills": [
+    "../../shared-skills/agile-fundamentals/SKILL.md",
     "./skills/user-stories/SKILL.md",
     "./skills/bpmn-modeling/SKILL.md",
     "./skills/api-specification/SKILL.md",

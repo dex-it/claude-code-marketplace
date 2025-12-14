@@ -88,14 +88,15 @@ claude-code-marketplace/
 **Для:** Системных аналитиков
 
 **Агенты:**
-- `business-requirements-analyst` - бизнес-требования и планирование
-- `requirements-analyst` - анализ требований
-- `user-story-writer` - User Stories
-- `process-modeler` - BPMN моделирование
+- `requirements-analyst` - анализ и детализация требований
+- `user-story-writer` - User Stories с acceptance criteria
+- `process-modeler` - BPMN моделирование процессов
 
 **Команды:** `/write-story`, `/api-spec`
 
-**Skills:** user-stories, bpmn-modeling, api-specification, doc-worker
+**Skills:** agile-fundamentals (shared), user-stories, bpmn-modeling, api-specification, doc-worker
+
+**Роль:** Детализация требований, написание user stories, технические спецификации, API контракты
 
 **MCP:** Notion
 
@@ -123,13 +124,16 @@ claude-code-marketplace/
 **Для:** Продакт-менеджеров
 
 **Агенты:**
-- `roadmap-planner` - планирование roadmap
-- `backlog-manager` - управление бэклогом
-- `metrics-analyst` - анализ метрик
+- `business-requirements-analyst` - формализация бизнес-идей и требований
+- `roadmap-planner` - стратегическое планирование roadmap
+- `backlog-manager` - управление epic-level бэклогом
+- `metrics-analyst` - анализ продуктовых метрик и KPI
 
 **Команды:** `/create-epic`, `/prioritize`, `/release-notes`
 
-**Skills:** product-discovery, prioritization, agile-artifacts
+**Skills:** agile-fundamentals (shared), product-discovery, prioritization, epic-planning
+
+**Роль:** Бизнес-требования, epic planning, стратегическая приоритизация, success metrics
 
 **MCP:** Notion
 
@@ -174,8 +178,83 @@ Claude Code (главный агент)
 ├── 📝 Slash Commands — ручные команды
 │   └── commands/*.md
 │
-└── 🧠 Skills — знания по контексту
-    └── skills/name/SKILL.md
+├── 🧠 Skills — знания по контексту
+│   ├── Plugin-specific: skills/name/SKILL.md
+│   └── Shared: shared-skills/name/SKILL.md
+│
+└── 🔗 Shared Skills — общие знания между плагинами
+    └── shared-skills/agile-fundamentals
+```
+
+## Shared Skills
+
+Общие skills, используемые несколькими плагинами:
+
+### agile-fundamentals
+**Расположение:** `shared-skills/agile-fundamentals/SKILL.md`
+
+**Используется в:** dex-product-manager, dex-system-analyst
+
+**Содержит:**
+- Agile иерархия: Portfolio → Initiative → Epic → Story → Task
+- INVEST criteria для stories
+- Definition of Ready / Definition of Done
+- Story sizing (Fibonacci, T-shirt)
+- Общие Agile термины и концепции
+
+**НЕ содержит:**
+- Role-specific детали (вынесены в специфичные skills)
+- Epic planning детали (в epic-planning skill)
+- User story writing детали (в user-stories skill)
+
+## Разделение ролей: Product Manager vs System Analyst
+
+### Product Manager (Strategic Level)
+
+**Фокус:** Business value, strategic goals, high-level planning
+
+**Ответственность:**
+- 📋 **Epics**: создание и управление epic-level требованиями
+- 🗺️ **Roadmap**: квартальное/годовое планирование
+- 📊 **Metrics**: business KPIs, success criteria, OKRs
+- 🎯 **Prioritization**: RICE scoring, strategic приоритеты
+- 💡 **Business Requirements**: формализация бизнес-идей
+
+**НЕ делает:**
+- ❌ Написание user stories (это SA)
+- ❌ Acceptance criteria (это SA)
+- ❌ Технические спецификации (это SA)
+
+### System Analyst (Tactical Level)
+
+**Фокус:** Technical specifications, detailed requirements, implementation details
+
+**Ответственность:**
+- 📝 **User Stories**: decompose epics в stories с INVEST criteria
+- ✅ **Acceptance Criteria**: Given-When-Then scenarios
+- 🔄 **BPMN**: процессы и workflows
+- 🔌 **API Specs**: OpenAPI/Swagger контракты
+- 📄 **Documentation**: техническая документация
+
+**НЕ делает:**
+- ❌ Roadmap planning (это PM)
+- ❌ Business metrics analysis (это PM)
+- ❌ Strategic prioritization (это PM)
+
+### Collaboration Flow
+
+```
+PM создает Epic
+    ↓
+PM + SA: refinement session
+    ↓
+SA декомпозирует в User Stories
+    ↓
+PM reviews alignment с business value
+    ↓
+PM + SA приоритизируют stories
+    ↓
+Dev Team оценивает и реализует
 ```
 
 ## Структура плагина

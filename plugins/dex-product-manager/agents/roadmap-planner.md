@@ -1,10 +1,10 @@
 ---
 name: roadmap-planner
 description: Агент для планирования product roadmap с использованием Notion
-tools: Read, Write, Edit, Grep, Glob
+tools: Read, Write, Edit, Grep, Glob, AskUserQuestion
 model: sonnet
 permissionMode: default
-skills: product-discovery, prioritization, agile-artifacts
+skills: agile-fundamentals, product-discovery, prioritization, epic-planning
 triggers:
   - roadmap
   - план развития

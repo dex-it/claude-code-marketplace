@@ -4,7 +4,7 @@ description: Helps formulate business ideas, analyze use cases, identify risks, 
 tools: Read, Write, Edit, Grep, Glob, Bash, AskUserQuestion, WebSearch, WebFetch, TodoWrite, Task
 model: sonnet
 permissionMode: default
-skills: user-stories, bpmn-modeling, api-specification, confluence-worker
+skills: agile-fundamentals, product-discovery, prioritization
 ---
 
 # Business Requirements Analyst Agent

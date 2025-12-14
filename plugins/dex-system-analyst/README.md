@@ -1,51 +1,51 @@
 # DEX System Analyst Plugin
 
-> Comprehensive System Analyst toolkit для бизнес-анализа, requirements analysis, User Stories, BPMN modeling и API specifications.
+> System Analyst toolkit для детализации requirements, написания User Stories, BPMN моделирования и API спецификаций. **Работает на уровне technical specs и implementation details.**
 
 ## Описание
 
-Plugin для бизнес-аналитиков и системных аналитиков. Предоставляет AI-ассистентов, команды и best practices для:
+Plugin для системных аналитиков, работающих с .NET командами. Фокус на **tactical level** - детальные user stories, acceptance criteria, технические спецификации. Epic planning и business requirements - это работа Product Manager.
 
-- Business requirements документирование (BRD)
-- Формализация бизнес-идей и планирование реализации
-- Requirements analysis и stakeholder management
-- User Stories creation (INVEST criteria)
-- BPMN process modeling
-- API specifications (OpenAPI/Swagger)
-- Acceptance criteria definition
-- Universal documentation management (Confluence, Notion, MkDocs, GitBook, Markdown)
+Предоставляет AI-ассистентов, команды и best practices для:
+
+- **Requirements Analysis** - детализация и gap analysis
+- **User Stories Writing** - INVEST criteria, Given-When-Then AC
+- **BPMN Process Modeling** - процессы и workflows
+- **API Specifications** - OpenAPI/Swagger contracts
+- **Documentation Management** - универсальная работа с docs (Confluence, Notion, MkDocs, GitBook)
+
+**НЕ включает:**
+- ❌ Epic planning (это Product Manager)
+- ❌ Roadmap planning (это Product Manager)
+- ❌ Business metrics analysis (это Product Manager)
 
 ## Компоненты
 
 ### 🤖 Agents
 
-**business-requirements-analyst** - Бизнес-требования и планирование
-- Формализация бизнес-идей в конкретные цели и задачи
-- Анализ вариантов использования и value proposition
-- Критический анализ предложений и выявление рисков
-- Декомпозиция от высокоуровневых целей до этапов реализации
-- Создание полного BRD документа: стейкхолдеры, данные, интеграции, критерии приемки
-- Triggers: `бизнес требования`, `business requirements`, `формализовать идею`, `analyze idea`, `план реализации`
-
-**requirements-analyst** - Системный анализ требований
+**requirements-analyst** - Системный анализ и детализация требований
 - Requirements gathering и elicitation
+- Gap analysis и completeness check
+- Functional/Non-functional requirements decomposition
 - Stakeholder analysis
-- Functional/Non-functional requirements
-- Requirements prioritization
+- Requirements traceability
 - Triggers: `requirements`, `требования`, `analyze requirements`, `собрать требования`
 
-**user-story-writer** - Написание User Stories
+**user-story-writer** - Написание детальных User Stories
 - User Story format (As a..., I want..., So that...)
 - Acceptance Criteria (Given-When-Then)
-- Story splitting techniques
 - INVEST criteria validation
+- Story splitting techniques
+- Definition of Ready/Done
+- Decompose epics (from PM) → detailed stories
 - Triggers: `user story`, `write story`, `user stories`, `пользовательская история`
 
-**process-modeler** - BPMN моделирование
-- BPMN diagram creation
+**process-modeler** - BPMN процессы и workflows
+- BPMN 2.0 diagram creation
 - Process flow analysis
-- Swimlane diagrams
+- Swimlane diagrams (pools, lanes)
 - Business process optimization
+- Happy path + exception flows
 - Triggers: `bpmn`, `process model`, `бизнес-процесс`, `workflow`
 
 ### ⚡ Commands
@@ -72,68 +72,82 @@ Plugin для бизнес-аналитиков и системных анали
 
 ### 🎯 Skills
 
-**user-stories** - User Story best practices
+**agile-fundamentals** (shared) - Базовые Agile концепции
+```
+Shared skill для PM и SA ролей
+Активируется при: Agile planning, role clarification
+
+Включает:
+- Agile иерархия: Portfolio → Initiative → Epic → Story → Task
+- INVEST criteria
+- Definition of Ready/Done
+- Story sizing reference
+- PM vs SA responsibilities
+```
+
+**user-stories** - User Story writing best practices
 ```
 Активируется при:
-- User Story writing
-- Acceptance Criteria definition
-- Story splitting
-- Backlog refinement
+- User Story decomposition from epics
+- Acceptance Criteria writing
+- Story splitting и refinement
+- INVEST validation
 
 Включает:
 - INVEST criteria (Independent, Negotiable, Valuable, Estimable, Small, Testable)
 - As a..., I want..., So that... format
 - Given-When-Then acceptance criteria
-- Story splitting patterns
+- Story splitting patterns (by workflow, CRUD, data variations)
 - Definition of Ready/Done
+- .NET-specific story patterns (API, DB, background jobs)
 ```
 
-**bpmn-modeling** - BPMN 2.0 patterns
+**bpmn-modeling** - BPMN 2.0 процессы
 ```
 Активируется при:
-- Process modeling
-- Workflow documentation
-- Business process analysis
+- Process modeling и documentation
+- Workflow analysis
+- Business process optimization
 
 Включает:
-- BPMN 2.0 notation
-- Events, Activities, Gateways
+- BPMN 2.0 notation (Events, Activities, Gateways)
 - Swimlanes (Pools, Lanes)
 - Process optimization patterns
 - Happy path + exception flows
+- Integration points mapping
 ```
 
-**api-specification** - OpenAPI/Swagger
+**api-specification** - OpenAPI/Swagger спецификации
 ```
 Активируется при:
-- API documentation
-- Contract definition
-- REST API design
+- API contract definition
+- REST API documentation
+- API design review
 
 Включает:
 - OpenAPI 3.0 structure
-- HTTP methods (GET, POST, PUT, DELETE)
-- Request/Response schemas
-- Authentication (Bearer, OAuth2)
+- HTTP methods (GET, POST, PUT, PATCH, DELETE)
+- Request/Response schemas (JSON, XML)
+- Authentication (Bearer, OAuth2, API Keys)
 - Error responses (4xx, 5xx)
-- Pagination patterns
+- Pagination, filtering, sorting patterns
+- Versioning strategies
 ```
 
 **doc-worker** - Universal documentation management
 ```
 Активируется при:
-- Documentation work (docs, documentation, wiki, knowledge base)
+- Documentation work (docs, wiki, knowledge base)
 - Cross-platform: Confluence, Notion, GitBook, MkDocs, Markdown
-- Documentation organization and templates
 
 Включает:
-- Auto-detect documentation platform (MCP, filesystem, config files)
+- Auto-detect documentation platform
 - Search/create/update documents universally
-- Cross-reference links management and validation
+- Cross-reference links management
 - Content duplication detection
-- Template-based document creation (ADR, API docs, User Stories, Runbooks, Release Notes)
+- Template-based creation (User Stories, API docs, Runbooks, Release Notes)
 - Hierarchy and breadcrumbs support
-- Broken link detection and auto-fix suggestions
+- Broken link detection and fixes
 ```
 
 ### 📝 System Prompt
@@ -374,9 +388,51 @@ T - Testable (clear acceptance criteria)
 
 См. корневой LICENSE файл проекта.
 
+## SA vs PM: Role Separation
+
+### System Analyst (THIS plugin)
+**Focus:** Tactical level, technical details, implementation specs
+
+**Responsibilities:**
+- 📝 User stories writing from epics (INVEST, AC)
+- ✅ Acceptance criteria (Given-When-Then)
+- 🔄 BPMN процессы и workflows
+- 🔌 API specifications (OpenAPI/Swagger)
+- 📄 Technical documentation
+
+**NOT responsible for:**
+- ❌ Epic planning (→ Product Manager)
+- ❌ Roadmap planning (→ Product Manager)
+- ❌ Business metrics (→ Product Manager)
+- ❌ Strategic prioritization (→ Product Manager)
+
+### Product Manager (separate plugin: dex-product-manager)
+**Focus:** Strategic level, business value, high-level planning
+
+**Responsibilities:**
+- 📋 Epics creation and management
+- 🗺️ Roadmap planning
+- 💡 Business requirements
+- 📊 Metrics, KPIs, OKRs
+
+### Collaboration Flow
+```
+1. PM создает Epic (business value, metrics, high-level scope)
+   ↓
+2. PM + SA: refinement session (alignment discussion)
+   ↓
+3. SA декомпозирует Epic → User Stories (detailed INVEST + AC)
+   ↓
+4. PM reviews stories for business value alignment
+   ↓
+5. PM + SA: prioritize stories within epic
+   ↓
+6. Dev Team estimates and implements
+```
+
 ---
 
-**Version:** 2.3.0
+**Version:** 2.5.0
 **Author:** DEX Team
 **Requires:** Notion MCP server
-**Tags:** system-analyst, requirements, user-stories, bpmn, api-specification
+**Tags:** system-analyst, requirements, user-stories, bpmn, api-specification, acceptance-criteria

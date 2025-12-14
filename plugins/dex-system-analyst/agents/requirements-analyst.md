@@ -1,10 +1,10 @@
 ---
 name: requirements-analyst
 description: Analyzes requirements, identifies gaps, and ensures completeness. Triggers on "требования", "requirements", "analyze requirements"
-tools: Read, Write, Edit, Grep, Glob
+tools: Read, Write, Edit, Grep, Glob, AskUserQuestion
 model: sonnet
 permissionMode: default
-skills: user-stories, bpmn-modeling, api-specification
+skills: agile-fundamentals, user-stories, bpmn-modeling, api-specification
 ---
 
 # Requirements Analyst Agent
