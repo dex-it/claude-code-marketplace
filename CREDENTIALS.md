@@ -98,7 +98,8 @@ export GITLAB_API_URL="https://gitlab.yourcompany.com/api/v4"
 **Используется:** dex-product-manager, dex-dotnet-developer, dex-python-ml-developer, dex-system-analyst, dex-dotnet-architect
 
 **Обязательные переменные:**
-- `NOTION_API_KEY` — Internal Integration Token
+- `NOTION_TOKEN` — Internal Integration Token (рекомендуется)
+- `NOTION_API_KEY` — поддерживается для обратной совместимости
 
 **Инструкция по настройке:**
 
@@ -253,20 +254,69 @@ export SUPABASE_CONNECTION_STRING="postgresql://username:password@localhost:5432
 
 ---
 
+### Google Drive
+
+**Используется:** dex-system-analyst
+
+**Обязательные переменные:**
+- `GOOGLE_DRIVE_OAUTH_CREDENTIALS` — путь к файлу OAuth credentials JSON
+
+**Инструкция по настройке:**
+
+1. Создайте проект в Google Cloud Console: https://console.cloud.google.com
+2. Перейдите в APIs & Services → Library
+3. Включите следующие APIs:
+   - Google Drive API
+   - Google Docs API
+   - Google Sheets API
+   - Google Slides API
+4. Перейдите в APIs & Services → Credentials
+5. Нажмите "Create Credentials" → "OAuth client ID"
+6. Application type: выберите "Desktop app"
+7. Имя: `Claude Code MCP`
+8. Нажмите "Create"
+9. Скачайте JSON файл (кнопка "Download JSON")
+10. Сохраните файл в безопасное место:
+    ```bash
+    mkdir -p ~/.config/google-drive-mcp
+    mv ~/Downloads/client_secret_*.json ~/.config/google-drive-mcp/oauth-credentials.json
+    ```
+11. Задайте переменную окружения:
+    ```bash
+    export GOOGLE_DRIVE_OAUTH_CREDENTIALS="$HOME/.config/google-drive-mcp/oauth-credentials.json"
+    ```
+12. При первом запуске откроется браузер для OAuth авторизации — войдите в Google аккаунт и разрешите доступ
+
+**Примечание:** Токены сохраняются автоматически в `~/.config/google-drive-mcp/tokens.json` и обновляются при необходимости.
+
+---
+
+### PDF Reader
+
+**Используется:** dex-system-analyst
+
+**Обязательные переменные:** Нет
+
+PDF Reader MCP не требует учётных данных. Работает с:
+- Локальными файлами (абсолютные и относительные пути)
+- HTTP/HTTPS URL
+
+---
+
 ## Требования к учётным данным по плагинам
 
-| Плагин | GitLab | Notion | GitHub | MLflow | W&B | HuggingFace | Supabase |
-|--------|--------|--------|--------|--------|-----|-------------|----------|
-| **dex-dotnet-developer** | ✅ | ✅ | - | - | - | - | 🔵 |
-| **dex-dotnet-architect** | ✅ | ✅ | ✅ | - | - | - | - |
-| **dex-python-ml-developer** | ✅ | ✅ | - | ✅ | ✅ | ✅ | - |
-| **dex-product-manager** | - | ✅ | - | - | - | - | - |
-| **dex-system-analyst** | - | ✅ | - | - | - | - | - |
-| **dex-quality-assurance** | ✅ | - | - | - | - | - | - |
-| **dex-devops** | ✅ | - | - | - | - | - | - |
+| Плагин | GitLab | Notion | GitHub | MLflow | W&B | HuggingFace | Supabase | Google Drive | PDF Reader |
+|--------|--------|--------|--------|--------|-----|-------------|----------|--------------|------------|
+| **dex-dotnet-developer** | ✅ | ✅ | - | - | - | - | 🔵 | - | - |
+| **dex-dotnet-architect** | ✅ | ✅ | ✅ | - | - | - | - | - | - |
+| **dex-python-ml-developer** | ✅ | ✅ | - | ✅ | ✅ | ✅ | - | - | - |
+| **dex-product-manager** | - | ✅ | - | - | - | - | - | - | - |
+| **dex-system-analyst** | - | ✅ | - | - | - | - | - | 🔵 | ✅ |
+| **dex-quality-assurance** | ✅ | - | - | - | - | - | - | - | - |
+| **dex-devops** | ✅ | - | - | - | - | - | - | - | - |
 
 **Легенда:**
-- ✅ Обязательно
+- ✅ Обязательно (или не требует credentials)
 - 🔵 Опционально
 - \- Не используется
 

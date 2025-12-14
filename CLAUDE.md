@@ -98,7 +98,7 @@ claude-code-marketplace/
 
 **Роль:** Детализация требований, написание user stories, технические спецификации, API контракты
 
-**MCP:** Notion
+**MCP (3):** Notion, PDF Reader, Google Drive
 
 ---
 
@@ -332,7 +332,11 @@ allowed-tools: Read, Grep, Glob
 - `${WANDB_API_KEY}` - Weights & Biases API key
 - `${HUGGINGFACE_TOKEN}` - HuggingFace API token
 - `${GITLAB_TOKEN}` - GitLab API
-- `${NOTION_API_KEY}` - Notion API
+- `${NOTION_TOKEN}` - Notion API (или `${NOTION_API_KEY}` для обратной совместимости)
+
+### System Analyst Plugin
+- `${NOTION_TOKEN}` - Notion API (или `${NOTION_API_KEY}` для обратной совместимости)
+- `${GOOGLE_DRIVE_OAUTH_CREDENTIALS}` - путь к OAuth credentials JSON файлу (опционально)
 
 ## Известные особенности
 

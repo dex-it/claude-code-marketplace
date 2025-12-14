@@ -159,18 +159,32 @@ System Analyst system prompt с:
 - API design principles
 - Documentation standards
 
-## Configuration
+### 🔌 MCP Integrations
 
-This plugin requires Notion MCP server to be configured with environment variables.
+| MCP Server | Назначение |
+|------------|------------|
+| **Notion** | Документация, User Stories, requirements |
+| **PDF Reader** | Чтение и анализ PDF документов (спецификации, контракты) |
+| **Google Drive** | Работа с Google Docs, Sheets, Slides |
+
+## Configuration
 
 ### Required Environment Variables
 
 **Notion Integration**
-- `NOTION_API_KEY` - Notion API key (Internal Integration Token)
+- `NOTION_TOKEN` (рекомендуется) или `NOTION_API_KEY` (legacy) - Notion API key
   - Get from: https://www.notion.so/my-integrations
   - Required for: Requirements documentation, User Stories, Process diagrams
 
+**Google Drive Integration** (опционально)
+- `GOOGLE_DRIVE_OAUTH_CREDENTIALS` - путь к файлу OAuth credentials JSON
+  - Required for: Работа с Google Docs, Sheets, Slides
+
+**PDF Reader** - не требует учётных данных
+
 ### Setup Instructions
+
+#### Notion Setup
 
 1. **Create Notion Integration:**
    - Open https://www.notion.so/my-integrations
@@ -185,14 +199,39 @@ This plugin requires Notion MCP server to be configured with environment variabl
 
 3. **Set environment variable:**
    ```bash
-   export NOTION_API_KEY="ntn_xxxxxxxxxxxxx"
+   export NOTION_TOKEN="ntn_xxxxxxxxxxxxx"
    ```
 
-4. **Verify configuration:**
+#### Google Drive Setup (опционально)
+
+1. **Create Google Cloud Project:**
+   - Open https://console.cloud.google.com
+   - Create new project or select existing
+
+2. **Enable APIs:**
+   - Google Drive API
+   - Google Docs API
+   - Google Sheets API
+   - Google Slides API
+
+3. **Create OAuth Credentials:**
+   - Credentials → Create Credentials → OAuth client ID
+   - Application type: Desktop app
+   - Download JSON file
+
+4. **Set environment variable:**
    ```bash
-   claude
-   /mcp list
+   export GOOGLE_DRIVE_OAUTH_CREDENTIALS="$HOME/.config/google-drive-mcp/oauth-credentials.json"
    ```
+
+5. При первом запуске откроется браузер для OAuth авторизации
+
+#### Verify Configuration
+
+```bash
+claude
+/mcp list
+```
 
 ## Quick Start
 
@@ -432,7 +471,7 @@ T - Testable (clear acceptance criteria)
 
 ---
 
-**Version:** 2.5.0
+**Version:** 2.6.0
 **Author:** DEX Team
-**Requires:** Notion MCP server
+**MCP Servers:** Notion, PDF Reader, Google Drive
 **Tags:** system-analyst, requirements, user-stories, bpmn, api-specification, acceptance-criteria
