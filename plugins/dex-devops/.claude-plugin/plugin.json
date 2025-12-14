@@ -1,28 +1,23 @@
 {
   "name": "dex-devops",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "DevOps plugin for .NET deployments with CI/CD, Docker, and Kubernetes expertise",
-  "author": "Claude Code Marketplace",
-  "tags": ["devops", "ci-cd", "docker", "kubernetes", "gitlab", "dotnet"],
+  "author": {
+    "name": "DEX Team"
+  },
   "agents": [
-    "pipeline-expert",
-    "k8s-specialist",
-    "docker-builder"
+    "./agents/pipeline-expert.md",
+    "./agents/k8s-specialist.md",
+    "./agents/docker-builder.md"
   ],
   "commands": [
-    "deploy",
-    "pipeline",
-    "dockerfile"
+    "./commands/deploy.md",
+    "./commands/pipeline.md",
+    "./commands/dockerfile.md"
   ],
   "skills": [
-    "gitlab-ci",
-    "docker-best-practices",
-    "kubernetes"
-  ],
-  "dependencies": {
-    "mcp": ["gitlab"]
-  },
-  "requirements": {
-    "claude-code": ">=1.0.0"
-  }
+    "./skills/gitlab-ci/SKILL.md",
+    "./skills/docker-best-practices/SKILL.md",
+    "./skills/kubernetes/SKILL.md"
+  ]
 }

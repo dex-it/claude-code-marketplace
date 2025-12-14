@@ -1,28 +1,25 @@
 {
   "name": "dex-product-manager",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "description": "Product Manager plugin для стратегического планирования, epic management, roadmap и метрик. Работает на уровне business value и strategic priorities.",
-  "author": "DEX Team",
-  "tags": ["product-management", "roadmap", "epic-planning", "metrics", "agile", "business-requirements"],
+  "author": {
+    "name": "DEX Team"
+  },
   "agents": [
-    "agents/business-requirements-analyst.md",
-    "agents/roadmap-planner.md",
-    "agents/backlog-manager.md",
-    "agents/metrics-analyst.md"
+    "./agents/business-requirements-analyst.md",
+    "./agents/roadmap-planner.md",
+    "./agents/backlog-manager.md",
+    "./agents/metrics-analyst.md"
   ],
   "commands": [
-    "commands/create-epic.md",
-    "commands/prioritize.md",
-    "commands/release-notes.md"
+    "./commands/create-epic.md",
+    "./commands/prioritize.md",
+    "./commands/release-notes.md"
   ],
   "skills": [
-    "../../shared-skills/agile-fundamentals/SKILL.md",
+    "./skills/agile-fundamentals/SKILL.md",
     "./skills/product-discovery/SKILL.md",
     "./skills/prioritization/SKILL.md",
     "./skills/epic-planning/SKILL.md"
-  ],
-  "dependencies": {
-    "mcp": ["notion"]
-  },
-  "readme": "README.md"
+  ]
 }
