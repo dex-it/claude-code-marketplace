@@ -94,7 +94,7 @@ claude-code-marketplace/
 
 **Команды:** `/write-story`, `/api-spec`
 
-**Skills:** agile-fundamentals (shared), user-stories, bpmn-modeling, api-specification, doc-worker
+**Skills:** agile-fundamentals, user-stories, bpmn-modeling, api-specification, doc-worker
 
 **Роль:** Детализация требований, написание user stories, технические спецификации, API контракты
 
@@ -131,7 +131,7 @@ claude-code-marketplace/
 
 **Команды:** `/create-epic`, `/prioritize`, `/release-notes`
 
-**Skills:** agile-fundamentals (shared), product-discovery, prioritization, epic-planning
+**Skills:** agile-fundamentals, product-discovery, prioritization, epic-planning
 
 **Роль:** Бизнес-требования, epic planning, стратегическая приоритизация, success metrics
 
@@ -178,34 +178,9 @@ Claude Code (главный агент)
 ├── 📝 Slash Commands — ручные команды
 │   └── commands/*.md
 │
-├── 🧠 Skills — знания по контексту
-│   ├── Plugin-specific: skills/name/SKILL.md
-│   └── Shared: shared-skills/name/SKILL.md
-│
-└── 🔗 Shared Skills — общие знания между плагинами
-    └── shared-skills/agile-fundamentals
+└── 🧠 Skills — знания по контексту
+    └── skills/name/SKILL.md
 ```
-
-## Shared Skills
-
-Общие skills, используемые несколькими плагинами:
-
-### agile-fundamentals
-**Расположение:** `shared-skills/agile-fundamentals/SKILL.md`
-
-**Используется в:** dex-product-manager, dex-system-analyst
-
-**Содержит:**
-- Agile иерархия: Portfolio → Initiative → Epic → Story → Task
-- INVEST criteria для stories
-- Definition of Ready / Definition of Done
-- Story sizing (Fibonacci, T-shirt)
-- Общие Agile термины и концепции
-
-**НЕ содержит:**
-- Role-specific детали (вынесены в специфичные skills)
-- Epic planning детали (в epic-planning skill)
-- User story writing детали (в user-stories skill)
 
 ## Разделение ролей: Product Manager vs System Analyst
 
