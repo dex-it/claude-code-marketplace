@@ -200,17 +200,19 @@ claude
 
 **MCP Интеграции:**
 - ✅ Notion — requirements, User Stories, documentation
+- ✅ PDF Reader — чтение и анализ PDF документов (спецификации, контракты)
+- 🔵 Google Drive — работа с Google Docs, Sheets, Slides (опционально)
 
 **Команды:**
 - `/write-story` — создание User Stories с acceptance criteria
 - `/api-spec` — OpenAPI 3.0 specification generation
 
 **Agents:**
-- `requirements-analyst` — requirements gathering, analysis
+- `requirements-analyst` — requirements gathering, stakeholder analysis
 - `user-story-writer` — User Stories, acceptance criteria
 - `process-modeler` — BPMN diagrams, workflow design
 
-**Skills:** user-stories, bpmn-modeling, api-specification
+**Skills:** agile-fundamentals, user-stories, bpmn-modeling, api-specification, doc-worker
 
 [**→ Подробная документация**](./plugins/dex-system-analyst/README.md)
 
@@ -271,15 +273,15 @@ claude
 
 Таблица показывает какие MCP серверы используются каждым плагином:
 
-| Plugin | GitLab | Notion | GitHub | MLflow | W&B | HuggingFace | Supabase |
-|--------|--------|--------|--------|--------|-----|-------------|----------|
-| **dex-dotnet-developer** | ✅ | ✅ | - | - | - | - | 🔵 |
-| **dex-dotnet-architect** | ✅ | ✅ | ✅ | - | - | - | - |
-| **dex-python-ml-developer** | ✅ | ✅ | - | ✅ | ✅ | ✅ | - |
-| **dex-product-manager** | - | ✅ | - | - | - | - | - |
-| **dex-system-analyst** | - | ✅ | - | - | - | - | - |
-| **dex-quality-assurance** | ✅ | - | - | - | - | - | - |
-| **dex-devops** | ✅ | - | - | - | - | - | - |
+| Plugin | GitLab | Notion | GitHub | MLflow | W&B | HuggingFace | Supabase | PDF Reader | Google Drive |
+|--------|--------|--------|--------|--------|-----|-------------|----------|------------|--------------|
+| **dex-dotnet-developer** | ✅ | ✅ | - | - | - | - | 🔵 | - | - |
+| **dex-dotnet-architect** | ✅ | ✅ | ✅ | - | - | - | - | - | - |
+| **dex-python-ml-developer** | ✅ | ✅ | - | ✅ | ✅ | ✅ | - | - | - |
+| **dex-product-manager** | - | ✅ | - | - | - | - | - | - | - |
+| **dex-system-analyst** | - | ✅ | - | - | - | - | - | ✅ | 🔵 |
+| **dex-quality-assurance** | ✅ | - | - | - | - | - | - | - | - |
+| **dex-devops** | ✅ | - | - | - | - | - | - | - | - |
 
 **Легенда:**
 - ✅ Required

@@ -1,29 +1,26 @@
 {
   "name": "dex-product-manager",
-  "version": "2.0.0",
-  "description": "Product Manager plugin для планирования roadmap, управления бэклогом и анализа метрик",
-  "author": "DEX Team",
-  "tags": ["product-management", "roadmap", "backlog", "metrics", "agile"],
+  "version": "3.0.4",
+  "description": "Product Manager plugin для стратегического планирования, epic management, roadmap и метрик. Работает на уровне business value и strategic priorities.",
+  "author": {
+    "name": "DEX Team"
+  },
   "agents": [
-    "agents/roadmap-planner.md",
-    "agents/backlog-manager.md",
-    "agents/metrics-analyst.md"
+    "./agents/business-requirements-analyst.md",
+    "./agents/roadmap-planner.md",
+    "./agents/backlog-manager.md",
+    "./agents/metrics-analyst.md"
   ],
   "commands": [
-    "commands/create-epic.md",
-    "commands/prioritize.md",
-    "commands/release-notes.md"
+    "./commands/create-epic.md",
+    "./commands/prioritize.md",
+    "./commands/release-notes.md"
   ],
   "skills": [
-    "skills/product-discovery",
-    "skills/prioritization",
-    "skills/agile-artifacts"
-  ],
-  "prompts": {
-    "system": "prompts/system-prompt.md"
-  },
-  "dependencies": {
-    "mcp": ["notion"]
-  },
-  "readme": "README.md"
+    "./skills/agile-fundamentals/SKILL.md",
+    "./skills/product-discovery/SKILL.md",
+    "./skills/prioritization/SKILL.md",
+    "./skills/epic-planning/SKILL.md",
+    "./skills/doc-worker/SKILL.md"
+  ]
 }

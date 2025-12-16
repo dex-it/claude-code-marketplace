@@ -1,40 +1,58 @@
 # DEX Product Manager Plugin
 
-> Comprehensive Product Manager toolkit для планирования продукта, управления backlog и анализа метрик.
+> Comprehensive Product Manager toolkit для стратегического планирования, epic management, roadmap и метрик. **Работает на уровне business value и strategic priorities.**
 
 ## Описание
 
-Plugin для Product Manager'ов, работающих с .NET командами. Предоставляет AI-ассистентов, команды и best practices для:
+Plugin для Product Manager'ов, работающих с .NET командами. Фокус на **strategic level** - epics, roadmap, business requirements, metrics. User stories и технические детали - это работа System Analyst.
 
-- Roadmap planning
-- Backlog management и приоритизации
-- Product discovery
-- Metrics analysis
-- Agile artifacts (epics, stories, tasks)
+Предоставляет AI-ассистентов, команды и best practices для:
+
+- **Business Requirements** - формализация бизнес-идей в конкретные цели
+- **Epic Planning** - создание epics с business value и success metrics
+- **Roadmap Planning** - квартальное/годовое стратегическое планирование
+- **Strategic Prioritization** - RICE scoring, OKR alignment
+- **Metrics Analysis** - KPIs, analytics, data-driven decisions
+
+**НЕ включает:**
+- ❌ User Story writing (это System Analyst)
+- ❌ Acceptance Criteria (это System Analyst)
+- ❌ Технические спецификации (это System Analyst)
 
 ## Компоненты
 
 ### 🤖 Agents
 
-**roadmap-planner** - Планирование product roadmap
-- Создание quarterly/yearly roadmaps
-- Themes и initiatives
-- OKR alignment
+**business-requirements-analyst** - Формализация бизнес-требований
+- Преобразование бизнес-идей в конкретные цели
+- Анализ use cases и value proposition
+- Критический анализ с выявлением рисков
+- Декомпозиция high-level целей в implementation stages
+- Создание BRD: stakeholders, данные, интеграции, критерии успеха
+- Triggers: `бизнес требования`, `business requirements`, `формализовать идею`, `план реализации`
+
+**roadmap-planner** - Стратегическое планирование roadmap
+- Quarterly/yearly roadmap creation
+- Themes и strategic initiatives
+- OKR alignment и business outcomes
+- Epic-level planning (НЕ детальные stories)
 - Stakeholder communication
 - Triggers: `roadmap`, `план развития`, `product roadmap`, `стратегия продукта`
 
-**backlog-manager** - Управление backlog
-- Backlog grooming и refinement
-- Приоритизация через RICE/MoSCoW
-- Story preparation (Definition of Ready)
-- Backlog health tracking
+**backlog-manager** - Управление epic-level backlog
+- Epic backlog grooming (НЕ story-level)
+- RICE/ICE scoring для epics
+- Приоритизация на strategic level
+- Epic readiness для SA decomposition
+- Backlog health metrics
 - Triggers: `backlog`, `бэклог`, `приоритизация`, `prioritize`, `refinement`
 
 **metrics-analyst** - Анализ продуктовых метрик
 - KPI tracking и dashboards
 - AARRR metrics (Acquisition, Activation, Retention, Revenue, Referral)
-- A/B testing analysis
-- Cohort и funnel analysis
+- A/B testing design и analysis
+- Cohort, funnel, retention analysis
+- Data-driven decision support
 - Triggers: `метрики`, `metrics`, `analytics`, `KPI`, `аналитика`
 
 ### ⚡ Commands
@@ -71,28 +89,39 @@ Plugin для Product Manager'ов, работающих с .NET команда�
 
 ### 🎯 Skills
 
+**agile-fundamentals** (shared) - Базовые Agile концепции
+```
+Shared skill для PM и SA ролей
+Активируется при: Agile planning, role clarification
+
+Включает:
+- Agile иерархия: Portfolio → Initiative → Epic → Story → Task
+- INVEST criteria
+- Definition of Ready/Done
+- Story sizing reference
+- PM vs SA responsibilities
+```
+
 **product-discovery** - Discovery techniques
 ```
 Активируется при:
-- Customer research
-- Problem validation
-- Solution validation
-- Jobs-to-be-Done
-- Problem-solution fit
+- Customer research и problem validation
+- Solution validation и problem-solution fit
+- Jobs-to-be-Done framework
+- Opportunity Solution Tree
 
 Включает:
-- Interview frameworks
-- Validation techniques
-- Research templates
-- Opportunity Solution Tree
+- Interview frameworks и user research
+- Validation techniques (assumption testing)
+- Research templates и synthesis
 ```
 
-**prioritization** - Frameworks для приоритизации
+**prioritization** - Strategic prioritization frameworks
 ```
 Активируется при:
-- Feature prioritization
+- Epic/initiative prioritization
 - Trade-off decisions
-- Resource allocation
+- Resource allocation на strategic level
 
 Frameworks:
 - RICE (Reach × Impact × Confidence / Effort)
@@ -103,21 +132,24 @@ Frameworks:
 - Cost of Delay / WSJF
 ```
 
-**agile-artifacts** - Структура agile артефактов
+**epic-planning** - Epic structure и planning
 ```
 Активируется при:
-- Epic creation
-- User story writing
-- Acceptance criteria definition
-- Backlog refinement
+- Epic creation и management
+- High-level scope definition
+- Business value documentation
+- Success metrics establishment
 
 Включает:
-- Epic templates
-- User story format (As a..., I want..., So that...)
-- Acceptance criteria (Given-When-Then)
-- Definition of Ready/Done
-- INVEST criteria
-- Story splitting techniques
+- Epic template (Problem, Value, Metrics, Scope)
+- Epic sizing (S/M/L/XL, T-shirt)
+- PM-SA handoff process
+- Epic decomposition readiness
+- Epic-level DoD
+
+НЕ включает:
+- User story writing (см. SA: user-stories skill)
+- Acceptance criteria (см. SA: user-stories skill)
 ```
 
 ### 📝 System Prompt
@@ -556,9 +588,50 @@ Suggestions welcome! Areas для improvement:
 
 См. корневой LICENSE файл проекта.
 
+## PM vs SA: Role Separation
+
+### Product Manager (THIS plugin)
+**Focus:** Strategic level, business value, high-level planning
+
+**Responsibilities:**
+- 📋 Epics creation and management
+- 🗺️ Roadmap planning (quarterly/yearly)
+- 💡 Business requirements formulation
+- 📊 Metrics, KPIs, OKRs
+- 🎯 Strategic prioritization (RICE)
+
+**NOT responsible for:**
+- ❌ User story writing (→ System Analyst)
+- ❌ Acceptance criteria (→ System Analyst)
+- ❌ Technical specifications (→ System Analyst)
+
+### System Analyst (separate plugin: dex-system-analyst)
+**Focus:** Tactical level, technical details, implementation specs
+
+**Responsibilities:**
+- 📝 User stories from epics (INVEST, AC)
+- ✅ Acceptance criteria (Given-When-Then)
+- 🔄 BPMN процессы
+- 🔌 API specifications (OpenAPI)
+
+### Collaboration Flow
+```
+1. PM создает Epic (business value, metrics, high-level scope)
+   ↓
+2. PM + SA: refinement session (alignment discussion)
+   ↓
+3. SA декомпозирует Epic → User Stories (detailed)
+   ↓
+4. PM reviews stories for business value alignment
+   ↓
+5. PM + SA: prioritize stories within epic
+   ↓
+6. Dev Team estimates and implements
+```
+
 ---
 
-**Version:** 2.0.0
+**Version:** 3.0.1
 **Author:** DEX Team
 **Requires:** Notion MCP server
-**Tags:** product-management, roadmap, backlog, metrics, agile
+**Tags:** product-management, roadmap, epic-planning, business-requirements, metrics, strategy

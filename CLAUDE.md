@@ -88,15 +88,17 @@ claude-code-marketplace/
 **Для:** Системных аналитиков
 
 **Агенты:**
-- `requirements-analyst` - анализ требований
-- `user-story-writer` - User Stories
-- `process-modeler` - BPMN моделирование
+- `requirements-analyst` - анализ и детализация требований
+- `user-story-writer` - User Stories с acceptance criteria
+- `process-modeler` - BPMN моделирование процессов
 
 **Команды:** `/write-story`, `/api-spec`
 
-**Skills:** user-stories, bpmn-modeling, api-specification
+**Skills:** agile-fundamentals, user-stories, bpmn-modeling, api-specification, doc-worker
 
-**MCP:** Notion
+**Роль:** Детализация требований, написание user stories, технические спецификации, API контракты
+
+**MCP (3):** Notion, PDF Reader, Google Drive
 
 ---
 
@@ -122,13 +124,16 @@ claude-code-marketplace/
 **Для:** Продакт-менеджеров
 
 **Агенты:**
-- `roadmap-planner` - планирование roadmap
-- `backlog-manager` - управление бэклогом
-- `metrics-analyst` - анализ метрик
+- `business-requirements-analyst` - формализация бизнес-идей и требований
+- `roadmap-planner` - стратегическое планирование roadmap
+- `backlog-manager` - управление epic-level бэклогом
+- `metrics-analyst` - анализ продуктовых метрик и KPI
 
 **Команды:** `/create-epic`, `/prioritize`, `/release-notes`
 
-**Skills:** product-discovery, prioritization, agile-artifacts
+**Skills:** agile-fundamentals, product-discovery, prioritization, epic-planning
+
+**Роль:** Бизнес-требования, epic planning, стратегическая приоритизация, success metrics
 
 **MCP:** Notion
 
@@ -175,6 +180,56 @@ Claude Code (главный агент)
 │
 └── 🧠 Skills — знания по контексту
     └── skills/name/SKILL.md
+```
+
+## Разделение ролей: Product Manager vs System Analyst
+
+### Product Manager (Strategic Level)
+
+**Фокус:** Business value, strategic goals, high-level planning
+
+**Ответственность:**
+- 📋 **Epics**: создание и управление epic-level требованиями
+- 🗺️ **Roadmap**: квартальное/годовое планирование
+- 📊 **Metrics**: business KPIs, success criteria, OKRs
+- 🎯 **Prioritization**: RICE scoring, strategic приоритеты
+- 💡 **Business Requirements**: формализация бизнес-идей
+
+**НЕ делает:**
+- ❌ Написание user stories (это SA)
+- ❌ Acceptance criteria (это SA)
+- ❌ Технические спецификации (это SA)
+
+### System Analyst (Tactical Level)
+
+**Фокус:** Technical specifications, detailed requirements, implementation details
+
+**Ответственность:**
+- 📝 **User Stories**: decompose epics в stories с INVEST criteria
+- ✅ **Acceptance Criteria**: Given-When-Then scenarios
+- 🔄 **BPMN**: процессы и workflows
+- 🔌 **API Specs**: OpenAPI/Swagger контракты
+- 📄 **Documentation**: техническая документация
+
+**НЕ делает:**
+- ❌ Roadmap planning (это PM)
+- ❌ Business metrics analysis (это PM)
+- ❌ Strategic prioritization (это PM)
+
+### Collaboration Flow
+
+```
+PM создает Epic
+    ↓
+PM + SA: refinement session
+    ↓
+SA декомпозирует в User Stories
+    ↓
+PM reviews alignment с business value
+    ↓
+PM + SA приоритизируют stories
+    ↓
+Dev Team оценивает и реализует
 ```
 
 ## Структура плагина
@@ -277,7 +332,11 @@ allowed-tools: Read, Grep, Glob
 - `${WANDB_API_KEY}` - Weights & Biases API key
 - `${HUGGINGFACE_TOKEN}` - HuggingFace API token
 - `${GITLAB_TOKEN}` - GitLab API
-- `${NOTION_API_KEY}` - Notion API
+- `${NOTION_TOKEN}` - Notion API (или `${NOTION_API_KEY}` для обратной совместимости)
+
+### System Analyst Plugin
+- `${NOTION_TOKEN}` - Notion API (или `${NOTION_API_KEY}` для обратной совместимости)
+- `${GOOGLE_DRIVE_OAUTH_CREDENTIALS}` - путь к OAuth credentials JSON файлу (опционально)
 
 ## Известные особенности
 
@@ -300,3 +359,4 @@ allowed-tools: Read, Grep, Glob
 ### Общие
 - .mcp.json должен быть в корне плагина, не в подпапке
 - Skills активируются автоматически по ключевым словам в description
+- **ВАЖНО:** При добавлении нового компонента (agent, skill, command) в существующий плагин обязательно увеличивайте версию в `plugin.json`. Claude Code кэширует метаданные плагинов и без изменения версии не подтянет обновления
