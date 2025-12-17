@@ -122,7 +122,7 @@ Write-Header ""
 # Confluence MCP
 if ($env:CONFLUENCE_MCP_URL -and $env:CONFLUENCE_MCP_TOKEN) {
     Write-Info "  Регистрируем Confluence MCP..."
-    claude mcp add --transport http conflu --scope user $env:CONFLUENCE_MCP_URL --header "Authorization: Token $env:CONFLUENCE_MCP_TOKEN"
+    claude mcp add --transport http conflu --scope project $env:CONFLUENCE_MCP_URL --header "Authorization: Token $env:CONFLUENCE_MCP_TOKEN"
     Write-Success "  Confluence MCP зарегистрирован: $env:CONFLUENCE_MCP_URL"
 }
 elseif (-not $env:CONFLUENCE_MCP_URL) {
@@ -135,7 +135,7 @@ else {
 # Jira MCP
 if ($env:JIRA_MCP_URL -and $env:JIRA_MCP_TOKEN) {
     Write-Info "  Регистрируем Jira MCP..."
-    claude mcp add --transport http jira --scope user $env:JIRA_MCP_URL --header "Authorization: Token $env:JIRA_MCP_TOKEN"
+    claude mcp add --transport http jira --scope project $env:JIRA_MCP_URL --header "Authorization: Token $env:JIRA_MCP_TOKEN"
     Write-Success "  Jira MCP зарегистрирован: $env:JIRA_MCP_URL"
 }
 elseif (-not $env:JIRA_MCP_URL) {
