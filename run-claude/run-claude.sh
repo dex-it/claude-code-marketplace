@@ -143,7 +143,7 @@ print_header ""
 # Confluence MCP
 if [ -n "$CONFLUENCE_MCP_URL" ] && [ -n "$CONFLUENCE_MCP_TOKEN" ]; then
     print_info "  → Регистрируем Confluence MCP..."
-    claude mcp add --transport http conflu --scope user "$CONFLUENCE_MCP_URL" --header "Authorization: Token $CONFLUENCE_MCP_TOKEN"
+    claude mcp add --transport http conflu --scope project "$CONFLUENCE_MCP_URL" --header "Authorization: Token $CONFLUENCE_MCP_TOKEN"
     print_success "  ✅ Confluence MCP зарегистрирован: $CONFLUENCE_MCP_URL"
 elif [ -z "$CONFLUENCE_MCP_URL" ]; then
     print_warning "  ⏭️  Confluence MCP пропущен: URL не задан (CONFLUENCE_MCP_URL)"
@@ -154,7 +154,7 @@ fi
 # Jira MCP
 if [ -n "$JIRA_MCP_URL" ] && [ -n "$JIRA_MCP_TOKEN" ]; then
     print_info "  → Регистрируем Jira MCP..."
-    claude mcp add --transport http jira --scope user "$JIRA_MCP_URL" --header "Authorization: Token $JIRA_MCP_TOKEN"
+    claude mcp add --transport http jira --scope project "$JIRA_MCP_URL" --header "Authorization: Token $JIRA_MCP_TOKEN"
     print_success "  ✅ Jira MCP зарегистрирован: $JIRA_MCP_URL"
 elif [ -z "$JIRA_MCP_URL" ]; then
     print_warning "  ⏭️  Jira MCP пропущен: URL не задан (JIRA_MCP_URL)"
