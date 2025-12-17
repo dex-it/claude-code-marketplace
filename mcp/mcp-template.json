@@ -1,0 +1,164 @@
+{
+  "_readme": "MCP Server Catalog - скопируйте этот файл в .mcp.json вашего проекта и оставьте только нужные серверы. Переменные окружения настройте в .env (см. run-claude/sample.env)",
+  "_usage": {
+    "dex-product-manager": ["notion"],
+    "dex-system-analyst": ["notion", "pdf-reader", "google-drive (optional)"],
+    "dex-dotnet-developer": ["gitlab", "notion", "postgres", "rabbitmq", "elasticsearch", "redis", "docker", "seq", "kubernetes"],
+    "dex-dotnet-architect": ["github", "gitlab", "notion", "filesystem"],
+    "dex-python-ml-developer": ["gitlab", "notion", "mlflow", "wandb", "huggingface"],
+    "dex-quality-assurance": ["gitlab", "filesystem"],
+    "dex-devops": ["gitlab"]
+  },
+  "mcpServers": {
+    "notion": {
+      "_description": "Notion workspace - документация, база знаний, управление проектами",
+      "_env": ["NOTION_TOKEN"],
+      "command": "npx",
+      "args": ["-y", "@notionhq/notion-mcp-server"],
+      "env": {
+        "NOTION_TOKEN": "${NOTION_TOKEN}"
+      }
+    },
+    "gitlab": {
+      "_description": "GitLab - version control, CI/CD, issues, merge requests",
+      "_env": ["GITLAB_TOKEN", "GITLAB_API_URL (optional)"],
+      "command": "uvx",
+      "args": ["mcp-server-gitlab"],
+      "env": {
+        "GITLAB_PERSONAL_ACCESS_TOKEN": "${GITLAB_TOKEN}",
+        "GITLAB_API_URL": "${GITLAB_API_URL:-https://gitlab.com/api/v4}"
+      }
+    },
+    "github": {
+      "_description": "GitHub - repositories, issues, pull requests, actions",
+      "_env": ["GITHUB_TOKEN"],
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_TOKEN": "${GITHUB_TOKEN}"
+      }
+    },
+    "postgres": {
+      "_description": "PostgreSQL - database queries, schema exploration (restricted mode)",
+      "_env": ["DATABASE_URL"],
+      "command": "uvx",
+      "args": ["postgres-mcp", "--access-mode=restricted"],
+      "env": {
+        "DATABASE_URI": "${DATABASE_URL:-postgresql://user:password@localhost:5432/dbname}"
+      }
+    },
+    "rabbitmq": {
+      "_description": "RabbitMQ - message queues, exchanges, bindings",
+      "_env": ["RABBITMQ_HOST", "RABBITMQ_PORT", "RABBITMQ_USER", "RABBITMQ_PASSWORD"],
+      "command": "uvx",
+      "args": [
+        "mcp-server-rabbitmq",
+        "--rabbitmq-host", "${RABBITMQ_HOST:-localhost}",
+        "--port", "${RABBITMQ_PORT:-5672}",
+        "--username", "${RABBITMQ_USER:-guest}",
+        "--password", "${RABBITMQ_PASSWORD:-guest}",
+        "--api-port", "${RABBITMQ_API_PORT:-15672}"
+      ]
+    },
+    "elasticsearch": {
+      "_description": "Elasticsearch - search, analytics, log analysis",
+      "_env": ["ELASTICSEARCH_URL", "ELASTICSEARCH_API_KEY"],
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm",
+        "-e", "ES_URL",
+        "-e", "ES_API_KEY",
+        "docker.elastic.co/mcp/elasticsearch",
+        "stdio"
+      ],
+      "env": {
+        "ES_URL": "${ELASTICSEARCH_URL:-http://localhost:9200}",
+        "ES_API_KEY": "${ELASTICSEARCH_API_KEY}"
+      }
+    },
+    "redis": {
+      "_description": "Redis - caching, session storage, pub/sub",
+      "_env": ["REDIS_URL"],
+      "command": "uvx",
+      "args": [
+        "--from", "redis-mcp-server@latest",
+        "redis-mcp-server",
+        "--url", "${REDIS_URL:-redis://localhost:6379/0}"
+      ]
+    },
+    "docker": {
+      "_description": "Docker - containers, images, networks, volumes",
+      "_env": [],
+      "command": "uvx",
+      "args": ["docker-mcp"]
+    },
+    "seq": {
+      "_description": "Seq - structured logging server, log analysis",
+      "_env": ["SEQ_SERVER_URL", "SEQ_API_KEY"],
+      "command": "seq-mcp-server",
+      "env": {
+        "SEQ_SERVER_URL": "${SEQ_SERVER_URL:-http://localhost:5341}",
+        "SEQ_API_KEY": "${SEQ_API_KEY}"
+      }
+    },
+    "kubernetes": {
+      "_description": "Kubernetes - pods, deployments, services, configmaps",
+      "_env": ["K8S_READONLY (optional)"],
+      "command": "npx",
+      "args": ["-y", "mcp-server-kubernetes"],
+      "env": {
+        "ALLOW_ONLY_NON_DESTRUCTIVE_TOOLS": "${K8S_READONLY:-false}"
+      }
+    },
+    "pdf-reader": {
+      "_description": "PDF Reader - чтение и анализ PDF документов",
+      "_env": [],
+      "command": "npx",
+      "args": ["-y", "@sylphx/pdf-reader-mcp"]
+    },
+    "google-drive": {
+      "_description": "Google Drive - работа с Google Docs, Sheets, Slides",
+      "_env": ["GOOGLE_DRIVE_OAUTH_CREDENTIALS"],
+      "command": "npx",
+      "args": ["-y", "@piotr-agier/google-drive-mcp"],
+      "env": {
+        "GOOGLE_DRIVE_OAUTH_CREDENTIALS": "${GOOGLE_DRIVE_OAUTH_CREDENTIALS}"
+      }
+    },
+    "mlflow": {
+      "_description": "MLflow - experiment tracking, model registry, ML lifecycle",
+      "_env": ["MLFLOW_TRACKING_URI"],
+      "command": "uvx",
+      "args": ["mcp-server-mlflow"],
+      "env": {
+        "MLFLOW_TRACKING_URI": "${MLFLOW_TRACKING_URI:-http://localhost:5000}"
+      }
+    },
+    "wandb": {
+      "_description": "Weights & Biases - ML experiment tracking, visualizations",
+      "_env": ["WANDB_API_KEY"],
+      "command": "npx",
+      "args": ["-y", "@wandb/mcp-server"],
+      "env": {
+        "WANDB_API_KEY": "${WANDB_API_KEY}"
+      }
+    },
+    "huggingface": {
+      "_description": "HuggingFace - models hub, datasets, tokenizers",
+      "_env": ["HUGGINGFACE_TOKEN"],
+      "command": "npx",
+      "args": ["-y", "@huggingface/mcp-server"],
+      "env": {
+        "HUGGINGFACE_TOKEN": "${HUGGINGFACE_TOKEN}",
+        "HF_TOKEN": "${HF_TOKEN}"
+      }
+    },
+    "filesystem": {
+      "_description": "Filesystem - локальные файлы и директории (настройте пути под проект)",
+      "_env": [],
+      "_note": "Измените --allow-read и --allow-write под ваш проект",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "--allow-read", ".", "--allow-write", "src", "--allow-write", "docs"]
+    }
+  }
+}

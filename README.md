@@ -271,24 +271,30 @@ claude
 
 ## MCP Servers
 
-Таблица показывает какие MCP серверы используются каждым плагином:
+MCP конфигурации централизованы в папке `mcp/`. Плагины не содержат `.mcp.json` файлов.
 
-| Plugin | GitLab | Notion | GitHub | MLflow | W&B | HuggingFace | Supabase | PDF Reader | Google Drive |
-|--------|--------|--------|--------|--------|-----|-------------|----------|------------|--------------|
-| **dex-dotnet-developer** | ✅ | ✅ | - | - | - | - | 🔵 | - | - |
-| **dex-dotnet-architect** | ✅ | ✅ | ✅ | - | - | - | - | - | - |
-| **dex-python-ml-developer** | ✅ | ✅ | - | ✅ | ✅ | ✅ | - | - | - |
-| **dex-product-manager** | - | ✅ | - | - | - | - | - | - | - |
-| **dex-system-analyst** | - | ✅ | - | - | - | - | - | ✅ | 🔵 |
-| **dex-quality-assurance** | ✅ | - | - | - | - | - | - | - | - |
-| **dex-devops** | ✅ | - | - | - | - | - | - | - | - |
+### Быстрая настройка
 
-**Легенда:**
-- ✅ Required
-- 🔵 Optional
-- \- Not used
+1. Посмотрите в `plugin.json` поле `mcpServers` — какие серверы нужны плагину
+2. Скопируйте нужные серверы из `mcp/mcp-template.json` в свой `.mcp.json`
+3. Настройте переменные окружения в `.env` (см. `run-claude/sample.env`)
+4. Проверьте: `/mcp list`
 
-**Настройка MCP серверов:** См. [CREDENTIALS.md](./CREDENTIALS.md) для инструкций по получению API ключей.
+### MCP серверы по плагинам
+
+| Плагин | Required | Optional |
+|--------|----------|----------|
+| **dex-product-manager** | notion | - |
+| **dex-system-analyst** | notion, pdf-reader | google-drive |
+| **dex-dotnet-developer** | gitlab, notion | postgres, rabbitmq, elasticsearch, redis, docker, seq, kubernetes |
+| **dex-dotnet-architect** | github, gitlab, notion | filesystem |
+| **dex-python-ml-developer** | gitlab, notion | mlflow, wandb, huggingface |
+| **dex-quality-assurance** | gitlab | filesystem |
+| **dex-devops** | gitlab | - |
+
+**Подробная документация:** [mcp/README.md](./mcp/README.md)
+
+**Получение API ключей:** [CREDENTIALS.md](./CREDENTIALS.md)
 
 ---
 
@@ -310,20 +316,22 @@ claude-code-marketplace/
 ├── LICENSE                     # GPL v3.0
 ├── CLAUDE.md                   # Проектные инструкции для Claude Code
 │
+├── mcp/                        # Централизованный каталог MCP серверов
+│   ├── README.md              # Документация по настройке MCP
+│   └── mcp-template.json      # Все 16 MCP серверов в одном файле
+│
 ├── run-claude/                 # Папка для запуска Claude Code
-│   ├── .mcp.json              # Конфигурация MCP серверов
+│   ├── .mcp.json              # Конфигурация MCP серверов (пример)
 │   ├── .env                   # Переменные окружения (не коммитить!)
 │   ├── sample.env             # Шаблон .env файла
 │   ├── settings.json          # Настройки Claude Code
 │   ├── system-prompt.md       # Системный промпт для проекта
-│   ├── run-claude.bat         # Батник для запуска на Windows
-│   └── prompts/               # Дополнительные промпты (опционально)
+│   └── run-claude.sh/.ps1     # Скрипты запуска
 │
 ├── plugins/                    # Плагины для разных ролей
 │   ├── dex-dotnet-developer/
 │   │   ├── .claude-plugin/
-│   │   │   └── plugin.json
-│   │   ├── .mcp.json
+│   │   │   └── plugin.json   # + mcpServers field
 │   │   ├── README.md
 │   │   ├── agents/
 │   │   ├── commands/
@@ -414,7 +422,7 @@ GPL v3.0 — см. [LICENSE](./LICENSE)
 
 **DEX Team**
 
-**Version:** 2.0.0
+**Version:** 3.0.0
 **Last Updated:** 2025-11-26
 
 ---
