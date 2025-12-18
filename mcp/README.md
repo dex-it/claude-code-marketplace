@@ -16,10 +16,10 @@
 | Плагин | Required | Optional |
 |--------|----------|----------|
 | **dex-product-manager** | notion | - |
-| **dex-system-analyst** | notion, pdf-reader | google-drive |
+| **dex-system-analyst** | pdf-reader | notion, google-drive |
 | **dex-dotnet-developer** | gitlab, notion | postgres, rabbitmq, elasticsearch, redis, docker, seq, kubernetes |
 | **dex-dotnet-architect** | github, gitlab, notion | filesystem |
-| **dex-python-ml-developer** | gitlab, notion | mlflow, wandb, huggingface |
+| **dex-python-ml-developer** | gitlab | notion, mlflow, wandb, huggingface |
 | **dex-quality-assurance** | gitlab | filesystem |
 | **dex-devops** | gitlab | - |
 
