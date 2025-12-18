@@ -44,7 +44,7 @@ cp -r claude-code-marketplace/plugins/dex-python-ml-developer ~/.claude/plugins/
 ```bash
 # Экспортируйте необходимые переменные окружения
 export GITLAB_TOKEN="glpat-xxxxxxxxxxxxx"
-export NOTION_API_KEY="ntn-xxxxxxxxxxxxx"
+export NOTION_TOKEN="ntn_xxxxxxxxxxxxx"
 export GITHUB_TOKEN="ghp-xxxxxxxxxxxxx"  # Для dex-dotnet-architect
 
 # Для Python ML разработки:

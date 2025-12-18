@@ -323,7 +323,7 @@ allowed-tools: Read, Grep, Glob
 
 ### .NET Plugins
 - `${GITLAB_TOKEN}` - GitLab API
-- `${NOTION_API_KEY}` - Notion API
+- `${NOTION_TOKEN}` - Notion API
 - `${DATABASE_URL}` - PostgreSQL connection string
 - `${GITHUB_TOKEN}` - GitHub API
 - `${RABBITMQ_HOST}`, `${RABBITMQ_PORT}`, `${RABBITMQ_USER}`, `${RABBITMQ_PASSWORD}` - RabbitMQ
@@ -337,10 +337,10 @@ allowed-tools: Read, Grep, Glob
 - `${WANDB_API_KEY}` - Weights & Biases API key
 - `${HUGGINGFACE_TOKEN}` - HuggingFace API token
 - `${GITLAB_TOKEN}` - GitLab API
-- `${NOTION_TOKEN}` - Notion API (или `${NOTION_API_KEY}` для обратной совместимости)
+- `${NOTION_TOKEN}` - Notion API
 
 ### System Analyst Plugin
-- `${NOTION_TOKEN}` - Notion API (или `${NOTION_API_KEY}` для обратной совместимости)
+- `${NOTION_TOKEN}` - Notion API
 - `${GOOGLE_DRIVE_OAUTH_CREDENTIALS}` - путь к OAuth credentials JSON файлу (опционально)
 
 ## Известные особенности

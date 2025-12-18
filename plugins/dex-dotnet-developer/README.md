@@ -17,7 +17,7 @@
 ### Required
 ```bash
 export GITLAB_TOKEN="glpat-xxx"
-export NOTION_API_KEY="ntn_xxx"
+export NOTION_TOKEN="ntn_xxx"
 export DATABASE_URL="postgresql://user:pass@localhost:5432/db"
 export ELASTICSEARCH_URL="http://localhost:9200"
 export ELASTICSEARCH_API_KEY="xxx"

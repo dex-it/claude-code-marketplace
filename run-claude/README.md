@@ -88,7 +88,7 @@ SEQ_API_KEY=xxxxxxxxxxxxx
 MLFLOW_TRACKING_URI=http://localhost:5000
 
 # Notion workspace для документации этого проекта (опционально)
-NOTION_API_KEY=ntn-xxxxxxxxxxxxx
+NOTION_TOKEN=ntn-xxxxxxxxxxxxx
 ```
 
 **📖 Получение токенов:** см. [CREDENTIALS.md](../CREDENTIALS.md) в корне репозитория
@@ -183,7 +183,7 @@ run-claude/
 | `ELASTICSEARCH_URL`, `ELASTICSEARCH_API_KEY` | Elasticsearch этого проекта | dex-dotnet-developer | .env проекта |
 | `SEQ_SERVER_URL`, `SEQ_API_KEY` | Seq логирование этого проекта | dex-dotnet-developer | .env проекта |
 | `GITLAB_TOKEN` | GitLab PAT (может быть общий или специфичный) | dex-dotnet-developer, dex-python-ml-developer, dex-devops | .env проекта |
-| `NOTION_API_KEY` | Notion workspace этого проекта | dex-dotnet-developer, dex-product-manager | .env проекта |
+| `NOTION_TOKEN` | Notion workspace этого проекта | dex-dotnet-developer, dex-product-manager | .env проекта |
 | `MLFLOW_TRACKING_URI` | MLflow tracking server | dex-python-ml-developer | .env проекта |
 | `WANDB_API_KEY` | Weights & Biases | dex-python-ml-developer | .env проекта |
 

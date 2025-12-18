@@ -38,7 +38,7 @@ allowed-tools: Read, Write, Edit, Grep, Glob, Bash, AskUserQuestion
 
 3. **Переменные окружения:**
    - `${CONFLUENCE_URL}` → Confluence
-   - `${NOTION_API_KEY}` → Notion
+   - `${NOTION_TOKEN}` → Notion
    - `${GITBOOK_API_TOKEN}` → GitBook
 
 ### Запрос у пользователя
