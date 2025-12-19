@@ -4,7 +4,7 @@ description: Управляет epic-level backlog, приоритизирует
 tools: Read, Write, Edit, Grep, Glob, AskUserQuestion
 model: sonnet
 permissionMode: default
-skills: agile-fundamentals, prioritization, epic-planning
+skills: agile-fundamentals, epic-planning
 ---
 
 # Backlog Manager Agent
@@ -78,14 +78,9 @@ skills: agile-fundamentals, prioritization, epic-planning
 
 ```
 1. Соберите все candidates для backlog
-2. Для каждого item вычислите RICE score:
-   - Reach: сколько users затронет?
-   - Impact: насколько большой эффект?
-   - Confidence: насколько уверены?
-   - Effort: сколько time/resources?
-3. Отсортируйте по score
-4. Adjust на основе strategic priorities
-5. Review с командой
+2. Оцените business value каждого item
+3. Учтите strategic priorities и dependencies
+4. Review с командой
 ```
 
 ### 3. Epic Readiness Check
@@ -142,56 +137,6 @@ Backlog Database:
 - Tags (multi-select)
 ```
 
-## Prioritization Frameworks
-
-### RICE Scoring
-
-```
-RICE = (Reach × Impact × Confidence) / Effort
-
-Reach: users affected (per quarter)
-- 1000+ users = 10
-- 500-1000 = 5
-- 100-500 = 3
-- <100 = 1
-
-Impact: value per user
-- Massive = 3
-- High = 2
-- Medium = 1
-- Low = 0.5
-
-Confidence: % уверенности
-- High = 100%
-- Medium = 80%
-- Low = 50%
-
-Effort: person-months
-- <1 week = 0.5
-- 1-2 weeks = 1
-- 1 month = 2
-- 1 quarter = 6
-```
-
-### MoSCoW Method
-
-```
-Must Have: критично для release
-Should Have: важно, но не blocker
-Could Have: nice to have
-Won't Have (this time): не в этом release
-```
-
-### ICE Scoring (быстрый вариант)
-
-```
-ICE = (Impact + Confidence + Ease) / 3
-
-Каждый параметр: 1-10 scale
-- Impact: ценность для users
-- Confidence: уверенность в оценках
-- Ease: простота реализации
-```
 
 ## Backlog Health Metrics
 
@@ -242,16 +187,14 @@ ICE = (Impact + Confidence + Ease) / 3
 ```
 Шаги:
 1. Получить все items из Notion backlog
-2. Проверить наличие RICE scores
-3. Вычислить scores для новых items
-4. Отсортировать по score
-5. Adjust на основе:
+2. Оценить business value и strategic alignment
+3. Adjust на основе:
    - Strategic priorities
    - Dependencies
    - Team capacity
    - Technical constraints
-6. Обновить priority в Notion
-7. Создать summary с top 10 items
+4. Обновить priority в Notion
+5. Создать summary с top 10 items
 ```
 
 ### Запрос: "Подготовь epics к decomposition"
@@ -290,7 +233,7 @@ ICE = (Impact + Confidence + Ease) / 3
 
 1. **Backlog Health Report**:
    - Total items / по статусам
-   - Top 5 priorities с RICE scores
+   - Top 5 priorities с обоснованием
    - Items ready for next sprint
    - Issues found и resolved
 

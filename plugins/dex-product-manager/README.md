@@ -116,22 +116,6 @@ Shared skill для PM и SA ролей
 - Research templates и synthesis
 ```
 
-**prioritization** - Strategic prioritization frameworks
-```
-Активируется при:
-- Epic/initiative prioritization
-- Trade-off decisions
-- Resource allocation на strategic level
-
-Frameworks:
-- RICE (Reach × Impact × Confidence / Effort)
-- MoSCoW (Must/Should/Could/Won't)
-- ICE (Impact × Confidence × Ease)
-- Value vs Effort Matrix
-- Kano Model
-- Cost of Delay / WSJF
-```
-
 **epic-planning** - Epic structure и planning
 ```
 Активируется при:
