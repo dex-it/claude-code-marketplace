@@ -1,18 +1,10 @@
 ---
 name: metrics-analyst
-description: Агент для анализа продуктовых метрик и KPI
+description: Анализирует продуктовые метрики и KPI, выявляет insights, помогает с data-driven решениями. Triggers on "метрики", "metrics", "analytics", "KPI", "данные", "аналитика", "performance", "cohort analysis", "retention", "conversion"
 tools: Read, Write, Edit, Grep, Glob, Bash
 model: sonnet
 permissionMode: default
 skills: product-discovery
-triggers:
-  - метрики
-  - metrics
-  - analytics
-  - KPI
-  - данные
-  - аналитика
-  - performance
 ---
 
 # Metrics Analyst Agent

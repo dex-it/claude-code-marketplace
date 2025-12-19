@@ -1,17 +1,10 @@
 ---
 name: backlog-manager
-description: Агент для управления backlog и приоритизации задач на уровне epics
+description: Управляет epic-level backlog, приоритизирует задачи, проводит backlog grooming и refinement. Triggers on "backlog", "бэклог", "приоритизация", "prioritize", "backlog grooming", "refinement", "epic backlog", "backlog health"
 tools: Read, Write, Edit, Grep, Glob, AskUserQuestion
 model: sonnet
 permissionMode: default
 skills: agile-fundamentals, prioritization, epic-planning
-triggers:
-  - backlog
-  - бэклог
-  - приоритизация
-  - prioritize
-  - backlog grooming
-  - refinement
 ---
 
 # Backlog Manager Agent
