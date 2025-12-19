@@ -12,6 +12,9 @@
 claude-code-marketplace/
 ├── .claude-plugin/
 │   └── marketplace.json              # Каталог всех плагинов
+├── mcp/                              # Централизованный каталог MCP серверов
+│   ├── README.md                     # Документация по настройке MCP
+│   └── mcp-template.json             # Все 16 MCP серверов в одном файле
 ├── plugins/
 │   ├── dex-dotnet-developer/         # 🧑‍💻 .NET Разработчик
 │   ├── dex-dotnet-architect/         # 🏗️ Архитектор
@@ -20,6 +23,7 @@ claude-code-marketplace/
 │   ├── dex-devops/                   # ⚙️ DevOps инженер
 │   ├── dex-product-manager/          # 📊 Продакт-менеджер
 │   └── dex-python-ml-developer/      # 🤖 Python ML Разработчик
+├── run-claude/                       # Контекст выполнения
 ├── CLAUDE.md
 ├── README.md
 └── LICENSE
@@ -237,8 +241,7 @@ Dev Team оценивает и реализует
 ```
 plugin-name/
 ├── .claude-plugin/
-│   └── plugin.json          # Manifest (обязательно)
-├── .mcp.json                # MCP серверы (в корне!)
+│   └── plugin.json          # Manifest (обязательно) + mcpServers field
 ├── agents/                  # Субагенты
 │   └── agent-name.md
 ├── commands/                # Slash-команды
@@ -251,6 +254,8 @@ plugin-name/
 └── prompts/
     └── system-prompt.md     # Системный промпт роли
 ```
+
+**Примечание:** MCP конфиги вынесены в централизованный каталог `mcp/`. Плагины указывают нужные серверы в поле `mcpServers` в `plugin.json`.
 
 ## Конвенции
 
@@ -318,7 +323,7 @@ allowed-tools: Read, Grep, Glob
 
 ### .NET Plugins
 - `${GITLAB_TOKEN}` - GitLab API
-- `${NOTION_API_KEY}` - Notion API
+- `${NOTION_TOKEN}` - Notion API
 - `${DATABASE_URL}` - PostgreSQL connection string
 - `${GITHUB_TOKEN}` - GitHub API
 - `${RABBITMQ_HOST}`, `${RABBITMQ_PORT}`, `${RABBITMQ_USER}`, `${RABBITMQ_PASSWORD}` - RabbitMQ
@@ -332,10 +337,10 @@ allowed-tools: Read, Grep, Glob
 - `${WANDB_API_KEY}` - Weights & Biases API key
 - `${HUGGINGFACE_TOKEN}` - HuggingFace API token
 - `${GITLAB_TOKEN}` - GitLab API
-- `${NOTION_TOKEN}` - Notion API (или `${NOTION_API_KEY}` для обратной совместимости)
+- `${NOTION_TOKEN}` - Notion API
 
 ### System Analyst Plugin
-- `${NOTION_TOKEN}` - Notion API (или `${NOTION_API_KEY}` для обратной совместимости)
+- `${NOTION_TOKEN}` - Notion API
 - `${GOOGLE_DRIVE_OAUTH_CREDENTIALS}` - путь к OAuth credentials JSON файлу (опционально)
 
 ## Известные особенности
@@ -357,6 +362,41 @@ allowed-tools: Read, Grep, Glob
 - Mixed precision (AMP) для speedup на GPU
 
 ### Общие
-- .mcp.json должен быть в корне плагина, не в подпапке
 - Skills активируются автоматически по ключевым словам в description
 - **ВАЖНО:** При добавлении нового компонента (agent, skill, command) в существующий плагин обязательно увеличивайте версию в `plugin.json`. Claude Code кэширует метаданные плагинов и без изменения версии не подтянет обновления
+
+## MCP Server Configuration
+
+Начиная с версии 4.0, MCP конфигурации вынесены из плагинов в централизованный каталог `mcp/`.
+
+### Для пользователей
+
+1. Плагины **НЕ содержат** `.mcp.json` файлы
+2. Посмотрите в `plugin.json` поле `mcpServers` - какие серверы нужны плагину
+3. Скопируйте нужные серверы из `mcp/mcp-template.json` в свой `.mcp.json`
+4. Настройте переменные окружения согласно `run-claude/sample.env`
+
+### Структура mcpServers в plugin.json
+
+```json
+{
+  "mcpServers": {
+    "required": ["notion", "gitlab"],
+    "optional": ["postgres", "redis"]
+  }
+}
+```
+
+### MCP серверы по плагинам
+
+| Плагин | Required | Optional |
+|--------|----------|----------|
+| dex-product-manager | notion | - |
+| dex-system-analyst | pdf-reader | notion, google-drive |
+| dex-dotnet-developer | gitlab, notion | postgres, rabbitmq, elasticsearch, redis, docker, seq, kubernetes |
+| dex-dotnet-architect | github, gitlab, notion | filesystem |
+| dex-python-ml-developer | gitlab | notion, mlflow, wandb, huggingface |
+| dex-quality-assurance | gitlab | filesystem |
+| dex-devops | gitlab | - |
+
+Подробная документация: `mcp/README.md`

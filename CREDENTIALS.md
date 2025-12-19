@@ -6,6 +6,8 @@
 
 Плагины Claude Code используют MCP-серверы для интеграции с внешними сервисами. Каждый MCP-сервер требует определённые учётные данные, настроенные через переменные окружения.
 
+**Конфигурация MCP серверов:** Все MCP серверы собраны в каталоге `mcp/mcp-template.json`. Скопируйте нужные серверы в свой `.mcp.json` и настройте переменные окружения ниже.
+
 ## Способы настройки учётных данных
 
 ### Рекомендуемый: Системные переменные окружения
@@ -15,7 +17,7 @@
 ```bash
 # Добавьте в ~/.bashrc, ~/.zshrc или аналогичный файл
 export GITLAB_TOKEN="glpat-xxxxxxxxxxxxx"
-export NOTION_API_KEY="ntn_xxxxxxxxxxxxx"
+export NOTION_TOKEN="ntn_xxxxxxxxxxxxx"
 export GITHUB_TOKEN="ghp_xxxxxxxxxxxxx"
 export MLFLOW_TRACKING_URI="http://localhost:5000"
 export WANDB_API_KEY="xxxxxxxxxxxxx"
@@ -98,8 +100,7 @@ export GITLAB_API_URL="https://gitlab.yourcompany.com/api/v4"
 **Используется:** dex-product-manager, dex-dotnet-developer, dex-python-ml-developer, dex-system-analyst, dex-dotnet-architect
 
 **Обязательные переменные:**
-- `NOTION_TOKEN` — Internal Integration Token (рекомендуется)
-- `NOTION_API_KEY` — поддерживается для обратной совместимости
+- `NOTION_TOKEN` — Internal Integration Token
 
 **Инструкция по настройке:**
 
@@ -112,7 +113,7 @@ export GITLAB_API_URL="https://gitlab.yourcompany.com/api/v4"
 7. Скопируйте "Internal Integration Token" (начинается с `ntn_`)
 8. Задайте переменную окружения:
    ```bash
-   export NOTION_API_KEY="ntn_xxxxxxxxxxxxx"
+   export NOTION_TOKEN="ntn_xxxxxxxxxxxxx"
    ```
 
 **Важно:** Предоставьте интеграции доступ к страницам/базам данных:
@@ -206,7 +207,7 @@ export DATABRICKS_TOKEN="dapi_xxxxxxxxxxxxx"
 **Используется:** dex-python-ml-developer
 
 **Обязательные переменные:**
-- `HUGGINGFACE_TOKEN` или `HF_TOKEN` — API-токен HuggingFace
+- `HUGGINGFACE_TOKEN` — API-токен HuggingFace
 
 **Инструкция по настройке:**
 
@@ -222,8 +223,6 @@ export DATABRICKS_TOKEN="dapi_xxxxxxxxxxxxx"
 8. Задайте переменную окружения:
    ```bash
    export HUGGINGFACE_TOKEN="hf_xxxxxxxxxxxxx"
-   # или
-   export HF_TOKEN="hf_xxxxxxxxxxxxx"
    ```
 
 ---
@@ -423,7 +422,7 @@ claude
    - Убедитесь, что включены возможности Read/Write/Insert
 3. **Проверьте API-ключ:**
    ```bash
-   echo $NOTION_API_KEY
+   echo $NOTION_TOKEN
    ```
 
 ---
@@ -450,10 +449,9 @@ claude
 **Проблема:** Не удаётся скачать/загрузить модели
 
 **Решения:**
-1. **Попробуйте оба имени переменных:**
+1. **Проверьте переменную окружения:**
    ```bash
    export HUGGINGFACE_TOKEN="hf_xxxxx"
-   export HF_TOKEN="hf_xxxxx"
    ```
 2. **Проверьте тип токена** — используйте "Write" токен для загрузки
 3. **Проверьте токен:**
@@ -470,7 +468,7 @@ claude
 ```bash
 # .bashrc или .zshrc
 export GITLAB_TOKEN="glpat-xxxxxxxxxxxxx"
-export NOTION_API_KEY="ntn_xxxxxxxxxxxxx"
+export NOTION_TOKEN="ntn_xxxxxxxxxxxxx"
 export GITHUB_TOKEN="ghp_xxxxxxxxxxxxx"
 
 # Опционально: Supabase для доступа к базе данных
@@ -482,18 +480,17 @@ export SUPABASE_CONNECTION_STRING="postgresql://postgres:[password]@db.[project]
 ```bash
 # .bashrc или .zshrc
 export GITLAB_TOKEN="glpat-xxxxxxxxxxxxx"
-export NOTION_API_KEY="ntn_xxxxxxxxxxxxx"
+export NOTION_TOKEN="ntn_xxxxxxxxxxxxx"
 export MLFLOW_TRACKING_URI="http://localhost:5000"
 export WANDB_API_KEY="xxxxxxxxxxxxx"
 export HUGGINGFACE_TOKEN="hf_xxxxxxxxxxxxx"
-export HF_TOKEN="hf_xxxxxxxxxxxxx"
 ```
 
 ### Настройка для продакт-менеджмента
 
 ```bash
 # .bashrc или .zshrc
-export NOTION_API_KEY="ntn_xxxxxxxxxxxxx"
+export NOTION_TOKEN="ntn_xxxxxxxxxxxxx"
 ```
 
 ### Настройка для DevOps

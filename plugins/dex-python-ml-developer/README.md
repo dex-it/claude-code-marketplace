@@ -277,7 +277,7 @@ This plugin requires several MCP servers to be configured with environment varia
   - Required for: Experiment tracking, model versioning
 
 **HuggingFace Integration**
-- `HUGGINGFACE_TOKEN` (или `HF_TOKEN`) - HuggingFace API token
+- `HUGGINGFACE_TOKEN` - HuggingFace API token
   - Get from: https://huggingface.co/settings/tokens
   - Required for: Model download/upload, dataset access
 
@@ -288,7 +288,7 @@ This plugin requires several MCP servers to be configured with environment varia
   - Required for: Code versioning, CI/CD integration
 
 **Notion Integration**
-- `NOTION_API_KEY` - Notion API key
+- `NOTION_TOKEN` - Notion API token
   - Get from: https://www.notion.so/my-integrations
   - Required for: Documentation, experiment notes
 
@@ -306,7 +306,7 @@ This plugin requires several MCP servers to be configured with environment varia
    export WANDB_API_KEY="your-wandb-key"
    export HUGGINGFACE_TOKEN="your-hf-token"
    export GITLAB_TOKEN="glpat-xxxxx"
-   export NOTION_API_KEY="ntn_xxxxx"
+   export NOTION_TOKEN="ntn_xxxxx"
    ```
 3. **Start MLflow server** (if using local tracking):
    ```bash

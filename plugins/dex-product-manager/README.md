@@ -168,7 +168,7 @@ This plugin requires Notion MCP server to be configured with environment variabl
 ### Required Environment Variables
 
 **Notion Integration**
-- `NOTION_API_KEY` - Notion API key (Internal Integration Token)
+- `NOTION_TOKEN` - Notion API token (Internal Integration Token)
   - Get from: https://www.notion.so/my-integrations
   - Required for: Roadmap planning, backlog management, documentation
 
@@ -187,7 +187,7 @@ This plugin requires Notion MCP server to be configured with environment variabl
 
 3. **Set environment variable:**
    ```bash
-   export NOTION_API_KEY="ntn_xxxxxxxxxxxxx"
+   export NOTION_TOKEN="ntn_xxxxxxxxxxxxx"
    ```
 
 4. **Verify configuration:**
@@ -541,7 +541,7 @@ So I can maintain quality without slowing down the team"
 **Notion MCP не работает:**
 ```bash
 # Проверьте API key
-echo $NOTION_API_KEY
+echo $NOTION_TOKEN
 
 # Убедитесь что pages shared с integration
 # В Notion: Settings & Members → Connections → Add connection

@@ -172,7 +172,7 @@ This plugin requires multiple MCP servers to be configured with environment vari
   - Required for: Code analysis, architecture review
 
 **Notion Integration**
-- `NOTION_API_KEY` - Notion API key (Internal Integration Token)
+- `NOTION_TOKEN` - Notion API token (Internal Integration Token)
   - Get from: https://www.notion.so/my-integrations
   - Required for: ADR documentation, architecture documentation
 
@@ -188,7 +188,7 @@ This plugin requires multiple MCP servers to be configured with environment vari
    export GITHUB_TOKEN="ghp_xxxxxxxxxxxxx"
    export GITLAB_TOKEN="glpat-xxxxxxxxxxxxx"
    export GITLAB_API_URL="https://gitlab.com/api/v4"  # Optional
-   export NOTION_API_KEY="ntn_xxxxxxxxxxxxx"
+   export NOTION_TOKEN="ntn_xxxxxxxxxxxxx"
    ```
 
 3. **Verify configuration:**

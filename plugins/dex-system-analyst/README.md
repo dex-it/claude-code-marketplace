@@ -172,7 +172,7 @@ System Analyst system prompt с:
 ### Required Environment Variables
 
 **Notion Integration**
-- `NOTION_TOKEN` (рекомендуется) или `NOTION_API_KEY` (legacy) - Notion API key
+- `NOTION_TOKEN` - Notion API token
   - Get from: https://www.notion.so/my-integrations
   - Required for: Requirements documentation, User Stories, Process diagrams
 
@@ -389,7 +389,7 @@ Example workflow:
 **Notion integration not working:**
 ```bash
 # Verify API key
-echo $NOTION_API_KEY
+echo $NOTION_TOKEN
 
 # Check if pages are shared with integration
 # In Notion: Settings & Members → Connections

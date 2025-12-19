@@ -1,6 +1,6 @@
 {
   "name": "dex-dotnet-developer",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "description": "Полный набор инструментов для .NET разработчика: агенты для кодинга, отладки, тестирования, code review; skills по паттернам и best practices; интеграции с PostgreSQL, RabbitMQ, Elasticsearch, Redis, Docker, Kubernetes, Serilog/Seq",
   "author": {
     "name": "Dex Team",
@@ -24,5 +24,9 @@
     "seq"
   ],
   "repository": "https://github.com/dex-it/claude-code-marketplace",
-  "license": "GPL-3.0"
+  "license": "GPL-3.0",
+  "mcpServers": {
+    "required": ["gitlab", "notion"],
+    "optional": ["postgres", "rabbitmq", "elasticsearch", "redis", "docker", "seq", "kubernetes"]
+  }
 }
