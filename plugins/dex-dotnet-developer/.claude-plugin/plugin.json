@@ -1,6 +1,6 @@
 {
   "name": "dex-dotnet-developer",
-  "version": "4.0.0",
+  "version": "4.0.1",
   "description": "Полный набор инструментов для .NET разработчика: агенты для кодинга, отладки, тестирования, code review; skills по паттернам и best practices; интеграции с PostgreSQL, RabbitMQ, Elasticsearch, Redis, Docker, Kubernetes, Serilog/Seq",
   "author": {
     "name": "Dex Team",
@@ -25,8 +25,39 @@
   ],
   "repository": "https://github.com/dex-it/claude-code-marketplace",
   "license": "GPL-3.0",
-  "mcpServers": {
-    "required": ["gitlab", "notion"],
-    "optional": ["postgres", "rabbitmq", "elasticsearch", "redis", "docker", "seq", "kubernetes"]
-  }
+  "agents": [
+    "./agents/coding-assistant.md",
+    "./agents/bug-hunter.md",
+    "./agents/code-reviewer.md",
+    "./agents/test-writer.md",
+    "./agents/infrastructure-assistant.md",
+    "./agents/performance-analyst.md"
+  ],
+  "commands": [
+    "./commands/build.md",
+    "./commands/test.md",
+    "./commands/debug.md",
+    "./commands/refactor.md",
+    "./commands/ef-migration.md",
+    "./commands/rabbit-status.md",
+    "./commands/es-query.md",
+    "./commands/redis-cache.md",
+    "./commands/docker-build.md",
+    "./commands/logs.md",
+    "./commands/k8s-status.md"
+  ],
+  "skills": [
+    "./skills/dotnet-patterns/SKILL.md",
+    "./skills/ef-core/SKILL.md",
+    "./skills/async-patterns/SKILL.md",
+    "./skills/linq-optimization/SKILL.md",
+    "./skills/api-development/SKILL.md",
+    "./skills/testing-patterns/SKILL.md",
+    "./skills/rabbitmq-patterns/SKILL.md",
+    "./skills/elasticsearch-patterns/SKILL.md",
+    "./skills/redis-patterns/SKILL.md",
+    "./skills/docker-patterns/SKILL.md",
+    "./skills/logging-patterns/SKILL.md",
+    "./skills/k8s-patterns/SKILL.md"
+  ]
 }

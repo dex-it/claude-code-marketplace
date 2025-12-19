@@ -1,6 +1,6 @@
 {
   "name": "dex-quality-assurance",
-  "version": "4.0.0",
+  "version": "4.0.1",
   "description": "Инструменты для QA инженера: тест-дизайн, автоматизация тестов, bug tracking, API testing",
   "author": {
     "name": "Dex Team",
@@ -19,8 +19,17 @@
   ],
   "repository": "https://github.com/dex-it/claude-code-marketplace",
   "license": "GPL-3.0",
-  "mcpServers": {
-    "required": ["gitlab"],
-    "optional": ["filesystem"]
-  }
+  "agents": [
+    "./agents/test-analyst.md",
+    "./agents/test-automator.md",
+    "./agents/bug-reporter.md"
+  ],
+  "commands": [
+    "./commands/analyze-story.md",
+    "./commands/create-tests.md"
+  ],
+  "skills": [
+    "./skills/test-design/SKILL.md",
+    "./skills/api-testing/SKILL.md"
+  ]
 }

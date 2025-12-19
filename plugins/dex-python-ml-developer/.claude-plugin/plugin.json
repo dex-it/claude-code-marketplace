@@ -1,6 +1,6 @@
 {
   "name": "dex-python-ml-developer",
-  "version": "4.0.0",
+  "version": "4.0.1",
   "description": "Инструменты для Python ML разработчика: агенты для EDA, обучения, дебага, деплоя; skills по PyTorch, TensorFlow, classical ML, NLP, Computer Vision; команды для training, evaluation, optimization",
   "author": {
     "name": "Dex Team",
@@ -18,8 +18,27 @@
   ],
   "repository": "https://github.com/dex-it/claude-code-marketplace",
   "license": "GPL-3.0",
-  "mcpServers": {
-    "required": ["gitlab"],
-    "optional": ["notion", "mlflow", "wandb", "huggingface"]
-  }
+  "agents": [
+    "./agents/ml-experimenter.md",
+    "./agents/model-trainer.md",
+    "./agents/model-debugger.md",
+    "./agents/deployment-assistant.md",
+    "./agents/data-pipeline-builder.md"
+  ],
+  "commands": [
+    "./commands/train.md",
+    "./commands/evaluate.md",
+    "./commands/tune.md",
+    "./commands/profile.md",
+    "./commands/convert.md",
+    "./commands/serve.md"
+  ],
+  "skills": [
+    "./skills/pytorch-patterns/SKILL.md",
+    "./skills/tensorflow-patterns/SKILL.md",
+    "./skills/classical-ml/SKILL.md",
+    "./skills/nlp-transformers/SKILL.md",
+    "./skills/computer-vision/SKILL.md",
+    "./skills/ml-optimization/SKILL.md"
+  ]
 }

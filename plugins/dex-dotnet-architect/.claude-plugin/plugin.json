@@ -1,6 +1,6 @@
 {
   "name": "dex-dotnet-architect",
-  "version": "4.0.0",
+  "version": "4.0.1",
   "description": "Инструменты для .NET архитектора: Clean Architecture, DDD, микросервисы, ADR, C4 диаграммы",
   "author": {
     "name": "Dex Team",
@@ -17,8 +17,19 @@
   ],
   "repository": "https://github.com/dex-it/claude-code-marketplace",
   "license": "GPL-3.0",
-  "mcpServers": {
-    "required": ["github", "gitlab", "notion"],
-    "optional": ["filesystem"]
-  }
+  "agents": [
+    "./agents/architect.md",
+    "./agents/adr-writer.md",
+    "./agents/diagram-creator.md"
+  ],
+  "commands": [
+    "./commands/design.md",
+    "./commands/review.md",
+    "./commands/adr.md"
+  ],
+  "skills": [
+    "./skills/clean-architecture/SKILL.md",
+    "./skills/ddd-patterns/SKILL.md",
+    "./skills/microservices/SKILL.md"
+  ]
 }
