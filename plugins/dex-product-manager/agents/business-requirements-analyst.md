@@ -75,37 +75,9 @@ Analyze all possible usage scenarios:
    - User preferences
    - System variations
 
-**Template:**
-```markdown
-## Use Case: [Name]
+**Use Case Structure:** Actor, Goal, Frequency, Business Value → Preconditions → Main Flow → Alternative Flows → Edge Cases → Business Rules
 
-**Actor:** [Primary user/system]
-**Goal:** [What they want to achieve]
-**Frequency:** [How often this happens]
-**Business Value:** [Why this matters]
-
-### Preconditions
-- What must be true before this starts
-
-### Main Flow
-1. User does X
-2. System responds with Y
-3. User confirms Z
-
-### Alternative Flows
-- If A happens, then B
-- If C is missing, then D
-
-### Edge Cases
-- What if user has no data?
-- What if system is offline?
-- What if timeout occurs?
-
-### Business Rules
-- Constraint 1
-- Validation rule 2
-- Policy 3
-```
+См. skill `doc-worker` для детальных шаблонов use cases.
 
 ### Phase 3: Risk & Critical Analysis
 
@@ -133,235 +105,82 @@ Analyze all possible usage scenarios:
 - [ ] Stakeholder alignment: Do all parties agree?
 - [ ] Change management: Will users adopt it?
 
-**Risk Documentation Template:**
-```markdown
-## Risk: [Description]
-**Probability:** High/Medium/Low
-**Impact:** High/Medium/Low
-**Mitigation Strategy:** [How to prevent/reduce]
-**Contingency Plan:** [What if it happens]
-**Owner:** [Who monitors this]
-```
+**Risk Documentation:** Description, Probability (H/M/L), Impact (H/M/L), Mitigation Strategy, Contingency Plan, Owner
 
 ### Phase 4: Stakeholder Analysis
 
 Identify everyone involved:
 
-```markdown
-## Stakeholder Map
+**Stakeholder Categories:**
+- Primary (direct impact): Interest, Influence (H/M/L), Requirements, Success criteria
+- Secondary (indirect impact)
+- External: Regulators, Partners, Vendors, End users
 
-### Primary Stakeholders (Direct impact)
-- **[Role/Name]**
-  - Interest: What they care about
-  - Influence: High/Medium/Low
-  - Requirements: What they need
-  - Success criteria: How they measure success
-
-### Secondary Stakeholders (Indirect impact)
-- [Similar structure]
-
-### External Stakeholders
-- Regulators
-- Partners
-- Vendors
-- End users
-
-### RACI Matrix
-| Activity | Responsible | Accountable | Consulted | Informed |
-|----------|-------------|-------------|-----------|----------|
-| [Task]   | [Person]    | [Person]    | [Person]  | [Person] |
-```
+**RACI Matrix:** Responsible | Accountable | Consulted | Informed для каждой activity
 
 ### Phase 5: Implementation Decomposition
 
 Break down from general to specific:
 
-#### Level 1: Strategic Goals
-```markdown
-## Business Goals
-1. [Primary objective]
-   - KPI: [Metric to track]
-   - Target: [Specific number/outcome]
-   - Timeline: [When to achieve]
+#### Decomposition Levels:
+
+**Level 1: Strategic Goals**
+- Primary objective → KPI → Target → Timeline
+
+**Level 2: Tactical Objectives (Phases)**
+- Goal, Deliverables, Dependencies, Acceptance Criteria
+
+**Level 3: Detailed Tasks (Features)**
+- Data Requirements, Integrations, API Endpoints, Business Rules, Acceptance Criteria
+
+**Example:**
+```
+Epic: User Authentication
+├─ Phase 1: Foundation (L2)
+│  ├─ Feature: Registration (L3)
+│  ├─ Feature: Login (L3)
+│  └─ Feature: Password Reset (L3)
+└─ Phase 2: Advanced (L2)
+   ├─ Feature: 2FA (L3)
+   └─ Feature: Social Login (L3)
 ```
 
-#### Level 2: Tactical Objectives
-```markdown
-## Implementation Phases
+## Final Documentation
 
-### Phase 1: Foundation (Month 1-2)
-**Goal:** Set up core infrastructure
-**Deliverables:**
-- [ ] Database schema
-- [ ] API endpoints
-- [ ] Authentication system
+После завершения анализа создайте Business Requirements Document (BRD):
 
-**Dependencies:**
-- DevOps team for environment setup
-- Security team for auth review
+**Используйте skill `doc-worker`** для структуры и форматирования документа.
 
-**Acceptance Criteria:**
-- API responds in < 200ms
-- 99.9% uptime
-- Security audit passed
-```
+### BRD должен включать все собранные артефакты:
 
-#### Level 3: Detailed Tasks
-```markdown
-### Feature: User Registration
+1. **Executive Summary** (из Phase 1: Idea Formulation)
+   - Problem statement, proposed solution, expected benefits
 
-**Data Requirements:**
-- User entity: Id, Email, Password (hashed), CreatedAt
-- Email verification token
-- Audit log entries
+2. **Business Context & Objectives** (из Phase 1)
+   - Current state, strategic alignment, primary/secondary goals
 
-**Integrations:**
-- Email service (SendGrid/SMTP)
-- SMS provider (optional 2FA)
-- Analytics (track registrations)
+3. **Stakeholders** (из Phase 4)
+   - Stakeholder map с interests и requirements
+   - RACI matrix
 
-**API Endpoints:**
-- POST /api/auth/register
-- POST /api/auth/verify-email
-- POST /api/auth/resend-verification
+4. **Use Cases** (из Phase 2)
+   - Primary use cases с main flows
+   - Alternative flows и edge cases
+   - Business rules
 
-**Business Rules:**
-- Email must be unique
-- Password min 8 chars, 1 uppercase, 1 number
-- Verification link expires in 24h
-- Max 3 verification resends per hour
+5. **Functional & Non-Functional Requirements** (из Phase 5)
+   - Core features, data requirements, integrations
+   - Performance, security, scalability, compliance
 
-**Acceptance Criteria:**
-- [ ] User can register with email/password
-- [ ] Verification email sent within 30s
-- [ ] Duplicate email shows clear error
-- [ ] Invalid password shows requirements
-- [ ] Successful registration redirects to dashboard
-- [ ] All events logged to audit log
-```
+6. **Risks & Mitigation** (из Phase 3)
+   - Technical, business, process risks
+   - Mitigation strategies и contingency plans
 
-## Document Structure
+7. **Implementation Plan** (из Phase 5)
+   - Phases breakdown с milestones
+   - Dependencies, timeline, acceptance criteria
 
-Create a comprehensive Business Requirements Document (BRD):
-
-```markdown
-# Business Requirements Document: [Project Name]
-
-## 1. Executive Summary
-- Problem statement
-- Proposed solution
-- Expected benefits
-- High-level timeline
-- Budget estimate
-
-## 2. Business Context
-### 2.1 Background
-- Current situation
-- Pain points
-- Why now?
-
-### 2.2 Strategic Alignment
-- Company goals this supports
-- OKRs/KPIs impacted
-- Competitive advantage
-
-## 3. Stakeholders
-- Who, interests, requirements
-- RACI matrix
-
-## 4. Business Objectives
-### 4.1 Primary Goals
-- [Objective 1]
-  - Success metric
-  - Target value
-  - Timeline
-
-### 4.2 Secondary Goals
-- [Nice-to-have outcomes]
-
-## 5. Scope
-### 5.1 In Scope
-- What we will deliver
-
-### 5.2 Out of Scope
-- What we explicitly won't do
-
-### 5.3 Future Considerations
-- Ideas for later phases
-
-## 6. Use Cases & User Stories
-- Detailed scenarios
-- User personas
-- Journey maps
-
-## 7. Functional Requirements
-### 7.1 Core Features
-- Feature by feature breakdown
-
-### 7.2 Data Requirements
-- Entities, attributes, relationships
-- Data sources
-- Data quality rules
-
-### 7.3 Integration Requirements
-- External systems
-- APIs needed
-- Authentication methods
-
-## 8. Non-Functional Requirements
-- Performance (response time, throughput)
-- Scalability (concurrent users, data volume)
-- Security (authentication, authorization, encryption)
-- Reliability (uptime, disaster recovery)
-- Usability (accessibility, user experience)
-- Compliance (GDPR, SOC2, etc.)
-
-## 9. Constraints
-- Technical limitations
-- Budget constraints
-- Timeline constraints
-- Resource constraints
-- Regulatory constraints
-
-## 10. Risks & Mitigation
-- Risk register
-- Mitigation strategies
-- Contingency plans
-
-## 11. Dependencies
-- Other projects
-- External vendors
-- Infrastructure
-- Team availability
-
-## 12. Implementation Plan
-### 12.1 Phases
-- Phase breakdown
-- Milestones
-- Go-live criteria
-
-### 12.2 Rollout Strategy
-- Pilot users
-- Gradual rollout
-- Rollback plan
-
-### 12.3 Success Criteria
-- How we know we're done
-- How we measure success
-- Post-launch monitoring
-
-## 13. Acceptance Criteria
-- Functional acceptance
-- Performance acceptance
-- User acceptance
-- Business acceptance
-
-## 14. Appendices
-- Glossary
-- References
-- Technical diagrams
-- Research findings
-```
+**Референс к шаблонам:** См. skill `doc-worker`, разделы BRD/PRD templates для полной структуры документа.
 
 ## Critical Thinking Techniques
 

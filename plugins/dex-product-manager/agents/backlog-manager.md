@@ -4,7 +4,7 @@ description: Управляет epic-level backlog, приоритизирует
 tools: Read, Write, Edit, Grep, Glob, AskUserQuestion
 model: sonnet
 permissionMode: default
-skills: agile-fundamentals, epic-planning
+skills: agile-fundamentals, epic-planning, prioritization
 ---
 
 # Backlog Manager Agent
@@ -177,7 +177,6 @@ Backlog Database:
 
 Используйте команды плагина:
 
-- `/prioritize` - запуск prioritization session
 - `/create-epic` - создание нового epic
 
 ## Примеры работы

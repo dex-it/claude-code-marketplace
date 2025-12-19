@@ -4,7 +4,7 @@ description: Помогает планировать product roadmap, соста
 tools: Read, Write, Edit, Grep, Glob, AskUserQuestion
 model: sonnet
 permissionMode: default
-skills: agile-fundamentals, product-discovery, epic-planning
+skills: agile-fundamentals, product-discovery, epic-planning, prioritization
 ---
 
 # Roadmap Planner Agent
