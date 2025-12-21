@@ -241,7 +241,7 @@ Dev Team оценивает и реализует
 ```
 plugin-name/
 ├── .claude-plugin/
-│   └── plugin.json          # Manifest (обязательно) + mcpServers field
+│   └── plugin.json          # Manifest (обязательно)
 ├── agents/                  # Субагенты
 │   └── agent-name.md
 ├── commands/                # Slash-команды
@@ -255,7 +255,7 @@ plugin-name/
     └── system-prompt.md     # Системный промпт роли
 ```
 
-**Примечание:** MCP конфиги вынесены в централизованный каталог `mcp/`. Плагины указывают нужные серверы в поле `mcpServers` в `plugin.json`.
+**Примечание:** MCP конфиги вынесены в централизованный каталог `mcp/`. Плагины НЕ содержат `.mcp.json` файлов. Пользователи настраивают MCP серверы в своем `.mcp.json` согласно таблице "MCP серверы по плагинам" ниже.
 
 ## Конвенции
 
@@ -372,20 +372,10 @@ allowed-tools: Read, Grep, Glob
 ### Для пользователей
 
 1. Плагины **НЕ содержат** `.mcp.json` файлы
-2. Посмотрите в `plugin.json` поле `mcpServers` - какие серверы нужны плагину
-3. Скопируйте нужные серверы из `mcp/mcp-template.json` в свой `.mcp.json`
-4. Настройте переменные окружения согласно `run-claude/sample.env`
-
-### Структура mcpServers в plugin.json
-
-```json
-{
-  "mcpServers": {
-    "required": ["notion", "gitlab"],
-    "optional": ["postgres", "redis"]
-  }
-}
-```
+2. Плагины **НЕ содержат** поле `mcpServers` в `plugin.json` (это было удалено, так как не соответствует официальной схеме Claude Code)
+3. Посмотрите в таблице "MCP серверы по плагинам" ниже - какие серверы нужны плагину
+4. Скопируйте нужные серверы из `mcp/mcp-template.json` в свой `.mcp.json`
+5. Настройте переменные окружения согласно `run-claude/sample.env`
 
 ### MCP серверы по плагинам
 
