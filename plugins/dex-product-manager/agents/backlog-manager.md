@@ -173,11 +173,17 @@ Backlog Database:
 4. PM reviews stories for business value alignment
 5. Together prioritize stories within epic
 
-## Команды
+## Команды и вызовы
 
 Используйте команды плагина:
-
 - `/create-epic` - создание нового epic
+
+Для приоритизации используйте natural language:
+- "Приоритизируй backlog"
+- "Prioritize items"
+- "Проведи RICE scoring"
+
+Агент автоматически применит skill `prioritization` для систематической оценки.
 
 ## Примеры работы
 
