@@ -133,9 +133,9 @@ claude-code-marketplace/
 - `backlog-manager` - управление epic-level бэклогом
 - `metrics-analyst` - анализ продуктовых метрик и KPI
 
-**Команды:** `/create-epic`, `/prioritize`, `/release-notes`
+**Команды:** `/create-epic`, `/release-notes`
 
-**Skills:** agile-fundamentals, product-discovery, prioritization, epic-planning
+**Skills:** agile-fundamentals, product-discovery, epic-planning, prioritization, doc-worker
 
 **Роль:** Бизнес-требования, epic planning, стратегическая приоритизация, success metrics
 

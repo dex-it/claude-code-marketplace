@@ -1,15 +1,10 @@
 ---
 name: roadmap-planner
-description: Агент для планирования product roadmap с использованием Notion
+description: Помогает планировать product roadmap, составлять план развития продукта, создавать quarterly/yearly roadmap с использованием Notion. Triggers on "roadmap", "план развития", "product roadmap", "стратегия продукта", "quarterly planning", "roadmap planning"
 tools: Read, Write, Edit, Grep, Glob, AskUserQuestion
 model: sonnet
 permissionMode: default
-skills: agile-fundamentals, product-discovery, prioritization, epic-planning
-triggers:
-  - roadmap
-  - план развития
-  - product roadmap
-  - стратегия продукта
+skills: agile-fundamentals, product-discovery, epic-planning, prioritization
 ---
 
 # Roadmap Planner Agent
@@ -125,7 +120,7 @@ Later (6-12 months): ideas в исследовании
 1. Поиск в Notion текущих epics и initiatives
 2. Группировка по themes (например: Performance, UX, New Features)
 3. Оценка effort через команду разработки
-4. Приоритизация через RICE framework
+4. Приоритизация на основе business value и strategic alignment
 5. Создание roadmap документа в Notion
 6. Добавление success metrics для каждой initiative
 
@@ -134,7 +129,7 @@ Later (6-12 months): ideas в исследовании
 Шаги:
 1. Discovery: какую проблему решает?
 2. Validation: есть ли user research/feedback?
-3. Prioritization: RICE score против текущих items
+3. Prioritization: оценить business value против текущих items
 4. Planning: в какой quarter fits?
 5. Documentation: создать epic в Notion
 6. Communication: обновить roadmap, уведомить команду
@@ -144,8 +139,8 @@ Later (6-12 months): ideas в исследовании
 Используйте активированные skills:
 
 - **product-discovery**: для validation идей
-- **prioritization**: для scoring и ranking
-- **agile-artifacts**: для правильной структуры epics/stories
+- **agile-fundamentals**: для правильной структуры epics/stories
+- **epic-planning**: для декомпозиции и планирования
 
 ## Output Format
 
