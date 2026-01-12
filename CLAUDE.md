@@ -327,12 +327,12 @@ allowed-tools: Read, Grep, Glob
 - `${GITLAB_TOKEN}` - GitLab API
 - `${NOTION_TOKEN}` - Notion API
 - `${GITHUB_TOKEN}` - GitHub API
-- `${RABBITMQ_HOST}`, `${RABBITMQ_PORT}`, `${RABBITMQ_USER}`, `${RABBITMQ_PASSWORD}` - RabbitMQ
 - `${KAFKA_BROKERS}`, `${KAFKA_CLIENT_ID}`, `${KAFKA_SASL_*}` - Apache Kafka
 - `${SEQ_SERVER_URL}`, `${SEQ_API_KEY}` - Seq logging server
 - `${TEAMCITY_URL}`, `${TEAMCITY_TOKEN}`, `${MCP_MODE}` - TeamCity CI/CD
 - `${GRAFANA_URL}`, `${GRAFANA_API_KEY}` - Grafana monitoring
 - `${K8S_READONLY}` - Kubernetes read-only mode (true/false)
+- **RabbitMQ:** Подключение через MCP tool `rabbitmq_broker_initialize_connection()`
 - **Databases:** Конфигурируются в `tools.yaml` для genai-toolbox (см. `mcp/examples/toolbox-config.yaml`)
 
 ### Python ML Plugin

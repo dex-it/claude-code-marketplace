@@ -64,9 +64,12 @@
 
 | Сервер | Описание | Переменные |
 |--------|----------|------------|
-| **rabbitmq** | RabbitMQ - очереди сообщений | `RABBITMQ_HOST`, `RABBITMQ_PORT`, `RABBITMQ_USER`, `RABBITMQ_PASSWORD` |
+| **rabbitmq** | RabbitMQ - очереди, exchanges, bindings | Через MCP tool |
 | **kafka** | Apache Kafka - topics, consumers, consumer groups | `KAFKA_BROKERS`, `KAFKA_CLIENT_ID`, `KAFKA_SASL_*` |
 | **seq** | Seq - structured logging | `SEQ_SERVER_URL`, `SEQ_API_KEY` |
+
+**RabbitMQ MCP:** Подключение через tool `rabbitmq_broker_initialize_connection(hostname, username, password, port=5672, use_tls=False)`.
+[Docs](https://github.com/amazon-mq/mcp-server-rabbitmq)
 
 **Kafka MCP:** Go бинарник через Homebrew (`brew tap tuannvm/mcp && brew install kafka-mcp-server`).
 Поддержка SASL (plain, scram-sha-256, scram-sha-512) и TLS. [Docs](https://github.com/tuannvm/kafka-mcp-server)

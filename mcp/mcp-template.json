@@ -113,26 +113,13 @@
       ]
     },
     "rabbitmq": {
-      "_description": "RabbitMQ - message queues, exchanges, bindings",
-      "_env": [
-        "RABBITMQ_HOST",
-        "RABBITMQ_PORT",
-        "RABBITMQ_USER",
-        "RABBITMQ_PASSWORD"
-      ],
+      "_description": "RabbitMQ - message queues, exchanges, bindings, admin API",
+      "_env": [],
+      "_note": "Подключение через MCP tool: rabbitmq_broker_initialize_connection(hostname, username, password, port=5672, use_tls=False). Docs: https://github.com/amazon-mq/mcp-server-rabbitmq",
       "command": "uvx",
       "args": [
-        "mcp-server-rabbitmq",
-        "--rabbitmq-host",
-        "${RABBITMQ_HOST:-localhost}",
-        "--port",
-        "${RABBITMQ_PORT:-5672}",
-        "--username",
-        "${RABBITMQ_USER:-guest}",
-        "--password",
-        "${RABBITMQ_PASSWORD:-guest}",
-        "--api-port",
-        "${RABBITMQ_API_PORT:-15672}"
+        "amq-mcp-server-rabbitmq@latest",
+        "--allow-mutative-tools"
       ]
     },
     "kafka": {
