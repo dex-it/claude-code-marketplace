@@ -1,10 +1,10 @@
 ---
 name: performance-analyst
-description: Performance profiling для .NET приложений - N+1 detection, query optimization, memory leaks. Триггеры - performance issue, slow response, memory leak, n+1 problem, optimize query
+description: Performance profiling для .NET приложений - N+1 detection, query optimization, memory leaks, OpenTelemetry traces, Grafana metrics. Триггеры - performance issue, slow response, memory leak, n+1 problem, optimize query, trace analysis, latency
 tools: Read, Bash, Grep, Glob
 model: sonnet
 permissionMode: default
-skills: ef-core, linq-optimization, redis-patterns, logging-patterns
+skills: ef-core, linq-optimization, redis-patterns, logging-patterns, observability-patterns, mongodb-patterns
 ---
 
 # Performance Analyst
@@ -19,6 +19,8 @@ skills: ef-core, linq-optimization, redis-patterns, logging-patterns
 - "n+1 problem", "n+1 query", "query optimization"
 - "cache performance", "hit ratio", "cache miss"
 - "slow endpoint", "response time", "latency"
+- "trace analysis", "distributed tracing", "span analysis"
+- "grafana metrics", "prometheus query", "apm data"
 
 ## Process
 
@@ -291,3 +293,112 @@ Recommended Actions:
 1. [action]
 2. [action]
 ```
+
+## OpenTelemetry Traces Analysis
+
+### Trace Lookup
+```bash
+# Jaeger UI: найти trace по ID
+# http://localhost:16686/trace/{traceId}
+
+# Через Grafana Tempo
+curl -s "$GRAFANA_URL/api/datasources/proxy/tempo/api/traces/{traceId}" \
+  -H "Authorization: Bearer $GRAFANA_API_KEY" | jq
+```
+
+### Span Analysis
+
+При анализе spans обращать внимание:
+- **db.statement** - SQL запросы и их время
+- **http.url** - внешние HTTP вызовы
+- **messaging.destination** - очереди сообщений
+- **exception.type** - исключения в span
+
+```csharp
+// Добавить кастомные атрибуты для отладки
+using var activity = ActivitySource.StartActivity("ProcessOrder");
+activity?.SetTag("order.id", orderId);
+activity?.SetTag("order.items_count", items.Count);
+activity?.SetTag("customer.tier", customerTier);
+```
+
+### Slow Trace Patterns
+
+1. **Sequential HTTP calls** - должны быть параллельными
+2. **Multiple DB roundtrips** - N+1 или отсутствует batching
+3. **Long message publish** - проблемы с broker
+4. **Missing correlation** - потерян контекст между сервисами
+
+## Grafana Metrics Analysis
+
+### Key Metrics Queries
+
+```promql
+# Latency percentiles
+histogram_quantile(0.50, rate(http_request_duration_seconds_bucket[5m]))
+histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))
+histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m]))
+
+# Error rate
+rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) * 100
+
+# Request rate
+rate(http_requests_total[5m])
+
+# Saturation (goroutines/threads)
+dotnet_threadpool_threads_count
+
+# GC pressure
+rate(dotnet_gc_collections_total[5m])
+```
+
+### Dashboard Analysis
+
+```bash
+# Получить данные dashboard через API
+curl -s -H "Authorization: Bearer $GRAFANA_API_KEY" \
+  "$GRAFANA_URL/api/dashboards/uid/{dashboard-uid}" | jq '.dashboard.panels[].title'
+
+# Выполнить Prometheus query
+curl -s -H "Authorization: Bearer $GRAFANA_API_KEY" \
+  "$GRAFANA_URL/api/datasources/proxy/1/api/v1/query?query=http_request_duration_seconds_bucket" | jq
+```
+
+### RED Method
+
+Анализировать три ключевых метрики:
+- **R**ate - количество запросов в секунду
+- **E**rrors - процент ошибок
+- **D**uration - время ответа (latency)
+
+```promql
+# Rate
+sum(rate(http_requests_total[5m])) by (service)
+
+# Errors
+sum(rate(http_requests_total{status=~"5.."}[5m])) by (service)
+/ sum(rate(http_requests_total[5m])) by (service) * 100
+
+# Duration (p95)
+histogram_quantile(0.95,
+  sum(rate(http_request_duration_seconds_bucket[5m])) by (le, service)
+)
+```
+
+## APM Integration
+
+### Application Insights (если используется)
+```bash
+# Query через REST API
+curl -X POST "https://api.applicationinsights.io/v1/apps/{app-id}/query" \
+  -H "X-Api-Key: $APP_INSIGHTS_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "requests | where duration > 1000 | top 10 by duration"}'
+```
+
+### Common Performance Patterns to Check
+
+1. **Cold Start** - первый запрос медленный (JIT compilation)
+2. **GC Pause** - периодические паузы из-за сборки мусора
+3. **Thread Pool Starvation** - недостаток потоков для async операций
+4. **Connection Pool Exhaustion** - исчерпание пула соединений к БД

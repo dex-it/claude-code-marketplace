@@ -17,7 +17,7 @@
 |--------|----------|----------|
 | **dex-product-manager** | notion | - |
 | **dex-system-analyst** | pdf-reader | notion, google-drive |
-| **dex-dotnet-developer** | gitlab, notion | postgres, rabbitmq, elasticsearch, redis, docker, seq, kubernetes |
+| **dex-dotnet-developer** | gitlab, notion | genai-toolbox (databases), rabbitmq, kafka, docker, seq, kubernetes, teamcity, grafana, openapi |
 | **dex-dotnet-architect** | github, gitlab, notion | filesystem |
 | **dex-python-ml-developer** | gitlab | notion, mlflow, wandb, huggingface |
 | **dex-quality-assurance** | gitlab | filesystem |
@@ -39,21 +39,37 @@
 |--------|----------|------------|
 | **gitlab** | GitLab - repos, issues, MRs, CI/CD | `GITLAB_TOKEN`, `GITLAB_API_URL` |
 | **github** | GitHub - repos, issues, PRs, actions | `GITHUB_TOKEN` |
+| **teamcity** | TeamCity - builds, agents, test analysis (~77 tools) | `TEAMCITY_URL`, `TEAMCITY_TOKEN`, `MCP_MODE` |
 
-### Базы данных и хранилища
+### Базы данных (genai-toolbox)
 
-| Сервер | Описание | Переменные |
-|--------|----------|------------|
-| **postgres** | PostgreSQL (restricted mode) | `DATABASE_URL` |
-| **redis** | Redis - caching, sessions | `REDIS_URL` |
-| **elasticsearch** | Search и log analysis | `ELASTICSEARCH_URL`, `ELASTICSEARCH_API_KEY` |
+| Сервер | Описание | Конфигурация |
+|--------|----------|--------------|
+| **genai-toolbox** | Universal Database MCP | `tools.yaml` |
+
+**Поддерживаемые базы данных:**
+- PostgreSQL (+ AlloyDB, Cloud SQL)
+- MongoDB
+- Elasticsearch
+- Redis
+- MySQL, SQL Server
+- BigQuery, ClickHouse
+- Oracle, Cloud Spanner, Firestore
+
+**Настройка:** Создайте `tools.yaml` в корне проекта. Пример: [`mcp/examples/toolbox-config.yaml`](examples/toolbox-config.yaml)
+
+**Docs:** https://github.com/googleapis/genai-toolbox
 
 ### Message Queues и Logging
 
 | Сервер | Описание | Переменные |
 |--------|----------|------------|
 | **rabbitmq** | RabbitMQ - очереди сообщений | `RABBITMQ_HOST`, `RABBITMQ_PORT`, `RABBITMQ_USER`, `RABBITMQ_PASSWORD` |
+| **kafka** | Apache Kafka - topics, consumers, consumer groups | `KAFKA_BROKERS`, `KAFKA_CLIENT_ID`, `KAFKA_SASL_*` |
 | **seq** | Seq - structured logging | `SEQ_SERVER_URL`, `SEQ_API_KEY` |
+
+**Kafka MCP:** Go бинарник через Homebrew (`brew tap tuannvm/mcp && brew install kafka-mcp-server`).
+Поддержка SASL (plain, scram-sha-256, scram-sha-512) и TLS. [Docs](https://github.com/tuannvm/kafka-mcp-server)
 
 ### Контейнеры и оркестрация
 
@@ -62,6 +78,13 @@
 | **docker** | Docker - containers, images | - |
 | **kubernetes** | K8s - pods, deployments | `K8S_READONLY` |
 | **filesystem** | Локальные файлы (настройте пути) | - |
+
+### Мониторинг и API
+
+| Сервер | Описание | Переменные |
+|--------|----------|------------|
+| **grafana** | Grafana - dashboards, Prometheus metrics, Loki logs | `GRAFANA_URL`, `GRAFANA_API_KEY` |
+| **openapi** | OpenAPI/Swagger - API documentation generation | - |
 
 ### ML/AI инструменты
 
@@ -105,6 +128,47 @@
   }
 }
 ```
+
+### Для .NET Developer (с genai-toolbox)
+
+```json
+{
+  "mcpServers": {
+    "gitlab": {
+      "command": "uvx",
+      "args": ["mcp-server-gitlab"],
+      "env": {
+        "GITLAB_PERSONAL_ACCESS_TOKEN": "${GITLAB_TOKEN}",
+        "GITLAB_API_URL": "${GITLAB_API_URL:-https://gitlab.com/api/v4}"
+      }
+    },
+    "genai-toolbox": {
+      "command": "npx",
+      "args": ["-y", "@anthropic/toolbox-sdk", "--tools-file", "tools.yaml"]
+    },
+    "teamcity": {
+      "command": "npx",
+      "args": ["-y", "@daghis/teamcity-mcp"],
+      "env": {
+        "TEAMCITY_URL": "${TEAMCITY_URL}",
+        "TEAMCITY_TOKEN": "${TEAMCITY_TOKEN}",
+        "MCP_MODE": "${MCP_MODE:-dev}"
+      }
+    },
+    "grafana": {
+      "command": "npx",
+      "args": ["-y", "@grafana/mcp-grafana"],
+      "env": {
+        "GRAFANA_URL": "${GRAFANA_URL:-http://localhost:3000}",
+        "GRAFANA_API_KEY": "${GRAFANA_API_KEY}"
+      }
+    }
+  }
+}
+```
+
+**Примечание:** Для genai-toolbox создайте `tools.yaml` с конфигурацией баз данных.
+См. пример: [`mcp/examples/toolbox-config.yaml`](examples/toolbox-config.yaml)
 
 ## Настройка переменных окружения
 

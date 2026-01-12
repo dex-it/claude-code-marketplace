@@ -1,0 +1,222 @@
+# =============================================================================
+# genai-toolbox Configuration Example
+# https://github.com/googleapis/genai-toolbox
+# =============================================================================
+#
+# Copy this file to your project root as tools.yaml and customize.
+# Environment variables can be used with ${VAR_NAME:-default} syntax.
+#
+# Supported databases:
+# - PostgreSQL (+ AlloyDB, Cloud SQL)
+# - MongoDB
+# - Elasticsearch
+# - Redis
+# - MySQL
+# - SQL Server
+# - BigQuery
+# - ClickHouse
+# - Oracle
+# - Cloud Spanner
+# - Firestore
+
+# =============================================================================
+# SOURCES - Database connections
+# =============================================================================
+
+sources:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL
+  # ---------------------------------------------------------------------------
+  postgres-main:
+    kind: postgres
+    host: ${DATABASE_HOST:-localhost}
+    port: ${DATABASE_PORT:-5432}
+    database: ${DATABASE_NAME:-app}
+    user: ${DATABASE_USER:-postgres}
+    password: ${DATABASE_PASSWORD:-password}
+
+  # ---------------------------------------------------------------------------
+  # MongoDB
+  # ---------------------------------------------------------------------------
+  mongodb-main:
+    kind: mongodb
+    connectionString: ${MONGODB_URI:-mongodb://localhost:27017/app}
+
+  # ---------------------------------------------------------------------------
+  # Elasticsearch
+  # ---------------------------------------------------------------------------
+  elasticsearch-main:
+    kind: elasticsearch
+    addresses:
+      - ${ELASTICSEARCH_URL:-http://localhost:9200}
+    # apiKey: ${ELASTICSEARCH_API_KEY}  # Uncomment if using API key auth
+
+  # ---------------------------------------------------------------------------
+  # Redis
+  # ---------------------------------------------------------------------------
+  redis-main:
+    kind: redis
+    address: ${REDIS_URL:-localhost:6379}
+    # password: ${REDIS_PASSWORD}  # Uncomment if using password
+
+# =============================================================================
+# TOOLS - Database operations
+# =============================================================================
+
+tools:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL Tools
+  # ---------------------------------------------------------------------------
+  pg-select:
+    kind: postgres-sql
+    source: postgres-main
+    description: Execute SELECT query on PostgreSQL database
+    statement: |
+      SELECT * FROM {{table}}
+      WHERE {{condition:-1=1}}
+      ORDER BY {{order_by:-id}}
+      LIMIT {{limit:-100}}
+
+  pg-tables:
+    kind: postgres-sql
+    source: postgres-main
+    description: List all tables in PostgreSQL database
+    statement: |
+      SELECT table_name, table_type
+      FROM information_schema.tables
+      WHERE table_schema = 'public'
+      ORDER BY table_name
+
+  pg-columns:
+    kind: postgres-sql
+    source: postgres-main
+    description: Get columns info for a table
+    statement: |
+      SELECT column_name, data_type, is_nullable, column_default
+      FROM information_schema.columns
+      WHERE table_name = '{{table}}'
+      ORDER BY ordinal_position
+
+  pg-indexes:
+    kind: postgres-sql
+    source: postgres-main
+    description: List indexes for a table
+    statement: |
+      SELECT indexname, indexdef
+      FROM pg_indexes
+      WHERE tablename = '{{table}}'
+
+  # ---------------------------------------------------------------------------
+  # MongoDB Tools
+  # ---------------------------------------------------------------------------
+  mongo-find:
+    kind: mongodb-find
+    source: mongodb-main
+    description: Find documents in MongoDB collection
+    collection: "{{collection}}"
+    filter: "{{filter:-{}}}"
+    limit: "{{limit:-100}}"
+
+  mongo-aggregate:
+    kind: mongodb-aggregate
+    source: mongodb-main
+    description: Run aggregation pipeline on MongoDB collection
+    collection: "{{collection}}"
+    pipeline: "{{pipeline}}"
+
+  mongo-collections:
+    kind: mongodb-command
+    source: mongodb-main
+    description: List all collections in MongoDB database
+    command:
+      listCollections: 1
+
+  # ---------------------------------------------------------------------------
+  # Elasticsearch Tools
+  # ---------------------------------------------------------------------------
+  es-search:
+    kind: elasticsearch-search
+    source: elasticsearch-main
+    description: Search documents in Elasticsearch index
+    index: "{{index}}"
+    query: "{{query}}"
+    size: "{{size:-10}}"
+
+  es-indices:
+    kind: elasticsearch-cat
+    source: elasticsearch-main
+    description: List all Elasticsearch indices
+    endpoint: indices
+    params:
+      format: json
+
+  # ---------------------------------------------------------------------------
+  # Redis Tools
+  # ---------------------------------------------------------------------------
+  redis-get:
+    kind: redis-get
+    source: redis-main
+    description: Get value by key from Redis
+
+  redis-keys:
+    kind: redis-keys
+    source: redis-main
+    description: List Redis keys matching pattern
+    pattern: "{{pattern:-*}}"
+
+  redis-info:
+    kind: redis-info
+    source: redis-main
+    description: Get Redis server information
+
+# =============================================================================
+# TOOLSETS - Group tools by purpose
+# =============================================================================
+
+toolsets:
+  # All database tools
+  all-databases:
+    - pg-select
+    - pg-tables
+    - pg-columns
+    - pg-indexes
+    - mongo-find
+    - mongo-aggregate
+    - mongo-collections
+    - es-search
+    - es-indices
+    - redis-get
+    - redis-keys
+    - redis-info
+
+  # PostgreSQL only
+  postgresql:
+    - pg-select
+    - pg-tables
+    - pg-columns
+    - pg-indexes
+
+  # MongoDB only
+  mongodb:
+    - mongo-find
+    - mongo-aggregate
+    - mongo-collections
+
+  # Elasticsearch only
+  elasticsearch:
+    - es-search
+    - es-indices
+
+  # Redis only
+  redis:
+    - redis-get
+    - redis-keys
+    - redis-info
+
+  # Read-only tools for production
+  readonly:
+    - pg-select
+    - pg-tables
+    - mongo-find
+    - es-search
+    - redis-get

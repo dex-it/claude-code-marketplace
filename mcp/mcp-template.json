@@ -12,13 +12,15 @@
     "dex-dotnet-developer": [
       "gitlab",
       "notion",
-      "postgres",
+      "genai-toolbox (PostgreSQL, MongoDB, Elasticsearch, Redis)",
       "rabbitmq",
-      "elasticsearch",
-      "redis",
+      "kafka (optional)",
       "docker",
       "seq",
-      "kubernetes"
+      "kubernetes",
+      "teamcity (optional)",
+      "grafana (optional)",
+      "openapi (optional)"
     ],
     "dex-dotnet-architect": [
       "github",
@@ -96,19 +98,19 @@
         "GITHUB_TOKEN": "${GITHUB_TOKEN}"
       }
     },
-    "postgres": {
-      "_description": "PostgreSQL - database queries, schema exploration (restricted mode)",
+    "genai-toolbox": {
+      "_description": "Universal Database MCP - PostgreSQL, MongoDB, Elasticsearch, Redis, MySQL, BigQuery, ClickHouse, Oracle, SQL Server и другие",
       "_env": [
-        "DATABASE_URL"
+        "TOOLBOX_CONFIG (optional, default: tools.yaml)"
       ],
-      "command": "uvx",
+      "_note": "Конфигурация баз данных в tools.yaml. Docs: https://github.com/googleapis/genai-toolbox. Пример: mcp/examples/toolbox-config.yaml",
+      "command": "npx",
       "args": [
-        "postgres-mcp",
-        "--access-mode=restricted"
-      ],
-      "env": {
-        "DATABASE_URI": "${DATABASE_URL:-postgresql://user:password@localhost:5432/dbname}"
-      }
+        "-y",
+        "@anthropic/toolbox-sdk",
+        "--tools-file",
+        "${TOOLBOX_CONFIG:-tools.yaml}"
+      ]
     },
     "rabbitmq": {
       "_description": "RabbitMQ - message queues, exchanges, bindings",
@@ -133,42 +135,23 @@
         "${RABBITMQ_API_PORT:-15672}"
       ]
     },
-    "elasticsearch": {
-      "_description": "Elasticsearch - search, analytics, log analysis",
+    "kafka": {
+      "_description": "Apache Kafka - topics, producers, consumers, consumer groups, cluster health",
       "_env": [
-        "ELASTICSEARCH_URL",
-        "ELASTICSEARCH_API_KEY"
+        "KAFKA_BROKERS",
+        "KAFKA_CLIENT_ID (optional)",
+        "KAFKA_SASL_MECHANISM (optional)",
+        "KAFKA_SASL_USERNAME (optional)",
+        "KAFKA_SASL_PASSWORD (optional)",
+        "KAFKA_TLS_ENABLE (optional)"
       ],
-      "command": "docker",
-      "args": [
-        "run",
-        "-i",
-        "--rm",
-        "-e",
-        "ES_URL",
-        "-e",
-        "ES_API_KEY",
-        "docker.elastic.co/mcp/elasticsearch",
-        "stdio"
-      ],
+      "_note": "Go binary via Homebrew: brew tap tuannvm/mcp && brew install kafka-mcp-server. SASL auth: plain, scram-sha-256, scram-sha-512. Docs: https://github.com/tuannvm/kafka-mcp-server",
+      "command": "kafka-mcp-server",
       "env": {
-        "ES_URL": "${ELASTICSEARCH_URL:-http://localhost:9200}",
-        "ES_API_KEY": "${ELASTICSEARCH_API_KEY}"
+        "KAFKA_BROKERS": "${KAFKA_BROKERS:-localhost:9092}",
+        "KAFKA_CLIENT_ID": "${KAFKA_CLIENT_ID:-kafka-mcp-server}",
+        "MCP_TRANSPORT": "stdio"
       }
-    },
-    "redis": {
-      "_description": "Redis - caching, session storage, pub/sub",
-      "_env": [
-        "REDIS_URL"
-      ],
-      "command": "uvx",
-      "args": [
-        "--from",
-        "redis-mcp-server@latest",
-        "redis-mcp-server",
-        "--url",
-        "${REDIS_URL:-redis://localhost:6379/0}"
-      ]
     },
     "docker": {
       "_description": "Docker - containers, images, networks, volumes",
@@ -282,6 +265,52 @@
         "src",
         "--allow-write",
         "docs"
+      ]
+    },
+    "teamcity": {
+      "_description": "TeamCity - CI/CD builds, projects, agents, test analysis (~77 tools in dev mode)",
+      "_env": [
+        "TEAMCITY_URL",
+        "TEAMCITY_TOKEN",
+        "MCP_MODE (optional)"
+      ],
+      "_note": "Requires Node.js >= 20.10.0. Source: https://github.com/Daghis/teamcity-mcp",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@daghis/teamcity-mcp"
+      ],
+      "env": {
+        "TEAMCITY_URL": "${TEAMCITY_URL}",
+        "TEAMCITY_TOKEN": "${TEAMCITY_TOKEN}",
+        "MCP_MODE": "${MCP_MODE:-dev}"
+      }
+    },
+    "grafana": {
+      "_description": "Grafana - dashboards, Prometheus metrics, Loki logs, incidents",
+      "_env": [
+        "GRAFANA_URL",
+        "GRAFANA_API_KEY"
+      ],
+      "_note": "Requires Grafana 9.0+. Use --disable-write for read-only mode",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@grafana/mcp-grafana"
+      ],
+      "env": {
+        "GRAFANA_URL": "${GRAFANA_URL:-http://localhost:3000}",
+        "GRAFANA_API_KEY": "${GRAFANA_API_KEY}"
+      }
+    },
+    "openapi": {
+      "_description": "OpenAPI/Swagger - API documentation validation and dynamic tools",
+      "_env": [],
+      "_note": "Transforms Swagger specs into dynamic tools. Source: https://github.com/danishjsheikh/swagger-mcp",
+      "command": "npx",
+      "args": [
+        "-y",
+        "swagger-mcp"
       ]
     }
   }
