@@ -14,7 +14,7 @@ claude-code-marketplace/
 │   └── marketplace.json              # Каталог всех плагинов
 ├── mcp/                              # Централизованный каталог MCP серверов
 │   ├── README.md                     # Документация по настройке MCP
-│   └── mcp-template.json             # Все 16 MCP серверов в одном файле
+│   └── mcp-template.json             # Все 18 MCP серверов в одном файле
 ├── plugins/
 │   ├── dex-dotnet-developer/         # 🧑‍💻 .NET Разработчик
 │   ├── dex-dotnet-architect/         # 🏗️ Архитектор
@@ -35,21 +35,23 @@ claude-code-marketplace/
 
 **Для:** .NET разработчиков (Full-stack с инфраструктурой)
 
-**Агенты (6):**
+**Агенты (8):**
 - `coding-assistant` - написание кода, SOLID, паттерны
 - `bug-hunter` - поиск и исправление багов
 - `code-reviewer` - code review, безопасность
 - `test-writer` - генерация тестов xUnit/Moq
-- `infrastructure-assistant` - PostgreSQL, RabbitMQ, Redis, ES, Docker
-- `performance-analyst` - N+1, профилирование, memory leaks
+- `infrastructure-assistant` - PostgreSQL, MongoDB, RabbitMQ, Kafka, Redis, ES, Docker, Grafana, TeamCity
+- `performance-analyst` - N+1, profiling, memory leaks, OpenTelemetry traces
+- `ci-cd-specialist` - GitLab CI + TeamCity pipelines
+- `api-designer` - OpenAPI/Swagger, API versioning
 
-**Команды (11):** `/build`, `/test`, `/debug`, `/refactor`, `/ef-migration`, `/rabbit-status`, `/es-query`, `/redis-cache`, `/docker-build`, `/logs`, `/k8s-status`
+**Команды (17):** `/build`, `/test`, `/debug`, `/refactor`, `/ef-migration`, `/rabbit-status`, `/kafka-status`, `/es-query`, `/redis-cache`, `/docker-build`, `/logs`, `/k8s-status`, `/teamcity-status`, `/api-docs`, `/health-check`, `/metrics`, `/mongo-query`
 
-**Skills (12):** dotnet-patterns, ef-core, async-patterns, linq-optimization, api-development, testing-patterns, rabbitmq-patterns, elasticsearch-patterns, redis-patterns, docker-patterns, logging-patterns, k8s-patterns
+**Skills (17):** dotnet-patterns, ef-core, async-patterns, linq-optimization, api-development, api-documentation, testing-patterns, rabbitmq-patterns, kafka-patterns, elasticsearch-patterns, redis-patterns, mongodb-patterns, docker-patterns, k8s-patterns, teamcity-patterns, logging-patterns, observability-patterns
 
-**MCP (9):** GitLab, PostgreSQL (postgres-mcp), Notion, RabbitMQ, Elasticsearch, Redis, Docker, Seq, Kubernetes
+**MCP (11):** GitLab, Notion, genai-toolbox (PostgreSQL/MongoDB/Elasticsearch/Redis), RabbitMQ, Kafka, Docker, Seq, Kubernetes, TeamCity, Grafana, OpenAPI
 
-**CLI Fallbacks:** psql, rabbitmqadmin, redis-cli, curl (ES), docker/docker-compose, kubectl/helm
+**CLI Fallbacks:** psql, mongosh, rabbitmqadmin, kafka-topics.sh, redis-cli, curl (ES), docker/docker-compose, kubectl/helm
 
 ---
 
@@ -324,13 +326,14 @@ allowed-tools: Read, Grep, Glob
 ### .NET Plugins
 - `${GITLAB_TOKEN}` - GitLab API
 - `${NOTION_TOKEN}` - Notion API
-- `${DATABASE_URL}` - PostgreSQL connection string
 - `${GITHUB_TOKEN}` - GitHub API
-- `${RABBITMQ_HOST}`, `${RABBITMQ_PORT}`, `${RABBITMQ_USER}`, `${RABBITMQ_PASSWORD}` - RabbitMQ
-- `${ELASTICSEARCH_URL}`, `${ELASTICSEARCH_API_KEY}` - Elasticsearch
-- `${REDIS_URL}` - Redis connection string
+- `${KAFKA_BROKERS}`, `${KAFKA_CLIENT_ID}`, `${KAFKA_SASL_*}` - Apache Kafka
 - `${SEQ_SERVER_URL}`, `${SEQ_API_KEY}` - Seq logging server
+- `${TEAMCITY_URL}`, `${TEAMCITY_TOKEN}`, `${MCP_MODE}` - TeamCity CI/CD
+- `${GRAFANA_URL}`, `${GRAFANA_API_KEY}` - Grafana monitoring
 - `${K8S_READONLY}` - Kubernetes read-only mode (true/false)
+- **RabbitMQ:** Подключение через MCP tool `rabbitmq_broker_initialize_connection()`
+- **Databases:** Конфигурируются в `tools.yaml` для genai-toolbox (см. `mcp/examples/toolbox-config.yaml`)
 
 ### Python ML Plugin
 - `${MLFLOW_TRACKING_URI}` - MLflow tracking server URL
@@ -349,6 +352,7 @@ allowed-tools: Read, Grep, Glob
 - ConfigureAwait(false) НЕ нужен в ASP.NET Core
 - Для read-only запросов использовать `AsNoTracking()`
 - RabbitMQ: Implement idempotency, use dead-letter queues
+- Kafka: EnableIdempotence=true, manual offset commit, consumer groups
 - Redis: Set TTL on all keys, use SCAN not KEYS
 - Elasticsearch: Use aliases for zero-downtime reindexing
 - Docker: Multi-stage builds, non-root user
@@ -383,7 +387,7 @@ allowed-tools: Read, Grep, Glob
 |--------|----------|----------|
 | dex-product-manager | notion | - |
 | dex-system-analyst | pdf-reader | notion, google-drive |
-| dex-dotnet-developer | gitlab, notion | postgres, rabbitmq, elasticsearch, redis, docker, seq, kubernetes |
+| dex-dotnet-developer | gitlab, notion | genai-toolbox, rabbitmq, kafka, docker, seq, kubernetes, teamcity, grafana, openapi |
 | dex-dotnet-architect | github, gitlab, notion | filesystem |
 | dex-python-ml-developer | gitlab | notion, mlflow, wandb, huggingface |
 | dex-quality-assurance | gitlab | filesystem |

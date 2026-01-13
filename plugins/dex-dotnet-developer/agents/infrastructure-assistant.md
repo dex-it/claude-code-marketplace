@@ -1,24 +1,28 @@
 ---
 name: infrastructure-assistant
-description: Infrastructure debugging для .NET разработчиков - PostgreSQL, RabbitMQ, Redis, Elasticsearch, Seq, Docker. Триггеры - check database, analyze query, queue status, redis cache, elasticsearch, seq logs, docker status
+description: Infrastructure debugging для .NET разработчиков - PostgreSQL, MongoDB, RabbitMQ, Kafka, Redis, Elasticsearch, Seq, Docker, Grafana, TeamCity. Триггеры - check database, analyze query, queue status, kafka status, consumer lag, topic info, redis cache, elasticsearch, seq logs, docker status, grafana dashboards, teamcity agents
 tools: Read, Bash, Grep, Glob
 model: sonnet
 permissionMode: default
-skills: ef-core, rabbitmq-patterns, elasticsearch-patterns, redis-patterns, logging-patterns, docker-patterns
+skills: ef-core, rabbitmq-patterns, kafka-patterns, elasticsearch-patterns, redis-patterns, logging-patterns, docker-patterns, mongodb-patterns, observability-patterns, teamcity-patterns
 ---
 
 # Infrastructure Assistant
 
-Помощник для отладки инфраструктуры. Работает с БД, очередями, кэшем и логами.
+Помощник для отладки инфраструктуры. Работает с БД, очередями, кэшем, логами и CI/CD.
 
 ## Triggers
 
 - "check database", "analyze query", "slow query", "explain analyze"
+- "check mongodb", "mongo query", "aggregation", "indexes"
 - "check rabbitmq", "queue status", "dead letter", "message stuck"
+- "check kafka", "kafka status", "consumer lag", "topic info", "consumer group", "kafka brokers"
 - "redis cache", "cache miss", "check redis", "cache keys"
 - "elasticsearch", "search logs", "check index", "es query"
 - "seq logs", "find errors", "log analysis", "correlation id"
 - "docker status", "container logs", "container health"
+- "grafana dashboards", "prometheus metrics", "check alerts"
+- "teamcity agents", "build status", "ci/cd check"
 
 ## PostgreSQL (MCP Server - Read-Only Mode)
 
@@ -139,6 +143,76 @@ curl -u guest:guest http://localhost:15672/api/overview
 
 # Список очередей
 curl -u guest:guest http://localhost:15672/api/queues | jq '.[] | {name, messages, consumers}'
+```
+
+## Apache Kafka (kafka-mcp-server или CLI)
+
+### Cluster Check
+```bash
+# Проверка подключения
+kafka-topics.sh --bootstrap-server localhost:9092 --list > /dev/null && echo "OK" || echo "FAILED"
+
+# Через MCP: cluster_overview, list_brokers
+```
+
+### Topic Operations
+```bash
+# Список топиков
+kafka-topics.sh --bootstrap-server localhost:9092 --list
+
+# Детали топика
+kafka-topics.sh --bootstrap-server localhost:9092 --describe --topic orders
+
+# Через MCP: list_topics, describe_topic
+```
+
+### Consumer Groups
+```bash
+# Список consumer groups
+kafka-consumer-groups.sh --bootstrap-server localhost:9092 --list
+
+# Детали группы (с lag)
+kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --group my-consumer-group
+
+# Все группы с lag
+kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --all-groups
+
+# Через MCP: list_consumer_groups, describe_consumer_group
+```
+
+### Consumer Lag Analysis
+```bash
+# Общий lag по группе
+kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --group my-group | awk 'NR>1 {sum+=$6} END {print "Total lag:", sum}'
+
+# Группы с lag > 0
+kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --all-groups 2>/dev/null | awk '$6 > 0 {print $1, $2, "lag:", $6}'
+```
+
+### Message Inspection
+```bash
+# Просмотр сообщений (последние 10)
+kafka-console-consumer.sh --bootstrap-server localhost:9092 \
+  --topic orders \
+  --from-beginning \
+  --max-messages 10 \
+  --property print.headers=true \
+  --property print.timestamp=true
+
+# Через MCP: consume_messages
+```
+
+### Offset Management
+```bash
+# Reset offset к earliest
+kafka-consumer-groups.sh --bootstrap-server localhost:9092 \
+  --group my-group --topic my-topic \
+  --reset-offsets --to-earliest --execute
+
+# Reset offset к latest
+kafka-consumer-groups.sh --bootstrap-server localhost:9092 \
+  --group my-group --topic my-topic \
+  --reset-offsets --to-latest --execute
 ```
 
 ## Redis (redis-cli)
@@ -315,6 +389,103 @@ docker exec -it container_name /bin/sh
 
 # Выполнить команду
 docker exec container_name ls -la /app
+```
+
+## MongoDB (mongosh CLI или MongoDB MCP)
+
+### Connection Check
+```bash
+mongosh "$MONGODB_URI" --eval "db.runCommand({ping: 1})"
+```
+
+### Server Status
+```bash
+mongosh "$MONGODB_URI" --eval "db.serverStatus().connections"
+```
+
+### Collection Stats
+```bash
+mongosh "$MONGODB_URI" --eval "db.orders.stats()"
+```
+
+### Slow Operations
+```bash
+# Включить profiling
+mongosh "$MONGODB_URI" --eval "db.setProfilingLevel(1, { slowms: 100 })"
+
+# Просмотр медленных запросов
+mongosh "$MONGODB_URI" --eval "db.system.profile.find().sort({ts: -1}).limit(10).pretty()"
+```
+
+### Index Analysis
+```bash
+# Список индексов
+mongosh "$MONGODB_URI" --eval "db.orders.getIndexes()"
+
+# Статистика использования
+mongosh "$MONGODB_URI" --eval "db.orders.aggregate([{\$indexStats: {}}]).pretty()"
+```
+
+## Grafana (MCP или REST API)
+
+### Dashboard Health
+```bash
+# Статус Grafana
+curl -s -H "Authorization: Bearer $GRAFANA_API_KEY" \
+  "$GRAFANA_URL/api/health" | jq
+
+# Список dashboards
+curl -s -H "Authorization: Bearer $GRAFANA_API_KEY" \
+  "$GRAFANA_URL/api/search?type=dash-db" | jq '.[].title'
+```
+
+### Alerts Status
+```bash
+# Активные алерты
+curl -s -H "Authorization: Bearer $GRAFANA_API_KEY" \
+  "$GRAFANA_URL/api/alerts" | jq '.[] | {name, state, evalDate}'
+
+# Firing alerts only
+curl -s -H "Authorization: Bearer $GRAFANA_API_KEY" \
+  "$GRAFANA_URL/api/alerts" | jq '.[] | select(.state == "alerting")'
+```
+
+### Prometheus Queries (через Grafana)
+```bash
+# Простой запрос
+curl -s -H "Authorization: Bearer $GRAFANA_API_KEY" \
+  "$GRAFANA_URL/api/datasources/proxy/1/api/v1/query?query=up" | jq
+```
+
+## TeamCity (MCP или REST API)
+
+### Build Status
+```bash
+# Последние сборки
+curl -s -H "Authorization: Bearer $TEAMCITY_TOKEN" \
+  "$TEAMCITY_URL/app/rest/builds?locator=count:10" | jq
+
+# Failed builds
+curl -s -H "Authorization: Bearer $TEAMCITY_TOKEN" \
+  "$TEAMCITY_URL/app/rest/builds?locator=status:FAILURE,count:5" | jq
+```
+
+### Agent Status
+```bash
+# Список агентов
+curl -s -H "Authorization: Bearer $TEAMCITY_TOKEN" \
+  "$TEAMCITY_URL/app/rest/agents" | jq '.agent[] | {name, connected, enabled}'
+
+# Offline агенты
+curl -s -H "Authorization: Bearer $TEAMCITY_TOKEN" \
+  "$TEAMCITY_URL/app/rest/agents?locator=connected:false" | jq
+```
+
+### Build Queue
+```bash
+# Очередь сборок
+curl -s -H "Authorization: Bearer $TEAMCITY_TOKEN" \
+  "$TEAMCITY_URL/app/rest/buildQueue" | jq '.build[] | {id, buildTypeId, waitReason}'
 ```
 
 ## Output Format

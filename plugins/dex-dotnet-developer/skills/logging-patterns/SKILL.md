@@ -1,6 +1,6 @@
 ---
 name: logging-patterns
-description: Structured logging в .NET с Serilog и Seq - конфигурация, enrichers, sinks. Активируется при serilog, seq, logging, structured logging, log, trace, telemetry, enricher
+description: Structured logging в .NET с Serilog, Seq, OpenTelemetry, Grafana Loki - конфигурация, enrichers, sinks, distributed tracing. Активируется при serilog, seq, logging, structured logging, log, trace, telemetry, enricher, opentelemetry, loki
 allowed-tools: Read, Grep, Glob
 ---
 
@@ -380,4 +380,128 @@ public class SensitiveDataEnricher : ILogEventEnricher
         }
     }
 }
+```
+
+## OpenTelemetry Integration
+
+### Установка пакетов
+
+```bash
+dotnet add package Serilog.Enrichers.Span
+dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol
+```
+
+### Корреляция логов и traces
+
+```csharp
+// Автоматически добавляет TraceId и SpanId в логи
+Log.Logger = new LoggerConfiguration()
+    .Enrich.WithSpan()  // Добавляет TraceId, SpanId, ParentId
+    .Enrich.FromLogContext()
+    .WriteTo.Console(outputTemplate:
+        "[{Timestamp:HH:mm:ss} {Level:u3}] [{TraceId}] {Message:lj}{NewLine}{Exception}")
+    .CreateLogger();
+```
+
+### Вывод в консоль с TraceId
+
+```
+[14:30:00 INF] [abc123def456] Order 12345 created for customer 67890
+[14:30:01 INF] [abc123def456] Payment processed successfully
+[14:30:02 ERR] [abc123def456] Failed to send email notification
+```
+
+### Поиск логов по TraceId
+
+```sql
+-- В Seq
+@TraceId = "abc123def456"
+
+-- В Elasticsearch
+{ "query": { "match": { "TraceId": "abc123def456" } } }
+```
+
+## Grafana Loki Integration
+
+### Установка
+
+```bash
+dotnet add package Serilog.Sinks.Grafana.Loki
+```
+
+### Конфигурация
+
+```csharp
+Log.Logger = new LoggerConfiguration()
+    .Enrich.FromLogContext()
+    .WriteTo.GrafanaLoki(
+        uri: "http://localhost:3100",
+        labels: new[]
+        {
+            new LokiLabel { Key = "app", Value = "myapp" },
+            new LokiLabel { Key = "env", Value = "production" }
+        },
+        propertiesAsLabels: new[] { "level", "RequestPath" })
+    .CreateLogger();
+```
+
+### LogQL запросы в Grafana
+
+```logql
+# Все ошибки приложения
+{app="myapp"} |= "error"
+
+# По TraceId
+{app="myapp"} | json | TraceId = "abc123"
+
+# С фильтрацией по времени выполнения
+{app="myapp"} | json | ElapsedMs > 1000
+
+# Top endpoints по ошибкам
+sum by (RequestPath) (count_over_time({app="myapp"} | json | level="Error" [1h]))
+```
+
+## Structured Logging for Observability
+
+### Correlation через все системы
+
+```csharp
+public class ObservabilityMiddleware
+{
+    public async Task InvokeAsync(HttpContext context)
+    {
+        // Получить или создать correlation ID
+        var correlationId = Activity.Current?.TraceId.ToString()
+            ?? context.Request.Headers["X-Correlation-ID"].FirstOrDefault()
+            ?? Guid.NewGuid().ToString();
+
+        // Добавить в контекст логирования
+        using (LogContext.PushProperty("CorrelationId", correlationId))
+        using (LogContext.PushProperty("TraceId", Activity.Current?.TraceId.ToString()))
+        using (LogContext.PushProperty("SpanId", Activity.Current?.SpanId.ToString()))
+        {
+            context.Response.Headers["X-Correlation-ID"] = correlationId;
+            await _next(context);
+        }
+    }
+}
+```
+
+### Метрики из логов
+
+```csharp
+// Serilog Metrics Sink
+.WriteTo.Prometheus(new PrometheusSinkOptions
+{
+    MetricName = "app_log_events",
+    DefaultLabels = new Dictionary<string, string>
+    {
+        ["app"] = "myapp"
+    }
+})
+
+// Результат: метрики в Prometheus формате
+// app_log_events{level="Error",app="myapp"} 15
+// app_log_events{level="Warning",app="myapp"} 42
+```
 ```
