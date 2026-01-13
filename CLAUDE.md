@@ -22,7 +22,8 @@ claude-code-marketplace/
 │   ├── dex-system-analyst/           # 📋 Системный аналитик
 │   ├── dex-devops/                   # ⚙️ DevOps инженер
 │   ├── dex-product-manager/          # 📊 Продакт-менеджер
-│   └── dex-python-ml-developer/      # 🤖 Python ML Разработчик
+│   ├── dex-python-ml-developer/      # 🤖 Python ML Разработчик
+│   └── dex-telegram-notifier/        # 🔔 Telegram Уведомления
 ├── run-claude/                       # Контекст выполнения
 ├── CLAUDE.md
 ├── README.md
@@ -161,6 +162,33 @@ claude-code-marketplace/
 **Skills:** pytorch-patterns, tensorflow-patterns, classical-ml, nlp-transformers, computer-vision, ml-optimization
 
 **MCP:** MLflow, Weights & Biases, HuggingFace, GitLab, Notion
+
+---
+
+### dex-telegram-notifier
+
+**Для:** Всех пользователей (утилита уведомлений)
+
+**Функционал:**
+- Уведомления при завершении работы Claude (Stop)
+- Уведомления при ожидании ответа (Notification)
+- Уведомления при завершении субагентов (SubagentStop)
+
+**Содержимое уведомлений:**
+- Последнее сообщение Claude
+- Статус TODO списка
+- Используемые инструменты
+- Вопросы к пользователю
+- Текущий план (опционально)
+- Ultrathink (опционально)
+
+**Команды (2):** `/notify-test`, `/notify-config`
+
+**Хуки:** Stop, Notification, SubagentStop
+
+**Переменные:** `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `TELEGRAM_LANGUAGE`
+
+**MCP:** Не требуется
 
 ---
 
@@ -346,6 +374,16 @@ allowed-tools: Read, Grep, Glob
 - `${NOTION_TOKEN}` - Notion API
 - `${GOOGLE_DRIVE_OAUTH_CREDENTIALS}` - путь к OAuth credentials JSON файлу (опционально)
 
+### Telegram Notifier Plugin
+- `${TELEGRAM_BOT_TOKEN}` - Токен бота от @BotFather (обязательно)
+- `${TELEGRAM_CHAT_ID}` - ID чата для уведомлений (обязательно)
+- `${TELEGRAM_LANGUAGE}` - Язык сообщений: `ru` или `en` (по умолчанию: ru)
+- `${TELEGRAM_NOTIFY_STOP}` - Уведомлять о завершении (по умолчанию: true)
+- `${TELEGRAM_NOTIFY_WAITING}` - Уведомлять об ожидании (по умолчанию: true)
+- `${TELEGRAM_NOTIFY_SUBAGENT}` - Уведомлять о субагентах (по умолчанию: true)
+- `${TELEGRAM_INCLUDE_THINKING}` - Включать Ultrathink (по умолчанию: false)
+- `${TELEGRAM_THREAD_ID}` - ID топика для супергрупп (опционально)
+
 ## Известные особенности
 
 ### .NET
@@ -392,5 +430,6 @@ allowed-tools: Read, Grep, Glob
 | dex-python-ml-developer | gitlab | notion, mlflow, wandb, huggingface |
 | dex-quality-assurance | gitlab | filesystem |
 | dex-devops | gitlab | - |
+| dex-telegram-notifier | - | - |
 
 Подробная документация: `mcp/README.md`
