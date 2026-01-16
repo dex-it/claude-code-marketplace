@@ -1,320 +1,293 @@
-# Claude Code Marketplace
+# Claude Code Marketplace v5.0
 
 ## О проекте
 
-Маркетплейс AI-агентов для разработчиков. Каждая роль в команде получает специализированного ассистента с нужными инструментами и знаниями.
+Маркетплейс атомарных AI-плагинов для разработчиков. Каждый плагин имеет узкую специализацию: один плагин = одна функция.
 
-**Концепция:** Плагин = Роль в команде. Установил плагин → получил всё для своей роли.
+**Концепция:** Атомарные плагины без дублирования. Собирай свой набор из нужных компонентов.
+
+## Архитектура: 3 уровня
+
+```
+Level 3: BUNDLES (Наборы)
+├── Мета-плагины для удобства
+├── Документация какие плагины установить
+└── Не содержат кода, только manifest
+
+Level 2: SPECIALISTS (Специалисты)
+├── Один агент с узкой специализацией
+├── Связанные команды
+└── Могут использовать skills
+
+Level 1: SKILLS + UTILITIES (Базовый уровень)
+├── Skills: базы знаний (активируются автоматически)
+└── Utilities: инструменты (hooks, notifications)
+```
 
 ## Структура проекта
 
 ```
 claude-code-marketplace/
 ├── .claude-plugin/
-│   └── marketplace.json              # Каталог всех плагинов
-├── mcp/                              # Централизованный каталог MCP серверов
-│   ├── README.md                     # Документация по настройке MCP
-│   └── mcp-template.json             # Все 18 MCP серверов в одном файле
+│   └── marketplace.json           # Каталог всех 85 плагинов
+├── mcp/                           # Централизованный каталог MCP серверов
+│   ├── README.md
+│   └── mcp-template.json
 ├── plugins/
-│   ├── dex-dotnet-developer/         # 🧑‍💻 .NET Разработчик
-│   ├── dex-dotnet-architect/         # 🏗️ Архитектор
-│   ├── dex-quality-assurance/        # 🧪 QA инженер
-│   ├── dex-system-analyst/           # 📋 Системный аналитик
-│   ├── dex-devops/                   # ⚙️ DevOps инженер
-│   ├── dex-product-manager/          # 📊 Продакт-менеджер
-│   ├── dex-python-ml-developer/      # 🤖 Python ML Разработчик
-│   └── dex-telegram-notifier/        # 🔔 Telegram Уведомления
-├── run-claude/                       # Контекст выполнения
+│   ├── skills/                    # Level 1: Knowledge bases (37 плагинов)
+│   │   ├── dex-skill-agile/
+│   │   ├── dex-skill-dotnet-patterns/
+│   │   ├── dex-skill-docker/
+│   │   └── ...
+│   ├── utilities/                 # Level 1: Tools (1 плагин)
+│   │   └── dex-telegram-notifier/
+│   ├── specialists/               # Level 2: Agents (38 плагинов)
+│   │   ├── dotnet/               # .NET specialists (6)
+│   │   ├── infrastructure/       # Infrastructure specialists (12)
+│   │   ├── architecture/         # Architecture specialists (4)
+│   │   ├── product/              # Product & SA specialists (8)
+│   │   ├── qa/                   # QA specialists (3)
+│   │   └── ml/                   # ML specialists (5)
+│   └── bundles/                   # Level 3: Meta-plugins (9 плагинов)
+│       ├── dex-bundle-dotnet-developer/
+│       ├── dex-bundle-devops/
+│       └── ...
+├── run-claude/
 ├── CLAUDE.md
 ├── README.md
 └── LICENSE
 ```
 
-## Плагины по ролям
+## Level 1: Skills (37 плагинов)
 
-### dex-dotnet-developer
+Skills - базы знаний, активируются автоматически по ключевым словам в контексте.
 
-**Для:** .NET разработчиков (Full-stack с инфраструктурой)
+### .NET Skills
+| Плагин | Описание |
+|--------|----------|
+| dex-skill-dotnet-patterns | SOLID, DI, async/await, Result pattern, Repository |
+| dex-skill-ef-core | Entity Framework Core: queries, migrations, performance |
+| dex-skill-async-patterns | Async/await: cancellation, parallelism, ValueTask |
+| dex-skill-linq-optimization | LINQ: deferred execution, materialization |
+| dex-skill-api-development | REST API: versioning, error handling, DTOs |
+| dex-skill-api-documentation | OpenAPI/Swagger, XML comments |
+| dex-skill-testing-patterns | xUnit, Moq, Arrange-Act-Assert |
 
-**Агенты (8):**
-- `coding-assistant` - написание кода, SOLID, паттерны
-- `bug-hunter` - поиск и исправление багов
-- `code-reviewer` - code review, безопасность
-- `test-writer` - генерация тестов xUnit/Moq
-- `infrastructure-assistant` - PostgreSQL, MongoDB, RabbitMQ, Kafka, Redis, ES, Docker, Grafana, TeamCity
-- `performance-analyst` - N+1, profiling, memory leaks, OpenTelemetry traces
-- `ci-cd-specialist` - GitLab CI + TeamCity pipelines
-- `api-designer` - OpenAPI/Swagger, API versioning
+### Infrastructure Skills
+| Плагин | Описание |
+|--------|----------|
+| dex-skill-rabbitmq | RabbitMQ: exchanges, queues, MassTransit, dead-letter |
+| dex-skill-kafka | Kafka: producers, consumers, partitioning, exactly-once |
+| dex-skill-elasticsearch | Elasticsearch: indexing, searching, aggregations, NEST |
+| dex-skill-redis | Redis: caching, pub/sub, StackExchange.Redis |
+| dex-skill-mongodb | MongoDB: documents, queries, indexes, aggregation |
+| dex-skill-docker | Docker: multi-stage builds, security, compose |
+| dex-skill-kubernetes | Kubernetes: deployments, services, HPA, probes, Helm |
+| dex-skill-gitlab-ci | GitLab CI/CD: pipelines, jobs, artifacts |
+| dex-skill-teamcity | TeamCity: build configurations, pipelines |
+| dex-skill-logging | Logging: Serilog, structured logging, Seq |
+| dex-skill-observability | Observability: OpenTelemetry, metrics, tracing |
 
-**Команды (17):** `/build`, `/test`, `/debug`, `/refactor`, `/ef-migration`, `/rabbit-status`, `/kafka-status`, `/es-query`, `/redis-cache`, `/docker-build`, `/logs`, `/k8s-status`, `/teamcity-status`, `/api-docs`, `/health-check`, `/metrics`, `/mongo-query`
+### Architecture Skills
+| Плагин | Описание |
+|--------|----------|
+| dex-skill-clean-architecture | Clean Architecture: layers, dependencies |
+| dex-skill-ddd | DDD: aggregates, entities, value objects, bounded contexts |
+| dex-skill-microservices | Microservices: decomposition, communication, saga |
 
-**Skills (17):** dotnet-patterns, ef-core, async-patterns, linq-optimization, api-development, api-documentation, testing-patterns, rabbitmq-patterns, kafka-patterns, elasticsearch-patterns, redis-patterns, mongodb-patterns, docker-patterns, k8s-patterns, teamcity-patterns, logging-patterns, observability-patterns
+### Product & Analysis Skills
+| Плагин | Описание |
+|--------|----------|
+| dex-skill-agile | Agile: Epic/Story/Task, INVEST, DoR/DoD, sprints |
+| dex-skill-user-stories | User stories: format, acceptance criteria, Given-When-Then |
+| dex-skill-bpmn | BPMN: process flows, gateways, events, swimlanes |
+| dex-skill-doc-standards | Documentation: BRD, PRD, ADR, Tech Specs |
+| dex-skill-api-specification | API specification: OpenAPI design, contracts |
+| dex-skill-epic-planning | Epic planning: decomposition, scope, dependencies |
+| dex-skill-product-discovery | Product discovery: research, validation |
+| dex-skill-prioritization | Prioritization: RICE, MoSCoW, scoring |
 
-**MCP (11):** GitLab, Notion, genai-toolbox (PostgreSQL/MongoDB/Elasticsearch/Redis), RabbitMQ, Kafka, Docker, Seq, Kubernetes, TeamCity, Grafana, OpenAPI
+### QA Skills
+| Плагин | Описание |
+|--------|----------|
+| dex-skill-test-design | Test design: equivalence partitioning, boundary analysis |
+| dex-skill-api-testing | API testing: REST validation, automation |
 
-**CLI Fallbacks:** psql, mongosh, rabbitmqadmin, kafka-topics.sh, redis-cli, curl (ES), docker/docker-compose, kubectl/helm
+### ML Skills
+| Плагин | Описание |
+|--------|----------|
+| dex-skill-pytorch | PyTorch: models, training, data loading, GPU |
+| dex-skill-tensorflow | TensorFlow/Keras: models, layers, callbacks |
+| dex-skill-classical-ml | Classical ML: scikit-learn, XGBoost, features |
+| dex-skill-nlp-transformers | NLP: HuggingFace, BERT, fine-tuning |
+| dex-skill-computer-vision | Computer Vision: CNNs, classification, detection |
+| dex-skill-ml-optimization | ML optimization: Optuna, Ray Tune, MLflow |
 
----
-
-### dex-dotnet-architect
-
-**Для:** Архитекторов
-
-**Агенты:**
-- `architect` - проектирование архитектуры
-- `adr-writer` - Architecture Decision Records
-- `diagram-creator` - C4, sequence diagrams
-
-**Команды:** `/design`, `/review`, `/adr`
-
-**Skills:** clean-architecture, ddd-patterns, microservices
-
-**MCP:** GitHub, GitLab, Notion
-
----
-
-### dex-quality-assurance
-
-**Для:** QA инженеров
-
-**Агенты:**
-- `test-analyst` - создание тест-кейсов
-- `test-automator` - автоматизация тестов
-- `bug-reporter` - баг-репорты
-
-**Команды:** `/analyze-story`, `/create-tests`
-
-**Skills:** test-design, api-testing
-
-**MCP:** GitLab
-
----
-
-### dex-system-analyst
-
-**Для:** Системных аналитиков
-
-**Агенты:**
-- `requirements-analyst` - анализ и детализация требований
-- `user-story-writer` - User Stories с acceptance criteria
-- `process-modeler` - BPMN моделирование процессов
-
-**Команды:** `/write-story`, `/api-spec`
-
-**Skills:** agile-fundamentals, user-stories, bpmn-modeling, api-specification, doc-worker
-
-**Роль:** Детализация требований, написание user stories, технические спецификации, API контракты
-
-**MCP (3):** Notion, PDF Reader, Google Drive
-
----
-
-### dex-devops
-
-**Для:** DevOps инженеров
-
-**Агенты:**
-- `pipeline-expert` - CI/CD пайплайны
-- `k8s-specialist` - Kubernetes
-- `docker-builder` - Docker
-
-**Команды:** `/deploy`, `/pipeline`, `/dockerfile`
-
-**Skills:** gitlab-ci, docker-best-practices, kubernetes
-
-**MCP:** GitLab
-
----
-
-### dex-product-manager
-
-**Для:** Продакт-менеджеров
-
-**Агенты:**
-- `business-requirements-analyst` - формализация бизнес-идей и требований
-- `roadmap-planner` - стратегическое планирование roadmap
-- `backlog-manager` - управление epic-level бэклогом
-- `metrics-analyst` - анализ продуктовых метрик и KPI
-
-**Команды:** `/create-epic`, `/release-notes`
-
-**Skills:** agile-fundamentals, product-discovery, epic-planning, prioritization, doc-worker
-
-**Роль:** Бизнес-требования, epic planning, стратегическая приоритизация, success metrics
-
-**MCP:** Notion
-
----
-
-### dex-python-ml-developer
-
-**Для:** Python ML инженеров и Data Scientists
-
-**Агенты:**
-- `ml-experimenter` - EDA и feature engineering
-- `model-trainer` - обучение моделей (PyTorch/TensorFlow/sklearn)
-- `model-debugger` - отладка ML моделей
-- `deployment-assistant` - деплой моделей (ONNX, TFLite, FastAPI)
-- `data-pipeline-builder` - оптимизация data loading
-
-**Команды:** `/train`, `/evaluate`, `/tune`, `/profile`, `/convert`, `/serve`
-
-**Skills:** pytorch-patterns, tensorflow-patterns, classical-ml, nlp-transformers, computer-vision, ml-optimization
-
-**MCP:** MLflow, Weights & Biases, HuggingFace, GitLab, Notion
-
----
+## Level 1: Utilities (1 плагин)
 
 ### dex-telegram-notifier
 
-**Для:** Всех пользователей (утилита уведомлений)
+Telegram уведомления о событиях Claude Code.
 
 **Функционал:**
 - Уведомления при завершении работы Claude (Stop)
 - Уведомления при ожидании ответа (Notification)
 - Уведомления при завершении субагентов (SubagentStop)
 
-**Содержимое уведомлений:**
-- Последнее сообщение Claude
-- Статус TODO списка
-- Используемые инструменты
-- Вопросы к пользователю
-- Текущий план (опционально)
-- Ultrathink (опционально)
+**Команды:** `/notify-test`, `/notify-config`
 
-**Команды (2):** `/notify-test`, `/notify-config`
+**Переменные:**
+- `TELEGRAM_BOT_TOKEN` - Токен бота (обязательно)
+- `TELEGRAM_CHAT_ID` - ID чата (обязательно)
+- `TELEGRAM_LANGUAGE` - Язык: ru/en (по умолчанию: ru)
 
-**Хуки:** Stop, Notification, SubagentStop
+## Level 2: Specialists (38 плагинов)
 
-**Переменные:** `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `TELEGRAM_LANGUAGE`
+Specialists - агенты с узкой специализацией. Один агент = один плагин.
 
-**MCP:** Не требуется
+### .NET Specialists (6)
 
----
+| Плагин | Агент | Описание |
+|--------|-------|----------|
+| dex-dotnet-coder | coding-assistant | Написание кода, SOLID, паттерны |
+| dex-dotnet-debugger | bug-hunter | Отладка, root cause analysis, exceptions |
+| dex-dotnet-reviewer | code-reviewer | Code review, security, best practices |
+| dex-dotnet-tester | test-writer | Unit тесты, xUnit, Moq |
+| dex-ef-specialist | ef-specialist | EF Core: migrations, queries, DbContext |
+| dex-dotnet-performance | performance-analyst | Profiling, N+1, memory, OpenTelemetry |
 
-## Иерархия компонентов
+### Infrastructure Specialists (12)
 
-```
-Claude Code (главный агент)
-│
-├── 📦 Plugins — контейнеры для распространения
-│   └── Содержат: agents, commands, skills, hooks, MCP
-│
-├── 🤖 Subagents — специализированные агенты
-│   └── .claude/agents/*.md
-│
-├── 🔌 MCP Servers — интеграции с внешними системами
-│   └── .mcp.json
-│
-├── ⚡ Hooks — автоматические действия
-│   └── hooks/hooks.json
-│
-├── 📝 Slash Commands — ручные команды
-│   └── commands/*.md
-│
-└── 🧠 Skills — знания по контексту
-    └── skills/name/SKILL.md
-```
+| Плагин | Описание |
+|--------|----------|
+| dex-postgresql-specialist | PostgreSQL: queries, indexes, EXPLAIN, optimization |
+| dex-mongodb-specialist | MongoDB: queries, indexes, aggregation pipeline |
+| dex-rabbitmq-specialist | RabbitMQ: queues, exchanges, consumers, MassTransit |
+| dex-kafka-specialist | Kafka: topics, producers, consumers, partitions |
+| dex-elasticsearch-specialist | Elasticsearch: indexing, searching, aggregations |
+| dex-redis-specialist | Redis: caching, pub/sub, data structures |
+| dex-docker-specialist | Docker: images, containers, compose, optimization |
+| dex-kubernetes-specialist | Kubernetes: deployments, services, HPA, troubleshooting |
+| dex-cicd-gitlab | GitLab CI/CD: pipelines, jobs, deployment |
+| dex-cicd-teamcity | TeamCity: build configurations, pipelines |
+| dex-logging-seq | Seq: queries, dashboards, alerts, structured logs |
+| dex-monitoring-grafana | Grafana: dashboards, alerts, metrics |
 
-## Разделение ролей: Product Manager vs System Analyst
+### Architecture Specialists (4)
 
-### Product Manager (Strategic Level)
+| Плагин | Описание |
+|--------|----------|
+| dex-architect | System design, patterns, trade-offs |
+| dex-adr-writer | Architecture Decision Records |
+| dex-diagram-creator | C4, sequence diagrams, Mermaid, PlantUML |
+| dex-api-designer | REST API design, OpenAPI, versioning |
 
-**Фокус:** Business value, strategic goals, high-level planning
+### Product Specialists (4)
 
-**Ответственность:**
-- 📋 **Epics**: создание и управление epic-level требованиями
-- 🗺️ **Roadmap**: квартальное/годовое планирование
-- 📊 **Metrics**: business KPIs, success criteria, OKRs
-- 🎯 **Prioritization**: RICE scoring, strategic приоритеты
-- 💡 **Business Requirements**: формализация бизнес-идей
+| Плагин | Описание |
+|--------|----------|
+| dex-business-analyst | Requirements formalization, BRD |
+| dex-roadmap-planner | Strategic planning, quarterly goals |
+| dex-backlog-manager | Epic-level backlog, prioritization |
+| dex-pm-metrics-analyst | KPIs, OKRs, success metrics |
 
-**НЕ делает:**
-- ❌ Написание user stories (это SA)
-- ❌ Acceptance criteria (это SA)
-- ❌ Технические спецификации (это SA)
+### System Analyst Specialists (4)
 
-### System Analyst (Tactical Level)
+| Плагин | Описание |
+|--------|----------|
+| dex-requirements-analyst | Requirements analysis, detailing, validation |
+| dex-user-story-writer | User stories, acceptance criteria, Given-When-Then |
+| dex-process-modeler | BPMN, workflows, process optimization |
+| dex-doc-writer | Technical specs, API docs, guides |
 
-**Фокус:** Technical specifications, detailed requirements, implementation details
+### QA Specialists (3)
 
-**Ответственность:**
-- 📝 **User Stories**: decompose epics в stories с INVEST criteria
-- ✅ **Acceptance Criteria**: Given-When-Then scenarios
-- 🔄 **BPMN**: процессы и workflows
-- 🔌 **API Specs**: OpenAPI/Swagger контракты
-- 📄 **Documentation**: техническая документация
+| Плагин | Описание |
+|--------|----------|
+| dex-test-analyst | Test design, test cases, coverage analysis |
+| dex-test-automator | Selenium, Playwright, API testing |
+| dex-bug-reporter | Bug reports, reproduction steps, severity |
 
-**НЕ делает:**
-- ❌ Roadmap planning (это PM)
-- ❌ Business metrics analysis (это PM)
-- ❌ Strategic prioritization (это PM)
+### ML Specialists (5)
 
-### Collaboration Flow
+| Плагин | Описание |
+|--------|----------|
+| dex-ml-experimenter | EDA, feature engineering, data analysis |
+| dex-model-trainer | PyTorch, TensorFlow, sklearn training |
+| dex-model-debugger | Debugging ML models, error analysis |
+| dex-ml-deployer | ONNX, TFLite, FastAPI, model serving |
+| dex-data-pipeline | Data loading, preprocessing, optimization |
 
-```
-PM создает Epic
-    ↓
-PM + SA: refinement session
-    ↓
-SA декомпозирует в User Stories
-    ↓
-PM reviews alignment с business value
-    ↓
-PM + SA приоритизируют stories
-    ↓
-Dev Team оценивает и реализует
-```
+## Level 3: Bundles (9 плагинов)
+
+Bundles - мета-плагины для удобной установки наборов. Содержат список компонентов для установки.
+
+| Bundle | Включает |
+|--------|----------|
+| dex-bundle-dotnet-developer | 6 .NET specialists + 6 .NET skills |
+| dex-bundle-dotnet-fullstack | dotnet-developer + 11 infrastructure specialists + skills |
+| dex-bundle-devops | 6 infrastructure specialists + DevOps skills |
+| dex-bundle-product-manager | 4 product specialists + PM skills |
+| dex-bundle-system-analyst | 4 SA specialists + SA skills |
+| dex-bundle-architect | 4 architecture specialists + architecture skills |
+| dex-bundle-qa-engineer | 3 QA specialists + QA skills |
+| dex-bundle-ml-engineer | 5 ML specialists + ML skills |
+| dex-bundle-infrastructure | 12 infrastructure specialists + all infra skills |
 
 ## Структура плагина
 
+### Skill плагин
 ```
-plugin-name/
+dex-skill-name/
 ├── .claude-plugin/
-│   └── plugin.json          # Manifest (обязательно)
-├── agents/                  # Субагенты
-│   └── agent-name.md
-├── commands/                # Slash-команды
-│   └── command-name.md
-├── skills/                  # Skills
-│   └── skill-name/
-│       └── SKILL.md
-├── hooks/                   # Hooks
-│   └── hooks.json
-└── prompts/
-    └── system-prompt.md     # Системный промпт роли
+│   └── plugin.json
+└── skills/
+    └── skill-name/
+        └── SKILL.md
 ```
 
-**Примечание:** MCP конфиги вынесены в централизованный каталог `mcp/`. Плагины НЕ содержат `.mcp.json` файлов. Пользователи настраивают MCP серверы в своем `.mcp.json` согласно таблице "MCP серверы по плагинам" ниже.
+### Specialist плагин
+```
+dex-specialist-name/
+├── .claude-plugin/
+│   └── plugin.json
+├── agents/
+│   └── agent-name.md
+└── commands/
+    └── command-name.md
+```
+
+### Bundle плагин
+```
+dex-bundle-name/
+├── .claude-plugin/
+│   └── plugin.json      # Содержит _bundle.includes[]
+└── README.md            # Инструкция по установке компонентов
+```
 
 ## Конвенции
 
 ### Именование
-
-- **Plugins**: `kebab-case` (dex-dotnet-developer)
-- **Agents**: `kebab-case` (coding-assistant, bug-hunter)
-- **Commands**: `kebab-case` (build, ef-migration)
-- **Skills**: `kebab-case` папки с SKILL.md внутри
+- **Skills**: `dex-skill-{name}`
+- **Specialists**: `dex-{domain}-{role}` или `dex-{name}-specialist`
+- **Bundles**: `dex-bundle-{role}`
+- **Utilities**: `dex-{name}`
 
 ### Frontmatter агентов
-
 ```yaml
 ---
 name: agent-name
-description: Краткое описание (для триггеров)
+description: Краткое описание для триггеров
 tools: Read, Write, Edit, Bash, Grep, Glob
 model: sonnet
-permissionMode: default
-skills: skill1, skill2
 ---
 ```
 
 ### Frontmatter skills
-
 ```yaml
 ---
 name: skill-name
-description: Описание когда активировать (ключевые слова)
+description: Ключевые слова для автоматической активации
 allowed-tools: Read, Grep, Glob
 ---
 ```
@@ -322,114 +295,57 @@ allowed-tools: Read, Grep, Glob
 ## Технологический стек
 
 ### .NET Stack
-
-- **.NET**: 8.0+
-- **Async**: async/await + CancellationToken везде
-- **DI**: Constructor injection
-- **Паттерны**: Repository, Unit of Work, Result<T>
-- **ORM**: Entity Framework Core
-- **Тесты**: xUnit + Moq + Playwright
-- **CI/CD**: GitLab CI
-- **Контейнеры**: Docker, Kubernetes
-- **Messaging**: RabbitMQ + MassTransit
-- **Search**: Elasticsearch + NEST
-- **Caching**: Redis + StackExchange.Redis
-- **Logging**: Serilog + Seq
+- .NET 8.0+, async/await + CancellationToken
+- Entity Framework Core, xUnit + Moq
+- RabbitMQ + MassTransit, Elasticsearch + NEST
+- Redis + StackExchange.Redis, Serilog + Seq
+- Docker, Kubernetes, GitLab CI
 
 ### Python ML Stack
-
-- **Python**: 3.10+
-- **Deep Learning**: PyTorch, TensorFlow/Keras
-- **Classical ML**: scikit-learn, XGBoost, LightGBM
-- **NLP**: HuggingFace Transformers, tokenizers
-- **Computer Vision**: torchvision, albumentations, timm
-- **MLOps**: MLflow, Weights & Biases, Optuna, Ray Tune
-- **Deployment**: ONNX, TFLite, FastAPI, Docker
-- **Code Quality**: black, isort, mypy, pytest
-
-## Переменные окружения
-
-Все токены через `${VAR_NAME}`:
-
-### .NET Plugins
-- `${GITLAB_TOKEN}` - GitLab API
-- `${NOTION_TOKEN}` - Notion API
-- `${GITHUB_TOKEN}` - GitHub API
-- `${KAFKA_BROKERS}`, `${KAFKA_CLIENT_ID}`, `${KAFKA_SASL_*}` - Apache Kafka
-- `${SEQ_SERVER_URL}`, `${SEQ_API_KEY}` - Seq logging server
-- `${TEAMCITY_URL}`, `${TEAMCITY_TOKEN}`, `${MCP_MODE}` - TeamCity CI/CD
-- `${GRAFANA_URL}`, `${GRAFANA_API_KEY}` - Grafana monitoring
-- `${K8S_READONLY}` - Kubernetes read-only mode (true/false)
-- **RabbitMQ:** Подключение через MCP tool `rabbitmq_broker_initialize_connection()`
-- **Databases:** Конфигурируются в `tools.yaml` для genai-toolbox (см. `mcp/examples/toolbox-config.yaml`)
-
-### Python ML Plugin
-- `${MLFLOW_TRACKING_URI}` - MLflow tracking server URL
-- `${WANDB_API_KEY}` - Weights & Biases API key
-- `${HUGGINGFACE_TOKEN}` - HuggingFace API token
-- `${GITLAB_TOKEN}` - GitLab API
-- `${NOTION_TOKEN}` - Notion API
-
-### System Analyst Plugin
-- `${NOTION_TOKEN}` - Notion API
-- `${GOOGLE_DRIVE_OAUTH_CREDENTIALS}` - путь к OAuth credentials JSON файлу (опционально)
-
-### Telegram Notifier Plugin
-- `${TELEGRAM_BOT_TOKEN}` - Токен бота от @BotFather (обязательно)
-- `${TELEGRAM_CHAT_ID}` - ID чата для уведомлений (обязательно)
-- `${TELEGRAM_LANGUAGE}` - Язык сообщений: `ru` или `en` (по умолчанию: ru)
-- `${TELEGRAM_NOTIFY_STOP}` - Уведомлять о завершении (по умолчанию: true)
-- `${TELEGRAM_NOTIFY_WAITING}` - Уведомлять об ожидании (по умолчанию: true)
-- `${TELEGRAM_NOTIFY_SUBAGENT}` - Уведомлять о субагентах (по умолчанию: true)
-- `${TELEGRAM_INCLUDE_THINKING}` - Включать Ultrathink (по умолчанию: false)
-- `${TELEGRAM_THREAD_ID}` - ID топика для супергрупп (опционально)
-
-## Известные особенности
-
-### .NET
-- ConfigureAwait(false) НЕ нужен в ASP.NET Core
-- Для read-only запросов использовать `AsNoTracking()`
-- RabbitMQ: Implement idempotency, use dead-letter queues
-- Kafka: EnableIdempotence=true, manual offset commit, consumer groups
-- Redis: Set TTL on all keys, use SCAN not KEYS
-- Elasticsearch: Use aliases for zero-downtime reindexing
-- Docker: Multi-stage builds, non-root user
-- Kubernetes: Health probes, HPA, resource limits
-
-### Python ML
-- Type hints везде (Python 3.10+)
-- Random seeds для reproducibility (`torch.manual_seed(42)`)
-- MLflow tracking для всех экспериментов
-- DataLoader с `num_workers > 0` и `pin_memory=True`
-- Mixed precision (AMP) для speedup на GPU
-
-### Общие
-- Skills активируются автоматически по ключевым словам в description
-- **ВАЖНО:** При добавлении нового компонента (agent, skill, command) в существующий плагин обязательно увеличивайте версию в `plugin.json`. Claude Code кэширует метаданные плагинов и без изменения версии не подтянет обновления
+- Python 3.10+, PyTorch, TensorFlow/Keras
+- scikit-learn, XGBoost, HuggingFace Transformers
+- MLflow, Weights & Biases, Optuna
+- ONNX, TFLite, FastAPI
 
 ## MCP Server Configuration
 
-Начиная с версии 4.0, MCP конфигурации вынесены из плагинов в централизованный каталог `mcp/`.
+MCP конфигурации в централизованном каталоге `mcp/`.
 
-### Для пользователей
+### Рекомендуемые MCP по ролям
 
-1. Плагины **НЕ содержат** `.mcp.json` файлы
-2. Плагины **НЕ содержат** поле `mcpServers` в `plugin.json` (это было удалено, так как не соответствует официальной схеме Claude Code)
-3. Посмотрите в таблице "MCP серверы по плагинам" ниже - какие серверы нужны плагину
-4. Скопируйте нужные серверы из `mcp/mcp-template.json` в свой `.mcp.json`
-5. Настройте переменные окружения согласно `run-claude/sample.env`
-
-### MCP серверы по плагинам
-
-| Плагин | Required | Optional |
-|--------|----------|----------|
-| dex-product-manager | notion | - |
-| dex-system-analyst | pdf-reader | notion, google-drive |
-| dex-dotnet-developer | gitlab, notion | genai-toolbox, rabbitmq, kafka, docker, seq, kubernetes, teamcity, grafana, openapi |
-| dex-dotnet-architect | github, gitlab, notion | filesystem |
-| dex-python-ml-developer | gitlab | notion, mlflow, wandb, huggingface |
-| dex-quality-assurance | gitlab | filesystem |
-| dex-devops | gitlab | - |
-| dex-telegram-notifier | - | - |
+| Роль | Required | Optional |
+|------|----------|----------|
+| .NET Developer | gitlab | genai-toolbox, rabbitmq, kafka, docker, seq, kubernetes |
+| Architect | github, gitlab | notion, filesystem |
+| DevOps | gitlab | docker, kubernetes |
+| Product Manager | notion | - |
+| System Analyst | pdf-reader | notion, google-drive |
+| QA Engineer | gitlab | filesystem |
+| ML Engineer | gitlab | mlflow, wandb, huggingface |
 
 Подробная документация: `mcp/README.md`
+
+## Миграция с v4.0
+
+### Было (v4.0)
+8 монолитных плагинов с дублированием:
+- dex-dotnet-developer (8 агентов, 17 команд, 17 skills)
+- dex-dotnet-architect, dex-devops, dex-product-manager...
+
+### Стало (v5.0)
+85 атомарных плагинов без дублирования:
+- 37 skills (Level 1)
+- 1 utility (Level 1)
+- 38 specialists (Level 2)
+- 9 bundles (Level 3)
+
+### Устраненное дублирование
+- `agile-fundamentals` - было в PM и SA, теперь `dex-skill-agile`
+- `doc-worker` - было в PM и SA, теперь `dex-skill-doc-standards`
+- `docker-patterns` + `docker-best-practices` - теперь `dex-skill-docker`
+- `k8s-patterns` + `kubernetes` - теперь `dex-skill-kubernetes`
+
+### Как мигрировать
+1. Удалите старые плагины
+2. Установите нужный bundle или отдельные specialists/skills
+3. Bundle содержит список компонентов в `_bundle.includes`
