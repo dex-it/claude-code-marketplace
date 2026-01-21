@@ -2,6 +2,19 @@
 
 Meta-plugin that combines multiple specialists into one role-based package.
 
+## Automatic Installation
+
+```bash
+# Linux / macOS / WSL
+./install-bundle/install-bundle.sh architect
+
+# Windows (PowerShell)
+.\install-bundle\install-bundle.ps1 architect
+
+# Preview what will be installed
+./install-bundle/install-bundle.sh architect --dry-run
+```
+
 ## Included Plugins
 
 - `dex-architect`

@@ -2,6 +2,19 @@
 
 Meta-plugin that combines multiple specialists into one role-based package.
 
+## Automatic Installation
+
+```bash
+# Linux / macOS / WSL
+./install-bundle/install-bundle.sh dotnet-developer
+
+# Windows (PowerShell)
+.\install-bundle\install-bundle.ps1 dotnet-developer
+
+# Preview what will be installed
+./install-bundle/install-bundle.sh dotnet-developer --dry-run
+```
+
 ## Included Plugins
 
 - `dex-dotnet-coder`

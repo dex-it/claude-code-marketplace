@@ -2,6 +2,19 @@
 
 Meta-plugin that combines multiple specialists into one role-based package.
 
+## Automatic Installation
+
+```bash
+# Linux / macOS / WSL
+./install-bundle/install-bundle.sh devops
+
+# Windows (PowerShell)
+.\install-bundle\install-bundle.ps1 devops
+
+# Preview what will be installed
+./install-bundle/install-bundle.sh devops --dry-run
+```
+
 ## Included Plugins
 
 - `dex-docker-specialist`

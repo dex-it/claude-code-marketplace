@@ -2,6 +2,19 @@
 
 Meta-plugin that combines multiple specialists into one role-based package.
 
+## Automatic Installation
+
+```bash
+# Linux / macOS / WSL
+./install-bundle/install-bundle.sh ml-engineer
+
+# Windows (PowerShell)
+.\install-bundle\install-bundle.ps1 ml-engineer
+
+# Preview what will be installed
+./install-bundle/install-bundle.sh ml-engineer --dry-run
+```
+
 ## Included Plugins
 
 - `dex-ml-experimenter`

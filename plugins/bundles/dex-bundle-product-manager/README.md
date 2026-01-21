@@ -2,6 +2,19 @@
 
 Meta-plugin that combines multiple specialists into one role-based package.
 
+## Automatic Installation
+
+```bash
+# Linux / macOS / WSL
+./install-bundle/install-bundle.sh product-manager
+
+# Windows (PowerShell)
+.\install-bundle\install-bundle.ps1 product-manager
+
+# Preview what will be installed
+./install-bundle/install-bundle.sh product-manager --dry-run
+```
+
 ## Included Plugins
 
 - `dex-business-analyst`
