@@ -36,6 +36,7 @@ echo "⚙️ Настройки событий:"
 echo "  TELEGRAM_NOTIFY_STOP: ${TELEGRAM_NOTIFY_STOP:-true}"
 echo "  TELEGRAM_NOTIFY_WAITING: ${TELEGRAM_NOTIFY_WAITING:-true}"
 echo "  TELEGRAM_NOTIFY_SUBAGENT: ${TELEGRAM_NOTIFY_SUBAGENT:-true}"
+echo "  TELEGRAM_NOTIFY_DELAY: ${TELEGRAM_NOTIFY_DELAY:-0} сек"
 
 echo ""
 echo "📝 Компоненты сообщений:"
@@ -64,6 +65,7 @@ fi
 | `TELEGRAM_NOTIFY_STOP` | `true` | Уведомлять о завершении работы |
 | `TELEGRAM_NOTIFY_WAITING` | `true` | Уведомлять об ожидании ответа |
 | `TELEGRAM_NOTIFY_SUBAGENT` | `true` | Уведомлять о субагентах |
+| `TELEGRAM_NOTIFY_DELAY` | `0` | Задержка (сек) для Notification |
 | `TELEGRAM_INCLUDE_MESSAGE` | `true` | Включать последнее сообщение |
 | `TELEGRAM_INCLUDE_THINKING` | `false` | Включать Ultrathink |
 | `TELEGRAM_INCLUDE_TODO` | `true` | Включать статус TODO |
@@ -88,6 +90,7 @@ fi
   TELEGRAM_NOTIFY_STOP: true
   TELEGRAM_NOTIFY_WAITING: true
   TELEGRAM_NOTIFY_SUBAGENT: true
+  TELEGRAM_NOTIFY_DELAY: 0 сек
 
 📝 Компоненты сообщений:
   TELEGRAM_INCLUDE_MESSAGE: true
