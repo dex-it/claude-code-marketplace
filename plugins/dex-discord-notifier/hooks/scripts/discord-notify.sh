@@ -13,7 +13,6 @@
 
 # Exit silently on errors - never block Claude
 set +e
-
 # =============================================================================
 # Configuration from Environment Variables
 # =============================================================================
@@ -28,6 +27,7 @@ LANG="${DISCORD_LANGUAGE:-ru}"
 # Feature toggles (all enabled by default)
 NOTIFY_STOP="${DISCORD_NOTIFY_STOP:-true}"
 NOTIFY_WAITING="${DISCORD_NOTIFY_WAITING:-true}"
+NOTIFY_PERMISSIONS="${DISCORD_NOTIFY_PERMISSIONS:-true}"
 NOTIFY_SUBAGENT="${DISCORD_NOTIFY_SUBAGENT:-true}"
 INCLUDE_THINKING="${DISCORD_INCLUDE_THINKING:-false}"
 INCLUDE_TOOLS="${DISCORD_INCLUDE_TOOLS:-true}"
@@ -64,6 +64,7 @@ declare -A L10N_RU=(
     ["stop_event"]="завершил работу"
     ["notification_event"]="ждёт ответа"
     ["subagent_event"]="завершил подзадачу"
+    ["permission_request"]="ждёт разрешение"
     ["unknown_event"]="событие"
     ["last_message"]="Последнее сообщение"
     ["ultrathink"]="Ultrathink"
@@ -78,6 +79,7 @@ declare -A L10N_EN=(
     ["stop_event"]="finished working"
     ["notification_event"]="waiting for response"
     ["subagent_event"]="completed subtask"
+    ["permission_request"]="waiting for permissions"
     ["unknown_event"]="event"
     ["last_message"]="Last message"
     ["ultrathink"]="Ultrathink"
@@ -124,6 +126,12 @@ case "$HOOK_EVENT" in
         EMOJI="⏸️"
         COLOR=16776960  # Yellow
         EVENT_NAME=$(get_l10n "notification_event")
+        ;;
+    "PermissionRequest")
+        [ "$NOTIFY_PERMISSIONS" != "true" ] && exit 0
+        EMOJI="⏸️"
+        COLOR=16776960  # Yellow
+        EVENT_NAME=$(get_l10n "permission_request")
         ;;
     "SubagentStop")
         [ "$NOTIFY_SUBAGENT" != "true" ] && exit 0
@@ -342,18 +350,15 @@ fi
 # =============================================================================
 
 TITLE="$EMOJI Claude $EVENT_NAME"
-TITLE_ESCAPED=$(escape_json "$TITLE")
 
 EMBED=$(jq -n \
-    --argjson title "$TITLE_ESCAPED" \
-    --argjson description "$DESCRIPTION" \
+    --arg title "$TITLE" \
+    --arg description "$NOTIFICATION_MSG" \
     --argjson color "$COLOR" \
-    --argjson fields "$FIELDS" \
     '{
         title: $title,
-        description: (if $description == "null" or $description == "" then null else $description end),
+        description: (if $description == "" then null else $description end),
         color: $color,
-        fields: $fields,
         timestamp: (now | strftime("%Y-%m-%dT%H:%M:%S.000Z"))
     }')
 
@@ -364,7 +369,9 @@ EMBED=$(jq -n \
 PAYLOAD=$(jq -n \
     --argjson embed "$EMBED" \
     '{
-        embeds: [$embed]
+        content: null,
+        embeds: [$embed],
+        attachments: []
     }')
 
 # =============================================================================
