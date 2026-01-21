@@ -1,8 +1,8 @@
 # Bundle: dex-bundle-dotnet-developer
 
-Meta-plugin that combines multiple specialists into one role-based package.
+Bundle for .NET developers: coding, debugging, testing, code review, EF Core, performance.
 
-## Automatic Installation
+## Installation
 
 ```bash
 # Linux / macOS / WSL
@@ -15,40 +15,33 @@ Meta-plugin that combines multiple specialists into one role-based package.
 ./install-bundle/install-bundle.sh dotnet-developer --dry-run
 ```
 
-## Included Plugins
-
-- `dex-dotnet-coder`
-- `dex-dotnet-debugger`
-- `dex-dotnet-reviewer`
-- `dex-dotnet-tester`
-- `dex-ef-specialist`
-- `dex-dotnet-performance`
-- `dex-skill-dotnet-patterns`
-- `dex-skill-ef-core`
-- `dex-skill-async-patterns`
-- `dex-skill-linq-optimization`
-- `dex-skill-api-development`
-- `dex-skill-testing-patterns`
-
-## Installation
-
-Since Claude Code doesn't have native bundle dependency management, install each component separately:
+## Uninstallation
 
 ```bash
-# Install all components
-claude plugins install dex-dotnet-coder
-claude plugins install dex-dotnet-debugger
-claude plugins install dex-dotnet-reviewer
-claude plugins install dex-dotnet-tester
-claude plugins install dex-ef-specialist
-claude plugins install dex-dotnet-performance
-claude plugins install dex-skill-dotnet-patterns
-claude plugins install dex-skill-ef-core
-claude plugins install dex-skill-async-patterns
-claude plugins install dex-skill-linq-optimization
-claude plugins install dex-skill-api-development
-claude plugins install dex-skill-testing-patterns
+# Linux / macOS / WSL
+./install-bundle/uninstall-bundle.sh dotnet-developer
+
+# Windows (PowerShell)
+.\install-bundle\uninstall-bundle.ps1 dotnet-developer
 ```
+
+## Included Components (12)
+
+### Specialists (6)
+- `dex-dotnet-coder` - .NET coding assistant
+- `dex-dotnet-debugger` - Bug hunting and debugging
+- `dex-dotnet-reviewer` - Code review specialist
+- `dex-dotnet-tester` - Unit testing with xUnit/Moq
+- `dex-ef-specialist` - Entity Framework Core specialist
+- `dex-dotnet-performance` - Performance analysis
+
+### Skills (6)
+- `dex-skill-dotnet-patterns` - SOLID, DI, async/await patterns
+- `dex-skill-ef-core` - EF Core best practices
+- `dex-skill-async-patterns` - Async/await patterns
+- `dex-skill-linq-optimization` - LINQ optimization
+- `dex-skill-api-development` - REST API development
+- `dex-skill-testing-patterns` - Testing patterns
 
 ## Note
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Bundle Installer for Claude Code Marketplace
-# Automatically installs all components from a bundle's _bundle.includes[]
+# Bundle Uninstaller for Claude Code Marketplace
+# Automatically uninstalls all components from a bundle's _bundle.includes[]
 # Requires: jq, claude CLI
 
 # Colors
@@ -36,21 +36,21 @@ VERBOSE=false
 show_help() {
     echo ""
     print_header "======================================"
-    print_header "  Bundle Installer for Claude Code"
+    print_header "  Bundle Uninstaller for Claude Code"
     print_header "======================================"
     echo ""
     echo "Usage: $0 [OPTIONS] [BUNDLE_NAME]"
     echo ""
     echo "Options:"
     echo "  --list, -l       List all available bundles"
-    echo "  --dry-run, -n    Show what would be installed without installing"
+    echo "  --dry-run, -n    Show what would be uninstalled without uninstalling"
     echo "  --verbose, -v    Show detailed output"
     echo "  --help, -h       Show this help message"
     echo ""
     echo "Examples:"
     echo "  $0 --list                    # Show all bundles"
-    echo "  $0 dotnet-developer          # Install .NET Developer bundle"
-    echo "  $0 dotnet-developer --dry-run # Preview installation"
+    echo "  $0 dotnet-developer          # Uninstall .NET Developer bundle"
+    echo "  $0 dotnet-developer --dry-run # Preview uninstallation"
     echo ""
     echo "Available bundles:"
     list_bundles_short
@@ -105,52 +105,39 @@ list_bundles() {
     echo ""
 }
 
-# Get source path for a plugin from marketplace.json
-get_plugin_source() {
-    local plugin_name="$1"
-    jq -r --arg name "$plugin_name" '.plugins[] | select(.name == $name) | .source // empty' "$MARKETPLACE_JSON"
-}
-
-# Install a single component
-install_component() {
+# Uninstall a single component
+uninstall_component() {
     local component_name="$1"
-    local source_path="$2"
-    local component_num="$3"
-    local total="$4"
+    local component_num="$2"
+    local total="$3"
 
     if [ "$DRY_RUN" = true ]; then
-        print_info "  [$component_num/$total] Would install: $component_name"
-        if [ "$VERBOSE" = true ]; then
-            print_dim "           Source: $source_path"
-        fi
+        print_info "  [$component_num/$total] Would uninstall: $component_name"
         return 0
     fi
 
-    print_info "  [$component_num/$total] Installing: $component_name"
-    if [ "$VERBOSE" = true ]; then
-        print_dim "           Source: $source_path"
-    fi
+    print_info "  [$component_num/$total] Uninstalling: $component_name"
 
-    # Run claude plugins install
+    # Run claude plugins uninstall
     local output
-    output=$(claude plugins install "$source_path" 2>&1)
+    output=$(claude plugins uninstall "$component_name" 2>&1)
     local exit_code=$?
 
     if [ $exit_code -eq 0 ]; then
-        print_success "           Installed successfully"
+        print_success "           Removed successfully"
         return 0
     else
-        if echo "$output" | grep -qi "already installed\|exists"; then
-            print_warning "           Already installed (skipped)"
+        if echo "$output" | grep -qi "not installed\|not found"; then
+            print_warning "           Not installed (skipped)"
         else
-            print_warning "           Skipped: $output"
+            print_error "           Error: $output"
         fi
         return 1
     fi
 }
 
-# Install bundle
-install_bundle() {
+# Uninstall bundle
+uninstall_bundle() {
     local bundle_name="$1"
     local bundle_dir="$BUNDLES_DIR/dex-bundle-$bundle_name"
     local plugin_json="$bundle_dir/.claude-plugin/plugin.json"
@@ -170,12 +157,6 @@ install_bundle() {
         return 1
     fi
 
-    # Check marketplace.json exists
-    if [ ! -f "$MARKETPLACE_JSON" ]; then
-        print_error "marketplace.json not found: $MARKETPLACE_JSON"
-        return 1
-    fi
-
     # Get bundle info
     local description=$(jq -r '.description // "No description"' "$plugin_json")
     local includes=$(jq -r '._bundle.includes[]' "$plugin_json")
@@ -183,21 +164,21 @@ install_bundle() {
 
     echo ""
     print_header "======================================"
-    print_header "  Installing Bundle: $bundle_name"
+    print_header "  Uninstalling Bundle: $bundle_name"
     print_header "======================================"
     echo ""
     print_dim "  $description"
     echo ""
-    print_info "  Components to install: $total"
+    print_info "  Components to uninstall: $total"
     echo ""
 
     if [ "$DRY_RUN" = true ]; then
-        print_warning "  [DRY RUN] No actual installation will be performed"
+        print_warning "  [DRY RUN] No actual uninstallation will be performed"
         echo ""
     fi
 
     # Counters
-    local installed=0
+    local removed=0
     local skipped=0
     local errors=0
     local component_num=0
@@ -206,20 +187,8 @@ install_bundle() {
     while IFS= read -r component; do
         ((component_num++))
 
-        # Get source path from marketplace.json
-        local source=$(get_plugin_source "$component")
-
-        if [ -z "$source" ]; then
-            print_error "  [$component_num/$total] Source not found for: $component"
-            ((errors++))
-            continue
-        fi
-
-        # Convert relative path to absolute
-        local full_source="$PROJECT_ROOT/${source#./}"
-
-        if install_component "$component" "$full_source" "$component_num" "$total"; then
-            ((installed++))
+        if uninstall_component "$component" "$component_num" "$total"; then
+            ((removed++))
         else
             ((skipped++))
         fi
@@ -233,20 +202,20 @@ install_bundle() {
     echo ""
 
     if [ "$DRY_RUN" = true ]; then
-        print_info "  Would install: $installed components"
+        print_info "  Would uninstall: $removed components"
     else
-        print_success "  Installed: $installed"
-        print_warning "  Skipped:   $skipped"
+        print_success "  Removed:  $removed"
+        print_warning "  Skipped:  $skipped"
     fi
 
     if [ $errors -gt 0 ]; then
-        print_error "  Errors:    $errors"
+        print_error "  Errors:   $errors"
     fi
 
     echo ""
 
     if [ "$DRY_RUN" = true ]; then
-        echo "Run without --dry-run to actually install."
+        echo "Run without --dry-run to actually uninstall."
         echo ""
     fi
 
@@ -318,5 +287,5 @@ if [ -z "$BUNDLE_NAME" ]; then
 fi
 
 check_dependencies
-install_bundle "$BUNDLE_NAME"
+uninstall_bundle "$BUNDLE_NAME"
 exit $?

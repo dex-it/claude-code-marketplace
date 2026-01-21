@@ -1,8 +1,8 @@
 # Bundle: dex-bundle-qa-engineer
 
-Meta-plugin that combines multiple specialists into one role-based package.
+Bundle for QA Engineers: test analysis, test automation, bug reporting.
 
-## Automatic Installation
+## Installation
 
 ```bash
 # Linux / macOS / WSL
@@ -15,28 +15,27 @@ Meta-plugin that combines multiple specialists into one role-based package.
 ./install-bundle/install-bundle.sh qa-engineer --dry-run
 ```
 
-## Included Plugins
-
-- `dex-test-analyst`
-- `dex-test-automator`
-- `dex-bug-reporter`
-- `dex-skill-test-design`
-- `dex-skill-api-testing`
-- `dex-skill-testing-patterns`
-
-## Installation
-
-Since Claude Code doesn't have native bundle dependency management, install each component separately:
+## Uninstallation
 
 ```bash
-# Install all components
-claude plugins install dex-test-analyst
-claude plugins install dex-test-automator
-claude plugins install dex-bug-reporter
-claude plugins install dex-skill-test-design
-claude plugins install dex-skill-api-testing
-claude plugins install dex-skill-testing-patterns
+# Linux / macOS / WSL
+./install-bundle/uninstall-bundle.sh qa-engineer
+
+# Windows (PowerShell)
+.\install-bundle\uninstall-bundle.ps1 qa-engineer
 ```
+
+## Included Components (6)
+
+### Specialists (3)
+- `dex-test-analyst` - Test design and analysis
+- `dex-test-automator` - Test automation
+- `dex-bug-reporter` - Bug reporting
+
+### Skills (3)
+- `dex-skill-test-design` - Test design techniques
+- `dex-skill-api-testing` - API testing
+- `dex-skill-testing-patterns` - Testing patterns
 
 ## Note
 

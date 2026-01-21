@@ -1,8 +1,8 @@
 # Bundle: dex-bundle-ml-engineer
 
-Meta-plugin that combines multiple specialists into one role-based package.
+Bundle for ML Engineers: experiments, model training, debugging, deployment, data pipelines.
 
-## Automatic Installation
+## Installation
 
 ```bash
 # Linux / macOS / WSL
@@ -15,38 +15,32 @@ Meta-plugin that combines multiple specialists into one role-based package.
 ./install-bundle/install-bundle.sh ml-engineer --dry-run
 ```
 
-## Included Plugins
-
-- `dex-ml-experimenter`
-- `dex-model-trainer`
-- `dex-model-debugger`
-- `dex-ml-deployer`
-- `dex-data-pipeline`
-- `dex-skill-pytorch`
-- `dex-skill-tensorflow`
-- `dex-skill-classical-ml`
-- `dex-skill-nlp-transformers`
-- `dex-skill-computer-vision`
-- `dex-skill-ml-optimization`
-
-## Installation
-
-Since Claude Code doesn't have native bundle dependency management, install each component separately:
+## Uninstallation
 
 ```bash
-# Install all components
-claude plugins install dex-ml-experimenter
-claude plugins install dex-model-trainer
-claude plugins install dex-model-debugger
-claude plugins install dex-ml-deployer
-claude plugins install dex-data-pipeline
-claude plugins install dex-skill-pytorch
-claude plugins install dex-skill-tensorflow
-claude plugins install dex-skill-classical-ml
-claude plugins install dex-skill-nlp-transformers
-claude plugins install dex-skill-computer-vision
-claude plugins install dex-skill-ml-optimization
+# Linux / macOS / WSL
+./install-bundle/uninstall-bundle.sh ml-engineer
+
+# Windows (PowerShell)
+.\install-bundle\uninstall-bundle.ps1 ml-engineer
 ```
+
+## Included Components (11)
+
+### Specialists (5)
+- `dex-ml-experimenter` - EDA and feature engineering
+- `dex-model-trainer` - Model training
+- `dex-model-debugger` - Model debugging
+- `dex-ml-deployer` - Model deployment
+- `dex-data-pipeline` - Data pipelines
+
+### Skills (6)
+- `dex-skill-pytorch` - PyTorch patterns
+- `dex-skill-tensorflow` - TensorFlow/Keras patterns
+- `dex-skill-classical-ml` - Classical ML (scikit-learn, XGBoost)
+- `dex-skill-nlp-transformers` - NLP with Transformers
+- `dex-skill-computer-vision` - Computer Vision
+- `dex-skill-ml-optimization` - ML optimization
 
 ## Note
 

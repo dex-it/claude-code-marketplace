@@ -1,10 +1,10 @@
-# Bundle Installer
+# Bundle Installer / Uninstaller
 
-Automated installation scripts for Claude Code Marketplace bundles.
+Automated installation and uninstallation scripts for Claude Code Marketplace bundles.
 
 ## Overview
 
-Bundles are meta-plugins that group related specialists and skills together. Instead of manually running 10-30 `claude plugins install` commands, use these scripts to install all bundle components automatically.
+Bundles are meta-plugins that group related specialists and skills together. Instead of manually running 10-30 `claude plugins install` commands, use these scripts to install or uninstall all bundle components automatically.
 
 ## Requirements
 
@@ -30,7 +30,7 @@ sudo pacman -S jq
 - PowerShell 5.1+ (pre-installed)
 - `claude` CLI
 
-## Usage
+## Installation
 
 ### Bash (Linux / macOS / WSL)
 
@@ -64,23 +64,51 @@ sudo pacman -S jq
 .\install-bundle.ps1 dotnet-developer -Verbose
 ```
 
+## Uninstallation
+
+### Bash (Linux / macOS / WSL)
+
+```bash
+# List available bundles
+./uninstall-bundle.sh --list
+
+# Uninstall a bundle
+./uninstall-bundle.sh dotnet-developer
+
+# Preview uninstallation (dry run)
+./uninstall-bundle.sh dotnet-developer --dry-run
+```
+
+### PowerShell (Windows)
+
+```powershell
+# List available bundles
+.\uninstall-bundle.ps1 -List
+
+# Uninstall a bundle
+.\uninstall-bundle.ps1 dotnet-developer
+
+# Preview uninstallation (dry run)
+.\uninstall-bundle.ps1 dotnet-developer -DryRun
+```
+
 ## Available Bundles
 
 | Bundle | Description | Components |
 |--------|-------------|------------|
 | `dotnet-developer` | .NET Developer bundle | 12 |
 | `dotnet-fullstack` | .NET Fullstack bundle | 29 |
-| `devops` | DevOps Engineer bundle | 12 |
-| `product-manager` | Product Manager bundle | 8 |
-| `system-analyst` | System Analyst bundle | 12 |
-| `architect` | Software Architect bundle | 8 |
+| `devops` | DevOps Engineer bundle | 11 |
+| `product-manager` | Product Manager bundle | 9 |
+| `system-analyst` | System Analyst bundle | 9 |
+| `architect` | Software Architect bundle | 9 |
 | `qa-engineer` | QA Engineer bundle | 6 |
 | `ml-engineer` | ML Engineer bundle | 11 |
-| `infrastructure` | Infrastructure bundle | 24 |
+| `infrastructure` | Infrastructure bundle | 23 |
 
 ## Command Line Options
 
-### Bash
+### Install (Bash)
 
 | Option | Short | Description |
 |--------|-------|-------------|
@@ -89,7 +117,16 @@ sudo pacman -S jq
 | `--verbose` | `-v` | Show detailed output |
 | `--help` | `-h` | Show help message |
 
-### PowerShell
+### Uninstall (Bash)
+
+| Option | Short | Description |
+|--------|-------|-------------|
+| `--list` | `-l` | List all available bundles |
+| `--dry-run` | `-n` | Preview without uninstalling |
+| `--verbose` | `-v` | Show detailed output |
+| `--help` | `-h` | Show help message |
+
+### Install (PowerShell)
 
 | Option | Alias | Description |
 |--------|-------|-------------|
@@ -98,14 +135,42 @@ sudo pacman -S jq
 | `-Verbose` | `-v` | Show detailed output |
 | `-Help` | `-h` | Show help message |
 
+### Uninstall (PowerShell)
+
+| Option | Alias | Description |
+|--------|-------|-------------|
+| `-List` | `-l` | List all available bundles |
+| `-DryRun` | `-n` | Preview without uninstalling |
+| `-Verbose` | `-v` | Show detailed output |
+| `-Help` | `-h` | Show help message |
+
 ## How It Works
+
+### Installation
 
 1. Reads the bundle's `plugin.json` from `plugins/bundles/dex-bundle-<name>/`
 2. Extracts the `_bundle.includes[]` array (list of component plugin names)
 3. For each component, looks up its `source` path in `marketplace.json`
 4. Runs `claude plugins install <source>` for each component
 
+### Uninstallation
+
+1. Reads the bundle's `plugin.json` from `plugins/bundles/dex-bundle-<name>/`
+2. Extracts the `_bundle.includes[]` array (list of component plugin names)
+3. Runs `claude plugins uninstall <component>` for each component
+
+## Re-running Scripts
+
+The scripts are **idempotent** - you can run them multiple times safely:
+
+- **Install**: Already installed components are skipped
+- **Uninstall**: Components that are not installed are skipped
+
+This makes it safe to re-run the script if it was interrupted or if you want to ensure all components are properly installed/removed.
+
 ## Example Output
+
+### Installation
 
 ```
 ======================================
@@ -128,7 +193,31 @@ sudo pacman -S jq
 
   Installed: 10
   Skipped:   2
+```
 
+### Uninstallation
+
+```
+======================================
+  Uninstalling Bundle: dotnet-developer
+======================================
+
+  Bundle for .NET developers: coding, debugging, testing, code review, EF Core, performance.
+
+  Components to uninstall: 12
+
+  [1/12] Uninstalling: dex-dotnet-coder
+           Removed successfully
+  [2/12] Uninstalling: dex-dotnet-debugger
+           Removed successfully
+  ...
+
+======================================
+  Summary
+======================================
+
+  Removed:  10
+  Skipped:  2
 ```
 
 ## Troubleshooting
@@ -151,7 +240,7 @@ Ensure Claude Code CLI is installed and in your PATH:
 ### Permission denied (Linux/macOS)
 
 ```bash
-chmod +x install-bundle.sh
+chmod +x install-bundle.sh uninstall-bundle.sh
 ```
 
 ### Component not found in marketplace.json
@@ -162,7 +251,9 @@ The component name in the bundle's `_bundle.includes[]` must match a plugin `nam
 
 ```
 install-bundle/
-├── install-bundle.sh    # Bash script (Linux/macOS/WSL)
-├── install-bundle.ps1   # PowerShell script (Windows)
-└── README.md            # This file
+├── install-bundle.sh      # Bash install script (Linux/macOS/WSL)
+├── install-bundle.ps1     # PowerShell install script (Windows)
+├── uninstall-bundle.sh    # Bash uninstall script (Linux/macOS/WSL)
+├── uninstall-bundle.ps1   # PowerShell uninstall script (Windows)
+└── README.md              # This file
 ```

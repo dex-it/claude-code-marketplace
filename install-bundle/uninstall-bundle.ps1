@@ -1,5 +1,5 @@
-# Bundle Installer for Claude Code Marketplace
-# Automatically installs all components from a bundle's _bundle.includes[]
+# Bundle Uninstaller for Claude Code Marketplace
+# Automatically uninstalls all components from a bundle's _bundle.includes[]
 # Requires: PowerShell 5.1+, claude CLI
 
 param(
@@ -23,7 +23,6 @@ param(
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ProjectRoot = Split-Path -Parent $ScriptDir
 $BundlesDir = Join-Path $ProjectRoot "plugins\bundles"
-$MarketplaceJson = Join-Path $ProjectRoot ".claude-plugin\marketplace.json"
 
 # Output functions
 function Write-Error-Colored { param($Message) Write-Host $Message -ForegroundColor Red }
@@ -37,21 +36,21 @@ function Write-Dim { param($Message) Write-Host $Message -ForegroundColor DarkGr
 function Show-Help {
     Write-Host ""
     Write-Header "======================================"
-    Write-Header "  Bundle Installer for Claude Code"
+    Write-Header "  Bundle Uninstaller for Claude Code"
     Write-Header "======================================"
     Write-Host ""
-    Write-Host "Usage: .\install-bundle.ps1 [OPTIONS] [BUNDLE_NAME]"
+    Write-Host "Usage: .\uninstall-bundle.ps1 [OPTIONS] [BUNDLE_NAME]"
     Write-Host ""
     Write-Host "Options:"
     Write-Host "  -List, -l       List all available bundles"
-    Write-Host "  -DryRun, -n     Show what would be installed without installing"
+    Write-Host "  -DryRun, -n     Show what would be uninstalled without uninstalling"
     Write-Host "  -Verbose, -v    Show detailed output"
     Write-Host "  -Help, -h       Show this help message"
     Write-Host ""
     Write-Host "Examples:"
-    Write-Host "  .\install-bundle.ps1 -List                    # Show all bundles"
-    Write-Host "  .\install-bundle.ps1 dotnet-developer          # Install .NET Developer bundle"
-    Write-Host "  .\install-bundle.ps1 dotnet-developer -DryRun  # Preview installation"
+    Write-Host "  .\uninstall-bundle.ps1 -List                    # Show all bundles"
+    Write-Host "  .\uninstall-bundle.ps1 dotnet-developer          # Uninstall .NET Developer bundle"
+    Write-Host "  .\uninstall-bundle.ps1 dotnet-developer -DryRun  # Preview uninstallation"
     Write-Host ""
     Write-Host "Available bundles:"
     Get-BundlesShort
@@ -101,62 +100,48 @@ function Get-BundlesDetailed {
         }
     }
 
-    Write-Host "Usage: .\install-bundle.ps1 <bundle-name>"
+    Write-Host "Usage: .\uninstall-bundle.ps1 <bundle-name>"
     Write-Host ""
 }
 
-# Get source path for a plugin from marketplace.json
-function Get-PluginSource {
-    param([string]$PluginName)
-
-    $marketplace = Get-Content $MarketplaceJson -Raw | ConvertFrom-Json
-    $plugin = $marketplace.plugins | Where-Object { $_.name -eq $PluginName }
-    if ($plugin) {
-        return $plugin.source
-    }
-    return $null
-}
-
-# Install a single component
-function Install-Component {
+# Uninstall a single component
+function Uninstall-Component {
     param(
         [string]$ComponentName,
-        [string]$SourcePath,
         [int]$ComponentNum,
         [int]$Total
     )
 
     if ($DryRun) {
-        Write-Info "  [$ComponentNum/$Total] Would install: $ComponentName"
-        if ($Verbose) {
-            Write-Dim "           Source: $SourcePath"
-        }
+        Write-Info "  [$ComponentNum/$Total] Would uninstall: $ComponentName"
         return $true
     }
 
-    Write-Info "  [$ComponentNum/$Total] Installing: $ComponentName"
-    if ($Verbose) {
-        Write-Dim "           Source: $SourcePath"
-    }
+    Write-Info "  [$ComponentNum/$Total] Uninstalling: $ComponentName"
 
-    # Run claude plugins install
+    # Run claude plugins uninstall
     try {
-        $output = & claude plugins install $SourcePath 2>&1
+        $output = & claude plugins uninstall $ComponentName 2>&1
         if ($LASTEXITCODE -eq 0) {
-            Write-Success "           Installed successfully"
+            Write-Success "           Removed successfully"
             return $true
         } else {
-            Write-Warning-Colored "           Already installed or skipped"
+            $outputStr = $output -join " "
+            if ($outputStr -match "not installed|not found") {
+                Write-Warning-Colored "           Not installed (skipped)"
+            } else {
+                Write-Error-Colored "           Error: $outputStr"
+            }
             return $false
         }
     } catch {
-        Write-Warning-Colored "           Already installed or skipped"
+        Write-Warning-Colored "           Not installed (skipped)"
         return $false
     }
 }
 
-# Install bundle
-function Install-Bundle {
+# Uninstall bundle
+function Uninstall-Bundle {
     param([string]$Name)
 
     $bundleDir = Join-Path $BundlesDir "dex-bundle-$Name"
@@ -169,18 +154,12 @@ function Install-Bundle {
         Write-Host "Available bundles:"
         Get-BundlesShort
         Write-Host ""
-        return
+        return $false
     }
 
     if (-not (Test-Path $pluginJson)) {
         Write-Error-Colored "plugin.json not found in bundle: $Name"
-        return
-    }
-
-    # Check marketplace.json exists
-    if (-not (Test-Path $MarketplaceJson)) {
-        Write-Error-Colored "marketplace.json not found: $MarketplaceJson"
-        return
+        return $false
     }
 
     # Get bundle info
@@ -191,21 +170,21 @@ function Install-Bundle {
 
     Write-Host ""
     Write-Header "======================================"
-    Write-Header "  Installing Bundle: $Name"
+    Write-Header "  Uninstalling Bundle: $Name"
     Write-Header "======================================"
     Write-Host ""
     Write-Dim "  $description"
     Write-Host ""
-    Write-Info "  Components to install: $total"
+    Write-Info "  Components to uninstall: $total"
     Write-Host ""
 
     if ($DryRun) {
-        Write-Warning-Colored "  [DRY RUN] No actual installation will be performed"
+        Write-Warning-Colored "  [DRY RUN] No actual uninstallation will be performed"
         Write-Host ""
     }
 
     # Counters
-    $installed = 0
+    $removed = 0
     $skipped = 0
     $errors = 0
     $componentNum = 0
@@ -214,20 +193,8 @@ function Install-Bundle {
     foreach ($component in $includes) {
         $componentNum++
 
-        # Get source path from marketplace.json
-        $source = Get-PluginSource -PluginName $component
-
-        if (-not $source) {
-            Write-Error-Colored "  [$componentNum/$total] Source not found for: $component"
-            $errors++
-            continue
-        }
-
-        # Convert relative path to absolute
-        $fullSource = Join-Path $ProjectRoot ($source -replace "^\./", "")
-
-        if (Install-Component -ComponentName $component -SourcePath $fullSource -ComponentNum $componentNum -Total $total) {
-            $installed++
+        if (Uninstall-Component -ComponentName $component -ComponentNum $componentNum -Total $total) {
+            $removed++
         } else {
             $skipped++
         }
@@ -241,20 +208,20 @@ function Install-Bundle {
     Write-Host ""
 
     if ($DryRun) {
-        Write-Info "  Would install: $installed components"
+        Write-Info "  Would uninstall: $removed components"
     } else {
-        Write-Success "  Installed: $installed"
-        Write-Warning-Colored "  Skipped:   $skipped"
+        Write-Success "  Removed:  $removed"
+        Write-Warning-Colored "  Skipped:  $skipped"
     }
 
     if ($errors -gt 0) {
-        Write-Error-Colored "  Errors:    $errors"
+        Write-Error-Colored "  Errors:   $errors"
     }
 
     Write-Host ""
 
     if ($DryRun) {
-        Write-Host "Run without -DryRun to actually install."
+        Write-Host "Run without -DryRun to actually uninstall."
         Write-Host ""
     }
 
@@ -289,7 +256,7 @@ if (-not $BundleName) {
 }
 
 Test-Dependencies
-$result = Install-Bundle -Name $BundleName
+$result = Uninstall-Bundle -Name $BundleName
 if ($result) {
     exit 0
 } else {
