@@ -3,11 +3,7 @@
 # Discord Notifier for Claude Code
 # Part of dex-discord-notifier plugin
 #
-# Sends notifications to Discord when Claude Code events occur:
-# - Stop: Claude finished working
-# - Notification: Claude is waiting for user input
-# - SubagentStop: A subagent completed its task
-#
+# Sends notifications to Discord when Claude Code events occur.
 # Configuration via environment variables (see README.md)
 # =============================================================================
 
@@ -25,7 +21,6 @@ MSG_LIMIT="${DISCORD_MESSAGE_LIMIT:-4000}"
 LANG="${DISCORD_LANGUAGE:-ru}"
 
 # Feature toggles (all enabled by default)
-NOTIFY_STOP="${DISCORD_NOTIFY_STOP:-true}"
 NOTIFY_WAITING="${DISCORD_NOTIFY_WAITING:-true}"
 NOTIFY_PERMISSIONS="${DISCORD_NOTIFY_PERMISSIONS:-true}"
 NOTIFY_SUBAGENT="${DISCORD_NOTIFY_SUBAGENT:-true}"
@@ -61,7 +56,6 @@ fi
 # =============================================================================
 
 declare -A L10N_RU=(
-    ["stop_event"]="завершил работу"
     ["notification_event"]="ждёт ответа"
     ["subagent_event"]="завершил подзадачу"
     ["permission_request"]="ждёт разрешение"
@@ -76,7 +70,6 @@ declare -A L10N_RU=(
 )
 
 declare -A L10N_EN=(
-    ["stop_event"]="finished working"
     ["notification_event"]="waiting for response"
     ["subagent_event"]="completed subtask"
     ["permission_request"]="waiting for permissions"
@@ -115,12 +108,6 @@ NOTIFICATION_MSG=$(echo "$INPUT" | jq -r '.message // empty')
 # =============================================================================
 
 case "$HOOK_EVENT" in
-    "Stop")
-        [ "$NOTIFY_STOP" != "true" ] && exit 0
-        EMOJI="✅"
-        COLOR=3066993  # Green
-        EVENT_NAME=$(get_l10n "stop_event")
-        ;;
     "Notification")
         [ "$NOTIFY_WAITING" != "true" ] && exit 0
         EMOJI="⏸️"
