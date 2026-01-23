@@ -88,11 +88,11 @@
       "command": "npx",
       "args": [
         "-y",
-        "gitlab-mcp"
+        "@zereight/mcp-gitlab"
       ],
       "env": {
         "GITLAB_PERSONAL_ACCESS_TOKEN": "${GITLAB_TOKEN}",
-        "GITLAB_URL": "${GITLAB_API_URL}"
+        "GITLAB_API_URL": "${GITLAB_API_URL}"
       }
     },
     "github": {
