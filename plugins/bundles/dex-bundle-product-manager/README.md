@@ -1,35 +1,44 @@
 # Bundle: dex-bundle-product-manager
 
-Meta-plugin that combines multiple specialists into one role-based package.
-
-## Included Plugins
-
-- `dex-business-analyst`
-- `dex-roadmap-planner`
-- `dex-backlog-manager`
-- `dex-pm-metrics-analyst`
-- `dex-skill-agile`
-- `dex-skill-product-discovery`
-- `dex-skill-epic-planning`
-- `dex-skill-prioritization`
-- `dex-skill-doc-standards`
+Bundle for Product Managers: business requirements, roadmap, backlog, metrics analysis.
 
 ## Installation
 
-Since Claude Code doesn't have native bundle dependency management, install each component separately:
+```bash
+# Linux / macOS / WSL
+./install-bundle/install-bundle.sh product-manager
+
+# Windows (PowerShell)
+.\install-bundle\install-bundle.ps1 product-manager
+
+# Preview what will be installed
+./install-bundle/install-bundle.sh product-manager --dry-run
+```
+
+## Uninstallation
 
 ```bash
-# Install all components
-claude plugins install dex-business-analyst
-claude plugins install dex-roadmap-planner
-claude plugins install dex-backlog-manager
-claude plugins install dex-pm-metrics-analyst
-claude plugins install dex-skill-agile
-claude plugins install dex-skill-product-discovery
-claude plugins install dex-skill-epic-planning
-claude plugins install dex-skill-prioritization
-claude plugins install dex-skill-doc-standards
+# Linux / macOS / WSL
+./install-bundle/uninstall-bundle.sh product-manager
+
+# Windows (PowerShell)
+.\install-bundle\uninstall-bundle.ps1 product-manager
 ```
+
+## Included Components (9)
+
+### Specialists (4)
+- `dex-business-analyst` - Business requirements
+- `dex-roadmap-planner` - Roadmap planning
+- `dex-backlog-manager` - Backlog management
+- `dex-pm-metrics-analyst` - Metrics analysis
+
+### Skills (5)
+- `dex-skill-agile` - Agile methodology
+- `dex-skill-product-discovery` - Product discovery
+- `dex-skill-epic-planning` - Epic planning
+- `dex-skill-prioritization` - Prioritization frameworks
+- `dex-skill-doc-standards` - Documentation standards
 
 ## Note
 

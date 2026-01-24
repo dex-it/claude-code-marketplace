@@ -33,7 +33,38 @@ cp -r claude-code-marketplace/plugins/dex-python-ml-developer ~/.claude/plugins/
 # ... и так далее для других плагинов
 ```
 
-### 2. Настройка Credentials
+### 2. Установка Bundle (Рекомендуется)
+
+Bundles - это мета-плагины, которые объединяют связанные компоненты. Используйте скрипты для автоматической установки.
+
+```bash
+# Посмотреть доступные bundles
+./install-bundle/install-bundle.sh --list
+
+# Установить bundle для .NET разработчика
+./install-bundle/install-bundle.sh dotnet-developer
+
+# Windows (PowerShell)
+.\install-bundle\install-bundle.ps1 dotnet-developer
+
+# Предпросмотр (без установки)
+./install-bundle/install-bundle.sh dotnet-developer --dry-run
+```
+
+**Доступные bundles:**
+- `dotnet-developer` - .NET разработка (12 компонентов)
+- `dotnet-fullstack` - .NET + инфраструктура (29 компонентов)
+- `devops` - DevOps инженер (12 компонентов)
+- `product-manager` - Продуктовый менеджер (9 компонентов)
+- `system-analyst` - Системный аналитик (9 компонентов)
+- `architect` - Архитектор (9 компонентов)
+- `qa-engineer` - QA инженер (6 компонентов)
+- `ml-engineer` - ML инженер (11 компонентов)
+- `infrastructure` - Инфраструктура (23 компонента)
+
+**Подробная документация:** [install-bundle/README.md](./install-bundle/README.md)
+
+### 3. Настройка Credentials
 
 Большинство плагинов требуют API ключи для интеграции с внешними сервисами (GitLab, Notion, GitHub и др.).
 
@@ -327,6 +358,11 @@ claude-code-marketplace/
 │   ├── settings.json          # Настройки Claude Code
 │   ├── system-prompt.md       # Системный промпт для проекта
 │   └── run-claude.sh/.ps1     # Скрипты запуска
+│
+├── install-bundle/             # Автоматическая установка bundles
+│   ├── install-bundle.sh      # Bash скрипт (Linux/macOS/WSL)
+│   ├── install-bundle.ps1     # PowerShell (Windows)
+│   └── README.md              # Документация
 │
 ├── plugins/                    # Плагины для разных ролей
 │   ├── dex-dotnet-developer/
