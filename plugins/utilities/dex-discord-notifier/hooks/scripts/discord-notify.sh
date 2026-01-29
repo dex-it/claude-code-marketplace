@@ -21,6 +21,7 @@ MSG_LIMIT="${DISCORD_MESSAGE_LIMIT:-4000}"
 LANG="${DISCORD_LANGUAGE:-ru}"
 
 # Feature toggles (all enabled by default)
+NOTIFY_STOP="${DISCORD_NOTIFY_STOP:-true}"
 NOTIFY_WAITING="${DISCORD_NOTIFY_WAITING:-true}"
 NOTIFY_PERMISSIONS="${DISCORD_NOTIFY_PERMISSIONS:-true}"
 NOTIFY_SUBAGENT="${DISCORD_NOTIFY_SUBAGENT:-true}"
@@ -56,6 +57,7 @@ fi
 # =============================================================================
 
 declare -A L10N_RU=(
+    ["stop_event"]="завершил работу"
     ["notification_event"]="ждёт ответа"
     ["subagent_event"]="завершил подзадачу"
     ["permission_request"]="ждёт разрешение"
@@ -70,6 +72,7 @@ declare -A L10N_RU=(
 )
 
 declare -A L10N_EN=(
+    ["stop_event"]="finished working"
     ["notification_event"]="waiting for response"
     ["subagent_event"]="completed subtask"
     ["permission_request"]="waiting for permissions"
@@ -107,18 +110,20 @@ NOTIFICATION_MSG=$(echo "$INPUT" | jq -r '.message // empty')
 # Check if this event should trigger notification
 # =============================================================================
 
+COLOR=9807270  # Default: Gray
+
 case "$HOOK_EVENT" in
+    "Stop")
+        [ "$NOTIFY_STOP" != "true" ] && exit 0
+        EMOJI="✅"
+        COLOR=3355443  # Green
+        EVENT_NAME=$(get_l10n "stop_event")
+        ;;
     "Notification")
         [ "$NOTIFY_WAITING" != "true" ] && exit 0
         EMOJI="⏸️"
         COLOR=16776960  # Yellow
         EVENT_NAME=$(get_l10n "notification_event")
-        ;;
-    "PermissionRequest")
-        [ "$NOTIFY_PERMISSIONS" != "true" ] && exit 0
-        EMOJI="⏸️"
-        COLOR=16776960  # Yellow
-        EVENT_NAME=$(get_l10n "permission_request")
         ;;
     "SubagentStop")
         [ "$NOTIFY_SUBAGENT" != "true" ] && exit 0
@@ -236,14 +241,14 @@ if [ -n "$TRANSCRIPT_PATH" ] && [ -f "$TRANSCRIPT_PATH" ]; then
         TODO_COMPLETED=$(echo "$TODO_JSON" | jq -r '[.[] | select(.status == "completed")] | length' 2>/dev/null || echo "0")
         TODO_IN_PROGRESS=$(echo "$TODO_JSON" | jq -r '[.[] | select(.status == "in_progress")] | length' 2>/dev/null || echo "0")
 
-        TODO_TEXT="($TODO_COMPLETED/$TODO_TOTAL $(get_l10n 'completed'))\n"
+        TODO_TEXT="($TODO_COMPLETED/$TODO_TOTAL $(get_l10n 'completed'))"$'\n'
 
         # Show in_progress tasks
         if [ "$TODO_IN_PROGRESS" -gt 0 ]; then
             TODO_IN_PROGRESS_LIST=$(echo "$TODO_JSON" | jq -r '.[] | select(.status == "in_progress") | "🔄 " + .content' 2>/dev/null)
             while IFS= read -r task; do
                 if [ -n "$task" ]; then
-                    TODO_TEXT+="$task\n"
+                    TODO_TEXT+="$task"$'\n'
                 fi
             done <<< "$TODO_IN_PROGRESS_LIST"
         fi
@@ -318,7 +323,7 @@ if [ -n "$TRANSCRIPT_PATH" ] && [ -f "$TRANSCRIPT_PATH" ]; then
             TOOLS_TEXT=""
             while read -r count tool; do
                 if [ -n "$tool" ]; then
-                    TOOLS_TEXT+="• $tool (${count}x)\n"
+                    TOOLS_TEXT+="• $tool (${count}x)"$'\n'
                 fi
             done <<< "$TOOL_SUMMARY"
 
@@ -353,6 +358,9 @@ EMBED=$(jq -n \
 # Build Final Payload
 # =============================================================================
 
+# Add fields to embed
+EMBED=$(echo "$EMBED" | jq --argjson fields "$FIELDS" '. + {fields: $fields}')
+
 PAYLOAD=$(jq -n \
     --argjson embed "$EMBED" \
     '{
@@ -362,9 +370,56 @@ PAYLOAD=$(jq -n \
     }')
 
 # =============================================================================
-# Send to Discord
+# Queue for Deferred Sending
 # =============================================================================
 
-curl -s -H "Content-Type: application/json" -X POST "$WEBHOOK_URL" -d "$PAYLOAD" > /dev/null 2>&1
+QUEUE_DIR="/tmp/discord-notify-queue"
+LOCK_FILE="/tmp/discord-notify.lock"
+TIMER_PID_FILE="/tmp/discord-notify-timer.pid"
+DELAY_SECONDS="${DISCORD_NOTIFY_DELAY:-30}"
+
+mkdir -p "$QUEUE_DIR"
+
+# Deduplicate: hash the embed fields (content without title/color to catch Stop+SubagentStop dupes)
+DEDUP_KEY=$(echo "$PAYLOAD" | jq -r '.embeds[0].fields // [] | tostring' 2>/dev/null | md5sum | cut -d' ' -f1)
+
+# Atomic dedup: use mkdir as a lock (atomic on all filesystems)
+DEDUP_LOCK="$QUEUE_DIR/.dedup_${DEDUP_KEY}"
+if ! mkdir "$DEDUP_LOCK" 2>/dev/null; then
+    # Another process already claimed this content — skip duplicate
+    exit 0
+fi
+
+# Save payload to queue
+QUEUE_FILE="$QUEUE_DIR/$(date +%s%N)_${DEDUP_KEY}.json"
+echo "$PAYLOAD" > "$QUEUE_FILE"
+
+# Check if timer is already running
+if [ -f "$TIMER_PID_FILE" ]; then
+    TIMER_PID=$(cat "$TIMER_PID_FILE" 2>/dev/null)
+    if [ -n "$TIMER_PID" ] && kill -0 "$TIMER_PID" 2>/dev/null; then
+        # Timer already running, just enqueued — exit
+        exit 0
+    fi
+fi
+
+# No timer running — start fully detached background flush timer
+# Redirect all FDs and disown to prevent blocking Claude's hook
+nohup bash -c "
+    sleep $DELAY_SECONDS
+
+    # Send all queued payloads
+    for f in \"$QUEUE_DIR\"/*.json; do
+        [ -f \"\$f\" ] || continue
+        curl -s -H 'Content-Type: application/json' -X POST '$WEBHOOK_URL' -d @\"\$f\" > /dev/null 2>&1
+    done
+
+    # Cleanup
+    rm -rf \"$QUEUE_DIR\"
+    rm -f \"$TIMER_PID_FILE\"
+" > /dev/null 2>&1 &
+
+echo $! > "$TIMER_PID_FILE"
+disown
 
 exit 0
