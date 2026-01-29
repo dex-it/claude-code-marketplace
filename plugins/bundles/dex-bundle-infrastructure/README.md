@@ -1,63 +1,58 @@
 # Bundle: dex-bundle-infrastructure
 
-Meta-plugin that combines multiple specialists into one role-based package.
-
-## Included Plugins
-
-- `dex-postgresql-specialist`
-- `dex-mongodb-specialist`
-- `dex-rabbitmq-specialist`
-- `dex-kafka-specialist`
-- `dex-elasticsearch-specialist`
-- `dex-redis-specialist`
-- `dex-docker-specialist`
-- `dex-kubernetes-specialist`
-- `dex-cicd-gitlab`
-- `dex-cicd-teamcity`
-- `dex-logging-seq`
-- `dex-monitoring-grafana`
-- `dex-skill-rabbitmq`
-- `dex-skill-kafka`
-- `dex-skill-elasticsearch`
-- `dex-skill-redis`
-- `dex-skill-mongodb`
-- `dex-skill-docker`
-- `dex-skill-kubernetes`
-- `dex-skill-gitlab-ci`
-- `dex-skill-teamcity`
-- `dex-skill-logging`
-- `dex-skill-observability`
+Complete infrastructure bundle: databases, messaging, containers, CI/CD, monitoring.
 
 ## Installation
 
-Since Claude Code doesn't have native bundle dependency management, install each component separately:
+```bash
+# Linux / macOS / WSL
+./install-bundle/install-bundle.sh infrastructure
+
+# Windows (PowerShell)
+.\install-bundle\install-bundle.ps1 infrastructure
+
+# Preview what will be installed
+./install-bundle/install-bundle.sh infrastructure --dry-run
+```
+
+## Uninstallation
 
 ```bash
-# Install all components
-claude plugins install dex-postgresql-specialist
-claude plugins install dex-mongodb-specialist
-claude plugins install dex-rabbitmq-specialist
-claude plugins install dex-kafka-specialist
-claude plugins install dex-elasticsearch-specialist
-claude plugins install dex-redis-specialist
-claude plugins install dex-docker-specialist
-claude plugins install dex-kubernetes-specialist
-claude plugins install dex-cicd-gitlab
-claude plugins install dex-cicd-teamcity
-claude plugins install dex-logging-seq
-claude plugins install dex-monitoring-grafana
-claude plugins install dex-skill-rabbitmq
-claude plugins install dex-skill-kafka
-claude plugins install dex-skill-elasticsearch
-claude plugins install dex-skill-redis
-claude plugins install dex-skill-mongodb
-claude plugins install dex-skill-docker
-claude plugins install dex-skill-kubernetes
-claude plugins install dex-skill-gitlab-ci
-claude plugins install dex-skill-teamcity
-claude plugins install dex-skill-logging
-claude plugins install dex-skill-observability
+# Linux / macOS / WSL
+./install-bundle/uninstall-bundle.sh infrastructure
+
+# Windows (PowerShell)
+.\install-bundle\uninstall-bundle.ps1 infrastructure
 ```
+
+## Included Components (23)
+
+### Specialists (12)
+- `dex-postgresql-specialist` - PostgreSQL databases
+- `dex-mongodb-specialist` - MongoDB databases
+- `dex-rabbitmq-specialist` - RabbitMQ messaging
+- `dex-kafka-specialist` - Kafka streaming
+- `dex-elasticsearch-specialist` - Elasticsearch search
+- `dex-redis-specialist` - Redis caching
+- `dex-docker-specialist` - Docker containers
+- `dex-kubernetes-specialist` - Kubernetes orchestration
+- `dex-cicd-gitlab` - GitLab CI/CD
+- `dex-cicd-teamcity` - TeamCity CI/CD
+- `dex-logging-seq` - Seq logging
+- `dex-monitoring-grafana` - Grafana monitoring
+
+### Skills (11)
+- `dex-skill-rabbitmq` - RabbitMQ patterns
+- `dex-skill-kafka` - Kafka patterns
+- `dex-skill-elasticsearch` - Elasticsearch patterns
+- `dex-skill-redis` - Redis patterns
+- `dex-skill-mongodb` - MongoDB patterns
+- `dex-skill-docker` - Docker best practices
+- `dex-skill-kubernetes` - Kubernetes patterns
+- `dex-skill-gitlab-ci` - GitLab CI/CD patterns
+- `dex-skill-teamcity` - TeamCity patterns
+- `dex-skill-logging` - Logging patterns
+- `dex-skill-observability` - Observability patterns
 
 ## Note
 

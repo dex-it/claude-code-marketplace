@@ -1,36 +1,47 @@
 #!/bin/bash
 # =============================================================================
-# Telegram Notifier for Claude Code
+# Telegram Delayed - Sends notification after delay if not cancelled
 # Part of dex-telegram-notifier plugin
 #
-# Sends notifications to Telegram when Claude Code events occur:
-# - Stop: Claude finished working
-# - Notification: Claude is waiting for user input
-# - SubagentStop: A subagent completed its task
+# Usage: telegram-delayed.sh <state_file> <delay_seconds>
 #
-# Configuration via environment variables (see README.md)
+# This script runs in the background and:
+# 1. Sleeps for the specified delay
+# 2. Checks if the state file still exists (not cancelled)
+# 3. If exists, sends the notification and cleans up
 # =============================================================================
 
-# Exit silently on errors - never block Claude
+# Exit silently on errors
 set +e
+
+STATE_FILE="$1"
+DELAY="$2"
+
+# Validate arguments
+if [ -z "$STATE_FILE" ] || [ -z "$DELAY" ]; then
+    exit 1
+fi
+
+# Wait for the delay
+sleep "$DELAY"
+
+# Check if state file still exists (not cancelled by user input)
+if [ ! -f "$STATE_FILE" ]; then
+    # User responded before delay - notification cancelled
+    exit 0
+fi
 
 # =============================================================================
 # Configuration from Environment Variables
 # =============================================================================
 
-# Required
 BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
 CHAT_ID="${TELEGRAM_CHAT_ID:-}"
-
-# Optional settings with defaults
 MSG_LIMIT="${TELEGRAM_MESSAGE_LIMIT:-4000}"
 LANG="${TELEGRAM_LANGUAGE:-ru}"
 THREAD_ID="${TELEGRAM_THREAD_ID:-}"
 
-# Feature toggles (all enabled by default)
-NOTIFY_STOP="${TELEGRAM_NOTIFY_STOP:-true}"
-NOTIFY_WAITING="${TELEGRAM_NOTIFY_WAITING:-true}"
-NOTIFY_SUBAGENT="${TELEGRAM_NOTIFY_SUBAGENT:-true}"
+# Feature toggles
 INCLUDE_THINKING="${TELEGRAM_INCLUDE_THINKING:-false}"
 INCLUDE_TOOLS="${TELEGRAM_INCLUDE_TOOLS:-true}"
 INCLUDE_TODO="${TELEGRAM_INCLUDE_TODO:-true}"
@@ -38,23 +49,15 @@ INCLUDE_PLAN="${TELEGRAM_INCLUDE_PLAN:-true}"
 INCLUDE_MESSAGE="${TELEGRAM_INCLUDE_MESSAGE:-true}"
 INCLUDE_QUESTIONS="${TELEGRAM_INCLUDE_QUESTIONS:-true}"
 
-# =============================================================================
-# Validation
-# =============================================================================
-
+# Validate required config
 if [ -z "$BOT_TOKEN" ] || [ -z "$CHAT_ID" ]; then
-    # Silent exit - don't spam logs if not configured
+    rm -f "$STATE_FILE" 2>/dev/null
     exit 0
 fi
 
 # Check for required tools
-if ! command -v jq &> /dev/null; then
-    echo "Warning: jq not found, telegram notifications disabled" >&2
-    exit 0
-fi
-
-if ! command -v curl &> /dev/null; then
-    echo "Warning: curl not found, telegram notifications disabled" >&2
+if ! command -v jq &> /dev/null || ! command -v curl &> /dev/null; then
+    rm -f "$STATE_FILE" 2>/dev/null
     exit 0
 fi
 
@@ -63,10 +66,7 @@ fi
 # =============================================================================
 
 declare -A L10N_RU=(
-    ["stop_event"]="завершил работу"
     ["notification_event"]="ждёт ответа"
-    ["subagent_event"]="завершил подзадачу"
-    ["unknown_event"]="событие"
     ["last_message"]="Последнее сообщение"
     ["ultrathink"]="Ultrathink"
     ["todo_status"]="TODO"
@@ -77,10 +77,7 @@ declare -A L10N_RU=(
 )
 
 declare -A L10N_EN=(
-    ["stop_event"]="finished working"
     ["notification_event"]="waiting for response"
-    ["subagent_event"]="completed subtask"
-    ["unknown_event"]="event"
     ["last_message"]="Last message"
     ["ultrathink"]="Ultrathink"
     ["todo_status"]="TODO"
@@ -90,7 +87,6 @@ declare -A L10N_EN=(
     ["tools"]="Tools"
 )
 
-# Get localized string
 get_l10n() {
     local key="$1"
     if [ "$LANG" = "en" ]; then
@@ -101,87 +97,13 @@ get_l10n() {
 }
 
 # =============================================================================
-# Read Hook Input
-# =============================================================================
-
-INPUT=$(cat)
-
-TRANSCRIPT_PATH=$(echo "$INPUT" | jq -r '.transcript_path // empty')
-HOOK_EVENT=$(echo "$INPUT" | jq -r '.hook_event_name // "Unknown"')
-NOTIFICATION_MSG=$(echo "$INPUT" | jq -r '.message // empty')
-
-# =============================================================================
-# Check if this event should trigger notification
-# =============================================================================
-
-case "$HOOK_EVENT" in
-    "Stop")
-        [ "$NOTIFY_STOP" != "true" ] && exit 0
-        EMOJI="✅"
-        EVENT_NAME=$(get_l10n "stop_event")
-        ;;
-    "Notification")
-        [ "$NOTIFY_WAITING" != "true" ] && exit 0
-
-        # Check for delayed notification
-        NOTIFY_DELAY="${TELEGRAM_NOTIFY_DELAY:-0}"
-
-        # If delay is configured, launch background process
-        if [ "$NOTIFY_DELAY" -gt 0 ] 2>/dev/null; then
-            # Create state directory
-            STATE_DIR="${HOME}/.claude/telegram-notifier"
-            mkdir -p "$STATE_DIR"
-
-            # Clean up old pending files (older than 5 minutes)
-            find "$STATE_DIR" -name "pending_*.json" -mmin +5 -delete 2>/dev/null
-
-            # Create unique state file
-            SESSION_ID="$(date +%s)_$$_$RANDOM"
-            STATE_FILE="${STATE_DIR}/pending_${SESSION_ID}.json"
-
-            # Write state data
-            cat > "$STATE_FILE" << EOF
-{
-  "transcript_path": "$TRANSCRIPT_PATH",
-  "hook_event": "$HOOK_EVENT",
-  "message": $(echo "$NOTIFICATION_MSG" | jq -Rs '.')
-}
-EOF
-
-            # Launch delayed notification in background
-            SCRIPT_DIR="$(dirname "$0")"
-            nohup "$SCRIPT_DIR/telegram-delayed.sh" "$STATE_FILE" "$NOTIFY_DELAY" \
-                > /dev/null 2>&1 &
-            disown
-
-            exit 0
-        fi
-
-        # Instant notification (delay=0)
-        EMOJI="⏸️"
-        EVENT_NAME=$(get_l10n "notification_event")
-        ;;
-    "SubagentStop")
-        [ "$NOTIFY_SUBAGENT" != "true" ] && exit 0
-        EMOJI="🔄"
-        EVENT_NAME=$(get_l10n "subagent_event")
-        ;;
-    *)
-        EMOJI="🤖"
-        EVENT_NAME="$(get_l10n 'unknown_event'): $HOOK_EVENT"
-        ;;
-esac
-
-# =============================================================================
 # Helper Functions
 # =============================================================================
 
-# Escape HTML special characters
 escape_html() {
     echo "$1" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g'
 }
 
-# Truncate text to specified length
 truncate_text() {
     local text="$1"
     local max_len="${2:-1800}"
@@ -194,9 +116,24 @@ truncate_text() {
 }
 
 # =============================================================================
+# Read State File
+# =============================================================================
+
+STATE_DATA=$(cat "$STATE_FILE" 2>/dev/null)
+if [ -z "$STATE_DATA" ]; then
+    rm -f "$STATE_FILE" 2>/dev/null
+    exit 0
+fi
+
+TRANSCRIPT_PATH=$(echo "$STATE_DATA" | jq -r '.transcript_path // empty')
+NOTIFICATION_MSG=$(echo "$STATE_DATA" | jq -r '.message // empty')
+
+# =============================================================================
 # Build Message
 # =============================================================================
 
+EMOJI="⏸️"
+EVENT_NAME=$(get_l10n "notification_event")
 MESSAGE="$EMOJI <b>Claude $EVENT_NAME</b>\n\n"
 
 # Add notification message if present
@@ -244,11 +181,6 @@ if [ -n "$TRANSCRIPT_PATH" ] && [ -f "$TRANSCRIPT_PATH" ]; then
         ASK_USER_JSON=$(tac "$TRANSCRIPT_PATH" 2>/dev/null | \
             jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "tool_use" and .name == "AskUserQuestion") | .input | @json' 2>/dev/null | \
             head -1)
-    fi
-
-    # --- Skip empty notifications (except for Notification events) ---
-    if [ -z "$LAST_TEXT" ] && [ -z "$LAST_THINKING" ] && [ -z "$TOOLS" ] && [ -z "$TODO_JSON" ] && [ "$HOOK_EVENT" != "Notification" ]; then
-        exit 0
     fi
 
     # --- Add Last Message ---
@@ -384,5 +316,11 @@ fi
 
 # Send message (suppress output)
 curl "${CURL_ARGS[@]}" > /dev/null 2>&1
+
+# =============================================================================
+# Cleanup
+# =============================================================================
+
+rm -f "$STATE_FILE" 2>/dev/null
 
 exit 0

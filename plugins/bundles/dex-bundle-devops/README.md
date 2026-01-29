@@ -1,39 +1,46 @@
 # Bundle: dex-bundle-devops
 
-Meta-plugin that combines multiple specialists into one role-based package.
-
-## Included Plugins
-
-- `dex-docker-specialist`
-- `dex-kubernetes-specialist`
-- `dex-cicd-gitlab`
-- `dex-cicd-teamcity`
-- `dex-logging-seq`
-- `dex-monitoring-grafana`
-- `dex-skill-docker`
-- `dex-skill-kubernetes`
-- `dex-skill-gitlab-ci`
-- `dex-skill-teamcity`
-- `dex-skill-observability`
+Bundle for DevOps engineers: Docker, Kubernetes, CI/CD, monitoring, logging.
 
 ## Installation
 
-Since Claude Code doesn't have native bundle dependency management, install each component separately:
+```bash
+# Linux / macOS / WSL
+./install-bundle/install-bundle.sh devops
+
+# Windows (PowerShell)
+.\install-bundle\install-bundle.ps1 devops
+
+# Preview what will be installed
+./install-bundle/install-bundle.sh devops --dry-run
+```
+
+## Uninstallation
 
 ```bash
-# Install all components
-claude plugins install dex-docker-specialist
-claude plugins install dex-kubernetes-specialist
-claude plugins install dex-cicd-gitlab
-claude plugins install dex-cicd-teamcity
-claude plugins install dex-logging-seq
-claude plugins install dex-monitoring-grafana
-claude plugins install dex-skill-docker
-claude plugins install dex-skill-kubernetes
-claude plugins install dex-skill-gitlab-ci
-claude plugins install dex-skill-teamcity
-claude plugins install dex-skill-observability
+# Linux / macOS / WSL
+./install-bundle/uninstall-bundle.sh devops
+
+# Windows (PowerShell)
+.\install-bundle\uninstall-bundle.ps1 devops
 ```
+
+## Included Components (11)
+
+### Specialists (6)
+- `dex-docker-specialist` - Docker containers
+- `dex-kubernetes-specialist` - Kubernetes orchestration
+- `dex-cicd-gitlab` - GitLab CI/CD
+- `dex-cicd-teamcity` - TeamCity CI/CD
+- `dex-logging-seq` - Seq logging
+- `dex-monitoring-grafana` - Grafana monitoring
+
+### Skills (5)
+- `dex-skill-docker` - Docker best practices
+- `dex-skill-kubernetes` - Kubernetes patterns
+- `dex-skill-gitlab-ci` - GitLab CI/CD patterns
+- `dex-skill-teamcity` - TeamCity patterns
+- `dex-skill-observability` - Observability patterns
 
 ## Note
 

@@ -1,75 +1,66 @@
 # Bundle: dex-bundle-dotnet-fullstack
 
-Meta-plugin that combines multiple specialists into one role-based package.
-
-## Included Plugins
-
-- `dex-dotnet-coder`
-- `dex-dotnet-debugger`
-- `dex-dotnet-reviewer`
-- `dex-dotnet-tester`
-- `dex-ef-specialist`
-- `dex-dotnet-performance`
-- `dex-postgresql-specialist`
-- `dex-mongodb-specialist`
-- `dex-rabbitmq-specialist`
-- `dex-kafka-specialist`
-- `dex-elasticsearch-specialist`
-- `dex-redis-specialist`
-- `dex-docker-specialist`
-- `dex-kubernetes-specialist`
-- `dex-cicd-gitlab`
-- `dex-logging-seq`
-- `dex-monitoring-grafana`
-- `dex-skill-dotnet-patterns`
-- `dex-skill-ef-core`
-- `dex-skill-async-patterns`
-- `dex-skill-rabbitmq`
-- `dex-skill-kafka`
-- `dex-skill-elasticsearch`
-- `dex-skill-redis`
-- `dex-skill-mongodb`
-- `dex-skill-docker`
-- `dex-skill-kubernetes`
-- `dex-skill-logging`
-- `dex-skill-observability`
+Complete bundle for .NET fullstack: development, databases, messaging, containers, CI/CD, monitoring.
 
 ## Installation
 
-Since Claude Code doesn't have native bundle dependency management, install each component separately:
+```bash
+# Linux / macOS / WSL
+./install-bundle/install-bundle.sh dotnet-fullstack
+
+# Windows (PowerShell)
+.\install-bundle\install-bundle.ps1 dotnet-fullstack
+
+# Preview what will be installed
+./install-bundle/install-bundle.sh dotnet-fullstack --dry-run
+```
+
+## Uninstallation
 
 ```bash
-# Install all components
-claude plugins install dex-dotnet-coder
-claude plugins install dex-dotnet-debugger
-claude plugins install dex-dotnet-reviewer
-claude plugins install dex-dotnet-tester
-claude plugins install dex-ef-specialist
-claude plugins install dex-dotnet-performance
-claude plugins install dex-postgresql-specialist
-claude plugins install dex-mongodb-specialist
-claude plugins install dex-rabbitmq-specialist
-claude plugins install dex-kafka-specialist
-claude plugins install dex-elasticsearch-specialist
-claude plugins install dex-redis-specialist
-claude plugins install dex-docker-specialist
-claude plugins install dex-kubernetes-specialist
-claude plugins install dex-cicd-gitlab
-claude plugins install dex-logging-seq
-claude plugins install dex-monitoring-grafana
-claude plugins install dex-skill-dotnet-patterns
-claude plugins install dex-skill-ef-core
-claude plugins install dex-skill-async-patterns
-claude plugins install dex-skill-rabbitmq
-claude plugins install dex-skill-kafka
-claude plugins install dex-skill-elasticsearch
-claude plugins install dex-skill-redis
-claude plugins install dex-skill-mongodb
-claude plugins install dex-skill-docker
-claude plugins install dex-skill-kubernetes
-claude plugins install dex-skill-logging
-claude plugins install dex-skill-observability
+# Linux / macOS / WSL
+./install-bundle/uninstall-bundle.sh dotnet-fullstack
+
+# Windows (PowerShell)
+.\install-bundle\uninstall-bundle.ps1 dotnet-fullstack
 ```
+
+## Included Components (29)
+
+### .NET Specialists (6)
+- `dex-dotnet-coder` - .NET coding assistant
+- `dex-dotnet-debugger` - Bug hunting and debugging
+- `dex-dotnet-reviewer` - Code review specialist
+- `dex-dotnet-tester` - Unit testing with xUnit/Moq
+- `dex-ef-specialist` - Entity Framework Core specialist
+- `dex-dotnet-performance` - Performance analysis
+
+### Infrastructure Specialists (11)
+- `dex-postgresql-specialist` - PostgreSQL databases
+- `dex-mongodb-specialist` - MongoDB databases
+- `dex-rabbitmq-specialist` - RabbitMQ messaging
+- `dex-kafka-specialist` - Kafka streaming
+- `dex-elasticsearch-specialist` - Elasticsearch search
+- `dex-redis-specialist` - Redis caching
+- `dex-docker-specialist` - Docker containers
+- `dex-kubernetes-specialist` - Kubernetes orchestration
+- `dex-cicd-gitlab` - GitLab CI/CD
+- `dex-logging-seq` - Seq logging
+- `dex-monitoring-grafana` - Grafana monitoring
+
+### Skills (12)
+- `dex-skill-dotnet-patterns` - SOLID, DI, async/await patterns
+- `dex-skill-ef-core` - EF Core best practices
+- `dex-skill-async-patterns` - Async/await patterns
+- `dex-skill-rabbitmq` - RabbitMQ patterns
+- `dex-skill-kafka` - Kafka patterns
+- `dex-skill-elasticsearch` - Elasticsearch patterns
+- `dex-skill-redis` - Redis patterns
+- `dex-skill-mongodb` - MongoDB patterns
+- `dex-skill-docker` - Docker best practices
+- `dex-skill-kubernetes` - Kubernetes patterns
+- `dex-skill-logging` - Logging patterns
+- `dex-skill-observability` - Observability patterns
 
 ## Note
 
