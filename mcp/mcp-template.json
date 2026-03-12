@@ -123,6 +123,24 @@
         "${TOOLBOX_CONFIG:-tools.yaml}"
       ]
     },
+    "elasticsearch": {
+      "_description": "Elasticsearch - indexing, searching, aggregations, cluster management",
+      "_env": [
+        "ES_URL",
+        "ES_API_KEY",
+        "ES_SSL_SKIP_VERIFY (optional, default: false)"
+      ],
+      "command": "npx",
+      "args": [
+        "-y",
+        "@elastic/mcp-server-elasticsearch@0.3.1"
+      ],
+      "env": {
+        "ES_URL": "${ES_URL:-http://localhost:9200}",
+        "ES_API_KEY": "${ES_API_KEY}",
+        "ES_SSL_SKIP_VERIFY": "${ES_SSL_SKIP_VERIFY:-false}"
+      }
+    },
     "rabbitmq": {
       "_description": "RabbitMQ - message queues, exchanges, bindings, admin API",
       "_env": [],
