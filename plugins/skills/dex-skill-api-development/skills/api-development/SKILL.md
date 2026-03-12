@@ -1,163 +1,112 @@
 ---
 name: api-development
-description: Best practices для ASP.NET Core Web API - controllers, endpoints, REST. Активируется при web api, controller, endpoint, REST API
+description: ASP.NET Core Web API — ошибки проектирования, безопасность, контракты. Активируется при web api, controller, endpoint, REST API, versioning
 allowed-tools: Read, Grep, Glob
 ---
 
-# API Development Best Practices
+# API Development
 
-## Структура Controller
+## Правила
+
+- Тонкие контроллеры — только маршрутизация, логика в сервисах/handlers
+- CancellationToken в каждом endpoint
+- Валидация через FluentValidation pipeline, не в контроллерах
+- ProblemDetails для ошибок (RFC 7807)
+- API versioning с первого дня
+- Не возвращай Entity — только DTO/response models
+- CreatedAtAction для POST (201 + Location header)
+
+## Анти-паттерны
 
 ```csharp
-[ApiController]
-[Route("api/[controller]")]
-public class ProductsController : ControllerBase
+// Плохо — толстый контроллер с бизнес-логикой
+[HttpPost]
+public async Task<ActionResult> Create(CreateOrderRequest request)
 {
-    private readonly IMediator _mediator;
+    if (request.Items.Count == 0) return BadRequest("No items"); // валидация в контроллере
+    var order = new Order();                                      // создание entity
+    order.Total = request.Items.Sum(i => i.Price * i.Quantity);  // бизнес-логика
+    _context.Orders.Add(order);                                   // прямой доступ к DbContext
+    await _context.SaveChangesAsync();
+    return Ok(order);                                             // возвращает Entity + 200 вместо 201
+}
 
-    public ProductsController(IMediator mediator) => _mediator = mediator;
+// Хорошо — контроллер только маршрутизирует
+[HttpPost]
+public async Task<ActionResult<OrderDto>> Create(
+    CreateOrderRequest request, CancellationToken ct)
+{
+    var result = await _mediator.Send(new CreateOrderCommand(request), ct);
+    return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
+}
 
-    [HttpGet]
-    public async Task<ActionResult<List<ProductDto>>> GetAll(CancellationToken ct)
+// Плохо — исключение для бизнес-ошибки (404)
+var order = await _repo.GetByIdAsync(id, ct);
+if (order == null) throw new Exception("Not found"); // stack trace для штатной ситуации
+
+// Хорошо — Result pattern или просто NotFound()
+var order = await _repo.GetByIdAsync(id, ct);
+if (order is null) return NotFound();
+
+// Плохо — возвращает Entity напрямую (утечка внутренней структуры)
+return Ok(await _context.Users.FindAsync(id));
+// Клиент видит: PasswordHash, InternalFlags, навигационные свойства...
+
+// Хорошо — DTO
+return Ok(new UserDto(user.Id, user.Name, user.Email));
+```
+
+## Обработка ошибок — единый формат
+
+```csharp
+// Middleware + ProblemDetails — НЕ дублируй try/catch в каждом контроллере
+app.UseExceptionHandler(app => app.Run(async context =>
+{
+    var ex = context.Features.Get<IExceptionHandlerFeature>()?.Error;
+    var (status, title) = ex switch
     {
-        var products = await _mediator.Send(new GetProductsQuery(), ct);
-        return Ok(products);
-    }
+        NotFoundException => (404, "Not Found"),
+        ValidationException => (400, "Validation Error"),
+        _ => (500, "Internal Server Error")
+    };
 
-    [HttpGet("{id}")]
-    public async Task<ActionResult<ProductDto>> GetById(int id, CancellationToken ct)
+    context.Response.StatusCode = status;
+    await context.Response.WriteAsJsonAsync(new ProblemDetails
     {
-        var product = await _mediator.Send(new GetProductQuery(id), ct);
-        if (product == null)
-            return NotFound();
-        return Ok(product);
-    }
+        Status = status,
+        Title = title,
+        Detail = status == 500 ? null : ex?.Message // не показывай стектрейс клиенту
+    });
+}));
+```
 
-    [HttpPost]
-    public async Task<ActionResult<ProductDto>> Create(
-        CreateProductRequest request,
-        CancellationToken ct)
-    {
-        var product = await _mediator.Send(new CreateProductCommand(request), ct);
-        return CreatedAtAction(nameof(GetById), new { id = product.Id }, product);
-    }
+## Пагинация — не забывай
 
-    [HttpPut("{id}")]
-    public async Task<ActionResult> Update(int id, UpdateProductRequest request, CancellationToken ct)
-    {
-        await _mediator.Send(new UpdateProductCommand(id, request), ct);
-        return NoContent();
-    }
+```csharp
+// Плохо — возвращает все записи
+[HttpGet]
+public async Task<ActionResult<List<ProductDto>>> GetAll(CancellationToken ct)
+    => Ok(await _context.Products.ToListAsync(ct)); // 100K записей в ответ
 
-    [HttpDelete("{id}")]
-    public async Task<ActionResult> Delete(int id, CancellationToken ct)
-    {
-        await _mediator.Send(new DeleteProductCommand(id), ct);
-        return NoContent();
-    }
+// Хорошо — пагинация обязательна для списков
+[HttpGet]
+public async Task<ActionResult<PagedResult<ProductDto>>> GetAll(
+    [FromQuery] int page = 1,
+    [FromQuery] int pageSize = 20,
+    CancellationToken ct = default)
+{
+    pageSize = Math.Clamp(pageSize, 1, 100); // ограничь максимум
+    // ...
 }
 ```
 
-## DTO с record
+## Чек-лист
 
-```csharp
-public record CreateProductRequest(string Name, decimal Price);
-public record UpdateProductRequest(string Name, decimal Price);
-public record ProductDto(int Id, string Name, decimal Price, DateTime CreatedAt);
-```
-
-## Валидация с FluentValidation
-
-```csharp
-public class CreateProductValidator : AbstractValidator<CreateProductRequest>
-{
-    public CreateProductValidator()
-    {
-        RuleFor(x => x.Name)
-            .NotEmpty().WithMessage("Name is required")
-            .MaximumLength(200).WithMessage("Name must not exceed 200 characters");
-
-        RuleFor(x => x.Price)
-            .GreaterThan(0).WithMessage("Price must be greater than 0");
-    }
-}
-
-// Регистрация в Program.cs
-services.AddValidatorsFromAssemblyContaining<CreateProductValidator>();
-services.AddFluentValidationAutoValidation();
-```
-
-## Обработка ошибок
-
-```csharp
-// Exception Middleware
-public class ExceptionMiddleware
-{
-    private readonly RequestDelegate _next;
-    private readonly ILogger<ExceptionMiddleware> _logger;
-
-    public async Task InvokeAsync(HttpContext context)
-    {
-        try
-        {
-            await _next(context);
-        }
-        catch (ValidationException ex)
-        {
-            context.Response.StatusCode = 400;
-            await context.Response.WriteAsJsonAsync(new { errors = ex.Errors });
-        }
-        catch (NotFoundException ex)
-        {
-            context.Response.StatusCode = 404;
-            await context.Response.WriteAsJsonAsync(new { error = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Unhandled exception");
-            context.Response.StatusCode = 500;
-            await context.Response.WriteAsJsonAsync(new { error = "Internal server error" });
-        }
-    }
-}
-```
-
-## API Versioning
-
-```csharp
-// Program.cs
-services.AddApiVersioning(options =>
-{
-    options.DefaultApiVersion = new ApiVersion(1, 0);
-    options.AssumeDefaultVersionWhenUnspecified = true;
-    options.ReportApiVersions = true;
-});
-
-// Controller
-[ApiVersion("1.0")]
-[ApiVersion("2.0")]
-[Route("api/v{version:apiVersion}/[controller]")]
-public class ProductsController : ControllerBase
-{
-    [HttpGet]
-    [MapToApiVersion("1.0")]
-    public async Task<ActionResult<List<ProductDtoV1>>> GetAllV1() { }
-
-    [HttpGet]
-    [MapToApiVersion("2.0")]
-    public async Task<ActionResult<List<ProductDtoV2>>> GetAllV2() { }
-}
-```
-
-## HTTP Status Codes
-
-```csharp
-return Ok(data);           // 200
-return Created(...);       // 201
-return NoContent();        // 204
-return BadRequest(error);  // 400
-return Unauthorized();     // 401
-return Forbid();           // 403
-return NotFound();         // 404
-return Conflict();         // 409
-```
+- [ ] Контроллеры тонкие — нет бизнес-логики
+- [ ] CancellationToken в каждом endpoint
+- [ ] Валидация через pipeline, не в контроллерах
+- [ ] POST возвращает 201 + Location
+- [ ] Списки с пагинацией и лимитом pageSize
+- [ ] Единый формат ошибок (ProblemDetails)
+- [ ] Не возвращаются Entity — только DTO
+- [ ] API versioned

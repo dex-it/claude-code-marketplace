@@ -1,160 +1,121 @@
 ---
 name: testing-patterns
-description: Паттерны unit тестирования - xUnit, Moq, AAA pattern. Активируется при test, unit test, xunit, moq, testing
+description: Паттерны тестирования — ошибки, антипаттерны, стратегии. Активируется при test, unit test, xunit, moq, testing, integration test
 allowed-tools: Read, Grep, Glob
 ---
 
 # Testing Patterns
 
-## Структура теста (AAA)
+## Правила
+
+- Именование: `MethodName_Scenario_ExpectedBehavior`
+- AAA: Arrange / Act / Assert — одно действие, один assert-блок
+- Не тестируй приватные методы — тестируй поведение через публичный API
+- Моки только для внешних зависимостей (DB, HTTP, MQ) — не мокай бизнес-логику
+- Тесты не зависят друг от друга — нет общего состояния
+- CancellationToken.None в тестах, не default
+
+## Анти-паттерны
 
 ```csharp
+// Плохо — тест проверяет реализацию, а не поведение
 [Fact]
-public async Task MethodName_Scenario_ExpectedBehavior()
+public async Task CreateOrder_CallsRepositoryAdd()
 {
-    // Arrange - подготовка
-    var input = new TestInput();
+    await _service.CreateOrderAsync(request, CancellationToken.None);
+    _mockRepo.Verify(r => r.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()), Times.Once);
+    // Тест сломается при рефакторинге, хотя поведение не изменилось
+}
 
-    // Act - действие
-    var result = await _service.MethodAsync(input);
-
-    // Assert - проверка
+// Хорошо — тест проверяет результат
+[Fact]
+public async Task CreateOrder_ReturnsCreatedOrder()
+{
+    var result = await _service.CreateOrderAsync(request, CancellationToken.None);
     Assert.True(result.IsSuccess);
+    Assert.Equal(request.CustomerId, result.Value.CustomerId);
 }
-```
 
-## xUnit Attributes
-
-```csharp
-[Fact]  // Один тест
-public void SimpleTest() { }
-
-[Theory]  // Параметризованный тест
-[InlineData("", false)]
-[InlineData("valid@email.com", true)]
-public void ValidateEmail_ReturnsExpected(string email, bool expected)
+// Плохо — несколько действий в одном тесте
+[Fact]
+public async Task OrderLifecycle_CreateUpdateDelete()
 {
-    Assert.Equal(expected, EmailValidator.IsValid(email));
+    var order = await _service.CreateAsync(request, ct);  // Act 1
+    await _service.UpdateAsync(order.Id, update, ct);     // Act 2
+    await _service.DeleteAsync(order.Id, ct);             // Act 3
+    // Какой Act упал? Непонятно
 }
 
-[Theory]
-[MemberData(nameof(TestCases))]
-public void Test_WithMemberData(Order order, bool expected) { }
+// Плохо — Assert.True вместо конкретного assert
+Assert.True(result.Name == "Expected"); // "Assert.True() Failure" — бесполезное сообщение
 
-public static IEnumerable<object[]> TestCases =>
-    new List<object[]>
-    {
-        new object[] { new Order(), false },
-        new object[] { new Order { Items = new() }, true }
-    };
-```
+// Хорошо — конкретный assert с понятным сообщением
+Assert.Equal("Expected", result.Name); // "Expected: Expected, Actual: Wrong" — понятно
 
-## Moq
-
-### Setup
-
-```csharp
-var mockRepo = new Mock<IProductRepository>();
-
-// Возвращаемое значение
-mockRepo.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
-    .ReturnsAsync(new Product { Id = 1 });
-
-// Для любого аргумента
+// Плохо — мок возвращает мок (chain of mocks)
+var mockUoW = new Mock<IUnitOfWork>();
+var mockRepo = new Mock<IOrderRepository>();
+mockUoW.Setup(u => u.Orders).Returns(mockRepo.Object);
 mockRepo.Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
-    .ReturnsAsync((Product?)null);
+    .ReturnsAsync(new Order());
+// 5 строк setup для одного теста — признак плохого дизайна
 
-// Callback
-mockRepo.Setup(r => r.AddAsync(It.IsAny<Product>(), It.IsAny<CancellationToken>()))
-    .Callback<Product, CancellationToken>((p, ct) => p.Id = 1);
-
-// Throws
-mockRepo.Setup(r => r.GetByIdAsync(-1, It.IsAny<CancellationToken>()))
-    .ThrowsAsync(new ArgumentException());
-```
-
-### Verify
-
-```csharp
-// Вызван один раз
-mockRepo.Verify(r => r.AddAsync(It.IsAny<Product>(), It.IsAny<CancellationToken>()), Times.Once);
-
-// С конкретными аргументами
-mockRepo.Verify(r => r.AddAsync(
-    It.Is<Product>(p => p.Name == "Test"),
-    It.IsAny<CancellationToken>()), Times.Once);
-
-// Не вызывался
-mockRepo.Verify(r => r.DeleteAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
-```
-
-## Test Fixture
-
-```csharp
-public class ProductServiceTests : IDisposable
+// Плохо — тест зависит от внешнего состояния
+[Fact]
+public async Task GetUser_ReturnsUser()
 {
-    private readonly Mock<IProductRepository> _mockRepo;
-    private readonly Mock<ILogger<ProductService>> _mockLogger;
-    private readonly ProductService _service;
+    var user = await _service.GetByIdAsync(42, ct); // а кто создал user 42?
+    Assert.NotNull(user);
+}
 
-    public ProductServiceTests()
-    {
-        _mockRepo = new Mock<IProductRepository>();
-        _mockLogger = new Mock<ILogger<ProductService>>();
-        _service = new ProductService(_mockRepo.Object, _mockLogger.Object);
-    }
+// Хорошо — тест создаёт свои данные
+[Fact]
+public async Task GetUser_ExistingUser_ReturnsUser()
+{
+    // Arrange
+    var created = await _service.CreateAsync(new CreateUserRequest("Test"), ct);
 
-    public void Dispose()
+    // Act
+    var result = await _service.GetByIdAsync(created.Id, ct);
+
+    // Assert
+    Assert.NotNull(result);
+    Assert.Equal("Test", result.Name);
+}
+```
+
+## Когда integration тесты вместо unit
+
+- Repository/DbContext — `WebApplicationFactory` + реальная БД (Testcontainers)
+- HTTP pipeline — middleware, filters, auth
+- Сложные LINQ запросы — in-memory provider врёт, нужен реальный SQL
+
+```csharp
+// Integration test с WebApplicationFactory
+public class OrdersApiTests : IClassFixture<WebApplicationFactory<Program>>
+{
+    private readonly HttpClient _client;
+
+    public OrdersApiTests(WebApplicationFactory<Program> factory)
     {
-        // Cleanup if needed
+        _client = factory.CreateClient();
     }
 
     [Fact]
-    public async Task CreateProduct_Success()
+    public async Task CreateOrder_Returns201()
     {
-        // Use _service, _mockRepo...
+        var response = await _client.PostAsJsonAsync("/api/orders", new { CustomerId = 1 });
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.NotNull(response.Headers.Location);
     }
 }
 ```
 
-## Assertions
+## Чек-лист
 
-```csharp
-// Basic
-Assert.True(condition);
-Assert.False(condition);
-Assert.Null(value);
-Assert.NotNull(value);
-Assert.Equal(expected, actual);
-
-// Collections
-Assert.Empty(collection);
-Assert.NotEmpty(collection);
-Assert.Contains(item, collection);
-Assert.Single(collection);
-Assert.All(collection, item => Assert.True(item.IsValid));
-
-// Exceptions
-await Assert.ThrowsAsync<ArgumentException>(
-    () => _service.InvalidOperationAsync());
-
-var ex = await Assert.ThrowsAsync<ValidationException>(
-    () => _service.ValidateAsync(null));
-Assert.Contains("required", ex.Message);
-
-// Type
-Assert.IsType<OrderDto>(result);
-Assert.IsAssignableFrom<IEntity>(result);
-```
-
-## FluentAssertions (альтернатива)
-
-```csharp
-result.Should().NotBeNull();
-result.Name.Should().Be("Expected");
-result.Items.Should().HaveCount(3);
-result.Price.Should().BeGreaterThan(0);
-
-await action.Should().ThrowAsync<ArgumentException>()
-    .WithMessage("*invalid*");
-```
+- [ ] Тесты проверяют поведение, не реализацию
+- [ ] Один Act на тест
+- [ ] Конкретные Assert (Equal, NotNull), не Assert.True
+- [ ] Тесты изолированы — нет shared state
+- [ ] Integration тесты для DB/HTTP — не in-memory fakes
+- [ ] Нет моков бизнес-логики — только внешние зависимости

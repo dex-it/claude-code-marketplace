@@ -1,437 +1,132 @@
 ---
 name: redis-patterns
-description: Redis в .NET - StackExchange.Redis, кэширование, distributed lock, pub/sub, сессии. Активируется при redis, cache, caching, distributed cache, session, pub sub, lock, rate limit, StackExchange
+description: Redis — кэширование, distributed lock, rate limiting, ловушки. Активируется при redis, cache, distributed cache, pub sub, lock, rate limit, StackExchange
 allowed-tools: Read, Grep, Glob
 ---
 
-# Redis Patterns в .NET
+# Redis Patterns
 
-## Подключение
+## Правила
 
-### StackExchange.Redis
+- ConnectionMultiplexer — Singleton (один на приложение, thread-safe)
+- IDatabase — Scoped (легковесный, получается из multiplexer)
+- AbortOnConnectFail = false — не падай при старте если Redis недоступен
+- Всегда TTL на ключи — без TTL кэш растёт бесконечно
+- Key naming: `{entity}:{id}:{field}` — `product:123:details`
+- Cache-aside: check cache → miss → load from DB → set cache
 
-```csharp
-// Program.cs
-builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
-{
-    var config = ConfigurationOptions.Parse("localhost:6379");
-    config.AbortOnConnectFail = false;
-    config.ConnectRetry = 3;
-    config.ConnectTimeout = 5000;
-    config.Password = "password";
-    return ConnectionMultiplexer.Connect(config);
-});
-
-builder.Services.AddScoped<IDatabase>(sp =>
-{
-    var multiplexer = sp.GetRequiredService<IConnectionMultiplexer>();
-    return multiplexer.GetDatabase();
-});
-```
-
-### IDistributedCache
+## Анти-паттерны
 
 ```csharp
-builder.Services.AddStackExchangeRedisCache(options =>
+// Плохо — новый ConnectionMultiplexer на каждый запрос
+public class MyService
 {
-    options.Configuration = "localhost:6379";
-    options.InstanceName = "MyApp_";
-});
-```
-
-## Кэширование
-
-### Базовые операции
-
-```csharp
-public class RedisCacheService
-{
-    private readonly IDatabase _db;
-    private readonly JsonSerializerOptions _jsonOptions;
-
-    public async Task<T?> GetAsync<T>(string key, CancellationToken ct = default)
+    public async Task DoWork()
     {
-        var value = await _db.StringGetAsync(key);
-        if (value.IsNullOrEmpty) return default;
-        return JsonSerializer.Deserialize<T>(value!, _jsonOptions);
-    }
-
-    public async Task SetAsync<T>(string key, T value, TimeSpan? expiry = null, CancellationToken ct = default)
-    {
-        var json = JsonSerializer.Serialize(value, _jsonOptions);
-        await _db.StringSetAsync(key, json, expiry);
-    }
-
-    public async Task<bool> DeleteAsync(string key, CancellationToken ct = default)
-    {
-        return await _db.KeyDeleteAsync(key);
+        var conn = ConnectionMultiplexer.Connect("localhost"); // утечка соединений!
+        var db = conn.GetDatabase();
+        // ...
     }
 }
-```
 
-### Cache-Aside Pattern
+// Плохо — кэш без TTL → память Redis растёт вечно
+await _db.StringSetAsync($"product:{id}", json); // никогда не expires
 
-```csharp
-public class ProductService
+// Хорошо — всегда TTL
+await _db.StringSetAsync($"product:{id}", json, TimeSpan.FromMinutes(30));
+
+// Плохо — cache stampede (100 потоков одновременно грузят из БД при cache miss)
+var cached = await _cache.GetStringAsync(key);
+if (cached == null)
 {
-    private readonly IDatabase _cache;
-    private readonly IProductRepository _repository;
-    private readonly TimeSpan _cacheExpiry = TimeSpan.FromMinutes(30);
-
-    public async Task<Product?> GetProductAsync(int id, CancellationToken ct)
-    {
-        var cacheKey = $"product:{id}";
-
-        // 1. Попытка из кэша
-        var cached = await _cache.StringGetAsync(cacheKey);
-        if (!cached.IsNullOrEmpty)
-        {
-            return JsonSerializer.Deserialize<Product>(cached!);
-        }
-
-        // 2. Из БД
-        var product = await _repository.GetByIdAsync(id, ct);
-        if (product == null) return null;
-
-        // 3. Сохранить в кэш
-        var json = JsonSerializer.Serialize(product);
-        await _cache.StringSetAsync(cacheKey, json, _cacheExpiry);
-
-        return product;
-    }
-
-    public async Task InvalidateProductAsync(int id)
-    {
-        await _cache.KeyDeleteAsync($"product:{id}");
-    }
+    var data = await _db.LoadExpensiveDataAsync(); // 100 потоков делают это параллельно
+    await _cache.SetStringAsync(key, data);
 }
-```
 
-### IDistributedCache Pattern
-
-```csharp
-public class CachedProductService
+// Хорошо — lock при cache miss (один поток грузит, остальные ждут)
+var cached = await _cache.GetStringAsync(key);
+if (cached == null)
 {
-    private readonly IDistributedCache _cache;
-    private readonly IProductRepository _repository;
-
-    public async Task<Product?> GetProductAsync(int id, CancellationToken ct)
+    if (await _lock.AcquireAsync($"lock:{key}", TimeSpan.FromSeconds(10)))
     {
-        var cacheKey = $"product:{id}";
-
-        var cached = await _cache.GetStringAsync(cacheKey, ct);
-        if (cached != null)
-        {
-            return JsonSerializer.Deserialize<Product>(cached);
-        }
-
-        var product = await _repository.GetByIdAsync(id, ct);
-        if (product == null) return null;
-
-        await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(product),
-            new DistributedCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30),
-                SlidingExpiration = TimeSpan.FromMinutes(10)
-            }, ct);
-
-        return product;
-    }
-}
-```
-
-## Distributed Lock
-
-### RedLock Pattern
-
-```csharp
-public class DistributedLockService
-{
-    private readonly IDatabase _db;
-    private readonly string _lockToken;
-
-    public DistributedLockService(IDatabase db)
-    {
-        _db = db;
-        _lockToken = Guid.NewGuid().ToString();
-    }
-
-    public async Task<bool> AcquireLockAsync(string resource, TimeSpan expiry)
-    {
-        var lockKey = $"lock:{resource}";
-        return await _db.StringSetAsync(lockKey, _lockToken, expiry, When.NotExists);
-    }
-
-    public async Task<bool> ReleaseLockAsync(string resource)
-    {
-        var lockKey = $"lock:{resource}";
-
-        // Lua script для атомарного освобождения
-        var script = @"
-            if redis.call('get', KEYS[1]) == ARGV[1] then
-                return redis.call('del', KEYS[1])
-            else
-                return 0
-            end";
-
-        var result = await _db.ScriptEvaluateAsync(script,
-            new RedisKey[] { lockKey },
-            new RedisValue[] { _lockToken });
-
-        return (long)result == 1;
-    }
-
-    public async Task<T> WithLockAsync<T>(string resource, TimeSpan lockExpiry, Func<Task<T>> action)
-    {
-        if (!await AcquireLockAsync(resource, lockExpiry))
-        {
-            throw new InvalidOperationException($"Cannot acquire lock for {resource}");
-        }
-
         try
         {
-            return await action();
+            cached = await _cache.GetStringAsync(key); // double check
+            if (cached == null)
+            {
+                var data = await _db.LoadExpensiveDataAsync();
+                await _cache.SetStringAsync(key, Serialize(data), TimeSpan.FromMinutes(30));
+                return data;
+            }
         }
-        finally
-        {
-            await ReleaseLockAsync(resource);
-        }
+        finally { await _lock.ReleaseAsync($"lock:{key}"); }
     }
 }
-
-// Использование
-await lockService.WithLockAsync("order:123", TimeSpan.FromSeconds(30), async () =>
-{
-    await ProcessOrderAsync(123);
-    return true;
-});
 ```
 
-### С использованием RedLock.net
+## Distributed Lock — правильно
 
 ```csharp
-// NuGet: RedLock.net
-services.AddSingleton<IDistributedLockFactory>(sp =>
-{
-    var multiplexer = sp.GetRequiredService<IConnectionMultiplexer>();
-    return RedLockFactory.Create(new List<RedLockMultiplexer>
-    {
-        new RedLockMultiplexer(multiplexer)
-    });
-});
+// Плохо — release чужого лока
+await _db.StringSetAsync("lock:order:123", "any", TimeSpan.FromSeconds(30), When.NotExists);
+// ... обработка заняла 31 секунду, лок expired
+// другой процесс взял лок
+await _db.KeyDeleteAsync("lock:order:123"); // удалили ЧУЖОЙ лок!
 
-// Использование
+// Хорошо — Lua script для атомарного release (проверяет owner)
+var token = Guid.NewGuid().ToString();
+await _db.StringSetAsync("lock:order:123", token, TimeSpan.FromSeconds(30), When.NotExists);
+// ... обработка
+var script = @"
+    if redis.call('get', KEYS[1]) == ARGV[1] then
+        return redis.call('del', KEYS[1])
+    else return 0 end";
+await _db.ScriptEvaluateAsync(script, new RedisKey[] { "lock:order:123" }, new RedisValue[] { token });
+
+// Ещё лучше — RedLock.net для production
 await using var redLock = await _lockFactory.CreateLockAsync(
     resource: "order:123",
     expiryTime: TimeSpan.FromSeconds(30));
-
-if (redLock.IsAcquired)
-{
-    await ProcessOrderAsync(123);
-}
+if (redLock.IsAcquired) { await ProcessOrderAsync(123); }
 ```
 
-## Pub/Sub
+## Выбор структуры данных
 
-### Publisher
-
-```csharp
-public class RedisMessagePublisher
-{
-    private readonly ISubscriber _subscriber;
-
-    public RedisMessagePublisher(IConnectionMultiplexer multiplexer)
-    {
-        _subscriber = multiplexer.GetSubscriber();
-    }
-
-    public async Task PublishAsync<T>(string channel, T message)
-    {
-        var json = JsonSerializer.Serialize(message);
-        await _subscriber.PublishAsync(channel, json);
-    }
-}
-```
-
-### Subscriber
-
-```csharp
-public class RedisMessageSubscriber : BackgroundService
-{
-    private readonly ISubscriber _subscriber;
-    private readonly IServiceScopeFactory _scopeFactory;
-    private readonly ILogger<RedisMessageSubscriber> _logger;
-
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        await _subscriber.SubscribeAsync("orders:*", async (channel, message) =>
-        {
-            _logger.LogInformation("Received message on {Channel}: {Message}", channel, message);
-
-            using var scope = _scopeFactory.CreateScope();
-            var handler = scope.ServiceProvider.GetRequiredService<IMessageHandler>();
-            await handler.HandleAsync(channel, message);
-        });
-
-        await Task.Delay(Timeout.Infinite, stoppingToken);
-    }
-}
-```
-
-## Session Storage
-
-```csharp
-// Program.cs
-builder.Services.AddSession(options =>
-{
-    options.IdleTimeout = TimeSpan.FromMinutes(30);
-    options.Cookie.HttpOnly = true;
-    options.Cookie.IsEssential = true;
-});
-
-builder.Services.AddStackExchangeRedisCache(options =>
-{
-    options.Configuration = "localhost:6379";
-    options.InstanceName = "Session_";
-});
-
-// Использование
-public class CartController : ControllerBase
-{
-    [HttpPost]
-    public async Task<IActionResult> AddToCart(AddToCartRequest request)
-    {
-        var cart = HttpContext.Session.GetString("cart");
-        var cartItems = string.IsNullOrEmpty(cart)
-            ? new List<CartItem>()
-            : JsonSerializer.Deserialize<List<CartItem>>(cart);
-
-        cartItems.Add(new CartItem(request.ProductId, request.Quantity));
-
-        HttpContext.Session.SetString("cart", JsonSerializer.Serialize(cartItems));
-        return Ok();
-    }
-}
-```
-
-## Redis Data Structures
-
-### Hash (объекты)
-
-```csharp
-// Сохранение объекта как Hash
-var hashEntries = new HashEntry[]
-{
-    new("name", product.Name),
-    new("price", product.Price.ToString()),
-    new("category", product.Category)
-};
-await _db.HashSetAsync($"product:{id}", hashEntries);
-
-// Получение
-var hash = await _db.HashGetAllAsync($"product:{id}");
-var product = new Product
-{
-    Name = hash.First(h => h.Name == "name").Value,
-    Price = decimal.Parse(hash.First(h => h.Name == "price").Value)
-};
-
-// Инкремент поля
-await _db.HashIncrementAsync("product:1", "views", 1);
-```
-
-### Set (уникальные значения)
-
-```csharp
-// Добавить в набор
-await _db.SetAddAsync("product:1:tags", new RedisValue[] { "electronics", "phone", "apple" });
-
-// Проверить наличие
-var isMember = await _db.SetContainsAsync("product:1:tags", "phone");
-
-// Пересечение наборов
-var commonTags = await _db.SetCombineAsync(SetOperation.Intersect,
-    "product:1:tags", "product:2:tags");
-```
-
-### Sorted Set (с весами)
-
-```csharp
-// Leaderboard
-await _db.SortedSetAddAsync("leaderboard", "player1", 100);
-await _db.SortedSetAddAsync("leaderboard", "player2", 150);
-
-// Top 10
-var topPlayers = await _db.SortedSetRangeByRankWithScoresAsync("leaderboard", 0, 9, Order.Descending);
-
-// Ранг игрока
-var rank = await _db.SortedSetRankAsync("leaderboard", "player1", Order.Descending);
-```
-
-### List (очередь)
-
-```csharp
-// Добавить в очередь
-await _db.ListRightPushAsync("queue:tasks", JsonSerializer.Serialize(task));
-
-// Взять из очереди (FIFO)
-var taskJson = await _db.ListLeftPopAsync("queue:tasks");
-
-// Блокирующее ожидание
-var taskJson = await _db.ListLeftPopAsync("queue:tasks", timeout: TimeSpan.FromSeconds(30));
-```
+| Задача | Структура | Не используй |
+|--------|-----------|-------------|
+| Кэш объекта | String (JSON) | Hash (overhead для маленьких объектов) |
+| Объект с partial update | Hash | String (перезаписываешь весь объект) |
+| Уникальные значения | Set | List (дубликаты) |
+| Leaderboard / ranking | Sorted Set | Sort в приложении |
+| Очередь задач | List (LPUSH/RPOP) | Pub/Sub (теряет сообщения) |
+| Broadcast | Pub/Sub | List (нет fan-out) |
 
 ## Rate Limiting
 
 ```csharp
-public class RateLimiter
+// Sliding window — точнее fixed window
+public async Task<bool> IsAllowedAsync(string clientId, int maxRequests, TimeSpan window)
 {
-    private readonly IDatabase _db;
-
-    public async Task<bool> IsAllowedAsync(string key, int maxRequests, TimeSpan window)
-    {
-        var windowKey = $"ratelimit:{key}:{DateTime.UtcNow.Ticks / window.Ticks}";
-
-        var count = await _db.StringIncrementAsync(windowKey);
-
-        if (count == 1)
-        {
-            await _db.KeyExpireAsync(windowKey, window);
-        }
-
-        return count <= maxRequests;
-    }
-}
-
-// Sliding window rate limiter
-public async Task<bool> SlidingWindowRateLimitAsync(string key, int maxRequests, TimeSpan window)
-{
+    var key = $"ratelimit:{clientId}";
     var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
     var windowStart = now - (long)window.TotalMilliseconds;
 
-    var transaction = _db.CreateTransaction();
-
-    // Удалить старые записи
-    _ = transaction.SortedSetRemoveRangeByScoreAsync(key, 0, windowStart);
-
-    // Добавить новую запись
-    _ = transaction.SortedSetAddAsync(key, now.ToString(), now);
-
-    // Установить TTL
-    _ = transaction.KeyExpireAsync(key, window);
-
-    // Посчитать записи
-    var countTask = transaction.SortedSetLengthAsync(key);
-
-    await transaction.ExecuteAsync();
+    var tx = _db.CreateTransaction();
+    _ = tx.SortedSetRemoveRangeByScoreAsync(key, 0, windowStart);
+    _ = tx.SortedSetAddAsync(key, now.ToString(), now);
+    _ = tx.KeyExpireAsync(key, window);
+    var countTask = tx.SortedSetLengthAsync(key);
+    await tx.ExecuteAsync();
 
     return await countTask <= maxRequests;
 }
 ```
 
-## Health Check
+## Чек-лист
 
-```csharp
-builder.Services.AddHealthChecks()
-    .AddRedis("localhost:6379", name: "redis");
-```
+- [ ] ConnectionMultiplexer — Singleton
+- [ ] AbortOnConnectFail = false
+- [ ] TTL на каждом ключе
+- [ ] Distributed lock с owner token + Lua release
+- [ ] Cache stampede protection (lock при miss)
+- [ ] Правильная структура данных под задачу

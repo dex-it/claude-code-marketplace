@@ -1,298 +1,127 @@
 ---
 name: observability-patterns
-description: OpenTelemetry, distributed tracing, metrics, health checks в .NET. Активируется при opentelemetry, tracing, observability, prometheus, metrics, health check, telemetry
+description: OpenTelemetry, distributed tracing, metrics, health checks в .NET — ловушки. Активируется при opentelemetry, tracing, observability, prometheus, metrics, health check, telemetry
 allowed-tools: Read, Grep, Glob
 ---
 
-# Observability Patterns для .NET
+# Observability Patterns — ловушки
 
-## OpenTelemetry Setup
+## Правила
 
-### Установка пакетов
+- ActivitySource — static readonly (один на класс/модуль, не new каждый раз)
+- Meter — static readonly (аналогично)
+- Фильтруй health check endpoints из tracing (шум в traces)
+- Liveness ≠ Readiness (liveness — процесс жив, readiness — зависимости готовы)
+- Label cardinality — не используй userId/orderId как label (взрыв метрик)
+- snake_case для метрик + единицы измерения в суффиксе (_seconds, _bytes)
 
-```bash
-dotnet add package OpenTelemetry.Extensions.Hosting
-dotnet add package OpenTelemetry.Instrumentation.AspNetCore
-dotnet add package OpenTelemetry.Instrumentation.Http
-dotnet add package OpenTelemetry.Instrumentation.EntityFrameworkCore
-dotnet add package OpenTelemetry.Exporter.Prometheus.AspNetCore
-dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol
-```
-
-### Конфигурация в Program.cs
+## Анти-паттерны
 
 ```csharp
+// Плохо — span на каждый метод (шум + overhead)
+public async Task<Order> CreateOrderAsync(CreateOrderRequest request, CancellationToken ct)
+{
+    using var span1 = _source.StartActivity("Validate");
+    Validate(request);
+    span1?.Stop();
+
+    using var span2 = _source.StartActivity("MapToEntity");
+    var order = Map(request);
+    span2?.Stop();
+
+    using var span3 = _source.StartActivity("SaveToDb");
+    await _repo.SaveAsync(order, ct);
+    span3?.Stop();
+    // 3 микро-spans вместо одного осмысленного
+}
+
+// Хорошо — span на бизнес-операцию с контекстом
+public async Task<Order> CreateOrderAsync(CreateOrderRequest request, CancellationToken ct)
+{
+    using var activity = ActivitySource.StartActivity("CreateOrder");
+    activity?.SetTag("order.customer_id", request.CustomerId);
+    activity?.SetTag("order.items_count", request.Items.Count);
+
+    try
+    {
+        var order = await ProcessOrder(request, ct);
+        activity?.SetTag("order.id", order.Id);
+        activity?.SetStatus(ActivityStatusCode.Ok);
+        return order;
+    }
+    catch (Exception ex)
+    {
+        activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+        activity?.RecordException(ex);
+        throw;
+    }
+}
+
+// Плохо — high cardinality labels (миллионы комбинаций)
+OrdersCreated.Add(1,
+    new("customer_id", customerId),   // уникальный на каждого клиента!
+    new("order_id", orderId));         // уникальный на каждый заказ!
+// Prometheus/Grafana: OOM от миллионов time series
+
+// Хорошо — bounded labels
+OrdersCreated.Add(1,
+    new("status", "completed"),     // ~5 значений
+    new("region", "eu-west"));      // ~10 значений
+
+// Плохо — health check endpoints в traces (шум)
 builder.Services.AddOpenTelemetry()
-    .ConfigureResource(resource => resource
-        .AddService(
-            serviceName: builder.Configuration["ServiceName"] ?? "MyService",
-            serviceVersion: typeof(Program).Assembly.GetName().Version?.ToString() ?? "1.0.0"))
     .WithTracing(tracing => tracing
-        .AddAspNetCoreInstrumentation(options =>
-        {
-            options.Filter = ctx => !ctx.Request.Path.StartsWithSegments("/health");
-            options.RecordException = true;
-        })
-        .AddHttpClientInstrumentation()
-        .AddEntityFrameworkCoreInstrumentation()
-        .AddSource("MyService")
-        .AddOtlpExporter(options =>
-        {
-            options.Endpoint = new Uri(builder.Configuration["Otlp:Endpoint"] ?? "http://localhost:4317");
-        }))
-    .WithMetrics(metrics => metrics
-        .AddAspNetCoreInstrumentation()
-        .AddHttpClientInstrumentation()
-        .AddRuntimeInstrumentation()
-        .AddProcessInstrumentation()
-        .AddPrometheusExporter());
+        .AddAspNetCoreInstrumentation()); // /health/live вызывается каждые 10 сек → тысячи бесполезных spans
 
-// Prometheus endpoint
-app.MapPrometheusScrapingEndpoint();
-```
-
-## Distributed Tracing
-
-### Создание кастомных Spans
-
-```csharp
-public class OrderService
+// Хорошо — фильтр health endpoints
+.AddAspNetCoreInstrumentation(options =>
 {
-    private static readonly ActivitySource ActivitySource = new("MyService.Orders");
-    private readonly ILogger<OrderService> _logger;
+    options.Filter = ctx => !ctx.Request.Path.StartsWithSegments("/health");
+    options.RecordException = true;
+})
 
-    public async Task<Order> CreateOrderAsync(CreateOrderRequest request, CancellationToken ct)
-    {
-        using var activity = ActivitySource.StartActivity("CreateOrder");
-        activity?.SetTag("order.customer_id", request.CustomerId);
-        activity?.SetTag("order.items_count", request.Items.Count);
-
-        try
-        {
-            // Логика создания заказа
-            var order = new Order { /* ... */ };
-
-            activity?.SetTag("order.id", order.Id);
-            activity?.SetStatus(ActivityStatusCode.Ok);
-
-            return order;
-        }
-        catch (Exception ex)
-        {
-            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-            activity?.RecordException(ex);
-            throw;
-        }
-    }
-}
-```
-
-### Propagation Context
-
-```csharp
-// Передача контекста между сервисами
-public class TracingDelegatingHandler : DelegatingHandler
-{
-    protected override async Task<HttpResponseMessage> SendAsync(
-        HttpRequestMessage request,
-        CancellationToken ct)
-    {
-        // OpenTelemetry автоматически добавляет traceparent header
-        // Но можно добавить кастомные headers:
-        var activity = Activity.Current;
-        if (activity != null)
-        {
-            request.Headers.Add("X-Correlation-Id", activity.TraceId.ToString());
-        }
-
-        return await base.SendAsync(request, ct);
-    }
-}
-```
-
-## Custom Metrics
-
-### Определение метрик
-
-```csharp
-public static class ApplicationMetrics
-{
-    private static readonly Meter Meter = new("MyService", "1.0.0");
-
-    // Counter
-    public static readonly Counter<long> OrdersCreated = Meter.CreateCounter<long>(
-        "orders_created_total",
-        "orders",
-        "Total number of orders created");
-
-    // Histogram
-    public static readonly Histogram<double> OrderProcessingDuration = Meter.CreateHistogram<double>(
-        "order_processing_duration_seconds",
-        "seconds",
-        "Order processing duration");
-
-    // Observable Gauge
-    public static readonly ObservableGauge<int> ActiveConnections = Meter.CreateObservableGauge(
-        "active_connections",
-        () => ConnectionManager.GetActiveCount(),
-        "connections",
-        "Number of active connections");
-}
-
-// Использование
-ApplicationMetrics.OrdersCreated.Add(1, new KeyValuePair<string, object?>("status", "completed"));
-
-using (ApplicationMetrics.OrderProcessingDuration.StartTimer())
-{
-    await ProcessOrderAsync(order, ct);
-}
-```
-
-### Регистрация кастомных метрик
-
-```csharp
-builder.Services.AddOpenTelemetry()
-    .WithMetrics(metrics => metrics
-        .AddMeter("MyService")  // Регистрируем наш Meter
-        .AddAspNetCoreInstrumentation()
-        // ...
-    );
-```
-
-## Health Checks
-
-### Настройка Health Checks
-
-```csharp
-builder.Services.AddHealthChecks()
-    // Database
-    .AddNpgSql(
-        connectionString: builder.Configuration.GetConnectionString("Database")!,
-        name: "postgresql",
-        tags: new[] { "db", "ready" })
-    // Redis
-    .AddRedis(
-        redisConnectionString: builder.Configuration.GetConnectionString("Redis")!,
-        name: "redis",
-        tags: new[] { "cache", "ready" })
-    // RabbitMQ
-    .AddRabbitMQ(
-        rabbitConnectionString: builder.Configuration.GetConnectionString("RabbitMQ")!,
-        name: "rabbitmq",
-        tags: new[] { "messaging", "ready" })
-    // Elasticsearch
-    .AddElasticsearch(
-        elasticsearchUri: builder.Configuration["Elasticsearch:Url"]!,
-        name: "elasticsearch",
-        tags: new[] { "search", "ready" })
-    // Custom check
-    .AddCheck<ExternalApiHealthCheck>("external-api", tags: new[] { "external" });
-
-// Endpoints
+// Плохо — liveness проверяет внешние зависимости
 app.MapHealthChecks("/health/live", new HealthCheckOptions
 {
-    Predicate = _ => false  // Простая проверка - приложение живо
+    Predicate = check => check.Tags.Contains("ready") // БД упала → liveness fail → Kubernetes рестартит ВСЕ поды!
 });
+// БД и так недоступна, рестарт подов ничего не даст, только cascade failure
 
+// Хорошо — liveness = процесс жив, readiness = зависимости готовы
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = _ => false  // никаких проверок, просто 200 OK
+});
 app.MapHealthChecks("/health/ready", new HealthCheckOptions
 {
-    Predicate = check => check.Tags.Contains("ready")
+    Predicate = check => check.Tags.Contains("ready") // БД, Redis, RabbitMQ
 });
 
-app.MapHealthChecks("/health", new HealthCheckOptions
-{
-    ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
-});
+// Плохо — логи без TraceId (невозможно связать с trace)
+_logger.LogInformation("Order {OrderId} created", order.Id);
+// В Seq/Kibana: тысячи логов, как найти связанные?
+
+// Хорошо — Serilog enrichment с TraceId
+// appsettings.json: "Enrich": ["FromLogContext", "WithSpan"]
+// Output: [14:30:00 INF] [abc123...] Order 123 created
+// Теперь клик по TraceId → весь distributed trace
 ```
 
-### Custom Health Check
+## Counter vs Histogram vs Gauge
 
-```csharp
-public class ExternalApiHealthCheck : IHealthCheck
-{
-    private readonly HttpClient _httpClient;
+| Тип | Когда | Пример | НЕ используй для |
+|-----|-------|--------|------------------|
+| Counter | Монотонно растущее число | orders_total, errors_total | Значений, которые уменьшаются |
+| Histogram | Распределение значений | request_duration_seconds | Counts (используй Counter) |
+| Gauge | Текущее значение (может расти/падать) | active_connections, queue_size | Cumulative counts |
 
-    public ExternalApiHealthCheck(IHttpClientFactory httpClientFactory)
-    {
-        _httpClient = httpClientFactory.CreateClient("ExternalApi");
-    }
+## Чек-лист
 
-    public async Task<HealthCheckResult> CheckHealthAsync(
-        HealthCheckContext context,
-        CancellationToken ct = default)
-    {
-        try
-        {
-            var response = await _httpClient.GetAsync("/health", ct);
-
-            if (response.IsSuccessStatusCode)
-                return HealthCheckResult.Healthy("External API is healthy");
-
-            return HealthCheckResult.Degraded($"External API returned {response.StatusCode}");
-        }
-        catch (Exception ex)
-        {
-            return HealthCheckResult.Unhealthy("External API is unavailable", ex);
-        }
-    }
-}
-```
-
-## Structured Logging с Traces
-
-```csharp
-// В appsettings.json
-{
-  "Serilog": {
-    "Enrich": ["FromLogContext", "WithSpan"],
-    "WriteTo": [
-      {
-        "Name": "Console",
-        "Args": {
-          "outputTemplate": "[{Timestamp:HH:mm:ss} {Level:u3}] [{TraceId}] {Message:lj}{NewLine}{Exception}"
-        }
-      }
-    ]
-  }
-}
-
-// Автоматически добавляет TraceId и SpanId в логи
-_logger.LogInformation("Order {OrderId} created for customer {CustomerId}", order.Id, customerId);
-// Output: [14:30:00 INF] [abc123...] Order 123 created for customer 456
-```
-
-## Prometheus Metrics Format
-
-```
-# HELP http_request_duration_seconds HTTP request duration
-# TYPE http_request_duration_seconds histogram
-http_request_duration_seconds_bucket{method="GET",endpoint="/api/products",le="0.1"} 100
-http_request_duration_seconds_bucket{method="GET",endpoint="/api/products",le="0.5"} 150
-http_request_duration_seconds_sum{method="GET",endpoint="/api/products"} 45.5
-http_request_duration_seconds_count{method="GET",endpoint="/api/products"} 160
-
-# HELP orders_created_total Total number of orders
-# TYPE orders_created_total counter
-orders_created_total{status="completed"} 1234
-orders_created_total{status="failed"} 56
-```
-
-## Best Practices
-
-1. **Tracing**
-   - Используйте semantic conventions (http.method, db.system)
-   - Не создавайте span для каждого метода
-   - Добавляйте контекст через SetTag
-   - Обрабатывайте исключения в spans
-
-2. **Metrics**
-   - Используйте стандартные имена (snake_case)
-   - Добавляйте единицы измерения (_seconds, _bytes)
-   - Ограничивайте cardinality labels
-   - Counter для событий, Histogram для durations
-
-3. **Health Checks**
-   - Разделяйте liveness и readiness
-   - Не делайте тяжёлые проверки в liveness
-   - Используйте timeouts
-   - Кэшируйте результаты при необходимости
+- [ ] ActivitySource и Meter — static readonly
+- [ ] Spans на бизнес-операции, не на каждый метод
+- [ ] Health endpoints отфильтрованы из traces
+- [ ] Liveness = процесс жив (Predicate = _ => false)
+- [ ] Readiness = зависимости готовы (tags: "ready")
+- [ ] Labels — bounded cardinality (не userId/orderId)
+- [ ] Метрики: snake_case + суффикс единицы (_seconds)
+- [ ] Логи enriched с TraceId (WithSpan)
