@@ -1,6 +1,6 @@
 ---
 name: api-development
-description: ASP.NET Core Web API — ошибки проектирования, безопасность, контракты. Активируется при web api, controller, endpoint, REST API, versioning
+description: ASP.NET Core Web API — ошибки проектирования, безопасность, контракты. Активируется при web api, controller, endpoint, REST API, versioning, swagger, openapi, swashbuckle
 allowed-tools: Read, Grep, Glob
 ---
 
@@ -14,7 +14,9 @@ allowed-tools: Read, Grep, Glob
 - ProblemDetails для ошибок (RFC 7807)
 - API versioning с первого дня
 - Не возвращай Entity — только DTO/response models
-- CreatedAtAction для POST (201 + Location header)
+- ActionResult\<T\> вместо IActionResult — type info для Swagger
+- `[ProducesResponseType]` для всех HTTP status codes
+- XML comments + `<example>` на request/response models
 
 ## Анти-паттерны
 
@@ -40,13 +42,42 @@ public async Task<ActionResult<OrderDto>> Create(
     return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
 }
 
-// Плохо — исключение для бизнес-ошибки (404)
-var order = await _repo.GetByIdAsync(id, ct);
-if (order == null) throw new Exception("Not found"); // stack trace для штатной ситуации
+// Плохо — try/catch в каждом контроллере
+[HttpGet("{id}")]
+public async Task<ActionResult<OrderDto>> GetById(int id, CancellationToken ct)
+{
+    try {
+        var order = await _service.GetAsync(id, ct);
+        return Ok(order);
+    }
+    catch (NotFoundException) { return NotFound(); }
+    catch (Exception ex) { return StatusCode(500, ex.Message); } // стектрейс клиенту!
+}
+// Копипаста try/catch в каждом методе, нет единого формата
 
-// Хорошо — Result pattern или просто NotFound()
-var order = await _repo.GetByIdAsync(id, ct);
-if (order is null) return NotFound();
+// Хорошо — единый exception handler middleware
+// Контроллер просто кидает исключение, middleware ловит и форматирует в ProblemDetails
+
+// Плохо — IActionResult теряет type info для Swagger
+[HttpGet("{id}")]
+public async Task<IActionResult> GetById(int id, CancellationToken ct)
+{
+    return Ok(await _service.GetAsync(id, ct));
+}
+// Swagger не знает тип ответа → генерация клиентов невозможна
+
+// Хорошо — ActionResult<T> + ProducesResponseType
+/// <response code="200">Заказ найден</response>
+/// <response code="404">Заказ не найден</response>
+[HttpGet("{id}")]
+[ProducesResponseType(typeof(OrderDto), StatusCodes.Status200OK)]
+[ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+public async Task<ActionResult<OrderDto>> GetById(int id, CancellationToken ct)
+{
+    var order = await _service.GetAsync(id, ct);
+    if (order is null) return NotFound();
+    return Ok(order);
+}
 
 // Плохо — возвращает Entity напрямую (утечка внутренней структуры)
 return Ok(await _context.Users.FindAsync(id));
@@ -54,30 +85,28 @@ return Ok(await _context.Users.FindAsync(id));
 
 // Хорошо — DTO
 return Ok(new UserDto(user.Id, user.Name, user.Email));
-```
 
-## Обработка ошибок — единый формат
-
-```csharp
-// Middleware + ProblemDetails — НЕ дублируй try/catch в каждом контроллере
-app.UseExceptionHandler(app => app.Run(async context =>
+// Плохо — async void в контроллере
+[HttpPost]
+public async void Create(CreateOrderRequest request) // async void!
 {
-    var ex = context.Features.Get<IExceptionHandlerFeature>()?.Error;
-    var (status, title) = ex switch
-    {
-        NotFoundException => (404, "Not Found"),
-        ValidationException => (400, "Validation Error"),
-        _ => (500, "Internal Server Error")
-    };
+    await _service.CreateAsync(request);
+    // Исключение молча проглатывается — 200 OK, а заказ не создан
+    // Caller не может await — нет Task, нет CancellationToken
+}
 
-    context.Response.StatusCode = status;
-    await context.Response.WriteAsJsonAsync(new ProblemDetails
-    {
-        Status = status,
-        Title = title,
-        Detail = status == 500 ? null : ex?.Message // не показывай стектрейс клиенту
-    });
-}));
+// Плохо — дублированный путь на каждом методе
+[HttpGet("api/orders/{id}")]
+public async Task<ActionResult<OrderDto>> GetById(int id, CancellationToken ct) { }
+
+[HttpPost("api/orders")]
+public async Task<ActionResult<OrderDto>> Create(CreateOrderRequest req, CancellationToken ct) { }
+// "api/orders" повторяется, при переименовании — забудешь один метод
+
+// Хорошо — Route на контроллере
+[ApiController]
+[Route("api/[controller]")]
+public class OrdersController : ControllerBase { }
 ```
 
 ## Пагинация — не забывай
@@ -100,13 +129,50 @@ public async Task<ActionResult<PagedResult<ProductDto>>> GetAll(
 }
 ```
 
+## Swagger — частые ошибки
+
+```csharp
+// Плохо — XML comments не видны в Swagger
+// Забыли в .csproj:
+// <GenerateDocumentationFile>true</GenerateDocumentationFile>
+// Все <summary> и <example> молча игнорируются
+
+// Плохо — Swagger без примеров, клиент гадает что передавать
+public record CreateProductRequest(string Name, decimal Price);
+
+// Хорошо — XML examples → Swagger показывает пример payload
+/// <summary>Запрос на создание продукта</summary>
+public record CreateProductRequest(
+    /// <summary>Название</summary>
+    /// <example>Ноутбук</example>
+    string Name,
+    /// <summary>Цена в рублях</summary>
+    /// <example>99999.99</example>
+    decimal Price);
+
+// Плохо — internal endpoints видны в публичном Swagger
+[HttpPost("internal/recalculate")]
+public async Task<ActionResult> Recalculate(CancellationToken ct) { }
+// Внутренний endpoint для межсервисного вызова — клиенты его видят
+
+// Хорошо — скрыть внутренние endpoints
+[HttpPost("internal/recalculate")]
+[ApiExplorerSettings(IgnoreApi = true)]
+public async Task<ActionResult> Recalculate(CancellationToken ct) { }
+```
+
 ## Чек-лист
 
 - [ ] Контроллеры тонкие — нет бизнес-логики
-- [ ] CancellationToken в каждом endpoint
+- [ ] CancellationToken в каждом endpoint (не async void!)
 - [ ] Валидация через pipeline, не в контроллерах
+- [ ] ActionResult\<T\>, не IActionResult
+- [ ] `[ProducesResponseType]` на каждом endpoint
 - [ ] POST возвращает 201 + Location
 - [ ] Списки с пагинацией и лимитом pageSize
-- [ ] Единый формат ошибок (ProblemDetails)
+- [ ] Единый exception handler (не try/catch в каждом методе)
 - [ ] Не возвращаются Entity — только DTO
-- [ ] API versioned
+- [ ] `[Route("api/[controller]")]` на контроллере, не пути на методах
+- [ ] `GenerateDocumentationFile` в .csproj
+- [ ] XML `<example>` на request/response models
+- [ ] Internal endpoints скрыты (`[ApiExplorerSettings(IgnoreApi = true)]`)

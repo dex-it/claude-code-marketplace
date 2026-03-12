@@ -13,7 +13,7 @@ allowed-tools: Read, Grep, Glob
 - Не тестируй приватные методы — тестируй поведение через публичный API
 - Моки только для внешних зависимостей (DB, HTTP, MQ) — не мокай бизнес-логику
 - Тесты не зависят друг от друга — нет общего состояния
-- CancellationToken.None в тестах, не default
+- Нет DateTime.Now/UtcNow в тестируемом коде — TimeProvider (.NET 8) или IClock
 
 ## Анти-паттерны
 
@@ -36,16 +36,6 @@ public async Task CreateOrder_ReturnsCreatedOrder()
     Assert.Equal(request.CustomerId, result.Value.CustomerId);
 }
 
-// Плохо — несколько действий в одном тесте
-[Fact]
-public async Task OrderLifecycle_CreateUpdateDelete()
-{
-    var order = await _service.CreateAsync(request, ct);  // Act 1
-    await _service.UpdateAsync(order.Id, update, ct);     // Act 2
-    await _service.DeleteAsync(order.Id, ct);             // Act 3
-    // Какой Act упал? Непонятно
-}
-
 // Плохо — Assert.True вместо конкретного assert
 Assert.True(result.Name == "Expected"); // "Assert.True() Failure" — бесполезное сообщение
 
@@ -58,7 +48,7 @@ var mockRepo = new Mock<IOrderRepository>();
 mockUoW.Setup(u => u.Orders).Returns(mockRepo.Object);
 mockRepo.Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
     .ReturnsAsync(new Order());
-// 5 строк setup для одного теста — признак плохого дизайна
+// 5 строк setup для одного теста — признак плохого дизайна кода, не теста
 
 // Плохо — тест зависит от внешнего состояния
 [Fact]
@@ -72,15 +62,77 @@ public async Task GetUser_ReturnsUser()
 [Fact]
 public async Task GetUser_ExistingUser_ReturnsUser()
 {
-    // Arrange
     var created = await _service.CreateAsync(new CreateUserRequest("Test"), ct);
-
-    // Act
     var result = await _service.GetByIdAsync(created.Id, ct);
-
-    // Assert
     Assert.NotNull(result);
     Assert.Equal("Test", result.Name);
+}
+
+// Плохо — DateTime.Now в тестируемом коде → flaky тесты
+public class OrderService
+{
+    public Order CreateOrder(CreateOrderRequest request)
+    {
+        return new Order { CreatedAt = DateTime.UtcNow }; // в тесте время непредсказуемо
+    }
+}
+// Тест: Assert.Equal(expectedDate, order.CreatedAt) — иногда падает на CI
+
+// Хорошо — TimeProvider инъецируется
+public class OrderService(TimeProvider timeProvider)
+{
+    public Order CreateOrder(CreateOrderRequest request)
+    {
+        return new Order { CreatedAt = timeProvider.GetUtcNow() };
+    }
+}
+// В тесте: new FakeTimeProvider(new DateTimeOffset(2024, 1, 1, ...))
+
+// Плохо — Task.Delay / Thread.Sleep в тестах
+[Fact]
+public async Task BackgroundJob_ProcessesMessage()
+{
+    await _service.EnqueueAsync(message);
+    await Task.Delay(2000); // "подождём пока обработает"
+    var result = await _service.GetStatusAsync(message.Id);
+    Assert.Equal("Processed", result);
+    // Flaky: на медленном CI 2 секунд не хватит, на быстром — лишнее ожидание
+}
+
+// Хорошо — polling с таймаутом
+[Fact]
+public async Task BackgroundJob_ProcessesMessage()
+{
+    await _service.EnqueueAsync(message);
+    var result = await WaitForConditionAsync(
+        () => _service.GetStatusAsync(message.Id),
+        status => status == "Processed",
+        timeout: TimeSpan.FromSeconds(10));
+    Assert.Equal("Processed", result);
+}
+```
+
+## Theory — когда НЕ использовать
+
+```csharp
+// Хорошо — Theory для параметризованных данных с одинаковым Arrange
+[Theory]
+[InlineData("", false)]
+[InlineData("valid@email.com", true)]
+[InlineData("no-at-sign", false)]
+public void IsValidEmail_ReturnsExpected(string email, bool expected)
+{
+    Assert.Equal(expected, _validator.IsValid(email));
+}
+
+// Плохо — Theory когда Arrange сильно отличается
+[Theory]
+[InlineData("admin", true, true, false)]   // что значат эти bool?
+[InlineData("user", false, false, true)]
+[InlineData("guest", false, false, false)]
+public void CheckPermissions(string role, bool canEdit, bool canDelete, bool needsApproval)
+{
+    // Нечитаемо — нужны отдельные Fact тесты с говорящими именами
 }
 ```
 
@@ -119,3 +171,5 @@ public class OrdersApiTests : IClassFixture<WebApplicationFactory<Program>>
 - [ ] Тесты изолированы — нет shared state
 - [ ] Integration тесты для DB/HTTP — не in-memory fakes
 - [ ] Нет моков бизнес-логики — только внешние зависимости
+- [ ] Нет DateTime.Now в тестируемом коде — TimeProvider/IClock
+- [ ] Нет Thread.Sleep/Task.Delay — polling с таймаутом

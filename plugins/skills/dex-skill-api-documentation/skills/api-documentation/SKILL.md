@@ -1,21 +1,15 @@
 ---
 name: api-documentation
-description: OpenAPI/Swagger документация — частые ошибки, versioning. Активируется при swagger, openapi, api documentation, swashbuckle, nswag
+description: OpenAPI/Swagger документация — частые ошибки. Активируется при swagger, openapi, api documentation, swashbuckle, nswag
 allowed-tools: Read, Grep, Glob
 ---
 
 # API Documentation
 
-## Правила
+> Swagger/OpenAPI анти-паттерны включены в **dex-skill-api-development** (секция "Swagger — частые ошибки").
+> Этот skill — краткая выжимка ключевых ловушек.
 
-- `[ProducesResponseType]` для всех возможных HTTP status codes
-- XML comments + `<example>` для Swagger UI
-- Группируй endpoints по тегам
-- Версионируй API — Swagger doc для каждой версии
-- Не документируй internal endpoints в публичном Swagger
-- Генерируй клиенты из OpenAPI spec (NSwag), не пиши вручную
-
-## Частые ошибки
+## Ловушки
 
 ```csharp
 // Плохо — нет ProducesResponseType → Swagger показывает только 200
@@ -28,57 +22,29 @@ public async Task<ActionResult<ProductDto>> GetById(int id, CancellationToken ct
 }
 
 // Хорошо — все возможные ответы документированы
-/// <summary>Получить продукт по ID</summary>
-/// <response code="200">Продукт найден</response>
-/// <response code="404">Продукт не найден</response>
 [HttpGet("{id}")]
 [ProducesResponseType(typeof(ProductDto), StatusCodes.Status200OK)]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-public async Task<ActionResult<ProductDto>> GetById(int id, CancellationToken ct)
-{ }
+public async Task<ActionResult<ProductDto>> GetById(int id, CancellationToken ct) { }
 
-// Плохо — Swagger без примеров, клиент гадает что передавать
-public record CreateProductRequest(string Name, decimal Price);
+// Плохо — IActionResult → Swagger не знает тип ответа → генерация клиентов невозможна
+public async Task<IActionResult> GetById(int id, CancellationToken ct) { }
 
-// Хорошо — XML examples → Swagger показывает пример payload
-/// <summary>Запрос на создание продукта</summary>
-public record CreateProductRequest(
-    /// <summary>Название</summary>
-    /// <example>Ноутбук</example>
-    string Name,
-    /// <summary>Цена в рублях</summary>
-    /// <example>99999.99</example>
-    decimal Price);
-```
+// Хорошо — ActionResult<T>
+public async Task<ActionResult<ProductDto>> GetById(int id, CancellationToken ct) { }
 
-## JWT в Swagger — минимальный setup
+// Плохо — забыли GenerateDocumentationFile в .csproj
+// Все <summary> и <example> молча игнорируются Swagger'ом
 
-```csharp
-// AddSwaggerGen — чтобы можно было тестировать защищённые endpoints
-options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-{
-    Type = SecuritySchemeType.Http,
-    Scheme = "bearer",
-    BearerFormat = "JWT",
-    Description = "Введите JWT токен"
-});
-options.AddSecurityRequirement(new OpenApiSecurityRequirement
-{
-    {
-        new OpenApiSecurityScheme
-        {
-            Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
-        },
-        Array.Empty<string>()
-    }
-});
+// Плохо — internal endpoints видны в публичном Swagger
+// Хорошо — [ApiExplorerSettings(IgnoreApi = true)]
 ```
 
 ## Чек-лист
 
 - [ ] `[ProducesResponseType]` на каждом endpoint
+- [ ] ActionResult\<T\>, не IActionResult
 - [ ] XML comments с `<example>` на request/response models
-- [ ] JWT SecurityDefinition если есть авторизация
-- [ ] Swagger doc per API version
 - [ ] `GenerateDocumentationFile` включен в .csproj
+- [ ] Internal endpoints скрыты (`[ApiExplorerSettings(IgnoreApi = true)]`)
 - [ ] NSwag/Kiota генерация клиентов в CI
