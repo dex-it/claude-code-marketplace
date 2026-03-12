@@ -1,367 +1,135 @@
 ---
 name: tensorflow-patterns
-description: TensorFlow/Keras best practices - tf.keras.Model, tf.data pipelines, callbacks, distributed training. Активируется при tensorflow, keras, tf.data, callback, SavedModel
+description: TensorFlow/Keras — ловушки training, tf.data, callbacks, saving. Активируется при tensorflow, keras, tf.data, callback, SavedModel
 allowed-tools: Read, Grep, Glob
 ---
 
-# TensorFlow/Keras Patterns
+# TensorFlow/Keras — ловушки
 
-## tf.keras.Model Patterns
+## Правила
 
-### Functional API (рекомендуется)
+- `training=True/False` в `call()` обязателен — BatchNorm и Dropout ведут себя по-разному
+- `@tf.function` для custom training loops — без этого eager mode в 10x медленнее
+- `prefetch(tf.data.AUTOTUNE)` в конце pipeline — без этого GPU простаивает
+- Output layer при mixed precision — `dtype='float32'`, иначе numerical instability
 
-```python
-from typing import Tuple
-import tensorflow as tf
-from tensorflow import keras
+## Частые ошибки
 
-# Правильно - Functional API для complex architectures
-def create_resnet_model(input_shape: Tuple[int, int, int], num_classes: int) -> keras.Model:
-    """Create ResNet-like model using Functional API."""
-    inputs = keras.Input(shape=input_shape)
+| Ошибка | Последствие | Решение |
+|--------|-------------|---------|
+| Забыл `training=` в `call()` | BN/Dropout всегда в train mode при inference | `model(x, training=False)` для inference |
+| `get_config()` не переопределён | Custom layer не сериализуется, `model.save()` падает | Всегда `get_config()` для custom layers |
+| `fit()` без `validation_data` | Нет early stopping, overfitting не виден | Всегда передавай val set |
+| `map()` без `num_parallel_calls` | tf.data pipeline однопоточный, GPU голодает | `map(fn, num_parallel_calls=tf.data.AUTOTUNE)` |
+| `shuffle()` после `batch()` | Перемешиваются batch'и, не элементы — слабая рандомизация | `shuffle()` ДО `batch()` |
+| `from_logits` не совпадает | `softmax` + `from_logits=True` = двойной softmax | Без softmax → `from_logits=True`, с softmax → `from_logits=False` |
+| EarlyStopping без `restore_best_weights` | Останавливается, но модель = последняя, не лучшая | `restore_best_weights=True` |
 
-    # Conv block
-    x = keras.layers.Conv2D(64, 7, strides=2, padding='same')(inputs)
-    x = keras.layers.BatchNormalization()(x)
-    x = keras.layers.ReLU()(x)
-    x = keras.layers.MaxPooling2D(3, strides=2, padding='same')(x)
+## tf.data pipeline — порядок имеет значение
 
-    # Residual block
-    shortcut = x
-    x = keras.layers.Conv2D(64, 3, padding='same')(x)
-    x = keras.layers.BatchNormalization()(x)
-    x = keras.layers.ReLU()(x)
-    x = keras.layers.Conv2D(64, 3, padding='same')(x)
-    x = keras.layers.BatchNormalization()(x)
-    x = keras.layers.Add()([shortcut, x])
-    x = keras.layers.ReLU()(x)
+```
+Плохо:
+  dataset.batch(32).shuffle(1000).map(augment)
+  // 1. batch → shuffle перемешивает batch'и, не samples
+  // 2. augment после batch → augment получает batch tensor
 
-    # Classifier
-    x = keras.layers.GlobalAveragePooling2D()(x)
-    x = keras.layers.Dropout(0.5)(x)
-    outputs = keras.layers.Dense(num_classes, activation='softmax')(x)
+Хорошо:
+  dataset.shuffle(1000).map(augment, num_parallel_calls=AUTOTUNE).batch(32).prefetch(AUTOTUNE)
+  // Правильный порядок: shuffle → map → batch → prefetch
 
-    model = keras.Model(inputs=inputs, outputs=outputs, name='resnet_classifier')
-    return model
+Плохо:
+  dataset = dataset.shuffle(buffer_size=10)  # buffer 10 из 100000
+  // shuffle_buffer << dataset_size → почти нет рандомизации
+
+Правило:
+  buffer_size >= dataset_size для полной рандомизации
+  Минимум: buffer_size >= 1000 (или 10% от dataset)
 ```
 
-### Model Subclassing (для research)
+## Saving/Loading ловушки
 
-```python
-class CustomModel(keras.Model):
-    """Custom model with complex forward logic."""
+```
+Плохо:
+  model.save('model.h5')
+  // .h5 формат deprecated, не поддерживает custom objects
+  // SavedModel — дефолт, .keras — новый формат
 
-    def __init__(self, num_classes: int):
-        super().__init__()
-        self.conv1 = keras.layers.Conv2D(64, 7, strides=2, padding='same')
-        self.bn1 = keras.layers.BatchNormalization()
-        self.pool = keras.layers.GlobalAveragePooling2D()
-        self.dropout = keras.layers.Dropout(0.5)
-        self.fc = keras.layers.Dense(num_classes)
+Плохо:
+  model.save('my_model')
+  loaded = keras.models.load_model('my_model')
+  // Если есть custom layers без get_config() → crash
 
-    def call(self, inputs: tf.Tensor, training: bool = False) -> tf.Tensor:
-        """Forward pass with custom logic."""
-        x = self.conv1(inputs)
-        x = self.bn1(x, training=training)  # training flag important!
-        x = tf.nn.relu(x)
-        x = self.pool(x)
-        x = self.dropout(x, training=training)
-        return self.fc(x)
+Плохо:
+  # Subclassed model
+  class MyModel(keras.Model): ...
+  model.save_weights('weights')  # OK
+  model.save('full_model')  # Может не работать!
+  // Subclassed models не полностью serializable через save()
+  // Используй save_weights() + architecture в коде
 ```
 
-## Custom Layers
+## Mixed Precision ловушки
 
-```python
-class ResidualBlock(keras.layers.Layer):
-    """Custom residual block layer."""
+```
+Плохо:
+  mixed_precision.set_global_policy('mixed_float16')
+  outputs = Dense(10, activation='softmax')(x)
+  // softmax в float16 → overflow/underflow
 
-    def __init__(self, filters: int, **kwargs):
-        super().__init__(**kwargs)
-        self.filters = filters
-        self.conv1 = keras.layers.Conv2D(filters, 3, padding='same')
-        self.conv2 = keras.layers.Conv2D(filters, 3, padding='same')
-        self.bn1 = keras.layers.BatchNormalization()
-        self.bn2 = keras.layers.BatchNormalization()
-        self.add = keras.layers.Add()
+Хорошо:
+  outputs = Dense(10, dtype='float32', activation='softmax')(x)
+  // Output layer всегда float32
 
-    def call(self, inputs: tf.Tensor) -> tf.Tensor:
-        """Forward pass."""
-        shortcut = inputs
-        x = self.conv1(inputs)
-        x = self.bn1(x)
-        x = tf.nn.relu(x)
-        x = self.conv2(x)
-        x = self.bn2(x)
-        x = self.add([shortcut, x])
-        return tf.nn.relu(x)
+Плохо:
+  mixed_precision.set_global_policy('mixed_float16')
+  optimizer = keras.optimizers.Adam(lr=1e-3)
+  // Loss scaling нужен для FP16 gradients
 
-    def get_config(self):
-        """Required for model saving/loading."""
-        config = super().get_config()
-        config.update({'filters': self.filters})
-        return config
+Хорошо:
+  optimizer = keras.optimizers.Adam(lr=1e-3)
+  optimizer = mixed_precision.LossScaleOptimizer(optimizer)
 ```
 
-## tf.data Pipeline Patterns
+## Multi-GPU ловушка
 
-### Efficient Data Loading
+```
+Плохо:
+  strategy = tf.distribute.MirroredStrategy()
+  model = create_model()
+  with strategy.scope():
+      model.compile(...)
+  // Модель создана ВНЕ strategy.scope() — не реплицируется
 
-```python
-from pathlib import Path
-
-def create_image_dataset(
-    image_dir: Path,
-    batch_size: int,
-    image_size: Tuple[int, int] = (224, 224),
-    shuffle_buffer: int = 1000,
-    training: bool = True
-) -> tf.data.Dataset:
-    """Create optimized tf.data pipeline."""
-    # List files
-    file_pattern = str(image_dir / "*/*.jpg")
-    files_ds = tf.data.Dataset.list_files(file_pattern, shuffle=training)
-
-    # Parse and decode
-    def parse_image(filepath: tf.Tensor) -> Tuple[tf.Tensor, tf.Tensor]:
-        """Load and preprocess image."""
-        # Load
-        image = tf.io.read_file(filepath)
-        image = tf.image.decode_jpeg(image, channels=3)
-        image = tf.image.resize(image, image_size)
-        image = tf.cast(image, tf.float32) / 255.0
-
-        # Extract label from directory name
-        label = tf.strings.split(filepath, '/')[-2]
-        label = tf.strings.to_number(label, out_type=tf.int32)
-
-        return image, label
-
-    # Augmentation
-    def augment(image: tf.Tensor, label: tf.Tensor) -> Tuple[tf.Tensor, tf.Tensor]:
-        """Apply augmentations."""
-        image = tf.image.random_flip_left_right(image)
-        image = tf.image.random_brightness(image, 0.2)
-        image = tf.image.random_contrast(image, 0.8, 1.2)
-        return image, label
-
-    # Build pipeline
-    dataset = files_ds.map(parse_image, num_parallel_calls=tf.data.AUTOTUNE)
-
-    if training:
-        dataset = dataset.shuffle(shuffle_buffer)
-        dataset = dataset.map(augment, num_parallel_calls=tf.data.AUTOTUNE)
-
-    dataset = dataset.batch(batch_size)
-    dataset = dataset.prefetch(tf.data.AUTOTUNE)  # Критично для performance!
-
-    return dataset
+Хорошо:
+  strategy = tf.distribute.MirroredStrategy()
+  with strategy.scope():
+      model = create_model()  # Создать внутри scope!
+      model.compile(...)
 ```
 
-## Training with fit()
+## @tf.function ловушки
 
-### Production Training Setup
+```
+Плохо:
+  @tf.function
+  def train_step(data):
+      print(f"Processing {data}")  # Python print — выполнится ОДИН раз при tracing
+      if len(data) > 10:           # Python if — зафиксируется при tracing
 
-```python
-def train_model(
-    model: keras.Model,
-    train_ds: tf.data.Dataset,
-    val_ds: tf.data.Dataset,
-    epochs: int,
-    checkpoint_dir: Path
-) -> keras.callbacks.History:
-    """Train model with callbacks."""
-    # Compile
-    model.compile(
-        optimizer=keras.optimizers.Adam(learning_rate=1e-3),
-        loss=keras.losses.SparseCategoricalCrossentropy(from_logits=False),
-        metrics=['accuracy']
-    )
-
-    # Callbacks
-    callbacks = [
-        # Save best model
-        keras.callbacks.ModelCheckpoint(
-            filepath=checkpoint_dir / 'best_model.keras',
-            monitor='val_loss',
-            save_best_only=True,
-            mode='min',
-            verbose=1
-        ),
-        # Early stopping
-        keras.callbacks.EarlyStopping(
-            monitor='val_loss',
-            patience=5,
-            mode='min',
-            restore_best_weights=True,
-            verbose=1
-        ),
-        # Reduce LR on plateau
-        keras.callbacks.ReduceLROnPlateau(
-            monitor='val_loss',
-            factor=0.5,
-            patience=3,
-            min_lr=1e-7,
-            verbose=1
-        ),
-        # TensorBoard logging
-        keras.callbacks.TensorBoard(
-            log_dir=checkpoint_dir / 'logs',
-            histogram_freq=1
-        )
-    ]
-
-    # Train
-    history = model.fit(
-        train_ds,
-        validation_data=val_ds,
-        epochs=epochs,
-        callbacks=callbacks,
-        verbose=1
-    )
-
-    return history
+Хорошо:
+  @tf.function
+  def train_step(data):
+      tf.print("Processing", data)  # tf.print — каждый вызов
+      if tf.shape(data)[0] > 10:    # tf.cond — динамическое условие
 ```
 
-## Custom Training Loop
+## Чек-лист
 
-### Full Control with GradientTape
-
-```python
-@tf.function  # Важно для performance!
-def train_step(
-    model: keras.Model,
-    inputs: tf.Tensor,
-    labels: tf.Tensor,
-    optimizer: keras.optimizers.Optimizer,
-    loss_fn: keras.losses.Loss,
-    train_acc_metric: keras.metrics.Metric
-) -> tf.Tensor:
-    """Single training step."""
-    with tf.GradientTape() as tape:
-        predictions = model(inputs, training=True)
-        loss = loss_fn(labels, predictions)
-
-    # Compute gradients
-    gradients = tape.gradient(loss, model.trainable_variables)
-
-    # Gradient clipping
-    gradients, _ = tf.clip_by_global_norm(gradients, 1.0)
-
-    # Update weights
-    optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-
-    # Update metrics
-    train_acc_metric.update_state(labels, predictions)
-
-    return loss
-
-def custom_train_loop(
-    model: keras.Model,
-    train_ds: tf.data.Dataset,
-    val_ds: tf.data.Dataset,
-    epochs: int
-) -> None:
-    """Custom training loop for full control."""
-    optimizer = keras.optimizers.Adam(learning_rate=1e-3)
-    loss_fn = keras.losses.SparseCategoricalCrossentropy(from_logits=False)
-
-    train_acc_metric = keras.metrics.SparseCategoricalAccuracy()
-    val_acc_metric = keras.metrics.SparseCategoricalAccuracy()
-
-    for epoch in range(epochs):
-        print(f"\\nEpoch {epoch + 1}/{epochs}")
-
-        # Training
-        train_acc_metric.reset_states()
-        for step, (inputs, labels) in enumerate(train_ds):
-            loss = train_step(model, inputs, labels, optimizer, loss_fn, train_acc_metric)
-
-            if step % 100 == 0:
-                print(f"Step {step}: loss={loss:.4f}, acc={train_acc_metric.result():.4f}")
-
-        # Validation
-        val_acc_metric.reset_states()
-        for inputs, labels in val_ds:
-            predictions = model(inputs, training=False)
-            val_acc_metric.update_state(labels, predictions)
-
-        print(f"Validation accuracy: {val_acc_metric.result():.4f}")
-```
-
-## Mixed Precision Training
-
-```python
-from tensorflow.keras import mixed_precision
-
-# Enable mixed precision globally
-mixed_precision.set_global_policy('mixed_float16')
-
-def create_model_with_mixed_precision(num_classes: int) -> keras.Model:
-    """Model with mixed precision."""
-    inputs = keras.Input(shape=(224, 224, 3))
-    x = keras.layers.Conv2D(64, 3)(inputs)
-    x = keras.layers.BatchNormalization()(x)
-    x = keras.layers.ReLU()(x)
-    x = keras.layers.GlobalAveragePooling2D()(x)
-
-    # Output layer должен быть float32 для численной стабильности
-    outputs = keras.layers.Dense(num_classes, dtype='float32', activation='softmax')(x)
-
-    model = keras.Model(inputs, outputs)
-    return model
-
-# Optimizer с loss scaling
-optimizer = keras.optimizers.Adam(learning_rate=1e-3)
-optimizer = mixed_precision.LossScaleOptimizer(optimizer)
-```
-
-## Multi-GPU Training
-
-```python
-# Strategy для distributed training
-strategy = tf.distribute.MirroredStrategy()
-print(f"Number of devices: {strategy.num_replicas_in_sync}")
-
-# Создать модель внутри strategy scope
-with strategy.scope():
-    model = create_resnet_model(input_shape=(224, 224, 3), num_classes=10)
-    model.compile(
-        optimizer='adam',
-        loss='sparse_categorical_crossentropy',
-        metrics=['accuracy']
-    )
-
-# Train как обычно - TensorFlow сам распределит по GPU
-history = model.fit(train_ds, validation_data=val_ds, epochs=10)
-```
-
-## SavedModel Export
-
-```python
-# Правильно - SavedModel формат (рекомендуется)
-model.save('saved_models/my_model', save_format='tf')
-
-# Load
-loaded_model = keras.models.load_model('saved_models/my_model')
-
-# TFLite conversion для mobile/edge
-converter = tf.lite.TFLiteConverter.from_saved_model('saved_models/my_model')
-converter.optimizations = [tf.lite.Optimize.DEFAULT]  # Quantization
-tflite_model = converter.convert()
-
-with open('model.tflite', 'wb') as f:
-    f.write(tflite_model)
-```
-
-## Чеклист Best Practices
-
-- ✅ Functional API для большинства задач
-- ✅ tf.data pipeline с AUTOTUNE
-- ✅ `@tf.function` для custom training loops
-- ✅ Mixed precision для 2x speedup
-- ✅ ModelCheckpoint с `save_best_only=True`
-- ✅ EarlyStopping для предотвращения overfitting
-- ✅ TensorBoard для визуализации
-- ✅ Gradient clipping для стабильности
-- ✅ SavedModel формат для сохранения
-- ✅ MirroredStrategy для multi-GPU
+- [ ] `training=True/False` передаётся корректно
+- [ ] Custom layers имеют `get_config()`
+- [ ] tf.data: shuffle → map(AUTOTUNE) → batch → prefetch(AUTOTUNE)
+- [ ] `from_logits` согласован с activation
+- [ ] EarlyStopping с `restore_best_weights=True`
+- [ ] Mixed precision: output layer `dtype='float32'`
+- [ ] Модель создана внутри `strategy.scope()`
+- [ ] `@tf.function`: tf.print, tf.cond вместо Python аналогов

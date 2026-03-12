@@ -1,129 +1,76 @@
 ---
 name: product-discovery
-description: Активируется при исследовании проблем, валидации идей, customer discovery, user interviews, problem-solution fit, market validation
-allowed-tools: Read, Write, Edit, Grep, Glob
+description: Product discovery — ошибки исследования, валидации, интервью. Активируется при discovery, customer interviews, validation, problem-solution fit, market research
+allowed-tools: Read, Grep, Glob
 ---
 
-# Product Discovery Skill
+# Product Discovery — ловушки
 
-Помогает PM проводить discovery: понимать проблемы пользователей, валидировать идеи, находить product-market fit.
+## Правила
 
-## Core Principles
+- Problem first, solution second
+- Validate before build: Assumption → Hypothesis → Experiment → Learn
+- 5-10 интервью для problem discovery, 5-8 для solution testing
+- Jobs-to-be-Done: "When [situation], I want [motivation], so I can [outcome]"
 
-**1. Problem First, Solution Second**
-❌ "Build X" → ✅ "Users struggle with Y"
+## Красные флаги
 
-**2. Jobs-to-be-Done:** "When [situation], I want to [motivation], so I can [outcome]"
+| Фраза | Проблема |
+|-------|----------|
+| "Всем это нужно" | Нет сегментации, нет данных |
+| "У нас нет конкурентов" | Не искали или игнорируют substitutes |
+| "Просто построим" | Skip validation → build wrong thing |
+| "Пользователи привыкнут" | Forcing behaviour change без value |
+| Список фичей без проблемы | Solution-first thinking |
 
-**3. Validate Before Build:** Assumption → Hypothesis → Experiment → Learn
+## Ошибки интервью
 
-## 3-Phase Discovery Process
+```
+Плохо: "Вам бы понравилась функция X?"
+// Confirmation bias — люди говорят "да" чтобы не обидеть
+Хорошо: "Расскажите о последнем разе, когда вы [задача]. Что было сложнее всего?"
 
-### Phase 1: Problem Discovery
+Плохо: "Вы бы заплатили $10/мес за это?"
+// Гипотетическое намерение ≠ реальное поведение
+Хорошо: "Сколько вы сейчас тратите на решение этой проблемы?"
 
-**Goal:** Validate real, important problem
+Плохо: Интервьюировать друзей/коллег
+// Mom test: они скажут то, что вы хотите услышать
+Хорошо: Интервьюировать незнакомых из целевого сегмента
 
-**User Interviews (5-10 users)**
-- Ask: "Tell me about last time you [task]", "What's hardest part?", "How solve now?"
-- Don't: "Would you use X?", leading questions, yes/no
-- Listen for: Pain points, workarounds, frequency, impact
-
-**Data Sources:** Support tickets, analytics drop-offs, churn surveys, feature requests
-
-**Problem Statement Template:**
-[User type] needs [job] because [insight + quantified impact]
-
-Example: "Junior devs need codebase navigation help because they spend 50% time on it, slowing velocity"
-
-### Phase 2: Solution Discovery
-
-**Goal:** Find best solution for validated problem
-
-**Hypothesis Format:**
-"We believe [solution] will [measurable outcome] for [segment] because [reasoning]"
-
-**Rapid Prototyping:** Paper sketches → Figma → Clickable prototype → Fake door → Concierge/Wizard of Oz MVP
-
-**Testing (5-8 users):**
-- Usability: Can use it?
-- Value: Want it?
-- Willingness to pay: Will pay?
-
-### Phase 3: Market Discovery
-
-**Market Sizing:** TAM (all who could use) → SAM (can reach) → SOM (will realistically get)
-
-**Competitor Analysis:** Problem, Solution, Target, Strengths/Weaknesses, Pricing, Differentiation
-
-**Positioning Template:**
-For [customer] who [need], our [category] provides [benefit]. Unlike [competitor], we [differentiation].
-
-## Key Techniques
-
-**Customer Interviews (60 min):** Intro (5) → Context (15) → Problems (25) → Feedback (10) → Wrap (5)
-- Do: Ask "why" 5x, specific examples, listen 80%
-- Don't: Pitch, lead, hypotheticals, interview friends
-
-**Assumption Mapping:** List assumptions → Rate (Importance × Evidence) → Test high-risk first
-
-**Opportunity Solution Tree:** Outcome → Opportunities → Solutions (visualize options)
-
-## Validation Methods
-
-**Fake Door:** Landing page + "early access" → Measure clicks/signups → Learn demand
-
-**Concierge MVP:** Manually deliver service → Learn value/patterns before automating
-
-**Wizard of Oz:** Fake automation (humans behind) → Test if output valuable
-
-**Beta Testing:** Limited release → Usage data + feedback → Iterate before launch
-
-## Discovery Artifacts
-
-**User Personas:** Name, Role, Goals, Frustrations, Behaviors, Quote → Team empathy
-
-**Journey Map:** [Stage] → Touchpoints + Emotions + Pain Points → Find opportunities
-
-**Value Prop Canvas:** Customer (Jobs/Pains/Gains) ↔ Value Map (Products/Pain Relievers/Gain Creators)
-
-## Critical Questions
-
-**Problem:** Who? When? How often? Impact? Current solution? Why not working? Importance (1-10)?
-
-**Solution:** Solves problem? Usable? 10x better? Smallest valuable version? Assumptions? Success metrics?
-
-**Market:** TAM/SAM/SOM? Competitors? Why us? Distribution? Business model? CAC < LTV? Scalable?
-
-## Red Flags
-
-❌ "Everyone needs this" | "No competitors" | "Just build it" | "Users will change" | Feature list без problem
-
-## Pre-Build Checklist
-
-**Problem:** 10+ interviews, frequent occurrence, users seeking solutions, willing to pay
-**Solution:** Tested with 5-8 users, clear value, 10x better, MVP defined
-**Market:** TAM/SAM/SOM sized, competitors analyzed, differentiation clear, positive unit economics
-
-## Output Format
-
-После discovery создавайте в Notion:
-
-```markdown
-# Discovery: [Topic]
-
-**Problem:** [Clear definition]
-**Research:** [Method, Sample, Dates]
-
-**Key Findings:**
-1-3 findings с evidence
-
-**Validated:** ✅ [Hypothesis]: [Evidence]
-**Invalidated:** ❌ [Hypothesis]: [Evidence]
-
-**Next Steps:** 1-3 action items
-**Open Questions:** Remaining uncertainties
+Плохо: Закрытые вопросы (да/нет)
+Хорошо: Открытые: "Расскажите...", "Как вы...", "Что было..."
 ```
 
-## Remember
+## Валидация — лестница уверенности
 
-Continuous discovery: Every sprint talk to customers, validate assumptions, measure impact. Great PMs spend 50%+ time on discovery.
+| Уровень | Метод | Уверенность |
+|---------|-------|-------------|
+| 1 | Интервью (хотят ли?) | Низкая |
+| 2 | Landing page / Fake door (нажмут ли?) | Средняя |
+| 3 | Concierge MVP (используют ли вручную?) | Высокая |
+| 4 | Beta + оплата (заплатят ли?) | Очень высокая |
+
+**Ловушка:** Прыгнуть с уровня 1 сразу к full build. Каждый уровень дешевле предыдущего — не пропускай.
+
+## Problem Statement — формула
+
+```
+Плохо: "Нужна CRM для менеджеров"
+// Нет проблемы, нет impact, нет data
+
+Хорошо: "[Junior devs] тратят [50% времени] на [навигацию по кодовой базе],
+         что [снижает velocity команды в 2 раза]"
+// Кто + сколько + проблема + quantified impact
+```
+
+## Чек-лист
+
+- [ ] Проблема validated (10+ интервью, не гипотеза)
+- [ ] Открытые вопросы, не наводящие
+- [ ] Интервьюируемые — из целевого сегмента (не друзья)
+- [ ] Problem statement с quantified impact
+- [ ] Hypothesis format: "We believe [X] will [Y] because [Z]"
+- [ ] Валидация поэтапная (interview → fake door → MVP → beta)
+- [ ] Competitors analyzed (включая substitutes)
+- [ ] Решение НЕ начато до validation
