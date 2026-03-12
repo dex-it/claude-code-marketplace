@@ -1,208 +1,175 @@
 ---
 name: logging-patterns
-description: Structured logging в .NET с Serilog, Seq, OpenTelemetry, Grafana Loki - конфигурация, enrichers, sinks, distributed tracing. Активируется при serilog, seq, logging, structured logging, log, trace, telemetry, enricher, opentelemetry, loki
+description: Structured logging в .NET с Serilog. Активируется при serilog, seq, logging, structured logging, log, enricher, correlation id
 allowed-tools: Read, Grep, Glob
 ---
 
-# Logging Patterns в .NET
+# Logging Patterns
 
-## Serilog Configuration
+## Правила
 
-### Базовая настройка
+- Используй `ILogger<T>` через DI, не статический `Serilog.Log` в прикладном коде
+- Structured logging, никогда string interpolation и конкатенация
+- Имена свойств в шаблонах — PascalCase: `{OrderId}`, `{FileName}`, `{ElapsedMs}`
+- Log levels: бизнес-события = Information, потенциальные проблемы = Warning, сбои = Error
+- Не логируй sensitive data (пароли, токены, PII — email, телефон)
+- Не дампи большие объекты — логируй id, размеры, длительности
+- Correlation ID в каждом запросе — для трассировки между сервисами
+- High-perf пути — используй Source Generators (LoggerMessage)
+
+## Анти-паттерны
 
 ```csharp
-// Program.cs
-Log.Logger = new LoggerConfiguration()
-    .MinimumLevel.Debug()
-    .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
-    .MinimumLevel.Override("Microsoft.Hosting.Lifetime", LogEventLevel.Information)
-    .Enrich.FromLogContext()
-    .Enrich.WithMachineName()
-    .Enrich.WithEnvironmentName()
-    .Enrich.WithProperty("Application", "MyApp")
-    .WriteTo.Console(new JsonFormatter())
-    .WriteTo.Seq("http://localhost:5341")
-    .CreateLogger();
+// Плохо — string interpolation (аллокация строки даже если уровень отключён)
+_logger.LogInformation($"Order {orderId} created for {customerId}");
 
-try
-{
-    Log.Information("Starting application");
+// Хорошо — structured logging (параметры подставляются только если уровень активен)
+_logger.LogInformation("Order {OrderId} created for {CustomerId}", orderId, customerId);
 
-    var builder = WebApplication.CreateBuilder(args);
-    builder.Host.UseSerilog();
+// Плохо — статический Log
+Serilog.Log.Information("Something happened");
 
-    // ... configuration
+// Хорошо — ILogger<T> через DI
+_logger.LogInformation("Something happened");
 
-    var app = builder.Build();
-    app.UseSerilogRequestLogging();
+// Плохо — логируем sensitive data
+_logger.LogInformation("User {Email} logged in with password {Password}", email, password);
 
-    app.Run();
-}
+// Хорошо — только безопасные поля
+_logger.LogInformation("User {UserId} logged in from {IP}", userId, ip);
+
+// Плохо — дамп большого объекта
+_logger.LogInformation("Request: {@Request}", httpRequest);
+
+// Хорошо — ключевые id и метрики
+_logger.LogInformation("Import {FileName} ({SizeKb}kb) completed in {ElapsedMs:000}ms", name, size, elapsed);
+
+// Плохо — пустой catch
+catch (Exception) { }
+
+// Плохо — логируем но глотаем
+catch (Exception ex) { _logger.LogError(ex, "Error"); }
+
+// Хорошо — логируем и пробрасываем
 catch (Exception ex)
 {
-    Log.Fatal(ex, "Application terminated unexpectedly");
+    _logger.LogError(ex, "Failed to process order {OrderId}", orderId);
+    throw;
 }
-finally
-{
-    Log.CloseAndFlush();
-}
+
+// Плохо — избыточное логирование (спам)
+foreach (var item in items)
+    _logger.LogInformation("Processing item {ItemId}", item.Id);
+
+// Хорошо — агрегированное
+_logger.LogInformation("Processing {Count} items for order {OrderId}", items.Count, orderId);
 ```
 
-### Конфигурация из appsettings.json
-
-```json
-{
-  "Serilog": {
-    "Using": ["Serilog.Sinks.Console", "Serilog.Sinks.Seq"],
-    "MinimumLevel": {
-      "Default": "Information",
-      "Override": {
-        "Microsoft": "Warning",
-        "Microsoft.Hosting.Lifetime": "Information",
-        "Microsoft.EntityFrameworkCore": "Warning"
-      }
-    },
-    "WriteTo": [
-      {
-        "Name": "Console",
-        "Args": {
-          "formatter": "Serilog.Formatting.Json.JsonFormatter, Serilog"
-        }
-      },
-      {
-        "Name": "Seq",
-        "Args": {
-          "serverUrl": "http://localhost:5341",
-          "apiKey": "${SEQ_API_KEY}"
-        }
-      }
-    ],
-    "Enrich": ["FromLogContext", "WithMachineName", "WithEnvironmentName"],
-    "Properties": {
-      "Application": "MyApp"
-    }
-  }
-}
-```
+## Semantic Types: @ vs $
 
 ```csharp
-// Program.cs
-builder.Host.UseSerilog((context, config) =>
-{
-    config.ReadFrom.Configuration(context.Configuration);
-});
-```
-
-## Structured Logging
-
-### Правильное использование
-
-```csharp
-public class OrderService
-{
-    private readonly ILogger<OrderService> _logger;
-
-    // Хорошо - structured logging
-    public async Task<Order> CreateOrderAsync(CreateOrderRequest request)
-    {
-        _logger.LogInformation("Creating order for customer {CustomerId} with {ItemCount} items",
-            request.CustomerId, request.Items.Count);
-
-        try
-        {
-            var order = await ProcessOrderAsync(request);
-
-            _logger.LogInformation("Order {OrderId} created successfully. Total: {OrderTotal:C}",
-                order.Id, order.Total);
-
-            return order;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to create order for customer {CustomerId}",
-                request.CustomerId);
-            throw;
-        }
-    }
-}
-
-// Плохо - string interpolation
-_logger.LogInformation($"Creating order for customer {request.CustomerId}"); // НЕ делать так!
-```
-
-### Semantic Types
-
-```csharp
-// Использование @ для сериализации объектов
+// @ — сериализует объект в JSON (для анализа в Seq)
 _logger.LogInformation("Order created: {@Order}", order);
+// → Order: {"Id": 123, "Total": 99.5, "Items": [...]}
 
-// Использование $ для ToString()
+// $ — вызывает ToString() (для краткого представления)
 _logger.LogInformation("Order created: {$Order}", order);
+// → Order: "Order #123"
+
+// Без префикса — как есть (для примитивов)
+_logger.LogInformation("Order {OrderId} total: {Total:C}", id, total);
 ```
 
-## Enrichers
+## Log Levels — как выбирать
 
-### Custom Enricher
+### Дерево решений
+
+```
+Событие произошло
+├─ Приложение падает/не может работать дальше?
+│  └─ Да → Critical
+├─ Операция завершилась ошибкой?
+│  ├─ Нужна реакция дежурного? → Error
+│  └─ Само восстановится (retry, fallback)? → Warning
+├─ Это штатное бизнес-событие?
+│  └─ Да → Information
+├─ Полезно для диагностики при разработке?
+│  └─ Да → Debug
+└─ Нужно только при глубокой отладке конкретной проблемы?
+   └─ Да → Trace
+```
+
+### Уровни с примерами
+
+| Level | Когда | Примеры | В production |
+|-------|-------|---------|-------------|
+| Trace | Пошаговая трассировка, вход/выход из методов | `Entering Validate({@Input})` | OFF |
+| Debug | Диагностика: промежуточные состояния, cache, query | `Cache miss for {Key}`, `SQL: {Query}` | OFF (включаем при расследовании) |
+| Information | Ключевые бизнес-события, жизненный цикл | `Order {OrderId} created`, `App started` | ON — основной уровень |
+| Warning | Не ошибка, но подозрительно или деградация | `Retry {Attempt} for {Service}`, `Rate limit approaching` | ON |
+| Error | Сбой операции, требует внимания, но app живо | `Failed to send email to {UserId}`, `Payment declined` | ON — алерт |
+| Critical | Приложение не может продолжать работу | `DB connection lost`, `Out of memory` | ON — немедленный алерт |
+
+### Типичные ошибки выбора уровня
 
 ```csharp
-public class UserIdEnricher : ILogEventEnricher
+// Плохо — Warning для штатной ситуации (validation — это нормально)
+_logger.LogWarning("Invalid input: {Field}", field);
+// Хорошо — Debug (или Information если важно для бизнеса)
+_logger.LogDebug("Validation failed for {Field}: {Reason}", field, reason);
+
+// Плохо — Error для ожидаемой ситуации
+_logger.LogError("User {UserId} not found");
+// Хорошо — Warning (или Debug, если это частый сценарий)
+_logger.LogWarning("User {UserId} not found", userId);
+
+// Плохо — Information для отладочной информации (спам в prod)
+_logger.LogInformation("Checking cache for key {Key}", key);
+// Хорошо — Debug
+_logger.LogDebug("Cache miss for key {Key}", key);
+
+// Плохо — Error без exception object
+_logger.LogError("Something failed for {OrderId}", orderId);
+// Хорошо — Error с exception
+_logger.LogError(ex, "Failed to process order {OrderId}", orderId);
+```
+
+## Source Generators (High-Performance)
+
+Для hot paths — zero-allocation logging:
+
+```csharp
+public static partial class LogMessages
 {
-    private readonly IHttpContextAccessor _httpContextAccessor;
+    [LoggerMessage(EventId = 1001, Level = LogLevel.Information,
+        Message = "Order {OrderId} created for customer {CustomerId}")]
+    public static partial void OrderCreated(this ILogger logger, Guid orderId, Guid customerId);
 
-    public void Enrich(LogEvent logEvent, ILogEventPropertyFactory propertyFactory)
-    {
-        var userId = _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.NameIdentifier);
-
-        if (!string.IsNullOrEmpty(userId))
-        {
-            logEvent.AddPropertyIfAbsent(propertyFactory.CreateProperty("UserId", userId));
-        }
-    }
+    [LoggerMessage(EventId = 1002, Level = LogLevel.Error,
+        Message = "Failed to process order {OrderId}")]
+    public static partial void OrderFailed(this ILogger logger, Guid orderId, Exception ex);
 }
 
-// Регистрация
-Log.Logger = new LoggerConfiguration()
-    .Enrich.With<UserIdEnricher>()
-    .CreateLogger();
-```
-
-### Request Logging Enricher
-
-```csharp
-app.UseSerilogRequestLogging(options =>
-{
-    options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
-    {
-        diagnosticContext.Set("RequestHost", httpContext.Request.Host.Value);
-        diagnosticContext.Set("UserAgent", httpContext.Request.Headers["User-Agent"].ToString());
-        diagnosticContext.Set("ClientIP", httpContext.Connection.RemoteIpAddress?.ToString());
-
-        if (httpContext.User.Identity?.IsAuthenticated == true)
-        {
-            diagnosticContext.Set("UserId", httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier));
-        }
-    };
-
-    options.MessageTemplate = "{RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000} ms";
-});
+// Вызов — типобезопасный, без boxing
+_logger.OrderCreated(order.Id, order.CustomerId);
 ```
 
 ## Correlation ID
 
-### Middleware
+Обязательно для микросервисов — связывает логи одного запроса через все сервисы.
 
 ```csharp
 public class CorrelationIdMiddleware
 {
-    private readonly RequestDelegate _next;
-    private const string CorrelationIdHeader = "X-Correlation-ID";
+    private const string Header = "X-Correlation-ID";
 
     public async Task InvokeAsync(HttpContext context)
     {
-        var correlationId = context.Request.Headers[CorrelationIdHeader].FirstOrDefault()
+        var correlationId = context.Request.Headers[Header].FirstOrDefault()
+            ?? Activity.Current?.TraceId.ToString()
             ?? Guid.NewGuid().ToString();
 
-        context.Response.Headers[CorrelationIdHeader] = correlationId;
+        context.Response.Headers[Header] = correlationId;
 
         using (LogContext.PushProperty("CorrelationId", correlationId))
         {
@@ -212,13 +179,11 @@ public class CorrelationIdMiddleware
 }
 ```
 
-### HttpClient Propagation
+Пробрасывай при вызовах между сервисами:
 
 ```csharp
 public class CorrelationIdHandler : DelegatingHandler
 {
-    private readonly IHttpContextAccessor _httpContextAccessor;
-
     protected override Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request, CancellationToken ct)
     {
@@ -226,282 +191,44 @@ public class CorrelationIdHandler : DelegatingHandler
             .Response.Headers["X-Correlation-ID"].FirstOrDefault();
 
         if (!string.IsNullOrEmpty(correlationId))
-        {
             request.Headers.Add("X-Correlation-ID", correlationId);
-        }
 
         return base.SendAsync(request, ct);
     }
 }
 ```
 
-## Seq Integration
-
-### Настройка Seq
-
-```csharp
-.WriteTo.Seq(
-    serverUrl: "http://localhost:5341",
-    apiKey: configuration["Seq:ApiKey"],
-    batchPostingLimit: 50,
-    period: TimeSpan.FromSeconds(2),
-    queueSizeLimit: 10000)
-```
-
-### Docker Compose с Seq
-
-```yaml
-seq:
-  image: datalust/seq:latest
-  environment:
-    ACCEPT_EULA: "Y"
-    SEQ_FIRSTRUN_ADMINPASSWORDHASH: "${SEQ_ADMIN_PASSWORD_HASH}"
-  ports:
-    - "5341:80"
-    - "5342:5342"  # Ingestion port
-  volumes:
-    - seq_data:/data
-```
-
-## Performance Logging
-
-### Timed Operations
-
-```csharp
-public class PerformanceLogger
-{
-    private readonly ILogger _logger;
-
-    public IDisposable TimeOperation(string operationName, params object[] args)
-    {
-        return new TimedOperation(_logger, operationName, args);
-    }
-
-    private class TimedOperation : IDisposable
-    {
-        private readonly ILogger _logger;
-        private readonly string _operationName;
-        private readonly object[] _args;
-        private readonly Stopwatch _stopwatch;
-
-        public TimedOperation(ILogger logger, string operationName, object[] args)
-        {
-            _logger = logger;
-            _operationName = operationName;
-            _args = args;
-            _stopwatch = Stopwatch.StartNew();
-
-            _logger.LogDebug("Starting " + _operationName, _args);
-        }
-
-        public void Dispose()
-        {
-            _stopwatch.Stop();
-            var allArgs = _args.Concat(new object[] { _stopwatch.ElapsedMilliseconds }).ToArray();
-            _logger.LogInformation(_operationName + " completed in {ElapsedMs}ms", allArgs);
-        }
-    }
-}
-
-// Использование
-using (_performanceLogger.TimeOperation("Processing order {OrderId}", orderId))
-{
-    await ProcessOrderAsync(orderId);
-}
-```
-
-### Source Generator (High-Performance)
-
-```csharp
-public static partial class LoggerExtensions
-{
-    [LoggerMessage(
-        EventId = 1001,
-        Level = LogLevel.Information,
-        Message = "Order {OrderId} created for customer {CustomerId}")]
-    public static partial void OrderCreated(
-        this ILogger logger, Guid orderId, Guid customerId);
-
-    [LoggerMessage(
-        EventId = 1002,
-        Level = LogLevel.Error,
-        Message = "Failed to process order {OrderId}")]
-    public static partial void OrderProcessingFailed(
-        this ILogger logger, Guid orderId, Exception ex);
-}
-
-// Использование
-_logger.OrderCreated(order.Id, order.CustomerId);
-_logger.OrderProcessingFailed(orderId, ex);
-```
-
-## Log Levels Best Practices
-
-```csharp
-// Trace - детальная диагностика (обычно отключено)
-_logger.LogTrace("Entering method {MethodName} with params {@Params}", methodName, parameters);
-
-// Debug - информация для разработчиков
-_logger.LogDebug("Cache miss for key {CacheKey}", cacheKey);
-
-// Information - важные бизнес-события
-_logger.LogInformation("Order {OrderId} shipped to {Address}", orderId, address);
-
-// Warning - потенциальные проблемы
-_logger.LogWarning("Payment retry {RetryCount} for order {OrderId}", retryCount, orderId);
-
-// Error - ошибки, но приложение продолжает работать
-_logger.LogError(ex, "Failed to send email to {Email}", email);
-
-// Critical - критические ошибки, требующие немедленного внимания
-_logger.LogCritical(ex, "Database connection lost");
-```
-
-## Filtering Sensitive Data
+## Sensitive Data Filtering
 
 ```csharp
 public class SensitiveDataEnricher : ILogEventEnricher
 {
     private static readonly string[] SensitiveFields =
-        { "password", "creditcard", "ssn", "token" };
+        { "password", "creditcard", "ssn", "token", "secret", "apikey" };
 
-    public void Enrich(LogEvent logEvent, ILogEventPropertyFactory propertyFactory)
+    public void Enrich(LogEvent logEvent, ILogEventPropertyFactory factory)
     {
-        var properties = logEvent.Properties.ToList();
-
-        foreach (var prop in properties)
+        foreach (var prop in logEvent.Properties.ToList())
         {
             if (SensitiveFields.Any(f =>
                 prop.Key.Contains(f, StringComparison.OrdinalIgnoreCase)))
             {
                 logEvent.AddOrUpdateProperty(
-                    propertyFactory.CreateProperty(prop.Key, "***REDACTED***"));
+                    factory.CreateProperty(prop.Key, "***REDACTED***"));
             }
         }
     }
 }
 ```
 
-## OpenTelemetry Integration
+## Чек-лист
 
-### Установка пакетов
-
-```bash
-dotnet add package Serilog.Enrichers.Span
-dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol
-```
-
-### Корреляция логов и traces
-
-```csharp
-// Автоматически добавляет TraceId и SpanId в логи
-Log.Logger = new LoggerConfiguration()
-    .Enrich.WithSpan()  // Добавляет TraceId, SpanId, ParentId
-    .Enrich.FromLogContext()
-    .WriteTo.Console(outputTemplate:
-        "[{Timestamp:HH:mm:ss} {Level:u3}] [{TraceId}] {Message:lj}{NewLine}{Exception}")
-    .CreateLogger();
-```
-
-### Вывод в консоль с TraceId
-
-```
-[14:30:00 INF] [abc123def456] Order 12345 created for customer 67890
-[14:30:01 INF] [abc123def456] Payment processed successfully
-[14:30:02 ERR] [abc123def456] Failed to send email notification
-```
-
-### Поиск логов по TraceId
-
-```sql
--- В Seq
-@TraceId = "abc123def456"
-
--- В Elasticsearch
-{ "query": { "match": { "TraceId": "abc123def456" } } }
-```
-
-## Grafana Loki Integration
-
-### Установка
-
-```bash
-dotnet add package Serilog.Sinks.Grafana.Loki
-```
-
-### Конфигурация
-
-```csharp
-Log.Logger = new LoggerConfiguration()
-    .Enrich.FromLogContext()
-    .WriteTo.GrafanaLoki(
-        uri: "http://localhost:3100",
-        labels: new[]
-        {
-            new LokiLabel { Key = "app", Value = "myapp" },
-            new LokiLabel { Key = "env", Value = "production" }
-        },
-        propertiesAsLabels: new[] { "level", "RequestPath" })
-    .CreateLogger();
-```
-
-### LogQL запросы в Grafana
-
-```logql
-# Все ошибки приложения
-{app="myapp"} |= "error"
-
-# По TraceId
-{app="myapp"} | json | TraceId = "abc123"
-
-# С фильтрацией по времени выполнения
-{app="myapp"} | json | ElapsedMs > 1000
-
-# Top endpoints по ошибкам
-sum by (RequestPath) (count_over_time({app="myapp"} | json | level="Error" [1h]))
-```
-
-## Structured Logging for Observability
-
-### Correlation через все системы
-
-```csharp
-public class ObservabilityMiddleware
-{
-    public async Task InvokeAsync(HttpContext context)
-    {
-        // Получить или создать correlation ID
-        var correlationId = Activity.Current?.TraceId.ToString()
-            ?? context.Request.Headers["X-Correlation-ID"].FirstOrDefault()
-            ?? Guid.NewGuid().ToString();
-
-        // Добавить в контекст логирования
-        using (LogContext.PushProperty("CorrelationId", correlationId))
-        using (LogContext.PushProperty("TraceId", Activity.Current?.TraceId.ToString()))
-        using (LogContext.PushProperty("SpanId", Activity.Current?.SpanId.ToString()))
-        {
-            context.Response.Headers["X-Correlation-ID"] = correlationId;
-            await _next(context);
-        }
-    }
-}
-```
-
-### Метрики из логов
-
-```csharp
-// Serilog Metrics Sink
-.WriteTo.Prometheus(new PrometheusSinkOptions
-{
-    MetricName = "app_log_events",
-    DefaultLabels = new Dictionary<string, string>
-    {
-        ["app"] = "myapp"
-    }
-})
-
-// Результат: метрики в Prometheus формате
-// app_log_events{level="Error",app="myapp"} 15
-// app_log_events{level="Warning",app="myapp"} 42
-```
-```
+- [ ] Structured logging (не string interpolation)
+- [ ] Correlation ID middleware подключен
+- [ ] Sensitive data и PII не попадают в логи
+- [ ] Нет дампов больших объектов — только id, размеры, длительности
+- [ ] Свойства в PascalCase: `{OrderId}`, не `{orderId}`
+- [ ] Error логи содержат exception + контекст (OrderId, UserId)
+- [ ] Нет спама — логируем события, не итерации
+- [ ] Hot paths используют LoggerMessage source generators
+- [ ] MinimumLevel.Override для Microsoft/EF — Warning
