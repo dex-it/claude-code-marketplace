@@ -1,5 +1,5 @@
 # Bundle Installer for Claude Code Marketplace
-# Automatically installs all components from a bundle's _bundle.includes[]
+# Installs all components listed in bundle.json
 # Requires: PowerShell 5.1+, claude CLI
 
 param(
@@ -88,11 +88,13 @@ function Get-BundlesDetailed {
     $bundles = Get-ChildItem -Path $BundlesDir -Directory -Filter "dex-bundle-*"
     foreach ($bundle in $bundles) {
         $pluginJson = Join-Path $bundle.FullName ".claude-plugin\plugin.json"
-        if (Test-Path $pluginJson) {
+        $bundleJson = Join-Path $bundle.FullName "bundle.json"
+        if ((Test-Path $pluginJson) -and (Test-Path $bundleJson)) {
             $bundleName = $bundle.Name -replace "^dex-bundle-", ""
             $config = Get-Content $pluginJson -Raw | ConvertFrom-Json
+            $bundleConfig = Get-Content $bundleJson -Raw | ConvertFrom-Json
             $description = if ($config.description) { $config.description } else { "No description" }
-            $includesCount = if ($config._bundle -and $config._bundle.includes) { @($config._bundle.includes).Count } else { 0 }
+            $includesCount = if ($bundleConfig.includes) { @($bundleConfig.includes).Count } else { 0 }
 
             Write-Info "  $bundleName"
             Write-Dim "    $description"
@@ -161,6 +163,7 @@ function Install-Bundle {
 
     $bundleDir = Join-Path $BundlesDir "dex-bundle-$Name"
     $pluginJson = Join-Path $bundleDir ".claude-plugin\plugin.json"
+    $bundleJsonPath = Join-Path $bundleDir "bundle.json"
 
     # Check if bundle exists
     if (-not (Test-Path $bundleDir)) {
@@ -172,8 +175,8 @@ function Install-Bundle {
         return
     }
 
-    if (-not (Test-Path $pluginJson)) {
-        Write-Error-Colored "plugin.json not found in bundle: $Name"
+    if (-not (Test-Path $bundleJsonPath)) {
+        Write-Error-Colored "bundle.json not found in bundle: $Name"
         return
     }
 
@@ -184,9 +187,13 @@ function Install-Bundle {
     }
 
     # Get bundle info
-    $config = Get-Content $pluginJson -Raw | ConvertFrom-Json
-    $description = if ($config.description) { $config.description } else { "No description" }
-    $includes = if ($config._bundle -and $config._bundle.includes) { @($config._bundle.includes) } else { @() }
+    $description = "No description"
+    if (Test-Path $pluginJson) {
+        $config = Get-Content $pluginJson -Raw | ConvertFrom-Json
+        if ($config.description) { $description = $config.description }
+    }
+    $bundleConfig = Get-Content $bundleJsonPath -Raw | ConvertFrom-Json
+    $includes = if ($bundleConfig.includes) { @($bundleConfig.includes) } else { @() }
     $total = $includes.Count
 
     Write-Host ""

@@ -148,16 +148,19 @@ sudo pacman -S jq
 
 ### Installation
 
-1. Reads the bundle's `plugin.json` from `plugins/bundles/dex-bundle-<name>/`
-2. Extracts the `_bundle.includes[]` array (list of component plugin names)
+1. Reads `bundle.json` from `plugins/bundles/dex-bundle-<name>/`
+2. Extracts the `includes[]` array (list of component plugin names)
 3. For each component, looks up its `source` path in `marketplace.json`
 4. Runs `claude plugins install <source>` for each component
 
 ### Uninstallation
 
-1. Reads the bundle's `plugin.json` from `plugins/bundles/dex-bundle-<name>/`
-2. Extracts the `_bundle.includes[]` array (list of component plugin names)
+1. Reads `bundle.json` from `plugins/bundles/dex-bundle-<name>/`
+2. Extracts the `includes[]` array (list of component plugin names)
 3. Runs `claude plugins uninstall <component>` for each component
+
+> **Note:** Component lists are stored in `bundle.json`, not `plugin.json`.
+> Claude Code strictly validates `plugin.json` and silently breaks plugins with unknown fields.
 
 ## Re-running Scripts
 
@@ -245,7 +248,7 @@ chmod +x install-bundle.sh uninstall-bundle.sh
 
 ### Component not found in marketplace.json
 
-The component name in the bundle's `_bundle.includes[]` must match a plugin `name` in `marketplace.json`. Check for typos.
+The component name in `bundle.json` `includes[]` must match a plugin `name` in `marketplace.json`. Check for typos.
 
 ## Files
 

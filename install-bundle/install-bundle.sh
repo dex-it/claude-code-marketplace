@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Bundle Installer for Claude Code Marketplace
-# Automatically installs all components from a bundle's _bundle.includes[]
+# Installs all components listed in bundle.json
 # Requires: jq, claude CLI
 
 # Colors
@@ -88,10 +88,11 @@ list_bundles() {
     for bundle_dir in "$BUNDLES_DIR"/dex-bundle-*; do
         if [ -d "$bundle_dir" ]; then
             plugin_json="$bundle_dir/.claude-plugin/plugin.json"
-            if [ -f "$plugin_json" ]; then
+            bundle_json="$bundle_dir/bundle.json"
+            if [ -f "$plugin_json" ] && [ -f "$bundle_json" ]; then
                 bundle_name=$(basename "$bundle_dir" | sed 's/^dex-bundle-//')
                 description=$(jq -r '.description // "No description"' "$plugin_json")
-                includes_count=$(jq -r '._bundle.includes | length' "$plugin_json")
+                includes_count=$(jq -r '.includes | length' "$bundle_json")
 
                 print_info "  $bundle_name"
                 print_dim "    $description"
@@ -154,6 +155,7 @@ install_bundle() {
     local bundle_name="$1"
     local bundle_dir="$BUNDLES_DIR/dex-bundle-$bundle_name"
     local plugin_json="$bundle_dir/.claude-plugin/plugin.json"
+    local bundle_json="$bundle_dir/bundle.json"
 
     # Check if bundle exists
     if [ ! -d "$bundle_dir" ]; then
@@ -165,8 +167,8 @@ install_bundle() {
         return 1
     fi
 
-    if [ ! -f "$plugin_json" ]; then
-        print_error "plugin.json not found in bundle: $bundle_name"
+    if [ ! -f "$bundle_json" ]; then
+        print_error "bundle.json not found in bundle: $bundle_name"
         return 1
     fi
 
@@ -177,9 +179,9 @@ install_bundle() {
     fi
 
     # Get bundle info
-    local description=$(jq -r '.description // "No description"' "$plugin_json")
-    local includes=$(jq -r '._bundle.includes[]' "$plugin_json")
-    local total=$(jq -r '._bundle.includes | length' "$plugin_json")
+    local description=$(jq -r '.description // "No description"' "$plugin_json" 2>/dev/null || echo "No description")
+    local includes=$(jq -r '.includes[]' "$bundle_json")
+    local total=$(jq -r '.includes | length' "$bundle_json")
 
     echo ""
     print_header "======================================"
