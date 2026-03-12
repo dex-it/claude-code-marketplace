@@ -154,49 +154,156 @@ public static partial class LogMessages
 _logger.OrderCreated(order.Id, order.CustomerId);
 ```
 
-## Correlation ID
+## Logger Scopes
 
-Обязательно для микросервисов — связывает логи одного запроса через все сервисы.
+BeginScope добавляет свойства ко ВСЕМ логам внутри блока — не нужно повторять JobId/UserId в каждом вызове.
 
 ```csharp
-public class CorrelationIdMiddleware
+// Без scope — дублирование контекста в каждой строке
+_logger.LogInformation("Job {JobName} with id={JobId} started", jobName, jobId);
+_logger.LogInformation("Job {JobName} with id={JobId} processing step 1", jobName, jobId);
+_logger.LogInformation("Job {JobName} with id={JobId} finished", jobName, jobId);
+
+// Со scope — контекст автоматически в каждом логе
+using (_logger.BeginScope(new Dictionary<string, object>
 {
-    private const string Header = "X-Correlation-ID";
+    ["JobId"] = jobId,
+    ["JobName"] = jobName
+}))
+{
+    _logger.LogInformation("Job started");
+    await ExecuteInner(context);
+    _logger.LogInformation("Job finished");
+    // В Seq/Loki: каждая строка содержит JobId и JobName
+}
+```
 
-    public async Task InvokeAsync(HttpContext context)
+### Когда использовать
+
+| Сценарий | Scope |
+|----------|-------|
+| Background job / Quartz | `JobId`, `JobName` |
+| HTTP запрос | `CorrelationId`, `UserId` (через middleware) |
+| Обработка сообщения из очереди | `MessageId`, `QueueName` |
+| Batch операция | `BatchId`, `ItemCount` |
+
+### Вложенные scopes
+
+```csharp
+using (_logger.BeginScope(new Dictionary<string, object> { ["OrderId"] = orderId }))
+{
+    _logger.LogInformation("Processing order"); // OrderId в контексте
+
+    using (_logger.BeginScope(new Dictionary<string, object> { ["Step"] = "payment" }))
     {
-        var correlationId = context.Request.Headers[Header].FirstOrDefault()
-            ?? Activity.Current?.TraceId.ToString()
-            ?? Guid.NewGuid().ToString();
-
-        context.Response.Headers[Header] = correlationId;
-
-        using (LogContext.PushProperty("CorrelationId", correlationId))
-        {
-            await _next(context);
-        }
+        _logger.LogInformation("Charging customer"); // OrderId + Step
     }
 }
 ```
 
-Пробрасывай при вызовах между сервисами:
+## Distributed Tracing & Correlation
+
+### Как это работает
+
+ASP.NET Core (.NET 6+) из коробки поддерживает W3C Trace Context:
+- Входящие запросы: TraceId берётся из заголовка `traceparent` (W3C стандарт)
+- `Activity.Current?.TraceId` — доступен везде в рамках запроса
+- HttpClient: автоматически прокидывает `traceparent` в исходящие запросы
+
+**Не нужно** писать свой middleware для HTTP-to-HTTP — всё работает из коробки.
+
+### Когда нужен ручной проброс
+
+Автоматика ломается на границах: очереди, outbox, фоновые задачи. Там нужно сохранить `Activity.Current?.Id` и восстановить через `SetParentId`.
+
+### Проброс через очереди (MassTransit)
 
 ```csharp
-public class CorrelationIdHandler : DelegatingHandler
+// Send filter — прокидываем ActivityId в headers сообщения
+private static void SetActivityHeader(SendContext context)
 {
-    protected override Task<HttpResponseMessage> SendAsync(
-        HttpRequestMessage request, CancellationToken ct)
-    {
-        var correlationId = _httpContextAccessor.HttpContext?
-            .Response.Headers["X-Correlation-ID"].FirstOrDefault();
+    if (Activity.Current?.Id != null)
+        context.Headers.Set("ActivityId", Activity.Current.Id);
+}
 
-        if (!string.IsNullOrEmpty(correlationId))
-            request.Headers.Add("X-Correlation-ID", correlationId);
+// Consume filter — восстанавливаем Activity из headers
+public async Task Send(ConsumeContext context, IPipe<ConsumeContext> next)
+{
+    using var activity = new Activity($"Consuming: {context.DestinationAddress?.GetExchangeName()}");
 
-        return base.SendAsync(request, ct);
-    }
+    var parentId = context.Headers.Get<string>("ActivityId");
+    if (parentId != null)
+        activity.SetParentId(parentId); // связываем с родительским trace
+
+    activity.Start();
+    try { await next.Send(context); }
+    finally { activity.Stop(); }
 }
 ```
+
+### Проброс через Outbox / фоновые задачи
+
+Паттерн: сохраняем ActivityId в БД → восстанавливаем при обработке.
+
+```csharp
+// Entity — сохраняем ActivityId
+public class OutboxMessage
+{
+    public Guid Id { get; set; }
+    public string MessageType { get; set; }
+    public string Content { get; set; }
+    public string? ActivityId { get; set; } // <- ключевое поле
+}
+
+// При создании — захватываем текущий Activity
+var message = new OutboxMessage
+{
+    Id = Guid.NewGuid(),
+    MessageType = typeof(OrderCreated).Name,
+    Content = JsonSerializer.Serialize(payload),
+    ActivityId = Activity.Current?.Id  // сохраняем!
+};
+_context.OutboxMessages.Add(message);
+
+// При обработке — восстанавливаем trace chain
+using var activity = new Activity($"Process outbox: {message.Id}");
+activity.AddBaggage("MessageType", message.MessageType);
+
+if (!string.IsNullOrEmpty(message.ActivityId))
+    activity.SetParentId(message.ActivityId); // связываем с исходным запросом
+
+activity.Start();
+try
+{
+    await ProcessAsync(message, ct);
+}
+finally
+{
+    activity.Stop();
+}
+```
+
+### Поиск по TraceId
+
+```sql
+-- В таблице outbox / background tasks:
+SELECT * FROM outbox_messages WHERE "ActivityId" LIKE '%94a510ac79a6216b%'
+
+-- В Seq:
+@TraceId = "94a510ac79a6216b3da6af7a8235a879"
+```
+
+### Итого — где проброс автоматический, где ручной
+
+> Таблица ниже — ориентир для .NET 6+ / MassTransit / EF Core. В конкретном проекте проверяй, что и как прокидывается — библиотеки и фреймворки могут делать это за тебя.
+
+| Сценарий | Проброс | Что делать |
+|----------|---------|------------|
+| HTTP → HTTP | Автоматический | Ничего (.NET 6+ W3C traceparent) |
+| HTTP → очередь | Ручной | Send filter: `Activity.Current.Id` → header |
+| Очередь → обработчик | Ручной | Consume filter: header → `SetParentId` |
+| HTTP → outbox → фон | Ручной | Сохранить ActivityId в БД, восстановить при обработке |
+| BackgroundService | Ручной | IServiceScopeFactory + новый Activity |
 
 ## Sensitive Data Filtering
 
