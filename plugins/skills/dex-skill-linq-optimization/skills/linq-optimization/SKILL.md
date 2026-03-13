@@ -4,191 +4,65 @@ description: Оптимизация LINQ и коллекций. Активиру
 allowed-tools: Read, Grep, Glob
 ---
 
-# LINQ & Collections Optimization
+# LINQ & Collections — ловушки
 
-## Правила
+## LINQ to Entities
 
-- Фильтрация в БД (IQueryable), не в памяти (IEnumerable)
-- Select проекция — загружай только нужные поля
-- Any() вместо Count() > 0
-- ToList() — только в конце цепочки
-- Выбирай правильную коллекцию: List, HashSet, Dictionary
-- Большие Contains() — batching или temporary table
+### ToList() в начале цепочки — фильтрация в памяти
+Плохо: `_context.Products.ToList().Where(p => p.IsActive)` — загружает ВСЮ таблицу, фильтрует в C#
+Правильно: `.Where(p => p.IsActive).ToListAsync(ct)` — фильтр в SQL
+Почему: 100K строк в память вместо 500. ToList() в середине цепочки тоже обрывает IQueryable
 
-## Анти-паттерны LINQ to Entities
+### Загружает всю entity для списка
+Плохо: `_context.Products.ToListAsync()` → потом `.Select(p => new Dto(p.Id, p.Name))`
+Правильно: `.Select(p => new ProductDto(p.Id, p.Name)).ToListAsync()` — проекция в SQL
+Почему: грузишь 20 полей × 1000 строк вместо 2 полей. SQL тяжелее, трафик больше, Change Tracker раздувается
 
-```csharp
-// Плохо — загружает ВСЮ таблицу, фильтрует в C#
-var active = _context.Products.ToList().Where(p => p.IsActive);
+### Count() > 0 вместо Any()
+Плохо: `_context.Products.CountAsync() > 0` — считает ВСЕ записи
+Правильно: `_context.Products.AnyAsync()` — EXISTS, останавливается на первом
+Почему: COUNT(*) проходит всю таблицу/индекс. EXISTS останавливается сразу
 
-// Хорошо — фильтр в SQL
-var active = await _context.Products
-    .Where(p => p.IsActive)
-    .ToListAsync(ct);
+### N запросов в цикле
+Плохо: `foreach (var id in ids) await _context.Items.FindAsync(id)` — N запросов
+Правильно: `_context.Items.Where(i => ids.Contains(i.Id)).ToListAsync()`
+Почему: 100 id = 100 roundtrip к БД. Один WHERE IN = один roundtrip
 
-// Плохо — ToList() в середине ломает IQueryable
-var result = _context.Products
-    .Where(p => p.IsActive)
-    .ToList()                    // всё в память!
-    .Where(p => p.Price > 100); // фильтр в C#
+### Contains с огромным списком
+Плохо: `ids.Contains(i.Id)` где ids = 5000 элементов → `IN(@p1, @p2, ... @p5000)` в SQL
+Правильно: batching через `ids.Chunk(500)` и отдельный запрос на каждый batch
+Почему: SQL Server параметры ограничены (~2100), PostgreSQL — план запроса деградирует на тысячах параметров
 
-// Хорошо — вся цепочка IQueryable
-var result = await _context.Products
-    .Where(p => p.IsActive && p.Price > 100)
-    .ToListAsync(ct);
+### GroupBy с ToList() внутри Select
+Плохо: `.GroupBy(o => o.CustomerId).Select(g => new { Key = g.Key, Orders = g.ToList() })` — client evaluation
+Правильно: GroupBy только для агрегатов: `.Select(g => new { g.Key, Total = g.Sum(o => o.Total), Count = g.Count() })`
+Почему: EF не умеет транслировать g.ToList() в SQL → загружает всё в память. Для вложенных коллекций — Include
 
-// Плохо — загружает всю entity для списка
-var products = await _context.Products.ToListAsync(ct);
-return products.Select(p => new ProductDto(p.Id, p.Name));
+## LINQ to Objects
 
-// Хорошо — проекция в SQL
-var products = await _context.Products
-    .Select(p => new ProductDto(p.Id, p.Name))
-    .ToListAsync(ct);
+### List.Contains в горячем пути — O(n)
+Плохо: `allowedIds.ToList()` → `foreach: if (allowedIds.Contains(id))` — O(n) × M раз
+Правильно: `allowedIds.ToHashSet()` → O(1) lookup
+Почему: List.Contains = линейный поиск. 10000 элементов × 10000 проверок = 100M операций вместо 10000
 
-// Плохо — Count для проверки существования (считает ВСЕ)
-if (await _context.Products.CountAsync(ct) > 0) { }
+### FirstOrDefault вместо Dictionary
+Плохо: `users.FirstOrDefault(u => u.Id == targetId)` — O(n) каждый вызов
+Правильно: `users.ToDictionary(u => u.Id)` → `dict.GetValueOrDefault(targetId)` — O(1)
+Почему: повторный линейный поиск по списку. Если ищешь больше одного раза — Dictionary окупается
 
-// Хорошо — Any останавливается на первом
-if (await _context.Products.AnyAsync(ct)) { }
+### Многократная итерация IEnumerable
+Плохо: `orders.Count()` + `orders.Sum(...)` + `orders.First()` — 3 итерации источника
+Правильно: `var list = orders.ToList()` — материализуй один раз
+Почему: IEnumerable может быть lazy (запрос к БД, файл). Каждая итерация = повторное выполнение
 
-// Плохо — N запросов в цикле
-foreach (var id in ids)
-    await _context.Items.FindAsync(id);
+### Distinct() на объектах — сравнение по ссылке
+Плохо: `orders.Distinct()` — не удаляет дубликаты (сравнивает ReferenceEquals)
+Правильно: `orders.DistinctBy(o => o.Id)` (.NET 6+) или `IEqualityComparer<T>`
+Почему: без override Equals/GetHashCode или компаратора Distinct бесполезен для reference types
 
-// Хорошо — один запрос
-var items = await _context.Items
-    .Where(i => ids.Contains(i.Id))
-    .ToListAsync(ct);
+## Динамические запросы — ловушка
 
-// Плохо — Contains с большим списком (>1000) генерирует огромный SQL IN(...)
-var items = await _context.Items
-    .Where(i => hugeList.Contains(i.Id)) // IN(@p1, @p2, ... @p5000)
-    .ToListAsync(ct);
-
-// Хорошо — batching
-foreach (var batch in hugeList.Chunk(500))
-{
-    var batchItems = await _context.Items
-        .Where(i => batch.Contains(i.Id))
-        .ToListAsync(ct);
-    result.AddRange(batchItems);
-}
-```
-
-## Динамические запросы
-
-```csharp
-// Строй IQueryable условно, один ToListAsync в конце
-IQueryable<Product> query = _context.Products;
-
-if (minPrice.HasValue)
-    query = query.Where(p => p.Price >= minPrice.Value);
-
-if (!string.IsNullOrEmpty(category))
-    query = query.Where(p => p.Category == category);
-
-if (!string.IsNullOrEmpty(sortBy))
-    query = sortBy switch
-    {
-        "price" => query.OrderBy(p => p.Price),
-        "name" => query.OrderBy(p => p.Name),
-        _ => query.OrderBy(p => p.Id)
-    };
-
-var result = await query
-    .Skip((page - 1) * pageSize)
-    .Take(pageSize)
-    .ToListAsync(ct);
-```
-
-## GroupBy — осторожно
-
-```csharp
-// Плохо — GroupBy в EF может не транслироваться или работать в памяти
-var grouped = await _context.Orders
-    .GroupBy(o => o.CustomerId)
-    .Select(g => new { CustomerId = g.Key, Orders = g.ToList() }) // client evaluation!
-    .ToListAsync(ct);
-
-// Хорошо — GroupBy только для агрегатов
-var stats = await _context.Orders
-    .GroupBy(o => o.CustomerId)
-    .Select(g => new
-    {
-        CustomerId = g.Key,
-        TotalAmount = g.Sum(o => o.Total),
-        OrderCount = g.Count()
-    })
-    .ToListAsync(ct);
-
-// Для загрузки вложенных коллекций — Include, не GroupBy
-var customers = await _context.Customers
-    .Include(c => c.Orders)
-    .ToListAsync(ct);
-```
-
-## Выбор коллекции
-
-| Задача | Коллекция | Почему |
-|--------|-----------|--------|
-| Последовательный доступ, индексация | `List<T>` | O(1) по индексу |
-| Проверка наличия элемента | `HashSet<T>` | O(1) Contains vs O(n) List |
-| Lookup по ключу | `Dictionary<K,V>` | O(1) доступ |
-| FIFO очередь | `Queue<T>` | |
-| LIFO стек | `Stack<T>` | |
-| Потокобезопасность | `ConcurrentDictionary`, `ConcurrentQueue` | |
-
-```csharp
-// Плохо — List.Contains в горячем пути, O(n) на каждый вызов
-var allowedIds = items.Select(i => i.Id).ToList();
-foreach (var order in orders)
-{
-    if (allowedIds.Contains(order.ItemId)) { } // O(n) × M раз
-}
-
-// Хорошо — HashSet, O(1) lookup
-var allowedIds = items.Select(i => i.Id).ToHashSet();
-foreach (var order in orders)
-{
-    if (allowedIds.Contains(order.ItemId)) { } // O(1)
-}
-
-// Плохо — ищем по ключу в списке
-var user = users.FirstOrDefault(u => u.Id == targetId); // O(n)
-
-// Хорошо — Dictionary
-var usersById = users.ToDictionary(u => u.Id);
-var user = usersById.GetValueOrDefault(targetId); // O(1)
-```
-
-## LINQ to Objects — производительность
-
-```csharp
-// Плохо — многократная материализация IEnumerable
-IEnumerable<Order> orders = GetOrders();
-var count = orders.Count();        // итерация 1
-var total = orders.Sum(o => o.Total); // итерация 2
-var first = orders.First();        // итерация 3
-
-// Хорошо — материализуй один раз
-var ordersList = GetOrders().ToList();
-var count = ordersList.Count;       // O(1)
-var total = ordersList.Sum(o => o.Total);
-
-// Плохо — Distinct() без IEqualityComparer для объектов
-var unique = orders.Distinct(); // сравнивает по ссылке!
-
-// Хорошо — DistinctBy (LINQ .NET 6+)
-var unique = orders.DistinctBy(o => o.Id);
-```
-
-## Чек-лист
-
-- [ ] Вся фильтрация в IQueryable, ToList/ToListAsync только в конце
-- [ ] Select проекция для API responses и списков
-- [ ] Any() вместо Count() > 0
-- [ ] Нет N запросов в циклах (используй Contains/Include)
-- [ ] Contains с большими списками — batching через Chunk
-- [ ] HashSet/Dictionary для поиска по ключу вместо List
-- [ ] GroupBy в EF — только для агрегатов (Sum, Count, Avg)
+### ToListAsync() в каждой ветке условия
+Плохо: `if (filter) return await query.Where(...).ToListAsync(); else return await query.ToListAsync();`
+Правильно: строй IQueryable условно, один `ToListAsync()` в конце
+Почему: дублирование материализации. Каждая ветка = отдельный путь с потенциально разной пагинацией/сортировкой

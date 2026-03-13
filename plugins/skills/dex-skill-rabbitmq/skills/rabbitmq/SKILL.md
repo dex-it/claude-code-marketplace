@@ -4,127 +4,62 @@ description: RabbitMQ — MassTransit, retry, dead-letter, idempotency, лову
 allowed-tools: Read, Grep, Glob
 ---
 
-# RabbitMQ Patterns
+# RabbitMQ — ловушки и anti-patterns
 
-## Правила
+## Consumer
 
-- MassTransit для production, RabbitMQ.Client для простых случаев
-- autoAck: false + manual ack/nack — не теряй сообщения
-- Idempotent consumers — сообщение может прийти дважды
-- Dead-letter queue для failed messages — не глотай ошибки
-- prefetchCount для throttling — не грузи consumer всей очередью
-- Durable queues + persistent messages для important data
+### autoAck: true — потеря сообщений
+Плохо: `channel.BasicConsume("orders", autoAck: true, consumer)` — ack отправляется до обработки
+Правильно: `autoAck: false` → `BasicAck(deliveryTag)` после успешной обработки, `BasicNack(requeue: false)` → DLQ при ошибке
+Почему: consumer crash после получения, но до обработки → сообщение потеряно навсегда. Broker считает delivered
 
-## Анти-паттерны
+### Consumer без idempotency
+Плохо: `await _service.ChargeCustomer(context.Message.OrderId)` — без проверки дубликата
+Правильно: проверка MessageId перед обработкой: `if (await _cache.GetStringAsync(messageId) != null) return`
+Почему: RabbitMQ = at-least-once delivery. Retry, redelivery, network glitch → двойное списание, двойная отправка email
 
-```csharp
-// Плохо — autoAck: true → потеря сообщений при crash
-channel.BasicConsume("orders", autoAck: true, consumer);
-// consumer упал после получения, но до обработки → сообщение потеряно
+### prefetchCount не настроен
+Плохо: `prefetchCount = 0` (unlimited) — broker отправляет все сообщения consumer'у сразу
+Правильно: `channel.BasicQos(prefetchSize: 0, prefetchCount: 10, global: false)` — по 10 сообщений
+Почему: 100K сообщений в памяти consumer → OOM. Другие consumers простаивают — весь backlog у одного
 
-// Хорошо — manual ack после успешной обработки
-channel.BasicConsume("orders", autoAck: false, consumer);
-// в handler:
-try
-{
-    await ProcessMessage(message);
-    channel.BasicAck(deliveryTag, multiple: false);
-}
-catch (Exception)
-{
-    channel.BasicNack(deliveryTag, multiple: false, requeue: false); // → DLQ
-}
+## Delivery гарантии
 
-// Плохо — consumer без idempotency
-public async Task Consume(ConsumeContext<OrderCreated> context)
-{
-    await _service.ChargeCustomer(context.Message.OrderId); // дублирование оплаты!
-}
+### Publish без Outbox — потеря event
+Плохо: `SaveChangesAsync()` → `Publish(new OrderCreated(...))` — crash между ними = event потерян
+Правильно: Outbox pattern — event сохраняется в той же транзакции, BackgroundService публикует из outbox
+Почему: DB commit прошёл, publish упал → order создан, но никто не узнал. Inconsistency между сервисами
 
-// Хорошо — проверка дубликата
-public async Task Consume(ConsumeContext<OrderCreated> context)
-{
-    var messageId = context.MessageId?.ToString();
-    if (await _cache.GetStringAsync(messageId) != null) return; // уже обработано
+### Transient queue для important data
+Плохо: `QueueDeclare(durable: false)` или `BasicPublish(persistent: false)` — данные в памяти
+Правильно: `durable: true` для queue + `persistent: true` (DeliveryMode=2) для messages
+Почему: RabbitMQ restart → non-durable queue исчезает с содержимым. Non-persistent messages теряются при нехватке RAM
 
-    await _service.ChargeCustomer(context.Message.OrderId);
+## MassTransit
 
-    await _cache.SetStringAsync(messageId, "processed",
-        new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(24) });
-}
+### Retry без стратегии — бесконечный цикл
+Плохо: `UseMessageRetry(r => r.Immediate(int.MaxValue))` — ошибка повторяется вечно
+Правильно: трёхуровневая стратегия: retry (in-memory, 3 раза) → scheduled redelivery (через очередь, 3 раза) → DLQ (`{queue}_error`)
+Почему: poison message → бесконечный retry → CPU 100%, очередь не движется, все остальные сообщения ждут
 
-// Плохо — publish в контроллере без транзакции
-public async Task<IActionResult> CreateOrder(OrderRequest request)
-{
-    _context.Orders.Add(order);
-    await _context.SaveChangesAsync(ct);        // 1. DB сохранено
-    await _publishEndpoint.Publish(new OrderCreated(order.Id)); // 2. crash тут → event потерян!
-}
+### Consumer зависит от порядка сообщений
+Плохо: `OrderShipped` consumer ожидает что `OrderPaid` уже обработан
+Правильно: consumer обрабатывает сообщение в любом порядке, или используй Saga для координации
+Почему: RabbitMQ не гарантирует порядок при нескольких consumers, redelivery, или разных очередях
 
-// Хорошо — Outbox pattern (event сохраняется в той же транзакции)
-_context.Orders.Add(order);
-_context.OutboxMessages.Add(new OutboxMessage { Type = "OrderCreated", Content = ... });
-await _context.SaveChangesAsync(ct); // одна транзакция!
-// BackgroundService публикует из outbox
-```
+## Saga ловушки
 
-## Exchange Types — когда какой
+### Нет CorrelationId → новый инстанс на каждый event
+Плохо: Saga без маппинга `CorrelateById(ctx => ctx.Message.OrderId)` → каждое событие создаёт новый state machine
+Правильно: `Event(() => OrderSubmitted, x => x.CorrelateById(ctx => ctx.Message.OrderId))` — все events одного заказа → один инстанс
+Почему: без корреляции 100 events = 100 инстансов Saga. Compensation никогда не сработает — она ищет несуществующий инстанс
 
-| Exchange | Routing | Когда |
-|----------|---------|-------|
-| Direct | exact routing key | Один consumer, конкретная очередь |
-| Topic | pattern (`order.*`, `#.error`) | Фильтрация по паттерну |
-| Fanout | broadcast (все очереди) | Уведомления, broadcast |
-| Headers | по заголовкам | Сложная маршрутизация |
+### Saga без compensation на каждом шаге
+Плохо: Order → Payment → Shipping. Payment прошёл, Shipping упал → деньги списаны, товар не отправлен
+Правильно: каждый шаг имеет compensating action: `When(PaymentFailed).Publish(new CancelOrder(...))`
+Почему: без compensation система застревает в неконсистентном состоянии. Ручной откат = самая дорогая ошибка
 
-## MassTransit Retry
-
-```csharp
-// Retry + redelivery + DLQ — трёхуровневая стратегия
-cfg.UseMessageRetry(r => r.Incremental(3, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2)));
-// 3 retry in-memory → если всё fail:
-cfg.UseScheduledRedelivery(r => r.Intervals(TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(5)));
-// redelivery через очередь → если всё fail → DLQ (MassTransit создаёт автоматически: {queue}_error)
-```
-
-## Saga — state machine
-
-```csharp
-// Когда: multi-step business process с compensation
-// Order → Payment → Shipping → Done
-// Payment failed → Cancel Order (compensation)
-
-public class OrderStateMachine : MassTransitStateMachine<OrderState>
-{
-    public State Submitted { get; private set; }
-    public State PaymentPending { get; private set; }
-    public State Completed { get; private set; }
-    public State Faulted { get; private set; }
-
-    public OrderStateMachine()
-    {
-        InstanceState(x => x.CurrentState);
-
-        Initially(
-            When(OrderSubmitted)
-                .TransitionTo(Submitted)
-                .Publish(ctx => new ProcessPayment(ctx.Message.OrderId)));
-
-        During(Submitted,
-            When(PaymentCompleted).TransitionTo(Completed),
-            When(PaymentFailed).TransitionTo(Faulted)
-                .Publish(ctx => new CancelOrder(ctx.Message.OrderId))); // compensation
-    }
-}
-```
-
-## Чек-лист
-
-- [ ] autoAck: false + manual ack
-- [ ] Idempotent consumers (проверка дубликата)
-- [ ] DLQ для failed messages
-- [ ] Outbox pattern для guaranteed delivery
-- [ ] prefetchCount настроен (не 0/unlimited)
-- [ ] Durable queues + persistent messages
-- [ ] Retry policy (incremental/exponential)
-- [ ] Graceful shutdown (drain consumers)
+### Saga state не персистится
+Плохо: `InMemorySagaRepository` в production
+Правильно: `EntityFrameworkSagaRepository` или `RedisSagaRepository`
+Почему: app restart → все in-flight sagas потеряны. Заказы застряли в промежуточном состоянии навсегда

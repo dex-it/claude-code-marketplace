@@ -4,157 +4,75 @@ description: Kubernetes — ловушки, ресурсы, probes, безопа
 allowed-tools: Read, Grep, Glob
 ---
 
-# Kubernetes
+# Kubernetes — ловушки и anti-patterns
 
-## Правила
+## Probes
 
-- Всегда указывай requests и limits
-- Liveness ≠ Readiness — разные endpoints
-- SecurityContext: runAsNonRoot, drop ALL capabilities
-- Secrets не в манифестах — через Sealed Secrets / Vault
-- Rolling update с maxUnavailable=0 для zero downtime
-- Namespace per environment
+### Одинаковые liveness и readiness
+Плохо: обе probe на `/health` с проверкой БД
+Правильно: liveness = `/health/live` (процесс жив, без проверок зависимостей), readiness = `/health/ready` (проверяет DB/Redis)
+Почему: БД упала → liveness fail → Kubernetes restart → БД всё ещё лежит → restart loop → все pods в CrashLoopBackOff
 
-## Частые ошибки
+### Агрессивные probe настройки
+Плохо: `initialDelaySeconds: 0`, `periodSeconds: 1`, `failureThreshold: 1` — instant kill
+Правильно: `startupProbe` с `failureThreshold: 30, periodSeconds: 10` для медленного старта. Liveness: `failureThreshold: 3`
+Почему: .NET приложение стартует 5-30 сек. Без startupProbe — liveness убивает pod до завершения инициализации → вечный restart
 
-### Probes
+### Нет startupProbe
+Плохо: только liveness/readiness → `initialDelaySeconds: 60` как костыль
+Правильно: startupProbe заменяет liveness на время старта, потом передаёт контроль
+Почему: initialDelaySeconds — статичное число. Если app стартует быстрее — лишнее ожидание. Медленнее — restart
 
-```yaml
-# Плохо — одинаковые liveness и readiness
-livenessProbe:
-  httpGet: { path: /health, port: 8080 }
-readinessProbe:
-  httpGet: { path: /health, port: 8080 }
-# Если БД упала → readiness fail → restart → БД всё ещё лежит → restart loop
+## Resources
 
-# Хорошо — liveness проверяет процесс, readiness проверяет зависимости
-livenessProbe:
-  httpGet: { path: /health/live, port: 8080 }   # "я жив" — без проверок DB/Redis
-readinessProbe:
-  httpGet: { path: /health/ready, port: 8080 }  # "я готов принимать трафик" — с проверками
-startupProbe:
-  httpGet: { path: /health/live, port: 8080 }
-  failureThreshold: 30                           # даёт 5 мин на старт
-  periodSeconds: 10
+### Нет requests/limits — OOMKill node
+Плохо: pod без `resources:` → QoS = BestEffort → убивается первым при нехватке памяти
+Правильно: requests (гарантированный минимум) + limits (потолок)
+Почему: один pod без limits съедает всю память node → OOMKiller убивает случайные pods, включая критичные
 
-# Плохо — агрессивные probes, app не успевает стартовать
-livenessProbe:
-  initialDelaySeconds: 0   # сразу проверяет
-  periodSeconds: 1         # каждую секунду
-  failureThreshold: 1      # одна ошибка = restart
-```
+### Limits слишком низкие для .NET
+Плохо: `memory: 64Mi, cpu: 50m` — .NET Runtime минимум ~80MB, GC тормозит на < 100m CPU
+Правильно: для .NET API: requests `256Mi/100m`, limits `512Mi/500m` — стартовые значения, мониторь реальное потребление
+Почему: GC .NET адаптируется к доступной памяти. Мало CPU → GC дольше → pauses → latency spikes
 
-### Resources
-
-```yaml
-# Плохо — нет limits → OOMKill всего node
-containers:
-- name: myapp
-  image: myapp:1.0.0
-  # resources: ??? — без них pod = BestEffort, убивается первым
-
-# Плохо — limits слишком низкие для .NET
-resources:
-  limits:
-    memory: "64Mi"   # .NET Runtime минимум ~80MB
-    cpu: "50m"       # GC будет тормозить
-
-# Хорошо — .NET API типичные значения
-resources:
-  requests:
-    memory: "256Mi"
-    cpu: "100m"
-  limits:
-    memory: "512Mi"
-    cpu: "500m"
-```
-
-### QoS классы
-
-| Класс | Условие | Приоритет |
-|-------|---------|-----------|
+| QoS класс | Условие | Приоритет |
+|-----------|---------|-----------|
 | Guaranteed | requests == limits | Высший — убивается последним |
 | Burstable | requests < limits | Средний |
 | BestEffort | нет requests/limits | Низший — убивается первым |
 
-### Security
+## Security
 
-```yaml
-# Плохо — root, все capabilities, writable filesystem
-spec:
-  containers:
-  - name: myapp
-    securityContext: {}  # всё по умолчанию = небезопасно
+### Пустой securityContext — root + все capabilities
+Плохо: `securityContext: {}` — контейнер от root с полными capabilities
+Правильно: `runAsNonRoot: true, runAsUser: 1000, allowPrivilegeEscalation: false, capabilities: { drop: ["ALL"] }, readOnlyRootFilesystem: true`
+Почему: root в контейнере + уязвимость = container escape → доступ к host. Capabilities = то что может делать процесс (NET_RAW, SYS_ADMIN)
 
-# Хорошо — минимальные привилегии
-spec:
-  securityContext:
-    runAsNonRoot: true
-    runAsUser: 1000
-    fsGroup: 1000
-  containers:
-  - name: myapp
-    securityContext:
-      allowPrivilegeEscalation: false
-      capabilities:
-        drop: ["ALL"]
-      readOnlyRootFilesystem: true
-```
+### Secrets в манифестах
+Плохо: `data: { password: base64("s3cret") }` в git — base64 ≠ шифрование
+Правильно: Sealed Secrets, External Secrets Operator, или HashiCorp Vault
+Почему: base64 декодируется мгновенно. Secret в git = secret публичен для всех с доступом к репо
 
-### Deployment strategy
+## Deployment
 
-```yaml
-# Zero downtime
-strategy:
-  type: RollingUpdate
-  rollingUpdate:
-    maxSurge: 1
-    maxUnavailable: 0   # всегда N pods доступны
+### maxUnavailable > 0 для production
+Плохо: default `maxUnavailable: 25%` — 25% pods недоступны во время rollout
+Правильно: `maxUnavailable: 0, maxSurge: 1` для zero downtime
+Почему: при 4 pods и maxUnavailable=25% → один pod убит до запуска нового → capacity drop → latency spike
 
-# Для миграций с downtime
-strategy:
-  type: Recreate
-```
+### Labels не совпадают → pod не получает трафик
+Плохо: `deployment.spec.selector.matchLabels` ≠ `service.spec.selector` → Service не находит pods
+Правильно: одинаковые labels в Deployment selector, Pod template, и Service selector
+Почему: Kubernetes silent fail — нет ошибки, просто `kubectl get endpoints` показывает 0. Трафик идёт в никуда
 
-## ASP.NET Core health checks
+### Нет PodDisruptionBudget
+Плохо: node drain → все pods одного deployment убиты одновременно
+Правильно: `PodDisruptionBudget: minAvailable: 1` (или `maxUnavailable: 1`)
+Почему: cluster upgrade, node maintenance → drain → все replicas на одном node → downtime
 
-```csharp
-builder.Services.AddHealthChecks()
-    .AddNpgSql(connectionString, tags: new[] { "ready" })
-    .AddRedis(redisConnection, tags: new[] { "ready" });
+## Troubleshooting ловушки
 
-app.MapHealthChecks("/health/live", new HealthCheckOptions
-{
-    Predicate = _ => false  // всегда healthy — процесс жив
-});
-
-app.MapHealthChecks("/health/ready", new HealthCheckOptions
-{
-    Predicate = check => check.Tags.Contains("ready")
-});
-```
-
-## Troubleshooting
-
-| Проблема | Команда | Проверяй |
-|----------|---------|----------|
-| CrashLoopBackOff | `kubectl logs pod -n ns` | OOM? Probe timing? |
-| ImagePullBackOff | `kubectl describe pod` | Image name? Pull secret? |
-| Pending | `kubectl describe pod` | Resources? Node capacity? |
-| Не получает трафик | `kubectl get endpoints` | Labels match? Readiness? |
-
-```bash
-kubectl rollout undo deployment/myapp -n prod   # откатить
-kubectl rollout status deployment/myapp -n prod  # статус
-kubectl top pods -n prod                         # потребление
-```
-
-## Чек-лист
-
-- [ ] requests и limits заданы
-- [ ] liveness ≠ readiness endpoints
-- [ ] startupProbe для медленного старта
-- [ ] runAsNonRoot + drop ALL capabilities
-- [ ] maxUnavailable=0 для zero downtime
-- [ ] NetworkPolicy ограничивает трафик
-- [ ] ResourceQuota на namespace
+### CrashLoopBackOff — смотришь текущие логи вместо предыдущих
+Плохо: `kubectl logs pod` — pod уже рестартнулся, логи пусты
+Правильно: `kubectl logs pod --previous` — логи предыдущего инстанса с причиной crash
+Почему: при crash контейнер перезапускается, текущие логи = новый чистый старт. Причина в предыдущих
