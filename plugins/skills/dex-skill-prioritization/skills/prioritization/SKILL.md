@@ -1,7 +1,6 @@
 ---
 name: prioritization
 description: Приоритизация — ошибки RICE, ICE, MoSCoW. Активируется при приоритизация, prioritize, RICE score, MoSCoW, backlog prioritization, feature ranking
-allowed-tools: Read, Grep, Glob
 ---
 
 # Prioritization — ловушки

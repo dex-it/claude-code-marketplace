@@ -1,7 +1,6 @@
 ---
 name: product-discovery
 description: Product discovery — ошибки исследования, валидации, интервью. Активируется при discovery, customer interviews, validation, problem-solution fit, market research
-allowed-tools: Read, Grep, Glob
 ---
 
 # Product Discovery — ловушки

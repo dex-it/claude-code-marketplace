@@ -1,7 +1,6 @@
 ---
 name: api-development
 description: ASP.NET Core Web API — ошибки проектирования, безопасность, контракты. Активируется при web api, controller, endpoint, REST API, versioning, swagger, openapi, swashbuckle
-allowed-tools: Read, Grep, Glob
 ---
 
 # API Development — ловушки и anti-patterns

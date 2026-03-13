@@ -1,7 +1,6 @@
 ---
 name: async-patterns
 description: Async/await паттерны, блокировки, параллелизм. Активируется при async, await, task, cancellation, parallel, deadlock, semaphore, lock, channel
-allowed-tools: Read, Grep, Glob
 ---
 
 # Async Patterns — ловушки и anti-patterns

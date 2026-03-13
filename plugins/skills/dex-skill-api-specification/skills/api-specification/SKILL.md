@@ -1,7 +1,6 @@
 ---
 name: api-specification
 description: API design — ошибки контрактов, версионирования, naming. Активируется при api design, openapi, REST API contract, api versioning, endpoint design
-allowed-tools: Read, Grep, Glob
 ---
 
 # API Specification — ловушки дизайна

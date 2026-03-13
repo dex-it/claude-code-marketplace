@@ -1,7 +1,6 @@
 ---
 name: git-workflow
 description: Git workflow, branching, commits, code review, merge requests. Активируется при упоминании git, branch, commit, merge request, MR, PR, code review, rebase, cherry-pick, конфликт
-allowed-tools: Read, Grep, Glob
 ---
 
 # Git Workflow — ловушки и anti-patterns

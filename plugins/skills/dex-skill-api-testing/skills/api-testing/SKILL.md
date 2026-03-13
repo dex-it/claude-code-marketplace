@@ -1,7 +1,6 @@
 ---
 name: api-testing
 description: API тестирование — ловушки, пропущенные сценарии. Активируется при api testing, rest api test, integration tests, contract testing
-allowed-tools: Read, Grep, Glob
 ---
 
 # API Testing — ловушки

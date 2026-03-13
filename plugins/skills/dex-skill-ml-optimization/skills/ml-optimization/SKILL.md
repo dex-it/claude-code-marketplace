@@ -1,7 +1,6 @@
 ---
 name: ml-optimization
 description: ML optimization — ловушки hyperparameter tuning, distributed training, profiling. Активируется при optuna, ray tune, hyperparameter, distributed training, profiling, optimization
-allowed-tools: Read, Grep, Glob
 ---
 
 # ML Optimization — ловушки

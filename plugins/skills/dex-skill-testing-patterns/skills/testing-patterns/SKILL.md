@@ -1,7 +1,6 @@
 ---
 name: testing-patterns
 description: Паттерны тестирования — ошибки, антипаттерны, стратегии. Активируется при test, unit test, xunit, moq, testing, integration test
-allowed-tools: Read, Grep, Glob
 ---
 
 # Testing Patterns — ловушки

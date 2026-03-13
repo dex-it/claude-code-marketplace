@@ -1,7 +1,6 @@
 ---
 name: microservices
 description: Микросервисная архитектура, паттерны коммуникации, CQRS. Активируется при microservices, микросервисы, API gateway, service mesh, event-driven
-allowed-tools: Read, Grep, Glob
 ---
 
 # Microservices — ловушки и anti-patterns

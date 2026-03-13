@@ -1,7 +1,6 @@
 ---
 name: react
 description: React паттерны и best practices. Активируется при упоминании react, component, hook, useState, useEffect, props, JSX, TSX, frontend, Redux, Zustand, React Query
-allowed-tools: Read, Grep, Glob
 ---
 
 # React — ловушки и anti-patterns

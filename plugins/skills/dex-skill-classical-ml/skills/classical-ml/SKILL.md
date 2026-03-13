@@ -1,7 +1,6 @@
 ---
 name: classical-ml
 description: Classical ML — ловушки pipeline, cross-validation, leakage, imbalance. Активируется при scikit-learn, xgboost, pipeline, cross-validation, feature engineering
-allowed-tools: Read, Grep, Glob
 ---
 
 # Classical ML — ловушки

@@ -1,7 +1,6 @@
 ---
 name: computer-vision
 description: Computer Vision — ловушки augmentation, detection, segmentation, training. Активируется при computer vision, cnn, resnet, yolo, u-net, detection, segmentation, augmentation
-allowed-tools: Read, Grep, Glob
 ---
 
 # Computer Vision — ловушки

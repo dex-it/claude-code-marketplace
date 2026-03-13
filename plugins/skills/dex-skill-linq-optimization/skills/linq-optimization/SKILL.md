@@ -1,7 +1,6 @@
 ---
 name: linq-optimization
 description: Оптимизация LINQ и коллекций. Активируется при linq, query, performance, collection, hashset, dictionary, slow query, IEnumerable
-allowed-tools: Read, Grep, Glob
 ---
 
 # LINQ & Collections — ловушки

@@ -1,7 +1,6 @@
 ---
 name: kubernetes
 description: Kubernetes — ловушки, ресурсы, probes, безопасность. Активируется при kubernetes, k8s, deployment, pod, service, ingress, helm, HPA
-allowed-tools: Read, Grep, Glob
 ---
 
 # Kubernetes — ловушки и anti-patterns

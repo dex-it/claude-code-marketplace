@@ -1,7 +1,6 @@
 ---
 name: mongodb
 description: MongoDB — schema design, индексы, aggregation, ловушки. Активируется при mongodb, mongo, bson, aggregation pipeline, document database
-allowed-tools: Read, Grep, Glob
 ---
 
 # MongoDB Patterns

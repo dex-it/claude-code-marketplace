@@ -1,7 +1,6 @@
 ---
 name: docker
 description: Docker — ловушки, безопасность, оптимизация образов. Активируется при docker, dockerfile, container, multi-stage, docker-compose
-allowed-tools: Read, Grep, Glob
 ---
 
 # Docker — ловушки и anti-patterns

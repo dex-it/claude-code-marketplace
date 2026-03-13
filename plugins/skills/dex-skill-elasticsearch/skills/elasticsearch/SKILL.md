@@ -1,7 +1,6 @@
 ---
 name: elasticsearch
 description: Elasticsearch — mapping, queries, aggregations, ловушки. Активируется при elasticsearch, elastic, NEST, full-text search, mapping, aggregation
-allowed-tools: Read, Grep, Glob
 ---
 
 # Elasticsearch Patterns

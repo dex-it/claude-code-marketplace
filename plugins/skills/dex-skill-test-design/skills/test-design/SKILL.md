@@ -1,7 +1,6 @@
 ---
 name: test-design
 description: Техники тест-дизайна — ловушки и ошибки применения. Активируется при equivalence partitioning, boundary values, decision table, state transition, pairwise testing, техники тестирования
-allowed-tools: Read, Grep, Glob
 ---
 
 # Test Design — ловушки

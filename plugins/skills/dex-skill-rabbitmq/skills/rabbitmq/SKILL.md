@@ -1,7 +1,6 @@
 ---
 name: rabbitmq
 description: RabbitMQ — MassTransit, retry, dead-letter, idempotency, ловушки. Активируется при rabbitmq, message queue, masstransit, consumer, dead-letter, saga
-allowed-tools: Read, Grep, Glob
 ---
 
 # RabbitMQ — ловушки и anti-patterns

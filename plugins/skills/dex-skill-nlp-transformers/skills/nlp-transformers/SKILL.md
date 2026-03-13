@@ -1,7 +1,6 @@
 ---
 name: nlp-transformers
 description: NLP Transformers — ловушки tokenization, fine-tuning, LoRA, inference. Активируется при huggingface, transformers, bert, gpt, tokenizer, fine-tune, lora
-allowed-tools: Read, Grep, Glob
 ---
 
 # NLP Transformers — ловушки

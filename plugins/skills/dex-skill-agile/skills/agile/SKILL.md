@@ -1,7 +1,6 @@
 ---
 name: agile
 description: Agile — частые ошибки в работе с backlog, stories, sprints. Активируется при epic vs story, INVEST, DoR/DoD, sprint planning, sizing, velocity
-allowed-tools: Read, Grep, Glob
 ---
 
 # Agile — ловушки

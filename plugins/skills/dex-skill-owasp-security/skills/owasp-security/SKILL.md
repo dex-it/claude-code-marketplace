@@ -1,7 +1,6 @@
 ---
 name: owasp-security
 description: Безопасность веб-приложений, OWASP Top 10. Активируется при упоминании security, auth bypass, injection, XSS, IDOR, CSRF, уязвимость, безопасность, эскалация прав
-allowed-tools: Read, Grep, Glob
 ---
 
 # OWASP Security — ловушки

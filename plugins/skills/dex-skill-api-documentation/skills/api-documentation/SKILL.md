@@ -1,7 +1,6 @@
 ---
 name: api-documentation
 description: OpenAPI/Swagger документация — частые ошибки. Активируется при swagger, openapi, api documentation, swashbuckle, nswag
-allowed-tools: Read, Grep, Glob
 ---
 
 # API Documentation — ловушки

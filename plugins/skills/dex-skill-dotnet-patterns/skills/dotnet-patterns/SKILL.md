@@ -1,7 +1,6 @@
 ---
 name: dotnet-patterns
 description: Принципы проектирования и паттерны в .NET. Активируется при упоминании pattern, SOLID, DI, dependency injection, design pattern, DRY, KISS, YAGNI
-allowed-tools: Read, Grep, Glob
 ---
 
 # .NET Patterns — ловушки и anti-patterns

@@ -1,7 +1,6 @@
 ---
 name: doc-standards
 description: Документация — ошибки структуры, дублирование, устаревание. Активируется при documentation, document, docs, spec, BRD, PRD, ADR, tech spec
-allowed-tools: Read, Grep, Glob
 ---
 
 # Documentation — ловушки

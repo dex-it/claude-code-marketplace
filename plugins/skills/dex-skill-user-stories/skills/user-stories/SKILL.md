@@ -1,7 +1,6 @@
 ---
 name: user-stories
 description: User stories — ошибки написания, INVEST нарушения. Активируется при user story, acceptance criteria, Given-When-Then, INVEST
-allowed-tools: Read, Grep, Glob
 ---
 
 # User Stories — ловушки

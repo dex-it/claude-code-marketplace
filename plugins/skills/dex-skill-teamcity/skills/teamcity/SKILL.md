@@ -1,7 +1,6 @@
 ---
 name: teamcity
 description: TeamCity CI/CD — ловушки, build chains, Kotlin DSL. Активируется при teamcity, build configuration, meta-runner, artifact, build chain
-allowed-tools: Read, Grep, Glob
 ---
 
 # TeamCity Patterns — ловушки

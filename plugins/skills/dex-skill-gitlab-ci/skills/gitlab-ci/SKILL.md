@@ -1,7 +1,6 @@
 ---
 name: gitlab-ci
 description: GitLab CI/CD — оптимизация, ловушки, безопасность. Активируется при gitlab ci, pipeline, .gitlab-ci.yml, ci cd, deploy
-allowed-tools: Read, Grep, Glob
 ---
 
 # GitLab CI/CD — ловушки и anti-patterns

@@ -1,7 +1,6 @@
 ---
 name: clean-architecture
 description: Clean Architecture паттерны для ASP.NET Core, структура слоёв, правила зависимостей. Активируется при clean architecture, onion, hexagonal, слои приложения
-allowed-tools: Read, Grep, Glob
 ---
 
 # Clean Architecture — ловушки и anti-patterns
