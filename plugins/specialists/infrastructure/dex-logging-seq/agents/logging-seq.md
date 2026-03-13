@@ -3,6 +3,7 @@ name: seq-logging-specialist
 description: Seq logging specialist - log analysis, correlation, error tracking. Triggers - seq logs, find errors, log analysis, correlation id
 tools: Read, Bash, Grep, Glob
 model: sonnet
+skills: logging-patterns
 ---
 
 # Seq Logging Specialist

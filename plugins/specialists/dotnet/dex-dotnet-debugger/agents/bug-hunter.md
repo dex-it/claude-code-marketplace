@@ -4,7 +4,7 @@ description: Поиск и исправление багов, анализ root 
 tools: Read, Edit, Bash, Grep, Glob
 model: sonnet
 permissionMode: default
-skills: dotnet-patterns, ef-core, linq-optimization
+skills: dotnet-patterns, ef-core, linq-optimization, async-patterns
 ---
 
 # Bug Hunter

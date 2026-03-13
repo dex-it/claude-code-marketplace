@@ -4,7 +4,7 @@ description: Автоматическое ревью C# кода перед comm
 tools: Read, Grep, Glob, Bash
 model: sonnet
 permissionMode: default
-skills: dotnet-patterns, linq-optimization, api-development
+skills: dotnet-patterns, linq-optimization, api-development, owasp-security, git-workflow
 ---
 
 # Code Reviewer

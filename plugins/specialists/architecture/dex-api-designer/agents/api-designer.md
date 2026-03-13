@@ -4,7 +4,7 @@ description: Проектирование REST API, OpenAPI спецификац
 tools: Read, Write, Edit, Grep, Glob
 model: sonnet
 permissionMode: default
-skills: api-development, api-documentation, dotnet-patterns
+skills: api-development, api-documentation, dotnet-patterns, owasp-security, api-specification
 ---
 
 # API Designer

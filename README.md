@@ -1,452 +1,248 @@
-# Claude Code Marketplace для команд разработки
+# Claude Code Marketplace
 
-> Коллекция специализированных AI-ассистентов для каждой роли в команде разработки
+> Маркетплейс атомарных AI-плагинов для разработчиков. Один плагин = одна функция.
 
 ## О проекте
 
-Claude Code Marketplace — это набор из 7 профессиональных плагинов, каждый из которых настроен под конкретную роль в команде:
+Claude Code Marketplace — набор из 89 специализированных плагинов для Claude Code, организованных в 3 уровня:
 
-- **🔵 .NET Development** — разработка и архитектура .NET приложений
-- **🐍 Python ML Development** — машинное обучение и AI разработка
-- **📊 Product & Analysis** — продуктовый менеджмент и системный анализ
-- **🧪 Quality & Operations** — тестирование и DevOps
+```
+Level 3: BUNDLES (9)     — наборы для быстрой установки по ролям
+Level 2: SPECIALISTS (38) — агенты с узкой специализацией
+Level 1: SKILLS (40)      — базы знаний (автоматическая активация)
+         UTILITIES (2)     — инструменты (hooks, notifications)
+```
 
-Каждый плагин включает:
-- **Agents** — специализированные AI-ассистенты для конкретных задач
-- **Commands** — slash-команды для быстрых операций
-- **Skills** — базы знаний с best practices и примерами кода
-- **MCP Integrations** — подключения к внешним сервисам (GitLab, Notion, MLflow и др.)
+**Принцип:** атомарные плагины без дублирования. Собирай свой набор из нужных компонентов.
 
 ## Быстрый старт
 
-### 1. Установка
-
-Плагины устанавливаются локально в директорию `.claude/plugins/`:
+### Установка бандлом (рекомендуется)
 
 ```bash
 # Клонируйте репозиторий
 git clone https://github.com/dex-it/claude-code-marketplace.git
+cd claude-code-marketplace
 
-# Скопируйте нужные плагины
-cp -r claude-code-marketplace/plugins/dex-dotnet-developer ~/.claude/plugins/
-cp -r claude-code-marketplace/plugins/dex-python-ml-developer ~/.claude/plugins/
-# ... и так далее для других плагинов
-```
-
-### 2. Установка Bundle (Рекомендуется)
-
-Bundles - это мета-плагины, которые объединяют связанные компоненты. Используйте скрипты для автоматической установки.
-
-```bash
-# Посмотреть доступные bundles
+# Посмотреть доступные бандлы
 ./install-bundle/install-bundle.sh --list
 
-# Установить bundle для .NET разработчика
+# Установить бандл
 ./install-bundle/install-bundle.sh dotnet-developer
+
+# Предпросмотр без установки
+./install-bundle/install-bundle.sh dotnet-developer --dry-run
 
 # Windows (PowerShell)
 .\install-bundle\install-bundle.ps1 dotnet-developer
-
-# Предпросмотр (без установки)
-./install-bundle/install-bundle.sh dotnet-developer --dry-run
 ```
 
-**Доступные bundles:**
-- `dotnet-developer` - .NET разработка (12 компонентов)
-- `dotnet-fullstack` - .NET + инфраструктура (29 компонентов)
-- `devops` - DevOps инженер (12 компонентов)
-- `product-manager` - Продуктовый менеджер (9 компонентов)
-- `system-analyst` - Системный аналитик (9 компонентов)
-- `architect` - Архитектор (9 компонентов)
-- `qa-engineer` - QA инженер (6 компонентов)
-- `ml-engineer` - ML инженер (11 компонентов)
-- `infrastructure` - Инфраструктура (23 компонента)
-
-**Подробная документация:** [install-bundle/README.md](./install-bundle/README.md)
-
-### 3. Настройка Credentials
-
-Большинство плагинов требуют API ключи для интеграции с внешними сервисами (GitLab, Notion, GitHub и др.).
-
-**📖 См. полное руководство:** [CREDENTIALS.md](./CREDENTIALS.md)
-
-**Быстрая настройка:**
+### Установка отдельных плагинов
 
 ```bash
-# Экспортируйте необходимые переменные окружения
-export GITLAB_TOKEN="glpat-xxxxxxxxxxxxx"
-export NOTION_TOKEN="ntn_xxxxxxxxxxxxx"
-export GITHUB_TOKEN="ghp-xxxxxxxxxxxxx"  # Для dex-dotnet-architect
+# Установить specialist
+claude plugins install github:dex-it/claude-code-marketplace/plugins/specialists/dotnet/dex-dotnet-coder
 
-# Для Python ML разработки:
-export MLFLOW_TRACKING_URI="http://localhost:5000"
-export WANDB_API_KEY="xxxxxxxxxxxxx"
-export HUGGINGFACE_TOKEN="hf-xxxxxxxxxxxxx"
+# Установить skill
+claude plugins install github:dex-it/claude-code-marketplace/plugins/skills/dex-skill-dotnet-patterns
 
-# Запустите Claude Code
-claude
+# Установить utility
+claude plugins install github:dex-it/claude-code-marketplace/plugins/utilities/dex-telegram-notifier
 ```
 
-**Проверка конфигурации:**
+### Удаление
 
 ```bash
-# В Claude Code выполните:
-/mcp list
+# Удалить бандл
+./install-bundle/uninstall-bundle.sh dotnet-developer
 
-# Вы должны увидеть подключенные MCP серверы
+# Удалить отдельный плагин
+claude plugins uninstall dex-dotnet-coder
 ```
 
----
-
-## Плагины
-
-### 🔵 .NET Development
-
-#### dex-dotnet-developer
-
-**Для кого:** .NET разработчики, пишущие код ежедневно
-
-**Описание:** Полноценный ассистент для .NET разработки с поддержкой C#, ASP.NET Core, Entity Framework Core, LINQ, async/await patterns и best practices.
-
-**MCP Интеграции:**
-- ✅ GitLab — version control, CI/CD
-- ✅ Notion — документация, notes
-- 🔵 Supabase/PostgreSQL — database access (optional)
-
-**Команды:**
-- `/build` — компиляция проекта с анализом ошибок
-- `/test` — запуск тестов с детальным отчётом
-- `/debug` — помощь в отладке и поиске багов
-- `/ef-migration` — создание EF Core миграций
-- `/refactor` — рефакторинг кода с best practices
-
-**Agents:**
-- `coding-assistant` — написание нового кода
-- `bug-hunter` — поиск и исправление багов
-- `code-reviewer` — code review и улучшения
-- `test-writer` — генерация unit/integration тестов
-
-**Skills:** dotnet-patterns, ef-core, async-patterns, linq-optimization, api-development, testing-patterns
-
-[**→ Подробная документация**](./plugins/dex-dotnet-developer/README.md)
-
----
-
-#### dex-dotnet-architect
-
-**Для кого:** .NET архитекторы, проектирующие системы
-
-**Описание:** Инструменты для архитектурного проектирования: Clean Architecture, DDD, Microservices, ADR (Architecture Decision Records), C4 diagrams.
-
-**MCP Интеграции:**
-- ✅ GitHub — ADR versioning, diagram storage
-- ✅ GitLab — code analysis, architecture review
-- ✅ Notion — architecture documentation
-- ✅ Filesystem — local diagrams and docs
-
-**Команды:**
-- `/design` — архитектурное проектирование решений
-- `/adr` — создание Architecture Decision Records
-- `/review` — architecture review и анализ
-
-**Agents:**
-- `architect` — solution architecture design
-- `adr-writer` — ADR documentation
-- `diagram-creator` — C4 diagrams, sequence diagrams
-
-**Skills:** clean-architecture, ddd-patterns, microservices, cqrs-event-sourcing
-
-[**→ Подробная документация**](./plugins/dex-dotnet-architect/README.md)
-
----
-
-### 🐍 Python ML Development
-
-#### dex-python-ml-developer
-
-**Для кого:** Python ML/AI разработчики, Data Scientists
-
-**Описание:** Comprehensive ML toolkit с поддержкой PyTorch, TensorFlow, scikit-learn, HuggingFace Transformers, computer vision, NLP, classical ML, hyperparameter tuning, deployment.
-
-**MCP Интеграции:**
-- ✅ MLflow — experiment tracking, model registry
-- ✅ Weights & Biases — rich visualizations, collaboration
-- ✅ HuggingFace — models/datasets hub access
-- ✅ GitLab — version control, ML pipelines
-- ✅ Notion — experiment documentation
-
-**Команды:**
-- `/train` — обучение моделей с tracking
-- `/evaluate` — метрики, confusion matrix, визуализации
-- `/tune` — hyperparameter tuning (Optuna, Ray Tune)
-- `/profile` — FLOPs, memory, latency analysis
-- `/convert` — export to ONNX, TensorRT, TFLite
-- `/serve` — generate FastAPI server
-
-**Agents:**
-- `ml-experimenter` — EDA, feature engineering, baseline models
-- `model-trainer` — training для всех фреймворков
-- `model-debugger` — debugging training issues
-- `deployment-assistant` — ONNX export, FastAPI deployment
-- `data-pipeline-builder` — efficient DataLoaders
-
-**Skills:** pytorch-patterns, tensorflow-patterns, classical-ml, nlp-transformers, computer-vision, ml-optimization
-
-[**→ Подробная документация**](./plugins/dex-python-ml-developer/README.md)
-
----
-
-### 📊 Product & Analysis
-
-#### dex-product-manager
-
-**Для кого:** Product managers, product owners
-
-**Описание:** Инструменты для продуктового менеджмента: product discovery, prioritization frameworks, roadmap planning, backlog management, metrics tracking.
-
-**MCP Интеграции:**
-- ✅ Notion — roadmaps, backlogs, documentation
-
-**Команды:**
-- `/roadmap` — планирование product roadmap
-- `/prioritize` — prioritization frameworks (RICE, ICE, WSJF)
-- `/backlog` — backlog management
-
-**Agents:**
-- `product-strategist` — product strategy, vision
-- `feature-prioritizer` — feature prioritization
-- `metrics-analyst` — metrics analysis, KPIs
-
-**Skills:** product-discovery, prioritization
-
-[**→ Подробная документация**](./plugins/dex-product-manager/README.md)
-
----
-
-#### dex-system-analyst
-
-**Для кого:** Системные аналитики, бизнес-аналитики
-
-**Описание:** Requirements analysis, User Stories (INVEST), BPMN process modeling, OpenAPI specifications, acceptance criteria.
-
-**MCP Интеграции:**
-- ✅ Notion — requirements, User Stories, documentation
-- ✅ PDF Reader — чтение и анализ PDF документов (спецификации, контракты)
-- 🔵 Google Drive — работа с Google Docs, Sheets, Slides (опционально)
-
-**Команды:**
-- `/write-story` — создание User Stories с acceptance criteria
-- `/api-spec` — OpenAPI 3.0 specification generation
-
-**Agents:**
-- `requirements-analyst` — requirements gathering, stakeholder analysis
-- `user-story-writer` — User Stories, acceptance criteria
-- `process-modeler` — BPMN diagrams, workflow design
-
-**Skills:** agile-fundamentals, user-stories, bpmn-modeling, api-specification, doc-worker
-
-[**→ Подробная документация**](./plugins/dex-system-analyst/README.md)
-
----
-
-### 🧪 Quality & Operations
-
-#### dex-quality-assurance
-
-**Для кого:** QA инженеры, тестировщики
-
-**Описание:** Test design, test automation (Playwright, Selenium), API testing, bug reporting, test coverage analysis.
-
-**MCP Интеграции:**
-- ✅ GitLab — bug tracking, test case management, CI/CD
-
-**Команды:**
-- `/analyze-story` — анализ User Story для тестирования
-- `/create-tests` — генерация автотестов (Playwright/Selenium)
-
-**Agents:**
-- `test-analyst` — test case creation, test design
-- `test-automator` — Playwright/Selenium test generation
-- `bug-reporter` — structured bug reports
-
-**Skills:** test-design, api-testing
-
-[**→ Подробная документация**](./plugins/dex-quality-assurance/README.md)
-
----
-
-#### dex-devops
-
-**Для кого:** DevOps инженеры, SRE
-
-**Описание:** GitLab CI/CD pipelines, Docker containerization, Kubernetes deployment, infrastructure as code.
-
-**MCP Интеграции:**
-- ✅ GitLab — CI/CD pipelines, infrastructure, monitoring
-
-**Команды:**
-- `/pipeline` — создание GitLab CI/CD pipelines
-- `/dockerfile` — генерация оптимизированных Dockerfile
-- `/deploy` — Kubernetes deployment manifests
-
-**Agents:**
-- `pipeline-expert` — GitLab CI/CD configuration
-- `docker-builder` — Docker optimization, multi-stage builds
-- `k8s-specialist` — Kubernetes deployment, scaling
-
-**Skills:** gitlab-ci, docker-best-practices, kubernetes
-
-[**→ Подробная документация**](./plugins/dex-devops/README.md)
-
----
+## Бандлы (Level 3)
+
+Мета-плагины для установки наборов. Не содержат кода — только список компонентов.
+
+| Bundle | Описание | Компонентов |
+|--------|----------|-------------|
+| `dotnet-developer` | .NET разработчик | 12 |
+| `dotnet-fullstack` | .NET + инфраструктура | 29 |
+| `devops` | DevOps инженер | 11 |
+| `product-manager` | Product Manager | 9 |
+| `system-analyst` | Системный аналитик | 9 |
+| `architect` | Архитектор | 9 |
+| `qa-engineer` | QA инженер | 6 |
+| `ml-engineer` | ML инженер | 11 |
+| `infrastructure` | Вся инфраструктура | 23 |
+
+Подробнее: [install-bundle/README.md](./install-bundle/README.md)
+
+## Specialists (Level 2)
+
+Агенты с узкой специализацией. Один агент = один плагин.
+
+### .NET (6)
+
+| Плагин | Агент | Описание |
+|--------|-------|----------|
+| dex-dotnet-coder | coding-assistant | Написание кода, SOLID, паттерны |
+| dex-dotnet-debugger | bug-hunter | Отладка, root cause analysis |
+| dex-dotnet-reviewer | code-reviewer | Code review, security |
+| dex-dotnet-tester | test-writer | Unit тесты, xUnit, Moq |
+| dex-ef-specialist | ef-specialist | EF Core: migrations, queries, DbContext |
+| dex-dotnet-performance | performance-analyst | Profiling, N+1, memory |
+
+### Infrastructure (12)
+
+| Плагин | Описание |
+|--------|----------|
+| dex-postgresql-specialist | PostgreSQL: queries, indexes, optimization |
+| dex-mongodb-specialist | MongoDB: queries, aggregation pipeline |
+| dex-rabbitmq-specialist | RabbitMQ: queues, exchanges, MassTransit |
+| dex-kafka-specialist | Kafka: topics, consumers, partitions |
+| dex-elasticsearch-specialist | Elasticsearch: indexing, searching |
+| dex-redis-specialist | Redis: caching, pub/sub |
+| dex-docker-specialist | Docker: images, containers, compose |
+| dex-kubernetes-specialist | Kubernetes: deployments, services, HPA |
+| dex-cicd-gitlab | GitLab CI/CD: pipelines, deployment |
+| dex-cicd-teamcity | TeamCity: build configurations |
+| dex-logging-seq | Seq: log analysis, dashboards |
+| dex-monitoring-grafana | Grafana: dashboards, alerts, metrics |
+
+### Architecture (4)
+
+| Плагин | Описание |
+|--------|----------|
+| dex-architect | System design, patterns, trade-offs |
+| dex-adr-writer | Architecture Decision Records |
+| dex-diagram-creator | C4, sequence diagrams, Mermaid |
+| dex-api-designer | REST API design, OpenAPI |
+
+### Product (4)
+
+| Плагин | Описание |
+|--------|----------|
+| dex-business-analyst | Requirements, BRD |
+| dex-roadmap-planner | Strategic planning |
+| dex-backlog-manager | Epic backlog, prioritization |
+| dex-pm-metrics-analyst | KPIs, OKRs, metrics |
+
+### System Analysis (4)
+
+| Плагин | Описание |
+|--------|----------|
+| dex-requirements-analyst | Requirements analysis, validation |
+| dex-user-story-writer | User stories, acceptance criteria |
+| dex-process-modeler | BPMN, workflows |
+| dex-doc-writer | Technical specs, API docs |
+
+### QA (3)
+
+| Плагин | Описание |
+|--------|----------|
+| dex-test-analyst | Test design, coverage analysis |
+| dex-test-automator | Selenium, Playwright, API testing |
+| dex-bug-reporter | Bug reports, reproduction steps |
+
+### ML (5)
+
+| Плагин | Описание |
+|--------|----------|
+| dex-ml-experimenter | EDA, feature engineering |
+| dex-model-trainer | PyTorch, TensorFlow, sklearn |
+| dex-model-debugger | Debugging ML models |
+| dex-ml-deployer | ONNX, TFLite, FastAPI |
+| dex-data-pipeline | Data loading, preprocessing |
+
+## Skills (Level 1)
+
+Базы знаний — активируются автоматически по ключевым словам в контексте. 40 skills по категориям:
+
+| Категория | Skills |
+|-----------|--------|
+| **.NET** | dotnet-patterns, ef-core, async-patterns, linq-optimization, api-development, api-documentation, testing-patterns |
+| **Frontend** | react |
+| **Security** | owasp-security |
+| **Workflow** | git-workflow |
+| **Infrastructure** | rabbitmq-patterns, kafka-patterns, elasticsearch-patterns, redis-patterns, mongodb-patterns, docker, kubernetes, gitlab-ci, teamcity-patterns, logging-patterns, observability-patterns |
+| **Architecture** | clean-architecture, ddd-patterns, microservices |
+| **Product & Analysis** | agile, user-stories, bpmn-modeling, doc-standards, api-specification, epic-planning, product-discovery, prioritization |
+| **QA** | test-design, api-testing |
+| **ML** | pytorch-patterns, tensorflow-patterns, classical-ml, nlp-transformers, computer-vision, ml-optimization |
+
+## Utilities (Level 1)
+
+| Плагин | Описание |
+|--------|----------|
+| dex-telegram-notifier | Telegram уведомления о событиях Claude Code |
+| dex-discord-notifier | Discord уведомления о событиях Claude Code |
 
 ## MCP Servers
 
-MCP конфигурации централизованы в папке `mcp/`. Плагины не содержат `.mcp.json` файлов.
+MCP конфигурации в каталоге `mcp/`. Подробнее: [mcp/README.md](./mcp/README.md)
 
-### Быстрая настройка
+| Роль | Required | Optional |
+|------|----------|----------|
+| .NET Developer | gitlab | postgres, rabbitmq, kafka, docker, seq, kubernetes |
+| Architect | github, gitlab | notion, filesystem |
+| DevOps | gitlab | docker, kubernetes |
+| Product Manager | notion | — |
+| System Analyst | pdf-reader | notion, google-drive |
+| QA Engineer | gitlab | filesystem |
+| ML Engineer | gitlab | mlflow, wandb, huggingface |
 
-1. Посмотрите в `plugin.json` поле `mcpServers` — какие серверы нужны плагину
-2. Скопируйте нужные серверы из `mcp/mcp-template.json` в свой `.mcp.json`
-3. Настройте переменные окружения в `.env` (см. `run-claude/sample.env`)
-4. Проверьте: `/mcp list`
-
-### MCP серверы по плагинам
-
-| Плагин | Required | Optional |
-|--------|----------|----------|
-| **dex-product-manager** | notion | - |
-| **dex-system-analyst** | pdf-reader | notion, google-drive |
-| **dex-dotnet-developer** | gitlab, notion | postgres, rabbitmq, elasticsearch, redis, docker, seq, kubernetes |
-| **dex-dotnet-architect** | github, gitlab, notion | filesystem |
-| **dex-python-ml-developer** | gitlab | notion, mlflow, wandb, huggingface |
-| **dex-quality-assurance** | gitlab | filesystem |
-| **dex-devops** | gitlab | - |
-
-**Подробная документация:** [mcp/README.md](./mcp/README.md)
-
-**Получение API ключей:** [CREDENTIALS.md](./CREDENTIALS.md)
-
----
-
-## Требования
-
-- **Claude Code** — latest version
-- **Credentials** — API ключи для нужных интеграций (см. [CREDENTIALS.md](./CREDENTIALS.md))
-- **Node.js** — для MCP серверов на `npx` (Notion, Weights & Biases, HuggingFace)
-- **Python** — для MCP серверов на `uvx` (GitLab, MLflow)
-
----
+Настройка credentials: [CREDENTIALS.md](./CREDENTIALS.md)
 
 ## Структура проекта
 
 ```
 claude-code-marketplace/
-├── CREDENTIALS.md              # Руководство по настройке credentials
-├── README.md                   # Этот файл
-├── LICENSE                     # GPL v3.0
-├── CLAUDE.md                   # Проектные инструкции для Claude Code
-│
-├── mcp/                        # Централизованный каталог MCP серверов
-│   ├── README.md              # Документация по настройке MCP
-│   └── mcp-template.json      # Все 16 MCP серверов в одном файле
-│
-├── run-claude/                 # Папка для запуска Claude Code
-│   ├── .mcp.json              # Конфигурация MCP серверов (пример)
-│   ├── .env                   # Переменные окружения (не коммитить!)
-│   ├── sample.env             # Шаблон .env файла
-│   ├── settings.json          # Настройки Claude Code
-│   ├── system-prompt.md       # Системный промпт для проекта
-│   └── run-claude.sh/.ps1     # Скрипты запуска
-│
-├── install-bundle/             # Автоматическая установка bundles
-│   ├── install-bundle.sh      # Bash скрипт (Linux/macOS/WSL)
-│   ├── install-bundle.ps1     # PowerShell (Windows)
-│   └── README.md              # Документация
-│
-├── plugins/                    # Плагины для разных ролей
-│   ├── dex-dotnet-developer/
-│   │   ├── .claude-plugin/
-│   │   │   └── plugin.json   # + mcpServers field
-│   │   ├── README.md
-│   │   ├── agents/
-│   │   ├── commands/
-│   │   ├── skills/
-│   │   └── hooks/
-│   │
-│   ├── dex-dotnet-architect/
-│   ├── dex-python-ml-developer/
-│   ├── dex-product-manager/
-│   ├── dex-system-analyst/
-│   ├── dex-quality-assurance/
-│   └── dex-devops/
+├── plugins/
+│   ├── skills/                    # Level 1: базы знаний (40)
+│   │   ├── dex-skill-agile/
+│   │   ├── dex-skill-dotnet-patterns/
+│   │   └── ...
+│   ├── utilities/                 # Level 1: инструменты (2)
+│   │   └── dex-telegram-notifier/
+│   ├── specialists/               # Level 2: агенты (38)
+│   │   ├── dotnet/               # 6 specialists
+│   │   ├── infrastructure/       # 12 specialists
+│   │   ├── architecture/         # 4 specialists
+│   │   ├── product/              # 8 specialists
+│   │   ├── qa/                   # 3 specialists
+│   │   └── ml/                   # 5 specialists
+│   └── bundles/                   # Level 3: наборы (9)
+│       ├── dex-bundle-dotnet-developer/
+│       └── ...
+├── install-bundle/                # Скрипты установки/удаления
+├── mcp/                           # MCP server конфигурации
+├── run-claude/                    # Конфигурация запуска
+├── .claude-plugin/
+│   └── marketplace.json           # Каталог всех плагинов
+├── CLAUDE.md
+├── CREDENTIALS.md
+└── README.md
 ```
 
----
+## Требования
+
+- **Claude Code** — latest version
+- **jq** — для install скриптов (Linux/macOS)
+- **Credentials** — API ключи для MCP интеграций (см. [CREDENTIALS.md](./CREDENTIALS.md))
 
 ## Contributing
 
-Мы приветствуем contribution! Если вы хотите:
-
-- Добавить новый плагин для другой роли
-- Улучшить существующие агенты/команды/skills
-- Исправить баги или улучшить документацию
-
-**Как внести изменения:**
-
 1. Fork репозиторий
-2. Создайте ветку для вашей фичи (`git checkout -b feature/amazing-feature`)
-3. Следуйте существующей структуре плагинов
-4. Убедитесь что все примеры кода работают
-5. Обновите документацию
-6. Создайте Pull Request
+2. Создайте ветку (`git checkout -b feature/new-plugin`)
+3. Следуйте структуре плагинов (см. [CLAUDE.md](./CLAUDE.md))
+4. Создайте Pull Request
 
-**Стандарты качества:**
+### Конвенции именования
 
-- **Agents:** 130-180 строк, bilingual triggers, production-ready примеры
-- **Commands:** 55-70 строк, structured process, clear output format
-- **Skills:** 180-250 строк, 80% code examples, best practices + anti-patterns
-- **README:** Configuration section, Quick Start, Best Practices, Troubleshooting
-
----
-
-## Roadmap
-
-### Планируются новые плагины:
-
-- **dex-frontend-developer** — React, Vue, Angular, TypeScript
-- **dex-mobile-developer** — React Native, Flutter, Swift
-- **dex-data-engineer** — Airflow, Spark, dbt, data pipelines
-- **dex-security-engineer** — Security audits, OWASP, penetration testing
-
-### Улучшения существующих плагинов:
-
-- Интеграция с Jira для issue tracking
-- Confluence для документации
-- Jenkins/GitHub Actions для CI/CD
-- Elasticsearch для логов и мониторинга
-
----
-
-## Поддержка
-
-**Документация:**
-- [CREDENTIALS.md](./CREDENTIALS.md) — настройка API ключей
-- [CLAUDE.md](./CLAUDE.md) — инструкции для разработки плагинов
-- README каждого плагина — детальная документация
-
-**Issues:**
-Если вы столкнулись с проблемой:
-1. Проверьте секцию Troubleshooting в README плагина
-2. Убедитесь что credentials настроены корректно
-3. Проверьте `/mcp list` что MCP серверы подключены
-4. Создайте issue в GitHub с описанием проблемы
-
-**Вопросы:**
-- GitHub Issues — для багов и feature requests
-- GitHub Discussions — для вопросов и идей
-
----
+- **Skills**: `dex-skill-{name}`
+- **Specialists**: `dex-{domain}-{role}` или `dex-{name}-specialist`
+- **Bundles**: `dex-bundle-{role}`
 
 ## License
 
@@ -454,13 +250,4 @@ GPL v3.0 — см. [LICENSE](./LICENSE)
 
 ---
 
-## Авторы
-
-**DEX Team**
-
-**Version:** 3.0.0
-**Last Updated:** 2025-11-26
-
----
-
-**Теги:** claude-code, ai-assistant, dotnet, python, ml, product-management, qa, devops, clean-architecture, ddd, microservices, mlops
+**DEX Team** · Version 5.0.0

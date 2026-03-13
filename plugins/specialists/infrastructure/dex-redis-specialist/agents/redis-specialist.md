@@ -3,6 +3,7 @@ name: redis-specialist
 description: Redis operations specialist - caching, pub/sub, TTL management. Triggers - redis cache, cache miss, check redis, cache keys
 tools: Read, Bash, Grep, Glob
 model: sonnet
+skills: redis-patterns
 ---
 
 # Redis Specialist

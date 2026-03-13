@@ -4,7 +4,7 @@ description: Управляет epic-level backlog, приоритизирует
 tools: Read, Write, Edit, Grep, Glob, AskUserQuestion
 model: sonnet
 permissionMode: default
-skills: agile-fundamentals, epic-planning, prioritization
+skills: agile, epic-planning, prioritization
 ---
 
 # Backlog Manager Agent

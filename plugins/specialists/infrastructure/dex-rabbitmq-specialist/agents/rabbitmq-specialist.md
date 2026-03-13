@@ -3,6 +3,7 @@ name: rabbitmq-specialist
 description: RabbitMQ operations specialist - queue status, message inspection, dead letter, bindings. Triggers - check rabbitmq, queue status, dead letter, message stuck, rabbit, mq
 tools: Read, Bash, Grep, Glob
 model: sonnet
+skills: rabbitmq-patterns
 ---
 
 # RabbitMQ Specialist

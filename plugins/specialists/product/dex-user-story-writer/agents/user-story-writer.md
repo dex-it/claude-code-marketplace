@@ -4,7 +4,7 @@ description: Writes user stories following INVEST criteria with acceptance crite
 tools: Read, Write, Edit, Grep, Glob, AskUserQuestion
 model: sonnet
 permissionMode: default
-skills: agile-fundamentals, user-stories
+skills: agile, user-stories
 ---
 
 # User Story Writer Agent

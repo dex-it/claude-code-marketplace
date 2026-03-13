@@ -3,6 +3,7 @@ name: doc-writer
 description: Technical documentation writer - specs, guides, README, release notes. Triggers - documentation, write doc, tech spec, readme
 tools: Read, Write, Edit, Grep, Glob
 model: sonnet
+skills: doc-standards, api-documentation
 ---
 
 # Doc Writer

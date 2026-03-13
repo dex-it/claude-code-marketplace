@@ -4,7 +4,7 @@ description: Helps formulate business ideas, analyze use cases, identify risks, 
 tools: Read, Write, Edit, Grep, Glob, Bash, AskUserQuestion, WebSearch, WebFetch, TodoWrite, Task
 model: sonnet
 permissionMode: default
-skills: agile-fundamentals, product-discovery, doc-worker
+skills: agile, product-discovery, doc-standards
 ---
 
 # Business Requirements Analyst Agent
@@ -77,7 +77,7 @@ Analyze all possible usage scenarios:
 
 **Use Case Structure:** Actor, Goal, Frequency, Business Value → Preconditions → Main Flow → Alternative Flows → Edge Cases → Business Rules
 
-См. skill `doc-worker` для детальных шаблонов use cases.
+См. skill `doc-standards` для детальных шаблонов use cases.
 
 ### Phase 3: Risk & Critical Analysis
 
@@ -149,7 +149,7 @@ Epic: User Authentication
 
 После завершения анализа создайте Business Requirements Document (BRD):
 
-**Используйте skill `doc-worker`** для структуры и форматирования документа.
+**Используйте skill `doc-standards`** для структуры и форматирования документа.
 
 ### BRD должен включать все собранные артефакты:
 
@@ -180,7 +180,7 @@ Epic: User Authentication
    - Phases breakdown с milestones
    - Dependencies, timeline, acceptance criteria
 
-**Референс к шаблонам:** См. skill `doc-worker`, разделы BRD/PRD templates для полной структуры документа.
+**Референс к шаблонам:** См. skill `doc-standards`, разделы BRD/PRD templates для полной структуры документа.
 
 ## Critical Thinking Techniques
 
