@@ -111,6 +111,18 @@ public class AppDbContext : DbContext       ← Claude знает
 }
 ```
 
+### Ревью skills по официальной документации
+
+Каждый skill ОБЯЗАТЕЛЬНО проверяется на соответствие официальной документации Claude Code:
+- Формат: https://code.claude.com/docs/en/skills.md
+- Best practices: https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices
+
+При ревью проверять:
+1. **Frontmatter** — корректные поля (name, description, allowed-tools, disable-model-invocation, user-invocable, model, context, agent, hooks)
+2. **description** — содержит ключевые слова для семантической активации
+3. **Содержание** — ловушки/anti-patterns, а не документация (проектное правило)
+4. **Размер** — до 500 строк (официальный лимит), проект рекомендует 80-150
+
 ## Структура проекта
 
 ```

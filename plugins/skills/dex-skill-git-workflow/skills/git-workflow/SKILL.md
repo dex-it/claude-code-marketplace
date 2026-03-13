@@ -4,165 +4,112 @@ description: Git workflow, branching, commits, code review, merge requests. Ак
 allowed-tools: Read, Grep, Glob
 ---
 
-# Git Workflow
+# Git Workflow — ловушки и anti-patterns
 
-## Branching Strategy (Git Flow)
+## Опасные операции
 
-```
-main          ← production, только через MR
-  └─ develop  ← интеграционная ветка, только через MR
-       ├─ feature/TASK-123-user-auth    ← новая функциональность
-       ├─ fix/TASK-456-login-error      ← исправление бага
-       ├─ hotfix/TASK-789-critical-fix  ← срочное исправление в main
-       └─ release/1.2.0                 ← подготовка релиза
-```
+### Force push на shared branch
+Плохо: `git push -f develop` — перезаписывает историю общей ветки
+Правильно: `git push --force-with-lease` только на своей feature-ветке
+Почему: коллеги теряют коммиты без предупреждения. `--force-with-lease` хотя бы проверяет что remote не изменился
 
-### Именование веток
+### Rebase публичной ветки
+Плохо: `git rebase develop` на ветке, которую уже pull-нули коллеги
+Правильно: rebase только на своей ветке до push, или на уже push-нутой но solo-ветке
+Почему: rebase переписывает хеши → у всех кто pull-нул — diverged history → конфликты при следующем pull
 
-| Тип | Формат | Пример |
-|-----|--------|--------|
-| Feature | `feature/TASK-ID-description` | `feature/TASK-123-user-auth` |
-| Bug fix | `fix/TASK-ID-description` | `fix/TASK-456-login-error` |
-| Hotfix | `hotfix/TASK-ID-description` | `hotfix/TASK-789-critical` |
-| Release | `release/X.Y.Z` | `release/1.2.0` |
+### Коммит в detached HEAD
+Плохо: `git checkout <commit-hash>` → пишешь код → `git commit` → `git checkout develop`
+Правильно: `git checkout -b temp-branch <hash>` → работай → merge
+Почему: коммиты в detached HEAD не привязаны к ветке, garbage collector удалит их через ~2 недели. Работа потеряна
 
-### Правила
+### Забытый .env / секреты в коммите
+Плохо: `git add .` → `.env` с `DB_PASSWORD=prod123` попал в историю
+Правильно: `.gitignore` с `.env` ДО первого коммита, `git add` по конкретным файлам
+Почему: `git rm .env` удалит файл, но НЕ из истории. Секрет останется в `git log -p`. После push — секрет скомпрометирован, нужна ротация
 
-- `main` и `develop` — защищённые, только через MR/PR
-- Feature ветки создаются от `develop`
-- Hotfix ветки создаются от `main`, мержатся в `main` И `develop`
-- Удаляй ветку после мержа
+## Ветвление
 
-## Conventional Commits
+### Branch от branch от branch
+Плохо: `feature-A` → `feature-B` → `feature-C` — цепочка зависимых веток
+Правильно: все feature-ветки от `develop`, декомпозиция на независимые задачи
+Почему: merge `feature-A` в develop → конфликты в `feature-B` и `feature-C` каскадом. Чем длиннее цепочка — тем больнее разрешать
 
-```
-<type>(<scope>): <description>
+### Долгоживущая feature-ветка
+Плохо: feature-ветка живёт 3 недели без rebase от develop
+Правильно: rebase от develop ежедневно или хотя бы раз в 2-3 дня
+Почему: чем дольше ветка живёт — тем больше расхождение. Merge после 3 недель = десятки конфликтов вместо одного-двух
 
-[body]
+### Hotfix не влит в develop
+Плохо: hotfix → merge в `main` → забыли merge в `develop`
+Правильно: hotfix merge в `main` И `develop` (или cherry-pick в develop)
+Почему: следующий release из develop не содержит hotfix → баг возвращается в production
 
-[footer]
-```
+## Коммиты
 
-### Типы коммитов
+### Один коммит "fix stuff" на 500 строк
+Плохо: `git commit -m "fix stuff"` — все изменения за день в одном коммите
+Правильно: атомарные коммиты по одному логическому изменению, conventional commits
+Почему: `git bisect` невозможен (500 строк в одном коммите), `git revert` откатывает всё, changelog нечитаемый
 
-| Тип | Когда | Пример |
-|-----|-------|--------|
-| `feat` | Новая функциональность | `feat(auth): add JWT refresh tokens` |
-| `fix` | Исправление бага | `fix(api): handle null user in /profile` |
-| `refactor` | Рефакторинг без изменения поведения | `refactor(orders): extract validation logic` |
-| `test` | Добавление/изменение тестов | `test(auth): add login edge cases` |
-| `docs` | Документация | `docs(api): update endpoint descriptions` |
-| `chore` | Обслуживание (CI, deps, config) | `chore(deps): update EF Core to 8.0.3` |
-| `perf` | Улучшение производительности | `perf(queries): add index on OrderDate` |
-| `ci` | CI/CD изменения | `ci(gitlab): add staging deploy job` |
+### Мерж без обновления от target branch
+Плохо: создал MR из 2-недельной ветки без rebase → 30 конфликтов в MR
+Правильно: `git rebase origin/develop` перед созданием MR, разрешить конфликты локально
+Почему: конфликты в MR ревьюер разрешать не будет — MR повиснет. Локально разрешать проще (есть контекст)
 
-### Правила сообщений
+### BREAKING CHANGE без предупреждения
+Плохо: `feat(api): change response format` — сломан контракт, но коммит не сообщает
+Правильно: `feat(api)!: change response format` + footer `BREAKING CHANGE: response field X renamed to Y`
+Почему: downstream-сервисы/клиенты ломаются на деплое, а не на этапе ревью. `!` и footer попадают в changelog
 
-- Императив: `add`, `fix`, `update` (не `added`, `fixes`)
-- Первая строка до 72 символов
-- Body — зачем, а не что (diff покажет что)
-- Footer — `BREAKING CHANGE:` или `Closes TASK-123`
+## Code Review
 
-```
-feat(orders): add bulk order creation endpoint
+### Гигантский MR (800+ строк)
+Плохо: один MR на всю фичу — 2000 строк, 40 файлов
+Правильно: серия MR по 200-400 строк: инфраструктура → domain → API → тесты
+Почему: ревьюер не может качественно проверить 2000 строк → approve без проверки → баги в production
 
-Customers need to create multiple orders in one request
-to reduce API calls during import.
+| Строк | Качество ревью |
+|-------|---------------|
+| < 200 | Тщательный, находит баги |
+| 200-400 | Хороший, ловит основное |
+| 400-800 | Поверхностный, пропускает |
+| > 800 | LGTM без чтения |
 
-Closes TASK-234
-```
+### Approve без прогона тестов
+Плохо: ревьюер смотрит код, жмёт Approve, CI падает после merge
+Правильно: CI pipeline обязателен ДО approve (GitLab: `Pipelines must succeed`)
+Почему: "у меня локально работает" + approve → merge → broken develop для всей команды
 
-## Code Review Checklist
+### Ревью стиля вместо логики
+Плохо: 20 комментариев "переименуй переменную", 0 комментариев про race condition
+Правильно: линтер и форматтер ловят стиль автоматически, ревьюер проверяет логику/безопасность/edge cases
+Почему: человек плохо ловит стиль (субъективно) и хорошо ловит логические ошибки. Автоматизируй что можно
 
-### Автор MR — перед созданием
+## Merge стратегии
 
-- [ ] Код компилируется и тесты проходят
-- [ ] Нет закомментированного кода и debug-выводов
-- [ ] Ветка актуальна (rebase от develop)
-- [ ] MR описание: что, зачем, как тестировать
-- [ ] Маленький MR (до 400 строк, один логический блок)
+### Cherry-pick вместо merge
+Плохо: `git cherry-pick abc123` из feature-ветки в develop вместо merge
+Правильно: merge/rebase целой ветки через MR
+Почему: cherry-pick создаёт дубликат коммита (другой хеш), при merge ветки позже — конфликт с самим собой
 
-### Ревьюер — при проверке
+### Squash merge теряет контекст
+Плохо: squash merge фичи из 15 коммитов в один "Add feature X"
+Правильно: squash мелких WIP-коммитов перед MR, merge с сохранением атомарных коммитов
+Почему: один коммит на 1000 строк → `git bisect` бесполезен, `git blame` показывает одного автора на всё, потеря контекста "почему"
 
-- [ ] Код читаем, именование понятно
-- [ ] Нет дублирования логики
-- [ ] Обработка ошибок и edge cases
-- [ ] Безопасность: auth, validation, injection
-- [ ] Тесты покрывают изменения
-- [ ] Нет секретов в коде
+### Merge без стратегии для конфликтов
+Плохо: `git merge` → конфликт → "принять все свои" (`--ours`) без разбора
+Правильно: разбирать каждый конфликт, понять что делает чужой код, при сомнениях — спросить автора
+Почему: `--ours` тихо удаляет чужие изменения. Автор конфликтующего кода узнает что его работа пропала только когда баг дойдёт до production
 
-### Размер MR
+## Чек-лист
 
-| Строк | Оценка | Действие |
-|-------|--------|----------|
-| < 200 | Отлично | Быстрый ревью |
-| 200-400 | Нормально | Стандартный ревью |
-| 400-800 | Большой | Разбей если возможно |
-| > 800 | Слишком большой | Обязательно разбить |
-
-## Rebase vs Merge
-
-```
-# Обновить feature-ветку от develop — rebase
-git fetch origin
-git rebase origin/develop
-
-# Влить feature в develop — merge (через MR)
-# НЕ делай rebase публичных веток (develop, main)
-```
-
-### Когда rebase
-
-- Обновить свою feature-ветку от develop
-- Склеить мелкие коммиты перед MR (`git rebase -i`)
-
-### Когда merge
-
-- Влить feature в develop (через MR)
-- Влить hotfix в main (через MR)
-
-## Конфликты
-
-```
-# 1. Обнови ветку
-git fetch origin
-git rebase origin/develop
-
-# 2. При конфликте — resolve вручную
-# Открой файл, найди маркеры <<<<< ===== >>>>>
-
-# 3. После разрешения
-git add <resolved-files>
-git rebase --continue
-
-# 4. Если всё пошло не так
-git rebase --abort
-```
-
-### Правила разрешения
-
-- Не удаляй чужой код молча — разберись что он делает
-- При сомнениях — спроси автора конфликтующего кода
-- После разрешения — прогони тесты
-
-## Полезные команды
-
-```bash
-# Посмотреть что изменилось в ветке относительно develop
-git log develop..HEAD --oneline
-
-# Найти коммит, сломавший тест
-git bisect start
-git bisect bad HEAD
-git bisect good <known-good-commit>
-
-# Перенести один коммит в другую ветку
-git cherry-pick <commit-hash>
-
-# Отменить последний коммит (сохранив изменения)
-git reset --soft HEAD~1
-
-# Временно сохранить изменения
-git stash push -m "WIP: description"
-git stash pop
-```
+- `git push -f` запрещён на shared ветках, используй `--force-with-lease` на своих
+- Feature-ветки от `develop`, не от других feature-веток
+- Rebase от develop перед созданием MR
+- Атомарные коммиты с conventional commits format
+- MR до 400 строк, один логический блок
+- CI pipeline обязателен до approve
+- Hotfix → merge в main И develop
+- `.gitignore` настроен ДО первого коммита

@@ -6,160 +6,103 @@ allowed-tools: Read, Grep, Glob
 
 # NLP Transformers — ловушки
 
-## Правила
+## Tokenizer
 
-- Batched tokenization, не по одному — 10-100x быстрее
-- `padding='max_length'` для training, `padding=True` (dynamic) для inference
-- `from_logits` — проверь что на выходе модели (logits vs probabilities)
-- LoRA/QLoRA для моделей >1B параметров — full fine-tuning не влезет в GPU
+### Tokenization по одному вместо batch
+Плохо: `for text in texts: tokenizer(text)` — 10-100x медленнее
+Правильно: `tokenizer(texts, padding=True, truncation=True, return_tensors="pt")`
+Почему: batch tokenization использует Rust backend (fast tokenizer). По одному — Python loop overhead
 
-## Tokenizer ловушки
+### max_length без truncation=True
+Плохо: `tokenizer(text, max_length=512)` — текст > 512 токенов → ошибка или тихий обрез
+Правильно: `tokenizer(text, max_length=512, truncation=True, padding='max_length')`
+Почему: без explicit `truncation=True` поведение зависит от версии transformers — непредсказуемо
 
-```
-Плохо:
-  for text in texts:
-      encoded = tokenizer(text)  # По одному — медленно!
+### padding='max_length' для inference
+Плохо: `padding='max_length'` на inference → все тексты паддятся до 512 даже если они по 20 токенов
+Правильно: `padding=True` (dynamic) для inference, `padding='max_length'` только для training
+Почему: padding до max_length на inference = wasted compute. 20 токенов обрабатываются как 512
 
-Хорошо:
-  encoded = tokenizer(texts, padding=True, truncation=True, return_tensors="pt")
+### Tokenizer не сохранён с моделью
+Плохо: fine-tune модель → `model.save_pretrained()` → загрузка с `AutoTokenizer.from_pretrained("bert-base")`
+Правильно: всегда `tokenizer.save_pretrained()` + `model.save_pretrained()` в одну директорию
+Почему: vocab mismatch после fine-tuning с добавленными special tokens → garbage output
 
-Плохо:
-  tokenizer(text, max_length=512)
-  // Без truncation=True: если текст > 512 токенов → ошибка или тихий обрез
+## Fine-tuning
 
-Хорошо:
-  tokenizer(text, max_length=512, truncation=True, padding='max_length')
+### LR от обычного training (1e-3)
+Плохо: `learning_rate=1e-3` для BERT fine-tuning → catastrophic forgetting
+Правильно: `2e-5 — 5e-5` для encoder models (BERT), `1e-5 — 3e-5` для decoder (GPT)
+Почему: pretrained weights деликатные. High LR уничтожает знания за первые steps
 
-Плохо:
-  tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
-  # Потом fine-tune и сохранил модель без tokenizer
-  // При inference: tokenizer не совпадает с моделью (vocab mismatch)
+### Без warmup
+Плохо: training без `warmup_ratio` — первые steps с полным LR ломают pretrained weights
+Правильно: `warmup_ratio=0.1` или `warmup_steps=500`
+Почему: градиенты на первых батчах нестабильны (random head). Высокий LR + нестабильные градиенты = damage
 
-Правило:
-  Всегда сохраняй tokenizer вместе с моделью:
-  tokenizer.save_pretrained('./my_model')
-  model.save_pretrained('./my_model')
-```
+### Слишком много эпох
+Плохо: `num_train_epochs=20` для BERT → overfit после 3-4 эпохи
+Правильно: 2-4 эпохи + `eval_strategy='epoch'` + early stopping (`load_best_model_at_end=True`)
+Почему: BERT с 110M параметров overfits на маленьких датасетах за 3-4 эпохи. 20 эпох = memorization
 
-## Fine-tuning ловушки
+### Весь backbone заморожен
+Плохо: `for param in model.base_model.parameters(): param.requires_grad = False` — модель не адаптируется
+Правильно: заморозить 70-80% нижних слоёв, верхние оставить trainable
+Почему: нижние слои = общие features (syntax, morphology), верхние = task-specific. Замораживая всё — используешь только random head
 
-| Ошибка | Последствие | Решение |
-|--------|-------------|---------|
-| `lr=1e-3` для BERT | Catastrophic forgetting — pretrained знания уничтожены | LR 2e-5 — 5e-5 для fine-tuning |
-| Без warmup | Первые steps ломают pretrained weights | `warmup_ratio=0.1` в TrainingArguments |
-| `num_train_epochs=20` | BERT fine-tune = 2-4 эпохи, больше → overfit | 2-4 эпохи + early stopping |
-| `eval_strategy='no'` | Не видишь overfitting до конца обучения | `eval_strategy='epoch'` + early stopping |
-| Замороженный весь backbone | Модель не адаптируется к домену | Заморозить 70-80% нижних слоёв, не все |
+## NER-специфичные
 
-```
-Плохо:
-  training_args = TrainingArguments(
-      learning_rate=1e-3,      # Слишком высокий!
-      num_train_epochs=20,     # Слишком много!
-      eval_strategy='no',      # Нет мониторинга!
-  )
+### Subword label alignment
+Плохо: `"New York" → ["New", "York"] → [B-LOC, B-LOC]` — "York" должен быть I-LOC
+Правильно: first subword → original label, rest → `-100` (ignore) или I-tag
+Почему: модель учится что каждый subword = начало entity → precision падает на multi-token entities
 
-Хорошо:
-  training_args = TrainingArguments(
-      learning_rate=2e-5,
-      num_train_epochs=3,
-      eval_strategy='epoch',
-      save_strategy='epoch',
-      load_best_model_at_end=True,
-      warmup_ratio=0.1,
-      weight_decay=0.01,
-      fp16=True,
-  )
-```
+### Без is_split_into_words для pre-tokenized
+Плохо: `tokenizer(text)` для уже разделённых слов → tokenizer разбивает повторно
+Правильно: `tokenizer(words, is_split_into_words=True, truncation=True)`
+Почему: слово `"O'Brien"` разобьётся дважды, label alignment полностью сломается
 
-## NER-специфичные ловушки
+## LoRA / QLoRA
 
-```
-Плохо:
-  # Subword tokens получают label родительского слова
-  "New York" → ["New", "York"] → [B-LOC, B-LOC]
-  // "York" должен быть I-LOC, не B-LOC!
+### r=4 и только q_proj
+Плохо: `LoraConfig(r=4, target_modules=["q_proj"])` — слишком мало capacity
+Правильно: `r=16, target_modules=["q_proj", "v_proj"]` для general, `r=64` + все проекции для complex tasks
+Почему: r=4 недостаточно для domain adaptation. Только q_proj — модель не учится attention patterns
 
-Хорошо:
-  # First subword → original label, rest → -100 (ignore) или I-tag
-  "playing" → ["play", "##ing"] → [B-VERB, -100]
+### QLoRA без compute dtype
+Плохо: `BitsAndBytesConfig(load_in_4bit=True)` — `bnb_4bit_compute_dtype` по умолчанию float32
+Правильно: `bnb_4bit_compute_dtype=torch.float16, bnb_4bit_quant_type="nf4", bnb_4bit_use_double_quant=True`
+Почему: 4-bit storage + float32 compute = медленнее чем float16. Double quant экономит ещё ~0.4 бит/параметр
 
-Плохо:
-  tokenizer(text, truncation=True)
-  // NER: is_split_into_words=True обязателен для pre-tokenized input
-  // Без него tokenizer разобьёт уже разделённые слова повторно
+### LoRA merge забыт перед deployment
+Плохо: deploy модель + отдельный LoRA adapter → нужна peft библиотека в inference
+Правильно: `model.merge_and_unload()` → сохранить как обычную модель
+Почему: без merge — overhead загрузки adapter, dependency на peft, не работает с ONNX/TensorRT
 
-Хорошо:
-  tokenizer(words, is_split_into_words=True, truncation=True)
-```
+## Inference
 
-## LoRA ловушки
+### Inference по одному вместо batch
+Плохо: `for text in texts: pipeline(text)` — GPU простаивает
+Правильно: `pipeline(texts, batch_size=32)` или DataLoader с batch
+Почему: GPU эффективен на batch операциях. По одному — 90% времени GPU idle
 
-```
-Плохо:
-  LoraConfig(r=4, target_modules=["q_proj"])
-  // r=4 слишком мал для complex tasks, только q_proj — недостаточно
+### Full precision на production
+Плохо: inference на float32 — 1.3GB модель, медленно
+Правильно: dynamic quantization `torch.quantization.quantize_dynamic(model, {nn.Linear}, torch.qint8)` или ONNX
+Почему: quantized модель ~4x меньше, 2-4x faster. Для classification/NER деградация quality < 1%
 
-Хорошо (general):
-  LoraConfig(r=16, lora_alpha=32, target_modules=["q_proj", "v_proj"])
-
-Хорошо (complex tasks):
-  LoraConfig(r=64, lora_alpha=16, target_modules=["q_proj", "k_proj", "v_proj", "o_proj"])
-
-Плохо:
-  # QLoRA без правильного compute dtype
-  BitsAndBytesConfig(load_in_4bit=True)
-  // bnb_4bit_compute_dtype по умолчанию float32 — медленно!
-
-Хорошо:
-  BitsAndBytesConfig(
-      load_in_4bit=True,
-      bnb_4bit_quant_type="nf4",
-      bnb_4bit_compute_dtype=torch.float16,  # или bfloat16
-      bnb_4bit_use_double_quant=True
-  )
-```
-
-## Inference ловушки
-
-```
-Плохо:
-  for text in texts:
-      result = pipeline(text)  # По одному — GPU простаивает
-
-Хорошо:
-  results = pipeline(texts, batch_size=32)  # Batched inference
-
-Плохо:
-  model = AutoModel.from_pretrained("bert-large-uncased")
-  # Production inference на full precision
-  // 1.3GB модель, медленный inference
-
-Хорошо:
-  # Quantization для production
-  model = torch.quantization.quantize_dynamic(
-      model, {torch.nn.Linear}, dtype=torch.qint8
-  )
-  // ~440MB → ~110MB, 2-4x faster
-
-Плохо:
-  outputs = model.generate(max_length=1000, do_sample=False)
-  // Greedy decoding — repetitive, boring output
-
-Хорошо:
-  outputs = model.generate(
-      max_length=1000,
-      temperature=0.7, top_p=0.9, do_sample=True
-  )
-```
+### Greedy decoding для generation
+Плохо: `model.generate(max_length=1000, do_sample=False)` — repetitive output
+Правильно: `temperature=0.7, top_p=0.9, do_sample=True` для creative, `num_beams=4` для translation
+Почему: greedy = самый вероятный токен каждый раз → loops и repetition
 
 ## Чек-лист
 
-- [ ] Batched tokenization с padding + truncation
-- [ ] Fine-tuning LR: 2e-5 — 5e-5, не 1e-3
-- [ ] Warmup + early stopping + eval каждую эпоху
-- [ ] Tokenizer сохранён вместе с моделью
-- [ ] NER: `is_split_into_words=True`, subword label alignment
-- [ ] LoRA: r=16+ для реальных задач, правильные target_modules
-- [ ] QLoRA: `bnb_4bit_compute_dtype=float16`
-- [ ] Inference: batched, quantized для production
+- Batched tokenization с padding + truncation
+- Fine-tuning LR: 2e-5 — 5e-5, не 1e-3
+- Warmup + early stopping + eval каждую эпоху
+- Tokenizer сохранён вместе с моделью
+- NER: `is_split_into_words=True`, subword label alignment
+- LoRA: r=16+ для реальных задач, merge перед deploy
+- QLoRA: `bnb_4bit_compute_dtype=float16`
+- Inference: batched, quantized для production

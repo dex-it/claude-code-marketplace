@@ -6,169 +6,101 @@ allowed-tools: Read, Grep, Glob
 
 # ML Optimization — ловушки
 
-## Правила
+## Hyperparameter Tuning
 
-- Profile ПЕРЕД оптимизацией — не оптимизируй то, что не является bottleneck
-- Pruning (MedianPruner, ASHA) обязателен — без него 80% trials тратят время зря
-- Gradient checkpointing = 3x меньше memory, ~20% медленнее — trade-off, не бесплатно
-- `torch.compile()` (PyTorch 2.0+) — бесплатный 20-30% speedup, но первый запуск долгий
+### GridSearch для >4 параметров
+Плохо: `GridSearchCV` с 6 параметрами → `3^6 = 729` trials, большинство бесполезны
+Правильно: Optuna (TPE sampler) или `RandomizedSearchCV` — находят хорошие зоны быстрее
+Почему: grid тратит равное время на все комбинации. TPE фокусируется на перспективных зонах
 
-## Hyperparameter Tuning ловушки
+### Без pruning — 80% trials тратят время зря
+Плохо: `study.optimize(objective, n_trials=100)` — все 100 trials бегут до конца
+Правильно: `pruner=MedianPruner(n_warmup_steps=2)` + `trial.report()` + `trial.should_prune()`
+Почему: trial с loss=10.0 после 1 epoch продолжает ещё 49 epochs. Pruning останавливает плохие trials рано
 
-| Ошибка | Последствие | Решение |
-|--------|-------------|---------|
-| GridSearch для >4 параметров | Комбинаторный взрыв (3^6 = 729 trials) | RandomizedSearch или Optuna (TPE sampler) |
-| Нет pruning | 100 trials по 30 мин = 50 часов, 80% бесполезны | `MedianPruner(n_warmup_steps=2)` |
-| `n_trials=10` | Слишком мало для поиска в 5D пространстве | Минимум 50-100 trials с pruning |
-| Tuning на train metric | Параметры overfit к train data | Всегда optimize val metric |
-| Одинаковый seed для всех trials | Optuna sampler не видит вариативность | `seed` только для reproducibility study, не для sampler |
+### Линейный sampling для LR
+Плохо: `trial.suggest_float('lr', 0.0001, 0.1)` — 90% trials в [0.01, 0.1]
+Правильно: `trial.suggest_float('lr', 1e-5, 1e-2, log=True)` — равномерно по порядкам величин
+Почему: LR 1e-4 и 1e-3 различаются на порядок. Линейный sampling почти никогда не попадёт в 1e-4
 
-```
-Плохо:
-  study = optuna.create_study()
-  study.optimize(objective, n_trials=100)
-  // Без pruner: все 100 trials бегут до конца
-  // Trial с loss=10.0 после 1 epoch продолжает ещё 49 epochs
+### Слишком гранулярный int search
+Плохо: `trial.suggest_int('hidden_dim', 10, 1000)` — 990 вариантов, разница между 437 и 438 = шум
+Правильно: `trial.suggest_categorical('hidden_dim', [64, 128, 256, 512, 1024])` — meaningful choices
+Почему: гранулярный int space раздувает пространство поиска без пользы
 
-Хорошо:
-  study = optuna.create_study(
-      pruner=optuna.pruners.MedianPruner(n_warmup_steps=2)
-  )
-  # В objective:
-  for epoch in range(50):
-      val_loss = train_and_validate()
-      trial.report(val_loss, epoch)
-      if trial.should_prune():
-          raise optuna.TrialPruned()
-  // Плохие trials останавливаются после 2-3 epochs
-```
+### Tuning на train metric
+Плохо: `study.optimize` по train accuracy → параметры overfit к train data
+Правильно: всегда optimize val/test metric
+Почему: train metric всегда растёт с complexity. Без val metric выберешь самый переобученный вариант
 
-## Search Space ошибки
+## Distributed Training
 
-```
-Плохо:
-  lr = trial.suggest_float('lr', 0.0001, 0.1)
-  // Линейный sampling: 90% trials будут в [0.01, 0.1]
-  // LR 0.0001 и 0.001 одинаково редки
+### DDP без масштабирования LR
+Плохо: `batch_size=32, lr=1e-3` на 1 GPU → те же настройки на 4 GPU
+Правильно: linear scaling rule: `lr × num_gpus` или тот же LR с длинным warmup
+Почему: effective batch = 32×4 = 128. Тот же LR для большего batch → underfitting, не сходится
 
-Хорошо:
-  lr = trial.suggest_float('lr', 1e-5, 1e-2, log=True)
-  // Log-uniform: равномерно по порядкам величин
-  // Используй log=True для LR, weight_decay, любых >2 порядков
+### Logging на всех ranks
+Плохо: `print(f"Loss: {loss}")` → 4 GPU = 4 одинаковых print
+Правильно: `if dist.get_rank() == 0:` для logging, saving, validation
+Почему: логи загрязнены дубликатами, checkpoint сохраняется 4 раза, validation считается 4 раза
 
-Плохо:
-  hidden_dim = trial.suggest_int('hidden_dim', 10, 1000)
-  // 990 вариантов — слишком гранулярно
-  // Разница между hidden_dim=437 и 438 — шум
+### DataLoader без DistributedSampler
+Плохо: `DataLoader(dataset, shuffle=True)` с DDP → каждый GPU видит весь dataset
+Правильно: `DistributedSampler(dataset)` + `shuffle=False` + `sampler.set_epoch(epoch)` каждую эпоху
+Почему: без sampler каждый GPU обрабатывает те же данные = 4x duplicate work, не speedup
 
-Хорошо:
-  hidden_dim = trial.suggest_categorical('hidden_dim', [64, 128, 256, 512, 1024])
-  // Meaningful discrete choices
-```
+## Profiling
 
-## Distributed Training ловушки
+### Профилирование всего training run
+Плохо: `with profile(): for epoch in range(100): train()` — гигабайты trace
+Правильно: профилировать 5-10 батчей: `for i, batch in enumerate(loader): if i >= 10: break`
+Почему: bottleneck виден за 5 батчей. 100 эпох profiling = unusable trace file
 
-```
-Плохо:
-  # DDP с batch_size=32 на 4 GPU
-  // Effective batch = 32 * 4 = 128
-  // Но LR тот же что для batch=32 → underfitting
+### GPU utilization ≠ efficiency
+Плохо: "GPU utilization 99%" → "всё оптимизировано"
+Правильно: смотри SM occupancy, memory throughput, kernel launch overhead
+Почему: GPU может быть busy на мелких kernels с простоями между ними. High utilization ≠ high throughput
 
-Правило:
-  Linear scaling rule: LR × num_gpus
-  batch_size=32, lr=1e-3 на 1 GPU
-  → batch_size=32, lr=4e-3 на 4 GPU (или lr=1e-3, warmup дольше)
+### Оптимизация model forward когда bottleneck в data loading
+Плохо: оптимизируешь модель, но `torch.profiler` показывает 60% времени в DataLoader
+Правильно: увеличить `num_workers`, `prefetch_factor`, `pin_memory=True`, `persistent_workers=True`
+Почему: profile ПЕРЕД оптимизацией. Если bottleneck в I/O — любая оптимизация модели бесполезна
 
-Плохо:
-  # DDP: logging на всех ranks
-  print(f"Loss: {loss.item()}")
-  // 4 GPU = 4 одинаковых print
-
-Хорошо:
-  if dist.get_rank() == 0:
-      print(f"Loss: {loss.item()}")
-  // Logging, saving, validation — только на rank 0
-
-Плохо:
-  # DataLoader без DistributedSampler
-  DataLoader(dataset, shuffle=True)
-  // Каждый GPU видит ВЕСЬ dataset → 4x duplicate work
-
-Хорошо:
-  sampler = DistributedSampler(dataset)
-  DataLoader(dataset, sampler=sampler)  # shuffle=False (sampler делает shuffle)
-  # sampler.set_epoch(epoch) в начале каждой эпохи!
-```
-
-## Profiling ловушки
-
-```
-Плохо:
-  # Профилировать весь training run
-  with profile():
-      for epoch in range(100):
-          train(...)
-  // Гигабайты trace, невозможно анализировать
-
-Хорошо:
-  # Профилировать 5-10 батчей
-  with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA]) as prof:
-      for i, batch in enumerate(dataloader):
-          if i >= 10: break
-          train_step(batch)
-
-Плохо:
-  # "GPU utilization 99%" → "всё оптимизировано"
-  // GPU может быть busy, но на мелких kernel'ах с простоями между ними
-  // Смотри: GPU SM occupancy, memory throughput, не просто utilization
-
-Плохо:
-  # Оптимизировать model forward, когда bottleneck — data loading
-  // torch.profiler покажет, что 60% времени — DataLoader
-  // Решение: увеличить num_workers, prefetch_factor
-```
-
-## Memory optimization выбор
+## Memory Optimization
 
 | Проблема | Решение | Trade-off |
 |----------|---------|-----------|
-| OOM при training | Gradient checkpointing | -20% speed, -60% memory |
-| OOM при training | Reduce batch_size + gradient accumulation | Equivalent, чуть медленнее |
-| OOM при inference | `torch.no_grad()` | Бесплатно, всегда делай |
-| OOM при inference | Mixed precision (FP16/BF16) | -50% memory, ~бесплатно |
-| OOM при fine-tuning LLM | QLoRA (4-bit + LoRA) | Чуть ниже quality, -75% memory |
-| Модель не влезает на 1 GPU | Model parallelism / FSDP | Сложная настройка |
+| OOM training | Gradient checkpointing | -20% speed, -60% memory |
+| OOM training | Меньший batch + gradient accumulation | Equivalent math, чуть медленнее |
+| OOM inference | `torch.no_grad()` | Бесплатно, всегда делай |
+| OOM inference | Mixed precision (FP16/BF16) | -50% memory, ~бесплатно |
+| OOM fine-tuning LLM | QLoRA (4-bit + LoRA) | Чуть ниже quality, -75% memory |
+| Модель > 1 GPU | Model parallelism / FSDP | Сложная настройка |
 
-## torch.compile ловушки
+### Gradient accumulation без scale
+Плохо: `loss.backward()` каждый micro-batch, `optimizer.step()` каждые N шагов, но loss не делится на N
+Правильно: `loss = loss / accumulation_steps` перед backward
+Почему: без деления эффективный loss = N × реальный loss → LR фактически в N раз больше → нестабильность
 
-```
-Плохо:
-  model = torch.compile(model, mode='max-autotune')
-  output = model(first_batch)  # Компиляция 5-10 минут!
-  // Первый вызов = compilation, не inference
+## torch.compile
 
-Плохо:
-  model = torch.compile(model)
-  for data in dataloader:
-      if random_condition():
-          output = model.special_forward(data)  # Recompilation!
-      else:
-          output = model(data)
-  // Динамические control flow → recompilation каждый раз
-  // torch.compile хорош для статичного computation graph
+### torch.compile + динамический control flow
+Плохо: `model = torch.compile(model)` + `if random_condition(): model.special_forward(data)` → recompilation
+Правильно: torch.compile для статичного computation graph. Динамические ветки выносить за compiled функцию
+Почему: каждый новый путь = recompilation (минуты). Динамический flow → compile медленнее чем без него
 
-Правило:
-  mode='default' для начала
-  mode='reduce-overhead' для inference
-  mode='max-autotune' только когда compilation time не важен
-```
+### max-autotune для всего
+Плохо: `torch.compile(model, mode='max-autotune')` — первый вызов 5-10 минут
+Правильно: `mode='default'` для начала, `'reduce-overhead'` для inference, `'max-autotune'` только для long training
+Почему: max-autotune перебирает все kernel варианты. Для inference или коротких задач — compilation > execution time
 
 ## Чек-лист
 
-- [ ] Profile → найти bottleneck → оптимизировать (не наоборот)
-- [ ] Optuna: `log=True` для LR/weight_decay, pruner включён
-- [ ] DDP: LR scaled, logging на rank 0, DistributedSampler
-- [ ] Gradient accumulation для эффективного большого batch
-- [ ] Mixed precision (AMP) включён для GPU training
-- [ ] `torch.no_grad()` при inference
-- [ ] torch.compile для PyTorch 2.0+ (статичный граф)
+- Profile → найти bottleneck → оптимизировать (не наоборот)
+- Optuna: `log=True` для LR/weight_decay, pruner включён
+- DDP: LR scaled, logging на rank 0, DistributedSampler
+- Gradient accumulation: `loss / accumulation_steps`
+- Mixed precision (AMP) включён для GPU training
+- `torch.no_grad()` при inference
+- torch.compile для статичного графа, `mode='default'` для начала

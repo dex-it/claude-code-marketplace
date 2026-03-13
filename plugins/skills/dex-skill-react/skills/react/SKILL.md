@@ -4,305 +4,104 @@ description: React паттерны и best practices. Активируется 
 allowed-tools: Read, Grep, Glob
 ---
 
-# React Patterns & Best Practices
+# React — ловушки и anti-patterns
 
-## Структура компонента
+## useEffect
 
-```tsx
-// 1. Imports
-import { useState, useCallback } from 'react';
-import { Button } from '@/components/ui';
-import type { Order } from '@/types';
+### Бесконечный цикл
+Плохо: `useEffect(() => { setCount(count + 1); }, [count])` — state update → re-render → effect → ...
+Правильно: убрать зависимость из deps или использовать `setCount(prev => prev + 1)` без `count` в deps
+Почему: бесконечный ре-рендер, вкладка зависает. React не предупреждает — ошибка тихая
 
-// 2. Types
-interface OrderCardProps {
-  order: Order;
-  onDelete: (id: string) => void;
-}
+### Объект/массив в deps
+Плохо: `useEffect(() => { fetch(options.url); }, [options])` — `{url: '...'}` !== `{url: '...'}`
+Правильно: `useEffect(() => { fetch(url); }, [url])` — конкретные примитивные значения
+Почему: объект пересоздаётся каждый render → новая ссылка → effect срабатывает каждый render = бесконечные запросы
 
-// 3. Component
-export function OrderCard({ order, onDelete }: OrderCardProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+### Stale closure
+Плохо: `useEffect(() => { setInterval(() => console.log(count), 1000); }, [])` — `count` всегда 0
+Правильно: добавить `count` в deps или использовать `ref` для мутабельного значения
+Почему: closure захватывает значение `count` на момент создания effect. Пустые deps = closure никогда не обновляется
 
-  const handleDelete = useCallback(() => {
-    onDelete(order.id);
-  }, [order.id, onDelete]);
+### Утечка памяти — нет cleanup
+Плохо: `useEffect(() => { const ws = new WebSocket(url); ws.onmessage = handler; }, [url])` — без return
+Правильно: `return () => ws.close()` — cleanup при unmount и перед повторным запуском
+Почему: при навигации компонент размонтируется, но WebSocket/таймер/подписка остаётся → обновление state unmounted компонента, утечка памяти
 
-  return (
-    <div>
-      <h3>{order.title}</h3>
-      {isExpanded && <OrderDetails order={order} />}
-      <Button onClick={handleDelete}>Удалить</Button>
-    </div>
-  );
-}
-```
+### fetch без AbortController
+Плохо: `useEffect(() => { fetch(url).then(setData); }, [url])` — при быстрой смене url запросы гонятся
+Правильно: `const controller = new AbortController(); fetch(url, {signal}); return () => controller.abort()`
+Почему: race condition — ответ на старый url приходит ПОСЛЕ нового → отображаются устаревшие данные
 
-### Правила
+## useMemo / useCallback
 
-- Функциональные компоненты (не классы)
-- Named exports (не default)
-- Один компонент = один файл
-- Props через interface, не inline
+### Преждевременная оптимизация
+Плохо: `const name = useMemo(() => user.firstName + ' ' + user.lastName, [user])` — мемоизация дешёвой операции
+Правильно: `const name = user.firstName + ' ' + user.lastName` — без useMemo
+Почему: useMemo имеет цену (сравнение deps, хранение). Для дешёвых операций overhead > выигрыш. Используй когда: дорогие вычисления, передача в `memo()` дочерний компонент, зависимость в другом хуке
 
-## Hooks
+### memo без useCallback на callback props
+Плохо: `<MemoChild onClick={() => doSomething()} />` — memo бесполезен
+Правильно: `const handleClick = useCallback(() => doSomething(), []);` → `<MemoChild onClick={handleClick} />`
+Почему: inline arrow function = новая ссылка каждый render → memo всегда считает что props изменились → ре-рендер всё равно происходит. memo потратил время зря
 
-### useState — простое состояние
-
-```tsx
-// Примитивы
-const [count, setCount] = useState(0);
-const [name, setName] = useState('');
-
-// Объекты — иммутабельное обновление
-const [user, setUser] = useState<User | null>(null);
-setUser(prev => prev ? { ...prev, name: 'New' } : prev);
-
-// Ленивая инициализация (дорогие вычисления)
-const [data, setData] = useState(() => computeExpensiveValue());
-```
-
-### useEffect — побочные эффекты
-
-```tsx
-// Загрузка данных
-useEffect(() => {
-  const controller = new AbortController();
-
-  async function fetchOrders() {
-    try {
-      const res = await fetch('/api/orders', { signal: controller.signal });
-      const data = await res.json();
-      setOrders(data);
-    } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') return;
-      setError(err);
-    }
-  }
-
-  fetchOrders();
-  return () => controller.abort(); // cleanup
-}, []);
-
-// Подписки
-useEffect(() => {
-  const handler = (e: KeyboardEvent) => { /* ... */ };
-  window.addEventListener('keydown', handler);
-  return () => window.removeEventListener('keydown', handler);
-}, []);
-```
-
-### Частые ошибки useEffect
-
-```tsx
-// Плохо — бесконечный цикл
-useEffect(() => {
-  setCount(count + 1); // state update → re-render → effect → ...
-}, [count]);
-
-// Плохо — объект в deps (новая ссылка каждый render)
-useEffect(() => {
-  fetch(options.url);
-}, [options]); // { url: '...' } !== { url: '...' }
-
-// Хорошо — конкретные значения
-useEffect(() => {
-  fetch(url);
-}, [url]);
-```
-
-### useMemo / useCallback — оптимизация
-
-```tsx
-// useMemo — кеширование вычислений
-const filtered = useMemo(
-  () => orders.filter(o => o.status === status),
-  [orders, status]
-);
-
-// useCallback — стабильная ссылка на функцию
-const handleSubmit = useCallback((data: FormData) => {
-  onSubmit(data);
-}, [onSubmit]);
-```
-
-**Не оборачивай всё подряд** — useMemo/useCallback имеют свою цену. Используй когда:
-- Передаёшь в `memo()` дочерний компонент
-- Дорогие вычисления (фильтрация больших массивов)
-- Зависимость в другом хуке
-
-### Custom Hooks — переиспользование логики
-
-```tsx
-function useDebounce<T>(value: T, delay: number): T {
-  const [debounced, setDebounced] = useState(value);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(timer);
-  }, [value, delay]);
-
-  return debounced;
-}
-
-// Использование
-const debouncedSearch = useDebounce(searchQuery, 300);
-```
+### useMemo для JSX
+Плохо: `const header = useMemo(() => <Header title={title} />, [title])` — мемоизация JSX
+Правильно: вынести `Header` в отдельный компонент с `memo()`
+Почему: useMemo для JSX неидиоматичен, сложнее читать и дебажить. `memo()` — стандартный React-способ предотвратить ре-рендер
 
 ## State Management
 
-### Когда что использовать
+### Props Drilling через 3+ уровня
+Плохо: `<Page user={user}><Sidebar user={user}><UserMenu user={user} />` — прокидывание через всех
+Правильно: composition (children), Context для глобального, или Zustand
+Почему: каждый промежуточный компонент зависит от props, которые ему не нужны. Изменение структуры → правки во всей цепочке
 
-| Тип состояния | Решение |
-|---------------|---------|
-| Локальное UI (открыт/закрыт) | `useState` |
-| Форма | `react-hook-form` или `useState` |
-| Серверные данные | React Query / SWR |
-| Глобальное клиентское | Zustand / Redux Toolkit |
-| Тема, locale | React Context |
+### Context для часто меняющихся данных
+Плохо: `<ThemeContext.Provider value={{ theme, mousePosition, scrollY }}>` — все consumers ре-рендерятся
+Правильно: разделить контексты. Часто меняющиеся данные (mousePosition) — в отдельный Context или Zustand
+Почему: любое изменение value → ре-рендер ВСЕХ потребителей Context. `mousePosition` на mousemove = сотни ре-рендеров в секунду всего дерева
 
-### React Query — серверное состояние
+### Серверное состояние в useState
+Плохо: `const [orders, setOrders] = useState([]); useEffect(() => fetch('/orders')..., [])`
+Правильно: `const { data: orders } = useQuery({ queryKey: ['orders'], queryFn: fetchOrders })`
+Почему: useState для серверных данных = ручное управление loading/error/refetch/cache/stale. React Query решает это + дедупликация запросов, фоновый refetch, оптимистичные обновления
 
-```tsx
-function useOrders(status: string) {
-  return useQuery({
-    queryKey: ['orders', status],
-    queryFn: () => api.getOrders(status),
-    staleTime: 5 * 60 * 1000, // 5 мин кеш
-  });
-}
+## Рендеринг
 
-function useCreateOrder() {
-  const queryClient = useQueryClient();
+### key={index} в списках
+Плохо: `items.map((item, i) => <Item key={i} data={item} />)` — index как key
+Правильно: `items.map(item => <Item key={item.id} data={item} />)` — стабильный уникальный id
+Почему: при удалении/добавлении/reorder элементов React сопоставляет по key. Index сдвигается → компоненты получают чужие props и state (input сохраняет значение от другого элемента)
 
-  return useMutation({
-    mutationFn: api.createOrder,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
-    },
-  });
-}
-```
+### Условный рендеринг с &&
+Плохо: `{count && <Badge count={count} />}` — при count=0 рендерит `0` на экране
+Правильно: `{count > 0 && <Badge count={count} />}` или `{count ? <Badge count={count} /> : null}`
+Почему: `0 && <Component />` возвращает `0` (falsy но рендерится React'ом). Аналогично с пустой строкой `''`
 
-### Zustand — глобальное состояние
+### Новый объект/массив в JSX props
+Плохо: `<Chart style={{ marginTop: 10 }} data={[1,2,3]} />` — новый объект каждый render
+Правильно: вынести в константу/useMemo или вне компонента если статичный
+Почему: если `Chart` обёрнут в `memo()` — оптимизация сломана. Если внутри useEffect с этим prop в deps — бесконечный цикл
 
-```tsx
-interface AuthStore {
-  user: User | null;
-  login: (credentials: Credentials) => Promise<void>;
-  logout: () => void;
-}
+## Формы
 
-const useAuthStore = create<AuthStore>((set) => ({
-  user: null,
-  login: async (credentials) => {
-    const user = await api.login(credentials);
-    set({ user });
-  },
-  logout: () => set({ user: null }),
-}));
+### Controlled input без debounce на поиске
+Плохо: `<input onChange={e => setSearch(e.target.value)} />` → запрос на каждый keystroke
+Правильно: debounce перед запросом (useDeferredValue, кастомный хук, или debounce в React Query)
+Почему: 10 символов = 10 запросов к API. Серверная нагрузка, race condition ответов, мерцание UI
 
-// Использование — подписка на конкретное поле
-const user = useAuthStore(state => state.user);
-```
+### Потеря фокуса при ре-рендере формы
+Плохо: компонент формы определён внутри другого компонента — `function Parent() { function Form() {...} }`
+Правильно: `Form` определён на верхнем уровне модуля, вне `Parent`
+Почему: каждый render Parent создаёт НОВЫЙ компонент Form → React размонтирует старый и монтирует новый → input теряет фокус, state сбрасывается
 
-## Паттерны компонентов
+## Чек-лист
 
-### Composition вместо Props Drilling
-
-```tsx
-// Плохо — прокидывание через 3 уровня
-<Page user={user}>
-  <Sidebar user={user}>
-    <UserMenu user={user} />
-
-// Хорошо — composition
-<Page>
-  <Sidebar>
-    <UserMenu user={user} />
-  </Sidebar>
-</Page>
-```
-
-### Controlled vs Uncontrolled
-
-```tsx
-// Controlled — родитель управляет состоянием
-<Input value={name} onChange={setName} />
-
-// Uncontrolled — компонент управляет сам
-<Input defaultValue="initial" ref={inputRef} />
-```
-
-### Error Boundary
-
-```tsx
-class ErrorBoundary extends React.Component<Props, State> {
-  state = { hasError: false };
-
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-
-  componentDidCatch(error: Error, info: ErrorInfo) {
-    logError(error, info);
-  }
-
-  render() {
-    if (this.state.hasError) return <ErrorFallback />;
-    return this.props.children;
-  }
-}
-
-// Оборачивай ключевые секции
-<ErrorBoundary>
-  <OrdersList />
-</ErrorBoundary>
-```
-
-## Performance
-
-### React.memo — пропуск ре-рендера
-
-```tsx
-const OrderRow = memo(function OrderRow({ order }: { order: Order }) {
-  return <tr>...</tr>;
-});
-```
-
-### Виртуализация списков
-
-```tsx
-// Большие списки (1000+ элементов) — используй виртуализацию
-import { useVirtualizer } from '@tanstack/react-virtual';
-```
-
-### Ленивая загрузка
-
-```tsx
-const AdminPanel = lazy(() => import('./AdminPanel'));
-
-<Suspense fallback={<Spinner />}>
-  <AdminPanel />
-</Suspense>
-```
-
-## Структура проекта
-
-```
-src/
-├── components/         # Переиспользуемые UI компоненты
-│   ├── ui/            # Базовые (Button, Input, Modal)
-│   └── shared/        # Бизнес-компоненты (OrderCard)
-├── features/          # Фичи (группировка по домену)
-│   ├── orders/
-│   │   ├── OrderList.tsx
-│   │   ├── OrderForm.tsx
-│   │   ├── useOrders.ts
-│   │   └── orders.api.ts
-│   └── auth/
-├── hooks/             # Общие custom hooks
-├── types/             # TypeScript типы
-├── utils/             # Утилиты
-└── App.tsx
-```
+- useEffect: cleanup есть, deps корректны (нет объектов), AbortController для fetch
+- useMemo/useCallback только когда оправдано (memo child, дорогие вычисления)
+- key — стабильный id, не index
+- Серверные данные — React Query/SWR, не useState+useEffect
+- Нет props drilling через 3+ уровня
+- Context не содержит часто меняющихся данных
+- Компоненты определены на верхнем уровне модуля, не внутри других компонентов

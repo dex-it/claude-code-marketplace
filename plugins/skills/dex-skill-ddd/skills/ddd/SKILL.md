@@ -4,133 +4,106 @@ description: Domain-Driven Design тактические паттерны для
 allowed-tools: Read, Grep, Glob
 ---
 
-# DDD Patterns
-
-## Entity
-
-Объект с идентичностью. Равенство по ID.
-
-```csharp
-public abstract class Entity
-{
-    public int Id { get; protected set; }
-
-    public override bool Equals(object? obj)
-    {
-        if (obj is not Entity other) return false;
-        if (GetType() != other.GetType()) return false;
-        return Id == other.Id;
-    }
-
-    public override int GetHashCode() => Id.GetHashCode();
-}
-```
-
-## Value Object
-
-Объект без идентичности. Immutable. Равенство по значению.
-
-```csharp
-public record Money(decimal Amount, string Currency)
-{
-    public Money Add(Money other)
-    {
-        if (Currency != other.Currency)
-            throw new InvalidOperationException("Different currencies");
-        return new Money(Amount + other.Amount, Currency);
-    }
-}
-
-public record Address(string Street, string City, string PostalCode);
-
-public record Email
-{
-    public string Value { get; }
-
-    public Email(string value)
-    {
-        if (!value.Contains('@'))
-            throw new ArgumentException("Invalid email");
-        Value = value.ToLowerInvariant();
-    }
-}
-```
+# DDD — ловушки и anti-patterns
 
 ## Aggregate
 
-Группа объектов с одной точкой входа (Aggregate Root).
+### Cross-aggregate navigation property
+Плохо: `public Order Order { get; set; }` — навигация между агрегатами
+Правильно: `public int OrderId { get; private set; }` — только ID
+Почему: EF lazy-load тянет граф объектов (N+1), код меняет чужой Aggregate в обход Root, невозможно разнести по микросервисам
 
-```csharp
-public class Order : Entity
-{
-    public int CustomerId { get; private set; }  // ID, не навигация!
-    private readonly List<OrderItem> _items = new();
-    public IReadOnlyCollection<OrderItem> Items => _items.AsReadOnly();
+### Изменение состояния в обход Root
+Плохо: `order.Items.Add(new OrderItem(...))` — прямой доступ к коллекции
+Правильно: `order.AddItem(productId, quantity, price)` — метод на Root
+Почему: инварианты Aggregate не проверяются, бизнес-правила (лимит товаров, проверка статуса) обходятся
 
-    public static Order Create(int customerId)
-    {
-        var order = new Order { CustomerId = customerId };
-        order.AddDomainEvent(new OrderCreatedEvent(order.Id));
-        return order;
-    }
+### Несколько Aggregate в одной транзакции
+Плохо: Handler меняет `Order` + `Inventory` + `Customer` → один `SaveChanges()`
+Правильно: Handler меняет один Aggregate, связь через Domain Events / Outbox
+Почему: блокировки в БД, при росте нагрузки — deadlocks. Невозможно масштабировать, нарушает bounded context
 
-    public void AddItem(int productId, int quantity, Money price)
-    {
-        _items.Add(new OrderItem(productId, quantity, price));
-    }
-}
-```
+### Слишком большой Aggregate
+Плохо: `Order` содержит `Items`, `Payments`, `ShippingHistory`, `AuditLog` — всё в одном Aggregate
+Правильно: `Order` (Items), `Payment` (отдельный Aggregate), `Shipment` (отдельный Aggregate)
+Почему: загрузка Order тянет всю историю, lock на Order блокирует оплату и доставку. Правило: если две сущности не обязаны быть консистентны в одной транзакции — разные Aggregate
 
-## Domain Event
+## Entity
 
-```csharp
-public interface IDomainEvent
-{
-    DateTime OccurredOn { get; }
-}
+### Анемичная модель
+Плохо: Entity с только `get; set;`, вся логика в `OrderService.Cancel(order)`
+Правильно: `order.Cancel()` — логика внутри Entity, сервис только оркестрирует
+Почему: бизнес-правила размазаны по сервисам, дублируются, легко обойти. Entity = данные без поведения = структура, не объект
 
-public record OrderCreatedEvent(int OrderId) : IDomainEvent
-{
-    public DateTime OccurredOn { get; } = DateTime.UtcNow;
-}
+### Public setters на Entity
+Плохо: `public OrderStatus Status { get; set; }` — кто угодно меняет статус
+Правильно: `public OrderStatus Status { get; private set; }` + метод `order.Cancel()`
+Почему: переход Submitted → Cancelled допустим, Delivered → Submitted — нет. Без инкапсуляции инварианты состояния не защищены
 
-// Handler
-public class OrderCreatedHandler : INotificationHandler<OrderCreatedEvent>
-{
-    public async Task Handle(OrderCreatedEvent notification, CancellationToken ct)
-    {
-        await _emailService.SendConfirmationAsync(notification.OrderId);
-    }
-}
-```
+## Value Object
+
+### Мутабельный Value Object
+Плохо: `public class Money { public decimal Amount { get; set; } }`
+Правильно: `public record Money(decimal Amount, string Currency)`
+Почему: Value Object с `set` теряет гарантию equality-by-value. Два объекта равны → один мутировал → второй "тоже изменился" в коллекциях/словарях
+
+### Value Object без валидации в конструкторе
+Плохо: `new Email("")` или `new Money(-100, "")` — создаётся невалидный объект
+Правильно: валидация в конструкторе, `throw` при невалидных данных
+Почему: "always valid" — главная гарантия Value Object. Если можно создать невалидный — проверки расползаются по всему коду
+
+## Domain Events
+
+### Events dispatch ДО SaveChanges
+Плохо: публикация `OrderCreatedEvent` → подписчик запрашивает Order → его ещё нет в БД
+Правильно: collect events → `SaveChangesAsync()` → dispatch events
+Почему: подписчик получает событие о несуществующих данных, race condition между publish и persist
+
+### Event без идемпотентности обработчика
+Плохо: `OrderCreatedHandler` отправляет email без проверки "уже отправлен?"
+Правильно: handler проверяет идемпотентность (по EventId или бизнес-ключу)
+Почему: при retry (сбой после dispatch, до commit) событие обработается повторно — двойной email, двойное списание
+
+### Domain Event содержит Entity целиком
+Плохо: `record OrderCreatedEvent(Order Order)` — передаёт весь Aggregate
+Правильно: `record OrderCreatedEvent(int OrderId, DateTime CreatedAt)` — только ID и нужные данные
+Почему: Event = контракт. Изменение Entity ломает всех подписчиков, сериализация тянет граф объектов, нарушает bounded context
 
 ## Repository
 
-```csharp
-// Domain - интерфейс
-public interface IOrderRepository
-{
-    Task<Order?> GetByIdAsync(int id, CancellationToken ct);
-    Task AddAsync(Order order, CancellationToken ct);
-}
+### Repository для не-Aggregate Root
+Плохо: `IOrderItemRepository` — отдельный репозиторий для вложенной сущности
+Правильно: доступ к `OrderItem` только через `IOrderRepository` → `order.AddItem()`
+Почему: `OrderItem` без `Order` не имеет смысла. Отдельный репозиторий позволяет обходить инварианты Aggregate Root
 
-// Infrastructure - реализация
-public class OrderRepository : IOrderRepository
-{
-    private readonly AppDbContext _context;
+### Repository с бизнес-логикой
+Плохо: `OrderRepository.CreateOrderWithDiscount()` — расчёт скидки в Repository
+Правильно: Repository = CRUD для Aggregate, логика в Domain/Application
+Почему: бизнес-логика привязана к persistence layer, при смене хранилища теряется
 
-    public async Task<Order?> GetByIdAsync(int id, CancellationToken ct)
-    {
-        return await _context.Orders
-            .Include(o => o.Items)
-            .FirstOrDefaultAsync(o => o.Id == id, ct);
-    }
-}
-```
+## Bounded Context
 
-## Правила Aggregate
+### Один DbContext на всё приложение
+Плохо: `AppDbContext` с 50 DbSet — все доменные модели в одном контексте
+Правильно: `OrderDbContext`, `IdentityDbContext`, `CatalogDbContext` — по bounded context
+Почему: изменение одной модели = миграция всего контекста, конфликты между командами, медленная инициализация
 
-1. **Один Aggregate = одна транзакция**
-2. **Ссылки между Aggregate только по ID**
-3. **Aggregate Root - единственная точка входа**
-4. **Cross-aggregate communication через Domain Events**
+### Domain Service с состоянием
+Плохо: `PricingService` хранит кэш цен в поле, зарегистрирован как Scoped
+Правильно: Domain Service — stateless, данные получает через параметры или Repository
+Почему: состояние в сервисе = скрытая зависимость, проблемы с concurrency, непредсказуемое поведение при DI lifetime
+
+### Specification pattern для простых запросов
+Плохо: `new OrderByCustomerSpecification(customerId)` для `WHERE CustomerId = @id`
+Правильно: Specification — для сложных составных фильтров, простые запросы — метод в Repository
+Почему: overhead абстракции без выгоды. Specification оправдан при комбинируемых фильтрах (UI-грид с 10 фильтрами), не для одного WHERE
+
+## Чек-лист
+
+- Ссылки между Aggregate только по ID (не navigation property)
+- Один Aggregate = одна транзакция = один SaveChanges
+- Состояние меняется только через методы Aggregate Root
+- Value Objects immutable (record) с валидацией в конструкторе
+- Domain Events dispatch ПОСЛЕ SaveChanges
+- Repository только для Aggregate Root
+- Bounded Context = отдельный DbContext
