@@ -1,5 +1,5 @@
 ---
-name: ddd-patterns
+name: ddd
 description: Domain-Driven Design тактические паттерны для .NET. Активируется при DDD, domain driven, aggregate, value object, domain event
 allowed-tools: Read, Grep, Glob
 ---

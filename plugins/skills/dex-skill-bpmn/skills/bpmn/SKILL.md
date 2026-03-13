@@ -1,5 +1,5 @@
 ---
-name: bpmn-modeling
+name: bpmn
 description: BPMN — ошибки моделирования, выбор gateway, ловушки. Активируется при bpmn, business process, workflow, swimlane, gateway
 allowed-tools: Read, Grep, Glob
 ---

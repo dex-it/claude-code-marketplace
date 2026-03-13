@@ -1,5 +1,5 @@
 ---
-name: kafka-patterns
+name: kafka
 description: Kafka — producers, consumers, exactly-once, ловушки. Активируется при kafka, producer, consumer, topic, partition, offset, consumer group, schema registry
 allowed-tools: Read, Grep, Glob
 ---

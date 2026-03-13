@@ -1,5 +1,5 @@
 ---
-name: observability-patterns
+name: observability
 description: OpenTelemetry, distributed tracing, metrics, health checks в .NET — ловушки. Активируется при opentelemetry, tracing, observability, prometheus, metrics, health check, telemetry
 allowed-tools: Read, Grep, Glob
 ---

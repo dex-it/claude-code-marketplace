@@ -1,5 +1,5 @@
 ---
-name: tensorflow-patterns
+name: tensorflow
 description: TensorFlow/Keras — ловушки training, tf.data, callbacks, saving. Активируется при tensorflow, keras, tf.data, callback, SavedModel
 allowed-tools: Read, Grep, Glob
 ---
