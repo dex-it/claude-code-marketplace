@@ -4,12 +4,12 @@
 
 ## О проекте
 
-Claude Code Marketplace — набор из 89 специализированных плагинов для Claude Code, организованных в 3 уровня:
+Claude Code Marketplace — набор из 93 специализированных плагинов для Claude Code, организованных в 3 уровня:
 
 ```
-Level 3: BUNDLES (9)     — наборы для быстрой установки по ролям
-Level 2: SPECIALISTS (38) — агенты с узкой специализацией
-Level 1: SKILLS (40)      — базы знаний (автоматическая активация)
+Level 3: BUNDLES (10)     — наборы для быстрой установки по ролям
+Level 2: SPECIALISTS (39) — агенты с узкой специализацией
+Level 1: SKILLS (42)      — базы знаний (автоматическая активация)
          UTILITIES (2)     — инструменты (hooks, notifications)
 ```
 
@@ -68,6 +68,7 @@ claude plugins uninstall dex-dotnet-coder
 |--------|----------|-------------|
 | `dotnet-developer` | .NET разработчик | 12 |
 | `dotnet-fullstack` | .NET + инфраструктура | 29 |
+| `ts-fullstack` | TypeScript fullstack (Node.js/Bun + React) | 7 |
 | `devops` | DevOps инженер | 11 |
 | `product-manager` | Product Manager | 9 |
 | `system-analyst` | Системный аналитик | 9 |
@@ -81,6 +82,12 @@ claude plugins uninstall dex-dotnet-coder
 ## Specialists (Level 2)
 
 Агенты с узкой специализацией. Один агент = один плагин.
+
+### Fullstack (1)
+
+| Плагин | Агент | Описание |
+|--------|-------|----------|
+| dex-ts-fullstack-coder | ts-fullstack-assistant | TypeScript fullstack: Node.js/Bun + React |
 
 ### .NET (6)
 
@@ -157,19 +164,19 @@ claude plugins uninstall dex-dotnet-coder
 
 ## Skills (Level 1)
 
-Базы знаний — активируются автоматически по ключевым словам в контексте. 40 skills по категориям:
+Базы знаний — активируются автоматически по ключевым словам в контексте. 42 skills по категориям:
 
 | Категория | Skills |
 |-----------|--------|
 | **.NET** | dotnet-patterns, ef-core, async-patterns, linq-optimization, api-development, api-documentation, testing-patterns |
-| **Frontend** | react |
+| **Frontend & TypeScript** | react, typescript-patterns, nodejs-api |
 | **Security** | owasp-security |
 | **Workflow** | git-workflow |
-| **Infrastructure** | rabbitmq-patterns, kafka-patterns, elasticsearch-patterns, redis-patterns, mongodb-patterns, docker, kubernetes, gitlab-ci, teamcity-patterns, logging-patterns, observability-patterns |
-| **Architecture** | clean-architecture, ddd-patterns, microservices |
-| **Product & Analysis** | agile, user-stories, bpmn-modeling, doc-standards, api-specification, epic-planning, product-discovery, prioritization |
+| **Infrastructure** | rabbitmq, kafka, elasticsearch, redis, mongodb, docker, kubernetes, gitlab-ci, teamcity, logging, observability |
+| **Architecture** | clean-architecture, ddd, microservices |
+| **Product & Analysis** | agile, user-stories, bpmn, doc-standards, api-specification, epic-planning, product-discovery, prioritization |
 | **QA** | test-design, api-testing |
-| **ML** | pytorch-patterns, tensorflow-patterns, classical-ml, nlp-transformers, computer-vision, ml-optimization |
+| **ML** | pytorch, tensorflow, classical-ml, nlp-transformers, computer-vision, ml-optimization |
 
 ## Utilities (Level 1)
 
@@ -199,20 +206,21 @@ MCP конфигурации в каталоге `mcp/`. Подробнее: [mc
 ```
 claude-code-marketplace/
 ├── plugins/
-│   ├── skills/                    # Level 1: базы знаний (40)
+│   ├── skills/                    # Level 1: базы знаний (42)
 │   │   ├── dex-skill-agile/
 │   │   ├── dex-skill-dotnet-patterns/
 │   │   └── ...
 │   ├── utilities/                 # Level 1: инструменты (2)
 │   │   └── dex-telegram-notifier/
-│   ├── specialists/               # Level 2: агенты (38)
+│   ├── specialists/               # Level 2: агенты (39)
 │   │   ├── dotnet/               # 6 specialists
+│   │   ├── fullstack/            # 1 specialist
 │   │   ├── infrastructure/       # 12 specialists
 │   │   ├── architecture/         # 4 specialists
 │   │   ├── product/              # 8 specialists
 │   │   ├── qa/                   # 3 specialists
 │   │   └── ml/                   # 5 specialists
-│   └── bundles/                   # Level 3: наборы (9)
+│   └── bundles/                   # Level 3: наборы (10)
 │       ├── dex-bundle-dotnet-developer/
 │       └── ...
 ├── install-bundle/                # Скрипты установки/удаления
