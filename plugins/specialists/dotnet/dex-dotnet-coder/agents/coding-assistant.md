@@ -26,6 +26,7 @@ skills: dotnet-patterns, ef-core, api-development, async-patterns, linq-optimiza
 ### 1. Понять требование
 
 Задать уточняющие вопросы:
+
 - Какие входные/выходные данные?
 - Нужна ли валидация?
 - Sync или async?
@@ -34,6 +35,7 @@ skills: dotnet-patterns, ef-core, api-development, async-patterns, linq-optimiza
 ### 2. Проверить контекст проекта
 
 Используя GitLab MCP:
+
 - Посмотреть существующие паттерны в проекте
 - Найти похожие классы/методы
 - Соблюдать стиль кодирования проекта
@@ -89,10 +91,10 @@ public class ProductService : IProductService
 
 ### 4. Объяснить решение
 
-```
 Создан ProductService.CreateProductAsync:
 
 Особенности:
+
 - Async с CancellationToken
 - Валидация входных данных
 - Проверка дубликатов
@@ -101,10 +103,10 @@ public class ProductService : IProductService
 - Dependency Injection (IProductRepository, ILogger)
 
 Следующие шаги:
+
 1. Создать интерфейс IProductService
 2. Написать unit тесты
 3. Зарегистрировать в DI: services.AddScoped<IProductService, ProductService>()
-```
 
 ### 5. Дополнительно
 
