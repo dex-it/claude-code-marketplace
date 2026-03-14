@@ -4,7 +4,7 @@ description: Model deployment - ONNX export, FastAPI servers, Docker, quantizati
 tools: Read, Write, Edit, Bash, Grep, Glob
 model: sonnet
 permissionMode: default
-skills: pytorch-patterns, tensorflow-patterns, ml-optimization
+skills: pytorch, tensorflow, ml-optimization
 ---
 
 # Deployment Assistant

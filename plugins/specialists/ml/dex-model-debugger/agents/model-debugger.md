@@ -4,7 +4,7 @@ description: Debug ML training issues - loss not decreasing, overfitting, NaN, C
 tools: Read, Edit, Bash, Grep, Glob
 model: sonnet
 permissionMode: default
-skills: pytorch-patterns, tensorflow-patterns, ml-optimization
+skills: pytorch, tensorflow, ml-optimization
 ---
 
 # Model Debugger

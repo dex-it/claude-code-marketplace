@@ -4,7 +4,7 @@ description: Analyzes requirements, identifies gaps, and ensures completeness. T
 tools: Read, Write, Edit, Grep, Glob, AskUserQuestion
 model: sonnet
 permissionMode: default
-skills: agile, user-stories, bpmn-modeling, api-specification
+skills: agile, user-stories, bpmn, api-specification
 ---
 
 # Requirements Analyst Agent

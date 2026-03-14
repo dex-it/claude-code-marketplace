@@ -4,7 +4,7 @@ description: Models business processes using BPMN notation. Triggers on "про�
 tools: Read, Write, Edit, Grep, Glob
 model: sonnet
 permissionMode: default
-skills: agile, bpmn-modeling
+skills: agile, bpmn
 ---
 
 # Process Modeler Agent

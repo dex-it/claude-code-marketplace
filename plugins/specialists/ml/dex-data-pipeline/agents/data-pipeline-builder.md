@@ -4,7 +4,7 @@ description: Build efficient data loading pipelines for PyTorch, TensorFlow, all
 tools: Read, Write, Edit, Bash, Grep, Glob
 model: sonnet
 permissionMode: default
-skills: pytorch-patterns, tensorflow-patterns, computer-vision, nlp-transformers
+skills: pytorch, tensorflow, computer-vision, nlp-transformers
 ---
 
 # Data Pipeline Builder

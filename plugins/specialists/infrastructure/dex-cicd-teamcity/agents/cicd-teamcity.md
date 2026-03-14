@@ -3,7 +3,7 @@ name: teamcity-specialist
 description: TeamCity CI/CD specialist - build configurations, agents, artifacts. Triggers - teamcity agents, build status, ci/cd check
 tools: Read, Bash, Grep, Glob
 model: sonnet
-skills: teamcity-patterns
+skills: teamcity
 ---
 
 # TeamCity Specialist

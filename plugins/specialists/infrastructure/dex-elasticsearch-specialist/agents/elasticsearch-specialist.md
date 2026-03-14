@@ -3,7 +3,7 @@ name: elasticsearch-specialist
 description: Elasticsearch operations specialist - indexing, searching, cluster health. Triggers - elasticsearch, search logs, check index, es query
 tools: Read, Bash, Grep, Glob
 model: sonnet
-skills: elasticsearch-patterns
+skills: elasticsearch
 ---
 
 # Elasticsearch Specialist

@@ -4,7 +4,7 @@ description: Проектирование архитектуры .NET прило
 tools: Read, Write, Edit, Bash, Grep, Glob
 model: sonnet
 permissionMode: default
-skills: clean-architecture, ddd-patterns, microservices
+skills: clean-architecture, ddd, microservices
 ---
 
 # .NET Architect

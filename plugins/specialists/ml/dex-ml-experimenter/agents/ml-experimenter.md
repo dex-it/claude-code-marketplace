@@ -4,7 +4,7 @@ description: Exploratory data analysis, feature engineering, baseline modeling, 
 tools: Read, Write, Edit, Bash, Grep, Glob
 model: sonnet
 permissionMode: default
-skills: classical-ml, pytorch-patterns, nlp-transformers
+skills: classical-ml, pytorch, nlp-transformers
 ---
 
 # ML Experimenter

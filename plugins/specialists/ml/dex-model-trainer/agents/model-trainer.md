@@ -4,7 +4,7 @@ description: Training ML models - PyTorch, TensorFlow, sklearn, HuggingFace Tran
 tools: Read, Write, Edit, Bash, Grep, Glob
 model: sonnet
 permissionMode: default
-skills: pytorch-patterns, tensorflow-patterns, classical-ml, nlp-transformers, computer-vision, ml-optimization
+skills: pytorch, tensorflow, classical-ml, nlp-transformers, computer-vision, ml-optimization
 ---
 
 # Model Trainer

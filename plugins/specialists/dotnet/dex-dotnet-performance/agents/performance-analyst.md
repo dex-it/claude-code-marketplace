@@ -4,7 +4,7 @@ description: Performance profiling для .NET приложений - N+1 detect
 tools: Read, Bash, Grep, Glob
 model: sonnet
 permissionMode: default
-skills: ef-core, linq-optimization, redis-patterns, logging-patterns, observability-patterns, mongodb-patterns
+skills: ef-core, linq-optimization, redis, logging, observability, mongodb
 ---
 
 # Performance Analyst
