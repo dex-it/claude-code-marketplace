@@ -1,6 +1,6 @@
 ---
 name: tensorflow
-description: TensorFlow/Keras — ловушки training, tf.data, callbacks, saving. Активируется при tensorflow, keras, tf.data, callback, SavedModel
+description: TensorFlow/Keras — ловушки training, tf.data, callbacks, saving. Активируется при tensorflow, keras, tf.data, callback, SavedModel, tf.function, EarlyStopping, MirroredStrategy, mixed_precision, from_logits, get_config, prefetch, AUTOTUNE, .h5, .keras
 ---
 
 # TensorFlow/Keras — ловушки

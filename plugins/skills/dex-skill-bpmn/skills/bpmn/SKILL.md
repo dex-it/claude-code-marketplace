@@ -1,6 +1,6 @@
 ---
 name: bpmn
-description: BPMN — ошибки моделирования, выбор gateway, ловушки. Активируется при bpmn, business process, workflow, swimlane, gateway
+description: BPMN — ловушки моделирования, gateway, process flow. Активируется при bpmn, business process, workflow, swimlane, gateway, XOR, AND, OR, sequence flow, message flow, pool, lane, sub-process, end event, error boundary, process diagram
 ---
 
 # BPMN — ловушки моделирования

@@ -1,6 +1,6 @@
 ---
 name: api-specification
-description: API design — ошибки контрактов, версионирования, naming. Активируется при api design, openapi, REST API contract, api versioning, endpoint design
+description: API design — ловушки контрактов, naming, версионирования. Активируется при api design, openapi, REST API contract, api versioning, endpoint design, ProblemDetails, RFC 7807, pagination, cursor, kebab-case, breaking change, idempotency, Location header, 201 Created
 ---
 
 # API Specification — ловушки дизайна

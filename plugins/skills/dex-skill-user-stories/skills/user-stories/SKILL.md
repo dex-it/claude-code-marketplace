@@ -1,6 +1,6 @@
 ---
 name: user-stories
-description: User stories — ошибки написания, INVEST нарушения. Активируется при user story, acceptance criteria, Given-When-Then, INVEST
+description: User stories — ловушки написания, INVEST, acceptance criteria. Активируется при user story, acceptance criteria, Given-When-Then, INVEST, As a user I want, story points, split story, happy path, edge case, DoR, spike, AC, user value, пользовательская история
 ---
 
 # User Stories — ловушки

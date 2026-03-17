@@ -1,6 +1,6 @@
 ---
 name: test-design
-description: Техники тест-дизайна — ловушки и ошибки применения. Активируется при equivalence partitioning, boundary values, decision table, state transition, pairwise testing, техники тестирования
+description: Техники тест-дизайна — ловушки применения, пропуск сценариев. Активируется при equivalence partitioning, boundary values, decision table, state transition, pairwise testing, техники тестирования, BVA, EP, negative testing, error guessing, тест-кейс, test case, invalid class, happy path
 ---
 
 # Test Design — ловушки

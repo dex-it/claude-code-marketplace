@@ -1,6 +1,6 @@
 ---
 name: clean-architecture
-description: Clean Architecture паттерны для ASP.NET Core, структура слоёв, правила зависимостей. Активируется при clean architecture, onion, hexagonal, слои приложения
+description: Clean Architecture — ловушки слоёв, зависимостей, транзакций. Активируется при clean architecture, onion, hexagonal, dependency rule, слои приложения, IQueryable, Domain layer, Application layer, Infrastructure layer, MediatR, Handler, IUnitOfWork, IRepository, feature slice, Domain Events, SaveChanges, bounded context, vertical slice
 ---
 
 # Clean Architecture — ловушки и anti-patterns

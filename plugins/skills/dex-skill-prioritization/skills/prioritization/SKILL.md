@@ -1,6 +1,6 @@
 ---
 name: prioritization
-description: Приоритизация — ошибки RICE, ICE, MoSCoW. Активируется при приоритизация, prioritize, RICE score, MoSCoW, backlog prioritization, feature ranking
+description: Приоритизация — ловушки RICE, ICE, MoSCoW, scoring. Активируется при приоритизация, prioritize, RICE score, MoSCoW, backlog prioritization, feature ranking, ICE, Kano model, Value/Effort matrix, reach, confidence, effort, P0, техдолг, quarterly planning
 ---
 
 # Prioritization — ловушки
