@@ -2,7 +2,6 @@
 name: mongodb-specialist
 description: MongoDB operations specialist - documents, queries, indexes, aggregation. Triggers - check mongodb, mongo query, aggregation, indexes
 tools: Read, Bash, Grep, Glob
-model: sonnet
 skills: mongodb
 ---
 

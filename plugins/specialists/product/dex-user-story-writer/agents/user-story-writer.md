@@ -2,7 +2,6 @@
 name: user-story-writer
 description: Writes user stories following INVEST criteria with acceptance criteria. Triggers on "user story", "напиши историю", "create story"
 tools: Read, Write, Edit, Grep, Glob, AskUserQuestion
-model: sonnet
 permissionMode: default
 skills: agile, user-stories
 ---

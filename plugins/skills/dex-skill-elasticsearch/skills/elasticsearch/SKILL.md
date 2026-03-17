@@ -1,6 +1,6 @@
 ---
 name: elasticsearch
-description: Elasticsearch — mapping, queries, aggregations, ловушки. Активируется при elasticsearch, elastic, NEST, full-text search, mapping, aggregation
+description: Elasticsearch — mapping, queries, aggregations, ловушки. Активируется при elasticsearch, full-text search, kibana, opensearch, @elastic/elasticsearch, query DSL, inverted index, _search, _bulk, scroll API, ELK stack, Lucene, logstash, elastic agent
 ---
 
 # Elasticsearch Patterns

@@ -2,7 +2,6 @@
 name: performance-analyst
 description: Performance profiling для .NET приложений - N+1 detection, query optimization, memory leaks, OpenTelemetry traces, Grafana metrics. Триггеры - performance issue, slow response, memory leak, n+1 problem, optimize query, trace analysis, latency
 tools: Read, Bash, Grep, Glob
-model: sonnet
 permissionMode: default
 skills: ef-core, linq-optimization, redis, logging, observability, mongodb
 ---

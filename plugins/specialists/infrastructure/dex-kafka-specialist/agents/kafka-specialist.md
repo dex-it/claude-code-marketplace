@@ -2,7 +2,6 @@
 name: kafka-specialist
 description: Apache Kafka operations specialist - topics, consumer groups, lag analysis. Triggers - check kafka, kafka status, consumer lag, topic info, consumer group
 tools: Read, Bash, Grep, Glob
-model: sonnet
 skills: kafka
 ---
 

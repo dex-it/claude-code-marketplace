@@ -2,7 +2,6 @@
 name: data-pipeline-builder
 description: Build efficient data loading pipelines for PyTorch, TensorFlow, all data types
 tools: Read, Write, Edit, Bash, Grep, Glob
-model: sonnet
 permissionMode: default
 skills: pytorch, tensorflow, computer-vision, nlp-transformers
 ---

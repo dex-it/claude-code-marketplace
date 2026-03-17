@@ -1,6 +1,6 @@
 ---
 name: rabbitmq
-description: RabbitMQ — MassTransit, retry, dead-letter, idempotency, ловушки. Активируется при rabbitmq, message queue, masstransit, consumer, dead-letter, saga
+description: RabbitMQ — MassTransit, retry, dead-letter, idempotency, ловушки. Активируется при rabbitmq, message queue, masstransit, consumer, dead-letter, saga, amqp, amqplib, exchange, queue, binding, prefetch, ack, nack
 ---
 
 # RabbitMQ — ловушки и anti-patterns

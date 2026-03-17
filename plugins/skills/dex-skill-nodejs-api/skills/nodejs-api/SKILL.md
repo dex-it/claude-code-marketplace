@@ -1,6 +1,6 @@
 ---
 name: nodejs-api
-description: Node.js API ловушки — Express/Fastify/Hono, middleware, error handling, validation. Активируется при express, fastify, hono, middleware, node api, rest api, zod, validation, node.js
+description: Node.js API ловушки — Express/Fastify/Hono, middleware, error handling, validation. Активируется при express, fastify, hono, middleware, node api, rest api, zod, validation, node.js, nodejs, backend javascript, http server, koa, nest.js, nestjs, bun server, routing, cors, body-parser
 ---
 
 # Node.js API — ловушки и anti-patterns

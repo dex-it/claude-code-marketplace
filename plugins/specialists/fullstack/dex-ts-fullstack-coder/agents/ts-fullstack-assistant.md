@@ -2,7 +2,6 @@
 name: ts-fullstack-assistant
 description: TypeScript fullstack разработка — Node.js backend, React frontend, API, типизация. Активируется при typescript fullstack, node api, react app, express, fastify
 tools: Read, Write, Edit, Bash, Grep, Glob
-model: sonnet
 skills: typescript-patterns, nodejs-api, react, owasp-security, docker, git-workflow
 ---
 

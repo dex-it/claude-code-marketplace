@@ -2,7 +2,6 @@
 name: docker-specialist
 description: Docker operations specialist - containers, images, docker-compose. Triggers - docker status, container logs, container health, dockerfile, docker-compose
 tools: Read, Bash, Grep, Glob, Write, Edit
-model: sonnet
 skills: docker
 ---
 

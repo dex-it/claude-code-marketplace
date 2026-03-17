@@ -2,7 +2,6 @@
 name: model-debugger
 description: Debug ML training issues - loss not decreasing, overfitting, NaN, CUDA OOM
 tools: Read, Edit, Bash, Grep, Glob
-model: sonnet
 permissionMode: default
 skills: pytorch, tensorflow, ml-optimization
 ---

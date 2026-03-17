@@ -1,6 +1,6 @@
 ---
 name: logging
-description: Structured logging в .NET с Serilog. Активируется при serilog, seq, logging, structured logging, log, enricher, correlation id
+description: Structured logging — ловушки и паттерны. Активируется при serilog, seq, logging, structured logging, enricher, correlation id, winston, pino, bunyan, log level, log rotation, fluentd, log aggregation, request id, context logging
 ---
 
 # Logging — ловушки и anti-patterns

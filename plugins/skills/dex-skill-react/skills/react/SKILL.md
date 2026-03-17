@@ -1,6 +1,6 @@
 ---
 name: react
-description: React паттерны и best practices. Активируется при упоминании react, component, hook, useState, useEffect, props, JSX, TSX, frontend, Redux, Zustand, React Query
+description: React паттерны и best practices. Активируется при react, component, hook, useState, useEffect, props, JSX, TSX, frontend, Redux, Zustand, React Query, Next.js, nextjs, Remix, Vite, SPA, SSR, client component, server component, React Router, TanStack
 ---
 
 # React — ловушки и anti-patterns

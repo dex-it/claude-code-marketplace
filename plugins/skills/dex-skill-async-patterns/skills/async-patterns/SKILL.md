@@ -1,6 +1,6 @@
 ---
 name: async-patterns
-description: Async/await паттерны, блокировки, параллелизм. Активируется при async, await, task, cancellation, parallel, deadlock, semaphore, lock, channel
+description: Async/await паттерны, блокировки, параллелизм. Активируется при async, await, task, cancellation, parallel, deadlock, semaphore, lock, channel, Promise.all, Promise.race, concurrent, throttle, debounce, event loop, worker threads, race condition
 ---
 
 # Async Patterns — ловушки и anti-patterns

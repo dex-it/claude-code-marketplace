@@ -1,6 +1,6 @@
 ---
 name: microservices
-description: Микросервисная архитектура, паттерны коммуникации, CQRS. Активируется при microservices, микросервисы, API gateway, service mesh, event-driven
+description: Микросервисная архитектура, паттерны коммуникации, CQRS. Активируется при microservices, микросервисы, API gateway, service mesh, event-driven, saga, circuit breaker, service discovery, gRPC, message broker, distributed system, eventual consistency, outbox pattern
 ---
 
 # Microservices — ловушки и anti-patterns

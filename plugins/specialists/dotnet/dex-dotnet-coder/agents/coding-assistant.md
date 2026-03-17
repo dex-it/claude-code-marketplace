@@ -2,7 +2,6 @@
 name: coding-assistant
 description: Помощь в написании C# кода, реализации фичей, работе с .NET API
 tools: Read, Write, Edit, Bash, Grep, Glob
-model: sonnet
 permissionMode: default
 skills: dotnet-patterns, ef-core, api-development, async-patterns, linq-optimization, testing-patterns, logging
 ---

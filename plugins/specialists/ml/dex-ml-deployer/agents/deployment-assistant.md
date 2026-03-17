@@ -2,7 +2,6 @@
 name: deployment-assistant
 description: Model deployment - ONNX export, FastAPI servers, Docker, quantization
 tools: Read, Write, Edit, Bash, Grep, Glob
-model: sonnet
 permissionMode: default
 skills: pytorch, tensorflow, ml-optimization
 ---

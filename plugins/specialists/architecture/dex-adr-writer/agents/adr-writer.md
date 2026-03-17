@@ -2,7 +2,6 @@
 name: adr-writer
 description: Создание Architecture Decision Records (ADR) для документирования архитектурных решений
 tools: Read, Write, Grep, Glob
-model: sonnet
 permissionMode: default
 skills: doc-standards
 ---

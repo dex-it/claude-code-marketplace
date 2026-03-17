@@ -2,7 +2,6 @@
 name: grafana-specialist
 description: Grafana monitoring specialist - dashboards, alerts, metrics. Triggers - grafana dashboards, prometheus metrics, check alerts
 tools: Read, Bash, Grep, Glob
-model: sonnet
 skills: observability
 ---
 

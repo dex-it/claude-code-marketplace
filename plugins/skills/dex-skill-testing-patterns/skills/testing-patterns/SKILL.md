@@ -1,6 +1,6 @@
 ---
 name: testing-patterns
-description: Паттерны тестирования — ошибки, антипаттерны, стратегии. Активируется при test, unit test, xunit, moq, testing, integration test
+description: Паттерны тестирования — ошибки, антипаттерны, стратегии. Активируется при test, unit test, xunit, moq, testing, integration test, jest, vitest, playwright, cypress, test coverage, mock, stub, fixture, describe, expect, assert, AAA pattern, e2e test
 ---
 
 # Testing Patterns — ловушки

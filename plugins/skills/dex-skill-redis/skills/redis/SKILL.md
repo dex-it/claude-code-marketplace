@@ -1,6 +1,6 @@
 ---
 name: redis
-description: Redis — кэширование, distributed lock, rate limiting, ловушки. Активируется при redis, cache, distributed cache, pub sub, lock, rate limit, StackExchange
+description: Redis — кэширование, distributed lock, rate limiting, ловушки. Активируется при redis, cache, distributed cache, pub sub, lock, rate limit, StackExchange, ioredis, bullmq, session store, TTL, expire, redis cluster, sentinel, ZADD, key-value store
 ---
 
 # Redis Patterns

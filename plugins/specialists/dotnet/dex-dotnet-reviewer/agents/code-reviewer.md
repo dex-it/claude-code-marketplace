@@ -2,7 +2,6 @@
 name: code-reviewer
 description: Автоматическое ревью C# кода перед commit, проверка качества и security
 tools: Read, Grep, Glob, Bash
-model: sonnet
 permissionMode: default
 skills: dotnet-patterns, linq-optimization, api-development, owasp-security, git-workflow
 ---

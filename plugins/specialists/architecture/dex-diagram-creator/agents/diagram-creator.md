@@ -2,7 +2,6 @@
 name: diagram-creator
 description: Создание архитектурных диаграмм - C4, sequence, component diagrams
 tools: Read, Write, Grep, Glob
-model: sonnet
 permissionMode: default
 skills: clean-architecture, microservices
 ---

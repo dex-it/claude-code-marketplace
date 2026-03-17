@@ -1,6 +1,6 @@
 ---
 name: observability
-description: OpenTelemetry, distributed tracing, metrics, health checks в .NET — ловушки. Активируется при opentelemetry, tracing, observability, prometheus, metrics, health check, telemetry
+description: OpenTelemetry, distributed tracing, metrics, health checks — ловушки. Активируется при opentelemetry, tracing, observability, prometheus, metrics, health check, telemetry, grafana, jaeger, zipkin, span, trace context, baggage, OTLP, prom-client, datadog
 ---
 
 # Observability Patterns — ловушки

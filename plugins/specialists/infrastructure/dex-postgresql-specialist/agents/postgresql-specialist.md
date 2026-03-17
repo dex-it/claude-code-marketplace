@@ -2,7 +2,6 @@
 name: postgresql-specialist
 description: PostgreSQL specialist - query analysis, performance tuning, index optimization. Triggers - check database, analyze query, slow query, postgres
 tools: Read, Bash, Grep, Glob
-model: sonnet
 skills: dotnet-patterns
 ---
 

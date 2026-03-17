@@ -1,6 +1,6 @@
 ---
 name: docker
-description: Docker — ловушки, безопасность, оптимизация образов. Активируется при docker, dockerfile, container, multi-stage, docker-compose
+description: Docker — ловушки, безопасность, оптимизация образов. Активируется при docker, dockerfile, container, multi-stage, docker-compose, docker compose, image, registry, volume, build context, .dockerignore, alpine, distroless, podman
 ---
 
 # Docker — ловушки и anti-patterns

@@ -1,6 +1,6 @@
 ---
 name: kafka
-description: Kafka — producers, consumers, exactly-once, ловушки. Активируется при kafka, producer, consumer, topic, partition, offset, consumer group, schema registry
+description: Kafka — producers, consumers, exactly-once, ловушки. Активируется при kafka, producer, consumer, topic, partition, offset, consumer group, schema registry, kafkajs, confluent, avro, broker, rebalance, dead letter
 ---
 
 # Kafka — ловушки и anti-patterns

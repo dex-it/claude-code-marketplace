@@ -1,6 +1,6 @@
 ---
 name: mongodb
-description: MongoDB — schema design, индексы, aggregation, ловушки. Активируется при mongodb, mongo, bson, aggregation pipeline, document database
+description: MongoDB — schema design, индексы, aggregation, ловушки. Активируется при mongodb, mongo, bson, aggregation pipeline, document database, mongoose, mongosh, replica set, ObjectId, collection, find, updateMany, atlas, NoSQL
 ---
 
 # MongoDB Patterns

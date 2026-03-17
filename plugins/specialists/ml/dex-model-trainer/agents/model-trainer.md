@@ -2,7 +2,6 @@
 name: model-trainer
 description: Training ML models - PyTorch, TensorFlow, sklearn, HuggingFace Transformers
 tools: Read, Write, Edit, Bash, Grep, Glob
-model: sonnet
 permissionMode: default
 skills: pytorch, tensorflow, classical-ml, nlp-transformers, computer-vision, ml-optimization
 ---

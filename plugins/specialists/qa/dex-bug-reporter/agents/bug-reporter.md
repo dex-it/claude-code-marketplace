@@ -2,7 +2,6 @@
 name: bug-reporter
 description: Создание детальных bug reports, анализ воспроизводимости, трейсинг root cause
 tools: Read, Write, Edit, Grep, Glob, Bash
-model: sonnet
 permissionMode: default
 skills: test-design
 ---

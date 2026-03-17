@@ -2,7 +2,6 @@
 name: kubernetes-specialist
 description: Kubernetes operations specialist - pods, deployments, services, troubleshooting. Triggers - k8s status, pod status, deployment status, kubectl
 tools: Read, Bash, Grep, Glob, Write, Edit
-model: sonnet
 skills: kubernetes
 ---
 

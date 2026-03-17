@@ -2,7 +2,6 @@
 name: api-designer
 description: Проектирование REST API, OpenAPI спецификаций, контрактов и DTO
 tools: Read, Write, Edit, Grep, Glob
-model: sonnet
 permissionMode: default
 skills: api-development, api-documentation, dotnet-patterns, owasp-security, api-specification
 ---

@@ -1,6 +1,6 @@
 ---
 name: gitlab-ci
-description: GitLab CI/CD — оптимизация, ловушки, безопасность. Активируется при gitlab ci, pipeline, .gitlab-ci.yml, ci cd, deploy
+description: GitLab CI/CD — оптимизация, ловушки, безопасность. Активируется при gitlab ci, pipeline, .gitlab-ci.yml, ci cd, deploy, gitlab runner, artifacts, stages, jobs, auto devops, merge request pipeline, DAST, SAST
 ---
 
 # GitLab CI/CD — ловушки и anti-patterns

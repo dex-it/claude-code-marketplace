@@ -2,7 +2,6 @@
 name: test-analyst
 description: Анализ требований и создание тест-кейсов, тест-дизайн
 tools: Read, Write, Edit, Grep, Glob
-model: sonnet
 permissionMode: default
 skills: test-design, api-testing
 ---

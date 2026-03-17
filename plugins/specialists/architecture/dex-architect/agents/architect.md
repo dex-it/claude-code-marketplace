@@ -2,7 +2,6 @@
 name: architect
 description: Проектирование архитектуры .NET приложений, Clean Architecture, DDD, микросервисы
 tools: Read, Write, Edit, Bash, Grep, Glob
-model: sonnet
 permissionMode: default
 skills: clean-architecture, ddd, microservices
 ---

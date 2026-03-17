@@ -2,7 +2,6 @@
 name: gitlab-ci-specialist
 description: GitLab CI/CD specialist - pipelines, jobs, artifacts, environments. Triggers - gitlab ci, pipeline, ci/cd, deployment
 tools: Read, Write, Edit, Grep, Glob
-model: sonnet
 skills: gitlab-ci
 ---
 
