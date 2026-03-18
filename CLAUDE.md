@@ -152,7 +152,7 @@ claude-code-marketplace/
 │   ├── README.md
 │   └── mcp-template.json
 ├── plugins/
-│   ├── skills/                    # Level 1: Knowledge bases (42 плагина)
+│   ├── skills/                    # Level 1: Knowledge bases (43 плагина)
 │   │   ├── dex-skill-agile/
 │   │   ├── dex-skill-dotnet-patterns/
 │   │   ├── dex-skill-docker/
@@ -181,7 +181,7 @@ claude-code-marketplace/
 └── LICENSE
 ```
 
-## Level 1: Skills (42 плагина)
+## Level 1: Skills (43 плагина)
 
 Skills - базы знаний, активируются автоматически по ключевым словам в контексте.
 
@@ -234,6 +234,7 @@ Skills - базы знаний, активируются автоматичес�
 | dex-skill-clean-architecture | Clean Architecture: ловушки слоёв, зависимостей, транзакций |
 | dex-skill-ddd | DDD: aggregate, value object, domain events, bounded context |
 | dex-skill-microservices | Microservices: saga, circuit breaker, gRPC, outbox pattern |
+| dex-skill-system-design | System Design: NFR, capacity planning, CAP theorem, trade-offs |
 
 ### Product & Analysis Skills
 | Плагин | Описание |
@@ -388,7 +389,7 @@ Bundles - мета-плагины для удобной установки на�
 | dex-bundle-devops | 6 infrastructure specialists + DevOps skills |
 | dex-bundle-product-manager | 4 product specialists + PM skills |
 | dex-bundle-system-analyst | 4 SA specialists + SA skills |
-| dex-bundle-architect | 4 architecture specialists + architecture skills |
+| dex-bundle-architect | 4 architecture specialists + 11 skills (architecture, security, observability, system design) |
 | dex-bundle-qa-engineer | 3 QA specialists + QA skills |
 | dex-bundle-ml-engineer | 5 ML specialists + ML skills |
 | dex-bundle-ts-fullstack | 1 TS fullstack specialist + 6 skills (TS, Node.js, React, OWASP, Docker, Git) |
@@ -527,8 +528,8 @@ MCP конфигурации в централизованном каталог�
 - dex-dotnet-architect, dex-devops, dex-product-manager...
 
 ### Стало (v5.0)
-93 атомарных плагина без дублирования:
-- 42 skills (Level 1)
+94 атомарных плагина без дублирования:
+- 43 skills (Level 1)
 - 2 utilities (Level 1)
 - 39 specialists (Level 2)
 - 10 bundles (Level 3)

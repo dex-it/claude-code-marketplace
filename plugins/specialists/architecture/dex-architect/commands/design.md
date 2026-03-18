@@ -1,5 +1,5 @@
 ---
-description: Проектирование архитектуры .NET приложения
+description: Проектирование архитектуры приложения
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash
 argument-hint: [domain-name] (опционально)
 ---
@@ -22,9 +22,11 @@ argument-hint: [domain-name] (опционально)
 
 Вопросы:
 - Какой бизнес-домен?
-- Какая ожидаемая нагрузка?
+- Какой технологический стек? (уточнить у пользователя!)
+- Какая ожидаемая нагрузка? (RPS, concurrent users)
 - Сколько разработчиков в команде?
 - Какие интеграции нужны?
+- Какие NFR? (latency, availability, throughput)
 
 ### 2. Определение архитектурного стиля
 
@@ -36,46 +38,48 @@ argument-hint: [domain-name] (опционально)
 | High-load read | CQRS + Read Replicas |
 | Event-heavy | Event-Driven + Event Sourcing |
 
-### 3. Генерация структуры проекта
+### 3. Определение структуры слоёв
 
-**Clean Architecture:**
-```bash
-mkdir -p src/{Domain,Application,Infrastructure,Api}
-mkdir -p src/Domain/{Entities,ValueObjects,Events,Interfaces,Exceptions}
-mkdir -p src/Application/{Commands,Queries,Services,DTOs,Interfaces,Behaviors}
-mkdir -p src/Infrastructure/{Persistence,Identity,Messaging,ExternalServices}
-mkdir -p src/Api/{Controllers,Middleware,Filters}
-mkdir -p tests/{Domain.Tests,Application.Tests,Infrastructure.Tests,Api.Tests}
-mkdir -p docs/{adr,diagrams}
-```
+**Clean Architecture (стек-агностичный):**
 
-### 4. Создание базовых файлов
+| Слой | Ответственность | Зависимости |
+|------|-----------------|-------------|
+| Domain | Бизнес-логика, entities, value objects, domain events | Никаких |
+| Application | Use cases, CQRS handlers, orchestration | Domain |
+| Infrastructure | DB, messaging, external APIs, файловая система | Domain, Application |
+| Presentation | API controllers/handlers, UI, CLI | Application |
 
-- Entity base class
-- IUnitOfWork interface
-- ValidationBehavior
-- ExceptionMiddleware
+Дополнительно:
+- `tests/` — unit, integration, e2e тесты
+- `docs/adr/` — Architecture Decision Records
+- `docs/diagrams/` — C4 и другие диаграммы
 
-### 5. Генерация диаграмм
+### 4. Генерация диаграмм
 
 - C4 Context diagram
 - C4 Container diagram
 - Component diagram
+
+### 5. Создание ADR для ключевых решений
+
+- Выбор архитектурного стиля
+- Выбор технологий
+- Ключевые trade-offs
 
 ## Вывод
 
 ```
 Architecture Design Complete
 
-Project: OrderService
-Style: Clean Architecture + CQRS
+Project: [ServiceName]
+Style: [выбранный стиль]
+Stack: [уточнённый стек]
 
-Structure created:
-src/
-├── Domain/          5 files
-├── Application/     8 files
-├── Infrastructure/  6 files
-└── Api/             4 files
+Layers:
+├── Domain/          entities, value objects, events
+├── Application/     use cases, handlers
+├── Infrastructure/  persistence, messaging
+└── Presentation/    API, UI
 
 Next steps:
 1. Review generated structure
