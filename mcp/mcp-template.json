@@ -1,0 +1,333 @@
+{
+  "_readme": "MCP Server Catalog - скопируйте этот файл в .mcp.json вашего проекта и оставьте только нужные серверы. Переменные окружения настройте в .env (см. run-claude/sample.env)",
+  "_usage": {
+    "dex-product-manager": [
+      "notion"
+    ],
+    "dex-system-analyst": [
+      "pdf-reader",
+      "notion (optional)",
+      "google-drive (optional)"
+    ],
+    "dex-dotnet-developer": [
+      "gitlab",
+      "notion",
+      "genai-toolbox (PostgreSQL, MongoDB, Elasticsearch, Redis)",
+      "rabbitmq",
+      "kafka (optional)",
+      "docker",
+      "seq",
+      "kubernetes",
+      "teamcity (optional)",
+      "grafana (optional)",
+      "openapi (optional)"
+    ],
+    "dex-dotnet-architect": [
+      "github",
+      "gitlab",
+      "notion",
+      "filesystem"
+    ],
+    "dex-python-ml-developer": [
+      "gitlab",
+      "notion (optional)",
+      "mlflow (optional)",
+      "wandb (optional)",
+      "huggingface (optional)"
+    ],
+    "dex-quality-assurance": [
+      "gitlab",
+      "filesystem"
+    ],
+    "dex-devops": [
+      "gitlab"
+    ]
+  },
+  "mcpServers": {
+    "chrome-devtools": {
+      "_description": "Chrome DevTools - browser automation, debugging, testing, screenshots",
+      "_env": [],
+      "command": "npx",
+      "args": [
+        "-y",
+        "chrome-devtools-mcp@latest",
+        "--headless=false",
+        "--isolated=true"
+      ]
+    },
+    "notion": {
+      "_description": "Notion workspace - документация, база знаний, управление проектами",
+      "_env": [
+        "NOTION_TOKEN"
+      ],
+      "command": "npx",
+      "args": [
+        "-y",
+        "@notionhq/notion-mcp-server"
+      ],
+      "env": {
+        "NOTION_TOKEN": "${NOTION_TOKEN}"
+      }
+    },
+    "gitlab_after_v18": {
+      "_description": "GitLab - version control, CI/CD, issues, merge requests",
+      "_env": [
+        "GITLAB_TOKEN",
+        "GITLAB_API_URL (optional)"
+      ],
+      "command": "uvx",
+      "args": [
+        "mcp-server-gitlab"
+      ],
+      "env": {
+        "GITLAB_PERSONAL_ACCESS_TOKEN": "${GITLAB_TOKEN}",
+        "GITLAB_API_URL": "${GITLAB_API_URL:-https://gitlab.com/api/v4}"
+      }
+    },
+    "gitlab_old_before_v18": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@zereight/mcp-gitlab"
+      ],
+      "env": {
+        "GITLAB_PERSONAL_ACCESS_TOKEN": "${GITLAB_TOKEN}",
+        "GITLAB_API_URL": "${GITLAB_API_URL}"
+      }
+    },
+    "github": {
+      "_description": "GitHub - repositories, issues, pull requests, actions",
+      "_env": [
+        "GITHUB_TOKEN"
+      ],
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-github"
+      ],
+      "env": {
+        "GITHUB_TOKEN": "${GITHUB_TOKEN}"
+      }
+    },
+    "genai-toolbox": {
+      "_description": "Universal Database MCP - PostgreSQL, MongoDB, Elasticsearch, Redis, MySQL, BigQuery, ClickHouse, Oracle, SQL Server и другие",
+      "_env": [
+        "TOOLBOX_CONFIG (optional, default: tools.yaml)"
+      ],
+      "_note": "Конфигурация баз данных в tools.yaml. Docs: https://github.com/googleapis/genai-toolbox. Пример: mcp/examples/toolbox-config.yaml",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@anthropic/toolbox-sdk",
+        "--tools-file",
+        "${TOOLBOX_CONFIG:-tools.yaml}"
+      ]
+    },
+    "elasticsearch": {
+      "_description": "Elasticsearch - indexing, searching, aggregations, cluster management",
+      "_env": [
+        "ES_URL",
+        "ES_API_KEY",
+        "ES_SSL_SKIP_VERIFY (optional, default: false)"
+      ],
+      "command": "npx",
+      "args": [
+        "-y",
+        "@elastic/mcp-server-elasticsearch@0.3.1"
+      ],
+      "env": {
+        "ES_URL": "${ES_URL:-http://localhost:9200}",
+        "ES_API_KEY": "${ES_API_KEY}",
+        "ES_SSL_SKIP_VERIFY": "${ES_SSL_SKIP_VERIFY:-false}"
+      }
+    },
+    "rabbitmq": {
+      "_description": "RabbitMQ - message queues, exchanges, bindings, admin API",
+      "_env": [],
+      "_note": "Подключение через MCP tool: rabbitmq_broker_initialize_connection(hostname, username, password, port=5672, use_tls=False). Docs: https://github.com/amazon-mq/mcp-server-rabbitmq",
+      "command": "uvx",
+      "args": [
+        "amq-mcp-server-rabbitmq@latest",
+        "--allow-mutative-tools"
+      ]
+    },
+    "kafka": {
+      "_description": "Apache Kafka - topics, producers, consumers, consumer groups, cluster health",
+      "_env": [
+        "KAFKA_BROKERS",
+        "KAFKA_CLIENT_ID (optional)",
+        "KAFKA_SASL_MECHANISM (optional)",
+        "KAFKA_SASL_USERNAME (optional)",
+        "KAFKA_SASL_PASSWORD (optional)",
+        "KAFKA_TLS_ENABLE (optional)"
+      ],
+      "_note": "Go binary via Homebrew: brew tap tuannvm/mcp && brew install kafka-mcp-server. SASL auth: plain, scram-sha-256, scram-sha-512. Docs: https://github.com/tuannvm/kafka-mcp-server",
+      "command": "kafka-mcp-server",
+      "env": {
+        "KAFKA_BROKERS": "${KAFKA_BROKERS:-localhost:9092}",
+        "KAFKA_CLIENT_ID": "${KAFKA_CLIENT_ID:-kafka-mcp-server}",
+        "MCP_TRANSPORT": "stdio"
+      }
+    },
+    "docker": {
+      "_description": "Docker - containers, images, networks, volumes",
+      "_env": [],
+      "command": "uvx",
+      "args": [
+        "docker-mcp"
+      ]
+    },
+    "seq": {
+      "_description": "Seq - structured logging server, log analysis",
+      "_env": [
+        "SEQ_SERVER_URL",
+        "SEQ_API_KEY"
+      ],
+      "command": "seq-mcp-server",
+      "env": {
+        "SEQ_SERVER_URL": "${SEQ_SERVER_URL:-http://localhost:5341}",
+        "SEQ_API_KEY": "${SEQ_API_KEY}"
+      }
+    },
+    "kubernetes": {
+      "_description": "Kubernetes - pods, deployments, services, configmaps",
+      "_env": [
+        "K8S_READONLY (optional)"
+      ],
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-server-kubernetes"
+      ],
+      "env": {
+        "ALLOW_ONLY_NON_DESTRUCTIVE_TOOLS": "${K8S_READONLY:-false}"
+      }
+    },
+    "pdf-reader": {
+      "_description": "PDF Reader - чтение и анализ PDF документов",
+      "_env": [],
+      "command": "npx",
+      "args": [
+        "-y",
+        "@sylphx/pdf-reader-mcp"
+      ]
+    },
+    "google-drive": {
+      "_description": "Google Drive - работа с Google Docs, Sheets, Slides",
+      "_env": [
+        "GOOGLE_DRIVE_OAUTH_CREDENTIALS"
+      ],
+      "command": "npx",
+      "args": [
+        "-y",
+        "@piotr-agier/google-drive-mcp"
+      ],
+      "env": {
+        "GOOGLE_DRIVE_OAUTH_CREDENTIALS": "${GOOGLE_DRIVE_OAUTH_CREDENTIALS}"
+      }
+    },
+    "mlflow": {
+      "_description": "MLflow - experiment tracking, model registry, ML lifecycle",
+      "_env": [
+        "MLFLOW_TRACKING_URI"
+      ],
+      "command": "uvx",
+      "args": [
+        "mcp-server-mlflow"
+      ],
+      "env": {
+        "MLFLOW_TRACKING_URI": "${MLFLOW_TRACKING_URI:-http://localhost:5000}"
+      }
+    },
+    "wandb": {
+      "_description": "Weights & Biases - ML experiment tracking, visualizations",
+      "_env": [
+        "WANDB_API_KEY"
+      ],
+      "command": "npx",
+      "args": [
+        "-y",
+        "@wandb/mcp-server"
+      ],
+      "env": {
+        "WANDB_API_KEY": "${WANDB_API_KEY}"
+      }
+    },
+    "huggingface": {
+      "_description": "HuggingFace - models hub, datasets, tokenizers",
+      "_env": [
+        "HUGGINGFACE_TOKEN"
+      ],
+      "command": "npx",
+      "args": [
+        "-y",
+        "@huggingface/mcp-server"
+      ],
+      "env": {
+        "HUGGINGFACE_TOKEN": "${HUGGINGFACE_TOKEN}"
+      }
+    },
+    "filesystem": {
+      "_description": "Filesystem - локальные файлы и директории (настройте пути под проект)",
+      "_env": [],
+      "_note": "Измените --allow-read и --allow-write под ваш проект",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "--allow-read",
+        ".",
+        "--allow-write",
+        "src",
+        "--allow-write",
+        "docs"
+      ]
+    },
+    "teamcity": {
+      "_description": "TeamCity - CI/CD builds, projects, agents, test analysis (~77 tools in dev mode)",
+      "_env": [
+        "TEAMCITY_URL",
+        "TEAMCITY_TOKEN",
+        "MCP_MODE (optional)"
+      ],
+      "_note": "Requires Node.js >= 20.10.0. Source: https://github.com/Daghis/teamcity-mcp",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@daghis/teamcity-mcp"
+      ],
+      "env": {
+        "TEAMCITY_URL": "${TEAMCITY_URL}",
+        "TEAMCITY_TOKEN": "${TEAMCITY_TOKEN}",
+        "MCP_MODE": "${MCP_MODE:-dev}"
+      }
+    },
+    "grafana": {
+      "_description": "Grafana - dashboards, Prometheus metrics, Loki logs, incidents",
+      "_env": [
+        "GRAFANA_URL",
+        "GRAFANA_API_KEY"
+      ],
+      "_note": "Requires Grafana 9.0+. Use --disable-write for read-only mode",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@grafana/mcp-grafana"
+      ],
+      "env": {
+        "GRAFANA_URL": "${GRAFANA_URL:-http://localhost:3000}",
+        "GRAFANA_API_KEY": "${GRAFANA_API_KEY}"
+      }
+    },
+    "openapi": {
+      "_description": "OpenAPI/Swagger - API documentation validation and dynamic tools",
+      "_env": [],
+      "_note": "Transforms Swagger specs into dynamic tools. Source: https://github.com/danishjsheikh/swagger-mcp",
+      "command": "npx",
+      "args": [
+        "-y",
+        "swagger-mcp"
+      ]
+    }
+  }
+}

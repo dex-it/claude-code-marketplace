@@ -1,0 +1,29 @@
+root = true
+
+# All files
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+
+# JavaScript, JSON, YAML, Markdown
+[*.{js,json,md,yml,yaml}]
+indent_size = 2
+
+# C#
+[*.cs]
+indent_size = 4
+
+# Markdown - don't trim trailing whitespace (for line breaks)
+[*.md]
+trim_trailing_whitespace = false
+
+# XML project files
+[*.{csproj,vbproj,vcxproj,vcxproj.filters,proj,projitems,shproj}]
+indent_size = 2
+
+# Props and targets
+[*.{props,targets,ruleset,config,nuspec,resx,vsixmanifest,vsct}]
+indent_size = 2
