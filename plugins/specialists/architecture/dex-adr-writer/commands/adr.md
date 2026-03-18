@@ -1,5 +1,5 @@
 ---
-description: Создание Architecture Decision Record (ADR)
+description: Создание Architecture Decision Record (ADR) в формате MADR
 allowed-tools: Read, Write, Grep, Glob
 argument-hint: <title> (название решения)
 ---
@@ -21,8 +21,8 @@ argument-hint: <title> (название решения)
 ### 1. Определить номер ADR
 
 ```bash
-next_num=$(ls docs/adr/ADR-*.md 2>/dev/null | wc -l)
-next_num=$((next_num + 1))
+next_num=$(ls docs/adr/ADR-*.md 2>/dev/null | grep -oP 'ADR-\K\d+' | sort -n | tail -1)
+next_num=$(( ${next_num:-0} + 1 ))
 printf "ADR-%03d" $next_num
 ```
 
@@ -30,7 +30,7 @@ printf "ADR-%03d" $next_num
 
 **Вопросы:**
 - Какую проблему решаем?
-- Какие есть ограничения?
+- Какие decision drivers (ограничения, требования)?
 - Какие альтернативы рассматривали?
 - Почему выбрали это решение?
 - Какие последствия?
@@ -39,7 +39,7 @@ printf "ADR-%03d" $next_num
 
 **Путь:** `docs/adr/ADR-{NUM}-{slug}.md`
 
-### 4. Заполнить шаблон
+### 4. Заполнить шаблон (MADR)
 
 ```markdown
 # ADR-{NUM}: {TITLE}
@@ -49,6 +49,9 @@ Proposed
 
 ## Date
 {TODAY}
+
+## Decision Drivers
+- {что повлияло на решение}
 
 ## Context
 {Описание проблемы}
@@ -72,9 +75,14 @@ Proposed
 ### Alternative 1: {Name}
 ...
 
-## References
-- ...
+## Links
+- {Связь с другими ADR или внешние ссылки}
 ```
+
+### 5. Supersession (если заменяет старый ADR)
+
+- В новом ADR: `## Links` → `Supersedes [ADR-XXX](ADR-XXX-slug.md)`
+- В старом ADR: `## Status` → `Superseded by [ADR-YYY](ADR-YYY-slug.md)`
 
 ## Популярные ADR
 
@@ -96,10 +104,9 @@ File: docs/adr/ADR-003-rabbitmq-messaging.md
 Status: Proposed
 Date: 2024-01-25
 
-Summary:
-- Decision: RabbitMQ с MassTransit
-- Alternatives considered: 3
-- Key consequence: Need RabbitMQ infrastructure
+Decision Drivers: latency, team expertise, operational cost
+Decision: RabbitMQ
+Alternatives considered: 3
 
 Index updated: docs/adr/README.md
 

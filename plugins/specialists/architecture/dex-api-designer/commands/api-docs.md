@@ -5,7 +5,7 @@ allowed-tools: Bash, Read, Write, Grep, Glob
 
 # /api-docs
 
-Генерация и валидация OpenAPI/Swagger документации для .NET API.
+Генерация и валидация OpenAPI/Swagger документации.
 
 ## Использование
 
@@ -18,49 +18,32 @@ allowed-tools: Bash, Read, Write, Grep, Glob
 
 ## Процесс
 
-### 1. Генерация OpenAPI из кода
-
-**Через dotnet swagger CLI:**
-```bash
-# Установка (если нет)
-dotnet tool install -g Swashbuckle.AspNetCore.Cli
-
-# Генерация
-dotnet swagger tofile --output openapi.json ./bin/Release/net8.0/MyApi.dll v1
-```
-
-**Через запущенное приложение:**
-```bash
-# Запустить приложение и получить spec
-curl http://localhost:5000/swagger/v1/swagger.json -o openapi.json
-```
-
-### 2. Валидация спецификации
+### 1. Валидация спецификации
 
 ```bash
-# Используя spectral (установка: npm install -g @stoplight/spectral-cli)
-spectral lint openapi.json
+# Используя spectral (npm install -g @stoplight/spectral-cli)
+spectral lint openapi.yaml
 
-# Или через OpenAPI MCP
-# MCP автоматически валидирует при загрузке spec
+# Или Redocly CLI (npm install -g @redocly/cli)
+redocly lint openapi.yaml
 ```
 
 **Типичные проблемы:**
 
 | Код | Описание | Решение |
 |-----|----------|---------|
-| oas3-valid-schema-example | Неверный example | Исправить example в XML doc |
-| operation-operationId | Нет operationId | Добавить [SwaggerOperation] |
+| oas3-valid-schema-example | Неверный example | Исправить example в spec |
+| operation-operationId | Нет operationId | Добавить operationId |
 | oas3-unused-component | Неиспользуемая схема | Удалить или использовать |
 
-### 3. Сравнение версий API
+### 2. Сравнение версий API
 
 ```bash
 # Используя oasdiff (https://github.com/Tufin/oasdiff)
-oasdiff diff openapi-v1.json openapi-v2.json
+oasdiff diff openapi-v1.yaml openapi-v2.yaml
 
 # Breaking changes
-oasdiff breaking openapi-v1.json openapi-v2.json
+oasdiff breaking openapi-v1.yaml openapi-v2.yaml
 ```
 
 **Breaking changes to watch:**
@@ -69,60 +52,14 @@ oasdiff breaking openapi-v1.json openapi-v2.json
 - Добавление required параметра
 - Изменение response schema
 
-### 4. Настройка Swashbuckle
+### 3. Генерация документации
 
-**Program.cs:**
-```csharp
-builder.Services.AddSwaggerGen(c =>
-{
-    c.SwaggerDoc("v1", new OpenApiInfo
-    {
-        Title = "My API",
-        Version = "v1",
-        Description = "API documentation",
-        Contact = new OpenApiContact
-        {
-            Name = "API Support",
-            Email = "api@example.com"
-        }
-    });
+```bash
+# Redocly — красивый HTML из OpenAPI
+redocly build-docs openapi.yaml -o docs/api.html
 
-    // XML документация
-    var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
-    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-    c.IncludeXmlComments(xmlPath);
-
-    // JWT авторизация
-    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-    {
-        Type = SecuritySchemeType.Http,
-        Scheme = "bearer",
-        BearerFormat = "JWT"
-    });
-
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
-        {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            Array.Empty<string>()
-        }
-    });
-});
-```
-
-**Включить XML docs в .csproj:**
-```xml
-<PropertyGroup>
-  <GenerateDocumentationFile>true</GenerateDocumentationFile>
-  <NoWarn>$(NoWarn);1591</NoWarn>
-</PropertyGroup>
+# Swagger UI — интерактивный sandbox
+# Доступен через фреймворк (ASP.NET, FastAPI, NestJS и др.)
 ```
 
 ## Выходной формат
@@ -131,31 +68,13 @@ builder.Services.AddSwaggerGen(c =>
 OpenAPI Documentation Report
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Source: ./bin/Release/net8.0/MyApi.dll
-Output: openapi.json
+Source: openapi.yaml
 Version: 1.0.0
 
-Endpoints discovered: 24
-- GET    /api/v1/products (8)
-- POST   /api/v1/products (3)
-- PUT    /api/v1/products/{id} (3)
-- DELETE /api/v1/products/{id} (2)
-- ...
-
-Schemas: 15
-- ProductResponse
-- CreateProductRequest
-- ProductListResponse
-- ErrorResponse
-- ...
+Endpoints discovered: N
+Schemas: M
 
 Validation: ✅ Passed (0 errors, 2 warnings)
-⚠️ operation-description: GET /api/v1/products missing description
-⚠️ oas3-valid-schema-example: ProductResponse.price example type mismatch
-
-Files created:
-- openapi.json (45 KB)
-- openapi.yaml (38 KB)
 
 Next steps:
 1. Review generated documentation
@@ -166,6 +85,6 @@ Next steps:
 
 ## Интеграция
 
-- **Notion:** Документировать API изменения
-- **GitLab:** Добавить openapi.json в репозиторий
-- **NSwag:** Сгенерировать клиентские SDK
+- **GitLab/GitHub:** Добавить openapi.yaml в репозиторий
+- **CI/CD:** Линтинг spectral/redocly в pipeline
+- **SDK:** Генерация клиентских SDK (openapi-generator, NSwag, orval)
