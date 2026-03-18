@@ -94,16 +94,3 @@ description: "System design anti-patterns — ловушки NFR, capacity plann
 Неправильно: сравнивать только features и performance
 Правильно: учитывать — мониторинг, обновления, backup, hiring, on-call burden
 Почему: managed PostgreSQL дешевле self-hosted CockroachDB даже если CockroachDB "лучше"
-
-## Architecture Review Checklist
-
-```
-□ NFR определены с числами (latency, throughput, availability)
-□ SLI/SLO определены и мониторятся
-□ Capacity estimation выполнен (back-of-envelope)
-□ Failure modes определены (что если X упадёт?)
-□ Consistency model выбран осознанно (strong/eventual per operation)
-□ Stateless сервисы (state externalized)
-□ Technology choices обоснованы (PoC, criteria matrix)
-□ Operational cost оценен (не только development cost)
-```
