@@ -337,10 +337,10 @@ Specialists - агенты с узкой специализацией. Один 
 
 | Плагин | Описание |
 |--------|----------|
-| dex-architect | System design, patterns, trade-offs |
-| dex-adr-writer | Architecture Decision Records |
-| dex-diagram-creator | C4, sequence diagrams, Mermaid, PlantUML |
-| dex-api-designer | REST API design, OpenAPI, versioning |
+| dex-architect | System design, Clean Architecture, DDD, microservices, NFR analysis, trade-offs |
+| dex-adr-writer | Architecture Decision Records, MADR format, decision drivers, trade-offs |
+| dex-diagram-creator | C4, sequence, ER, state diagrams, Mermaid, PlantUML, Structurizr DSL |
+| dex-api-designer | REST, GraphQL, gRPC, AsyncAPI, OpenAPI, contract-first, versioning |
 
 ### Product Specialists (4)
 
