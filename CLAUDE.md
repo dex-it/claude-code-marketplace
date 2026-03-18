@@ -118,7 +118,7 @@ public class AppDbContext : DbContext       ← Claude знает
 - Best practices: https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices
 
 При ревью проверять:
-1. **Frontmatter** — корректные поля (name, description, allowed-tools, disable-model-invocation, user-invokable, argument-hint, compatibility, license, metadata)
+1. **Frontmatter** — корректные поля (name, description, disable-model-invocation, user-invokable, argument-hint, compatibility, license, metadata). **НЕ** использовать `allowed-tools` — не поддерживается
 2. **description** — содержит ключевые слова для семантической активации (см. правила ниже)
 3. **Содержание** — ловушки/anti-patterns, а не документация (проектное правило)
 4. **Размер** — до 500 строк (официальный лимит), проект рекомендует 80-150
@@ -485,7 +485,7 @@ name: skill-name
 description: Ключевые слова для автоматической активации
 ---
 ```
-> Валидные поля frontmatter: name, description, allowed-tools, disable-model-invocation, user-invokable, argument-hint, compatibility, license, metadata.
+> **Важно:** `allowed-tools` не поддерживается в skills. Валидные поля: name, description, disable-model-invocation, user-invokable, argument-hint, compatibility, license, metadata.
 
 ## Технологический стек
 
