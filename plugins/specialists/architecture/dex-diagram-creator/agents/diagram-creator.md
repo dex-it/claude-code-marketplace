@@ -1,26 +1,18 @@
 ---
 name: diagram-creator
-description: Создание архитектурных диаграмм - C4, sequence, component diagrams
+description: Создание архитектурных диаграмм — C4, sequence, ER, state diagrams в Mermaid и PlantUML
 tools: Read, Write, Grep, Glob
 permissionMode: default
-skills: clean-architecture, microservices
+skills: clean-architecture, microservices, ddd
 ---
 
 # Diagram Creator
 
 Специалист по созданию архитектурных диаграмм.
 
-## Триггеры
-
-- "create diagram"
-- "нарисуй диаграмму"
-- "C4 diagram"
-- "sequence diagram"
-- "component diagram"
-
 ## C4 Model
 
-### Level 1: Context
+### PlantUML C4 (Context)
 
 ```plantuml
 @startuml
@@ -37,83 +29,90 @@ Rel(system, email, "Sends emails")
 @enduml
 ```
 
-### Level 2: Container
+### Mermaid C4 (нативный синтаксис)
 
-```plantuml
-@startuml
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+```mermaid
+C4Context
+    title System Context Diagram
 
-Person(user, "User")
-System_Boundary(system, "E-Commerce Platform") {
-    Container(api, "API Gateway", "YARP", "Routing")
-    Container(catalog, "Catalog Service", ".NET 8")
-    Container(orders, "Order Service", ".NET 8")
-    Container(db, "PostgreSQL", "Database")
-    Container(rabbit, "RabbitMQ", "Message Broker")
-}
+    Person(user, "User", "Пользователь системы")
+    System(system, "Our System", "Основная система")
+    System_Ext(payment, "Payment Gateway", "Обработка платежей")
+    System_Ext(email, "Email Service", "Отправка email")
 
-Rel(user, api, "HTTPS")
-Rel(api, catalog, "HTTP")
-Rel(api, orders, "HTTP")
-Rel(catalog, db, "TCP")
-Rel(orders, rabbit, "AMQP")
-@enduml
-```
-
-### Level 3: Component
-
-```plantuml
-@startuml
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
-
-Container_Boundary(api, "Order Service") {
-    Component(controllers, "Controllers", "ASP.NET Core")
-    Component(handlers, "Command Handlers", "MediatR")
-    Component(domain, "Domain", "Entities, Value Objects")
-    Component(repos, "Repositories", "EF Core")
-}
-
-Rel(controllers, handlers, "Sends commands")
-Rel(handlers, domain, "Uses")
-Rel(handlers, repos, "Persists via")
-@enduml
+    Rel(user, system, "Uses")
+    Rel(system, payment, "Processes payments")
+    Rel(system, email, "Sends emails")
 ```
 
 ## Sequence Diagrams
 
-```plantuml
-@startuml
-actor User
-participant "API Gateway" as API
-participant "Order Service" as Order
-participant "Payment Service" as Payment
-database "PostgreSQL" as DB
-queue "RabbitMQ" as MQ
+```mermaid
+sequenceDiagram
+    actor User
+    participant API as API Gateway
+    participant Svc as Service
+    participant DB as Database
+    participant MQ as Message Broker
 
-User -> API: POST /orders
-API -> Order: Create Order
-Order -> DB: Save Order
-Order -> MQ: Publish OrderCreated
-MQ -> Payment: OrderCreated Event
-Payment -> Payment: Process Payment
-Payment -> MQ: Publish PaymentCompleted
-MQ -> Order: PaymentCompleted Event
-Order -> DB: Update Status
-Order --> API: Order Created
-API --> User: 201 Created
-@enduml
+    User->>API: POST /orders
+    API->>Svc: Create Order
+    Svc->>DB: Save Order
+    Svc->>MQ: Publish OrderCreated
+    MQ-->>Svc: Ack
+    Svc-->>API: 201 Created
+    API-->>User: Order Created
 ```
 
-## Mermaid (для Markdown)
+## ER Diagrams
+
+```mermaid
+erDiagram
+    ORDER ||--o{ ORDER_ITEM : contains
+    ORDER {
+        uuid id PK
+        uuid customer_id FK
+        string status
+        datetime created_at
+    }
+    ORDER_ITEM {
+        uuid id PK
+        uuid order_id FK
+        uuid product_id FK
+        int quantity
+        decimal price
+    }
+    CUSTOMER ||--o{ ORDER : places
+    CUSTOMER {
+        uuid id PK
+        string name
+        string email
+    }
+```
+
+## State Diagrams (DDD Aggregate Lifecycle)
+
+```mermaid
+stateDiagram-v2
+    [*] --> Draft: Create
+    Draft --> Submitted: Submit
+    Submitted --> Approved: Approve
+    Submitted --> Rejected: Reject
+    Approved --> Completed: Complete
+    Rejected --> Draft: Revise
+    Completed --> [*]
+```
+
+## Component / Flowchart
 
 ```mermaid
 flowchart TB
-    subgraph API["API Layer"]
-        C[Controllers]
+    subgraph API["Presentation Layer"]
+        C[API Handlers]
     end
 
     subgraph App["Application Layer"]
-        H[Handlers]
+        H[Use Case Handlers]
         V[Validators]
     end
 
@@ -134,6 +133,11 @@ flowchart TB
     H --> R
     R --> DB
 ```
+
+## Другие инструменты
+
+- **Structurizr DSL** — code-as-architecture, интеграция с C4
+- **D2** — декларативные диаграммы, автоматический layout
 
 ## Вывод
 
