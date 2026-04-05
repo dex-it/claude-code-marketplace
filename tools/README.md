@@ -90,3 +90,51 @@ npm run validate:errors       # только errors, для CI
 - Проверка соответствия `tools:` во frontmatter реально используемым tools в теле агента
 
 Эти проверки — кандидаты для второй версии после того, как фреймворк стабилизируется на большем количестве мигрированных агентов.
+
+## validate-skill.js
+
+Валидатор skills, проверяющий соответствие [Skill Framework](../SKILL_FRAMEWORK.md).
+
+### Что проверяет
+
+**Errors:**
+
+- Обязательные frontmatter поля `name`, `description`
+- Запрещённое поле `allowed-tools`
+- Description не содержит «Активируется при» / «Triggers» — единственный механизм автоматической активации
+- Размер файла > 500 строк (официальный лимит Claude Code)
+
+**Warnings:**
+
+- Description короче 50 символов
+- Меньше 10 ключевых слов после «Активируется при»
+- Меньше 5 H3-секций (слишком мало ловушек)
+- Fenced code block длиннее 5 строк (принцип «pointer, не код» — развёрнутый snippet вместо ссылки на API)
+- H3-ловушка без триады «Плохо / Правильно / Почему»
+- Размер файла > 150 строк (проектная рекомендация, но не hard limit)
+- Заголовки в стиле документации («Как настроить X», «Что такое Y», «Шаг N»)
+
+### Запуск
+
+```bash
+# Один файл
+node tools/validate-skill.js plugins/skills/dex-skill-ef-core/skills/ef-core/SKILL.md
+
+# Все skills в plugins/skills/
+node tools/validate-skill.js all
+
+# Только errors
+node tools/validate-skill.js all --errors-only
+```
+
+Через npm scripts:
+
+```bash
+npm run validate:skills      # все skills с warnings
+npm run validate              # agents + skills
+npm run validate:errors       # оба валидатора, только errors
+```
+
+### Коды возврата
+
+Аналогично `validate-agent.js`: 0 — чисто, 1 — errors, 2 — только warnings.
