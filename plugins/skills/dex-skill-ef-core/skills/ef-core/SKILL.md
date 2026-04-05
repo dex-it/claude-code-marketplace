@@ -110,19 +110,19 @@ description: Entity Framework Core — ловушки запросов, тран
 Почему: retry после timeout не знает — запрос выполнился или нет. Без проверки — дублирование записей
 
 ### Вложенный BeginTransaction — InvalidOperationException
-Плохо: `await using var tx2 = await context.Database.BeginTransactionAsync()` при активной `CurrentTransaction` — бросит `InvalidOperationException: The connection is already in a transaction`
-Правильно: savepoint внутри существующей TX — `await tx.CreateSavepointAsync("step1"); try { ... await context.SaveChangesAsync(); } catch { await tx.RollbackToSavepointAsync("step1"); }`
-Почему: EF Core проверяет `CurrentTransaction != null` и запрещает nested Begin. Savepoints — единственный способ частичного отката внутри TX. При `SaveChanges` внутри TX EF автоматически создаёт savepoint `__EFSavePoint` (если `AutoSavepointsEnabled`)
+Плохо: `BeginTransactionAsync()` при активной `CurrentTransaction` — бросит `InvalidOperationException`, вложенные TX на уровне EF невозможны
+Правильно: savepoint внутри активной TX — `tx.CreateSavepointAsync(name)` / `RollbackToSavepointAsync(name)` для частичного отката
+Почему: EF проверяет `CurrentTransaction != null` через `EnsureNoTransactions()` guard. Savepoints — единственный механизм частичного отката. `SaveChanges` внутри TX автоматически создаёт `__EFSavePoint` при `AutoSavepointsEnabled`
 
 ### Вложенная TX — недостаточная изоляция внешней
-Плохо: метод `TransferMoneyAsync` корректен только под `Serializable`, но вызван изнутри handler'а, который уже открыл TX в `ReadCommitted` — метод молча работает в ReadCommitted, инвариант сломан
-Правильно: на входе метода `var current = context.Database.CurrentTransaction; if (current is not null && current.GetDbTransaction().IsolationLevel < IsolationLevel.Serializable) throw new InvalidOperationException("требуется Serializable");`
-Почему: `BeginTransaction(Serializable)` внутри активной TX бросит `InvalidOperationException` через тот же guard — сменить уровень нельзя. Молча игнорировать чужой слабый уровень = race condition под нагрузкой (lost update, phantom read). Компоненты переиспользуются, метод не знает заранее, вызовут ли его standalone или из уже открытой TX — проверка обязательна
+Плохо: метод требует `Serializable`, но вызван изнутри handler'а, который уже открыл TX в `ReadCommitted` — метод молча работает в слабом уровне, инвариант сломан
+Правильно: на входе guard — `context.Database.CurrentTransaction?.GetDbTransaction().IsolationLevel` против требуемого, падай с `InvalidOperationException` если слабее
+Почему: сменить isolation level внутри активной TX нельзя (`BeginTransaction(level)` бросит `InvalidOperationException` через тот же guard). Молчаливое выполнение в чужом слабом уровне = lost update / phantom read под нагрузкой. Компоненты переиспользуемы, метод не знает заранее standalone его вызвали или из уже открытой TX
 
 ### Multi-context в одной операции
 Плохо: `OrderDbContext` + `IdentityDbContext` в одном handler, оба открывают свои TX и делают SaveChanges — две независимые транзакции, атомарности нет
-Правильно: одна БД, два EF контекста — shared `DbConnection` + `UseTransactionAsync` — `await using var conn = new NpgsqlConnection(cs); await conn.OpenAsync(); using var ctx1 = new OrderDbContext(optsWith(conn)); using var ctx2 = new IdentityDbContext(optsWith(conn)); await using var tx = await ctx1.Database.BeginTransactionAsync(); await ctx2.Database.UseTransactionAsync(tx.GetDbTransaction()); await tx.CommitAsync();`. Для EF + Dapper/ADO.NET к той же БД — `TransactionScope` с `TransactionScopeAsyncFlowOption.Enabled` (обязательно, иначе ambient TX теряется на await)
-Почему: одно соединение = одна TX без DTC. `TransactionScope` эскалируется в distributed TX через MSDTC при двух одновременных соединениях — на Linux `PlatformNotSupportedException`, Npgsql distributed TX не поддерживает с v6. Разные БД или микросервисы — только Outbox pattern, локальные решения не помогут
+Правильно: одна БД, два EF контекста — shared `DbConnection` + `ctx2.Database.UseTransactionAsync(tx.GetDbTransaction())`. Для EF + Dapper/ADO.NET к той же БД — `TransactionScope` с `TransactionScopeAsyncFlowOption.Enabled` (обязательно, иначе ambient TX теряется на await)
+Почему: одно соединение = одна TX без DTC. `TransactionScope` эскалируется в distributed TX через MSDTC при двух одновременных соединениях — на Linux `PlatformNotSupportedException`, Npgsql distributed TX не поддерживает с v6. Разные БД или микросервисы — только Outbox pattern
 
 ### ChangeTracker + чужие unsaved entities
 Плохо: перед `BeginTransactionAsync()` в Change Tracker уже есть Modified entities от предыдущей логики
