@@ -39,15 +39,18 @@ cd claude-code-marketplace
 
 ### Установка отдельных плагинов
 
+Предварительно маркетплейс должен быть добавлен: `claude plugins marketplace add dex-it/claude-code-marketplace`.
+Дальше плагины ставятся по формату `name@dex-claude-marketplace`:
+
 ```bash
 # Установить specialist
-claude plugins install github:dex-it/claude-code-marketplace/plugins/specialists/dotnet/dex-dotnet-coder
+claude plugins install dex-dotnet-coder@dex-claude-marketplace
 
 # Установить skill
-claude plugins install github:dex-it/claude-code-marketplace/plugins/skills/dex-skill-dotnet-patterns
+claude plugins install dex-skill-dotnet-patterns@dex-claude-marketplace
 
 # Установить utility
-claude plugins install github:dex-it/claude-code-marketplace/plugins/utilities/dex-telegram-notifier
+claude plugins install dex-telegram-notifier@dex-claude-marketplace
 ```
 
 ### Удаление

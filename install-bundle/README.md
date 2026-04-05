@@ -150,8 +150,9 @@ sudo pacman -S jq
 
 1. Reads `bundle.json` from `plugins/bundles/dex-bundle-<name>/`
 2. Extracts the `includes[]` array (list of component plugin names)
-3. For each component, looks up its `source` path in `marketplace.json`
-4. Runs `claude plugins install <source>` for each component
+3. Verifies each component is declared in `marketplace.json`
+4. Resolves the marketplace name from `marketplace.json`
+5. Runs `claude plugins install <component>@<marketplace>` for each component
 
 ### Uninstallation
 

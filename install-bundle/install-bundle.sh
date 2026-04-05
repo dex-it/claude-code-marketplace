@@ -106,46 +106,82 @@ list_bundles() {
     echo ""
 }
 
-# Get source path for a plugin from marketplace.json
-get_plugin_source() {
+# Check that a plugin exists in marketplace.json (returns 0 if found)
+plugin_exists_in_marketplace() {
     local plugin_name="$1"
-    jq -r --arg name "$plugin_name" '.plugins[] | select(.name == $name) | .source // empty' "$MARKETPLACE_JSON"
+    local found
+    found=$(jq -r --arg name "$plugin_name" '.plugins[] | select(.name == $name) | .name // empty' "$MARKETPLACE_JSON")
+    [ -n "$found" ]
 }
 
-# Install a single component
+# Get marketplace name from marketplace.json
+get_marketplace_name() {
+    jq -r '.name // empty' "$MARKETPLACE_JSON"
+}
+
+# List already-installed plugin ids (format: name@marketplace) as newline-separated list.
+# `claude plugins install` is idempotent and always reports success, so we pre-fetch the
+# list once per bundle and check membership locally to produce honest "already installed" counts.
+get_installed_plugin_ids() {
+    claude plugins list --json 2>/dev/null | jq -r '.[].id // empty'
+}
+
+# Check whether a plugin ref is present in the pre-fetched installed list
+# $1 = plugin_ref (name@marketplace), $2 = newline-separated installed ids
+is_plugin_installed() {
+    local plugin_ref="$1"
+    local installed_list="$2"
+    printf '%s\n' "$installed_list" | grep -Fxq "$plugin_ref"
+}
+
+# Install a single component via `claude plugins install name@marketplace`.
+# Exit codes: 0 = freshly installed, 2 = already installed, 1 = error
 install_component() {
     local component_name="$1"
-    local source_path="$2"
+    local marketplace_name="$2"
     local component_num="$3"
     local total="$4"
+    local installed_list="$5"
+    local plugin_ref="${component_name}@${marketplace_name}"
 
     if [ "$DRY_RUN" = true ]; then
+        if is_plugin_installed "$plugin_ref" "$installed_list"; then
+            print_warning "  [$component_num/$total] Already installed: $component_name"
+            if [ "$VERBOSE" = true ]; then
+                print_dim "           Ref: $plugin_ref"
+            fi
+            return 2
+        fi
         print_info "  [$component_num/$total] Would install: $component_name"
         if [ "$VERBOSE" = true ]; then
-            print_dim "           Source: $source_path"
+            print_dim "           Ref: $plugin_ref"
         fi
         return 0
     fi
 
+    if is_plugin_installed "$plugin_ref" "$installed_list"; then
+        print_warning "  [$component_num/$total] Already installed: $component_name"
+        if [ "$VERBOSE" = true ]; then
+            print_dim "           Ref: $plugin_ref"
+        fi
+        return 2
+    fi
+
     print_info "  [$component_num/$total] Installing: $component_name"
     if [ "$VERBOSE" = true ]; then
-        print_dim "           Source: $source_path"
+        print_dim "           Ref: $plugin_ref"
     fi
 
     # Run claude plugins install
     local output
-    output=$(claude plugins install "$source_path" 2>&1)
+    output=$(claude plugins install "$plugin_ref" 2>&1)
     local exit_code=$?
 
     if [ $exit_code -eq 0 ]; then
         print_success "           Installed successfully"
         return 0
     else
-        if echo "$output" | grep -qi "already installed\|exists"; then
-            print_warning "           Already installed (skipped)"
-        else
-            print_warning "           Skipped: $output"
-        fi
+        print_error "           Failed: $output"
         return 1
     fi
 }
@@ -198,9 +234,26 @@ install_bundle() {
         echo ""
     fi
 
+    # Resolve marketplace name (used as @marketplace suffix for claude plugins install)
+    local marketplace_name
+    marketplace_name=$(get_marketplace_name)
+    if [ -z "$marketplace_name" ]; then
+        print_error "  Could not determine marketplace name from $MARKETPLACE_JSON"
+        return 1
+    fi
+    if [ "$VERBOSE" = true ]; then
+        print_dim "  Marketplace: $marketplace_name"
+        echo ""
+    fi
+
+    # Pre-fetch installed plugin ids once — CLI install is idempotent and always reports
+    # success, so we need our own check to produce honest "already installed" stats.
+    local installed_list
+    installed_list=$(get_installed_plugin_ids)
+
     # Counters
     local installed=0
-    local skipped=0
+    local already=0
     local errors=0
     local component_num=0
 
@@ -208,23 +261,19 @@ install_bundle() {
     while IFS= read -r component; do
         ((component_num++))
 
-        # Get source path from marketplace.json
-        local source=$(get_plugin_source "$component")
-
-        if [ -z "$source" ]; then
-            print_error "  [$component_num/$total] Source not found for: $component"
+        # Verify plugin is declared in marketplace.json (sanity check)
+        if ! plugin_exists_in_marketplace "$component"; then
+            print_error "  [$component_num/$total] Not declared in marketplace.json: $component"
             ((errors++))
             continue
         fi
 
-        # Convert relative path to absolute
-        local full_source="$PROJECT_ROOT/${source#./}"
-
-        if install_component "$component" "$full_source" "$component_num" "$total"; then
-            ((installed++))
-        else
-            ((skipped++))
-        fi
+        install_component "$component" "$marketplace_name" "$component_num" "$total" "$installed_list"
+        case $? in
+            0) ((installed++)) ;;
+            2) ((already++)) ;;
+            *) ((errors++)) ;;
+        esac
     done <<< "$includes"
 
     # Summary
@@ -235,14 +284,15 @@ install_bundle() {
     echo ""
 
     if [ "$DRY_RUN" = true ]; then
-        print_info "  Would install: $installed components"
+        print_info "  Would install:      $installed components"
+        print_warning "  Already installed:  $already"
     else
-        print_success "  Installed: $installed"
-        print_warning "  Skipped:   $skipped"
+        print_success "  Installed:          $installed"
+        print_warning "  Already installed:  $already"
     fi
 
     if [ $errors -gt 0 ]; then
-        print_error "  Errors:    $errors"
+        print_error "  Errors:             $errors"
     fi
 
     echo ""
