@@ -1,0 +1,40 @@
+name: Validate Agents
+
+on:
+  pull_request:
+    paths:
+      - 'plugins/specialists/**/agents/*.md'
+      - 'tools/validate-agent.js'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/validate-agents.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'plugins/specialists/**/agents/*.md'
+      - 'tools/validate-agent.js'
+
+jobs:
+  validate:
+    name: Validate agents against Agent Framework
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run validator (errors only — warnings do not block)
+        run: npm run validate:errors
+
+      - name: Run validator (full report with warnings, informational)
+        if: always()
+        run: node tools/validate-agent.js all || true
