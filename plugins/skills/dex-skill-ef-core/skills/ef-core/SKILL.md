@@ -1,6 +1,6 @@
 ---
 name: ef-core
-description: Entity Framework Core — ловушки запросов, миграций, concurrency, транзакций. Активируется при entity framework, ef core, dbcontext, migration, linq to entities, N+1, concurrency, locking, AsNoTracking, Include, AsSplitQuery, ExecuteUpdate, ExecuteDelete, Change Tracker, SaveChanges, AddAsync, cartesian explosion, ConcurrencyToken, IServiceScopeFactory, TransactionScope, ExecutionStrategy, retry, savepoint, IsolationLevel, DTC, rollback, BeginTransaction, nested transaction, FromSqlRaw, FromSqlInterpolated, SQL injection, CompileAsyncQuery, compiled query, hot path
+description: Entity Framework Core — ловушки запросов, транзакций, concurrency, миграций. Активируется при ef core, DbContext, BeginTransaction, TransactionScope, savepoint, IsolationLevel, DTC, UseTransaction, ExecutionStrategy, ConcurrencyToken, AsNoTracking, Include, AsSplitQuery, ExecuteUpdate, N+1, AddAsync, FromSqlRaw, FromSqlInterpolated, CompileAsyncQuery, SaveChanges
 ---
 
 # Entity Framework Core — ловушки и anti-patterns
@@ -109,20 +109,20 @@ description: Entity Framework Core — ловушки запросов, мигр
 Правильно: `ExecutionStrategy.ExecuteInTransactionAsync(operation, verifySucceeded)` с проверкой что данные записались
 Почему: retry после timeout не знает — запрос выполнился или нет. Без проверки — дублирование записей
 
-### Вложенные транзакции — savepoint ≠ rollback
-Плохо: вложенный `BeginTransactionAsync()` внутри существующей TX — ожидаешь независимый rollback
-Правильно: EF создаёт savepoint. Rollback вложенной = откат до savepoint, НЕ всей TX. Потребитель ловит exception и продолжает — partial commit
-Почему: savepoint откатывает часть, но внешняя TX коммитит остальное. Данные в неконсистентном состоянии
+### Вложенный BeginTransaction — InvalidOperationException
+Плохо: `await using var tx2 = await context.Database.BeginTransactionAsync()` при активной `CurrentTransaction` — бросит `InvalidOperationException: The connection is already in a transaction`
+Правильно: savepoint внутри существующей TX — `await tx.CreateSavepointAsync("step1"); try { ... await context.SaveChangesAsync(); } catch { await tx.RollbackToSavepointAsync("step1"); }`
+Почему: EF Core проверяет `CurrentTransaction != null` и запрещает nested Begin. Savepoints — единственный способ частичного отката внутри TX. При `SaveChanges` внутри TX EF автоматически создаёт savepoint `__EFSavePoint` (если `AutoSavepointsEnabled`)
 
-### Вложенный IsolationLevel — тихое понижение
-Плохо: вложенный метод требует `Serializable`, внешний TX уже `ReadCommitted`
-Правильно: проверяй `context.Database.CurrentTransaction` — если TX уже есть, нельзя сменить isolation level
-Почему: второй `BeginTransaction(Serializable)` внутри существующей TX игнорируется или бросает exception. Race condition только под нагрузкой
+### Вложенная TX — недостаточная изоляция внешней
+Плохо: метод `TransferMoneyAsync` корректен только под `Serializable`, но вызван изнутри handler'а, который уже открыл TX в `ReadCommitted` — метод молча работает в ReadCommitted, инвариант сломан
+Правильно: на входе метода `var current = context.Database.CurrentTransaction; if (current is not null && current.GetDbTransaction().IsolationLevel < IsolationLevel.Serializable) throw new InvalidOperationException("требуется Serializable");`
+Почему: `BeginTransaction(Serializable)` внутри активной TX бросит `InvalidOperationException` через тот же guard — сменить уровень нельзя. Молча игнорировать чужой слабый уровень = race condition под нагрузкой (lost update, phantom read). Компоненты переиспользуются, метод не знает заранее, вызовут ли его standalone или из уже открытой TX — проверка обязательна
 
 ### Multi-context в одной операции
-Плохо: `OrderDbContext` + `IdentityDbContext` в одном handler — оба делают SaveChanges
-Правильно: одна TX = один DbContext. Для cross-context — Outbox pattern или явный `TransactionScope`
-Почему: два DbContext = два соединения = DTC escalation. На Linux DTC не поддерживается → exception в production
+Плохо: `OrderDbContext` + `IdentityDbContext` в одном handler, оба открывают свои TX и делают SaveChanges — две независимые транзакции, атомарности нет
+Правильно: одна БД, два EF контекста — shared `DbConnection` + `UseTransactionAsync` — `await using var conn = new NpgsqlConnection(cs); await conn.OpenAsync(); using var ctx1 = new OrderDbContext(optsWith(conn)); using var ctx2 = new IdentityDbContext(optsWith(conn)); await using var tx = await ctx1.Database.BeginTransactionAsync(); await ctx2.Database.UseTransactionAsync(tx.GetDbTransaction()); await tx.CommitAsync();`. Для EF + Dapper/ADO.NET к той же БД — `TransactionScope` с `TransactionScopeAsyncFlowOption.Enabled` (обязательно, иначе ambient TX теряется на await)
+Почему: одно соединение = одна TX без DTC. `TransactionScope` эскалируется в distributed TX через MSDTC при двух одновременных соединениях — на Linux `PlatformNotSupportedException`, Npgsql distributed TX не поддерживает с v6. Разные БД или микросервисы — только Outbox pattern, локальные решения не помогут
 
 ### ChangeTracker + чужие unsaved entities
 Плохо: перед `BeginTransactionAsync()` в Change Tracker уже есть Modified entities от предыдущей логики
@@ -154,8 +154,8 @@ description: Entity Framework Core — ловушки запросов, мигр
 - Миграции: idempotent script для production, данные отдельно от схемы
 - DbContext: Scoped, в BackgroundService через IServiceScopeFactory
 - ExecutionStrategy с verifySucceeded для retry-сценариев
-- Нет вложенных TX без понимания savepoint-семантики
-- Multi-context: один DbContext на TX, cross-context через Outbox
+- Нет вложенных TX: используй savepoints (CreateSavepointAsync), проверяй достаточность isolation level внешней TX
+- Multi-context в одной БД: shared DbConnection + UseTransactionAsync; Outbox — только для cross-service
 - ChangeTracker.Clear() перед транзакцией если контекст переиспользуется
 - FromSqlInterpolated вместо FromSqlRaw с интерполяцией (SQL injection)
 - CompileAsyncQuery для hot path запросов (высокий RPS)
