@@ -52,6 +52,15 @@ dex-bundle-dotnet-developer (bundle.json)
 
 Skill — это **ловушки и грабли**, а не туториал. Claude и так знает API, синтаксис и паттерны из training data. Skill нужен чтобы **предотвратить типичные ошибки**.
 
+### Принцип: указываем путь, не прокладываем дорогу
+
+Skill **указывает направление**, а не даёт готовый копипаст. Claude знает синтаксис, сигнатуры и boilerplate — ему достаточно имени API, названия паттерна или условия проверки. Полный код в разделе "Правильно" — это конспект, не skill.
+
+- **Указатель** (✓): `tx.CreateSavepointAsync(name) / RollbackToSavepointAsync(name)`
+- **Конспект** (✗): `await tx.CreateSavepointAsync("step1"); try { ... await context.SaveChangesAsync(); } catch { await tx.RollbackToSavepointAsync("step1"); }`
+
+Оба варианта несут одну и ту же информацию, но первый экономит токены и оставляет Claude пространство для контекста. Если разработчик не знает что делать с API из указателя — это уже вопрос к Claude, не к skill'у.
+
 ### Что писать
 
 - **Anti-patterns**: конкретные ошибки с объяснением почему это плохо
