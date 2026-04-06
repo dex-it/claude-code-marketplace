@@ -206,6 +206,74 @@ Methodology skills могут содержать:
 **Technology**, если можешь написать конкретный фрагмент неправильного кода с конкретным правильным исправлением.
 **Methodology**, если ошибка — в подходе/решении/процедуре, а код — только её проявление. В этом случае конкретные ловушки кода живут в technology skills, методологический skill их **применяет**, не дублирует.
 
+## Гайдлайны: как писать Specialists (агенты)
+
+### Принцип: Agent = оркестратор, Skill = чек-лист
+
+Agent задаёт **процесс** работы, а не содержит справочник знаний. Claude и так знает паттерны — агент управляет тем, **как и в каком порядке** применять знания.
+
+### Типы агентов
+
+| Тип | Что делает | Workflow | Two-Pass? | Примеры |
+|-----|-----------|----------|-----------|---------|
+| **Analyst** | Анализирует код/требования, выдаёт отчёт | Scan → Classify → Report | Да | code-reviewer, performance-analyst, test-analyst |
+| **Diagnostician** | Расследует проблему, ищет root cause | Collect → Hypothesize → Verify → Fix | Да | bug-hunter, model-debugger |
+| **Creator** | Создаёт артефакты: код, тесты, документы | Understand → Generate → Validate | Нет | coding-assistant, test-writer, doc-writer |
+| **Designer** | Проектирует архитектуру, API, процессы | Analyze → Propose → Decide → Document | Нет | architect, api-designer, process-modeler |
+| **Operator** | Работает с инфраструктурой, выполняет команды | Diagnose → Execute → Verify | Нет | docker-specialist, k8s-specialist, redis-specialist |
+| **Planner** | Приоритизация, roadmap, метрики | Gather → Analyze → Prioritize → Present | Нет | roadmap-planner, backlog-manager |
+
+Two-Pass Architecture применяется **только к Analyst и Diagnostician** — там где есть процедура сканирования по чек-листу. Остальные типы используют свои workflow.
+
+### Two-Pass Architecture (Analyst / Diagnostician)
+
+Агенты типов Analyst и Diagnostician используют двухпроходный анализ:
+
+**Pass 1: Direct Analysis** — агент анализирует код своими знаниями, без вызова Skill tool.
+
+**Pass 2: Skill-Based Deep Scan** — агент **императивно загружает** skills через Skill tool и проходит по их чек-листам. Дедупликация с Pass 1 — только новые находки.
+
+**Механизм загрузки skills:**
+- Skills **НЕ** указываются в frontmatter через `skills:` (это pre-load, несовместимый с Two-Pass — skills попадают в контекст до Pass 1)
+- В frontmatter добавляется `Skill` в поле `tools:` — это даёт агенту доступ к Skill tool для императивной загрузки в runtime
+- В Pass 2 агент вызывает Skill tool с точным именем плагина в формате `dex-skill-<name>:<name>` (например, `dex-skill-ef-core:ef-core`)
+- Загружаются только релевантные контексту skills, не все подряд
+
+```markdown
+### Pass 2: Skill-Based Deep Scan
+Выполняй всегда после Pass 1. Не спрашивай, продолжать ли.
+1. Вызови Skill tool `dex-skill-owasp-security:owasp-security` — пройди по чек-листу
+2. Вызови Skill tool `dex-skill-dotnet-patterns:dotnet-patterns` — проверь DI ловушки, SOLID
+3. Дедупликация с Pass 1 — сообщай только новые находки
+```
+
+### Scan Recipes
+
+Агенты включают конкретные grep-команды для обнаружения паттернов. Результат 0 — тоже ценный (подтверждение хорошей практики). Перед классификацией агент выводит **scan checklist** со счётчиками.
+
+### Что писать в агенте
+
+- **Workflow**: пошаговый процесс (Pass 1 → Pass 2 → Report)
+- **Scan recipes**: конкретные grep/bash команды для обнаружения паттернов
+- **Severity**: формализованная классификация находок
+- **Output format**: структура отчёта
+- **Boundaries**: что агент НЕ должен делать
+- **Fallback**: что делать если skill не доступен
+
+### Что НЕ писать в агенте
+
+- Примеры кода (❌/✅ блоки) — это задача skills
+- Объяснения паттернов — Claude знает
+- Справочники команд без workflow
+- Всё, что дублирует привязанные skills
+
+### Размер
+
+- **Цель**: 80-120 строк (максимум ~150)
+- Workflow: 30-40 строк
+- Scan recipes: 15-25 строк
+- Output format + boundaries: 20-30 строк
+
 ## Структура проекта
 
 ```
