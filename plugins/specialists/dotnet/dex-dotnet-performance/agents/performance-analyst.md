@@ -59,7 +59,7 @@ POSIX ERE (`-E`), совместимо с GNU и BSD grep. Перед класс
 ```bash
 # Sequential async inside loops (potential N+1)
 # Точный матч: await внутри тела foreach/for, не "await foreach" (async stream)
-grep -rn -E -B1 -A5 'foreach[[:space:]]*\(' --include="*.cs" | grep -E '^\s*(await|\.Result|FindAsync|FirstAsync|SingleAsync)'
+grep -rn -E -B1 -A5 'foreach[[:space:]]*\(' --include="*.cs" | grep -E '^[[:space:]]*(await|\.Result|FindAsync|FirstAsync|SingleAsync)'
 
 # Blocking async calls
 grep -rn -E '\.Result\b|\.Wait\(\)|\.GetAwaiter\(\)\.GetResult\(\)' --include="*.cs"

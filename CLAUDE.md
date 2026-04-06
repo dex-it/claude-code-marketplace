@@ -165,15 +165,21 @@ Two-Pass Architecture применяется **только к Analyst и Diagno
 
 Агенты типов Analyst и Diagnostician используют двухпроходный анализ:
 
-**Pass 1: Direct Analysis** — агент анализирует код своими знаниями, без загрузки skills.
+**Pass 1: Direct Analysis** — агент анализирует код своими знаниями, без вызова Skill tool.
 
-**Pass 2: Skill-Based Deep Scan** — агент **явно загружает** привязанные skills и проходит по их чек-листам. Дедупликация с Pass 1 — только новые находки.
+**Pass 2: Skill-Based Deep Scan** — агент **императивно загружает** skills через Skill tool и проходит по их чек-листам. Дедупликация с Pass 1 — только новые находки.
+
+**Механизм загрузки skills:**
+- Skills **НЕ** указываются в frontmatter через `skills:` (это pre-load, несовместимый с Two-Pass — skills попадают в контекст до Pass 1)
+- В frontmatter добавляется `Skill` в поле `tools:` — это даёт агенту доступ к Skill tool для императивной загрузки в runtime
+- В Pass 2 агент вызывает Skill tool с точным именем плагина в формате `dex-skill-<name>:<name>` (например, `dex-skill-ef-core:ef-core`)
+- Загружаются только релевантные контексту skills, не все подряд
 
 ```markdown
 ### Pass 2: Skill-Based Deep Scan
 Выполняй всегда после Pass 1. Не спрашивай, продолжать ли.
-1. Загрузи skill **owasp-security** — пройди по его чек-листу
-2. Загрузи skill **dotnet-patterns** — проверь DI ловушки, SOLID
+1. Вызови Skill tool `dex-skill-owasp-security:owasp-security` — пройди по чек-листу
+2. Вызови Skill tool `dex-skill-dotnet-patterns:dotnet-patterns` — проверь DI ловушки, SOLID
 3. Дедупликация с Pass 1 — сообщай только новые находки
 ```
 
