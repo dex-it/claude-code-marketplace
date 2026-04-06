@@ -1,8 +1,8 @@
 # Skill Framework
 
-Фреймворк для написания skills в Claude Code marketplace. Описывает **как устроены skills**: что писать, чего не писать, как формулировать description для автоматической активации, как структурировать содержимое.
+Методичка для создания skills в Claude Code marketplace. Используется человеком или Claude при работе над плагинами — не загружается в runtime при обычной работе skill.
 
-Документ — параллель к [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md). Там — как собирать агентов из фаз. Здесь — как писать skills, которые эти агенты загружают.
+Документ — параллель к [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md). Там — как собирать агентов из фаз. ��десь — как писать skills, которые эти агенты загружают.
 
 ## Глоссарий
 
@@ -410,26 +410,9 @@ EF Core — это ORM для .NET. Основные классы:
 
 Неправильно. Первая страница документации EF Core. Claude знает.
 
-### 2. Code samples с boilerplate
+### 2. Развёрнутый код вместо pointer'а
 
-```markdown
-### Правильное использование Include
-
-public class OrderRepository
-{
-    private readonly AppDbContext _context;
-    public OrderRepository(AppDbContext context) { _context = context; }
-
-    public async Task<List<Order>> GetOrdersWithCustomers()
-    {
-        return await _context.Orders
-            .Include(o => o.Customer)
-            .ToListAsync();
-    }
-}
-```
-
-Неправильно. 10 строк boilerplate. Правильно — одна строка `Include(o => o.Customer)` как pointer.
+Неправильно: 10-15 строк полного класса/метода/try-catch блока. Claude сам напишет boilerplate под контекст пользователя. Правильно — одна строка с именем API или условием: `Include(o => o.Customer)`, `BeginTransactionAsync() + CommitAsync() в catch`.
 
 ### 3. Объяснения базовых концепций
 
@@ -483,31 +466,7 @@ description: Skill про базы данных
 
 Skill из 400 строк — признак того, что в нём либо смешано несколько подтем, либо есть процедурные куски / документация. Разделить на два skill или сократить.
 
-### 9. Развёрнутые code snippets вместо pointer'ов
-
-```markdown
-Правильно:
-```csharp
-using (var transaction = await context.Database.BeginTransactionAsync())
-{
-    try
-    {
-        var order = new Order { ... };
-        context.Orders.Add(order);
-        await context.SaveChangesAsync();
-        await transaction.CommitAsync();
-    }
-    catch
-    {
-        await transaction.RollbackAsync();
-        throw;
-    }
-}
-```
-
-Неправильно. 15 строк boilerplate, который Claude сам напишет. Заменить на: «Правильно: `BeginTransactionAsync()` + `CommitAsync()` / `RollbackAsync()` в catch».
-
-### 10. Ловушка без «почему»
+### 9. Ловушка без «почему»
 
 ```markdown
 ### AsNoTracking забыт
@@ -592,10 +551,26 @@ Claude знает синтаксис и базовые концепции; skill
 
 Это разгружает CLAUDE.md (убирается ~95 строк) и создаёт single source of truth для правил skills. Дубли между двумя файлами исчезают — при любых будущих правках изменяется только `SKILL_FRAMEWORK.md`.
 
+## Self-check перед коммитом
+
+Чек-лист для автора skill. То же самое проверяет `node tools/validate-skill.js <path>`, но в человекочитаемой форме.
+
+- [ ] Frontmatter: есть `name` и `description`
+- [ ] Frontmatter: **нет** `allowed-tools:` (не поддерживается Claude Code)
+- [ ] Description содержит «Активируется при» + минимум 10-15 ключевых слов
+- [ ] Description stack-агностичен (если тема применима шире одного инструмента)
+- [ ] Размер 80-150 строк (максимум 500)
+- [ ] Ловушки сгруппированы в H2-категории, каждая ловушка — H3
+- [ ] Каждая ловушка содержит триаду: Плохо / Правильно / Почему
+- [ ] «Правильно» = pointer (имя API, условие), не развёрнутый код
+- [ ] Нет code fences длиннее 5 строк
+- [ ] Нет документации API, туториалов, объяснений базовых концепций
+- [ ] Нет дублирования с другим skill (если пересечение — ссылка, не копия)
+- [ ] Нет заголовков в стиле «Как настроить X», «Что такое Y», «Шаг N»
+
 ## Что дальше
 
-1. **Валидатор для skills** — расширить `tools/validate-agent.js` до поддержки skills (либо добавить новый скрипт `tools/validate-skill.js`). Проверки: frontmatter обязательные поля, запрет `allowed-tools`, description содержит «Активируется при» + минимум 10 ключевых слов, размер в пределах 80-500 строк, формат ловушек «Плохо / Правильно / Почему», отсутствие code-snippet'ов длиннее 5 строк в теле.
+- Audit существующих 42 skills через призму фреймворка — определить gap'ы и план миграции
+- Rollout — переписать skills с серьёзными нарушениями (documentation-стиль, отсутствие «почему», развёрнутые code samples)
 
-2. **Audit существующих 42 skills** — пройти все skills через призму фреймворка, составить таблицу gap'ов. Отложено, запускается отдельной задачей.
-
-3. **Rollout** — переписать skills, у которых фреймворк-валидатор найдёт серьёзные нарушения (развёрнутые code samples, отсутствие «почему», documentation-стиль). Постепенно, по группам.
+Для **новых** skills фреймворк обязателен. Для существующих — миграция постепенная, валидатор работает в мягком режиме.
