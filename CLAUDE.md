@@ -48,13 +48,13 @@ dex-bundle-dotnet-developer (bundle.json)
 
 ## Гайдлайны: как писать Skills
 
-Подробные правила см. в [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) — принципы, формат, анти-паттерны, библиотека категорий, пример полного skill, валидатор.
+Подробные правила см. в [SKILL_FRAMEWORK.md](docs/SKILL_FRAMEWORK.md) — принципы, формат, анти-паттерны, библиотека категорий, пример полного skill, валидатор.
 
 **Краткая суть:** skill — это ловушки и anti-patterns, не документация API. Claude знает синтаксис и базовые концепции; skill нужен для неочевидного поведения, критических правил и trade-off'ов. Формат: «Плохо / Правильно / Почему», 3-5 строк на ловушку, 80-120 строк на skill.
 
 ## Гайдлайны: как писать Specialists (агенты)
 
-Подробные правила см. в [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md) — фреймворк сборки агентов из фаз, правила композиции, gate'ы, библиотека типовых фаз, рецепты для 6 типов (Analyst/Diagnostician/Creator/Designer/Operator/Planner), валидатор.
+Подробные правила см. в [AGENT_FRAMEWORK.md](docs/AGENT_FRAMEWORK.md) — фреймворк сборки агентов из фаз, правила композиции, gate'ы, библиотека типовых фаз, рецепты для 6 типов (Analyst/Diagnostician/Creator/Designer/Operator/Planner), валидатор.
 
 **Краткая суть:** агент описывает workflow через фазы. Фаза — декларативный контракт (goal/output/exit criteria/gate), не процедура. Claude знает КАК делать — фаза задаёт ЧТО и КОГДА готово. Skills загружаются императивно через Skill tool в нужных фазах, не pre-loaded через frontmatter.
 
