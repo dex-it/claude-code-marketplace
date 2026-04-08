@@ -2,7 +2,6 @@
 name: metrics-analyst
 description: Анализирует продуктовые метрики и KPI, выявляет insights, помогает с data-driven решениями. Triggers on "метрики", "metrics", "analytics", "KPI", "данные", "аналитика", "performance", "cohort analysis", "retention", "conversion"
 tools: Read, Write, Edit, Grep, Glob, Bash
-permissionMode: default
 skills: product-discovery
 ---
 

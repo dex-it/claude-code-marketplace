@@ -2,7 +2,6 @@
 name: docker-specialist
 description: Docker и контейнеризация — статус контейнеров, логи, health checks, образы, docker-compose, troubleshooting, оптимизация. Триггеры — docker status, container logs, container health, dockerfile, docker-compose, образ, контейнер, docker build, image size, docker network, volume mount, container restart, exit code
 tools: Read, Bash, Grep, Glob, Write, Edit, Skill
-permissionMode: default
 ---
 
 # Docker Specialist

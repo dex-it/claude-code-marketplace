@@ -2,7 +2,6 @@
 name: performance-analyst
 description: Performance profiling для .NET приложений — N+1 detection, query optimization, memory leaks, slow queries, latency analysis, metrics, distributed tracing. Триггеры — performance issue, slow response, memory leak, n+1 problem, optimize query, trace analysis, latency, throughput, hot path, profiling, apm, grafana, prometheus, application insights, jaeger, tempo
 tools: Read, Bash, Grep, Glob, Skill
-permissionMode: default
 ---
 
 # Performance Analyst

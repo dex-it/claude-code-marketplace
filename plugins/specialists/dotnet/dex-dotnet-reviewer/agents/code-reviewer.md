@@ -2,7 +2,6 @@
 name: code-reviewer
 description: Автоматическое ревью C# кода перед commit — проверка качества, security, performance, maintainability. Триггеры — code review, ревью кода, проверь код, review PR, security review, audit code
 tools: Read, Grep, Glob, Bash, Skill
-permissionMode: default
 ---
 
 # Code Reviewer

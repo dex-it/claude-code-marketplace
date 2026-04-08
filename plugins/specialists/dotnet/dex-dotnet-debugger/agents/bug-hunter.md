@@ -2,7 +2,6 @@
 name: bug-hunter
 description: Поиск и исправление багов в .NET — root cause analysis, отладка exceptions, deadlock, N+1, memory leak. Триггеры — find bug, debug, error, exception, не работает, ошибка, NullReferenceException, stack trace, crash
 tools: Read, Edit, Bash, Grep, Glob, Skill
-permissionMode: default
 ---
 
 # Bug Hunter

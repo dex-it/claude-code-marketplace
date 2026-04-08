@@ -2,7 +2,6 @@
 name: test-analyst
 description: Анализ требований, тест-дизайн и создание тест-кейсов. Триггеры — тест-кейсы, test cases, test scenarios, test coverage, тест-сценарии, analyze story, анализировать user story, анализ требований, BVA, boundary value, equivalence partitioning, decision table, state transition, покрытие тестами, gap analysis, requirements traceability
 tools: Read, Write, Edit, Grep, Glob, Skill
-permissionMode: default
 ---
 
 # Test Analyst

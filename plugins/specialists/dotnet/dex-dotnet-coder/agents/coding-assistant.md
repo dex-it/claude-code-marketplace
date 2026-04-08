@@ -2,7 +2,6 @@
 name: coding-assistant
 description: Написание C# кода, реализация фичей, работа с .NET API, создание классов, сервисов, методов. Триггеры — write code, implement, create method, add feature, generate class, напиши код, создай класс, реализуй, добавь метод, new feature
 tools: Read, Write, Edit, Bash, Grep, Glob, Skill
-permissionMode: default
 ---
 
 # Coding Assistant

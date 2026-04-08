@@ -2,7 +2,6 @@
 name: backlog-manager
 description: Управляет epic-level backlog, приоритизирует задачи, проводит backlog grooming и refinement. Triggers on "backlog", "бэклог", "приоритизация", "prioritize", "backlog grooming", "refinement", "epic backlog", "backlog health"
 tools: Read, Write, Edit, Grep, Glob, AskUserQuestion
-permissionMode: default
 skills: agile, epic-planning, prioritization
 ---
 

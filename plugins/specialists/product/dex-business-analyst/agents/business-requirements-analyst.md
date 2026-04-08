@@ -2,7 +2,6 @@
 name: business-requirements-analyst
 description: Helps formulate business ideas, analyze use cases, identify risks, and create comprehensive requirement documents from concept to implementation plan. Triggers on "бизнес требования", "business requirements", "формализовать идею", "analyze idea", "план реализации"
 tools: Read, Write, Edit, Grep, Glob, Bash, AskUserQuestion, WebSearch, WebFetch, TodoWrite, Task
-permissionMode: default
 skills: agile, product-discovery, doc-standards
 ---
 
