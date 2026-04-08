@@ -107,53 +107,89 @@ function Get-BundlesDetailed {
     Write-Host ""
 }
 
-# Get source path for a plugin from marketplace.json
-function Get-PluginSource {
+# Check that a plugin is declared in marketplace.json
+function Test-PluginInMarketplace {
     param([string]$PluginName)
 
     $marketplace = Get-Content $MarketplaceJson -Raw | ConvertFrom-Json
     $plugin = $marketplace.plugins | Where-Object { $_.name -eq $PluginName }
-    if ($plugin) {
-        return $plugin.source
-    }
-    return $null
+    return [bool]$plugin
 }
 
-# Install a single component
+# Get marketplace name from marketplace.json
+function Get-MarketplaceName {
+    $marketplace = Get-Content $MarketplaceJson -Raw | ConvertFrom-Json
+    return $marketplace.name
+}
+
+# Fetch installed plugin ids (format: name@marketplace) as a HashSet.
+# `claude plugins install` is idempotent and always reports success, so we pre-fetch
+# the list once per bundle and check membership locally to produce honest stats.
+# NOTE: `claude plugins list --json` and the `.id` field are undocumented CLI internals.
+# Graceful fallback: if the command fails, returns empty set → all components proceed to install.
+function Get-InstalledPluginIds {
+    $ids = New-Object 'System.Collections.Generic.HashSet[string]'
+    try {
+        $output = & claude plugins list --json 2>$null
+        if ($LASTEXITCODE -eq 0 -and $output) {
+            $plugins = $output | ConvertFrom-Json
+            foreach ($plugin in $plugins) {
+                if ($plugin.id) { [void]$ids.Add($plugin.id) }
+            }
+        }
+    } catch {
+        # Swallow — returns empty set, install proceeds as fallback
+    }
+    return $ids
+}
+
+# Install a single component via `claude plugins install name@marketplace`.
+# Returns: "Installed", "AlreadyInstalled", or "Error".
 function Install-Component {
     param(
         [string]$ComponentName,
-        [string]$SourcePath,
+        [string]$MarketplaceName,
         [int]$ComponentNum,
-        [int]$Total
+        [int]$Total,
+        [System.Collections.Generic.HashSet[string]]$InstalledIds
     )
+
+    $pluginRef = "$ComponentName@$MarketplaceName"
+
+    if ($InstalledIds -and $InstalledIds.Contains($pluginRef)) {
+        Write-Warning-Colored "  [$ComponentNum/$Total] Already installed: $ComponentName"
+        if ($Verbose) {
+            Write-Dim "           Ref: $pluginRef"
+        }
+        return "AlreadyInstalled"
+    }
 
     if ($DryRun) {
         Write-Info "  [$ComponentNum/$Total] Would install: $ComponentName"
         if ($Verbose) {
-            Write-Dim "           Source: $SourcePath"
+            Write-Dim "           Ref: $pluginRef"
         }
-        return $true
+        return "Installed"
     }
 
     Write-Info "  [$ComponentNum/$Total] Installing: $ComponentName"
     if ($Verbose) {
-        Write-Dim "           Source: $SourcePath"
+        Write-Dim "           Ref: $pluginRef"
     }
 
     # Run claude plugins install
     try {
-        $output = & claude plugins install $SourcePath 2>&1
+        $output = & claude plugins install $pluginRef 2>&1
         if ($LASTEXITCODE -eq 0) {
             Write-Success "           Installed successfully"
-            return $true
+            return "Installed"
         } else {
-            Write-Warning-Colored "           Already installed or skipped"
-            return $false
+            Write-Error-Colored "           Failed: $output"
+            return "Error"
         }
     } catch {
-        Write-Warning-Colored "           Already installed or skipped"
-        return $false
+        Write-Error-Colored "           Failed: $_"
+        return "Error"
     }
 }
 
@@ -211,9 +247,24 @@ function Install-Bundle {
         Write-Host ""
     }
 
+    # Resolve marketplace name (used as @marketplace suffix for claude plugins install)
+    $marketplaceName = Get-MarketplaceName
+    if (-not $marketplaceName) {
+        Write-Error-Colored "  Could not determine marketplace name from $MarketplaceJson"
+        return $false
+    }
+    if ($Verbose) {
+        Write-Dim "  Marketplace: $marketplaceName"
+        Write-Host ""
+    }
+
+    # Pre-fetch installed plugin ids once — CLI install is idempotent and always reports
+    # success, so we need our own check to produce honest "already installed" stats.
+    $installedIds = Get-InstalledPluginIds
+
     # Counters
     $installed = 0
-    $skipped = 0
+    $already = 0
     $errors = 0
     $componentNum = 0
 
@@ -221,22 +272,18 @@ function Install-Bundle {
     foreach ($component in $includes) {
         $componentNum++
 
-        # Get source path from marketplace.json
-        $source = Get-PluginSource -PluginName $component
-
-        if (-not $source) {
-            Write-Error-Colored "  [$componentNum/$total] Source not found for: $component"
+        # Verify plugin is declared in marketplace.json (sanity check)
+        if (-not (Test-PluginInMarketplace -PluginName $component)) {
+            Write-Error-Colored "  [$componentNum/$total] Not declared in marketplace.json: $component"
             $errors++
             continue
         }
 
-        # Convert relative path to absolute
-        $fullSource = Join-Path $ProjectRoot ($source -replace "^\./", "")
-
-        if (Install-Component -ComponentName $component -SourcePath $fullSource -ComponentNum $componentNum -Total $total) {
-            $installed++
-        } else {
-            $skipped++
+        $result = Install-Component -ComponentName $component -MarketplaceName $marketplaceName -ComponentNum $componentNum -Total $total -InstalledIds $installedIds
+        switch ($result) {
+            "Installed"        { $installed++ }
+            "AlreadyInstalled" { $already++ }
+            default            { $errors++ }
         }
     }
 
@@ -248,14 +295,15 @@ function Install-Bundle {
     Write-Host ""
 
     if ($DryRun) {
-        Write-Info "  Would install: $installed components"
+        Write-Info "  Would install:      $installed components"
+        Write-Warning-Colored "  Already installed:  $already"
     } else {
-        Write-Success "  Installed: $installed"
-        Write-Warning-Colored "  Skipped:   $skipped"
+        Write-Success "  Installed:          $installed"
+        Write-Warning-Colored "  Already installed:  $already"
     }
 
     if ($errors -gt 0) {
-        Write-Error-Colored "  Errors:    $errors"
+        Write-Error-Colored "  Errors:             $errors"
     }
 
     Write-Host ""

@@ -1,6 +1,6 @@
 ---
 name: ef-core
-description: Entity Framework Core — ловушки запросов, миграций, concurrency. Активируется при entity framework, ef core, dbcontext, migration, linq to entities, N+1, concurrency, locking, AsNoTracking, Include, AsSplitQuery, ExecuteUpdate, ExecuteDelete, Change Tracker, SaveChanges, AddAsync, cartesian explosion, ConcurrencyToken, IServiceScopeFactory
+description: Entity Framework Core — ловушки запросов, транзакций, concurrency, миграций. Активируется при ef core, DbContext, BeginTransaction, TransactionScope, savepoint, IsolationLevel, DTC, UseTransaction, ExecutionStrategy, ConcurrencyToken, AsNoTracking, Include, AsSplitQuery, ExecuteUpdate, N+1, AddAsync, FromSqlRaw, FromSqlInterpolated, CompileAsyncQuery, SaveChanges
 ---
 
 # Entity Framework Core — ловушки и anti-patterns
@@ -102,6 +102,47 @@ description: Entity Framework Core — ловушки запросов, мигр
 Правильно: `IServiceScopeFactory` → `CreateScope()` → resolve `AppDbContext` внутри scope
 Почему: Scoped service captured by Singleton = один DbContext на весь lifetime приложения. Change Tracker, stale data, ObjectDisposedException
 
+## Транзакции
+
+### ExecutionStrategy + verifySucceeded
+Плохо: `optionsBuilder.EnableRetryOnFailure()` без verifySucceeded — при "lost ACK" операция дублируется
+Правильно: `ExecutionStrategy.ExecuteInTransactionAsync(operation, verifySucceeded)` с проверкой что данные записались
+Почему: retry после timeout не знает — запрос выполнился или нет. Без проверки — дублирование записей
+
+### Вложенный BeginTransaction — InvalidOperationException
+Плохо: `BeginTransactionAsync()` при активной `CurrentTransaction` — бросит `InvalidOperationException`, вложенные TX на уровне EF невозможны
+Правильно: savepoint внутри активной TX — `tx.CreateSavepointAsync(name)` / `RollbackToSavepointAsync(name)` для частичного отката
+Почему: EF проверяет `CurrentTransaction != null` через `EnsureNoTransactions()` guard. Savepoints — единственный механизм частичного отката. `SaveChanges` внутри TX автоматически создаёт `__EFSavePoint` при `AutoSavepointsEnabled`
+
+### Вложенная TX — недостаточная изоляция внешней
+Плохо: метод требует `Serializable`, но вызван изнутри handler'а, который уже открыл TX в `ReadCommitted` — метод молча работает в слабом уровне, инвариант сломан
+Правильно: на входе guard — `context.Database.CurrentTransaction?.GetDbTransaction().IsolationLevel` против требуемого, падай с `InvalidOperationException` если слабее
+Почему: сменить isolation level внутри активной TX нельзя (`BeginTransaction(level)` бросит `InvalidOperationException` через тот же guard). Молчаливое выполнение в чужом слабом уровне = lost update / phantom read под нагрузкой. Компоненты переиспользуемы, метод не знает заранее standalone его вызвали или из уже открытой TX
+
+### Multi-context в одной операции
+Плохо: `OrderDbContext` + `IdentityDbContext` в одном handler, оба открывают свои TX и делают SaveChanges — две независимые транзакции, атомарности нет
+Правильно: одна БД, два EF контекста — shared `DbConnection` + `ctx2.Database.UseTransactionAsync(tx.GetDbTransaction())`. Для EF + Dapper/ADO.NET к той же БД — `TransactionScope` с `TransactionScopeAsyncFlowOption.Enabled` (обязательно, иначе ambient TX теряется на await)
+Почему: одно соединение = одна TX без DTC. `TransactionScope` эскалируется в distributed TX через MSDTC при двух одновременных соединениях — на Linux `PlatformNotSupportedException`, Npgsql distributed TX не поддерживает с v6. Разные БД или микросервисы — только Outbox pattern
+
+### ChangeTracker + чужие unsaved entities
+Плохо: перед `BeginTransactionAsync()` в Change Tracker уже есть Modified entities от предыдущей логики
+Правильно: `context.ChangeTracker.Clear()` перед транзакцией или Scoped DbContext per operation
+Почему: `SaveChangesAsync()` внутри TX сохранит ВСЕ tracked entities — и ваши, и чужие. Атомарность нарушена
+
+## Raw SQL
+
+### FromSqlRaw + string interpolation = SQL injection
+Плохо: `FromSqlRaw($"SELECT * FROM Users WHERE Name = '{name}'")` — выглядит безопасно из-за `$`, но параметр вставляется как текст
+Правильно: `FromSqlInterpolated($"SELECT * FROM Users WHERE Name = {name}")` — EF параметризует автоматически
+Почему: `FromSqlRaw` принимает строку как есть. `$` — это C# interpolation, не SQL параметр. Классическая injection через `'; DROP TABLE Users;--`
+
+## Compiled Queries
+
+### Hot path без CompileAsyncQuery
+Плохо: `db.Orders.Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == id)` — вызывается 1000 раз/сек, каждый раз компилируется expression tree → SQL
+Правильно: `private static readonly Func<AppDbContext, int, Task<Order?>> GetOrder = EF.CompileAsyncQuery((AppDbContext db, int id) => db.Orders.Include(o => o.Items).FirstOrDefault(o => o.Id == id));`
+Почему: компиляция LINQ → SQL стоит ~1-2ms. На hot path (API endpoint с высоким RPS) это 10-20% latency. Compiled query компилируется один раз
+
 ## Чек-лист
 
 - AsNoTracking для read-only, Select проекция для списков
@@ -112,3 +153,9 @@ description: Entity Framework Core — ловушки запросов, мигр
 - Bulk: ExecuteUpdate/Delete вместо цикла SaveChanges
 - Миграции: idempotent script для production, данные отдельно от схемы
 - DbContext: Scoped, в BackgroundService через IServiceScopeFactory
+- ExecutionStrategy с verifySucceeded для retry-сценариев
+- Нет вложенных TX: используй savepoints (CreateSavepointAsync), проверяй достаточность isolation level внешней TX
+- Multi-context в одной БД: shared DbConnection + UseTransactionAsync; Outbox — только для cross-service
+- ChangeTracker.Clear() перед транзакцией если контекст переиспользуется
+- FromSqlInterpolated вместо FromSqlRaw с интерполяцией (SQL injection)
+- CompileAsyncQuery для hot path запросов (высокий RPS)

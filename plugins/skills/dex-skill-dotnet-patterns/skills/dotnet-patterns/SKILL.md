@@ -1,6 +1,6 @@
 ---
 name: dotnet-patterns
-description: .NET паттерны — ловушки DI, SOLID нарушения, антипаттерны проектирования. Активируется при pattern, SOLID, DI, dependency injection, design pattern, DRY, KISS, YAGNI, service locator, captive dependency, async void, CancellationToken, IDisposable, HttpClient, IHttpClientFactory, Result pattern, over-engineering, god class, IOptions, TimeProvider
+description: .NET паттерны — ловушки DI, SOLID, double fault, async, ресурсы. Активируется при double fault, cleanup exception, rollback error, captive dependency, service locator, async void, CancellationToken, IDisposable, HttpClient, IHttpClientFactory, TimeProvider, IOptions, SOLID, DI, dependency injection, YAGNI, Result pattern
 ---
 
 # .NET Patterns — ловушки и anti-patterns
@@ -77,6 +77,13 @@ description: .NET паттерны — ловушки DI, SOLID нарушени
 Плохо: `using var client = new HttpClient(); await client.GetAsync(url);` — в каждом запросе
 Правильно: `IHttpClientFactory` через DI → `_clientFactory.CreateClient()`
 Почему: `new HttpClient()` не переиспользует TCP соединения → socket exhaustion. `Dispose()` не закрывает сокет сразу (TIME_WAIT). Под нагрузкой — `SocketException`
+
+## Обработка ошибок
+
+### Double fault — cleanup бросает exception
+Плохо: `catch { await Cleanup(); }` — если Cleanup бросит (connection lost), оригинальная ошибка потеряна
+Правильно: `catch (Exception ex) { try { await Cleanup(); } catch (Exception cleanupEx) { throw new AggregateException(ex, cleanupEx); } }`
+Почему: в логах только ошибка cleanup, бизнес-причина проглочена. Типичный случай — rollback транзакции при потере соединения
 
 ## Тестируемость
 

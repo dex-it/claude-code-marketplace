@@ -53,7 +53,7 @@ grep -rn -E 'new HttpClient\(\)|new SqlConnection\(' --include="*.cs"       # Pe
 grep -rn 'Task\.Run' --include="*.cs"                                       # Unnecessary Task.Run
 
 # Correctness
-grep -rn -E 'catch[[:space:]]*\(Exception[[:space:]]*\)' --include="*.cs"   # Broad catch
+grep -rn -E 'catch[[:space:]]*\(Exception' --include="*.cs"                  # Broad catch
 grep -rn -E 'catch.*\{[[:space:]]*\}' --include="*.cs"                      # Empty catch
 grep -rn 'async void' --include="*.cs"                                      # async void (не event handler)
 
