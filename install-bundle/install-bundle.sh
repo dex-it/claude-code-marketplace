@@ -122,6 +122,8 @@ get_marketplace_name() {
 # List already-installed plugin ids (format: name@marketplace) as newline-separated list.
 # `claude plugins install` is idempotent and always reports success, so we pre-fetch the
 # list once per bundle and check membership locally to produce honest "already installed" counts.
+# NOTE: `claude plugins list --json` and the `.id` field are undocumented CLI internals.
+# Graceful fallback: if the command fails, returns empty → all components proceed to install.
 get_installed_plugin_ids() {
     claude plugins list --json 2>/dev/null | jq -r '.[].id // empty'
 }
@@ -144,27 +146,20 @@ install_component() {
     local installed_list="$5"
     local plugin_ref="${component_name}@${marketplace_name}"
 
-    if [ "$DRY_RUN" = true ]; then
-        if is_plugin_installed "$plugin_ref" "$installed_list"; then
-            print_warning "  [$component_num/$total] Already installed: $component_name"
-            if [ "$VERBOSE" = true ]; then
-                print_dim "           Ref: $plugin_ref"
-            fi
-            return 2
-        fi
-        print_info "  [$component_num/$total] Would install: $component_name"
-        if [ "$VERBOSE" = true ]; then
-            print_dim "           Ref: $plugin_ref"
-        fi
-        return 0
-    fi
-
     if is_plugin_installed "$plugin_ref" "$installed_list"; then
         print_warning "  [$component_num/$total] Already installed: $component_name"
         if [ "$VERBOSE" = true ]; then
             print_dim "           Ref: $plugin_ref"
         fi
         return 2
+    fi
+
+    if [ "$DRY_RUN" = true ]; then
+        print_info "  [$component_num/$total] Would install: $component_name"
+        if [ "$VERBOSE" = true ]; then
+            print_dim "           Ref: $plugin_ref"
+        fi
+        return 0
     fi
 
     print_info "  [$component_num/$total] Installing: $component_name"

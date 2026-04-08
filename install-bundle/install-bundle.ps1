@@ -125,6 +125,8 @@ function Get-MarketplaceName {
 # Fetch installed plugin ids (format: name@marketplace) as a HashSet.
 # `claude plugins install` is idempotent and always reports success, so we pre-fetch
 # the list once per bundle and check membership locally to produce honest stats.
+# NOTE: `claude plugins list --json` and the `.id` field are undocumented CLI internals.
+# Graceful fallback: if the command fails, returns empty set → all components proceed to install.
 function Get-InstalledPluginIds {
     $ids = New-Object 'System.Collections.Generic.HashSet[string]'
     try {

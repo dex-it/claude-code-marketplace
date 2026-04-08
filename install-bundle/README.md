@@ -167,7 +167,7 @@ sudo pacman -S jq
 
 The scripts are **idempotent** - you can run them multiple times safely:
 
-- **Install**: Already installed components are skipped
+- **Install**: Already installed components are reported as "Already installed"
 - **Uninstall**: Components that are not installed are skipped
 
 This makes it safe to re-run the script if it was interrupted or if you want to ensure all components are properly installed/removed.
@@ -195,8 +195,8 @@ This makes it safe to re-run the script if it was interrupted or if you want to 
   Summary
 ======================================
 
-  Installed: 10
-  Skipped:   2
+  Installed:          10
+  Already installed:  2
 ```
 
 ### Uninstallation
@@ -220,8 +220,8 @@ This makes it safe to re-run the script if it was interrupted or if you want to 
   Summary
 ======================================
 
-  Removed:  10
-  Skipped:  2
+  Removed:   10
+  Skipped:   2
 ```
 
 ## Troubleshooting

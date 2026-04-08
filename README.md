@@ -39,7 +39,7 @@ cd claude-code-marketplace
 
 ### Установка отдельных плагинов
 
-Предварительно маркетплейс должен быть добавлен: `claude plugins marketplace add dex-it/claude-code-marketplace`.
+Предварительно маркетплейс должен быть добавлен внутри Claude Code: `/plugin marketplace add dex-it/claude-code-marketplace`.
 Дальше плагины ставятся по формату `name@dex-claude-marketplace`:
 
 ```bash
