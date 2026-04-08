@@ -5,129 +5,80 @@ description: API тестирование — ловушки сценариев,
 
 # API Testing — ловушки
 
-## Правила
+## Database
 
-- WebApplicationFactory + реальная БД (Testcontainers), не InMemory
-- Каждый тест создаёт свои данные и чистит за собой
-- Тестируй контракт (status codes, headers, response schema), не реализацию
-- Auth тесты: 401 (нет токена), 403 (нет прав), не только 200
-- Idempotency: повторный PUT/DELETE — тот же результат
+### InMemoryDatabase вместо реальной БД
+Плохо: `UseInMemoryDatabase("Test")` в тестах API
+Правильно: `Testcontainers` с реальным PostgreSQL/SQL Server
+Почему: InMemory не поддерживает транзакции, constraints, SQL-специфичные запросы. Тест зелёный, production красный
 
-## Частые ошибки
+## Response Contract
 
-```csharp
-// Плохо — InMemoryDatabase вместо реальной БД
-builder.ConfigureServices(services =>
-{
-    services.AddDbContext<AppDbContext>(o => o.UseInMemoryDatabase("Test"));
-});
-// InMemory не поддерживает: транзакции, constraints, SQL-специфичные запросы
-// Тест зелёный, production красный
+### POST без проверки Location header
+Плохо: `Assert.Equal(HttpStatusCode.Created, response.StatusCode)` — и всё
+Правильно: проверять `response.Headers.Location` + GET по Location возвращает 200
+Почему: без Location клиент не знает URL нового ресурса, контракт 201 неполный
 
-// Хорошо — Testcontainers
-builder.ConfigureServices(services =>
-{
-    services.AddDbContext<AppDbContext>(o =>
-        o.UseNpgsql(_postgres.GetConnectionString()));
-});
+### Не проверяют ProblemDetails формат
+Плохо: `Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode)` — без проверки тела
+Правильно: десериализовать `ValidationProblemDetails`, проверить конкретные поля в `Errors`
+Почему: тело может быть строкой, HTML или другим JSON — клиент не сможет парсить
 
-// Плохо — тест без проверки Location header на POST
-[Fact]
-public async Task CreateOrder_ShouldReturn201()
-{
-    var response = await _client.PostAsJsonAsync("/api/orders", request);
-    Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-    // А Location header? Без него клиент не знает URL нового ресурса
-}
+## Status Codes
 
-// Хорошо — проверяй контракт полностью
-[Fact]
-public async Task CreateOrder_ShouldReturn201WithLocation()
-{
-    var response = await _client.PostAsJsonAsync("/api/orders", request);
-    Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-    Assert.NotNull(response.Headers.Location);
-    // И убедись что Location реально работает:
-    var getResponse = await _client.GetAsync(response.Headers.Location);
-    Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
-}
+### Только happy path (200 OK)
+Плохо: тесты покрывают только успешные сценарии
+Правильно: матрица status codes: GET -> 200/401/403/404, POST -> 201/400/401/409, DELETE -> 204/401/403/404
+Почему: 80% багов в error handling, не в happy path. Пропущенный 401/403 = security hole
 
-// Плохо — тестируют только happy path (200 OK)
-// Пропущены: 400, 401, 403, 404, 409, 422
+### Нет теста на 401 vs 403
+Плохо: проверяют только "не авторизован" без разделения
+Правильно: 401 (нет токена) и 403 (есть токен, нет прав) — разные тесты
+Почему: перепутанные 401/403 ломают клиентскую логику redirect vs error message
 
-// Хорошо — матрица status codes
-// GET    /orders/{id}  → 200, 401, 403, 404
-// POST   /orders       → 201, 400, 401, 409
-// PUT    /orders/{id}  → 200, 400, 401, 403, 404, 409
-// DELETE /orders/{id}  → 204, 401, 403, 404
+## Isolation
 
-// Плохо — shared state между тестами
-public class OrderTests : IClassFixture<WebApplicationFactory<Program>>
-{
-    private static int _createdOrderId; // static! один тест создаёт, другой читает
+### Shared state между тестами
+Плохо: `static int _createdOrderId` — один тест создаёт, другой читает
+Правильно: каждый тест создаёт свои данные и чистит за собой
+Почему: порядок выполнения тестов не гарантирован, flaky при параллельном запуске
 
-    [Fact] public async Task CreateOrder() { _createdOrderId = ...; }
-    [Fact] public async Task GetOrder() { await _client.GetAsync($"/api/orders/{_createdOrderId}"); }
-    // Порядок выполнения не гарантирован → flaky
-}
+## Concurrency
 
-// Плохо — не тестируют concurrent access
-// Два пользователя одновременно обновляют заказ → один перезаписывает другого
+### Нет теста на concurrent access
+Плохо: тесты только с одним пользователем
+Правильно: два "пользователя" читают одну версию, первый обновляет (200), второй получает 409
+Почему: без optimistic concurrency теста — last write wins, данные первого пользователя потеряны
 
-// Хорошо — тест на optimistic concurrency
-[Fact]
-public async Task UpdateOrder_ConcurrentUpdate_ShouldReturn409()
-{
-    var order = await CreateOrderAsync();
+## Edge Cases
 
-    // Два "пользователя" читают одну версию
-    var response1 = await _client.GetAsync($"/api/orders/{order.Id}");
-    var response2 = await _client.GetAsync($"/api/orders/{order.Id}");
-    var version1 = await response1.Content.ReadFromJsonAsync<OrderDto>();
-    var version2 = await response2.Content.ReadFromJsonAsync<OrderDto>();
+### Пагинация без граничных значений
+Плохо: тест только с `page=1&pageSize=10`
+Правильно: тестировать `page=0`, `page=-1`, `pageSize=0`, `pageSize=999999`
+Почему: часто нет валидации граничных значений, 500 Internal Server Error в production
 
-    // Первый обновляет успешно
-    var update1 = await _client.PutAsJsonAsync($"/api/orders/{order.Id}", version1);
-    Assert.Equal(HttpStatusCode.OK, update1.StatusCode);
+### Пустой список возвращает null
+Плохо: не тестируют `GET /orders` когда 0 записей
+Правильно: пустая коллекция должна возвращать `[]`, не `null`
+Почему: `null` ломает клиентский `response.data.map()`, 0 записей — валидное состояние
 
-    // Второй получает 409 Conflict (stale version)
-    var update2 = await _client.PutAsJsonAsync($"/api/orders/{order.Id}", version2);
-    Assert.Equal(HttpStatusCode.Conflict, update2.StatusCode);
-}
+### Idempotency не проверена
+Плохо: `DELETE /orders/123` тестируют только один раз
+Правильно: повторный DELETE/PUT должен возвращать тот же результат
+Почему: сетевые retry вызывают повторный запрос, неидемпотентный endpoint = ошибка
 
-// Плохо — не проверяют ProblemDetails формат ошибки
-var response = await _client.PostAsJsonAsync("/api/orders", invalidRequest);
-Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-// А что в теле? Строка "Bad Request"? JSON? HTML? Клиент не сможет парсить
-
-// Хорошо — проверяй формат ошибки
-var response = await _client.PostAsJsonAsync("/api/orders", invalidRequest);
-Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-var problem = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>();
-Assert.NotNull(problem);
-Assert.Contains("Items", problem!.Errors.Keys); // конкретное поле с ошибкой
-```
-
-## Пропускаемые сценарии
-
-| Сценарий | Почему важно |
-|----------|-------------|
-| Пагинация: page=0, page=-1, pageSize=0 | Часто нет валидации → 500 |
-| Пустой список: GET /orders когда 0 записей | Возвращает null вместо [] |
-| Trailing slash: /api/orders/ vs /api/orders | Могут быть разные routes |
-| Content-Type отсутствует | 415 Unsupported Media Type? Или 500? |
-| Очень большой payload | Нет лимита → OOM |
-| SQL injection в query params | ?search='; DROP TABLE-- |
-| Idempotency: DELETE уже удалённого | 404? 204? Должно быть одинаково |
+### Content-Type отсутствует
+Плохо: не тестируют запрос без `Content-Type` header
+Правильно: запрос без Content-Type должен вернуть 415, не 500
+Почему: клиент может забыть header, необработанный случай = Internal Server Error
 
 ## Чек-лист
 
-- [ ] Testcontainers, не InMemoryDatabase
-- [ ] POST: проверяется 201 + Location header + GET по Location
-- [ ] Все error status codes протестированы (400, 401, 403, 404, 409)
-- [ ] Ошибки возвращают ProblemDetails (не строки, не HTML)
-- [ ] Тесты изолированы — нет shared state
-- [ ] Concurrent access → 409 Conflict
-- [ ] Пагинация: невалидные page/pageSize
-- [ ] Пустые коллекции: [] а не null
-- [ ] Auth: без токена → 401, без прав → 403
+- Testcontainers, не InMemoryDatabase
+- POST: 201 + Location header + GET по Location
+- Все error status codes протестированы (400, 401, 403, 404, 409)
+- Ошибки возвращают ProblemDetails
+- Тесты изолированы, нет shared state
+- Concurrent access -> 409 Conflict
+- Пагинация: невалидные page/pageSize
+- Пустые коллекции: [] а не null

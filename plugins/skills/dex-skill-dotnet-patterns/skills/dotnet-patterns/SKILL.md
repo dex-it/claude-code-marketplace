@@ -92,12 +92,10 @@ description: .NET паттерны — ловушки DI, SOLID нарушени
 
 ## Over-engineering
 
-### Признаки
-- Интерфейс с одной реализацией, которая никогда не поменяется
-- Generic класс, используемый для одного типа
-- Factory, которая создаёт один объект
-- Middleware/filter для одного endpoint
-- "Extensible" архитектура для MVP
+### Абстракция ради абстракции
+Плохо: `IOrderService` с единственной реализацией `OrderService`, `GenericFactory<T>` для одного типа, middleware для одного endpoint
+Правильно: конкретный класс без интерфейса, пока нет второй реализации или потребности в моке
+Почему: каждая абстракция = cognitive overhead. Интерфейс добавляй когда появится реальная причина (тесты, вторая реализация), не "на будущее" (YAGNI)
 
 ### DRY ради DRY
 Плохо: `ProcessEntity<T>(T entity)` с 200 строками `if (entity is Order) ... else if (entity is Invoice) ...`

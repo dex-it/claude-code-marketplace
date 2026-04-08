@@ -1,89 +1,40 @@
 ---
-description: Проектирование архитектуры приложения
-allowed-tools: Read, Write, Edit, Grep, Glob, Bash
-argument-hint: [domain-name] (опционально)
+description: Проектирование архитектуры приложения или компонента
+allowed-tools: Read, Write, Edit, Grep, Glob
+argument-hint: "[domain-name] (опционально)"
 ---
 
 # /design
 
-Команда для проектирования архитектуры нового приложения или компонента.
+Проектирование архитектуры нового приложения или компонента.
 
-## Использование
+## Goal
 
-```
-/design                    # Интерактивный режим
-/design e-commerce         # С указанием домена
-/design OrderService       # Для конкретного сервиса
-```
+Провести пользователя через полный цикл архитектурного проектирования: от сбора ограничений до документированного решения с trade-off'ами.
 
-## Процесс
+## Input
 
-### 1. Сбор требований
+Аргумент -- название домена или сервиса. Если не указан -- интерактивный режим.
 
-Вопросы:
-- Какой бизнес-домен?
-- Какой технологический стек? (уточнить у пользователя!)
-- Какая ожидаемая нагрузка? (RPS, concurrent users)
-- Сколько разработчиков в команде?
-- Какие интеграции нужны?
-- Какие NFR? (latency, availability, throughput)
+Уточнить:
+- Бизнес-домен и ключевые процессы
+- Ожидаемая нагрузка (RPS, concurrent users)
+- Размер команды и опыт со стеком
+- Интеграции с внешними системами
+- NFR (latency, availability, throughput)
+- Технологические ограничения
 
-### 2. Определение архитектурного стиля
+## Output
 
-| Сценарий | Рекомендация |
-|----------|--------------|
-| Маленькая команда, простой домен | Modular Monolith |
-| Большая команда, сложный домен | Microservices |
-| MVP/Прототип | Simple Monolith |
-| High-load read | CQRS + Read Replicas |
-| Event-heavy | Event-Driven + Event Sourcing |
+- 2-3 альтернативных архитектурных решения с pros/cons
+- Выбранное решение с обоснованием через ограничения
+- Trade-off'ы в формате "принимаем X ценой Y"
+- Опционально: ADR, C4 диаграммы, список bounded contexts
 
-### 3. Определение структуры слоёв
+## Constraints
 
-**Clean Architecture (стек-агностичный):**
+- Не предлагать архитектуру до сбора ограничений
+- Минимум 2 альтернативы
+- Решение требует явного подтверждения пользователя
 
-| Слой | Ответственность | Зависимости |
-|------|-----------------|-------------|
-| Domain | Бизнес-логика, entities, value objects, domain events | Никаких |
-| Application | Use cases, CQRS handlers, orchestration | Domain |
-| Infrastructure | DB, messaging, external APIs, файловая система | Domain, Application |
-| Presentation | API controllers/handlers, UI, CLI | Application |
-
-Дополнительно:
-- `tests/` — unit, integration, e2e тесты
-- `docs/adr/` — Architecture Decision Records
-- `docs/diagrams/` — C4 и другие диаграммы
-
-### 4. Генерация диаграмм
-
-- C4 Context diagram
-- C4 Container diagram
-- Component diagram
-
-### 5. Создание ADR для ключевых решений
-
-- Выбор архитектурного стиля
-- Выбор технологий
-- Ключевые trade-offs
-
-## Вывод
-
-```
-Architecture Design Complete
-
-Project: [ServiceName]
-Style: [выбранный стиль]
-Stack: [уточнённый стек]
-
-Layers:
-├── Domain/          entities, value objects, events
-├── Application/     use cases, handlers
-├── Infrastructure/  persistence, messaging
-└── Presentation/    API, UI
-
-Next steps:
-1. Review generated structure
-2. Create ADR for key decisions: /adr
-3. Implement domain entities
-4. Setup CI/CD pipeline
-```
+Делегировать агенту `architect`.

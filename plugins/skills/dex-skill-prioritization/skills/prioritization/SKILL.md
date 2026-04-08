@@ -3,88 +3,76 @@ name: prioritization
 description: Приоритизация — ловушки RICE, ICE, MoSCoW, scoring. Активируется при приоритизация, prioritize, RICE score, MoSCoW, backlog prioritization, feature ranking, ICE, Kano model, Value/Effort matrix, reach, confidence, effort, P0, техдолг, quarterly planning
 ---
 
-# Prioritization — ловушки
+# Prioritization — ловушки и anti-patterns
 
-## Правила
+## RICE
 
-- RICE для data-driven решений, ICE для быстрых
-- Reach = реальные числа (users/quarter), НЕ проценты
-- Effort в person-months, включает design + dev + QA
-- Scores — тiers, не точные числа (3247 ≈ 3251)
-- Re-evaluate quarterly
+### Reach в процентах вместо абсолютных чисел
+Плохо: `Reach: "Много пользователей" (70%)` — проценты не сравнимы между features
+Правильно: `Reach: 1000 users/quarter` — абсолютное число из analytics
+Почему: 70% от чего? Без абсолютного числа невозможно сравнить reach двух features из разных частей продукта
 
-## Частые ошибки
+### Effort без единиц измерения
+Плохо: `Effort: 2` — дни? недели? person-months? Каждый понимает по-своему
+Правильно: `Effort: 1.5 person-months (includes design + dev + QA + docs)`
+Почему: без единицы RICE score несравним между командами. person-months включают все фазы, не только dev
 
-| Ошибка | Проблема | Решение |
-|--------|----------|---------|
-| Всё P0 | Нет приоритизации | Квота: max 15% = P0 |
-| HIPPO | "Директор сказал" | Покажи RICE scores + обоснование |
-| Только value | Игнорируют effort | RICE делит на Effort |
-| Fake precision | RICE 3247 vs 3251 | Группируй по тирам |
-| Set & forget | Приоритеты устаревают | Quarterly re-scoring |
-| Analysis paralysis | Неделя на scoring | ICE для быстрых решений |
-| 100% features | Нет техдолга и экспериментов | 70% features / 20% debt / 10% experiments |
+### Confidence 100% без данных
+Плохо: `Confidence: 100%` ("я уверен") — уверенность без валидации
+Правильно: `Confidence: 80%` с обоснованием: "Reach validated по analytics, Impact based on NPS surveys"
+Почему: 100% confidence = самообман. Без A/B теста impact всегда предположение. Завышенный confidence искажает приоритеты
 
-## Выбор framework
+### Fake precision в scores
+Плохо: RICE score 3247 vs 3251 — какой приоритетнее? Споры о decimals
+Правильно: группировать по тирам (High/Medium/Low) или range (3000-3500 = Tier 1)
+Почему: входные данные неточны (Reach = оценка, Impact = предположение). Разница в 4 единицы = шум, не сигнал
 
-| Ситуация | Framework | НЕ используй |
-|----------|-----------|--------------|
-| Есть данные (analytics, surveys) | RICE | ICE (потеряешь точность) |
-| Быстрая оценка, нет данных | ICE | RICE (будет гадание) |
-| MVP scope definition | MoSCoW | RICE (не нужны числа) |
-| Визуальный brainstorm | Value/Effort matrix | RICE (слишком формально) |
-| Понимание user satisfaction | Kano model | RICE (другая ось оценки) |
+## MoSCoW
 
-## RICE — типичные ошибки
+### Все Must Have
+Плохо: Must Have: Auth, Payment, Search, Notifications, Reports, Dark Mode, Export, Import. Should Have: (пусто)
+Правильно: Must Have max 30%: Auth, Payment. Should Have 30%: Search, Notifications. Could Have 20%. Won't Have 20%
+Почему: если все Must Have — нет приоритизации. Scope creep, дедлайн сорван, качество падает
 
-```
-Плохо:
-  Reach: "Много пользователей" (70%)
-  // Проценты не сравнимы между features
+### MoSCoW для data-driven решений
+Плохо: MoSCoW когда есть analytics, surveys, A/B test результаты
+Правильно: RICE для data-driven решений, MoSCoW для MVP scope definition без данных
+Почему: MoSCoW = субъективная категоризация. При наличии данных RICE дает более обоснованные приоритеты
 
-Хорошо:
-  Reach: 1000 users/quarter
-  // Абсолютное число, сравнимо
+## Организация процесса
 
-Плохо:
-  Effort: 2 (что это? дни? недели? человеко-месяцы?)
+### HIPPO — решение по авторитету
+Плохо: "Директор сказал — делаем первым" без обоснования
+Правильно: покажи RICE scores + обоснование. Директор может overrule, но с explicit trade-off
+Почему: без фреймворка решения непрозрачны. Команда теряет мотивацию, приоритеты = политика, не продукт
 
-Хорошо:
-  Effort: 1.5 person-months (includes design + dev + QA + docs)
+### Все задачи P0
+Плохо: 50% backlog помечен P0/Critical — ничего не приоритизировано
+Правильно: квота: max 15% = P0. Остальное P1/P2/P3 с четкими критериями
+Почему: если все critical — ничего не critical. Команда не знает за что браться первым, параллелит слишком много
 
-Плохо:
-  Confidence: 100% ("я уверен")
-  // Уверенность без данных — самообман
+### Set & forget — приоритеты устаревают
+Плохо: RICE scores посчитаны в январе, используются в сентябре без ревью
+Правильно: quarterly re-scoring с обновленными данными (analytics, market changes)
+Почему: Reach меняется (рост пользователей), Impact меняется (конкуренты запустили аналог), Effort меняется (tech debt)
 
-Хорошо:
-  Confidence: 80%
-  Обоснование: "Reach validated по analytics,
-                Impact based on NPS surveys (не A/B tested)"
-```
+### 100% features, 0% tech debt
+Плохо: весь бэклог — только новый функционал, tech debt откладывается "на потом"
+Правильно: 70% features / 20% tech debt / 10% experiments — фиксированное соотношение
+Почему: без tech debt инвестиций каждая feature стоит дороже. Без экспериментов — нет инноваций
 
-## MoSCoW — ловушка "всё Must Have"
-
-```
-Плохо:
-  Must Have: Auth, Payment, Search, Notifications,
-             Reports, Dark Mode, Export, Import
-  Should Have: (пусто)
-  // Если всё must have — ничего не must have
-
-Хорошо:
-  Must Have (max 30%):  Auth, Payment (core value, legal)
-  Should Have (30%):     Search, Notifications (high value, workarounds exist)
-  Could Have (20%):      Reports, Export (nice to have)
-  Won't Have (20%):      Dark Mode, Import (future release)
-```
+### Analysis paralysis — неделя на scoring
+Плохо: неделя на детальный RICE scoring 50 features с точностью до единицы
+Правильно: ICE для быстрых решений (5 минут на feature), RICE только для крупных инициатив
+Почему: цена анализа не должна превышать ценность решения. ICE = быстрая прикидка, RICE = детальный анализ
 
 ## Чек-лист
 
-- [ ] Framework выбран осознанно (RICE/ICE/MoSCoW)
-- [ ] Reach — абсолютные числа, не проценты
-- [ ] Effort включает design + dev + QA
-- [ ] Confidence обоснована (данные, не "уверен")
-- [ ] Max 15% items = P0 (не "всё critical")
-- [ ] Assumptions задокументированы
-- [ ] Re-scoring каждый квартал
-- [ ] Balance: 70% features / 20% debt / 10% experiments
+- Framework выбран осознанно (RICE/ICE/MoSCoW)
+- Reach — абсолютные числа, не проценты
+- Effort включает design + dev + QA
+- Confidence обоснована (данные, не "уверен")
+- Max 15% items = P0 (не "все critical")
+- Assumptions задокументированы
+- Re-scoring каждый квартал
+- Balance: 70% features / 20% debt / 10% experiments

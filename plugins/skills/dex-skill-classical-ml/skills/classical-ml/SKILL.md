@@ -5,121 +5,92 @@ description: Classical ML — ловушки pipeline, cross-validation, leakage
 
 # Classical ML — ловушки
 
-## Правила
+## Data Leakage
 
-- Pipeline = preprocessing + model вместе — fit/transform на train, только transform на test
-- StratifiedKFold для классификации — обычный KFold ломает пропорции классов
-- TimeSeriesSplit для временных рядов — обычный shuffle = data leakage
-- SMOTE только на train set, внутри CV fold — на весь dataset = leakage
+### fit_transform на всём dataset до split
+Плохо: `scaler.fit_transform(X)` затем `train_test_split(X_scaled)` — scaler видит test statistics
+Правильно: split сначала, затем `Pipeline([('scaler', StandardScaler()), ('model', RF())]).fit(X_train)`
+Почему: mean/std scaler посчитаны по test данным — модель "знает" test distribution, метрики завышены
 
-## Data Leakage — главная ловушка ML
+### SMOTE на весь dataset до CV
+Плохо: `smote.fit_resample(X, y)` затем `cross_val_score(model, X_res, y_res)` — leakage
+Правильно: `imblearn.Pipeline([('smote', SMOTE()), ('model', RF())])` + `cross_val_score`
+Почему: синтетические samples из test попадают в train. SMOTE внутри каждого fold = честная оценка
 
-| Ошибка | Почему это leakage | Решение |
-|--------|-------------------|---------|
-| `scaler.fit_transform(X)` до split | Scaler видит test statistics | Pipeline с fit на train only |
-| SMOTE на весь dataset до CV | Синтетические samples из test попадут в train | SMOTE внутри каждого fold (imblearn Pipeline) |
-| Feature selection на всём dataset | Выбор фичей учитывает test data | Feature selection внутри Pipeline/CV |
-| Target encoding до split | Среднее target по test утекает в train | TargetEncoder внутри Pipeline |
-| `shuffle=True` для time series | Будущее утекает в прошлое | `TimeSeriesSplit`, `shuffle=False` |
+### Feature selection на всём dataset
+Плохо: `SelectKBest(k=10).fit(X, y)` затем `train_test_split` — выбор фичей учитывает test
+Правильно: feature selection внутри Pipeline, fit только на train fold
+Почему: фичи выбраны с учётом test target — модель "подсмотрела" какие фичи коррелируют с test ответами
 
-```
-Плохо:
-  scaler = StandardScaler()
-  X_scaled = scaler.fit_transform(X)        # fit на ВСЁМ X
-  X_train, X_test = train_test_split(X_scaled)
-  // Test data повлияло на mean/std scaler — leakage
+### Target encoding до split
+Плохо: `TargetEncoder().fit_transform(X, y)` на всём dataset
+Правильно: `TargetEncoder` внутри Pipeline, fit на train only
+Почему: среднее target по категориям включает test samples — прямая утечка target в features
 
-Хорошо:
-  X_train, X_test = train_test_split(X)
-  pipeline = Pipeline([('scaler', StandardScaler()), ('model', RF())])
-  pipeline.fit(X_train, y_train)  # scaler fit только на train
-  pipeline.predict(X_test)         # scaler transform на test
-```
+### shuffle=True для time series
+Плохо: `train_test_split(X_ts, y_ts, shuffle=True)` — будущее утекает в прошлое
+Правильно: `TimeSeriesSplit` для CV, `shuffle=False` для split
+Почему: модель обучается на будущих данных и предсказывает прошлые — нереалистично высокие метрики
 
-## Cross-Validation ловушки
+## Cross-Validation
 
-```
-Плохо:
-  cross_val_score(model, X, y, cv=5)  # Обычный KFold
-  // Если y = [0,0,0,...,1,1,1] — некоторые folds без одного класса
-  // Модель не видит класс → accuracy 0% на этом fold
+### Обычный KFold для классификации
+Плохо: `cross_val_score(model, X, y, cv=5)` — обычный KFold без стратификации
+Правильно: `cross_val_score(model, X, y, cv=StratifiedKFold(5, shuffle=True))`
+Почему: если y = [0,0,...,1,1] — некоторые folds без одного класса. Модель не видит класс -> accuracy 0% на fold
 
-Хорошо:
-  cross_val_score(model, X, y, cv=StratifiedKFold(5, shuffle=True))
+### KFold для time series
+Плохо: `cross_val_score(model, X_ts, y_ts, cv=5)` с shuffle — train на 2025, test на 2023
+Правильно: `cross_val_score(model, X_ts, y_ts, cv=TimeSeriesSplit(5))`
+Почему: KFold с shuffle перемешивает временной порядок. Обучение на будущем = leakage
 
-Плохо:
-  # Time series
-  cross_val_score(model, X_ts, y_ts, cv=5)
-  // KFold с shuffle: train на 2025, test на 2023 → nonsense
+## Imbalanced Data
 
-Хорошо:
-  cross_val_score(model, X_ts, y_ts, cv=TimeSeriesSplit(5))
-```
+### accuracy при imbalance
+Плохо: `accuracy_score(y_test, y_pred)` при dataset 95% class 0 — accuracy 95% предсказывая всегда 0
+Правильно: `f1_score(y_test, y_pred, average='weighted')` или `precision_recall_fscore_support`
+Почему: accuracy бесполезна при сильном дисбалансе. Модель "читерит" предсказывая majority class
 
-## Imbalanced Data ловушки
+### class_weight забыт
+Плохо: `RandomForestClassifier().fit(X, y)` при 90/10 imbalance — majority class доминирует
+Правильно: `RandomForestClassifier(class_weight='balanced')` или SMOTE внутри Pipeline
+Почему: без class_weight модель оптимизирует accuracy = учится предсказывать majority. Minority class игнорируется
 
-```
-Плохо:
-  smote = SMOTE()
-  X_res, y_res = smote.fit_resample(X, y)  # SMOTE на весь dataset
-  cross_val_score(model, X_res, y_res, cv=5)
-  // Синтетические копии test samples в train → leakage, завышенные метрики
+## XGBoost
 
-Хорошо:
-  from imblearn.pipeline import Pipeline as ImbPipeline
-  pipeline = ImbPipeline([
-      ('smote', SMOTE()),
-      ('model', RandomForestClassifier(class_weight='balanced'))
-  ])
-  cross_val_score(pipeline, X, y, cv=StratifiedKFold(5))
-  // SMOTE применяется внутри каждого fold, только к train
+### Нет early stopping
+Плохо: `XGBClassifier(n_estimators=10000).fit(X_train, y_train)` — без early stopping
+Правильно: `XGBClassifier(n_estimators=10000, early_stopping_rounds=50).fit(X_train, y_train, eval_set=[(X_val, y_val)])`
+Почему: без early stopping 10000 деревьев = overfit + потраченное время. Остановка по val metric = оптимальное количество
 
-Плохо:
-  accuracy_score(y_test, y_pred)  # Dataset 95% class 0
-  // accuracy = 95% просто предсказывая всегда 0
+### Глубокие деревья + высокий learning rate
+Плохо: `XGBClassifier(max_depth=20, learning_rate=0.3)` — overfit
+Правильно: `max_depth=3-8`, `learning_rate` 0.01-0.1, больше деревьев (n_estimators)
+Почему: глубокие деревья запоминают train, высокий LR усиливает каждое дерево. Много слабых деревьев > мало сильных
 
-Хорошо:
-  f1_score(y_test, y_pred, average='weighted')
-  // Или precision_recall_fscore_support для детализации
-```
+## Feature Engineering
 
-## XGBoost ловушки
+### OneHotEncoding для 1000+ categories
+Плохо: `OneHotEncoder()` для колонки с 1000 уникальных значений — взрыв размерности
+Правильно: `TargetEncoding`, hashing trick, или embedding для high-cardinality
+Почему: 1000 one-hot колонок = sparse матрица, overfitting, медленно. Tree-based модели handle ordinal лучше
 
-```
-Плохо:
-  XGBClassifier(n_estimators=10000).fit(X_train, y_train)
-  // Без early stopping: overfit + тратит время
+### StandardScaler для tree-based models
+Плохо: `Pipeline([('scaler', StandardScaler()), ('rf', RandomForest())])` — бесполезная нормализация
+Правильно: StandardScaler только для linear/SVM/KNN. Trees не нужна нормализация
+Почему: деревья split по порогам, масштаб не влияет. Scaler = лишний шаг без пользы
 
-Хорошо:
-  XGBClassifier(n_estimators=10000, early_stopping_rounds=50)
-  .fit(X_train, y_train, eval_set=[(X_val, y_val)])
-  // Остановится когда val metric перестанет улучшаться
-
-Плохо:
-  XGBClassifier(max_depth=20, n_estimators=5000, learning_rate=0.3)
-  // Глубокие деревья + высокий LR = overfit
-
-Правило:
-  learning_rate ↓ → n_estimators ↑ (больше слабых деревьев лучше)
-  max_depth 3-8 для большинства задач
-```
-
-## Feature Engineering ловушки
-
-| Ошибка | Проблема | Решение |
-|--------|----------|---------|
-| OneHotEncoding для 1000+ categories | Взрыв размерности, overfitting | TargetEncoding или hashing |
-| StandardScaler для tree-based models | Trees не нужна нормализация — бесполезная работа | Scaler только для linear/SVM/KNN |
-| Polynomial features degree=5 | Экспоненциальный рост фичей | Max degree=2-3, feature selection после |
-| Удаление строк с NaN | Потеря данных, bias в выборке | Imputation (SimpleImputer, KNNImputer) |
-| `drop='first'` без понимания | Multicollinearity fix для linear models, не для trees | `drop='first'` только для linear/logistic |
+### Удаление строк с NaN вместо imputation
+Плохо: `df.dropna()` — потеря данных, bias в выборке
+Правильно: `SimpleImputer(strategy='median')` или `KNNImputer` внутри Pipeline
+Почему: NaN часто не random (MNAR) — удаление строк смещает выборку. Imputation сохраняет размер и снижает bias
 
 ## Чек-лист
 
-- [ ] Нет data leakage (preprocessing внутри Pipeline)
-- [ ] CV стратегия соответствует данным (Stratified / TimeSeries)
-- [ ] SMOTE внутри CV fold, не на весь dataset
-- [ ] Метрика адекватна задаче (не accuracy при imbalance)
-- [ ] XGBoost с early stopping
-- [ ] Feature engineering внутри Pipeline
-- [ ] Baseline модель перед сложными (DummyClassifier)
+- Нет data leakage (preprocessing внутри Pipeline)
+- CV стратегия соответствует данным (Stratified / TimeSeries)
+- SMOTE внутри CV fold, не на весь dataset
+- Метрика адекватна задаче (не accuracy при imbalance)
+- XGBoost с early stopping
+- Feature engineering внутри Pipeline
+- Baseline модель перед сложными (DummyClassifier)

@@ -6,70 +6,23 @@ argument-hint: [stack-trace или описание ошибки]
 
 # /debug
 
-Помощь в отладке: анализ stack trace, логов, исключений.
+**Goal:** Найти root cause ошибки по stack trace, логам или описанию исключения и предложить исправление.
 
-## Сценарии
+**Scenarios:**
 
-### 1. Анализ Exception
+- Stack trace / exception -- открыть файл на указанной строке, найти причину, предложить fix
+- Медленный запрос -- проверить N+1, предложить Include/projection
+- Ошибки в логах -- найти паттерн, корреляция по request ID
 
-Когда пользователь предоставляет stack trace:
+**Output:**
 
-```
-System.NullReferenceException: Object reference not set to an instance of an object
-   at MyApp.Services.OrderService.CalculateTotal(Order order) in OrderService.cs:line 42
-   at MyApp.Controllers.OrderController.CreateOrder(CreateOrderRequest request)
-```
+- Файл и строка с проблемой
+- Root cause (что именно вызывает ошибку)
+- Исправление с объяснением почему
+- Рекомендация по unit-тесту для кейса
 
-**Анализ:**
-1. Открыть файл OrderService.cs:42
-2. Найти переменную, которая может быть null
-3. Проверить откуда приходит значение
-4. Предложить исправление с null-check
+**Constraints:**
 
-### 2. Отладка БД запроса
-
-Используя Supabase MCP:
-```sql
--- Посмотреть медленные запросы
-SELECT query, mean_exec_time, calls
-FROM pg_stat_statements
-ORDER BY mean_exec_time DESC
-LIMIT 10;
-```
-
-Анализ N+1 проблемы:
-- Найти код с циклами и запросами
-- Предложить `.Include()` или `.ThenInclude()`
-- Показать оптимизированный вариант
-
-### 3. Проверка логов
-
-- Поиск ошибок за последний час
-- Корреляция по request ID
-- Выявление паттернов
-
-## Вывод
-
-```
-Анализ NullReferenceException:
-
-Файл: OrderService.cs:42
-Код: decimal total = order.Items.Sum(x => x.Price);
-
-Проблема: order.Items может быть null
-
-Исправление:
-decimal total = order.Items?.Sum(x => x.Price) ?? 0;
-
-Или лучше:
-if (order?.Items == null || !order.Items.Any())
-    throw new ArgumentException("Order must have items");
-
-decimal total = order.Items.Sum(x => x.Price);
-```
-
-## Интеграция
-
-- Документировать решение в Notion
-- Создать issue в GitLab если это баг
-- Предложить добавить unit тест для этого кейса
+- Начинать с файла/строки из stack trace, не гадать
+- Предлагать null-check, guard clause или валидацию на входе
+- При N+1 предлагать Include, projection или batch-запрос

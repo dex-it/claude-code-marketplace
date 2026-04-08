@@ -5,65 +5,75 @@ description: Epic planning — ловушки формулировки, sizing, 
 
 # Epic Planning — ловушки
 
-## Правила
+## Формулировка
 
-- Epic = 2-12 weeks, 5-15 stories. Меньше → story, больше → initiative
-- Outcome over output: "Increase activation by 20%", не "Build 5 features"
-- Success metrics с baseline + target + timeline
-- Out of Scope обязателен (manage expectations)
-- Anti-metrics: что НЕ должно ухудшиться
+### Output вместо Outcome
+Плохо: "Выпустить 5 фичей" или "Рефакторинг бэкенда" — что делаем, а не зачем
+Правильно: "Увеличить retention Day 7 на 15%" или "Сократить время ответа API с 5с до 1с"
+Почему: output не гарантирует value. 5 фичей могут не решить проблему пользователя
 
-## Частые ошибки
+### Нет Business Value
+Плохо: "Рефакторинг auth-модуля" — технический scope без пользовательской ценности
+Правильно: "Пользователь может войти за <3 сек" — measurable outcome
+Почему: без value стейкхолдеры не понимают приоритет, epic откладывается бесконечно
 
-| Ошибка | Пример | Исправление |
-|--------|--------|-------------|
-| Нет value | "Рефакторинг бэкенда" | "Сократить время ответа API с 5с до 1с" |
-| Нет метрик | "Улучшить UX" | "Снизить bounce rate с 45% до 20%" |
-| Нет Out of Scope | Scope creep через месяц | Явно: "Multi-language — NOT in scope" |
-| Слишком большой | >3 месяцев, размытый scope | Split на 2-3 focused epics |
-| Слишком маленький | 1 story, 1 неделя | Это story, не epic |
-| Output-focused | "Выпустить 5 фичей" | "Увеличить retention Day 7 на 15%" |
-| Нет anti-metrics | Оптимизировали скорость, упал uptime | "Uptime не должен упасть ниже 99.9%" |
-| Fake precision | "Estimated: 47.3 SP" | T-shirt sizing: S/M/L/XL |
+### Размытая формулировка
+Плохо: "Улучшить UX" — нельзя измерить, нельзя проверить готовность
+Правильно: "Снизить bounce rate с 45% до 20% на странице регистрации"
+Почему: без конкретики epic никогда не "закончен", scope creep гарантирован
 
-## Anti-metrics — что часто забывают
+## Метрики
 
-```
-Epic: Ускорение загрузки страниц
+### Нет Success Metrics
+Плохо: epic без измеримых критериев успеха
+Правильно: metrics с тремя компонентами: `baseline` -> `target` -> `timeline`
+Почему: без baseline непонятно стало ли лучше, без target нет цели, без timeline нет deadline
 
-Success metric: Page load <2 sec (p95)
-Anti-metrics (НЕ должны ухудшиться):
-- Error rate: не выше 0.1%
-- SEO score: не ниже текущего
-- Uptime: не ниже 99.9%
-// Без anti-metrics: ускорили страницу, но сломали SEO
-```
+### Нет Anti-Metrics
+Плохо: "Ускорить загрузку страниц" без ограничений на side effects
+Правильно: "Error rate не выше 0.1%, SEO score не ниже текущего, Uptime >= 99.9%"
+Почему: оптимизация скорости может сломать SEO или стабильность. Anti-metrics ставят guard rails
 
-## Sizing
+### Fake Precision в оценке
+Плохо: "Estimated: 47.3 SP" — ложная точность
+Правильно: T-shirt sizing: S (2-4 нед), M (1-2 мес), L (2-3 мес), XL -> split
+Почему: на уровне epic точная оценка невозможна, fake precision создаёт ложную уверенность
 
-```
-S  (2-4 weeks):  5-8 stories, well understood
-M  (1-2 months): 8-12 stories, some unknowns
-L  (2-3 months): 12-15 stories, moderate risk
-XL (3+ months):  SPLIT! Слишком большой для одного epic
-```
+## Scope
 
-## Progressive Elaboration
+### Нет Out of Scope
+Плохо: epic описывает что входит, но не что НЕ входит
+Правильно: явный раздел "Out of Scope": "Multi-language - NOT in scope"
+Почему: scope creep через месяц, стейкхолдеры добавляют фичи "а мы думали это тоже"
 
-```
-3 месяца до старта: High-level epic, rough estimate, general scope
-1 месяц до старта:  SA создаёт stories, команда оценивает
-Sprint planning:     Детальные AC, tech design, DoR проверен
+### Слишком большой epic
+Плохо: >3 месяцев, размытый scope, 20+ stories
+Правильно: 2-12 weeks, 5-15 stories. Если XL -> split на 2-3 focused epics
+Почему: большой epic = непредсказуемый deadline, демотивация команды, невозможность pivot
 
-НЕ детализируй то, что будет через полгода — оно изменится
-```
+### Слишком маленький epic
+Плохо: 1 story, 1 неделя работы
+Правильно: это story, не epic. Epic = 5-15 stories minimum
+Почему: overhead планирования epic не оправдан для одной задачи
+
+## Elaboration
+
+### Детализация всего заранее
+Плохо: детальные AC для stories, запланированных через 6 месяцев
+Правильно: progressive elaboration: 3 мес до старта = rough scope, 1 мес = stories, sprint = AC
+Почему: требования изменятся, детализация устареет, потрачено время впустую
+
+### Dependencies не идентифицированы
+Плохо: epic запланирован без учёта зависимостей от других команд/систем
+Правильно: Dependencies и risks идентифицированы на этапе планирования
+Почему: blocked epic = потерянный спринт, команда переключается на другое и теряет контекст
 
 ## Чек-лист
 
-- [ ] Формулировка через outcome, не output
-- [ ] Success metrics: baseline → target → timeline
-- [ ] Anti-metrics: что не должно ухудшиться
-- [ ] Out of Scope явно указан
-- [ ] Size: S/M/L (не XL — split!)
-- [ ] Можно разбить на 5-15 stories
-- [ ] Dependencies и risks идентифицированы
+- Формулировка через outcome, не output
+- Success metrics: baseline -> target -> timeline
+- Anti-metrics: что не должно ухудшиться
+- Out of Scope явно указан
+- Size: S/M/L (не XL, split!)
+- 5-15 stories в epic
+- Dependencies и risks идентифицированы
