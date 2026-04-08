@@ -97,7 +97,7 @@ const PROJECT_TARGET_MAX = 120; // ideal range
 // --- Frontmatter validation ---------------------------------------------
 
 const REQUIRED_FIELDS = ['name', 'description'];
-const FORBIDDEN_FIELDS = ['allowed-tools'];
+const FORBIDDEN_FIELDS = [];
 const MIN_DESCRIPTION_LENGTH = 50;
 const MIN_TRIGGER_KEYWORDS = 10;
 
