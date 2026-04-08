@@ -17,7 +17,7 @@ on:
 
 jobs:
   validate:
-    name: Validate agents and skills against frameworks
+    name: Validate agents, skills, and commands against frameworks
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -38,7 +38,10 @@ jobs:
       - name: Validate skills (errors only — warnings do not block)
         run: node tools/validate-skill.js all --errors-only
 
-      - name: Full report (agents + skills, informational)
+      - name: Validate commands (errors only — warnings do not block)
+        run: node tools/validate-command.js all --errors-only
+
+      - name: Full report (agents + skills + commands, informational)
         if: always()
         run: |
           echo "=== Agents ==="
@@ -46,3 +49,6 @@ jobs:
           echo ""
           echo "=== Skills ==="
           node tools/validate-skill.js all || true
+          echo ""
+          echo "=== Commands ==="
+          node tools/validate-command.js all || true
