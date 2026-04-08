@@ -311,7 +311,7 @@ Skills инжектятся в контекст субагента при ста
 
 Skills не в контексте до момента вызова. Агент сам вызывает Skill tool в нужной фазе с точным именем `dex-skill-X:X`. Требует `Skill` в `tools:` frontmatter'а.
 
-**Фреймворк выбирает способ B — императивную загрузку.** Причины:
+**Оба способа поддерживаются Claude Code.** Поле `skills:` — валидное для субагентов ([документация](https://code.claude.com/docs/en/sub-agents)). Однако для маркетплейса мы осознанно выбираем способ B — императивную загрузку. Причины:
 
 1. **Разделение контекста между фазами.** Phase 1 (Direct Analysis) работает без skill-контента; Phase 2 (Skill-Based Scan) подгружает только то, что нужно. Это даёт честное разделение «agent knowledge» и «skill knowledge» вместо смешанного.
 
@@ -711,8 +711,8 @@ Reproduce → Isolate → Fix → Verify. Reproduce и Verify обязатель
 Чек-лист для автора агента. То же самое проверяет `node tools/validate-agent.js <path>`, но в человекочитаемой форме.
 
 - [ ] Frontmatter: есть `name`, `description` (с триггерами), `tools` (с `Skill`)
-- [ ] Frontmatter: **нет** `skills:` (императивная загрузка, не pre-load)
-- [ ] Frontmatter: **нет** `allowed-tools:` (не поддерживается Claude Code)
+- [ ] Frontmatter: **нет** `skills:` (проектное решение маркетплейса — императивная загрузка экономит контекст)
+- [ ] Frontmatter: **нет** `allowed-tools:` (для агентов используется `tools:` / `disallowedTools:`)
 - [ ] Есть хотя бы одна секция `## Phase N: <Имя>`
 - [ ] Каждая фаза имеет `**Goal:**` и `**Exit criteria:**`
 - [ ] Exit criteria — observable (не «агент понял», а конкретный артефакт)
