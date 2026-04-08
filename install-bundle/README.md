@@ -150,8 +150,9 @@ sudo pacman -S jq
 
 1. Reads `bundle.json` from `plugins/bundles/dex-bundle-<name>/`
 2. Extracts the `includes[]` array (list of component plugin names)
-3. For each component, looks up its `source` path in `marketplace.json`
-4. Runs `claude plugins install <source>` for each component
+3. Verifies each component is declared in `marketplace.json`
+4. Resolves the marketplace name from `marketplace.json`
+5. Runs `claude plugins install <component>@<marketplace>` for each component
 
 ### Uninstallation
 
@@ -166,7 +167,7 @@ sudo pacman -S jq
 
 The scripts are **idempotent** - you can run them multiple times safely:
 
-- **Install**: Already installed components are skipped
+- **Install**: Already installed components are reported as "Already installed"
 - **Uninstall**: Components that are not installed are skipped
 
 This makes it safe to re-run the script if it was interrupted or if you want to ensure all components are properly installed/removed.
@@ -194,8 +195,8 @@ This makes it safe to re-run the script if it was interrupted or if you want to 
   Summary
 ======================================
 
-  Installed: 10
-  Skipped:   2
+  Installed:          10
+  Already installed:  2
 ```
 
 ### Uninstallation
@@ -219,8 +220,8 @@ This makes it safe to re-run the script if it was interrupted or if you want to 
   Summary
 ======================================
 
-  Removed:  10
-  Skipped:  2
+  Removed:   10
+  Skipped:   2
 ```
 
 ## Troubleshooting
