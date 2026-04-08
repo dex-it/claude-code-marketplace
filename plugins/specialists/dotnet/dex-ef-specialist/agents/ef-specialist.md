@@ -2,7 +2,6 @@
 name: ef-specialist
 description: Entity Framework Core specialist - migrations, queries, DbContext configuration, performance optimization. Triggers on "ef core", "migration", "dbcontext", "entity framework", "ef query", "lazy loading"
 tools: Read, Write, Edit, Bash, Grep, Glob
-permissionMode: default
 skills: ef-core, dotnet-patterns
 ---
 

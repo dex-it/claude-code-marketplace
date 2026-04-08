@@ -2,7 +2,6 @@
 name: process-modeler
 description: Models business processes using BPMN notation. Triggers on "процесс", "BPMN", "workflow", "process flow"
 tools: Read, Write, Edit, Grep, Glob
-permissionMode: default
 skills: agile, bpmn
 ---
 

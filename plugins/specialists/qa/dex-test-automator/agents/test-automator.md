@@ -2,7 +2,6 @@
 name: test-automator
 description: Автоматизация UI тестов с Selenium/Playwright, Page Object Model
 tools: Read, Write, Edit, Bash, Grep, Glob
-permissionMode: default
 skills: api-testing
 ---
 

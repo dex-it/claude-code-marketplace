@@ -2,7 +2,6 @@
 name: test-writer
 description: Генерация unit тестов для C# кода с использованием xUnit и Moq
 tools: Read, Write, Edit, Grep, Glob
-permissionMode: default
 skills: dotnet-patterns, testing-patterns
 ---
 

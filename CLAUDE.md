@@ -48,7 +48,7 @@ dex-bundle-dotnet-developer (bundle.json)
 
 ## Гайдлайны: как писать Skills
 
-### Принцип: Skills — это НЕ документация
+Подробные правила см. в [SKILL_FRAMEWORK.md](docs/SKILL_FRAMEWORK.md) — принципы, формат, анти-паттерны, библиотека категорий, пример полного skill, валидатор.
 
 Skill — это **ловушки и грабли**, а не туториал. Claude и так знает API, синтаксис и паттерны из training data. Skill нужен чтобы **предотвратить типичные ошибки**.
 
@@ -208,71 +208,29 @@ Methodology skills могут содержать:
 
 ## Гайдлайны: как писать Specialists (агенты)
 
-### Принцип: Agent = оркестратор, Skill = чек-лист
+Подробные правила см. в [AGENT_FRAMEWORK.md](docs/AGENT_FRAMEWORK.md) — фреймворк сборки агентов из фаз, правила композиции, gate'ы, библиотека типовых фаз, рецепты для 6 типов (Analyst/Diagnostician/Creator/Designer/Operator/Planner), валидатор.
 
-Agent задаёт **процесс** работы, а не содержит справочник знаний. Claude и так знает паттерны — агент управляет тем, **как и в каком порядке** применять знания.
+**Краткая суть:** агент описывает workflow через фазы. Фаза — декларативный контракт (goal/output/exit criteria/gate), не процедура. Claude знает КАК делать — фаза задаёт ЧТО и КОГДА готово. Skills загружаются императивно через Skill tool в нужных фазах, не pre-loaded через frontmatter.
 
-### Типы агентов
+## Гайдлайны: как писать Commands (slash-команды)
 
-| Тип | Что делает | Workflow | Two-Pass? | Примеры |
-|-----|-----------|----------|-----------|---------|
-| **Analyst** | Анализирует код/требования, выдаёт отчёт | Scan → Classify → Report | Да | code-reviewer, performance-analyst, test-analyst |
-| **Diagnostician** | Расследует проблему, ищет root cause | Collect → Hypothesize → Verify → Fix | Да | bug-hunter, model-debugger |
-| **Creator** | Создаёт артефакты: код, тесты, документы | Understand → Generate → Validate | Нет | coding-assistant, test-writer, doc-writer |
-| **Designer** | Проектирует архитектуру, API, процессы | Analyze → Propose → Decide → Document | Нет | architect, api-designer, process-modeler |
-| **Operator** | Работает с инфраструктурой, выполняет команды | Diagnose → Execute → Verify | Нет | docker-specialist, k8s-specialist, redis-specialist |
-| **Planner** | Приоритизация, roadmap, метрики | Gather → Analyze → Prioritize → Present | Нет | roadmap-planner, backlog-manager |
+Подробные правила см. в [COMMAND_FRAMEWORK.md](docs/COMMAND_FRAMEWORK.md) — принципы, формат, анти-паттерны, размер, когда команда вырастает в агент.
+
+**Краткая суть:** команда = точечное действие по запросу пользователя (`/build`, `/test`, `/metrics`). Описывает Goal + Output format, не bash-скрипт. Claude знает как выполнить `dotnet build` — команда задаёт что должно быть достигнуто и в каком формате показать результат. Цель: 20-50 строк.
+
+## Two-Pass Architecture (Analyst / Diagnostician)
 
 Two-Pass Architecture применяется **только к Analyst и Diagnostician** — там где есть процедура сканирования по чек-листу. Остальные типы используют свои workflow.
-
-### Two-Pass Architecture (Analyst / Diagnostician)
-
-Агенты типов Analyst и Diagnostician используют двухпроходный анализ:
 
 **Pass 1: Direct Analysis** — агент анализирует код своими знаниями, без вызова Skill tool.
 
 **Pass 2: Skill-Based Deep Scan** — агент **императивно загружает** skills через Skill tool и проходит по их чек-листам. Дедупликация с Pass 1 — только новые находки.
 
 **Механизм загрузки skills:**
-- Skills **НЕ** указываются в frontmatter через `skills:` (это pre-load, несовместимый с Two-Pass — skills попадают в контекст до Pass 1)
+- Skills **НЕ** указываются в frontmatter через `skills:` (проектное решение маркетплейса — экономия контекста)
 - В frontmatter добавляется `Skill` в поле `tools:` — это даёт агенту доступ к Skill tool для императивной загрузки в runtime
 - В Pass 2 агент вызывает Skill tool с точным именем плагина в формате `dex-skill-<name>:<name>` (например, `dex-skill-ef-core:ef-core`)
 - Загружаются только релевантные контексту skills, не все подряд
-
-```markdown
-### Pass 2: Skill-Based Deep Scan
-Выполняй всегда после Pass 1. Не спрашивай, продолжать ли.
-1. Вызови Skill tool `dex-skill-owasp-security:owasp-security` — пройди по чек-листу
-2. Вызови Skill tool `dex-skill-dotnet-patterns:dotnet-patterns` — проверь DI ловушки, SOLID
-3. Дедупликация с Pass 1 — сообщай только новые находки
-```
-
-### Scan Recipes
-
-Агенты включают конкретные grep-команды для обнаружения паттернов. Результат 0 — тоже ценный (подтверждение хорошей практики). Перед классификацией агент выводит **scan checklist** со счётчиками.
-
-### Что писать в агенте
-
-- **Workflow**: пошаговый процесс (Pass 1 → Pass 2 → Report)
-- **Scan recipes**: конкретные grep/bash команды для обнаружения паттернов
-- **Severity**: формализованная классификация находок
-- **Output format**: структура отчёта
-- **Boundaries**: что агент НЕ должен делать
-- **Fallback**: что делать если skill не доступен
-
-### Что НЕ писать в агенте
-
-- Примеры кода (❌/✅ блоки) — это задача skills
-- Объяснения паттернов — Claude знает
-- Справочники команд без workflow
-- Всё, что дублирует привязанные skills
-
-### Размер
-
-- **Цель**: 80-120 строк (максимум ~150)
-- Workflow: 30-40 строк
-- Scan recipes: 15-25 строк
-- Output format + boundaries: 20-30 строк
 
 ## Структура проекта
 

@@ -2,7 +2,6 @@
 name: requirements-analyst
 description: Analyzes requirements, identifies gaps, and ensures completeness. Triggers on "требования", "requirements", "analyze requirements"
 tools: Read, Write, Edit, Grep, Glob, AskUserQuestion
-permissionMode: default
 skills: agile, user-stories, bpmn, api-specification
 ---
 

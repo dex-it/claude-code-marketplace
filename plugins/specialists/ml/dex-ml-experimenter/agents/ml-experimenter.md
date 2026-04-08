@@ -2,7 +2,6 @@
 name: ml-experimenter
 description: Exploratory data analysis, feature engineering, baseline modeling, data quality checks
 tools: Read, Write, Edit, Bash, Grep, Glob
-permissionMode: default
 skills: classical-ml, pytorch, nlp-transformers
 ---
 

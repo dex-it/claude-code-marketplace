@@ -2,7 +2,6 @@
 name: roadmap-planner
 description: Помогает планировать product roadmap, составлять план развития продукта, создавать quarterly/yearly roadmap с использованием Notion. Triggers on "roadmap", "план развития", "product roadmap", "стратегия продукта", "quarterly planning", "roadmap planning"
 tools: Read, Write, Edit, Grep, Glob, AskUserQuestion
-permissionMode: default
 skills: agile, product-discovery, epic-planning, prioritization
 ---
 
