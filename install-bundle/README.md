@@ -1,6 +1,6 @@
-# Bundle Installer / Uninstaller
+# Bundle Installer / Uninstaller / Updater
 
-Automated installation and uninstallation scripts for Claude Code Marketplace bundles.
+Automated installation, uninstallation, and update scripts for Claude Code Marketplace bundles.
 
 ## Overview
 
@@ -90,6 +90,33 @@ sudo pacman -S jq
 
 # Preview uninstallation (dry run)
 .\uninstall-bundle.ps1 dotnet-developer -DryRun
+```
+
+## Update (reinstall all)
+
+Since Claude Code CLI has no `plugins update` command, updating means uninstall + install. The update script does this automatically for **all installed dex-plugins** (bundles, specialists, skills, utilities).
+
+### Bash (Linux / macOS / WSL)
+
+```bash
+# Update all installed dex-plugins
+./update-bundle.sh
+
+# Preview update (dry run)
+./update-bundle.sh --dry-run
+
+# Verbose output
+./update-bundle.sh --verbose
+```
+
+### PowerShell (Windows)
+
+```powershell
+# Update all installed dex-plugins
+.\update-bundle.ps1
+
+# Preview update (dry run)
+.\update-bundle.ps1 -DryRun
 ```
 
 ## Available Bundles
@@ -259,5 +286,7 @@ install-bundle/
 ├── install-bundle.ps1     # PowerShell install script (Windows)
 ├── uninstall-bundle.sh    # Bash uninstall script (Linux/macOS/WSL)
 ├── uninstall-bundle.ps1   # PowerShell uninstall script (Windows)
+├── update-bundle.sh       # Bash update script (Linux/macOS/WSL)
+├── update-bundle.ps1      # PowerShell update script (Windows)
 └── README.md              # This file
 ```
