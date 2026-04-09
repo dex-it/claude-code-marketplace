@@ -10,8 +10,6 @@
   },
   "scripts": {
     "validate": "node tools/validate-agent.js all && node tools/validate-skill.js all && node tools/validate-command.js all",
-    "validate:all": "node tools/validate-agent.js all && node tools/validate-skill.js all && node tools/validate-command.js all",
-    "validate:errors": "node tools/validate-agent.js all --errors-only && node tools/validate-skill.js all --errors-only && node tools/validate-command.js all --errors-only",
     "validate:agents": "node tools/validate-agent.js",
     "validate:skills": "node tools/validate-skill.js",
     "validate:commands": "node tools/validate-command.js"

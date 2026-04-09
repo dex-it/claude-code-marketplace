@@ -9,12 +9,10 @@
  * Usage:
  *   node tools/validate-command.js <path>                 # single file
  *   node tools/validate-command.js all                    # all commands in plugins/
- *   node tools/validate-command.js all --errors-only      # skip warnings
  *
  * Exit codes:
- *   0 — clean (or only warnings with --errors-only)
+ *   0 — clean
  *   1 — at least one error found
- *   2 — only warnings found
  */
 
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
@@ -33,28 +31,17 @@ const PLUGINS_DIR = join(REPO_ROOT, 'plugins');
 const COLORS = {
   reset: '\x1b[0m',
   red: '\x1b[31m',
-  yellow: '\x1b[33m',
   gray: '\x1b[90m',
   bold: '\x1b[1m',
 };
 
 const ERROR = 'error';
-const WARNING = 'warning';
 
 // --- CLI parsing --------------------------------------------------------
 
 function parseArgs(argv) {
-  const args = argv.slice(2);
-  const flags = new Set();
-  const positional = [];
-  for (const a of args) {
-    if (a.startsWith('--')) flags.add(a);
-    else positional.push(a);
-  }
-  return {
-    target: positional[0] || 'all',
-    errorsOnly: flags.has('--errors-only'),
-  };
+  const positional = argv.slice(2).filter((a) => !a.startsWith('--'));
+  return { target: positional[0] || 'all' };
 }
 
 // --- File discovery -----------------------------------------------------
@@ -108,7 +95,7 @@ function validateSize(rawContent, findings) {
     });
   } else if (lineCount > SIZE_RECOMMENDED_MAX) {
     findings.push({
-      level: WARNING,
+      level: ERROR,
       rule: 'size-exceeds-recommended',
       message: `File is ${lineCount} lines — exceeds recommended max of ${SIZE_RECOMMENDED_MAX}. Consider trimming procedural content, bash scripts, or templates`,
     });
@@ -125,7 +112,7 @@ function validateNoProcedural(markdownBody, findings) {
       const len = node.children?.length ?? 0;
       if (len >= 5) {
         findings.push({
-          level: WARNING,
+          level: ERROR,
           rule: 'procedural-body',
           message: `Ordered list with ${len} items at line ${node.position?.start?.line ?? '?'} — commands should declare Goal + Output, not step-by-step procedures`,
         });
@@ -145,7 +132,7 @@ function validateCodeFences(markdownBody, findings) {
     const lines = (node.value || '').split('\n').length;
     if (lines > MAX_CODE_FENCE_LINES) {
       findings.push({
-        level: WARNING,
+        level: ERROR,
         rule: 'code-fence-too-long',
         message: `Code block at line ${node.position?.start?.line ?? '?'} has ${lines} lines — commands describe Goal + Output format, not embed scripts. Claude knows CLI syntax`,
       });
@@ -173,7 +160,7 @@ function validateNoBashScripts(markdownBody, findings) {
 
   if (bashBlockCount >= 2 && totalBashLines > 10) {
     findings.push({
-      level: WARNING,
+      level: ERROR,
       rule: 'bash-script-detected',
       message: `${bashBlockCount} bash blocks with ${totalBashLines} total lines — commands declare what to achieve, not how. Claude knows CLI commands`,
     });
@@ -207,7 +194,7 @@ function validateNoDocumentationTitles(markdownBody, findings) {
     for (const pattern of DOCUMENTATION_TITLE_PATTERNS) {
       if (pattern.test(title)) {
         findings.push({
-          level: WARNING,
+          level: ERROR,
           rule: 'documentation-style-title',
           message: `Heading "${title}" (line ${node.position?.start?.line ?? '?'}) looks like documentation — commands describe Goal + Output, not tutorials`,
         });
@@ -249,48 +236,37 @@ function validateFile(filepath) {
 // --- Reporting ----------------------------------------------------------
 
 function formatFinding(f) {
-  const color = f.level === ERROR ? COLORS.red : COLORS.yellow;
-  const tag = f.level === ERROR ? 'ERROR' : 'WARN ';
-  return `  ${color}${tag}${COLORS.reset} ${COLORS.gray}[${f.rule}]${COLORS.reset} ${f.message}`;
+  return `  ${COLORS.red}ERROR${COLORS.reset} ${COLORS.gray}[${f.rule}]${COLORS.reset} ${f.message}`;
 }
 
-function report(results, errorsOnly) {
+function report(results) {
   let totalErrors = 0;
-  let totalWarnings = 0;
   let filesWithIssues = 0;
 
   for (const result of results) {
-    const errors = result.findings.filter((f) => f.level === ERROR);
-    const warnings = result.findings.filter((f) => f.level === WARNING);
-    totalErrors += errors.length;
-    totalWarnings += warnings.length;
+    if (result.findings.length === 0) continue;
 
-    const shown = errorsOnly ? errors : [...errors, ...warnings];
-    if (shown.length === 0) continue;
-
+    totalErrors += result.findings.length;
     filesWithIssues += 1;
     const rel = relative(REPO_ROOT, result.filepath);
     console.log(`\n${COLORS.bold}${rel}${COLORS.reset}`);
-    for (const f of shown) console.log(formatFinding(f));
+    for (const f of result.findings) console.log(formatFinding(f));
   }
 
   console.log('');
   console.log(
     `${COLORS.bold}Summary:${COLORS.reset} ${results.length} command(s) checked, ` +
-      `${COLORS.red}${totalErrors} error(s)${COLORS.reset}, ` +
-      `${COLORS.yellow}${totalWarnings} warning(s)${COLORS.reset}` +
+      `${COLORS.red}${totalErrors} error(s)${COLORS.reset}` +
       (filesWithIssues > 0 ? `, ${filesWithIssues} file(s) with issues` : '')
   );
 
-  if (totalErrors > 0) return 1;
-  if (totalWarnings > 0) return 2;
-  return 0;
+  return totalErrors > 0 ? 1 : 0;
 }
 
 // --- Main ---------------------------------------------------------------
 
 function main() {
-  const { target, errorsOnly } = parseArgs(process.argv);
+  const { target } = parseArgs(process.argv);
 
   let files;
   if (target === 'all') {
@@ -309,10 +285,7 @@ function main() {
   }
 
   const results = files.map((f) => validateFile(f));
-  const exitCode = report(results, errorsOnly);
-
-  if (errorsOnly && exitCode === 2) process.exit(0);
-  process.exit(exitCode);
+  process.exit(report(results));
 }
 
 main();
