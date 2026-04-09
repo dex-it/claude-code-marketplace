@@ -4,13 +4,13 @@
 
 ## О проекте
 
-Claude Code Marketplace — набор из 93 специализированных плагинов для Claude Code, организованных в 3 уровня:
+Claude Code Marketplace — набор из 106 специализированных плагинов для Claude Code, организованных в 3 уровня:
 
 ```
 Level 3: BUNDLES (10)     — наборы для быстрой установки по ролям
-Level 2: SPECIALISTS (39) — агенты с узкой специализацией
-Level 1: SKILLS (42)      — базы знаний (автоматическая активация)
-         UTILITIES (2)     — инструменты (hooks, notifications)
+Level 2: SPECIALISTS (41) — агенты с узкой специализацией
+Level 1: SKILLS (47)      — базы знаний (автоматическая активация)
+         UTILITIES (8)     — инструменты (hooks, notifications, CLI)
 ```
 
 **Принцип:** атомарные плагины без дублирования. Собирай свой набор из нужных компонентов.
@@ -72,13 +72,13 @@ claude plugins uninstall dex-dotnet-coder
 | `dotnet-developer` | .NET разработчик | 12 |
 | `dotnet-fullstack` | .NET + инфраструктура | 29 |
 | `ts-fullstack` | TypeScript fullstack (Node.js/Bun + React) | 7 |
-| `devops` | DevOps инженер | 11 |
+| `devops` | DevOps инженер | 19 |
 | `product-manager` | Product Manager | 9 |
 | `system-analyst` | Системный аналитик | 9 |
 | `architect` | Архитектор | 9 |
 | `qa-engineer` | QA инженер | 6 |
 | `ml-engineer` | ML инженер | 11 |
-| `infrastructure` | Вся инфраструктура | 23 |
+| `infrastructure` | Вся инфраструктура | 31 |
 
 Подробнее: [install-bundle/README.md](./install-bundle/README.md)
 
@@ -103,7 +103,7 @@ claude plugins uninstall dex-dotnet-coder
 | dex-ef-specialist | ef-specialist | EF Core: migrations, queries, DbContext |
 | dex-dotnet-performance | performance-analyst | Profiling, N+1, memory |
 
-### Infrastructure (12)
+### Infrastructure (14)
 
 | Плагин | Описание |
 |--------|----------|
@@ -116,6 +116,8 @@ claude plugins uninstall dex-dotnet-coder
 | dex-docker-specialist | Docker: images, containers, compose |
 | dex-kubernetes-specialist | Kubernetes: deployments, services, HPA |
 | dex-cicd-gitlab | GitLab CI/CD: pipelines, deployment |
+| dex-cicd-github | GitHub Actions: workflows, matrix builds |
+| dex-cicd-jenkins | Jenkins: Jenkinsfile, shared libraries |
 | dex-cicd-teamcity | TeamCity: build configurations |
 | dex-logging-seq | Seq: log analysis, dashboards |
 | dex-monitoring-grafana | Grafana: dashboards, alerts, metrics |
@@ -167,7 +169,7 @@ claude plugins uninstall dex-dotnet-coder
 
 ## Skills (Level 1)
 
-Базы знаний — активируются автоматически по ключевым словам в контексте. 42 skills по категориям:
+Базы знаний — активируются автоматически по ключевым словам в контексте. 47 skills по категориям:
 
 | Категория | Skills |
 |-----------|--------|
@@ -175,10 +177,10 @@ claude plugins uninstall dex-dotnet-coder
 | **Frontend & TypeScript** | react, typescript-patterns, nodejs-api |
 | **Security** | owasp-security |
 | **Workflow** | git-workflow |
-| **Infrastructure** | rabbitmq, kafka, elasticsearch, redis, mongodb, docker, kubernetes, gitlab-ci, teamcity, logging, observability |
-| **Architecture** | clean-architecture, ddd, microservices |
+| **Infrastructure** | rabbitmq, kafka, elasticsearch, redis, mongodb, docker, kubernetes, gitlab-ci, github-actions, jenkins, teamcity, logging, observability |
+| **Architecture** | clean-architecture, ddd, microservices, system-design |
 | **Product & Analysis** | agile, user-stories, bpmn, doc-standards, api-specification, epic-planning, product-discovery, prioritization |
-| **QA** | test-design, api-testing |
+| **QA** | test-design, api-testing, deep-audit, tech-audit |
 | **ML** | pytorch, tensorflow, classical-ml, nlp-transformers, computer-vision, ml-optimization |
 
 ## Utilities (Level 1)
@@ -187,6 +189,12 @@ claude plugins uninstall dex-dotnet-coder
 |--------|----------|
 | dex-telegram-notifier | Telegram уведомления о событиях Claude Code |
 | dex-discord-notifier | Discord уведомления о событиях Claude Code |
+| dex-github-cli | GitHub CLI: workflow runs, PRs, Actions logs |
+| dex-gitlab-cli | GitLab CLI: pipelines, MRs, job logs |
+| dex-jenkins-cli | Jenkins CLI: jobs, builds, console output |
+| dex-kubectl-cli | Kubernetes CLI: pods, logs, deployments, events |
+| dex-teamcity-cli | TeamCity CLI: builds, agents, build logs |
+| dex-mcp-inspector | MCP Inspector: тестирование и отладка MCP серверов |
 
 ## MCP Servers
 
@@ -209,16 +217,18 @@ MCP конфигурации в каталоге `mcp/`. Подробнее: [mc
 ```
 claude-code-marketplace/
 ├── plugins/
-│   ├── skills/                    # Level 1: базы знаний (42)
+│   ├── skills/                    # Level 1: базы знаний (47)
 │   │   ├── dex-skill-agile/
 │   │   ├── dex-skill-dotnet-patterns/
 │   │   └── ...
-│   ├── utilities/                 # Level 1: инструменты (2)
-│   │   └── dex-telegram-notifier/
-│   ├── specialists/               # Level 2: агенты (39)
+│   ├── utilities/                 # Level 1: инструменты (8)
+│   │   ├── dex-telegram-notifier/
+│   │   ├── dex-github-cli/
+│   │   └── ...
+│   ├── specialists/               # Level 2: агенты (41)
 │   │   ├── dotnet/               # 6 specialists
 │   │   ├── fullstack/            # 1 specialist
-│   │   ├── infrastructure/       # 12 specialists
+│   │   ├── infrastructure/       # 14 specialists
 │   │   ├── architecture/         # 4 specialists
 │   │   ├── product/              # 8 specialists
 │   │   ├── qa/                   # 3 specialists
@@ -261,4 +271,4 @@ GPL v3.0 — см. [LICENSE](./LICENSE)
 
 ---
 
-**DEX Team** · Version 5.0.0
+**DEX Team** · Version 5.1.0

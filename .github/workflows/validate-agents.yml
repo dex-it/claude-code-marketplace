@@ -32,23 +32,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Validate agents (errors only — warnings do not block)
-        run: node tools/validate-agent.js all --errors-only
+      - name: Validate agents
+        run: node tools/validate-agent.js all
 
-      - name: Validate skills (errors only — warnings do not block)
-        run: node tools/validate-skill.js all --errors-only
+      - name: Validate skills
+        run: node tools/validate-skill.js all
 
-      - name: Validate commands (errors only — warnings do not block)
-        run: node tools/validate-command.js all --errors-only
-
-      - name: Full report (agents + skills + commands, informational)
-        if: always()
-        run: |
-          echo "=== Agents ==="
-          node tools/validate-agent.js all || true
-          echo ""
-          echo "=== Skills ==="
-          node tools/validate-skill.js all || true
-          echo ""
-          echo "=== Commands ==="
-          node tools/validate-command.js all || true
+      - name: Validate commands
+        run: node tools/validate-command.js all
