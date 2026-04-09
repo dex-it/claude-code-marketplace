@@ -1,6 +1,6 @@
 ---
 name: api-testing
-description: API тестирование — ловушки сценариев, status codes, контрактов. Активируется при api testing, rest api test, integration test, contract testing, WebApplicationFactory, Testcontainers, status code, ProblemDetails, 401, 403, 409, Location header, happy path, concurrent access, flaky test, InMemoryDatabase
+description: API тестирование — ловушки сценариев, status codes, контрактов. Активируется при api testing, integration test, contract testing, WebApplicationFactory, Testcontainers, ProblemDetails, 401, 403, 409, happy path, flaky test
 ---
 
 # API Testing — ловушки

@@ -1,6 +1,6 @@
 ---
 name: pytorch
-description: PyTorch — ловушки training loop, DataLoader, GPU, distributed. Активируется при pytorch, nn.Module, dataloader, training loop, DDP, mixed precision, model.eval, torch.no_grad, optimizer.zero_grad, state_dict, GradScaler, autocast, scheduler, OneCycleLR, pin_memory, checkpoint
+description: PyTorch — ловушки training loop, DataLoader, GPU. Активируется при pytorch, nn.Module, dataloader, DDP, mixed precision, model.eval, torch.no_grad, optimizer.zero_grad, state_dict, GradScaler, autocast, checkpoint
 ---
 
 # PyTorch — ловушки

@@ -315,7 +315,7 @@ function validatePhases(markdownBody, findings) {
       }
     }
 
-    const mandatoryMatch = body.match(/\*\*mandatory:\*\*\s*yes([^\n]*)/i);
+    const mandatoryMatch = body.match(/mandatory:\s*yes([^\n]*)/i);
     if (mandatoryMatch) {
       const afterYes = (mandatoryMatch[1] || '').trim();
       if (afterYes.length < 10) {

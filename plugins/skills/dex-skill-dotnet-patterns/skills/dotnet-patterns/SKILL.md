@@ -1,6 +1,6 @@
 ---
 name: dotnet-patterns
-description: .NET паттерны — ловушки DI, SOLID нарушения, антипаттерны проектирования. Активируется при pattern, SOLID, DI, dependency injection, design pattern, DRY, KISS, YAGNI, service locator, captive dependency, async void, CancellationToken, IDisposable, HttpClient, IHttpClientFactory, Result pattern, over-engineering, god class, IOptions, TimeProvider
+description: .NET паттерны — ловушки DI, SOLID, антипаттерны. Активируется при SOLID, DI, service locator, captive dependency, async void, CancellationToken, IDisposable, HttpClient, IHttpClientFactory, Result pattern, god class, IOptions, TimeProvider
 ---
 
 # .NET Patterns — ловушки и anti-patterns

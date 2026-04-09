@@ -97,8 +97,9 @@ const PROJECT_TARGET_MAX = 120; // ideal range
 // --- Frontmatter validation ---------------------------------------------
 
 const REQUIRED_FIELDS = ['name', 'description'];
-const FORBIDDEN_FIELDS = ['allowed-tools'];
+const FORBIDDEN_FIELDS = ['keywords'];
 const MIN_DESCRIPTION_LENGTH = 50;
+const MAX_DESCRIPTION_LENGTH = 250;
 const MIN_TRIGGER_KEYWORDS = 10;
 
 function validateFrontmatter(parsed, findings) {
@@ -132,6 +133,14 @@ function validateFrontmatter(parsed, findings) {
       level: WARNING,
       rule: 'description-short',
       message: `Description shorter than ${MIN_DESCRIPTION_LENGTH} characters — likely missing trigger keywords`,
+    });
+  }
+
+  if (desc.length > MAX_DESCRIPTION_LENGTH) {
+    findings.push({
+      level: WARNING,
+      rule: 'description-too-long',
+      message: `Description is ${desc.length} characters — exceeds recommended max of ${MAX_DESCRIPTION_LENGTH}. Keywords beyond this limit may not activate the skill`,
     });
   }
 

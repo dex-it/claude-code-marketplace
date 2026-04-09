@@ -417,7 +417,7 @@ name: skill-name
 description: Ключевые слова для автоматической активации
 ---
 ```
-> **Важно:** `allowed-tools` не поддерживается в skills. Валидные поля: name, description, disable-model-invocation, user-invokable, argument-hint, compatibility, license, metadata.
+> **Важно:** `keywords` не поддерживается в skills — ключевые слова включать в `description`. Валидные поля: name, description, disable-model-invocation, user-invocable, argument-hint, allowed-tools, model, effort, context, agent, hooks, paths, shell.
 
 ## Технологический стек
 

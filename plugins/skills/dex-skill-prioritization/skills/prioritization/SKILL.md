@@ -1,6 +1,6 @@
 ---
 name: prioritization
-description: Приоритизация — ловушки RICE, ICE, MoSCoW, scoring. Активируется при приоритизация, prioritize, RICE score, MoSCoW, backlog prioritization, feature ranking, ICE, Kano model, Value/Effort matrix, reach, confidence, effort, P0, техдолг, quarterly planning
+description: Приоритизация — ловушки RICE, ICE, MoSCoW, scoring. Активируется при приоритизация, prioritize, RICE score, MoSCoW, backlog prioritization, ICE, Kano model, Value/Effort matrix, reach, confidence, effort, P0, техдолг
 ---
 
 # Prioritization — ловушки и anti-patterns

@@ -1,6 +1,6 @@
 ---
 name: api-development
-description: ASP.NET Core Web API — ловушки контроллеров, DTO, пагинации. Активируется при web api, controller, endpoint, REST API, versioning, swagger, openapi, swashbuckle, ActionResult, ProblemDetails, CreatedAtAction, ProducesResponseType, пагинация, exception handler, middleware, CancellationToken, DTO
+description: ASP.NET Core Web API — ловушки контроллеров, DTO, пагинации. Активируется при web api, controller, endpoint, REST API, versioning, swagger, openapi, ActionResult, ProblemDetails, CreatedAtAction, ProducesResponseType, exception handler, middleware
 ---
 
 # API Development — ловушки и anti-patterns

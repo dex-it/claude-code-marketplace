@@ -1,6 +1,6 @@
 ---
 name: epic-planning
-description: Epic planning — ловушки формулировки, sizing, scope. Активируется при epic, roadmap, initiative, planning, business value, success metrics, anti-metrics, out of scope, outcome, T-shirt sizing, progressive elaboration, scope creep, декомпозиция, квартальное планирование
+description: Epic planning — ловушки sizing, scope. Активируется при epic, roadmap, initiative, planning, business value, success metrics, anti-metrics, out of scope, outcome, T-shirt sizing, scope creep
 ---
 
 # Epic Planning — ловушки

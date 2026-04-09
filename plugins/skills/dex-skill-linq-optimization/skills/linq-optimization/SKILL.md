@@ -1,6 +1,6 @@
 ---
 name: linq-optimization
-description: LINQ и коллекции — ловушки производительности, материализация, фильтрация. Активируется при linq, query, collection, hashset, dictionary, IEnumerable, IQueryable, ToList, Any, Count, GroupBy, FirstOrDefault, Select, Where, Contains, Distinct, ToDictionary, проекция, материализация
+description: LINQ и коллекции — ловушки производительности. Активируется при linq, query, collection, hashset, dictionary, IEnumerable, IQueryable, ToList, Any, Count, GroupBy, FirstOrDefault, Select, Where
 ---
 
 # LINQ & Collections — ловушки

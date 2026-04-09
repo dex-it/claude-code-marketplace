@@ -1,6 +1,6 @@
 ---
 name: teamcity
-description: TeamCity CI/CD — ловушки build chains, DSL, артефактов. Активируется при teamcity, build configuration, meta-runner, artifact, build chain, Kotlin DSL, snapshot dependency, failure conditions, build template, password parameter, trigger chain, artifact dependency
+description: TeamCity CI/CD — ловушки build chains, DSL, артефактов. Активируется при teamcity, build configuration, meta-runner, artifact, build chain, Kotlin DSL, snapshot dependency, failure conditions, build template, trigger chain
 ---
 
 # TeamCity — ловушки и anti-patterns

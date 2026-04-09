@@ -1,6 +1,6 @@
 ---
 name: jenkins
-description: Jenkins CI/CD — ловушки Jenkinsfile, shared libraries, credentials. Активируется при jenkins, jenkinsfile, declarative pipeline, scripted pipeline, shared library, groovy, jenkins agent, credential binding, multibranch, blue ocean, jenkins plugin, pipeline syntax, input step, parallel stages, Jenkinsfile
+description: Jenkins CI/CD — ловушки Jenkinsfile, shared libraries, credentials. Активируется при jenkins, jenkinsfile, declarative pipeline, scripted pipeline, shared library, groovy, credential binding, multibranch, blue ocean, input step, parallel stages
 ---
 
 # Jenkins — ловушки и anti-patterns

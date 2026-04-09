@@ -1,6 +1,6 @@
 ---
 name: ef-core
-description: Entity Framework Core — ловушки запросов, миграций, concurrency. Активируется при entity framework, ef core, dbcontext, migration, linq to entities, N+1, concurrency, locking, AsNoTracking, Include, AsSplitQuery, ExecuteUpdate, ExecuteDelete, Change Tracker, SaveChanges, AddAsync, cartesian explosion, ConcurrencyToken, IServiceScopeFactory
+description: EF Core — ловушки запросов, миграций, concurrency. Активируется при ef core, dbcontext, migration, linq to entities, N+1, AsNoTracking, Include, AsSplitQuery, ExecuteUpdate, ExecuteDelete, Change Tracker, SaveChanges, cartesian explosion
 ---
 
 # Entity Framework Core — ловушки и anti-patterns

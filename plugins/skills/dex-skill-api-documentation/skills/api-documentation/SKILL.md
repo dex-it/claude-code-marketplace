@@ -1,6 +1,6 @@
 ---
 name: api-documentation
-description: OpenAPI/Swagger документация — ловушки spec, генерации клиентов. Активируется при swagger, openapi, api documentation, swashbuckle, nswag, Kiota, ProducesResponseType, GenerateDocumentationFile, XML comments, JsonStringEnumConverter, schema drift, ApiVersion, Obsolete, deprecated
+description: OpenAPI/Swagger — ловушки spec, генерации клиентов. Активируется при swagger, openapi, swashbuckle, nswag, Kiota, ProducesResponseType, XML comments, JsonStringEnumConverter, schema drift, api doc
 ---
 
 # API Documentation — ловушки

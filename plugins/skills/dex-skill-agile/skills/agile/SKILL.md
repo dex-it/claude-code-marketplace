@@ -1,6 +1,6 @@
 ---
 name: agile
-description: Agile — ловушки backlog, stories, sprints, sizing. Активируется при epic, story, sprint, INVEST, DoR, DoD, sprint planning, sizing, velocity, story points, backlog, refinement, acceptance criteria, Given-When-Then, scrum, kanban, user story, приоритизация, RICE
+description: Agile — ловушки backlog, stories, sprints, sizing. Активируется при epic, story, sprint, INVEST, DoR, DoD, sprint planning, velocity, story points, backlog, refinement, acceptance criteria, scrum, kanban, user story, RICE
 ---
 
 # Agile — ловушки

@@ -1,6 +1,6 @@
 ---
 name: computer-vision
-description: Computer Vision — ловушки augmentation, detection, segmentation, training. Активируется при computer vision, cnn, resnet, yolo, u-net, detection, segmentation, augmentation, ImageNet normalization, BGR, RGB, EfficientNet, DiceLoss, NMS, bbox, albumentations, differential LR, ViT
+description: Computer Vision — ловушки augmentation, detection, segmentation. Активируется при computer vision, cnn, resnet, yolo, u-net, detection, segmentation, augmentation, BGR, RGB, EfficientNet, NMS, bbox, albumentations, ViT
 ---
 
 # Computer Vision — ловушки

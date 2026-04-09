@@ -1,6 +1,6 @@
 ---
 name: doc-standards
-description: Документация — ловушки структуры, дублирования, устаревания. Активируется при documentation, document, docs, spec, BRD, PRD, ADR, tech spec, single source of truth, out of scope, metadata, cross-reference, rollback plan, документация, техническая спецификация
+description: Документация — ловушки структуры, дублирования, устаревания. Активируется при documentation, docs, spec, BRD, PRD, ADR, tech spec, single source of truth, out of scope, metadata, cross-reference, rollback plan, документация
 ---
 
 # Documentation — ловушки

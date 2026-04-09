@@ -1,6 +1,6 @@
 ---
 name: system-design
-description: "System design anti-patterns — ловушки NFR, capacity planning, масштабирования. Активируется при system design, нефункциональные требования, NFR, capacity planning, scalability, CAP theorem, availability, throughput, latency, SLA, SLO, SLI, horizontal scaling, vertical scaling, load balancing, ATAM, trade-off analysis, architecture review, technology radar"
+description: "System design — ловушки NFR, capacity planning, масштабирования. Активируется при system design, NFR, capacity planning, scalability, CAP theorem, availability, throughput, latency, SLA, SLO, horizontal scaling, load balancing, ATAM"
 ---
 
 # System Design Anti-Patterns
