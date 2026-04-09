@@ -29,10 +29,12 @@ permissionMode: default
 
 Выполняй всегда после Phase 1. Не спрашивай, продолжать ли. Загружай только те skills, которые релевантны типу бага.
 
-- **Всегда** -- вызови Skill tool `dex-skill-dotnet-patterns:dotnet-patterns` -- проверь captive dependency, async void, missing CancellationToken, IDisposable, double fault
-- **Всегда** -- вызови Skill tool `dex-skill-async-patterns:async-patterns` -- проверь deadlock (.Result/.Wait), fire-and-forget, missing ConfigureAwait в библиотеках
-- **Если баг связан с данными или EF Core** -- вызови Skill tool `dex-skill-ef-core:ef-core` -- проверь N+1, Change Tracker, concurrency, cascade delete
-- **Если баг в запросах/коллекциях/LINQ** -- вызови Skill tool `dex-skill-linq-optimization:linq-optimization` -- проверь материализацию, IQueryable vs IEnumerable
+- **Всегда** -- вызови Skill tool `dex-skill-dotnet-di:dotnet-di` -- проверь captive dependency, lifetime, Service Locator
+- **Всегда** -- вызови Skill tool `dex-skill-dotnet-resources:dotnet-resources` -- проверь IDisposable, memory leak, socket exhaustion
+- **Всегда** -- вызови Skill tool `dex-skill-dotnet-async-patterns:dotnet-async-patterns` -- проверь deadlock (.Result/.Wait), fire-and-forget, missing ConfigureAwait в библиотеках
+- **Если баг связан с данными или EF Core** -- вызови Skill tool `dex-skill-dotnet-ef-core:dotnet-ef-core` -- проверь N+1, Change Tracker, concurrency, cascade delete
+- **Если баг в запросах/коллекциях/LINQ** -- вызови Skill tool `dex-skill-dotnet-linq-optimization:dotnet-linq-optimization` -- проверь материализацию, IQueryable vs IEnumerable
+- **Если подозрение на проглоченную ошибку** -- вызови Skill tool `dex-skill-dotnet-logging:dotnet-logging` -- пустой catch, логируем но глотаем, Error без exception
 - Дедупликация с Phase 1 -- сообщай только новые находки или подтверждение гипотезы
 
 Пометь секцию **"Pass 2: Deep Pattern Check"**.

@@ -60,13 +60,15 @@ Understand Requirements → Study Project Context → Generate → Validate. Und
 
 В этой фазе загружай релевантные skills императивно через Skill tool, если задача попадает в их область:
 
-- Для вопросов DI, SOLID, паттернов проектирования — `dex-skill-dotnet-patterns:dotnet-patterns`
-- Для async/await, CancellationToken, параллелизма — `dex-skill-async-patterns:async-patterns`
-- Для EF Core, запросов, tracking, миграций — `dex-skill-ef-core:ef-core`
-- Для LINQ, коллекций, материализации — `dex-skill-linq-optimization:linq-optimization`
-- Для контроллеров, DTO, API эндпоинтов — `dex-skill-api-development:api-development`
-- Для unit-тестов, если их тоже генерируем — `dex-skill-testing-patterns:testing-patterns`
-- Для structured logging — `dex-skill-logging:logging`
+- Для DI ловушек — `dex-skill-dotnet-di:dotnet-di`
+- Для ресурсов и утечек памяти — `dex-skill-dotnet-resources:dotnet-resources`
+- Для тестируемости кода — `dex-skill-testability:testability`
+- Для async/await, CancellationToken, параллелизма — `dex-skill-dotnet-async-patterns:dotnet-async-patterns`
+- Для EF Core, запросов, tracking, миграций — `dex-skill-dotnet-ef-core:dotnet-ef-core`
+- Для LINQ, коллекций, материализации — `dex-skill-dotnet-linq-optimization:dotnet-linq-optimization`
+- Для контроллеров, DTO, API эндпоинтов — `dex-skill-dotnet-api-development:dotnet-api-development`
+- Для unit-тестов, если их тоже генерируем — `dex-skill-dotnet-testing-patterns:dotnet-testing-patterns`
+- Для structured logging — `dex-skill-dotnet-logging:dotnet-logging`
 
 Skills знают grabli (captive dependency, async void, N+1, забытый AsNoTracking). Не загружай все — только те, область которых пересекается с задачей.
 

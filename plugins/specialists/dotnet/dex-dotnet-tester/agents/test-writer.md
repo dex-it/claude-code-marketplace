@@ -54,8 +54,9 @@ Understand Requirements -> [Project Context?] -> Generate -> Validate. Understan
 
 В этой фазе загружай skills через Skill tool:
 
-- Для паттернов тестирования, AAA, моков -- `dex-skill-testing-patterns:testing-patterns`
-- Для DI, SOLID, анти-паттернов в тестируемом коде -- `dex-skill-dotnet-patterns:dotnet-patterns`
+- Для паттернов тестирования, AAA, моков -- `dex-skill-dotnet-testing-patterns:dotnet-testing-patterns`
+- Для тестируемости кода — `dex-skill-testability:testability`
+- Для DI в тестируемом коде (мокабельность, Service Locator) — `dex-skill-dotnet-di:dotnet-di`
 
 **Exit criteria:** Файлы тестов сохранены, покрывают все сценарии из Phase 1.
 

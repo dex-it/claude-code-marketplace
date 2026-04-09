@@ -47,8 +47,9 @@ Diagnose -> Branch -> Execute -> Verify.
 
 В этой фазе загружай skills через Skill tool:
 
-- Для ловушек EF Core, миграций, concurrency -- `dex-skill-ef-core:ef-core`
-- Для оптимизации LINQ, коллекций, материализации -- `dex-skill-linq-optimization:linq-optimization`
+- Для ловушек EF Core, миграций, concurrency -- `dex-skill-dotnet-ef-core:dotnet-ef-core`
+- Для оптимизации LINQ, коллекций, материализации -- `dex-skill-dotnet-linq-optimization:dotnet-linq-optimization`
+- Для логирования EF queries, debug logging -- `dex-skill-dotnet-logging:dotnet-logging`
 
 **Exit criteria:** Файлы сохранены, изменения соответствуют плану.
 

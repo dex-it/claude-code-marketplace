@@ -30,9 +30,13 @@ permissionMode: default
 Выполняй всегда после Phase 1. Не спрашивай, продолжать ли. Загружай только релевантные skills.
 
 - **Всегда** -- вызови Skill tool `dex-skill-owasp-security:owasp-security` -- пройди по чек-листу A01-A10
-- **Всегда** -- вызови Skill tool `dex-skill-dotnet-patterns:dotnet-patterns` -- проверь DI ловушки, SOLID нарушения, async anti-patterns
-- **Если код содержит LINQ/коллекции/EF** -- вызови Skill tool `dex-skill-linq-optimization:linq-optimization` -- проверь LINQ to Entities и LINQ to Objects ловушки
-- **Если код содержит контроллеры/endpoints** -- вызови Skill tool `dex-skill-api-development:api-development` -- проверь DTO, пагинацию, validation
+- **Всегда** -- вызови Skill tool `dex-skill-solid:solid` -- проверь SOLID нарушения, god class, fat interface, feature envy
+- **Всегда** -- вызови Skill tool `dex-skill-dotnet-di:dotnet-di` -- проверь DI ловушки, captive dependency, Service Locator
+- **Всегда** -- вызови Skill tool `dex-skill-dotnet-resources:dotnet-resources` -- проверь IDisposable, утечки памяти
+- **Всегда** -- вызови Skill tool `dex-skill-dotnet-async-patterns:dotnet-async-patterns` -- проверь async void, .Result, CancellationToken
+- **Если код содержит LINQ/коллекции/EF** -- вызови Skill tool `dex-skill-dotnet-linq-optimization:dotnet-linq-optimization` -- проверь LINQ to Entities и LINQ to Objects ловушки
+- **Если код содержит контроллеры/endpoints** -- вызови Skill tool `dex-skill-dotnet-api-development:dotnet-api-development` -- проверь DTO, пагинацию, validation
+- **Если есть логирование** -- вызови Skill tool `dex-skill-dotnet-logging:dotnet-logging` -- проверь structured logging, log levels, PII
 - **Если ревью перед merge (PR/MR)** -- вызови Skill tool `dex-skill-git-workflow:git-workflow` -- проверь commit message, branch naming, conventional commits
 - Дедупликация с Phase 1 -- сообщай только новые находки
 

@@ -63,11 +63,6 @@ description: PyTorch — ловушки training loop, DataLoader, GPU. Акти
 Правильно: `DataLoader(dataset, num_workers=4, persistent_workers=True, pin_memory=True)`
 Почему: без persistent_workers воркеры пересоздаются каждую эпоху. Overhead инициализации > экономия параллелизма
 
-### BGR не конвертирован в RGB
-Плохо: `cv2.imread(path)` -> `transforms.Normalize(mean=[0.485...])` — ImageNet нормализация на BGR
-Правильно: `cv2.cvtColor(img, cv2.COLOR_BGR2RGB)` перед transform
-Почему: OpenCV читает BGR, PyTorch/torchvision ожидает RGB. Перепутанные каналы = модель учит мусор
-
 ## Mixed Precision
 
 ### backward() внутри autocast
