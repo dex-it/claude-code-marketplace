@@ -51,7 +51,7 @@ Complete infrastructure bundle: databases, messaging, containers, CI/CD, monitor
 - `dex-skill-kubernetes` - Kubernetes patterns
 - `dex-skill-gitlab-ci` - GitLab CI/CD patterns
 - `dex-skill-teamcity` - TeamCity patterns
-- `dex-skill-logging` - Logging patterns
+- `dex-skill-dotnet-logging` - Logging patterns
 - `dex-skill-observability` - Observability patterns
 
 ## Note

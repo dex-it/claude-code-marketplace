@@ -50,8 +50,8 @@ Complete bundle for .NET fullstack: development, databases, messaging, container
 
 ### Skills (12)
 - `dex-skill-dotnet-patterns` - SOLID, DI, async/await patterns
-- `dex-skill-ef-core` - EF Core best practices
-- `dex-skill-async-patterns` - Async/await patterns
+- `dex-skill-dotnet-ef-core` - EF Core best practices
+- `dex-skill-dotnet-async-patterns` - Async/await patterns
 - `dex-skill-rabbitmq` - RabbitMQ patterns
 - `dex-skill-kafka` - Kafka patterns
 - `dex-skill-elasticsearch` - Elasticsearch patterns
@@ -59,7 +59,7 @@ Complete bundle for .NET fullstack: development, databases, messaging, container
 - `dex-skill-mongodb` - MongoDB patterns
 - `dex-skill-docker` - Docker best practices
 - `dex-skill-kubernetes` - Kubernetes patterns
-- `dex-skill-logging` - Logging patterns
+- `dex-skill-dotnet-logging` - Logging patterns
 - `dex-skill-observability` - Observability patterns
 
 ## Note

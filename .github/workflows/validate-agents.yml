@@ -1,0 +1,42 @@
+name: Validate Plugins
+
+on:
+  pull_request:
+    paths:
+      - 'plugins/**/*.md'
+      - 'tools/validate-*.js'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/validate-agents.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'plugins/**/*.md'
+      - 'tools/validate-*.js'
+
+jobs:
+  validate:
+    name: Validate agents and skills against frameworks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate agents
+        run: node tools/validate-agent.js all
+
+      - name: Validate skills
+        run: node tools/validate-skill.js all
+
+      - name: Validate commands
+        run: node tools/validate-command.js all

@@ -1,6 +1,6 @@
 ---
 name: typescript-patterns
-description: TypeScript ловушки — типизация, async/await, runtime vs compile-time. Активируется при typescript, ts, interface, generic, async, promise, tsconfig, .ts, .tsx, tsc, strict mode, type guard, discriminated union, zod schema, type inference, enum, utility types
+description: TypeScript ловушки — типизация, async/await, runtime vs compile-time. Активируется при typescript, ts, interface, generic, async, promise, tsconfig, .ts, .tsx, tsc, strict mode, type guard, discriminated union, zod schema, type inference, enum
 ---
 
 # TypeScript — ловушки и anti-patterns

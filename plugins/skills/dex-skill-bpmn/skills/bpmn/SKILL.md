@@ -5,120 +5,69 @@ description: BPMN — ловушки моделирования, gateway, proces
 
 # BPMN — ловушки моделирования
 
-## Правила
+## Gateway
 
-- Каждый Split gateway должен иметь Join (баланс)
-- Sequence flow НЕ пересекает границы Pool (используй Message flow)
-- Task naming: Глагол + Существительное ("Approve Order", не "Order")
-- Max 15-20 элементов на диаграмме (иначе — Sub-Process)
-- Все пути должны вести к End Event (нет висячих веток)
+### XOR для параллельных задач
+Плохо: `<XOR> -> Send Email + Update Inventory + Log` — XOR выполнит только ОДИН путь
+Правильно: `<AND Split> -> все три задачи -> <AND Join>` для параллельного выполнения
+Почему: XOR = exclusive choice (один путь), AND = parallel (все пути). Email отправится, но inventory не обновится
 
-## Частые ошибки
+### AND для условного выбора
+Плохо: `<AND> -> [<$100] Standard Shipping + [>=$100] Free Shipping` — AND выполнит ОБА
+Правильно: `<XOR: Amount?> -> [<$100] Standard + [>=$100] Free` — выбор одного пути
+Почему: AND запускает все ветки, условия на линиях игнорируются. Отправят и Standard, и Free
 
-### 1. Неправильный выбор Gateway
+### OR gateway вместо XOR
+Плохо: `<XOR>` когда нужно выбрать НЕСКОЛЬКО путей по условиям
+Правильно: `<OR>` (Inclusive gateway) — выполняет все пути, где условие true
+Почему: XOR строго один путь. Если заказ может быть и urgent, и premium одновременно — нужен OR
 
-```
-Плохо: XOR gateway для параллельных задач
-  <XOR>
-    → Send Email
-    → Update Inventory
-    → Log Activity
-// XOR = только ОДИН путь! Email отправится, но inventory не обновится
+### Event-Based gateway забыт
+Плохо: `<XOR>` для ожидания первого из нескольких событий (таймер или сообщение)
+Правильно: `<Event-Based>` — ждёт первое событие и выполняет только его ветку
+Почему: XOR не умеет ждать события, Event-Based блокируется до наступления первого
 
-Хорошо: AND gateway для параллельных задач
-  <AND Split>
-    → Send Email
-    → Update Inventory
-    → Log Activity
-  <AND Join>
-// Все три выполнятся параллельно
+## Структура
 
-Плохо: AND gateway для условного выбора
-  <AND>
-    → [< $100] → Standard Shipping
-    → [>= $100] → Free Shipping
-// AND = ОБА пути! Отправим и Standard, и Free одновременно
+### Несбалансированные gateway
+Плохо: `<AND Split> -> Task A + Task B -> [End]` — один путь уходит в End, другой висит
+Правильно: каждый Split gateway имеет парный Join: `<AND Split> -> A + B + C -> <AND Join>`
+Почему: процесс зависнет навсегда на Join, ожидая завершения "потерянной" ветки
 
-Хорошо: XOR gateway для условного выбора
-  <XOR: Amount?>
-    → [< $100] → Standard Shipping
-    → [>= $100] → Free Shipping
-```
+### Sequence flow через границу Pool
+Плохо: `[Place Order] ---> [Process]` — sequence flow между Customer и Order System pools
+Правильно: Message flow (dashed line) между Pools, Sequence flow только внутри Pool
+Почему: Pools = независимые участники (организации, системы). Sequence flow подразумевает единый контроль
 
-| Нужно | Gateway | НЕ используй |
-|-------|---------|--------------|
-| If-else (один путь) | XOR | AND (выполнит все) |
-| Параллельно (все пути) | AND | XOR (выполнит один) |
-| Условно несколько путей | OR | XOR (только один) |
-| Первое событие побеждает | Event-Based | XOR (не ждёт события) |
+### Висячие ветки без End Event
+Плохо: ветка после gateway не ведёт ни к End Event, ни к другому элементу
+Правильно: каждый путь в диаграмме должен заканчиваться End Event
+Почему: висячая ветка = неопределённое состояние процесса, токен "теряется"
 
-### 2. Несбалансированные gateway
+## Моделирование сценариев
 
-```
-Плохо:
-  <AND Split>
-    → Task A →
-    → Task B → [End]   ← один путь уходит в End, другой висит
-    → Task C →
+### Только happy path
+Плохо: `[Start] -> Process Payment -> Ship Order -> [End]` — без обработки ошибок
+Правильно: Error Boundary Event на Payment: `[Error: Payment Failed] -> Notify -> [Error End]`
+Почему: в реальности оплата отклоняется, товар заканчивается. Без error paths диаграмма бесполезна
 
-Хорошо:
-  <AND Split>
-    → Task A →
-    → Task B →  <AND Join> → [End]
-    → Task C →
-```
+### Vague task names
+Плохо: `"Process Data"`, `"Handle Request"`, `"Do Stuff"` — абстрактные имена
+Правильно: `"Calculate Order Total"`, `"Validate Customer Address"`, `"Send Invoice Email"`
+Почему: Verb + Noun = конкретное действие. Vague names делают диаграмму нечитаемой
 
-### 3. Sequence flow через границу Pool
-
-```
-Плохо:
-  ║ Customer        ║
-  ║ [Place Order] ──→──┐  ← Sequence flow пересекает Pool!
-  ║                 ║  │
-  ║ Order System    ║  │
-  ║              ←──┘ [Process] ║
-
-Хорошо:
-  ║ Customer        ║
-  ║ [Place Order] ──╌╌→  ← Message flow (dashed) между Pools
-  ║                 ║
-  ║ Order System    ║
-  ║ [Receive] → [Process] ║
-```
-
-### 4. Только happy path
-
-```
-Плохо:
-  [Start] → (Process Payment) → (Ship Order) → [End]
-  // А если оплата не прошла? Товар закончился?
-
-Хорошо:
-  [Start] → (Process Payment)
-              ↓ [Error: Payment Failed]
-              → (Notify Customer) → [Error End]
-            ↓ [Success]
-            → (Check Inventory)
-              ↓ [Out of Stock]
-              → (Refund) → [Error End]
-            ↓ [In Stock]
-            → (Ship Order) → [End]
-```
-
-### 5. Vague task names
-
-```
-Плохо: "Process Data", "Handle Request", "Do Stuff"
-Хорошо: "Calculate Order Total", "Validate Customer Address", "Send Invoice Email"
-```
+### Перегруженная диаграмма
+Плохо: 30+ элементов на одной диаграмме
+Правильно: max 15-20 элементов, вынести детали в Sub-Process (collapsed)
+Почему: диаграмма перестаёт помещаться на экран, теряется обзорность
 
 ## Чек-лист
 
-- [ ] Каждый Split имеет Join
-- [ ] Sequence flow не пересекает Pool boundaries
-- [ ] Task names: Verb + Noun
-- [ ] Error/exception paths смоделированы
-- [ ] Все пути ведут к End Event
-- [ ] Max 15-20 элементов на диаграмме
-- [ ] XOR для if-else, AND для параллельности, OR для multiple conditions
-- [ ] Message flow (dashed) между Pools, Sequence flow внутри
+- Каждый Split имеет парный Join
+- Sequence flow не пересекает Pool boundaries
+- Task names: Verb + Noun
+- Error/exception paths смоделированы
+- Все пути ведут к End Event
+- Max 15-20 элементов на диаграмме
+- XOR для if-else, AND для параллельности, OR для multiple conditions
+- Message flow (dashed) между Pools, Sequence flow внутри

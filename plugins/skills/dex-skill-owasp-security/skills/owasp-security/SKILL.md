@@ -1,6 +1,6 @@
 ---
 name: owasp-security
-description: Безопасность веб-приложений, OWASP Top 10. Активируется при security, auth bypass, injection, XSS, IDOR, CSRF, уязвимость, безопасность, эскалация прав, SQL injection, command injection, SSRF, JWT, token, authentication, authorization, CORS, CSP, sanitize, helmet, OWASP
+description: OWASP Top 10 — ловушки безопасности. Активируется при security, auth bypass, injection, XSS, IDOR, CSRF, SQL injection, command injection, SSRF, JWT, token, authentication, authorization, CORS, CSP, sanitize
 ---
 
 # OWASP Security — ловушки

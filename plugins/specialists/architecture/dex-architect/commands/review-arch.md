@@ -1,87 +1,37 @@
 ---
-description: Ревью архитектуры проекта по чек-листу
-allowed-tools: Read, Grep, Glob, Bash
-argument-hint: [path-to-project] (опционально)
+description: Ревью архитектуры проекта -- анализ структуры, зависимостей, NFR, безопасности
+allowed-tools: Read, Grep, Glob
+argument-hint: "[path-to-project] (опционально)"
 ---
 
 # /review-arch
 
-Ревью архитектуры проекта по чек-листу. Анализирует структуру, зависимости, NFR, безопасность.
+Ревью архитектуры существующего проекта.
 
-## Использование
+## Goal
 
-```
-/review-arch              # Ревью текущего проекта
-/review-arch src/         # Ревью конкретной директории
-```
+Проанализировать архитектуру проекта и выдать отчёт с конкретными проблемами и рекомендациями. Определить стек и стиль автоматически по файлам проекта.
 
-## Процесс
+## Input
 
-### 1. Discover Structure
-- Найти корневую директорию проекта
-- Определить технологический стек (по файлам: *.csproj, package.json, go.mod, pom.xml и др.)
-- Определить архитектурный стиль (Clean Architecture, MVC, microservices и др.)
-- Найти слои/модули
+Аргумент -- путь к проекту. Без аргумента -- текущая директория.
 
-### 2. Check Dependencies
-- Проверить направление зависимостей (Domain НЕ зависит от Infrastructure)
-- Найти circular dependencies
-- Проверить DI registration
+## Process
 
-### 3. Review NFR
-- Есть ли health checks?
-- Есть ли structured logging?
-- Есть ли metrics/tracing?
-- Есть ли rate limiting?
-- Есть ли retry/circuit breaker для внешних вызовов?
+1. **Discover** -- определить стек (по csproj, package.json, go.mod, pom.xml), архитектурный стиль, структуру слоёв
+2. **Analyze** -- проверить направление зависимостей, найти нарушения, оценить NFR-покрытие
+3. **Report** -- сгруппированные findings с severity и рекомендациями
 
-### 4. Review Security
-- Аутентификация/авторизация настроены?
-- Input validation на границах?
-- Нет ли hardcoded secrets?
-- CORS настроен корректно?
+## Output
 
-### 5. Generate Report
+Отчёт по категориям:
+- **Layers** -- направление зависимостей, circular dependencies
+- **Data Access** -- N+1, миграции, connection management
+- **Security** -- auth, input validation, secrets, CORS
+- **Observability** -- structured logging, health checks, metrics/tracing
+- **Resilience** -- retry/circuit breaker, graceful shutdown
+- **API Design** -- versioning, error format
 
-## Checklist
+Каждый finding: что нашли, где (файл + строка), severity, рекомендация.
 
-| Категория | Проверка | Статус |
-|-----------|----------|--------|
-| **Layers** | Domain не зависит от Infrastructure | |
-| **Layers** | Нет circular dependencies | |
-| **Data Access** | Нет N+1 queries (lazy loading в циклах) | |
-| **Data Access** | Есть миграции БД | |
-| **Security** | Auth настроен | |
-| **Security** | Input validation на границах | |
-| **Security** | Нет hardcoded secrets | |
-| **Observability** | Structured logging | |
-| **Observability** | Health checks | |
-| **Observability** | Metrics/tracing | |
-| **Resilience** | Retry/Circuit Breaker для внешних вызовов | |
-| **Resilience** | Graceful shutdown | |
-| **API Design** | Versioning | |
-| **API Design** | Error response format (RFC 9457) | |
-
-## Выходной формат
-
-```
-Architecture Review Report
-━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Project: [name]
-Stack: [detected stack]
-Style: [detected style]
-
-Layers:           ✅ Pass (3/3)
-Data Access:      ⚠️ Warning (1/2)
-Security:         ✅ Pass (3/3)
-Observability:    ❌ Fail (1/3)
-Resilience:       ⚠️ Warning (1/2)
-API Design:       ✅ Pass (2/2)
-
-Issues found: N
-Recommendations: M
-
-Details:
-[per-category findings]
-```
+Делегировать агенту `architect`.

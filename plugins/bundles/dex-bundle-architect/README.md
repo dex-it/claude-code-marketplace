@@ -37,7 +37,7 @@ Bundle for Software Architects: architecture design, ADR, diagrams, API design, 
 - `dex-skill-clean-architecture` - Clean Architecture patterns
 - `dex-skill-ddd` - Domain-Driven Design
 - `dex-skill-microservices` - Microservices patterns
-- `dex-skill-api-development` - API development
+- `dex-skill-dotnet-api-development` - API development
 - `dex-skill-api-documentation` - API documentation
 - `dex-skill-api-specification` - API specification & contracts
 - `dex-skill-observability` - OpenTelemetry, metrics, tracing
