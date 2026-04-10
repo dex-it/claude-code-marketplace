@@ -1,5 +1,6 @@
 ---
 description: Статус Kubernetes pods через kubectl
+user-invocable: true
 allowed-tools: Bash
 argument-hint: "[-n namespace] [--label app=name] [--wide]"
 ---

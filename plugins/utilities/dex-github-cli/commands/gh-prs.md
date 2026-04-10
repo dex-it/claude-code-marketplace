@@ -1,5 +1,6 @@
 ---
 description: Список и детали GitHub pull requests через gh
+user-invocable: true
 allowed-tools: Bash
 argument-hint: "[PR-number | --state open|closed|merged]"
 ---

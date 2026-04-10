@@ -1,5 +1,6 @@
 ---
 description: Список и статус GitHub Actions workflow runs через gh
+user-invocable: true
 allowed-tools: Bash
 argument-hint: "[run-id | --workflow name | --status completed|in_progress|failure]"
 ---

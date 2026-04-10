@@ -1,6 +1,5 @@
 ---
 description: Генерация GitHub Actions workflow для проекта
-allowed-tools: Read, Write, Edit, Bash, Grep, Glob
 argument-hint: "[project-type] [--deploy target]"
 ---
 

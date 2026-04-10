@@ -1,5 +1,6 @@
 ---
 description: Статус Kubernetes deployments и rollout через kubectl
+user-invocable: true
 allowed-tools: Bash
 argument-hint: "[-n namespace] [deployment-name] [--history]"
 ---

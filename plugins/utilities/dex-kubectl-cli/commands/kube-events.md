@@ -1,5 +1,6 @@
 ---
 description: События Kubernetes кластера через kubectl
+user-invocable: true
 allowed-tools: Bash
 argument-hint: "[-n namespace] [--type Warning]"
 ---

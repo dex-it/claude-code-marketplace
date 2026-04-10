@@ -1,5 +1,6 @@
 ---
 description: Лог билда TeamCity через REST API
+user-invocable: true
 allowed-tools: Bash
 argument-hint: build-id [--tests] [--artifacts]
 ---

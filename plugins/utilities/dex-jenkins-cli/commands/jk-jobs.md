@@ -1,5 +1,6 @@
 ---
 description: Список Jenkins jobs и их статус через REST API
+user-invocable: true
 allowed-tools: Bash
 argument-hint: "[folder/job-name | --view name]"
 ---

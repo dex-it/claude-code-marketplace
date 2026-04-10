@@ -1,5 +1,6 @@
 ---
 description: Логи GitLab CI job через glab
+user-invocable: true
 allowed-tools: Bash
 argument-hint: "[pipeline-id] [job-name]"
 ---
