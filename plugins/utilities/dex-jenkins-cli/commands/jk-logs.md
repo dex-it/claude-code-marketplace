@@ -1,7 +1,8 @@
 ---
 description: Console output билда Jenkins через REST API
+user-invocable: true
 allowed-tools: Bash
-argument-hint: job-name [build-number] [--tail N]
+argument-hint: "job-name [build-number] [--tail N]"
 ---
 
 # /jk-logs

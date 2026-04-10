@@ -1,5 +1,6 @@
 ---
 description: Список и статус GitLab CI pipelines через glab
+user-invocable: true
 allowed-tools: Bash
 argument-hint: "[--status running|failed|success] [--branch name] [pipeline-id]"
 ---

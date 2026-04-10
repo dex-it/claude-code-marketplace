@@ -1,7 +1,8 @@
 ---
 description: Логи Kubernetes pod/container через kubectl
+user-invocable: true
 allowed-tools: Bash
-argument-hint: pod-name [-n namespace] [--tail N] [--previous] [-c container]
+argument-hint: "pod-name [-n namespace] [--tail N] [--previous] [-c container]"
 ---
 
 # /kube-logs

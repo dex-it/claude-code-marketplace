@@ -1,6 +1,5 @@
 ---
 description: Генерация Jenkinsfile для проекта
-allowed-tools: Read, Write, Edit, Bash, Grep, Glob
 argument-hint: "[project-type] [--agents label]"
 ---
 

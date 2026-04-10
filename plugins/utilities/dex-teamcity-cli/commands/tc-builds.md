@@ -1,5 +1,6 @@
 ---
 description: Список билдов TeamCity через REST API
+user-invocable: true
 allowed-tools: Bash
 argument-hint: "[project-name | --status SUCCESS|FAILURE|RUNNING] [--count N]"
 ---

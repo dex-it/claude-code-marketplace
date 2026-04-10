@@ -1,5 +1,6 @@
 ---
 description: Логи GitHub Actions run через gh
+user-invocable: true
 allowed-tools: Bash
 argument-hint: "[run-id] [--failed]"
 ---

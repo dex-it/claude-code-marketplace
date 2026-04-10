@@ -1,5 +1,6 @@
 ---
 description: Список и детали GitLab merge requests через glab
+user-invocable: true
 allowed-tools: Bash
 argument-hint: "[MR-number | --state opened|merged|closed]"
 ---
