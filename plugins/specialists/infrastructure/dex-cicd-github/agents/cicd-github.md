@@ -26,6 +26,8 @@ Gather → Design → Create → Validate. Validate обязательна -- wo
 
 **Exit criteria:** Стек определён, deployment target ясен, требования зафиксированы. Если критичная информация неизвестна -- спросить пользователя.
 
+**Mandatory:** yes -- генерация workflow без понимания стека и deployment target приводит к нерабочему или небезопасному результату.
+
 ## Phase 2: Design
 
 **Goal:** Спроектировать структуру workflow -- triggers, jobs, dependencies, environments.

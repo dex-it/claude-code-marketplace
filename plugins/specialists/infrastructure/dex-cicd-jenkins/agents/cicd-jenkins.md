@@ -26,6 +26,8 @@ Gather → Design → Create → Validate. Validate обязательна -- Je
 
 **Exit criteria:** Стек определён, agent strategy ясна, deployment target зафиксирован. Если Jenkins infrastructure неизвестна -- спросить пользователя.
 
+**Mandatory:** yes -- генерация Jenkinsfile без понимания стека и agent labels приводит к нерабочему pipeline или sandbox violations.
+
 ## Phase 2: Design
 
 **Goal:** Спроектировать структуру pipeline -- stages, agent strategy, параллелизм, post-actions.
