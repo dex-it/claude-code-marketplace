@@ -1,5 +1,6 @@
-# Bundle Updater for Claude Code Marketplace
-# Reinstalls (uninstall + install) all installed dex-plugins
+# Plugin Updater for Claude Code Marketplace
+# Updates all installed dex-* plugins to the latest version
+# Uses `claude plugin update` (atomic, safe, official CLI command).
 # Requires: PowerShell 5.1+, claude CLI
 
 param(
@@ -25,13 +26,15 @@ function Write-Dim { param($Message) Write-Host $Message -ForegroundColor DarkGr
 function Show-Help {
     Write-Host ""
     Write-Header "======================================"
-    Write-Header "  Update All Installed Plugins"
+    Write-Header "  Update All Installed dex-Plugins"
     Write-Header "======================================"
     Write-Host ""
-    Write-Host "Usage: .\update-bundle.ps1 [OPTIONS]"
+    Write-Host "Usage: .\update-plugins.ps1 [OPTIONS]"
     Write-Host ""
-    Write-Host "Reinstalls all installed dex-* plugins (uninstall + install)."
-    Write-Host "Use this after pulling new versions from the marketplace repository."
+    Write-Host "Updates all installed dex-* plugins (bundles, specialists, skills,"
+    Write-Host "utilities) to the latest version using ``claude plugin update``."
+    Write-Host ""
+    Write-Host "Restart Claude Code after running this script to apply updates."
     Write-Host ""
     Write-Host "Options:"
     Write-Host "  -DryRun, -n     Show what would be updated without changes"
@@ -39,12 +42,16 @@ function Show-Help {
     Write-Host "  -Help, -h       Show this help message"
     Write-Host ""
     Write-Host "Examples:"
-    Write-Host "  .\update-bundle.ps1               # Update all installed dex-plugins"
-    Write-Host "  .\update-bundle.ps1 -DryRun       # Preview what would be updated"
+    Write-Host "  .\update-plugins.ps1               # Update all installed dex-plugins"
+    Write-Host "  .\update-plugins.ps1 -DryRun       # Preview what would be updated"
     Write-Host ""
 }
 
-# Get installed dex-plugins as objects with id property
+# Get installed dex-plugin objects.
+# NOTE: `claude plugins list --json` and the `.id` field are undocumented CLI
+# internals -- official docs (code.claude.com) only document install, uninstall,
+# enable, disable, update, validate. If the command or schema changes, this
+# function returns empty and the script reports "no plugins" instead of crashing.
 function Get-InstalledDexPlugins {
     try {
         $output = & claude plugins list --json 2>$null
@@ -53,7 +60,7 @@ function Get-InstalledDexPlugins {
             return $plugins | Where-Object { $_.id -like "dex-*" }
         }
     } catch {
-        # Returns empty
+        # Graceful fallback -- return empty
     }
     return @()
 }
@@ -62,11 +69,10 @@ function Get-InstalledDexPlugins {
 function Update-All {
     Write-Host ""
     Write-Header "======================================"
-    Write-Header "  Updating All Installed Plugins"
+    Write-Header "  Updating All Installed dex-Plugins"
     Write-Header "======================================"
     Write-Host ""
 
-    # Get installed dex-plugins
     $plugins = @(Get-InstalledDexPlugins)
 
     if ($plugins.Count -eq 0) {
@@ -76,7 +82,7 @@ function Update-All {
     }
 
     $total = $plugins.Count
-    Write-Info "  Plugins to update: $total"
+    Write-Info "  Plugins to check: $total"
     Write-Host ""
 
     if ($DryRun) {
@@ -86,6 +92,7 @@ function Update-All {
 
     # Counters
     $updated = 0
+    $already = 0
     $errors = 0
     $componentNum = 0
 
@@ -103,43 +110,29 @@ function Update-All {
             continue
         }
 
-        Write-Info "  [$componentNum/$total] Updating: $pluginName"
+        Write-Info "  [$componentNum/$total] Checking: $pluginName"
         if ($Verbose) {
             Write-Dim "           Ref: $pluginRef"
         }
 
-        # Phase 1: Uninstall
-        if ($Verbose) {
-            Write-Dim "           Removing..."
-        }
+        # `claude plugin update` is atomic -- on failure the plugin stays at its
+        # current version, no risk of ending up in a half-installed state.
         try {
-            $output = & claude plugins uninstall $pluginName 2>&1
-            if ($LASTEXITCODE -ne 0) {
-                Write-Error-Colored "           Failed to uninstall: $output"
-                $errors++
-                continue
-            }
-        } catch {
-            Write-Error-Colored "           Failed to uninstall: $_"
-            $errors++
-            continue
-        }
-
-        # Phase 2: Install
-        if ($Verbose) {
-            Write-Dim "           Installing..."
-        }
-        try {
-            $output = & claude plugins install $pluginRef 2>&1
+            $output = & claude plugin update $pluginRef 2>&1
             if ($LASTEXITCODE -eq 0) {
-                Write-Success "           Updated successfully"
-                $updated++
+                if ($output -match "already at the latest") {
+                    Write-Warning-Colored "           Already at latest version"
+                    $already++
+                } else {
+                    Write-Success "           Updated successfully"
+                    $updated++
+                }
             } else {
-                Write-Error-Colored "           Failed to install: $output"
+                Write-Error-Colored "           Failed: $output"
                 $errors++
             }
         } catch {
-            Write-Error-Colored "           Failed to install: $_"
+            Write-Error-Colored "           Failed: $_"
             $errors++
         }
     }
@@ -152,19 +145,23 @@ function Update-All {
     Write-Host ""
 
     if ($DryRun) {
-        Write-Info "  Would update:  $updated"
+        Write-Info "  Would check:  $updated"
     } else {
-        Write-Success "  Updated:  $updated"
+        Write-Success "  Updated:         $updated"
+        Write-Warning-Colored "  Already latest:  $already"
     }
 
     if ($errors -gt 0) {
-        Write-Error-Colored "  Errors:   $errors"
+        Write-Error-Colored "  Errors:          $errors"
     }
 
     Write-Host ""
 
     if ($DryRun) {
         Write-Host "Run without -DryRun to actually update."
+        Write-Host ""
+    } elseif ($updated -gt 0) {
+        Write-Warning-Colored "  Restart Claude Code to apply updates."
         Write-Host ""
     }
 

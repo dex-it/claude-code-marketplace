@@ -1,13 +1,15 @@
 #!/bin/bash
 
-# Bundle Updater for Claude Code Marketplace
-# Reinstalls (uninstall + install) all installed dex-plugins
-# Requires: claude CLI
+# Plugin Updater for Claude Code Marketplace
+# Updates all installed dex-* plugins to the latest version
+# Uses `claude plugin update` (atomic, safe, official CLI command).
+# Requires: jq, claude CLI
 
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 MAGENTA='\033[0;35m'
 CYAN='\033[0;36m'
 GRAY='\033[0;90m'
@@ -29,13 +31,15 @@ VERBOSE=false
 show_help() {
     echo ""
     print_header "======================================"
-    print_header "  Update All Installed Plugins"
+    print_header "  Update All Installed dex-Plugins"
     print_header "======================================"
     echo ""
     echo "Usage: $0 [OPTIONS]"
     echo ""
-    echo "Reinstalls all installed dex-* plugins (uninstall + install)."
-    echo "Use this after pulling new versions from the marketplace repository."
+    echo "Updates all installed dex-* plugins (bundles, specialists, skills,"
+    echo "utilities) to the latest version using \`claude plugin update\`."
+    echo ""
+    echo "Restart Claude Code after running this script to apply updates."
     echo ""
     echo "Options:"
     echo "  --dry-run, -n    Show what would be updated without changes"
@@ -48,7 +52,11 @@ show_help() {
     echo ""
 }
 
-# Get installed dex-plugins as "name@marketplace" lines
+# Get installed dex-plugin ids (format: name@marketplace).
+# NOTE: `claude plugins list --json` and the `.id` field are undocumented CLI
+# internals — official docs (code.claude.com) only document install, uninstall,
+# enable, disable, update, validate. If the command or schema changes, this
+# function returns empty and the script reports "no plugins" instead of crashing.
 get_installed_dex_plugins() {
     claude plugins list --json 2>/dev/null \
         | jq -r '.[] | select(.id | startswith("dex-")) | .id'
@@ -58,11 +66,10 @@ get_installed_dex_plugins() {
 update_all() {
     echo ""
     print_header "======================================"
-    print_header "  Updating All Installed Plugins"
+    print_header "  Updating All Installed dex-Plugins"
     print_header "======================================"
     echo ""
 
-    # Get installed dex-plugins
     local plugins
     plugins=$(get_installed_dex_plugins)
 
@@ -74,7 +81,7 @@ update_all() {
 
     local total
     total=$(echo "$plugins" | wc -l)
-    print_info "  Plugins to update: $total"
+    print_info "  Plugins to check: $total"
     echo ""
 
     if [ "$DRY_RUN" = true ]; then
@@ -84,16 +91,13 @@ update_all() {
 
     # Counters
     local updated=0
+    local already=0
     local errors=0
     local component_num=0
 
-    # Process each plugin
     while IFS= read -r plugin_ref; do
         ((component_num++))
-
-        # Split name@marketplace
         local plugin_name="${plugin_ref%%@*}"
-        local marketplace="${plugin_ref#*@}"
 
         if [ "$DRY_RUN" = true ]; then
             print_info "  [$component_num/$total] Would update: $plugin_name"
@@ -104,34 +108,28 @@ update_all() {
             continue
         fi
 
-        print_info "  [$component_num/$total] Updating: $plugin_name"
+        print_info "  [$component_num/$total] Checking: $plugin_name"
         if [ "$VERBOSE" = true ]; then
             print_dim "           Ref: $plugin_ref"
         fi
 
-        # Phase 1: Uninstall
-        if [ "$VERBOSE" = true ]; then
-            print_dim "           Removing..."
-        fi
-        local uninstall_output
-        uninstall_output=$(claude plugins uninstall "$plugin_name" 2>&1)
-        if [ $? -ne 0 ]; then
-            print_error "           Failed to uninstall: $uninstall_output"
-            ((errors++))
-            continue
-        fi
+        # `claude plugin update` is atomic — on failure the plugin stays at its
+        # current version, no risk of ending up in a half-installed state.
+        local output
+        output=$(claude plugin update "$plugin_ref" 2>&1)
+        local exit_code=$?
 
-        # Phase 2: Install
-        if [ "$VERBOSE" = true ]; then
-            print_dim "           Installing..."
-        fi
-        local install_output
-        install_output=$(claude plugins install "$plugin_ref" 2>&1)
-        if [ $? -eq 0 ]; then
-            print_success "           Updated successfully"
-            ((updated++))
+        if [ $exit_code -eq 0 ]; then
+            # CLI prints "already at the latest version" when nothing to update
+            if echo "$output" | grep -qi "already at the latest"; then
+                print_warning "           Already at latest version"
+                ((already++))
+            else
+                print_success "           Updated successfully"
+                ((updated++))
+            fi
         else
-            print_error "           Failed to install: $install_output"
+            print_error "           Failed: $output"
             ((errors++))
         fi
     done <<< "$plugins"
@@ -144,19 +142,23 @@ update_all() {
     echo ""
 
     if [ "$DRY_RUN" = true ]; then
-        print_info "  Would update:  $updated"
+        print_info "  Would check:  $updated"
     else
-        print_success "  Updated:  $updated"
+        print_success "  Updated:         $updated"
+        print_warning "  Already latest:  $already"
     fi
 
     if [ $errors -gt 0 ]; then
-        print_error "  Errors:   $errors"
+        print_error "  Errors:          $errors"
     fi
 
     echo ""
 
     if [ "$DRY_RUN" = true ]; then
         echo "Run without --dry-run to actually update."
+        echo ""
+    elif [ $updated -gt 0 ]; then
+        print_warning "  Restart Claude Code to apply updates."
         echo ""
     fi
 
@@ -209,7 +211,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         *)
             print_error "Unexpected argument: $1"
-            print_info "This script updates ALL installed dex-plugins. No bundle name needed."
+            print_info "This script updates ALL installed dex-plugins. No arguments needed."
             echo ""
             show_help
             exit 1
