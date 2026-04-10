@@ -1,6 +1,6 @@
 ---
 name: github-actions
-description: GitHub Actions CI/CD — ловушки workflows, безопасность, кэширование. Активируется при github actions, workflow, .github/workflows, GITHUB_TOKEN, actions/checkout, matrix, reusable workflow, pull_request_target, concurrency, composite action, self-hosted runner, artifact, OIDC, workflow_dispatch, permissions, cache action, fail-fast, environment secrets, branch protection, on push, on pull_request
+description: GitHub Actions CI/CD — ловушки workflows, безопасность, кэширование. Активируется при github actions, workflow, .github/workflows, GITHUB_TOKEN, actions/checkout, matrix, pull_request_target, concurrency, self-hosted runner, permissions
 ---
 
 # GitHub Actions — ловушки и anti-patterns
