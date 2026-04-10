@@ -2,7 +2,7 @@
 description: Детали билда Jenkins через REST API
 user-invocable: true
 allowed-tools: Bash
-argument-hint: job-name [build-number | lastBuild | lastFailedBuild]
+argument-hint: "job-name [build-number | lastBuild | lastFailedBuild]"
 ---
 
 # /jk-builds
