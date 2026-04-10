@@ -1,6 +1,6 @@
-# Bundle Installer / Uninstaller
+# Bundle Installer / Uninstaller / Updater
 
-Automated installation and uninstallation scripts for Claude Code Marketplace bundles.
+Automated installation, uninstallation, and update scripts for Claude Code Marketplace bundles.
 
 ## Overview
 
@@ -92,6 +92,35 @@ sudo pacman -S jq
 .\uninstall-bundle.ps1 dotnet-developer -DryRun
 ```
 
+## Update
+
+Updates **all installed dex-plugins** (bundles, specialists, skills, utilities) to the latest version. Uses the official `claude plugin update` command, so updates are atomic and safe — a failed update leaves the plugin at its current version, never in a half-installed state.
+
+> **Restart Claude Code** after running the update script to apply changes.
+
+### Bash (Linux / macOS / WSL)
+
+```bash
+# Update all installed dex-plugins
+./update-plugins.sh
+
+# Preview update (dry run)
+./update-plugins.sh --dry-run
+
+# Verbose output
+./update-plugins.sh --verbose
+```
+
+### PowerShell (Windows)
+
+```powershell
+# Update all installed dex-plugins
+.\update-plugins.ps1
+
+# Preview update (dry run)
+.\update-plugins.ps1 -DryRun
+```
+
 ## Available Bundles
 
 | Bundle | Description | Components |
@@ -126,6 +155,14 @@ sudo pacman -S jq
 | `--verbose` | `-v` | Show detailed output |
 | `--help` | `-h` | Show help message |
 
+### Update (Bash)
+
+| Option | Short | Description |
+|--------|-------|-------------|
+| `--dry-run` | `-n` | Preview without updating |
+| `--verbose` | `-v` | Show detailed output |
+| `--help` | `-h` | Show help message |
+
 ### Install (PowerShell)
 
 | Option | Alias | Description |
@@ -141,6 +178,14 @@ sudo pacman -S jq
 |--------|-------|-------------|
 | `-List` | `-l` | List all available bundles |
 | `-DryRun` | `-n` | Preview without uninstalling |
+| `-Verbose` | `-v` | Show detailed output |
+| `-Help` | `-h` | Show help message |
+
+### Update (PowerShell)
+
+| Option | Alias | Description |
+|--------|-------|-------------|
+| `-DryRun` | `-n` | Preview without updating |
 | `-Verbose` | `-v` | Show detailed output |
 | `-Help` | `-h` | Show help message |
 
@@ -160,8 +205,18 @@ sudo pacman -S jq
 2. Extracts the `includes[]` array (list of component plugin names)
 3. Runs `claude plugins uninstall <component>` for each component
 
+### Update
+
+1. Queries installed plugins via `claude plugins list --json`
+2. Filters only `dex-*` plugins (bundles, specialists, skills, utilities)
+3. For each plugin, runs `claude plugin update <name>@<marketplace>` — atomic, safe, official CLI command
+4. Distinguishes "Updated" vs "Already at latest" by parsing CLI output
+5. No uninstall step — if update fails, plugin stays at current version
+
 > **Note:** Component lists are stored in `bundle.json`, not `plugin.json`.
 > Claude Code strictly validates `plugin.json` and silently breaks plugins with unknown fields.
+
+> **Note:** `claude plugins list --json` and the `.id` field are undocumented CLI internals — official docs only cover `install`, `uninstall`, `enable`, `disable`, `update`, `validate`. The script fails gracefully (reports "no plugins") if the schema changes.
 
 ## Re-running Scripts
 
@@ -244,7 +299,7 @@ Ensure Claude Code CLI is installed and in your PATH:
 ### Permission denied (Linux/macOS)
 
 ```bash
-chmod +x install-bundle.sh uninstall-bundle.sh
+chmod +x install-bundle.sh uninstall-bundle.sh update-plugins.sh
 ```
 
 ### Component not found in marketplace.json
@@ -259,5 +314,7 @@ install-bundle/
 ├── install-bundle.ps1     # PowerShell install script (Windows)
 ├── uninstall-bundle.sh    # Bash uninstall script (Linux/macOS/WSL)
 ├── uninstall-bundle.ps1   # PowerShell uninstall script (Windows)
+├── update-plugins.sh      # Bash update script (Linux/macOS/WSL)
+├── update-plugins.ps1     # PowerShell update script (Windows)
 └── README.md              # This file
 ```
