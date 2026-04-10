@@ -1,134 +1,104 @@
 ---
 name: tensorflow
-description: TensorFlow/Keras — ловушки training, tf.data, callbacks, saving. Активируется при tensorflow, keras, tf.data, callback, SavedModel, tf.function, EarlyStopping, MirroredStrategy, mixed_precision, from_logits, get_config, prefetch, AUTOTUNE, .h5, .keras
+description: TensorFlow/Keras — ловушки training, tf.data, callbacks, saving. Активируется при tensorflow, keras, tf.data, callback, SavedModel, tf.function, EarlyStopping, MirroredStrategy, mixed_precision, from_logits, prefetch, AUTOTUNE, .h5, .keras
 ---
 
 # TensorFlow/Keras — ловушки
 
-## Правила
+## Training
 
-- `training=True/False` в `call()` обязателен — BatchNorm и Dropout ведут себя по-разному
-- `@tf.function` для custom training loops — без этого eager mode в 10x медленнее
-- `prefetch(tf.data.AUTOTUNE)` в конце pipeline — без этого GPU простаивает
-- Output layer при mixed precision — `dtype='float32'`, иначе numerical instability
+### training= не передаётся в call()
+Плохо: `model(x)` без `training=` — BatchNorm и Dropout всегда в train mode при inference
+Правильно: `model(x, training=False)` для inference, `model(x, training=True)` для обучения
+Почему: BN использует batch statistics вместо running, Dropout отбрасывает нейроны — метрики inference нестабильны
 
-## Частые ошибки
+### from_logits не согласован с activation
+Плохо: `Dense(10, activation='softmax')` + `CategoricalCrossentropy(from_logits=True)` — двойной softmax
+Правильно: без softmax в слое -> `from_logits=True`, с softmax в слое -> `from_logits=False`
+Почему: двойной softmax даёт численно неправильные градиенты, модель плохо сходится. Без softmax + from_logits=False = softmax не применяется, loss неверный
 
-| Ошибка | Последствие | Решение |
-|--------|-------------|---------|
-| Забыл `training=` в `call()` | BN/Dropout всегда в train mode при inference | `model(x, training=False)` для inference |
-| `get_config()` не переопределён | Custom layer не сериализуется, `model.save()` падает | Всегда `get_config()` для custom layers |
-| `fit()` без `validation_data` | Нет early stopping, overfitting не виден | Всегда передавай val set |
-| `map()` без `num_parallel_calls` | tf.data pipeline однопоточный, GPU голодает | `map(fn, num_parallel_calls=tf.data.AUTOTUNE)` |
-| `shuffle()` после `batch()` | Перемешиваются batch'и, не элементы — слабая рандомизация | `shuffle()` ДО `batch()` |
-| `from_logits` не совпадает | `softmax` + `from_logits=True` = двойной softmax | Без softmax → `from_logits=True`, с softmax → `from_logits=False` |
-| EarlyStopping без `restore_best_weights` | Останавливается, но модель = последняя, не лучшая | `restore_best_weights=True` |
+### EarlyStopping без restore_best_weights
+Плохо: `EarlyStopping(patience=5)` — останавливается, но модель = последняя эпоха, не лучшая
+Правильно: `EarlyStopping(patience=5, restore_best_weights=True)`
+Почему: последняя эпоха часто хуже лучшей (overfit). Без restore — теряешь лучший checkpoint
 
-## tf.data pipeline — порядок имеет значение
+### fit() без validation_data
+Плохо: `model.fit(X_train, y_train, epochs=100)` — нет мониторинга overfitting
+Правильно: `model.fit(X_train, y_train, validation_data=(X_val, y_val), callbacks=[EarlyStopping])`
+Почему: без val set не видно overfitting, EarlyStopping не работает, модель тренируется до конца впустую
 
-```
-Плохо:
-  dataset.batch(32).shuffle(1000).map(augment)
-  // 1. batch → shuffle перемешивает batch'и, не samples
-  // 2. augment после batch → augment получает batch tensor
+## tf.data Pipeline
 
-Хорошо:
-  dataset.shuffle(1000).map(augment, num_parallel_calls=AUTOTUNE).batch(32).prefetch(AUTOTUNE)
-  // Правильный порядок: shuffle → map → batch → prefetch
+### shuffle() после batch()
+Плохо: `dataset.batch(32).shuffle(1000)` — перемешиваются batch'и, не элементы
+Правильно: `dataset.shuffle(1000).map(fn, num_parallel_calls=AUTOTUNE).batch(32).prefetch(AUTOTUNE)`
+Почему: shuffle после batch = слабая рандомизация. Элементы внутри batch всегда рядом — bias в обучении
 
-Плохо:
-  dataset = dataset.shuffle(buffer_size=10)  # buffer 10 из 100000
-  // shuffle_buffer << dataset_size → почти нет рандомизации
+### Маленький shuffle buffer
+Плохо: `dataset.shuffle(buffer_size=10)` при dataset размером 100000
+Правильно: `buffer_size >= dataset_size` для полной рандомизации, минимум 1000 или 10% от dataset
+Почему: shuffle берёт случайный элемент из buffer. Buffer 10 из 100K = почти последовательное чтение
 
-Правило:
-  buffer_size >= dataset_size для полной рандомизации
-  Минимум: buffer_size >= 1000 (или 10% от dataset)
-```
+### map() без num_parallel_calls
+Плохо: `dataset.map(preprocess_fn)` — однопоточный pipeline, GPU простаивает
+Правильно: `dataset.map(preprocess_fn, num_parallel_calls=tf.data.AUTOTUNE)`
+Почему: preprocessing на CPU в один поток не успевает за GPU — bottleneck на подготовке данных
 
-## Saving/Loading ловушки
+### Нет prefetch в конце pipeline
+Плохо: `dataset.shuffle().map().batch()` — GPU ждёт пока CPU подготовит следующий batch
+Правильно: `.prefetch(tf.data.AUTOTUNE)` в конце pipeline
+Почему: prefetch загружает следующий batch параллельно с обработкой текущего на GPU
 
-```
-Плохо:
-  model.save('model.h5')
-  // .h5 формат deprecated, не поддерживает custom objects
-  // SavedModel — дефолт, .keras — новый формат
+## Saving/Loading
 
-Плохо:
-  model.save('my_model')
-  loaded = keras.models.load_model('my_model')
-  // Если есть custom layers без get_config() → crash
+### .h5 формат вместо .keras/SavedModel
+Плохо: `model.save('model.h5')` — deprecated формат, не поддерживает custom objects
+Правильно: `model.save('model.keras')` или SavedModel (дефолт)
+Почему: .h5 не сохраняет custom layers/losses корректно, не поддерживает новый Keras 3 API
 
-Плохо:
-  # Subclassed model
-  class MyModel(keras.Model): ...
-  model.save_weights('weights')  # OK
-  model.save('full_model')  # Может не работать!
-  // Subclassed models не полностью serializable через save()
-  // Используй save_weights() + architecture в коде
-```
+### Custom layer без get_config()
+Плохо: custom layer без переопределённого `get_config()` — `model.save()` падает
+Правильно: всегда реализуй `get_config()` для custom layers, возвращая все параметры конструктора
+Почему: Keras сериализует архитектуру через get_config(). Без него — модель невозможно сохранить/загрузить
 
-## Mixed Precision ловушки
+### Subclassed model через save()
+Плохо: `class MyModel(keras.Model): ... model.save('full')` — может не работать
+Правильно: `model.save_weights('weights')` + архитектура в коде для subclassed models
+Почему: subclassed models не полностью serializable через save() — нет декларативного графа вычислений
 
-```
-Плохо:
-  mixed_precision.set_global_policy('mixed_float16')
-  outputs = Dense(10, activation='softmax')(x)
-  // softmax в float16 → overflow/underflow
+## Mixed Precision
 
-Хорошо:
-  outputs = Dense(10, dtype='float32', activation='softmax')(x)
-  // Output layer всегда float32
+### Output layer в float16
+Плохо: `mixed_precision.set_global_policy('mixed_float16')` + output `Dense(10, activation='softmax')`
+Правильно: `Dense(10, dtype='float32', activation='softmax')` — output layer всегда float32
+Почему: softmax в float16 -> overflow/underflow, numerical instability в предсказаниях
 
-Плохо:
-  mixed_precision.set_global_policy('mixed_float16')
-  optimizer = keras.optimizers.Adam(lr=1e-3)
-  // Loss scaling нужен для FP16 gradients
+### Нет LossScaleOptimizer
+Плохо: mixed_float16 policy + обычный `Adam(lr=1e-3)` без loss scaling
+Правильно: `mixed_precision.LossScaleOptimizer(optimizer)` — масштабирует loss для FP16 градиентов
+Почему: FP16 градиенты underflow к нулю без loss scaling, модель перестаёт учиться
 
-Хорошо:
-  optimizer = keras.optimizers.Adam(lr=1e-3)
-  optimizer = mixed_precision.LossScaleOptimizer(optimizer)
-```
+## Multi-GPU
 
-## Multi-GPU ловушка
+### Модель создана вне strategy.scope()
+Плохо: `model = create_model()` затем `with strategy.scope(): model.compile(...)` — модель не реплицируется
+Правильно: `with strategy.scope(): model = create_model(); model.compile(...)` — всё внутри scope
+Почему: MirroredStrategy реплицирует переменные модели при создании внутри scope. Вне scope = одна копия на одном GPU
 
-```
-Плохо:
-  strategy = tf.distribute.MirroredStrategy()
-  model = create_model()
-  with strategy.scope():
-      model.compile(...)
-  // Модель создана ВНЕ strategy.scope() — не реплицируется
+## @tf.function
 
-Хорошо:
-  strategy = tf.distribute.MirroredStrategy()
-  with strategy.scope():
-      model = create_model()  # Создать внутри scope!
-      model.compile(...)
-```
-
-## @tf.function ловушки
-
-```
-Плохо:
-  @tf.function
-  def train_step(data):
-      print(f"Processing {data}")  # Python print — выполнится ОДИН раз при tracing
-      if len(data) > 10:           # Python if — зафиксируется при tracing
-
-Хорошо:
-  @tf.function
-  def train_step(data):
-      tf.print("Processing", data)  # tf.print — каждый вызов
-      if tf.shape(data)[0] > 10:    # tf.cond — динамическое условие
-```
+### Python print/if вместо tf.print/tf.cond
+Плохо: `@tf.function` + `print(data)` + `if len(data) > 10` — Python ops выполняются один раз при tracing
+Правильно: `tf.print()` для вывода, `tf.cond()` / `tf.shape()` для условий
+Почему: @tf.function трейсит Python код один раз и компилирует в граф. Python print/if зафиксируются при первом вызове
 
 ## Чек-лист
 
-- [ ] `training=True/False` передаётся корректно
-- [ ] Custom layers имеют `get_config()`
-- [ ] tf.data: shuffle → map(AUTOTUNE) → batch → prefetch(AUTOTUNE)
-- [ ] `from_logits` согласован с activation
-- [ ] EarlyStopping с `restore_best_weights=True`
-- [ ] Mixed precision: output layer `dtype='float32'`
-- [ ] Модель создана внутри `strategy.scope()`
-- [ ] `@tf.function`: tf.print, tf.cond вместо Python аналогов
+- training=True/False передаётся корректно
+- Custom layers имеют get_config()
+- tf.data: shuffle -> map(AUTOTUNE) -> batch -> prefetch(AUTOTUNE)
+- from_logits согласован с activation
+- EarlyStopping с restore_best_weights=True
+- Mixed precision: output layer dtype='float32'
+- Модель создана внутри strategy.scope()
+- @tf.function: tf.print, tf.cond вместо Python аналогов

@@ -3,129 +3,86 @@ name: redis
 description: Redis — кэширование, distributed lock, rate limiting, ловушки. Активируется при redis, cache, distributed cache, pub sub, lock, rate limit, StackExchange, ioredis, bullmq, session store, TTL, expire, redis cluster, sentinel, ZADD, key-value store
 ---
 
-# Redis Patterns
+# Redis — ловушки и anti-patterns
 
-## Правила
+## Подключение
 
-- ConnectionMultiplexer — Singleton (один на приложение, thread-safe)
-- IDatabase — Scoped (легковесный, получается из multiplexer)
-- AbortOnConnectFail = false — не падай при старте если Redis недоступен
-- Всегда TTL на ключи — без TTL кэш растёт бесконечно
-- Key naming: `{entity}:{id}:{field}` — `product:123:details`
-- Cache-aside: check cache → miss → load from DB → set cache
+### ConnectionMultiplexer на каждый запрос
+Плохо: `ConnectionMultiplexer.Connect("localhost")` внутри метода — каждый вызов создает новое соединение
+Правильно: ConnectionMultiplexer как Singleton через DI — один на приложение, thread-safe
+Почему: каждый Connect открывает TCP-соединение + AUTH + SELECT DB. На 100 req/s = 100 соединений в секунду, Redis упрется в лимит
 
-## Анти-паттерны
+### AbortOnConnectFail не отключен
+Плохо: дефолтный `AbortOnConnectFail = true` — приложение падает при старте если Redis недоступен
+Правильно: `ConfigurationOptions { AbortOnConnectFail = false }` — retry в фоне
+Почему: Redis может быть временно недоступен при деплое. С `true` — приложение не запустится, с `false` — подключится когда Redis появится
 
-```csharp
-// Плохо — новый ConnectionMultiplexer на каждый запрос
-public class MyService
-{
-    public async Task DoWork()
-    {
-        var conn = ConnectionMultiplexer.Connect("localhost"); // утечка соединений!
-        var db = conn.GetDatabase();
-        // ...
-    }
-}
+## Кэширование
 
-// Плохо — кэш без TTL → память Redis растёт вечно
-await _db.StringSetAsync($"product:{id}", json); // никогда не expires
+### Кэш без TTL
+Плохо: `StringSetAsync($"product:{id}", json)` без expiry — ключ живет вечно
+Правильно: `StringSetAsync($"product:{id}", json, TimeSpan.FromMinutes(30))`
+Почему: без TTL кэш растет бесконечно. Redis заполняет память, начинает eviction по maxmemory-policy, удаляя нужные ключи
 
-// Хорошо — всегда TTL
-await _db.StringSetAsync($"product:{id}", json, TimeSpan.FromMinutes(30));
+### Cache stampede при miss
+Плохо: cache miss — 100 потоков одновременно грузят из БД одни и те же данные
+Правильно: distributed lock при cache miss — один поток грузит, остальные ждут + double-check после lock
+Почему: 100 параллельных запросов к БД за одними данными = spike нагрузки, возможный timeout каскад
 
-// Плохо — cache stampede (100 потоков одновременно грузят из БД при cache miss)
-var cached = await _cache.GetStringAsync(key);
-if (cached == null)
-{
-    var data = await _db.LoadExpensiveDataAsync(); // 100 потоков делают это параллельно
-    await _cache.SetStringAsync(key, data);
-}
+### Нет cache-aside pattern
+Плохо: write-through без инвалидации — данные в кэше устаревают
+Правильно: cache-aside: read cache -> miss -> load DB -> set cache. При write — invalidate cache key
+Почему: без явной инвалидации пользователь видит stale data до истечения TTL
 
-// Хорошо — lock при cache miss (один поток грузит, остальные ждут)
-var cached = await _cache.GetStringAsync(key);
-if (cached == null)
-{
-    if (await _lock.AcquireAsync($"lock:{key}", TimeSpan.FromSeconds(10)))
-    {
-        try
-        {
-            cached = await _cache.GetStringAsync(key); // double check
-            if (cached == null)
-            {
-                var data = await _db.LoadExpensiveDataAsync();
-                await _cache.SetStringAsync(key, Serialize(data), TimeSpan.FromMinutes(30));
-                return data;
-            }
-        }
-        finally { await _lock.ReleaseAsync($"lock:{key}"); }
-    }
-}
-```
+## Key Design
 
-## Distributed Lock — правильно
+### Плоские ключи без namespace
+Плохо: `Set("123", data)` — непонятно что за ключ, коллизии между entities
+Правильно: `{entity}:{id}:{field}` — `product:123:details`, `user:456:session`
+Почему: без namespace невозможно делать `SCAN product:*` для инвалидации, ключи конфликтуют между модулями
 
-```csharp
-// Плохо — release чужого лока
-await _db.StringSetAsync("lock:order:123", "any", TimeSpan.FromSeconds(30), When.NotExists);
-// ... обработка заняла 31 секунду, лок expired
-// другой процесс взял лок
-await _db.KeyDeleteAsync("lock:order:123"); // удалили ЧУЖОЙ лок!
+## Distributed Lock
 
-// Хорошо — Lua script для атомарного release (проверяет owner)
-var token = Guid.NewGuid().ToString();
-await _db.StringSetAsync("lock:order:123", token, TimeSpan.FromSeconds(30), When.NotExists);
-// ... обработка
-var script = @"
-    if redis.call('get', KEYS[1]) == ARGV[1] then
-        return redis.call('del', KEYS[1])
-    else return 0 end";
-await _db.ScriptEvaluateAsync(script, new RedisKey[] { "lock:order:123" }, new RedisValue[] { token });
+### Release чужого лока
+Плохо: `KeyDeleteAsync("lock:order:123")` — удаляет лок без проверки владельца
+Правильно: Lua script: проверить что значение = мой token, только тогда DEL. Или `RedLock.net`
+Почему: если лок expired по TTL и другой процесс его взял — `DEL` удалит чужой лок, два процесса работают одновременно
 
-// Ещё лучше — RedLock.net для production
-await using var redLock = await _lockFactory.CreateLockAsync(
-    resource: "order:123",
-    expiryTime: TimeSpan.FromSeconds(30));
-if (redLock.IsAcquired) { await ProcessOrderAsync(123); }
-```
+### Лок без TTL
+Плохо: `StringSetAsync("lock:x", token, When.NotExists)` без expiry
+Правильно: всегда TTL: `StringSetAsync("lock:x", token, TimeSpan.FromSeconds(30), When.NotExists)`
+Почему: если процесс упал — лок никогда не освободится. Dead lock навсегда
 
-## Выбор структуры данных
+### Одна нода для критичных локов
+Плохо: distributed lock на одном Redis instance — при failover лок теряется
+Правильно: RedLock алгоритм (RedLock.net) — кворум из N/2+1 нод
+Почему: при failover replica не имеет лока (async replication). Два процесса получают лок одновременно
 
-| Задача | Структура | Не используй |
-|--------|-----------|-------------|
-| Кэш объекта | String (JSON) | Hash (overhead для маленьких объектов) |
-| Объект с partial update | Hash | String (перезаписываешь весь объект) |
-| Уникальные значения | Set | List (дубликаты) |
-| Leaderboard / ranking | Sorted Set | Sort в приложении |
-| Очередь задач | List (LPUSH/RPOP) | Pub/Sub (теряет сообщения) |
-| Broadcast | Pub/Sub | List (нет fan-out) |
+## Структуры данных
+
+### String для partial update
+Плохо: `StringSetAsync("user:1", fullJson)` — перезаписываешь весь объект при изменении одного поля
+Правильно: `HashSetAsync("user:1", "email", newEmail)` — Hash для partial update
+Почему: String = read-modify-write весь объект. Hash позволяет обновлять отдельные поля атомарно
+
+### Pub/Sub для очереди задач
+Плохо: Pub/Sub для job queue — если consumer offline, сообщения потеряны
+Правильно: List (LPUSH/RPOP) или Redis Streams для persisted queue. Pub/Sub только для broadcast
+Почему: Pub/Sub = fire-and-forget, нет persistence. Пропущенные сообщения не восстановить
 
 ## Rate Limiting
 
-```csharp
-// Sliding window — точнее fixed window
-public async Task<bool> IsAllowedAsync(string clientId, int maxRequests, TimeSpan window)
-{
-    var key = $"ratelimit:{clientId}";
-    var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-    var windowStart = now - (long)window.TotalMilliseconds;
-
-    var tx = _db.CreateTransaction();
-    _ = tx.SortedSetRemoveRangeByScoreAsync(key, 0, windowStart);
-    _ = tx.SortedSetAddAsync(key, now.ToString(), now);
-    _ = tx.KeyExpireAsync(key, window);
-    var countTask = tx.SortedSetLengthAsync(key);
-    await tx.ExecuteAsync();
-
-    return await countTask <= maxRequests;
-}
-```
+### Fixed window вместо sliding window
+Плохо: fixed window counter с `INCR` + `EXPIRE` — burst на границе окон (2x лимит)
+Правильно: sliding window через Sorted Set: `ZREMRANGEBYSCORE` + `ZADD` + `ZCARD`
+Почему: в fixed window 100 запросов в конце окна + 100 в начале следующего = 200 за секунду при лимите 100
 
 ## Чек-лист
 
-- [ ] ConnectionMultiplexer — Singleton
-- [ ] AbortOnConnectFail = false
-- [ ] TTL на каждом ключе
-- [ ] Distributed lock с owner token + Lua release
-- [ ] Cache stampede protection (lock при miss)
-- [ ] Правильная структура данных под задачу
+- ConnectionMultiplexer — Singleton
+- AbortOnConnectFail = false
+- TTL на каждом ключе
+- Distributed lock с owner token + Lua release
+- Cache stampede protection (lock при miss)
+- Правильная структура данных под задачу
+- Key naming: `{entity}:{id}:{field}`

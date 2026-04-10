@@ -1,134 +1,72 @@
 ---
 name: teamcity
-description: TeamCity CI/CD — ловушки build chains, DSL, артефактов. Активируется при teamcity, build configuration, meta-runner, artifact, build chain, Kotlin DSL, snapshot dependency, failure conditions, build template, password parameter, trigger chain, artifact dependency
+description: TeamCity CI/CD — ловушки build chains, DSL, артефактов. Активируется при teamcity, build configuration, meta-runner, artifact, build chain, Kotlin DSL, snapshot dependency, failure conditions, build template, trigger chain
 ---
 
-# TeamCity Patterns — ловушки
+# TeamCity — ловушки и anti-patterns
 
-## Правила
+## Build Chain
 
-- Kotlin DSL для версионирования конфигураций (не UI-only)
-- Build Templates для переиспользования (не копируй configs)
-- Snapshot dependencies для Build Chains (не trigger chains)
-- Секреты — password type parameters, не plain text
-- `--no-restore` / `--no-build` между шагами (не повторяй работу)
-- Failure conditions — настрой явно, не полагайся на exit code
+### Trigger chain вместо snapshot dependency
+Плохо: Build -> (finish trigger) -> Test -> (finish trigger) -> Deploy — цепочка через триггеры
+Правильно: `snapshot(Build) { onDependencyFailure = FailureAction.FAIL_TO_START }` — snapshot dependency
+Почему: trigger chain не гарантирует один source revision. Если Build запустился 2 раза, Test может взять артефакты от другого Build
 
-## Анти-паттерны
+### Все шаги в одной Build Configuration
+Плохо: restore + build + test + publish + deploy = один конфиг
+Правильно: Build Chain: Build -> (Unit Tests || Integ Tests || E2E Tests) -> Publish -> Deploy
+Почему: нельзя перезапустить только deploy, нельзя параллелить тесты, один упавший шаг блокирует весь pipeline
 
-```kotlin
-// Плохо — trigger chain вместо snapshot dependency
-// Build → (finish trigger) → Test → (finish trigger) → Deploy
-// Если Build запустился 2 раза, Test может взять артефакты от другого Build!
+### Artifact dependency от latest successful
+Плохо: `buildRule = lastSuccessful()` — может взять артефакт от другой ветки
+Правильно: `buildRule = sameChainOrLastFinished()` + snapshot dependency на тот же Build
+Почему: latest successful = из любой ветки. Deploy может выкатить артефакт от feature branch вместо main
 
-// Хорошо — snapshot dependency (гарантирует один и тот же source revision)
-object Test : BuildType({
-    dependencies {
-        snapshot(Build) {
-            onDependencyFailure = FailureAction.FAIL_TO_START // не запускай тест если билд упал
-        }
-    }
-})
+## Kotlin DSL
 
-// Плохо — копипаста шагов restore → build → test в каждой конфигурации
-// 10 проектов × одинаковые шаги = 10 мест для правки при изменении
+### Копипаста шагов между конфигурациями
+Плохо: одинаковые restore -> build -> test шаги в 10 проектах — 10 мест для правки
+Правильно: `Template` с параметрами: `text("solution.path", "", display = ParameterDisplay.PROMPT)`
+Почему: одно изменение в template применяется ко всем проектам. Без template — ручная синхронизация 10 конфигов
 
-// Хорошо — Template + параметризация
-object DotNetTemplate : Template({
-    params {
-        text("solution.path", "", display = ParameterDisplay.PROMPT, label = "Solution path")
-        select("configuration", "Release", options = listOf("Debug", "Release"))
-    }
-    steps {
-        dotnetBuild {
-            projects = "%solution.path%"
-            configuration = "%configuration%"
-        }
-    }
-})
-// Проекты наследуют: templates(DotNetTemplate) { param("solution.path", "src/MyApp.sln") }
+### UI-only конфигурация в production
+Плохо: все настройки через UI — нет версионирования, нет code review, нет отката
+Правильно: Kotlin DSL в репозитории — Git, PR review, `git revert` для отката
+Почему: UI изменения не отслеживаются. При ошибке — откат вручную по памяти. Нет аудита кто и что изменил
 
-// Плохо — все шаги в одной Build Configuration
-// restore + build + test + publish + deploy = один конфиг
-// Нельзя перезапустить только deploy, нельзя параллелить тесты
+## Безопасность
 
-// Хорошо — раздели на Build Chain
-//          ┌─ Unit Tests ────┐
-// Build ───┼─ Integ Tests ───┼── Publish → Deploy
-//          └─ E2E Tests ─────┘
-// Параллельные тесты, можно перезапустить любой шаг
+### Секреты в plain text параметрах
+Плохо: `text("db.password", "P@ssw0rd!")` — видно всем, логируется в build log
+Правильно: `password("db.password", "", display = ParameterDisplay.HIDDEN)`
+Почему: plain text параметры видны в UI, экспортируются через REST API, не маскируются в логах. Password type маскирует везде
 
-// Плохо — секреты в plain text параметрах
-params {
-    text("db.password", "P@ssw0rd!")  // видно всем, логируется
-}
+## Failure Conditions
 
-// Хорошо — password type
-params {
-    password("db.password", "", display = ParameterDisplay.HIDDEN)
-}
-// Маскируется в логах, не экспортируется в REST API
+### Нет failure conditions — ложно-зеленый билд
+Плохо: `OutOfMemoryException` в логе, но exit code 0 — TeamCity считает успехом
+Правильно: `failureConditions { failOnText { pattern = "OutOfMemoryException" }; executionTimeoutMin = 60 }`
+Почему: не все ошибки дают non-zero exit code. Без явных conditions — билд "зеленый" при реальных проблемах
 
-// Плохо — нет failure conditions → билд "зелёный" при утечке памяти
-// OutOfMemoryException в логе, но exit code 0 → TeamCity считает успехом
+### Нет metric failure condition
+Плохо: тесты не запустились (0 тестов), но билд зеленый — все 0 тестов прошли
+Правильно: `failOnMetricChange { metric = TEST_COUNT; threshold = 0; comparison = LESS }`
+Почему: 0 тестов = что-то сломалось в test discovery. Без metric condition — silent failure
 
-// Хорошо — явные failure conditions
-failureConditions {
-    failOnText {
-        conditionType = BuildFailureOnText.ConditionType.CONTAINS
-        pattern = "OutOfMemoryException"
-    }
-    executionTimeoutMin = 60  // не висеть часами
-    failOnMetricChange {
-        metric = BuildFailureOnMetric.MetricType.TEST_COUNT
-        threshold = 0
-        units = BuildFailureOnMetric.MetricUnit.DEFAULT_UNIT
-        comparison = BuildFailureOnMetric.MetricComparison.LESS
-        compareTo = value()
-    }  // 0 тестов = что-то сломалось
-}
-```
+## Оптимизация
 
-## UI vs Kotlin DSL
-
-| Критерий | UI | Kotlin DSL |
-|----------|-----|------------|
-| Быстрый старт | Да | Нет |
-| Версионирование | Нет (только export) | Git, code review |
-| Рефакторинг | Руками в каждом проекте | Одно изменение в template |
-| Откат | Нет | git revert |
-| Code review | Нет | PR как код |
-
-**Правило:** начинай в UI для прототипа, переходи на Kotlin DSL для production.
-
-## Artifact Dependencies — ловушка
-
-```kotlin
-// Плохо — latest successful build (может взять артефакт от другой ветки!)
-dependencies {
-    artifacts(Build) {
-        buildRule = lastSuccessful()  // latest = из любой ветки
-        artifactRules = "MyApp-*.zip!** => artifacts"
-    }
-}
-
-// Хорошо — same chain (snapshot dependency гарантирует тот же revision)
-dependencies {
-    snapshot(Build) {}
-    artifacts(Build) {
-        buildRule = sameChainOrLastFinished()
-        artifactRules = "MyApp-*.zip!** => artifacts"
-    }
-}
-```
+### Повторная работа между шагами
+Плохо: `dotnet restore` + `dotnet build` + `dotnet test` — каждый шаг заново делает restore/build
+Правильно: `dotnet build` (включает restore) + `dotnet test --no-build` + `dotnet publish --no-build`
+Почему: `--no-restore`/`--no-build` пропускает уже сделанную работу. Без флагов — двойная/тройная компиляция
 
 ## Чек-лист
 
-- [ ] Kotlin DSL в репозитории (не только UI)
-- [ ] Templates для повторяющихся конфигураций
-- [ ] Snapshot dependencies в Build Chain (не trigger chains)
-- [ ] Artifact dependency = sameChainOrLastFinished
-- [ ] Секреты = password type parameters
-- [ ] Failure conditions настроены (text, timeout, metric)
-- [ ] `--no-restore` / `--no-build` между шагами
-- [ ] Параллельные тесты в отдельных Build Configurations
+- Kotlin DSL в репозитории (не только UI)
+- Templates для повторяющихся конфигураций
+- Snapshot dependencies в Build Chain (не trigger chains)
+- Artifact dependency = sameChainOrLastFinished
+- Секреты = password type parameters
+- Failure conditions настроены (text, timeout, metric)
+- `--no-restore` / `--no-build` между шагами
+- Параллельные тесты в отдельных Build Configurations

@@ -9,12 +9,10 @@
  * Usage:
  *   node tools/validate-agent.js <path>                 # single file
  *   node tools/validate-agent.js all                    # all agents in plugins/specialists
- *   node tools/validate-agent.js all --errors-only      # skip warnings
  *
  * Exit codes:
  *   0 — clean
  *   1 — at least one error found
- *   2 — only warnings found (never blocks on its own; --errors-only treats as clean)
  */
 
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
@@ -34,7 +32,6 @@ const MARKETPLACE_JSON = join(REPO_ROOT, '.claude-plugin', 'marketplace.json');
 const COLORS = {
   reset: '\x1b[0m',
   red: '\x1b[31m',
-  yellow: '\x1b[33m',
   green: '\x1b[32m',
   cyan: '\x1b[36m',
   gray: '\x1b[90m',
@@ -44,17 +41,8 @@ const COLORS = {
 // --- CLI parsing --------------------------------------------------------
 
 function parseArgs(argv) {
-  const args = argv.slice(2);
-  const flags = new Set();
-  const positional = [];
-  for (const a of args) {
-    if (a.startsWith('--')) flags.add(a);
-    else positional.push(a);
-  }
-  return {
-    target: positional[0] || 'all',
-    errorsOnly: flags.has('--errors-only'),
-  };
+  const positional = argv.slice(2).filter((a) => !a.startsWith('--'));
+  return { target: positional[0] || 'all' };
 }
 
 // --- Marketplace data ---------------------------------------------------
@@ -94,7 +82,6 @@ function findAllAgentFiles() {
 // --- Validation rules ---------------------------------------------------
 
 const ERROR = 'error';
-const WARNING = 'warning';
 
 /**
  * Blacklisted phrases in exit criteria — they describe internal state,
@@ -112,31 +99,14 @@ const NON_OBSERVABLE_PHRASES = [
   'все понятно',
 ];
 
-/**
- * Forbidden frontmatter fields — these break Claude Code or are deprecated
- * by framework decisions.
- */
-const FORBIDDEN_FRONTMATTER_FIELDS = [
-  'allowed-tools',
-  'skills',
-];
-
 const REQUIRED_FRONTMATTER_FIELDS = ['name', 'description', 'tools'];
 
 /**
- * Fields that are deprecated by the framework but downgraded to warning
- * when the agent has no phases — i.e. is still on old format, not yet
- * migrated. As soon as the agent declares phases, these become errors.
+ * Forbidden frontmatter fields — break Claude Code or violate framework.
  */
-const FRAMEWORK_DEPRECATED_FIELDS = ['skills'];
+const FORBIDDEN_FRONTMATTER_FIELDS = ['allowed-tools', 'skills'];
 
-/**
- * Fields that are always errors — they break Claude Code regardless of
- * migration status.
- */
-const ALWAYS_FORBIDDEN_FIELDS = ['allowed-tools'];
-
-function validateFrontmatter(parsed, findings, hasPhases) {
+function validateFrontmatter(parsed, findings) {
   const fm = parsed.data || {};
 
   for (const field of REQUIRED_FRONTMATTER_FIELDS) {
@@ -149,34 +119,19 @@ function validateFrontmatter(parsed, findings, hasPhases) {
     }
   }
 
-  for (const field of ALWAYS_FORBIDDEN_FIELDS) {
+  for (const field of FORBIDDEN_FRONTMATTER_FIELDS) {
     if (field in fm) {
       findings.push({
         level: ERROR,
         rule: 'frontmatter-forbidden',
-        message: `Forbidden frontmatter field: ${field} — not supported by Claude Code, use \`tools:\` instead`,
-      });
-    }
-  }
-
-  for (const field of FRAMEWORK_DEPRECATED_FIELDS) {
-    if (field in fm) {
-      const level = hasPhases ? ERROR : WARNING;
-      const rule = hasPhases ? 'frontmatter-forbidden' : 'frontmatter-deprecated';
-      const suffix = hasPhases
-        ? ' — agent has phases and must use imperative Skill tool loading'
-        : ' — framework mandates imperative loading via Skill tool in phase body; downgrade to error after migration to phases';
-      findings.push({
-        level,
-        rule,
-        message: `${hasPhases ? 'Forbidden' : 'Deprecated'} frontmatter field: ${field}${suffix}`,
+        message: `Forbidden frontmatter field: ${field} — use \`tools:\` for tool access, Skill tool for skill loading`,
       });
     }
   }
 
   if (typeof fm.description === 'string' && fm.description.length < 50) {
     findings.push({
-      level: WARNING,
+      level: ERROR,
       rule: 'frontmatter-description-short',
       message: `Description is shorter than 50 characters — likely missing trigger keywords for semantic activation`,
     });
@@ -187,7 +142,7 @@ function validateFrontmatter(parsed, findings, hasPhases) {
     !/триггер|активируется|trigger/i.test(fm.description)
   ) {
     findings.push({
-      level: WARNING,
+      level: ERROR,
       rule: 'frontmatter-description-no-triggers',
       message: `Description does not contain "Триггеры" / "trigger" — Claude Code matches agents by keywords from description`,
     });
@@ -195,7 +150,7 @@ function validateFrontmatter(parsed, findings, hasPhases) {
 
   if (typeof fm.tools === 'string' && !/\bSkill\b/.test(fm.tools)) {
     findings.push({
-      level: WARNING,
+      level: ERROR,
       rule: 'frontmatter-no-skill-tool',
       message: `Agent does not declare "Skill" in tools — will not be able to load skills imperatively in phases`,
     });
@@ -280,9 +235,9 @@ function validatePhases(markdownBody, findings) {
 
   if (phases.length === 0) {
     findings.push({
-      level: WARNING,
+      level: ERROR,
       rule: 'no-phases',
-      message: `Agent has no "## Phase N:" sections — not migrated to Agent Framework yet (skipping phase-level checks)`,
+      message: `Agent has no "## Phase N:" sections — all agents must follow Agent Framework phase structure`,
     });
     return { validated: false, phases: [] };
   }
@@ -308,14 +263,14 @@ function validatePhases(markdownBody, findings) {
     for (const phrase of NON_OBSERVABLE_PHRASES) {
       if (body.includes(phrase)) {
         findings.push({
-          level: WARNING,
+          level: ERROR,
           rule: 'phase-non-observable-exit',
           message: `Phase "${phase.title}" (line ${phase.startLine}) contains non-observable phrase "${phrase}" — exit criteria must describe an observable artifact`,
         });
       }
     }
 
-    const mandatoryMatch = body.match(/\*\*mandatory:\*\*\s*yes([^\n]*)/i);
+    const mandatoryMatch = body.match(/mandatory:\s*yes([^\n]*)/i);
     if (mandatoryMatch) {
       const afterYes = (mandatoryMatch[1] || '').trim();
       if (afterYes.length < 10) {
@@ -336,7 +291,7 @@ function validatePhases(markdownBody, findings) {
     }
     if (maxListLen >= 4) {
       findings.push({
-        level: WARNING,
+        level: ERROR,
         rule: 'phase-procedural-body',
         message: `Phase "${phase.title}" (line ${phase.startLine}) contains ordered list with ${maxListLen} items — potentially procedural description, framework mandates declarative style (goal + output + exit, not step-by-step)`,
       });
@@ -356,7 +311,7 @@ function validateSkillReferences(markdownBody, marketplacePlugins, findings) {
   for (const plugin of referenced) {
     if (!marketplacePlugins.has(plugin)) {
       findings.push({
-        level: WARNING,
+        level: ERROR,
         rule: 'skill-reference-unknown',
         message: `Referenced skill plugin "${plugin}" not found in marketplace.json`,
       });
@@ -383,7 +338,7 @@ function validateFile(filepath, marketplacePlugins) {
   }
 
   const phaseResult = validatePhases(parsed.content, findings);
-  validateFrontmatter(parsed, findings, phaseResult.validated);
+  validateFrontmatter(parsed, findings);
 
   if (phaseResult.validated) {
     validateSkillReferences(parsed.content, marketplacePlugins, findings);
@@ -395,30 +350,21 @@ function validateFile(filepath, marketplacePlugins) {
 // --- Reporting ----------------------------------------------------------
 
 function formatFinding(f) {
-  const color = f.level === ERROR ? COLORS.red : COLORS.yellow;
-  const tag = f.level === ERROR ? 'ERROR' : 'WARN ';
-  return `  ${color}${tag}${COLORS.reset} ${COLORS.gray}[${f.rule}]${COLORS.reset} ${f.message}`;
+  return `  ${COLORS.red}ERROR${COLORS.reset} ${COLORS.gray}[${f.rule}]${COLORS.reset} ${f.message}`;
 }
 
-function report(results, errorsOnly) {
+function report(results) {
   let totalErrors = 0;
-  let totalWarnings = 0;
   let filesWithIssues = 0;
 
   for (const result of results) {
-    const errors = result.findings.filter((f) => f.level === ERROR);
-    const warnings = result.findings.filter((f) => f.level === WARNING);
+    if (result.findings.length === 0) continue;
 
-    totalErrors += errors.length;
-    totalWarnings += warnings.length;
-
-    const shown = errorsOnly ? errors : [...errors, ...warnings];
-    if (shown.length === 0) continue;
-
+    totalErrors += result.findings.length;
     filesWithIssues += 1;
     const rel = relative(REPO_ROOT, result.filepath);
     console.log(`\n${COLORS.bold}${rel}${COLORS.reset}`);
-    for (const f of shown) {
+    for (const f of result.findings) {
       console.log(formatFinding(f));
     }
   }
@@ -426,20 +372,17 @@ function report(results, errorsOnly) {
   console.log('');
   console.log(
     `${COLORS.bold}Summary:${COLORS.reset} ${results.length} file(s) checked, ` +
-      `${COLORS.red}${totalErrors} error(s)${COLORS.reset}, ` +
-      `${COLORS.yellow}${totalWarnings} warning(s)${COLORS.reset}` +
+      `${COLORS.red}${totalErrors} error(s)${COLORS.reset}` +
       (filesWithIssues > 0 ? `, ${filesWithIssues} file(s) with issues` : '')
   );
 
-  if (totalErrors > 0) return 1;
-  if (totalWarnings > 0) return 2;
-  return 0;
+  return totalErrors > 0 ? 1 : 0;
 }
 
 // --- Main ---------------------------------------------------------------
 
 function main() {
-  const { target, errorsOnly } = parseArgs(process.argv);
+  const { target } = parseArgs(process.argv);
 
   let files;
   if (target === 'all') {
@@ -459,10 +402,7 @@ function main() {
 
   const marketplacePlugins = loadMarketplacePlugins();
   const results = files.map((f) => validateFile(f, marketplacePlugins));
-  const exitCode = report(results, errorsOnly);
-
-  if (errorsOnly && exitCode === 2) process.exit(0);
-  process.exit(exitCode);
+  process.exit(report(results));
 }
 
 main();

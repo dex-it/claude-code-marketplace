@@ -1,6 +1,6 @@
 ---
 name: ddd
-description: DDD тактические паттерны — ловушки aggregate, entity, value object. Активируется при DDD, domain driven, aggregate, value object, domain event, bounded context, aggregate root, anemic model, анемичная модель, repository pattern, domain service, specification, invariant, entity, ubiquitous language, domain layer
+description: DDD — ловушки aggregate, entity, value object. Активируется при DDD, domain driven, aggregate, value object, domain event, bounded context, aggregate root, anemic model, domain service, specification, invariant, ubiquitous language, domain layer
 ---
 
 # DDD — ловушки и anti-patterns

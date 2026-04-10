@@ -10,12 +10,10 @@
  * Usage:
  *   node tools/validate-skill.js <path>                 # single file
  *   node tools/validate-skill.js all                    # all skills in plugins/skills
- *   node tools/validate-skill.js all --errors-only      # skip warnings
  *
  * Exit codes:
- *   0 — clean (or only warnings with --errors-only)
+ *   0 — clean
  *   1 — at least one error found
- *   2 — only warnings found
  */
 
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
@@ -35,28 +33,17 @@ const MARKETPLACE_JSON = join(REPO_ROOT, '.claude-plugin', 'marketplace.json');
 const COLORS = {
   reset: '\x1b[0m',
   red: '\x1b[31m',
-  yellow: '\x1b[33m',
   gray: '\x1b[90m',
   bold: '\x1b[1m',
 };
 
 const ERROR = 'error';
-const WARNING = 'warning';
 
 // --- CLI parsing --------------------------------------------------------
 
 function parseArgs(argv) {
-  const args = argv.slice(2);
-  const flags = new Set();
-  const positional = [];
-  for (const a of args) {
-    if (a.startsWith('--')) flags.add(a);
-    else positional.push(a);
-  }
-  return {
-    target: positional[0] || 'all',
-    errorsOnly: flags.has('--errors-only'),
-  };
+  const positional = argv.slice(2).filter((a) => !a.startsWith('--'));
+  return { target: positional[0] || 'all' };
 }
 
 // --- Marketplace data ---------------------------------------------------
@@ -97,8 +84,9 @@ const PROJECT_TARGET_MAX = 120; // ideal range
 // --- Frontmatter validation ---------------------------------------------
 
 const REQUIRED_FIELDS = ['name', 'description'];
-const FORBIDDEN_FIELDS = [];
+const FORBIDDEN_FIELDS = ['keywords'];
 const MIN_DESCRIPTION_LENGTH = 50;
+const MAX_DESCRIPTION_LENGTH = 250;
 const MIN_TRIGGER_KEYWORDS = 10;
 
 function validateFrontmatter(parsed, findings) {
@@ -129,9 +117,17 @@ function validateFrontmatter(parsed, findings) {
 
   if (desc.length < MIN_DESCRIPTION_LENGTH) {
     findings.push({
-      level: WARNING,
+      level: ERROR,
       rule: 'description-short',
       message: `Description shorter than ${MIN_DESCRIPTION_LENGTH} characters — likely missing trigger keywords`,
+    });
+  }
+
+  if (desc.length > MAX_DESCRIPTION_LENGTH) {
+    findings.push({
+      level: ERROR,
+      rule: 'description-too-long',
+      message: `Description is ${desc.length} characters — exceeds recommended max of ${MAX_DESCRIPTION_LENGTH}. Keywords beyond this limit may not activate the skill`,
     });
   }
 
@@ -156,7 +152,7 @@ function validateFrontmatter(parsed, findings) {
       .filter((k) => k.length > 0);
     if (keywords.length < MIN_TRIGGER_KEYWORDS) {
       findings.push({
-        level: WARNING,
+        level: ERROR,
         rule: 'description-few-keywords',
         message: `Description has only ${keywords.length} trigger keyword(s) after "Активируется при" — framework recommends 15-25 for reliable semantic activation`,
       });
@@ -177,7 +173,7 @@ function validateSize(rawContent, findings) {
     });
   } else if (lineCount > PROJECT_RECOMMENDED_MAX) {
     findings.push({
-      level: WARNING,
+      level: ERROR,
       rule: 'size-exceeds-recommended',
       message: `File is ${lineCount} lines — exceeds project recommendation of ${PROJECT_RECOMMENDED_MAX}. Consider splitting or cutting documentation/procedures`,
     });
@@ -242,7 +238,7 @@ function validateTraps(markdownBody, findings) {
 
   if (traps.length < 5) {
     findings.push({
-      level: WARNING,
+      level: ERROR,
       rule: 'too-few-traps',
       message: `Skill has only ${traps.length} H3 sections — framework recommends 10-15 traps per skill`,
     });
@@ -262,7 +258,7 @@ function validateTraps(markdownBody, findings) {
 
     if (missing.length > 0) {
       findings.push({
-        level: WARNING,
+        level: ERROR,
         rule: 'trap-missing-triad',
         message: `Trap "${trap.title}" (line ${trap.startLine}) is missing: ${missing.join(', ')} — framework mandates "Плохо / Правильно / Почему" triad`,
       });
@@ -281,7 +277,7 @@ function validateCodeFences(markdownBody, findings) {
     const lines = (node.value || '').split('\n').length;
     if (lines > MAX_CODE_FENCE_LINES) {
       findings.push({
-        level: WARNING,
+        level: ERROR,
         rule: 'code-fence-too-long',
         message: `Code block at line ${node.position?.start?.line ?? '?'} has ${lines} lines — framework principle "pointer, not road" recommends max ${MAX_CODE_FENCE_LINES} lines. Replace with API name / condition reference`,
       });
@@ -316,7 +312,7 @@ function validateNoDocumentationTitles(markdownBody, findings) {
     for (const pattern of DOCUMENTATION_TITLE_PATTERNS) {
       if (pattern.test(title)) {
         findings.push({
-          level: WARNING,
+          level: ERROR,
           rule: 'documentation-style-title',
           message: `Heading "${title}" (line ${node.position?.start?.line ?? '?'}) looks like documentation ("how to X", "what is Y", "step N") — framework mandates traps/anti-patterns, not tutorials`,
         });
@@ -357,48 +353,37 @@ function validateFile(filepath) {
 // --- Reporting ----------------------------------------------------------
 
 function formatFinding(f) {
-  const color = f.level === ERROR ? COLORS.red : COLORS.yellow;
-  const tag = f.level === ERROR ? 'ERROR' : 'WARN ';
-  return `  ${color}${tag}${COLORS.reset} ${COLORS.gray}[${f.rule}]${COLORS.reset} ${f.message}`;
+  return `  ${COLORS.red}ERROR${COLORS.reset} ${COLORS.gray}[${f.rule}]${COLORS.reset} ${f.message}`;
 }
 
-function report(results, errorsOnly) {
+function report(results) {
   let totalErrors = 0;
-  let totalWarnings = 0;
   let filesWithIssues = 0;
 
   for (const result of results) {
-    const errors = result.findings.filter((f) => f.level === ERROR);
-    const warnings = result.findings.filter((f) => f.level === WARNING);
-    totalErrors += errors.length;
-    totalWarnings += warnings.length;
+    if (result.findings.length === 0) continue;
 
-    const shown = errorsOnly ? errors : [...errors, ...warnings];
-    if (shown.length === 0) continue;
-
+    totalErrors += result.findings.length;
     filesWithIssues += 1;
     const rel = relative(REPO_ROOT, result.filepath);
     console.log(`\n${COLORS.bold}${rel}${COLORS.reset}`);
-    for (const f of shown) console.log(formatFinding(f));
+    for (const f of result.findings) console.log(formatFinding(f));
   }
 
   console.log('');
   console.log(
     `${COLORS.bold}Summary:${COLORS.reset} ${results.length} skill(s) checked, ` +
-      `${COLORS.red}${totalErrors} error(s)${COLORS.reset}, ` +
-      `${COLORS.yellow}${totalWarnings} warning(s)${COLORS.reset}` +
+      `${COLORS.red}${totalErrors} error(s)${COLORS.reset}` +
       (filesWithIssues > 0 ? `, ${filesWithIssues} file(s) with issues` : '')
   );
 
-  if (totalErrors > 0) return 1;
-  if (totalWarnings > 0) return 2;
-  return 0;
+  return totalErrors > 0 ? 1 : 0;
 }
 
 // --- Main ---------------------------------------------------------------
 
 function main() {
-  const { target, errorsOnly } = parseArgs(process.argv);
+  const { target } = parseArgs(process.argv);
 
   let files;
   if (target === 'all') {
@@ -417,10 +402,7 @@ function main() {
   }
 
   const results = files.map((f) => validateFile(f));
-  const exitCode = report(results, errorsOnly);
-
-  if (errorsOnly && exitCode === 2) process.exit(0);
-  process.exit(exitCode);
+  process.exit(report(results));
 }
 
 main();

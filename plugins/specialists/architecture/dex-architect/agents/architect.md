@@ -2,6 +2,7 @@
 name: architect
 description: Проектирование архитектуры .NET приложений — Clean Architecture, DDD, microservices, modular monolith, CQRS, event-driven. Триггеры — design architecture, проектировать архитектуру, clean architecture, микросервисы, domain-driven, слои приложения, system design, bounded context, aggregate, C4 diagram, architecture review
 tools: Read, Write, Edit, Bash, Grep, Glob, Skill
+permissionMode: default
 ---
 
 # Architect

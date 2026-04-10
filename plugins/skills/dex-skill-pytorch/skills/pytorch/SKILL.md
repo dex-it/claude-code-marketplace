@@ -1,113 +1,98 @@
 ---
 name: pytorch
-description: PyTorch — ловушки training loop, DataLoader, GPU, distributed. Активируется при pytorch, nn.Module, dataloader, training loop, DDP, mixed precision, model.eval, torch.no_grad, optimizer.zero_grad, state_dict, GradScaler, autocast, scheduler, OneCycleLR, pin_memory, checkpoint
+description: PyTorch — ловушки training loop, DataLoader, GPU. Активируется при pytorch, nn.Module, dataloader, DDP, mixed precision, model.eval, torch.no_grad, optimizer.zero_grad, state_dict, GradScaler, autocast, checkpoint
 ---
 
 # PyTorch — ловушки
 
-## Правила
+## Training Loop
 
-- `model.train()` / `model.eval()` перед каждым этапом — BatchNorm и Dropout ведут себя по-разному
-- `torch.no_grad()` при inference — экономит память, без него граф вычислений растёт
-- `pin_memory=True` в DataLoader для GPU — ускоряет transfer
-- `sampler.set_epoch(epoch)` при DDP — без этого shuffle одинаковый каждую эпоху
+### model.eval() забыт при inference
+Плохо: `model(val_input)` без вызова `model.eval()` — BatchNorm и Dropout остаются в train mode
+Правильно: `model.eval()` + `torch.no_grad()` перед валидацией/inference
+Почему: Dropout отбрасывает нейроны, BatchNorm использует batch statistics вместо running — метрики нестабильны
 
-## Частые ошибки
+### optimizer.zero_grad() пропущен
+Плохо: `loss.backward()` без `optimizer.zero_grad()` перед forward pass
+Правильно: `optimizer.zero_grad()` -> forward -> `loss.backward()` -> `optimizer.step()`
+Почему: градиенты накапливаются между батчами, модель обновляется по сумме всех предыдущих градиентов
 
-| Ошибка | Последствие | Решение |
-|--------|-------------|---------|
-| Забыл `model.eval()` | Dropout активен при inference, метрики нестабильны | Всегда `model.eval()` + `torch.no_grad()` перед валидацией |
-| `loss.backward()` без `optimizer.zero_grad()` | Градиенты накапливаются между батчами | `optimizer.zero_grad()` перед forward pass |
-| Checkpoint сохраняет только `model.state_dict()` | Нельзя продолжить обучение (потерян optimizer, epoch) | Сохраняй `model + optimizer + epoch + loss` |
-| `num_workers > 0` без `persistent_workers` | Workers пересоздаются каждую эпоху, медленно | `persistent_workers=True` |
-| `.item()` внутри training loop | Синхронизация CPU-GPU на каждом батче, тормозит | Накапливай tensor, `.item()` только для логов |
-| `model.to(device)` после DDP wrap | DDP уже привязал к device, повторный to() ломает | `model.to(rank)` ДО `DDP(model)` |
-| `torch.save(model)` вместо `state_dict()` | Pickle сохраняет структуру класса, ломается при рефакторинге | `torch.save(model.state_dict())` |
+### torch.no_grad() забыт при inference
+Плохо: `predictions = model(test_data)` — граф вычислений строится, память тратится
+Правильно: `with torch.no_grad(): predictions = model(test_data)`
+Почему: без no_grad PyTorch хранит промежуточные тензоры для backward — OOM на больших батчах
 
-## Scheduler — где вызывать step()
+### .item() внутри training loop
+Плохо: `total_loss += loss.item()` на каждом батче — синхронизация CPU-GPU
+Правильно: накапливай tensor, `.item()` только для логирования (раз в N батчей)
+Почему: .item() вызывает cuda synchronize, GPU простаивает пока CPU читает значение
 
-```
-Плохо:
-  scheduler = OneCycleLR(...)
-  for epoch:
-      train(...)
-      scheduler.step()  # OneCycleLR — per-batch, не per-epoch!
-  // LR schedule сломан, модель не сходится
+## Checkpoint
 
-Хорошо:
-  Per-batch schedulers (OneCycleLR, CosineAnnealingWarmRestarts):
-      scheduler.step() после каждого optimizer.step()
+### Сохранение только model.state_dict()
+Плохо: `torch.save(model.state_dict(), path)` — нельзя продолжить обучение
+Правильно: сохраняй `model + optimizer + epoch + scheduler state_dict` вместе
+Почему: без optimizer state (momentum, LR) обучение начинается фактически заново, метрики проседают
 
-  Per-epoch schedulers (ReduceLROnPlateau, StepLR, CosineAnnealingLR):
-      scheduler.step() после валидации
-```
+### torch.save(model) вместо state_dict()
+Плохо: `torch.save(model, path)` — pickle сохраняет структуру класса
+Правильно: `torch.save(model.state_dict(), path)` + загрузка через `model.load_state_dict()`
+Почему: при рефакторинге класса (переименование, перемещение) pickle ломается — модель не загружается
 
-## DataLoader ловушки
+## Scheduler
 
-```
-Плохо:
-  DataLoader(dataset, shuffle=True, sampler=my_sampler)
-  // shuffle и sampler взаимоисключающие — RuntimeError
+### OneCycleLR step() per-epoch вместо per-batch
+Плохо: `scheduler.step()` после эпохи для OneCycleLR — LR schedule сломан
+Правильно: per-batch schedulers (OneCycleLR, CosineAnnealingWarmRestarts) — `step()` после каждого `optimizer.step()`
+Почему: OneCycleLR рассчитан на total_steps = epochs * batches_per_epoch. Per-epoch step = LR меняется в N раз медленнее
 
-Плохо:
-  def __getitem__(self, idx):
-      image = cv2.imread(self.paths[idx])  # BGR!
-      transform = transforms.Normalize(...)  # Ожидает RGB
-  // Цвета перепутаны, модель учит мусор
+### ReduceLROnPlateau step() без метрики
+Плохо: `scheduler.step()` без аргумента для ReduceLROnPlateau
+Правильно: `scheduler.step(val_loss)` — передавай метрику для мониторинга
+Почему: scheduler не знает когда снижать LR без метрики, LR никогда не изменится
 
-Плохо:
-  DataLoader(dataset, num_workers=16, batch_size=2)
-  // 16 workers на batch_size=2 — overhead > benefit
-  // Правило: num_workers примерно 4 * num_gpus
-```
+## DataLoader
 
-## Mixed Precision ловушки
+### shuffle и sampler одновременно
+Плохо: `DataLoader(dataset, shuffle=True, sampler=my_sampler)` — RuntimeError
+Правильно: используй либо `shuffle=True`, либо custom `sampler`, не оба
+Почему: shuffle и sampler оба контролируют порядок данных — взаимоисключающие параметры
 
-```
-Плохо:
-  scaler = GradScaler()
-  with autocast():
-      loss = model(x)
-      loss.backward()  # backward внутри autocast!
-  // Gradient computation должен быть вне autocast
+### num_workers без persistent_workers
+Плохо: `DataLoader(dataset, num_workers=8)` без `persistent_workers=True`
+Правильно: `DataLoader(dataset, num_workers=4, persistent_workers=True, pin_memory=True)`
+Почему: без persistent_workers воркеры пересоздаются каждую эпоху. Overhead инициализации > экономия параллелизма
 
-Хорошо:
-  with autocast():
-      loss = model(x)
-  scaler.scale(loss).backward()  # backward вне autocast
-  scaler.step(optimizer)
-  scaler.update()
-```
+## Mixed Precision
 
-## DDP ловушки
+### backward() внутри autocast
+Плохо: `with autocast(): loss = model(x); loss.backward()` — backward внутри autocast контекста
+Правильно: `with autocast(): loss = model(x)` затем `scaler.scale(loss).backward()` вне autocast
+Почему: gradient computation в mixed precision может давать numerical instability. backward должен быть вне autocast
 
-```
-Плохо:
-  model = DDP(model)
-  torch.save(model.state_dict())
-  // Ключи имеют prefix "module." — не загрузится в обычную модель
+## DDP (Distributed)
 
-Хорошо:
-  torch.save(model.module.state_dict())
-  // Или при загрузке: убрать "module." prefix
+### state_dict с prefix "module."
+Плохо: `torch.save(model.state_dict(), path)` после DDP wrap — ключи с prefix `module.`
+Правильно: `torch.save(model.module.state_dict(), path)` — сохраняй unwrapped модель
+Почему: state_dict с `module.` prefix не загрузится в обычную модель без DDP. Нужен ручной strip prefix
 
-Плохо:
-  if rank == 0:
-      loss = special_loss(...)  # Только на rank 0
-  loss.backward()
-  // Deadlock — остальные ranks ждут gradient sync
+### Разная логика на разных ranks
+Плохо: `if rank == 0: loss = special_loss(...)` -> `loss.backward()` — deadlock
+Правильно: forward/backward path идентичен на всех ranks. Условная логика только для logging/saving
+Почему: DDP синхронизирует градиенты между ranks. Если forward path отличается — ranks ждут друг друга бесконечно
 
-Правило:
-  Forward/backward path должен быть ИДЕНТИЧЕН на всех ranks
-  Условная логика (logging, saving) — только вне gradient computation
-```
+### set_epoch() забыт для DistributedSampler
+Плохо: `DistributedSampler` без `sampler.set_epoch(epoch)` в цикле обучения
+Правильно: `sampler.set_epoch(epoch)` перед каждой эпохой
+Почему: без set_epoch shuffle одинаковый каждую эпоху — модель видит данные в одном порядке, хуже generalization
 
 ## Чек-лист
 
-- [ ] `model.eval()` + `torch.no_grad()` при inference
-- [ ] `optimizer.zero_grad()` перед каждым forward
-- [ ] Checkpoint: model + optimizer + epoch + scheduler
-- [ ] Scheduler.step() в правильном месте (per-batch vs per-epoch)
-- [ ] DataLoader: num_workers разумный, pin_memory=True
-- [ ] DDP: `set_epoch()`, save `model.module.state_dict()`
-- [ ] Нет `.item()` в tight loop — только для логов
+- model.eval() + torch.no_grad() при inference
+- optimizer.zero_grad() перед каждым forward
+- Checkpoint: model + optimizer + epoch + scheduler
+- Scheduler.step() в правильном месте (per-batch vs per-epoch)
+- DataLoader: num_workers разумный, pin_memory=True, persistent_workers
+- DDP: set_epoch(), save model.module.state_dict()
+- Нет .item() в tight loop — только для логов

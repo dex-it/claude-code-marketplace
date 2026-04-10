@@ -3,118 +3,82 @@ name: deep-audit
 description: Глубокий аудит компонента — контракты, concurrency, error handling, безопасность. Активируется при deep audit, глубокий аудит, критический анализ, аудит компонента, race condition, thread safety, double fault, N+1, deadlock, memory leak, injection
 ---
 
-# Deep Audit — ловушки и процедура
+# Deep Audit — ловушки компонентного аудита
 
-Критический анализ компонента/модуля. Стек-агностичный. Анализирует "как есть", не привязан к PR.
+## Разведка
 
-## Когда нужен deep-audit
+### Grep вместо чтения файлов
+Плохо: `grep -r "lock" src/` и выводы по совпадениям без контекста
+Правильно: прочитать ключевые файлы целиком (entry point, data access, workers)
+Почему: grep теряет контекст — вызов внутри комментария, мёртвый код, условная ветка. Ложные срабатывания и пропуски реальных проблем
 
-- Перед крупным рефакторингом незнакомого модуля
-- Due diligence перед интеграцией чужого кода
-- Запрос: "критический анализ", "что не так с компонентом", "аудит модуля"
-- Триггер по контексту: concurrency, error handling, data access, security
+### Аудит без карты компонента
+Плохо: сразу читать файлы по догадке — "наверное, проблема в Repository"
+Правильно: сначала найти манифесты, публичные контракты, entry point, DI-регистрацию, фоновые задачи
+Почему: без карты пропускаешь workers, scheduled jobs, event handlers — именно там скрыты race conditions и resource leaks
 
-## Ловушки аудита
+### Пропуск опасных паттернов при разведке
+Плохо: искать только бизнес-логику, игнорируя инфраструктурный код
+Правильно: явно искать raw SQL, reflection, eval, retry/polling, static mutable state, DateTime.Now
+Почему: инфраструктурные ловушки (injection, drift, concurrency) чаще приводят к critical issues чем бизнес-логика
 
-| Ловушка | Проблема | Решение |
-|---------|----------|---------|
-| Grep вместо чтения | Контекст теряется, ложные срабатывания | Прочитать ключевые файлы целиком |
-| Только happy path | Пропущены failure scenarios | Спец. фокус на catch/retry/cleanup |
-| Double fault незаметен | catch с I/O теряет исходную ошибку | Проверь AggregateException / rethrow |
-| "Thread safe" по умолчанию | Shared state без синхронизации | Явно ищи static/global + write paths |
-| Имя метода = контракт | `enqueue` может не гарантировать persist | Читай реализацию, не сигнатуру |
-| Lock granularity не проверена | Лок на batch вместо item → contention | Анализируй scope каждого lock |
-| Retry без idempotency | Дубликаты при повторе | Есть ли dedup key / unique constraint |
-| App time vs DB time | Drift между сервером и БД | Ищи DateTime.Now vs now() в SQL |
+## Контракты и инварианты
 
-## Процедура: 4 фазы
+### Имя метода принято за контракт
+Плохо: `Enqueue()` значит "сообщение гарантированно сохранено" — не проверяя реализацию
+Правильно: читать реализацию — `Enqueue` может класть в in-memory буфер без persist
+Почему: implicit expectations ломаются под нагрузкой или при сбое. Имя описывает intent, не гарантию
 
-### Phase 1 — Разведка (параллельно)
+### Нет проверки инвариантов на границах
+Плохо: проверять только happy path внутри модуля
+Правильно: проверять что происходит при null, пустой коллекции, concurrent access, таймауте
+Почему: баги живут на границах — между модулями, между потоками, между сервисами
 
-Запустить **2 параллельных агента** (Agent tool, `subagent_type: general-purpose`):
+## Concurrency
 
-**Агент 1 — карта компонента:**
-```
-Найди файлы компонента [X]:
-1. Манифесты (package.json, csproj, go.mod, Cargo.toml, pyproject.toml)
-2. Публичные контракты (интерфейсы, экспорты, типы)
-3. Ключевые реализации (entry point, основная логика)
-4. Модели данных (entities, DTO, schemas)
-5. Конфигурация, DI-регистрация, тесты
-6. Фоновые задачи (workers, cron, schedulers)
+### "Thread safe по умолчанию"
+Плохо: предполагать что класс thread-safe без анализа shared state
+Правильно: явно искать static поля, mutable singletons, запись без lock/atomic
+Почему: отсутствие synchronized/lock не значит "нет проблемы" — значит race condition тихий и проявится в production
 
-Для каждого файла: путь, ключевые классы/функции, роль.
-```
+### Lock granularity не проверена
+Плохо: lock на весь batch (`lock(list) { foreach ... process }`)
+Правильно: проверить scope каждого lock — можно ли заменить на per-item или lock-free структуру
+Почему: coarse-grained lock создаёт contention, fine-grained — риск deadlock. Оба варианта надо осознанно выбирать
 
-**Агент 2 — опасные паттерны:**
-```
-Найди в компоненте [X]:
-1. Raw SQL, строковые запросы (интерполяция, конкатенация)
-2. Блокировки (FOR UPDATE, SKIP LOCKED, lock, mutex)
-3. Метапрограммирование (reflection, eval, dynamic import)
-4. Retry/polling (while+delay, setInterval, cron)
-5. Exception handling — все catch/except/rescue
-6. Глобальное состояние (static, global, module-level mutable)
-7. Работа со временем (Date.now, DateTime.Now vs DB time)
-8. Primitives concurrency (locks, channels, atomics, semaphores)
+## Error Handling
 
-Для каждой находки: файл, строка, код.
-```
+### Double fault в cleanup
+Плохо: catch логирует в БД, а БД недоступна — исходная ошибка потеряна
+Правильно: проверять что catch/finally не содержат I/O, который может бросить второе исключение
+Почему: double fault маскирует root cause. В логах видишь ошибку cleanup, а не исходную проблему
 
-> Fallback: если Agent tool недоступен — последовательно через Glob + Grep + Read.
+### Retry без idempotency
+Плохо: retry policy на операции, которая не идемпотентна — `CreateOrder()` повторяется при timeout
+Правильно: проверить наличие dedup key, unique constraint, idempotency token
+Почему: retry + non-idempotent = дубликаты данных. Timeout не значит "не выполнилось" — может быть "выполнилось, ответ потерялся"
 
-### Phase 2 — Глубокое чтение
+## Data Access
 
-Прочитать (не grep!) **10-15 ключевых файлов** на основе карты:
-- Публичные контракты (интерфейсы, типы, экспорты)
-- Entry point компонента
-- Data access (repository, ORM, queries)
-- Фоновые задачи
-- Конфигурация и DI/wiring
+### App time vs DB time
+Плохо: `DateTime.Now` / `Date.now()` на сервере приложений для записи в БД
+Правильно: `now()` / `GETDATE()` в SQL или единый time source
+Почему: drift между серверами 100ms-несколько секунд. При 3 инстансах — записи с "будущим" временем, сломанная сортировка, потерянные events
 
-> Если файлов >15 — фокус на entry point + публичных контрактах + data access. Остальное — по находкам Агента 2.
+### Только happy path в анализе
+Плохо: проверить что запрос работает с тестовыми данными
+Правильно: анализировать failure scenarios — что при disconnect, partial commit, constraint violation
+Почему: happy path работает всегда. Production падает на edge cases: deadlock при concurrent update, orphan records при partial failure
 
-### Phase 3 — Анализ по 8 аспектам
+## Resource Management
 
-1. **Контракты и инварианты.** Что обещает публичный API? Implicit expectations? Имя метода совпадает с поведением?
-2. **Concurrency и thread safety.** Shared mutable state без синхронизации? Несколько инстансов — гонки? Lock granularity?
-3. **Error handling.** Глотают/логируют/re-throw? **Double fault** в cleanup? Параллельные операции теряют ошибки? Retry без idempotency?
-4. **Data access.** Injection? Hardcoded values? Provider lock-in? App time vs DB time? N+1? Missing indexes?
-5. **Resource management.** Ресурсы закрываются? Lifetime mismatch? Cancellation пробрасывается? Memory leaks?
-6. **Configuration и defaults.** Дефолты разумны? Breaking changes в дефолтах между версиями? Hardcoded timeouts?
-7. **Security** (если на границе системы). Input validation? IDOR? Injection (SQL, command, XSS)? Secrets в коде?
-8. **Тестовое покрытие.** Edge cases (2-4) покрыты? Failure paths? Изоляция глобального состояния между тестами?
+### Cancellation не пробрасывается
+Плохо: `async Task Process()` без CancellationToken — не останавливается при shutdown
+Правильно: проверить что CancellationToken передаётся через всю цепочку до I/O вызовов
+Почему: без cancellation graceful shutdown не работает — процесс убивается, транзакции обрываются, данные в inconsistent state
 
-### Phase 4 — Отчёт
+## Классификация находок
 
-**Классификация:**
-
-| Уровень | Критерий | Примеры |
-|---------|----------|---------|
-| **Critical** | Потеря/дублирование данных, security, race | Partial commit, SQL injection, double processing |
-| **Medium** | Неожиданное поведение, performance | Implicit SaveChanges, reflection без кэша, drift |
-| **Minor** | Code smell, hardcoded values | Enum числа в SQL, избыточные проверки |
-
-**Формат находки:**
-
-```markdown
-### [#] Название (УРОВЕНЬ)
-
-**Файл:** `path/to/file:42`
-
-**Код:** проблемный фрагмент
-
-**Проблема:** что не так и почему
-
-**Сценарий:** когда проявится
-
-**Рекомендация:** что сделать
-```
-
-**Итоговая таблица:** Critical / Medium / Minor — количество и описание.
-
-## Что НЕ входит в deep-audit
-
-- Исправление найденных проблем
-- Запуск тестов
-- Рефакторинг
+- **Critical** — потеря/дублирование данных, security breach, race condition с data corruption
+- **Medium** — неожиданное поведение, performance degradation, implicit SaveChanges
+- **Minor** — code smell, hardcoded values, отсутствие логирования

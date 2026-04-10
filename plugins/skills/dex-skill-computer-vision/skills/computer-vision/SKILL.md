@@ -1,124 +1,101 @@
 ---
 name: computer-vision
-description: Computer Vision — ловушки augmentation, detection, segmentation, training. Активируется при computer vision, cnn, resnet, yolo, u-net, detection, segmentation, augmentation, ImageNet normalization, BGR, RGB, EfficientNet, DiceLoss, NMS, bbox, albumentations, differential LR, ViT
+description: Computer Vision — ловушки augmentation, detection, segmentation. Активируется при computer vision, cnn, resnet, yolo, u-net, detection, segmentation, augmentation, BGR, RGB, EfficientNet, NMS, bbox, albumentations, ViT
 ---
 
 # Computer Vision — ловушки
 
-## Правила
+## Preprocessing
 
-- ImageNet normalization (`mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]`) для pretrained моделей — без неё features мусорные
-- Augmentation только на train, НИКОГДА на val/test
-- BGR vs RGB: OpenCV читает BGR, PyTorch/PIL ожидает RGB
-- Transfer learning: freeze backbone → train head → unfreeze → fine-tune с малым LR
+### BGR не конвертирован в RGB
+Плохо: `cv2.imread(path)` -> `transforms.Normalize(mean=[0.485, 0.456, 0.406])` — ImageNet нормализация на BGR
+Правильно: `cv2.cvtColor(img, cv2.COLOR_BGR2RGB)` сразу после cv2.imread
+Почему: OpenCV читает BGR, PyTorch/PIL ожидает RGB. Перепутанные каналы = модель учит мусор, features бессмысленны
 
-## Частые ошибки
+### Нет ImageNet normalization для pretrained
+Плохо: `transforms.ToTensor()` без нормализации для pretrained ResNet/EfficientNet
+Правильно: `transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])`
+Почему: pretrained backbone обучен на нормализованных данных. Без нормализации features слоёв = мусор
 
-| Ошибка | Последствие | Решение |
-|--------|-------------|---------|
-| Augmentation на val/test | Метрики нестабильны, не отражают реальность | Augment только train, val/test = resize + crop + normalize |
-| Нет нормализации для pretrained | Features backbone бессмысленны | ImageNet mean/std для ImageNet-pretrained моделей |
-| BGR/RGB перепутаны | Модель учит перевёрнутые цвета | `cv2.cvtColor(img, cv2.COLOR_BGR2RGB)` после `cv2.imread` |
-| `transforms.Resize(224)` | Resize по короткой стороне, не в квадрат | `transforms.Resize((224, 224))` для точного размера |
-| Одинаковый augment для train/val | Val augmentation портит метрики | Отдельные transforms: train = augment, val = только resize+normalize |
-| Fine-tune с LR=1e-3 | Pretrained features уничтожены | Backbone: 1e-5, head: 1e-3 (differential LR) |
+### Resize без точного размера
+Плохо: `transforms.Resize(224)` — resize по короткой стороне, не в квадрат
+Правильно: `transforms.Resize((224, 224))` — кортеж для точного размера
+Почему: Resize(int) сохраняет aspect ratio. Если вход не квадратный — размер не совпадёт с ожидаемым
 
-## Augmentation ловушки
+## Augmentation
 
-```
-Плохо:
-  transform = A.Compose([
-      A.HorizontalFlip(),
-      A.VerticalFlip(),     # Перевёрнутые фото людей = nonsense
-      A.RandomRotation(180)  # Перевернутые здания = не бывает в реальности
-  ])
-  // Augmentation должна соответствовать домену
+### Augmentation на val/test
+Плохо: один и тот же transform с `RandomFlip`, `ColorJitter` для train и val
+Правильно: train = augment + normalize, val/test = только resize + crop + normalize
+Почему: augmentation на val даёт нестабильные метрики — каждый прогон разный результат
 
-Хорошо (медицинские снимки):
-  A.VerticalFlip()    # OK — патология может быть в любой ориентации
-  A.Rotate(limit=180) # OK — срезы без "верха/низа"
+### Augmentation не соответствует домену
+Плохо: `VerticalFlip()` + `RandomRotation(180)` для фото людей — перевёрнутые люди не бывают
+Правильно: для фото с камеры — `HorizontalFlip`, `Rotate(limit=15)`. Для медицины — `VerticalFlip`, `Rotate(180)` допустимы
+Почему: нереалистичный augment добавляет noise, модель учит распознавать то, чего не будет в production
 
-Хорошо (фото с камеры):
-  A.HorizontalFlip()  # OK — зеркальное отражение реалистично
-  A.Rotate(limit=15)  # OK — небольшой наклон камеры
-  // НЕ VerticalFlip, НЕ Rotation(180) для реальных фото
+### Augment image без bbox transform
+Плохо: `A.Compose([transforms])` для detection без `bbox_params` — bbox координаты не обновляются
+Правильно: `A.Compose([transforms], bbox_params=A.BboxParams(format='pascal_voc'))`
+Почему: image повернулся, а bbox остался на старом месте — модель учится на неправильных координатах
 
-Плохо:
-  A.Compose([transforms], bbox_params=None)
-  # Для detection: augment изображение, но не bbox → координаты неверные
+## Transfer Learning
 
-Хорошо:
-  A.Compose([transforms], bbox_params=A.BboxParams(format='pascal_voc'))
-  # bbox трансформируется вместе с изображением
-```
+### Fine-tune с большим LR
+Плохо: fine-tune pretrained модели с `lr=1e-3` — pretrained features уничтожены за пару эпох
+Правильно: differential LR: backbone `1e-5`, head `1e-3`
+Почему: backbone содержит обученные features (edges, textures). Высокий LR стирает их — катастрофическое забывание
 
-## Detection ловушки
+### Не заморожен backbone
+Плохо: сразу fine-tune все слои pretrained модели на маленьком dataset
+Правильно: freeze backbone -> train head (5-10 эпох) -> unfreeze -> fine-tune с малым LR
+Почему: на маленьком dataset full fine-tune = overfit. Поэтапный подход сохраняет pretrained features
 
-```
-Плохо:
-  conf_threshold = 0.5
-  detections = model(image, conf=conf_threshold)
-  // Без NMS: десятки overlapping boxes на одном объекте
+## Detection
 
-Плохо:
-  NMS с iou_threshold=0.9
-  // Почти ничего не фильтрует, дубликаты остаются
-  Правило: iou_threshold 0.3-0.5 для большинства задач
+### NMS не применён или порог неверный
+Плохо: детекция без NMS — десятки overlapping boxes на одном объекте. Или NMS с `iou_threshold=0.9`
+Правильно: NMS с `iou_threshold=0.3-0.5` для большинства задач
+Почему: без NMS = дубликаты. Высокий порог почти ничего не фильтрует. Низкий (0.3-0.5) убирает дубли, оставляя уникальные
 
-Плохо:
-  # Evaluation с одним порогом confidence
-  mAP = compute_ap(predictions, conf=0.5)
-  // mAP = area under precision-recall curve, считается по ВСЕМ порогам
+### YOLO координаты не нормализованы
+Плохо: YOLO labels с абсолютными координатами `0 100 200 50 60`
+Правильно: YOLO формат: `class cx cy w h` нормализованные 0-1, например `0 0.5 0.4 0.1 0.12`
+Почему: YOLO ожидает нормализованные координаты относительно размера изображения. Абсолютные = неверные bbox
 
-Плохо:
-  # YOLO data.yaml с неправильными path
-  train: images/train  # Относительный путь
-  // YOLO ожидает абсолютные пути или относительно data.yaml
+### mAP с одним порогом confidence
+Плохо: `compute_ap(predictions, conf=0.5)` — оценка при одном пороге
+Правильно: mAP = area under precision-recall curve по ВСЕМ порогам confidence
+Почему: один порог не показывает качество модели. mAP оценивает ранжирование предсказаний целиком
 
-  # Labels: вместо YOLO format (class cx cy w h normalized)
-  0 100 200 50 60  # Абсолютные координаты!
-  // YOLO: 0 0.5 0.4 0.1 0.12 (нормализованные 0-1)
-```
+## Segmentation
 
-## Segmentation ловушки
+### CrossEntropy без DiceLoss при imbalance
+Плохо: `CrossEntropyLoss()` для binary segmentation с 90% background
+Правильно: `DiceLoss() + CrossEntropyLoss()` — combo loss
+Почему: CE на imbalanced mask = модель предсказывает "всё background", loss низкий. Dice не чувствителен к imbalance
 
-```
-Плохо:
-  loss = CrossEntropyLoss()(pred, mask)
-  // Для binary segmentation с 90% background:
-  // Модель предсказывает "всё background" → loss низкий, полезность = 0
+### Input size не кратен 2^N для U-Net
+Плохо: `input = torch.randn(1, 3, 100, 100)` для U-Net с 4 pooling — 100/16 = 6.25, crash на skip connection
+Правильно: input size кратен `2^N` где N = количество pooling слоёв. Для 4 уровней — кратно 16 (256, 512)
+Почему: encoder и decoder feature maps не совпадают по размеру при concat — RuntimeError
 
-Хорошо:
-  loss = DiceLoss()(pred, mask) + CrossEntropyLoss()(pred, mask)
-  // Dice Loss не чувствителен к class imbalance
-  // Combo = стабильная сходимость + чувствительность к overlap
-
-Плохо:
-  # U-Net: input size не кратен 2^(num_downsamples)
-  input = torch.randn(1, 3, 100, 100)  # 100 / 16 = 6.25 → crash на concat
-  // Skip connections: encoder и decoder feature maps не совпадают по размеру
-
-Правило:
-  Input size кратен 2^N, где N = кол-во pooling слоёв
-  Для 4 уровня U-Net: кратно 16 (256, 512, 1024...)
-```
-
-## Model selection таблица
+## Model Selection
 
 | Задача | Быстро/лёгкий | Точно/тяжёлый | Когда ViT |
 |--------|---------------|---------------|-----------|
-| Classification | EfficientNet-B0 | EfficientNet-B4, ConvNeXt | >10K images, GPU inference |
+| Classification | EfficientNet-B0 | ConvNeXt, EfficientNet-B4 | >10K images, GPU inference |
 | Detection | YOLOv8n/s | YOLOv8l, DINO | Не для real-time |
-| Segmentation | U-Net (encoder: ResNet34) | DeepLabV3+, SegFormer | Когда accuracy > speed |
-| Малый dataset (<1K) | Transfer + freeze | Transfer + fine-tune last layers | Не используй ViT |
+| Segmentation | U-Net (ResNet34) | DeepLabV3+, SegFormer | Когда accuracy > speed |
+| Малый dataset (<1K) | Transfer + freeze | Fine-tune last layers | Не используй ViT |
 
 ## Чек-лист
 
-- [ ] BGR→RGB конвертация после cv2.imread
-- [ ] ImageNet normalization для pretrained моделей
-- [ ] Augmentation только на train, адекватна домену
-- [ ] Detection: bbox transforms вместе с image
-- [ ] Segmentation: Dice + CE loss для imbalanced masks
-- [ ] Input size кратен 2^(pooling layers) для U-Net
-- [ ] Differential LR: backbone < head
-- [ ] Val/Test: детерминированный transform (resize + crop + normalize)
+- BGR->RGB конвертация после cv2.imread
+- ImageNet normalization для pretrained моделей
+- Augmentation только на train, адекватна домену
+- Detection: bbox transforms вместе с image
+- Segmentation: Dice + CE loss для imbalanced masks
+- Input size кратен 2^(pooling layers) для U-Net
+- Differential LR: backbone < head
+- Val/Test: детерминированный transform (resize + normalize)

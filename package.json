@@ -9,11 +9,10 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "validate": "node tools/validate-agent.js all && node tools/validate-skill.js all",
-    "validate:all": "node tools/validate-agent.js all && node tools/validate-skill.js all",
-    "validate:errors": "node tools/validate-agent.js all --errors-only && node tools/validate-skill.js all --errors-only",
+    "validate": "node tools/validate-agent.js all && node tools/validate-skill.js all && node tools/validate-command.js all",
     "validate:agents": "node tools/validate-agent.js",
-    "validate:skills": "node tools/validate-skill.js"
+    "validate:skills": "node tools/validate-skill.js",
+    "validate:commands": "node tools/validate-command.js"
   },
   "devDependencies": {
     "gray-matter": "^4.0.3",

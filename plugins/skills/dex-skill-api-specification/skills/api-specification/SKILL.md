@@ -1,105 +1,86 @@
 ---
 name: api-specification
-description: API design — ловушки контрактов, naming, версионирования. Активируется при api design, openapi, REST API contract, api versioning, endpoint design, ProblemDetails, RFC 7807, pagination, cursor, kebab-case, breaking change, idempotency, Location header, 201 Created
+description: API design — ловушки контрактов, naming, версионирования. Активируется при api design, openapi, REST API contract, api versioning, ProblemDetails, RFC 7807, pagination, cursor, kebab-case, breaking change, idempotency, Location header
 ---
 
 # API Specification — ловушки дизайна
 
-## Правила
+## URL Design
 
-- Nouns для ресурсов, не verbs (GET /users, не GET /getUsers)
-- Plural nouns (/users, не /user)
-- Max 2-3 уровня вложенности в URL
-- Versioning с первого дня (URL: /api/v1/)
-- ProblemDetails (RFC 7807) для ошибок
-- Pagination обязательна для списков
+### Verbs в URL
+Плохо: `GET /getUsers`, `POST /createOrder`, `DELETE /removeProduct/123`
+Правильно: `GET /users`, `POST /orders`, `DELETE /products/123` — ресурсы, не действия
+Почему: REST = resources. Verbs в URL дублируют HTTP method и ломают единообразие
 
-## Частые ошибки дизайна
+### Singular вместо plural
+Плохо: `GET /user/123`, `POST /order`
+Правильно: `GET /users/123`, `POST /orders` — plural nouns для коллекций
+Почему: inconsistent naming между коллекцией и элементом путает клиентов
 
-```yaml
-# Плохо — verbs в URL
-GET /getUsers
-POST /createOrder
-DELETE /removeProduct/123
-# REST = ресурсы, а не действия
+### Глубокая вложенность URL
+Плохо: `GET /users/{id}/orders/{id}/items/{id}/reviews/{id}` — 4 уровня
+Правильно: max 2-3 уровня: `/users/{id}/orders` + `/reviews/{id}` отдельно
+Почему: невозможно кэшировать, сложно поддерживать, URL становится хрупким
 
-# Хорошо — nouns
-GET /users
-POST /orders
-DELETE /products/123
+### Inconsistent naming style
+Плохо: `/user-list` (kebab+list), `/CreateNewUser` (PascalCase), `/product_items` (snake)
+Правильно: `kebab-case`, plural nouns: `/users`, `/order-items`
+Почему: клиент гадает как назван следующий endpoint, нет предсказуемости
 
-# Плохо — глубокая вложенность
-GET /users/{userId}/orders/{orderId}/items/{itemId}/reviews/{reviewId}
-# Невозможно кэшировать, сложно поддерживать
+## Response Contract
 
-# Хорошо — max 2-3 уровня
-GET /users/{userId}/orders
-GET /orders/{orderId}/items
-GET /reviews/{reviewId}
+### POST без Location header
+Плохо: `POST /orders` -> `200 OK { "id": 123 }` — клиент не знает URL ресурса
+Правильно: `201 Created` + `Location: /api/v1/orders/123`
+Почему: без Location клиент вынужден конструировать URL вручную, что хрупко
 
-# Плохо — inconsistent naming
-GET /user-list        # kebab + list
-POST /CreateNewUser   # PascalCase + verb
-GET /product_items    # snake_case
-# Клиент гадает как назван следующий endpoint
+### Разный формат ошибок
+Плохо: 400 -> `{"error":"bad"}`, 404 -> `{"message":"not found"}`, 500 -> plain text
+Правильно: единый ProblemDetails (RFC 7807) для всех ошибок
+Почему: клиент не может парсить ответ, если каждый status code возвращает свой формат
 
-# Хорошо — consistent plural nouns, kebab-case
-GET /users
-POST /users
-GET /order-items
+### Boolean params для фильтрации
+Плохо: `GET /users?active=true&premium=true&verified=true` — взрыв комбинаций
+Правильно: `GET /users?filter[status]=active&filter[tier]=premium`
+Почему: каждый новый фильтр = новый param, невозможно масштабировать
 
-# Плохо — POST возвращает 200 без Location
-POST /orders → 200 OK { "id": 123 }
-# Клиент не знает URL созданного ресурса
+## Версионирование
 
-# Хорошо — 201 + Location header
-POST /orders → 201 Created
-Location: /api/v1/orders/123
+### Breaking change без новой версии
+Плохо: переименовать/удалить поле или изменить тип (`string` -> `int`) в текущей версии
+Правильно: новая версия API (`/api/v2/`) при любом breaking change
+Почему: существующие клиенты ломаются. Добавление полей/endpoints — не breaking, удаление/переименование — breaking
 
-# Плохо — разный формат ошибок
-400 → { "error": "bad request" }
-404 → { "message": "not found" }
-500 → "Internal Server Error"
-# Клиент не может парсить — 3 разных формата
+### Нет версии с первого дня
+Плохо: `GET /api/users` — без версии в URL
+Правильно: `GET /api/v1/users` — версия с первого релиза
+Почему: добавить версию позже = breaking change для всех существующих клиентов
 
-# Хорошо — единый ProblemDetails
-400 → { "type": "...", "title": "Validation Error", "status": 400,
-         "errors": { "email": ["Invalid format"] } }
+## Pagination
 
-# Плохо — boolean params для фильтрации
-GET /users?active=true&premium=true&verified=true
-# Каждый новый фильтр = новый param, взрыв комбинаций
+### Offset для больших данных
+Плохо: `GET /orders?page=1000&pageSize=20` — OFFSET 20000 в SQL
+Правильно: cursor-based pagination для feeds/real-time/10K+ записей
+Почему: OFFSET N сканирует N строк и выбрасывает. На глубоких страницах — деградация O(N)
 
-# Хорошо — structured filtering
-GET /users?filter[status]=active&filter[tier]=premium
-```
+### Список без пагинации
+Плохо: `GET /orders` без limit — возвращает все 100K записей
+Правильно: пагинация обязательна для всех list endpoints, default pageSize=20
+Почему: OOM на сервере, timeout на клиенте, DoS вектор
 
-## Версионирование — когда ломающее изменение
+## Idempotency
 
-| Ломающее (нужна новая версия) | НЕ ломающее |
-|-------------------------------|-------------|
-| Удаление поля из response | Добавление нового поля |
-| Переименование поля | Добавление нового endpoint |
-| Изменение типа поля (string→int) | Добавление optional param |
-| Удаление endpoint | Deprecation header |
-| Изменение status code семантики | Новый error code |
-
-## Pagination — cursor vs offset
-
-| Критерий | Offset (page/pageSize) | Cursor |
-|----------|----------------------|--------|
-| Простота | Проще для клиента | Сложнее |
-| Consistency | Пропуск/дублирование при insert/delete | Стабильный |
-| Deep pages | Медленно (OFFSET 10000) | Быстро |
-| Когда | CRUD админки, <10K записей | Feeds, real-time, >10K |
+### PUT/DELETE не идемпотентны
+Плохо: `DELETE /orders/123` возвращает 204 первый раз, 500 второй
+Правильно: повторный `DELETE` -> 404 или 204 (оба варианта допустимы, но стабильно)
+Почему: сетевые retry при timeout вызывают повторный запрос, неидемпотентный DELETE = ошибка при retry
 
 ## Чек-лист
 
-- [ ] URL: nouns, plural, kebab-case, max 2-3 уровня
-- [ ] POST → 201 + Location header
-- [ ] Единый формат ошибок (ProblemDetails)
-- [ ] Pagination для всех list endpoints
-- [ ] Versioning в URL (/api/v1/)
-- [ ] Breaking changes → новая версия API
-- [ ] Examples в OpenAPI spec для request/response
-- [ ] idempotency: PUT и DELETE идемпотентны
+- URL: nouns, plural, kebab-case, max 2-3 уровня
+- POST -> 201 + Location header
+- Единый формат ошибок (ProblemDetails)
+- Pagination для всех list endpoints
+- Versioning в URL с первого дня (/api/v1/)
+- Breaking changes -> новая версия API
+- PUT и DELETE идемпотентны

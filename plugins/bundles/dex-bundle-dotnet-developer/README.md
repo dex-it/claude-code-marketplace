@@ -37,11 +37,11 @@ Bundle for .NET developers: coding, debugging, testing, code review, EF Core, pe
 
 ### Skills (6)
 - `dex-skill-dotnet-patterns` - SOLID, DI, async/await patterns
-- `dex-skill-ef-core` - EF Core best practices
-- `dex-skill-async-patterns` - Async/await patterns
-- `dex-skill-linq-optimization` - LINQ optimization
-- `dex-skill-api-development` - REST API development
-- `dex-skill-testing-patterns` - Testing patterns
+- `dex-skill-dotnet-ef-core` - EF Core best practices
+- `dex-skill-dotnet-async-patterns` - Async/await patterns
+- `dex-skill-dotnet-linq-optimization` - LINQ optimization
+- `dex-skill-dotnet-api-development` - REST API development
+- `dex-skill-dotnet-testing-patterns` - Testing patterns
 
 ## Note
 

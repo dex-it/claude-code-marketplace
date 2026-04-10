@@ -3,110 +3,78 @@ name: elasticsearch
 description: Elasticsearch — mapping, queries, aggregations, ловушки. Активируется при elasticsearch, full-text search, kibana, opensearch, @elastic/elasticsearch, query DSL, inverted index, _search, _bulk, scroll API, ELK stack, Lucene, logstash, elastic agent
 ---
 
-# Elasticsearch Patterns
+# Elasticsearch — ловушки и anti-patterns
 
-## Правила
+## Mapping
 
-- Keyword для точного совпадения, Text для полнотекстового поиска
-- Mapping задавай явно — не полагайся на dynamic mapping в production
-- Alias для zero-downtime reindex
-- Scroll / Search After для больших выборок, не From/Size > 10000
-- Bulk API для массовой индексации
-- Не используй `_all` field — укажи конкретные поля для поиска
+### Dynamic mapping в production
+Плохо: индексируешь документы без explicit mapping — ES угадывает типы
+Правильно: `CreateIndexAsync` с явным `.Map<T>()` и `.Properties()` для каждого поля
+Почему: `"price": "99.99"` маппится как text, Range query не работает. Исправление требует reindex всей коллекции
 
-## Анти-паттерны
+### Text vs Keyword перепутаны
+Плохо: `Term` query по Text полю — `Term("Name", "Gaming Laptop")` не найдет ничего
+Правильно: `Match` для Text полей, `Term` для Keyword полей
+Почему: Text анализируется при индексации ("gaming", "laptop"), Term ищет exact match "Gaming Laptop" — не совпадает
 
-```csharp
-// Плохо — dynamic mapping, Elasticsearch угадывает типы
-// "price": "99.99" → mapped as text, не как number!
-// Потом Range query не работает
+### Text без .keyword sub-field
+Плохо: Text поле без `.keyword` — нельзя использовать для sort и aggregation
+Правильно: `.Text(t => t.Name(n => n.Name).Fields(f => f.Keyword(k => k.Name("keyword"))))`
+Почему: Text поля не поддерживают sort/aggregation. Без sub-field потребуется reindex для добавления
 
-// Хорошо — explicit mapping
-await client.Indices.CreateAsync("products", c => c
-    .Map<Product>(m => m
-        .Properties(p => p
-            .Text(t => t.Name(n => n.Name).Analyzer("russian")
-                .Fields(f => f.Keyword(k => k.Name("keyword")))) // для точного match и sort
-            .Keyword(k => k.Name(n => n.Category))                // только точное совпадение
-            .Number(n => n.Name(p => p.Price).Type(NumberType.Double))
-            .Date(d => d.Name(p => p.CreatedAt)))));
+## Запросы
 
-// Плохо — deep pagination убивает performance
-var response = await client.SearchAsync<Product>(s => s
-    .From(10000)  // ES держит в памяти 10000 + size документов!
-    .Size(20));
+### Deep pagination через From/Size
+Плохо: `.From(10000).Size(20)` — ES держит в памяти 10020 документов для сортировки
+Правильно: `SearchAfter` с sort values от последнего документа предыдущей страницы
+Почему: From > 10000 — дефолтный лимит `max_result_window`. Даже при увеличении — O(from+size) по памяти и CPU
 
-// Хорошо — Search After для глубокой пагинации
-var response = await client.SearchAsync<Product>(s => s
-    .Size(100)
-    .Sort(so => so.Ascending(p => p.Id))
-    .SearchAfter(lastDocumentSortValues));
+### Aggregation по Text полю
+Плохо: `.Terms("categories", t => t.Field(f => f.Name))` — по Text полю
+Правильно: aggregation по Keyword полю или `.keyword` sub-field: `t.Field("name.keyword")`
+Почему: Text анализируется — "Gaming Laptop" считается как ["gaming", "laptop"], aggregation даст мусор
 
-// Плохо — Term query для Text поля
-.Query(q => q.Term(t => t.Field(f => f.Name).Value("Gaming Laptop")))
-// Name = Text → анализируется → "gaming laptop" в индексе
-// Term ищет exact "Gaming Laptop" → не найдёт!
+### _all field для поиска
+Плохо: поиск без указания конкретных полей — запрос по всем полям документа
+Правильно: `MultiMatch` с явным списком полей и boost: `.Fields(f => f.Field(p => p.Name, 2).Field(p => p.Description))`
+Почему: поиск по всем полям замедляет запрос и дает нерелевантные результаты
 
-// Хорошо — Match для Text, Term для Keyword
-.Query(q => q.Match(m => m.Field(f => f.Name).Query("Gaming Laptop")))     // Text
-.Query(q => q.Term(t => t.Field(f => f.Category).Value("electronics")))    // Keyword
+## Индексация
 
-// Плохо — индексация по одному документу
-foreach (var product in products)
-    await client.IndexDocumentAsync(product); // N HTTP запросов
+### Индексация по одному документу
+Плохо: `foreach (var p in products) await client.IndexDocumentAsync(p)` — N HTTP запросов
+Правильно: `BulkAsync(b => b.Index("products").IndexMany(products))` + проверка `bulkResponse.Errors`
+Почему: 10000 документов = 10000 roundtrip вместо 1. Bulk API на порядки быстрее
 
-// Хорошо — Bulk API
-var bulkResponse = await client.BulkAsync(b => b.Index("products").IndexMany(products));
-if (bulkResponse.Errors)
-    foreach (var item in bulkResponse.ItemsWithErrors)
-        _logger.LogError("Failed to index {Id}: {Error}", item.Id, item.Error.Reason);
-```
+### Bulk без обработки partial failures
+Плохо: `BulkAsync(...)` без проверки ответа — часть документов может не проиндексироваться
+Правильно: проверять `bulkResponse.Errors` и итерировать `ItemsWithErrors`
+Почему: Bulk API не атомарен — одни документы проиндексируются, другие нет. Без проверки потеря данных
 
-## Text vs Keyword
+## Reindex и алиасы
 
-| Тип | Анализ | Запрос | Когда |
-|-----|--------|--------|-------|
-| Text | Токенизация + стемминг | Match, MultiMatch | Полнотекстовый поиск |
-| Keyword | Как есть | Term, Terms | Фильтрация, sort, aggregation |
-| Text + `.keyword` | Оба | Оба | Поиск + фильтрация/sort |
+### Reindex без alias — downtime
+Плохо: клиенты обращаются к индексу по имени `products-v1`, при reindex нужно менять код
+Правильно: alias `products` → atomic switch: `BulkAliasAsync` (Remove old + Add new)
+Почему: alias switch атомарен — zero downtime. Без alias каждый reindex требует координации деплоев
 
-## Reindex без downtime
+### Reindex больших индексов одним запросом
+Плохо: `ReindexOnServerAsync` для индекса с миллионами документов без `slices`
+Правильно: `Slices(5)` для параллельного reindex или `ScrollAsync` + `BulkAsync` батчами
+Почему: один поток reindex на 100M документов займет часы. Sliced reindex параллелит работу
 
-```csharp
-// 1. Alias → старый индекс
-await client.Indices.PutAliasAsync("products-v1", "products");
+## Analyzers
 
-// 2. Создать новый индекс + reindex
-await client.Indices.CreateAsync("products-v2", /* new mapping */);
-await client.ReindexOnServerAsync(r => r
-    .Source(s => s.Index("products-v1"))
-    .Destination(d => d.Index("products-v2")));
-
-// 3. Atomic switch alias
-await client.Indices.BulkAliasAsync(b => b
-    .Remove(r => r.Index("products-v1").Alias("products"))
-    .Add(a => a.Index("products-v2").Alias("products")));
-// Клиенты работают через alias — downtime = 0
-```
-
-## Aggregations — ловушки
-
-```csharp
-// Плохо — aggregation по Text полю
-.Aggregations(a => a.Terms("categories", t => t.Field(f => f.Name)))
-// Text → анализируется → "Gaming Laptop" считается как ["gaming", "laptop"]
-
-// Хорошо — aggregation по Keyword
-.Aggregations(a => a.Terms("categories", t => t.Field(f => f.Category))) // Keyword
-// или через .keyword sub-field:
-.Aggregations(a => a.Terms("names", t => t.Field("name.keyword")))
-```
+### Язык без анализатора
+Плохо: русский текст в поле с дефолтным `standard` analyzer
+Правильно: `.Analyzer("russian")` для русского текста, `"english"` для английского
+Почему: standard analyzer не делает стемминг для русского — "заказы" и "заказ" считаются разными словами
 
 ## Чек-лист
 
-- [ ] Explicit mapping, не dynamic
-- [ ] Text для поиска, Keyword для фильтрации/sort/agg
-- [ ] Alias для zero-downtime reindex
-- [ ] Bulk API для массовой индексации
-- [ ] Search After для deep pagination (не From > 10000)
-- [ ] Analyzers для языка (russian, english)
+- Explicit mapping, не dynamic
+- Text для поиска, Keyword для фильтрации/sort/agg
+- Alias для zero-downtime reindex
+- Bulk API для массовой индексации + проверка Errors
+- Search After для deep pagination (не From > 10000)
+- Analyzers для языка (russian, english)

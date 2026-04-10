@@ -17,7 +17,7 @@ on:
 
 jobs:
   validate:
-    name: Validate agents, skills, and commands against frameworks
+    name: Validate agents and skills against frameworks
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -26,29 +26,17 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Validate agents (errors only — warnings do not block)
-        run: node tools/validate-agent.js all --errors-only
+      - name: Validate agents
+        run: node tools/validate-agent.js all
 
-      - name: Validate skills (errors only — warnings do not block)
-        run: node tools/validate-skill.js all --errors-only
+      - name: Validate skills
+        run: node tools/validate-skill.js all
 
-      - name: Validate commands (errors only — warnings do not block)
-        run: node tools/validate-command.js all --errors-only
-
-      - name: Full report (agents + skills + commands, informational)
-        if: always()
-        run: |
-          echo "=== Agents ==="
-          node tools/validate-agent.js all || true
-          echo ""
-          echo "=== Skills ==="
-          node tools/validate-skill.js all || true
-          echo ""
-          echo "=== Commands ==="
-          node tools/validate-command.js all || true
+      - name: Validate commands
+        run: node tools/validate-command.js all

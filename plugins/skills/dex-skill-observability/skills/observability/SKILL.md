@@ -1,126 +1,79 @@
 ---
 name: observability
-description: OpenTelemetry, distributed tracing, metrics, health checks — ловушки. Активируется при opentelemetry, tracing, observability, prometheus, metrics, health check, telemetry, grafana, jaeger, zipkin, span, trace context, baggage, OTLP, prom-client, datadog
+description: OpenTelemetry, distributed tracing, metrics, health checks — ловушки. Активируется при opentelemetry, tracing, observability, prometheus, metrics, health check, grafana, jaeger, zipkin, span, trace context, OTLP, prom-client, datadog
 ---
 
-# Observability Patterns — ловушки
+# Observability — ловушки и anti-patterns
 
-## Правила
+## Tracing
 
-- ActivitySource — static readonly (один на класс/модуль, не new каждый раз)
-- Meter — static readonly (аналогично)
-- Фильтруй health check endpoints из tracing (шум в traces)
-- Liveness ≠ Readiness (liveness — процесс жив, readiness — зависимости готовы)
-- Label cardinality — не используй userId/orderId как label (взрыв метрик)
-- snake_case для метрик + единицы измерения в суффиксе (_seconds, _bytes)
+### Span на каждый метод
+Плохо: `StartActivity("Validate")`, `StartActivity("Map")`, `StartActivity("Save")` — три микро-spans на одну операцию
+Правильно: один span на бизнес-операцию: `StartActivity("CreateOrder")` с тегами `order.customer_id`, `order.items_count`
+Почему: микро-spans = шум в Jaeger/Zipkin, overhead на создание/export, затрудняют поиск реальных bottleneck
 
-## Анти-паттерны
+### Span без контекста ошибки
+Плохо: span завершается без `SetStatus(Error)` и `RecordException` при exception
+Правильно: `catch` блок: `activity?.SetStatus(ActivityStatusCode.Error, ex.Message)` + `activity?.RecordException(ex)`
+Почему: без статуса ошибки span выглядит "зеленым" в trace UI. Проблема невидима в дашборде ошибок
 
-```csharp
-// Плохо — span на каждый метод (шум + overhead)
-public async Task<Order> CreateOrderAsync(CreateOrderRequest request, CancellationToken ct)
-{
-    using var span1 = _source.StartActivity("Validate");
-    Validate(request);
-    span1?.Stop();
+### ActivitySource создается в методе
+Плохо: `new ActivitySource("MyService")` внутри метода — новый instance каждый вызов
+Правильно: `private static readonly ActivitySource Source = new("MyService")` — static readonly
+Почему: каждый `new ActivitySource` регистрируется в глобальном listener, не удаляется. Memory leak + дубли spans
 
-    using var span2 = _source.StartActivity("MapToEntity");
-    var order = Map(request);
-    span2?.Stop();
+### Health endpoints в traces
+Плохо: `AddAspNetCoreInstrumentation()` без фильтра — `/health/live` каждые 10 сек = тысячи spans
+Правильно: `options.Filter = ctx => !ctx.Request.Path.StartsWithSegments("/health")`
+Почему: health check spans — шум, раздувают storage, маскируют реальные запросы в trace UI
 
-    using var span3 = _source.StartActivity("SaveToDb");
-    await _repo.SaveAsync(order, ct);
-    span3?.Stop();
-    // 3 микро-spans вместо одного осмысленного
-}
+## Health Checks
 
-// Хорошо — span на бизнес-операцию с контекстом
-public async Task<Order> CreateOrderAsync(CreateOrderRequest request, CancellationToken ct)
-{
-    using var activity = ActivitySource.StartActivity("CreateOrder");
-    activity?.SetTag("order.customer_id", request.CustomerId);
-    activity?.SetTag("order.items_count", request.Items.Count);
+### Liveness проверяет внешние зависимости
+Плохо: `/health/live` проверяет БД/Redis — при падении зависимости Kubernetes рестартит ВСЕ поды
+Правильно: liveness: `Predicate = _ => false` (просто 200 OK). Readiness: `check.Tags.Contains("ready")`
+Почему: БД упала -> liveness fail -> restart всех подов -> cascade failure. Рестарт не починит упавшую БД
 
-    try
-    {
-        var order = await ProcessOrder(request, ct);
-        activity?.SetTag("order.id", order.Id);
-        activity?.SetStatus(ActivityStatusCode.Ok);
-        return order;
-    }
-    catch (Exception ex)
-    {
-        activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-        activity?.RecordException(ex);
-        throw;
-    }
-}
+### Один endpoint для liveness и readiness
+Плохо: `/health` один endpoint для обоих проверок
+Правильно: `/health/live` (процесс жив) + `/health/ready` (зависимости готовы)
+Почему: Kubernetes использует их по-разному: liveness fail = restart, readiness fail = убрать из Service. Смешивание = неправильное поведение
 
-// Плохо — high cardinality labels (миллионы комбинаций)
-OrdersCreated.Add(1,
-    new("customer_id", customerId),   // уникальный на каждого клиента!
-    new("order_id", orderId));         // уникальный на каждый заказ!
-// Prometheus/Grafana: OOM от миллионов time series
+## Metrics
 
-// Хорошо — bounded labels
-OrdersCreated.Add(1,
-    new("status", "completed"),     // ~5 значений
-    new("region", "eu-west"));      // ~10 значений
+### High cardinality labels
+Плохо: `OrdersCreated.Add(1, new("customer_id", customerId), new("order_id", orderId))` — уникальные значения
+Правильно: bounded labels: `new("status", "completed")` (~5 значений), `new("region", "eu-west")` (~10 значений)
+Почему: каждая уникальная комбинация labels = отдельная time series. Миллионы пользователей = OOM в Prometheus/Grafana
 
-// Плохо — health check endpoints в traces (шум)
-builder.Services.AddOpenTelemetry()
-    .WithTracing(tracing => tracing
-        .AddAspNetCoreInstrumentation()); // /health/live вызывается каждые 10 сек → тысячи бесполезных spans
+### Meter создается в методе
+Плохо: `new Meter("MyService")` внутри метода — новый instance каждый вызов
+Правильно: `private static readonly Meter AppMeter = new("MyService")` — static readonly
+Почему: аналогично ActivitySource — утечка памяти, дублирование метрик
 
-// Хорошо — фильтр health endpoints
-.AddAspNetCoreInstrumentation(options =>
-{
-    options.Filter = ctx => !ctx.Request.Path.StartsWithSegments("/health");
-    options.RecordException = true;
-})
+### Неправильный тип метрики
+Плохо: Gauge для cumulative count (`orders_total`) или Counter для значения которое падает (`active_connections`)
+Правильно: Counter для монотонно растущих, Gauge для текущих значений, Histogram для распределений
+Почему: Counter который уменьшается = невалидные данные в Prometheus. rate() на Gauge не имеет смысла
 
-// Плохо — liveness проверяет внешние зависимости
-app.MapHealthChecks("/health/live", new HealthCheckOptions
-{
-    Predicate = check => check.Tags.Contains("ready") // БД упала → liveness fail → Kubernetes рестартит ВСЕ поды!
-});
-// БД и так недоступна, рестарт подов ничего не даст, только cascade failure
+### Метрики без суффикса единиц
+Плохо: `request_duration`, `response_size` — непонятно секунды или миллисекунды, байты или килобайты
+Правильно: `request_duration_seconds`, `response_size_bytes` + snake_case
+Почему: OpenMetrics convention. Без суффикса Grafana дашборды показывают числа без контекста, ошибки в расчетах
 
-// Хорошо — liveness = процесс жив, readiness = зависимости готовы
-app.MapHealthChecks("/health/live", new HealthCheckOptions
-{
-    Predicate = _ => false  // никаких проверок, просто 200 OK
-});
-app.MapHealthChecks("/health/ready", new HealthCheckOptions
-{
-    Predicate = check => check.Tags.Contains("ready") // БД, Redis, RabbitMQ
-});
+## Связь логов и traces
 
-// Плохо — логи без TraceId (невозможно связать с trace)
-_logger.LogInformation("Order {OrderId} created", order.Id);
-// В Seq/Kibana: тысячи логов, как найти связанные?
-
-// Хорошо — Serilog enrichment с TraceId
-// appsettings.json: "Enrich": ["FromLogContext", "WithSpan"]
-// Output: [14:30:00 INF] [abc123...] Order 123 created
-// Теперь клик по TraceId → весь distributed trace
-```
-
-## Counter vs Histogram vs Gauge
-
-| Тип | Когда | Пример | НЕ используй для |
-|-----|-------|--------|------------------|
-| Counter | Монотонно растущее число | orders_total, errors_total | Значений, которые уменьшаются |
-| Histogram | Распределение значений | request_duration_seconds | Counts (используй Counter) |
-| Gauge | Текущее значение (может расти/падать) | active_connections, queue_size | Cumulative counts |
+### Логи без TraceId
+Плохо: `_logger.LogInformation("Order {OrderId} created", order.Id)` — нет связи с trace
+Правильно: Serilog enrichment `WithSpan()` — автоматически добавляет TraceId/SpanId ко всем логам
+Почему: без TraceId невозможно найти все логи одного запроса в Seq/Kibana. Клик по TraceId -> весь distributed trace
 
 ## Чек-лист
 
-- [ ] ActivitySource и Meter — static readonly
-- [ ] Spans на бизнес-операции, не на каждый метод
-- [ ] Health endpoints отфильтрованы из traces
-- [ ] Liveness = процесс жив (Predicate = _ => false)
-- [ ] Readiness = зависимости готовы (tags: "ready")
-- [ ] Labels — bounded cardinality (не userId/orderId)
-- [ ] Метрики: snake_case + суффикс единицы (_seconds)
-- [ ] Логи enriched с TraceId (WithSpan)
+- ActivitySource и Meter — static readonly
+- Spans на бизнес-операции, не на каждый метод
+- Health endpoints отфильтрованы из traces
+- Liveness = процесс жив, Readiness = зависимости готовы
+- Labels — bounded cardinality (не userId/orderId)
+- Метрики: snake_case + суффикс единицы (_seconds, _bytes)
+- Логи enriched с TraceId (WithSpan)

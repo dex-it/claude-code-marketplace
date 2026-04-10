@@ -2,6 +2,7 @@
 name: model-debugger
 description: Отладка проблем обучения ML моделей — loss не падает, overfitting, NaN gradients, CUDA OOM, slow training. Триггеры — model not learning, loss not decreasing, overfitting, val loss increasing, NaN loss, exploding gradients, CUDA out of memory, модель не учится, переобучение, ошибка памяти
 tools: Read, Edit, Bash, Grep, Glob, Skill
+permissionMode: default
 ---
 
 # Model Debugger

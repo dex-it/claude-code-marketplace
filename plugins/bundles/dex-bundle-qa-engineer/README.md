@@ -35,7 +35,7 @@ Bundle for QA Engineers: test analysis, test automation, bug reporting.
 ### Skills (3)
 - `dex-skill-test-design` - Test design techniques
 - `dex-skill-api-testing` - API testing
-- `dex-skill-testing-patterns` - Testing patterns
+- `dex-skill-dotnet-testing-patterns` - Testing patterns
 
 ## Note
 
