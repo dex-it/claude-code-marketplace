@@ -73,6 +73,16 @@ description: .NET structured logging — Serilog, ILogger, Seq. Активиру
 Правильно: `_logger.LogInformation("Processing {Count} items for {OrderId}", items.Count, orderId)`
 Почему: 10000 items = 10000 записей в Seq. Шум, за которым не видно реальных событий
 
+### Information для трассировки флоу
+Плохо: `LogInformation("Запрашиваем данные из X")` + `LogInformation("Получили N записей")` + `LogInformation("Отправляем в Y")` на каждом шаге handler'а
+Правильно: Debug для шагов флоу, Information — только для завершённого бизнес-события («Order created», «Analysis completed»)
+Почему: Information включён в production и идёт в алерт-системы. Шаги флоу = log flooding, ключевые бизнес-события тонут в шуме. Вопрос для self-check каждого LogInformation: «это важно оператору в 3 часа ночи в инциденте, или только разработчику при отладке?» — если второе, это Debug
+
+### Логи начала/конца операции в helper'е как Information
+Плохо: `LogInformation("Starting helper Y")` + `LogInformation("Helper Y finished")` внутри приватного метода сервиса
+Правильно: Information только на границе слоя (handler / controller) для завершённой бизнес-операции, внутренние helper'ы — Debug
+Почему: log-уровень задаёт границу видимости в production. Внутренние шаги — деталь реализации, они не нужны оператору. Information на каждом helper = дублирование + невозможно найти реальное событие в потоке
+
 ## Sensitive Data
 
 ### PII в логах без маскирования
