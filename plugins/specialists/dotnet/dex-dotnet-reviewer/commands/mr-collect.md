@@ -1,13 +1,13 @@
 ---
-description: Сбор данных MR/PR (review comments + commits + correlation) в файл для последующего ручного анализа. Платформы -- GitLab через glab api, GitHub через gh api.
+description: Сбор данных MR/PR (review comments + commits + correlation) в файл для последующего анализа. Платформы -- GitLab через glab api, GitHub через gh api.
 user-invocable: true
 allowed-tools: Bash, Write
-argument-hint: "<MR-url или short-id>"
+argument-hint: "<MR-url или short-id> [--task <TASK-KEY>]"
 ---
 
 # /mr-collect
 
-Собирает сырые данные живого MR / PR в один markdown-файл для последующего анализа (обобщение в ловушки skills делается отдельно, командой эта часть не покрывается).
+Собирает сырые данные живого MR / PR в один markdown-файл для последующего анализа (обобщение в ловушки skills делается отдельно командой `/mr-analyze`).
 
 **Goal:** Один файл с metadata + review comments от не-авторов + commits автора после первого ревью + сырое сопоставление «комментарий → коммиты, тронувшие тот же файл после даты комментария». Stdout -- только абсолютный путь.
 
@@ -16,6 +16,7 @@ argument-hint: "<MR-url или short-id>"
 - GitLab URL: `https://gitlab.<host>/<group>/<project>/-/merge_requests/<id>`
 - GitHub URL: `https://github.com/<owner>/<repo>/pull/<number>`
 - Short: `<owner>/<repo>#<number>` (GitHub) или `<group>/<project>!<id>` (GitLab)
+- Опциональный флаг `--task <TASK-KEY>` -- номер задачи для имени файла (например `DP-2255`)
 
 **Platform detection:** по URL (`gitlab` / `github`) или по символу (`#` → GitHub, `!` → GitLab). Неизвестный формат -- явная ошибка с примерами.
 
@@ -29,13 +30,13 @@ argument-hint: "<MR-url или short-id>"
 - Review comments -- только от `author != MR author`, исключить bot-аккаунты (`*[bot]`, `gitlab-bot`, `dependabot`, `github-actions`)
 - Commits -- только после даты первого review comment (иначе попадает вся история MR до ревью)
 
-**Output file:** `/tmp/mr-collect-<platform>-<project-slug>-<mr-number>-<YYYYMMDD-HHMM>.md`. Слэши и спецсимволы в project slug заменить на `-`.
+**Output file:** `/tmp/mr-collect-<task-key>-<platform>-<mr-number>-<YYYYMMDD-HHMM>.md`. Task key берётся из флага `--task`, иначе ищется в title / description MR по regex `[A-Z]{2,}-\d+`, иначе используется `no-task`. Слэши и спецсимволы в идентификаторах заменить на `-`.
 
 **Output structure (внутри файла):**
 
 ```
 # MR Collect: <project> !<mr>
-## Metadata            — таблица project / mr / title / author / source→target / status / created / merged
+## Metadata            — таблица task / project / mr / title / author / source→target / status / created / merged
 ## Review Comments (N) — каждый: author, file:line, status, date, текст, replies
 ## Commits after first review (M) — каждый: sha, date, message, files, diff stat (+added -removed)
 ## Correlation hints   — для каждого comment: список коммитов, тронувших тот же файл после даты коммента
