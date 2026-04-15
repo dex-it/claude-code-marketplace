@@ -1,6 +1,6 @@
 ---
 name: dotnet-api-development
-description: ASP.NET Core Web API — ловушки контроллеров, DTO, пагинации. Активируется при web api, controller, endpoint, REST API, versioning, swagger, openapi, ActionResult, ProblemDetails, CreatedAtAction, ProducesResponseType, exception handler, middleware
+description: ASP.NET Core Web API — ловушки контроллеров, DTO, URL, пагинации. Активируется при web api, controller, endpoint, REST, route, FromQuery, FromRoute, path, query parameter, versioning, swagger, ActionResult, ProblemDetails, CreatedAtAction, middleware
 ---
 
 # API Development — ловушки и anti-patterns
@@ -41,6 +41,28 @@ description: ASP.NET Core Web API — ловушки контроллеров, D
 Плохо: `return Ok(order)` после создания
 Правильно: `return CreatedAtAction(nameof(GetById), new { id = order.Id }, order)` — 201 + Location header
 Почему: REST клиенты полагаются на 201 для проверки создания и Location для навигации
+
+## URL design
+
+### Обязательные идентификаторы ресурса в query вместо path
+Плохо: `GET /api/items?ownerId=123&itemNumber=10` — без обоих параметров запрос бессмыслен
+Правильно: `GET /api/owners/{ownerId}/items/{itemNumber}` — идентификаторы в path, иерархия отражена
+Почему: обязательный `[FromQuery][Required]` — сигнал, что параметр должен быть path. Path-идентификаторы кэшируются CDN/прокси, лучше генерируются клиентами (Refit, OpenAPI codegen), читаются как естественный URL ресурса
+
+### Фильтры и пагинация в path вместо query
+Плохо: `GET /api/orders/2024/01/active/page/2` — фильтры и пагинация вшиты в путь
+Правильно: `GET /api/orders?status=active&from=2024-01-01&page=2` — опциональные параметры в query
+Почему: path описывает **что** за ресурс, query — **как** его отфильтровать/срезать. Путаница ролей ломает кэширование, усложняет генерацию клиента, мешает добавлять новые фильтры без breaking change
+
+### URL не отражает иерархию ресурсов
+Плохо: `GET /api/get-project-items?project=X&item=Y` — плоский URL с глаголом и фильтрами
+Правильно: `GET /api/projects/{projectId}/items/{itemId}` — иерархия ресурсов, без глаголов
+Почему: REST-URL описывает ресурс существительным, иерархия родитель→ребёнок кодирует bonded lookup. Глаголы в URL (`get-`, `fetch-`, `do-`) — RPC-стиль, нарушает кэширование и semantic клиентов
+
+### Несогласованность с существующими эндпоинтами сервиса
+Плохо: один контроллер использует `/api/users/{id}`, другой — `/api/v1/user-list?userId=`
+Правильно: одна схема URL во всём сервисе — одинаковое versioning, плюрализация, casing
+Почему: интеграторы учат API по первому эндпоинту и экстраполируют на остальные. Несогласованность = постоянные ошибки в клиенте + рост support-запросов. Это проверяется при ревью каждого нового эндпоинта
 
 ## Пагинация
 

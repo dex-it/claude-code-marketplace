@@ -27,7 +27,7 @@
       "name": "dex-skill-dotnet-ef-core",
       "source": "./plugins/skills/dex-skill-dotnet-ef-core",
       "description": "Entity Framework Core: queries, tracking, migrations, performance optimization",
-      "version": "2.0.0",
+      "version": "2.1.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -41,7 +41,7 @@
       "name": "dex-skill-dotnet-async-patterns",
       "source": "./plugins/skills/dex-skill-dotnet-async-patterns",
       "description": "Async/await patterns: cancellation, parallelism, ValueTask, best practices",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -67,8 +67,8 @@
     {
       "name": "dex-skill-dotnet-api-development",
       "source": "./plugins/skills/dex-skill-dotnet-api-development",
-      "description": "API development: REST, versioning, error handling, DTOs",
-      "version": "2.0.0",
+      "description": "API development: REST, versioning, URL design, error handling, DTOs",
+      "version": "2.1.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -150,8 +150,8 @@
     {
       "name": "dex-skill-owasp-security",
       "source": "./plugins/skills/dex-skill-owasp-security",
-      "description": "OWASP security: auth bypass, IDOR, injection, XSS, CSRF, privilege escalation",
-      "version": "1.1.0",
+      "description": "OWASP security: auth bypass, IDOR, injection, XSS, CSRF, privilege escalation, pre-auth invariants",
+      "version": "1.2.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -342,14 +342,42 @@
     {
       "name": "dex-skill-dotnet-logging",
       "source": "./plugins/skills/dex-skill-dotnet-logging",
-      "description": "Logging patterns: Serilog, structured logging, correlation, Seq",
-      "version": "2.0.0",
+      "description": "Logging patterns: Serilog, structured logging, correlation, Seq, content-level level selection",
+      "version": "2.1.0",
       "category": "skill",
       "keywords": [
         "skill",
         "logging",
         "serilog",
         "seq"
+      ]
+    },
+    {
+      "name": "dex-skill-dotnet-csproj-hygiene",
+      "source": "./plugins/skills/dex-skill-dotnet-csproj-hygiene",
+      "description": "MSBuild csproj hygiene: PackageReference, CPM, Directory.Build.props, PrivateAssets, analyzers",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "msbuild",
+        "csproj",
+        "cpm",
+        "nuget"
+      ]
+    },
+    {
+      "name": "dex-skill-dotnet-resilience",
+      "source": "./plugins/skills/dex-skill-dotnet-resilience",
+      "description": "HTTP client resilience: Polly, retry, circuit breaker, timeouts, idempotency",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "resilience",
+        "polly",
+        "retry",
+        "circuit-breaker"
       ]
     },
     {
@@ -382,8 +410,8 @@
     {
       "name": "dex-skill-clean-architecture",
       "source": "./plugins/skills/dex-skill-clean-architecture",
-      "description": "Clean Architecture: layers, dependencies, domain-centric design",
-      "version": "1.1.0",
+      "description": "Clean Architecture: layers, dependencies, domain-centric design, CQRS contracts",
+      "version": "1.2.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -395,8 +423,8 @@
     {
       "name": "dex-skill-ddd",
       "source": "./plugins/skills/dex-skill-ddd",
-      "description": "Domain-Driven Design: aggregates, entities, value objects, bounded contexts",
-      "version": "1.1.0",
+      "description": "Domain-Driven Design: aggregates, entities, value objects, bounded contexts, ubiquitous language",
+      "version": "1.2.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -630,14 +658,15 @@
     {
       "name": "dex-dotnet-reviewer",
       "source": "./plugins/specialists/dotnet/dex-dotnet-reviewer",
-      "description": "Code reviewer for .NET: code review, security, best practices",
-      "version": "1.2.0",
+      "description": "Code reviewer for .NET: domain-aware review, skill-based deep scan, non-code audit, severity labels, MR data collection and analysis.",
+      "version": "2.0.0",
       "category": "specialist",
       "keywords": [
         "specialist",
         "dotnet",
         "review",
-        "code-quality"
+        "code-quality",
+        "reviewer"
       ]
     },
     {
