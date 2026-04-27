@@ -1,6 +1,6 @@
 ---
 name: dotnet-logging
-description: .NET structured logging — Serilog, ILogger, Seq. Активируется при serilog, seq, ILogger, structured logging, log level, correlation id, LogError, LogWarning, BeginScope, PII в логах, пустой catch, CloseAndFlush, спам в логах
+description: .NET structured logging — Serilog, ILogger, Seq. Активируется при serilog, seq, ILogger, log level, correlation, LogError, LogWarning, PII, пустой catch, необработанное исключение, опциональный шаг, side-feature, спам логов
 ---
 
 # Logging — ловушки и anti-patterns
@@ -38,6 +38,13 @@ description: .NET structured logging — Serilog, ILogger, Seq. Активиру
 Плохо: `_logger.LogError("Something failed for {OrderId}", orderId)` — где stack trace?
 Правильно: `_logger.LogError(ex, "Failed to process order {OrderId}", orderId)`
 Почему: без exception невозможно найти причину ошибки в Seq. Первый параметр Error — всегда Exception
+
+### Нет обёртки вокруг некритичной операции
+Плохо: внутри основного флоу прямой вызов вспомогательной операции (сбор метрик, аналитика, side-feature), у которой может бросить исключение, и выше по стеку нет общего обработчика
+Правильно: `try { await OptionalStep(); } catch (Exception ex) { _logger.LogError(ex, "..."); return; }` — залогируй и выйди, не пробрасывай
+Почему: side-feature не должна валить основной сценарий. Без обёртки одно исключение из опционального шага кладёт весь handler/pipeline. Правило: для каждого вызова в коде — «должен ли этот шаг ронять основной флоу? если нет — обернуть в try/catch + log + return»
+
+> Для разделения обязательных и опциональных шагов через outbox / транзакционную границу — см. `dex-skill-dotnet-async-patterns` («Mixed обязательный + опциональный шаг»).
 
 ## Semantic Types
 
