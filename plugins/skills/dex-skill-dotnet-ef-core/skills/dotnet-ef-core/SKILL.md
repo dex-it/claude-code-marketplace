@@ -1,6 +1,6 @@
 ---
 name: dotnet-ef-core
-description: EF Core — ловушки запросов, миграций, concurrency, mapping. Активируется при ef core, dbcontext, migration, N+1, AsNoTracking, Include, AsSplitQuery, IQueryable, ExecuteUpdate, OwnsOne, OwnsMany, owned type, value object
+description: EF Core — ловушки запросов, миграций, concurrency, mapping. Активируется при ef core, dbcontext, migration, N+1, AsNoTracking, Include, AsSplitQuery, IQueryable, ExecuteUpdate, cartesian explosion, GroupBy, owned types
 ---
 
 # Entity Framework Core — ловушки и anti-patterns
