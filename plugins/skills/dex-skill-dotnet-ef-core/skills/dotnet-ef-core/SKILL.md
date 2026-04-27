@@ -1,6 +1,6 @@
 ---
 name: dotnet-ef-core
-description: EF Core — ловушки запросов, миграций, concurrency. Активируется при ef core, dbcontext, migration, N+1, AsNoTracking, Include, AsSplitQuery, IQueryable, ExecuteUpdate, ExecuteDelete, cartesian explosion, LINQ to Entities, GroupBy
+description: EF Core — ловушки запросов, миграций, concurrency, mapping. Активируется при ef core, dbcontext, migration, N+1, AsNoTracking, Include, AsSplitQuery, IQueryable, ExecuteUpdate, cartesian explosion, GroupBy, owned types
 ---
 
 # Entity Framework Core — ловушки и anti-patterns
@@ -44,6 +44,15 @@ description: EF Core — ловушки запросов, миграций, conc
 Плохо: `await context.Products.AddAsync(product)` — без необходимости
 Правильно: `context.Products.Add(product)` + `await SaveChangesAsync()`
 Почему: `AddAsync` делает дополнительный запрос к БД для получения ID (HiLo sequence). Нужен ТОЛЬКО при `UseHiLo()`. Для Guid/client-generated id — `Add()` достаточно
+
+## Mapping
+
+### Owned-Type из одного значимого поля
+Плохо: `OwnsOne(x => x.Complexity)` где `Complexity` — Value Object из 1 свойства; либо Owned-Type, в котором после ревью / чистки осталось одно поле (остальные удалены как избыточные)
+Правильно: схлопни в плоское свойство на родителе с осмысленным именем (`x.ComplexityScore`). Owned-Type оправдан от 2+ полей, объединённых инвариантом, или когда планируется отдельная таблица (`OwnsOne` + `ToTable`)
+Почему: Owned-Type из 1 поля = overhead конфигурации (`OnModelCreating`, миграция с префиксом `Complexity_`, `OwnsOne(...).Property(...)`) без выгоды. Value Object из одного значения не несёт инварианта (нечего связывать), это псевдо-абстракция. Сигнал к схлопыванию: после удаления избыточных полей в Owned-Type осталось одно — это уже не Value Object, это поле под чужим именем
+
+> Связанные ловушки: что вообще хранить в Aggregate / Owned-Type — см. `dex-skill-ddd` («Persisted-поле без потребителя»).
 
 ## Cascade Delete
 
