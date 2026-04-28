@@ -2,29 +2,29 @@
 
 ## Proposed skill additions
 
-### dex-skill-dotnet-ef-core: AsNoTracking для read-only запросов
+### dex-skill-dotnet-ef-core: DbContext Pooling и захват состояния
 
 **Целевой skill:** dex-skill-dotnet-ef-core
-**H2-секция:** Tracking and change detection
+**H2-секция:** DbContext lifetime
 
 **Drop-in:**
 
-#### AsNoTracking для read-only запросов
+#### Pooling + поля экземпляра DbContext
 
 **Плохо:**
 
 ```csharp
-var users = await _ctx.Users.Where(u => u.IsActive).ToListAsync();
-return users.Select(u => new UserDto(u.Id, u.Name));
+public class AppDbContext : DbContext
+{
+    private string? _currentTenant;
+    public void SetTenant(string t) => _currentTenant = t;
+}
+services.AddDbContextPool<AppDbContext>(...);
 ```
 
-**Правильно:**
+**Правильно:** не хранить мутируемое состояние в полях DbContext; tenant/user-context передавать через scoped accessor (`ITenantProvider`), который инжектится в `OnConfiguring` / query filters. Если состояние действительно нужно — отказаться от `AddDbContextPool` в пользу `AddDbContext`.
 
-```csharp
-var users = await _ctx.Users.AsNoTracking().Where(u => u.IsActive).ToListAsync();
-```
-
-**Почему:** Без AsNoTracking EF создаёт snapshot каждой сущности и держит change tracker — это аллокации и память на read-only пути. На горячих GET-эндпоинтах разница в throughput до 30%.
+**Почему:** `AddDbContextPool` переиспользует экземпляры DbContext между запросами. Любое поле, заполненное в одном запросе, утечёт в следующий — race condition с непредсказуемым tenant/user-фильтром. Pool принципиально несовместим с per-request состоянием в самом контексте.
 
 ## Skipped (already covered)
 
