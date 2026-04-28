@@ -33,45 +33,41 @@ public async Task<Result> ProcessAsync()
 
 **Почему:** В библиотечном коде, не зависящем от UI/SynchronizationContext, отсутствие ConfigureAwait(false) приводит к захвату контекста и потенциальным дедлокам в callers с UI-контекстом. Для Web API (ASP.NET Core) — без разницы (нет SyncContext), но привычка полезна для NuGet-библиотек.
 
-### dex-skill-dotnet-linq-optimization: HashSet вместо Contains на List
+### dex-skill-dotnet-ef-core: AsAsyncEnumerable для streaming больших выборок
 
-**Целевой skill:** dex-skill-dotnet-linq-optimization
-**H2-секция:** Коллекции и поиск
+**Целевой skill:** dex-skill-dotnet-ef-core
+**H2-секция:** Запросы
 
 **Drop-in:**
 
-#### HashSet вместо Contains на List
+#### AsAsyncEnumerable для streaming больших выборок
 
 **Плохо:**
 
 ```csharp
-var ids = new List<int> { 1, 2, 3, ..., 10000 };
-foreach (var item in items) {
-    if (ids.Contains(item.Id)) { ... }
-}
+var items = await _ctx.Logs.Where(l => l.Date > since).ToListAsync();
+foreach (var item in items) await _processor.HandleAsync(item);
 ```
 
 **Правильно:**
 
 ```csharp
-var ids = new HashSet<int> { 1, 2, 3, ..., 10000 };
-foreach (var item in items) {
-    if (ids.Contains(item.Id)) { ... }
-}
+await foreach (var item in _ctx.Logs.Where(l => l.Date > since).AsAsyncEnumerable())
+    await _processor.HandleAsync(item);
 ```
 
-**Почему:** List.Contains — O(N), HashSet.Contains — O(1). На 10k элементов и цикле в 1k итераций разница 10000x.
+**Почему:** `ToListAsync` материализует всю выборку в память (миллионы строк → OOM). `AsAsyncEnumerable` стримит по строкам через DataReader — память константна. Подходит, когда обработка построчная и не нужно держать всё сразу.
 
 ## Proposed agent changes
 
-### dex-dotnet-reviewer: добавить упоминание EF Core skill в Skill-Based Scan
+### dex-dotnet-reviewer: добавить проверку breaking changes в DTO/контрактах
 
 **Целевой агент:** dex-dotnet-reviewer
-**Фаза:** Skill-Based Deep Scan
+**Фаза:** Content-Level Pass
 
-**Изменение:** в условиях загрузки skills добавить пункт: если в diff видны `DbContext`, `DbSet`, `IQueryable`, `.Include(`, `.Where(`, `.ToListAsync()` — императивно загрузить `dex-skill-dotnet-ef-core:dotnet-ef-core` через Skill tool.
+**Изменение:** в чек-лист Phase 4 добавить пункт «для каждого изменённого/удалённого поля в публичных DTO / API response / контрактах — пометить как breaking change, требующий versioning или миграционного плана. Сюда же — изменение поля required/optional, типа поля, default value».
 
-**Почему:** ревьюер пропустил N+1 в Include-цепочке потому что не загрузил skill. Триггер по ключевым словам diff'а — надёжнее.
+**Почему:** ревьюер пропускает контрактные ломки между сервисами (`UserDto.Email` стал nullable → потребитель упал на десериализации). Структурные правки видны в diff, но без специальной проверки воспринимаются как «обычная правка модели».
 
 ## Skipped (already covered)
 

@@ -15,8 +15,12 @@
 ```bash
 cd /home/mmx/Work/claude-market/claude-code-marketplace
 git stash  # сохранить рабочее дерево
-claude -p "/mr-apply $(pwd)/plugins/specialists/dotnet/dex-dotnet-reviewer/test-fixtures/analyze-skill-addition.md"
+claude -p "/mr-apply $(pwd)/plugins/specialists/marketplace/dex-knowledge-extractor/test-fixtures/analyze-skill-addition.md"
 git diff   # посмотреть что применилось
 git checkout .  # откатить
 git stash pop
 ```
+
+## Поддержка фикстур
+
+Темы ловушек в фикстурах подобраны так, чтобы **не дублировать** существующее содержимое скиллов и агентов в маркетплейсе. Если фикстура начинает совпадать с реально добавленным — заменить тему на актуально отсутствующую (или зафиксировать как «expected: Skipped (dup)» в этом README).
