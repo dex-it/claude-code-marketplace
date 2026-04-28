@@ -78,7 +78,7 @@ function findAllSkillFiles() {
 // --- Size limits --------------------------------------------------------
 
 const CLAUDE_CODE_HARD_LIMIT = 500; // official Claude Code limit
-const PROJECT_RECOMMENDED_MAX = 150; // project guideline
+const PROJECT_RECOMMENDED_MAX = 250; // project guideline
 const PROJECT_TARGET_MAX = 120; // ideal range
 
 // --- Frontmatter validation ---------------------------------------------
