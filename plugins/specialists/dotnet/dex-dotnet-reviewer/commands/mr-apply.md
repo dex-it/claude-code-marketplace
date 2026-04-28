@@ -67,3 +67,16 @@ argument-hint: "<путь к файлу от /mr-analyze> [--marketplace-root <p
 Структура: секция `Metadata` с source analyze, marketplace root, started timestamp, итог validate (PASS/FAIL); секция `Applied (N)` — для каждого применения подзаголовок с именем предложения, поля File / Section / Lines added / Version bump; секция `Skipped (self-review failed) (M)` — подзаголовок предложения, поля Reason (точная цитата нарушенного правила) / Cited (фрагмент из предложения, нарушивший правило) / Action (`Не применено`); секция `Failed (validate) (K)` — подзаголовок предложения, поля File / Validator error (stderr цитата) / Action (`Откачено`) / Suggestion for human review.
 
 Если ноль Applied / Skipped / Failed — файл всё равно создаётся, секции содержат `none`.
+
+## Errors
+
+| Сценарий | Действие |
+|----------|----------|
+| Входной файл не найден | Stderr: «expected /tmp/mr-analyze-*.md», exit 1 |
+| Входной файл не от /mr-analyze (нет секций Proposed *) | Stderr: «expected /mr-analyze format», exit 1 |
+| `--marketplace-root` указан, но не содержит `.claude-plugin/marketplace.json` | Stderr с инструкцией, exit 1 |
+| `--marketplace-root` не указан и текущий cwd не содержит marketplace.json | Stderr с инструкцией, exit 1 |
+| `npm` отсутствует в PATH | Stderr: «npm required for validate», exit 1 |
+| Целевой skill / агент / bundle из предложения не существует | Записать в `Skipped` с причиной «target not found», продолжить со следующим |
+| Все предложения провалили self-review и validate | apply-report.md создаётся, ноль Applied — это валидный исход |
+| `npm run validate` падает с не-кодом-ошибки (например `Cannot find module`) | Stderr целиком, exit 1 (не пытаемся откатывать) |
