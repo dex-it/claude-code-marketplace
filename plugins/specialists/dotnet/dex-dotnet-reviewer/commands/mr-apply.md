@@ -59,3 +59,11 @@ argument-hint: "<путь к файлу от /mr-analyze> [--marketplace-root <p
 **Если PASS** — все применения попадают в секцию `Applied` отчёта. Stdout — путь к отчёту. Конец работы.
 
 **Если FAIL** — цель найти виновное предложение и откатить только его. Стратегия: журнал «было / стало» по каждому применению. Перед каждым применением читается состояние файла `before` и сохраняется в журнал вместе с `proposal_id`. После падения валидатора по stderr извлекается имя файла с ошибкой, в журнале находится последнее применение, тронувшее этот файл, файл возвращается к `before` через Write, валидатор перезапускается. Если падение продолжается на том же файле — откат всех применений по этому файлу. Все откаченные применения попадают в `Failed (validate)` с цитатой ошибки validator'а. Это даёт O(K) откатов, где K — число падений (обычно 1-2).
+
+## Output: `apply-report.md`
+
+Путь: `/tmp/mr-apply-<task-key>-<YYYYMMDD-HHMM>.md`. Task key из имени входного analyze.md (regex `mr-analyze-([A-Z]+-\d+|no-task)-`), иначе `no-task`.
+
+Структура: секция `Metadata` с source analyze, marketplace root, started timestamp, итог validate (PASS/FAIL); секция `Applied (N)` — для каждого применения подзаголовок с именем предложения, поля File / Section / Lines added / Version bump; секция `Skipped (self-review failed) (M)` — подзаголовок предложения, поля Reason (точная цитата нарушенного правила) / Cited (фрагмент из предложения, нарушивший правило) / Action (`Не применено`); секция `Failed (validate) (K)` — подзаголовок предложения, поля File / Validator error (stderr цитата) / Action (`Откачено`) / Suggestion for human review.
+
+Если ноль Applied / Skipped / Failed — файл всё равно создаётся, секции содержат `none`.
