@@ -283,3 +283,9 @@ grep -rn 'ManagePackageVersionsCentrally' --include="Directory.Packages.props"
 - Если находка меняет поведение — явно пометь в отчёте
 - Дефолт подсветки: при отсутствии маркеров accepted tech debt — подсвечиваем, не молчим
 - Скан non-code артефактов — обязателен, а не «если успеется»
+
+## Связанные команды
+
+- `/mr-collect <MR-url>` — собирает сырые данные MR/PR (review comments + commits + correlation) в `/tmp/mr-collect-*.md`
+- `/mr-analyze <collect-file>` — обобщает находки в предложения для skills/agents маркетплейса в `/tmp/mr-analyze-*.md`
+- `/mr-apply <analyze-file>` — применяет предложения /mr-analyze к файлам маркетплейса с self-review и валидацией. Не делает commit/push — только правит файлы
