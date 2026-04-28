@@ -11,18 +11,9 @@ argument-hint: "<путь к файлу от /mr-analyze> [--marketplace-root <p
 
 **Goal:** Готовый diff в маркетплейс-репе + отчёт `apply-report.md` со списком Applied / Skipped (self-review failed) / Failed (validate). Stdout — абсолютный путь к отчёту.
 
-**Input:**
+**Input:** абсолютный путь к `/tmp/mr-analyze-*.md`. Опционально `--marketplace-root <path>` — корень клона `mmx003/claude-code-marketplace` (по умолчанию текущий cwd). Если ни там ни там нет `.claude-plugin/marketplace.json` — явная ошибка с инструкцией.
 
-- Абсолютный путь к файлу `/tmp/mr-analyze-*.md`
-- Опционально `--marketplace-root <path>` — корень клона `mmx003/claude-code-marketplace`. По умолчанию — текущий cwd. Если в cwd нет `.claude-plugin/marketplace.json`, явная ошибка с инструкцией.
-
-**Constraints:**
-
-- НЕ делать `git commit`, `git push`, `git checkout` — только правка файлов
-- НЕ создавать PR
-- Каждое применение проходит self-review до записи в файл; провал self-review → пропуск с записью в отчёт
-- В конце `npm run validate` обязателен; падение → бинарный поиск виновника + откат → запись в Failed
-- Версия плагина обновляется одновременно в `.claude-plugin/plugin.json` И `.claude-plugin/marketplace.json`
+**Constraints:** не делает `git commit/push/checkout` и не создаёт PR — только правка файлов в рабочем дереве. Каждое применение проходит self-review до записи; провал → пропуск в отчёт. В конце обязательный `npm run validate`; падение → откат виновника → запись в Failed. Версия плагина обновляется одновременно в `plugin.json` и `marketplace.json`.
 
 ## Типы предложений
 
