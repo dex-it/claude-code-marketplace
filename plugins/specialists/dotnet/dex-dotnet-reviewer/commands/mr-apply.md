@@ -23,3 +23,19 @@ argument-hint: "<путь к файлу от /mr-analyze> [--marketplace-root <p
 - Каждое применение проходит self-review до записи в файл; провал self-review → пропуск с записью в отчёт
 - В конце `npm run validate` обязателен; падение → бинарный поиск виновника + откат → запись в Failed
 - Версия плагина обновляется одновременно в `.claude-plugin/plugin.json` И `.claude-plugin/marketplace.json`
+
+## Типы предложений
+
+Обрабатываем три секции из `/mr-analyze`: `Proposed skill additions`, `Proposed new skills`, `Proposed agent changes`. Секции `Skipped` и `Dropped` игнорируем как уже отброшенные.
+
+### Proposed skill additions
+
+Целевой файл — `plugins/skills/<dex-skill-name>/skills/*/SKILL.md`. Drop-in блок вставляется в указанную H2-секцию (если её нет — создаётся в конце файла). После вставки обязательно: bump minor в `plugin.json` плагина + синхронный bump в `.claude-plugin/marketplace.json`.
+
+### Proposed new skills
+
+Создаются три файла: `SKILL.md` в `plugins/skills/<name>/skills/<name>/`, `plugin.json` в `.claude-plugin/` плагина (version `1.0.0`, author `Maxim Tonkoglas`, license `MIT`), новая запись в массив `plugins` корневого `marketplace.json` (version `1.0.0`, `source` указывает на новую директорию). Bundle.json трогаем только если в предложении указаны bundles — иначе оставляем ручному ревьюеру.
+
+### Proposed agent changes
+
+Целевой файл — `plugins/specialists/**/<agent-name>/agents/*.md`. Правки бывают трёх видов: расширение чек-листа фазы (добавить пункт), новая фаза (вставить в правильном месте по рецепту из AGENT_FRAMEWORK.md, mandatory обязательно с «Why mandatory»), дополнительный Skill tool вызов в `Skill-Based Deep Scan`. После правки — bump minor в `plugin.json` + `marketplace.json` specialist'а.
