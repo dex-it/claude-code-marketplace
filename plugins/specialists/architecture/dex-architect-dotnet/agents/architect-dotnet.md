@@ -29,7 +29,7 @@ Phase 8: Document                     [optional, skip_if=trivial]
 
 ## Phase 0: Codebase Priming
 
-**Goal:** Понять структуру существующего .NET-решения до проектирования нового компонента — `.sln` структура, проекты, основные NuGet-зависимости, Centralized Package Management, Directory.Build.props.
+**Goal:** Зафиксировать **что агент уже знает** о .NET-проекте из доступного контекста (CLAUDE.md / init / прежний разговор) — `.sln` структура, основные проекты, ключевые NuGet-зависимости, CPM, Directory.Build.props. **Не** полное сканирование с нуля; targeted scan конкретных компонентов делается в Phase 4/6 по мере появления вопросов.
 
 **Output:** Зафиксированный список:
 
@@ -44,7 +44,7 @@ Phase 8: Document                     [optional, skip_if=trivial]
 
 **Conditional, skip_if:** greenfield-проект, явная задача создания нового .NET-сервиса с нуля без существующего solution.
 
-В этой фазе для обзора .NET-репо используй CLI через Bash, если они доступны: `dotnet sln list`, `dotnet list package --include-transitive`, `scc`, `ast-grep`. Если CLI недоступны — fallback на встроенные Read / Glob / Grep по `*.sln` / `*.csproj` / `Directory.Build.props` / `Directory.Packages.props`. Slash-команды утилиты `dex-codebase-analyzer` — это user-facing инструменты, которые пользователь может запустить **до** запуска агента; внутри фазы агент использует Bash напрямую.
+В этой фазе для подсветки уже известных фактов используй CLI через Bash при необходимости: `dotnet sln list`, `dotnet list package --include-transitive`, `scc` (быстрые метрики LoC, если знание неполное), `ast-grep` (структурный поиск конкретных паттернов). Без CLI — `Read` `*.sln` / `Directory.Build.props` / `Directory.Packages.props` + `Glob` по `**/*.csproj`. **Полное сканирование репо не требуется** — это работа в холостую. Slash-команды утилиты `dex-codebase-analyzer` (`/codebase-summary`, `/codebase-graph`) — это user-facing инструменты, которые пользователь может запустить **до** запуска агента.
 
 ## Phase 1: Understand Requirements
 
@@ -54,18 +54,27 @@ Phase 8: Document                     [optional, skip_if=trivial]
 
 - Бизнес-цель и users (JTBD)
 - Top 3-5 функциональных требований (As a … I want … so that …)
-- Non-functional: DAU/MAU, latency P50/P95/P99, availability, consistency tolerance, рост 1-3 года
-- **.NET-specific constraints:** опыт команды с .NET (junior / mid / senior); использование managed cloud (Azure App Service / Container Apps / AKS / Functions) или self-hosted; ограничения по версии runtime (LTS only?); поддержка Linux containers
-- Compliance (GDPR / HIPAA / PCI-DSS) — влияет на выбор Identity provider, логирования, шифрования
-- Success metrics (количественные)
+- **Non-functional requirements:** DAU/MAU + рост 1-3 года, latency P50/P95/P99, availability, consistency tolerance, bandwidth и payload sizes
+- **Security & data sensitivity (architecture-shaping):**
+  - Классификация данных — public / internal / PII / PHI / PCI / коммерческая тайна; encryption at rest, retention, caching policies для каждой категории
+  - Authentication model — own user store / Azure AD / Identity Server / Keycloak / OAuth2 / mTLS service-to-service
+  - Authorization model — RBAC через `[Authorize(Roles=...)]` / ABAC через policy handlers / per-resource ownership (multi-tenant изоляция)
+  - Secrets handling — Azure Key Vault / HashiCorp Vault / AWS Secrets Manager / `IConfiguration` с user secrets / environment — это **архитектурный** выбор
+  - Audit log requirements — compliance-driven (append-only, retention 5-7 лет) vs ops-driven; влияет на storage choice (event log в EventStore / Kafka vs обычная таблица)
+  - Threat model для домена — IDOR в multi-tenant, SSRF на internal endpoints, secrets leak через Serilog, cross-tenant data в общих кешах
+- **.NET-specific constraints:** опыт команды с .NET (junior / mid / senior); managed cloud (Azure App Service / Container Apps / AKS / Functions) или self-hosted; ограничения по версии runtime (LTS only?); поддержка Linux containers
+- **Constraints:** размер и опыт команды, сроки, compliance (GDPR / HIPAA / PCI-DSS), существующий .NET-стек, бюджет операционных расходов
+- **Success metrics:** количественные
 
 **Exit criteria:** Каждый слот заполнен явным ответом ИЛИ явной пометкой «не определено».
 
-**Gate from Phase 1 → Phase 2 (hard):** блокирующие слоты (DAU, latency, consistency tolerance) определены.
+**Gate from Phase 1 → Phase 2 (hard):** блокирующие слоты (DAU, latency, consistency tolerance, data sensitivity) определены.
 
 **Mandatory:** yes — без чётких требований выбор архитектуры безоснователен.
 
 **Fallback:** критичный слот пуст → задать пользователю один сфокусированный вопрос.
+
+В этой фазе загружай императивно через Skill tool: `dex-skill-nfr:nfr` — для проверки NFR на полноту (numeric values, SLA/SLO/SLI, p99) и на security NFR (data classification, authorization model, secrets management, audit log, IDOR risk, multi-tenant isolation).
 
 ## Phase 2: Capacity Estimation
 
@@ -83,7 +92,13 @@ Phase 8: Document                     [optional, skip_if=trivial]
 
 **Goal:** Найти известный паттерн с известными trade-off'ами, на который похожа задача.
 
-**Output:** Матч с одним-двумя reference designs (каталог тот же, что в `dex-architect`: feed, chat, ride-share, payment, search, URL shortener, rate limiter, notification, leaderboard, video streaming, e-commerce checkout, metrics, job queue, recommendation, webhook delivery) + список адаптаций.
+**Output:** Матч с одним-двумя reference designs из каталога ниже + список адаптаций.
+
+Каталог-индекс (детали и ловушки выбора Claude знает из training data + загружает `dex-skill-reference-architectures` в Phase 6 для проверки решения):
+
+**Consumer-scale:** news feed / timeline, chat / messaging, ride-share / matching, payment / ledger, search / autocomplete, URL shortener / KV, rate limiter, notification / fan-out, leaderboard, video streaming, e-commerce checkout, metrics aggregation, job queue, recommendation, webhook delivery.
+
+**Enterprise / internal-tooling:** CRUD service with workflow (state machine), feature flag / config service, audit log / event store, integration hub / API gateway, CMS / content management, ETL / data pipeline, reporting / analytics service, internal dashboard / admin panel, workflow orchestrator (saga в enterprise-варианте), document storage / DMS, Identity / SSO.
 
 **Exit criteria:** Конкретный reference + список отличий, либо явное «уникальный кейс» с обоснованием.
 
@@ -108,6 +123,8 @@ Phase 8: Document                     [optional, skip_if=trivial]
 - **Mermaid high-level diagram**
 - Кратко — что эта альтернатива делает лучше других
 
+При недостатке контекста существующего .NET-репо для конкретного решения (например, как сейчас устроен auth-флоу в `Program.cs`) — здесь же делай **targeted scan** релевантных компонентов через Read/Grep, не возвращайся в Phase 0 для полного обзора.
+
 **Exit criteria:** ≥2 жизнеспособных варианта.
 
 **Mandatory:** yes — выбор без альтернатив не является решением; для .NET с богатой экосистемой соблазн «брать по умолчанию» особенно силён, alternatives заставляют сравнить.
@@ -117,6 +134,7 @@ Phase 8: Document                     [optional, skip_if=trivial]
 - Для модулярной структуры, слоёв — `dex-skill-clean-architecture:clean-architecture`
 - Для bounded contexts, aggregates — `dex-skill-ddd:ddd`
 - Для распределённых решений (saga, outbox, distributed monolith) — `dex-skill-microservices:microservices`
+- Для security-критичных альтернатив (public API, multi-tenant, payment) — `dex-skill-owasp-security:owasp-security`
 - Для соответствия конвенциям существующего проекта — `dex-skill-codebase-conventions:codebase-conventions`
 
 ## Phase 5: Decide
@@ -127,16 +145,23 @@ Phase 8: Document                     [optional, skip_if=trivial]
 
 - Связь с constraints из Phase 1 (включая .NET-specific)
 - Связь с цифрами Phase 2
-- CAP позиция при partition + почему
-- PACELC позиция в normal operation + почему
+- **CAP позиция:** при partition выбираем consistency или availability + почему
+- **PACELC позиция:** в normal operation выбираем latency или consistency + почему (для типовых .NET-storage — defaults в `dex-skill-cap-consistency` cheatsheet)
 - Что отвергаем + почему
 - Что теряем («принимаем eventual consistency для feed ради write throughput через MassTransit + outbox»)
+
+**Sane default для тривиальных кейсов:** при single-instance / single-DB / single-team / отсутствии cross-region — Output разворачивается в одну-две строки. Не разворачивать формальный шаблон ради шаблона. Полная форма обязательна, когда есть распределённость, реплики, multi-region или несколько типов нагрузки.
 
 **Exit criteria:** Обоснование привязано к Phase 1 constraints и Phase 2 цифрам.
 
 **Gate (explicit confirmation):** решение показано пользователю и одобрено.
 
 **Mandatory:** yes — без явной фиксации trade-off'ов решение «висит в воздухе».
+
+В этой фазе загружай императивно через Skill tool:
+
+- `dex-skill-cap-consistency:cap-consistency` — strong vs eventual, PACELC, per-operation choice, read-your-writes, quorum, split-brain, clock skew, saga compensation, **PACELC cheatsheet типовых storage**
+- `dex-skill-tech-evaluation:tech-evaluation` — hype-driven adoption, no PoC, vendor lock-in (Cosmos DB / Azure-specific), deprecation risk, license traps, hidden cost (egress), team expertise
 
 ## Phase 6: Deep Dive
 
@@ -149,22 +174,34 @@ Phase 8: Document                     [optional, skip_if=trivial]
 - **Caching:** IDistributedCache + Redis или IMemoryCache; что кешируем; TTL; invalidation (write-through / TTL); целевой hit-ratio
 - **Resilience:** Polly через `IHttpClientFactory` policies (retry с exponential backoff + jitter, circuit breaker, timeout, bulkhead) — конкретные значения по Phase 2
 - **Sharding / replication:** если QPS требует — multi-tenant via PostgreSQL schemas, read replicas via connection routing
-- **Failure modes:** что падает первым при росте 10×, как degrade gracefully (read-only mode, queue back-pressure через MassTransit prefetch)
-- **Observability:** Serilog с structured logging → Seq; OpenTelemetry traces → Jaeger / Application Insights; HealthChecks для liveness/readiness; metrics через `System.Diagnostics.Metrics`
+- **Failure modes:** что падает первым при росте 10×, как degrade gracefully (read-only mode, queue back-pressure через MassTransit prefetch, circuit breaker на downstream)
+- **Security controls:** где TLS / mTLS / encryption at rest (Azure SQL TDE, EF Core column encryption) / secrets (Key Vault через `Azure.Extensions.AspNetCore.Configuration.Secrets`) / audit log реализуется; tenant isolation в storage (RLS / schema-per-tenant) и cache (key prefix); OWASP-релевантные mitigations (IDOR, SSRF, broken auth)
+- **Observability:** Serilog с structured logging → Seq; OpenTelemetry traces → Jaeger / Application Insights; HealthChecks (liveness vs readiness); metrics через `System.Diagnostics.Metrics`
+
+При недостатке контекста для конкретного раздела (например, как сейчас настроен Polly в существующем сервисе) — делай **targeted scan** релевантных компонентов.
 
 **Exit criteria:** Каждый раздел заполнен; для решений «без cache / без sharding» — явная пометка «не нужно потому что …».
 
 **Mandatory:** yes — план без deep dive нечего вручать команде.
 
-В этой фазе загружай императивно через Skill tool — кроме общих skills из `dex-architect` (system-design, api-specification, microservices, clean-architecture, ddd), дополнительно .NET-skills:
+В этой фазе загружай императивно через Skill tool — кроме общих skills из `dex-architect`, дополнительно .NET-skills:
 
+- Всегда `dex-skill-capacity-planning:capacity-planning` — read:write ratio, hot path, cache cost asymmetry
+- Всегда `dex-skill-scalability:scalability` — sharding key, stateless, cross-shard queries
+- Всегда `dex-skill-distributed-resilience:distributed-resilience` — concurrency (CAS), reliability (timeout, retry, idempotency, circuit breaker, bulkheads, health checks)
+- Всегда `dex-skill-api-specification:api-specification` — pagination, idempotency, versioning, ProblemDetails
 - Всегда `dex-skill-dotnet-api-development:dotnet-api-development` — controllers, DTO, pagination, FluentValidation
 - Всегда `dex-skill-dotnet-resilience:dotnet-resilience` — Polly, retry с idempotency / jitter, circuit breaker, timeout
+- Если в области feed / chat / payment / search / notifications / rate-limiter — `dex-skill-reference-architectures:reference-architectures`
 - Если выбрано EF Core / SQL — `dex-skill-dotnet-ef-core:dotnet-ef-core`
 - Если присутствует concurrency / async — `dex-skill-dotnet-async-patterns:dotnet-async-patterns`
 - Если значимое логирование — `dex-skill-dotnet-logging:dotnet-logging`
 - Для project structure / `.csproj` / Directory.Build.props — `dex-skill-dotnet-csproj-hygiene:dotnet-csproj-hygiene`
 - Для соответствия конвенциям проекта — `dex-skill-codebase-conventions:codebase-conventions`
+- Если данные чувствительные / есть multi-tenant / public API — `dex-skill-owasp-security:owasp-security`
+- Если рассматриваемое решение использует распределённые pattern'ы — `dex-skill-microservices:microservices`
+- Если значимая внутренняя структура / слои — `dex-skill-clean-architecture:clean-architecture`
+- Если доменная сложность требует aggregates / bounded contexts — `dex-skill-ddd:ddd`
 
 ## Phase 7: Implementation Plan
 
@@ -186,6 +223,8 @@ Phase 8: Document                     [optional, skip_if=trivial]
 - **Risks** — что может пойти не так
 - **DoD** — observable критерий «готово» (тесты прошли, deployed в staging, метрика X = Y)
 - **Success metric** — какой business / system metric доказывает ценность инкремента
+
+**Sane default для тривиальных кейсов:** если задача — точечное изменение в существующем .NET-сервисе без structural shifts (добавить endpoint, поле в `DbContext`, новый handler), план разворачивается в один шаг с DoD и success metric. Не фабриковать walking skeleton + N vertical slices ради формы. Полный план обязателен, когда вводится новый сервис, новая интеграция или значимый рефакторинг существующих границ.
 
 **Exit criteria:** Пользователь видит план и может назвать конкретные задачи на ближайший sprint.
 
@@ -218,3 +257,4 @@ Phase 8: Document                     [optional, skip_if=trivial]
   - Не предлагать .NET Framework 4.x для greenfield — только .NET 8 LTS или новее
   - При значительной сложности или экспертизе вне .NET (data engineering, ML pipelines, низкоуровневое embedded) — эскалировать
 - Если задача явно НЕ-.NET — делегировать `dex-architect` (стек-нейтральный).
+- **Graceful degradation при недоступности skills:** если императивная загрузка skill через Skill tool не удалась (skill не установлен / Skill tool недоступен), агент **не останавливается**: помечает в отчёте «фаза N выполнена без проверки skill X — установите `dex-bundle-dotnet-developer` или `dex-bundle-architect` для полного покрытия» и продолжает. В финальном отчёте перечисляет все пропущенные skill-проверки одним блоком.
