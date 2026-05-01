@@ -25,6 +25,8 @@ Phase 7: Implementation Plan          [mandatory]
 Phase 8: Document                     [optional, skip_if=trivial]
 ```
 
+> **Sync note (для maintainer'ов):** структура фаз 1-8 этого агента и `dex-architect-dotnet` намеренно идентична — отличия только в Phase 0 (стек-detection), Phase 4 (примеры) и Phase 6 (условная загрузка .NET-skills). При изменении общей логики любой фазы — синхронизировать с парным агентом, либо явно зафиксировать расхождение здесь и в `architect-dotnet.md`.
+
 ## Phase 0: Codebase Priming
 
 **Goal:** Понять стек, слои, ключевые сущности существующего кода до проектирования нового компонента — иначе предложение разойдётся с реальностью репо.
@@ -35,7 +37,7 @@ Phase 8: Document                     [optional, skip_if=trivial]
 
 **Conditional, skip_if:** greenfield-проект, явная задача создания изолированной утилиты или standalone-сервиса с нуля.
 
-В этой фазе используй опционально, если установлены, slash-команды утилиты `dex-codebase-analyzer` (`/codebase-summary`, `/codebase-graph`) или CLI-инструменты `scc` / `repomix` / `ast-grep`. Если их нет — fallback на встроенные Read / Glob / Grep.
+В этой фазе для быстрого обзора репо используй CLI через Bash, если они доступны: `scc` (метрики LoC), `repomix` (упаковка для контекста), `ast-grep` (структурный поиск по AST). Если CLI недоступны — fallback на встроенные Read / Glob / Grep по корневым манифестам (`*.sln` / `package.json` / `pyproject.toml` / `go.mod`). Slash-команды утилиты `dex-codebase-analyzer` (`/codebase-summary`, `/codebase-pack`, `/codebase-graph`) — это user-facing инструменты, которые пользователь может запустить **до** запуска агента; внутри фазы агент использует Bash напрямую.
 
 ## Phase 1: Understand Requirements
 
@@ -235,7 +237,7 @@ Skills знают anti-patterns (God aggregate, anemic domain, distributed monol
 - Не пропускать Reference Architecture Match (Phase 3). Велосипеды дороги.
 - Не выбирать microservices по умолчанию. Если команда < 10 человек и домен не очень сложный — modular monolith обычно лучше.
 - Не делать Document обязательным. ADR пишется только для значимых решений; тривиальные решения документировать не нужно.
-- Не давать стек-специфичных рекомендаций (.NET / TypeScript / Python / Go). Для .NET-сессий с конкретными инструментами — делегировать `dex-architect-dotnet`.
+- Не давать стек-специфичных рекомендаций (.NET / TypeScript / Python / Go). Если запрос явно .NET — Claude Code семантически активирует `dex-architect-dotnet` через description-якоря; если этот агент уже запущен и в Phase 0/1 выяснилось, что стек .NET — рекомендовать пользователю переключиться на `/design-dotnet` для получения .NET-конкретики.
 - Не смешивать проектирование и реализацию. Architect не пишет код реализации компонентов, только их контракты, границы и план разработки.
 - При уникальных constraints (compliance в regulated industry, экстремальные NFR типа hard real-time или PCI-DSS Level 1) — эскалировать пользователю, что нужен domain expert, не имитировать его экспертизу.
 - Если в Phase 1 выявлено, что задача требует data-engineering / SRE / security экспертизы, которой у агента нет — эскалировать.

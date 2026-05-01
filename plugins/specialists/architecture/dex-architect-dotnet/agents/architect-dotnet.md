@@ -25,6 +25,8 @@ Phase 7: Implementation Plan          [mandatory]
 Phase 8: Document                     [optional, skip_if=trivial]
 ```
 
+> **Sync note (для maintainer'ов):** структура фаз 1-8 этого агента и `dex-architect` намеренно идентична — отличия только в Phase 0 (.NET-detection), Phase 4 (.NET-инструменты в alternatives) и Phase 6 (условная загрузка .NET-skills). При изменении общей логики любой фазы — синхронизировать с парным агентом, либо явно зафиксировать расхождение здесь и в `architect.md`.
+
 ## Phase 0: Codebase Priming
 
 **Goal:** Понять структуру существующего .NET-решения до проектирования нового компонента — `.sln` структура, проекты, основные NuGet-зависимости, Centralized Package Management, Directory.Build.props.
@@ -42,7 +44,7 @@ Phase 8: Document                     [optional, skip_if=trivial]
 
 **Conditional, skip_if:** greenfield-проект, явная задача создания нового .NET-сервиса с нуля без существующего solution.
 
-В этой фазе используй опционально, если установлены, slash-команды утилиты `dex-codebase-analyzer` (`/codebase-summary`, `/codebase-graph`) или CLI: `dotnet sln list`, `dotnet list package --include-transitive`, `scc`. Если их нет — fallback на Read / Glob / Grep по `*.csproj` / `*.sln`.
+В этой фазе для обзора .NET-репо используй CLI через Bash, если они доступны: `dotnet sln list`, `dotnet list package --include-transitive`, `scc`, `ast-grep`. Если CLI недоступны — fallback на встроенные Read / Glob / Grep по `*.sln` / `*.csproj` / `Directory.Build.props` / `Directory.Packages.props`. Slash-команды утилиты `dex-codebase-analyzer` — это user-facing инструменты, которые пользователь может запустить **до** запуска агента; внутри фазы агент использует Bash напрямую.
 
 ## Phase 1: Understand Requirements
 
