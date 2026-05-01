@@ -396,15 +396,18 @@
     {
       "name": "dex-skill-system-design",
       "source": "./plugins/skills/dex-skill-system-design",
-      "description": "System design traps: NFR analysis, capacity planning, scalability, CAP theorem, trade-offs",
-      "version": "1.1.0",
+      "description": "System design traps: NFR, capacity planning, scalability, CAP/PACELC, sharding key, reference architectures, hot path",
+      "version": "1.2.0",
       "category": "skill",
       "keywords": [
         "skill",
         "system-design",
         "nfr",
         "scalability",
-        "cap-theorem"
+        "cap-theorem",
+        "sharding",
+        "reference-architecture",
+        "hot-path"
       ]
     },
     {
@@ -881,16 +884,36 @@
     {
       "name": "dex-architect",
       "source": "./plugins/specialists/architecture/dex-architect",
-      "description": "Software architect: system design, Clean Architecture, DDD, microservices, NFR analysis, trade-offs",
-      "version": "1.1.0",
+      "description": "Interactive system design architect: интервью, capacity, reference architectures (feed/chat/payment), deep dive, implementation plan. Стек-нейтральный",
+      "version": "2.0.0",
       "category": "specialist",
       "keywords": [
         "specialist",
         "architect",
-        "design",
-        "patterns",
         "system-design",
-        "nfr"
+        "interview",
+        "capacity-planning",
+        "reference-architecture",
+        "clean-architecture",
+        "ddd",
+        "microservices"
+      ]
+    },
+    {
+      "name": "dex-architect-dotnet",
+      "source": "./plugins/specialists/architecture/dex-architect-dotnet",
+      "description": "Interactive architect for .NET: интервью, capacity, reference architectures, deep dive под ASP.NET Core / EF Core / MassTransit / Polly",
+      "version": "1.0.0",
+      "category": "specialist",
+      "keywords": [
+        "specialist",
+        "architect",
+        "dotnet",
+        "system-design",
+        "interview",
+        "asp-net-core",
+        "ef-core",
+        "masstransit"
       ]
     },
     {
@@ -1160,8 +1183,8 @@
     {
       "name": "dex-bundle-dotnet-developer",
       "source": "./plugins/bundles/dex-bundle-dotnet-developer",
-      "description": "Bundle for .NET developers: coding, debugging, testing, review, EF, performance",
-      "version": "1.1.0",
+      "description": "Bundle for .NET developers: coding, debugging, testing, review, EF, performance, interactive .NET architecture design",
+      "version": "1.2.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -1172,8 +1195,8 @@
     {
       "name": "dex-bundle-dotnet-fullstack",
       "source": "./plugins/bundles/dex-bundle-dotnet-fullstack",
-      "description": "Complete .NET fullstack: development + databases + messaging + containers",
-      "version": "1.1.0",
+      "description": "Complete .NET fullstack: development + databases + messaging + containers + interactive .NET architecture design",
+      "version": "1.2.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -1211,28 +1234,30 @@
     {
       "name": "dex-bundle-system-analyst",
       "source": "./plugins/bundles/dex-bundle-system-analyst",
-      "description": "Bundle for System Analysts: requirements, user stories, BPMN, API specs",
-      "version": "1.1.0",
+      "description": "Bundle for System Analysts: requirements, user stories, BPMN, API specs, system design feasibility",
+      "version": "1.2.0",
       "category": "bundle",
       "keywords": [
         "bundle",
         "analyst",
         "requirements",
-        "bpmn"
+        "bpmn",
+        "system-design"
       ]
     },
     {
       "name": "dex-bundle-architect",
       "source": "./plugins/bundles/dex-bundle-architect",
-      "description": "Bundle for Architects: design, ADR, diagrams, API design, security, observability, system design",
-      "version": "1.2.0",
+      "description": "Bundle for Architects: interactive system design (Xu/RESHADED), ADR, diagrams, API design, codebase analysis, security, observability",
+      "version": "1.3.0",
       "category": "bundle",
       "keywords": [
         "bundle",
         "architect",
         "design",
         "adr",
-        "system-design"
+        "system-design",
+        "codebase-analysis"
       ]
     },
     {
@@ -1454,6 +1479,22 @@
         "inspector",
         "debug",
         "testing"
+      ]
+    },
+    {
+      "name": "dex-codebase-analyzer",
+      "source": "./plugins/utilities/dex-codebase-analyzer",
+      "description": "Codebase analysis utility: scc summary, repomix pack, ast-grep dependency graph with graceful fallback. Used by architect agents in Codebase Priming",
+      "version": "1.0.0",
+      "category": "utility",
+      "keywords": [
+        "utility",
+        "code-analysis",
+        "repository-summary",
+        "ast",
+        "dependencies",
+        "scc",
+        "repomix"
       ]
     },
     {
