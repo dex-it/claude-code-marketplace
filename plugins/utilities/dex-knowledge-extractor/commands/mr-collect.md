@@ -2,7 +2,7 @@
 description: Сбор данных MR/PR (review comments + commits + correlation) в файл для последующего анализа. Платформы -- GitLab через glab api, GitHub через gh api.
 user-invocable: true
 allowed-tools: Bash, Write
-argument-hint: "<MR-url или short-id> [--task <TASK-KEY>]"
+argument-hint: "<MR-url или short-id> [--task <TASK-KEY>] [--trusted <user1,user2,...>]"
 ---
 
 # /mr-collect
@@ -17,6 +17,7 @@ argument-hint: "<MR-url или short-id> [--task <TASK-KEY>]"
 - GitHub URL: `https://github.com/<owner>/<repo>/pull/<number>`
 - Short: `<owner>/<repo>#<number>` (GitHub) или `<group>/<project>!<id>` (GitLab)
 - Опциональный флаг `--task <TASK-KEY>` -- номер задачи для имени файла (например `DP-2255`)
+- Опциональный флаг `--trusted <user1,user2,...>` -- список GitLab/GitHub usernames «опытных ревьюеров». Если передан, их комментарии помечаются тегом `[TRUSTED]` в выходе. Если не передан -- все комментарии без тегов, обработка как раньше.
 
 **Platform detection:** по URL (`gitlab` / `github`) или по символу (`#` → GitHub, `!` → GitLab). Неизвестный формат -- явная ошибка с примерами.
 
@@ -29,6 +30,7 @@ argument-hint: "<MR-url или short-id> [--task <TASK-KEY>]"
 
 - Review comments -- только от `author != MR author`, исключить bot-аккаунты (`*[bot]`, `gitlab-bot`, `dependabot`, `github-actions`)
 - Commits -- только после даты первого review comment (иначе попадает вся история MR до ревью)
+- Если `--trusted` пуст или не передан -- теги `[TRUSTED]` не добавляются, формат комментариев остаётся как был (обратная совместимость)
 
 **Output file:** `/tmp/mr-collect-<task-key>-<platform>-<mr-number>-<YYYYMMDD-HHMM>.md`. Task key берётся из флага `--task`, иначе ищется в title / description MR по regex `[A-Z]{2,}-\d+`, иначе используется `no-task`. Слэши и спецсимволы в идентификаторах заменить на `-`.
 
@@ -37,7 +39,7 @@ argument-hint: "<MR-url или short-id> [--task <TASK-KEY>]"
 ```
 # MR Collect: <project> !<mr>
 ## Metadata            — таблица task / project / mr / title / author / source→target / status / created / merged
-## Review Comments (N) — каждый: author, file:line, status, date, текст, replies
+## Review Comments (N) — каждый: author, file:line, status, date, текст, replies. Если автор ∈ --trusted список → префикс `[TRUSTED]` перед author.
 ## Commits after first review (M) — каждый: sha, date, message, files, diff stat (+added -removed)
 ## Correlation hints   — для каждого comment: список коммитов, тронувших тот же файл после даты коммента
 ```

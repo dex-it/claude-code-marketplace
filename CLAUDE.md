@@ -80,17 +80,17 @@ Two-Pass Architecture применяется **только к Analyst и Diagno
 ```
 claude-code-marketplace/
 ├── .claude-plugin/
-│   └── marketplace.json           # Каталог всех 111 плагинов
+│   └── marketplace.json           # Каталог всех 113 плагинов
 ├── mcp/                           # Централизованный каталог MCP серверов
 │   ├── README.md
 │   └── mcp-template.json
 ├── plugins/
-│   ├── skills/                    # Level 1: Knowledge bases (52 плагина)
+│   ├── skills/                    # Level 1: Knowledge bases (53 плагина)
 │   │   ├── dex-skill-agile/
 │   │   ├── dex-skill-dotnet-di/
 │   │   ├── dex-skill-docker/
 │   │   └── ...
-│   ├── utilities/                 # Level 1: Tools (8 плагинов)
+│   ├── utilities/                 # Level 1: Tools (9 плагинов)
 │   │   └── dex-telegram-notifier/
 │   ├── specialists/               # Level 2: Agents (41 плагин)
 │   │   ├── dotnet/               # .NET specialists (6)
@@ -114,7 +114,7 @@ claude-code-marketplace/
 └── LICENSE
 ```
 
-## Level 1: Skills (52 плагина)
+## Level 1: Skills (53 плагина)
 
 Skills - базы знаний, активируются автоматически по ключевым словам в контексте.
 
@@ -210,7 +210,7 @@ Skills - базы знаний, активируются автоматичес�
 | dex-skill-computer-vision | Computer Vision: augmentation, detection, segmentation, NMS |
 | dex-skill-ml-optimization | ML optimization: Optuna, gradient accumulation, torch.compile |
 
-## Level 1: Utilities (8 плагинов)
+## Level 1: Utilities (9 плагинов)
 
 ### dex-telegram-notifier
 
@@ -631,9 +631,9 @@ MCP конфигурации в централизованном каталог�
 - dex-dotnet-architect, dex-devops, dex-product-manager...
 
 ### Стало (v5.0)
-111 атомарных плагинов без дублирования:
-- 52 skills (Level 1)
-- 8 utilities (Level 1)
+113 атомарных плагинов без дублирования:
+- 53 skills (Level 1)
+- 9 utilities (Level 1)
 - 41 specialist (Level 2)
 - 10 bundles (Level 3)
 
