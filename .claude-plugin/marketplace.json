@@ -394,20 +394,131 @@
       ]
     },
     {
-      "name": "dex-skill-system-design",
-      "source": "./plugins/skills/dex-skill-system-design",
-      "description": "System design traps: NFR, capacity planning, scalability, CAP/PACELC, sharding key, reference architectures, hot path",
-      "version": "1.2.0",
+      "name": "dex-skill-nfr",
+      "source": "./plugins/skills/dex-skill-nfr",
+      "description": "Non-functional requirements traps: numeric NFRs, SLA/SLO/SLI, p99 latency, security NFR (data classification, authorization model, secrets management, audit log, IDOR, multi-tenant)",
+      "version": "1.0.0",
       "category": "skill",
       "keywords": [
         "skill",
-        "system-design",
         "nfr",
+        "non-functional-requirements",
+        "sla",
+        "slo",
+        "sli",
+        "security-nfr",
+        "idor",
+        "multi-tenant",
+        "audit-log"
+      ]
+    },
+    {
+      "name": "dex-skill-capacity-planning",
+      "source": "./plugins/skills/dex-skill-capacity-planning",
+      "description": "Capacity planning traps: peak vs average load, write amplification, back-of-envelope estimation, read:write ratio, cache cost asymmetry, denormalization, hot path identification",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "capacity-planning",
+        "back-of-envelope",
+        "read-write-ratio",
+        "hot-path",
+        "write-amplification",
+        "cache"
+      ]
+    },
+    {
+      "name": "dex-skill-scalability",
+      "source": "./plugins/skills/dex-skill-scalability",
+      "description": "Scalability traps: premature horizontal scaling, stateful services (memory, fs, connections), shared mutable state, sharding key selection (hot partition, hash mod N, multi-tenant, cross-shard)",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
         "scalability",
-        "cap-theorem",
+        "horizontal-scaling",
+        "stateless",
         "sharding",
+        "consistent-hashing",
+        "hot-partition",
+        "multi-tenant"
+      ]
+    },
+    {
+      "name": "dex-skill-cap-consistency",
+      "source": "./plugins/skills/dex-skill-cap-consistency",
+      "description": "CAP theorem and consistency trade-offs: strong vs eventual, PACELC, per-operation choice, read-your-writes, quorum, split-brain, clock skew, saga compensation",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "cap-theorem",
+        "pacelc",
+        "consistency",
+        "strong-consistency",
+        "eventual-consistency",
+        "saga",
+        "outbox",
+        "split-brain",
+        "quorum"
+      ]
+    },
+    {
+      "name": "dex-skill-tech-evaluation",
+      "source": "./plugins/skills/dex-skill-tech-evaluation",
+      "description": "Technology evaluation traps: hype-driven adoption, no PoC, ignoring operational cost, vendor lock-in, deprecation risk, license traps, hidden cost, team expertise",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "technology-evaluation",
+        "tech-stack",
+        "poc",
+        "operational-cost",
+        "vendor-lock-in",
+        "license",
+        "build-vs-buy"
+      ]
+    },
+    {
+      "name": "dex-skill-reference-architectures",
+      "source": "./plugins/skills/dex-skill-reference-architectures",
+      "description": "Reference architecture selection traps: feed (push vs pull), chat (WebSocket/SSE/long-poll), payment (idempotency + outbox + saga), search (split paths), notifications (fan-out tail vs head), rate-limiter algorithms",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
         "reference-architecture",
-        "hot-path"
+        "fan-out",
+        "feed",
+        "chat",
+        "payment",
+        "search",
+        "rate-limiter",
+        "websocket",
+        "sse"
+      ]
+    },
+    {
+      "name": "dex-skill-distributed-resilience",
+      "source": "./plugins/skills/dex-skill-distributed-resilience",
+      "description": "Distributed systems resilience: concurrency (CAS, optimistic locking, lost update) and reliability (timeout, retry, idempotency, circuit breaker, graceful degradation, bulkheads, health checks)",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "resilience",
+        "concurrency",
+        "cas",
+        "optimistic-locking",
+        "timeout",
+        "retry",
+        "idempotency",
+        "circuit-breaker",
+        "bulkhead",
+        "graceful-degradation",
+        "health-check"
       ]
     },
     {

@@ -77,7 +77,7 @@ Phase 8: Document                     [optional, skip_if=trivial]
 
 **Mandatory:** yes — без цифр выбор storage / cache / sharding безоснователен.
 
-В этой фазе загружай императивно: `dex-skill-system-design:system-design` — capacity ловушки, sharding key, hot path.
+В этой фазе загружай императивно: `dex-skill-capacity-planning:capacity-planning` — capacity ловушки, write amplification, read:write ratio, cache cost, hot path.
 
 ## Phase 3: Reference Architecture Match
 

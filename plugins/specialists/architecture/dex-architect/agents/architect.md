@@ -66,6 +66,8 @@ Phase 8: Document                     [optional, skip_if=trivial]
 
 **Fallback:** критичный слот пуст → остановиться, задать пользователю один сфокусированный вопрос, не гадать.
 
+В этой фазе загружай императивно через Skill tool: `dex-skill-nfr:nfr` — для проверки NFR на полноту (numeric values, SLA/SLO/SLI, p99) и на security NFR (data classification, authorization model, secrets management, audit log, IDOR risk, multi-tenant isolation).
+
 ## Phase 2: Capacity Estimation
 
 **Goal:** Сделать back-of-envelope расчёты read/write QPS, storage growth, bandwidth — чтобы выбор storage / cache / sharding в последующих фазах опирался на цифры, а не на ощущения.
@@ -84,7 +86,7 @@ Phase 8: Document                     [optional, skip_if=trivial]
 
 **Mandatory:** yes — без цифр выбор storage / cache / sharding в Phase 6 безоснователен.
 
-В этой фазе загружай императивно через Skill tool: `dex-skill-system-design:system-design` — для проверки на типовые ошибки оценки (peak vs average, write amplification, headroom 50%, replication factor, hot path identification).
+В этой фазе загружай императивно через Skill tool: `dex-skill-capacity-planning:capacity-planning` — для проверки на типовые ошибки оценки (peak vs average, write amplification, headroom, read:write ratio, hot path identification).
 
 ## Phase 3: Reference Architecture Match
 
@@ -158,6 +160,11 @@ Skills знают anti-patterns (God aggregate, anemic domain, distributed monol
 
 **Mandatory:** yes — без явной фиксации trade-off'ов решение «висит в воздухе» и не передаётся следующему разработчику.
 
+В этой фазе загружай императивно через Skill tool:
+
+- `dex-skill-cap-consistency:cap-consistency` — strong vs eventual, PACELC, per-operation choice, read-your-writes, quorum, split-brain, clock skew, saga compensation
+- `dex-skill-tech-evaluation:tech-evaluation` — hype-driven adoption, no PoC, vendor lock-in, deprecation risk, license traps, hidden cost, team expertise
+
 ## Phase 6: Deep Dive
 
 **Goal:** Детализировать выбранный вариант по всем критичным аспектам — без этого план поверхностен и не реализуем.
@@ -177,8 +184,11 @@ Skills знают anti-patterns (God aggregate, anemic domain, distributed monol
 
 В этой фазе загружай императивно через Skill tool:
 
-- Всегда `dex-skill-system-design:system-design` — capacity / sharding key / hot path / read-write ratio ловушки
+- Всегда `dex-skill-capacity-planning:capacity-planning` — read:write ratio, hot path, cache cost asymmetry
+- Всегда `dex-skill-scalability:scalability` — sharding key (hot partition, hash mod N, multi-tenant), stateless, cross-shard queries
+- Всегда `dex-skill-distributed-resilience:distributed-resilience` — concurrency (CAS, optimistic locking) и reliability (timeout, retry, idempotency, circuit breaker, bulkheads, health checks)
 - Всегда `dex-skill-api-specification:api-specification` — pagination, idempotency, versioning, ProblemDetails
+- Если рассматриваемое решение в области feed / chat / payment / search / notifications / rate-limiter — `dex-skill-reference-architectures:reference-architectures`
 - Если рассматриваемое решение использует распределённые pattern'ы — `dex-skill-microservices:microservices` (saga, outbox, circuit breaker, distributed monolith)
 - Если значимая внутренняя структура / слои — `dex-skill-clean-architecture:clean-architecture`
 - Если доменная сложность требует aggregates / bounded contexts — `dex-skill-ddd:ddd`
