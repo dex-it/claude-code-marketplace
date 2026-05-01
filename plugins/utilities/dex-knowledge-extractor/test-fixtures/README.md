@@ -13,9 +13,9 @@
 ## Запуск (ручной, после имплементации команды)
 
 ```bash
-cd /home/mmx/Work/claude-market/claude-code-marketplace
+cd "$(git rev-parse --show-toplevel)"
 git stash  # сохранить рабочее дерево
-claude -p "/mr-apply $(pwd)/plugins/specialists/marketplace/dex-knowledge-extractor/test-fixtures/analyze-skill-addition.md"
+claude -p "/mr-apply $(pwd)/plugins/utilities/dex-knowledge-extractor/test-fixtures/analyze-skill-addition.md"
 git diff   # посмотреть что применилось
 git checkout .  # откатить
 git stash pop

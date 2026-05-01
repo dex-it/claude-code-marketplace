@@ -9,7 +9,7 @@
 
 **Drop-in:**
 
-#### Pooling + поля экземпляра DbContext
+### Pooling + поля экземпляра DbContext
 
 **Плохо:**
 

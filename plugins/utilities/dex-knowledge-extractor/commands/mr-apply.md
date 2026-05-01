@@ -25,7 +25,7 @@ argument-hint: "<путь к файлу от /mr-analyze> [--marketplace-root <p
 
 ### Proposed new skills
 
-Создаются три файла: `SKILL.md` в `plugins/skills/<name>/skills/<name>/`, `plugin.json` в `.claude-plugin/` плагина (version `1.0.0`, author `Maxim Tonkoglas`, license `MIT`), новая запись в массив `plugins` корневого `marketplace.json` (version `1.0.0`, `source` указывает на новую директорию). Bundle.json трогаем только если в предложении указаны bundles — иначе оставляем ручному ревьюеру.
+Создаются три файла: `SKILL.md` в `plugins/skills/<name>/skills/<name>/`, `plugin.json` в `.claude-plugin/` плагина (version `1.0.0`, author `Dex Team` / email `admin@dex.ru`, license `GPL-3.0`, repository `https://github.com/dex-it/claude-code-marketplace`), новая запись в массив `plugins` корневого `marketplace.json` (version `1.0.0`, `source` указывает на новую директорию). Bundle.json трогаем только если в предложении указаны bundles — иначе оставляем ручному ревьюеру.
 
 ### Proposed agent changes
 
@@ -35,9 +35,9 @@ argument-hint: "<путь к файлу от /mr-analyze> [--marketplace-root <p
 
 Перед записью изменения в файл — проверка по правилам ниже. Любое нарушение → пропуск с записью в `Skipped (self-review failed)` секцию `apply-report.md` с цитатой нарушения.
 
-**Универсальные:** длина SKILL.md в [80..250] строк; frontmatter `description` ≤ 250 символов; нет запрещённых полей (`skills:` нигде, `allowed-tools:` запрещён в agent.md); нет имён конкретных проектов / классов / DTO в формулировках (например `MerlinService`, `UpCore`, `EyeLineData`). Допустимы имена .NET API (`HttpClient`, `DbContext`, `ServiceCollection`).
+**Универсальные:** нет запрещённых полей в frontmatter (`skills:` нигде, `allowed-tools:` запрещён в agent.md, `keywords:` запрещён в SKILL.md — пороги синхронизированы с `tools/validate-skill.js` и `tools/validate-agent.js`); нет имён конкретных проектов / классов / DTO в формулировках (например `MerlinService`, `UpCore`, `EyeLineData`). Допустимы имена .NET API (`HttpClient`, `DbContext`, `ServiceCollection`).
 
-**Для skills:** подзаголовок ловушки — `####` внутри H2-секции; формат «Плохо / Правильно / Почему» обязательны все три части; нет дублирования с уже существующими ловушками в том же `SKILL.md` (grep по ключевым словам формулировки).
+**Для skills (синхронизировано с `tools/validate-skill.js`):** размер SKILL.md ≤ 250 строк (`size-exceeds-recommended`), потолок 500 (`size-exceeds-hard-limit`); `description` 50–250 символов; `description` содержит фразу `Активируется при` с ≥ 10 keywords через запятую после неё (`description-no-activation` / `description-few-keywords`); ≥ 5 ловушек H3 на skill (`too-few-traps`); подзаголовок ловушки — `###` внутри H2-категории, не `####`; каждая ловушка содержит триаду «Плохо / Правильно / Почему» (`trap-missing-triad`); ни один code fence не превышает 5 строк (`code-fence-too-long`); нет дублирования с существующими ловушками того же `SKILL.md` (grep по формулировке).
 
 **Для agents:** новая mandatory-фаза без явного «Why mandatory» — пропуск; порядок фаз должен соответствовать рецепту (Domain Priming → Direct Analysis → Skill-Based Scan → Audit → Cross-Linking → Severity → Tech Debt → Output → Report).
 
@@ -55,7 +55,7 @@ argument-hint: "<путь к файлу от /mr-analyze> [--marketplace-root <p
 
 Путь: `/tmp/mr-apply-<task-key>-<YYYYMMDD-HHMM>.md`. Task key из имени входного analyze.md (regex `mr-analyze-([A-Z]+-\d+|no-task)-`), иначе `no-task`.
 
-Структура: секция `Metadata` с source analyze, marketplace root, started timestamp, итог validate (PASS/FAIL); секция `Applied (N)` — для каждого применения подзаголовок с именем предложения, поля File / Section / Lines added / Version bump; секция `Skipped (self-review failed) (M)` — подзаголовок предложения, поля Reason (точная цитата нарушенного правила) / Cited (фрагмент из предложения, нарушивший правило) / Action (`Не применено`); секция `Failed (validate) (K)` — подзаголовок предложения, поля File / Validator error (stderr цитата) / Action (`Откачено`) / Suggestion for human review.
+Структура: секция `Metadata` с source analyze, marketplace root, started timestamp, итог validate (PASS/FAIL); секция `Applied (N)` — для каждого применения подзаголовок с именем предложения, поля File / Section / Lines added / Version bump; секция `Skipped (self-review failed) (M)` — подзаголовок предложения, поля Reason (точная цитата нарушенного правила) / Cited (фрагмент из предложения, нарушивший правило) / Action (`Не применено`); секция `Skipped (target not found) (P)` — подзаголовок предложения, поля Target (имя несуществующего skill / агента / bundle) / Reason (`target not found`) / Action (`Не применено -- передать на ручной ревью /mr-analyze для уточнения цели или создания нового плагина`); секция `Failed (validate) (K)` — подзаголовок предложения, поля File / Validator error (stderr цитата) / Action (`Откачено`) / Suggestion for human review.
 
 Если ноль Applied / Skipped / Failed — файл всё равно создаётся, секции содержат `none`.
 
@@ -68,6 +68,6 @@ argument-hint: "<путь к файлу от /mr-analyze> [--marketplace-root <p
 | `--marketplace-root` указан, но не содержит `.claude-plugin/marketplace.json` | Stderr с инструкцией, exit 1 |
 | `--marketplace-root` не указан и текущий cwd не содержит marketplace.json | Stderr с инструкцией, exit 1 |
 | `npm` отсутствует в PATH | Stderr: «npm required for validate», exit 1 |
-| Целевой skill / агент / bundle из предложения не существует | Записать в `Skipped` с причиной «target not found», продолжить со следующим |
+| Целевой skill / агент / bundle из предложения не существует | Записать в `Skipped (target not found)` с причиной `target not found`, продолжить со следующим |
 | Все предложения провалили self-review и validate | apply-report.md создаётся, ноль Applied — это валидный исход |
 | `npm run validate` падает с не-кодом-ошибки (например `Cannot find module`) | Stderr целиком, exit 1 (не пытаемся откатывать) |

@@ -9,7 +9,7 @@
 
 **Drop-in:**
 
-#### ConfigureAwait(false) в библиотечном коде
+### ConfigureAwait(false) в библиотечном коде
 
 **Плохо:**
 
@@ -40,7 +40,7 @@ public async Task<Result> ProcessAsync()
 
 **Drop-in:**
 
-#### AsAsyncEnumerable для streaming больших выборок
+### AsAsyncEnumerable для streaming больших выборок
 
 **Плохо:**
 
