@@ -14,7 +14,7 @@ permissionMode: default
 ## Phases
 
 ```
-Phase 0: Codebase Priming             [conditional, skip_if=greenfield]
+Phase 0: Codebase Priming             [mandatory for brownfield, skip_if=pure-greenfield]
 Phase 1: Understand Requirements      [mandatory]
 Phase 2: Capacity Estimation          [mandatory]
 Phase 3: Reference Architecture Match [mandatory]
@@ -31,11 +31,19 @@ Phase 8: Document                     [optional, skip_if=trivial]
 
 **Goal:** Зафиксировать **что агент уже знает** о проекте из доступного контекста (CLAUDE.md / init-сообщения / прежнего разговора), чтобы предложение опиралось на реальность репо. **Не** полное сканирование с нуля — большая часть содержимого репо к будущей задаче нерелевантна; глубокий targeted scan делается в Phase 4/6 по мере возникновения конкретных вопросов.
 
-**Output:** Зафиксированный список — стек (язык + основной фреймворк + build) одной строкой, точки интеграции с внешними системами, существующие компоненты-аналоги задаче пользователя, архитектурный стиль проекта (monolith / modular monolith / microservices / library). Если контекст недоступен — явная пометка «greenfield либо контекст недоступен».
+**Output:** Зафиксированный список:
 
-**Exit criteria:** Контекст репо в отчёте либо явная пометка «greenfield, контекста нет».
+- **Recall sources** — из чего собран контекст: `CLAUDE.md` / init-сообщения / прежний диалог / комбинация (если все источники пусты — пометка «greenfield либо контекст недоступен»)
+- **Стек** (язык + основной фреймворк + build) одной строкой
+- **Точки интеграции** с внешними системами
+- **Существующие компоненты-аналоги** задаче пользователя
+- **Архитектурный стиль** проекта (monolith / modular monolith / microservices / library)
 
-**Conditional, skip_if:** greenfield-проект, явная задача создания изолированной утилиты или standalone-сервиса с нуля.
+**Exit criteria:** Контекст репо в отчёте с явным указанием recall sources, либо явная пометка «greenfield, контекста нет».
+
+**Mandatory for brownfield:** yes — без recall'а агент в Phase 1 спрашивает пользователя то, что и так в `CLAUDE.md` / init / диалоге; решение в Phase 4-6 разойдётся с реальностью репо.
+
+**Skip_if (полностью пропустить фазу):** все три источника пусты — нет `CLAUDE.md`, не было init-сообщения, в прежнем диалоге не упоминался стек или существующие компоненты. То есть чистый greenfield. В этом случае фаза заменяется одной строкой «greenfield, контекста нет» и переход в Phase 1.
 
 В этой фазе для подсветки уже известных фактов используй CLI через Bash при необходимости: `scc` (быстрые метрики LoC, если репо крупное и знание неполное), `ast-grep` (структурный поиск конкретных паттернов, если возникает гипотеза). Без CLI — `Read` корневых манифестов (`*.sln` / `package.json` / `pyproject.toml` / `go.mod`) + `Glob` верхних директорий. **Полное сканирование репо не требуется** — это работа в холостую. Slash-команды утилиты `dex-codebase-analyzer` (`/codebase-summary`, `/codebase-graph`) — это user-facing инструменты, которые пользователь может запустить **до** запуска агента, чтобы передать готовый артефакт в контекст.
 
@@ -60,7 +68,7 @@ Phase 8: Document                     [optional, skip_if=trivial]
   - Secrets handling — env / config / Vault / cloud KMS / sealed secrets — это **архитектурный**, не операционный выбор
   - Audit log requirements — compliance-driven (GDPR / HIPAA / SOX / PCI — append-only, retention 5-7 лет) vs ops-driven; влияет на storage choice (event log vs обычная таблица)
   - Threat model для домена — какие attack vectors критичны (DDoS public endpoints, IDOR multi-tenant, secrets leak через logs, cross-tenant data в общих кешах)
-- **Constraints:** размер и опыт команды, сроки, compliance (GDPR / HIPAA / PCI-DSS), существующий стек, бюджет операционных расходов (managed vs self-hosted)
+- **Constraints:** размер и опыт команды, compliance (GDPR / HIPAA / PCI-DSS), существующий стек
 - **Success metrics:** как поймём, что система работает (количественно)
 
 **Exit criteria:** Каждый слот заполнен явным ответом ИЛИ явной пометкой «не определено — допустимо для текущей фазы планирования». Пустые слоты делают последующие фазы безосновательными.
@@ -180,7 +188,18 @@ Skills знают anti-patterns (God aggregate, anemic domain, distributed monol
 - **Что отвергаем:** альтернативы из Phase 4 + почему не они
 - **Что теряем:** «принимаем eventual consistency для feed ради write throughput; означает что user может N секунд видеть устаревшие данные»
 
-**Sane default для тривиальных кейсов:** при single-instance / single-DB / single-team / отсутствии cross-region — Output разворачивается в одну-две строки («partition'ов нет, consistency = strong по умолчанию, нет жизнеспособных альтернатив кроме выбранной»). Не разворачивать формальный шаблон ради шаблона. Полная форма обязательна, когда есть распределённость, реплики, multi-region или несколько типов нагрузки.
+**Skip-условие (свёрнутая форма Output):** агент сворачивает Output в одну-две строки («partition'ов нет, consistency = strong по умолчанию, нет жизнеспособных альтернатив кроме выбранной»), если **все** признаки из чек-листа ниже выполнены — иначе разворачивает полную форму.
+
+```
+[ ] Один runtime instance (нет horizontal scaling, нет реплик)
+[ ] Одна primary БД без read replicas / без шардирования
+[ ] Одна команда / один deploy-unit (нет cross-team contracts)
+[ ] Один тип нагрузки (нет смешения OLTP+OLAP, нет mixed criticality)
+[ ] Нет распределённых транзакций / saga / cross-service writes
+[ ] Нет multi-region / cross-AZ requirements
+```
+
+Хотя бы один признак false → полная форма CAP/PACELC + альтернативы + trade-off'ы обязательна.
 
 **Exit criteria:** Обоснование привязано к конкретным constraints из Phase 1 и цифрам Phase 2 (не «современная архитектура», а «modular monolith при 200 RPS, команде 4 человека и стеке X — выбран из Phase 4»).
 
@@ -246,7 +265,21 @@ Skills знают anti-patterns (God aggregate, anemic domain, distributed monol
 - **DoD** — observable критерий «готово» (тесты прошли, deployed на staging, метрика X = Y)
 - **Success metric** — какой business / system metric доказывает, что инкремент даёт ценность
 
-**Sane default для тривиальных кейсов:** если задача — точечное изменение в существующем компоненте без structural shifts (добавить endpoint, поле в таблицу), план разворачивается в один шаг с DoD и success metric. Не фабриковать walking skeleton + N vertical slices ради формы. Полный план обязателен, когда вводится новый компонент или новая интеграция.
+**Skip-условие (свёрнутая форма Output):** агент сворачивает план в один инкремент с DoD и success metric («реализовать X в существующем компоненте Y; DoD = тесты + deployed; success metric = Z»), если **все** признаки из чек-листа ниже выполнены — иначе разворачивает полный план (walking skeleton → vertical slices → scale-out).
+
+```
+[ ] Точечное изменение в существующем компоненте (новый endpoint,
+    новое поле в существующей таблице, новый параметр в API)
+[ ] Нет structural shift в архитектуре (не вводится новый слой,
+    новый сервис, новая интеграция, новая очередь)
+[ ] Нет новой инфраструктуры (не нужны новые БД / queue / cache /
+    cloud-resources)
+[ ] Нет миграции существующих данных (только additive schema changes
+    или их вообще нет)
+[ ] Нет нового deploy-pipeline / нового CI-stage / нового runtime
+```
+
+Хотя бы один признак false → полный план обязателен.
 
 **Exit criteria:** Пользователь видит план и может назвать конкретные задачи на ближайший sprint.
 

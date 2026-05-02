@@ -14,7 +14,7 @@ permissionMode: default
 ## Phases
 
 ```
-Phase 0: Codebase Priming             [conditional, skip_if=greenfield]
+Phase 0: Codebase Priming             [mandatory for brownfield, skip_if=pure-greenfield]
 Phase 1: Understand Requirements      [mandatory]
 Phase 2: Capacity Estimation          [mandatory]
 Phase 3: Reference Architecture Match [mandatory]
@@ -33,6 +33,7 @@ Phase 8: Document                     [optional, skip_if=trivial]
 
 **Output:** Зафиксированный список:
 
+- **Recall sources** — из чего собран контекст: `CLAUDE.md` / init-сообщения / прежний диалог / комбинация (если все источники пусты — пометка «greenfield .NET-проект»)
 - **.NET version + TFM** (`net8.0`, `net9.0`, multi-target)
 - **`.sln` структура** — список проектов, их типы (Web / Library / Test), зависимости через ProjectReference
 - **Centralized Package Management** — есть ли `Directory.Packages.props`, как версии управляются
@@ -40,9 +41,11 @@ Phase 8: Document                     [optional, skip_if=trivial]
 - **Основные библиотеки** — ASP.NET Core / EF Core / MediatR / MassTransit / Serilog / OpenTelemetry — что используется
 - **Архитектурный стиль** — Clean Architecture / Vertical Slice / Modular Monolith / Microservices
 
-**Exit criteria:** Контекст репо в отчёте либо явная пометка «greenfield .NET-проект».
+**Exit criteria:** Контекст репо в отчёте с явным указанием recall sources, либо явная пометка «greenfield .NET-проект».
 
-**Conditional, skip_if:** greenfield-проект, явная задача создания нового .NET-сервиса с нуля без существующего solution.
+**Mandatory for brownfield:** yes — без recall'а агент в Phase 1 спрашивает пользователя то, что и так в `CLAUDE.md` / init / диалоге; решение в Phase 4-6 разойдётся с реальностью .NET-solution.
+
+**Skip_if (полностью пропустить фазу):** все три источника пусты — нет `CLAUDE.md`, не было init-сообщения, в прежнем диалоге не упоминался .NET-стек или существующие проекты. То есть чистый greenfield .NET. В этом случае фаза заменяется одной строкой «greenfield .NET-проект, контекста нет» и переход в Phase 1.
 
 В этой фазе для подсветки уже известных фактов используй CLI через Bash при необходимости: `dotnet sln list`, `dotnet list package --include-transitive`, `scc` (быстрые метрики LoC, если знание неполное), `ast-grep` (структурный поиск конкретных паттернов). Без CLI — `Read` `*.sln` / `Directory.Build.props` / `Directory.Packages.props` + `Glob` по `**/*.csproj`. **Полное сканирование репо не требуется** — это работа в холостую. Slash-команды утилиты `dex-codebase-analyzer` (`/codebase-summary`, `/codebase-graph`) — это user-facing инструменты, которые пользователь может запустить **до** запуска агента.
 
@@ -63,7 +66,7 @@ Phase 8: Document                     [optional, skip_if=trivial]
   - Audit log requirements — compliance-driven (append-only, retention 5-7 лет) vs ops-driven; влияет на storage choice (event log в EventStore / Kafka vs обычная таблица)
   - Threat model для домена — IDOR в multi-tenant, SSRF на internal endpoints, secrets leak через Serilog, cross-tenant data в общих кешах
 - **.NET-specific constraints:** опыт команды с .NET (junior / mid / senior); managed cloud (Azure App Service / Container Apps / AKS / Functions) или self-hosted; ограничения по версии runtime (LTS only?); поддержка Linux containers
-- **Constraints:** размер и опыт команды, сроки, compliance (GDPR / HIPAA / PCI-DSS), существующий .NET-стек, бюджет операционных расходов
+- **Constraints:** размер и опыт команды, compliance (GDPR / HIPAA / PCI-DSS), существующий .NET-стек
 - **Success metrics:** количественные
 
 **Exit criteria:** Каждый слот заполнен явным ответом ИЛИ явной пометкой «не определено».
@@ -150,7 +153,18 @@ Phase 8: Document                     [optional, skip_if=trivial]
 - Что отвергаем + почему
 - Что теряем («принимаем eventual consistency для feed ради write throughput через MassTransit + outbox»)
 
-**Sane default для тривиальных кейсов:** при single-instance / single-DB / single-team / отсутствии cross-region — Output разворачивается в одну-две строки. Не разворачивать формальный шаблон ради шаблона. Полная форма обязательна, когда есть распределённость, реплики, multi-region или несколько типов нагрузки.
+**Skip-условие (свёрнутая форма Output):** агент сворачивает Output в одну-две строки («partition'ов нет, consistency = strong по умолчанию, нет жизнеспособных альтернатив кроме выбранной»), если **все** признаки из чек-листа ниже выполнены — иначе разворачивает полную форму.
+
+```
+[ ] Один runtime instance (нет horizontal scaling, нет реплик)
+[ ] Одна primary БД без read replicas / без шардирования
+[ ] Одна команда / один deploy-unit (нет cross-team contracts)
+[ ] Один тип нагрузки (нет смешения OLTP+OLAP, нет mixed criticality)
+[ ] Нет распределённых транзакций / saga / cross-service writes
+[ ] Нет multi-region / cross-AZ requirements
+```
+
+Хотя бы один признак false → полная форма CAP/PACELC + альтернативы + trade-off'ы обязательна.
 
 **Exit criteria:** Обоснование привязано к Phase 1 constraints и Phase 2 цифрам.
 
@@ -224,7 +238,21 @@ Phase 8: Document                     [optional, skip_if=trivial]
 - **DoD** — observable критерий «готово» (тесты прошли, deployed в staging, метрика X = Y)
 - **Success metric** — какой business / system metric доказывает ценность инкремента
 
-**Sane default для тривиальных кейсов:** если задача — точечное изменение в существующем .NET-сервисе без structural shifts (добавить endpoint, поле в `DbContext`, новый handler), план разворачивается в один шаг с DoD и success metric. Не фабриковать walking skeleton + N vertical slices ради формы. Полный план обязателен, когда вводится новый сервис, новая интеграция или значимый рефакторинг существующих границ.
+**Skip-условие (свёрнутая форма Output):** агент сворачивает план в один инкремент с DoD и success metric («реализовать X в существующем .NET-сервисе Y; DoD = `dotnet test` зелёный + deployed; success metric = Z»), если **все** признаки из чек-листа ниже выполнены — иначе разворачивает полный план (walking skeleton → vertical slices → scale-out).
+
+```
+[ ] Точечное изменение в существующем .NET-сервисе (новый endpoint,
+    новое поле в `DbContext`, новый handler в существующем модуле)
+[ ] Нет structural shift в архитектуре (не вводится новый сервис,
+    новая интеграция, новый message contract, новый bounded context)
+[ ] Нет новой инфраструктуры (не нужны новые БД / queue / cache /
+    Azure resources / Kubernetes objects)
+[ ] Нет миграции существующих данных (только additive EF Core migration
+    или её вообще нет)
+[ ] Нет нового deploy-pipeline / нового CI-stage / нового runtime TFM
+```
+
+Хотя бы один признак false → полный план обязателен.
 
 **Exit criteria:** Пользователь видит план и может назвать конкретные задачи на ближайший sprint.
 
