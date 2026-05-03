@@ -1,6 +1,6 @@
 ---
 name: dotnet-ef-core
-description: EF Core — ловушки запросов, миграций, concurrency. Активируется при ef core, dbcontext, migration, linq to entities, N+1, AsNoTracking, Include, AsSplitQuery, ExecuteUpdate, ExecuteDelete, Change Tracker, SaveChanges, cartesian explosion
+description: EF Core — ловушки запросов, миграций, concurrency, mapping. Активируется при ef core, dbcontext, migration, N+1, AsNoTracking, Include, AsSplitQuery, IQueryable, ExecuteUpdate, cartesian explosion, GroupBy, owned types
 ---
 
 # Entity Framework Core — ловушки и anti-patterns
@@ -22,6 +22,21 @@ description: EF Core — ловушки запросов, миграций, conc
 Правильно: `.Select(o => new OrderDto(o.Id, o.Total, o.Items.Count)).ToListAsync()`
 Почему: грузишь 20 полей × 1000 строк вместо 3 полей × 1000 строк. SQL тяжелее, трафик больше, Change Tracker раздувается
 
+### Фильтр в памяти после материализации
+Плохо: `(await repo.GetAllAsync()).Where(x => x.IsActive)` — бизнес-фильтр применяется после `ToList`
+Правильно: фильтр внутри `IQueryable` до материализации: `repo.Query().Where(x => x.IsActive).ToListAsync()`
+Почему: БД тянет все строки по сети, фильтрация в памяти процесса. На больших таблицах — OOM или тайм-аут. Бизнес-условие (`flag != 0`, `status == active`) после `ToList` — red flag, переносить в `Where`
+
+### GroupBy / агрегации в памяти
+Плохо: `(await repo.GetAllAsync()).GroupBy(x => x.Category).ToDictionary(...)` или `.Count()` / `.Sum()` после `ToList`
+Правильно: `.GroupBy(x => x.Category).Select(g => new { g.Key, Count = g.Count() }).ToDictionaryAsync(...)` — транслируется в SQL `GROUP BY`
+Почему: EF Core транслирует большинство группировок и агрегаций в SQL. Материализация до группировки тянет все строки и ломает план запроса. Агрегации (`Count`, `Sum`, `Any`) должны идти SQL-запросом, не коллекцией в памяти
+
+### Репозиторий материализует вместо IQueryable
+Плохо: `Task<List<T>> FilterAsync(spec)` — метод возвращает `List`, дальнейшая композиция невозможна
+Правильно: `IQueryable<T> Query(spec)` для композиции на уровне сервиса / handler (или specialized read-методы типа `GetByIdAsync`, `GetPagedAsync` с проекцией внутри)
+Почему: возврат `List` из репозитория = любой caller тянет всю сущность со всеми навигациями, теряется возможность добавить `Where`/`Select`/`Take` на сервере. Красивая абстракция «репозиторий скрывает EF» ценой N×объёма трафика и Change Tracker-раздувания
+
 > Общие LINQ ловушки (Count vs Any, фильтрация, коллекции) — см. `dex-skill-linq-optimization`
 
 ## Add vs AddAsync
@@ -29,6 +44,15 @@ description: EF Core — ловушки запросов, миграций, conc
 Плохо: `await context.Products.AddAsync(product)` — без необходимости
 Правильно: `context.Products.Add(product)` + `await SaveChangesAsync()`
 Почему: `AddAsync` делает дополнительный запрос к БД для получения ID (HiLo sequence). Нужен ТОЛЬКО при `UseHiLo()`. Для Guid/client-generated id — `Add()` достаточно
+
+## Mapping
+
+### Owned-Type из одного значимого поля
+Плохо: `OwnsOne(x => x.Complexity)` где `Complexity` — Value Object из 1 свойства; либо Owned-Type, в котором после ревью / чистки осталось одно поле (остальные удалены как избыточные)
+Правильно: схлопни в плоское свойство на родителе с осмысленным именем (`x.ComplexityScore`). Owned-Type оправдан от 2+ полей, объединённых инвариантом, или когда планируется отдельная таблица (`OwnsOne` + `ToTable`)
+Почему: Owned-Type из 1 поля = overhead конфигурации (`OnModelCreating`, миграция с префиксом `Complexity_`, `OwnsOne(...).Property(...)`) без выгоды. Value Object из одного значения не несёт инварианта (нечего связывать), это псевдо-абстракция. Сигнал к схлопыванию: после удаления избыточных полей в Owned-Type осталось одно — это уже не Value Object, это поле под чужим именем
+
+> Связанные ловушки: что вообще хранить в Aggregate / Owned-Type — см. `dex-skill-ddd` («Persisted-поле без потребителя»).
 
 ## Cascade Delete
 
@@ -106,6 +130,8 @@ description: EF Core — ловушки запросов, миграций, conc
 
 - AsNoTracking для read-only, Select проекция для списков
 - Нет N+1 (Include или Select, не ленивая загрузка)
+- Фильтры и GroupBy / агрегации на сервере, не в памяти после ToList
+- Репозитории возвращают IQueryable для композиции или проекционные read-методы, не List с полной сущностью
 - Add() вместо AddAsync() (если не HiLo)
 - ConcurrencyToken на сущности с concurrent access
 - AsSplitQuery для множественных Include (но не для single entity)

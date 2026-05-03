@@ -1,6 +1,6 @@
 ---
 name: dotnet-logging
-description: .NET structured logging — Serilog, ILogger, Seq. Активируется при serilog, seq, ILogger, structured logging, log level, correlation id, LogError, LogWarning, BeginScope, PII в логах, пустой catch, CloseAndFlush, спам в логах
+description: .NET structured logging — Serilog, ILogger, Seq. Активируется при serilog, seq, ILogger, log level, correlation, LogError, LogWarning, PII, пустой catch, необработанное исключение, опциональный шаг, side-feature, спам логов
 ---
 
 # Logging — ловушки и anti-patterns
@@ -39,6 +39,13 @@ description: .NET structured logging — Serilog, ILogger, Seq. Активиру
 Правильно: `_logger.LogError(ex, "Failed to process order {OrderId}", orderId)`
 Почему: без exception невозможно найти причину ошибки в Seq. Первый параметр Error — всегда Exception
 
+### Нет обёртки вокруг некритичной операции
+Плохо: внутри основного флоу прямой вызов вспомогательной операции (сбор метрик, аналитика, side-feature), у которой может бросить исключение, и выше по стеку нет общего обработчика
+Правильно: `try { await OptionalStep(); } catch (Exception ex) { _logger.LogError(ex, "..."); return; }` — залогируй и выйди, не пробрасывай
+Почему: side-feature не должна валить основной сценарий. Без обёртки одно исключение из опционального шага кладёт весь handler/pipeline. Правило: для каждого вызова в коде — «должен ли этот шаг ронять основной флоу? если нет — обернуть в try/catch + log + return»
+
+> Для разделения обязательных и опциональных шагов через outbox / транзакционную границу — см. `dex-skill-dotnet-async-patterns` («Mixed обязательный + опциональный шаг»).
+
 ## Semantic Types
 
 ### Дамп большого объекта через @
@@ -72,6 +79,16 @@ description: .NET structured logging — Serilog, ILogger, Seq. Активиру
 Плохо: `foreach (var item in items) _logger.LogInformation("Processing {ItemId}", item.Id)`
 Правильно: `_logger.LogInformation("Processing {Count} items for {OrderId}", items.Count, orderId)`
 Почему: 10000 items = 10000 записей в Seq. Шум, за которым не видно реальных событий
+
+### Information для трассировки флоу
+Плохо: `LogInformation("Запрашиваем данные из X")` + `LogInformation("Получили N записей")` + `LogInformation("Отправляем в Y")` на каждом шаге handler'а
+Правильно: Debug для шагов флоу, Information — только для завершённого бизнес-события («Order created», «Analysis completed»)
+Почему: Information включён в production и идёт в алерт-системы. Шаги флоу = log flooding, ключевые бизнес-события тонут в шуме. Вопрос для self-check каждого LogInformation: «это важно оператору в 3 часа ночи в инциденте, или только разработчику при отладке?» — если второе, это Debug
+
+### Логи начала/конца операции в helper'е как Information
+Плохо: `LogInformation("Starting helper Y")` + `LogInformation("Helper Y finished")` внутри приватного метода сервиса
+Правильно: Information только на границе слоя (handler / controller) для завершённой бизнес-операции, внутренние helper'ы — Debug
+Почему: log-уровень задаёт границу видимости в production. Внутренние шаги — деталь реализации, они не нужны оператору. Information на каждом helper = дублирование + невозможно найти реальное событие в потоке
 
 ## Sensitive Data
 
