@@ -283,3 +283,7 @@ grep -rn 'ManagePackageVersionsCentrally' --include="Directory.Packages.props"
 - Если находка меняет поведение — явно пометь в отчёте
 - Дефолт подсветки: при отсутствии маркеров accepted tech debt — подсвечиваем, не молчим
 - Скан non-code артефактов — обязателен, а не «если успеется»
+
+## Связанные плагины
+
+- `dex-knowledge-extractor` — обратный поток: извлечение уроков из чужих MR/PR обратно в маркетплейс через цепочку `/mr-collect` → `/mr-analyze` → `/mr-apply`. Используется maintainer'ами маркетплейса, не разработчиками .NET-кода.

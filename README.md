@@ -4,13 +4,13 @@
 
 ## О проекте
 
-Claude Code Marketplace — набор из 118 специализированных плагинов для Claude Code, организованных в 3 уровня:
+Claude Code Marketplace — набор из 127 специализированных плагинов для Claude Code, организованных в 3 уровня:
 
 ```
 Level 3: BUNDLES (11)     — наборы для быстрой установки по ролям
-Level 2: SPECIALISTS (41) — агенты с узкой специализацией
-Level 1: SKILLS (53)      — базы знаний (автоматическая активация)
-         UTILITIES (13)    — инструменты (hooks, notifications, CLI)
+Level 2: SPECIALISTS (42) — агенты с узкой специализацией
+Level 1: SKILLS (59)      — базы знаний (автоматическая активация)
+         UTILITIES (15)    — инструменты (hooks, notifications, CLI)
 ```
 
 **Принцип:** атомарные плагины без дублирования. Собирай свой набор из нужных компонентов.
@@ -170,7 +170,7 @@ claude plugins uninstall dex-dotnet-coder
 
 ## Skills (Level 1)
 
-Базы знаний — активируются автоматически по ключевым словам в контексте. 53 skills по категориям:
+Базы знаний — активируются автоматически по ключевым словам в контексте. 59 skills по категориям:
 
 | Категория | Skills |
 |-----------|--------|
@@ -252,11 +252,11 @@ MCP конфигурации в каталоге `mcp/`. Подробнее: [mc
 ```
 claude-code-marketplace/
 ├── plugins/
-│   ├── skills/                    # Level 1: базы знаний (53)
+│   ├── skills/                    # Level 1: базы знаний (59)
 │   │   ├── dex-skill-agile/
 │   │   ├── dex-skill-dotnet-patterns/
 │   │   └── ...
-│   ├── utilities/                 # Level 1: инструменты (13)
+│   ├── utilities/                 # Level 1: инструменты (15)
 │   │   ├── dex-telegram-notifier/
 │   │   ├── dex-github-cli/
 │   │   ├── dex-psql-cli/
@@ -265,7 +265,7 @@ claude-code-marketplace/
 │   │   ├── dex-rabbitmqadmin-cli/
 │   │   ├── dex-aws-s3-cli/
 │   │   └── ...
-│   ├── specialists/               # Level 2: агенты (41)
+│   ├── specialists/               # Level 2: агенты (42)
 │   │   ├── dotnet/               # 6 specialists
 │   │   ├── fullstack/            # 1 specialist
 │   │   ├── infrastructure/       # 14 specialists
