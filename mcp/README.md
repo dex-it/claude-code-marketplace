@@ -2,6 +2,8 @@
 
 Централизованный каталог MCP (Model Context Protocol) серверов для всех плагинов Claude Code Marketplace.
 
+> **Когда CLI вместо MCP.** Для read-only диагностики (PostgreSQL / Redis / Kafka / Kubernetes / GitHub / GitLab) часто достаточно CLI-плагинов из `plugins/utilities/dex-*-cli/` — они легче, не требуют отдельного сервера и используют существующий CLI-auth. MCP-серверы остаются предпочтительным выбором для автономных агентских workflow со сложной логикой. Decision matrix и сравнение покрытия — см. [`docs/CLI_UTILITIES.md`](../docs/CLI_UTILITIES.md#cli-vs-mcp-decision-matrix).
+
 ## Быстрый старт
 
 1. Откройте `mcp-template.json`

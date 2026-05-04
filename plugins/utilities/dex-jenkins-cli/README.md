@@ -1,25 +1,29 @@
 # dex-jenkins-cli
 
-Jenkins CLI utility for Claude Code. Quick access to jobs, builds, and console output via REST API.
+CLI-утилита для Jenkins. Быстрый доступ к jobs, builds и console output через REST API.
 
-## Commands
+## Команды
 
-| Command | Description |
-|---------|-------------|
-| `/jk-jobs` | List and inspect jobs |
-| `/jk-builds` | View build details |
-| `/jk-logs` | View console output |
+| Команда | Описание |
+|---------|----------|
+| `/jk-jobs` | Список и детали jobs |
+| `/jk-builds` | Детали build |
+| `/jk-logs` | Console output |
 
-## Requirements
+## Требования
 
-- `curl` and `jq` installed
-- Environment variables:
-  - `JENKINS_URL` -- Jenkins server URL (e.g. `https://jenkins.example.com`)
-  - `JENKINS_USER` -- Jenkins username
-  - `JENKINS_API_TOKEN` -- API token (generate at `$JENKINS_URL/me/configure`)
+- `curl` и `jq` в `PATH`
+- Переменные окружения:
+  - `JENKINS_URL` — URL сервера (например `https://jenkins.example.com`)
+  - `JENKINS_USER` — имя пользователя
+  - `JENKINS_API_TOKEN` — API-токен (генерация: `$JENKINS_URL/me/configure`)
 
-## Installation
+> В отличие от `gh` / `glab` / `kubectl`, плагин использует REST API напрямую через `curl` — отдельного CLI-бинаря ставить не нужно. Достаточно `curl` и `jq` (есть в большинстве дистрибутивов).
+
+См. [docs/CLI_UTILITIES.md](../../../docs/CLI_UTILITIES.md) — общий гайд по CLI-утилитам и матрица CLI vs MCP.
+
+## Установка плагина
 
 ```bash
-claude plugins install ./plugins/utilities/dex-jenkins-cli
+claude plugins install dex-jenkins-cli@dex-claude-marketplace
 ```

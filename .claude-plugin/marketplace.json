@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "5.1.0",
+  "version": "5.2.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -1279,12 +1279,26 @@
       "name": "dex-bundle-infrastructure",
       "source": "./plugins/bundles/dex-bundle-infrastructure",
       "description": "Complete infrastructure: databases, messaging, containers, CI/CD, monitoring",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "category": "bundle",
       "keywords": [
         "bundle",
         "infrastructure",
         "databases",
+        "devops"
+      ]
+    },
+    {
+      "name": "dex-bundle-cli-tools",
+      "source": "./plugins/bundles/dex-bundle-cli-tools",
+      "description": "CLI tools bundle: VCS/CI (gh, glab, jenkins, teamcity), Kubernetes (kubectl), data & messaging (psql, redis-cli, kaf, rabbitmqadmin), cloud (aws s3)",
+      "version": "1.0.0",
+      "category": "bundle",
+      "keywords": [
+        "bundle",
+        "cli",
+        "utilities",
+        "diagnostics",
         "devops"
       ]
     },
@@ -1319,15 +1333,17 @@
     {
       "name": "dex-kubectl-cli",
       "source": "./plugins/utilities/dex-kubectl-cli",
-      "description": "Kubernetes CLI: pods, logs, deployments, events via kubectl",
-      "version": "1.0.0",
+      "description": "Kubernetes CLI: pods, logs, deployments, events, contexts via kubectl",
+      "version": "1.1.0",
       "category": "utility",
       "keywords": [
         "utility",
         "kubectl",
         "kubernetes",
         "k8s",
-        "cli"
+        "cli",
+        "context",
+        "kubeconfig"
       ]
     },
     {
@@ -1356,6 +1372,79 @@
         "cli",
         "builds",
         "ci-cd"
+      ]
+    },
+    {
+      "name": "dex-psql-cli",
+      "source": "./plugins/utilities/dex-psql-cli",
+      "description": "PostgreSQL CLI: read-only queries, schema inspection, EXPLAIN plans, locks via psql",
+      "version": "1.0.0",
+      "category": "utility",
+      "keywords": [
+        "utility",
+        "postgresql",
+        "psql",
+        "cli",
+        "sql",
+        "database"
+      ]
+    },
+    {
+      "name": "dex-redis-cli",
+      "source": "./plugins/utilities/dex-redis-cli",
+      "description": "Redis CLI: server info, key scanning, memory analysis, real-time sampling via redis-cli",
+      "version": "1.0.0",
+      "category": "utility",
+      "keywords": [
+        "utility",
+        "redis",
+        "redis-cli",
+        "cli",
+        "cache"
+      ]
+    },
+    {
+      "name": "dex-kaf-cli",
+      "source": "./plugins/utilities/dex-kaf-cli",
+      "description": "Kafka CLI: topics, consumer groups, message tail, test produce via kaf",
+      "version": "1.0.0",
+      "category": "utility",
+      "keywords": [
+        "utility",
+        "kafka",
+        "kaf",
+        "cli",
+        "messaging",
+        "streaming"
+      ]
+    },
+    {
+      "name": "dex-rabbitmqadmin-cli",
+      "source": "./plugins/utilities/dex-rabbitmqadmin-cli",
+      "description": "RabbitMQ CLI: cluster overview, queues, bindings, test publish via rabbitmqadmin-ng",
+      "version": "1.0.0",
+      "category": "utility",
+      "keywords": [
+        "utility",
+        "rabbitmq",
+        "rabbitmqadmin",
+        "cli",
+        "messaging",
+        "amqp"
+      ]
+    },
+    {
+      "name": "dex-aws-s3-cli",
+      "source": "./plugins/utilities/dex-aws-s3-cli",
+      "description": "AWS S3 CLI: list buckets/objects, bucket info, object metadata, presigned URLs via aws s3",
+      "version": "1.0.0",
+      "category": "utility",
+      "keywords": [
+        "utility",
+        "aws",
+        "s3",
+        "cli",
+        "object-storage"
       ]
     },
     {

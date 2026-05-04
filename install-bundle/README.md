@@ -104,7 +104,8 @@ sudo pacman -S jq
 | `architect` | Software Architect bundle | 9 |
 | `qa-engineer` | QA Engineer bundle | 6 |
 | `ml-engineer` | ML Engineer bundle | 11 |
-| `infrastructure` | Infrastructure bundle | 23 |
+| `infrastructure` | Infrastructure bundle | 37 |
+| `cli-tools` | CLI utilities for diagnostics (gh, glab, kubectl, jenkins, teamcity, psql, redis-cli, kaf, rabbitmqadmin, aws-s3) | 10 |
 
 ## Command Line Options
 
@@ -255,9 +256,29 @@ The component name in `bundle.json` `includes[]` must match a plugin `name` in `
 
 ```
 install-bundle/
-├── install-bundle.sh      # Bash install script (Linux/macOS/WSL)
-├── install-bundle.ps1     # PowerShell install script (Windows)
-├── uninstall-bundle.sh    # Bash uninstall script (Linux/macOS/WSL)
-├── uninstall-bundle.ps1   # PowerShell uninstall script (Windows)
-└── README.md              # This file
+├── install-bundle.sh         # Bash install script for plugin bundles (Linux/macOS/WSL)
+├── install-bundle.ps1        # PowerShell install script for plugin bundles (Windows)
+├── uninstall-bundle.sh       # Bash uninstall script (Linux/macOS/WSL)
+├── uninstall-bundle.ps1      # PowerShell uninstall script (Windows)
+├── install-cli-tools.sh      # Bash installer for underlying CLI binaries (gh, kubectl, psql, ...)
+├── install-cli-tools.ps1     # PowerShell mirror for Windows
+└── README.md                 # This file
 ```
+
+## install-cli-tools (CLI binaries on the host)
+
+Plugin bundles install **slash-command plugins** for Claude Code. The `dex-*-cli` plugins still need their underlying CLI binaries (`gh`, `glab`, `kubectl`, `psql`, `redis-cli`, `kaf`) on your machine. Use `install-cli-tools` to set them up:
+
+```bash
+# Linux / macOS / WSL — auto-detects apt / dnf / pacman / apk / brew
+./install-cli-tools.sh --check          # see what's installed and missing
+./install-cli-tools.sh --all            # install everything missing
+./install-cli-tools.sh psql redis-cli   # install specific tools
+./install-cli-tools.sh --all --dry-run  # preview
+
+# Windows — uses winget / scoop / choco
+.\install-cli-tools.ps1 -Check
+.\install-cli-tools.ps1 -All
+```
+
+This is a separate concern from `install-bundle`: you might install the `cli-tools` bundle (the plugins) on a CI machine without ever touching the host binaries, or vice versa. See [`docs/CLI_UTILITIES.md`](../docs/CLI_UTILITIES.md) for the full install matrix and per-tool configuration notes.
