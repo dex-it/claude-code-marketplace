@@ -1,6 +1,6 @@
 # dex-redis-cli
 
-CLI-утилита для Redis. Server info, безопасный SCAN ключей, анализ памяти и короткие seasonal-сэмплы активности — через `redis-cli`.
+CLI-утилита для Redis. Server info, безопасный SCAN ключей, анализ памяти и короткие сэмплы активности — через `redis-cli`.
 
 ## Команды
 

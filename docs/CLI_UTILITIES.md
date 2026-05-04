@@ -2,7 +2,7 @@
 
 Хаб CLI-плагинов маркетплейса Claude Code: каталог, матрица установки, конфигурация, CLI vs MCP, troubleshooting, безопасность.
 
-> **TL;DR.** CLI-плагины — это тонкие slash-команды-обёртки над проверенными CLI (`gh`, `glab`, `kubectl`, `psql`, `redis-cli`, `kaf`, `rabbitmqadmin`, `aws`). Используйте их для read-only диагностики и точечных операций. MCP-серверы остаются предпочтительными, когда агенту нужен автономный многошаговый workflow по той же системе.
+> **TL;DR.** CLI-плагины — это тонкие slash-команды-обёртки над проверенными CLI (`gh`, `glab`, `kubectl`, `psql`, `redis-cli`, `kaf`, `rabbitmqadmin`, `aws`, `jenkins-cli`, `teamcity`). Используйте их для read-only диагностики и точечных write-операций для отладки (`/kaf-produce`, `/rmq-publish`). MCP-серверы остаются предпочтительными, когда агенту нужен автономный многошаговый workflow по той же системе.
 
 ---
 
@@ -62,16 +62,20 @@
 |---|---|---|---|---|
 | `gh` | `apt install gh` (после [настройки apt-репо GH](https://github.com/cli/cli/blob/trunk/docs/install_linux.md)) | `dnf install gh` | `brew install gh` | [cli.github.com](https://cli.github.com/) |
 | `glab` | `apt install glab` (или [.deb-релиз](https://gitlab.com/gitlab-org/cli/-/releases)) | `dnf install glab` | `brew install glab` | [gitlab.com/.../cli](https://gitlab.com/gitlab-org/cli) |
-| `kubectl` | apt-репо `pkgs.k8s.io` ([гайд](https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/)) | dnf-репо `pkgs.k8s.io` | `brew install kubectl` | [kubernetes.io/.../tools](https://kubernetes.io/docs/tasks/tools/) |
+| `kubectl` | curl `dl.k8s.io/release/.../linux/<arch>/kubectl` + install в `/usr/local/bin` (как делает `install-cli-tools.sh`); либо apt-репо `pkgs.k8s.io` ([гайд](https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/)) | то же | `brew install kubectl` | [kubernetes.io/.../tools](https://kubernetes.io/docs/tasks/tools/) |
 | `psql` | `apt install postgresql-client` | `dnf install postgresql` | `brew install libpq && brew link --force libpq` | [postgresql.org/download](https://www.postgresql.org/download/) |
-| `redis-cli` | `apt install redis-tools` | `dnf install redis` | `brew install redis` | [redis.io/.../install](https://redis.io/docs/install/install-redis/) |
+| `redis-cli` | `apt install redis-tools` | `dnf install redis` ¹ | `brew install redis` | [redis.io/.../install](https://redis.io/docs/install/install-redis/) |
 | `kaf` | curl из [github releases](https://github.com/birdayz/kaf/releases) | curl из github releases | `brew tap birdayz/tap && brew install kaf` | [github.com/birdayz/kaf](https://github.com/birdayz/kaf) |
 | `rabbitmqadmin` | curl из [github releases](https://github.com/rabbitmq/rabbitmqadmin-ng/releases) | curl из github releases | `brew tap rabbitmq/tap && brew install rabbitmqadmin` | [github.com/rabbitmq/rabbitmqadmin-ng](https://github.com/rabbitmq/rabbitmqadmin-ng) |
 | `aws` (CLI v2) | bundled installer (`curl awscli-exe-linux-*.zip` + `unzip` + `./aws/install`) | bundled installer | `brew install awscli` | [docs.aws.amazon.com/cli/.../install](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) |
 | `jenkins-cli` | `apt install default-jre` + curl `$JENKINS_URL/jnlpJars/jenkins-cli.jar` + wrapper | `dnf install java-21-openjdk-headless` + curl jar + wrapper | `brew install openjdk` + curl jar + wrapper | [jenkins.io/.../cli](https://www.jenkins.io/doc/book/managing/cli/) |
 | `teamcity` (JetBrains) | `curl -fsSL https://jb.gg/tc/install \| bash` | то же | `brew install jetbrains/utils/teamcity` | [github.com/JetBrains/teamcity-cli](https://github.com/JetBrains/teamcity-cli) |
 
-> Windows: PowerShell-зеркало доступно — `install-bundle/install-cli-tools.ps1` (использует `winget` / `scoop` / `choco`). WSL — также полностью поддерживаемый путь.
+> Windows: PowerShell-зеркало доступно — `install-bundle/install-cli-tools.ps1` (использует `winget` / `scoop` / `choco`). WSL — также полностью поддерживаемый путь. На Windows `psql`, `jenkins-cli`, `rabbitmqadmin` через PM не ставятся (winget/scoop ставят полный PostgreSQL Server вместо клиента; jenkins-cli требует Java + jar; rabbitmqadmin не упакован в стандартные PM) — для них рекомендован WSL или ручная установка из официального источника.
+
+**Linux pacman / apk:** скрипт `install-cli-tools.sh` поддерживает Arch (`pacman -S <pkg>`) и Alpine (`apk add <pkg>`) для тех инструментов, что есть в стандартных репозиториях (gh, glab, kubectl, psql/postgresql-libs, redis, aws-cli). Для `kaf` и `rabbitmqadmin` используются github releases (см. `install-cli-tools.sh`).
+
+¹ На Fedora пакет `redis` включает и сервер, и клиент (нет отдельного `redis-tools` как на Debian/Ubuntu).
 
 ---
 
@@ -320,7 +324,7 @@ CLI-утилиты и MCP-серверы дополняют друг друга.
 | Read-only диагностика («покажи поды», «объясни запрос», «что в этом топике») | **CLI** | Одна команда, никакой инфры, низкий blast radius |
 | Быстрая проверка во время debugging-сессии | **CLI** | Быстрее, без setup, вывод сразу попадает в разговор |
 | Длинный автономный workflow («агент, рефактори и проверь на живой БД») | **MCP** | Структурированная схема инструментов + многошаговые вызовы без явных запросов |
-| Нужны write/mutate операции через Claude | **MCP** (с явной auth-границей) | CLI-плагины здесь read-only by design |
+| Нужны write/mutate операции через Claude | **MCP** (с явной auth-границей) | CLI-плагины — read-only by design, кроме точечных диагностических `/kaf-produce` и `/rmq-publish` |
 | Локальная разработка, MCP-сервер не настроен | **CLI** | Нулевая дополнительная зависимость |
 | Командная установка с несколькими агентами на одну БД/кластер | **MCP** | Централизованная авторизация, аудит, rate-limit на стороне MCP |
 | Не хотите ещё одну credentials-поверхность | **CLI** | Использует существующий CLI-auth — без отдельных credentials для MCP |
@@ -387,7 +391,7 @@ CLI-утилиты и MCP-серверы дополняют друг друга.
 
 ## Безопасность
 
-- **Все read-команды read-only by design.** `/psql-query` и `/psql-explain` отвергают `INSERT`/`UPDATE`/`DELETE`/DDL/DCL на уровне slash-команды. `/redis-keys` использует только `SCAN`. `/kube-context` мутирует только локальный kubeconfig. RabbitMQ-команды выполняют только `show`/`list`. S3-команды — только `Get*`/`List*` API.
+- **Большинство команд read-only by design.** `/psql-query` и `/psql-explain` отвергают `INSERT`/`UPDATE`/`DELETE`/DDL/DCL на уровне slash-команды. `/redis-keys` использует только `SCAN`. `/kube-context` мутирует только локальный kubeconfig. RabbitMQ read-команды выполняют только `show`/`list`. S3-команды — только `Get*`/`List*` API. Исключения — `/kaf-produce` и `/rmq-publish`: это **намеренные write-операции для диагностики** (отправка одного тестового сообщения), их Constraints предупреждают о downstream-эффектах и просят использовать staging/test-ресурсы.
 - **Никаких секретов в чате.** Токены, пароли, kubeconfig-блобы — через env (`PGPASSWORD`, `REDISCLI_AUTH`, `GH_TOKEN`, `AWS_*`) или конфиги (`~/.pgpass`, `~/.kube/config`, `~/.kaf/config`, `~/.rabbitmqadmin.conf`, `~/.aws/credentials`) с правильными правами (`chmod 600`).
 - **Least-privilege роли для прода.** Read-only DB-роли, read-only kubeconfig'и, ACL-пользователи Redis, monitoring-tag в RabbitMQ, ReadOnly-IAM в AWS. Slash-команды — это convenience; durable-граница безопасности живёт в той системе, к которой подключаетесь.
 - **`/kaf-produce` и `/rmq-publish` пишут в реальные exchanges/topics.** Используйте staging или dedicated test-ресурсы; никогда — против shared-prod-топиков с downstream-эффектами (events, биллинг).

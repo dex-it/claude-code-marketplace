@@ -2,8 +2,9 @@
 # Installs underlying CLI binaries used by dex-*-cli plugins.
 # Auto-detects package manager (winget / scoop / choco). Idempotent.
 #
-# Supported tools: gh, glab, kubectl, psql, redis-cli, kaf
-# See docs/CLI_UTILITIES.md for the install matrix and per-tool notes.
+# Supported tools: gh, glab, kubectl, psql, redis-cli, kaf, rabbitmqadmin, aws, jenkins-cli, teamcity
+# Note: psql/jenkins-cli/rabbitmqadmin are unsupported on Windows package managers.
+#       Use WSL (recommended) or install manually — see docs/CLI_UTILITIES.md.
 
 param(
     [Parameter(Position=0, ValueFromRemainingArguments=$true)]
@@ -123,21 +124,25 @@ function Get-Recipe {
         "winget:gh"        { return @("winget install --id GitHub.cli -e --silent") }
         "winget:glab"      { return @("winget install --id GitLab.GLab -e --silent") }
         "winget:kubectl"   { return @("winget install --id Kubernetes.kubectl -e --silent") }
-        "winget:psql"      { return @("winget install --id PostgreSQL.PostgreSQL -e --silent") }
+        # psql via winget/scoop/choco installs the full PostgreSQL Server (~200MB + service),
+        # not just the client like postgresql-client/libpq on Linux. Skip on Windows.
+        "winget:psql"      { return @("__UNSUPPORTED__") }
         "winget:redis-cli" { return @("winget install --id Redis.Redis -e --silent") }
         "winget:kaf"       { return @("winget install --id Birdayz.kaf -e --silent || scoop install kaf") }
 
         "scoop:gh"         { return @("scoop install gh") }
         "scoop:glab"       { return @("scoop install glab") }
         "scoop:kubectl"    { return @("scoop install kubectl") }
-        "scoop:psql"       { return @("scoop install postgresql") }
+        "scoop:psql"       { return @("__UNSUPPORTED__") }
         "scoop:redis-cli"  { return @("scoop install redis") }
-        "scoop:kaf"        { return @("scoop bucket add extras; scoop install kaf") }
+        # Two-step recipe — must be a 2-element array, not a single string with `;`
+        # (cmd.exe does not treat `;` as a command separator; only `&`, `&&`, `||`).
+        "scoop:kaf"        { return @("scoop bucket add extras", "scoop install kaf") }
 
         "choco:gh"             { return @("choco install gh -y") }
         "choco:glab"           { return @("choco install glab -y") }
         "choco:kubectl"        { return @("choco install kubernetes-cli -y") }
-        "choco:psql"           { return @("choco install postgresql --params '/Password:postgres' -y") }
+        "choco:psql"           { return @("__UNSUPPORTED__") }
         "choco:redis-cli"      { return @("choco install redis-64 -y") }
         "choco:kaf"            { return @("__UNSUPPORTED__") }
 
@@ -164,7 +169,13 @@ function Invoke-Recipe {
     param($Tool, $Pm)
     $recipe = Get-Recipe $Tool $Pm
     if ($recipe[0] -eq "__UNSUPPORTED__") {
-        Write-ErrC "  No recipe for $Tool on $Pm — see docs/CLI_UTILITIES.md install matrix"
+        Write-ErrC "  No package manager recipe for $Tool on $Pm."
+        switch ($Tool) {
+            "psql"          { Write-Dim "    Windows PMs install full PostgreSQL Server (~200MB + service), not just client." ; Write-Dim "    Recommended: use WSL (apt install postgresql-client) or download standalone client from postgresql.org/download." }
+            "rabbitmqadmin" { Write-Dim "    Download Windows binary from https://github.com/rabbitmq/rabbitmqadmin-ng/releases" }
+            "jenkins-cli"   { Write-Dim "    Install Java + download jenkins-cli.jar from `$JENKINS_URL/jnlpJars/jenkins-cli.jar (see docs/CLI_UTILITIES.md)." }
+            default         { Write-Dim "    See docs/CLI_UTILITIES.md install matrix." }
+        }
         return $false
     }
     foreach ($line in $recipe) {
