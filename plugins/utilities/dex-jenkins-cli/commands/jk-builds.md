@@ -1,5 +1,5 @@
 ---
-description: Детали билда Jenkins через REST API
+description: Список и детали билдов Jenkins job через jenkins-cli
 user-invocable: true
 allowed-tools: Bash
 argument-hint: "job-name [build-number | lastBuild | lastFailedBuild]"
@@ -7,20 +7,20 @@ argument-hint: "job-name [build-number | lastBuild | lastFailedBuild]"
 
 # /jk-builds
 
-Показать детали билда Jenkins через REST API.
+Показать билды конкретной Jenkins job.
 
-**Goal:** Информация о конкретном билде -- статус, параметры, изменения, тесты.
+**Goal:** Список билдов job с результатом и длительностью; для конкретного билда -- детали (parameters, SCM, tests).
 
-**Output:** Build number, result, duration, parameters, SCM changes, test results summary.
+**Output:** Таблица: build #, result (SUCCESS/FAILURE/ABORTED), duration, timestamp, triggered by. Для конкретного билда -- параметры, SCM-changes, test summary.
 
 **Scenarios:**
 
-- `job-name` -- последний билд
-- `job-name build-number` -- конкретный билд
-- `job-name lastFailedBuild` -- последний упавший билд
-- `job-name lastSuccessfulBuild` -- последний успешный
+- `job-name` -- `jenkins-cli list-builds <job>` (последние билды).
+- `job-name build-number` -- детали конкретного билда (`jenkins-cli get-build`).
+- `job-name lastBuild | lastFailedBuild | lastSuccessfulBuild` -- символические builds.
 
 **Constraints:**
 
-- Требует переменные окружения `JENKINS_URL`, `JENKINS_USER`, `JENKINS_API_TOKEN`
-- Если не заданы -- показать инструкцию настройки
+- Требует `jenkins-cli` в PATH; если не найден -- показать инструкцию установки и ссылку на `docs/CLI_UTILITIES.md`.
+- Параметры подключения: env `JENKINS_URL`, `JENKINS_USER_ID`, `JENKINS_API_TOKEN`.
+- Read-only.

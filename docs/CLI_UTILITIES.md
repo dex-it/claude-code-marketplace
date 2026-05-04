@@ -21,8 +21,8 @@
 |---|---|---|---|
 | `dex-github-cli` | `gh` | VCS / CI | `/gh-runs` `/gh-prs` `/gh-logs` |
 | `dex-gitlab-cli` | `glab` | VCS / CI | `/gl-pipelines` `/gl-mrs` `/gl-logs` |
-| `dex-jenkins-cli` | REST | CI | `/jk-jobs` `/jk-builds` `/jk-logs` |
-| `dex-teamcity-cli` | REST | CI | `/tc-builds` `/tc-agents` `/tc-logs` |
+| `dex-jenkins-cli` | `jenkins-cli` (Java + jar) | CI | `/jk-jobs` `/jk-builds` `/jk-logs` |
+| `dex-teamcity-cli` | `teamcity` (JetBrains Go) | CI | `/tc-builds` `/tc-agents` `/tc-logs` |
 | `dex-kubectl-cli` | `kubectl` | Kubernetes | `/kube-pods` `/kube-logs` `/kube-deploy` `/kube-events` `/kube-context` |
 | `dex-psql-cli` | `psql` | PostgreSQL | `/psql-query` `/psql-schema` `/psql-explain` `/psql-locks` |
 | `dex-redis-cli` | `redis-cli` | Redis | `/redis-info` `/redis-keys` `/redis-memory` `/redis-monitor` |
@@ -31,8 +31,6 @@
 | `dex-aws-s3-cli` | `aws s3` / `s3api` | AWS S3 | `/s3-ls` `/s3-info` `/s3-head` `/s3-presign` |
 
 Установить все десять одной командой — через бандл [`dex-bundle-cli-tools`](../plugins/bundles/dex-bundle-cli-tools/README.md).
-
-> **Замечание про Jenkins и TeamCity.** Эти два плагина обращаются к серверу через REST API напрямую (`curl` + `jq`), отдельный CLI-бинарь не нужен. Поэтому `install-cli-tools.sh` их не устанавливает — нужны только переменные окружения (`JENKINS_URL` / `JENKINS_USER` / `JENKINS_API_TOKEN`, `TEAMCITY_URL` / `TEAMCITY_TOKEN`). Остальные восемь утилит требуют установки бинарей — для них и существует one-shot installer ниже.
 
 ---
 
@@ -70,6 +68,8 @@
 | `kaf` | curl из [github releases](https://github.com/birdayz/kaf/releases) | curl из github releases | `brew tap birdayz/tap && brew install kaf` | [github.com/birdayz/kaf](https://github.com/birdayz/kaf) |
 | `rabbitmqadmin` | curl из [github releases](https://github.com/rabbitmq/rabbitmqadmin-ng/releases) | curl из github releases | `brew tap rabbitmq/tap && brew install rabbitmqadmin` | [github.com/rabbitmq/rabbitmqadmin-ng](https://github.com/rabbitmq/rabbitmqadmin-ng) |
 | `aws` (CLI v2) | bundled installer (`curl awscli-exe-linux-*.zip` + `unzip` + `./aws/install`) | bundled installer | `brew install awscli` | [docs.aws.amazon.com/cli/.../install](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) |
+| `jenkins-cli` | `apt install default-jre` + curl `$JENKINS_URL/jnlpJars/jenkins-cli.jar` + wrapper | `dnf install java-21-openjdk-headless` + curl jar + wrapper | `brew install openjdk` + curl jar + wrapper | [jenkins.io/.../cli](https://www.jenkins.io/doc/book/managing/cli/) |
+| `teamcity` (JetBrains) | `curl -fsSL https://jb.gg/tc/install \| bash` | то же | `brew install jetbrains/utils/teamcity` | [github.com/JetBrains/teamcity-cli](https://github.com/JetBrains/teamcity-cli) |
 
 > Windows: PowerShell-зеркало доступно — `install-bundle/install-cli-tools.ps1` (использует `winget` / `scoop` / `choco`). WSL — также полностью поддерживаемый путь.
 
@@ -261,6 +261,39 @@ aws sso login --profile work
 ```
 
 **Read-only IAM-политика** для CLI-плагина — минимум `s3:Get*`, `s3:List*` (и `kms:Decrypt` если бакеты под KMS). Это durable-граница безопасности; slash-команды плагина уже не предлагают destructive-операций.
+
+### jenkins-cli (Jenkins CLI)
+
+`jenkins-cli` — это `.jar` от Jenkins, запускаемый через Java. Сам jar **сервер-зависимый** — официальная рекомендация Jenkins скачивать его из вашего инстанса:
+
+```bash
+curl -fsSL -o ~/jenkins-cli.jar "$JENKINS_URL/jnlpJars/jenkins-cli.jar"
+```
+
+Минимальная версия Jenkins — 2.54+ (старые CLI-клиенты считаются insecure). Wrapper-скрипт `/usr/local/bin/jenkins-cli` (создаётся `install-cli-tools.sh`) запускает jar через `java -jar` с автоматической подстановкой env:
+
+```bash
+exec java -jar "$JENKINS_CLI_JAR" -s "$JENKINS_URL" -auth "$JENKINS_USER_ID:$JENKINS_API_TOKEN" "$@"
+```
+
+Auth-режимы:
+- **HTTP + token** (default, рекомендован): env `JENKINS_USER_ID` + `JENKINS_API_TOKEN` (token генерируется в `$JENKINS_URL/me/configure`).
+- **SSH**: публичный ключ привязан к Jenkins-аккаунту, флаг `-i ~/.ssh/id_ed25519` в команде.
+
+Tip: Jenkins CLI поддерживает live-stream логов — `jenkins-cli console <job> -f` блокирует, пока билд идёт; полезно для ожидания завершения. В slash-команде `/jk-logs -f` оборачивается с явным таймаутом.
+
+### teamcity (JetBrains TeamCity CLI)
+
+Полноценный CLI от JetBrains (Go, single binary). Авторизация через интерактивный flow:
+
+```bash
+teamcity auth login         # вводит URL и token, сохраняет в ~/.config/teamcity/
+teamcity auth status        # проверка
+```
+
+Поддерживает multi-server (несколько профилей в одном CLI), real-time stream логов (`teamcity run watch`), shell-доступ к агентам (`teamcity agent term`), JSON-вывод для скриптинга (`--output json`), и raw REST через `teamcity api` как escape hatch.
+
+Env-альтернатива для CI/headless: `TEAMCITY_URL` + `TEAMCITY_TOKEN` (для не-интерактивной авторизации).
 
 ### gh / glab
 

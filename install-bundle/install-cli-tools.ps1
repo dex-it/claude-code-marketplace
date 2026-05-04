@@ -28,7 +28,7 @@ param(
     [switch]$Help
 )
 
-$SupportedTools = @("gh", "glab", "kubectl", "psql", "redis-cli", "kaf", "rabbitmqadmin", "aws")
+$SupportedTools = @("gh", "glab", "kubectl", "psql", "redis-cli", "kaf", "rabbitmqadmin", "aws", "jenkins-cli", "teamcity")
 
 function Write-ErrC  { param($m) Write-Host $m -ForegroundColor Red }
 function Write-Ok    { param($m) Write-Host $m -ForegroundColor Green }
@@ -76,6 +76,8 @@ function Get-ToolDescription {
         "kaf"           { "Kafka client by birdayz (used by dex-kaf-cli)" }
         "rabbitmqadmin" { "RabbitMQ HTTP API CLI (rabbitmqadmin-ng) (used by dex-rabbitmqadmin-cli)" }
         "aws"           { "AWS CLI v2 (used by dex-aws-s3-cli)" }
+        "jenkins-cli"   { "Jenkins CLI (.jar + Java) (used by dex-jenkins-cli)" }
+        "teamcity"      { "TeamCity CLI by JetBrains (used by dex-teamcity-cli)" }
         default         { "(unknown)" }
     }
 }
@@ -146,6 +148,14 @@ function Get-Recipe {
         "winget:aws"           { return @("winget install --id Amazon.AWSCLI -e --silent") }
         "scoop:aws"            { return @("scoop install aws") }
         "choco:aws"            { return @("choco install awscli -y") }
+
+        "winget:teamcity"      { return @("winget install --id JetBrains.TeamCityCLI -e --silent") }
+        "scoop:teamcity"       { return @("scoop install teamcity") }
+        "choco:teamcity"       { return @("__UNSUPPORTED__") }
+
+        "winget:jenkins-cli"   { return @("__UNSUPPORTED__") }
+        "scoop:jenkins-cli"    { return @("__UNSUPPORTED__") }
+        "choco:jenkins-cli"    { return @("__UNSUPPORTED__") }
     }
     return @("__UNSUPPORTED__")
 }

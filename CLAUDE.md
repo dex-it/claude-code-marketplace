@@ -284,23 +284,25 @@ Kubernetes CLI утилита: pods, logs, deployments, events, контекст
 
 ### dex-teamcity-cli
 
-TeamCity CLI утилита: builds, agents, build logs через REST API.
+TeamCity CLI утилита: builds, agents, build logs через [`teamcity`](https://github.com/JetBrains/teamcity-cli) (официальный Go CLI от JetBrains).
 
 **Команды:** `/tc-builds`, `/tc-agents`, `/tc-logs`
 
-**Переменные:**
-- `TEAMCITY_URL` - URL сервера (обязательно)
-- `TEAMCITY_TOKEN` - API токен (обязательно)
+**Зависимости:** `teamcity` CLI
+
+**Конфигурация:** через интерактивный `teamcity auth login` (multi-server) или env `TEAMCITY_URL` + `TEAMCITY_TOKEN`. Поддерживает real-time stream логов (`run watch`), JSON-output для скриптинга, shell-доступ к агентам.
 
 ### dex-jenkins-cli
 
-Jenkins CLI утилита: jobs, builds, console output через REST API.
+Jenkins CLI утилита: jobs, builds, console output через официальный [`jenkins-cli`](https://www.jenkins.io/doc/book/managing/cli/) (`.jar`-клиент).
 
 **Команды:** `/jk-jobs`, `/jk-builds`, `/jk-logs`
 
+**Зависимости:** Java runtime + `jenkins-cli.jar` + wrapper `/usr/local/bin/jenkins-cli` (создаётся `install-cli-tools.sh`)
+
 **Переменные:**
 - `JENKINS_URL` - URL сервера (обязательно)
-- `JENKINS_USER` - Имя пользователя (обязательно)
+- `JENKINS_USER_ID` - Имя пользователя (обязательно; **breaking change** с v1.x: было `JENKINS_USER`)
 - `JENKINS_API_TOKEN` - API токен (обязательно)
 
 ### dex-psql-cli

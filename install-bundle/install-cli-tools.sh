@@ -28,7 +28,7 @@ print_header()  { echo -e "${MAGENTA}$*${NC}"; }
 print_dim()     { echo -e "${GRAY}$*${NC}"; }
 
 # Supported tools
-SUPPORTED_TOOLS=(gh glab kubectl psql redis-cli kaf rabbitmqadmin aws)
+SUPPORTED_TOOLS=(gh glab kubectl psql redis-cli kaf rabbitmqadmin aws jenkins-cli teamcity)
 
 # Flags
 DRY_RUN=false
@@ -88,6 +88,8 @@ tool_description() {
         kaf)           echo "Kafka client by birdayz (used by dex-kaf-cli)" ;;
         rabbitmqadmin) echo "RabbitMQ HTTP API CLI (rabbitmqadmin-ng) (used by dex-rabbitmqadmin-cli)" ;;
         aws)           echo "AWS CLI v2 (used by dex-aws-s3-cli)" ;;
+        jenkins-cli)   echo "Jenkins CLI (.jar + Java wrapper) (used by dex-jenkins-cli)" ;;
+        teamcity)      echo "TeamCity CLI by JetBrains (used by dex-teamcity-cli)" ;;
         *)             echo "(unknown)" ;;
     esac
 }
@@ -127,6 +129,8 @@ tool_version() {
         kaf)           kaf --version 2>/dev/null | head -1 ;;
         rabbitmqadmin) rabbitmqadmin --version 2>/dev/null | head -1 ;;
         aws)           aws --version 2>/dev/null | head -1 ;;
+        jenkins-cli)   jenkins-cli --version 2>/dev/null | head -1 ;;
+        teamcity)      teamcity --version 2>/dev/null | head -1 ;;
     esac
 }
 
@@ -245,6 +249,67 @@ print_recipe() {
             ;;
         macos:brew:rabbitmqadmin)
             echo "brew tap rabbitmq/tap && brew install rabbitmqadmin"
+            ;;
+
+        # jenkins-cli (Java + jar from Jenkins server, wrapper in /usr/local/bin)
+        # Requires JENKINS_URL env to be set so we can download the jar via /jnlpJars/jenkins-cli.jar.
+        linux:apt:jenkins-cli)
+            echo "sudo apt update && sudo apt install -y default-jre curl"
+            echo 'if [ -z "${JENKINS_URL:-}" ]; then echo "ERROR: set JENKINS_URL env before installing jenkins-cli (so the jar can be fetched from your Jenkins)" >&2; exit 1; fi'
+            echo 'sudo mkdir -p /usr/local/lib && sudo curl -fsSL -o /usr/local/lib/jenkins-cli.jar "$JENKINS_URL/jnlpJars/jenkins-cli.jar"'
+            echo 'sudo tee /usr/local/bin/jenkins-cli >/dev/null <<'\''EOF'\''
+#!/bin/bash
+exec java -jar "${JENKINS_CLI_JAR:-/usr/local/lib/jenkins-cli.jar}" -s "${JENKINS_URL:?set JENKINS_URL}" -auth "${JENKINS_USER_ID:?set JENKINS_USER_ID}:${JENKINS_API_TOKEN:?set JENKINS_API_TOKEN}" "$@"
+EOF'
+            echo "sudo chmod +x /usr/local/bin/jenkins-cli"
+            ;;
+        linux:dnf:jenkins-cli)
+            echo "sudo dnf install -y java-21-openjdk-headless curl"
+            echo 'if [ -z "${JENKINS_URL:-}" ]; then echo "ERROR: set JENKINS_URL env before installing jenkins-cli" >&2; exit 1; fi'
+            echo 'sudo mkdir -p /usr/local/lib && sudo curl -fsSL -o /usr/local/lib/jenkins-cli.jar "$JENKINS_URL/jnlpJars/jenkins-cli.jar"'
+            echo 'sudo tee /usr/local/bin/jenkins-cli >/dev/null <<'\''EOF'\''
+#!/bin/bash
+exec java -jar "${JENKINS_CLI_JAR:-/usr/local/lib/jenkins-cli.jar}" -s "${JENKINS_URL:?set JENKINS_URL}" -auth "${JENKINS_USER_ID:?set JENKINS_USER_ID}:${JENKINS_API_TOKEN:?set JENKINS_API_TOKEN}" "$@"
+EOF'
+            echo "sudo chmod +x /usr/local/bin/jenkins-cli"
+            ;;
+        linux:pacman:jenkins-cli)
+            echo "sudo pacman -S --noconfirm jre-openjdk-headless curl"
+            echo 'if [ -z "${JENKINS_URL:-}" ]; then echo "ERROR: set JENKINS_URL env before installing jenkins-cli" >&2; exit 1; fi'
+            echo 'sudo mkdir -p /usr/local/lib && sudo curl -fsSL -o /usr/local/lib/jenkins-cli.jar "$JENKINS_URL/jnlpJars/jenkins-cli.jar"'
+            echo 'sudo tee /usr/local/bin/jenkins-cli >/dev/null <<'\''EOF'\''
+#!/bin/bash
+exec java -jar "${JENKINS_CLI_JAR:-/usr/local/lib/jenkins-cli.jar}" -s "${JENKINS_URL:?set JENKINS_URL}" -auth "${JENKINS_USER_ID:?set JENKINS_USER_ID}:${JENKINS_API_TOKEN:?set JENKINS_API_TOKEN}" "$@"
+EOF'
+            echo "sudo chmod +x /usr/local/bin/jenkins-cli"
+            ;;
+        linux:apk:jenkins-cli)
+            echo "sudo apk add --no-cache openjdk21-jre-headless curl"
+            echo 'if [ -z "${JENKINS_URL:-}" ]; then echo "ERROR: set JENKINS_URL env before installing jenkins-cli" >&2; exit 1; fi'
+            echo 'sudo mkdir -p /usr/local/lib && sudo curl -fsSL -o /usr/local/lib/jenkins-cli.jar "$JENKINS_URL/jnlpJars/jenkins-cli.jar"'
+            echo 'sudo tee /usr/local/bin/jenkins-cli >/dev/null <<'\''EOF'\''
+#!/bin/sh
+exec java -jar "${JENKINS_CLI_JAR:-/usr/local/lib/jenkins-cli.jar}" -s "${JENKINS_URL:?set JENKINS_URL}" -auth "${JENKINS_USER_ID:?set JENKINS_USER_ID}:${JENKINS_API_TOKEN:?set JENKINS_API_TOKEN}" "$@"
+EOF'
+            echo "sudo chmod +x /usr/local/bin/jenkins-cli"
+            ;;
+        macos:brew:jenkins-cli)
+            echo "brew install openjdk && brew link --force openjdk"
+            echo 'if [ -z "${JENKINS_URL:-}" ]; then echo "ERROR: set JENKINS_URL env before installing jenkins-cli" >&2; exit 1; fi'
+            echo 'mkdir -p "$HOME/.local/lib" && curl -fsSL -o "$HOME/.local/lib/jenkins-cli.jar" "$JENKINS_URL/jnlpJars/jenkins-cli.jar"'
+            echo 'mkdir -p "$HOME/.local/bin" && tee "$HOME/.local/bin/jenkins-cli" >/dev/null <<'\''EOF'\''
+#!/bin/bash
+exec java -jar "${JENKINS_CLI_JAR:-$HOME/.local/lib/jenkins-cli.jar}" -s "${JENKINS_URL:?set JENKINS_URL}" -auth "${JENKINS_USER_ID:?set JENKINS_USER_ID}:${JENKINS_API_TOKEN:?set JENKINS_API_TOKEN}" "$@"
+EOF'
+            echo 'chmod +x "$HOME/.local/bin/jenkins-cli"'
+            ;;
+
+        # teamcity (JetBrains Go CLI)
+        linux:*:teamcity)
+            echo "curl -fsSL https://jb.gg/tc/install | bash"
+            ;;
+        macos:brew:teamcity)
+            echo "brew install jetbrains/utils/teamcity"
             ;;
 
         # aws (AWS CLI v2)
