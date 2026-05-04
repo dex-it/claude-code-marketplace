@@ -121,7 +121,7 @@ function Get-Recipe {
         "winget:gh"        { return @("winget install --id GitHub.cli -e --silent") }
         "winget:glab"      { return @("winget install --id GitLab.GLab -e --silent") }
         "winget:kubectl"   { return @("winget install --id Kubernetes.kubectl -e --silent") }
-        "winget:psql"      { return @("winget install --id PostgreSQL.PostgreSQL.16 -e --silent") }
+        "winget:psql"      { return @("winget install --id PostgreSQL.PostgreSQL -e --silent") }
         "winget:redis-cli" { return @("winget install --id Redis.Redis -e --silent") }
         "winget:kaf"       { return @("winget install --id Birdayz.kaf -e --silent || scoop install kaf") }
 

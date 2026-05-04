@@ -32,6 +32,8 @@
 
 Установить все десять одной командой — через бандл [`dex-bundle-cli-tools`](../plugins/bundles/dex-bundle-cli-tools/README.md).
 
+> **Замечание про Jenkins и TeamCity.** Эти два плагина обращаются к серверу через REST API напрямую (`curl` + `jq`), отдельный CLI-бинарь не нужен. Поэтому `install-cli-tools.sh` их не устанавливает — нужны только переменные окружения (`JENKINS_URL` / `JENKINS_USER` / `JENKINS_API_TOKEN`, `TEAMCITY_URL` / `TEAMCITY_TOKEN`). Остальные восемь утилит требуют установки бинарей — для них и существует one-shot installer ниже.
+
 ---
 
 ## Установка CLI-бинарей

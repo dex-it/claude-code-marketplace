@@ -177,11 +177,11 @@ print_recipe() {
 
         # kubectl
         linux:apt:kubectl)
-            echo 'curl -fsSL "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" -o /tmp/kubectl'
+            echo 'ARCH=$(uname -m); case "$ARCH" in x86_64) ARCH=amd64 ;; aarch64|arm64) ARCH=arm64 ;; esac; KVER=$(curl -fsSL https://dl.k8s.io/release/stable.txt) && curl -fsSL -o /tmp/kubectl "https://dl.k8s.io/release/${KVER}/bin/linux/${ARCH}/kubectl"'
             echo "sudo install -o root -g root -m 0755 /tmp/kubectl /usr/local/bin/kubectl"
             ;;
         linux:dnf:kubectl)
-            echo 'curl -fsSL "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" -o /tmp/kubectl'
+            echo 'ARCH=$(uname -m); case "$ARCH" in x86_64) ARCH=amd64 ;; aarch64|arm64) ARCH=arm64 ;; esac; KVER=$(curl -fsSL https://dl.k8s.io/release/stable.txt) && curl -fsSL -o /tmp/kubectl "https://dl.k8s.io/release/${KVER}/bin/linux/${ARCH}/kubectl"'
             echo "sudo install -o root -g root -m 0755 /tmp/kubectl /usr/local/bin/kubectl"
             ;;
         linux:pacman:kubectl)
@@ -237,8 +237,10 @@ print_recipe() {
             ;;
 
         # rabbitmqadmin (rabbitmqadmin-ng)
+        # Release artifacts are named: rabbitmqadmin-<version>-<arch>-unknown-linux-gnu
+        # We resolve the latest tag via the GitHub API and pick the matching arch.
         linux:*:rabbitmqadmin)
-            echo 'ARCH=$(uname -m); case "$ARCH" in x86_64) ARCH=x86_64 ;; aarch64|arm64) ARCH=aarch64 ;; esac; curl -fsSL -o /tmp/rabbitmqadmin "https://github.com/rabbitmq/rabbitmqadmin-ng/releases/latest/download/rabbitmqadmin-linux-${ARCH}"'
+            echo 'ARCH=$(uname -m); case "$ARCH" in x86_64) ARCH=x86_64 ;; aarch64|arm64) ARCH=aarch64 ;; esac; VER=$(curl -fsSL https://api.github.com/repos/rabbitmq/rabbitmqadmin-ng/releases/latest | grep "\"tag_name\":" | head -1 | cut -d"\"" -f4 | sed "s/^v//") && curl -fsSL -o /tmp/rabbitmqadmin "https://github.com/rabbitmq/rabbitmqadmin-ng/releases/download/v${VER}/rabbitmqadmin-${VER}-${ARCH}-unknown-linux-gnu"'
             echo "sudo install -m 0755 /tmp/rabbitmqadmin /usr/local/bin/rabbitmqadmin"
             ;;
         macos:brew:rabbitmqadmin)
@@ -326,6 +328,8 @@ process_tool() {
 
     if run_recipe "$tool" "$os" "$pm"; then
         if [ "$DRY_RUN" = false ]; then
+            # Refresh shell command cache — package manager just put new binary in PATH
+            hash -r 2>/dev/null || true
             local v
             v=$(tool_version "$tool")
             if [ -n "$v" ]; then

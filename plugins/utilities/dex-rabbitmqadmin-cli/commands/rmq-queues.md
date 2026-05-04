@@ -22,6 +22,6 @@ argument-hint: "[queue-name] [--vhost name] [--state running|idle|flow]"
 
 **Constraints:**
 
-- Требует `rabbitmqadmin` в PATH; если не найден -- показать инструкцию установки.
+- Требует `rabbitmqadmin` в PATH; если не найден -- показать инструкцию установки и ссылку на `docs/CLI_UTILITIES.md`.
 - Read-only. `declare`, `delete`, `purge` намеренно не выведены наружу -- опасные операции выполняются вручную или через специалистов.
 - На больших инстансах вывод list queues может быть длинным -- предлагать фильтр по vhost/state.

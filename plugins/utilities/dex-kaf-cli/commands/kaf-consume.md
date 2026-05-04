@@ -23,7 +23,7 @@ argument-hint: "topic [--from beginning|latest] [--limit N] [--key pattern] [--c
 
 **Constraints:**
 
-- Требует `kaf` в PATH; если не найден -- показать инструкцию установки.
+- Требует `kaf` в PATH; если не найден -- показать инструкцию установки и ссылку на `docs/CLI_UTILITIES.md`.
 - Создаёт временный consumer вне consumer group (или с временной group-id) -- не влияет на committed offsets продакшен-consumer'ов.
 - `--limit` обязателен -- консьюмер всегда ограничен по числу сообщений и по таймауту, не висит.
 - Большие сообщения (> 1 MB) обрезать в выводе и указывать полный размер.

@@ -21,6 +21,6 @@ argument-hint: "\"SELECT ...\" [--no-analyze] [--db name]"
 
 **Constraints:**
 
-- Требует `psql` в PATH; если не найден -- показать инструкцию установки.
+- Требует `psql` в PATH; если не найден -- показать инструкцию установки и ссылку на `docs/CLI_UTILITIES.md`.
 - `ANALYZE` реально выполняет запрос. Не использовать на запросах с `INSERT`/`UPDATE`/`DELETE` -- они изменят данные. Команда отвергает не-SELECT запросы аналогично `/psql-query`.
 - Для длинных запросов (`ANALYZE` показывает `Execution Time` секунды+) -- предлагать оптимизацию через `dex-postgresql-specialist`.

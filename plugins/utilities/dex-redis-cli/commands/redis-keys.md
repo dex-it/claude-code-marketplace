@@ -22,7 +22,7 @@ argument-hint: "pattern [--count N] [--type string|hash|list|set|zset|stream] [-
 
 **Constraints:**
 
-- Требует `redis-cli` в PATH; если не найден -- показать инструкцию установки.
+- Требует `redis-cli` в PATH; если не найден -- показать инструкцию установки и ссылку на `docs/CLI_UTILITIES.md`.
 - **Использовать только `SCAN`/`--scan`. `KEYS *` запрещён** -- блокирует Redis на больших keyspace и кладёт прод.
 - Если pattern слишком широкий (`*` без префикса) на больших инстансах -- предупредить и попросить уточнить.
 - Read-only.

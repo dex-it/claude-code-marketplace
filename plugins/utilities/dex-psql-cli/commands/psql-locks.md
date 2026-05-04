@@ -22,7 +22,7 @@ argument-hint: "[--locks | --slow | --activity] [--db name]"
 
 **Constraints:**
 
-- Требует `psql` в PATH; если не найден -- показать инструкцию установки.
+- Требует `psql` в PATH; если не найден -- показать инструкцию установки и ссылку на `docs/CLI_UTILITIES.md`.
 - Read-only (только `pg_stat_*`/`pg_locks`); никакого `pg_terminate_backend`/`pg_cancel_backend` -- эти действия выполняет администратор отдельно.
 - `--slow` требует `pg_stat_statements` в `shared_preload_libraries`. Если расширение отсутствует -- сообщить и предложить альтернативу через логи.
 - На production -- запросы к `pg_stat_activity` должны выполняться от роли с `pg_read_all_stats`/`SUPERUSER`.

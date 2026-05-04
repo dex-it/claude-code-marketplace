@@ -21,6 +21,6 @@ argument-hint: "[group-name] [--cluster name]"
 
 **Constraints:**
 
-- Требует `kaf` в PATH; если не найден -- показать инструкцию установки.
+- Требует `kaf` в PATH; если не найден -- показать инструкцию установки и ссылку на `docs/CLI_UTILITIES.md`.
 - Read-only.
 - Растущий lag -- сигнал, что consumer не успевает или упал; команда **не** перезапускает consumer'ов и не сбрасывает offset'ы (это делает оператор отдельно через `kaf group commit`/`kaf group reset`).
