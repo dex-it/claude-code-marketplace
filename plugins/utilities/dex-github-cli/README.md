@@ -1,22 +1,39 @@
 # dex-github-cli
 
-GitHub CLI utility for Claude Code. Quick access to workflow runs, pull requests, and Actions logs via `gh`.
+CLI-утилита для GitHub. Быстрый доступ к workflow runs, pull requests и Actions-логам через `gh`.
 
-## Commands
+## Команды
 
-| Command | Description |
-|---------|-------------|
-| `/gh-runs` | List and inspect GitHub Actions workflow runs |
-| `/gh-prs` | List and inspect pull requests |
-| `/gh-logs` | View Actions run logs |
+| Команда | Описание |
+|---------|----------|
+| `/gh-runs` | Список и детали GitHub Actions workflow runs |
+| `/gh-prs` | Список и детали pull requests |
+| `/gh-logs` | Логи Actions run |
 
-## Requirements
+## Требования
 
-- [gh](https://cli.github.com/) CLI installed and authenticated
-- Run `gh auth login` to authenticate
+- [`gh`](https://cli.github.com/) в `PATH`, авторизация через `gh auth login`
 
-## Installation
+## Установка CLI
 
 ```bash
-claude plugins install ./plugins/utilities/dex-github-cli
+# Linux (Debian/Ubuntu) — см. github.com/cli/cli/blob/trunk/docs/install_linux.md
+sudo apt install gh
+
+# Linux (Fedora/RHEL)
+sudo dnf install gh
+
+# macOS
+brew install gh
+
+# One-shot installer (авто-детект ОС, при необходимости настраивает apt-репо GH)
+./install-bundle/install-cli-tools.sh gh
+```
+
+См. [docs/CLI_UTILITIES.md](../../../docs/CLI_UTILITIES.md) — настройка auth, GitHub Enterprise self-hosted хостов, матрица CLI vs MCP.
+
+## Установка плагина
+
+```bash
+claude plugins install dex-github-cli@dex-claude-marketplace
 ```

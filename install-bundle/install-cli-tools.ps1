@@ -1,0 +1,379 @@
+# CLI Tools Installer for Claude Code Marketplace (PowerShell)
+# Installs underlying CLI binaries used by dex-*-cli plugins.
+# Auto-detects package manager (winget / scoop / choco). Idempotent.
+#
+# Supported tools: gh, glab, kubectl, psql, redis-cli, kaf, rabbitmqadmin, aws, jenkins-cli, teamcity
+# Note: psql/jenkins-cli/rabbitmqadmin are unsupported on Windows package managers.
+#       Use WSL (recommended) or install manually — see docs/CLI_UTILITIES.md.
+
+param(
+    [Parameter(Position=0, ValueFromRemainingArguments=$true)]
+    [string[]]$Tools = @(),
+
+    [Alias("l")]
+    [switch]$List,
+
+    [Alias("c")]
+    [switch]$Check,
+
+    [Alias("a")]
+    [switch]$All,
+
+    [Alias("u")]
+    [switch]$Update,
+
+    [Alias("n")]
+    [switch]$DryRun,
+
+    [Alias("v")]
+    [switch]$VerboseOutput,
+
+    [Alias("h")]
+    [switch]$Help
+)
+
+$SupportedTools = @("gh", "glab", "kubectl", "psql", "redis-cli", "kaf", "rabbitmqadmin", "aws", "jenkins-cli", "teamcity")
+
+function Write-ErrC  { param($m) Write-Host $m -ForegroundColor Red }
+function Write-Ok    { param($m) Write-Host $m -ForegroundColor Green }
+function Write-Warn  { param($m) Write-Host $m -ForegroundColor Yellow }
+function Write-Info  { param($m) Write-Host $m -ForegroundColor Cyan }
+function Write-Hdr   { param($m) Write-Host $m -ForegroundColor Magenta }
+function Write-Dim   { param($m) Write-Host $m -ForegroundColor DarkGray }
+
+function Show-Help {
+    Write-Host ""
+    Write-Hdr "================================================"
+    Write-Hdr "  CLI Tools Installer for Claude Code Marketplace"
+    Write-Hdr "================================================"
+    Write-Host ""
+    Write-Host "Usage: .\install-cli-tools.ps1 [OPTIONS] [TOOL...]"
+    Write-Host ""
+    Write-Host "Installs CLI binaries used by dex-*-cli plugins."
+    Write-Host ""
+    Write-Host "Options:"
+    Write-Host "  -List, -l            List supported tools"
+    Write-Host "  -Check, -c           Check what is already installed (no install)"
+    Write-Host "  -All, -a             Install all supported tools"
+    Write-Host "  -Update, -u          Update already-installed tools (winget upgrade / scoop update / choco upgrade)"
+    Write-Host "  -DryRun, -n          Show what would be installed without installing"
+    Write-Host "  -VerboseOutput, -v   Show detailed output"
+    Write-Host "  -Help, -h            Show this help message"
+    Write-Host ""
+    Write-Host "Examples:"
+    Write-Host "  .\install-cli-tools.ps1 -Check               # See what is missing"
+    Write-Host "  .\install-cli-tools.ps1 -All                 # Install everything missing"
+    Write-Host "  .\install-cli-tools.ps1 psql redis-cli kaf   # Install specific tools"
+    Write-Host "  .\install-cli-tools.ps1 -Update gh kubectl   # Update specific tools"
+    Write-Host "  .\install-cli-tools.ps1 -Update -All         # Update all installed tools"
+    Write-Host ""
+    Write-Host "Supported tools: $($SupportedTools -join ', ')"
+    Write-Host "See docs\CLI_UTILITIES.md for the full install matrix."
+    Write-Host ""
+}
+
+function Get-ToolDescription {
+    param($Tool)
+    switch ($Tool) {
+        "gh"            { "GitHub CLI (used by dex-github-cli)" }
+        "glab"          { "GitLab CLI (used by dex-gitlab-cli)" }
+        "kubectl"       { "Kubernetes CLI (used by dex-kubectl-cli)" }
+        "psql"          { "PostgreSQL client (used by dex-psql-cli)" }
+        "redis-cli"     { "Redis client (used by dex-redis-cli)" }
+        "kaf"           { "Kafka client by birdayz (used by dex-kaf-cli)" }
+        "rabbitmqadmin" { "RabbitMQ HTTP API CLI (rabbitmqadmin-ng) (used by dex-rabbitmqadmin-cli)" }
+        "aws"           { "AWS CLI v2 (used by dex-aws-s3-cli)" }
+        "jenkins-cli"   { "Jenkins CLI (.jar + Java) (used by dex-jenkins-cli)" }
+        "teamcity"      { "TeamCity CLI by JetBrains (used by dex-teamcity-cli)" }
+        default         { "(unknown)" }
+    }
+}
+
+function Show-ToolList {
+    Write-Host ""
+    Write-Hdr "Supported tools"
+    Write-Host ""
+    foreach ($t in $SupportedTools) {
+        Write-Host ("  - {0,-12} — {1}" -f $t, (Get-ToolDescription $t))
+    }
+    Write-Host ""
+}
+
+function Test-ToolPresent {
+    param($Tool)
+    $null = Get-Command $Tool -ErrorAction SilentlyContinue
+    return $?
+}
+
+function Get-ToolVersion {
+    param($Tool)
+    if (-not (Test-ToolPresent $Tool)) { return "" }
+    try {
+        switch ($Tool) {
+            "kubectl" { (kubectl version --client --short 2>$null | Select-Object -First 1) }
+            default   { (& $Tool --version 2>$null | Select-Object -First 1) }
+        }
+    } catch { "" }
+}
+
+function Get-PackageManager {
+    if (Get-Command winget -ErrorAction SilentlyContinue) { return "winget" }
+    if (Get-Command scoop  -ErrorAction SilentlyContinue) { return "scoop" }
+    if (Get-Command choco  -ErrorAction SilentlyContinue) { return "choco" }
+    return $null
+}
+
+# Returns array of strings — each string is a shell command to run.
+function Get-Recipe {
+    param($Tool, $Pm)
+    switch ("$($Pm):$Tool") {
+        "winget:gh"        { return @("winget install --id GitHub.cli -e --silent") }
+        "winget:glab"      { return @("winget install --id GitLab.GLab -e --silent") }
+        "winget:kubectl"   { return @("winget install --id Kubernetes.kubectl -e --silent") }
+        # psql via winget/scoop/choco installs the full PostgreSQL Server (~200MB + service),
+        # not just the client like postgresql-client/libpq on Linux. Skip on Windows.
+        "winget:psql"      { return @("__UNSUPPORTED__") }
+        "winget:redis-cli" { return @("winget install --id Redis.Redis -e --silent") }
+        "winget:kaf"       { return @("winget install --id Birdayz.kaf -e --silent || scoop install kaf") }
+
+        "scoop:gh"         { return @("scoop install gh") }
+        "scoop:glab"       { return @("scoop install glab") }
+        "scoop:kubectl"    { return @("scoop install kubectl") }
+        "scoop:psql"       { return @("__UNSUPPORTED__") }
+        "scoop:redis-cli"  { return @("scoop install redis") }
+        # Two-step recipe — must be a 2-element array, not a single string with `;`
+        # (cmd.exe does not treat `;` as a command separator; only `&`, `&&`, `||`).
+        "scoop:kaf"        { return @("scoop bucket add extras", "scoop install kaf") }
+
+        "choco:gh"             { return @("choco install gh -y") }
+        "choco:glab"           { return @("choco install glab -y") }
+        "choco:kubectl"        { return @("choco install kubernetes-cli -y") }
+        "choco:psql"           { return @("__UNSUPPORTED__") }
+        "choco:redis-cli"      { return @("choco install redis-64 -y") }
+        "choco:kaf"            { return @("__UNSUPPORTED__") }
+
+        "winget:rabbitmqadmin" { return @("__UNSUPPORTED__") }
+        "scoop:rabbitmqadmin"  { return @("__UNSUPPORTED__") }
+        "choco:rabbitmqadmin"  { return @("__UNSUPPORTED__") }
+
+        "winget:aws"           { return @("winget install --id Amazon.AWSCLI -e --silent") }
+        "scoop:aws"            { return @("scoop install aws") }
+        "choco:aws"            { return @("choco install awscli -y") }
+
+        "winget:teamcity"      { return @("winget install --id JetBrains.TeamCityCLI -e --silent") }
+        "scoop:teamcity"       { return @("scoop install teamcity") }
+        "choco:teamcity"       { return @("__UNSUPPORTED__") }
+
+        "winget:jenkins-cli"   { return @("__UNSUPPORTED__") }
+        "scoop:jenkins-cli"    { return @("__UNSUPPORTED__") }
+        "choco:jenkins-cli"    { return @("__UNSUPPORTED__") }
+    }
+    return @("__UNSUPPORTED__")
+}
+
+# Transform install command to upgrade for Windows package managers that don't auto-upgrade.
+# winget install / scoop install / choco install do NOT upgrade existing packages.
+function Convert-ToUpgrade {
+    param($Line)
+    if (-not $Update) { return $Line }
+    $Line = $Line -replace '\bwinget install\b', 'winget upgrade'
+    $Line = $Line -replace '\bscoop install\b', 'scoop update'
+    $Line = $Line -replace '\bchoco install\b', 'choco upgrade'
+    return $Line
+}
+
+function Invoke-Recipe {
+    param($Tool, $Pm)
+    $recipe = Get-Recipe $Tool $Pm
+    if ($recipe[0] -eq "__UNSUPPORTED__") {
+        Write-ErrC "  No package manager recipe for $Tool on $Pm."
+        switch ($Tool) {
+            "psql"          { Write-Dim "    Windows PMs install full PostgreSQL Server (~200MB + service), not just client." ; Write-Dim "    Recommended: use WSL (apt install postgresql-client) or download standalone client from postgresql.org/download." }
+            "rabbitmqadmin" { Write-Dim "    Download Windows binary from https://github.com/rabbitmq/rabbitmqadmin-ng/releases" }
+            "jenkins-cli"   { Write-Dim "    Install Java + download jenkins-cli.jar from `$JENKINS_URL/jnlpJars/jenkins-cli.jar (see docs/CLI_UTILITIES.md)." }
+            default         { Write-Dim "    See docs/CLI_UTILITIES.md install matrix." }
+        }
+        return $false
+    }
+    foreach ($line in $recipe) {
+        $line = Convert-ToUpgrade $line
+        if ($DryRun) {
+            Write-Dim "    > $line"
+        } else {
+            if ($VerboseOutput) { Write-Dim "    > $line" }
+            $LASTEXITCODE = 0
+            cmd /c $line
+            if ($LASTEXITCODE -ne 0) {
+                Write-ErrC "    Command failed (exit $LASTEXITCODE): $line"
+                return $false
+            }
+        }
+    }
+    return $true
+}
+
+function Process-Tool {
+    param($Tool, $Pm, $Idx, $Total)
+
+    $verBefore = $null
+    if (Test-ToolPresent $Tool) {
+        $verBefore = Get-ToolVersion $Tool
+        if ($Update) {
+            if ($Check) {
+                Write-Info "  [$Idx/$Total] Would update: $Tool ($verBefore)"
+                return 3
+            }
+            if ($DryRun) {
+                Write-Info "  [$Idx/$Total] Would update: $Tool (currently: $verBefore)"
+            } else {
+                Write-Info "  [$Idx/$Total] Updating: $Tool (currently: $verBefore)"
+            }
+            # fall through to Invoke-Recipe with $Update=true → Convert-ToUpgrade transformation kicks in
+        } else {
+            Write-Warn "  [$Idx/$Total] Already installed: $Tool"
+            if ($VerboseOutput -and $verBefore) { Write-Dim "           $verBefore" }
+            return 2
+        }
+    } else {
+        if ($Check) {
+            Write-Info "  [$Idx/$Total] Missing: $Tool — $(Get-ToolDescription $Tool)"
+            return 0
+        }
+        if ($DryRun) {
+            Write-Info "  [$Idx/$Total] Would install: $Tool"
+        } else {
+            Write-Info "  [$Idx/$Total] Installing: $Tool"
+        }
+    }
+
+    if (Invoke-Recipe $Tool $Pm) {
+        if (-not $DryRun) {
+            $v = Get-ToolVersion $Tool
+            if ($v) {
+                if ($Update -and $verBefore) {
+                    if ($v -eq $verBefore) {
+                        Write-Ok "           Already at latest: $v"
+                    } else {
+                        Write-Ok "           Updated: $v"
+                    }
+                } else {
+                    Write-Ok "           Installed: $v"
+                }
+                return 0
+            } else {
+                Write-Warn "           Recipe ran but $Tool not found in PATH — restart shell"
+                return 1
+            }
+        }
+        return 0
+    }
+    return 1
+}
+
+# Main
+if ($Help) { Show-Help; exit 0 }
+if ($List) { Show-ToolList; exit 0 }
+
+# Validate explicit tool names
+foreach ($t in $Tools) {
+    if ($SupportedTools -notcontains $t) {
+        Write-ErrC "Unsupported tool: $t"
+        Write-Host "Supported: $($SupportedTools -join ', ')"
+        exit 1
+    }
+}
+
+if ($All) { $Tools = $SupportedTools }
+if ($Check -and $Tools.Count -eq 0) { $Tools = $SupportedTools }
+
+if ($Tools.Count -eq 0) {
+    if ($Update) {
+        Write-ErrC "-Update requires tool names or -All"
+        Write-Host ""
+        Show-Help
+        exit 1
+    }
+    Show-Help
+    exit 0
+}
+
+$pm = Get-PackageManager
+if (-not $pm) {
+    Write-ErrC "No supported package manager found (winget / scoop / choco)."
+    Write-Dim "Install winget (built into Windows 11) or scoop (https://scoop.sh)."
+    exit 1
+}
+
+Write-Host ""
+Write-Hdr "================================================"
+if ($Check) {
+    if ($Update) { Write-Hdr "  Checking CLI tools (update plan)" }
+    else         { Write-Hdr "  Checking CLI tools (no install)" }
+}
+elseif ($DryRun) {
+    if ($Update) { Write-Hdr "  CLI tools update — dry run" }
+    else         { Write-Hdr "  CLI tools install — dry run" }
+}
+elseif ($Update) { Write-Hdr "  Updating CLI tools" }
+else { Write-Hdr "  Installing CLI tools" }
+Write-Hdr "================================================"
+Write-Host ""
+Write-Dim "  Package manager: $pm"
+Write-Dim "  Tools: $($Tools -join ', ')"
+Write-Host ""
+
+$installed = 0; $already = 0; $errors = 0; $missing = 0; $wouldUpdate = 0
+$total = $Tools.Count
+$idx = 0
+foreach ($t in $Tools) {
+    $idx++
+    $rc = Process-Tool $t $pm $idx $total
+    switch ($rc) {
+        0 { if ($Check) { $missing++ } else { $installed++ } }
+        2 { $already++ }
+        3 { $wouldUpdate++ }
+        default { $errors++ }
+    }
+}
+
+Write-Host ""
+Write-Hdr "================================================"
+Write-Hdr "  Summary"
+Write-Hdr "================================================"
+Write-Host ""
+
+if ($Check) {
+    if ($Update) {
+        Write-Info "  Would update:       $wouldUpdate"
+        Write-Info "  Would install:      $missing"
+    } else {
+        Write-Ok   "  Already installed:  $already"
+        Write-Info "  Missing:            $missing"
+    }
+} elseif ($DryRun) {
+    if ($Update) {
+        Write-Info "  Would update:       $installed"
+    } else {
+        Write-Info "  Would install:      $installed"
+        Write-Warn "  Already installed:  $already"
+    }
+} elseif ($Update) {
+    Write-Ok   "  Updated:            $installed"
+} else {
+    Write-Ok   "  Installed:          $installed"
+    Write-Warn "  Already installed:  $already"
+}
+
+if ($errors -gt 0) { Write-ErrC "  Errors:             $errors" }
+Write-Host ""
+
+if ($DryRun) {
+    if ($Update) {
+        Write-Host "Run without -DryRun to actually update."
+    } else {
+        Write-Host "Run without -DryRun to actually install."
+    }
+    Write-Host ""
+}
+
+if ($errors -gt 0) { exit 1 } else { exit 0 }

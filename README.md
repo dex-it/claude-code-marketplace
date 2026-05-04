@@ -4,13 +4,13 @@
 
 ## О проекте
 
-Claude Code Marketplace — набор из 106 специализированных плагинов для Claude Code, организованных в 3 уровня:
+Claude Code Marketplace — набор из 127 специализированных плагинов для Claude Code, организованных в 3 уровня:
 
 ```
-Level 3: BUNDLES (10)     — наборы для быстрой установки по ролям
-Level 2: SPECIALISTS (41) — агенты с узкой специализацией
-Level 1: SKILLS (47)      — базы знаний (автоматическая активация)
-         UTILITIES (8)     — инструменты (hooks, notifications, CLI)
+Level 3: BUNDLES (11)     — наборы для быстрой установки по ролям
+Level 2: SPECIALISTS (42) — агенты с узкой специализацией
+Level 1: SKILLS (59)      — базы знаний (автоматическая активация)
+         UTILITIES (15)    — инструменты (hooks, notifications, CLI)
 ```
 
 **Принцип:** атомарные плагины без дублирования. Собирай свой набор из нужных компонентов.
@@ -78,7 +78,8 @@ claude plugins uninstall dex-dotnet-coder
 | `architect` | Архитектор | 9 |
 | `qa-engineer` | QA инженер | 6 |
 | `ml-engineer` | ML инженер | 11 |
-| `infrastructure` | Вся инфраструктура | 31 |
+| `infrastructure` | Вся инфраструктура | 37 |
+| `cli-tools` | CLI-утилиты для диагностики (gh, glab, kubectl, jenkins, teamcity, psql, redis-cli, kaf, rabbitmqadmin, aws-s3) | 10 |
 
 Подробнее: [install-bundle/README.md](./install-bundle/README.md)
 
@@ -169,7 +170,7 @@ claude plugins uninstall dex-dotnet-coder
 
 ## Skills (Level 1)
 
-Базы знаний — активируются автоматически по ключевым словам в контексте. 47 skills по категориям:
+Базы знаний — активируются автоматически по ключевым словам в контексте. 59 skills по категориям:
 
 | Категория | Skills |
 |-----------|--------|
@@ -185,16 +186,50 @@ claude plugins uninstall dex-dotnet-coder
 
 ## Utilities (Level 1)
 
+Сгруппированы по назначению. Подробный гайд по CLI-утилитам — установка бинарей, конфигурация, CLI vs MCP — см. [docs/CLI_UTILITIES.md](./docs/CLI_UTILITIES.md). Установить все CLI-плагины одной командой: `./install-bundle/install-bundle.sh cli-tools`.
+
+### CLI Tools — VCS & CI/CD
+
+| Плагин | Описание | Бинарь |
+|--------|----------|--------|
+| dex-github-cli | Workflow runs, PRs, Actions logs | `gh` |
+| dex-gitlab-cli | Pipelines, MRs, job logs | `glab` |
+| dex-jenkins-cli | Jobs, builds, console output | REST API |
+| dex-teamcity-cli | Builds, agents, build logs | REST API |
+
+### CLI Tools — Infrastructure & Data
+
+| Плагин | Описание | Бинарь |
+|--------|----------|--------|
+| dex-kubectl-cli | Pods, logs, deployments, events, контексты | `kubectl` |
+| dex-psql-cli | Read-only запросы, схема, EXPLAIN, locks | `psql` |
+| dex-redis-cli | Server info, scan ключей, memory, monitor | `redis-cli` |
+| dex-kaf-cli | Topics, consumer groups, consume, produce | [`kaf`](https://github.com/birdayz/kaf) |
+| dex-rabbitmqadmin-cli | Overview, queues, bindings, publish | [`rabbitmqadmin-ng`](https://github.com/rabbitmq/rabbitmqadmin-ng) |
+| dex-aws-s3-cli | List, bucket info, head-object, presigned URL | `aws s3` / `s3api` |
+
+### Notifications & Helpers
+
 | Плагин | Описание |
 |--------|----------|
 | dex-telegram-notifier | Telegram уведомления о событиях Claude Code |
 | dex-discord-notifier | Discord уведомления о событиях Claude Code |
-| dex-github-cli | GitHub CLI: workflow runs, PRs, Actions logs |
-| dex-gitlab-cli | GitLab CLI: pipelines, MRs, job logs |
-| dex-jenkins-cli | Jenkins CLI: jobs, builds, console output |
-| dex-kubectl-cli | Kubernetes CLI: pods, logs, deployments, events |
-| dex-teamcity-cli | TeamCity CLI: builds, agents, build logs |
 | dex-mcp-inspector | MCP Inspector: тестирование и отладка MCP серверов |
+
+### Установка самих CLI-бинарей (Linux + macOS)
+
+```bash
+# Что есть, чего не хватает
+./install-bundle/install-cli-tools.sh --check
+
+# Поставить всё недостающее (apt / dnf / pacman / apk / brew — авто-детект)
+./install-bundle/install-cli-tools.sh --all
+
+# Точечно
+./install-bundle/install-cli-tools.sh psql redis-cli kaf rabbitmqadmin aws
+```
+
+Windows: `install-bundle\install-cli-tools.ps1` (winget / scoop / choco).
 
 ## MCP Servers
 
@@ -217,15 +252,20 @@ MCP конфигурации в каталоге `mcp/`. Подробнее: [mc
 ```
 claude-code-marketplace/
 ├── plugins/
-│   ├── skills/                    # Level 1: базы знаний (47)
+│   ├── skills/                    # Level 1: базы знаний (59)
 │   │   ├── dex-skill-agile/
 │   │   ├── dex-skill-dotnet-patterns/
 │   │   └── ...
-│   ├── utilities/                 # Level 1: инструменты (8)
+│   ├── utilities/                 # Level 1: инструменты (15)
 │   │   ├── dex-telegram-notifier/
 │   │   ├── dex-github-cli/
+│   │   ├── dex-psql-cli/
+│   │   ├── dex-redis-cli/
+│   │   ├── dex-kaf-cli/
+│   │   ├── dex-rabbitmqadmin-cli/
+│   │   ├── dex-aws-s3-cli/
 │   │   └── ...
-│   ├── specialists/               # Level 2: агенты (41)
+│   ├── specialists/               # Level 2: агенты (42)
 │   │   ├── dotnet/               # 6 specialists
 │   │   ├── fullstack/            # 1 specialist
 │   │   ├── infrastructure/       # 14 specialists
@@ -233,7 +273,7 @@ claude-code-marketplace/
 │   │   ├── product/              # 8 specialists
 │   │   ├── qa/                   # 3 specialists
 │   │   └── ml/                   # 5 specialists
-│   └── bundles/                   # Level 3: наборы (10)
+│   └── bundles/                   # Level 3: наборы (11)
 │       ├── dex-bundle-dotnet-developer/
 │       └── ...
 ├── install-bundle/                # Скрипты установки/удаления
@@ -271,4 +311,4 @@ GPL v3.0 — см. [LICENSE](./LICENSE)
 
 ---
 
-**DEX Team** · Version 5.1.0
+**DEX Team** · Version 5.2.0

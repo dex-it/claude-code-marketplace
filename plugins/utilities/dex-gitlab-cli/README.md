@@ -1,22 +1,39 @@
 # dex-gitlab-cli
 
-GitLab CLI utility for Claude Code. Quick access to pipelines, merge requests, and CI job logs via `glab`.
+CLI-утилита для GitLab. Быстрый доступ к pipelines, merge requests и логам CI-job через `glab`.
 
-## Commands
+## Команды
 
-| Command | Description |
-|---------|-------------|
-| `/gl-pipelines` | List and inspect GitLab CI pipelines |
-| `/gl-mrs` | List and inspect merge requests |
-| `/gl-logs` | View CI job logs |
+| Команда | Описание |
+|---------|----------|
+| `/gl-pipelines` | Список и детали GitLab CI pipelines |
+| `/gl-mrs` | Список и детали merge requests |
+| `/gl-logs` | Логи CI-job |
 
-## Requirements
+## Требования
 
-- [glab](https://gitlab.com/gitlab-org/cli) CLI installed and authenticated
-- Run `glab auth login` to authenticate
+- [`glab`](https://gitlab.com/gitlab-org/cli) в `PATH`, авторизация через `glab auth login`
 
-## Installation
+## Установка CLI
 
 ```bash
-claude plugins install ./plugins/utilities/dex-gitlab-cli
+# Linux (Debian/Ubuntu) — официальный установочный скрипт
+curl -fsSL https://gitlab.com/gitlab-org/cli/-/raw/main/scripts/install.sh | sudo bash
+
+# Linux (Fedora/RHEL)
+sudo dnf install glab
+
+# macOS
+brew install glab
+
+# One-shot installer (авто-детект ОС)
+./install-bundle/install-cli-tools.sh glab
+```
+
+Для self-hosted GitLab: `glab config set --global hostname gitlab.acme.io`. См. [docs/CLI_UTILITIES.md](../../../docs/CLI_UTILITIES.md) — auth, multi-host, матрица CLI vs MCP.
+
+## Установка плагина
+
+```bash
+claude plugins install dex-gitlab-cli@dex-claude-marketplace
 ```
