@@ -35,6 +35,7 @@ DRY_RUN=false
 VERBOSE=false
 CHECK_ONLY=false
 INSTALL_ALL=false
+UPDATE=false
 
 # Show help
 show_help() {
@@ -51,6 +52,7 @@ show_help() {
     echo "  --list, -l       List supported tools"
     echo "  --check, -c      Check what is already installed (no install)"
     echo "  --all, -a        Install all supported tools"
+    echo "  --update, -u     Update already-installed tools (skip 'Already installed' early-return)"
     echo "  --dry-run, -n    Show what would be installed without installing"
     echo "  --verbose, -v    Show detailed output"
     echo "  --help, -h       Show this help message"
@@ -60,6 +62,8 @@ show_help() {
     echo "  $0 --all                     # Install everything missing"
     echo "  $0 psql redis-cli kaf        # Install specific tools"
     echo "  $0 --all --dry-run           # Preview"
+    echo "  $0 --update gh kubectl       # Update specific tools to latest"
+    echo "  $0 --update --all            # Update all installed tools"
     echo ""
     echo "Supported tools: ${SUPPORTED_TOOLS[*]}"
     echo "See docs/CLI_UTILITIES.md for the full install matrix."
@@ -346,6 +350,23 @@ EOF'
     esac
 }
 
+# Transform install command to upgrade for PMs that don't auto-upgrade on install.
+# apt/dnf/curl-based already upgrade on re-run; brew/apk/pacman/winget/scoop/choco need different commands.
+# (PowerShell-side transformations live in install-cli-tools.ps1.)
+to_upgrade() {
+    local line="$1"
+    [ "$UPDATE" != true ] && { echo "$line"; return; }
+    # brew install <pkg> → brew upgrade <pkg> (does not match `brew tap`, `brew link`)
+    line="${line//brew install /brew upgrade }"
+    # apk add --no-cache <pkg> → apk upgrade --no-cache <pkg>
+    line="${line//apk add --no-cache /apk upgrade --no-cache }"
+    # pacman -S without -Sy uses cached index; prepend a sync to ensure latest is fetched
+    if [[ "$line" == *"pacman -S "* && "$line" != *"pacman -Sy"* ]]; then
+        line="sudo pacman -Sy --noconfirm && $line"
+    fi
+    echo "$line"
+}
+
 # Run recipe (each line is a shell command). Echoes commands when verbose.
 run_recipe() {
     local tool="$1" os="$2" pm="$3"
@@ -359,6 +380,7 @@ run_recipe() {
 
     while IFS= read -r line; do
         [ -z "$line" ] && continue
+        line=$(to_upgrade "$line")
         if [ "$DRY_RUN" = true ]; then
             print_dim "    \$ $line"
         else
@@ -374,7 +396,8 @@ run_recipe() {
     return 0
 }
 
-# Process one tool. Returns: 0 freshly installed (or planned in dry-run), 2 already installed, 1 error
+# Process one tool. Returns: 0 freshly installed/updated (or planned in dry-run), 2 already installed (no update),
+# 3 would-update (--check + --update), 1 error
 process_tool() {
     local tool="$1" os="$2" pm="$3" idx="$4" total="$5"
 
@@ -382,20 +405,33 @@ process_tool() {
     local ver
     ver=$(tool_version "$tool")
     if [ -n "$ver" ]; then
-        print_warning "  [$idx/$total] Already installed: $tool"
-        [ "$VERBOSE" = true ] && print_dim "           $ver"
-        return 2
-    fi
-
-    if [ "$CHECK_ONLY" = true ]; then
-        print_info "  [$idx/$total] Missing: $tool — $(tool_description "$tool")"
-        return 0
-    fi
-
-    if [ "$DRY_RUN" = true ]; then
-        print_info "  [$idx/$total] Would install: $tool"
+        if [ "$UPDATE" = true ]; then
+            if [ "$CHECK_ONLY" = true ]; then
+                print_info "  [$idx/$total] Would update: $tool ($ver)"
+                return 3
+            fi
+            if [ "$DRY_RUN" = true ]; then
+                print_info "  [$idx/$total] Would update: $tool (currently: $ver)"
+            else
+                print_info "  [$idx/$total] Updating: $tool (currently: $ver)"
+            fi
+            # fall through to run_recipe with UPDATE=true → to_upgrade transformation kicks in
+        else
+            print_warning "  [$idx/$total] Already installed: $tool"
+            [ "$VERBOSE" = true ] && print_dim "           $ver"
+            return 2
+        fi
     else
-        print_info "  [$idx/$total] Installing: $tool"
+        if [ "$CHECK_ONLY" = true ]; then
+            print_info "  [$idx/$total] Missing: $tool — $(tool_description "$tool")"
+            return 0
+        fi
+
+        if [ "$DRY_RUN" = true ]; then
+            print_info "  [$idx/$total] Would install: $tool"
+        else
+            print_info "  [$idx/$total] Installing: $tool"
+        fi
     fi
 
     if run_recipe "$tool" "$os" "$pm"; then
@@ -405,7 +441,15 @@ process_tool() {
             local v
             v=$(tool_version "$tool")
             if [ -n "$v" ]; then
-                print_success "           Installed: $v"
+                if [ "$UPDATE" = true ] && [ -n "$ver" ]; then
+                    if [ "$v" = "$ver" ]; then
+                        print_success "           Already at latest: $v"
+                    else
+                        print_success "           Updated: $v"
+                    fi
+                else
+                    print_success "           Installed: $v"
+                fi
                 return 0
             else
                 print_warning "           Recipe ran but $tool not found in PATH — restart shell or check installer output"
@@ -453,6 +497,7 @@ while [[ $# -gt 0 ]]; do
         --list|-l)     ACTION=list; shift ;;
         --check|-c)    CHECK_ONLY=true; shift ;;
         --all|-a)      INSTALL_ALL=true; shift ;;
+        --update|-u)   UPDATE=true; shift ;;
         --dry-run|-n)  DRY_RUN=true; shift ;;
         --verbose|-v)  VERBOSE=true; shift ;;
         --help|-h)     show_help; exit 0 ;;
@@ -469,6 +514,12 @@ fi
 
 # Default: --check if no tools and not --all
 if [ ${#TOOLS[@]} -eq 0 ] && [ "$INSTALL_ALL" = false ] && [ "$CHECK_ONLY" = false ]; then
+    if [ "$UPDATE" = true ]; then
+        print_error "--update requires tool names or --all"
+        echo ""
+        show_help
+        exit 1
+    fi
     show_help
     exit 0
 fi
@@ -503,9 +554,19 @@ read -r OS PM < <(preflight)
 echo ""
 print_header "================================================"
 if [ "$CHECK_ONLY" = true ]; then
-    print_header "  Checking CLI tools (no install)"
+    if [ "$UPDATE" = true ]; then
+        print_header "  Checking CLI tools (update plan)"
+    else
+        print_header "  Checking CLI tools (no install)"
+    fi
 elif [ "$DRY_RUN" = true ]; then
-    print_header "  CLI tools install — dry run"
+    if [ "$UPDATE" = true ]; then
+        print_header "  CLI tools update — dry run"
+    else
+        print_header "  CLI tools install — dry run"
+    fi
+elif [ "$UPDATE" = true ]; then
+    print_header "  Updating CLI tools"
 else
     print_header "  Installing CLI tools"
 fi
@@ -520,6 +581,7 @@ installed=0
 already=0
 errors=0
 missing=0
+would_update=0
 total=${#TOOLS[@]}
 idx=0
 for t in "${TOOLS[@]}"; do
@@ -528,6 +590,7 @@ for t in "${TOOLS[@]}"; do
     case $? in
         0) if [ "$CHECK_ONLY" = true ]; then missing=$((missing + 1)); else installed=$((installed + 1)); fi ;;
         2) already=$((already + 1)) ;;
+        3) would_update=$((would_update + 1)) ;;
         *) errors=$((errors + 1)) ;;
     esac
 done
@@ -540,11 +603,22 @@ print_header "================================================"
 echo ""
 
 if [ "$CHECK_ONLY" = true ]; then
-    print_success "  Already installed:  $already"
-    print_info    "  Missing:            $missing"
+    if [ "$UPDATE" = true ]; then
+        print_info    "  Would update:       $would_update"
+        print_info    "  Would install:      $missing"
+    else
+        print_success "  Already installed:  $already"
+        print_info    "  Missing:            $missing"
+    fi
 elif [ "$DRY_RUN" = true ]; then
-    print_info    "  Would install:      $installed"
-    print_warning "  Already installed:  $already"
+    if [ "$UPDATE" = true ]; then
+        print_info    "  Would update:       $installed"
+    else
+        print_info    "  Would install:      $installed"
+        print_warning "  Already installed:  $already"
+    fi
+elif [ "$UPDATE" = true ]; then
+    print_success "  Updated:            $installed"
 else
     print_success "  Installed:          $installed"
     print_warning "  Already installed:  $already"

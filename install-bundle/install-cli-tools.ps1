@@ -19,6 +19,9 @@ param(
     [Alias("a")]
     [switch]$All,
 
+    [Alias("u")]
+    [switch]$Update,
+
     [Alias("n")]
     [switch]$DryRun,
 
@@ -52,6 +55,7 @@ function Show-Help {
     Write-Host "  -List, -l            List supported tools"
     Write-Host "  -Check, -c           Check what is already installed (no install)"
     Write-Host "  -All, -a             Install all supported tools"
+    Write-Host "  -Update, -u          Update already-installed tools (winget upgrade / scoop update / choco upgrade)"
     Write-Host "  -DryRun, -n          Show what would be installed without installing"
     Write-Host "  -VerboseOutput, -v   Show detailed output"
     Write-Host "  -Help, -h            Show this help message"
@@ -60,6 +64,8 @@ function Show-Help {
     Write-Host "  .\install-cli-tools.ps1 -Check               # See what is missing"
     Write-Host "  .\install-cli-tools.ps1 -All                 # Install everything missing"
     Write-Host "  .\install-cli-tools.ps1 psql redis-cli kaf   # Install specific tools"
+    Write-Host "  .\install-cli-tools.ps1 -Update gh kubectl   # Update specific tools"
+    Write-Host "  .\install-cli-tools.ps1 -Update -All         # Update all installed tools"
     Write-Host ""
     Write-Host "Supported tools: $($SupportedTools -join ', ')"
     Write-Host "See docs\CLI_UTILITIES.md for the full install matrix."
@@ -165,6 +171,17 @@ function Get-Recipe {
     return @("__UNSUPPORTED__")
 }
 
+# Transform install command to upgrade for Windows package managers that don't auto-upgrade.
+# winget install / scoop install / choco install do NOT upgrade existing packages.
+function Convert-ToUpgrade {
+    param($Line)
+    if (-not $Update) { return $Line }
+    $Line = $Line -replace '\bwinget install\b', 'winget upgrade'
+    $Line = $Line -replace '\bscoop install\b', 'scoop update'
+    $Line = $Line -replace '\bchoco install\b', 'choco upgrade'
+    return $Line
+}
+
 function Invoke-Recipe {
     param($Tool, $Pm)
     $recipe = Get-Recipe $Tool $Pm
@@ -179,6 +196,7 @@ function Invoke-Recipe {
         return $false
     }
     foreach ($line in $recipe) {
+        $line = Convert-ToUpgrade $line
         if ($DryRun) {
             Write-Dim "    > $line"
         } else {
@@ -197,31 +215,50 @@ function Invoke-Recipe {
 function Process-Tool {
     param($Tool, $Pm, $Idx, $Total)
 
+    $verBefore = $null
     if (Test-ToolPresent $Tool) {
-        Write-Warn "  [$Idx/$Total] Already installed: $Tool"
-        if ($VerboseOutput) {
-            $v = Get-ToolVersion $Tool
-            if ($v) { Write-Dim "           $v" }
+        $verBefore = Get-ToolVersion $Tool
+        if ($Update) {
+            if ($Check) {
+                Write-Info "  [$Idx/$Total] Would update: $Tool ($verBefore)"
+                return 3
+            }
+            if ($DryRun) {
+                Write-Info "  [$Idx/$Total] Would update: $Tool (currently: $verBefore)"
+            } else {
+                Write-Info "  [$Idx/$Total] Updating: $Tool (currently: $verBefore)"
+            }
+            # fall through to Invoke-Recipe with $Update=true → Convert-ToUpgrade transformation kicks in
+        } else {
+            Write-Warn "  [$Idx/$Total] Already installed: $Tool"
+            if ($VerboseOutput -and $verBefore) { Write-Dim "           $verBefore" }
+            return 2
         }
-        return 2
-    }
-
-    if ($Check) {
-        Write-Info "  [$Idx/$Total] Missing: $Tool — $(Get-ToolDescription $Tool)"
-        return 0
-    }
-
-    if ($DryRun) {
-        Write-Info "  [$Idx/$Total] Would install: $Tool"
     } else {
-        Write-Info "  [$Idx/$Total] Installing: $Tool"
+        if ($Check) {
+            Write-Info "  [$Idx/$Total] Missing: $Tool — $(Get-ToolDescription $Tool)"
+            return 0
+        }
+        if ($DryRun) {
+            Write-Info "  [$Idx/$Total] Would install: $Tool"
+        } else {
+            Write-Info "  [$Idx/$Total] Installing: $Tool"
+        }
     }
 
     if (Invoke-Recipe $Tool $Pm) {
         if (-not $DryRun) {
             $v = Get-ToolVersion $Tool
             if ($v) {
-                Write-Ok "           Installed: $v"
+                if ($Update -and $verBefore) {
+                    if ($v -eq $verBefore) {
+                        Write-Ok "           Already at latest: $v"
+                    } else {
+                        Write-Ok "           Updated: $v"
+                    }
+                } else {
+                    Write-Ok "           Installed: $v"
+                }
                 return 0
             } else {
                 Write-Warn "           Recipe ran but $Tool not found in PATH — restart shell"
@@ -250,6 +287,12 @@ if ($All) { $Tools = $SupportedTools }
 if ($Check -and $Tools.Count -eq 0) { $Tools = $SupportedTools }
 
 if ($Tools.Count -eq 0) {
+    if ($Update) {
+        Write-ErrC "-Update requires tool names or -All"
+        Write-Host ""
+        Show-Help
+        exit 1
+    }
     Show-Help
     exit 0
 }
@@ -263,8 +306,15 @@ if (-not $pm) {
 
 Write-Host ""
 Write-Hdr "================================================"
-if ($Check)  { Write-Hdr "  Checking CLI tools (no install)" }
-elseif ($DryRun) { Write-Hdr "  CLI tools install — dry run" }
+if ($Check) {
+    if ($Update) { Write-Hdr "  Checking CLI tools (update plan)" }
+    else         { Write-Hdr "  Checking CLI tools (no install)" }
+}
+elseif ($DryRun) {
+    if ($Update) { Write-Hdr "  CLI tools update — dry run" }
+    else         { Write-Hdr "  CLI tools install — dry run" }
+}
+elseif ($Update) { Write-Hdr "  Updating CLI tools" }
 else { Write-Hdr "  Installing CLI tools" }
 Write-Hdr "================================================"
 Write-Host ""
@@ -272,7 +322,7 @@ Write-Dim "  Package manager: $pm"
 Write-Dim "  Tools: $($Tools -join ', ')"
 Write-Host ""
 
-$installed = 0; $already = 0; $errors = 0; $missing = 0
+$installed = 0; $already = 0; $errors = 0; $missing = 0; $wouldUpdate = 0
 $total = $Tools.Count
 $idx = 0
 foreach ($t in $Tools) {
@@ -281,6 +331,7 @@ foreach ($t in $Tools) {
     switch ($rc) {
         0 { if ($Check) { $missing++ } else { $installed++ } }
         2 { $already++ }
+        3 { $wouldUpdate++ }
         default { $errors++ }
     }
 }
@@ -292,11 +343,22 @@ Write-Hdr "================================================"
 Write-Host ""
 
 if ($Check) {
-    Write-Ok   "  Already installed:  $already"
-    Write-Info "  Missing:            $missing"
+    if ($Update) {
+        Write-Info "  Would update:       $wouldUpdate"
+        Write-Info "  Would install:      $missing"
+    } else {
+        Write-Ok   "  Already installed:  $already"
+        Write-Info "  Missing:            $missing"
+    }
 } elseif ($DryRun) {
-    Write-Info "  Would install:      $installed"
-    Write-Warn "  Already installed:  $already"
+    if ($Update) {
+        Write-Info "  Would update:       $installed"
+    } else {
+        Write-Info "  Would install:      $installed"
+        Write-Warn "  Already installed:  $already"
+    }
+} elseif ($Update) {
+    Write-Ok   "  Updated:            $installed"
 } else {
     Write-Ok   "  Installed:          $installed"
     Write-Warn "  Already installed:  $already"
@@ -306,7 +368,11 @@ if ($errors -gt 0) { Write-ErrC "  Errors:             $errors" }
 Write-Host ""
 
 if ($DryRun) {
-    Write-Host "Run without -DryRun to actually install."
+    if ($Update) {
+        Write-Host "Run without -DryRun to actually update."
+    } else {
+        Write-Host "Run without -DryRun to actually install."
+    }
     Write-Host ""
 }
 

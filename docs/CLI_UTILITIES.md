@@ -52,9 +52,31 @@
 
 # Предпросмотр без установки
 ./install-bundle/install-cli-tools.sh --all --dry-run
+
+# Обновить уже установленные (см. ниже про PM-aware трансформацию)
+./install-bundle/install-cli-tools.sh --update gh kubectl
+./install-bundle/install-cli-tools.sh --update --all
+./install-bundle/install-cli-tools.sh --update --check          # Что было бы обновлено
 ```
 
 Скрипт автоматически детектит ОС (`uname -s`) и пакетный менеджер (`apt` / `dnf` / `pacman` / `apk` на Linux; `brew` на macOS) и подбирает рецепт. Идемпотентен — повторный запуск безопасен.
+
+#### Обновление установленных инструментов (`--update` / `-u`)
+
+Флаг `--update` пропускает early-return «Already installed» и трансформирует install-команды в upgrade-команды для тех PM, где `<pm> install <pkg>` не обновляет уже установленный пакет:
+
+| PM | Без `--update` | С `--update` (трансформация) |
+|---|---|---|
+| `apt` / `dnf` | `apt install` / `dnf install` (упасть-в-no-op если latest) | без изменений — apt/dnf install обновляет до latest в репо |
+| `brew` | `brew install` | `brew upgrade` (brew install существующего не обновит) |
+| `pacman` | `pacman -S` | префикс `pacman -Sy` (синхронизация индекса перед upgrade) |
+| `apk` | `apk add` | `apk upgrade` (apk add существующего не обновит) |
+| `winget` | `winget install` | `winget upgrade` (winget install существующего пропустит) |
+| `scoop` | `scoop install` | `scoop update` (scoop install скажет «already installed») |
+| `choco` | `choco install` | `choco upgrade` (choco install переустановит ту же версию) |
+| curl-based (kubectl, kaf, rabbitmqadmin, aws, jenkins-cli, teamcity) | curl + install бинаря | без изменений — curl скачивает latest, install перезаписывает |
+
+`--update` без аргументов и без `--all` — ошибка (нужен явный список инструментов или `--all`). Для PowerShell — `-Update` / `-u` с теми же примерами.
 
 ### Матрица ручной установки
 

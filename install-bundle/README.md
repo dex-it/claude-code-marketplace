@@ -276,9 +276,18 @@ Plugin bundles install **slash-command plugins** for Claude Code. The `dex-*-cli
 ./install-cli-tools.sh psql redis-cli   # install specific tools
 ./install-cli-tools.sh --all --dry-run  # preview
 
+# Update already-installed tools to latest
+./install-cli-tools.sh --update gh kubectl     # update specific tools
+./install-cli-tools.sh --update --all          # update everything installed
+./install-cli-tools.sh --update --check        # show what would be updated
+
 # Windows — uses winget / scoop / choco
 .\install-cli-tools.ps1 -Check
 .\install-cli-tools.ps1 -All
+.\install-cli-tools.ps1 -Update gh kubectl
+.\install-cli-tools.ps1 -Update -All
 ```
+
+`--update` / `-u` (and `-Update` for PowerShell) skips the «Already installed» early-return and transforms install commands into upgrade commands per-PM. For Linux `apt` / `dnf` and curl-based recipes (kubectl, kaf, aws, ...) this is a no-op — they already upgrade on re-run. For `brew`, `apk`, `pacman`, `winget`, `scoop`, `choco` — `install` is replaced with the appropriate upgrade subcommand. See [`docs/CLI_UTILITIES.md`](../docs/CLI_UTILITIES.md) → «Обновление установленных инструментов» for the full transformation table.
 
 This is a separate concern from `install-bundle`: you might install the `cli-tools` bundle (the plugins) on a CI machine without ever touching the host binaries, or vice versa. See [`docs/CLI_UTILITIES.md`](../docs/CLI_UTILITIES.md) for the full install matrix and per-tool configuration notes.
