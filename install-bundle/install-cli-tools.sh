@@ -594,6 +594,11 @@ would_update=0
 at_latest=0
 total=${#TOOLS[@]}
 idx=0
+# Disable `set -e` for the main loop: process_tool intentionally returns non-zero codes
+# (2 = already installed, 3 = would update, 4 = already at latest) for signaling, which
+# `set -e` would otherwise treat as a hard failure and exit the script after the first tool.
+# The case-block below classifies every code; unhandled codes fall through to `errors`.
+set +e
 for t in "${TOOLS[@]}"; do
     idx=$((idx + 1))
     process_tool "$t" "$OS" "$PM" "$idx" "$total"
@@ -605,6 +610,7 @@ for t in "${TOOLS[@]}"; do
         *) errors=$((errors + 1)) ;;
     esac
 done
+set -e
 
 # Summary
 echo ""
