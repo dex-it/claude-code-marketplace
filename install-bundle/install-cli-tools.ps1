@@ -110,7 +110,7 @@ function Get-ToolVersion {
     if (-not (Test-ToolPresent $Tool)) { return "" }
     try {
         switch ($Tool) {
-            "kubectl" { (kubectl version --client --short 2>$null | Select-Object -First 1) }
+            "kubectl" { (kubectl version --client 2>$null | Select-Object -First 1) }
             default   { (& $Tool --version 2>$null | Select-Object -First 1) }
         }
     } catch { "" }
@@ -253,6 +253,7 @@ function Process-Tool {
                 if ($Update -and $verBefore) {
                     if ($v -eq $verBefore) {
                         Write-Ok "           Already at latest: $v"
+                        return 4
                     } else {
                         Write-Ok "           Updated: $v"
                     }
@@ -322,7 +323,7 @@ Write-Dim "  Package manager: $pm"
 Write-Dim "  Tools: $($Tools -join ', ')"
 Write-Host ""
 
-$installed = 0; $already = 0; $errors = 0; $missing = 0; $wouldUpdate = 0
+$installed = 0; $already = 0; $errors = 0; $missing = 0; $wouldUpdate = 0; $atLatest = 0
 $total = $Tools.Count
 $idx = 0
 foreach ($t in $Tools) {
@@ -332,6 +333,7 @@ foreach ($t in $Tools) {
         0 { if ($Check) { $missing++ } else { $installed++ } }
         2 { $already++ }
         3 { $wouldUpdate++ }
+        4 { $atLatest++ }
         default { $errors++ }
     }
 }
@@ -359,6 +361,7 @@ if ($Check) {
     }
 } elseif ($Update) {
     Write-Ok   "  Updated:            $installed"
+    if ($atLatest -gt 0) { Write-Dim  "  Already at latest:  $atLatest" }
 } else {
     Write-Ok   "  Installed:          $installed"
     Write-Warn "  Already installed:  $already"

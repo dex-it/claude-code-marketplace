@@ -360,9 +360,11 @@ to_upgrade() {
     line="${line//brew install /brew upgrade }"
     # apk add --no-cache <pkg> → apk upgrade --no-cache <pkg>
     line="${line//apk add --no-cache /apk upgrade --no-cache }"
-    # pacman -S without -Sy uses cached index; prepend a sync to ensure latest is fetched
-    if [[ "$line" == *"pacman -S "* && "$line" != *"pacman -Sy"* ]]; then
-        line="sudo pacman -Sy --noconfirm && $line"
+    # pacman: replace `-S` with `-Syu` (full sync + system upgrade + ensure pkg installed).
+    # ArchWiki considers `-Sy && -S` a partial upgrade and explicitly unsupported:
+    # https://wiki.archlinux.org/title/System_maintenance#Partial_upgrades_are_unsupported
+    if [[ "$line" == *"sudo pacman -S "* && "$line" != *"pacman -Sy"* ]]; then
+        line="${line//sudo pacman -S /sudo pacman -Syu }"
     fi
     echo "$line"
 }
@@ -397,7 +399,7 @@ run_recipe() {
 }
 
 # Process one tool. Returns: 0 freshly installed/updated (or planned in dry-run), 2 already installed (no update),
-# 3 would-update (--check + --update), 1 error
+# 3 would-update (--check + --update), 4 already-at-latest (--update + version unchanged), 1 error
 process_tool() {
     local tool="$1" os="$2" pm="$3" idx="$4" total="$5"
 
@@ -444,6 +446,7 @@ process_tool() {
                 if [ "$UPDATE" = true ] && [ -n "$ver" ]; then
                     if [ "$v" = "$ver" ]; then
                         print_success "           Already at latest: $v"
+                        return 4
                     else
                         print_success "           Updated: $v"
                     fi
@@ -582,6 +585,7 @@ already=0
 errors=0
 missing=0
 would_update=0
+at_latest=0
 total=${#TOOLS[@]}
 idx=0
 for t in "${TOOLS[@]}"; do
@@ -591,6 +595,7 @@ for t in "${TOOLS[@]}"; do
         0) if [ "$CHECK_ONLY" = true ]; then missing=$((missing + 1)); else installed=$((installed + 1)); fi ;;
         2) already=$((already + 1)) ;;
         3) would_update=$((would_update + 1)) ;;
+        4) at_latest=$((at_latest + 1)) ;;
         *) errors=$((errors + 1)) ;;
     esac
 done
@@ -619,6 +624,7 @@ elif [ "$DRY_RUN" = true ]; then
     fi
 elif [ "$UPDATE" = true ]; then
     print_success "  Updated:            $installed"
+    [ $at_latest -gt 0 ] && print_dim     "  Already at latest:  $at_latest"
 else
     print_success "  Installed:          $installed"
     print_warning "  Already installed:  $already"
