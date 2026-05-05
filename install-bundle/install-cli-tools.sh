@@ -364,8 +364,9 @@ to_upgrade() {
     # ArchWiki considers `-Sy && -S` a partial upgrade and explicitly unsupported:
     # https://wiki.archlinux.org/title/System_maintenance#Partial_upgrades_are_unsupported
     # Trade-off: `-Syu` upgrades ALL system packages, not just the requested one. Unavoidable per Arch policy.
-    # Match works with or without `sudo` prefix to support both root-mode and sudo-mode environments.
-    if [[ "$line" == *"pacman -S "* && "$line" != *"pacman -Sy"* ]]; then
+    # Match anchored at line start (with optional `sudo `) — protects against future recipes that might
+    # emit `pacman -S` literal inside `echo`/comments without it being the actual installer command.
+    if [[ "$line" == "pacman -S "* || "$line" == "sudo pacman -S "* ]] && [[ "$line" != *"pacman -Sy"* ]]; then
         line="${line//pacman -S /pacman -Syu }"
     fi
     echo "$line"
