@@ -69,7 +69,7 @@
 |---|---|---|
 | `apt` / `dnf` | `apt install` / `dnf install` (упасть-в-no-op если latest) | без изменений — apt/dnf install обновляет до latest в репо |
 | `brew` | `brew install` | `brew upgrade` (brew install существующего не обновит) |
-| `pacman` | `pacman -S` | префикс `pacman -Sy` (синхронизация индекса перед upgrade) |
+| `pacman` | `pacman -S` | `pacman -Syu` (полный sync + system upgrade) ¹ |
 | `apk` | `apk add` | `apk upgrade` (apk add существующего не обновит) |
 | `winget` | `winget install` | `winget upgrade` (winget install существующего пропустит) |
 | `scoop` | `scoop install` | `scoop update` (scoop install скажет «already installed») |
@@ -77,6 +77,12 @@
 | curl-based (kubectl, kaf, rabbitmqadmin, aws, jenkins-cli, teamcity) | curl + install бинаря | без изменений — curl скачивает latest, install перезаписывает |
 
 `--update` без аргументов и без `--all` — ошибка (нужен явный список инструментов или `--all`). Для PowerShell — `-Update` / `-u` с теми же примерами.
+
+¹ На Arch для апдейта одного пакета используется `pacman -Syu <pkg>`, не `pacman -Sy && pacman -S <pkg>`. [ArchWiki](https://wiki.archlinux.org/title/System_maintenance#Partial_upgrades_are_unsupported) считает второе partial upgrade — не поддерживается, может привести к ABI-несовместимости с транзитивными зависимостями. `-Syu` делает full system upgrade — будут обновлены все пакеты системы, не только запрошенный. На CI/dev-машине, где это нежелательно, лучше запускать без `--update` (рецепт `pacman -S` сам по себе после свежего `pacman -Syu`, выполненного отдельно, корректно установит latest).
+
+В summary при `--update` различаются три состояния: `Updated` — версия реально сменилась после запуска рецепта; `Already at latest` — рецепт отработал успешно, но `<tool> --version` не изменилась (PM не нашёл новой версии); `Installed` — пакет был не установлен и поставлен впервые. Счётчик `Already at latest` показан только если он не нулевой.
+
+**Исключение для `jenkins-cli`** (только bash, на Linux/macOS): обновление wrapper'а `/usr/local/bin/jenkins-cli` всегда репортится как `Updated`, даже если jar реально не сменился. Причина — `tool_version` для jenkins-cli возвращает константу (запустить `java -jar jenkins-cli.jar --version` без `JENKINS_URL`/`JENKINS_USER_ID`/`JENKINS_API_TOKEN` невозможно), поэтому сравнение `до/после` для jenkins-cli бессмысленно. Чтобы не вводить в заблуждение фразой `Already at latest` после реального re-download jar, для jenkins-cli всегда печатается `Updated`. На Windows этот сценарий не возникает — jenkins-cli через `winget`/`scoop`/`choco` не поддерживается (помечен как `__UNSUPPORTED__`).
 
 ### Матрица ручной установки
 

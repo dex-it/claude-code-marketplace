@@ -117,6 +117,28 @@ detect_linux_pm() {
     fi
 }
 
+# Write the jenkins-cli wrapper script. Defined as an exported function so recipes can call it
+# via a single-line `_install_jenkins_cli_wrapper <target> <jar_default>` — recipe lines are
+# executed via `bash -c "$line"` line-by-line, which would split a multi-line `tee <<EOF ... EOF`
+# heredoc across separate invocations and silently produce an empty wrapper file.
+# `#!/bin/sh` + POSIX-only constructs (${VAR:?msg}, exec) → portable across Alpine/Linux/macOS.
+_install_jenkins_cli_wrapper() {
+    local target="$1"
+    local jar_default="$2"
+    local _writer="tee"
+    local _chmodder="chmod"
+    case "$target" in
+        /usr/local/*|/usr/bin/*|/usr/sbin/*) _writer="sudo tee"; _chmodder="sudo chmod" ;;
+    esac
+    $_writer "$target" >/dev/null <<EOFWRAPPER
+#!/bin/sh
+: "\${JENKINS_URL:?set JENKINS_URL}" "\${JENKINS_USER_ID:?set JENKINS_USER_ID}" "\${JENKINS_API_TOKEN:?set JENKINS_API_TOKEN}"
+exec java -jar "\${JENKINS_CLI_JAR:-${jar_default}}" -s "\${JENKINS_URL%/}" -auth "\${JENKINS_USER_ID}:\${JENKINS_API_TOKEN}" "\$@"
+EOFWRAPPER
+    $_chmodder +x "$target"
+}
+export -f _install_jenkins_cli_wrapper
+
 # Get currently installed version of a tool (one line, or empty)
 tool_version() {
     local tool="$1"
@@ -263,56 +285,32 @@ print_recipe() {
             echo "sudo apt update && sudo apt install -y default-jre curl"
             echo 'if [ -z "${JENKINS_URL:-}" ]; then echo "ERROR: set JENKINS_URL env before installing jenkins-cli (so the jar can be fetched from your Jenkins)" >&2; exit 1; fi'
             echo 'sudo mkdir -p /usr/local/lib && sudo curl -fsSL -o /usr/local/lib/jenkins-cli.jar "${JENKINS_URL%/}/jnlpJars/jenkins-cli.jar"'
-            echo 'sudo tee /usr/local/bin/jenkins-cli >/dev/null <<'\''EOF'\''
-#!/bin/bash
-: "${JENKINS_URL:?set JENKINS_URL}" "${JENKINS_USER_ID:?set JENKINS_USER_ID}" "${JENKINS_API_TOKEN:?set JENKINS_API_TOKEN}"
-exec java -jar "${JENKINS_CLI_JAR:-/usr/local/lib/jenkins-cli.jar}" -s "${JENKINS_URL%/}" -auth "${JENKINS_USER_ID}:${JENKINS_API_TOKEN}" "$@"
-EOF'
-            echo "sudo chmod +x /usr/local/bin/jenkins-cli"
+            echo "_install_jenkins_cli_wrapper /usr/local/bin/jenkins-cli /usr/local/lib/jenkins-cli.jar"
             ;;
         linux:dnf:jenkins-cli)
             echo "sudo dnf install -y java-21-openjdk-headless curl"
             echo 'if [ -z "${JENKINS_URL:-}" ]; then echo "ERROR: set JENKINS_URL env before installing jenkins-cli" >&2; exit 1; fi'
             echo 'sudo mkdir -p /usr/local/lib && sudo curl -fsSL -o /usr/local/lib/jenkins-cli.jar "${JENKINS_URL%/}/jnlpJars/jenkins-cli.jar"'
-            echo 'sudo tee /usr/local/bin/jenkins-cli >/dev/null <<'\''EOF'\''
-#!/bin/bash
-: "${JENKINS_URL:?set JENKINS_URL}" "${JENKINS_USER_ID:?set JENKINS_USER_ID}" "${JENKINS_API_TOKEN:?set JENKINS_API_TOKEN}"
-exec java -jar "${JENKINS_CLI_JAR:-/usr/local/lib/jenkins-cli.jar}" -s "${JENKINS_URL%/}" -auth "${JENKINS_USER_ID}:${JENKINS_API_TOKEN}" "$@"
-EOF'
-            echo "sudo chmod +x /usr/local/bin/jenkins-cli"
+            echo "_install_jenkins_cli_wrapper /usr/local/bin/jenkins-cli /usr/local/lib/jenkins-cli.jar"
             ;;
         linux:pacman:jenkins-cli)
             echo "sudo pacman -S --noconfirm jre-openjdk-headless curl"
             echo 'if [ -z "${JENKINS_URL:-}" ]; then echo "ERROR: set JENKINS_URL env before installing jenkins-cli" >&2; exit 1; fi'
             echo 'sudo mkdir -p /usr/local/lib && sudo curl -fsSL -o /usr/local/lib/jenkins-cli.jar "${JENKINS_URL%/}/jnlpJars/jenkins-cli.jar"'
-            echo 'sudo tee /usr/local/bin/jenkins-cli >/dev/null <<'\''EOF'\''
-#!/bin/bash
-: "${JENKINS_URL:?set JENKINS_URL}" "${JENKINS_USER_ID:?set JENKINS_USER_ID}" "${JENKINS_API_TOKEN:?set JENKINS_API_TOKEN}"
-exec java -jar "${JENKINS_CLI_JAR:-/usr/local/lib/jenkins-cli.jar}" -s "${JENKINS_URL%/}" -auth "${JENKINS_USER_ID}:${JENKINS_API_TOKEN}" "$@"
-EOF'
-            echo "sudo chmod +x /usr/local/bin/jenkins-cli"
+            echo "_install_jenkins_cli_wrapper /usr/local/bin/jenkins-cli /usr/local/lib/jenkins-cli.jar"
             ;;
         linux:apk:jenkins-cli)
             echo "sudo apk add --no-cache openjdk21-jre-headless curl"
             echo 'if [ -z "${JENKINS_URL:-}" ]; then echo "ERROR: set JENKINS_URL env before installing jenkins-cli" >&2; exit 1; fi'
             echo 'sudo mkdir -p /usr/local/lib && sudo curl -fsSL -o /usr/local/lib/jenkins-cli.jar "${JENKINS_URL%/}/jnlpJars/jenkins-cli.jar"'
-            echo 'sudo tee /usr/local/bin/jenkins-cli >/dev/null <<'\''EOF'\''
-#!/bin/sh
-: "${JENKINS_URL:?set JENKINS_URL}" "${JENKINS_USER_ID:?set JENKINS_USER_ID}" "${JENKINS_API_TOKEN:?set JENKINS_API_TOKEN}"
-exec java -jar "${JENKINS_CLI_JAR:-/usr/local/lib/jenkins-cli.jar}" -s "${JENKINS_URL%/}" -auth "${JENKINS_USER_ID}:${JENKINS_API_TOKEN}" "$@"
-EOF'
-            echo "sudo chmod +x /usr/local/bin/jenkins-cli"
+            echo "_install_jenkins_cli_wrapper /usr/local/bin/jenkins-cli /usr/local/lib/jenkins-cli.jar"
             ;;
         macos:brew:jenkins-cli)
             echo "brew install openjdk && brew link --force openjdk"
             echo 'if [ -z "${JENKINS_URL:-}" ]; then echo "ERROR: set JENKINS_URL env before installing jenkins-cli" >&2; exit 1; fi'
             echo 'mkdir -p "$HOME/.local/lib" && curl -fsSL -o "$HOME/.local/lib/jenkins-cli.jar" "${JENKINS_URL%/}/jnlpJars/jenkins-cli.jar"'
-            echo 'mkdir -p "$HOME/.local/bin" && tee "$HOME/.local/bin/jenkins-cli" >/dev/null <<'\''EOF'\''
-#!/bin/bash
-: "${JENKINS_URL:?set JENKINS_URL}" "${JENKINS_USER_ID:?set JENKINS_USER_ID}" "${JENKINS_API_TOKEN:?set JENKINS_API_TOKEN}"
-exec java -jar "${JENKINS_CLI_JAR:-$HOME/.local/lib/jenkins-cli.jar}" -s "${JENKINS_URL%/}" -auth "${JENKINS_USER_ID}:${JENKINS_API_TOKEN}" "$@"
-EOF'
-            echo 'chmod +x "$HOME/.local/bin/jenkins-cli"'
+            echo 'mkdir -p "$HOME/.local/bin"'
+            echo '_install_jenkins_cli_wrapper "$HOME/.local/bin/jenkins-cli" "$HOME/.local/lib/jenkins-cli.jar"'
             ;;
 
         # teamcity (JetBrains Go CLI)
@@ -360,9 +358,14 @@ to_upgrade() {
     line="${line//brew install /brew upgrade }"
     # apk add --no-cache <pkg> → apk upgrade --no-cache <pkg>
     line="${line//apk add --no-cache /apk upgrade --no-cache }"
-    # pacman -S without -Sy uses cached index; prepend a sync to ensure latest is fetched
-    if [[ "$line" == *"pacman -S "* && "$line" != *"pacman -Sy"* ]]; then
-        line="sudo pacman -Sy --noconfirm && $line"
+    # pacman: replace `-S` with `-Syu` (full sync + system upgrade + ensure pkg installed).
+    # ArchWiki considers `-Sy && -S` a partial upgrade and explicitly unsupported:
+    # https://wiki.archlinux.org/title/System_maintenance#Partial_upgrades_are_unsupported
+    # Trade-off: `-Syu` upgrades ALL system packages, not just the requested one. Unavoidable per Arch policy.
+    # Match anchored at line start (with optional `sudo `) — protects against future recipes that might
+    # emit `pacman -S` literal inside `echo`/comments without it being the actual installer command.
+    if [[ "$line" == "pacman -S "* || "$line" == "sudo pacman -S "* ]] && [[ "$line" != *"pacman -Sy"* ]]; then
+        line="${line//pacman -S /pacman -Syu }"
     fi
     echo "$line"
 }
@@ -397,7 +400,7 @@ run_recipe() {
 }
 
 # Process one tool. Returns: 0 freshly installed/updated (or planned in dry-run), 2 already installed (no update),
-# 3 would-update (--check + --update), 1 error
+# 3 would-update (--check + --update), 4 already-at-latest (--update + version unchanged), 1 error
 process_tool() {
     local tool="$1" os="$2" pm="$3" idx="$4" total="$5"
 
@@ -442,8 +445,13 @@ process_tool() {
             v=$(tool_version "$tool")
             if [ -n "$v" ]; then
                 if [ "$UPDATE" = true ] && [ -n "$ver" ]; then
-                    if [ "$v" = "$ver" ]; then
+                    # jenkins-cli's tool_version returns a constant string (the wrapper binary itself
+                    # never exposes the JAR version without JENKINS_URL). Comparing strings would always
+                    # report "Already at latest" even when the recipe re-downloaded the JAR — misleading.
+                    # For jenkins-cli, treat any successful recipe run as Updated.
+                    if [ "$tool" != "jenkins-cli" ] && [ "$v" = "$ver" ]; then
                         print_success "           Already at latest: $v"
+                        return 4
                     else
                         print_success "           Updated: $v"
                     fi
@@ -455,6 +463,11 @@ process_tool() {
                 print_warning "           Recipe ran but $tool not found in PATH — restart shell or check installer output"
                 return 1
             fi
+        fi
+        # DRY_RUN=true: differentiate would-update from would-install so summary stays honest.
+        # An installed tool taking the update path returns 3 (would-update); a missing tool returns 0 (would-install).
+        if [ "$UPDATE" = true ] && [ -n "$ver" ]; then
+            return 3
         fi
         return 0
     else
@@ -582,8 +595,14 @@ already=0
 errors=0
 missing=0
 would_update=0
+at_latest=0
 total=${#TOOLS[@]}
 idx=0
+# Disable `set -e` for the main loop: process_tool intentionally returns non-zero codes
+# (2 = already installed, 3 = would update, 4 = already at latest) for signaling, which
+# `set -e` would otherwise treat as a hard failure and exit the script after the first tool.
+# The case-block below classifies every code; unhandled codes fall through to `errors`.
+set +e
 for t in "${TOOLS[@]}"; do
     idx=$((idx + 1))
     process_tool "$t" "$OS" "$PM" "$idx" "$total"
@@ -591,9 +610,11 @@ for t in "${TOOLS[@]}"; do
         0) if [ "$CHECK_ONLY" = true ]; then missing=$((missing + 1)); else installed=$((installed + 1)); fi ;;
         2) already=$((already + 1)) ;;
         3) would_update=$((would_update + 1)) ;;
+        4) at_latest=$((at_latest + 1)) ;;
         *) errors=$((errors + 1)) ;;
     esac
 done
+set -e
 
 # Summary
 echo ""
@@ -612,13 +633,15 @@ if [ "$CHECK_ONLY" = true ]; then
     fi
 elif [ "$DRY_RUN" = true ]; then
     if [ "$UPDATE" = true ]; then
-        print_info    "  Would update:       $installed"
+        print_info    "  Would update:       $would_update"
+        print_info    "  Would install:      $installed"
     else
         print_info    "  Would install:      $installed"
         print_warning "  Already installed:  $already"
     fi
 elif [ "$UPDATE" = true ]; then
     print_success "  Updated:            $installed"
+    [ $at_latest -gt 0 ] && print_dim     "  Already at latest:  $at_latest"
 else
     print_success "  Installed:          $installed"
     print_warning "  Already installed:  $already"
