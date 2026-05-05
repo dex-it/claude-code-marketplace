@@ -82,6 +82,8 @@
 
 В summary при `--update` различаются три состояния: `Updated` — версия реально сменилась после запуска рецепта; `Already at latest` — рецепт отработал успешно, но `<tool> --version` не изменилась (PM не нашёл новой версии); `Installed` — пакет был не установлен и поставлен впервые. Счётчик `Already at latest` показан только если он не нулевой.
 
+**Исключение для `jenkins-cli`** (только bash, на Linux/macOS): обновление wrapper'а `/usr/local/bin/jenkins-cli` всегда репортится как `Updated`, даже если jar реально не сменился. Причина — `tool_version` для jenkins-cli возвращает константу (запустить `java -jar jenkins-cli.jar --version` без `JENKINS_URL`/`JENKINS_USER_ID`/`JENKINS_API_TOKEN` невозможно), поэтому сравнение `до/после` для jenkins-cli бессмысленно. Чтобы не вводить в заблуждение фразой `Already at latest` после реального re-download jar, для jenkins-cli всегда печатается `Updated`. На Windows этот сценарий не возникает — jenkins-cli через `winget`/`scoop`/`choco` не поддерживается (помечен как `__UNSUPPORTED__`).
+
 ### Матрица ручной установки
 
 | Бинарь | Linux (Debian/Ubuntu) | Linux (Fedora/RHEL) | macOS | Источник |
