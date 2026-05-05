@@ -464,6 +464,11 @@ process_tool() {
                 return 1
             fi
         fi
+        # DRY_RUN=true: differentiate would-update from would-install so summary stays honest.
+        # An installed tool taking the update path returns 3 (would-update); a missing tool returns 0 (would-install).
+        if [ "$UPDATE" = true ] && [ -n "$ver" ]; then
+            return 3
+        fi
         return 0
     else
         return 1
@@ -628,7 +633,8 @@ if [ "$CHECK_ONLY" = true ]; then
     fi
 elif [ "$DRY_RUN" = true ]; then
     if [ "$UPDATE" = true ]; then
-        print_info    "  Would update:       $installed"
+        print_info    "  Would update:       $would_update"
+        print_info    "  Would install:      $installed"
     else
         print_info    "  Would install:      $installed"
         print_warning "  Already installed:  $already"

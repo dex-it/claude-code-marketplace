@@ -266,6 +266,10 @@ function Process-Tool {
                 return 1
             }
         }
+        # DryRun: differentiate would-update from would-install so summary stays honest.
+        if ($Update -and $verBefore) {
+            return 3
+        }
         return 0
     }
     return 1
@@ -354,7 +358,8 @@ if ($Check) {
     }
 } elseif ($DryRun) {
     if ($Update) {
-        Write-Info "  Would update:       $installed"
+        Write-Info "  Would update:       $wouldUpdate"
+        Write-Info "  Would install:      $installed"
     } else {
         Write-Info "  Would install:      $installed"
         Write-Warn "  Already installed:  $already"
