@@ -363,8 +363,10 @@ to_upgrade() {
     # pacman: replace `-S` with `-Syu` (full sync + system upgrade + ensure pkg installed).
     # ArchWiki considers `-Sy && -S` a partial upgrade and explicitly unsupported:
     # https://wiki.archlinux.org/title/System_maintenance#Partial_upgrades_are_unsupported
-    if [[ "$line" == *"sudo pacman -S "* && "$line" != *"pacman -Sy"* ]]; then
-        line="${line//sudo pacman -S /sudo pacman -Syu }"
+    # Trade-off: `-Syu` upgrades ALL system packages, not just the requested one. Unavoidable per Arch policy.
+    # Match works with or without `sudo` prefix to support both root-mode and sudo-mode environments.
+    if [[ "$line" == *"pacman -S "* && "$line" != *"pacman -Sy"* ]]; then
+        line="${line//pacman -S /pacman -Syu }"
     fi
     echo "$line"
 }
@@ -444,7 +446,11 @@ process_tool() {
             v=$(tool_version "$tool")
             if [ -n "$v" ]; then
                 if [ "$UPDATE" = true ] && [ -n "$ver" ]; then
-                    if [ "$v" = "$ver" ]; then
+                    # jenkins-cli's tool_version returns a constant string (the wrapper binary itself
+                    # never exposes the JAR version without JENKINS_URL). Comparing strings would always
+                    # report "Already at latest" even when the recipe re-downloaded the JAR — misleading.
+                    # For jenkins-cli, treat any successful recipe run as Updated.
+                    if [ "$tool" != "jenkins-cli" ] && [ "$v" = "$ver" ]; then
                         print_success "           Already at latest: $v"
                         return 4
                     else
