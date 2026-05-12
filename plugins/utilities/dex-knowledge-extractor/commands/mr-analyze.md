@@ -27,9 +27,22 @@ argument-hint: "<путь к файлу от /mr-collect> [--task <TASK-KEY>]"
 
 **Output file:** `/tmp/mr-analyze-<task-key>-<YYYYMMDD-HHMM>.md`. Task key из флага `--task`, иначе из Metadata collect-файла или его имени, иначе `no-task`.
 
-**Output sections:** Proposed skill additions / Proposed new skills / Proposed agent changes / Skipped (already covered) / Dropped (not actionable). Каждое предложение -- с drop-in markdown-блоком формата Плохо/Правильно/Почему, категорией H2 в skill, именем skill или agent-файла.
+**Output sections:** Proposed skill additions / Proposed new skills / Proposed agent changes / Skipped (already covered) / Dropped (not actionable). Каждое предложение -- с drop-in markdown-блоком формата `Плохо:` / `Правильно:` / `Почему:` (триада с двоеточиями, синхронизировано с regex валидатора `tools/validate-skill.js`), категорией H2 в skill, именем skill или agent-файла.
 
 **Nothing-to-propose behaviour:** если после фильтрации и dedup осталось ноль новых ловушек, ноль новых skills, ноль правок агентов -- файл **не создавать**. Stdout: `Ничего не найдено для предложений: все находки либо уже покрыты, либо не actionable.`
+
+**Validation constraints (synced with `tools/validate-skill.js`):** drop-in блок каждой ловушки должен проходить валидатор без ошибок -- иначе валидатор маркетплейса упадёт на ревьюверском PR, и ловушку придётся переписывать вручную. Решение «принять / переписать / выкинуть» -- за ревьювером PR, наша задача -- не подкладывать ему заведомо не-валидный материал. Применять при генерации, не оставлять на «потом починят»:
+
+- Code fence ≤ 5 строк (`code-fence-too-long`). Длиннее -- ужать (однострочный `if`, объединение цепочек, опустить boilerplate `using` / `class` / обёртки `{}`); если без потери смысла не получается -- в `Dropped (not actionable)` с причиной `cannot-fit-fence-limit`
+- Триада обязательна: `Плохо:` / `Правильно:` / `Почему:` -- каждая ловушка содержит все три строки (`trap-missing-triad`)
+- Подзаголовок ловушки -- `###` внутри существующей H2-категории. Не `####`, не `##`
+- Drop-in блок не повторяет дословно формулировки существующих ловушек целевого SKILL.md (dedup-проверка обязательна *до* финального предложения)
+- Имена конкретного проекта (классы, файлы, namespaces из MR) в drop-in блоках запрещены. Placeholder-имена: `Service`, `Calculator`, `Options`, `MaxSize`, `_logger`, `Result`
+- Размер итогового SKILL.md после добавления ловушки: предупреждение на ≥ 250 строк (`size-exceeds-recommended`), потолок 500 (`size-exceeds-hard-limit`). Если целевой SKILL.md близок к 250 -- фиксировать в Pre-analysis и оставлять только самые ценные ловушки
+- Description целевого skill (если правится): 50-250 символов; обязательная фраза `Активируется при` с ≥ 10 keywords через запятую после неё (`description-no-activation` / `description-few-keywords`)
+- Минимум ловушек в skill ≥ 5 (`too-few-traps`) -- релевантно для *нового* skill: если за MR удаётся набрать < 5 ловушек, новый skill не предлагать, собрать в `Dropped` с причиной `insufficient-traps-for-new-skill`
+
+Правило компромисса: лучше короткий пример из 2-3 строк с pointer-комментарием `// + ещё N полей опускаем`, чем 7-строчный «как в жизни» блок, который автомат отбросит. Нюансы выноси в `Почему:`.
 
 **Constraints:**
 
@@ -38,6 +51,7 @@ argument-hint: "<путь к файлу от /mr-collect> [--task <TASK-KEY>]"
 - Ловушка, в формулировке которой остаются имена конкретного проекта, -- не предлагается
 - Skill, в котором уже есть похожая ловушка, -- не получает дубликат
 - Новый skill предлагается только когда тема не покрыта ни одним существующим skill
+- Перед записью output file прогонять mental-self-check по **Validation constraints** выше; ценную ловушку, не проходящую лимит, -- пытаться переписать (короче пример, pointer-комментарий `// + ещё N полей опускаем`, нюансы в `Почему:`); если и после переписывания не лезет -- переносить в `Dropped (not actionable)` с явной причиной (`cannot-fit-fence-limit`, `cannot-deproject-name`, etc.). Не отсекать ради отсечения -- чем больше выживших ловушек, тем больше пользы для ревьювера PR
 
 **Errors:**
 
