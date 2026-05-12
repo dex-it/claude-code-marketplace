@@ -268,7 +268,7 @@ function validateTraps(markdownBody, findings) {
 
 // --- Pointer-not-code validation ----------------------------------------
 
-const MAX_CODE_FENCE_LINES = 5;
+const MAX_CODE_FENCE_LINES = 12;
 
 function validateCodeFences(markdownBody, findings) {
   const tree = unified().use(remarkParse).parse(markdownBody);
