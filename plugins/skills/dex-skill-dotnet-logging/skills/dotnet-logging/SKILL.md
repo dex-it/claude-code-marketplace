@@ -109,6 +109,24 @@ description: .NET structured logging — Serilog, ILogger, Seq. Активиру
 Правильно: `using (_logger.BeginScope(new { JobId = jobId }))` — добавляет свойство ко ВСЕМ логам в блоке
 Почему: без scope — дублирование, забытый JobId в одном вызове -> невозможно связать лог с задачей в Seq
 
+## Инициализация компонентов
+
+### Configurator/Initializer без логирования применённых настроек
+Плохо:
+```csharp
+void Configure(Options options) {
+    options.MaxSize = _settings.MaxSize;
+}
+```
+Правильно:
+```csharp
+void Configure(Options options) {
+    options.MaxSize = _settings.MaxSize;
+    _logger.LogInformation("Configured MaxSize={MaxSize}", _settings.MaxSize);
+}
+```
+Почему: configurator запускается при старте и при обновлении параметров — без лога неясно в production, загрузилось ли нужное значение или сработал дефолт; критично при первом деплое и инцидентах
+
 ## Чек-лист
 
 - Structured logging (не string interpolation)
@@ -118,3 +136,4 @@ description: .NET structured logging — Serilog, ILogger, Seq. Активиру
 - Нет спама — логируем события, не итерации
 - `Log.CloseAndFlush()` перед завершением процесса
 - MinimumLevel.Override для Microsoft/EF — Warning
+- Configurator-классы логируют применённые значения при старте
