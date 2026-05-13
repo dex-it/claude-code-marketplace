@@ -2,7 +2,7 @@
 description: Открыть HTML-отчёт последнего прогона Playwright (`npx playwright show-report`)
 user-invocable: true
 allowed-tools: Bash
-argument-hint: "[report-path] [--port N] [--host 127.0.0.1]"
+argument-hint: "[report-path] [--port N] [--host host]"
 ---
 
 # /pw-show-report
@@ -23,6 +23,6 @@ argument-hint: "[report-path] [--port N] [--host 127.0.0.1]"
 **Constraints:**
 
 - Команда поднимает локальный http-сервер на ~9323. Печатать URL, не блокировать терминал ожиданием -- предупредить, что для остановки нужен `Ctrl-C` в исходном окне.
-- Открытие в браузере на headless-серверах (CI, WSL без GUI) не сработает. На таком окружении использовать `--host` и открыть URL вручную.
+- На headless-окружении (CI, WSL без GUI) команда поднимает сервер и печатает URL, но не сможет авто-открыть браузер. Скопировать URL и открыть с машины с GUI; для внешнего доступа -- `--host 0.0.0.0` + SSH-туннель.
 - Отчёт ссылается на trace и видео из `test-results/`. Если эта папка удалена -- ссылки в отчёте отдадут 404.
 - HTML-отчёт может содержать скриншоты с PII / секретами в URL / cookies -- не публиковать `playwright-report/` в открытом доступе.

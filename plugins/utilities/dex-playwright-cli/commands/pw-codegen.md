@@ -21,7 +21,8 @@ argument-hint: "<url> [--target playwright-test|javascript|python|python-pytest|
 - `-b firefox` / `--browser webkit` -- записать в конкретном движке (для проверки cross-browser-отличий); дефолт `chromium`.
 - `--device "iPhone 13"` -- эмуляция мобильного viewport + user-agent.
 - `--output tests/recorded.spec.ts` -- сохранить сразу в файл.
-- `--save-storage auth.json` + `--load-storage auth.json` -- залогиниться один раз, переиспользовать сессию.
+- `--save-storage auth.json` -- сохранить cookies + localStorage в файл после ручного логина (одноразовый шаг).
+- `--load-storage auth.json` -- загрузить ранее сохранённую сессию (последующие запуски, без повторного логина).
 
 **Constraints:**
 

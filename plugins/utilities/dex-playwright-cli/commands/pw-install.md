@@ -17,7 +17,7 @@ argument-hint: "[chromium|firefox|webkit|chrome|msedge] [--with-deps] [--dry-run
 
 - Без аргументов -- все браузеры из `playwright.config` (обычно chromium, firefox, webkit). Полная установка ~300 МБ.
 - `chromium` / `firefox` / `webkit` -- один движок.
-- `chrome` / `msedge` -- использовать системный Chrome / Edge (`channel: 'chrome'` в конфиге), скачивается только драйвер.
+- `chrome` / `msedge` -- установить Google Chrome / Microsoft Edge стабильного канала (в `playwright.config` указать `channel: 'chrome'` или `'msedge'`), вместо bundled chromium.
 - `--with-deps` (Linux) -- доустановить системные пакеты (libnss3, libatk-bridge, libxkbcommon, libdrm, libgbm, ...). Требует sudo (apt/dnf/...).
 - `--dry-run` -- показать, что было бы скачано, без скачивания.
 - `--force` -- переустановить, даже если кеш есть.
@@ -30,4 +30,4 @@ argument-hint: "[chromium|firefox|webkit|chrome|msedge] [--with-deps] [--dry-run
 - `--with-deps` запрашивает sudo и трогает системные пакеты. На shared/managed-машинах вместо `--with-deps` использовать предсобранный Docker-образ `mcr.microsoft.com/playwright`.
 - На WSL подсистема `--with-deps` ставит deps в WSL-окружение, не в Windows-хост. Headed-режим в WSL дополнительно требует WSLg или X-сервера.
 - Версия браузеров пинуется к версии `@playwright/test` в `package.json`. После обновления пакета -- перезапустить `/pw-install`, иначе ошибка `Executable doesn't exist`.
-- В Docker-образе `mcr.microsoft.com/playwright:vX-jammy` всё уже предустановлено -- `/pw-install` там не нужен.
+- В Docker-образе `mcr.microsoft.com/playwright:v<version>-jammy` (или `-noble`) всё уже предустановлено -- `/pw-install` там не нужен. Пример пина: `:v1.49.0-jammy`.
