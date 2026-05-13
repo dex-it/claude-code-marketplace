@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "5.3.0",
+  "version": "5.4.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -191,6 +191,21 @@
         "typescript",
         "frontend",
         "components"
+      ]
+    },
+    {
+      "name": "dex-skill-playwright",
+      "source": "./plugins/skills/dex-skill-playwright",
+      "description": "Playwright E2E traps: locators, auto-waiting, isolation, network mocking, traces, fixtures",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "playwright",
+        "e2e",
+        "testing",
+        "browser",
+        "automation"
       ]
     },
     {
@@ -1190,7 +1205,7 @@
       "name": "dex-test-automator",
       "source": "./plugins/specialists/qa/dex-test-automator",
       "description": "Test automator: Selenium, Playwright, API testing",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1374,8 +1389,8 @@
     {
       "name": "dex-bundle-qa-engineer",
       "source": "./plugins/bundles/dex-bundle-qa-engineer",
-      "description": "Bundle for QA Engineers: test analysis, automation, bug reporting",
-      "version": "1.1.0",
+      "description": "Bundle for QA Engineers: test analysis, automation (incl. Playwright E2E), bug reporting",
+      "version": "1.2.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -1400,8 +1415,8 @@
     {
       "name": "dex-bundle-ts-fullstack",
       "source": "./plugins/bundles/dex-bundle-ts-fullstack",
-      "description": "Bundle for TypeScript fullstack: Node.js/Bun backend + React frontend, security, Docker",
-      "version": "1.1.0",
+      "description": "Bundle for TypeScript fullstack: Node.js/Bun backend + React frontend, security, Docker, Playwright E2E",
+      "version": "1.2.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -1427,8 +1442,8 @@
     {
       "name": "dex-bundle-cli-tools",
       "source": "./plugins/bundles/dex-bundle-cli-tools",
-      "description": "CLI tools bundle: VCS/CI (gh, glab, jenkins, teamcity), Kubernetes (kubectl), data & messaging (psql, redis-cli, kaf, rabbitmqadmin), cloud (aws s3)",
-      "version": "1.0.0",
+      "description": "CLI tools bundle: VCS/CI (gh, glab, jenkins, teamcity), Kubernetes (kubectl), data & messaging (psql, redis-cli, kaf, rabbitmqadmin), cloud (aws s3), browser testing (playwright)",
+      "version": "1.1.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -1583,6 +1598,23 @@
         "s3",
         "cli",
         "object-storage"
+      ]
+    },
+    {
+      "name": "dex-playwright-cli",
+      "source": "./plugins/utilities/dex-playwright-cli",
+      "description": "Playwright CLI: run tests, show HTML report, codegen recorder, trace viewer, browser install via npx playwright",
+      "version": "1.0.0",
+      "category": "utility",
+      "keywords": [
+        "utility",
+        "playwright",
+        "e2e",
+        "browser",
+        "testing",
+        "cli",
+        "trace",
+        "codegen"
       ]
     },
     {

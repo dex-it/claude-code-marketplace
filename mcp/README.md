@@ -22,7 +22,7 @@
 | **dex-dotnet-developer** | gitlab, notion | genai-toolbox (databases), rabbitmq, kafka, docker, seq, kubernetes, teamcity, grafana, openapi |
 | **dex-dotnet-architect** | github, gitlab, notion | filesystem |
 | **dex-python-ml-developer** | gitlab | notion, mlflow, wandb, huggingface |
-| **dex-quality-assurance** | gitlab | filesystem |
+| **dex-quality-assurance** | gitlab | playwright, filesystem |
 | **dex-devops** | gitlab | - |
 
 ## Описание серверов
@@ -83,6 +83,26 @@
 | **docker** | Docker - containers, images | - |
 | **kubernetes** | K8s - pods, deployments | `K8S_READONLY` |
 | **filesystem** | Локальные файлы (настройте пути) | - |
+
+### Browser automation и E2E
+
+| Сервер | Описание | Переменные |
+|--------|----------|------------|
+| **playwright** | Playwright MCP - browser automation, E2E checks, accessibility tree navigation (Microsoft official) | - |
+| **chrome-devtools** | Chrome DevTools - debugging, testing, screenshots, headed/isolated | - |
+
+Playwright MCP даёт агенту высокоуровневые операции: snapshot accessibility tree, click/fill/select по role+name, navigate, evaluate. Подходит для автономного E2E-workflow ("проверь форму регистрации"). Для запуска уже написанных Playwright-тестов и просмотра отчётов -- CLI-плагин `dex-playwright-cli`.
+
+**Перед первым запуском.** MCP не ставит браузеры автоматически: `npx playwright install chromium` (или другой движок из списка ниже).
+
+**Флаги аргументов `@playwright/mcp`:**
+
+| Флаг | Зачем |
+|---|---|
+| `--isolated` | Свежий профиль на сессию, ничего не персистится между запусками. |
+| `--headless` | Headless-режим (нужен для CI / WSL без GUI). По умолчанию MCP стартует headed. Для headed-режима -- убрать флаг и обеспечить X-сервер / WSLg. |
+| `--browser <name>` | `chromium` (дефолт) \| `firefox` \| `webkit` \| `chrome` \| `msedge`. |
+| ~~`--port`~~ | **НЕ указывать** -- переключает транспорт на HTTP/SSE; Claude Code требует stdio (дефолт). |
 
 ### Мониторинг и API
 

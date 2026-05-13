@@ -4,13 +4,13 @@
 
 ## О проекте
 
-Claude Code Marketplace — набор из 127 специализированных плагинов для Claude Code, организованных в 3 уровня:
+Claude Code Marketplace — набор специализированных плагинов для Claude Code, организованных в 3 уровня:
 
 ```
-Level 3: BUNDLES (11)     — наборы для быстрой установки по ролям
-Level 2: SPECIALISTS (42) — агенты с узкой специализацией
-Level 1: SKILLS (59)      — базы знаний (автоматическая активация)
-         UTILITIES (15)    — инструменты (hooks, notifications, CLI)
+Level 3: BUNDLES     — наборы для быстрой установки по ролям
+Level 2: SPECIALISTS — агенты с узкой специализацией
+Level 1: SKILLS      — базы знаний (автоматическая активация)
+         UTILITIES   — инструменты (hooks, notifications, CLI)
 ```
 
 **Принцип:** атомарные плагины без дублирования. Собирай свой набор из нужных компонентов.
@@ -67,19 +67,19 @@ claude plugins uninstall dex-dotnet-coder
 
 Мета-плагины для установки наборов. Не содержат кода — только список компонентов.
 
-| Bundle | Описание | Компонентов |
-|--------|----------|-------------|
-| `dotnet-developer` | .NET разработчик | 12 |
-| `dotnet-fullstack` | .NET + инфраструктура | 29 |
-| `ts-fullstack` | TypeScript fullstack (Node.js/Bun + React) | 7 |
-| `devops` | DevOps инженер | 19 |
-| `product-manager` | Product Manager | 9 |
-| `system-analyst` | Системный аналитик | 9 |
-| `architect` | Архитектор | 9 |
-| `qa-engineer` | QA инженер | 6 |
-| `ml-engineer` | ML инженер | 11 |
-| `infrastructure` | Вся инфраструктура | 37 |
-| `cli-tools` | CLI-утилиты для диагностики (gh, glab, kubectl, jenkins, teamcity, psql, redis-cli, kaf, rabbitmqadmin, aws-s3) | 10 |
+| Bundle | Описание |
+|--------|----------|
+| `dotnet-developer` | .NET разработчик |
+| `dotnet-fullstack` | .NET + инфраструктура |
+| `ts-fullstack` | TypeScript fullstack (Node.js/Bun + React) |
+| `devops` | DevOps инженер |
+| `product-manager` | Product Manager |
+| `system-analyst` | Системный аналитик |
+| `architect` | Архитектор |
+| `qa-engineer` | QA инженер |
+| `ml-engineer` | ML инженер |
+| `infrastructure` | Вся инфраструктура |
+| `cli-tools` | CLI-утилиты для диагностики (gh, glab, kubectl, jenkins, teamcity, psql, redis-cli, kaf, rabbitmqadmin, aws-s3, playwright) |
 
 Подробнее: [install-bundle/README.md](./install-bundle/README.md)
 
@@ -87,13 +87,13 @@ claude plugins uninstall dex-dotnet-coder
 
 Агенты с узкой специализацией. Один агент = один плагин.
 
-### Fullstack (1)
+### Fullstack
 
 | Плагин | Агент | Описание |
 |--------|-------|----------|
 | dex-ts-fullstack-coder | ts-fullstack-assistant | TypeScript fullstack: Node.js/Bun + React |
 
-### .NET (6)
+### .NET
 
 | Плагин | Агент | Описание |
 |--------|-------|----------|
@@ -104,7 +104,7 @@ claude plugins uninstall dex-dotnet-coder
 | dex-ef-specialist | ef-specialist | EF Core: migrations, queries, DbContext |
 | dex-dotnet-performance | performance-analyst | Profiling, N+1, memory |
 
-### Infrastructure (14)
+### Infrastructure
 
 | Плагин | Описание |
 |--------|----------|
@@ -123,7 +123,7 @@ claude plugins uninstall dex-dotnet-coder
 | dex-logging-seq | Seq: log analysis, dashboards |
 | dex-monitoring-grafana | Grafana: dashboards, alerts, metrics |
 
-### Architecture (4)
+### Architecture
 
 | Плагин | Описание |
 |--------|----------|
@@ -132,7 +132,7 @@ claude plugins uninstall dex-dotnet-coder
 | dex-diagram-creator | C4, sequence diagrams, Mermaid |
 | dex-api-designer | REST API design, OpenAPI |
 
-### Product (4)
+### Product
 
 | Плагин | Описание |
 |--------|----------|
@@ -141,7 +141,7 @@ claude plugins uninstall dex-dotnet-coder
 | dex-backlog-manager | Epic backlog, prioritization |
 | dex-pm-metrics-analyst | KPIs, OKRs, metrics |
 
-### System Analysis (4)
+### System Analysis
 
 | Плагин | Описание |
 |--------|----------|
@@ -150,7 +150,7 @@ claude plugins uninstall dex-dotnet-coder
 | dex-process-modeler | BPMN, workflows |
 | dex-doc-writer | Technical specs, API docs |
 
-### QA (3)
+### QA
 
 | Плагин | Описание |
 |--------|----------|
@@ -158,7 +158,7 @@ claude plugins uninstall dex-dotnet-coder
 | dex-test-automator | Selenium, Playwright, API testing |
 | dex-bug-reporter | Bug reports, reproduction steps |
 
-### ML (5)
+### ML
 
 | Плагин | Описание |
 |--------|----------|
@@ -170,7 +170,7 @@ claude plugins uninstall dex-dotnet-coder
 
 ## Skills (Level 1)
 
-Базы знаний — активируются автоматически по ключевым словам в контексте. 59 skills по категориям:
+Базы знаний — активируются автоматически по ключевым словам в контексте. Skills по категориям:
 
 | Категория | Skills |
 |-----------|--------|
@@ -181,7 +181,7 @@ claude plugins uninstall dex-dotnet-coder
 | **Infrastructure** | rabbitmq, kafka, elasticsearch, redis, mongodb, docker, kubernetes, gitlab-ci, github-actions, jenkins, teamcity, logging, observability |
 | **Architecture** | clean-architecture, ddd, microservices, system-design |
 | **Product & Analysis** | agile, user-stories, bpmn, doc-standards, api-specification, epic-planning, product-discovery, prioritization |
-| **QA** | test-design, api-testing, deep-audit, tech-audit |
+| **QA** | test-design, api-testing, deep-audit, tech-audit, playwright |
 | **ML** | pytorch, tensorflow, classical-ml, nlp-transformers, computer-vision, ml-optimization |
 
 ## Utilities (Level 1)
@@ -207,6 +207,12 @@ claude plugins uninstall dex-dotnet-coder
 | dex-kaf-cli | Topics, consumer groups, consume, produce | [`kaf`](https://github.com/birdayz/kaf) |
 | dex-rabbitmqadmin-cli | Overview, queues, bindings, publish | [`rabbitmqadmin-ng`](https://github.com/rabbitmq/rabbitmqadmin-ng) |
 | dex-aws-s3-cli | List, bucket info, head-object, presigned URL | `aws s3` / `s3api` |
+
+### CLI Tools -- Browser testing
+
+| Плагин | Описание | Бинарь |
+|--------|----------|--------|
+| dex-playwright-cli | Run tests, show HTML report, codegen, trace viewer, install браузеров | `npx playwright` |
 
 ### Notifications & Helpers
 
@@ -252,11 +258,11 @@ MCP конфигурации в каталоге `mcp/`. Подробнее: [mc
 ```
 claude-code-marketplace/
 ├── plugins/
-│   ├── skills/                    # Level 1: базы знаний (59)
+│   ├── skills/                    # Level 1: базы знаний
 │   │   ├── dex-skill-agile/
 │   │   ├── dex-skill-dotnet-patterns/
 │   │   └── ...
-│   ├── utilities/                 # Level 1: инструменты (15)
+│   ├── utilities/                 # Level 1: инструменты
 │   │   ├── dex-telegram-notifier/
 │   │   ├── dex-github-cli/
 │   │   ├── dex-psql-cli/
@@ -264,16 +270,17 @@ claude-code-marketplace/
 │   │   ├── dex-kaf-cli/
 │   │   ├── dex-rabbitmqadmin-cli/
 │   │   ├── dex-aws-s3-cli/
+│   │   ├── dex-playwright-cli/
 │   │   └── ...
-│   ├── specialists/               # Level 2: агенты (42)
-│   │   ├── dotnet/               # 6 specialists
-│   │   ├── fullstack/            # 1 specialist
-│   │   ├── infrastructure/       # 14 specialists
-│   │   ├── architecture/         # 4 specialists
-│   │   ├── product/              # 8 specialists
-│   │   ├── qa/                   # 3 specialists
-│   │   └── ml/                   # 5 specialists
-│   └── bundles/                   # Level 3: наборы (11)
+│   ├── specialists/               # Level 2: агенты
+│   │   ├── dotnet/
+│   │   ├── fullstack/
+│   │   ├── infrastructure/
+│   │   ├── architecture/
+│   │   ├── product/
+│   │   ├── qa/
+│   │   └── ml/
+│   └── bundles/                   # Level 3: наборы
 │       ├── dex-bundle-dotnet-developer/
 │       └── ...
 ├── install-bundle/                # Скрипты установки/удаления
@@ -311,4 +318,4 @@ GPL v3.0 — см. [LICENSE](./LICENSE)
 
 ---
 
-**DEX Team** · Version 5.2.0
+**DEX Team** · Version 5.4.0
