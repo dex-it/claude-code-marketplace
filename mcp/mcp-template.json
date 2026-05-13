@@ -37,6 +37,7 @@
     ],
     "dex-quality-assurance": [
       "gitlab",
+      "playwright (optional)",
       "filesystem"
     ],
     "dex-devops": [
@@ -53,6 +54,18 @@
         "chrome-devtools-mcp@latest",
         "--headless=false",
         "--isolated=true"
+      ]
+    },
+    "playwright": {
+      "_description": "Playwright MCP - browser automation, E2E checks, accessibility tree navigation. Microsoft official server.",
+      "_env": [],
+      "_note": "Docs: https://github.com/microsoft/playwright-mcp. Flags: --isolated (свежий профиль на сессию, ничего не персистится), --headless (для CI/WSL без GUI). Для headed-режима убрать --headless и обеспечить X-сервер/WSLg.",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest",
+        "--isolated",
+        "--headless"
       ]
     },
     "notion": {

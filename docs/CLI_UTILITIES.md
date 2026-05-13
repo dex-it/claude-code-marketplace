@@ -29,8 +29,9 @@
 | `dex-kaf-cli` | `kaf` | Kafka | `/kaf-topics` `/kaf-groups` `/kaf-consume` `/kaf-produce` |
 | `dex-rabbitmqadmin-cli` | `rabbitmqadmin` | RabbitMQ | `/rmq-overview` `/rmq-queues` `/rmq-bindings` `/rmq-publish` |
 | `dex-aws-s3-cli` | `aws s3` / `s3api` | AWS S3 | `/s3-ls` `/s3-info` `/s3-head` `/s3-presign` |
+| `dex-playwright-cli` | `npx playwright` | Browser testing / E2E | `/pw-test` `/pw-show-report` `/pw-codegen` `/pw-trace` `/pw-install` |
 
-Установить все десять одной командой — через бандл [`dex-bundle-cli-tools`](../plugins/bundles/dex-bundle-cli-tools/README.md).
+Установить все одиннадцать одной командой -- через бандл [`dex-bundle-cli-tools`](../plugins/bundles/dex-bundle-cli-tools/README.md). Playwright -- единственный из набора без системного бинаря: всё через `npx playwright`, поэтому в `install-cli-tools.sh` рецепта для него нет (Node.js -- единственная зависимость, как у `dex-mcp-inspector`).
 
 ---
 
@@ -365,6 +366,7 @@ CLI-утилиты и MCP-серверы дополняют друг друга.
 - **AWS S3** — отдельного S3-MCP в каталоге нет. `dex-aws-s3-cli` — основной путь для read-only.
 - **Kubernetes** — first-party MCP в каталоге нет; `dex-kubectl-cli` — основной путь.
 - **GitHub / GitLab** — `gh` / `glab` зрелые CLI; MCP имеет смысл только при автономном управлении многими репами.
+- **Playwright (browser / E2E)** -- в каталоге есть MCP `playwright` (Microsoft official) и CLI-плагин `dex-playwright-cli`. CLI отвечает за работу с уже написанными тестами (запуск, отчёт, trace, рекордер, install браузеров); MCP даёт агенту высокоуровневые действия в браузере (snapshot a11y-дерева, click/fill/navigate по role+name) без участия `playwright test`. Связка: писать тесты `/pw-test` после прогона; для автономной проверки фичи без существующих тестов -- MCP.
 
 ---
 
@@ -376,7 +378,7 @@ CLI-утилиты и MCP-серверы дополняют друг друга.
 .\install-bundle\install-bundle.ps1 cli-tools
 ```
 
-Ставит все 10 CLI-плагинов (gh, glab, kubectl, jenkins, teamcity, psql, redis-cli, kaf, rabbitmqadmin, aws-s3). Пересекается с `dex-bundle-infrastructure` — если он уже установлен, CLI-плагины придут с ним; запуск `cli-tools` для уже установленных компонентов просто отрапортует «already installed».
+Ставит все 11 CLI-плагинов (gh, glab, kubectl, jenkins, teamcity, psql, redis-cli, kaf, rabbitmqadmin, aws-s3, playwright). Пересекается с `dex-bundle-infrastructure` -- если он уже установлен, CLI-плагины придут с ним; запуск `cli-tools` для уже установленных компонентов просто отрапортует «already installed».
 
 Для установки самих CLI-бинарей на чистой машине — после бандла:
 
@@ -415,6 +417,15 @@ CLI-утилиты и MCP-серверы дополняют друг друга.
 ### `MONITOR` из `/redis-monitor` блокирует терминал
 Плагин принудительно ставит timeout (≤10s). Если запускали `redis-cli MONITOR` напрямую и он висит — `Ctrl-C` и не оставляйте на проде, он бьёт по throughput.
 
+### `/pw-test` падает с `browserType.launch: Executable doesn't exist`
+Браузерные бинари не скачаны. `/pw-install` (все три движка) или `/pw-install chromium` (точечно). На свежем Linux добавить `--with-deps` для системных библиотек: `npx playwright install --with-deps`.
+
+### `/pw-codegen` / `--headed` в WSL не открывает окно
+Нет display server. На Windows 11 -- WSLg (`wsl --update`); на Windows 10 -- X-сервер (VcXsrv / Xming) с `export DISPLAY=...`. Альтернатива -- запускать headless и работать с `/pw-show-report` + `/pw-trace`.
+
+### Браузеры пинуются к версии `@playwright/test`
+После `npm i -D @playwright/test@latest` нужен повторный `/pw-install` -- иначе `Executable doesn't exist` для старого пути. Версия указана в `~/.cache/ms-playwright/`.
+
 ---
 
 ## Безопасность
@@ -425,6 +436,9 @@ CLI-утилиты и MCP-серверы дополняют друг друга.
 - **`/kaf-produce` и `/rmq-publish` пишут в реальные exchanges/topics.** Используйте staging или dedicated test-ресурсы; никогда — против shared-prod-топиков с downstream-эффектами (events, биллинг).
 - **`/redis-monitor` и `--bigkeys`-сканы нагружают прод.** Только в окнах низкой нагрузки.
 - **`/s3-presign`** создаёт URL до 7 дней — обращайтесь как с секретом: не публиковать.
+- **`/pw-codegen` открывает реальный браузер с реальной сессией.** Запись попадёт на сервер: cookies, OAuth callback, форма логина. Использовать staging-домены, не прод с пользовательскими данными. `--save-storage` пишет auth-токены в файл -- не коммитить, `chmod 600`.
+- **`trace.zip` и `playwright-report/`** могут содержать PII, токены в headers, скриншоты с конфиденциальными данными. На CI -- private artifacts; в тикетах -- не прикладывать публично.
+- **`/pw-install --with-deps` запрашивает sudo** и трогает системные пакеты. На managed/shared-машинах вместо этого использовать Docker-образ `mcr.microsoft.com/playwright:vX-jammy` (всё уже предустановлено).
 
 ---
 

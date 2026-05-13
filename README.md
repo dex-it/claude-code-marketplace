@@ -170,7 +170,7 @@ claude plugins uninstall dex-dotnet-coder
 
 ## Skills (Level 1)
 
-Базы знаний — активируются автоматически по ключевым словам в контексте. 59 skills по категориям:
+Базы знаний — активируются автоматически по ключевым словам в контексте. 60 skills по категориям:
 
 | Категория | Skills |
 |-----------|--------|
@@ -181,7 +181,7 @@ claude plugins uninstall dex-dotnet-coder
 | **Infrastructure** | rabbitmq, kafka, elasticsearch, redis, mongodb, docker, kubernetes, gitlab-ci, github-actions, jenkins, teamcity, logging, observability |
 | **Architecture** | clean-architecture, ddd, microservices, system-design |
 | **Product & Analysis** | agile, user-stories, bpmn, doc-standards, api-specification, epic-planning, product-discovery, prioritization |
-| **QA** | test-design, api-testing, deep-audit, tech-audit |
+| **QA** | test-design, api-testing, deep-audit, tech-audit, playwright |
 | **ML** | pytorch, tensorflow, classical-ml, nlp-transformers, computer-vision, ml-optimization |
 
 ## Utilities (Level 1)
@@ -207,6 +207,12 @@ claude plugins uninstall dex-dotnet-coder
 | dex-kaf-cli | Topics, consumer groups, consume, produce | [`kaf`](https://github.com/birdayz/kaf) |
 | dex-rabbitmqadmin-cli | Overview, queues, bindings, publish | [`rabbitmqadmin-ng`](https://github.com/rabbitmq/rabbitmqadmin-ng) |
 | dex-aws-s3-cli | List, bucket info, head-object, presigned URL | `aws s3` / `s3api` |
+
+### CLI Tools -- Browser testing
+
+| Плагин | Описание | Бинарь |
+|--------|----------|--------|
+| dex-playwright-cli | Run tests, show HTML report, codegen, trace viewer, install браузеров | `npx playwright` |
 
 ### Notifications & Helpers
 
@@ -252,11 +258,11 @@ MCP конфигурации в каталоге `mcp/`. Подробнее: [mc
 ```
 claude-code-marketplace/
 ├── plugins/
-│   ├── skills/                    # Level 1: базы знаний (59)
+│   ├── skills/                    # Level 1: базы знаний (60)
 │   │   ├── dex-skill-agile/
 │   │   ├── dex-skill-dotnet-patterns/
 │   │   └── ...
-│   ├── utilities/                 # Level 1: инструменты (15)
+│   ├── utilities/                 # Level 1: инструменты (16)
 │   │   ├── dex-telegram-notifier/
 │   │   ├── dex-github-cli/
 │   │   ├── dex-psql-cli/
@@ -264,6 +270,7 @@ claude-code-marketplace/
 │   │   ├── dex-kaf-cli/
 │   │   ├── dex-rabbitmqadmin-cli/
 │   │   ├── dex-aws-s3-cli/
+│   │   ├── dex-playwright-cli/
 │   │   └── ...
 │   ├── specialists/               # Level 2: агенты (42)
 │   │   ├── dotnet/               # 6 specialists
@@ -311,4 +318,4 @@ GPL v3.0 — см. [LICENSE](./LICENSE)
 
 ---
 
-**DEX Team** · Version 5.2.0
+**DEX Team** · Version 5.4.0
