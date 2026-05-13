@@ -61,6 +61,7 @@ declare -A L10N_RU=(
     ["notification_event"]="ждёт ответа"
     ["subagent_event"]="завершил подзадачу"
     ["permission_request"]="ждёт разрешение"
+    ["compact_event"]="закончил compact"
     ["unknown_event"]="событие"
     ["last_message"]="Последнее сообщение"
     ["ultrathink"]="Ultrathink"
@@ -76,6 +77,7 @@ declare -A L10N_EN=(
     ["notification_event"]="waiting for response"
     ["subagent_event"]="completed subtask"
     ["permission_request"]="waiting for permissions"
+    ["compact_event"]="finished compact"
     ["unknown_event"]="event"
     ["last_message"]="Last message"
     ["ultrathink"]="Ultrathink"
@@ -123,13 +125,22 @@ case "$HOOK_EVENT" in
         [ "$NOTIFY_WAITING" != "true" ] && exit 0
         EMOJI="⏸️"
         COLOR=16776960  # Yellow
-        EVENT_NAME=$(get_l10n "notification_event")
+        if echo "$NOTIFICATION_MSG" | grep -qi "permission"; then
+            EVENT_NAME=$(get_l10n "permission_request")
+        else
+            EVENT_NAME=$(get_l10n "notification_event")
+        fi
         ;;
     "SubagentStop")
         [ "$NOTIFY_SUBAGENT" != "true" ] && exit 0
         EMOJI="🔄"
         COLOR=3447003  # Blue
         EVENT_NAME=$(get_l10n "subagent_event")
+        ;;
+    "PostCompact")
+        EMOJI="🗜️"
+        COLOR=10181046  # Purple
+        EVENT_NAME=$(get_l10n "compact_event")
         ;;
     *)
         EMOJI="🤖"
@@ -180,8 +191,7 @@ if [ -n "$TRANSCRIPT_PATH" ] && [ -f "$TRANSCRIPT_PATH" ]; then
     # --- Extract Last Assistant Message ---
     if [ "$INCLUDE_MESSAGE" = "true" ]; then
         LAST_TEXT=$(tac "$TRANSCRIPT_PATH" 2>/dev/null | \
-            jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text' 2>/dev/null | \
-            head -1)
+            jq -rn 'first(inputs | select(.type == "assistant") | .message.content | map(select(.type == "text") | .text) | join("\n") | select(length > 0))' 2>/dev/null)
     fi
 
     # --- Extract Last Thinking (Ultrathink) ---
@@ -373,50 +383,27 @@ PAYLOAD=$(jq -n \
 # Queue for Deferred Sending
 # =============================================================================
 
-QUEUE_DIR="/tmp/discord-notify-queue"
-LOCK_FILE="/tmp/discord-notify.lock"
+LATEST_FILE="/tmp/discord-notify-latest.json"
 TIMER_PID_FILE="/tmp/discord-notify-timer.pid"
 DELAY_SECONDS="${DISCORD_NOTIFY_DELAY:-30}"
 
-mkdir -p "$QUEUE_DIR"
+# Always overwrite with latest payload — only the last notification matters
+echo "$PAYLOAD" > "$LATEST_FILE"
 
-# Deduplicate: hash the embed fields (content without title/color to catch Stop+SubagentStop dupes)
-DEDUP_KEY=$(echo "$PAYLOAD" | jq -r '.embeds[0].fields // [] | tostring' 2>/dev/null | md5sum | cut -d' ' -f1)
-
-# Atomic dedup: use mkdir as a lock (atomic on all filesystems)
-DEDUP_LOCK="$QUEUE_DIR/.dedup_${DEDUP_KEY}"
-if ! mkdir "$DEDUP_LOCK" 2>/dev/null; then
-    # Another process already claimed this content — skip duplicate
-    exit 0
-fi
-
-# Save payload to queue
-QUEUE_FILE="$QUEUE_DIR/$(date +%s%N)_${DEDUP_KEY}.json"
-echo "$PAYLOAD" > "$QUEUE_FILE"
-
-# Check if timer is already running
+# Kill existing timer so it restarts with fresh delay (last event wins)
 if [ -f "$TIMER_PID_FILE" ]; then
     TIMER_PID=$(cat "$TIMER_PID_FILE" 2>/dev/null)
     if [ -n "$TIMER_PID" ] && kill -0 "$TIMER_PID" 2>/dev/null; then
-        # Timer already running, just enqueued — exit
-        exit 0
+        kill "$TIMER_PID" 2>/dev/null
     fi
+    rm -f "$TIMER_PID_FILE"
 fi
 
-# No timer running — start fully detached background flush timer
-# Redirect all FDs and disown to prevent blocking Claude's hook
+# Start fresh detached timer
 nohup bash -c "
     sleep $DELAY_SECONDS
-
-    # Send all queued payloads
-    for f in \"$QUEUE_DIR\"/*.json; do
-        [ -f \"\$f\" ] || continue
-        curl -s -H 'Content-Type: application/json' -X POST '$WEBHOOK_URL' -d @\"\$f\" > /dev/null 2>&1
-    done
-
-    # Cleanup
-    rm -rf \"$QUEUE_DIR\"
-    rm -f \"$TIMER_PID_FILE\"
+    [ -f '$LATEST_FILE' ] && curl -s -H 'Content-Type: application/json' -X POST '$WEBHOOK_URL' -d @'$LATEST_FILE' > /dev/null 2>&1
+    rm -f '$LATEST_FILE' '$TIMER_PID_FILE'
 " > /dev/null 2>&1 &
 
 echo $! > "$TIMER_PID_FILE"
