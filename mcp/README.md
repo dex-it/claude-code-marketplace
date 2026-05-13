@@ -93,6 +93,17 @@
 
 Playwright MCP даёт агенту высокоуровневые операции: snapshot accessibility tree, click/fill/select по role+name, navigate, evaluate. Подходит для автономного E2E-workflow ("проверь форму регистрации"). Для запуска уже написанных Playwright-тестов и просмотра отчётов -- CLI-плагин `dex-playwright-cli`.
 
+**Перед первым запуском.** MCP не ставит браузеры автоматически: `npx playwright install chromium` (или другой движок из списка ниже).
+
+**Флаги аргументов `@playwright/mcp`:**
+
+| Флаг | Зачем |
+|---|---|
+| `--isolated` | Свежий профиль на сессию, ничего не персистится между запусками. |
+| `--headless` | Headless-режим (нужен для CI / WSL без GUI). По умолчанию MCP стартует headed. Для headed-режима -- убрать флаг и обеспечить X-сервер / WSLg. |
+| `--browser <name>` | `chromium` (дефолт) \| `firefox` \| `webkit` \| `chrome` \| `msedge`. |
+| ~~`--port`~~ | **НЕ указывать** -- переключает транспорт на HTTP/SSE; Claude Code требует stdio (дефолт). |
+
 ### Мониторинг и API
 
 | Сервер | Описание | Переменные |

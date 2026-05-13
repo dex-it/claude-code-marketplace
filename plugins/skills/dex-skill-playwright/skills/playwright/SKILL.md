@@ -12,15 +12,10 @@ description: Playwright E2E ловушки -- locators, auto-waiting, isolation,
 Правильно: `page.getByRole('button', { name: 'Submit' })`, `getByLabel`, `getByPlaceholder`
 Почему: CSS-классы и id меняются при ребрендинге / рефакторинге дизайн-системы, тесты падают без изменения функциональности. Role + accessible name стабильны: они отражают семантику, не визуал.
 
-### `getByText` без exact
-Плохо: `page.getByText('Save')` -- поймает "Save", "Save as", "Save changes"
-Правильно: `page.getByText('Save', { exact: true })` или `getByRole('button', { name: 'Save' })`
-Почему: substring-матчинг ловит лишние элементы. В strict mode (дефолт для locator-методов) действие на locator с multiple matches кидает исключение; явно ограничить набор лучше через `exact: true` или role+name.
-
-### CSS-локатор с multiple matches
-Плохо: `page.locator('input').fill('x')` при двух input на странице -- ошибка strict mode
-Правильно: сузить через `getByRole('textbox', { name: 'Email' })` или `.nth(0)` если намеренно
-Почему: locator-методы Playwright по умолчанию в strict mode. Множественный матч = exception, чтобы тест не был случайно зависим от порядка DOM.
+### Locator с multiple matches (strict mode)
+Плохо: `page.locator('input').fill('x')` при двух input или `page.getByText('Save')` при кнопках "Save" / "Save as"
+Правильно: сужать через role + accessible name -- `getByRole('textbox', { name: 'Email' })`, `getByRole('button', { name: 'Save' })`; для текста -- `getByText('Save', { exact: true })`; `.nth(0)` только если порядок DOM намеренно стабилен
+Почему: locator-методы Playwright по умолчанию в strict mode -- множественный матч кидает исключение, чтобы тест не зависел случайно от порядка DOM. Substring-матч `getByText` без `exact` + два совпадения дают тот же exception. Role + accessible name -- самый устойчивый способ дать ровно один матч.
 
 ## Auto-waiting и assertions
 
