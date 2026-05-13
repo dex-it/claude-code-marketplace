@@ -2,7 +2,7 @@
 description: Запустить Playwright-тесты через npx playwright test с фильтрами по файлам, проектам, паттернам
 user-invocable: true
 allowed-tools: Bash
-argument-hint: "[file/glob] [--project chromium|firefox|webkit] [--grep pattern] [--headed] [--debug] [--workers N]"
+argument-hint: "[file/glob] [--project chromium|firefox|webkit] [--grep pattern] [--headed] [--debug] [--ui] [--workers N] [--repeat-each N]"
 ---
 
 # /pw-test
@@ -20,9 +20,12 @@ argument-hint: "[file/glob] [--project chromium|firefox|webkit] [--grep pattern]
 - `--project chromium|firefox|webkit` -- один браузер; без флага -- все проекты из конфига.
 - `--grep "<pattern>"` -- фильтр по имени теста (regex).
 - `--headed` -- открытие реального браузера (для локального дебага; в WSL нужен X-сервер).
-- `--debug` -- запуск с инспектором (`PWDEBUG=1`), пошаговое выполнение.
-- `--workers N` -- параллелизм; `--workers 1` для дебага.
-- `--repeat-each N` -- повторить упавший тест для проверки на flake.
+- `--debug` -- запуск с инспектором (`PWDEBUG=1`), пошаговое выполнение; автоматически ставит `workers=1, timeout=0, max-failures=1, headed`.
+- `--ui` -- Playwright UI Mode: time-travel дебаггер с пошаговым прогоном, watch-mode, pick locator. Альтернатива `--debug` для проектов с many тестами.
+- `--workers N` -- параллелизм (дефолт 50% от CPU).
+- `--repeat-each N` -- повторить каждый тест N раз для проверки на flake.
+
+Флаг `--browser` существует, но deprecated в пользу `--project` (project задаётся в `playwright.config`; `--browser` принимает только chromium/firefox/webkit без кастомного device-emulation).
 
 **Constraints:**
 

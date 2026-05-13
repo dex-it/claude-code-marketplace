@@ -2,7 +2,7 @@
 description: Открыть Playwright Trace Viewer для разбора упавшего теста
 user-invocable: true
 allowed-tools: Bash
-argument-hint: "<path-to-trace.zip> [--port N]"
+argument-hint: "<path-to-trace.zip | URL> [-p|--port N] [-h|--host host] [-b|--browser chromium|firefox|webkit]"
 ---
 
 # /pw-trace
@@ -16,7 +16,10 @@ argument-hint: "<path-to-trace.zip> [--port N]"
 **Scenarios:**
 
 - `<path>` -- путь к `trace.zip`. Типичные расположения: `test-results/<test-name>-<browser>/trace.zip`, `playwright-report/data/<id>.zip`, артефакт CI после `actions/upload-artifact`.
-- `--port N` -- альтернативный порт, если дефолтный занят.
+- URL вместо пути -- открыть удалённый trace, например `https://example.com/trace.zip` (CI-артефакт по прямой ссылке).
+- `-p N` / `--port N` -- альтернативный порт, если дефолтный (динамический) занят.
+- `-h <host>` / `--host <host>` -- bind на другой интерфейс (`0.0.0.0` для доступа извне с SSH-туннелем).
+- `-b firefox` / `--browser webkit` -- какой движок открыть для рендера UI viewer'а (дефолт chromium).
 
 **Constraints:**
 

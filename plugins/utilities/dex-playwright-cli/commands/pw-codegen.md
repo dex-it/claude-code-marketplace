@@ -2,7 +2,7 @@
 description: Запустить Playwright codegen для записи действий и генерации кода теста
 user-invocable: true
 allowed-tools: Bash
-argument-hint: "<url> [--target javascript|typescript|python|csharp] [--browser chromium|firefox|webkit] [--device 'iPhone 13'] [--output path]"
+argument-hint: "<url> [--target playwright-test|javascript|python|python-pytest|csharp|java] [-b|--browser chromium|firefox|webkit] [--device 'iPhone 13'] [--output path]"
 ---
 
 # /pw-codegen
@@ -16,9 +16,9 @@ argument-hint: "<url> [--target javascript|typescript|python|csharp] [--browser 
 **Scenarios:**
 
 - `<url>` -- открыть URL и записывать действия (клики, ввод, navigation).
-- `--target typescript` -- TypeScript (`@playwright/test` синтаксис) -- дефолт для большинства проектов.
-- `--target python|csharp|javascript` -- альтернативные языки байндинга.
-- `--browser firefox|webkit` -- записать в конкретном движке (для проверки cross-browser-отличий).
+- Без `--target` -- дефолт `playwright-test` (TypeScript для `@playwright/test`); управляется также через env `PW_LANG_NAME`.
+- `--target playwright-test|javascript|python|python-async|python-pytest|csharp|csharp-mstest|csharp-nunit|csharp-xunit|java|java-junit` -- язык / test-runner. Значения `typescript` нет (для TS используется `playwright-test`).
+- `-b firefox` / `--browser webkit` -- записать в конкретном движке (для проверки cross-browser-отличий); дефолт `chromium`.
 - `--device "iPhone 13"` -- эмуляция мобильного viewport + user-agent.
 - `--output tests/recorded.spec.ts` -- сохранить сразу в файл.
 - `--save-storage auth.json` + `--load-storage auth.json` -- залогиниться один раз, переиспользовать сессию.
