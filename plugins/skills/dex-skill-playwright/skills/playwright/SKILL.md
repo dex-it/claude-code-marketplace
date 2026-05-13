@@ -61,7 +61,7 @@ description: Playwright E2E ловушки -- locators, auto-waiting, isolation,
 ### `route.fulfill` без await перехвата перед navigation
 Плохо: `page.route(...); await page.goto(url)` -- race между установкой route и navigation
 Правильно: `await page.route('**/api/users', route => route.fulfill({...})); await page.goto(url)`
-Почему: `page.route` сам по себе synchronous, но Playwright рекомендует await для определённости порядка установки. Без него первый запрос может уйти до того, как handler зарегистрирован.
+Почему: `page.route()` возвращает Promise -- регистрация handler'а асинхронная. Без await `page.goto` может стартовать до того, как handler установлен, и первый запрос пройдёт мимо мока (особенно для preload-ресурсов, которые отправляются до первого awaited tick).
 
 ### Забытый `page.unroute`
 Плохо: установить mock в `beforeEach`, не убрать -- следующий тест ловит фейковый ответ

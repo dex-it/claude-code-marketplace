@@ -21,6 +21,8 @@ argument-hint: "[chromium|firefox|webkit|chrome|msedge] [--with-deps] [--dry-run
 - `--with-deps` (Linux) -- доустановить системные пакеты (libnss3, libatk-bridge, libxkbcommon, libdrm, libgbm, ...). Требует sudo (apt/dnf/...).
 - `--dry-run` -- показать, что было бы скачано, без скачивания.
 - `--force` -- переустановить, даже если кеш есть.
+- `--list` -- показать, какие браузеры уже установлены в кеше Playwright (без действий).
+- `--no-shell` -- не ставить `chromium-headless-shell` (минимальный chromium для CI). Обычно нужен по умолчанию.
 
 **Constraints:**
 

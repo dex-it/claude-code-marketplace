@@ -24,6 +24,9 @@ argument-hint: "[file/glob] [--project chromium|firefox|webkit] [--grep pattern]
 - `--ui` -- Playwright UI Mode: time-travel дебаггер с пошаговым прогоном, watch-mode, pick locator. Альтернатива `--debug` для проектов с many тестами.
 - `--workers N` -- параллелизм (дефолт 50% от CPU).
 - `--repeat-each N` -- повторить каждый тест N раз для проверки на flake.
+- `--shard "1/3"` -- запустить только 1-ю из 3 шард (для CI matrix).
+- `--last-failed` -- перезапустить только тесты, упавшие в предыдущем прогоне.
+- `--retries N` -- ретрай упавшего теста N раз перед тем как пометить как failed.
 
 Флаг `--browser` существует, но deprecated в пользу `--project` (project задаётся в `playwright.config`; `--browser` принимает только chromium/firefox/webkit без кастомного device-emulation).
 
