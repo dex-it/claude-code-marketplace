@@ -21,7 +21,7 @@ argument-hint: "[file/glob] [--project chromium|firefox|webkit] [--grep pattern]
 - `--grep "<pattern>"` -- фильтр по имени теста (regex).
 - `--headed` -- открытие реального браузера (для локального дебага; в WSL нужен X-сервер).
 - `--debug` -- запуск с инспектором (`PWDEBUG=1`), пошаговое выполнение; автоматически ставит `workers=1, timeout=0, max-failures=1, headed`.
-- `--ui` -- Playwright UI Mode: time-travel дебаггер с пошаговым прогоном, watch-mode, pick locator. Альтернатива `--debug` для проектов с many тестами.
+- `--ui` -- Playwright UI Mode: time-travel дебаггер с пошаговым прогоном, watch-mode, pick locator. Удобнее `--debug` для проектов с большим набором тестов.
 - `--workers N` -- параллелизм (дефолт 50% от CPU).
 - `--repeat-each N` -- повторить каждый тест N раз для проверки на flake.
 - `--shard "1/3"` -- запустить только 1-ю из 3 шард (для CI matrix).
@@ -35,5 +35,5 @@ argument-hint: "[file/glob] [--project chromium|firefox|webkit] [--grep pattern]
 - Требует Node.js + проект с установленным Playwright (`@playwright/test` в `package.json`). Если `npx playwright --version` не отвечает -- предложить `npm i -D @playwright/test` и `/pw-install`.
 - Если запуск падает с `browserType.launch: Executable doesn't exist` -- предложить `/pw-install`.
 - Тесты могут писать в БД/внешние API через приложение. Запускать против staging / dedicated test-окружения, не против shared-prod.
-- Headed-режим в WSL требует X-сервера (WSLg, VcXsrv); по умолчанию использовать `--headed=false`.
+- Headed-режим в WSL требует X-сервера (WSLg, VcXsrv); если GUI недоступен -- опускать `--headed` (дефолтный режим headless).
 - Большой `--workers` нагружает CPU; для UI-тестов с `--headed` оставить дефолт.

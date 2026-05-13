@@ -15,12 +15,12 @@ description: Playwright E2E ловушки -- locators, auto-waiting, isolation,
 ### `getByText` без exact
 Плохо: `page.getByText('Save')` -- поймает "Save", "Save as", "Save changes"
 Правильно: `page.getByText('Save', { exact: true })` или `getByRole('button', { name: 'Save' })`
-Почему: substring-матчинг ловит лишние элементы. В strict mode locator с multiple matches кидает исключение, в обычном режиме -- молча берёт первый.
+Почему: substring-матчинг ловит лишние элементы. В strict mode (дефолт для locator-методов) действие на locator с multiple matches кидает исключение; явно ограничить набор лучше через `exact: true` или role+name.
 
 ### CSS-локатор с multiple matches
 Плохо: `page.locator('input').fill('x')` при двух input на странице -- ошибка strict mode
 Правильно: сузить через `getByRole('textbox', { name: 'Email' })` или `.nth(0)` если намеренно
-Почему: locator-методы Playwright по умолчанию в strict mode (с v1.27+). Множественный матч = exception, чтобы тест не был случайно зависим от порядка DOM.
+Почему: locator-методы Playwright по умолчанию в strict mode. Множественный матч = exception, чтобы тест не был случайно зависим от порядка DOM.
 
 ## Auto-waiting и assertions
 
@@ -58,10 +58,10 @@ description: Playwright E2E ловушки -- locators, auto-waiting, isolation,
 
 ## Network mocking
 
-### `route.fulfill` без await перехвата перед navigation
-Плохо: `page.route(...); await page.goto(url)` -- race между установкой route и navigation
+### `page.route` без await перед navigation
+Плохо: `page.route(...); await page.goto(url)` -- регистрация и переход в один синхронный блок
 Правильно: `await page.route('**/api/users', route => route.fulfill({...})); await page.goto(url)`
-Почему: `page.route()` возвращает Promise -- регистрация handler'а асинхронная. Без await `page.goto` может стартовать до того, как handler установлен, и первый запрос пройдёт мимо мока (особенно для preload-ресурсов, которые отправляются до первого awaited tick).
+Почему: `page.route()` возвращает Promise. Без await следующий вызов может стартовать до того, как interception полностью активирован -- запрос пройдёт мимо мока. Playwright документация явно требует await для route-методов.
 
 ### Забытый `page.unroute`
 Плохо: установить mock в `beforeEach`, не убрать -- следующий тест ловит фейковый ответ

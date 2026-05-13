@@ -26,7 +26,7 @@ argument-hint: "[chromium|firefox|webkit|chrome|msedge] [--with-deps] [--dry-run
 
 **Constraints:**
 
-- Команда тянет ~150-300 МБ через сеть. На metered-соединениях / CI с rate-limit -- использовать `--browser` для точечной установки.
+- Команда тянет ~150-300 МБ через сеть. На metered-соединениях / CI с rate-limit -- указывать имя браузера позиционно (`chromium`, `firefox`, ...), а не ставить все три сразу.
 - `--with-deps` запрашивает sudo и трогает системные пакеты. На shared/managed-машинах вместо `--with-deps` использовать предсобранный Docker-образ `mcr.microsoft.com/playwright`.
 - На WSL подсистема `--with-deps` ставит deps в WSL-окружение, не в Windows-хост. Headed-режим в WSL дополнительно требует WSLg или X-сервера.
 - Версия браузеров пинуется к версии `@playwright/test` в `package.json`. После обновления пакета -- перезапустить `/pw-install`, иначе ошибка `Executable doesn't exist`.

@@ -11,7 +11,7 @@ argument-hint: "<url> [--target playwright-test|javascript|python|python-pytest|
 
 **Goal:** Получить starter-код теста, который потом доводится руками (замена селекторов на role-based, добавление assertions, выделение helper'ов).
 
-**Output:** Путь к сгенерированному файлу (если задан `--output`) или текст кода в stdout. Подсказка: дальше нужно заменить созданные `page.locator('text=...')` на `page.getByRole(...)` и добавить web-first assertions.
+**Output:** Путь к сгенерированному файлу (если задан `--output`) или текст кода в stdout. Подсказка: codegen предпочитает role-based locators (`getByRole`, `getByText`, `getByTestId`), но для non-semantic элементов может выпасть в `page.locator(...)` -- такие места стоит пересмотреть и добавить web-first assertions.
 
 **Scenarios:**
 
@@ -26,6 +26,6 @@ argument-hint: "<url> [--target playwright-test|javascript|python|python-pytest|
 **Constraints:**
 
 - Интерактивная команда. Открывает реальный браузер (headed) -- нужен GUI. В WSL без X-сервера / WSLg не запустится; на удалённом сервере проброс X11 / VNC обязателен.
-- Сгенерированный код использует text-based / CSS селекторы, которые ломаются при ребрендинге UI. Цель codegen -- starter, не финальный тест. После записи -- мигрировать на `getByRole` / `getByLabel` (см. `dex-skill-playwright`).
+- Codegen приоритизирует role-based locators (`getByRole`/`getByText`/`getByTestId`), но не вставляет web-first assertions -- их нужно добавить руками после записи. См. `dex-skill-playwright` про устойчивые локаторы и assertions.
 - Запись открывает реальную сессию в URL: cookies, OAuth callback, формы -- всё уходит на сервер. Использовать staging-домены, не прод с реальными пользовательскими данными.
 - `--save-storage` сохраняет cookies + localStorage -- этот файл содержит auth-токены, не коммитить, права 600.

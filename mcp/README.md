@@ -88,8 +88,8 @@
 
 | Сервер | Описание | Переменные |
 |--------|----------|------------|
-| **playwright** | Playwright MCP -- browser automation, E2E checks, accessibility tree navigation (Microsoft official) | - |
-| **chrome-devtools** | Chrome DevTools -- debugging, testing, screenshots, headed/isolated | - |
+| **playwright** | Playwright MCP - browser automation, E2E checks, accessibility tree navigation (Microsoft official) | - |
+| **chrome-devtools** | Chrome DevTools - debugging, testing, screenshots, headed/isolated | - |
 
 Playwright MCP даёт агенту высокоуровневые операции: snapshot accessibility tree, click/fill/select по role+name, navigate, evaluate. Подходит для автономного E2E-workflow ("проверь форму регистрации"). Для запуска уже написанных Playwright-тестов и просмотра отчётов -- CLI-плагин `dex-playwright-cli`.
 
