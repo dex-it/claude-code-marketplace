@@ -31,7 +31,7 @@ argument-hint: "<путь к файлу от /mr-analyze> [--marketplace-root <p
 
 ### Proposed new skills
 
-Создаются три файла: `SKILL.md` в `plugins/skills/<name>/skills/<name>/`, `plugin.json` в `.claude-plugin/` плагина (version `1.0.0`, author `Dex Team` / email `admin@dex.ru`, license `GPL-3.0`, repository `https://github.com/dex-it/claude-code-marketplace`), новая запись в массив `plugins` корневого `marketplace.json` (version `1.0.0`, `source` указывает на новую директорию). Bundle.json трогаем только если в предложении указаны bundles — иначе оставляем ручному ревьюеру.
+Создаются три файла: `SKILL.md` в `plugins/skills/<name>/skills/<name>/`, `plugin.json` в `.claude-plugin/` плагина (version `1.0.0`, author `Dex Team` / email `admin@dex.ru`, license `GPL-3.0`, repository `https://github.com/dex-it/claude-code-marketplace`), новая запись в массив `plugins` корневого `marketplace.json` (version `1.0.0`, `source` указывает на новую директорию). Если `/mr-analyze` указал целевой bundle -- добавить имя skill в `includes[]` его `bundle.json` (иначе skill-сирота: в каталоге есть, ни один bundle не тянет). Bundle не указан -- отметить в `apply-report.md`, что привязку к bundle делает ревьюер.
 
 ### Proposed agent changes
 
@@ -48,6 +48,8 @@ argument-hint: "<путь к файлу от /mr-analyze> [--marketplace-root <p
 **Если PASS** — все применения попадают в секцию `Applied` отчёта. Stdout — путь к отчёту. Конец работы.
 
 **Если FAIL** — цель найти виновное предложение и откатить только его. Стратегия: журнал «было / стало» по каждому применению. Перед каждым применением читается состояние файла `before` и сохраняется в журнал вместе с `proposal_id`. После падения валидатора по stderr извлекается имя файла с ошибкой, в журнале находится последнее применение, тронувшее этот файл, файл возвращается к `before` через Write, валидатор перезапускается. Если падение продолжается на том же файле — откат всех применений по этому файлу. Все откаченные применения попадают в `Failed (validate)` с цитатой ошибки validator'а. Это даёт O(K) откатов, где K — число падений (обычно 1-2).
+
+**Исключение -- новый skill с `too-few-traps`:** если валидатор падает на свежесозданном skill из `Proposed new skills` по причине `too-few-traps` (< 5 ловушек) -- **не откатывать**. Skill создаётся, остаётся в рабочем дереве, попадает в `Applied` с пометкой `validator: too-few-traps -- skill-заготовка, ревьюер добирает ловушки`. Решение за оператором (CLAUDE.md: создание skill -- легитимный исход, нехватка ловушек -- сигнал, не блокер). Прочие ошибки валидатора на новом skill (битый frontmatter, missing-triad) откатываются как обычно. Итог validate в Metadata тогда `FAIL (ожидаемо: new-skill too-few-traps)` -- CI маркетплейса заблокирует авто-PR до доработки, это by design.
 
 ## Output: `apply-report.md`
 
