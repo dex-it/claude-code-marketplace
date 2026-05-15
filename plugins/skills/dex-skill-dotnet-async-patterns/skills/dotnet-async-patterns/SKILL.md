@@ -92,10 +92,10 @@ description: Ловушки .NET async/await — синхронные блоки
 
 ## Внешние процессы (System.Diagnostics.Process)
 
-### Синхронное чтение stdout и stderr → deadlock на буфере пайпа
-Плохо: `var output = process.StandardOutput.ReadToEnd(); var err = process.StandardError.ReadToEnd();` — два потока читаются последовательно
-Правильно: одну ветку — асинхронно. Либо подписка на `OutputDataReceived` + `ErrorDataReceived` и `BeginOutputReadLine()`/`BeginErrorReadLine()`, либо `await Task.WhenAll(p.StandardOutput.ReadToEndAsync(ct), p.StandardError.ReadToEndAsync(ct))` — и только потом `await p.WaitForExitAsync(ct)`
-Почему: буфер пайпа ОС ограничен (~4 KB). Родитель читает stdout до конца; дочерний процесс наполнил буфер stderr и блокируется на записи; конца stdout не будет, пока дочерний жив → взаимный deadlock. Проявляется только на большом объёме вывода — на коротком тесте незаметно
+### stdout и stderr не дренируются параллельно → deadlock на буфере пайпа
+Плохо: stdout читается до конца, а stderr — отдельно: после выхода (`WaitForExitAsync()`, затем `StandardError.ReadToEndAsync()`) или условно (`if (ExitCode != 0) { await StandardError.ReadToEndAsync(); }`). Асинхронный `await` от deadlock не спасает — блокировка на уровне ОС
+Правильно: запустить чтение ОБОИХ потоков до ожидания выхода — `var errTask = p.StandardError.ReadToEndAsync(ct); var output = await p.StandardOutput.ReadToEndAsync(ct); var err = await errTask; await p.WaitForExitAsync(ct);` — либо подписка на `OutputDataReceived` + `ErrorDataReceived` с `Begin*ReadLine()`
+Почему: буфер пайпа ОС ограничен (~64 KB на Windows/Linux). Пока родитель читает только stdout, дочерний процесс наполняет буфер stderr и блокируется на записи; stdout не завершится, `WaitForExit` не вернётся → взаимный deadlock. Зависит от объёма вывода: на коротком тесте незаметно, на реальных данных виснет. Чтение stderr «только при ошибке после WaitForExit» — тот же баг, ревью отклоняет его и без воспроизведения
 
 ### WaitForExit раньше дочитывания вывода
 Плохо: `process.WaitForExit(); var output = process.StandardOutput.ReadToEnd();` — ожидание выхода до чтения
