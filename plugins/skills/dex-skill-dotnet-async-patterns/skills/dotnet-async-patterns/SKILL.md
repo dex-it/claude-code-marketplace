@@ -92,7 +92,7 @@ description: Ловушки .NET async/await — синхронные блоки
 
 ## Внешние процессы (System.Diagnostics.Process)
 
-### stdout и stderr не дренируются параллельно → deadlock на буфере пайпа
+### stdout и stderr читаются не одновременно → deadlock на буфере пайпа
 Плохо: stdout читается до конца, а stderr — отдельно: после выхода (`WaitForExitAsync()`, затем `StandardError.ReadToEndAsync()`) или условно (`if (ExitCode != 0) { await StandardError.ReadToEndAsync(); }`). Асинхронный `await` от deadlock не спасает — блокировка на уровне ОС
 Правильно: запустить чтение ОБОИХ потоков до ожидания выхода — `var errTask = p.StandardError.ReadToEndAsync(ct); var output = await p.StandardOutput.ReadToEndAsync(ct); var err = await errTask; await p.WaitForExitAsync(ct);` — либо подписка на `OutputDataReceived` + `ErrorDataReceived` с `Begin*ReadLine()`
 Почему: буфер пайпа ОС ограничен (~64 KB на Windows/Linux). Пока родитель читает только stdout, дочерний процесс наполняет буфер stderr и блокируется на записи; stdout не завершится, `WaitForExit` не вернётся → взаимный deadlock. Зависит от объёма вывода: на коротком тесте незаметно, на реальных данных виснет. Чтение stderr «только при ошибке после WaitForExit» — тот же баг, ревью отклоняет его и без воспроизведения
