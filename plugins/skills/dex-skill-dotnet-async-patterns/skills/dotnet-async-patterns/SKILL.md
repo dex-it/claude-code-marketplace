@@ -1,6 +1,6 @@
 ---
 name: dotnet-async-patterns
-description: .NET async/await — блокировки, параллелизм, CancellationToken. Активируется при async, await, Task, CancellationToken, deadlock, .Result, .Wait(), SemaphoreSlim, fire-and-forget, thread pool starvation, async void, параллелизм, блокировка
+description: Ловушки .NET async/await — синхронные блокировки и deadlock, отмена через CancellationToken, ограничение параллелизма, fire-and-forget, декомпозиция pipeline, чтение вывода внешних процессов без deadlock на буфере. Активируется при async, await, Task, deadlock, .Result, .Wait(), CancellationToken, SemaphoreSlim, параллелизм, async void, fire-and-forget, thread pool starvation, внешний процесс Process, stdout/stderr
 ---
 
 # Async Patterns — ловушки и anti-patterns
@@ -90,6 +90,18 @@ description: .NET async/await — блокировки, параллелизм, 
 Правильно: извлеки данные ДО перехода в фон: `var userId = HttpContext.User.FindFirst("sub")?.Value;`
 Почему: HttpContext привязан к HTTP-запросу. В Task.Run — другой поток, запрос может уже завершиться → null или disposed
 
+## Внешние процессы (System.Diagnostics.Process)
+
+### Синхронное чтение stdout и stderr → deadlock на буфере пайпа
+Плохо: `var output = process.StandardOutput.ReadToEnd(); var err = process.StandardError.ReadToEnd();` — два потока читаются последовательно
+Правильно: одну ветку — асинхронно. Либо подписка на `OutputDataReceived` + `ErrorDataReceived` и `BeginOutputReadLine()`/`BeginErrorReadLine()`, либо `await Task.WhenAll(p.StandardOutput.ReadToEndAsync(ct), p.StandardError.ReadToEndAsync(ct))` — и только потом `await p.WaitForExitAsync(ct)`
+Почему: буфер пайпа ОС ограничен (~4 KB). Родитель читает stdout до конца; дочерний процесс наполнил буфер stderr и блокируется на записи; конца stdout не будет, пока дочерний жив → взаимный deadlock. Проявляется только на большом объёме вывода — на коротком тесте незаметно
+
+### WaitForExit раньше дочитывания вывода
+Плохо: `process.WaitForExit(); var output = process.StandardOutput.ReadToEnd();` — ожидание выхода до чтения
+Правильно: сначала запустить чтение обоих потоков, затем `await WaitForExitAsync(ct)`; при синхронном API с таймаутом после `WaitForExit(timeout)` вызвать `WaitForExit()` без таймаута, чтобы дождаться завершения async-хендлеров вывода
+Почему: `WaitForExit(timeout)` не гарантирует, что асинхронные хендлеры `*DataReceived` завершились — последние строки stdout/stderr теряются. Вывод читать ДО ожидания выхода, не после
+
 ## Чек-лист
 
 - Нет .Result / .Wait() / .GetAwaiter().GetResult()
@@ -101,3 +113,4 @@ description: .NET async/await — блокировки, параллелизм, 
 - HttpContext: извлекай данные ДО фоновой задачи
 - Побочные эффекты вынесены из критичного пути через события / outbox
 - Handler не делает >2 последовательных внешних вызовов без декомпозиции
+- Process: stdout и stderr читать параллельно (async), не последовательно — иначе deadlock на буфере пайпа
