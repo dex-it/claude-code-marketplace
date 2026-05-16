@@ -83,6 +83,11 @@ description: .NET async/await — блокировки, параллелизм, 
 Правильно: save в одной транзакции → commit → публикация события → subscriber делает notification со своим retry
 Почему: notification не должна откатывать данные. Разделение «persist» и «side-effect» по транзакционной границе (с outbox для гарантии at-least-once) — единственный способ сохранить корректность при падении побочных шагов
 
+### Последовательный await в foreach для батча независимых вызовов
+Плохо: foreach (var item in batch) await client.SendAsync(item); // latency = N × T
+Правильно: await Parallel.ForEachAsync(batch, new ParallelOptions { MaxDegreeOfParallelism = 10 }, async (item, ct) => await client.SendAsync(item, ct));
+Почему: независимые вызовы к одному endpoint выигрывают от параллелизма. DOP 10-20 защищает downstream. Исключение: если отправка идёт через очередь (MassTransit, RabbitMQ) — буферизация делает параллелизм бессмысленным
+
 ## Асинхронный контекст
 
 ### HttpContext в фоновом потоке

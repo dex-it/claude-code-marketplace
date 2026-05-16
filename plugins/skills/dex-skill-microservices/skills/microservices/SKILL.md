@@ -31,6 +31,11 @@ description: Microservices, CQRS — distributed traps. Активируется
 Правильно: сервис = bounded context с бизнес-логикой, не CRUD endpoint
 Почему: 50 nano-сервисов × инфраструктура (CI/CD, мониторинг, логирование) = 50x overhead. Логика размазана по сети
 
+### Внутренняя команда в публичных контрактах сервиса
+Плохо: SharedContracts/ProcessFailResultCommand.cs — команда, которую сервис отправляет сам себе
+Правильно: перенеси в internal папку сервиса; SharedContracts — только для cross-service сообщений
+Почему: публичные контракты — API между сервисами. Self-message и внутренние retry-команды — детали реализации. Их наличие в SharedContracts создаёт ложный сигнал о зависимости и раздувает публичный пакет
+
 ## Коммуникация
 
 ### Sync вызовы без Circuit Breaker

@@ -102,6 +102,11 @@ description: .NET structured logging — Serilog, ILogger, Seq. Активиру
 Правильно: `Log.Fatal("..."); Log.CloseAndFlush(); Environment.Exit(1)`
 Почему: Serilog буферизирует запись. Без `CloseAndFlush()` последнее (самое важное!) сообщение не доходит до Seq/файла
 
+### Регистрационный токен внешней службы в логах
+Плохо: _logger.LogDebug("Sending to {DeviceToken}", deviceToken); // FCM/HMS-токен целиком
+Правильно: _logger.LogDebug("Sending to device {TokenHint}", deviceToken[..8] + "...");
+Почему: push-токены и API-ключи внешних служб — учётные данные: утечка позволяет третьей стороне слать уведомления от имени приложения. Логировать только префикс (8 символов) для трассировки без компрометации токена
+
 ## Scope и контекст
 
 ### Повторение контекста в каждой строке

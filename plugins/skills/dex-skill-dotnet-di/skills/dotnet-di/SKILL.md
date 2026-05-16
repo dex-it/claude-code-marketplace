@@ -22,6 +22,11 @@ description: .NET DI — ловушки регистрации, lifetime, Servic
 Правильно: `services.AddSingleton<INotifier, EmailNotifier>()` или фабричная лямбда
 Почему: контейнер не управляет lifecycle вручную созданного экземпляра — `Dispose()` не будет вызван при завершении
 
+### Повышение lifetime до Singleton без аудита stateless-природы
+Плохо: services.AddSingleton<IService, Impl>(); // перевели с Scoped, «кажется stateless»
+Правильно: перед Singleton: нет mutable поля? нет Scoped-зависимостей? нет per-request данных? — только тогда Singleton
+Почему: stateful Singleton = race condition под нагрузкой; Scoped-зависимость → captive dependency (stale data / ObjectDisposedException). Обратно: оставлять stateless в Scoped — бесполезный per-request overhead
+
 ## Регистрация
 
 ### Конкретный класс вместо интерфейса
