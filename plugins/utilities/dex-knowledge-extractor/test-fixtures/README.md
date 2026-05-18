@@ -9,6 +9,7 @@
 | analyze-agent-change.md | Правка фазы агента | Applied: 1 |
 | analyze-mixed.md | Микс типов | Applied: 3, Skipped: 1, Dropped: 1 |
 | analyze-self-review-fail.md | Имя конкретного проекта | Applied: 0, Skipped: 1 (self-review failed) |
+| analyze-cross-check-conflict.md | Конфликт двух предложений одного прогона | Cross-check переписывает пример; Applied: 2, Dropped: 0 |
 
 ## Запуск (ручной, после имплементации команды)
 

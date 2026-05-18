@@ -2,7 +2,7 @@
 description: Применить предложения /mr-analyze к файлам маркетплейса с self-review и валидацией. Bump versions по semver. Не делает git commit/push.
 user-invocable: true
 allowed-tools: Read, Edit, Write, Glob, Grep, Bash
-argument-hint: "<путь к файлу от /mr-analyze> [--marketplace-root <path>]"
+argument-hint: "<путь к файлу от /mr-analyze> [--marketplace-root <path>] [--base <branch>]"
 ---
 
 # /mr-apply
@@ -13,9 +13,13 @@ argument-hint: "<путь к файлу от /mr-analyze> [--marketplace-root <p
 
 **Goal:** Готовый diff в маркетплейс-репе + отчёт `apply-report.md` со списком Applied / Skipped (target not found) / Failed (validate). Stdout — абсолютный путь к отчёту.
 
-**Input:** абсолютный путь к `/tmp/mr-analyze-*.md`. Опционально `--marketplace-root <path>` — корень клона `mmx003/claude-code-marketplace` (по умолчанию текущий cwd). Если ни там ни там нет `.claude-plugin/marketplace.json` — явная ошибка с инструкцией.
+**Input:** абсолютный путь к `/tmp/mr-analyze-*.md`. Опционально `--marketplace-root <path>` — корень клона `mmx003/claude-code-marketplace` (по умолчанию текущий cwd). Если ни там ни там нет `.claude-plugin/marketplace.json` — явная ошибка с инструкцией. Опционально `--base <branch>` — целевая ветка авто-PR для обвязки (по умолчанию `develop`; см. «Hotfix escape-hatch»).
 
 **Constraints:** не делает `git commit/push/checkout` и не создаёт PR — только правка файлов в рабочем дереве. В конце обязательный `npm run validate`; падение → откат виновника → запись в Failed. Версия плагина обновляется одновременно в `plugin.json` и `marketplace.json`.
+
+**Базовая ветка для обвязки:** сам `/mr-apply` PR не создаёт, но обвязка (CI / оператор) должна ответвлять `auto/mr-*` от `develop` и открывать PR **в `develop`**, не в `main`: `main` отстаёт, PR в `main` подтянет в diff весь накопленный `develop` — ревью утонет в постороннем коде. Правило пробрасывается в `Metadata` строкой `base branch: develop`.
+
+**Точка контроля и hotfix-escape:** строка `base branch` в `Metadata` — сигнал, не валидатор; обвязка перед открытием PR обязана проверить базу технически — `git merge-base --is-ancestor <base> auto/mr-*`; если `<base>` не предок ветки, PR не открывать, эскалировать оператору. `/mr-apply` сам git не трогает — точка контроля живёт в CI-pipeline (если скрипта пока нет — отдельная задача). Для срочного hotfix в `main` напрямую `/mr-apply` принимает опциональный флаг `--base <branch>` (по умолчанию `develop`): значение пробрасывается в `Metadata` строкой `base branch: <branch>`, обвязка берёт его, а не дефолт.
 
 ## Типы предложений
 
@@ -55,9 +59,11 @@ argument-hint: "<путь к файлу от /mr-analyze> [--marketplace-root <p
 
 Путь: `/tmp/mr-apply-<task-key>-<YYYYMMDD-HHMM>.md`. Task key из имени входного analyze.md (regex `mr-analyze-([A-Z]+-\d+|no-task)-`), иначе `no-task`.
 
-Структура: секция `Metadata` с source analyze, marketplace root, started timestamp, итог validate (PASS/FAIL), счётчики `analyze_skipped` / `analyze_dropped` из исходного `/mr-analyze` (ревьюверу PR -- полная картина из одного отчёта); секция `Applied (N)` — для каждого применения подзаголовок с именем предложения, поля File / Section / Lines added / Version bump + **скопированный as-is блок `Critical assessment` из `/mr-analyze`** (4 поля + Recommendation for reviewer -- ревьювер PR видит самооценку анализатора прямо в apply-report, не прыгая между файлами); секция `Skipped (target not found) (P)` — подзаголовок предложения, поля Target (имя несуществующего skill / агента / bundle) / Reason (`target not found`) / Action (`Не применено -- передать на ручной ревью /mr-analyze для уточнения цели или создания нового плагина`); секция `Failed (validate) (K)` — подзаголовок предложения, поля File / Validator error (stderr цитата) / Action (`Откачено`) / Suggestion for human review (включая ссылку на правило валидатора, например `code-fence-too-long` / `trap-missing-triad` -- чтобы ревьюверу PR было понятно, на что смотреть в `/mr-analyze`).
+Структура: секция `Metadata` с source analyze, marketplace root, started timestamp, итог validate (PASS/FAIL), `base branch: <branch>` (целевая ветка PR для обвязки -- значение флага `--base`, по умолчанию `develop`), счётчики `analyze_skipped` / `analyze_dropped` из исходного `/mr-analyze` (ревьюверу PR -- полная картина из одного отчёта); секция `Applied (N)` — для каждого применения подзаголовок с именем предложения, поля File / Section / Lines added / Version bump + **скопированный as-is блок `Critical assessment` из `/mr-analyze`** (4 поля + Recommendation for reviewer -- ревьювер PR видит самооценку анализатора прямо в apply-report, не прыгая между файлами); секция `Skipped (target not found) (P)` — подзаголовок предложения, поля Target (имя несуществующего skill / агента / bundle) / Reason (`target not found`) / Action (`Не применено -- передать на ручной ревью /mr-analyze для уточнения цели или создания нового плагина`); секция `Failed (validate) (K)` — подзаголовок предложения, поля File / Validator error (stderr цитата) / Action (`Откачено`) / Suggestion for human review (включая ссылку на правило валидатора, например `code-fence-too-long` / `trap-missing-triad` -- чтобы ревьюверу PR было понятно, на что смотреть в `/mr-analyze`).
 
 Если ноль Applied / Skipped / Failed — файл всё равно создаётся, секции содержат `none`.
+
+**Тело авто-PR для обвязки:** `apply-report.md` остаётся файлом в `/tmp` и **не прикладывается** к авто-PR целиком. В тело PR обвязка кладёт только краткую сводку — счётчики `Applied` / `Skipped` / `Failed`, итог `validate`, `base branch`; полный отчёт (блоки `Critical assessment`, цитаты ошибок) в описание не вставляется, иначе ревью тонет в метаданных. Полный отчёт оператор берёт из `/tmp` по пути из stdout.
 
 ## Errors
 
