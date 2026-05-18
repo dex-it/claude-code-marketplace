@@ -25,7 +25,7 @@ description: .NET DI — ловушки регистрации, lifetime, Servic
 ### Повышение lifetime до Singleton без аудита stateless-природы
 Плохо: services.AddSingleton<IService, Impl>(); // перевели с Scoped, «кажется stateless»
 Правильно: перед Singleton: нет mutable поля? нет Scoped-зависимостей? нет per-request данных? — только тогда Singleton
-Почему: stateful Singleton = race condition под нагрузкой; Scoped-зависимость → captive dependency (stale data / ObjectDisposedException). Обратно: оставлять stateless в Scoped — бесполезный per-request overhead
+Почему: stateful Singleton = race condition под нагрузкой; Scoped-зависимость → captive dependency (stale data / ObjectDisposedException). Дефолт остаётся Scoped — повышать lifetime только при доказанной выгоде, не «на всякий случай»
 
 ## Регистрация
 

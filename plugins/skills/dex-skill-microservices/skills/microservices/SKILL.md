@@ -32,7 +32,7 @@ description: Microservices, CQRS — distributed traps. Активируется
 Почему: 50 nano-сервисов × инфраструктура (CI/CD, мониторинг, логирование) = 50x overhead. Логика размазана по сети
 
 ### Внутренняя команда в публичных контрактах сервиса
-Плохо: SharedContracts/ProcessFailResultCommand.cs — команда, которую сервис отправляет сам себе
+Плохо: SharedContracts/InternalRetryCommand.cs — команда, которую сервис отправляет сам себе
 Правильно: перенеси в internal папку сервиса; SharedContracts — только для cross-service сообщений
 Почему: публичные контракты — API между сервисами. Self-message и внутренние retry-команды — детали реализации. Их наличие в SharedContracts создаёт ложный сигнал о зависимости и раздувает публичный пакет
 

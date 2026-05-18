@@ -38,9 +38,9 @@ description: EF Core — ловушки запросов, миграций, conc
 Почему: возврат `List` из репозитория = любой caller тянет всю сущность со всеми навигациями, теряется возможность добавить `Where`/`Select`/`Take` на сервере. Красивая абстракция «репозиторий скрывает EF» ценой N×объёма трафика и Change Tracker-раздувания
 
 ### Null-forgiving operator без WHERE-фильтра на nullable-колонке
-Плохо: db.Items.Where(spec).ToArray()[0].StartAt!.Value // StartAt — nullable в БД, фильтра нет
-Правильно: db.Items.Where(p => spec && p.StartAt != null).ToArray()[0].StartAt!.Value
-Почему: ! подавляет предупреждение, но не устраняет null в данных. При первой строке с NULL — NullReferenceException в runtime. Правило: ! допустим только если WHERE явно исключил null выше по цепочке
+Плохо: var ts = db.Items.First(spec).StartAt!.Value; // StartAt — nullable в БД, фильтра по null нет
+Правильно: var ts = db.Items.First(p => spec && p.StartAt != null).StartAt!.Value
+Почему: ! подавляет предупреждение, но не устраняет null в данных. На первой строке с NULL — NullReferenceException в runtime. Правило: ! допустим только если WHERE явно исключил null выше по цепочке
 
 > Общие LINQ ловушки (Count vs Any, фильтрация, коллекции) — см. `dex-skill-linq-optimization`
 
@@ -49,7 +49,7 @@ description: EF Core — ловушки запросов, миграций, conc
 ### Несоответствие алиасов в динамически собираемом FromSqlRaw
 Плохо: sql = "SELECT * FROM items p WHERE {cond}"; cond = "items.col = @v"; // 'items' ≠ алиас 'p'
 Правильно: cond = "p.col = @v"; // alias в condition = alias в шаблоне; зафикси alias константой
-Почему: PostgreSQL/SQL Server бросает «missing FROM-clause entry for table items» — runtime, не compile-time. При разделении шаблона и condition нет инструментального контроля над согласованностью алиасов
+Почему: БД бросает ошибку об отсутствии алиаса в FROM (PostgreSQL — «missing FROM-clause entry for table items», SQL Server — «The multi-part identifier could not be bound») — runtime, не compile-time. При разделении шаблона и condition нет инструментального контроля над согласованностью алиасов
 
 ## Add vs AddAsync
 

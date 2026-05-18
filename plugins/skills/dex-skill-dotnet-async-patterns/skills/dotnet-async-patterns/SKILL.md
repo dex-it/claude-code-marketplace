@@ -85,8 +85,8 @@ description: .NET async/await — блокировки, параллелизм, 
 
 ### Последовательный await в foreach для батча независимых вызовов
 Плохо: foreach (var item in batch) await client.SendAsync(item); // latency = N × T
-Правильно: await Parallel.ForEachAsync(batch, new ParallelOptions { MaxDegreeOfParallelism = 10 }, async (item, ct) => await client.SendAsync(item, ct));
-Почему: независимые вызовы к одному endpoint выигрывают от параллелизма. DOP 10-20 защищает downstream. Исключение: если отправка идёт через очередь (MassTransit, RabbitMQ) — буферизация делает параллелизм бессмысленным
+Правильно: `Parallel.ForEachAsync` с ограниченным `MaxDegreeOfParallelism`
+Почему: независимые вызовы к одному endpoint выигрывают от параллелизма; DOP ограничивают по нагрузочной способности downstream (для HTTP стартовая точка 10-20, дальше — по нагрузочному тесту). Исключение: если отправка идёт через очередь — буферизация делает параллелизм бессмысленным
 
 ## Асинхронный контекст
 

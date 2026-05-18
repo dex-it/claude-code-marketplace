@@ -48,8 +48,8 @@ description: Resilience для HTTP клиентов — Polly, retry, timeout, 
 
 ### Фиксированный timeout для батча переменного размера
 Плохо: options.Timeout = TimeSpan.FromSeconds(3); // BatchSize = 100, но может вырасти
-Правильно: timeout настраивается per-operation-type или явно зависит от BatchSize; вынеси в конфиг
-Почему: при фиксированном timeout и растущем BatchSize — timeout начинает срабатывать до завершения работы. Вопрос self-check: «если BatchSize вырастет в 10 раз — timeout всё ещё разумен?»
+Правильно: timeout масштабируется от размера батча — `base + perItem × size`, вынесен в конфиг; self-check «если BatchSize вырастет в 10 раз — timeout всё ещё разумен?»
+Почему: фиксированный timeout, подобранный под текущий BatchSize, начинает срабатывать до завершения работы при росте батча — operation падает по timeout, хотя downstream исправен
 
 ## Circuit Breaker
 
