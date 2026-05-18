@@ -1,6 +1,6 @@
 ---
 name: observability
-description: OpenTelemetry, distributed tracing, metrics, health checks — ловушки. Активируется при opentelemetry, tracing, observability, prometheus, metrics, health check, grafana, jaeger, zipkin, span, trace context, OTLP, prom-client, datadog
+description: OpenTelemetry, distributed tracing, metrics, health checks — ловушки. Активируется при opentelemetry, tracing, observability, prometheus, metrics, health check, liveness, readiness, probe, AddHealthChecks, MapHealthChecks, grafana, jaeger, zipkin, span, trace context, OTLP, prom-client, datadog
 ---
 
 # Observability — ловушки и anti-patterns
@@ -39,6 +39,21 @@ description: OpenTelemetry, distributed tracing, metrics, health checks — ло
 Правильно: `/health/live` (процесс жив) + `/health/ready` (зависимости готовы)
 Почему: Kubernetes использует их по-разному: liveness fail = restart, readiness fail = убрать из Service. Смешивание = неправильное поведение
 
+### Health-проверка без timeout
+Плохо: проверка дёргает БД/кэш и ждёт ответа без своего дедлайна — висит до TCP-таймаута ОС
+Правильно: `AddCheck<DbCheck>("db", tags: new[] { "ready" }, timeout: TimeSpan.FromSeconds(2))`; внутри `IHealthCheck` пробросить переданный `CancellationToken` (он уже учитывает `HealthCheckRegistration.Timeout`) в запрос с `CommandTimeout`
+Почему: зависшая проверка делает `/health/ready` неотвечающим, probe-таймаут выводит инстанс из LB, хотя сам сервис рабочий
+
+### Тяжёлая проверка в health
+Плохо: health дёргает реальный бизнес-запрос или `SELECT COUNT(*)` по большой таблице
+Правильно: `DbContext.Database.CanConnectAsync()`, `Redis.PingAsync()`, `SELECT 1`; без бизнес-логики
+Почему: health вызывается постоянно несколькими репликами и orchestrator'ом — тяжёлая проверка сама создаёт нагрузку, которую призвана диагностировать
+
+### Результат health не кэшируется
+Плохо: каждый probe-запрос заново открывает соединение и бьёт по всем зависимостям
+Правильно: `IHealthCheckPublisher` с `HealthCheckPublisherOptions.Period = TimeSpan.FromSeconds(10)` + singleton-хранилище последнего результата; endpoint отдаёт снимок без вызова реальных проверок
+Почему: десятки реплик LB и orchestrator опрашивают health чаще, чем меняется состояние зависимостей; без кэша пробы становятся заметной долей нагрузки на саму зависимость
+
 ## Metrics
 
 ### High cardinality labels
@@ -74,6 +89,8 @@ description: OpenTelemetry, distributed tracing, metrics, health checks — ло
 - Spans на бизнес-операции, не на каждый метод
 - Health endpoints отфильтрованы из traces
 - Liveness = процесс жив, Readiness = зависимости готовы
+- Health-проверки лёгкие (ping/`SELECT 1`), с таймаутом и проброшенным дедлайном пробы
+- Результат health кэшируется (фоновый снимок), пробы не бьют зависимость напрямую
 - Labels — bounded cardinality (не userId/orderId)
 - Метрики: snake_case + суффикс единицы (_seconds, _bytes)
 - Логи enriched с TraceId (WithSpan)
