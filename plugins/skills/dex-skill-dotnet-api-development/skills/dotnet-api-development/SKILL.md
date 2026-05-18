@@ -1,6 +1,6 @@
 ---
 name: dotnet-api-development
-description: ASP.NET Core Web API — ловушки контроллеров, DTO, URL, пагинации, health checks. Активируется при web api, controller, endpoint, REST, route, FromQuery, FromRoute, path, query parameter, versioning, swagger, ActionResult, ProblemDetails, CreatedAtAction, middleware, health check, liveness, readiness, AddHealthChecks, MapHealthChecks
+description: ASP.NET Core Web API — ловушки контроллеров, DTO, URL, пагинации. Активируется при web api, controller, endpoint, REST, route, FromQuery, FromRoute, path, query parameter, versioning, swagger, ActionResult, ProblemDetails, CreatedAtAction, middleware
 ---
 
 # API Development — ловушки и anti-patterns
@@ -82,25 +82,3 @@ description: ASP.NET Core Web API — ловушки контроллеров, D
 Плохо: `/internal/recalculate` виден всем потребителям API
 Правильно: `[ApiExplorerSettings(IgnoreApi = true)]`
 Почему: утечка внутренней архитектуры, злоумышленник видит internal endpoints
-
-## Health Checks
-
-### Один endpoint вместо liveness/readiness
-Плохо: один `MapHealthChecks("/health")` со всеми проверками — orchestrator не различает «процесс жив» и «готов к трафику»
-Правильно: проверки с тегами `AddCheck(..., tags: ["ready"])`, два endpoint с `Predicate`: `/health/live` (фильтр без проверок зависимостей) + `/health/ready` (`Predicate = c => c.Tags.Contains("ready")`)
-Почему: liveness, проверяющий БД, при падении зависимости валит все поды через restart. readiness лишь выводит под из LB до восстановления
-
-### Health check без timeout
-Плохо: `IHealthCheck`, дёргающий БД/Redis, игнорирует переданный `CancellationToken` — проверка висит до TCP-таймаута ОС
-Правильно: пробрасывать `CancellationToken` в запрос; задать бюджет — `AddCheck(...).WithTimeout()` или короткий `CommandTimeout`
-Почему: зависшая проверка делает `/health/ready` неотвечающим → probe-таймаут → под выпадает из LB, хотя сам сервис рабочий
-
-### Тяжёлая проверка в health
-Плохо: health дёргает реальный бизнес-запрос или `SELECT COUNT(*)` по большой таблице; пробы каждые N секунд
-Правильно: лёгкий liveness-пробник зависимости — `SELECT 1`, `PING`, `CanConnect`; без бизнес-логики
-Почему: health вызывается постоянно несколькими репликами и orchestrator'ом — тяжёлая проверка сама создаёт нагрузку, которую призвана диагностировать
-
-### Результат health не кэшируется
-Плохо: каждый probe-запрос заново открывает соединение и бьёт по всем зависимостям
-Правильно: кэшировать результат на короткий TTL (5–10 сек) — повторные пробы в окне отдают кэш
-Почему: десятки реплик LB + orchestrator опрашивают health чаще, чем меняется состояние; без кэша пробы становятся заметной долей нагрузки на зависимости
