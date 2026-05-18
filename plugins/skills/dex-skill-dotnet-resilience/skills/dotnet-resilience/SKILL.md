@@ -46,6 +46,11 @@ description: Resilience для HTTP клиентов — Polly, retry, timeout, 
 Правильно: внутренний timeout строго меньше timeout'а вызывающего, с запасом на serialize / deserialize
 Почему: если inner-timeout > outer-timeout, клиент (или ASP.NET) обрывает соединение раньше, чем наш код узнает о сбое. Потеря управления над failure path, запрос повисает в `InProgress` без финализации
 
+### Фиксированный timeout для батча переменного размера
+Плохо: options.Timeout = TimeSpan.FromSeconds(3); // BatchSize = 100, но может вырасти
+Правильно: timeout масштабируется от размера батча — `base + perItem × size`, вынесен в конфиг; self-check «если BatchSize вырастет в 10 раз — timeout всё ещё разумен?»
+Почему: фиксированный timeout, подобранный под текущий BatchSize, начинает срабатывать до завершения работы при росте батча — operation падает по timeout, хотя downstream исправен
+
 ## Circuit Breaker
 
 ### Нет circuit breaker при системно-нестабильной зависимости
