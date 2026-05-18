@@ -1,6 +1,6 @@
 ---
 name: observability
-description: OpenTelemetry, distributed tracing, metrics, health checks — ловушки. Активируется при opentelemetry, tracing, observability, prometheus, metrics, health check, grafana, jaeger, zipkin, span, trace context, OTLP, prom-client, datadog
+description: OpenTelemetry, distributed tracing, metrics, health checks — ловушки. Активируется при opentelemetry, tracing, observability, prometheus, metrics, health check, liveness, readiness, probe, AddHealthChecks, MapHealthChecks, grafana, jaeger, zipkin, span, trace context, OTLP, prom-client, datadog
 ---
 
 # Observability — ловушки и anti-patterns
@@ -41,17 +41,17 @@ description: OpenTelemetry, distributed tracing, metrics, health checks — ло
 
 ### Health-проверка без timeout
 Плохо: проверка дёргает БД/кэш и ждёт ответа без своего дедлайна — висит до TCP-таймаута ОС
-Правильно: задать таймаут на саму проверку и пробросить дедлайн пробы в нижестоящий запрос (cancellation/command timeout)
+Правильно: `AddCheck<DbCheck>("db", tags: new[] { "ready" }, timeout: TimeSpan.FromSeconds(2))`; внутри `IHealthCheck` пробросить переданный `CancellationToken` (он уже учитывает `HealthCheckRegistration.Timeout`) в запрос с `CommandTimeout`
 Почему: зависшая проверка делает `/health/ready` неотвечающим, probe-таймаут выводит инстанс из LB, хотя сам сервис рабочий
 
 ### Тяжёлая проверка в health
-Плохо: health дёргает реальный бизнес-запрос или подсчёт по большой таблице; пробы каждые N секунд
-Правильно: лёгкий пробник зависимости — ping/`SELECT 1`/проверка соединения; без бизнес-логики
+Плохо: health дёргает реальный бизнес-запрос или `SELECT COUNT(*)` по большой таблице
+Правильно: `DbContext.Database.CanConnectAsync()`, `Redis.PingAsync()`, `SELECT 1`; без бизнес-логики
 Почему: health вызывается постоянно несколькими репликами и orchestrator'ом — тяжёлая проверка сама создаёт нагрузку, которую призвана диагностировать
 
 ### Результат health не кэшируется
 Плохо: каждый probe-запрос заново открывает соединение и бьёт по всем зависимостям
-Правильно: обновлять статус зависимостей в фоне с периодом 5–10 сек, endpoint отдаёт последний снимок; либо кэшировать результат проверки на короткий TTL
+Правильно: `IHealthCheckPublisher` с `HealthCheckPublisherOptions.Period = TimeSpan.FromSeconds(10)` + singleton-хранилище последнего результата; endpoint отдаёт снимок без вызова реальных проверок
 Почему: десятки реплик LB и orchestrator опрашивают health чаще, чем меняется состояние зависимостей; без кэша пробы становятся заметной долей нагрузки на саму зависимость
 
 ## Metrics
