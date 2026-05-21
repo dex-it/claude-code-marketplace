@@ -25,6 +25,7 @@ NOTIFY_STOP="${DISCORD_NOTIFY_STOP:-true}"
 NOTIFY_WAITING="${DISCORD_NOTIFY_WAITING:-true}"
 NOTIFY_PERMISSIONS="${DISCORD_NOTIFY_PERMISSIONS:-true}"
 NOTIFY_SUBAGENT="${DISCORD_NOTIFY_SUBAGENT:-true}"
+NOTIFY_COMPACT="${DISCORD_NOTIFY_COMPACT:-true}"
 INCLUDE_THINKING="${DISCORD_INCLUDE_THINKING:-false}"
 INCLUDE_TOOLS="${DISCORD_INCLUDE_TOOLS:-true}"
 INCLUDE_TODO="${DISCORD_INCLUDE_TODO:-true}"
@@ -107,6 +108,7 @@ INPUT=$(cat)
 TRANSCRIPT_PATH=$(echo "$INPUT" | jq -r '.transcript_path // empty')
 HOOK_EVENT=$(echo "$INPUT" | jq -r '.hook_event_name // "Unknown"')
 NOTIFICATION_MSG=$(echo "$INPUT" | jq -r '.message // empty')
+NOTIFICATION_TYPE=$(echo "$INPUT" | jq -r '.type // empty')
 
 # =============================================================================
 # Check if this event should trigger notification
@@ -125,7 +127,7 @@ case "$HOOK_EVENT" in
         [ "$NOTIFY_WAITING" != "true" ] && exit 0
         EMOJI="⏸️"
         COLOR=16776960  # Yellow
-        if echo "$NOTIFICATION_MSG" | grep -qi "permission"; then
+        if [ "$NOTIFICATION_TYPE" = "permission_prompt" ]; then
             EVENT_NAME=$(get_l10n "permission_request")
         else
             EVENT_NAME=$(get_l10n "notification_event")
@@ -138,6 +140,7 @@ case "$HOOK_EVENT" in
         EVENT_NAME=$(get_l10n "subagent_event")
         ;;
     "PostCompact")
+        [ "$NOTIFY_COMPACT" != "true" ] && exit 0
         EMOJI="🗜️"
         COLOR=10181046  # Purple
         EVENT_NAME=$(get_l10n "compact_event")
@@ -385,28 +388,30 @@ PAYLOAD=$(jq -n \
 
 LATEST_FILE="/tmp/discord-notify-latest.json"
 TIMER_PID_FILE="/tmp/discord-notify-timer.pid"
+LOCK_FILE="/tmp/discord-notify-lock"
 DELAY_SECONDS="${DISCORD_NOTIFY_DELAY:-30}"
 
 # Always overwrite with latest payload — only the last notification matters
 echo "$PAYLOAD" > "$LATEST_FILE"
 
-# Kill existing timer so it restarts with fresh delay (last event wins)
-if [ -f "$TIMER_PID_FILE" ]; then
-    TIMER_PID=$(cat "$TIMER_PID_FILE" 2>/dev/null)
-    if [ -n "$TIMER_PID" ] && kill -0 "$TIMER_PID" 2>/dev/null; then
-        kill "$TIMER_PID" 2>/dev/null
+# Serialize timer replacement under flock to prevent PID file races between
+# concurrent hook invocations (e.g. Stop + SubagentStop arriving simultaneously)
+(
+    flock 9
+    if [ -f "$TIMER_PID_FILE" ]; then
+        OLD_PID=$(cat "$TIMER_PID_FILE" 2>/dev/null)
+        if [ -n "$OLD_PID" ] && kill -0 "$OLD_PID" 2>/dev/null; then
+            kill "$OLD_PID" 2>/dev/null
+        fi
+        rm -f "$TIMER_PID_FILE"
     fi
-    rm -f "$TIMER_PID_FILE"
-fi
-
-# Start fresh detached timer
-nohup bash -c "
-    sleep $DELAY_SECONDS
-    [ -f '$LATEST_FILE' ] && curl -s -H 'Content-Type: application/json' -X POST '$WEBHOOK_URL' -d @'$LATEST_FILE' > /dev/null 2>&1
-    rm -f '$LATEST_FILE' '$TIMER_PID_FILE'
-" > /dev/null 2>&1 &
-
-echo $! > "$TIMER_PID_FILE"
-disown
+    nohup bash -c "
+        sleep $DELAY_SECONDS
+        [ -f '$LATEST_FILE' ] && curl -s -H 'Content-Type: application/json' -X POST '$WEBHOOK_URL' -d @'$LATEST_FILE' > /dev/null 2>&1
+        rm -f '$LATEST_FILE' '$TIMER_PID_FILE'
+    " > /dev/null 2>&1 &
+    echo $! > "$TIMER_PID_FILE"
+    disown
+) 9>"$LOCK_FILE"
 
 exit 0
