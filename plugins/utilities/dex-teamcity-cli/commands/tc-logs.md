@@ -1,25 +1,26 @@
 ---
-description: Лог билда TeamCity через REST API
+description: Лог билда TeamCity через teamcity run log
 user-invocable: true
 allowed-tools: Bash
-argument-hint: "build-id [--tests] [--artifacts]"
+argument-hint: "build-id [--tail N] [--watch]"
 ---
 
 # /tc-logs
 
-Показать лог билда TeamCity через REST API.
+Показать build log TeamCity.
 
-**Goal:** Вывести build log для анализа ошибок.
+**Goal:** Вывести лог билда для анализа ошибок (или watch live для running-билдов).
 
-**Output:** Build log. С `--tests` -- summary результатов тестов. С `--artifacts` -- список артефактов.
+**Output:** Build log. С `--tail N` -- последние N строк. С `--watch` -- realtime через `teamcity run watch`.
 
 **Scenarios:**
 
-- `build-id` -- полный build log
-- `build-id --tests` -- результаты тестов (passed/failed/ignored, details по failed)
-- `build-id --artifacts` -- список артефактов билда
+- `build-id` -- полный лог (`teamcity run log <id>`).
+- `build-id --tail N` -- последние N строк.
+- `build-id --watch` -- realtime stream до завершения билда (`teamcity run watch <id>`).
 
 **Constraints:**
 
-- Требует переменные окружения `TEAMCITY_URL` и `TEAMCITY_TOKEN`
-- Если не заданы -- показать инструкцию настройки
+- Требует `teamcity` (CLI от JetBrains) в PATH; если не найден -- показать инструкцию установки и ссылку на `docs/CLI_UTILITIES.md`.
+- `--watch` блокирует -- использовать с явным таймаутом или `Ctrl-C`.
+- Для артефактов и тестов используются отдельные команды CLI (`teamcity run artifacts`, `teamcity run download`).

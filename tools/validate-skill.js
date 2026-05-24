@@ -33,11 +33,13 @@ const MARKETPLACE_JSON = join(REPO_ROOT, '.claude-plugin', 'marketplace.json');
 const COLORS = {
   reset: '\x1b[0m',
   red: '\x1b[31m',
+  yellow: '\x1b[33m',
   gray: '\x1b[90m',
   bold: '\x1b[1m',
 };
 
 const ERROR = 'error';
+const WARNING = 'warning';
 
 // --- CLI parsing --------------------------------------------------------
 
@@ -77,8 +79,8 @@ function findAllSkillFiles() {
 
 // --- Size limits --------------------------------------------------------
 
-const CLAUDE_CODE_HARD_LIMIT = 500; // official Claude Code limit
-const PROJECT_RECOMMENDED_MAX = 250; // project guideline
+const CLAUDE_CODE_HARD_LIMIT = 500; // official Claude Code line limit
+const PROJECT_RECOMMENDED_MAX = 250; // project line-count guideline
 const PROJECT_TARGET_MAX = 120; // ideal range
 
 // --- Frontmatter validation ---------------------------------------------
@@ -86,7 +88,9 @@ const PROJECT_TARGET_MAX = 120; // ideal range
 const REQUIRED_FIELDS = ['name', 'description'];
 const FORBIDDEN_FIELDS = ['keywords'];
 const MIN_DESCRIPTION_LENGTH = 50;
-const MAX_DESCRIPTION_LENGTH = 250;
+const CLAUDE_DESCRIPTION_HARD_LIMIT = 1536; // Claude Code hard limit (description + when_to_use) — error
+const PROJECT_DESCRIPTION_MAX = 750; // project hard cap — error
+const WARN_DESCRIPTION_LENGTH = 500; // project soft guideline — warning
 const MIN_TRIGGER_KEYWORDS = 10;
 
 function validateFrontmatter(parsed, findings) {
@@ -123,11 +127,23 @@ function validateFrontmatter(parsed, findings) {
     });
   }
 
-  if (desc.length > MAX_DESCRIPTION_LENGTH) {
+  if (desc.length > CLAUDE_DESCRIPTION_HARD_LIMIT) {
+    findings.push({
+      level: ERROR,
+      rule: 'description-exceeds-claude-limit',
+      message: `Description is ${desc.length} characters — exceeds Claude Code hard limit of ${CLAUDE_DESCRIPTION_HARD_LIMIT}. Text beyond this limit is truncated from the skill listing and will not activate the skill`,
+    });
+  } else if (desc.length > PROJECT_DESCRIPTION_MAX) {
     findings.push({
       level: ERROR,
       rule: 'description-too-long',
-      message: `Description is ${desc.length} characters — exceeds recommended max of ${MAX_DESCRIPTION_LENGTH}. Keywords beyond this limit may not activate the skill`,
+      message: `Description is ${desc.length} characters — exceeds project cap of ${PROJECT_DESCRIPTION_MAX}. Cut entry points (concrete APIs/symptoms inside traps); keep only the technology anchor and aspect names`,
+    });
+  } else if (desc.length > WARN_DESCRIPTION_LENGTH) {
+    findings.push({
+      level: WARNING,
+      rule: 'description-long',
+      message: `Description is ${desc.length} characters — exceeds project guideline of ${WARN_DESCRIPTION_LENGTH}. A compact description triggers more reliably; cut entry points, keep aspects`,
     });
   }
 
@@ -268,7 +284,7 @@ function validateTraps(markdownBody, findings) {
 
 // --- Pointer-not-code validation ----------------------------------------
 
-const MAX_CODE_FENCE_LINES = 5;
+const MAX_CODE_FENCE_LINES = 12;
 
 function validateCodeFences(markdownBody, findings) {
   const tree = unified().use(remarkParse).parse(markdownBody);
@@ -353,17 +369,22 @@ function validateFile(filepath) {
 // --- Reporting ----------------------------------------------------------
 
 function formatFinding(f) {
-  return `  ${COLORS.red}ERROR${COLORS.reset} ${COLORS.gray}[${f.rule}]${COLORS.reset} ${f.message}`;
+  const isWarning = f.level === WARNING;
+  const color = isWarning ? COLORS.yellow : COLORS.red;
+  const label = isWarning ? 'WARN ' : 'ERROR';
+  return `  ${color}${label}${COLORS.reset} ${COLORS.gray}[${f.rule}]${COLORS.reset} ${f.message}`;
 }
 
 function report(results) {
   let totalErrors = 0;
+  let totalWarnings = 0;
   let filesWithIssues = 0;
 
   for (const result of results) {
     if (result.findings.length === 0) continue;
 
-    totalErrors += result.findings.length;
+    totalErrors += result.findings.filter((f) => f.level !== WARNING).length;
+    totalWarnings += result.findings.filter((f) => f.level === WARNING).length;
     filesWithIssues += 1;
     const rel = relative(REPO_ROOT, result.filepath);
     console.log(`\n${COLORS.bold}${rel}${COLORS.reset}`);
@@ -373,7 +394,8 @@ function report(results) {
   console.log('');
   console.log(
     `${COLORS.bold}Summary:${COLORS.reset} ${results.length} skill(s) checked, ` +
-      `${COLORS.red}${totalErrors} error(s)${COLORS.reset}` +
+      `${COLORS.red}${totalErrors} error(s)${COLORS.reset}, ` +
+      `${COLORS.yellow}${totalWarnings} warning(s)${COLORS.reset}` +
       (filesWithIssues > 0 ? `, ${filesWithIssues} file(s) with issues` : '')
   );
 

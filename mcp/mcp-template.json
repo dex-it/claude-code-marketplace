@@ -37,6 +37,7 @@
     ],
     "dex-quality-assurance": [
       "gitlab",
+      "playwright (optional)",
       "filesystem"
     ],
     "dex-devops": [
@@ -53,6 +54,18 @@
         "chrome-devtools-mcp@latest",
         "--headless=false",
         "--isolated=true"
+      ]
+    },
+    "playwright": {
+      "_description": "Playwright MCP - browser automation, E2E checks, accessibility tree navigation. Microsoft official server.",
+      "_env": [],
+      "_note": "Docs: https://github.com/microsoft/playwright-mcp. Перед первым запуском поставить браузеры: 'npx playwright install chromium' -- MCP не делает этого автоматически. Подробности по флагам (--isolated, --headless, --browser, почему НЕ указывать --port) -- см. mcp/README.md, раздел Browser automation.",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest",
+        "--isolated",
+        "--headless"
       ]
     },
     "notion": {

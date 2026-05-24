@@ -1,6 +1,6 @@
 ---
 name: dotnet-async-patterns
-description: .NET async/await — блокировки, параллелизм, CancellationToken. Активируется при async, await, Task, CancellationToken, deadlock, .Result, .Wait(), SemaphoreSlim, fire-and-forget, thread pool starvation, async void, параллелизм, блокировка
+description: Ловушки .NET async/await — синхронные блокировки и deadlock, отмена через CancellationToken, ограничение параллелизма, fire-and-forget, декомпозиция pipeline, чтение вывода внешних процессов без deadlock на буфере. Активируется при async, await, Task, deadlock, .Result, .Wait(), CancellationToken, SemaphoreSlim, параллелизм, async void, fire-and-forget, thread pool starvation, внешний процесс Process, stdout/stderr
 ---
 
 # Async Patterns — ловушки и anti-patterns
@@ -83,12 +83,29 @@ description: .NET async/await — блокировки, параллелизм, 
 Правильно: save в одной транзакции → commit → публикация события → subscriber делает notification со своим retry
 Почему: notification не должна откатывать данные. Разделение «persist» и «side-effect» по транзакционной границе (с outbox для гарантии at-least-once) — единственный способ сохранить корректность при падении побочных шагов
 
+### Последовательный await в foreach для батча независимых вызовов
+Плохо: foreach (var item in batch) await client.SendAsync(item); // latency = N × T
+Правильно: `Parallel.ForEachAsync` с ограниченным `MaxDegreeOfParallelism`
+Почему: независимые вызовы к одному endpoint выигрывают от параллелизма; DOP ограничивают по нагрузочной способности downstream (для HTTP стартовая точка 10-20, дальше — по нагрузочному тесту). Исключение: если отправка идёт через очередь — буферизация делает параллелизм бессмысленным
+
 ## Асинхронный контекст
 
 ### HttpContext в фоновом потоке
 Плохо: `Task.Run(async () => { var user = _httpContextAccessor.HttpContext?.User; })` — HttpContext = null
 Правильно: извлеки данные ДО перехода в фон: `var userId = HttpContext.User.FindFirst("sub")?.Value;`
 Почему: HttpContext привязан к HTTP-запросу. В Task.Run — другой поток, запрос может уже завершиться → null или disposed
+
+## Внешние процессы (System.Diagnostics.Process)
+
+### stdout и stderr читаются не одновременно → deadlock на буфере пайпа
+Плохо: stdout читается до конца, а stderr — отдельно: после выхода (`WaitForExitAsync()`, затем `StandardError.ReadToEndAsync()`) или условно (`if (ExitCode != 0) { await StandardError.ReadToEndAsync(); }`). Асинхронный `await` от deadlock не спасает — блокировка на уровне ОС
+Правильно: запустить чтение ОБОИХ потоков до ожидания выхода — `var errTask = p.StandardError.ReadToEndAsync(ct); var output = await p.StandardOutput.ReadToEndAsync(ct); var err = await errTask; await p.WaitForExitAsync(ct);` — либо подписка на `OutputDataReceived` + `ErrorDataReceived` с `Begin*ReadLine()`
+Почему: буфер пайпа ОС ограничен (~64 KB на Windows/Linux). Пока родитель читает только stdout, дочерний процесс наполняет буфер stderr и блокируется на записи; stdout не завершится, `WaitForExit` не вернётся → взаимный deadlock. Зависит от объёма вывода: на коротком тесте незаметно, на реальных данных виснет. Чтение stderr «только при ошибке после WaitForExit» — тот же баг, ревью отклоняет его и без воспроизведения
+
+### WaitForExit раньше дочитывания вывода
+Плохо: `process.WaitForExit(); var output = process.StandardOutput.ReadToEnd();` — ожидание выхода до чтения
+Правильно: сначала запустить чтение обоих потоков, затем `await WaitForExitAsync(ct)`; при синхронном API с таймаутом после `WaitForExit(timeout)` вызвать `WaitForExit()` без таймаута, чтобы дождаться завершения async-хендлеров вывода
+Почему: `WaitForExit(timeout)` не гарантирует, что асинхронные хендлеры `*DataReceived` завершились — последние строки stdout/stderr теряются. Вывод читать ДО ожидания выхода, не после
 
 ## Чек-лист
 
@@ -101,3 +118,4 @@ description: .NET async/await — блокировки, параллелизм, 
 - HttpContext: извлекай данные ДО фоновой задачи
 - Побочные эффекты вынесены из критичного пути через события / outbox
 - Handler не делает >2 последовательных внешних вызовов без декомпозиции
+- Process: stdout и stderr читать параллельно (async), не последовательно — иначе deadlock на буфере пайпа
