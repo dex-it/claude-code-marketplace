@@ -1,5 +1,5 @@
 ---
-description: Pre-push саморевью своей локальной ветки включая незакоммиченные изменения — 7 фокусов с реальным прогоном build/test, чеклист правок до push
+description: Pre-push саморевью своей локальной ветки включая незакоммиченные изменения - 7 фокусов с реальным прогоном build/test, чеклист правок до push
 allowed-tools: Read, Grep, Glob, Bash, Skill, Agent
 argument-hint: "[base-branch, по умолчанию origin/main или origin/develop]"
 ---
@@ -14,7 +14,7 @@ argument-hint: "[base-branch, по умолчанию origin/main или origin/
 
 ## Input
 
-Опциональный аргумент — базовая ветка для сравнения (по умолчанию определяется по upstream: origin/main или origin/develop). Ревьюится дельта от базы с учётом committed, staged и worktree.
+Опциональный аргумент - базовая ветка для сравнения (по умолчанию определяется по upstream: origin/main или origin/develop). Ревьюится дельта от базы с учётом committed, staged и worktree.
 
 ## Output
 
@@ -25,7 +25,7 @@ argument-hint: "[base-branch, по умолчанию origin/main или origin/
 ## Constraints
 
 - Незакоммиченные изменения (staged и worktree) ревьюятся наравне с закоммиченными
-- TODO, заглушки, fallback, моки в проде, debug-print, .only, disabled-тесты, hardcoded secrets — всегда блокер или важное
+- TODO, заглушки, fallback, моки в проде, debug-print, .only, disabled-тесты, hardcoded secrets - всегда блокер или важное
 - До команды `делай` рабочее дерево не меняется; `пушь` разрешён только при зелёном Local verification и отсутствии 🔴
 - Незакоммиченный worktree перед push выносится явно (commit/stash/discard), решение за автором
 

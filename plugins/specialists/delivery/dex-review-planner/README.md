@@ -4,7 +4,7 @@
 
 ## Команда
 
-`/review-plan <MR/PR url или short-id> [REVIEW_SHA]` — план правок и черновики ответов.
+`/review-plan <MR/PR url или short-id> [REVIEW_SHA]` - план правок и черновики ответов.
 
 ## Архитектура
 
