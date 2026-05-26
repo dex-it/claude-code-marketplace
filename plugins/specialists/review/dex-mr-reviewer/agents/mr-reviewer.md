@@ -190,7 +190,7 @@ Skills не преднагружены: в Phase 3 загружаются имп
 # GitLab: SHA-якоря и inline-тред на строку
 glab api projects/:id/merge_requests/:iid --jq '.diff_refs'
 glab api --method POST "projects/:id/merge_requests/:iid/discussions" \
-  --field body=@/tmp/thread_N.md \
+  --field body=@<thread-body-file> \
   --field "position[position_type]=text" \
   --field "position[base_sha]=$BASE_SHA" --field "position[head_sha]=$HEAD_SHA" \
   --field "position[start_sha]=$START_SHA" \
@@ -201,11 +201,11 @@ glab api --method POST "projects/:id/merge_requests/:iid/discussions" \
 # GitHub: HEAD коммит и inline-тред на строку
 gh pr view <PR> --json headRefOid -q '.headRefOid'
 gh api --method POST "/repos/{owner}/{repo}/pulls/<PR>/comments" \
-  -f body=@/tmp/thread_N.md -f path="$FILE" -F line=$LINE \
+  -F body=@<thread-body-file> -f path="$FILE" -F line=$LINE \
   -f side="RIGHT" -f commit_id="$HEAD_SHA"
 ```
 
-Для удалённых строк используй old_path/old_line (glab) либо side=LEFT (gh). Overview публикуй общим комментарием (`glab api ... discussions` без position либо `gh pr comment`).
+Чтение тела из файла идёт через `-F`/`--field` с префиксом `@` (флаг `-f`/`--raw-field` шлёт литеральную строку, не файл). Если `@file` недоступно (например sandbox-ограничение CLI), передай тело инлайном. Для удалённых строк используй old_path/old_line (glab) либо side=LEFT (gh). Overview публикуй общим комментарием (`glab api ... discussions` без position либо `gh pr comment`).
 
 ## Boundaries
 
