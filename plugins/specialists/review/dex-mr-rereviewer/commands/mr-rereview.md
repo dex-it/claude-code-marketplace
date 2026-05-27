@@ -1,6 +1,6 @@
 ---
 description: Итеративное ре-ревью дельты MR/PR с прошлого раунда - range-diff, статус прежних находок, новые находки только в дельте
-allowed-tools: Read, Grep, Glob, Bash, Skill, Agent
+allowed-tools: Read, Grep, Glob, Bash, Skill
 argument-hint: "<MR/PR url или short-id> [LAST_REVIEW_SHA]"
 ---
 

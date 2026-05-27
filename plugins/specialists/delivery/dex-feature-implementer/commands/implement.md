@@ -1,6 +1,6 @@
 ---
 description: Реализация фичи по ТЗ до локальных коммитов без push - декомпозиция в требования, дизайн, edit-план, пошаговая правка с локальной верификацией
-allowed-tools: Read, Edit, Write, Bash, Grep, Glob, Skill, Agent
+allowed-tools: Read, Edit, Write, Bash, Grep, Glob, Skill
 argument-hint: "<ТЗ или ссылка на тикет> [base-branch] [feature-branch]"
 ---
 
