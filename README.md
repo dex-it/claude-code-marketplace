@@ -93,7 +93,7 @@ claude plugins uninstall dex-dotnet-coder
 | Плагин | Агент | Команда | Описание |
 |--------|-------|---------|----------|
 | dex-mr-reviewer | mr-reviewer | `/mr-review` | Первичное ревью чужого MR/PR, инлайн-треды через gh/glab |
-| dex-mr-rereviewer | mr-rereviewer | `/mr-rereview` | Ре-ревью дельты с прошлого раунда (range-diff) |
+| dex-mr-check-reviewer | mr-check-reviewer | `/mr-check-review` | Ре-ревью дельты с прошлого раунда (range-diff) |
 | dex-review-planner | review-planner | `/review-plan` | План правок по ревью без редактирования кода |
 | dex-feature-implementer | feature-implementer | `/implement` | Реализация фичи по ТЗ до локальных коммитов |
 | dex-self-reviewer | self-reviewer | `/self-review` | Pre-push саморевью своей ветки с прогоном тестов |

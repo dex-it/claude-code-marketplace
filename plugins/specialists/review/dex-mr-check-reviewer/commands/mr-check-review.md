@@ -4,13 +4,13 @@ allowed-tools: Read, Grep, Glob, Bash, Skill
 argument-hint: "<MR/PR url или short-id> [LAST_REVIEW_SHA]"
 ---
 
-# /mr-rereview
+# /mr-check-review
 
 Запустить следующий раунд ревью того же MR/PR после правок автора: посмотреть дельту, проверить закрытие прошлых замечаний, поймать новое.
 
 ## Goal
 
-Провести MR/PR через фазы агента `mr-rereviewer`: Establish Revisions, Prior Findings Status, Delta Domain Recall, New Findings Hunt, Falsification, Cross-Link and Calibrate, Report, Draft Thread Updates, Publish.
+Провести MR/PR через фазы агента `mr-check-reviewer`: Establish Revisions, Prior Findings Status, Delta Domain Recall, New Findings Hunt, Falsification, Cross-Link and Calibrate, Report, Draft Thread Updates, Publish.
 
 ## Input
 
@@ -30,4 +30,4 @@ argument-hint: "<MR/PR url или short-id> [LAST_REVIEW_SHA]"
 - Severity прошлых находок не менять без причины из нового кода или ответа автора
 - До `пушь` ни одной записи; чужие треды не трогать
 
-Делегировать агенту `mr-rereviewer`.
+Делегировать агенту `mr-check-reviewer`.

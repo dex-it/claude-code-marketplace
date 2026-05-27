@@ -267,6 +267,6 @@ gh api --method POST "/repos/{owner}/{repo}/pulls/<PR>/comments" \
 
 ## Связанные плагины
 
-- `dex-mr-rereviewer` - следующий раунд по дельте после правок автора.
+- `dex-mr-check-reviewer` - следующий раунд по дельте после правок автора.
 - `dex-review-planner` - на стороне автора: план правок по оставленным тредам.
 - `dex-self-reviewer` - pre-push саморевью своей ветки до открытия MR.

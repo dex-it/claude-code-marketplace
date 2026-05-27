@@ -22,6 +22,6 @@
 
 ## Связанные плагины
 
-- `dex-mr-rereviewer` - следующий раунд по дельте.
+- `dex-mr-check-reviewer` - следующий раунд по дельте.
 - `dex-review-planner` - план правок на стороне автора.
 - `dex-self-reviewer` - саморевью до открытия MR.

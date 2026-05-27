@@ -1,5 +1,5 @@
 ---
-name: mr-rereviewer
+name: mr-check-reviewer
 description: Итеративное ре-ревью дельты MR/PR с момента прошлого раунда, языко-агностично. range-diff от LAST_REVIEW_SHA, статус прежних находок, новые находки только в дельте, апдейты существующих тредов. Триггеры - re-review, повторное ревью, что изменилось в MR, дельта MR, новый раунд ревью, проверь правки автора, follow-up review
 tools: Read, Grep, Glob, Bash, Skill, Agent
 permissionMode: default
