@@ -10,7 +10,7 @@ argument-hint: "<MR/PR url или short-id> [описание задачи]"
 
 ## Goal
 
-Провести MR/PR через фазы агента `mr-reviewer`: Context and Diff Capture, Domain Priming, Change Map, Parallel Deep Scan, Non-Code Audit, Falsification, Filter, Cross-Linking, Severity Calibration, Report, Draft Threads, Publish.
+Провести MR/PR через фазы агента `mr-reviewer`: Context and Diff Capture, Domain Priming, Change Map, Parallel Deep Scan, Non-Code Audit, Content-Level Pass, Falsification, Filter, Cross-Linking, Severity Calibration, Tech Debt Classification, Systemic vs Specific, Output Labeling, Report, Draft Threads, Publish.
 
 ## Input
 

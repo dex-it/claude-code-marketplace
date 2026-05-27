@@ -21,13 +21,17 @@ Skills не преднагружены: в Phase 3 загружаются имп
 2.  Change Map                 -> файл -> ось риска
 3.  Parallel Deep Scan         -> 5 фокусов + условные skills
 4.  Non-Code Artifacts Audit   -> манифесты, конфиги, CI
-5.  Falsification and Scoring  -> доказательство + severity/confidence/scope
-6.  Filter and Dedup           -> отсев confidence<80, слияние дублей
-7.  Cross-Linking and Plan     -> группы root cause -> symptoms
-8.  Severity Calibration       -> под stage + метки
-9.  Report                     -> verdict + overview (gate: оформляй)
-10. Draft Inline Threads       -> один тред = одна находка (gate: пушь)
-11. Publish                    -> gh/glab API
+5.  Content-Level Pass         -> уместность логов, нейминг, семантика ошибок
+6.  Falsification and Scoring  -> доказательство + severity/confidence/scope
+7.  Filter and Dedup           -> отсев confidence<80, слияние дублей
+8.  Cross-Linking and Plan     -> группы root cause -> symptoms
+9.  Severity Calibration       -> под stage, min/ideal фикс
+10. Tech Debt Classification   -> documented / silent / error
+11. Systemic vs Specific       -> mr-specific vs системное
+12. Output Labeling            -> метки 🟢🟡🟠🔴🟣
+13. Report                     -> verdict + overview (gate: оформляй)
+14. Draft Inline Threads       -> один тред = одна находка (gate: пушь)
+15. Publish                    -> gh/glab API
 ```
 
 ## Phase 0: Context and Diff Capture
@@ -104,7 +108,24 @@ Skills не преднагружены: в Phase 3 загружаются имп
 
 При изменённых .NET-манифестах загрузи `dex-skill-dotnet-csproj-hygiene:dotnet-csproj-hygiene` и `dex-skill-dotnet-config-hygiene:dotnet-config-hygiene`.
 
-## Phase 5: Falsification and Scoring
+## Phase 5: Content-Level Pass
+
+**Goal:** Проверить уместность и семантику решений, а не только формат: для каждого лог-вызова обоснование уровня, для каждого имени соответствие домену, для каждого перехвата исключения оправданность типа.
+
+**Output:** Список content-level находок с привязкой file:line и обоснованием «почему смущает» (не «формат нарушен», а «уровень или семантика не та»).
+
+**Mandatory:** yes - structure-level фокусы Phase 3 ловят синтаксис и формат, но пропускают уместность (диагностический лог на уровне Info, доменные коллизии имён, проглатывающий catch); без отдельного прохода эти находки теряются. Опускается только при узко-формальном ревью (например compile-check), что фиксируется в отчёте.
+
+Вопросы для self-check, языко-агностично:
+
+- Лог: важно оператору в 3 ночи в инциденте или только разработчику; не утекает ли PII.
+- Нейминг: имя однозначно в рамках домена проекта, нет коллизии с существующим понятием.
+- Обработка ошибок: тип или класс исключения даёт полезную семантику или это «швабра».
+- Бросающий вызов без обёртки: для каждого вызова в diff, который может бросить, должен ли он ронять основной флоу; если нет (метрики, аналитика, побочная фича) - нужна обёртка с логом и безопасным возвратом, иначе одно исключение из опционального шага валит весь обработчик.
+
+**Exit criteria:** все логи, имена, обработчики ошибок и потенциально бросающие вызовы без обёртки из diff прошли content-проверку либо помечены «не применимо».
+
+## Phase 6: Falsification and Scoring
 
 **Goal:** Опровергнуть каждую сырую находку и присвоить оценки.
 
@@ -116,7 +137,7 @@ Skills не преднагружены: в Phase 3 загружаются имп
 
 Загрузи `dex-skill-review-evidence:review-evidence`. Севериности: CRITICAL - эксплуатируется удалённо, data loss, краш у всех, блокер. HIGH - корректность или регрессия для части юзеров, нарушение явного требования. MEDIUM - ухудшение архитектуры/перформанса/наблюдаемости. LOW - nice-to-have.
 
-## Phase 6: Filter and Dedup
+## Phase 7: Filter and Dedup
 
 **Goal:** Убрать шум и слить дубликаты.
 
@@ -126,7 +147,7 @@ Skills не преднагружены: в Phase 3 загружаются имп
 
 **Exit criteria:** нет находок с confidence<80 в основном списке; out-of-scope сведены к одной строке наблюдений; pre-existing-touched ниже HIGH отброшены; дубликаты слиты в один пункт с перечислением мест.
 
-## Phase 7: Cross-Linking and Plan
+## Phase 8: Cross-Linking and Plan
 
 **Goal:** Связать находки в группы root cause -> symptoms и собрать план работ.
 
@@ -136,17 +157,47 @@ Skills не преднагружены: в Phase 3 загружаются имп
 
 **Exit criteria:** каждая находка либо в группе, либо помечена stand-alone; план упорядочен.
 
-## Phase 8: Severity Calibration and Labeling
+## Phase 9: Severity Calibration
 
-**Goal:** Калибровать severity под контекст из Phase 1 и присвоить метки действия.
+**Goal:** Калибровать severity каждой находки под project stage и контекст из Phase 1.
 
-**Output:** Каждая находка с calibrated severity, минимальным и идеальным фиксом, классификацией tech debt (дефолт «подсвечивать») и меткой 🟢🟡🟠🔴🟣.
+**Output:** Каждая находка с calibrated severity (CRITICAL/HIGH/MEDIUM/LOW), минимальным и идеальным фиксом.
 
-**Mandatory:** yes - без калибровки отчёт либо ложно паникует, либо тихо принимает silent tech debt; одна находка имеет разную severity в pre-alpha и production.
+**Mandatory:** yes - без калибровки отчёт либо ложно паникует, либо ложно расслабляет; одна находка имеет разную severity в pre-alpha и production.
 
-**Exit criteria:** все находки размечены меткой и категорией tech debt с обоснованием; 🟢 ставится только при явных маркерах принятого долга.
+**Exit criteria:** у каждой находки severity привязана к stage; для каждой указаны минимальный и идеальный фиксы.
 
-## Phase 9: Report
+## Phase 10: Tech Debt Classification
+
+**Goal:** Для каждой находки, выглядящей как отклонение от best practice, определить статус долга.
+
+**Output:** Каждая находка с категорией `documented-tech-debt` / `silent-tech-debt` / `error` и обоснованием выбора (какие маркеры принятого долга найдены или не найдены).
+
+**Mandatory:** yes - без явной классификации silent tech debt тихо принимается как «возможно так задумано» и не доходит до автора.
+
+**Exit criteria:** каждая находка отнесена к одной из трёх категорий; дефолт - подсвечивать: при отсутствии маркеров принятого долга (TODO с тикетом, ADR, явная пометка в CLAUDE.md или описании MR, `[Obsolete]` / `@deprecated` или эквивалент) находка идёт в `silent-tech-debt` или `error`, не в `documented-tech-debt`.
+
+## Phase 11: Systemic vs Specific Triage
+
+**Goal:** Отделить находки конкретного MR от системных проблем проекта.
+
+**Output:** Каждая находка помечена `mr-specific` или `systemic`; для `systemic` - рекомендация на уровне процесса (DoD, CI-gate, ADR, обновление CLAUDE.md), не как блокер этого MR.
+
+**Mandatory:** optional - skip_if нет доступа к истории последних MR и пользователь не указал, что проблема повторяется.
+
+**Exit criteria:** если фаза выполнена - каждая находка помечена `mr-specific` или `systemic`; systemic-находки сформулированы как процессная рекомендация, не как блокер MR.
+
+## Phase 12: Output Labeling
+
+**Goal:** Присвоить каждой находке метку действия по цветной шкале.
+
+**Output:** Каждая находка с меткой 🟢🟡🟠🔴🟣, согласованной с severity и категорией tech debt.
+
+**Mandatory:** yes - без единой шкалы меток отчёт не даёт автору приоритет действий.
+
+**Exit criteria:** каждая находка размечена; соответствие: `error` высокой severity -> 🔴/🟣, `silent-tech-debt` с понятным минимальным фиксом -> 🟡/🟠, `documented-tech-debt` по правилам проекта -> 🟢; 🟢 ставится только при явных маркерах принятого долга, иначе минимум 🟡.
+
+## Phase 13: Report
 
 **Goal:** Выдать verdict и краткий overview, не дублирующий будущие треды, и дождаться команды на оформление.
 
@@ -156,11 +207,11 @@ Skills не преднагружены: в Phase 3 загружаются имп
 
 **Exit criteria:** verdict определён, overview показан пользователю, получена команда `оформляй`.
 
-**Gate to Phase 10:** переход только после явной команды `оформляй`.
+**Gate to Phase 14:** переход только после явной команды `оформляй`.
 
 Загрузи `dex-skill-output-hygiene:output-hygiene` для формулировок.
 
-## Phase 10: Draft Inline Threads
+## Phase 14: Draft Inline Threads
 
 **Goal:** Оформить каждую находку как отдельный инлайн-тред, привязанный к строке, без LLM-маркеров.
 
@@ -170,11 +221,11 @@ Skills не преднагружены: в Phase 3 загружаются имп
 
 **Exit criteria:** для каждой находки готов тред с привязкой file:line и текстом без эмодзи, длинных тире и мета-фраз; план тредов (file:line, severity, заголовок) показан; получена команда `пушь`.
 
-**Gate to Phase 11:** переход только после явной команды `пушь`.
+**Gate to Phase 15:** переход только после явной команды `пушь`.
 
 Загрузи `dex-skill-review-threads:review-threads` и `dex-skill-output-hygiene:output-hygiene`.
 
-## Phase 11: Publish
+## Phase 15: Publish
 
 **Goal:** Опубликовать треды и overview через API хостинга в правильную ревизию.
 
