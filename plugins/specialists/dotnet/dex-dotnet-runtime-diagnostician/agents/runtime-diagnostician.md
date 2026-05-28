@@ -39,18 +39,26 @@ permissionMode: default
 
 **Mandatory:** yes - skill-чеклисты содержат permission-ловушки и edge cases, без них агент пропускает CAP / SELinux / mismatched runtime caveats до попыток attach.
 
-Условная матрица загрузки skills (по симптомной оси и природе процесса):
+Условная матрица загрузки skills по симптомной оси и природе процесса. Три кластера: managed-side, native-side, cross-cutting.
 
-- Managed .NET процесс или managed crash - вызови Skill tool `dex-skill-managed-debug:managed-debug`
+Managed-side .NET:
+
+- Managed crash или managed runtime поведение - вызови Skill tool `dex-skill-managed-debug:managed-debug`
+- Managed memory leak или GC pressure - `dex-skill-managed-debug:managed-debug` плюс `dex-skill-dotnet-resources:dotnet-resources` для паттернов в коде (IDisposable, HttpClient lifetime)
+- Managed deadlock или ThreadPool starvation - `dex-skill-managed-debug:managed-debug` плюс `dex-skill-dotnet-async-patterns:dotnet-async-patterns` для антипаттернов `.Result`/`.Wait`/missing ConfigureAwait
+- Подозрение на проглоченную ошибку - `dex-skill-dotnet-logging:dotnet-logging`
+
+Native-side и kernel-level:
+
 - Native процесс или managed на границе P/Invoke - вызови Skill tool `dex-skill-native-debug:native-debug`
 - Slowdown под нагрузкой, hot CPU - вызови Skill tool `dex-skill-perf-profiling:perf-profiling`
 - Hidden subprocess, file-not-found на проде, syscall-загадки - вызови Skill tool `dex-skill-syscall-tracing:syscall-tracing`
-- Есть coredump или нужно post-mortem без живого процесса - вызови Skill tool `dex-skill-core-dumps:core-dumps`
+
+Post-mortem и инспекция артефактов:
+
+- Coredump или post-mortem без живого процесса - вызови Skill tool `dex-skill-core-dumps:core-dumps`
 - Stripped binary, неизвестная DLL, .NET без исходников - вызови Skill tool `dex-skill-binary-inspection:binary-inspection`
-- Managed memory leak или GC pressure - вызови `dex-skill-managed-debug:managed-debug` и дополнительно `dex-skill-dotnet-resources:dotnet-resources` для паттернов в коде (IDisposable, HttpClient lifetime)
-- Managed deadlock или ThreadPool starvation - `dex-skill-managed-debug:managed-debug` плюс `dex-skill-dotnet-async-patterns:dotnet-async-patterns` для антипаттернов `.Result`/`.Wait`/missing ConfigureAwait
-- Подозрение на проглоченную ошибку - `dex-skill-dotnet-logging:dotnet-logging`
-- Если runtime-диагностика требует углублённого статического аудита компонента вокруг root cause - сноска `> см. dex-skill-deep-audit` (не runtime-load, статика для дополнения)
+- Если нужен углублённый статический аудит компонента вокруг root cause - сноска `> см. dex-skill-deep-audit` (не runtime-load, статика для дополнения)
 - Прод-observability через OpenTelemetry плюс метрики - сноска `> см. dex-skill-observability`
 
 Если Skill tool недоступен или skill не установлен - пропусти и явно укажи в отчёте.
