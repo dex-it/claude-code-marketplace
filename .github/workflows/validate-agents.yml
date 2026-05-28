@@ -20,7 +20,30 @@ jobs:
     name: Validate agents and skills against frameworks
     runs-on: ubuntu-latest
     steps:
+      # actions/checkout иногда падает на git fetch с транзиентным 403 / "expected packfile"
+      # во время инцидентов GitHub Actions. Повтор с паузой переживает кратковременные сбои;
+      # финальная попытка без continue-on-error роняет job, если checkout реально недоступен.
       - name: Checkout
+        id: checkout
+        uses: actions/checkout@v4
+        continue-on-error: true
+
+      - name: Wait before checkout retry 1
+        if: steps.checkout.outcome == 'failure'
+        run: sleep 30
+
+      - name: Checkout (retry 1)
+        id: checkout_retry1
+        if: steps.checkout.outcome == 'failure'
+        uses: actions/checkout@v4
+        continue-on-error: true
+
+      - name: Wait before checkout retry 2
+        if: steps.checkout.outcome == 'failure' && steps.checkout_retry1.outcome == 'failure'
+        run: sleep 60
+
+      - name: Checkout (retry 2)
+        if: steps.checkout.outcome == 'failure' && steps.checkout_retry1.outcome == 'failure'
         uses: actions/checkout@v4
 
       - name: Setup Node.js

@@ -80,12 +80,25 @@ claude plugins uninstall dex-dotnet-coder
 | `ml-engineer` | ML инженер |
 | `infrastructure` | Вся инфраструктура |
 | `cli-tools` | CLI-утилиты для диагностики (gh, glab, kubectl, jenkins, teamcity, psql, redis-cli, kaf, rabbitmqadmin, aws-s3, playwright) |
+| `code-review` | Цикл работы с кодом: ревью MR/PR, ре-ревью дельты, план правок, реализация фичи, pre-push саморевью (языко-агностично) |
 
 Подробнее: [install-bundle/README.md](./install-bundle/README.md)
 
 ## Specialists (Level 2)
 
 Агенты с узкой специализацией. Один агент = один плагин.
+
+### Code Review & Delivery (языко-агностично)
+
+| Плагин | Агент | Команда | Описание |
+|--------|-------|---------|----------|
+| dex-mr-reviewer | mr-reviewer | `/mr-review` | Первичное ревью чужого MR/PR, инлайн-треды через gh/glab |
+| dex-mr-check-reviewer | mr-check-reviewer | `/mr-check-review` | Ре-ревью дельты с прошлого раунда (range-diff) |
+| dex-review-planner | review-planner | `/review-plan` | План правок по ревью без редактирования кода |
+| dex-feature-implementer | feature-implementer | `/implement` | Реализация фичи по ТЗ до локальных коммитов |
+| dex-self-reviewer | self-reviewer | `/self-review` | Pre-push саморевью своей ветки с прогоном тестов |
+
+Ставятся набором: `dex-bundle-code-review`. Стек определяется по манифестам, релевантные skills (включая .NET и TypeScript) грузятся условно.
 
 ### Fullstack
 

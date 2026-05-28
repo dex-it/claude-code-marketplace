@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "5.4.0",
+  "version": "5.5.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -1848,6 +1848,201 @@
         "knowledge-extraction",
         "mr-review",
         "skill-curation"
+      ]
+    },
+    {
+      "name": "dex-skill-no-loose-ends",
+      "source": "./plugins/skills/dex-skill-no-loose-ends",
+      "description": "Незавершённый код и скрытые хаки в продовой ветке: TODO/FIXME, заглушки, mock в проде, silent fallback, debug-вывод, hardcoded secrets, отключённые тесты, форк версии зависимости, спекулятивный код, дубль утилиты.",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "code-quality",
+        "loose-ends",
+        "tech-debt",
+        "stub",
+        "fallback",
+        "hardcoded-secret",
+        "debug-output",
+        "disabled-test",
+        "speculative-code"
+      ]
+    },
+    {
+      "name": "dex-skill-review-evidence",
+      "source": "./plugins/skills/dex-skill-review-evidence",
+      "description": "Дисциплина доказательств в ревью: не утверждать без чтения файла, доказывать отсутствие поиском, трассировать путь вход-эффект, фальсифицировать каждую находку, рубрики severity и confidence, порог публикации.",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "code-review",
+        "evidence",
+        "falsification",
+        "severity",
+        "confidence",
+        "false-positive",
+        "code-path",
+        "review-rigor",
+        "investigation"
+      ]
+    },
+    {
+      "name": "dex-skill-review-threads",
+      "source": "./plugins/skills/dex-skill-review-threads",
+      "description": "Инлайн-доставка ревью: один тред на находку, привязка к строке через нативный API gh/glab, severity в первой строке, overview без дублирования тредов, протокол resolve, чужие треды не трогать.",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "code-review",
+        "inline-review",
+        "review-thread",
+        "gh-api",
+        "glab-api",
+        "discussion",
+        "resolve",
+        "merge-request",
+        "pull-request"
+      ]
+    },
+    {
+      "name": "dex-skill-output-hygiene",
+      "source": "./plugins/skills/dex-skill-output-hygiene",
+      "description": "Гигиена вывода без LLM-маркеров: без эмодзи и длинных тире, без мета-фраз и хвалебных заголовков, без filler-вступлений, конкретика вместо абстракции, прямой ответ без пересказа запроса.",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "output-hygiene",
+        "llm-markers",
+        "writing",
+        "tone",
+        "no-emoji",
+        "no-em-dash",
+        "meta-phrase",
+        "concreteness",
+        "review-tone"
+      ]
+    },
+    {
+      "name": "dex-skill-karpathy-guidelines",
+      "source": "./plugins/skills/dex-skill-karpathy-guidelines",
+      "description": "Дисциплина изменений по мотивам Karpathy: думать до кода и выносить допущения, простота вперёд, хирургические правки без лишнего рефакторинга, цель через проверяемые критерии, test-first для багов. Adapted from multica-ai/andrej-karpathy-skills (MIT).",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "code-quality",
+        "karpathy",
+        "think-before-coding",
+        "simplicity",
+        "surgical-changes",
+        "goal-driven",
+        "assumptions",
+        "test-first",
+        "minimal-diff"
+      ]
+    },
+    {
+      "name": "dex-mr-reviewer",
+      "source": "./plugins/specialists/review/dex-mr-reviewer",
+      "description": "Языко-агностичное первичное ревью чужого MR/PR по рецепту Reviewer: карта изменений, параллельные фокусы, фальсификация находок, severity/confidence/scope, доставка инлайн-тредами через gh/glab.",
+      "version": "1.0.0",
+      "category": "specialist",
+      "keywords": [
+        "specialist",
+        "review",
+        "merge-request",
+        "pull-request",
+        "code-review",
+        "security",
+        "gitlab",
+        "github"
+      ]
+    },
+    {
+      "name": "dex-mr-check-reviewer",
+      "source": "./plugins/specialists/review/dex-mr-check-reviewer",
+      "description": "Итеративное ре-ревью дельты MR/PR с прошлого раунда: range-diff от LAST_REVIEW_SHA, статус прежних находок, новые находки только в дельте, обновление существующих тредов и публикация новых.",
+      "version": "1.0.0",
+      "category": "specialist",
+      "keywords": [
+        "specialist",
+        "review",
+        "re-review",
+        "delta",
+        "merge-request",
+        "pull-request",
+        "range-diff",
+        "follow-up"
+      ]
+    },
+    {
+      "name": "dex-review-planner",
+      "source": "./plugins/specialists/delivery/dex-review-planner",
+      "description": "План правок по комментариям ревью без редактирования кода: сбор тредов и коммитов, классификация замечаний, верификация чтением кода, план P0..P3 с blast radius, черновики ответов в треды.",
+      "version": "1.0.0",
+      "category": "specialist",
+      "keywords": [
+        "specialist",
+        "review",
+        "planning",
+        "fix-plan",
+        "merge-request",
+        "pull-request",
+        "reply",
+        "triage"
+      ]
+    },
+    {
+      "name": "dex-feature-implementer",
+      "source": "./plugins/specialists/delivery/dex-feature-implementer",
+      "description": "Реализация фичи по ТЗ до локальных коммитов без push: декомпозиция в R/I-требования, инвентаризация и переиспользование, дизайн контрактов и ошибок, edit-план P1..Pn, пошаговая правка с локальной верификацией и запретом недоделок.",
+      "version": "1.0.0",
+      "category": "specialist",
+      "keywords": [
+        "specialist",
+        "feature",
+        "implementation",
+        "spec",
+        "tdd",
+        "creator",
+        "planner",
+        "no-loose-ends"
+      ]
+    },
+    {
+      "name": "dex-self-reviewer",
+      "source": "./plugins/specialists/review/dex-self-reviewer",
+      "description": "Pre-push саморевью своей локальной ветки включая незакоммиченные изменения: committed+staged+worktree diff, 7 фокусов с реальным прогоном build/test, фальсификация, чеклист правок до push.",
+      "version": "1.0.0",
+      "category": "specialist",
+      "keywords": [
+        "specialist",
+        "review",
+        "self-review",
+        "pre-push",
+        "local-branch",
+        "loose-ends",
+        "verification",
+        "regression"
+      ]
+    },
+    {
+      "name": "dex-bundle-code-review",
+      "source": "./plugins/bundles/dex-bundle-code-review",
+      "description": "Bundle цикла работы с кодом: языко-агностичное ревью MR/PR, ре-ревью дельты, план правок, реализация фичи и pre-push саморевью, плюс skills дисциплины ревью.",
+      "version": "1.0.0",
+      "category": "bundle",
+      "keywords": [
+        "bundle",
+        "code-review",
+        "merge-request",
+        "feature",
+        "self-review",
+        "lifecycle"
       ]
     }
   ]
