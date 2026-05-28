@@ -85,14 +85,14 @@ claude-code-marketplace/
 │   ├── README.md
 │   └── mcp-template.json
 ├── plugins/
-│   ├── skills/                    # Level 1: Knowledge bases (66 плагинов)
+│   ├── skills/                    # Level 1: Knowledge bases (73 плагина)
 │   │   ├── dex-skill-agile/
 │   │   ├── dex-skill-dotnet-di/
 │   │   ├── dex-skill-docker/
 │   │   └── ...
 │   ├── utilities/                 # Level 1: Tools (17 плагинов)
 │   │   └── dex-telegram-notifier/
-│   ├── specialists/               # Level 2: Agents (43 плагина)
+│   ├── specialists/               # Level 2: Agents (49 плагинов)
 │   │   ├── dotnet/               # .NET specialists (7)
 │   │   ├── fullstack/            # Fullstack specialists (1)
 │   │   ├── infrastructure/       # Infrastructure specialists (14)
@@ -100,7 +100,7 @@ claude-code-marketplace/
 │   │   ├── product/              # Product & SA specialists (8)
 │   │   ├── qa/                   # QA specialists (3)
 │   │   └── ml/                   # ML specialists (5)
-│   └── bundles/                   # Level 3: Meta-plugins (12 плагинов)
+│   └── bundles/                   # Level 3: Meta-plugins (13 плагинов)
 │       ├── dex-bundle-dotnet-developer/
 │       ├── dex-bundle-devops/
 │       └── ...
@@ -114,7 +114,7 @@ claude-code-marketplace/
 └── LICENSE
 ```
 
-## Level 1: Skills (66 плагинов)
+## Level 1: Skills (73 плагина)
 
 Skills - базы знаний, активируются автоматически по ключевым словам в контексте.
 
@@ -398,7 +398,7 @@ CLI-обёртка над Samsung netcoredbg для managed runtime-диагно
 
 **Зависимости:** `netcoredbg` в PATH (`./install-bundle/install-cli-tools.sh netcoredbg`), CAP_SYS_PTRACE для attach к чужому процессу
 
-## Level 2: Specialists (43 плагина)
+## Level 2: Specialists (49 плагинов)
 
 Specialists - агенты с узкой специализацией. Один агент = один плагин.
 
@@ -485,7 +485,7 @@ Specialists - агенты с узкой специализацией. Один 
 | dex-ml-deployer | ONNX, TFLite, FastAPI, model serving |
 | dex-data-pipeline | Data loading, preprocessing, optimization |
 
-## Level 3: Bundles (12 плагинов)
+## Level 3: Bundles (13 плагинов)
 
 Bundles - мета-плагины для удобной установки наборов. Содержат список компонентов для установки.
 
