@@ -111,7 +111,7 @@
 
 | Бинарь | Linux (Debian/Ubuntu) | Linux (Fedora/RHEL) | macOS | Windows | Источник |
 |---|---|---|---|---|---|
-| `netcoredbg` | curl GitHub release (Samsung) | curl GitHub release | curl GitHub release или brew | __UNSUPPORTED__ (WSL) | [github.com/Samsung/netcoredbg](https://github.com/Samsung/netcoredbg) |
+| `netcoredbg` | curl GitHub release (Samsung) | curl GitHub release | curl GitHub release (только x86_64; на arm64 - Rosetta или build from source) | __UNSUPPORTED__ (WSL) | [github.com/Samsung/netcoredbg](https://github.com/Samsung/netcoredbg) |
 | `gdb` | `apt install gdb` | `dnf install gdb` | `brew install gdb` (нужен code-sign) | __UNSUPPORTED__ (WSL) | [sourceware.org/gdb](https://sourceware.org/gdb/) |
 | `lldb` | `apt install lldb` | `dnf install lldb` | preinstalled (Xcode CLT) | __UNSUPPORTED__ (WSL) | [lldb.llvm.org](https://lldb.llvm.org/) |
 | `strace` | `apt install strace` | `dnf install strace` | __UNSUPPORTED__ (dtruss) | __UNSUPPORTED__ (WSL) | [strace.io](https://strace.io/) |

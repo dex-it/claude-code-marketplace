@@ -60,7 +60,7 @@ Bundle для runtime-диагностики .NET-сервисов и натив
 ## Платформенная совместимость
 
 - **Linux**: полная поддержка всех инструментов
-- **macOS**: netcoredbg, gdb (с code-sign), lldb (preinstalled), binutils, Rizin, ilspycmd, dotnet diagnostic tools работают. `strace`, `bpftrace`, `bcc`, `perf`, `valgrind` помечены `__UNSUPPORTED__` - на macOS используются альтернативы (`dtruss`, Instruments.app, `leaks`)
+- **macOS**: netcoredbg (только x86_64; на Apple Silicon - Rosetta или сборка из исходников), gdb (с code-sign), lldb (preinstalled), binutils, Rizin, ilspycmd, dotnet diagnostic tools работают. `strace`, `bpftrace`, `bcc`, `perf`, `valgrind` помечены `__UNSUPPORTED__` - на macOS используются альтернативы (`dtruss`, Instruments.app, `leaks`)
 - **Windows**: рекомендуется WSL2. Без WSL: netcoredbg, ilspycmd, dotnet diagnostic tools - работают; native debug инструменты помечены `__UNSUPPORTED__` (используется WinDbg / Visual Studio вне scope бандла)
 
 ## Замечания

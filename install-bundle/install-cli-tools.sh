@@ -420,14 +420,16 @@ print_recipe() {
             ;;
 
         # netcoredbg (Samsung) — GitHub release multi-arch, latest tag via API.
-        # Artifacts: netcoredbg-{linux,osx}-{amd64,arm64}.tar.gz, installed to /usr/local/{bin,lib}/netcoredbg.
+        # Artifacts (на 2026-05): netcoredbg-{linux-amd64,linux-arm64,osx-amd64,win64}.{tar.gz,zip}.
+        # macOS arm64 (Apple Silicon) официальной сборки нет — Rosetta или build from source.
         linux:*:netcoredbg)
-            echo 'ARCH=$(uname -m); case "$ARCH" in x86_64) NCDBG_ARCH=amd64 ;; aarch64|arm64) NCDBG_ARCH=arm64 ;; esac; VER=$(curl -fsSL https://api.github.com/repos/Samsung/netcoredbg/releases/latest | grep "\"tag_name\":" | head -1 | cut -d"\"" -f4) && curl -fsSL -o /tmp/netcoredbg.tar.gz "https://github.com/Samsung/netcoredbg/releases/download/${VER}/netcoredbg-linux-${NCDBG_ARCH}.tar.gz"'
+            echo 'ARCH=$(uname -m); case "$ARCH" in x86_64) NCDBG_ARCH=amd64 ;; aarch64|arm64) NCDBG_ARCH=arm64 ;; *) echo "ERROR: unsupported arch for netcoredbg: $ARCH (supported: x86_64, aarch64/arm64)" >&2; exit 1 ;; esac; VER=$(curl -fsSL https://api.github.com/repos/Samsung/netcoredbg/releases/latest | grep "\"tag_name\":" | head -1 | cut -d"\"" -f4) && curl -fsSL -o /tmp/netcoredbg.tar.gz "https://github.com/Samsung/netcoredbg/releases/download/${VER}/netcoredbg-linux-${NCDBG_ARCH}.tar.gz"'
             echo "sudo mkdir -p /usr/local/lib/netcoredbg && sudo tar -xzf /tmp/netcoredbg.tar.gz -C /usr/local/lib/netcoredbg --strip-components=1"
             echo "sudo ln -sf /usr/local/lib/netcoredbg/netcoredbg /usr/local/bin/netcoredbg"
             ;;
-        macos:brew:netcoredbg)
-            echo 'ARCH=$(uname -m); case "$ARCH" in x86_64) NCDBG_ARCH=amd64 ;; arm64) NCDBG_ARCH=arm64 ;; esac; VER=$(curl -fsSL https://api.github.com/repos/Samsung/netcoredbg/releases/latest | grep "\"tag_name\":" | head -1 | cut -d"\"" -f4) && curl -fsSL -o /tmp/netcoredbg.tar.gz "https://github.com/Samsung/netcoredbg/releases/download/${VER}/netcoredbg-osx-${NCDBG_ARCH}.tar.gz"'
+        macos:*:netcoredbg)
+            echo 'ARCH=$(uname -m); if [ "$ARCH" = "arm64" ]; then echo "ERROR: Samsung netcoredbg не публикует osx-arm64 артефакт. Варианты: запустить под Rosetta (arch -x86_64 netcoredbg) после установки x86_64 версии, либо собрать из исходников (https://github.com/Samsung/netcoredbg#build-process)" >&2; exit 1; fi'
+            echo 'VER=$(curl -fsSL https://api.github.com/repos/Samsung/netcoredbg/releases/latest | grep "\"tag_name\":" | head -1 | cut -d"\"" -f4) && curl -fsSL -o /tmp/netcoredbg.tar.gz "https://github.com/Samsung/netcoredbg/releases/download/${VER}/netcoredbg-osx-amd64.tar.gz"'
             echo 'mkdir -p "$HOME/.local/lib/netcoredbg" && tar -xzf /tmp/netcoredbg.tar.gz -C "$HOME/.local/lib/netcoredbg" --strip-components=1'
             echo 'mkdir -p "$HOME/.local/bin" && ln -sf "$HOME/.local/lib/netcoredbg/netcoredbg" "$HOME/.local/bin/netcoredbg"'
             ;;
