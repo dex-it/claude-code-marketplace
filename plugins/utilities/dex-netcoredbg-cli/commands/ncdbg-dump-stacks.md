@@ -20,11 +20,6 @@ argument-hint: "<PID>"
 - Quick health-check - просто число managed-threads и их состояния
 - Процесс не managed (no `.NET runtime detected`) - возвращается пустой массив с warning
 
-**Scenarios под капотом (для понимания, не для пользователя):**
-
-- attach -> `-exec-interrupt` -> `-thread-info` -> для каждого `thread-id` `-stack-list-frames` -> detach
-- JSON собирается на стороне команды, не выдаётся netcoredbg напрямую (он MI2)
-
 **Constraints:**
 
 - `netcoredbg` обязателен, ptrace permissions нужны
