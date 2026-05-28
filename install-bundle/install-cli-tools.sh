@@ -4,7 +4,10 @@
 # Installs underlying CLI binaries used by dex-*-cli plugins.
 # Auto-detects OS and package manager. Idempotent.
 #
-# Supported tools: gh, glab, kubectl, psql, redis-cli, kaf, rabbitmqadmin, aws, jenkins-cli, teamcity
+# Supported tools: gh, glab, kubectl, psql, redis-cli, kaf, rabbitmqadmin, aws, jenkins-cli, teamcity,
+#                  netcoredbg, gdb, lldb, strace, bpftrace, bcc, perf, binutils, rizin, ilspycmd,
+#                  flamegraph, valgrind, lief, dotnet-diagnostic-tools
+# Meta-target:     runtime-diagnostics-tools (expands to all runtime-diagnostics CLI binaries)
 # Supported OS:    Linux (apt/dnf/pacman/apk), macOS (brew)
 # See docs/CLI_UTILITIES.md for the install matrix and per-tool notes.
 
@@ -28,7 +31,13 @@ print_header()  { echo -e "${MAGENTA}$*${NC}"; }
 print_dim()     { echo -e "${GRAY}$*${NC}"; }
 
 # Supported tools
-SUPPORTED_TOOLS=(gh glab kubectl psql redis-cli kaf rabbitmqadmin aws jenkins-cli teamcity)
+SUPPORTED_TOOLS=(gh glab kubectl psql redis-cli kaf rabbitmqadmin aws jenkins-cli teamcity \
+                 netcoredbg gdb lldb strace bpftrace bcc perf binutils rizin ilspycmd \
+                 flamegraph valgrind lief dotnet-diagnostic-tools)
+
+# Meta-targets — expand to a list of individual tools before validation
+RUNTIME_DIAG_TOOLS=(netcoredbg gdb lldb strace bpftrace bcc perf binutils rizin ilspycmd \
+                    flamegraph valgrind lief dotnet-diagnostic-tools)
 
 # Flags
 DRY_RUN=false
@@ -66,6 +75,10 @@ show_help() {
     echo "  $0 --update --all            # Update all installed tools"
     echo ""
     echo "Supported tools: ${SUPPORTED_TOOLS[*]}"
+    echo ""
+    echo "Meta-targets:"
+    echo "  runtime-diagnostics-tools   All runtime-diagnostics utilities (netcoredbg, gdb, lldb, etc)"
+    echo ""
     echo "See docs/CLI_UTILITIES.md for the full install matrix."
     echo ""
 }
@@ -94,6 +107,20 @@ tool_description() {
         aws)           echo "AWS CLI v2 (used by dex-aws-s3-cli)" ;;
         jenkins-cli)   echo "Jenkins CLI (.jar + Java wrapper) (used by dex-jenkins-cli)" ;;
         teamcity)      echo "TeamCity CLI by JetBrains (used by dex-teamcity-cli)" ;;
+        netcoredbg)    echo "Samsung netcoredbg .NET CLI debugger (used by dex-netcoredbg-cli)" ;;
+        gdb)           echo "GNU debugger (native debug)" ;;
+        lldb)          echo "LLVM debugger (native debug, macOS default)" ;;
+        strace)        echo "Linux syscall tracer (Linux-only)" ;;
+        bpftrace)      echo "eBPF high-level tracing language (Linux-only)" ;;
+        bcc)           echo "BPF Compiler Collection tools: execsnoop, opensnoop, funclatency, memleak (Linux-only)" ;;
+        perf)          echo "Linux perf events sampler (Linux-only)" ;;
+        binutils)      echo "GNU binary utilities: readelf, nm, objdump, addr2line, strings, c++filt" ;;
+        rizin)         echo "Rizin reverse-engineering framework with JSON output (cmd j)" ;;
+        ilspycmd)      echo "ICSharpCode ILSpy CLI .NET decompiler (dotnet global tool)" ;;
+        flamegraph)    echo "Brendan Gregg's flamegraph.pl + stackcollapse-perf.pl" ;;
+        valgrind)      echo "Memory checker and race detector (Linux full; macOS x86_64 up to Ventura)" ;;
+        lief)          echo "Python ELF/PE/Mach-O parsing library (pip install lief)" ;;
+        dotnet-diagnostic-tools) echo "Meta: dotnet-dump, dotnet-trace, dotnet-counters, dotnet-gcdump, dotnet-stack, dotnet-symbol" ;;
         *)             echo "(unknown)" ;;
     esac
 }
@@ -142,6 +169,47 @@ export -f _install_jenkins_cli_wrapper
 # Get currently installed version of a tool (one line, or empty)
 tool_version() {
     local tool="$1"
+    # Special-case: bcc / flamegraph / dotnet-diagnostic-tools / lief / binutils have no single binary
+    # named after the tool — check via probe-binary or pip module instead of generic `command -v "$tool"`.
+    case "$tool" in
+        bcc)
+            if command -v execsnoop-bpfcc >/dev/null 2>&1 || command -v execsnoop >/dev/null 2>&1; then
+                echo "bcc-tools (execsnoop in PATH)"
+            else
+                echo ""
+            fi
+            return ;;
+        flamegraph)
+            if command -v flamegraph.pl >/dev/null 2>&1 || [ -x /usr/local/share/flamegraph/flamegraph.pl ]; then
+                echo "flamegraph.pl (in PATH or /usr/local/share/flamegraph)"
+            else
+                echo ""
+            fi
+            return ;;
+        binutils)
+            if command -v readelf >/dev/null 2>&1 && command -v addr2line >/dev/null 2>&1; then
+                readelf --version 2>/dev/null | head -1
+            else
+                echo ""
+            fi
+            return ;;
+        lief)
+            if python3 -c 'import lief; print(lief.__version__)' 2>/dev/null; then
+                :
+            else
+                echo ""
+            fi
+            return ;;
+        dotnet-diagnostic-tools)
+            if command -v dotnet-dump >/dev/null 2>&1 && command -v dotnet-trace >/dev/null 2>&1 \
+               && command -v dotnet-counters >/dev/null 2>&1 && command -v dotnet-gcdump >/dev/null 2>&1 \
+               && command -v dotnet-stack >/dev/null 2>&1 && command -v dotnet-symbol >/dev/null 2>&1; then
+                echo "dotnet diagnostic tools (all 6 in PATH)"
+            else
+                echo ""
+            fi
+            return ;;
+    esac
     if ! command -v "$tool" >/dev/null 2>&1; then
         echo ""
         return
@@ -159,6 +227,15 @@ tool_version() {
         # so we report status (not version) when the wrapper file is in PATH.
         jenkins-cli)   echo "jenkins-cli (wrapper installed; version requires JENKINS_URL)" ;;
         teamcity)      teamcity --version 2>/dev/null | head -1 ;;
+        netcoredbg)    netcoredbg --version 2>/dev/null | head -1 ;;
+        gdb)           gdb --version 2>/dev/null | head -1 ;;
+        lldb)          lldb --version 2>/dev/null | head -1 ;;
+        strace)        strace --version 2>/dev/null | head -1 ;;
+        bpftrace)      bpftrace --version 2>/dev/null | head -1 ;;
+        perf)          perf --version 2>/dev/null | head -1 ;;
+        rizin)         rizin -v 2>/dev/null | head -1 ;;
+        ilspycmd)      ilspycmd --version 2>/dev/null | head -1 ;;
+        valgrind)      valgrind --version 2>/dev/null | head -1 ;;
     esac
 }
 
@@ -340,6 +417,128 @@ print_recipe() {
             ;;
         macos:brew:aws)
             echo "brew install awscli"
+            ;;
+
+        # netcoredbg (Samsung) — GitHub release multi-arch, latest tag via API.
+        # Artifacts: netcoredbg-{linux,osx}-{amd64,arm64}.tar.gz, installed to /usr/local/{bin,lib}/netcoredbg.
+        linux:*:netcoredbg)
+            echo 'ARCH=$(uname -m); case "$ARCH" in x86_64) NCDBG_ARCH=amd64 ;; aarch64|arm64) NCDBG_ARCH=arm64 ;; esac; VER=$(curl -fsSL https://api.github.com/repos/Samsung/netcoredbg/releases/latest | grep "\"tag_name\":" | head -1 | cut -d"\"" -f4) && curl -fsSL -o /tmp/netcoredbg.tar.gz "https://github.com/Samsung/netcoredbg/releases/download/${VER}/netcoredbg-linux-${NCDBG_ARCH}.tar.gz"'
+            echo "sudo mkdir -p /usr/local/lib/netcoredbg && sudo tar -xzf /tmp/netcoredbg.tar.gz -C /usr/local/lib/netcoredbg --strip-components=1"
+            echo "sudo ln -sf /usr/local/lib/netcoredbg/netcoredbg /usr/local/bin/netcoredbg"
+            ;;
+        macos:brew:netcoredbg)
+            echo 'ARCH=$(uname -m); case "$ARCH" in x86_64) NCDBG_ARCH=amd64 ;; arm64) NCDBG_ARCH=arm64 ;; esac; VER=$(curl -fsSL https://api.github.com/repos/Samsung/netcoredbg/releases/latest | grep "\"tag_name\":" | head -1 | cut -d"\"" -f4) && curl -fsSL -o /tmp/netcoredbg.tar.gz "https://github.com/Samsung/netcoredbg/releases/download/${VER}/netcoredbg-osx-${NCDBG_ARCH}.tar.gz"'
+            echo 'mkdir -p "$HOME/.local/lib/netcoredbg" && tar -xzf /tmp/netcoredbg.tar.gz -C "$HOME/.local/lib/netcoredbg" --strip-components=1'
+            echo 'mkdir -p "$HOME/.local/bin" && ln -sf "$HOME/.local/lib/netcoredbg/netcoredbg" "$HOME/.local/bin/netcoredbg"'
+            ;;
+
+        # gdb
+        linux:apt:gdb)     echo "sudo apt update && sudo apt install -y gdb" ;;
+        linux:dnf:gdb)     echo "sudo dnf install -y gdb" ;;
+        linux:pacman:gdb)  echo "sudo pacman -S --noconfirm gdb" ;;
+        linux:apk:gdb)     echo "sudo apk add --no-cache gdb" ;;
+        macos:brew:gdb)
+            echo "brew install gdb"
+            echo 'echo "On macOS gdb requires code-signing for ptrace. See https://sourceware.org/gdb/wiki/PermissionsDarwin for setup." >&2'
+            ;;
+
+        # lldb
+        linux:apt:lldb)    echo "sudo apt update && sudo apt install -y lldb" ;;
+        linux:dnf:lldb)    echo "sudo dnf install -y lldb" ;;
+        linux:pacman:lldb) echo "sudo pacman -S --noconfirm lldb" ;;
+        linux:apk:lldb)    echo "sudo apk add --no-cache lldb" ;;
+        macos:brew:lldb)
+            echo 'echo "lldb is preinstalled with Xcode Command Line Tools (xcode-select --install). brew install llvm provides a newer version if needed." >&2'
+            echo 'if ! command -v lldb >/dev/null 2>&1; then brew install llvm && echo "Add $(brew --prefix llvm)/bin to PATH for lldb"; fi'
+            ;;
+
+        # strace (Linux-only)
+        linux:apt:strace)    echo "sudo apt update && sudo apt install -y strace" ;;
+        linux:dnf:strace)    echo "sudo dnf install -y strace" ;;
+        linux:pacman:strace) echo "sudo pacman -S --noconfirm strace" ;;
+        linux:apk:strace)    echo "sudo apk add --no-cache strace" ;;
+
+        # bpftrace (Linux-only)
+        linux:apt:bpftrace)    echo "sudo apt update && sudo apt install -y bpftrace" ;;
+        linux:dnf:bpftrace)    echo "sudo dnf install -y bpftrace" ;;
+        linux:pacman:bpftrace) echo "sudo pacman -S --noconfirm bpftrace" ;;
+        linux:apk:bpftrace)    echo "sudo apk add --no-cache bpftrace" ;;
+
+        # bcc-tools (Linux-only). Package name differs across distros:
+        # apt → bpfcc-tools (tools available as <name>-bpfcc, e.g. execsnoop-bpfcc)
+        # dnf/pacman → bcc-tools / bcc
+        # Requires kernel headers OR BTF (kernel 5.x+ with CONFIG_DEBUG_INFO_BTF)
+        linux:apt:bcc)
+            echo "sudo apt update && sudo apt install -y bpfcc-tools linux-headers-\$(uname -r) || sudo apt install -y bpfcc-tools"
+            ;;
+        linux:dnf:bcc)    echo "sudo dnf install -y bcc-tools kernel-devel" ;;
+        linux:pacman:bcc) echo "sudo pacman -S --noconfirm bcc bcc-tools" ;;
+        linux:apk:bcc)    echo "sudo apk add --no-cache bcc-tools bcc-doc" ;;
+
+        # perf (Linux-only). On Ubuntu/Debian package is linux-tools-<kernel>; fall back to generic.
+        linux:apt:perf)
+            echo "sudo apt update && (sudo apt install -y linux-tools-\$(uname -r) || sudo apt install -y linux-tools-generic linux-tools-common)"
+            ;;
+        linux:dnf:perf)    echo "sudo dnf install -y perf" ;;
+        linux:pacman:perf) echo "sudo pacman -S --noconfirm perf" ;;
+        linux:apk:perf)    echo "sudo apk add --no-cache perf" ;;
+
+        # binutils
+        linux:apt:binutils)    echo "sudo apt update && sudo apt install -y binutils" ;;
+        linux:dnf:binutils)    echo "sudo dnf install -y binutils" ;;
+        linux:pacman:binutils) echo "sudo pacman -S --noconfirm binutils" ;;
+        linux:apk:binutils)    echo "sudo apk add --no-cache binutils" ;;
+        macos:brew:binutils)
+            echo "brew install binutils"
+            echo 'echo "binutils on macOS is keg-only; gobjdump/greadelf/gnm available with g- prefix or via $(brew --prefix binutils)/bin in PATH" >&2'
+            ;;
+
+        # rizin (reverse-engineering framework)
+        linux:apt:rizin)
+            echo 'if apt-cache show rizin >/dev/null 2>&1; then sudo apt update && sudo apt install -y rizin; else curl -fsSL "https://github.com/rizinorg/rizin/releases/latest/download/rizin_\$(curl -fsSL https://api.github.com/repos/rizinorg/rizin/releases/latest | grep tag_name | head -1 | cut -d\\\" -f4 | sed s/^v//)_amd64.deb" -o /tmp/rizin.deb && sudo dpkg -i /tmp/rizin.deb; fi'
+            ;;
+        linux:dnf:rizin)    echo "sudo dnf install -y rizin" ;;
+        linux:pacman:rizin) echo "sudo pacman -S --noconfirm rizin" ;;
+        linux:apk:rizin)    echo "sudo apk add --no-cache rizin" ;;
+        macos:brew:rizin)   echo "brew install rizin" ;;
+
+        # ilspycmd (cross-platform dotnet global tool)
+        linux:*:ilspycmd|macos:*:ilspycmd)
+            echo 'command -v dotnet >/dev/null 2>&1 || { echo "ERROR: dotnet SDK >= 6.0 required for ilspycmd. Install from https://dotnet.microsoft.com/download" >&2; exit 1; }'
+            echo "dotnet tool install --global ilspycmd || dotnet tool update --global ilspycmd"
+            ;;
+
+        # flamegraph (Brendan Gregg). Linux: git clone + symlinks; macOS: brew formula or git clone.
+        linux:*:flamegraph)
+            echo "sudo git clone --depth 1 https://github.com/brendangregg/FlameGraph.git /usr/local/share/flamegraph || (cd /usr/local/share/flamegraph && sudo git pull --ff-only)"
+            echo "sudo ln -sf /usr/local/share/flamegraph/flamegraph.pl /usr/local/bin/flamegraph.pl"
+            echo "sudo ln -sf /usr/local/share/flamegraph/stackcollapse-perf.pl /usr/local/bin/stackcollapse-perf.pl"
+            echo "sudo ln -sf /usr/local/share/flamegraph/difffolded.pl /usr/local/bin/difffolded.pl"
+            ;;
+        macos:brew:flamegraph)
+            echo 'if brew info flamegraph >/dev/null 2>&1; then brew install flamegraph; else git clone --depth 1 https://github.com/brendangregg/FlameGraph.git "$HOME/.local/share/flamegraph" && mkdir -p "$HOME/.local/bin" && ln -sf "$HOME/.local/share/flamegraph/flamegraph.pl" "$HOME/.local/bin/flamegraph.pl" && ln -sf "$HOME/.local/share/flamegraph/stackcollapse-perf.pl" "$HOME/.local/bin/stackcollapse-perf.pl"; fi'
+            ;;
+
+        # valgrind (Linux full; macOS x86_64 up to Ventura; Apple Silicon unsupported)
+        linux:apt:valgrind)    echo "sudo apt update && sudo apt install -y valgrind" ;;
+        linux:dnf:valgrind)    echo "sudo dnf install -y valgrind" ;;
+        linux:pacman:valgrind) echo "sudo pacman -S --noconfirm valgrind" ;;
+        linux:apk:valgrind)    echo "sudo apk add --no-cache valgrind" ;;
+        macos:brew:valgrind)
+            echo 'ARCH=$(uname -m); if [ "$ARCH" = "arm64" ]; then echo "ERROR: valgrind is not supported on Apple Silicon (arm64). Use leaks (preinstalled) or AddressSanitizer instead." >&2; exit 1; fi'
+            echo "brew tap LouisBrunner/valgrind && brew install --HEAD LouisBrunner/valgrind/valgrind"
+            ;;
+
+        # LIEF (Python library; pip --user for non-root installs)
+        linux:*:lief|macos:*:lief)
+            echo 'command -v python3 >/dev/null 2>&1 || { echo "ERROR: Python 3.8+ required for LIEF" >&2; exit 1; }'
+            echo "python3 -m pip install --user --upgrade lief"
+            ;;
+
+        # dotnet diagnostic tools (cross-platform meta: 6 dotnet global tools)
+        linux:*:dotnet-diagnostic-tools|macos:*:dotnet-diagnostic-tools)
+            echo 'command -v dotnet >/dev/null 2>&1 || { echo "ERROR: dotnet SDK >= 6.0 required. Install from https://dotnet.microsoft.com/download" >&2; exit 1; }'
+            echo "for t in dotnet-dump dotnet-trace dotnet-counters dotnet-gcdump dotnet-stack dotnet-symbol; do dotnet tool install --global \"\$t\" 2>/dev/null || dotnet tool update --global \"\$t\"; done"
             ;;
 
         *)
@@ -537,6 +736,21 @@ if [ ${#TOOLS[@]} -eq 0 ] && [ "$INSTALL_ALL" = false ] && [ "$CHECK_ONLY" = fal
     exit 0
 fi
 
+# Expand meta-targets (runtime-diagnostics-tools) into individual tool names.
+# Done before validation so the meta-name itself doesn't have to be in SUPPORTED_TOOLS for the check loop.
+expanded_tools=()
+for t in "${TOOLS[@]}"; do
+    case "$t" in
+        runtime-diagnostics-tools)
+            expanded_tools+=("${RUNTIME_DIAG_TOOLS[@]}")
+            ;;
+        *)
+            expanded_tools+=("$t")
+            ;;
+    esac
+done
+TOOLS=("${expanded_tools[@]}")
+
 # Validate explicit tool names
 for t in "${TOOLS[@]}"; do
     found=false
@@ -546,6 +760,7 @@ for t in "${TOOLS[@]}"; do
     if [ "$found" = false ]; then
         print_error "Unsupported tool: $t"
         echo "Supported: ${SUPPORTED_TOOLS[*]}"
+        echo "Meta-targets: runtime-diagnostics-tools"
         exit 1
     fi
 done
