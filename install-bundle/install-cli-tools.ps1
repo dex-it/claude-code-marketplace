@@ -132,12 +132,51 @@ function Show-ToolList {
 
 function Test-ToolPresent {
     param($Tool)
+    # Безбинарные / мета-инструменты: имя $Tool не совпадает с именем бинаря.
+    # Симметрично bash-версии (install-cli-tools.sh tool_version специальный блок).
+    switch ($Tool) {
+        "lief" {
+            $v = python -c "import lief" 2>$null
+            return ($LASTEXITCODE -eq 0)
+        }
+        "binutils" {
+            return ((Get-Command readelf -ErrorAction SilentlyContinue) -and `
+                    (Get-Command addr2line -ErrorAction SilentlyContinue))
+        }
+        "dotnet-diagnostic-tools" {
+            $required = @("dotnet-dump","dotnet-trace","dotnet-counters","dotnet-gcdump","dotnet-stack","dotnet-symbol")
+            foreach ($t in $required) {
+                if (-not (Get-Command $t -ErrorAction SilentlyContinue)) { return $false }
+            }
+            return $true
+        }
+    }
     $null = Get-Command $Tool -ErrorAction SilentlyContinue
     return $?
 }
 
 function Get-ToolVersion {
     param($Tool)
+    # Безбинарные / мета-инструменты обрабатываются до общего Test-ToolPresent.
+    switch ($Tool) {
+        "lief" {
+            $v = python -c "import lief; print(lief.__version__)" 2>$null
+            if ($LASTEXITCODE -eq 0 -and $v) { return "lief $v" } else { return "" }
+        }
+        "binutils" {
+            if (Test-ToolPresent "binutils") {
+                $v = (readelf --version 2>$null | Select-Object -First 1)
+                return $v
+            }
+            return ""
+        }
+        "dotnet-diagnostic-tools" {
+            if (Test-ToolPresent "dotnet-diagnostic-tools") {
+                return "dotnet diagnostic tools (all 6 in PATH)"
+            }
+            return ""
+        }
+    }
     if (-not (Test-ToolPresent $Tool)) { return "" }
     try {
         switch ($Tool) {
