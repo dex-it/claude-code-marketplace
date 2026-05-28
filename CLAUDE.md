@@ -584,9 +584,10 @@ dex-bundle-name/
 name: agent-name
 description: Краткое описание. Триггеры — keyword1, keyword2, ...
 tools: Read, Write, Edit, Bash, Grep, Glob, Skill
+permissionMode: default
 ---
 ```
-> **Важно:** `skills:` в frontmatter запрещён — skills загружаются императивно через Skill tool в фазах. `allowed-tools:` не поддерживается Claude Code.
+> **Важно:** `skills:` в frontmatter запрещён — skills загружаются императивно через Skill tool в фазах. `allowed-tools:` не поддерживается Claude Code. `permissionMode` опционален (значения: `default`, `acceptEdits`, `bypassPermissions`, `plan`); полный список валидных полей frontmatter — см. [docs/AGENT_FRAMEWORK.md](docs/AGENT_FRAMEWORK.md).
 
 ### Frontmatter skills
 ```yaml
