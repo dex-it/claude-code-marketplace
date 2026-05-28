@@ -22,7 +22,7 @@ argument-hint: "<PID> --commands \"<mi2-commands>\""
 
 **Constraints:**
 
-- Команды разделяются `; ` или `\n`, передаются через `-ex` подряд
+- Команды разделяются `; ` или `\n`, передаются в netcoredbg через `-ex` как отдельные аргументы, не через shell
+- Shell-метасимволы (`$()`, backtick, `|`, `&&`, `||`, `>`, `<`) в строке `--commands` запрещены - они означают command injection при формировании bash; для multi-line использовать `--init-eval-command-file`
 - MI2 синтаксис (`-thread-info`, не `info threads`); REPL-команды без префикса `-` тоже работают, но менее стабильны
 - При `--commands` с побочными эффектами (`-exec-continue`, `-break-delete`) процесс изменяется - применять только для диагностики, не для production
-- Длинный список команд (>5) - использовать отдельный MI2-скрипт через `--init-eval-command-file`
