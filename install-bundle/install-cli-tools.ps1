@@ -243,9 +243,36 @@ function Get-Recipe {
         "winget:lief"          { return @("python -m pip install --user --upgrade lief") }
         "scoop:lief"           { return @("python -m pip install --user --upgrade lief") }
         "choco:lief"           { return @("python -m pip install --user --upgrade lief") }
-        "winget:dotnet-diagnostic-tools" { return @("for /f %t in (\"dotnet-dump dotnet-trace dotnet-counters dotnet-gcdump dotnet-stack dotnet-symbol\") do dotnet tool install --global %t") }
-        "scoop:dotnet-diagnostic-tools"  { return @("for /f %t in (\"dotnet-dump dotnet-trace dotnet-counters dotnet-gcdump dotnet-stack dotnet-symbol\") do dotnet tool install --global %t") }
-        "choco:dotnet-diagnostic-tools"  { return @("for /f %t in (\"dotnet-dump dotnet-trace dotnet-counters dotnet-gcdump dotnet-stack dotnet-symbol\") do dotnet tool install --global %t") }
+        "winget:dotnet-diagnostic-tools" {
+            return @(
+                "dotnet tool install --global dotnet-dump 2>nul || dotnet tool update --global dotnet-dump",
+                "dotnet tool install --global dotnet-trace 2>nul || dotnet tool update --global dotnet-trace",
+                "dotnet tool install --global dotnet-counters 2>nul || dotnet tool update --global dotnet-counters",
+                "dotnet tool install --global dotnet-gcdump 2>nul || dotnet tool update --global dotnet-gcdump",
+                "dotnet tool install --global dotnet-stack 2>nul || dotnet tool update --global dotnet-stack",
+                "dotnet tool install --global dotnet-symbol 2>nul || dotnet tool update --global dotnet-symbol"
+            )
+        }
+        "scoop:dotnet-diagnostic-tools"  {
+            return @(
+                "dotnet tool install --global dotnet-dump 2>nul || dotnet tool update --global dotnet-dump",
+                "dotnet tool install --global dotnet-trace 2>nul || dotnet tool update --global dotnet-trace",
+                "dotnet tool install --global dotnet-counters 2>nul || dotnet tool update --global dotnet-counters",
+                "dotnet tool install --global dotnet-gcdump 2>nul || dotnet tool update --global dotnet-gcdump",
+                "dotnet tool install --global dotnet-stack 2>nul || dotnet tool update --global dotnet-stack",
+                "dotnet tool install --global dotnet-symbol 2>nul || dotnet tool update --global dotnet-symbol"
+            )
+        }
+        "choco:dotnet-diagnostic-tools"  {
+            return @(
+                "dotnet tool install --global dotnet-dump 2>nul || dotnet tool update --global dotnet-dump",
+                "dotnet tool install --global dotnet-trace 2>nul || dotnet tool update --global dotnet-trace",
+                "dotnet tool install --global dotnet-counters 2>nul || dotnet tool update --global dotnet-counters",
+                "dotnet tool install --global dotnet-gcdump 2>nul || dotnet tool update --global dotnet-gcdump",
+                "dotnet tool install --global dotnet-stack 2>nul || dotnet tool update --global dotnet-stack",
+                "dotnet tool install --global dotnet-symbol 2>nul || dotnet tool update --global dotnet-symbol"
+            )
+        }
     }
     return @("__UNSUPPORTED__")
 }
