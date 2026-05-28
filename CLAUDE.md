@@ -80,27 +80,27 @@ Two-Pass Architecture применяется **только к Analyst и Diagno
 ```
 claude-code-marketplace/
 ├── .claude-plugin/
-│   └── marketplace.json           # Каталог всех 127 плагинов
+│   └── marketplace.json           # Каталог всех 152 плагинов
 ├── mcp/                           # Централизованный каталог MCP серверов
 │   ├── README.md
 │   └── mcp-template.json
 ├── plugins/
-│   ├── skills/                    # Level 1: Knowledge bases (60 плагинов)
+│   ├── skills/                    # Level 1: Knowledge bases (66 плагинов)
 │   │   ├── dex-skill-agile/
 │   │   ├── dex-skill-dotnet-di/
 │   │   ├── dex-skill-docker/
 │   │   └── ...
-│   ├── utilities/                 # Level 1: Tools (16 плагинов)
+│   ├── utilities/                 # Level 1: Tools (17 плагинов)
 │   │   └── dex-telegram-notifier/
-│   ├── specialists/               # Level 2: Agents (42 плагина)
-│   │   ├── dotnet/               # .NET specialists (6)
+│   ├── specialists/               # Level 2: Agents (43 плагина)
+│   │   ├── dotnet/               # .NET specialists (7)
 │   │   ├── fullstack/            # Fullstack specialists (1)
 │   │   ├── infrastructure/       # Infrastructure specialists (14)
 │   │   ├── architecture/         # Architecture specialists (5)
 │   │   ├── product/              # Product & SA specialists (8)
 │   │   ├── qa/                   # QA specialists (3)
 │   │   └── ml/                   # ML specialists (5)
-│   └── bundles/                   # Level 3: Meta-plugins (11 плагинов)
+│   └── bundles/                   # Level 3: Meta-plugins (12 плагинов)
 │       ├── dex-bundle-dotnet-developer/
 │       ├── dex-bundle-devops/
 │       └── ...
