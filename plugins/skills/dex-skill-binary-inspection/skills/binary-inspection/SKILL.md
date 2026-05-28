@@ -98,3 +98,6 @@ description: Бинарный анализ - binutils (readelf, nm, objdump, add
 Плохо: `objdump -d arm64-binary.so` на x86_64 машине - неверный disassembly
 Правильно: `objdump --target=elf64-aarch64-little -d arm64-binary.so`; либо `aarch64-linux-gnu-objdump`
 Почему: objdump без `-target` использует host architecture для decode. Для cross-arch нужен явный target или cross-binutils
+
+> Анализ coredump с символами по Build-ID и debuginfod - см. dex-skill-core-dumps.
+> Backtrace и работа с символами в attached-debugger (GDB / LLDB) - см. dex-skill-native-debug.
