@@ -276,9 +276,9 @@ function Get-Recipe {
         "choco:rizin"          { return @("__UNSUPPORTED__") }
 
         # ilspycmd, lief, dotnet-diagnostic-tools — cross-platform via dotnet / pip
-        "winget:ilspycmd"      { return @("dotnet tool install --global ilspycmd") }
-        "scoop:ilspycmd"       { return @("dotnet tool install --global ilspycmd") }
-        "choco:ilspycmd"       { return @("dotnet tool install --global ilspycmd") }
+        "winget:ilspycmd"      { return @("dotnet tool install --global ilspycmd 2>nul || dotnet tool update --global ilspycmd") }
+        "scoop:ilspycmd"       { return @("dotnet tool install --global ilspycmd 2>nul || dotnet tool update --global ilspycmd") }
+        "choco:ilspycmd"       { return @("dotnet tool install --global ilspycmd 2>nul || dotnet tool update --global ilspycmd") }
         "winget:lief"          { return @("python -m pip install --user --upgrade lief") }
         "scoop:lief"           { return @("python -m pip install --user --upgrade lief") }
         "choco:lief"           { return @("python -m pip install --user --upgrade lief") }
