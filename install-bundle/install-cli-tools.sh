@@ -496,8 +496,11 @@ print_recipe() {
             ;;
 
         # rizin (reverse-engineering framework)
+        # Ubuntu/Debian apt-репозитории содержат rizin начиная с Ubuntu 22.04 (jammy).
+        # GitHub Releases rizinorg НЕ публикуют .deb-пакеты - только source tarball,
+        # macOS .pkg, Windows zip и static-tarballs.
         linux:apt:rizin)
-            echo 'if apt-cache show rizin >/dev/null 2>&1; then sudo apt update && sudo apt install -y rizin; else curl -fsSL "https://github.com/rizinorg/rizin/releases/latest/download/rizin_\$(curl -fsSL https://api.github.com/repos/rizinorg/rizin/releases/latest | grep tag_name | head -1 | cut -d\\\" -f4 | sed s/^v//)_amd64.deb" -o /tmp/rizin.deb && sudo dpkg -i /tmp/rizin.deb; fi'
+            echo 'if apt-cache show rizin >/dev/null 2>&1; then sudo apt update && sudo apt install -y rizin; else echo "ERROR: rizin отсутствует в apt-репозиториях (Ubuntu < 22.04 / Debian stable). Варианты: snap install rizin --classic; либо сборка из исходников (https://github.com/rizinorg/rizin#install-rizin)" >&2; exit 1; fi'
             ;;
         linux:dnf:rizin)    echo "sudo dnf install -y rizin" ;;
         linux:pacman:rizin) echo "sudo pacman -S --noconfirm rizin" ;;
