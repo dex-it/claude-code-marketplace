@@ -82,9 +82,9 @@ description: Runtime .NET debug - netcoredbg, dotnet diagnostic tools, SOS, mana
 Правильно: проверить через `dumpasync` нет ли цепочки `.Result` / `.Wait()` / `GetAwaiter().GetResult()` в hot-path; одновременно `dotnet-counters` `threadpool-queue-length`
 Почему: ASP.NET Core нет SynchronizationContext capture, классический deadlock редок. Чаще starvation от `.Result` блокирующего worker thread
 
-> Антипаттерны `.Result` / `.Wait()` / missing ConfigureAwait в библиотеках - см. `dex-skill-dotnet-async-patterns`.
-> IDisposable / HttpClient lifetime / socket exhaustion как причины managed leak - см. `dex-skill-dotnet-resources`.
-> Structured logging как первая линия диагностики - см. `dex-skill-dotnet-logging`.
+> Антипаттерны `.Result` / `.Wait()` / missing ConfigureAwait в библиотеках - см. dex-skill-dotnet-async-patterns.
+> IDisposable / HttpClient lifetime / socket exhaustion как причины managed leak - см. dex-skill-dotnet-resources.
+> Structured logging как первая линия диагностики - см. dex-skill-dotnet-logging.
 
 ## Mismatched symbols и SourceLink
 

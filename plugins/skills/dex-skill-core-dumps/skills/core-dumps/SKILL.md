@@ -82,5 +82,5 @@ description: Post-mortem анализ coredump - gcore live snapshot, coredumpct
 Правильно: `docker save prod-image -o image.tar` + tar extract = rootfs; `set sysroot` на этот rootfs в gdb; для .NET - `dotnet-symbol --recurse-subdirectories <dump>` подкачает managed PDBs
 Почему: container image содержит точный набор библиотек. Без него mismatched libs гарантирован
 
-> Managed-side анализ дампа через SOS-команды (clrstack, dumpasync, dumpheap) - см. `dex-skill-managed-debug`.
-> GDB и LLDB batch-mode для разбора native-дампа - см. `dex-skill-native-debug`.
+> Managed-side анализ дампа через SOS-команды (clrstack, dumpasync, dumpheap) - см. dex-skill-managed-debug.
+> GDB и LLDB batch-mode для разбора native-дампа - см. dex-skill-native-debug.

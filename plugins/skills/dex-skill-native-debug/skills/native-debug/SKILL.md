@@ -97,5 +97,5 @@ description: Native CLI debug - GDB batch и MI2, LLDB Python scripting, ptrace 
 Правильно: Apple Silicon - не поддерживается valgrind (Linux x86_64/ARM only, macOS до Ventura 13.x x86_64); для macOS arm64 использовать `leaks` (preinstalled) и AddressSanitizer
 Почему: backend valgrind не портирован на arm64-macOS. На M1 brew формула либо отсутствует, либо ставит нерабочую сборку
 
-> Permissions для перехвата событий ядра (perf_event_paranoid, CAP_BPF) - см. `dex-skill-syscall-tracing`.
-> Анализ coredump с managed-метаданными (SOS, dotnet-dump analyze) - см. `dex-skill-core-dumps`.
+> Permissions для перехвата событий ядра (perf_event_paranoid, CAP_BPF) - см. dex-skill-syscall-tracing.
+> Анализ coredump с managed-метаданными (SOS, dotnet-dump analyze) - см. dex-skill-core-dumps.

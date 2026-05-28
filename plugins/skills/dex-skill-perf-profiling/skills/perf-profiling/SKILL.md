@@ -82,5 +82,5 @@ description: Linux sampling-профилирование - perf record/script/re
 Правильно: mount `/proc/kallsyms` от host в контейнер; либо `perf record` на host с фильтром по cgroup
 Почему: kernel symbols читаются из `/proc/kallsyms` процесса. Контейнер видит свой `/proc`, kernel symbols недоступны без mount
 
-> .NET dotnet-trace - managed-эквивалент perf для EventPipe-событий - см. `dex-skill-managed-debug`.
-> Прод-observability через OpenTelemetry / OTel - см. `dex-skill-observability`.
+> .NET dotnet-trace - managed-эквивалент perf для EventPipe-событий - см. dex-skill-managed-debug.
+> Прод-observability через OpenTelemetry / OTel - см. dex-skill-observability.

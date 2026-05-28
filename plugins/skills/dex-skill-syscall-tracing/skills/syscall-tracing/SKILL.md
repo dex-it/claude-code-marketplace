@@ -87,5 +87,5 @@ description: Linux syscall и event tracing - strace, bpftrace JSON output, bcc 
 Правильно: только один ptrace-tracer на процесс; detach один перед attach другого
 Почему: ptrace allows только один tracer; второй attach даёт `EPERM` либо ломает первый
 
-> Permissions для kernel events (perf_event_paranoid, frame pointers) - см. `dex-skill-perf-profiling`.
-> .NET diagnostic tools для managed-side трассировки (dotnet-trace EventPipe) - см. `dex-skill-managed-debug`.
+> Permissions для kernel events (perf_event_paranoid, frame pointers) - см. dex-skill-perf-profiling.
+> .NET diagnostic tools для managed-side трассировки (dotnet-trace EventPipe) - см. dex-skill-managed-debug.
