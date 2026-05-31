@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "5.5.0",
+  "version": "5.6.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -1943,6 +1943,158 @@
         "assumptions",
         "test-first",
         "minimal-diff"
+      ]
+    },
+    {
+      "name": "dex-skill-managed-debug",
+      "source": "./plugins/skills/dex-skill-managed-debug",
+      "description": "Runtime .NET debug: netcoredbg, dotnet diagnostic tools, SOS, managed dumps, GC heap analysis, async stack",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "managed-debug",
+        "netcoredbg",
+        "dotnet-diagnostic-tools",
+        "sos",
+        "managed-heap",
+        "eventpipe",
+        "threadpool-starvation"
+      ]
+    },
+    {
+      "name": "dex-skill-native-debug",
+      "source": "./plugins/skills/dex-skill-native-debug",
+      "description": "Native CLI debug: GDB batch / MI2, LLDB scripting, ptrace, debuginfod, valgrind для memory leak и race detection",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "native-debug",
+        "gdb",
+        "lldb",
+        "ptrace",
+        "debuginfod",
+        "valgrind",
+        "backtrace"
+      ]
+    },
+    {
+      "name": "dex-skill-syscall-tracing",
+      "source": "./plugins/skills/dex-skill-syscall-tracing",
+      "description": "Linux syscall и event tracing: strace, bpftrace JSON output, bcc-tools (execsnoop/opensnoop/funclatency/memleak)",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "syscall-tracing",
+        "strace",
+        "bpftrace",
+        "bcc",
+        "ebpf",
+        "execsnoop",
+        "opensnoop"
+      ]
+    },
+    {
+      "name": "dex-skill-perf-profiling",
+      "source": "./plugins/skills/dex-skill-perf-profiling",
+      "description": "Linux sampling-профилирование: perf record/script, FlameGraph, on-CPU vs off-CPU, JIT-символы для .NET",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "perf-profiling",
+        "perf",
+        "flamegraph",
+        "hot-path",
+        "off-cpu",
+        "perf-event-paranoid",
+        "jit-symbols"
+      ]
+    },
+    {
+      "name": "dex-skill-core-dumps",
+      "source": "./plugins/skills/dex-skill-core-dumps",
+      "description": "Post-mortem анализ coredump: gcore, coredumpctl, kernel.core_pattern, dotnet-dump analyze, mismatched libs, контейнеры",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "core-dumps",
+        "coredumpctl",
+        "gcore",
+        "post-mortem",
+        "dotnet-dump-analyze",
+        "ulimit-core",
+        "core-pattern"
+      ]
+    },
+    {
+      "name": "dex-skill-binary-inspection",
+      "source": "./plugins/skills/dex-skill-binary-inspection",
+      "description": "Бинарный анализ - binutils (readelf, nm, objdump, addr2line, strings, ldd), Rizin JSON, LIEF Python API, ilspycmd для .NET",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "binary-inspection",
+        "readelf",
+        "objdump",
+        "ldd",
+        "addr2line",
+        "rizin",
+        "ilspycmd",
+        "lief"
+      ]
+    },
+    {
+      "name": "dex-dotnet-runtime-diagnostician",
+      "source": "./plugins/specialists/dotnet/dex-dotnet-runtime-diagnostician",
+      "description": "Runtime-диагностика .NET и native-симптомов: hang, crash, leak, slowdown, post-mortem через netcoredbg, gdb/lldb, perf, bpftrace, dotnet-dump",
+      "version": "1.0.0",
+      "category": "specialist",
+      "keywords": [
+        "specialist",
+        "runtime-diagnostics",
+        "netcoredbg",
+        "gdb",
+        "perf",
+        "bpftrace",
+        "core-dump",
+        "post-mortem"
+      ]
+    },
+    {
+      "name": "dex-netcoredbg-cli",
+      "source": "./plugins/utilities/dex-netcoredbg-cli",
+      "description": "Samsung netcoredbg CLI: attach, launch, MI2 batch, dump managed stacks для .NET runtime-диагностики",
+      "version": "1.0.0",
+      "category": "utility",
+      "keywords": [
+        "utility",
+        "netcoredbg",
+        "dotnet",
+        "managed-debug",
+        "mi2",
+        "attach",
+        "cli"
+      ]
+    },
+    {
+      "name": "dex-bundle-runtime-diagnostics",
+      "source": "./plugins/bundles/dex-bundle-runtime-diagnostics",
+      "description": "Bundle для runtime-диагностики .NET и native-границы: специалист-диагностик, skills managed/native/perf/tracing/dumps/binary, netcoredbg CLI",
+      "version": "1.0.0",
+      "category": "bundle",
+      "keywords": [
+        "bundle",
+        "runtime-diagnostics",
+        "dotnet",
+        "netcoredbg",
+        "perf",
+        "post-mortem",
+        "debug"
       ]
     },
     {

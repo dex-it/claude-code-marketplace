@@ -30,8 +30,9 @@
 | `dex-rabbitmqadmin-cli` | `rabbitmqadmin` | RabbitMQ | `/rmq-overview` `/rmq-queues` `/rmq-bindings` `/rmq-publish` |
 | `dex-aws-s3-cli` | `aws s3` / `s3api` | AWS S3 | `/s3-ls` `/s3-info` `/s3-head` `/s3-presign` |
 | `dex-playwright-cli` | `npx playwright` | Browser testing / E2E | `/pw-test` `/pw-show-report` `/pw-codegen` `/pw-trace` `/pw-install` |
+| `dex-netcoredbg-cli` | `netcoredbg` (Samsung) | .NET runtime debug | `/ncdbg-attach` `/ncdbg-launch` `/ncdbg-exec` `/ncdbg-dump-stacks` |
 
-Установить все одиннадцать одной командой -- через бандл [`dex-bundle-cli-tools`](../plugins/bundles/dex-bundle-cli-tools/README.md). Playwright -- единственный из набора без системного бинаря: всё через `npx playwright`, поэтому в `install-cli-tools.sh` рецепта для него нет (Node.js -- единственная зависимость, как у `dex-mcp-inspector`).
+Установить slash-плагины одной командой -- через бандл [`dex-bundle-cli-tools`](../plugins/bundles/dex-bundle-cli-tools/README.md) (CLI-диагностика инфры) или [`dex-bundle-runtime-diagnostics`](../plugins/bundles/dex-bundle-runtime-diagnostics/README.md) (runtime-диагностика .NET плюс native). Playwright -- единственный из набора без системного бинаря: всё через `npx playwright`, поэтому в `install-cli-tools.sh` рецепта для него нет (Node.js -- единственная зависимость, как у `dex-mcp-inspector`).
 
 ---
 
@@ -103,6 +104,29 @@
 > Windows: PowerShell-зеркало доступно — `install-bundle/install-cli-tools.ps1` (использует `winget` / `scoop` / `choco`). WSL — также полностью поддерживаемый путь. На Windows `psql`, `jenkins-cli`, `rabbitmqadmin` через PM не ставятся (winget/scoop ставят полный PostgreSQL Server вместо клиента; jenkins-cli требует Java + jar; rabbitmqadmin не упакован в стандартные PM) — для них рекомендован WSL или ручная установка из официального источника.
 
 **Linux pacman / apk:** скрипт `install-cli-tools.sh` поддерживает Arch (`pacman -S <pkg>`) и Alpine (`apk add <pkg>`) для тех инструментов, что есть в стандартных репозиториях (gh, glab, kubectl, psql/postgresql-libs, redis, aws-cli). Для `kaf` и `rabbitmqadmin` используются github releases (см. `install-cli-tools.sh`).
+
+### Runtime-diagnostics утилиты
+
+Дополнительный набор инструментов для бандла [`dex-bundle-runtime-diagnostics`](../plugins/bundles/dex-bundle-runtime-diagnostics/README.md). В отличие от CLI-плагинов из таблицы выше, эти бинари используются специалистом `dex-dotnet-runtime-diagnostician` напрямую через Bash, без отдельных slash-команд (исключение -- `netcoredbg`, у которого есть [`dex-netcoredbg-cli`](../plugins/utilities/dex-netcoredbg-cli/README.md)).
+
+| Бинарь | Linux (Debian/Ubuntu) | Linux (Fedora/RHEL) | macOS | Windows | Источник |
+|---|---|---|---|---|---|
+| `netcoredbg` | curl GitHub release (Samsung) | curl GitHub release | curl GitHub release (только x86_64; на arm64 - Rosetta или build from source) | __UNSUPPORTED__ (WSL) | [github.com/Samsung/netcoredbg](https://github.com/Samsung/netcoredbg) |
+| `gdb` | `apt install gdb` | `dnf install gdb` | `brew install gdb` (нужен code-sign) | __UNSUPPORTED__ (WSL) | [sourceware.org/gdb](https://sourceware.org/gdb/) |
+| `lldb` | `apt install lldb` | `dnf install lldb` | preinstalled (Xcode CLT) | __UNSUPPORTED__ (WSL) | [lldb.llvm.org](https://lldb.llvm.org/) |
+| `strace` | `apt install strace` | `dnf install strace` | __UNSUPPORTED__ (dtruss) | __UNSUPPORTED__ (WSL) | [strace.io](https://strace.io/) |
+| `bpftrace` | `apt install bpftrace` | `dnf install bpftrace` | __UNSUPPORTED__ | __UNSUPPORTED__ (WSL) | [github.com/bpftrace/bpftrace](https://github.com/bpftrace/bpftrace) |
+| `bcc-tools` | `apt install bpfcc-tools` | `dnf install bcc-tools` | __UNSUPPORTED__ | __UNSUPPORTED__ (WSL) | [github.com/iovisor/bcc](https://github.com/iovisor/bcc) |
+| `perf` | `apt install linux-tools-$(uname -r)` | `dnf install perf` | __UNSUPPORTED__ | __UNSUPPORTED__ (WSL) | [perf.wiki.kernel.org](https://perf.wiki.kernel.org/) |
+| `binutils` | preinstalled / `apt install binutils` | preinstalled / `dnf install binutils` | `brew install binutils` (keg-only) | __UNSUPPORTED__ (WSL) | [sourceware.org/binutils](https://sourceware.org/binutils/) |
+| `rizin` | `apt install rizin` (или GitHub release) | `dnf install rizin` | `brew install rizin` | `scoop install rizin` (bucket extras) | [rizin.re](https://rizin.re/) |
+| `ilspycmd` | `dotnet tool install --global ilspycmd` | то же | то же | то же | [github.com/icsharpcode/ILSpy](https://github.com/icsharpcode/ILSpy) |
+| `flamegraph` | git clone в `/usr/local/share/flamegraph` + symlinks | то же | brew или git clone | __UNSUPPORTED__ (WSL) | [github.com/brendangregg/FlameGraph](https://github.com/brendangregg/FlameGraph) |
+| `valgrind` | `apt install valgrind` | `dnf install valgrind` | `brew install` (только x86_64, ≤ Ventura) | __UNSUPPORTED__ (WSL) | [valgrind.org](https://valgrind.org/) |
+| LIEF | `pip install --user lief` | то же | то же | `python -m pip install --user lief` | [github.com/lief-project/LIEF](https://github.com/lief-project/LIEF) |
+| dotnet diagnostic tools (мета) | `dotnet tool install --global` × 6 | то же | то же | то же | [github.com/dotnet/diagnostics](https://github.com/dotnet/diagnostics) |
+
+Установить весь набор разом: `./install-bundle/install-cli-tools.sh runtime-diagnostics-tools`. На Windows эта мета-команда поставит только кросс-платформенные (ilspycmd, lief, dotnet-diagnostic-tools, rizin через scoop) и пометит Linux-only инструменты `__UNSUPPORTED__` с подсказкой WSL.
 
 ¹ На Fedora пакет `redis` включает и сервер, и клиент (нет отдельного `redis-tools` как на Debian/Ubuntu).
 

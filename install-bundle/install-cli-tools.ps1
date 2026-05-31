@@ -2,9 +2,12 @@
 # Installs underlying CLI binaries used by dex-*-cli plugins.
 # Auto-detects package manager (winget / scoop / choco). Idempotent.
 #
-# Supported tools: gh, glab, kubectl, psql, redis-cli, kaf, rabbitmqadmin, aws, jenkins-cli, teamcity
-# Note: psql/jenkins-cli/rabbitmqadmin are unsupported on Windows package managers.
-#       Use WSL (recommended) or install manually — see docs/CLI_UTILITIES.md.
+# Supported tools: gh, glab, kubectl, psql, redis-cli, kaf, rabbitmqadmin, aws, jenkins-cli, teamcity,
+#                  netcoredbg, gdb, lldb, strace, bpftrace, bcc, perf, binutils, rizin, ilspycmd,
+#                  flamegraph, valgrind, lief, dotnet-diagnostic-tools
+# Meta-target:     runtime-diagnostics-tools
+# Note: psql/jenkins-cli/rabbitmqadmin/native-debug/tracing utilities are unsupported on Windows
+#       package managers. Use WSL (recommended) or install manually — see docs/CLI_UTILITIES.md.
 
 param(
     [Parameter(Position=0, ValueFromRemainingArguments=$true)]
@@ -32,7 +35,17 @@ param(
     [switch]$Help
 )
 
-$SupportedTools = @("gh", "glab", "kubectl", "psql", "redis-cli", "kaf", "rabbitmqadmin", "aws", "jenkins-cli", "teamcity")
+$SupportedTools = @(
+    "gh", "glab", "kubectl", "psql", "redis-cli", "kaf", "rabbitmqadmin", "aws", "jenkins-cli", "teamcity",
+    "netcoredbg", "gdb", "lldb", "strace", "bpftrace", "bcc", "perf", "binutils", "rizin", "ilspycmd",
+    "flamegraph", "valgrind", "lief", "dotnet-diagnostic-tools"
+)
+
+# Meta-targets — expand to a list of individual tools before validation
+$RuntimeDiagTools = @(
+    "netcoredbg", "gdb", "lldb", "strace", "bpftrace", "bcc", "perf", "binutils", "rizin", "ilspycmd",
+    "flamegraph", "valgrind", "lief", "dotnet-diagnostic-tools"
+)
 
 function Write-ErrC  { param($m) Write-Host $m -ForegroundColor Red }
 function Write-Ok    { param($m) Write-Host $m -ForegroundColor Green }
@@ -68,6 +81,10 @@ function Show-Help {
     Write-Host "  .\install-cli-tools.ps1 -Update -All         # Update all installed tools"
     Write-Host ""
     Write-Host "Supported tools: $($SupportedTools -join ', ')"
+    Write-Host ""
+    Write-Host "Meta-targets:"
+    Write-Host "  runtime-diagnostics-tools   All runtime-diagnostics utilities (Windows: most are __UNSUPPORTED__; use WSL)"
+    Write-Host ""
     Write-Host "See docs\CLI_UTILITIES.md for the full install matrix."
     Write-Host ""
 }
@@ -85,6 +102,20 @@ function Get-ToolDescription {
         "aws"           { "AWS CLI v2 (used by dex-aws-s3-cli)" }
         "jenkins-cli"   { "Jenkins CLI (.jar + Java) (used by dex-jenkins-cli)" }
         "teamcity"      { "TeamCity CLI by JetBrains (used by dex-teamcity-cli)" }
+        "netcoredbg"    { "Samsung netcoredbg .NET CLI debugger (used by dex-netcoredbg-cli)" }
+        "gdb"           { "GNU debugger (Linux/WSL only)" }
+        "lldb"          { "LLVM debugger (Linux/WSL only)" }
+        "strace"        { "Linux syscall tracer (WSL only)" }
+        "bpftrace"      { "eBPF tracing (WSL only)" }
+        "bcc"           { "BPF Compiler Collection tools (WSL only)" }
+        "perf"          { "Linux perf events sampler (WSL only)" }
+        "binutils"      { "GNU binary utilities (WSL only)" }
+        "rizin"         { "Rizin reverse-engineering framework" }
+        "ilspycmd"      { "ICSharpCode ILSpy CLI .NET decompiler (dotnet global tool)" }
+        "flamegraph"    { "Brendan Gregg's flamegraph.pl (WSL only)" }
+        "valgrind"      { "Memory checker (WSL only)" }
+        "lief"          { "Python ELF/PE/Mach-O parsing library" }
+        "dotnet-diagnostic-tools" { "Meta: dotnet-dump, dotnet-trace, dotnet-counters, dotnet-gcdump, dotnet-stack, dotnet-symbol" }
         default         { "(unknown)" }
     }
 }
@@ -101,12 +132,51 @@ function Show-ToolList {
 
 function Test-ToolPresent {
     param($Tool)
+    # Безбинарные / мета-инструменты: имя $Tool не совпадает с именем бинаря.
+    # Симметрично bash-версии (install-cli-tools.sh tool_version специальный блок).
+    switch ($Tool) {
+        "lief" {
+            $v = python -c "import lief" 2>$null
+            return ($LASTEXITCODE -eq 0)
+        }
+        "binutils" {
+            return ((Get-Command readelf -ErrorAction SilentlyContinue) -and `
+                    (Get-Command addr2line -ErrorAction SilentlyContinue))
+        }
+        "dotnet-diagnostic-tools" {
+            $required = @("dotnet-dump","dotnet-trace","dotnet-counters","dotnet-gcdump","dotnet-stack","dotnet-symbol")
+            foreach ($t in $required) {
+                if (-not (Get-Command $t -ErrorAction SilentlyContinue)) { return $false }
+            }
+            return $true
+        }
+    }
     $null = Get-Command $Tool -ErrorAction SilentlyContinue
     return $?
 }
 
 function Get-ToolVersion {
     param($Tool)
+    # Безбинарные / мета-инструменты обрабатываются до общего Test-ToolPresent.
+    switch ($Tool) {
+        "lief" {
+            $v = python -c "import lief; print(lief.__version__)" 2>$null
+            if ($LASTEXITCODE -eq 0 -and $v) { return "lief $v" } else { return "" }
+        }
+        "binutils" {
+            if (Test-ToolPresent "binutils") {
+                $v = (readelf --version 2>$null | Select-Object -First 1)
+                return $v
+            }
+            return ""
+        }
+        "dotnet-diagnostic-tools" {
+            if (Test-ToolPresent "dotnet-diagnostic-tools") {
+                return "dotnet diagnostic tools (all 6 in PATH)"
+            }
+            return ""
+        }
+    }
     if (-not (Test-ToolPresent $Tool)) { return "" }
     try {
         switch ($Tool) {
@@ -167,6 +237,81 @@ function Get-Recipe {
         "winget:jenkins-cli"   { return @("__UNSUPPORTED__") }
         "scoop:jenkins-cli"    { return @("__UNSUPPORTED__") }
         "choco:jenkins-cli"    { return @("__UNSUPPORTED__") }
+
+        # Native-debug and tracing utilities are Linux-only — use WSL on Windows
+        "winget:netcoredbg"    { return @("__UNSUPPORTED__") }
+        "scoop:netcoredbg"     { return @("__UNSUPPORTED__") }
+        "choco:netcoredbg"     { return @("__UNSUPPORTED__") }
+        "winget:gdb"           { return @("__UNSUPPORTED__") }
+        "scoop:gdb"            { return @("__UNSUPPORTED__") }
+        "choco:gdb"            { return @("__UNSUPPORTED__") }
+        "winget:lldb"          { return @("__UNSUPPORTED__") }
+        "scoop:lldb"           { return @("__UNSUPPORTED__") }
+        "choco:lldb"           { return @("__UNSUPPORTED__") }
+        "winget:strace"        { return @("__UNSUPPORTED__") }
+        "scoop:strace"         { return @("__UNSUPPORTED__") }
+        "choco:strace"         { return @("__UNSUPPORTED__") }
+        "winget:bpftrace"      { return @("__UNSUPPORTED__") }
+        "scoop:bpftrace"       { return @("__UNSUPPORTED__") }
+        "choco:bpftrace"       { return @("__UNSUPPORTED__") }
+        "winget:bcc"           { return @("__UNSUPPORTED__") }
+        "scoop:bcc"            { return @("__UNSUPPORTED__") }
+        "choco:bcc"            { return @("__UNSUPPORTED__") }
+        "winget:perf"          { return @("__UNSUPPORTED__") }
+        "scoop:perf"           { return @("__UNSUPPORTED__") }
+        "choco:perf"           { return @("__UNSUPPORTED__") }
+        "winget:binutils"      { return @("__UNSUPPORTED__") }
+        "scoop:binutils"       { return @("__UNSUPPORTED__") }
+        "choco:binutils"       { return @("__UNSUPPORTED__") }
+        "winget:flamegraph"    { return @("__UNSUPPORTED__") }
+        "scoop:flamegraph"     { return @("__UNSUPPORTED__") }
+        "choco:flamegraph"     { return @("__UNSUPPORTED__") }
+        "winget:valgrind"      { return @("__UNSUPPORTED__") }
+        "scoop:valgrind"       { return @("__UNSUPPORTED__") }
+        "choco:valgrind"       { return @("__UNSUPPORTED__") }
+
+        # rizin — only scoop has a community formula
+        "winget:rizin"         { return @("__UNSUPPORTED__") }
+        "scoop:rizin"          { return @("scoop bucket add extras", "scoop install rizin") }
+        "choco:rizin"          { return @("__UNSUPPORTED__") }
+
+        # ilspycmd, lief, dotnet-diagnostic-tools — cross-platform via dotnet / pip
+        "winget:ilspycmd"      { return @("dotnet tool install --global ilspycmd 2>nul || dotnet tool update --global ilspycmd") }
+        "scoop:ilspycmd"       { return @("dotnet tool install --global ilspycmd 2>nul || dotnet tool update --global ilspycmd") }
+        "choco:ilspycmd"       { return @("dotnet tool install --global ilspycmd 2>nul || dotnet tool update --global ilspycmd") }
+        "winget:lief"          { return @("python -m pip install --user --upgrade lief") }
+        "scoop:lief"           { return @("python -m pip install --user --upgrade lief") }
+        "choco:lief"           { return @("python -m pip install --user --upgrade lief") }
+        "winget:dotnet-diagnostic-tools" {
+            return @(
+                "dotnet tool install --global dotnet-dump 2>nul || dotnet tool update --global dotnet-dump",
+                "dotnet tool install --global dotnet-trace 2>nul || dotnet tool update --global dotnet-trace",
+                "dotnet tool install --global dotnet-counters 2>nul || dotnet tool update --global dotnet-counters",
+                "dotnet tool install --global dotnet-gcdump 2>nul || dotnet tool update --global dotnet-gcdump",
+                "dotnet tool install --global dotnet-stack 2>nul || dotnet tool update --global dotnet-stack",
+                "dotnet tool install --global dotnet-symbol 2>nul || dotnet tool update --global dotnet-symbol"
+            )
+        }
+        "scoop:dotnet-diagnostic-tools"  {
+            return @(
+                "dotnet tool install --global dotnet-dump 2>nul || dotnet tool update --global dotnet-dump",
+                "dotnet tool install --global dotnet-trace 2>nul || dotnet tool update --global dotnet-trace",
+                "dotnet tool install --global dotnet-counters 2>nul || dotnet tool update --global dotnet-counters",
+                "dotnet tool install --global dotnet-gcdump 2>nul || dotnet tool update --global dotnet-gcdump",
+                "dotnet tool install --global dotnet-stack 2>nul || dotnet tool update --global dotnet-stack",
+                "dotnet tool install --global dotnet-symbol 2>nul || dotnet tool update --global dotnet-symbol"
+            )
+        }
+        "choco:dotnet-diagnostic-tools"  {
+            return @(
+                "dotnet tool install --global dotnet-dump 2>nul || dotnet tool update --global dotnet-dump",
+                "dotnet tool install --global dotnet-trace 2>nul || dotnet tool update --global dotnet-trace",
+                "dotnet tool install --global dotnet-counters 2>nul || dotnet tool update --global dotnet-counters",
+                "dotnet tool install --global dotnet-gcdump 2>nul || dotnet tool update --global dotnet-gcdump",
+                "dotnet tool install --global dotnet-stack 2>nul || dotnet tool update --global dotnet-stack",
+                "dotnet tool install --global dotnet-symbol 2>nul || dotnet tool update --global dotnet-symbol"
+            )
+        }
     }
     return @("__UNSUPPORTED__")
 }
@@ -191,6 +336,11 @@ function Invoke-Recipe {
             "psql"          { Write-Dim "    Windows PMs install full PostgreSQL Server (~200MB + service), not just client." ; Write-Dim "    Recommended: use WSL (apt install postgresql-client) or download standalone client from postgresql.org/download." }
             "rabbitmqadmin" { Write-Dim "    Download Windows binary from https://github.com/rabbitmq/rabbitmqadmin-ng/releases" }
             "jenkins-cli"   { Write-Dim "    Install Java + download jenkins-cli.jar from `$JENKINS_URL/jnlpJars/jenkins-cli.jar (see docs/CLI_UTILITIES.md)." }
+            "netcoredbg"    { Write-Dim "    Download Windows release from https://github.com/Samsung/netcoredbg/releases or use WSL2." }
+            { $_ -in @("gdb", "lldb", "strace", "bpftrace", "bcc", "perf", "binutils", "valgrind", "flamegraph") } {
+                Write-Dim "    Native-debug / tracing utility is Linux-only. Use WSL2 (wsl --install) and run install-cli-tools.sh inside it."
+            }
+            "rizin"         { Write-Dim "    Use scoop (scoop bucket add extras + scoop install rizin) or download release from https://github.com/rizinorg/rizin/releases." }
             default         { Write-Dim "    See docs/CLI_UTILITIES.md install matrix." }
         }
         return $false
@@ -279,11 +429,22 @@ function Process-Tool {
 if ($Help) { Show-Help; exit 0 }
 if ($List) { Show-ToolList; exit 0 }
 
+# Expand meta-targets before validation
+$expanded = @()
+foreach ($t in $Tools) {
+    switch ($t) {
+        "runtime-diagnostics-tools" { $expanded += $RuntimeDiagTools }
+        default                     { $expanded += $t }
+    }
+}
+$Tools = $expanded
+
 # Validate explicit tool names
 foreach ($t in $Tools) {
     if ($SupportedTools -notcontains $t) {
         Write-ErrC "Unsupported tool: $t"
         Write-Host "Supported: $($SupportedTools -join ', ')"
+        Write-Host "Meta-targets: runtime-diagnostics-tools"
         exit 1
     }
 }
