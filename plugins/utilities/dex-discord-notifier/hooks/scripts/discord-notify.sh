@@ -9,6 +9,7 @@
 
 # Exit silently on errors - never block Claude
 set +e
+
 # =============================================================================
 # Configuration from Environment Variables
 # =============================================================================
@@ -53,18 +54,6 @@ if ! command -v curl &> /dev/null; then
     echo "Warning: curl not found, discord notifications disabled" >&2
     exit 0
 fi
-
-# =============================================================================
-# Session Isolation
-# Unique temp files per project directory — prevents interference between
-# multiple Claude Code sessions open simultaneously.
-# =============================================================================
-
-SESSION_ID=$(printf '%s' "$PWD" | cksum | cut -d' ' -f1)
-
-LATEST_FILE="/tmp/discord-notify-${SESSION_ID}-latest.json"
-TIMER_PID_FILE="/tmp/discord-notify-${SESSION_ID}-timer.pid"
-LOCK_FILE="/tmp/discord-notify-${SESSION_ID}-lock"
 
 # =============================================================================
 # Localization
@@ -117,6 +106,9 @@ get_l10n() {
 # =============================================================================
 
 INPUT=$(cat)
+
+SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty')
+NOTIFY_DIR="/tmp/claude-discord-notifier"
 
 TRANSCRIPT_PATH=$(echo "$INPUT" | jq -r '.transcript_path // empty')
 HOOK_EVENT=$(echo "$INPUT" | jq -r '.hook_event_name // "Unknown"')
@@ -398,55 +390,32 @@ PAYLOAD=$(jq -n \
 # Queue for Deferred Sending
 # =============================================================================
 
-# Atomic write of payload — prevents curl from reading a partially-written file
-# if a new notification races with an in-flight send.
-_LATEST_TMP=$(mktemp "/tmp/discord-notify-${SESSION_ID}-latest.XXXXXX")
-echo "$PAYLOAD" > "$_LATEST_TMP"
-mv "$_LATEST_TMP" "$LATEST_FILE"
+mkdir -p "$NOTIFY_DIR"
 
-# Serialize timer replacement under flock to prevent TIMER_PID_FILE races
-# between concurrent hook invocations (e.g. Stop + SubagentStop arriving
-# simultaneously, or two Claude sessions in the same project directory).
-(
-    flock 9
+# One-time cleanup of legacy paths from versions prior to per-file model
+rm -rf /tmp/discord-notify-queue 2>/dev/null
+rm -f /tmp/discord-notify-timer.pid /tmp/discord-notify-latest.json 2>/dev/null
 
-    # Kill existing timer: send SIGTERM to the entire process group so that
-    # the sleep child (and any in-flight curl) are also terminated, not just
-    # the bash wrapper. setsid below ensures the timer runs in its own
-    # process group, making kill -- -$PID safe.
-    if [ -f "$TIMER_PID_FILE" ]; then
-        OLD_PID=$(cat "$TIMER_PID_FILE" 2>/dev/null)
-        if [ -n "$OLD_PID" ] && kill -0 "$OLD_PID" 2>/dev/null; then
-            kill -- -"$OLD_PID" 2>/dev/null  # Kill entire process group (setsid)
-            kill "$OLD_PID" 2>/dev/null       # Fallback for non-setsid path
-        fi
-        rm -f "$TIMER_PID_FILE"
+# Cancel any previous pending notifications for this session
+rm -f "${NOTIFY_DIR}/notify_${SESSION_ID}_"*.json 2>/dev/null
+
+# Create per-notification file with unique name
+NOTIFY_TS="$(date +%s)_$$_$RANDOM"
+NOTIFY_FILE="${NOTIFY_DIR}/notify_${SESSION_ID}_${NOTIFY_TS}.json"
+
+_NOTIFY_TMP=$(mktemp "${NOTIFY_DIR}/notify_${SESSION_ID}.XXXXXX")
+echo "$PAYLOAD" > "$_NOTIFY_TMP"
+mv "$_NOTIFY_TMP" "$NOTIFY_FILE"
+
+# Timer knows its own file: if file is gone (cancelled) — exits silently.
+# Self-cleans after successful send — no dangling PID files.
+nohup bash -c "
+    sleep $DELAY_SECONDS
+    if [ -f '$NOTIFY_FILE' ]; then
+        curl -s -H 'Content-Type: application/json' -X POST '$WEBHOOK_URL' -d @'$NOTIFY_FILE' > /dev/null 2>&1
+        rm -f '$NOTIFY_FILE'
     fi
-
-    # Start new timer in an isolated process group.
-    # setsid: creates a new session (PID == PGID), so kill -- -PID kills the
-    # group (bash + sleep + curl children). Fallback to nohup on systems
-    # without setsid (e.g. macOS without util-linux).
-    # 9>&- closes the inherited flock fd so the lock is released immediately
-    # when the subshell exits, not when the background timer process finishes.
-    if command -v setsid &>/dev/null; then
-        setsid bash -c "
-            sleep $DELAY_SECONDS
-            [ -f '$LATEST_FILE' ] && curl -s -H 'Content-Type: application/json' -X POST '$WEBHOOK_URL' -d @'$LATEST_FILE' > /dev/null 2>&1
-        " > /dev/null 2>&1 9>&- &
-    else
-        nohup bash -c "
-            sleep $DELAY_SECONDS
-            [ -f '$LATEST_FILE' ] && curl -s -H 'Content-Type: application/json' -X POST '$WEBHOOK_URL' -d @'$LATEST_FILE' > /dev/null 2>&1
-        " > /dev/null 2>&1 9>&- &
-    fi
-
-    # Atomic write of PID file — prevents a concurrent reader from seeing an
-    # empty or half-written file between truncation and the actual write.
-    _PID_TMP=$(mktemp "/tmp/discord-notify-${SESSION_ID}-timer.XXXXXX")
-    echo $! > "$_PID_TMP"
-    mv "$_PID_TMP" "$TIMER_PID_FILE"
-
-) 9>"$LOCK_FILE"
+" > /dev/null 2>&1 &
+disown
 
 exit 0
