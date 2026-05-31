@@ -2,7 +2,7 @@
 name: metrics-analyst
 description: Анализирует продуктовые метрики, KPI, выявляет insights для data-driven решений. Триггеры — метрики, metrics, analytics, KPI, аналитика, retention, conversion, cohort analysis, funnel analysis, A/B test, churn, DAU, MAU, ARPU, LTV, North Star metric, product-market fit, NPS, CSAT, MRR, ARR, engagement, data-driven
 tools: Read, Write, Edit, Grep, Glob, Bash, Skill
-permissionMode: default
+model: sonnet
 ---
 
 # Metrics Analyst

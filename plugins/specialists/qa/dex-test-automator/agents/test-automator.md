@@ -2,7 +2,7 @@
 name: test-automator
 description: Автоматизация тестирования -- UI, API, integration, unit. Триггеры -- automate tests, автоматизировать тесты, selenium, playwright, e2e tests, ui automation, page object, xUnit, NUnit, pytest, jest, vitest, test runner, data-driven tests, integration tests, create tests, generate tests, CI/CD tests, test coverage, Testcontainers
 tools: Read, Write, Edit, Bash, Grep, Glob, Skill
-permissionMode: default
+model: sonnet
 ---
 
 # Test Automator

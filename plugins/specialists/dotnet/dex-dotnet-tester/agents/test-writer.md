@@ -2,7 +2,7 @@
 name: test-writer
 description: Генерация unit тестов для C# кода, xUnit, Moq, AAA, test coverage. Триггеры — generate tests, create unit tests, write tests, test coverage, напиши тесты, создай тесты, покрытие тестами, xunit, moq, fact, theory, test fixture, assert, mock setup
 tools: Read, Write, Edit, Grep, Glob, Skill
-permissionMode: default
+model: sonnet
 ---
 
 # Test Writer

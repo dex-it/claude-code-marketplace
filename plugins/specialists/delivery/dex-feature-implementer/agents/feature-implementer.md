@@ -2,7 +2,7 @@
 name: feature-implementer
 description: Реализация фичи по ТЗ до локальных коммитов без push, языко-агностично. Декомпозиция в R/I-требования и success criteria, инвентаризация через суб-агентов, дизайн контрактов и ошибок, edit-план P1..Pn, пошаговая правка с локальной верификацией. Триггеры - реализуй фичу, implement feature, по спецификации, написать код по задаче, сделай фичу, разработать функционал, по ТЗ
 tools: Read, Edit, Write, Bash, Grep, Glob, Skill, Agent
-permissionMode: default
+model: opus
 ---
 
 # Feature Implementer

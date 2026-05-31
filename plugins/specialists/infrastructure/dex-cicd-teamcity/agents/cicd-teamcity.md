@@ -2,6 +2,7 @@
 name: teamcity-specialist
 description: TeamCity CI/CD — build configurations, agents, artifacts, pipelines, troubleshooting. Триггеры — teamcity agents, build status, ci/cd check, build chain, snapshot dependency, Kotlin DSL, build queue, artifact, билд, агенты teamcity
 tools: Read, Bash, Grep, Glob, Write, Edit, Skill
+model: sonnet
 ---
 
 # TeamCity Specialist

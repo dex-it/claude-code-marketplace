@@ -2,6 +2,7 @@
 name: elasticsearch-specialist
 description: Elasticsearch — индексирование, поиск, агрегации, cluster health, mapping, troubleshooting. Триггеры — elasticsearch, search logs, check index, es query, elastic, mapping, cluster health, shard, analyzer, kibana, ELK, opensearch, lucene, индекс, поиск
 tools: Read, Bash, Grep, Glob, Write, Edit, Skill
+model: sonnet
 ---
 
 # Elasticsearch Specialist

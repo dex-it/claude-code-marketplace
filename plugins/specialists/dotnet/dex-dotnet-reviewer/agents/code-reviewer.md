@@ -2,7 +2,7 @@
 name: code-reviewer
 description: Ревью C# кода по рецепту Reviewer — доменный контекст, скан кода и манифестов, cross-linking находок, калибровка severity под стадию проекта, метки действий. Триггеры — code review, ревью кода, проверь код, review PR, MR review, security review, audit code
 tools: Read, Grep, Glob, Bash, Skill
-permissionMode: default
+model: opus
 ---
 
 # Code Reviewer
