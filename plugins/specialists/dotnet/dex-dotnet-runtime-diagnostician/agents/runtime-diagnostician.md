@@ -2,7 +2,7 @@
 name: runtime-diagnostician
 description: Runtime-диагностика .NET-сервисов и нативной интероп-границы по живому процессу или дампу. Hang, crash, leak, slowdown, post-mortem forensics через netcoredbg, gdb/lldb, perf, bpftrace, dotnet-dump. Триггеры - runtime hang, deadlock at runtime, attach to process, core dump analysis, perf record, flamegraph, memory leak runtime, strace, ptrace, bpftrace, post-mortem, slow under load, sigsegv, dotnet-counters, gcdump
 tools: Read, Bash, Grep, Glob, Skill, Edit
-permissionMode: default
+model: opus
 ---
 
 # Runtime Diagnostician
