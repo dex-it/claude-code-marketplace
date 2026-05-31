@@ -106,6 +106,14 @@ const REQUIRED_FRONTMATTER_FIELDS = ['name', 'description', 'tools'];
  */
 const FORBIDDEN_FRONTMATTER_FIELDS = ['allowed-tools', 'skills'];
 
+/**
+ * Allowed values for the `model` field. Either a tier alias, `inherit`,
+ * or a full model ID (e.g. `claude-opus-4-8`). Tier aliases are enforced;
+ * full IDs are accepted by pattern.
+ */
+const MODEL_TIER_ALIASES = ['opus', 'sonnet', 'haiku', 'inherit'];
+const MODEL_ID_RE = /^claude-[a-z0-9-]+$/;
+
 function validateFrontmatter(parsed, findings) {
   const fm = parsed.data || {};
 
@@ -127,6 +135,36 @@ function validateFrontmatter(parsed, findings) {
         message: `Forbidden frontmatter field: ${field} — use \`tools:\` for tool access, Skill tool for skill loading`,
       });
     }
+  }
+
+  // `model` must be explicit (not inherited) and a valid tier or model ID.
+  // Default `inherit` runs cheap work on the session model — on an Opus
+  // session even trivial agents would run on Opus. See AGENT_FRAMEWORK.md.
+  if (fm.model == null || fm.model === '') {
+    findings.push({
+      level: ERROR,
+      rule: 'frontmatter-model-missing',
+      message: `Missing required frontmatter field: model — set explicit \`opus\` / \`sonnet\` / \`haiku\` by judgment type (not \`inherit\`)`,
+    });
+  } else if (
+    !MODEL_TIER_ALIASES.includes(String(fm.model)) &&
+    !MODEL_ID_RE.test(String(fm.model))
+  ) {
+    findings.push({
+      level: ERROR,
+      rule: 'frontmatter-model-invalid',
+      message: `Invalid model "${fm.model}" — expected one of ${MODEL_TIER_ALIASES.join(', ')} or a full model ID`,
+    });
+  }
+
+  // `permissionMode: default` is redundant (it is already the Claude Code
+  // default) — the framework checklist forbids the noise.
+  if (fm.permissionMode === 'default') {
+    findings.push({
+      level: ERROR,
+      rule: 'frontmatter-permissionmode-default',
+      message: `Redundant \`permissionMode: default\` — omit it, this is already the default`,
+    });
   }
 
   if (typeof fm.description === 'string' && fm.description.length < 50) {
