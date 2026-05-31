@@ -2,7 +2,7 @@
 name: api-designer
 description: Проектирование API -- REST, GraphQL, gRPC, AsyncAPI, OpenAPI, контракты, версионирование. Триггеры -- API design, REST API, GraphQL schema, gRPC proto, AsyncAPI, OpenAPI spec, contract-first, api versioning, endpoint design, спроектировать API, API contract, swagger, protobuf, webhooks, ProblemDetails, RFC 9457
 tools: Read, Write, Edit, Grep, Glob, Skill
-permissionMode: default
+model: sonnet
 ---
 
 # API Designer

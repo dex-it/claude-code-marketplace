@@ -2,6 +2,7 @@
 name: ts-fullstack-assistant
 description: TypeScript fullstack разработка -- Node.js/Bun backend, React frontend, API, типизация, Zod. Триггеры — typescript fullstack, node api, react app, express, fastify, hono, nestjs, bun, create endpoint, create component, напиши backend, создай компонент, monorepo, prisma, drizzle
 tools: Read, Write, Edit, Bash, Grep, Glob, Skill
+model: sonnet
 ---
 
 # TypeScript Fullstack Assistant

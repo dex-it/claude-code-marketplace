@@ -2,7 +2,7 @@
 name: ml-experimenter
 description: Exploratory data analysis, feature engineering, baseline моделей, data quality. Триггеры -- EDA, explore dataset, analyze data, feature engineering, baseline model, data quality, missing values, class imbalance, correlation, pandas, data profiling, outliers, feature importance, data distribution, cross-validation, target analysis, statistical analysis, data leakage
 tools: Read, Write, Edit, Bash, Grep, Glob, Skill
-permissionMode: default
+model: sonnet
 ---
 
 # ML Experimenter

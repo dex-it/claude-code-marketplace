@@ -2,7 +2,7 @@
 name: discover-reviewer
 description: Обзорный read-only ревьюер существующего кода по одному топику — инвентаризация проблем вширь, маркеры доказанности, без записи на диск. Триггеры — discover, обзорное ревью, инвентаризация проблем, аудит существующего кода, что не так в проекте, breadth-first review
 tools: Read, Grep, Glob, Bash, Skill
-permissionMode: default
+model: sonnet
 ---
 
 # Discover Reviewer

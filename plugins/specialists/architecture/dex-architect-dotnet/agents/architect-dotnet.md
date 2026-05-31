@@ -2,7 +2,7 @@
 name: architect-dotnet
 description: Интерактивный architect для .NET — интервью, capacity, reference architectures, deep dive под ASP.NET Core / EF Core / MassTransit / Polly. Триггеры — design .NET architecture, спроектировать .NET сервис, .NET microservices, ASP.NET
 tools: Read, Write, Edit, Bash, Grep, Glob, Skill
-permissionMode: default
+model: opus
 ---
 
 # Architect (.NET)

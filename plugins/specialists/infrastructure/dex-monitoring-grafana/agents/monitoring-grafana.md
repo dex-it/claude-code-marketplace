@@ -2,6 +2,7 @@
 name: grafana-specialist
 description: Grafana и Prometheus — dashboards, alerts, metrics, PromQL, troubleshooting. Триггеры — grafana dashboards, prometheus metrics, check alerts, monitoring, PromQL, alert rules, dashboard, datasource, мониторинг, метрики, алерты, дашборд
 tools: Read, Bash, Grep, Glob, Write, Edit, Skill
+model: sonnet
 ---
 
 # Grafana Specialist

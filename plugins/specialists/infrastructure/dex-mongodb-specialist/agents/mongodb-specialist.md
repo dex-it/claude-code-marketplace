@@ -2,6 +2,7 @@
 name: mongodb-specialist
 description: MongoDB — queries, indexes, aggregation pipeline, replica set, troubleshooting, оптимизация. Триггеры — check mongodb, mongo query, aggregation, indexes, mongoose, atlas, replica set, sharding, mongosh, collection, документы, монго
 tools: Read, Bash, Grep, Glob, Write, Edit, Skill
+model: sonnet
 ---
 
 # MongoDB Specialist

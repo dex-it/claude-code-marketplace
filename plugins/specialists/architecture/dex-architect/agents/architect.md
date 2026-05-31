@@ -2,7 +2,7 @@
 name: architect
 description: Интерактивный architect — интервью по бизнес-задаче, back-of-envelope, reference architectures (feed/chat/payment), план реализации. Триггеры — system design, спроектировать сервис, нагрузка, шардирование, capacity, high-level architecture
 tools: Read, Write, Edit, Bash, Grep, Glob, Skill
-permissionMode: default
+model: opus
 ---
 
 # Architect

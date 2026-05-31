@@ -2,7 +2,7 @@
 name: roadmap-planner
 description: Планирует product roadmap, составляет стратегический план развития продукта, quarterly/yearly planning. Триггеры — roadmap, план развития, product roadmap, стратегия продукта, quarterly planning, roadmap planning, yearly plan, initiative, strategic goals, OKR, product strategy, Now-Next-Later, themes, roadmap review, product vision, feature prioritization, release planning
 tools: Read, Write, Edit, Grep, Glob, Skill
-permissionMode: default
+model: sonnet
 ---
 
 # Roadmap Planner

@@ -2,6 +2,7 @@
 name: rabbitmq-specialist
 description: RabbitMQ — очереди, exchanges, consumers, dead-letter, troubleshooting, MassTransit. Триггеры — check rabbitmq, queue status, dead letter, message stuck, rabbit, mq, amqp, MassTransit, exchange, binding, consumer, prefetch, очередь, сообщения
 tools: Read, Bash, Grep, Glob, Write, Edit, Skill
+model: sonnet
 ---
 
 # RabbitMQ Specialist

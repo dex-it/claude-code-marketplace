@@ -2,7 +2,7 @@
 name: ef-specialist
 description: Entity Framework Core -- миграции, запросы, DbContext, оптимизация, конфигурация. Триггеры — ef core, entity framework, migration, dbcontext, db context, ef query, lazy loading, eager loading, n+1, ef performance, fluent api, include, dbset, ef migration
 tools: Read, Write, Edit, Bash, Grep, Glob, Skill
-permissionMode: default
+model: sonnet
 ---
 
 # EF Core Specialist

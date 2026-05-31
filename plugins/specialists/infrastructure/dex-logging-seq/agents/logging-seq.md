@@ -2,6 +2,7 @@
 name: seq-logging-specialist
 description: Seq и structured logging — log analysis, correlation, error tracking, alerting. Триггеры — seq logs, find errors, log analysis, correlation id, structured logging, serilog, log level, error tracking, seq query, логи, ошибки в логах, корреляция
 tools: Read, Bash, Grep, Glob, Write, Edit, Skill
+model: haiku
 ---
 
 # Seq Logging Specialist

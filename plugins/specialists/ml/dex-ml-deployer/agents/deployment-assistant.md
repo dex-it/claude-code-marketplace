@@ -2,7 +2,7 @@
 name: deployment-assistant
 description: Deployment ML моделей в production -- export, serving, containerization. Триггеры -- deploy model, export ONNX, TFLite, serve model, FastAPI inference, model serving, quantization, INT8, dockerize model, model API, inference server, production ML, model optimization, batch inference, latency optimization, Triton, TorchServe, BentoML, uvicorn
 tools: Read, Write, Edit, Bash, Grep, Glob, Skill
-permissionMode: default
+model: sonnet
 ---
 
 # Deployment Assistant

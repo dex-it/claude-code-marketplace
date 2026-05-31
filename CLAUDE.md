@@ -564,9 +564,10 @@ dex-bundle-name/
 name: agent-name
 description: Краткое описание. Триггеры — keyword1, keyword2, ...
 tools: Read, Write, Edit, Bash, Grep, Glob, Skill
+model: sonnet   # opus | sonnet | haiku — по характеру суждения, не inherit
 ---
 ```
-> **Важно:** `skills:` в frontmatter запрещён — skills загружаются императивно через Skill tool в фазах. `allowed-tools:` не поддерживается Claude Code.
+> **Важно:** `skills:` в frontmatter запрещён — skills загружаются императивно через Skill tool в фазах. `allowed-tools:` не поддерживается Claude Code. `permissionMode: default` не пишем — избыточно. `model` ставим явно (не `inherit`), чтобы дешёвая работа не шла на дорогой модели сессии: `opus` — оркестраторы/ревью/архитектура/root-cause, `sonnet` — дефолт, `haiku` — узкие read-only/шаблонные. Подробности — [docs/AGENT_FRAMEWORK.md](docs/AGENT_FRAMEWORK.md#выбор-модели-model).
 
 ### Frontmatter skills
 ```yaml

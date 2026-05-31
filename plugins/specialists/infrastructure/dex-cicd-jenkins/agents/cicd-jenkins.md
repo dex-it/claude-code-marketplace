@@ -2,6 +2,7 @@
 name: jenkins-specialist
 description: Jenkins specialist — Jenkinsfile, declarative pipelines, shared libraries, multibranch. Триггеры — jenkins, jenkinsfile, pipeline, declarative pipeline, jenkins agent, multibranch, groovy pipeline, jenkins job, scripted pipeline, jenkins credentials, shared library, pipeline syntax, withCredentials, jenkins plugins, blue ocean, pipeline stages, post actions, parallel stages, input step, jenkins docker agent
 tools: Read, Write, Edit, Grep, Glob, Bash, Skill
+model: sonnet
 ---
 
 # Jenkins Specialist
