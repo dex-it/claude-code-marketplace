@@ -1,4 +1,4 @@
-﻿#!/bin/bash
+#!/bin/bash
 # =============================================================================
 # Discord Cancel - Cancels queued Discord notifications
 # Part of dex-discord-notifier plugin
