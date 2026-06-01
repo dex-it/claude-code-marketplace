@@ -80,12 +80,12 @@ Two-Pass Architecture применяется **только к Analyst и Diagno
 ```
 claude-code-marketplace/
 ├── .claude-plugin/
-│   └── marketplace.json           # Каталог всех 152 плагинов
+│   └── marketplace.json           # Каталог всех 153 плагинов
 ├── mcp/                           # Централизованный каталог MCP серверов
 │   ├── README.md
 │   └── mcp-template.json
 ├── plugins/
-│   ├── skills/                    # Level 1: Knowledge bases (73 плагина)
+│   ├── skills/                    # Level 1: Knowledge bases (74 плагина)
 │   │   ├── dex-skill-agile/
 │   │   ├── dex-skill-dotnet-di/
 │   │   ├── dex-skill-docker/
@@ -114,7 +114,7 @@ claude-code-marketplace/
 └── LICENSE
 ```
 
-## Level 1: Skills (73 плагина)
+## Level 1: Skills (74 плагина)
 
 Skills - базы знаний, активируются автоматически по ключевым словам в контексте.
 
@@ -129,6 +129,7 @@ Skills - базы знаний, активируются автоматичес�
 | dex-skill-dotnet-async-patterns | .NET async/await: блокировки, CancellationToken, параллелизм |
 | dex-skill-dotnet-linq-optimization | LINQ и коллекции: материализация, фильтрация, HashSet vs List |
 | dex-skill-dotnet-api-development | ASP.NET Core Web API: контроллеры, DTO, пагинация |
+| dex-skill-dotnet-validation | Серверная валидация входных DTO: FluentValidation, baseline-правила полей, fail-fast полиморфизма |
 | dex-skill-api-documentation | OpenAPI/Swagger: ловушки spec, генерации клиентов |
 | dex-skill-dotnet-testing-patterns | .NET unit-тестирование: xUnit, Moq, AAA, Theory |
 | dex-skill-dotnet-logging | .NET structured logging: Serilog, ILogger, Seq |

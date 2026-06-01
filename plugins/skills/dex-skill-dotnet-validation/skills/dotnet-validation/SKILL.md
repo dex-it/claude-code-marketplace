@@ -28,10 +28,10 @@ description: Серверная валидация входных DTO — baseli
 
 ## Enum
 
-### IsInEnum() на [Flags]-перечислении
-Плохо: `RuleFor(x => x.Permissions).IsInEnum()` где `Permissions` — `[Flags]`
-Правильно: обычный enum → `IsInEnum()`; `[Flags]` → `NotEqual(default)` / `NotEqual(None)`
-Почему: `IsInEnum()` отвергает легальные комбинации флагов (`Read | Write` не равно ни одному именованному значению). Для не-flags enum сырой каст `(Status)99` без `IsInEnum()` проезжает невалидное значение
+### Enum без IsInEnum() и [Flags] без проверки на пустоту
+Плохо: `RuleFor(x => x.Status)` без `IsInEnum()` — сырой каст `(Status)99` проезжает; у `[Flags]` пустое `default` проходит, когда бизнес требует хотя бы один флаг
+Правильно: всегда `IsInEnum()` (он корректно валидирует и `[Flags]`: принимает валидные комбинации, режет неопределённые биты); для обязательного непустого `[Flags]` добавить `NotEqual(default)`
+Почему: без `IsInEnum()` `(Status)99` пересекает границу. С FV 8.0 `IsInEnum()` спец-обрабатывает `[Flags]` через `IsFlagsEnumDefined`, поэтому `NotEqual(None)` его не заменяет, а дополняет
 
 ## Числа
 
@@ -41,9 +41,9 @@ description: Серверная валидация входных DTO — baseli
 Почему: `double` теряет точность на деньгах. Число без границ пропускает `int.MaxValue`, отрицательные количества, переполнение при умножении в бизнес-логике
 
 ### NaN/Infinity у double
-Плохо: `RuleFor(x => x.Ratio)` (double) без проверки — JSON прислал `NaN`/`Infinity`
+Плохо: `RuleFor(x => x.Ratio)` (double) без проверки, когда `NaN`/`Infinity` реально достижимы — Newtonsoft.Json, `AllowNamedFloatingPointLiterals` или вычисление из других полей
 Правильно: `Must(d => !double.IsNaN(d) && !double.IsInfinity(d))`
-Почему: `double` принимает `NaN`/`±Infinity`; они ломают сравнения, агрегации и сериализацию обратно
+Почему: System.Text.Json по умолчанию (`Strict`) режет `NaN`/`Infinity` на десериализации (400); при Newtonsoft, разрешённых литералах или счёте в коде `double` их принимает — ломают сравнения, агрегации и обратную сериализацию
 
 ### Парсинг числа из строки без InvariantCulture
 Плохо: `decimal.Parse(dto.Value)` в маппере, валидатор парсит иначе
@@ -112,7 +112,7 @@ description: Серверная валидация входных DTO — baseli
 
 - Строка: `NotEmpty()`/формат **+** `MaximumLength` (даже опциональная) — лимит именованной константой
 - Required Guid: `NotEmpty()`; опциональный: nullable + `.When`
-- Enum: `IsInEnum()`; `[Flags]`: `NotEqual(None)`
+- Enum: `IsInEnum()` (валидирует и `[Flags]`); непустой `[Flags]` — дополнительно `NotEqual(default)`
 - Число: границы диапазона; деньги — `decimal`; `double` — отсев `NaN`/`Infinity`
 - Дата: `DateTimeOffset`, кросс-полевой порядок `from < to`, sanity-границы
 - Коллекция: лимит размера + `RuleForEach`
