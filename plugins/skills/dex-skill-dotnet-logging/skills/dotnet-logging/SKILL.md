@@ -17,6 +17,11 @@ description: .NET structured logging — Serilog, ILogger, Seq. Активиру
 Правильно: `_logger.LogInformation("Something happened")` через DI `ILogger<T>`
 Почему: теряется категория (имя класса), невозможно переопределить MinimumLevel для конкретного namespace, не mockable в тестах
 
+### Console.WriteLine / Debug.WriteLine вместо ILogger
+Плохо: `Console.WriteLine($"Order {id} processed")` / `Debug.WriteLine(...)` в коде сервиса
+Правильно: `_logger.LogInformation("Order {OrderId} processed", id)` через инжектированный `ILogger<T>`
+Почему: вывод в Console/Debug идёт мимо logging-инфраструктуры — у него нет уровня, категории, структурированных свойств, он не попадает в Seq/файл/sink и не управляется конфигурацией. В свежем проекте «временный» `Console.WriteLine` оседает в продакшене как слепое пятно мониторинга
+
 ### ILogger вместо ILogger<T>
 Плохо: `public MyService(ILogger logger)` — без generic параметра
 Правильно: `public MyService(ILogger<MyService> logger)`

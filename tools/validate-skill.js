@@ -93,7 +93,19 @@ const PROJECT_DESCRIPTION_MAX = 750; // project hard cap — error
 const WARN_DESCRIPTION_LENGTH = 500; // project soft guideline — warning
 const MIN_TRIGGER_KEYWORDS = 10;
 
-function validateFrontmatter(parsed, findings) {
+/**
+ * Process / orchestration skills encode a workflow rule (e.g. "new project →
+ * inherit solution rules"), not a catalogue of API traps. The trap-count and
+ * keyword-count heuristics don't fit them, so those two rules are softened to
+ * warnings. Marked via an HTML comment in the body (invisible to Claude Code,
+ * which has no valid frontmatter field for skill type):
+ *   <!-- skill-type: process -->
+ */
+function isProcessSkill(rawContent) {
+  return /<!--\s*skill-type:\s*process\s*-->/i.test(rawContent);
+}
+
+function validateFrontmatter(parsed, findings, isProcess = false) {
   const fm = parsed.data || {};
 
   for (const field of REQUIRED_FIELDS) {
@@ -168,7 +180,7 @@ function validateFrontmatter(parsed, findings) {
       .filter((k) => k.length > 0);
     if (keywords.length < MIN_TRIGGER_KEYWORDS) {
       findings.push({
-        level: ERROR,
+        level: isProcess ? WARNING : ERROR,
         rule: 'description-few-keywords',
         message: `Description has only ${keywords.length} trigger keyword(s) after "Активируется при" — framework recommends 15-25 for reliable semantic activation`,
       });
@@ -249,12 +261,12 @@ function trapBodyText(trap) {
   return trap.nodes.map(nodeText).join('\n');
 }
 
-function validateTraps(markdownBody, findings) {
+function validateTraps(markdownBody, findings, isProcess = false) {
   const traps = extractTraps(markdownBody);
 
   if (traps.length < 5) {
     findings.push({
-      level: ERROR,
+      level: isProcess ? WARNING : ERROR,
       rule: 'too-few-traps',
       message: `Skill has only ${traps.length} H3 sections — framework recommends 10-15 traps per skill`,
     });
@@ -357,9 +369,11 @@ function validateFile(filepath) {
     };
   }
 
-  validateFrontmatter(parsed, findings);
+  const isProcess = isProcessSkill(parsed.content);
+
+  validateFrontmatter(parsed, findings, isProcess);
   validateSize(raw, findings);
-  validateTraps(parsed.content, findings);
+  validateTraps(parsed.content, findings, isProcess);
   validateCodeFences(parsed.content, findings);
   validateNoDocumentationTitles(parsed.content, findings);
 

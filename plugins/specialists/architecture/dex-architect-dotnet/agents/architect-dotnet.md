@@ -211,6 +211,8 @@ Phase 8: Document                     [optional, skip_if=trivial]
 - Если присутствует concurrency / async — `dex-skill-dotnet-async-patterns:dotnet-async-patterns`
 - Если значимое логирование — `dex-skill-dotnet-logging:dotnet-logging`
 - Для project structure / `.csproj` / Directory.Build.props — `dex-skill-dotnet-csproj-hygiene:dotnet-csproj-hygiene`
+- Для гигиены качества (Roslyn analyzers, warning-профиль, NuGet audit) — `dex-skill-dotnet-code-quality:dotnet-code-quality`
+- Если план предполагает создание нового проекта / сервиса — `dex-skill-dotnet-project-baseline:dotnet-project-baseline` (новый solution → baseline по дефолту; проект в существующем solution → наследовать его правила, недостающую гигиену мягко подсветить)
 - Для соответствия конвенциям проекта — `dex-skill-codebase-conventions:codebase-conventions`
 - Если данные чувствительные / есть multi-tenant / public API — `dex-skill-owasp-security:owasp-security`
 - Если рассматриваемое решение использует распределённые pattern'ы — `dex-skill-microservices:microservices`

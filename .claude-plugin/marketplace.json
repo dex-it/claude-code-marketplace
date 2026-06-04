@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "5.9.0",
+  "version": "5.10.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -391,7 +391,7 @@
       "name": "dex-skill-dotnet-logging",
       "source": "./plugins/skills/dex-skill-dotnet-logging",
       "description": "Logging patterns: Serilog, structured logging, correlation, Seq, content-level level selection, exception wrapping for optional steps",
-      "version": "2.3.0",
+      "version": "2.4.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -404,7 +404,7 @@
       "name": "dex-skill-dotnet-csproj-hygiene",
       "source": "./plugins/skills/dex-skill-dotnet-csproj-hygiene",
       "description": "MSBuild csproj hygiene: PackageReference, CPM, Directory.Build.props, PrivateAssets, analyzers",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -430,6 +430,21 @@
       ]
     },
     {
+      "name": "dex-skill-dotnet-project-baseline",
+      "source": "./plugins/skills/dex-skill-dotnet-project-baseline",
+      "description": "Технический baseline нового .NET проекта: наследование правил solution vs закладка с нуля, мягкое предупреждение о недостающей гигиене",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "dotnet",
+        "project",
+        "baseline",
+        "scaffold",
+        "bootstrap"
+      ]
+    },
+    {
       "name": "dex-skill-dotnet-resilience",
       "source": "./plugins/skills/dex-skill-dotnet-resilience",
       "description": "HTTP client resilience: Polly, retry, circuit breaker, timeouts, idempotency",
@@ -447,7 +462,7 @@
       "name": "dex-skill-dotnet-config-hygiene",
       "source": "./plugins/skills/dex-skill-dotnet-config-hygiene",
       "description": ".NET configuration hygiene: appsettings, IOptions, environment-specific settings, validation",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -839,7 +854,7 @@
       "name": "dex-dotnet-coder",
       "source": "./plugins/specialists/dotnet/dex-dotnet-coder",
       "description": "Coding assistant for .NET: writing code, SOLID patterns, async/await",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1106,7 +1121,7 @@
       "name": "dex-architect-dotnet",
       "source": "./plugins/specialists/architecture/dex-architect-dotnet",
       "description": "Interactive architect for .NET: интервью, capacity, reference architectures, deep dive под ASP.NET Core / EF Core / MassTransit / Polly",
-      "version": "1.0.1",
+      "version": "1.1.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1402,7 +1417,7 @@
       "name": "dex-bundle-dotnet-developer",
       "source": "./plugins/bundles/dex-bundle-dotnet-developer",
       "description": "Bundle for .NET developers: coding, debugging, testing, review, EF, performance, interactive .NET architecture design (incl. microservices)",
-      "version": "1.5.0",
+      "version": "1.6.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -1414,7 +1429,7 @@
       "name": "dex-bundle-dotnet-fullstack",
       "source": "./plugins/bundles/dex-bundle-dotnet-fullstack",
       "description": "Complete .NET fullstack: development + databases + messaging + containers + interactive .NET architecture design",
-      "version": "1.5.0",
+      "version": "1.6.0",
       "category": "bundle",
       "keywords": [
         "bundle",
