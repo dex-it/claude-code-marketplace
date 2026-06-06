@@ -18,14 +18,4 @@ argument-hint: "[путь к проекту/решению, опциональн
 
 ## Output
 
-- Таблица: `средство контроля | статус (вкл/выкл/частично/нет) | где найдено или почему нет | как настроить`
-- Покрываются: Roslyn analyzers (`EnableNETAnalyzers`, `AnalysisMode`, `EnforceCodeStyleInBuild`), warning-профиль (`TreatWarningsAsErrors`, `CodeAnalysisTreatWarningsAsErrors`, `NoWarn`), NuGet security audit (`NuGetAudit`, `NuGetAuditMode`), NSDepCop (`config.nsdepcop`, severity), CI-gates (`dotnet format --verify-no-changes`, coverage threshold)
-- Приоритет: 🔴 критично → 🟠 важно → 🟡 желательно
-- Итог: «N из M средств настроено» + первые шаги
-
-## Constraints
-
-- Read-only — ничего не править в проекте, только отчёт
-- Не утверждать «не настроено», не прочитав соответствующий манифест
-- Дефолты, зависящие от версии SDK (NuGetAuditMode на .NET 8/9 vs 10), сверять с TFM проекта
-- Не .NET-репозиторий — сообщить и остановиться
+Actionable-таблица «средство контроля | статус | где найдено / почему нет | как настроить» с приоритетом находок и итогом «N из M настроено». Состав проверок, формат приоритета и ограничения (read-only, не утверждать без чтения манифеста, сверка дефолтов с TFM, остановка на не-.NET-репозитории) задаёт сам агент `quality-auditor`.

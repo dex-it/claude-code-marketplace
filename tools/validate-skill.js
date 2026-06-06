@@ -95,17 +95,24 @@ const MIN_TRIGGER_KEYWORDS = 10;
 
 /**
  * Process / orchestration skills encode a workflow rule (e.g. "new project →
- * inherit solution rules"), not a catalogue of API traps. The trap-count and
- * keyword-count heuristics don't fit them, so those two rules are softened to
- * warnings. Marked via an HTML comment in the body (invisible to Claude Code,
- * which has no valid frontmatter field for skill type):
- *   <!-- skill-type: process -->
+ * inherit solution rules"), not a catalogue of API traps, so the trap-count
+ * heuristic doesn't fit and `too-few-traps` is softened to a warning for them.
+ * Keyword-count stays strict — a process skill still needs reliable activation.
+ *
+ * Registration is an explicit allowlist by skill name, not a self-declared
+ * marker: adding a process skill requires a deliberate edit here plus review,
+ * so the relaxation can't be abused to slip an under-built skill through.
+ * See docs/SKILL_FRAMEWORK.md "Process skill".
  */
-function isProcessSkill(rawContent) {
-  return /<!--\s*skill-type:\s*process\s*-->/i.test(rawContent);
+const PROCESS_SKILLS = new Set([
+  'dotnet-project-baseline',
+]);
+
+function isProcessSkill(parsed) {
+  return PROCESS_SKILLS.has(parsed.data && parsed.data.name);
 }
 
-function validateFrontmatter(parsed, findings, isProcess = false) {
+function validateFrontmatter(parsed, findings) {
   const fm = parsed.data || {};
 
   for (const field of REQUIRED_FIELDS) {
@@ -180,7 +187,7 @@ function validateFrontmatter(parsed, findings, isProcess = false) {
       .filter((k) => k.length > 0);
     if (keywords.length < MIN_TRIGGER_KEYWORDS) {
       findings.push({
-        level: isProcess ? WARNING : ERROR,
+        level: ERROR,
         rule: 'description-few-keywords',
         message: `Description has only ${keywords.length} trigger keyword(s) after "Активируется при" — framework recommends 15-25 for reliable semantic activation`,
       });
@@ -369,9 +376,9 @@ function validateFile(filepath) {
     };
   }
 
-  const isProcess = isProcessSkill(parsed.content);
+  const isProcess = isProcessSkill(parsed);
 
-  validateFrontmatter(parsed, findings, isProcess);
+  validateFrontmatter(parsed, findings);
   validateSize(raw, findings);
   validateTraps(parsed.content, findings, isProcess);
   validateCodeFences(parsed.content, findings);
