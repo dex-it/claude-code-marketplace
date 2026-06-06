@@ -55,6 +55,8 @@ dex-bundle-dotnet-developer (bundle.json)
 
 **Краткая суть:** агент описывает workflow через фазы. Фаза — декларативный контракт (goal/output/exit criteria/gate), не процедура. Claude знает КАК делать — фаза задаёт ЧТО и КОГДА готово. Skills загружаются императивно через Skill tool в нужных фазах, не pre-loaded через frontmatter.
 
+**Общий vs специальный агент под стек:** правило выбора см. в [AGENT_SPECIALIZATION.md](docs/AGENT_SPECIALIZATION.md). Критерий: специальный агент оправдан, только если стек-специфика живёт **в теле артефакта** (идиомы языка, библиотеки экосистемы — как coder/tester/architect), а не в условной загрузке skills (тогда хватает общего агента + `Если <стек> → грузи X`, как reviewer/debugger/security). Карта «слот процесса разработки → агент» — в [DEV_PROCESS_COVERAGE.md](docs/DEV_PROCESS_COVERAGE.md).
+
 ## Гайдлайны: как писать Commands (slash-команды)
 
 Подробные правила см. в [COMMAND_FRAMEWORK.md](docs/COMMAND_FRAMEWORK.md) — принципы, формат, анти-паттерны, размер, когда команда вырастает в агент.
