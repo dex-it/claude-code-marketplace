@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "5.10.0",
+  "version": "5.11.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -253,6 +253,20 @@
         "types",
         "async",
         "patterns"
+      ]
+    },
+    {
+      "name": "dex-skill-vitest-jest",
+      "source": "./plugins/skills/dex-skill-vitest-jest",
+      "description": "Vitest/Jest unit testing traps: mock hoisting, fake timers, async assertions, isolation",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "vitest",
+        "jest",
+        "testing",
+        "mock"
       ]
     },
     {
@@ -1349,6 +1363,20 @@
       ]
     },
     {
+      "name": "dex-ts-tester",
+      "source": "./plugins/specialists/fullstack/dex-ts-tester",
+      "description": "Test writer for TypeScript/JavaScript: Vitest/Jest, mocks, fake timers, isolation",
+      "version": "1.0.0",
+      "category": "specialist",
+      "keywords": [
+        "specialist",
+        "typescript",
+        "testing",
+        "vitest",
+        "jest"
+      ]
+    },
+    {
       "name": "dex-ml-experimenter",
       "source": "./plugins/specialists/ml/dex-ml-experimenter",
       "description": "ML experimenter: EDA, feature engineering, data analysis",
@@ -1523,7 +1551,7 @@
       "name": "dex-bundle-ts-fullstack",
       "source": "./plugins/bundles/dex-bundle-ts-fullstack",
       "description": "Bundle for TypeScript fullstack: Node.js/Bun backend + React frontend, security, Docker, Playwright E2E",
-      "version": "1.3.0",
+      "version": "1.4.0",
       "category": "bundle",
       "keywords": [
         "bundle",
