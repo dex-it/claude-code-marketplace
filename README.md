@@ -111,8 +111,6 @@ claude plugins uninstall dex-dotnet-coder
 | Плагин | Агент | Описание |
 |--------|-------|----------|
 | dex-dotnet-coder | coding-assistant | Написание кода, SOLID, паттерны |
-| dex-dotnet-debugger | bug-hunter | Отладка, root cause analysis |
-| dex-dotnet-reviewer | code-reviewer | Code review, security |
 | dex-dotnet-tester | test-writer | Unit тесты, xUnit, Moq |
 | dex-ef-specialist | ef-specialist | EF Core: migrations, queries, DbContext |
 | dex-dotnet-performance | performance-analyst | Profiling, N+1, memory |

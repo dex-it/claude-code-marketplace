@@ -49,18 +49,19 @@ model: opus
 
 **Mandatory:** yes -- частные skills несут конкретику эксплойтов (синтаксис инъекций, дефолты фреймворков, опасные API), не выводимую из общих категорий; без них пути остаются гипотезами.
 
-Загружай условно (всё реально есть в репозитории):
+**Принцип подбора (язык-агностичный, расширяется без правки агента):** security-skills проекта называются по конвенции `dex-skill-<стек>-<тема>` (стек заявлен в имени/description). Определив стек в Phase 1, загрузи профильные security-релевантные skills этого стека по совпадению стека в имени/описании. Новый стек = новые `dex-skill-<стек>-*`; агент подхватит их без изменений.
 
-- **Всегда** -- `dex-skill-owasp-security:owasp-security` (A01–A09 с конкретикой векторов)
-- **Если .NET, API/контроллеры** -- `dex-skill-dotnet-api-development:dotnet-api-development`
-- **Если .NET, EF/доступ к данным** -- `dex-skill-dotnet-ef-core:dotnet-ef-core` (FromSqlRaw, доступ к чужим данным в запросе)
-- **Если .NET и есть логирование** -- `dex-skill-dotnet-logging:dotnet-logging` (PII/секреты в structured logs как вектор утечки)
-- **Если TypeScript/JS** -- `dex-skill-nodejs-api:nodejs-api` (валидация ввода, секреты в env, порядок auth-middleware)
-- **Если auth / rate limit / multi-tenant** -- `dex-skill-nfr:nfr`
-- **Если идемпотентность / rate limit / replay** -- `dex-skill-distributed-resilience:distributed-resilience`
-- **Если межсервисное взаимодействие** -- `dex-skill-microservices:microservices` (SSRF и доверие между сервисами)
+- **Всегда** -- `dex-skill-owasp-security:owasp-security` (A01–A09 с конкретикой векторов), язык-нейтрален
+- **Кросс-стековые по теме угрозы** (язык-нейтральны, грузить по релевантности):
+  - auth / rate limit / multi-tenant -- `dex-skill-nfr:nfr`
+  - идемпотентность / rate limit / replay -- `dex-skill-distributed-resilience:distributed-resilience`
+  - межсервисное взаимодействие (SSRF, доверие между сервисами) -- `dex-skill-microservices:microservices`
+- **Профильные по стеку** -- из набора `dex-skill-<стек>-*`, отобранные по поверхности атаки. Примеры (не исчерпывающий список):
+  - *.NET:* API/контроллеры — `dex-skill-dotnet-api-development`; EF/доступ к данным — `dex-skill-dotnet-ef-core` (FromSqlRaw, доступ к чужим данным); логи как вектор утечки PII/секретов — `dex-skill-dotnet-logging`
+  - *TypeScript/JS:* `dex-skill-nodejs-api` (валидация ввода, секреты в env, порядок auth-middleware)
+  - имена вызывай в полной форме `{plugin}:{skill}`
 
-**Fallback:** Стек без security-skills -- работай на Phase 1–2 и OWASP-категориях, пометь «частных security-skills под стек нет». Skill tool недоступен -- пропусти, зафиксируй.
+**Fallback:** Стек без security-skills (`dex-skill-<стек>-*` не установлены) -- работай на Phase 1–2 и OWASP-категориях, пометь «частных security-skills под стек нет». Skill tool недоступен -- пропусти, зафиксируй.
 
 **Exit criteria:** Загруженные skills и новые/уточнённые векторы записаны.
 

@@ -27,13 +27,14 @@ Complete bundle for .NET fullstack: development, databases, messaging, container
 
 ## Included Components (29)
 
-### .NET Specialists (6)
+### .NET Specialists (4) + общие ревью/отладка (3)
 - `dex-dotnet-coder` - .NET coding assistant
-- `dex-dotnet-debugger` - Bug hunting and debugging
-- `dex-dotnet-reviewer` - Code review specialist
 - `dex-dotnet-tester` - Unit testing with xUnit/Moq
 - `dex-ef-specialist` - Entity Framework Core specialist
 - `dex-dotnet-performance` - Performance analysis
+- `dex-debugger` - языко-агностичный root-cause (грузит .NET-skills по стеку)
+- `dex-self-reviewer` - саморевью своей ветки перед push
+- `dex-mr-reviewer` - ревью чужого MR
 
 ### Infrastructure Specialists (11)
 - `dex-postgresql-specialist` - PostgreSQL databases

@@ -1,6 +1,6 @@
 # Bundle: dex-bundle-runtime-diagnostics
 
-Bundle для runtime-диагностики .NET-сервисов и нативной границы: hang, crash, leak, slowdown, post-mortem. В отличие от `dex-dotnet-debugger` (статический bug-hunter по коду через grep) этот бандл оперирует живым процессом или дампом и использует runtime-инструменты: netcoredbg, gdb/lldb, perf, bpftrace, dotnet diagnostic tools.
+Bundle для runtime-диагностики .NET-сервисов и нативной границы: hang, crash, leak, slowdown, post-mortem. В отличие от общего `dex-debugger` (статический root-cause по коду через grep, с условной загрузкой .NET-skills) этот бандл оперирует живым процессом или дампом и использует runtime-инструменты: netcoredbg, gdb/lldb, perf, bpftrace, dotnet diagnostic tools.
 
 Цикл диагностики: симптом -> Phase 1 Triage (тип, артефакты, permissions) -> Phase 2 Direct -> Phase 3 Skill-Based Pattern Check (условная загрузка skills под симптом) -> Phase 4 Evidence -> Phase 5 Root Cause + Reproducer -> Phase 6 Fix Recommendation -> Phase 7 Report.
 
@@ -67,4 +67,4 @@ Bundle для runtime-диагностики .NET-сервисов и натив
 
 - Permissions для attach и tracing: проверка `ptrace_scope`, `perf_event_paranoid`, `CapEff` входит в Phase 1 специалиста. Контейнерные сценарии (Docker, Kubernetes) требуют CAP_SYS_PTRACE / CAP_BPF / CAP_PERFMON
 - Бандл не предлагает auto-apply fix - Phase 6 формирует предложение, применение - после явного подтверждения пользователя
-- Для дополнения статическим анализом кода рядом с runtime-диагностикой - `dex-dotnet-debugger` (bug-hunter) или ревью-бандл `dex-bundle-code-review`
+- Для дополнения статическим анализом кода рядом с runtime-диагностикой - общий `dex-debugger` (грузит .NET-skills по стеку) или ревью-бандл `dex-bundle-code-review`

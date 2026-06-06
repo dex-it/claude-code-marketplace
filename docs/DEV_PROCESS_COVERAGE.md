@@ -26,7 +26,7 @@
 | **Код** | реализация в стиле окружения | dex-dotnet-coder | dex-ts-fullstack-coder | — |
 | **Прогон + саморевью** | build/test/lint зелены + ревью своего кода (вкл. арх) | self-reviewer² | self-reviewer² | self-reviewer |
 | **Security** | отдельный обязательный security-проход | dex-security-reviewer³ | dex-security-reviewer³ | dex-security-reviewer |
-| **Debug** | root-cause бага по коду (при красном прогоне) | dex-debugger⁴ | dex-debugger | dex-debugger |
+| **Debug** | root-cause бага по коду (при красном прогоне) | dex-debugger⁴ | dex-debugger⁴ | dex-debugger |
 | **Perf** | оптимизация (N+1, alloc, hot path) — по нужде | dex-dotnet-performance | — ⁵ | — |
 | **Сдача** | коммит/MR по конвенции, трекер | — | — | сам (git) |
 
@@ -41,10 +41,23 @@
    Языко-агностичный. Выделенный арх-ревьюер не нужен.
 3. **Security — отдельный проход**, не растворённый в общем ревью: даже если общее
    ревью «чисто», security проходится отдельно. `dex-security-reviewer` —
-   языко-агностичный, усиливается частными skills по стеку.
-4. **Один debugger** на все стеки (root-cause процесс нейтрален). Для runtime по
-   живому процессу/дампу — `dex-dotnet-runtime-diagnostician`.
+   языко-агностичный агент глубокого анализа (threat model → attack paths →
+   цепочки эксплойтов), усиливается профильными skills по стеку (см. «Принцип
+   загрузки skills» ниже).
+4. **Один debugger** на все стеки (root-cause процесс нейтрален), глубину под стек
+   даёт загрузка профильных skills, не отдельный агент. Для runtime по живому
+   процессу/дампу — `dex-dotnet-runtime-diagnostician`.
 5. **Perf под TS** не покрыт специальным агентом (вне текущего скоупа).
+
+> **Принцип загрузки skills общими агентами.** Общие агенты (`dex-debugger`,
+> `dex-self-reviewer`, `dex-mr-reviewer`, `dex-security-reviewer`) определяют стек
+> проекта по манифестам и грузят профильные skills по **конвенции имён**
+> `dex-skill-<стек>-*` (Claude Code не умеет подбирать skills по метаданным в
+> рантайме — только по точному имени, поэтому стек заявлен в имени плагина).
+> Добавление нового стека = добавление `dex-skill-<стек>-*`; **сами агенты при этом
+> не правятся** — перечни .NET/TS в их фазах даны как примеры под общим принципом,
+> не как закрытый список. Стек без своих skills → fallback на язык-нейтральные
+> принципы с явной пометкой.
 
 ## Чужой MR — отдельный процесс (не часть разработки)
 
@@ -57,14 +70,19 @@
 | ре-ревью дельты | dex-mr-check-reviewer |
 | breadth-first аудит существующего кода | dex-code-discovery |
 
-## Статус миграции (целевое состояние карты)
+## Статус миграции (исполнено)
 
-Карта отражает целевое распределение ролей. На момент написания не исполнено:
+Карта отражает фактическое распределение ролей. Выполнено:
 
-- `dex-dotnet-debugger` (bug-hunter) — под удаление (дубль общего debugger).
-- `dex-dotnet-reviewer` (code-reviewer) — под удаление (поглощён self+mr-reviewer).
-- `dex-security-reviewer` — под доработку (threat-model, чтобы не дублировать
-  security-фокус self-reviewer).
+- `dex-dotnet-debugger` (bug-hunter) — **удалён** (был дубль общего debugger:
+  идентичные фазы/scan/severity, отличие лишь обёртка `если .NET`). Роль закрыта
+  общим `dex-debugger` с загрузкой .NET-skills по стеку.
+- `dex-dotnet-reviewer` (code-reviewer) — **удалён** (поглощён `dex-self-reviewer`
+  для своего кода + `dex-mr-reviewer` для чужого MR; .NET-специфика — в условных
+  skills, не в теле артефакта).
+- `dex-security-reviewer` — **переработан** в агента глубокого анализа (threat
+  model → attack paths → цепочки эксплойтов), не дублирующего поверхностный
+  security-фокус `self-reviewer`.
 
-До исполнения этих изменений соответствующие .NET-агенты ещё присутствуют в
-репозитории; карта показывает, кто закрывает слот после миграции.
+Оба .NET-bundle (`dex-bundle-dotnet-developer`, `dex-bundle-dotnet-fullstack`)
+получили взамен общие `dex-debugger` + `dex-self-reviewer` + `dex-mr-reviewer`.

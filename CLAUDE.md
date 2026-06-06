@@ -82,23 +82,25 @@ Two-Pass Architecture применяется **только к Analyst и Diagno
 ```
 claude-code-marketplace/
 ├── .claude-plugin/
-│   └── marketplace.json           # Каталог всех 156 плагинов
+│   └── marketplace.json           # Каталог всех 158 плагинов
 ├── mcp/                           # Централизованный каталог MCP серверов
 │   ├── README.md
 │   └── mcp-template.json
 ├── plugins/
-│   ├── skills/                    # Level 1: Knowledge bases (76 плагинов)
+│   ├── skills/                    # Level 1: Knowledge bases (77 плагинов)
 │   │   ├── dex-skill-agile/
 │   │   ├── dex-skill-dotnet-di/
 │   │   ├── dex-skill-docker/
 │   │   └── ...
 │   ├── utilities/                 # Level 1: Tools (17 плагинов)
 │   │   └── dex-telegram-notifier/
-│   ├── specialists/               # Level 2: Agents (50 плагинов)
-│   │   ├── dotnet/               # .NET specialists (8)
-│   │   ├── fullstack/            # Fullstack specialists (1)
+│   ├── specialists/               # Level 2: Agents (51 плагин)
+│   │   ├── dotnet/               # .NET specialists (6)
+│   │   ├── fullstack/            # Fullstack specialists (2)
+│   │   ├── delivery/             # Delivery specialists (4): debugger, security-reviewer
+│   │   ├── review/              # Review specialists (3): self-reviewer, mr-reviewer, mr-check-reviewer
 │   │   ├── infrastructure/       # Infrastructure specialists (14)
-│   │   ├── architecture/         # Architecture specialists (5)
+│   │   ├── architecture/         # Architecture specialists (6)
 │   │   ├── product/              # Product & SA specialists (8)
 │   │   ├── qa/                   # QA specialists (3)
 │   │   └── ml/                   # ML specialists (5)
@@ -116,7 +118,7 @@ claude-code-marketplace/
 └── LICENSE
 ```
 
-## Level 1: Skills (76 плагинов)
+## Level 1: Skills (77 плагинов)
 
 Skills - базы знаний, активируются автоматически по ключевым словам в контексте.
 
@@ -403,24 +405,44 @@ CLI-обёртка над Samsung netcoredbg для managed runtime-диагно
 
 **Зависимости:** `netcoredbg` в PATH (`./install-bundle/install-cli-tools.sh netcoredbg`), CAP_SYS_PTRACE для attach к чужому процессу
 
-## Level 2: Specialists (50 плагинов)
+## Level 2: Specialists (51 плагин)
 
 Specialists - агенты с узкой специализацией. Один агент = один плагин.
 
-### Fullstack Specialists (1)
+### Fullstack Specialists (2)
 
 | Плагин | Агент | Описание |
 |--------|-------|----------|
 | dex-ts-fullstack-coder | ts-fullstack-assistant | TypeScript fullstack: Node.js/Bun + React |
+| dex-ts-tester | ts-test-writer | TDD-тестер под TS/JS: Vitest/Jest, идиоматичные моки и async-assertions |
 
-### .NET Specialists (8)
+### Delivery Specialists (4) — языко-агностичные, грузят skills по стеку
+
+| Плагин | Агент | Описание |
+|--------|-------|----------|
+| dex-feature-implementer | feature-implementer | Реализация фичи по ТЗ до локальных коммитов: декомпозиция, edit-план, пошаговая правка с верификацией |
+| dex-debugger | debugger | Языко-агностичный root-cause по коду; .NET/TS-skills грузит по стеку (Two-Pass) |
+| dex-security-reviewer | security-reviewer | Глубокий анализ безопасности: threat model → attack paths → цепочки эксплойтов |
+| dex-review-planner | review-planner | План правок по результатам ревью без редактирования кода: классификация замечаний, fix-план |
+
+> Общие агенты `delivery/` не дублируются под стек: глубину даёт загрузка
+> профильных skills `dex-skill-<стек>-*`, добавление стека их не меняет (см.
+> [docs/AGENT_SPECIALIZATION.md](docs/AGENT_SPECIALIZATION.md)).
+
+### Review Specialists (3) — языко-агностичные
+
+| Плагин | Агент | Описание |
+|--------|-------|----------|
+| dex-self-reviewer | self-reviewer | Pre-push саморевью своей ветки: 7 фокусов + реальный прогон build/test |
+| dex-mr-reviewer | mr-reviewer | Первичное ревью чужого MR: фокусы, фальсификация, inline-треды |
+| dex-mr-check-reviewer | mr-check-reviewer | Ре-ревью дельты MR с прошлого раунда |
+
+### .NET Specialists (6)
 
 | Плагин | Агент | Описание |
 |--------|-------|----------|
 | dex-dotnet-coder | coding-assistant | Написание кода, SOLID, паттерны |
-| dex-dotnet-debugger | bug-hunter | Статическая отладка, root cause analysis по коду через grep+skill scan |
 | dex-dotnet-runtime-diagnostician | runtime-diagnostician | Runtime-диагностика по живому процессу/дампу: hang, crash, leak, slowdown, post-mortem через netcoredbg, gdb/lldb, perf, bpftrace |
-| dex-dotnet-reviewer | code-reviewer | Reviewer-рецепт: domain priming, skill-scan, non-code audit, severity labels, /mr-collect + /mr-analyze |
 | dex-dotnet-quality-auditor | quality-auditor | Аудит гигиены качества репо: analyzers, warning-профиль, NuGet audit, NSDepCop, CI-gates — отчёт «есть / нет / настроить» (/dotnet-quality-audit) |
 | dex-dotnet-tester | test-writer | Unit тесты, xUnit, Moq |
 | dex-ef-specialist | ef-specialist | EF Core: migrations, queries, DbContext |

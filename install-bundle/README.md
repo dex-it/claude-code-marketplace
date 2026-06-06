@@ -189,7 +189,7 @@ This makes it safe to re-run the script if it was interrupted or if you want to 
 
   [1/12] Installing: dex-dotnet-coder
            Installed successfully
-  [2/12] Installing: dex-dotnet-debugger
+  [2/12] Installing: dex-dotnet-tester
            Installed successfully
   ...
 
@@ -214,7 +214,7 @@ This makes it safe to re-run the script if it was interrupted or if you want to 
 
   [1/12] Uninstalling: dex-dotnet-coder
            Removed successfully
-  [2/12] Uninstalling: dex-dotnet-debugger
+  [2/12] Uninstalling: dex-dotnet-tester
            Removed successfully
   ...
 

@@ -29,11 +29,12 @@ Bundle for .NET developers: coding, debugging, testing, code review, EF Core, pe
 
 ### Specialists (6)
 - `dex-dotnet-coder` - .NET coding assistant
-- `dex-dotnet-debugger` - Bug hunting and debugging
-- `dex-dotnet-reviewer` - Code review specialist
 - `dex-dotnet-tester` - Unit testing with xUnit/Moq
 - `dex-ef-specialist` - Entity Framework Core specialist
 - `dex-dotnet-performance` - Performance analysis
+- `dex-debugger` - языко-агностичный root-cause (грузит .NET-skills по стеку)
+- `dex-self-reviewer` - саморевью своей ветки перед push
+- `dex-mr-reviewer` - ревью чужого MR
 
 ### Skills (6)
 - `dex-skill-dotnet-patterns` - SOLID, DI, async/await patterns
