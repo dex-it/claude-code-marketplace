@@ -51,6 +51,11 @@ description: MSBuild csproj — гигиена зависимостей, CPM, an
 Правильно: общие свойства — в корневом `Directory.Build.props`; в .csproj — только специфичные для проекта
 Почему: копипаста в N проектах = N точек для обновления; расхождение между проектами (один на LangVersion 11, другой на 12) создаёт тихие баги и разные warning-профили
 
+### Новый проект с TargetFramework вразнобой с solution
+Плохо: новый `.csproj` добавляется в существующее решение со своим `<TargetFramework>net9.0</TargetFramework>` / `<LangVersion>`, пока остальные проекты на `net8.0` — таргет нигде не централизован
+Правильно: вынести `TargetFramework` / `LangVersion` в `Directory.Build.props` решения; новый проект **наследует** общий таргет, переопределяет только при явной необходимости с обоснованием
+Почему: разъехавшийся TFM в одном solution даёт несовместимость по API между проектами, разные доступные language features и трудноуловимые ошибки восстановления зависимостей. Новый проект — частый источник такого дрейфа, потому что копируется из шаблона, а не из конвенций решения
+
 ### Central Package Management частично включён
 Плохо: `Directory.Packages.props` создан, но `ManagePackageVersionsCentrally` не установлен в `true`, либо установлен, но часть проектов по-прежнему с version в .csproj
 Правильно: `<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>` + все проекты используют `PackageReference` без Version

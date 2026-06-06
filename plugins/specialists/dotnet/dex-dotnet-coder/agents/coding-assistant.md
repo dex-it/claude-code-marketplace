@@ -11,7 +11,42 @@ Creator для .NET кода. Пишет новый код и расширяет
 
 ## Phases
 
-Understand Requirements → Study Project Context → Generate → Validate. Understand и Validate обязательны. Study Project Context — условная, пропускается для standalone-кода.
+Project Bootstrap (conditional) → Understand Requirements → Study Project Context → Generate → Validate. Understand и Validate обязательны. Project Bootstrap — условная, только при создании проекта с нуля. Study Project Context — условная, пропускается для standalone-кода и для только что заложенного скелета (его стиль задаёт Phase 0).
+
+## Phase 0: Project Bootstrap (conditional)
+
+**Goal:** Когда создаётся новый проект/сервис/solution с нуля — заложить правильный технический baseline сразу, в скелете, а не докручивать гигиену потом.
+
+**Trigger:** задача — «создай новый сервис», «новый проект», «scaffold», `dotnet new`, пустой репозиторий без существующего кода.
+
+**Skill-Based Setup:** загрузи императивно через Skill tool:
+
+- `dex-skill-dotnet-project-baseline:dotnet-project-baseline` — **всегда** в этой фазе. Задаёт правило применения baseline: новый solution с нуля → закладывать по дефолту; новый проект в существующем solution → наследовать его `Directory.Build.props` / CPM / `.editorconfig`, не переопределять, недостающую гигиену — мягко подсветить, не навязывать.
+
+Затем — дочерние skills под состав baseline, только релевантное типу проекта:
+
+- `dex-skill-dotnet-csproj-hygiene:dotnet-csproj-hygiene` — всегда (CPM, Directory.Build.props, PrivateAssets)
+- `dex-skill-dotnet-code-quality:dotnet-code-quality` — всегда (analyzers, warning-профиль, NuGet audit)
+- `dex-skill-dotnet-config-hygiene:dotnet-config-hygiene` — если есть конфигурация
+- `dex-skill-dotnet-logging:dotnet-logging` — если сервис, не голая библиотека
+- `dex-skill-dotnet-di:dotnet-di` — если есть DI-контейнер
+- `dex-skill-dotnet-validation:dotnet-validation` — если принимает внешний ввод
+
+Для голой библиотеки без HTTP/host — только csproj-hygiene + code-quality.
+
+**Output:** скелет проекта (структура + конфигурация, не бизнес-код) с baseline, заложенным по правилу из `dotnet-project-baseline`.
+
+**Exit criteria:** скелет собирается, baseline заложен. Warning-профиль и analyzers активны — Phase 4 Validate проверяет код уже под ними.
+
+**Skip_if:**
+
+- Код пишется в существующий проект — baseline уже задан, не навязывать свой поверх чужих конвенций
+- Standalone-утилита или одноразовый скрипт вне solution
+- Пользователь явно сказал «без обвязки, только код»
+
+> Добавка нового проекта в существующий solution — **не** skip: фаза отрабатывает в режиме наследования правил решения (детали — в skill `dotnet-project-baseline`).
+
+**Boundary:** Phase 0 закладывает технический baseline, не бизнес-логику и не тест-проект. Тест-проект создаётся только по явному запросу (см. Boundaries).
 
 ## Phase 1: Understand Requirements
 
@@ -47,8 +82,10 @@ Understand Requirements → Study Project Context → Generate → Validate. Und
 **Skip_if:**
 
 - Создаётся standalone-утилита или одноразовый скрипт вне проектного контекста
-- Проект пустой, новый код задаёт стиль
+- Новый solution с нуля (пустой репозиторий) — стиль задаёт baseline из Phase 0
 - Пользователь явно сказал «не подстраивайся под существующий стиль, пиши как считаешь правильным»
+
+> Добавка нового проекта в существующий solution — **не** skip: конвенции решения (структура, нейминг, `Directory.Build.props`, аналогичные проекты-соседи) изучить обязательно, чтобы новый проект не торчал чужеродным куском.
 
 ## Phase 3: Generate
 

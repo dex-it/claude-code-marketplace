@@ -80,12 +80,12 @@ Two-Pass Architecture применяется **только к Analyst и Diagno
 ```
 claude-code-marketplace/
 ├── .claude-plugin/
-│   └── marketplace.json           # Каталог всех 155 плагинов
+│   └── marketplace.json           # Каталог всех 156 плагинов
 ├── mcp/                           # Централизованный каталог MCP серверов
 │   ├── README.md
 │   └── mcp-template.json
 ├── plugins/
-│   ├── skills/                    # Level 1: Knowledge bases (75 плагинов)
+│   ├── skills/                    # Level 1: Knowledge bases (76 плагинов)
 │   │   ├── dex-skill-agile/
 │   │   ├── dex-skill-dotnet-di/
 │   │   ├── dex-skill-docker/
@@ -114,7 +114,7 @@ claude-code-marketplace/
 └── LICENSE
 ```
 
-## Level 1: Skills (75 плагинов)
+## Level 1: Skills (76 плагинов)
 
 Skills - базы знаний, активируются автоматически по ключевым словам в контексте.
 
@@ -135,6 +135,7 @@ Skills - базы знаний, активируются автоматичес�
 | dex-skill-dotnet-logging | .NET structured logging: Serilog, ILogger, Seq |
 | dex-skill-dotnet-csproj-hygiene | .csproj гигиена: CPM, PrivateAssets для analyzers, ProjectReference, Directory.Build.props |
 | dex-skill-dotnet-code-quality | Гигиена качества: Roslyn analyzers, AnalysisMode, warning-профиль (TreatWarningsAsErrors), NuGet security audit, NSDepCop |
+| dex-skill-dotnet-project-baseline | Baseline нового .NET проекта: наследование правил solution vs закладка с нуля, мягкое предупреждение о недостающей гигиене |
 | dex-skill-dotnet-resilience | Resilience для HTTP: Polly, retry с idempotency/jitter, circuit breaker, timeout |
 
 ### Frontend & TypeScript Skills

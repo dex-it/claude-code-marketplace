@@ -93,6 +93,25 @@ const PROJECT_DESCRIPTION_MAX = 750; // project hard cap — error
 const WARN_DESCRIPTION_LENGTH = 500; // project soft guideline — warning
 const MIN_TRIGGER_KEYWORDS = 10;
 
+/**
+ * Process / orchestration skills encode a workflow rule (e.g. "new project →
+ * inherit solution rules"), not a catalogue of API traps, so the trap-count
+ * heuristic doesn't fit and `too-few-traps` is softened to a warning for them.
+ * Keyword-count stays strict — a process skill still needs reliable activation.
+ *
+ * Registration is an explicit allowlist by skill name, not a self-declared
+ * marker: adding a process skill requires a deliberate edit here plus review,
+ * so the relaxation can't be abused to slip an under-built skill through.
+ * See docs/SKILL_FRAMEWORK.md "Process skill".
+ */
+const PROCESS_SKILLS = new Set([
+  'dotnet-project-baseline',
+]);
+
+function isProcessSkill(parsed) {
+  return PROCESS_SKILLS.has(parsed.data && parsed.data.name);
+}
+
 function validateFrontmatter(parsed, findings) {
   const fm = parsed.data || {};
 
@@ -249,12 +268,12 @@ function trapBodyText(trap) {
   return trap.nodes.map(nodeText).join('\n');
 }
 
-function validateTraps(markdownBody, findings) {
+function validateTraps(markdownBody, findings, isProcess = false) {
   const traps = extractTraps(markdownBody);
 
   if (traps.length < 5) {
     findings.push({
-      level: ERROR,
+      level: isProcess ? WARNING : ERROR,
       rule: 'too-few-traps',
       message: `Skill has only ${traps.length} H3 sections — framework recommends 10-15 traps per skill`,
     });
@@ -357,9 +376,11 @@ function validateFile(filepath) {
     };
   }
 
+  const isProcess = isProcessSkill(parsed);
+
   validateFrontmatter(parsed, findings);
   validateSize(raw, findings);
-  validateTraps(parsed.content, findings);
+  validateTraps(parsed.content, findings, isProcess);
   validateCodeFences(parsed.content, findings);
   validateNoDocumentationTitles(parsed.content, findings);
 
