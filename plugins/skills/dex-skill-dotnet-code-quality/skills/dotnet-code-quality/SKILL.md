@@ -28,7 +28,7 @@ description: Гигиена .NET проекта — анализаторы и к
 
 ### Варнинги копятся и игнорируются
 Плохо: билд зелёный с сотней warning'ов, новые тонут в шуме
-Правильно: `<TreatWarningsAsErrors>true</TreatWarningsAsErrors>` (компилятор) + `<CodeAnalysisTreatWarningsAsErrors>true</CodeAnalysisTreatWarningsAsErrors>` (CA-правила). Если разом нельзя — зафиксировать baseline и фейлить CI на новых
+Правильно: `<TreatWarningsAsErrors>true</TreatWarningsAsErrors>` — он эскалирует в ошибки и компиляторные, и analyzer/CA-варнинги (CAxxxx). `<CodeAnalysisTreatWarningsAsErrors>false</CodeAnalysisTreatWarningsAsErrors>` нужен лишь чтобы вывести CA-варнинги из-под ошибок при включённом `TreatWarningsAsErrors`. Если разом нельзя — зафиксировать baseline и фейлить CI на новых
 Почему: предупреждение, которое не фейлит билд, не чинится никогда. Шум скрывает реальные баги (CA2007, CA1816, nullable warnings)
 
 ### Глушение целыми категориями через NoWarn
@@ -92,7 +92,7 @@ description: Гигиена .NET проекта — анализаторы и к
 
 - `EnableNETAnalyzers` + `AnalysisMode` — в `Directory.Build.props`, не россыпью по .csproj
 - IDE-правила нужны в CI → `EnforceCodeStyleInBuild=true`
-- Варнинги фейлят билд (`TreatWarningsAsErrors` + `CodeAnalysisTreatWarningsAsErrors`) или хотя бы новые в CI
+- Варнинги фейлят билд (`TreatWarningsAsErrors=true` охватывает и компилятор, и CA) или хотя бы новые в CI
 - Подавление варнинга — точечное, с `Justification` / комментарием, не глобальный `NoWarn` категориями
 - `NuGetAuditMode=all` (транзитивные тоже); NU1901-1904 не заглушены
 - CI-gate: `dotnet list package --vulnerable --include-transitive` + `--deprecated`
