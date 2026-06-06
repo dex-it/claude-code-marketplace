@@ -1,27 +1,22 @@
-﻿#!/bin/bash
+#!/bin/bash
 # =============================================================================
 # Discord Cancel - Cancels queued Discord notifications
 # Part of dex-discord-notifier plugin
 #
-# Called on UserPromptSubmit to cancel pending notifications
+# Called on PreToolUse/UserPromptSubmit to cancel pending notifications
+# while the user is still active.
 # =============================================================================
 
 set +e
 
-QUEUE_DIR="/tmp/discord-notify-queue"
-TIMER_PID_FILE="/tmp/discord-notify-timer.pid"
+INPUT=$(cat)
+SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty' 2>/dev/null)
 
-# Kill the timer process if running
-if [ -f "$TIMER_PID_FILE" ]; then
-    TIMER_PID=$(cat "$TIMER_PID_FILE" 2>/dev/null)
-    if [ -n "$TIMER_PID" ] && kill -0 "$TIMER_PID" 2>/dev/null; then
-        kill "$TIMER_PID" 2>/dev/null
-        wait "$TIMER_PID" 2>/dev/null
-    fi
-    rm -f "$TIMER_PID_FILE"
-fi
+[ -z "$SESSION_ID" ] && exit 0
 
-# Clear the queue
-rm -rf "$QUEUE_DIR"
+NOTIFY_DIR="/tmp/claude-discord-notifier"
+[ -d "$NOTIFY_DIR" ] || exit 0
+
+rm -f "${NOTIFY_DIR}/notify_${SESSION_ID}_"*.json 2>/dev/null
 
 exit 0
