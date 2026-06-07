@@ -87,7 +87,7 @@ claude-code-marketplace/
 │   ├── README.md
 │   └── mcp-template.json
 ├── plugins/
-│   ├── skills/                    # Level 1: Knowledge bases (77 плагинов)
+│   ├── skills/                    # Level 1: Knowledge bases (78 плагинов)
 │   │   ├── dex-skill-agile/
 │   │   ├── dex-skill-dotnet-di/
 │   │   ├── dex-skill-docker/
@@ -148,6 +148,7 @@ Skills - базы знаний, активируются автоматичес�
 | dex-skill-react | React: hooks, state, Next.js, Remix, SSR, TanStack |
 | dex-skill-ts-patterns | TypeScript: type guard, discriminated union, strict mode |
 | dex-skill-ts-nodejs-api | Node.js API: Express/Fastify/Hono/NestJS, middleware, Zod |
+| dex-skill-ts-vitest-jest | TS/JS unit-тесты: Vitest/Jest, моки, async-assertions, изоляция |
 
 ### Security Skills
 | Плагин | Описание |
@@ -158,6 +159,7 @@ Skills - базы знаний, активируются автоматичес�
 | Плагин | Описание |
 |--------|----------|
 | dex-skill-git-workflow | Git: gitflow, trunk-based, conventional commits, code review |
+| dex-skill-stack-registry | Process-skill by-stack loading: реестр стек→манифест→префикс, правило отбора «стек × тема», fallback. Общие агенты грузят профильные skills по нему |
 
 ### Infrastructure Skills
 | Плагин | Описание |
