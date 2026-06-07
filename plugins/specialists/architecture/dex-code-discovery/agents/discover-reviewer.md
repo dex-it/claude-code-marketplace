@@ -68,22 +68,24 @@ Phase 1 и Phase 2 — это два прохода (Two-Pass): сначала C
 
 **Mandatory:** yes — skills ловят ловушки, невидимые общими знаниями.
 
-Загружай skills императивно через Skill tool — **только релевантные назначенному топику и стеку**. Карта «топик → skills» (грузить лишь те, чей стек присутствует в проекте):
+Загружай skills императивно через Skill tool — **только релевантные назначенному топику и стеку**. Источников два, по двум осям:
+
+**Ось темы (язык-нейтральные skills, по топику).** Карта «топик → skills» — грузить по релевантности топика, независимо от стека:
 
 - **Архитектура и слои** — `dex-skill-clean-architecture:clean-architecture`, `dex-skill-ddd:ddd`, `dex-skill-solid:solid`; если микросервисы — `dex-skill-microservices:microservices`
-- **Надёжность и устойчивость** — если .NET — `dex-skill-dotnet-async-patterns:dotnet-async-patterns`, `dex-skill-dotnet-resilience:dotnet-resilience`; если распределённая система — `dex-skill-distributed-resilience:distributed-resilience`
+- **Надёжность и устойчивость** — если распределённая система — `dex-skill-distributed-resilience:distributed-resilience`
 - **Безопасность** — `dex-skill-owasp-security:owasp-security`; если есть NFR/multi-tenancy — `dex-skill-nfr:nfr`
-- **Данные и доступ** — если EF/реляционка — `dex-skill-dotnet-ef-core:dotnet-ef-core`, `dex-skill-dotnet-linq-optimization:dotnet-linq-optimization`; если Mongo — `dex-skill-mongodb:mongodb`; если Redis — `dex-skill-redis:redis`; если Elasticsearch — `dex-skill-elasticsearch:elasticsearch`
+- **Данные и доступ** — если Mongo — `dex-skill-mongodb:mongodb`; если Redis — `dex-skill-redis:redis`; если Elasticsearch — `dex-skill-elasticsearch:elasticsearch`
 - **Интеграции и контракты** — `dex-skill-api-specification:api-specification`; если OpenAPI/Swagger — `dex-skill-api-documentation:api-documentation`; если RabbitMQ — `dex-skill-rabbitmq:rabbitmq`; если Kafka — `dex-skill-kafka:kafka`
-- **Конфигурация и зависимости** — если .NET — `dex-skill-dotnet-csproj-hygiene:dotnet-csproj-hygiene`, `dex-skill-dotnet-config-hygiene:dotnet-config-hygiene`, `dex-skill-dotnet-code-quality:dotnet-code-quality` (NuGet security audit, NSDepCop, контроль зависимостей); если Docker — `dex-skill-docker:docker`; если Kubernetes — `dex-skill-kubernetes:kubernetes`
-- **Наблюдаемость** — `dex-skill-observability:observability`; если .NET-логирование — `dex-skill-dotnet-logging:dotnet-logging`
-- **Состояние и жизненный цикл** — если React — `dex-skill-react:react`; если .NET-конкурентность/ресурсы — `dex-skill-dotnet-async-patterns:dotnet-async-patterns`, `dex-skill-dotnet-resources:dotnet-resources`
-- **Производительность** — если LINQ/коллекции — `dex-skill-dotnet-linq-optimization:dotnet-linq-optimization`; если про масштабирование — `dex-skill-scalability:scalability`, `dex-skill-capacity-planning:capacity-planning`; если React — `dex-skill-react:react`
-- **Качество кода и тестируемость** — `dex-skill-testability:testability`, `dex-skill-solid:solid`, `dex-skill-codebase-conventions:codebase-conventions`; если .NET — `dex-skill-dotnet-code-quality:dotnet-code-quality` (analyzers вкл/настроены, warning-профиль, coverage/format gate); если .NET-тесты — `dex-skill-dotnet-testing-patterns:dotnet-testing-patterns`; если про дизайн тестов — `dex-skill-test-design:test-design`
+- **Конфигурация и зависимости** — если Docker — `dex-skill-docker:docker`; если Kubernetes — `dex-skill-kubernetes:kubernetes`
+- **Наблюдаемость** — `dex-skill-observability:observability`
+- **Производительность** — если про масштабирование — `dex-skill-scalability:scalability`, `dex-skill-capacity-planning:capacity-planning`
+- **Качество кода и тестируемость** — `dex-skill-testability:testability`, `dex-skill-solid:solid`, `dex-skill-codebase-conventions:codebase-conventions`; если про дизайн тестов — `dex-skill-test-design:test-design`
 - **Ключевая бизнес-логика** — `dex-skill-ddd:ddd`, `dex-skill-clean-architecture:clean-architecture`
-- **UX-сквозное** — если React — `dex-skill-react:react`; если Node — `dex-skill-nodejs-api:nodejs-api`
 
-**Если по топику нет подходящего skill** (например Mobile — Flutter/Android, или топик не покрыт каталогом) — пропустить загрузку и работать **знаниями Claude**, пометив в выводе `skills: none (Claude knowledge)`. Это не ошибка — это нормальная graceful degradation.
+**Ось стека (профильные skills, по реестру — без зашитого списка).** Сначала загрузи `dex-skill-stack-registry:stack-registry` (реестр стек→префикс и правило «стек × тема»). Определи стек проекта по манифестам, возьми из реестра префикс `dex-skill-<стек>-*`, отфильтруй по нему видимый список available-skills и сузь по назначенному топику. Грузи подмножество профильных skills под топик (например для .NET-проекта: надёжность → `dotnet-async-patterns`/`dotnet-resilience`/`dotnet-resources`; данные → `dotnet-ef-core`/`dotnet-linq-optimization`; конфигурация → `dotnet-csproj-hygiene`/`dotnet-config-hygiene`/`dotnet-code-quality`; логирование → `dotnet-logging`; тесты → `dotnet-testing-patterns`; для фронта — `dex-skill-react:react`, для Node — `dex-skill-ts-nodejs-api:ts-nodejs-api`). Новый стек проекта = новые `dex-skill-<стек>-*` + строка реестра; этот агент при этом не правится.
+
+**Если по топику и стеку нет подходящего skill** (например Mobile — Flutter/Android, или фильтр по префиксу стека пуст) — пропустить загрузку и работать **знаниями Claude**, пометив в выводе `skills: none (Claude knowledge)`. Это не ошибка — это нормальная graceful degradation.
 
 **Exit criteria:** список вызванных skills записан; дедуплицированные новые находки добавлены к выводу.
 

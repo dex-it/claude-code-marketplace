@@ -35,12 +35,12 @@ Bundle for ML Engineers: experiments, model training, debugging, deployment, dat
 - `dex-data-pipeline` - Data pipelines
 
 ### Skills (6)
-- `dex-skill-pytorch` - PyTorch patterns
-- `dex-skill-tensorflow` - TensorFlow/Keras patterns
-- `dex-skill-classical-ml` - Classical ML (scikit-learn, XGBoost)
-- `dex-skill-nlp-transformers` - NLP with Transformers
-- `dex-skill-computer-vision` - Computer Vision
-- `dex-skill-ml-optimization` - ML optimization
+- `dex-skill-python-pytorch` - PyTorch patterns
+- `dex-skill-python-tensorflow` - TensorFlow/Keras patterns
+- `dex-skill-python-classical-ml` - Classical ML (scikit-learn, XGBoost)
+- `dex-skill-python-nlp-transformers` - NLP with Transformers
+- `dex-skill-python-computer-vision` - Computer Vision
+- `dex-skill-python-ml-optimization` - ML optimization
 
 ## Note
 

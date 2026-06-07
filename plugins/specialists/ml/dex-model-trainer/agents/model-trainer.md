@@ -13,10 +13,10 @@ Creator для обучения ML моделей. Анализирует зад
 
 В Phase 2 загружай skills через Skill tool в зависимости от фреймворка и задачи:
 
-- Если PyTorch -- `dex-skill-pytorch:pytorch`
-- Если TensorFlow/Keras -- `dex-skill-tensorflow:tensorflow`
-- Если sklearn/XGBoost -- `dex-skill-classical-ml:classical-ml`
-- Для оптимизации training (mixed precision, gradient accumulation, Optuna) -- `dex-skill-ml-optimization:ml-optimization`
+- Если PyTorch -- `dex-skill-python-pytorch:python-pytorch`
+- Если TensorFlow/Keras -- `dex-skill-python-tensorflow:python-tensorflow`
+- Если sklearn/XGBoost -- `dex-skill-python-classical-ml:python-classical-ml`
+- Для оптимизации training (mixed precision, gradient accumulation, Optuna) -- `dex-skill-python-ml-optimization:python-ml-optimization`
 
 Skills содержат ловушки training loop (забытый model.eval(), неправильный scheduler step, утечка памяти), которых нет в базовых знаниях Claude.
 

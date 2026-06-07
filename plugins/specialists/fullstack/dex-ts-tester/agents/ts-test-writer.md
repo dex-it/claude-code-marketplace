@@ -54,8 +54,8 @@ Understand Requirements -> [Project Context?] -> Generate -> Validate. Understan
 
 В этой фазе загружай skills через Skill tool (только релевантные задаче, не оба подряд):
 
-- Для ловушек моков, fake timers, async-assertions, изоляции -- `dex-skill-vitest-jest:vitest-jest`
-- Для типизации и async-ловушек тестируемого кода -- `dex-skill-typescript-patterns:typescript-patterns`
+- Для ловушек моков, fake timers, async-assertions, изоляции -- `dex-skill-ts-vitest-jest:ts-vitest-jest`
+- Для типизации и async-ловушек тестируемого кода -- `dex-skill-ts-patterns:ts-patterns`
 
 **Exit criteria:** Файлы тестов сохранены, покрывают все сценарии из Phase 1.
 

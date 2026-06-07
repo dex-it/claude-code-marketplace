@@ -66,9 +66,10 @@
   «Microservices → MassTransit + RabbitMQ», EF Core Fluent API, Polly через
   `IHttpClientFactory`. Стек — в **теле** каждого предложения архитектуры.
   → специализация оправдана.
-- общий `debugger` и .NET `bug-hunter` имеют **идентичные** фазы/scan/severity/
-  output; .NET-агент лишь оборачивает тот же skill-блок в `если .NET`. Выход на
-  .NET-баге идентичен. → дубль, нужен один общий.
+- общий `debugger` и существовавший .NET `bug-hunter` (`dex-dotnet-debugger`) имели
+  **идентичные** фазы/scan/severity/output; .NET-агент лишь оборачивал тот же
+  skill-блок в `если .NET`. Выход на .NET-баге был идентичен. → дубль, оставлен один
+  общий, а `bug-hunter` удалён (см. DEV_PROCESS_COVERAGE.md).
 
 ## Граница применимости: «оправдан» ≠ «создавать сейчас»
 

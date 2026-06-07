@@ -106,6 +106,7 @@ const MIN_TRIGGER_KEYWORDS = 10;
  */
 const PROCESS_SKILLS = new Set([
   'dotnet-project-baseline',
+  'stack-registry',
 ]);
 
 function isProcessSkill(parsed) {

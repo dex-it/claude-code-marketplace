@@ -89,8 +89,8 @@ Skills не преднагружены: в Phase 3 загружаются имп
 - Если доменный нейминг и агрегаты - `dex-skill-ddd:ddd`
 - Если распределённое взаимодействие - `dex-skill-microservices:microservices`, `dex-skill-distributed-resilience:distributed-resilience`
 - Если затронуты NFR (лимиты, SLA, доступ) - `dex-skill-nfr:nfr`
-- Если .NET - `dex-skill-dotnet-async-patterns:dotnet-async-patterns`, `dex-skill-dotnet-di:dotnet-di`, `dex-skill-dotnet-resources:dotnet-resources`; при EF/LINQ `dex-skill-dotnet-ef-core:dotnet-ef-core` и `dex-skill-dotnet-linq-optimization:dotnet-linq-optimization`; при API `dex-skill-dotnet-api-development:dotnet-api-development`; при логировании `dex-skill-dotnet-logging:dotnet-logging`; при HttpClient/Polly `dex-skill-dotnet-resilience:dotnet-resilience`
-- Если TypeScript/JS - `dex-skill-typescript-patterns:typescript-patterns`; при React `dex-skill-react:react`; при Express/Fastify/Nest `dex-skill-nodejs-api:nodejs-api`
+
+Профильные по стеку skills грузи **по реестру, без зашитого списка**: сначала загрузи `dex-skill-stack-registry:stack-registry` (реестр стек→префикс и правило «стек × тема»), определи стек изменённых файлов по их манифестам, возьми из реестра префикс `dex-skill-<стек>-*`, отфильтруй по нему видимый список available-skills и сузь по фокусам ревью (конкуренция, данные/ORM, API, логирование, ресурсы). Грузи подмножество, не весь стек. Новый стек проекта = новые `dex-skill-<стек>-*` + строка реестра; этот агент при этом не правится.
 
 Грузи только релевантное diff'у; безусловная загрузка всех skills запрещена. При крупном diff'е запусти фокусы параллельными суб-агентами через Agent tool, передав каждому задачу, diff и список изменённых файлов.
 
@@ -106,7 +106,7 @@ Skills не преднагружены: в Phase 3 загружаются имп
 
 **Exit criteria:** каждый изменённый non-code файл из diff пройден; находки помечены `non-code`.
 
-При изменённых .NET-манифестах загрузи `dex-skill-dotnet-csproj-hygiene:dotnet-csproj-hygiene` и `dex-skill-dotnet-config-hygiene:dotnet-config-hygiene`.
+При изменённых манифестах зависимостей/конфигах грузи профильные skills гигиены по реестру стеков (см. Phase 3): для стека из префикса `dex-skill-<стек>-*` отбери skills уровня манифестов/конфигурации (например, для .NET — `dex-skill-dotnet-csproj-hygiene:dotnet-csproj-hygiene`, `dex-skill-dotnet-config-hygiene:dotnet-config-hygiene`).
 
 ## Phase 5: Content-Level Pass
 
