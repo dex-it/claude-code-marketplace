@@ -1,6 +1,6 @@
 ---
 description: Подтянуть базовую ветку в фича-ветку и разрешить конфликты merge/rebase без тихой потери стороны, с верификацией обеих сторон до финализации
-allowed-tools: Read, Edit, Bash, Grep, Glob, Skill, Agent
+allowed-tools: Read, Edit, Bash, Grep, Glob, Skill
 argument-hint: "[base-branch] [feature-branch] [merge|rebase]"
 ---
 
