@@ -122,7 +122,7 @@ claude-code-marketplace/
 
 Skills - базы знаний, активируются автоматически по ключевым словам в контексте.
 
-> **⚙️ process** в строке — это **process-skill**: тонкое skill-правило оркестрации (не каталог граблей), смягчённое в валидаторе по числу ловушек/keywords. Регистрируется только явной правкой allowlist `PROCESS_SKILLS` в `tools/validate-skill.js` + маркер `<!-- skill-type: process -->` в теле. Сейчас их два: `dotnet-project-baseline`, `stack-registry`.
+> **⚙️ process** в строке — это **process-skill**: тонкое skill-правило оркестрации (не каталог граблей). Trap-эвристики валидатора (число ловушек + триада Плохо/Правильно/Почему) к нему не применяются; вместо них действует `process-empty` — нужна таблица-реестр или ≥2 H2-раздела. Keyword-минимум, размер и лимиты description остаются строгими. Регистрируется только явной правкой allowlist `PROCESS_SKILLS` в `tools/validate-skill.js` + маркер `<!-- skill-type: process -->` в теле. Сейчас их два: `dotnet-project-baseline`, `stack-registry`. Тип skill (trap/process) и калибровка валидатора — [docs/SKILL_FRAMEWORK.md](docs/SKILL_FRAMEWORK.md) (раздел «Два типа skill»).
 
 ### .NET Skills
 | Плагин | Описание |

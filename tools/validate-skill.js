@@ -22,6 +22,7 @@ import { fileURLToPath } from 'node:url';
 import matter from 'gray-matter';
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
+import remarkGfm from 'remark-gfm';
 import { visit } from 'unist-util-visit';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -95,14 +96,17 @@ const MIN_TRIGGER_KEYWORDS = 10;
 
 /**
  * Process / orchestration skills encode a workflow rule (e.g. "new project →
- * inherit solution rules"), not a catalogue of API traps, so the trap-count
- * heuristic doesn't fit and `too-few-traps` is softened to a warning for them.
- * Keyword-count stays strict — a process skill still needs reliable activation.
+ * inherit solution rules") or a registry, not a catalogue of API traps. The trap
+ * heuristics (count + Плохо/Правильно/Почему triad) don't apply, so validateTraps
+ * skips them entirely; instead validateProcessStructure enforces a content floor
+ * (a table or ≥2 H2 sections) so the exemption can't shelter a stub. Keyword-count,
+ * size and description limits stay strict — activation must still be reliable.
  *
  * Registration is an explicit allowlist by skill name, not a self-declared
  * marker: adding a process skill requires a deliberate edit here plus review,
- * so the relaxation can't be abused to slip an under-built skill through.
- * See docs/SKILL_FRAMEWORK.md "Process skill".
+ * so the exemption can't be abused to slip an under-built skill through. The
+ * `<!-- skill-type: process -->` marker in the body is for human readers only —
+ * this allowlist is the source of truth. See docs/SKILL_FRAMEWORK.md "Типы skill".
  */
 const PROCESS_SKILLS = new Set([
   'dotnet-project-baseline',
@@ -190,7 +194,7 @@ function validateFrontmatter(parsed, findings) {
       findings.push({
         level: ERROR,
         rule: 'description-few-keywords',
-        message: `Description has only ${keywords.length} trigger keyword(s) after "Активируется при" — framework recommends 15-25 for reliable semantic activation`,
+        message: `Description has only ${keywords.length} trigger keyword(s) after "Активируется при" — framework requires at least ${MIN_TRIGGER_KEYWORDS} for reliable semantic activation`,
       });
     }
   }
@@ -216,6 +220,17 @@ function validateSize(rawContent, findings) {
   }
 }
 
+// --- Markdown parsing ---------------------------------------------------
+
+/**
+ * Single source of the markdown parser so every check sees the same AST.
+ * remark-gfm is required for `table` nodes — without it GFM tables parse as
+ * plain paragraphs and validateProcessStructure's table branch goes dead.
+ */
+function parseMarkdown(markdownBody) {
+  return unified().use(remarkParse).use(remarkGfm).parse(markdownBody);
+}
+
 // --- Trap structure validation ------------------------------------------
 
 /**
@@ -223,7 +238,7 @@ function validateSize(rawContent, findings) {
  * the "Плохо / Правильно / Почему" triad.
  */
 function extractTraps(markdownBody) {
-  const tree = unified().use(remarkParse).parse(markdownBody);
+  const tree = parseMarkdown(markdownBody);
   const traps = [];
   let currentTrap = null;
 
@@ -270,11 +285,18 @@ function trapBodyText(trap) {
 }
 
 function validateTraps(markdownBody, findings, isProcess = false) {
+  // Process skills encode orchestration rules (registry, decision forks), not a
+  // catalogue of API traps. The trap heuristics (count + Плохо/Правильно/Почему
+  // triad) don't apply to them — structure is checked by validateProcessStructure
+  // instead. Triads remain *allowed* in a process skill (e.g. decision forks in
+  // dotnet-project-baseline), just not *required*.
+  if (isProcess) return;
+
   const traps = extractTraps(markdownBody);
 
   if (traps.length < 5) {
     findings.push({
-      level: isProcess ? WARNING : ERROR,
+      level: ERROR,
       rule: 'too-few-traps',
       message: `Skill has only ${traps.length} H3 sections — framework recommends 10-15 traps per skill`,
     });
@@ -302,12 +324,43 @@ function validateTraps(markdownBody, findings, isProcess = false) {
   }
 }
 
+// --- Process structure validation ---------------------------------------
+
+/**
+ * A process skill is exempt from trap heuristics, so it needs its own floor to
+ * stop an empty/under-built skill from slipping through on the exemption alone.
+ * It must carry actual orchestration content: a registry table OR at least two
+ * H2 rule/decision sections. Below that it's not a process skill — it's a stub.
+ */
+const MIN_PROCESS_H2_SECTIONS = 2;
+
+function validateProcessStructure(markdownBody, findings) {
+  const tree = parseMarkdown(markdownBody);
+
+  let h2Count = 0;
+  let hasTable = false;
+  visit(tree, 'heading', (node) => {
+    if (node.depth === 2) h2Count += 1;
+  });
+  visit(tree, 'table', () => {
+    hasTable = true;
+  });
+
+  if (!hasTable && h2Count < MIN_PROCESS_H2_SECTIONS) {
+    findings.push({
+      level: ERROR,
+      rule: 'process-empty',
+      message: `Process skill has no registry table and only ${h2Count} H2 section(s) — a process skill must encode orchestration content (a table or at least ${MIN_PROCESS_H2_SECTIONS} rule/decision sections), otherwise it's a stub exploiting the trap exemption`,
+    });
+  }
+}
+
 // --- Pointer-not-code validation ----------------------------------------
 
 const MAX_CODE_FENCE_LINES = 12;
 
 function validateCodeFences(markdownBody, findings) {
-  const tree = unified().use(remarkParse).parse(markdownBody);
+  const tree = parseMarkdown(markdownBody);
 
   visit(tree, 'code', (node) => {
     const lines = (node.value || '').split('\n').length;
@@ -336,7 +389,7 @@ const DOCUMENTATION_TITLE_PATTERNS = [
 ];
 
 function validateNoDocumentationTitles(markdownBody, findings) {
-  const tree = unified().use(remarkParse).parse(markdownBody);
+  const tree = parseMarkdown(markdownBody);
 
   visit(tree, 'heading', (node) => {
     if (node.depth < 2 || node.depth > 3) return;
@@ -382,6 +435,7 @@ function validateFile(filepath) {
   validateFrontmatter(parsed, findings);
   validateSize(raw, findings);
   validateTraps(parsed.content, findings, isProcess);
+  if (isProcess) validateProcessStructure(parsed.content, findings);
   validateCodeFences(parsed.content, findings);
   validateNoDocumentationTitles(parsed.content, findings);
 
