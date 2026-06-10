@@ -87,6 +87,8 @@ description: Git workflow, branching, commits, code review, merge requests. Ак
 
 ## Merge стратегии
 
+> Глубокое разрешение конфликтов merge/rebase (тихая потеря без маркеров, зеркальность ours/theirs в rebase, modify/delete как переезд, lock-файлы, evil merge): см. dex-skill-merge-conflict-resolution.
+
 ### Cherry-pick вместо merge
 Плохо: `git cherry-pick abc123` из feature-ветки в develop вместо merge
 Правильно: merge/rebase целой ветки через MR
