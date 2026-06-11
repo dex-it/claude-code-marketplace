@@ -41,6 +41,11 @@ description: Гигиена .NET проекта — анализаторы и к
 Правильно: узкий scope `disable ... restore` вокруг конкретной строки + комментарий-обоснование; для CA — атрибут `[SuppressMessage]` с непустым `Justification`
 Почему: широкий `disable` без `restore` гасит правило до конца файла и прячет последующие настоящие нарушения
 
+### DI-резолвируемые классы ложно помечаются анализатором как «никогда не инстанцируются»
+Плохо: `class OrdersQueryHandler : IRequestHandler<OrdersQuery, Result>` без аннотации — CA1812 / ReSharper «class never instantiated»
+Правильно: `[UsedImplicitly] class OrdersQueryHandler : IRequestHandler<OrdersQuery, Result>` (пакет `JetBrains.Annotations`)
+Почему: MediatR, FluentValidation, AutoMapper регистрируют хендлеры / валидаторы / профили через DI по рефлексии — явного `new` нет. `[UsedImplicitly]` — семантически верное точечное подавление без NoWarn или #pragma
+
 ## Аудит зависимостей (NuGet security)
 
 ### NuGetAuditMode по умолчанию не покрывает транзитивные
