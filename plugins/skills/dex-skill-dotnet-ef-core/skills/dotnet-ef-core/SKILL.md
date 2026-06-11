@@ -32,6 +32,11 @@ description: EF Core — ловушки запросов, миграций, conc
 Правильно: `.GroupBy(x => x.Category).Select(g => new { g.Key, Count = g.Count() }).ToDictionaryAsync(...)` — транслируется в SQL `GROUP BY`
 Почему: EF Core транслирует большинство группировок и агрегаций в SQL. Материализация до группировки тянет все строки и ломает план запроса. Агрегации (`Count`, `Sum`, `Any`) должны идти SQL-запросом, не коллекцией в памяти
 
+### Пользовательский метод в IQueryable выполняется на клиенте
+Плохо: `db.Items.Where(x => x.GetEffectivePeriod().Contains(now))` — EF не транслирует GetEffectivePeriod()
+Правильно: раскрыть вычисление в выражении: `.Where(x => x.StartDate <= now && x.EndDate >= now)`; для сложных случаев — `HasDbFunction`
+Почему: необнаруженная клиентская оценка загружает все строки в память; EF Core 3+ бросает исключение только при явно отключённом client-eval — иначе молча деградирует в производительность
+
 ### Репозиторий материализует вместо IQueryable
 Плохо: `Task<List<T>> FilterAsync(spec)` — метод возвращает `List`, дальнейшая композиция невозможна
 Правильно: `IQueryable<T> Query(spec)` для композиции на уровне сервиса / handler (или specialized read-методы типа `GetByIdAsync`, `GetPagedAsync` с проекцией внутри)

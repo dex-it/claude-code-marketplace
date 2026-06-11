@@ -82,3 +82,8 @@ description: ASP.NET Core Web API — ловушки контроллеров, D
 Плохо: `/internal/recalculate` виден всем потребителям API
 Правильно: `[ApiExplorerSettings(IgnoreApi = true)]`
 Почему: утечка внутренней архитектуры, злоумышленник видит internal endpoints
+
+### Enum-значения без XML-doc при семантически схожих вариантах
+Плохо: `enum StepResult { Success, Failed, Skipped }` без `/// <summary>` — разница между Failed и Skipped неочевидна из имени
+Правильно: `/// <summary>` на каждом значении: «Failed — ошибка обработки; Skipped — пропущено по бизнес-условию»
+Почему: Swagger генерирует описание enum из XML-doc; без них API-клиент угадывает семантику по имени и выбирает не ту ветку обработки
