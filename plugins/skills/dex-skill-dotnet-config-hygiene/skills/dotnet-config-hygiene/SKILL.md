@@ -29,6 +29,16 @@ description: .NET config hygiene — appsettings, IOptions, env-настройк
 Правильно: `IOptionsSnapshot<T>` для пересчёта на каждый scope (запрос), `IOptionsMonitor<T>` для singleton с подпиской на изменения; `IOptions<T>` — только для неизменяемой за время работы конфигурации
 Почему: `IOptions<T>` — singleton, биндится один раз при первом обращении. Reload-on-change в нём не виден; разработчик считает фичу нерабочей и правит её «вслепую»
 
+### Связанные поля Options без взаимной валидации молча нарушают функцию
+Плохо: два поля (`NegativeExpiration`, `Expiration`) задаются независимо — при нарушении `NegativeExpiration >= Expiration` зависимая ветка кода тихо не выполняется, исключения нет
+Правильно: проверить инвариант в `init`-сеттере: `ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(value, Expiration, nameof(NegativeExpiration))` — некорректная конфигурация падает при создании объекта
+Почему: `ValidateDataAnnotations().ValidateOnStart()` проверяет каждое поле независимо; кросс-полевой инвариант без явной проверки пропускает невалидное состояние — фича «включена», но ведёт себя иначе
+
+### Non-nullable string в Options без `required` — NRE при первом обращении
+Плохо: `public string CacheKey { get; init; }` — при `new Options()` без явного значения поле равно `null`, несмотря на non-nullable тип; `NullReferenceException` только в runtime
+Правильно: `public required string CacheKey { get; init; }` — компилятор запрещает конструирование без явного значения; `[Required]` + `ValidateOnStart()` — дополнительный рубеж при bind-е из appsettings
+Почему: nullable-аннотации — предупреждение компилятора, не гарантия; `new()` молча оставляет reference-тип `null`; без `required` баг отсутствует до первого обращения под нагрузкой
+
 ## Читаемость
 
 ### Единица измерения не отражена в имени настройки

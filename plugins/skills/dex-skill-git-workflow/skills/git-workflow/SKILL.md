@@ -61,6 +61,11 @@ description: Git workflow, branching, commits, code review, merge requests. Ак
 Правильно: `feat(api)!: change response format` + footer `BREAKING CHANGE: response field X renamed to Y`
 Почему: downstream-сервисы/клиенты ломаются на деплое, а не на этапе ревью. `!` и footer попадают в changelog
 
+### CRLF в репо с LF-конвенцией — diff-шум и сломанный git blame
+Плохо: сохранение файла с CRLF в LF-репо — 10 смысловых строк превращаются в ~1700 строк diff-шума; `git blame` по файлу показывает автора EOL-коммита, не автора логики
+Правильно: `dos2unix <file>` перед коммитом; закрепить конвенцию в `.gitattributes`: `* text=auto eol=lf` (отдельным коммитом — может потребовать перенормализации исторических файлов)
+Почему: EOL-шум маскирует реальную дельту в ревью и уничтожает построчную историю; исправить после merge нельзя без повторного засорения blame; `.gitattributes` предотвращает рецидив автоматически
+
 ## Code Review
 
 ### Гигантский MR (800+ строк)

@@ -83,6 +83,11 @@ description: Ловушки .NET async/await — синхронные блоки
 Правильно: save в одной транзакции → commit → публикация события → subscriber делает notification со своим retry
 Почему: notification не должна откатывать данные. Разделение «persist» и «side-effect» по транзакционной границе (с outbox для гарантии at-least-once) — единственный способ сохранить корректность при падении побочных шагов
 
+### Общий try/catch для N независимых операций — первое исключение пропускает остальные
+Плохо: `try { await Op1Async(ct); await Op2Async(ct); await Op3Async(ct); } catch { }` — исключение в `Op1` прерывает цепочку, `Op2`/`Op3` не вызываются, частичный результат без сигнала
+Правильно: каждая операция в своём блоке: `try { await Op1Async(ct); } catch (ex) { _logger.LogWarning(ex, "op1"); }` — аналогично для Op2, Op3 — ошибка одной не блокирует остальные
+Почему: операции независимы по семантике (каждая должна выполниться самостоятельно), но общий catch создаёт частичный результат без сигнала о пропущенных шагах — типичная ловушка для cache-invalidation и cleanup-цепочек
+
 ### Последовательный await в foreach для батча независимых вызовов
 Плохо: foreach (var item in batch) await client.SendAsync(item); // latency = N × T
 Правильно: `Parallel.ForEachAsync` с ограниченным `MaxDegreeOfParallelism`
