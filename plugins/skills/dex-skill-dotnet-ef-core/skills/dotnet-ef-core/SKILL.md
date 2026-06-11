@@ -35,7 +35,7 @@ description: EF Core — ловушки запросов, миграций, conc
 ### Пользовательский метод в IQueryable выполняется на клиенте
 Плохо: `db.Items.Where(x => x.GetEffectivePeriod().Contains(now))` — EF не транслирует GetEffectivePeriod()
 Правильно: раскрыть вычисление в выражении: `.Where(x => x.StartDate <= now && x.EndDate >= now)`; для сложных случаев — `HasDbFunction`
-Почему: необнаруженная клиентская оценка загружает все строки в память; EF Core 3+ бросает исключение только при явно отключённом client-eval — иначе молча деградирует в производительность
+Почему: EF Core 3+ бросает `InvalidOperationException`, если выражение в `.Where()` / `.OrderBy()` не транслируется в SQL — это защита от незаметной client-side фильтрации. Молчаливая загрузка всех строк в память возможна лишь в top-level projection (последний `Select`), где client-eval ещё разрешён
 
 ### Репозиторий материализует вместо IQueryable
 Плохо: `Task<List<T>> FilterAsync(spec)` — метод возвращает `List`, дальнейшая композиция невозможна
