@@ -1,6 +1,6 @@
 ---
 name: dotnet-code-quality
-description: Гигиена .NET проекта — анализаторы и контроль качества кода. Активируется при анализатор не сработал, варнинг в билде, warning as error, EnableNETAnalyzers, AnalysisMode, подавить варнинг, NoWarn, vulnerable package, NuGetAudit, уязвимость в пакете, code style в билде, NSDepCop, нарушение слоёв, dotnet format в CI, code coverage порог, quality gate
+description: Гигиена .NET проекта — анализаторы и контроль качества кода. Активируется при анализатор не сработал, варнинг в билде, warning as error, EnableNETAnalyzers, AnalysisMode, подавить варнинг, NoWarn, vulnerable package, NuGetAudit, уязвимость в пакете, code style в билде, NSDepCop, нарушение слоёв, dotnet format в CI, code coverage порог, quality gate, internal, public, видимость типов, модификатор доступа
 ---
 
 # .NET code quality — анализаторы и контроль качества
@@ -87,6 +87,13 @@ description: Гигиена .NET проекта — анализаторы и к
 Правильно: `dotnet test --collect:"XPlat Code Coverage"` (Coverlet) → `ReportGenerator` с `minimumCoverageThresholds` (например line=80); падение ниже порога фейлит pipeline
 Почему: покрытие без порога — метрика, которая только снижается. Gate фиксирует планку и не даёт новому коду приходить без тестов. Целиться в порог на **дельте**, а не на всём legacy сразу
 > Сами тесты, фикстуры, антипаттерны — см. dex-skill-dotnet-testing-patterns
+
+## Видимость типов
+
+### Публичные прикладные модели без внешних читателей
+Плохо: `public class InputData { public decimal Value { get; set; } }` — модель в Application/Models
+Правильно: `internal sealed class InputData { internal decimal Value { get; set; } }`
+Почему: `public` на внутреннем типе — неявное приглашение к зависимости снаружи; в многопроектных решениях другие сборки начинают ссылаться, потом трудно менять. `internal` выражает намерение компилятором. Исключения: Options-классы (IOptions<T>-биндинг), API-DTO, типы публичных контрактов
 
 ## Чек-лист
 
