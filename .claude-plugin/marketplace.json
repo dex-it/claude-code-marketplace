@@ -2344,6 +2344,21 @@
       ]
     },
     {
+      "name": "dex-incident-investigator",
+      "source": "./plugins/specialists/delivery/dex-incident-investigator",
+      "description": "Расследование инцидента и поиск корневой причины на общем стенде до фикса на источнике: спецификация IS/IS-NOT, параллельный сбор улик, причинно-следственная цепочка, фальсификация причины, фикс под gate. Делегирует сбор со стенда инфра-плагинам.",
+      "version": "1.0.0",
+      "category": "specialist",
+      "keywords": [
+        "specialist",
+        "incident",
+        "rca",
+        "root-cause",
+        "diagnostician",
+        "stand"
+      ]
+    },
+    {
       "name": "dex-self-reviewer",
       "source": "./plugins/specialists/review/dex-self-reviewer",
       "description": "Pre-push саморевью своей локальной ветки включая незакоммиченные изменения: committed+staged+worktree diff, 7 фокусов с реальным прогоном build/test, фальсификация, чеклист правок до push.",
