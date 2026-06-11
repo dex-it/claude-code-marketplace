@@ -55,4 +55,4 @@ Severity — **P0–P3** (приоритет разбора, не гейт на 
 
 - `dex-architect` / `dex-architect-dotnet` — глубокое архитектурное ревью и проектирование нового (`/review-arch`, `/design`)
 - `dex-codebase-analyzer` — utility для быстрого обзора стека репо до запуска discover
-- `dex-dotnet-reviewer` — глубокий per-MR ревьюер .NET-кода (discover — обзор всего проекта, не diff'а)
+- `dex-mr-reviewer` — глубокий per-MR ревьюер (грузит профильные skills по стеку; discover — обзор всего проекта, не diff'а)

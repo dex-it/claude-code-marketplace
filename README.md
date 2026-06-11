@@ -111,12 +111,10 @@ claude plugins uninstall dex-dotnet-coder
 
 | Плагин | Агент | Описание |
 |--------|-------|----------|
-| dex-dotnet-coder | coding-assistant | Написание кода, SOLID, паттерны |
-| dex-dotnet-debugger | bug-hunter | Отладка, root cause analysis |
-| dex-dotnet-reviewer | code-reviewer | Code review, security |
-| dex-dotnet-tester | test-writer | Unit тесты, xUnit, Moq |
-| dex-ef-specialist | ef-specialist | EF Core: migrations, queries, DbContext |
-| dex-dotnet-performance | performance-analyst | Profiling, N+1, memory |
+| dex-dotnet-coder | dotnet-coder | Написание кода, SOLID, паттерны |
+| dex-dotnet-tester | dotnet-test-writer | Unit тесты, xUnit, Moq |
+| dex-ef-specialist | dotnet-ef-specialist | EF Core: migrations, queries, DbContext |
+| dex-dotnet-performance | dotnet-performance-analyst | Profiling, N+1, memory |
 
 ### Infrastructure
 
@@ -189,14 +187,14 @@ claude plugins uninstall dex-dotnet-coder
 | Категория | Skills |
 |-----------|--------|
 | **.NET** | dotnet-patterns, ef-core, async-patterns, linq-optimization, api-development, api-documentation, testing-patterns |
-| **Frontend & TypeScript** | react, typescript-patterns, nodejs-api |
+| **Frontend & TypeScript** | react, ts-patterns, ts-nodejs-api, ts-vitest-jest |
 | **Security** | owasp-security |
 | **Workflow** | git-workflow, merge-conflict-resolution |
 | **Infrastructure** | rabbitmq, kafka, elasticsearch, redis, mongodb, docker, kubernetes, gitlab-ci, github-actions, jenkins, teamcity, logging, observability |
 | **Architecture** | clean-architecture, ddd, microservices, system-design |
 | **Product & Analysis** | agile, user-stories, bpmn, doc-standards, api-specification, epic-planning, product-discovery, prioritization |
 | **QA** | test-design, api-testing, deep-audit, tech-audit, playwright |
-| **ML** | pytorch, tensorflow, classical-ml, nlp-transformers, computer-vision, ml-optimization |
+| **ML** | python-pytorch, python-tensorflow, python-classical-ml, python-nlp-transformers, python-computer-vision, python-ml-optimization |
 
 ## Utilities (Level 1)
 
