@@ -1,6 +1,6 @@
 ---
 name: dotnet-caching
-description: .NET caching — IMemoryCache, HybridCache, cache tags, invalidation, eviction. Активируется при cache, кеш, IMemoryCache, HybridCache, EvictByTagAsync, GetOrCreateAsync, cache tag, SizeLimit, AddMemoryCache, cache invalidation, stampede
+description: .NET caching — IMemoryCache, HybridCache, cache tags, invalidation, eviction. Активируется при cache, кеш, IMemoryCache, HybridCache, RemoveByTagAsync, GetOrCreateAsync, cache tag, SizeLimit, AddMemoryCache, cache invalidation, stampede
 ---
 
 # .NET Caching — ловушки и anti-patterns
@@ -16,8 +16,8 @@ description: .NET caching — IMemoryCache, HybridCache, cache tags, invalidatio
 
 ### Cache stampede — N потоков вычисляют одно и то же при истечении ключа
 Плохо: `var v = cache.Get(key); if (v == null) { v = await ComputeAsync(ct); cache.Set(key, v); }` — при истечении TTL N потоков видят miss и параллельно уходят в БД
-Правильно: `cache.GetOrCreate(key, e => ...)` или `HybridCache.GetOrCreateAsync(key, ct, factory)` — кеш-слой гарантирует один inflight запрос на ключ
-Почему: stampede при истечении популярного ключа = пик N×нагрузки на backend; `GetOrCreateAsync` с lock-per-key устраняет дублирование без явной синхронизации
+Правильно: `HybridCache.GetOrCreateAsync(key, factory, ct)` — гарантирует один inflight вызов фактора на ключ (stampede protection). Для `IMemoryCache` single-flight не встроен — добавить `SemaphoreSlim` per-key или `Lazy<Task<T>>`
+Почему: stampede при истечении популярного ключа = пик N×нагрузки на backend. `IMemoryCache.GetOrCreate` потокобезопасен на уровне словаря, но фактор не сериализует — N потоков при miss выполнят его параллельно. Single-flight per key гарантирует только `HybridCache.GetOrCreateAsync`
 
 ## Key design
 
@@ -33,15 +33,15 @@ description: .NET caching — IMemoryCache, HybridCache, cache tags, invalidatio
 Правильно: вынести набор тегов инвалидации в единый extension-метод, вызываемый и из handler-а, и из debug endpoint — один source of truth «что есть полный сброс»
 Почему: рассогласование endpoint ↔ код незаметно растёт при добавлении тегов; инженер диагностирует несуществующую проблему после «полного» сброса, теряя время
 
-### HybridCache.EvictByTagAsync без L2 не синхронизирует другие экземпляры
-Плохо: `await _cache.EvictByTagAsync("tag", ct)` без настроенного `IDistributedCache` — инвалидация прошла только в L1 текущего pod-а; остальные экземпляры продолжают отдавать stale данные
+### HybridCache.RemoveByTagAsync без L2 не доходит до других экземпляров
+Плохо: `await _cache.RemoveByTagAsync("tag", ct)` без настроенного L2 — тег инвалидирован только в L1 текущего pod-а; остальные экземпляры продолжают отдавать stale данные
 Правильно: для тег-инвалидации в multi-instance деплое настроить L2: `HybridCache` + `IDistributedCache` (Redis); без L2 — short TTL как единственный механизм согласованности
-Почему: L1 каждого экземпляра независим; `EvictByTagAsync` без L2 — локальная операция; stale-окно у остальных = их TTL, не «инвалидация прошла»
+Почему: `RemoveByTagAsync` — логическая инвалидация L1+L2 локального экземпляра. В multi-instance без общего L2 нет канала рассылки инвалидации тега другим pod-ам — они отдают stale до своего TTL. L2 здесь не хранилище, а backplane для сигнала инвалидации между экземплярами
 
 ## Чек-лист
 
 - `AddMemoryCache` — указан `SizeLimit`? Все entry устанавливают `Size`?
-- Используется `GetOrCreate`/`GetOrCreateAsync`, не ручной get-check-set?
+- Не ручной get-check-set? Для защиты от stampede — `HybridCache.GetOrCreateAsync` (single-flight встроен) либо собственный per-key lock над `IMemoryCache`
 - Cache key включает все оси изменяемости (tenant, тип, версия схемы)?
 - Debug endpoint инвалидирует тот же набор тегов, что и программный путь?
 - Multi-instance + тег-инвалидация: настроен L2 `IDistributedCache`?
