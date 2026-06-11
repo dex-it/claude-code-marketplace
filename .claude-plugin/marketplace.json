@@ -1910,6 +1910,66 @@
       ]
     },
     {
+      "name": "dex-skill-problem-specification",
+      "source": "./plugins/skills/dex-skill-problem-specification",
+      "description": "Спецификация проблемы перед поиском причины (Kepner-Tregoe IS/IS-NOT): нейтральная формулировка, что сломано и что нет, момент начала, масштаб",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "incident",
+        "rca",
+        "problem-specification",
+        "is-not",
+        "kepner-tregoe"
+      ]
+    },
+    {
+      "name": "dex-skill-root-cause-analysis",
+      "source": "./plugins/skills/dex-skill-root-cause-analysis",
+      "description": "Корневая причина против симптома: доказанные звенья цепочки, fundamental vs auxiliary, каскад, объяснение IS-NOT, фикс на источнике и его фальсификация",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "rca",
+        "root-cause",
+        "5-whys",
+        "cause-effect-chain",
+        "fix-falsification"
+      ]
+    },
+    {
+      "name": "dex-skill-change-correlation",
+      "source": "./plugins/skills/dex-skill-change-correlation",
+      "description": "Корреляция симптома с изменениями: окно вокруг момента начала, образ стенда против коммита, тайминг, изоляция нескольких изменений, git bisect first-parent",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "rca",
+        "change-correlation",
+        "git-bisect",
+        "regression-window",
+        "blame"
+      ]
+    },
+    {
+      "name": "dex-skill-shared-stand-safety",
+      "source": "./plugins/skills/dex-skill-shared-stand-safety",
+      "description": "Дисциплина общего стенда при расследовании: read-only по умолчанию, никаких apply/restart/scale без команды, секреты не печатать, не выдумывать улики",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "incident",
+        "shared-stand",
+        "read-only",
+        "blast-radius",
+        "secrets"
+      ]
+    },
+    {
       "name": "dex-knowledge-extractor",
       "source": "./plugins/utilities/dex-knowledge-extractor",
       "description": "Pipeline извлечения уроков из чужих MR/PR в маркетплейс: /mr-collect собирает review-комментарии, /mr-analyze обобщает в предложения для skills/agents, /mr-apply применяет с self-review и валидацией.",
