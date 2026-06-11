@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "5.12.0",
+  "version": "5.13.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -181,7 +181,7 @@
       "name": "dex-skill-git-workflow",
       "source": "./plugins/skills/dex-skill-git-workflow",
       "description": "Git workflow: branching, conventional commits, code review, merge requests",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -190,6 +190,21 @@
         "commits",
         "code-review",
         "merge-request"
+      ]
+    },
+    {
+      "name": "dex-skill-merge-conflict-resolution",
+      "source": "./plugins/skills/dex-skill-merge-conflict-resolution",
+      "description": "Разрешение конфликтов merge/rebase без тихой потери стороны: семантические конфликты, ours/theirs в rebase, modify/delete как переезд, lock-файлы, миграции, evil merge.",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "merge",
+        "rebase",
+        "conflict-resolution",
+        "integration",
+        "git"
       ]
     },
     {
@@ -2286,9 +2301,25 @@
       ]
     },
     {
+      "name": "dex-conflict-resolver",
+      "source": "./plugins/specialists/delivery/dex-conflict-resolver",
+      "description": "Подтягивание базовой ветки в фича-ветку и разрешение конфликтов merge/rebase без тихой потери стороны: превью без записи, карта по типам, охота за тихими конфликтами, сведение обоих намерений, фальсификация и финал без push.",
+      "version": "1.0.0",
+      "category": "specialist",
+      "keywords": [
+        "specialist",
+        "merge",
+        "rebase",
+        "conflict-resolution",
+        "integration",
+        "git",
+        "operator"
+      ]
+    },
+    {
       "name": "dex-bundle-code-review",
       "source": "./plugins/bundles/dex-bundle-code-review",
-      "description": "Bundle цикла работы с кодом: языко-агностичное ревью MR/PR, ре-ревью дельты, план правок, реализация фичи и pre-push саморевью, плюс skills дисциплины ревью.",
+      "description": "Bundle цикла работы с кодом: языко-агностичное ревью MR/PR, ре-ревью дельты, план правок, реализация фичи, интеграция базовой ветки с разрешением конфликтов и pre-push саморевью, плюс skills дисциплины ревью.",
       "version": "1.1.0",
       "category": "bundle",
       "keywords": [
