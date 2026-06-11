@@ -33,6 +33,7 @@ const COLORS = {
   reset: '\x1b[0m',
   red: '\x1b[31m',
   green: '\x1b[32m',
+  yellow: '\x1b[33m',
   cyan: '\x1b[36m',
   gray: '\x1b[90m',
   bold: '\x1b[1m',
@@ -82,6 +83,15 @@ function findAllAgentFiles() {
 // --- Validation rules ---------------------------------------------------
 
 const ERROR = 'error';
+const WARNING = 'warning';
+
+// Description length thresholds (project guidelines — Claude Code does not
+// document a platform limit for subagent `description`, so these are ours, not
+// a platform hard limit). The agent description sits in the session system
+// prompt of every session where the plugin is installed, so a bloated one is a
+// standing context tax; a compact one matches more reliably.
+const WARN_DESCRIPTION_LENGTH = 500; // project soft guideline — warning
+const PROJECT_DESCRIPTION_MAX = 750; // project hard cap — error
 
 /**
  * Blacklisted phrases in exit criteria — they describe internal state,
@@ -172,6 +182,23 @@ function validateFrontmatter(parsed, findings) {
       level: ERROR,
       rule: 'frontmatter-description-short',
       message: `Description is shorter than 50 characters — likely missing trigger keywords for semantic activation`,
+    });
+  }
+
+  if (typeof fm.description === 'string' && fm.description.length > PROJECT_DESCRIPTION_MAX) {
+    findings.push({
+      level: ERROR,
+      rule: 'frontmatter-description-too-long',
+      message: `Description is ${fm.description.length} characters — exceeds project hard cap of ${PROJECT_DESCRIPTION_MAX}. The agent description loads into the system prompt of every session; trim it to role + responsibilities + symptom triggers`,
+    });
+  } else if (
+    typeof fm.description === 'string' &&
+    fm.description.length > WARN_DESCRIPTION_LENGTH
+  ) {
+    findings.push({
+      level: WARNING,
+      rule: 'frontmatter-description-long',
+      message: `Description is ${fm.description.length} characters — exceeds project guideline of ${WARN_DESCRIPTION_LENGTH}. A compact description matches more reliably and costs less standing context; cut symptom duplicates, keep role + areas`,
     });
   }
 
@@ -388,17 +415,23 @@ function validateFile(filepath, marketplacePlugins) {
 // --- Reporting ----------------------------------------------------------
 
 function formatFinding(f) {
-  return `  ${COLORS.red}ERROR${COLORS.reset} ${COLORS.gray}[${f.rule}]${COLORS.reset} ${f.message}`;
+  const isWarning = f.level === WARNING;
+  const label = isWarning
+    ? `${COLORS.yellow}WARN ${COLORS.reset}`
+    : `${COLORS.red}ERROR${COLORS.reset}`;
+  return `  ${label} ${COLORS.gray}[${f.rule}]${COLORS.reset} ${f.message}`;
 }
 
 function report(results) {
   let totalErrors = 0;
+  let totalWarnings = 0;
   let filesWithIssues = 0;
 
   for (const result of results) {
     if (result.findings.length === 0) continue;
 
-    totalErrors += result.findings.length;
+    totalErrors += result.findings.filter((f) => f.level !== WARNING).length;
+    totalWarnings += result.findings.filter((f) => f.level === WARNING).length;
     filesWithIssues += 1;
     const rel = relative(REPO_ROOT, result.filepath);
     console.log(`\n${COLORS.bold}${rel}${COLORS.reset}`);
@@ -410,7 +443,8 @@ function report(results) {
   console.log('');
   console.log(
     `${COLORS.bold}Summary:${COLORS.reset} ${results.length} file(s) checked, ` +
-      `${COLORS.red}${totalErrors} error(s)${COLORS.reset}` +
+      `${COLORS.red}${totalErrors} error(s)${COLORS.reset}, ` +
+      `${COLORS.yellow}${totalWarnings} warning(s)${COLORS.reset}` +
       (filesWithIssues > 0 ? `, ${filesWithIssues} file(s) with issues` : '')
   );
 
