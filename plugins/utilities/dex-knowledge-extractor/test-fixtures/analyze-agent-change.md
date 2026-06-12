@@ -2,9 +2,9 @@
 
 ## Proposed agent changes
 
-### dex-dotnet-reviewer: добавить проверку конфигов в Non-Code Artifacts Audit
+### dex-mr-reviewer: добавить проверку конфигов в Non-Code Artifacts Audit
 
-**Целевой агент:** dex-dotnet-reviewer
+**Целевой агент:** dex-mr-reviewer
 **Фаза:** Non-Code Artifacts Audit
 
 **Изменение:** в чек-лист Non-Code Artifacts Audit добавить пункт «проверить appsettings.*.json на захардкоженные секреты, дубли ConnectionString между средами, отсутствие appsettings.Production.json».

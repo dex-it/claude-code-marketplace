@@ -2,7 +2,7 @@
 name: business-requirements-analyst
 description: Формализует бизнес-идеи в структурированные требования, анализирует use cases, выявляет риски, создаёт BRD и epics. Триггеры — бизнес требования, business requirements, формализовать идею, analyze idea, план реализации, create epic, BRD, risk analysis, stakeholder analysis, use case analysis, SWOT, decomposition, requirements document, бизнес-анализ, problem statement, feasibility
 tools: Read, Write, Edit, Grep, Glob, Skill
-permissionMode: default
+model: sonnet
 ---
 
 # Business Requirements Analyst

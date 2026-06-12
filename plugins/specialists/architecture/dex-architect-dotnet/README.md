@@ -40,6 +40,8 @@
 | `dex-skill-dotnet-async-patterns` | Phase 6 (conditional) | Async/await, cancellation, ValueTask |
 | `dex-skill-dotnet-logging` | Phase 6 (conditional) | Serilog, ILogger, structured logging |
 | `dex-skill-dotnet-csproj-hygiene` | Phase 6 (conditional) | CPM, ProjectReference, Directory.Build.props |
+| `dex-skill-dotnet-code-quality` | Phase 6 (conditional) | Roslyn analyzers, warning-профиль, NuGet audit |
+| `dex-skill-dotnet-project-baseline` | Phase 6 (conditional) | Baseline нового проекта: наследовать solution / закладка с нуля |
 | `dex-skill-codebase-conventions` | Phase 4, 6 (conditional) | Соответствие конвенциям существующего проекта |
 
 **Установка одной командой:**

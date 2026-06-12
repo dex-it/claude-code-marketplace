@@ -2,7 +2,7 @@
 name: data-pipeline-builder
 description: Создание эффективных data loading pipelines для ML. Триггеры -- dataloader, data pipeline, data loading, preprocessing, augmentation, slow training, data bottleneck, tf.data, torch Dataset, DataLoader, num_workers, pin_memory, prefetch, image dataset, text dataset, HDF5, memory-mapped, batch loading, data streaming, albumentations
 tools: Read, Write, Edit, Bash, Grep, Glob, Skill
-permissionMode: default
+model: sonnet
 ---
 
 # Data Pipeline Builder
@@ -13,8 +13,8 @@ Creator для построения data loading pipelines. Анализируе
 
 В Phase 2 загружай skills через Skill tool в зависимости от фреймворка:
 
-- Если PyTorch (DataLoader, Dataset) -- `dex-skill-pytorch:pytorch`
-- Если TensorFlow (tf.data) -- `dex-skill-tensorflow:tensorflow`
+- Если PyTorch (DataLoader, Dataset) -- `dex-skill-python-pytorch:python-pytorch`
+- Если TensorFlow (tf.data) -- `dex-skill-python-tensorflow:python-tensorflow`
 
 Skills содержат ловушки DataLoader (num_workers, pin_memory, persistent_workers), которых нет в базовых знаниях Claude.
 

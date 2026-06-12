@@ -9,6 +9,7 @@
 
 # Exit silently on errors - never block Claude
 set +e
+
 # =============================================================================
 # Configuration from Environment Variables
 # =============================================================================
@@ -19,12 +20,14 @@ WEBHOOK_URL="${DISCORD_NOTIFIER_URL:-}"
 # Optional settings with defaults
 MSG_LIMIT="${DISCORD_MESSAGE_LIMIT:-4000}"
 LANG="${DISCORD_LANGUAGE:-ru}"
+DELAY_SECONDS="${DISCORD_NOTIFY_DELAY:-30}"
 
 # Feature toggles (all enabled by default)
 NOTIFY_STOP="${DISCORD_NOTIFY_STOP:-true}"
 NOTIFY_WAITING="${DISCORD_NOTIFY_WAITING:-true}"
 NOTIFY_PERMISSIONS="${DISCORD_NOTIFY_PERMISSIONS:-true}"
 NOTIFY_SUBAGENT="${DISCORD_NOTIFY_SUBAGENT:-true}"
+NOTIFY_COMPACT="${DISCORD_NOTIFY_COMPACT:-true}"
 INCLUDE_THINKING="${DISCORD_INCLUDE_THINKING:-false}"
 INCLUDE_TOOLS="${DISCORD_INCLUDE_TOOLS:-true}"
 INCLUDE_TODO="${DISCORD_INCLUDE_TODO:-true}"
@@ -61,6 +64,7 @@ declare -A L10N_RU=(
     ["notification_event"]="ждёт ответа"
     ["subagent_event"]="завершил подзадачу"
     ["permission_request"]="ждёт разрешение"
+    ["compact_event"]="закончил compact"
     ["unknown_event"]="событие"
     ["last_message"]="Последнее сообщение"
     ["ultrathink"]="Ultrathink"
@@ -76,6 +80,7 @@ declare -A L10N_EN=(
     ["notification_event"]="waiting for response"
     ["subagent_event"]="completed subtask"
     ["permission_request"]="waiting for permissions"
+    ["compact_event"]="finished compact"
     ["unknown_event"]="event"
     ["last_message"]="Last message"
     ["ultrathink"]="Ultrathink"
@@ -102,9 +107,13 @@ get_l10n() {
 
 INPUT=$(cat)
 
+SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty')
+NOTIFY_DIR="/tmp/claude-discord-notifier"
+
 TRANSCRIPT_PATH=$(echo "$INPUT" | jq -r '.transcript_path // empty')
 HOOK_EVENT=$(echo "$INPUT" | jq -r '.hook_event_name // "Unknown"')
 NOTIFICATION_MSG=$(echo "$INPUT" | jq -r '.message // empty')
+NOTIFICATION_TYPE=$(echo "$INPUT" | jq -r '.type // empty')
 
 # =============================================================================
 # Check if this event should trigger notification
@@ -120,16 +129,27 @@ case "$HOOK_EVENT" in
         EVENT_NAME=$(get_l10n "stop_event")
         ;;
     "Notification")
-        [ "$NOTIFY_WAITING" != "true" ] && exit 0
         EMOJI="⏸️"
         COLOR=16776960  # Yellow
-        EVENT_NAME=$(get_l10n "notification_event")
+        if [ "$NOTIFICATION_TYPE" = "permission_prompt" ]; then
+            [ "$NOTIFY_PERMISSIONS" != "true" ] && exit 0
+            EVENT_NAME=$(get_l10n "permission_request")
+        else
+            [ "$NOTIFY_WAITING" != "true" ] && exit 0
+            EVENT_NAME=$(get_l10n "notification_event")
+        fi
         ;;
     "SubagentStop")
         [ "$NOTIFY_SUBAGENT" != "true" ] && exit 0
         EMOJI="🔄"
         COLOR=3447003  # Blue
         EVENT_NAME=$(get_l10n "subagent_event")
+        ;;
+    "PostCompact")
+        [ "$NOTIFY_COMPACT" != "true" ] && exit 0
+        EMOJI="🗜️"
+        COLOR=10181046  # Purple
+        EVENT_NAME=$(get_l10n "compact_event")
         ;;
     *)
         EMOJI="🤖"
@@ -180,22 +200,19 @@ if [ -n "$TRANSCRIPT_PATH" ] && [ -f "$TRANSCRIPT_PATH" ]; then
     # --- Extract Last Assistant Message ---
     if [ "$INCLUDE_MESSAGE" = "true" ]; then
         LAST_TEXT=$(tac "$TRANSCRIPT_PATH" 2>/dev/null | \
-            jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text' 2>/dev/null | \
-            head -1)
+            jq -rn 'first(inputs | select(.type == "assistant") | .message.content | map(select(.type == "text") | .text) | join("\n") | select(length > 0))' 2>/dev/null)
     fi
 
     # --- Extract Last Thinking (Ultrathink) ---
     if [ "$INCLUDE_THINKING" = "true" ]; then
         LAST_THINKING=$(tac "$TRANSCRIPT_PATH" 2>/dev/null | \
-            jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "thinking") | .thinking' 2>/dev/null | \
-            head -1)
+            jq -rn 'first(inputs | select(.type == "assistant") | .message.content[]? | select(.type == "thinking") | .thinking | select(length > 0))' 2>/dev/null)
     fi
 
     # --- Extract Tool Uses ---
     if [ "$INCLUDE_TOOLS" = "true" ]; then
         TOOLS=$(tac "$TRANSCRIPT_PATH" 2>/dev/null | \
-            jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "tool_use") | .name' 2>/dev/null | \
-            head -10)
+            jq -rn 'first(inputs | select(.type == "assistant")) | .message.content[]? | select(.type == "tool_use") | .name' 2>/dev/null)
     fi
 
     # --- Extract Last TODO State ---
@@ -373,53 +390,32 @@ PAYLOAD=$(jq -n \
 # Queue for Deferred Sending
 # =============================================================================
 
-QUEUE_DIR="/tmp/discord-notify-queue"
-LOCK_FILE="/tmp/discord-notify.lock"
-TIMER_PID_FILE="/tmp/discord-notify-timer.pid"
-DELAY_SECONDS="${DISCORD_NOTIFY_DELAY:-30}"
+mkdir -p "$NOTIFY_DIR"
 
-mkdir -p "$QUEUE_DIR"
+# One-time cleanup of legacy paths from versions prior to per-file model
+rm -rf /tmp/discord-notify-queue 2>/dev/null
+rm -f /tmp/discord-notify-timer.pid /tmp/discord-notify-latest.json 2>/dev/null
 
-# Deduplicate: hash the embed fields (content without title/color to catch Stop+SubagentStop dupes)
-DEDUP_KEY=$(echo "$PAYLOAD" | jq -r '.embeds[0].fields // [] | tostring' 2>/dev/null | md5sum | cut -d' ' -f1)
+# Cancel any previous pending notifications for this session
+rm -f "${NOTIFY_DIR}/notify_${SESSION_ID}_"*.json 2>/dev/null
 
-# Atomic dedup: use mkdir as a lock (atomic on all filesystems)
-DEDUP_LOCK="$QUEUE_DIR/.dedup_${DEDUP_KEY}"
-if ! mkdir "$DEDUP_LOCK" 2>/dev/null; then
-    # Another process already claimed this content — skip duplicate
-    exit 0
-fi
+# Create per-notification file with unique name
+NOTIFY_TS="$(date +%s)_$$_$RANDOM"
+NOTIFY_FILE="${NOTIFY_DIR}/notify_${SESSION_ID}_${NOTIFY_TS}.json"
 
-# Save payload to queue
-QUEUE_FILE="$QUEUE_DIR/$(date +%s%N)_${DEDUP_KEY}.json"
-echo "$PAYLOAD" > "$QUEUE_FILE"
+_NOTIFY_TMP=$(mktemp "${NOTIFY_DIR}/notify_${SESSION_ID}.XXXXXX")
+echo "$PAYLOAD" > "$_NOTIFY_TMP"
+mv "$_NOTIFY_TMP" "$NOTIFY_FILE"
 
-# Check if timer is already running
-if [ -f "$TIMER_PID_FILE" ]; then
-    TIMER_PID=$(cat "$TIMER_PID_FILE" 2>/dev/null)
-    if [ -n "$TIMER_PID" ] && kill -0 "$TIMER_PID" 2>/dev/null; then
-        # Timer already running, just enqueued — exit
-        exit 0
-    fi
-fi
-
-# No timer running — start fully detached background flush timer
-# Redirect all FDs and disown to prevent blocking Claude's hook
+# Timer knows its own file: if file is gone (cancelled) — exits silently.
+# Self-cleans after successful send — no dangling PID files.
 nohup bash -c "
     sleep $DELAY_SECONDS
-
-    # Send all queued payloads
-    for f in \"$QUEUE_DIR\"/*.json; do
-        [ -f \"\$f\" ] || continue
-        curl -s -H 'Content-Type: application/json' -X POST '$WEBHOOK_URL' -d @\"\$f\" > /dev/null 2>&1
-    done
-
-    # Cleanup
-    rm -rf \"$QUEUE_DIR\"
-    rm -f \"$TIMER_PID_FILE\"
+    if [ -f '$NOTIFY_FILE' ]; then
+        curl -s -H 'Content-Type: application/json' -X POST '$WEBHOOK_URL' -d @'$NOTIFY_FILE' > /dev/null 2>&1
+        rm -f '$NOTIFY_FILE'
+    fi
 " > /dev/null 2>&1 &
-
-echo $! > "$TIMER_PID_FILE"
 disown
 
 exit 0

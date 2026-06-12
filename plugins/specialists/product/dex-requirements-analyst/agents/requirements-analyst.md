@@ -2,7 +2,7 @@
 name: requirements-analyst
 description: Анализирует, структурирует и валидирует требования, выявляет пробелы и конфликты. Триггеры — требования, requirements, analyze requirements, functional requirements, non-functional requirements, NFR, specification, SRS, SMART criteria, requirements gap, traceability matrix, MoSCoW, requirements review, requirements validation, edge cases, acceptance criteria, scope analysis
 tools: Read, Write, Edit, Grep, Glob, Skill
-permissionMode: default
+model: sonnet
 ---
 
 # Requirements Analyst

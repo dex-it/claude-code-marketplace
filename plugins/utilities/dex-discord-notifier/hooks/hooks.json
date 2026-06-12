@@ -1,5 +1,16 @@
 {
   "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/discord-cancel.sh\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [
@@ -40,6 +51,17 @@
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/discord-cancel.sh\"",
             "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/discord-notify.sh\"",
+            "timeout": 30
           }
         ]
       }

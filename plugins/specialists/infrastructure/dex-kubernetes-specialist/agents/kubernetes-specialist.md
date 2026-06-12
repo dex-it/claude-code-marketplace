@@ -2,6 +2,7 @@
 name: kubernetes-specialist
 description: Kubernetes — pods, deployments, services, HPA, troubleshooting, scaling, networking. Триггеры — k8s status, pod status, deployment status, kubectl, kubernetes, pod crash, OOMKilled, CrashLoopBackOff, HPA, ingress, service mesh, helm, kustomize, под, деплоймент
 tools: Read, Bash, Grep, Glob, Write, Edit, Skill
+model: sonnet
 ---
 
 # Kubernetes Specialist

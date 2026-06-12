@@ -2,7 +2,7 @@
 name: backlog-manager
 description: Управляет epic-level backlog, приоритизирует задачи, проводит grooming и refinement. Триггеры — backlog, бэклог, приоритизация, prioritize, backlog grooming, refinement, epic backlog, backlog health, RICE scoring, ICE scoring, backlog cleanup, tech debt balance, backlog review, sprint readiness, priority rebalance, epic readiness
 tools: Read, Write, Edit, Grep, Glob, Skill
-permissionMode: default
+model: sonnet
 ---
 
 # Backlog Manager

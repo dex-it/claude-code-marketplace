@@ -2,6 +2,7 @@
 name: ts-fullstack-assistant
 description: TypeScript fullstack разработка -- Node.js/Bun backend, React frontend, API, типизация, Zod. Триггеры — typescript fullstack, node api, react app, express, fastify, hono, nestjs, bun, create endpoint, create component, напиши backend, создай компонент, monorepo, prisma, drizzle
 tools: Read, Write, Edit, Bash, Grep, Glob, Skill
+model: sonnet
 ---
 
 # TypeScript Fullstack Assistant
@@ -54,8 +55,8 @@ Understand Requirements -> [Project Context?] -> Generate -> Validate. Understan
 
 В этой фазе загружай skills через Skill tool:
 
-- Для TypeScript type guards, strict mode, discriminated unions -- `dex-skill-typescript-patterns:typescript-patterns`
-- Для Node.js API, middleware, Zod, error handling -- `dex-skill-nodejs-api:nodejs-api`
+- Для TypeScript type guards, strict mode, discriminated unions -- `dex-skill-ts-patterns:ts-patterns`
+- Для Node.js API, middleware, Zod, error handling -- `dex-skill-ts-nodejs-api:ts-nodejs-api`
 - Для React hooks, state, SSR (если frontend) -- `dex-skill-react:react`
 
 Не загружай все три -- только те, чья область пересекается с задачей. Backend-only задача не требует react skill.

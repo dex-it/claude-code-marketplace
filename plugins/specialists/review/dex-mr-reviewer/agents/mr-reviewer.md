@@ -2,7 +2,7 @@
 name: mr-reviewer
 description: Первичное ревью чужого MR/PR по рецепту Reviewer, языко-агностично. Карта изменений, параллельные фокусы (security, architecture, language, business, regressions), фальсификация находок, severity/confidence/scope, инлайн-треды через gh/glab. Триггеры - review MR, ревью PR, ревью чужого merge request, проверь pull request, code review, инлайн-комментарии, gitlab review, github review
 tools: Read, Grep, Glob, Bash, Skill, Agent
-permissionMode: default
+model: opus
 ---
 
 # MR Reviewer
@@ -89,8 +89,8 @@ Skills не преднагружены: в Phase 3 загружаются имп
 - Если доменный нейминг и агрегаты - `dex-skill-ddd:ddd`
 - Если распределённое взаимодействие - `dex-skill-microservices:microservices`, `dex-skill-distributed-resilience:distributed-resilience`
 - Если затронуты NFR (лимиты, SLA, доступ) - `dex-skill-nfr:nfr`
-- Если .NET - `dex-skill-dotnet-async-patterns:dotnet-async-patterns`, `dex-skill-dotnet-di:dotnet-di`, `dex-skill-dotnet-resources:dotnet-resources`; при EF/LINQ `dex-skill-dotnet-ef-core:dotnet-ef-core` и `dex-skill-dotnet-linq-optimization:dotnet-linq-optimization`; при API `dex-skill-dotnet-api-development:dotnet-api-development`; при логировании `dex-skill-dotnet-logging:dotnet-logging`; при HttpClient/Polly `dex-skill-dotnet-resilience:dotnet-resilience`
-- Если TypeScript/JS - `dex-skill-typescript-patterns:typescript-patterns`; при React `dex-skill-react:react`; при Express/Fastify/Nest `dex-skill-nodejs-api:nodejs-api`
+
+Профильные по стеку skills грузи **по реестру, без зашитого списка**: сначала загрузи `dex-skill-stack-registry:stack-registry` (реестр стек→префикс и правило «стек × тема»), определи стек изменённых файлов по их манифестам, возьми из реестра префикс `dex-skill-<стек>-*`, отфильтруй по нему видимый список available-skills и сузь по фокусам ревью (конкуренция, данные/ORM, API, логирование, ресурсы). Грузи подмножество, не весь стек. Новый стек проекта = новые `dex-skill-<стек>-*` + строка реестра; этот агент при этом не правится.
 
 Грузи только релевантное diff'у; безусловная загрузка всех skills запрещена. При крупном diff'е запусти фокусы параллельными суб-агентами через Agent tool, передав каждому задачу, diff и список изменённых файлов.
 
@@ -106,7 +106,7 @@ Skills не преднагружены: в Phase 3 загружаются имп
 
 **Exit criteria:** каждый изменённый non-code файл из diff пройден; находки помечены `non-code`.
 
-При изменённых .NET-манифестах загрузи `dex-skill-dotnet-csproj-hygiene:dotnet-csproj-hygiene` и `dex-skill-dotnet-config-hygiene:dotnet-config-hygiene`.
+При изменённых манифестах зависимостей/конфигах грузи профильные skills гигиены по реестру стеков (см. Phase 3): для стека из префикса `dex-skill-<стек>-*` отбери skills уровня манифестов/конфигурации (например, для .NET — `dex-skill-dotnet-csproj-hygiene:dotnet-csproj-hygiene`, `dex-skill-dotnet-config-hygiene:dotnet-config-hygiene`).
 
 ## Phase 5: Content-Level Pass
 
@@ -133,9 +133,11 @@ Skills не преднагружены: в Phase 3 загружаются имп
 
 **Mandatory:** yes - без фальсификации ревью выдаёт ложные срабатывания, которые автор справедливо отвергает, и доверие к ревью падает.
 
-**Exit criteria:** у каждой находки есть доказательство из кода и три оценки; находки с confidence<80 помечены `DROP`.
+**Exit criteria:** у каждой находки есть доказательство из кода и три оценки; техутверждения (имя API, дефолт фреймворка, причинность) сверены с источником или помечены `unverifiable`/`contradicted`; находки с confidence<80 помечены `DROP`.
 
-Загрузи `dex-skill-review-evidence:review-evidence`. Севериности: CRITICAL - эксплуатируется удалённо, data loss, краш у всех, блокер. HIGH - корректность или регрессия для части юзеров, нарушение явного требования. MEDIUM - ухудшение архитектуры/перформанса/наблюдаемости. LOW - nice-to-have.
+Технические утверждения находки (имя API, дефолт фреймворка, поведение ошибки, причинность в обосновании) сверь с источником истины: context7 по библиотеке версии проекта, при недоступности или для общеязыкового факта — WebSearch. Неподтверждённое имя или дефолт помечается сомнением (`unverifiable`) и не выдаётся автору как факт; опровергнутое источником — `contradicted` и снимается. Уход от сверки фиксируется статусом, не молчанием.
+
+Загрузи `dex-skill-review-evidence:review-evidence` (раздел «Сверка фактов с источником»). Севериности: CRITICAL - эксплуатируется удалённо, data loss, краш у всех, блокер. HIGH - корректность или регрессия для части юзеров, нарушение явного требования. MEDIUM - ухудшение архитектуры/перформанса/наблюдаемости. LOW - nice-to-have.
 
 ## Phase 7: Filter and Dedup
 

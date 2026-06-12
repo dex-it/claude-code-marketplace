@@ -29,6 +29,17 @@ description: .NET config hygiene — appsettings, IOptions, env-настройк
 Правильно: `IOptionsSnapshot<T>` для пересчёта на каждый scope (запрос), `IOptionsMonitor<T>` для singleton с подпиской на изменения; `IOptions<T>` — только для неизменяемой за время работы конфигурации
 Почему: `IOptions<T>` — singleton, биндится один раз при первом обращении. Reload-on-change в нём не виден; разработчик считает фичу нерабочей и правит её «вслепую»
 
+### Кросс-полевой инвариант Options проверяется тихим `if`, а не валидацией
+Плохо: `if (settings.MinValue < settings.MaxSize) { /* спец-поведение */ }` — при нарушении инварианта ветка молча не выполняется, фича отключается без сигнала
+Правильно: проверять инвариант явно — бросок в init-аксессоре/`Validate()` либо `.Validate(o => o.MinValue < o.MaxSize).ValidateOnStart()`
+Почему: тихий `if` превращает опечатку в конфиге (перепутанные единицы, копипаст) в незаметно отключённое поведение — то самое, ради чего фичу делали. Падение на старте видно сразу, тихий обход всплывает в production
+
+### Non-nullable Options-проп без `required` — CS8618 и NRE при `new()`
+Плохо: `public string CacheKey { get; init; }` в Options под `Nullable enable` без дефолта — `new Options()` оставляет `null`, NRE при первом обращении
+Правильно: `public required string CacheKey { get; init; }` — компилятор требует задать значение при создании, проп остаётся non-nullable
+Почему: под `Nullable enable` это CS8618 (предупреждение игнорируют), а реально `null` доезжает до первого использования ключа и даёт NRE. `required` ловит отсутствие значения на компиляции, а не в runtime
+> см. dex-skill-dotnet-validation
+
 ## Читаемость
 
 ### Единица измерения не отражена в имени настройки
@@ -40,6 +51,14 @@ description: .NET config hygiene — appsettings, IOptions, env-настройк
 Плохо: appsettings.json + appsettings.Staging.json + appsettings.Production.json — у всех "BatchSize": 100
 Правильно: "BatchSize": 100 только в appsettings.json; env-файлы содержат только отклонения от дефолта
 Почему: дублирование скрывает реальные отклонения между средами. При изменении дефолта — не все env-файлы обновляются → расхождения, которые тяжело поймать
+
+## Секреты
+
+### Секреты в appsettings.json в репозитории
+Плохо: connection string с паролем, API-ключ, токен прямо в `appsettings.json` / `appsettings.Production.json`, закоммиченном в репозиторий
+Правильно: в `appsettings.json` — только плейсхолдер / имя источника; реальные значения через user-secrets (dev), переменные окружения или secret store (prod). Конфигурация склеивается из источников провайдерами `AddUserSecrets()` / `AddEnvironmentVariables()`
+Почему: закоммиченный секрет остаётся в истории git навсегда, даже после удаления из HEAD, и утекает вместе с клоном репозитория. Новый проект — типичный момент, когда секрет «временно» прописывают в файл и забывают вынести
+> Детали угроз и ротации — `dex-skill-owasp-security`
 
 ## Чек-лист
 
