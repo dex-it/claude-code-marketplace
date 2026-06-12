@@ -73,18 +73,11 @@
    процессу/дампу — `dex-dotnet-runtime-diagnostician`.
 5. **Perf под TS** не покрыт специальным агентом (вне текущего скоупа).
 
-> **Принцип загрузки skills общими агентами.** Общие агенты (`dex-feature-implementer`,
-> `dex-debugger`, `dex-self-reviewer`, `dex-security-reviewer`, `dex-mr-reviewer`,
-> `dex-mr-check-reviewer`, `dex-code-discovery`) определяют стек проекта по манифестам
-> и грузят профильные skills по **конвенции имён** `dex-skill-<стек>-*`. Источник
-> конвенции — process-skill `dex-skill-stack-registry` (реестр стек→манифест→префикс +
-> правило отбора «стек × тема»): агент сначала загружает реестр, затем фильтрует видимый
-> список available-skills по префиксу стека (Claude Code не умеет подбирать skills по
-> метаданным в рантайме — только по точному имени, поэтому стек заявлен в префиксе
-> имени плагина). Добавление нового стека = добавление `dex-skill-<стек>-*` + строка
-> реестра; **сами агенты при этом не правятся** — перечни .NET/TS в их фазах даны как
-> примеры под общим принципом, не как закрытый список. Стек без своих skills → fallback
-> на язык-нейтральные принципы с явной пометкой.
+> **Принцип загрузки skills общими агентами** — by-stack loading: стек по манифесту →
+> фильтр available-skills по префиксу `dex-skill-<стек>-*` через реестр
+> `dex-skill-stack-registry`. Новый стек = новые skills + строка реестра; агенты не
+> правятся. Полное описание и обоснование — [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md),
+> раздел «By-stack loading».
 
 ## Чужой MR — отдельный процесс (не часть разработки)
 
@@ -96,20 +89,3 @@ MR — отдельный процесс (read-only, выход = коммент
 | первичное ревью MR | dex-mr-reviewer (языко-агностичный, фокусы + публикация) |
 | ре-ревью дельты | dex-mr-check-reviewer |
 | breadth-first аудит существующего кода | dex-code-discovery |
-
-## Статус миграции (исполнено)
-
-Карта отражает фактическое распределение ролей. Выполнено:
-
-- `dex-dotnet-debugger` (bug-hunter) — **удалён** (был дубль общего debugger:
-  идентичные фазы/scan/severity, отличие лишь обёртка `если .NET`). Роль закрыта
-  общим `dex-debugger` с загрузкой .NET-skills по стеку.
-- `dex-dotnet-reviewer` (code-reviewer) — **удалён** (поглощён `dex-self-reviewer`
-  для своего кода + `dex-mr-reviewer` для чужого MR; .NET-специфика — в условных
-  skills, не в теле артефакта).
-- `dex-security-reviewer` — **переработан** в агента глубокого анализа (threat
-  model → attack paths → цепочки эксплойтов), не дублирующего поверхностный
-  security-фокус `self-reviewer`.
-
-Оба .NET-bundle (`dex-bundle-dotnet-developer`, `dex-bundle-dotnet-fullstack`)
-получили взамен общие `dex-debugger` + `dex-self-reviewer` + `dex-mr-reviewer`.
