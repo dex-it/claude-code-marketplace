@@ -16,7 +16,7 @@
  */
 
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
-import { join, relative, resolve, dirname } from 'node:path';
+import { basename, join, relative, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import matter from 'gray-matter';
 import { unified } from 'unified';
@@ -67,6 +67,13 @@ function findAllCommandFiles() {
 
 const SIZE_HARD_LIMIT = 200;
 const SIZE_RECOMMENDED_MAX = 80;
+// 100 — допуск для команд-деклараций pipeline-стадий с гейтами (каждая стадия +
+// правило её обязательности), где сжатие ниже 80 ломает однозначность обязательных
+// проверок. Не индульгенция на разрастание: точечные команды (/build, /test)
+// остаются в цели 20-50 и гейтятся по 80. Allowlist по имени файла команды —
+// источник истины (у команд нет frontmatter name, в отличие от skills).
+const SIZE_PIPELINE_MAX = 100;
+const PIPELINE_COMMANDS = new Set(['mr-analyze', 'mr-apply']);
 
 // --- Frontmatter validation ---------------------------------------------
 
@@ -84,8 +91,9 @@ function validateFrontmatter(parsed, findings) {
 
 // --- Size validation ----------------------------------------------------
 
-function validateSize(rawContent, findings) {
+function validateSize(rawContent, findings, isPipeline = false) {
   const lineCount = rawContent.split('\n').length;
+  const recommendedMax = isPipeline ? SIZE_PIPELINE_MAX : SIZE_RECOMMENDED_MAX;
 
   if (lineCount > SIZE_HARD_LIMIT) {
     findings.push({
@@ -93,11 +101,11 @@ function validateSize(rawContent, findings) {
       rule: 'size-exceeds-hard-limit',
       message: `File is ${lineCount} lines — exceeds hard limit of ${SIZE_HARD_LIMIT}. Commands this large should be agents with phases, not slash-commands`,
     });
-  } else if (lineCount > SIZE_RECOMMENDED_MAX) {
+  } else if (lineCount > recommendedMax) {
     findings.push({
       level: ERROR,
       rule: 'size-exceeds-recommended',
-      message: `File is ${lineCount} lines — exceeds recommended max of ${SIZE_RECOMMENDED_MAX}. Consider trimming procedural content, bash scripts, or templates`,
+      message: `File is ${lineCount} lines — exceeds recommended max of ${recommendedMax}. Consider trimming procedural content, bash scripts, or templates`,
     });
   }
 }
@@ -224,7 +232,7 @@ function validateFile(filepath) {
   }
 
   validateFrontmatter(parsed, findings);
-  validateSize(raw, findings);
+  validateSize(raw, findings, PIPELINE_COMMANDS.has(basename(filepath, '.md')));
   validateNoProcedural(parsed.content, findings);
   validateCodeFences(parsed.content, findings);
   validateNoBashScripts(parsed.content, findings);
