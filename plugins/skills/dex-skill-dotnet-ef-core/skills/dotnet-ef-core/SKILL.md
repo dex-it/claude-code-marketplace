@@ -1,6 +1,6 @@
 ---
 name: dotnet-ef-core
-description: EF Core — ловушки запросов, миграций, concurrency, mapping. Активируется при ef core, dbcontext, migration, N+1, AsNoTracking, Include, AsSplitQuery, IQueryable, ExecuteUpdate, cartesian explosion, GroupBy, owned types
+description: EF Core — ловушки запросов, миграций, concurrency, mapping. Активируется при ef core, dbcontext, migration, N+1, AsNoTracking, Include, AsSplitQuery, IQueryable, ExecuteUpdate, cartesian explosion, GroupBy, owned types, DateTime, DateTimeKind, timestamp, timestamptz, Npgsql, Unspecified, ToUniversalTime, value converter
 ---
 
 # Entity Framework Core — ловушки и anti-patterns
@@ -65,6 +65,11 @@ description: EF Core — ловушки запросов, миграций, conc
 Почему: Owned-Type из 1 поля = overhead конфигурации (`OnModelCreating`, миграция с префиксом `Complexity_`, `OwnsOne(...).Property(...)`) без выгоды. Value Object из одного значения не несёт инварианта (нечего связывать), это псевдо-абстракция. Сигнал к схлопыванию: после удаления избыточных полей в Owned-Type осталось одно — это уже не Value Object, это поле под чужим именем
 
 > Связанные ловушки: что вообще хранить в Aggregate / Owned-Type — см. `dex-skill-ddd` («Persisted-поле без потребителя»).
+
+### timestamp теряет Kind — store-UTC на запись, пометка Kind на чтение
+Плохо: `v => DateTime.SpecifyKind(v, DateTimeKind.Utc).ToLocalTime()` в value-конвертере на чтение
+Правильно: на границе хранения работать в UTC явно — на запись `v => v.ToUniversalTime()`, на чтение только пометить Kind `v => DateTime.SpecifyKind(v, DateTimeKind.Utc)`; локальное время — на отображении
+Почему: `timestamp without time zone` не хранит Kind, провайдер отдаёт `Unspecified`. `SpecifyKind` ставит метку, не трогая значение; `.ToLocalTime()` дополнительно сдвигает значение на таймзону хоста. На UTC-сервере сдвиг = 0 → баг латентный, всплывает только на не-UTC окружении
 
 ## Cascade Delete
 
