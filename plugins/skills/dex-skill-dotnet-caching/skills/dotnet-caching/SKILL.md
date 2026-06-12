@@ -33,10 +33,10 @@ description: .NET caching — IMemoryCache, HybridCache, cache tags, invalidatio
 Правильно: вынести набор тегов инвалидации в единый extension-метод, вызываемый и из handler-а, и из debug endpoint — один source of truth «что есть полный сброс»
 Почему: рассогласование endpoint ↔ код незаметно растёт при добавлении тегов; инженер диагностирует несуществующую проблему после «полного» сброса, теряя время
 
-### HybridCache.RemoveByTagAsync без L2 не доходит до других экземпляров
-Плохо: `await _cache.RemoveByTagAsync("tag", ct)` без настроенного L2 — тег инвалидирован только в L1 текущего pod-а; остальные экземпляры продолжают отдавать stale данные
-Правильно: для тег-инвалидации в multi-instance деплое настроить L2: `HybridCache` + `IDistributedCache` (Redis); без L2 — short TTL как единственный механизм согласованности
-Почему: `RemoveByTagAsync` — логическая инвалидация L1+L2 локального экземпляра. В multi-instance без общего L2 нет канала рассылки инвалидации тега другим pod-ам — они отдают stale до своего TTL. L2 здесь не хранилище, а backplane для сигнала инвалидации между экземплярами
+### HybridCache.RemoveByTagAsync в multi-instance не доходит до L1 других экземпляров
+Плохо: `await _cache.RemoveByTagAsync("tag", ct)` в расчёте, что настроенный L2 (`IDistributedCache` / Redis) разошлёт инвалидацию по всем подам — L1 остальных экземпляров продолжает отдавать stale
+Правильно: для кросс-инстансной тег-инвалидации настроить backplane (Redis pub/sub либо реализацию `HybridCache` с backplane, например FusionCache); сам по себе общий L2 канала рассылки не даёт. Без backplane — short TTL как механизм согласованности
+Почему: `RemoveByTagAsync` инвалидирует L1 текущего экземпляра и общий L2, но у `HybridCache` нет встроенного backplane — L1 других подов не уведомляется и отдаёт stale до своего TTL даже при настроенном L2. L2 здесь общее хранилище, а не канал рассылки сигнала инвалидации
 
 ## Чек-лист
 
