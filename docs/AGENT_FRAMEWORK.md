@@ -700,28 +700,30 @@ Gather → Analyze → Prioritize → Present
 ### Reviewer
 
 ```text
-Domain Priming → Direct Analysis → Skill-Based Deep Scan → Non-Code Artifacts Audit
+Domain Priming → Direct Analysis → Skill-Based Deep Scan → Fact Verification → Non-Code Artifacts Audit
   → Content-Level Pass → Cross-Linking → Severity Calibration
   → Tech Debt Classification → Systemic vs Specific Triage → Output Labeling → Report
 ```
 
 Reviewer — частный случай Analyst, расширенный фазами специально под code review. Поток делится на три блока:
 
-1. **Сбор находок** (Domain Priming → Direct Analysis → Skill-Based Deep Scan → Non-Code Artifacts Audit → Content-Level Pass) — что нашли.
+1. **Сбор находок** (Domain Priming → Direct Analysis → Skill-Based Deep Scan → Fact Verification → Non-Code Artifacts Audit → Content-Level Pass) — что нашли.
 2. **Структурирование** (Cross-Linking) — как находки связаны между собой.
 3. **Калибровка и оформление** (Severity Calibration → Tech Debt Classification → Systemic vs Specific Triage → Output Labeling) — как подать находки пользователю в форме, по которой он может принимать решения.
 
-**Mandatory-фазы:** Domain Priming, Non-Code Artifacts Audit, Cross-Linking, Severity Calibration, Tech Debt Classification, Output Labeling. Без них агент либо пропускает класс находок (доменные конфликты, ляпы в `.csproj`), либо даёт расфокусированный отчёт (плоский список без связей и без меток действий). Content-Level Pass и Systemic vs Specific Triage — обычно mandatory, опциональны только когда ревью узко-формальное (например, только compile-check) или контекст последних MR недоступен.
+**Mandatory-фазы:** Domain Priming, Non-Code Artifacts Audit, Fact Verification, Cross-Linking, Severity Calibration, Tech Debt Classification, Output Labeling. Без них агент либо пропускает класс находок (доменные конфликты, ляпы в `.csproj`), либо даёт расфокусированный отчёт (плоский список без связей и без меток действий). Fact Verification — без сверки техутверждений находки с источником ревью выдаёт автору выдуманные имена API и перевёрнутую причинность как факт. Content-Level Pass и Systemic vs Specific Triage — обычно mandatory, опциональны только когда ревью узко-формальное (например, только compile-check) или контекст последних MR недоступен.
 
 **Референс реализации рецепта** — `plugins/specialists/review/dex-mr-reviewer/agents/mr-reviewer.md`: полные контракты фаз, шкала меток, маркеры tech debt. Родственные реализации: `self-reviewer` (свой код до push), `mr-check-reviewer` (дельта раунда), `discover-reviewer` (breadth-first аудит). Фреймворк держит состав и обоснование рецепта; полные правила фаз живут в агентах — не дублировать их сюда (копии расходятся, см. анти-паттерн «Дублирование содержимого skill в агенте» — для фреймворка он действует так же).
 
 **Skill-Based Deep Scan** загружает skills по стеку проекта (EF Core, async patterns, OWASP, resilience, csproj-hygiene и т.п.) — условно, не все подряд.
 
+**Fact Verification** — каждое техническое утверждение находки (имя API, дефолт фреймворка, поведение ошибки, сложность, причинность в «Почему») сверяется с источником истины: context7 по библиотеке версии проекта, при недоступности или для общеязыкового факта — WebSearch. Уход от сверки фиксируется явным статусом (`unverifiable` / `contradicted`), не молчанием. Дисциплина живёт в `dex-skill-review-evidence` (раздел «Сверка фактов с источником»); генеративная модель закономерно выдумывает имена API и переворачивает причинность, поэтому шаг отдельный и mandatory, а не растворён в сборе находок.
+
 **Report** даёт verdict (APPROVE / REQUEST_CHANGES / NEEDS_DISCUSSION) + сгруппированные находки из Cross-Linking с метками из Output Labeling. Не плоский список замечаний.
 
 **Дефолт «подсвечивать»:** Tech Debt Classification работает по презумпции «находка подсвечивается, если автор не задокументировал её как accepted tech debt». Не предполагать «возможно это сознательное решение» — это размывает результат ревью и даёт автору лазейку игнорировать замечания.
 
-**Почему Reviewer выделен в отдельный рецепт, а не оставлен под Analyst:** реальный code review требует доменного контекста (без него ubiquitous language нарушения не видны), систематического покрытия non-code артефактов, cross-linking (Analyst выдаёт находки изолированно), калибровки под зрелость проекта и явных меток действий. Эти фазы — критичные защиты от типичных failure mode'ов code-review-агентов, выявленных на реальных PR: расфокусированный список без приоритетов, ложная паника по best-practice-нарушениям, не блокирующим production, или наоборот тихий accept без подсветки.
+**Почему Reviewer выделен в отдельный рецепт, а не оставлен под Analyst:** реальный code review требует доменного контекста (без него ubiquitous language нарушения не видны), систематического покрытия non-code артефактов, cross-linking (Analyst выдаёт находки изолированно), калибровки под зрелость проекта и явных меток действий. Эти фазы — критичные защиты от типичных failure mode'ов code-review-агентов, выявленных на реальных PR: расфокусированный список без приоритетов, ложная паника по best-practice-нарушениям, не блокирующим production, или наоборот тихий accept без подсветки, или находка с выдуманным именем API либо перевёрнутой причинностью, ушедшая автору как факт.
 
 ### Parallel Reviewer Orchestration
 
