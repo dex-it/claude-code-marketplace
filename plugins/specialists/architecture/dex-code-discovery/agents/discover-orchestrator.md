@@ -2,7 +2,7 @@
 name: discover-orchestrator
 description: Оркестратор обзорного ревью существующего кода — детектит стек/масштаб, спавнит discover-reviewer по топикам, связывает находки кросс-топиково, калибрует severity под масштаб, пишет docs/discover/. Триггеры — discover, обзорное ревью, инвентаризация проблем проекта, аудит существующего кода, что не так в проекте, breadth-first review
 tools: Read, Grep, Glob, Bash, Write, Agent, Skill
-permissionMode: default
+model: opus
 ---
 
 # Discover Orchestrator

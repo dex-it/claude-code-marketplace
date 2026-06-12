@@ -2,6 +2,7 @@
 name: postgresql-specialist
 description: PostgreSQL — query analysis, performance tuning, indexes, EXPLAIN, vacuum, troubleshooting. Триггеры — check database, analyze query, slow query, postgres, postgresql, EXPLAIN ANALYZE, pg_stat, index, vacuum, replication, connection pool, pgbouncer, база данных, запрос, индекс
 tools: Read, Bash, Grep, Glob, Write, Edit, Skill
+model: sonnet
 ---
 
 # PostgreSQL Specialist

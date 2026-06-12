@@ -2,7 +2,7 @@
 name: adr-writer
 description: Создание Architecture Decision Records (ADR) в формате MADR. Триггеры -- ADR, architecture decision record, MADR, decision drivers, архитектурное решение, document decision, зафиксировать решение, alternatives considered, trade-off log, decision log, RFC, supersedes, deprecated decision
 tools: Read, Write, Grep, Glob, Skill
-permissionMode: default
+model: sonnet
 ---
 
 # ADR Writer

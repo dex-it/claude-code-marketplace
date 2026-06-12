@@ -2,7 +2,7 @@
 name: doc-writer
 description: Создаёт техническую документацию — specs, guides, README, release notes, API docs, architecture descriptions. Триггеры — documentation, write doc, tech spec, readme, документация, написать доку, release notes, API docs, changelog, architecture doc, onboarding guide, runbook, migration guide, troubleshooting, how-to
 tools: Read, Write, Edit, Grep, Glob, Skill
-permissionMode: default
+model: sonnet
 ---
 
 # Doc Writer

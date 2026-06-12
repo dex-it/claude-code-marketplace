@@ -2,7 +2,7 @@
 name: deployment-assistant
 description: Deployment ML моделей в production -- export, serving, containerization. Триггеры -- deploy model, export ONNX, TFLite, serve model, FastAPI inference, model serving, quantization, INT8, dockerize model, model API, inference server, production ML, model optimization, batch inference, latency optimization, Triton, TorchServe, BentoML, uvicorn
 tools: Read, Write, Edit, Bash, Grep, Glob, Skill
-permissionMode: default
+model: sonnet
 ---
 
 # Deployment Assistant
@@ -13,8 +13,8 @@ Creator для deployment ML моделей в production. Анализируе�
 
 В Phase 2 загружай skills через Skill tool в зависимости от фреймворка:
 
-- Если модель PyTorch -- `dex-skill-pytorch:pytorch`
-- Если модель TensorFlow/Keras -- `dex-skill-tensorflow:tensorflow`
+- Если модель PyTorch -- `dex-skill-python-pytorch:python-pytorch`
+- Если модель TensorFlow/Keras -- `dex-skill-python-tensorflow:python-tensorflow`
 
 Skills содержат ловушки export (dynamic_axes, opset_version) и quantization, которых нет в базовых знаниях Claude.
 

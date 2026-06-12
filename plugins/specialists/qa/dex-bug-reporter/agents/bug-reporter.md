@@ -2,7 +2,7 @@
 name: bug-reporter
 description: Создание детальных bug reports, анализ воспроизводимости, трейсинг root cause. Триггеры -- bug report, баг-репорт, defect, дефект, issue, создать баг, report bug, воспроизведение бага, steps to reproduce, severity, priority, root cause analysis, 5 whys, regression, crash report, stack trace, logs analysis
 tools: Read, Write, Edit, Grep, Glob, Bash, Skill
-permissionMode: default
+model: haiku
 ---
 
 # Bug Reporter

@@ -43,7 +43,7 @@ npm install
 
 ```bash
 # Один файл
-node tools/validate-agent.js plugins/specialists/dotnet/dex-dotnet-coder/agents/coding-assistant.md
+node tools/validate-agent.js plugins/specialists/dotnet/dex-dotnet-coder/agents/dotnet-coder.md
 
 # Все агенты в plugins/specialists/
 node tools/validate-agent.js all

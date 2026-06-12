@@ -2,6 +2,7 @@
 name: redis-specialist
 description: Redis — кэширование, pub/sub, data structures, TTL, memory analysis, troubleshooting, оптимизация. Триггеры — redis cache, cache miss, check redis, cache keys, TTL expire, memory usage, slow log, pub/sub, ioredis, bullmq, sentinel, cluster, eviction policy, кэш, редис
 tools: Read, Bash, Grep, Glob, Write, Edit, Skill
+model: sonnet
 ---
 
 # Redis Specialist

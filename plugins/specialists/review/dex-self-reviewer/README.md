@@ -16,7 +16,7 @@
 
 ## Skills
 
-Условная загрузка как в `dex-mr-reviewer`, плюс всегда `dex-skill-no-loose-ends` (ядро фокуса loose-ends), `dex-skill-review-evidence`, `dex-skill-git-workflow`, `dex-skill-output-hygiene`.
+Тематические skills грузятся условно по содержимому diff (solid, owasp-security, testability, clean-architecture, ddd, microservices, nfr и др.); профильные по стеку — через реестр `dex-skill-stack-registry` (единый способ для всех языко-агностичных агентов). Плюс всегда `dex-skill-no-loose-ends` (ядро фокуса loose-ends), `dex-skill-review-evidence`, `dex-skill-git-workflow`, `dex-skill-output-hygiene`.
 
 ## Связанные плагины
 

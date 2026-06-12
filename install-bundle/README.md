@@ -106,6 +106,7 @@ sudo pacman -S jq
 | `ml-engineer` | ML Engineer bundle | 11 |
 | `infrastructure` | Infrastructure bundle | 37 |
 | `cli-tools` | CLI utilities for diagnostics (gh, glab, kubectl, jenkins, teamcity, psql, redis-cli, kaf, rabbitmqadmin, aws-s3) | 10 |
+| `runtime-diagnostics` | Runtime-диагностика .NET и native: специалист, skills managed/native/perf/tracing/dumps/binary, netcoredbg CLI | 13 |
 
 ## Command Line Options
 
@@ -188,7 +189,7 @@ This makes it safe to re-run the script if it was interrupted or if you want to 
 
   [1/12] Installing: dex-dotnet-coder
            Installed successfully
-  [2/12] Installing: dex-dotnet-debugger
+  [2/12] Installing: dex-dotnet-tester
            Installed successfully
   ...
 
@@ -213,7 +214,7 @@ This makes it safe to re-run the script if it was interrupted or if you want to 
 
   [1/12] Uninstalling: dex-dotnet-coder
            Removed successfully
-  [2/12] Uninstalling: dex-dotnet-debugger
+  [2/12] Uninstalling: dex-dotnet-tester
            Removed successfully
   ...
 
@@ -267,7 +268,7 @@ install-bundle/
 
 ## install-cli-tools (CLI binaries on the host)
 
-Plugin bundles install **slash-command plugins** for Claude Code. The `dex-*-cli` plugins still need their underlying CLI binaries (`gh`, `glab`, `kubectl`, `psql`, `redis-cli`, `kaf`) on your machine. Use `install-cli-tools` to set them up:
+Plugin bundles install **slash-command plugins** for Claude Code. The `dex-*-cli` plugins still need their underlying CLI binaries (`gh`, `glab`, `kubectl`, `psql`, `redis-cli`, `kaf`, `netcoredbg`, `gdb`, и т.д.) on your machine. Use `install-cli-tools` to set them up:
 
 ```bash
 # Linux / macOS / WSL — auto-detects apt / dnf / pacman / apk / brew
@@ -286,6 +287,20 @@ Plugin bundles install **slash-command plugins** for Claude Code. The `dex-*-cli
 .\install-cli-tools.ps1 -All
 .\install-cli-tools.ps1 -Update gh kubectl
 .\install-cli-tools.ps1 -Update -All
+```
+
+### Runtime-diagnostics meta-target
+
+For the `runtime-diagnostics` bundle, install all underlying CLI binaries at once:
+
+```bash
+# Linux / macOS / WSL — installs netcoredbg, gdb, lldb, strace, bpftrace, bcc, perf,
+# binutils, rizin, ilspycmd, flamegraph, valgrind, lief, dotnet-diagnostic-tools
+./install-cli-tools.sh runtime-diagnostics-tools
+
+# Windows — installs cross-platform ones (ilspycmd, lief, dotnet-diagnostic-tools);
+# Linux-only utilities are reported as __UNSUPPORTED__ with WSL hint
+.\install-cli-tools.ps1 runtime-diagnostics-tools
 ```
 
 `--update` / `-u` (and `-Update` for PowerShell) skips the «Already installed» early-return and transforms install commands into upgrade commands per-PM. For Linux `apt` / `dnf` and curl-based recipes (kubectl, kaf, aws, ...) this is a no-op — they already upgrade on re-run. For `brew`, `apk`, `pacman`, `winget`, `scoop`, `choco` — `install` is replaced with the appropriate upgrade subcommand. On Arch, `pacman -S` becomes `pacman -Syu` (full system upgrade — partial upgrades are unsupported per ArchWiki, which means `--update` may upgrade more packages than the one you asked for). The summary distinguishes `Updated` (version changed) from `Already at latest` (recipe ran but version unchanged). See [`docs/CLI_UTILITIES.md`](../docs/CLI_UTILITIES.md) → «Обновление установленных инструментов» for the full transformation table.

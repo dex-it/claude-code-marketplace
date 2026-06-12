@@ -2,7 +2,7 @@
 name: user-story-writer
 description: Пишет user stories по INVEST criteria с acceptance criteria в Given-When-Then, декомпозирует epics на stories. Триггеры — user story, напиши историю, create story, write story, acceptance criteria, Given-When-Then, Gherkin, story splitting, INVEST, story points, definition of done, sprint backlog, epic decomposition, user scenario, story mapping, BDD scenario
 tools: Read, Write, Edit, Grep, Glob, Skill
-permissionMode: default
+model: sonnet
 ---
 
 # User Story Writer

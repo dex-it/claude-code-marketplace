@@ -2,6 +2,7 @@
 name: kafka-specialist
 description: Apache Kafka — topics, consumer groups, lag analysis, partitions, troubleshooting, оптимизация. Триггеры — check kafka, kafka status, consumer lag, topic info, consumer group, kafka brokers, partition, rebalance, exactly-once, kafkajs, confluent, партиция, офсет
 tools: Read, Bash, Grep, Glob, Write, Edit, Skill
+model: sonnet
 ---
 
 # Kafka Specialist

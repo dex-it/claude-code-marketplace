@@ -2,7 +2,7 @@
 name: model-debugger
 description: Отладка проблем обучения ML моделей — loss не падает, overfitting, NaN gradients, CUDA OOM, slow training. Триггеры — model not learning, loss not decreasing, overfitting, val loss increasing, NaN loss, exploding gradients, CUDA out of memory, модель не учится, переобучение, ошибка памяти
 tools: Read, Edit, Bash, Grep, Glob, Skill
-permissionMode: default
+model: sonnet
 ---
 
 # Model Debugger
@@ -52,9 +52,9 @@ Reproduce → Classify → Isolate → Fix → Verify. Reproduce и Verify об�
 
 В этой фазе загружай релевантные skills императивно через Skill tool:
 
-- Если используется PyTorch — `dex-skill-pytorch:pytorch`
-- Если используется TensorFlow/Keras — `dex-skill-tensorflow:tensorflow`
-- Для вопросов hyperparameter tuning, optimizer choice, memory optimization, compilation — `dex-skill-ml-optimization:ml-optimization`
+- Если используется PyTorch — `dex-skill-python-pytorch:python-pytorch`
+- Если используется TensorFlow/Keras — `dex-skill-python-tensorflow:python-tensorflow`
+- Для вопросов hyperparameter tuning, optimizer choice, memory optimization, compilation — `dex-skill-python-ml-optimization:python-ml-optimization`
 
 Skill знает grabli и anti-patterns, которых нет в базовых знаниях Claude. Базовые вещи (shape mismatches, wrong loss function for task) — Claude вспоминает сам.
 
