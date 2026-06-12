@@ -16,7 +16,7 @@
  */
 
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
-import { join, relative, resolve, dirname } from 'node:path';
+import { join, relative, resolve, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import matter from 'gray-matter';
 import { unified } from 'unified';
@@ -223,6 +223,27 @@ function validateFrontmatter(parsed, findings) {
 }
 
 /**
+ * The agent file name must match the frontmatter `name`. Claude Code resolves
+ * the agent by its `name`; a divergent file name leaves the file looking like a
+ * different agent than the one it declares and breaks the project convention
+ * "имя файла агента совпадает с `name`" (CLAUDE.md). Skipped when `name` is
+ * missing — that is already reported by `frontmatter-required`.
+ */
+function validateFileNameMatchesName(filepath, parsed, findings) {
+  const fm = parsed.data || {};
+  if (fm.name == null || fm.name === '') return;
+
+  const fileStem = basename(filepath, '.md');
+  if (fileStem !== String(fm.name)) {
+    findings.push({
+      level: ERROR,
+      rule: 'agent-file-name-mismatch',
+      message: `File name "${fileStem}.md" does not match frontmatter name "${fm.name}" — rename the file to "${fm.name}.md" (or fix the name) so they agree`,
+    });
+  }
+}
+
+/**
  * Parse markdown into an AST and extract phase sections.
  * A phase is identified by an H2 heading that matches /^Phase\b/.
  */
@@ -404,6 +425,7 @@ function validateFile(filepath, marketplacePlugins) {
 
   const phaseResult = validatePhases(parsed.content, findings);
   validateFrontmatter(parsed, findings);
+  validateFileNameMatchesName(filepath, parsed, findings);
 
   if (phaseResult.validated) {
     validateSkillReferences(parsed.content, marketplacePlugins, findings);
