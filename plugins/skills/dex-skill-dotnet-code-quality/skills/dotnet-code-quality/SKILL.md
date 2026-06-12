@@ -41,10 +41,10 @@ description: Гигиена .NET проекта — анализаторы и к
 Правильно: узкий scope `disable ... restore` вокруг конкретной строки + комментарий-обоснование; для CA — атрибут `[SuppressMessage]` с непустым `Justification`
 Почему: широкий `disable` без `restore` гасит правило до конца файла и прячет последующие настоящие нарушения
 
-### DI-резолвируемые классы ложно помечаются анализатором как «никогда не инстанцируются»
-Плохо: `class OrdersQueryHandler : IRequestHandler<OrdersQuery, Result>` без аннотации — CA1812 / ReSharper «class never instantiated»
-Правильно: `[UsedImplicitly] class OrdersQueryHandler : IRequestHandler<OrdersQuery, Result>` (пакет `JetBrains.Annotations`)
-Почему: MediatR, FluentValidation, AutoMapper регистрируют хендлеры / валидаторы / профили через DI по рефлексии — явного `new` нет. `[UsedImplicitly]` — семантически верное точечное подавление без NoWarn или #pragma
+### DI-резолвируемые классы ложно помечаются как «никогда не инстанцируются»
+Плохо: глушить `#pragma warning disable CA1812` или `NoWarn` на весь файл / проект — широкое подавление прячет и настоящие неиспользуемые типы
+Правильно: `[SuppressMessage("Performance", "CA1812", Justification = "Резолвится через DI по рефлексии")]` на классе. `[UsedImplicitly]` из `JetBrains.Annotations` гасит только инспекцию ReSharper/Rider в IDE, build-time анализатор CA1812 его не распознаёт
+Почему: MediatR, FluentValidation, AutoMapper создают хендлеры / валидаторы / профили через DI по рефлексии — явного `new` нет, и CA1812 даёт ложное срабатывание. `[SuppressMessage]` с непустым `Justification` — точечное подавление именно этого правила; при `TreatWarningsAsErrors` атрибут `[UsedImplicitly]` оставит билд красным
 
 ## Аудит зависимостей (NuGet security)
 
