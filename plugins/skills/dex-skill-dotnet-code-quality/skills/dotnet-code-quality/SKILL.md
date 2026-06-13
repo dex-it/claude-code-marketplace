@@ -42,9 +42,9 @@ description: Гигиена .NET проекта — анализаторы и к
 Почему: широкий `disable` без `restore` гасит правило до конца файла и прячет последующие настоящие нарушения
 
 ### DI-резолвируемые классы ложно помечаются как «никогда не инстанцируются»
-Плохо: глушить `#pragma warning disable CA1812` или `NoWarn` на весь файл / проект — широкое подавление прячет и настоящие неиспользуемые типы
-Правильно: `[SuppressMessage("Performance", "CA1812", Justification = "Резолвится через DI по рефлексии")]` на классе. `[UsedImplicitly]` из `JetBrains.Annotations` гасит только инспекцию ReSharper/Rider в IDE, build-time анализатор CA1812 его не распознаёт
-Почему: MediatR, FluentValidation, AutoMapper создают хендлеры / валидаторы / профили через DI по рефлексии — явного `new` нет, и CA1812 даёт ложное срабатывание. `[SuppressMessage]` с непустым `Justification` — точечное подавление именно этого правила; при `TreatWarningsAsErrors` атрибут `[UsedImplicitly]` оставит билд красным
+Плохо: на ложное «class is never instantiated» глушить `#pragma warning disable CA1812` или `NoWarn` на весь файл / проект; либо вешать один атрибут наугад, не разобравшись, какой движок его выдал
+Правильно: развести по области класса. `internal` тип (CA1812 — «Avoid uninstantiated internal classes», на `public` не срабатывает) → `[SuppressMessage("Performance", "CA1812", Justification = "Резолвится через DI по рефлексии")]`. `public` тип (срабатывает не CA1812, а инспекция ReSharper/Rider `ClassNeverInstantiated.Global`) → `[UsedImplicitly]` из `JetBrains.Annotations`
+Почему: MediatR, FluentValidation, AutoMapper резолвят хендлеры / валидаторы / профили через DI по рефлексии — явного `new` нет, и оба движка ложно считают тип неиспользуемым. Но движки разные: build-time CA1812 не распознаёт `[UsedImplicitly]` (это маркер IDE-инспекции, не Roslyn), а IDE-инспекция игнорирует `[SuppressMessage]` для CA1812. Хендлеры этих библиотек идиоматично `public`, поэтому чаще нужен именно `[UsedImplicitly]`; `[SuppressMessage CA1812]` — для `internal`-типов
 
 ## Аудит зависимостей (NuGet security)
 
