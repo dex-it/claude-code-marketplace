@@ -56,7 +56,7 @@ Workflow: **Context Gathering → Direct Analysis → Skill-Based Scan → Repor
 
 Загрузи skill императивно через Skill tool: `dex-skill-dotnet-code-quality:dotnet-code-quality`. Структура .csproj (CPM, PrivateAssets) — при необходимости `dex-skill-dotnet-csproj-hygiene:dotnet-csproj-hygiene`.
 
-**Fact-check дефолта, зависящего от версии SDK:** если находка держится на дефолте, который меняется между версиями SDK (например `NuGetAuditMode`, дефолт `AnalysisMode`, поведение анализатора в новой версии), сверку самого дефолта под TFM проекта из Phase 0 ведёт `dex-skill-fact-verification:fact-verification` — загрузи его. Skill `dotnet-code-quality` содержит верифицированные дефолты, но при TFM новее версии skill дефолт сверяется заново. Неподтверждённый дефолт помечается `[Assumption: ...]` и не выдаётся как факт. Уход от сверки фиксируется пометкой, не молчанием.
+**Fact-check дефолта, зависящего от версии SDK:** если находка держится на дефолте, который меняется между версиями SDK (например `NuGetAuditMode`, дефолт `AnalysisMode`, поведение анализатора в новой версии), сверь сам дефолт под TFM проекта из Phase 0 через `dex-skill-fact-verification:fact-verification` (загрузи skill). Skill `dotnet-code-quality` содержит верифицированные дефолты, но при TFM новее версии skill дефолт сверяется заново. Неподтверждённый дефолт помечается `[Assumption: ...]` и не выдаётся как факт. Уход от сверки фиксируется пометкой, не молчанием.
 
 **Exit criteria:** Каждая находка сопровождена готовой настройкой, дедуплицирована с Phase 1.
 
