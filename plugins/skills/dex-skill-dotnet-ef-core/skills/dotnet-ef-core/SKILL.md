@@ -81,10 +81,12 @@ description: EF Core — ловушки запросов, миграций, conc
 
 > Связанные ловушки: что вообще хранить в Aggregate / Owned-Type — см. `dex-skill-ddd` («Persisted-поле без потребителя»).
 
-### timestamp теряет Kind — store-UTC на запись, пометка Kind на чтение
-Плохо: `v => DateTime.SpecifyKind(v, DateTimeKind.Utc).ToLocalTime()` в value-конвертере на чтение
-Правильно: на границе хранения работать в UTC явно — на запись `v => v.ToUniversalTime()`, на чтение только пометить Kind `v => DateTime.SpecifyKind(v, DateTimeKind.Utc)`; локальное время — на отображении
-Почему: `timestamp without time zone` не хранит Kind, провайдер отдаёт `Unspecified`. `SpecifyKind` ставит метку, не трогая значение; `.ToLocalTime()` дополнительно сдвигает значение на таймзону хоста. На UTC-сервере сдвиг = 0 → баг латентный, всплывает только на не-UTC окружении
+### timestamp теряет Kind — выбор колонки решает, какой Kind писать
+Плохо: `v => DateTime.SpecifyKind(v, DateTimeKind.Utc).ToLocalTime()` в value-конвертере на чтение из `timestamp without time zone`
+Правильно: сперва выбрать тип колонки. Под UTC-семантику — `timestamptz` (`timestamp with time zone`), тогда конвертер не нужен, Npgsql сам пишет/читает `Kind=Utc`. Если колонка остаётся `timestamp` — на запись нормализовать к `Kind=Unspecified` (`v => DateTime.SpecifyKind(v.ToUniversalTime(), DateTimeKind.Unspecified)`), на чтение только пометить `v => DateTime.SpecifyKind(v, DateTimeKind.Utc)`; локальное время — на отображении
+Почему: `timestamp without time zone` не хранит Kind, провайдер отдаёт `Unspecified`. Npgsql/EFCore.PG 6.0+ по умолчанию **запрещает** писать `DateTime` с `Kind=Utc` в `timestamp` (бросает на записи) — `Kind=Utc` едет только в `timestamptz`; поэтому `v => v.ToUniversalTime()` (даёт `Kind=Utc`) на колонке `timestamp` падает ещё до чтения. `SpecifyKind` ставит метку, не трогая значение; `.ToLocalTime()` дополнительно сдвигает значение на таймзону хоста. На UTC-сервере сдвиг = 0 → read-баг латентный, всплывает только на не-UTC окружении
+
+> Связанные ловушки: почему такой сдвиг не ловится тестами на одной таймзоне — см. `dex-skill-testability` («Тесты под единственной таймзоной»).
 
 ## Cascade Delete
 
