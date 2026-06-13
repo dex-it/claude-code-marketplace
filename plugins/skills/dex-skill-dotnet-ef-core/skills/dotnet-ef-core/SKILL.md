@@ -32,6 +32,11 @@ description: EF Core — ловушки запросов, миграций, conc
 Правильно: `.GroupBy(x => x.Category).Select(g => new { g.Key, Count = g.Count() }).ToDictionaryAsync(...)` — транслируется в SQL `GROUP BY`
 Почему: EF Core транслирует большинство группировок и агрегаций в SQL. Материализация до группировки тянет все строки и ломает план запроса. Агрегации (`Count`, `Sum`, `Any`) должны идти SQL-запросом, не коллекцией в памяти
 
+### Пользовательский метод в IQueryable выполняется на клиенте
+Плохо: `db.Items.Where(x => x.GetEffectivePeriod().Contains(now))` — EF не транслирует GetEffectivePeriod()
+Правильно: раскрыть вычисление в выражении: `.Where(x => x.StartDate <= now && x.EndDate >= now)`; для сложных случаев — `HasDbFunction`
+Почему: EF Core 3+ бросает `InvalidOperationException`, если выражение в `.Where()` / `.OrderBy()` не транслируется в SQL — это защита от незаметной client-side фильтрации. Молчаливая загрузка всех строк в память возможна лишь в top-level projection (последний `Select`), где client-eval ещё разрешён
+
 ### Репозиторий материализует вместо IQueryable
 Плохо: `Task<List<T>> FilterAsync(spec)` — метод возвращает `List`, дальнейшая композиция невозможна
 Правильно: `IQueryable<T> Query(spec)` для композиции на уровне сервиса / handler (или specialized read-методы типа `GetByIdAsync`, `GetPagedAsync` с проекцией внутри)
@@ -143,7 +148,7 @@ description: EF Core — ловушки запросов, миграций, conc
 
 ### Схемная миграция без data migration для исторических данных
 Плохо: добавлена таблица-связка через DDL, но существующие строки из старой таблицы не перенесены
-Правильно: отдельная data migration — `INSERT INTO new_table SELECT … FROM old_table WHERE …` — сразу после схемной
+Правильно: отдельная data migration — `INSERT INTO new_table SELECT … FROM old_table WHERE …` — отдельным шагом следом за схемной (та же ось, что «Данные и схема в одной миграции»: данные отдельно от DDL, но **не пропустить** этот шаг)
 Почему: схемная миграция создаёт структуру; без data migration исторические данные «невидимы» новому коду с первого деплоя — тихая потеря, не исключение
 
 ## DbContext lifetime
