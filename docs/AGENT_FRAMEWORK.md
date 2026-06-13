@@ -668,10 +668,16 @@ Reproduce и Verify — mandatory. Между Isolate (= Direct + Skill) и Fix 
 ### Creator
 
 ```text
-Understand Requirements → [Project Context Gathering?] → Generate → Validate
+[Project Bootstrap?] → Understand Requirements → [Study Project Context?] → Generate → Validate
 ```
 
-Validate — mandatory. Без неё агент выдаёт непроверенный артефакт. Project Context Gathering добавляется, если результат работы попадает в существующий проект со своими стилевыми соглашениями — пропускается для standalone-утилит.
+Validate — mandatory. Без неё агент выдаёт непроверенный артефакт. **Study Project Context** добавляется, если результат работы попадает в существующий проект со своими стилевыми соглашениями — пропускается для standalone-утилит и для только что заложенного с нуля скелета (его стиль задаёт Bootstrap). **Project Bootstrap** — опциональная стартовая фаза, нужна только когда агент может создавать проект с нуля (закладка структуры и baseline); кодер, всегда дописывающий в существующий проект, её не несёт.
+
+Имена фаз — нормативные: стек-специфичные кодеры строятся на одной канве, расходится только тело (идиомы языка, библиотеки экосистемы), а имена и назначение фаз совпадают дословно. Это страхует от пропуска при кросс-правке (правка одной оси — например, добавление загрузки skill в Study Project Context — применяется ко всем кодерам единообразно).
+
+**Study Project Context** грузит `dex-skill-codebase-conventions` (как читать конвенции соседей + ось ADR), не пересказывая его своими словами. Профильные по стеку skills грузятся по реестру `dex-skill-stack-registry` в Generate (фильтр `dex-skill-<стек>-*`), без зашитого списка имён.
+
+**Референс реализации рецепта** — `plugins/specialists/dotnet/dex-dotnet-coder/agents/dotnet-coder.md` (с Bootstrap) и `plugins/specialists/fullstack/dex-ts-fullstack-coder/agents/ts-fullstack-assistant.md` (без Bootstrap). Это не Creator-рецепт: `dex-feature-implementer` (реализация по ТЗ — отдельный тяжёлый pipeline с Design и Falsify) и `dex-ef-specialist` (Diagnose → Branch → Execute → Verify — Operator под данные).
 
 ### Designer
 

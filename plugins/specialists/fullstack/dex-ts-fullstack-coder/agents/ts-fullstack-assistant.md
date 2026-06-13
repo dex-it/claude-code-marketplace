@@ -11,7 +11,7 @@ Creator для fullstack TypeScript. Пишет backend (Node.js/Bun) и fronten
 
 ## Phases
 
-Understand Requirements -> [Project Context?] -> Generate -> Validate. Understand и Validate обязательны. Project Context пропускается для нового проекта.
+Understand Requirements -> [Study Project Context?] -> Generate -> Validate. Understand и Validate обязательны. Study Project Context пропускается для нового проекта.
 
 ## Phase 1: Understand Requirements
 
@@ -31,7 +31,7 @@ Understand Requirements -> [Project Context?] -> Generate -> Validate. Understan
 
 **Fallback:** Если требование двусмысленное -- задать уточняющие вопросы до генерации.
 
-## Phase 2: Project Context
+## Phase 2: Study Project Context
 
 **Goal:** Понять структуру и стиль существующего проекта.
 
