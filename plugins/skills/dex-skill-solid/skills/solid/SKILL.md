@@ -25,13 +25,13 @@ description: SOLID принципы — ловушки SRP, OCP, LSP, ISP, DIP. 
 ### Промежуточный результат вычисления — поле входной модели
 Плохо:
 ```csharp
-class InputData {
-    public decimal[] Scores { get; set; }
-    public decimal Efficiency { get; set; } // производная от Scores
+class OrderInput {
+    public decimal[] Amounts { get; set; }
+    public decimal Total { get; set; } // производная от Amounts
 }
 ```
-Правильно: `var efficiency = data.Scores.Average();` — локальная переменная в Calculator
-Почему: поле входной модели — контракт «передай снаружи»; производное значение раздувает маппер и требует инициализации до вычисления, хотя может быть вычислено локально в методе
+Правильно: `var total = input.Amounts.Sum();` — локальная переменная в обработчике
+Почему: поле входной модели — контракт «передай снаружи»; производное значение раздувает маппер, требует инициализации до вычисления и может разойтись с источником, хотя выводится локально в методе
 
 ## OCP — Open/Closed Principle
 
