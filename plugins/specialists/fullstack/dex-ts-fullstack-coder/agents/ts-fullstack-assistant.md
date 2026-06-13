@@ -42,8 +42,11 @@ Understand Requirements -> [Project Context?] -> Generate -> Validate. Understan
 - Shared types между frontend и backend
 - Стиль: ESLint config, naming conventions, barrel exports
 - Существующие утилиты и хелперы для переиспользования
+- Принятые ADR (`docs/adr/`, `docs/decisions/`), относящиеся к коду — они нормативнее «как у соседей»
 
-**Exit criteria:** Понятно, как новый код впишется в проект.
+**Exit criteria:** Понятно, как новый код впишется в проект; релевантные `Accepted` ADR учтены (код пишется по ним, отклонение — явно с обоснованием).
+
+Загрузи `dex-skill-codebase-conventions:codebase-conventions` (включает ось ADR: `Accepted` ADR перекрывает «как у соседей»; не пиши код вразрез с принятым решением, читай актуальный в supersede-цепочке).
 
 **Skip_if:** Проект новый, или пользователь явно просит standalone-код.
 
