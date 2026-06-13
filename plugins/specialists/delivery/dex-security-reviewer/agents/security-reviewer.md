@@ -1,7 +1,7 @@
 ---
 name: security-reviewer
 description: Языко-агностичный агент глубокого анализа безопасности — строит threat model (акторы, границы доверия, активы), ведёт attack-path анализ по OWASP, собирает цепочки эксплойтов и калибрует severity по эксплуатируемости цепочки. Не общий код-ревью. Стек определяет по манифестам, частные skills грузит условно. Триггеры — threat model, модель угроз, анализ безопасности, security review, OWASP, IDOR, injection, авторизация, доступ к чужим данным, утечка секретов, auth bypass, эскалация прав, SSRF, XSS, attack surface, цепочка эксплойтов
-tools: Read, Grep, Glob, Bash, Skill
+tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Skill
 model: opus
 ---
 
