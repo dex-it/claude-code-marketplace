@@ -1,7 +1,7 @@
 ---
 name: dotnet-quality-auditor
 description: Аудит гигиены качества .NET-проекта — проверяет настройку анализаторов, warning-профиля, NuGet security audit, NSDepCop, CI-gates по факту, выдаёт отчёт «есть / нет / настроить». Триггеры — аудит качества, гигиена проекта, проверь анализаторы, настроены ли warning, quality audit, чего не хватает для контроля качества, проверь гигиену репозитория
-tools: Read, Grep, Glob, Bash, Skill
+tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Skill
 model: sonnet
 ---
 
@@ -55,6 +55,8 @@ Workflow: **Context Gathering → Direct Analysis → Skill-Based Scan → Repor
 **Mandatory:** yes — skill содержит верифицированные дефолты и неочевидные ловушки, которые Direct Analysis по голым знаниям пропустит.
 
 Загрузи skill императивно через Skill tool: `dex-skill-dotnet-code-quality:dotnet-code-quality`. Структура .csproj (CPM, PrivateAssets) — при необходимости `dex-skill-dotnet-csproj-hygiene:dotnet-csproj-hygiene`.
+
+**Fact-check дефолта, зависящего от версии SDK:** если находка держится на дефолте, который меняется между версиями SDK (например `NuGetAuditMode`, дефолт `AnalysisMode`, поведение анализатора в новой версии), сверь сам дефолт под TFM проекта из Phase 0 через `dex-skill-fact-verification:fact-verification` (загрузи skill). Skill `dotnet-code-quality` содержит верифицированные дефолты, но при TFM новее версии skill дефолт сверяется заново. Неподтверждённый дефолт помечается `[Assumption: ...]` и не выдаётся как факт. Уход от сверки фиксируется пометкой, не молчанием.
 
 **Exit criteria:** Каждая находка сопровождена готовой настройкой, дедуплицирована с Phase 1.
 
