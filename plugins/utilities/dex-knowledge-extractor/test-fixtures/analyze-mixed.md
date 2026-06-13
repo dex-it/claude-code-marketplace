@@ -60,9 +60,9 @@ await foreach (var item in _ctx.Logs.Where(l => l.Date > since).AsAsyncEnumerabl
 
 ## Proposed agent changes
 
-### dex-dotnet-reviewer: добавить проверку breaking changes в DTO/контрактах
+### dex-mr-reviewer: добавить проверку breaking changes в DTO/контрактах
 
-**Целевой агент:** dex-dotnet-reviewer
+**Целевой агент:** dex-mr-reviewer
 **Фаза:** Content-Level Pass
 
 **Изменение:** в чек-лист Phase 4 добавить пункт «для каждого изменённого/удалённого поля в публичных DTO / API response / контрактах — пометить как breaking change, требующий versioning или миграционного плана. Сюда же — изменение поля required/optional, типа поля, default value».

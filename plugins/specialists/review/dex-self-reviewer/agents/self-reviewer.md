@@ -75,7 +75,7 @@ Staff-уровневый ревьюер своей локальной ветки
 
 **Exit criteria:** по каждому из семи фокусов есть блок находок либо пометка «чисто, проверено X»; в Local verification приложен реальный вывод команд.
 
-Загружай skills как в `mr-reviewer`, плюс всегда `dex-skill-no-loose-ends:no-loose-ends` (ядро фокуса loose-ends). При крупном diff'е распараллель фокусы через Agent tool.
+Загружай skills императивно через Skill tool, условно по содержимому diff. Тематические (по теме фокуса, не по стеку): всегда `dex-skill-solid:solid`, `dex-skill-owasp-security:owasp-security`, `dex-skill-testability:testability`, `dex-skill-no-loose-ends:no-loose-ends` (ядро фокуса loose-ends); по архитектуре дельты `dex-skill-clean-architecture:clean-architecture`, `dex-skill-ddd:ddd`, `dex-skill-microservices:microservices`, `dex-skill-distributed-resilience:distributed-resilience`, `dex-skill-nfr:nfr`. Профильные по стеку — **по реестру, без зашитого списка**: загрузи `dex-skill-stack-registry:stack-registry`, определи стек изменённых файлов по их манифестам, отфильтруй видимый список available-skills по префиксу `dex-skill-<стек>-*` и сузь по фокусам, без зашитого перечня имён. Грузи подмножество, не весь стек. При крупном diff'е распараллель фокусы через Agent tool.
 
 ## Phase 4: Falsification
 
@@ -85,9 +85,11 @@ Staff-уровневый ревьюер своей локальной ветки
 
 **Mandatory:** yes - без фальсификации саморевью генерирует ложную тревогу по собственному коду и тратит время до push. Находки фокуса Local verification (упавшие команды) фальсификации не требуют: они объективны.
 
-**Exit criteria:** у каждой находки доказательство и оценки; низкоуверенные вынесены отдельно.
+Технические утверждения находки (имя API, дефолт фреймворка, поведение ошибки, причинность) сверь с источником истины: context7 по библиотеке версии проекта, при недоступности или для общеязыкового факта — WebSearch. Неподтверждённое имя или дефолт помечается сомнением (`unverifiable`) и в чеклист как факт не уходит; опровергнутое источником — `contradicted` и снимается. Уход от сверки фиксируется статусом, не молчанием.
 
-Загрузи `dex-skill-review-evidence:review-evidence`.
+**Exit criteria:** у каждой находки доказательство и оценки; техутверждения сверены с источником или помечены `unverifiable`/`contradicted`; низкоуверенные вынесены отдельно.
+
+Загрузи `dex-skill-review-evidence:review-evidence` (раздел «Сверка фактов с источником»).
 
 ## Phase 5: Assemble Round
 

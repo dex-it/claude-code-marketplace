@@ -84,7 +84,15 @@ Staff-уровневый инженер, реализующий фичу по Т
 
 **Exit criteria:** каждая ось дизайна проработана или помечена «не применимо к этой фиче» с обоснованием; спорные решения вынесены в «спорные моменты» с выбором по умолчанию.
 
-Загрузи всегда `dex-skill-clean-architecture:clean-architecture`, `dex-skill-solid:solid`, `dex-skill-testability:testability`. Условно: при эндпоинтах/доступе к данным `dex-skill-owasp-security:owasp-security` и `dex-skill-nfr:nfr`; при распределённом `dex-skill-microservices:microservices` и `dex-skill-distributed-resilience:distributed-resilience`; по стеку .NET `dex-skill-dotnet-async-patterns:dotnet-async-patterns`, `dex-skill-dotnet-di:dotnet-di`, `dex-skill-dotnet-ef-core:dotnet-ef-core`, `dex-skill-dotnet-api-development:dotnet-api-development`, `dex-skill-dotnet-resilience:dotnet-resilience`, `dex-skill-dotnet-logging:dotnet-logging`; по стеку TS/JS `dex-skill-typescript-patterns:typescript-patterns`, `dex-skill-react:react`, `dex-skill-nodejs-api:nodejs-api`.
+**Загрузка skills — по реестру стеков, без зашитого списка.** Сначала загрузи
+`dex-skill-stack-registry:stack-registry` — он задаёт детект стека и правило отбора
+«стек × тема». Дальше:
+- **Тематические (по теме дизайна, не по стеку):** всегда `dex-skill-clean-architecture:clean-architecture`, `dex-skill-solid:solid`, `dex-skill-testability:testability`; при эндпоинтах/доступе к данным `dex-skill-owasp-security:owasp-security` и `dex-skill-nfr:nfr`; при распределённом `dex-skill-microservices:microservices` и `dex-skill-distributed-resilience:distributed-resilience`; при фронте/SPA `dex-skill-react:react`.
+- **Профильные по стеку:** определи стек по манифесту папки фичи, возьми префикс `dex-skill-<стек>-*` из реестра, отфильтруй видимый список available-skills по этому префиксу и сузь по осям дизайна (контракты, данные, конкуррентность, ошибки, наблюдаемость). Грузи подмножество, не весь стек. Стек без профильных skills (фильтр по префиксу пуст) → fallback на тематические + знания, как описано в реестре.
+
+Новый стек проекта = новые `dex-skill-<стек>-*` + строка реестра; этот агент при
+этом **не правится** — перечни выше даны как примеры под общим правилом, не как
+закрытый список.
 
 ## Phase 5: Executable Edit Plan
 
