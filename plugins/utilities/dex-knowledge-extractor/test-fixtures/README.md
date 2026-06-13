@@ -2,15 +2,17 @@
 
 Каталог тестовых analyze.md для разработки и регрессии команды `/mr-apply`.
 
-| Файл | Сценарий | Ожидаемый исход |
-|------|----------|-----------------|
-| analyze-skill-addition.md | Новая ловушка в существующий skill | Applied: 1 |
-| analyze-new-skill.md | Создание нового skill | Applied: 1, files: 3 (SKILL.md, plugin.json, marketplace.json) |
-| analyze-agent-change.md | Правка фазы агента | Applied: 1 |
-| analyze-mixed.md | Микс типов | Applied: 3, Skipped: 1, Dropped: 1 |
-| analyze-self-review-fail.md | Имя конкретного проекта | Applied: 0, Skipped: 1 (self-review failed) |
-| analyze-cross-check-conflict.md | Конфликт двух предложений одного прогона | Cross-check переписывает пример; Applied: 2, Dropped: 0 |
-| analyze-quality-gate.md | Quality gate: банальность / off-axis-reassign / FP / mislabeled | Applied: 2 (bool-имя переписана + фильтр переназначен на верную ось), Dropped: 2 (banal-or-lint-caught ×2). Промах оси -> reassign, не Drop |
+Колонка **CA** -- несёт ли фикстура полный блок `Critical assessment` (9 полей), на котором `/mr-apply` проверяет копирование самооценки as-is в `apply-report.md`. Фикстуры без CA проверяют только механику применения drop-in.
+
+| Файл | Сценарий | Ожидаемый исход | CA |
+|------|----------|-----------------|----|
+| analyze-skill-addition.md | Новая ловушка в существующий skill | Applied: 1 | нет |
+| analyze-new-skill.md | Создание нового skill | Applied: 1, files: 3 (SKILL.md, plugin.json, marketplace.json) | нет |
+| analyze-agent-change.md | Правка фазы агента | Applied: 1 | нет |
+| analyze-mixed.md | Микс типов + полный Critical assessment на каждом предложении | Applied: 3, Skipped: 1, Dropped: 1 | да (9 полей) |
+| analyze-self-review-fail.md | Имя конкретного проекта | Applied: 0, Skipped: 1 (self-review failed) | нет |
+| analyze-cross-check-conflict.md | Конфликт двух предложений одного прогона | Cross-check переписывает пример; Applied: 2, Dropped: 0 | да (9 полей) |
+| analyze-quality-gate.md | Quality gate: банальность / off-axis-reassign / FP / mislabeled | Applied: 2 (bool-имя переписана + фильтр переназначен на верную ось), Dropped: 2 (banal-or-lint-caught ×2). Промах оси -> reassign, не Drop | да (на выживших) |
 
 ## Запуск (ручной, после имплементации команды)
 
