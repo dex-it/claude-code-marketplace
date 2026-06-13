@@ -1,6 +1,6 @@
 ---
 name: dotnet-ef-core
-description: EF Core — ловушки запросов, миграций, concurrency, mapping. Активируется при ef core, dbcontext, migration, N+1, AsNoTracking, Include, AsSplitQuery, IQueryable, ExecuteUpdate, cartesian explosion, GroupBy, owned types
+description: EF Core — ловушки запросов, миграций, concurrency, mapping. Активируется при ef core, dbcontext, migration, N+1, AsNoTracking, Include, AsSplitQuery, IQueryable, ExecuteUpdate, cartesian explosion, GroupBy, owned types, DateTime, DateTimeKind, timestamp, timestamptz, Npgsql, Unspecified, ToUniversalTime, value converter
 ---
 
 # Entity Framework Core — ловушки и anti-patterns
@@ -32,6 +32,11 @@ description: EF Core — ловушки запросов, миграций, conc
 Правильно: `.GroupBy(x => x.Category).Select(g => new { g.Key, Count = g.Count() }).ToDictionaryAsync(...)` — транслируется в SQL `GROUP BY`
 Почему: EF Core транслирует большинство группировок и агрегаций в SQL. Материализация до группировки тянет все строки и ломает план запроса. Агрегации (`Count`, `Sum`, `Any`) должны идти SQL-запросом, не коллекцией в памяти
 
+### Пользовательский метод в IQueryable выполняется на клиенте
+Плохо: `db.Items.Where(x => x.GetEffectivePeriod().Contains(now))` — EF не транслирует GetEffectivePeriod()
+Правильно: раскрыть вычисление в выражении: `.Where(x => x.StartDate <= now && x.EndDate >= now)`; для сложных случаев — `HasDbFunction`
+Почему: EF Core 3+ бросает `InvalidOperationException`, если выражение в `.Where()` / `.OrderBy()` не транслируется в SQL — это защита от незаметной client-side фильтрации. Молчаливая загрузка всех строк в память возможна лишь в top-level projection (последний `Select`), где client-eval ещё разрешён
+
 ### Репозиторий материализует вместо IQueryable
 Плохо: `Task<List<T>> FilterAsync(spec)` — метод возвращает `List`, дальнейшая композиция невозможна
 Правильно: `IQueryable<T> Query(spec)` для композиции на уровне сервиса / handler (или specialized read-методы типа `GetByIdAsync`, `GetPagedAsync` с проекцией внутри)
@@ -41,6 +46,16 @@ description: EF Core — ловушки запросов, миграций, conc
 Плохо: var ts = db.Items.First(spec).StartAt!.Value; // StartAt — nullable в БД, фильтра по null нет
 Правильно: var ts = db.Items.First(p => spec && p.StartAt != null).StartAt!.Value
 Почему: ! подавляет предупреждение, но не устраняет null в данных. На первой строке с NULL — NullReferenceException в runtime. Правило: ! допустим только если WHERE явно исключил null выше по цепочке
+
+### Single() на запросе без уникального ограничения
+Плохо: `db.Items.Where(x => x.Stack == stack).Single()` — "пока один — работает"
+Правильно: уточнить до уникального условия `.Where(x => x.Stack == stack && x.Type == type).Single()` или взять первый из допустимых: `.FirstOrDefault(x => x.Stack == stack)`
+Почему: `.Single()` бросает `InvalidOperationException` при ≥2 результатах. Если домен допускает несколько записей с одинаковым условием — это бомба замедленного действия: работает пока данных мало, взрывается при росте
+
+### Null-guard в спецификации на ненулевом параметре
+Плохо: `public ByValueSpec(Guid id) { if (id != Guid.Empty) Query.Where(x => x.Id == id); }`
+Правильно: `public ByValueSpec(Guid id) { Query.Where(x => x.Id == id); }` — валидировать на call site, не внутри спецификации
+Почему: guard на non-nullable аргументе делает поведение spec неопределённым: при `Guid.Empty` вернётся вся таблица вместо раннего сбоя у caller'а. Исключение: если `Guid.Empty` — явный публичный контракт «без фильтра»
 
 > Общие LINQ ловушки (Count vs Any, фильтрация, коллекции) — см. `dex-skill-linq-optimization`
 
@@ -65,6 +80,13 @@ description: EF Core — ловушки запросов, миграций, conc
 Почему: Owned-Type из 1 поля = overhead конфигурации (`OnModelCreating`, миграция с префиксом `Complexity_`, `OwnsOne(...).Property(...)`) без выгоды. Value Object из одного значения не несёт инварианта (нечего связывать), это псевдо-абстракция. Сигнал к схлопыванию: после удаления избыточных полей в Owned-Type осталось одно — это уже не Value Object, это поле под чужим именем
 
 > Связанные ловушки: что вообще хранить в Aggregate / Owned-Type — см. `dex-skill-ddd` («Persisted-поле без потребителя»).
+
+### timestamp теряет Kind — выбор колонки решает, какой Kind писать
+Плохо: `v => DateTime.SpecifyKind(v, DateTimeKind.Utc).ToLocalTime()` в value-конвертере на чтение из `timestamp without time zone`
+Правильно: сперва выбрать тип колонки. Под UTC-семантику — `timestamptz` (`timestamp with time zone`), тогда конвертер не нужен, Npgsql сам пишет/читает `Kind=Utc`. Если колонка остаётся `timestamp` — на запись нормализовать к `Kind=Unspecified` (`v => DateTime.SpecifyKind(v.ToUniversalTime(), DateTimeKind.Unspecified)`), на чтение только пометить `v => DateTime.SpecifyKind(v, DateTimeKind.Utc)`; локальное время — на отображении
+Почему: `timestamp without time zone` не хранит Kind, провайдер отдаёт `Unspecified`. Npgsql/EFCore.PG 6.0+ по умолчанию **запрещает** писать `DateTime` с `Kind=Utc` в `timestamp` (бросает на записи) — `Kind=Utc` едет только в `timestamptz`; поэтому `v => v.ToUniversalTime()` (даёт `Kind=Utc`) на колонке `timestamp` падает ещё до чтения. `SpecifyKind` ставит метку, не трогая значение; `.ToLocalTime()` дополнительно сдвигает значение на таймзону хоста. На UTC-сервере сдвиг = 0 → read-баг латентный, всплывает только на не-UTC окружении
+
+> Связанные ловушки: почему такой сдвиг не ловится тестами на одной таймзоне — см. `dex-skill-testability` («Тесты под единственной таймзоной»).
 
 ## Cascade Delete
 
@@ -130,6 +152,11 @@ description: EF Core — ловушки запросов, миграций, conc
 Плохо: `ALTER TABLE` + `UPDATE SET` + `INSERT INTO` в одной миграции
 Правильно: отдельная миграция для схемы, отдельная для данных
 Почему: схемная миграция блокирует таблицу. Если data migration внутри неё — блокировка затягивается. При откате — неопределённое состояние
+
+### Схемная миграция без data migration для исторических данных
+Плохо: добавлена таблица-связка через DDL, но существующие строки из старой таблицы не перенесены
+Правильно: отдельная data migration — `INSERT INTO new_table SELECT … FROM old_table WHERE …` — отдельным шагом следом за схемной (та же ось, что «Данные и схема в одной миграции»: данные отдельно от DDL, но **не пропустить** этот шаг)
+Почему: схемная миграция создаёт структуру; без data migration исторические данные «невидимы» новому коду с первого деплоя — тихая потеря, не исключение
 
 ## DbContext lifetime
 

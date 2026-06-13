@@ -98,6 +98,7 @@ claude plugins uninstall dex-dotnet-coder
 | dex-feature-implementer | feature-implementer | `/implement` | Реализация фичи по ТЗ до локальных коммитов |
 | dex-self-reviewer | self-reviewer | `/self-review` | Pre-push саморевью своей ветки с прогоном тестов |
 | dex-conflict-resolver | conflict-resolver | `/resolve-conflicts` | Подтянуть базу в фича-ветку и развести конфликты merge/rebase без тихой потери стороны |
+| dex-incident-investigator | incident-investigator | `/investigate` | Расследование инцидента на общем стенде, RCA и фикс на источнике, read-only по умолчанию |
 
 Ставятся набором: `dex-bundle-code-review`. Стек определяется по манифестам, релевантные skills (включая .NET и TypeScript) грузятся условно.
 
@@ -168,7 +169,8 @@ claude plugins uninstall dex-dotnet-coder
 |--------|----------|
 | dex-test-analyst | Test design, coverage analysis |
 | dex-test-automator | Selenium, Playwright, API testing |
-| dex-bug-reporter | Bug reports, reproduction steps |
+| dex-bug-reporter | Bug reports, reproduction steps, RCA handoff |
+| dex-bug-finder | Активный поиск багов: чартеры, адверсариальная охота, воспроизведение, handoff |
 
 ### ML
 
@@ -193,7 +195,8 @@ claude plugins uninstall dex-dotnet-coder
 | **Infrastructure** | rabbitmq, kafka, elasticsearch, redis, mongodb, docker, kubernetes, gitlab-ci, github-actions, jenkins, teamcity, logging, observability |
 | **Architecture** | clean-architecture, ddd, microservices, system-design |
 | **Product & Analysis** | agile, user-stories, bpmn, doc-standards, api-specification, epic-planning, product-discovery, prioritization |
-| **QA** | test-design, api-testing, deep-audit, tech-audit, playwright |
+| **QA** | test-design, api-testing, deep-audit, tech-audit, playwright, exploratory-testing, bug-reproduction, contract-drift |
+| **Incident & RCA** | problem-specification, root-cause-analysis, change-correlation, shared-stand-safety |
 | **ML** | python-pytorch, python-tensorflow, python-classical-ml, python-nlp-transformers, python-computer-vision, python-ml-optimization |
 
 ## Utilities (Level 1)

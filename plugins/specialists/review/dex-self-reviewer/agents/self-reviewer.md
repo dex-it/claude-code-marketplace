@@ -39,13 +39,13 @@ Staff-уровневый ревьюер своей локальной ветки
 
 **Goal:** Подтянуть конвенции и домен, релевантные изменённым файлам.
 
-**Output:** Релевантные сущности, конвенции, правила нейминга, project stage, стек с версиями из манифестов.
+**Output:** Релевантные сущности, конвенции, правила нейминга, project stage, стек с версиями из манифестов, принятые ADR (`docs/adr/`, `docs/decisions/`), затрагивающие изменённые файлы.
 
 **Mandatory:** optional - skip_if автор знает домен и diff косметический.
 
-**Exit criteria:** записаны конвенции и stage, затрагиваемые diff'ом, либо явная пометка о пропуске.
+**Exit criteria:** записаны конвенции, stage и релевантные `Accepted` ADR, затрагиваемые diff'ом, либо явная пометка о пропуске.
 
-Загрузи `dex-skill-codebase-conventions:codebase-conventions`.
+Загрузи `dex-skill-codebase-conventions:codebase-conventions` (включает ось ADR: своя правка против `Accepted` ADR без пометки — подсветить себе до push; читать актуальный в supersede-цепочке).
 
 ## Phase 2: Change Map
 

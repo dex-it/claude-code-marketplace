@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "5.14.0",
+  "version": "5.15.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -26,8 +26,8 @@
     {
       "name": "dex-skill-dotnet-ef-core",
       "source": "./plugins/skills/dex-skill-dotnet-ef-core",
-      "description": "Entity Framework Core: queries, tracking, migrations, performance optimization, owned-type mapping",
-      "version": "2.3.0",
+      "description": "Entity Framework Core: queries, tracking, migrations, performance optimization, owned-type mapping, DateTime Kind / Npgsql timestamp",
+      "version": "2.6.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -55,7 +55,7 @@
       "name": "dex-skill-dotnet-linq-optimization",
       "source": "./plugins/skills/dex-skill-dotnet-linq-optimization",
       "description": "LINQ optimization: deferred execution, materialization, performance",
-      "version": "2.1.0",
+      "version": "2.3.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -68,7 +68,7 @@
       "name": "dex-skill-dotnet-api-development",
       "source": "./plugins/skills/dex-skill-dotnet-api-development",
       "description": "API development: REST, versioning, URL design, error handling, DTOs",
-      "version": "2.1.0",
+      "version": "2.3.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -462,7 +462,7 @@
       "name": "dex-skill-dotnet-code-quality",
       "source": "./plugins/skills/dex-skill-dotnet-code-quality",
       "description": "Гигиена .NET: Roslyn analyzers, warning-профиль, NuGet security audit, контроль зависимостей через NSDepCop",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -662,7 +662,7 @@
       "name": "dex-skill-clean-architecture",
       "source": "./plugins/skills/dex-skill-clean-architecture",
       "description": "Clean Architecture: layers, dependencies, domain-centric design, CQRS contracts",
-      "version": "1.2.0",
+      "version": "1.4.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -674,8 +674,8 @@
     {
       "name": "dex-skill-codebase-conventions",
       "source": "./plugins/skills/dex-skill-codebase-conventions",
-      "description": "Project conventions vs technical decision — what to copy from siblings: form, naming, layer signature, placement, integration",
-      "version": "1.0.0",
+      "description": "Project conventions vs technical decision — what to copy from siblings: form, naming, layer signature, placement, integration, ADR decisions over sibling code",
+      "version": "1.5.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -689,7 +689,7 @@
       "name": "dex-skill-ddd",
       "source": "./plugins/skills/dex-skill-ddd",
       "description": "Domain-Driven Design: aggregates, entities, value objects, bounded contexts, ubiquitous language, persisted state vs computed",
-      "version": "1.4.0",
+      "version": "1.6.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -898,7 +898,7 @@
       "name": "dex-dotnet-coder",
       "source": "./plugins/specialists/dotnet/dex-dotnet-coder",
       "description": "Coding assistant for .NET: writing code, SOLID patterns, async/await",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -938,7 +938,7 @@
       "name": "dex-ef-specialist",
       "source": "./plugins/specialists/dotnet/dex-ef-specialist",
       "description": "Entity Framework Core specialist: migrations, queries, DbContext",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1341,8 +1341,8 @@
     {
       "name": "dex-bug-reporter",
       "source": "./plugins/specialists/qa/dex-bug-reporter",
-      "description": "Bug reporter: bug reports, reproduction steps, severity",
-      "version": "1.1.0",
+      "description": "Bug reporter: bug reports, reproduction steps, severity, RCA handoff",
+      "version": "1.2.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1352,10 +1352,25 @@
       ]
     },
     {
+      "name": "dex-bug-finder",
+      "source": "./plugins/specialists/qa/dex-bug-finder",
+      "description": "Активный поиск багов в фиче или ветке, языко-агностично: модель рисков и чартеры, адверсариальная охота, skill-чеклисты, воспроизведение и квалификация, handoff в расследование. Дополняет test-analyst и test-automator поиском дефектов в первую очередь.",
+      "version": "1.0.0",
+      "category": "specialist",
+      "keywords": [
+        "specialist",
+        "qa",
+        "bug-hunting",
+        "exploratory-testing",
+        "tester",
+        "diagnostician"
+      ]
+    },
+    {
       "name": "dex-ts-fullstack-coder",
       "source": "./plugins/specialists/fullstack/dex-ts-fullstack-coder",
       "description": "TypeScript fullstack specialist: Node.js/Bun backend + React frontend",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1527,8 +1542,8 @@
     {
       "name": "dex-bundle-qa-engineer",
       "source": "./plugins/bundles/dex-bundle-qa-engineer",
-      "description": "Bundle for QA Engineers: test analysis, automation (incl. Playwright E2E), bug reporting",
-      "version": "1.2.0",
+      "description": "Bundle for QA Engineers: test analysis, automation (incl. Playwright E2E), active bug hunting, bug reporting",
+      "version": "1.3.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -1886,8 +1901,8 @@
     {
       "name": "dex-skill-solid",
       "source": "./plugins/skills/dex-skill-solid",
-      "description": "SOLID principles: SRP, OCP, LSP, ISP, DIP violation traps",
-      "version": "1.3.0",
+      "description": "SOLID principles: SRP, OCP, LSP, ISP, DIP, predicate-naming violation traps",
+      "version": "1.5.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -1930,7 +1945,7 @@
       "name": "dex-skill-testability",
       "source": "./plugins/skills/dex-skill-testability",
       "description": "Code testability: hidden dependencies, determinism, test doubles",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -1940,10 +1955,115 @@
       ]
     },
     {
+      "name": "dex-skill-problem-specification",
+      "source": "./plugins/skills/dex-skill-problem-specification",
+      "description": "Спецификация проблемы перед поиском причины (Kepner-Tregoe IS/IS-NOT): нейтральная формулировка, что сломано и что нет, момент начала, масштаб",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "incident",
+        "rca",
+        "problem-specification",
+        "is-not",
+        "kepner-tregoe"
+      ]
+    },
+    {
+      "name": "dex-skill-root-cause-analysis",
+      "source": "./plugins/skills/dex-skill-root-cause-analysis",
+      "description": "Корневая причина против симптома: доказанные звенья цепочки, fundamental vs auxiliary, каскад, объяснение IS-NOT, фикс на источнике и его фальсификация",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "rca",
+        "root-cause",
+        "5-whys",
+        "cause-effect-chain",
+        "fix-falsification"
+      ]
+    },
+    {
+      "name": "dex-skill-change-correlation",
+      "source": "./plugins/skills/dex-skill-change-correlation",
+      "description": "Корреляция симптома с изменениями: окно вокруг момента начала, образ стенда против коммита, тайминг, изоляция нескольких изменений, git bisect first-parent",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "rca",
+        "change-correlation",
+        "git-bisect",
+        "regression-window",
+        "blame"
+      ]
+    },
+    {
+      "name": "dex-skill-shared-stand-safety",
+      "source": "./plugins/skills/dex-skill-shared-stand-safety",
+      "description": "Дисциплина общего стенда при расследовании: read-only по умолчанию, никаких apply/restart/scale без команды, секреты не печатать, не выдумывать улики",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "incident",
+        "shared-stand",
+        "read-only",
+        "blast-radius",
+        "secrets"
+      ]
+    },
+    {
+      "name": "dex-skill-exploratory-testing",
+      "source": "./plugins/skills/dex-skill-exploratory-testing",
+      "description": "Исследовательское тестирование для поиска багов: чартеры и сессии, оракулы, туры-эвристики, атака на риск и неявные предположения, а не happy path",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "qa",
+        "exploratory-testing",
+        "charter",
+        "oracle",
+        "bug-hunting"
+      ]
+    },
+    {
+      "name": "dex-skill-bug-reproduction",
+      "source": "./plugins/skills/dex-skill-bug-reproduction",
+      "description": "Воспроизведение бага: минимальный детерминированный повтор, изоляция недетерминизма, red до фикса, отличие настоящего бага от флапа и ожидаемого поведения, переживающий handoff",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "qa",
+        "bug-reproduction",
+        "repro",
+        "flaky",
+        "determinism"
+      ]
+    },
+    {
+      "name": "dex-skill-contract-drift",
+      "source": "./plugins/skills/dex-skill-contract-drift",
+      "description": "Разъехавшиеся контракты между сервисами и клиентами: имя/формат поля, статус-коды, nullability, версии API, расширение enum, фиксация контракта общей схемой",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "contract-drift",
+        "api-contract",
+        "version-skew",
+        "breaking-change",
+        "integration"
+      ]
+    },
+    {
       "name": "dex-knowledge-extractor",
       "source": "./plugins/utilities/dex-knowledge-extractor",
       "description": "Pipeline извлечения уроков из чужих MR/PR в маркетплейс: /mr-collect собирает review-комментарии, /mr-analyze обобщает в предложения для skills/agents, /mr-apply применяет с self-review и валидацией.",
-      "version": "3.2.0",
+      "version": "3.4.0",
       "category": "utility",
       "keywords": [
         "utility",
@@ -2033,7 +2153,7 @@
       "name": "dex-skill-karpathy-guidelines",
       "source": "./plugins/skills/dex-skill-karpathy-guidelines",
       "description": "Дисциплина изменений по мотивам Karpathy: думать до кода и выносить допущения, простота вперёд, хирургические правки без лишнего рефакторинга, цель через проверяемые критерии, test-first для багов. Adapted from multica-ai/andrej-karpathy-skills (MIT).",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2204,7 +2324,7 @@
       "name": "dex-mr-reviewer",
       "source": "./plugins/specialists/review/dex-mr-reviewer",
       "description": "Языко-агностичное первичное ревью чужого MR/PR по рецепту Reviewer: карта изменений, параллельные фокусы, фальсификация находок, severity/confidence/scope, доставка инлайн-тредами через gh/glab.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2221,7 +2341,7 @@
       "name": "dex-mr-check-reviewer",
       "source": "./plugins/specialists/review/dex-mr-check-reviewer",
       "description": "Итеративное ре-ревью дельты MR/PR с прошлого раунда: range-diff от LAST_REVIEW_SHA, статус прежних находок, новые находки только в дельте, обновление существующих тредов и публикация новых.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2255,7 +2375,7 @@
       "name": "dex-feature-implementer",
       "source": "./plugins/specialists/delivery/dex-feature-implementer",
       "description": "Реализация фичи по ТЗ до локальных коммитов без push: декомпозиция в R/I-требования, инвентаризация и переиспользование, дизайн контрактов и ошибок, edit-план P1..Pn, пошаговая правка с локальной верификацией и запретом недоделок.",
-      "version": "1.0.1",
+      "version": "1.1.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2299,10 +2419,25 @@
       ]
     },
     {
+      "name": "dex-incident-investigator",
+      "source": "./plugins/specialists/delivery/dex-incident-investigator",
+      "description": "Расследование инцидента и поиск корневой причины на общем стенде до фикса на источнике: спецификация IS/IS-NOT, параллельный сбор улик, причинно-следственная цепочка, фальсификация причины, фикс под gate. Делегирует сбор со стенда инфра-плагинам.",
+      "version": "1.0.0",
+      "category": "specialist",
+      "keywords": [
+        "specialist",
+        "incident",
+        "rca",
+        "root-cause",
+        "diagnostician",
+        "stand"
+      ]
+    },
+    {
       "name": "dex-self-reviewer",
       "source": "./plugins/specialists/review/dex-self-reviewer",
       "description": "Pre-push саморевью своей локальной ветки включая незакоммиченные изменения: committed+staged+worktree diff, 7 фокусов с реальным прогоном build/test, фальсификация, чеклист правок до push.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2334,8 +2469,8 @@
     {
       "name": "dex-bundle-code-review",
       "source": "./plugins/bundles/dex-bundle-code-review",
-      "description": "Bundle цикла работы с кодом: языко-агностичное ревью MR/PR, ре-ревью дельты, план правок, реализация фичи, интеграция базовой ветки с разрешением конфликтов и pre-push саморевью, плюс skills дисциплины ревью.",
-      "version": "1.2.0",
+      "description": "Bundle цикла работы с кодом: языко-агностичное ревью MR/PR, ре-ревью дельты, план правок, реализация фичи, интеграция базовой ветки с разрешением конфликтов, pre-push саморевью и расследование инцидента (RCA на стенде), плюс skills дисциплины ревью.",
+      "version": "1.3.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -2344,6 +2479,21 @@
         "feature",
         "self-review",
         "lifecycle"
+      ]
+    },
+    {
+      "name": "dex-bundle-bug-lifecycle",
+      "source": "./plugins/bundles/dex-bundle-bug-lifecycle",
+      "description": "Bundle жизненного цикла бага: активный поиск, оформление, расследование корневой причины на общем стенде и фикс на источнике, плюс skills методологии RCA и поиска багов и CLI для чтения стенда.",
+      "version": "1.0.0",
+      "category": "bundle",
+      "keywords": [
+        "bundle",
+        "bug",
+        "incident",
+        "rca",
+        "lifecycle",
+        "qa"
       ]
     }
   ]
