@@ -12,7 +12,7 @@
 | analyze-mixed.md | Микс типов + полный Critical assessment на каждом предложении | Applied: 3, Skipped: 1, Dropped: 1 | да (9 полей) |
 | analyze-self-review-fail.md | Имя конкретного проекта | Applied: 0, Skipped: 1 (self-review failed) | нет |
 | analyze-cross-check-conflict.md | Конфликт двух предложений одного прогона | Cross-check переписывает пример; Applied: 2, Dropped: 0 | да (9 полей) |
-| analyze-quality-gate.md | Quality gate: банальность / off-axis-reassign / FP / mislabeled | Applied: 2 (bool-имя переписана + фильтр переназначен на верную ось), Dropped: 2 (banal-or-lint-caught ×2). Промах оси -> reassign, не Drop | да (на выживших) |
+| analyze-quality-gate.md | Quality gate: surface-not-root / банальность / off-axis-reassign / FP / mislabeled | Applied: 2 (bool-имя переписана + фильтр переназначен на верную ось), Dropped: 2 (surface-not-root ×1, banal-or-lint-caught ×1). Промах оси -> reassign, не Drop | да (на выживших) |
 
 ## Запуск (ручной, после имплементации команды)
 
