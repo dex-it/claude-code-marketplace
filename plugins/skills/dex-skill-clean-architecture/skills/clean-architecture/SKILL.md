@@ -81,6 +81,11 @@ await repo.ListAsync(new OrdersByCustomerSpec(customerId, page));
 Правильно: Repository только CRUD, бизнес-логика в Domain/Application
 Почему: при смене хранилища теряется бизнес-логика. Тесты Infrastructure = тесты бизнеса
 
+### Расчёт, размазанный по нескольким вызовам в handler
+Плохо: `var raw = GetMetrics(id); var result = Calculate(raw);` — handler знает порядок шагов
+Правильно: `var result = CalculateFor(id);` — шаги инкапсулированы в одной операции
+Почему: handler, знающий порядок шагов расчёта, — утечка доменного алгоритма. При изменении формулы нужно найти все точки сборки, а не один метод
+
 ## Транзакционные ловушки
 
 ### Несколько SaveChangesAsync в Handler
