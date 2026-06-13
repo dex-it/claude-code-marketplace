@@ -16,7 +16,7 @@
  */
 
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
-import { join, relative, resolve, dirname } from 'node:path';
+import { join, relative, resolve, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import matter from 'gray-matter';
 import { unified } from 'unified';
@@ -33,6 +33,7 @@ const COLORS = {
   reset: '\x1b[0m',
   red: '\x1b[31m',
   green: '\x1b[32m',
+  yellow: '\x1b[33m',
   cyan: '\x1b[36m',
   gray: '\x1b[90m',
   bold: '\x1b[1m',
@@ -82,6 +83,15 @@ function findAllAgentFiles() {
 // --- Validation rules ---------------------------------------------------
 
 const ERROR = 'error';
+const WARNING = 'warning';
+
+// Description length thresholds (project guidelines — Claude Code does not
+// document a platform limit for subagent `description`, so these are ours, not
+// a platform hard limit). The agent description sits in the session system
+// prompt of every session where the plugin is installed, so a bloated one is a
+// standing context tax; a compact one matches more reliably.
+const WARN_DESCRIPTION_LENGTH = 500; // project soft guideline — warning
+const PROJECT_DESCRIPTION_MAX = 750; // project hard cap — error
 
 /**
  * Blacklisted phrases in exit criteria — they describe internal state,
@@ -175,6 +185,23 @@ function validateFrontmatter(parsed, findings) {
     });
   }
 
+  if (typeof fm.description === 'string' && fm.description.length > PROJECT_DESCRIPTION_MAX) {
+    findings.push({
+      level: ERROR,
+      rule: 'frontmatter-description-too-long',
+      message: `Description is ${fm.description.length} characters — exceeds project hard cap of ${PROJECT_DESCRIPTION_MAX}. The agent description loads into the system prompt of every session; trim it to role + responsibilities + symptom triggers`,
+    });
+  } else if (
+    typeof fm.description === 'string' &&
+    fm.description.length > WARN_DESCRIPTION_LENGTH
+  ) {
+    findings.push({
+      level: WARNING,
+      rule: 'frontmatter-description-long',
+      message: `Description is ${fm.description.length} characters — exceeds project guideline of ${WARN_DESCRIPTION_LENGTH}. A compact description matches more reliably and costs less standing context; cut symptom duplicates, keep role + areas`,
+    });
+  }
+
   if (
     typeof fm.description === 'string' &&
     !/триггер|активируется|trigger/i.test(fm.description)
@@ -191,6 +218,27 @@ function validateFrontmatter(parsed, findings) {
       level: ERROR,
       rule: 'frontmatter-no-skill-tool',
       message: `Agent does not declare "Skill" in tools — will not be able to load skills imperatively in phases`,
+    });
+  }
+}
+
+/**
+ * The agent file name must match the frontmatter `name`. Claude Code resolves
+ * the agent by its `name`; a divergent file name leaves the file looking like a
+ * different agent than the one it declares and breaks the project convention
+ * "имя файла агента совпадает с `name`" (CLAUDE.md). Skipped when `name` is
+ * missing — that is already reported by `frontmatter-required`.
+ */
+function validateFileNameMatchesName(filepath, parsed, findings) {
+  const fm = parsed.data || {};
+  if (fm.name == null || fm.name === '') return;
+
+  const fileStem = basename(filepath, '.md');
+  if (fileStem !== String(fm.name)) {
+    findings.push({
+      level: ERROR,
+      rule: 'agent-file-name-mismatch',
+      message: `File name "${fileStem}.md" does not match frontmatter name "${fm.name}" — rename the file to "${fm.name}.md" (or fix the name) so they agree`,
     });
   }
 }
@@ -377,6 +425,7 @@ function validateFile(filepath, marketplacePlugins) {
 
   const phaseResult = validatePhases(parsed.content, findings);
   validateFrontmatter(parsed, findings);
+  validateFileNameMatchesName(filepath, parsed, findings);
 
   if (phaseResult.validated) {
     validateSkillReferences(parsed.content, marketplacePlugins, findings);
@@ -388,17 +437,23 @@ function validateFile(filepath, marketplacePlugins) {
 // --- Reporting ----------------------------------------------------------
 
 function formatFinding(f) {
-  return `  ${COLORS.red}ERROR${COLORS.reset} ${COLORS.gray}[${f.rule}]${COLORS.reset} ${f.message}`;
+  const isWarning = f.level === WARNING;
+  const label = isWarning
+    ? `${COLORS.yellow}WARN ${COLORS.reset}`
+    : `${COLORS.red}ERROR${COLORS.reset}`;
+  return `  ${label} ${COLORS.gray}[${f.rule}]${COLORS.reset} ${f.message}`;
 }
 
 function report(results) {
   let totalErrors = 0;
+  let totalWarnings = 0;
   let filesWithIssues = 0;
 
   for (const result of results) {
     if (result.findings.length === 0) continue;
 
-    totalErrors += result.findings.length;
+    totalErrors += result.findings.filter((f) => f.level !== WARNING).length;
+    totalWarnings += result.findings.filter((f) => f.level === WARNING).length;
     filesWithIssues += 1;
     const rel = relative(REPO_ROOT, result.filepath);
     console.log(`\n${COLORS.bold}${rel}${COLORS.reset}`);
@@ -410,7 +465,8 @@ function report(results) {
   console.log('');
   console.log(
     `${COLORS.bold}Summary:${COLORS.reset} ${results.length} file(s) checked, ` +
-      `${COLORS.red}${totalErrors} error(s)${COLORS.reset}` +
+      `${COLORS.red}${totalErrors} error(s)${COLORS.reset}, ` +
+      `${COLORS.yellow}${totalWarnings} warning(s)${COLORS.reset}` +
       (filesWithIssues > 0 ? `, ${filesWithIssues} file(s) with issues` : '')
   );
 
