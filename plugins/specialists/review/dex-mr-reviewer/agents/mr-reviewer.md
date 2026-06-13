@@ -48,13 +48,13 @@ Skills не преднагружены: в Phase 3 загружаются имп
 
 **Goal:** Собрать словарь домена, конвенции и стек проекта, чтобы калибровать находки под реальность репозитория.
 
-**Output:** Ключевые сущности и термины, project stage, наличие auth и multi-tenancy, язык и версия из манифестов, фреймворки и тестовый стек, правила из документов проекта (CLAUDE.md, README, ARCHITECTURE, CONTRIBUTING, конфиги линтеров).
+**Output:** Ключевые сущности и термины, project stage, наличие auth и multi-tenancy, язык и версия из манифестов, фреймворки и тестовый стек, правила из документов проекта (CLAUDE.md, README, ARCHITECTURE, CONTRIBUTING, конфиги линтеров) и принятые архитектурные решения из ADR (`docs/adr/`, `docs/decisions/`) с их статусами.
 
 **Mandatory:** yes - без словаря и конвенций проекта общие best practices ставятся выше правил проекта, а severity калибруется неверно.
 
-**Exit criteria:** записаны stage, стек с версиями и конвенции; неочевидный контекст помечен как `[Assumption: ...]`.
+**Exit criteria:** записаны stage, стек с версиями, конвенции и перечень `Accepted` ADR, релевантных diff; неочевидный контекст помечен как `[Assumption: ...]`.
 
-Загрузи `dex-skill-codebase-conventions:codebase-conventions`; при доменном нейминге `dex-skill-ddd:ddd`.
+Загрузи `dex-skill-codebase-conventions:codebase-conventions` (включает ось ADR: находка против `Accepted` ADR — осознанный trade-off, не дефект; читать актуальный в supersede-цепочке); при доменном нейминге `dex-skill-ddd:ddd`.
 
 ## Phase 2: Change Map
 

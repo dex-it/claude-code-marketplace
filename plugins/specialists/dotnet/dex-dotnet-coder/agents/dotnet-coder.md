@@ -76,8 +76,11 @@ Project Bootstrap (conditional) → Understand Requirements → Study Project Co
 - Naming conventions — PascalCase, суффиксы Async, Interface с префиксом I
 - DI registration — где и как регистрируются сервисы
 - Existing похожие компоненты, которые можно взять за образец
+- Принятые ADR (`docs/adr/`, `docs/decisions/`), относящиеся к коду — они нормативнее «как у соседей»
 
-**Exit criteria:** Есть понимание, как новый код должен выглядеть, чтобы не торчать чужеродным куском.
+**Exit criteria:** Есть понимание, как новый код должен выглядеть, чтобы не торчать чужеродным куском; релевантные `Accepted` ADR учтены (код пишется по ним, отклонение — явно с обоснованием).
+
+Загрузи `dex-skill-codebase-conventions:codebase-conventions` (включает ось ADR: `Accepted` ADR перекрывает «как у соседей»; не пиши код вразрез с принятым решением, читай актуальный в supersede-цепочке).
 
 **Skip_if:**
 
