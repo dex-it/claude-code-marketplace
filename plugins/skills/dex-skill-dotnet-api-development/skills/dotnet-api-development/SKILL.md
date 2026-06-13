@@ -1,6 +1,6 @@
 ---
 name: dotnet-api-development
-description: ASP.NET Core Web API — ловушки контроллеров, DTO, URL, пагинации. Активируется при web api, controller, endpoint, REST, route, FromQuery, FromRoute, path, query parameter, versioning, swagger, ActionResult, ProblemDetails, CreatedAtAction, middleware
+description: ASP.NET Core Web API — ловушки контроллеров, DTO, URL, пагинации, фильтров. Активируется при web api, controller, endpoint, REST, route, FromQuery, FromRoute, path, query parameter, query filter, versioning, swagger, ActionResult, ProblemDetails, CreatedAtAction, middleware
 ---
 
 # API Development — ловушки и anti-patterns
@@ -87,3 +87,19 @@ description: ASP.NET Core Web API — ловушки контроллеров, D
 Плохо: `enum StepResult { Success, Failed, Skipped }` без описаний — разница между Failed и Skipped неочевидна, а `/// <summary>` на членах enum в схему Swagger по умолчанию не попадает
 Правильно: вынести семантику в схему явно — `[Description("Ошибка обработки")]` на значениях + `ISchemaFilter`, читающий атрибут; либо описать enum-тип целиком в `<summary>` на самом типе
 Почему: API-клиент угадывает семантику значения по имени и выбирает не ту ветку обработки. XML-комментарии на членах enum Swashbuckle.AspNetCore по умолчанию не рендерит (известное ограничение), поэтому одного `/// <summary>` на значениях недостаточно
+
+## Фильтры
+
+### Поле фильтра без эффекта на результат
+
+Плохо: поле фильтра принимает значение и проходит валидацию, но ни один `Where`/предикат в запросе его не использует — caller получает полный набор данных, игнорируя переданное значение
+
+```csharp
+// filter.Status — принят, RuleFor(...Status).IsInEnum() есть
+// Handler: query = query.Where(x => x.Date >= filter.From)
+// .Where(x => x.Status == filter.Status) — отсутствует
+```
+
+Правильно: каждое поле фильтра применяется в условии запроса (или в optional-блоке: `if (filter.Status.HasValue) query = query.Where(...)`); неиспользуемое поле удаляется из DTO вместе с его правилами валидации
+
+Почему: поле фильтра без `Where` — ложный контракт: клиент передаёт `Status=Active`, ожидает фильтрацию и получает все записи. Ответ приходит в правильном формате, баг незаметен. Наличие валидации на поле усиливает иллюзию его работы
