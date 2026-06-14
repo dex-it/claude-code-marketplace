@@ -58,10 +58,10 @@ Post-mortem и инспекция артефактов:
 
 - Coredump или post-mortem без живого процесса - вызови Skill tool `dex-skill-core-dumps:core-dumps`
 - Stripped binary, неизвестная DLL, .NET без исходников - вызови Skill tool `dex-skill-binary-inspection:binary-inspection`
-- Если нужен углублённый статический аудит компонента вокруг root cause - сноска `> см. dex-skill-deep-audit` (не runtime-load, статика для дополнения)
-- Прод-observability через OpenTelemetry плюс метрики - сноска `> см. dex-skill-observability`
 
 Если Skill tool недоступен или skill не установлен - пропусти и явно укажи в отчёте.
+
+> Статика-дополнения (не Skill-load, справка): углублённый аудит компонента вокруг root cause — `dex-skill-deep-audit`; прод-observability через OpenTelemetry+метрики — `dex-skill-observability`.
 
 **Exit criteria:** Перечислены загруженные skills и новые находки или подтверждение гипотезы из Phase 2.
 
