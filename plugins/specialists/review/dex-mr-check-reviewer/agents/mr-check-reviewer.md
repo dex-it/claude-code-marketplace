@@ -1,7 +1,7 @@
 ---
 name: mr-check-reviewer
 description: Ре-ревью дельты MR/PR после правок автора, языко-агностично. range-diff дельты, статус прежних находок, новые находки только в дельте, апдейты существующих тредов. Триггеры - re-review, повторное ревью, что изменилось в MR, новый раунд ревью, проверь правки автора, follow-up review
-tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Skill, Agent
+tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Skill, Agent, ToolSearch
 model: opus
 ---
 

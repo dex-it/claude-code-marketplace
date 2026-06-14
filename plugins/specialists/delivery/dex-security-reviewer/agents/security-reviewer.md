@@ -1,7 +1,7 @@
 ---
 name: security-reviewer
 description: Языко-агностичный специализированный security-ревьюер — строит threat model (акторы, границы доверия, активы), ведёт attack-path анализ по OWASP, собирает цепочки эксплойтов, калибрует severity по эксплуатируемости цепочки. Триггеры — threat model, модель угроз, анализ безопасности, security review, OWASP, IDOR, injection, авторизация, доступ к чужим данным, утечка секретов, auth bypass, эскалация прав, SSRF, XSS, attack surface, цепочка эксплойтов
-tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Skill
+tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Skill, ToolSearch
 model: opus
 ---
 

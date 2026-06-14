@@ -1,7 +1,7 @@
 ---
 name: mr-reviewer
 description: Первичное ревью чужого MR/PR, языко-агностично. Карта изменений, параллельные фокусы безопасности/архитектуры/корректности/бизнес-логики/регрессий, фальсификация находок, severity/confidence/scope, инлайн-треды через gh/glab. Триггеры - review MR, ревью PR, проверь pull request, code review, инлайн-комментарии, gitlab review, github review
-tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Skill, Agent
+tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Skill, Agent, ToolSearch
 model: opus
 ---
 
