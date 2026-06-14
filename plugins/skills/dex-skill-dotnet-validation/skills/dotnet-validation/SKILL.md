@@ -1,6 +1,6 @@
 ---
 name: dotnet-validation
-description: Серверная валидация входных DTO — baseline-правила полей, FluentValidation, fail-fast. Активируется при FluentValidation, AbstractValidator, validator, валидация DTO, MaximumLength, NotEmpty, IsInEnum, RuleFor, SetInheritanceValidator, 400 vs 500, decimal, DateTimeOffset, диапазон дат, nullable required
+description: Серверная валидация входных DTO — baseline-правила полей, FluentValidation, fail-fast, контракт ошибки с клиентом. Активируется при FluentValidation, AbstractValidator, validator, валидация DTO, MaximumLength, NotEmpty, IsInEnum, RuleFor, SetInheritanceValidator, 400 vs 500, decimal, DateTimeOffset, диапазон дат, nullable required, errorCode, локализация ошибки, i18n шаблон, плейсхолдер сообщения, FormattedMessagePlaceholderValues
 ---
 
 # Server-Side Validation — ловушки и anti-patterns
@@ -31,7 +31,7 @@ description: Серверная валидация входных DTO — baseli
 ### Enum без IsInEnum() и [Flags] без проверки на пустоту
 Плохо: `RuleFor(x => x.Status)` без `IsInEnum()` — сырой каст `(Status)99` проезжает; у `[Flags]` пустое `default` проходит, когда бизнес требует хотя бы один флаг
 Правильно: всегда `IsInEnum()` (он корректно валидирует и `[Flags]`: принимает валидные комбинации, режет неопределённые биты); для обязательного непустого `[Flags]` добавить `NotEqual(default)`
-Почему: без `IsInEnum()` `(Status)99` пересекает границу. С FV 8.0 `IsInEnum()` спец-обрабатывает `[Flags]` через `IsFlagsEnumDefined`, поэтому `NotEqual(None)` его не заменяет, а дополняет
+Почему: без `IsInEnum()` `(Status)99` пересекает границу. Для `[Flags]` `IsInEnum()` использует внутреннюю flags-aware проверку и пропускает `0`/`None` как валидную маску — поэтому `NotEqual(None)` его не заменяет, а дополняет
 
 ## Числа
 
@@ -41,9 +41,9 @@ description: Серверная валидация входных DTO — baseli
 Почему: `double` теряет точность на деньгах. Число без границ пропускает `int.MaxValue`, отрицательные количества, переполнение при умножении в бизнес-логике
 
 ### NaN/Infinity у double
-Плохо: `RuleFor(x => x.Ratio)` (double) без проверки, когда `NaN`/`Infinity` реально достижимы — Newtonsoft.Json, `AllowNamedFloatingPointLiterals` или вычисление из других полей
+Плохо: `RuleFor(x => x.Ratio)` (double) без проверки, когда `NaN`/`Infinity` достижимы — Newtonsoft.Json (принимает их по умолчанию) или `double`, вычисленный из других полей
 Правильно: `Must(d => !double.IsNaN(d) && !double.IsInfinity(d))`
-Почему: System.Text.Json по умолчанию (`Strict`) режет `NaN`/`Infinity` на десериализации (400); при Newtonsoft, разрешённых литералах или счёте в коде `double` их принимает — ломают сравнения, агрегации и обратную сериализацию
+Почему: System.Text.Json по умолчанию (`Strict`) режет `NaN`/`Infinity` на десериализации (400) и пропускает только с явным `AllowNamedFloatingPointLiterals`; Newtonsoft принимает их по умолчанию, а счёт в коде даёт их независимо от сериализатора — ломают сравнения, агрегации и обратную сериализацию
 
 ### Парсинг числа из строки без InvariantCulture
 Плохо: `decimal.Parse(dto.Value)` в маппере, валидатор парсит иначе
@@ -108,6 +108,13 @@ description: Серверная валидация входных DTO — baseli
 Правильно: лимит тела — конфигом сервера (`MaxRequestBodySize`/Kestrel/reverse-proxy)
 Почему: валидатор работает уже **после** десериализации — огромное тело к этому моменту прочитано в память. Резать размер надо до десериализации, на уровне хоста
 
+## Локализация сообщений об ошибке
+
+### Параметры ошибки адресуются по позиции, а не по имени
+Плохо: i18n-шаблон ссылается на параметр по номеру (`{0}`, `{1}`), значения приходят массивом, чей порядок задаёт внутренняя механика валидатора и нигде не зафиксирован в контракте
+Правильно: контракт параметров — именованная мапа (`имя → значение`), шаблон ссылается на `{имя}`; ICU MessageFormat именованные плейсхолдеры поддерживает нативно
+Почему: связка «номер ↔ индекс» держится на непрослеживаемом порядке наполнения; добавление или пересортировка значения молча сдвигает все номера — клиент рендерит чужой параметр. Тип-чек и тест «на код ошибки» не ловят. Исход: «Не менее {0} символов» получило на позиции 0 сентинел `-1` (мин. длина уехала на 1) → «Не менее -1 символов»
+
 ## Чек-лист поля DTO
 
 - Строка: `NotEmpty()`/формат **+** `MaximumLength` (даже опциональная) — лимит именованной константой
@@ -119,3 +126,4 @@ description: Серверная валидация входных DTO — baseli
 - Полиморфизм: реестр + `.Must(IsKnownType)` + CI-тест
 - Required value-type, который надо задать явно: nullable + `NotNull()`
 - Валидация на границе API, не в конструкторе Domain (иначе 500 вместо 400)
+- Параметры локализованной ошибки — именованная мапа, не позиционный массив `{0}`/`{1}`
