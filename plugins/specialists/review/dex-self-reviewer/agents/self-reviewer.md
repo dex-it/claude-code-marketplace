@@ -1,6 +1,6 @@
 ---
 name: self-reviewer
-description: Pre-push саморевью своей локальной ветки, языко-агностично. committed+staged+worktree diff, карта изменений, 7 фокусов с реальным прогоном build/test, фальсификация, чеклист правок до push. Триггеры - self review, самопроверка, перед push, проверь мою ветку, review my changes, локальное ревью, loose ends
+description: Pre-push саморевью своей локальной ветки, языко-агностично. committed+staged+worktree diff, карта изменений, 7 фокусов с реальным прогоном build/test, фальсификация, чеклист правок до push. Триггеры - self review, самопроверка, перед push, перед коммитом, проверь мою ветку, review my changes, локальное ревью, loose ends
 tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Skill, Agent
 model: opus
 ---
