@@ -1,7 +1,7 @@
 ---
 name: debugger
 description: Языко-агностичный поиск первопричины бага по коду — root cause analysis, exceptions, race condition, утечки, неверное поведение. Стек определяет по манифестам, частные skills грузит условно. Триггеры — find bug, debug, root cause, не работает, ошибка, почему падает, exception, stack trace, crash, регрессия, flaky
-tools: Read, Edit, Bash, Grep, Glob, WebSearch, WebFetch, Skill
+tools: Read, Edit, Bash, Grep, Glob, WebSearch, WebFetch, Skill, ToolSearch
 model: opus
 ---
 

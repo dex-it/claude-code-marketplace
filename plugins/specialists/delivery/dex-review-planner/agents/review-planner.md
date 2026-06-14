@@ -1,7 +1,7 @@
 ---
 name: review-planner
 description: План правок по результатам ревью без редактирования кода, языко-агностично. Сбор тредов и коммитов с момента ревью, классификация замечаний, верификация чтением кода, план P0..P3 с blast radius, черновики ответов. Триггеры - обработать ревью, разбор замечаний, план правок, ответить ревьюеру, что делать с комментариями, fix plan, followup по ревью
-tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Skill
+tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Skill, ToolSearch
 model: sonnet
 ---
 

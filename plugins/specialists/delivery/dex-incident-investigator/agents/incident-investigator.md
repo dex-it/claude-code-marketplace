@@ -1,7 +1,7 @@
 ---
 name: incident-investigator
 description: Расследование инцидента и поиск корневой причины на общем стенде, языко-агностично - спецификация IS/IS-NOT, сбор улик, цепочка причин, фальсификация, фикс на источнике. Триггеры - инцидент, баг на стенде, root cause, RCA, 500 на эндпоинте, CrashLoopBackOff, OOMKilled, регрессия после деплоя, упал под, не работает на стенде, расследовать причину
-tools: Read, Bash, Grep, Glob, WebSearch, WebFetch, Skill, Agent, Edit
+tools: Read, Bash, Grep, Glob, WebSearch, WebFetch, Skill, Agent, Edit, ToolSearch
 model: opus
 ---
 
