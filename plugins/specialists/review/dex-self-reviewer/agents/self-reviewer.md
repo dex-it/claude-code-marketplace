@@ -73,7 +73,7 @@ Staff-уровневый ревьюер своей локальной ветки
 
 **Mandatory:** yes - фокус Local verification обязателен: саморевью без реального прогона build/test пропускает то, что поймает CI уже после push.
 
-**Exit criteria:** по каждому из семи фокусов есть блок находок либо пометка «чисто, проверено X»; в Local verification приложен реальный вывод команд.
+**Exit criteria:** по каждому из семи фокусов есть блок находок либо пометка «чисто, проверено X»; в Local verification приложен реальный вывод команд. Вердикт суб-агента «чисто» — claim, не доказанное отсутствие: засчитывается только если в его отчёте видно, что и где он искал (то самое «проверено X»); голое «чисто» без следов охвата → перезапуск фокуса или ручная проверка, не запись «чисто» в итог.
 
 Загружай skills императивно через Skill tool, условно по содержимому diff. Тематические (по теме фокуса, не по стеку): всегда `dex-skill-solid:solid`, `dex-skill-owasp-security:owasp-security`, `dex-skill-testability:testability`, `dex-skill-no-loose-ends:no-loose-ends` (ядро фокуса loose-ends); по архитектуре дельты `dex-skill-clean-architecture:clean-architecture`, `dex-skill-ddd:ddd`, `dex-skill-microservices:microservices`, `dex-skill-distributed-resilience:distributed-resilience`, `dex-skill-nfr:nfr`. Профильные по стеку — **по реестру, без зашитого списка**: загрузи `dex-skill-stack-registry:stack-registry`, определи стек изменённых файлов по их манифестам, отфильтруй видимый список available-skills по префиксу `dex-skill-<стек>-*` и сузь по фокусам, без зашитого перечня имён. Грузи подмножество, не весь стек. При крупном diff'е распараллель фокусы через Agent tool.
 
