@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "5.16.0",
+  "version": "5.17.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -1199,7 +1199,7 @@
       "name": "dex-code-discovery",
       "source": "./plugins/specialists/architecture/dex-code-discovery",
       "description": "Обзорное ревью существующего кода вширь: инвентаризация проблем по топикам, severity с калибровкой под масштаб, результат в docs/discover/.",
-      "version": "1.3.1",
+      "version": "1.4.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1463,7 +1463,7 @@
       "name": "dex-bundle-dotnet-developer",
       "source": "./plugins/bundles/dex-bundle-dotnet-developer",
       "description": "Bundle for .NET developers: coding, debugging, testing, review, EF, performance, interactive .NET architecture design (incl. microservices)",
-      "version": "2.1.0",
+      "version": "2.2.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -1475,7 +1475,7 @@
       "name": "dex-bundle-dotnet-fullstack",
       "source": "./plugins/bundles/dex-bundle-dotnet-fullstack",
       "description": "Complete .NET fullstack: development + databases + messaging + containers + interactive .NET architecture design",
-      "version": "2.1.0",
+      "version": "2.2.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -2060,6 +2060,22 @@
       ]
     },
     {
+      "name": "dex-skill-completeness-mapping",
+      "source": "./plugins/skills/dex-skill-completeness-mapping",
+      "description": "Completeness-gate карты потребителей при сквозной правке: лестница из слоёв (authoritative symbol/call layer → форма → текст → общий проектор) для data flow и control flow, запрет тихого пропуска до «сторона готова»",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "completeness-mapping",
+        "find-all-usages",
+        "change-impact",
+        "blast-radius",
+        "data-flow",
+        "control-flow"
+      ]
+    },
+    {
       "name": "dex-knowledge-extractor",
       "source": "./plugins/utilities/dex-knowledge-extractor",
       "description": "Pipeline извлечения уроков из чужих MR/PR в маркетплейс: /mr-collect собирает review-комментарии, /mr-analyze обобщает в предложения для skills/agents, /mr-apply применяет с self-review и валидацией.",
@@ -2343,7 +2359,7 @@
       "name": "dex-mr-reviewer",
       "source": "./plugins/specialists/review/dex-mr-reviewer",
       "description": "Языко-агностичное первичное ревью чужого MR/PR: карта изменений, параллельные фокусы, фальсификация находок, severity/confidence/scope, доставка инлайн-тредами через gh/glab.",
-      "version": "1.4.2",
+      "version": "1.6.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2360,7 +2376,7 @@
       "name": "dex-mr-check-reviewer",
       "source": "./plugins/specialists/review/dex-mr-check-reviewer",
       "description": "Ре-ревью дельты MR/PR после правок автора: range-diff дельты, статус прежних находок, новые находки только в дельте, обновление существующих тредов и публикация новых.",
-      "version": "1.4.2",
+      "version": "1.5.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2377,7 +2393,7 @@
       "name": "dex-review-planner",
       "source": "./plugins/specialists/delivery/dex-review-planner",
       "description": "План правок по комментариям ревью без редактирования кода: сбор тредов и коммитов, классификация замечаний, верификация чтением кода, план P0..P3 с blast radius, черновики ответов в треды.",
-      "version": "1.3.2",
+      "version": "1.5.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2394,7 +2410,7 @@
       "name": "dex-feature-implementer",
       "source": "./plugins/specialists/delivery/dex-feature-implementer",
       "description": "Реализация фичи по ТЗ до локальных коммитов без push: декомпозиция в R/I-требования, инвентаризация и переиспользование, дизайн контрактов и ошибок, edit-план P1..Pn, пошаговая правка с локальной верификацией и запретом недоделок.",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2456,7 +2472,7 @@
       "name": "dex-self-reviewer",
       "source": "./plugins/specialists/review/dex-self-reviewer",
       "description": "Pre-push саморевью своей локальной ветки: committed+staged+worktree diff, 7 фокусов с реальным прогоном build/test, фальсификация, чеклист правок до push.",
-      "version": "1.4.2",
+      "version": "1.6.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2489,7 +2505,7 @@
       "name": "dex-bundle-code-review",
       "source": "./plugins/bundles/dex-bundle-code-review",
       "description": "Bundle цикла работы с кодом: языко-агностичное ревью MR/PR, ре-ревью дельты, план правок, реализация фичи, интеграция базовой ветки с разрешением конфликтов, pre-push саморевью и расследование инцидента (RCA на стенде), плюс skills дисциплины ревью.",
-      "version": "1.4.0",
+      "version": "1.5.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -2504,7 +2520,7 @@
       "name": "dex-bundle-bug-lifecycle",
       "source": "./plugins/bundles/dex-bundle-bug-lifecycle",
       "description": "Bundle жизненного цикла бага: активный поиск, оформление, расследование корневой причины на общем стенде и фикс на источнике, плюс skills методологии RCA и поиска багов и CLI для чтения стенда.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "category": "bundle",
       "keywords": [
         "bundle",
