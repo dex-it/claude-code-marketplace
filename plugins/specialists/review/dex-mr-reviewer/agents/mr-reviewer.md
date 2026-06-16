@@ -62,6 +62,8 @@ Skills не преднагружены: в Phase 3 загружаются имп
 
 **Output:** Таблица «файл или модуль -> ось риска (security / architecture / language / business / regressions)»; отдельно помечены файлы platform / build / config / migration.
 
+При изменении публичного контракта загрузи `dex-skill-completeness-mapping:completeness-mapping` — потребителей выводить лестницей слоёв из самой структуры (authoritative refs через ToolSearch select:LSP → форма → текст → проектор), а не из описания MR; недоступность authoritative-слоя фиксировать статусом.
+
 **Mandatory:** yes - без карты параллельные фокусы дублируют работу и теряют файлы.
 
 **Exit criteria:** каждый изменённый файл отнесён хотя бы к одной оси; изменённые публичные контракты выписаны с указанием потребителей.
