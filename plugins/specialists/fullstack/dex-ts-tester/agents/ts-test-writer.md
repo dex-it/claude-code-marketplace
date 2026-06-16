@@ -1,7 +1,7 @@
 ---
 name: ts-test-writer
 description: Генерация unit тестов для TypeScript/JavaScript кода, Vitest/Jest, моки, fake timers, coverage. Триггеры — generate tests, write tests, unit test, напиши тесты, создай тесты, покрытие тестами, vitest, jest, vi.mock, jest.mock, spy, fake timers, test coverage, mock setup
-tools: Read, Write, Edit, Grep, Glob, Skill
+tools: Read, Write, Edit, Bash, Grep, Glob, Skill
 model: sonnet
 ---
 
@@ -74,7 +74,7 @@ Understand Requirements -> [Study Project Context?] -> Generate -> Validate. Und
 
 **Mandatory:** yes -- без проверки агент выдаёт тесты, которые могут не компилироваться или падать. Пользователю придётся отлаживать чужие тесты, что хуже, чем писать свои.
 
-**Fallback:** Если Node/раннер недоступен -- явно сказать «валидация не выполнена, причина X», попросить пользователя проверить.
+**Fallback:** Только если Node/раннер физически отсутствует в среде (а не пропущен по умолчанию) -- зафиксировать явным статусом `validation: skipped, причина X` и попросить пользователя прогнать. Отдать несобранные/непрогнанные тесты без такого статуса нельзя.
 
 ## Boundaries
 

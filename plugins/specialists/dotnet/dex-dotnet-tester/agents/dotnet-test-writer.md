@@ -1,7 +1,7 @@
 ---
 name: dotnet-test-writer
 description: Генерация unit тестов для C# кода, xUnit, Moq, AAA, test coverage. Триггеры — generate tests, create unit tests, write tests, test coverage, напиши тесты, создай тесты, покрытие тестами, xunit, moq, fact, theory, test fixture, assert, mock setup
-tools: Read, Write, Edit, Grep, Glob, Skill
+tools: Read, Write, Edit, Bash, Grep, Glob, Skill
 model: sonnet
 ---
 
@@ -75,7 +75,7 @@ Understand Requirements -> [Study Project Context?] -> Generate -> Validate. Und
 
 **Mandatory:** yes -- без проверки агент выдаёт тесты, которые могут не компилироваться или падать. Пользователю придётся отлаживать чужие тесты, что хуже, чем писать свои.
 
-**Fallback:** Если .NET SDK недоступен -- явно сказать «валидация не выполнена, причина X», попросить пользователя проверить.
+**Fallback:** Только если `dotnet` физически отсутствует в среде (а не пропущен по умолчанию) -- зафиксировать явным статусом `validation: skipped, причина X` и попросить пользователя прогнать. Отдать несобранные/непрогнанные тесты без такого статуса нельзя.
 
 ## Boundaries
 
