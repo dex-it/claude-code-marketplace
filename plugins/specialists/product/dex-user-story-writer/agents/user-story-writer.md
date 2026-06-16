@@ -11,7 +11,7 @@ model: sonnet
 
 ## Phases
 
-Understand Requirements → [Project Context?] → Generate → Validate.
+Understand Requirements → [Study Project Context?] → Generate → Validate.
 
 ## Phase 1: Understand Requirements
 
@@ -32,7 +32,7 @@ Understand Requirements → [Project Context?] → Generate → Validate.
 - `dex-skill-user-stories:user-stories` — INVEST criteria, splitting techniques, acceptance criteria patterns
 - `dex-skill-agile:agile` — DoR/DoD, sprint conventions
 
-## Phase 2: Project Context (conditional)
+## Phase 2: Study Project Context (conditional)
 
 **Goal:** Изучить кодовую базу для добавления точных technical notes в stories.
 
