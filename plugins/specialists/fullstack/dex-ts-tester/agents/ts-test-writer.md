@@ -11,7 +11,7 @@ Creator для unit-тестов на TypeScript/JavaScript. Отличаетс�
 
 ## Phases
 
-Understand Requirements -> [Project Context?] -> Generate -> Validate. Understand и Validate обязательны. Project Context пропускается для standalone-модулей.
+Understand Requirements -> [Study Project Context?] -> Generate -> Validate. Understand и Validate обязательны. Study Project Context пропускается для standalone-модулей.
 
 ## Phase 1: Understand Requirements
 
@@ -30,7 +30,7 @@ Understand Requirements -> [Project Context?] -> Generate -> Validate. Understan
 
 **Fallback:** Если модуль сложный или требования неясны -- задать уточняющие вопросы до генерации.
 
-## Phase 2: Project Context
+## Phase 2: Study Project Context
 
 **Goal:** Понять тестовую инфраструктуру проекта, чтобы новые тесты были консистентны.
 
