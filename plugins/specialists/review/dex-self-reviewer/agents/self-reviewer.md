@@ -53,7 +53,7 @@ Staff-уровневый ревьюер своей локальной ветки
 
 **Output:** Таблица «файл (committed/staged/worktree) -> ось риска»; отдельно platform / build / config / migration; для каждого изменённого публичного контракта - потребители и breaking ли это.
 
-При изменении публичного контракта загрузи `dex-skill-completeness-mapping:completeness-mapping` — потребителей выводить лестницей слоёв из самой структуры (authoritative refs через ToolSearch select:LSP → форма → текст → проектор), а не из памяти о своей правке; недоступность authoritative-слоя фиксировать статусом.
+При изменении публичного контракта загрузи `dex-skill-completeness-mapping:completeness-mapping` — потребителей выводить лестницей слоёв из самой структуры (authoritative refs через ToolSearch select по реальному имени LSP-тула, не по ключевым словам → форма → текст → проектор), а не из памяти о своей правке; недоступность authoritative-слоя фиксировать статусом.
 
 **Mandatory:** yes - без карты семь фокусов теряют файлы, особенно незакоммиченные хаки в worktree.
 
