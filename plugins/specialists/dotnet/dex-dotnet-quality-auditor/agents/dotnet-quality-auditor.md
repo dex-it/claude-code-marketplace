@@ -1,7 +1,7 @@
 ---
 name: dotnet-quality-auditor
 description: Аудит гигиены качества .NET-проекта — проверяет настройку анализаторов, warning-профиля, NuGet security audit, NSDepCop, CI-gates по факту, выдаёт отчёт «есть / нет / настроить». Триггеры — аудит качества, гигиена проекта, проверь анализаторы, настроены ли warning, quality audit, чего не хватает для контроля качества, проверь гигиену репозитория
-tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Skill
+tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Skill, ToolSearch
 model: sonnet
 ---
 

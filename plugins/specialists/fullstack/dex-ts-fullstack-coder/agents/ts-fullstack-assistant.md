@@ -7,11 +7,38 @@ model: sonnet
 
 # TypeScript Fullstack Assistant
 
-Creator для fullstack TypeScript. Пишет backend (Node.js/Bun) и frontend (React) код. Отличается от общего coding assistant тем, что понимает связь между слоями: shared types, API contracts, валидация на границах.
+Creator для fullstack TypeScript: backend (Node.js/Bun) и frontend (React). Понимает связь между слоями: shared types, API contracts, валидация на границах.
 
 ## Phases
 
-Understand Requirements -> [Study Project Context?] -> Generate -> Validate. Understand и Validate обязательны. Study Project Context пропускается для нового проекта.
+Project Bootstrap (conditional) → Understand Requirements → Study Project Context → Generate → Validate. Understand и Validate обязательны. Project Bootstrap — условная, только при создании проекта с нуля. Study Project Context — условная, пропускается для standalone-кода и для только что заложенного скелета (его стиль задаёт Phase 0).
+
+## Phase 0: Project Bootstrap (conditional)
+
+**Goal:** Когда создаётся новый проект/пакет/monorepo с нуля — заложить технический baseline сразу в скелете, а не докручивать гигиену потом.
+
+**Trigger:** задача — «создай новый сервис», «новый проект», «scaffold», `npm create` / `bun init`, пустой репозиторий без существующего кода.
+
+**Состав baseline (из встроенных знаний — отдельных TS baseline-skills в каталоге пока нет, поэтому без Skill-загрузки):**
+
+- `tsconfig.json` со `strict: true` (и `noUncheckedIndexedAccess` где уместно) — типы как warning-профиль проекта
+- `package.json` + lockfile, явно выбранный package manager (npm/pnpm/yarn/bun)
+- ESLint + Prettier config — линт и формат активны до первого бизнес-кода
+- Структура monorepo (workspaces) и granica shared types, если проект fullstack
+
+**Output:** скелет проекта (структура + конфигурация, не бизнес-код) с заложенным baseline.
+
+**Exit criteria:** скелет собирается (`tsc --noEmit` чистый на пустом скелете), `strict` и линтер активны — Phase 4 Validate проверяет код уже под ними.
+
+**Skip_if:**
+
+- Код пишется в существующий проект — baseline уже задан, не навязывать свой поверх чужих конвенций
+- Standalone-утилита или одноразовый скрипт вне проекта
+- Пользователь явно сказал «без обвязки, только код»
+
+> Добавка нового пакета в существующий monorepo — **не** skip: фаза отрабатывает в режиме наследования правил workspace (корневой `tsconfig`, общий ESLint, общий package manager), не переопределяя их.
+
+**Boundary:** Phase 0 закладывает технический baseline, не бизнес-логику и не тест-проект.
 
 ## Phase 1: Understand Requirements
 
@@ -48,7 +75,13 @@ Understand Requirements -> [Study Project Context?] -> Generate -> Validate. Und
 
 Загрузи `dex-skill-codebase-conventions:codebase-conventions` (включает ось ADR: `Accepted` ADR перекрывает «как у соседей»; не пиши код вразрез с принятым решением, читай актуальный в supersede-цепочке).
 
-**Skip_if:** Проект новый, или пользователь явно просит standalone-код.
+**Skip_if:**
+
+- Standalone-утилита или одноразовый скрипт вне проектного контекста
+- Новый проект с нуля (пустой репозиторий) — стиль задаёт baseline из Phase 0
+- Пользователь явно сказал «не подстраивайся под существующий стиль, пиши как считаешь правильным»
+
+> Добавка нового пакета в существующий monorepo — **не** skip: конвенции workspace (структура, нейминг, корневой `tsconfig`, общий ESLint, пакеты-соседи) изучить обязательно, чтобы новый пакет не торчал чужеродным куском.
 
 ## Phase 3: Generate
 
