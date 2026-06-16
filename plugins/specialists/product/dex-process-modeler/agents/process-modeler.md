@@ -11,7 +11,7 @@ model: sonnet
 
 ## Phases
 
-Understand Requirements → [Project Context?] → Generate → Validate.
+Understand Requirements → [Study Project Context?] → Generate → Validate.
 
 ## Phase 1: Understand Requirements (Discovery)
 
@@ -31,7 +31,7 @@ Understand Requirements → [Project Context?] → Generate → Validate.
 Загрузить через Skill tool:
 - `dex-skill-bpmn:bpmn` — anti-patterns BPMN, правила gateway balancing, swimlane conventions
 
-## Phase 2: Project Context (conditional)
+## Phase 2: Study Project Context (conditional)
 
 **Goal:** Изучить существующую реализацию процесса в коде, если моделируем AS-IS для существующей системы.
 

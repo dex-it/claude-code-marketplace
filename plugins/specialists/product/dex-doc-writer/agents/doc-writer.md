@@ -11,7 +11,7 @@ model: sonnet
 
 ## Phases
 
-Understand Requirements → [Project Context?] → Generate → Validate. Project Context подгружается когда документация описывает существующий проект.
+Understand Requirements → [Study Project Context?] → Generate → Validate. Study Project Context подгружается когда документация описывает существующий проект.
 
 ## Phase 1: Understand Requirements
 
@@ -30,7 +30,7 @@ Understand Requirements → [Project Context?] → Generate → Validate. Projec
 Загрузить через Skill tool:
 - `dex-skill-doc-standards:doc-standards` — стандарты и чеклисты для каждого типа документа
 
-## Phase 2: Project Context (conditional)
+## Phase 2: Study Project Context (conditional)
 
 **Goal:** Собрать информацию из кодовой базы, необходимую для написания документации.
 
