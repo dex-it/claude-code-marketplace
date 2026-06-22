@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "5.17.0",
+  "version": "5.18.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -1355,7 +1355,7 @@
       "name": "dex-bug-finder",
       "source": "./plugins/specialists/qa/dex-bug-finder",
       "description": "Активный поиск багов в фиче или ветке, языко-агностично: модель рисков и чартеры, адверсариальная охота, skill-чеклисты, воспроизведение и квалификация, handoff в расследование. Дополняет test-analyst и test-automator поиском дефектов в первую очередь.",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2015,6 +2015,40 @@
       ]
     },
     {
+      "name": "dex-skill-stand-verification",
+      "source": "./plugins/skills/dex-skill-stand-verification",
+      "description": "Доказательство поведения слитой фичи на развёрнутом стенде против ТЗ: зелёный деплой не равно рабочая фича, привязка образа к merge-коммиту, требование к read-only пробе на стенде, проверка на стенде, а не локально.",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "stand-verification",
+        "post-merge",
+        "green-deploy",
+        "stand-review",
+        "acceptance",
+        "image-sha",
+        "regression"
+      ]
+    },
+    {
+      "name": "dex-skill-post-merge-remediation",
+      "source": "./plugins/skills/dex-skill-post-merge-remediation",
+      "description": "Дисциплина ремедиации найденных багов после мерджа на общей ветке и стенде: follow-up MR вместо правки общей ветки, фикс на источнике по одному, верификация red->green на стенде, регрессия соседей, согласованная мутация общего стенда.",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "post-merge-remediation",
+        "follow-up-mr",
+        "hotfix",
+        "bug-fix",
+        "shared-branch",
+        "stand-verify",
+        "rollout"
+      ]
+    },
+    {
       "name": "dex-skill-exploratory-testing",
       "source": "./plugins/skills/dex-skill-exploratory-testing",
       "description": "Исследовательское тестирование для поиска багов: чартеры и сессии, оракулы, туры-эвристики, атака на риск и неявные предположения, а не happy path",
@@ -2390,6 +2424,23 @@
       ]
     },
     {
+      "name": "dex-stand-reviewer",
+      "source": "./plugins/specialists/review/dex-stand-reviewer",
+      "description": "Ревью слитой фичи на развёрнутом стенде против ТЗ, read-only: привязка образа к merge-коммиту, карта требование -> проба на стенде, параллельные суб-агенты улик, фальсификация находок и утверждений 'выполнено', severity/confidence/scope, отчёт.",
+      "version": "1.0.0",
+      "category": "specialist",
+      "keywords": [
+        "specialist",
+        "review",
+        "stand",
+        "post-merge",
+        "acceptance",
+        "deployment",
+        "verification",
+        "regression"
+      ]
+    },
+    {
       "name": "dex-review-planner",
       "source": "./plugins/specialists/delivery/dex-review-planner",
       "description": "План правок по комментариям ревью без редактирования кода: сбор тредов и коммитов, классификация замечаний, верификация чтением кода, план P0..P3 с blast radius, черновики ответов в треды.",
@@ -2404,6 +2455,23 @@
         "pull-request",
         "reply",
         "triage"
+      ]
+    },
+    {
+      "name": "dex-bug-fixer",
+      "source": "./plugins/specialists/delivery/dex-bug-fixer",
+      "description": "Пакетная ремедиация найденных тестировщиком багов после мерджа: интейк находок, триаж и приоритет, подтверждение причины по одному, фикс на источнике через follow-up MR, верификация red->green на стенде, регрессия соседей; финиш на локальных коммитах без push.",
+      "version": "1.0.0",
+      "category": "specialist",
+      "keywords": [
+        "specialist",
+        "delivery",
+        "bug-fix",
+        "remediation",
+        "post-merge",
+        "follow-up-mr",
+        "triage",
+        "root-cause"
       ]
     },
     {
@@ -2504,8 +2572,8 @@
     {
       "name": "dex-bundle-code-review",
       "source": "./plugins/bundles/dex-bundle-code-review",
-      "description": "Bundle цикла работы с кодом: языко-агностичное ревью MR/PR, ре-ревью дельты, план правок, реализация фичи, интеграция базовой ветки с разрешением конфликтов, pre-push саморевью и расследование инцидента (RCA на стенде), плюс skills дисциплины ревью.",
-      "version": "1.5.0",
+      "description": "Bundle цикла работы с кодом: языко-агностичное ревью MR/PR, ре-ревью дельты, план правок, реализация фичи, интеграция базовой ветки с разрешением конфликтов, pre-push саморевью, приёмка слитой фичи на стенде и ремедиация найденного, расследование инцидента (RCA на стенде), плюс skills дисциплины ревью.",
+      "version": "1.7.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -2520,7 +2588,7 @@
       "name": "dex-bundle-bug-lifecycle",
       "source": "./plugins/bundles/dex-bundle-bug-lifecycle",
       "description": "Bundle жизненного цикла бага: активный поиск, оформление, расследование корневой причины на общем стенде и фикс на источнике, плюс skills методологии RCA и поиска багов и CLI для чтения стенда.",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "category": "bundle",
       "keywords": [
         "bundle",
