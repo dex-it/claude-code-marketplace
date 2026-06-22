@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "5.17.0",
+  "version": "5.18.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -2015,6 +2015,40 @@
       ]
     },
     {
+      "name": "dex-skill-stand-verification",
+      "source": "./plugins/skills/dex-skill-stand-verification",
+      "description": "Доказательство поведения слитой фичи на развёрнутом стенде против ТЗ: зелёный деплой не равно рабочая фича, привязка образа к merge-коммиту, требование к read-only пробе на стенде, проверка на стенде, а не локально.",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "stand-verification",
+        "post-merge",
+        "green-deploy",
+        "stand-review",
+        "acceptance",
+        "image-sha",
+        "regression"
+      ]
+    },
+    {
+      "name": "dex-skill-post-merge-remediation",
+      "source": "./plugins/skills/dex-skill-post-merge-remediation",
+      "description": "Дисциплина ремедиации найденных багов после мерджа на общей ветке и стенде: follow-up MR вместо правки общей ветки, фикс на источнике по одному, верификация red->green на стенде, регрессия соседей, согласованная мутация общего стенда.",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "post-merge-remediation",
+        "follow-up-mr",
+        "hotfix",
+        "bug-fix",
+        "shared-branch",
+        "stand-verify",
+        "rollout"
+      ]
+    },
+    {
       "name": "dex-skill-exploratory-testing",
       "source": "./plugins/skills/dex-skill-exploratory-testing",
       "description": "Исследовательское тестирование для поиска багов: чартеры и сессии, оракулы, туры-эвристики, атака на риск и неявные предположения, а не happy path",
@@ -2387,6 +2421,23 @@
         "pull-request",
         "range-diff",
         "follow-up"
+      ]
+    },
+    {
+      "name": "dex-stand-reviewer",
+      "source": "./plugins/specialists/review/dex-stand-reviewer",
+      "description": "Ревью слитой фичи на развёрнутом стенде против ТЗ, read-only: привязка образа к merge-коммиту, карта требование -> проба на стенде, параллельные суб-агенты улик, фальсификация находок и утверждений 'выполнено', severity/confidence/scope, отчёт.",
+      "version": "1.0.0",
+      "category": "specialist",
+      "keywords": [
+        "specialist",
+        "review",
+        "stand",
+        "post-merge",
+        "acceptance",
+        "deployment",
+        "verification",
+        "regression"
       ]
     },
     {
