@@ -112,6 +112,7 @@ const PROCESS_SKILLS = new Set([
   'dotnet-project-baseline',
   'stack-registry',
   'completeness-mapping',
+  'optimize-for-llm',
 ]);
 
 function isProcessSkill(parsed) {

@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "5.17.0",
+  "version": "5.18.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -2182,6 +2182,24 @@
         "meta-phrase",
         "concreteness",
         "review-tone"
+      ]
+    },
+    {
+      "name": "dex-skill-optimize-for-llm",
+      "source": "./plugins/skills/dex-skill-optimize-for-llm",
+      "description": "Переписать инструкцию для модели (CLAUDE.md, agent, SKILL.md, slash-команду, prompt) кратко и однозначно под LLM: убрать воду и дубли, оставить механизм/условие/исход, сохранив нормативную силу и грабли. Единственное исключение из scope: артефакт НЕ грузится в контекст модели, его читает человек глазами (README на GitHub, маркетинг, UI-копирайт). Активируется при — оптимизируй под LLM, оптимизируй промпт, перепиши кратко для модели, убери воду из инструкции, убери дубли из агента, сократи CLAUDE.md / агента / skill, сократи под модель, сделай инструкцию однозначной, закрой лазейки в правиле, пересмотри инструкцию, причеши промпт.",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "optimize-for-llm",
+        "prompt-engineering",
+        "instruction-rewrite",
+        "claude-md",
+        "agent-prompt",
+        "conciseness",
+        "unambiguous",
+        "process-skill"
       ]
     },
     {
