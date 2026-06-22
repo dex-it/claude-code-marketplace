@@ -97,6 +97,12 @@ while IFS= read -r line || [ -n "$line" ]; do
         # Пропускаем, если ключ пустой
         [[ -z "$key" ]] && continue
 
+        # Раскрываем command substitution в значениях вида $(...) — секреты тянем из pass,
+        # а не храним в открытом виде (например: ES_API_KEY=$(pass show mdm/elastic-mcp-api-key))
+        if [[ "$value" == *'$('*')'* ]]; then
+            value=$(eval "printf '%s' \"$value\"")
+        fi
+
         # Экспортируем переменную только если есть ключ
         export "$key=$value"
 

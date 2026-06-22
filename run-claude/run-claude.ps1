@@ -77,6 +77,12 @@ Get-Content ".env" -Encoding UTF8 | ForEach-Object {
         $key = $matches[1].Trim()
         $value = $matches[2].Trim()
 
+        # Раскрываем подвыражение $(...) — секреты тянем из менеджера (SecretManagement),
+        # а не храним в открытом виде (например: API_KEY=$(Get-Secret -Name my-key -AsPlainText))
+        if ($value -match '^\$\(.*\)$') {
+            $value = Invoke-Expression $value
+        }
+
         Set-Item -Path "env:$key" -Value $value
 
         if ($key -eq "CLAUDE_ARGS") {
