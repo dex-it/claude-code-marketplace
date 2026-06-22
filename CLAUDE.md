@@ -62,7 +62,7 @@ docs/                             # фреймворки и гайды
 Полный перечень всех плагинов с описаниями и версиями — **единственный источник истины: `.claude-plugin/marketplace.json`**. Здесь только структура; поштучный список не дублируем (растёт и устаревает молча).
 
 **Level 1 — Skills** (`plugins/skills/`): базы знаний, активируются по `description`. Категории: .NET, Frontend/TS, Security, Workflow, Review, Infrastructure, Architecture, Audit, Runtime Diagnostics, Incident/RCA, Product, QA, ML.
-- **process-skills** — особый тип (тонкое правило оркестрации, не каталог граблей): валидатор смягчает trap-эвристики (вместо них `process-empty` — нужна таблица-реестр или ≥2 H2). Регистрация: маркер `<!-- skill-type: process -->` в теле + allowlist `PROCESS_SKILLS` в `tools/validate-skill.js`. Сейчас: `dotnet-project-baseline`, `stack-registry`, `completeness-mapping`. Тип skill и калибровка — [docs/SKILL_FRAMEWORK.md](docs/SKILL_FRAMEWORK.md).
+- **process-skills** — особый тип (тонкое правило оркестрации, не каталог граблей): валидатор смягчает trap-эвристики (вместо них `process-empty` — нужна таблица-реестр или ≥2 H2). Регистрация: маркер `<!-- skill-type: process -->` в теле + allowlist `PROCESS_SKILLS` в `tools/validate-skill.js`. Сейчас: `dotnet-project-baseline`, `stack-registry`, `completeness-mapping`, `optimize-for-llm`. Тип skill и калибровка — [docs/SKILL_FRAMEWORK.md](docs/SKILL_FRAMEWORK.md).
 
 **Level 1 — Utilities** (`plugins/utilities/`): нотификаторы + CLI-обёртки для диагностики. Гайд — [docs/CLI_UTILITIES.md](docs/CLI_UTILITIES.md).
 
