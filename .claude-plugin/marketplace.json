@@ -2219,6 +2219,24 @@
       ]
     },
     {
+      "name": "dex-skill-optimize-for-llm",
+      "source": "./plugins/skills/dex-skill-optimize-for-llm",
+      "description": "Переписать инструкцию для модели (CLAUDE.md, agent, SKILL.md, slash-команду, prompt) кратко и однозначно под LLM: убрать воду и дубли, оставить механизм/условие/исход, сохранив нормативную силу и грабли. Единственное исключение из scope: артефакт НЕ грузится в контекст модели, его читает человек глазами (README на GitHub, маркетинг, UI-копирайт). Активируется при — оптимизируй под LLM, оптимизируй промпт, перепиши кратко для модели, убери воду из инструкции, убери дубли из агента, сократи CLAUDE.md / агента / skill, сократи под модель, сделай инструкцию однозначной, закрой лазейки в правиле, пересмотри инструкцию, причеши промпт.",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "optimize-for-llm",
+        "prompt-engineering",
+        "instruction-rewrite",
+        "claude-md",
+        "agent-prompt",
+        "conciseness",
+        "unambiguous",
+        "process-skill"
+      ]
+    },
+    {
       "name": "dex-skill-karpathy-guidelines",
       "source": "./plugins/skills/dex-skill-karpathy-guidelines",
       "description": "Дисциплина изменений по мотивам Karpathy: думать до кода и выносить допущения, простота вперёд, хирургические правки без лишнего рефакторинга, цель через проверяемые критерии, test-first для багов. Adapted from multica-ai/andrej-karpathy-skills (MIT).",
