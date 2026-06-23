@@ -92,6 +92,25 @@ sudo pacman -S jq
 .\uninstall-bundle.ps1 dotnet-developer -DryRun
 ```
 
+## Sync (protect installed agents from skill degradation)
+
+Installation is flat — there is no specialist→skill cascade. An agent loads skills imperatively via the Skill tool (`dex-skill-X:Y`); if such a skill is not installed it does not resolve and the agent silently degrades. Over time this drifts: an agent gets a new skill reference upstream, or you installed an agent without all the skills it loads.
+
+`sync-plugins.sh` anchors on **what you have installed** (not on bundles): for every installed agent it reads the skills that agent loads from the repo's agent files (`plugins/specialists/**/agents/*.md`, the source of truth) and reports/installs the non-by-stack skills that are missing.
+
+```bash
+# Report drift only (which installed agent loads which missing skill)
+./sync-plugins.sh
+
+# Install the missing skills
+./sync-plugins.sh --fix
+
+# Per-agent detail
+./sync-plugins.sh --verbose
+```
+
+It **never installs new agents** — "something new appeared in the market" is a manual decision. It does **not** touch versions (updating is a separate manual op via the marketplace). by-stack profile skills (`dex-skill-{dotnet,ts,python,…}-*`) are exempt — they are loaded conditionally per project stack. Run from a clone of the marketplace repo.
+
 ## Available Bundles
 
 | Bundle | Description | Components |
@@ -263,6 +282,7 @@ install-bundle/
 ├── uninstall-bundle.ps1      # PowerShell uninstall script (Windows)
 ├── install-cli-tools.sh      # Bash installer for underlying CLI binaries (gh, kubectl, psql, ...)
 ├── install-cli-tools.ps1     # PowerShell mirror for Windows
+├── sync-plugins.sh           # Sync installed agents with the skills they load (anti-degradation)
 └── README.md                 # This file
 ```
 
