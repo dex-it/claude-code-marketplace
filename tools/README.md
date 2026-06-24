@@ -166,12 +166,12 @@ npm run validate:commands     # только команды
 
 ### Что проверяет
 
-- **bundle-not-closed** (error) — агент из `includes[]` грузит не-by-stack скилл, которого нет в `includes[]`
+- **bundle-not-closed** (error) — агент из `includes[]` грузит скилл, которого нет в `includes[]` (с поправкой на by-stack ниже)
 - **include-not-in-marketplace** (error) — компонент `includes[]` не зарегистрирован в `marketplace.json` (иначе `install-bundle` упадёт)
 - **empty-includes** (error) — у бандла нет `includes[]`
-- **version-mismatch** (warning) — версия в `bundle.json` ≠ версии в `plugin.json`
+- **version-mismatch** (warning) — версия в `plugin.json` бандла ≠ версии этого бандла в `marketplace.json` (реальная двухместная синхронизация; в `bundle.json` версии нет)
 
-**Исключение by-stack:** профильные скиллы со стек-префиксом (`dex-skill-{dotnet,ts,python,react,rabbitmq,kafka,…}-*`) не требуются в каждом бандле — языко-агностичные агенты грузят их условно по стеку проекта (см. `dex-skill-stack-registry`). Список префиксов — константа `BY_STACK_PREFIXES` в валидаторе.
+**Исключение by-stack:** профильные скиллы со стек-префиксом (`dex-skill-{dotnet,ts,python,react,rabbitmq,kafka,…}-*`) exempt, только пока бандл не везёт ни одного скилла этого стека: языко-агностичные агенты грузят их условно по стеку проекта (см. `dex-skill-stack-registry`), и они приезжают по тому, что установил пользователь. Как только бандл закоммитился на стек (уже содержит хотя бы один скилл этого стека), он считается стековым и обязан быть замкнут и по этому стеку, иначе его стек-специфичный агент (например `dex-dotnet-coder`) молча деградирует. Список префиксов — константа `BY_STACK_PREFIXES` в валидаторе.
 
 ### Запуск
 

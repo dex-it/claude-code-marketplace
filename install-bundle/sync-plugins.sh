@@ -92,10 +92,12 @@ is_by_stack() {
 }
 
 # Installed (enabled) plugin names for our marketplace, one per line.
+# `.enabled` is an undocumented field; treat a missing/absent value as enabled
+# (`!= false`) so the script never silently no-ops when the CLI omits it.
 installed_plugins() {
   claude plugins list --json 2>/dev/null \
     | jq -r --arg m "@$MARKETPLACE_NAME" \
-        '.[] | select((.id|endswith($m)) and (.enabled==true)) | .id | sub("@.*";"")' \
+        '.[] | select((.id|endswith($m)) and (.enabled != false)) | .id | sub("@.*";"")' \
     | sort -u
 }
 

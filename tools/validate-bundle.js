@@ -10,14 +10,18 @@
  * an agent loads but the bundle omits will never be installed, and the
  * agent silently degrades (graceful-degradation branch).
  *
- * by-stack profile skills (dex-skill-{dotnet,ts,python,...}-*) are exempt:
- * language-agnostic agents load them conditionally per detected project
- * stack (see dex-skill-stack-registry). They live in stack/infra bundles
- * and arrive by what the user actually has installed, not in every bundle.
+ * by-stack profile skills (dex-skill-{dotnet,ts,python,...}-*) are exempt
+ * ONLY while the bundle ships no skill of that stack: language-agnostic agents
+ * load them conditionally per detected project stack (see dex-skill-stack-registry),
+ * so they arrive by what the user has installed, not in every bundle. Once a
+ * bundle commits to a stack (already includes >=1 skill of it), it is a stack
+ * bundle and MUST be closed over that stack too, or its stack-specific agents
+ * (e.g. dex-dotnet-coder) silently degrade.
  *
  * Also checks:
  *   - every includes[] entry exists in marketplace.json (else install fails)
- *   - bundle.json version matches plugin.json version (two-place sync)
+ *   - plugin.json version matches the bundle's version in marketplace.json
+ *     (the real two-place sync; bundle.json itself carries no version)
  *
  * Usage:
  *   node tools/validate-bundle.js <bundle-dir|bundle.json>   # single bundle
@@ -74,9 +78,14 @@ const BY_STACK_PREFIXES = [
   'playwright',
 ];
 
-function isByStack(skillPlugin) {
-  return BY_STACK_PREFIXES.some(
-    (p) => skillPlugin.startsWith(`dex-skill-${p}-`) || skillPlugin === `dex-skill-${p}`
+// Return the by-stack prefix a skill belongs to (e.g. "dotnet"), or null if
+// the skill is stack-neutral. A `dex-skill-<prefix>-*` (or bare
+// `dex-skill-<prefix>`) skill is loaded conditionally per project stack.
+function stackOf(skillPlugin) {
+  return (
+    BY_STACK_PREFIXES.find(
+      (p) => skillPlugin.startsWith(`dex-skill-${p}-`) || skillPlugin === `dex-skill-${p}`
+    ) || null
   );
 }
 
@@ -97,6 +106,21 @@ function loadMarketplacePlugins() {
   } catch {
     return new Set();
   }
+}
+
+// Map: plugin name -> version as declared in marketplace.json.
+function loadMarketplaceVersions() {
+  const map = new Map();
+  if (!existsSync(MARKETPLACE_JSON)) return map;
+  try {
+    const json = JSON.parse(readFileSync(MARKETPLACE_JSON, 'utf8'));
+    for (const p of json.plugins || []) {
+      if (p && p.name && p.version) map.set(p.name, p.version);
+    }
+  } catch {
+    /* ignore */
+  }
+  return map;
 }
 
 // --- Specialist → loaded skills map -------------------------------------
@@ -160,7 +184,7 @@ function resolveBundleFile(target) {
 
 // --- Validation ---------------------------------------------------------
 
-function validateBundle(bundleFile, marketplacePlugins, agentSkillMap, skillPluginsInRepo) {
+function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, agentSkillMap, skillPluginsInRepo) {
   const findings = [];
   let bundle;
   try {
@@ -187,14 +211,27 @@ function validateBundle(bundleFile, marketplacePlugins, agentSkillMap, skillPlug
     }
   }
 
-  // 2. Closure: each non-by-stack skill loaded by an agent in this bundle
-  //    must itself be in includes[].
+  // 2. Closure: each skill an agent in this bundle loads must be in includes[].
+  //    A by-stack skill (dex-skill-<stack>-*) is exempt ONLY while the bundle
+  //    ships no skill of that stack — such skills arrive per the user's stack.
+  //    But once a bundle commits to a stack (already includes >=1 skill of it),
+  //    it is a stack bundle and must be closed over that stack too, else a
+  //    stack-specific agent (e.g. dex-dotnet-coder) silently degrades.
+  //    Note: commitment is judged by skills in includes[], not by the presence
+  //    of a stack-specific specialist — a bundle that ships a stack agent but
+  //    zero stack skills is left to review, not flagged here.
+  const committedStacks = new Set();
+  for (const comp of includes) {
+    const st = stackOf(comp);
+    if (st) committedStacks.add(st);
+  }
   for (const comp of includes) {
     const loaded = agentSkillMap.get(comp);
     if (!loaded) continue; // not a specialist, or loads no skills
     for (const skill of loaded) {
-      if (isByStack(skill)) continue; // by-stack: arrives per user's stack
       if (!skillPluginsInRepo.has(skill)) continue; // unknown skill is validate-agent.js's job
+      const st = stackOf(skill);
+      if (st && !committedStacks.has(st)) continue; // by-stack, bundle not committed to it
       if (!includeSet.has(skill)) {
         findings.push({
           level: ERROR,
@@ -205,16 +242,18 @@ function validateBundle(bundleFile, marketplacePlugins, agentSkillMap, skillPlug
     }
   }
 
-  // 3. Version sync: bundle.json vs plugin.json.
+  // 3. Version sync: plugin.json version must match this bundle's version in
+  //    marketplace.json (the real two-place sync; bundle.json carries no version).
   const pluginJson = join(dirname(bundleFile), '.claude-plugin', 'plugin.json');
   if (existsSync(pluginJson)) {
     try {
       const pj = JSON.parse(readFileSync(pluginJson, 'utf8'));
-      if (bundle.version && pj.version && bundle.version !== pj.version) {
+      const marketVersion = pj.name ? marketplaceVersions.get(pj.name) : undefined;
+      if (pj.version && marketVersion && pj.version !== marketVersion) {
         findings.push({
           level: WARNING,
           rule: 'version-mismatch',
-          message: `bundle.json version (${bundle.version}) != plugin.json version (${pj.version})`,
+          message: `plugin.json version (${pj.version}) != marketplace.json version (${marketVersion}) for "${pj.name}"`,
         });
       }
     } catch {
@@ -281,6 +320,7 @@ function buildSkillPluginsInRepo() {
 function main() {
   const { target } = parseArgs(process.argv);
   const marketplacePlugins = loadMarketplacePlugins();
+  const marketplaceVersions = loadMarketplaceVersions();
   const agentSkillMap = buildAgentSkillMap();
   const skillPluginsInRepo = buildSkillPluginsInRepo();
 
@@ -301,7 +341,7 @@ function main() {
   }
 
   const results = files.map((f) =>
-    validateBundle(f, marketplacePlugins, agentSkillMap, skillPluginsInRepo)
+    validateBundle(f, marketplacePlugins, marketplaceVersions, agentSkillMap, skillPluginsInRepo)
   );
   process.exit(report(results));
 }
