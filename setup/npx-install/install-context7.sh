@@ -114,7 +114,16 @@ echo ""
 # Тестовый запуск context7 MCP
 echo -e "${COLOR_YELLOW}Проверка @upstash/context7-mcp${COLOR_RESET}"
 echo "Попытка загрузить пакет..."
-if timeout 30s npx -y @upstash/context7-mcp --version 2>/dev/null || npx -y @upstash/context7-mcp --help 2>&1 | head -n 5; then
+# timeout есть в GNU coreutils (Linux); на macOS это gtimeout (brew install coreutils).
+# Если ни того, ни другого нет - запускаем проверку без ограничения по времени.
+if command -v timeout >/dev/null 2>&1; then
+    TIMEOUT="timeout 30s"
+elif command -v gtimeout >/dev/null 2>&1; then
+    TIMEOUT="gtimeout 30s"
+else
+    TIMEOUT=""
+fi
+if $TIMEOUT npx -y @upstash/context7-mcp --version 2>/dev/null || npx -y @upstash/context7-mcp --help 2>&1 | head -n 5; then
     echo -e "${COLOR_GREEN}✓ @upstash/context7-mcp доступен${COLOR_RESET}"
 else
     echo -e "${COLOR_YELLOW}⚠ Не удалось проверить версию, но пакет может работать${COLOR_RESET}"
