@@ -12,7 +12,7 @@ echo ""
 # Проверка наличия curl
 if ! command -v curl &> /dev/null; then
     echo "❌ curl не установлен. Установите curl:"
-    echo "   apt-get install curl"
+    echo "   macOS: brew install curl (обычно уже есть); Debian/Ubuntu: sudo apt-get install curl"
     exit 1
 fi
 
@@ -63,15 +63,6 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 echo ""
 echo "📝 Настройка PATH для текущей сессии..."
 
-# Профиль shell - по текущей оболочке ($SHELL), а не по тому, чем запущен скрипт.
-# На macOS оболочка по умолчанию zsh, и при запуске через bash $BASH_VERSION
-# увёл бы подсказку в неверный ~/.bashrc.
-case "$(basename "${SHELL:-}")" in
-    zsh)  SHELL_RC="$HOME/.zshrc" ;;
-    bash) SHELL_RC="$HOME/.bashrc" ;;
-    *)    SHELL_RC="$HOME/.profile" ;;
-esac
-
 # PATH для текущей сессии: env-файл установщика, иначе оба возможных каталога uv
 if [ -f "$HOME/.local/bin/env" ]; then
     . "$HOME/.local/bin/env"
@@ -86,7 +77,7 @@ if command -v uv &> /dev/null; then
     echo "✅ uv установлен: $(uv --version)"
 else
     echo "⚠️  uv не найден в PATH. Перезапустите терминал или выполните:"
-    echo "   source \"$HOME/.local/bin/env\""
+    echo "   source \"\$HOME/.local/bin/env\""
 fi
 
 if command -v uvx &> /dev/null; then
@@ -107,7 +98,7 @@ echo "  uvx: $(uvx --version 2>&1 || echo 'доступен')"
 echo ""
 echo "Следующие шаги:"
 echo "1. Перезапустите терминал или выполните:"
-echo "   source $SHELL_RC"
+echo "   source \"\$HOME/.local/bin/env\""
 echo ""
 echo "2. Проверьте установку:"
 echo "   uv --version"

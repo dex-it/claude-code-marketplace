@@ -17,7 +17,7 @@
 
 Сами серверы каталога запускаются одинаково на Linux и macOS: в конфиге нет путей или команд, привязанных к ОС. Различается только то, что должно стоять заранее:
 
-- **npx-серверы** (github, notion, kubernetes, playwright, grafana, teamcity, elasticsearch, pdf-reader, google-drive, wandb, huggingface, openapi, filesystem, chrome-devtools): нужен Node.js. Linux - `setup/npx-install/install.sh`; macOS - `brew install node`.
+- **npx-серверы** (github, notion, kubernetes, playwright, grafana, teamcity, elasticsearch, pdf-reader, google-drive, wandb, huggingface, openapi, filesystem, chrome-devtools, genai-toolbox для БД): нужен Node.js. Linux - `setup/npx-install/install.sh`; macOS - `brew install node`.
 - **uvx-серверы** (gitlab после v18, rabbitmq, docker, mlflow): нужен uv. Linux и macOS - `setup/uvx-install/install.sh` (установщик uv кросс-платформенный).
 - **Бинарные серверы**:
   - `kafka` (`kafka-mcp-server`, Go-бинарь): macOS - `brew tap tuannvm/mcp && brew install kafka-mcp-server`; Linux - бинарь из [github.com/tuannvm/kafka-mcp-server](https://github.com/tuannvm/kafka-mcp-server). Должен быть в `PATH`.

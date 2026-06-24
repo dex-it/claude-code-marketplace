@@ -6,5 +6,6 @@
 *.sh        text eol=lf
 *.bash      text eol=lf
 
-# PowerShell исполняется на Windows - CRLF.
-*.ps1       text eol=crlf
+# .ps1 намеренно не нормализуем: в репозитории они уже LF и так исполняются
+# PowerShell без проблем; навязанный eol=crlf только переписал бы рабочие копии
+# при следующем checkout без пользы.
