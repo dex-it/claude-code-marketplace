@@ -56,32 +56,28 @@ fi
 echo "📦 Установка uv..."
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Добавление uv в PATH для текущей сессии
+# Официальный установщик uv ставит uv, uvx и uvw в $HOME/.local/bin
+# (до версии 0.5.0 - в $HOME/.cargo/bin) и сам дописывает PATH в профиль shell.
+# Здесь только подхватываем PATH для текущей сессии - постоянную настройку
+# делает сам установщик, дублировать запись в rc не нужно.
 echo ""
-echo "📝 Настройка PATH..."
+echo "📝 Настройка PATH для текущей сессии..."
 
-# Определение shell конфигурационного файла
-if [ -n "$ZSH_VERSION" ]; then
-    SHELL_RC="$HOME/.zshrc"
-elif [ -n "$BASH_VERSION" ]; then
-    SHELL_RC="$HOME/.bashrc"
+# Профиль shell - по текущей оболочке ($SHELL), а не по тому, чем запущен скрипт.
+# На macOS оболочка по умолчанию zsh, и при запуске через bash $BASH_VERSION
+# увёл бы подсказку в неверный ~/.bashrc.
+case "$(basename "${SHELL:-}")" in
+    zsh)  SHELL_RC="$HOME/.zshrc" ;;
+    bash) SHELL_RC="$HOME/.bashrc" ;;
+    *)    SHELL_RC="$HOME/.profile" ;;
+esac
+
+# PATH для текущей сессии: env-файл установщика, иначе оба возможных каталога uv
+if [ -f "$HOME/.local/bin/env" ]; then
+    . "$HOME/.local/bin/env"
 else
-    SHELL_RC="$HOME/.profile"
+    export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 fi
-
-# Добавление uv в PATH, если еще не добавлено
-UV_PATH_EXPORT='export PATH="$HOME/.cargo/bin:$PATH"'
-if ! grep -q ".cargo/bin" "$SHELL_RC" 2>/dev/null; then
-    echo "" >> "$SHELL_RC"
-    echo "# uv (uvx) path" >> "$SHELL_RC"
-    echo "$UV_PATH_EXPORT" >> "$SHELL_RC"
-    echo "✅ Добавлен PATH в $SHELL_RC"
-else
-    echo "✅ PATH уже настроен в $SHELL_RC"
-fi
-
-# Загрузка PATH для текущей сессии
-export PATH="$HOME/.cargo/bin:$PATH"
 
 # Проверка установки
 echo ""
@@ -89,20 +85,15 @@ echo "🔍 Проверка установки..."
 if command -v uv &> /dev/null; then
     echo "✅ uv установлен: $(uv --version)"
 else
-    echo "⚠️  uv не найден в PATH. Выполните:"
-    echo "   source $SHELL_RC"
-    echo "   или перезапустите терминал"
+    echo "⚠️  uv не найден в PATH. Перезапустите терминал или выполните:"
+    echo "   source \"$HOME/.local/bin/env\""
 fi
 
 if command -v uvx &> /dev/null; then
     echo "✅ uvx доступен"
 else
-    echo "⚠️  uvx не найден. Обычно uvx - это симлинк на uv"
-    if [ -f "$HOME/.cargo/bin/uv" ]; then
-        echo "   Создание симлинка uvx..."
-        ln -sf "$HOME/.cargo/bin/uv" "$HOME/.cargo/bin/uvx"
-        echo "✅ Симлинк uvx создан"
-    fi
+    echo "⚠️  uvx не найден в PATH. Установщик uv ставит uvx рядом с uv в \$HOME/.local/bin."
+    echo "   Перезапустите терминал или выполните: source \"\$HOME/.local/bin/env\""
 fi
 
 echo ""
