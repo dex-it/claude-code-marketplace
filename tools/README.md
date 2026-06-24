@@ -147,8 +147,47 @@ node tools/validate-command.js all
 Через npm scripts:
 
 ```bash
-npm run validate              # agents + skills + commands
+npm run validate              # agents + skills + commands + bundles
 npm run validate:commands     # только команды
+```
+
+### Коды возврата
+
+- `0` — чисто
+- `1` — найдена хотя бы одна ошибка
+
+## validate-bundle.js
+
+Валидатор замкнутости бандла: каждый бандл должен быть **целостным** — содержать в `includes[]` все скиллы, которые грузят его агенты.
+
+### Зачем
+
+Установка плоская: `install-bundle.sh` ставит ровно то, что перечислено в `includes[]`, каскада «специалист → его скиллы» нет. Скилл, который агент грузит через Skill tool, но которого нет в `includes[]`, не установится — агент молча деградирует (ветка graceful degradation). Валидатор ловит такой рассинхрон до коммита.
+
+### Что проверяет
+
+- **bundle-not-closed** (error) — агент из `includes[]` грузит скилл, которого нет в `includes[]` (с поправкой на by-stack ниже)
+- **include-not-in-marketplace** (error) — компонент `includes[]` не зарегистрирован в `marketplace.json` (иначе `install-bundle` упадёт)
+- **empty-includes** (error) — у бандла нет `includes[]`
+- **version-mismatch** (warning) — версия в `plugin.json` бандла ≠ версии этого бандла в `marketplace.json` (реальная двухместная синхронизация; в `bundle.json` версии нет)
+
+**Исключение by-stack:** профильные скиллы со стек-префиксом (`dex-skill-{dotnet,ts,python,react,rabbitmq,kafka,…}-*`) exempt, только пока бандл не везёт ни одного скилла этого стека: языко-агностичные агенты грузят их условно по стеку проекта (см. `dex-skill-stack-registry`), и они приезжают по тому, что установил пользователь. Как только бандл закоммитился на стек (уже содержит хотя бы один скилл этого стека), он считается стековым и обязан быть замкнут и по этому стеку, иначе его стек-специфичный агент (например `dex-dotnet-coder`) молча деградирует. Список префиксов — константа `BY_STACK_PREFIXES` в валидаторе.
+
+### Запуск
+
+```bash
+# Один бандл (по имени, директории или пути к bundle.json)
+node tools/validate-bundle.js dex-bundle-architect
+
+# Все бандлы
+node tools/validate-bundle.js all
+```
+
+Через npm scripts:
+
+```bash
+npm run validate              # agents + skills + commands + bundles
+npm run validate:bundles      # только бандлы
 ```
 
 ### Коды возврата
