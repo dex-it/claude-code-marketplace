@@ -150,7 +150,7 @@ export TELEGRAM_NOTIFY_DELAY=30
 - `curl` - для отправки HTTP запросов
 - `jq` - для парсинга JSON
 
-Обычно предустановлены в большинстве Linux/macOS систем.
+`curl` идёт с macOS и большинством дистрибутивов Linux; `jq` ставится отдельно (`brew install jq` на macOS, `apt install jq` или аналог на Linux). Хук-скрипты работают на стоковом `/bin/bash` 3.2 из macOS - отдельный bash через Homebrew не нужен.
 
 ## Устранение неполадок
 

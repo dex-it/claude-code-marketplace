@@ -18,8 +18,9 @@ cd setup/npx-install
 ```
 
 Скрипт автоматически:
+- ✓ Определит ОС (`uname -s`)
 - ✓ Проверит наличие Node.js, npm, npx
-- ✓ Предложит установку через NodeSource (LTS) или Ubuntu репозиторий
+- ✓ На Linux предложит NodeSource (LTS) или репозиторий дистрибутива; на macOS поставит через Homebrew (`brew install node`)
 - ✓ Проверит корректность установки
 
 ### Шаг 2: Установка MCP сервера
@@ -45,16 +46,21 @@ cd setup/npx-install
 
 ### 1. Установка Node.js
 
-**Вариант A: NodeSource (рекомендуется)**
+**Linux, вариант A: NodeSource (рекомендуется)**
 ```bash
 curl -fsSL https://deb.nodesource.com/setup_lts.x | bash -
 apt-get install -y nodejs
 ```
 
-**Вариант B: Ubuntu репозиторий**
+**Linux, вариант B: репозиторий дистрибутива**
 ```bash
 apt-get update
 apt-get install -y nodejs npm
+```
+
+**macOS: Homebrew**
+```bash
+brew install node
 ```
 
 ### 2. Проверка установки
