@@ -2,7 +2,7 @@
 
 Централизованный каталог MCP (Model Context Protocol) серверов для всех плагинов Claude Code Marketplace.
 
-> **Когда CLI вместо MCP.** Для read-only диагностики (PostgreSQL / Redis / Kafka / Kubernetes / GitHub / GitLab) часто достаточно CLI-плагинов из `plugins/utilities/dex-*-cli/` — они легче, не требуют отдельного сервера и используют существующий CLI-auth. MCP-серверы остаются предпочтительным выбором для автономных агентских workflow со сложной логикой. Decision matrix и сравнение покрытия — см. [`docs/CLI_UTILITIES.md`](../docs/CLI_UTILITIES.md#cli-vs-mcp-decision-matrix).
+> **Когда CLI вместо MCP.** Для read-only диагностики (PostgreSQL / Redis / Kafka / Kubernetes / GitHub / GitLab) часто достаточно CLI-плагинов из `plugins/utilities/dex-*-cli/` — они легче, не требуют отдельного сервера и используют существующий CLI-auth. MCP-серверы остаются предпочтительным выбором для автономных агентских workflow со сложной логикой. Decision matrix и сравнение покрытия — см. [`docs/CLI_UTILITIES.md`](../docs/CLI_UTILITIES.md#cli-vs-mcp-матрица-решений).
 
 ## Быстрый старт
 
@@ -182,7 +182,7 @@ Playwright MCP даёт агенту высокоуровневые операц
     },
     "genai-toolbox": {
       "command": "npx",
-      "args": ["-y", "@anthropic/toolbox-sdk", "--tools-file", "tools.yaml"]
+      "args": ["-y", "@toolbox-sdk/server", "--tools-file", "tools.yaml", "--stdio"]
     },
     "teamcity": {
       "command": "npx",
