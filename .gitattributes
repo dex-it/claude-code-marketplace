@@ -1,0 +1,10 @@
+# Нормализация переводов строк. Репозиторий часто редактируется с
+# Windows-маунта, где редактор может подставить CRLF. Для shell-скриптов
+# CRLF ломает shebang на macOS/Linux ("bad interpreter: /bin/bash^M").
+
+# Shell-скрипты и текстовые конфиги - всегда LF.
+*.sh        text eol=lf
+*.bash      text eol=lf
+
+# PowerShell исполняется на Windows - CRLF.
+*.ps1       text eol=crlf
