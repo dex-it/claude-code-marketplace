@@ -4,13 +4,13 @@
 
 ## О проекте
 
-Claude Code Marketplace — набор специализированных плагинов для Claude Code, организованных в 3 уровня:
+Claude Code Marketplace - набор специализированных плагинов для Claude Code, организованных в 3 уровня:
 
 ```
-Level 3: BUNDLES     — наборы для быстрой установки по ролям
-Level 2: SPECIALISTS — агенты с узкой специализацией
-Level 1: SKILLS      — базы знаний (автоматическая активация)
-         UTILITIES   — инструменты (hooks, notifications, CLI)
+Level 3: BUNDLES     - наборы для быстрой установки по ролям
+Level 2: SPECIALISTS - агенты с узкой специализацией
+Level 1: SKILLS      - базы знаний (автоматическая активация)
+         UTILITIES   - инструменты (hooks, notifications, CLI)
 ```
 
 **Принцип:** атомарные плагины без дублирования. Собирай свой набор из нужных компонентов.
@@ -65,7 +65,7 @@ claude plugins uninstall dex-dotnet-coder
 
 ## Бандлы (Level 3)
 
-Мета-плагины для установки наборов. Не содержат кода — только список компонентов.
+Мета-плагины для установки наборов. Не содержат кода - только список компонентов.
 
 | Bundle | Описание |
 |--------|----------|
@@ -184,7 +184,7 @@ claude plugins uninstall dex-dotnet-coder
 
 ## Skills (Level 1)
 
-Базы знаний — активируются автоматически по ключевым словам в контексте. Skills по категориям:
+Базы знаний - активируются автоматически по ключевым словам в контексте. Skills по категориям:
 
 | Категория | Skills |
 |-----------|--------|
@@ -201,9 +201,9 @@ claude plugins uninstall dex-dotnet-coder
 
 ## Utilities (Level 1)
 
-Сгруппированы по назначению. Подробный гайд по CLI-утилитам — установка бинарей, конфигурация, CLI vs MCP — см. [docs/CLI_UTILITIES.md](./docs/CLI_UTILITIES.md). Установить все CLI-плагины одной командой: `./install-bundle/install-bundle.sh cli-tools`.
+Сгруппированы по назначению. Подробный гайд по CLI-утилитам - установка бинарей, конфигурация, CLI vs MCP - см. [docs/CLI_UTILITIES.md](./docs/CLI_UTILITIES.md). Установить все CLI-плагины одной командой: `./install-bundle/install-bundle.sh cli-tools`.
 
-### CLI Tools — VCS & CI/CD
+### CLI Tools - VCS & CI/CD
 
 | Плагин | Описание | Бинарь |
 |--------|----------|--------|
@@ -212,7 +212,7 @@ claude plugins uninstall dex-dotnet-coder
 | dex-jenkins-cli | Jobs, builds, console output | REST API |
 | dex-teamcity-cli | Builds, agents, build logs | REST API |
 
-### CLI Tools — Infrastructure & Data
+### CLI Tools - Infrastructure & Data
 
 | Плагин | Описание | Бинарь |
 |--------|----------|--------|
@@ -243,7 +243,7 @@ claude plugins uninstall dex-dotnet-coder
 # Что есть, чего не хватает
 ./install-bundle/install-cli-tools.sh --check
 
-# Поставить всё недостающее (apt / dnf / pacman / apk / brew — авто-детект)
+# Поставить всё недостающее (apt / dnf / pacman / apk / brew - авто-детект)
 ./install-bundle/install-cli-tools.sh --all
 
 # Точечно
@@ -258,10 +258,10 @@ MCP конфигурации в каталоге `mcp/`. Подробнее: [mc
 
 | Роль | Required | Optional |
 |------|----------|----------|
-| .NET Developer | gitlab | postgres, rabbitmq, kafka, docker, seq, kubernetes |
+| .NET Developer | gitlab | genai-toolbox, rabbitmq, kafka, docker, seq, kubernetes |
 | Architect | github, gitlab | notion, filesystem |
 | DevOps | gitlab | docker, kubernetes |
-| Product Manager | notion | — |
+| Product Manager | notion | - |
 | System Analyst | pdf-reader | notion, google-drive |
 | QA Engineer | gitlab | filesystem |
 | ML Engineer | gitlab | mlflow, wandb, huggingface |
@@ -308,11 +308,21 @@ claude-code-marketplace/
 └── README.md
 ```
 
+## Технологический стек
+
+Стеки, под которые заточены специалисты и skills:
+
+**`.NET`** - .NET 8.0+ (async/await + CancellationToken), Entity Framework Core, xUnit + Moq, RabbitMQ + MassTransit, Elasticsearch, Redis + StackExchange.Redis, Serilog + Seq, Docker, Kubernetes, GitLab CI.
+
+**`TS/JS`** - TypeScript fullstack: Node.js/Bun backend (Express/Fastify/Hono), React frontend, Vitest/Jest для тестов.
+
+**Python ML** - Python 3.10+, PyTorch, TensorFlow/Keras, scikit-learn, XGBoost, HuggingFace Transformers, MLflow, Weights & Biases, Optuna, ONNX, TFLite, FastAPI.
+
 ## Требования
 
-- **Claude Code** — latest version
-- **jq** — для install скриптов (Linux/macOS)
-- **Credentials** — API ключи для MCP интеграций (см. [CREDENTIALS.md](./CREDENTIALS.md))
+- **Claude Code** - latest version
+- **jq** - для install скриптов (Linux/macOS)
+- **Credentials** - API ключи для MCP интеграций (см. [CREDENTIALS.md](./CREDENTIALS.md))
 
 ## Contributing
 
@@ -329,7 +339,7 @@ claude-code-marketplace/
 
 ## License
 
-GPL v3.0 — см. [LICENSE](./LICENSE)
+GPL v3.0 - см. [LICENSE](./LICENSE)
 
 ---
 
