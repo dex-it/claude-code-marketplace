@@ -258,7 +258,7 @@ MCP конфигурации в каталоге `mcp/`. Подробнее: [mc
 
 | Роль | Required | Optional |
 |------|----------|----------|
-| .NET Developer | gitlab | postgres, rabbitmq, kafka, docker, seq, kubernetes |
+| .NET Developer | gitlab | genai-toolbox, rabbitmq, kafka, docker, seq, kubernetes |
 | Architect | github, gitlab | notion, filesystem |
 | DevOps | gitlab | docker, kubernetes |
 | Product Manager | notion | - |
