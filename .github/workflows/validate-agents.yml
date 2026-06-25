@@ -8,12 +8,14 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/validate-agents.yml'
+      - '**.sh'
   push:
     branches:
       - main
     paths:
       - 'plugins/**/*.md'
       - 'tools/validate-*.js'
+      - '**.sh'
 
 jobs:
   validate:
@@ -63,3 +65,16 @@ jobs:
 
       - name: Validate commands
         run: node tools/validate-command.js all
+
+  shell-syntax:
+    name: Shell scripts syntax check (bash -n)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # bash -n ловит синтаксические ошибки без выполнения. Гейт против регрессий
+      # портируемости shell (CRLF в shebang, незакрытые конструкции) на каждом PR,
+      # который трогает .sh. Полная проверка на macOS/Windows - отдельная задача.
+      - name: Syntax-check all shell scripts
+        run: find . -path ./node_modules -prune -o -name '*.sh' -print0 | xargs -0 -r -n1 bash -n

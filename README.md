@@ -320,9 +320,25 @@ claude-code-marketplace/
 
 ## Требования
 
-- **Claude Code** - latest version
-- **jq** - для install скриптов (Linux/macOS)
-- **Credentials** - API ключи для MCP интеграций (см. [CREDENTIALS.md](./CREDENTIALS.md))
+- **Claude Code** - последняя версия
+- **jq** - для install-скриптов на Linux/macOS
+- **Credentials** - API-ключи для MCP-интеграций (см. [CREDENTIALS.md](./CREDENTIALS.md))
+
+Под разные части маркетплейса нужны разные инструменты:
+
+| Что ставите | Linux | macOS |
+|---|---|---|
+| Плагины бандлов (`install-bundle.sh`) | `jq` + `claude` | `brew install jq` + `claude` |
+| CLI-бинари (`install-cli-tools.sh`) | apt / dnf / pacman / apk (авто-детект) | Homebrew (`brew`) |
+| npx-MCP и `dex-playwright-cli` | Node.js (`setup/npx-install/install.sh`) | Node.js (`brew install node`) |
+| uvx-MCP (gitlab, rabbitmq, docker, mlflow) | uv (`setup/uvx-install/install.sh`) | тот же скрипт (uv ставит свой установщик, brew не нужен) |
+| Нотификаторы (telegram / discord) | `jq` + `curl` | `jq` + `curl` (в составе macOS) |
+
+## Поддержка платформ
+
+- **Linux** - основной путь. Bash-скриптам нужен один из пакетных менеджеров (apt / dnf / pacman / apk).
+- **macOS** - поддержан, Intel и Apple Silicon. Bash-скрипты работают на стоковом `/bin/bash` 3.2 (отдельный bash через Homebrew не требуется); CLI-бинари ставятся через Homebrew. Часть низкоуровневых утилит ограничена платформой: `netcoredbg` и `valgrind` не собираются под Apple Silicon (arm64), а `strace` / `bpftrace` / `bcc` / `perf` доступны только на Linux. Полная матрица по CLI-утилитам - [docs/CLI_UTILITIES.md](./docs/CLI_UTILITIES.md), по MCP-серверам - [mcp/README.md](./mcp/README.md).
+- **Windows** - через PowerShell-скрипты (`*.ps1`) или WSL.
 
 ## Contributing
 

@@ -127,13 +127,14 @@
       "_env": [
         "TOOLBOX_CONFIG (optional, default: tools.yaml)"
       ],
-      "_note": "Конфигурация баз данных в tools.yaml. Docs: https://github.com/googleapis/genai-toolbox. Пример: mcp/examples/toolbox-config.yaml",
+      "_note": "Конфигурация баз данных в tools.yaml. --stdio обязателен для MCP-транспорта (без него Toolbox поднимается как HTTP-сервер). Docs: https://github.com/googleapis/genai-toolbox. Пример: mcp/examples/toolbox-config.yaml",
       "command": "npx",
       "args": [
         "-y",
-        "@anthropic/toolbox-sdk",
+        "@toolbox-sdk/server",
         "--tools-file",
-        "${TOOLBOX_CONFIG:-tools.yaml}"
+        "${TOOLBOX_CONFIG:-tools.yaml}",
+        "--stdio"
       ]
     },
     "elasticsearch": {

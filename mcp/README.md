@@ -2,7 +2,7 @@
 
 Централизованный каталог MCP (Model Context Protocol) серверов для всех плагинов Claude Code Marketplace.
 
-> **Когда CLI вместо MCP.** Для read-only диагностики (PostgreSQL / Redis / Kafka / Kubernetes / GitHub / GitLab) часто достаточно CLI-плагинов из `plugins/utilities/dex-*-cli/` — они легче, не требуют отдельного сервера и используют существующий CLI-auth. MCP-серверы остаются предпочтительным выбором для автономных агентских workflow со сложной логикой. Decision matrix и сравнение покрытия — см. [`docs/CLI_UTILITIES.md`](../docs/CLI_UTILITIES.md#cli-vs-mcp-decision-matrix).
+> **Когда CLI вместо MCP.** Для read-only диагностики (PostgreSQL / Redis / Kafka / Kubernetes / GitHub / GitLab) часто достаточно CLI-плагинов из `plugins/utilities/dex-*-cli/` — они легче, не требуют отдельного сервера и используют существующий CLI-auth. MCP-серверы остаются предпочтительным выбором для автономных агентских workflow со сложной логикой. Decision matrix и сравнение покрытия — см. [`docs/CLI_UTILITIES.md`](../docs/CLI_UTILITIES.md#cli-vs-mcp-матрица-решений).
 
 ## Быстрый старт
 
@@ -12,6 +12,19 @@
 4. Удалите поля `_description`, `_env`, `_note` из каждого сервера
 5. Настройте переменные окружения в `.env` (см. `run-claude/sample.env`)
 6. Запустите Claude Code и проверьте: `/mcp list`
+
+## Требования по платформам (Linux / macOS)
+
+Сами серверы каталога запускаются одинаково на Linux и macOS: в конфиге нет путей или команд, привязанных к ОС. Различается только то, что должно стоять заранее:
+
+- **npx-серверы** (github, notion, kubernetes, playwright, grafana, teamcity, elasticsearch, pdf-reader, google-drive, wandb, huggingface, openapi, filesystem, chrome-devtools, genai-toolbox для БД): нужен Node.js. Linux - `setup/npx-install/install.sh`; macOS - `brew install node`.
+- **uvx-серверы** (gitlab после v18, rabbitmq, docker, mlflow): нужен uv. Linux и macOS - `setup/uvx-install/install.sh` (установщик uv кросс-платформенный).
+- **Бинарные серверы**:
+  - `kafka` (`kafka-mcp-server`, Go-бинарь): macOS - `brew tap tuannvm/mcp && brew install kafka-mcp-server`; Linux - бинарь из [github.com/tuannvm/kafka-mcp-server](https://github.com/tuannvm/kafka-mcp-server). Должен быть в `PATH`.
+  - `seq` (`seq-mcp-server`): ставится отдельно из источника сервера, бинарь в `PATH`. Отдельной macOS-специфики нет.
+- **google-drive**: путь OAuth-кредов по умолчанию (`~/.config/...`) валиден и на macOS - тильда раскрывается, каталог создаётся самим сервером, менять под macOS не нужно.
+
+Apple Silicon (arm64): MCP-слой ограничений не добавляет - серверы это Node / Python / Go-пакеты с arm64-сборками. Ограничения arm64 касаются только отдельных CLI-бинарей диагностики (см. [docs/CLI_UTILITIES.md](../docs/CLI_UTILITIES.md)), не MCP.
 
 ## MCP серверы по плагинам
 
@@ -169,7 +182,7 @@ Playwright MCP даёт агенту высокоуровневые операц
     },
     "genai-toolbox": {
       "command": "npx",
-      "args": ["-y", "@anthropic/toolbox-sdk", "--tools-file", "tools.yaml"]
+      "args": ["-y", "@toolbox-sdk/server", "--tools-file", "tools.yaml", "--stdio"]
     },
     "teamcity": {
       "command": "npx",

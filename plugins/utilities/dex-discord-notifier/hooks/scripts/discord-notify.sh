@@ -19,7 +19,7 @@ WEBHOOK_URL="${DISCORD_NOTIFIER_URL:-}"
 
 # Optional settings with defaults
 MSG_LIMIT="${DISCORD_MESSAGE_LIMIT:-4000}"
-LANG="${DISCORD_LANGUAGE:-ru}"
+NOTIFY_LANG="${DISCORD_LANGUAGE:-ru}"
 DELAY_SECONDS="${DISCORD_NOTIFY_DELAY:-30}"
 
 # Feature toggles (all enabled by default)
@@ -59,46 +59,52 @@ fi
 # Localization
 # =============================================================================
 
-declare -A L10N_RU=(
-    ["stop_event"]="завершил работу"
-    ["notification_event"]="ждёт ответа"
-    ["subagent_event"]="завершил подзадачу"
-    ["permission_request"]="ждёт разрешение"
-    ["compact_event"]="закончил compact"
-    ["unknown_event"]="событие"
-    ["last_message"]="Последнее сообщение"
-    ["ultrathink"]="Ultrathink"
-    ["todo_status"]="TODO"
-    ["completed"]="выполнено"
-    ["questions"]="Вопросы Claude"
-    ["plan"]="План"
-    ["tools"]="Инструменты"
-)
-
-declare -A L10N_EN=(
-    ["stop_event"]="finished working"
-    ["notification_event"]="waiting for response"
-    ["subagent_event"]="completed subtask"
-    ["permission_request"]="waiting for permissions"
-    ["compact_event"]="finished compact"
-    ["unknown_event"]="event"
-    ["last_message"]="Last message"
-    ["ultrathink"]="Ultrathink"
-    ["todo_status"]="TODO"
-    ["completed"]="completed"
-    ["questions"]="Claude's questions"
-    ["plan"]="Plan"
-    ["tools"]="Tools"
-)
-
-# Get localized string
+# macOS ships /bin/bash 3.2, which has no associative arrays (declare -A).
+# A case-based lookup keeps localization working on the stock interpreter.
+# Unknown keys fall back to the key itself.
 get_l10n() {
     local key="$1"
-    if [ "$LANG" = "en" ]; then
-        echo "${L10N_EN[$key]:-$key}"
+    if [ "$NOTIFY_LANG" = "en" ]; then
+        case "$key" in
+            stop_event)         echo "finished working" ;;
+            notification_event) echo "waiting for response" ;;
+            subagent_event)     echo "completed subtask" ;;
+            permission_request) echo "waiting for permissions" ;;
+            compact_event)      echo "finished compact" ;;
+            unknown_event)      echo "event" ;;
+            last_message)       echo "Last message" ;;
+            ultrathink)         echo "Ultrathink" ;;
+            todo_status)        echo "TODO" ;;
+            completed)          echo "completed" ;;
+            questions)          echo "Claude's questions" ;;
+            plan)               echo "Plan" ;;
+            tools)              echo "Tools" ;;
+            *)                  echo "$key" ;;
+        esac
     else
-        echo "${L10N_RU[$key]:-$key}"
+        case "$key" in
+            stop_event)         echo "завершил работу" ;;
+            notification_event) echo "ждёт ответа" ;;
+            subagent_event)     echo "завершил подзадачу" ;;
+            permission_request) echo "ждёт разрешение" ;;
+            compact_event)      echo "закончил compact" ;;
+            unknown_event)      echo "событие" ;;
+            last_message)       echo "Последнее сообщение" ;;
+            ultrathink)         echo "Ultrathink" ;;
+            todo_status)        echo "TODO" ;;
+            completed)          echo "выполнено" ;;
+            questions)          echo "Вопросы Claude" ;;
+            plan)               echo "План" ;;
+            tools)              echo "Инструменты" ;;
+            *)                  echo "$key" ;;
+        esac
     fi
+}
+
+# Reverse file lines. Portable replacement for `tac` (GNU-only; macOS has
+# `tail -r`, which in turn does not exist on Linux). awk is present on both.
+reverse_lines() {
+    awk '{ lines[NR] = $0 } END { for (i = NR; i >= 1; i--) print lines[i] }' "$1"
 }
 
 # =============================================================================
@@ -199,32 +205,32 @@ if [ -n "$TRANSCRIPT_PATH" ] && [ -f "$TRANSCRIPT_PATH" ]; then
 
     # --- Extract Last Assistant Message ---
     if [ "$INCLUDE_MESSAGE" = "true" ]; then
-        LAST_TEXT=$(tac "$TRANSCRIPT_PATH" 2>/dev/null | \
+        LAST_TEXT=$(reverse_lines "$TRANSCRIPT_PATH" 2>/dev/null | \
             jq -rn 'first(inputs | select(.type == "assistant") | .message.content | map(select(.type == "text") | .text) | join("\n") | select(length > 0))' 2>/dev/null)
     fi
 
     # --- Extract Last Thinking (Ultrathink) ---
     if [ "$INCLUDE_THINKING" = "true" ]; then
-        LAST_THINKING=$(tac "$TRANSCRIPT_PATH" 2>/dev/null | \
+        LAST_THINKING=$(reverse_lines "$TRANSCRIPT_PATH" 2>/dev/null | \
             jq -rn 'first(inputs | select(.type == "assistant") | .message.content[]? | select(.type == "thinking") | .thinking | select(length > 0))' 2>/dev/null)
     fi
 
     # --- Extract Tool Uses ---
     if [ "$INCLUDE_TOOLS" = "true" ]; then
-        TOOLS=$(tac "$TRANSCRIPT_PATH" 2>/dev/null | \
+        TOOLS=$(reverse_lines "$TRANSCRIPT_PATH" 2>/dev/null | \
             jq -rn 'first(inputs | select(.type == "assistant")) | .message.content[]? | select(.type == "tool_use") | .name' 2>/dev/null)
     fi
 
     # --- Extract Last TODO State ---
     if [ "$INCLUDE_TODO" = "true" ]; then
-        TODO_JSON=$(tac "$TRANSCRIPT_PATH" 2>/dev/null | \
+        TODO_JSON=$(reverse_lines "$TRANSCRIPT_PATH" 2>/dev/null | \
             jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "tool_use" and .name == "TodoWrite") | .input.todos | @json' 2>/dev/null | \
             head -1)
     fi
 
     # --- Extract AskUserQuestion Data ---
     if [ "$INCLUDE_QUESTIONS" = "true" ]; then
-        ASK_USER_JSON=$(tac "$TRANSCRIPT_PATH" 2>/dev/null | \
+        ASK_USER_JSON=$(reverse_lines "$TRANSCRIPT_PATH" 2>/dev/null | \
             jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "tool_use" and .name == "AskUserQuestion") | .input | @json' 2>/dev/null | \
             head -1)
     fi
