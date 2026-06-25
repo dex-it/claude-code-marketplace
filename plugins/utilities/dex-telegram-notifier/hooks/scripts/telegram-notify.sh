@@ -24,7 +24,7 @@ CHAT_ID="${TELEGRAM_CHAT_ID:-}"
 
 # Optional settings with defaults
 MSG_LIMIT="${TELEGRAM_MESSAGE_LIMIT:-4000}"
-LANG="${TELEGRAM_LANGUAGE:-ru}"
+NOTIFY_LANG="${TELEGRAM_LANGUAGE:-ru}"
 THREAD_ID="${TELEGRAM_THREAD_ID:-}"
 
 # Feature toggles (all enabled by default)
@@ -67,7 +67,7 @@ fi
 # Unknown keys fall back to the key itself.
 get_l10n() {
     local key="$1"
-    if [ "$LANG" = "en" ]; then
+    if [ "$NOTIFY_LANG" = "en" ]; then
         case "$key" in
             stop_event)         echo "finished working" ;;
             notification_event) echo "waiting for response" ;;

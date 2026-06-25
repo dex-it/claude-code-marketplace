@@ -19,7 +19,7 @@ WEBHOOK_URL="${DISCORD_NOTIFIER_URL:-}"
 
 # Optional settings with defaults
 MSG_LIMIT="${DISCORD_MESSAGE_LIMIT:-4000}"
-LANG="${DISCORD_LANGUAGE:-ru}"
+NOTIFY_LANG="${DISCORD_LANGUAGE:-ru}"
 DELAY_SECONDS="${DISCORD_NOTIFY_DELAY:-30}"
 
 # Feature toggles (all enabled by default)
@@ -64,7 +64,7 @@ fi
 # Unknown keys fall back to the key itself.
 get_l10n() {
     local key="$1"
-    if [ "$LANG" = "en" ]; then
+    if [ "$NOTIFY_LANG" = "en" ]; then
         case "$key" in
             stop_event)         echo "finished working" ;;
             notification_event) echo "waiting for response" ;;

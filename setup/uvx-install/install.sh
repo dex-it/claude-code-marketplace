@@ -70,6 +70,20 @@ else
     export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 fi
 
+# Постоянная настройка PATH. Официальный установщик uv обычно сам дописывает
+# профиль, но если uv уже стоял, повторный запуск мог его не тронуть - тогда в
+# новом терминале uvx снова не найдётся. Идемпотентная (grep-гард) дозапись в
+# профиль целевого shell страхует от этого; дубля со строкой установщика не будет.
+case "$(basename "${SHELL:-}")" in
+    zsh)  PROFILE="$HOME/.zshrc" ;;
+    bash) PROFILE="$HOME/.bashrc" ;;
+    *)    PROFILE="$HOME/.profile" ;;
+esac
+if [ -f "$HOME/.local/bin/env" ] && ! grep -qs '.local/bin/env' "$PROFILE"; then
+    printf '\n. "$HOME/.local/bin/env"\n' >> "$PROFILE"
+    echo "📝 Постоянная настройка PATH добавлена в $PROFILE"
+fi
+
 # Проверка установки
 echo ""
 echo "🔍 Проверка установки..."

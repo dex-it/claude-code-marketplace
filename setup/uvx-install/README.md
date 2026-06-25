@@ -22,7 +22,7 @@ cd setup/uvx-install
 Скрипт автоматически:
 - ✓ Проверит наличие uv и uvx
 - ✓ Установит uv через официальный установщик (Linux и macOS)
-- ✓ Подхватит PATH для текущей сессии (постоянную правку профиля делает сам установщик uv)
+- ✓ Подхватит PATH для текущей сессии и идемпотентно дозапишет постоянную правку в профиль (`~/.zshrc` / `~/.bashrc` / `~/.profile` по `$SHELL`), если её там ещё нет - на случай, если установщик uv профиль не тронул
 
 ### Шаг 2: Установка MCP сервера
 
@@ -164,15 +164,16 @@ source ~/.bashrc  # или ~/.zshrc
 ### Проверка PATH
 
 ```bash
-echo $PATH | grep cargo
+echo "$PATH" | grep -E 'local/bin|cargo'
 ```
 
-Должно содержать `~/.cargo/bin`
+Должно содержать `~/.local/bin` (uv >= 0.5.0; до 0.5.0 - `~/.cargo/bin`)
 
 ### Ручное добавление в PATH
 
 ```bash
-echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> ~/.bashrc
+# uv генерирует ~/.local/bin/env; источаем его (работает в bash и zsh)
+echo '. "$HOME/.local/bin/env"' >> ~/.bashrc   # или ~/.zshrc
 source ~/.bashrc
 ```
 
