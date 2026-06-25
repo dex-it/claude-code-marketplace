@@ -77,7 +77,9 @@ Phase 8: Document                     [optional, skip_if=trivial]
 
 **Fallback:** критичный слот пуст → задать пользователю один сфокусированный вопрос.
 
-В этой фазе загружай императивно через Skill tool: `dex-skill-nfr:nfr` — для проверки NFR на полноту (numeric values, SLA/SLO/SLI, p99) и на security NFR (data classification, authorization model, secrets management, audit log, IDOR risk, multi-tenant isolation).
+В этой фазе загружай императивно через Skill tool:
+- `dex-skill-nfr:nfr` — для проверки NFR на полноту (numeric values, SLA/SLO/SLI, p99) и на security NFR (data classification, authorization model, secrets management, audit log, IDOR risk, multi-tenant isolation).
+- `dex-skill-requirement-quality:requirement-quality` — для проверки требований (FR и NFR) на дефекты артефакта помимо полноты: взаимное противоречие, неоднозначность без измеримого критерия, конфликт с существующим инвариантом/ADR, техническая невыполнимость в данной архитектуре. Дефект разрешить с пользователем до перехода к capacity/выбору архитектуры, не закладывать в план противоречивую постановку.
 
 ## Phase 2: Capacity Estimation
 
