@@ -39,4 +39,4 @@ argument-hint: "[бизнес-задача в свободной форме]"
 - Phase 5 требует explicit confirmation пользователя перед Deep Dive
 - Для .NET-специфичной сессии (с конкретными ASP.NET Core / EF Core / MassTransit) — делегировать `architect-dotnet`
 
-Делегировать агенту `architect`.
+Делегировать агенту `architect` с **`mode: interactive`** во входе (команда исполняется главным циклом - канал к юзеру есть; без явного `interactive` агент уйдёт в дефолтный `autonomous` и не будет вести диалог/Phase 5 confirmation).

@@ -1,6 +1,6 @@
 ---
 name: dotnet-project-baseline
-description: Технический baseline нового .NET проекта — наследование правил solution vs закладка с нуля. Активируется при новый проект, новый сервис, новый микросервис, создать проект, создать решение, добавить проект, scaffold, scaffolding, bootstrap, dotnet new, dotnet new sln, пустой репозиторий, golden path, скелет проекта, project structure, Directory.Build.props, Directory.Packages.props, CPM, .editorconfig, начальная настройка проекта, project template, baseline проекта
+description: Технический baseline нового .NET проекта (грузится императивно .NET-агентами) - наследование правил solution vs закладка с нуля (Directory.Build.props, CPM, .editorconfig). Активируется при создании нового .NET проекта/сервиса, scaffolding скелета решения, закладке baseline репозитория
 ---
 
 <!-- skill-type: process -->

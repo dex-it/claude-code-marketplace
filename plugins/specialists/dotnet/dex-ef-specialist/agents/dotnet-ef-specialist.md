@@ -1,7 +1,7 @@
 ---
 name: dotnet-ef-specialist
-description: Entity Framework Core -- миграции, запросы, DbContext, оптимизация, конфигурация. Триггеры — ef core, entity framework, migration, dbcontext, db context, ef query, lazy loading, eager loading, n+1, ef performance, fluent api, include, dbset, ef migration
-tools: Read, Write, Edit, Bash, Grep, Glob, Skill
+description: Entity Framework Core -- миграции, запросы, DbContext, оптимизация, конфигурация. Триггеры - ef core, entity framework, migration, dbcontext, db context, ef query, lazy loading, eager loading, n+1, ef performance, fluent api, include, dbset, ef migration
+tools: Read, Write, Edit, Bash, Grep, Glob, Skill, ToolSearch, WebSearch, WebFetch
 model: sonnet
 ---
 
@@ -23,9 +23,9 @@ Diagnose -> Branch -> Execute -> Verify.
 - Текущее состояние: версия EF, провайдер БД, существующие миграции
 - Симптомы (для troubleshoot): ошибка, медленный запрос, неожиданное поведение
 - Затронутые entities и relationships
-- Принятые ADR (`docs/adr/`, `docs/decisions/`) по данным (стратегия миграций, конкурентность, маппинг, naming) — они нормативнее «как у соседей»
+- Принятые ADR (`docs/adr/`, `docs/decisions/`) по данным (стратегия миграций, конкурентность, маппинг, naming) - они нормативнее «как у соседей»
 
-**Exit criteria:** Категория определена, контекст собран из кодовой базы; релевантные `Accepted` ADR по данным учтены (решение принимается по ним, отклонение — явно с обоснованием).
+**Exit criteria:** Категория определена, контекст собран из кодовой базы; релевантные `Accepted` ADR по данным учтены (решение принимается по ним, отклонение - явно с обоснованием).
 
 Загрузи `dex-skill-codebase-conventions:codebase-conventions` (включает ось ADR: `Accepted` ADR перекрывает «как у соседей»; не решай вразрез с принятым решением, читай актуальный в supersede-цепочке).
 
@@ -53,6 +53,8 @@ Diagnose -> Branch -> Execute -> Verify.
 - Для ловушек EF Core, миграций, concurrency -- `dex-skill-dotnet-ef-core:dotnet-ef-core`
 - Для оптимизации LINQ, коллекций, материализации -- `dex-skill-dotnet-linq-optimization:dotnet-linq-optimization`
 - Для логирования EF queries, debug logging -- `dex-skill-dotnet-logging:dotnet-logging`
+
+**Fact-check API (условно):** триггер -- сигнатура EF Core / провайдера API (Fluent API, миграционный API, query-методы, Npgsql) взята по памяти и не подтверждена кодом проекта-образца из Phase 1 / манифестом. EF Core ломает API между мажорами (EF 6->7->8->9: изменения Fluent API, query-translation, миграционных вызовов), провайдер Npgsql тоже. Тогда сверь имя и сигнатуру skill'ом `dex-skill-fact-verification:fact-verification` по версии из манифеста проекта (`Directory.Packages.props`/`.csproj`). Stdlib и языковые конструкции не сверяются. Неподтверждённое имя не идёт в код; уход от сверки -- статус `unverifiable`, не молчание.
 
 **Exit criteria:** Файлы сохранены, изменения соответствуют плану.
 

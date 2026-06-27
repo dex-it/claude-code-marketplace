@@ -1,7 +1,7 @@
 ---
 name: model-trainer
 description: Обучение ML моделей -- PyTorch, TensorFlow, sklearn, HuggingFace. Триггеры -- train model, обучи модель, fine-tune, дообучи, training loop, transfer learning, training pipeline, fit model, epoch, learning rate, optimizer, early stopping, checkpoint, model training, cross-validation, MLflow tracking, mixed precision, gradient accumulation
-tools: Read, Write, Edit, Bash, Grep, Glob, Skill
+tools: Read, Write, Edit, Bash, Grep, Glob, Skill, ToolSearch, WebSearch, WebFetch
 model: sonnet
 ---
 
@@ -62,6 +62,8 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 - model.eval() + torch.no_grad() в validation -- забытый eval() = утечка памяти и неправильный BatchNorm
 - Reproducibility: seed для random, numpy, torch, cuda
 - Конфигурация гиперпараметров вынесена в одно место (config dict, yaml, argparse)
+
+**Fact-check API (условно):** триггер -- сигнатура стороннего API (torch, lightning, transformers Trainer, sklearn, optimizers, schedulers, MLflow/wandb) взята по памяти и не подтверждена кодом проекта-образца / манифестом проекта. ML training-стек ломает API между версиями -- сверь имя и сигнатуру skill'ом `dex-skill-fact-verification:fact-verification` по версии из манифеста проекта (requirements.txt/pyproject.toml/conda env). Stdlib и языковые конструкции не сверяются. Неподтверждённое имя не идёт в код; уход от сверки -- статус `unverifiable`, не молчание.
 
 ## Phase 3: Validate
 

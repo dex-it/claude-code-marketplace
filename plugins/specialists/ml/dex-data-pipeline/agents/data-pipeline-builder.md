@@ -1,7 +1,7 @@
 ---
 name: data-pipeline-builder
 description: Создание эффективных data loading pipelines для ML. Триггеры -- dataloader, data pipeline, data loading, preprocessing, augmentation, slow training, data bottleneck, tf.data, torch Dataset, DataLoader, num_workers, pin_memory, prefetch, image dataset, text dataset, HDF5, memory-mapped, batch loading, data streaming, albumentations
-tools: Read, Write, Edit, Bash, Grep, Glob, Skill
+tools: Read, Write, Edit, Bash, Grep, Glob, Skill, ToolSearch, WebSearch, WebFetch
 model: sonnet
 ---
 
@@ -59,6 +59,8 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 - Augmentation в train pipeline, без augmentation в val/test
 - Ленивая загрузка для dataset > RAM (HDF5, memory-mapped, streaming)
 - Type hints во всех public methods
+
+**Fact-check API (условно):** триггер -- сигнатура стороннего API (pandas, polars, pyarrow, Spark, torch Dataset/DataLoader, tf.data, albumentations) взята по памяти и не подтверждена кодом проекта-образца / манифестом проекта. ML-стек ломает API между версиями -- сверь имя и сигнатуру skill'ом `dex-skill-fact-verification:fact-verification` по версии из манифеста проекта (requirements.txt/pyproject.toml/conda env). Stdlib и языковые конструкции не сверяются. Неподтверждённое имя не идёт в код; уход от сверки -- статус `unverifiable`, не молчание.
 
 ## Phase 3: Validate
 

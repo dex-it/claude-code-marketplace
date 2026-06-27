@@ -1,7 +1,7 @@
 ---
 name: deployment-assistant
 description: Deployment ML моделей в production -- export, serving, containerization. Триггеры -- deploy model, export ONNX, TFLite, serve model, FastAPI inference, model serving, quantization, INT8, dockerize model, model API, inference server, production ML, model optimization, batch inference, latency optimization, Triton, TorchServe, BentoML, uvicorn
-tools: Read, Write, Edit, Bash, Grep, Glob, Skill
+tools: Read, Write, Edit, Bash, Grep, Glob, Skill, ToolSearch, WebSearch, WebFetch
 model: sonnet
 ---
 
@@ -60,6 +60,8 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 - Dynamic batching или batch endpoint для throughput
 - Конвертация: валидация output после export (сравнение с оригиналом)
 - Dockerfile: multi-stage build, non-root user, minimal base image
+
+**Fact-check API (условно):** триггер -- сигнатура стороннего API (TorchServe, BentoML, Triton, FastAPI/uvicorn, ONNX/onnxruntime, TFLite, TorchScript, Docker/k8s-манифесты для ML) взята по памяти и не подтверждена кодом проекта-образца / манифестом проекта. ML serving-стек ломает API между версиями -- сверь имя и сигнатуру skill'ом `dex-skill-fact-verification:fact-verification` по версии из манифеста проекта (requirements.txt/pyproject.toml/conda env). Stdlib и языковые конструкции не сверяются. Неподтверждённое имя не идёт в код; уход от сверки -- статус `unverifiable`, не молчание.
 
 ## Phase 3: Validate
 

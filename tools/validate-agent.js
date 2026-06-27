@@ -113,8 +113,35 @@ const REQUIRED_FRONTMATTER_FIELDS = ['name', 'description', 'tools'];
 
 /**
  * Forbidden frontmatter fields — break Claude Code or violate framework.
+ * `skills:` is NOT forbidden: it is the official sub-agent field for pre-loading
+ * unconditional process-skills (see ALLOWED_PRELOAD_SKILLS below). `allowed-tools`
+ * is a slash-command field, not a sub-agent one.
  */
-const FORBIDDEN_FRONTMATTER_FIELDS = ['allowed-tools', 'skills'];
+const FORBIDDEN_FRONTMATTER_FIELDS = ['allowed-tools'];
+
+/**
+ * Skills allowed in frontmatter `skills:` (pre-load). Only UNCONDITIONAL
+ * process-skills belong here — those an agent loads on EVERY run regardless of
+ * stack/diff (the node handoff contract). Conditional skills (trap-skills by
+ * stack, conditional process-skills like completeness-mapping) must NOT be
+ * pre-loaded — they load imperatively via the Skill tool in the relevant phase,
+ * so pre-loading them wastes context on runs that don't need them.
+ * Names are matched stack-agnostically by the skill's short name (last `:`-segment
+ * and stripped `dex-skill-` prefix) so all listing formats resolve.
+ */
+const ALLOWED_PRELOAD_SKILLS = new Set(['node-contract']);
+
+/**
+ * Normalize a `skills:` entry to its short skill name for allowlist matching.
+ * Accepts `dex-skill-node-contract`, `dex-skill-node-contract:node-contract`,
+ * or `node-contract` — all -> `node-contract`.
+ */
+function normalizePreloadSkillName(entry) {
+  let name = String(entry).trim();
+  if (name.includes(':')) name = name.slice(name.lastIndexOf(':') + 1);
+  name = name.replace(/^dex-skill-/, '');
+  return name;
+}
 
 /**
  * Allowed values for the `model` field. Either a tier alias, `inherit`,
@@ -144,6 +171,28 @@ function validateFrontmatter(parsed, findings) {
         rule: 'frontmatter-forbidden',
         message: `Forbidden frontmatter field: ${field} — use \`tools:\` for tool access, Skill tool for skill loading`,
       });
+    }
+  }
+
+  // `skills:` pre-loads its entries into the sub-agent context at startup.
+  // Only unconditional process-skills (node handoff contract) may be pre-loaded;
+  // conditional skills (trap-skills by stack, conditional process-skills) load
+  // imperatively in phases. A non-allowlisted entry here = wasted standing
+  // context on runs that don't need it. See AGENT_FRAMEWORK.md «Подключение skills».
+  if ('skills' in fm && fm.skills != null) {
+    const entries = Array.isArray(fm.skills)
+      ? fm.skills
+      : String(fm.skills).split(',');
+    for (const raw of entries) {
+      const short = normalizePreloadSkillName(raw);
+      if (short === '') continue;
+      if (!ALLOWED_PRELOAD_SKILLS.has(short)) {
+        findings.push({
+          level: ERROR,
+          rule: 'frontmatter-skills-not-preloadable',
+          message: `\`skills:\` entry "${String(raw).trim()}" is not an unconditional process-skill — pre-load only [${[...ALLOWED_PRELOAD_SKILLS].join(', ')}]; conditional skills load imperatively via Skill tool in phases`,
+        });
+      }
     }
   }
 
@@ -387,6 +436,37 @@ function validatePhases(markdownBody, findings) {
   return { validated: true, phases };
 }
 
+/**
+ * Detects agents that EXECUTE fact-verification (imperative `plugin:skill` call)
+ * but are missing one or more links in the cascade: ToolSearch -> WebSearch ->
+ * WebFetch. Without all three, fact-check silently degrades to latest-doc
+ * (context7 is a deferred MCP tool reachable only via ToolSearch; WebSearch/
+ * WebFetch are the offline fallback). See CLAUDE.md "Каскад tools под fact-check".
+ *
+ * Trigger is the `:`-qualified invocation form (`dex-skill-fact-verification:fact-verification`)
+ * rather than a bare mention, to distinguish "agent executes fact-check" from
+ * "agent prose references the skill name" — only the former requires the cascade.
+ */
+function validateFactcheckCascade(parsed, findings) {
+  const body = parsed.content || '';
+  // Only trigger on the imperative invocation form, not bare prose mentions.
+  if (!body.includes('dex-skill-fact-verification:fact-verification')) return;
+
+  const fm = parsed.data || {};
+  const tools = typeof fm.tools === 'string' ? fm.tools : '';
+
+  const CASCADE = ['ToolSearch', 'WebSearch', 'WebFetch'];
+  const missing = CASCADE.filter((t) => !new RegExp(`\\b${t}\\b`).test(tools));
+
+  if (missing.length > 0) {
+    findings.push({
+      level: ERROR,
+      rule: 'factcheck-cascade-incomplete',
+      message: `Agent invokes fact-verification skill but tools is missing cascade link(s): ${missing.join(', ')} — fact-check silently degrades to latest-doc (see CLAUDE.md "Каскад tools под fact-check")`,
+    });
+  }
+}
+
 function validateSkillReferences(markdownBody, marketplacePlugins, findings) {
   const re = /`(dex-skill-[a-z0-9-]+):[a-z0-9-]+`/gi;
   const referenced = new Set();
@@ -426,6 +506,7 @@ function validateFile(filepath, marketplacePlugins) {
   const phaseResult = validatePhases(parsed.content, findings);
   validateFrontmatter(parsed, findings);
   validateFileNameMatchesName(filepath, parsed, findings);
+  validateFactcheckCascade(parsed, findings);
 
   if (phaseResult.validated) {
     validateSkillReferences(parsed.content, marketplacePlugins, findings);

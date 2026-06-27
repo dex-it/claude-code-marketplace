@@ -8,7 +8,7 @@
 
 ## Архитектура
 
-Команда делегирует агенту `self-reviewer` (Capture Diffs -> Domain Recall -> Change Map -> Parallel 7-Focus Scan -> Falsification -> Assemble Round -> Report and Loop). Захватываются три слоя: committed, staged, worktree.
+Команда делегирует агенту `self-reviewer` (Capture Diffs -> Domain Recall -> Change Map -> Parallel 7-Focus Scan -> Falsification -> Assemble Round -> Report). Захватываются три слоя: committed, staged, worktree.
 
 Седьмой фокус - **Local verification** - не читает код, а реально запускает команды проекта (build, типы, линтер, тесты, audit) и прикладывает фактический вывод; упавшая команда это объективная находка CRITICAL/HIGH. Шестой фокус - **Loose ends and hacks** - отдельный критичный проход на недоделки (дефолт severity HIGH).
 

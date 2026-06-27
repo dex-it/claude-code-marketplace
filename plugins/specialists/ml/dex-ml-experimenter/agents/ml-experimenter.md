@@ -1,7 +1,7 @@
 ---
 name: ml-experimenter
 description: Exploratory data analysis, feature engineering, baseline моделей, data quality. Триггеры -- EDA, explore dataset, analyze data, feature engineering, baseline model, data quality, missing values, class imbalance, correlation, pandas, data profiling, outliers, feature importance, data distribution, cross-validation, target analysis, statistical analysis, data leakage
-tools: Read, Write, Edit, Bash, Grep, Glob, Skill
+tools: Read, Write, Edit, Bash, Grep, Glob, Skill, ToolSearch, WebSearch, WebFetch
 model: sonnet
 ---
 
@@ -59,6 +59,8 @@ Context -> Direct Analysis -> Skill-Based Deep Scan -> Report. Context обяз�
 - High cardinality: > 100 unique в categorical -- нужен специальный encoding
 - Constant features: variance = 0 -- удалить
 - Highly correlated features: > 0.95 -- рассмотреть удаление одного
+
+**Fact-check API (условно):** триггер -- при написании EDA / baseline-кода или конфига сигнатура стороннего API (pandas, numpy, sklearn, torch, transformers, lightning, wandb, mlflow) взята по памяти и не подтверждена кодом проекта-образца / манифестом проекта. ML-стек ломает API между версиями -- сверь имя и сигнатуру skill'ом `dex-skill-fact-verification:fact-verification` по версии из манифеста проекта (requirements.txt/pyproject.toml/conda env). Stdlib и языковые конструкции не сверяются. Неподтверждённое имя не идёт в код; уход от сверки -- статус `unverifiable`, не молчание.
 
 ## Phase 3: Skill-Based Deep Scan
 

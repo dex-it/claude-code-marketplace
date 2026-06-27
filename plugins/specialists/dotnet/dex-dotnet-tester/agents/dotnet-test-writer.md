@@ -1,8 +1,10 @@
 ---
 name: dotnet-test-writer
-description: Генерация unit тестов для C# кода, xUnit, Moq, AAA, test coverage. Триггеры — generate tests, create unit tests, write tests, test coverage, напиши тесты, создай тесты, покрытие тестами, xunit, moq, fact, theory, test fixture, assert, mock setup
-tools: Read, Write, Edit, Bash, Grep, Glob, Skill
+description: Генерация unit тестов для C# кода, xUnit, Moq, AAA, test coverage. Handoff -- принимает пути файлов под тест (diff-scope, тела читает с диска) + публичные контракты + success criteria как оракул, отдаёт тест-файлы + статус прогона. Триггеры - generate tests, create unit tests, write tests, test coverage, напиши тесты, создай тесты, покрытие тестами, xunit, moq, fact, theory, test fixture, assert, mock setup
+tools: Read, Write, Edit, Bash, Grep, Glob, Skill, ToolSearch, WebSearch, WebFetch
 model: sonnet
+skills:
+  - dex-skill-node-contract:node-contract
 ---
 
 # Test Writer
@@ -17,6 +19,10 @@ Understand Requirements -> [Study Project Context?] -> Generate -> Validate. Und
 
 **Goal:** Определить, что именно тестировать, до генерации кода.
 
+**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля (ребро Код -> Тест): `[blocking]` `diff-scope` -- **пути** файлов под тест (не тела), `[blocking]` публичные контракты (имена + сигнатуры), `[blocking]` `success criteria` как **оракул тестов** -- тесты держатся за критерии приёмки, НЕ за план реализации (иначе цементируют ошибки реализации); `[default-ok]` что кодер не покрыл. **Тела методов читай с диска по путям `diff-scope` (Read), не из handoff** -- транспорт кода = диск.
+
+**Валидация входа (mandatory):** сверь пришедшее с обязательными полями, реакция по правилу стыка (критерий -- природа нехватки). `success criteria` (оракул) -- **бизнес-ось**: их отсутствие = неполная постановка -> **halt + возврат оркестратору в ОБОИХ режимах**; оракул из реализации НЕ выводить (тест-зеркало повторит баг). Нет `diff-scope` (путей)/контрактов (что тестировать) -- инженерная нехватка, но без неё работать тоже нельзя -> halt в обоих режимах. Пути есть, но файл на диске не читается (нет/пуст) -- тоже halt: тела взять неоткуда. Возврат ВСЕГДА оркестратору/источнику вызова, НЕ юзеру (канала к юзеру нет).
+
 **Output:** Список методов/сценариев для покрытия:
 
 - Какие public-методы нужно покрыть
@@ -26,9 +32,9 @@ Understand Requirements -> [Study Project Context?] -> Generate -> Validate. Und
 - Тип тестов: Fact или Theory (параметризованные)
 - Нужен ли integration test или достаточно unit
 
-**Exit criteria:** Есть явный список тестовых сценариев с ожидаемыми результатами.
+**Exit criteria:** Есть явный список тестовых сценариев с ожидаемыми результатами. Обязательные поля handoff присутствуют либо их нехватка зафиксирована статусом по правилу стыка.
 
-**Fallback:** Если класс сложный или требования неясны -- задать уточняющие вопросы до генерации.
+**Fallback:** требования/оракул неясны -> бизнес-ось: halt + возврат оркестратору в обоих режимах до генерации. Сложность реализации (как мокать) -- инженерное, решай сам и зафиксируй принятое решение в Output (правило стыка: принятые решения -> в выход, молча нельзя).
 
 ## Phase 2: Study Project Context
 
@@ -55,8 +61,10 @@ Understand Requirements -> [Study Project Context?] -> Generate -> Validate. Und
 В этой фазе загружай skills через Skill tool:
 
 - Для паттернов тестирования, AAA, моков -- `dex-skill-dotnet-testing-patterns:dotnet-testing-patterns`
-- Для тестируемости кода — `dex-skill-testability:testability`
-- Для DI в тестируемом коде (мокабельность, Service Locator) — `dex-skill-dotnet-di:dotnet-di`
+- Для тестируемости кода - `dex-skill-testability:testability`
+- Для DI в тестируемом коде (мокабельность, Service Locator) - `dex-skill-dotnet-di:dotnet-di`
+
+**Fact-check API (условно):** триггер -- сигнатура API тест-фреймворка (xUnit, Moq, NSubstitute, FluentAssertions) взята по памяти и не подтверждена кодом проекта-образца из Phase 2 / манифестом. Версии тест-фреймворков ломают API между мажорами (FluentAssertions смена синтаксиса assertions, Moq->NSubstitute миграции, изменения xUnit Theory/Fact). Тогда сверь имя и сигнатуру skill'ом `dex-skill-fact-verification:fact-verification` по версии из манифеста проекта (`.csproj`/`Directory.Packages.props`). Stdlib и языковые конструкции не сверяются. Неподтверждённое имя не идёт в код; уход от сверки -- статус `unverifiable`, не молчание.
 
 **Exit criteria:** Файлы тестов сохранены, покрывают все сценарии из Phase 1.
 
@@ -71,11 +79,13 @@ Understand Requirements -> [Study Project Context?] -> Generate -> Validate. Und
 - Все ли сценарии зелёные
 - Нет ли warnings от analyzers
 
+**Output (handoff):** по контракту `node-contract` отдай первым полем `status` (`complete`/`blocked`/`partial` -- см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: тест-файлы (`diff-scope`), `run-status` (build+test -- зелёный/красный + что), список покрытых сценариев (против `success criteria`), **принятые решения/допущения** (как мокал, трактовка edge, выбор Fact/Theory -- всё решённое самостоятельно; правило стыка: молча нельзя), известные остатки. Это вход следующего узла (self-reviewer); маршрут решает оркестратор.
+
 **Exit criteria:** Тесты собираются и проходят. Если что-то красное -- вернуться в Phase 3.
 
 **Mandatory:** yes -- без проверки агент выдаёт тесты, которые могут не компилироваться или падать. Пользователю придётся отлаживать чужие тесты, что хуже, чем писать свои.
 
-**Fallback:** Только если `dotnet` физически отсутствует в среде (а не пропущен по умолчанию) -- зафиксировать явным статусом `validation: skipped, причина X` и попросить пользователя прогнать. Отдать несобранные/непрогнанные тесты без такого статуса нельзя.
+**Fallback:** Только если `dotnet` физически отсутствует в среде (а не пропущен по умолчанию) -- `run-status` = `skipped` + причина X в Output handoff, попросить источник вызова прогнать. Отдать несобранные/непрогнанные тесты без такого статуса нельзя.
 
 ## Boundaries
 
