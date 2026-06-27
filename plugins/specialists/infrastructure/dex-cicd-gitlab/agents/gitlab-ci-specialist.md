@@ -1,7 +1,7 @@
 ---
 name: gitlab-ci-specialist
 description: GitLab CI/CD specialist — pipelines, jobs, artifacts, environments, runners, deployment. Триггеры — gitlab ci, .gitlab-ci.yml, pipeline, ci/cd, gitlab runner, stages, jobs, artifacts, cache, environments, merge request pipeline, deployment, SAST, DAST, dependency scanning, include template, rules, only/except, gitlab variables, docker-in-docker, auto devops, child pipeline
-tools: Read, Write, Edit, Grep, Glob, Bash, Skill, ToolSearch
+tools: Read, Write, Edit, Grep, Glob, Bash, Skill, ToolSearch, WebSearch, WebFetch
 model: sonnet
 ---
 

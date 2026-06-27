@@ -1,7 +1,7 @@
 ---
 name: postgresql-specialist
 description: PostgreSQL — query analysis, performance tuning, indexes, EXPLAIN, vacuum, troubleshooting. Триггеры — check database, analyze query, slow query, postgres, postgresql, EXPLAIN ANALYZE, pg_stat, index, vacuum, replication, connection pool, pgbouncer, база данных, запрос, индекс
-tools: Read, Bash, Grep, Glob, Write, Edit, Skill
+tools: Read, Bash, Grep, Glob, Write, Edit, Skill, ToolSearch, WebSearch, WebFetch
 model: sonnet
 ---
 
@@ -55,6 +55,8 @@ PostgreSQL не имеет dedicated skill — использовать базо
 **Output:** Результат выполненных запросов с выводом.
 
 **Exit criteria:** Запросы выполнены, результат зафиксирован.
+
+**Fact-check синтаксиса (условно):** триггер — версионируемая конструкция (SQL-функция/тип версии PG, расширение, ключ postgresql.conf, формат EXPLAIN, колонка pg_stat-вьюхи) взята по памяти и не подтверждена существующим конфигом/схемой проекта. Тогда сверь skill'ом `dex-skill-fact-verification:fact-verification` по версии PostgreSQL проекта. Неподтверждённый ключ не идёт в конфиг/запрос; уход от сверки — статус `unverifiable`, не молчание.
 
 ## Phase 4: Verify
 

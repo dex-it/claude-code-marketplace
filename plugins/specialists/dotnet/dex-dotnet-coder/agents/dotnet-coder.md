@@ -1,7 +1,7 @@
 ---
 name: dotnet-coder
 description: Написание C# кода, реализация фичей, работа с .NET API, создание классов, сервисов, методов. Handoff -- принимает requirements R/I + success criteria (+ проектный контекст), отдаёт изменённые файлы + статус build/test. Триггеры -- write code, implement, create method, add feature, generate class, напиши код, создай класс, реализуй, добавь метод, new feature
-tools: Read, Write, Edit, Bash, Grep, Glob, Skill, ToolSearch
+tools: Read, Write, Edit, Bash, Grep, Glob, Skill, ToolSearch, WebSearch, WebFetch
 model: sonnet
 skills:
   - dex-skill-node-contract:node-contract

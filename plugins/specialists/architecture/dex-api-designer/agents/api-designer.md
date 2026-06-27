@@ -1,7 +1,7 @@
 ---
 name: api-designer
 description: Проектирование API -- REST, GraphQL, gRPC, AsyncAPI, OpenAPI, контракты, версионирование. Режим из входа (дефолт автономный). Handoff -- принимает что за API + потребителей, отдаёт спецификацию контракта (путь на диске) + решения по версионированию/ошибкам. Триггеры -- API design, REST API, GraphQL schema, gRPC proto, AsyncAPI, OpenAPI spec, contract-first, api versioning, endpoint design, спроектировать API, API contract, swagger, protobuf, webhooks, ProblemDetails, RFC 9457
-tools: Read, Write, Edit, Grep, Glob, Skill, ToolSearch
+tools: Read, Write, Edit, Grep, Glob, Skill, ToolSearch, WebSearch, WebFetch
 model: sonnet
 skills:
   - dex-skill-node-contract:node-contract

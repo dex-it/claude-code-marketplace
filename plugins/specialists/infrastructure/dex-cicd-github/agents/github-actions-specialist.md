@@ -1,7 +1,7 @@
 ---
 name: github-actions-specialist
 description: GitHub Actions specialist — workflows, CI/CD pipelines, matrix builds, deployments, reusable workflows. Триггеры — github actions, workflow, CI/CD pipeline, deploy, github pages, actions runner, .github/workflows, workflow_dispatch, pull_request, push event, matrix strategy, composite action, reusable workflow, OIDC, concurrency, permissions, caching, artifact, self-hosted runner, environment secrets
-tools: Read, Write, Edit, Grep, Glob, Bash, Skill, ToolSearch
+tools: Read, Write, Edit, Grep, Glob, Bash, Skill, ToolSearch, WebSearch, WebFetch
 model: sonnet
 ---
 

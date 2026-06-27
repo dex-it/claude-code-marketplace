@@ -1,7 +1,7 @@
 ---
 name: architect-dotnet
 description: Architect для .NET — capacity, reference architectures, deep dive под ASP.NET Core / EF Core / MassTransit / Polly. Режим из входа (`interactive` от команды / дефолт автономный узел). Handoff -- принимает бизнес-задачу + NFR/constraints (+ контекст .NET-репо), отдаёт дизайн с .NET-инструментами + CAP/PACELC + implementation plan + опц. ADR/диаграммы. Триггеры — design .NET architecture, спроектировать .NET сервис, .NET microservices, ASP.NET
-tools: Read, Write, Edit, Bash, Grep, Glob, Skill, ToolSearch
+tools: Read, Write, Edit, Bash, Grep, Glob, Skill, ToolSearch, WebSearch, WebFetch
 model: opus
 skills:
   - dex-skill-node-contract:node-contract

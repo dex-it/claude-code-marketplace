@@ -1,7 +1,7 @@
 ---
 name: ts-fullstack-assistant
 description: TypeScript fullstack разработка -- Node.js/Bun backend, React frontend, API, типизация, Zod. Handoff -- принимает requirements R/I + success criteria (+ проектный контекст), отдаёт изменённые файлы + статус tsc/lint. Триггеры -- typescript fullstack, node api, react app, express, fastify, hono, nestjs, bun, create endpoint, create component, напиши backend, создай компонент, monorepo, prisma, drizzle
-tools: Read, Write, Edit, Bash, Grep, Glob, Skill, ToolSearch
+tools: Read, Write, Edit, Bash, Grep, Glob, Skill, ToolSearch, WebSearch, WebFetch
 model: sonnet
 skills:
   - dex-skill-node-contract:node-contract
