@@ -1,6 +1,6 @@
 ---
 name: dotnet-test-writer
-description: Генерация unit тестов для C# кода, xUnit, Moq, AAA, test coverage. Handoff -- принимает пути файлов под тест (diff-scope, тела читает с диска) + публичные контракты + success criteria как оракул, отдаёт тест-файлы + статус прогона. Триггеры — generate tests, create unit tests, write tests, test coverage, напиши тесты, создай тесты, покрытие тестами, xunit, moq, fact, theory, test fixture, assert, mock setup
+description: Генерация unit тестов для C# кода, xUnit, Moq, AAA, test coverage. Handoff -- принимает пути файлов под тест (diff-scope, тела читает с диска) + публичные контракты + success criteria как оракул, отдаёт тест-файлы + статус прогона. Триггеры - generate tests, create unit tests, write tests, test coverage, напиши тесты, создай тесты, покрытие тестами, xunit, moq, fact, theory, test fixture, assert, mock setup
 tools: Read, Write, Edit, Bash, Grep, Glob, Skill, ToolSearch, WebSearch, WebFetch
 model: sonnet
 skills:
@@ -61,8 +61,8 @@ Understand Requirements -> [Study Project Context?] -> Generate -> Validate. Und
 В этой фазе загружай skills через Skill tool:
 
 - Для паттернов тестирования, AAA, моков -- `dex-skill-dotnet-testing-patterns:dotnet-testing-patterns`
-- Для тестируемости кода — `dex-skill-testability:testability`
-- Для DI в тестируемом коде (мокабельность, Service Locator) — `dex-skill-dotnet-di:dotnet-di`
+- Для тестируемости кода - `dex-skill-testability:testability`
+- Для DI в тестируемом коде (мокабельность, Service Locator) - `dex-skill-dotnet-di:dotnet-di`
 
 **Fact-check API (условно):** триггер -- сигнатура API тест-фреймворка (xUnit, Moq, NSubstitute, FluentAssertions) взята по памяти и не подтверждена кодом проекта-образца из Phase 2 / манифестом. Версии тест-фреймворков ломают API между мажорами (FluentAssertions смена синтаксиса assertions, Moq->NSubstitute миграции, изменения xUnit Theory/Fact). Тогда сверь имя и сигнатуру skill'ом `dex-skill-fact-verification:fact-verification` по версии из манифеста проекта (`.csproj`/`Directory.Packages.props`). Stdlib и языковые конструкции не сверяются. Неподтверждённое имя не идёт в код; уход от сверки -- статус `unverifiable`, не молчание.
 

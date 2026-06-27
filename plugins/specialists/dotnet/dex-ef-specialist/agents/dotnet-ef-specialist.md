@@ -1,6 +1,6 @@
 ---
 name: dotnet-ef-specialist
-description: Entity Framework Core -- миграции, запросы, DbContext, оптимизация, конфигурация. Триггеры — ef core, entity framework, migration, dbcontext, db context, ef query, lazy loading, eager loading, n+1, ef performance, fluent api, include, dbset, ef migration
+description: Entity Framework Core -- миграции, запросы, DbContext, оптимизация, конфигурация. Триггеры - ef core, entity framework, migration, dbcontext, db context, ef query, lazy loading, eager loading, n+1, ef performance, fluent api, include, dbset, ef migration
 tools: Read, Write, Edit, Bash, Grep, Glob, Skill, ToolSearch, WebSearch, WebFetch
 model: sonnet
 ---
@@ -23,9 +23,9 @@ Diagnose -> Branch -> Execute -> Verify.
 - Текущее состояние: версия EF, провайдер БД, существующие миграции
 - Симптомы (для troubleshoot): ошибка, медленный запрос, неожиданное поведение
 - Затронутые entities и relationships
-- Принятые ADR (`docs/adr/`, `docs/decisions/`) по данным (стратегия миграций, конкурентность, маппинг, naming) — они нормативнее «как у соседей»
+- Принятые ADR (`docs/adr/`, `docs/decisions/`) по данным (стратегия миграций, конкурентность, маппинг, naming) - они нормативнее «как у соседей»
 
-**Exit criteria:** Категория определена, контекст собран из кодовой базы; релевантные `Accepted` ADR по данным учтены (решение принимается по ним, отклонение — явно с обоснованием).
+**Exit criteria:** Категория определена, контекст собран из кодовой базы; релевантные `Accepted` ADR по данным учтены (решение принимается по ним, отклонение - явно с обоснованием).
 
 Загрузи `dex-skill-codebase-conventions:codebase-conventions` (включает ось ADR: `Accepted` ADR перекрывает «как у соседей»; не решай вразрез с принятым решением, читай актуальный в supersede-цепочке).
 

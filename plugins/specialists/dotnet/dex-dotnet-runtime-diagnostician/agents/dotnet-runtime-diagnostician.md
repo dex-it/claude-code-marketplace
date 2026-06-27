@@ -72,7 +72,7 @@ Post-mortem и инспекция артефактов:
 
 Если Skill tool недоступен или skill не установлен - пропусти и явно укажи в отчёте.
 
-> Статика-дополнения (не Skill-load, справка): углублённый аудит компонента вокруг root cause — `dex-skill-deep-audit`; прод-observability через OpenTelemetry+метрики — `dex-skill-observability`.
+> Статика-дополнения (не Skill-load, справка): углублённый аудит компонента вокруг root cause - `dex-skill-deep-audit`; прод-observability через OpenTelemetry+метрики - `dex-skill-observability`.
 
 **Exit criteria:** Перечислены загруженные skills и новые находки или подтверждение гипотезы из Phase 2.
 

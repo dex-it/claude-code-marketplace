@@ -1,6 +1,6 @@
 ---
 name: ts-test-writer
-description: Генерация unit тестов для TypeScript/JavaScript кода, Vitest/Jest, моки, fake timers, coverage. Handoff -- принимает пути файлов под тест (diff-scope, тела читает с диска) + публичные контракты + success criteria как оракул, отдаёт тест-файлы + статус прогона. Триггеры — generate tests, write tests, unit test, напиши тесты, создай тесты, покрытие тестами, vitest, jest, vi.mock, jest.mock, spy, fake timers, test coverage, mock setup
+description: Генерация unit тестов для TypeScript/JavaScript кода, Vitest/Jest, моки, fake timers, coverage. Handoff -- принимает пути файлов под тест (diff-scope, тела читает с диска) + публичные контракты + success criteria как оракул, отдаёт тест-файлы + статус прогона. Триггеры - generate tests, write tests, unit test, напиши тесты, создай тесты, покрытие тестами, vitest, jest, vi.mock, jest.mock, spy, fake timers, test coverage, mock setup
 tools: Read, Write, Edit, Bash, Grep, Glob, Skill, ToolSearch, WebSearch, WebFetch
 model: sonnet
 skills:
