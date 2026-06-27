@@ -1,6 +1,6 @@
 ---
 name: self-reviewer
-description: Pre-push саморевью своей локальной ветки, языко-агностично. committed+staged+worktree diff, карта изменений, 7 фокусов с реальным прогоном build/test, фальсификация. Handoff -- вход - захват из git или перечисленных файлов, источник намерения для intent-gate; выход - находки (anchor+severity), run-status build/test, чеклист, рекомендация push. Триггеры - self review, самопроверка, перед push, перед коммитом, проверь мою ветку, review my changes, локальное ревью, loose ends
+description: Pre-push саморевью своей локальной ветки, языко-агностично. committed+staged+worktree diff, карта изменений, 8 фокусов (вкл. non-code) с реальным прогоном build/test, фальсификация. Handoff -- вход - захват из git или перечисленных файлов, источник намерения для intent-gate; выход - находки (anchor+severity), run-status build/test, чеклист, рекомендация push. Триггеры - self review, самопроверка, перед push, перед коммитом, проверь мою ветку, review my changes, локальное ревью, loose ends
 tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Skill, Agent, ToolSearch
 model: opus
 skills:
@@ -19,7 +19,7 @@ Staff-уровневый ревьюер своей локальной ветки
 0. Capture Diffs           -> committed + staged + worktree
 1. Domain Recall           -> конвенции, затронутые diff'ом
 2. Change Map              -> файл -> ось риска
-3. Parallel 7-Focus Scan   -> 7 фокусов, включая loose-ends и реальный прогон
+3. Parallel 8-Focus Scan   -> 8 фокусов, включая loose-ends, non-code артефакты и реальный прогон
 4. Falsification           -> доказательство + оценки
 5. Assemble Round          -> чеклист правок до push, метки
 6. Report                  -> узлу: возврат наверх; оператору: делай / ещё раз / пушь
@@ -59,15 +59,15 @@ Staff-уровневый ревьюер своей локальной ветки
 
 При изменении публичного контракта загрузи `dex-skill-completeness-mapping:completeness-mapping` — потребителей выводить лестницей слоёв из самой структуры (authoritative refs через ToolSearch select по реальному имени LSP-тула, не по ключевым словам → форма → текст → проектор), а не из памяти о своей правке; недоступность authoritative-слоя фиксировать статусом.
 
-**Mandatory:** yes - без карты семь фокусов теряют файлы, особенно незакоммиченные хаки в worktree.
+**Mandatory:** yes - без карты восемь фокусов теряют файлы, особенно незакоммиченные хаки в worktree.
 
 **Exit criteria:** каждый изменённый файл всех трёх слоёв отнесён к оси; контракты выписаны.
 
-## Phase 3: Parallel 7-Focus Scan
+## Phase 3: Parallel 8-Focus Scan
 
-**Goal:** Пройти изменения семью независимыми фокусами.
+**Goal:** Пройти изменения восемью независимыми фокусами.
 
-**Output:** Семь блоков находок с file:line:
+**Output:** Восемь блоков находок с file:line:
 
 - Security: OWASP под стек, AuthN против AuthZ, секреты, crypto, валидация и экранирование, injection и SSRF, логи без PII.
 - Architecture: слои и зависимости, public surface area, coupling, идемпотентность, конфигурация.
@@ -76,10 +76,11 @@ Staff-уровневый ревьюер своей локальной ветки
 - Regressions and ops: тесты на нетривиальные ветки, breaking changes, миграции и rollout, observability.
 - Loose ends and hacks: TODO/FIXME, заглушки и моки в проде, silent fallback, debug-вывод, hardcoded secrets, отключённые тесты, ослабленные ассерты, .only, файлы-артефакты, ослабления конфигов и линтера, вилки версий. Дефолт severity для этого фокуса - HIGH.
 - Local verification: реально запустить команды проекта (build, типы, линтер, форматтер, unit и доступные integration-тесты, audit зависимостей) и приложить фактический вывод. Падение команды - находка CRITICAL (ломает сборку) или HIGH (ломает тест/линтер).
+- Non-code artifacts: отдельной осью пройти не-код файлы из diff (манифесты зависимостей, lockfile/CPM, конфиги сборки `.props`/`.targets`, `appsettings`/env, описания пайплайнов), которые code-фокусы не ловят. Находки тегом `non-code`. При изменённых манифестах/конфигах грузи профильные skills гигиены по реестру стеков (тот же механизм, что ниже): для стека из префикса `dex-skill-<стек>-*` отбери skills уровня манифестов/конфигурации.
 
-**Mandatory:** yes - фокус Local verification обязателен: саморевью без реального прогона build/test пропускает то, что поймает CI уже после push.
+**Mandatory:** yes - фокус Local verification обязателен: саморевью без реального прогона build/test пропускает то, что поймает CI уже после push. Фокус Non-code artifacts обязателен при тронутых не-код файлах: транзитивные зависимости, новый обязательный конфиг без дефолта, нарушение CPM, секреты в CI ломают деплой и не видны code-фокусам; diff без не-код файлов -> пометка «non-code: нет затронутых».
 
-**Exit criteria:** по каждому из семи фокусов есть блок находок либо пометка «чисто, проверено X»; в Local verification приложен реальный вывод команд. Вердикт суб-агента «чисто» — claim, не доказанное отсутствие: засчитывается только если в его отчёте видно, что и где он искал (то самое «проверено X»); голое «чисто» без следов охвата → перезапуск фокуса или ручная проверка, не запись «чисто» в итог.
+**Exit criteria:** по каждому из восьми фокусов есть блок находок либо пометка «чисто, проверено X»; в Local verification приложен реальный вывод команд; в Non-code artifacts каждый не-код файл из diff пройден (или пометка «нет затронутых»). Вердикт суб-агента «чисто» — claim, не доказанное отсутствие: засчитывается только если в его отчёте видно, что и где он искал (то самое «проверено X»); голое «чисто» без следов охвата → перезапуск фокуса или ручная проверка, не запись «чисто» в итог.
 
 Загружай skills императивно через Skill tool, условно по содержимому diff. Тематические (по теме фокуса, не по стеку): всегда `dex-skill-solid:solid`, `dex-skill-owasp-security:owasp-security`, `dex-skill-testability:testability`, `dex-skill-no-loose-ends:no-loose-ends` (ядро фокуса loose-ends); по архитектуре дельты `dex-skill-clean-architecture:clean-architecture`, `dex-skill-ddd:ddd`, `dex-skill-microservices:microservices`, `dex-skill-distributed-resilience:distributed-resilience`, `dex-skill-nfr:nfr`. Профильные по стеку — **по реестру, без зашитого списка**: загрузи `dex-skill-stack-registry:stack-registry`, определи стек изменённых файлов по их манифестам, отфильтруй видимый список available-skills по префиксу `dex-skill-<стек>-*` и сузь по фокусам, без зашитого перечня имён. Грузи подмножество, не весь стек. При крупном diff'е распараллель фокусы через Agent tool.
 
