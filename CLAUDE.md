@@ -49,6 +49,8 @@
 
 Поля и правила (`skills:` - только pre-load безусловного process-skill, узлу `dex-skill-node-contract`; условные trap-skill грузятся императивно через Skill tool в фазах; `allowed-tools:` не поддерживается; явный `model` по характеру суждения, не `inherit`; выбор opus/sonnet/haiku) - нормативный дом [AGENT_FRAMEWORK.md](docs/AGENT_FRAMEWORK.md#выбор-модели-model) (чеклист frontmatter + раздел «Выбор модели»).
 
+**Каскад tools под fact-check.** Агент с фазой Fact Verification (грузит `dex-skill-fact-verification`) обязан нести в `tools` весь каскад: `ToolSearch` (context7 - deferred MCP, иначе недостижим) **и** `WebSearch, WebFetch` (fallback). Нет звена - каскад молча деградирует до latest-доки, ровно ловушка «сверка против версии проекта». Нормативный дом + эмпирика - [AGENT_FRAMEWORK.md](docs/AGENT_FRAMEWORK.md#fact-verification-и-ответ-второй-стороны) («Tools для каскада»).
+
 ### Frontmatter skills
 ```yaml
 ---
