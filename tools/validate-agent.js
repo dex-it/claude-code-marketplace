@@ -436,6 +436,37 @@ function validatePhases(markdownBody, findings) {
   return { validated: true, phases };
 }
 
+/**
+ * Detects agents that EXECUTE fact-verification (imperative `plugin:skill` call)
+ * but are missing one or more links in the cascade: ToolSearch -> WebSearch ->
+ * WebFetch. Without all three, fact-check silently degrades to latest-doc
+ * (context7 is a deferred MCP tool reachable only via ToolSearch; WebSearch/
+ * WebFetch are the offline fallback). See CLAUDE.md "Каскад tools под fact-check".
+ *
+ * Trigger is the `:`-qualified invocation form (`dex-skill-fact-verification:fact-verification`)
+ * rather than a bare mention, to distinguish "agent executes fact-check" from
+ * "agent prose references the skill name" — only the former requires the cascade.
+ */
+function validateFactcheckCascade(parsed, findings) {
+  const body = parsed.content || '';
+  // Only trigger on the imperative invocation form, not bare prose mentions.
+  if (!body.includes('dex-skill-fact-verification:fact-verification')) return;
+
+  const fm = parsed.data || {};
+  const tools = typeof fm.tools === 'string' ? fm.tools : '';
+
+  const CASCADE = ['ToolSearch', 'WebSearch', 'WebFetch'];
+  const missing = CASCADE.filter((t) => !new RegExp(`\\b${t}\\b`).test(tools));
+
+  if (missing.length > 0) {
+    findings.push({
+      level: ERROR,
+      rule: 'factcheck-cascade-incomplete',
+      message: `Agent invokes fact-verification skill but tools is missing cascade link(s): ${missing.join(', ')} — fact-check silently degrades to latest-doc (see CLAUDE.md "Каскад tools под fact-check")`,
+    });
+  }
+}
+
 function validateSkillReferences(markdownBody, marketplacePlugins, findings) {
   const re = /`(dex-skill-[a-z0-9-]+):[a-z0-9-]+`/gi;
   const referenced = new Set();
@@ -475,6 +506,7 @@ function validateFile(filepath, marketplacePlugins) {
   const phaseResult = validatePhases(parsed.content, findings);
   validateFrontmatter(parsed, findings);
   validateFileNameMatchesName(filepath, parsed, findings);
+  validateFactcheckCascade(parsed, findings);
 
   if (phaseResult.validated) {
     validateSkillReferences(parsed.content, marketplacePlugins, findings);
