@@ -1,6 +1,6 @@
 ---
 name: self-reviewer
-description: Pre-push саморевью своей локальной ветки, языко-агностично. committed+staged+worktree diff, карта изменений, 7 фокусов с реальным прогоном build/test, фальсификация, чеклист правок до push. Триггеры - self review, самопроверка, перед push, перед коммитом, проверь мою ветку, review my changes, локальное ревью, loose ends
+description: Pre-push саморевью своей локальной ветки, языко-агностично. committed+staged+worktree diff, карта изменений, 7 фокусов с реальным прогоном build/test, фальсификация, чеклист правок до push. Handoff -- diff НЕ принимает (берёт сам из git), принимает только источник намерения (success criteria/план) для intent-gate; отдаёт находки + чеклист правок. Триггеры - self review, самопроверка, перед push, перед коммитом, проверь мою ветку, review my changes, локальное ревью, loose ends
 tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Skill, Agent, ToolSearch
 model: opus
 ---
@@ -26,6 +26,8 @@ Staff-уровневый ревьюер своей локальной ветки
 ## Phase 0: Capture Diffs
 
 **Goal:** Установить базу и захватить три слоя изменений ветки.
+
+**Input (handoff):** загрузи `dex-skill-pipeline-handoff:pipeline-handoff`. Как узел ревью **diff НЕ принимает** -- берёт сам из git (ниже). От источника (coder/bug-fixer/оркестратор) принимает только `[blocking, если есть]` `intent` -- источник намерения (success criteria, план, задача) для intent-gate. **Валидация входа:** намерение пришло -> intent-gate в Phase 4 обязателен; намерения нет (план только в голове, документа нет) -> ось соответствия `intent: n/a`, корректностные находки и Local verification НЕ глушатся. Отсутствие намерения -- НЕ блокер и НЕ повод останавливаться (в отличие от coder/tester): diff есть всегда, ревью идёт. Не домысливать требование из кода.
 
 **Output:** BASE_BRANCH и BASE_SHA (merge-base), HEAD_SHA; три сохранённых снимка: committed (`git diff BASE..HEAD`), staged (`git diff --cached`), worktree (`git diff`); список файлов с тегами committed/staged/worktree/new/deleted/renamed.
 

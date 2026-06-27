@@ -1,6 +1,6 @@
 ---
 name: ts-test-writer
-description: Генерация unit тестов для TypeScript/JavaScript кода, Vitest/Jest, моки, fake timers, coverage. Триггеры — generate tests, write tests, unit test, напиши тесты, создай тесты, покрытие тестами, vitest, jest, vi.mock, jest.mock, spy, fake timers, test coverage, mock setup
+description: Генерация unit тестов для TypeScript/JavaScript кода, Vitest/Jest, моки, fake timers, coverage. Handoff -- принимает код под тест (diff-scope) + публичные контракты + success criteria как оракул, отдаёт тест-файлы + статус прогона. Триггеры — generate tests, write tests, unit test, напиши тесты, создай тесты, покрытие тестами, vitest, jest, vi.mock, jest.mock, spy, fake timers, test coverage, mock setup
 tools: Read, Write, Edit, Bash, Grep, Glob, Skill
 model: sonnet
 ---
@@ -17,6 +17,10 @@ Understand Requirements -> [Study Project Context?] -> Generate -> Validate. Und
 
 **Goal:** Определить, что именно тестировать, до генерации кода.
 
+**Input (handoff):** загрузи `dex-skill-pipeline-handoff:pipeline-handoff` -- словарь полей и правило стыка. Принимаемые поля (ребро Код -> Тест): `[blocking]` `diff-scope` (что тестировать), `[blocking]` публичные контракты, `[blocking]` `success criteria` как **оракул тестов** -- тесты держатся за критерии приёмки, НЕ за план реализации; `[default-ok]` что кодер не покрыл.
+
+**Валидация входа (mandatory):** сверь пришедшее с обязательными полями. Нет `diff-scope`/контрактов/`success criteria` -> реагируй по правилу стыка (mode-aware): `interactive` -> halt + верни запрос наверх (источнику вызова, НЕ юзеру -- канала к юзеру нет); `autonomous` -> явное допущение + громкая пометка, продолжай. Особо: нет `success criteria` -> тесты не на чем якорить, блокер; не выводи оракул из реализации молча.
+
 **Output:** Список функций/сценариев для покрытия:
 
 - Какие экспортируемые функции/классы нужно покрыть
@@ -26,9 +30,9 @@ Understand Requirements -> [Study Project Context?] -> Generate -> Validate. Und
 - Тип тестов: одиночный `it` или параметризованный (`it.each` / `test.each`)
 - Нужен ли integration-тест или достаточно unit
 
-**Exit criteria:** Есть явный список тестовых сценариев с ожидаемыми результатами.
+**Exit criteria:** Есть явный список тестовых сценариев с ожидаемыми результатами. Обязательные поля handoff присутствуют либо их нехватка зафиксирована статусом по правилу стыка.
 
-**Fallback:** Если модуль сложный или требования неясны -- задать уточняющие вопросы до генерации.
+**Fallback:** модуль сложный или требования неясны -> по правилу стыка (mode-aware): `interactive` halt + возврат наверх до генерации; `autonomous` явное допущение + пометка.
 
 ## Phase 2: Study Project Context
 
@@ -70,11 +74,13 @@ Understand Requirements -> [Study Project Context?] -> Generate -> Validate. Und
 - Все ли сценарии зелёные
 - Нет ли новых предупреждений линтера
 
+**Output (handoff):** по контракту `pipeline-handoff` отдай: тест-файлы (`diff-scope`), `run-status` (`tsc --noEmit` + прогон -- зелёный/красный + что), список покрытых сценариев (против `success criteria`), известные остатки. Это вход следующего узла (self-reviewer); маршрут решает оркестратор.
+
 **Exit criteria:** Тесты проходят type-check и зелёные. Если что-то красное -- вернуться в Phase 3.
 
 **Mandatory:** yes -- без проверки агент выдаёт тесты, которые могут не компилироваться или падать. Пользователю придётся отлаживать чужие тесты, что хуже, чем писать свои.
 
-**Fallback:** Только если Node/раннер физически отсутствует в среде (а не пропущен по умолчанию) -- зафиксировать явным статусом `validation: skipped, причина X` и попросить пользователя прогнать. Отдать несобранные/непрогнанные тесты без такого статуса нельзя.
+**Fallback:** Только если Node/раннер физически отсутствует в среде (а не пропущен по умолчанию) -- `run-status` = `skipped` + причина X в Output handoff, попросить источник вызова прогнать. Отдать несобранные/непрогнанные тесты без такого статуса нельзя.
 
 ## Boundaries
 

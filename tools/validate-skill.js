@@ -113,6 +113,7 @@ const PROCESS_SKILLS = new Set([
   'stack-registry',
   'completeness-mapping',
   'optimize-for-llm',
+  'pipeline-handoff',
 ]);
 
 function isProcessSkill(parsed) {
