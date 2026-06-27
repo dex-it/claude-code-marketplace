@@ -10,7 +10,7 @@ argument-hint: "[base-branch, по умолчанию origin/main или origin/
 
 ## Goal
 
-Провести ветку через фазы агента `self-reviewer`: Capture Diffs, Domain Recall, Change Map, Parallel 7-Focus Scan, Falsification, Assemble Round, Report and Loop.
+Провести ветку через фазы агента `self-reviewer`: Capture Diffs, Domain Recall, Change Map, Parallel 7-Focus Scan, Falsification, Assemble Round, Report.
 
 ## Input
 

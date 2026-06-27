@@ -113,8 +113,35 @@ const REQUIRED_FRONTMATTER_FIELDS = ['name', 'description', 'tools'];
 
 /**
  * Forbidden frontmatter fields — break Claude Code or violate framework.
+ * `skills:` is NOT forbidden: it is the official sub-agent field for pre-loading
+ * unconditional process-skills (see ALLOWED_PRELOAD_SKILLS below). `allowed-tools`
+ * is a slash-command field, not a sub-agent one.
  */
-const FORBIDDEN_FRONTMATTER_FIELDS = ['allowed-tools', 'skills'];
+const FORBIDDEN_FRONTMATTER_FIELDS = ['allowed-tools'];
+
+/**
+ * Skills allowed in frontmatter `skills:` (pre-load). Only UNCONDITIONAL
+ * process-skills belong here — those an agent loads on EVERY run regardless of
+ * stack/diff (the node handoff contract). Conditional skills (trap-skills by
+ * stack, conditional process-skills like completeness-mapping) must NOT be
+ * pre-loaded — they load imperatively via the Skill tool in the relevant phase,
+ * so pre-loading them wastes context on runs that don't need them.
+ * Names are matched stack-agnostically by the skill's short name (last `:`-segment
+ * and stripped `dex-skill-` prefix) so all listing formats resolve.
+ */
+const ALLOWED_PRELOAD_SKILLS = new Set(['node-contract']);
+
+/**
+ * Normalize a `skills:` entry to its short skill name for allowlist matching.
+ * Accepts `dex-skill-node-contract`, `dex-skill-node-contract:node-contract`,
+ * or `node-contract` — all -> `node-contract`.
+ */
+function normalizePreloadSkillName(entry) {
+  let name = String(entry).trim();
+  if (name.includes(':')) name = name.slice(name.lastIndexOf(':') + 1);
+  name = name.replace(/^dex-skill-/, '');
+  return name;
+}
 
 /**
  * Allowed values for the `model` field. Either a tier alias, `inherit`,
@@ -144,6 +171,28 @@ function validateFrontmatter(parsed, findings) {
         rule: 'frontmatter-forbidden',
         message: `Forbidden frontmatter field: ${field} — use \`tools:\` for tool access, Skill tool for skill loading`,
       });
+    }
+  }
+
+  // `skills:` pre-loads its entries into the sub-agent context at startup.
+  // Only unconditional process-skills (node handoff contract) may be pre-loaded;
+  // conditional skills (trap-skills by stack, conditional process-skills) load
+  // imperatively in phases. A non-allowlisted entry here = wasted standing
+  // context on runs that don't need it. See AGENT_FRAMEWORK.md «Подключение skills».
+  if ('skills' in fm && fm.skills != null) {
+    const entries = Array.isArray(fm.skills)
+      ? fm.skills
+      : String(fm.skills).split(',');
+    for (const raw of entries) {
+      const short = normalizePreloadSkillName(raw);
+      if (short === '') continue;
+      if (!ALLOWED_PRELOAD_SKILLS.has(short)) {
+        findings.push({
+          level: ERROR,
+          rule: 'frontmatter-skills-not-preloadable',
+          message: `\`skills:\` entry "${String(raw).trim()}" is not an unconditional process-skill — pre-load only [${[...ALLOWED_PRELOAD_SKILLS].join(', ')}]; conditional skills load imperatively via Skill tool in phases`,
+        });
+      }
     }
   }
 

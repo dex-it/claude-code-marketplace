@@ -38,4 +38,4 @@ argument-hint: "[бизнес-задача в свободной форме]"
 - Не предлагать .NET Framework 4.x для greenfield — только .NET 8 LTS или новее
 - Если задача явно НЕ-.NET — делегировать `architect` (стек-нейтральный)
 
-Делегировать агенту `architect-dotnet`.
+Делегировать агенту `architect-dotnet` с **`mode: interactive`** во входе (команда исполняется главным циклом - канал к юзеру есть; без явного `interactive` агент уйдёт в дефолтный `autonomous` и не будет вести диалог/Phase 5 confirmation).

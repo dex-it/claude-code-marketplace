@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "5.21.0",
+  "version": "5.22.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -1927,17 +1927,32 @@
       ]
     },
     {
-      "name": "dex-skill-pipeline-handoff",
-      "source": "./plugins/skills/dex-skill-pipeline-handoff",
-      "description": "Контракт передачи между агентами-узлами трека Разработка - словарь полей handoff, правило стыка, реакция на неполный вход",
+      "name": "dex-skill-node-contract",
+      "source": "./plugins/ai-sdlc/dex-skill-node-contract",
+      "description": "Рантайм-контракт агента-узла - режим interactive/autonomous, реакция на неполный вход (blocking/default-ok), возврат наверх, словарь полей handoff, транспорт артефакта, graceful degradation при недоступности skill",
       "version": "1.0.0",
       "category": "skill",
       "keywords": [
         "skill",
+        "node-contract",
         "handoff",
-        "pipeline",
         "contract",
         "orchestration"
+      ]
+    },
+    {
+      "name": "dex-skill-autonomous-task",
+      "source": "./plugins/ai-sdlc/dex-skill-autonomous-task",
+      "description": "Движок доведения цели до конца самостоятельно (AI-SDLC-конвейер) - универсальный цикл + треки (разработка/проектирование/ревью/тесты/диагностика/документ/спецификация), делегирование узлам-агентам по контракту node-contract",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "autonomous",
+        "ai-sdlc",
+        "orchestration",
+        "pipeline",
+        "process"
       ]
     },
     {
