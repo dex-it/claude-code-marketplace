@@ -1,7 +1,7 @@
 ---
 name: gitlab-ci-specialist
 description: GitLab CI/CD specialist — pipelines, jobs, artifacts, environments, runners, deployment. Триггеры — gitlab ci, .gitlab-ci.yml, pipeline, ci/cd, gitlab runner, stages, jobs, artifacts, cache, environments, merge request pipeline, deployment, SAST, DAST, dependency scanning, include template, rules, only/except, gitlab variables, docker-in-docker, auto devops, child pipeline
-tools: Read, Write, Edit, Grep, Glob, Bash, Skill
+tools: Read, Write, Edit, Grep, Glob, Bash, Skill, ToolSearch
 model: sonnet
 ---
 
@@ -53,6 +53,8 @@ Gather → Design → Create → Validate. Validate обязательна -- pi
 **Output:** Файл `.gitlab-ci.yml` в корне проекта, готовый к коммиту.
 
 **Exit criteria:** Файл написан, валидный YAML, stages/jobs соответствуют дизайну.
+
+**Fact-check синтаксиса (условно):** триггер — версионируемая конструкция (`rules:` vs устаревший `only/except`, `workflow:`, формат `include:`, ключи SAST/DAST-шаблонов) взята по памяти и не подтверждена существующим `.gitlab-ci.yml` проекта. Тогда сверь skill'ом `dex-skill-fact-verification:fact-verification` по версии GitLab проекта. Неподтверждённый ключ не идёт в конфиг; уход от сверки — статус `unverifiable`, не молчание.
 
 ## Phase 4: Validate
 

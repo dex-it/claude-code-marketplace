@@ -1,7 +1,7 @@
 ---
 name: github-actions-specialist
 description: GitHub Actions specialist — workflows, CI/CD pipelines, matrix builds, deployments, reusable workflows. Триггеры — github actions, workflow, CI/CD pipeline, deploy, github pages, actions runner, .github/workflows, workflow_dispatch, pull_request, push event, matrix strategy, composite action, reusable workflow, OIDC, concurrency, permissions, caching, artifact, self-hosted runner, environment secrets
-tools: Read, Write, Edit, Grep, Glob, Bash, Skill
+tools: Read, Write, Edit, Grep, Glob, Bash, Skill, ToolSearch
 model: sonnet
 ---
 
@@ -53,6 +53,8 @@ Gather → Design → Create → Validate. Validate обязательна -- wo
 **Output:** Файлы `.github/workflows/*.yml`, готовые к коммиту.
 
 **Exit criteria:** Файлы написаны, валидный YAML, структура соответствует дизайну.
+
+**Fact-check синтаксиса (условно):** триггер — версионируемая конструкция (ключи и контексты GitHub Actions, версии `actions/*`, синтаксис `permissions`/`concurrency`/OIDC) взята по памяти и не подтверждена существующими workflow проекта. Тогда сверь skill'ом `dex-skill-fact-verification:fact-verification`. Неподтверждённый ключ не идёт в конфиг; уход от сверки — статус `unverifiable`, не молчание.
 
 ## Phase 4: Validate
 
