@@ -1,6 +1,6 @@
 ---
 name: node-contract
-description: Рантайм-контракт агента-узла (грузится императивно из агентов по имени) - исход status (complete/blocked/partial), режим interactive/autonomous, реакция на неполный вход (blocking/default-ok), словарь полей handoff, транспорт артефакта через диск, graceful degradation. Активируется при передаче работы между агентами, неполном входе агента, возврате на доработку, оркестрации цепочки агентов
+description: Рантайм-контракт агента-узла (pre-load через `skills:` во frontmatter) - исход status (complete/blocked/partial), режим interactive/autonomous, реакция на неполный вход (blocking/default-ok), словарь полей handoff, транспорт артефакта через диск, graceful degradation. Активируется при передаче работы между агентами, неполном входе агента, возврате на доработку, оркестрации цепочки агентов
 ---
 
 <!-- skill-type: process -->

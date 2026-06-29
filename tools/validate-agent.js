@@ -453,7 +453,13 @@ function validateFactcheckCascade(parsed, findings) {
   if (!body.includes('dex-skill-fact-verification:fact-verification')) return;
 
   const fm = parsed.data || {};
-  const tools = typeof fm.tools === 'string' ? fm.tools : '';
+  // `tools:` officially accepts both a comma-string and a YAML list; normalize the
+  // list form to a string so the cascade check does not false-positive on it.
+  const tools = Array.isArray(fm.tools)
+    ? fm.tools.join(',')
+    : typeof fm.tools === 'string'
+      ? fm.tools
+      : '';
 
   const CASCADE = ['ToolSearch', 'WebSearch', 'WebFetch'];
   const missing = CASCADE.filter((t) => !new RegExp(`\\b${t}\\b`).test(tools));
