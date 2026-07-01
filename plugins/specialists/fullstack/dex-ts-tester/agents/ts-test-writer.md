@@ -1,6 +1,6 @@
 ---
 name: ts-test-writer
-description: Генерация unit тестов для TypeScript/JavaScript кода, Vitest/Jest, моки, fake timers, coverage. Handoff -- принимает пути файлов под тест (diff-scope, тела читает с диска) + публичные контракты + success criteria как оракул, отдаёт тест-файлы + статус прогона. Триггеры - generate tests, write tests, unit test, напиши тесты, создай тесты, покрытие тестами, vitest, jest, vi.mock, jest.mock, spy, fake timers, test coverage, mock setup
+description: Генерация unit тестов для TypeScript/JavaScript кода, Vitest/Jest, моки, fake timers, coverage. Handoff -- принимает пути файлов под тест (diff-scope, тела читает с диска) + публичные контракты + success criteria как оракул, отдаёт тест-файлы + статус прогона + branch coverage по diff-scope. Триггеры - generate tests, write tests, unit test, напиши тесты, создай тесты, покрытие тестами, vitest, jest, vi.mock, jest.mock, spy, fake timers, test coverage, branch coverage, mock setup
 tools: Read, Write, Edit, Bash, Grep, Glob, Skill, ToolSearch, WebSearch, WebFetch
 model: sonnet
 skills:
@@ -47,6 +47,7 @@ Understand Requirements -> [Study Project Context?] -> Generate -> Validate. Und
 - Существующие test helpers, setup-файлы, фабрики
 - Naming convention для describe/it
 - Где лежат тесты: `*.test.ts` рядом или отдельная папка `__tests__`
+- Сбор branch coverage: provider (`v8` / `istanbul`), как включается отчёт `branches` - нужно в Phase 4 для замера порога
 
 **Exit criteria:** Понятно, как оформить тесты, чтобы они не выбивались из существующего стиля.
 
@@ -69,7 +70,9 @@ Understand Requirements -> [Study Project Context?] -> Generate -> Validate. Und
 
 ## Phase 4: Validate
 
-**Goal:** Подтвердить, что тесты проходят type-check и зелёные.
+**Goal:** Подтвердить, что тесты проходят type-check, зелёные и обеспечивают порог покрытия.
+
+Загрузи `dex-skill-test-coverage:test-coverage` через Skill tool - дом порога (branch >= 75%), scope (diff-scope, per-file), метрики (TS = branch через provider v8/istanbul) и правил недостижимости/деградации.
 
 **Output:** Результаты проверки:
 
@@ -77,14 +80,17 @@ Understand Requirements -> [Study Project Context?] -> Generate -> Validate. Und
 - Запуск тестов (`vitest run` / `jest`)
 - Все ли сценарии зелёные
 - Нет ли новых предупреждений линтера
+- **Branch coverage по diff-scope, per-file** (provider v8/istanbul, отчёт `branches`) - число на каждый файл под тестом
 
-**Output (handoff):** по контракту `node-contract` отдай первым полем `status` (`complete`/`blocked`/`partial` -- см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: тест-файлы (`diff-scope`), `run-status` (`tsc --noEmit` + прогон -- зелёный/красный + что), список покрытых сценариев (против `success criteria`), **принятые решения/допущения** (как мокал, трактовка edge, выбор `it`/`it.each` -- всё решённое самостоятельно; правило стыка: молча нельзя), известные остатки. Это вход следующего узла (self-reviewer); маршрут решает оркестратор.
+**Coverage-gate:** branch < 75% на файле diff-scope при доступной метрике -> вернуться в Phase 3 дописать сценарии (техники добора непокрытых веток - `dex-skill-test-design`). Недостижимость порога и деградацию метрики фиксируй по правилам `test-coverage` (закрытый перечень причин, `partial` + обоснование), не тихим занижением.
 
-**Exit criteria:** Тесты проходят type-check и зелёные. Если что-то красное -- вернуться в Phase 3.
+**Output (handoff):** по контракту `node-contract` отдай первым полем `status` (`complete`/`blocked`/`partial` -- см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: тест-файлы (`diff-scope`), `run-status` (`tsc --noEmit` + прогон -- зелёный/красный + что), **`coverage`** (branch % per-file по diff-scope + `type` метрики; недобор порога -> `partial` + причина из перечня `test-coverage`), список покрытых сценариев (против `success criteria`), **принятые решения/допущения** (как мокал, трактовка edge, выбор `it`/`it.each` -- всё решённое самостоятельно; правило стыка: молча нельзя), известные остатки. Это вход следующего узла (self-reviewer); маршрут решает оркестратор.
 
-**Mandatory:** yes -- без проверки агент выдаёт тесты, которые могут не компилироваться или падать. Пользователю придётся отлаживать чужие тесты, что хуже, чем писать свои.
+**Exit criteria:** Тесты проходят type-check, зелёные, branch coverage по diff-scope >= 75% per-file либо недобор зафиксирован статусом `partial` с причиной из перечня. Если что-то красное или порог недобит без обоснования -- вернуться в Phase 3.
 
-**Fallback:** Только если Node/раннер физически отсутствует в среде (а не пропущен по умолчанию) -- `run-status` = `skipped` + причина X в Output handoff, попросить источник вызова прогнать. Отдать несобранные/непрогнанные тесты без такого статуса нельзя.
+**Mandatory:** yes -- без проверки агент выдаёт тесты, которые могут не компилироваться, падать или не покрывать логику. Пользователю придётся отлаживать чужие тесты и добирать покрытие, что хуже, чем писать свои.
+
+**Fallback:** Node/раннер физически отсутствует в среде (а не пропущен по умолчанию) -- `run-status` = `skipped` + причина X в Output handoff, попросить источник вызова прогнать. Coverage-инструмент физически недоступен -- `coverage` = `unmeasured` + причина (правило `test-coverage`). Отдать несобранные/непрогнанные/неизмеренные тесты без такого статуса нельзя.
 
 ## Boundaries
 

@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "5.22.0",
+  "version": "5.23.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -159,6 +159,20 @@
         "test-design",
         "qa",
         "test-cases"
+      ]
+    },
+    {
+      "name": "dex-skill-test-coverage",
+      "source": "./plugins/skills/dex-skill-test-coverage",
+      "description": "Контракт покрытия для тест-агентов - branch coverage по diff-scope, порог >= 75%, деградация метрики и недостижимость явным статусом наверх",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "test-coverage",
+        "branch-coverage",
+        "coverage-threshold",
+        "qa"
       ]
     },
     {
@@ -925,7 +939,7 @@
       "name": "dex-dotnet-tester",
       "source": "./plugins/specialists/dotnet/dex-dotnet-tester",
       "description": "Test writer for .NET: xUnit, Moq, Arrange-Act-Assert",
-      "version": "2.2.0",
+      "version": "2.3.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1384,7 +1398,7 @@
       "name": "dex-ts-tester",
       "source": "./plugins/specialists/fullstack/dex-ts-tester",
       "description": "Test writer for TypeScript/JavaScript: Vitest/Jest, mocks, fake timers, isolation",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1463,7 +1477,7 @@
       "name": "dex-bundle-dotnet-developer",
       "source": "./plugins/bundles/dex-bundle-dotnet-developer",
       "description": "Bundle for .NET developers: coding, debugging, testing, review, EF, performance, interactive .NET architecture design (incl. microservices)",
-      "version": "2.5.0",
+      "version": "2.6.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -1475,7 +1489,7 @@
       "name": "dex-bundle-dotnet-fullstack",
       "source": "./plugins/bundles/dex-bundle-dotnet-fullstack",
       "description": "Complete .NET fullstack: development + databases + messaging + containers + interactive .NET architecture design",
-      "version": "2.5.0",
+      "version": "2.6.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -1569,7 +1583,7 @@
       "name": "dex-bundle-ts-fullstack",
       "source": "./plugins/bundles/dex-bundle-ts-fullstack",
       "description": "Bundle for TypeScript fullstack: Node.js/Bun backend + React frontend, security, Docker, Playwright E2E",
-      "version": "1.8.0",
+      "version": "1.9.0",
       "category": "bundle",
       "keywords": [
         "bundle",

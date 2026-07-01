@@ -1,6 +1,6 @@
 ---
 name: dotnet-test-writer
-description: Генерация unit тестов для C# кода, xUnit, Moq, AAA, test coverage. Handoff -- принимает пути файлов под тест (diff-scope, тела читает с диска) + публичные контракты + success criteria как оракул, отдаёт тест-файлы + статус прогона. Триггеры - generate tests, create unit tests, write tests, test coverage, напиши тесты, создай тесты, покрытие тестами, xunit, moq, fact, theory, test fixture, assert, mock setup
+description: Генерация unit тестов для C# кода, xUnit, Moq, AAA, test coverage. Handoff -- принимает пути файлов под тест (diff-scope, тела читает с диска) + публичные контракты + success criteria как оракул, отдаёт тест-файлы + статус прогона + branch coverage по diff-scope. Триггеры - generate tests, create unit tests, write tests, test coverage, branch coverage, напиши тесты, создай тесты, покрытие тестами, xunit, moq, fact, theory, test fixture, assert, mock setup
 tools: Read, Write, Edit, Bash, Grep, Glob, Skill, ToolSearch, WebSearch, WebFetch
 model: sonnet
 skills:
@@ -47,6 +47,7 @@ Understand Requirements -> [Study Project Context?] -> Generate -> Validate. Und
 - Существующие test helpers, base classes, fixtures
 - Naming convention: MethodName_Scenario_Expected или другой
 - Где лежат тесты: отдельный проект, структура папок
+- Сбор branch coverage: включён ли coverlet (`--collect:"XPlat Code Coverage"` / `CollectCoverage`), как читается отчёт - нужно в Phase 4 для замера порога
 
 **Exit criteria:** Понятно, как оформить тесты, чтобы они не выбивались из существующего стиля.
 
@@ -70,7 +71,9 @@ Understand Requirements -> [Study Project Context?] -> Generate -> Validate. Und
 
 ## Phase 4: Validate
 
-**Goal:** Подтвердить, что тесты компилируются и проходят.
+**Goal:** Подтвердить, что тесты компилируются, проходят и обеспечивают порог покрытия.
+
+Загрузи `dex-skill-test-coverage:test-coverage` через Skill tool - дом порога (branch >= 75%), scope (diff-scope, per-file), метрики (.NET = branch через coverlet) и правил недостижимости/деградации.
 
 **Output:** Результаты проверки:
 
@@ -78,14 +81,17 @@ Understand Requirements -> [Study Project Context?] -> Generate -> Validate. Und
 - Запуск тестов (`dotnet test`)
 - Все ли сценарии зелёные
 - Нет ли warnings от analyzers
+- **Branch coverage по diff-scope, per-file** (coverlet, `ThresholdType=branch`) - число на каждый файл под тестом
 
-**Output (handoff):** по контракту `node-contract` отдай первым полем `status` (`complete`/`blocked`/`partial` -- см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: тест-файлы (`diff-scope`), `run-status` (build+test -- зелёный/красный + что), список покрытых сценариев (против `success criteria`), **принятые решения/допущения** (как мокал, трактовка edge, выбор Fact/Theory -- всё решённое самостоятельно; правило стыка: молча нельзя), известные остатки. Это вход следующего узла (self-reviewer); маршрут решает оркестратор.
+**Coverage-gate:** branch < 75% на файле diff-scope при доступной метрике -> вернуться в Phase 3 дописать сценарии (техники добора непокрытых веток - `dex-skill-test-design`). Недостижимость порога и деградацию метрики фиксируй по правилам `test-coverage` (закрытый перечень причин, `partial` + обоснование), не тихим занижением.
 
-**Exit criteria:** Тесты собираются и проходят. Если что-то красное -- вернуться в Phase 3.
+**Output (handoff):** по контракту `node-contract` отдай первым полем `status` (`complete`/`blocked`/`partial` -- см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: тест-файлы (`diff-scope`), `run-status` (build+test -- зелёный/красный + что), **`coverage`** (branch % per-file по diff-scope + `type` метрики; недобор порога -> `partial` + причина из перечня `test-coverage`), список покрытых сценариев (против `success criteria`), **принятые решения/допущения** (как мокал, трактовка edge, выбор Fact/Theory -- всё решённое самостоятельно; правило стыка: молча нельзя), известные остатки. Это вход следующего узла (self-reviewer); маршрут решает оркестратор.
 
-**Mandatory:** yes -- без проверки агент выдаёт тесты, которые могут не компилироваться или падать. Пользователю придётся отлаживать чужие тесты, что хуже, чем писать свои.
+**Exit criteria:** Тесты собираются, проходят, branch coverage по diff-scope >= 75% per-file либо недобор зафиксирован статусом `partial` с причиной из перечня. Если что-то красное или порог недобит без обоснования -- вернуться в Phase 3.
 
-**Fallback:** Только если `dotnet` физически отсутствует в среде (а не пропущен по умолчанию) -- `run-status` = `skipped` + причина X в Output handoff, попросить источник вызова прогнать. Отдать несобранные/непрогнанные тесты без такого статуса нельзя.
+**Mandatory:** yes -- без проверки агент выдаёт тесты, которые могут не компилироваться, падать или не покрывать логику. Пользователю придётся отлаживать чужие тесты и добирать покрытие, что хуже, чем писать свои.
+
+**Fallback:** `dotnet` физически отсутствует в среде (а не пропущен по умолчанию) -- `run-status` = `skipped` + причина X в Output handoff, попросить источник вызова прогнать. Coverage-инструмент физически недоступен -- `coverage` = `unmeasured` + причина (правило `test-coverage`). Отдать несобранные/непрогнанные/неизмеренные тесты без такого статуса нельзя.
 
 ## Boundaries
 

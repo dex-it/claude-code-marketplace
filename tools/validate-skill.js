@@ -122,6 +122,7 @@ const PROCESS_SKILLS = new Set([
   'optimize-for-llm',
   'node-contract',
   'autonomous-task',
+  'test-coverage',
 ]);
 
 function isProcessSkill(parsed) {
