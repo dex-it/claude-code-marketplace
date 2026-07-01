@@ -1,0 +1,17 @@
+{
+  "description": "Напоминание о процедуре возобновления dex-skill-autonomous-task после компакта контекста (по task-флагу сессии)",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/resume-reminder.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

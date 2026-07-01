@@ -83,12 +83,13 @@ function findAllSkillFiles() {
 
 // --- Size limits --------------------------------------------------------
 
-const CLAUDE_CODE_HARD_LIMIT = 500; // official Claude Code line limit
+const CLAUDE_CODE_HARD_LIMIT = 500; // Anthropic recommendation ("Keep SKILL.md under 500 lines") — not an enforced platform truncation limit
 const PROJECT_RECOMMENDED_MAX = 250; // project line-count guideline (trap-skill: цель 80-120)
 // Process-skill - другой жанр: движок/правило-оркестрация, единый нормативный костяк не дробится
-// на каталог-ловушек размером. Рекомендация 250 для них поднята до платформенного потолка 500;
-// деталь по требованию выносится в смежные файлы (mandatory-Read), а не режется костяк.
-const PROCESS_SKILL_RECOMMENDED_MAX = CLAUDE_CODE_HARD_LIMIT;
+// на каталог-ловушек размером. Проектный потолок для них поднят выше платформенной рекомендации,
+// т.к. костяк (правила + mandatory-Read список) не режется ради формального лимита; деталь по
+// требованию всё равно выносится в смежные файлы, не раздувается бесконтрольно.
+const PROCESS_SKILL_RECOMMENDED_MAX = 600;
 const PROJECT_TARGET_MAX = 120; // ideal range
 
 // --- Frontmatter validation ---------------------------------------------
@@ -226,19 +227,29 @@ function validateFrontmatter(parsed, findings, isProcess = false) {
 
 function validateSize(rawContent, findings, isProcess = false) {
   const lineCount = rawContent.split('\n').length;
-  const recommendedMax = isProcess ? PROCESS_SKILL_RECOMMENDED_MAX : PROJECT_RECOMMENDED_MAX;
+
+  if (isProcess) {
+    if (lineCount > PROCESS_SKILL_RECOMMENDED_MAX) {
+      findings.push({
+        level: ERROR,
+        rule: 'size-exceeds-recommended',
+        message: `File is ${lineCount} lines — exceeds process-skill project cap of ${PROCESS_SKILL_RECOMMENDED_MAX}. Consider splitting or cutting documentation/procedures`,
+      });
+    }
+    return;
+  }
 
   if (lineCount > CLAUDE_CODE_HARD_LIMIT) {
     findings.push({
       level: ERROR,
       rule: 'size-exceeds-hard-limit',
-      message: `File is ${lineCount} lines — exceeds Claude Code hard limit of ${CLAUDE_CODE_HARD_LIMIT}`,
+      message: `File is ${lineCount} lines — exceeds Anthropic recommendation of ${CLAUDE_CODE_HARD_LIMIT}`,
     });
-  } else if (lineCount > recommendedMax) {
+  } else if (lineCount > PROJECT_RECOMMENDED_MAX) {
     findings.push({
       level: ERROR,
       rule: 'size-exceeds-recommended',
-      message: `File is ${lineCount} lines — exceeds ${isProcess ? 'process-skill' : 'project'} recommendation of ${recommendedMax}. Consider splitting or cutting documentation/procedures`,
+      message: `File is ${lineCount} lines — exceeds project recommendation of ${PROJECT_RECOMMENDED_MAX}. Consider splitting or cutting documentation/procedures`,
     });
   }
 }

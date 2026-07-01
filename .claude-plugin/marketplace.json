@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "5.23.0",
+  "version": "5.24.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -1958,7 +1958,7 @@
       "name": "dex-skill-autonomous-task",
       "source": "./plugins/ai-sdlc/dex-skill-autonomous-task",
       "description": "Движок доведения цели до конца самостоятельно (AI-SDLC-конвейер) - универсальный цикл + треки (разработка/проектирование/ревью/тесты/диагностика/документ/спецификация), делегирование узлам-агентам по контракту node-contract",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -1967,6 +1967,20 @@
         "orchestration",
         "pipeline",
         "process"
+      ]
+    },
+    {
+      "name": "dex-autonomous-task-resume",
+      "source": "./plugins/ai-sdlc/dex-autonomous-task-resume",
+      "description": "После компакта контекста напоминает продолжить автономную задачу (dex-skill-autonomous-task) по процедуре \"Возобновление\": находит незакрытый task-флаг сессии в ~/.claude/tasks/<session_id>/ и инжектит текст-напоминание через SessionStart (matcher compact)",
+      "version": "1.0.0",
+      "category": "utility",
+      "keywords": [
+        "utility",
+        "autonomous-task",
+        "hooks",
+        "compact",
+        "resume"
       ]
     },
     {
