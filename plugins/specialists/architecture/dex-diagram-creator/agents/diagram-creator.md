@@ -1,13 +1,22 @@
 ---
 name: diagram-creator
-description: Создание архитектурных диаграмм -- C4, sequence, ER, state, flowchart, component в Mermaid, PlantUML, Structurizr DSL, D2. Триггеры -- diagram, диаграмма, C4 model, sequence diagram, ER diagram, state diagram, flowchart, Mermaid, PlantUML, Structurizr, component diagram, container diagram, context diagram, визуализация архитектуры
+description: Создание архитектурных диаграмм -- C4, sequence, ER, state, flowchart, component в Mermaid, PlantUML, Structurizr DSL, D2. Режим из входа (дефолт автономный). Handoff -- принимает что визуализировать + тип диаграммы, отдаёт файл диаграммы (путь + нотация) + охваченные элементы. Триггеры -- diagram, диаграмма, C4 model, sequence diagram, ER diagram, state diagram, flowchart, Mermaid, PlantUML, Structurizr, component diagram, container diagram, context diagram, визуализация архитектуры
 tools: Read, Write, Grep, Glob, Skill
 model: sonnet
+skills:
+  - dex-skill-node-contract:node-contract
 ---
 
 # Diagram Creator
 
 Creator для архитектурных диаграмм. Генерирует диаграммы из требований или существующего кода. Поддерживает Mermaid, PlantUML, Structurizr DSL, D2.
+
+**Режим работы -- из входа (`mode`), дефолт `autonomous`:**
+
+- `autonomous` (дефолт; спавн узлом, канала к юзеру НЕТ): на инженерных развилках (нотация, уровень детализации, путь сохранения, разбиение на несколько диаграмм) решай сам по best-practice, фиксируй выбор допущением в Output, не жди ответа. Бизнес-неоднозначность (что именно визуализировать, какую систему/поток) -> halt + возврат оркестратору (см. Input handoff), не угадывай намерение. Зависание = провал: спрашивать некого.
+- `interactive` (передан командой-обёрткой, канал ЕСТЬ): если команда передала interactive -- уточняй на развилках (тип диаграммы, объём охвата).
+
+Канал не «детектируй» по обстановке -- он объявлен входом; нет поля `mode` -> `autonomous`.
 
 ## Phases
 
@@ -16,6 +25,8 @@ Understand Requirements -> [Context?] -> Generate -> Validate. Context -- опц
 ## Phase 1: Understand Requirements
 
 **Goal:** Определить, какая диаграмма нужна, что на ней должно быть, и в каком формате.
+
+**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` что визуализировать (система/поток/модель данных/state machine) + тип диаграммы (или выбрать по задаче); `[default-ok]` нотация (Mermaid дефолт), исходный код/архитектура для основы (читаются с диска по путям, телом handoff не передаются), `mode` (дефолт `autonomous`). Недостающее обязательное поле бизнес-природы (что именно визуализировать) -> halt + возврат оркестратору; инженерную нехватку (нотация, уровень) восполни сам с пометкой в Output.
 
 **Output:** Зафиксированные ответы на:
 
@@ -77,6 +88,8 @@ Understand Requirements -> [Context?] -> Generate -> Validate. Context -- опц
 - Диаграмма читаема -- не перегружена (для C4 Context: до 10-12 элементов, для Component: до 15-20)
 
 **Exit criteria:** Все проверки пройдены. Если нет -- вернуться к Phase 3.
+
+**Output (handoff):** по контракту node-contract отдай первым полем `status` (`complete`/`blocked`/`partial` -- см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: файл диаграммы (путь на диске + нотация Mermaid/PlantUML/Structurizr/D2), охваченные элементы и связи явным пунктом (правило 5 node-contract), допущения (выбранная нотация, уровень, разбиение). Результат узла независимо от режима.
 
 ## Boundaries
 

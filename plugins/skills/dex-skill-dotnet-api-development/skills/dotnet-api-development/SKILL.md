@@ -1,82 +1,92 @@
 ---
 name: dotnet-api-development
-description: ASP.NET Core Web API — ловушки контроллеров, DTO, URL, пагинации, фильтров. Активируется при web api, controller, endpoint, REST, route, FromQuery, FromRoute, path, query parameter, query filter, versioning, swagger, ActionResult, ProblemDetails, CreatedAtAction, middleware
+description: ASP.NET Core Web API - ловушки контроллеров, DTO, URL, пагинации, фильтров. Активируется при web api, controller, endpoint, REST, route, FromQuery, FromRoute, path, query parameter, query filter, versioning, swagger, ActionResult, ProblemDetails, CreatedAtAction, middleware
 ---
 
-# API Development — ловушки и anti-patterns
+# API Development - ловушки и anti-patterns
 
 ## Контроллеры
 
 ### Толстый контроллер с бизнес-логикой
-Плохо: валидация, создание entity, вычисления, прямой DbContext — всё в одном action
-Правильно: контроллер только маршрутизирует → `_mediator.Send()` или service
+Плохо: валидация, создание entity, вычисления, прямой DbContext - всё в одном action
+Правильно: контроллер только маршрутизирует -> `_mediator.Send()` или service
 Почему: нарушает SRP, невозможно тестировать без HTTP pipeline, дублирование при добавлении gRPC/GraphQL
 
 ### try/catch в каждом контроллере
 Плохо: копипаста `try { } catch (NotFoundException) { return NotFound(); } catch (Exception) { return 500; }` в каждом action
-Правильно: единый exception handler middleware → ProblemDetails (RFC 7807)
-Почему: `catch (Exception ex) { return StatusCode(500, ex.Message) }` — стектрейс клиенту. Копипаста → inconsistent error format
+Правильно: единый exception handler middleware -> ProblemDetails (RFC 7807)
+Почему: `catch (Exception ex) { return StatusCode(500, ex.Message) }` - стектрейс клиенту. Копипаста -> inconsistent error format
 
 ### IActionResult вместо ActionResult\<T\>
-Плохо: `Task<IActionResult>` — Swagger не знает тип ответа
+Плохо: `Task<IActionResult>` - Swagger не знает тип ответа
 Правильно: `Task<ActionResult<OrderDto>>` + `[ProducesResponseType(typeof(ProblemDetails), 404)]`
 Почему: NSwag/Kiota не могут сгенерировать типизированный клиент. Без ProducesResponseType Swagger показывает только 200
 
 ### Возвращает Entity вместо DTO
-Плохо: `return Ok(await _context.Users.FindAsync(id))` — клиент видит PasswordHash, InternalFlags
+Плохо: `return Ok(await _context.Users.FindAsync(id))` - клиент видит PasswordHash, InternalFlags
 Правильно: DTO с нужными полями: `new UserDto(user.Id, user.Name, user.Email)`
 Почему: утечка внутренней структуры БД, навигационные свойства тянут связанные данные, изменение схемы ломает API контракт
 
+### DTO ответа несёт поля, которые потребитель не читает
+Плохо: `OrderDto` тянет `InternalNotes`, `CostPrice`, `RowVersion` «на всякий случай» - клиент читает 4 поля, остальное висит в контракте
+Правильно: в DTO ровно потребляемые поля; перед добавлением поля в response-DTO найди читателя - нет читателя, нет поля
+Почему: DTO вместо Entity ещё не least exposure - корректный DTO с лишними полями всё равно раскрывает внутреннее и фиксирует контракт, который версионируется и тихо не убирается. См. `dex-skill-owasp-security`
+
+### Поле модели запроса, которое handler не обрабатывает
+Плохо: входной DTO принимает поле (пришло в payload от клиента или upstream-сервиса), но никакой код его не читает - осело в модели «потому что есть в источнике»
+Правильно: модель содержит только обрабатываемые поля; непрочитанное удаляется из DTO вместе с валидацией, даже если приходит во входном payload
+Почему: непрочитанное поле - ложный контракт: клиент видит его в схеме и считает, что оно влияет на поведение. Приход значения от upstream - не повод заводить поле; биндить надо то, что обрабатываешь. Парный случай для фильтров - «Поле фильтра без эффекта» ниже
+
 ### async void в контроллере
-Плохо: `public async void Create(...)` — исключение проглатывается, 200 OK отправляется до завершения
+Плохо: `public async void Create(...)` - исключение проглатывается, 200 OK отправляется до завершения
 Правильно: `public async Task<ActionResult<T>> Create(..., CancellationToken ct)`
 Почему: async void = fire-and-forget. Caller не получает ошибку, CancellationToken невозможен
 
 ### Дублированный путь на методах
-Плохо: `[HttpGet("api/orders/{id}")]` + `[HttpPost("api/orders")]` — "api/orders" повторяется
+Плохо: `[HttpGet("api/orders/{id}")]` + `[HttpPost("api/orders")]` - "api/orders" повторяется
 Правильно: `[Route("api/[controller]")]` на контроллере
-Почему: при переименовании забудешь один метод → 404 в production
+Почему: при переименовании забудешь один метод -> 404 в production
 
 ### POST возвращает 200 вместо 201
 Плохо: `return Ok(order)` после создания
-Правильно: `return CreatedAtAction(nameof(GetById), new { id = order.Id }, order)` — 201 + Location header
+Правильно: `return CreatedAtAction(nameof(GetById), new { id = order.Id }, order)` - 201 + Location header
 Почему: REST клиенты полагаются на 201 для проверки создания и Location для навигации
 
 ## URL design
 
 ### Обязательные идентификаторы ресурса в query вместо path
-Плохо: `GET /api/items?ownerId=123&itemNumber=10` — без обоих параметров запрос бессмыслен
-Правильно: `GET /api/owners/{ownerId}/items/{itemNumber}` — идентификаторы в path, иерархия отражена
-Почему: обязательный `[FromQuery][Required]` — сигнал, что параметр должен быть path. Path-идентификаторы кэшируются CDN/прокси, лучше генерируются клиентами (Refit, OpenAPI codegen), читаются как естественный URL ресурса
+Плохо: `GET /api/items?ownerId=123&itemNumber=10` - без обоих параметров запрос бессмыслен
+Правильно: `GET /api/owners/{ownerId}/items/{itemNumber}` - идентификаторы в path, иерархия отражена
+Почему: обязательный `[FromQuery][Required]` - сигнал, что параметр должен быть path. Path-идентификаторы кэшируются CDN/прокси, чище генерируются клиентами (Refit, OpenAPI codegen), читаются как естественный URL
 
 ### Фильтры и пагинация в path вместо query
-Плохо: `GET /api/orders/2024/01/active/page/2` — фильтры и пагинация вшиты в путь
-Правильно: `GET /api/orders?status=active&from=2024-01-01&page=2` — опциональные параметры в query
-Почему: path описывает **что** за ресурс, query — **как** его отфильтровать/срезать. Путаница ролей ломает кэширование, усложняет генерацию клиента, мешает добавлять новые фильтры без breaking change
+Плохо: `GET /api/orders/2024/01/active/page/2` - фильтры и пагинация вшиты в путь
+Правильно: `GET /api/orders?status=active&from=2024-01-01&page=2` - опциональные параметры в query
+Почему: path описывает **что** за ресурс, query - **как** его отфильтровать/срезать. Путаница ролей ломает кэширование, усложняет генерацию клиента, мешает добавлять новые фильтры без breaking change
 
 ### URL не отражает иерархию ресурсов
-Плохо: `GET /api/get-project-items?project=X&item=Y` — плоский URL с глаголом и фильтрами
-Правильно: `GET /api/projects/{projectId}/items/{itemId}` — иерархия ресурсов, без глаголов
-Почему: REST-URL описывает ресурс существительным, иерархия родитель→ребёнок кодирует bonded lookup. Глаголы в URL (`get-`, `fetch-`, `do-`) — RPC-стиль, нарушает кэширование и semantic клиентов
+Плохо: `GET /api/get-project-items?project=X&item=Y` - плоский URL с глаголом и фильтрами
+Правильно: `GET /api/projects/{projectId}/items/{itemId}` - иерархия ресурсов, без глаголов
+Почему: REST-URL описывает ресурс существительным, иерархия родитель->ребёнок кодирует bonded lookup. Глаголы в URL (`get-`, `fetch-`, `do-`) - RPC-стиль, нарушает кэширование и semantic клиентов
 
 ### Несогласованность с существующими эндпоинтами сервиса
-Плохо: один контроллер использует `/api/users/{id}`, другой — `/api/v1/user-list?userId=`
-Правильно: одна схема URL во всём сервисе — одинаковое versioning, плюрализация, casing
-Почему: интеграторы учат API по первому эндпоинту и экстраполируют на остальные. Несогласованность = постоянные ошибки в клиенте + рост support-запросов. Это проверяется при ревью каждого нового эндпоинта
+Плохо: один контроллер использует `/api/users/{id}`, другой - `/api/v1/user-list?userId=`
+Правильно: одна схема URL во всём сервисе - одинаковое versioning, плюрализация, casing
+Почему: интеграторы учат API по первому эндпоинту и экстраполируют на остальные. Несогласованность = постоянные ошибки в клиенте + рост support-запросов
 
 ## Пагинация
 
 ### Возвращает все записи
-Плохо: `Products.ToListAsync()` без лимита — 100K записей в ответ
-Правильно: `[FromQuery] int page, int pageSize` + `Math.Clamp(pageSize, 1, 100)` — ограничь максимум
-Почему: один запрос без пагинации → OOM, timeout, огромный JSON response. Клиент может запросить pageSize=1000000
+Плохо: `Products.ToListAsync()` без лимита - 100K записей в ответ
+Правильно: `[FromQuery] int page, int pageSize` + `Math.Clamp(pageSize, 1, 100)` - ограничь максимум
+Почему: один запрос без пагинации -> OOM, timeout, огромный JSON response. Клиент может запросить pageSize=1000000
 
 ## Swagger
 
 ### XML comments не видны
-Плохо: написал `<summary>` на моделях, но Swagger их не показывает — забыл `GenerateDocumentationFile`
+Плохо: написал `<summary>` на моделях, но Swagger их не показывает - забыл `GenerateDocumentationFile`
 Правильно: `<GenerateDocumentationFile>true</GenerateDocumentationFile>` в .csproj
-Почему: без этого флага компилятор не генерирует XML. Swashbuckle молча игнорирует — ни ошибки, ни warning
+Почему: без этого флага компилятор не генерирует XML. Swashbuckle молча игнорирует - ни ошибки, ни warning
 
 ### Internal endpoints видны в публичном Swagger
 Плохо: `/internal/recalculate` виден всем потребителям API
@@ -84,22 +94,22 @@ description: ASP.NET Core Web API — ловушки контроллеров, D
 Почему: утечка внутренней архитектуры, злоумышленник видит internal endpoints
 
 ### Семантически схожие enum-значения без описания в схеме API
-Плохо: `enum StepResult { Success, Failed, Skipped }` без описаний — разница между Failed и Skipped неочевидна, а `/// <summary>` на членах enum в схему Swagger по умолчанию не попадает
-Правильно: вынести семантику в схему явно — `[Description("Ошибка обработки")]` на значениях + `ISchemaFilter`, читающий атрибут; либо описать enum-тип целиком в `<summary>` на самом типе
+Плохо: `enum StepResult { Success, Failed, Skipped }` без описаний - разница между Failed и Skipped неочевидна, а `/// <summary>` на членах enum в схему Swagger по умолчанию не попадает
+Правильно: вынести семантику в схему явно - `[Description("Ошибка обработки")]` на значениях + `ISchemaFilter`, читающий атрибут; либо описать enum-тип целиком в `<summary>` на самом типе
 Почему: API-клиент угадывает семантику значения по имени и выбирает не ту ветку обработки. XML-комментарии на членах enum Swashbuckle.AspNetCore по умолчанию не рендерит (известное ограничение), поэтому одного `/// <summary>` на значениях недостаточно
 
 ## Фильтры
 
 ### Поле фильтра без эффекта на результат
 
-Плохо: поле фильтра принимает значение и проходит валидацию, но ни один `Where`/предикат в запросе его не использует — caller получает полный набор данных, игнорируя переданное значение
+Плохо: поле фильтра принимает значение и проходит валидацию, но ни один `Where`/предикат в запросе его не использует - caller получает полный набор данных, игнорируя переданное значение
 
 ```csharp
-// filter.Status — принят, RuleFor(...Status).IsInEnum() есть
+// filter.Status - принят, RuleFor(...Status).IsInEnum() есть
 // Handler: query = query.Where(x => x.Date >= filter.From)
-// .Where(x => x.Status == filter.Status) — отсутствует
+// .Where(x => x.Status == filter.Status) - отсутствует
 ```
 
 Правильно: каждое поле фильтра применяется в условии запроса (или в optional-блоке: `if (filter.Status.HasValue) query = query.Where(...)`); неиспользуемое поле удаляется из DTO вместе с его правилами валидации
 
-Почему: поле фильтра без `Where` — ложный контракт: клиент передаёт `Status=Active`, ожидает фильтрацию и получает все записи. Ответ приходит в правильном формате, баг незаметен. Наличие валидации на поле усиливает иллюзию его работы
+Почему: поле фильтра без `Where` - ложный контракт: клиент передаёт `Status=Active`, ожидает фильтрацию и получает все записи. Ответ приходит в правильном формате, баг незаметен. Наличие валидации на поле усиливает иллюзию его работы

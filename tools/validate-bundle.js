@@ -302,18 +302,30 @@ function report(results) {
 
 function buildSkillPluginsInRepo() {
   const set = new Set();
-  const skillsDir = join(REPO_ROOT, 'plugins', 'skills');
-  if (!existsSync(skillsDir)) return set;
-  for (const entry of readdirSync(skillsDir)) {
-    const pj = join(skillsDir, entry, '.claude-plugin', 'plugin.json');
-    if (existsSync(pj)) {
-      try {
-        set.add(JSON.parse(readFileSync(pj, 'utf8')).name);
-      } catch {
-        /* ignore */
+  // Скиллы живут не только в plugins/skills (например plugins/ai-sdlc). Обходим весь
+  // plugins/ по SKILL.md - как findAllSkillFiles в validate-skill.js - и берём name из
+  // манифеста плагина-владельца. Иначе closure-чек не видит скиллы вне plugins/skills и
+  // молча их пропускает (правило bundle-not-closed на них не срабатывает).
+  function walk(dir) {
+    if (!existsSync(dir)) return;
+    for (const entry of readdirSync(dir)) {
+      const full = join(dir, entry);
+      if (statSync(full).isDirectory()) {
+        walk(full);
+      } else if (entry === 'SKILL.md') {
+        // <plugin>/skills/<name>/SKILL.md -> <plugin>/.claude-plugin/plugin.json
+        const pj = join(dirname(dirname(dirname(full))), '.claude-plugin', 'plugin.json');
+        if (existsSync(pj)) {
+          try {
+            set.add(JSON.parse(readFileSync(pj, 'utf8')).name);
+          } catch {
+            /* ignore */
+          }
+        }
       }
     }
   }
+  walk(join(REPO_ROOT, 'plugins'));
   return set;
 }
 
