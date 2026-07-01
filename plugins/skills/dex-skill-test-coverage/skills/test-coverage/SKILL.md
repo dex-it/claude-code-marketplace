@@ -26,13 +26,17 @@ coverage-инструмента, не оценка на глаз.
 Branch coverage поддержан не везде нативно. Целевая метрика - branch там, где тулчейн её даёт;
 где нет - деградация по правилу ниже, не отмена порога.
 
-| Язык | Метрика | Как включить |
+| Язык | Метрика | Инструмент |
 |------|---------|--------------|
-| C# / .NET | branch | coverlet (`--collect:"XPlat Code Coverage"` или `/p:CollectCoverage=true`), порог `/p:ThresholdType=branch /p:Threshold=75` |
-| JS / TS | branch | Vitest/Jest, provider `v8` или `istanbul`; отчёт даёт `branches`, порог `coverage.thresholds.branches` |
-| Python | branch | coverage.py с флагом `--branch` (или `run.branch = true`); без флага меряет только statement |
-| PHP | branch | PHPUnit + Xdebug (branch/path coverage); PCOV даёт только line - для branch нужен Xdebug |
-| Go | **statement** | `go test -cover` даёт statement, не branch (cmd/cover branch не поддерживает); branch - только сторонний `gobco` отдельным прогоном |
+| C# / .NET | branch | coverlet |
+| JS / TS | branch | Vitest/Jest, provider `v8` или `istanbul` |
+| Python | branch | coverage.py (флаг branch) |
+| PHP | branch | PHPUnit + Xdebug; PCOV даёт только line |
+| Go | **statement** | `go test -cover` даёт statement, не branch; branch - только сторонний `gobco` отдельным прогоном |
+
+Точный флаг/ключ конфига (версия тулчейна, порог, формат отчёта) - выясняй по факту в проекте
+(манифест, существующий CI-конфиг), не по образцу отсюда: синтаксис меняется между мажорами
+инструмента и различается между Vitest/Jest при общей метрике.
 
 ## Правило деградации метрики
 
