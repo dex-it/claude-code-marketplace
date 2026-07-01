@@ -12,10 +12,15 @@
 # (subject начинается с "autonomous-task: track=") в задачах ЭТОЙ сессии.
 # =============================================================================
 
+if ! command -v jq &> /dev/null; then
+  echo "Warning: jq not found, resume reminder disabled" >&2
+  exit 0
+fi
+
 set +e
 
 input=$(cat)
-session_id=$(printf '%s' "$input" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("session_id",""))' 2>/dev/null)
+session_id=$(printf '%s' "$input" | jq -r '.session_id // empty' 2>/dev/null)
 
 if [ -z "$session_id" ]; then
   exit 0
@@ -27,25 +32,17 @@ if [ ! -d "$tasks_dir" ]; then
   exit 0
 fi
 
-flag_track=$(python3 - "$tasks_dir" <<'PYEOF' 2>/dev/null
-import json, sys, os
-
-tasks_dir = sys.argv[1]
-for name in os.listdir(tasks_dir):
-    if not name.endswith(".json"):
-        continue
-    path = os.path.join(tasks_dir, name)
-    try:
-        with open(path, "r") as f:
-            task = json.load(f)
-    except (OSError, json.JSONDecodeError):
-        continue
-    subject = task.get("subject", "")
-    if task.get("status") != "completed" and subject.startswith("autonomous-task: track="):
-        print(subject.split("track=", 1)[1].strip())
-        break
-PYEOF
-)
+flag_track=""
+for task_file in "$tasks_dir"/*.json; do
+  [ -f "$task_file" ] || continue
+  subject=$(jq -r 'select(.status != "completed") | .subject // empty' "$task_file" 2>/dev/null)
+  case "$subject" in
+    "autonomous-task: track="*)
+      flag_track="${subject#autonomous-task: track=}"
+      break
+      ;;
+  esac
+done
 
 if [ -z "$flag_track" ]; then
   exit 0
@@ -61,7 +58,7 @@ tracks/<трек>.md, восстанови состояние из план-фа
 EOF
 )
 
-json_context=$(printf '%s' "$context" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))' 2>/dev/null)
+json_context=$(printf '%s' "$context" | jq -Rs . 2>/dev/null)
 
 if [ -z "$json_context" ]; then
   echo "$context"
