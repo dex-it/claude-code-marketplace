@@ -400,10 +400,12 @@ print_recipe() {
             echo "brew install jetbrains/utils/teamcity"
             ;;
 
-        # jira (ankitpokhrel jira-cli)
+        # jira (ankitpokhrel jira-cli) - GitHub release binary, latest tag via API.
+        # Artifacts: jira_<VER>_linux_{x86_64,arm64}.tar.gz (goreleaser). Убирает зависимость от Go и проблему $GOPATH/bin вне PATH.
         linux:*:jira)
-            echo 'command -v go >/dev/null 2>&1 || { echo "ERROR: Go >= 1.19 required to build jira-cli, or download a binary from https://github.com/ankitpokhrel/jira-cli/releases" >&2; exit 1; }'
-            echo "go install github.com/ankitpokhrel/jira-cli/cmd/jira@latest"
+            echo 'ARCH=$(uname -m); case "$ARCH" in x86_64) JIRA_ARCH=x86_64 ;; aarch64|arm64) JIRA_ARCH=arm64 ;; *) echo "ERROR: unsupported arch for jira: $ARCH (supported: x86_64, aarch64/arm64)" >&2; exit 1 ;; esac; VER=$(curl -fsSL https://api.github.com/repos/ankitpokhrel/jira-cli/releases/latest | grep "\"tag_name\":" | head -1 | cut -d"\"" -f4) && VNUM=${VER#v} && curl -fsSL -o /tmp/jira.tar.gz "https://github.com/ankitpokhrel/jira-cli/releases/download/${VER}/jira_${VNUM}_linux_${JIRA_ARCH}.tar.gz"'
+            echo 'rm -rf /tmp/jira-extract && mkdir -p /tmp/jira-extract && tar -xzf /tmp/jira.tar.gz -C /tmp/jira-extract'
+            echo 'JIRA_BIN=$(find /tmp/jira-extract -type f -name jira | head -1); [ -n "$JIRA_BIN" ] || { echo "ERROR: jira binary not found in release archive" >&2; exit 1; }; sudo install -m 0755 "$JIRA_BIN" /usr/local/bin/jira'
             ;;
         macos:brew:jira)
             echo "brew tap ankitpokhrel/jira-cli && brew install jira-cli"
