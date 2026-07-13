@@ -337,9 +337,11 @@
       "_description": "Sentry - error tracking, issue details, stack traces, releases",
       "_env": [
         "SENTRY_ACCESS_TOKEN",
-        "SENTRY_HOST (optional, self-hosted)"
+        "SENTRY_HOST (optional, self-hosted)",
+        "EMBEDDED_AGENT_PROVIDER (optional; enables search_events/search_issues)",
+        "ANTHROPIC_API_KEY (optional; key for the chosen EMBEDDED_AGENT_PROVIDER)"
       ],
-      "_note": "Official @sentry/mcp-server. stdio is WIP; remote mcp.sentry.dev (OAuth) is production-ready. User Auth Token; documented scopes: org:read project:read project:write team:read team:write event:write (our roles call read-only tools only). Source: https://github.com/getsentry/sentry-mcp",
+      "_note": "Official @sentry/mcp-server. stdio is WIP; remote mcp.sentry.dev (OAuth) is production-ready. User Auth Token; documented scopes: org:read project:read project:write team:read team:write event:write (our roles call read-only tools only). AI search tools (search_events/search_issues) require an LLM provider: set EMBEDDED_AGENT_PROVIDER (openai|azure-openai|anthropic|openrouter) plus the provider key, else those tools are unavailable. Self-hosted without Seer: set MCP_DISABLE_SKILLS=seer. Source: https://github.com/getsentry/sentry-mcp",
       "command": "npx",
       "args": [
         "-y",
@@ -347,7 +349,9 @@
       ],
       "env": {
         "SENTRY_ACCESS_TOKEN": "${SENTRY_ACCESS_TOKEN}",
-        "SENTRY_HOST": "${SENTRY_HOST:-sentry.io}"
+        "SENTRY_HOST": "${SENTRY_HOST:-sentry.io}",
+        "EMBEDDED_AGENT_PROVIDER": "${EMBEDDED_AGENT_PROVIDER}",
+        "ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}"
       }
     },
     "openapi": {
