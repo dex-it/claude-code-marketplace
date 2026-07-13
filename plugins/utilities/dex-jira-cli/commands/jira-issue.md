@@ -20,5 +20,5 @@ argument-hint: "<ISSUE-KEY> [--comments N]"
 
 **Constraints:**
 
-- Требует `jira` (ankitpokhrel/jira-cli) с настроенным доступом (`jira init`); self-hosted Jira -- `JIRA_AUTH_TYPE=bearer` с PAT в `JIRA_API_TOKEN`
+- Требует `jira` (ankitpokhrel/jira-cli) в PATH с настроенным доступом (`jira init`); если бинаря нет -- показать инструкцию установки и ссылку на `docs/CLI_UTILITIES.md`. Self-hosted Jira -- `JIRA_AUTH_TYPE=bearer` с PAT в `JIRA_API_TOKEN`
 - Read-only: только просмотр, без create / edit / move / delete

@@ -20,5 +20,5 @@ argument-hint: "\"<JQL>\" [--plain]"
 
 **Constraints:**
 
-- Требует `jira` (ankitpokhrel/jira-cli) с настроенным доступом (`jira init`)
+- Требует `jira` (ankitpokhrel/jira-cli) в PATH с настроенным доступом (`jira init`); если бинаря нет -- показать инструкцию установки и ссылку на `docs/CLI_UTILITIES.md`
 - Read-only: только поиск и просмотр
