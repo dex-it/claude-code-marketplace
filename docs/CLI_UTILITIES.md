@@ -415,7 +415,7 @@ CLI-утилиты и MCP-серверы дополняют друг друга.
 .\install-bundle\install-bundle.ps1 cli-tools
 ```
 
-Ставит все 11 CLI-плагинов (gh, glab, kubectl, jenkins, teamcity, psql, redis-cli, kaf, rabbitmqadmin, aws-s3, playwright). Пересекается с `dex-bundle-infrastructure` -- если он уже установлен, CLI-плагины придут с ним; запуск `cli-tools` для уже установленных компонентов просто отрапортует «already installed».
+Ставит все 12 CLI-плагинов (gh, glab, kubectl, jenkins, teamcity, jira, psql, redis-cli, kaf, rabbitmqadmin, aws-s3, playwright). Пересекается с `dex-bundle-infrastructure` -- если он уже установлен, CLI-плагины придут с ним; запуск `cli-tools` для уже установленных компонентов просто отрапортует «already installed».
 
 Для установки самих CLI-бинарей на чистой машине - после бандла:
 
