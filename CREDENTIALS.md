@@ -302,6 +302,68 @@ PDF Reader MCP не требует учётных данных. Работает
 
 ---
 
+### Sentry
+
+**Используется:** dex-incident-investigator, dex-stand-reviewer (error-tracking через MCP-сервер `sentry`)
+
+**Обязательные переменные:**
+- `SENTRY_ACCESS_TOKEN` — User Auth Token
+
+**Опциональные переменные:**
+- `SENTRY_HOST` — хост self-hosted Sentry (по умолчанию: `sentry.io`)
+
+**Инструкция по настройке:**
+
+1. Откройте Sentry → Settings → Account → User Auth Tokens (https://sentry.io/settings/account/api/auth-tokens/)
+2. Нажмите "Create New Token"
+3. Имя токена: `Claude Code Marketplace`
+4. Для расследования инцидента read-only достаточно областей: `org:read`, `project:read`, `team:read`
+5. Скопируйте токен и задайте переменную окружения:
+   ```bash
+   export SENTRY_ACCESS_TOKEN="xxxxxxxxxxxxx"
+   ```
+
+**Для Self-Hosted Sentry:**
+```bash
+export SENTRY_HOST="sentry.yourcompany.com"
+```
+
+**Примечание:** Официальный `@sentry/mcp-server` в stdio-режиме помечен как WIP; для облачного Sentry предпочтителен remote-сервер `mcp.sentry.dev` (OAuth). Конфигурация — сервер `sentry` в `mcp/mcp-template.json`.
+
+---
+
+### Jira
+
+**Используется:** dex-jira-cli, dex-incident-investigator, dex-stand-reviewer
+
+Доступ к Jira идёт двумя независимыми путями:
+- **CLI (dex-jira-cli):** утилита `jira` (ankitpokhrel/jira-cli), настраивается через `jira init`. Это НЕ MCP-сервер.
+- **MCP (опционально):** HTTP-сервер Jira регистрируется скриптом `run-claude/run-claude.sh` при заданных `JIRA_MCP_URL` и `JIRA_MCP_TOKEN` (см. `run-claude/sample.env`).
+
+**Переменные (CLI):**
+- `JIRA_API_TOKEN` — API-токен (Cloud) или Personal Access Token (Server/DC)
+- `JIRA_AUTH_TYPE` — `basic` (Jira Cloud, по умолчанию) или `bearer` (Jira Server/Data Center)
+
+**Инструкция (Jira Cloud):**
+
+1. Откройте https://id.atlassian.com/manage-profile/security/api-tokens
+2. Создайте API-токен, скопируйте
+3. Задайте переменные и выполните `jira init`:
+   ```bash
+   export JIRA_API_TOKEN="xxxxxxxxxxxxx"
+   jira init
+   ```
+
+**Для Self-Hosted (Server/Data Center):**
+```bash
+export JIRA_AUTH_TYPE="bearer"
+export JIRA_API_TOKEN="<personal-access-token>"
+```
+
+**Read-only:** для расследования и ревью на стенде достаточно учётки с правами только на чтение задач проекта.
+
+---
+
 ## Требования к учётным данным по плагинам
 
 | Плагин | GitLab | Notion | GitHub | MLflow | W&B | HuggingFace | Supabase | Google Drive | PDF Reader |
@@ -527,5 +589,5 @@ export GITLAB_API_URL="https://gitlab.yourcompany.com/api/v4"  # Если self-h
 
 ---
 
-**Последнее обновление:** 2025-11-26
-**Версия Marketplace:** 2.0.0
+**Последнее обновление:** 2026-07-13
+**Версия Marketplace:** 2.1.0

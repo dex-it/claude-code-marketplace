@@ -333,6 +333,23 @@
         "GRAFANA_API_KEY": "${GRAFANA_API_KEY}"
       }
     },
+    "sentry": {
+      "_description": "Sentry - error tracking, issue details, stack traces, releases",
+      "_env": [
+        "SENTRY_ACCESS_TOKEN",
+        "SENTRY_HOST (optional, self-hosted)"
+      ],
+      "_note": "Official @sentry/mcp-server. stdio is WIP; remote mcp.sentry.dev (OAuth) is production-ready. User Auth Token; read-only investigation needs org:read, project:read, team:read. Source: https://github.com/getsentry/sentry-mcp",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@sentry/mcp-server@latest"
+      ],
+      "env": {
+        "SENTRY_ACCESS_TOKEN": "${SENTRY_ACCESS_TOKEN}",
+        "SENTRY_HOST": "${SENTRY_HOST:-sentry.io}"
+      }
+    },
     "openapi": {
       "_description": "OpenAPI/Swagger - API documentation validation and dynamic tools",
       "_env": [],
