@@ -2,7 +2,7 @@
 
 Хаб CLI-плагинов маркетплейса Claude Code: каталог, матрица установки, конфигурация, CLI vs MCP, troubleshooting, безопасность.
 
-> **TL;DR.** CLI-плагины - это тонкие slash-команды-обёртки над проверенными CLI (`gh`, `glab`, `kubectl`, `psql`, `redis-cli`, `kaf`, `rabbitmqadmin`, `aws`, `jenkins-cli`, `teamcity`). Используйте их для read-only диагностики и точечных write-операций для отладки (`/kaf-produce`, `/rmq-publish`). MCP-серверы остаются предпочтительными, когда агенту нужен автономный многошаговый workflow по той же системе.
+> **TL;DR.** CLI-плагины - это тонкие slash-команды-обёртки над проверенными CLI (`gh`, `glab`, `kubectl`, `psql`, `redis-cli`, `kaf`, `rabbitmqadmin`, `aws`, `jenkins-cli`, `teamcity`, `jira`). Используйте их для read-only диагностики и точечных write-операций для отладки (`/kaf-produce`, `/rmq-publish`). MCP-серверы остаются предпочтительными, когда агенту нужен автономный многошаговый workflow по той же системе.
 
 ---
 
@@ -23,6 +23,7 @@
 | `dex-gitlab-cli` | `glab` | VCS / CI | `/gl-pipelines` `/gl-mrs` `/gl-logs` |
 | `dex-jenkins-cli` | `jenkins-cli` (Java + jar) | CI | `/jk-jobs` `/jk-builds` `/jk-logs` |
 | `dex-teamcity-cli` | `teamcity` (JetBrains Go) | CI | `/tc-builds` `/tc-agents` `/tc-logs` |
+| `dex-jira-cli` | `jira` (ankitpokhrel) | Tracker / Jira | `/jira-issue` `/jira-list` `/jira-sprint` |
 | `dex-kubectl-cli` | `kubectl` | Kubernetes | `/kube-pods` `/kube-logs` `/kube-deploy` `/kube-events` `/kube-context` |
 | `dex-psql-cli` | `psql` | PostgreSQL | `/psql-query` `/psql-schema` `/psql-explain` `/psql-locks` |
 | `dex-redis-cli` | `redis-cli` | Redis | `/redis-info` `/redis-keys` `/redis-memory` `/redis-monitor` |
@@ -100,8 +101,9 @@
 | `aws` (CLI v2) | bundled installer (`curl awscli-exe-linux-*.zip` + `unzip` + `./aws/install`) | bundled installer | `brew install awscli` | [docs.aws.amazon.com/cli/.../install](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) |
 | `jenkins-cli` | `apt install default-jre` + curl `$JENKINS_URL/jnlpJars/jenkins-cli.jar` + wrapper | `dnf install java-21-openjdk-headless` + curl jar + wrapper | `brew install openjdk` + curl jar + wrapper | [jenkins.io/.../cli](https://www.jenkins.io/doc/book/managing/cli/) |
 | `teamcity` (JetBrains) | `curl -fsSL https://jb.gg/tc/install \| bash` | то же | `brew install jetbrains/utils/teamcity` | [github.com/JetBrains/teamcity-cli](https://github.com/JetBrains/teamcity-cli) |
+| `jira` (ankitpokhrel) | `go install github.com/ankitpokhrel/jira-cli/cmd/jira@latest` (нужен Go) или [бинарь релиза](https://github.com/ankitpokhrel/jira-cli/releases) | то же | `brew tap ankitpokhrel/jira-cli && brew install jira-cli` | [github.com/ankitpokhrel/jira-cli](https://github.com/ankitpokhrel/jira-cli) |
 
-> Windows: PowerShell-зеркало доступно - `install-bundle/install-cli-tools.ps1` (использует `winget` / `scoop` / `choco`). WSL - также полностью поддерживаемый путь. На Windows `psql`, `jenkins-cli`, `rabbitmqadmin` через PM не ставятся (winget/scoop ставят полный PostgreSQL Server вместо клиента; jenkins-cli требует Java + jar; rabbitmqadmin не упакован в стандартные PM) - для них рекомендован WSL или ручная установка из официального источника.
+> Windows: PowerShell-зеркало доступно - `install-bundle/install-cli-tools.ps1` (использует `winget` / `scoop` / `choco`). WSL - также полностью поддерживаемый путь. На Windows `psql`, `jenkins-cli`, `rabbitmqadmin`, `jira` через PM не ставятся (winget/scoop ставят полный PostgreSQL Server вместо клиента; jenkins-cli требует Java + jar; rabbitmqadmin и jira не упакованы в стандартные PM - jira ставится `go install` или бинарём релиза) - для них рекомендован WSL или ручная установка из официального источника.
 
 **Linux pacman / apk:** скрипт `install-cli-tools.sh` поддерживает Arch (`pacman -S <pkg>`) и Alpine (`apk add <pkg>`) для тех инструментов, что есть в стандартных репозиториях (gh, glab, kubectl, psql/postgresql-libs, redis, aws-cli). Для `kaf` и `rabbitmqadmin` используются github releases (см. `install-cli-tools.sh`).
 
@@ -365,6 +367,17 @@ glab auth status
 Для self-hosted у `gh` несколько хост-конфигов (`gh auth login --hostname ghe.acme.io`); у `glab` - `glab config set --global hostname gitlab.acme.io`.
 
 Токены живут в `~/.config/gh/hosts.yml` и `~/.config/glab-cli/config.yml` - никогда не коммитьте их.
+
+### jira (ankitpokhrel Jira CLI)
+
+Single-binary CLI (Go). Первичная настройка интерактивно:
+
+```bash
+jira init                   # Cloud / Local, host, проект, board; пишет ~/.config/.jira/.config.yml
+jira issue view ISSUE-1     # проверка доступа
+```
+
+Тип авторизации задаётся до `jira init` через `JIRA_AUTH_TYPE`: `basic` (Jira Cloud, по умолчанию, email + API-токен) или `bearer` (self-hosted Server/DC, Personal Access Token). Токен - в `JIRA_API_TOKEN`; путь конфига переопределяется `JIRA_CONFIG_FILE` или флагом `--config`. Все три slash-команды (`/jira-issue`, `/jira-list`, `/jira-sprint`) read-only. Получение токена и области доступа - [CREDENTIALS.md](../CREDENTIALS.md#jira).
 
 ---
 
