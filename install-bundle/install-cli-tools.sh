@@ -31,7 +31,7 @@ print_header()  { echo -e "${MAGENTA}$*${NC}"; }
 print_dim()     { echo -e "${GRAY}$*${NC}"; }
 
 # Supported tools
-SUPPORTED_TOOLS=(gh glab kubectl psql redis-cli kaf rabbitmqadmin aws jenkins-cli teamcity \
+SUPPORTED_TOOLS=(gh glab kubectl psql redis-cli kaf rabbitmqadmin aws jenkins-cli teamcity jira \
                  netcoredbg gdb lldb strace bpftrace bcc perf binutils rizin ilspycmd \
                  flamegraph valgrind lief dotnet-diagnostic-tools)
 
@@ -107,6 +107,7 @@ tool_description() {
         aws)           echo "AWS CLI v2 (used by dex-aws-s3-cli)" ;;
         jenkins-cli)   echo "Jenkins CLI (.jar + Java wrapper) (used by dex-jenkins-cli)" ;;
         teamcity)      echo "TeamCity CLI by JetBrains (used by dex-teamcity-cli)" ;;
+        jira)          echo "Jira CLI by ankitpokhrel (used by dex-jira-cli)" ;;
         netcoredbg)    echo "Samsung netcoredbg .NET CLI debugger (used by dex-netcoredbg-cli)" ;;
         gdb)           echo "GNU debugger (native debug)" ;;
         lldb)          echo "LLVM debugger (native debug, macOS default)" ;;
@@ -227,6 +228,7 @@ tool_version() {
         # so we report status (not version) when the wrapper file is in PATH.
         jenkins-cli)   echo "jenkins-cli (wrapper installed; version requires JENKINS_URL)" ;;
         teamcity)      teamcity --version 2>/dev/null | head -1 ;;
+        jira)          jira version 2>/dev/null | head -1 ;;
         netcoredbg)    netcoredbg --version 2>/dev/null | head -1 ;;
         gdb)           gdb --version 2>/dev/null | head -1 ;;
         lldb)          lldb --version 2>/dev/null | head -1 ;;
@@ -396,6 +398,15 @@ print_recipe() {
             ;;
         macos:brew:teamcity)
             echo "brew install jetbrains/utils/teamcity"
+            ;;
+
+        # jira (ankitpokhrel jira-cli)
+        linux:*:jira)
+            echo 'command -v go >/dev/null 2>&1 || { echo "ERROR: Go >= 1.19 required to build jira-cli, or download a binary from https://github.com/ankitpokhrel/jira-cli/releases" >&2; exit 1; }'
+            echo "go install github.com/ankitpokhrel/jira-cli/cmd/jira@latest"
+            ;;
+        macos:brew:jira)
+            echo "brew tap ankitpokhrel/jira-cli && brew install jira-cli"
             ;;
 
         # aws (AWS CLI v2)
