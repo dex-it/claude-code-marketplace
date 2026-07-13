@@ -339,7 +339,7 @@
         "SENTRY_ACCESS_TOKEN",
         "SENTRY_HOST (optional, self-hosted)"
       ],
-      "_note": "Official @sentry/mcp-server. stdio is WIP; remote mcp.sentry.dev (OAuth) is production-ready. User Auth Token; read-only investigation needs org:read, project:read, team:read. Source: https://github.com/getsentry/sentry-mcp",
+      "_note": "Official @sentry/mcp-server. stdio is WIP; remote mcp.sentry.dev (OAuth) is production-ready. User Auth Token; documented scopes: org:read project:read project:write team:read team:write event:write (our roles call read-only tools only). Source: https://github.com/getsentry/sentry-mcp",
       "command": "npx",
       "args": [
         "-y",

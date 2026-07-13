@@ -317,7 +317,7 @@ PDF Reader MCP не требует учётных данных. Работает
 1. Откройте Sentry → Settings → Account → User Auth Tokens (https://sentry.io/settings/account/api/auth-tokens/)
 2. Нажмите "Create New Token"
 3. Имя токена: `Claude Code Marketplace`
-4. Для расследования инцидента read-only достаточно областей: `org:read`, `project:read`, `team:read`
+4. Официально документируемый набор областей токена: `org:read`, `project:read`, `project:write`, `team:read`, `team:write`, `event:write` (источник: github.com/getsentry/sentry-mcp). Расследование и ревью вызывают только читающие инструменты сервера — мутирующие (триаж / resolve issue) не используются; write-области входят в документированный набор ради этих инструментов
 5. Скопируйте токен и задайте переменную окружения:
    ```bash
    export SENTRY_ACCESS_TOKEN="xxxxxxxxxxxxx"
