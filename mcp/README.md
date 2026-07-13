@@ -2,7 +2,7 @@
 
 Централизованный каталог MCP (Model Context Protocol) серверов для всех плагинов Claude Code Marketplace.
 
-> **Когда CLI вместо MCP.** Для read-only диагностики (PostgreSQL / Redis / Kafka / Kubernetes / GitHub / GitLab) часто достаточно CLI-плагинов из `plugins/utilities/dex-*-cli/` — они легче, не требуют отдельного сервера и используют существующий CLI-auth. MCP-серверы остаются предпочтительным выбором для автономных агентских workflow со сложной логикой. Decision matrix и сравнение покрытия — см. [`docs/CLI_UTILITIES.md`](../docs/CLI_UTILITIES.md#cli-vs-mcp-матрица-решений).
+> **Когда CLI вместо MCP.** Для read-only диагностики (PostgreSQL / Redis / Kafka / Kubernetes / GitHub / GitLab) часто достаточно CLI-плагинов из `plugins/utilities/dex-*-cli/` - они легче, не требуют отдельного сервера и используют существующий CLI-auth. MCP-серверы остаются предпочтительным выбором для автономных агентских workflow со сложной логикой. Decision matrix и сравнение покрытия - см. [`docs/CLI_UTILITIES.md`](../docs/CLI_UTILITIES.md#cli-vs-mcp-матрица-решений).
 
 ## Быстрый старт
 
@@ -17,7 +17,7 @@
 
 Сами серверы каталога запускаются одинаково на Linux и macOS: в конфиге нет путей или команд, привязанных к ОС. Различается только то, что должно стоять заранее:
 
-- **npx-серверы** (github, notion, kubernetes, playwright, grafana, teamcity, elasticsearch, pdf-reader, google-drive, wandb, huggingface, openapi, filesystem, chrome-devtools, genai-toolbox для БД): нужен Node.js. Linux - `setup/npx-install/install.sh`; macOS - `brew install node`.
+- **npx-серверы** (github, notion, kubernetes, playwright, grafana, sentry, teamcity, elasticsearch, pdf-reader, google-drive, wandb, huggingface, openapi, filesystem, chrome-devtools, genai-toolbox для БД): нужен Node.js. Linux - `setup/npx-install/install.sh`; macOS - `brew install node`.
 - **uvx-серверы** (gitlab после v18, rabbitmq, docker, mlflow): нужен uv. Linux и macOS - `setup/uvx-install/install.sh` (установщик uv кросс-платформенный).
 - **Бинарные серверы**:
   - `kafka` (`kafka-mcp-server`, Go-бинарь): macOS - `brew tap tuannvm/mcp && brew install kafka-mcp-server`; Linux - бинарь из [github.com/tuannvm/kafka-mcp-server](https://github.com/tuannvm/kafka-mcp-server). Должен быть в `PATH`.
@@ -122,6 +122,7 @@ Playwright MCP даёт агенту высокоуровневые операц
 | Сервер | Описание | Переменные |
 |--------|----------|------------|
 | **grafana** | Grafana - dashboards, Prometheus metrics, Loki logs | `GRAFANA_URL`, `GRAFANA_API_KEY` |
+| **sentry** | Sentry - error tracking, issues, stack traces, releases | `SENTRY_ACCESS_TOKEN`, `SENTRY_HOST` |
 | **openapi** | OpenAPI/Swagger - API documentation generation | - |
 
 ### ML/AI инструменты

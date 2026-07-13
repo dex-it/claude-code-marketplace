@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "5.24.0",
+  "version": "5.25.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -1609,8 +1609,8 @@
     {
       "name": "dex-bundle-cli-tools",
       "source": "./plugins/bundles/dex-bundle-cli-tools",
-      "description": "CLI tools bundle: VCS/CI (gh, glab, jenkins, teamcity), Kubernetes (kubectl), data & messaging (psql, redis-cli, kaf, rabbitmqadmin), cloud (aws s3), browser testing (playwright)",
-      "version": "1.1.0",
+      "description": "CLI tools bundle: VCS/CI (gh, glab, jenkins, teamcity), tracker (jira), Kubernetes (kubectl), data & messaging (psql, redis-cli, kaf, rabbitmqadmin), cloud (aws s3), browser testing (playwright)",
+      "version": "1.2.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -1692,6 +1692,23 @@
         "cli",
         "builds",
         "ci-cd"
+      ]
+    },
+    {
+      "name": "dex-jira-cli",
+      "source": "./plugins/utilities/dex-jira-cli",
+      "description": "Jira CLI: issues, JQL search, sprint via jira (ankitpokhrel/jira-cli), read-only",
+      "version": "1.0.1",
+      "category": "utility",
+      "keywords": [
+        "utility",
+        "jira",
+        "cli",
+        "issue",
+        "jql",
+        "sprint",
+        "tracker",
+        "acceptance-criteria"
       ]
     },
     {
@@ -2074,8 +2091,8 @@
     {
       "name": "dex-skill-stand-verification",
       "source": "./plugins/skills/dex-skill-stand-verification",
-      "description": "Доказательство поведения слитой фичи на развёрнутом стенде против ТЗ: зелёный деплой не равно рабочая фича, привязка образа к merge-коммиту, требование к read-only пробе на стенде, проверка на стенде, а не локально.",
-      "version": "1.0.0",
+      "description": "Доказательство поведения слитой фичи на развёрнутом стенде против ТЗ: зелёный деплой не равно рабочая фича, привязка образа к merge-коммиту, требование к read-only пробе на стенде, проверка на стенде, а не локально, дисциплина временных E2E (ассерт против ТЗ, изоляция, уборка).",
+      "version": "1.1.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2085,7 +2102,9 @@
         "stand-review",
         "acceptance",
         "image-sha",
-        "regression"
+        "regression",
+        "e2e",
+        "scratch-test"
       ]
     },
     {
@@ -2521,7 +2540,7 @@
       "name": "dex-stand-reviewer",
       "source": "./plugins/specialists/review/dex-stand-reviewer",
       "description": "Ревью слитой фичи на развёрнутом стенде против ТЗ, read-only: привязка образа к merge-коммиту, карта требование -> проба на стенде, параллельные суб-агенты улик, фальсификация находок и утверждений 'выполнено', severity/confidence/scope, отчёт.",
-      "version": "1.1.0",
+      "version": "1.3.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2619,7 +2638,7 @@
       "name": "dex-incident-investigator",
       "source": "./plugins/specialists/delivery/dex-incident-investigator",
       "description": "Расследование инцидента и поиск корневой причины на общем стенде до фикса на источнике: спецификация IS/IS-NOT, параллельный сбор улик, причинно-следственная цепочка, фальсификация причины, фикс под gate. Делегирует сбор со стенда инфра-плагинам.",
-      "version": "1.3.0",
+      "version": "1.4.1",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2681,8 +2700,8 @@
     {
       "name": "dex-bundle-bug-lifecycle",
       "source": "./plugins/bundles/dex-bundle-bug-lifecycle",
-      "description": "Bundle жизненного цикла бага: активный поиск, оформление, расследование корневой причины на общем стенде и фикс на источнике, плюс skills методологии RCA и поиска багов и CLI для чтения стенда.",
-      "version": "1.6.0",
+      "description": "Bundle жизненного цикла бага: активный поиск, оформление, расследование корневой причины на общем стенде и фикс на источнике, плюс skills методологии RCA и поиска багов и CLI для чтения стенда и трекера.",
+      "version": "1.8.0",
       "category": "bundle",
       "keywords": [
         "bundle",

@@ -12,7 +12,7 @@
 
 ### Рекомендуемый: Системные переменные окружения
 
-**Лучшая практика** — задать переменные окружения в конфигурации вашей оболочки:
+**Лучшая практика** - задать переменные окружения в конфигурации вашей оболочки:
 
 ```bash
 # Добавьте в ~/.bashrc, ~/.zshrc или аналогичный файл
@@ -33,12 +33,12 @@ source ~/.bashrc  # или ~/.zshrc
 
 Плагины используют два паттерна для переменных окружения:
 
-1. **Обязательная переменная** — ошибка, если не задана:
+1. **Обязательная переменная** - ошибка, если не задана:
    ```json
    "${VAR_NAME}"
    ```
 
-2. **Опциональная со значением по умолчанию** — использует значение по умолчанию, если не задана:
+2. **Опциональная со значением по умолчанию** - использует значение по умолчанию, если не задана:
    ```json
    "${VAR_NAME:-default_value}"
    ```
@@ -66,10 +66,10 @@ source ~/.bashrc  # или ~/.zshrc
 **Используется:** dex-devops, dex-dotnet-developer, dex-python-ml-developer, dex-quality-assurance, dex-dotnet-architect
 
 **Обязательные переменные:**
-- `GITLAB_TOKEN` — Personal Access Token
+- `GITLAB_TOKEN` - Personal Access Token
 
 **Опциональные переменные:**
-- `GITLAB_API_URL` — URL API GitLab (по умолчанию: `https://gitlab.com/api/v4`)
+- `GITLAB_API_URL` - URL API GitLab (по умолчанию: `https://gitlab.com/api/v4`)
 
 **Инструкция по настройке:**
 
@@ -78,9 +78,9 @@ source ~/.bashrc  # или ~/.zshrc
 3. Имя токена: `Claude Code Marketplace`
 4. Дата истечения: выберите подходящий срок
 5. Выберите области доступа (scopes):
-   - ✅ `api` — полный доступ к API
-   - ✅ `read_repository` — чтение репозитория
-   - ✅ `write_repository` — запись в репозиторий
+   - ✅ `api` - полный доступ к API
+   - ✅ `read_repository` - чтение репозитория
+   - ✅ `write_repository` - запись в репозиторий
 6. Нажмите "Create personal access token"
 7. Скопируйте токен (начинается с `glpat-`)
 8. Задайте переменную окружения:
@@ -100,7 +100,7 @@ export GITLAB_API_URL="https://gitlab.yourcompany.com/api/v4"
 **Используется:** dex-product-manager, dex-dotnet-developer, dex-python-ml-developer, dex-system-analyst, dex-dotnet-architect
 
 **Обязательные переменные:**
-- `NOTION_TOKEN` — Internal Integration Token
+- `NOTION_TOKEN` - Internal Integration Token
 
 **Инструкция по настройке:**
 
@@ -118,7 +118,7 @@ export GITLAB_API_URL="https://gitlab.yourcompany.com/api/v4"
 
 **Важно:** Предоставьте интеграции доступ к страницам/базам данных:
 1. Откройте нужную страницу Notion
-2. Нажмите "Share" → "Invite"
+2. Нажмите "Share" -> "Invite"
 3. Выберите вашу интеграцию из списка
 
 ---
@@ -128,17 +128,17 @@ export GITLAB_API_URL="https://gitlab.yourcompany.com/api/v4"
 **Используется:** dex-dotnet-architect
 
 **Обязательные переменные:**
-- `GITHUB_TOKEN` — Personal Access Token
+- `GITHUB_TOKEN` - Personal Access Token
 
 **Инструкция по настройке:**
 
 1. Перейдите на https://github.com/settings/tokens
-2. Нажмите "Generate new token" → "Generate new token (classic)"
+2. Нажмите "Generate new token" -> "Generate new token (classic)"
 3. Имя токена: `Claude Code Marketplace`
 4. Срок действия: выберите подходящий
 5. Выберите области доступа (scopes):
-   - ✅ `repo` — полный контроль приватных репозиториев
-   - ✅ `read:org` — чтение данных организации
+   - ✅ `repo` - полный контроль приватных репозиториев
+   - ✅ `read:org` - чтение данных организации
 6. Нажмите "Generate token"
 7. Скопируйте токен (начинается с `ghp_`)
 8. Задайте переменную окружения:
@@ -153,7 +153,7 @@ export GITLAB_API_URL="https://gitlab.yourcompany.com/api/v4"
 **Используется:** dex-python-ml-developer
 
 **Обязательные переменные:**
-- `MLFLOW_TRACKING_URI` — URL сервера отслеживания MLflow
+- `MLFLOW_TRACKING_URI` - URL сервера отслеживания MLflow
 
 **Инструкция по настройке:**
 
@@ -188,7 +188,7 @@ export DATABRICKS_TOKEN="dapi_xxxxxxxxxxxxx"
 **Используется:** dex-python-ml-developer
 
 **Обязательные переменные:**
-- `WANDB_API_KEY` — API-ключ W&B
+- `WANDB_API_KEY` - API-ключ W&B
 
 **Инструкция по настройке:**
 
@@ -207,7 +207,7 @@ export DATABRICKS_TOKEN="dapi_xxxxxxxxxxxxx"
 **Используется:** dex-python-ml-developer
 
 **Обязательные переменные:**
-- `HUGGINGFACE_TOKEN` — API-токен HuggingFace
+- `HUGGINGFACE_TOKEN` - API-токен HuggingFace
 
 **Инструкция по настройке:**
 
@@ -216,8 +216,8 @@ export DATABRICKS_TOKEN="dapi_xxxxxxxxxxxxx"
 3. Нажмите "New token"
 4. Имя токена: `Claude Code Marketplace`
 5. Тип токена: выберите в зависимости от потребностей:
-   - **Read** — скачивание моделей/датасетов
-   - **Write** — загрузка моделей/датасетов
+   - **Read** - скачивание моделей/датасетов
+   - **Write** - загрузка моделей/датасетов
 6. Нажмите "Generate token"
 7. Скопируйте токен (начинается с `hf_`)
 8. Задайте переменную окружения:
@@ -232,14 +232,14 @@ export DATABRICKS_TOKEN="dapi_xxxxxxxxxxxxx"
 **Используется:** dex-dotnet-developer (опционально)
 
 **Обязательные переменные:**
-- `SUPABASE_CONNECTION_STRING` — строка подключения PostgreSQL
+- `SUPABASE_CONNECTION_STRING` - строка подключения PostgreSQL
 
 **Инструкция по настройке:**
 
 **Вариант 1: Supabase**
 1. Зарегистрируйтесь на https://supabase.com
 2. Создайте новый проект
-3. Перейдите в Project Settings → Database
+3. Перейдите в Project Settings -> Database
 4. Скопируйте строку подключения (рекомендуется Pooler mode)
 5. Задайте переменную окружения:
    ```bash
@@ -258,19 +258,19 @@ export SUPABASE_CONNECTION_STRING="postgresql://username:password@localhost:5432
 **Используется:** dex-system-analyst
 
 **Обязательные переменные:**
-- `GOOGLE_DRIVE_OAUTH_CREDENTIALS` — путь к файлу OAuth credentials JSON
+- `GOOGLE_DRIVE_OAUTH_CREDENTIALS` - путь к файлу OAuth credentials JSON
 
 **Инструкция по настройке:**
 
 1. Создайте проект в Google Cloud Console: https://console.cloud.google.com
-2. Перейдите в APIs & Services → Library
+2. Перейдите в APIs & Services -> Library
 3. Включите следующие APIs:
    - Google Drive API
    - Google Docs API
    - Google Sheets API
    - Google Slides API
-4. Перейдите в APIs & Services → Credentials
-5. Нажмите "Create Credentials" → "OAuth client ID"
+4. Перейдите в APIs & Services -> Credentials
+5. Нажмите "Create Credentials" -> "OAuth client ID"
 6. Application type: выберите "Desktop app"
 7. Имя: `Claude Code MCP`
 8. Нажмите "Create"
@@ -284,7 +284,7 @@ export SUPABASE_CONNECTION_STRING="postgresql://username:password@localhost:5432
     ```bash
     export GOOGLE_DRIVE_OAUTH_CREDENTIALS="$HOME/.config/google-drive-mcp/oauth-credentials.json"
     ```
-12. При первом запуске откроется браузер для OAuth авторизации — войдите в Google аккаунт и разрешите доступ
+12. При первом запуске откроется браузер для OAuth авторизации - войдите в Google аккаунт и разрешите доступ
 
 **Примечание:** Токены сохраняются автоматически в `~/.config/google-drive-mcp/tokens.json` и обновляются при необходимости.
 
@@ -299,6 +299,70 @@ export SUPABASE_CONNECTION_STRING="postgresql://username:password@localhost:5432
 PDF Reader MCP не требует учётных данных. Работает с:
 - Локальными файлами (абсолютные и относительные пути)
 - HTTP/HTTPS URL
+
+---
+
+### Sentry
+
+**Используется:** dex-incident-investigator, dex-stand-reviewer (error-tracking через MCP-сервер `sentry`)
+
+**Обязательные переменные:**
+- `SENTRY_ACCESS_TOKEN` - User Auth Token
+
+**Опциональные переменные:**
+- `SENTRY_HOST` - хост self-hosted Sentry (по умолчанию: `sentry.io`)
+- `EMBEDDED_AGENT_PROVIDER` - провайдер LLM для search-инструментов Sentry (search_events / search_issues); без него эти инструменты недоступны. Значения: openai / azure-openai / anthropic / openrouter, для нашего стека anthropic плюс ключ `ANTHROPIC_API_KEY`
+- `MCP_DISABLE_SKILLS=seer` - для self-hosted Sentry без Seer
+
+**Инструкция по настройке:**
+
+1. Откройте Sentry -> Settings -> Account -> User Auth Tokens (https://sentry.io/settings/account/api/auth-tokens/)
+2. Нажмите "Create New Token"
+3. Имя токена: `Claude Code Marketplace`
+4. Официально документируемый набор областей токена: `org:read`, `project:read`, `project:write`, `team:read`, `team:write`, `event:write` (источник: github.com/getsentry/sentry-mcp). Расследование и ревью вызывают только читающие инструменты сервера - мутирующие (триаж / resolve issue) не используются; write-области входят в документированный набор ради этих инструментов
+5. Скопируйте токен и задайте переменную окружения:
+   ```bash
+   export SENTRY_ACCESS_TOKEN="xxxxxxxxxxxxx"
+   ```
+
+**Для Self-Hosted Sentry:**
+```bash
+export SENTRY_HOST="sentry.yourcompany.com"
+```
+
+**Примечание:** Официальный `@sentry/mcp-server` в stdio-режиме помечен как WIP; для облачного Sentry предпочтителен remote-сервер `mcp.sentry.dev` (OAuth). Конфигурация - сервер `sentry` в `mcp/mcp-template.json`.
+
+---
+
+### Jira
+
+**Используется:** dex-jira-cli, dex-incident-investigator, dex-stand-reviewer
+
+Доступ к Jira идёт двумя независимыми путями:
+- **CLI (dex-jira-cli):** утилита `jira` (ankitpokhrel/jira-cli), настраивается через `jira init`. Это НЕ MCP-сервер.
+- **MCP (опционально):** HTTP-сервер Jira регистрируется скриптом `run-claude/run-claude.sh` при заданных `JIRA_MCP_URL` и `JIRA_MCP_TOKEN` (см. `run-claude/sample.env`).
+
+**Переменные (CLI):**
+- `JIRA_API_TOKEN` - API-токен (Cloud) или Personal Access Token (Server/DC)
+- `JIRA_AUTH_TYPE` - `basic` (Jira Cloud, по умолчанию) или `bearer` (Jira Server/Data Center)
+
+**Инструкция (Jira Cloud):**
+
+1. Откройте https://id.atlassian.com/manage-profile/security/api-tokens
+2. Создайте API-токен, скопируйте
+3. Задайте переменные и выполните `jira init`:
+   ```bash
+   export JIRA_API_TOKEN="xxxxxxxxxxxxx"
+   jira init
+   ```
+
+**Для Self-Hosted (Server/Data Center):**
+```bash
+export JIRA_AUTH_TYPE="bearer"
+export JIRA_API_TOKEN="<personal-access-token>"
+```
+
+**Read-only:** для расследования и ревью на стенде достаточно учётки с правами только на чтение задач проекта.
 
 ---
 
@@ -323,23 +387,23 @@ PDF Reader MCP не требует учётных данных. Работает
 
 ### ДЕЛАЙТЕ ✅
 
-1. **Используйте переменные окружения** — никогда не храните учётные данные в файлах
-2. **Устанавливайте срок действия** — задавайте дату истечения для всех токенов
-3. **Минимум прав** — предоставляйте только необходимые разрешения
-4. **Регулярно обновляйте токены** — периодически создавайте новые
-5. **Используйте .gitignore** — убедитесь, что `.env` файлы игнорируются git
-6. **Разделяйте окружения** — используйте разные токены для dev/staging/prod
-7. **Храните надёжно** — используйте менеджеры паролей для хранения токенов
+1. **Используйте переменные окружения** - никогда не храните учётные данные в файлах
+2. **Устанавливайте срок действия** - задавайте дату истечения для всех токенов
+3. **Минимум прав** - предоставляйте только необходимые разрешения
+4. **Регулярно обновляйте токены** - периодически создавайте новые
+5. **Используйте .gitignore** - убедитесь, что `.env` файлы игнорируются git
+6. **Разделяйте окружения** - используйте разные токены для dev/staging/prod
+7. **Храните надёжно** - используйте менеджеры паролей для хранения токенов
 
 ### НЕ ДЕЛАЙТЕ ❌
 
-1. **Никогда не коммитьте токены** — не добавляйте учётные данные в репозиторий
-2. **Не делитесь токенами** — каждый разработчик должен иметь свои
-3. **Не используйте root-токены** — избегайте токенов с правами администратора
-4. **Не пропускайте срок действия** — всегда устанавливайте дату истечения
-5. **Не переиспользуйте токены** — используйте разные токены для разных целей
-6. **Не хардкодьте** — никогда не записывайте учётные данные в .mcp.json файлы
-7. **Не светите в логах** — будьте внимательны с отладочным выводом
+1. **Никогда не коммитьте токены** - не добавляйте учётные данные в репозиторий
+2. **Не делитесь токенами** - каждый разработчик должен иметь свои
+3. **Не используйте root-токены** - избегайте токенов с правами администратора
+4. **Не пропускайте срок действия** - всегда устанавливайте дату истечения
+5. **Не переиспользуйте токены** - используйте разные токены для разных целей
+6. **Не хардкодьте** - никогда не записывайте учётные данные в .mcp.json файлы
+7. **Не светите в логах** - будьте внимательны с отладочным выводом
 
 ## Проверка
 
@@ -389,10 +453,10 @@ claude
 1. **Проверьте валидность токена:**
    - GitLab: `curl -H "PRIVATE-TOKEN: $GITLAB_TOKEN" https://gitlab.com/api/v4/user`
    - GitHub: `curl -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/user`
-   - Notion: Проверьте в Notion → Settings → Integrations
-2. **Проверьте области доступа токена** — убедитесь, что нужные разрешения выданы
-3. **Срок действия токена** — создайте новый токен, если старый истёк
-4. **Лимиты API** — подождите, если превышен лимит запросов
+   - Notion: Проверьте в Notion -> Settings -> Integrations
+2. **Проверьте области доступа токена** - убедитесь, что нужные разрешения выданы
+3. **Срок действия токена** - создайте новый токен, если старый истёк
+4. **Лимиты API** - подождите, если превышен лимит запросов
 
 ---
 
@@ -416,7 +480,7 @@ claude
 
 **Решения:**
 1. **Предоставьте доступ страницам:**
-   - Откройте страницу Notion → Share → Invite integration
+   - Откройте страницу Notion -> Share -> Invite integration
 2. **Проверьте разрешения интеграции:**
    - https://www.notion.so/my-integrations
    - Убедитесь, что включены возможности Read/Write/Insert
@@ -440,7 +504,7 @@ claude
    - Локальный: `http://localhost:5000`
    - Удалённый: `https://mlflow.yourcompany.com`
    - Databricks: `databricks`
-3. **Проверьте сеть/файрвол** — убедитесь, что порт MLflow доступен
+3. **Проверьте сеть/файрвол** - убедитесь, что порт MLflow доступен
 
 ---
 
@@ -453,7 +517,7 @@ claude
    ```bash
    export HUGGINGFACE_TOKEN="hf_xxxxx"
    ```
-2. **Проверьте тип токена** — используйте "Write" токен для загрузки
+2. **Проверьте тип токена** - используйте "Write" токен для загрузки
 3. **Проверьте токен:**
    ```bash
    huggingface-cli whoami
@@ -520,12 +584,12 @@ export GITLAB_API_URL="https://gitlab.yourcompany.com/api/v4"  # Если self-h
 
 Если вы столкнулись с проблемами, не описанными в этом руководстве:
 
-1. **Проверьте README плагина** — каждый плагин имеет раздел устранения неполадок
-2. **Проверьте учётные данные** — используйте curl/API-клиенты для прямой проверки токенов
-3. **Проверьте логи MCP** — ищите сообщения об ошибках в выводе Claude Code
-4. **GitHub Issues** — сообщайте о проблемах на https://github.com/anthropics/claude-code/issues
+1. **Проверьте README плагина** - каждый плагин имеет раздел устранения неполадок
+2. **Проверьте учётные данные** - используйте curl/API-клиенты для прямой проверки токенов
+3. **Проверьте логи MCP** - ищите сообщения об ошибках в выводе Claude Code
+4. **GitHub Issues** - сообщайте о проблемах на https://github.com/anthropics/claude-code/issues
 
 ---
 
-**Последнее обновление:** 2025-11-26
-**Версия Marketplace:** 2.0.0
+**Последнее обновление:** 2026-07-13
+**Версия Marketplace:** 2.1.0

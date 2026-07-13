@@ -34,7 +34,7 @@ Access & Map -> Problem Specification -> Parallel Evidence -> Hypotheses & Chain
 
 **Mandatory:** yes - без карты проектов и доступов сбор улик идёт вслепую и путает проекты между собой.
 
-Сбор со стенда веди только read-only (get / describe / logs / top / events) через host-CLI, как в утилитах dex-kubectl-cli, dex-gitlab-cli, dex-teamcity-cli; observability - через dex-monitoring-grafana и dex-logging-seq. Загрузи `dex-skill-shared-stand-safety:shared-stand-safety` - дисциплина общего стенда и секретов.
+Сбор со стенда веди только read-only (get / describe / logs / top / events) через host-CLI, как в утилитах dex-kubectl-cli, dex-gitlab-cli (или dex-github-cli для GitHub-хостинга), dex-teamcity-cli; observability - через dex-monitoring-grafana (метрики Prometheus, трейсы Tempo, логи Loki) и dex-logging-seq, error-tracking - через MCP-сервер `sentry`; связанные тикеты - через dex-jira-cli. Нужной read-only CLI нет - предложи установку из официального источника (`install-bundle/install-cli-tools.sh`), молча не ставь и общий стенд не трогай. Загрузи `dex-skill-shared-stand-safety:shared-stand-safety` - дисциплина общего стенда и секретов.
 
 ## Phase 1: Problem Specification
 
@@ -60,7 +60,9 @@ Access & Map -> Problem Specification -> Parallel Evidence -> Hypotheses & Chain
 
 **Mandatory:** yes - один проход одним контекстом смешивает источники и тянет к ранней гипотезе.
 
-Запускай независимые субагенты через Agent tool по осям: стенд и рантайм (поды, события, логи и `--previous`, ресурсы); observability (метрики, момент всплеска, трейсы); код и поток данных (от симптома назад к источнику плохого значения); корреляция изменений (что менялось в окне вокруг WHEN); межпроектные контракты; конфиг, флаги, зависимости, миграции. Условно загружай `dex-skill-change-correlation:change-correlation` для окна изменений, `dex-skill-contract-drift:contract-drift` при нескольких сторонах, `dex-skill-observability:observability` для метрик и трейсов; по стеку - релевантные стек-skills. Верификацию находки поручай отдельному субагенту, не тому, что нашёл.
+Запускай независимые субагенты через Agent tool по осям: стенд и рантайм (поды, события, логи и `--previous`, ресурсы); observability (метрики Prometheus и момент всплеска через `dex-monitoring-grafana`, трейсы Tempo, новые сигнатуры ошибок в error-tracking `sentry` и структурных логах `dex-logging-seq`); код и поток данных (от симптома назад к источнику плохого значения); корреляция изменений (что менялось в окне вокруг WHEN, мерджи в общую ветку, связанные тикеты через `dex-jira-cli`); межпроектные контракты; конфиг, флаги, зависимости, миграции. Условно загружай `dex-skill-change-correlation:change-correlation` для окна изменений, `dex-skill-contract-drift:contract-drift` при нескольких сторонах, `dex-skill-observability:observability` для метрик и трейсов; по стеку - релевантные стек-skills. Верификацию находки поручай отдельному субагенту, не тому, что нашёл.
+
+git bisect для изоляции изменения - активный шаг (checkout и сборка), не read-only: в `autonomous` предлагается в Output и запускается только при поле-санкции `apply` от оркестратора, в `interactive` - по явной команде пользователя, не молча в сборе улик. Команда `git bisect start --first-parent`, scope на каталог затронутого проекта.
 
 ## Phase 3: Hypotheses and Cause-Effect Chain
 
@@ -128,7 +130,7 @@ Access & Map -> Problem Specification -> Parallel Evidence -> Hypotheses & Chain
 
 **Mandatory:** no - фаза не выполняется без санкции; расследование может закончиться отчётом.
 
-Любой apply / restart / scale / передеплой на общем стенде - отдельная санкция `deploy`, даже после `фиксируй`/`apply` (см. `dex-skill-shared-stand-safety:shared-stand-safety`). Фикс без forbidden patterns: ни TODO, ни заглушки, ни молчаливого fallback, ни захардкоженного значения.
+Любой apply / restart / scale / передеплой на общем стенде - отдельная санкция `deploy`, даже после `фиксируй`/`apply` (см. `dex-skill-shared-stand-safety:shared-stand-safety`). Фикс без forbidden patterns: ни TODO, ни заглушки, ни молчаливого fallback, ни захардкоженного значения. После выката фикса на общий стенд приёмку слитого результата против ТЗ ведёт `dex-stand-reviewer` - зелёный передеплой сам по себе не доказательство закрытия причины.
 
 ## Severity
 
@@ -147,3 +149,11 @@ Access & Map -> Problem Specification -> Parallel Evidence -> Hypotheses & Chain
 - Confidence ниже 80 на причине - это гипотеза под вопросом с планом проверки, не объявленная причина.
 - Соседний баг, замеченный по пути, - в открытые наблюдения, не в это расследование, кроме случая, когда он часть каскада.
 - Секреты только читаются для доступа, не печатаются и не коммитятся.
+
+## Связанные плагины
+
+- `dex-stand-reviewer` - приёмка фикса на стенде против ТЗ после выката; замыкает цепочку расследование -> фикс -> верификация на стенде.
+- `dex-debugger` - root-cause по коду в dev-time, когда стенд и рантайм не нужны.
+- `dex-bug-fixer` - пакетная ремедиация подтверждённых проблем отдельной follow-up веткой.
+- `dex-bug-finder` - активный поиск багов в фиче или ветке.
+- `dex-jira-cli` - read-only доступ к связанным тикетам и истории задачи.

@@ -2,7 +2,7 @@
 # Installs underlying CLI binaries used by dex-*-cli plugins.
 # Auto-detects package manager (winget / scoop / choco). Idempotent.
 #
-# Supported tools: gh, glab, kubectl, psql, redis-cli, kaf, rabbitmqadmin, aws, jenkins-cli, teamcity,
+# Supported tools: gh, glab, kubectl, psql, redis-cli, kaf, rabbitmqadmin, aws, jenkins-cli, teamcity, jira,
 #                  netcoredbg, gdb, lldb, strace, bpftrace, bcc, perf, binutils, rizin, ilspycmd,
 #                  flamegraph, valgrind, lief, dotnet-diagnostic-tools
 # Meta-target:     runtime-diagnostics-tools
@@ -36,7 +36,7 @@ param(
 )
 
 $SupportedTools = @(
-    "gh", "glab", "kubectl", "psql", "redis-cli", "kaf", "rabbitmqadmin", "aws", "jenkins-cli", "teamcity",
+    "gh", "glab", "kubectl", "psql", "redis-cli", "kaf", "rabbitmqadmin", "aws", "jenkins-cli", "teamcity", "jira",
     "netcoredbg", "gdb", "lldb", "strace", "bpftrace", "bcc", "perf", "binutils", "rizin", "ilspycmd",
     "flamegraph", "valgrind", "lief", "dotnet-diagnostic-tools"
 )
@@ -102,6 +102,7 @@ function Get-ToolDescription {
         "aws"           { "AWS CLI v2 (used by dex-aws-s3-cli)" }
         "jenkins-cli"   { "Jenkins CLI (.jar + Java) (used by dex-jenkins-cli)" }
         "teamcity"      { "TeamCity CLI by JetBrains (used by dex-teamcity-cli)" }
+        "jira"          { "Jira CLI by ankitpokhrel (used by dex-jira-cli)" }
         "netcoredbg"    { "Samsung netcoredbg .NET CLI debugger (used by dex-netcoredbg-cli)" }
         "gdb"           { "GNU debugger (Linux/WSL only)" }
         "lldb"          { "LLVM debugger (Linux/WSL only)" }
@@ -181,6 +182,7 @@ function Get-ToolVersion {
     try {
         switch ($Tool) {
             "kubectl" { (kubectl version --client 2>$null | Select-Object -First 1) }
+            "jira"    { (& jira version 2>$null | Select-Object -First 1) }
             default   { (& $Tool --version 2>$null | Select-Object -First 1) }
         }
     } catch { "" }
@@ -237,6 +239,10 @@ function Get-Recipe {
         "winget:jenkins-cli"   { return @("__UNSUPPORTED__") }
         "scoop:jenkins-cli"    { return @("__UNSUPPORTED__") }
         "choco:jenkins-cli"    { return @("__UNSUPPORTED__") }
+
+        "winget:jira"          { return @("__UNSUPPORTED__") }
+        "scoop:jira"           { return @("__UNSUPPORTED__") }
+        "choco:jira"           { return @("__UNSUPPORTED__") }
 
         # Native-debug and tracing utilities are Linux-only — use WSL on Windows
         "winget:netcoredbg"    { return @("__UNSUPPORTED__") }
@@ -336,6 +342,7 @@ function Invoke-Recipe {
             "psql"          { Write-Dim "    Windows PMs install full PostgreSQL Server (~200MB + service), not just client." ; Write-Dim "    Recommended: use WSL (apt install postgresql-client) or download standalone client from postgresql.org/download." }
             "rabbitmqadmin" { Write-Dim "    Download Windows binary from https://github.com/rabbitmq/rabbitmqadmin-ng/releases" }
             "jenkins-cli"   { Write-Dim "    Install Java + download jenkins-cli.jar from `$JENKINS_URL/jnlpJars/jenkins-cli.jar (see docs/CLI_UTILITIES.md)." }
+            "jira"          { Write-Dim "    Install via 'go install github.com/ankitpokhrel/jira-cli/cmd/jira@latest' (needs Go), or download a Windows binary from https://github.com/ankitpokhrel/jira-cli/releases." }
             "netcoredbg"    { Write-Dim "    Download Windows release from https://github.com/Samsung/netcoredbg/releases or use WSL2." }
             { $_ -in @("gdb", "lldb", "strace", "bpftrace", "bcc", "perf", "binutils", "valgrind", "flamegraph") } {
                 Write-Dim "    Native-debug / tracing utility is Linux-only. Use WSL2 (wsl --install) and run install-cli-tools.sh inside it."

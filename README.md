@@ -212,6 +212,12 @@ claude plugins uninstall dex-dotnet-coder
 | dex-jenkins-cli | Jobs, builds, console output | REST API |
 | dex-teamcity-cli | Builds, agents, build logs | REST API |
 
+### CLI Tools - Tracker
+
+| Плагин | Описание | Бинарь |
+|--------|----------|--------|
+| dex-jira-cli | Issues, JQL search, sprints (read-only) | `jira` |
+
 ### CLI Tools - Infrastructure & Data
 
 | Плагин | Описание | Бинарь |
@@ -260,7 +266,7 @@ MCP конфигурации в каталоге `mcp/`. Подробнее: [mc
 |------|----------|----------|
 | .NET Developer | gitlab | genai-toolbox, rabbitmq, kafka, docker, seq, kubernetes |
 | Architect | github, gitlab | notion, filesystem |
-| DevOps | gitlab | docker, kubernetes |
+| DevOps | gitlab | docker, kubernetes, sentry |
 | Product Manager | notion | - |
 | System Analyst | pdf-reader | notion, google-drive |
 | QA Engineer | gitlab | filesystem |
