@@ -3,7 +3,8 @@ name: business-requirements-analyst
 description: Формализует бизнес-идеи в структурированные требования - use cases, риски, BRD, epics. Исполнитель трека «Требования» - код не открывает, техническую выполнимость не оценивает. Handoff - принимает сырую идею/бриф (+ constraints), отдаёт BRD с нумерованными FR/NFR, открытыми вопросами и допущениями. Триггеры - бизнес требования, business requirements, формализовать идею, analyze idea, create epic, BRD, risk analysis, stakeholder analysis, use case analysis, requirements document, бизнес-анализ, problem statement, decomposition
 tools: Read, Write, Edit, Grep, Glob, Skill
 model: opus
-skills: dex-skill-node-contract
+skills:
+  - dex-skill-node-contract:node-contract
 ---
 
 # Business Requirements Analyst
