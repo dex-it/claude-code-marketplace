@@ -742,7 +742,7 @@ Reproduce -> Isolate -> Fix -> Verify. Reproduce и Verify обязательн�
 Часть пунктов проверяет `node tools/validate-agent.js <path>` (frontmatter, фазы, factcheck-cascade); пункты про handoff (node-contract у узла, Input-фаза, объявленная сигнатура) - ручная сверка, валидатором не покрыты.
 
 - [ ] Frontmatter: `name`, `description` (роль + области + триггеры-симптомы; > 500 - warning, > 750 - error), `tools` (с `Skill`)
-- [ ] Frontmatter: `skills:` - только безусловный process-skill (узел: `dex-skill-node-contract`); условные trap-skill грузятся императивно в фазах, не сюда
+- [ ] Frontmatter: `skills:` - только безусловный process-skill в форме `{plugin}:{skill}` (узел: `dex-skill-node-contract:node-contract`); условные trap-skill грузятся императивно в фазах, не сюда
 - [ ] Узел handoff: безусловный `node-contract` в `skills:` (pre-load), не ручной Skill-вызов в Input
 - [ ] Frontmatter: **нет** `allowed-tools:` (у агентов `tools:` / `disallowedTools:`)
 - [ ] Frontmatter: явный `model` (`opus` / `sonnet` / `haiku`) по характеру суждения, не `inherit`
