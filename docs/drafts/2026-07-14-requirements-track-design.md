@@ -117,8 +117,9 @@ BRD                    FR-001, NFR-001
 ```
 
 **Новых полей в `node-contract` не требуется.** `FR`/`NFR` - метки внутри значений
-существующих полей (`requirements`, `success criteria`, `intent`). Нить даёт проверяемый
-гейт на каждом стыке: «FR без success criterion», «тест без FR».
+существующих полей (`requirements`, `success criteria`, `intent`). Нить даёт один
+гейт: «FR без критерия приёмки» (спека требует метку `[FR-NNN]`); связка «тест -> FR» -
+материал для сверки, отдельным гейтом тест-агенты её сегодня не требуют.
 
 ## Эскалация обратно в требования (D4)
 
@@ -171,8 +172,11 @@ plugins/specialists/product/dex-business-analyst/
 
 plugins/bundles/dex-bundle-product-manager/bundle.json
   includes[] += dex-skill-nfr, dex-skill-node-contract
-                            иначе валидатор падает на `bundle-not-closed`:
-                            бандл обязан быть замкнут по скиллам своих агентов
+                            nfr: агент грузит в теле (Skill tool, фаза 3),
+                            замыкается валидатором `bundle-not-closed`
+                            node-contract: pre-load через `skills:`, замыкающая
+                            проверка pre-load не видит; в includes[] нужен для
+                            замкнутости установки, иначе узел деградирует в рантайме
                             bump minor (изменён состав bundle)
 
 docs/DEV_PROCESS_COVERAGE.md
