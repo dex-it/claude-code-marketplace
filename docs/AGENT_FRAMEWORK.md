@@ -200,7 +200,7 @@ Mandatory-фазы - **защита от failure mode'ов**. Помечаютс
 
 Стандартный I/O нужен каждому агенту - и одиночке, и узлу. Когда агенты стыкуются, выход N становится входом N+1 (и возврат N+1 -> N). Дом рантайм-контракта узла (словарь полей, правило стыка, режим `interactive`/`autonomous`, реакция на неполный вход, возврат наверх, graceful degradation) - skill `dex-skill-node-contract`; фреймворк требует **стандартный I/O и поведение на неполный вход**, не копирует словарь.
 
-Узлу `node-contract` нужен **всегда** - это безусловный process-skill, поэтому подключается через **`skills: dex-skill-node-contract`** во frontmatter (pre-load, см. [«Подключение skills»](#подключение-skills-pre-load-безусловного-императив-условного)), не ручным Skill-вызовом в Input-фазе. Pre-load кладёт словарь стыка в контекст до первой фазы и не зависит от того, что агент не забудет его вызвать.
+Узлу `node-contract` нужен **всегда** - это безусловный process-skill, поэтому подключается через **`skills:` -> `dex-skill-node-contract:node-contract`** во frontmatter (форма `{plugin}:{skill}` обязательна) (pre-load, см. [«Подключение skills»](#подключение-skills-pre-load-безусловного-императив-условного)), не ручным Skill-вызовом в Input-фазе. Pre-load кладёт словарь стыка в контекст до первой фазы и не зависит от того, что агент не забудет его вызвать.
 
 Четыре свойства - у **каждого** агента (трек «Разработка» - первое применение словаря стыка, не исключение):
 
@@ -272,7 +272,8 @@ name: agent-name
 description: ...
 tools: Read, Edit, Bash, Grep, Glob, Skill
 model: sonnet
-skills: dex-skill-node-contract   # pre-load безусловного process-skill (узлу нужен всегда); опускается у не-узлов
+skills:                            # pre-load безусловного process-skill (узлу нужен всегда); опускается у не-узлов
+  - dex-skill-node-contract:node-contract   # форма {plugin}:{skill} - обязательна, см. «Подключение skills»
 ---
 
 # Agent Name
@@ -374,6 +375,7 @@ skills: dex-skill-node-contract   # pre-load безусловного process-sk
 Claude Code даёт два механизма (оба официальные, [sub-agents.md](https://code.claude.com/docs/en/sub-agents)):
 
 - **A - pre-load через `skills:` во frontmatter.** Полное содержимое SKILL.md детерминированно инъектируется в контекст субагента при старте. `skills:` - **штатное поддержанное поле** субагента (не кастомное, загрузку не ломает). Ограничение: нельзя pre-load skill с `disable-model-invocation: true`.
+  **Форма записи plugin-скилла - строго `{plugin}:{skill}`** (`dex-skill-node-contract:node-contract`), как у Skill tool: namespace плагин-скилла - `plugin-name:skill-name` ([skills.md](https://code.claude.com/docs/en/skills), «Where skills live»). **Грабля:** имя плагина (`dex-skill-node-contract`) - **не** имя скилла (скилл называется `node-contract`); запись голым именем плагина не резолвится, и Claude Code её **молча пропускает** (skips + warning в debug-лог) - агент стартует без контракта, без ошибки. Валидаторы это не ловят: `validate-agent.js` нормализует обе формы, `validate-bundle.js` матчит только `{plugin}:{skill}` (голая форма ещё и выпадает из проверки замкнутости бандла).
 - **B - императивная загрузка через Skill tool в runtime.** Skill не в контексте до вызова; агент сам зовёт по точному `dex-skill-X:X` (нужен `Skill` в `tools:`).
 
 **Семантическая авто-активация по `description` для субагентов не задокументирована - на неё не полагаемся ни для A, ни для B** (доку проверял claude-code-guide: механизм описан для главного цикла, к субагентам явно не отнесён). Выбор A vs B решается по критерию **«всегда нужен» vs «условно нужен»**, не по умолчанию:
@@ -393,7 +395,8 @@ Claude Code даёт два механизма (оба официальные, [
 Безусловный process-skill - во frontmatter:
 
 ```yaml
-skills: dex-skill-node-contract
+skills:
+  - dex-skill-node-contract:node-contract
 ```
 
 Условные skills указываются в теле фазы после атрибутов:
