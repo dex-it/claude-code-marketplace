@@ -117,7 +117,7 @@ skill не загрузился, см. graceful degradation).
 |---|---|---|
 | `status` | исход узла, первым полем выхода | `complete`/`blocked`/`partial` (см. правило A) |
 | `mode` | канал узла | `interactive`/`autonomous`; нет -> `autonomous` |
-| `requirements R/I` | что реализовать: явные (R) + неявные из проекта (I) | scope инкремента + Deep Dive (architect); ТЗ |
+| `requirements R/I` | что реализовать: явные (R) + неявные из проекта (I). Ось **происхождения** (R/I), не путать с осью **природы** (`FR`/`NFR` - функциональное/нефункциональное, из трека «Требования»). Когда источник R - BRD, каноничная форма значения - `FR-NNN`/`NFR-NNN`; метка едет внутри значения поля, нового поля нет | scope инкремента + Deep Dive (architect); ТЗ; BRD (`FR-NNN`/`NFR-NNN`) |
 | `success criteria` | проверяемый, измеримый критерий «готово» | DoD; Success metric; acceptance criteria; для bug-fixer - исходные баги red->green |
 | `non-goals` | что НЕ делать | scope «что не входит» |
 | `key decisions` | принятые решения + релевантные `Accepted` ADR | Deep Dive (storage/API/cache/sharding) |
