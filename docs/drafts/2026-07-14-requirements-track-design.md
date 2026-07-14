@@ -172,11 +172,14 @@ plugins/specialists/product/dex-business-analyst/
 
 plugins/bundles/dex-bundle-product-manager/bundle.json
   includes[] += dex-skill-nfr, dex-skill-node-contract
-                            nfr: агент грузит в теле (Skill tool, фаза 3),
-                            замыкается валидатором `bundle-not-closed`
-                            node-contract: pre-load через `skills:`, замыкающая
-                            проверка pre-load не видит; в includes[] нужен для
-                            замкнутости установки, иначе узел деградирует в рантайме
+                            bundle-not-closed матчит `dex-skill-X:Y` по всему
+                            файлу агента (frontmatter читается, не отсекается)
+                            nfr: в теле как `dex-skill-nfr:nfr` - матчится,
+                            валидатор форсирует в includes[]
+                            node-contract: pre-load голым именем
+                            `skills: dex-skill-node-contract` (без `:skill`) -
+                            регулярка не матчит; в includes[] обязателен по
+                            замкнутости установки, не по валидатору
                             bump minor (изменён состав bundle)
 
 docs/DEV_PROCESS_COVERAGE.md
