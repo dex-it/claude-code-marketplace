@@ -135,12 +135,92 @@ const ALLOWED_PRELOAD_SKILLS = new Set(['node-contract']);
  * Normalize a `skills:` entry to its short skill name for allowlist matching.
  * Accepts `dex-skill-node-contract`, `dex-skill-node-contract:node-contract`,
  * or `node-contract` — all -> `node-contract`.
+ *
+ * Tolerant on purpose: this answers "WHICH skill is this?" (allowlist policy).
+ * Whether the entry is spelled in a form Claude Code can actually resolve is a
+ * separate question — see `validatePreloadSkillForm`.
  */
 function normalizePreloadSkillName(entry) {
   let name = String(entry).trim();
   if (name.includes(':')) name = name.slice(name.lastIndexOf(':') + 1);
   name = name.replace(/^dex-skill-/, '');
   return name;
+}
+
+/**
+ * Map `plugin name` -> Set of skill names it ships, built by walking plugins/
+ * for SKILL.md and reading the owning plugin's manifest. A plugin-shipped skill
+ * is addressed as `{plugin}:{skill}` — the plugin name alone is NOT a skill name.
+ */
+function buildPluginSkillMap() {
+  const map = new Map();
+  function walk(dir) {
+    if (!existsSync(dir)) return;
+    for (const entry of readdirSync(dir)) {
+      const full = join(dir, entry);
+      if (statSync(full).isDirectory()) {
+        walk(full);
+      } else if (entry === 'SKILL.md') {
+        // <plugin>/skills/<skill>/SKILL.md -> <plugin>/.claude-plugin/plugin.json
+        const pj = join(dirname(dirname(dirname(full))), '.claude-plugin', 'plugin.json');
+        if (!existsSync(pj)) continue;
+        try {
+          const plugin = JSON.parse(readFileSync(pj, 'utf8')).name;
+          const skill = matter(readFileSync(full, 'utf8')).data?.name;
+          if (!plugin || !skill) continue;
+          if (!map.has(plugin)) map.set(plugin, new Set());
+          map.get(plugin).add(String(skill));
+        } catch {
+          /* unreadable manifest or frontmatter — skipped */
+        }
+      }
+    }
+  }
+  walk(join(REPO_ROOT, 'plugins'));
+  return map;
+}
+
+const PLUGIN_SKILLS = buildPluginSkillMap();
+
+/**
+ * A plugin-shipped skill MUST be pre-loaded as `{plugin}:{skill}` — that is the
+ * namespace Claude Code resolves ("Plugin skills use a `plugin-name:skill-name`
+ * namespace", code.claude.com/docs/en/skills). Writing the bare PLUGIN name
+ * (`dex-skill-node-contract`) addresses a skill that does not exist: the skill is
+ * `node-contract`. Claude Code does NOT fail on this — it "skips it and logs a
+ * warning to the debug log", so the agent silently starts WITHOUT the skill.
+ *
+ * Verified empirically: the bare form also slips past `bundle-not-closed`
+ * (validate-bundle matches `{plugin}:{skill}` only), so the skill can vanish from
+ * a bundle's includes[] with zero errors. Hence this check.
+ */
+function validatePreloadSkillForm(raw, findings) {
+  const entry = String(raw).trim();
+  if (entry === '') return;
+
+  if (!entry.includes(':')) {
+    // Bare name. If it names a plugin that ships skills, it is the broken form.
+    if (PLUGIN_SKILLS.has(entry)) {
+      const skills = [...PLUGIN_SKILLS.get(entry)];
+      const suggestion = skills.length === 1 ? `${entry}:${skills[0]}` : `${entry}:{skill}`;
+      findings.push({
+        level: ERROR,
+        rule: 'frontmatter-skills-bare-plugin-name',
+        message: `\`skills:\` entry "${entry}" is a PLUGIN name, not a skill name — it does not resolve and Claude Code skips it silently (agent starts without the skill). Use the \`{plugin}:{skill}\` namespace: "${suggestion}"`,
+      });
+    }
+    return;
+  }
+
+  const [plugin, skill] = entry.split(':');
+  if (!PLUGIN_SKILLS.has(plugin)) return; // not a repo plugin — out of scope
+  if (!PLUGIN_SKILLS.get(plugin).has(skill)) {
+    findings.push({
+      level: ERROR,
+      rule: 'frontmatter-skills-unknown-skill',
+      message: `\`skills:\` entry "${entry}" — plugin "${plugin}" ships no skill named "${skill}" (has: ${[...PLUGIN_SKILLS.get(plugin)].join(', ')}); the entry will not resolve and is skipped silently`,
+    });
+  }
 }
 
 /**
@@ -186,6 +266,9 @@ function validateFrontmatter(parsed, findings) {
     for (const raw of entries) {
       const short = normalizePreloadSkillName(raw);
       if (short === '') continue;
+      // Two independent questions: WHICH skill (allowlist policy, below) and
+      // whether it is spelled in a resolvable form (here).
+      validatePreloadSkillForm(raw, findings);
       if (!ALLOWED_PRELOAD_SKILLS.has(short)) {
         findings.push({
           level: ERROR,
