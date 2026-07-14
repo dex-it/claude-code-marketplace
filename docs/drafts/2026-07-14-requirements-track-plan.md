@@ -234,7 +234,7 @@ git commit -m "feat(autonomous-task): трек «Требования» - пер
 - Consumes: трек `Требования` из Task 1 (агент - его исполнитель).
 - Produces: `Output (handoff)` = `status` + путь BRD + перечень `FR`/`NFR` + открытые вопросы + допущения. Это вход трека «Согласование/Спецификация».
 
-**Почему агент и бандл в одной задаче:** агент начинает грузить `dex-skill-nfr` (в теле, Skill tool) и `dex-skill-node-contract` (pre-load, frontmatter). `bundle-not-closed` замыкает бандл по ссылкам формата `dex-skill-X:Y`, которые ищет по всему файлу агента (frontmatter читается целиком, не отсекается). `nfr` в теле записан как `dex-skill-nfr:nfr` - матчится, не пополнить `includes[]` = красный валидатор. `node-contract` в pre-load записан голым именем плагина (`skills: dex-skill-node-contract`, без `:skill`), регулярка его не матчит - поэтому валидатор молчит; но в `includes[]` он обязателен по замкнутости установки (иначе узел молча деградирует в рантайме), а не по требованию валидатора. Полная форма `dex-skill-node-contract:node-contract` (как у остальных 18 агентов) валидатором бы ловилась. Оба съезжают в тот же `includes[]`, разделять с агентом нельзя.
+**Почему агент и бандл в одной задаче:** агент грузит `dex-skill-nfr` (в теле, Skill tool, как `dex-skill-nfr:nfr`) и `dex-skill-node-contract` (pre-load во frontmatter, полной формой `dex-skill-node-contract:node-contract` - резолвимая форма, голое имя плагина не резолвится, см. #117). `bundle-not-closed` замыкает бандл по ссылкам формата `dex-skill-X:Y`, которые ищет по всему файлу агента (frontmatter читается целиком). Обе ссылки матчатся, значит оба скилла обязаны быть в `includes[]`: не пополнить = красный валидатор, а узел без скилла молча деградирует в рантайме. Оба съезжают в тот же `includes[]`, разделять с агентом нельзя.
 
 - [ ] **Step 1: Шапка файла - frontmatter, модель, вводная строка**
 
@@ -257,7 +257,8 @@ name: business-requirements-analyst
 description: Формализует бизнес-идеи в структурированные требования - use cases, риски, BRD, epics. Исполнитель трека «Требования»: код не открывает, выполнимость не оценивает. Handoff - принимает сырую идею/бриф (+ constraints), отдаёт BRD с нумерованными FR/NFR, открытыми вопросами и допущениями. Триггеры - бизнес требования, business requirements, формализовать идею, analyze idea, create epic, BRD, risk analysis, stakeholder analysis, use case analysis, requirements document, бизнес-анализ, problem statement, feasibility
 tools: Read, Write, Edit, Grep, Glob, Skill
 model: opus
-skills: dex-skill-node-contract
+skills:
+  - dex-skill-node-contract:node-contract
 ---
 ```
 

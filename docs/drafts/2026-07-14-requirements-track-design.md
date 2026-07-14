@@ -142,7 +142,7 @@ BRD                    FR-001, NFR-001
 
 | Что | Зачем |
 |---|---|
-| `skills: dex-skill-node-contract` во frontmatter | агент становится узлом конвейера; валидатор разрешает (allowlist `ALLOWED_PRELOAD_SKILLS`) |
+| `skills: dex-skill-node-contract:node-contract` во frontmatter | агент становится узлом конвейера; форма `{plugin}:{skill}` резолвится в рантайме - скилл называется `node-contract`, голое имя плагина не резолвится (см. #117). `validate-agent` пропускает обе формы (`normalizePreloadSkillName` сводит их к `node-contract`), его молчание форму не гарантирует |
 | `Input (handoff)` в Phase 1 | `mode`, идея/бриф, `constraints`. Бизнес-ось входа не обязательна: сырая идея и есть работа агента |
 | `Output (handoff)` в Phase 4 | первым полем `status`; далее путь BRD, перечень `FR`/`NFR`, открытые вопросы, допущения |
 | `dex-skill-nfr:nfr` в Skill-Based Deep Scan | **дыра**: сейчас подключены `doc-standards` и `requirement-quality`, но НФТ никто не проверяет на осмысленность (числа, SLA/SLO/SLI, p99, security-NFR) |
@@ -174,12 +174,12 @@ plugins/bundles/dex-bundle-product-manager/bundle.json
   includes[] += dex-skill-nfr, dex-skill-node-contract
                             bundle-not-closed матчит `dex-skill-X:Y` по всему
                             файлу агента (frontmatter читается, не отсекается)
-                            nfr: в теле как `dex-skill-nfr:nfr` - матчится,
-                            валидатор форсирует в includes[]
-                            node-contract: pre-load голым именем
-                            `skills: dex-skill-node-contract` (без `:skill`) -
-                            регулярка не матчит; в includes[] обязателен по
-                            замкнутости установки, не по валидатору
+                            nfr: в теле как `dex-skill-nfr:nfr`
+                            node-contract: pre-load полной формой
+                            `dex-skill-node-contract:node-contract` (резолвимая,
+                            см. #117; голое имя не резолвится и не матчится)
+                            обе ссылки матчатся - не в includes[] = красный
+                            валидатор, узел без скилла деградирует в рантайме
                             bump minor (изменён состав bundle)
 
 docs/DEV_PROCESS_COVERAGE.md
