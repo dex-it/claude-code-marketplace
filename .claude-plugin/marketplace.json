@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "5.25.0",
+  "version": "5.26.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -2183,6 +2183,21 @@
         "blast-radius",
         "data-flow",
         "control-flow"
+      ]
+    },
+    {
+      "name": "dex-skill-legacy-reconstruction",
+      "source": "./plugins/skills/dex-skill-legacy-reconstruction",
+      "description": "Восстановление оракула из legacy-кода без постановки: реконструкция -> валидация человеком -> тесты против валидированного оракула, не против кода",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "legacy",
+        "characterization-tests",
+        "brownfield",
+        "reverse-engineering",
+        "oracle"
       ]
     },
     {
