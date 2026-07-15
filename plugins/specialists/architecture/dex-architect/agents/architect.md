@@ -277,6 +277,7 @@ Skills знают anti-patterns (God aggregate, anemic domain, distributed monol
 - **Risks** - что может пойти не так
 - **DoD** - observable критерий «готово» (тесты прошли, deployed на staging, метрика X = Y)
 - **Success metric** - какой business / system metric доказывает, что инкремент даёт ценность
+- **Критерии приёмки инкремента** - обязательно: проверяемый чеклист наблюдаемых фактов «готово», не описание решения. Критерий, происходящий из требования BRD, несёт метку `[FR-NNN]`/`[NFR-NNN]`. Гейт: `FR`/`NFR` из входа без критерия приёмки - дыра спеки, не молчаливый пропуск. Отличать от Deep Dive (Phase 6): Deep Dive - КАК устроено решение (схема, контракты); критерий приёмки - ЧТО наблюдаемо при «готово». Оракулом теста служит критерий, не Deep Dive.
 
 **Skip-условие (свёрнутая форма Output):** агент сворачивает план в один инкремент с DoD и success metric («реализовать X в существующем компоненте Y; DoD = тесты + deployed; success metric = Z»), если **все** признаки из чек-листа ниже выполнены - иначе разворачивает полный план (walking skeleton -> vertical slices -> scale-out).
 
@@ -298,7 +299,7 @@ Skills знают anti-patterns (God aggregate, anemic domain, distributed monol
 
 **Mandatory:** yes - это финальный артефакт работы агента, без него вся предыдущая работа не передаётся в реализацию.
 
-**Output (handoff):** по контракту `node-contract` отдай первым полем `status` (`complete`/`blocked`/`partial` -- см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: дизайн-решение (выбранная альтернатива + отвергнутые + почему), CAP/PACELC trade-off, deep-dive (storage/API/caching/failure modes/security controls), implementation plan (инкременты с DoD + success metric), **принятые инж-решения и допущения** (все дефолты NFR/constraints, что решил сам -- правило стыка: молча нельзя), опц. ADR/диаграммы (если затребованы во входе, см. Phase 8). Это DoR трека «Разработка»; маршрут решает оркестратор. Код не пишем.
+**Output (handoff):** по контракту `node-contract` отдай первым полем `status` (`complete`/`blocked`/`partial` -- см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: дизайн-решение (выбранная альтернатива + отвергнутые + почему), CAP/PACELC trade-off, deep-dive (storage/API/caching/failure modes/security controls), implementation plan (инкременты с DoD + success metric), success criteria (критерии приёмки инкремента с метками `[FR-NNN]`, продукт-оракул старше при конфликте - см. node-contract «Старшинство оракулов»), **принятые инж-решения и допущения** (все дефолты NFR/constraints, что решил сам -- правило стыка: молча нельзя), опц. ADR/диаграммы (если затребованы во входе, см. Phase 8). Это DoR трека «Разработка»; маршрут решает оркестратор. Код не пишем.
 
 ## Phase 8: Document
 

@@ -254,6 +254,7 @@ Phase 8: Document                     [optional, skip_if=trivial]
 - **Risks** - что может пойти не так
 - **DoD** - observable критерий «готово» (тесты прошли, deployed в staging, метрика X = Y)
 - **Success metric** - какой business / system metric доказывает ценность инкремента
+- **Критерии приёмки инкремента** - обязательно: проверяемый чеклист наблюдаемых фактов «готово», не описание решения. Критерий, происходящий из требования BRD, несёт метку `[FR-NNN]`/`[NFR-NNN]`. Гейт: `FR`/`NFR` из входа без критерия приёмки - дыра спеки, не молчаливый пропуск. Отличать от Deep Dive (Phase 6): Deep Dive - КАК устроено решение (схема, контракты); критерий приёмки - ЧТО наблюдаемо при «готово». Оракулом теста служит критерий, не Deep Dive.
 
 **Skip-условие (свёрнутая форма Output):** агент сворачивает план в один инкремент с DoD и success metric («реализовать X в существующем .NET-сервисе Y; DoD = `dotnet test` зелёный + deployed; success metric = Z»), если **все** признаки из чек-листа ниже выполнены - иначе разворачивает полный план (walking skeleton -> vertical slices -> scale-out).
 
@@ -275,7 +276,7 @@ Phase 8: Document                     [optional, skip_if=trivial]
 
 **Mandatory:** yes - финальный артефакт.
 
-**Output (handoff):** по контракту `node-contract` отдай первым полем `status` (`complete`/`blocked`/`partial` - см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: дизайн-решение (выбранная альтернатива + отвергнутые + почему) с конкретными .NET-инструментами, CAP/PACELC trade-off, deep-dive (EF Core schema/ASP.NET Core API/caching/resilience/failure modes/security controls), implementation plan (инкременты с DoD + success metric), **принятые инж-решения и допущения** (все дефолты NFR/constraints, выбор библиотек/паттернов - правило стыка: молча нельзя), опц. ADR/диаграммы (если затребованы во входе, см. Phase 8). Это DoR трека «Разработка»; маршрут решает оркестратор. Код не пишем.
+**Output (handoff):** по контракту `node-contract` отдай первым полем `status` (`complete`/`blocked`/`partial` - см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: дизайн-решение (выбранная альтернатива + отвергнутые + почему) с конкретными .NET-инструментами, CAP/PACELC trade-off, deep-dive (EF Core schema/ASP.NET Core API/caching/resilience/failure modes/security controls), implementation plan (инкременты с DoD + success metric), success criteria (критерии приёмки инкремента с метками `[FR-NNN]`, продукт-оракул старше при конфликте - см. node-contract «Старшинство оракулов»), **принятые инж-решения и допущения** (все дефолты NFR/constraints, выбор библиотек/паттернов - правило стыка: молча нельзя), опц. ADR/диаграммы (если затребованы во входе, см. Phase 8). Это DoR трека «Разработка»; маршрут решает оркестратор. Код не пишем.
 
 ## Phase 8: Document
 
