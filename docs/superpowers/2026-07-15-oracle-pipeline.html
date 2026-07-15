@@ -1,0 +1,546 @@
+<title>Конвейер оракула - вход/выход каждого узла</title>
+<style>
+  :root {
+    --ink: #1a1e26;
+    --paper: #f6f4ef;
+    --paper-2: #efece4;
+    --line: #d8d3c7;
+    --muted: #6b6a63;
+    --steel: #3f66a0;       /* технический оракул */
+    --steel-soft: #e4ebf5;
+    --amber: #bd6a2e;       /* продуктовый оракул */
+    --amber-soft: #f4e6d6;
+    --halt: #a4433a;        /* blocked / halt */
+    --halt-soft: #f2ddd9;
+    --thread: #3f66a0;
+    --card: #ffffff;
+    --shadow: 0 1px 2px rgba(26,30,38,.06), 0 6px 18px rgba(26,30,38,.05);
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #e8e6df;
+      --paper: #14161b;
+      --paper-2: #1b1e25;
+      --line: #2e323c;
+      --muted: #9a988f;
+      --steel: #7ea2d8;
+      --steel-soft: #1e2735;
+      --amber: #d68b4f;
+      --amber-soft: #2f2418;
+      --halt: #d97a70;
+      --halt-soft: #2e1c1a;
+      --card: #1b1e25;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 6px 20px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --ink: #1a1e26; --paper: #f6f4ef; --paper-2: #efece4; --line: #d8d3c7;
+    --muted: #6b6a63; --steel: #3f66a0; --steel-soft: #e4ebf5; --amber: #bd6a2e;
+    --amber-soft: #f4e6d6; --halt: #a4433a; --halt-soft: #f2ddd9; --card: #ffffff;
+    --shadow: 0 1px 2px rgba(26,30,38,.06), 0 6px 18px rgba(26,30,38,.05);
+  }
+  :root[data-theme="dark"] {
+    --ink: #e8e6df; --paper: #14161b; --paper-2: #1b1e25; --line: #2e323c;
+    --muted: #9a988f; --steel: #7ea2d8; --steel-soft: #1e2735; --amber: #d68b4f;
+    --amber-soft: #2f2418; --halt: #d97a70; --halt-soft: #2e1c1a; --card: #1b1e25;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 6px 20px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: var(--sans); line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 4rem 1.5rem 6rem; }
+
+  /* ---- header ---- */
+  .eyebrow {
+    font-family: var(--mono); font-size: .72rem; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--muted); margin: 0 0 1rem;
+  }
+  h1 {
+    font-size: clamp(1.9rem, 4.5vw, 3rem); line-height: 1.05; margin: 0 0 1rem;
+    letter-spacing: -.02em; text-wrap: balance; font-weight: 800;
+  }
+  .lede {
+    font-size: 1.12rem; color: var(--muted); max-width: 62ch; margin: 0 0 2.5rem;
+    text-wrap: pretty;
+  }
+  .lede strong { color: var(--ink); font-weight: 600; }
+
+  /* ---- legend ---- */
+  .legend {
+    display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; align-items: center;
+    padding: 1rem 1.25rem; background: var(--paper-2); border: 1px solid var(--line);
+    border-radius: 10px; margin-bottom: 3rem; font-size: .86rem;
+  }
+  .legend b { font-weight: 600; }
+  .chip {
+    display: inline-flex; align-items: center; gap: .5rem;
+  }
+  .dot { width: .72rem; height: .72rem; border-radius: 3px; flex: none; }
+  .dot.amber { background: var(--amber); }
+  .dot.steel { background: var(--steel); }
+  .dot.halt  { background: var(--halt); }
+
+  /* ---- pipeline ---- */
+  .pipe { position: relative; }
+
+  .node {
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    box-shadow: var(--shadow); overflow: hidden; margin-bottom: .35rem;
+  }
+  .node-head {
+    display: flex; align-items: baseline; gap: .75rem; flex-wrap: wrap;
+    padding: 1rem 1.35rem .85rem; border-bottom: 1px solid var(--line);
+    background: linear-gradient(var(--paper-2), var(--card));
+  }
+  .node-num {
+    font-family: var(--mono); font-size: .8rem; color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .node-name {
+    font-family: var(--mono); font-size: .98rem; font-weight: 600;
+    letter-spacing: -.01em;
+  }
+  .node-role { color: var(--muted); font-size: .86rem; }
+  .node-track {
+    margin-left: auto; font-family: var(--mono); font-size: .68rem;
+    text-transform: uppercase; letter-spacing: .1em; color: var(--muted);
+    border: 1px solid var(--line); border-radius: 999px; padding: .18rem .6rem;
+    align-self: center;
+  }
+
+  .io { display: grid; grid-template-columns: 1fr 1fr; }
+  @media (max-width: 640px) { .io { grid-template-columns: 1fr; } }
+  .io > div { padding: 1rem 1.35rem 1.15rem; }
+  .io .in { border-right: 1px solid var(--line); }
+  @media (max-width: 640px) {
+    .io .in { border-right: none; border-bottom: 1px solid var(--line); }
+  }
+  .io-label {
+    font-family: var(--mono); font-size: .7rem; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--muted); margin: 0 0 .7rem;
+    display: flex; align-items: center; gap: .45rem;
+  }
+  .io-label::before {
+    content: ""; width: 1.1rem; height: 1px; background: var(--muted);
+  }
+  ul.fields { list-style: none; margin: 0; padding: 0; display: flex;
+    flex-direction: column; gap: .5rem; }
+  ul.fields li { font-size: .9rem; padding-left: 1rem; position: relative;
+    text-wrap: pretty; }
+  ul.fields li::before {
+    content: "›"; position: absolute; left: 0; color: var(--muted);
+  }
+  code {
+    font-family: var(--mono); font-size: .82em; background: var(--paper-2);
+    border: 1px solid var(--line); border-radius: 5px; padding: .05em .35em;
+    white-space: nowrap;
+  }
+  code.amber { background: var(--amber-soft); border-color: transparent; color: var(--amber); font-weight: 600; }
+  code.steel { background: var(--steel-soft); border-color: transparent; color: var(--steel); font-weight: 600; }
+  code.halt  { background: var(--halt-soft); border-color: transparent; color: var(--halt); font-weight: 600; }
+  .tag-block { color: var(--halt); font-weight: 600; font-family: var(--mono); font-size: .82em; }
+
+  /* connector between nodes */
+  .flow {
+    display: flex; justify-content: center; align-items: center;
+    gap: .6rem; padding: .55rem 0; color: var(--muted);
+    font-family: var(--mono); font-size: .76rem;
+  }
+  .flow .carry { display: inline-flex; gap: .4rem; flex-wrap: wrap; justify-content: center; }
+  .flow svg { display: block; }
+
+  /* oracle birth/consume badges */
+  .born, .used {
+    display: inline-flex; align-items: center; gap: .35rem;
+    font-family: var(--mono); font-size: .7rem; font-weight: 600;
+    padding: .12rem .5rem; border-radius: 999px; letter-spacing: .02em;
+  }
+  .born.amber { background: var(--amber-soft); color: var(--amber); }
+  .born.steel { background: var(--steel-soft); color: var(--steel); }
+  .used { border: 1px dashed var(--line); color: var(--muted); }
+
+  /* ---- oracle rule callout ---- */
+  .rule {
+    margin: 3rem 0 0; padding: 1.5rem 1.6rem; border-radius: 14px;
+    background: linear-gradient(135deg, var(--amber-soft), var(--card) 70%);
+    border: 1px solid var(--line);
+  }
+  .rule h2 { margin: 0 0 .6rem; font-size: 1.15rem; letter-spacing: -.01em; }
+  .rule p { margin: 0; font-size: .94rem; color: var(--ink); max-width: 64ch; }
+  .rule .vs {
+    display: flex; gap: .75rem; align-items: center; flex-wrap: wrap;
+    margin: 1rem 0 0; font-family: var(--mono); font-size: .82rem;
+  }
+  .rule .vs .win { color: var(--amber); font-weight: 700; }
+  .rule .vs .lose { color: var(--steel); }
+
+  /* ---- section titles ---- */
+  .sec-title {
+    font-size: .78rem; font-family: var(--mono); text-transform: uppercase;
+    letter-spacing: .16em; color: var(--muted); margin: 3.5rem 0 1.25rem;
+    display: flex; align-items: center; gap: 1rem;
+  }
+  .sec-title::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+  /* side branches */
+  .branch {
+    border-left: 3px solid var(--line); margin: .35rem 0 .35rem 1.5rem;
+    padding: .35rem 0 .35rem 1.35rem;
+  }
+  .branch .node { margin-bottom: 0; }
+  .branch-note {
+    font-size: .82rem; color: var(--muted); font-style: italic;
+    margin: 0 0 .5rem;
+  }
+
+  footer {
+    margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--line);
+    font-size: .82rem; color: var(--muted);
+  }
+  footer code { white-space: normal; }
+</style>
+
+<div class="wrap">
+  <p class="eyebrow">Агентный SDLC · конвейер после замыкания оракула</p>
+  <h1>Как течёт оракул: вход и выход каждого узла</h1>
+  <p class="lede">
+    Каждый агент - <strong>узел</strong>: принимает поля стыка на входе, отдаёт на выходе.
+    Красная нить конвейера - <strong>оракул</strong> (критерий «готово», против которого судят работу).
+    До этой ветки оракул никто не производил, и потребители вставали в halt. Теперь два узла его
+    рождают, а метка <code class="halt">[FR-NNN]</code> протягивает требование от идеи до теста.
+  </p>
+
+  <div class="legend">
+    <span class="chip"><span class="dot amber"></span><b>Продуктовый оракул</b> - <code class="amber">acceptance criteria</code>, что видит пользователь</span>
+    <span class="chip"><span class="dot steel"></span><b>Технический оракул</b> - <code class="steel">success criteria</code> / DoD, как проверить инкремент</span>
+    <span class="chip"><span class="dot halt"></span><b>Halt</b> - нет оракула -> возврат оркестратору, не додумывать</span>
+  </div>
+
+  <div class="pipe">
+
+    <!-- NODE 1: BA -->
+    <div class="node">
+      <div class="node-head">
+        <span class="node-num">01</span>
+        <span class="node-name">business-analyst</span>
+        <span class="node-role">формализует идею</span>
+        <span class="node-track">Требования</span>
+      </div>
+      <div class="io">
+        <div class="in">
+          <p class="io-label">Вход</p>
+          <ul class="fields">
+            <li>Сырая идея / бриф</li>
+            <li><code>constraints</code> (ограничения бизнеса)</li>
+            <li><code>mode</code> (дефолт autonomous)</li>
+          </ul>
+        </div>
+        <div class="out">
+          <p class="io-label">Выход</p>
+          <ul class="fields">
+            <li><code>status</code> первым полем</li>
+            <li>BRD + перечень <span class="tag-block">FR / NFR</span></li>
+            <li><code>non-goals</code>, открытые вопросы, риски</li>
+            <li><em>FR/NFR - вход user-story-writer</em></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow">
+      <span class="carry">несёт: <span class="tag-block">FR-NNN</span> (требование, ещё без оракула)</span>
+      <svg width="14" height="20" viewBox="0 0 14 20"><path d="M7 0 v14 M2 10 l5 6 5-6" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>
+    </div>
+
+    <!-- NODE 2: USW -->
+    <div class="node">
+      <div class="node-head">
+        <span class="node-num">02</span>
+        <span class="node-name">user-story-writer</span>
+        <span class="node-role">рождает продуктовый оракул</span>
+        <span class="node-track">Спецификация</span>
+      </div>
+      <div class="io">
+        <div class="in">
+          <p class="io-label">Вход</p>
+          <ul class="fields">
+            <li><code>[blocking]</code> источник с <span class="tag-block">FR-NNN</span> из BRD</li>
+            <li>контекст репо</li>
+            <li><span class="born halt">halt</span> источник без FR / бизнес-цели -> возврат</li>
+          </ul>
+        </div>
+        <div class="out">
+          <p class="io-label">Выход</p>
+          <ul class="fields">
+            <li><code>status</code></li>
+            <li><span class="born amber">рождает</span> <code class="amber">acceptance criteria</code></li>
+            <li>Given-When-Then, метка <span class="tag-block">[FR-NNN]</span> на каждом</li>
+            <li>перечень stories, non-goals</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow">
+      <span class="carry"><code class="amber">acceptance criteria</code> + <span class="tag-block">[FR-NNN]</span></span>
+      <svg width="14" height="20" viewBox="0 0 14 20"><path d="M7 0 v14 M2 10 l5 6 5-6" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>
+    </div>
+
+    <!-- NODE 3: ARCH -->
+    <div class="node">
+      <div class="node-head">
+        <span class="node-num">03</span>
+        <span class="node-name">architect</span>
+        <span class="node-role">рождает технический оракул</span>
+        <span class="node-track">Спецификация</span>
+      </div>
+      <div class="io">
+        <div class="in">
+          <p class="io-label">Вход</p>
+          <ul class="fields">
+            <li><code>[blocking]</code> бизнес-задача / постановка</li>
+            <li>NFR, constraints, контекст репо (brownfield)</li>
+            <li><span class="born halt">halt</span> нет бизнес-цели -> нечего проектировать</li>
+          </ul>
+        </div>
+        <div class="out">
+          <p class="io-label">Выход</p>
+          <ul class="fields">
+            <li><code>status</code>, дизайн-решение, CAP/PACELC</li>
+            <li>Deep Dive (КАК устроено) + implementation plan</li>
+            <li><span class="born steel">рождает</span> <code class="steel">success criteria</code></li>
+            <li>критерии приёмки инкремента, метка <span class="tag-block">[FR-NNN]</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow">
+      <span class="carry">
+        <code class="amber">acceptance criteria</code> + <code class="steel">success criteria</code> + <code>diff-scope</code> позже
+      </span>
+      <svg width="14" height="20" viewBox="0 0 14 20"><path d="M7 0 v14 M2 10 l5 6 5-6" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>
+    </div>
+
+    <!-- NODE 4: CODER -->
+    <div class="node">
+      <div class="node-head">
+        <span class="node-num">04</span>
+        <span class="node-name">coder</span>
+        <span class="node-role">реализует против оракула</span>
+        <span class="node-track">Разработка</span>
+      </div>
+      <div class="io">
+        <div class="in">
+          <p class="io-label">Вход</p>
+          <ul class="fields">
+            <li><code>[blocking]</code> <code>requirements R/I</code></li>
+            <li><code>[blocking]</code> <span class="used">оракул</span> <code class="steel">success criteria</code> / <code class="amber">acceptance criteria</code></li>
+            <li>Deep Dive <b>НЕ</b> засчитывается за оракул - это лазейка, закрыта</li>
+            <li><span class="born halt">halt</span> нет оракула -> нечем мерить «готово»</li>
+          </ul>
+        </div>
+        <div class="out">
+          <p class="io-label">Выход</p>
+          <ul class="fields">
+            <li><code>status</code>, <code>diff-scope</code> (файлы + ветка)</li>
+            <li><code class="steel">success criteria</code> - что закрыто</li>
+            <li><code>run-status</code> (build / test / lint)</li>
+            <li>принятые решения с прецедентом</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow">
+      <span class="carry"><code>diff-scope</code> (пути) + <span class="used">оракул</span> оба типа</span>
+      <svg width="14" height="20" viewBox="0 0 14 20"><path d="M7 0 v14 M2 10 l5 6 5-6" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>
+    </div>
+
+    <!-- NODE 5: TESTER -->
+    <div class="node">
+      <div class="node-head">
+        <span class="node-num">05</span>
+        <span class="node-name">tester</span>
+        <span class="node-role">судит работу оракулом</span>
+        <span class="node-track">Тест-инжиниринг</span>
+      </div>
+      <div class="io">
+        <div class="in">
+          <p class="io-label">Вход</p>
+          <ul class="fields">
+            <li><code>[blocking]</code> <code>diff-scope</code> - пути (тела читает с диска)</li>
+            <li><code>[blocking]</code> публичные контракты</li>
+            <li><code>[blocking]</code> <span class="used">оракул</span>: <code class="steel">success criteria</code> + <code class="amber">acceptance criteria</code> - продуктовый старше</li>
+            <li>тесты держатся за критерии, <b>не</b> за реализацию</li>
+          </ul>
+        </div>
+        <div class="out">
+          <p class="io-label">Выход</p>
+          <ul class="fields">
+            <li><code>status</code>, тест-файлы, <code>run-status</code></li>
+            <li><code>coverage</code> (branch % по diff-scope)</li>
+            <li>тест наследует <span class="tag-block">[FR-NNN]</span> - иначе нить рвётся</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow">
+      <span class="carry">код зелёный -> перед push и в чужой MR его судят ревью</span>
+      <svg width="14" height="20" viewBox="0 0 14 20"><path d="M7 0 v14 M2 10 l5 6 5-6" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>
+    </div>
+
+    <!-- NODE 6: SELF-REVIEWER -->
+    <div class="node">
+      <div class="node-head">
+        <span class="node-num">06</span>
+        <span class="node-name">self-reviewer</span>
+        <span class="node-role">саморевью перед push</span>
+        <span class="node-track">Ревью · pre-push</span>
+      </div>
+      <div class="io">
+        <div class="in">
+          <p class="io-label">Вход</p>
+          <ul class="fields">
+            <li><code>intent</code> - источник намерения (<span class="used">оракул</span>: success criteria / план) для intent-gate</li>
+            <li>захват сам из git (committed + staged + worktree)</li>
+            <li>намерения нет -> ось <code>intent: n/a</code>, находки НЕ глушатся (не halt)</li>
+          </ul>
+        </div>
+        <div class="out">
+          <p class="io-label">Выход</p>
+          <ul class="fields">
+            <li>8 блоков находок (anchor + severity), вкл. non-code</li>
+            <li><code>run-status</code> - реальный прогон build / test</li>
+            <li>рекомендация push / чеклист loose ends</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow">
+      <span class="carry">push -> MR открыт -> первичное ревью чужого кода</span>
+      <svg width="14" height="20" viewBox="0 0 14 20"><path d="M7 0 v14 M2 10 l5 6 5-6" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>
+    </div>
+
+    <!-- NODE 7: MR-REVIEWER -->
+    <div class="node">
+      <div class="node-head">
+        <span class="node-num">07</span>
+        <span class="node-name">mr-reviewer</span>
+        <span class="node-role">первичное ревью MR</span>
+        <span class="node-track">Ревью · входящий MR</span>
+      </div>
+      <div class="io">
+        <div class="in">
+          <p class="io-label">Вход</p>
+          <ul class="fields">
+            <li><code>[blocking]</code> указатель MR/PR + <code>BASE_SHA</code> / <code>HEAD_SHA</code></li>
+            <li><code>intent</code> (<span class="used">оракул</span> для intent-gate) - нет -> <code>intent: n/a</code></li>
+            <li><code>publish</code> (дефолт false) - санкция на запись в чужой MR</li>
+            <li>код читает <b>сам</b> через gh/glab, не из handoff</li>
+          </ul>
+        </div>
+        <div class="out">
+          <p class="io-label">Выход</p>
+          <ul class="fields">
+            <li>находки с severity / confidence / scope <span class="mark">🟢🟡🟠🔴🟣</span></li>
+            <li><code>verdict</code> + overview</li>
+            <li>инлайн-треды - только при <code>publish: true</code></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow loop">
+      <svg width="24" height="20" viewBox="0 0 24 20"><path d="M18 2 h-9 a5 5 0 0 0 -5 5 v6 M4 9 l0 6 M1 12 l3 6 3-6" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>
+      <span class="carry">автор правит -> re-review дельты (петля до чистого verdict)</span>
+    </div>
+
+    <!-- NODE 8: MR-CHECK-REVIEWER -->
+    <div class="node">
+      <div class="node-head">
+        <span class="node-num">08</span>
+        <span class="node-name">mr-check-reviewer</span>
+        <span class="node-role">ре-ревью после правок</span>
+        <span class="node-track">Ревью · дельта</span>
+      </div>
+      <div class="io">
+        <div class="in">
+          <p class="io-label">Вход</p>
+          <ul class="fields">
+            <li><code>[blocking]</code> указатель MR + <code>LAST_REVIEW_SHA</code> (граница прошлого раунда)</li>
+            <li><code>intent</code>, <code>publish</code></li>
+            <li>дельту строит сам: <code>git range-diff</code> + <code>diff LAST_REVIEW..HEAD</code></li>
+          </ul>
+        </div>
+        <div class="out">
+          <p class="io-label">Выход</p>
+          <ul class="fields">
+            <li>статус прежних находок: closed / partial / open / disputed</li>
+            <li>новые находки <b>только в дельте</b></li>
+            <li><code>verdict</code>. Ответ автора = claim, проверяется по коду</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /pipe -->
+
+  <!-- ORACLE RULE -->
+  <div class="rule">
+    <h2>Правило старшинства оракулов</h2>
+    <p>
+      На узле, судящем чужую работу (тест, ревью), оба оракула могут разойтись. Тогда держатся
+      за продуктовый: он судит бизнес-результат, технический - лишь способ его достичь.
+      Технический критерий, противоречащий продуктовому, - дефект спецификации:
+      <code class="halt">status: blocked</code> оркестратору, не молчаливый выбор.
+    </p>
+    <div class="vs">
+      <span class="win">acceptance criteria (продуктовый)</span>
+      <span>&gt;</span>
+      <span class="lose">success criteria / DoD (технический)</span>
+    </div>
+  </div>
+
+  <!-- BROWNFIELD BRANCH -->
+  <div class="sec-title">Ветка без постановки - brownfield</div>
+  <p class="branch-note">Когда постановки никогда не было, оракула нет вовсе. Его восстанавливают дисциплиной, а не выдумывают из кода.</p>
+  <div class="branch">
+    <div class="node">
+      <div class="node-head">
+        <span class="node-num">L</span>
+        <span class="node-name">legacy-reconstruction</span>
+        <span class="node-role">восстановление оракула из кода</span>
+        <span class="node-track">process-skill</span>
+      </div>
+      <div class="io" style="grid-template-columns:1fr;">
+        <div class="out" style="border:none;">
+          <p class="io-label">Три шага - средний не пропускается</p>
+          <ul class="fields">
+            <li><b>1. Реконструкция</b> (агент) -> черновик спецификации из кода</li>
+            <li><b>2. Валидация</b> (<span class="tag-block">человек</span>) -> размечает: замысел или баг в проде</li>
+            <li><b>3. Тесты</b> (агент) -> против <em>валидированного</em> оракула, не против кода</li>
+          </ul>
+          <p class="branch-note" style="margin-top:.75rem;">Шаг 2 не автоматизируется: агент не отличит замысел от бага - оба «как код себя ведёт». Пропустить -> тесты зафиксируют баг как контракт.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <p>
+      Транспорт полей - контракт <code>node-contract</code> (словарь + правило стыка).
+      Красная нить <span class="tag-block">[FR-NNN]</span> едет внутри значений полей, отдельного поля нет:
+      BRD -> acceptance criteria -> критерий приёмки -> тест. Обрыв метки на любом узле = обрыв нити требования.
+      Маршрут между узлами решает оркестратор; каналом к пользователю владеет только главный цикл.
+    </p>
+  </footer>
+</div>
