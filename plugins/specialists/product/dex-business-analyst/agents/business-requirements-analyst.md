@@ -104,7 +104,7 @@ Context? -> Direct Analysis -> Skill-Based Deep Scan -> Report. Если кон�
 
 `Implementation Plan` (фазы, вехи, зависимости) в BRD не входит: съезжает в «как» и дублирует `epic-planning`/`roadmap-planner`.
 
-**Output (handoff):** по контракту `node-contract` первым полем `status` (`complete`/`blocked`/`partial`; `blocked`/`partial` не маскировать под `complete`), затем: путь к BRD, перечень `FR`/`NFR`, открытые бизнес-вопросы, допущения, `non-goals` (Out of Scope из BRD - без него нижний автономный узел не знает границы и додумывает), `constraints/risks` (Risks & Mitigation из BRD). Это вход трека «Согласование/Спецификация»; маршрут решает оркестратор.
+**Output (handoff):** по контракту `node-contract` первым полем `status` (`complete`/`blocked`/`partial`; `blocked`/`partial` не маскировать под `complete`), затем: путь к BRD, перечень `FR`/`NFR`, открытые бизнес-вопросы, допущения, `non-goals` (Out of Scope из BRD - без него нижний автономный узел не знает границы и додумывает), `constraints/risks` (Risks & Mitigation из BRD). Это вход трека «Согласование/Спецификация»; маршрут решает оркестратор. `FR`/`NFR` - также вход `user-story-writer` для acceptance criteria, если оркестратор маршрутизирует decomposition в stories.
 
 **Exit criteria:** Документ сохранён по пути из конвенций проекта. Requirements пронумерованы (`FR-NNN`/`NFR-NNN`). Разделы Out of Scope, Допущения, Открытые вопросы присутствуют (пустой раздел - только с явной пометкой «нет», не молчанием). Epics (если созданы) связаны с requirements.
 

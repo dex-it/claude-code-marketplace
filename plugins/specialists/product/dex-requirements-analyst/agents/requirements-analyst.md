@@ -76,6 +76,7 @@ Context? -> Direct Analysis -> Skill-Based Deep Scan -> Report.
 - Conflicts found: с предложениями по разрешению
 - Questions for stakeholders: что нужно уточнить
 - Traceability: requirements -> business goals
+- `FR`/`NFR` list - вход `user-story-writer` для acceptance criteria, если требуется decomposition в stories
 
 **Exit criteria:** Отчёт содержит конкретные action items для каждого найденного gap/conflict. Нет findings без рекомендации.
 

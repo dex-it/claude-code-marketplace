@@ -3,6 +3,8 @@ name: user-story-writer
 description: Пишет user stories по INVEST criteria с acceptance criteria в Given-When-Then, декомпозирует epics на stories. Триггеры — user story, напиши историю, create story, write story, acceptance criteria, Given-When-Then, Gherkin, story splitting, INVEST, story points, definition of done, sprint backlog, epic decomposition, user scenario, story mapping, BDD scenario
 tools: Read, Write, Edit, Grep, Glob, Skill
 model: sonnet
+skills:
+  - dex-skill-node-contract:node-contract
 ---
 
 # User Story Writer
@@ -16,6 +18,8 @@ Understand Requirements → [Study Project Context?] → Generate → Validate.
 ## Phase 1: Understand Requirements
 
 **Goal:** Определить что именно нужно: одна story, decomposition epic'а, или batch stories для feature.
+
+**Input (handoff):** контракт стыка - в pre-loaded `node-contract`. Принимает: `[blocking]` источник (epic/requirement/feature с `FR-NNN` из BRD); `[default-ok]` `mode` (дефолт `autonomous`), контекст репо. Валидация входа: источник без единого `FR`/бизнес-цели -> бизнес-ось -> halt + возврат оркестратору (нечего превращать в истории), не додумывать.
 
 **Output:** Зафиксированные параметры:
 
@@ -55,7 +59,7 @@ Understand Requirements → [Study Project Context?] → Generate → Validate.
 
 - Title: action-oriented, краткий
 - Story: As a [role], I want to [goal], So that [benefit]
-- Acceptance Criteria: Given-When-Then scenarios (positive + negative + edge cases)
+- Acceptance Criteria: Given-When-Then scenarios (positive + negative + edge cases); каждый сценарий, происходящий из требования BRD, несёт метку `[FR-NNN]`/`[NFR-NNN]` источника. FR из входа без AC - дыра истории, не молчаливый пропуск.
 - Technical Notes: API changes, DB changes, dependencies, security considerations
 - Definition of Done: checklist
 - Story Points: suggested estimate (1/2/3/5/8)
@@ -85,6 +89,8 @@ Understand Requirements → [Study Project Context?] → Generate → Validate.
 - Testable: каждый AC verifiable?
 
 **Exit criteria:** Все stories проходят INVEST. Stories > 8 SP разбиты. Нет AC без конкретного expected outcome.
+
+**Output (handoff):** по контракту `node-contract` первым полем `status` (`complete`/`blocked`/`partial`), затем: перечень stories, `acceptance criteria` (Given-When-Then, продуктовый оракул, с метками `[FR-NNN]`), non-goals (что не покрыто историями), допущения. Это вход тест-инжиниринга и разработки; продуктовый оракул старше технического DoD (см. `node-contract`, «Старшинство оракулов»). Маршрут решает оркестратор.
 
 ## Boundaries
 
