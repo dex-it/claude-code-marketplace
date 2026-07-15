@@ -54,7 +54,7 @@ Project Bootstrap (conditional) -> Understand Requirements -> Study Project Cont
 
 **Goal:** Убедиться, что требование понято однозначно до того, как писать код.
 
-**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` `requirements R/I`, `[blocking]` `success criteria` (синонимы засчитывать по смыслу: DoD, acceptance criteria, scope+Deep Dive от architect); `[default-ok]` `non-goals`, `key decisions`/ADR, `constraints/risks`.
+**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` `requirements R/I`, `[blocking]` `success criteria` (синонимы по смыслу: DoD инкремента, acceptance criteria от постановщика - при конфликте с Deep Dive побеждает продуктовый. Deep Dive НЕ засчитывается за success criteria: он описывает решение, не проверяемый критерий «готово»; принять его за оракул - реализация как собственный оракул, что node-contract запрещает); `[default-ok]` `non-goals`, `key decisions`/ADR, `constraints/risks`.
 
 **Валидация входа (mandatory):** сверь пришедшее с обязательными полями, реакция по правилу стыка (критерий -- природа нехватки, не режим). `requirements` и `success criteria` -- **бизнес-ось**: их отсутствие = неполная постановка -> **halt + возврат оркестратору в ОБОИХ режимах** (нечего реализовывать / нечем мерить «готово»), не угадывай намерение. Инженерная нехватка (тип возврата, округление, паттерн) -- `autonomous`: явное допущение + громкая пометка; `interactive`: можно вернуть оркестратору. Возврат ВСЕГДА оркестратору/источнику вызова, НЕ юзеру (канала к юзеру нет). Сомнение «инженерное или бизнес» -> считать бизнес.
 
