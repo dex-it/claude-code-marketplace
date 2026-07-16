@@ -1,5 +1,11 @@
 # Анкета обследования клиента - Implementation Plan
 
+> **Исторический документ.** План фиксирует, как артефакты создавались изначально;
+> нумерация блоков и перечни вопросов ниже отражают первую версию. Актуальный контракт
+> анкеты (состав блоков, вопросы, обоснование каждого против нашего слота автоматизации)
+> держит спека [2026-07-15-assessment-questionnaire-design.md](../specs/2026-07-15-assessment-questionnaire-design.md)
+> и сами артефакты в `adoption/`. При расхождении верна спека, не этот план.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Написать анкету-интервью `adoption/01-assessment.md` и шаблон профиля `adoption/templates/company-profile.md`, по которым консультант собирает данные о процессе и целях клиента. Точки встраивания по этим данным определяет планировщик (отдельная работа), не анкета.
