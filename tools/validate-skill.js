@@ -124,7 +124,6 @@ const PROCESS_SKILLS = new Set([
   'node-contract',
   'autonomous-task',
   'test-coverage',
-  'adr-authoring',
 ]);
 
 function isProcessSkill(parsed) {
