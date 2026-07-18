@@ -30,7 +30,20 @@ Systems and software engineering - Life cycle processes - Requirements engineeri
 |---|---|---|---|
 | §5.2.6 «Characteristics of a set of requirements» существует, стр. 13 | `dex-skill-requirement-set-quality` | `verified` | оглавление превью |
 | §5.2.5 «Characteristics of individual requirements» существует, стр. 12 | - (пока никто) | `verified` | оглавление превью |
-| Точный перечень характеристик набора из §5.2.6 | `dex-skill-requirement-set-quality` | `unverifiable` | полный текст за paywall; ловушки skill выведены из механики набора, не из формулировок стандарта - пометка стоит в теле skill |
+| Точный перечень характеристик набора из §5.2.6 | `dex-skill-requirement-set-quality` | `unverifiable` | полный текст §5.2.6 за paywall. Косвенно: INCOSE GtWR v3.1 даёт **Complete, Consistent, Feasible, Comprehensible, Able to be Validated** и заявляет их «in harmony with ... ISO/IEC/IEEE 29148 and only slightly different to those in ISO/IEC/IEEE 15288» - гармонизация, не тождество, поэтому статус не `verified` |
+
+### INCOSE Guide to Writing Requirements (GtWR) v3.1, 2022
+
+Открытый отраслевой гайд рабочей группы INCOSE Requirements WG. Ближайший легально читаемый аналог §5.2.5/§5.2.6.
+
+- **Официальная страница:** https://www.incose.org/ (Requirements Working Group, продукты RWG); Summary Sheet выкладывается в открытый доступ.
+- **В репо не кладём:** copyright INCOSE 2022 прямо запрещает - «External Use. This document may not be shared or distributed to any non-INCOSE third party». Коммит в общий репозиторий = распространение третьим лицам. Цитирование с атрибуцией допустимо, копия файла - нет.
+- **Что даёт:** Section 2 - характеристики отдельного требования C1-C9; Section 3 - **характеристики набора C10-C14**.
+
+| Факт | Где используется | Статус | Основание |
+|---|---|---|---|
+| Характеристики набора: C10 Complete, C11 Consistent, C12 Feasible, C13 Comprehensible, C14 Able to be Validated | `dex-skill-requirement-set-quality` (оси разбора) | `verified` | GtWR v3.1, Section 3, оглавление стр. 45-54 + определения разделов 3.1-3.5 |
+| Характеристики единицы: C1-C9 (Necessary, Appropriate, Unambiguous, Complete, Singular, Feasible, Verifiable, Correct, Conforming) | - (пока никто) | `verified` | GtWR v3.1, Section 2 |
 
 `dex-skill-requirement-quality` (оракул единицы) на стандарт **не** опирается - ловушки выведены из инженерной практики. Строки о нём в реестре нет намеренно: ссылка появится только если артефакт реально начнёт ссылаться.
 
