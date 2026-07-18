@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "5.27.0",
+  "version": "5.30.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -1241,6 +1241,23 @@
       ]
     },
     {
+      "name": "dex-design-reviewer",
+      "source": "./plugins/specialists/architecture/dex-design-reviewer",
+      "description": "Ревью и согласование чужого дизайн-документа (спека, ADR, диаграммы) до написания кода: полнота NFR, дефекты требований, качество ADR-решений, консистентность и слои, фальсификация находок, severity. Не архитектура реализованного кода - её ревьюит /review-arch.",
+      "version": "1.0.0",
+      "category": "specialist",
+      "keywords": [
+        "specialist",
+        "review",
+        "design-review",
+        "architecture",
+        "adr",
+        "nfr",
+        "specification",
+        "requirements"
+      ]
+    },
+    {
       "name": "dex-business-analyst",
       "source": "./plugins/specialists/product/dex-business-analyst",
       "description": "Business analyst: requirements formalization, BRD",
@@ -1315,6 +1332,20 @@
         "specialist",
         "user-stories",
         "acceptance-criteria"
+      ]
+    },
+    {
+      "name": "dex-requirements-orchestrator",
+      "source": "./plugins/specialists/product/dex-requirements-orchestrator",
+      "description": "Requirements orchestrator: idea -> BRD -> stories with quality gates and approval",
+      "version": "1.0.0",
+      "category": "specialist",
+      "keywords": [
+        "specialist",
+        "requirements",
+        "orchestrator",
+        "brd",
+        "stories"
       ]
     },
     {
@@ -2550,6 +2581,23 @@
         "perf",
         "post-mortem",
         "debug"
+      ]
+    },
+    {
+      "name": "dex-requirements-reviewer",
+      "source": "./plugins/specialists/review/dex-requirements-reviewer",
+      "description": "Ревью и согласование чужого готового набора требований (BRD/stories) как документа: дефекты единицы и дефекты набора против источника, фальсификация находок, severity, правки автору без мутации документа.",
+      "version": "1.0.0",
+      "category": "specialist",
+      "keywords": [
+        "specialist",
+        "review",
+        "requirements",
+        "requirement-set",
+        "brd",
+        "user-story",
+        "acceptance",
+        "traceability"
       ]
     },
     {
