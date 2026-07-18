@@ -1,6 +1,6 @@
 ---
 name: user-story-writer
-description: Пишет user stories по INVEST criteria с acceptance criteria в Given-When-Then, декомпозирует epics на stories. Триггеры - user story, напиши историю, create story, write story, acceptance criteria, Given-When-Then, Gherkin, story splitting, INVEST, story points, definition of done, sprint backlog, epic decomposition, user scenario, story mapping, BDD scenario
+description: Пишет user stories по INVEST criteria с acceptance criteria в Given-When-Then, декомпозирует epics на stories. Составитель историй зоны 1 (`/feature`). Handoff - принимает epic/requirement с `FR-NNN` из BRD (+ mode, контекст репо), отдаёт stories + acceptance criteria с метками `[FR-NNN]` + non-goals + метку quality-checks. Триггеры - user story, напиши историю, create story, acceptance criteria, Given-When-Then, Gherkin, story splitting, INVEST, story points, sprint backlog, epic decomposition, story mapping, BDD scenario
 tools: Read, Write, Edit, Grep, Glob, Skill
 model: sonnet
 skills:
@@ -112,9 +112,11 @@ Understand Requirements -> [Study Project Context?] -> Generate -> Validate.
 
 Выбор поведения за постановщика (значение лимита, политика гонки, degrade vs fail) - дыра истории: ни `[Assumption]`, ни `n/a` его не закрывают.
 
-**Exit criteria:** Все stories проходят INVEST. Stories > 8 SP разбиты. Нет AC без конкретного expected outcome. Каждый путь и каждая ось несут годный по реестру статус - иначе фаза не закрывается. Непогашенная дыра -> `status: blocked` с перечнем дыр.
+**Exit criteria:** Все stories проходят INVEST. Stories > 8 SP разбиты. Нет AC без конкретного expected outcome. Каждый путь и каждая ось несут годный по реестру статус - иначе фаза не закрывается. Непогашенная дыра -> `status: blocked` с перечнем дыр. `quality-checks` несёт запись по stories с проставленным verdict.
 
-**Output (handoff):** по контракту `node-contract` первым полем `status` (`complete`/`blocked`/`partial`), затем: перечень stories, `acceptance criteria` (Given-When-Then, продуктовый оракул, с метками `[FR-NNN]`), non-goals (что не покрыто историями, с основанием из входа), допущения (каждое - с источником вывода), дыры истории (если `blocked`). Продуктовый оракул старше технического DoD (см. `node-contract`, «Старшинство оракулов»). Маршрут решает оркестратор.
+**Output (handoff):** по контракту `node-contract` первым полем `status` (`complete`/`blocked`/`partial`), затем: перечень stories, `acceptance criteria` (Given-When-Then, продуктовый оракул, с метками `[FR-NNN]`), non-goals (что не покрыто историями, с основанием из входа), допущения (каждое - с источником вывода), дыры истории (если `blocked`), `quality-checks`. Продуктовый оракул старше технического DoD (см. `node-contract`, «Старшинство оракулов»). Маршрут решает оркестратор.
+
+**`quality-checks` - обязательное поле выхода** (`node-contract`, раздел B п.7): запись `{artifact: stories, check: requirement-quality, verdict: passed|failed}` фиксирует прогон `requirement-quality` в Phase 4. `verdict: passed` - дефектов и непогашенных дыр не осталось. Оракул нашёл дефект: устранён в Phase 4 -> `passed`; неустранимый (нужно решение постановщика) -> `verdict: failed` + перечень дефектов и дыр в поле, и `status: blocked` первым полем - `failed` под `complete` не маскируется. Прогон не состоялся (skill не загрузился) -> `verdict: unverifiable` + причина, `status: partial` с этой проверкой в перечне незакрытого (graceful degradation, `node-contract`). Поле опущено или verdict не проставлен - выход неполон, `complete` не выдавать.
 
 ## Boundaries
 
