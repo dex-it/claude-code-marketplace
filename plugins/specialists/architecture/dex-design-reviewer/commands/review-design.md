@@ -10,7 +10,7 @@ argument-hint: "<путь к дизайн-документу (спека/ADR)> [
 
 ## Goal
 
-Провести документ через фазы агента `design-reviewer`: Context (входная приёмка по метке `quality-checks`) -> Domain Priming -> Skill-Based Deep Scan (оракулы по аспектам) -> Fact Verification -> Cross-Linking -> Severity Calibration -> Output Labeling -> Report.
+Провести документ через фазы агента `design-reviewer`: Context (входная приёмка по метке `quality-checks`) -> Domain Priming -> Skill-Based Deep Scan (оракулы по аспектам) -> Fact Verification -> Cross-Linking -> Severity Calibration -> Deferred Decision Triage -> Output Labeling -> Report.
 
 ## Input
 
