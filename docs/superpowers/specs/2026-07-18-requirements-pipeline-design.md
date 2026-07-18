@@ -2,7 +2,7 @@
 
 **Дата:** 2026-07-18
 **Статус:** design (согласован в brainstorm, ожидает ревью перед планом реализации)
-**Ветка:** docs/adr-canon-over-code
+**Ветка:** docs/agentic-sdlc-adoption-playbook
 
 ## Оглавление
 
