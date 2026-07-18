@@ -58,7 +58,7 @@ Understand Requirements -> [Context?] -> Generate -> Validate. Context -- опц
 
 В этой фазе загружай skills через Skill tool:
 
-- Для ловушек написания ADR (норма vs состояние кода, императив, замкнутость, источник требования, работа с файлом) -- `dex-skill-adr-authoring:adr-authoring`
+- Для ловушек написания ADR (норма vs состояние кода, императив, замкнутость, источник требования, работа с файлом) -- `dex-skill-adr-quality:adr-quality`
 - Для проверки формата и стандартов документации -- `dex-skill-doc-standards:doc-standards`
 - Для валидации архитектурных паттернов в решении -- `dex-skill-clean-architecture:clean-architecture`
 
@@ -79,7 +79,7 @@ Understand Requirements -> [Context?] -> Generate -> Validate. Context -- опц
 - Alternatives Considered (минимум 2 с pros/cons/why rejected)
 - Расхождения с текущим кодом -- обязателен, когда `discrepancies` из Phase 2 не пусты. Раздел-приложение последним, после Alternatives Considered; норма и состояние кода не смешиваются. Секция проектная, вне канона MADR (канон: Context and Problem Statement, Decision Drivers, Considered Options, Decision Outcome, Consequences, Confirmation, Pros and Cons of the Options, More Information)
 
-**Норма пишется так, будто кода ещё нет** (ловушки -- в `adr-authoring`): Decision несёт исполнимые предписания в терминах домена, без `file:line` и имён классов как несущих элементов; якоря и числа из реализации живут только в «Расхождениях». Проверка: удали раздел «Расхождения» -- Decision обязан остаться полным.
+**Норма пишется так, будто кода ещё нет** (ловушки -- в `adr-quality`): Decision несёт исполнимые предписания в терминах домена, без `file:line` и имён классов как несущих элементов; якоря и числа из реализации живут только в «Расхождениях». Проверка: удали раздел «Расхождения» -- Decision обязан остаться полным.
 
 **Exit criteria:** Файл создан, все mandatory секции заполнены содержательно (не заглушками).
 
