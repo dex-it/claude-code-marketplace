@@ -38,7 +38,9 @@ _templates/          шаблоны маршрутов, не привязанн�
 
 | Фича | Дата | Маршруты | Итог |
 |---|---|---|---|
-| [ai-sdlc-requirements](ai-sdlc-requirements/) | 2026-07-19 | increment | 6 находок «предписывает» + 1 «допускает»; асимметрия доступа к корпусу в зоне 1. Решение: `docs/PROJECT_MAP.md` + чтение через `codebase-conventions` |
+| [ai-sdlc-requirements](ai-sdlc-requirements/) | 2026-07-19 | increment | 6+1 находок; асимметрия доступа к корпусу в зоне 1. **Исправлено** `5e8ccdf` - skill `project-docs-map` |
+| [ai-sdlc-requirements](ai-sdlc-requirements/) | 2026-07-19 | e2e | 2 находки; та же дыра в зоне 2 - Phase 0 architect не фиксирует ADR, `Skip_if` даёт путь мимо |
+| [ai-sdlc-requirements](ai-sdlc-requirements/) | 2026-07-19 | engine | 1 находка; ADR pre-check опирается на знание ADR как на данность, шага «найти» нет |
 
 ## Общие критерии провала
 
