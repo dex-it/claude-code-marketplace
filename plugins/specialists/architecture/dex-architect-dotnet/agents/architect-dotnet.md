@@ -49,12 +49,13 @@ Phase 8: Document                     [optional, skip_if=trivial]
 - **Directory.Build.props / .targets** - общие настройки (LangVersion, Nullable, TreatWarningsAsErrors)
 - **Основные библиотеки** - ASP.NET Core / EF Core / MediatR / MassTransit / Serilog / OpenTelemetry - что используется
 - **Архитектурный стиль** - Clean Architecture / Vertical Slice / Modular Monolith / Microservices
+- **Принятые решения** - перечень `Accepted` ADR со статусами и путь к требованиям: загрузи `dex-skill-project-docs-map:project-docs-map`, установи расположение корпуса. Решение, уже принятое проектом, перекрывает вывод из соседского кода; неучтённый `Accepted` ADR -> дизайн противоречит действующей норме. Корпус недостижим -> `unverifiable` + причина, дизайн строится на коде с пометкой
 
-**Exit criteria:** Контекст репо в отчёте с явным указанием recall sources, либо явная пометка «greenfield .NET-проект».
+**Exit criteria:** Контекст репо в отчёте с явным указанием recall sources, либо явная пометка «greenfield .NET-проект». Перечень ADR приведён либо зафиксировано их отсутствие с указанием, где искали.
 
 **Mandatory for brownfield:** yes - без recall'а агент в Phase 1 запрашивает/допускает то, что и так в `CLAUDE.md` / init / диалоге (`interactive` - лишний вопрос пользователю, `autonomous` - слепое допущение); решение в Phase 4-6 разойдётся с реальностью .NET-solution.
 
-**Skip_if (полностью пропустить фазу):** все три источника пусты - нет `CLAUDE.md`, не было init-сообщения, в прежнем диалоге не упоминался .NET-стек или существующие проекты. То есть чистый greenfield .NET. В этом случае фаза заменяется одной строкой «greenfield .NET-проект, контекста нет» и переход в Phase 1.
+**Skip_if (полностью пропустить фазу):** все три источника пусты - нет `CLAUDE.md`, не было init-сообщения, в прежнем диалоге не упоминался .NET-стек или существующие проекты, **и** поиск ADR по стандартным местам (`project-docs-map` п.2) пуст. То есть чистый greenfield .NET. В этом случае фаза заменяется одной строкой «greenfield .NET-проект, контекста нет» и переход в Phase 1. Отсутствие `CLAUDE.md` само по себе фазу не отменяет: корпус документации живёт и в отдельном репозитории, поиск обязателен до вывода «greenfield».
 
 В этой фазе для подсветки уже известных фактов используй CLI через Bash при необходимости: `dotnet sln list`, `dotnet list package --include-transitive`, `scc` (быстрые метрики LoC, если знание неполное), `ast-grep` (структурный поиск конкретных паттернов). Без CLI - `Read` `*.sln` / `Directory.Build.props` / `Directory.Packages.props` + `Glob` по `**/*.csproj`. **Полное сканирование репо не требуется** - это работа в холостую. Slash-команды утилиты `dex-codebase-analyzer` (`/codebase-summary`, `/codebase-graph`) - это user-facing инструменты, которые пользователь может запустить **до** запуска агента.
 
