@@ -125,6 +125,7 @@ const PROCESS_SKILLS = new Set([
   'autonomous-task',
   'test-coverage',
   'legacy-reconstruction',
+  'project-docs-map',
 ]);
 
 function isProcessSkill(parsed) {
