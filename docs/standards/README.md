@@ -22,14 +22,15 @@ Systems and software engineering - Life cycle processes - Requirements engineeri
 
 - **Официальная страница:** https://www.iso.org/standard/72089.html | https://standards.ieee.org/standard/29148-2018.html
 - **Доступ:** платный (~200 USD). Корпоративной копии на момент записи нет.
-- **Превью в репо:** [`previews/ISO-IEC-IEEE-29148-2018-preview.pdf`](previews/ISO-IEC-IEEE-29148-2018-preview.pdf) - официальная выборка iTeh/ISO, **14 страниц из ~90**: титул, предисловие, оглавление, раздел 3 «Термины и определения»; обрыв на стр. 6 нумерации стандарта, до начала нормативной части.
+- **В репо не кладём:** превью издателя несёт на стр. 2 собственный запрет - «no part of this publication may be reproduced or utilized otherwise in any form or by any means ... including photocopying, or posting on the internet or an intranet, without prior written permission». Публичный репозиторий = posting on the internet, письменного разрешения у нас нет. Ходившая по рукам копия «14 страниц» - к тому же выборка дистрибьютора (водяной знак iTeh Standards на каждой странице), а не выкладка издателя, то есть под п.3 реестра она не подходит и по происхождению. Смотрим по ссылке, не копируем.
+- **Открытое превью для сверки:** ISO Online Browsing Platform - https://www.iso.org/obp/ui/#iso:std:iso-iec-ieee:29148:ed-2:v1:en (оглавление + раздел 3 «Термины и определения» открыты без подписки); оглавление также на странице стандарта https://www.iso.org/standard/72089.html.
 
-  Что превью даёт и чего не даёт: **как источник фактов - ничего**, содержательный раздел 5 в него не входит. **Как доказательство существования и точного имени пункта - работает**: оглавление содержит `5.2.6 Characteristics of a set of requirements ... 13`, то есть ссылка в артефакте не выдумана и номер с названием верны. Искать в превью сами характеристики бессмысленно.
+  Что открытое превью даёт и чего не даёт: **как источник фактов - ничего**, содержательный раздел 5 в него не входит. **Как доказательство существования и точного имени пункта - работает**: оглавление содержит `5.2.6 Characteristics of a set of requirements ... 13`, то есть ссылка в артефакте не выдумана и номер с названием верны. Искать в превью сами характеристики бессмысленно.
 
 | Факт | Где используется | Статус | Основание |
 |---|---|---|---|
-| §5.2.6 «Characteristics of a set of requirements» существует, стр. 13 | `dex-skill-requirement-set-quality` | `verified` | оглавление превью |
-| §5.2.5 «Characteristics of individual requirements» существует, стр. 12 | - (пока никто) | `verified` | оглавление превью |
+| §5.2.6 «Characteristics of a set of requirements» существует, стр. 13 | `dex-skill-requirement-set-quality` | `verified` | оглавление на ISO OBP (открытый доступ) |
+| §5.2.5 «Characteristics of individual requirements» существует, стр. 12 | - (пока никто) | `verified` | оглавление на ISO OBP (открытый доступ) |
 | Точный перечень характеристик набора из §5.2.6 | `dex-skill-requirement-set-quality` | `unverifiable` | полный текст §5.2.6 за paywall. Косвенно: INCOSE GtWR v3.1 даёт **Complete, Consistent, Feasible, Comprehensible, Able to be Validated** и заявляет их «in harmony with ... ISO/IEC/IEEE 29148 and only slightly different to those in ISO/IEC/IEEE 15288» - гармонизация, не тождество, поэтому статус не `verified` |
 
 ### INCOSE Guide to Writing Requirements (GtWR) v3.1, 2022
