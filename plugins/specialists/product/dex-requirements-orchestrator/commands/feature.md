@@ -27,7 +27,8 @@ argument-hint: "[идея / тема / путь к готовому BRD]"
 - BRD с нумерованными `FR`/`NFR`, `non-goals`, допущениями;
 - user stories с acceptance criteria в Given-When-Then и метками `[FR-NNN]`;
 - трассировка `FR -> AC`: каждый `FR` покрыт story либо переведён в `non-goals` с основанием;
-- `status: approved` после апрува обоих гейтов + метка `quality-checks` с записями по BRD и stories;
+- `status: complete` - выдаётся только после апрува обоих гейтов; неапрувнутый или неполный результат уходит как `blocked`/`partial` с перечнем незакрытого (перечень статусов - `node-contract`, правило стыка A);
+- метка `quality-checks` с записями по BRD и stories;
 - handoff в зону 2 (`/design`).
 
 Спека, ADR, нарезка задач и код - НЕ здесь.

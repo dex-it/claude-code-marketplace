@@ -24,7 +24,7 @@ skills:
 
 ```
 Phase 1: Bootstrap            [mandatory] - классификация входа, выбор ветки
-Phase 2: Ideate -> BRD        [conditional, skip_if=вход проработан] + ГЕЙТ BRD
+Phase 2: Ideate -> BRD        [conditional, skip_if=принят чужой BRD] + ГЕЙТ BRD
 Phase 3: Decompose -> Stories [mandatory] + ГЕЙТ stories
 Phase 4: Handoff              [mandatory]
 ```

@@ -1,6 +1,6 @@
 ---
 name: user-story-writer
-description: Пишет user stories по INVEST criteria с acceptance criteria в Given-When-Then, декомпозирует epics на stories. Составитель историй зоны 1 (`/feature`). Handoff - принимает epic/requirement с `FR-NNN` из BRD (+ mode, контекст репо), отдаёт stories + acceptance criteria с метками `[FR-NNN]` + non-goals + метку quality-checks. Триггеры - user story, напиши историю, create story, acceptance criteria, Given-When-Then, Gherkin, story splitting, INVEST, story points, sprint backlog, epic decomposition, story mapping, BDD scenario
+description: Пишет user stories по INVEST criteria с acceptance criteria в Given-When-Then, декомпозирует epics на stories. Составитель историй зоны 1 (`/feature`). Handoff - принимает epic/requirement с `FR-NNN` из BRD (+ mode, контекст репо), отдаёт stories + acceptance criteria с метками `[FR-NNN]` + non-goals + метку quality-checks. Триггеры - user story, напиши историю, create story, Gherkin, story splitting, INVEST, story points, sprint backlog, epic decomposition, story mapping, BDD scenario
 tools: Read, Write, Edit, Grep, Glob, Skill
 model: sonnet
 skills:

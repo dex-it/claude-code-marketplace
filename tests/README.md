@@ -20,8 +20,8 @@
 ```
 _templates/          шаблоны маршрутов, не привязанные к фиче
 <имя-фичи>/
-  scenario-*.md      копия шаблона с подставленным входом
-  findings.md        что нашлось, с датой
+  scenario-*.md      копия шаблона с подставленным входом; находки и их
+                     закрытие живут в самом сценарии, отдельного файла нет
 ```
 
 Маршрутов на фичу может быть несколько - тогда несколько `scenario-*.md` по именам шаблонов.
@@ -39,8 +39,8 @@ _templates/          шаблоны маршрутов, не привязанн�
 | Фича | Дата | Маршруты | Итог |
 |---|---|---|---|
 | [ai-sdlc-requirements](ai-sdlc-requirements/) | 2026-07-19 | increment | 6+1 находок; асимметрия доступа к корпусу в зоне 1. **Исправлено** `5e8ccdf` - skill `project-docs-map` |
-| [ai-sdlc-requirements](ai-sdlc-requirements/) | 2026-07-19 | e2e | 2 находки; та же дыра в зоне 2 - Phase 0 architect не фиксирует ADR, `Skip_if` даёт путь мимо |
-| [ai-sdlc-requirements](ai-sdlc-requirements/) | 2026-07-19 | engine | 1 находка; ADR pre-check опирается на знание ADR как на данность, шага «найти» нет |
+| [ai-sdlc-requirements](ai-sdlc-requirements/) | 2026-07-19 | e2e | 2 находки; та же дыра в зоне 2 - Phase 0 architect не фиксирует ADR, `Skip_if` даёт путь мимо. **Исправлено** - Phase 0 architect сверяется с принятыми решениями до выводов |
+| [ai-sdlc-requirements](ai-sdlc-requirements/) | 2026-07-19 | engine | 1 находка; ADR pre-check опирается на знание ADR как на данность, шага «найти» нет. **Исправлено** - pre-check в `tracks/development.md` начинается с поиска действующих ADR по `project-docs-map` |
 
 ## Общие критерии провала
 

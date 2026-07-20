@@ -160,7 +160,7 @@ Expected: 0 ошибок.
 
 ## Фаза B: оракул requirement-set-quality (новый trap-skill)
 
-Новый skill — set-оракул (§5.2.6 ISO 29148: Complete набора, Consistent, Affordable, Bounded, Able to be Validated). Судит МНОЖЕСТВО требований против источника; грузит только оркестратор/дирижёр, не составитель-субагент.
+Новый skill - set-оракул (оси разбора - характеристики набора INCOSE GtWR v3.1 C10-C14: Complete, Consistent, Feasible, Comprehensible, Able to be Validated; точный состав §5.2.6 ISO 29148 за paywall и статусом `unverifiable`, см. `docs/standards/README.md`). Судит МНОЖЕСТВО требований против источника; грузит только оркестратор/дирижёр, не составитель-субагент.
 
 ### Task B1: Создать skill requirement-set-quality
 
@@ -276,7 +276,7 @@ Rename skill (major bump 1.0.0 -> 2.0.0). 10 точек ссылок (по ра�
 - [ ] **Step 1: Переместить директории** (git mv для сохранения истории):
 
 ```bash
-cd /home/mmx/Work/claude-market/claude-code-marketplace
+cd "$(git rev-parse --show-toplevel)"
 git mv plugins/skills/dex-skill-adr-authoring plugins/skills/dex-skill-adr-quality
 git mv plugins/skills/dex-skill-adr-quality/skills/adr-authoring plugins/skills/dex-skill-adr-quality/skills/adr-quality
 ```
@@ -433,7 +433,7 @@ Expected: 0 ошибок. Mandatory-фазы обоснованы; tools пок�
 
 `Делегировать агенту `requirements-orchestrator` с **`mode: interactive`** во входе (команда исполняется главным циклом - канал к юзеру есть; без явного `interactive` агент уйдёт в autonomous и не будет вести диалог/гейты-апрув).`
 
-Output: апрувнутый BRD (эпик) + stories (FR->AC трассировка + AC) + status: approved + метка quality-checks + handoff в /design. НЕ спека/задачи/код.
+Output: апрувнутый BRD (эпик) + stories (FR->AC трассировка + AC) + status: complete (после апрува обоих гейтов) + метка quality-checks + handoff в /design. НЕ спека/задачи/код.
 
 - [ ] **Step 2: `optimize-for-llm`** (команда 20-50 строк, Goal+Output, не workflow).
 
@@ -614,7 +614,7 @@ Expected: 0 ошибок.
 - [ ] **Step 1: Удалить три файла треков**
 
 ```bash
-cd /home/mmx/Work/claude-market/claude-code-marketplace
+cd "$(git rev-parse --show-toplevel)"
 git rm plugins/ai-sdlc/dex-skill-autonomous-task/skills/autonomous-task/tracks/requirements.md \
        plugins/ai-sdlc/dex-skill-autonomous-task/skills/autonomous-task/tracks/specification.md \
        plugins/ai-sdlc/dex-skill-autonomous-task/skills/autonomous-task/tracks/design.md
