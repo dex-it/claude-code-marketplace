@@ -346,7 +346,7 @@ git commit -m "fix(coders): Deep Dive больше не синоним орак�
 - Modify: `.claude-plugin/marketplace.json` (регистрация + версия каталога)
 
 **Interfaces:**
-- Produces: process-skill дисциплины «восстановить оракул из кода, когда постановки не было». Грузится debugger/discover-агентами при brownfield-входе.
+- Produces: process-skill дисциплины «восстановить оракул из кода, когда постановки не было». Грузится потребителями при входе «код без ТЗ»: аналитики требований (business-requirements-analyst, requirements-analyst), mr-reviewer (intent: n/a), debugger (нет ожидаемого - реконструкция-гипотеза вместо halt). discover не потребитель (технический инвентарь, оракул из кода не нужен). Замыкание - docs/superpowers/plans/2026-07-21-legacy-reconstruction-closure.md.
 
 - [ ] **Step 1: Проверить, что слот реально пуст**
 
