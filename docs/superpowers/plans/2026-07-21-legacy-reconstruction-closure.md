@@ -4,7 +4,7 @@
 
 **Goal:** Замкнуть осиротевший `dex-skill-legacy-reconstruction`, назначив его 4 узлам-потребителям (business-requirements-analyst, requirements-analyst, mr-reviewer, debugger) с hard-gate загрузкой «код без ТЗ», и добавить его в 5 бандлов.
 
-**Architecture:** Каждый агент-потребитель получает слот загрузки скилла в своей Phase 3 (Skill-Based Deep Scan) с прозаическим hard-gate-условием (без меток-операторов, по конвенции репо): нет ТЗ -> грузи обязательно; ТЗ есть -> не грузи. debugger дополнительно снимает глухой halt на отсутствие «ожидаемого поведения», превращая реконструкцию в гипотезу (не success criteria). Каждый включающий агента бандл получает скилл в `includes[]` (правило `bundle-not-closed`).
+**Architecture:** Каждый агент-потребитель получает слот загрузки скилла в своей фазе Deep Scan (у аналитиков и debugger - Phase 3 «Skill-Based Deep Scan»; у mr-reviewer intent-gate живёт в Phase 6 «Falsification and Scoring») с прозаическим hard-gate-условием (без меток-операторов, по конвенции репо): нет ТЗ -> грузи обязательно; ТЗ есть -> не грузи. debugger дополнительно снимает глухой halt на отсутствие «ожидаемого поведения», превращая реконструкцию в гипотезу (не success criteria). Каждый включающий агента бандл получает скилл в `includes[]` (правило `bundle-not-closed`).
 
 **Tech Stack:** Markdown-артефакты плагинов (agents/*.md, bundle.json, plugin.json), `.claude-plugin/marketplace.json`, валидаторы `tools/validate-*.js` (`npm run validate`), `optimize-for-llm` skill.
 
@@ -116,16 +116,16 @@ git commit -m "feat(requirements-analyst): слот legacy-reconstruction при
 ### Task 3: Слот в mr-reviewer
 
 **Files:**
-- Modify: `plugins/specialists/review/dex-mr-reviewer/agents/mr-reviewer.md` (Phase 3, у блока intent-gate / `intent: n/a`, ~строка 153)
+- Modify: `plugins/specialists/review/dex-mr-reviewer/agents/mr-reviewer.md` (Phase 6 «Falsification and Scoring», у блока intent-gate / `intent: n/a`, ~строка 153)
 - Modify: `plugins/specialists/review/dex-mr-reviewer/.claude-plugin/plugin.json` (version 1.8.0 -> 1.9.0)
 
 **Interfaces:**
-- Consumes: Phase 3, строка про `dex-skill-review-evidence:review-evidence` + intent-gate («источник отсутствует -> ось помечается `intent: n/a`, корректностные находки не глушатся»).
+- Consumes: Phase 6, строка про `dex-skill-review-evidence:review-evidence` + intent-gate («источник отсутствует -> ось помечается `intent: n/a`, корректностные находки не глушатся»).
 - Produces: слот legacy-reconstruction, привязанный к ветке `intent: n/a` - ревью кода без источника-намерения.
 
 - [ ] **Step 1: Добавить слот загрузки к intent-gate**
 
-В `.../mr-reviewer.md` найти в Phase 3 абзац, начинающийся «Загрузи `dex-skill-review-evidence:review-evidence` и примени intent-gate ...». В конец этого абзаца (после «... желательность фичи по сути не оценивается.» и перечня северностей - вставить ПЕРЕД строкой «Севериности: CRITICAL ...») добавить предложение:
+В `.../mr-reviewer.md` найти в Phase 6 абзац, начинающийся «Загрузи `dex-skill-review-evidence:review-evidence` и примени intent-gate ...». В конец этого абзаца (после «... желательность фичи по сути не оценивается.» и перечня северностей - вставить ПЕРЕД строкой «Севериности: CRITICAL ...») добавить предложение:
 
 ```markdown
 Источник намерения отсутствует (`intent: n/a`) и предмет ревью - корректность кода без постановки: загрузи `dex-skill-legacy-reconstruction:legacy-reconstruction` и реконструируй ожидаемое поведение по её дисциплине как опору для корректностных находок. Реконструированное - гипотеза «реконструировано, не валидировано» (шаг 2 скилла ревьюеру-узлу недоступен), в тред автору идёт как предположение об ожидаемом, не как установленное требование; расхождение «замысел или дефект» - вопрос наверх, не безусловная находка. Источник намерения на входе есть - скилл не грузится, сверка идёт против него.
