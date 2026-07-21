@@ -238,7 +238,7 @@ git commit -m "feat(mr-check-reviewer): грузить performance-review в Dee
 - [ ] **Step 3: Валидация бандлов**
 
 Run: `npm run validate:bundles`
-Expected: 0 ошибок, правило `bundle-not-closed` проходит по всем трём.
+Expected: правило `bundle-not-closed` замыкания по трём бандлам структурно выполнено (skill в каждом includes[]). Ошибка `skill-reference-unknown` для `dex-skill-performance-review` ОЖИДАЕМА до Task 6 (skill не в marketplace.json) - не дефект задачи. Полный зелёный - критерий Task 6.
 
 - [ ] **Step 4: Commit**
 
