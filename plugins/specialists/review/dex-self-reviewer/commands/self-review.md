@@ -1,5 +1,5 @@
 ---
-description: Pre-push саморевью своей локальной ветки включая незакоммиченные изменения - 7 фокусов с реальным прогоном build/test, чеклист правок до push
+description: Pre-push саморевью своей локальной ветки включая незакоммиченные изменения - многофокусный скан с реальным прогоном build/test, чеклист правок до push
 allowed-tools: Read, Grep, Glob, Bash, Skill
 argument-hint: "[base-branch, по умолчанию origin/main или origin/develop]"
 ---
