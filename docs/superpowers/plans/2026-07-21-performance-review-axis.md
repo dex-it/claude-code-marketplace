@@ -126,7 +126,7 @@ git commit -m "feat(perf-review): нейтральный skill ловушек п
 
 **Files:**
 - Modify: `plugins/specialists/review/dex-mr-reviewer/agents/mr-reviewer.md:100`
-- Modify: `plugins/specialists/review/dex-mr-reviewer/.claude-plugin/plugin.json` (1.9.0 -> 1.10.0)
+- Modify: `plugins/specialists/review/dex-mr-reviewer/.claude-plugin/plugin.json` (1.8.0 -> 1.9.0)
 
 **Interfaces:**
 - Consumes: `dex-skill-performance-review:performance-review` (Task 1).
@@ -144,7 +144,7 @@ git commit -m "feat(perf-review): нейтральный skill ловушек п
 
 - [ ] **Step 2: Bump plugin.json**
 
-`plugins/specialists/review/dex-mr-reviewer/.claude-plugin/plugin.json`: `"version": "1.9.0"` -> `"version": "1.10.0"`.
+`plugins/specialists/review/dex-mr-reviewer/.claude-plugin/plugin.json`: `"version": "1.8.0"` -> `"version": "1.9.0"`.
 
 - [ ] **Step 3: Commit**
 
@@ -218,9 +218,9 @@ git commit -m "feat(mr-check-reviewer): грузить performance-review в Dee
 ### Task 5: Замкнуть бандлы по новому skill + bump
 
 **Files:**
-- Modify: `plugins/bundles/dex-bundle-code-review/bundle.json` (+ plugin.json 1.11.0 -> 1.12.0)
-- Modify: `plugins/bundles/dex-bundle-dotnet-developer/bundle.json` (+ plugin.json 2.8.0 -> 2.9.0)
-- Modify: `plugins/bundles/dex-bundle-dotnet-fullstack/bundle.json` (+ plugin.json 2.8.0 -> 2.9.0)
+- Modify: `plugins/bundles/dex-bundle-code-review/bundle.json` (+ plugin.json 1.10.0 -> 1.11.0)
+- Modify: `plugins/bundles/dex-bundle-dotnet-developer/bundle.json` (+ plugin.json 2.7.0 -> 2.8.0)
+- Modify: `plugins/bundles/dex-bundle-dotnet-fullstack/bundle.json` (+ plugin.json 2.7.0 -> 2.8.0)
 
 **Interfaces:**
 - Consumes: имя `dex-skill-performance-review` (Task 1). Правило `bundle-not-closed`: каждый не-by-stack skill, грузимый агентом бандла, обязан быть в `includes[]`. Все три бандла везут `dex-mr-reviewer` (грузит skill в Task 2); code-review везёт также `dex-self-reviewer` и `dex-mr-check-reviewer`; dotnet-* везут `dex-self-reviewer`. Значит skill нужен во всех трёх.
@@ -231,9 +231,9 @@ git commit -m "feat(mr-check-reviewer): грузить performance-review в Dee
 
 - [ ] **Step 2: Bump plugin.json бандлов**
 
-- `dex-bundle-code-review`: `1.11.0` -> `1.12.0`
-- `dex-bundle-dotnet-developer`: `2.8.0` -> `2.9.0`
-- `dex-bundle-dotnet-fullstack`: `2.8.0` -> `2.9.0`
+- `dex-bundle-code-review`: `1.10.0` -> `1.11.0`
+- `dex-bundle-dotnet-developer`: `2.7.0` -> `2.8.0`
+- `dex-bundle-dotnet-fullstack`: `2.7.0` -> `2.8.0`
 
 - [ ] **Step 3: Валидация бандлов**
 
@@ -255,7 +255,7 @@ git commit -m "feat(bundles): замкнуть code-review/dotnet-developer/dotn
 - Modify: `.claude-plugin/marketplace.json`
 
 **Interfaces:**
-- Consumes: версии из Tasks 1-5 (skill 1.0.0; mr-reviewer 1.10.0; self-reviewer 1.9.0; mr-check-reviewer 1.8.0; code-review 1.12.0; dotnet-developer 2.9.0; dotnet-fullstack 2.9.0).
+- Consumes: версии из Tasks 1-5 (skill 1.0.0; mr-reviewer 1.9.0; self-reviewer 1.9.0; mr-check-reviewer 1.8.0; code-review 1.11.0; dotnet-developer 2.8.0; dotnet-fullstack 2.8.0).
 
 - [ ] **Step 1: Добавить запись нового плагина**
 
@@ -263,7 +263,7 @@ git commit -m "feat(bundles): замкнуть code-review/dotnet-developer/dotn
 
 - [ ] **Step 2: Синхронизировать версии 6 изменённых плагинов**
 
-Привести версии в `marketplace.json` к plugin.json: `dex-mr-reviewer` 1.10.0, `dex-self-reviewer` 1.9.0, `dex-mr-check-reviewer` 1.8.0, `dex-bundle-code-review` 1.12.0, `dex-bundle-dotnet-developer` 2.9.0, `dex-bundle-dotnet-fullstack` 2.9.0.
+Привести версии в `marketplace.json` к plugin.json: `dex-mr-reviewer` 1.9.0, `dex-self-reviewer` 1.9.0, `dex-mr-check-reviewer` 1.8.0, `dex-bundle-code-review` 1.11.0, `dex-bundle-dotnet-developer` 2.8.0, `dex-bundle-dotnet-fullstack` 2.8.0.
 
 - [ ] **Step 3: Bump версии каталога**
 
