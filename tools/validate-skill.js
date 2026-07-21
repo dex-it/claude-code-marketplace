@@ -124,6 +124,8 @@ const PROCESS_SKILLS = new Set([
   'node-contract',
   'autonomous-task',
   'test-coverage',
+  'legacy-reconstruction',
+  'project-docs-map',
 ]);
 
 function isProcessSkill(parsed) {

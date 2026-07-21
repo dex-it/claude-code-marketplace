@@ -141,6 +141,7 @@ claude plugins uninstall dex-dotnet-coder
 | Плагин | Описание |
 |--------|----------|
 | dex-architect | System design, patterns, trade-offs |
+| dex-design-reviewer | Приёмка чужого дизайн-документа (`/review-design`) - спека, ADR, диаграммы до кода |
 | dex-adr-writer | Architecture Decision Records |
 | dex-diagram-creator | C4, sequence diagrams, Mermaid |
 | dex-api-designer | REST API design, OpenAPI |
@@ -158,6 +159,8 @@ claude plugins uninstall dex-dotnet-coder
 
 | Плагин | Описание |
 |--------|----------|
+| dex-requirements-orchestrator | Дирижёр зоны требований (`/feature`): идея -> BRD -> stories, гейты с апрувом оператора |
+| dex-requirements-reviewer | Приёмка чужого набора требований (`/review-requirements`) |
 | dex-requirements-analyst | Requirements analysis, validation |
 | dex-user-story-writer | User stories, acceptance criteria |
 | dex-process-modeler | BPMN, workflows |
@@ -193,8 +196,8 @@ claude plugins uninstall dex-dotnet-coder
 | **Security** | owasp-security |
 | **Workflow** | git-workflow, merge-conflict-resolution |
 | **Infrastructure** | rabbitmq, kafka, elasticsearch, redis, mongodb, docker, kubernetes, gitlab-ci, github-actions, jenkins, teamcity, logging, observability |
-| **Architecture** | clean-architecture, ddd, microservices, system-design |
-| **Product & Analysis** | agile, user-stories, bpmn, doc-standards, adr-authoring, api-specification, epic-planning, product-discovery, prioritization |
+| **Architecture** | clean-architecture, ddd, microservices, system-design, legacy-reconstruction |
+| **Product & Analysis** | agile, user-stories, bpmn, doc-standards, adr-quality, requirement-quality, requirement-set-quality, api-specification, epic-planning, product-discovery, prioritization |
 | **QA** | test-design, api-testing, deep-audit, tech-audit, playwright, exploratory-testing, bug-reproduction, contract-drift |
 | **Incident & RCA** | problem-specification, root-cause-analysis, change-correlation, shared-stand-safety |
 | **ML** | python-pytorch, python-tensorflow, python-classical-ml, python-nlp-transformers, python-computer-vision, python-ml-optimization |
