@@ -162,7 +162,8 @@
 - `> .NET-специфичная диагностика (EF-запросы, APM, память) - агент dotnet-performance-analyst`
 - `> тайм-аут/ретрай/backoff/circuit breaker - dex-skill-distributed-resilience`
 - `> ReDoS как вектор атаки (вредоносный ввод, DoS) - security-reviewer/owasp; здесь только перф-грань`
-- `> что и куда логировать (уровни, PII, структурность) - dex-skill-observability; здесь только лишняя работа лога`
+- `> что и куда логировать (уровни, PII, структурность) - dex-skill-dotnet-logging (стековый дом, нейтрального нет); здесь только лишняя работа лога`
+- `> .NET-конкретика граблей осей - dex-skill-dotnet-linq-optimization / dex-skill-dotnet-ef-core / dex-skill-dotnet-async-patterns / dex-skill-dotnet-resources; здесь нейтральный принцип, там стековая механика`
 
 Так skill остаётся про ревью diff'а, дом runtime-диагностики - отдельно; расползания нет.
 

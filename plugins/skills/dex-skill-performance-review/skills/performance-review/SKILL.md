@@ -158,7 +158,7 @@ description: Ловушки производительности при ревь
 - Запись/запрос пакетом, не в цикле (батч; psycopg2 - `execute_values`, psycopg3 - `executemany` батчит сам)
 - Долгоживущий HTTP-клиент/соединение, не создание per-request (socket exhaustion)
 - Стрим на крупном файле/payload, не чтение целиком
-- Независимые await - разом (`WhenAll`/`gather`/`Promise.all`), не в цикле
+- Независимые await - разом (`WhenAll`/`gather`/`Promise.all`), не в цикле; большой набор - с лимитом параллелизма
 - Нет sync-over-async (`.Result`/`.Wait`/sync-IO в async)
 - Критическая секция без IO/долгого счёта; CPU-работа - в фон, не `Task.Run` в хендлере
 - Поиск в цикле через хеш-структуру, не линейный `Contains`/`in`
