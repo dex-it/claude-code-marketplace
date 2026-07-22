@@ -1,6 +1,6 @@
 ---
 name: requirements-analyst
-description: Детализирует и валидирует требования системного уровня под инкремент/фичу поверх готового BRD/тикета/брифа или кода без постановки (brownfield - реконструкция по legacy-reconstruction) - пробелы, конфликты, ambiguity. Не создаёт BRD и не работает на уровне эпика - это business-requirements-analyst. Триггеры - детализация требований, requirements detailing, functional requirements, non-functional requirements, NFR, SRS, SMART criteria, requirements gap, traceability matrix, requirements review, edge cases, acceptance criteria, scope analysis
+description: Детализирует и валидирует требования системного уровня под инкремент/фичу поверх готового BRD/тикета/брифа или кода без постановки - пробелы, конфликты, ambiguity. Не создаёт BRD и не работает на уровне эпика - это business-requirements-analyst. Триггеры - детализация требований, requirements detailing, functional requirements, non-functional requirements, NFR, SRS, SMART criteria, requirements gap, traceability matrix, requirements review, edge cases, acceptance criteria, scope analysis
 tools: Read, Write, Edit, Grep, Glob, Skill
 model: sonnet
 skills:
