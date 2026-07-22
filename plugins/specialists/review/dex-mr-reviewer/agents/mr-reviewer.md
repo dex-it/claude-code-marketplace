@@ -97,7 +97,7 @@ Skills не преднагружены: в Phase 3 загружаются имп
 
 Загружай skills императивно через Skill tool, условно по содержимому diff:
 
-- Всегда - `dex-skill-solid:solid`, `dex-skill-owasp-security:owasp-security`, `dex-skill-testability:testability`, `dex-skill-no-loose-ends:no-loose-ends`
+- Всегда - `dex-skill-solid:solid`, `dex-skill-owasp-security:owasp-security`, `dex-skill-testability:testability`, `dex-skill-no-loose-ends:no-loose-ends`, `dex-skill-performance-review:performance-review`
 - Если слоистая или CQRS-архитектура - `dex-skill-clean-architecture:clean-architecture`
 - Если доменный нейминг и агрегаты - `dex-skill-ddd:ddd`
 - Если распределённое взаимодействие - `dex-skill-microservices:microservices`, `dex-skill-distributed-resilience:distributed-resilience`
