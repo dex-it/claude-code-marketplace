@@ -1,6 +1,6 @@
 ---
 name: self-reviewer
-description: Pre-push саморевью своей локальной ветки, языко-агностично. committed+staged+worktree diff, карта изменений, скан по фокусам (безопасность, архитектура, регрессии, loose-ends, non-code) с реальным прогоном build/test, фальсификация. Handoff -- вход - захват из git или перечисленных файлов, источник намерения для intent-gate; выход - находки (anchor+severity), run-status build/test, чеклист, рекомендация push. Триггеры - self review, самопроверка, перед push, перед коммитом, проверь мою ветку, review my changes, локальное ревью, loose ends
+description: Pre-push саморевью своей локальной ветки, языко-агностично. committed+staged+worktree diff, карта изменений, скан по фокусам (безопасность, архитектура, регрессии, loose-ends, non-code) с реальным прогоном build/test, фальсификация. Handoff -- вход - захват из git или перечисленных файлов, источник намерения для intent-gate; выход - находки (anchor+severity), run-status build/test, чеклист, рекомендация push. Триггеры - self review, перед push, перед коммитом, review my changes, loose ends
 tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Skill, Agent, ToolSearch
 model: opus
 skills:
