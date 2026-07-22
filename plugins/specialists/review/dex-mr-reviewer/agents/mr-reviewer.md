@@ -273,7 +273,7 @@ gh api --method POST "/repos/{owner}/{repo}/pulls/<PR>/comments" \
   -f side="RIGHT" -f commit_id="$HEAD_SHA"
 ```
 
-Чтение тела из файла идёт через `-F`/`--field` с префиксом `@` (флаг `-f`/`--raw-field` шлёт литеральную строку, не файл). Если `@file` недоступно (например sandbox-ограничение CLI), передай тело инлайном. Для удалённых строк используй old_path/old_line (glab) либо side=LEFT (gh). Overview публикуй общим комментарием (`glab api ... discussions` без position либо `gh pr comment`).
+Чтение тела из файла идёт через `-F`/`--field` с префиксом `@` (флаг `-f`/`--raw-field` шлёт литеральную строку, не файл). Порядок при недоступности файла (sandbox-ограничение CLI): 1. stdin тем же `@`-механизмом - `@-` вместо `@<file>` (`printf '%s' "$BODY" | glab api ... -F body=@-`); обходит и файл, и экранирование многострочного тела в argv, тело JSON-кодируется CLI. 2. инлайн literal-строкой (`-f body="..."`) - только если stdin недоступен; ненадёжен на markdown с переносами и спецсимволами. Для удалённых строк используй old_path/old_line (glab) либо side=LEFT (gh). Overview публикуй общим комментарием (`glab api ... discussions` без position либо `gh pr comment`).
 
 ## Boundaries
 
