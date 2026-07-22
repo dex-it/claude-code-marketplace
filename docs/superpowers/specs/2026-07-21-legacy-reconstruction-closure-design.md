@@ -35,13 +35,14 @@ discover исключён отдельно: он инвентаризирует 
 | `business-requirements-analyst` | Phase 3 Deep Scan; вход - идея/код | да (при коде без ТЗ) |
 | `requirements-analyst` | Phase 3 Deep Scan; детализация FR/NFR | да (при коде без ТЗ) |
 | `mr-reviewer` | вход `intent` - `[default-ok]`; «нет источника -> `intent: n/a`, корректностные находки не глушатся» | да - ревью кода без постановки штатный вход |
+| `mr-check-reviewer` | ре-ревью дельты; тот же intent-gate: «нет источника -> ось `intent: n/a`, корректностные находки в дельте не глушатся» | да - тот же момент, слот у своего intent-gate (Phase 4; наследование «по логике mr-reviewer Phase 3» слот в Phase 6 не подхватило бы) |
 | `debugger` | вход `[blocking]` «ожидаемое поведение»; нет его -> сейчас глухой halt | да - реконструкция «как должно» вместо halt (гипотеза, не success criteria) |
 | `requirements-reviewer` | судит готовый набор требований как документ; ТЗ на входе ЕСТЬ | нет - реконструировать нечего |
 | `stand-reviewer` | вход `[blocking]` ТЗ; «нет ТЗ -> halt» | нет |
 | `discover` | инвентаризирует ТЕХНИЧЕСКИЕ проблемы, не бизнес-требования | нет - технический дефект виден из кода, оракул не нужен (скилл называет discover опорой ШАГА 1 методически, но узлом-вызывателем не является) |
 
-Итог: четыре потребителя - `business-requirements-analyst`, `requirements-analyst`,
-`mr-reviewer`, `debugger`.
+Итог: пять потребителей - `business-requirements-analyst`, `requirements-analyst`,
+`mr-reviewer`, `mr-check-reviewer`, `debugger`.
 
 ## Условие загрузки: hard gate
 
@@ -101,6 +102,7 @@ discover исключён отдельно: он инвентаризирует 
 | `business-requirements-analyst` | `dex-bundle-product-manager` | + `dex-skill-legacy-reconstruction` в includes |
 | `requirements-analyst` | `dex-bundle-system-analyst` | + то же |
 | `mr-reviewer` | `dex-bundle-code-review`, `dex-bundle-dotnet-developer`, `dex-bundle-dotnet-fullstack` | + то же в каждый |
+| `mr-check-reviewer` | `dex-bundle-code-review` | покрыт `mr-reviewer` - скилл уже в includes этого бандла |
 | `debugger` | `dex-bundle-dotnet-developer`, `dex-bundle-dotnet-fullstack` | покрыты `mr-reviewer` - тот же скилл в тех же двух бандлах |
 
 Затронутые бандлы (уникальные): `product-manager`, `system-analyst`, `code-review`,
