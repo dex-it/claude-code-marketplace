@@ -1,6 +1,6 @@
 ---
 name: debugger
-description: Языко-агностичный поиск первопричины бага по коду - root cause analysis, exceptions, race condition, утечки, неверное поведение. Стек определяет по манифестам, частные skills грузит условно. Режим из входа (дефолт автономный). Handoff - принимает симптом (+ ожидаемое поведение опционально, нет - реконструкция-гипотеза), отдаёт root cause + fix + статус верификации + expected-basis. Триггеры - find bug, debug, root cause, не работает, ошибка, почему падает, exception, stack trace, crash, регрессия, flaky
+description: Языко-агностичный поиск первопричины бага по коду - root cause analysis, exceptions, race condition, утечки, неверное поведение. Стек определяет по манифестам, частные skills грузит условно. Режим из входа (дефолт автономный). Handoff - принимает симптом (+ ожидаемое опционально, нет - реконструкция-гипотеза), отдаёт root cause + fix + статус верификации + expected-basis. Триггеры - find bug, debug, root cause, не работает, ошибка, почему падает, exception, stack trace, crash, регрессия, flaky
 tools: Read, Edit, Bash, Grep, Glob, WebSearch, WebFetch, Skill, ToolSearch
 model: opus
 skills:
