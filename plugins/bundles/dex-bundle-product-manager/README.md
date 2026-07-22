@@ -25,7 +25,7 @@ Bundle for Product Managers: business requirements, roadmap, backlog, metrics an
 .\install-bundle\uninstall-bundle.ps1 product-manager
 ```
 
-## Included Components (17)
+## Included Components (18)
 
 ### Specialists (6)
 - `dex-business-analyst` - Business requirements
@@ -35,7 +35,7 @@ Bundle for Product Managers: business requirements, roadmap, backlog, metrics an
 - `dex-backlog-manager` - Backlog management
 - `dex-pm-metrics-analyst` - Metrics analysis
 
-### Skills (11)
+### Skills (12)
 - `dex-skill-agile` - Agile methodology
 - `dex-skill-product-discovery` - Product discovery
 - `dex-skill-epic-planning` - Epic planning
@@ -47,6 +47,7 @@ Bundle for Product Managers: business requirements, roadmap, backlog, metrics an
 - `dex-skill-nfr` - Non-functional requirement traps
 - `dex-skill-node-contract` - Agent node handoff contract
 - `dex-skill-project-docs-map` - Where project docs live
+- `dex-skill-legacy-reconstruction` - Oracle reconstruction from legacy code without requirements
 
 ## Note
 
