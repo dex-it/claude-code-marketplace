@@ -128,11 +128,17 @@ discover исключён отдельно: он инвентаризирует 
 
 ## Версионирование
 
-- 4 агента (`business-requirements-analyst`, `requirements-analyst`, `mr-reviewer`,
-  `debugger`) - minor каждому (новый слот загрузки skill в фазе), в паре
-  plugin.json + marketplace.json.
+- 5 агентов (`business-requirements-analyst`, `requirements-analyst`, `mr-reviewer`,
+  `mr-check-reviewer`, `debugger`) - minor каждому (новый слот загрузки skill в фазе),
+  в паре plugin.json + marketplace.json.
+- `debugger` - minor осознанно, не major: вход расширен (прежде отвергаемый класс
+  «нет ожидаемого» теперь обрабатывается), выход для прежних валидных входов не
+  изменился, новое поле `expected-basis` аддитивно; единственный spawn-потребитель
+  (`autonomous-task`) сам требует «отсутствие документа - не повод встать».
 - Бандлы (`product-manager`, `system-analyst`, `code-review`, `dotnet-developer`,
   `dotnet-fullstack`) - minor каждому (изменён `includes[]`), в паре.
+- `dex-skill-autonomous-task` - patch (уточнение двух строк карты маршрутизации,
+  brownfield-исключение аналитиков), в паре.
 - Версия каталога не меняется (плагины не добавляются/не удаляются).
 
 ## Проверки
