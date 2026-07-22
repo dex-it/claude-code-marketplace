@@ -107,8 +107,8 @@ acceptance criteria). Сверка с кодом - конститутивное 
    JS-skills. Специализация отложена (мало архитектурных JS-skills), см.
    AGENT_SPECIALIZATION.md.
 2. **self-reviewer закрывает сразу три слота**: прогон (Local verification -
-   реально гоняет build/test/lint), ревью кода и архитектурное ревью (7 фокусов:
-   security/architecture/language/business/regressions/loose-ends/local-verification).
+   реально гоняет build/test/lint), ревью кода и архитектурное ревью (фокусы:
+   security/architecture/language/business/regressions/loose-ends/local-verification/non-code).
    Языко-агностичный. Выделенный арх-ревьюер не нужен.
 3. **Security - отдельный проход**, не растворённый в общем ревью: даже если общее
    ревью «чисто», security проходится отдельно. `dex-security-reviewer` -

@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "5.32.0",
+  "version": "5.33.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -35,6 +35,23 @@
         "entity-framework",
         "orm",
         "dotnet"
+      ]
+    },
+    {
+      "name": "dex-skill-performance-review",
+      "source": "./plugins/skills/dex-skill-performance-review",
+      "description": "Ловушки ревью производительности в diff - доступ к данным, I/O round-trips, async/конкурентность, материализация, память/строки, натив-граница",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "performance-review",
+        "n+1",
+        "async",
+        "аллокации",
+        "материализация",
+        "ReDoS",
+        "round-trip"
       ]
     },
     {
@@ -1524,7 +1541,7 @@
       "name": "dex-bundle-dotnet-developer",
       "source": "./plugins/bundles/dex-bundle-dotnet-developer",
       "description": "Bundle for .NET developers: coding, debugging, testing, review, EF, performance, interactive .NET architecture design (incl. microservices)",
-      "version": "2.7.0",
+      "version": "2.8.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -1536,7 +1553,7 @@
       "name": "dex-bundle-dotnet-fullstack",
       "source": "./plugins/bundles/dex-bundle-dotnet-fullstack",
       "description": "Complete .NET fullstack: development + databases + messaging + containers + interactive .NET architecture design",
-      "version": "2.7.0",
+      "version": "2.8.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -2618,7 +2635,7 @@
       "name": "dex-mr-reviewer",
       "source": "./plugins/specialists/review/dex-mr-reviewer",
       "description": "Языко-агностичное первичное ревью чужого MR/PR: карта изменений, параллельные фокусы, фальсификация находок, severity/confidence/scope, доставка инлайн-тредами через gh/glab.",
-      "version": "1.8.0",
+      "version": "1.9.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2635,7 +2652,7 @@
       "name": "dex-mr-check-reviewer",
       "source": "./plugins/specialists/review/dex-mr-check-reviewer",
       "description": "Ре-ревью дельты MR/PR после правок автора: range-diff дельты, статус прежних находок, новые находки только в дельте, обновление существующих тредов и публикация новых.",
-      "version": "1.7.0",
+      "version": "1.8.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2764,8 +2781,8 @@
     {
       "name": "dex-self-reviewer",
       "source": "./plugins/specialists/review/dex-self-reviewer",
-      "description": "Pre-push саморевью своей локальной ветки: committed+staged+worktree diff, 7 фокусов с реальным прогоном build/test, фальсификация, чеклист правок до push.",
-      "version": "1.8.0",
+      "description": "Pre-push саморевью своей локальной ветки: committed+staged+worktree diff, скан по фокусам (безопасность, архитектура, регрессии, loose-ends, non-code) с реальным прогоном build/test, фальсификация, чеклист правок до push.",
+      "version": "1.9.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2798,7 +2815,7 @@
       "name": "dex-bundle-code-review",
       "source": "./plugins/bundles/dex-bundle-code-review",
       "description": "Bundle цикла работы с кодом: языко-агностичное ревью MR/PR, ре-ревью дельты, план правок, реализация фичи, интеграция базовой ветки с разрешением конфликтов, pre-push саморевью, приёмка слитой фичи на стенде и ремедиация найденного, расследование инцидента (RCA на стенде), плюс skills дисциплины ревью.",
-      "version": "1.10.0",
+      "version": "1.11.0",
       "category": "bundle",
       "keywords": [
         "bundle",
