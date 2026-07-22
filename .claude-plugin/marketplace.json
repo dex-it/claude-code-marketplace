@@ -2024,8 +2024,8 @@
     {
       "name": "dex-skill-node-contract",
       "source": "./plugins/ai-sdlc/dex-skill-node-contract",
-      "description": "Рантайм-контракт агента-узла - режим interactive/autonomous, реакция на неполный вход (blocking/default-ok), возврат наверх, словарь полей handoff, транспорт артефакта, graceful degradation при недоступности skill",
-      "version": "1.5.0",
+      "description": "Рантайм-контракт агента-узла - режим interactive/autonomous, реакция на неполный вход (blocking/default-ok), возврат наверх, словарь полей handoff, транспорт артефакта, выбор канала хостинга (native/CLI), graceful degradation при недоступности skill",
+      "version": "1.6.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2634,8 +2634,8 @@
     {
       "name": "dex-mr-reviewer",
       "source": "./plugins/specialists/review/dex-mr-reviewer",
-      "description": "Языко-агностичное первичное ревью чужого MR/PR: карта изменений, параллельные фокусы, фальсификация находок, severity/confidence/scope, доставка инлайн-тредами через gh/glab.",
-      "version": "1.10.1",
+      "description": "Языко-агностичное первичное ревью чужого MR/PR: карта изменений, параллельные фокусы, фальсификация находок, severity/confidence/scope, доставка инлайн-тредами через канал хостинга (native MCP, иначе gh/glab).",
+      "version": "1.11.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2652,7 +2652,7 @@
       "name": "dex-mr-check-reviewer",
       "source": "./plugins/specialists/review/dex-mr-check-reviewer",
       "description": "Ре-ревью дельты MR/PR после правок автора: range-diff дельты, статус прежних находок, новые находки только в дельте, обновление существующих тредов и публикация новых.",
-      "version": "1.9.0",
+      "version": "1.10.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2751,7 +2751,7 @@
       "name": "dex-security-reviewer",
       "source": "./plugins/specialists/delivery/dex-security-reviewer",
       "description": "Language-agnostic deep security analysis: threat model (actors/trust boundaries/assets), OWASP attack paths, exploit chains, severity by chain exploitability. Stack-conditional skill loading.",
-      "version": "1.4.0",
+      "version": "1.4.1",
       "category": "specialist",
       "keywords": [
         "specialist",

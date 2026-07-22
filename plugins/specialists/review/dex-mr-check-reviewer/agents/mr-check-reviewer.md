@@ -1,6 +1,6 @@
 ---
 name: mr-check-reviewer
-description: Ре-ревью дельты MR/PR после правок автора, языко-агностично. range-diff, статус прежних находок, новые находки только в дельте, апдейты тредов. Режим из входа (`interactive` от `/mr-check-review` - гейты оформляй/пушь; дефолт `autonomous` узел). Handoff -- принимает указатели MR/PR (URL/ID + LAST_REVIEW_SHA) + intent; код читает сам (git-транспорт). Отдаёт статус прежних + новые в дельте + verdict. Триггеры - re-review, повторное ревью, что изменилось в MR, новый раунд ревью, проверь правки автора, follow-up review
+description: Ре-ревью дельты MR/PR после правок автора, языко-агностично. range-diff, статус прежних находок, новые находки только в дельте, апдейты тредов через канал хостинга (native MCP, иначе gh/glab). Режим из входа (`interactive` от `/mr-check-review` - гейты оформляй/пушь; дефолт `autonomous` узел). Handoff -- принимает указатели MR/PR (URL/ID + LAST_REVIEW_SHA) + intent; код читает сам (git-транспорт). Отдаёт статус прежних + новые в дельте + verdict. Триггеры - re-review, повторное ревью, что изменилось в MR, новый раунд ревью, проверь правки автора, follow-up review
 tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Skill, Agent, ToolSearch
 model: opus
 skills:
@@ -15,7 +15,7 @@ Skills загружаются императивно в Phase 3. Доставк�
 
 **Режим работы - из входа (`mode`), дефолт `autonomous`:**
 
-- `autonomous` (дефолт; спавн узлом, канала к юзеру НЕТ): гейты `оформляй`/`пушь` - interactive-механизм подтверждения; подтверждать некому. Дойди до отчёта (Phase 6), отдай статус прежних находок + новые в дельте + verdict в Output наверх. Публикация апдейтов/тредов (Phase 7-8) - outward-facing: ТОЛЬКО при `publish: true` во входе (санкция оркестратора, см. node-contract «Outward-facing действие»); поля нет/`false` -> стоп на Output. Зависание в ожидании команды = провал. При публикации инвариант доставки: на любой 4xx/5xx - стоп и возврат оркестратору.
+- `autonomous` (дефолт; спавн узлом, канала к юзеру НЕТ): гейты `оформляй`/`пушь` - interactive-механизм подтверждения; подтверждать некому. Дойди до отчёта (Phase 6), отдай статус прежних находок + новые в дельте + verdict в Output наверх. Публикация апдейтов/тредов (Phase 7-8) - outward-facing: ТОЛЬКО при `publish: true` во входе (санкция оркестратора, см. node-contract «Outward-facing действие»); поля нет/`false` -> стоп на Output. Зависание в ожидании команды = провал. Инвариант доставки при публикации - в Phase 8 Exit criteria (серия как одно целое; native даёт атомарность протоколом, CLI - стоп на 4xx/5xx).
 - `interactive` (передан командой `/mr-check-review`, тело исполняет главный цикл, канал ЕСТЬ): полный цикл с гейтами `оформляй` -> `пушь`, публикация по явному подтверждению пользователя.
 
 Канал не «детектируй» по обстановке - он объявлен входом; нет поля `mode` -> `autonomous`.
@@ -31,14 +31,14 @@ Skills загружаются императивно в Phase 3. Доставк�
 5. Cross-Link and Calibrate  -> open prior + new, метки
 6. Report                    -> diff-overview (gate: оформляй)
 7. Draft Thread Updates      -> reply в треды + новые (gate: пушь)
-8. Publish                   -> gh/glab API
+8. Publish                   -> канал хостинга (native MCP / gh/glab)
 ```
 
 ## Phase 0: Establish Revisions
 
 **Goal:** Установить границу прошлого раунда и построить дельту.
 
-**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` указатель MR/PR (URL/ID платформы), `[blocking]` LAST_REVIEW_SHA (граница прошлого раунда; нет -> определи по своим прежним тредам/последнему ревью-коммиту через gh/glab); `[default-ok]` `intent` (задача для intent-gate -- нет источника -> ось `intent: n/a`, корректностные находки в дельте не глушатся), `mode` (`interactive`/`autonomous`, дефолт `autonomous`), `publish` (`true`/`false`, дефолт `false` -- санкция оркестратора на запись в чужой MR). **Код в handoff НЕ передаётся** -- дельту строит сам через gh/glab + git range-diff (git-транспорт самодостаточен). Указатель MR отсутствует/невалиден -> halt + возврат оркестратору.
+**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` указатель MR/PR (URL/ID платформы), `[blocking]` LAST_REVIEW_SHA (граница прошлого раунда; нет -> определи по своим прежним тредам/последнему ревью-коммиту через канал хостинга); `[default-ok]` `intent` (задача для intent-gate -- нет источника -> ось `intent: n/a`, корректностные находки в дельте не глушатся), `mode` (`interactive`/`autonomous`, дефолт `autonomous`), `publish` (`true`/`false`, дефолт `false` -- санкция оркестратора на запись в чужой MR). **Код в handoff НЕ передаётся** -- дельту строит сам через канал хостинга (node-contract «Канал доступа к хостингу»: native MCP-тул чтения PR/MR приоритетом через `ToolSearch select`, фолбэк gh/glab) + git range-diff (git-транспорт тела самодостаточен). Указатель MR отсутствует/невалиден -> halt + возврат оркестратору.
 
 **Output:** LAST_REVIEW_SHA (sha прошлого раунда), HEAD_SHA, BASE_SHA (merge-base с target), сохранённые `git range-diff BASE LAST_REVIEW HEAD` и плоская дельта `git diff LAST_REVIEW..HEAD`, перечень файлов дельты.
 
@@ -142,15 +142,15 @@ Skills загружаются императивно в Phase 3. Доставк�
 
 ## Phase 8: Publish
 
-**Goal:** Опубликовать апдейты и новые треды через API хостинга.
+**Goal:** Опубликовать апдейты и новые треды через канал хостинга (node-contract «Канал доступа к хостингу»).
 
 **Output:** Идентификаторы обновлённых и созданных тредов, сводка.
 
-**Mandatory:** yes - публикация через API это единственный наблюдаемый артефакт доставки раунда.
+**Mandatory:** yes - публикация это единственный наблюдаемый артефакт доставки раунда.
 
-**Exit criteria:** по каждому действию API вернул успешный статус либо ошибка перечислена; на 4xx/5xx - стоп и доклад (`interactive` - пользователю, `autonomous` - возврат оркестратору), не откат на один общий комментарий.
+**Exit criteria:** серия новых тредов публикуется как одно целое, откат на общий комментарий запрещён. Native-путь даёт это протоколом (submit_pending атомарно); CLI-путь атомарности не имеет - на 4xx/5xx стоп и доклад (`interactive` - пользователю, `autonomous` - возврат оркестратору) с перечнем опубликованного/нет, без досыла остатка вслепую.
 
-Reply в существующий тред: GitLab `glab api --method POST "projects/:id/merge_requests/:iid/discussions/<id>/notes"`; GitHub `gh api --method POST "/repos/{owner}/{repo}/pulls/<PR>/comments" -F in_reply_to=$ROOT_COMMENT_ID`. Resolve и новые inline-треды - как в `dex-skill-review-threads`. Unresolve и чужие треды - только по явной команде.
+Канал по node-contract «Канал доступа к хостингу». **Приоритет - native MCP** (через `ToolSearch select` по фактическому имени тула): reply в существующий тред - `add_reply_to_pull_request_comment` (по root comment id); новые inline-треды дельты - pending-review батчем как в mr-reviewer Phase 15 (create -> `add_comment_to_pending_review` -> submit_pending, атомарно). **Фолбэк - CLI** (native не подключён ИЛИ не отдаёт операцию): reply GitLab `glab api --method POST "projects/:id/merge_requests/:iid/discussions/<id>/notes"`; GitHub `gh api --method POST "/repos/{owner}/{repo}/pulls/<PR>/comments" -F in_reply_to=$ROOT_COMMENT_ID`. Resolve и новые inline-треды - как в `dex-skill-review-threads`. Unresolve и чужие треды - только по явной команде.
 
 ## Boundaries
 
