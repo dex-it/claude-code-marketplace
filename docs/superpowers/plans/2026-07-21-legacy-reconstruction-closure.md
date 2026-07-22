@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Замкнуть осиротевший `dex-skill-legacy-reconstruction`, назначив его 4 узлам-потребителям (business-requirements-analyst, requirements-analyst, mr-reviewer, debugger) с hard-gate загрузкой «код без ТЗ», и добавить его в 5 бандлов.
+**Goal:** Замкнуть осиротевший `dex-skill-legacy-reconstruction`, назначив его 5 узлам-потребителям (business-requirements-analyst, requirements-analyst, mr-reviewer, mr-check-reviewer, debugger) с hard-gate загрузкой «код без ТЗ», и добавить его в 5 бандлов. Пятый потребитель (mr-check-reviewer) добавлен ревью-раундом PR: у него тот же момент `intent: n/a`, слот у собственного intent-gate (Phase 4).
 
-**Architecture:** Каждый агент-потребитель получает слот загрузки скилла в своей фазе Deep Scan (у аналитиков и debugger - Phase 3 «Skill-Based Deep Scan»; у mr-reviewer intent-gate живёт в Phase 6 «Falsification and Scoring») с прозаическим hard-gate-условием (без меток-операторов, по конвенции репо): нет ТЗ -> грузи обязательно; ТЗ есть -> не грузи. debugger дополнительно снимает глухой halt на отсутствие «ожидаемого поведения», превращая реконструкцию в гипотезу (не success criteria). Каждый включающий агента бандл получает скилл в `includes[]` (правило `bundle-not-closed`).
+**Architecture:** Каждый агент-потребитель получает слот загрузки скилла в своей фазе Deep Scan (у аналитиков и debugger - Phase 3 «Skill-Based Deep Scan»; у mr-reviewer intent-gate живёт в Phase 6 «Falsification and Scoring»; у mr-check-reviewer - в Phase 4) с прозаическим hard-gate-условием (без меток-операторов, по конвенции репо): нет ТЗ -> грузи обязательно; ТЗ есть -> не грузи. debugger дополнительно снимает глухой halt на отсутствие «ожидаемого поведения», превращая реконструкцию в гипотезу (не success criteria). Каждый включающий агента бандл получает скилл в `includes[]` (правило `bundle-not-closed`).
 
 **Tech Stack:** Markdown-артефакты плагинов (agents/*.md, bundle.json, plugin.json), `.claude-plugin/marketplace.json`, валидаторы `tools/validate-*.js` (`npm run validate`), `optimize-for-llm` skill.
 
@@ -23,10 +23,10 @@
 
 ## File Structure
 
-- 4 агента (`*.md`) - добавить слот загрузки скилла в Phase 3; у debugger + правка halt-поведения во Input и Phase 3.
-- 4 `plugin.json` агентов + 5 `plugin.json` бандлов - minor bump.
+- 5 агентов (`*.md`) - добавить слот загрузки скилла (аналитики и debugger - Phase 3, mr-reviewer - Phase 6, mr-check-reviewer - Phase 4); у debugger + правка halt-поведения во Input, Phase 3 и Output (`expected-basis`).
+- 5 `plugin.json` агентов + 5 `plugin.json` бандлов - minor bump; `dex-skill-autonomous-task` - patch (карта маршрутизации).
 - 5 `bundle.json` - добавить `dex-skill-legacy-reconstruction` в `includes[]`.
-- `.claude-plugin/marketplace.json` - синхронный minor bump 9 записей (4 агента + 5 бандлов).
+- `.claude-plugin/marketplace.json` - синхронный bump 11 записей (5 агентов + 5 бандлов + autonomous-task).
 - `docs/superpowers/plans/2026-07-15-oracle-closure.md:349` - правка ложной сноски.
 
 Порядок задач: сначала агенты (Task 1-4), затем бандлы (Task 5), затем marketplace-синхронизация (Task 6), затем сноска плана (Task 7), финал - валидация (Task 8). Границы задач - по независимому гейту ревьюера: каждый агент отдельно, все бандлы вместе (одна механическая правка), marketplace отдельно (единый файл, легко разъехаться).
@@ -156,7 +156,7 @@ git commit -m "feat(mr-reviewer): слот legacy-reconstruction при intent: 
 ### Task 4: Слот в debugger + снятие глухого halt
 
 **Files:**
-- Modify: `plugins/specialists/delivery/dex-debugger/agents/debugger.md` (Input ~строка 31; autonomous-режим ~строка 20; Phase 3 ~строка 65)
+- Modify: `plugins/specialists/delivery/dex-debugger/agents/debugger.md` (Input ~строка 31; autonomous-режим ~строка 20; Phase 3 ~строка 65; ревью-раундом добавлено: Output (handoff) и Output Format - поле `expected-basis`, `status` не выше `partial` на реконструированном пути)
 - Modify: `plugins/specialists/delivery/dex-debugger/.claude-plugin/plugin.json` (version 2.1.0 -> 2.2.0)
 
 **Interfaces:**
@@ -170,7 +170,7 @@ git commit -m "feat(mr-reviewer): слот legacy-reconstruction при intent: 
 В `.../debugger.md` найти в блоке Input текст `«ожидаемое корректное поведение (success criteria расследования - без него нечем мерить "починено")»` и следующий за ним `«Симптом или ожидаемое поведение отсутствует -> halt + возврат оркестратору (расследовать/мерить нечего).»`. Заменить второе предложение на:
 
 ```markdown
-Симптом отсутствует -> halt + возврат оркестратору (расследовать нечего). Симптом есть, но ожидаемое поведение отсутствует -> не halt: в Phase 3 реконструируй ожидаемое из кода (что планировали, что реализовано) и приложенного лога/стек-трейса, если он есть, как гипотезу того, что считать багом (не success criteria фикса). Ни симптома, ни ожидаемого -> halt.
+Симптом отсутствует -> halt + возврат оркестратору (расследовать нечего). Симптом есть, но ожидаемое поведение отсутствует -> не halt: в Phase 3 реконструируй ожидаемое из кода (что планировали, что реализовано) и приложенного лога/стек-трейса, если он есть, как гипотезу того, что считать багом (не success criteria фикса). Поле не [blocking], поэтому правило node-contract «бизнес-нехватка -> halt» к нему не применяется: узел возвращает гипотезу с вердиктом наверх (поле expected-basis и status - см. Output (handoff)). Ни симптома, ни ожидаемого -> halt.
 ```
 
 - [ ] **Step 2: Добавить слот реконструкции в Phase 3 (строка 65)**
@@ -178,7 +178,7 @@ git commit -m "feat(mr-reviewer): слот legacy-reconstruction при intent: 
 В `.../debugger.md` найти в Phase 3 строку `- **Всегда** - \`dex-skill-solid:solid\` ...` и сразу ПОСЛЕ неё (перед `- **Профильные по стеку**`) вставить:
 
 ```markdown
-- **Если «ожидаемое корректное поведение» не пришло на вход** (симптом есть, лог/стек-трейс - если приложен) - `dex-skill-legacy-reconstruction:legacy-reconstruction`: реконструируй ожидаемое из кода (что планировали / что реализовано) и приложенного лога, если он есть. Опора частично закольцована (эталон выводится из того же кода, где баг); лог/стек-трейс, когда приложен, - внешний рантайм-сигнал, размыкает не полностью, без него опора целиком из кода. Поэтому реконструированное служит только гипотезой, что считать багом (сформулировать расследуемое расхождение), никогда - success criteria фикса. Вердикт «ожидаемое реконструировано, не подтверждено» уходит наверх: замысел это или дефект - решает человек/постановщик. Ожидаемое на входе есть - скилл не грузится. Реконструкция не даёт даже гипотезы расхождения - прежний halt + возврат.
+- **Если «ожидаемое корректное поведение» не пришло на вход** (симптом есть, лог/стек-трейс - если приложен) - `dex-skill-legacy-reconstruction:legacy-reconstruction`: реконструируй ожидаемое из кода (что планировали / что реализовано) и приложенного лога, если он есть. Опора частично закольцована (эталон выводится из того же кода, где баг); лог/стек-трейс, когда приложен, - внешний рантайм-сигнал, размыкает не полностью, без него опора целиком из кода. Поэтому реконструированное служит только гипотезой, что считать багом (сформулировать расследуемое расхождение), никогда - success criteria фикса. Вердикт «ожидаемое реконструировано, не подтверждено» уходит наверх полем expected-basis в Output (handoff): замысел это или дефект - решает человек/постановщик. Ожидаемое на входе есть - скилл не грузится. Реконструкция не даёт даже гипотезы расхождения - прежний halt + возврат.
 ```
 
 - [ ] **Step 3: Согласовать autonomous-режим (строка 20)**
@@ -291,6 +291,8 @@ done
 ```
 Expected: значения совпадают с bump-таблицей Step 1.
 
+Примечание (ревью-раунд + лестница ребейза поверх #124): к 9 записям добавились `dex-mr-check-reviewer` и `dex-skill-autonomous-task` (patch), а версии, столкнувшиеся с #124, подняты ещё на шаг относительно bump-таблицы. Актуальная сверка - тот же скрипт с полным списком из 11 имён, эталон значений - `.claude-plugin/marketplace.json`.
+
 - [ ] **Step 3: Commit**
 
 ```bash
@@ -342,7 +344,7 @@ git commit -m "docs(plan): исправить ложную сноску потр
 Run: `npm run validate`
 Expected: PASS, 0 ошибок (agents/skills/commands/bundles), в т.ч. `bundle-not-closed` по пяти бандлам.
 
-- [ ] **Step 2: Проверить hard-gate-терминалы во всех 4 слотах**
+- [ ] **Step 2: Проверить hard-gate-терминалы во всех 5 слотах**
 
 Run:
 ```bash
@@ -350,6 +352,7 @@ rg -n "скилл не грузится|не грузится|нет ТЗ|intent
   plugins/specialists/product/dex-business-analyst/agents/business-requirements-analyst.md \
   plugins/specialists/product/dex-requirements-analyst/agents/requirements-analyst.md \
   plugins/specialists/review/dex-mr-reviewer/agents/mr-reviewer.md \
+  plugins/specialists/review/dex-mr-check-reviewer/agents/mr-check-reviewer.md \
   plugins/specialists/delivery/dex-debugger/agents/debugger.md
 ```
 Expected: у каждого агента виден и «грузи при отсутствии ТЗ», и «есть ТЗ -> не грузится» (терминал закрыт с обеих сторон).
@@ -368,14 +371,14 @@ Expected: ровно 5 файлов (product-manager, system-analyst, code-revie
 ## Self-Review
 
 **1. Spec coverage:**
-- Спека «Целевые потребители» (4) -> Task 1-4 (по агенту). OK
+- Спека «Целевые потребители» (5; пятый - mr-check-reviewer, добавлен ревью-раундом) -> Task 1-4 + слот mr-check-reviewer поверх (см. Goal). OK
 - «Условие загрузки: hard gate» -> формулировка слота в каждом Task 1-4 Step 1 + проверка терминалов Task 8 Step 2. OK
-- «Автономный случай: шаг 2 недоступен» -> статус «реконструировано, не согласовано» (ярлык тела скилла) в каждом слоте. OK
+- «Автономный случай: шаг 2 недоступен» -> статус «реконструировано, не согласовано» (ярлык тела скилла) в каждом слоте, у debugger - вердикт «реконструировано, не подтверждено» по спеке. OK
 - «Риск закольцевания у debugger» -> Task 4 Step 2 (лог размыкает частично, гипотеза не success criteria). OK
 - «Замыкание бандлов» (5) -> Task 5. OK
 - «Правка плановой сноски» -> Task 7. OK
 - «Что НЕ входит» (тело SKILL.md, новый узел, discover, requirements-reviewer/stand-reviewer) -> не порождает задач by design; ни одна задача их не трогает. OK
-- «Версионирование» (4 агента + 5 бандлов minor, каталог без изменений) -> Task 1-5 bump plugin.json, Task 6 синхронизация marketplace, каталог не трогаем. OK
+- «Версионирование» (5 агентов + 5 бандлов minor + patch autonomous-task, каталог без изменений) -> Task 1-5 bump plugin.json, Task 6 синхронизация marketplace, каталог не трогаем; записи ревью-раунда (mr-check-reviewer, autonomous-task) бампнуты теми же правилами. OK
 - «Проверки» -> Task 8. OK
 - Gap: спека упоминает `sync-plugins.sh` в «Проверки» (drift после установки) - это пост-мердж локальная операция (установка обновлённых бандлов), не часть PR-правок репо. Оставлено за рамками плана намеренно (relates к «обнови плагины локально» после мерджа, не к содержанию PR).
 
