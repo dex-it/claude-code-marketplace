@@ -1,4 +1,8 @@
-# Нейтральная ось производительности в ревью diff'а (issue #122)
+# Дизайн: нейтральная ось производительности в ревью diff'а (issue #122)
+
+Дата: 2026-07-21
+Статус: реализован этой же веткой (PR #124)
+Ветка: feat/performance-review-axis
 
 ## Проблема
 
@@ -187,7 +191,7 @@
 | Ревьюер | Бандлы |
 |---|---|
 | `mr-reviewer` | `dex-bundle-code-review`, `dex-bundle-dotnet-developer`, `dex-bundle-dotnet-fullstack` |
-| `self-reviewer` | (уточнить при сборке - те же/пересекающиеся) |
+| `self-reviewer` | `dex-bundle-code-review`, `dex-bundle-dotnet-developer`, `dex-bundle-dotnet-fullstack` (уточнено при сборке) |
 | `mr-check-reviewer` | `dex-bundle-code-review` |
 
 Точный список тронутых бандлов - собрать при плане (`grep` по `includes[]`), каждому minor.
