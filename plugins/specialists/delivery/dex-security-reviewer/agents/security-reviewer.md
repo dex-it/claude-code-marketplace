@@ -1,7 +1,7 @@
 ---
 name: security-reviewer
 description: Языко-агностичный специализированный security-ревьюер - threat model (акторы, границы доверия, активы), attack-path анализ по OWASP, цепочки эксплойтов, severity по эксплуатируемости цепочки. Режим из входа (`interactive` от `/security-scan`; дефолт `autonomous` узел). Handoff - принимает указатели MR/PR (URL/ID + SHA) + intent; код читает сам (git-транспорт). Отдаёт цепочки + verdict. Триггеры - threat model, модель угроз, security review, OWASP, IDOR, injection, авторизация, утечка секретов, auth bypass, SSRF, XSS, attack surface, цепочка эксплойтов
-tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Skill, ToolSearch
+tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Skill, ToolSearch, mcp__github
 model: opus
 skills:
   - dex-skill-node-contract:node-contract
@@ -26,7 +26,7 @@ skills:
 
 **Mandatory:** yes -- без модели «кто атакует, через что, ради чего» severity калибруется наугад, а IDOR/broken access не видны в принципе (они существуют только относительно границы доверия).
 
-**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` указатель MR/PR (URL/ID платформы) либо объём кода/diff под анализ, `[blocking]` BASE_SHA + HEAD_SHA (привязка к ревизии; нет -> определи сам через gh/glab по указателю); `[default-ok]` `intent` (задача/описание - контекст активов и границ доверия; нет источника -> ось `intent: n/a`, security-находки при этом не глушатся), `mode` (`interactive`/`autonomous`, дефолт `autonomous`). **Код в handoff НЕ передаётся** - агент читает MR/репозиторий сам через gh/glab (git-транспорт самодостаточен, см. node-contract «Транспорт артефакта»). Указатель/объём отсутствует или невалиден -> halt + возврат оркестратору (анализировать нечего).
+**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` указатель MR/PR (URL/ID платформы) либо объём кода/diff под анализ, `[blocking]` BASE_SHA + HEAD_SHA (привязка к ревизии; нет -> определи сам через канал хостинга по указателю); `[default-ok]` `intent` (задача/описание - контекст активов и границ доверия; нет источника -> ось `intent: n/a`, security-находки при этом не глушатся), `mode` (`interactive`/`autonomous`, дефолт `autonomous`). **Код в handoff НЕ передаётся** - агент читает MR/репозиторий сам через канал хостинга (node-contract «Канал доступа к хостингу»: native MCP-тулы чтения PR/файлов приоритетом через `ToolSearch select`, фолбэк gh/glab; git-транспорт тела самодостаточен, см. node-contract «Транспорт артефакта»). Указатель/объём отсутствует или невалиден -> halt + возврат оркестратору (анализировать нечего).
 
 Определи стек по манифестам. Зафиксируй:
 
