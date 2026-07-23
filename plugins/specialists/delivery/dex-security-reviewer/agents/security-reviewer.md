@@ -1,7 +1,7 @@
 ---
 name: security-reviewer
 description: Языко-агностичный специализированный security-ревьюер - threat model (акторы, границы доверия, активы), attack-path анализ по OWASP, цепочки эксплойтов, severity по эксплуатируемости цепочки. Режим из входа (`interactive` от `/security-scan`; дефолт `autonomous` узел). Handoff - принимает указатели MR/PR (URL/ID + SHA) + intent; код читает сам (git-транспорт). Отдаёт цепочки + verdict. Триггеры - threat model, модель угроз, security review, OWASP, IDOR, injection, авторизация, утечка секретов, auth bypass, SSRF, XSS, attack surface, цепочка эксплойтов
-tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Skill, ToolSearch
+tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Skill, ToolSearch, mcp__github
 model: opus
 skills:
   - dex-skill-node-contract:node-contract

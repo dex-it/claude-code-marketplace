@@ -1,7 +1,7 @@
 ---
 name: mr-check-reviewer
 description: Ре-ревью дельты MR/PR после правок автора, языко-агностично. range-diff, статус прежних находок, новые находки только в дельте, апдейты тредов через канал хостинга (native MCP, иначе gh/glab). Режим из входа (`interactive` от `/mr-check-review` - гейты оформляй/пушь; дефолт `autonomous` узел). Handoff -- принимает указатели MR/PR (URL/ID + LAST_REVIEW_SHA) + intent; код читает сам (git-транспорт). Отдаёт статус прежних + новые в дельте + verdict. Триггеры - re-review, повторное ревью, что изменилось в MR, новый раунд ревью, проверь правки автора, follow-up review
-tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Skill, Agent, ToolSearch
+tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Skill, Agent, ToolSearch, mcp__github
 model: opus
 skills:
   - dex-skill-node-contract:node-contract
@@ -15,7 +15,7 @@ Skills загружаются императивно в Phase 3. Доставк�
 
 **Режим работы - из входа (`mode`), дефолт `autonomous`:**
 
-- `autonomous` (дефолт; спавн узлом, канала к юзеру НЕТ): гейты `оформляй`/`пушь` - interactive-механизм подтверждения; подтверждать некому. Дойди до отчёта (Phase 6), отдай статус прежних находок + новые в дельте + verdict в Output наверх. Публикация апдейтов/тредов (Phase 7-8) - outward-facing: ТОЛЬКО при `publish: true` во входе (санкция оркестратора, см. node-contract «Outward-facing действие»); поля нет/`false` -> стоп на Output. Зависание в ожидании команды = провал. Инвариант доставки при публикации - в Phase 8 Exit criteria (серия как одно целое; native даёт атомарность протоколом, CLI - стоп на 4xx/5xx).
+- `autonomous` (дефолт; спавн узлом, канала к юзеру НЕТ): гейты `оформляй`/`пушь` - interactive-механизм подтверждения; подтверждать некому. Дойди до отчёта (Phase 6), отдай статус прежних находок + новые в дельте + verdict в Output наверх. Публикация апдейтов/тредов (Phase 7-8) - outward-facing: ТОЛЬКО при `publish: true` во входе (санкция оркестратора, см. node-contract «Outward-facing действие»); поля нет/`false` -> стоп на Output. Зависание в ожидании команды = провал. Инвариант доставки при публикации - в Phase 8 Exit criteria (серия как одно целое; атомарен только pending-батч, на любую ошибку - стоп с перечнем и очисткой pending).
 - `interactive` (передан командой `/mr-check-review`, тело исполняет главный цикл, канал ЕСТЬ): полный цикл с гейтами `оформляй` -> `пушь`, публикация по явному подтверждению пользователя.
 
 Канал не «детектируй» по обстановке - он объявлен входом; нет поля `mode` -> `autonomous`.
@@ -148,15 +148,16 @@ Skills загружаются императивно в Phase 3. Доставк�
 
 **Mandatory:** yes - публикация это единственный наблюдаемый артефакт доставки раунда.
 
-**Exit criteria:** серия новых тредов публикуется как одно целое, откат на общий комментарий запрещён. Native-путь даёт это протоколом (submit_pending атомарно); CLI-путь атомарности не имеет - на 4xx/5xx стоп и доклад (`interactive` - пользователю, `autonomous` - возврат оркестратору) с перечнем опубликованного/нет, без досыла остатка вслепую.
+**Exit criteria:** серия новых тредов публикуется как одно целое, откат на общий комментарий запрещён. Атомарен только pending-батч новых тредов (submit_pending публикует набор одним вызовом); reply-серия на любом канале - N независимых записей: стоп на первой ошибке с перечнем доставленного/нет. Перед create проверь существующий pending этого юзера (есть -> стоп и доклад, не наследовать); любая ошибка после create (add_comment или submit) -> pending остаётся на сервере: удали его `pull_request_review_write` method=delete_pending и доложи. На 4xx/5xx CLI-пути - стоп и доклад (`interactive` - пользователю, `autonomous` - возврат оркестратору) с перечнем опубликованного/нет, без досыла остатка вслепую.
 
-Канал по node-contract «Канал доступа к хостингу». **Приоритет - native MCP** (через `ToolSearch select` по фактическому имени тула): reply в существующий тред - `add_reply_to_pull_request_comment` (по root comment id); новые inline-треды дельты - pending-review батчем как в mr-reviewer Phase 15 (create -> `add_comment_to_pending_review` -> submit_pending, атомарно). **Фолбэк - CLI** (native не подключён ИЛИ не отдаёт операцию): reply GitLab `glab api --method POST "projects/:id/merge_requests/:iid/discussions/<id>/notes"`; GitHub `gh api --method POST "/repos/{owner}/{repo}/pulls/<PR>/comments" -F in_reply_to=$ROOT_COMMENT_ID`. Resolve и новые inline-треды - как в `dex-skill-review-threads`. Unresolve и чужие треды - только по явной команде.
+Канал по node-contract «Канал доступа к хостингу». **Приоритет - native MCP** (грант серверу - `mcp__github` в tools, резолв схемы через `ToolSearch select` по фактическому имени тула). GitHub: reply в существующий тред - `add_reply_to_pull_request_comment` (по root comment id); новые inline-треды дельты - pending-review батчем как в mr-reviewer Phase 15 (create -> `add_comment_to_pending_review` -> submit_pending, всегда с event=COMMENT: вердикт не review-состоянием, APPROVE/REQUEST_CHANGES - никогда). **Фолбэк - CLI** (native не подключён ИЛИ не отдаёт операцию): reply GitLab `glab api --method POST "projects/:id/merge_requests/:iid/discussions/<id>/notes"`; GitHub `gh api --method POST "/repos/{owner}/{repo}/pulls/<PR>/comments" -F in_reply_to=$ROOT_COMMENT_ID`. Resolve и новые inline-треды - как в `dex-skill-review-threads`. Unresolve и чужие треды - только по явной команде.
 
 ## Boundaries
 
 - Работать по дельте; полный ре-ревью - только по явной команде `полный`.
 - Не повышать и не понижать severity прошлых находок без причины из нового кода или ответа автора.
 - До `пушь` ноль записей; чужие треды не трогать.
+- Никаких review-вердиктов хостинга (approve / request changes / unapprove).
 - Прошлые формулировки не повторять дословно: обновлять с учётом нового кода.
 
 ## Связанные плагины

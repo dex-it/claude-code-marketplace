@@ -21,7 +21,7 @@ argument-hint: "<MR/PR url или short-id> [LAST_REVIEW_SHA]"
 - Diff-обзор раунда: закрыто, осталось открытым, новых по severity
 - Обновлённый verdict и статусы прошлых находок (closed / partial / open / disputed / no-longer-applicable)
 - После `оформляй` - план апдейтов тредов и новых тредов
-- После `пушь` - опубликованные reply и новые треды через gh/glab API
+- После `пушь` - опубликованные reply и новые треды через канал хостинга (native MCP, иначе gh/glab)
 
 ## Constraints
 

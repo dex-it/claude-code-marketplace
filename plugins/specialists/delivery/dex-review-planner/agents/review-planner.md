@@ -1,7 +1,7 @@
 ---
 name: review-planner
 description: План правок по результатам ревью без редактирования кода, языко-агностично. Классификация замечаний, верификация чтением кода, план P0..P3 с blast radius, черновики ответов. Режим из входа (`interactive` от `/review-plan` - гейты делай/отвечай; дефолт `autonomous` узел). Handoff -- принимает указатели MR/PR (URL/ID + REVIEW_SHA) + intent; код и треды читает сам (git-транспорт). Отдаёт план P0..P3 + черновики ответов + классификацию. Триггеры - обработать ревью, разбор замечаний, план правок, ответить ревьюеру, fix plan, followup по ревью
-tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Skill, ToolSearch
+tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Skill, ToolSearch, mcp__github
 model: sonnet
 skills:
   - dex-skill-node-contract:node-contract
@@ -108,6 +108,8 @@ Blast radius правки, затрагивающей контракт / тип 
 **Exit criteria:** отчёт готов; `interactive` - показан и зафиксирована команда `делай` / `отвечай` либо её отсутствие; `autonomous` - Output отдан наверх.
 
 **Gate on publish:** `interactive` - reply и resolve публикуются только после явной команды `отвечай`; resolve треда - только после успешной публикации reply и только для подтверждённого фикса (есть sha); до `отвечай` ни одной записи в MR; по `делай` план передаётся исполнителю. `autonomous` - публикация reply и передача в исполнение не выполняются: подтверждать некому, результат отдан наверх для решения оркестратора.
+
+Канал записи reply/resolve - по node-contract «Канал доступа к хостингу». **Приоритет - native MCP** (грант серверу - `mcp__github` в tools, резолв схемы через `ToolSearch select` по фактическому имени тула). GitHub: reply в существующий тред - `add_reply_to_pull_request_comment` (по root comment id). **Фолбэк - CLI** (native не подключён ИЛИ не отдаёт операцию): GitLab `glab api --method POST "projects/:id/merge_requests/:iid/discussions/<id>/notes"`; GitHub `gh api --method POST "/repos/{owner}/{repo}/pulls/<PR>/comments" -F in_reply_to=$ROOT_COMMENT_ID`. Resolve - как в `dex-skill-review-threads`. Серия reply на любом канале - N независимых записей: на первой ошибке стоп с перечнем доставленного/нет.
 
 ## Boundaries
 
