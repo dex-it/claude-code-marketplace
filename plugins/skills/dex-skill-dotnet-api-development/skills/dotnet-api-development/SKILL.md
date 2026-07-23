@@ -32,6 +32,11 @@ description: ASP.NET Core Web API - ловушки контроллеров, DTO
 Правильно: в DTO ровно потребляемые поля; перед добавлением поля в response-DTO найди читателя - нет читателя, нет поля
 Почему: DTO вместо Entity ещё не least exposure - корректный DTO с лишними полями всё равно раскрывает внутреннее и фиксирует контракт, который версионируется и тихо не убирается. См. `dex-skill-owasp-security`
 
+### Merge пользовательских ключей в словарь под `[JsonExtensionData]` без фильтра reserved-имён
+Плохо: `foreach (var kv in ex.Extensions) problem.Extensions[kv.Key] = kv.Value;` - `Extensions` помечен `[JsonExtensionData]`
+Правильно: `if (!ReservedKeys.Contains(kv.Key)) problem.Extensions[kv.Key] = kv.Value;` - `ReservedKeys = FrozenSet(OrdinalIgnoreCase)`
+Почему: словарь под `[JsonExtensionData]` при ключе, совпадающем с именованным свойством (`type`/`status`/`detail`), эмитит JSON с дубль-ключами - нарушение RFC 8259 (names SHOULD be unique, поведение получателя непредсказуемо), на чтении last-wins подменяет валидированное значение. Фильтр на `StringComparer.Ordinal` пробивается сменой регистра (`"Type"`): дефолтный `ReadFromJsonAsync` (`JsonSerializerDefaults.Web`) читает case-insensitive - потому набор строится через `OrdinalIgnoreCase`. RFC-имена всегда lowercase, легитимные ключи не отсекаются
+
 ### Поле модели запроса, которое handler не обрабатывает
 Плохо: входной DTO принимает поле (пришло в payload от клиента или upstream-сервиса), но никакой код его не читает - осело в модели «потому что есть в источнике»
 Правильно: модель содержит только обрабатываемые поля; непрочитанное удаляется из DTO вместе с валидацией, даже если приходит во входном payload
