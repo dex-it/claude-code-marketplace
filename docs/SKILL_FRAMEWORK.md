@@ -113,7 +113,9 @@ description: <краткое назначение>. Активируется п�
 ---
 ```
 
-Опциональные поля (по [официальной документации](https://code.claude.com/docs/en/skills)): `disable-model-invocation`, `user-invocable`, `argument-hint`, `allowed-tools`, `model`, `effort`, `context`, `agent`, `hooks`, `paths`, `shell`. Поля вне этого списка не писать: Claude Code их не поддерживает. Автоматически валидатор ловит только `keywords` (`FORBIDDEN_FIELDS` в `tools/validate-skill.js`) - остальное на ручной сверке автора (👁), не выдавать за проверяемое.
+Опциональные поля (по [официальной документации](https://code.claude.com/docs/en/skills), сверено 25.07.2026): `when_to_use`, `argument-hint`, `arguments`, `disable-model-invocation`, `user-invocable`, `allowed-tools`, `disallowed-tools`, `model`, `effort`, `context`, `agent`, `background`, `hooks`, `paths`, `shell`. Поля вне этого списка не писать: в документации их нет. Автоматически валидатор ловит только `keywords` (`FORBIDDEN_FIELDS` в `tools/validate-skill.js`) - остальное на ручной сверке автора (👁), не выдавать за проверяемое.
+
+Два уточнения оттуда же, важных для наших правил про `description`. Первое: лимит 1536 символов применяется к **сумме** `description` и `when_to_use`, а не к одному полю. Второе: `name` документирован как необязательный (дефолт - имя директории), но у нас он обязателен по конвенции именования и это проверяет валидатор.
 
 ### Тело skill
 

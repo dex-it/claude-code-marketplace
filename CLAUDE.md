@@ -61,7 +61,7 @@ name: skill-name
 description: Ключевые слова для автоматической активации
 ---
 ```
-> **Важно:** `keywords` не поддерживается в skills - ключевые слова включать в `description`. Валидные поля: name, description, disable-model-invocation, user-invocable, argument-hint, allowed-tools, model, effort, context, agent, hooks, paths, shell.
+> **Важно:** `keywords` не поддерживается в skills - ключевые слова включать в `description`. Это единственное поле, которое ловит валидатор. Перечень валидных полей не дублируем: нормативный дом - [SKILL_FRAMEWORK.md](docs/SKILL_FRAMEWORK.md) (там же дата сверки с документацией).
 
 ## Механизмы композиции в Claude Code
 
