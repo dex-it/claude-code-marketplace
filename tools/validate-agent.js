@@ -236,10 +236,18 @@ const MODEL_ID_RE = /^claude-[a-z0-9-]+$/;
  * of `model`. Unlike `model` (a ceiling), `effort` OVERRIDES the session level,
  * so raising it silently outspends the mode the user picked. The framework
  * therefore allows it downward freely and upward only with a stated reason.
- * Which levels a given model actually offers is resolved by Claude Code, not
+ * Which of the levels a supporting model offers is resolved by Claude Code, not
  * here — this only rejects values that are not levels at all.
  */
 const EFFORT_LEVELS = ['low', 'medium', 'high', 'xhigh', 'max'];
+
+/**
+ * Tiers that do not carry the effort axis at all. The effort docs enumerate the
+ * supporting models by name (generations 5 and 4.5-4.8) and no Haiku is among
+ * them, so `effort` on a Haiku-tier agent buys nothing: there the cost lever is
+ * `model` itself. Full IDs are caught by the same prefix.
+ */
+const EFFORTLESS_MODEL_RE = /^(haiku|claude-haiku)/;
 
 function validateFrontmatter(parsed, findings) {
   const fm = parsed.data || {};
@@ -318,6 +326,13 @@ function validateFrontmatter(parsed, findings) {
         level: ERROR,
         rule: 'frontmatter-effort-invalid',
         message: `Invalid effort "${fm.effort}" — expected one of ${EFFORT_LEVELS.join(', ')}`,
+      });
+    }
+    if (EFFORTLESS_MODEL_RE.test(String(fm.model ?? ''))) {
+      findings.push({
+        level: ERROR,
+        rule: 'frontmatter-effort-unsupported-model',
+        message: `effort "${fm.effort}" is set on model "${fm.model}" — the haiku tier has no effort axis; drop the field, or move the agent to a tier that has one`,
       });
     }
   }
