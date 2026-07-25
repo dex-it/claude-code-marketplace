@@ -228,8 +228,18 @@ function validatePreloadSkillForm(raw, findings) {
  * or a full model ID (e.g. `claude-opus-4-8`). Tier aliases are enforced;
  * full IDs are accepted by pattern.
  */
-const MODEL_TIER_ALIASES = ['opus', 'sonnet', 'haiku', 'inherit'];
+const MODEL_TIER_ALIASES = ['opus', 'sonnet', 'haiku', 'fable', 'inherit'];
 const MODEL_ID_RE = /^claude-[a-z0-9-]+$/;
+
+/**
+ * Allowed values for the `effort` field — the reasoning-depth axis, independent
+ * of `model`. Unlike `model` (a ceiling), `effort` OVERRIDES the session level,
+ * so raising it silently outspends the mode the user picked. The framework
+ * therefore allows it downward freely and upward only with a stated reason.
+ * Which levels a given model actually offers is resolved by Claude Code, not
+ * here — this only rejects values that are not levels at all.
+ */
+const EFFORT_LEVELS = ['low', 'medium', 'high', 'xhigh', 'max'];
 
 function validateFrontmatter(parsed, findings) {
   const fm = parsed.data || {};
@@ -297,6 +307,19 @@ function validateFrontmatter(parsed, findings) {
       rule: 'frontmatter-model-invalid',
       message: `Invalid model "${fm.model}" — expected one of ${MODEL_TIER_ALIASES.join(', ')} or a full model ID`,
     });
+  }
+
+  // `effort` is optional: omitting it inherits the session level, which keeps
+  // the ceiling with the user. Only the value is checked here — the decision to
+  // set it at all is a judgment call the framework describes, not a rule.
+  if (fm.effort != null && fm.effort !== '') {
+    if (!EFFORT_LEVELS.includes(String(fm.effort))) {
+      findings.push({
+        level: ERROR,
+        rule: 'frontmatter-effort-invalid',
+        message: `Invalid effort "${fm.effort}" — expected one of ${EFFORT_LEVELS.join(', ')}`,
+      });
+    }
   }
 
   // `permissionMode: default` is redundant (it is already the Claude Code

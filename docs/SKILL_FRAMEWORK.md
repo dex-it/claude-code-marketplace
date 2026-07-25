@@ -113,7 +113,7 @@ description: <краткое назначение>. Активируется п�
 ---
 ```
 
-Опциональные поля (по [официальной документации](https://code.claude.com/docs/en/skills)): `disable-model-invocation`, `user-invocable`, `argument-hint`, `allowed-tools`, `model`, `effort`, `context`, `agent`, `hooks`, `paths`, `shell`. Любые поля вне этого списка - запрещены (валидатор упадёт).
+Опциональные поля (по [официальной документации](https://code.claude.com/docs/en/skills)): `disable-model-invocation`, `user-invocable`, `argument-hint`, `allowed-tools`, `model`, `effort`, `context`, `agent`, `hooks`, `paths`, `shell`. Поля вне этого списка не писать: Claude Code их не поддерживает. Автоматически валидатор ловит только `keywords` (`FORBIDDEN_FIELDS` в `tools/validate-skill.js`) - остальное на ручной сверке автора (👁), не выдавать за проверяемое.
 
 ### Тело skill
 
