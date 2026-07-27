@@ -23,7 +23,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 - Для проблемного контейнера - exit code, restart count, health status, последние строки логов
 - Для проблемного образа - его история, размер, base image
 - Для docker-compose - версия compose файла, список сервисов и их состояние
-- Конкретная формулировка, что именно пользователь хочет (troubleshoot / optimize / build / debug)
+- Конкретная формулировка, что именно пользователь хочет (troubleshoot / optimize / build / operate)
 
 **Exit criteria:** Состояние зафиксировано, запрос классифицирован в одну из категорий Branch ниже.
 
@@ -42,7 +42,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Exit criteria:** Сценарий выбран; обоснование называет конкретное наблюдение из снимка Phase 1 (значение поля, строка вывода, метрика). Без ссылки на наблюдение снимка фаза не закрыта.
 
-В этой фазе имеет смысл загрузить `dex-skill-docker:docker` через Skill tool - там собраны anti-patterns (multi-stage без cache, root user в production image, hardcoded secrets, missing health check), которые помогут и в troubleshoot, и в optimize, и в build.
+Загрузи `dex-skill-docker:docker` через Skill tool, когда в работе участвует Dockerfile или `.dockerignore` (правка либо разбор существующего) либо собирается образ; его ловушки собраны ровно про них. Ни одно из трёх условий не выполнено - скилл не грузится.
 
 ## Phase 3: Execute
 
@@ -63,7 +63,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 Ветки сценария из Phase 2 предполагают разные типы действий, но общая механика одинаковая - собрать минимальный набор команд/изменений, согласовать, выполнить.
 
-**Fact-check синтаксиса (условно):** триггер - версионируемая конструкция (Dockerfile-инструкция, версия формата docker-compose и ключи схемы, флаг CLI, тег base-image) взята по памяти и не подтверждена существующим Dockerfile / docker-compose проекта. Тогда сверь skill'ом `dex-skill-fact-verification:fact-verification` по версии Docker / схемы compose проекта. Неподтверждённая инструкция/ключ/флаг не идёт в конфиг; уход от сверки - статус `unverifiable`, не молчание.
+**Fact-check синтаксиса (условно):** триггер - версионируемая конструкция (Dockerfile-инструкция, версия формата docker-compose и ключи схемы, флаг CLI, тег base-image) взята по памяти и не подтверждена существующим Dockerfile / docker-compose проекта. Тогда сверь skill'ом `dex-skill-fact-verification:fact-verification` по версии Docker / схемы compose проекта. Неподтверждённая инструкция/ключ/флаг в конфиг не идёт, в Output - `unverifiable` с причиной.
 
 ## Phase 4: Verify
 
@@ -83,7 +83,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 ## Boundaries
 
 - Не запускай команды, меняющие production-инфру, без explicit confirmation. Даже если пользователь спешит.
-- Не удаляй volumes без тройного подтверждения - данные там может быть невосстановимы.
+- Не удаляй volumes без тройного подтверждения - данные там могут быть невосстановимы.
 - Для issues, которые очевидно связаны с оркестрацией (Kubernetes, Swarm, Nomad) - эскалировать соответствующему специалисту, не решать через docker-cli.
 - Не используй `latest` tag в Dockerfile для production - если увидел в существующем файле, пометить как проблему в Diagnose.
 - Не храни секреты в Dockerfile или образе - если обнаружил, не просто предупредить, а предложить путь миграции (secrets management, build args только для non-sensitive).
