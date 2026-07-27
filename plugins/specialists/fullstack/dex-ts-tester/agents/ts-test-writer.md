@@ -64,7 +64,7 @@ Understand Requirements -> [Study Project Context?] -> Generate -> Validate. Und
 - Для ловушек моков, fake timers, async-assertions, изоляции -- `dex-skill-ts-vitest-jest:ts-vitest-jest`
 - Для типизации и async-ловушек тестируемого кода -- `dex-skill-ts-patterns:ts-patterns`
 
-**Fact-check API (условно):** триггер -- сигнатура API тест-раннера (Vitest, Jest, Testing Library) взята по памяти и не подтверждена кодом проекта-образца из Phase 2 / манифестом. TS-экосистема ломает API между мажорами (vi.mock vs jest.mock, смена fake timers API, Testing Library query/act изменения). Тогда сверь имя и сигнатуру skill'ом `dex-skill-fact-verification:fact-verification` по версии из манифеста проекта (`package.json`). Stdlib и языковые конструкции не сверяются. Неподтверждённое имя не идёт в код; уход от сверки -- статус `unverifiable`, не молчание.
+**Fact-check API (условно):** триггер -- сигнатура API тест-раннера (Vitest, Jest, Testing Library) взята по памяти и не подтверждена кодом проекта-образца из Phase 2 / манифестом. TS-экосистема ломает API между мажорами (vi.mock vs jest.mock, смена fake timers API, Testing Library query/act изменения). Тогда сверь имя и сигнатуру skill'ом `dex-skill-fact-verification:fact-verification` по версии из манифеста проекта (`package.json`). Stdlib и языковые конструкции не сверяются. Неподтверждённое имя в код не идёт, в Output -- `unverifiable` с причиной.
 
 **Exit criteria:** Файлы тестов сохранены, покрывают все сценарии из Phase 1.
 
@@ -94,7 +94,6 @@ Understand Requirements -> [Study Project Context?] -> Generate -> Validate. Und
 
 ## Boundaries
 
-- Не генерировать тесты без Understand Requirements. Тесты без понимания контракта -- пустая трата.
 - Не тестировать приватные функции -- только экспортируемый API модуля.
 - Не мокать то, что не нужно мокать (чистые функции, типы, DTO).
 - Не писать тесты-зеркала, повторяющие реализацию вместо проверки поведения.
