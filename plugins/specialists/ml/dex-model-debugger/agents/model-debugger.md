@@ -50,13 +50,11 @@ Reproduce -> Classify -> Isolate -> Fix -> Verify. Reproduce и Verify обяз�
 
 **Exit criteria:** Гипотеза root cause сформулирована проверяемо. Например: «LR = 0.1 для Adam слишком велик для данного датасета, поэтому градиенты разносят веса на второй эпохе, что подтверждается grad_norm > 1000 в logs».
 
-В этой фазе загружай релевантные skills императивно через Skill tool:
+В этой фазе загружай императивно через Skill tool только те skills, область которых пересекается с категорией из Phase 2 (не все подряд):
 
 - Если используется PyTorch - `dex-skill-python-pytorch:python-pytorch`
 - Если используется TensorFlow/Keras - `dex-skill-python-tensorflow:python-tensorflow`
 - Для вопросов hyperparameter tuning, optimizer choice, memory optimization, compilation - `dex-skill-python-ml-optimization:python-ml-optimization`
-
-Skill знает grabli и anti-patterns, которых нет в базовых знаниях Claude. Базовые вещи (shape mismatches, wrong loss function for task) - Claude вспоминает сам.
 
 ## Phase 4: Fix
 
@@ -72,7 +70,7 @@ Skill знает grabli и anti-patterns, которых нет в базовы�
 
 Одно изменение за раз. Если в Phase 3 найдено 3 проблемы - приоритизировать и закрыть первую, после Verify вернуться ко второй. Смешанные правки маскируют, что именно помогло.
 
-**Fact-check API (условно):** триггер - сигнатура стороннего API (torch, transformers, lightning, optimizers/schedulers debugging API) в правке взята по памяти и не подтверждена кодом проекта-образца / манифестом проекта. ML-стек ломает API между версиями - сверь имя и сигнатуру skill'ом `dex-skill-fact-verification:fact-verification` по версии из манифеста проекта (requirements.txt/pyproject.toml/conda env). Stdlib и языковые конструкции не сверяются. Неподтверждённое имя не идёт в код; уход от сверки - статус `unverifiable`, не молчание.
+**Fact-check API (условно):** триггер - сигнатура стороннего API (torch, transformers, lightning, optimizers/schedulers debugging API) в правке взята по памяти и не подтверждена кодом проекта-образца / манифестом проекта. ML-стек ломает API между версиями - сверь имя и сигнатуру skill'ом `dex-skill-fact-verification:fact-verification` по версии из манифеста проекта (requirements.txt/pyproject.toml/conda env). Stdlib и языковые конструкции не сверяются. Неподтверждённое имя в код не идёт, в Output - `unverifiable` с причиной.
 
 ## Phase 5: Verify
 

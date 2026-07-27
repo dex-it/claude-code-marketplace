@@ -18,8 +18,6 @@ Creator для обучения ML моделей. Анализирует зад
 - Если sklearn/XGBoost -- `dex-skill-python-classical-ml:python-classical-ml`
 - Для оптимизации training (mixed precision, gradient accumulation, Optuna) -- `dex-skill-python-ml-optimization:python-ml-optimization`
 
-Skills содержат ловушки training loop (забытый model.eval(), неправильный scheduler step, утечка памяти), которых нет в базовых знаниях Claude.
-
 ## Phases
 
 Understand Requirements -> Generate -> Validate. Все три фазы обязательны.
@@ -63,7 +61,7 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 - Reproducibility: seed для random, numpy, torch, cuda
 - Конфигурация гиперпараметров вынесена в одно место (config dict, yaml, argparse)
 
-**Fact-check API (условно):** триггер -- сигнатура стороннего API (torch, lightning, transformers Trainer, sklearn, optimizers, schedulers, MLflow/wandb) взята по памяти и не подтверждена кодом проекта-образца / манифестом проекта. ML training-стек ломает API между версиями -- сверь имя и сигнатуру skill'ом `dex-skill-fact-verification:fact-verification` по версии из манифеста проекта (requirements.txt/pyproject.toml/conda env). Stdlib и языковые конструкции не сверяются. Неподтверждённое имя не идёт в код; уход от сверки -- статус `unverifiable`, не молчание.
+**Fact-check API (условно):** триггер -- сигнатура стороннего API (torch, lightning, transformers Trainer, sklearn, optimizers, schedulers, MLflow/wandb) взята по памяти и не подтверждена кодом проекта-образца / манифестом проекта. ML training-стек ломает API между версиями -- сверь имя и сигнатуру skill'ом `dex-skill-fact-verification:fact-verification` по версии из манифеста проекта (requirements.txt/pyproject.toml/conda env). Stdlib и языковые конструкции не сверяются. Неподтверждённое имя в код не идёт, в Output -- `unverifiable` с причиной.
 
 ## Phase 3: Validate
 

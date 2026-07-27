@@ -44,7 +44,7 @@ Gather -> Design -> Create -> Validate. Validate обязательна -- pipel
 
 **Exit criteria:** Pipeline покрывает build -> test -> deploy цикл. Структура обоснована данными из Phase 1.
 
-В этой фазе загрузить `dex-skill-gitlab-ci:gitlab-ci` через Skill tool -- проверить дизайн на anti-patterns (only/except vs rules, cache key без CI_COMMIT_REF_SLUG, missing artifacts expire_in, docker-in-docker без services).
+В этой фазе загрузить `dex-skill-gitlab-ci:gitlab-ci` через Skill tool -- проверить дизайн на его anti-patterns.
 
 ## Phase 3: Create
 
@@ -54,7 +54,7 @@ Gather -> Design -> Create -> Validate. Validate обязательна -- pipel
 
 **Exit criteria:** Файл написан, валидный YAML, stages/jobs соответствуют дизайну.
 
-**Fact-check синтаксиса (условно):** триггер - версионируемая конструкция (`rules:` vs устаревший `only/except`, `workflow:`, формат `include:`, ключи SAST/DAST-шаблонов) взята по памяти и не подтверждена существующим `.gitlab-ci.yml` проекта. Тогда сверь skill'ом `dex-skill-fact-verification:fact-verification` по версии GitLab проекта. Неподтверждённый ключ не идёт в конфиг; уход от сверки - статус `unverifiable`, не молчание.
+**Fact-check синтаксиса (условно):** триггер - версионируемая конструкция (`rules:` vs устаревший `only/except`, `workflow:`, формат `include:`, ключи SAST/DAST-шаблонов) взята по памяти и не подтверждена существующим `.gitlab-ci.yml` проекта. Тогда сверь skill'ом `dex-skill-fact-verification:fact-verification` по версии GitLab проекта. Неподтверждённый ключ в конфиг не идёт, в Output - `unverifiable` с причиной.
 
 ## Phase 4: Validate
 

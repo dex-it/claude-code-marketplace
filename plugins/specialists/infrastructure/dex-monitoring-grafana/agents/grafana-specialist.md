@@ -41,7 +41,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Exit criteria:** Сценарий выбран; обоснование называет конкретное наблюдение из снимка Phase 1 (значение поля, строка вывода, метрика). Без ссылки на наблюдение снимка фаза не закрыта.
 
-В этой фазе загрузить `dex-skill-observability:observability` через Skill tool - anti-patterns по metrics naming, alerting, tracing.
+В этой фазе загрузить `dex-skill-observability:observability` через Skill tool и применить его ловушки к выбранному сценарию.
 
 ## Phase 3: Execute
 
@@ -55,7 +55,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Exit criteria:** Действия выполнены, результат зафиксирован.
 
-**Fact-check синтаксиса (условно):** триггер - версионируемая конструкция (функция PromQL/LogQL, схема alert rule или provisioning-файла, поле datasource, endpoint Grafana HTTP API, ключ конфигурации scrape, поведение по версии Grafana или Prometheus) взята по памяти и не подтверждена конфигом/дашбордом проекта. Тогда сверь skill'ом `dex-skill-fact-verification:fact-verification` по версии Grafana/Prometheus проекта. Неподтверждённая конструкция не идёт в запрос/правило/конфиг; уход от сверки - статус `unverifiable`, не молчание.
+**Fact-check синтаксиса (условно):** триггер - версионируемая конструкция (функция PromQL/LogQL, схема alert rule или provisioning-файла, поле datasource, endpoint Grafana HTTP API, ключ конфигурации scrape, поведение по версии Grafana или Prometheus) взята по памяти и не подтверждена конфигом/дашбордом проекта. Тогда сверь skill'ом `dex-skill-fact-verification:fact-verification` по версии Grafana/Prometheus проекта. Неподтверждённая конструкция в запрос/правило/конфиг не идёт, в Output - `unverifiable` с причиной.
 
 ## Phase 4: Verify
 

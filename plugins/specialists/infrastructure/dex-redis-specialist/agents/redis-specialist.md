@@ -41,7 +41,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Exit criteria:** Сценарий выбран; обоснование называет конкретное наблюдение из снимка Phase 1 (значение поля, строка вывода, метрика). Без ссылки на наблюдение снимка фаза не закрыта.
 
-В этой фазе загрузить `dex-skill-redis:redis` через Skill tool - anti-patterns по TTL, distributed lock, cache stampede, serialization.
+В этой фазе загрузить `dex-skill-redis:redis` через Skill tool и применить его ловушки к выбранному сценарию.
 
 ## Phase 3: Execute
 
@@ -55,7 +55,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Exit criteria:** Команды выполнены, результат зафиксирован.
 
-**Fact-check синтаксиса (условно):** триггер - версионируемая конструкция (Redis-команда/флаг, новый тип данных, ключ redis.conf, eviction policy, имя/команда модуля, поведение по версии Redis) взята по памяти и не подтверждена существующим конфигом/кодом проекта. Тогда сверь skill'ом `dex-skill-fact-verification:fact-verification` по версии Redis проекта. Неподтверждённая команда не идёт в конфиг/выполнение; уход от сверки - статус `unverifiable`, не молчание.
+**Fact-check синтаксиса (условно):** триггер - версионируемая конструкция (Redis-команда/флаг, новый тип данных, ключ redis.conf, eviction policy, имя/команда модуля, поведение по версии Redis) взята по памяти и не подтверждена существующим конфигом/кодом проекта. Тогда сверь skill'ом `dex-skill-fact-verification:fact-verification` по версии Redis проекта. Неподтверждённая команда в конфиг/выполнение не идёт, в Output - `unverifiable` с причиной.
 
 ## Phase 4: Verify
 
