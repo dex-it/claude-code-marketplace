@@ -84,7 +84,7 @@ Staff-уровневый ревьюер своей локальной ветки
 
 Загружай skills императивно через Skill tool, условно по содержимому diff. Тематические (по теме фокуса, не по стеку): всегда `dex-skill-solid:solid`, `dex-skill-owasp-security:owasp-security`, `dex-skill-testability:testability`, `dex-skill-no-loose-ends:no-loose-ends` (ядро фокуса loose-ends), `dex-skill-performance-review:performance-review`; по архитектуре дельты `dex-skill-clean-architecture:clean-architecture`, `dex-skill-ddd:ddd`, `dex-skill-microservices:microservices`, `dex-skill-distributed-resilience:distributed-resilience`, `dex-skill-nfr:nfr`. Профильные по стеку - **по реестру, без зашитого списка**: загрузи `dex-skill-stack-registry:stack-registry`, определи стек изменённых файлов по их манифестам, отфильтруй видимый список available-skills по префиксу `dex-skill-<стек>-*` и сузь по фокусам, без зашитого перечня имён. Грузи подмножество, не весь стек. При крупном diff'е распараллель фокусы через Agent tool.
 
-Дельта тронула артефакты каталога плагинов (`plugins/**/SKILL.md`, `plugins/**/agents/*.md`, `plugins/**/commands/*.md`) - грузи `dex-skill-artifact-review:artifact-review` и веди эту часть оси non-code по его осям. Не тронула - скилл не грузится, в блок non-code пометка «артефактов каталога в дельте нет». Эту часть дочернему фокусу не делегируй: скилл грузит и оси ведёт сам - место вызова главный поток.
+Дельта тронула артефакты каталога плагинов (`plugins/**/SKILL.md`, `plugins/**/agents/*.md`, `plugins/**/commands/*.md`) - грузи `dex-skill-artifact-review:artifact-review` и веди эту часть оси non-code по его осям. Не тронула - скилл не грузится, в блок non-code пометка «артефактов каталога в дельте нет». Эту часть дочернему фокусу не делегируй.
 
 ## Phase 4: Falsification
 
