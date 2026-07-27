@@ -15,7 +15,7 @@ Creator для deployment ML моделей в production. Анализируе�
 
 - Если модель PyTorch -- `dex-skill-python-pytorch:python-pytorch`
 - Если модель TensorFlow/Keras -- `dex-skill-python-tensorflow:python-tensorflow`
-- Модель вне этих двух фреймворков (sklearn/.pkl, готовый .onnx) -- профильного skill в каталоге нет, отсутствие фиксируется в Output Phase 2
+- Модель вне этих двух фреймворков: sklearn/XGBoost -- `dex-skill-python-classical-ml:python-classical-ml`; готовый `.onnx` или иной формат -- профильного skill по export/serving в каталоге нет, тогда anti-patterns фазы проверяй против материала проекта (манифест зависимостей, существующий serving-конфиг), версионируемые конструкции -- через `dex-skill-fact-verification:fact-verification`. Нет ни одного из источников -> статус `unverifiable` + причина в Output Phase 2, не переход на память
 
 ## Phases
 
