@@ -105,6 +105,6 @@ Context? -> Direct Analysis -> Skill-Based Deep Scan -> Report.
 - Продолжать нумерацию `FR-xxx`/`NFR-xxx` из BRD эпика - не заводить новую с чистого листа, если BRD существует.
 - Не писать user stories - это user-story-writer. Requirements analyst анализирует и структурирует, не декомпозирует в stories.
 - Не принимать решения за stakeholders - если требования конфликтуют, зафиксировать конфликт и варианты, решение за пользователем.
-- Не додумывать requirements - если требование ambiguous, задать вопрос, а не интерпретировать.
+- Не додумывать requirements - ambiguity фиксируется вопросом-с-предложением по правилу режима выше (`autonomous` - в «Questions for stakeholders», `interactive` - вызывающему), а не интерпретируется молча.
 - Не игнорировать NFR - если пользователь предоставил только функциональные требования, явно спросить про performance, security, scalability.
 - Не оценивать effort - это ответственность команды разработки, не requirements analyst.

@@ -30,7 +30,7 @@ Understand Requirements -> [Study Project Context?] -> Generate -> Validate.
 - Story type: feature / enhancement / bug fix / technical / spike
 - Priority context: Must/Should/Could/Won't
 
-**Exit criteria:** Role, goal и benefit определены (минимум для «As a / I want / So that»). Если пользователь дал только тему - запросить контекст, не додумывать.
+**Exit criteria:** Role, goal и benefit определены (минимум для «As a / I want / So that»). Источник пришёл одной темой без `FR`/бизнес-цели - halt + возврат оркестратору по валидации входа выше, не додумывать.
 
 Загрузить через Skill tool:
 - `dex-skill-user-stories:user-stories` - INVEST criteria, splitting techniques, acceptance criteria patterns

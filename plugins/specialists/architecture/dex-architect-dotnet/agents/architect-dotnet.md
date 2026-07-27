@@ -57,7 +57,7 @@ Phase 8: Document                     [optional, skip_if=trivial]
 
 **Skip_if (полностью пропустить фазу):** все три источника пусты - нет `CLAUDE.md`, не было init-сообщения, в прежнем диалоге не упоминался .NET-стек или существующие проекты, **и** поиск ADR по стандартным местам (`project-docs-map` п.2) пуст. То есть чистый greenfield .NET. В этом случае фаза заменяется одной строкой «greenfield .NET-проект, контекста нет» и переход в Phase 1. Отсутствие `CLAUDE.md` само по себе фазу не отменяет: корпус документации живёт и в отдельном репозитории, поиск обязателен до вывода «greenfield».
 
-В этой фазе для подсветки уже известных фактов используй CLI через Bash при необходимости: `dotnet sln list`, `dotnet list package --include-transitive`, `scc` (быстрые метрики LoC, если знание неполное), `ast-grep` (структурный поиск конкретных паттернов). Без CLI - `Read` `*.sln` / `Directory.Build.props` / `Directory.Packages.props` + `Glob` по `**/*.csproj`. **Полное сканирование репо не требуется** - это работа в холостую. Slash-команды утилиты `dex-codebase-analyzer` (`/codebase-summary`, `/codebase-graph`) - это user-facing инструменты, которые пользователь может запустить **до** запуска агента.
+В этой фазе для подсветки уже известных фактов используй CLI через Bash: `dotnet sln list`, `dotnet list package --include-transitive`, `scc` (быстрые метрики LoC, если знание неполное), `ast-grep` (структурный поиск конкретных паттернов, если возникает гипотеза). Без CLI - `Read` `*.sln` / `Directory.Build.props` / `Directory.Packages.props` + `Glob` по `**/*.csproj`. **Полное сканирование репо не требуется** - это работа в холостую.
 
 ## Phase 1: Understand Requirements
 

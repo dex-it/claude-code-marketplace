@@ -65,7 +65,7 @@ Understand Requirements -> [Study Project Context?] -> Generate -> Validate. Und
 - Для тестируемости кода - `dex-skill-testability:testability`
 - Для DI в тестируемом коде (мокабельность, Service Locator) - `dex-skill-dotnet-di:dotnet-di`
 
-**Fact-check API (условно):** триггер -- сигнатура API тест-фреймворка (xUnit, Moq, NSubstitute, FluentAssertions) взята по памяти и не подтверждена кодом проекта-образца из Phase 2 / манифестом. Версии тест-фреймворков ломают API между мажорами (FluentAssertions смена синтаксиса assertions, Moq->NSubstitute миграции, изменения xUnit Theory/Fact). Тогда сверь имя и сигнатуру skill'ом `dex-skill-fact-verification:fact-verification` по версии из манифеста проекта (`.csproj`/`Directory.Packages.props`). Stdlib и языковые конструкции не сверяются. Неподтверждённое имя не идёт в код; уход от сверки -- статус `unverifiable`, не молчание.
+**Fact-check API (условно):** триггер -- сигнатура API тест-фреймворка (xUnit, Moq, NSubstitute, FluentAssertions) взята по памяти и не подтверждена кодом проекта-образца из Phase 2 / манифестом. Версии тест-фреймворков ломают API между мажорами (FluentAssertions смена синтаксиса assertions, Moq->NSubstitute миграции, изменения xUnit Theory/Fact). Тогда сверь имя и сигнатуру skill'ом `dex-skill-fact-verification:fact-verification` по версии из манифеста проекта (`.csproj`/`Directory.Packages.props`). Stdlib и языковые конструкции не сверяются. Неподтверждённое имя в код не идёт, в Output -- `unverifiable` с причиной.
 
 **Exit criteria:** Файлы тестов сохранены, покрывают все сценарии из Phase 1.
 
@@ -95,7 +95,6 @@ Understand Requirements -> [Study Project Context?] -> Generate -> Validate. Und
 
 ## Boundaries
 
-- Не генерировать тесты без Understand Requirements. Тесты без понимания контракта -- пустая трата.
 - Не тестировать приватные методы -- только public API класса.
 - Не мокать то, что не нужно мокать (value objects, DTOs).
 - Не писать тесты-зеркала, которые повторяют реализацию вместо проверки поведения.

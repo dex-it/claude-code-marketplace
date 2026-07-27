@@ -54,7 +54,7 @@ Diagnose -> Branch -> Execute -> Verify.
 - Для оптимизации LINQ, коллекций, материализации -- `dex-skill-dotnet-linq-optimization:dotnet-linq-optimization`
 - Для логирования EF queries, debug logging -- `dex-skill-dotnet-logging:dotnet-logging`
 
-**Fact-check API (условно):** триггер -- сигнатура EF Core / провайдера API (Fluent API, миграционный API, query-методы, Npgsql) взята по памяти и не подтверждена кодом проекта-образца из Phase 1 / манифестом. EF Core ломает API между мажорами (EF 6->7->8->9: изменения Fluent API, query-translation, миграционных вызовов), провайдер Npgsql тоже. Тогда сверь имя и сигнатуру skill'ом `dex-skill-fact-verification:fact-verification` по версии из манифеста проекта (`Directory.Packages.props`/`.csproj`). Stdlib и языковые конструкции не сверяются. Неподтверждённое имя не идёт в код; уход от сверки -- статус `unverifiable`, не молчание.
+**Fact-check API (условно):** триггер -- сигнатура EF Core / провайдера API (Fluent API, миграционный API, query-методы, Npgsql) взята по памяти и не подтверждена кодом проекта-образца из Phase 1 / манифестом. EF Core ломает API между мажорами (EF 6->7->8->9: изменения Fluent API, query-translation, миграционных вызовов), провайдер Npgsql тоже. Тогда сверь имя и сигнатуру skill'ом `dex-skill-fact-verification:fact-verification` по версии из манифеста проекта (`Directory.Packages.props`/`.csproj`). Stdlib и языковые конструкции не сверяются. Неподтверждённое имя в код не идёт, в Output -- `unverifiable` с причиной.
 
 **Exit criteria:** Файлы сохранены, изменения соответствуют плану.
 

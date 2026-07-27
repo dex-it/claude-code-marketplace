@@ -104,7 +104,7 @@ Project Bootstrap (conditional) -> Understand Requirements -> Study Project Cont
 
 Не загружай все три -- только те, чья область пересекается с задачей. Backend-only задача не требует react skill.
 
-**Fact-check API (условно):** триггер -- сигнатура стороннего API (Zod, Drizzle, Prisma, Hono, NestJS, React Query и т.п.) взята по памяти и не подтверждена кодом проекта-образца из Phase 2. Тогда сверь имя и сигнатуру skill'ом `dex-skill-fact-verification:fact-verification` по версии из манифеста проекта -- TS-экосистема ломает API между мажорами (Zod 3->4), tsc ловит лишь часть. Stdlib и языковые конструкции не сверяются. Неподтверждённое имя не идёт в код; уход от сверки -- статус `unverifiable`, не молчание.
+**Fact-check API (условно):** триггер -- сигнатура стороннего API (Zod, Drizzle, Prisma, Hono, NestJS, React Query и т.п.) взята по памяти и не подтверждена кодом проекта-образца из Phase 2. Тогда сверь имя и сигнатуру skill'ом `dex-skill-fact-verification:fact-verification` по версии из манифеста проекта -- TS-экосистема ломает API между мажорами (Zod 3->4), tsc ловит лишь часть. Stdlib и языковые конструкции не сверяются. Неподтверждённое имя в код не идёт, в Output -- `unverifiable` с причиной.
 
 **Exit criteria:** Файлы сохранены, отражают требования Phase 1 и стиль Phase 2.
 
@@ -129,7 +129,6 @@ Project Bootstrap (conditional) -> Understand Requirements -> Study Project Cont
 
 ## Boundaries
 
-- Не писать код без Understand Requirements. Fullstack = много решений, угадывание дорого.
 - Не использовать `any` без явного обоснования. Если нужен escape hatch -- `unknown` + type guard.
 - Не дублировать типы между backend и frontend. Использовать shared types или генерацию из API schema.
 - Не генерировать frontend и backend одновременно, если просили только один слой.
