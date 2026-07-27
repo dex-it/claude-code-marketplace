@@ -144,7 +144,7 @@ Pass 1: Direct Analysis
   Evidence: [stack trace / лог / данные]
 
 Pass 2: Deep Pattern Check
-  Skills invoked: [список или «частных skills под стек нет»]
+  Skills invoked: [skill - что проверено; либо «частных skills под стек нет»]
   Related findings: [паттерны, подтверждающие или расширяющие находки]
 
 Hypothesis (root cause): [«если X в файл:строка, то Y, потому что Z»]
