@@ -2635,7 +2635,7 @@
       "name": "dex-requirements-reviewer",
       "source": "./plugins/specialists/review/dex-requirements-reviewer",
       "description": "Ревью и согласование чужого готового набора требований (BRD/stories) как документа: дефекты единицы и дефекты набора против источника, фальсификация находок, severity, правки автору без мутации документа.",
-      "version": "1.2.2",
+      "version": "1.2.3",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2669,7 +2669,7 @@
       "name": "dex-mr-check-reviewer",
       "source": "./plugins/specialists/review/dex-mr-check-reviewer",
       "description": "Ре-ревью дельты MR/PR после правок автора: range-diff дельты, статус прежних находок, новые находки только в дельте, обновление существующих тредов и публикация новых.",
-      "version": "1.12.0",
+      "version": "1.12.1",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2686,7 +2686,7 @@
       "name": "dex-stand-reviewer",
       "source": "./plugins/specialists/review/dex-stand-reviewer",
       "description": "Ревью слитой фичи на развёрнутом стенде против ТЗ, read-only: привязка образа к merge-коммиту, карта требование -> проба на стенде, параллельные суб-агенты улик, фальсификация находок и утверждений 'выполнено', severity/confidence/scope, отчёт.",
-      "version": "1.4.0",
+      "version": "1.4.1",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2720,7 +2720,7 @@
       "name": "dex-bug-fixer",
       "source": "./plugins/specialists/delivery/dex-bug-fixer",
       "description": "Пакетная ремедиация найденных тестировщиком багов после мерджа: интейк находок, триаж и приоритет, подтверждение причины по одному, фикс на источнике через follow-up MR, верификация red->green на стенде, регрессия соседей; финиш на локальных коммитах без push.",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2737,7 +2737,7 @@
       "name": "dex-feature-implementer",
       "source": "./plugins/specialists/delivery/dex-feature-implementer",
       "description": "Реализация фичи по ТЗ до локальных коммитов без push, языко-агностично. Декомпозиция в R/I-требования и success criteria, инвентаризация через суб-агентов, дизайн контрактов и ошибок, edit-план P1..Pn, пошаговая правка с локальной верификацией, тесты инлайн по TDD (дефолт red-green-refactor) с контролем branch coverage по diff-scope. Триггеры - реализуй фичу, implement feature, по спецификации, написать код по задаче, сделай фичу, разработать функционал, по ТЗ, TDD, тесты, покрытие",
-      "version": "1.6.0",
+      "version": "1.6.1",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2768,7 +2768,7 @@
       "name": "dex-security-reviewer",
       "source": "./plugins/specialists/delivery/dex-security-reviewer",
       "description": "Language-agnostic deep security analysis: threat model (actors/trust boundaries/assets), OWASP attack paths, exploit chains, severity by chain exploitability. Stack-conditional skill loading.",
-      "version": "1.5.1",
+      "version": "1.5.2",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2784,7 +2784,7 @@
       "name": "dex-incident-investigator",
       "source": "./plugins/specialists/delivery/dex-incident-investigator",
       "description": "Расследование инцидента и поиск корневой причины на общем стенде до фикса на источнике: спецификация IS/IS-NOT, параллельный сбор улик, причинно-следственная цепочка, фальсификация причины, фикс под gate. Делегирует сбор со стенда инфра-плагинам.",
-      "version": "1.5.1",
+      "version": "1.5.2",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2799,7 +2799,7 @@
       "name": "dex-self-reviewer",
       "source": "./plugins/specialists/review/dex-self-reviewer",
       "description": "Pre-push саморевью своей локальной ветки: committed+staged+worktree diff, скан по фокусам (безопасность, архитектура, регрессии, loose-ends, non-code) с реальным прогоном build/test, фальсификация, чеклист правок до push.",
-      "version": "1.11.0",
+      "version": "1.11.1",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2816,7 +2816,7 @@
       "name": "dex-conflict-resolver",
       "source": "./plugins/specialists/delivery/dex-conflict-resolver",
       "description": "Подтягивание базовой ветки в фича-ветку и разрешение конфликтов merge/rebase без тихой потери стороны: превью без записи, карта по типам, охота за тихими конфликтами, сведение обоих намерений, фальсификация и финал без push.",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "category": "specialist",
       "keywords": [
         "specialist",

@@ -102,7 +102,7 @@ git bisect для изоляции изменения - активный шаг 
 
 **Mandatory:** yes - фикс без отдельной проверки маскирует симптом или вносит регрессию.
 
-Загружай по стеку релевантные skills для корректности фикса (например `dex-skill-owasp-security:owasp-security` при правках авторизации / валидации, `dex-skill-contract-drift:contract-drift` при правках на стыке сторон). Фикс на источнике, не на месте проявления.
+Загружай по стеку релевантные skills для корректности фикса (например `dex-skill-owasp-security:owasp-security` при правках авторизации / валидации, `dex-skill-contract-drift:contract-drift` при правках на стыке сторон).
 
 ## Phase 6: Report
 
