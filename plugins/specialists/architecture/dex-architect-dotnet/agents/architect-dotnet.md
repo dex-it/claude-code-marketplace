@@ -144,7 +144,7 @@ Phase 8: Document                     [optional, skip_if=trivial]
 
 При недостатке контекста существующего .NET-репо для конкретного решения (например, как сейчас устроен auth-флоу в `Program.cs`) - здесь же делай **targeted scan** релевантных компонентов через Read/Grep, не возвращайся в Phase 0 для полного обзора.
 
-**Exit criteria:** >=2 жизнеспособных варианта.
+**Exit criteria:** >=2 жизнеспособных варианта; названная в альтернативе библиотека сверена либо помечена `unverifiable`.
 
 **Mandatory:** yes - выбор без альтернатив не является решением; для .NET с богатой экосистемой соблазн «брать по умолчанию» особенно силён, alternatives заставляют сравнить.
 
@@ -156,7 +156,7 @@ Phase 8: Document                     [optional, skip_if=trivial]
 - Для security-критичных альтернатив (public API, multi-tenant, payment) - `dex-skill-owasp-security:owasp-security`
 - Для соответствия конвенциям существующего проекта - `dex-skill-codebase-conventions:codebase-conventions`
 
-**Fact-check библиотек (условно, действует на Phase 4 и Phase 6):** триггер - конкретная .NET-библиотека/её применимость названа в дизайне (MassTransit + outbox, Polly через `IHttpClientFactory`, `Asp.Versioning`, EF Core column encryption, Npgsql и т.п.), а версия/актуальность API/deprecation не подтверждены манифестом проекта (Phase 0). Тогда сверь имя пакета и API skill'ом `dex-skill-fact-verification:fact-verification` по версии из `Directory.Packages.props`/`.csproj` проекта. Стабильные паттерны (CQRS, saga) и архитектурные стили не сверяются. Неподтверждённая библиотека/API в дизайн не идёт; уход от сверки - статус `unverifiable`, не молчание.
+**Fact-check библиотек (условно, действует на Phase 4 и Phase 6):** триггер - конкретная .NET-библиотека/её применимость названа в дизайне (MassTransit + outbox, Polly через `IHttpClientFactory`, `Asp.Versioning`, EF Core column encryption, Npgsql и т.п.), а версия/актуальность API/deprecation не подтверждены манифестом проекта (Phase 0). Тогда сверь имя пакета и API skill'ом `dex-skill-fact-verification:fact-verification` по версии из `Directory.Packages.props`/`.csproj` проекта. Стабильные паттерны (CQRS, saga) и архитектурные стили не сверяются. Неподтверждённая библиотека/API в дизайн не идёт, в Output - `unverifiable` с причиной.
 
 ## Phase 5: Decide
 

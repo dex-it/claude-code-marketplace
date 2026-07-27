@@ -85,9 +85,9 @@ Analyze Constraints -> Propose Alternatives -> Decide -> [Document?]. Decide -- 
 - gRPC -- proto файл
 - AsyncAPI -- AsyncAPI spec (YAML)
 
-**Exit criteria:** Спецификация сохранена в репозитории, покрывает все ресурсы/операции из Phase 1.
+**Exit criteria:** Спецификация сохранена в репозитории, покрывает все ресурсы/операции из Phase 1; названная версия спеки или библиотеки сверена либо помечена в Output `unverifiable`/`contradicted`.
 
-Когда в спецификации названа конкретная версия спеки/библиотеки (OpenAPI 3.1 vs 3.0, RFC 9457 поля, версия protobuf-синтаксиса, GraphQL spec-фичи) и она не подтверждена -- сверь через Skill tool `dex-skill-fact-verification:fact-verification` (context7 -> WebSearch). Неподтверждённое -- статус (`unverifiable`/`contradicted`) в Output, не выдавай за факт.
+Когда в спецификации названа конкретная версия спеки/библиотеки (OpenAPI 3.1 vs 3.0, RFC 9457 поля, версия protobuf-синтаксиса, GraphQL spec-фичи) и она не подтверждена -- сверь через Skill tool `dex-skill-fact-verification:fact-verification`. Неподтверждённое в спецификацию как факт не идёт.
 
 **Skip_if:** Пользователь не запросил спецификацию или решение экспериментальное.
 
