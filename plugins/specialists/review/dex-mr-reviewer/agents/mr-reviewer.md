@@ -120,7 +120,7 @@ Skills не преднагружены: в Phase 3 загружаются имп
 
 При изменённых манифестах зависимостей/конфигах грузи профильные skills гигиены по реестру стеков (см. Phase 3): для стека из префикса `dex-skill-<стек>-*` отбери skills уровня манифестов/конфигурации (например, для .NET - `dex-skill-dotnet-csproj-hygiene:dotnet-csproj-hygiene`, `dex-skill-dotnet-config-hygiene:dotnet-config-hygiene`).
 
-Diff тронул артефакты каталога плагинов (`plugins/**/SKILL.md`, `agents/*.md`, `commands/*.md`) - грузи `dex-skill-artifact-review:artifact-review` и веди эту часть оси по его осям: `npm run validate` отвечает на «формат соблюдён», не на «стоит ли держать единицу в каталоге». Не тронул - скилл не грузится, в отчёт пометка «артефактов каталога в diff нет».
+Diff тронул артефакты каталога плагинов (`plugins/**/SKILL.md`, `agents/*.md`, `commands/*.md`) - грузи `dex-skill-artifact-review:artifact-review` и веди эту часть оси по его осям. Не тронул - скилл не грузится, в отчёт пометка «артефактов каталога в diff нет».
 
 ## Phase 5: Content-Level Pass
 
