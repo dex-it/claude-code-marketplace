@@ -15,6 +15,7 @@ Creator для deployment ML моделей в production. Анализируе�
 
 - Если модель PyTorch -- `dex-skill-python-pytorch:python-pytorch`
 - Если модель TensorFlow/Keras -- `dex-skill-python-tensorflow:python-tensorflow`
+- Модель вне этих двух фреймворков (sklearn/.pkl, готовый .onnx) -- профильного skill в каталоге нет, отсутствие фиксируется в Output Phase 2
 
 ## Phases
 
