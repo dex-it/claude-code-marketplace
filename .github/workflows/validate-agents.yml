@@ -1,6 +1,11 @@
 name: Validate Plugins
 
 on:
+  # Фильтр путей на pull_request - ловушка: чек required, и PR, чьи файлы под фильтр
+  # не попали, не получает его вовсе и висит в BLOCKED навсегда (write-права bypass
+  # не дают). Так уже было с docs-only PR. Поэтому перечень покрывает все нормативные
+  # и артефактные пути, а не только те, что валидатор парсит: CLAUDE.md и run-claude/**
+  # добавлены после того, как PR с одними промтами запуска завис без единого чека.
   pull_request:
     paths:
       - 'plugins/**/*.md'
@@ -10,6 +15,8 @@ on:
       - '.github/workflows/validate-agents.yml'
       - '**.sh'
       - 'docs/**'
+      - 'CLAUDE.md'
+      - 'run-claude/**'
   push:
     branches:
       - main
