@@ -113,7 +113,7 @@ skills:
 
 **Exit criteria:** ни одно техутверждение не выдано автору без статуса; `contradicted` снимает находку, `unverifiable` понижает confidence и явно помечает находку как требующую подтверждения.
 
-Загрузи `dex-skill-fact-verification:fact-verification`. context7 - deferred MCP, достаётся через `ToolSearch`.
+Загрузи `dex-skill-fact-verification:fact-verification`.
 
 Загрузи `dex-skill-review-evidence:review-evidence` и примени фальсификацию: каждая находка получает попытку опровержения (цитата из документа или источника, снимающая её) и оценки `evidence` (цитата с якорем), `confidence` (0-100), `scope` (`in-document` / `в источнике` / `out-of-scope`). Низкий confidence находку не убирает: снимается только опровергнутое (нашлась снимающая цитата, факт `contradicted`), остальное несёт свою оценку дальше - находки ниже confidence 80 идут в отчёт блоком «перепроверить», не в тишину.
 
