@@ -152,7 +152,7 @@ description: <Технология> - <ключевые аспекты в 1 пр
 | длина < 50 символов | error - активаторов, скорее всего, нет вовсе | `MIN_DESCRIPTION_LENGTH` |
 | длина > 500 символов | warning (PR не блокируется) - компактный description триггерится надёжнее | `WARN_DESCRIPTION_LENGTH` |
 | длина > 750 символов | error (проектный потолок) | `PROJECT_DESCRIPTION_MAX` |
-| длина > 1536 символов | error - хард-лимит Claude Code на `description` + `when_to_use`; свыше текст обрезается из listing | `CLAUDE_DESCRIPTION_HARD_LIMIT` |
+| длина > 1536 символов | error - хард-лимит Claude Code на `description` + `when_to_use`; свыше текст обрезается из listing. Валидатор меряет только `description`, сумму не проверяет никто | `CLAUDE_DESCRIPTION_HARD_LIMIT` |
 | < 10 keywords после «Активируется при» | error (trap/leaf); **warning** для process-skill - см. «Калибровка валидатора по типу» | `MIN_TRIGGER_KEYWORDS` |
 
 Это лимиты **skill**. У `description` агента свои пороги и свой валидатор - [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md#description-семантическая-активация).
