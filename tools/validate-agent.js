@@ -11,8 +11,8 @@
  *   node tools/validate-agent.js all                    # all agents in plugins/specialists
  *
  * Exit codes:
- *   0 — clean
- *   1 — at least one error found
+ *   0 - clean
+ *   1 - at least one error found
  */
 
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
@@ -85,16 +85,16 @@ function findAllAgentFiles() {
 const ERROR = 'error';
 const WARNING = 'warning';
 
-// Description length thresholds (project guidelines — Claude Code does not
+// Description length thresholds (project guidelines - Claude Code does not
 // document a platform limit for subagent `description`, so these are ours, not
 // a platform hard limit). The agent description sits in the session system
 // prompt of every session where the plugin is installed, so a bloated one is a
 // standing context tax; a compact one matches more reliably.
-const WARN_DESCRIPTION_LENGTH = 500; // project soft guideline — warning
-const PROJECT_DESCRIPTION_MAX = 750; // project hard cap — error
+const WARN_DESCRIPTION_LENGTH = 500; // project soft guideline - warning
+const PROJECT_DESCRIPTION_MAX = 750; // project hard cap - error
 
 /**
- * Blacklisted phrases in exit criteria — they describe internal state,
+ * Blacklisted phrases in exit criteria - they describe internal state,
  * not observable outcomes. Framework forbids them.
  */
 const NON_OBSERVABLE_PHRASES = [
@@ -112,7 +112,7 @@ const NON_OBSERVABLE_PHRASES = [
 const REQUIRED_FRONTMATTER_FIELDS = ['name', 'description', 'tools'];
 
 /**
- * Forbidden frontmatter fields — break Claude Code or violate framework.
+ * Forbidden frontmatter fields - break Claude Code or violate framework.
  * `skills:` is NOT forbidden: it is the official sub-agent field for pre-loading
  * unconditional process-skills (see ALLOWED_PRELOAD_SKILLS below). `allowed-tools`
  * is a slash-command field, not a sub-agent one.
@@ -121,10 +121,10 @@ const FORBIDDEN_FRONTMATTER_FIELDS = ['allowed-tools'];
 
 /**
  * Skills allowed in frontmatter `skills:` (pre-load). Only UNCONDITIONAL
- * process-skills belong here — those an agent loads on EVERY run regardless of
+ * process-skills belong here - those an agent loads on EVERY run regardless of
  * stack/diff (the node handoff contract). Conditional skills (trap-skills by
  * stack, conditional process-skills like completeness-mapping) must NOT be
- * pre-loaded — they load imperatively via the Skill tool in the relevant phase,
+ * pre-loaded - they load imperatively via the Skill tool in the relevant phase,
  * so pre-loading them wastes context on runs that don't need them.
  * Names are matched stack-agnostically by the skill's short name (last `:`-segment
  * and stripped `dex-skill-` prefix) so all listing formats resolve.
@@ -134,11 +134,11 @@ const ALLOWED_PRELOAD_SKILLS = new Set(['node-contract']);
 /**
  * Normalize a `skills:` entry to its short skill name for allowlist matching.
  * Accepts `dex-skill-node-contract`, `dex-skill-node-contract:node-contract`,
- * or `node-contract` — all -> `node-contract`.
+ * or `node-contract` - all -> `node-contract`.
  *
  * Tolerant on purpose: this answers "WHICH skill is this?" (allowlist policy).
  * Whether the entry is spelled in a form Claude Code can actually resolve is a
- * separate question — see `validatePreloadSkillForm`.
+ * separate question - see `validatePreloadSkillForm`.
  */
 function normalizePreloadSkillName(entry) {
   let name = String(entry).trim();
@@ -150,7 +150,7 @@ function normalizePreloadSkillName(entry) {
 /**
  * Map `plugin name` -> Set of skill names it ships, built by walking plugins/
  * for SKILL.md and reading the owning plugin's manifest. A plugin-shipped skill
- * is addressed as `{plugin}:{skill}` — the plugin name alone is NOT a skill name.
+ * is addressed as `{plugin}:{skill}` - the plugin name alone is NOT a skill name.
  */
 function buildPluginSkillMap() {
   const map = new Map();
@@ -171,7 +171,7 @@ function buildPluginSkillMap() {
           if (!map.has(plugin)) map.set(plugin, new Set());
           map.get(plugin).add(String(skill));
         } catch {
-          /* unreadable manifest or frontmatter — skipped */
+          /* unreadable manifest or frontmatter - skipped */
         }
       }
     }
@@ -183,11 +183,11 @@ function buildPluginSkillMap() {
 const PLUGIN_SKILLS = buildPluginSkillMap();
 
 /**
- * A plugin-shipped skill MUST be pre-loaded as `{plugin}:{skill}` — that is the
+ * A plugin-shipped skill MUST be pre-loaded as `{plugin}:{skill}` - that is the
  * namespace Claude Code resolves ("Plugin skills use a `plugin-name:skill-name`
  * namespace", code.claude.com/docs/en/skills). Writing the bare PLUGIN name
  * (`dex-skill-node-contract`) addresses a skill that does not exist: the skill is
- * `node-contract`. Claude Code does NOT fail on this — it "skips it and logs a
+ * `node-contract`. Claude Code does NOT fail on this - it "skips it and logs a
  * warning to the debug log", so the agent silently starts WITHOUT the skill.
  *
  * Verified empirically: the bare form also slips past `bundle-not-closed`
@@ -206,19 +206,19 @@ function validatePreloadSkillForm(raw, findings) {
       findings.push({
         level: ERROR,
         rule: 'frontmatter-skills-bare-plugin-name',
-        message: `\`skills:\` entry "${entry}" is a PLUGIN name, not a skill name — it does not resolve and Claude Code skips it silently (agent starts without the skill). Use the \`{plugin}:{skill}\` namespace: "${suggestion}"`,
+        message: `\`skills:\` entry "${entry}" is a PLUGIN name, not a skill name - it does not resolve and Claude Code skips it silently (agent starts without the skill). Use the \`{plugin}:{skill}\` namespace: "${suggestion}"`,
       });
     }
     return;
   }
 
   const [plugin, skill] = entry.split(':');
-  if (!PLUGIN_SKILLS.has(plugin)) return; // not a repo plugin — out of scope
+  if (!PLUGIN_SKILLS.has(plugin)) return; // not a repo plugin - out of scope
   if (!PLUGIN_SKILLS.get(plugin).has(skill)) {
     findings.push({
       level: ERROR,
       rule: 'frontmatter-skills-unknown-skill',
-      message: `\`skills:\` entry "${entry}" — plugin "${plugin}" ships no skill named "${skill}" (has: ${[...PLUGIN_SKILLS.get(plugin)].join(', ')}); the entry will not resolve and is skipped silently`,
+      message: `\`skills:\` entry "${entry}" - plugin "${plugin}" ships no skill named "${skill}" (has: ${[...PLUGIN_SKILLS.get(plugin)].join(', ')}); the entry will not resolve and is skipped silently`,
     });
   }
 }
@@ -232,12 +232,12 @@ const MODEL_TIER_ALIASES = ['opus', 'sonnet', 'haiku', 'fable', 'inherit'];
 const MODEL_ID_RE = /^claude-[a-z0-9-]+$/;
 
 /**
- * Allowed values for the `effort` field — the reasoning-depth axis, independent
+ * Allowed values for the `effort` field - the reasoning-depth axis, independent
  * of `model`. Unlike `model` (a ceiling), `effort` OVERRIDES the session level,
  * so raising it silently outspends the mode the user picked. The framework
  * therefore allows it downward freely and upward only with a stated reason.
  * Which of the levels a supporting model offers is resolved by Claude Code, not
- * here — this only rejects values that are not levels at all.
+ * here - this only rejects values that are not levels at all.
  */
 const EFFORT_LEVELS = ['low', 'medium', 'high', 'xhigh', 'max'];
 
@@ -267,7 +267,7 @@ function validateFrontmatter(parsed, findings) {
       findings.push({
         level: ERROR,
         rule: 'frontmatter-forbidden',
-        message: `Forbidden frontmatter field: ${field} — use \`tools:\` for tool access, Skill tool for skill loading`,
+        message: `Forbidden frontmatter field: ${field} - use \`tools:\` for tool access, Skill tool for skill loading`,
       });
     }
   }
@@ -291,20 +291,20 @@ function validateFrontmatter(parsed, findings) {
         findings.push({
           level: ERROR,
           rule: 'frontmatter-skills-not-preloadable',
-          message: `\`skills:\` entry "${String(raw).trim()}" is not an unconditional process-skill — pre-load only [${[...ALLOWED_PRELOAD_SKILLS].join(', ')}]; conditional skills load imperatively via Skill tool in phases`,
+          message: `\`skills:\` entry "${String(raw).trim()}" is not an unconditional process-skill - pre-load only [${[...ALLOWED_PRELOAD_SKILLS].join(', ')}]; conditional skills load imperatively via Skill tool in phases`,
         });
       }
     }
   }
 
   // `model` must be explicit (not inherited) and a valid tier or model ID.
-  // Default `inherit` runs cheap work on the session model — on an Opus
+  // Default `inherit` runs cheap work on the session model - on an Opus
   // session even trivial agents would run on Opus. See AGENT_FRAMEWORK.md.
   if (fm.model == null || fm.model === '') {
     findings.push({
       level: ERROR,
       rule: 'frontmatter-model-missing',
-      message: `Missing required frontmatter field: model — set explicit \`opus\` / \`sonnet\` / \`haiku\` by judgment type (not \`inherit\`)`,
+      message: `Missing required frontmatter field: model - set explicit \`opus\` / \`sonnet\` / \`haiku\` by judgment type (not \`inherit\`)`,
     });
   } else if (
     !MODEL_TIER_ALIASES.includes(String(fm.model)) &&
@@ -313,37 +313,37 @@ function validateFrontmatter(parsed, findings) {
     findings.push({
       level: ERROR,
       rule: 'frontmatter-model-invalid',
-      message: `Invalid model "${fm.model}" — expected one of ${MODEL_TIER_ALIASES.join(', ')} or a full model ID`,
+      message: `Invalid model "${fm.model}" - expected one of ${MODEL_TIER_ALIASES.join(', ')} or a full model ID`,
     });
   }
 
   // `effort` is optional: omitting it inherits the session level, which keeps
-  // the ceiling with the user. Only the value is checked here — the decision to
+  // the ceiling with the user. Only the value is checked here - the decision to
   // set it at all is a judgment call the framework describes, not a rule.
   if (fm.effort != null && fm.effort !== '') {
     if (!EFFORT_LEVELS.includes(String(fm.effort))) {
       findings.push({
         level: ERROR,
         rule: 'frontmatter-effort-invalid',
-        message: `Invalid effort "${fm.effort}" — expected one of ${EFFORT_LEVELS.join(', ')}`,
+        message: `Invalid effort "${fm.effort}" - expected one of ${EFFORT_LEVELS.join(', ')}`,
       });
     }
     if (EFFORTLESS_MODEL_RE.test(String(fm.model ?? ''))) {
       findings.push({
         level: ERROR,
         rule: 'frontmatter-effort-unsupported-model',
-        message: `effort "${fm.effort}" is set on model "${fm.model}" — the haiku tier has no effort axis; drop the field, or move the agent to a tier that has one`,
+        message: `effort "${fm.effort}" is set on model "${fm.model}" - the haiku tier has no effort axis; drop the field, or move the agent to a tier that has one`,
       });
     }
   }
 
   // `permissionMode: default` is redundant (it is already the Claude Code
-  // default) — the framework checklist forbids the noise.
+  // default) - the framework checklist forbids the noise.
   if (fm.permissionMode === 'default') {
     findings.push({
       level: ERROR,
       rule: 'frontmatter-permissionmode-default',
-      message: `Redundant \`permissionMode: default\` — omit it, this is already the default`,
+      message: `Redundant \`permissionMode: default\` - omit it, this is already the default`,
     });
   }
 
@@ -351,7 +351,7 @@ function validateFrontmatter(parsed, findings) {
     findings.push({
       level: ERROR,
       rule: 'frontmatter-description-short',
-      message: `Description is shorter than 50 characters — likely missing trigger keywords for semantic activation`,
+      message: `Description is shorter than 50 characters - likely missing trigger keywords for semantic activation`,
     });
   }
 
@@ -359,7 +359,7 @@ function validateFrontmatter(parsed, findings) {
     findings.push({
       level: ERROR,
       rule: 'frontmatter-description-too-long',
-      message: `Description is ${fm.description.length} characters — exceeds project hard cap of ${PROJECT_DESCRIPTION_MAX}. The agent description loads into the system prompt of every session; trim it to role + responsibilities + symptom triggers`,
+      message: `Description is ${fm.description.length} characters - exceeds project hard cap of ${PROJECT_DESCRIPTION_MAX}. The agent description loads into the system prompt of every session; trim it to role + responsibilities + symptom triggers`,
     });
   } else if (
     typeof fm.description === 'string' &&
@@ -368,7 +368,7 @@ function validateFrontmatter(parsed, findings) {
     findings.push({
       level: WARNING,
       rule: 'frontmatter-description-long',
-      message: `Description is ${fm.description.length} characters — exceeds project guideline of ${WARN_DESCRIPTION_LENGTH}. A compact description matches more reliably and costs less standing context; cut symptom duplicates, keep role + areas`,
+      message: `Description is ${fm.description.length} characters - exceeds project guideline of ${WARN_DESCRIPTION_LENGTH}. A compact description matches more reliably and costs less standing context; cut symptom duplicates, keep role + areas`,
     });
   }
 
@@ -379,7 +379,7 @@ function validateFrontmatter(parsed, findings) {
     findings.push({
       level: ERROR,
       rule: 'frontmatter-description-no-triggers',
-      message: `Description does not contain "Триггеры" / "trigger" — Claude Code matches agents by keywords from description`,
+      message: `Description does not contain "Триггеры" / "trigger" - Claude Code matches agents by keywords from description`,
     });
   }
 
@@ -387,7 +387,7 @@ function validateFrontmatter(parsed, findings) {
     findings.push({
       level: ERROR,
       rule: 'frontmatter-no-skill-tool',
-      message: `Agent does not declare "Skill" in tools — will not be able to load skills imperatively in phases`,
+      message: `Agent does not declare "Skill" in tools - will not be able to load skills imperatively in phases`,
     });
   }
 }
@@ -397,7 +397,7 @@ function validateFrontmatter(parsed, findings) {
  * the agent by its `name`; a divergent file name leaves the file looking like a
  * different agent than the one it declares and breaks the project convention
  * "имя файла агента совпадает с `name`" (CLAUDE.md). Skipped when `name` is
- * missing — that is already reported by `frontmatter-required`.
+ * missing - that is already reported by `frontmatter-required`.
  */
 function validateFileNameMatchesName(filepath, parsed, findings) {
   const fm = parsed.data || {};
@@ -408,7 +408,7 @@ function validateFileNameMatchesName(filepath, parsed, findings) {
     findings.push({
       level: ERROR,
       rule: 'agent-file-name-mismatch',
-      message: `File name "${fileStem}.md" does not match frontmatter name "${fm.name}" — rename the file to "${fm.name}.md" (or fix the name) so they agree`,
+      message: `File name "${fileStem}.md" does not match frontmatter name "${fm.name}" - rename the file to "${fm.name}.md" (or fix the name) so they agree`,
     });
   }
 }
@@ -493,7 +493,7 @@ function validatePhases(markdownBody, findings) {
     findings.push({
       level: ERROR,
       rule: 'no-phases',
-      message: `Agent has no "## Phase N:" sections — all agents must follow Agent Framework phase structure`,
+      message: `Agent has no "## Phase N:" sections - all agents must follow Agent Framework phase structure`,
     });
     return { validated: false, phases: [] };
   }
@@ -521,7 +521,7 @@ function validatePhases(markdownBody, findings) {
         findings.push({
           level: ERROR,
           rule: 'phase-non-observable-exit',
-          message: `Phase "${phase.title}" (line ${phase.startLine}) contains non-observable phrase "${phrase}" — exit criteria must describe an observable artifact`,
+          message: `Phase "${phase.title}" (line ${phase.startLine}) contains non-observable phrase "${phrase}" - exit criteria must describe an observable artifact`,
         });
       }
     }
@@ -533,7 +533,7 @@ function validatePhases(markdownBody, findings) {
         findings.push({
           level: ERROR,
           rule: 'phase-mandatory-no-justification',
-          message: `Phase "${phase.title}" (line ${phase.startLine}) declares **Mandatory:** yes without justification — framework requires explaining "why mandatory"`,
+          message: `Phase "${phase.title}" (line ${phase.startLine}) declares **Mandatory:** yes without justification - framework requires explaining "why mandatory"`,
         });
       }
     }
@@ -549,7 +549,7 @@ function validatePhases(markdownBody, findings) {
       findings.push({
         level: ERROR,
         rule: 'phase-procedural-body',
-        message: `Phase "${phase.title}" (line ${phase.startLine}) contains ordered list with ${maxListLen} items — potentially procedural description, framework mandates declarative style (goal + output + exit, not step-by-step)`,
+        message: `Phase "${phase.title}" (line ${phase.startLine}) contains ordered list with ${maxListLen} items - potentially procedural description, framework mandates declarative style (goal + output + exit, not step-by-step)`,
       });
     }
   }
@@ -566,7 +566,7 @@ function validatePhases(markdownBody, findings) {
  *
  * Trigger is the `:`-qualified invocation form (`dex-skill-fact-verification:fact-verification`)
  * rather than a bare mention, to distinguish "agent executes fact-check" from
- * "agent prose references the skill name" — only the former requires the cascade.
+ * "agent prose references the skill name" - only the former requires the cascade.
  */
 function validateFactcheckCascade(parsed, findings) {
   const body = parsed.content || '';
@@ -589,7 +589,7 @@ function validateFactcheckCascade(parsed, findings) {
     findings.push({
       level: ERROR,
       rule: 'factcheck-cascade-incomplete',
-      message: `Agent invokes fact-verification skill but tools is missing cascade link(s): ${missing.join(', ')} — fact-check silently degrades to latest-doc (see CLAUDE.md "Каскад tools под fact-check")`,
+      message: `Agent invokes fact-verification skill but tools is missing cascade link(s): ${missing.join(', ')} - fact-check silently degrades to latest-doc (see CLAUDE.md "Каскад tools под fact-check")`,
     });
   }
 }
