@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "5.33.0",
+  "version": "5.34.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -2563,6 +2563,23 @@
         "rizin",
         "ilspycmd",
         "lief"
+      ]
+    },
+    {
+      "name": "dex-skill-artifact-review",
+      "source": "./plugins/skills/dex-skill-artifact-review",
+      "description": "Ревью артефакта каталога (skill / агент / команда) по 5 обязательным осям: соответствие фреймворку, fact-check, полезность, лаконичность, сверка с гайдом модели. Активируется при ревью скилла, ревью агента, ревью команды, проверь артефакт, оси ревью, стоит ли держать в каталоге, оцени ловушку, ревью артефакта, приёмка скилла.",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "artifact-review",
+        "review-axes",
+        "skill-review",
+        "agent-review",
+        "command-review",
+        "catalog-quality",
+        "process-skill"
       ]
     },
     {
