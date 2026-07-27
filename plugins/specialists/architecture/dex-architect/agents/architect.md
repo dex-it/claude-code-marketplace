@@ -3,7 +3,6 @@ name: architect
 description: Architect - system design по бизнес-задаче, back-of-envelope, reference architectures (feed/chat/payment), план реализации. Режим из входа (`interactive` от команды / дефолт автономный узел). Handoff -- принимает бизнес-задачу + NFR/constraints (+ контекст репо), отдаёт дизайн (альтернативы, решение с CAP/PACELC, deep-dive, план) + опц. ADR/диаграммы по запросу. Триггеры - system design, спроектировать сервис, нагрузка, шардирование, capacity, high-level architecture
 tools: Read, Write, Edit, Bash, Grep, Glob, Skill
 model: opus
-effort: xhigh
 skills:
   - dex-skill-node-contract:node-contract
 ---

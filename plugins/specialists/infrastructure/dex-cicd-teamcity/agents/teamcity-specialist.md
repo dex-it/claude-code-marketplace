@@ -68,7 +68,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 - Для operate - целевое состояние подтверждено read-only запросом по затронутым сборкам и конфигурациям (REST `builds` / `buildTypes`) с приведением вывода
 - Для configure - build config visible, triggers active, VCS root connected
 
-**Exit criteria:** приведён снимок после Execute по ветке сценария - команда и её вывод либо значения полей, сопоставленные со снимком Phase 1. Вывод о том, что Execute должен был сработать, фазу не закрывает.
+**Exit criteria:** приведён снимок после Execute по ветке сценария - команда и её вывод либо значения полей, сопоставленные со снимком Phase 1. Вывод о том, что Execute должен был сработать, фазу не закрывает. Инструмент недоступен - переключись на запасной источник того же факта; запасного нет -> `run-status: skipped` с названной причиной в Output, фаза закрывается статусом, а не молчанием.
 
 **Mandatory:** yes - TeamCity build config может быть создан, но trigger не срабатывает; agent может показать connected, но не подхватывать builds из-за requirements mismatch.
 
