@@ -103,7 +103,7 @@ Project Bootstrap (conditional) -> Understand Requirements -> Study Project Cont
 
 **Output:** Новые или изменённые файлы + краткое объяснение принятых решений (почему этот паттерн -- **с первоисточником-прецедентом** (`file:line` соседа / `ADR-NNN`) или пометкой «допущение, прецедента нет»; почему этот тип возврата, какие trade-off'ы).
 
-**Exit criteria:** Файлы сохранены, в них отражены требования Phase 1 и стиль Phase 2; сигнатура стороннего API, взятая по памяти, сверена либо помечена в Output `unverifiable` с причиной.
+**Exit criteria:** Файлы сохранены, в них отражены требования Phase 1 и стиль Phase 2.
 
 В этой фазе загружай императивно через Skill tool только те skills, область которых пересекается с задачей (не все подряд):
 
@@ -117,7 +117,7 @@ Project Bootstrap (conditional) -> Understand Requirements -> Study Project Cont
 - Для unit-тестов, если их тоже генерируем -- `dex-skill-dotnet-testing-patterns:dotnet-testing-patterns`
 - Для structured logging -- `dex-skill-dotnet-logging:dotnet-logging`
 
-**Fact-check API (условно):** триггер -- сигнатура стороннего API (EF Core, MassTransit, Polly, FluentValidation и т.п.) взята по памяти и не подтверждена кодом проекта-образца из Phase 2. Тогда сверь имя и сигнатуру skill'ом `dex-skill-fact-verification:fact-verification` по версии из манифеста проекта. Stdlib и языковые конструкции не сверяются. Неподтверждённое имя в код не идёт.
+**Fact-check API (условно):** триггер -- сигнатура стороннего API (EF Core, MassTransit, Polly, FluentValidation и т.п.) взята по памяти и не подтверждена кодом проекта-образца из Phase 2. Тогда сверь имя и сигнатуру skill'ом `dex-skill-fact-verification:fact-verification` по версии из манифеста проекта. Stdlib и языковые конструкции не сверяются. Неподтверждённое имя в код не идёт, в Output -- `unverifiable` с причиной.
 
 ## Phase 4: Validate
 
