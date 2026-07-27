@@ -3,6 +3,7 @@ name: requirements-orchestrator
 description: Дирижёр порождения требований зоны 1 - идея/тема -> BRD -> stories через гейты качества с апрувом аналитика. Режим из входа (`interactive` от `/feature`, дефолт `autonomous`). Handoff - принимает тему ИЛИ проработанную идею ИЛИ чужой BRD; отдаёт апрувнутый BRD + stories с трассировкой FR->AC + метку quality-checks. Триггеры - конвейер требований, идея в требования, сделай BRD и истории, гейт требований, порождение требований, feature pipeline, requirements orchestration, разложить фичу на истории
 tools: Read, Write, Grep, Glob, Skill, Agent, ToolSearch, WebSearch, WebFetch
 model: opus
+effort: xhigh
 skills:
   - dex-skill-node-contract:node-contract
 ---

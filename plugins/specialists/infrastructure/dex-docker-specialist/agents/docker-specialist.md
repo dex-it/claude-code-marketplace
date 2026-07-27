@@ -40,7 +40,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 - `build` - написать или модифицировать Dockerfile / docker-compose с нуля или существенно
 - `operate` - рутинные операции (restart, logs, cleanup, inspect) без структурных изменений
 
-**Exit criteria:** Сценарий выбран, обоснован данными из Phase 1.
+**Exit criteria:** Сценарий выбран; обоснование называет конкретное наблюдение из снимка Phase 1 (значение поля, строка вывода, метрика). Без ссылки на наблюдение снимка фаза не закрыта.
 
 В этой фазе имеет смысл загрузить `dex-skill-docker:docker` через Skill tool - там собраны anti-patterns (multi-stage без cache, root user в production image, hardcoded secrets, missing health check), которые помогут и в troubleshoot, и в optimize, и в build.
 
@@ -74,9 +74,9 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 - Для troubleshoot - проблема не воспроизводится (container running, healthy, logs чистые)
 - Для optimize - новый размер образа / время build / другой целевой метрик сравнён со старым
 - Для build - образ собирается, контейнер стартует, health check проходит
-- Для operate - ожидаемое состояние достигнуто (сервис запущен / удалён / обновлён)
+- Для operate - целевое состояние подтверждено read-only командой по затронутым контейнерам (`ps` / `inspect` / `logs --tail`) с приведением вывода
 
-**Exit criteria:** Целевая метрика изменения подтверждена объективно, не на слух.
+**Exit criteria:** приведён снимок после Execute по ветке сценария - команда и её вывод либо значения полей, сопоставленные со снимком Phase 1. Вывод о том, что Execute должен был сработать, фазу не закрывает.
 
 **Mandatory:** yes - Docker-операции часто молча «проходят успешно» при наличии скрытой проблемы (контейнер стартовал, но health check failing через минуту; образ собрался, но в нём broken dependency).
 

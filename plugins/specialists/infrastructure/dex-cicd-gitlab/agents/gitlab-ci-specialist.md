@@ -62,16 +62,13 @@ Gather -> Design -> Create -> Validate. Validate обязательна -- pipel
 
 **Output:** Результат проверки:
 
-- YAML syntax валиден
-- Job dependencies (needs) не содержат циклов
-- Rules/only/except не конфликтуют
-- Variables не hardcoded (secrets через CI/CD Settings)
-- Artifacts имеют expire_in
-- Cache key содержит ref slug или lock-file hash
-- Environments сконфигурированы (name, url, action)
-- Если `glab` доступен -- проверить lint через `glab ci lint`
+Каждый пункт закрывается наблюдаемым выводом по записанному файлу, не вычиткой:
 
-**Exit criteria:** Нет syntax errors, нет security issues, pipeline готов к использованию.
+- `glab ci lint` - прогнать и привести вердикт; хост задаётся `-R group/project` либо запуском из директории с нужным `origin` (`--hostname` эта подкоманда не принимает). `glab` недоступен -> YAML-парсер плюс статус `unverifiable` по семантике, не пропуск
+- Граф `needs` - построить по распарсенному файлу и предъявить порядок обхода; цикл - блокер
+- Rules/only/except, hardcoded variables, `expire_in`, cache key, environments - grep по файлу с цитатой совпавших строк; пункт без совпадения фиксируется как отсутствующий с оценкой риска
+
+**Exit criteria:** `glab ci lint` вернул valid (либо `unverifiable` с причиной); граф `needs` предъявлен и ацикличен; по каждому пункту выше приведена цитата из файла или запись об отсутствии. «Готов к использованию» без этих выводов фазу не закрывает.
 
 **Mandatory:** yes -- GitLab CI pipeline без валидации может тихо не запускаться (wrong rules), пропускать jobs (broken needs chain), или иметь security holes (exposed variables in logs).
 

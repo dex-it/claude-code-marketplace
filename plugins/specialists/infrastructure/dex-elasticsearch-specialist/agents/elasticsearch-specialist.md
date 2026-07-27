@@ -39,7 +39,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 - `operate` - поиск данных, агрегации, просмотр логов, рутинный мониторинг
 - `configure` - создание/обновление индексов, mapping, ILM policies, templates
 
-**Exit criteria:** Сценарий выбран, обоснован данными из Phase 1.
+**Exit criteria:** Сценарий выбран; обоснование называет конкретное наблюдение из снимка Phase 1 (значение поля, строка вывода, метрика). Без ссылки на наблюдение снимка фаза не закрыта.
 
 В этой фазе загрузить `dex-skill-elasticsearch:elasticsearch` через Skill tool - anti-patterns по mapping, query DSL, analyzer.
 
@@ -65,10 +65,10 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 - Для troubleshoot - cluster green, shards assigned, query time снизился
 - Для optimize - response time / disk usage изменился в нужную сторону
-- Для operate - данные найдены, агрегации корректны
+- Для operate - целевое состояние подтверждено read-only запросом по затронутым индексам (`_cat/indices` / `_count` / `_cluster/health`) с приведением вывода
 - Для configure - _mapping / _settings подтверждают новую конфигурацию
 
-**Exit criteria:** Целевая метрика подтверждена объективно.
+**Exit criteria:** приведён снимок после Execute по ветке сценария - команда и её вывод либо значения полей, сопоставленные со снимком Phase 1. Вывод о том, что Execute должен был сработать, фазу не закрывает.
 
 **Mandatory:** yes - ES-операции часто выглядят успешными, но mapping conflict или unassigned shard проявляются позже.
 

@@ -39,7 +39,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 - `operate` - просмотр build status, agent monitoring, queue management, рутинный мониторинг
 - `configure` - build configuration setup, Kotlin DSL, VCS roots, triggers, artifact dependencies
 
-**Exit criteria:** Сценарий выбран, обоснован данными из Phase 1.
+**Exit criteria:** Сценарий выбран; обоснование называет конкретное наблюдение из снимка Phase 1 (значение поля, строка вывода, метрика). Без ссылки на наблюдение снимка фаза не закрыта.
 
 В этой фазе загрузить `dex-skill-teamcity:teamcity` через Skill tool - anti-patterns по Kotlin DSL, build chains, snapshot dependencies.
 
@@ -65,10 +65,10 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 - Для troubleshoot - build passes, agent connected, queue processing
 - Для optimize - build time reduced, chain works correctly
-- Для operate - статус получен, данные корректны
+- Для operate - целевое состояние подтверждено read-only запросом по затронутым сборкам и конфигурациям (REST `builds` / `buildTypes`) с приведением вывода
 - Для configure - build config visible, triggers active, VCS root connected
 
-**Exit criteria:** Целевая метрика подтверждена объективно.
+**Exit criteria:** приведён снимок после Execute по ветке сценария - команда и её вывод либо значения полей, сопоставленные со снимком Phase 1. Вывод о том, что Execute должен был сработать, фазу не закрывает.
 
 **Mandatory:** yes - TeamCity build config может быть создан, но trigger не срабатывает; agent может показать connected, но не подхватывать builds из-за requirements mismatch.
 

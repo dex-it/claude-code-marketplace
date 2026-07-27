@@ -68,14 +68,15 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 
 **Output:** Benchmark результаты: throughput (batches/sec), latency per batch, GPU utilization assessment.
 
-**Exit criteria:** Pipeline работает корректно. Если throughput недостаточен -- вернуться в Phase 2 и оптимизировать (num_workers, caching, format).
+**Exit criteria:** замеры приведены числами - throughput (batches/sec), RSS до и после полного прохода, shape и dtype из `dataset[0]`; расхождение по двум проходам val-loader'а названо явно (расхождения нет -> так и записать). Throughput недостаточен -> вернуться в Phase 2 (num_workers, caching, format). Прогон невозможен в среде (нет датасета/GPU) -> `run-status: skipped` + причина, отдавать непрогнанный pipeline без этого статуса нельзя.
 
-Проверки:
-- Dataset __len__ и __getitem__ корректны
-- Augmentation не применяется к validation/test data
-- num_workers подобран (обычно 4-8, зависит от CPU cores)
-- Нет утечки памяти при итерации (проверить для cached datasets)
-- Для больших datasets используется ленивая загрузка
+Проверки ведутся прогоном, не чтением кода:
+
+- `len(dataset)` и `dataset[0]` вызваны - shape и dtype приведены в выводе
+- Augmentation на validation/test - два прохода по одному индексу val-loader'а; расхождение = augmentation протекла
+- `num_workers` - подобран замером throughput на нескольких значениях, не по эвристике «обычно 4-8»
+- Утечка памяти - RSS замерен до и после полного прохода эпохи, оба числа приведены
+- Ленивая загрузка для больших datasets - пиковый RSS не растёт пропорционально размеру датасета
 
 ## Boundaries
 

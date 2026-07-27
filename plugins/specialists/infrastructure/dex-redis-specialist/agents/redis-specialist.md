@@ -39,7 +39,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 - `operate` - рутинные операции (SCAN, TTL audit, flush, monitoring) без структурных изменений
 - `configure` - настройка maxmemory, eviction policy, persistence (RDB/AOF), sentinel/cluster
 
-**Exit criteria:** Сценарий выбран, обоснован данными из Phase 1.
+**Exit criteria:** Сценарий выбран; обоснование называет конкретное наблюдение из снимка Phase 1 (значение поля, строка вывода, метрика). Без ссылки на наблюдение снимка фаза не закрыта.
 
 В этой фазе загрузить `dex-skill-redis:redis` через Skill tool - anti-patterns по TTL, distributed lock, cache stampede, serialization.
 
@@ -65,10 +65,10 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 - Для troubleshoot - проблема не воспроизводится (latency снизился, OOM ушёл)
 - Для optimize - memory usage / hit ratio изменился в нужную сторону
-- Для operate - целевое состояние достигнуто
+- Для operate - целевое состояние подтверждено read-only командой по затронутым ключам (SCAN / TTL / TYPE / EXISTS) с приведением вывода
 - Для configure - CONFIG GET подтверждает новые значения
 
-**Exit criteria:** Целевая метрика подтверждена объективно.
+**Exit criteria:** приведён снимок после Execute по ветке сценария - команда и её вывод либо значения полей, сопоставленные со снимком Phase 1. Вывод о том, что Execute должен был сработать, фазу не закрывает.
 
 **Mandatory:** yes - Redis-операции часто молча проходят (CONFIG SET применился, но не сохранён в redis.conf; ключи удалены, но cache stampede через минуту).
 

@@ -69,18 +69,13 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 
 **Goal:** Проверить что training pipeline корректен и запускается.
 
-**Output:** Результат проверки: синтаксис, структура pipeline, наличие всех обязательных компонентов.
+**Output:** вывод фактически выполненных прогонов плюс постатейная сверка скрипта:
 
-**Exit criteria:** Pipeline проходит все проверки.
+- Smoke-run на 1 эпохе с урезанным датасетом - приложить вывод (loss train/val, факт сохранения checkpoint)
+- Воспроизводимость - два прогона с одним seed дают совпадающий loss первой эпохи; расхождение = незафиксированный источник случайности
+- Каждый пункт ниже подтверждается grep по созданному файлу с указанием `file:line`; пункт без совпадения фиксируется как отсутствующий, не как соблюдённый: `model.eval()` перед validation; `torch.no_grad()` вокруг validation loop; состав checkpoint (`model_state_dict`, `optimizer_state_dict`, `epoch`, `best_metric`); early stopping; раздельное логирование train/val; fitting нормализации и augmentation только на train; установленный seed
 
-Проверки:
-- model.eval() вызывается перед validation
-- torch.no_grad() оборачивает validation loop
-- Checkpoint сохраняет model_state_dict, optimizer_state_dict, epoch, best_metric
-- Early stopping корректно останавливает обучение
-- Metrics логируются корректно (не перепутаны train/val)
-- Нет data leakage (validation data не участвует в augmentation/normalization fitting)
-- Seed установлен для воспроизводимости
+**Exit criteria:** smoke-run зелёный и его вывод приложен; по каждому пункту сверки указан `file:line` либо запись об отсутствии; прогон невозможен в среде (нет GPU/датасета) -> `run-status: skipped` + причина, отдавать непрогнанный pipeline без этого статуса нельзя.
 
 ## Boundaries
 

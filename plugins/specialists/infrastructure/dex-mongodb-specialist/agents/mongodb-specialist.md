@@ -39,7 +39,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 - `operate` - поиск данных, aggregation, export/import, рутинный мониторинг
 - `configure` - index creation/drop, collection settings, replica set reconfiguration
 
-**Exit criteria:** Сценарий выбран, обоснован данными из Phase 1.
+**Exit criteria:** Сценарий выбран; обоснование называет конкретное наблюдение из снимка Phase 1 (значение поля, строка вывода, метрика). Без ссылки на наблюдение снимка фаза не закрыта.
 
 В этой фазе загрузить `dex-skill-mongodb:mongodb` через Skill tool - anti-patterns по schema design, indexes, aggregation.
 
@@ -65,10 +65,10 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 - Для troubleshoot - query time снизился, CPU нормализовался, lag уменьшился
 - Для optimize - executionStats показывает index scan вместо collection scan
-- Для operate - данные найдены, aggregation результат корректен
+- Для operate - целевое состояние подтверждено read-only командой по затронутым коллекциям (`countDocuments` / `getIndexes` / `db.stats`) с приведением вывода
 - Для configure - getIndexes/rs.status подтверждает изменения
 
-**Exit criteria:** Целевая метрика подтверждена объективно.
+**Exit criteria:** приведён снимок после Execute по ветке сценария - команда и её вывод либо значения полей, сопоставленные со снимком Phase 1. Вывод о том, что Execute должен был сработать, фазу не закрывает.
 
 **Mandatory:** yes - MongoDB index creation на production может завершиться, но не покрыть нужные queries; aggregation может вернуть данные, но с $lookup стадией, убивающей performance.
 

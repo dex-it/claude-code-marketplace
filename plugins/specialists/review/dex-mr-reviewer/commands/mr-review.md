@@ -10,7 +10,7 @@ argument-hint: "<MR/PR url или short-id> [описание задачи]"
 
 ## Goal
 
-Провести MR/PR через фазы агента `mr-reviewer`: Context and Diff Capture, Domain Priming, Change Map, Parallel Deep Scan, Non-Code Audit, Content-Level Pass, Falsification, Filter, Cross-Linking, Severity Calibration, Tech Debt Classification, Systemic vs Specific, Output Labeling, Report, Draft Threads, Publish.
+Провести MR/PR через фазы агента `mr-reviewer`: Context and Diff Capture, Domain Priming, Change Map, Parallel Deep Scan, Non-Code Audit, Content-Level Pass, Falsification and Scoring, Dedup and Sort, Cross-Linking and Plan, Calibration and Labeling, Report, Draft Threads, Publish.
 
 ## Input
 
@@ -26,7 +26,7 @@ argument-hint: "<MR/PR url или short-id> [описание задачи]"
 ## Constraints
 
 - До команды `пушь` ни одной записи в MR; чужие треды не трогать, approve/unapprove не делать
-- Находки с confidence ниже 80 в основной список не попадают
+- Находка снимается только опровержением; низкий confidence уводит её в блок «перепроверить», не в тишину
 - Один тред равен одной находке с привязкой к строке; общий комментарий только как overview
 - На ошибку публикации на любом канале - стоп и доклад, без отката на один общий комментарий
 

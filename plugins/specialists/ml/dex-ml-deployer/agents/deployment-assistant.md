@@ -69,13 +69,13 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 
 **Output:** Результаты проверки: health check, test prediction, output comparison (original vs exported), performance baseline.
 
-**Exit criteria:** Server стартует, health check отвечает 200, test prediction возвращает корректный результат.
+**Exit criteria:** приложены коды ответа `/health` и тело `/predict` из фактического запроса, max diff exported vs оригинал числом. Прогон невозможен в среде (нет Docker/GPU/весов) -> `run-status: skipped` + причина, отдавать непроверенный package без этого статуса нельзя.
 
 Проверки:
 - Export: output exported модели совпадает с оригиналом (max diff < 1e-5)
 - Server: /health возвращает 200, /predict возвращает корректный результат
 - Docker: image собирается, контейнер стартует
-- Нет hardcoded paths, passwords, API keys в коде
+- Секреты и абсолютные пути - grep по созданным файлам (`key`, `token`, `password`, `secret`, literal-пути); приложить команду и её вывод, в том числе пустой - не утверждение «нет»
 
 ## Boundaries
 
