@@ -484,7 +484,7 @@ CLI-утилиты и MCP-серверы дополняют друг друга.
 Хотите обернуть ещё один CLI? См. `docs/COMMAND_FRAMEWORK.md` для структуры slash-команд и существующие утилиты (`plugins/utilities/dex-*-cli/`) как образцы. Кратко:
 
 1. Создать `plugins/utilities/dex-<tool>-cli/` с `.claude-plugin/plugin.json`, `commands/<cmd>.md` (3-5 команд), `README.md` со ссылкой на этот хаб.
-2. Каждая команда: 20-50 строк, frontmatter (`description` / `user-invocable: true` / `allowed-tools: Bash` / `argument-hint`), тело - `Goal` / `Output` / `Scenarios` / `Constraints`.
+2. Каждая команда: frontmatter (`description` / `user-invocable: true` / `allowed-tools: Bash` / `argument-hint`), тело - `Goal` / `Output` / `Scenarios` / `Constraints`. Цель и потолки размера - `docs/COMMAND_FRAMEWORK.md` («Размер»), число здесь не дублируем.
 3. Зарегистрировать плагин в `.claude-plugin/marketplace.json`.
 4. Добавить рецепт в `install-bundle/install-cli-tools.sh` (и матрицу выше).
 5. Прогнать `npm run validate`.
