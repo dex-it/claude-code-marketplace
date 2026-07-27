@@ -5,8 +5,8 @@
  * Checks that every bundle is *closed* over the skills its agents load:
  * each non-by-stack skill that an agent in the bundle loads imperatively
  * (via the Skill tool, `dex-skill-X:Y`) MUST be listed in the bundle's
- * includes[]. Installation is flat — install-bundle.sh installs exactly
- * the includes[] entries, there is no specialist→skill cascade. So a skill
+ * includes[]. Installation is flat - install-bundle.sh installs exactly
+ * the includes[] entries, there is no specialist->skill cascade. So a skill
  * an agent loads but the bundle omits will never be installed, and the
  * agent silently degrades (graceful-degradation branch).
  *
@@ -28,8 +28,8 @@
  *   node tools/validate-bundle.js all                        # all bundles
  *
  * Exit codes:
- *   0 — clean
- *   1 — at least one error found
+ *   0 - clean
+ *   1 - at least one error found
  */
 
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
@@ -54,7 +54,7 @@ const COLORS = {
 const ERROR = 'error';
 const WARNING = 'warning';
 
-// by-stack profile skill prefixes — exempt from the closure rule.
+// by-stack profile skill prefixes - exempt from the closure rule.
 // A skill `dex-skill-<prefix>-*` is loaded conditionally per project stack
 // by language-agnostic agents, so it is NOT required to sit in every bundle.
 // `dotnet|ts|python` are the canonical stacks from dex-skill-stack-registry;
@@ -123,7 +123,7 @@ function loadMarketplaceVersions() {
   return map;
 }
 
-// --- Specialist → loaded skills map -------------------------------------
+// --- Specialist -> loaded skills map -------------------------------------
 
 // Map: specialist plugin dir name -> Set of dex-skill-* plugins its agent(s)
 // load imperatively. Built once by walking plugins/specialists/**/agents/*.md
@@ -206,19 +206,19 @@ function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, age
       findings.push({
         level: ERROR,
         rule: 'include-not-in-marketplace',
-        message: `includes[] entry "${comp}" not declared in marketplace.json — install-bundle will fail`,
+        message: `includes[] entry "${comp}" not declared in marketplace.json - install-bundle will fail`,
       });
     }
   }
 
   // 2. Closure: each skill an agent in this bundle loads must be in includes[].
   //    A by-stack skill (dex-skill-<stack>-*) is exempt ONLY while the bundle
-  //    ships no skill of that stack — such skills arrive per the user's stack.
+  //    ships no skill of that stack - such skills arrive per the user's stack.
   //    But once a bundle commits to a stack (already includes >=1 skill of it),
   //    it is a stack bundle and must be closed over that stack too, else a
   //    stack-specific agent (e.g. dex-dotnet-coder) silently degrades.
   //    Note: commitment is judged by skills in includes[], not by the presence
-  //    of a stack-specific specialist — a bundle that ships a stack agent but
+  //    of a stack-specific specialist - a bundle that ships a stack agent but
   //    zero stack skills is left to review, not flagged here.
   const committedStacks = new Set();
   for (const comp of includes) {
@@ -236,7 +236,7 @@ function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, age
         findings.push({
           level: ERROR,
           rule: 'bundle-not-closed',
-          message: `agent "${comp}" loads "${skill}" but it is missing from includes[] — bundle not closed; add it or the agent degrades`,
+          message: `agent "${comp}" loads "${skill}" but it is missing from includes[] - bundle not closed; add it or the agent degrades`,
         });
       }
     }
