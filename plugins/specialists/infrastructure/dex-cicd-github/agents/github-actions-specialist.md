@@ -62,14 +62,13 @@ Gather -> Design -> Create -> Validate. Validate обязательна -- workf
 
 **Output:** Результат проверки:
 
-- YAML syntax валиден
-- `permissions:` задан явно
-- Actions pinned (по SHA для third-party, по tag для official)
-- Secrets не hardcoded
-- `concurrency` настроен для push + PR triggers
-- Если `actionlint` доступен -- запустить и проверить output
+Каждый пункт закрывается наблюдаемым выводом по записанному файлу, не вычиткой:
 
-**Exit criteria:** Нет syntax errors, нет security issues, workflow готов к использованию.
+- YAML syntax - парсером (`yq` или `python3 -c 'import yaml,sys;yaml.safe_load(open(sys.argv[1]))'`), приложить результат
+- `actionlint` - прогнать и привести вывод; бинаря нет -> статус `unverifiable` + причина, не пропуск пункта
+- `permissions:`, pinning actions, hardcoded secrets, `concurrency` - grep по файлу с цитатой совпавших строк; пункт без совпадения фиксируется как отсутствующий с оценкой риска
+
+**Exit criteria:** парсер и `actionlint` отработали без ошибок (либо `unverifiable` с причиной); по каждому пункту выше приведена цитата из файла или запись об отсутствии. «Готов к использованию» без этих выводов фазу не закрывает.
 
 **Mandatory:** yes -- GitHub Actions workflow без валидации может тихо не запускаться (wrong trigger), иметь security holes (missing permissions), или быть неэффективным (no caching, no concurrency).
 

@@ -8,7 +8,7 @@
 
 ## Архитектура
 
-Команда `/mr-review` тонкая и делегирует агенту `mr-reviewer` (12 фаз: Context and Diff Capture -> Domain Priming -> Change Map -> Parallel Deep Scan -> Non-Code Audit -> Falsification -> Filter -> Cross-Linking -> Severity Calibration -> Report -> Draft Threads -> Publish). Тяжёлые фокусы Phase 3 при крупном diff'е распараллеливаются через `Agent` tool.
+Команда `/mr-review` тонкая и делегирует агенту `mr-reviewer` (Context and Diff Capture -> Domain Priming -> Change Map -> Parallel Deep Scan -> Non-Code Audit -> Content-Level Pass -> Falsification and Scoring -> Dedup and Sort -> Cross-Linking and Plan -> Calibration and Labeling -> Report -> Draft Threads -> Publish). Тяжёлые фокусы Phase 3 при крупном diff'е распараллеливаются через `Agent` tool.
 
 Три гейта доставки: отчёт -> `оформляй` (черновики тредов) -> `пушь` (публикация). До `пушь` в MR не пишется ничего, чужие треды не трогаются, approve/unapprove не делается.
 

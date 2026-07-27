@@ -40,7 +40,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 - `operate` - просмотр logs, exec в pod, port-forward, рутинный мониторинг
 - `configure` - deployment create/update, service/ingress setup, secrets/configmaps, RBAC
 
-**Exit criteria:** Сценарий выбран, обоснован данными из Phase 1.
+**Exit criteria:** Сценарий выбран; обоснование называет конкретное наблюдение из снимка Phase 1 (значение поля, строка вывода, метрика). Без ссылки на наблюдение снимка фаза не закрыта.
 
 В этой фазе загрузить `dex-skill-kubernetes:kubernetes` через Skill tool - anti-patterns по probes, resources, security context.
 
@@ -66,10 +66,10 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 - Для troubleshoot - pod Running, restart count не растёт, events чистые
 - Для optimize - resource usage в рамках limits, HPA реагирует на нагрузку
-- Для operate - данные получены, exec/port-forward успешен
+- Для operate - целевое состояние подтверждено read-only командой по затронутым ресурсам (`get` / `describe` / `rollout status`) с приведением вывода
 - Для configure - get/describe подтверждает новую конфигурацию
 
-**Exit criteria:** Целевая метрика подтверждена объективно.
+**Exit criteria:** приведён снимок после Execute по ветке сценария - команда и её вывод либо значения полей, сопоставленные со снимком Phase 1. Вывод о том, что Execute должен был сработать, фазу не закрывает. Инструмент недоступен - переключись на запасной источник того же факта; запасного нет -> `run-status: skipped` с названной причиной в Output, фаза закрывается статусом, а не молчанием.
 
 **Mandatory:** yes - Kubernetes pod может показать Running, но liveness probe failing через минуту; deployment может быть ready, но с rolling update застрявшим на old replica.
 

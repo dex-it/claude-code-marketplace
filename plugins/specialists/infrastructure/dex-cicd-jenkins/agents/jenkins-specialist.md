@@ -62,15 +62,13 @@ Gather -> Design -> Create -> Validate. Validate обязательна -- Jenki
 
 **Output:** Результат проверки:
 
-- Declarative syntax валиден (pipeline -> agent -> stages -> stage -> steps)
-- Credentials используются через `withCredentials`, не hardcoded
-- `input` steps имеют `timeout`
-- Agent labels корректны (если известны из Phase 1)
-- `when` conditions имеют `beforeAgent true`
-- `cleanWs()` в `post { always }`
-- Shared libraries pinned по версии
+Каждый пункт закрывается наблюдаемым выводом по записанному Jenkinsfile, не вычиткой:
 
-**Exit criteria:** Нет syntax errors, нет security issues, pipeline готов к использованию.
+- Declarative syntax - прогнать линтер (`ssh -p <port> <host> declarative-linter < Jenkinsfile` или POST файла на `<jenkins-url>/pipeline-model-converter/validate`) и привести вывод; линтер недоступен -> статус `unverifiable` + причина, не «выглядит валидным»
+- Credentials, `timeout` у `input`, `beforeAgent true`, `cleanWs()` в `post { always }`, pinning shared libraries - grep по файлу с цитатой совпавших строк; пункт без совпадения фиксируется как отсутствующий с оценкой риска
+- Agent labels - сверить с перечнем, зафиксированным в Phase 1; перечня нет -> статус `unverifiable`, не пропуск пункта
+
+**Exit criteria:** линтер отработал (либо `unverifiable` с причиной); по каждому пункту выше приведена цитата из файла или запись об отсутствии. «Готов к использованию» без этих выводов фазу не закрывает.
 
 **Mandatory:** yes -- Jenkinsfile без валидации может содержать Groovy sandbox violations (runtime crash), credential leaks (build log exposure), или неэффективное использование agents (blocked executors).
 

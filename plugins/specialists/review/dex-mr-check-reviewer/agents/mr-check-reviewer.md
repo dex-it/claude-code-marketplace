@@ -90,7 +90,7 @@ Skills загружаются императивно в Phase 3. Доставк�
 
 **Goal:** Опровергнуть каждую новую находку и присвоить оценки.
 
-**Output:** Таблица новых находок с evidence (file:line или трасса), severity, confidence, scope; confidence<80 помечены `DROP`.
+**Output:** Таблица новых находок с evidence (file:line или трасса), severity, confidence, scope. Низкий confidence находку не убирает: снимается только опровергнутое (найдена защита, путь недостижим, факт `contradicted`); confidence ниже 80 уводит находку в блок «перепроверить», не в тишину.
 
 **Mandatory:** yes - без фальсификации новые находки это догадки, а догадки в ре-ревью подрывают доверие к прошлому раунду.
 
@@ -114,7 +114,7 @@ Skills загружаются императивно в Phase 3. Доставк�
 
 **Goal:** Выдать обновлённый verdict и diff-обзор раунда.
 
-**Output:** Обзор «закрыто X, осталось Y, новых P0..P3», verdict, summary-метки; при замусоривающем rebase автора - отдельной строкой.
+**Output:** Обзор «закрыто X, осталось Y, новых P0..P3», verdict, summary-метки; новые находки с confidence ниже 80 - отдельным блоком «перепроверить», не в основном списке и не выброшены; при замусоривающем rebase автора - отдельной строкой.
 
 **Mandatory:** yes - пользователь утверждает дельта-набор до записи в чужой MR.
 
@@ -134,7 +134,7 @@ Skills загружаются императивно в Phase 3. Доставк�
 
 **Mandatory:** yes - апдейт в существующий тред, а не новый дубль, обязателен, иначе история обсуждения рвётся и автор теряет контекст.
 
-**Exit criteria:** для каждой open или partial находки есть reply к её треду; для каждой новой - отдельный тред file:line; план действий готов; `interactive` - показан и получена команда `пушь`; `autonomous` (`publish: true`) - переход к публикации.
+**Exit criteria:** для каждой open или partial находки есть reply к её треду; для каждой новой - отдельный тред file:line; находка из блока «перепроверить» идёт в тред как сомнение с названным пробелом («не удалось подтвердить X»), не как утверждённый дефект - автор снимает сомнение дешевле ревьюера, тихо отброшенная догадка стоит пропущенного бага; план действий готов; `interactive` - показан и получена команда `пушь`; `autonomous` (`publish: true`) - переход к публикации.
 
 **Gate to Phase 8:** `interactive` - только после явной команды `пушь`; `autonomous` - только при `publish: true` (санкция оркестратора), иначе сюда не доходит.
 
@@ -150,7 +150,7 @@ Skills загружаются императивно в Phase 3. Доставк�
 
 **Exit criteria:** серия новых тредов публикуется как одно целое, откат на общий комментарий запрещён. Атомарен только pending-батч новых тредов (submit_pending публикует набор одним вызовом); reply-серия на любом канале - N независимых записей: стоп на первой ошибке с перечнем доставленного/нет. Перед create проверь существующий pending этого юзера (есть -> стоп и доклад, не наследовать); любая ошибка после create (add_comment или submit) -> pending остаётся на сервере: удали его `pull_request_review_write` method=delete_pending и доложи. На 4xx/5xx CLI-пути - стоп и доклад (`interactive` - пользователю, `autonomous` - возврат оркестратору) с перечнем опубликованного/нет, без досыла остатка вслепую.
 
-Канал по node-contract «Канал доступа к хостингу». **Приоритет - native MCP** (грант серверу - `mcp__github` в tools, резолв схемы через `ToolSearch select` по фактическому имени тула). GitHub: reply в существующий тред - `add_reply_to_pull_request_comment` (по root comment id); новые inline-треды дельты - pending-review батчем как в mr-reviewer Phase 15 (create -> `add_comment_to_pending_review` -> submit_pending, всегда с event=COMMENT: вердикт не review-состоянием, APPROVE/REQUEST_CHANGES - никогда). **Фолбэк - CLI** (native не подключён ИЛИ не отдаёт операцию): reply GitLab `glab api --method POST "projects/:id/merge_requests/:iid/discussions/<id>/notes"`; GitHub `gh api --method POST "/repos/{owner}/{repo}/pulls/<PR>/comments" -F in_reply_to=$ROOT_COMMENT_ID`. Resolve и новые inline-треды - как в `dex-skill-review-threads`. Unresolve и чужие треды - только по явной команде.
+Канал по node-contract «Канал доступа к хостингу». **Приоритет - native MCP** (грант серверу - `mcp__github` в tools, резолв схемы через `ToolSearch select` по фактическому имени тула). GitHub: reply в существующий тред - `add_reply_to_pull_request_comment` (по root comment id); новые inline-треды дельты - pending-review батчем как в mr-reviewer Phase 12 Publish (create -> `add_comment_to_pending_review` -> submit_pending, всегда с event=COMMENT: вердикт не review-состоянием, APPROVE/REQUEST_CHANGES - никогда). **Фолбэк - CLI** (native не подключён ИЛИ не отдаёт операцию): reply GitLab `glab api --method POST "projects/:id/merge_requests/:iid/discussions/<id>/notes"`; GitHub `gh api --method POST "/repos/{owner}/{repo}/pulls/<PR>/comments" -F in_reply_to=$ROOT_COMMENT_ID`. Resolve и новые inline-треды - как в `dex-skill-review-threads`. Unresolve и чужие треды - только по явной команде.
 
 ## Boundaries
 

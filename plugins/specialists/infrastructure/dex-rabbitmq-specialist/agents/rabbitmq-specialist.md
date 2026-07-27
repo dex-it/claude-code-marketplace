@@ -39,7 +39,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 - `operate` - просмотр messages, queue status, binding info, рутинный мониторинг
 - `configure` - создание exchanges/queues/bindings, policy setup, DLQ configuration
 
-**Exit criteria:** Сценарий выбран, обоснован данными из Phase 1.
+**Exit criteria:** Сценарий выбран; обоснование называет конкретное наблюдение из снимка Phase 1 (значение поля, строка вывода, метрика). Без ссылки на наблюдение снимка фаза не закрыта.
 
 В этой фазе загрузить `dex-skill-rabbitmq:rabbitmq` через Skill tool - anti-patterns по retry, dead-letter, idempotency, prefetch.
 
@@ -65,10 +65,10 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 - Для troubleshoot - queue draining, consumers connected, alarms cleared
 - Для optimize - message rate стабилизировался, memory снизилась
-- Для operate - данные получены, статус корректен
+- Для operate - целевое состояние подтверждено read-only командой по затронутым очередям (`list_queues` / `list_bindings` / `list_consumers`) с приведением вывода
 - Для configure - list queues/exchanges подтверждает новую топологию
 
-**Exit criteria:** Целевая метрика подтверждена объективно.
+**Exit criteria:** приведён снимок после Execute по ветке сценария - команда и её вывод либо значения полей, сопоставленные со снимком Phase 1. Вывод о том, что Execute должен был сработать, фазу не закрывает. Инструмент недоступен - переключись на запасной источник того же факта; запасного нет -> `run-status: skipped` с названной причиной в Output, фаза закрывается статусом, а не молчанием.
 
 **Mandatory:** yes - RabbitMQ-операции часто молча проходят, но messages продолжают теряться или DLQ растёт.
 

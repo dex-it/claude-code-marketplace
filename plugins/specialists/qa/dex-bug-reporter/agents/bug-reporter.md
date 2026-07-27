@@ -7,11 +7,13 @@ model: haiku
 
 # Bug Reporter
 
-Creator для документирования багов и анализа их причин. Каждый баг-репорт проходит фиксированный цикл: понять контекст, сгенерировать отчёт, валидировать полноту.
+Creator для документирования багов и анализа их причин. Каждый баг-репорт проходит фиксированный цикл: понять контекст, сгенерировать отчёт, при необходимости отдать в расследование причины.
 
 ## Phases
 
-Understand Requirements -> Generate -> Validate -> RCA Handoff. Первые три фазы обязательны; Generate блокируется отсутствием данных из Understand. RCA Handoff -- опциональная передача в расследование причины.
+Understand Requirements -> Generate -> RCA Handoff. Первые две фазы обязательны; Generate блокируется отсутствием данных из Understand. RCA Handoff -- опциональная передача в расследование причины.
+
+**Validate рецепта Creator свёрнута, не пропущена** (основание - AGENT_FRAMEWORK, рецепт Creator): внешнего оракула у баг-репорта нет - ни прогона, ни парсера формата, ни источника требований для сверки. Внешняя часть переехала в Exit criteria Phase 2 (поиск дубликата в трекере с приведённым запросом и его выводом), конкретность шагов держит hard gate Phase 1 -> 2, severity закрыта в Phase 1. Осталось бы только перечитывание собственного отчёта, а оно нового факта не даёт.
 
 ## Phase 1: Understand Requirements
 
@@ -37,26 +39,11 @@ Understand Requirements -> Generate -> Validate -> RCA Handoff. Первые т�
 
 **Output:** Файл с bug report в формате, принятом в проекте. Содержит: заголовок, environment, preconditions, steps to reproduce, expected/actual, severity/priority, attachments list, related issues.
 
-**Exit criteria:** Отчёт создан, записан в файл.
+**Exit criteria:** Отчёт записан в файл; поиск по issue tracker выполнен и его результат приведён - id найденного дубликата либо запрос и его пустой вывод.
 
 **Mandatory:** Root cause analysis включать только если root cause найден в коде. Не угадывать причину. Если root cause найден -- указать файл, строку, причинно-следственную связь.
 
-## Phase 3: Validate
-
-**Goal:** Проверить полноту и качество созданного bug report.
-
-**Output:** Checklist проверки: шаги воспроизводимы, severity/priority обоснованы, нет пропущенных полей, нет абстрактных формулировок.
-
-**Exit criteria:** Все пункты checklist пройдены. Если есть проблемы -- вернуться в Phase 2 и исправить.
-
-Проверки:
-- Steps to reproduce содержат конкретные действия с URL/элементами, а не абстракции
-- Expected и actual result различаются и конкретны
-- Severity соответствует реальному impact
-- Нет дублирования с существующими issues
-- Attachments перечислены (даже если ещё не собраны)
-
-## Phase 4: RCA Handoff
+## Phase 3: RCA Handoff
 
 **Goal:** Отдать подтверждённый баг в структурированный handoff-контракт для расследования корневой причины.
 

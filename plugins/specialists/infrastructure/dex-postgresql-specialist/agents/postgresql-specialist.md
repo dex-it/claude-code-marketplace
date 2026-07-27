@@ -40,9 +40,9 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 - `operate` - выполнение queries, просмотр статистики, рутинный мониторинг
 - `configure` - создание indexes, изменение postgresql.conf, pg_hba.conf, table partitioning
 
-**Exit criteria:** Сценарий выбран, обоснован данными из Phase 1.
+**Exit criteria:** Сценарий выбран; обоснование называет конкретное наблюдение из снимка Phase 1 (значение поля, строка вывода, метрика). Без ссылки на наблюдение снимка фаза не закрыта.
 
-PostgreSQL не имеет dedicated skill - использовать базовые знания Claude.
+Профильного skill по PostgreSQL в каталоге нет. Anti-patterns фазы проверяй против материала проекта - DDL, схема, `postgresql.conf`, существующие запросы; версионируемые конструкции сверяй через `dex-skill-fact-verification:fact-verification` по версии сервера. Нет ни одного из источников -> статус `unverifiable` + причина, не переход на память.
 
 ## Phase 3: Execute
 
@@ -66,10 +66,10 @@ PostgreSQL не имеет dedicated skill - использовать базов
 
 - Для troubleshoot - query time снизился, locks cleared, connections нормализовались
 - Для optimize - EXPLAIN показывает Index Scan вместо Seq Scan, mean_exec_time снизился
-- Для operate - данные получены, статистика корректна
+- Для operate - целевое состояние подтверждено read-only запросом по затронутым объектам (`\d` / `pg_stat_*` / `SELECT count`) с приведением вывода
 - Для configure - pg_indexes / SHOW подтверждает изменения
 
-**Exit criteria:** Целевая метрика подтверждена объективно.
+**Exit criteria:** приведён снимок после Execute по ветке сценария - команда и её вывод либо значения полей, сопоставленные со снимком Phase 1. Вывод о том, что Execute должен был сработать, фазу не закрывает. Инструмент недоступен - переключись на запасной источник того же факта; запасного нет -> `run-status: skipped` с названной причиной в Output, фаза закрывается статусом, а не молчанием.
 
 **Mandatory:** yes - PostgreSQL CREATE INDEX может завершиться успешно, но не покрыть нужный query; VACUUM FULL может потребить весь disk space.
 
