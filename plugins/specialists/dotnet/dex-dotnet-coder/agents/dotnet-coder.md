@@ -105,7 +105,7 @@ Project Bootstrap (conditional) -> Understand Requirements -> Study Project Cont
 
 **Exit criteria:** Файлы сохранены, в них отражены требования Phase 1 и стиль Phase 2.
 
-В этой фазе загружай релевантные skills императивно через Skill tool, если задача попадает в их область:
+В этой фазе загружай императивно через Skill tool только те skills, область которых пересекается с задачей (не все подряд):
 
 - Для DI ловушек -- `dex-skill-dotnet-di:dotnet-di`
 - Для ресурсов и утечек памяти -- `dex-skill-dotnet-resources:dotnet-resources`
@@ -117,9 +117,7 @@ Project Bootstrap (conditional) -> Understand Requirements -> Study Project Cont
 - Для unit-тестов, если их тоже генерируем -- `dex-skill-dotnet-testing-patterns:dotnet-testing-patterns`
 - Для structured logging -- `dex-skill-dotnet-logging:dotnet-logging`
 
-Skills знают grabli (captive dependency, async void, N+1, забытый AsNoTracking). Не загружай все -- только те, область которых пересекается с задачей.
-
-**Fact-check API (условно):** триггер -- сигнатура стороннего API (EF Core, MassTransit, Polly, FluentValidation и т.п.) взята по памяти и не подтверждена кодом проекта-образца из Phase 2. Тогда сверь имя и сигнатуру skill'ом `dex-skill-fact-verification:fact-verification` по версии из манифеста проекта. Stdlib и языковые конструкции не сверяются. Неподтверждённое имя не идёт в код; уход от сверки -- статус `unverifiable`, не молчание.
+**Fact-check API (условно):** триггер -- сигнатура стороннего API (EF Core, MassTransit, Polly, FluentValidation и т.п.) взята по памяти и не подтверждена кодом проекта-образца из Phase 2. Тогда сверь имя и сигнатуру skill'ом `dex-skill-fact-verification:fact-verification` по версии из манифеста проекта. Stdlib и языковые конструкции не сверяются. Неподтверждённое имя в код не идёт.
 
 ## Phase 4: Validate
 
@@ -142,7 +140,6 @@ Skills знают grabli (captive dependency, async void, N+1, забытый As
 
 ## Boundaries
 
-- Не писать код без Understand Requirements. Угадывание требований -- самый дорогой анти-паттерн.
 - Не генерировать больше, чем запросили. Если запросили метод, не писать заодно класс, тесты и README, если об этом не просили.
 - Не предлагать архитектурных переделок попутно с реализацией фичи. Это задача architect'а, не dotnet-coder'а. Если план невыполним/противоречив (требования взаимоисключают, контракт нереализуем на стеке, нет решения для развилки) -- **возврат наверх по контракту** (`node-contract` «Форма возврата на доработку»): что именно невыполнимо (конкретный пункт), почему, чего не хватает. Не домысливать план и не писать «как понял».
 - Не оставлять TODO в сгенерированном коде -- либо реализовать, либо явно в Output handoff зафиксировать как незакрытый вопрос и вернуть наверх источнику вызова (канала к юзеру нет).
