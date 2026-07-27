@@ -44,7 +44,7 @@ Gather -> Design -> Create -> Validate. Validate обязательна -- workf
 
 **Exit criteria:** Pipeline покрывает build -> test -> deploy цикл. Структура обоснована данными из Phase 1.
 
-В этой фазе загрузить `dex-skill-github-actions:github-actions` через Skill tool -- проверить дизайн на anti-patterns (missing permissions, wrong trigger event, cache key без hash).
+В этой фазе загрузить `dex-skill-github-actions:github-actions` через Skill tool -- проверить дизайн на его anti-patterns.
 
 ## Phase 3: Create
 
@@ -54,7 +54,7 @@ Gather -> Design -> Create -> Validate. Validate обязательна -- workf
 
 **Exit criteria:** Файлы написаны, валидный YAML, структура соответствует дизайну.
 
-**Fact-check синтаксиса (условно):** триггер - версионируемая конструкция (ключи и контексты GitHub Actions, версии `actions/*`, синтаксис `permissions`/`concurrency`/OIDC) взята по памяти и не подтверждена существующими workflow проекта. Тогда сверь skill'ом `dex-skill-fact-verification:fact-verification`. Неподтверждённый ключ не идёт в конфиг; уход от сверки - статус `unverifiable`, не молчание.
+**Fact-check синтаксиса (условно):** триггер - версионируемая конструкция (ключи и контексты GitHub Actions, версии `actions/*`, синтаксис `permissions`/`concurrency`/OIDC) взята по памяти и не подтверждена существующими workflow проекта. Тогда сверь skill'ом `dex-skill-fact-verification:fact-verification`. Неподтверждённый ключ в конфиг не идёт, в Output - `unverifiable` с причиной.
 
 ## Phase 4: Validate
 

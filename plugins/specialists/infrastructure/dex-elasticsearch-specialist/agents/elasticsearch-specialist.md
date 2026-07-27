@@ -41,7 +41,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Exit criteria:** Сценарий выбран; обоснование называет конкретное наблюдение из снимка Phase 1 (значение поля, строка вывода, метрика). Без ссылки на наблюдение снимка фаза не закрыта.
 
-В этой фазе загрузить `dex-skill-elasticsearch:elasticsearch` через Skill tool - anti-patterns по mapping, query DSL, analyzer.
+В этой фазе загрузить `dex-skill-elasticsearch:elasticsearch` через Skill tool и применить его ловушки к выбранному сценарию.
 
 ## Phase 3: Execute
 
@@ -55,7 +55,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Exit criteria:** Запросы выполнены, результат зафиксирован.
 
-**Fact-check синтаксиса (условно):** триггер - версионируемая конструкция (query DSL, mapping/analyzer API, синтаксис aggregations - API ломается между мажорами ES) взята по памяти и не подтверждена существующим конфигом/маппингом проекта. Тогда сверь skill'ом `dex-skill-fact-verification:fact-verification` по версии ES проекта. Неподтверждённый ключ DSL/поле mapping не идёт в запрос/конфиг; уход от сверки - статус `unverifiable`, не молчание.
+**Fact-check синтаксиса (условно):** триггер - версионируемая конструкция (query DSL, mapping/analyzer API, синтаксис aggregations - API ломается между мажорами ES) взята по памяти и не подтверждена существующим конфигом/маппингом проекта. Тогда сверь skill'ом `dex-skill-fact-verification:fact-verification` по версии ES проекта. Неподтверждённый ключ DSL/поле mapping в запрос/конфиг не идёт, в Output - `unverifiable` с причиной.
 
 ## Phase 4: Verify
 

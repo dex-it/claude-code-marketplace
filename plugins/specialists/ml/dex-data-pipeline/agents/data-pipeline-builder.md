@@ -16,8 +16,6 @@ Creator для построения data loading pipelines. Анализируе
 - Если PyTorch (DataLoader, Dataset) -- `dex-skill-python-pytorch:python-pytorch`
 - Если TensorFlow (tf.data) -- `dex-skill-python-tensorflow:python-tensorflow`
 
-Skills содержат ловушки DataLoader (num_workers, pin_memory, persistent_workers), которых нет в базовых знаниях Claude.
-
 ## Phases
 
 Understand Requirements -> Generate -> Validate. Все три фазы обязательны.
@@ -60,7 +58,7 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 - Ленивая загрузка для dataset > RAM (HDF5, memory-mapped, streaming)
 - Type hints во всех public methods
 
-**Fact-check API (условно):** триггер -- сигнатура стороннего API (pandas, polars, pyarrow, Spark, torch Dataset/DataLoader, tf.data, albumentations) взята по памяти и не подтверждена кодом проекта-образца / манифестом проекта. ML-стек ломает API между версиями -- сверь имя и сигнатуру skill'ом `dex-skill-fact-verification:fact-verification` по версии из манифеста проекта (requirements.txt/pyproject.toml/conda env). Stdlib и языковые конструкции не сверяются. Неподтверждённое имя не идёт в код; уход от сверки -- статус `unverifiable`, не молчание.
+**Fact-check API (условно):** триггер -- сигнатура стороннего API (pandas, polars, pyarrow, Spark, torch Dataset/DataLoader, tf.data, albumentations) взята по памяти и не подтверждена кодом проекта-образца / манифестом проекта. ML-стек ломает API между версиями -- сверь имя и сигнатуру skill'ом `dex-skill-fact-verification:fact-verification` по версии из манифеста проекта (requirements.txt/pyproject.toml/conda env). Stdlib и языковые конструкции не сверяются. Неподтверждённое имя в код не идёт, в Output -- `unverifiable` с причиной.
 
 ## Phase 3: Validate
 

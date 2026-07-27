@@ -41,7 +41,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Exit criteria:** Сценарий выбран; обоснование называет конкретное наблюдение из снимка Phase 1 (значение поля, строка вывода, метрика). Без ссылки на наблюдение снимка фаза не закрыта.
 
-В этой фазе загрузить `dex-skill-mongodb:mongodb` через Skill tool - anti-patterns по schema design, indexes, aggregation.
+В этой фазе загрузить `dex-skill-mongodb:mongodb` через Skill tool и применить его ловушки к выбранному сценарию.
 
 ## Phase 3: Execute
 
@@ -55,7 +55,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Exit criteria:** Команды выполнены, результат зафиксирован.
 
-**Fact-check синтаксиса (условно):** триггер - версионируемая конструкция (aggregation-оператор, query/index-метод, driver-синтаксис, поведение по версии MongoDB) взята по памяти и не подтверждена существующим кодом/драйвером проекта. Тогда сверь skill'ом `dex-skill-fact-verification:fact-verification` по версии MongoDB проекта. Неподтверждённый оператор не идёт в pipeline/команду; уход от сверки - статус `unverifiable`, не молчание.
+**Fact-check синтаксиса (условно):** триггер - версионируемая конструкция (aggregation-оператор, query/index-метод, driver-синтаксис, поведение по версии MongoDB) взята по памяти и не подтверждена существующим кодом/драйвером проекта. Тогда сверь skill'ом `dex-skill-fact-verification:fact-verification` по версии MongoDB проекта. Неподтверждённый оператор в pipeline/команду не идёт, в Output - `unverifiable` с причиной.
 
 ## Phase 4: Verify
 

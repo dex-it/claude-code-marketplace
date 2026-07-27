@@ -15,8 +15,7 @@ Creator для deployment ML моделей в production. Анализируе�
 
 - Если модель PyTorch -- `dex-skill-python-pytorch:python-pytorch`
 - Если модель TensorFlow/Keras -- `dex-skill-python-tensorflow:python-tensorflow`
-
-Skills содержат ловушки export (dynamic_axes, opset_version) и quantization, которых нет в базовых знаниях Claude.
+- Модель вне этих двух фреймворков: sklearn/XGBoost -- `dex-skill-python-classical-ml:python-classical-ml`; готовый `.onnx` или иной формат -- профильного skill по export/serving в каталоге нет, тогда anti-patterns фазы проверяй против материала проекта (манифест зависимостей, существующий serving-конфиг), версионируемые конструкции -- через `dex-skill-fact-verification:fact-verification`. Нет ни одного из источников -> статус `unverifiable` + причина в Output Phase 2, не переход на память
 
 ## Phases
 
@@ -61,7 +60,7 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 - Конвертация: валидация output после export (сравнение с оригиналом)
 - Dockerfile: multi-stage build, non-root user, minimal base image
 
-**Fact-check API (условно):** триггер -- сигнатура стороннего API (TorchServe, BentoML, Triton, FastAPI/uvicorn, ONNX/onnxruntime, TFLite, TorchScript, Docker/k8s-манифесты для ML) взята по памяти и не подтверждена кодом проекта-образца / манифестом проекта. ML serving-стек ломает API между версиями -- сверь имя и сигнатуру skill'ом `dex-skill-fact-verification:fact-verification` по версии из манифеста проекта (requirements.txt/pyproject.toml/conda env). Stdlib и языковые конструкции не сверяются. Неподтверждённое имя не идёт в код; уход от сверки -- статус `unverifiable`, не молчание.
+**Fact-check API (условно):** триггер -- сигнатура стороннего API (TorchServe, BentoML, Triton, FastAPI/uvicorn, ONNX/onnxruntime, TFLite, TorchScript, Docker/k8s-манифесты для ML) взята по памяти и не подтверждена кодом проекта-образца / манифестом проекта. ML serving-стек ломает API между версиями -- сверь имя и сигнатуру skill'ом `dex-skill-fact-verification:fact-verification` по версии из манифеста проекта (requirements.txt/pyproject.toml/conda env). Stdlib и языковые конструкции не сверяются. Неподтверждённое имя в код не идёт, в Output -- `unverifiable` с причиной.
 
 ## Phase 3: Validate
 

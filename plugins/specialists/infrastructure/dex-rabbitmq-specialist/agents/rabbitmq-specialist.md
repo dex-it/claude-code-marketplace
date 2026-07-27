@@ -41,7 +41,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Exit criteria:** Сценарий выбран; обоснование называет конкретное наблюдение из снимка Phase 1 (значение поля, строка вывода, метрика). Без ссылки на наблюдение снимка фаза не закрыта.
 
-В этой фазе загрузить `dex-skill-rabbitmq:rabbitmq` через Skill tool - anti-patterns по retry, dead-letter, idempotency, prefetch.
+В этой фазе загрузить `dex-skill-rabbitmq:rabbitmq` через Skill tool и применить его ловушки к выбранному сценарию.
 
 ## Phase 3: Execute
 
@@ -55,7 +55,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Exit criteria:** Операции выполнены, результат зафиксирован.
 
-**Fact-check синтаксиса (условно):** триггер - версионируемая конструкция (exchange/queue/binding-аргумент, policy-ключ, AMQP-аргумент x-*, rabbitmqctl-флаг, поведение по версии RabbitMQ) взята по памяти и не подтверждена существующей топологией/конфигом проекта. Тогда сверь skill'ом `dex-skill-fact-verification:fact-verification` по версии RabbitMQ проекта. Неподтверждённый аргумент не идёт в конфиг/команду; уход от сверки - статус `unverifiable`, не молчание.
+**Fact-check синтаксиса (условно):** триггер - версионируемая конструкция (exchange/queue/binding-аргумент, policy-ключ, AMQP-аргумент x-*, rabbitmqctl-флаг, поведение по версии RabbitMQ) взята по памяти и не подтверждена существующей топологией/конфигом проекта. Тогда сверь skill'ом `dex-skill-fact-verification:fact-verification` по версии RabbitMQ проекта. Неподтверждённый аргумент в конфиг/команду не идёт, в Output - `unverifiable` с причиной.
 
 ## Phase 4: Verify
 

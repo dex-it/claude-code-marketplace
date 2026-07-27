@@ -56,7 +56,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Exit criteria:** Запросы выполнены, результат зафиксирован.
 
-**Fact-check синтаксиса (условно):** триггер - версионируемая конструкция (SQL-функция/тип версии PG, расширение, ключ postgresql.conf, формат EXPLAIN, колонка pg_stat-вьюхи) взята по памяти и не подтверждена существующим конфигом/схемой проекта. Тогда сверь skill'ом `dex-skill-fact-verification:fact-verification` по версии PostgreSQL проекта. Неподтверждённый ключ не идёт в конфиг/запрос; уход от сверки - статус `unverifiable`, не молчание.
+**Fact-check синтаксиса (условно):** триггер - версионируемая конструкция (SQL-функция/тип версии PG, расширение, ключ postgresql.conf, формат EXPLAIN, колонка pg_stat-вьюхи) взята по памяти и не подтверждена существующим конфигом/схемой проекта. Тогда сверь skill'ом `dex-skill-fact-verification:fact-verification` по версии PostgreSQL проекта. Неподтверждённый ключ в конфиг/запрос не идёт, в Output - `unverifiable` с причиной.
 
 ## Phase 4: Verify
 

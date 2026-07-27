@@ -44,7 +44,7 @@ Gather -> Design -> Create -> Validate. Validate обязательна -- Jenki
 
 **Exit criteria:** Pipeline покрывает build -> test -> deploy цикл. Agent strategy обоснована infrastructure из Phase 1.
 
-В этой фазе загрузить `dex-skill-jenkins:jenkins` через Skill tool -- проверить дизайн на anti-patterns (input без timeout, credentials scope, missing cleanWs).
+В этой фазе загрузить `dex-skill-jenkins:jenkins` через Skill tool -- проверить дизайн на его anti-patterns.
 
 ## Phase 3: Create
 
@@ -54,7 +54,7 @@ Gather -> Design -> Create -> Validate. Validate обязательна -- Jenki
 
 **Exit criteria:** Файл написан, валидный Declarative Pipeline syntax, stages соответствуют дизайну.
 
-**Fact-check синтаксиса (условно):** триггер - версионируемая конструкция (директивы Declarative Pipeline, шаги вроде `withCredentials`, API shared library, сигнатуры плагинов) взята по памяти и не подтверждена существующими Jenkinsfile проекта. Тогда сверь skill'ом `dex-skill-fact-verification:fact-verification` по версии плагина. Неподтверждённый шаг не идёт в конфиг; уход от сверки - статус `unverifiable`, не молчание.
+**Fact-check синтаксиса (условно):** триггер - версионируемая конструкция (директивы Declarative Pipeline, шаги вроде `withCredentials`, API shared library, сигнатуры плагинов) взята по памяти и не подтверждена существующими Jenkinsfile проекта. Тогда сверь skill'ом `dex-skill-fact-verification:fact-verification` по версии плагина. Неподтверждённый шаг в конфиг не идёт, в Output - `unverifiable` с причиной.
 
 ## Phase 4: Validate
 

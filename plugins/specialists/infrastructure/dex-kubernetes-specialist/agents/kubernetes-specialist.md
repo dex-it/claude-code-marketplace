@@ -42,7 +42,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Exit criteria:** Сценарий выбран; обоснование называет конкретное наблюдение из снимка Phase 1 (значение поля, строка вывода, метрика). Без ссылки на наблюдение снимка фаза не закрыта.
 
-В этой фазе загрузить `dex-skill-kubernetes:kubernetes` через Skill tool - anti-patterns по probes, resources, security context.
+В этой фазе загрузить `dex-skill-kubernetes:kubernetes` через Skill tool и применить его ловушки к выбранному сценарию.
 
 ## Phase 3: Execute
 
@@ -56,7 +56,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Exit criteria:** Команды выполнены, результат зафиксирован.
 
-**Fact-check синтаксиса (условно):** триггер - версионируемая конструкция (`apiVersion` ресурса - часто deprecated между релизами, поля манифеста, синтаксис kubectl, схема CRD) взята по памяти и не подтверждена существующим манифестом проекта. Тогда сверь skill'ом `dex-skill-fact-verification:fact-verification` по версии Kubernetes кластера/проекта. Неподтверждённый `apiVersion`/поле/флаг не идёт в манифест; уход от сверки - статус `unverifiable`, не молчание.
+**Fact-check синтаксиса (условно):** триггер - версионируемая конструкция (`apiVersion` ресурса - часто deprecated между релизами, поля манифеста, синтаксис kubectl, схема CRD) взята по памяти и не подтверждена существующим манифестом проекта. Тогда сверь skill'ом `dex-skill-fact-verification:fact-verification` по версии Kubernetes кластера/проекта. Неподтверждённый `apiVersion`/поле/флаг в манифест не идёт, в Output - `unverifiable` с причиной.
 
 ## Phase 4: Verify
 

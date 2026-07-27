@@ -41,7 +41,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Exit criteria:** Сценарий выбран; обоснование называет конкретное наблюдение из снимка Phase 1 (значение поля, строка вывода, метрика). Без ссылки на наблюдение снимка фаза не закрыта.
 
-В этой фазе загрузить `dex-skill-teamcity:teamcity` через Skill tool - anti-patterns по Kotlin DSL, build chains, snapshot dependencies.
+В этой фазе загрузить `dex-skill-teamcity:teamcity` через Skill tool и применить его ловушки к выбранному сценарию.
 
 ## Phase 3: Execute
 
@@ -55,7 +55,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Exit criteria:** Действия выполнены, результат зафиксирован.
 
-**Fact-check синтаксиса (условно):** триггер - версионируемая конструкция (Kotlin DSL API настроек build config / VCS root / trigger / snapshot dependency, ключи и формат плагинов TeamCity) взята по памяти и не подтверждена существующим конфигом проекта. Тогда сверь skill'ом `dex-skill-fact-verification:fact-verification` по версии TeamCity проекта. Неподтверждённый ключ/вызов DSL не идёт в конфиг; уход от сверки - статус `unverifiable`, не молчание.
+**Fact-check синтаксиса (условно):** триггер - версионируемая конструкция (Kotlin DSL API настроек build config / VCS root / trigger / snapshot dependency, ключи и формат плагинов TeamCity) взята по памяти и не подтверждена существующим конфигом проекта. Тогда сверь skill'ом `dex-skill-fact-verification:fact-verification` по версии TeamCity проекта. Неподтверждённый ключ/вызов DSL в конфиг не идёт, в Output - `unverifiable` с причиной.
 
 ## Phase 4: Verify
 
