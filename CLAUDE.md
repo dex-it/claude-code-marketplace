@@ -48,7 +48,9 @@
 
 ### Frontmatter агентов
 
-Поля и правила (`skills:` - только pre-load безусловного process-skill узла полной формой `dex-skill-node-contract:node-contract` (не голым именем плагина, иначе не резолвится); условные trap-skill грузятся императивно через Skill tool в фазах; `allowed-tools:` не поддерживается; явный `model` по характеру суждения, не `inherit`; выбор opus/sonnet/haiku) - нормативный дом [AGENT_FRAMEWORK.md](docs/AGENT_FRAMEWORK.md#выбор-модели-model) (чеклист frontmatter + раздел «Выбор модели»).
+Поля и правила (`skills:` - только pre-load безусловного process-skill узла полной формой `dex-skill-node-contract:node-contract` (не голым именем плагина, иначе не резолвится); условные trap-skill грузятся императивно через Skill tool в фазах; `allowed-tools:` не поддерживается; явный `model` по характеру суждения, не `inherit`; выбор opus/sonnet/haiku) - нормативный дом [AGENT_FRAMEWORK.md](docs/AGENT_FRAMEWORK.md#выбор-модели-model) (чеклист frontmatter + раздел «Стоимость: `model` и `effort`»).
+
+**`model` и `effort` - разные оси, и ведут себя по-разному.** `model` - потолок (удешевляет дорогую сессию), `effort` - **override** сессионного уровня, то есть поднятие перебивает режим, выбранный пользователем. Отсюда асимметрия: вниз (`low`/`medium`) - для механической работы свободно, вверх - только с названной в теле причиной, сомневаешься - не ставь (наследование). Уровень подбирается прогоном на задачах агента - не копированием у соседа и не переносом вывода с другой модели (порог модель-специфичен). Значения и таблица решений - [AGENT_FRAMEWORK.md](docs/AGENT_FRAMEWORK.md#глубина-рассуждения-effort).
 
 **Каскад tools под fact-check.** Агент с фазой Fact Verification (грузит `dex-skill-fact-verification`) обязан нести в `tools` весь каскад: `ToolSearch` (context7 - deferred MCP, иначе недостижим) **и** `WebSearch, WebFetch` (fallback). Нет звена - каскад молча деградирует до latest-доки, ровно ловушка «сверка против версии проекта». Нормативный дом + эмпирика - [AGENT_FRAMEWORK.md](docs/AGENT_FRAMEWORK.md#fact-verification-и-ответ-второй-стороны) («Tools для каскада»).
 
@@ -59,7 +61,7 @@ name: skill-name
 description: Ключевые слова для автоматической активации
 ---
 ```
-> **Важно:** `keywords` не поддерживается в skills - ключевые слова включать в `description`. Валидные поля: name, description, disable-model-invocation, user-invocable, argument-hint, allowed-tools, model, effort, context, agent, hooks, paths, shell.
+> **Важно:** `keywords` не поддерживается в skills - ключевые слова включать в `description`. Это единственное поле, которое ловит валидатор. Перечень валидных полей не дублируем: нормативный дом - [SKILL_FRAMEWORK.md](docs/SKILL_FRAMEWORK.md) (там же дата сверки с документацией).
 
 ## Механизмы композиции в Claude Code
 
