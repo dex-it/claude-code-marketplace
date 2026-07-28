@@ -26,7 +26,7 @@ Gather -> Analyze -> Prioritize -> Present. Gather собирает страте
 - Constraints: team capacity, budget, dependencies на другие команды
 - Input: user research, customer feedback, support tickets, sales requests
 
-**Exit criteria:** Горизонт и goals определены. Goals не формализованы -> сначала помочь их сформулировать (см. Boundaries); формулировка не получена -> зафиксировать «goals not defined, roadmap будет основан на available input», и тогда placement в Phase 3 обосновывается доступным input, а не goals.
+**Exit criteria:** Горизонт и goals определены. Goals не формализованы -> сначала помочь их сформулировать; формулировка не получена -> зафиксировать «goals not defined, roadmap будет основан на available input».
 
 Загрузить через Skill tool:
 - `dex-skill-epic-planning:epic-planning` - sizing, progressive elaboration, anti-metrics
@@ -59,7 +59,7 @@ Gather -> Analyze -> Prioritize -> Present. Gather собирает страте
 - Allocation по periods (Q1/Q2 или Now/Next/Later)
 - Balance: features vs tech debt vs bugs (с процентами)
 
-**Exit criteria:** Top initiatives распределены по periods. Для каждого placement обоснование связано с goals из Phase 1. Trade-offs сформулированы как «принимаем X ценой Y».
+**Exit criteria:** Top initiatives распределены по periods. Для каждого placement обоснование связано с goals из Phase 1; goals зафиксированы статусом «not defined» -> обоснование связано с доступным input, и это названо в обосновании. Trade-offs сформулированы как «принимаем X ценой Y».
 
 **Mandatory:** yes - roadmap без приоритизации это wishlist, не план.
 
