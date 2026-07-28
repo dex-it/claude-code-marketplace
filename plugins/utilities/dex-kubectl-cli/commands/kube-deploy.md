@@ -23,3 +23,4 @@ argument-hint: "[-n namespace] [deployment-name] [--history]"
 **Constraints:**
 
 - Требует `kubectl` с настроенным доступом к кластеру
+- Если kubectl не найден или нет доступа -- показать инструкцию

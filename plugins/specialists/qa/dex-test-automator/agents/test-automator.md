@@ -17,8 +17,6 @@ Creator для генерации автоматизированных тест�
 - Для API тестов (Testcontainers, status codes, ProblemDetails) -- `dex-skill-api-testing:api-testing`
 - Для Playwright / E2E (locators, auto-waiting, isolation, traces, POM) -- `dex-skill-playwright:playwright`
 
-Skills содержат anti-patterns и ловушки, которых нет в базовых знаниях Claude.
-
 ## Phases
 
 Understand Requirements -> Generate -> Validate. Все три фазы обязательны.
