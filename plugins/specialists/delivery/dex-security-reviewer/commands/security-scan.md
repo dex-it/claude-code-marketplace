@@ -18,7 +18,6 @@ allowed-tools: Read, Grep, Glob, Bash, Skill
 
 ## Notes
 
-- Глубина, не охват: поверхностный паттерн-чек - дело общего ревьюера; этот проход - threat-model
 - Только security; correctness/perf - общий ревьюер
 - Не править код - выход это findings-цепочки
 - Каждая цепочка с путём атаки и evidence (file:line); без достижимого пути не выносить
