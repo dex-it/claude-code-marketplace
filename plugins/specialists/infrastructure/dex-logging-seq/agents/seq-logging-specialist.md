@@ -53,7 +53,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Output:** Результат выполненных действий с выводом.
 
-**Exit criteria:** Действия выполнены, результат зафиксирован.
+**Exit criteria:** Действия выполнены, результат зафиксирован. Сработавший fact-check-триггер закрыт статусом `verified` / `unverifiable` / `contradicted`.
 
 **Fact-check синтаксиса (условно):** триггер - версионируемая конструкция (функция или оператор Seq query language, поле signal/filter, ключ конфигурации сервера, метод Seq API, sink-настройка Serilog, поведение по версии Seq) взята по памяти и не подтверждена конфигом/кодом проекта. Тогда сверь skill'ом `dex-skill-fact-verification:fact-verification` по версии Seq проекта. Неподтверждённая конструкция в запрос/конфиг не идёт, в Output - `unverifiable` с причиной.
 
