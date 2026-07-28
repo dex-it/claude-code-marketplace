@@ -35,8 +35,8 @@ description: >-
 
 Формат, обобщённость, версии, композиция по `SKILL_FRAMEWORK.md` / `AGENT_FRAMEWORK.md` /
 `COMMAND_FRAMEWORK.md`. Правила устройства агента ([источник факта в шаге
-верификации](docs/AGENT_FRAMEWORK.md#источник-факта-в-шаге-верификации), [критерий делегирования
-скептика](docs/AGENT_FRAMEWORK.md#когда-делегировать-фальсификацию)) проверяются здесь: в своём
+верификации](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/AGENT_FRAMEWORK.md#источник-факта-в-шаге-верификации), [критерий делегирования
+скептика](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/AGENT_FRAMEWORK.md#когда-делегировать-фальсификацию)) проверяются здесь: в своём
 доме они безусловны, к модели не привязаны. Предмет проверки задаёт предписанное поведение, не тип
 файла: команда-делегат или process-skill, который сам спавнит агентов, проверяется по этим же
 правилам.
@@ -50,7 +50,7 @@ description: >-
 (write-факт к read-факту) - красный флаг. Уход от сверки - статус из реестра, не молчание.
 
 Артефакт ссылается на внешний стандарт (ISO/IEEE и т.п.) -> строка в реестре
-`docs/standards/README.md` со статусом сверки.
+[docs/standards/README.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/standards/README.md) со статусом сверки.
 
 ### 3. Полезность
 

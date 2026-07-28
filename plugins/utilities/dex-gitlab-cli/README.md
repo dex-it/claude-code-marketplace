@@ -17,7 +17,7 @@ CLI-утилита для GitLab. Быстрый доступ к pipelines, merg
 ## Установка CLI
 
 ```bash
-# Linux (Debian/Ubuntu) — официальный установочный скрипт
+# Linux (Debian/Ubuntu) - официальный установочный скрипт
 curl -fsSL https://gitlab.com/gitlab-org/cli/-/raw/main/scripts/install.sh | sudo bash
 
 # Linux (Fedora/RHEL)
@@ -30,7 +30,7 @@ brew install glab
 ./install-bundle/install-cli-tools.sh glab
 ```
 
-Для self-hosted GitLab: `glab config set --global hostname gitlab.acme.io`. См. [docs/CLI_UTILITIES.md](../../../docs/CLI_UTILITIES.md) — auth, multi-host, матрица CLI vs MCP.
+Для self-hosted GitLab: `glab config set --global hostname gitlab.acme.io`. См. [docs/CLI_UTILITIES.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/CLI_UTILITIES.md) - auth, multi-host, матрица CLI vs MCP.
 
 ## Установка плагина
 

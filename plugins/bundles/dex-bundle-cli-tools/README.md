@@ -66,7 +66,7 @@
 
 Playwright не входит в `install-cli-tools.sh` -- это npm-пакет, не системный бинарь. Зависимость -- Node.js (для `npx`); браузерные движки ставятся через `/pw-install` после `npm i -D @playwright/test` в самом проекте.
 
-См. [docs/CLI_UTILITIES.md](../../../docs/CLI_UTILITIES.md) -- установочная матрица, конфигурация (KUBECONFIG, PGPASSFILE, `~/.kaf/config`, `~/.rabbitmqadmin.conf`, `~/.aws/`, ACL/TLS), матрица CLI vs MCP, troubleshooting.
+См. [docs/CLI_UTILITIES.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/CLI_UTILITIES.md) -- установочная матрица, конфигурация (KUBECONFIG, PGPASSFILE, `~/.kaf/config`, `~/.rabbitmqadmin.conf`, `~/.aws/`, ACL/TLS), матрица CLI vs MCP, troubleshooting.
 
 ## Замечание
 

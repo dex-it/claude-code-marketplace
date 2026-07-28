@@ -1,6 +1,6 @@
 # dex-jenkins-cli
 
-CLI-утилита для Jenkins. Jobs, builds, console output — через официальный [`jenkins-cli`](https://www.jenkins.io/doc/book/managing/cli/) (`.jar`-клиент).
+CLI-утилита для Jenkins. Jobs, builds, console output - через официальный [`jenkins-cli`](https://www.jenkins.io/doc/book/managing/cli/) (`.jar`-клиент).
 
 ## Команды
 
@@ -13,13 +13,13 @@ CLI-утилита для Jenkins. Jobs, builds, console output — через �
 ## Требования
 
 - **Java runtime** (любой `default-jre` 11+ подходит)
-- **jenkins-cli.jar** — версия совместимая с вашим Jenkins (Jenkins 2.54+ обязательно)
+- **jenkins-cli.jar** - версия совместимая с вашим Jenkins (Jenkins 2.54+ обязательно)
 - Wrapper-скрипт `jenkins-cli` в `PATH`, который запускает jar через `java -jar`
 - Env: `JENKINS_URL` (URL сервера), `JENKINS_USER_ID` (имя пользователя), `JENKINS_API_TOKEN` (token из `$JENKINS_URL/me/configure`)
 
 ## Установка CLI
 
-Самый простой путь — `install-cli-tools.sh`: ставит Java + скачивает jar с вашего Jenkins-сервера + создаёт wrapper.
+Самый простой путь - `install-cli-tools.sh`: ставит Java + скачивает jar с вашего Jenkins-сервера + создаёт wrapper.
 
 ```bash
 # Заранее задайте URL вашего Jenkins
@@ -51,7 +51,7 @@ EOF
 sudo chmod +x /usr/local/bin/jenkins-cli
 ```
 
-См. [docs/CLI_UTILITIES.md](../../../docs/CLI_UTILITIES.md) для полного гайда: SSH-режим, версионная совместимость, troubleshooting.
+См. [docs/CLI_UTILITIES.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/CLI_UTILITIES.md) для полного гайда: SSH-режим, версионная совместимость, troubleshooting.
 
 ## Установка плагина
 
@@ -61,10 +61,10 @@ claude plugins install dex-jenkins-cli@dex-claude-marketplace
 
 ## Безопасность
 
-- Все команды read-only (`list-jobs`, `list-builds`, `console`). Деструктивные операции (`build`, `delete-job`, `cancel-quiet-down`) намеренно не обёрнуты — выполняются вручную или через специалистов CI/CD.
+- Все команды read-only (`list-jobs`, `list-builds`, `console`). Деструктивные операции (`build`, `delete-job`, `cancel-quiet-down`) намеренно не обёрнуты - выполняются вручную или через специалистов CI/CD.
 - API-токен живёт в env (`JENKINS_API_TOKEN`) и в `~/.bashrc`/`~/.zshrc` под `chmod 600`. Никогда не коммитьте.
 
 ## Breaking changes (2.0.0)
 
-- `JENKINS_USER` → **`JENKINS_USER_ID`** (соответствует ожиданиям jenkins-cli).
-- Раньше плагин использовал прямой REST API через `curl` — теперь это полноценный CLI-клиент с поддержкой SSH-режима, follow-логов (`-f`), и доступом ко всем командам Jenkins CLI.
+- `JENKINS_USER` -> **`JENKINS_USER_ID`** (соответствует ожиданиям jenkins-cli).
+- Раньше плагин использовал прямой REST API через `curl` - теперь это полноценный CLI-клиент с поддержкой SSH-режима, follow-логов (`-f`), и доступом ко всем командам Jenkins CLI.

@@ -17,7 +17,7 @@ CLI-утилита для GitHub. Быстрый доступ к workflow runs, 
 ## Установка CLI
 
 ```bash
-# Linux (Debian/Ubuntu) — см. github.com/cli/cli/blob/trunk/docs/install_linux.md
+# Linux (Debian/Ubuntu) - см. github.com/cli/cli/blob/trunk/docs/install_linux.md
 sudo apt install gh
 
 # Linux (Fedora/RHEL)
@@ -30,7 +30,7 @@ brew install gh
 ./install-bundle/install-cli-tools.sh gh
 ```
 
-См. [docs/CLI_UTILITIES.md](../../../docs/CLI_UTILITIES.md) — настройка auth, GitHub Enterprise self-hosted хостов, матрица CLI vs MCP.
+См. [docs/CLI_UTILITIES.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/CLI_UTILITIES.md) - настройка auth, GitHub Enterprise self-hosted хостов, матрица CLI vs MCP.
 
 ## Установка плагина
 

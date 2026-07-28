@@ -1,6 +1,6 @@
 # dex-kaf-cli
 
-CLI-утилита для Kafka. Топики, consumer groups, tail сообщений и тестовая публикация — через [`kaf`](https://github.com/birdayz/kaf), single-binary Kafka-клиент с чистым UX.
+CLI-утилита для Kafka. Топики, consumer groups, tail сообщений и тестовая публикация - через [`kaf`](https://github.com/birdayz/kaf), single-binary Kafka-клиент с чистым UX.
 
 ## Команды
 
@@ -22,7 +22,7 @@ CLI-утилита для Kafka. Топики, consumer groups, tail сообщ�
 # macOS
 brew tap birdayz/tap && brew install kaf
 
-# Linux / macOS — official one-liner
+# Linux / macOS - official one-liner
 curl https://raw.githubusercontent.com/birdayz/kaf/master/godownloader.sh | BINDIR=$HOME/.local/bin bash
 
 # Go install (нужен Go toolchain)
@@ -40,7 +40,7 @@ kaf config select-cluster local
 kaf config use-cluster local   # или per-command --cluster local
 ```
 
-См. [docs/CLI_UTILITIES.md](../../../docs/CLI_UTILITIES.md) — SASL/TLS, schema registry, матрица CLI vs MCP.
+См. [docs/CLI_UTILITIES.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/CLI_UTILITIES.md) - SASL/TLS, schema registry, матрица CLI vs MCP.
 
 ## Установка плагина
 
@@ -50,5 +50,5 @@ claude plugins install dex-kaf-cli@dex-claude-marketplace
 
 ## Безопасность
 
-- Все read-команды (`/kaf-topics`, `/kaf-groups`, `/kaf-consume`) — non-mutating, используют временные consumer-groups, чтобы не влиять на committed-offsets продакшен-consumer'ов.
-- `/kaf-produce` — только для диагностики единичными сообщениями; не для нагрузочного теста и не для записи прод-данных в shared-топики.
+- Все read-команды (`/kaf-topics`, `/kaf-groups`, `/kaf-consume`) - non-mutating, используют временные consumer-groups, чтобы не влиять на committed-offsets продакшен-consumer'ов.
+- `/kaf-produce` - только для диагностики единичными сообщениями; не для нагрузочного теста и не для записи прод-данных в shared-топики.

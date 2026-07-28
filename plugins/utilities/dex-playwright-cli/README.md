@@ -31,7 +31,7 @@ npx playwright test                  # ИЛИ:
 # /pw-test
 ```
 
-См. [docs/CLI_UTILITIES.md](../../../docs/CLI_UTILITIES.md) -- общий хаб по CLI-плагинам, матрица установки, CLI vs MCP. Для Playwright-ловушек (locators, isolation, auto-wait, trace) -- см. `dex-skill-playwright`. Для автономного E2E-агента -- MCP-сервер `playwright` в `mcp/mcp-template.json`.
+См. [docs/CLI_UTILITIES.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/CLI_UTILITIES.md) -- общий хаб по CLI-плагинам, матрица установки, CLI vs MCP. Для Playwright-ловушек (locators, isolation, auto-wait, trace) -- см. `dex-skill-playwright`. Для автономного E2E-агента -- MCP-сервер `playwright` в `mcp/mcp-template.json`.
 
 ## Установка плагина
 

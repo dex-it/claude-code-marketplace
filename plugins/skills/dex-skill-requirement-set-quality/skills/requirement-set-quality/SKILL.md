@@ -9,7 +9,7 @@ description: "Дефекты НАБОРА требований как целог
 
 Вход оракула - весь набор + источник. Грузит узел, видящий набор целиком (оркестратор, ревьюер набора), не составитель-субагент: тот видит свой артефакт и полноту множества установить не может.
 
-Оси разбора набора - характеристики C10-C14 по INCOSE GtWR v3.1 Section 3: Complete, Consistent, Feasible, Comprehensible, Able to be Validated (плюс трассировка к источнику как отдельная ось). ISO/IEC/IEEE 29148:2018 §5.2.6 даёт родственный перечень - INCOSE заявляет гармонизацию с ним, но не тождество; точный состав §5.2.6 за платным доступом не сверялся. Реестр источников - docs/standards/README.md.
+Оси разбора набора - характеристики C10-C14 по INCOSE GtWR v3.1 Section 3: Complete, Consistent, Feasible, Comprehensible, Able to be Validated (плюс трассировка к источнику как отдельная ось). ISO/IEC/IEEE 29148:2018 §5.2.6 даёт родственный перечень - INCOSE заявляет гармонизацию с ним, но не тождество; точный состав §5.2.6 за платным доступом не сверялся. Реестр источников - [docs/standards/README.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/standards/README.md).
 
 ## Полнота набора (Complete)
 

@@ -1,6 +1,6 @@
 # dex-redis-cli
 
-CLI-утилита для Redis. Server info, безопасный SCAN ключей, анализ памяти и короткие сэмплы активности — через `redis-cli`.
+CLI-утилита для Redis. Server info, безопасный SCAN ключей, анализ памяти и короткие сэмплы активности - через `redis-cli`.
 
 ## Команды
 
@@ -32,7 +32,7 @@ brew install redis
 ./install-bundle/install-cli-tools.sh redis-cli
 ```
 
-См. [docs/CLI_UTILITIES.md](../../../docs/CLI_UTILITIES.md) — конфигурация ACL/TLS, заметки про RESP3, матрица CLI vs MCP.
+См. [docs/CLI_UTILITIES.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/CLI_UTILITIES.md) - конфигурация ACL/TLS, заметки про RESP3, матрица CLI vs MCP.
 
 ## Установка плагина
 
@@ -43,5 +43,5 @@ claude plugins install dex-redis-cli@dex-claude-marketplace
 ## Безопасность
 
 - Все команды **read-only**. `FLUSHDB` / `FLUSHALL` / `DEL` намеренно не предоставлены.
-- Сканирование ключей — только через `SCAN`. `KEYS *` блокирует сервер на больших keyspace и запрещён.
-- `MONITOR` используется только как короткий ограниченный сэмпл (≤10s) с явным timeout — чтобы не повлиять на прод.
+- Сканирование ключей - только через `SCAN`. `KEYS *` блокирует сервер на больших keyspace и запрещён.
+- `MONITOR` используется только как короткий ограниченный сэмпл (<=10s) с явным timeout - чтобы не повлиять на прод.
