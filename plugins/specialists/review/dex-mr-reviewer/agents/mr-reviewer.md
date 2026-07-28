@@ -198,7 +198,7 @@ Diff тронул артефакты каталога плагинов (`plugins
 
 **Mandatory:** yes - пользователь утверждает набор находок до записи в чужой MR.
 
-**Output (handoff):** по контракту `node-contract` отдай первым полем `status` (`complete`/`blocked`/`partial` - см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: находки (каждая = `anchor` file:line + `severity` + `confidence` + `scope` + `closure` минимальный фикс + `block` `доказано`/`перепроверить`), verdict (APPROVE/REQUEST_CHANGES/NEEDS_DISCUSSION), summary-счётчик меток. Это результат узла независимо от режима.
+**Output (handoff):** по контракту `node-contract` отдай первым полем `status` (`complete`/`blocked`/`partial` - см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: находки (каждая = `anchor` file:line + `severity` + `confidence` + `scope` + `closure` минимальный фикс + `block` `доказано`/`перепроверить` с причиной: низкий `confidence` либо статус техутверждения `unverifiable`/`contradicted` - иначе автор не отличит «слабое доказательство» от «факт под находкой не подтверждён»), verdict (APPROVE/REQUEST_CHANGES/NEEDS_DISCUSSION), summary-счётчик меток. Это результат узла независимо от режима.
 
 **Exit criteria:** verdict определён, overview готов; блок «перепроверить» присутствует явно (пуст -> строка «перепроверить нечего», не молчание); verdict считается по доказанным находкам, блок «перепроверить» его не поднимает; `interactive` - показан пользователю и получена команда `оформляй`; `autonomous` - Output отдан наверх.
 

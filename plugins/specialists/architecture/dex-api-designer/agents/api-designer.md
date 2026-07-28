@@ -91,7 +91,7 @@ Analyze Constraints -> Propose Alternatives -> Decide -> [Document?]. Decide -- 
 
 **Skip_if:** Пользователь не запросил спецификацию или решение экспериментальное.
 
-**Output (handoff):** по контракту node-contract отдай первым полем `status` (`complete`/`blocked`/`partial` -- см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: спецификацию контракта (OpenAPI/proto/SDL/AsyncAPI -- путь к файлу на диске), ключевые принятые решения явным пунктом каждое (выбранный стиль, стратегия версионирования, формат ошибок ProblemDetails/RFC 9457 -- правило 5 node-contract), допущения и неподтверждённые факты. Результат узла независимо от режима.
+**Output (handoff):** по контракту node-contract отдай первым полем `status` (`complete`/`blocked`/`partial` -- см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: спецификацию контракта (OpenAPI/proto/SDL/AsyncAPI -- путь к файлу на диске), ключевые принятые решения явным пунктом каждое (выбранный стиль, стратегия версионирования, формат ошибок ProblemDetails/RFC 9457 -- правило 5 node-contract), допущения и неподтверждённые факты (названная версия спеки или библиотеки - со статусом `verified`/`unverifiable`/`contradicted`; сверять было нечего -- `n/a`). Результат узла независимо от режима.
 
 ## Boundaries
 

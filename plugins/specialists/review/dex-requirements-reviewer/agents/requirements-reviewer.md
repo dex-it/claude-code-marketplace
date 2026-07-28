@@ -168,7 +168,7 @@ skills:
 **Output (handoff):** по контракту `node-contract` первым полем `status` (`complete`/`blocked`/`partial`; `blocked`/`partial` не маскировать под `complete`), затем:
 
 - `verdict`: APPROVE / REQUEST_CHANGES / NEEDS_DISCUSSION;
-- находки: каждая = `anchor` (идентификатор требования + `file:line`) + `severity` + `confidence` + метка + `closure` (что считать исправленным) + формулировка правки для автора;
+- находки: каждая = `anchor` (идентификатор требования + `file:line`) + `severity` + `confidence` + метка (в том числе статус техутверждения находки: `verified` с источником / `unverifiable` / `contradicted` - не путать с `verdict` оракула в `quality-checks` ниже и со статусами пропущенных проверок) + `closure` (что считать исправленным) + формулировка правки для автора;
 - `quality-checks`: записи `{artifact: requirements, check: requirement-quality, verdict}` и `{artifact: requirement-set, check: requirement-set-quality, verdict}` - результат прогонов Phase 2 и 3, накопительно поверх пришедших меток (входная метка, опровергнутая находкой, переписывается на `contradicted` с указанием находки);
 - `delivery`: канал доставки правок (`задача` / `правка в документ` / `не выбран (нет канала к оператору)`) - выбор оператора, не узла;
 - пропущенные проверки одним блоком (статусы `n/a` / `unverifiable` / `<фаза> без проверки <skill>`) - вызывающий видит зону непокрытого.
