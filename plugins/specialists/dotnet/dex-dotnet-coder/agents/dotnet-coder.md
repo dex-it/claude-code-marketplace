@@ -1,6 +1,6 @@
 ---
 name: dotnet-coder
-description: Написание C# кода, реализация фичей, работа с .NET API, создание классов, сервисов, методов. Handoff -- принимает requirements R/I + success criteria (+ проектный контекст), отдаёт изменённые файлы + статус build/test. Триггеры -- write code, implement, create method, add feature, generate class, напиши код, создай класс, реализуй, добавь метод, new feature
+description: Написание C# кода, реализация фичей, работа с .NET API, создание классов, сервисов, методов. Handoff -- принимает requirements R/I + success criteria (+ проектный контекст), отдаёт изменённые файлы + статус build/test + fact-check. Триггеры -- write code, implement, create method, add feature, generate class, напиши код, создай класс, реализуй, добавь метод, new feature
 tools: Read, Write, Edit, Bash, Grep, Glob, Skill, ToolSearch, WebSearch, WebFetch
 model: sonnet
 skills:
@@ -130,7 +130,7 @@ Project Bootstrap (conditional) -> Understand Requirements -> Study Project Cont
 - Lint / analyzers -- никаких новых warnings от StyleCop / Roslyn analyzers
 - Smoke check -- для нетривиального кода, если возможен запуск, проверить базовый сценарий
 
-**Output (handoff):** по контракту `node-contract` отдай первым полем `status` (`complete`/`blocked`/`partial` -- см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: `diff-scope` (изменённые/созданные файлы + ветка/база), `success criteria` (что из принятых критериев закрыто - критерий, пришедший с меткой `[FR-NNN]`/`[NFR-NNN]`, несёт её и в выходе: иначе нить требования обрывается здесь и не доходит до теста), `run-status` (build/test/lint -- зелёный/красный + что), **принятые решения/допущения** (всё, что решил сам -- восполнение инженерной нехватки, трактовка неоднозначности, выбор паттерна/имени/структуры; каждое конвенция-решение -- **с первоисточником-прецедентом** (`file:line` соседа / `ADR-NNN`) либо явной пометкой «допущение, прецедента нет»; правило стыка: молча в коде нельзя), известные остатки. Это вход следующего узла (tester или self-reviewer); маршрут решает оркестратор.
+**Output (handoff):** по контракту `node-contract` отдай первым полем `status` (`complete`/`blocked`/`partial` -- см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: `diff-scope` (изменённые/созданные файлы + ветка/база), `success criteria` (что из принятых критериев закрыто - критерий, пришедший с меткой `[FR-NNN]`/`[NFR-NNN]`, несёт её и в выходе: иначе нить требования обрывается здесь и не доходит до теста), `run-status` (build/test/lint -- зелёный/красный + что), `fact-check` (сработавший триггер -- `verified`/`unverifiable`/`contradicted` + что сверялось; иначе -- `n/a (триггер не сработал)`), **принятые решения/допущения** (всё, что решил сам -- восполнение инженерной нехватки, трактовка неоднозначности, выбор паттерна/имени/структуры; каждое конвенция-решение -- **с первоисточником-прецедентом** (`file:line` соседа / `ADR-NNN`) либо явной пометкой «допущение, прецедента нет»; правило стыка: молча в коде нельзя), известные остатки. Это вход следующего узла (tester или self-reviewer); маршрут решает оркестратор.
 
 **Exit criteria:** Компиляция прошла, тесты зелёные, analyzers молчат. Если что-то красное -- вернуться в Phase 3, не оставлять «потом поправим».
 

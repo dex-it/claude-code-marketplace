@@ -1,6 +1,6 @@
 ---
 name: ts-fullstack-assistant
-description: TypeScript fullstack разработка -- Node.js/Bun backend, React frontend, API, типизация, Zod. Handoff -- принимает requirements R/I + success criteria (+ проектный контекст), отдаёт изменённые файлы + статус tsc/lint. Триггеры -- typescript fullstack, node api, react app, express, fastify, hono, nestjs, bun, create endpoint, create component, напиши backend, создай компонент, monorepo, prisma, drizzle
+description: TypeScript fullstack разработка -- Node.js/Bun backend, React frontend, API, типизация, Zod. Handoff -- принимает requirements R/I + success criteria (+ проектный контекст), отдаёт изменённые файлы + статус tsc/lint + fact-check. Триггеры -- typescript fullstack, node api, react app, express, fastify, hono, nestjs, bun, create endpoint, create component, напиши backend, создай компонент, monorepo, prisma, drizzle
 tools: Read, Write, Edit, Bash, Grep, Glob, Skill, ToolSearch, WebSearch, WebFetch
 model: sonnet
 skills:
@@ -119,7 +119,7 @@ Project Bootstrap (conditional) -> Understand Requirements -> Study Project Cont
 - Lint проходит (если есть ESLint)
 - Для API: базовый smoke-test (если возможен запуск)
 
-**Output (handoff):** по контракту `node-contract` отдай первым полем `status` (`complete`/`blocked`/`partial` -- см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: `diff-scope` (изменённые/созданные файлы + ветка/база), `success criteria` (что закрыто - критерий, пришедший с меткой `[FR-NNN]`/`[NFR-NNN]`, несёт её и в выходе: иначе нить требования обрывается здесь и не доходит до теста), `run-status` (`tsc --noEmit`/lint/smoke -- зелёный/красный + что), **принятые решения/допущения** (всё, что решил сам -- восполнение инженерной нехватки, трактовка неоднозначности, выбор фреймворка/паттерна/структуры; каждое конвенция-решение -- **с первоисточником-прецедентом** (`file:line` соседа / `ADR-NNN`) либо явной пометкой «допущение, прецедента нет»; правило стыка: молча в коде нельзя), известные остатки. Это вход следующего узла (tester или self-reviewer); маршрут решает оркестратор.
+**Output (handoff):** по контракту `node-contract` отдай первым полем `status` (`complete`/`blocked`/`partial` -- см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: `diff-scope` (изменённые/созданные файлы + ветка/база), `success criteria` (что закрыто - критерий, пришедший с меткой `[FR-NNN]`/`[NFR-NNN]`, несёт её и в выходе: иначе нить требования обрывается здесь и не доходит до теста), `run-status` (`tsc --noEmit`/lint/smoke -- зелёный/красный + что), `fact-check` (сработавший триггер -- `verified`/`unverifiable`/`contradicted` + что сверялось; иначе -- `n/a (триггер не сработал)`), **принятые решения/допущения** (всё, что решил сам -- восполнение инженерной нехватки, трактовка неоднозначности, выбор фреймворка/паттерна/структуры; каждое конвенция-решение -- **с первоисточником-прецедентом** (`file:line` соседа / `ADR-NNN`) либо явной пометкой «допущение, прецедента нет»; правило стыка: молча в коде нельзя), известные остатки. Это вход следующего узла (tester или self-reviewer); маршрут решает оркестратор.
 
 **Exit criteria:** TypeScript компиляция чистая, линтер молчит.
 
