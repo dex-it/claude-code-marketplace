@@ -53,7 +53,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Output:** Результат выполненных операций с выводом.
 
-**Exit criteria:** Операции выполнены, результат зафиксирован.
+**Exit criteria:** Операции выполнены, результат зафиксирован. Сработавший fact-check-триггер закрыт статусом - сверено либо `unverifiable` с причиной.
 
 **Fact-check синтаксиса (условно):** триггер - версионируемая конструкция (exchange/queue/binding-аргумент, policy-ключ, AMQP-аргумент x-*, rabbitmqctl-флаг, поведение по версии RabbitMQ) взята по памяти и не подтверждена существующей топологией/конфигом проекта. Тогда сверь skill'ом `dex-skill-fact-verification:fact-verification` по версии RabbitMQ проекта. Неподтверждённый аргумент в конфиг/команду не идёт, в Output - `unverifiable` с причиной.
 

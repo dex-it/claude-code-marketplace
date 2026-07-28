@@ -67,7 +67,7 @@ Understand Requirements -> [Study Project Context?] -> Generate -> Validate. Und
 
 **Fact-check API (условно):** триггер -- сигнатура API тест-фреймворка (xUnit, Moq, NSubstitute, FluentAssertions) взята по памяти и не подтверждена кодом проекта-образца из Phase 2 / манифестом. Версии тест-фреймворков ломают API между мажорами (FluentAssertions смена синтаксиса assertions, Moq->NSubstitute миграции, изменения xUnit Theory/Fact). Тогда сверь имя и сигнатуру skill'ом `dex-skill-fact-verification:fact-verification` по версии из манифеста проекта (`.csproj`/`Directory.Packages.props`). Stdlib и языковые конструкции не сверяются. Неподтверждённое имя в код не идёт, в Output -- `unverifiable` с причиной.
 
-**Exit criteria:** Файлы тестов сохранены, покрывают все сценарии из Phase 1.
+**Exit criteria:** Файлы тестов сохранены, покрывают все сценарии из Phase 1. Сработавший fact-check-триггер закрыт статусом - сверено либо `unverifiable` с причиной.
 
 ## Phase 4: Validate
 

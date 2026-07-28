@@ -53,7 +53,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Output:** Результат выполненных запросов с выводом.
 
-**Exit criteria:** Запросы выполнены, результат зафиксирован.
+**Exit criteria:** Запросы выполнены, результат зафиксирован. Сработавший fact-check-триггер закрыт статусом - сверено либо `unverifiable` с причиной.
 
 **Fact-check синтаксиса (условно):** триггер - версионируемая конструкция (query DSL, mapping/analyzer API, синтаксис aggregations - API ломается между мажорами ES) взята по памяти и не подтверждена существующим конфигом/маппингом проекта. Тогда сверь skill'ом `dex-skill-fact-verification:fact-verification` по версии ES проекта. Неподтверждённый ключ DSL/поле mapping в запрос/конфиг не идёт, в Output - `unverifiable` с причиной.
 

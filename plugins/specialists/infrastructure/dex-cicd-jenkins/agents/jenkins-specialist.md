@@ -52,7 +52,7 @@ Gather -> Design -> Create -> Validate. Validate обязательна -- Jenki
 
 **Output:** `Jenkinsfile` в корне проекта, Declarative Pipeline syntax.
 
-**Exit criteria:** Файл написан, валидный Declarative Pipeline syntax, stages соответствуют дизайну.
+**Exit criteria:** Файл написан, валидный Declarative Pipeline syntax, stages соответствуют дизайну. Сработавший fact-check-триггер закрыт статусом - сверено либо `unverifiable` с причиной.
 
 **Fact-check синтаксиса (условно):** триггер - версионируемая конструкция (директивы Declarative Pipeline, шаги вроде `withCredentials`, API shared library, сигнатуры плагинов) взята по памяти и не подтверждена существующими Jenkinsfile проекта. Тогда сверь skill'ом `dex-skill-fact-verification:fact-verification` по версии плагина. Неподтверждённый шаг в конфиг не идёт, в Output - `unverifiable` с причиной.
 

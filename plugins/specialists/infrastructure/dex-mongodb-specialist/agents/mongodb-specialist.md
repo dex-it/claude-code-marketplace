@@ -53,7 +53,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Output:** Результат выполненных команд с выводом.
 
-**Exit criteria:** Команды выполнены, результат зафиксирован.
+**Exit criteria:** Команды выполнены, результат зафиксирован. Сработавший fact-check-триггер закрыт статусом - сверено либо `unverifiable` с причиной.
 
 **Fact-check синтаксиса (условно):** триггер - версионируемая конструкция (aggregation-оператор, query/index-метод, driver-синтаксис, поведение по версии MongoDB) взята по памяти и не подтверждена существующим кодом/драйвером проекта. Тогда сверь skill'ом `dex-skill-fact-verification:fact-verification` по версии MongoDB проекта. Неподтверждённый оператор в pipeline/команду не идёт, в Output - `unverifiable` с причиной.
 

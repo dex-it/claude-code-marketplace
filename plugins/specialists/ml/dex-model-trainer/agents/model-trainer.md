@@ -51,7 +51,7 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 
 **Output:** Training script(s) с полной pipeline: data loading, model init, optimizer/scheduler, training loop, validation, early stopping, checkpointing, metric logging.
 
-**Exit criteria:** Скрипт создан, все компоненты на месте, конфигурация параметров вынесена.
+**Exit criteria:** Скрипт создан, все компоненты на месте, конфигурация параметров вынесена. Сработавший fact-check-триггер закрыт статусом - сверено либо `unverifiable` с причиной.
 
 **Mandatory:**
 - Validation после каждой эпохи -- train loss без val loss бесполезен

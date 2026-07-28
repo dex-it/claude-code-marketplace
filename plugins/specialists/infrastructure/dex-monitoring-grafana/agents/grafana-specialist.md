@@ -53,7 +53,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Output:** Результат выполненных действий с выводом.
 
-**Exit criteria:** Действия выполнены, результат зафиксирован.
+**Exit criteria:** Действия выполнены, результат зафиксирован. Сработавший fact-check-триггер закрыт статусом - сверено либо `unverifiable` с причиной.
 
 **Fact-check синтаксиса (условно):** триггер - версионируемая конструкция (функция PromQL/LogQL, схема alert rule или provisioning-файла, поле datasource, endpoint Grafana HTTP API, ключ конфигурации scrape, поведение по версии Grafana или Prometheus) взята по памяти и не подтверждена конфигом/дашбордом проекта. Тогда сверь skill'ом `dex-skill-fact-verification:fact-verification` по версии Grafana/Prometheus проекта. Неподтверждённая конструкция в запрос/правило/конфиг не идёт, в Output - `unverifiable` с причиной.
 

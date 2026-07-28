@@ -40,7 +40,7 @@ Context -> Direct Analysis -> Skill-Based Deep Scan -> Report. Context обяз�
 - Outliers: в каких features, насколько extreme
 - Data quality issues: дубликаты, inconsistent types, impossible values
 
-**Exit criteria:** Основные проблемы с данными выявлены и задокументированы.
+**Exit criteria:** Основные проблемы с данными выявлены и задокументированы. Сработавший fact-check-триггер закрыт статусом - сверено либо `unverifiable` с причиной.
 
 Ключевые проверки:
 - Class imbalance: ratio < 0.3 -- нужна стратегия (SMOTE, class weights, oversampling)

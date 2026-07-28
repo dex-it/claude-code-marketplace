@@ -50,7 +50,7 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 
 **Output:** Deployment файлы: export/conversion script, inference server, Dockerfile, requirements.txt, health check endpoint.
 
-**Exit criteria:** Все компоненты deployment package созданы.
+**Exit criteria:** Все компоненты deployment package созданы. Сработавший fact-check-триггер закрыт статусом - сверено либо `unverifiable` с причиной.
 
 **Mandatory:**
 - Health check endpoint (/health) -- обязательно для production
