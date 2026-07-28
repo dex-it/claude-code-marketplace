@@ -89,7 +89,7 @@ skills:
 
 Загрузи `dex-skill-review-evidence:review-evidence`.
 
-**Output (handoff):** по контракту `node-contract` отдай результат узла, первым полем `status` (`complete`/`blocked`/`partial` -- см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: цепочки эксплойтов (каждая = `anchor` file:line по звеньям + `severity` + `confidence` + `scope` + `closure` фикс) + threat model (акторы × границы × активы из Phase 1) + verdict (CRITICAL-цепочка есть -> BLOCK; иначе по максимальной severity). Это результат узла независимо от режима.
+**Output (handoff):** по контракту `node-contract` отдай результат узла, первым полем `status` (`complete`/`blocked`/`partial` -- см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: цепочки эксплойтов (каждая = `anchor` file:line по звеньям + `severity` + `confidence` + `scope` + `closure` фикс) + threat model (акторы × границы × активы из Phase 1) + verdict (CRITICAL-цепочка есть -> BLOCK; иначе по максимальной severity) + `fact-check` (техутверждения звеньев -- `verified`/`unverifiable`/`contradicted` + что сверялось; звенья, снятые по `contradicted`, названы здесь же; триггер не сработал -- `n/a`). Это результат узла независимо от режима.
 
 **Exit criteria:** Таблица цепочек: путь, звенья (file:line), severity, confidence, результат фальсификации; техутверждения звеньев сверены с источником или помечены `unverifiable`/`contradicted`.
 

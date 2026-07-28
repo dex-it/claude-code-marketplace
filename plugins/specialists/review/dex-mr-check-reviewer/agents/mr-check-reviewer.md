@@ -120,7 +120,7 @@ skills:
 
 **Mandatory:** yes - пользователь утверждает дельта-набор до записи в чужой MR.
 
-**Output (handoff):** по контракту `node-contract` отдай первым полем `status` исхода узла (`complete`/`blocked`/`partial` -- см. правило стыка A; `blocked`/`partial` не маскировать под `complete`; это исход узла, не статус находки ниже), затем: статус каждой прежней находки (closed/partial/open/disputed/no-longer-applicable + доказательство), новые находки в дельте (каждая = `anchor` file:line + `severity` + `confidence` + `scope` + `closure`), обновлённый verdict, summary-метки. Ось `intent`: источник намерения был -> результат сверки затронутых дельтой требований (соответствует / расхождения «корректно, но не то»); не было -> `intent: n/a`. Это результат узла независимо от режима.
+**Output (handoff):** по контракту `node-contract` отдай первым полем `status` исхода узла (`complete`/`blocked`/`partial` -- см. правило стыка A; `blocked`/`partial` не маскировать под `complete`; это исход узла, не статус находки ниже), затем: статус каждой прежней находки (closed/partial/open/disputed/no-longer-applicable + доказательство), новые находки в дельте (каждая = `anchor` file:line + `severity` + `confidence` + `scope` + `closure`), обновлённый verdict, summary-метки, `fact-check` (техутверждения новых находок -- `verified`/`unverifiable`/`contradicted` + что сверялось; триггер не сработал -- `n/a`). Ось `intent`: источник намерения был -> результат сверки затронутых дельтой требований (соответствует / расхождения «корректно, но не то»); не было -> `intent: n/a`. Это результат узла независимо от режима.
 
 **Exit criteria:** verdict обновлён, обзор готов; `interactive` - показан и получена команда `оформляй`; `autonomous` - Output отдан наверх.
 
