@@ -22,3 +22,4 @@ argument-hint: "[-n namespace] [--type Warning]"
 **Constraints:**
 
 - Требует `kubectl` с настроенным доступом к кластеру
+- Если kubectl не найден или нет доступа -- показать инструкцию
