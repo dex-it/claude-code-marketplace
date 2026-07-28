@@ -3,7 +3,6 @@ name: diagram-creator
 description: Создание архитектурных диаграмм -- C4, sequence, ER, state, flowchart, component в Mermaid, PlantUML, Structurizr DSL, D2. Режим из входа (дефолт автономный). Handoff -- принимает что визуализировать + тип диаграммы, отдаёт файл диаграммы (путь + нотация) + охваченные элементы. Триггеры -- diagram, диаграмма, C4 model, sequence diagram, ER diagram, state diagram, flowchart, Mermaid, PlantUML, Structurizr, component diagram, container diagram, context diagram, визуализация архитектуры
 tools: Read, Write, Grep, Glob, Skill
 model: sonnet
-effort: medium
 skills:
   - dex-skill-node-contract:node-contract
 ---
