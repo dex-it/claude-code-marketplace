@@ -24,5 +24,5 @@ argument-hint: "pod-name [-n namespace] [--tail N] [--previous] [-c container]"
 **Constraints:**
 
 - Требует `kubectl` с настроенным доступом к кластеру
-- Если kubectl не найден или нет доступа -- показать инструкцию
+- Если kubectl не найден или нет доступа -- показать инструкцию установки и ссылку на `docs/CLI_UTILITIES.md`
 - Для `--previous` pod должен иметь историю рестартов
