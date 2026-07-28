@@ -28,7 +28,7 @@ sudo dnf install awscli
 # macOS
 brew install awscli
 
-# Универсально (рекомендовано AWS) — bundled installer
+# Универсально (рекомендовано AWS) - bundled installer
 curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
 unzip /tmp/awscliv2.zip -d /tmp && sudo /tmp/aws/install
 
@@ -36,7 +36,7 @@ unzip /tmp/awscliv2.zip -d /tmp && sudo /tmp/aws/install
 ./install-bundle/install-cli-tools.sh aws
 ```
 
-После установки — настройка профиля:
+После установки - настройка профиля:
 
 ```bash
 aws configure                  # дефолтный профиль
@@ -44,7 +44,7 @@ aws configure --profile prod   # дополнительный профиль
 aws sts get-caller-identity    # проверить, кто вы сейчас
 ```
 
-Полный гайд (multi-profile, SSO, IAM Roles Anywhere, временные креды через `aws sso login`) и матрица CLI vs MCP — см. [docs/CLI_UTILITIES.md](../../../docs/CLI_UTILITIES.md).
+Полный гайд (multi-profile, SSO, IAM Roles Anywhere, временные креды через `aws sso login`) и матрица CLI vs MCP - см. [docs/CLI_UTILITIES.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/CLI_UTILITIES.md).
 
 ## Установка плагина
 
@@ -54,7 +54,7 @@ claude plugins install dex-aws-s3-cli@dex-claude-marketplace
 
 ## Безопасность
 
-- Все команды **read-only**. Запись (`cp`, `sync`, `mv`), удаление (`rm`, `rb`), создание (`mb`) намеренно **не** обёрнуты в slash-команды — выполняются вручную.
-- `/s3-presign` создаёт URL, действующий до 7 дней — обращаться с ним как с секретом: не публиковать в чатах/тикетах/логах.
-- Для прода используйте read-only IAM политику (`s3:Get*`, `s3:List*` и `kms:Decrypt` для KMS-зашифрованных бакетов) — это durable safety-граница.
+- Все команды **read-only**. Запись (`cp`, `sync`, `mv`), удаление (`rm`, `rb`), создание (`mb`) намеренно **не** обёрнуты в slash-команды - выполняются вручную.
+- `/s3-presign` создаёт URL, действующий до 7 дней - обращаться с ним как с секретом: не публиковать в чатах/тикетах/логах.
+- Для прода используйте read-only IAM политику (`s3:Get*`, `s3:List*` и `kms:Decrypt` для KMS-зашифрованных бакетов) - это durable safety-граница.
 - Cross-account доступ настраивайте через assume-role профили в `~/.aws/config`, не передавайте ключи в env.

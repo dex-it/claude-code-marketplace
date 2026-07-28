@@ -20,5 +20,5 @@ argument-hint: "[--current]"
 
 **Constraints:**
 
-- Требует `jira` (ankitpokhrel/jira-cli) в PATH с настроенным доступом; если бинаря нет -- показать инструкцию установки и ссылку на `docs/CLI_UTILITIES.md`. Спринт-команды требуют board с включёнными спринтами (Scrum)
+- Требует `jira` (ankitpokhrel/jira-cli) в PATH с настроенным доступом; если бинаря нет -- показать инструкцию установки и ссылку на [docs/CLI_UTILITIES.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/CLI_UTILITIES.md). Спринт-команды требуют board с включёнными спринтами (Scrum)
 - Read-only: только просмотр
