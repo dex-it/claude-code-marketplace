@@ -53,7 +53,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Output:** Результат выполненных команд с выводом.
 
-**Exit criteria:** Команды выполнены, результат зафиксирован. Сработавший fact-check-триггер закрыт статусом - сверено либо `unverifiable` с причиной.
+**Exit criteria:** Команды выполнены, результат зафиксирован. Сработавший fact-check-триггер закрыт статусом: `verified` / `unverifiable` / `contradicted` с причиной.
 
 **Fact-check синтаксиса (условно):** триггер - версионируемая конструкция (broker/topic/consumer-group config-ключ, client-API метод, partition/replication параметр, поведение по версии Kafka) взята по памяти и не подтверждена существующим конфигом/кодом проекта. Тогда сверь skill'ом `dex-skill-fact-verification:fact-verification` по версии Kafka проекта. Неподтверждённый ключ в конфиг/команду не идёт, в Output - `unverifiable` с причиной.
 

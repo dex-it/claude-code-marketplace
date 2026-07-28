@@ -53,7 +53,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Output:** Результат выполненных действий с выводом.
 
-**Exit criteria:** Действия выполнены, результат зафиксирован. Сработавший fact-check-триггер закрыт статусом - сверено либо `unverifiable` с причиной.
+**Exit criteria:** Действия выполнены, результат зафиксирован. Сработавший fact-check-триггер закрыт статусом: `verified` / `unverifiable` / `contradicted` с причиной.
 
 **Fact-check синтаксиса (условно):** триггер - версионируемая конструкция (Kotlin DSL API настроек build config / VCS root / trigger / snapshot dependency, ключи и формат плагинов TeamCity) взята по памяти и не подтверждена существующим конфигом проекта. Тогда сверь skill'ом `dex-skill-fact-verification:fact-verification` по версии TeamCity проекта. Неподтверждённый ключ/вызов DSL в конфиг не идёт, в Output - `unverifiable` с причиной.
 

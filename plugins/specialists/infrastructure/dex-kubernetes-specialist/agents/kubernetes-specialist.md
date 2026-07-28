@@ -54,7 +54,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Output:** Результат выполненных команд с выводом.
 
-**Exit criteria:** Команды выполнены, результат зафиксирован. Сработавший fact-check-триггер закрыт статусом - сверено либо `unverifiable` с причиной.
+**Exit criteria:** Команды выполнены, результат зафиксирован. Сработавший fact-check-триггер закрыт статусом: `verified` / `unverifiable` / `contradicted` с причиной.
 
 **Fact-check синтаксиса (условно):** триггер - версионируемая конструкция (`apiVersion` ресурса - часто deprecated между релизами, поля манифеста, синтаксис kubectl, схема CRD) взята по памяти и не подтверждена существующим манифестом проекта. Тогда сверь skill'ом `dex-skill-fact-verification:fact-verification` по версии Kubernetes кластера/проекта. Неподтверждённый `apiVersion`/поле/флаг в манифест не идёт, в Output - `unverifiable` с причиной.
 
