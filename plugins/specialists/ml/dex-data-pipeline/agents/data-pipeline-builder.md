@@ -49,7 +49,7 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 
 **Output:** Файлы dataset class, augmentation pipeline, DataLoader/tf.data конфигурация.
 
-**Exit criteria:** Pipeline создан, код синтаксически корректен, конфигурация оптимальна для определённого размера данных. Сработавший fact-check-триггер закрыт статусом: `verified` / `unverifiable` / `contradicted` с причиной.
+**Exit criteria:** Pipeline создан, код синтаксически корректен, конфигурация оптимальна для определённого размера данных. Сработавший fact-check-триггер закрыт статусом `verified` / `unverifiable` / `contradicted`.
 
 **Mandatory:**
 - PyTorch: pin_memory=True для GPU training, persistent_workers=True для reuse, prefetch_factor для предзагрузки

@@ -52,7 +52,7 @@ Gather -> Design -> Create -> Validate. Validate обязательна -- workf
 
 **Output:** Файлы `.github/workflows/*.yml`, готовые к коммиту.
 
-**Exit criteria:** Файлы написаны, валидный YAML, структура соответствует дизайну. Сработавший fact-check-триггер закрыт статусом: `verified` / `unverifiable` / `contradicted` с причиной.
+**Exit criteria:** Файлы написаны, валидный YAML, структура соответствует дизайну. Сработавший fact-check-триггер закрыт статусом `verified` / `unverifiable` / `contradicted`.
 
 **Fact-check синтаксиса (условно):** триггер - версионируемая конструкция (ключи и контексты GitHub Actions, версии `actions/*`, синтаксис `permissions`/`concurrency`/OIDC) взята по памяти и не подтверждена существующими workflow проекта. Тогда сверь skill'ом `dex-skill-fact-verification:fact-verification`. Неподтверждённый ключ в конфиг не идёт, в Output - `unverifiable` с причиной.
 

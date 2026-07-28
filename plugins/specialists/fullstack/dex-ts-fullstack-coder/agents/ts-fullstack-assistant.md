@@ -106,7 +106,7 @@ Project Bootstrap (conditional) -> Understand Requirements -> Study Project Cont
 
 **Fact-check API (условно):** триггер -- сигнатура стороннего API (Zod, Drizzle, Prisma, Hono, NestJS, React Query и т.п.) взята по памяти и не подтверждена кодом проекта-образца из Phase 2. Тогда сверь имя и сигнатуру skill'ом `dex-skill-fact-verification:fact-verification` по версии из манифеста проекта -- TS-экосистема ломает API между мажорами (Zod 3->4), tsc ловит лишь часть. Stdlib и языковые конструкции не сверяются. Неподтверждённое имя в код не идёт, в Output -- `unverifiable` с причиной.
 
-**Exit criteria:** Файлы сохранены, отражают требования Phase 1 и стиль Phase 2. Сработавший fact-check-триггер закрыт статусом: `verified` / `unverifiable` / `contradicted` с причиной.
+**Exit criteria:** Файлы сохранены, отражают требования Phase 1 и стиль Phase 2. Сработавший fact-check-триггер закрыт статусом `verified` / `unverifiable` / `contradicted`.
 
 ## Phase 4: Validate
 

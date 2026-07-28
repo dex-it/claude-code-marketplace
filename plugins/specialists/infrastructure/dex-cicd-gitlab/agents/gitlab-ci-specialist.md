@@ -52,7 +52,7 @@ Gather -> Design -> Create -> Validate. Validate обязательна -- pipel
 
 **Output:** Файл `.gitlab-ci.yml` в корне проекта, готовый к коммиту.
 
-**Exit criteria:** Файл написан, валидный YAML, stages/jobs соответствуют дизайну. Сработавший fact-check-триггер закрыт статусом: `verified` / `unverifiable` / `contradicted` с причиной.
+**Exit criteria:** Файл написан, валидный YAML, stages/jobs соответствуют дизайну. Сработавший fact-check-триггер закрыт статусом `verified` / `unverifiable` / `contradicted`.
 
 **Fact-check синтаксиса (условно):** триггер - версионируемая конструкция (`rules:` vs устаревший `only/except`, `workflow:`, формат `include:`, ключи SAST/DAST-шаблонов) взята по памяти и не подтверждена существующим `.gitlab-ci.yml` проекта. Тогда сверь skill'ом `dex-skill-fact-verification:fact-verification` по версии GitLab проекта. Неподтверждённый ключ в конфиг не идёт, в Output - `unverifiable` с причиной.
 
