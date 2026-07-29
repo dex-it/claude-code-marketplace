@@ -417,7 +417,7 @@ function validateFileNameMatchesName(filepath, parsed, findings) {
  * Parse markdown into an AST and extract phase sections.
  * A phase is identified by an H2 heading that matches /^Phase\b/.
  */
-function extractPhases(markdownBody) {
+function extractPhases(markdownBody, bodyOffset = 0) {
   const tree = unified().use(remarkParse).parse(markdownBody);
 
   const phases = [];
@@ -438,8 +438,8 @@ function extractPhases(markdownBody) {
         if (currentPhase) phases.push(currentPhase);
         currentPhase = {
           title,
-          startLine: node.position?.start?.line ?? 0,
-          endLine: node.position?.end?.line ?? 0,
+          startLine: (node.position?.start?.line ?? 0) + bodyOffset,
+          endLine: (node.position?.end?.line ?? 0) + bodyOffset,
           nodes: [],
         };
       } else if (currentPhase) {
@@ -486,8 +486,8 @@ function phaseHasAttribute(phase, label) {
   return false;
 }
 
-function validatePhases(markdownBody, findings) {
-  const phases = extractPhases(markdownBody);
+function validatePhases(markdownBody, findings, bodyOffset = 0) {
+  const phases = extractPhases(markdownBody, bodyOffset);
 
   if (phases.length === 0) {
     findings.push({
@@ -612,15 +612,51 @@ function validateSkillReferences(markdownBody, marketplacePlugins, findings) {
   }
 }
 
+/**
+ * Атрибут фазы (`**Goal:**`, `**Output (handoff):**`, `**Gate ...:**`) - отдельный блок.
+ * Без пустой строки перед следующим таким лейблом markdown сливает их в один абзац,
+ * и нормативный пункт перестаёт читаться отдельно. Ловится по AST: внутри одного
+ * paragraph-узла лейбл стоит не на первой строке (заголовки и code fence в paragraph
+ * не попадают, поэтому ложных срабатываний на них нет).
+ */
+const ATTRIBUTE_LABEL_RE = /^\*\*[^*\n]{1,60}:\*\*/;
+
+function validateAttributeBlocks(markdownBody, findings, bodyOffset = 0) {
+  const tree = unified().use(remarkParse).parse(markdownBody);
+  const lines = markdownBody.split('\n');
+
+  visit(tree, 'paragraph', (node) => {
+    const start = node.position?.start?.line;
+    const end = node.position?.end?.line;
+    if (!start || !end || end <= start) return;
+
+    for (let ln = start + 1; ln <= end; ln++) {
+      const text = lines[ln - 1] ?? '';
+      if (!ATTRIBUTE_LABEL_RE.test(text)) continue;
+      const label = text.slice(2, text.indexOf(':**'));
+      const fileLine = ln + bodyOffset;
+      findings.push({
+        level: ERROR,
+        rule: 'glued-attribute-block',
+        message: `Line ${fileLine}: attribute "**${label}:**" is glued to the previous block - markdown merges them into one paragraph. Separate with a blank line`,
+      });
+    }
+  });
+}
+
 // --- File validation orchestration --------------------------------------
 
 function validateFile(filepath, marketplacePlugins) {
   const findings = [];
   let parsed;
+  let bodyOffset = 0;
 
   try {
     const raw = readFileSync(filepath, 'utf8');
     parsed = matter(raw);
+    // Позиции из AST считаются по телу без frontmatter; в сообщениях нужен номер
+    // строки файла, иначе он не совпадает с тем, что видит открывший файл.
+    bodyOffset = raw.split('\n').length - parsed.content.split('\n').length;
   } catch (e) {
     return {
       filepath,
@@ -630,10 +666,11 @@ function validateFile(filepath, marketplacePlugins) {
     };
   }
 
-  const phaseResult = validatePhases(parsed.content, findings);
+  const phaseResult = validatePhases(parsed.content, findings, bodyOffset);
   validateFrontmatter(parsed, findings);
   validateFileNameMatchesName(filepath, parsed, findings);
   validateFactcheckCascade(parsed, findings);
+  validateAttributeBlocks(parsed.content, findings, bodyOffset);
 
   if (phaseResult.validated) {
     validateSkillReferences(parsed.content, marketplacePlugins, findings);

@@ -827,7 +827,7 @@ Reproduce -> Isolate -> Fix -> Verify. Reproduce и Verify обязательн�
 
 ## Self-check перед коммитом
 
-Часть пунктов проверяет `node tools/validate-agent.js <path>` (frontmatter, фазы, factcheck-cascade); пункты про handoff (node-contract у узла, Input-фаза, объявленная сигнатура) - ручная сверка, валидатором не покрыты.
+Часть пунктов проверяет `node tools/validate-agent.js <path>` (frontmatter, фазы, factcheck-cascade, слипшиеся атрибуты); пункты про handoff (node-contract у узла, Input-фаза, объявленная сигнатура) - ручная сверка, валидатором не покрыты.
 
 - [ ] Frontmatter: `name`, `description` (роль + области + триггеры-симптомы; > 500 - warning, > 750 - error), `tools` (с `Skill`)
 - [ ] Frontmatter: `skills:` - только безусловный process-skill в форме `{plugin}:{skill}` (узел: `dex-skill-node-contract:node-contract`); условные trap-skill грузятся императивно в фазах, не сюда
@@ -838,6 +838,7 @@ Reproduce -> Isolate -> Fix -> Verify. Reproduce и Verify обязательн�
 - [ ] Frontmatter: **нет** `permissionMode: default` (избыточно)
 - [ ] Хотя бы одна `## Phase N: <Имя>`
 - [ ] Каждая фаза - `**Goal:**` и `**Exit criteria:**`
+- [ ] Каждый атрибут (`**Goal:**`, `**Output (handoff):**`, `**Gate ...:**`) отделён пустой строкой от соседнего: без неё markdown сливает их в один абзац и нормативный пункт перестаёт читаться отдельно (`glued-attribute-block`)
 - [ ] Фаза входа - `**Input (handoff):**` (половина сигнатуры, основа сверки)
 - [ ] Сигнатура объявлена: вход/выход в `description` + `Input`/`Output` в теле
 - [ ] Exit criteria observable (не «агент понял», а артефакт)
