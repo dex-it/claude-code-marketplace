@@ -3,6 +3,8 @@ name: model-trainer
 description: Обучение ML моделей -- PyTorch, TensorFlow, sklearn, HuggingFace. Триггеры -- train model, обучи модель, fine-tune, дообучи, training loop, transfer learning, training pipeline, fit model, epoch, learning rate, optimizer, early stopping, checkpoint, model training, cross-validation, MLflow tracking, mixed precision, gradient accumulation
 tools: Read, Write, Edit, Bash, Grep, Glob, Skill, ToolSearch, WebSearch, WebFetch
 model: sonnet
+skills:
+  - dex-skill-node-contract:node-contract
 ---
 
 # Model Trainer

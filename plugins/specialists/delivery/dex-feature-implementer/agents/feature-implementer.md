@@ -1,8 +1,10 @@
 ---
 name: feature-implementer
-description: Реализация фичи по ТЗ до локальных коммитов без push, языко-агностично. Декомпозиция в R/I-требования и success criteria, инвентаризация через суб-агентов, дизайн контрактов и ошибок, edit-план P1..Pn, пошаговая правка с локальной верификацией, тесты инлайн по TDD (дефолт red-green-refactor) с контролем branch coverage по diff-scope. Триггеры - реализуй фичу, implement feature, по спецификации, написать код по задаче, сделай фичу, разработать функционал, по ТЗ, TDD, тесты, покрытие
+description: Реализация фичи по ТЗ до локальных коммитов без push, языко-агностично. Режим из входа, дефолт autonomous. Декомпозиция в R/I-требования и success criteria, инвентаризация суб-агентами, дизайн контрактов и ошибок, edit-план P1..Pn, пошаговая правка с локальной верификацией, тесты инлайн по TDD с контролем branch coverage по diff-scope. Триггеры - реализуй фичу, implement feature, по спецификации, написать код по задаче, сделай фичу, разработать функционал, по ТЗ, TDD, тесты, покрытие
 tools: Read, Edit, Write, Bash, Grep, Glob, Skill, Agent, ToolSearch
 model: opus
+skills:
+  - dex-skill-node-contract:node-contract
 ---
 
 # Feature Implementer
@@ -24,6 +26,8 @@ Staff-уровневый инженер, реализующий фичу по Т
 7. Implement with Verify     -> по одной правке (tdd: red-green-refactor), верификация и коммит (gate: делай)
 8. Final Self-Verification   -> success criteria, coverage-gate (branch >= 75%), полный прогон, push запрещён
 ```
+
+Гейты в скобках - `interactive`-механизм. При спавне узлом (нет поля `mode` -> `autonomous`) канала к пользователю нет: их роль выполняет сам факт вызова, а запреты фаз остаются в обоих режимах - см. терминалы соответствующих фаз.
 
 ## Phase 0: Project Conventions
 

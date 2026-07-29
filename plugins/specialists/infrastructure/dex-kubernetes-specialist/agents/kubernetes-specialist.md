@@ -79,7 +79,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Mandatory:** yes - Kubernetes pod может показать Running, но liveness probe failing через минуту; deployment может быть ready, но с rolling update застрявшим на old replica.
 
-**Output (handoff):** первым полем `status` исхода узла (`complete` / `blocked` / `partial` - см. `node-contract`), дальше снимок состояния до и после, операция - выполненная либо подготовленная с причиной невыполнения (`run-status`), и статус проверки этой фазы. Санкции `deploy` во входе не было -> операция уходит наверх подготовленной под `status: partial`, а не отчётом о выполнении.
+**Output (handoff):** первым полем `status` исхода узла (`complete` / `blocked` / `partial` - см. правило стыка A в `node-contract`; `blocked`/`partial` не маскировать под `complete`), дальше снимок состояния до и после, операция - выполненная либо подготовленная с причиной невыполнения (`run-status`), статус проверки этой фазы и `fact-check` из Phase 3 (`verified` / `unverifiable` / `contradicted` + что сверялось; триггер не сработал - `n/a`). Операция не выполнена по любой из причин Phase 3 - санкции не было, барьер усилен, условие проверки узлу негде взять, адресат другой специалист - уходит наверх подготовленной с названной причиной под `status: partial`, а не отчётом о выполнении; полная диагностика при невыполненной операции `complete` не даёт.
 
 ## Boundaries
 

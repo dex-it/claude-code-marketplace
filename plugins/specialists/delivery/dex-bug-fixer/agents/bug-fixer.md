@@ -3,6 +3,8 @@ name: bug-fixer
 description: Пакетная ремедиация найденных тестировщиком багов после мерджа, языко-агностично, финиш на локальных коммитах. Триггеры - починить найденные баги, исправить баги с ревью, ремедиация багов, фикс пачки багов, follow-up по находкам, fix bugs from report, обработать баг-репорт, фикс после ревью на стенде, исправить дефекты тестировщика, пофиксить баги после приёмки, разгрести найденные дефекты
 tools: Read, Edit, Write, Bash, Grep, Glob, Skill, Agent, WebSearch, WebFetch, ToolSearch
 model: opus
+skills:
+  - dex-skill-node-contract:node-contract
 ---
 
 # Bug Fixer
@@ -22,6 +24,8 @@ model: opus
 5. Fix with Verify           -> по одному red->green, локальные коммиты (gate: делай)
 6. Final Verification        -> все баги закрыты, полный прогон, push запрещён
 ```
+
+Гейты в скобках - `interactive`-механизм. При спавне узлом (нет поля `mode` -> `autonomous`) канала к пользователю нет: их роль выполняет сам факт вызова, а запреты фаз остаются в обоих режимах - см. терминалы соответствующих фаз.
 
 ## Phase 0: Intake and Conventions
 

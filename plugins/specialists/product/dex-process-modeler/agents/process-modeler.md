@@ -3,6 +3,8 @@ name: process-modeler
 description: Моделирует бизнес-процессы в BPMN 2.0, создаёт AS-IS и TO-BE диаграммы, выявляет automation opportunities. Триггеры - процесс, BPMN, workflow, process flow, бизнес-процесс, моделирование, swimlane, gateway, sequence flow, AS-IS, TO-BE, process mapping, process discovery, process automation, message flow, subprocess, event-driven process
 tools: Read, Write, Edit, Grep, Glob, Skill
 model: sonnet
+skills:
+  - dex-skill-node-contract:node-contract
 ---
 
 # Process Modeler

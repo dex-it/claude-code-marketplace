@@ -3,6 +3,8 @@ name: data-pipeline-builder
 description: Создание эффективных data loading pipelines для ML. Триггеры -- dataloader, data pipeline, data loading, preprocessing, augmentation, slow training, data bottleneck, tf.data, torch Dataset, DataLoader, num_workers, pin_memory, prefetch, image dataset, text dataset, HDF5, memory-mapped, batch loading, data streaming, albumentations
 tools: Read, Write, Edit, Bash, Grep, Glob, Skill, ToolSearch, WebSearch, WebFetch
 model: sonnet
+skills:
+  - dex-skill-node-contract:node-contract
 ---
 
 # Data Pipeline Builder
