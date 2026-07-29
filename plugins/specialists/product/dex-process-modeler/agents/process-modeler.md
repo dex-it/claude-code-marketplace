@@ -26,7 +26,7 @@ Understand Requirements -> [Study Project Context?] -> Generate -> Validate.
 - Business rules: ограничения и условия
 - Expected outcome: что является результатом процесса
 
-**Exit criteria:** Trigger, actors и happy path определены. Если пользователь описывает процесс неполно - запросить недостающее, не додумывать.
+**Exit criteria:** Trigger, actors и happy path определены. Если процесс описан неполно - запросить недостающее, не додумывать: в `interactive` у пользователя, при спавне узлом (канала нет) - возвратом наверх со статусом `blocked` и перечнем незакрытых слотов.
 
 Загрузить через Skill tool:
 - `dex-skill-bpmn:bpmn` - anti-patterns BPMN, правила gateway balancing, swimlane conventions
