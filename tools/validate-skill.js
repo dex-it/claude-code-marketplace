@@ -173,7 +173,7 @@ function validateFrontmatter(parsed, findings, isProcess = false) {
     findings.push({
       level: ERROR,
       rule: 'description-exceeds-claude-limit',
-      message: `Description is ${desc.length} characters - exceeds the Claude Code per-entry cap of ${CLAUDE_DESCRIPTION_HARD_LIMIT} (default, configurable via skillListingMaxDescChars; the cap covers description + when_to_use). Text beyond it is truncated from the skill listing and will not activate the skill`,
+      message: `Description is ${desc.length} characters - exceeds the Claude Code per-entry listing cap of ${CLAUDE_DESCRIPTION_HARD_LIMIT} (the cap covers description + when_to_use). Text beyond it is truncated from the skill listing and will not activate the skill. Cut to the project cap of ${PROJECT_DESCRIPTION_MAX}: drop entry points, keep the technology anchor and aspect names`,
     });
   } else if (desc.length > PROJECT_DESCRIPTION_MAX) {
     findings.push({
