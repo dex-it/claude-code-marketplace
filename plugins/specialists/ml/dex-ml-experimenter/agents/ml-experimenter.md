@@ -86,7 +86,7 @@ Context -> Direct Analysis -> Skill-Based Deep Scan -> Report. Context обяз�
 
 - Не запускать полное обучение модели -- только baseline (quick fit, cross_val_score, не hyperparameter tuning).
 - Не применять SMOTE / oversampling до train/test split -- это data leakage.
-- Не удалять outliers автоматически -- сначала показать пользователю и получить подтверждение.
+- Не удалять outliers автоматически -- сначала показать и получить подтверждение: в `interactive` у пользователя, при спавне узлом подтверждать некому, поэтому outliers остаются на месте, а их перечень и предлагаемое действие уходят в Output.
 - Не создавать features без domain knowledge -- предлагать, не применять автоматически.
 - Не делать выводы о causation на основе correlation.
 - Если данные содержат PII -- предупредить пользователя и не логировать примеры значений.

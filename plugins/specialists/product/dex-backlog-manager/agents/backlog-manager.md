@@ -44,7 +44,7 @@ Gather -> Analyze -> Prioritize -> Present. Gather собирает текуще
 
 **Goal:** Сформировать обоснованный порядок backlog с явными trade-off'ами.
 
-**Exit criteria:** Top-10 items упорядочены с обоснованием. Для каждого epic указано: почему на этой позиции и что теряем, если отложим.
+**Exit criteria:** Top-10 items упорядочены с обоснованием. Для каждого epic указано: почему на этой позиции и что теряем, если отложим. Epic без business value в упорядочивание не идёт и позицией не наделяется: он выносится отдельным перечнем, и при спавне узлом фаза закрывается `status: blocked` по этому перечню (см. Boundaries). Value не определён ни у одного - упорядочивать нечего, и это тот же `blocked`, а не пустой Top-10.
 
 Загрузить через Skill tool:
 - `dex-skill-prioritization:prioritization` - RICE/ICE scoring, MoSCoW, trade-off frameworks
