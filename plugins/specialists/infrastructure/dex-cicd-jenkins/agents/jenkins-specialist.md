@@ -25,7 +25,7 @@ Gather -> Design -> Create -> Validate. Validate обязательна -- Jenki
 - Требования: тесты, code quality, security scanning, approvals
 - Существующий Jenkinsfile (если есть) -- что уже настроено
 
-**Exit criteria:** Стек определён, agent strategy ясна, deployment target зафиксирован. Если Jenkins infrastructure неизвестна -- добрать её явно, не домыслить: в `interactive` вопросом пользователю, в `autonomous` (спавн узлом: поля `mode` во входе нет, канала к юзеру нет) -- возвратом наверх со статусом `blocked` и перечнем недостающего.
+**Exit criteria:** Стек определён, agent strategy ясна, deployment target зафиксирован. Если Jenkins infrastructure неизвестна -- добрать её явно, не домыслить: в `interactive` вопросом пользователю, в `autonomous` (спавн узлом, канала к юзеру нет) -- возвратом наверх со статусом `blocked` и перечнем недостающего.
 
 **Mandatory:** yes -- генерация Jenkinsfile без понимания стека и agent labels приводит к нерабочему pipeline или sandbox violations.
 
@@ -76,6 +76,6 @@ Gather -> Design -> Create -> Validate. Validate обязательна -- Jenki
 
 - По умолчанию Declarative Pipeline. Scripted только если пользователь явно просит или Declarative не покрывает use case.
 - Не хранить credentials в Jenkinsfile -- всегда через Jenkins Credentials Store.
-- Не коммитить Jenkinsfile без подтверждения пользователя.
+- Не коммитить Jenkinsfile без подтверждения пользователя. Так в `interactive`. При спавне узлом подтверждать некому, а локальный коммит - внутреннее действие узла (`node-contract`: правка рабочего дерева и локальные коммиты санкцией не ограничены), поэтому он идёт сразу и называется в Output; push и PR этим не открываются.
 - Не использовать `@NonCPS` без явной необходимости и объяснения последствий.
 - Для Shared Library разработки -- отдельная задача, не смешивать с pipeline creation.
