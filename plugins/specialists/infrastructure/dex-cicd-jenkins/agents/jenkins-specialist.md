@@ -25,7 +25,7 @@ Gather -> Design -> Create -> Validate. Validate обязательна -- Jenki
 - Требования: тесты, code quality, security scanning, approvals
 - Существующий Jenkinsfile (если есть) -- что уже настроено
 
-**Exit criteria:** Стек определён, agent strategy ясна, deployment target зафиксирован. Если Jenkins infrastructure неизвестна -- добрать её явно, не домыслить: в `interactive` вопросом пользователю, в `autonomous` (спавн узлом, канала нет) -- возвратом наверх со статусом `blocked` и перечнем недостающего.
+**Exit criteria:** Стек определён, agent strategy ясна, deployment target зафиксирован. Если Jenkins infrastructure неизвестна -- добрать её явно, не домыслить: в `interactive` вопросом пользователю, в `autonomous` (спавн узлом; нет поля `mode` -> `autonomous`, канала к юзеру нет) -- возвратом наверх со статусом `blocked` и перечнем недостающего.
 
 **Mandatory:** yes -- генерация Jenkinsfile без понимания стека и agent labels приводит к нерабочему pipeline или sandbox violations.
 
