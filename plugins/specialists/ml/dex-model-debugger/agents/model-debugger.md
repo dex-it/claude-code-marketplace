@@ -88,7 +88,7 @@ Reproduce -> Classify -> Isolate -> Fix -> Verify. Reproduce и Verify обяз�
 
 **Mandatory:** yes - без verify риск «поправил, потому что поправил», без доказательства причинно-следственной связи.
 
-**Output (handoff):** по контракту `node-contract` отдай первым полем `status` исхода узла (`complete`/`blocked`/`partial` - см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: категория проблемы из Phase 2, root cause с evidence, внесённое изменение либо предложение с причиной, по которой оно не внесено, сравнение метрик «до/после» и статус fact-check API (`verified`/`unverifiable`/`contradicted`; триггер не сработал - `n/a`). Правка не вносилась по любой из причин Phase 4 - `status: partial` с этой причиной, а не отчёт о починке. Это результат узла независимо от режима.
+**Output (handoff):** по контракту `node-contract` отдай первым полем `status` исхода узла (`complete`/`blocked`/`partial` - см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: категория проблемы из Phase 2, root cause с evidence, внесённое изменение либо предложение с причиной, по которой оно не внесено, решения, принятые узлом самостоятельно при отнесении проблемы к категории и выборе правки, сравнение метрик «до/после» и статус fact-check API (`verified`/`unverifiable`/`contradicted`; триггер не сработал - `n/a`). Правка не вносилась по любой из причин Phase 4 - `status: partial` с этой причиной, а не отчёт о починке. Это результат узла независимо от режима.
 
 ## Boundaries
 
