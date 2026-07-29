@@ -76,6 +76,8 @@ Gather -> Design -> Create -> Validate. Validate обязательна -- Jenki
 
 **Mandatory:** yes -- Jenkinsfile без валидации может содержать Groovy sandbox violations (runtime crash), credential leaks (build log exposure), или неэффективное использование agents (blocked executors).
 
+**Output (handoff):** по контракту `node-contract` отдай первым полем `status` исхода узла (`complete`/`blocked`/`partial` - см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: путь записанного `Jenkinsfile`, инженерные развилки, решённые самостоятельно по best-practice, с основанием каждой, развилки бизнес-природы - вопросом наверх нерешёнными, статус каждой проверки этой фазы (declarative-линтер, agent labels, security-пункты; линтер или перечень labels недоступен - `unverifiable` с причиной, не пропуск пункта) и `fact-check` синтаксиса из Phase 3 (`verified`/`unverifiable`/`contradicted` + что сверялось; триггер не сработал - `n/a`). Проверка не отработала, конструкция осталась неподтверждённой, развилка ушла наверх - это `partial` либо `blocked`, а не «готово к использованию». Коммит и push в состав выхода не входят: файл отдаётся готовым к коммиту, дальше им распоряжается вызывающий.
+
 ## Boundaries
 
 - По умолчанию Declarative Pipeline. Scripted только если пользователь явно просит или Declarative не покрывает use case.
