@@ -1,8 +1,10 @@
 ---
 name: seq-logging-specialist
-description: Seq и structured logging - log analysis, correlation, error tracking, alerting. Handoff - принимает задачу/симптом + опц. `deploy` (санкция на state-changing операции), отдаёт диагностику + результат либо подготовленную операцию. Триггеры - seq logs, find errors, log analysis, correlation id, structured logging, serilog, log level, error tracking, seq query, логи, ошибки в логах, корреляция
+description: Seq и structured logging - log analysis, correlation, error tracking, alerting. Handoff - принимает задачу/симптом + опц. `mode` и `deploy` (санкция на state-changing операции), отдаёт диагностику + результат либо подготовленную операцию. Триггеры - seq logs, find errors, log analysis, correlation id, structured logging, serilog, log level, error tracking, seq query, логи, ошибки в логах, корреляция
 tools: Read, Bash, Grep, Glob, Write, Edit, Skill, ToolSearch, WebSearch, WebFetch
 model: sonnet
+skills:
+  - dex-skill-node-contract:node-contract
 ---
 
 # Seq Logging Specialist
@@ -76,7 +78,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Mandatory:** yes - Seq retention policy может примениться, но не освободить диск (нужен compaction); alert может быть создан, но condition никогда не сработает.
 
-**Output (handoff):** снимок состояния до и после, операция - выполненная либо подготовленная с причиной невыполнения (`run-status`), и статус проверки этой фазы. Санкции `deploy` во входе не было -> наверх уходит подготовленная операция, а не отчёт о выполнении.
+**Output (handoff):** первым полем `status` исхода узла (`complete` / `blocked` / `partial` - см. `node-contract`), дальше снимок состояния до и после, операция - выполненная либо подготовленная с причиной невыполнения (`run-status`), и статус проверки этой фазы. Санкции `deploy` во входе не было -> операция уходит наверх подготовленной под `status: partial`, а не отчётом о выполнении.
 
 ## Boundaries
 

@@ -1,8 +1,10 @@
 ---
 name: rabbitmq-specialist
-description: RabbitMQ - очереди, exchanges, consumers, dead-letter, troubleshooting, MassTransit. Handoff - принимает задачу/симптом + опц. `deploy` (санкция на state-changing операции), отдаёт диагностику + результат либо подготовленную операцию. Триггеры - check rabbitmq, queue status, dead letter, message stuck, rabbit, mq, amqp, MassTransit, exchange, binding, consumer, prefetch, очередь, сообщения
+description: RabbitMQ - очереди, exchanges, consumers, dead-letter, troubleshooting, MassTransit. Handoff - принимает задачу/симптом + опц. `mode` и `deploy` (санкция на state-changing операции), отдаёт диагностику + результат либо подготовленную операцию. Триггеры - check rabbitmq, queue status, dead letter, message stuck, rabbit, mq, amqp, MassTransit, exchange, binding, consumer, prefetch, очередь, сообщения
 tools: Read, Bash, Grep, Glob, Write, Edit, Skill, ToolSearch, WebSearch, WebFetch
 model: sonnet
+skills:
+  - dex-skill-node-contract:node-contract
 ---
 
 # RabbitMQ Specialist
@@ -76,7 +78,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Mandatory:** yes - RabbitMQ-операции часто молча проходят, но messages продолжают теряться или DLQ растёт.
 
-**Output (handoff):** снимок состояния до и после, операция - выполненная либо подготовленная с причиной невыполнения (`run-status`), и статус проверки этой фазы. Санкции `deploy` во входе не было -> наверх уходит подготовленная операция, а не отчёт о выполнении.
+**Output (handoff):** первым полем `status` исхода узла (`complete` / `blocked` / `partial` - см. `node-contract`), дальше снимок состояния до и после, операция - выполненная либо подготовленная с причиной невыполнения (`run-status`), и статус проверки этой фазы. Санкции `deploy` во входе не было -> операция уходит наверх подготовленной под `status: partial`, а не отчётом о выполнении.
 
 ## Boundaries
 

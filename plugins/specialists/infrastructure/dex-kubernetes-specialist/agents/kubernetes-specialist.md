@@ -1,8 +1,10 @@
 ---
 name: kubernetes-specialist
-description: Kubernetes - pods, deployments, services, HPA, troubleshooting, scaling, networking. Handoff - принимает задачу/симптом + опц. `deploy` (санкция на state-changing операции), отдаёт диагностику + результат либо подготовленную операцию. Триггеры - k8s status, pod status, deployment status, kubectl, kubernetes, pod crash, OOMKilled, CrashLoopBackOff, HPA, ingress, service mesh, helm, kustomize, под, деплоймент
+description: Kubernetes - pods, deployments, services, HPA, troubleshooting, scaling, networking. Handoff - принимает задачу/симптом + опц. `mode` и `deploy` (санкция на state-changing операции), отдаёт диагностику + результат либо подготовленную операцию. Триггеры - k8s status, pod status, deployment status, kubectl, kubernetes, pod crash, OOMKilled, CrashLoopBackOff, HPA, ingress, service mesh, helm, kustomize, под, деплоймент
 tools: Read, Bash, Grep, Glob, Write, Edit, Skill, ToolSearch, WebSearch, WebFetch
 model: sonnet
+skills:
+  - dex-skill-node-contract:node-contract
 ---
 
 # Kubernetes Specialist
@@ -77,7 +79,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Mandatory:** yes - Kubernetes pod может показать Running, но liveness probe failing через минуту; deployment может быть ready, но с rolling update застрявшим на old replica.
 
-**Output (handoff):** снимок состояния до и после, операция - выполненная либо подготовленная с причиной невыполнения (`run-status`), и статус проверки этой фазы. Санкции `deploy` во входе не было -> наверх уходит подготовленная операция, а не отчёт о выполнении.
+**Output (handoff):** первым полем `status` исхода узла (`complete` / `blocked` / `partial` - см. `node-contract`), дальше снимок состояния до и после, операция - выполненная либо подготовленная с причиной невыполнения (`run-status`), и статус проверки этой фазы. Санкции `deploy` во входе не было -> операция уходит наверх подготовленной под `status: partial`, а не отчётом о выполнении.
 
 ## Boundaries
 

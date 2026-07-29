@@ -1,8 +1,10 @@
 ---
 name: redis-specialist
-description: Redis - кэширование, pub/sub, data structures, TTL, memory analysis, troubleshooting, оптимизация. Handoff - принимает задачу/симптом + опц. `deploy` (санкция на state-changing операции), отдаёт диагностику + результат либо подготовленную операцию. Триггеры - redis cache, cache miss, check redis, cache keys, TTL expire, memory usage, slow log, pub/sub, ioredis, bullmq, sentinel, cluster, eviction policy, кэш, редис
+description: Redis - кэширование, pub/sub, data structures, TTL, memory analysis, troubleshooting, оптимизация. Handoff - принимает задачу/симптом + опц. `mode` и `deploy` (санкция на state-changing операции), отдаёт диагностику + результат либо подготовленную операцию. Триггеры - redis cache, cache miss, check redis, cache keys, TTL expire, memory usage, slow log, pub/sub, ioredis, bullmq, sentinel, cluster, eviction policy, кэш, редис
 tools: Read, Bash, Grep, Glob, Write, Edit, Skill, ToolSearch, WebSearch, WebFetch
 model: sonnet
+skills:
+  - dex-skill-node-contract:node-contract
 ---
 
 # Redis Specialist
@@ -76,7 +78,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Mandatory:** yes - Redis-операции часто молча проходят (CONFIG SET применился, но не сохранён в redis.conf; ключи удалены, но cache stampede через минуту).
 
-**Output (handoff):** снимок состояния до и после, операция - выполненная либо подготовленная с причиной невыполнения (`run-status`), и статус проверки этой фазы. Санкции `deploy` во входе не было -> наверх уходит подготовленная операция, а не отчёт о выполнении.
+**Output (handoff):** первым полем `status` исхода узла (`complete` / `blocked` / `partial` - см. `node-contract`), дальше снимок состояния до и после, операция - выполненная либо подготовленная с причиной невыполнения (`run-status`), и статус проверки этой фазы. Санкции `deploy` во входе не было -> операция уходит наверх подготовленной под `status: partial`, а не отчётом о выполнении.
 
 ## Boundaries
 
