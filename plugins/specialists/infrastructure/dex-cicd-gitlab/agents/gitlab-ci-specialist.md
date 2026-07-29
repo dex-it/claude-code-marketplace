@@ -26,7 +26,7 @@ Gather -> Design -> Create -> Validate. Validate обязательна -- pipel
 - Существующий `.gitlab-ci.yml` (если есть) -- что уже настроено
 - Runner infrastructure: shared runners, specific tags, Docker executor vs shell
 
-**Exit criteria:** Стек определён, deployment target ясен, требования зафиксированы. Если критичная информация неизвестна -- спросить пользователя.
+**Exit criteria:** Стек определён, deployment target ясен, требования зафиксированы. Если критичная информация неизвестна -- добрать её явно, не домыслить: в `interactive` вопросом пользователю, в `autonomous` (спавн узлом, канала нет) -- возвратом наверх со статусом `blocked` и перечнем недостающего.
 
 ## Phase 2: Design
 
