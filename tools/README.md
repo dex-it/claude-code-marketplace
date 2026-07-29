@@ -16,7 +16,9 @@ Dev-утилиты для Claude Code marketplace.
 
 - Отсутствие обязательного поля `name`, `description`, `tools` или `model`
 - Запрещённое поле `allowed-tools` (для доступа к инструментам есть `tools:`)
-- Поле `skills:` со значением, отличным от `node-contract` (правило `frontmatter-skills-not-preloadable`). Само поле не запрещено: pre-load разрешён ровно одному безусловному process-skill, и обе формы записи проходят - `node-contract` и `dex-skill-node-contract:node-contract`. Прочие скиллы грузятся императивно через Skill tool в фазах. Список разрешённых к pre-load - константа `ALLOWED_PRELOAD_SKILLS` в валидаторе
+- Поле `skills:` со значением, отличным от `node-contract` (правило `frontmatter-skills-not-preloadable`). Само поле не запрещено: pre-load разрешён ровно одному безусловному process-skill, и обе полные формы записи проходят - `node-contract` и `dex-skill-node-contract:node-contract`. Прочие скиллы грузятся императивно через Skill tool в фазах. Список разрешённых к pre-load - константа `ALLOWED_PRELOAD_SKILLS` в валидаторе
+- Значение `skills:` в виде голого имени плагина, без скилла (правило `frontmatter-skills-bare-plugin-name`): `dex-skill-node-contract` не резолвится, плагин молча пропускается
+- Значение `skills:` с неизвестным именем скилла при известном плагине (правило `frontmatter-skills-unknown-skill`). Обратный случай не ловится ничем: опечатка в половине-плагине (`dex-skill-nodecontract:node-contract`) даёт ноль ошибок, потому что нормализация берёт часть после последнего `:`, а неизвестный плагин объявлен вне области проверки. Зонд: правка половины-плагина - 0 ошибок, правка половины-скилла - 2
 - Имя файла не совпадает с полем `name` (правило `agent-file-name-mismatch`; сравнивается basename без `.md`)
 - Description короче 50 символов
 - Description длиннее 500 символов - WARNING; длиннее 750 - ERROR. Верхнего яруса под платформенный лимит у агентов нет
