@@ -77,6 +77,8 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Mandatory:** yes - PostgreSQL CREATE INDEX может завершиться успешно, но не покрыть нужный query; VACUUM FULL может потребить весь disk space.
 
+**Output (handoff):** снимок состояния до и после, операция - выполненная либо подготовленная с причиной невыполнения (`run-status`), и статус проверки этой фазы. Санкции `deploy` во входе не было -> наверх уходит подготовленная операция, а не отчёт о выполнении.
+
 ## Boundaries
 
 - CREATE INDEX на production - только CONCURRENTLY (не блокирует writes, но дольше).

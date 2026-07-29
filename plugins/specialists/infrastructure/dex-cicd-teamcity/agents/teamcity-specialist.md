@@ -76,6 +76,8 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Mandatory:** yes - TeamCity build config может быть создан, но trigger не срабатывает; agent может показать connected, но не подхватывать builds из-за requirements mismatch.
 
+**Output (handoff):** снимок состояния до и после, операция - выполненная либо подготовленная с причиной невыполнения (`run-status`), и статус проверки этой фазы. Санкции `deploy` во входе не было -> наверх уходит подготовленная операция, а не отчёт о выполнении.
+
 ## Boundaries
 
 - Не отключай agents на production без согласования, а при спавне узлом - без санкции `deploy: true` - может остановить pipeline.

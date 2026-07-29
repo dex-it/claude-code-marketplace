@@ -76,6 +76,8 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Mandatory:** yes - Redis-операции часто молча проходят (CONFIG SET применился, но не сохранён в redis.conf; ключи удалены, но cache stampede через минуту).
 
+**Output (handoff):** снимок состояния до и после, операция - выполненная либо подготовленная с причиной невыполнения (`run-status`), и статус проверки этой фазы. Санкции `deploy` во входе не было -> наверх уходит подготовленная операция, а не отчёт о выполнении.
+
 ## Boundaries
 
 - Не выполняй KEYS * на production - только SCAN с COUNT.

@@ -76,6 +76,8 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Mandatory:** yes - MongoDB index creation на production может завершиться, но не покрыть нужные queries; aggregation может вернуть данные, но с $lookup стадией, убивающей performance.
 
+**Output (handoff):** снимок состояния до и после, операция - выполненная либо подготовленная с причиной невыполнения (`run-status`), и статус проверки этой фазы. Санкции `deploy` во входе не было -> наверх уходит подготовленная операция, а не отчёт о выполнении.
+
 ## Boundaries
 
 - Не делай dropCollection/dropDatabase без тройного подтверждения.

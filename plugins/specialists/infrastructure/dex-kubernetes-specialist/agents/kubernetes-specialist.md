@@ -77,6 +77,8 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Mandatory:** yes - Kubernetes pod может показать Running, но liveness probe failing через минуту; deployment может быть ready, но с rolling update застрявшим на old replica.
 
+**Output (handoff):** снимок состояния до и после, операция - выполненная либо подготовленная с причиной невыполнения (`run-status`), и статус проверки этой фазы. Санкции `deploy` во входе не было -> наверх уходит подготовленная операция, а не отчёт о выполнении.
+
 ## Boundaries
 
 - Не делай delete namespace без тройного подтверждения - удаляет ВСЕ ресурсы.
