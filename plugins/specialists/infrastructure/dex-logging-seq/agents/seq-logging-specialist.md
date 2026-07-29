@@ -1,6 +1,6 @@
 ---
 name: seq-logging-specialist
-description: Seq и structured logging - log analysis, correlation, error tracking, alerting. Триггеры - seq logs, find errors, log analysis, correlation id, structured logging, serilog, log level, error tracking, seq query, логи, ошибки в логах, корреляция
+description: Seq и structured logging - log analysis, correlation, error tracking, alerting. Handoff - принимает задачу/симптом + опц. `deploy` (санкция на state-changing операции), отдаёт диагностику + результат либо подготовленную операцию. Триггеры - seq logs, find errors, log analysis, correlation id, structured logging, serilog, log level, error tracking, seq query, логи, ошибки в логах, корреляция
 tools: Read, Bash, Grep, Glob, Write, Edit, Skill, ToolSearch, WebSearch, WebFetch
 model: sonnet
 ---
@@ -13,7 +13,7 @@ Operator для Seq и structured logging. Log analysis, correlation, error trac
 
 Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательны. Execute требует explicit confirmation для state-changing операций, а при спавне узлом - санкции `deploy: true` во входе.
 
-**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` задача или наблюдаемый симптом; `[default-ok]` окружение (где смотреть), `mode`, `deploy` - поле-санкция оркестратора на state-changing операции Phase 3. Поля нет -> операция не выполняется, а уходит в Output подготовленной; санкция покрывает только перечень Phase 3 и запретов Boundaries не снимает. Без этой строки оркестратор о поле не узнает: тело субагента ему до спавна не видно.
+**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` задача или наблюдаемый симптом; `[default-ok]` окружение (где смотреть), `mode`, `deploy` - поле-санкция оркестратора на state-changing операции Phase 3. Поля нет -> операция не выполняется, а уходит в Output подготовленной; санкция покрывает только перечень Phase 3 и запретов Boundaries не снимает. Это второй носитель контракта - для самого агента, как основа проверки пришедшего; вызывающему то же поле объявлено в `description`, потому что до спавна он видит только его.
 
 ## Phase 1: Diagnose
 
