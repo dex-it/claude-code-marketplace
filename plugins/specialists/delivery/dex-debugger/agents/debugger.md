@@ -150,7 +150,7 @@ Pass 2: Deep Pattern Check
   Related findings: [паттерны, подтверждающие или расширяющие находки]
 
 Hypothesis (root cause): [«если X в файл:строка, то Y, потому что Z»]
-  Fact-check: [verified / unverifiable / contradicted - для утверждения о фреймворке]
+  Fact-check: [verified / unverifiable / contradicted - для утверждения о фреймворке; гипотеза на таком утверждении не держится - n/a с этой причиной]
 
 Fix:
   [конкретное изменение, минимальный diff]
