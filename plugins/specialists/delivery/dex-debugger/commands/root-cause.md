@@ -1,6 +1,7 @@
 ---
 description: Расследование первопричины бага по коду (языко-агностично) - гипотеза, изоляция, fix с red-green
 allowed-tools: Read, Grep, Glob
+argument-hint: "<симптом или stack trace> [ожидаемое поведение] [нужна ли правка кода]"
 ---
 
 # /root-cause

@@ -1,6 +1,7 @@
 ---
 description: Глубокий security-проход по коду/diff (языко-агностично) - threat model, attack paths, цепочки эксплойтов
 allowed-tools: Read, Grep, Glob
+argument-hint: "<пути, diff-range или MR/PR url> [границы доверенного контура]"
 ---
 
 # /security-scan
@@ -19,8 +20,9 @@ allowed-tools: Read, Grep, Glob
 
 - Threat Model: акторы (anon/user/admin/service), границы доверия, активы
 - Attack Paths: граница -> вектор -> актив по достижимым OWASP-категориям
-- Exploit Chains: связанные находки, каждая опровергнута, severity по эксплуатируемости цепочки
+- Exploit Chains: связанные находки, по каждой приведён результат попытки опровержения, severity по эксплуатируемости цепочки
 - Evidence: file:line и достижимый путь атаки на каждую цепочку
+- Verdict: BLOCK, если есть CRITICAL-цепочка, иначе по максимальной severity
 
 ## Constraints
 
