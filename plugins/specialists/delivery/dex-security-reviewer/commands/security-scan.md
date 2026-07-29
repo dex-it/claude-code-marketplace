@@ -18,10 +18,11 @@ argument-hint: "<пути, diff-range или MR/PR url> [границы дове
 
 ## Output
 
+- Status: исход узла (`complete` / `blocked` / `partial`) первым полем
 - Threat Model: акторы (anon/user/admin/service), границы доверия, активы
 - Attack Paths: граница -> вектор -> актив по достижимым OWASP-категориям
 - Exploit Chains: связанные находки, по каждой результат попытки опровержения, `severity` по эксплуатируемости цепочки, `confidence`, `scope`, `closure` - критерий, когда цепочка закрыта
-- Evidence: file:line по звеньям и достижимый путь атаки на каждую цепочку
+- Evidence: `anchor` file:line по звеньям и достижимый путь атаки на каждую цепочку
 - Fact-check: техутверждения звеньев - `verified` / `unverifiable` / `contradicted` + что сверялось; звенья, снятые по `contradicted`, названы здесь же; триггер не сработал - `n/a`
 - Verdict: BLOCK, если есть CRITICAL-цепочка, иначе по максимальной severity
 
