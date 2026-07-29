@@ -99,7 +99,7 @@ const PROJECT_TARGET_MAX = 120; // ideal range
 const REQUIRED_FIELDS = ['name', 'description'];
 const FORBIDDEN_FIELDS = ['keywords'];
 const MIN_DESCRIPTION_LENGTH = 50;
-const CLAUDE_DESCRIPTION_HARD_LIMIT = 1536; // Claude Code hard limit (description + when_to_use) - error
+const CLAUDE_DESCRIPTION_HARD_LIMIT = 1536; // Claude Code per-entry listing cap, default (description + when_to_use) - error
 const PROJECT_DESCRIPTION_MAX = 750; // project hard cap - error
 const WARN_DESCRIPTION_LENGTH = 500; // project soft guideline - warning
 const MIN_TRIGGER_KEYWORDS = 10;
@@ -173,7 +173,7 @@ function validateFrontmatter(parsed, findings, isProcess = false) {
     findings.push({
       level: ERROR,
       rule: 'description-exceeds-claude-limit',
-      message: `Description is ${desc.length} characters - exceeds Claude Code hard limit of ${CLAUDE_DESCRIPTION_HARD_LIMIT}. Text beyond this limit is truncated from the skill listing and will not activate the skill`,
+      message: `Description is ${desc.length} characters - exceeds the Claude Code per-entry cap of ${CLAUDE_DESCRIPTION_HARD_LIMIT} (default, configurable via skillListingMaxDescChars; the cap covers description + when_to_use). Text beyond it is truncated from the skill listing and will not activate the skill`,
     });
   } else if (desc.length > PROJECT_DESCRIPTION_MAX) {
     findings.push({
