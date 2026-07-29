@@ -49,6 +49,8 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Gate (explicit confirmation):** для state-changing - delete dashboard, modify alert rules, change datasource config, silence alerts.
 
+**Канала нет - нужна санкция, не подтверждение:** спавн узлом (нет поля `mode` -> `autonomous`) канала к пользователю не даёт, подтверждать некому. State-changing тогда выполняется только по явной санкции во входе (`apply: true`); санкции нет -> не выполнять, а вынести в Output подготовленную операцию, оценку последствий и пометку «не выполнено (нет санкции)». Ожидание подтверждения = зависание, запрещено.
+
 Не требуется confirmation для read-only: query metrics, view dashboards, check alert status.
 
 **Output:** Результат выполненных действий с выводом.

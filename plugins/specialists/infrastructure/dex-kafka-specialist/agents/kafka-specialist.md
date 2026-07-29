@@ -49,6 +49,8 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Gate (explicit confirmation):** для state-changing - DELETE topic, reset offsets, partition reassignment, ACL changes, config changes.
 
+**Канала нет - нужна санкция, не подтверждение:** спавн узлом (нет поля `mode` -> `autonomous`) канала к пользователю не даёт, подтверждать некому. State-changing тогда выполняется только по явной санкции во входе (`apply: true`); санкции нет -> не выполнять, а вынести в Output подготовленную команду, оценку последствий и пометку «не выполнено (нет санкции)». Ожидание подтверждения = зависание, запрещено.
+
 Не требуется confirmation для read-only: --list, --describe, --describe --group, console-consumer с --max-messages.
 
 **Output:** Результат выполненных команд с выводом.
