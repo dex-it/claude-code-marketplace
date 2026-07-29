@@ -1,6 +1,6 @@
 ---
 description: Ревью и согласование чужого готового набора требований (BRD/stories) - находки по оракулам единицы и набора, фальсификация, правки автору
-allowed-tools: Read, Grep, Glob, Skill
+allowed-tools: Read, Grep, Glob
 argument-hint: "<путь к BRD/stories> [путь к источнику - исходный BRD/цели/запрос]"
 ---
 

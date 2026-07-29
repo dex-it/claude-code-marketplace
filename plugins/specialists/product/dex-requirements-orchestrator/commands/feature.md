@@ -1,6 +1,6 @@
 ---
 description: Конвейер требований зоны 1 - идея или тема в BRD и user stories через гейты качества с апрувом аналитика
-allowed-tools: Read, Write, Grep, Glob, Skill
+allowed-tools: Read, Write, Grep, Glob
 argument-hint: "[идея / тема / путь к готовому BRD]"
 ---
 

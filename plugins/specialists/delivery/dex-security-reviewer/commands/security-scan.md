@@ -1,24 +1,38 @@
 ---
 description: Глубокий security-проход по коду/diff (языко-агностично) - threat model, attack paths, цепочки эксплойтов
-allowed-tools: Read, Grep, Glob, Bash, Skill
+allowed-tools: Read, Grep, Glob
+argument-hint: "<пути, diff-range или MR/PR url> [границы доверенного контура]"
 ---
 
 # /security-scan
 
-**Goal:** Провести глубокий security-проход - построить модель угроз, разобрать пути атак, собрать цепочки эксплойтов. Не общий код-ревью.
+Провести глубокий security-проход по коду или diff: модель угроз, пути атак, цепочки эксплойтов. Не общий код-ревью.
 
-**Output:** Threat Model (акторы / границы доверия / активы) -> Attack Paths (граница -> вектор -> актив) -> Exploit Chains (severity по эксплуатируемости цепочки, evidence, фикс). Формат - как в агенте `security-reviewer`.
+## Goal
 
-## Действия
+Пройти фазы агента `security-reviewer`: Threat Model & Attack Surface, Attack-Path Analysis, Deep Category Scan, Exploit-Chain & Scoring.
 
-- Построить threat model: акторы (anon/user/admin/service), границы доверия, активы (данные/секреты/деньги/привилегии)
-- Для каждой границы - достижимые OWASP-векторы (access control/IDOR, injection, crypto, auth, SSRF/path traversal, logging) с привязкой «актор -> актив»
-- Загрузить `dex-skill-owasp-security:owasp-security` всегда, профильные `dex-skill-<стек>-*` - по стеку проекта
-- Связать находки в цепочки, опровергнуть каждую, severity по эксплуатируемости цепочки
+## Input
 
-## Notes
+Что смотреть: пути, diff-range или указатель MR/PR, и границы контура - что считается доверенным. Чего нет - сказать прямо, агент не додумывает. Стек определяется по манифестам проекта, профильные skills под него подбирает сам агент.
 
-- Только security; correctness/perf - общий ревьюер
-- Не править код - выход это findings-цепочки
-- Каждая цепочка с путём атаки и evidence (file:line); без достижимого пути не выносить
-- Нет маркера accepted risk - находка подсвечивается
+## Output
+
+- Status: исход узла (`complete` / `blocked` / `partial`) первым полем
+- Threat Model: акторы (anon/user/admin/service), границы доверия, активы
+- Attack Paths: граница -> вектор -> актив по достижимым OWASP-категориям
+- Exploit Chains: связанные находки, по каждой результат попытки опровержения, `severity` по эксплуатируемости цепочки, `confidence`, `scope`, `closure` - критерий, когда цепочка закрыта
+- Evidence: `anchor` file:line по звеньям и достижимый путь атаки на каждую цепочку
+- Fact-check: техутверждения звеньев - `verified` / `unverifiable` / `contradicted` + что сверялось; звенья, снятые по `contradicted`, названы здесь же; триггер не сработал - `n/a`
+- Verdict: BLOCK, если есть CRITICAL-цепочка, иначе по максимальной severity
+
+Перечисленное обязательно - это нижняя граница, агент отдаёт не меньше. Состав живёт у агента в двух разделах сразу: контракт стыка в `**Output (handoff):**` и вёрстка отчёта в `## Output Format`. Они пересекаются, но ни один по отдельности список не покрывает - сверять с обоими, отсутствие пункта в одном из них его не отменяет.
+
+## Constraints
+
+- Только security; correctness и производительность - общий ревьюер
+- Код не правится, выход это findings-цепочки
+- Без достижимого пути атаки находка не выносится
+- Маркера accepted risk нет - находка подсвечивается
+
+Делегировать агенту `security-reviewer` с **`mode: interactive`** во входе - без этого поля агент работает как узел (`autonomous`) и отчёт уйдёт handoff-ом наверх, а не пользователю.
