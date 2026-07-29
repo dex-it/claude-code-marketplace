@@ -6,10 +6,12 @@ on:
   # не дают). Так уже было с docs-only PR. Поэтому перечень покрывает все нормативные
   # и артефактные пути, а не только те, что валидатор парсит: CLAUDE.md и run-claude/**
   # добавлены после того, как PR с одними промтами запуска завис без единого чека.
+  # По той же причине здесь 'tools/**', а не 'tools/validate-*.js': README валидаторов
+  # нормативен ровно так же, как их код, а под прежний шаблон не попадал.
   pull_request:
     paths:
       - 'plugins/**/*.md'
-      - 'tools/validate-*.js'
+      - 'tools/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/validate-agents.yml'
