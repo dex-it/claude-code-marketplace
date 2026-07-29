@@ -1,6 +1,6 @@
 ---
 description: План правок по комментариям ревью без редактирования кода - классификация замечаний, верификация по коду, план P0..P3, черновики ответов
-allowed-tools: Read, Grep, Glob, Bash, Skill
+allowed-tools: Read, Grep, Glob, Bash
 argument-hint: "<MR/PR url или short-id> [REVIEW_SHA]"
 ---
 

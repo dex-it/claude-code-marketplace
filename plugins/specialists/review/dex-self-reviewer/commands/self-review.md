@@ -1,6 +1,6 @@
 ---
 description: Pre-push саморевью своей локальной ветки включая незакоммиченные изменения - многофокусный скан с реальным прогоном build/test, чеклист правок до push
-allowed-tools: Read, Grep, Glob, Bash, Skill
+allowed-tools: Read, Grep, Glob, Bash
 argument-hint: "[base-branch, по умолчанию origin/main или origin/develop]"
 ---
 

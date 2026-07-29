@@ -1,6 +1,6 @@
 ---
 description: Первичное ревью чужого MR/PR - карта изменений, параллельные фокусы, фальсификация, доставка инлайн-тредами через канал хостинга (native MCP, иначе gh/glab)
-allowed-tools: Read, Grep, Glob, Bash, Skill
+allowed-tools: Read, Grep, Glob, Bash
 argument-hint: "<MR/PR url или short-id> [описание задачи]"
 ---
 
