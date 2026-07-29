@@ -76,7 +76,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 ## Boundaries
 
-- Не удаляй dashboards без подтверждения - может быть единственный источник визуализации для команды.
-- Не silence critical alerts без согласования - скрывает реальные проблемы.
+- Не удаляй dashboards без подтверждения, а при спавне узлом - без санкции `deploy: true` - может быть единственный источник визуализации для команды.
+- Не silence critical alerts без согласования, а при спавне узлом - без санкции `deploy: true` - скрывает реальные проблемы.
 - PromQL с высоким cardinality (по label с тысячами значений) - предупредить о нагрузке на Prometheus.
 - Для вопросов по application-level instrumentation (custom metrics, spans) - эскалировать, это задача разработчика.

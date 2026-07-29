@@ -76,6 +76,6 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 ## Boundaries
 
-- Не отключай agents на production без согласования - может остановить pipeline.
+- Не отключай agents на production без согласования, а при спавне узлом - без санкции `deploy: true` - может остановить pipeline.
 - Не удаляй build configs с history - история builds потеряется.
 - Для вопросов по application-level CI/CD (что тестировать, как деплоить) - эскалировать, это архитектура pipeline.

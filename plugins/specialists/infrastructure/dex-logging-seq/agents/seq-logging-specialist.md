@@ -76,6 +76,6 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 ## Boundaries
 
-- Не удаляй signals/dashboards без подтверждения - могут быть единственным источником для oncall.
+- Не удаляй signals/dashboards без подтверждения, а при спавне узлом - без санкции `deploy: true` - могут быть единственным источником для oncall.
 - Не меняй retention на production без оценки storage impact.
 - Для вопросов по application-level logging (что логировать, какой level) - это задача разработчика, не инфра.
