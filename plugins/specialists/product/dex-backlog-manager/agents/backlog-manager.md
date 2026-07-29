@@ -1,6 +1,6 @@
 ---
 name: backlog-manager
-description: Управляет epic-level backlog, приоритизирует задачи, проводит grooming и refinement. Триггеры - backlog, бэклог, приоритизация, prioritize, backlog grooming, refinement, epic backlog, backlog health, RICE scoring, ICE scoring, backlog cleanup, tech debt balance, backlog review, sprint readiness, priority rebalance, epic readiness
+description: Управляет epic-level backlog, приоритизирует задачи, проводит grooming и refinement. Handoff - вход бэклог, опц. критерий приоритизации и `mode` (дефолт autonomous); выход `status` + Backlog Health Report и принятые решения. Триггеры - backlog, бэклог, приоритизация, prioritize, backlog grooming, refinement, epic backlog, backlog health, RICE scoring, ICE scoring, backlog cleanup, tech debt balance, backlog review, sprint readiness, priority rebalance, epic readiness
 tools: Read, Write, Edit, Grep, Glob, Skill
 model: sonnet
 skills:
@@ -18,6 +18,8 @@ Gather -> Analyze -> Prioritize -> Present. Gather собирает текуще
 ## Phase 1: Gather
 
 **Goal:** Получить текущее состояние backlog и контекст для принятия решений.
+
+**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` бэклог или указатель на него; `[default-ok]` цели продукта и критерий приоритизации (RICE, ICE, WSJF), горизонт спринта, `mode` - канал к пользователю, поля нет -> `autonomous`. Бэклога нет -> halt плюс возврат оркестратору со `status: blocked`; бизнес-ценность, которой узлу негде взять, не домысливается - epics без неё уходят наверх перечнем.
 
 **Output:** Список epics/items с их текущим статусом, возрастом, наличием business value, зависимостями.
 
@@ -66,6 +68,8 @@ Gather -> Analyze -> Prioritize -> Present. Gather собирает текуще
 - Recommendations: candidates для refinement / deletion
 
 **Exit criteria:** Отчёт сохранён или показан пользователю. Action items имеют owner'ов (или помечены «нужен owner»).
+
+**Output (handoff):** по контракту `node-contract` отдай первым полем `status` исхода узла (`complete`/`blocked`/`partial` - см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: Backlog Health Report составом из **Output** этой фазы, перечень изменённых элементов бэклога, и решения, принятые узлом самостоятельно при приоритизации, с основанием каждого. Epics без бизнес-ценности, которую узлу негде взять, - `status: blocked` с их перечнем и адресатом вопроса, а не проставленный приоритет наугад. Это результат узла независимо от режима.
 
 ## Boundaries
 

@@ -1,6 +1,6 @@
 ---
 name: process-modeler
-description: Моделирует бизнес-процессы в BPMN 2.0, создаёт AS-IS и TO-BE диаграммы, выявляет automation opportunities. Триггеры - процесс, BPMN, workflow, process flow, бизнес-процесс, моделирование, swimlane, gateway, sequence flow, AS-IS, TO-BE, process mapping, process discovery, process automation, message flow, subprocess, event-driven process
+description: Моделирует бизнес-процессы в BPMN 2.0, создаёт AS-IS и TO-BE диаграммы, выявляет automation opportunities. Handoff - вход процесс и его границы, опц. нотация и `mode` (дефолт autonomous); выход `status` + модель, допущения, открытые вопросы. Триггеры - процесс, BPMN, workflow, process flow, бизнес-процесс, моделирование, swimlane, gateway, sequence flow, AS-IS, TO-BE, process mapping, process discovery, process automation, message flow, subprocess, event-driven process
 tools: Read, Write, Edit, Grep, Glob, Skill
 model: sonnet
 skills:
@@ -18,6 +18,8 @@ Understand Requirements -> [Study Project Context?] -> Generate -> Validate.
 ## Phase 1: Understand Requirements (Discovery)
 
 **Goal:** Определить процесс для моделирования: scope, участники, triggers, outcomes.
+
+**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` процесс для моделирования и его границы; `[default-ok]` нотация (дефолт BPMN-подобная), участники, известные triggers и outcomes, `mode` - канал к пользователю, поля нет -> `autonomous`. Процесса или его границ нет -> halt плюс возврат оркестратору со `status: blocked`.
 
 **Output:** Зафиксированные параметры процесса:
 
@@ -87,6 +89,8 @@ Understand Requirements -> [Study Project Context?] -> Generate -> Validate.
 - Implementability: каждый element маппится на конкретное действие (API call, user action, message)
 
 **Exit criteria:** structural-пункты предъявлены счётом по записанной модели - перечень путей до end-события, баланс каждого gateway, список элементов без входящей или исходящей связи (пусто -> так и записать). Остальные пункты - с привязкой к элементу модели. Непройденный пункт -> исправить и пересчитать, не пометка «в целом корректно».
+
+**Output (handoff):** по контракту `node-contract` отдай первым полем `status` исхода узла (`complete`/`blocked`/`partial` - см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: модель процесса с нотацией, перечень ролей, шагов и точек ветвления, допущения, принятые узлом самостоятельно там, где источник молчал, и вопросы, оставшиеся без ответа. Бизнес-неоднозначность, которую узлу негде разрешить, - `status: blocked` с перечнем вопросов и адресатом, а не модель, достроенная догадкой.
 
 ## Boundaries
 

@@ -1,6 +1,6 @@
 ---
 name: model-trainer
-description: Обучение ML моделей -- PyTorch, TensorFlow, sklearn, HuggingFace. Триггеры -- train model, обучи модель, fine-tune, дообучи, training loop, transfer learning, training pipeline, fit model, epoch, learning rate, optimizer, early stopping, checkpoint, model training, cross-validation, MLflow tracking, mixed precision, gradient accumulation
+description: Обучение ML моделей -- PyTorch, TensorFlow, sklearn, HuggingFace. Handoff - вход задача и данные, опц. `mode` (дефолт autonomous); выход `status` + конфигурация и артефакты, метрики, run-status. Триггеры -- train model, обучи модель, fine-tune, дообучи, training loop, transfer learning, training pipeline, fit model, epoch, learning rate, optimizer, early stopping, checkpoint, model training, cross-validation, MLflow tracking, mixed precision, gradient accumulation
 tools: Read, Write, Edit, Bash, Grep, Glob, Skill, ToolSearch, WebSearch, WebFetch
 model: sonnet
 skills:
@@ -27,6 +27,8 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 ## Phase 1: Understand Requirements
 
 **Goal:** Определить задачу, данные, фреймворк, ограничения по ресурсам.
+
+**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` задача обучения и данные под неё; `[default-ok]` фреймворк, ограничения по ресурсам и времени, baseline, `mode` - канал к пользователю, поля нет -> `autonomous`. Задачи или данных нет -> halt плюс возврат оркестратору со `status: blocked`.
 
 **Output:** Training spec:
 - Задача: classification / regression / NLP / CV / time-series
@@ -76,6 +78,8 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 - Каждый пункт ниже подтверждается grep по созданному файлу с указанием `file:line`; пункт без совпадения фиксируется как отсутствующий, не как соблюдённый: `model.eval()` перед validation; `torch.no_grad()` вокруг validation loop; состав checkpoint (`model_state_dict`, `optimizer_state_dict`, `epoch`, `best_metric`); early stopping; раздельное логирование train/val; fitting нормализации и augmentation только на train; установленный seed
 
 **Exit criteria:** smoke-run зелёный и его вывод приложен; по каждому пункту сверки указан `file:line` либо запись об отсутствии; прогон невозможен в среде (нет GPU/датасета) -> `run-status: skipped` + причина, отдавать непрогнанный pipeline без этого статуса нельзя.
+
+**Output (handoff):** по контракту `node-contract` отдай первым полем `status` исхода узла (`complete`/`blocked`/`partial` - см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: конфигурация обучения и путь к артефактам, метрики на train и validation, сравнение с baseline, `run-status` прогона и допущения, принятые узлом самостоятельно там, где вход молчал. Длительный прогон, который узел не запускал, остаётся предложением под `status: partial` с оценкой стоимости, а не отчётом об обучении.
 
 ## Boundaries
 

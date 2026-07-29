@@ -1,6 +1,6 @@
 ---
 name: doc-writer
-description: Создаёт техническую документацию - specs, guides, README, release notes, API docs, architecture descriptions. Триггеры - documentation, write doc, tech spec, readme, документация, написать доку, release notes, API docs, changelog, architecture doc, onboarding guide, runbook, migration guide, troubleshooting, how-to
+description: Создаёт техническую документацию - specs, guides, README, release notes, API docs, architecture descriptions. Handoff - вход тип документа и источник содержания, опц. путь и `mode` (дефолт autonomous); выход `status` + документ, незакрытые места. Триггеры - documentation, write doc, tech spec, readme, документация, написать доку, release notes, API docs, changelog, architecture doc, onboarding guide, runbook, migration guide, troubleshooting, how-to
 tools: Read, Write, Edit, Grep, Glob, Skill
 model: sonnet
 skills:
@@ -19,6 +19,8 @@ Understand Requirements -> [Study Project Context?] -> Generate -> Validate. Stu
 ## Phase 1: Understand Requirements
 
 **Goal:** Определить тип документа, целевую аудиторию и scope.
+
+**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` тип документа и источник содержания - код, ТЗ, обсуждение; `[default-ok]` целевая аудитория, путь записи, шаблон, `mode` - канал к пользователю, поля нет -> `autonomous`. Источника содержания нет -> halt плюс возврат оркестратору со `status: blocked`; пути нет -> документ возвращается текстом в Output, файл не пишется.
 
 **Output:** Зафиксированные решения:
 
@@ -81,6 +83,8 @@ Understand Requirements -> [Study Project Context?] -> Generate -> Validate. Stu
 - Факт, не возводимый к коду или названному документу, не остаётся утверждением: помечается «не подтверждён»
 
 **Exit criteria:** по каждому пункту приведён источник (путь / `file:line` / статус «не подтверждён»); расхождения исправлены либо вынесены списком: в `interactive` - пользователю, при спавне узлом - в Output наверх, раз выносить некому. Перечитывание собственного текста фазу не закрывает.
+
+**Output (handoff):** по контракту `node-contract` отдай первым полем `status` исхода узла (`complete`/`blocked`/`partial` - см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: путь записанного документа либо его текст, когда путь не был задан, перечень разделов, незакрытые места с причиной по каждому и решения, принятые узлом самостоятельно при трактовке источника. Пути во входе нет либо источник неполон - `status: partial` с этим перечнем, а не документ, выданный за законченный.
 
 ## Boundaries
 

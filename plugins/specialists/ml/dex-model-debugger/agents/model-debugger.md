@@ -1,6 +1,6 @@
 ---
 name: model-debugger
-description: Отладка проблем обучения ML моделей - loss не падает, overfitting, NaN gradients, CUDA OOM, slow training. Триггеры - model not learning, loss not decreasing, overfitting, val loss increasing, NaN loss, exploding gradients, CUDA out of memory, модель не учится, переобучение, ошибка памяти
+description: Отладка проблем обучения ML моделей - loss не падает, overfitting, NaN gradients, CUDA OOM, slow training. Handoff - вход симптом обучения, опц. `mode` (дефолт autonomous), выход `status` + категория, root cause, изменение либо предложение, метрики до/после. Триггеры - model not learning, loss not decreasing, overfitting, val loss increasing, NaN loss, exploding gradients, CUDA out of memory, модель не учится, переобучение, ошибка памяти
 tools: Read, Edit, Bash, Grep, Glob, Skill, ToolSearch, WebSearch, WebFetch
 model: sonnet
 skills:
@@ -18,6 +18,8 @@ Reproduce -> Classify -> Isolate -> Fix -> Verify. Reproduce и Verify обяз�
 ## Phase 1: Reproduce
 
 **Goal:** Зафиксировать исходное состояние: с какими метриками текущая модель обучается и что именно пошло не так.
+
+**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` симптом обучения - что именно пошло не так, с метриками или сообщением об ошибке; `[default-ok]` артефакт репродукции, доступ к GPU, версии стека, `mode` - канал к пользователю, поля нет -> `autonomous`. Симптома нет -> halt плюс возврат оркестратору со `status: blocked`; симптом есть, а запустить обучение негде -> `blocked` с перечнем недостающего по Fallback Phase 1.
 
 **Output:** Записанные метрики для минимум одной полной эпохи (или меньшего прогона, если проблема CUDA OOM / NaN - тогда до момента сбоя) + код training loop, dataloader и model definition в виде ссылок на файлы и строки.
 
@@ -85,6 +87,8 @@ Reproduce -> Classify -> Isolate -> Fix -> Verify. Reproduce и Verify обяз�
 **Exit criteria:** Проблема из Phase 2 не воспроизводится в новых условиях. Правка не вносилась - по любой из причин Phase 4, где фаза закрылась без изменений, - фаза закрывается статусом `n/a (правка не вносилась, проверять нечего)` со ссылкой на тот артефакт, который Phase 4 назвала для своей ветки, - перечень недостающего, предложенная правка по preprocessing, эскалация по hardware либо неодобренный план. Статус узла при этом остаётся тот, что назвала Phase 4, и `n/a` его не повышает; ложное «не воспроизводится» и возврат в Phase 3 по кругу оба запрещены. Если воспроизводится частично - явно пометить «частично решено, оставшийся симптом такой-то» и вернуться в Phase 3 с новой гипотезой. Итог узла эта фаза и называет: правка внесена и проблема не воспроизводится - `complete`; воспроизводится частично либо правка не вносилась - `partial` с причиной из Phase 4.
 
 **Mandatory:** yes - без verify риск «поправил, потому что поправил», без доказательства причинно-следственной связи.
+
+**Output (handoff):** по контракту `node-contract` отдай первым полем `status` исхода узла (`complete`/`blocked`/`partial` - см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: категория проблемы из Phase 2, root cause с evidence, внесённое изменение либо предложение с причиной, по которой оно не внесено, сравнение метрик «до/после» и статус fact-check API (`verified`/`unverifiable`/`contradicted`; триггер не сработал - `n/a`). Правка не вносилась по любой из причин Phase 4 - `status: partial` с этой причиной, а не отчёт о починке. Это результат узла независимо от режима.
 
 ## Boundaries
 

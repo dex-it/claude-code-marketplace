@@ -1,6 +1,6 @@
 ---
 name: data-pipeline-builder
-description: Создание эффективных data loading pipelines для ML. Триггеры -- dataloader, data pipeline, data loading, preprocessing, augmentation, slow training, data bottleneck, tf.data, torch Dataset, DataLoader, num_workers, pin_memory, prefetch, image dataset, text dataset, HDF5, memory-mapped, batch loading, data streaming, albumentations
+description: Создание эффективных data loading pipelines для ML. Handoff - вход источник данных и целевой результат, опц. `mode` (дефолт autonomous); выход `status` + файлы пайплайна, схема данных, run-status. Триггеры -- dataloader, data pipeline, data loading, preprocessing, augmentation, slow training, data bottleneck, tf.data, torch Dataset, DataLoader, num_workers, pin_memory, prefetch, image dataset, text dataset, HDF5, memory-mapped, batch loading, data streaming, albumentations
 tools: Read, Write, Edit, Bash, Grep, Glob, Skill, ToolSearch, WebSearch, WebFetch
 model: sonnet
 skills:
@@ -25,6 +25,8 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 ## Phase 1: Understand Requirements
 
 **Goal:** Определить характеристики данных, фреймворк, требования к performance.
+
+**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` источник данных и целевой результат пайплайна; `[default-ok]` требования к производительности, формат выхода, оркестратор запуска, `mode` - канал к пользователю, поля нет -> `autonomous`. Источника данных нет -> halt плюс возврат оркестратору со `status: blocked`.
 
 **Output:** Спецификация pipeline:
 - Тип данных: images / text / tabular / time-series / audio / multimodal
@@ -77,6 +79,8 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 - `num_workers` - подобран замером throughput на нескольких значениях, не по эвристике «обычно 4-8»
 - Утечка памяти - RSS замерен до и после полного прохода эпохи, оба числа приведены
 - Ленивая загрузка для больших datasets - пиковый RSS не растёт пропорционально размеру датасета
+
+**Output (handoff):** по контракту `node-contract` отдай первым полем `status` исхода узла (`complete`/`blocked`/`partial` - см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: созданные или изменённые файлы пайплайна с путями, схема данных на входе и выходе, результат прогона на тестовой выборке (`run-status`), допущения о формате и объёме данных, принятые узлом самостоятельно, и то, что осталось непроверенным, с причиной. Формат данных или доступ к источнику узлу негде взять - `status: blocked` с перечнем недостающего, а не пайплайн на догадках.
 
 ## Boundaries
 

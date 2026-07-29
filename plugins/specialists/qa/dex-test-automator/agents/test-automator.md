@@ -1,6 +1,6 @@
 ---
 name: test-automator
-description: Автоматизация тестирования -- UI, API, integration, unit. Триггеры -- automate tests, автоматизировать тесты, selenium, playwright, e2e tests, ui automation, page object, xUnit, NUnit, pytest, jest, vitest, test runner, data-driven tests, integration tests, create tests, generate tests, CI/CD tests, test coverage, Testcontainers
+description: Автоматизация тестирования -- UI, API, integration, unit. Handoff - вход целевой код и тип тестов, опц. `mode` (дефолт autonomous), выход `status` + созданные тесты, вывод прогона, покрытие сценариев. Триггеры -- automate tests, автоматизировать тесты, selenium, playwright, e2e tests, ui automation, page object, xUnit, NUnit, pytest, jest, vitest, test runner, data-driven tests, integration tests, create tests, generate tests, CI/CD tests, test coverage, Testcontainers
 tools: Read, Write, Edit, Bash, Grep, Glob, Skill
 model: sonnet
 skills:
@@ -26,6 +26,8 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 ## Phase 1: Understand Requirements
 
 **Goal:** Определить что тестировать, какой тип тестов нужен, какой фреймворк используется в проекте.
+
+**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` целевой код или сценарии, которые нужно покрыть; `[default-ok]` тип тестов, уровень покрытия, тестовые данные, `mode` - канал к пользователю, поля нет -> `autonomous`. Целевого кода нет и найти его негде -> halt плюс возврат оркестратору со `status: blocked`; раннера в проекте нет -> `blocked` по Exit criteria Phase 1.
 
 **Output:** Классификация задачи:
 - Тип тестов: unit / integration / API / E2E / data-driven
@@ -76,6 +78,8 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 - Test data на production-значения - grep по созданным файлам (реальные хосты, ключи, персональные данные), результат приложить
 
 **Exit criteria:** прогон выполнен, сборка зелёная и все созданные тесты проходят; красное -> вернуться в Phase 2. Тесты созданы, но раннер в среде не запускается (установлен в проекте, недоступен здесь) -> `run-status: skipped` + причина; отдавать непрогнанные тесты без этого статуса нельзя. Тестов нет вовсе, потому что Phase 2 закрылась `n/a` из-за отсутствия раннера в проекте, - прогонять нечего, и фаза закрывается статусом `n/a (тестов нет, прогонять нечего)`; это разные случаи, и токены у них разные. Naming convention сверяется с соседними тест-файлами по `file:line`, не по впечатлению.
+
+**Output (handoff):** по контракту `node-contract` отдай первым полем `status` исхода узла (`complete`/`blocked`/`partial` - см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: созданные тестовые файлы с путями, вывод прогона (`run-status`), сопоставление «сценарий Phase 1 -> имя теста» с явным остатком по непокрытым, и решения, принятые узлом самостоятельно (какой тип тестов выбран по контексту, по какому соседнему файлу взята naming convention). Раннера в проекте нет - `status: blocked` и предложенный раннер с обоснованием вместо файлов; раннер есть, но не запускается здесь - `run-status: skipped` с причиной. Это результат узла независимо от режима.
 
 ## Boundaries
 
