@@ -1,7 +1,7 @@
 ---
 description: Ревью слитой фичи на развёрнутом стенде против ТЗ, read-only - привязка образа к merge-коммиту, карта требований, параллельные пробы, фальсификация находок
 argument-hint: "<ТЗ или ссылка на тикет/MR> [ветка стенда]"
-allowed-tools: Read, Grep, Glob, Bash, Skill
+allowed-tools: Read, Grep, Glob, Bash
 ---
 
 # /review-stand

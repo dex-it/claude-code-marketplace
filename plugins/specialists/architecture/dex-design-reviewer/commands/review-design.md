@@ -1,6 +1,6 @@
 ---
 description: Ревью и согласование чужого дизайн-документа до кода - спека, ADR, диаграммы; оракулы NFR/требований/ADR, фальсификация, severity, правки автору
-allowed-tools: Read, Grep, Glob, Skill
+allowed-tools: Read, Grep, Glob
 argument-hint: "<путь к дизайн-документу (спека/ADR)> [источник требований для сверки]"
 ---
 
