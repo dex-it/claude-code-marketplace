@@ -83,7 +83,7 @@ npm run validate:agents       # только агенты
 ### Как добавить новую проверку
 
 1. Откройте `tools/validate-agent.js`
-2. Найдите функцию `validateFrontmatter`, `validatePhases` или `validateSkillReferences` в зависимости от уровня проверки
+2. Найдите функцию своего уровня проверки: `validateFrontmatter`, `validateFileNameMatchesName`, `validatePhases`, `validateFactcheckCascade`, `validateSkillReferences`, `validateAttributeBlocks`. Уровня в списке нет - заводите новую функцию и вызывайте её из `validateFile`, иначе правило не отработает ни на одном файле
 3. Добавьте новое правило - push в `findings` с полями `level: ERROR`, `rule` (kebab-case идентификатор) и `message`
 4. Прогоните `node tools/validate-agent.js all` чтобы убедиться, что правило не создаёт массовых false positives на существующих агентах
 5. Обновите этот README с описанием нового правила - и порог тоже, если правило его вводит
