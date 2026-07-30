@@ -81,6 +81,9 @@ claude plugins uninstall dex-dotnet-coder
 | `infrastructure` | Вся инфраструктура |
 | `cli-tools` | CLI-утилиты для диагностики (gh, glab, kubectl, jenkins, teamcity, psql, redis-cli, kaf, rabbitmqadmin, aws-s3, playwright) |
 | `code-review` | Цикл работы с кодом: ревью MR/PR, ре-ревью дельты, план правок, реализация фичи, pre-push саморевью (языко-агностично) |
+| `bug-lifecycle` | Жизненный цикл бага: поиск, оформление, RCA на стенде, фикс на источнике (языко-агностично) |
+| `runtime-diagnostics` | Runtime-диагностика .NET и native-границы: hang, crash, leak, дампы, netcoredbg |
+| `sdlc` | Полный цикл SDLC языко-агностично: движок автономного доведения задачи, требования, дизайн, реализация, тесты, ревью, стенд, баги, документирование. Стек добирается профильным бандлом |
 
 Подробнее: [install-bundle/README.md](./install-bundle/README.md)
 
