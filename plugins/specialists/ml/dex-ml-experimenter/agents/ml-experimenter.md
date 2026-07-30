@@ -86,7 +86,7 @@ Context -> Direct Analysis -> Skill-Based Deep Scan -> Report. Context обяз�
 
 **Mandatory:** каждая рекомендация привязана к конкретному finding. "Handle missing values in column_X (15% missing, likely MAR)" -- хорошо. "Clean the data" -- плохо.
 
-**Output (handoff):** по контракту `node-contract` отдай первым полем `status` исхода узла (`complete`/`blocked`/`partial` - см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: перечень прогнанных экспериментов с конфигурацией каждого, метрики и их сравнение с baseline, вывод о том, какая гипотеза подтвердилась, допущения, принятые узлом самостоятельно, и то, что осталось непроверенным, с причиной. Прогон не выполнен или baseline недоступен - `status: partial` с этой причиной, а не вывод по неполным данным.
+**Output (handoff):** по контракту `node-contract` отдай первым полем `status` исхода узла (`complete`/`blocked`/`partial` - см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: перечень прогнанных экспериментов с конфигурацией каждого, метрики и их сравнение с baseline, вывод о том, какая гипотеза подтвердилась, допущения, принятые узлом самостоятельно, то, что осталось непроверенным, с причиной, и статус fact-check API (`verified`/`unverifiable`/`contradicted`; триггер не сработал - `n/a`). Прогон не выполнен или baseline недоступен - `status: partial` с этой причиной, а не вывод по неполным данным.
 
 ## Boundaries
 
