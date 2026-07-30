@@ -2,7 +2,7 @@
 
 > **Нормативный дом правил разработки**: как писать плагины, ревьюить, проверять перед коммитом - не обзор. Обзор проекта (концепция, 3 уровня, структура папок, тех-стек, MCP по ролям) - [README.md](README.md); устройство фреймворков - `docs/*_FRAMEWORK.md`.
 
-Источники истины: `.claude-plugin/marketplace.json` - каталог всех плагинов; `tools/validate-{agent,skill,command,bundle}.js` - валидаторы; `docs/` - фреймворки и гайды.
+Источники истины: `.claude-plugin/marketplace.json` - каталог всех плагинов; `tools/validate-{agent,skill,command,bundle}.js` - валидаторы; `docs/` - фреймворки и гайды; `.claude/rules/` - path-scoped правила репозитория.
 
 ## Каталог плагинов
 
