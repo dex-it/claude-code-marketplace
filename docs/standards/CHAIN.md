@@ -58,12 +58,12 @@
 
 ### Состав BRS
 
-Все 18 подпунктов §9.3 ведутся. Наши добавки сверх норматива названы добавками - смешивать их со
-стандартом нельзя, иначе при сверке невозможно отличить требование стандарта от нашего решения.
+Ведутся все 18 подпунктов §9.3. Наши добавки сверх норматива (anti-metrics, допущения, открытые
+вопросы, RACI, epics) ведутся тоже, но называются добавками - смешивать их со стандартом нельзя,
+иначе при сверке не отличить требование стандарта от нашего решения.
 
-| Норматив §9.3 | Наши добавки |
-|---|---|
-| business purpose, business scope, business overview, major stakeholders, business environment, mission/goals/objectives, business model, information environment, business processes, business operational policies and rules, business operational constraints, business operational modes, business operational quality, business structure, high-level operational concept, high-level operational scenarios, other high-level life-cycle concepts, project constraints | anti-metrics (ограничение, которое нельзя ухудшить в погоне за метрикой), допущения, открытые вопросы, RACI в карте сторон, epics |
+Операционный дом перечня разделов - process-skill этапа `business-analysis` (раздел 7): его читают
+и составитель, и ревьюер. Здесь перечень не повторяется - копия разошлась бы молча.
 
 Три подпункта - `high-level operational concept`, `high-level operational scenarios`,
 `other high-level life-cycle concepts` - и есть этап 0. Отдельным документом не выпускаются.
