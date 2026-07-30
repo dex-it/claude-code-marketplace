@@ -617,9 +617,13 @@ function validateSkillReferences(markdownBody, marketplacePlugins, findings) {
  * Без пустой строки перед следующим таким лейблом markdown сливает их в один абзац,
  * и нормативный пункт перестаёт читаться отдельно. Ловится по AST: внутри одного
  * paragraph-узла лейбл стоит не на первой строке (заголовки и code fence в paragraph
- * не попадают, поэтому ложных срабатываний на них нет).
+ * не попадают, поэтому ложных срабатываний на них нет). Длина лейбла не ограничена:
+ * верхняя граница отсекала бы длинные лейблы каталога от проверки молча, а склейка
+ * у них ровно та же. Префикс контейнера (отступ пункта списка, `>` цитаты) снимается
+ * перед проверкой - внутри списка и blockquote лейбл стоит не на нулевой колонке.
  */
-const ATTRIBUTE_LABEL_RE = /^\*\*[^*\n]{1,60}:\*\*/;
+const ATTRIBUTE_LABEL_RE = /^\*\*[^*\n]+:\*\*/;
+const CONTAINER_PREFIX_RE = /^[\s>]*/;
 
 function validateAttributeBlocks(markdownBody, findings, bodyOffset = 0) {
   const tree = unified().use(remarkParse).parse(markdownBody);
@@ -631,7 +635,7 @@ function validateAttributeBlocks(markdownBody, findings, bodyOffset = 0) {
     if (!start || !end || end <= start) return;
 
     for (let ln = start + 1; ln <= end; ln++) {
-      const text = lines[ln - 1] ?? '';
+      const text = (lines[ln - 1] ?? '').replace(CONTAINER_PREFIX_RE, '');
       if (!ATTRIBUTE_LABEL_RE.test(text)) continue;
       const label = text.slice(2, text.indexOf(':**'));
       const fileLine = ln + bodyOffset;
