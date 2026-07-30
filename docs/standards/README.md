@@ -223,6 +223,7 @@ NASA Systems Engineering Handbook, Revision 2. Работа правительс
 | **MOP** - «derived from the MOEs but stated in more technical terms from the supplier's point of view», quantitative and measurable; на одну MOE обычно несколько MOP | дизайн цепочки: критерий верификации уровня `FR`/`NFR` | `verified` | Rev 2, §4.2.1.2.5 |
 | **TPM** - подмножество MOP, критичное для успеха, отслеживается во времени против плановых значений | дизайн цепочки: мониторинг хода работ, не гейт артефакта | `verified` | Rev 2, §4.2.1.2.5 |
 | Атрибуты «статус» и «риск» требования | карта артефактов, план каталога п.2 | `unverifiable` | в Table 4.2-2 отсутствуют; в 29148 §5.2.8 - за paywall. Держать как выведенные из практики, не как требование стандарта |
+| Verification method и verification level - атрибуты требования **системного** уровня, у бизнес-требования их нет (оно валидируется против MOE) | `dex-skill-business-analysis`, раздел «Атрибуты единицы» | `unverifiable` | Table 4.2-2 даёт 7 метаданных единым списком, без разбиения по уровням требований; разнесение выведено из пары MOE (валидация, уровень `BR`) / MOP (верификация, уровень `FR`/`NFR`) - обе строки выше `verified`. Держать как решение каталога, не как требование стандарта |
 
 ### INCOSE Guide to Writing Requirements (GtWR) v3.1, 2022
 
