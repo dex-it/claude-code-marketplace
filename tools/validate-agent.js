@@ -128,8 +128,16 @@ const FORBIDDEN_FRONTMATTER_FIELDS = ['allowed-tools'];
  * so pre-loading them wastes context on runs that don't need them.
  * Names are matched stack-agnostically by the skill's short name (last `:`-segment
  * and stripped `dex-skill-` prefix) so all listing formats resolve.
+ *
+ * Value = which agents may pre-load it. `null` - any agent (the handoff contract
+ * is unconditional for every node). A Set - a stage normative: unconditional for
+ * the agent OWNING that stage and conditional for everyone else, so an open
+ * allowlist would let any agent pre-load a stage normative it never runs.
  */
-const ALLOWED_PRELOAD_SKILLS = new Set(['node-contract']);
+const ALLOWED_PRELOAD_SKILLS = new Map([
+  ['node-contract', null],
+  ['business-analysis', new Set(['business-requirements-analyst'])],
+]);
 
 /**
  * Normalize a `skills:` entry to its short skill name for allowlist matching.
@@ -291,7 +299,16 @@ function validateFrontmatter(parsed, findings) {
         findings.push({
           level: ERROR,
           rule: 'frontmatter-skills-not-preloadable',
-          message: `\`skills:\` entry "${String(raw).trim()}" is not an unconditional process-skill - pre-load only [${[...ALLOWED_PRELOAD_SKILLS].join(', ')}]; conditional skills load imperatively via Skill tool in phases`,
+          message: `\`skills:\` entry "${String(raw).trim()}" is not an unconditional process-skill - pre-load only [${[...ALLOWED_PRELOAD_SKILLS.keys()].join(', ')}]; conditional skills load imperatively via Skill tool in phases`,
+        });
+        continue;
+      }
+      const owners = ALLOWED_PRELOAD_SKILLS.get(short);
+      if (owners != null && !owners.has(String(fm.name ?? '').trim())) {
+        findings.push({
+          level: ERROR,
+          rule: 'frontmatter-skills-not-own-stage',
+          message: `\`skills:\` entry "${String(raw).trim()}" is a stage normative - pre-loadable only by the agent owning that stage [${[...owners].join(', ')}]; for others it is conditional and loads via Skill tool in a phase`,
         });
       }
     }

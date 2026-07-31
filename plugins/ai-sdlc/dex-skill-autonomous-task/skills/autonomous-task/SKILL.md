@@ -355,8 +355,8 @@ handoff - поле не меняется, усиление едет тексто
 | поиск «где/кто вызывает» | read-only fan-out поиск | `Explore` / `general-purpose` |
 | root-cause бага по коду | debugger под стек | `debugger` |
 | runtime/perf-диагностика | диагностик/инцидент-агент | `incident-investigator`, `dotnet-runtime-diagnostician` |
-| бизнес-требования уровня эпика (BRD) | бизнес-аналитик (код НЕ читает; исключение - brownfield «код без ТЗ»: реконструкция по legacy-reconstruction) | `business-requirements-analyst` |
-| валидация набора требований (пробелы/конфликты/ambiguity) | требования-аналитик (код НЕ читает, кроме brownfield «код без ТЗ» - реконструкция по legacy-reconstruction; спеку НЕ производит) | `requirements-analyst` |
+| бизнес-требования уровня эпика (BRD: `BR-NNN` + MOE) | бизнес-аналитик (код НЕ читает; исключение - brownfield «код без ТЗ»: реконструкция по legacy-reconstruction; `FR`/`NFR` НЕ порождает) | `business-requirements-analyst` |
+| требования системного уровня (`FR`/`NFR` из `BR`), валидация набора (пробелы/конфликты/ambiguity) | требования-аналитик (код НЕ читает, кроме brownfield «код без ТЗ» - реконструкция по legacy-reconstruction; спеку НЕ производит) | `requirements-analyst` |
 | спека инкремента (сверка с кодом+ADR -> решение, критерии приёмки) | architect под стек (нужен доступ к коду - валидатор требований его не даёт) | `architect`, `architect-dotnet` |
 | проектирование/архитектура | architect под стек (НЕ coder) | `architect`, `architect-dotnet` |
 | дизайн API/контрактов | api-designer | `api-designer` |

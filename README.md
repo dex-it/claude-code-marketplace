@@ -153,7 +153,7 @@ claude plugins uninstall dex-dotnet-coder
 
 | Плагин | Описание |
 |--------|----------|
-| dex-business-analyst | Requirements, BRD |
+| dex-business-analyst | Бизнес-требования: BRD с `BR-NNN` и MOE |
 | dex-roadmap-planner | Strategic planning |
 | dex-backlog-manager | Epic backlog, prioritization |
 | dex-pm-metrics-analyst | KPIs, OKRs, metrics |
@@ -162,9 +162,9 @@ claude plugins uninstall dex-dotnet-coder
 
 | Плагин | Описание |
 |--------|----------|
-| dex-requirements-orchestrator | Дирижёр зоны требований (`/feature`): идея -> BRD -> stories, гейты с апрувом оператора |
+| dex-requirements-orchestrator | Дирижёр зоны требований (`/feature`): идея -> BRD -> `FR`/`NFR` -> stories, гейты с апрувом оператора |
 | dex-requirements-reviewer | Приёмка чужого набора требований (`/review-requirements`) |
-| dex-requirements-analyst | Requirements analysis, validation |
+| dex-requirements-analyst | Требования системного уровня: `FR`/`NFR` из `BR`, пробелы, конфликты |
 | dex-user-story-writer | User stories, acceptance criteria |
 | dex-process-modeler | BPMN, workflows |
 | dex-doc-writer | Technical specs, API docs |
