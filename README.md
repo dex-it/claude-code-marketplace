@@ -4,13 +4,13 @@
 
 ## О проекте
 
-Claude Code Marketplace — набор специализированных плагинов для Claude Code, организованных в 3 уровня:
+Claude Code Marketplace - набор специализированных плагинов для Claude Code, организованных в 3 уровня:
 
 ```
-Level 3: BUNDLES     — наборы для быстрой установки по ролям
-Level 2: SPECIALISTS — агенты с узкой специализацией
-Level 1: SKILLS      — базы знаний (автоматическая активация)
-         UTILITIES   — инструменты (hooks, notifications, CLI)
+Level 3: BUNDLES     - наборы для быстрой установки по ролям
+Level 2: SPECIALISTS - агенты с узкой специализацией
+Level 1: SKILLS      - базы знаний (автоматическая активация)
+         UTILITIES   - инструменты (hooks, notifications, CLI)
 ```
 
 **Принцип:** атомарные плагины без дублирования. Собирай свой набор из нужных компонентов.
@@ -65,7 +65,7 @@ claude plugins uninstall dex-dotnet-coder
 
 ## Бандлы (Level 3)
 
-Мета-плагины для установки наборов. Не содержат кода — только список компонентов.
+Мета-плагины для установки наборов. Не содержат кода - только список компонентов.
 
 | Bundle | Описание |
 |--------|----------|
@@ -81,6 +81,9 @@ claude plugins uninstall dex-dotnet-coder
 | `infrastructure` | Вся инфраструктура |
 | `cli-tools` | CLI-утилиты для диагностики (gh, glab, kubectl, jenkins, teamcity, psql, redis-cli, kaf, rabbitmqadmin, aws-s3, playwright) |
 | `code-review` | Цикл работы с кодом: ревью MR/PR, ре-ревью дельты, план правок, реализация фичи, pre-push саморевью (языко-агностично) |
+| `bug-lifecycle` | Жизненный цикл бага: поиск, оформление, RCA на стенде, фикс на источнике (языко-агностично) |
+| `runtime-diagnostics` | Runtime-диагностика .NET и native-границы: hang, crash, leak, дампы, netcoredbg |
+| `sdlc` | Полный цикл SDLC языко-агностично: движок автономного доведения задачи, требования, дизайн, реализация, тесты, ревью, стенд, баги, документирование. Стек добирается профильным бандлом |
 
 Подробнее: [install-bundle/README.md](./install-bundle/README.md)
 
@@ -141,6 +144,7 @@ claude plugins uninstall dex-dotnet-coder
 | Плагин | Описание |
 |--------|----------|
 | dex-architect | System design, patterns, trade-offs |
+| dex-design-reviewer | Приёмка чужого дизайн-документа (`/review-design`) - спека, ADR, диаграммы до кода |
 | dex-adr-writer | Architecture Decision Records |
 | dex-diagram-creator | C4, sequence diagrams, Mermaid |
 | dex-api-designer | REST API design, OpenAPI |
@@ -158,6 +162,8 @@ claude plugins uninstall dex-dotnet-coder
 
 | Плагин | Описание |
 |--------|----------|
+| dex-requirements-orchestrator | Дирижёр зоны требований (`/feature`): идея -> BRD -> stories, гейты с апрувом оператора |
+| dex-requirements-reviewer | Приёмка чужого набора требований (`/review-requirements`) |
 | dex-requirements-analyst | Requirements analysis, validation |
 | dex-user-story-writer | User stories, acceptance criteria |
 | dex-process-modeler | BPMN, workflows |
@@ -184,7 +190,7 @@ claude plugins uninstall dex-dotnet-coder
 
 ## Skills (Level 1)
 
-Базы знаний — активируются автоматически по ключевым словам в контексте. Skills по категориям:
+Базы знаний - активируются автоматически по ключевым словам в контексте. Skills по категориям:
 
 | Категория | Skills |
 |-----------|--------|
@@ -193,17 +199,17 @@ claude plugins uninstall dex-dotnet-coder
 | **Security** | owasp-security |
 | **Workflow** | git-workflow, merge-conflict-resolution |
 | **Infrastructure** | rabbitmq, kafka, elasticsearch, redis, mongodb, docker, kubernetes, gitlab-ci, github-actions, jenkins, teamcity, logging, observability |
-| **Architecture** | clean-architecture, ddd, microservices, system-design |
-| **Product & Analysis** | agile, user-stories, bpmn, doc-standards, api-specification, epic-planning, product-discovery, prioritization |
+| **Architecture** | clean-architecture, ddd, microservices, system-design, legacy-reconstruction |
+| **Product & Analysis** | agile, user-stories, bpmn, doc-standards, adr-quality, requirement-quality, requirement-set-quality, api-specification, epic-planning, product-discovery, prioritization |
 | **QA** | test-design, api-testing, deep-audit, tech-audit, playwright, exploratory-testing, bug-reproduction, contract-drift |
 | **Incident & RCA** | problem-specification, root-cause-analysis, change-correlation, shared-stand-safety |
 | **ML** | python-pytorch, python-tensorflow, python-classical-ml, python-nlp-transformers, python-computer-vision, python-ml-optimization |
 
 ## Utilities (Level 1)
 
-Сгруппированы по назначению. Подробный гайд по CLI-утилитам — установка бинарей, конфигурация, CLI vs MCP — см. [docs/CLI_UTILITIES.md](./docs/CLI_UTILITIES.md). Установить все CLI-плагины одной командой: `./install-bundle/install-bundle.sh cli-tools`.
+Сгруппированы по назначению. Подробный гайд по CLI-утилитам - установка бинарей, конфигурация, CLI vs MCP - см. [docs/CLI_UTILITIES.md](./docs/CLI_UTILITIES.md). Установить все CLI-плагины одной командой: `./install-bundle/install-bundle.sh cli-tools`.
 
-### CLI Tools — VCS & CI/CD
+### CLI Tools - VCS & CI/CD
 
 | Плагин | Описание | Бинарь |
 |--------|----------|--------|
@@ -212,7 +218,13 @@ claude plugins uninstall dex-dotnet-coder
 | dex-jenkins-cli | Jobs, builds, console output | REST API |
 | dex-teamcity-cli | Builds, agents, build logs | REST API |
 
-### CLI Tools — Infrastructure & Data
+### CLI Tools - Tracker
+
+| Плагин | Описание | Бинарь |
+|--------|----------|--------|
+| dex-jira-cli | Issues, JQL search, sprints (read-only) | `jira` |
+
+### CLI Tools - Infrastructure & Data
 
 | Плагин | Описание | Бинарь |
 |--------|----------|--------|
@@ -243,7 +255,7 @@ claude plugins uninstall dex-dotnet-coder
 # Что есть, чего не хватает
 ./install-bundle/install-cli-tools.sh --check
 
-# Поставить всё недостающее (apt / dnf / pacman / apk / brew — авто-детект)
+# Поставить всё недостающее (apt / dnf / pacman / apk / brew - авто-детект)
 ./install-bundle/install-cli-tools.sh --all
 
 # Точечно
@@ -258,10 +270,10 @@ MCP конфигурации в каталоге `mcp/`. Подробнее: [mc
 
 | Роль | Required | Optional |
 |------|----------|----------|
-| .NET Developer | gitlab | postgres, rabbitmq, kafka, docker, seq, kubernetes |
+| .NET Developer | gitlab | genai-toolbox, rabbitmq, kafka, docker, seq, kubernetes |
 | Architect | github, gitlab | notion, filesystem |
-| DevOps | gitlab | docker, kubernetes |
-| Product Manager | notion | — |
+| DevOps | gitlab | docker, kubernetes, sentry |
+| Product Manager | notion | - |
 | System Analyst | pdf-reader | notion, google-drive |
 | QA Engineer | gitlab | filesystem |
 | ML Engineer | gitlab | mlflow, wandb, huggingface |
@@ -308,11 +320,37 @@ claude-code-marketplace/
 └── README.md
 ```
 
+## Технологический стек
+
+Стеки, под которые заточены специалисты и skills:
+
+**`.NET`** - .NET 8.0+ (async/await + CancellationToken), Entity Framework Core, xUnit + Moq, RabbitMQ + MassTransit, Elasticsearch, Redis + StackExchange.Redis, Serilog + Seq, Docker, Kubernetes, GitLab CI.
+
+**`TS/JS`** - TypeScript fullstack: Node.js/Bun backend (Express/Fastify/Hono), React frontend, Vitest/Jest для тестов.
+
+**Python ML** - Python 3.10+, PyTorch, TensorFlow/Keras, scikit-learn, XGBoost, HuggingFace Transformers, MLflow, Weights & Biases, Optuna, ONNX, TFLite, FastAPI.
+
 ## Требования
 
-- **Claude Code** — latest version
-- **jq** — для install скриптов (Linux/macOS)
-- **Credentials** — API ключи для MCP интеграций (см. [CREDENTIALS.md](./CREDENTIALS.md))
+- **Claude Code** - последняя версия
+- **jq** - для install-скриптов на Linux/macOS
+- **Credentials** - API-ключи для MCP-интеграций (см. [CREDENTIALS.md](./CREDENTIALS.md))
+
+Под разные части маркетплейса нужны разные инструменты:
+
+| Что ставите | Linux | macOS |
+|---|---|---|
+| Плагины бандлов (`install-bundle.sh`) | `jq` + `claude` | `brew install jq` + `claude` |
+| CLI-бинари (`install-cli-tools.sh`) | apt / dnf / pacman / apk (авто-детект) | Homebrew (`brew`) |
+| npx-MCP и `dex-playwright-cli` | Node.js (`setup/npx-install/install.sh`) | Node.js (`brew install node`) |
+| uvx-MCP (gitlab, rabbitmq, docker, mlflow) | uv (`setup/uvx-install/install.sh`) | тот же скрипт (uv ставит свой установщик, brew не нужен) |
+| Нотификаторы (telegram / discord) | `jq` + `curl` | `jq` + `curl` (в составе macOS) |
+
+## Поддержка платформ
+
+- **Linux** - основной путь. Bash-скриптам нужен один из пакетных менеджеров (apt / dnf / pacman / apk).
+- **macOS** - поддержан, Intel и Apple Silicon. Bash-скрипты работают на стоковом `/bin/bash` 3.2 (отдельный bash через Homebrew не требуется); CLI-бинари ставятся через Homebrew. Часть низкоуровневых утилит ограничена платформой: `netcoredbg` и `valgrind` не собираются под Apple Silicon (arm64), а `strace` / `bpftrace` / `bcc` / `perf` доступны только на Linux. Полная матрица по CLI-утилитам - [docs/CLI_UTILITIES.md](./docs/CLI_UTILITIES.md), по MCP-серверам - [mcp/README.md](./mcp/README.md).
+- **Windows** - через PowerShell-скрипты (`*.ps1`) или WSL.
 
 ## Contributing
 
@@ -329,7 +367,7 @@ claude-code-marketplace/
 
 ## License
 
-GPL v3.0 — см. [LICENSE](./LICENSE)
+GPL v3.0 - см. [LICENSE](./LICENSE)
 
 ---
 

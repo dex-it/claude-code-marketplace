@@ -1,5 +1,5 @@
 ---
-description: Анализ памяти Redis — top keys, fragmentation, eviction
+description: Анализ памяти Redis - top keys, fragmentation, eviction
 user-invocable: true
 allowed-tools: Bash
 argument-hint: "[--bigkeys | --top N | key] [-u redis://...]"
@@ -23,7 +23,7 @@ argument-hint: "[--bigkeys | --top N | key] [-u redis://...]"
 
 **Constraints:**
 
-- Требует `redis-cli` в PATH; если не найден -- показать инструкцию установки и ссылку на `docs/CLI_UTILITIES.md`.
-- `--top N` сэмплирует через SCAN -- на больших инстансах ограничивать N (≤100) и предупреждать о времени.
+- Требует `redis-cli` в PATH; если не найден -- показать инструкцию установки и ссылку на [docs/CLI_UTILITIES.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/CLI_UTILITIES.md).
+- `--top N` сэмплирует через SCAN -- на больших инстансах ограничивать N (<=100) и предупреждать о времени.
 - `MEMORY USAGE` доступна с Redis 4.0+; на более старых -- сообщить и предложить `--bigkeys`.
 - Read-only.

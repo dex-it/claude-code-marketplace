@@ -8,7 +8,7 @@
 
 ## Архитектура
 
-Команда делегирует агенту `self-reviewer` (Capture Diffs -> Domain Recall -> Change Map -> Parallel 7-Focus Scan -> Falsification -> Assemble Round -> Report and Loop). Захватываются три слоя: committed, staged, worktree.
+Команда делегирует агенту `self-reviewer` (Capture Diffs -> Domain Recall -> Change Map -> Parallel 8-Focus Scan -> Falsification -> Assemble Round -> Report). Захватываются три слоя: committed, staged, worktree.
 
 Седьмой фокус - **Local verification** - не читает код, а реально запускает команды проекта (build, типы, линтер, тесты, audit) и прикладывает фактический вывод; упавшая команда это объективная находка CRITICAL/HIGH. Шестой фокус - **Loose ends and hacks** - отдельный критичный проход на недоделки (дефолт severity HIGH).
 
@@ -16,7 +16,7 @@
 
 ## Skills
 
-Тематические skills грузятся условно по содержимому diff (solid, owasp-security, testability, clean-architecture, ddd, microservices, nfr и др.); профильные по стеку — через реестр `dex-skill-stack-registry` (единый способ для всех языко-агностичных агентов). Плюс всегда `dex-skill-no-loose-ends` (ядро фокуса loose-ends), `dex-skill-review-evidence`, `dex-skill-git-workflow`, `dex-skill-output-hygiene`.
+Тематические skills грузятся условно по содержимому diff (solid, owasp-security, testability, clean-architecture, ddd, microservices, nfr и др.); профильные по стеку - через реестр `dex-skill-stack-registry` (единый способ для всех языко-агностичных агентов). Плюс всегда `dex-skill-no-loose-ends` (ядро фокуса loose-ends), `dex-skill-review-evidence`, `dex-skill-git-workflow`, `dex-skill-output-hygiene`.
 
 ## Связанные плагины
 

@@ -12,7 +12,7 @@ echo ""
 # Проверка наличия curl
 if ! command -v curl &> /dev/null; then
     echo "❌ curl не установлен. Установите curl:"
-    echo "   apt-get install curl"
+    echo "   macOS: brew install curl (обычно уже есть); Debian/Ubuntu: sudo apt-get install curl"
     exit 1
 fi
 
@@ -56,32 +56,33 @@ fi
 echo "📦 Установка uv..."
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Добавление uv в PATH для текущей сессии
+# Официальный установщик uv ставит uv, uvx и uvw в $HOME/.local/bin
+# (до версии 0.5.0 - в $HOME/.cargo/bin) и сам дописывает PATH в профиль shell.
+# Здесь только подхватываем PATH для текущей сессии - постоянную настройку
+# делает сам установщик, дублировать запись в rc не нужно.
 echo ""
-echo "📝 Настройка PATH..."
+echo "📝 Настройка PATH для текущей сессии..."
 
-# Определение shell конфигурационного файла
-if [ -n "$ZSH_VERSION" ]; then
-    SHELL_RC="$HOME/.zshrc"
-elif [ -n "$BASH_VERSION" ]; then
-    SHELL_RC="$HOME/.bashrc"
+# PATH для текущей сессии: env-файл установщика, иначе оба возможных каталога uv
+if [ -f "$HOME/.local/bin/env" ]; then
+    . "$HOME/.local/bin/env"
 else
-    SHELL_RC="$HOME/.profile"
+    export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 fi
 
-# Добавление uv в PATH, если еще не добавлено
-UV_PATH_EXPORT='export PATH="$HOME/.cargo/bin:$PATH"'
-if ! grep -q ".cargo/bin" "$SHELL_RC" 2>/dev/null; then
-    echo "" >> "$SHELL_RC"
-    echo "# uv (uvx) path" >> "$SHELL_RC"
-    echo "$UV_PATH_EXPORT" >> "$SHELL_RC"
-    echo "✅ Добавлен PATH в $SHELL_RC"
-else
-    echo "✅ PATH уже настроен в $SHELL_RC"
+# Постоянная настройка PATH. Официальный установщик uv обычно сам дописывает
+# профиль, но если uv уже стоял, повторный запуск мог его не тронуть - тогда в
+# новом терминале uvx снова не найдётся. Идемпотентная (grep-гард) дозапись в
+# профиль целевого shell страхует от этого; дубля со строкой установщика не будет.
+case "$(basename "${SHELL:-}")" in
+    zsh)  PROFILE="$HOME/.zshrc" ;;
+    bash) PROFILE="$HOME/.bashrc" ;;
+    *)    PROFILE="$HOME/.profile" ;;
+esac
+if [ -f "$HOME/.local/bin/env" ] && ! grep -qs '.local/bin/env' "$PROFILE"; then
+    printf '\n. "$HOME/.local/bin/env"\n' >> "$PROFILE"
+    echo "📝 Постоянная настройка PATH добавлена в $PROFILE"
 fi
-
-# Загрузка PATH для текущей сессии
-export PATH="$HOME/.cargo/bin:$PATH"
 
 # Проверка установки
 echo ""
@@ -89,20 +90,15 @@ echo "🔍 Проверка установки..."
 if command -v uv &> /dev/null; then
     echo "✅ uv установлен: $(uv --version)"
 else
-    echo "⚠️  uv не найден в PATH. Выполните:"
-    echo "   source $SHELL_RC"
-    echo "   или перезапустите терминал"
+    echo "⚠️  uv не найден в PATH. Перезапустите терминал или выполните:"
+    echo "   source \"\$HOME/.local/bin/env\""
 fi
 
 if command -v uvx &> /dev/null; then
     echo "✅ uvx доступен"
 else
-    echo "⚠️  uvx не найден. Обычно uvx - это симлинк на uv"
-    if [ -f "$HOME/.cargo/bin/uv" ]; then
-        echo "   Создание симлинка uvx..."
-        ln -sf "$HOME/.cargo/bin/uv" "$HOME/.cargo/bin/uvx"
-        echo "✅ Симлинк uvx создан"
-    fi
+    echo "⚠️  uvx не найден в PATH. Установщик uv ставит uvx рядом с uv в \$HOME/.local/bin."
+    echo "   Перезапустите терминал или выполните: source \"\$HOME/.local/bin/env\""
 fi
 
 echo ""
@@ -116,7 +112,7 @@ echo "  uvx: $(uvx --version 2>&1 || echo 'доступен')"
 echo ""
 echo "Следующие шаги:"
 echo "1. Перезапустите терминал или выполните:"
-echo "   source $SHELL_RC"
+echo "   source \"\$HOME/.local/bin/env\""
 echo ""
 echo "2. Проверьте установку:"
 echo "   uv --version"

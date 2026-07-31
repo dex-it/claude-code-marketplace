@@ -1,6 +1,6 @@
 # dex-psql-cli
 
-CLI-утилита для PostgreSQL. Read-only запросы, инспекция схемы, планы запросов и диагностика locks — через `psql`.
+CLI-утилита для PostgreSQL. Read-only запросы, инспекция схемы, планы запросов и диагностика locks - через `psql`.
 
 ## Команды
 
@@ -32,7 +32,7 @@ brew install libpq && brew link --force libpq
 ./install-bundle/install-cli-tools.sh psql
 ```
 
-См. [docs/CLI_UTILITIES.md](../../../docs/CLI_UTILITIES.md) — полный гайд по конфигурации (URI vs env, `PGPASSFILE`, SSL, матрица CLI vs MCP).
+См. [docs/CLI_UTILITIES.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/CLI_UTILITIES.md) - полный гайд по конфигурации (URI vs env, `PGPASSFILE`, SSL, матрица CLI vs MCP).
 
 ## Установка плагина
 
@@ -42,4 +42,4 @@ claude plugins install dex-psql-cli@dex-claude-marketplace
 
 ## Безопасность
 
-Все команды **read-only by design**. `/psql-query` и `/psql-explain` отвергают `INSERT` / `UPDATE` / `DELETE` / DDL / DCL — для write-операций используйте `dex-postgresql-specialist` или вызывайте `psql` напрямую.
+Все команды **read-only by design**. `/psql-query` и `/psql-explain` отвергают `INSERT` / `UPDATE` / `DELETE` / DDL / DCL - для write-операций используйте `dex-postgresql-specialist` или вызывайте `psql` напрямую.

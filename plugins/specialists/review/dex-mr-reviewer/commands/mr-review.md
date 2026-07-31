@@ -1,6 +1,6 @@
 ---
-description: Первичное ревью чужого MR/PR - карта изменений, параллельные фокусы, фальсификация, доставка инлайн-тредами через gh/glab
-allowed-tools: Read, Grep, Glob, Bash, Skill
+description: Первичное ревью чужого MR/PR - карта изменений, параллельные фокусы, фальсификация, доставка инлайн-тредами через канал хостинга (native MCP, иначе gh/glab)
+allowed-tools: Read, Grep, Glob, Bash
 argument-hint: "<MR/PR url или short-id> [описание задачи]"
 ---
 
@@ -10,7 +10,7 @@ argument-hint: "<MR/PR url или short-id> [описание задачи]"
 
 ## Goal
 
-Провести MR/PR через фазы агента `mr-reviewer`: Context and Diff Capture, Domain Priming, Change Map, Parallel Deep Scan, Non-Code Audit, Content-Level Pass, Falsification, Filter, Cross-Linking, Severity Calibration, Tech Debt Classification, Systemic vs Specific, Output Labeling, Report, Draft Threads, Publish.
+Провести MR/PR через фазы агента `mr-reviewer`: Context and Diff Capture, Domain Priming, Change Map, Parallel Deep Scan, Non-Code Audit, Content-Level Pass, Falsification and Scoring, Dedup and Sort, Cross-Linking and Plan, Calibration and Labeling, Report, Draft Threads, Publish.
 
 ## Input
 
@@ -21,13 +21,13 @@ argument-hint: "<MR/PR url или short-id> [описание задачи]"
 - Verdict (APPROVE / REQUEST_CHANGES / NEEDS_DISCUSSION) и overview со счётчиком меток
 - Сгруппированные находки с severity, confidence, scope и метками 🟢🟡🟠🔴🟣
 - После команды `оформляй` - план инлайн-тредов (file:line, severity, заголовок)
-- После команды `пушь` - опубликованные треды через gh/glab API
+- После команды `пушь` - опубликованные треды через канал хостинга (native MCP, иначе gh/glab)
 
 ## Constraints
 
 - До команды `пушь` ни одной записи в MR; чужие треды не трогать, approve/unapprove не делать
-- Находки с confidence ниже 80 в основной список не попадают
+- Находка снимается только опровержением; низкий confidence уводит её в блок «перепроверить», не в тишину
 - Один тред равен одной находке с привязкой к строке; общий комментарий только как overview
-- На ошибку API публикации - стоп и доклад, без отката на один общий комментарий
+- На ошибку публикации на любом канале - стоп и доклад, без отката на один общий комментарий
 
-Делегировать агенту `mr-reviewer`.
+Делегировать агенту `mr-reviewer` с **`mode: interactive`** во входе - без этого поля агент работает как узел (`autonomous`) и цикла команд не будет.

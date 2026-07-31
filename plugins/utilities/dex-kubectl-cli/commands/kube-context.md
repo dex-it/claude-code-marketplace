@@ -23,7 +23,7 @@ argument-hint: "[context-name] [--ns namespace] [--list] [--show-kubeconfig]"
 
 **Constraints:**
 
-- Требует `kubectl` в PATH; если не найден -- показать инструкцию установки и ссылку на `docs/CLI_UTILITIES.md`.
+- Требует `kubectl` в PATH; если не найден -- показать инструкцию установки и ссылку на [docs/CLI_UTILITIES.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/CLI_UTILITIES.md).
 - **Переключение контекста меняет `~/.kube/config` для всех терминалов пользователя**, не только для Claude Code. Перед `use-context` показать «было -> станет» и не «угадывать» имя -- если введено частично, перечислить совпадения и не переключать.
-- На production-кластерах безопаснее использовать read-only kubeconfig (RBAC `get`/`list`/`watch`) -- см. `docs/CLI_UTILITIES.md` Security.
+- На production-кластерах безопаснее использовать read-only kubeconfig (RBAC `get`/`list`/`watch`) -- см. [docs/CLI_UTILITIES.md, раздел «Безопасность»](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/CLI_UTILITIES.md#безопасность).
 - Никаких deletions/applies -- эта команда трогает только конфиг клиента.

@@ -11,8 +11,8 @@
  *   node tools/validate-command.js all                    # all commands in plugins/
  *
  * Exit codes:
- *   0 — clean
- *   1 — at least one error found
+ *   0 - clean
+ *   1 - at least one error found
  */
 
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
@@ -67,10 +67,10 @@ function findAllCommandFiles() {
 
 const SIZE_HARD_LIMIT = 200;
 const SIZE_RECOMMENDED_MAX = 80;
-// 100 — допуск для команд-деклараций pipeline-стадий с гейтами (каждая стадия +
+// 100 - допуск для команд-деклараций pipeline-стадий с гейтами (каждая стадия +
 // правило её обязательности), где сжатие ниже 80 ломает однозначность обязательных
 // проверок. Не индульгенция на разрастание: точечные команды (/build, /test)
-// остаются в цели 20-50 и гейтятся по 80. Allowlist по имени файла команды —
+// остаются в цели 20-50 и гейтятся по 80. Allowlist по имени файла команды -
 // источник истины (у команд нет frontmatter name, в отличие от skills).
 const SIZE_PIPELINE_MAX = 100;
 const PIPELINE_COMMANDS = new Set(['mr-analyze', 'mr-apply']);
@@ -99,13 +99,13 @@ function validateSize(rawContent, findings, isPipeline = false) {
     findings.push({
       level: ERROR,
       rule: 'size-exceeds-hard-limit',
-      message: `File is ${lineCount} lines — exceeds hard limit of ${SIZE_HARD_LIMIT}. Commands this large should be agents with phases, not slash-commands`,
+      message: `File is ${lineCount} lines - exceeds hard limit of ${SIZE_HARD_LIMIT}. Commands this large should be agents with phases, not slash-commands`,
     });
   } else if (lineCount > recommendedMax) {
     findings.push({
       level: ERROR,
       rule: 'size-exceeds-recommended',
-      message: `File is ${lineCount} lines — exceeds recommended max of ${recommendedMax}. Consider trimming procedural content, bash scripts, or templates`,
+      message: `File is ${lineCount} lines - exceeds recommended max of ${recommendedMax}. Consider trimming procedural content, bash scripts, or templates`,
     });
   }
 }
@@ -122,7 +122,7 @@ function validateNoProcedural(markdownBody, findings) {
         findings.push({
           level: ERROR,
           rule: 'procedural-body',
-          message: `Ordered list with ${len} items at line ${node.position?.start?.line ?? '?'} — commands should declare Goal + Output, not step-by-step procedures`,
+          message: `Ordered list with ${len} items at line ${node.position?.start?.line ?? '?'} - commands should declare Goal + Output, not step-by-step procedures`,
         });
       }
     }
@@ -142,7 +142,7 @@ function validateCodeFences(markdownBody, findings) {
       findings.push({
         level: ERROR,
         rule: 'code-fence-too-long',
-        message: `Code block at line ${node.position?.start?.line ?? '?'} has ${lines} lines — commands describe Goal + Output format, not embed scripts. Claude knows CLI syntax`,
+        message: `Code block at line ${node.position?.start?.line ?? '?'} has ${lines} lines - commands describe Goal + Output format, not embed scripts. Claude knows CLI syntax`,
       });
     }
   });
@@ -170,7 +170,7 @@ function validateNoBashScripts(markdownBody, findings) {
     findings.push({
       level: ERROR,
       rule: 'bash-script-detected',
-      message: `${bashBlockCount} bash blocks with ${totalBashLines} total lines — commands declare what to achieve, not how. Claude knows CLI commands`,
+      message: `${bashBlockCount} bash blocks with ${totalBashLines} total lines - commands declare what to achieve, not how. Claude knows CLI commands`,
     });
   }
 }
@@ -204,7 +204,7 @@ function validateNoDocumentationTitles(markdownBody, findings) {
         findings.push({
           level: ERROR,
           rule: 'documentation-style-title',
-          message: `Heading "${title}" (line ${node.position?.start?.line ?? '?'}) looks like documentation — commands describe Goal + Output, not tutorials`,
+          message: `Heading "${title}" (line ${node.position?.start?.line ?? '?'}) looks like documentation - commands describe Goal + Output, not tutorials`,
         });
         break;
       }

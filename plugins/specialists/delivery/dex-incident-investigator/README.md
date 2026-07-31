@@ -15,8 +15,9 @@
 Сбор улик со стенда идёт read-only через существующие инфра-плагины, без дублирования:
 
 - Под и события, логи, ресурсы - `dex-kubectl-cli`
-- Мерджи, пайплайны, джоб-логи - `dex-gitlab-cli`, билды - `dex-teamcity-cli`
-- Метрики и трейсы - `dex-monitoring-grafana`, структурные логи - `dex-logging-seq`
+- Мерджи, пайплайны, джоб-логи - `dex-gitlab-cli` / `dex-github-cli`, билды - `dex-teamcity-cli`
+- Метрики Prometheus и трейсы Tempo - `dex-monitoring-grafana`, структурные логи - `dex-logging-seq`, error-tracking - MCP-сервер `sentry`
+- Связанные тикеты и история задачи - `dex-jira-cli`
 
 ## Skills
 

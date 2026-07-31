@@ -9,11 +9,11 @@
  *
  * Usage:
  *   node tools/validate-skill.js <path>                 # single file
- *   node tools/validate-skill.js all                    # all skills in plugins/skills
+ *   node tools/validate-skill.js all                    # all skills under plugins/
  *
  * Exit codes:
- *   0 — clean
- *   1 — at least one error found
+ *   0 - clean
+ *   1 - at least one error found
  */
 
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
@@ -28,7 +28,10 @@ import { visit } from 'unist-util-visit';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const REPO_ROOT = resolve(__dirname, '..');
-const SKILLS_DIR = join(REPO_ROOT, 'plugins', 'skills');
+// Сканируем весь plugins/ (не только plugins/skills): скиллы живут и в других
+// группах-папках (например plugins/ai-sdlc). Обход по SKILL.md покрывает
+// любую папку без правки валидатора при переносе плагина.
+const SKILLS_DIR = join(REPO_ROOT, 'plugins');
 const MARKETPLACE_JSON = join(REPO_ROOT, '.claude-plugin', 'marketplace.json');
 
 const COLORS = {
@@ -80,8 +83,15 @@ function findAllSkillFiles() {
 
 // --- Size limits --------------------------------------------------------
 
-const CLAUDE_CODE_HARD_LIMIT = 500; // official Claude Code line limit
-const PROJECT_RECOMMENDED_MAX = 250; // project line-count guideline
+// Пороги размера парны с docs/SKILL_FRAMEWORK.md, раздел "Размер skill" - это их нормативный дом.
+// Прозаическую копию числа держит только он; меняешь порог - правишь оба места одним коммитом.
+const CLAUDE_CODE_HARD_LIMIT = 500; // Anthropic recommendation ("Keep SKILL.md under 500 lines") - not an enforced platform truncation limit
+const PROJECT_RECOMMENDED_MAX = 250; // project line-count guideline (trap-skill: цель 80-120)
+// Process-skill - другой жанр: движок/правило-оркестрация, единый нормативный костяк не дробится
+// на каталог-ловушек размером. Проектный потолок для них поднят выше платформенной рекомендации,
+// т.к. костяк (правила + mandatory-Read список) не режется ради формального лимита; деталь по
+// требованию всё равно выносится в смежные файлы, не раздувается бесконтрольно.
+const PROCESS_SKILL_RECOMMENDED_MAX = 600;
 const PROJECT_TARGET_MAX = 120; // ideal range
 
 // --- Frontmatter validation ---------------------------------------------
@@ -89,36 +99,43 @@ const PROJECT_TARGET_MAX = 120; // ideal range
 const REQUIRED_FIELDS = ['name', 'description'];
 const FORBIDDEN_FIELDS = ['keywords'];
 const MIN_DESCRIPTION_LENGTH = 50;
-const CLAUDE_DESCRIPTION_HARD_LIMIT = 1536; // Claude Code hard limit (description + when_to_use) — error
-const PROJECT_DESCRIPTION_MAX = 750; // project hard cap — error
-const WARN_DESCRIPTION_LENGTH = 500; // project soft guideline — warning
+const CLAUDE_DESCRIPTION_HARD_LIMIT = 1536; // Claude Code per-entry listing cap, default (description + when_to_use) - error
+const PROJECT_DESCRIPTION_MAX = 750; // project hard cap - error
+const WARN_DESCRIPTION_LENGTH = 500; // project soft guideline - warning
 const MIN_TRIGGER_KEYWORDS = 10;
 
 /**
- * Process / orchestration skills encode a workflow rule (e.g. "new project →
+ * Process / orchestration skills encode a workflow rule (e.g. "new project ->
  * inherit solution rules") or a registry, not a catalogue of API traps. The trap
  * heuristics (count + Плохо/Правильно/Почему triad) don't apply, so validateTraps
  * skips them entirely; instead validateProcessStructure enforces a content floor
- * (a table or ≥2 H2 sections) so the exemption can't shelter a stub. Keyword-count,
- * size and description limits stay strict — activation must still be reliable.
+ * (a table or >=2 H2 sections) so the exemption can't shelter a stub. Keyword-count,
+ * size and description limits stay strict - activation must still be reliable.
  *
  * Registration is an explicit allowlist by skill name, not a self-declared
  * marker: adding a process skill requires a deliberate edit here plus review,
  * so the exemption can't be abused to slip an under-built skill through. The
- * `<!-- skill-type: process -->` marker in the body is for human readers only —
+ * `<!-- skill-type: process -->` marker in the body is for human readers only -
  * this allowlist is the source of truth. See docs/SKILL_FRAMEWORK.md "Типы skill".
  */
 const PROCESS_SKILLS = new Set([
   'dotnet-project-baseline',
   'stack-registry',
   'completeness-mapping',
+  'optimize-for-llm',
+  'node-contract',
+  'autonomous-task',
+  'test-coverage',
+  'legacy-reconstruction',
+  'project-docs-map',
+  'artifact-review',
 ]);
 
 function isProcessSkill(parsed) {
   return PROCESS_SKILLS.has(parsed.data && parsed.data.name);
 }
 
-function validateFrontmatter(parsed, findings) {
+function validateFrontmatter(parsed, findings, isProcess = false) {
   const fm = parsed.data || {};
 
   for (const field of REQUIRED_FIELDS) {
@@ -136,7 +153,7 @@ function validateFrontmatter(parsed, findings) {
       findings.push({
         level: ERROR,
         rule: 'frontmatter-forbidden',
-        message: `Forbidden frontmatter field: ${field} — not supported by Claude Code for skills`,
+        message: `Forbidden frontmatter field: ${field} - not supported by Claude Code for skills`,
       });
     }
   }
@@ -148,7 +165,7 @@ function validateFrontmatter(parsed, findings) {
     findings.push({
       level: ERROR,
       rule: 'description-short',
-      message: `Description shorter than ${MIN_DESCRIPTION_LENGTH} characters — likely missing trigger keywords`,
+      message: `Description shorter than ${MIN_DESCRIPTION_LENGTH} characters - likely missing trigger keywords`,
     });
   }
 
@@ -156,29 +173,39 @@ function validateFrontmatter(parsed, findings) {
     findings.push({
       level: ERROR,
       rule: 'description-exceeds-claude-limit',
-      message: `Description is ${desc.length} characters — exceeds Claude Code hard limit of ${CLAUDE_DESCRIPTION_HARD_LIMIT}. Text beyond this limit is truncated from the skill listing and will not activate the skill`,
+      message: `Description is ${desc.length} characters - exceeds the Claude Code per-entry listing cap of ${CLAUDE_DESCRIPTION_HARD_LIMIT} (the cap covers description + when_to_use). Text beyond it is truncated from the skill listing and will not activate the skill. Cut to the project cap of ${PROJECT_DESCRIPTION_MAX}: drop entry points, keep the technology anchor and aspect names`,
     });
   } else if (desc.length > PROJECT_DESCRIPTION_MAX) {
     findings.push({
       level: ERROR,
       rule: 'description-too-long',
-      message: `Description is ${desc.length} characters — exceeds project cap of ${PROJECT_DESCRIPTION_MAX}. Cut entry points (concrete APIs/symptoms inside traps); keep only the technology anchor and aspect names`,
+      message: `Description is ${desc.length} characters - exceeds project cap of ${PROJECT_DESCRIPTION_MAX}. Cut entry points (concrete APIs/symptoms inside traps); keep only the technology anchor and aspect names`,
     });
   } else if (desc.length > WARN_DESCRIPTION_LENGTH) {
     findings.push({
       level: WARNING,
       rule: 'description-long',
-      message: `Description is ${desc.length} characters — exceeds project guideline of ${WARN_DESCRIPTION_LENGTH}. A compact description triggers more reliably; cut entry points, keep aspects`,
+      message: `Description is ${desc.length} characters - exceeds project guideline of ${WARN_DESCRIPTION_LENGTH}. A compact description triggers more reliably; cut entry points, keep aspects`,
     });
   }
+
+  // Activation keywords drive SEMANTIC auto-activation. A process skill is loaded
+  // imperatively by name (agent body calls the Skill tool with plugin:skill), so
+  // auto-activation is secondary for it - same rationale as the trap-heuristic
+  // exemption. There is no documented frontmatter field that disables only
+  // auto-activation while keeping by-name Skill-tool loading (disable-model-invocation
+  // behaviour on programmatic invocation is undocumented), so the description is not
+  // dropped - only the activation floor is relaxed from ERROR to WARNING for process
+  // skills. Trap/leaf skills keep the hard ERROR (auto-activation is their primary path).
+  const activationLevel = isProcess ? WARNING : ERROR;
 
   // description must contain explicit activation phrase
   const hasActivation = /активируется при|triggers?\b|trigger(ed)? (on|by|when)/i.test(desc);
   if (!hasActivation) {
     findings.push({
-      level: ERROR,
+      level: activationLevel,
       rule: 'description-no-activation',
-      message: `Description must contain "Активируется при" (or "Triggers") followed by keywords — this is the ONLY mechanism for semantic activation`,
+      message: `Description must contain "Активируется при" (or "Triggers") followed by keywords - the mechanism for semantic activation`,
     });
     return;
   }
@@ -193,9 +220,9 @@ function validateFrontmatter(parsed, findings) {
       .filter((k) => k.length > 0);
     if (keywords.length < MIN_TRIGGER_KEYWORDS) {
       findings.push({
-        level: ERROR,
+        level: activationLevel,
         rule: 'description-few-keywords',
-        message: `Description has only ${keywords.length} trigger keyword(s) after "Активируется при" — framework requires at least ${MIN_TRIGGER_KEYWORDS} for reliable semantic activation`,
+        message: `Description has only ${keywords.length} trigger keyword(s) after "Активируется при" - ${MIN_TRIGGER_KEYWORDS}+ recommended for reliable semantic activation`,
       });
     }
   }
@@ -203,20 +230,31 @@ function validateFrontmatter(parsed, findings) {
 
 // --- Body size check ----------------------------------------------------
 
-function validateSize(rawContent, findings) {
+function validateSize(rawContent, findings, isProcess = false) {
   const lineCount = rawContent.split('\n').length;
+
+  if (isProcess) {
+    if (lineCount > PROCESS_SKILL_RECOMMENDED_MAX) {
+      findings.push({
+        level: ERROR,
+        rule: 'size-exceeds-recommended',
+        message: `File is ${lineCount} lines - exceeds process-skill project cap of ${PROCESS_SKILL_RECOMMENDED_MAX}. Consider splitting or cutting documentation/procedures`,
+      });
+    }
+    return;
+  }
 
   if (lineCount > CLAUDE_CODE_HARD_LIMIT) {
     findings.push({
       level: ERROR,
       rule: 'size-exceeds-hard-limit',
-      message: `File is ${lineCount} lines — exceeds Claude Code hard limit of ${CLAUDE_CODE_HARD_LIMIT}`,
+      message: `File is ${lineCount} lines - exceeds Anthropic recommendation of ${CLAUDE_CODE_HARD_LIMIT}`,
     });
   } else if (lineCount > PROJECT_RECOMMENDED_MAX) {
     findings.push({
       level: ERROR,
       rule: 'size-exceeds-recommended',
-      message: `File is ${lineCount} lines — exceeds project recommendation of ${PROJECT_RECOMMENDED_MAX}. Consider splitting or cutting documentation/procedures`,
+      message: `File is ${lineCount} lines - exceeds project recommendation of ${PROJECT_RECOMMENDED_MAX}. Consider splitting or cutting documentation/procedures`,
     });
   }
 }
@@ -225,7 +263,7 @@ function validateSize(rawContent, findings) {
 
 /**
  * Single source of the markdown parser so every check sees the same AST.
- * remark-gfm is required for `table` nodes — without it GFM tables parse as
+ * remark-gfm is required for `table` nodes - without it GFM tables parse as
  * plain paragraphs and validateProcessStructure's table branch goes dead.
  */
 function parseMarkdown(markdownBody) {
@@ -288,7 +326,7 @@ function trapBodyText(trap) {
 function validateTraps(markdownBody, findings, isProcess = false) {
   // Process skills encode orchestration rules (registry, decision forks), not a
   // catalogue of API traps. The trap heuristics (count + Плохо/Правильно/Почему
-  // triad) don't apply to them — structure is checked by validateProcessStructure
+  // triad) don't apply to them - structure is checked by validateProcessStructure
   // instead. Triads remain *allowed* in a process skill (e.g. decision forks in
   // dotnet-project-baseline), just not *required*.
   if (isProcess) return;
@@ -299,7 +337,7 @@ function validateTraps(markdownBody, findings, isProcess = false) {
     findings.push({
       level: ERROR,
       rule: 'too-few-traps',
-      message: `Skill has only ${traps.length} H3 sections — framework recommends 10-15 traps per skill`,
+      message: `Skill has only ${traps.length} H3 sections - framework recommends 10-15 traps per skill`,
     });
   }
 
@@ -319,7 +357,7 @@ function validateTraps(markdownBody, findings, isProcess = false) {
       findings.push({
         level: ERROR,
         rule: 'trap-missing-triad',
-        message: `Trap "${trap.title}" (line ${trap.startLine}) is missing: ${missing.join(', ')} — framework mandates "Плохо / Правильно / Почему" triad`,
+        message: `Trap "${trap.title}" (line ${trap.startLine}) is missing: ${missing.join(', ')} - framework mandates "Плохо / Правильно / Почему" triad`,
       });
     }
   }
@@ -331,7 +369,7 @@ function validateTraps(markdownBody, findings, isProcess = false) {
  * A process skill is exempt from trap heuristics, so it needs its own floor to
  * stop an empty/under-built skill from slipping through on the exemption alone.
  * It must carry actual orchestration content: a registry table OR at least two
- * H2 rule/decision sections. Below that it's not a process skill — it's a stub.
+ * H2 rule/decision sections. Below that it's not a process skill - it's a stub.
  */
 const MIN_PROCESS_H2_SECTIONS = 2;
 
@@ -351,7 +389,7 @@ function validateProcessStructure(markdownBody, findings) {
     findings.push({
       level: ERROR,
       rule: 'process-empty',
-      message: `Process skill has no registry table and only ${h2Count} H2 section(s) — a process skill must encode orchestration content (a table or at least ${MIN_PROCESS_H2_SECTIONS} rule/decision sections), otherwise it's a stub exploiting the trap exemption`,
+      message: `Process skill has no registry table and only ${h2Count} H2 section(s) - a process skill must encode orchestration content (a table or at least ${MIN_PROCESS_H2_SECTIONS} rule/decision sections), otherwise it's a stub exploiting the trap exemption`,
     });
   }
 }
@@ -369,7 +407,7 @@ function validateCodeFences(markdownBody, findings) {
       findings.push({
         level: ERROR,
         rule: 'code-fence-too-long',
-        message: `Code block at line ${node.position?.start?.line ?? '?'} has ${lines} lines — framework principle "pointer, not road" recommends max ${MAX_CODE_FENCE_LINES} lines. Replace with API name / condition reference`,
+        message: `Code block at line ${node.position?.start?.line ?? '?'} has ${lines} lines - framework principle "pointer, not road" recommends max ${MAX_CODE_FENCE_LINES} lines. Replace with API name / condition reference`,
       });
     }
   });
@@ -404,7 +442,7 @@ function validateNoDocumentationTitles(markdownBody, findings) {
         findings.push({
           level: ERROR,
           rule: 'documentation-style-title',
-          message: `Heading "${title}" (line ${node.position?.start?.line ?? '?'}) looks like documentation ("how to X", "what is Y", "step N") — framework mandates traps/anti-patterns, not tutorials`,
+          message: `Heading "${title}" (line ${node.position?.start?.line ?? '?'}) looks like documentation ("how to X", "what is Y", "step N") - framework mandates traps/anti-patterns, not tutorials`,
         });
         break;
       }
@@ -433,8 +471,8 @@ function validateFile(filepath) {
 
   const isProcess = isProcessSkill(parsed);
 
-  validateFrontmatter(parsed, findings);
-  validateSize(raw, findings);
+  validateFrontmatter(parsed, findings, isProcess);
+  validateSize(raw, findings, isProcess);
   validateTraps(parsed.content, findings, isProcess);
   if (isProcess) validateProcessStructure(parsed.content, findings);
   validateCodeFences(parsed.content, findings);

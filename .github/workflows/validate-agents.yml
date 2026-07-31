@@ -1,19 +1,26 @@
 name: Validate Plugins
 
 on:
+  # На pull_request фильтра путей нет намеренно. Оба чека этого workflow - required
+  # с enforcement для всех, а required-чек, который не запустился, не считается
+  # пройденным: PR, ни один файл которого не попал под фильтр, не получает чек вовсе
+  # и висит в BLOCKED навсегда, write-права bypass не дают.
+  # Перечислять пути под required-чеком не сходится: список расширяли четырежды и
+  # каждый раз после того, как PR уже завис (docs-only, потом промты запуска, потом
+  # README валидаторов, потом .claude/rules). На момент снятия фильтра мимо него
+  # по-прежнему проходили README.md, mcp/**, adoption/**, tests/**, setup/** и часть
+  # install-bundle/**. Прогон занимает порядка 20 секунд, экономить тут нечего.
   pull_request:
-    paths:
-      - 'plugins/**/*.md'
-      - 'tools/validate-*.js'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/validate-agents.yml'
+  # В push-блоке фильтр остаётся умышленно, и это не забытый хвост. Ловушка BLOCKED
+  # специфична для pull_request: гейтом служит именно он. Прогон на main
+  # пост-мерджевый и информационный, непопадание под фильтр здесь ничего не вешает.
   push:
     branches:
       - main
     paths:
       - 'plugins/**/*.md'
       - 'tools/validate-*.js'
+      - '**.sh'
 
 jobs:
   validate:
@@ -63,3 +70,16 @@ jobs:
 
       - name: Validate commands
         run: node tools/validate-command.js all
+
+  shell-syntax:
+    name: Shell scripts syntax check (bash -n)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # bash -n ловит синтаксические ошибки без выполнения. Гейт против регрессий
+      # портируемости shell (CRLF в shebang, незакрытые конструкции) на каждом PR,
+      # который трогает .sh. Полная проверка на macOS/Windows - отдельная задача.
+      - name: Syntax-check all shell scripts
+        run: find . -path ./node_modules -prune -o -name '*.sh' -print0 | xargs -0 -r -n1 bash -n

@@ -1,6 +1,6 @@
 # Bundle: dex-bundle-cli-tools
 
-Бандл CLI-инструментов для диагностики: VCS/CI, Kubernetes, базы данных, мессенджинг, облако, browser testing. Одиннадцать тонких обёрток над проверенными CLI (`gh`, `glab`, `kubectl`, `jenkins`, `teamcity`, `psql`, `redis-cli`, `kaf`, `rabbitmqadmin`, `aws`, `npx playwright`) -- установить один раз, получить единообразный набор slash-команд по всем стекам.
+Бандл CLI-инструментов для диагностики: VCS/CI, трекер, Kubernetes, базы данных, мессенджинг, облако, browser testing. Двенадцать тонких обёрток над проверенными CLI (`gh`, `glab`, `kubectl`, `jenkins`, `teamcity`, `jira`, `psql`, `redis-cli`, `kaf`, `rabbitmqadmin`, `aws`, `npx playwright`) -- установить один раз, получить единообразный набор slash-команд по всем стекам.
 
 ## Установка
 
@@ -25,7 +25,7 @@
 .\install-bundle\uninstall-bundle.ps1 cli-tools
 ```
 
-## Состав (11)
+## Состав (12)
 
 ### VCS & CI/CD (5)
 - `dex-github-cli` -- GitHub Actions runs, PRs, logs (`gh`)
@@ -33,6 +33,9 @@
 - `dex-kubectl-cli` -- Kubernetes pods/logs/deployments/events/contexts (`kubectl`)
 - `dex-jenkins-cli` -- Jenkins jobs, builds, console output (REST API)
 - `dex-teamcity-cli` -- TeamCity builds, agents, build logs (REST API)
+
+### Tracker (1)
+- `dex-jira-cli` -- задачи, JQL-поиск, спринты трекера (`jira`)
 
 ### Data & Messaging (4)
 - `dex-psql-cli` -- PostgreSQL queries/schema/explain/locks (`psql`)
@@ -48,7 +51,7 @@
 
 ## Установка CLI-бинарей
 
-Этот бандл ставит **плагины** для Claude Code -- самим CLI (`gh`, `glab`, `kubectl`, `psql`, `redis-cli`, `kaf`, `rabbitmqadmin`, `aws`) ещё нужно быть установленными на машине. Используйте парный установщик:
+Этот бандл ставит **плагины** для Claude Code -- самим CLI (`gh`, `glab`, `kubectl`, `psql`, `redis-cli`, `kaf`, `rabbitmqadmin`, `aws`, `jira`) ещё нужно быть установленными на машине. Используйте парный установщик:
 
 ```bash
 # Что уже стоит, чего не хватает
@@ -63,7 +66,7 @@
 
 Playwright не входит в `install-cli-tools.sh` -- это npm-пакет, не системный бинарь. Зависимость -- Node.js (для `npx`); браузерные движки ставятся через `/pw-install` после `npm i -D @playwright/test` в самом проекте.
 
-См. [docs/CLI_UTILITIES.md](../../../docs/CLI_UTILITIES.md) -- установочная матрица, конфигурация (KUBECONFIG, PGPASSFILE, `~/.kaf/config`, `~/.rabbitmqadmin.conf`, `~/.aws/`, ACL/TLS), матрица CLI vs MCP, troubleshooting.
+См. [docs/CLI_UTILITIES.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/CLI_UTILITIES.md) -- установочная матрица, конфигурация (KUBECONFIG, PGPASSFILE, `~/.kaf/config`, `~/.rabbitmqadmin.conf`, `~/.aws/`, ACL/TLS), матрица CLI vs MCP, troubleshooting.
 
 ## Замечание
 
