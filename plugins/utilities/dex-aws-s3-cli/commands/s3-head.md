@@ -21,7 +21,7 @@ argument-hint: "s3://bucket/key [--version-id id] [--profile name]"
 
 **Constraints:**
 
-- Требует `aws` CLI в PATH; если не найден -- показать инструкцию установки и ссылку на `docs/CLI_UTILITIES.md`.
+- Требует `aws` CLI в PATH; если не найден -- показать инструкцию установки и ссылку на [docs/CLI_UTILITIES.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/CLI_UTILITIES.md).
 - Использует `aws s3api head-object` (read-only).
 - При `404 NoSuchKey` -- сообщить и предложить `/s3-ls s3://bucket/prefix/` для поиска.
 - При `403 Forbidden` -- диагностировать как permission issue (RoleArn / bucket policy / ACL); не считать что объекта нет.

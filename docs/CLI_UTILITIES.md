@@ -2,16 +2,16 @@
 
 Хаб CLI-плагинов маркетплейса Claude Code: каталог, матрица установки, конфигурация, CLI vs MCP, troubleshooting, безопасность.
 
-> **TL;DR.** CLI-плагины — это тонкие slash-команды-обёртки над проверенными CLI (`gh`, `glab`, `kubectl`, `psql`, `redis-cli`, `kaf`, `rabbitmqadmin`, `aws`, `jenkins-cli`, `teamcity`). Используйте их для read-only диагностики и точечных write-операций для отладки (`/kaf-produce`, `/rmq-publish`). MCP-серверы остаются предпочтительными, когда агенту нужен автономный многошаговый workflow по той же системе.
+> **TL;DR.** CLI-плагины - это тонкие slash-команды-обёртки над проверенными CLI (`gh`, `glab`, `kubectl`, `psql`, `redis-cli`, `kaf`, `rabbitmqadmin`, `aws`, `jenkins-cli`, `teamcity`, `jira`). Используйте их для read-only диагностики и точечных write-операций для отладки (`/kaf-produce`, `/rmq-publish`). MCP-серверы остаются предпочтительными, когда агенту нужен автономный многошаговый workflow по той же системе.
 
 ---
 
 ## Зачем CLI-плагины
 
-- **Легковесные.** Без долгоживущего сервера, без отдельной поверхности credentials, без протокольного слоя. Плагин — это slash-команда, вызывающая знакомый вам CLI.
+- **Легковесные.** Без долгоживущего сервера, без отдельной поверхности credentials, без протокольного слоя. Плагин - это slash-команда, вызывающая знакомый вам CLI.
 - **Прозрачные.** Claude выполняет обычный `kubectl get pods` (или `psql -c '...'`). Команду можно скопировать, проверить в shell-history, выполнить локально.
-- **Композируемые.** Slash-команды идемпотентны и ортогональны — `/kube-pods`, `/kube-logs`, `/kube-events` покрывают повседневный диагностический цикл без одной «делай-всё» утилиты.
-- **Без vendor lock-in.** Плагин — это 30 строк markdown. Если CLI изменится или вы переключитесь — заменяете один файл.
+- **Композируемые.** Slash-команды идемпотентны и ортогональны - `/kube-pods`, `/kube-logs`, `/kube-events` покрывают повседневный диагностический цикл без одной «делай-всё» утилиты.
+- **Без vendor lock-in.** Плагин - это 30 строк markdown. Если CLI изменится или вы переключитесь - заменяете один файл.
 
 ---
 
@@ -23,6 +23,7 @@
 | `dex-gitlab-cli` | `glab` | VCS / CI | `/gl-pipelines` `/gl-mrs` `/gl-logs` |
 | `dex-jenkins-cli` | `jenkins-cli` (Java + jar) | CI | `/jk-jobs` `/jk-builds` `/jk-logs` |
 | `dex-teamcity-cli` | `teamcity` (JetBrains Go) | CI | `/tc-builds` `/tc-agents` `/tc-logs` |
+| `dex-jira-cli` | `jira` (ankitpokhrel) | Tracker / Jira | `/jira-issue` `/jira-list` `/jira-sprint` |
 | `dex-kubectl-cli` | `kubectl` | Kubernetes | `/kube-pods` `/kube-logs` `/kube-deploy` `/kube-events` `/kube-context` |
 | `dex-psql-cli` | `psql` | PostgreSQL | `/psql-query` `/psql-schema` `/psql-explain` `/psql-locks` |
 | `dex-redis-cli` | `redis-cli` | Redis | `/redis-info` `/redis-keys` `/redis-memory` `/redis-monitor` |
@@ -38,7 +39,7 @@
 
 ## Установка CLI-бинарей
 
-Плагины вызывают `gh`, `glab`, `kubectl`, `psql`, `redis-cli`, `kaf`, `rabbitmqadmin`, `aws` — эти бинари должны быть на машине. Используйте one-shot установщик или ручные рецепты из матрицы.
+Плагины вызывают `gh`, `glab`, `kubectl`, `psql`, `redis-cli`, `kaf`, `rabbitmqadmin`, `aws` - эти бинари должны быть на машине. Используйте one-shot установщик или ручные рецепты из матрицы.
 
 ### One-shot установщик (рекомендовано, Linux + macOS)
 
@@ -61,7 +62,7 @@
 ./install-bundle/install-cli-tools.sh --update --check          # Что было бы обновлено
 ```
 
-Скрипт автоматически детектит ОС (`uname -s`) и пакетный менеджер (`apt` / `dnf` / `pacman` / `apk` на Linux; `brew` на macOS) и подбирает рецепт. Идемпотентен — повторный запуск безопасен.
+Скрипт автоматически детектит ОС (`uname -s`) и пакетный менеджер (`apt` / `dnf` / `pacman` / `apk` на Linux; `brew` на macOS) и подбирает рецепт. Идемпотентен - повторный запуск безопасен.
 
 #### Обновление установленных инструментов (`--update` / `-u`)
 
@@ -69,22 +70,22 @@
 
 | PM | Без `--update` | С `--update` (трансформация) |
 |---|---|---|
-| `apt` / `dnf` | `apt install` / `dnf install` (упасть-в-no-op если latest) | без изменений — apt/dnf install обновляет до latest в репо |
+| `apt` / `dnf` | `apt install` / `dnf install` (упасть-в-no-op если latest) | без изменений - apt/dnf install обновляет до latest в репо |
 | `brew` | `brew install` | `brew upgrade` (brew install существующего не обновит) |
 | `pacman` | `pacman -S` | `pacman -Syu` (полный sync + system upgrade) ¹ |
 | `apk` | `apk add` | `apk upgrade` (apk add существующего не обновит) |
 | `winget` | `winget install` | `winget upgrade` (winget install существующего пропустит) |
 | `scoop` | `scoop install` | `scoop update` (scoop install скажет «already installed») |
 | `choco` | `choco install` | `choco upgrade` (choco install переустановит ту же версию) |
-| curl-based (kubectl, kaf, rabbitmqadmin, aws, jenkins-cli, teamcity) | curl + install бинаря | без изменений — curl скачивает latest, install перезаписывает |
+| curl-based (kubectl, kaf, rabbitmqadmin, aws, jenkins-cli, teamcity) | curl + install бинаря | без изменений - curl скачивает latest, install перезаписывает |
 
-`--update` без аргументов и без `--all` — ошибка (нужен явный список инструментов или `--all`). Для PowerShell — `-Update` / `-u` с теми же примерами.
+`--update` без аргументов и без `--all` - ошибка (нужен явный список инструментов или `--all`). Для PowerShell - `-Update` / `-u` с теми же примерами.
 
-¹ На Arch для апдейта одного пакета используется `pacman -Syu <pkg>`, не `pacman -Sy && pacman -S <pkg>`. [ArchWiki](https://wiki.archlinux.org/title/System_maintenance#Partial_upgrades_are_unsupported) считает второе partial upgrade — не поддерживается, может привести к ABI-несовместимости с транзитивными зависимостями. `-Syu` делает full system upgrade — будут обновлены все пакеты системы, не только запрошенный. На CI/dev-машине, где это нежелательно, лучше запускать без `--update` (рецепт `pacman -S` сам по себе после свежего `pacman -Syu`, выполненного отдельно, корректно установит latest).
+¹ На Arch для апдейта одного пакета используется `pacman -Syu <pkg>`, не `pacman -Sy && pacman -S <pkg>`. [ArchWiki](https://wiki.archlinux.org/title/System_maintenance#Partial_upgrades_are_unsupported) считает второе partial upgrade - не поддерживается, может привести к ABI-несовместимости с транзитивными зависимостями. `-Syu` делает full system upgrade - будут обновлены все пакеты системы, не только запрошенный. На CI/dev-машине, где это нежелательно, лучше запускать без `--update` (рецепт `pacman -S` сам по себе после свежего `pacman -Syu`, выполненного отдельно, корректно установит latest).
 
-В summary при `--update` различаются три состояния: `Updated` — версия реально сменилась после запуска рецепта; `Already at latest` — рецепт отработал успешно, но `<tool> --version` не изменилась (PM не нашёл новой версии); `Installed` — пакет был не установлен и поставлен впервые. Счётчик `Already at latest` показан только если он не нулевой.
+В summary при `--update` различаются три состояния: `Updated` - версия реально сменилась после запуска рецепта; `Already at latest` - рецепт отработал успешно, но `<tool> --version` не изменилась (PM не нашёл новой версии); `Installed` - пакет был не установлен и поставлен впервые. Счётчик `Already at latest` показан только если он не нулевой.
 
-**Исключение для `jenkins-cli`** (только bash, на Linux/macOS): обновление wrapper'а `/usr/local/bin/jenkins-cli` всегда репортится как `Updated`, даже если jar реально не сменился. Причина — `tool_version` для jenkins-cli возвращает константу (запустить `java -jar jenkins-cli.jar --version` без `JENKINS_URL`/`JENKINS_USER_ID`/`JENKINS_API_TOKEN` невозможно), поэтому сравнение `до/после` для jenkins-cli бессмысленно. Чтобы не вводить в заблуждение фразой `Already at latest` после реального re-download jar, для jenkins-cli всегда печатается `Updated`. На Windows этот сценарий не возникает — jenkins-cli через `winget`/`scoop`/`choco` не поддерживается (помечен как `__UNSUPPORTED__`).
+**Исключение для `jenkins-cli`** (только bash, на Linux/macOS): обновление wrapper'а `/usr/local/bin/jenkins-cli` всегда репортится как `Updated`, даже если jar реально не сменился. Причина - `tool_version` для jenkins-cli возвращает константу (запустить `java -jar jenkins-cli.jar --version` без `JENKINS_URL`/`JENKINS_USER_ID`/`JENKINS_API_TOKEN` невозможно), поэтому сравнение `до/после` для jenkins-cli бессмысленно. Чтобы не вводить в заблуждение фразой `Already at latest` после реального re-download jar, для jenkins-cli всегда печатается `Updated`. На Windows этот сценарий не возникает - jenkins-cli через `winget`/`scoop`/`choco` не поддерживается (помечен как `__UNSUPPORTED__`).
 
 ### Матрица ручной установки
 
@@ -100,8 +101,9 @@
 | `aws` (CLI v2) | bundled installer (`curl awscli-exe-linux-*.zip` + `unzip` + `./aws/install`) | bundled installer | `brew install awscli` | [docs.aws.amazon.com/cli/.../install](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) |
 | `jenkins-cli` | `apt install default-jre` + curl `$JENKINS_URL/jnlpJars/jenkins-cli.jar` + wrapper | `dnf install java-21-openjdk-headless` + curl jar + wrapper | `brew install openjdk` + curl jar + wrapper | [jenkins.io/.../cli](https://www.jenkins.io/doc/book/managing/cli/) |
 | `teamcity` (JetBrains) | `curl -fsSL https://jb.gg/tc/install \| bash` | то же | `brew install jetbrains/utils/teamcity` | [github.com/JetBrains/teamcity-cli](https://github.com/JetBrains/teamcity-cli) |
+| `jira` (ankitpokhrel) | `go install github.com/ankitpokhrel/jira-cli/cmd/jira@latest` (нужен Go) или [бинарь релиза](https://github.com/ankitpokhrel/jira-cli/releases) | то же | `brew tap ankitpokhrel/jira-cli && brew install jira-cli` | [github.com/ankitpokhrel/jira-cli](https://github.com/ankitpokhrel/jira-cli) |
 
-> Windows: PowerShell-зеркало доступно — `install-bundle/install-cli-tools.ps1` (использует `winget` / `scoop` / `choco`). WSL — также полностью поддерживаемый путь. На Windows `psql`, `jenkins-cli`, `rabbitmqadmin` через PM не ставятся (winget/scoop ставят полный PostgreSQL Server вместо клиента; jenkins-cli требует Java + jar; rabbitmqadmin не упакован в стандартные PM) — для них рекомендован WSL или ручная установка из официального источника.
+> Windows: PowerShell-зеркало доступно - `install-bundle/install-cli-tools.ps1` (использует `winget` / `scoop` / `choco`). WSL - также полностью поддерживаемый путь. На Windows `psql`, `jenkins-cli`, `rabbitmqadmin`, `jira` через PM не ставятся (winget/scoop ставят полный PostgreSQL Server вместо клиента; jenkins-cli требует Java + jar; rabbitmqadmin и jira не упакованы в стандартные PM - jira ставится `go install` или бинарём релиза) - для них рекомендован WSL или ручная установка из официального источника.
 
 **Linux pacman / apk:** скрипт `install-cli-tools.sh` поддерживает Arch (`pacman -S <pkg>`) и Alpine (`apk add <pkg>`) для тех инструментов, что есть в стандартных репозиториях (gh, glab, kubectl, psql/postgresql-libs, redis, aws-cli). Для `kaf` и `rabbitmqadmin` используются github releases (см. `install-cli-tools.sh`).
 
@@ -122,7 +124,7 @@
 | `rizin` | `apt install rizin` (или GitHub release) | `dnf install rizin` | `brew install rizin` | `scoop install rizin` (bucket extras) | [rizin.re](https://rizin.re/) |
 | `ilspycmd` | `dotnet tool install --global ilspycmd` | то же | то же | то же | [github.com/icsharpcode/ILSpy](https://github.com/icsharpcode/ILSpy) |
 | `flamegraph` | git clone в `/usr/local/share/flamegraph` + symlinks | то же | brew или git clone | __UNSUPPORTED__ (WSL) | [github.com/brendangregg/FlameGraph](https://github.com/brendangregg/FlameGraph) |
-| `valgrind` | `apt install valgrind` | `dnf install valgrind` | `brew install` (только x86_64, ≤ Ventura) | __UNSUPPORTED__ (WSL) | [valgrind.org](https://valgrind.org/) |
+| `valgrind` | `apt install valgrind` | `dnf install valgrind` | `brew install` (только x86_64, <= Ventura) | __UNSUPPORTED__ (WSL) | [valgrind.org](https://valgrind.org/) |
 | LIEF | `pip install --user lief` | то же | то же | `python -m pip install --user lief` | [github.com/lief-project/LIEF](https://github.com/lief-project/LIEF) |
 | dotnet diagnostic tools (мета) | `dotnet tool install --global` × 6 | то же | то же | то же | [github.com/dotnet/diagnostics](https://github.com/dotnet/diagnostics) |
 
@@ -136,7 +138,7 @@
 
 ### kubectl
 
-`kubectl` берёт информацию о кластере из **kubeconfig**-файла. По умолчанию — `~/.kube/config`.
+`kubectl` берёт информацию о кластере из **kubeconfig**-файла. По умолчанию - `~/.kube/config`.
 
 ```bash
 kubectl config current-context              # что активно сейчас
@@ -152,7 +154,7 @@ export KUBECONFIG=~/.kube/config:~/.kube/staging:~/.kube/prod
 kubectl config get-contexts        # контексты из всех трёх
 ```
 
-`/kube-context` оборачивает эти примитивы, печатает «было → станет» при переключении и не подставляет частичные имена контекстов — чтобы случайные переключения на shared-машине были видны.
+`/kube-context` оборачивает эти примитивы, печатает «было -> станет» при переключении и не подставляет частичные имена контекстов - чтобы случайные переключения на shared-машине были видны.
 
 **RBAC для production.** Для прод-кластеров используйте отдельный service account с read-only RBAC:
 
@@ -167,11 +169,11 @@ rules:
   verbs: ["get", "list", "watch"]
 ```
 
-Привяжите к ServiceAccount, сгенерируйте токен, соберите kubeconfig, указывающий на этот SA — и `kubectl` физически не сможет ничего изменить.
+Привяжите к ServiceAccount, сгенерируйте токен, соберите kubeconfig, указывающий на этот SA - и `kubectl` физически не сможет ничего изменить.
 
 ### psql (PostgreSQL)
 
-Параметры подключения — через env или connection URI:
+Параметры подключения - через env или connection URI:
 
 ```bash
 # Env
@@ -192,14 +194,14 @@ psql "$DATABASE_URL" -c 'SELECT 1'
 hostname:port:database:username:password
 ```
 
-**SSL.** Добавьте `?sslmode=require` (или `verify-full` для прода с pinned-сертификатом). Кастомный CA — через `PGSSLROOTCERT`.
+**SSL.** Добавьте `?sslmode=require` (или `verify-full` для прода с pinned-сертификатом). Кастомный CA - через `PGSSLROOTCERT`.
 
-**Read-only роль.** Для Claude-сессии создайте отдельную роль с `pg_read_all_data` (PG 14+) или с `SELECT` на нужные схемы. Slash-команды плагина уже отвергают DDL/DML на уровне команды — read-only роль это durable-граница безопасности.
+**Read-only роль.** Для Claude-сессии создайте отдельную роль с `pg_read_all_data` (PG 14+) или с `SELECT` на нужные схемы. Slash-команды плагина уже отвергают DDL/DML на уровне команды - read-only роль это durable-граница безопасности.
 
 ### redis-cli
 
 ```bash
-# URI (рекомендовано — пароль не светится в ps)
+# URI (рекомендовано - пароль не светится в ps)
 export REDIS_URL='rediss://default:s3cret@redis.example.com:6379/0'
 redis-cli -u "$REDIS_URL" PING
 
@@ -219,7 +221,7 @@ ACL SETUSER claude on >mypassword ~* +@read +@connection -@dangerous
 
 ### kaf (Kafka)
 
-`kaf` хранит описания кластеров в `~/.kaf/config`. Один раз добавили кластер — дальше команды работают с активным (или с `--cluster <name>`).
+`kaf` хранит описания кластеров в `~/.kaf/config`. Один раз добавили кластер - дальше команды работают с активным (или с `--cluster <name>`).
 
 ```bash
 # Локальный брокер
@@ -239,11 +241,11 @@ kaf config add-cluster prod-tls \
   --tls-ca /etc/ssl/ca.crt
 ```
 
-Декодеры **schema registry / Avro / Protobuf** настраиваются per-cluster в том же конфиге — см. `kaf config -h`.
+Декодеры **schema registry / Avro / Protobuf** настраиваются per-cluster в том же конфиге - см. `kaf config -h`.
 
 ### rabbitmqadmin (rabbitmqadmin-ng)
 
-`rabbitmqadmin-ng` использует HTTP API брокера (плагин `rabbitmq_management`, по умолчанию порт 15672). Конфиг — `~/.rabbitmqadmin.conf`:
+`rabbitmqadmin-ng` использует HTTP API брокера (плагин `rabbitmq_management`, по умолчанию порт 15672). Конфиг - `~/.rabbitmqadmin.conf`:
 
 ```ini
 [default]
@@ -269,7 +271,7 @@ rabbitmqadmin --node prod show overview      # переключиться на �
 rabbitmqadmin --host rabbit.acme.io --port 15672 --username u --password p list queues
 ```
 
-**Безопасность.** Для прода — отдельный read-only пользователь с тегом `monitoring`:
+**Безопасность.** Для прода - отдельный read-only пользователь с тегом `monitoring`:
 
 ```bash
 rabbitmqctl add_user claude '...'
@@ -281,7 +283,7 @@ rabbitmqctl set_permissions -p / claude '' '' '.*'   # configure='', write='', r
 
 ### aws (AWS CLI v2)
 
-Параметры доступа — `~/.aws/credentials` / `~/.aws/config` или env (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_SESSION_TOKEN` / `AWS_PROFILE` / `AWS_REGION`).
+Параметры доступа - `~/.aws/credentials` / `~/.aws/config` или env (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_SESSION_TOKEN` / `AWS_PROFILE` / `AWS_REGION`).
 
 ```bash
 aws configure                  # дефолтный профиль (интерактивно)
@@ -317,17 +319,17 @@ region = eu-central-1
 aws sso login --profile work
 ```
 
-**Read-only IAM-политика** для CLI-плагина — минимум `s3:Get*`, `s3:List*` (и `kms:Decrypt` если бакеты под KMS). Это durable-граница безопасности; slash-команды плагина уже не предлагают destructive-операций.
+**Read-only IAM-политика** для CLI-плагина - минимум `s3:Get*`, `s3:List*` (и `kms:Decrypt` если бакеты под KMS). Это durable-граница безопасности; slash-команды плагина уже не предлагают destructive-операций.
 
 ### jenkins-cli (Jenkins CLI)
 
-`jenkins-cli` — это `.jar` от Jenkins, запускаемый через Java. Сам jar **сервер-зависимый** — официальная рекомендация Jenkins скачивать его из вашего инстанса:
+`jenkins-cli` - это `.jar` от Jenkins, запускаемый через Java. Сам jar **сервер-зависимый** - официальная рекомендация Jenkins скачивать его из вашего инстанса:
 
 ```bash
 curl -fsSL -o ~/jenkins-cli.jar "$JENKINS_URL/jnlpJars/jenkins-cli.jar"
 ```
 
-Минимальная версия Jenkins — 2.54+ (старые CLI-клиенты считаются insecure). Wrapper-скрипт `/usr/local/bin/jenkins-cli` (создаётся `install-cli-tools.sh`) запускает jar через `java -jar` с автоматической подстановкой env:
+Минимальная версия Jenkins - 2.54+ (старые CLI-клиенты считаются insecure). Wrapper-скрипт `/usr/local/bin/jenkins-cli` (создаётся `install-cli-tools.sh`) запускает jar через `java -jar` с автоматической подстановкой env:
 
 ```bash
 exec java -jar "$JENKINS_CLI_JAR" -s "$JENKINS_URL" -auth "$JENKINS_USER_ID:$JENKINS_API_TOKEN" "$@"
@@ -337,7 +339,7 @@ Auth-режимы:
 - **HTTP + token** (default, рекомендован): env `JENKINS_USER_ID` + `JENKINS_API_TOKEN` (token генерируется в `$JENKINS_URL/me/configure`).
 - **SSH**: публичный ключ привязан к Jenkins-аккаунту, флаг `-i ~/.ssh/id_ed25519` в команде.
 
-Tip: Jenkins CLI поддерживает live-stream логов — `jenkins-cli console <job> -f` блокирует, пока билд идёт; полезно для ожидания завершения. В slash-команде `/jk-logs -f` оборачивается с явным таймаутом.
+Tip: Jenkins CLI поддерживает live-stream логов - `jenkins-cli console <job> -f` блокирует, пока билд идёт; полезно для ожидания завершения. В slash-команде `/jk-logs -f` оборачивается с явным таймаутом.
 
 ### teamcity (JetBrains TeamCity CLI)
 
@@ -355,16 +357,27 @@ Env-альтернатива для CI/headless: `TEAMCITY_URL` + `TEAMCITY_TOKE
 ### gh / glab
 
 ```bash
-gh auth login          # интерактивно — выбор хоста (github.com / GHES) и метода (HTTPS+токен / SSH)
+gh auth login          # интерактивно - выбор хоста (github.com / GHES) и метода (HTTPS+токен / SSH)
 glab auth login        # то же для GitLab.com / self-hosted
 
 gh auth status         # проверка
 glab auth status
 ```
 
-Для self-hosted у `gh` несколько хост-конфигов (`gh auth login --hostname ghe.acme.io`); у `glab` — `glab config set --global hostname gitlab.acme.io`.
+Для self-hosted у `gh` несколько хост-конфигов (`gh auth login --hostname ghe.acme.io`); у `glab` - `glab config set --global hostname gitlab.acme.io`.
 
-Токены живут в `~/.config/gh/hosts.yml` и `~/.config/glab-cli/config.yml` — никогда не коммитьте их.
+Токены живут в `~/.config/gh/hosts.yml` и `~/.config/glab-cli/config.yml` - никогда не коммитьте их.
+
+### jira (ankitpokhrel Jira CLI)
+
+Single-binary CLI (Go). Первичная настройка интерактивно:
+
+```bash
+jira init                   # Cloud / Local, host, проект, board; пишет ~/.config/.jira/.config.yml
+jira issue view ISSUE-1     # проверка доступа
+```
+
+Тип авторизации задаётся до `jira init` через `JIRA_AUTH_TYPE`: `basic` (Jira Cloud, по умолчанию, email + API-токен) или `bearer` (self-hosted Server/DC, Personal Access Token). Токен - в `JIRA_API_TOKEN`; путь конфига переопределяется `JIRA_CONFIG_FILE` или флагом `--config`. Все три slash-команды (`/jira-issue`, `/jira-list`, `/jira-sprint`) read-only. Получение токена и области доступа - [CREDENTIALS.md](../CREDENTIALS.md#jira).
 
 ---
 
@@ -377,19 +390,19 @@ CLI-утилиты и MCP-серверы дополняют друг друга.
 | Read-only диагностика («покажи поды», «объясни запрос», «что в этом топике») | **CLI** | Одна команда, никакой инфры, низкий blast radius |
 | Быстрая проверка во время debugging-сессии | **CLI** | Быстрее, без setup, вывод сразу попадает в разговор |
 | Длинный автономный workflow («агент, рефактори и проверь на живой БД») | **MCP** | Структурированная схема инструментов + многошаговые вызовы без явных запросов |
-| Нужны write/mutate операции через Claude | **MCP** (с явной auth-границей) | CLI-плагины — read-only by design, кроме точечных диагностических `/kaf-produce` и `/rmq-publish` |
+| Нужны write/mutate операции через Claude | **MCP** (с явной auth-границей) | CLI-плагины - read-only by design, кроме точечных диагностических `/kaf-produce` и `/rmq-publish` |
 | Локальная разработка, MCP-сервер не настроен | **CLI** | Нулевая дополнительная зависимость |
 | Командная установка с несколькими агентами на одну БД/кластер | **MCP** | Централизованная авторизация, аудит, rate-limit на стороне MCP |
-| Не хотите ещё одну credentials-поверхность | **CLI** | Использует существующий CLI-auth — без отдельных credentials для MCP |
+| Не хотите ещё одну credentials-поверхность | **CLI** | Использует существующий CLI-auth - без отдельных credentials для MCP |
 
-Для систем из нашего каталога — соответствия с MCP (см. `mcp/README.md`):
+Для систем из нашего каталога - соответствия с MCP (см. `mcp/README.md`):
 
-- **PostgreSQL / Redis** — generic-MCP `genai-toolbox` покрывает обе. CLI-плагины (`dex-psql-cli`, `dex-redis-cli`) замещают его для read-only сценариев.
-- **Kafka** — `kafka-mcp-server` (Go-бинарь). `dex-kaf-cli` замещает его для one-shot read-задач; MCP оставьте, если агент должен автономно оркестрировать многими топиками.
-- **RabbitMQ** — есть `rabbitmq` MCP (через `rabbitmq_broker_initialize_connection`). `dex-rabbitmqadmin-cli` замещает его для read-only через HTTP API; MCP оставьте для AMQP-операций.
-- **AWS S3** — отдельного S3-MCP в каталоге нет. `dex-aws-s3-cli` — основной путь для read-only.
-- **Kubernetes** — first-party MCP в каталоге нет; `dex-kubectl-cli` — основной путь.
-- **GitHub / GitLab** — `gh` / `glab` зрелые CLI; MCP имеет смысл только при автономном управлении многими репами.
+- **PostgreSQL / Redis** - generic-MCP `genai-toolbox` покрывает обе. CLI-плагины (`dex-psql-cli`, `dex-redis-cli`) замещают его для read-only сценариев.
+- **Kafka** - `kafka-mcp-server` (Go-бинарь). `dex-kaf-cli` замещает его для one-shot read-задач; MCP оставьте, если агент должен автономно оркестрировать многими топиками.
+- **RabbitMQ** - есть `rabbitmq` MCP (через `rabbitmq_broker_initialize_connection`). `dex-rabbitmqadmin-cli` замещает его для read-only через HTTP API; MCP оставьте для AMQP-операций.
+- **AWS S3** - отдельного S3-MCP в каталоге нет. `dex-aws-s3-cli` - основной путь для read-only.
+- **Kubernetes** - first-party MCP в каталоге нет; `dex-kubectl-cli` - основной путь.
+- **GitHub / GitLab** - `gh` / `glab` зрелые CLI; MCP имеет смысл только при автономном управлении многими репами.
 - **Playwright (browser / E2E)** -- в каталоге есть MCP `playwright` (Microsoft official) и CLI-плагин `dex-playwright-cli`. CLI отвечает за работу с уже написанными тестами (запуск, отчёт, trace, рекордер, install браузеров); MCP даёт агенту высокоуровневые действия в браузере (snapshot a11y-дерева, click/fill/navigate по role+name) без участия `playwright test`. Связка: писать тесты `/pw-test` после прогона; для автономной проверки фичи без существующих тестов -- MCP.
 
 ---
@@ -402,9 +415,9 @@ CLI-утилиты и MCP-серверы дополняют друг друга.
 .\install-bundle\install-bundle.ps1 cli-tools
 ```
 
-Ставит все 11 CLI-плагинов (gh, glab, kubectl, jenkins, teamcity, psql, redis-cli, kaf, rabbitmqadmin, aws-s3, playwright). Пересекается с `dex-bundle-infrastructure` -- если он уже установлен, CLI-плагины придут с ним; запуск `cli-tools` для уже установленных компонентов просто отрапортует «already installed».
+Ставит все 12 CLI-плагинов (gh, glab, kubectl, jenkins, teamcity, jira, psql, redis-cli, kaf, rabbitmqadmin, aws-s3, playwright). Пересекается с `dex-bundle-infrastructure` -- если он уже установлен, CLI-плагины придут с ним; запуск `cli-tools` для уже установленных компонентов просто отрапортует «already installed».
 
-Для установки самих CLI-бинарей на чистой машине — после бандла:
+Для установки самих CLI-бинарей на чистой машине - после бандла:
 
 ```bash
 ./install-bundle/install-cli-tools.sh --all
@@ -415,22 +428,22 @@ CLI-утилиты и MCP-серверы дополняют друг друга.
 ## Troubleshooting
 
 ### «command not found»
-Плагин нашёл slash-команду, но CLI-бинарь отсутствует. Запустите `./install-bundle/install-cli-tools.sh --check` — увидите, чего не хватает.
+Плагин нашёл slash-команду, но CLI-бинарь отсутствует. Запустите `./install-bundle/install-cli-tools.sh --check` - увидите, чего не хватает.
 
 ### `gh auth status` говорит «no logged-in account»
-Запустите `gh auth login`. Для GitHub Enterprise — `--hostname ghe.acme.io`.
+Запустите `gh auth login`. Для GitHub Enterprise - `--hostname ghe.acme.io`.
 
 ### `kubectl` подключается, но возвращает «no resources» / не тот кластер
-Проверьте `/kube-context` — возможно вы на устаревшем контексте. `--list` показывает все, переключайтесь по полному имени (плагин не принимает частичные совпадения, чтобы избежать сюрпризов).
+Проверьте `/kube-context` - возможно вы на устаревшем контексте. `--list` показывает все, переключайтесь по полному имени (плагин не принимает частичные совпадения, чтобы избежать сюрпризов).
 
 ### `psql` зависает на подключении
-Типичные причины: PG отбрасывает ваш IP в `pg_hba.conf`; SSL обязателен, но `sslmode` не задан; пароль неверен, но PG требует client cert. Запустите вручную: `psql -d "$DATABASE_URL" -c 'SELECT 1' -v ON_ERROR_STOP=1` — увидите ошибку.
+Типичные причины: PG отбрасывает ваш IP в `pg_hba.conf`; SSL обязателен, но `sslmode` не задан; пароль неверен, но PG требует client cert. Запустите вручную: `psql -d "$DATABASE_URL" -c 'SELECT 1' -v ON_ERROR_STOP=1` - увидите ошибку.
 
 ### `redis-cli --latency` отвечает «Could not connect»
-По умолчанию `localhost:6379` — установите `REDIS_URL` или передайте `-h host -p port`. Для TLS — `rediss://`, не `redis://`.
+По умолчанию `localhost:6379` - установите `REDIS_URL` или передайте `-h host -p port`. Для TLS - `rediss://`, не `redis://`.
 
 ### `kaf topics` отвечает «no clusters»
-Не выбран кластер. `kaf config get-clusters`, затем `kaf config select-cluster <name>`. Если список пуст — `kaf config add-cluster ...`.
+Не выбран кластер. `kaf config get-clusters`, затем `kaf config select-cluster <name>`. Если список пуст - `kaf config add-cluster ...`.
 
 ### `rabbitmqadmin` отвечает 404 / Connection refused
 Включён ли management plugin? `rabbitmq-plugins enable rabbitmq_management`. Порт по умолчанию 15672, не путайте с AMQP-портом 5672.
@@ -439,7 +452,7 @@ CLI-утилиты и MCP-серверы дополняют друг друга.
 Нет ни env, ни `~/.aws/credentials`. `aws configure` или `aws sso login --profile <name>`. Проверка: `aws sts get-caller-identity`.
 
 ### `MONITOR` из `/redis-monitor` блокирует терминал
-Плагин принудительно ставит timeout (≤10s). Если запускали `redis-cli MONITOR` напрямую и он висит — `Ctrl-C` и не оставляйте на проде, он бьёт по throughput.
+Плагин принудительно ставит timeout (<=10s). Если запускали `redis-cli MONITOR` напрямую и он висит - `Ctrl-C` и не оставляйте на проде, он бьёт по throughput.
 
 ### `/pw-test` падает с `browserType.launch: Executable doesn't exist`
 Браузерные бинари не скачаны. `/pw-install` (все три движка) или `/pw-install chromium` (точечно). На свежем Linux добавить `--with-deps` для системных библиотек: `npx playwright install --with-deps`.
@@ -454,12 +467,12 @@ CLI-утилиты и MCP-серверы дополняют друг друга.
 
 ## Безопасность
 
-- **Большинство команд read-only by design.** `/psql-query` и `/psql-explain` отвергают `INSERT`/`UPDATE`/`DELETE`/DDL/DCL на уровне slash-команды. `/redis-keys` использует только `SCAN`. `/kube-context` мутирует только локальный kubeconfig. RabbitMQ read-команды выполняют только `show`/`list`. S3-команды — только `Get*`/`List*` API. Исключения — `/kaf-produce` и `/rmq-publish`: это **намеренные write-операции для диагностики** (отправка одного тестового сообщения), их Constraints предупреждают о downstream-эффектах и просят использовать staging/test-ресурсы.
-- **Никаких секретов в чате.** Токены, пароли, kubeconfig-блобы — через env (`PGPASSWORD`, `REDISCLI_AUTH`, `GH_TOKEN`, `AWS_*`) или конфиги (`~/.pgpass`, `~/.kube/config`, `~/.kaf/config`, `~/.rabbitmqadmin.conf`, `~/.aws/credentials`) с правильными правами (`chmod 600`).
-- **Least-privilege роли для прода.** Read-only DB-роли, read-only kubeconfig'и, ACL-пользователи Redis, monitoring-tag в RabbitMQ, ReadOnly-IAM в AWS. Slash-команды — это convenience; durable-граница безопасности живёт в той системе, к которой подключаетесь.
-- **`/kaf-produce` и `/rmq-publish` пишут в реальные exchanges/topics.** Используйте staging или dedicated test-ресурсы; никогда — против shared-prod-топиков с downstream-эффектами (events, биллинг).
+- **Большинство команд read-only by design.** `/psql-query` и `/psql-explain` отвергают `INSERT`/`UPDATE`/`DELETE`/DDL/DCL на уровне slash-команды. `/redis-keys` использует только `SCAN`. `/kube-context` мутирует только локальный kubeconfig. RabbitMQ read-команды выполняют только `show`/`list`. S3-команды - только `Get*`/`List*` API. Исключения - `/kaf-produce` и `/rmq-publish`: это **намеренные write-операции для диагностики** (отправка одного тестового сообщения), их Constraints предупреждают о downstream-эффектах и просят использовать staging/test-ресурсы.
+- **Никаких секретов в чате.** Токены, пароли, kubeconfig-блобы - через env (`PGPASSWORD`, `REDISCLI_AUTH`, `GH_TOKEN`, `AWS_*`) или конфиги (`~/.pgpass`, `~/.kube/config`, `~/.kaf/config`, `~/.rabbitmqadmin.conf`, `~/.aws/credentials`) с правильными правами (`chmod 600`).
+- **Least-privilege роли для прода.** Read-only DB-роли, read-only kubeconfig'и, ACL-пользователи Redis, monitoring-tag в RabbitMQ, ReadOnly-IAM в AWS. Slash-команды - это convenience; durable-граница безопасности живёт в той системе, к которой подключаетесь.
+- **`/kaf-produce` и `/rmq-publish` пишут в реальные exchanges/topics.** Используйте staging или dedicated test-ресурсы; никогда - против shared-prod-топиков с downstream-эффектами (events, биллинг).
 - **`/redis-monitor` и `--bigkeys`-сканы нагружают прод.** Только в окнах низкой нагрузки.
-- **`/s3-presign`** создаёт URL до 7 дней — обращайтесь как с секретом: не публиковать.
+- **`/s3-presign`** создаёт URL до 7 дней - обращайтесь как с секретом: не публиковать.
 - **`/pw-codegen` открывает реальный браузер с реальной сессией.** Запись попадёт на сервер: cookies, OAuth callback, форма логина. Использовать staging-домены, не прод с пользовательскими данными. `--save-storage` пишет auth-токены в файл -- не коммитить, `chmod 600`.
 - **`trace.zip` и `playwright-report/`** могут содержать PII, токены в headers, скриншоты с конфиденциальными данными. На CI -- private artifacts; в тикетах -- не прикладывать публично.
 - **`/pw-install --with-deps` запрашивает sudo** и трогает системные пакеты. На managed/shared-машинах вместо этого использовать Docker-образ `mcr.microsoft.com/playwright:v<version>-jammy` (или `-noble`); пример пина: `:v1.49.0-jammy` (всё уже предустановлено).
@@ -470,8 +483,8 @@ CLI-утилиты и MCP-серверы дополняют друг друга.
 
 Хотите обернуть ещё один CLI? См. `docs/COMMAND_FRAMEWORK.md` для структуры slash-команд и существующие утилиты (`plugins/utilities/dex-*-cli/`) как образцы. Кратко:
 
-1. Создать `plugins/utilities/dex-<tool>-cli/` с `.claude-plugin/plugin.json`, `commands/<cmd>.md` (3–5 команд), `README.md` со ссылкой на этот хаб.
-2. Каждая команда: 20–50 строк, frontmatter (`description` / `user-invocable: true` / `allowed-tools: Bash` / `argument-hint`), тело — `Goal` / `Output` / `Scenarios` / `Constraints`.
+1. Создать `plugins/utilities/dex-<tool>-cli/` с `.claude-plugin/plugin.json`, `commands/<cmd>.md` (3-5 команд), `README.md` со ссылкой на этот хаб.
+2. Каждая команда: frontmatter (`description` / `user-invocable: true` / `allowed-tools: Bash` / `argument-hint`), тело - `Goal` / `Output` / `Scenarios` / `Constraints`. Цель и потолки размера - `docs/COMMAND_FRAMEWORK.md` («Размер»), число здесь не дублируем.
 3. Зарегистрировать плагин в `.claude-plugin/marketplace.json`.
 4. Добавить рецепт в `install-bundle/install-cli-tools.sh` (и матрицу выше).
 5. Прогнать `npm run validate`.

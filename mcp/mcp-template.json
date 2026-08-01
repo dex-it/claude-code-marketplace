@@ -127,13 +127,14 @@
       "_env": [
         "TOOLBOX_CONFIG (optional, default: tools.yaml)"
       ],
-      "_note": "Конфигурация баз данных в tools.yaml. Docs: https://github.com/googleapis/genai-toolbox. Пример: mcp/examples/toolbox-config.yaml",
+      "_note": "Конфигурация баз данных в tools.yaml. --stdio обязателен для MCP-транспорта (без него Toolbox поднимается как HTTP-сервер). Docs: https://github.com/googleapis/genai-toolbox. Пример: mcp/examples/toolbox-config.yaml",
       "command": "npx",
       "args": [
         "-y",
-        "@anthropic/toolbox-sdk",
+        "@toolbox-sdk/server",
         "--tools-file",
-        "${TOOLBOX_CONFIG:-tools.yaml}"
+        "${TOOLBOX_CONFIG:-tools.yaml}",
+        "--stdio"
       ]
     },
     "elasticsearch": {
@@ -330,6 +331,27 @@
       "env": {
         "GRAFANA_URL": "${GRAFANA_URL:-http://localhost:3000}",
         "GRAFANA_API_KEY": "${GRAFANA_API_KEY}"
+      }
+    },
+    "sentry": {
+      "_description": "Sentry - error tracking, issue details, stack traces, releases",
+      "_env": [
+        "SENTRY_ACCESS_TOKEN",
+        "SENTRY_HOST (optional, self-hosted)",
+        "EMBEDDED_AGENT_PROVIDER (optional; enables search_events/search_issues)",
+        "ANTHROPIC_API_KEY (optional; key for the chosen EMBEDDED_AGENT_PROVIDER)"
+      ],
+      "_note": "Official @sentry/mcp-server. stdio is WIP; remote mcp.sentry.dev (OAuth) is production-ready. User Auth Token; documented scopes: org:read project:read project:write team:read team:write event:write (our roles call read-only tools only). AI search tools (search_events/search_issues) require an LLM provider: set EMBEDDED_AGENT_PROVIDER (openai|azure-openai|anthropic|openrouter) plus the provider key, else those tools are unavailable. Self-hosted without Seer: set MCP_DISABLE_SKILLS=seer. Source: https://github.com/getsentry/sentry-mcp",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@sentry/mcp-server@latest"
+      ],
+      "env": {
+        "SENTRY_ACCESS_TOKEN": "${SENTRY_ACCESS_TOKEN}",
+        "SENTRY_HOST": "${SENTRY_HOST:-sentry.io}",
+        "EMBEDDED_AGENT_PROVIDER": "${EMBEDDED_AGENT_PROVIDER}",
+        "ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}"
       }
     },
     "openapi": {

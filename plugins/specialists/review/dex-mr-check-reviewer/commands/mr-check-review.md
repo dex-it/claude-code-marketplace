@@ -1,6 +1,6 @@
 ---
 description: Итеративное ре-ревью дельты MR/PR с прошлого раунда - range-diff, статус прежних находок, новые находки только в дельте
-allowed-tools: Read, Grep, Glob, Bash, Skill
+allowed-tools: Read, Grep, Glob, Bash
 argument-hint: "<MR/PR url или short-id> [LAST_REVIEW_SHA]"
 ---
 
@@ -21,7 +21,7 @@ argument-hint: "<MR/PR url или short-id> [LAST_REVIEW_SHA]"
 - Diff-обзор раунда: закрыто, осталось открытым, новых по severity
 - Обновлённый verdict и статусы прошлых находок (closed / partial / open / disputed / no-longer-applicable)
 - После `оформляй` - план апдейтов тредов и новых тредов
-- После `пушь` - опубликованные reply и новые треды через gh/glab API
+- После `пушь` - опубликованные reply и новые треды через канал хостинга (native MCP, иначе gh/glab)
 
 ## Constraints
 
@@ -30,4 +30,4 @@ argument-hint: "<MR/PR url или short-id> [LAST_REVIEW_SHA]"
 - Severity прошлых находок не менять без причины из нового кода или ответа автора
 - До `пушь` ни одной записи; чужие треды не трогать
 
-Делегировать агенту `mr-check-reviewer`.
+Делегировать агенту `mr-check-reviewer` с **`mode: interactive`** во входе - без этого поля агент работает как узел (`autonomous`) и цикла команд не будет.

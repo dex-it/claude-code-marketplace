@@ -17,7 +17,7 @@ Skills методологии: `dex-skill-problem-specification`, `dex-skill-roo
 
 Переиспользуемые skills: `dex-skill-owasp-security`, `dex-skill-testability`, `dex-skill-test-design`, `dex-skill-observability`, `dex-skill-codebase-conventions`, `dex-skill-no-loose-ends`.
 
-CLI для чтения стенда: `dex-kubectl-cli`, `dex-gitlab-cli`, `dex-teamcity-cli`.
+CLI для чтения стенда: `dex-kubectl-cli`, `dex-gitlab-cli`, `dex-github-cli`, `dex-teamcity-cli`, `dex-jira-cli`.
 
 ## Установка
 

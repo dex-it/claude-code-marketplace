@@ -23,3 +23,4 @@ argument-hint: "[-n namespace] [deployment-name] [--history]"
 **Constraints:**
 
 - Требует `kubectl` с настроенным доступом к кластеру
+- Если kubectl не найден или нет доступа -- показать инструкцию установки и ссылку на [docs/CLI_UTILITIES.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/CLI_UTILITIES.md)

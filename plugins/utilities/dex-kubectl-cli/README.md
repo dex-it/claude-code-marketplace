@@ -1,6 +1,6 @@
 # dex-kubectl-cli
 
-CLI-утилита для Kubernetes. Pods, logs, deployments, events, контексты — через `kubectl`.
+CLI-утилита для Kubernetes. Pods, logs, deployments, events, контексты - через `kubectl`.
 
 ## Команды
 
@@ -20,7 +20,7 @@ CLI-утилита для Kubernetes. Pods, logs, deployments, events, конт�
 ## Установка CLI
 
 ```bash
-# Linux (Debian/Ubuntu) — официальный k8s apt-репо
+# Linux (Debian/Ubuntu) - официальный k8s apt-репо
 sudo apt install kubectl    # настройка репо: kubernetes.io
 
 # Linux (Fedora/RHEL)
@@ -35,11 +35,11 @@ brew install kubectl
 
 ## Конфигурация
 
-`kubectl` берёт информацию о кластере из kubeconfig-файла. По умолчанию — `~/.kube/config`.
+`kubectl` берёт информацию о кластере из kubeconfig-файла. По умолчанию - `~/.kube/config`.
 
 ### KUBECONFIG: один файл vs объединение
 
-Можно указать несколько kubeconfig-файлов через `:` (Linux/macOS) — итоговое представление будет **объединением** всех:
+Можно указать несколько kubeconfig-файлов через `:` (Linux/macOS) - итоговое представление будет **объединением** всех:
 
 ```bash
 export KUBECONFIG=~/.kube/config:~/.kube/staging:~/.kube/prod
@@ -57,15 +57,15 @@ kubectl config use-context <name>           # переключить актив�
 kubectl config set-context --current --namespace=<ns>   # сменить namespace в текущем контексте
 ```
 
-`/kube-context` оборачивает эти примитивы и печатает «было → станет», чтобы случайные переключения на shared-машине были видны.
+`/kube-context` оборачивает эти примитивы и печатает «было -> станет», чтобы случайные переключения на shared-машине были видны.
 
 ### Безопасность на production-кластерах
 
-- `~/.kube/config` **общий для всех терминалов пользователя** — переключение контекста влияет на все shell'ы, не только на Claude Code.
-- Для прода предпочтительно использовать **read-only kubeconfig**: service account с RBAC, ограниченным до `get` / `list` / `watch` без `create` / `delete` / `patch`. Пример RBAC-манифеста — в `docs/CLI_UTILITIES.md`.
-- Никогда не делитесь kubeconfig-файлами через чат / коммиты — там bearer-токены или client-cert.
+- `~/.kube/config` **общий для всех терминалов пользователя** - переключение контекста влияет на все shell'ы, не только на Claude Code.
+- Для прода предпочтительно использовать **read-only kubeconfig**: service account с RBAC, ограниченным до `get` / `list` / `watch` без `create` / `delete` / `patch`. Пример RBAC-манифеста - в [docs/CLI_UTILITIES.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/CLI_UTILITIES.md).
+- Никогда не делитесь kubeconfig-файлами через чат / коммиты - там bearer-токены или client-cert.
 
-См. [docs/CLI_UTILITIES.md](../../../docs/CLI_UTILITIES.md) — multi-cluster setup, OIDC/exec auth, troubleshooting, матрица CLI vs MCP.
+См. [docs/CLI_UTILITIES.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/CLI_UTILITIES.md) - multi-cluster setup, OIDC/exec auth, troubleshooting, матрица CLI vs MCP.
 
 ## Установка плагина
 

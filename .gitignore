@@ -1,5 +1,5 @@
 # Node
-node_modules/
+node_modules
 npm-debug.log
 package-lock.json
 yarn.lock
@@ -50,5 +50,13 @@ out/
 
 # Claude Code plans (optional - remove if you want to track them)
 .claude/*
+# path-scoped правила репозитория - нормативные, едут вместе с кодом
+!.claude/rules/
 .tldr/*
 .tldrignore
+
+# Рабочие план-файлы автономных прогонов (roadmap/история, не нормативные доки)
+docs/autonomous/
+
+# local config cache for branch/task sync skills
+.claude/tasks-mr-sync.local.json

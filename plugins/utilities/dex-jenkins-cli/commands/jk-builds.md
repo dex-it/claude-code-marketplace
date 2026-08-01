@@ -21,6 +21,6 @@ argument-hint: "job-name [build-number | lastBuild | lastFailedBuild]"
 
 **Constraints:**
 
-- Требует `jenkins-cli` в PATH; если не найден -- показать инструкцию установки и ссылку на `docs/CLI_UTILITIES.md`.
+- Требует `jenkins-cli` в PATH; если не найден -- показать инструкцию установки и ссылку на [docs/CLI_UTILITIES.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/CLI_UTILITIES.md).
 - Параметры подключения: env `JENKINS_URL`, `JENKINS_USER_ID`, `JENKINS_API_TOKEN`.
 - Read-only.

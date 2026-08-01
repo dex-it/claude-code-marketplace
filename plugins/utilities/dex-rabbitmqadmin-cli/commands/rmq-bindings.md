@@ -1,5 +1,5 @@
 ---
-description: Bindings RabbitMQ — как сообщения роутятся между exchanges и queues
+description: Bindings RabbitMQ - как сообщения роутятся между exchanges и queues
 user-invocable: true
 allowed-tools: Bash
 argument-hint: "[--source exchange] [--destination queue] [--vhost name]"
@@ -9,7 +9,7 @@ argument-hint: "[--source exchange] [--destination queue] [--vhost name]"
 
 Карта routing'а в RabbitMQ.
 
-**Goal:** Понять, как сообщения попадают из exchange в очередь -- routing keys, headers-аргументы, цепочки exchange→exchange.
+**Goal:** Понять, как сообщения попадают из exchange в очередь -- routing keys, headers-аргументы, цепочки exchange->exchange.
 
 **Output:** Таблица bindings: source (exchange), destination (queue/exchange), routing_key, arguments. Группировка по source.
 
@@ -22,5 +22,5 @@ argument-hint: "[--source exchange] [--destination queue] [--vhost name]"
 
 **Constraints:**
 
-- Требует `rabbitmqadmin` в PATH; если не найден -- показать инструкцию установки и ссылку на `docs/CLI_UTILITIES.md`.
+- Требует `rabbitmqadmin` в PATH; если не найден -- показать инструкцию установки и ссылку на [docs/CLI_UTILITIES.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/CLI_UTILITIES.md).
 - Read-only. Создание/удаление bindings -- только вручную или через `dex-rabbitmq-specialist`.

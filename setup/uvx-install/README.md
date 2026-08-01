@@ -21,9 +21,8 @@ cd setup/uvx-install
 
 Скрипт автоматически:
 - ✓ Проверит наличие uv и uvx
-- ✓ Установит uv через официальный установщик
-- ✓ Настроит PATH в ~/.bashrc или ~/.zshrc
-- ✓ Создаст симлинк uvx
+- ✓ Установит uv через официальный установщик (Linux и macOS)
+- ✓ Подхватит PATH для текущей сессии и идемпотентно дозапишет постоянную правку в профиль (`~/.zshrc` / `~/.bashrc` / `~/.profile` по `$SHELL`), если её там ещё нет - на случай, если установщик uv профиль не тронул
 
 ### Шаг 2: Установка MCP сервера
 
@@ -42,16 +41,15 @@ cd setup/uvx-install
 ### 1. Установка uv/uvx
 
 ```bash
-# Установка uv
+# Установка uv (Linux и macOS - один и тот же установщик)
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Добавление в PATH
-echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
-
-# Создание симлинка uvx (если нужно)
-ln -sf ~/.cargo/bin/uv ~/.cargo/bin/uvx
+# Установщик кладёт uv, uvx, uvw в ~/.local/bin (до версии 0.5.0 - в ~/.cargo/bin)
+# и сам дописывает PATH в профиль shell. Для текущей сессии:
+source "$HOME/.local/bin/env"
 ```
+
+> На macOS оболочка по умолчанию zsh; `source "$HOME/.local/bin/env"` работает и в bash, и в zsh. Отдельный симлинк `uvx` создавать не нужно - установщик ставит `uvx` отдельным бинарём рядом с `uv`.
 
 ### 2. Проверка установки
 
@@ -166,15 +164,16 @@ source ~/.bashrc  # или ~/.zshrc
 ### Проверка PATH
 
 ```bash
-echo $PATH | grep cargo
+echo "$PATH" | grep -E 'local/bin|cargo'
 ```
 
-Должно содержать `~/.cargo/bin`
+Должно содержать `~/.local/bin` (uv >= 0.5.0; до 0.5.0 - `~/.cargo/bin`)
 
 ### Ручное добавление в PATH
 
 ```bash
-echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> ~/.bashrc
+# uv генерирует ~/.local/bin/env; источаем его (работает в bash и zsh)
+echo '. "$HOME/.local/bin/env"' >> ~/.bashrc   # или ~/.zshrc
 source ~/.bashrc
 ```
 

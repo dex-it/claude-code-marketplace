@@ -74,4 +74,4 @@ Complete infrastructure bundle: databases, messaging, containers, CI/CD, monitor
 
 This bundle is a convenience wrapper. Each component plugin works independently.
 
-To install only the CLI plugins (without specialists/skills), use [`dex-bundle-cli-tools`](../dex-bundle-cli-tools/README.md). For the underlying CLI binaries (psql, redis-cli, kaf, ...) see [`docs/CLI_UTILITIES.md`](../../../docs/CLI_UTILITIES.md) and `install-bundle/install-cli-tools.sh`.
+To install only the CLI plugins (without specialists/skills), use [`dex-bundle-cli-tools`](https://github.com/dex-it/claude-code-marketplace/blob/main/plugins/bundles/dex-bundle-cli-tools/README.md). For the underlying CLI binaries (psql, redis-cli, kaf, ...) see [`docs/CLI_UTILITIES.md`](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/CLI_UTILITIES.md) and `install-bundle/install-cli-tools.sh`.

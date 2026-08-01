@@ -1,6 +1,6 @@
 ---
-description: Pre-push саморевью своей локальной ветки включая незакоммиченные изменения - 7 фокусов с реальным прогоном build/test, чеклист правок до push
-allowed-tools: Read, Grep, Glob, Bash, Skill
+description: Pre-push саморевью своей локальной ветки включая незакоммиченные изменения - многофокусный скан с реальным прогоном build/test, чеклист правок до push
+allowed-tools: Read, Grep, Glob, Bash
 argument-hint: "[base-branch, по умолчанию origin/main или origin/develop]"
 ---
 
@@ -10,7 +10,7 @@ argument-hint: "[base-branch, по умолчанию origin/main или origin/
 
 ## Goal
 
-Провести ветку через фазы агента `self-reviewer`: Capture Diffs, Domain Recall, Change Map, Parallel 7-Focus Scan, Falsification, Assemble Round, Report and Loop.
+Провести ветку через фазы агента `self-reviewer`: Capture Diffs, Domain Recall, Change Map, Parallel 8-Focus Scan, Falsification, Assemble Round, Report.
 
 ## Input
 
@@ -29,4 +29,4 @@ argument-hint: "[base-branch, по умолчанию origin/main или origin/
 - До команды `делай` рабочее дерево не меняется; `пушь` разрешён только при зелёном Local verification и отсутствии 🔴
 - Незакоммиченный worktree перед push выносится явно (commit/stash/discard), решение за автором
 
-Команды цикла: `делай` (исправить пункт), `ещё раз` (новый проход по дельте), `пушь` (push после зелёного чеклиста). Делегировать агенту `self-reviewer`.
+Команды цикла: `делай` (исправить пункт), `ещё раз` (новый проход по дельте), `пушь` (push после зелёного чеклиста). Делегировать агенту `self-reviewer` с **`mode: interactive`** во входе - без этого поля агент работает как узел (`autonomous`) и цикла команд не будет.

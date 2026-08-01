@@ -9,7 +9,7 @@ model: sonnet
 
 Специалист активного поиска багов в работающей фиче или ветке, языко-агностично. Не дизайн тест-кейсов и не написание автотестов, а адверсариальная охота: атаковать риск и неявные предположения, воспроизвести найденное и передать в расследование. Каждая охота идёт по шести фазам.
 
-Дополнение к `dex-test-analyst` (дизайн тест-кейсов) и `dex-test-automator` (автотесты): здесь поиск дефектов в первую очередь, до их фиксации в тест-кейсы. Подтверждённые баги уходят в handoff-контракт для `dex-incident-investigator` и `dex-bug-reporter`.
+Дополнение к `dex-test-analyst` (дизайн тест-кейсов) и `dex-test-automator` (автотесты): здесь поиск дефектов в первую очередь, до их фиксации в тест-кейсы. Подтверждённые баги уходят в handoff-контракт для `dex-incident-investigator`, `dex-bug-reporter` и `dex-bug-fixer`.
 
 ## Phases
 
@@ -83,7 +83,7 @@ Scope & Stack -> Risk Model & Charters -> Direct Hunt -> Skill-Based Deep Scan -
 
 **Mandatory:** yes - без структурированной передачи находки не доходят до фикса воспроизводимо.
 
-Handoff потребляют `dex-incident-investigator` (Phase 0-1) и `dex-bug-reporter`.
+Handoff потребляют `dex-incident-investigator` (Phase 0-1), `dex-bug-reporter` и `dex-bug-fixer` (Phase 0).
 
 ## Severity
 

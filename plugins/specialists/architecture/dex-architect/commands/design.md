@@ -1,7 +1,7 @@
 ---
-description: Интерактивная архитектурная сессия по бизнес-задаче — интервью, capacity, reference match, план реализации
+description: Интерактивная архитектурная сессия по бизнес-задаче - интервью, capacity, reference match, план реализации
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash
-argument-hint: "[бизнес-задача в свободной форме]"
+argument-hint: "[бизнес-задача в свободной форме / путь к апрувнутым требованиям из /feature]"
 ---
 
 # /design
@@ -10,13 +10,16 @@ argument-hint: "[бизнес-задача в свободной форме]"
 
 ## Goal
 
-Провести пользователя через 8 фаз агента `architect`: Codebase Priming → Understand Requirements → Capacity Estimation → Reference Architecture Match → Propose Alternatives → Decide → Deep Dive → Implementation Plan (+ опциональный Document).
+Провести пользователя через 8 фаз агента `architect`: Codebase Priming -> Understand Requirements -> Capacity Estimation -> Reference Architecture Match -> Propose Alternatives -> Decide -> Deep Dive -> Implementation Plan (+ опциональный Document).
 
 ## Input
 
-Аргумент — бизнес-задача в свободной форме («хочу новостную ленту», «нужен сервис уведомлений», «как переехать с монолита на сервисы»).
+Аргумент - постановка в одной из двух форм:
 
-Если аргумент не передан — агент интерактивно запрашивает задачу в первом сообщении.
+- **бизнес-задача в свободной форме** («хочу новостную ленту», «нужен сервис уведомлений», «как переехать с монолита на сервисы») - требования уточняются в Phase 1;
+- **апрувнутый набор требований зоны 1** (путь к BRD и/или user stories, приходит из `/feature`) - требования уже прогнаны оракулом, Phase 1 доверяет метке `quality-checks` и не дублирует полный обход.
+
+Если аргумент не передан - агент интерактивно запрашивает постановку в первом сообщении.
 
 ## Output
 
@@ -29,7 +32,7 @@ argument-hint: "[бизнес-задача в свободной форме]"
 - **Phase 4:** 2-3 альтернативы с Mermaid-диаграммами
 - **Phase 5:** выбранное решение + CAP/PACELC trade-off'ы (требует подтверждения пользователя)
 - **Phase 6:** deep dive (storage schema, API, caching, sharding, failure modes, observability)
-- **Phase 7:** implementation plan (walking skeleton → vertical slices → scale-out)
+- **Phase 7:** implementation plan (walking skeleton -> vertical slices -> scale-out)
 - **Phase 8 (опционально):** ADR / C4 / architecture description
 
 ## Constraints
@@ -37,6 +40,6 @@ argument-hint: "[бизнес-задача в свободной форме]"
 - Не предлагать решение до Capacity Estimation
 - Минимум 2 жизнеспособных альтернативы в Phase 4
 - Phase 5 требует explicit confirmation пользователя перед Deep Dive
-- Для .NET-специфичной сессии (с конкретными ASP.NET Core / EF Core / MassTransit) — делегировать `architect-dotnet`
+- Для .NET-специфичной сессии (с конкретными ASP.NET Core / EF Core / MassTransit) - делегировать `architect-dotnet`
 
-Делегировать агенту `architect`.
+Делегировать агенту `architect` с **`mode: interactive`** во входе (команда исполняется главным циклом - канал к юзеру есть; без явного `interactive` агент уйдёт в дефолтный `autonomous` и не будет вести диалог/Phase 5 confirmation).

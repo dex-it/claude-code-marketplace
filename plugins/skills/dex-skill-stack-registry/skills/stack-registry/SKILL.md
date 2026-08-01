@@ -1,6 +1,6 @@
 ---
 name: stack-registry
-description: Реестр стеков и правило загрузки профильных skills по стеку для общих агентов. Активируется при определении стека проекта, by-stack loading, загрузка скиллов по стеку, какие dex-skill грузить, профильные skills стека, detect stack, какой стек, dex-skill-dotnet, dex-skill-ts, dex-skill-python, тема×стек
+description: Реестр стеков и правило загрузки профильных skills по стеку (грузится императивно общими агентами при by-stack loading) - стек->манифест->префикс + отбор «стек × тема». Активируется при определении стека проекта, by-stack loading, загрузке профильных skills по стеку
 ---
 
 <!-- skill-type: process -->

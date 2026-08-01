@@ -31,7 +31,7 @@ print_header()  { echo -e "${MAGENTA}$*${NC}"; }
 print_dim()     { echo -e "${GRAY}$*${NC}"; }
 
 # Supported tools
-SUPPORTED_TOOLS=(gh glab kubectl psql redis-cli kaf rabbitmqadmin aws jenkins-cli teamcity \
+SUPPORTED_TOOLS=(gh glab kubectl psql redis-cli kaf rabbitmqadmin aws jenkins-cli teamcity jira \
                  netcoredbg gdb lldb strace bpftrace bcc perf binutils rizin ilspycmd \
                  flamegraph valgrind lief dotnet-diagnostic-tools)
 
@@ -107,6 +107,7 @@ tool_description() {
         aws)           echo "AWS CLI v2 (used by dex-aws-s3-cli)" ;;
         jenkins-cli)   echo "Jenkins CLI (.jar + Java wrapper) (used by dex-jenkins-cli)" ;;
         teamcity)      echo "TeamCity CLI by JetBrains (used by dex-teamcity-cli)" ;;
+        jira)          echo "Jira CLI by ankitpokhrel (used by dex-jira-cli)" ;;
         netcoredbg)    echo "Samsung netcoredbg .NET CLI debugger (used by dex-netcoredbg-cli)" ;;
         gdb)           echo "GNU debugger (native debug)" ;;
         lldb)          echo "LLVM debugger (native debug, macOS default)" ;;
@@ -227,6 +228,7 @@ tool_version() {
         # so we report status (not version) when the wrapper file is in PATH.
         jenkins-cli)   echo "jenkins-cli (wrapper installed; version requires JENKINS_URL)" ;;
         teamcity)      teamcity --version 2>/dev/null | head -1 ;;
+        jira)          jira version 2>/dev/null | head -1 ;;
         netcoredbg)    netcoredbg --version 2>/dev/null | head -1 ;;
         gdb)           gdb --version 2>/dev/null | head -1 ;;
         lldb)          lldb --version 2>/dev/null | head -1 ;;
@@ -396,6 +398,17 @@ print_recipe() {
             ;;
         macos:brew:teamcity)
             echo "brew install jetbrains/utils/teamcity"
+            ;;
+
+        # jira (ankitpokhrel jira-cli) - GitHub release binary, latest tag via API.
+        # Artifacts: jira_<VER>_linux_{x86_64,arm64}.tar.gz (goreleaser). Убирает зависимость от Go и проблему $GOPATH/bin вне PATH.
+        linux:*:jira)
+            echo 'ARCH=$(uname -m); case "$ARCH" in x86_64) JIRA_ARCH=x86_64 ;; aarch64|arm64) JIRA_ARCH=arm64 ;; *) echo "ERROR: unsupported arch for jira: $ARCH (supported: x86_64, aarch64/arm64)" >&2; exit 1 ;; esac; VER=$(curl -fsSL https://api.github.com/repos/ankitpokhrel/jira-cli/releases/latest | grep "\"tag_name\":" | head -1 | cut -d"\"" -f4) && VNUM=${VER#v} && curl -fsSL -o /tmp/jira.tar.gz "https://github.com/ankitpokhrel/jira-cli/releases/download/${VER}/jira_${VNUM}_linux_${JIRA_ARCH}.tar.gz"'
+            echo 'rm -rf /tmp/jira-extract && mkdir -p /tmp/jira-extract && tar -xzf /tmp/jira.tar.gz -C /tmp/jira-extract'
+            echo 'JIRA_BIN=$(find /tmp/jira-extract -type f -name jira | head -1); [ -n "$JIRA_BIN" ] || { echo "ERROR: jira binary not found in release archive" >&2; exit 1; }; sudo install -m 0755 "$JIRA_BIN" /usr/local/bin/jira'
+            ;;
+        macos:brew:jira)
+            echo "brew tap ankitpokhrel/jira-cli && brew install jira-cli"
             ;;
 
         # aws (AWS CLI v2)
