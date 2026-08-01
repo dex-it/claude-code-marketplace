@@ -505,18 +505,19 @@
       ]
     },
     {
-      "name": "dex-skill-dotnet-project-baseline",
-      "source": "./plugins/skills/dex-skill-dotnet-project-baseline",
-      "description": "Технический baseline нового .NET проекта: наследование правил solution vs закладка с нуля, мягкое предупреждение о недостающей гигиене",
-      "version": "1.0.1",
+      "name": "dex-skill-project-baseline",
+      "source": "./plugins/skills/dex-skill-project-baseline",
+      "description": "Гейты качества проекта: проверка наличия при первом погружении в контекст, рекомендация завести до правок, фиксация отказа решением проекта",
+      "version": "2.0.0",
       "category": "skill",
       "keywords": [
         "skill",
-        "dotnet",
         "project",
         "baseline",
-        "scaffold",
-        "bootstrap"
+        "quality-gates",
+        "linter",
+        "ci",
+        "scaffold"
       ]
     },
     {
@@ -771,7 +772,7 @@
       "name": "dex-skill-adr-quality",
       "source": "./plugins/skills/dex-skill-adr-quality",
       "description": "ADR authoring traps: norm vs code state, imperative rules, closure, requirement sources",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -1541,7 +1542,7 @@
       "name": "dex-bundle-dotnet-developer",
       "source": "./plugins/bundles/dex-bundle-dotnet-developer",
       "description": "Bundle for .NET developers: coding, debugging, testing, review, EF, performance, interactive .NET architecture design (incl. microservices)",
-      "version": "2.10.0",
+      "version": "2.11.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -1553,7 +1554,7 @@
       "name": "dex-bundle-dotnet-fullstack",
       "source": "./plugins/bundles/dex-bundle-dotnet-fullstack",
       "description": "Complete .NET fullstack: development + databases + messaging + containers + interactive .NET architecture design",
-      "version": "2.10.0",
+      "version": "2.11.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -1606,7 +1607,7 @@
       "name": "dex-bundle-architect",
       "source": "./plugins/bundles/dex-bundle-architect",
       "description": "Bundle for Architects: interactive system design (Xu/RESHADED), ADR, diagrams, API design, codebase analysis, security, observability",
-      "version": "1.13.0",
+      "version": "1.14.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -1647,7 +1648,7 @@
       "name": "dex-bundle-ts-fullstack",
       "source": "./plugins/bundles/dex-bundle-ts-fullstack",
       "description": "Bundle for TypeScript fullstack: Node.js/Bun backend + React frontend, security, Docker, Playwright E2E",
-      "version": "1.9.0",
+      "version": "1.10.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -2832,7 +2833,7 @@
       "name": "dex-bundle-code-review",
       "source": "./plugins/bundles/dex-bundle-code-review",
       "description": "Bundle цикла работы с кодом: языко-агностичное ревью MR/PR, ре-ревью дельты, план правок, реализация фичи, интеграция базовой ветки с разрешением конфликтов, pre-push саморевью, приёмка слитой фичи на стенде и ремедиация найденного, расследование инцидента (RCA на стенде), плюс skills дисциплины ревью.",
-      "version": "1.14.0",
+      "version": "1.15.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -2847,7 +2848,7 @@
       "name": "dex-bundle-bug-lifecycle",
       "source": "./plugins/bundles/dex-bundle-bug-lifecycle",
       "description": "Bundle жизненного цикла бага: активный поиск, оформление, расследование корневой причины на общем стенде и фикс на источнике, плюс skills методологии RCA и поиска багов и CLI для чтения стенда и трекера.",
-      "version": "1.9.0",
+      "version": "1.10.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -2862,7 +2863,7 @@
       "name": "dex-bundle-sdlc",
       "source": "./plugins/bundles/dex-bundle-sdlc",
       "description": "Bundle полного цикла SDLC, языко-агностично: движок автономного доведения задачи, порождение и ревью требований, архитектурный дизайн и ADR, реализация фичи, тест-инжиниринг, ревью MR и разбор замечаний, приёмка на стенде, поиск багов и расследование инцидентов, документирование, плюс skills дисциплины и CLI трекера, MR-хостинга, CI и стенда.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "category": "bundle",
       "keywords": [
         "bundle",

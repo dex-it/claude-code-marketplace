@@ -1,23 +1,9 @@
 ---
 name: ts-patterns
-description: TypeScript ловушки — типизация, async/await, runtime vs compile-time, гигиена проекта. Активируется при typescript, ts, interface, generic, async, promise, tsconfig, .ts, .tsx, tsc, strict mode, type guard, discriminated union, zod schema, type inference, enum, eslint, линтер, гейты проекта
+description: TypeScript ловушки — типизация, async/await, runtime vs compile-time. Активируется при typescript, ts, interface, generic, async, promise, tsconfig, .ts, .tsx, tsc, strict mode, type guard, discriminated union, zod schema, type inference, enum
 ---
 
 # TypeScript — ловушки и anti-patterns
-
-## Гигиена проекта — до правок кода
-
-Первое касание проекта на ЛЮБОЙ стадии, не только на старте: проверь наличие трёх гейтов и назови отсутствующие вслух.
-
-| Гейт | Признак наличия | Нет — что делать |
-|---|---|---|
-| Проверка типов | `tsconfig.json`; проект на `.js`/`.mjs` — `jsconfig.json` с `checkJs` | завести, прогнать, назвать число ошибок до своих правок |
-| Линтер | `eslint.config.*` или `biome.json` | завести; type-aware правила промисов требуют `projectService` |
-| Тесты | скрипт `test` в `package.json` | завести до первой правки поведения |
-
-Гейта нет — предложи завести ДО изменения кода, а не после: на живом проекте счёт ошибок растёт, и правка без гейта увеличивает его молча. «Проект уже большой», «сейчас не про это», «код и так работает» — не основания пропустить проверку, а причина назвать цену входа числом. Человек отказался — работай без гейта, но не выдавай прогон тестов за проверенность кода.
-
-Гейт красный на существующем коде — не отключай правило и не смягчай конфиг: зафиксируй число ошибок, почини задетое своей правкой, остальное вынеси отдельной задачей.
 
 ## Типизация
 
@@ -99,7 +85,6 @@ description: TypeScript ловушки — типизация, async/await, runt
 
 ## Чек-лист
 
-- Гейты (типы, линтер, тесты) заведены до правок, не после
 - `strict: true` в tsconfig
 - unknown вместо any, type guards вместо as
 - Explicit return types на public API

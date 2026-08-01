@@ -17,7 +17,7 @@
 | Структура тела | H2-категории, >= 5 H3-ловушек (цель 10-15) | таблица-реестр или >= 2 H2-раздела с правилами |
 | Триада обязательна | да (каждая H3) | нет - разрешена, но не требуется |
 | Регистрация | дефолт, нигде явно | allowlist `PROCESS_SKILLS` в валидаторе + `<!-- skill-type: process -->` в теле |
-| Примеры | `dotnet-ef-core`, `owasp-security`, `react`, `docker` | `stack-registry`, `dotnet-project-baseline` |
+| Примеры | `dotnet-ef-core`, `owasp-security`, `react`, `docker` | `stack-registry`, `project-baseline` |
 
 **Trap-skill** - дефолт. Каталог граблей конкретной технологии или темы. Этому посвящён весь остальной документ, если не сказано иное.
 

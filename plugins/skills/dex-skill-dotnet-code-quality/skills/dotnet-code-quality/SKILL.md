@@ -1,17 +1,11 @@
 ---
 name: dotnet-code-quality
-description: Гигиена .NET проекта — анализаторы и контроль качества кода. Активируется при анализатор не сработал, варнинг в билде, warning as error, EnableNETAnalyzers, AnalysisMode, подавить варнинг, NoWarn, vulnerable package, NuGetAudit, уязвимость в пакете, code style в билде, NSDepCop, нарушение слоёв, dotnet format в CI, code coverage порог, quality gate, анализаторов нет, настроить контроль качества
+description: Гигиена .NET проекта — анализаторы и контроль качества кода. Активируется при анализатор не сработал, варнинг в билде, warning as error, EnableNETAnalyzers, AnalysisMode, подавить варнинг, NoWarn, vulnerable package, NuGetAudit, уязвимость в пакете, code style в билде, NSDepCop, нарушение слоёв, dotnet format в CI, code coverage порог, quality gate
 ---
 
 # .NET code quality — анализаторы и контроль качества
 
 > Структура .csproj (PackageReference, CPM, Directory.Build.props, PrivateAssets для analyzers) — см. dex-skill-dotnet-csproj-hygiene. Здесь — включение анализаторов, warning-профиль, аудит зависимостей.
-
-## Проверить наличие — на любой стадии проекта
-
-Первое касание solution, не только закладка нового: проверь, есть ли контроль качества вообще, и назови отсутствующее вслух. Признаки наличия — `Directory.Build.props` с `EnableNETAnalyzers`, `.editorconfig` с severity правил, `TreatWarningsAsErrors`, шаг `dotnet format`/`NuGetAudit` в CI.
-
-Ничего из этого нет — предложи завести ДО правок кода, а не после: счёт предупреждений на живом solution растёт, и правка без гейта увеличивает его молча. «Проект уже большой», «сейчас задача не про это», «код и так собирается» — не основания пропустить проверку, а причина назвать цену входа числом (включи анализаторы, собери, назови количество предупреждений). Человек отказался — работай без гейта, но не выдавай зелёный билд за проверенность кода.
 
 ## Включение анализаторов
 

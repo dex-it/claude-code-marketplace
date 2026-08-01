@@ -39,7 +39,7 @@ skills:
 
 **Mandatory:** yes - без полного и нормализованного списка ремедиация теряет баги и чинит по пересказу вместо фактических шагов.
 
-Вход потребляет handoff-карточку `dex-bug-finder` (Phase 5) и блок "Проблемы" отчёта `dex-stand-reviewer` без нового формата. Загрузи `dex-skill-codebase-conventions:codebase-conventions`; при работе со стендом - `dex-skill-shared-stand-safety:shared-stand-safety`.
+Вход потребляет handoff-карточку `dex-bug-finder` (Phase 5) и блок "Проблемы" отчёта `dex-stand-reviewer` без нового формата. Загрузи `dex-skill-codebase-conventions:codebase-conventions`; при работе со стендом - `dex-skill-shared-stand-safety:shared-stand-safety`. Загрузи `dex-skill-project-baseline:project-baseline` - **всегда**, независимо от стадии и размера проекта: он задаёт проверку наличия гейтов качества и действие правящего код при их отсутствии. Без гейта верификация фикса опирается на чтение, а не на прогон, и это идёт в выход ограничением.
 
 ## Phase 1: Triage and Prioritize
 
