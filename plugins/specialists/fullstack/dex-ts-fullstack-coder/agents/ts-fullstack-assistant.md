@@ -28,7 +28,7 @@ Project Bootstrap (conditional) -> Understand Requirements -> Study Project Cont
 - `tsconfig.json` со `strict: true` (и `noUncheckedIndexedAccess` где уместно) -- типы как warning-профиль проекта
 - `package.json` + lockfile, явно выбранный package manager (npm/pnpm/yarn/bun)
 - ESLint + Prettier config -- линт и формат активны до первого бизнес-кода
-- Структура monorepo (workspaces) и granica shared types, если проект fullstack
+- Структура monorepo (workspaces) и граница shared types, если проект fullstack
 
 **Output:** скелет проекта (структура + конфигурация, не бизнес-код) с заложенным baseline.
 
