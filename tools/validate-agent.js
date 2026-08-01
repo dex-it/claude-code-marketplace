@@ -140,6 +140,24 @@ const ALLOWED_PRELOAD_SKILLS = new Map([
 ]);
 
 /**
+ * Реестр ЧИТАТЕЛЕЙ норматива этапа: агенты, которые норматив не pre-load'ят
+ * (для них он условен), но обязаны загружать его ИМПЕРАТИВНО в фазе, потому что
+ * судят артефакт этого этапа. Без загрузки судья проверяет полноту состава по
+ * памяти, а состав живёт в нормативе - расхождение автора и судьи, ради снятия
+ * которого норматив и заведён (docs/standards/CHAIN.md, раздел 7).
+ *
+ * Ключ - полная форма ссылки `{plugin}:{skill}` (ровно то, что ищется в теле).
+ * Значение - имена агентов (`name` во frontmatter). Rename агента - повод
+ * править и эту карту, и ALLOWED_PRELOAD_SKILLS выше.
+ */
+const STAGE_NORMATIVE_READERS = new Map([
+  [
+    'dex-skill-business-analysis:business-analysis',
+    new Set(['requirements-reviewer', 'requirements-orchestrator']),
+  ],
+]);
+
+/**
  * Normalize a `skills:` entry to its short skill name for allowlist matching.
  * Accepts `dex-skill-node-contract`, `dex-skill-node-contract:node-contract`,
  * or `node-contract` - all -> `node-contract`.
@@ -611,6 +629,45 @@ function validateFactcheckCascade(parsed, findings) {
   }
 }
 
+/**
+ * Читатель норматива этапа обязан грузить его императивно в фазе. Проверяется
+ * наличие полной формы `{plugin}:{skill}` в теле и `Skill` в `tools`: без tool'а
+ * запись в теле неисполнима, и проверка состава молча выпадает.
+ */
+function validateStageNormativeReaders(parsed, findings) {
+  const name = String(parsed.data?.name ?? '').trim();
+  if (!name) return;
+
+  const body = parsed.content || '';
+  const fm = parsed.data || {};
+  const tools = Array.isArray(fm.tools)
+    ? fm.tools.join(',')
+    : typeof fm.tools === 'string'
+      ? fm.tools
+      : '';
+
+  for (const [ref, readers] of STAGE_NORMATIVE_READERS) {
+    if (!readers.has(name)) continue;
+
+    if (!body.includes(ref)) {
+      findings.push({
+        level: ERROR,
+        rule: 'stage-normative-reader-missing',
+        message: `Agent "${name}" judges artifacts of the stage normed by "${ref}" but never loads it - add an imperative Skill call in the judging phase (pre-load is reserved for the stage owner)`,
+      });
+      continue;
+    }
+
+    if (!/\bSkill\b/.test(tools)) {
+      findings.push({
+        level: ERROR,
+        rule: 'stage-normative-reader-missing',
+        message: `Agent "${name}" references stage normative "${ref}" in a phase but tools is missing \`Skill\` - the imperative load cannot run`,
+      });
+    }
+  }
+}
+
 function validateSkillReferences(markdownBody, marketplacePlugins, findings) {
   const re = /`(dex-skill-[a-z0-9-]+):[a-z0-9-]+`/gi;
   const referenced = new Set();
@@ -691,6 +748,7 @@ function validateFile(filepath, marketplacePlugins) {
   validateFrontmatter(parsed, findings);
   validateFileNameMatchesName(filepath, parsed, findings);
   validateFactcheckCascade(parsed, findings);
+  validateStageNormativeReaders(parsed, findings);
   validateAttributeBlocks(parsed.content, findings, bodyOffset);
 
   if (phaseResult.validated) {

@@ -1,0 +1,110 @@
+# Реестр правил валидаторов
+
+Каждое правило `tools/validate-*.js` - строка здесь. Правило без строки не проходит мета-проверку
+`node tools/validate-rules-documented.js`: имя правила в выводе валидатора должно вести к норме, а не
+к чтению кода. Обратное тоже проверяется - строка про несуществующее правило удаляется, иначе реестр
+гниёт молча.
+
+Колонка «Норма» - где живёт содержательное правило (почему так, а не иначе). Прочерк - правило
+техническое либо самодостаточное: норму пересказывать негде и незачем.
+
+## tools/validate-agent.js
+
+| Правило | Уровень | Что ловит | Норма |
+|---|---|---|---|
+| `read-failed` | error | файл не читается или frontmatter не парсится | - |
+| `frontmatter-required` | error | нет `name` / `description` / `tools` | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md#self-check-перед-коммитом) |
+| `frontmatter-forbidden` | error | поле, ломающее агента (`allowed-tools`) | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md#self-check-перед-коммитом) |
+| `frontmatter-description-short` | error | `description` короче порога - авто-активация не срабатывает | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md#self-check-перед-коммитом) |
+| `frontmatter-description-long` | warning | `description` длиннее ориентира каталога | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md#self-check-перед-коммитом) |
+| `frontmatter-description-too-long` | error | `description` за жёстким потолком | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md#self-check-перед-коммитом) |
+| `frontmatter-description-no-triggers` | error | в `description` нет триггеров-симптомов - агент не находится по запросу | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md#self-check-перед-коммитом) |
+| `frontmatter-model-missing` | error | нет явного `model` (наследование гонит механику на дорогой сессии) | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md#выбор-модели-model) |
+| `frontmatter-model-invalid` | error | `model` не тир и не валидный ID | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md#выбор-модели-model) |
+| `frontmatter-effort-invalid` | error | `effort` вне перечня уровней | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md#глубина-рассуждения-effort) |
+| `frontmatter-effort-unsupported-model` | error | `effort` при модели, у которой этой оси нет | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md#глубина-рассуждения-effort) |
+| `frontmatter-permissionmode-default` | error | `permissionMode: default` - избыточно | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md#self-check-перед-коммитом) |
+| `frontmatter-no-skill-tool` | error | агент грузит skills, но `Skill` нет в `tools` | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md#подключение-skills-pre-load-безусловного-императив-условного) |
+| `frontmatter-skills-bare-plugin-name` | error | `skills:` записан голым именем плагина - Claude Code молча пропускает | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md#подключение-skills-pre-load-безусловного-императив-условного) |
+| `frontmatter-skills-unknown-skill` | error | плагин такого скилла не поставляет | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md#подключение-skills-pre-load-безусловного-императив-условного) |
+| `frontmatter-skills-not-preloadable` | error | в `skills:` условный skill - его место в фазе, не в pre-load | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md#подключение-skills-pre-load-безусловного-императив-условного) |
+| `frontmatter-skills-not-own-stage` | error | норматив этапа pre-load'ит не владелец этапа | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md#подключение-skills-pre-load-безусловного-императив-условного) |
+| `stage-normative-reader-missing` | error | судящий агент над этапом не грузит норматив (судит состав по памяти) либо не несёт `Skill` в `tools` | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md#подключение-skills-pre-load-безусловного-императив-условного) |
+| `factcheck-cascade-incomplete` | error | фаза fact-check есть, каскад `ToolSearch`+`WebSearch`+`WebFetch` неполон | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md#fact-verification-и-ответ-второй-стороны) |
+| `agent-file-name-mismatch` | error | имя файла не совпадает с `name` | [CLAUDE.md](../CLAUDE.md) |
+| `no-phases` | error | у агента нет ни одной `## Phase N` | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md) |
+| `phase-missing-goal` | error | у фазы нет `**Goal:**` | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md) |
+| `phase-missing-exit` | error | у фазы нет `**Exit criteria:**` | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md) |
+| `phase-non-observable-exit` | error | exit criteria не наблюдаемы - выполнение фазы не проверяется | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md) |
+| `phase-mandatory-no-justification` | error | mandatory-фаза без обоснования «почему mandatory» | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md) |
+| `phase-procedural-body` | error | тело фазы - процедура (команды, код), а не контракт | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md) |
+| `glued-attribute-block` | error | атрибут фазы слипся с предыдущим блоком - markdown сливает их в абзац | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md#self-check-перед-коммитом) |
+| `skill-reference-unknown` | error | ссылка на skill-плагин, которого нет в `marketplace.json` | [plugin-changes.md](../.claude/rules/plugin-changes.md) |
+
+## tools/validate-skill.js
+
+| Правило | Уровень | Что ловит | Норма |
+|---|---|---|---|
+| `read-failed` | error | файл не читается или frontmatter не парсится | - |
+| `frontmatter-required` | error | нет обязательных полей skill | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
+| `frontmatter-forbidden` | error | поле вне перечня валидных (`keywords` и подобные) | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
+| `description-short` | error | `description` короче порога | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
+| `description-long` | warning | `description` длиннее ориентира каталога | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
+| `description-too-long` | error | `description` за жёстким потолком каталога | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
+| `description-exceeds-claude-limit` | error | `description` за лимитом платформы - обрезается молча | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
+| `description-no-activation` | error/warning | в `description` нет ключевых слов активации | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
+| `description-few-keywords` | error/warning | ключевых слов слишком мало для срабатывания | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
+| `documentation-style-title` | error | skill оформлен как документация API, а не как каталог ловушек | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
+| `too-few-traps` | error | ловушек меньше минимума (для process-skill смягчено) | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
+| `trap-missing-triad` | error | ловушка без триады «Плохо / Правильно / Почему» | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
+| `process-empty` | error | process-skill без содержания правила | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
+| `code-fence-too-long` | error | блок кода длиннее допустимого - skill сползает в документацию | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
+| `size-exceeds-recommended` | error | размер выше целевого | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
+| `size-exceeds-hard-limit` | error | размер за жёстким потолком | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
+
+## tools/validate-command.js
+
+| Правило | Уровень | Что ловит | Норма |
+|---|---|---|---|
+| `read-failed` | error | файл не читается или frontmatter не парсится | - |
+| `frontmatter-required` | error | нет обязательных полей команды | [COMMAND_FRAMEWORK.md](COMMAND_FRAMEWORK.md) |
+| `documentation-style-title` | error | команда оформлена как документация | [COMMAND_FRAMEWORK.md](COMMAND_FRAMEWORK.md) |
+| `bash-script-detected` | error | тело команды - bash-скрипт, а не Goal + Output format | [COMMAND_FRAMEWORK.md](COMMAND_FRAMEWORK.md) |
+| `procedural-body` | error | тело - процедура вместо точечного действия | [COMMAND_FRAMEWORK.md](COMMAND_FRAMEWORK.md) |
+| `code-fence-too-long` | error | блок кода длиннее допустимого | [COMMAND_FRAMEWORK.md](COMMAND_FRAMEWORK.md) |
+| `size-exceeds-recommended` | error | размер выше целевого | [COMMAND_FRAMEWORK.md](COMMAND_FRAMEWORK.md) |
+| `size-exceeds-hard-limit` | error | размер за жёстким потолком | [COMMAND_FRAMEWORK.md](COMMAND_FRAMEWORK.md) |
+
+## tools/validate-bundle.js
+
+| Правило | Уровень | Что ловит | Норма |
+|---|---|---|---|
+| `read-failed` | error | `bundle.json` не парсится | - |
+| `empty-includes` | error | `includes[]` пуст - ставить нечего | [plugin-changes.md](../.claude/rules/plugin-changes.md) |
+| `include-not-in-marketplace` | error | запись `includes[]` отсутствует в `marketplace.json` - установка упадёт | [plugin-changes.md](../.claude/rules/plugin-changes.md) |
+| `bundle-not-closed` | error | агент бандла грузит скилл, которого нет в `includes[]` - установка плоская, агент молча деградирует | [plugin-changes.md](../.claude/rules/plugin-changes.md) |
+| `version-mismatch` | warning | версия в `plugin.json` != версии в `marketplace.json` | [plugin-changes.md](../.claude/rules/plugin-changes.md) |
+
+## tools/validate-standards.js
+
+| Правило | Уровень | Что ловит | Норма |
+|---|---|---|---|
+| `registry-status-unknown` | error | статус строки реестра вне закрытого перечня | [standards/README.md](standards/README.md) (правило 2) |
+| `registry-evidence-missing` | error | у `verified`/`indexed` нет ни даты в строке, ни поля «Сверка» в шапке секции | [standards/README.md](standards/README.md) (правило 2) |
+| `standard-not-in-registry` | error | артефакт ссылается на стандарт, которого нет в реестре | [standards/README.md](standards/README.md) (правило 1) |
+
+## tools/validate-samples.js
+
+| Правило | Уровень | Что ловит | Норма |
+|---|---|---|---|
+| `sample-verdict-unknown` | error | `verdict` вне перечня `passed`/`failed`/`unverifiable` | `dex-skill-node-contract:node-contract` (п.7) |
+| `sample-stage-unknown` | error | `stage` вне лестницы `draft` -> `complete` -> `checked` -> `baselined` | `dex-skill-node-contract:node-contract` |
+| `sample-verdict-status-conflict` | error | `verdict: failed` рядом со `status: complete` - вердикт несёт историю вместо финального состояния | `dex-skill-node-contract:node-contract` (п.7) |
+| `sample-stage-missing` | error | есть `quality-checks`, но стадия артефакта не названа | `dex-skill-node-contract:node-contract` |
+
+## tools/validate-rules-documented.js
+
+| Правило | Уровень | Что ловит | Норма |
+|---|---|---|---|
+| `rule-not-documented` | error | правило есть в коде валидатора, строки в этом реестре нет | этот файл |
+| `rule-registry-stale` | error | строка в реестре есть, правила в коде нет | этот файл |

@@ -9,7 +9,7 @@
 |---|---|
 | Уровень | системный (`FR`/`NFR`), выведен из `BR-1`..`BR-9` |
 | Источник | итоговый BRD ([00-brd.md](00-brd.md)) |
-| Стадия | `complete` |
+| Стадия | `checked` (оракулы прогнаны на гейте 2, находки закрыты; не `baselined`: открыты три TBD) |
 | Режим | `interactive` |
 
 ## Классификация и приоритет
@@ -254,5 +254,5 @@ MoSCoW проставлен по волнам источника: волна 1 -
 | Конфликты и пробелы | C-1 ... C-3 закрыты решениями гейта 2; C-4 остаётся названным ограничением |
 | Допущения | A-5 ... A-7 (A-4 снято решением D-7) |
 | Открытые вопросы | Q-9 + унаследованные Q-1, Q-3; Q-7, Q-8, Q-10, Q-11 закрыты на гейте 2 |
-| `quality-checks` | `{artifact: requirements, check: requirement-quality, verdict: passed}` - прогнан составителем по каждой единице; `{artifact: requirements, check: requirement-set-quality, verdict: failed}` - прогнан дирижёром на гейте 2: находки набора закрыты решениями D-5 ... D-8, но три TBD (Q-1, Q-3, Q-9) остаются, и по оси «нерезрешённые TBD» набор не полон |
-| `stage` | `complete` (не `baselined`: три TBD открыты) |
+| `quality-checks` | `{artifact: requirements, check: requirement-quality, verdict: passed}` - прогнан составителем по каждой единице; `{artifact: requirements, check: requirement-set-quality, verdict: passed}` - прогнан дирижёром на гейте 2: находки набора закрыты решениями D-5 ... D-8 здесь же. Три TBD (Q-1, Q-3, Q-9) остаются с названным владельцем и выражены стадией (`checked`, не `baselined`): вердикт несёт финальное состояние артефакта, историю прогона - журнал гейтов |
+| `stage` | `checked` (не `baselined`: три TBD открыты) |

@@ -9,7 +9,7 @@
 |---|---|
 | Норматив | ISO/IEC/IEEE 29148 §9.3 (Business requirements specification) |
 | Требования | BR-1 ... BR-9, каждое с MOE |
-| Стадия | `complete` (не `baselined`: открыты Q-1, Q-3, Q-9) |
+| Стадия | `checked` (оракулы прогнаны, находки гейта закрыты; не `baselined`: открыты Q-1, Q-3, Q-9) |
 | Режим | `interactive` - развилки закрыты ответами постановщика, допущения помечены |
 
 ## 1. Business purpose
@@ -402,5 +402,5 @@ Q-2 (раскладывается ли конверсия по сегмента�
 | Допущения | A-1 ... A-3 |
 | Конфликты | К-1 ... К-6, все с названной ценой; неразрешённых наверх нет |
 | Открытые вопросы | Q-1, Q-3, Q-9 блокируют `baselined`; Q-4 ... Q-6 приняты |
-| `quality-checks` | `{artifact: brd, check: requirement-quality, verdict: passed}`; `{artifact: brd, check: requirement-set-quality, verdict: failed}` - находки набора закрыты решениями D-1 ... D-5, кроме незакрытых TBD |
-| `stage` | `complete` |
+| `quality-checks` | `{artifact: brd, check: requirement-quality, verdict: passed}`; `{artifact: brd, check: requirement-set-quality, verdict: passed}` - первый прогон дал находки набора, все закрыты решениями D-1 ... D-5 здесь же (ход - в [00-gate-decisions.md](00-gate-decisions.md)); вердикт несёт финальное состояние, остаточные TBD выражены стадией (`checked`, не `baselined`), а не вердиктом |
+| `stage` | `checked` |

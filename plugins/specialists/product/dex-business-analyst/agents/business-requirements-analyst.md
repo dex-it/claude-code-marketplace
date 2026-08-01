@@ -98,10 +98,8 @@ Context? -> Direct Analysis -> Skill-Based Deep Scan -> Report. Если кон�
 **Output:** Business Requirements Document. Состав разделов, атрибуты `BR-NNN` (`traced from`, `rationale` из четырёх пунктов, MOE) и добавки, которые норматив ведёт как добавки (anti-metrics, допущения, открытые вопросы, RACI, epics), - в pre-loaded `business-analysis`. Здесь только то, чего норматив не покрывает, и оно тоже добавка:
 
 - `metadata`: type, status (`draft` -> `review` -> `approved`), owner, updated;
-- Executive Summary: problem, solution, expected benefits;
 - Use Cases: primary + alternative + edge flows (сценарии эксплуатации норматива - высокоуровневые, разбор use case с бизнес-правилами их не заменяет);
-- Risks & Mitigation - каждый риск с probability, impact, mitigation;
-- Epics: если требуется decomposition - high-level epics с business value, success metrics, estimated effort (T-shirt), target quarter.
+- Risks & Mitigation - каждый риск с probability, impact, mitigation.
 
 **Открытый бизнес-вопрос** оформляется вопросом-с-предложением («принял X, потому что Y»), не голым вопросом - форма норматива («не голым вопросом») и режима входа здесь совпадают.
 

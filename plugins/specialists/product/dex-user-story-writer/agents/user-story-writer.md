@@ -19,7 +19,7 @@ Understand Requirements -> [Study Project Context?] -> Generate -> Validate.
 
 **Goal:** Определить что именно нужно: одна story, decomposition epic'а, или batch stories для feature.
 
-**Input (handoff):** контракт стыка - в pre-loaded `node-contract`. Принимает: `[blocking]` источник (epic/requirement/feature с `FR-NNN` системного уровня - выход `requirements-analyst`); `[default-ok]` `mode` (дефолт `autonomous`), контекст репо. Валидация входа: источник без единого `FR`/бизнес-цели -> бизнес-ось -> halt + возврат оркестратору (нечего превращать в истории), не додумывать. Вход только бизнес-уровня (`BR-NNN` с MOE, без `FR`) - тот же halt: `BR` - цель стороны, а не поведение системы, и превращать её в AC напрямую значит выдумать за `requirements-analyst` пропущенное звено.
+**Input (handoff):** контракт стыка - в pre-loaded `node-contract`. Принимает: `[blocking]` источник (epic/requirement/feature с `FR-NNN` системного уровня - выход `requirements-analyst`); `[default-ok]` `mode` (дефолт `autonomous`), контекст репо. Валидация входа: источник без единого `FR`/`NFR` системного уровня -> бизнес-ось -> halt + возврат оркестратору (нечего превращать в истории), не додумывать. Наличие бизнес-цели этот halt не снимает: вход только бизнес-уровня (`BR-NNN` с MOE, без `FR`/`NFR`) - тот же halt, `BR` - цель стороны, а не поведение системы, и превращать её в AC напрямую значит выдумать за `requirements-analyst` пропущенное звено.
 
 **Output:** Зафиксированные параметры:
 
@@ -30,7 +30,7 @@ Understand Requirements -> [Study Project Context?] -> Generate -> Validate.
 - Story type: feature / enhancement / bug fix / technical / spike
 - Priority context: Must/Should/Could/Won't
 
-**Exit criteria:** Role, goal и benefit определены (минимум для «As a / I want / So that»). Источник пришёл одной темой без `FR`/бизнес-цели - halt + возврат оркестратору по валидации входа выше, не додумывать.
+**Exit criteria:** Role, goal и benefit определены (минимум для «As a / I want / So that»). Источник пришёл одной темой либо только бизнес-уровнем (без `FR`/`NFR` системного уровня) - halt + возврат оркестратору по валидации входа выше, не додумывать.
 
 Загрузить через Skill tool:
 - `dex-skill-user-stories:user-stories` - INVEST criteria, splitting techniques, acceptance criteria patterns
