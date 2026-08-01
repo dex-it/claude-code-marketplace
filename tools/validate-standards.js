@@ -37,7 +37,11 @@ import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const REPO_ROOT = resolve(__dirname, '..');
+// MARKETPLACE_ROOT переносит валидатор на дерево-песочницу: tools/test-rules.js
+// прогоняет правило на фикстуре, а не на живом каталоге.
+const REPO_ROOT = process.env.MARKETPLACE_ROOT
+  ? resolve(process.env.MARKETPLACE_ROOT)
+  : resolve(__dirname, '..');
 const REGISTRY = join(REPO_ROOT, 'docs', 'standards', 'README.md');
 const SCAN_DIRS = [join(REPO_ROOT, 'plugins'), join(REPO_ROOT, 'docs')];
 

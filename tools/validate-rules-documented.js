@@ -10,6 +10,11 @@
  *
  *   `rule-not-documented`  - правило есть в коде, строки в реестре нет
  *   `rule-registry-stale`  - строка есть, правила в коде нет
+ *   `rule-untested`        - у правила нет фикстуры в tools/__fixtures__
+ *
+ * Третье правило держит регрессию: правило без фикстуры проверено разово и
+ * выключается молча (регулярка перестала матчить, ветка ушла под условие) -
+ * прогон на живом каталоге этого не видит, там правило и должно молчать.
  *
  * Usage:
  *   node tools/validate-rules-documented.js [all]
@@ -25,9 +30,14 @@ import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const REPO_ROOT = resolve(__dirname, '..');
+// MARKETPLACE_ROOT переносит валидатор на дерево-песочницу: tools/test-rules.js
+// прогоняет правило на фикстуре, а не на живом каталоге.
+const REPO_ROOT = process.env.MARKETPLACE_ROOT
+  ? resolve(process.env.MARKETPLACE_ROOT)
+  : resolve(__dirname, '..');
 const TOOLS_DIR = join(REPO_ROOT, 'tools');
 const REGISTRY = join(REPO_ROOT, 'docs', 'VALIDATOR_RULES.md');
+const FIXTURES_DIR = join(TOOLS_DIR, '__fixtures__');
 
 const COLORS = {
   reset: '\x1b[0m',
@@ -85,6 +95,20 @@ function main() {
       rule: 'rule-registry-stale',
       message: `"${rule}" is listed in docs/VALIDATOR_RULES.md but no validator emits it - remove the row or restore the rule`,
     });
+  }
+
+  // Покрытие считается по паре (валидатор, правило): одно имя эмитят несколько
+  // валидаторов (`read-failed`, `frontmatter-required`), и фикстура у одного из
+  // них ничего не говорит про остальные.
+  for (const [rule, files] of inCode) {
+    for (const file of files) {
+      const validator = file.replace(/^validate-/, '').replace(/\.js$/, '');
+      if (existsSync(join(FIXTURES_DIR, validator, rule))) continue;
+      findings.push({
+        rule: 'rule-untested',
+        message: `"${rule}" (${file}) has no fixture at tools/__fixtures__/${validator}/${rule}/ - a rule verified once switches off silently; the live catalogue cannot catch it, there the rule is supposed to stay quiet`,
+      });
+    }
   }
 
   if (findings.length > 0) {

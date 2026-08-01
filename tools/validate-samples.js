@@ -34,7 +34,11 @@ import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const REPO_ROOT = resolve(__dirname, '..');
+// MARKETPLACE_ROOT переносит валидатор на дерево-песочницу: tools/test-rules.js
+// прогоняет правило на фикстуре, а не на живом каталоге.
+const REPO_ROOT = process.env.MARKETPLACE_ROOT
+  ? resolve(process.env.MARKETPLACE_ROOT)
+  : resolve(__dirname, '..');
 const SAMPLES_DIR = join(REPO_ROOT, 'docs', 'sample');
 
 const COLORS = {
@@ -112,8 +116,13 @@ function validateSample(filepath) {
   }
 
   // Стадия ищется и в тексте («стадия требований - `checked`»), не только в
-  // таблице: пакет может назвать её прозой, и это не нарушение.
-  const mentionsStage = stages.length > 0 || /`(draft|complete|checked|baselined)`/.test(text);
+  // таблице: пакет может назвать её прозой, и это не нарушение. Голое значение
+  // лестницы за упоминание не считается - `complete` живёт и в строке `status`,
+  // и такой поиск гасил правило на любом пакете со `status: complete`.
+  const mentionsStage =
+    stages.length > 0 ||
+    /`stage`/.test(text) ||
+    /стади[а-я]{0,3}[^.\n]{0,80}`(draft|complete|checked|baselined)`/i.test(text);
   if (/quality-checks/.test(text) && !mentionsStage) {
     findings.push({
       level: ERROR,

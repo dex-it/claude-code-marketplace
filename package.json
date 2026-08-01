@@ -10,6 +10,7 @@
   },
   "scripts": {
     "validate": "node tools/validate-agent.js all && node tools/validate-skill.js all && node tools/validate-command.js all && node tools/validate-bundle.js all && node tools/validate-standards.js all && node tools/validate-samples.js all && node tools/validate-rules-documented.js all",
+    "test": "node tools/test-rules.js all",
     "validate:agents": "node tools/validate-agent.js",
     "validate:skills": "node tools/validate-skill.js",
     "validate:commands": "node tools/validate-command.js",
