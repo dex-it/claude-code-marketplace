@@ -199,7 +199,7 @@ claude plugins uninstall dex-dotnet-coder
 | **Security** | owasp-security |
 | **Workflow** | git-workflow, merge-conflict-resolution |
 | **Infrastructure** | rabbitmq, kafka, elasticsearch, redis, mongodb, docker, kubernetes, gitlab-ci, github-actions, jenkins, teamcity, logging, observability |
-| **Architecture** | clean-architecture, ddd, microservices, system-design, legacy-reconstruction |
+| **Architecture** | clean-architecture, ddd, microservices, system-design, legacy-reconstruction, design-quality |
 | **Product & Analysis** | agile, user-stories, bpmn, doc-standards, adr-quality, requirement-quality, requirement-set-quality, api-specification, epic-planning, product-discovery, prioritization |
 | **QA** | test-design, api-testing, deep-audit, tech-audit, playwright, exploratory-testing, bug-reproduction, contract-drift |
 | **Incident & RCA** | problem-specification, root-cause-analysis, change-correlation, shared-stand-safety |

@@ -99,9 +99,9 @@ Context? -> Direct Analysis -> Skill-Based Deep Scan -> Report.
 - **Покрытие бизнес-уровня**: каждое `BR-NNN` входа раскрыто хотя бы одним `FR`/`NFR` либо объявлено `non-goal` с основанием из входа. Нераскрытое `BR` без одного из двух исходов - дыра набора, а не умолчание: бизнес-цель, до которой не дошло ни одно требование системы, дальше по конвейеру уже не всплывёт
 - `FR`/`NFR` list - вход `user-story-writer` для acceptance criteria, если требуется decomposition в stories
 
-**Output (handoff):** по контракту `node-contract` первым полем `status` (`complete`/`blocked`/`partial`; `blocked`/`partial` не маскировать под `complete`), затем перечисленное выше плюс `quality-checks` - запись `{artifact: requirements, check: requirement-quality, verdict}` по прогону Phase 3 плюс полученные на входе метки (сквозное поле, переносится даже по непрогнанным типам). Значения `verdict` и парные им статусы - по закрытому перечню `node-contract` п.7. Поле опущено - выход неполон, `complete` не выдавать.
+**Output (handoff):** по контракту `node-contract` первым полем `status` (`complete`/`blocked`/`partial`; `blocked`/`partial` не маскировать под `complete`), затем перечисленное выше плюс `quality-checks` (сквозное поле: полученные на входе метки переносятся как есть даже по непрогнанным типам; **своей записи по порождённым здесь `FR`/`NFR` автор не делает** - вердикт ставит судья, дирижёр на гейте либо ревьюер требований, `node-contract` п.7 раздела B) и `self-check` - результат самоконтроля `requirement-quality` в Phase 3: что прогнано, что устранено, что осталось открытым. Дефект, неустранимый здесь, называется перечнем и даёт `status: partial`; поле опущено - выход неполон, `complete` не выдавать.
 
-**Exit criteria:** Отчёт содержит конкретные action items для каждого найденного gap/conflict. Нет findings без рекомендации. Каждый `FR`/`NFR` несёт `traced from`, каждое `BR-NNN` входа закрыто раскрытием или `non-goal`. `status` и `quality-checks` проставлены.
+**Exit criteria:** Отчёт содержит конкретные action items для каждого найденного gap/conflict. Нет findings без рекомендации. Каждый `FR`/`NFR` несёт `traced from`, каждое `BR-NNN` входа закрыто раскрытием или `non-goal`. `status` проставлен, `self-check` заполнен, `quality-checks` перенесён со входа.
 
 ## Boundaries
 

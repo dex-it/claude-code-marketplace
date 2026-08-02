@@ -72,8 +72,10 @@ diff) имеют свой вход и своё «готово», поэтому 
 `dex-requirements-analyst` - системный уровень: выводит `FR-NNN`/`NFR-NNN` с `traced from BR-NNN`
 из BRD, тикета, брифа или кода без постановки. `dex-user-story-writer` - продуктовый оракул:
 превращает `FR`/`NFR` в stories с acceptance criteria (Given-When-Then, метки `[FR-NNN]`), код не
-читает. `dex-requirements-orchestrator` - дирижёр зоны 1: спавнит всех трёх, судит НАБОР целиком
-(`requirement-set-quality`) на каждом уровне и собирает апрув.
+читает. `dex-requirements-orchestrator` - дирижёр зоны 1: спавнит всех трёх и судит их выход на каждом
+уровне - единицу (`requirement-quality`) и НАБОР целиком (`requirement-set-quality`), - ставит
+метку `quality-checks` и собирает апрув. Составители метку себе не ставят: автор своему артефакту
+не судья, его прогон оракула уходит в `self-check`.
 
 Продуктовый и технический оракулы не дублируют друг друга - старшинство при конфликте у
 продуктового (`dex-skill-node-contract`, «Старшинство оракулов»).
