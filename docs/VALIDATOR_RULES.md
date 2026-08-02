@@ -113,14 +113,6 @@ tools/__fixtures__/<validator>/<rule>/expect.json   {"also": [...]} - опцио
 | `bundle-not-closed` | error | агент бандла грузит скилл, которого нет в `includes[]` - установка плоская, агент молча деградирует | [plugin-changes.md](../.claude/rules/plugin-changes.md) |
 | `version-mismatch` | warning | версия в `plugin.json` != версии в `marketplace.json` | [plugin-changes.md](../.claude/rules/plugin-changes.md) |
 
-## tools/validate-standards.js
-
-| Правило | Уровень | Что ловит | Норма |
-|---|---|---|---|
-| `registry-status-unknown` | error | статус строки реестра вне закрытого перечня | [standards/README.md](standards/README.md) (правило 2) |
-| `registry-evidence-missing` | error | у `verified`/`indexed` нет ни даты в строке, ни поля «Сверка» в шапке секции | [standards/README.md](standards/README.md) (правило 2) |
-| `standard-not-in-registry` | error | артефакт ссылается на стандарт, которого нет в реестре | [standards/README.md](standards/README.md) (правило 1) |
-
 ## tools/validate-samples.js
 
 | Правило | Уровень | Что ловит | Норма |

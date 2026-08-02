@@ -40,9 +40,9 @@ paths:
 
 ## Перед коммитом
 
-`npm run validate` (или точечно `validate:agents` / `validate:skills` / `validate:commands` / `validate:bundles` / `validate:standards` / `validate:samples`) - 0 ошибок. Проверки строгие, мягкого режима нет.
+`npm run validate` (или точечно `validate:agents` / `validate:skills` / `validate:commands` / `validate:bundles` / `validate:samples`) - 0 ошибок. Проверки строгие, мягкого режима нет.
 
-Цепочка `validate` шире плагинов: за артефактами идут `validate-standards.js` (реестр `docs/standards/` - статус сверки из закрытого перечня, ссылка на стандарт без строки реестра), `validate-samples.js` (образцы `docs/sample/` - `verdict` и `status` документа из перечней `node-contract`, конфликт `failed` при `status: complete`) и мета-валидатор `validate-rules-documented.js` (каждое правило из `tools/validate-*.js` имеет строку в [VALIDATOR_RULES.md](../../docs/VALIDATOR_RULES.md), фикстуру в `tools/__fixtures__` - и наоборот).
+Цепочка `validate` шире плагинов: за артефактами идут `validate-samples.js` (образцы `docs/sample/` - `verdict` и `status` документа из перечней `node-contract`, конфликт `failed` при `status: complete`) и мета-валидатор `validate-rules-documented.js` (каждое правило из `tools/validate-*.js` имеет строку в [VALIDATOR_RULES.md](../../docs/VALIDATOR_RULES.md), фикстуру в `tools/__fixtures__` - и наоборот).
 
 **`npm test` - вторая половина гейта, `npm run validate` её не заменяет.** Валидаторы гоняются на живом каталоге, где правило и должно молчать: выключенное правило там неотличимо от соблюдённого. `tools/test-rules.js` прогоняет каждую пару «валидатор x правило» на фикстуре, где дефект заведомо есть. Отсюда следствие: **завёл или переименовал правило -> строка в реестре правил и директория `tools/__fixtures__/<validator>/<rule>/`**, иначе падают `rule-not-documented` / `rule-registry-stale` / `rule-untested`. Устройство фикстур и контракт `expect.json` - [VALIDATOR_RULES.md](../../docs/VALIDATOR_RULES.md#регрессия-правил-фикстуры).
 

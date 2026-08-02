@@ -74,9 +74,6 @@ jobs:
       - name: Validate bundles
         run: node tools/validate-bundle.js all
 
-      - name: Validate standards registry
-        run: node tools/validate-standards.js all
-
       - name: Validate samples
         run: node tools/validate-samples.js all
 
