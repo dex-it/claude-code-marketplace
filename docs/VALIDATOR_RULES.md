@@ -113,21 +113,6 @@ tools/__fixtures__/<validator>/<rule>/expect.json   {"also": [...]} - опцио
 | `bundle-not-closed` | error | агент бандла грузит скилл, которого нет в `includes[]` - установка плоская, агент молча деградирует | [plugin-changes.md](../.claude/rules/plugin-changes.md) |
 | `version-mismatch` | warning | версия в `plugin.json` != версии в `marketplace.json` | [plugin-changes.md](../.claude/rules/plugin-changes.md) |
 
-## tools/validate-samples.js
-
-| Правило | Уровень | Что ловит | Норма |
-|---|---|---|---|
-| `sample-verdict-unknown` | error | `verdict` вне перечня `passed`/`failed`/`unverifiable` | `dex-skill-node-contract:node-contract` (п.7) |
-| `sample-doc-status-unknown` | error | `status` вне обоих закрытых перечней - цикла документа `draft` -> `review` -> `approved` -> `archived` и исхода узла `complete`/`blocked`/`partial` | `dex-skill-node-contract:node-contract` |
-| `sample-verdict-status-conflict` | error | `verdict: failed` в пакете, отдающем `status: complete` - вердикт несёт историю вместо финального состояния | `dex-skill-node-contract:node-contract` (п.7) |
-| `sample-doc-status-missing` | error | есть `quality-checks`, но статус документа не назван | `dex-skill-node-contract:node-contract` |
-
-Носитель значения `status` определяется самим значением: перечни цикла документа и исхода узла не пересекаются, поэтому разбирать разметку не нужно - значение вне обоих и есть находка.
-
-Вердикт распознаётся в двух формах - литералом (`verdict: passed`) и значением колонки таблицы, шапка которой несёт «Вердикт»/`verdict`: пакеты пишут вердикты уровней колонкой, и поиск одного литерала их не видит. Конфликт вердикта со статусом считается по директории прогона: `status` живёт в handoff, вердикты - в файлах своих артефактов.
-
-Прогон, помеченный в [реестре](sample/README.md) как `исторический: <причина>`, судится мягко - находки по его пакету понижаются до предупреждений: снимок отвечает норме на момент прогона, расхождение правится в норме и снимается новым прогоном. Причина обязательна; без неё пакет судится как актуальный.
-
 ## tools/validate-rules-documented.js
 
 | Правило | Уровень | Что ловит | Норма |

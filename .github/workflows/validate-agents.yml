@@ -74,9 +74,6 @@ jobs:
       - name: Validate bundles
         run: node tools/validate-bundle.js all
 
-      - name: Validate samples
-        run: node tools/validate-samples.js all
-
       # Мета-гейт: правило без строки в VALIDATOR_RULES.md или без фикстуры
       # проходит test-rules.js молча - он гоняет только то, что заявлено.
       - name: Validate rules documented

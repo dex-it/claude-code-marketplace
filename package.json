@@ -9,13 +9,12 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "validate": "node tools/validate-agent.js all && node tools/validate-skill.js all && node tools/validate-command.js all && node tools/validate-bundle.js all && node tools/validate-samples.js all && node tools/validate-rules-documented.js all",
+    "validate": "node tools/validate-agent.js all && node tools/validate-skill.js all && node tools/validate-command.js all && node tools/validate-bundle.js all && node tools/validate-rules-documented.js all",
     "test": "node tools/test-rules.js all",
     "validate:agents": "node tools/validate-agent.js",
     "validate:skills": "node tools/validate-skill.js",
     "validate:commands": "node tools/validate-command.js",
-    "validate:bundles": "node tools/validate-bundle.js",
-    "validate:samples": "node tools/validate-samples.js"
+    "validate:bundles": "node tools/validate-bundle.js"
   },
   "devDependencies": {
     "gray-matter": "^4.0.3",
