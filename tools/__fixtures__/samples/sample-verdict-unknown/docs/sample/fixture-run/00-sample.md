@@ -8,9 +8,9 @@
 
 | Артефакт | Проверка | Вердикт |
 |---|---|---|
-| фикстура | `requirement-quality` | verdict: approved |
+| фикстура | `requirement-quality` | verdict: unknown-verdict |
 | фикстура-2 | `requirement-set-quality` | `rejected` |
 
-| Артефакт | `stage` | Почему не выше |
+| Артефакт | Статус | Почему не выше |
 |---|---|---|
-| фикстура | `checked` | апрува оператора в `autonomous` нет |
+| фикстура | `review` | апрува оператора в `autonomous` нет |

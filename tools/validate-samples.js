@@ -9,18 +9,20 @@
  *
  *   1. `sample-verdict-unknown` - `verdict` вне перечня `node-contract` п.7
  *      (`passed` / `failed` / `unverifiable`).
- *   2. `sample-stage-unknown` - `stage` вне лестницы `node-contract`
- *      (`draft` -> `complete` -> `checked` -> `approved`).
+ *   2. `sample-doc-status-unknown` - `status` вне обоих закрытых перечней
+ *      `node-contract`: цикла документа (`draft` -> `review` -> `approved` ->
+ *      `archived`) и исхода узла (`complete`/`blocked`/`partial`). Перечни не
+ *      пересекаются, поэтому носитель значения определяется самим значением.
  *   3. `sample-verdict-status-conflict` - `verdict: failed` в пакете, который
  *      отдаёт `status: complete`. `verdict` несёт финальное состояние артефакта,
  *      а не историю прогонов: находка, закрытая здесь же, даёт `passed`, а
- *      незакрытое выражается стадией и `status: partial`. `failed` рядом с
+ *      незакрытое выражается `status: partial`. `failed` рядом с
  *      `complete` значит, что одно из двух записано неверно. Считается по
  *      директории прогона: `status` пакета живёт в handoff, вердикты уровней -
  *      в файлах своих артефактов, и по одному файлу конфликт не собирается.
- *   4. `sample-stage-missing` - артефакт несёт `quality-checks`, но не несёт
- *      стадию. Оракулы прогнаны, а readiness артефакта не назван - приёмник
- *      трактует это как нехватку обязательного поля.
+ *   4. `sample-doc-status-missing` - артефакт несёт `quality-checks`, но не
+ *      называет статус своего документа. Оракулы прогнаны, а принятость не
+ *      названа - приёмник трактует это как нехватку обязательного поля.
  *
  * Usage:
  *   node tools/validate-samples.js [all]
@@ -55,7 +57,11 @@ const ERROR = 'error';
 const WARNING = 'warning';
 
 const VERDICTS = new Set(['passed', 'failed', 'unverifiable']);
-const STAGES = new Set(['draft', 'complete', 'checked', 'approved']);
+// Две оси с одним именем `status`: цикл документа живёт в его шапке, исход узла -
+// первым полем выхода. Перечни не пересекаются, поэтому значение само говорит,
+// какая из осей записана, и разбирать носитель по разметке не нужно.
+const DOC_STATUSES = new Set(['draft', 'review', 'approved', 'archived']);
+const NODE_STATUSES = new Set(['complete', 'blocked', 'partial']);
 
 // Вердикт записывается двумя формами, и правило обязано видеть обе: литералом
 // (`verdict: passed`, запись `{artifact: ..., verdict: passed}`) и значением
@@ -64,10 +70,10 @@ const STAGES = new Set(['draft', 'complete', 'checked', 'approved']);
 const VERDICT_RE = /verdict:\s*`?([a-z-]+)`?/gi;
 const VERDICT_HEADER_RE = /вердикт|verdict/i;
 const TABLE_VALUE_RE = /`([a-z-]+)`/;
-// Стадия в таблице: | `stage` | `checked` (...) |  либо  | Стадия | `checked` |
-const STAGE_RE = /\|\s*(?:`stage`|Стадия)\s*\|\s*`([a-z-]+)`/gi;
-// Статус узла: | `status` | `complete` |
-const STATUS_RE = /\|\s*`status`\s*\|\s*`([a-z-]+)`/gi;
+// Статус, как и вердикт, записывается двумя формами: парой «поле - значение»
+// (| `status` | `complete` |) и колонкой, шапка которой несёт «Статус»/`status`.
+const STATUS_RE = /\|\s*(?:`status`|Статус)\s*\|\s*`([a-z-]+)`/gi;
+const STATUS_HEADER_RE = /^(?:статус|`?status`?)$/i;
 
 function collectMarkdownFiles(dir, out) {
   if (!existsSync(dir)) return out;
@@ -92,14 +98,18 @@ function tableCells(line) {
     .map((c) => c.trim());
 }
 
-function collectVerdicts(text) {
+// Значение собирается двумя путями: литералом/парой (`literalRe`) и колонкой,
+// шапку которой опознаёт `headerRe`. Шапка засчитывается только при строке-
+// разделителе под ней: слово «verdict» в ячейке данных иначе назначало бы
+// колонкой вердикта соседнюю.
+function collectTagged(text, literalRe, headerRe) {
   const found = new Map();
   const add = (value, line) => {
     const key = `${line}:${value}`;
     if (!found.has(key)) found.set(key, { value, line });
   };
 
-  for (const m of text.matchAll(VERDICT_RE)) add(m[1], lineOf(text, m.index));
+  for (const m of text.matchAll(literalRe)) add(m[1], lineOf(text, m.index));
 
   const lines = text.split('\n');
   let col = -1;
@@ -110,10 +120,8 @@ function collectVerdicts(text) {
     }
     const cells = tableCells(lines[i]);
     const next = lines[i + 1] ? tableCells(lines[i + 1]) : [];
-    // Шапка опознаётся только по строке-разделителю под ней: слово «verdict» в
-    // ячейке данных иначе назначает колонкой вердикта соседнюю - там `stage`.
     if (next.length > 1 && next.every((c) => /^:?-+:?$/.test(c))) {
-      col = cells.findIndex((c) => VERDICT_HEADER_RE.test(c));
+      col = cells.findIndex((c) => headerRe.test(c));
       continue;
     }
     if (col === -1 || cells.every((c) => /^:?-+:?$/.test(c))) continue;
@@ -150,7 +158,7 @@ function validateSample(filepath) {
   const findings = [];
   const text = readFileSync(filepath, 'utf8');
 
-  const verdicts = collectVerdicts(text);
+  const verdicts = collectTagged(text, VERDICT_RE, VERDICT_HEADER_RE);
   for (const v of verdicts) {
     if (!VERDICTS.has(v.value)) {
       findings.push({
@@ -161,33 +169,31 @@ function validateSample(filepath) {
     }
   }
 
-  const stages = [];
-  for (const m of text.matchAll(STAGE_RE)) {
-    stages.push({ value: m[1], line: lineOf(text, m.index) });
-    if (!STAGES.has(m[1])) {
+  const docStatuses = [];
+  const statuses = [];
+  for (const st of collectTagged(text, STATUS_RE, STATUS_HEADER_RE)) {
+    if (DOC_STATUSES.has(st.value)) docStatuses.push(st.value);
+    else if (NODE_STATUSES.has(st.value)) statuses.push(st.value);
+    else {
       findings.push({
         level: ERROR,
-        rule: 'sample-stage-unknown',
-        message: `Line ${lineOf(text, m.index)}: stage "${m[1]}" is outside the ladder [${[...STAGES].join(' -> ')}] (node-contract)`,
+        rule: 'sample-doc-status-unknown',
+        message: `Line ${st.line}: status "${st.value}" belongs to neither closed list - document cycle [${[...DOC_STATUSES].join(' -> ')}] nor node outcome [${[...NODE_STATUSES].join(', ')}] (node-contract)`,
       });
     }
   }
 
-  const statuses = [...text.matchAll(STATUS_RE)].map((m) => m[1]);
-
-  // Стадия ищется и в тексте («стадия требований - `checked`»), не только в
-  // таблице: пакет может назвать её прозой, и это не нарушение. Голое значение
-  // лестницы за упоминание не считается - `complete` живёт и в строке `status`,
-  // и такой поиск гасил правило на любом пакете со `status: complete`.
-  const mentionsStage =
-    stages.length > 0 ||
-    /`stage`/.test(text) ||
-    /стади[а-я]{0,3}[^.\n]{0,80}`(draft|complete|checked|approved)`/i.test(text);
-  if (/quality-checks/.test(text) && !mentionsStage) {
+  // Статус документа ищется и прозой («документ в `review`»), не только строкой
+  // таблицы: пакет вправе назвать его текстом. Голое значение за упоминание не
+  // считается - `approved` встречается и в описании порога допуска.
+  const mentionsDocStatus =
+    docStatuses.length > 0 ||
+    /статус[а-я]{0,3}[^.\n]{0,80}`(draft|review|approved|archived)`/i.test(text);
+  if (/quality-checks/.test(text) && !mentionsDocStatus) {
     findings.push({
       level: ERROR,
-      rule: 'sample-stage-missing',
-      message: 'File carries `quality-checks` but never states the artifact stage - oracles ran, readiness is unnamed (node-contract: an unset field is a missing mandatory field, not `draft`)',
+      rule: 'sample-doc-status-missing',
+      message: 'File carries `quality-checks` but never states the document status - oracles ran, acceptance is unnamed (node-contract: an unset field is a missing mandatory field, not `draft`)',
     });
   }
 
@@ -225,7 +231,10 @@ function formatFinding(f) {
 }
 
 function main() {
-  const files = collectMarkdownFiles(SAMPLES_DIR, []);
+  // Корневой README - реестр прогонов, а не выход конвейера: его колонка «Статус»
+  // несёт `актуальный`/`исторический`, и судить её перечнями контракта нельзя.
+  const registry = join(SAMPLES_DIR, 'README.md');
+  const files = collectMarkdownFiles(SAMPLES_DIR, []).filter((f) => f !== registry);
   const results = files.map(validateSample);
   checkPackages(results);
 

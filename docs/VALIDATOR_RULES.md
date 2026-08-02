@@ -126,9 +126,11 @@ tools/__fixtures__/<validator>/<rule>/expect.json   {"also": [...]} - опцио
 | Правило | Уровень | Что ловит | Норма |
 |---|---|---|---|
 | `sample-verdict-unknown` | error | `verdict` вне перечня `passed`/`failed`/`unverifiable` | `dex-skill-node-contract:node-contract` (п.7) |
-| `sample-stage-unknown` | error | `stage` вне лестницы `draft` -> `complete` -> `checked` -> `approved` | `dex-skill-node-contract:node-contract` |
+| `sample-doc-status-unknown` | error | `status` вне обоих закрытых перечней - цикла документа `draft` -> `review` -> `approved` -> `archived` и исхода узла `complete`/`blocked`/`partial` | `dex-skill-node-contract:node-contract` |
 | `sample-verdict-status-conflict` | error | `verdict: failed` в пакете, отдающем `status: complete` - вердикт несёт историю вместо финального состояния | `dex-skill-node-contract:node-contract` (п.7) |
-| `sample-stage-missing` | error | есть `quality-checks`, но стадия артефакта не названа | `dex-skill-node-contract:node-contract` |
+| `sample-doc-status-missing` | error | есть `quality-checks`, но статус документа не назван | `dex-skill-node-contract:node-contract` |
+
+Носитель значения `status` определяется самим значением: перечни цикла документа и исхода узла не пересекаются, поэтому разбирать разметку не нужно - значение вне обоих и есть находка.
 
 Вердикт распознаётся в двух формах - литералом (`verdict: passed`) и значением колонки таблицы, шапка которой несёт «Вердикт»/`verdict`: пакеты пишут вердикты уровней колонкой, и поиск одного литерала их не видит. Конфликт вердикта со статусом считается по директории прогона: `status` живёт в handoff, вердикты - в файлах своих артефактов.
 
