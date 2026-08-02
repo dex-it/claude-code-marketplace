@@ -80,15 +80,19 @@ tools/__fixtures__/<validator>/<rule>/expect.json   {"also": [...]} - опцио
 | `description-long` | warning | `description` длиннее ориентира каталога | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
 | `description-too-long` | error | `description` за жёстким потолком каталога | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
 | `description-exceeds-claude-limit` | error | `description` за лимитом платформы - обрезается молча | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
-| `description-no-activation` | error/warning | в `description` нет ключевых слов активации | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
-| `description-few-keywords` | error/warning | ключевых слов слишком мало для срабатывания | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
+| `description-no-activation` | error / warning у process | в `description` нет ключевых слов активации | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
+| `description-few-keywords` | error / warning у process | ключевых слов слишком мало для срабатывания | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
 | `documentation-style-title` | error | skill оформлен как документация API, а не как каталог ловушек | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
-| `too-few-traps` | error | ловушек меньше минимума (для process-skill смягчено) | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
-| `trap-missing-triad` | error | ловушка без триады «Плохо / Правильно / Почему» | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
-| `process-empty` | error | process-skill без содержания правила | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
+| `too-few-traps` | error | ловушек меньше минимума; у process-skill не проверяется | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
+| `trap-missing-triad` | error | ловушка без триады «Плохо / Правильно / Почему»; у process-skill не проверяется | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
+| `process-empty` | error | process-skill без содержания правила - ни таблицы-реестра, ни разделов | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
 | `code-fence-too-long` | error | блок кода длиннее допустимого - skill сползает в документацию | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
-| `size-exceeds-recommended` | error | размер выше целевого | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
-| `size-exceeds-hard-limit` | error | размер за жёстким потолком | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
+| `size-exceeds-recommended` | error | размер выше целевого - у trap-skill и process-skill пороги разные | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
+| `size-exceeds-hard-limit` | error | размер за жёстким потолком; у process-skill не проверяется - там свой единственный порог | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
+
+Тип skill - ось калибровки: `process` опознаётся по allowlist `PROCESS_SKILLS` в самом валидаторе,
+маркер в теле файла не парсится. Пороги, полная таблица различий и обоснование -
+[SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) («Калибровка валидатора по типу»), здесь не дублируем.
 
 ## tools/validate-command.js
 
