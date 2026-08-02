@@ -10,7 +10,7 @@
  *   1. `sample-verdict-unknown` - `verdict` вне перечня `node-contract` п.7
  *      (`passed` / `failed` / `unverifiable`).
  *   2. `sample-stage-unknown` - `stage` вне лестницы `node-contract`
- *      (`draft` -> `complete` -> `checked` -> `baselined`).
+ *      (`draft` -> `complete` -> `checked` -> `approved`).
  *   3. `sample-verdict-status-conflict` - `verdict: failed` в пакете, который
  *      отдаёт `status: complete`. `verdict` несёт финальное состояние артефакта,
  *      а не историю прогонов: находка, закрытая здесь же, даёт `passed`, а
@@ -55,7 +55,7 @@ const ERROR = 'error';
 const WARNING = 'warning';
 
 const VERDICTS = new Set(['passed', 'failed', 'unverifiable']);
-const STAGES = new Set(['draft', 'complete', 'checked', 'baselined']);
+const STAGES = new Set(['draft', 'complete', 'checked', 'approved']);
 
 // Вердикт записывается двумя формами, и правило обязано видеть обе: литералом
 // (`verdict: passed`, запись `{artifact: ..., verdict: passed}`) и значением
@@ -182,7 +182,7 @@ function validateSample(filepath) {
   const mentionsStage =
     stages.length > 0 ||
     /`stage`/.test(text) ||
-    /стади[а-я]{0,3}[^.\n]{0,80}`(draft|complete|checked|baselined)`/i.test(text);
+    /стади[а-я]{0,3}[^.\n]{0,80}`(draft|complete|checked|approved)`/i.test(text);
   if (/quality-checks/.test(text) && !mentionsStage) {
     findings.push({
       level: ERROR,
