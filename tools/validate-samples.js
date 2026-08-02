@@ -11,11 +11,13 @@
  *      (`passed` / `failed` / `unverifiable`).
  *   2. `sample-stage-unknown` - `stage` вне лестницы `node-contract`
  *      (`draft` -> `complete` -> `checked` -> `baselined`).
- *   3. `sample-verdict-status-conflict` - `verdict: failed` в файле, который
+ *   3. `sample-verdict-status-conflict` - `verdict: failed` в пакете, который
  *      отдаёт `status: complete`. `verdict` несёт финальное состояние артефакта,
  *      а не историю прогонов: находка, закрытая здесь же, даёт `passed`, а
  *      незакрытое выражается стадией и `status: partial`. `failed` рядом с
- *      `complete` значит, что одно из двух записано неверно.
+ *      `complete` значит, что одно из двух записано неверно. Считается по
+ *      директории прогона: `status` пакета живёт в handoff, вердикты уровней -
+ *      в файлах своих артефактов, и по одному файлу конфликт не собирается.
  *   4. `sample-stage-missing` - артефакт несёт `quality-checks`, но не несёт
  *      стадию. Оракулы прогнаны, а readiness артефакта не назван - приёмник
  *      трактует это как нехватку обязательного поля.
@@ -55,8 +57,13 @@ const WARNING = 'warning';
 const VERDICTS = new Set(['passed', 'failed', 'unverifiable']);
 const STAGES = new Set(['draft', 'complete', 'checked', 'baselined']);
 
-// `verdict: passed` в тексте и в записи `{artifact: ..., verdict: passed}`.
+// Вердикт записывается двумя формами, и правило обязано видеть обе: литералом
+// (`verdict: passed`, запись `{artifact: ..., verdict: passed}`) и значением
+// колонки таблицы, шапка которой несёт «Вердикт»/`verdict` - пакеты каталога
+// пишут вердикты уровней именно колонкой, и поиск одного литерала их не видит.
 const VERDICT_RE = /verdict:\s*`?([a-z-]+)`?/gi;
+const VERDICT_HEADER_RE = /вердикт|verdict/i;
+const TABLE_VALUE_RE = /`([a-z-]+)`/;
 // Стадия в таблице: | `stage` | `checked` (...) |  либо  | Стадия | `checked` |
 const STAGE_RE = /\|\s*(?:`stage`|Стадия)\s*\|\s*`([a-z-]+)`/gi;
 // Статус узла: | `status` | `complete` |
@@ -76,18 +83,80 @@ function lineOf(text, index) {
   return text.slice(0, index).split('\n').length;
 }
 
+function tableCells(line) {
+  return line
+    .trim()
+    .replace(/^\|/, '')
+    .replace(/\|$/, '')
+    .split('|')
+    .map((c) => c.trim());
+}
+
+function collectVerdicts(text) {
+  const found = new Map();
+  const add = (value, line) => {
+    const key = `${line}:${value}`;
+    if (!found.has(key)) found.set(key, { value, line });
+  };
+
+  for (const m of text.matchAll(VERDICT_RE)) add(m[1], lineOf(text, m.index));
+
+  const lines = text.split('\n');
+  let col = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (!lines[i].trimStart().startsWith('|')) {
+      col = -1;
+      continue;
+    }
+    const cells = tableCells(lines[i]);
+    const next = lines[i + 1] ? tableCells(lines[i + 1]) : [];
+    // Шапка опознаётся только по строке-разделителю под ней: слово «verdict» в
+    // ячейке данных иначе назначает колонкой вердикта соседнюю - там `stage`.
+    if (next.length > 1 && next.every((c) => /^:?-+:?$/.test(c))) {
+      col = cells.findIndex((c) => VERDICT_HEADER_RE.test(c));
+      continue;
+    }
+    if (col === -1 || cells.every((c) => /^:?-+:?$/.test(c))) continue;
+    const m = (cells[col] || '').match(TABLE_VALUE_RE);
+    if (m) add(m[1], i + 1);
+  }
+
+  return [...found.values()].sort((a, b) => a.line - b.line);
+}
+
+// Прогон - снимок выхода на момент своей нормы. Помеченный в реестре историческим с
+// названной причиной судится мягко: правится норма, а снимок снимается новым прогоном.
+function historicalRuns() {
+  const registry = join(SAMPLES_DIR, 'README.md');
+  if (!existsSync(registry)) return new Map();
+  const out = new Map();
+  for (const line of readFileSync(registry, 'utf8').split('\n')) {
+    if (!line.trimStart().startsWith('|')) continue;
+    const dir = line.match(/\]\(([^)/]+)\/[^)]*\)/);
+    const reason = line.match(/\|\s*исторический:\s*([^|]{10,})/);
+    if (dir && reason) out.set(dir[1], reason[1].trim());
+  }
+  return out;
+}
+
+// Директория прогона: пакет - единица проверки, файл в корне docs/sample сам себе пакет.
+function runKeyOf(filepath) {
+  const rel = relative(SAMPLES_DIR, filepath);
+  const [head] = rel.split(/[\\/]/);
+  return head;
+}
+
 function validateSample(filepath) {
   const findings = [];
   const text = readFileSync(filepath, 'utf8');
 
-  const verdicts = [];
-  for (const m of text.matchAll(VERDICT_RE)) {
-    verdicts.push({ value: m[1], line: lineOf(text, m.index) });
-    if (!VERDICTS.has(m[1])) {
+  const verdicts = collectVerdicts(text);
+  for (const v of verdicts) {
+    if (!VERDICTS.has(v.value)) {
       findings.push({
         level: ERROR,
         rule: 'sample-verdict-unknown',
-        message: `Line ${lineOf(text, m.index)}: verdict "${m[1]}" is outside the closed list [${[...VERDICTS].join(', ')}] (node-contract п.7)`,
+        message: `Line ${v.line}: verdict "${v.value}" is outside the closed list [${[...VERDICTS].join(', ')}] (node-contract п.7)`,
       });
     }
   }
@@ -106,15 +175,6 @@ function validateSample(filepath) {
 
   const statuses = [...text.matchAll(STATUS_RE)].map((m) => m[1]);
 
-  const failed = verdicts.find((v) => v.value === 'failed');
-  if (failed && statuses.includes('complete')) {
-    findings.push({
-      level: ERROR,
-      rule: 'sample-verdict-status-conflict',
-      message: `Line ${failed.line}: verdict \`failed\` sits next to \`status: complete\` - verdict carries the artifact's final state, not the run history. Either the finding is closed (\`passed\`, history goes to the gate journal) or the node is not complete (\`partial\`)`,
-    });
-  }
-
   // Стадия ищется и в тексте («стадия требований - `checked`»), не только в
   // таблице: пакет может назвать её прозой, и это не нарушение. Голое значение
   // лестницы за упоминание не считается - `complete` живёт и в строке `status`,
@@ -131,7 +191,30 @@ function validateSample(filepath) {
     });
   }
 
-  return { filepath, findings };
+  return { filepath, findings, verdicts, statuses };
+}
+
+function checkPackages(results) {
+  const runs = new Map();
+  for (const r of results) {
+    const key = runKeyOf(r.filepath);
+    if (!runs.has(key)) runs.set(key, []);
+    runs.get(key).push(r);
+  }
+
+  for (const [run, files] of runs) {
+    const complete = files.find((f) => f.statuses.includes('complete'));
+    if (!complete) continue;
+    for (const f of files) {
+      for (const v of f.verdicts.filter((v) => v.value === 'failed')) {
+        f.findings.push({
+          level: ERROR,
+          rule: 'sample-verdict-status-conflict',
+          message: `Line ${v.line}: verdict \`failed\` in package "${run}", which reports \`status: complete\` (${relative(REPO_ROOT, complete.filepath)}) - verdict carries the artifact's final state, not the run history. Either the finding is closed (\`passed\`, history goes to the gate journal in prose) or the node is not complete (\`partial\`)`,
+        });
+      }
+    }
+  }
 }
 
 function formatFinding(f) {
@@ -144,6 +227,17 @@ function formatFinding(f) {
 function main() {
   const files = collectMarkdownFiles(SAMPLES_DIR, []);
   const results = files.map(validateSample);
+  checkPackages(results);
+
+  const historical = historicalRuns();
+  for (const r of results) {
+    const reason = historical.get(runKeyOf(r.filepath));
+    if (!reason) continue;
+    for (const f of r.findings) {
+      f.level = WARNING;
+      f.message = `historical run (${reason}): ${f.message}`;
+    }
+  }
 
   let errors = 0;
   let warnings = 0;

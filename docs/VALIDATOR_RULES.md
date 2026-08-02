@@ -127,8 +127,12 @@ tools/__fixtures__/<validator>/<rule>/expect.json   {"also": [...]} - опцио
 |---|---|---|---|
 | `sample-verdict-unknown` | error | `verdict` вне перечня `passed`/`failed`/`unverifiable` | `dex-skill-node-contract:node-contract` (п.7) |
 | `sample-stage-unknown` | error | `stage` вне лестницы `draft` -> `complete` -> `checked` -> `baselined` | `dex-skill-node-contract:node-contract` |
-| `sample-verdict-status-conflict` | error | `verdict: failed` рядом со `status: complete` - вердикт несёт историю вместо финального состояния | `dex-skill-node-contract:node-contract` (п.7) |
+| `sample-verdict-status-conflict` | error | `verdict: failed` в пакете, отдающем `status: complete` - вердикт несёт историю вместо финального состояния | `dex-skill-node-contract:node-contract` (п.7) |
 | `sample-stage-missing` | error | есть `quality-checks`, но стадия артефакта не названа | `dex-skill-node-contract:node-contract` |
+
+Вердикт распознаётся в двух формах - литералом (`verdict: passed`) и значением колонки таблицы, шапка которой несёт «Вердикт»/`verdict`: пакеты пишут вердикты уровней колонкой, и поиск одного литерала их не видит. Конфликт вердикта со статусом считается по директории прогона: `status` живёт в handoff, вердикты - в файлах своих артефактов.
+
+Прогон, помеченный в [реестре](sample/README.md) как `исторический: <причина>`, судится мягко - находки по его пакету понижаются до предупреждений: снимок отвечает норме на момент прогона, расхождение правится в норме и снимается новым прогоном. Причина обязательна; без неё пакет судится как актуальный.
 
 ## tools/validate-rules-documented.js
 

@@ -9,6 +9,7 @@
 | Артефакт | Проверка | Вердикт |
 |---|---|---|
 | фикстура | `requirement-quality` | verdict: approved |
+| фикстура-2 | `requirement-set-quality` | `rejected` |
 
 | Артефакт | `stage` | Почему не выше |
 |---|---|---|
