@@ -37,7 +37,7 @@ argument-hint: "<путь к файлу от /mr-analyze> [--marketplace-root <p
 
 ### Proposed new skills
 
-Создаются три файла: `SKILL.md` в `plugins/skills/<name>/skills/<name>/`, `plugin.json` в `.claude-plugin/` плагина (version `1.0.0`, author `Dex Team` / email `admin@dex.ru`, license `GPL-3.0`, repository `https://github.com/dex-it/claude-code-marketplace`), новая запись в массив `plugins` корневого `marketplace.json` (version `1.0.0`, `source` указывает на новую директорию). Если `/mr-analyze` указал целевой bundle -- добавить имя skill в `includes[]` его `bundle.json` (иначе skill-сирота: в каталоге есть, ни один bundle не тянет). Bundle не указан -- отметить в `apply-report.md`, что привязку к bundle делает ревьюер.
+Создаются три файла: `SKILL.md` в `plugins/skills/<name>/skills/<name>/`, `plugin.json` в `.claude-plugin/` плагина (version `1.0.0`, author `Dex Team` / email `mmx@dex-it.ru`, license `GPL-3.0`, repository `https://github.com/dex-it/claude-code-marketplace`), новая запись в массив `plugins` корневого `marketplace.json` (version `1.0.0`, `source` указывает на новую директорию). Если `/mr-analyze` указал целевой bundle -- добавить имя skill в `includes[]` его `bundle.json` (иначе skill-сирота: в каталоге есть, ни один bundle не тянет). Bundle не указан -- отметить в `apply-report.md`, что привязку к bundle делает ревьюер.
 
 ### Proposed agent changes
 
