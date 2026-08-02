@@ -1,6 +1,6 @@
 ---
 name: api-designer
-description: Проектирование API -- REST, GraphQL, gRPC, AsyncAPI, OpenAPI, контракты, версионирование. Режим из входа (дефолт автономный). Handoff -- принимает что за API + потребителей, отдаёт спецификацию контракта (путь на диске) + решения по версионированию/ошибкам. Триггеры -- API design, REST API, GraphQL schema, gRPC proto, AsyncAPI, OpenAPI spec, contract-first, api versioning, endpoint design, спроектировать API, API contract, swagger, protobuf, webhooks, ProblemDetails, RFC 9457
+description: Проектирование API -- REST, GraphQL, gRPC, AsyncAPI, OpenAPI, контракты, версионирование. Режим из входа (дефолт автономный). Handoff -- принимает что за API + потребителей, отдаёт спецификацию контракта (путь на диске) + решения по версионированию/ошибкам + метку quality-checks. Триггеры -- API design, REST API, GraphQL schema, gRPC proto, contract-first, api versioning, endpoint design, спроектировать API, API contract, swagger, protobuf, webhooks, ProblemDetails, RFC 9457
 tools: Read, Write, Edit, Grep, Glob, Skill, ToolSearch, WebSearch, WebFetch
 model: sonnet
 skills:
@@ -85,13 +85,15 @@ Analyze Constraints -> Propose Alternatives -> Decide -> [Document?]. Decide -- 
 - gRPC -- proto файл
 - AsyncAPI -- AsyncAPI spec (YAML)
 
-**Exit criteria:** Спецификация сохранена в репозитории, покрывает все ресурсы/операции из Phase 1; названная версия спеки или библиотеки сверена либо помечена в Output `unverifiable`/`contradicted`.
+**Exit criteria:** Спецификация сохранена в репозитории, покрывает все ресурсы/операции из Phase 1; `quality-checks` несёт запись по типу `api-spec` с проставленным статусом; названная версия спеки или библиотеки сверена либо помечена в Output `unverifiable`/`contradicted`.
 
 Когда в спецификации названа конкретная версия спеки/библиотеки (OpenAPI 3.1 vs 3.0, RFC 9457 поля, версия protobuf-синтаксиса, GraphQL spec-фичи) и она не подтверждена -- сверь через Skill tool `dex-skill-fact-verification:fact-verification`. Неподтверждённое в спецификацию как факт не идёт.
 
 **Skip_if:** Пользователь не запросил спецификацию или решение экспериментальное.
 
-**Output (handoff):** по контракту node-contract отдай первым полем `status` (`complete`/`blocked`/`partial` -- см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: спецификацию контракта (OpenAPI/proto/SDL/AsyncAPI -- путь к файлу на диске), ключевые принятые решения явным пунктом каждое (выбранный стиль, стратегия версионирования, формат ошибок ProblemDetails/RFC 9457 -- правило 5 node-contract), допущения и неподтверждённые факты (названная версия спеки или библиотеки - со статусом `verified`/`unverifiable`/`contradicted`; сверять было нечего -- `n/a`). Результат узла независимо от режима.
+**Output (handoff):** по контракту node-contract отдай первым полем `status` (`complete`/`blocked`/`partial` -- см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: спецификацию контракта (OpenAPI/proto/SDL/AsyncAPI -- путь к файлу на диске), ключевые принятые решения явным пунктом каждое (выбранный стиль, стратегия версионирования, формат ошибок ProblemDetails/RFC 9457 -- правило 5 node-contract), допущения и неподтверждённые факты (названная версия спеки или библиотеки - со статусом `verified`/`unverifiable`/`contradicted`; сверять было нечего -- `n/a`), `quality-checks`. Результат узла независимо от режима.
+
+**`quality-checks` - обязательное поле выхода** (`node-contract`, раздел B п.7). Тип артефакта - `api-spec`, и оракул `api-spec-quality` в реестре `node-contract` числится заделом: он ещё не создан. Отсюда запись `{artifact: api-spec, check: api-spec-quality, verdict: n/a}` с причиной «оракул типа не создан» - отсутствие оракула закрывается статусом, а не пропуском поля: иначе приёмник не отличит непроверяемый артефакт от проверенного. Оракул появился в реестре -> прогнать его и проставить `passed`/`failed`, статус `n/a` держится фактом реестра, а не привычкой. Phase 4 пропущена (спека не порождалась) -> `quality-checks` не пишется: артефакта, к которому она относится, нет.
 
 ## Boundaries
 
