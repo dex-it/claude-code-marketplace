@@ -22,13 +22,13 @@
 Bootstrap - классификация входа по проработанности
   |
   v
-Ideate -> BRD   (спавн business-requirements-analyst)
+Ideate -> BRD   (спавн dex-business-analyst:business-requirements-analyst)
   |  ГЕЙТ BRD: метка составителя + оракул набора -> находки оператору -> апрув
   v
-Derive -> FR/NFR  (спавн requirements-analyst)
+Derive -> FR/NFR  (спавн dex-requirements-analyst:requirements-analyst)
   |  ГЕЙТ требований: метка + оракул набора + трассировка BR->FR -> находки оператору -> апрув
   v
-Decompose -> Stories  (спавн user-story-writer)
+Decompose -> Stories  (спавн dex-user-story-writer:user-story-writer)
   |  ГЕЙТ stories: метка + трассировка FR->AC -> находки оператору -> апрув
   v
 Handoff -> зона 2 (/design)
