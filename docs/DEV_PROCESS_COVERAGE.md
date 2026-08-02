@@ -16,7 +16,7 @@
 
 | Трек движка | Исполнитель (.NET / общий) | Артефакт |
 |-------------|----------------------------|----------|
-| *(зона 1, вне движка)* **Требования** | `/feature` -> dex-requirements-orchestrator (дирижёр, гейты с апрувом) -> dex-business-analyst (BRD) -> dex-user-story-writer (stories `[FR-NNN]`). Приёмка чужого набора - `/review-requirements` | BRD + stories (место - из конвенций проекта) |
+| *(зона 1, вне движка)* **Требования** | `/feature` -> dex-requirements-orchestrator (дирижёр, гейты с апрувом) -> dex-business-analyst (BRD с `BR-NNN`) -> dex-requirements-analyst (`FR`/`NFR` из `BR`) -> dex-user-story-writer (stories `[FR-NNN]`). Приёмка чужого набора - `/review-requirements` | BRD + набор `FR`/`NFR` + stories (место - из конвенций проекта) |
 | *(зона 2, вне движка)* **Дизайн** | `/design` -> dex-architect / dex-architect-dotnet (+ dex-api-designer, dex-adr-writer, dex-diagram-creator). Приёмка чужого дизайн-документа - `/review-design` | дизайн-док + ADR + диаграммы |
 | **Разработка** (фича / баг-фикс / рефакторинг) | детальная слот-карта ниже | MR/коммиты |
 | **Ревью входящего MR** | dex-mr-reviewer -> dex-mr-check-reviewer | inline-треды |
