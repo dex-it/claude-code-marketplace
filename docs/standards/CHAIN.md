@@ -182,7 +182,7 @@ draft ──────────► complete ──────────�
 |---|---|
 | `draft -> complete` | все разделы норматива присутствуют; пустой раздел - только с явной пометкой «нет», не молчанием |
 | `complete -> checked` | `quality-checks` несёт запись по этому типу артефакта с `verdict: passed` |
-| `checked -> baselined` | зафиксировано утверждение; дальнейшие изменения идут через процедуру |
+| `checked -> baselined` | утверждение зафиксировано явным апрувом уполномоченной стороны И открытых вопросов по артефакту не осталось; дальнейшие изменения идут через процедуру |
 
 `baselined` опирается на NASA Rev 2 §4.1.1.2.9 (`verified`): «are now baselined. Any further changes
 will be required to go through a formal or informal approval process». То есть это не «всем
