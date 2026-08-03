@@ -634,6 +634,37 @@ function validateFactcheckCascade(parsed, findings) {
 }
 
 /**
+ * Судья артефакта обязан нести инструмент записи: метка `quality-checks` живёт в
+ * файле рядом с судимым артефактом (`node-contract`, «Носитель метки»), и без
+ * `Write`/`Edit` вердикт остаётся в тексте ответа и не переживает узла - артефакт
+ * числится непроверенным при состоявшемся суде.
+ *
+ * Триггер - форма записи метки в теле (`{artifact ... verdict}`): её пишет тот, кто
+ * метку ставит. Упоминание `quality-checks` в прозе триггером не служит - читатель
+ * метки инструмента записи не требует.
+ */
+function validateJudgeCarriesWriter(parsed, findings) {
+  const body = parsed.content || '';
+  if (!/\{artifact[^}]*verdict/.test(body)) return;
+
+  const fm = parsed.data || {};
+  const tools = Array.isArray(fm.tools)
+    ? fm.tools.join(',')
+    : typeof fm.tools === 'string'
+      ? fm.tools
+      : '';
+
+  if (!/\b(Write|Edit)\b/.test(tools)) {
+    findings.push({
+      level: ERROR,
+      rule: 'judge-without-write',
+      message:
+        'Agent writes a quality-checks record but tools has neither Write nor Edit - the verdict cannot reach its carrier file next to the judged artefact (see node-contract "Носитель метки")',
+    });
+  }
+}
+
+/**
  * Читатель норматива этапа обязан грузить его императивно в фазе. Проверяется
  * наличие полной формы `{plugin}:{skill}` в теле и `Skill` в `tools`: без tool'а
  * запись в теле неисполнима, и проверка состава молча выпадает.
@@ -752,6 +783,7 @@ function validateFile(filepath, marketplacePlugins) {
   validateFrontmatter(parsed, findings);
   validateFileNameMatchesName(filepath, parsed, findings);
   validateFactcheckCascade(parsed, findings);
+  validateJudgeCarriesWriter(parsed, findings);
   validateStageNormativeReaders(parsed, findings);
   validateAttributeBlocks(parsed.content, findings, bodyOffset);
 

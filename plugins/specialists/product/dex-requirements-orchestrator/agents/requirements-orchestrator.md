@@ -1,7 +1,7 @@
 ---
 name: requirements-orchestrator
 description: Дирижёр требований зоны 1 - идея/тема -> BRD -> FR/NFR -> stories через гейты качества с апрувом аналитика. Режим из входа (`interactive` от `/feature`, дефолт `autonomous`). Handoff - принимает тему ИЛИ проработанную идею ИЛИ чужой BRD; отдаёт апрувнутый BRD + FR/NFR + stories с трассировкой BR->FR->AC. Триггеры - проработать идею до требований, обдумать фичу, описать новую фичу, собрать BRD, оформить требования, сделай BRD и истории, разложить фичу на истории, feature pipeline, requirements
-tools: Read, Write, Grep, Glob, Skill, Agent, ToolSearch, WebSearch, WebFetch
+tools: Read, Write, Edit, Grep, Glob, Skill, Agent, ToolSearch, WebSearch, WebFetch
 model: opus
 skills:
   - dex-skill-node-contract:node-contract

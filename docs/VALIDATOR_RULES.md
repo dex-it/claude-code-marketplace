@@ -59,6 +59,7 @@ tools/__fixtures__/<validator>/<rule>/expect.json   {"also": [...]} - опцио
 | `frontmatter-skills-not-own-stage` | error | норматив этапа pre-load'ит не владелец этапа | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md#подключение-skills-pre-load-безусловного-императив-условного) |
 | `stage-normative-reader-missing` | error | судящий агент над этапом не грузит норматив (судит состав по памяти) либо не несёт `Skill` в `tools` | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md#подключение-skills-pre-load-безусловного-императив-условного) |
 | `factcheck-cascade-incomplete` | error | фаза fact-check есть, каскад `ToolSearch`+`WebSearch`+`WebFetch` неполон | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md#fact-verification-и-ответ-второй-стороны) |
+| `judge-without-write` | error | агент пишет запись `quality-checks`, но в `tools` нет ни `Write`, ни `Edit` - вердикт не доходит до файла-метки | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md#tools-агента) |
 | `agent-file-name-mismatch` | error | имя файла не совпадает с `name` | [CLAUDE.md](../CLAUDE.md) |
 | `no-phases` | error | у агента нет ни одной `## Phase N` | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md) |
 | `phase-missing-goal` | error | у фазы нет `**Goal:**` | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md) |
