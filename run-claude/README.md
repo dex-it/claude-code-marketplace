@@ -18,7 +18,7 @@ PS Можно будет устанавливать прямо из гита, к
 
 # Локальный запуск Claude Code для проекта
 
-Папка `run-claude` содержит шаблон для локального запуска Claude Code на Linux/Mac/Windows с предварительной загрузкой переменных окружения и подключением MCP серверов (Confluence, Jira).
+Папка `run-claude` содержит шаблон для локального запуска Claude Code на Linux/Mac/Windows с предварительной загрузкой переменных окружения и системного промпта. MCP-серверы лаунчер не регистрирует - это разовая операция: HTTP-серверы (Confluence, Jira) ставит лежащий здесь же `register-http-mcp.sh` (Windows - `register-http-mcp.ps1`), stdio-серверы описываются в `.mcp.json` (см. [mcp/README.md](../mcp/README.md)).
 
 **⚠️ Важно:** Эта папка должна быть **скопирована в каждый конкретный проект**, где вы используете Claude Code. Переменные окружения уникальны для каждого проекта.
 
@@ -58,11 +58,9 @@ copy sample.env .env
 #### Глобальные переменные (общие для всех проектов)
 
 ```env
-# Confluence MCP сервер (оставить пусто, если не используется)
+# HTTP MCP-серверы (регистрируются один раз: ./register-http-mcp.sh)
 CONFLUENCE_MCP_URL=https://confluence.mcp.dex-it.ru
 CONFLUENCE_MCP_TOKEN=<PAT>
-
-# Jira MCP сервер (оставить пусто, если не используется)
 JIRA_MCP_URL=https://jira.mcp.dex-it.ru
 JIRA_MCP_TOKEN=<PAT>
 
@@ -135,12 +133,7 @@ cd run-claude
     └─ Автоматически добавляет через --append-system-prompt
     └─ Если файл отсутствует → используется стандартный промпт
 
-5️⃣  Регистрация MCP серверов (условная, только если URL заполнены)
-    └─ Confluence MCP: регистрируется если CONFLUENCE_MCP_URL и CONFLUENCE_MCP_TOKEN заполнены
-    └─ Jira MCP: регистрируется если JIRA_MCP_URL и JIRA_MCP_TOKEN заполнены
-    └─ Если URL или токены пусты → выводится предупреждение
-
-6️⃣  Запуск Claude Code
+5️⃣  Запуск Claude Code
     └─ Команда: claude [CLAUDE_ARGS] [--append-system-prompt "..."] [пользовательские аргументы]
     └─ Все переменные окружения доступны для плагинов
     └─ Системный промпт применяется автоматически
@@ -152,6 +145,8 @@ cd run-claude
 run-claude/
 ├── run-claude.sh           # Скрипт запуска для Linux/Mac
 ├── run-claude.ps1          # Скрипт запуска для Windows (PowerShell)
+├── register-http-mcp.sh    # Разовая регистрация HTTP MCP-серверов (Linux/Mac)
+├── register-http-mcp.ps1   # То же для Windows
 ├── system-prompt.md        # Системный промпт (загружается автоматически)
 ├── .env                    # Переменные окружения ВАШЕГО ПРОЕКТА (НЕ коммитится!)
 ├── sample.env              # Шаблон переменных (для примера)
@@ -170,10 +165,12 @@ run-claude/
 
 | Переменная | Описание | Область видимости |
 |-----------|---------|------------------|
-| `CONFLUENCE_MCP_URL` | URL сервера Confluence MCP (оставить пусто для отключения) | Глобальная |
+| `CONFLUENCE_MCP_URL` | URL сервера Confluence MCP (оставить пусто, если не используется) | Глобальная |
 | `CONFLUENCE_MCP_TOKEN` | Personal Access Token для Confluence | Глобальная (единая для всех проектов) |
-| `JIRA_MCP_URL` | URL сервера Jira MCP (оставить пусто для отключения) | Глобальная |
+| `JIRA_MCP_URL` | URL сервера Jira MCP (оставить пусто, если не используется) | Глобальная |
 | `JIRA_MCP_TOKEN` | Personal Access Token для Jira | Глобальная (единая для всех проектов) |
+
+Лаунчер эти переменные только экспортирует. Регистрация серверов - `./register-http-mcp.sh` из этой папки, разово; полный набор опций - `./register-http-mcp.sh --help` и [mcp/README.md](../mcp/README.md).
 
 ### Специфичные для проекта
 
@@ -241,29 +238,18 @@ copy sample.env .env
 3. Нет пустых строк между парами
 4. Файл закодирован как UTF-8
 
-### MCP серверы не регистрируются
+### MCP серверы не подключены
 
-Это нормально! Если вы видите предупреждения о пропуске MCP серверов:
+Лаунчер MCP-серверы не регистрирует - он только загружает переменные окружения и промпт. Регистрация делается отдельно и один раз:
 
-**Если хотите использовать MCP:**
-1. Заполните `CONFLUENCE_MCP_URL` и `JIRA_MCP_URL` в `.env`
-2. Заполните соответствующие токены `CONFLUENCE_MCP_TOKEN` и `JIRA_MCP_TOKEN`
-3. Перезапустите скрипт запуска
-
-**Если НЕ хотите использовать MCP:**
-- Оставьте URL пусто в `.env`, скрипт автоматически их пропустит
-
-**Проверка доступности серверов:**
 ```bash
-# Linux/Mac
-curl -v -H "Authorization: Token $CONFLUENCE_MCP_TOKEN" $CONFLUENCE_MCP_URL/health
+# HTTP-серверы Confluence и Jira из соседнего .env
+./register-http-mcp.sh
 
-# Windows (PowerShell)
-curl -v -H "Authorization: Token $env:CONFLUENCE_MCP_TOKEN" $env:CONFLUENCE_MCP_URL/health
-
-# Windows (CMD)
-curl -v -H "Authorization: Token %CONFLUENCE_MCP_TOKEN%" %CONFLUENCE_MCP_URL%/health
+# stdio-серверы - записью из mcp/mcp-template.json в .mcp.json проекта
 ```
+
+Проверка: `claude mcp list` (или `/mcp` внутри сессии). Сервер числится, но не подключается - смотрите `claude --mcp-debug` и раздел Troubleshooting в [mcp/README.md](../mcp/README.md).
 
 ### Разные базы данных для разных проектов
 
@@ -280,7 +266,9 @@ my-project/
 │   ├── sample.env
 │   ├── system-prompt.md
 │   ├── run-claude.sh
-│   └── run-claude.ps1
+│   ├── run-claude.ps1
+│   ├── register-http-mcp.sh
+│   └── register-http-mcp.ps1
 ├── src/
 ├── .gitignore (содержит run-claude/.env)
 └── ...
