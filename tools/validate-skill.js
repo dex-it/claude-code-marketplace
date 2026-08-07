@@ -119,7 +119,7 @@ const MIN_TRIGGER_KEYWORDS = 10;
  * this allowlist is the source of truth. See docs/SKILL_FRAMEWORK.md "Типы skill".
  */
 const PROCESS_SKILLS = new Set([
-  'dotnet-project-baseline',
+  'project-baseline',
   'stack-registry',
   'completeness-mapping',
   'optimize-for-llm',
@@ -328,7 +328,7 @@ function validateTraps(markdownBody, findings, isProcess = false) {
   // catalogue of API traps. The trap heuristics (count + Плохо/Правильно/Почему
   // triad) don't apply to them - structure is checked by validateProcessStructure
   // instead. Triads remain *allowed* in a process skill (e.g. decision forks in
-  // dotnet-project-baseline), just not *required*.
+  // project-baseline), just not *required*.
   if (isProcess) return;
 
   const traps = extractTraps(markdownBody);
