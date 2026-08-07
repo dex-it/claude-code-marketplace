@@ -23,16 +23,13 @@ if ($args -contains "--help" -or $args -contains "-h") {
     Write-Host "Скрипт выполняет:"
     Write-Host "  1. Загружает переменные из .env файла"
     Write-Host "  2. Загружает системный промпт из system-prompt.md"
-    Write-Host "  3. Регистрирует MCP серверы (Confluence, Jira)"
-    Write-Host "  4. Запускает Claude Code с заданными параметрами"
+    Write-Host "  3. Запускает Claude Code с заданными параметрами"
     Write-Host ""
     Write-Host "Переменные окружения (.env):"
     Write-Host "  LOAD_SYSTEM_PROMPT       - загружать системный промпт (true/false, по умолчанию: true)"
     Write-Host "  CLAUDE_ARGS              - дефолтные аргументы для Claude"
-    Write-Host "  CONFLUENCE_MCP_URL       - URL Confluence MCP сервера"
-    Write-Host "  CONFLUENCE_MCP_TOKEN     - токен для Confluence MCP"
-    Write-Host "  JIRA_MCP_URL             - URL Jira MCP сервера"
-    Write-Host "  JIRA_MCP_TOKEN           - токен для Jira MCP"
+    Write-Host ""
+    Write-Host "MCP-серверы регистрируются отдельно и разово: .\register-http-mcp.ps1 (HTTP) или .mcp.json (stdio)"
     Write-Host ""
     Write-Host "Примеры:"
     Write-Host "  .\run-claude.ps1"
@@ -117,38 +114,6 @@ if ($loadPrompt -eq "true") {
 }
 else {
     Write-Warning "  Загрузка системного промпта отключена (LOAD_SYSTEM_PROMPT=false)"
-}
-
-Write-Header ""
-Write-Header "======================================"
-Write-Header "Регистрация MCP серверов"
-Write-Header "======================================"
-Write-Header ""
-
-# Confluence MCP
-if ($env:CONFLUENCE_MCP_URL -and $env:CONFLUENCE_MCP_TOKEN) {
-    Write-Info "  Регистрируем Confluence MCP..."
-    claude mcp add --transport http conflu --scope project $env:CONFLUENCE_MCP_URL --header "Authorization: Token $env:CONFLUENCE_MCP_TOKEN"
-    Write-Success "  Confluence MCP зарегистрирован: $env:CONFLUENCE_MCP_URL"
-}
-elseif (-not $env:CONFLUENCE_MCP_URL) {
-    Write-Warning "  Confluence MCP пропущен: URL не задан (CONFLUENCE_MCP_URL)"
-}
-else {
-    Write-Warning "  Confluence MCP пропущен: токен не задан (CONFLUENCE_MCP_TOKEN)"
-}
-
-# Jira MCP
-if ($env:JIRA_MCP_URL -and $env:JIRA_MCP_TOKEN) {
-    Write-Info "  Регистрируем Jira MCP..."
-    claude mcp add --transport http jira --scope project $env:JIRA_MCP_URL --header "Authorization: Token $env:JIRA_MCP_TOKEN"
-    Write-Success "  Jira MCP зарегистрирован: $env:JIRA_MCP_URL"
-}
-elseif (-not $env:JIRA_MCP_URL) {
-    Write-Warning "  Jira MCP пропущен: URL не задан (JIRA_MCP_URL)"
-}
-else {
-    Write-Warning "  Jira MCP пропущен: токен не задан (JIRA_MCP_TOKEN)"
 }
 
 Write-Header ""

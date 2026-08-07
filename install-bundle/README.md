@@ -94,7 +94,7 @@ sudo pacman -S jq
 
 ## Sync (protect installed agents from skill degradation)
 
-Installation is flat — there is no specialist→skill cascade. An agent loads skills imperatively via the Skill tool (`dex-skill-X:Y`); if such a skill is not installed it does not resolve and the agent silently degrades. Over time this drifts: an agent gets a new skill reference upstream, or you installed an agent without all the skills it loads.
+Installation is flat - there is no specialist->skill cascade. An agent loads skills imperatively via the Skill tool (`dex-skill-X:Y`); if such a skill is not installed it does not resolve and the agent silently degrades. Over time this drifts: an agent gets a new skill reference upstream, or you installed an agent without all the skills it loads.
 
 `sync-plugins.sh` anchors on **what you have installed** (not on bundles): for every installed agent it reads the skills that agent loads from the repo's agent files (`plugins/specialists/**/agents/*.md`, the source of truth) and reports/installs the non-by-stack skills that are missing.
 
@@ -109,7 +109,23 @@ Installation is flat — there is no specialist→skill cascade. An agent loads 
 ./sync-plugins.sh --verbose
 ```
 
-It **never installs new agents** — "something new appeared in the market" is a manual decision. It does **not** touch versions (updating is a separate manual op via the marketplace). by-stack profile skills (`dex-skill-{dotnet,ts,python,…}-*`) are exempt — they are loaded conditionally per project stack. Run from a clone of the marketplace repo.
+It **never installs new agents** - "something new appeared in the market" is a manual decision. It does **not** touch versions (updating is a separate manual op via the marketplace). by-stack profile skills (`dex-skill-{dotnet,ts,python,...}-*`) are exempt - they are loaded conditionally per project stack. Run from a clone of the marketplace repo.
+
+## Renamed and removed plugins (manual step)
+
+Neither `install-bundle.sh` nor `sync-plugins.sh` removes anything: sync only adds missing skills, and the uninstaller walks the bundle's current `includes[]`. A plugin dropped from the marketplace therefore stays installed and keeps being loaded by name - no error is raised, because the file is still on disk.
+
+Uninstall such plugins by hand:
+
+```bash
+claude plugins uninstall <old-plugin-name>
+```
+
+Current entries:
+
+| Removed | Replacement | Notes |
+|---|---|---|
+| `dex-skill-dotnet-project-baseline` | `dex-skill-project-baseline` | stack-neutral successor, same skill name inside the plugin changed from `dotnet-project-baseline` to `project-baseline` |
 
 ## Available Bundles
 
@@ -291,7 +307,7 @@ install-bundle/
 Plugin bundles install **slash-command plugins** for Claude Code. The `dex-*-cli` plugins still need their underlying CLI binaries (`gh`, `glab`, `kubectl`, `psql`, `redis-cli`, `kaf`, `netcoredbg`, `gdb`, и т.д.) on your machine. Use `install-cli-tools` to set them up:
 
 ```bash
-# Linux / macOS / WSL — auto-detects apt / dnf / pacman / apk / brew
+# Linux / macOS / WSL - auto-detects apt / dnf / pacman / apk / brew
 ./install-cli-tools.sh --check          # see what's installed and missing
 ./install-cli-tools.sh --all            # install everything missing
 ./install-cli-tools.sh psql redis-cli   # install specific tools
@@ -302,7 +318,7 @@ Plugin bundles install **slash-command plugins** for Claude Code. The `dex-*-cli
 ./install-cli-tools.sh --update --all          # update everything installed
 ./install-cli-tools.sh --update --check        # show what would be updated
 
-# Windows — uses winget / scoop / choco
+# Windows - uses winget / scoop / choco
 .\install-cli-tools.ps1 -Check
 .\install-cli-tools.ps1 -All
 .\install-cli-tools.ps1 -Update gh kubectl
@@ -314,15 +330,15 @@ Plugin bundles install **slash-command plugins** for Claude Code. The `dex-*-cli
 For the `runtime-diagnostics` bundle, install all underlying CLI binaries at once:
 
 ```bash
-# Linux / macOS / WSL — installs netcoredbg, gdb, lldb, strace, bpftrace, bcc, perf,
+# Linux / macOS / WSL - installs netcoredbg, gdb, lldb, strace, bpftrace, bcc, perf,
 # binutils, rizin, ilspycmd, flamegraph, valgrind, lief, dotnet-diagnostic-tools
 ./install-cli-tools.sh runtime-diagnostics-tools
 
-# Windows — installs cross-platform ones (ilspycmd, lief, dotnet-diagnostic-tools);
+# Windows - installs cross-platform ones (ilspycmd, lief, dotnet-diagnostic-tools);
 # Linux-only utilities are reported as __UNSUPPORTED__ with WSL hint
 .\install-cli-tools.ps1 runtime-diagnostics-tools
 ```
 
-`--update` / `-u` (and `-Update` for PowerShell) skips the «Already installed» early-return and transforms install commands into upgrade commands per-PM. For Linux `apt` / `dnf` and curl-based recipes (kubectl, kaf, aws, ...) this is a no-op — they already upgrade on re-run. For `brew`, `apk`, `pacman`, `winget`, `scoop`, `choco` — `install` is replaced with the appropriate upgrade subcommand. On Arch, `pacman -S` becomes `pacman -Syu` (full system upgrade — partial upgrades are unsupported per ArchWiki, which means `--update` may upgrade more packages than the one you asked for). The summary distinguishes `Updated` (version changed) from `Already at latest` (recipe ran but version unchanged). See [`docs/CLI_UTILITIES.md`](../docs/CLI_UTILITIES.md) → «Обновление установленных инструментов» for the full transformation table.
+`--update` / `-u` (and `-Update` for PowerShell) skips the «Already installed» early-return and transforms install commands into upgrade commands per-PM. For Linux `apt` / `dnf` and curl-based recipes (kubectl, kaf, aws, ...) this is a no-op - they already upgrade on re-run. For `brew`, `apk`, `pacman`, `winget`, `scoop`, `choco` - `install` is replaced with the appropriate upgrade subcommand. On Arch, `pacman -S` becomes `pacman -Syu` (full system upgrade - partial upgrades are unsupported per ArchWiki, which means `--update` may upgrade more packages than the one you asked for). The summary distinguishes `Updated` (version changed) from `Already at latest` (recipe ran but version unchanged). See [`docs/CLI_UTILITIES.md`](../docs/CLI_UTILITIES.md) -> «Обновление установленных инструментов» for the full transformation table.
 
 This is a separate concern from `install-bundle`: you might install the `cli-tools` bundle (the plugins) on a CI machine without ever touching the host binaries, or vice versa. See [`docs/CLI_UTILITIES.md`](../docs/CLI_UTILITIES.md) for the full install matrix and per-tool configuration notes.

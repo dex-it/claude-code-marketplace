@@ -13,12 +13,29 @@
 5. Настройте переменные окружения в `.env` (см. `run-claude/sample.env`)
 6. Запустите Claude Code и проверьте: `/mcp list`
 
+HTTP-серверы в `.mcp.json` копировать не нужно - для них есть регистратор `run-claude/register-http-mcp.sh` (раньше это делал лаунчер `run-claude` на каждом запуске):
+
+```bash
+cd run-claude
+./register-http-mcp.sh --dry-run     # показать команды, токены скрыты
+./register-http-mcp.sh               # conflu и jira из *_MCP_URL / *_MCP_TOKEN
+./register-http-mcp.sh --name gitlab --url https://gitlab.com/api/v4/mcp
+./register-http-mcp.sh --name sentry --url https://mcp.sentry.dev/mcp --token "$SENTRY_TOKEN" --auth-scheme Bearer
+```
+
+Скрипт лежит рядом с лаунчером и подхватывает соседний `run-claude/.env` автоматически; другой файл - `-e <путь>`. Windows-зеркало - `run-claude/register-http-mcp.ps1` с теми же параметрами в PowerShell-форме (`-DryRun`, `-EnvFile`, `-Name`, ...).
+
+Без `--name/--url` скрипт берёт пары `CONFLUENCE_MCP_URL` + `CONFLUENCE_MCP_TOKEN` и `JIRA_MCP_URL` + `JIRA_MCP_TOKEN`: полностью пустая пара пропускается, половина пары - ошибка (молча зарегистрировать сервер без авторизации нельзя). Повторная регистрация - `--force`. Полный список опций - `./register-http-mcp.sh --help`.
+
+Область по умолчанию - `user`: запись ложится в `~/.claude.json`, видна во всех проектах и не зависит от каталога, из которого запущен скрипт. Это соответствует тому, как `run-claude/README.md` описывает `CONFLUENCE_MCP_*` и `JIRA_MCP_*` - глобальные, единые для всех проектов. Для `--scope project` и `--scope local` скрипт сам уходит в корень проекта (каталог над `run-claude`), потому что обе эти области привязаны к рабочему каталогу, а лаунчер запускает `claude` именно оттуда. Токен Claude Code хранит открытым текстом в любой области: в `~/.claude.json` или в `.mcp.json`. Разница в том, что при `--scope project` файл лежит внутри репозитория проекта - его добавляют в `.gitignore`.
+
 ## Требования по платформам (Linux / macOS)
 
 Сами серверы каталога запускаются одинаково на Linux и macOS: в конфиге нет путей или команд, привязанных к ОС. Различается только то, что должно стоять заранее:
 
-- **npx-серверы** (github, notion, kubernetes, playwright, grafana, sentry, teamcity, elasticsearch, pdf-reader, google-drive, wandb, huggingface, openapi, filesystem, chrome-devtools, genai-toolbox для БД): нужен Node.js. Linux - `setup/npx-install/install.sh`; macOS - `brew install node`.
-- **uvx-серверы** (gitlab после v18, rabbitmq, docker, mlflow): нужен uv. Linux и macOS - `setup/uvx-install/install.sh` (установщик uv кросс-платформенный).
+- **npx-серверы** (github, notion, kubernetes, playwright, sentry, teamcity, elasticsearch, pdf-reader, google-drive, huggingface, openapi, filesystem, chrome-devtools, gitlab_community, genai-toolbox для БД): нужен Node.js. Linux - `setup/npx-install/install.sh`; macOS - `brew install node`.
+- **uvx-серверы** (atlassian, rabbitmq, docker, grafana, mlflow, wandb): нужен uv. Linux и macOS - `setup/uvx-install/install.sh` (установщик uv кросс-платформенный). Все они запускаются через `uvx`, то есть в изолированном окружении: от python-проекта, в каталоге которого стартует сервер, они не зависят.
+- **HTTP-серверы** (gitlab): ставить нечего, транспорт `http` идёт напрямую в endpoint инстанса; аутентификация - OAuth при первом подключении.
 - **Бинарные серверы**:
   - `kafka` (`kafka-mcp-server`, Go-бинарь): macOS - `brew tap tuannvm/mcp && brew install kafka-mcp-server`; Linux - бинарь из [github.com/tuannvm/kafka-mcp-server](https://github.com/tuannvm/kafka-mcp-server). Должен быть в `PATH`.
   - `seq` (`seq-mcp-server`): ставится отдельно из источника сервера, бинарь в `PATH`. Отдельной macOS-специфики нет.
@@ -45,16 +62,24 @@ Apple Silicon (arm64): MCP-слой ограничений не добавляе
 | Сервер | Описание | Переменные |
 |--------|----------|------------|
 | **notion** | Notion workspace - документация, база знаний | `NOTION_TOKEN` |
+| **atlassian** | Jira и Confluence - задачи, JQL, спринты, страницы вики | `JIRA_URL` + `JIRA_PERSONAL_TOKEN` (Server/DC) или `JIRA_USERNAME` + `JIRA_API_TOKEN` (Cloud); те же пары с префиксом `CONFLUENCE_` |
 | **pdf-reader** | Чтение и анализ PDF документов | - |
 | **google-drive** | Google Docs, Sheets, Slides | `GOOGLE_DRIVE_OAUTH_CREDENTIALS` |
+
+**Atlassian MCP:** один сервер (`mcp-atlassian`) обслуживает Jira и Confluence - незаданный блок переменных отключает соответствующий продукт. Работает это только потому, что взаимоисключающие переменные записаны в шаблоне формой `${VAR:-}`: голая `${VAR}` у незаданной переменной приезжает в сервер текстом `${VAR}`, и продукт остаётся включённым с мусорными значениями. Тип развёртывания определяется по URL: Cloud (`*.atlassian.net`) - username + API-токен, Server/DC - Personal Access Token. Версия запинена (`mcp-atlassian==0.23.0`), потому что имена tools меняются между релизами. Сужение поверхности: `ATLASSIAN_READ_ONLY=true`, `JIRA_PROJECTS_FILTER`, `CONFLUENCE_SPACES_FILTER`, `ENABLED_TOOLS`. [Docs](https://github.com/sooperset/mcp-atlassian)
+
+Для read-only работы с задачами из терминала есть более лёгкий путь - CLI-плагин `dex-jira-cli` (`jira` от ankitpokhrel), см. [docs/CLI_UTILITIES.md](../docs/CLI_UTILITIES.md).
 
 ### Version Control и CI/CD
 
 | Сервер | Описание | Переменные |
 |--------|----------|------------|
-| **gitlab** | GitLab - repos, issues, MRs, CI/CD | `GITLAB_TOKEN`, `GITLAB_API_URL` |
+| **gitlab** | GitLab - repos, issues, MRs, CI/CD. Нативный сервер инстанса | `GITLAB_URL` (токена нет - OAuth) |
+| **gitlab_community** | То же через `@zereight/mcp-gitlab` - для инстансов до 18.6 или без Duo | `GITLAB_TOKEN`, `GITLAB_API_URL` |
 | **github** | GitHub - repos, issues, PRs, actions | `GITHUB_TOKEN` |
 | **teamcity** | TeamCity - builds, agents, test analysis (~77 tools) | `TEAMCITY_URL`, `TEAMCITY_TOKEN`, `MCP_MODE` |
+
+**GitLab MCP:** нативный сервер отдаётся самим инстансом по `https://<host>/api/v4/mcp` (beta с GitLab 18.6, протоколы `2025-03-26` и `2025-06-18` - с 18.7). Требует включённого GitLab Duo и разрешённого доступа к MCP; аутентификация - OAuth 2.0 Dynamic Client Registration при первом подключении (`/mcp` в чате), PAT не используется. Инстанс старее 18.6 или без Duo - запись `gitlab_community` на PAT. [Docs](https://docs.gitlab.com/user/model_context_protocol/mcp_server/)
 
 ### Базы данных (genai-toolbox)
 
@@ -121,7 +146,7 @@ Playwright MCP даёт агенту высокоуровневые операц
 
 | Сервер | Описание | Переменные |
 |--------|----------|------------|
-| **grafana** | Grafana - dashboards, Prometheus metrics, Loki logs | `GRAFANA_URL`, `GRAFANA_API_KEY` |
+| **grafana** | Grafana - dashboards, Prometheus metrics, Loki logs | `GRAFANA_URL`, `GRAFANA_SERVICE_ACCOUNT_TOKEN` |
 | **sentry** | Sentry - error tracking, issues, stack traces, releases | `SENTRY_ACCESS_TOKEN`, `SENTRY_HOST` |
 | **openapi** | OpenAPI/Swagger - API documentation generation | - |
 
@@ -129,9 +154,11 @@ Playwright MCP даёт агенту высокоуровневые операц
 
 | Сервер | Описание | Переменные |
 |--------|----------|------------|
-| **mlflow** | Experiment tracking, model registry | `MLFLOW_TRACKING_URI` |
-| **wandb** | Weights & Biases visualizations | `WANDB_API_KEY` |
-| **huggingface** | HuggingFace models и datasets | `HUGGINGFACE_TOKEN` |
+| **mlflow** | Experiment tracking, model registry | `MLFLOW_TRACKING_URI`, `MLFLOW_MCP_TOOLS` |
+| **wandb** | Weights & Biases visualizations | `WANDB_API_KEY`, `WANDB_BASE_URL` |
+| **huggingface** | HuggingFace models и datasets | `HF_TOKEN` |
+
+Отдельных пакетов у части этих серверов нет: **mlflow** идёт внутри самого `mlflow` (extra `mcp`, требуется версия >= 3.5.1), **wandb** ставится из git-репозитория (в PyPI/npm не публикуется), **huggingface** публикуется в npm под скоупом `@llmindset` из репозитория `huggingface/hf-mcp-server`. У wandb и huggingface есть hosted-альтернативы без локального запуска (`https://mcp.withwandb.com/mcp`, `https://huggingface.co/mcp`).
 
 ## Пример настройки
 
@@ -157,12 +184,8 @@ Playwright MCP даёт агенту высокоуровневые операц
 {
   "mcpServers": {
     "gitlab": {
-      "command": "uvx",
-      "args": ["mcp-server-gitlab"],
-      "env": {
-        "GITLAB_PERSONAL_ACCESS_TOKEN": "${GITLAB_TOKEN}",
-        "GITLAB_API_URL": "${GITLAB_API_URL:-https://gitlab.com/api/v4}"
-      }
+      "type": "http",
+      "url": "${GITLAB_URL:-https://gitlab.com}/api/v4/mcp"
     }
   }
 }
@@ -174,11 +197,15 @@ Playwright MCP даёт агенту высокоуровневые операц
 {
   "mcpServers": {
     "gitlab": {
+      "type": "http",
+      "url": "${GITLAB_URL:-https://gitlab.com}/api/v4/mcp"
+    },
+    "atlassian": {
       "command": "uvx",
-      "args": ["mcp-server-gitlab"],
+      "args": ["--from", "mcp-atlassian==0.23.0", "mcp-atlassian"],
       "env": {
-        "GITLAB_PERSONAL_ACCESS_TOKEN": "${GITLAB_TOKEN}",
-        "GITLAB_API_URL": "${GITLAB_API_URL:-https://gitlab.com/api/v4}"
+        "JIRA_URL": "${JIRA_URL}",
+        "JIRA_PERSONAL_TOKEN": "${JIRA_PERSONAL_TOKEN}"
       }
     },
     "genai-toolbox": {
@@ -195,11 +222,11 @@ Playwright MCP даёт агенту высокоуровневые операц
       }
     },
     "grafana": {
-      "command": "npx",
-      "args": ["-y", "@grafana/mcp-grafana"],
+      "command": "uvx",
+      "args": ["mcp-grafana"],
       "env": {
         "GRAFANA_URL": "${GRAFANA_URL:-http://localhost:3000}",
-        "GRAFANA_API_KEY": "${GRAFANA_API_KEY}"
+        "GRAFANA_SERVICE_ACCOUNT_TOKEN": "${GRAFANA_SERVICE_ACCOUNT_TOKEN}"
       }
     }
   }
