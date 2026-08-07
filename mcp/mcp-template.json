@@ -91,7 +91,7 @@
         "CONFLUENCE_PERSONAL_TOKEN (Server/DC) ИЛИ CONFLUENCE_USERNAME + CONFLUENCE_API_TOKEN (Cloud)",
         "ATLASSIAN_READ_ONLY (optional, default: false)"
       ],
-      "_note": "Один сервер обслуживает оба продукта: незаданный блок env отключает соответствующий продукт (нужна только Jira -- оставьте JIRA_*). Тип развёртывания определяется по URL: Cloud (*.atlassian.net) -- username + API-токен, Server/DC -- Personal Access Token; на Server/DC PAT имеет приоритет над остальными способами. Версия запинена (0.23.0) -- у сервера меняются имена tools между релизами. Сужение поверхности: ATLASSIAN_READ_ONLY=true (пробрасывается в READ_ONLY_MODE), JIRA_PROJECTS_FILTER, CONFLUENCE_SPACES_FILTER, ENABLED_TOOLS. Self-signed TLS на self-hosted: JIRA_SSL_VERIFY=false / CONFLUENCE_SSL_VERIFY=false. Docs: https://github.com/sooperset/mcp-atlassian",
+      "_note": "Один сервер обслуживает оба продукта: незаданный блок env отключает соответствующий продукт (нужна только Jira -- оставьте JIRA_*). Взаимоисключающие переменные записаны формой ${VAR:-} с пустым значением по умолчанию: голая форма ${VAR} у незаданной переменной приезжает в сервер текстом ${VAR}, сервер считает её заданной и продукт не отключается. Тип развёртывания определяется по URL: Cloud (*.atlassian.net) -- username + API-токен, Server/DC -- Personal Access Token; на Server/DC PAT имеет приоритет над остальными способами. Версия запинена (0.23.0) -- у сервера меняются имена tools между релизами. Сужение поверхности: ATLASSIAN_READ_ONLY=true (пробрасывается в READ_ONLY_MODE), JIRA_PROJECTS_FILTER, CONFLUENCE_SPACES_FILTER, ENABLED_TOOLS. Self-signed TLS на self-hosted: JIRA_SSL_VERIFY=false / CONFLUENCE_SSL_VERIFY=false. Docs: https://github.com/sooperset/mcp-atlassian",
       "command": "uvx",
       "args": [
         "--from",
@@ -100,14 +100,14 @@
       ],
       "env": {
         "JIRA_URL": "${JIRA_URL}",
-        "JIRA_PERSONAL_TOKEN": "${JIRA_PERSONAL_TOKEN}",
-        "JIRA_USERNAME": "${JIRA_USERNAME}",
-        "JIRA_API_TOKEN": "${JIRA_API_TOKEN}",
-        "JIRA_PROJECTS_FILTER": "${JIRA_PROJECTS_FILTER}",
-        "CONFLUENCE_URL": "${CONFLUENCE_URL}",
-        "CONFLUENCE_PERSONAL_TOKEN": "${CONFLUENCE_PERSONAL_TOKEN}",
-        "CONFLUENCE_USERNAME": "${CONFLUENCE_USERNAME}",
-        "CONFLUENCE_API_TOKEN": "${CONFLUENCE_API_TOKEN}",
+        "JIRA_PERSONAL_TOKEN": "${JIRA_PERSONAL_TOKEN:-}",
+        "JIRA_USERNAME": "${JIRA_USERNAME:-}",
+        "JIRA_API_TOKEN": "${JIRA_API_TOKEN:-}",
+        "JIRA_PROJECTS_FILTER": "${JIRA_PROJECTS_FILTER:-}",
+        "CONFLUENCE_URL": "${CONFLUENCE_URL:-}",
+        "CONFLUENCE_PERSONAL_TOKEN": "${CONFLUENCE_PERSONAL_TOKEN:-}",
+        "CONFLUENCE_USERNAME": "${CONFLUENCE_USERNAME:-}",
+        "CONFLUENCE_API_TOKEN": "${CONFLUENCE_API_TOKEN:-}",
         "READ_ONLY_MODE": "${ATLASSIAN_READ_ONLY:-false}"
       }
     },
@@ -275,11 +275,10 @@
         "MLFLOW_TRACKING_URI",
         "MLFLOW_MCP_TOOLS (optional: genai | ml | all | список категорий)"
       ],
-      "_note": "Официальный сервер идёт внутри самого mlflow (extra `mcp`), отдельного пакета нет: требуется mlflow >= 3.5.1. Docs: https://mlflow.org/docs/latest/genai/mcp/",
-      "command": "uv",
+      "_note": "Официальный сервер идёт внутри самого mlflow (extra `mcp`), отдельного пакета нет: требуется mlflow >= 3.5.1. Запускается через uvx, а не `uv run`: `uv run` перед стартом синхронизирует окружение проекта, в каталоге которого его позвали, а MCP-сервер стартует с рабочим каталогом проекта пользователя. Docs: https://mlflow.org/docs/latest/genai/mcp/",
+      "command": "uvx",
       "args": [
-        "run",
-        "--with",
+        "--from",
         "mlflow[mcp]>=3.5.1",
         "mlflow",
         "mcp",
@@ -296,16 +295,16 @@
         "WANDB_API_KEY",
         "WANDB_BASE_URL (optional, dedicated/on-prem)"
       ],
-      "_note": "Сервер не публикуется в PyPI/npm - ставится из git. Альтернатива без локального запуска: hosted https://mcp.withwandb.com/mcp (Bearer-токен). Docs: https://github.com/wandb/wandb-mcp-server",
+      "_note": "Сервер не публикуется в PyPI/npm - ставится из git. Тегов и релизов у репозитория нет, поэтому пин по коммиту: без него набор tools меняется между запусками, а незапиненный git-источник ставит произвольный код на каждый старт сервера. Альтернатива без локального запуска: hosted https://mcp.withwandb.com/mcp (Bearer-токен). Docs: https://github.com/wandb/wandb-mcp-server",
       "command": "uvx",
       "args": [
         "--from",
-        "git+https://github.com/wandb/wandb-mcp-server",
+        "git+https://github.com/wandb/wandb-mcp-server@53b199a5f4af29aa82077e2c7f1e2c5e5e0c2ca0",
         "wandb_mcp_server"
       ],
       "env": {
         "WANDB_API_KEY": "${WANDB_API_KEY}",
-        "WANDB_BASE_URL": "${WANDB_BASE_URL}"
+        "WANDB_BASE_URL": "${WANDB_BASE_URL:-}"
       }
     },
     "huggingface": {

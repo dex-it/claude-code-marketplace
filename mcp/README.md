@@ -25,14 +25,16 @@ cd run-claude
 
 Скрипт лежит рядом с лаунчером и подхватывает соседний `run-claude/.env` автоматически; другой файл - `-e <путь>`. Windows-зеркало - `run-claude/register-http-mcp.ps1` с теми же параметрами в PowerShell-форме (`-DryRun`, `-EnvFile`, `-Name`, ...).
 
-Без `--name/--url` скрипт берёт пары `CONFLUENCE_MCP_URL` + `CONFLUENCE_MCP_TOKEN` и `JIRA_MCP_URL` + `JIRA_MCP_TOKEN`: полностью пустая пара пропускается, половина пары - ошибка (молча зарегистрировать сервер без авторизации нельзя). Область по умолчанию - `project`, как было в лаунчере; повторная регистрация - `--force`. Полный список опций - `./register-http-mcp.sh --help`.
+Без `--name/--url` скрипт берёт пары `CONFLUENCE_MCP_URL` + `CONFLUENCE_MCP_TOKEN` и `JIRA_MCP_URL` + `JIRA_MCP_TOKEN`: полностью пустая пара пропускается, половина пары - ошибка (молча зарегистрировать сервер без авторизации нельзя). Повторная регистрация - `--force`. Полный список опций - `./register-http-mcp.sh --help`.
+
+Область по умолчанию - `user`: запись ложится в `~/.claude.json`, видна во всех проектах и не зависит от каталога, из которого запущен скрипт. Это соответствует тому, как `run-claude/README.md` описывает `CONFLUENCE_MCP_*` и `JIRA_MCP_*` - глобальные, единые для всех проектов. Для `--scope project` и `--scope local` скрипт сам уходит в корень проекта (каталог над `run-claude`), потому что обе эти области привязаны к рабочему каталогу, а лаунчер запускает `claude` именно оттуда. Токен Claude Code хранит открытым текстом в любой области: в `~/.claude.json` или в `.mcp.json`. Разница в том, что при `--scope project` файл лежит внутри репозитория проекта - его добавляют в `.gitignore`.
 
 ## Требования по платформам (Linux / macOS)
 
 Сами серверы каталога запускаются одинаково на Linux и macOS: в конфиге нет путей или команд, привязанных к ОС. Различается только то, что должно стоять заранее:
 
 - **npx-серверы** (github, notion, kubernetes, playwright, sentry, teamcity, elasticsearch, pdf-reader, google-drive, huggingface, openapi, filesystem, chrome-devtools, gitlab_community, genai-toolbox для БД): нужен Node.js. Linux - `setup/npx-install/install.sh`; macOS - `brew install node`.
-- **uvx / uv-серверы** (atlassian, rabbitmq, docker, grafana, mlflow, wandb): нужен uv. Linux и macOS - `setup/uvx-install/install.sh` (установщик uv кросс-платформенный).
+- **uvx-серверы** (atlassian, rabbitmq, docker, grafana, mlflow, wandb): нужен uv. Linux и macOS - `setup/uvx-install/install.sh` (установщик uv кросс-платформенный). Все они запускаются через `uvx`, то есть в изолированном окружении: от python-проекта, в каталоге которого стартует сервер, они не зависят.
 - **HTTP-серверы** (gitlab): ставить нечего, транспорт `http` идёт напрямую в endpoint инстанса; аутентификация - OAuth при первом подключении.
 - **Бинарные серверы**:
   - `kafka` (`kafka-mcp-server`, Go-бинарь): macOS - `brew tap tuannvm/mcp && brew install kafka-mcp-server`; Linux - бинарь из [github.com/tuannvm/kafka-mcp-server](https://github.com/tuannvm/kafka-mcp-server). Должен быть в `PATH`.
@@ -64,7 +66,7 @@ Apple Silicon (arm64): MCP-слой ограничений не добавляе
 | **pdf-reader** | Чтение и анализ PDF документов | - |
 | **google-drive** | Google Docs, Sheets, Slides | `GOOGLE_DRIVE_OAUTH_CREDENTIALS` |
 
-**Atlassian MCP:** один сервер (`mcp-atlassian`) обслуживает Jira и Confluence - незаданный блок переменных отключает соответствующий продукт. Тип развёртывания определяется по URL: Cloud (`*.atlassian.net`) - username + API-токен, Server/DC - Personal Access Token. Версия запинена (`mcp-atlassian==0.23.0`), потому что имена tools меняются между релизами. Сужение поверхности: `ATLASSIAN_READ_ONLY=true`, `JIRA_PROJECTS_FILTER`, `CONFLUENCE_SPACES_FILTER`, `ENABLED_TOOLS`. [Docs](https://github.com/sooperset/mcp-atlassian)
+**Atlassian MCP:** один сервер (`mcp-atlassian`) обслуживает Jira и Confluence - незаданный блок переменных отключает соответствующий продукт. Работает это только потому, что взаимоисключающие переменные записаны в шаблоне формой `${VAR:-}`: голая `${VAR}` у незаданной переменной приезжает в сервер текстом `${VAR}`, и продукт остаётся включённым с мусорными значениями. Тип развёртывания определяется по URL: Cloud (`*.atlassian.net`) - username + API-токен, Server/DC - Personal Access Token. Версия запинена (`mcp-atlassian==0.23.0`), потому что имена tools меняются между релизами. Сужение поверхности: `ATLASSIAN_READ_ONLY=true`, `JIRA_PROJECTS_FILTER`, `CONFLUENCE_SPACES_FILTER`, `ENABLED_TOOLS`. [Docs](https://github.com/sooperset/mcp-atlassian)
 
 Для read-only работы с задачами из терминала есть более лёгкий путь - CLI-плагин `dex-jira-cli` (`jira` от ankitpokhrel), см. [docs/CLI_UTILITIES.md](../docs/CLI_UTILITIES.md).
 
