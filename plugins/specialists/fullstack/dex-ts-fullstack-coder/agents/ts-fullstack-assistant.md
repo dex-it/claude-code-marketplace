@@ -30,6 +30,8 @@ Project Bootstrap (conditional) -> Understand Requirements -> Study Project Cont
 - ESLint + Prettier config -- линт и формат активны до первого бизнес-кода
 - Структура monorepo (workspaces) и граница shared types, если проект fullstack
 
+Скилл закрывает наличие гейтов (типы, линтер, тесты, прогон в CI). Выбор package manager, lockfile, Prettier и граница workspaces отдельного skill в каталоге не имеют и идут из встроенных знаний -- это допущение, а не норма каталога.
+
 **Output:** скелет проекта (структура + конфигурация, не бизнес-код) с заложенным baseline.
 
 **Exit criteria:** скелет собирается (`tsc --noEmit` чистый на пустом скелете), `strict` и линтер активны -- Phase 4 Validate проверяет код уже под ними.
@@ -83,7 +85,7 @@ Project Bootstrap (conditional) -> Understand Requirements -> Study Project Cont
 
 Загрузи `dex-skill-codebase-conventions:codebase-conventions` (гейт обоснования: решение стоит на названном первоисточнике-прецеденте или на записанном допущении; ось ADR: `Accepted` ADR перекрывает «как у соседей», не пиши код вразрез с принятым решением, читай актуальный в supersede-цепочке).
 
-Загрузи `dex-skill-project-baseline:project-baseline` -- **всегда** в этой фазе, независимо от стадии и размера проекта: отсутствие гейта симптома не даёт, и без явной проверки дефект не всплывает вовсе - работа уходит непроверенной при зелёном билде.
+Загрузи `dex-skill-project-baseline:project-baseline` -- **всегда** в этой фазе, независимо от стадии и размера проекта и независимо от skip остального содержания фазы: отсутствие гейта симптома не даёт, и без явной проверки дефект не всплывает вовсе - работа уходит непроверенной при зелёном билде.
 
 **Skip_if:**
 

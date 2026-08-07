@@ -2,15 +2,15 @@
 
 .NET-вариант интерактивного архитектора-интервьюера. Та же методология, что и `dex-architect` (Alex Xu 4-step + RESHADED), но с конкретными ASP.NET Core / EF Core / MassTransit / Polly / Serilog рекомендациями в alternatives и .NET-skills в Deep Dive.
 
-Используется, когда стек проекта явно .NET. Для стек-нейтральных сессий — `dex-architect`.
+Используется, когда стек проекта явно .NET. Для стек-нейтральных сессий - `dex-architect`.
 
 ## Команда
 
-`/design-dotnet <бизнес-задача>` — запустить полную .NET-архитектурную сессию (8 фаз).
+`/design-dotnet <бизнес-задача>` - запустить полную .NET-архитектурную сессию (8 фаз).
 
 ## Required skills
 
-Агент императивно загружает skills через Skill tool в фазах. Базовые архитектурные skills + .NET-специфичные. **Обязательно** установить через `dex-bundle-dotnet-developer` или `dex-bundle-dotnet-fullstack` — оба bundle содержат полный набор.
+Агент императивно загружает skills через Skill tool в фазах. Базовые архитектурные skills + .NET-специфичные. **Обязательно** установить через `dex-bundle-dotnet-developer` или `dex-bundle-dotnet-fullstack` - оба bundle содержат полный набор.
 
 ### Базовые архитектурные skills (общие с `dex-architect`)
 
@@ -52,13 +52,13 @@ claude plugins install dex-bundle-dotnet-developer
 claude plugins install dex-bundle-dotnet-fullstack
 ```
 
-При недоступности skill агент **не останавливается** — помечает в финальном отчёте «фаза N выполнена без проверки skill X», продолжает работу. См. Boundaries → Graceful degradation.
+При недоступности skill агент **не останавливается** - помечает в финальном отчёте «фаза N выполнена без проверки skill X», продолжает работу. См. Boundaries -> Graceful degradation.
 
 ## Связанные плагины
 
-- `dex-architect` — параллельный стек-нейтральный агент (если задача не привязана к .NET)
-- `dex-codebase-analyzer` — utility для подготовки контекста репо (`/codebase-summary`, `/codebase-graph`) **до** запуска агента
-- `dex-dotnet-coder`, `dex-ef-specialist`, `dex-dotnet-performance` — специалисты для последующей реализации архитектурного плана
+- `dex-architect` - параллельный стек-нейтральный агент (если задача не привязана к .NET)
+- `dex-codebase-analyzer` - utility для подготовки контекста репо (`/codebase-summary`, `/codebase-graph`) **до** запуска агента
+- `dex-dotnet-coder`, `dex-ef-specialist`, `dex-dotnet-performance` - специалисты для последующей реализации архитектурного плана
 
 ## Методология
 
