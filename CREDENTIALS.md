@@ -21,7 +21,7 @@ export NOTION_TOKEN="ntn_xxxxxxxxxxxxx"
 export GITHUB_TOKEN="ghp_xxxxxxxxxxxxx"
 export MLFLOW_TRACKING_URI="http://localhost:5000"
 export WANDB_API_KEY="xxxxxxxxxxxxx"
-export HUGGINGFACE_TOKEN="hf_xxxxxxxxxxxxx"
+export HF_TOKEN="hf_xxxxxxxxxxxxx"
 ```
 
 Затем перезагрузите оболочку:
@@ -31,25 +31,36 @@ source ~/.bashrc  # или ~/.zshrc
 
 ### Синтаксис переменных окружения в .mcp.json
 
-Плагины используют два паттерна для переменных окружения:
+Плагины используют три паттерна для переменных окружения:
 
-1. **Обязательная переменная** - ошибка, если не задана:
+1. **Обязательная переменная**:
    ```json
    "${VAR_NAME}"
    ```
+   Незаданная переменная работу не прерывает: конфиг грузится, `claude mcp list` печатает
+   `[Warning] ... Missing environment variables: VAR_NAME`, а серверу уходит текст `${VAR_NAME}`.
+   Форма означает "без этой переменной сервер бесполезен", а не "проверено на старте".
 
 2. **Опциональная со значением по умолчанию** - использует значение по умолчанию, если не задана:
    ```json
    "${VAR_NAME:-default_value}"
    ```
 
+3. **Опциональная без разумного умолчания** - пустое значение по умолчанию:
+   ```json
+   "${VAR_NAME:-}"
+   ```
+   Голая форма здесь не подходит по причине из пункта 1: сервер получит текст `${VAR_NAME}`
+   и сочтёт переменную заданной. Так записаны взаимоисключающие переменные (пары Cloud и
+   Server/DC в записи `atlassian`), где половина набора всегда остаётся незаданной.
+
 Пример:
 ```json
 {
   "mcpServers": {
-    "gitlab": {
-      "command": "uvx",
-      "args": ["mcp-server-gitlab"],
+    "gitlab_community": {
+      "command": "npx",
+      "args": ["-y", "@zereight/mcp-gitlab"],
       "env": {
         "GITLAB_PERSONAL_ACCESS_TOKEN": "${GITLAB_TOKEN}",
         "GITLAB_API_URL": "${GITLAB_API_URL:-https://gitlab.com/api/v4}"
@@ -207,7 +218,7 @@ export DATABRICKS_TOKEN="dapi_xxxxxxxxxxxxx"
 **Используется:** dex-python-ml-developer
 
 **Обязательные переменные:**
-- `HUGGINGFACE_TOKEN` - API-токен HuggingFace
+- `HF_TOKEN` - API-токен HuggingFace
 
 **Инструкция по настройке:**
 
@@ -222,7 +233,7 @@ export DATABRICKS_TOKEN="dapi_xxxxxxxxxxxxx"
 7. Скопируйте токен (начинается с `hf_`)
 8. Задайте переменную окружения:
    ```bash
-   export HUGGINGFACE_TOKEN="hf_xxxxxxxxxxxxx"
+   export HF_TOKEN="hf_xxxxxxxxxxxxx"
    ```
 
 ---
@@ -338,13 +349,21 @@ export SENTRY_HOST="sentry.yourcompany.com"
 
 **Используется:** dex-jira-cli, dex-incident-investigator, dex-stand-reviewer
 
-Доступ к Jira идёт двумя независимыми путями:
+Доступ к Jira идёт тремя независимыми путями:
 - **CLI (dex-jira-cli):** утилита `jira` (ankitpokhrel/jira-cli), настраивается через `jira init`. Это НЕ MCP-сервер.
-- **MCP (опционально):** HTTP-сервер Jira регистрируется скриптом `run-claude/run-claude.sh` при заданных `JIRA_MCP_URL` и `JIRA_MCP_TOKEN` (см. `run-claude/sample.env`).
+- **MCP `atlassian` (опционально):** сервер `mcp-atlassian` из `mcp/mcp-template.json`, stdio через `uvx`. Обслуживает Jira и Confluence одной записью.
+- **HTTP MCP (опционально):** корпоративный прокси по `JIRA_MCP_URL` + `JIRA_MCP_TOKEN` (и `CONFLUENCE_MCP_*`), регистрируется скриптом `run-claude/register-http-mcp.sh` (Windows - `.ps1`). Это не `mcp-atlassian`.
 
 **Переменные (CLI):**
 - `JIRA_API_TOKEN` - API-токен (Cloud) или Personal Access Token (Server/DC)
 - `JIRA_AUTH_TYPE` - `basic` (Jira Cloud, по умолчанию) или `bearer` (Jira Server/Data Center)
+
+**Переменные (MCP `atlassian`):**
+- `JIRA_URL` - адрес инстанса; по нему сервер определяет тип развёртывания (`*.atlassian.net` - Cloud, иначе Server/DC)
+- Server/DC: `JIRA_PERSONAL_TOKEN` - Personal Access Token (профиль -> Personal Access Tokens)
+- Cloud: `JIRA_USERNAME` (email) + `JIRA_API_TOKEN` (https://id.atlassian.com/manage-profile/security/api-tokens)
+- Confluence в том же сервере - те же пары с префиксом `CONFLUENCE_` плюс `CONFLUENCE_URL`; незаданный блок отключает продукт
+- Опционально: `ATLASSIAN_READ_ONLY=true` (только чтение), `JIRA_PROJECTS_FILTER`, `CONFLUENCE_SPACES_FILTER`, `ENABLED_TOOLS`, `JIRA_SSL_VERIFY=false` для self-signed TLS
 
 **Инструкция (Jira Cloud):**
 
@@ -515,7 +534,7 @@ claude
 **Решения:**
 1. **Проверьте переменную окружения:**
    ```bash
-   export HUGGINGFACE_TOKEN="hf_xxxxx"
+   export HF_TOKEN="hf_xxxxx"
    ```
 2. **Проверьте тип токена** - используйте "Write" токен для загрузки
 3. **Проверьте токен:**
@@ -547,7 +566,7 @@ export GITLAB_TOKEN="glpat-xxxxxxxxxxxxx"
 export NOTION_TOKEN="ntn_xxxxxxxxxxxxx"
 export MLFLOW_TRACKING_URI="http://localhost:5000"
 export WANDB_API_KEY="xxxxxxxxxxxxx"
-export HUGGINGFACE_TOKEN="hf_xxxxxxxxxxxxx"
+export HF_TOKEN="hf_xxxxxxxxxxxxx"
 ```
 
 ### Настройка для продакт-менеджмента

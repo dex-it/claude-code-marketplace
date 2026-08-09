@@ -35,16 +35,13 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
     echo "Скрипт выполняет:"
     echo "  1. Загружает переменные из .env файла"
     echo "  2. Загружает системный промпт из system-prompt.md"
-    echo "  3. Регистрирует MCP серверы (Confluence, Jira)"
-    echo "  4. Запускает Claude Code с заданными параметрами"
+    echo "  3. Запускает Claude Code с заданными параметрами"
     echo ""
     echo "Переменные окружения (.env):"
     echo "  LOAD_SYSTEM_PROMPT       - загружать системный промпт (true/false, по умолчанию: true)"
     echo "  CLAUDE_ARGS              - дефолтные аргументы для Claude"
-    echo "  CONFLUENCE_MCP_URL       - URL Confluence MCP сервера"
-    echo "  CONFLUENCE_MCP_TOKEN     - токен для Confluence MCP"
-    echo "  JIRA_MCP_URL             - URL Jira MCP сервера"
-    echo "  JIRA_MCP_TOKEN           - токен для Jira MCP"
+    echo ""
+    echo "MCP-серверы регистрируются отдельно и разово: ./register-http-mcp.sh (HTTP) или .mcp.json (stdio)"
     echo ""
     echo "Примеры:"
     echo "  ./run-claude.sh"
@@ -138,34 +135,6 @@ if [ "${LOAD_SYSTEM_PROMPT:-true}" = "true" ]; then
     fi
 else
     print_warning "  ⏭️  Загрузка системного промпта отключена (LOAD_SYSTEM_PROMPT=false)"
-fi
-
-print_header ""
-print_header "======================================"
-print_header "🔌 Регистрация MCP серверов"
-print_header "======================================"
-print_header ""
-
-# Confluence MCP
-if [ -n "$CONFLUENCE_MCP_URL" ] && [ -n "$CONFLUENCE_MCP_TOKEN" ]; then
-    print_info "  → Регистрируем Confluence MCP..."
-    claude mcp add --transport http conflu --scope project "$CONFLUENCE_MCP_URL" --header "Authorization: Token $CONFLUENCE_MCP_TOKEN"
-    print_success "  ✅ Confluence MCP зарегистрирован: $CONFLUENCE_MCP_URL"
-elif [ -z "$CONFLUENCE_MCP_URL" ]; then
-    print_warning "  ⏭️  Confluence MCP пропущен: URL не задан (CONFLUENCE_MCP_URL)"
-else
-    print_warning "  ⏭️  Confluence MCP пропущен: токен не задан (CONFLUENCE_MCP_TOKEN)"
-fi
-
-# Jira MCP
-if [ -n "$JIRA_MCP_URL" ] && [ -n "$JIRA_MCP_TOKEN" ]; then
-    print_info "  → Регистрируем Jira MCP..."
-    claude mcp add --transport http jira --scope project "$JIRA_MCP_URL" --header "Authorization: Token $JIRA_MCP_TOKEN"
-    print_success "  ✅ Jira MCP зарегистрирован: $JIRA_MCP_URL"
-elif [ -z "$JIRA_MCP_URL" ]; then
-    print_warning "  ⏭️  Jira MCP пропущен: URL не задан (JIRA_MCP_URL)"
-else
-    print_warning "  ⏭️  Jira MCP пропущен: токен не задан (JIRA_MCP_TOKEN)"
 fi
 
 print_header ""
