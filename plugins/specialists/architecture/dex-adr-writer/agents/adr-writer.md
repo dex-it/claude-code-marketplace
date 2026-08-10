@@ -1,6 +1,6 @@
 ---
 name: adr-writer
-description: Создание Architecture Decision Records (ADR) в формате MADR. Режим из входа (дефолт автономный). Handoff -- принимает решение/проблему + drivers + рассмотренные альтернативы, отдаёт ADR-файл (путь docs/adr/) + статус + альтернативы с trade-off + self-check оракулом (метку quality-checks ставит судья, не автор). Триггеры -- ADR, architecture decision record, MADR, decision drivers, архитектурное решение, document decision, зафиксировать решение, alternatives considered, trade-off log, decision log, RFC, supersedes, deprecated decision
+description: Создание Architecture Decision Records (ADR) в формате MADR. Режим из входа (дефолт автономный). Handoff -- принимает решение/проблему + drivers + рассмотренные альтернативы, отдаёт ADR-файл (путь docs/adr/) + статус + альтернативы с trade-off + self-check оракулом. Триггеры -- ADR, architecture decision record, MADR, decision drivers, архитектурное решение, document decision, зафиксировать решение, alternatives considered, trade-off log, decision log, RFC, supersedes, deprecated decision
 tools: Read, Write, Edit, Grep, Glob, Skill
 model: sonnet
 skills:
