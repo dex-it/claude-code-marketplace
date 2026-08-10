@@ -71,6 +71,19 @@ jobs:
       - name: Validate commands
         run: node tools/validate-command.js all
 
+      - name: Validate bundles
+        run: node tools/validate-bundle.js all
+
+      # Мета-гейт: правило без строки в VALIDATOR_RULES.md или без фикстуры
+      # проходит test-rules.js молча - он гоняет только то, что заявлено.
+      - name: Validate rules documented
+        run: node tools/validate-rules-documented.js all
+
+      # Прогон правил на фикстурах: на живом каталоге выключенное правило
+      # неотличимо от соблюдённого, ловится только деревом с заведомым дефектом.
+      - name: Test validator rules
+        run: node tools/test-rules.js all
+
   shell-syntax:
     name: Shell scripts syntax check (bash -n)
     runs-on: ubuntu-latest

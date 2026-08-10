@@ -27,7 +27,11 @@ import { visit } from 'unist-util-visit';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const REPO_ROOT = resolve(__dirname, '..');
+// MARKETPLACE_ROOT переносит валидатор на дерево-песочницу: tools/test-rules.js
+// прогоняет правило на фикстуре, а не на живом каталоге.
+const REPO_ROOT = process.env.MARKETPLACE_ROOT
+  ? resolve(process.env.MARKETPLACE_ROOT)
+  : resolve(__dirname, '..');
 // Сканируем весь plugins/ (не только plugins/skills): скиллы живут и в других
 // группах-папках (например plugins/ai-sdlc). Обход по SKILL.md покрывает
 // любую папку без правки валидатора при переносе плагина.
@@ -129,6 +133,7 @@ const PROCESS_SKILLS = new Set([
   'legacy-reconstruction',
   'project-docs-map',
   'artifact-review',
+  'business-analysis',
 ]);
 
 function isProcessSkill(parsed) {
