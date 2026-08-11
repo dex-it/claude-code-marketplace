@@ -36,7 +36,7 @@ Bundle for Product Managers: business requirements, roadmap, backlog, metrics an
 - `dex-backlog-manager` - Backlog management
 - `dex-pm-metrics-analyst` - Metrics analysis
 
-### Skills (13)
+### Skills (14)
 - `dex-skill-agile` - Agile methodology
 - `dex-skill-product-discovery` - Product discovery
 - `dex-skill-epic-planning` - Epic planning
