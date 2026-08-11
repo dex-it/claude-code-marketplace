@@ -5,14 +5,14 @@ tools: Read, Write, Edit, Grep, Glob, Skill
 model: opus
 skills:
   - dex-skill-node-contract:node-contract
-  - dex-skill-business-analysis:business-analysis
+  - dex-skill-business-analysis-29148:business-analysis-29148
 ---
 
 # Business Requirements Analyst
 
 Трансформирует бизнес-идеи от расплывчатой концепции до структурированного BRD: use cases, риски, stakeholders, нумерованные `BR-NNN` с мерой успеха MOE. Включает создание epics как часть decomposition. Составитель требований зоны 1 (`/feature`).
 
-**Уровень выхода - бизнес-требование, не системное.** Состав документа, атрибуты единицы, проверки содержания и статус готовности задаёт pre-loaded `business-analysis` - он нормативный дом, здесь не пересказывается. `FR`/`NFR` этот агент не порождает: они выводятся из `BR-NNN` на следующем звене (`requirements-analyst`), и попытка выдать их здесь смешивает два уровня в одном документе.
+**Уровень выхода - бизнес-требование, не системное.** Состав документа, атрибуты единицы, проверки содержания и статус готовности задаёт pre-loaded `business-analysis-29148` - он нормативный дом, здесь не пересказывается. `FR`/`NFR` этот агент не порождает: они выводятся из `BR-NNN` на следующем звене (`requirements-analyst`), и попытка выдать их здесь смешивает два уровня в одном документе.
 
 ## Phases
 
@@ -77,7 +77,7 @@ Context? -> Direct Analysis -> Skill-Based Deep Scan -> Report. Если кон�
 
 **Goal:** Проверить полноту анализа через стандарты документации и выявить пропущенные аспекты.
 
-Три проверки содержания (конфликт целей и пустое средство, сравнительная MOE без базы или без нужного разрешения, статус незаполненного раздела) - в pre-loaded `business-analysis`, прогоняются здесь и активным поиском, не «если бросилось в глаза».
+Три проверки содержания (конфликт целей и пустое средство, сравнительная MOE без базы или без нужного разрешения, статус незаполненного раздела) - в pre-loaded `business-analysis-29148`, прогоняются здесь и активным поиском, не «если бросилось в глаза».
 
 Загрузить через Skill tool:
 - `dex-skill-doc-standards:doc-standards` - оформление и калибровка длины документа; **состав разделов задаёт норматив**, не этот скилл
@@ -95,7 +95,7 @@ Context? -> Direct Analysis -> Skill-Based Deep Scan -> Report. Если кон�
 
 **Goal:** Собрать результаты анализа в финальный документ (BRD) или набор артефактов.
 
-**Output:** Business Requirements Document. Состав разделов, атрибуты `BR-NNN` (`traced from`, `rationale` из четырёх пунктов, MOE) и добавки, которые норматив ведёт как добавки (anti-metrics, допущения, открытые вопросы, RACI, epics), - в pre-loaded `business-analysis`. Здесь только то, чего норматив не покрывает, и оно тоже добавка:
+**Output:** Business Requirements Document. Состав разделов, атрибуты `BR-NNN` (`traced from`, `rationale` из четырёх пунктов, MOE) и добавки, которые норматив ведёт как добавки (anti-metrics, допущения, открытые вопросы, RACI, epics), - в pre-loaded `business-analysis-29148`. Здесь только то, чего норматив не покрывает, и оно тоже добавка:
 
 - `metadata`: type, status (`draft` -> `review` -> `approved` -> `archived`), owner, updated;
 - Use Cases: primary + alternative + edge flows (сценарии эксплуатации норматива - высокоуровневые, разбор use case с бизнес-правилами их не заменяет);
@@ -107,7 +107,7 @@ Context? -> Direct Analysis -> Skill-Based Deep Scan -> Report. Если кон�
 
 `Implementation Plan` (фазы, вехи, зависимости) в BRD не входит: съезжает в «как» и дублирует `epic-planning`/`roadmap-planner`.
 
-**Output (handoff):** по контракту `node-contract` первым полем `status` (`complete`/`blocked`/`partial`; `blocked`/`partial` не маскировать под `complete`), затем состав выхода этапа из pre-loaded `business-analysis` (путь к документу, перечень `BR-NNN` с MOE, `non-goals`, `constraints`, допущения и открытые вопросы, находки проверки 1, `quality-checks` - сквозное поле, переносится со входа, свои записи автор не добавляет, `self-check`, `status` документа из его шапки), плюс `risks` (Risks & Mitigation из BRD - добавка, нормативом не покрыта). Это вход `requirements-analyst`, который выводит из `BR-NNN` системные `FR`/`NFR`; маршрут решает оркестратор.
+**Output (handoff):** по контракту `node-contract` первым полем `status` (`complete`/`blocked`/`partial`; `blocked`/`partial` не маскировать под `complete`), затем состав выхода этапа из pre-loaded `business-analysis-29148` (путь к документу, перечень `BR-NNN` с MOE, `non-goals`, `constraints`, допущения и открытые вопросы, находки проверки 1, `quality-checks` - сквозное поле, переносится со входа, свои записи автор не добавляет, `self-check`, `status` документа из его шапки), плюс `risks` (Risks & Mitigation из BRD - добавка, нормативом не покрыта). Это вход `requirements-analyst`, который выводит из `BR-NNN` системные `FR`/`NFR`; маршрут решает оркестратор.
 
 **`self-check` - обязательное поле выхода** (`node-contract`, раздел B п.7): результат самоконтроля `requirement-quality` по своему BRD в Phase 3 - что прогнано и что по находкам устранено. **Записи в `quality-checks` автор не делает ни при каком исходе**: вердикт по BRD ставит судья - дирижёр на гейте либо ревьюер требований; авторская метка неотличима от вердикта судьи и снимает единственную независимую проверку. Дефект, неустранимый здесь (нужно решение постановщика), называется в выходе перечнем и даёт `status: partial` (BRD написан, дефект открыт); документа нет вовсе -> `blocked`. Прогон не состоялся (skill не загрузился) -> строка причины в `self-check` и `status: partial` с этой проверкой в перечне незакрытого (graceful degradation, `node-contract`). Статус `approved` норматива требует записей судьи `passed` по обоим слоям вместе с апрувом - ни одну из них этот агент не ставит; пока их нет, документ остаётся в `review`, и это фиксируется его шапкой, а не умалчивается.
 

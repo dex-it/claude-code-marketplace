@@ -65,7 +65,7 @@ environment». Статус факта - `unverifiable` (реестр): перв
 превью, формулировка взята из вторичного источника, адрес пункта не установлен. Опровергнется -
 объединение придётся обосновать как наше решение, а не как разрешение стандарта; на состав BRD и на
 дом `BR-NNN` это не влияет. Практическое следствие: слой `BR-NNN` - требования стороны по §9.4
-- ведётся **в BRD и нормативом этапа `business-analysis`**, второго дома у него нет. Разъедется StRS
+- ведётся **в BRD и нормативом этапа `business-analysis-29148`**, второго дома у него нет. Разъедется StRS
 в самостоятельный документ - тогда и только тогда заводится отдельный норматив этапа (раздел 7,
 строка 2a).
 
@@ -85,7 +85,7 @@ environment». Статус факта - `unverifiable` (реестр): перв
 вопросы, RACI, epics) ведутся тоже, но называются добавками - смешивать их со стандартом нельзя,
 иначе при сверке не отличить требование стандарта от нашего решения.
 
-Операционный дом перечня разделов - process-skill этапа `business-analysis` (раздел 7): его читают
+Операционный дом перечня разделов - process-skill этапа `business-analysis-29148` (раздел 7): его читают
 и составитель, и судящий агент - ревьюер требований, дирижёр на гейте BRD. Здесь перечень не
 повторяется - копия разошлась бы молча.
 
@@ -231,7 +231,7 @@ will be required to go through a formal or informal approval process». Терм
 
 | Этап | process-skill | Имя по | Артефакт |
 |---|---|---|---|
-| 0+1 | `business-analysis` | 29148 §6.2 Business or mission analysis, §6.3 Stakeholder needs and requirements definition | BRD = BRS + StRS, слой `BR-NNN` |
+| 0+1 | `business-analysis-29148` | 29148 §6.2 Business or mission analysis, §6.3 Stakeholder needs and requirements definition | BRD = BRS + StRS, слой `BR-NNN` |
 | 2a | `stakeholder-requirements` - **не заводится**, пока StRS живёт внутри BRD (раздел 2) | §6.3 | - |
 | 2b | `system-requirements-29148` | §6.4 System requirements definition | SRS фичи, `FR`/`NFR` |
 | 3 | `architecture-definition-42010` | 42010:2022 | Architecture description, ADR |

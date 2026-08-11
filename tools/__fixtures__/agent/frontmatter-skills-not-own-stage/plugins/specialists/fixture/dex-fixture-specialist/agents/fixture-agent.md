@@ -6,7 +6,7 @@ description: >-
 tools: Read, Write, Grep, Glob, Skill
 model: sonnet
 skills:
-  - dex-skill-business-analysis:business-analysis
+  - dex-skill-business-analysis-29148:business-analysis-29148
 ---
 
 # Fixture Agent

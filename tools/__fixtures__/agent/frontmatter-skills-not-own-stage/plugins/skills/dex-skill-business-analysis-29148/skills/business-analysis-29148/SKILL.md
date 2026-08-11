@@ -1,5 +1,5 @@
 ---
-name: business-analysis
+name: business-analysis-29148
 description: >-
   Норматив этапа песочницы. Активируется при прогон фикстуры норматива этапа.
 ---

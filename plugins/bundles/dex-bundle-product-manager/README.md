@@ -43,7 +43,7 @@ Bundle for Product Managers: business requirements, roadmap, backlog, metrics an
 - `dex-skill-prioritization` - Prioritization frameworks
 - `dex-skill-doc-standards` - Documentation standards
 - `dex-skill-user-stories` - User story traps
-- `dex-skill-business-analysis` - Business analysis stage normative (BRD composition)
+- `dex-skill-business-analysis-29148` - Business analysis stage normative (BRD composition)
 - `dex-skill-system-requirements-29148` - System requirements stage normative (SRS composition, FR/NFR attributes)
 - `dex-skill-requirement-quality` - Requirement defect detection
 - `dex-skill-requirement-set-quality` - Requirement set defect detection

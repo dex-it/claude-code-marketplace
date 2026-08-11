@@ -134,7 +134,7 @@ const PROCESS_SKILLS = new Set([
   'project-docs-map',
   'docs-layout',
   'artifact-review',
-  'business-analysis',
+  'business-analysis-29148',
   'system-requirements-29148',
   'architecture-definition-42010',
   'interface-definition-openapi',

@@ -140,7 +140,7 @@ const FORBIDDEN_FRONTMATTER_FIELDS = ['allowed-tools'];
  */
 const ALLOWED_PRELOAD_SKILLS = new Map([
   ['node-contract', null],
-  ['business-analysis', new Set(['business-requirements-analyst'])],
+  ['business-analysis-29148', new Set(['business-requirements-analyst'])],
   ['system-requirements-29148', new Set(['requirements-analyst'])],
   ['architecture-definition-42010', new Set(['architect', 'architect-dotnet'])],
   ['interface-definition-openapi', new Set(['api-designer'])],
@@ -161,7 +161,7 @@ const ALLOWED_PRELOAD_SKILLS = new Map([
  */
 const STAGE_NORMATIVE_READERS = new Map([
   [
-    'dex-skill-business-analysis:business-analysis',
+    'dex-skill-business-analysis-29148:business-analysis-29148',
     new Set(['requirements-reviewer', 'requirements-orchestrator']),
   ],
   [

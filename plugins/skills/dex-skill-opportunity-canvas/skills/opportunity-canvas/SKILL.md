@@ -13,7 +13,7 @@ description: Норматив жанра идеи - one-pager и opportunity can
 
 Опора - [Opportunity Canvas Джеффа Паттона](https://www.jpattonassociates.com/opportunity-canvas/), из десяти полей берём шесть. Стандарта у жанра нет намеренно.
 
-Здесь только норма жанра. Раскладка и нумерация - `docs-layout`, бизнес-требования, в которые идея переходит, - `business-analysis`, контракт стыка узлов - `node-contract`.
+Здесь только норма жанра. Раскладка и нумерация - `docs-layout`, бизнес-требования, в которые идея переходит, - `business-analysis-29148`, контракт стыка узлов - `node-contract`.
 
 ## 1. Вход и охват
 
