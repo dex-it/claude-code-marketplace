@@ -221,17 +221,20 @@ will be required to go through a formal or informal approval process». Терм
 |---|---|---|---|
 | 0+1 | `business-analysis` | 29148 §6.2 Business or mission analysis, §6.3 Stakeholder needs and requirements definition | BRD = BRS + StRS, слой `BR-NNN` |
 | 2a | `stakeholder-requirements` - **не заводится**, пока StRS живёт внутри BRD (раздел 2) | §6.3 | - |
-| 2b | `system-requirements` | §6.4 System requirements definition | SyRS/SRS, `FR`/`NFR` |
-| 3 | `architecture-definition` | 42010:2022 | Architecture description, ADR |
-| 4 | `interface-definition` | предметные спецификации | контракт интерфейса |
-| 5 | `verification-planning` | 29119-3:2021, 15289 10.72 | Verification plan, тестовые условия |
+| 2b | `system-requirements-29148` | §6.4 System requirements definition | SRS фичи, `FR`/`NFR` |
+| 3 | `architecture-definition-42010` | 42010:2022 | Architecture description, ADR |
+| 4 | `interface-definition-openapi` | предметные спецификации | контракт интерфейса |
+| 5 | `verification-planning-29119` | 29119-3:2021, 15289 10.72 | Verification plan, тестовые условия |
 
 Имена взяты от процессов стандарта, а не от номеров этапов: вставка этапа посередине не должна
-переименовывать соседей.
+переименовывать соседей. Суффикс стандарта добавлен по правилу именования (`CLAUDE.md`, «Именование»)
+и порядок частей не меняет: предмет остаётся первым.
 
-Каждый skill этапа несёт пять блоков в одном порядке - состав артефакта, атрибуты единиц, целевая
-стадия, вход, выход. Лестница стадий целиком в них не повторяется: её дом - `node-contract`, в skill
-этапа только целевая стадия и отклонения от общего правила.
+Каждый skill этапа несёт шесть блоков в одном порядке - вход и охват, состав артефакта, атрибуты
+единиц, проверки содержания, целевая стадия документа, выход. Лестница стадий целиком в них не
+повторяется: её дом - `node-contract`, в skill этапа только целевая стадия и отклонения от общего
+правила. Блок проверок отличает норматив от шаблона: состав заполняется формально, и активный поиск
+дефектов содержания - единственное, что это ловит.
 
 Этапа 6 в таблице нет: допуск - гейт, а не артефакт, и его правило живёт там же, где входная
 приёмка по `quality-checks`.

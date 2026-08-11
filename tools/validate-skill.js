@@ -134,6 +134,7 @@ const PROCESS_SKILLS = new Set([
   'project-docs-map',
   'artifact-review',
   'business-analysis',
+  'system-requirements-29148',
 ]);
 
 function isProcessSkill(parsed) {

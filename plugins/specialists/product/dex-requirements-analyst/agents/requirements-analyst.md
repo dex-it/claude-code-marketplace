@@ -5,6 +5,7 @@ tools: Read, Write, Edit, Grep, Glob, Skill
 model: sonnet
 skills:
   - dex-skill-node-contract:node-contract
+  - dex-skill-system-requirements-29148:system-requirements-29148
 ---
 
 # Requirements Analyst
