@@ -9,7 +9,7 @@
 Полный перечень плагинов с описаниями и версиями - **единственный источник истины: `.claude-plugin/marketplace.json`**. Структуру уровней (Skills / Utilities / Specialists / Bundles) и обзор - см. [README.md](README.md); поштучный список здесь не дублируем (растёт и устаревает молча). Нормативные исключения, которые не выводятся из README:
 
 - **Тип skill - валидируемая ось** (`trap-skill` / `process-skill`): от типа зависит, как `tools/validate-skill.js` проверяет файл. Дефолт - trap-skill; process-skill **требует регистрации в allowlist `PROCESS_SKILLS` в валидаторе**, маркер `<!-- skill-type: process -->` в теле - для читателя, валидатор его не парсит. Типология и полная калибровка проверок по типу - [docs/SKILL_FRAMEWORK.md](docs/SKILL_FRAMEWORK.md) («Два типа skill», «Калибровка валидатора по типу»); копию калибровки здесь не держим.
-- **delivery/ и review/ специалисты - языко-агностичны**: глубину даёт by-stack загрузка `dex-skill-<стек>-*`, добавление стека их не меняет ([docs/AGENT_SPECIALIZATION.md](docs/AGENT_SPECIALIZATION.md)).
+- **delivery/ и review/ специалисты - языко-агностичны**: глубину даёт by-stack загрузка `dex-skill-<стек>-*`, добавление стека их не меняет; когда стековый агент всё же оправдан - «Имя агента» ниже.
 - **Состав bundle живёт в `bundle.json` `includes[]`, НЕ в `plugin.json`**: Claude Code строго валидирует `plugin.json` и тихо ломает плагины с неизвестными полями.
 
 ## Структура плагина
@@ -21,7 +21,7 @@
 Устройство (формат, анти-паттерны, рецепты, валидатор) - в фреймворках, читать перед созданием/правкой артефакта:
 
 - **Skill** - [SKILL_FRAMEWORK.md](docs/SKILL_FRAMEWORK.md). Суть: skill - ловушки и anti-patterns, не документация API; формат «Плохо / Правильно / Почему», 3-5 строк на ловушку. Цель и потолки размера - там же («Размер skill»), число здесь не дублируем.
-- **Specialist (агент)** - [AGENT_FRAMEWORK.md](docs/AGENT_FRAMEWORK.md) (+ выбор «общий vs стек-специфичный» - [AGENT_SPECIALIZATION.md](docs/AGENT_SPECIALIZATION.md), карта «слот процесса -> агент» - [DEV_PROCESS_COVERAGE.md](docs/DEV_PROCESS_COVERAGE.md)). Суть: агент = workflow через фазы (декларативный контракт goal/output/exit/gate, не процедура); условные skills (по стеку/diff) грузятся императивно через Skill tool в фазах, безусловный process-skill узла - pre-load через `skills:` во frontmatter. Два конститутивных принципа - «фаза = контракт» и «у агента стандартный вход и выход» - развёрнуты там же ([«Inter-agent handoff»](docs/AGENT_FRAMEWORK.md#inter-agent-handoff-последовательный-стык): сигнатура в двух носителях, проверка входящего, возврат нехватки наверх, решения в выход). Дом рантайм-контракта узла (режим `interactive`/`autonomous`, словарь полей, graceful degradation) - `dex-skill-node-contract:node-contract`; маршрут работы разработчика с границей «где оператор в петле, где автономно» - [OPERATOR_FLOW.md](docs/OPERATOR_FLOW.md).
+- **Specialist (агент)** - [AGENT_FRAMEWORK.md](docs/AGENT_FRAMEWORK.md) (+ карта «слот процесса -> агент» - [DEV_PROCESS_COVERAGE.md](docs/DEV_PROCESS_COVERAGE.md); выбор «общий vs стек-специфичный» - «Имя агента» ниже). Суть: агент = workflow через фазы (декларативный контракт goal/output/exit/gate, не процедура); условные skills (по стеку/diff) грузятся императивно через Skill tool в фазах, безусловный process-skill узла - pre-load через `skills:` во frontmatter. Два конститутивных принципа - «фаза = контракт» и «у агента стандартный вход и выход» - развёрнуты там же ([«Inter-agent handoff»](docs/AGENT_FRAMEWORK.md#inter-agent-handoff-последовательный-стык): сигнатура в двух носителях, проверка входящего, возврат нехватки наверх, решения в выход). Дом рантайм-контракта узла (режим `interactive`/`autonomous`, словарь полей, graceful degradation) - `dex-skill-node-contract:node-contract`: там же граница «где оператор в петле, где автономно», а порядок работ зоны требований - [docs/pipeline/PIPELINE.md](docs/pipeline/PIPELINE.md).
 - **Command** - [COMMAND_FRAMEWORK.md](docs/COMMAND_FRAMEWORK.md). Суть: команда = точечное действие (`/build`, `/test`); Goal + Output format, не bash-скрипт. Цель и потолки размера - там же («Размер»), число здесь не дублируем.
 
 ## Конвенции
@@ -40,7 +40,7 @@
 - **Стек-специфичный агент** (специфика стека живёт в теле артефакта - идиомы языка, библиотеки экосистемы) -> стек в имени: `dotnet-coder`, `dotnet-test-writer`, `dotnet-ef-specialist`, `ts-test-writer`, `ts-fullstack-assistant`. Generic-имя (`coding-assistant`, `test-writer`) для стекового агента запрещено - оно не отличает агента от общего и даёт коллизию при росте стеков (два `test-writer`'а).
 - **Общий (языко-агностичный) агент** (стек грузится через skills по реестру, тело нейтрально) -> чистая роль без стека: `debugger`, `feature-implementer`, `security-reviewer`, `mr-reviewer`, `self-reviewer`.
 
-Имя файла агента совпадает с `name`. Rename агента = major bump (директория плагина и `plugin.json` `name` при этом не меняются - `bundle.json` ссылается на директорию, а не на агента). Критерий «общий vs стек-специфичный» - [docs/AGENT_SPECIALIZATION.md](docs/AGENT_SPECIALIZATION.md).
+Имя файла агента совпадает с `name`. Rename агента = major bump (директория плагина и `plugin.json` `name` при этом не меняются - `bundle.json` ссылается на директорию, а не на агента).
 
 #### By-stack loading: общий агент грузит профильные skills по реестру
 
