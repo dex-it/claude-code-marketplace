@@ -33,12 +33,18 @@ Bundle for System Analysts: requirements, user stories, BPMN, API specs, documen
 - `dex-process-modeler` - BPMN process modeling
 - `dex-doc-writer` - Technical documentation
 
-### Skills (5)
+### Skills (11)
 - `dex-skill-agile` - Agile methodology
 - `dex-skill-user-stories` - User story patterns
 - `dex-skill-bpmn` - BPMN notation
 - `dex-skill-api-specification` - API specification
 - `dex-skill-doc-standards` - Documentation standards
+- `dex-skill-system-requirements-29148` - System requirements stage normative (SRS composition, FR/NFR attributes)
+- `dex-skill-architecture-definition-42010` - Architecture stage normative (concerns/views, arc42 sections)
+- `dex-skill-use-cases-cockburn` - Use case genre normative (goal levels, extensions, guarantees)
+- `dex-skill-docs-layout` - Corpus layout: docs/ tree, mandatory minimum, identifiers
+- `dex-skill-use-case-quality` - Use case oracle
+- `dex-skill-scenario-quality` - Executable examples oracle
 
 ## Note
 
