@@ -139,6 +139,9 @@ const PROCESS_SKILLS = new Set([
   'architecture-definition-42010',
   'interface-definition-openapi',
   'verification-planning-29119',
+  'use-cases-cockburn',
+  'bdd-gherkin',
+  'opportunity-canvas',
 ]);
 
 function isProcessSkill(parsed) {

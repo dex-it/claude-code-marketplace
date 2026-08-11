@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "5.44.0",
+  "version": "5.47.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -2476,6 +2476,54 @@
         "coverage",
         "regression",
         "artifact-stage"
+      ]
+    },
+    {
+      "name": "dex-skill-use-cases-cockburn",
+      "source": "./plugins/skills/dex-skill-use-cases-cockburn",
+      "description": "Норматив жанра use case по Cockburn - уровни цели, основной ход и расширения, минимальные гарантии, правила записи шага, связь с FR своей фичи, вход и выход",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "use-cases",
+        "cockburn",
+        "scenario",
+        "extensions",
+        "actor",
+        "traceability"
+      ]
+    },
+    {
+      "name": "dex-skill-bdd-gherkin",
+      "source": "./plugins/skills/dex-skill-bdd-gherkin",
+      "description": "Норматив жанра исполняемых примеров - карта примеров Example Mapping, синтаксис Gherkin, структура файла, стиль шага, тег трассировки на FR, граница «пример против теста»",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "bdd",
+        "gherkin",
+        "example-mapping",
+        "feature-file",
+        "given-when-then",
+        "living-documentation"
+      ]
+    },
+    {
+      "name": "dex-skill-opportunity-canvas",
+      "source": "./plugins/skills/dex-skill-opportunity-canvas",
+      "description": "Норматив жанра идеи - one-pager и opportunity canvas, шесть полей из десяти у Паттона, статус идеи, переход «принято -> фича» и метрика как MOE, граница «вне конвейера»",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "opportunity-canvas",
+        "one-pager",
+        "product-idea",
+        "hypothesis",
+        "discovery",
+        "moe"
       ]
     },
     {
