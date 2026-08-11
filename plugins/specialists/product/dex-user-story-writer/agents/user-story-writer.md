@@ -71,7 +71,9 @@ Understand Requirements -> [Study Project Context?] -> Generate -> Validate.
 - Каждая story independent и deliverable за 1 sprint
 - Порядок stories от highest value к lowest
 
-**Exit criteria:** Каждая story проходит INVEST check. Acceptance criteria testable (нет «система должна работать корректно»). Story fits в 1 sprint.
+**Дом историй - папка своей фичи, и путь не выдумывается.** Расположение приходит сквозным полем от вызывающего (корень корпуса, целевой путь фичи, закреплённый за ней блок номеров). Не пришло - загрузи `dex-skill-docs-layout:docs-layout` и возьми оттуда: истории кладутся в `stories/` папки своей фичи, файл на историю, идентификатор `ST-NNN` **из блока фичи** (фича 01 -> `ST-101`), не с единицы. Номер с чистого листа даёт двум фичам по `ST-001`, и коллизия всплывает при слиянии, когда ссылки уже проставлены. Корпус недостижим -> `status: blocked` с названным путём: история, оставшаяся в тексте ответа, до гейта покрытия не доезжает - транспорт артефакта это репозиторий, а не handoff.
+
+**Exit criteria:** Каждая story проходит INVEST check. Acceptance criteria testable (нет «система должна работать корректно»). Story fits в 1 sprint. Каждая story сохранена файлом в `stories/` своей фичи под `ST-NNN` из её блока.
 
 **Mandatory:** yes - без генерации stories агент не выполняет свою задачу.
 
