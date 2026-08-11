@@ -136,6 +136,9 @@ const PROCESS_SKILLS = new Set([
   'artifact-review',
   'business-analysis',
   'system-requirements-29148',
+  'architecture-definition-42010',
+  'interface-definition-openapi',
+  'verification-planning-29119',
 ]);
 
 function isProcessSkill(parsed) {

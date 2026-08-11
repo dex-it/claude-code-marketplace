@@ -142,6 +142,8 @@ const ALLOWED_PRELOAD_SKILLS = new Map([
   ['node-contract', null],
   ['business-analysis', new Set(['business-requirements-analyst'])],
   ['system-requirements-29148', new Set(['requirements-analyst'])],
+  ['architecture-definition-42010', new Set(['architect', 'architect-dotnet'])],
+  ['interface-definition-openapi', new Set(['api-designer'])],
 ]);
 
 /**
@@ -163,6 +165,10 @@ const STAGE_NORMATIVE_READERS = new Map([
   [
     'dex-skill-system-requirements-29148:system-requirements-29148',
     new Set(['requirements-reviewer', 'requirements-orchestrator']),
+  ],
+  [
+    'dex-skill-architecture-definition-42010:architecture-definition-42010',
+    new Set(['design-reviewer']),
   ],
 ]);
 

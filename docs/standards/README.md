@@ -136,6 +136,8 @@ Software, systems and enterprise - Architecture description.
 |---|---|---|---|
 | Действующая редакция - 2022 | карта артефактов | `indexed` | каталог ISO (п.7 правил) |
 | Описание архитектуры организуется вокруг concerns сторон; каждый concern закрыт хотя бы одним view | карта артефактов этап 3, `dex-architect`, `dex-design-reviewer` | `unverifiable` | paywall |
+| **Шаблон arc42 - двенадцать разделов**: 1 Introduction & Goals, 2 Constraints, 3 Context & Scope, 4 Solution Strategy, 5 Building Block View, 6 Runtime View, 7 Deployment View, 8 Crosscutting Concepts, 9 Architectural Decisions, 10 Quality Requirements, 11 Risks & Technical Debt, 12 Glossary | `dex-skill-architecture-definition-42010`, состав SAD | `verified` | https://arc42.org/overview, сверено 11.08.2026: перечень приведён на странице дословно. Номер редакции шаблона страница не называет |
+| Состав SAD у нас = двенадцать разделов arc42, а не выгрузка из 42010 | `dex-skill-architecture-definition-42010` | `unverifiable` | текст §5-§6 42010 за paywall: стандарт даёт каркас (concerns -> views, строка выше), конкретный перечень разделов он не предписывает. Держать как решение каталога |
 
 ### ISO/IEC/IEEE 29119-3:2021
 
@@ -148,7 +150,8 @@ Software and systems engineering - Software testing - Part 3: Test documentation
 |---|---|---|---|
 | Действующая редакция - 2021 (первая была 2013) | карта артефактов | `indexed` | каталог ISO (п.7 правил) |
 | Серия 29119 не определяет характеристики качества продукта - эту роль несёт 25010 | разделение опор | `unverifiable` | первичный текст за paywall; вторичный открытый источник - arc42 Quality Model, сверено 30.07.2026 |
-| Состав Test plan и Test design specification | карта артефактов этап 5 | `unverifiable` | paywall |
+| Состав Test plan и Test design specification | карта артефактов этап 5, `dex-skill-verification-planning-29119` | `unverifiable` | paywall |
+| Состав плана верификации у нас - одиннадцать разделов, выведенных из назначения плана (охват, подход, уровни, тестовые условия, среды и данные, критерии входа/выхода/остановки, риски, регресс, отчётность) | `dex-skill-verification-planning-29119` | `unverifiable` | первичного текста 29119-3 нет; имя информационного элемента `Verification plan` - 15289 п. 10.72 (`indexed`, строка в секции 15289). Состав держать как решение каталога, не как требование стандарта |
 
 ### ISO/IEC 25010:2023
 

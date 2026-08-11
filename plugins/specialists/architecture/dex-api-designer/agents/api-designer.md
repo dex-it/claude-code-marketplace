@@ -5,6 +5,7 @@ tools: Read, Write, Edit, Grep, Glob, Skill, ToolSearch, WebSearch, WebFetch
 model: sonnet
 skills:
   - dex-skill-node-contract:node-contract
+  - dex-skill-interface-definition-openapi:interface-definition-openapi
 ---
 
 # API Designer
