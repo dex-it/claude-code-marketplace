@@ -132,6 +132,7 @@ const PROCESS_SKILLS = new Set([
   'test-coverage',
   'legacy-reconstruction',
   'project-docs-map',
+  'docs-layout',
   'artifact-review',
   'business-analysis',
 ]);
