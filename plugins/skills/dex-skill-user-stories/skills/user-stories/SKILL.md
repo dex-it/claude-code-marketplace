@@ -1,6 +1,6 @@
 ---
 name: user-stories
-description: User stories — ловушки написания, INVEST, acceptance criteria. Активируется при user story, acceptance criteria, Given-When-Then, INVEST, story points, split story, happy path, edge case, DoR, spike, AC, user value
+description: User stories — ловушки написания, INVEST, acceptance criteria. Активируется при user story, acceptance criteria, критерии приёмки, Given-When-Then, INVEST, разбить историю, split story, happy path, edge case, spike, AC, user value
 ---
 
 # User Stories — ловушки
@@ -19,15 +19,15 @@ description: User stories — ловушки написания, INVEST, accepta
 
 ### Технологии в description
 Плохо: "Использовать Redis для кэширования, RabbitMQ для очередей"
-Правильно: технологии в Technical Notes, description описывает поведение
-Почему: story = обещание разговора, технические детали решаются при refinement с командой
+Правильно: description описывает наблюдаемое поведение; способ реализации в историю не входит вовсе - это предмет дизайна
+Почему: story = обещание разговора; названная в ней технология выглядит принятым решением и проходит мимо дизайна и его гейта
 
 ## INVEST
 
 ### Not Independent
-Плохо: "Зависит от story X" — нельзя взять в спринт без другой story
+Плохо: "Зависит от story X" — историю нельзя поставить, пока не сделана другая
 Правильно: включи зависимость в scope или объедини stories
-Почему: зависимая story блокируется если предшественник не готов, спринт проваливается
+Почему: зависимая story блокируется, если предшественник не готов, и порядок работ диктуется не ценностью, а связями
 
 ### Not Negotiable
 Плохо: детальная спецификация на 3 страницы с точными UI layout
@@ -36,13 +36,13 @@ description: User stories — ловушки написания, INVEST, accepta
 
 ### Not Estimable
 Плохо: "Слишком много неизвестных, не можем оценить"
-Правильно: Spike story для исследования (timeboxed), потом оценка основной story
-Почему: без оценки невозможно планировать спринт, spike снимает неопределённость
+Правильно: Spike story для исследования (ограниченный по времени), потом оценка основной story
+Почему: неоценимая история не планируется вообще, а взятая наугад срывает сроки; spike снимает неопределённость до планирования
 
-### Not Small (13+ SP)
-Плохо: story на 13+ story points, работа на 2+ спринта
-Правильно: split по workflow (happy path, errors), rules (валидация, права), data (CRUD)
-Почему: большая story не помещается в спринт, прогресс непредсказуем
+### Not Small
+Плохо: story покрывает несколько целей пользователя разом — «личный кабинет» целиком
+Правильно: split по workflow (happy path, errors), rules (валидация, права), data (CRUD); каждая часть поставляема отдельно и имеет свои AC
+Почему: история из нескольких целей принимается только целиком, поэтому не даёт частичной поставки и не позволяет отличить сделанное от несделанного
 
 ## Acceptance Criteria
 
@@ -77,6 +77,6 @@ description: User stories — ловушки написания, INVEST, accepta
 - INVEST: все 6 критериев проверены
 - AC: happy path + error + edge cases
 - AC: конкретные значения (не "правильно работает")
-- Нет технологий в description
-- Size: 1-8 SP (13+ -> split)
+- Нет технологий и решений о реализации в description
+- Одна цель пользователя на историю (несколько -> split)
 - Пропущенные сценарии проверены (пустые данные, concurrent, спецсимволы)

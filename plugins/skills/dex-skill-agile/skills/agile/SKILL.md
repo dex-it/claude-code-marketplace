@@ -22,10 +22,7 @@ description: Agile — ловушки backlog, stories, sprints, sizing. Акт�
 Правильно: `"Как пользователь, я хочу чтобы страницы загружались за <2 сек"`
 Почему: пользователю всё равно про Redis. Технология = implementation detail, фиксируется в Technical Notes
 
-### Story > 8 SP не разбита
-Плохо: story на 13+ SP тянется через весь спринт, не влезает
-Правильно: split по workflow steps, бизнес-правилам, или данным (CSV / Excel / JSON отдельно)
-Почему: большая story = непредсказуемость, невозможно отслеживать прогресс, блокирует остальные задачи
+> Неразбитая крупная история - ловушка написания истории, дом - `dex-skill-user-stories` (INVEST, критерий Small и техники split). Здесь - только то, что живёт на уровне спринта и команды.
 
 ## Спринт и планирование
 
@@ -69,7 +66,7 @@ description: Agile — ловушки backlog, stories, sprints, sizing. Акт�
 
 - Stories формулируются через user value, не техзадачи
 - AC в формате Given-When-Then
-- Нет stories >8 SP (split!)
+- Крупные истории разбиты по критерию Small (`dex-skill-user-stories`)
 - DoR проверяется перед planning
 - DoD проверяется перед приёмкой
 - Velocity — rolling average, не цель для роста
