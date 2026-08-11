@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "5.50.0",
+  "version": "5.52.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -851,7 +851,7 @@
       "name": "dex-skill-doc-standards",
       "source": "./plugins/skills/dex-skill-doc-standards",
       "description": "Documentation standards: BRD, PRD, ADR, User Stories, Tech Specs",
-      "version": "1.6.0",
+      "version": "1.7.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -1431,6 +1431,36 @@
       ]
     },
     {
+      "name": "dex-use-case-writer",
+      "source": "./plugins/specialists/product/dex-use-case-writer",
+      "description": "Составитель сценариев использования по Cockburn - основной ход, расширения с терминалом, минимальные гарантии по каждому провальному исходу; разворачивает FR своей фичи, требований не заводит",
+      "version": "1.0.0",
+      "category": "specialist",
+      "keywords": [
+        "specialist",
+        "use-case",
+        "cockburn",
+        "scenario",
+        "requirements",
+        "product"
+      ]
+    },
+    {
+      "name": "dex-bdd-author",
+      "source": "./plugins/specialists/product/dex-bdd-author",
+      "description": "Составитель исполняемых примеров - карта примеров до кода, .feature на Gherkin с тегом трассировки на FR, красная карточка уходит наверх, а не закрывается догадкой",
+      "version": "1.0.0",
+      "category": "specialist",
+      "keywords": [
+        "specialist",
+        "bdd",
+        "gherkin",
+        "example-mapping",
+        "feature-file",
+        "product"
+      ]
+    },
+    {
       "name": "dex-requirements-orchestrator",
       "source": "./plugins/specialists/product/dex-requirements-orchestrator",
       "description": "Requirements orchestrator: idea -> BRD -> FR/NFR -> stories with quality gates and approval",
@@ -1658,7 +1688,7 @@
       "name": "dex-bundle-product-manager",
       "source": "./plugins/bundles/dex-bundle-product-manager",
       "description": "Bundle for Product Managers: requirements, roadmap, backlog, metrics",
-      "version": "1.8.0",
+      "version": "1.9.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -1671,7 +1701,7 @@
       "name": "dex-bundle-system-analyst",
       "source": "./plugins/bundles/dex-bundle-system-analyst",
       "description": "Bundle for System Analysts: requirements, user stories, BPMN, API specs, system design feasibility",
-      "version": "1.11.0",
+      "version": "1.12.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -1700,7 +1730,7 @@
       "name": "dex-bundle-qa-engineer",
       "source": "./plugins/bundles/dex-bundle-qa-engineer",
       "description": "Bundle for QA Engineers: test analysis, automation (incl. Playwright E2E), active bug hunting, bug reporting",
-      "version": "1.4.0",
+      "version": "1.5.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -2133,7 +2163,7 @@
       "name": "dex-skill-project-docs-map",
       "source": "./plugins/ai-sdlc/dex-skill-project-docs-map",
       "description": "Карта документации проекта - где лежат требования, ADR, спеки и техническая база; раздел путей в CLAUDE.md, поиск и запись при его отсутствии, статус при недостижимом корпусе",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2442,7 +2472,7 @@
       "name": "dex-skill-business-analysis",
       "source": "./plugins/skills/dex-skill-business-analysis",
       "description": "Норматив этапа бизнес-анализа (ISO/IEC/IEEE 29148 §6.2): состав Business requirements specification, разделы BRD, атрибуты бизнес-требования, мера успеха MOE, режим сбора interactive/autonomous, поиск конфликта целей, стадии готовности артефакта, вход и выход этапа",
-      "version": "3.1.1",
+      "version": "3.2.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -3105,7 +3135,7 @@
       "name": "dex-bundle-sdlc",
       "source": "./plugins/bundles/dex-bundle-sdlc",
       "description": "Bundle полного цикла SDLC, языко-агностично: движок автономного доведения задачи, порождение и ревью требований, архитектурный дизайн и ADR, реализация фичи, тест-инжиниринг, ревью MR и разбор замечаний, приёмка на стенде, поиск багов и расследование инцидентов, документирование, плюс skills дисциплины и CLI трекера, MR-хостинга, CI и стенда.",
-      "version": "1.5.0",
+      "version": "1.6.0",
       "category": "bundle",
       "keywords": [
         "bundle",

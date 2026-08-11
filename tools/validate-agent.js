@@ -144,6 +144,8 @@ const ALLOWED_PRELOAD_SKILLS = new Map([
   ['system-requirements-29148', new Set(['requirements-analyst'])],
   ['architecture-definition-42010', new Set(['architect', 'architect-dotnet'])],
   ['interface-definition-openapi', new Set(['api-designer'])],
+  ['use-cases-cockburn', new Set(['use-case-writer'])],
+  ['bdd-gherkin', new Set(['bdd-author'])],
 ]);
 
 /**
