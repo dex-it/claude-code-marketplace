@@ -25,9 +25,9 @@ Bundle for .NET developers: coding, debugging, testing, code review, EF Core, pe
 .\install-bundle\uninstall-bundle.ps1 dotnet-developer
 ```
 
-## Included Components (12)
+## Included Components (14)
 
-### Specialists (6)
+### Specialists (7)
 - `dex-dotnet-coder` - .NET coding assistant
 - `dex-dotnet-tester` - Unit testing with xUnit/Moq
 - `dex-ef-specialist` - Entity Framework Core specialist
@@ -36,13 +36,14 @@ Bundle for .NET developers: coding, debugging, testing, code review, EF Core, pe
 - `dex-self-reviewer` - саморевью своей ветки перед push
 - `dex-mr-reviewer` - ревью чужого MR
 
-### Skills (6)
+### Skills (7)
 - `dex-skill-dotnet-patterns` - SOLID, DI, async/await patterns
 - `dex-skill-dotnet-ef-core` - EF Core best practices
 - `dex-skill-dotnet-async-patterns` - Async/await patterns
 - `dex-skill-dotnet-linq-optimization` - LINQ optimization
 - `dex-skill-dotnet-api-development` - REST API development
 - `dex-skill-dotnet-testing-patterns` - Testing patterns
+- `dex-skill-architecture-definition-42010` - Architecture stage normative (concerns/views, arc42 sections)
 
 ## Note
 

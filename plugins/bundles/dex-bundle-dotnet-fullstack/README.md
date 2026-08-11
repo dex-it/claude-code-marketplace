@@ -25,7 +25,7 @@ Complete bundle for .NET fullstack: development, databases, messaging, container
 .\install-bundle\uninstall-bundle.ps1 dotnet-fullstack
 ```
 
-## Included Components (29)
+## Included Components (31)
 
 ### .NET Specialists (4) + общие ревью/отладка (3)
 - `dex-dotnet-coder` - .NET coding assistant
@@ -49,7 +49,7 @@ Complete bundle for .NET fullstack: development, databases, messaging, container
 - `dex-logging-seq` - Seq logging
 - `dex-monitoring-grafana` - Grafana monitoring
 
-### Skills (12)
+### Skills (13)
 - `dex-skill-dotnet-patterns` - SOLID, DI, async/await patterns
 - `dex-skill-dotnet-ef-core` - EF Core best practices
 - `dex-skill-dotnet-async-patterns` - Async/await patterns
@@ -62,6 +62,7 @@ Complete bundle for .NET fullstack: development, databases, messaging, container
 - `dex-skill-kubernetes` - Kubernetes patterns
 - `dex-skill-dotnet-logging` - Logging patterns
 - `dex-skill-observability` - Observability patterns
+- `dex-skill-architecture-definition-42010` - Architecture stage normative (concerns/views, arc42 sections)
 
 ## Note
 
