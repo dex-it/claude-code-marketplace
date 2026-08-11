@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "5.52.0",
+  "version": "5.51.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -800,22 +800,6 @@
       ]
     },
     {
-      "name": "dex-skill-scenario-quality",
-      "source": "./plugins/skills/dex-skill-scenario-quality",
-      "description": "Оракул исполняемых примеров - дефекты feature-файла, шагов Gherkin, карты примеров и трассировки на требование",
-      "version": "1.0.0",
-      "category": "skill",
-      "keywords": [
-        "skill",
-        "scenario-quality",
-        "oracle",
-        "review",
-        "gherkin",
-        "bdd",
-        "quality-checks"
-      ]
-    },
-    {
       "name": "dex-skill-api-spec-quality",
       "source": "./plugins/skills/dex-skill-api-spec-quality",
       "description": "Оракул контракта интерфейса - дефекты схем, ошибок, совместимости, версионирования и примеров в OpenAPI, AsyncAPI и gRPC IDL",
@@ -1464,7 +1448,7 @@
       "name": "dex-requirements-orchestrator",
       "source": "./plugins/specialists/product/dex-requirements-orchestrator",
       "description": "Requirements orchestrator: idea -> BRD -> FR/NFR -> stories with quality gates and approval",
-      "version": "4.9.0",
+      "version": "4.10.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1701,7 +1685,7 @@
       "name": "dex-bundle-system-analyst",
       "source": "./plugins/bundles/dex-bundle-system-analyst",
       "description": "Bundle for System Analysts: requirements, user stories, BPMN, API specs, system design feasibility",
-      "version": "1.13.1",
+      "version": "1.14.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -1730,7 +1714,7 @@
       "name": "dex-bundle-qa-engineer",
       "source": "./plugins/bundles/dex-bundle-qa-engineer",
       "description": "Bundle for QA Engineers: test analysis, automation (incl. Playwright E2E), active bug hunting, bug reporting",
-      "version": "1.5.0",
+      "version": "1.6.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -2149,7 +2133,7 @@
       "name": "dex-skill-node-contract",
       "source": "./plugins/ai-sdlc/dex-skill-node-contract",
       "description": "Рантайм-контракт агента-узла - режим interactive/autonomous, реакция на неполный вход (blocking/default-ok), возврат наверх, словарь полей handoff, метка quality-checks и её носитель, транспорт артефакта, выбор канала хостинга (native/CLI), graceful degradation при недоступности skill",
-      "version": "7.3.1",
+      "version": "7.4.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2908,7 +2892,7 @@
       "name": "dex-requirements-reviewer",
       "source": "./plugins/specialists/review/dex-requirements-reviewer",
       "description": "Ревью и согласование чужого готового набора требований (BRD/stories) как документа: дефекты единицы и дефекты набора против источника, фальсификация находок, severity, правки автору без мутации документа.",
-      "version": "1.8.0",
+      "version": "1.9.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -3135,7 +3119,7 @@
       "name": "dex-bundle-sdlc",
       "source": "./plugins/bundles/dex-bundle-sdlc",
       "description": "Bundle полного цикла SDLC, языко-агностично: движок автономного доведения задачи, порождение и ревью требований, архитектурный дизайн и ADR, реализация фичи, тест-инжиниринг, ревью MR и разбор замечаний, приёмка на стенде, поиск багов и расследование инцидентов, документирование, плюс skills дисциплины и CLI трекера, MR-хостинга, CI и стенда.",
-      "version": "1.6.1",
+      "version": "1.7.0",
       "category": "bundle",
       "keywords": [
         "bundle",

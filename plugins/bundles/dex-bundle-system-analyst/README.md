@@ -25,7 +25,7 @@ Bundle for System Analysts: requirements, user stories, BPMN, API specs, documen
 .\install-bundle\uninstall-bundle.ps1 system-analyst
 ```
 
-## Included Components (9)
+## Included Components (14)
 
 ### Specialists (4)
 - `dex-requirements-analyst` - Requirements analysis
@@ -33,7 +33,7 @@ Bundle for System Analysts: requirements, user stories, BPMN, API specs, documen
 - `dex-process-modeler` - BPMN process modeling
 - `dex-doc-writer` - Technical documentation
 
-### Skills (11)
+### Skills (10)
 - `dex-skill-agile` - Agile methodology
 - `dex-skill-user-stories` - User story patterns
 - `dex-skill-bpmn` - BPMN notation
@@ -44,7 +44,6 @@ Bundle for System Analysts: requirements, user stories, BPMN, API specs, documen
 - `dex-skill-use-cases-cockburn` - Use case genre normative (goal levels, extensions, guarantees)
 - `dex-skill-docs-layout` - Corpus layout: docs/ tree, mandatory minimum, identifiers
 - `dex-skill-use-case-quality` - Use case oracle
-- `dex-skill-scenario-quality` - Executable examples oracle
 
 ## Note
 
