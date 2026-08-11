@@ -25,18 +25,19 @@ Bundle for Product Managers: business requirements, roadmap, backlog, metrics an
 .\install-bundle\uninstall-bundle.ps1 product-manager
 ```
 
-## Included Components (23)
+## Included Components (26)
 
-### Specialists (7)
+### Specialists (8)
 - `dex-business-analyst` - Business requirements
 - `dex-requirements-analyst` - System-level requirements from business ones
 - `dex-requirements-orchestrator` - Requirements pipeline conductor (`/feature`)
+- `dex-use-case-writer` - Use cases from feature requirements (pipeline phase 3b)
 - `dex-user-story-writer` - User stories with acceptance criteria
 - `dex-roadmap-planner` - Roadmap planning
 - `dex-backlog-manager` - Backlog management
 - `dex-pm-metrics-analyst` - Metrics analysis
 
-### Skills (16)
+### Skills (18)
 - `dex-skill-agile` - Agile methodology
 - `dex-skill-product-discovery` - Product discovery
 - `dex-skill-epic-planning` - Epic planning
@@ -53,6 +54,8 @@ Bundle for Product Managers: business requirements, roadmap, backlog, metrics an
 - `dex-skill-legacy-reconstruction` - Oracle reconstruction from legacy code without requirements
 - `dex-skill-docs-layout` - Corpus layout: docs/ tree, mandatory minimum, identifiers
 - `dex-skill-opportunity-canvas` - Idea genre normative (one-pager, opportunity canvas)
+- `dex-skill-use-cases-cockburn` - Use case genre normative (sketch and normative formats)
+- `dex-skill-use-case-quality` - Use case defect detection
 
 ## Note
 

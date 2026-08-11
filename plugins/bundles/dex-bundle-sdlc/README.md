@@ -18,7 +18,7 @@
 
 Движок: `dex-skill-autonomous-task`, `dex-autonomous-task-resume`, `dex-skill-node-contract`, `dex-skill-project-docs-map`.
 
-Специалисты требований и дизайна: `dex-requirements-orchestrator`, `dex-business-analyst`, `dex-requirements-analyst`, `dex-user-story-writer`, `dex-requirements-reviewer`, `dex-process-modeler`, `dex-use-case-writer`, `dex-bdd-author`, `dex-architect`, `dex-adr-writer`, `dex-api-designer`, `dex-diagram-creator`, `dex-design-reviewer`.
+Специалисты требований и дизайна: `dex-requirements-orchestrator`, `dex-business-analyst`, `dex-requirements-analyst`, `dex-user-story-writer`, `dex-requirements-reviewer`, `dex-process-modeler`, `dex-use-case-writer`, `dex-architect`, `dex-adr-writer`, `dex-api-designer`, `dex-diagram-creator`, `dex-design-reviewer`.
 
 Специалисты кода и приёмки: `dex-feature-implementer`, `dex-conflict-resolver`, `dex-self-reviewer`, `dex-mr-reviewer`, `dex-mr-check-reviewer`, `dex-review-planner`, `dex-security-reviewer`, `dex-stand-reviewer`, `dex-bug-finder`, `dex-bug-reporter`, `dex-bug-fixer`, `dex-incident-investigator`, `dex-debugger`, `dex-test-analyst`, `dex-test-automator`, `dex-doc-writer`, `dex-code-discovery`, `dex-codebase-analyzer`.
 
