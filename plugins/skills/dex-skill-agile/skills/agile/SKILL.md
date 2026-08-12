@@ -1,11 +1,31 @@
 ---
 name: agile
-description: Agile — ловушки спринта, backlog, зависимостей, DoR/DoD, sizing. Активируется при sprint, sprint planning, спринт, velocity, story points, backlog, refinement, DoR, DoD, definition of done, зависимости между задачами, scrum, kanban, retrospective, water-scrum-fall
+description: Agile — ловушки backlog, stories, sprints, sizing. Активируется при epic, story, sprint, INVEST, DoR, DoD, sprint planning, velocity, story points, backlog, refinement, acceptance criteria, scrum, kanban, user story, retrospective
 ---
 
 # Agile — ловушки
 
-> Написание самой истории - формулировка через ценность, acceptance criteria, INVEST, критерий Small и техники split - дом `dex-skill-user-stories`. Здесь только то, что живёт на уровне спринта и команды: как готовая история попадает в работу и по чему её принимают.
+## Stories
+
+### Техзадача вместо user value
+Плохо: `"Внедрить Redis для кэширования"` — технология, не ценность для пользователя
+Правильно: `"Как пользователь, я хочу получать результаты поиска за <2 сек"` — Redis в Technical Notes
+Почему: story без user value невозможно приоритизировать и нельзя проверить — нет acceptance criteria
+
+### Story без Acceptance Criteria
+Плохо: `"Улучшить поиск"` — размыто, нет критериев приёмки
+Правильно: AC в формате `Given фильтр цены 1000-5000 / When применяю / Then вижу только товары в диапазоне`
+Почему: без AC каждый понимает story по-своему, QA не знает что проверять, PO не знает когда принимать
+
+### Технология в формулировке story
+Плохо: `"Как пользователь, я хочу чтобы данные кэшировались в Redis"`
+Правильно: `"Как пользователь, я хочу чтобы страницы загружались за <2 сек"`
+Почему: пользователю всё равно про Redis. Технология = implementation detail, фиксируется в Technical Notes
+
+### Story > 8 SP не разбита
+Плохо: story на 13+ SP тянется через весь спринт, не влезает
+Правильно: split по workflow steps, бизнес-правилам, или данным (CSV / Excel / JSON отдельно)
+Почему: большая story = непредсказуемость, невозможно отслеживать прогресс, блокирует остальные задачи
 
 ## Спринт и планирование
 
@@ -36,9 +56,20 @@ description: Agile — ловушки спринта, backlog, зависимо�
 Правильно: DoD чек-лист: тесты, review, deploy на staging, AC проверены
 Почему: без DoD каждый понимает "готово" по-своему, technical debt накапливается, баги на production
 
+## Splitting стратегии
+
+| Стратегия | Пример |
+|-----------|--------|
+| По workflow steps | Регистрация / Подтверждение email / Настройка профиля |
+| По бизнес-правилам | Доставка: domestic / international / бесплатная |
+| По данным | Импорт: CSV / Excel / JSON API |
+| По Simple/Complex | Поиск по имени / + фильтры / + сортировка / + full-text |
+
 ## Чек-лист
 
-- Готовая история отвечает нормам `dex-skill-user-stories` (ценность, AC, INVEST) до того, как попала в planning
+- Stories формулируются через user value, не техзадачи
+- AC в формате Given-When-Then
+- Нет stories >8 SP (split!)
 - DoR проверяется перед planning
 - DoD проверяется перед приёмкой
 - Velocity — rolling average, не цель для роста

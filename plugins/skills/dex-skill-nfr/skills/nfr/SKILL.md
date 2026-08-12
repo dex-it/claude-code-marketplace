@@ -36,17 +36,25 @@ description: "NFR ловушки: numeric, SLA/SLO/SLI, security NFR. Актив
 
 ### Authorization модель не зафиксирована
 Неправильно: «будет авторизация» без выбора между RBAC / ABAC / per-resource ownership
-Правильно: модель названа явно — RBAC (роли в IdP), ABAC (политики на атрибутах), per-resource ownership (изоляция арендаторов) — вместе с тем, кто и по какому признаку получает доступ к ресурсу
-Почему: модель доступа пронизывает хранение, контракты и кеш; переход с RBAC на per-resource через год = миграция всех таблиц, переписывание слоя запросов, переделка ключей кеша, пересмотр всех API contract'ов
+Правильно: модель явная — RBAC (роли в IdP), ABAC (политики на атрибутах), per-resource ownership (multi-tenant изоляция); влияет на storage schema (tenant_id во всех таблицах vs row-level security vs физическая изоляция), API URL design (`/me/orders/{id}` vs `/orders/{id}`), cache key namespace
+Почему: переход с RBAC на per-resource через год = миграция всех таблиц (добавить tenant_id), переписывание query layer (везде WHERE tenant), переделка cache keys (добавить tenant prefix), пересмотр всех API contract'ов
 
-### Обращение с секретами оставлено на потом
-Неправильно: «положим credentials в env, DevOps разберётся» — требования к секретам не сформулированы вовсе
-Правильно: NFR фиксирует проверяемое обязательство — период ротации, область действия ключа (per-service vs per-cluster), обязательность журнала доступа, запрет попадания секрета в логи и дампы; выбор механизма (Vault / cloud KMS / sealed secrets / sidecar) — решение дизайна под это обязательство, не само требование
-Почему: без обязательства дизайн не с чем сверять, и ротация оседает в «когда-нибудь» — pinned credentials на годы; названный в требовании механизм закрывает дизайн-пространство до дизайна и меняется при первом же переезде, хотя нужда не менялась
+### Secrets management как операционный вопрос
+Неправильно: «положим credentials в env, DevOps разберётся»
+Правильно: secrets handling — архитектурный выбор на этапе дизайна: Vault / cloud KMS / sealed secrets / sidecar / external secrets operator; зафиксировать rotation policy, audit access logs, scoping (per-service vs per-cluster)
+Почему: добавление Vault постфактум = переделка config-pipeline во всех сервисах, миграция rotation policies, изменение deployment-флоу; secrets в env / config-файлах попадают в git/logs/dump'ы — leak неизбежен; rotation без архитектурного механизма = pinned credentials на годы
 
 ### Audit log не учтён в storage estimation
 Неправильно: считать только бизнес-данные при capacity estimation
 Правильно: для compliance-driven audit (GDPR / HIPAA / SOX / PCI) — append-only store с retention 5-7 лет, отдельный от основной БД; учитывать в storage growth год 1-3; записи нельзя удалять по запросу пользователя (right-to-be-forgotten решается через crypto-shredding, не deletion)
 Почему: audit log часто 5-10× от бизнес-данных по объёму; добавление постфактум = выбор retention storage без изначальных constraints = неправильная технология (нельзя дёшево archived storage наклеить на operational DB); compliance-violation при попытке удалить audit log = регуляторные штрафы
 
-> Как эти обязательства ломаются в коде — обход проверки владельца, IDOR, multi-tenancy, добавленная в сущность задним числом, секреты в репозитории — `dex-skill-owasp-security`. Здесь только формулировка меры: что обязательно и чем это проверяется.
+### IDOR: ресурс по ID без scope-проверки
+Неправильно: endpoint `GET /orders/{id}` возвращает order только по ID, authorization проверяется отдельно «где-то выше» либо через generic middleware
+Правильно: scope-based URL (`GET /me/orders/{id}` или `/tenants/{tenant_id}/orders/{id}`) либо явная проверка ownership/tenant в каждом endpoint'е (RLS на уровне БД, либо `WHERE owner_id = $current_user` в repository); IDs ресурсов — UUID/random, не sequential int
+Почему: sequential int IDs + отсутствие scope-проверки = пользователь подбирает ID и читает чужие данные (OWASP A01 Broken Access Control, самая частая уязвимость в API); архитектурно дешевле спроектировать scope-based с самого начала, чем добавлять auth checks к 100 endpoint'ам
+
+### Multi-tenant без tenant_id в schema
+Неправильно: общая таблица `orders` без `tenant_id`, фильтрация в коде «не забудь добавить WHERE tenant = ?»
+Правильно: `tenant_id` обязательное поле в каждой таблице бизнес-данных; включён в primary key или composite index; row-level security в БД (Postgres RLS) либо schema-per-tenant; cache keys обязательно prefix'аются tenant_id; logs/metrics tagged tenant_id
+Почему: пропустишь WHERE один раз — leak данных между tenant'ами (catastrophic для B2B SaaS); architectural enforcement (RLS / schema isolation) исключает целый класс ошибок; cache без tenant prefix = классический cross-tenant data leak при collision ключей
