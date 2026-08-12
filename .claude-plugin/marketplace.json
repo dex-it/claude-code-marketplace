@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "5.40.0",
+  "version": "5.42.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -2439,7 +2439,7 @@
       "name": "dex-skill-decision-log",
       "source": "./plugins/skills/dex-skill-decision-log",
       "description": "Реестр решений конвейера требований: что в него попадает, как требование ссылается на запись, чем он отличается от меток проверок и служебного состояния прогона, что делать при утрате. Общая механика журнала решений - node-contract; здесь специфика требований: связь записи с единицей, дельта-правка, поднятие оснований заново.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2452,6 +2452,44 @@
         "revision",
         "delta-run",
         "audit-trail"
+      ]
+    },
+    {
+      "name": "dex-skill-unit-identity",
+      "source": "./plugins/skills/dex-skill-unit-identity",
+      "description": "Тождество единицы требований: чем ключ отличается от формулировки, как выдаются номера (старший разряд из номера фичи, младший по корпусу), когда пришедшее - правка принятой единицы, а когда новая, что делать с дублем и снятием.",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "requirements",
+        "identity",
+        "numbering",
+        "deduplication",
+        "traceability",
+        "amendment",
+        "retirement",
+        "feature-block",
+        "pipeline"
+      ]
+    },
+    {
+      "name": "dex-skill-artifact-naming",
+      "source": "./plugins/skills/dex-skill-artifact-naming",
+      "description": "Конвенция имени и подпапки для артефактов конвейера требований: дефолтное дерево фичи для пустого места, границы применения конвенции (занятый корпус диктует раскладку сам), разрешение пути сквозным полем, что не должно попадать в имя файла.",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "requirements",
+        "naming",
+        "layout",
+        "artifact-path",
+        "docs-structure",
+        "feature-folder",
+        "slug",
+        "conventions",
+        "pipeline"
       ]
     },
     {
