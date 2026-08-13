@@ -13,7 +13,7 @@ description: "`decision-log` конвейера требований: что в 
 
 > Общая механика - строка решения, кто дописывает, как оформляется пересмотр, что делать, если путь не пришёл на входе, - `dex-skill-node-contract`, раздел «Журнал решений» (там след назван так, потому что ведётся не только по требованиям). Здесь - что меняется, когда предмет решения требование: связь записи с единицей, границы со смежными следами, поведение при правке и утрате.
 
-Порядок работ, три следа и виды основания - [docs/pipeline/PIPELINE.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/pipeline/PIPELINE.md).
+Порядок работ, три следа и виды основания - [docs/pipelines/analytics/PIPELINE.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/pipelines/analytics/PIPELINE.md).
 
 ## Что попадает в `decision-log`, а что нет
 

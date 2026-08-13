@@ -1,7 +1,7 @@
 # Трассировка `pipeline-basic` по группам, держащим решения раздела 7
 
 **Дата:** 2026-08-13, группы D и E - 2026-08-14. **Метод:** трассировка белым ящиком (без запуска; обход по тексту узлов, опора
-на строку артефакта). **Предмет:** решения раздела 7 [IMPLEMENTATION.md](../../docs/pipeline/IMPLEMENTATION.md)
+на строку артефакта). **Предмет:** решения раздела 7 [IMPLEMENTATION.md](../../docs/pipelines/analytics/IMPLEMENTATION.md)
 на кейсах [`_cases/pipeline-basic.md`](../_cases/pipeline-basic.md).
 
 Прогон делался **до вливания ветки `docs/pipeline-schema`** - по рабочей копии, не по установке.

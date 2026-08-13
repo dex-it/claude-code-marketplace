@@ -9,7 +9,7 @@ description: "Сценарий `UC` как единица требований: 
 
 Вход - `BR`. Выход - актор, цель, ход, расширения, терминал у каждой ветки. Числа, меры и формулировки правил здесь не появляются: их дом - `FR` и `NFR`.
 
-Стыки, виды основания и порядок работ - [docs/pipeline/PIPELINE.md](../../../../docs/pipeline/PIPELINE.md), разделы 2, 4 и 5.
+Стыки, виды основания и порядок работ - [docs/pipelines/analytics/PIPELINE.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/pipelines/analytics/PIPELINE.md), разделы 2, 4 и 5.
 
 ## Актор и цель
 
