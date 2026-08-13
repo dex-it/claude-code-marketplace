@@ -100,6 +100,7 @@ _cases/              матрица кейсов живого прогона: в
 | [increment-new-story.md](_templates/increment-new-story.md) | принятый BRD + новая стори | зона 1, новый BRD со ссылками на связанные |
 | [no-requirements.md](_templates/no-requirements.md) | тикет в строку по коду | движок напрямую |
 | [compaction-resume.md](_templates/compaction-resume.md) | долгий автономный прогон | движок -> компакт -> хук -> возобновление |
+| [live-run-prompt.md](_templates/live-run-prompt.md) | форма задания ведущему живого прогона | не маршрут: изоляция, канал оператора, форма отчёта |
 
 ## Реестр прогонов
 
