@@ -1293,7 +1293,7 @@
       "name": "dex-design-reviewer",
       "source": "./plugins/specialists/architecture/dex-design-reviewer",
       "description": "Ревью и согласование чужого дизайн-документа (спека, ADR, диаграммы) до написания кода: полнота NFR, дефекты требований, качество ADR-решений, консистентность и слои, полнота и непротиворечивость набора артефактов работы, фальсификация находок, severity. Не архитектура реализованного кода - её ревьюит /review-arch.",
-      "version": "2.2.2",
+      "version": "2.2.3",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1310,7 +1310,7 @@
       "name": "dex-business-analyst",
       "source": "./plugins/specialists/product/dex-business-analyst",
       "description": "Business analyst: business requirements BR-NNN with MOE, BRD",
-      "version": "5.10.0",
+      "version": "5.10.1",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2084,7 +2084,7 @@
       "name": "dex-skill-stack-registry",
       "source": "./plugins/skills/dex-skill-stack-registry",
       "description": "Канонический реестр стеков и правило загрузки skills по стеку×теме для общих агентов",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2098,7 +2098,7 @@
       "name": "dex-skill-node-contract",
       "source": "./plugins/ai-sdlc/dex-skill-node-contract",
       "description": "Рантайм-контракт агента-узла - режим interactive/autonomous, реакция на неполный вход (blocking/default-ok), возврат наверх, словарь полей handoff, метка quality-checks и её носитель, транспорт артефакта, выбор канала хостинга (native/CLI), graceful degradation при недоступности skill",
-      "version": "7.2.0",
+      "version": "7.2.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2324,7 +2324,7 @@
       "name": "dex-skill-completeness-mapping",
       "source": "./plugins/skills/dex-skill-completeness-mapping",
       "description": "Completeness-gate карты потребителей при сквозной правке: лестница из слоёв (authoritative symbol/call layer -> форма -> текст -> общий проектор) для data flow и control flow, запрет тихого пропуска до «сторона готова»",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2774,7 +2774,7 @@
       "name": "dex-dotnet-runtime-diagnostician",
       "source": "./plugins/specialists/dotnet/dex-dotnet-runtime-diagnostician",
       "description": "Runtime-диагностика .NET и native-симптомов: hang, crash, leak, slowdown, post-mortem через netcoredbg, gdb/lldb, perf, bpftrace, dotnet-dump",
-      "version": "2.1.1",
+      "version": "2.1.2",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2823,7 +2823,7 @@
       "name": "dex-requirements-reviewer",
       "source": "./plugins/specialists/review/dex-requirements-reviewer",
       "description": "Ревью и согласование чужого готового набора требований (BRD/stories) как документа: дефекты единицы и дефекты набора против источника, фальсификация находок, severity, правки автору без мутации документа.",
-      "version": "1.8.0",
+      "version": "1.8.1",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2840,7 +2840,7 @@
       "name": "dex-mr-reviewer",
       "source": "./plugins/specialists/review/dex-mr-reviewer",
       "description": "Языко-агностичное первичное ревью чужого MR/PR: карта изменений, параллельные фокусы, фальсификация находок, severity/confidence/scope, доставка инлайн-тредами через канал хостинга (native MCP, иначе gh/glab).",
-      "version": "1.14.2",
+      "version": "1.14.3",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2857,7 +2857,7 @@
       "name": "dex-mr-check-reviewer",
       "source": "./plugins/specialists/review/dex-mr-check-reviewer",
       "description": "Ре-ревью дельты MR/PR после правок автора: range-diff дельты, статус прежних находок, новые находки только в дельте, обновление существующих тредов и публикация новых.",
-      "version": "1.13.2",
+      "version": "1.13.3",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2891,7 +2891,7 @@
       "name": "dex-review-planner",
       "source": "./plugins/specialists/delivery/dex-review-planner",
       "description": "План правок по комментариям ревью без редактирования кода: сбор тредов и коммитов, классификация замечаний, верификация чтением кода, план P0..P3 с blast radius, черновики ответов в треды.",
-      "version": "1.8.2",
+      "version": "1.8.3",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2956,7 +2956,7 @@
       "name": "dex-security-reviewer",
       "source": "./plugins/specialists/delivery/dex-security-reviewer",
       "description": "Language-agnostic deep security analysis: threat model (actors/trust boundaries/assets), OWASP attack paths, exploit chains, severity by chain exploitability. Stack-conditional skill loading.",
-      "version": "1.7.0",
+      "version": "1.7.1",
       "category": "specialist",
       "keywords": [
         "specialist",

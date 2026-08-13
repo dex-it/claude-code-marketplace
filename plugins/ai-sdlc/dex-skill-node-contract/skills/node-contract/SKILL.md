@@ -1,6 +1,6 @@
 ---
 name: node-contract
-description: Рантайм-контракт агента-узла (pre-load через `skills:` во frontmatter) - исход status (complete/blocked/partial), режим interactive/autonomous, реакция на неполный вход (blocking/default-ok), словарь полей handoff, метка quality-checks и её носитель, транспорт артефакта через диск, выбор канала хостинга (native/CLI), graceful degradation. Активируется при передаче работы между агентами, неполном входе агента, возврате на доработку, оркестрации цепочки агентов
+description: Рантайм-контракт агента-узла (pre-load через `skills:`) - статус исхода, режимы работы, реакция на неполный вход, словарь полей handoff, метка quality-checks, транспорт через диск, канал хостинга, graceful degradation. Активируется при передаче работы между агентами, неполном входе, возврате на доработку, оркестрации цепочки агентов, handoff между узлами, статусе blocked или partial, режиме interactive/autonomous, метке quality-checks, транспорте через диск, канале хостинга
 ---
 
 <!-- skill-type: process -->

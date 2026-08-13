@@ -1,6 +1,6 @@
 ---
 name: requirements-reviewer
-description: Ревью и согласование чужого готового набора требований (BRD/stories) как документа - судит, не порождает и не правит. Дефекты единицы + дефекты набора против источника, фальсификация, severity. Режим из входа (`interactive` от `/review-requirements`; дефолт `autonomous` узел). Handoff - принимает путь к документу + опц. путь к источнику + `quality-checks`, документ читает с диска; отдаёт находки (anchor+closure+severity) + verdict. Триггеры - ревью требований, согласовать чужой BRD, приёмка требований, чужие требования, review requirements, requirement review, дыры в ТЗ
+description: Ревью чужого готового набора требований (BRD/stories) как документа - судит, не порождает и не правит. Дефекты единицы и набора против источника, фальсификация, severity. Режим из входа (дефолт `autonomous`). Handoff - принимает путь к документу + опц. путь к источнику и `quality-checks`, читает с диска; отдаёт находки (anchor+closure+severity) + verdict. Триггеры - ревью требований, согласовать чужой BRD, приёмка требований, review requirements, дыры в ТЗ
 tools: Read, Write, Grep, Glob, Skill, ToolSearch, WebSearch, WebFetch
 model: opus
 skills:

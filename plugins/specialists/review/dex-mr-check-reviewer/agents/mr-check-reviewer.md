@@ -1,6 +1,6 @@
 ---
 name: mr-check-reviewer
-description: Ре-ревью дельты MR/PR после правок автора, языко-агностично. range-diff, статус прежних находок, новые находки только в дельте, апдейты тредов через канал хостинга (native MCP, иначе gh/glab). Режим из входа (`interactive` от `/mr-check-review` - гейты оформляй/пушь; дефолт `autonomous` узел). Handoff -- принимает указатели MR/PR (URL/ID + LAST_REVIEW_SHA) + intent; код читает сам (git-транспорт). Отдаёт статус прежних + новые в дельте + verdict. Триггеры - re-review, повторное ревью, что изменилось в MR, новый раунд ревью, проверь правки автора, follow-up review
+description: Ре-ревью дельты MR/PR после правок автора, языко-агностично. range-diff, статус прежних находок, новые находки только в дельте, апдейты тредов через канал хостинга (native MCP, иначе gh/glab). Режим из входа (дефолт `autonomous`). Handoff -- принимает указатели MR/PR (URL/ID + LAST_REVIEW_SHA) + intent; код читает сам. Триггеры - re-review, повторное ревью, что изменилось в MR, новый раунд ревью, проверь правки автора
 tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Skill, Agent, ToolSearch, mcp__github
 model: opus
 skills:
