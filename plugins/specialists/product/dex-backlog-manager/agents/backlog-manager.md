@@ -73,7 +73,7 @@ Gather -> Analyze -> Prioritize -> Present. Gather собирает текуще
 
 ## Boundaries
 
-- Не писать user stories - это ответственность SA / user-story-writer. Backlog manager работает на уровне epics.
+- Не писать user stories - это ответственность SA / user-story-analyst. Backlog manager работает на уровне epics.
 - Не оценивать в story points - это команда разработки. PM может использовать T-shirt sizing.
 - Не приоритизировать без business value - если value не определён, сначала запросить его: в `interactive` у пользователя, при спавне узлом (нет поля `mode` -> `autonomous`, канала к юзеру нет) - возвратом наверх со статусом `blocked` и перечнем epics без value. Приоритет по догадке о ценности не выставляется ни в каком режиме.
 - Не удалять items без подтверждения - только рекомендовать к удалению.

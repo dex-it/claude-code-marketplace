@@ -25,9 +25,9 @@
 ```
 дирижёр (dex-requirements-orchestrator)
    ├── dex-business-analyst        → BR
-   ├── dex-usecase-writer          → UC
+   ├── dex-usecase-analyst         → UC
    ├── dex-requirements-analyst    → FR и NFR
-   └── dex-user-story-writer       → истории с AC
+   └── dex-user-story-analyst      → истории с AC
 судьи: гейт дирижёра · dex-requirements-reviewer (автор себя не судит)
 ```
 
@@ -37,8 +37,10 @@
 
 **Имя узла - предмет плюс `-analyst`:** все четыре берут единицы предыдущего класса и **выводят**
 свои, а не оформляют надиктованное; `-writer` остаётся за агентами, которые записывают уже принятое
-(`adr-writer`, `doc-writer`). Два имени пока не по правилу (`usecase-writer`, `user-story-writer`) -
-переименование едет отдельным заходом, оно ломающее (`IMPLEMENTATION.md`, раздел 7).
+(`adr-writer`, `doc-writer`). Все четыре по правилу как агентом, так и плагином
+(`dex-business-analyst`/`business-requirements-analyst`, `dex-usecase-analyst`/`usecase-analyst`,
+`dex-requirements-analyst`/`requirements-analyst`, `dex-user-story-analyst`/`user-story-analyst`);
+переименование `usecase-writer`/`user-story-writer` описано решением `IMPLEMENTATION.md`, раздел 7.
 
 ## 3. Служебные скиллы - каркас
 
@@ -55,9 +57,9 @@
 | Узел | Класс-скилл | Дополнительно | Оракул |
 |---|---|---|---|
 | `business-analyst` | `business-analysis` | `product-discovery`, `doc-standards`, `legacy-reconstruction` | `requirement-quality` |
-| `usecase-writer` | `use-cases` | `legacy-reconstruction` | - |
+| `usecase-analyst` | `use-cases` | `legacy-reconstruction` | - |
 | `requirements-analyst` | `functional-requirements`, `nfr` | `legacy-reconstruction` | `requirement-quality` |
-| `user-story-writer` | `user-stories` | `test-design` - техники подбора примеров | `requirement-quality` |
+| `user-story-analyst` | `user-stories` | `test-design` - техники подбора примеров | `requirement-quality` |
 | дирижёр (как судья) | `business-analysis`, `use-cases` | - | `requirement-quality`, `requirement-set-quality` |
 | `requirements-reviewer` | все четыре класс-скилла | `fact-verification`, `review-evidence`, `output-hygiene`, `codebase-conventions`, `ddd` | `requirement-quality`, `requirement-set-quality` |
 

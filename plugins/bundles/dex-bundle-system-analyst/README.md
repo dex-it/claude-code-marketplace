@@ -29,7 +29,7 @@ Bundle for System Analysts: requirements, user stories, BPMN, API specs, documen
 
 ### Specialists (4)
 - `dex-requirements-analyst` - Requirements analysis
-- `dex-user-story-writer` - User story writing
+- `dex-user-story-analyst` - User story writing
 - `dex-process-modeler` - BPMN process modeling
 - `dex-doc-writer` - Technical documentation
 

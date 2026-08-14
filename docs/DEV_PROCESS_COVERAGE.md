@@ -17,7 +17,7 @@
 
 | Трек движка | Исполнитель (.NET / общий) | Артефакт |
 |-------------|----------------------------|----------|
-| *(зона 1, вне движка)* **Требования** | `/feature` -> dex-requirements-orchestrator (дирижёр, гейты с апрувом) -> dex-business-analyst (BRD с `BR-NNN`) -> dex-requirements-analyst (`FR`/`NFR` из `BR`) -> dex-user-story-writer (stories `[FR-NNN]`). Приёмка чужого набора - `/review-requirements` | BRD + набор `FR`/`NFR` + stories (место - из конвенций проекта) |
+| *(зона 1, вне движка)* **Требования** | `/feature` -> dex-requirements-orchestrator (дирижёр, гейты с апрувом) -> dex-business-analyst (BRD с `BR-NNN`) -> dex-requirements-analyst (`FR`/`NFR` из `BR`) -> dex-user-story-analyst (stories `[FR-NNN]`). Приёмка чужого набора - `/review-requirements` | BRD + набор `FR`/`NFR` + stories (место - из конвенций проекта) |
 | *(зона 2, вне движка)* **Дизайн** | `/design` -> dex-architect / dex-architect-dotnet (+ dex-api-designer, dex-adr-writer, dex-diagram-creator). Приёмка чужого дизайн-документа - `/review-design` | дизайн-док + ADR + диаграммы |
 | **Разработка** (фича / баг-фикс / рефакторинг) | детальная слот-карта ниже | MR/коммиты |
 | **Ревью входящего MR** | dex-mr-reviewer -> dex-mr-check-reviewer | inline-треды |
@@ -71,7 +71,7 @@ diff) имеют свой вход и своё «готово», поэтому 
 **Агенты требований - тоже не дубль: три уровня, три составителя.** `dex-business-analyst` -
 бизнес-уровень (эпик, BRD с `BR-NNN` и MOE, стейкхолдеры), `FR`/`NFR` не порождает.
 `dex-requirements-analyst` - системный уровень: выводит `FR-NNN`/`NFR-NNN` с `traced from BR-NNN`
-из BRD, тикета, брифа или кода без постановки. `dex-user-story-writer` - продуктовый оракул:
+из BRD, тикета, брифа или кода без постановки. `dex-user-story-analyst` - продуктовый оракул:
 превращает `FR`/`NFR` в stories с acceptance criteria (Given-When-Then, метки `[FR-NNN]`), код не
 читает. `dex-requirements-orchestrator` - дирижёр зоны 1: спавнит всех трёх и судит их выход на каждом
 уровне - единицу (`requirement-quality`) и НАБОР целиком (`requirement-set-quality`), - ставит
