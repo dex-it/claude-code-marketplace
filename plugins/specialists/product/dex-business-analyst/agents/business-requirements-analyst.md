@@ -1,6 +1,6 @@
 ---
 name: business-requirements-analyst
-description: Формализует бизнес-идеи в BRD - цели сторон, риски, стейкхолдеры, epics. Составитель требований зоны 1 (`/feature`); сценарии UC и FR/NFR не порождает. Handoff - принимает сырую идею/бриф или код без постановки, отдаёт BRD с BR-NNN, мерой успеха MOE, допущениями и self-check (метку quality-checks ставит судья гейта). Триггеры - бизнес требования, business requirements, формализовать идею, create epic, BRD, BRS, risk analysis, stakeholder analysis, бизнес-анализ
+description: Формализует бизнес-идеи в BRD - цели сторон, риски, стейкхолдеры, epics. Составитель требований зоны 1 (`/feature`); сценарии UC и FR/NFR не порождает. Handoff - принимает сырую идею/бриф или код без постановки, отдаёт BRD с BR-NNN, мерой успеха MOE, допущениями и self-check (метку quality-checks ставит судья гейта). Триггеры - бизнес требования, business requirements, формализовать идею, create epic, BRD, BRS, risk analysis, stakeholder analysis, problem statement, бизнес-анализ
 tools: Read, Write, Edit, Grep, Glob, Skill
 model: opus
 skills:
