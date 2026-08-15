@@ -2,9 +2,11 @@
 // Дословная половина инвариантов набора. Смысловую он не закрывает - она судится чтением
 // финального текста: вердикт здесь вход сверки, не приговор.
 //
-//   node grade.mjs <корень рабочего дерева прогона>
+//   node grade.mjs <корень рабочего дерева прогона> [O-01 O-05 ...]
 //
 // Дерево: <корень>/c01/<файл>, ... Исходники берутся из inputs/ рядом с этим скриптом.
+// Без перечня идут все кейсы; перечень нужен частичному прогону (правка одного правила
+// скилла: покрывающие кейсы плюс O-08 - `.claude/rules/plugin-changes.md`).
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -46,9 +48,11 @@ const CASES = [
   },
   {
     id: 'O-05', out: 'c05/pg-slow-query.md', src: 'in-03-description.md',
-    mines: ['Активируется при', 'PostgreSQL', 'ANALYZE', 'Index Scan'],
-    cut: ['Я помогу тебе', 'когда ты видишь', 'high shared_blks_read',
-          'hash join spills to disk', 'nested loop на большой выборке'],
+    // Темы без ловушки в теле - мины, а не рез: с 1.6.0 снятие аспекта молча запрещено.
+    mines: ['Активируется при', 'PostgreSQL', 'ANALYZE', 'Index Scan',
+            'high shared_blks_read', 'hash join spills to disk', 'nested loop'],
+    cut: ['Я помогу тебе', 'когда ты видишь'],
+    note: 'расхождение поля с телом судится чтением: вынесено ли строкой в отчёт с обеими развилками',
   },
   {
     id: 'O-06', out: 'c06/migration-writer.md', src: 'in-04b-migration-agent.md',
@@ -68,8 +72,15 @@ const CASES = [
   },
 ];
 
+const only = process.argv.slice(3);
+const RUN = only.length ? CASES.filter((c) => only.includes(c.id)) : CASES;
+if (only.length && RUN.length !== only.length) {
+  console.error(`неизвестный кейс: ${only.filter((id) => !CASES.some((c) => c.id === id)).join(' ')}`);
+  process.exit(2);
+}
+
 let failures = 0;
-for (const c of CASES) {
+for (const c of RUN) {
   const after = readFileSync(join(ROOT, c.out), 'utf8');
   const before = readFileSync(join(HERE, 'inputs', c.src), 'utf8');
   const flat = norm(after);
@@ -87,4 +98,4 @@ for (const c of CASES) {
   if (zero) console.log('         дельта тела = 0 при непустом обязательном резе');
   if (c.note) console.log(`         (${c.note})`);
 }
-console.log(`\nДословная половина: ${CASES.length - failures}/${CASES.length}. Смысловая - чтением выходов.`);
+console.log(`\nДословная половина: ${RUN.length - failures}/${RUN.length}. Смысловая - чтением выходов.`);
