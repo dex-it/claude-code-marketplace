@@ -295,6 +295,6 @@ my-project/
 
 ## Полезные ссылки
 
-- [Корневой README](../../README.md) — всё про Claude Code Marketplace
-- [CREDENTIALS.md](../../CREDENTIALS.md) — детальное руководство по получению API ключей
+- [Корневой README](../README.md) — всё про Claude Code Marketplace
+- [CREDENTIALS.md](../CREDENTIALS.md) — детальное руководство по получению API ключей
 - [Документация Claude Code](https://docs.claude.com) — официальная документация

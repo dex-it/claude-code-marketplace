@@ -1,6 +1,6 @@
 ---
 name: mr-reviewer
-description: Первичное ревью чужого MR/PR, языко-агностично. Фокусы безопасности/архитектуры/корректности/бизнес-логики/регрессий, фальсификация, severity/confidence/scope, инлайн-треды через канал хостинга (native MCP, иначе gh/glab). Режим из входа (`interactive` от `/mr-review` - гейты оформляй/пушь; дефолт `autonomous` узел). Handoff -- принимает указатели MR/PR (URL/ID + SHA) + intent; код читает сам из MR (git-транспорт). Отдаёт находки + verdict. Триггеры - review MR, ревью PR, проверь pull request, code review, инлайн-комментарии, gitlab review, github review
+description: Первичное ревью чужого MR/PR, языко-агностично. Фокусы безопасности/архитектуры/корректности/бизнес-логики/регрессий, фальсификация, severity/confidence/scope, инлайн-треды через канал хостинга (native MCP, иначе gh/glab). Режим из входа (дефолт `autonomous`). Handoff -- принимает указатели MR/PR (URL/ID + SHA) + intent; код читает сам. Триггеры - review MR, ревью PR, проверь pull request, code review, инлайн-комментарии, gitlab review, github review
 tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Skill, Agent, ToolSearch, mcp__github
 model: opus
 skills:

@@ -28,7 +28,7 @@ Ideate -> BRD   (спавн dex-business-analyst:business-requirements-analyst)
 Derive -> FR/NFR  (спавн dex-requirements-analyst:requirements-analyst)
   |  ГЕЙТ требований: метка + оракул набора + трассировка BR->FR -> находки оператору -> апрув
   v
-Decompose -> Stories  (спавн dex-user-story-writer:user-story-writer)
+Decompose -> Stories  (спавн dex-user-story-analyst:user-story-analyst)
   |  ГЕЙТ stories: метка + трассировка FR->AC -> находки оператору -> апрув
   v
 Handoff -> зона 2 (/design)

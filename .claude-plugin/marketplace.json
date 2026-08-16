@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "5.39.0",
+  "version": "5.46.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -565,8 +565,8 @@
     {
       "name": "dex-skill-nfr",
       "source": "./plugins/skills/dex-skill-nfr",
-      "description": "Non-functional requirements traps: numeric NFRs, SLA/SLO/SLI, p99 latency, security NFR (data classification, authorization model, secrets management, audit log, IDOR, multi-tenant)",
-      "version": "1.0.0",
+      "description": "NFR как единица требований и как архитектурное ограничение: своя ветка разбора от BR и среды, чеклист характеристик качества, источник числа и запись решения, метод и условия замера, продуктовый уровень против фичи; плюс ловушки чисел, SLA/SLO/SLI и security NFR.",
+      "version": "1.1.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -746,8 +746,8 @@
     {
       "name": "dex-skill-user-stories",
       "source": "./plugins/skills/dex-skill-user-stories",
-      "description": "User stories: format, acceptance criteria, Given-When-Then, INVEST",
-      "version": "1.1.0",
+      "description": "User story writing: format, INVEST, acceptance criteria, Given-When-Then; место истории в конвейере требований - критерии рождаются при нарезке, метка правила у каждого критерия, полнота с двух сторон, мера NFR ссылкой на ID.",
+      "version": "1.2.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -1199,7 +1199,7 @@
       "name": "dex-architect",
       "source": "./plugins/specialists/architecture/dex-architect",
       "description": "Interactive system design architect: интервью, capacity, reference architectures (feed/chat/payment), deep dive, implementation plan. Стек-нейтральный",
-      "version": "3.1.1",
+      "version": "3.2.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1217,7 +1217,7 @@
       "name": "dex-architect-dotnet",
       "source": "./plugins/specialists/architecture/dex-architect-dotnet",
       "description": "Interactive architect for .NET: интервью, capacity, reference architectures, deep dive под ASP.NET Core / EF Core / MassTransit / Polly",
-      "version": "2.1.1",
+      "version": "2.2.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1234,7 +1234,7 @@
       "name": "dex-adr-writer",
       "source": "./plugins/specialists/architecture/dex-adr-writer",
       "description": "ADR writer: Architecture Decision Records, MADR format, decision drivers, trade-offs",
-      "version": "3.3.2",
+      "version": "3.4.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1263,7 +1263,7 @@
       "name": "dex-api-designer",
       "source": "./plugins/specialists/architecture/dex-api-designer",
       "description": "API designer: REST, GraphQL, gRPC, OpenAPI, AsyncAPI, versioning, contract-first design",
-      "version": "3.1.2",
+      "version": "3.2.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1293,7 +1293,7 @@
       "name": "dex-design-reviewer",
       "source": "./plugins/specialists/architecture/dex-design-reviewer",
       "description": "Ревью и согласование чужого дизайн-документа (спека, ADR, диаграммы) до написания кода: полнота NFR, дефекты требований, качество ADR-решений, консистентность и слои, полнота и непротиворечивость набора артефактов работы, фальсификация находок, severity. Не архитектура реализованного кода - её ревьюит /review-arch.",
-      "version": "2.2.2",
+      "version": "2.5.1",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1310,7 +1310,7 @@
       "name": "dex-business-analyst",
       "source": "./plugins/specialists/product/dex-business-analyst",
       "description": "Business analyst: business requirements BR-NNN with MOE, BRD",
-      "version": "5.0.1",
+      "version": "5.11.2",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1361,8 +1361,8 @@
     {
       "name": "dex-requirements-analyst",
       "source": "./plugins/specialists/product/dex-requirements-analyst",
-      "description": "Requirements analyst: system-level FR/NFR derived from BR, gaps, conflicts",
-      "version": "3.0.1",
+      "description": "Requirements analyst: FR from UC steps and extensions, NFR from BR and environment, verification method",
+      "version": "4.10.2",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1372,10 +1372,10 @@
       ]
     },
     {
-      "name": "dex-user-story-writer",
-      "source": "./plugins/specialists/product/dex-user-story-writer",
-      "description": "User story writer: stories, acceptance criteria, Given-When-Then",
-      "version": "3.0.2",
+      "name": "dex-user-story-analyst",
+      "source": "./plugins/specialists/product/dex-user-story-analyst",
+      "description": "User story analyst: stories, acceptance criteria, Given-When-Then",
+      "version": "5.0.1",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1384,10 +1384,36 @@
       ]
     },
     {
+      "name": "dex-usecase-analyst",
+      "source": "./plugins/specialists/product/dex-usecase-analyst",
+      "description": "Usecase analyst: разбор BR в сценарии UC - актор и его цель, предусловия, основной ход, расширения с исходом у каждой ветки",
+      "version": "2.1.2",
+      "category": "specialist",
+      "keywords": [
+        "specialist",
+        "requirements",
+        "use-case",
+        "scenario"
+      ]
+    },
+    {
+      "name": "dex-implementer-reader",
+      "source": "./plugins/specialists/review/dex-implementer-reader",
+      "description": "Implementer reader: проба готовности набора требований - список того, что пришлось бы решить самому, чтение по чистому контексту",
+      "version": "2.4.0",
+      "category": "specialist",
+      "keywords": [
+        "specialist",
+        "requirements",
+        "readiness",
+        "review"
+      ]
+    },
+    {
       "name": "dex-requirements-orchestrator",
       "source": "./plugins/specialists/product/dex-requirements-orchestrator",
-      "description": "Requirements orchestrator: idea -> BRD -> FR/NFR -> stories with quality gates and approval",
-      "version": "4.6.2",
+      "description": "Requirements orchestrator: idea -> BRD -> UC -> FR/NFR -> stories, two operator stops, readiness probe",
+      "version": "4.27.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1611,7 +1637,7 @@
       "name": "dex-bundle-product-manager",
       "source": "./plugins/bundles/dex-bundle-product-manager",
       "description": "Bundle for Product Managers: requirements, roadmap, backlog, metrics",
-      "version": "1.7.1",
+      "version": "1.12.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -1624,7 +1650,7 @@
       "name": "dex-bundle-system-analyst",
       "source": "./plugins/bundles/dex-bundle-system-analyst",
       "description": "Bundle for System Analysts: requirements, user stories, BPMN, API specs, system design feasibility",
-      "version": "1.9.0",
+      "version": "1.12.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -2058,7 +2084,7 @@
       "name": "dex-skill-stack-registry",
       "source": "./plugins/skills/dex-skill-stack-registry",
       "description": "Канонический реестр стеков и правило загрузки skills по стеку×теме для общих агентов",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2072,7 +2098,7 @@
       "name": "dex-skill-node-contract",
       "source": "./plugins/ai-sdlc/dex-skill-node-contract",
       "description": "Рантайм-контракт агента-узла - режим interactive/autonomous, реакция на неполный вход (blocking/default-ok), возврат наверх, словарь полей handoff, метка quality-checks и её носитель, транспорт артефакта, выбор канала хостинга (native/CLI), graceful degradation при недоступности skill",
-      "version": "7.1.0",
+      "version": "7.9.2",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2085,8 +2111,8 @@
     {
       "name": "dex-skill-project-docs-map",
       "source": "./plugins/ai-sdlc/dex-skill-project-docs-map",
-      "description": "Карта документации проекта - где лежат требования, ADR, спеки и техническая база; раздел путей в CLAUDE.md, поиск и запись при его отсутствии, статус при недостижимом корпусе",
-      "version": "1.1.0",
+      "description": "Карта документации проекта - где лежат требования, ADR, спеки и счётчики номеров; файл путей .docs_layout, поиск и запись при его отсутствии, статус при недостижимом корпусе",
+      "version": "2.1.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2100,7 +2126,7 @@
       "name": "dex-skill-autonomous-task",
       "source": "./plugins/ai-sdlc/dex-skill-autonomous-task",
       "description": "Движок доведения задачи или бага до конца самостоятельно (AI-SDLC-конвейер) - универсальный цикл + треки (разработка/тест-инжиниринг/ревью MR/разбор ревью своего MR/приёмка на стенде/диагностика/документирование), делегирование узлам-агентам по контракту node-contract. Порождение требований и дизайн как самостоятельная цель - интерактивные зоны /feature и /design, вне движка",
-      "version": "2.7.0",
+      "version": "2.8.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2298,7 +2324,7 @@
       "name": "dex-skill-completeness-mapping",
       "source": "./plugins/skills/dex-skill-completeness-mapping",
       "description": "Completeness-gate карты потребителей при сквозной правке: лестница из слоёв (authoritative symbol/call layer -> форма -> текст -> общий проектор) для data flow и control flow, запрет тихого пропуска до «сторона готова»",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2381,7 +2407,7 @@
       "name": "dex-skill-business-analysis",
       "source": "./plugins/skills/dex-skill-business-analysis",
       "description": "Норматив этапа бизнес-анализа (ISO/IEC/IEEE 29148 §6.2): состав Business requirements specification, разделы BRD, атрибуты бизнес-требования, мера успеха MOE, режим сбора interactive/autonomous, поиск конфликта целей, стадии готовности артефакта, вход и выход этапа",
-      "version": "3.1.0",
+      "version": "3.3.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2400,8 +2426,8 @@
     {
       "name": "dex-skill-requirement-quality",
       "source": "./plugins/skills/dex-skill-requirement-quality",
-      "description": "Дефекты требований как инженерного артефакта: противоречие пунктов, конфликт с инвариантом/ADR, неполнота (только happy path), неоднозначность без критерия, техническая невыполнимость, неадекватный уровень абстракции, несоответствие шаблону формулировки. Для ревью и для написания спецификаций.",
-      "version": "1.1.1",
+      "description": "Дефекты требований как инженерного артефакта: противоречие пунктов, конфликт с инвариантом/ADR, неполнота (только happy path), неоднозначность без критерия, отсутствие метода проверки, техническая невыполнимость, неадекватный уровень абстракции, неполная форма формулировки. Для ревью и для написания спецификаций.",
+      "version": "1.3.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2419,8 +2445,8 @@
     {
       "name": "dex-skill-requirement-set-quality",
       "source": "./plugins/skills/dex-skill-requirement-set-quality",
-      "description": "Дефекты НАБОРА требований как целого (ISO/IEC/IEEE 29148 §5.2.6): неполнота против источника, нерезрешённые TBD/TBS/TBR, осиротевшее требование, дубли и перекрытия, разъехавшийся термин и единицы измерения, совокупная невыполнимость, непонятность набора, отсутствие способа валидации. Для гейтов оркестратора и ревью набора; единицу требования судит requirement-quality.",
-      "version": "1.4.0",
+      "description": "Дефекты НАБОРА требований как целого (ISO/IEC/IEEE 29148 §5.2.6): неполнота против источника, нерезрешённые TBD/TBS/TBR, осиротевшее требование, дубли и перекрытия, разъехавшийся термин и единицы измерения, расхождение с принятым вне набора, совокупная невыполнимость, непонятность набора, отсутствие способа валидации, неготовность к разработке. Для гейтов оркестратора и ревью набора; единицу требования судит requirement-quality.",
+      "version": "1.6.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2433,6 +2459,101 @@
         "validation",
         "scope",
         "requirement-defect"
+      ]
+    },
+    {
+      "name": "dex-skill-decision-log",
+      "source": "./plugins/skills/dex-skill-decision-log",
+      "description": "Реестр решений конвейера требований: что в него попадает, как требование ссылается на запись, чем он отличается от меток проверок и служебного состояния прогона, что делать при утрате. Общая механика журнала решений - node-contract; здесь специфика требований: связь записи с единицей, дельта-правка, поднятие оснований заново.",
+      "version": "1.5.2",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "requirements",
+        "decision-log",
+        "rationale",
+        "assumptions",
+        "open-items",
+        "traceability",
+        "revision",
+        "delta-run",
+        "audit-trail"
+      ]
+    },
+    {
+      "name": "dex-skill-use-cases",
+      "source": "./plugins/skills/dex-skill-use-cases",
+      "description": "Сценарий UC как единица требований: актор и его цель, основной ход, расширения с исходом у каждого, предусловия и терминал. Что в сценарий не пишется (правила, числа, экраны) и почему расширение без исхода - самый дорогой дефект конвейера требований.",
+      "version": "1.0.1",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "requirements",
+        "use-case",
+        "scenario",
+        "actor",
+        "extensions",
+        "main-flow",
+        "preconditions",
+        "terminal",
+        "pipeline"
+      ]
+    },
+    {
+      "name": "dex-skill-functional-requirements",
+      "source": "./plugins/skills/dex-skill-functional-requirements",
+      "description": "Правило FR как единица требований: три части формы (случай, субъект, наблюдаемый результат), вывод из шагов и расширений сценария, обязательный метод верификации, граница с мерой NFR по способу проверки, одно правило на единицу.",
+      "version": "1.1.1",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "requirements",
+        "functional-requirements",
+        "rule",
+        "verification-method",
+        "srs",
+        "traceability",
+        "nfr-boundary",
+        "derivation",
+        "pipeline"
+      ]
+    },
+    {
+      "name": "dex-skill-unit-identity",
+      "source": "./plugins/skills/dex-skill-unit-identity",
+      "description": "Тождество единицы требований: чем ключ отличается от формулировки, как выдаются номера (старший разряд из номера фичи, младший по корпусу), когда пришедшее - правка принятой единицы, а когда новая, что делать с дублем и снятием.",
+      "version": "2.1.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "requirements",
+        "identity",
+        "numbering",
+        "deduplication",
+        "traceability",
+        "amendment",
+        "retirement",
+        "feature-block",
+        "pipeline"
+      ]
+    },
+    {
+      "name": "dex-skill-artifact-naming",
+      "source": "./plugins/skills/dex-skill-artifact-naming",
+      "description": "Конвенция имени и подпапки для артефактов конвейера требований: дефолтное дерево фичи для пустого места, границы применения конвенции (занятый корпус диктует раскладку сам), разрешение пути сквозным полем, что не должно попадать в имя файла.",
+      "version": "1.0.1",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "requirements",
+        "naming",
+        "layout",
+        "artifact-path",
+        "docs-structure",
+        "feature-folder",
+        "slug",
+        "conventions",
+        "pipeline"
       ]
     },
     {
@@ -2496,7 +2617,7 @@
       "name": "dex-skill-optimize-for-llm",
       "source": "./plugins/skills/dex-skill-optimize-for-llm",
       "description": "Переписать инструкцию (CLAUDE.md, agent, SKILL.md, команду, prompt) для модели кратко и однозначно: срезать воду и дубли, оставить механизм/условие/исход, сохранить нормативную силу и грабли, выстроить информационную архитектуру и поле срабатывания. Активируется при оптимизируй под LLM, оптимизируй промпт, перепиши под модель, убери воду из инструкции, убери дубли, сократи CLAUDE.md / агента / skill, сделай однозначной, закрой лазейки, напиши description, пересмотри инструкцию, причеши промпт.",
-      "version": "1.3.2",
+      "version": "1.6.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2653,7 +2774,7 @@
       "name": "dex-dotnet-runtime-diagnostician",
       "source": "./plugins/specialists/dotnet/dex-dotnet-runtime-diagnostician",
       "description": "Runtime-диагностика .NET и native-симптомов: hang, crash, leak, slowdown, post-mortem через netcoredbg, gdb/lldb, perf, bpftrace, dotnet-dump",
-      "version": "2.1.1",
+      "version": "2.1.3",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2702,7 +2823,7 @@
       "name": "dex-requirements-reviewer",
       "source": "./plugins/specialists/review/dex-requirements-reviewer",
       "description": "Ревью и согласование чужого готового набора требований (BRD/stories) как документа: дефекты единицы и дефекты набора против источника, фальсификация находок, severity, правки автору без мутации документа.",
-      "version": "1.6.2",
+      "version": "1.11.1",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2719,7 +2840,7 @@
       "name": "dex-mr-reviewer",
       "source": "./plugins/specialists/review/dex-mr-reviewer",
       "description": "Языко-агностичное первичное ревью чужого MR/PR: карта изменений, параллельные фокусы, фальсификация находок, severity/confidence/scope, доставка инлайн-тредами через канал хостинга (native MCP, иначе gh/glab).",
-      "version": "1.14.2",
+      "version": "1.14.4",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2736,7 +2857,7 @@
       "name": "dex-mr-check-reviewer",
       "source": "./plugins/specialists/review/dex-mr-check-reviewer",
       "description": "Ре-ревью дельты MR/PR после правок автора: range-diff дельты, статус прежних находок, новые находки только в дельте, обновление существующих тредов и публикация новых.",
-      "version": "1.13.2",
+      "version": "1.13.4",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2770,7 +2891,7 @@
       "name": "dex-review-planner",
       "source": "./plugins/specialists/delivery/dex-review-planner",
       "description": "План правок по комментариям ревью без редактирования кода: сбор тредов и коммитов, классификация замечаний, верификация чтением кода, план P0..P3 с blast radius, черновики ответов в треды.",
-      "version": "1.8.2",
+      "version": "1.8.3",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2835,7 +2956,7 @@
       "name": "dex-security-reviewer",
       "source": "./plugins/specialists/delivery/dex-security-reviewer",
       "description": "Language-agnostic deep security analysis: threat model (actors/trust boundaries/assets), OWASP attack paths, exploit chains, severity by chain exploitability. Stack-conditional skill loading.",
-      "version": "1.7.0",
+      "version": "1.7.1",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2883,7 +3004,7 @@
       "name": "dex-conflict-resolver",
       "source": "./plugins/specialists/delivery/dex-conflict-resolver",
       "description": "Подтягивание базовой ветки в фича-ветку и разрешение конфликтов merge/rebase без тихой потери стороны: превью без записи, карта по типам, охота за тихими конфликтами, сведение обоих намерений, фальсификация и финал без push.",
-      "version": "1.2.1",
+      "version": "1.3.1",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2929,7 +3050,7 @@
       "name": "dex-bundle-sdlc",
       "source": "./plugins/bundles/dex-bundle-sdlc",
       "description": "Bundle полного цикла SDLC, языко-агностично: движок автономного доведения задачи, порождение и ревью требований, архитектурный дизайн и ADR, реализация фичи, тест-инжиниринг, ревью MR и разбор замечаний, приёмка на стенде, поиск багов и расследование инцидентов, документирование, плюс skills дисциплины и CLI трекера, MR-хостинга, CI и стенда.",
-      "version": "1.2.0",
+      "version": "1.5.0",
       "category": "bundle",
       "keywords": [
         "bundle",
