@@ -69,7 +69,7 @@ description: Ключевые слова для автоматической а�
 
 | Путь | Работает | Механизм |
 | ---- | -------- | -------- |
-| command -> skill | ✓ | `Skill` в `allowed-tools` команды, вызов в теле |
+| command -> skill | ✓ | `Skill` в `allowed-tools` команды, вызов в теле. По дизайну - только команда-вход в process-skill оркестрации (`/implement`), в остальных случаях skill-проверки в команде = сигнал агента; три условия исключения - [COMMAND_FRAMEWORK.md](docs/COMMAND_FRAMEWORK.md) |
 | agent -> skill | ✓ | условный: `Skill` tool в frontmatter, императивный вызов в фазе (`{plugin}:{skill}`). Безусловный process-skill: pre-load через `skills:` во frontmatter |
 | agent -> agent | ✓ | `Agent` tool - спавн субагента. Глубина рекурсии не задокументирована |
 | skill -> skill | ✗ | API нет. Ссылка `см. dex-skill-X` в теле SKILL.md - только сноска для человека |
