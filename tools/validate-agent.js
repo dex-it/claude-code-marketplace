@@ -141,6 +141,7 @@ const FORBIDDEN_FRONTMATTER_FIELDS = ['allowed-tools'];
 const ALLOWED_PRELOAD_SKILLS = new Map([
   ['node-contract', null],
   ['business-analysis', new Set(['business-requirements-analyst'])],
+  ['branch-closure', new Set(['branch-closer'])],
 ]);
 
 /**
