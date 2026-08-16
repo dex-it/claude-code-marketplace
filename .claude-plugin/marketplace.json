@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "5.46.0",
+  "version": "5.47.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -1413,7 +1413,7 @@
       "name": "dex-requirements-orchestrator",
       "source": "./plugins/specialists/product/dex-requirements-orchestrator",
       "description": "Requirements orchestrator: idea -> BRD -> UC -> FR/NFR -> stories, two operator stops, readiness probe",
-      "version": "4.27.0",
+      "version": "4.28.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2125,8 +2125,8 @@
     {
       "name": "dex-skill-autonomous-task",
       "source": "./plugins/ai-sdlc/dex-skill-autonomous-task",
-      "description": "Движок доведения задачи или бага до конца самостоятельно (AI-SDLC-конвейер) - универсальный цикл + треки (разработка/тест-инжиниринг/ревью MR/разбор ревью своего MR/приёмка на стенде/диагностика/документирование), делегирование узлам-агентам по контракту node-contract. Порождение требований и дизайн как самостоятельная цель - интерактивные зоны /feature и /design, вне движка",
-      "version": "2.8.0",
+      "description": "Движок доведения задачи или бага до конца (AI-SDLC-конвейер) - режимы autonomous и interactive, универсальный цикл + треки (разработка/тест-инжиниринг/ревью MR/разбор ревью своего MR/приёмка на стенде/диагностика/документирование), вход командой /implement, делегирование узлам-агентам по контракту node-contract. Порождение требований и дизайн как самостоятельная цель - интерактивные зоны /feature и /design, вне движка",
+      "version": "3.0.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2771,6 +2771,21 @@
       ]
     },
     {
+      "name": "dex-skill-branch-closure",
+      "source": "./plugins/skills/dex-skill-branch-closure",
+      "description": "Закрытие разработки в ветке - порядок шагов от подтягивания базы до открытого MR и сведённого трекера, граница push и merge, источник содержания описания MR, статус для отсутствующего в проекте шага",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "branch-closure",
+        "merge-request",
+        "git",
+        "delivery",
+        "process"
+      ]
+    },
+    {
       "name": "dex-dotnet-runtime-diagnostician",
       "source": "./plugins/specialists/dotnet/dex-dotnet-runtime-diagnostician",
       "description": "Runtime-диагностика .NET и native-симптомов: hang, crash, leak, slowdown, post-mortem через netcoredbg, gdb/lldb, perf, bpftrace, dotnet-dump",
@@ -2924,8 +2939,8 @@
     {
       "name": "dex-feature-implementer",
       "source": "./plugins/specialists/delivery/dex-feature-implementer",
-      "description": "Реализация фичи по ТЗ до локальных коммитов без push, языко-агностично. Декомпозиция в R/I-требования и success criteria, инвентаризация через суб-агентов, дизайн контрактов и ошибок, edit-план P1..Pn, пошаговая правка с локальной верификацией, тесты инлайн по TDD (дефолт red-green-refactor) с контролем branch coverage по diff-scope. Триггеры - реализуй фичу, implement feature, по спецификации, написать код по задаче, сделай фичу, разработать функционал, по ТЗ, TDD, тесты, покрытие",
-      "version": "1.8.1",
+      "description": "Реализация фичи по ТЗ до локальных коммитов без push, языко-агностично - узел слота «Код» для стеков без своего кодера. Сверка пришедших R/I или разложение ТЗ, чтение корпуса требований и дизайна с диска, инвентаризация через суб-агентов, дизайн контрактов и ошибок, edit-план P1..Pn, пошаговая правка с локальной верификацией, тесты инлайн по TDD (дефолт red-green-refactor) с контролем branch coverage по diff-scope, факт-чек незнакомых API по официальной доке. Триггеры - реализуй фичу, implement feature, по спецификации, написать код по задаче, сделай фичу, разработать функционал, по ТЗ, TDD, тесты, покрытие",
+      "version": "2.0.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -3017,10 +3032,25 @@
       ]
     },
     {
+      "name": "dex-branch-closer",
+      "source": "./plugins/specialists/delivery/dex-branch-closer",
+      "description": "Закрытие разработки в ветке до открытого MR, языко-агностично: подтянуть базу, прогон на слитом состоянии, коммиты по конвенции, push, MR с описанием из носителя состояния, трекер. Merge и всё после апрува - вне границы. Триггеры - закрыть ветку, сдать ветку, оформить MR, открыть pull request, довести до MR, финализировать разработку",
+      "version": "1.0.0",
+      "category": "specialist",
+      "keywords": [
+        "specialist",
+        "delivery",
+        "branch-closure",
+        "merge-request",
+        "git",
+        "operator"
+      ]
+    },
+    {
       "name": "dex-bundle-code-review",
       "source": "./plugins/bundles/dex-bundle-code-review",
       "description": "Bundle цикла работы с кодом: языко-агностичное ревью MR/PR, ре-ревью дельты, план правок, реализация фичи, интеграция базовой ветки с разрешением конфликтов, pre-push саморевью, приёмка слитой фичи на стенде и ремедиация найденного, расследование инцидента (RCA на стенде), плюс skills дисциплины ревью.",
-      "version": "1.16.0",
+      "version": "1.17.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -3035,7 +3065,7 @@
       "name": "dex-bundle-bug-lifecycle",
       "source": "./plugins/bundles/dex-bundle-bug-lifecycle",
       "description": "Bundle жизненного цикла бага: активный поиск, оформление, расследование корневой причины на общем стенде и фикс на источнике, плюс skills методологии RCA и поиска багов и CLI для чтения стенда и трекера.",
-      "version": "1.11.0",
+      "version": "1.12.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -3050,7 +3080,7 @@
       "name": "dex-bundle-sdlc",
       "source": "./plugins/bundles/dex-bundle-sdlc",
       "description": "Bundle полного цикла SDLC, языко-агностично: движок автономного доведения задачи, порождение и ревью требований, архитектурный дизайн и ADR, реализация фичи, тест-инжиниринг, ревью MR и разбор замечаний, приёмка на стенде, поиск багов и расследование инцидентов, документирование, плюс skills дисциплины и CLI трекера, MR-хостинга, CI и стенда.",
-      "version": "1.5.0",
+      "version": "1.6.0",
       "category": "bundle",
       "keywords": [
         "bundle",
