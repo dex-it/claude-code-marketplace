@@ -125,10 +125,15 @@ if (only.length && RUN.length !== only.length) {
 // реза, которого во входе нет, не срабатывает никогда, а мина, объявленная не в той половине
 // или чаще, чем встречается, недостижима. Такой кейс даёт зелёный исход, ничего не проверив.
 const src = new Map(CASES.map((c) => [c.src, readFileSync(join(HERE, 'inputs', c.src), 'utf8')]));
+// Половины, в которых во входе живёт обязательный рез. Место здесь нужно по той же причине, что
+// и у мины: «резать нечего» ловится нулевой дельтой, а нулевой она бывает у той половины, где
+// резать и не просили. Весь обязательный рез O-05 стоит в `description`, тело он не трогает.
+const cutWhere = new Map();
 const broken = [];
 for (const c of RUN) {
   const s = src.get(c.src);
   const scope = { all: norm(s), front: norm(front(s)), body: norm(body(s)) };
+  cutWhere.set(c.id, ['front', 'body'].filter((h) => c.cut.some((m) => cutHas(scope[h], m))));
   for (const raw of c.mines) {
     const m = mine(raw);
     const { t, where = 'all', n, near } = m;
@@ -178,14 +183,15 @@ for (const c of RUN) {
     else if (near && !forms(m).some((f) => nearOk(hay, f, norm(near)))) lost.push(`${t}${place}: рядом нет «${near}»`);
   }
   const kept = c.cut.filter((m) => cutHas(flat, m));
-  const zero = c.cut.length > 0 && dBody === 0;
-  const bad = lost.length || kept.length || zero;
+  const half = { front: ['поля', dFront], body: ['тела', dBody] };
+  const zero = cutWhere.get(c.id).filter((h) => half[h][1] === 0).map((h) => half[h][0]);
+  const bad = lost.length || kept.length || zero.length;
   if (bad) failures++;
   const sign = (n) => (n >= 0 ? `+${n}` : `${n}`);
   console.log(`${bad ? 'ПРОВАЛ' : 'ok    '} ${c.id}  тело ${sign(dBody)} б, поле ${sign(dFront)} б`);
   if (lost.length) console.log(`         мина не найдена: ${lost.join(' | ')}`);
   if (kept.length) console.log(`         рез не сделан: ${kept.join(' | ')}`);
-  if (zero) console.log('         дельта тела = 0 при непустом обязательном резе');
+  for (const h of zero) console.log(`         дельта ${h} = 0 при непустом обязательном резе в этой половине`);
   if (c.note) console.log(`         (${c.note})`);
 }
 console.log(`\nДословная половина: ${RUN.length - failures}/${RUN.length}. Смысловая - чтением выходов.`);
