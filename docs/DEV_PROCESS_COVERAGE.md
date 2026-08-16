@@ -19,7 +19,7 @@
 |-------------|----------------------------|----------|
 | *(зона 1, вне движка)* **Требования** | `/feature` -> dex-requirements-orchestrator (дирижёр, гейты с апрувом) -> dex-business-analyst (BRD с `BR-NNN`) -> dex-requirements-analyst (`FR`/`NFR` из `BR`) -> dex-user-story-analyst (stories `[FR-NNN]`). Приёмка чужого набора - `/review-requirements` | BRD + набор `FR`/`NFR` + stories (место - из конвенций проекта) |
 | *(зона 2, вне движка)* **Дизайн** | `/design` -> dex-architect / dex-architect-dotnet (+ dex-api-designer, dex-adr-writer, dex-diagram-creator). Приёмка чужого дизайн-документа - `/review-design` | дизайн-док + ADR + диаграммы |
-| **Разработка** (фича / баг-фикс / рефакторинг) | детальная слот-карта ниже | MR/коммиты |
+| *(зона 3)* **Разработка** (фича / баг-фикс / рефакторинг) | `/implement` - вход в движок (`interactive` - остановки на плане и саморевью, `autonomous` - без них) -> детальная слот-карта ниже; ручная цепочка тех же узлов - `/implement` -> `/self-review` -> `/develop-finish` | MR/коммиты |
 | **Ревью входящего MR** | dex-mr-reviewer -> dex-mr-check-reviewer | inline-треды |
 | **Обработка ревью своего MR** (возвратная петля до мерджа) | dex-review-planner -> исполнители правок (по слот-карте «Разработки») -> dex-mr-check-reviewer | коммиты в свой MR + ответы в тредах |
 | **Приёмка слитой фичи на стенде** (post-merge) | dex-stand-reviewer -> dex-bug-fixer | отчёт-приёмка + follow-up MR |
@@ -98,13 +98,13 @@ diff) имеют свой вход и своё «готово», поэтому 
 | └ диаграмма | если нужна C4/sequence | - | - | dex-diagram-creator |
 | └ публичный API | если проектируется контракт | - | - | dex-api-designer |
 | **TDD-тесты** | тесты ожидаемого поведения до кода | dex-dotnet-tester | dex-ts-tester | - (идиоматично, fallback слабый) |
-| **Код** | реализация в стиле окружения | dex-dotnet-coder | dex-ts-fullstack-coder | - |
+| **Код** | реализация в стиле окружения | dex-dotnet-coder | dex-ts-fullstack-coder | dex-feature-implementer⁸ |
 | **Прогон + саморевью** | build/test/lint зелены + ревью своего кода (вкл. арх) | self-reviewer² | self-reviewer² | self-reviewer |
 | **Security** | отдельный обязательный security-проход | dex-security-reviewer³ | dex-security-reviewer³ | dex-security-reviewer |
 | **Debug** | root-cause бага по коду (при красном прогоне) | dex-debugger⁴ | dex-debugger⁴ | dex-debugger |
 | **Perf** | оптимизация (N+1, alloc, hot path) - по нужде | dex-dotnet-performance | - ⁵ | - |
 | **Интеграция с базой** | подтянуть уехавшую базовую ветку, разрешить конфликты без тихой потери стороны | - | - | dex-conflict-resolver⁶ |
-| **Сдача** | коммит/MR по конвенции, трекер | - | - | сам (git) |
+| **Сдача** | база подтянута, прогон на слитом состоянии, коммиты, push, MR, трекер | - | - | dex-branch-closer⁹ |
 
 ### Сноски
 
@@ -133,6 +133,14 @@ diff) имеют свой вход и своё «готово», поэтому 
 7. **Brownfield-вход**: код без постановки нельзя покрыть тестами напрямую - тест зеркалит
    реализацию и цементирует её баги. `dex-skill-legacy-reconstruction` восстанавливает оракул
    из legacy-кода до TDD-слота.
+8. **Общий fallback слота «Код»** - `dex-feature-implementer` (языко-агностичный): узел для
+   стеков, у которых своего кодера в каталоге нет. Заканчивается на локальных коммитах - push,
+   саморевью перед пушем и MR лежат в слотах «Прогон + саморевью» и «Сдача».
+9. **Сдача - узел, а не ручной git**: `dex-branch-closer` (команда `/develop-finish`) ведёт
+   закрытие ветки до **открытого MR** - подтянуть базу, прогон на слитом состоянии, коммиты,
+   push, MR с описанием из носителя состояния, трекер. Merge, ожидание апрува и обработка
+   пришедшего ревью - вне его границы (пришедшее ревью - трек «Обработка ревью своего MR»).
+   Интеграцию базы он делегирует `dex-conflict-resolver` - это тот же слот выше, не второй.
 
 > **Принцип загрузки skills общими агентами** - by-stack loading: стек по манифесту ->
 > фильтр available-skills по префиксу `dex-skill-<стек>-*` через реестр

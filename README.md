@@ -98,9 +98,10 @@ claude plugins uninstall dex-dotnet-coder
 | dex-mr-reviewer | mr-reviewer | `/mr-review` | Первичное ревью чужого MR/PR, инлайн-треды через gh/glab |
 | dex-mr-check-reviewer | mr-check-reviewer | `/mr-check-review` | Ре-ревью дельты с прошлого раунда (range-diff) |
 | dex-review-planner | review-planner | `/review-plan` | План правок по ревью без редактирования кода |
-| dex-feature-implementer | feature-implementer | `/implement` | Реализация фичи по ТЗ до локальных коммитов |
+| dex-feature-implementer | feature-implementer | - | Узел слота «Код» для стеков без своего кодера: реализация по ТЗ до локальных коммитов |
 | dex-self-reviewer | self-reviewer | `/self-review` | Pre-push саморевью своей ветки с прогоном тестов |
 | dex-conflict-resolver | conflict-resolver | `/resolve-conflicts` | Подтянуть базу в фича-ветку и развести конфликты merge/rebase без тихой потери стороны |
+| dex-branch-closer | branch-closer | `/develop-finish` | Закрытие разработки в ветке до открытого MR: база, прогон на слитом состоянии, коммиты, push, MR, трекер |
 | dex-incident-investigator | incident-investigator | `/investigate` | Расследование инцидента на общем стенде, RCA и фикс на источнике, read-only по умолчанию |
 
 Ставятся набором: `dex-bundle-code-review`. Стек определяется по манифестам, релевантные skills (включая .NET и TypeScript) грузятся условно.
@@ -197,7 +198,7 @@ claude plugins uninstall dex-dotnet-coder
 | **.NET** | dotnet-patterns, ef-core, async-patterns, linq-optimization, api-development, api-documentation, testing-patterns |
 | **Frontend & TypeScript** | react, ts-patterns, ts-nodejs-api, ts-vitest-jest |
 | **Security** | owasp-security |
-| **Workflow** | git-workflow, merge-conflict-resolution |
+| **Workflow** | git-workflow, merge-conflict-resolution, branch-closure |
 | **Infrastructure** | rabbitmq, kafka, elasticsearch, redis, mongodb, docker, kubernetes, gitlab-ci, github-actions, jenkins, teamcity, logging, observability |
 | **Architecture** | clean-architecture, ddd, microservices, system-design, legacy-reconstruction, design-quality |
 | **Product & Analysis** | agile, user-stories, bpmn, doc-standards, adr-quality, requirement-quality, requirement-set-quality, api-specification, epic-planning, product-discovery, prioritization |
