@@ -5,7 +5,7 @@
 ## Конвейер
 
 - Движок: `dex-skill-autonomous-task` ведёт цель до конца сам и делегирует узлам-агентам по контракту `dex-skill-node-contract`. Треки - разработка, тест-инжиниринг, ревью MR, разбор ревью своего MR, приёмка на стенде, диагностика, документирование. Хук `dex-autonomous-task-resume` возвращает движок в процедуру возобновления после компакта контекста
-- Требования: `dex-requirements-orchestrator` (`/feature`) ведёт идею через BRD (`dex-business-analyst`) и stories (`dex-user-story-writer`) с гейтами качества; `dex-requirements-analyst` детализирует под инкремент, `dex-requirements-reviewer` (`/review-requirements`) судит готовый набор
+- Требования: `dex-requirements-orchestrator` (`/feature`) ведёт идею через BRD (`dex-business-analyst`) и stories (`dex-user-story-analyst`) с гейтами качества; `dex-requirements-analyst` детализирует под инкремент, `dex-requirements-reviewer` (`/review-requirements`) судит готовый набор
 - Дизайн: `dex-architect` (`/design`) проектирует по бизнес-задаче, `dex-adr-writer` (`/adr`) фиксирует решение, `dex-api-designer` - контракт, `dex-diagram-creator` - диаграммы, `dex-design-reviewer` (`/review-design`) согласует чужой дизайн до кода
 - Реализация: `dex-feature-implementer` (`/implement`) доводит фичу по ТЗ до локальных коммитов; `dex-conflict-resolver` (`/resolve-conflicts`) подтягивает базовую ветку
 - Тесты: `dex-test-analyst` разбирает требования в тест-кейсы, `dex-test-automator` автоматизирует
@@ -18,7 +18,7 @@
 
 Движок: `dex-skill-autonomous-task`, `dex-autonomous-task-resume`, `dex-skill-node-contract`, `dex-skill-project-docs-map`.
 
-Специалисты требований и дизайна: `dex-requirements-orchestrator`, `dex-business-analyst`, `dex-requirements-analyst`, `dex-user-story-writer`, `dex-requirements-reviewer`, `dex-process-modeler`, `dex-use-case-writer`, `dex-bdd-author`, `dex-architect`, `dex-adr-writer`, `dex-api-designer`, `dex-diagram-creator`, `dex-design-reviewer`.
+Специалисты требований и дизайна: `dex-requirements-orchestrator`, `dex-business-analyst`, `dex-requirements-analyst`, `dex-user-story-analyst`, `dex-requirements-reviewer`, `dex-process-modeler`, `dex-use-case-writer`, `dex-bdd-author`, `dex-architect`, `dex-adr-writer`, `dex-api-designer`, `dex-diagram-creator`, `dex-design-reviewer`.
 
 Специалисты кода и приёмки: `dex-feature-implementer`, `dex-conflict-resolver`, `dex-self-reviewer`, `dex-mr-reviewer`, `dex-mr-check-reviewer`, `dex-review-planner`, `dex-security-reviewer`, `dex-stand-reviewer`, `dex-bug-finder`, `dex-bug-reporter`, `dex-bug-fixer`, `dex-incident-investigator`, `dex-debugger`, `dex-test-analyst`, `dex-test-automator`, `dex-doc-writer`, `dex-code-discovery`, `dex-codebase-analyzer`.
 

@@ -4,8 +4,9 @@
 стек-нейтральный; для слотов со специальными агентами показаны варианты под стек.
 
 > Назначение: при автономной или ручной разработке видно, какой профильный
-> исполнитель отвечает за каждый шаг. Подбор исполнителя - по типу работы + стеку
-> (см. [AGENT_SPECIALIZATION.md](AGENT_SPECIALIZATION.md) - общий vs специальный).
+> исполнитель отвечает за каждый шаг. Подбор исполнителя - по типу работы + стеку;
+> когда стековый агент оправдан, а когда достаточно общего с by-stack skills -
+> [CLAUDE.md](../CLAUDE.md), раздел «Имя агента».
 
 ## Треки автономного движка -> исполнители
 
@@ -16,7 +17,7 @@
 
 | Трек движка | Исполнитель (.NET / общий) | Артефакт |
 |-------------|----------------------------|----------|
-| *(зона 1, вне движка)* **Требования** | `/feature` -> dex-requirements-orchestrator (дирижёр, гейты с апрувом) -> dex-business-analyst (BRD с `BR-NNN`) -> dex-requirements-analyst (`FR`/`NFR` из `BR`) -> dex-user-story-writer (stories `[FR-NNN]`). Приёмка чужого набора - `/review-requirements` | BRD + набор `FR`/`NFR` + stories (место - из конвенций проекта) |
+| *(зона 1, вне движка)* **Требования** | `/feature` -> dex-requirements-orchestrator (дирижёр, гейты с апрувом) -> dex-business-analyst (BRD с `BR-NNN`) -> dex-requirements-analyst (`FR`/`NFR` из `BR`) -> dex-user-story-analyst (stories `[FR-NNN]`). Приёмка чужого набора - `/review-requirements` | BRD + набор `FR`/`NFR` + stories (место - из конвенций проекта) |
 | *(зона 2, вне движка)* **Дизайн** | `/design` -> dex-architect / dex-architect-dotnet (+ dex-api-designer, dex-adr-writer, dex-diagram-creator). Приёмка чужого дизайн-документа - `/review-design` | дизайн-док + ADR + диаграммы |
 | **Разработка** (фича / баг-фикс / рефакторинг) | детальная слот-карта ниже | MR/коммиты |
 | **Ревью входящего MR** | dex-mr-reviewer -> dex-mr-check-reviewer | inline-треды |
@@ -70,7 +71,7 @@ diff) имеют свой вход и своё «готово», поэтому 
 **Агенты требований - тоже не дубль: три уровня, три составителя.** `dex-business-analyst` -
 бизнес-уровень (эпик, BRD с `BR-NNN` и MOE, стейкхолдеры), `FR`/`NFR` не порождает.
 `dex-requirements-analyst` - системный уровень: выводит `FR-NNN`/`NFR-NNN` с `traced from BR-NNN`
-из BRD, тикета, брифа или кода без постановки. `dex-user-story-writer` - продуктовый оракул:
+из BRD, тикета, брифа или кода без постановки. `dex-user-story-analyst` - продуктовый оракул:
 превращает `FR`/`NFR` в stories с acceptance criteria (Given-When-Then, метки `[FR-NNN]`), код не
 читает. `dex-requirements-orchestrator` - дирижёр зоны 1: спавнит всех трёх и судит их выход на каждом
 уровне - единицу (`requirement-quality`) и НАБОР целиком (`requirement-set-quality`), - ставит
@@ -108,8 +109,8 @@ diff) имеют свой вход и своё «готово», поэтому 
 ### Сноски
 
 1. **JS/TS-архитектора нет** - JS-фичу ведёт общий `dex-architect` + условные
-   JS-skills. Специализация отложена (мало архитектурных JS-skills), см.
-   AGENT_SPECIALIZATION.md.
+   JS-skills. Специализация отложена: архитектурных JS-skills мало, и стек пока
+   не меняет тела артефакта - только набор проверок.
 2. **self-reviewer закрывает сразу три слота**: прогон (Local verification -
    реально гоняет build/test/lint), ревью кода и архитектурное ревью (фокусы:
    security/architecture/language/business/regressions/loose-ends/local-verification/non-code).

@@ -31,7 +31,7 @@ Bundle for Product Managers: business requirements, roadmap, backlog, metrics an
 - `dex-business-analyst` - Business requirements
 - `dex-requirements-analyst` - System-level requirements from business ones
 - `dex-requirements-orchestrator` - Requirements pipeline conductor (`/feature`)
-- `dex-user-story-writer` - User stories with acceptance criteria
+- `dex-user-story-analyst` - User stories with acceptance criteria
 - `dex-roadmap-planner` - Roadmap planning
 - `dex-backlog-manager` - Backlog management
 - `dex-pm-metrics-analyst` - Metrics analysis
