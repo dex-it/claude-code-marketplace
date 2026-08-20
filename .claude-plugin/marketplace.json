@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "5.46.0",
+  "version": "5.47.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -3059,6 +3059,169 @@
         "lifecycle",
         "requirements",
         "review"
+      ]
+    },
+    {
+      "name": "dex-sdlc",
+      "source": "./plugins/ai-sdlc/dex-sdlc",
+      "description": "Движок доведения цели до конца самостоятельно (AI-SDLC-конвейер) - универсальный цикл, делегирование узлам-агентам по контракту node-contract, диспетчинг по трек-скиллу зоны. Зона-агностичен: порядок работ каждой зоны живёт в своём dex-skill-<зона>-track, движок его не хранит. Входные команды /feature, /feature-check, /implement",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "sdlc",
+        "engine",
+        "ai-sdlc",
+        "orchestration",
+        "pipeline",
+        "process"
+      ]
+    },
+    {
+      "name": "dex-skill-analytics-track",
+      "source": "./plugins/ai-sdlc/dex-skill-analytics-track",
+      "description": "Трек зоны 1 (аналитика/требования) движка dex-sdlc - тема или правка -> BRD -> сценарии -> правила и меры -> истории с критериями приёмки, две остановки оператора и проба готовности набора. Полностью проработан по идиоме фаз-контракта (не заглушка)",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "analytics",
+        "requirements",
+        "track",
+        "brd",
+        "stories"
+      ]
+    },
+    {
+      "name": "dex-skill-development-track",
+      "source": "./plugins/ai-sdlc/dex-skill-development-track",
+      "description": "Трек зоны разработки движка dex-sdlc - ТЗ или тикет без спеки до серии локальных коммитов: декомпозиция R/I, инвентаризация архитектуры, дизайн с гейтом первоисточника, edit-план, фальсификация плана, TDD-цикл с coverage-гейтом. Полностью проработан по идиоме фаз-контракта (не заглушка)",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "development",
+        "track",
+        "tdd",
+        "implementation"
+      ]
+    },
+    {
+      "name": "dex-skill-architecture-track",
+      "source": "./plugins/ai-sdlc/dex-skill-architecture-track",
+      "description": "Трек архитектуры/дизайна движка dex-sdlc - указатель-заглушка, порядок фаз целиком живёт в dex-architect:architect",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "architecture",
+        "track",
+        "design"
+      ]
+    },
+    {
+      "name": "dex-skill-bugfix-track",
+      "source": "./plugins/ai-sdlc/dex-skill-bugfix-track",
+      "description": "Под-вид трека разработки движка dex-sdlc - процедура баг-фикса (воспроизведи -> red через реальный путь -> root-cause -> минимальный фикс -> green -> регресс). Заглушка, перенос без переработки под идиому фаз-контракта",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "bugfix",
+        "track",
+        "root-cause"
+      ]
+    },
+    {
+      "name": "dex-skill-followup-track",
+      "source": "./plugins/ai-sdlc/dex-skill-followup-track",
+      "description": "Трек обработки ревью своего MR движка dex-sdlc - разбор замечаний, план правок, ре-ревью дельты, потолок 5 раундов. Заглушка, перенос без переработки под идиому фаз-контракта",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "followup",
+        "track",
+        "mr-review",
+        "code-review"
+      ]
+    },
+    {
+      "name": "dex-skill-acceptance-track",
+      "source": "./plugins/ai-sdlc/dex-skill-acceptance-track",
+      "description": "Трек приёмки слитой фичи на стенде движка dex-sdlc - требование -> проба -> наблюдение -> вердикт, read-only. Заглушка, перенос без переработки под идиому фаз-контракта",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "acceptance",
+        "track",
+        "stand",
+        "qa"
+      ]
+    },
+    {
+      "name": "dex-skill-discover-track",
+      "source": "./plugins/ai-sdlc/dex-skill-discover-track",
+      "description": "Трек обзорного ревью существующего кода движка dex-sdlc - указатель-заглушка, порядок фаз целиком живёт в dex-code-discovery:discover-orchestrator",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "discover",
+        "track",
+        "audit"
+      ]
+    },
+    {
+      "name": "dex-skill-test-track",
+      "source": "./plugins/ai-sdlc/dex-skill-test-track",
+      "description": "Трек тест-инжиниринга движка dex-sdlc - матрица покрытия по осям (happy-path/негатив/краевые/все ветки). Заглушка, перенос без переработки под идиому фаз-контракта",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "test",
+        "track",
+        "coverage"
+      ]
+    },
+    {
+      "name": "dex-skill-mr-review-track",
+      "source": "./plugins/ai-sdlc/dex-skill-mr-review-track",
+      "description": "Трек ревью входящего MR движка dex-sdlc - read-only, находки с severity, фальсификация против кода. Заглушка, перенос без переработки под идиому фаз-контракта",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "mr-review",
+        "track",
+        "code-review"
+      ]
+    },
+    {
+      "name": "dex-skill-documentation-track",
+      "source": "./plugins/ai-sdlc/dex-skill-documentation-track",
+      "description": "Трек документирования движка dex-sdlc - нормативный текст, синхрон с кодом и стандартом, без LLM-маркеров. Заглушка, перенос без переработки под идиому фаз-контракта",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "documentation",
+        "track"
+      ]
+    },
+    {
+      "name": "dex-skill-diagnostics-track",
+      "source": "./plugins/ai-sdlc/dex-skill-diagnostics-track",
+      "description": "Трек диагностики инцидента движка dex-sdlc - план гипотез по срезам, фальсификация корреляции против причинности. Заглушка, перенос без переработки под идиому фаз-контракта",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "diagnostics",
+        "track",
+        "incident"
       ]
     }
   ]
