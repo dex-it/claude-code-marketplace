@@ -134,6 +134,18 @@ const PROCESS_SKILLS = new Set([
   'project-docs-map',
   'artifact-review',
   'business-analysis',
+  'engine',
+  'analytics-track',
+  'development-track',
+  'architecture-track',
+  'bugfix-track',
+  'followup-track',
+  'acceptance-track',
+  'discover-track',
+  'test-track',
+  'mr-review-track',
+  'documentation-track',
+  'diagnostics-track',
 ]);
 
 function isProcessSkill(parsed) {
