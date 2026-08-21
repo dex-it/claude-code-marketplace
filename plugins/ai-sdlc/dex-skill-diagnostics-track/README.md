@@ -1,8 +1,7 @@
 # dex-skill-diagnostics-track
 
-Заглушка - перенос без переработки. Источник:
-`plugins/ai-sdlc/dex-skill-autonomous-task/skills/autonomous-task/tracks/diagnostics.md`
-(старый движок `autonomous-task`).
+Заглушка - перенос без переработки из закрытого движка `autonomous-task` (трек
+`diagnostics.md`, см. git-историю плагина `dex-skill-autonomous-task` до его удаления).
 
 Диагностика инцидента на запущенной системе или дампе: план гипотез по срезам, фальсификация
 корреляции против причинности. Правка кода - отдельная цель, `dex-skill-bugfix-track:bugfix-track`.

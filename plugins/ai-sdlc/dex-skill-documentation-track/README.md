@@ -1,8 +1,7 @@
 # dex-skill-documentation-track
 
-Заглушка - перенос без переработки. Источник:
-`plugins/ai-sdlc/dex-skill-autonomous-task/skills/autonomous-task/tracks/documentation.md`
-(старый движок `autonomous-task`).
+Заглушка - перенос без переработки из закрытого движка `autonomous-task` (трек
+`documentation.md`, см. git-историю плагина `dex-skill-autonomous-task` до его удаления).
 
 Написание нормативного текста: факты из кода/конфигов, верификация синхроном с кодом и
 стандартом проекта, критерий по жанру (ADR/runbook/API-док).

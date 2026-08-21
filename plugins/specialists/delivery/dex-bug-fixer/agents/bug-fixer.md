@@ -133,5 +133,5 @@ skills:
 - `dex-bug-reporter` - структурированные баг-репорты как вход.
 - `dex-debugger` - один баг по коду в dev-time без стенда и follow-up; здесь же пачка внешне-найденных багов post-merge с доставкой через follow-up MR.
 - `dex-incident-investigator` - один инцидент от симптома со своей RCA на стенде; здесь баги уже найдены и подтверждены, вход - их пачка.
-- `dex-feature-implementer` - новая фича по ТЗ; здесь фикс дефектов в уже слитом коде.
+- `/implement` через `dex-sdlc` и `dex-skill-development-track` - новая фича по ТЗ; здесь фикс дефектов в уже слитом коде.
 - `dex-self-reviewer` - следующий шаг: pre-push саморевью follow-up ветки.

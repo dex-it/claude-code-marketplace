@@ -320,7 +320,7 @@ Fan-out выше - **разделение работы**. Суб-агент-**с
 | Предмет петли | Потолок | Дом нормы |
 | --- | --- | --- |
 | гейт артефакта «автор - судья» внутри зоны | 3 ревизии на артефакт | `dex-skill-node-contract:node-contract`, `references/quality-and-review.md` разд. 9 |
-| ревью своего MR внешним ревьюером | 5 раундов | `dex-skill-autonomous-task`, «Обработка ревью своего MR» |
+| ревью своего MR внешним ревьюером | 5 раундов | `dex-skill-followup-track:followup-track` |
 
 На потолке петля останавливается, и по **каждой** открытой находке выносится решение с обоснованием: `отложено` (несёт причину, владельца и место записи) либо `блокирует` (работа не сдаётся, названо чего не хватает). Решения идут в выход поимённо; сброс находки молчанием запрещён - потолок кончает работу над находкой, а не саму находку. На гейте артефакта у этого терминала есть носитель: счётчик ревизий живёт в записи метки, незакрытое едет в `verdict: failed` с перечнем, и `approved` при исчерпанном потолке документ не получает ни при каком составе находок.
 
@@ -857,7 +857,7 @@ Validate - mandatory (иначе непроверенный артефакт), �
 
 **Study Project Context** грузит `dex-skill-codebase-conventions` (как читать конвенции соседей + ось ADR). Профильные по стеку skills - по реестру `dex-skill-stack-registry` в Generate, без зашитого списка.
 
-**Референс:** `dex-dotnet-coder` (с Bootstrap), `dex-ts-fullstack-coder` (без Bootstrap). Не Creator-рецепт: `dex-feature-implementer` (отдельный pipeline с Design и Falsify), `dex-ef-specialist` (Operator под данные).
+**Референс:** `dex-dotnet-coder` (с Bootstrap), `dex-ts-fullstack-coder` (без Bootstrap). Не Creator-рецепт: `dex-skill-development-track` (трек-скилл движка, отдельный pipeline с Design и Falsify), `dex-ef-specialist` (Operator под данные).
 
 ### Designer
 ```text

@@ -2,7 +2,7 @@
 
 Bundle для полного цикла работы с кодом, языко-агностично: реализация фичи по ТЗ, интеграция базовой ветки с разрешением конфликтов merge/rebase, pre-push саморевью, ревью чужого MR/PR, итеративное ре-ревью дельты, план правок по ревью. Плюс skills дисциплины ревью и реализации.
 
-Цикл замыкается так: `dex-feature-implementer` (реализация до локальных коммитов) -> `dex-conflict-resolver` (подтянуть базу и развести конфликты merge/rebase) -> `dex-self-reviewer` (саморевью перед push) -> push и открытие MR -> `dex-mr-reviewer` (ревью на стороне ревьюера) -> автор правит -> `dex-mr-check-reviewer` (ре-ревью дельты) и `dex-review-planner` (план правок на стороне автора).
+Цикл замыкается так: `/implement` через `dex-sdlc` и `dex-skill-development-track` (реализация до локальных коммитов) -> `dex-conflict-resolver` (подтянуть базу и развести конфликты merge/rebase) -> `dex-self-reviewer` (саморевью перед push) -> push и открытие MR -> `dex-mr-reviewer` (ревью на стороне ревьюера) -> автор правит -> `dex-mr-check-reviewer` (ре-ревью дельты) и `dex-review-planner` (план правок на стороне автора).
 
 ## Installation
 
@@ -27,13 +27,17 @@ Bundle для полного цикла работы с кодом, языко-�
 .\install-bundle\uninstall-bundle.ps1 code-review
 ```
 
-## Included Components (20)
+## Included Components (22)
 
-### Specialists (6)
+### Движок (3)
+- `dex-sdlc` - движок (`dex-sdlc:engine`) плюс `/feature`, `/implement`, `/feature-check`
+- `dex-skill-development-track` - порядок работ зоны реализации (`/implement`), баг-фикс - под-вид
+- `dex-skill-followup-track` - обработка внешнего ревью на уже сданном MR (переход из Development Track)
+
+### Specialists (5)
 - `dex-mr-reviewer` - первичное ревью чужого MR/PR, инлайн-треды через gh/glab (`/mr-review`)
 - `dex-mr-check-reviewer` - итеративное ре-ревью дельты с прошлого раунда (`/mr-check-review`)
 - `dex-review-planner` - план правок по ревью без редактирования кода (`/review-plan`)
-- `dex-feature-implementer` - реализация фичи по ТЗ до локальных коммитов (`/implement`)
 - `dex-self-reviewer` - pre-push саморевью своей ветки с реальным прогоном тестов (`/self-review`)
 - `dex-conflict-resolver` - подтянуть базу в фича-ветку и развести конфликты merge/rebase без тихой потери стороны (`/resolve-conflicts`)
 

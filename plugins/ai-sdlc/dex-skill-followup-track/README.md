@@ -1,8 +1,7 @@
 # dex-skill-followup-track
 
-Заглушка - перенос без переработки. Источник:
-`plugins/ai-sdlc/dex-skill-autonomous-task/skills/autonomous-task/tracks/mr-followup.md`
-(старый движок `autonomous-task`).
+Заглушка - перенос без переработки из закрытого движка `autonomous-task` (трек
+`mr-followup.md`, см. git-историю плагина `dex-skill-autonomous-task` до его удаления).
 
 Вызывается движком `dex-sdlc:engine` при переходе с обработки замечаний на своём MR: собирает
 раунд ревью, классифицирует и верифицирует каждое замечание против кода, ведёт план правок,

@@ -7,11 +7,13 @@
 - Поиск: `dex-bug-finder` (`/find-bugs`) активно ищет дефекты, воспроизводит, отдаёт в handoff
 - Оформление: `dex-bug-reporter` оформляет баг и handoff-карточку для расследования
 - Расследование: `dex-incident-investigator` (`/investigate`) ведёт RCA на общем стенде до доказанной корневой причины
-- Фикс: `dex-feature-implementer` (`/implement`) применяет крупные многофайловые фиксы по плану
+- Фикс: `/implement` через `dex-sdlc` и `dex-skill-development-track` (баг-фикс - под-вид, `dex-skill-bugfix-track`) применяет крупные многофайловые фиксы по плану
 
 ## Состав
 
-Специалисты: `dex-bug-finder`, `dex-bug-reporter`, `dex-incident-investigator`, `dex-feature-implementer`.
+Движок: `dex-sdlc`, `dex-skill-development-track`, `dex-skill-bugfix-track`.
+
+Специалисты: `dex-bug-finder`, `dex-bug-reporter`, `dex-incident-investigator`.
 
 Skills методологии: `dex-skill-problem-specification`, `dex-skill-root-cause-analysis`, `dex-skill-change-correlation`, `dex-skill-shared-stand-safety`, `dex-skill-exploratory-testing`, `dex-skill-bug-reproduction`, `dex-skill-contract-drift`.
 

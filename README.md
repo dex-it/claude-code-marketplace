@@ -98,12 +98,11 @@ claude plugins uninstall dex-dotnet-coder
 | dex-mr-reviewer | mr-reviewer | `/mr-review` | Первичное ревью чужого MR/PR, инлайн-треды через gh/glab |
 | dex-mr-check-reviewer | mr-check-reviewer | `/mr-check-review` | Ре-ревью дельты с прошлого раунда (range-diff) |
 | dex-review-planner | review-planner | `/review-plan` | План правок по ревью без редактирования кода |
-| dex-feature-implementer | feature-implementer | `/implement` | Реализация фичи по ТЗ до локальных коммитов |
 | dex-self-reviewer | self-reviewer | `/self-review` | Pre-push саморевью своей ветки с прогоном тестов |
 | dex-conflict-resolver | conflict-resolver | `/resolve-conflicts` | Подтянуть базу в фича-ветку и развести конфликты merge/rebase без тихой потери стороны |
 | dex-incident-investigator | incident-investigator | `/investigate` | Расследование инцидента на общем стенде, RCA и фикс на источнике, read-only по умолчанию |
 
-Ставятся набором: `dex-bundle-code-review`. Стек определяется по манифестам, релевантные skills (включая .NET и TypeScript) грузятся условно.
+Реализация фичи по ТЗ до локальных коммитов - `/implement` через движок `dex-sdlc` (см. «Движок SDLC» в Skills). Ставятся набором: `dex-bundle-code-review`. Стек определяется по манифестам, релевантные skills (включая .NET и TypeScript) грузятся условно.
 
 ### Fullstack
 
@@ -162,12 +161,15 @@ claude plugins uninstall dex-dotnet-coder
 
 | Плагин | Описание |
 |--------|----------|
-| dex-requirements-orchestrator | Дирижёр зоны требований (`/feature`): идея -> BRD -> `FR`/`NFR` -> stories, гейты с апрувом оператора |
 | dex-requirements-reviewer | Приёмка чужого набора требований (`/review-requirements`) |
 | dex-requirements-analyst | Требования системного уровня: `FR`/`NFR` из `BR`, пробелы, конфликты |
+| dex-usecase-analyst | Сценарии `UC` из бизнес-требований: актор, основной ход, расширения |
 | dex-user-story-analyst | User stories, acceptance criteria |
+| dex-implementer-reader | Проба готовности набора требований к разработке |
 | dex-process-modeler | BPMN, workflows |
 | dex-doc-writer | Technical specs, API docs |
+
+Зона требований целиком (идея -> BRD -> `UC` -> `FR`/`NFR` -> stories, гейты с апрувом оператора) идёт через `/feature` движка `dex-sdlc` (см. «Движок SDLC» в Skills), не отдельным агентом.
 
 ### QA
 
@@ -194,6 +196,7 @@ claude plugins uninstall dex-dotnet-coder
 
 | Категория | Skills |
 |-----------|--------|
+| **Движок SDLC** | sdlc (`dex-sdlc:engine`, команды `/feature`, `/implement`, `/feature-check`), analytics-track, development-track, architecture-track, bugfix-track, followup-track, acceptance-track, discover-track, test-track, mr-review-track, documentation-track, diagnostics-track |
 | **.NET** | dotnet-patterns, ef-core, async-patterns, linq-optimization, api-development, api-documentation, testing-patterns |
 | **Frontend & TypeScript** | react, ts-patterns, ts-nodejs-api, ts-vitest-jest |
 | **Security** | owasp-security |

@@ -1,8 +1,8 @@
 # dex-skill-bugfix-track
 
-Заглушка - перенос без переработки. Источник: абзацы «баг-фикс» и «"Разберись и почини" - это
-"Разработка"» из `plugins/ai-sdlc/dex-skill-autonomous-task/skills/autonomous-task/tracks/development.md`
-(старый движок `autonomous-task`).
+Заглушка - перенос без переработки из закрытого движка `autonomous-task` (абзацы «баг-фикс» и
+«"Разберись и почини" - это "Разработка"» трека `development.md`, см. git-историю плагина
+`dex-skill-autonomous-task` до его удаления).
 
 Под-вид `dex-skill-development-track:development-track` (Phase 1, классификация «баг-фикс»), не
 самостоятельный вход движка - своей команды нет (`/fix` не создаётся).

@@ -128,7 +128,6 @@ const PROCESS_SKILLS = new Set([
   'completeness-mapping',
   'optimize-for-llm',
   'node-contract',
-  'autonomous-task',
   'test-coverage',
   'legacy-reconstruction',
   'project-docs-map',

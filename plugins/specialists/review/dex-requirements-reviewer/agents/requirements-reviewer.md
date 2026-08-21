@@ -206,6 +206,6 @@ skills:
 
 ## Связанные плагины
 
-- `dex-requirements-orchestrator` - порождение требований (`/feature`), туда идут правки автору.
+- `dex-sdlc` (`/feature`, трек `dex-skill-analytics-track`) - порождение требований, туда идут правки автору.
 - `dex-design-reviewer` - симметричный ревьюер зоны 2 (дизайн-документ).
 - `dex-mr-reviewer` - ревью кода; там `requirement-quality` применяется к ТЗ задачи, а не к набору эпика.

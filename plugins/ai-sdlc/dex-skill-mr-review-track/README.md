@@ -1,8 +1,7 @@
 # dex-skill-mr-review-track
 
-Заглушка - перенос без переработки. Источник:
-`plugins/ai-sdlc/dex-skill-autonomous-task/skills/autonomous-task/tracks/mr-review.md`
-(старый движок `autonomous-task`).
+Заглушка - перенос без переработки из закрытого движка `autonomous-task` (трек
+`mr-review.md`, см. git-историю плагина `dex-skill-autonomous-task` до его удаления).
 
 Ревью входящего MR: read-only, находки с severity, фальсификация каждой против кода, покрытие
 тестами отдельным фокусом, ре-ревью дельты через `dex-mr-check-reviewer:mr-check-reviewer`.

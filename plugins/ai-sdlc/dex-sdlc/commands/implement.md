@@ -34,8 +34,8 @@ Self-Verification.
 - Промт заканчивается на локальных коммитах: ни push, ни MR, ни merge
 
 Команды цикла: `оформляй` (полный план), `делай` (исполнение по одной правке), `стоп` (прекратить).
-Следующий шаг - `/self-review`. Вызови `Skill` -> `dex-sdlc:engine` (откроет/возобновит цикл, заведёт
-task-флаг с `track=dex-skill-development-track:development-track`, ведёт цикл команд
+Следующий шаг - `/self-review`. Вызови `Skill` -> `dex-sdlc:engine` (откроет/возобновит цикл, авто-
+ledger с треком `dex-skill-development-track:development-track`, ведёт цикл команд
 `оформляй`/`делай`/`стоп` как механизм режима), затем `Skill` ->
 `dex-skill-development-track:development-track` с **`mode: interactive`** - без этого поля трек
 работает как узел (`autonomous`) и цикла команд не будет.
