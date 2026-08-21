@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "5.48.0",
+  "version": "5.49.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -977,7 +977,7 @@
       "name": "dex-dotnet-coder",
       "source": "./plugins/specialists/dotnet/dex-dotnet-coder",
       "description": "Coding assistant for .NET: writing code, SOLID patterns, async/await",
-      "version": "2.6.0",
+      "version": "2.7.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1004,7 +1004,7 @@
       "name": "dex-dotnet-tester",
       "source": "./plugins/specialists/dotnet/dex-dotnet-tester",
       "description": "Test writer for .NET: xUnit, Moq, Arrange-Act-Assert",
-      "version": "2.5.0",
+      "version": "2.6.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1477,7 +1477,7 @@
       "name": "dex-bug-finder",
       "source": "./plugins/specialists/qa/dex-bug-finder",
       "description": "Активный поиск багов в фиче или ветке, языко-агностично: модель рисков и чартеры, адверсариальная охота, skill-чеклисты, воспроизведение и квалификация, handoff в расследование. Дополняет test-analyst и test-automator поиском дефектов в первую очередь.",
-      "version": "1.0.1",
+      "version": "1.1.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1492,7 +1492,7 @@
       "name": "dex-ts-fullstack-coder",
       "source": "./plugins/specialists/fullstack/dex-ts-fullstack-coder",
       "description": "TypeScript fullstack specialist: Node.js/Bun backend + React frontend",
-      "version": "1.8.0",
+      "version": "1.9.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1506,7 +1506,7 @@
       "name": "dex-ts-tester",
       "source": "./plugins/specialists/fullstack/dex-ts-tester",
       "description": "Test writer for TypeScript/JavaScript: Vitest/Jest, mocks, fake timers, isolation",
-      "version": "1.5.0",
+      "version": "1.6.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1585,7 +1585,7 @@
       "name": "dex-bundle-dotnet-developer",
       "source": "./plugins/bundles/dex-bundle-dotnet-developer",
       "description": "Bundle for .NET developers: coding, debugging, testing, review, EF, performance, interactive .NET architecture design (incl. microservices)",
-      "version": "2.12.0",
+      "version": "2.13.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -1597,7 +1597,7 @@
       "name": "dex-bundle-dotnet-fullstack",
       "source": "./plugins/bundles/dex-bundle-dotnet-fullstack",
       "description": "Complete .NET fullstack: development + databases + messaging + containers + interactive .NET architecture design",
-      "version": "2.12.0",
+      "version": "2.13.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -1665,7 +1665,7 @@
       "name": "dex-bundle-qa-engineer",
       "source": "./plugins/bundles/dex-bundle-qa-engineer",
       "description": "Bundle for QA Engineers: test analysis, automation (incl. Playwright E2E), active bug hunting, bug reporting",
-      "version": "1.4.0",
+      "version": "1.5.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -1691,7 +1691,7 @@
       "name": "dex-bundle-ts-fullstack",
       "source": "./plugins/bundles/dex-bundle-ts-fullstack",
       "description": "Bundle for TypeScript fullstack: Node.js/Bun backend + React frontend, security, Docker, Playwright E2E",
-      "version": "1.11.0",
+      "version": "1.12.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -2149,6 +2149,21 @@
         "testability",
         "testing",
         "determinism"
+      ]
+    },
+    {
+      "name": "dex-skill-integration-boundary",
+      "source": "./plugins/skills/dex-skill-integration-boundary",
+      "description": "Где проходит граница доверия к тесту: мок внешней границы против контракта, зелёный unit при непокрытой интеграции, точка входа до теста, развилки путей, слой сборки/контракта, семантика фейковой среды.",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "testing",
+        "integration",
+        "contract",
+        "mock",
+        "test-pyramid"
       ]
     },
     {
@@ -2846,7 +2861,7 @@
       "name": "dex-stand-reviewer",
       "source": "./plugins/specialists/review/dex-stand-reviewer",
       "description": "Ревью слитой фичи на развёрнутом стенде против ТЗ, read-only: привязка образа к merge-коммиту, карта требование -> проба на стенде, параллельные суб-агенты улик, фальсификация находок и утверждений 'выполнено', severity/confidence/scope, отчёт.",
-      "version": "1.5.0",
+      "version": "1.6.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2975,7 +2990,7 @@
       "name": "dex-bundle-code-review",
       "source": "./plugins/bundles/dex-bundle-code-review",
       "description": "Bundle цикла работы с кодом: языко-агностичное ревью MR/PR, ре-ревью дельты, план правок, реализация фичи, интеграция базовой ветки с разрешением конфликтов, pre-push саморевью, приёмка слитой фичи на стенде и ремедиация найденного, расследование инцидента (RCA на стенде), плюс skills дисциплины ревью.",
-      "version": "1.18.0",
+      "version": "1.19.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -2990,7 +3005,7 @@
       "name": "dex-bundle-bug-lifecycle",
       "source": "./plugins/bundles/dex-bundle-bug-lifecycle",
       "description": "Bundle жизненного цикла бага: активный поиск, оформление, расследование корневой причины на общем стенде и фикс на источнике, плюс skills методологии RCA и поиска багов и CLI для чтения стенда и трекера.",
-      "version": "1.12.0",
+      "version": "1.13.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -3005,7 +3020,7 @@
       "name": "dex-bundle-sdlc",
       "source": "./plugins/bundles/dex-bundle-sdlc",
       "description": "Bundle полного цикла SDLC, языко-агностично: движок автономного доведения задачи, порождение и ревью требований, архитектурный дизайн и ADR, реализация фичи, тест-инжиниринг, ревью MR и разбор замечаний, приёмка на стенде, поиск багов и расследование инцидентов, документирование, плюс skills дисциплины и CLI трекера, MR-хостинга, CI и стенда.",
-      "version": "1.7.0",
+      "version": "1.8.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -3020,7 +3035,7 @@
       "name": "dex-sdlc",
       "source": "./plugins/ai-sdlc/dex-sdlc",
       "description": "Движок доведения цели до конца самостоятельно (AI-SDLC-конвейер) - универсальный цикл, делегирование узлам-агентам по контракту node-contract, диспетчинг по трек-скиллу зоны. Зона-агностичен: порядок работ каждой зоны живёт в своём dex-skill-<зона>-track, движок его не хранит. Входные команды /feature, /feature-check, /implement",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -3051,7 +3066,7 @@
       "name": "dex-skill-development-track",
       "source": "./plugins/ai-sdlc/dex-skill-development-track",
       "description": "Трек зоны разработки движка dex-sdlc - ТЗ или тикет без спеки до серии локальных коммитов: декомпозиция R/I, инвентаризация архитектуры, дизайн с гейтом первоисточника, edit-план, фальсификация плана, TDD-цикл с coverage-гейтом. Полностью проработан по идиоме фаз-контракта (не заглушка)",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -3132,7 +3147,7 @@
       "name": "dex-skill-test-track",
       "source": "./plugins/ai-sdlc/dex-skill-test-track",
       "description": "Трек тест-инжиниринга движка dex-sdlc - матрица покрытия по осям (happy-path/негатив/краевые/все ветки). Заглушка, перенос без переработки под идиому фаз-контракта",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "category": "skill",
       "keywords": [
         "skill",
