@@ -257,13 +257,13 @@
 
 **Грузят его узлы, не трек**: `skill -> skill` загрузки нет, так что трек-скилл держит требование и сноску, а `Skill` вызывают в своих фазах те, кто тесты пишет и прогоняет - `dotnet-coder`, `ts-fullstack-assistant`, `dotnet-test-writer`, `ts-test-writer`, `bug-finder`, `stand-reviewer` (все шесть подключены, `feature-implementer` закрыт п.P2 выше). Замкнутость этого ребра ловит действующий `bundle-not-closed` (карта строится по телам агентов, а грузит агент) - нового правила не нужно; новое правило P3 остаётся про ребро «трек-скилл -> узлы», которое по телу агента не выводится.
 
-### P3. Валидатор до миграции
+### P3. Валидатор до миграции (выполнено, 2026-08-21)
 
-- **Новое правило `validate-command`**: ссылка `{plugin}:{skill}` в теле команды существует. Сегодня её не проверяет никто, а команд-входов станет девять, каждая держит связку двумя именами. Правило -> строка в `docs/VALIDATOR_RULES.md` + фикстура.
-- **Новое правило замкнутости**: бандл, везущий трек-скилл, везёт агентов узлов, которых трек называет. Сегодня `validate-bundle` строит карту только по телам агентов.
-- `PROCESS_SKILLS` в `validate-skill.js`: записи трек-скиллов.
-- **Реестр `ORCHESTRATOR_SKILLS`** рядом с `PROCESS_SKILLS`: класс «скилл-оркестратор» (SKILL_FRAMEWORK.md, «Норма каталога: оркестрация - в скилле, исполнение - в агенте») сегодня не подкреплён проверкой, решает ревью (см. там же). Реестр даёт валидатору машинно отличать зарегистрированный оркестратор от process-skill, которому спавнить агентов не положено.
-- `sync-plugins.sh`: якорь расширяется ребром «команда -> движок + трек».
+- **Правило `skill-reference-unknown` в `validate-command.js`** (закрыто): ссылка `{plugin}:{skill}` в теле команды проверяется целиком, обе половины, любой скилл-поставляющий плагин - шире агентской проверки (`plugin-changes.md`).
+- **Правило `bundle-agent-not-closed` в `validate-bundle.js`** (закрыто): зеркало `bundle-not-closed` в обратную сторону - скилл бандла делегирует специалисту (`` `dex-X:Y` ``, `X` != `dex-skill-*`), которого нет в `includes[]`. Прогон на живом каталоге вскрыл два реальных пробела: `dex-bundle-bug-lifecycle` и `dex-bundle-code-review` везли `development-track`, но не `dex-adr-writer`/`dex-security-reviewer`/`dex-conflict-resolver` (и их собственные транзитивные скиллы `dex-skill-adr-quality`, `dex-skill-doc-standards`, `dex-skill-merge-conflict-resolution`, `dex-skill-project-docs-map`) - оба бандла закрыты, версии бампнуты (minor).
+- **`PROCESS_SKILLS` в `validate-skill.js`**: все 11 записей трек-скиллов уже присутствовали - работы не потребовалось.
+- **Реестр `ORCHESTRATOR_SKILLS`** (закрыто): allowlist + best-effort эвристика (глагол делегирования рядом с бэктик-ссылкой на агента/`Agent` в одном блоке), развилка дизайна решена оператором - эвристика заведомо не исчерпывающая, известные пропуски названы в коде и в `VALIDATOR_RULES.md`. Членство реестра (`engine`, `analytics-track`, `development-track`, `architecture-track`, `acceptance-track`, `discover-track`) выведено эмпирическим прогоном по всем 21 `PROCESS_SKILLS`, не взято из иллюстративного примера решения.
+- **`sync-plugins.sh`** (закрыто): якорь расширен ребром «команда -> движок + трек» - `command_dir_for()` ищет `commands/` установленного плагина по всему `plugins/`, не только `plugins/specialists/`; `dex-sdlc` (агентов не несёт, только команды) теперь виден скрипту и ловит дрейф по `dex-skill-development-track`/`dex-skill-analytics-track`.
 
 ### P4. `analytics-track` (выполнено)
 

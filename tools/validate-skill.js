@@ -151,6 +151,46 @@ function isProcessSkill(parsed) {
   return PROCESS_SKILLS.has(parsed.data && parsed.data.name);
 }
 
+// SKILL_FRAMEWORK.md "оркестрация - в скилле, исполнение - в агенте": обычному
+// process-skill спавнить агентов не положено. Ручной allowlist, как PROCESS_SKILLS.
+const ORCHESTRATOR_SKILLS = new Set([
+  'engine',
+  'analytics-track',
+  'development-track',
+  'architecture-track',
+  'acceptance-track',
+  'discover-track',
+]);
+
+// Эвристика best-effort: глагол делегирования рядом с бэктик-ссылкой на агента/Agent
+// в одном блоке. Не ловит делегирование без имени агента (bugfix-track) и глаголы
+// вне словаря (mr-review-track) - молчание не значит "не оркестрирует".
+const ORCHESTRATION_VERB_RE = /спавн|делегир|вызыва[ею]т|чинит/i;
+const AGENT_MENTION_RE = /`(?:dex-[a-z0-9-]+:[a-z0-9-]+|Agent)`/;
+
+function validateOrchestratorRegistration(parsed, markdownBody, findings) {
+  const name = parsed.data && parsed.data.name;
+  if (ORCHESTRATOR_SKILLS.has(name)) return;
+
+  const tree = parseMarkdown(markdownBody);
+  const lines = markdownBody.split('\n');
+  let fired = false;
+
+  visit(tree, (node) => node.type === 'paragraph' || node.type === 'heading', (node) => {
+    if (fired || !node.position) return;
+    const text = lines.slice(node.position.start.line - 1, node.position.end.line).join('\n');
+    if (ORCHESTRATION_VERB_RE.test(text) && AGENT_MENTION_RE.test(text)) fired = true;
+  });
+
+  if (fired) {
+    findings.push({
+      level: ERROR,
+      rule: 'orchestrator-unregistered',
+      message: `Process skill "${name}" reads as spawning/delegating to an agent (delegation verb next to an agent/Agent-tool reference) but is not in ORCHESTRATOR_SKILLS - register it if it genuinely orchestrates the zone, or reword to remove the delegation language if it doesn't`,
+    });
+  }
+}
+
 function validateFrontmatter(parsed, findings, isProcess = false) {
   const fm = parsed.data || {};
 
@@ -490,7 +530,10 @@ function validateFile(filepath) {
   validateFrontmatter(parsed, findings, isProcess);
   validateSize(raw, findings, isProcess);
   validateTraps(parsed.content, findings, isProcess);
-  if (isProcess) validateProcessStructure(parsed.content, findings);
+  if (isProcess) {
+    validateProcessStructure(parsed.content, findings);
+    validateOrchestratorRegistration(parsed, parsed.content, findings);
+  }
   validateCodeFences(parsed.content, findings);
   validateNoDocumentationTitles(parsed.content, findings);
 

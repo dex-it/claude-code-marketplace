@@ -48,6 +48,58 @@ function parseArgs(argv) {
   return { target: positional[0] || 'all' };
 }
 
+// --- Skill reference validation ------------------------------------------
+
+// Mirrors buildPluginSkillMap in validate-agent.js - same {plugin}:{skill} namespace.
+function buildPluginSkillMap() {
+  const map = new Map();
+  function walk(dir) {
+    if (!existsSync(dir)) return;
+    for (const entry of readdirSync(dir)) {
+      const full = join(dir, entry);
+      if (statSync(full).isDirectory()) {
+        walk(full);
+      } else if (entry === 'SKILL.md') {
+        const pj = join(dirname(dirname(dirname(full))), '.claude-plugin', 'plugin.json');
+        if (!existsSync(pj)) continue;
+        try {
+          const plugin = JSON.parse(readFileSync(pj, 'utf8')).name;
+          const skill = matter(readFileSync(full, 'utf8')).data?.name;
+          if (!plugin || !skill) continue;
+          if (!map.has(plugin)) map.set(plugin, new Set());
+          map.get(plugin).add(String(skill));
+        } catch {
+          // unreadable manifest or frontmatter - skipped
+        }
+      }
+    }
+  }
+  walk(PLUGINS_DIR);
+  return map;
+}
+
+const PLUGIN_SKILLS = buildPluginSkillMap();
+
+// Plugin half not skill-shipping (agent spawn refs, `file:line`) - out of scope, not a Skill call.
+function validateSkillReferences(markdownBody, findings) {
+  const re = /`([a-z][a-z0-9-]*):([a-z][a-z0-9-]*)`/g;
+  const referenced = new Map();
+  for (const match of markdownBody.matchAll(re)) {
+    referenced.set(`${match[1]}:${match[2]}`, [match[1], match[2]]);
+  }
+
+  for (const [ref, [plugin, skill]] of referenced) {
+    if (!PLUGIN_SKILLS.has(plugin)) continue;
+    if (!PLUGIN_SKILLS.get(plugin).has(skill)) {
+      findings.push({
+        level: ERROR,
+        rule: 'skill-reference-unknown',
+        message: `Referenced skill "${ref}" - plugin "${plugin}" ships no skill named "${skill}" (has: ${[...PLUGIN_SKILLS.get(plugin)].join(', ')})`,
+      });
+    }
+  }
+}
+
 // --- File discovery -----------------------------------------------------
 
 function findAllCommandFiles() {
@@ -241,6 +293,7 @@ function validateFile(filepath) {
   validateCodeFences(parsed.content, findings);
   validateNoBashScripts(parsed.content, findings);
   validateNoDocumentationTitles(parsed.content, findings);
+  validateSkillReferences(parsed.content, findings);
 
   return { filepath, findings };
 }

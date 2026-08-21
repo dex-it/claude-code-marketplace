@@ -90,6 +90,7 @@ tools/__fixtures__/<validator>/<rule>/expect.json   {"also": [...]} - опцио
 | `code-fence-too-long` | error | блок кода длиннее допустимого - skill сползает в документацию | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
 | `size-exceeds-recommended` | error | размер выше целевого - у trap-skill и process-skill пороги разные | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
 | `size-exceeds-hard-limit` | error | размер за жёстким потолком; у process-skill не проверяется - там свой единственный порог | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
+| `orchestrator-unregistered` | error | process-skill похож на спавн/делегирование агенту (глагол делегирования рядом с бэктик-ссылкой на агента/`Agent` в одном блоке), но не в `ORCHESTRATOR_SKILLS`. Эвристика best-effort, не исчерпывающая - известные пропуски: делегирование без имени агента в тексте, глаголы вне словаря | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md#норма-каталога-оркестрация---в-скилле-исполнение---в-агенте) |
 
 Тип skill - ось калибровки: `process` опознаётся по allowlist `PROCESS_SKILLS` в самом валидаторе,
 маркер в теле файла не парсится. Пороги, полная таблица различий и обоснование -
@@ -107,6 +108,7 @@ tools/__fixtures__/<validator>/<rule>/expect.json   {"also": [...]} - опцио
 | `code-fence-too-long` | error | блок кода длиннее допустимого | [COMMAND_FRAMEWORK.md](COMMAND_FRAMEWORK.md) |
 | `size-exceeds-recommended` | error | размер выше целевого | [COMMAND_FRAMEWORK.md](COMMAND_FRAMEWORK.md) |
 | `size-exceeds-hard-limit` | error | размер за жёстким потолком | [COMMAND_FRAMEWORK.md](COMMAND_FRAMEWORK.md) |
+| `skill-reference-unknown` | error | ссылка `` `{plugin}:{skill}` `` в теле - плагин такого скилла не поставляет (обе половины проверяются, не только плагин) | [plugin-changes.md](../.claude/rules/plugin-changes.md) |
 
 ## tools/validate-bundle.js
 
@@ -116,6 +118,7 @@ tools/__fixtures__/<validator>/<rule>/expect.json   {"also": [...]} - опцио
 | `empty-includes` | error | `includes[]` пуст - ставить нечего | [plugin-changes.md](../.claude/rules/plugin-changes.md) |
 | `include-not-in-marketplace` | error | запись `includes[]` отсутствует в `marketplace.json` - установка упадёт | [plugin-changes.md](../.claude/rules/plugin-changes.md) |
 | `bundle-not-closed` | error | агент бандла грузит скилл, которого нет в `includes[]` - установка плоская, агент молча деградирует | [plugin-changes.md](../.claude/rules/plugin-changes.md) |
+| `bundle-agent-not-closed` | error | скилл бандла делегирует специалисту (`` `dex-X:Y` ``, `X` != `dex-skill-*`), которого нет в `includes[]` - зеркало `bundle-not-closed` в обратную сторону, делегированию не к кому обратиться | [plugin-changes.md](../.claude/rules/plugin-changes.md) |
 | `version-mismatch` | warning | версия в `plugin.json` != версии в `marketplace.json` | [plugin-changes.md](../.claude/rules/plugin-changes.md) |
 
 ## tools/validate-rules-documented.js

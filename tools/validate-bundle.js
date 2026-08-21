@@ -2,13 +2,17 @@
 /**
  * Bundle validator for Claude Code marketplace.
  *
- * Checks that every bundle is *closed* over the skills its agents load:
- * each non-by-stack skill that an agent in the bundle loads imperatively
- * (via the Skill tool, `dex-skill-X:Y`) MUST be listed in the bundle's
- * includes[]. Installation is flat - install-bundle.sh installs exactly
- * the includes[] entries, there is no specialist->skill cascade. So a skill
- * an agent loads but the bundle omits will never be installed, and the
- * agent silently degrades (graceful-degradation branch).
+ * Checks that every bundle is *closed*, in both directions:
+ *   - each non-by-stack skill that an agent in the bundle loads imperatively
+ *     (via the Skill tool, `dex-skill-X:Y`) MUST be listed in the bundle's
+ *     includes[] (rule bundle-not-closed).
+ *   - each specialist a skill in the bundle delegates to (`dex-X:Y`, X !=
+ *     dex-skill-*) MUST also be listed (rule bundle-agent-not-closed).
+ * Installation is flat - install-bundle.sh installs exactly the includes[]
+ * entries, there is no specialist->skill or skill->specialist cascade. So a
+ * reference the bundle omits will never be installed, and either the agent
+ * silently degrades (graceful-degradation branch) or the delegation has no
+ * agent to run.
  *
  * by-stack profile skills (dex-skill-{dotnet,ts,python,...}-*) are exempt
  * ONLY while the bundle ships no skill of that stack: language-agnostic agents
@@ -93,6 +97,14 @@ function stackOf(skillPlugin) {
   );
 }
 
+// Same idea for specialist agent plugins: naming has no fixed prefix/suffix slot
+// (dex-architect-dotnet, dex-dotnet-tester, dex-ts-fullstack-coder), so match any
+// dash-delimited segment against BY_STACK_PREFIXES instead.
+function agentStackOf(agentPlugin) {
+  const segments = agentPlugin.split('-');
+  return BY_STACK_PREFIXES.find((p) => segments.includes(p)) || null;
+}
+
 // --- CLI parsing --------------------------------------------------------
 
 function parseArgs(argv) {
@@ -163,6 +175,66 @@ function buildAgentSkillMap() {
   return map;
 }
 
+// Scopes buildSkillAgentMap so an unknown `dex-X:Y` mention isn't mistaken for a real target.
+function buildSpecialistPluginsInRepo() {
+  const set = new Set();
+  function walk(dir) {
+    if (!existsSync(dir)) return;
+    for (const entry of readdirSync(dir)) {
+      const full = join(dir, entry);
+      if (statSync(full).isDirectory()) {
+        walk(full);
+      } else if (full.endsWith('/.claude-plugin/plugin.json')) {
+        try {
+          set.add(JSON.parse(readFileSync(full, 'utf8')).name);
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  }
+  walk(SPECIALISTS_DIR);
+  return set;
+}
+
+// --- Skill -> delegated specialists map ----------------------------------
+
+// Mirror of buildAgentSkillMap: skill plugin name -> Set of specialist plugins
+// its body delegates to via `dex-X:Y` (X != dex-skill-*).
+function buildSkillAgentMap(specialistPluginsInRepo) {
+  const map = new Map();
+  const re = /`?(dex-(?!skill-)[a-z0-9-]+):[a-z0-9-]+`?/gi;
+
+  function walk(dir) {
+    if (!existsSync(dir)) return;
+    for (const entry of readdirSync(dir)) {
+      const full = join(dir, entry);
+      if (statSync(full).isDirectory()) {
+        walk(full);
+      } else if (entry === 'SKILL.md') {
+        // <plugin>/skills/<name>/SKILL.md -> <plugin>/.claude-plugin/plugin.json
+        const pj = join(dirname(dirname(dirname(full))), '.claude-plugin', 'plugin.json');
+        if (!existsSync(pj)) continue;
+        let pluginName;
+        try {
+          pluginName = JSON.parse(readFileSync(pj, 'utf8')).name;
+        } catch {
+          continue;
+        }
+        const body = readFileSync(full, 'utf8');
+        const set = map.get(pluginName) || new Set();
+        for (const match of body.matchAll(re)) {
+          const agentPlugin = match[1];
+          if (specialistPluginsInRepo.has(agentPlugin)) set.add(agentPlugin);
+        }
+        if (set.size > 0) map.set(pluginName, set);
+      }
+    }
+  }
+  walk(join(REPO_ROOT, 'plugins'));
+  return map;
+}
+
 // --- Bundle discovery ---------------------------------------------------
 
 function findAllBundleFiles() {
@@ -188,7 +260,7 @@ function resolveBundleFile(target) {
 
 // --- Validation ---------------------------------------------------------
 
-function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, agentSkillMap, skillPluginsInRepo) {
+function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, agentSkillMap, skillPluginsInRepo, skillAgentMap) {
   const findings = [];
   let bundle;
   try {
@@ -241,6 +313,24 @@ function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, age
           level: ERROR,
           rule: 'bundle-not-closed',
           message: `agent "${comp}" loads "${skill}" but it is missing from includes[] - bundle not closed; add it or the agent degrades`,
+        });
+      }
+    }
+  }
+
+  // 2b. Mirror of #2: a specialist a skill in this bundle delegates to must
+  //     also be in includes[], same by-stack exemption via agentStackOf.
+  for (const comp of includes) {
+    const delegatesTo = skillAgentMap.get(comp);
+    if (!delegatesTo) continue;
+    for (const agentPlugin of delegatesTo) {
+      const st = agentStackOf(agentPlugin);
+      if (st && !committedStacks.has(st)) continue;
+      if (!includeSet.has(agentPlugin)) {
+        findings.push({
+          level: ERROR,
+          rule: 'bundle-agent-not-closed',
+          message: `skill "${comp}" delegates to "${agentPlugin}" but it is missing from includes[] - bundle not closed; add it or the delegation has no agent to run`,
         });
       }
     }
@@ -339,6 +429,8 @@ function main() {
   const marketplaceVersions = loadMarketplaceVersions();
   const agentSkillMap = buildAgentSkillMap();
   const skillPluginsInRepo = buildSkillPluginsInRepo();
+  const specialistPluginsInRepo = buildSpecialistPluginsInRepo();
+  const skillAgentMap = buildSkillAgentMap(specialistPluginsInRepo);
 
   let files;
   if (target === 'all') {
@@ -357,7 +449,7 @@ function main() {
   }
 
   const results = files.map((f) =>
-    validateBundle(f, marketplacePlugins, marketplaceVersions, agentSkillMap, skillPluginsInRepo)
+    validateBundle(f, marketplacePlugins, marketplaceVersions, agentSkillMap, skillPluginsInRepo, skillAgentMap)
   );
   process.exit(report(results));
 }
