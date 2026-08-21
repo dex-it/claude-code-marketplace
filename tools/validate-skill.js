@@ -143,6 +143,7 @@ const PROCESS_SKILLS = new Set([
   'discover-track',
   'test-track',
   'mr-review-track',
+  'issue-tracking',
   'documentation-track',
   'diagnostics-track',
 ]);
