@@ -232,8 +232,8 @@ pending-judgement:
 Пришедший пересказ при этом не игнорируется - расхождение корпуса и `success criteria` есть дефект
 спецификации, закрывается по правилу конфликта ниже.
 
-Корпус недостижим (адрес не пришёл **И** поиск через `dex-skill-project-docs-map:project-docs-map`
-пуст) -> тесты пишутся по `success criteria`, и в выход идёт `requirements-coverage: unverifiable` с
+Корпус недостижим (адрес не пришёл **И** поиск - вызов `Skill` `dex-skill-project-docs-map:project-docs-map` -
+ничего не дал) -> тесты пишутся по `success criteria`, и в выход идёт `requirements-coverage: unverifiable` с
 указанием, где искали. Молчание запрещено: без этой записи неполное покрытие требований неотличимо
 от полного.
 
