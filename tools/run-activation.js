@@ -22,6 +22,7 @@
  *   node tools/run-activation.js                       # все кейсы, sonnet, 1 прогон
  *   node tools/run-activation.js --model opus --runs 3
  *   node tools/run-activation.js --case redis          # подстрока id кейса
+ *   node tools/run-activation.js --only a-in,b-in      # точный список id
  *   node tools/run-activation.js --json out.json
  *
  * Exit codes:
@@ -30,7 +31,7 @@
  *   2 - ошибка запуска (нет кейсов, нет claude в PATH)
  */
 
-import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, rmSync, readdirSync, existsSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -51,6 +52,7 @@ function arg(name, fallback) {
 const MODEL = arg('model', 'sonnet');
 const RUNS = Number(arg('runs', '1'));
 const FILTER = arg('case', null);
+const ONLY = arg('only', null);
 const CONCURRENCY = Number(arg('concurrency', '4'));
 const JSON_OUT = arg('json', null);
 const TIMEOUT_MS = Number(arg('timeout', '300')) * 1000;
@@ -59,9 +61,25 @@ const TIMEOUT_MS = Number(arg('timeout', '300')) * 1000;
 // какой Skill выбран, а не что агент сделает дальше.
 const DISALLOWED = 'Bash,Write,Edit,WebFetch,WebSearch,Agent,Task';
 
+// Плагин кейса грузится из рабочего дерева (`--plugin-dir`), а не из установки оператора:
+// иначе прогон судит чужой снапшот - непоставленный плагин дал бы ложный провал, а
+// поставленная старая версия скрыла бы правку `description`, которую и проверяют. Зонд
+// 23.08.2026: флаг подменяет источник на `@inline`, дубля в листинге скиллов нет.
+function indexPlugins(dir, depth, acc) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const full = join(dir, entry.name);
+    if (existsSync(join(full, '.claude-plugin', 'plugin.json'))) acc.set(entry.name, full);
+    else if (depth > 0) indexPlugins(full, depth - 1, acc);
+  }
+  return acc;
+}
+const PLUGIN_DIRS = indexPlugins(join(REPO_ROOT, 'plugins'), 3, new Map());
+
 function runCase(kase) {
   return new Promise((resolvePromise) => {
     const sandbox = mkdtempSync(join(tmpdir(), 'activation-'));
+    const pluginDir = PLUGIN_DIRS.get(kase.expect.split(':')[0]);
     const args = [
       '-p', kase.prompt,
       '--output-format', 'stream-json',
@@ -69,6 +87,7 @@ function runCase(kase) {
       '--max-turns', '2',
       '--model', MODEL,
       '--disallowed-tools', DISALLOWED,
+      ...(pluginDir ? ['--plugin-dir', pluginDir] : []),
     ];
     const child = spawn('claude', args, { cwd: sandbox, stdio: ['ignore', 'pipe', 'pipe'] });
     let out = '';
@@ -82,10 +101,12 @@ function runCase(kase) {
       if (killed) return resolvePromise({ error: `таймаут ${TIMEOUT_MS / 1000}s` });
       const skills = [];
       let cost = 0;
+      let listed = null;
       for (const line of out.split('\n')) {
         if (!line.trim()) continue;
         let e;
         try { e = JSON.parse(line); } catch { continue; }
+        if (e.type === 'system' && e.subtype === 'init' && Array.isArray(e.skills)) listed = e.skills;
         if (e.type === 'assistant') {
           for (const part of e.message?.content ?? []) {
             if (part.type === 'tool_use' && part.name === 'Skill' && part.input?.skill) skills.push(part.input.skill);
@@ -93,7 +114,7 @@ function runCase(kase) {
         }
         if (e.type === 'result') cost = e.total_cost_usd ?? 0;
       }
-      resolvePromise({ skills, cost });
+      resolvePromise({ skills, cost, listed });
     });
   });
 }
@@ -121,6 +142,13 @@ try {
   process.exit(2);
 }
 if (FILTER) cases = cases.filter((k) => k.id.includes(FILTER));
+if (ONLY) {
+  const ids = new Set(ONLY.split(',').map((x) => x.trim()).filter(Boolean));
+  const known = new Set(cases.map((k) => k.id));
+  const unknown = [...ids].filter((x) => !known.has(x));
+  if (unknown.length) { console.error(`Неизвестные id в --only: ${unknown.join(', ')}`); process.exit(2); }
+  cases = cases.filter((k) => ids.has(k.id));
+}
 if (cases.length === 0) {
   console.error('Кейсов под фильтр нет');
   process.exit(2);
@@ -135,19 +163,41 @@ const started = Date.now();
 const outcomes = await pool(jobs, async ({ kase, run }) => {
   const res = await runCase(kase);
   const fired = res.skills ?? [];
-  const hit = fired.includes(kase.expect);
-  const pass = res.error ? false : kase.mode === 'near-miss' ? !hit : hit;
-  const mark = res.error ? c('yellow', 'ОШИБКА') : pass ? c('green', 'ok    ') : c('red', 'ПРОВАЛ');
-  const detail = res.error ? res.error : fired.length ? fired.join(', ') : 'ни одного Skill';
+  // Скилла нет в листинге сессии - выбран быть не мог: in-scope дал бы ложный провал,
+  // near-miss - ложный зелёный. Прогон судит поле активации, поэтому такой кейс не проходит
+  // и не проваливается: он остаётся непроверенным с явным статусом. Причина - либо кейс
+  // ссылается на несуществующий плагин (опечатка в `expect`), либо имя скилла внутри
+  // плагина другое; и то и другое чинится в кейсе, не молчанием прогона.
+  const absent = Array.isArray(res.listed) && !res.listed.includes(kase.expect);
+  const exact = fired.includes(kase.expect);
+  // Голое имя плагина - тот же выбор артефакта, но нерезолвимая форма вызова: модель
+  // исправляется следующим ходом, который в лимит ходов не всегда помещается. Предмет
+  // пробы - сработало ли поле активации, поэтому это попадание, а не провал; форма
+  // помечается отдельно (`bare`), иначе дефект вызова тонет в зелёном.
+  const bare = !exact && fired.includes(kase.expect.split(':')[0]);
+  const hit = exact || bare;
+  const pass = res.error || absent ? false : kase.mode === 'near-miss' ? !hit : hit;
+  const mark = res.error ? c('yellow', 'ОШИБКА')
+    : absent ? c('gray', 'нет   ')
+    : pass ? (bare ? c('yellow', 'ok/гол') : c('green', 'ok    '))
+    : c('red', 'ПРОВАЛ');
+  const detail = res.error ? res.error
+    : absent ? 'скилла нет в сессии - не проверено'
+    : fired.length ? fired.join(', ') : 'ни одного Skill';
   console.log(`${mark} ${kase.id}${RUNS > 1 ? `#${run + 1}` : ''} [${kase.mode}] -> ${c('gray', detail)}`);
-  return { id: kase.id, run, mode: kase.mode, expect: kase.expect, fired, pass, error: res.error ?? null, cost: res.cost ?? 0 };
+  return { id: kase.id, run, mode: kase.mode, expect: kase.expect, fired, pass, bare, absent, error: res.error ?? null, cost: res.cost ?? 0 };
 }, CONCURRENCY);
 
-const failed = outcomes.filter((o) => !o.pass);
+const absent = outcomes.filter((o) => o.absent);
+const failed = outcomes.filter((o) => !o.pass && !o.absent);
+const bareHits = outcomes.filter((o) => o.bare);
 const cost = outcomes.reduce((s, o) => s + o.cost, 0);
 const secs = Math.round((Date.now() - started) / 1000);
 
-console.log(`\n${COLORS.bold}Итог:${COLORS.reset} ${outcomes.length} запуск(ов), ${c('green', `${outcomes.length - failed.length} прошло`)}, ${failed.length ? c('red', `${failed.length} провал`) : '0 провалов'}, $${cost.toFixed(3)}, ${secs}s, модель ${MODEL}`);
+const checked = outcomes.length - absent.length;
+console.log(`\n${COLORS.bold}Итог:${COLORS.reset} ${checked} проверено из ${outcomes.length}, ${c('green', `${checked - failed.length} прошло`)}, ${failed.length ? c('red', `${failed.length} провал`) : '0 провалов'}, $${cost.toFixed(3)}, ${secs}s, модель ${MODEL}`);
+if (absent.length) console.log(c('gray', `Не проверено - скилла нет в сессии: ${absent.length} (${[...new Set(absent.map((o) => o.expect))].join(', ')}). Плагин не найден в plugins/ или имя скилла в кейсе неверно - поле этих скиллов не проверено ничем.`));
+if (bareHits.length) console.log(c('yellow', `Голым именем плагина (вызов не резолвится, попадание засчитано): ${bareHits.length} - ${bareHits.map((o) => o.id).join(', ')}`));
 
 if (JSON_OUT) {
   writeFileSync(JSON_OUT, JSON.stringify({ model: MODEL, runs: RUNS, outcomes }, null, 2) + '\n');

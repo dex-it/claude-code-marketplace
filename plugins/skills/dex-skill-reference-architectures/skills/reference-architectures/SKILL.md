@@ -1,11 +1,11 @@
 ---
 name: reference-architectures
-description: "Reference architecture ловушки: feed, chat, payment, search, rate-limiter. Активируется при feed architecture, push pull, fan-out, WebSocket, SSE, payment, idempotency, search indexing, rate limiter, notifications"
+description: "Выбор типовой архитектуры под задачу и ловушки готовых схем - лента и подписки, чат, платежи, поиск, рассылка уведомлений, ограничение частоты запросов. Активируется при лента постов, подписки, миллион подписчиков, чат, платежи, поиск по каталогу, уведомления, ограничение частоты, reference architecture, feed, push pull, fan-out, WebSocket, SSE, idempotency, search indexing, rate limiter, hot users"
 ---
 
 # Reference Architecture Selection Anti-Patterns
 
-> Эти ловушки касаются выбора **внутри** распознанного паттерна (push vs pull для feed, WebSocket vs SSE для chat). Сам матч задачи с паттерном — работа архитектора, не skill.
+> Эти ловушки касаются выбора **внутри** распознанного паттерна (push vs pull для feed, WebSocket vs SSE для chat). Сам матч задачи с паттерном - работа архитектора, не skill.
 
 ## Reference Architecture Selection
 
@@ -16,25 +16,25 @@ description: "Reference architecture ловушки: feed, chat, payment, search
 
 ### Chat: long-poll/WebSocket/SSE без анализа двунаправленности
 Неправильно: WebSocket по умолчанию для любого realtime
-Правильно: SSE для server→client (notifications, live updates); WebSocket только если нужна client→server частая отправка; long-poll для редких событий и старых клиентов
+Правильно: SSE для server->client (notifications, live updates); WebSocket только если нужна client->server частая отправка; long-poll для редких событий и старых клиентов
 Почему: WebSocket дороже в operational cost (sticky connection, балансировка, идле-таймауты), SSE проще и работает через HTTP/2
 
 ### Payment: один уровень consistency для всего payment-флоу
-Неправильно: «у нас микросервисы → eventual везде» либо «strong consistency на всё, чтобы не думать»
-Правильно: разделить — strong consistency на ledger / authorization / balance update; eventual consistency для notifications / receipts / analytics / dashboard; idempotency-key обязателен на write API; outbox для гарантии side-effects; saga с компенсациями для multi-step операций
+Неправильно: «у нас микросервисы -> eventual везде» либо «strong consistency на всё, чтобы не думать»
+Правильно: разделить - strong consistency на ledger / authorization / balance update; eventual consistency для notifications / receipts / analytics / dashboard; idempotency-key обязателен на write API; outbox для гарантии side-effects; saga с компенсациями для multi-step операций
 Почему: eventual на ledger без idempotency = дубликат платежа (реальные деньги ушли дважды); strong consistency на notifications = блокировка payment'а если SMTP недоступен; разделение по criticality снижает blast radius при failure
 
 ### Search: один path для query и indexing
 Неправильно: тот же endpoint обрабатывает запрос и обновляет индекс
-Правильно: split — sync read path (low-latency query) + async pipeline (CDC → queue → indexer → search engine)
+Правильно: split - sync read path (low-latency query) + async pipeline (CDC -> queue -> indexer -> search engine)
 Почему: indexing = batch-friendly, query = latency-sensitive. Совмещение замедляет оба
 
 ### Notifications: fan-out без учёта hot users
 Неправильно: fan-out на write для всех (даже у user'а с 50M followers)
-Правильно: fan-out на write для tail (90% users <1K followers); fan-out на read (pull) для head (звёзды); граница — по числу followers (бизнес-метрика популярности), не по размеру row или payload в БД
+Правильно: fan-out на write для tail (90% users <1K followers); fan-out на read (pull) для head (звёзды); граница - по числу followers (бизнес-метрика популярности), не по размеру row или payload в БД
 Почему: написание 50M строк inbox при каждом посте звезды = write hot-spot, который кладёт DB; на 1K followers fan-out на write дешевле любого read-time aggregation'а
 
 ### Rate-limiter: алгоритм без анализа burstiness
 Неправильно: token bucket по умолчанию для всех endpoint'ов
-Правильно: token bucket — burst-tolerant; leaky bucket — стабильный rate; sliding window — точный счёт за интервал; fixed window — простой, но edge-burst в стыке окон
-Почему: для billing API нужна стабильность (leaky); для UI-action — burst OK (token); для compliance audit — точный счёт (sliding)
+Правильно: token bucket - burst-tolerant; leaky bucket - стабильный rate; sliding window - точный счёт за интервал; fixed window - простой, но edge-burst в стыке окон
+Почему: для billing API нужна стабильность (leaky); для UI-action - burst OK (token); для compliance audit - точный счёт (sliding)
