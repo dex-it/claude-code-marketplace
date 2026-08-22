@@ -52,6 +52,7 @@ vs стек-нейтральный) трек определяет сам по м
 - Design Acceptance обязателен: вердикт не `passed` -> возврат на доработку или эскалация, хэндофф
   в «Разработку» не уходит
 
+Следующий шаг - `/implement` (implementation plan и одобренный design-документ - его вход).
 Вызови `Skill` -> `dex-sdlc:engine` (откроет/возобновит цикл, авто-ledger с треком
 `dex-skill-architecture-track:architecture-track`), затем `Skill` ->
 `dex-skill-architecture-track:architecture-track` с **`mode: interactive`** - без этого поля трек

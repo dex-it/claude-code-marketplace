@@ -62,7 +62,7 @@ argument-hint: "[идея / тема / путь к чужому документ
 
 Работу ведёт **главный цикл**, исполняя тело скиллов, а не спавн через `Agent`: канал к оператору
 есть только у того, кого исполняет главный цикл, спавненному субагенту `interactive` неисполним
-(`node-contract`, инвариант D). Вызови `Skill` -> `dex-sdlc:engine` (откроет/возобновит цикл, авто-
+(`node-contract`, инвариант D). Следующий шаг - `/design`. Вызови `Skill` -> `dex-sdlc:engine` (откроет/возобновит цикл, авто-
 ledger с треком `dex-skill-analytics-track:analytics-track`), затем `Skill` ->
 `dex-skill-analytics-track:analytics-track` с **`mode: interactive`**. Спавнить трек субагентом
 значит получить `status: blocked` на первом же вопросе - трек ведёт прогон сам, исполняя своё тело;
