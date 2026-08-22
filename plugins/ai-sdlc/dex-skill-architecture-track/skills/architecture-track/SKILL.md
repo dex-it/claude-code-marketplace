@@ -3,7 +3,7 @@ name: architecture-track
 description: >-
   Трек зоны SDLC (архитектура/дизайн) движка dex-sdlc - бизнес-задача или выход зоны требований ->
   требования+capacity -> дизайн-решение (match/alternatives/decide/deep-dive) -> implementation plan
-  -> ADR/API-spec/диаграммы -> приёмка design-reviewer -> DoR трека «Разработка». Активируется при:
+  -> ADR/API-spec/диаграммы -> приёмка design-reviewer -> вход трека «Разработка». Активируется при:
   спроектировать сервис, system design, архитектура решения, capacity, high-level design, reference
   architecture, зона дизайна, /design, deep dive архитектуры, CAP PACELC, ADR review gate.
 ---
@@ -11,8 +11,8 @@ description: >-
 
 # Architecture Track
 
-Трек ведёт бизнес-задачу (или выход зоны требований) от требований до одобренного design-документа - DoR
-трека «Разработка», не до кода. Вызывается движком `dex-sdlc:engine` (`/design`) - трек не
+Трек ведёт бизнес-задачу (или выход зоны требований) от требований до одобренного design-документа -
+входа трека «Разработка», не до кода. Вызывается движком `dex-sdlc:engine` (`/design`) - трек не
 запускается отдельно от него, движок ведёт цикл и стоп-линию, трек - порядок этой зоны.
 
 **Архитектурное решение трек не делает сам.** Match / alternatives / decide / deep-dive - работа
@@ -141,7 +141,7 @@ Mandatory: yes.
 
 ## Phase 4: Implementation Plan
 
-Goal: разложить принятое в Phase 3 решение на исполнимые инкременты - DoR трека «Разработка».
+Goal: разложить принятое в Phase 3 решение на исполнимые инкременты - вход трека «Разработка».
 
 Output: инкременты в логической последовательности (walking skeleton -> vertical slices ->
 scale-out, состав по решению Phase 3, не процедурно); на каждый - scope, dependencies, risks, DoD,

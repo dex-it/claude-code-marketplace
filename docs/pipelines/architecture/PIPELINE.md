@@ -38,7 +38,7 @@ Bootstrap восстанавливает контекст репо (recall-ис�
 sensitivity слоты; вход только BRD без системного уровня принимается, но с явной пометкой «звено
 зоны требований не пройдено», не молчаливой выдачей за полный набор. Capacity Estimation - back-of-envelope
 QPS/storage/bandwidth, опора для решения узла. Implementation Plan раскладывает принятое решение на
-инкременты с DoD, success metric и критериями `[FR-NNN]`/`[NFR-NNN]` - DoR для `development-track`;
+инкременты с DoD, success metric и критериями `[FR-NNN]`/`[NFR-NNN]` - вход `development-track`;
 свёрнутая форма (один инкремент) допустима только для точечного изменения без нового
 сервиса/инфраструктуры/миграции данных.
 
