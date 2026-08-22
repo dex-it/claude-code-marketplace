@@ -24,8 +24,8 @@
  *
  * Also checks:
  *   - every includes[] entry exists in marketplace.json (else install fails)
- *   - plugin.json version matches the bundle's version in marketplace.json
- *     (the real two-place sync; bundle.json itself carries no version)
+ *   - plugin.json version matches marketplace.json for EVERY plugin under
+ *     plugins/ (the real two-place sync; bundle.json itself carries no version)
  *
  * Usage:
  *   node tools/validate-bundle.js <bundle-dir|bundle.json>   # single bundle
@@ -336,26 +336,52 @@ function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, age
     }
   }
 
-  // 3. Version sync: plugin.json version must match this bundle's version in
-  //    marketplace.json (the real two-place sync; bundle.json carries no version).
-  const pluginJson = join(dirname(bundleFile), '.claude-plugin', 'plugin.json');
-  if (existsSync(pluginJson)) {
-    try {
-      const pj = JSON.parse(readFileSync(pluginJson, 'utf8'));
-      const marketVersion = pj.name ? marketplaceVersions.get(pj.name) : undefined;
-      if (pj.version && marketVersion && pj.version !== marketVersion) {
-        findings.push({
-          level: WARNING,
-          rule: 'version-mismatch',
-          message: `plugin.json version (${pj.version}) != marketplace.json version (${marketVersion}) for "${pj.name}"`,
-        });
-      }
-    } catch {
-      /* plugin.json parse handled by other validators */
-    }
-  }
-
   return { filepath: bundleFile, findings };
+}
+
+// --- Version sync across ALL plugins -------------------------------------
+
+// Двухместная синхронизация версии касается каждого плагина, не только бандла:
+// `plugin.json` <-> запись в `marketplace.json`. Проверка жила внутри
+// validateBundle и охватывала лишь bundles/ - рассинхрон обычного плагина
+// проходил гейт молча (пойман на dex-sdlc 2.6.1 vs 2.6.0).
+function validateVersionSync(marketplaceVersions, only) {
+  const results = [];
+  const walk = (dir) => {
+    if (!existsSync(dir)) return;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const full = join(dir, entry.name);
+      const pluginJson = join(full, '.claude-plugin', 'plugin.json');
+      if (existsSync(pluginJson)) {
+        if (!only || resolve(full) === resolve(only)) {
+          results.push(checkVersionSync(pluginJson, marketplaceVersions));
+        }
+        continue;
+      }
+      walk(full);
+    }
+  };
+  walk(join(REPO_ROOT, 'plugins'));
+  return results.filter((r) => r.findings.length > 0);
+}
+
+function checkVersionSync(pluginJson, marketplaceVersions) {
+  const findings = [];
+  try {
+    const pj = JSON.parse(readFileSync(pluginJson, 'utf8'));
+    const marketVersion = pj.name ? marketplaceVersions.get(pj.name) : undefined;
+    if (pj.version && marketVersion && pj.version !== marketVersion) {
+      findings.push({
+        level: WARNING,
+        rule: 'version-mismatch',
+        message: `plugin.json version (${pj.version}) != marketplace.json version (${marketVersion}) for "${pj.name}"`,
+      });
+    }
+  } catch {
+    /* plugin.json parse handled by other validators */
+  }
+  return { filepath: pluginJson, findings };
 }
 
 // --- Reporting ----------------------------------------------------------
@@ -367,12 +393,12 @@ function formatFinding(f) {
   return `  ${color}${label}${COLORS.reset} ${COLORS.gray}[${f.rule}]${COLORS.reset} ${f.message}`;
 }
 
-function report(results) {
+function report(results, extraResults = []) {
   let totalErrors = 0;
   let totalWarnings = 0;
   let filesWithIssues = 0;
 
-  for (const result of results) {
+  for (const result of [...results, ...extraResults]) {
     if (result.findings.length === 0) continue;
     totalErrors += result.findings.filter((f) => f.level !== WARNING).length;
     totalWarnings += result.findings.filter((f) => f.level === WARNING).length;
@@ -451,7 +477,12 @@ function main() {
   const results = files.map((f) =>
     validateBundle(f, marketplacePlugins, marketplaceVersions, agentSkillMap, skillPluginsInRepo, skillAgentMap)
   );
-  process.exit(report(results));
+  // Одиночный таргет сверяет версию только своего плагина, `all` - всех.
+  const versionResults =
+    target === 'all'
+      ? validateVersionSync(marketplaceVersions)
+      : validateVersionSync(marketplaceVersions, dirname(files[0]));
+  process.exit(report(results, versionResults));
 }
 
 main();

@@ -119,7 +119,7 @@ tools/__fixtures__/<validator>/<rule>/expect.json   {"also": [...]} - опцио
 | `include-not-in-marketplace` | error | запись `includes[]` отсутствует в `marketplace.json` - установка упадёт | [plugin-changes.md](../.claude/rules/plugin-changes.md) |
 | `bundle-not-closed` | error | агент бандла грузит скилл, которого нет в `includes[]` - установка плоская, агент молча деградирует | [plugin-changes.md](../.claude/rules/plugin-changes.md) |
 | `bundle-agent-not-closed` | error | скилл бандла делегирует специалисту (`` `dex-X:Y` ``, `X` != `dex-skill-*`), которого нет в `includes[]` - зеркало `bundle-not-closed` в обратную сторону, делегированию не к кому обратиться | [plugin-changes.md](../.claude/rules/plugin-changes.md) |
-| `version-mismatch` | warning | версия в `plugin.json` != версии в `marketplace.json` | [plugin-changes.md](../.claude/rules/plugin-changes.md) |
+| `version-mismatch` | warning | версия в `plugin.json` != версии в `marketplace.json`; охват - каждый плагин под `plugins/`, не только бандлы | [plugin-changes.md](../.claude/rules/plugin-changes.md) |
 
 ## tools/validate-rules-documented.js
 
