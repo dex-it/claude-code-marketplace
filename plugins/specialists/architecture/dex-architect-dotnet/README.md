@@ -1,10 +1,10 @@
 # dex-architect-dotnet
 
-.NET-вариант узла «дизайн-решение» зоны 2. Та же методология, что и `dex-architect` (Alex Xu 4-step
+.NET-вариант узла «дизайн-решение» зоны дизайна. Та же методология, что и `dex-architect` (Alex Xu 4-step
 + RESHADED), но с конкретными ASP.NET Core / EF Core / MassTransit / Polly / Serilog
 рекомендациями в alternatives, .NET-skills и fact-check библиотек в Deep Dive. Требования,
 capacity, implementation-план и документацию ведёт вызывающий трек
-`dex-skill-architecture-track:architecture-track` (команда `/design` в `dex-sdlc`) — этот агент
+`dex-skill-architecture-track:architecture-track` (команда `/design` в `dex-sdlc`) - этот агент
 получает их уже готовыми на входе.
 
 Используется, когда стек проекта явно .NET (выбор между этим узлом и `dex-architect` делает трек по

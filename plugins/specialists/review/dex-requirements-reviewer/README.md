@@ -28,5 +28,5 @@ Pre-load: `dex-skill-node-contract` (контракт узла, входная �
 ## Связанные плагины
 
 - `dex-sdlc` (`/feature`, трек `dex-skill-analytics-track`) - порождение требований, адресат правок.
-- `dex-design-reviewer` - симметричный ревьюер зоны 2 (дизайн-документ).
+- `dex-design-reviewer` - симметричный ревьюер зоны дизайна (дизайн-документ).
 - `dex-mr-reviewer` - ревью кода; там `requirement-quality` применяется к ТЗ задачи, а не к набору эпика.

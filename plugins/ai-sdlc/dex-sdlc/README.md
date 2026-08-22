@@ -20,11 +20,11 @@
 
 ## Команды
 
-- `/feature` - конвейер требований зоны 1 (движок + `dex-skill-analytics-track:analytics-track`)
+- `/feature` - конвейер зоны требований (движок + `dex-skill-analytics-track:analytics-track`)
 - `/feature-check` - проверка своего готового набора требований (без открытия цикла движка,
   см. Constraints команды)
 - `/implement` - реализация фичи по ТЗ (движок + `dex-skill-development-track:development-track`)
-- `/design` - архитектурная сессия зоны 2, от требований до одобренного design-документа (движок +
+- `/design` - архитектурная сессия зоны дизайна, от требований до одобренного design-документа (движок +
   `dex-skill-architecture-track:architecture-track`)
 - `/mr-review` - ревью входящего MR/PR, первичный раунд и повторные раунды по auto-ledger (движок +
   `dex-skill-mr-review-track:mr-review-track`)
@@ -46,7 +46,7 @@
 
 | Трек | Плагин | Проработка |
 |---|---|---|
-| Аналитика (требования зоны 1) | `dex-skill-analytics-track` | полная |
+| Требования (зона требований) | `dex-skill-analytics-track` | полная |
 | Разработка | `dex-skill-development-track` | полная |
 | Архитектура/дизайн | `dex-skill-architecture-track` | полная |
 | Баг-фикс | `dex-skill-bugfix-track` | заглушка (под-вид Разработки) |

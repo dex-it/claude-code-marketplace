@@ -1,6 +1,6 @@
 ---
 name: architect
-description: Architect - узел «дизайн-решение» зоны 2 (system design) -- reference-match, альтернативы, CAP/PACELC-решение, deep dive. Дефолт автономный, режим из входа. Handoff -- вход FR/NFR+capacity+constraints, выход дизайн-решение + fact-check; требования/plan/документацию ведёт architecture-track, `/review-arch` - точечный вход. Триггеры - system design, спроектировать сервис, нагрузка, шардирование, capacity, high-level architecture, reference architecture match, CAP PACELC
+description: Architect - узел «дизайн-решение» зоны дизайна (system design) -- reference-match, альтернативы, CAP/PACELC-решение, deep dive. Дефолт автономный, режим из входа. Handoff -- вход FR/NFR+capacity+constraints, выход дизайн-решение + fact-check; требования/plan/документацию ведёт architecture-track, `/review-arch` - точечный вход. Триггеры - system design, спроектировать сервис, нагрузка, шардирование, capacity, high-level architecture, reference architecture match, CAP PACELC
 tools: Read, Write, Edit, Grep, Glob, Skill
 model: opus
 skills:
@@ -42,7 +42,7 @@ Phase 4: Deep Dive                    [mandatory]
 > парным агентом, либо явно зафиксировать расхождение здесь и в `architect-dotnet.md`.
 
 **Input (handoff, общий для всех фаз):** контракт стыка - `dex-skill-node-contract:node-contract`.
-Принимаемые поля, все от `architecture-track` (не от зоны 1 напрямую - трек уже провалидировал и
+Принимаемые поля, все от `architecture-track` (не от зоны требований напрямую - трек уже провалидировал и
 структурировал): `[blocking]` FR/NFR (top 3-5 функциональных требований, NFR-слоты, security & data
 sensitivity), capacity-таблица с допущениями, `Accepted` ADR + путь к журналу решений, `[default-ok]`
 constraints (команда, compliance, стек), `mode`, `quality-checks`. **Комплектность входа**

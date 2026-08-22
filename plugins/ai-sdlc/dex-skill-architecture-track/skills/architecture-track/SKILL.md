@@ -1,17 +1,17 @@
 ---
 name: architecture-track
 description: >-
-  Трек зоны SDLC (архитектура/дизайн) движка dex-sdlc - бизнес-задача или выход зоны 1 ->
+  Трек зоны SDLC (архитектура/дизайн) движка dex-sdlc - бизнес-задача или выход зоны требований ->
   требования+capacity -> дизайн-решение (match/alternatives/decide/deep-dive) -> implementation plan
   -> ADR/API-spec/диаграммы -> приёмка design-reviewer -> DoR трека «Разработка». Активируется при:
   спроектировать сервис, system design, архитектура решения, capacity, high-level design, reference
-  architecture, зона 2, /design, deep dive архитектуры, CAP PACELC, ADR review gate.
+  architecture, зона дизайна, /design, deep dive архитектуры, CAP PACELC, ADR review gate.
 ---
 <!-- skill-type: process -->
 
 # Architecture Track
 
-Трек ведёт бизнес-задачу (или выход зоны 1) от требований до одобренного design-документа - DoR
+Трек ведёт бизнес-задачу (или выход зоны требований) от требований до одобренного design-документа - DoR
 трека «Разработка», не до кода. Вызывается движком `dex-sdlc:engine` (`/design`) - трек не
 запускается отдельно от него, движок ведёт цикл и стоп-линию, трек - порядок этой зоны.
 
@@ -57,14 +57,14 @@ Mandatory: yes - без recall Phase 1 запрашивает то, что уж�
 
 ## Phase 1: Understand Requirements
 
-Goal: перевести бизнес-задачу (или выход зоны 1) в проверяемые FR/NFR и security/data-sensitivity
+Goal: перевести бизнес-задачу (или выход зоны требований) в проверяемые FR/NFR и security/data-sensitivity
 слоты - вход для Phase 2/3.
 
 **Input (handoff):** контракт стыка - `dex-skill-node-contract:node-contract`. Принимаемые поля:
-`[blocking]` постановка - бизнес-задача **либо** полный набор требований зоны 1 (`FR-NNN`/`NFR-NNN`
+`[blocking]` постановка - бизнес-задача **либо** полный набор зоны требований (`FR-NNN`/`NFR-NNN`
 + user stories с метками, из `/feature`); вход только BRD (`BR-NNN`+MOE, без системного уровня) -
-принимается, но `FR`/`NFR` выводит эта фаза сама с пометкой «звено зоны 1 не пройдено» и
-рекомендацией прогнать `/feature` - молча засчитывать выведенное за набор зоны 1 запрещено, метки
+принимается, но `FR`/`NFR` выводит эта фаза сама с пометкой «звено зоны требований не пройдено» и
+рекомендацией прогнать `/feature` - молча засчитывать выведенное за набор зоны требований запрещено, метки
 `quality-checks` у него нет. `[default-ok]` NFR (DAU/latency/consistency/data-sensitivity),
 constraints (команда, compliance, стек), `mode` (дефолт `autonomous`), `quality-checks` от
 составителя. Постановка отсутствует -> halt + возврат оркестратору (нечего проектировать); NFR/
@@ -253,5 +253,5 @@ Trail-запись за каждый шаг несёт канал - `self` (Phas
   напрямую, не через этот трек: другой источник входа (код, не бизнес-задача), другой объём.
 - Confidence ниже 80 в трактовке требования - вопрос оператору (`interactive`) или допущение с
   пометкой (`autonomous`), не угадывание.
-- Код трек и узлы этой зоны не пишут - выход зоны 2 всегда design-документ + implementation plan,
+- Код трек и узлы этой зоны не пишут - выход зоны дизайна всегда design-документ + implementation plan,
   не правки в репозитории.

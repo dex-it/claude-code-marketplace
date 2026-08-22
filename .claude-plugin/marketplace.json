@@ -1198,8 +1198,8 @@
     {
       "name": "dex-architect",
       "source": "./plugins/specialists/architecture/dex-architect",
-      "description": "System design узел зоны 2 (дизайн-решение): reference architecture match, альтернативы, решение с CAP/PACELC, deep dive. Требования/capacity/implementation-план ведёт вызывающий трек (architecture-track). Стек-нейтральный.",
-      "version": "4.0.0",
+      "description": "System design узел зоны дизайна (дизайн-решение): reference architecture match, альтернативы, решение с CAP/PACELC, deep dive. Требования/capacity/implementation-план ведёт вызывающий трек (architecture-track). Стек-нейтральный.",
+      "version": "4.0.1",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1216,8 +1216,8 @@
     {
       "name": "dex-architect-dotnet",
       "source": "./plugins/specialists/architecture/dex-architect-dotnet",
-      "description": "Узел зоны 2 (дизайн-решение) для .NET: reference architecture match, альтернативы с ASP.NET Core / EF Core / MassTransit / Polly, решение с CAP/PACELC, deep dive, fact-check библиотек. Требования/capacity/implementation-план ведёт вызывающий трек (architecture-track).",
-      "version": "3.0.0",
+      "description": "Узел зоны дизайна (дизайн-решение) для .NET: reference architecture match, альтернативы с ASP.NET Core / EF Core / MassTransit / Polly / Serilog, решение с CAP/PACELC, deep dive, fact-check библиотек. Требования/capacity/implementation-план ведёт вызывающий трек (architecture-track).",
+      "version": "3.0.1",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1234,7 +1234,7 @@
       "name": "dex-adr-writer",
       "source": "./plugins/specialists/architecture/dex-adr-writer",
       "description": "ADR writer: Architecture Decision Records, MADR format, decision drivers, trade-offs",
-      "version": "3.4.0",
+      "version": "3.4.1",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1263,7 +1263,7 @@
       "name": "dex-api-designer",
       "source": "./plugins/specialists/architecture/dex-api-designer",
       "description": "API designer: REST, GraphQL, gRPC, OpenAPI, AsyncAPI, versioning, contract-first design",
-      "version": "3.2.0",
+      "version": "3.2.1",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1293,7 +1293,7 @@
       "name": "dex-design-reviewer",
       "source": "./plugins/specialists/architecture/dex-design-reviewer",
       "description": "Ревью и согласование чужого дизайн-документа (спека, ADR, диаграммы) до написания кода: полнота NFR, дефекты требований, качество ADR-решений, консистентность и слои, полнота и непротиворечивость набора артефактов работы, фальсификация находок, severity. Не архитектура реализованного кода - её ревьюит /review-arch.",
-      "version": "2.5.1",
+      "version": "2.5.2",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1310,7 +1310,7 @@
       "name": "dex-business-analyst",
       "source": "./plugins/specialists/product/dex-business-analyst",
       "description": "Business analyst: business requirements BR-NNN with MOE, BRD",
-      "version": "5.11.2",
+      "version": "5.11.3",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1375,7 +1375,7 @@
       "name": "dex-user-story-analyst",
       "source": "./plugins/specialists/product/dex-user-story-analyst",
       "description": "User story analyst: stories, acceptance criteria, Given-When-Then",
-      "version": "5.0.1",
+      "version": "5.0.2",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1387,7 +1387,7 @@
       "name": "dex-usecase-analyst",
       "source": "./plugins/specialists/product/dex-usecase-analyst",
       "description": "Usecase analyst: разбор BR в сценарии UC - актор и его цель, предусловия, основной ход, расширения с исходом у каждой ветки",
-      "version": "2.1.2",
+      "version": "2.1.3",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2084,7 +2084,7 @@
       "name": "dex-skill-node-contract",
       "source": "./plugins/ai-sdlc/dex-skill-node-contract",
       "description": "Рантайм-контракт агента-узла - режим interactive/autonomous, реакция на неполный вход (blocking/default-ok), возврат наверх, словарь полей handoff, метка quality-checks и её носитель, транспорт артефакта, выбор канала хостинга (native/CLI), graceful degradation при недоступности skill",
-      "version": "7.9.3",
+      "version": "7.9.4",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2114,7 +2114,7 @@
       "name": "dex-skill-project-docs-map",
       "source": "./plugins/ai-sdlc/dex-skill-project-docs-map",
       "description": "Карта документации проекта - где лежат требования, ADR, спеки и счётчики номеров; файл путей .docs_layout, поиск и запись при его отсутствии, статус при недостижимом корпусе",
-      "version": "2.1.0",
+      "version": "2.1.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2826,7 +2826,7 @@
       "name": "dex-requirements-reviewer",
       "source": "./plugins/specialists/review/dex-requirements-reviewer",
       "description": "Ревью и согласование чужого готового набора требований (BRD/stories) как документа: дефекты единицы и дефекты набора против источника, фальсификация находок, severity, правки автору без мутации документа.",
-      "version": "1.11.1",
+      "version": "1.11.2",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -3051,7 +3051,7 @@
       "name": "dex-sdlc",
       "source": "./plugins/ai-sdlc/dex-sdlc",
       "description": "Движок доведения цели до конца самостоятельно (AI-SDLC-конвейер) - универсальный цикл, делегирование узлам-агентам по контракту node-contract, диспетчинг по трек-скиллу зоны. Зона-агностичен: порядок работ каждой зоны живёт в своём dex-skill-<зона>-track, движок его не хранит. Входные команды /feature, /feature-check, /implement, /design, /mr-review, /review-plan, /review-stand, /root-cause, /investigate, /find-bugs, /test, /documentation, /discover",
-      "version": "2.4.0",
+      "version": "2.4.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -3066,8 +3066,8 @@
     {
       "name": "dex-skill-analytics-track",
       "source": "./plugins/ai-sdlc/dex-skill-analytics-track",
-      "description": "Трек зоны 1 (аналитика/требования) движка dex-sdlc - тема или правка -> BRD -> сценарии -> правила и меры -> истории с критериями приёмки, две остановки оператора и проба готовности набора. Полностью проработан по идиоме фаз-контракта (не заглушка)",
-      "version": "1.1.0",
+      "description": "Трек зоны требований (аналитика/требования) движка dex-sdlc - тема или правка -> BRD -> сценарии -> правила и меры -> истории с критериями приёмки, две остановки оператора и проба готовности набора. Полностью проработан по идиоме фаз-контракта (не заглушка)",
+      "version": "1.1.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -3096,7 +3096,7 @@
       "name": "dex-skill-architecture-track",
       "source": "./plugins/ai-sdlc/dex-skill-architecture-track",
       "description": "Трек архитектуры/дизайна движка dex-sdlc - от требований до одобренного design-документа: capacity, implementation plan, диспетчинг architect/architect-dotnet/adr-writer/api-designer/diagram-creator/design-reviewer по node-contract",
-      "version": "2.0.0",
+      "version": "2.0.1",
       "category": "skill",
       "keywords": [
         "skill",

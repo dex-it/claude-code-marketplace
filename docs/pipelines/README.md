@@ -5,8 +5,8 @@
 
 | Конвейер | Папка | Состояние |
 |---|---|---|
-| аналитика (требования зоны 1) | [analytics/](analytics/) | схема принята, реализация идёт |
-| дизайн (зона 2, требования -> одобренный дизайн) | [architecture/](architecture/) | облегчённый объём - README + один конспективный `PIPELINE.md`, без `NORMS.md`/`IMPLEMENTATION.md`/`ARCHITECTURE.md` (см. README.md папки) |
+| требования (зона требований) | [analytics/](analytics/) | схема принята, реализация идёт |
+| дизайн (требования -> одобренный дизайн) | [architecture/](architecture/) | облегчённый объём - README + один конспективный `PIPELINE.md`, без `NORMS.md`/`IMPLEMENTATION.md`/`ARCHITECTURE.md` (см. README.md папки) |
 
 **Порядок чтения внутри папки** одинаков для полного объёма (`analytics/`): `NORMS.md` - чем
 подпёрто, `PIPELINE.md` - как работает, `IMPLEMENTATION.md` - чем исполняется, `ARCHITECTURE.md` -

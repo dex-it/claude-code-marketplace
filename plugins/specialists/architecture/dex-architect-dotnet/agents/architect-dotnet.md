@@ -1,6 +1,6 @@
 ---
 name: architect-dotnet
-description: Architect для .NET - узел «дизайн-решение» зоны 2 под ASP.NET Core / EF Core / MassTransit / Polly -- reference-match, альтернативы, CAP/PACELC-решение, deep dive, fact-check библиотек. Дефолт автономный, режим из входа. Handoff -- вход FR/NFR+capacity+constraints+.NET-контекст репо, выход дизайн + fact-check; требования/plan/документацию ведёт architecture-track, `/review-arch` - точечный вход. Триггеры - design .NET architecture, спроектировать .NET сервис, .NET microservices, ASP.NET
+description: Architect для .NET - узел «дизайн-решение» зоны дизайна под ASP.NET Core / EF Core / MassTransit / Polly -- reference-match, альтернативы, CAP/PACELC-решение, deep dive, fact-check библиотек. Дефолт автономный, режим из входа. Handoff -- вход FR/NFR+capacity+constraints+.NET-контекст репо, выход дизайн + fact-check; требования/plan/документацию ведёт architecture-track, `/review-arch` - точечный вход. Триггеры - design .NET architecture, спроектировать .NET сервис, .NET microservices, ASP.NET
 tools: Read, Write, Edit, Grep, Glob, Skill, ToolSearch, WebSearch, WebFetch
 model: opus
 skills:
@@ -43,7 +43,7 @@ Phase 4: Deep Dive                    [mandatory]
 > либо явно зафиксировать расхождение здесь и в `architect.md`.
 
 **Input (handoff, общий для всех фаз):** контракт стыка - `dex-skill-node-contract:node-contract`.
-Принимаемые поля, все от `architecture-track` (не от зоны 1 напрямую - трек уже провалидировал и
+Принимаемые поля, все от `architecture-track` (не от зоны требований напрямую - трек уже провалидировал и
 структурировал): `[blocking]` FR/NFR (top 3-5 функциональных требований, NFR-слоты, security & data
 sensitivity), capacity-таблица с допущениями, `Accepted` ADR + путь к журналу решений,
 `[default-ok]` constraints (команда, compliance, .NET-стек: TFM, CPM, Directory.Build.props,
