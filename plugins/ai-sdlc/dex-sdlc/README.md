@@ -20,29 +20,28 @@
 
 ## Команды
 
-- `/product` - корпус уровня 0: BRD продукта, словарь терминов, конституция (движок +
-  `dex-skill-product-track:product-track`)
-- `/feature` - конвейер зоны требований (движок + `dex-skill-analytics-track:analytics-track`)
-- `/feature-check` - проверка своего готового набора требований (без открытия цикла движка,
-  см. Constraints команды)
-- `/implement` - реализация фичи по ТЗ (движок + `dex-skill-development-track:development-track`)
-- `/design` - архитектурная сессия зоны дизайна, от требований до одобренного design-документа (движок +
-  `dex-skill-architecture-track:architecture-track`)
-- `/mr-review` - ревью входящего MR/PR, первичный раунд и повторные раунды по auto-ledger (движок +
-  `dex-skill-mr-review-track:mr-review-track`)
-- `/review-plan` - обработка ревью на своём MR: план правок, правки узлами, ре-ревью дельты (движок +
-  `dex-skill-followup-track:followup-track`)
-- `/review-stand` - приёмка слитой фичи на стенде против ТЗ, ремедиация подтверждённого (движок +
-  `dex-skill-acceptance-track:acceptance-track`)
-- `/root-cause` - первопричина бага по коду (движок + `dex-skill-diagnostics-track:diagnostics-track`)
-- `/investigate` - расследование инцидента на общем стенде (движок +
-  `dex-skill-diagnostics-track:diagnostics-track`)
-- `/find-bugs` - активный поиск багов в фиче/ветке (движок + `dex-skill-test-track:test-track`)
-- `/test` - закрытие матрицы покрытия тестами по стеку (движок + `dex-skill-test-track:test-track`)
-- `/documentation` - техническая документация с верификацией фактов по коду (движок +
-  `dex-skill-documentation-track:documentation-track`)
-- `/discover` - обзорное ревью существующего проекта вширь (движок +
-  `dex-skill-discover-track:discover-track`)
+Команды-входы живут не в этом плагине, а в плагинах зон: роль ставит те зоны, которые ей нужны,
+и не тащит остальные. Движок (`dex-sdlc:engine`) нужен каждой из них.
+
+| Команда | Плагин | Трек |
+|---|---|---|
+| `/product` | `dex-sdlc-product` | `dex-skill-product-track:product-track` |
+| `/feature` | `dex-sdlc-requirements` | `dex-skill-analytics-track:analytics-track` |
+| `/feature-check` | `dex-sdlc-requirements` | без открытия цикла движка, см. Constraints команды |
+| `/design` | `dex-sdlc-design` | `dex-skill-architecture-track:architecture-track` |
+| `/discover` | `dex-sdlc-discover` | `dex-skill-discover-track:discover-track` |
+| `/documentation` | `dex-sdlc-docs` | `dex-skill-documentation-track:documentation-track` |
+| `/implement` | `dex-sdlc-delivery` | `dex-skill-development-track:development-track` |
+| `/test` | `dex-sdlc-test` | `dex-skill-test-track:test-track` (под-вид `coverage`) |
+| `/find-bugs` | `dex-sdlc-test` | `dex-skill-test-track:test-track` (под-вид `hunt`) |
+| `/mr-review` | `dex-sdlc-review` | `dex-skill-mr-review-track:mr-review-track` |
+| `/review-plan` | `dex-sdlc-review` | `dex-skill-followup-track:followup-track` |
+| `/review-stand` | `dex-sdlc-acceptance` | `dex-skill-acceptance-track:acceptance-track` |
+| `/root-cause` | `dex-sdlc-ops` | `dex-skill-diagnostics-track:diagnostics-track` |
+| `/investigate` | `dex-sdlc-ops` | `dex-skill-diagnostics-track:diagnostics-track` |
+
+Плагин зоны без своего трека команду не выполняет: замкнутость набора проверяет
+`npm run validate:bundles` (правило `bundle-command-not-closed`).
 
 ## Треки каталога
 

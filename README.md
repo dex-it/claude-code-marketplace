@@ -95,14 +95,14 @@ claude plugins uninstall dex-dotnet-coder
 
 | Плагин | Агент | Команда | Описание |
 |--------|-------|---------|----------|
-| dex-mr-reviewer | mr-reviewer | `/mr-review` (движок `dex-sdlc`) | Первичное ревью чужого MR/PR, инлайн-треды через gh/glab |
+| dex-mr-reviewer | mr-reviewer | `/mr-review` (плагин `dex-sdlc-review`) | Первичное ревью чужого MR/PR, инлайн-треды через gh/glab |
 | dex-mr-check-reviewer | mr-check-reviewer | второй раунд `/mr-review`, не своя команда | Ре-ревью дельты с прошлого раунда (range-diff) |
-| dex-review-planner | review-planner | `/review-plan` (движок `dex-sdlc`) | План правок по ревью без редактирования кода |
+| dex-review-planner | review-planner | `/review-plan` (плагин `dex-sdlc-review`) | План правок по ревью без редактирования кода |
 | dex-self-reviewer | self-reviewer | `/self-review` | Pre-push саморевью своей ветки с прогоном тестов |
 | dex-conflict-resolver | conflict-resolver | `/resolve-conflicts` | Подтянуть базу в фича-ветку и развести конфликты merge/rebase без тихой потери стороны |
-| dex-incident-investigator | incident-investigator | `/investigate` (движок `dex-sdlc`) | Расследование инцидента на общем стенде, RCA и фикс на источнике, read-only по умолчанию |
+| dex-incident-investigator | incident-investigator | `/investigate` (плагин `dex-sdlc-ops`) | Расследование инцидента на общем стенде, RCA и фикс на источнике, read-only по умолчанию |
 
-Все команды с пометкой «движок `dex-sdlc`» - входы этого плагина (`plugins/ai-sdlc/dex-sdlc/commands/`), специалист несёт только агента; `/self-review` и `/resolve-conflicts` остаются собственными командами своих плагинов. Реализация фичи по ТЗ до локальных коммитов - `/implement` через движок `dex-sdlc` (см. «Движок SDLC» в Skills). Ставятся набором: `dex-bundle-code-review`. Стек кодера (агент, не skills) добирается профильным бандлом (`dotnet-developer`/`ts-fullstack`) - см. «Бандлы»; skills по стеку (включая .NET и TypeScript) грузятся условно.
+Команды с пометкой «плагин `dex-sdlc-*`» - входы движка, живущие в плагине своей зоны (`plugins/ai-sdlc/dex-sdlc-<зона>/commands/`); специалист несёт только агента, а движок `dex-sdlc` ставится вместе с любой зоной. `/self-review` и `/resolve-conflicts` остаются собственными командами своих плагинов. Реализация фичи по ТЗ до локальных коммитов - `/implement` (плагин `dex-sdlc-delivery`, см. «Движок SDLC» в Skills). Ставятся набором: `dex-bundle-code-review`. Стек кодера (агент, не skills) добирается профильным бандлом (`dotnet-developer`/`ts-fullstack`) - см. «Бандлы»; skills по стеку (включая .NET и TypeScript) грузятся условно.
 
 ### Fullstack
 
@@ -170,7 +170,7 @@ claude plugins uninstall dex-dotnet-coder
 | dex-process-modeler | BPMN, workflows |
 | dex-doc-writer | Technical specs, API docs |
 
-Зона требований целиком (идея -> BRD -> `UC` -> `FR`/`NFR` -> stories, гейты с апрувом оператора) идёт через `/feature` движка `dex-sdlc` (см. «Движок SDLC» в Skills), не отдельным агентом.
+Зона требований целиком (идея -> BRD -> `UC` -> `FR`/`NFR` -> stories, гейты с апрувом оператора) идёт через `/feature` (плагин `dex-sdlc-requirements`, движок `dex-sdlc`; см. «Движок SDLC» в Skills), не отдельным агентом.
 
 ### QA
 
@@ -197,7 +197,7 @@ claude plugins uninstall dex-dotnet-coder
 
 | Категория | Skills |
 |-----------|--------|
-| **Движок SDLC** | sdlc (`dex-sdlc:engine`, команды `/product`, `/feature`, `/implement`, `/feature-check`, `/design`, `/discover`, `/documentation`, `/find-bugs`, `/investigate`, `/mr-review`, `/review-plan`, `/review-stand`, `/root-cause`, `/test`), product-track, analytics-track, development-track, architecture-track, bugfix-track, followup-track, acceptance-track, discover-track, test-track, mr-review-track, documentation-track, diagnostics-track |
+| **Движок SDLC** | sdlc (`dex-sdlc:engine`; команды-входы - в плагинах зон `dex-sdlc-product`, `dex-sdlc-requirements`, `dex-sdlc-design`, `dex-sdlc-discover`, `dex-sdlc-docs`, `dex-sdlc-delivery`, `dex-sdlc-test`, `dex-sdlc-review`, `dex-sdlc-acceptance`, `dex-sdlc-ops`), product-track, analytics-track, development-track, architecture-track, bugfix-track, followup-track, acceptance-track, discover-track, test-track, mr-review-track, documentation-track, diagnostics-track |
 | **.NET** | dotnet-patterns, ef-core, async-patterns, linq-optimization, api-development, api-documentation, testing-patterns |
 | **Frontend & TypeScript** | react, ts-patterns, ts-nodejs-api, ts-vitest-jest |
 | **Security** | owasp-security |

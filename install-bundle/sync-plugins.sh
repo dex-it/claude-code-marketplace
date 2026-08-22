@@ -4,15 +4,16 @@
 #
 # Protects INSTALLED agents AND command entry points from degradation: an
 # agent loads skills imperatively via the Skill tool, and a command (e.g.
-# dex-sdlc's /feature, /implement) does the same to reach the engine and its
-# track-skills (`dex-skill-X:Y`). Installation is flat — there is no
-# specialist→skill or command→skill cascade, so a skill that is referenced but
+# dex-sdlc-requirements' /feature, dex-sdlc-delivery's /implement) does the
+# same to reach the engine (`dex-sdlc:engine`) and its track-skills
+# (`dex-skill-X:Y`). Installation is flat - there is no
+# specialist->skill or command->skill cascade, so a skill that is referenced but
 # not installed will not resolve, and the agent/command silently degrades.
 #
 # This script anchors on what YOU have installed (not on bundles): for every
 # installed plugin it reads the skills its agent(s) and/or command(s) load
 # from the repo's files (source of truth = the market), and reports/installs
-# the non-by-stack skills that are missing. It NEVER installs new agents —
+# the non-by-stack skills that are missing. It NEVER installs new agents -
 # "something new appeared" is a manual decision. It does NOT touch versions
 # (update is a separate manual op via the marketplace).
 #
@@ -47,7 +48,7 @@ SPECIALISTS_DIR="$PROJECT_ROOT/plugins/specialists"
 MARKETPLACE_JSON="$PROJECT_ROOT/.claude-plugin/marketplace.json"
 MARKETPLACE_NAME="dex-claude-marketplace"
 
-# by-stack profile skill prefixes — loaded conditionally per project stack,
+# by-stack profile skill prefixes - loaded conditionally per project stack,
 # NOT required to be installed for every agent (see dex-skill-stack-registry).
 # Keep in sync with BY_STACK_PREFIXES in tools/validate-bundle.js.
 BY_STACK_PREFIXES="dotnet ts python react rabbitmq kafka redis mongodb elasticsearch docker kubernetes gitlab-ci github-actions teamcity jenkins playwright"
@@ -129,7 +130,7 @@ skills_loaded_by() {
 main() {
   check_dependencies
 
-  print_header "  Plugin Sync — protecting installed agents/commands from skill degradation"
+  print_header "  Plugin Sync - protecting installed agents/commands from skill degradation"
   echo ""
 
   local installed missing_total=0 plugins_checked=0
@@ -169,7 +170,7 @@ main() {
   echo ""
   print_dim "  Installed agents/commands checked: $plugins_checked"
   if [ "$missing_total" -eq 0 ]; then
-    print_success "  All installed agents/commands are closed over their skills — no drift."
+    print_success "  All installed agents/commands are closed over their skills - no drift."
     exit 0
   fi
 
@@ -190,13 +191,13 @@ main() {
   for skill in $(printf '%s\n' "${skills[@]}" | sort); do
     # only install if declared in marketplace.json (else CLI errors)
     if ! jq -e --arg n "$skill" '.plugins[]|select(.name==$n)' "$MARKETPLACE_JSON" >/dev/null 2>&1; then
-      print_error "    ✗ $skill — not declared in marketplace.json, skipping"
+      print_error "    ✗ $skill - not declared in marketplace.json, skipping"
       fail=$((fail+1)); continue
     fi
     if claude plugins install "${skill}@${MARKETPLACE_NAME}" >/dev/null 2>&1; then
       print_success "    ✓ $skill"; ok=$((ok+1))
     else
-      print_error "    ✗ $skill — install failed"; fail=$((fail+1))
+      print_error "    ✗ $skill - install failed"; fail=$((fail+1))
     fi
   done
   echo ""

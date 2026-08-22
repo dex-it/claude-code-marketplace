@@ -28,7 +28,9 @@ Bundle for Product Managers: business requirements, roadmap, backlog, metrics an
 ## Included Components (35)
 
 ### Engine (1)
-- `dex-sdlc` - SDLC engine (`dex-sdlc:engine`) plus `/feature`, `/implement`, `/feature-check`; delegates zone order to `dex-skill-analytics-track`
+- `dex-sdlc` - SDLC engine (`dex-sdlc:engine`); delegates zone order to the zone track skill
+- `dex-sdlc-product` - command entry `/product` (product corpus: BRD, domain model, constitution)
+- `dex-sdlc-requirements` - command entries `/feature`, `/feature-check`; zone order in `dex-skill-analytics-track`
 
 ### Specialists (9)
 - `dex-business-analyst` - Business requirements (BRD)

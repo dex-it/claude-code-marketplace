@@ -8,6 +8,12 @@
  *     includes[] (rule bundle-not-closed).
  *   - each specialist a skill in the bundle delegates to (`dex-X:Y`, X !=
  *     dex-skill-*) MUST also be listed (rule bundle-agent-not-closed).
+ *   - each skill or specialist a COMMAND in the bundle names as its executor
+ *     (`dex-X:Y`) MUST also be listed (rule bundle-command-not-closed). A
+ *     command is the third reference carrier; its body was outside closure
+ *     entirely, and the gap was real - /find-bugs (dex-sdlc) names
+ *     dex-bug-finder as executor while four bundles shipped the command
+ *     without that plugin, so the name silently failed to resolve.
  * Installation is flat - install-bundle.sh installs exactly the includes[]
  * entries, there is no specialist->skill or skill->specialist cascade. So a
  * reference the bundle omits will never be installed, and either the agent
@@ -235,6 +241,51 @@ function buildSkillAgentMap(specialistPluginsInRepo) {
   return map;
 }
 
+// --- Command -> referenced skills/specialists map -------------------------
+
+// Третье ребро замыкания. Носителей ссылки на исполнителя три - агент, скилл и
+// команда; первые два проверялись, тело команды не проверялось вовсе.
+// Разделение по членству в репо, а не по префиксу имени: команда называет и
+// `dex-skill-X:Y`, и скилл плагина без префикса (`dex-sdlc:engine`), и агента.
+// Форма ссылки та же, что у остальных правил - `plugin:name`; голое имя плагина
+// в прозе не ловится (см. docs/VALIDATOR_RULES.md, границы правила).
+function buildCommandRefMap(skillPluginsInRepo, specialistPluginsInRepo) {
+  const map = new Map();
+  const re = /`?(dex-[a-z0-9-]+):[a-z0-9-]+`?/gi;
+
+  function walk(dir) {
+    if (!existsSync(dir)) return;
+    for (const entry of readdirSync(dir)) {
+      const full = join(dir, entry);
+      if (statSync(full).isDirectory()) {
+        walk(full);
+        continue;
+      }
+      if (!entry.endsWith('.md') || basename(dirname(full)) !== 'commands') continue;
+      // <plugin>/commands/<name>.md -> <plugin>/.claude-plugin/plugin.json
+      const pj = join(dirname(dirname(full)), '.claude-plugin', 'plugin.json');
+      if (!existsSync(pj)) continue;
+      let pluginName;
+      try {
+        pluginName = JSON.parse(readFileSync(pj, 'utf8')).name;
+      } catch {
+        continue;
+      }
+      const body = readFileSync(full, 'utf8');
+      const refs = map.get(pluginName) || { skills: new Set(), agents: new Set() };
+      for (const match of body.matchAll(re)) {
+        const target = match[1];
+        if (/-$/.test(target)) continue; // glob/example artifact: `dex-skill-dotnet-*`
+        if (skillPluginsInRepo.has(target)) refs.skills.add(target);
+        else if (specialistPluginsInRepo.has(target)) refs.agents.add(target);
+      }
+      if (refs.skills.size > 0 || refs.agents.size > 0) map.set(pluginName, refs);
+    }
+  }
+  walk(join(REPO_ROOT, 'plugins'));
+  return map;
+}
+
 // --- Bundle discovery ---------------------------------------------------
 
 function findAllBundleFiles() {
@@ -260,7 +311,7 @@ function resolveBundleFile(target) {
 
 // --- Validation ---------------------------------------------------------
 
-function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, agentSkillMap, skillPluginsInRepo, skillAgentMap) {
+function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, agentSkillMap, skillPluginsInRepo, skillAgentMap, commandRefMap) {
   const findings = [];
   let bundle;
   try {
@@ -331,6 +382,37 @@ function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, age
           level: ERROR,
           rule: 'bundle-agent-not-closed',
           message: `skill "${comp}" delegates to "${agentPlugin}" but it is missing from includes[] - bundle not closed; add it or the delegation has no agent to run`,
+        });
+      }
+    }
+  }
+
+  // 2c. Команда бандла называет исполнителя - скилл или специалиста; он тоже
+  //     обязан быть в includes[]. Установка плоская: команда приезжает с своим
+  //     плагином и появляется в меню, а названный ею исполнитель - нет, и имя
+  //     не резолвится молча. By-stack исключение то же, что в #2 и #2b.
+  for (const comp of includes) {
+    const refs = commandRefMap.get(comp);
+    if (!refs) continue;
+    for (const skill of refs.skills) {
+      const st = stackOf(skill);
+      if (st && !committedStacks.has(st)) continue;
+      if (!includeSet.has(skill)) {
+        findings.push({
+          level: ERROR,
+          rule: 'bundle-command-not-closed',
+          message: `command of "${comp}" names skill "${skill}" but it is missing from includes[] - bundle not closed; add it or the command has no skill to call`,
+        });
+      }
+    }
+    for (const agentPlugin of refs.agents) {
+      const st = agentStackOf(agentPlugin);
+      if (st && !committedStacks.has(st)) continue;
+      if (!includeSet.has(agentPlugin)) {
+        findings.push({
+          level: ERROR,
+          rule: 'bundle-command-not-closed',
+          message: `command of "${comp}" names specialist "${agentPlugin}" but it is missing from includes[] - bundle not closed; add it or the command has no agent to run`,
         });
       }
     }
@@ -457,6 +539,7 @@ function main() {
   const skillPluginsInRepo = buildSkillPluginsInRepo();
   const specialistPluginsInRepo = buildSpecialistPluginsInRepo();
   const skillAgentMap = buildSkillAgentMap(specialistPluginsInRepo);
+  const commandRefMap = buildCommandRefMap(skillPluginsInRepo, specialistPluginsInRepo);
 
   let files;
   if (target === 'all') {
@@ -475,7 +558,7 @@ function main() {
   }
 
   const results = files.map((f) =>
-    validateBundle(f, marketplacePlugins, marketplaceVersions, agentSkillMap, skillPluginsInRepo, skillAgentMap)
+    validateBundle(f, marketplacePlugins, marketplaceVersions, agentSkillMap, skillPluginsInRepo, skillAgentMap, commandRefMap)
   );
   // Одиночный таргет сверяет версию только своего плагина, `all` - всех.
   const versionResults =

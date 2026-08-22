@@ -4,10 +4,10 @@
 
 ## Цикл
 
-- Поиск: `dex-bug-finder` (`/find-bugs`) активно ищет дефекты, воспроизводит, отдаёт в handoff
+- Поиск: `dex-bug-finder` (`/find-bugs`, плагин `dex-sdlc-test`) активно ищет дефекты, воспроизводит, отдаёт в handoff
 - Оформление: `dex-bug-reporter` оформляет баг и handoff-карточку для расследования
-- Расследование: `dex-incident-investigator` (`/investigate`) ведёт RCA на общем стенде до доказанной корневой причины
-- Фикс: `/implement` через `dex-sdlc` и `dex-skill-development-track` (баг-фикс - под-вид, `dex-skill-bugfix-track`) применяет крупные многофайловые фиксы по плану
+- Расследование: `dex-incident-investigator` (`/investigate`, плагин `dex-sdlc-ops`) ведёт RCA на общем стенде до доказанной корневой причины
+- Фикс: `/implement` (плагин `dex-sdlc-delivery`) через `dex-sdlc` и `dex-skill-development-track` (баг-фикс - под-вид, `dex-skill-bugfix-track`) применяет крупные многофайловые фиксы по плану
 
 ## Состав
 

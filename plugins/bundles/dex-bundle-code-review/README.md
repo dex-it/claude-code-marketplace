@@ -30,7 +30,12 @@ Bundle для полного цикла работы с кодом, языко-�
 ## Included Components (24)
 
 ### Движок (4)
-- `dex-sdlc` - движок (`dex-sdlc:engine`) плюс командные входы `/feature`, `/implement`, `/feature-check`, `/mr-review`, `/review-plan` (остальные входы движка требуют плагинов вне этого bundle)
+- `dex-sdlc` - движок (`dex-sdlc:engine`); командные входы живут в плагинах зон, ставятся отдельно
+- `dex-sdlc-delivery` - вход `/implement` (зона реализации)
+- `dex-sdlc-test` - входы `/test`, `/find-bugs` (зона тест-инжиниринга)
+- `dex-sdlc-review` - входы `/mr-review`, `/review-plan` (зона ревью)
+- `dex-sdlc-acceptance` - вход `/review-stand` (приёмка на стенде)
+- `dex-sdlc-ops` - входы `/investigate`, `/root-cause` (диагностика). Зоны требований, дизайна и документации в этот bundle не входят - их команды ставятся своими плагинами
 - `dex-skill-development-track` - порядок работ зоны реализации (`/implement`), баг-фикс - под-вид
 - `dex-skill-bugfix-track` - под-вид `/implement` для бага: red-тест до фикса, делегирует root cause `dex-debugger`
 - `dex-skill-followup-track` - обработка внешнего ревью на уже сданном MR (переход из Development Track)
