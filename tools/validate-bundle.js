@@ -485,6 +485,13 @@ function checkVersionSync(pluginJson, marketplaceVersions, marketplaceDescriptio
         message: `plugin.json version (${pj.version}) != marketplace.json version (${marketVersion}) for "${pj.name}"`,
       });
     }
+    if (typeof pj.description === 'string' && pj.description.trim() && !/[Ѐ-ӿ]/.test(pj.description)) {
+      findings.push({
+        level: WARNING,
+        rule: 'description-not-russian',
+        message: `plugin.json description for "${pj.name}" carries no Cyrillic - the /plugin storefront is Russian; write the showcase text in Russian by the artifact body, not by translating the activation field`,
+      });
+    }
     const marketDescription = pj.name ? marketplaceDescriptions?.get(pj.name) : undefined;
     if (
       typeof pj.description === 'string' &&

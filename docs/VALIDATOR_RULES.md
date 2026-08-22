@@ -122,6 +122,7 @@ tools/__fixtures__/<validator>/<rule>/expect.json   {"also": [...]} - опцио
 | `bundle-command-not-closed` | error | команда бандла называет скилл или специалиста (`` `dex-X:Y` ``), которого нет в `includes[]` - третье ребро замыкания: команда приезжает со своим плагином и появляется в меню, а названный исполнитель нет, имя не резолвится молча. Ловится только форма `plugin:name`; голое имя плагина в прозе правило не поднимает |
 | `version-mismatch` | warning | версия в `plugin.json` != версии в `marketplace.json`; охват - каждый плагин под `plugins/`, не только бандлы | [plugin-changes.md](../.claude/rules/plugin-changes.md) |
 | `description-mismatch` | error | описание в `plugin.json` != описанию в записи `marketplace.json`; дом описания - `plugin.json`, каталожная копия генерируется `npm run sync:marketplace` и руками не пишется | [plugin-changes.md](../.claude/rules/plugin-changes.md) |
+| `description-not-russian` | warning | витрина в `plugin.json` без единого кириллического символа - каталог русскоязычный, разноязычная витрина читается вперемешку в `/plugin`. Текст витрины пишется по телу артефакта, а не переводом поля активации | [plugin-changes.md](../.claude/rules/plugin-changes.md) |
 
 ## tools/validate-rules-documented.js
 
