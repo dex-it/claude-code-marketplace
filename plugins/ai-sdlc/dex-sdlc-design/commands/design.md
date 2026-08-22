@@ -36,11 +36,12 @@ vs стек-нейтральный) трек определяет сам по м
 - Requirements (FR/NFR + security/data sensitivity + constraints + success metrics), capacity-таблица
 - Design Decision: reference-match, альтернативы с Mermaid-диаграммами, решение с CAP/PACELC
   trade-off'ами, deep dive (storage/API/caching/failure modes/security/observability)
-- Implementation plan (walking skeleton -> vertical slices -> scale-out), критерии приёмки с
-  метками `[FR-NNN]`/`[NFR-NNN]`
-- ADR/API-spec/диаграммы - там, где затребованы или обязательны по pre-check
-- Вердикт `design-reviewer` (`design-quality: passed`) в шапке design-документа - без него трек не
-  передаёт хэндофф дальше
+- Implementation plan **файлом** по ключу `plans` расклада корпуса (walking skeleton -> vertical
+  slices -> scale-out): критерии приёмки с метками `[FR-NNN]`/`[NFR-NNN]`, контракты пересекаемых
+  границ, артефакты сверх кода; вердикт `plan-quality: passed` в шапке файла
+- ADR/API-spec/диаграммы - там, где затребованы или обязательны по pre-check; порог ADR - цена отмены решения (миграция данных, контракт с внешним потребителем, чужой код по этому решению, публично зафиксированный формат), а не новизна нормы
+- Вердикты `design-reviewer`: `design-quality: passed` в шапке design-документа и
+  `plan-quality: passed` в шапке плана - без обоих трек не передаёт хэндофф дальше
 
 ## Constraints
 
@@ -49,10 +50,10 @@ vs стек-нейтральный) трек определяет сам по м
 - Бюджетная/продуктовая рамка и приоритет между конфликтующими NFR - блокирующий гейт (работа
   встаёт до ответа оператора); выбор между технически равными альтернативами - неблокирующий,
   трек предъявляет и продолжает
-- Design Acceptance обязателен: вердикт не `passed` -> возврат на доработку или эскалация, хэндофф
-  в «Разработку» не уходит
+- Design Acceptance обязателен и судит и решение, и план: любой из двух вердиктов не `passed` ->
+  возврат на доработку или эскалация, хэндофф в «Разработку» не уходит
 
-Следующий шаг - `/implement` (implementation plan и одобренный design-документ - его вход).
+Следующий шаг - `/implement` (путь одобренного плана и design-документа - его вход).
 Вызови `Skill` -> `dex-sdlc:engine` (откроет/возобновит цикл, авто-ledger с треком
 `dex-skill-architecture-track:architecture-track`), затем `Skill` ->
 `dex-skill-architecture-track:architecture-track` с **`mode: interactive`** - без этого поля трек

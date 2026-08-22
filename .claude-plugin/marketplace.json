@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "5.61.0",
+  "version": "5.62.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -772,7 +772,7 @@
       "name": "dex-skill-adr-quality",
       "source": "./plugins/skills/dex-skill-adr-quality",
       "description": "ADR authoring traps: norm vs code state, imperative rules, closure, requirement sources",
-      "version": "2.2.0",
+      "version": "2.3.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -788,7 +788,7 @@
       "name": "dex-skill-design-quality",
       "source": "./plugins/skills/dex-skill-design-quality",
       "description": "Design document oracle: requirement-set coverage, open forks with named cost, verifiable plan, failure modes",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -797,6 +797,21 @@
         "architecture",
         "requirements",
         "plan",
+        "quality"
+      ]
+    },
+    {
+      "name": "dex-skill-plan-quality",
+      "source": "./plugins/skills/dex-skill-plan-quality",
+      "description": "Implementation plan oracle: steps linked to requirements, order and dependencies, verifiable step outcome, boundary contracts, MVP scope, rollback",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "plan",
+        "review",
+        "architecture",
+        "requirements",
         "quality"
       ]
     },
@@ -1293,7 +1308,7 @@
       "name": "dex-design-reviewer",
       "source": "./plugins/specialists/architecture/dex-design-reviewer",
       "description": "Ревью и согласование чужого дизайн-документа (спека, ADR, диаграммы) до написания кода: полнота NFR, дефекты требований, качество ADR-решений, консистентность и слои, полнота и непротиворечивость набора артефактов работы, фальсификация находок, severity. Не архитектура реализованного кода - её ревьюит /review-arch.",
-      "version": "2.5.2",
+      "version": "2.6.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1598,7 +1613,7 @@
       "name": "dex-bundle-dotnet-developer",
       "source": "./plugins/bundles/dex-bundle-dotnet-developer",
       "description": "Bundle for .NET developers: coding, debugging, testing, review, EF, performance, interactive .NET architecture design (incl. microservices)",
-      "version": "2.18.0",
+      "version": "2.19.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -1610,7 +1625,7 @@
       "name": "dex-bundle-dotnet-fullstack",
       "source": "./plugins/bundles/dex-bundle-dotnet-fullstack",
       "description": "Complete .NET fullstack: development + databases + messaging + containers + interactive .NET architecture design",
-      "version": "2.18.0",
+      "version": "2.19.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -1649,7 +1664,7 @@
       "name": "dex-bundle-system-analyst",
       "source": "./plugins/bundles/dex-bundle-system-analyst",
       "description": "Bundle for System Analysts: requirements, user stories, BPMN, API specs, system design feasibility",
-      "version": "1.15.0",
+      "version": "1.16.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -1663,7 +1678,7 @@
       "name": "dex-bundle-architect",
       "source": "./plugins/bundles/dex-bundle-architect",
       "description": "Bundle for Architects: interactive system design (Xu/RESHADED), ADR, diagrams, API design, codebase analysis, security, observability",
-      "version": "1.18.0",
+      "version": "1.19.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -2097,7 +2112,7 @@
       "name": "dex-skill-node-contract",
       "source": "./plugins/ai-sdlc/dex-skill-node-contract",
       "description": "Рантайм-контракт агента-узла - режим interactive/autonomous, реакция на неполный вход (blocking/default-ok), возврат наверх, словарь полей handoff, метка quality-checks и её носитель, транспорт артефакта, выбор канала хостинга (native/CLI), graceful degradation при недоступности skill",
-      "version": "7.14.0",
+      "version": "7.15.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2127,7 +2142,7 @@
       "name": "dex-skill-project-docs-map",
       "source": "./plugins/ai-sdlc/dex-skill-project-docs-map",
       "description": "Карта документации проекта - где лежат требования, BRD, ADR, спеки, корпус уровня 0 и счётчики номеров; файл путей .docs_layout (ключи product, domain, root, adr, specs, counter), поиск и запись при его отсутствии, статус при недостижимом корпусе",
-      "version": "2.2.0",
+      "version": "2.3.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -3049,7 +3064,7 @@
       "name": "dex-bundle-sdlc",
       "source": "./plugins/bundles/dex-bundle-sdlc",
       "description": "Bundle полного цикла SDLC, языко-агностично: движок автономного доведения задачи, порождение и ревью требований, архитектурный дизайн и ADR, реализация фичи, тест-инжиниринг, ревью MR и разбор замечаний, приёмка на стенде, поиск багов и расследование инцидентов, документирование, плюс skills дисциплины и CLI трекера, MR-хостинга, CI и стенда.",
-      "version": "1.12.0",
+      "version": "1.13.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -3110,7 +3125,7 @@
       "name": "dex-sdlc-design",
       "source": "./plugins/ai-sdlc/dex-sdlc-design",
       "description": "Команда зоны архитектуры AI-SDLC-конвейера: /design (дизайн-решение против FR/NFR - reference-match, альтернативы, ADR, диаграммы). Движок и универсальный цикл - в dex-sdlc, порядок работ зоны - в треке dex-skill-architecture-track.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "category": "utility",
       "keywords": [
         "commands",
@@ -3229,7 +3244,7 @@
       "name": "dex-skill-analytics-track",
       "source": "./plugins/ai-sdlc/dex-skill-analytics-track",
       "description": "Трек зоны требований - тема или правка -> BRD -> сценарии -> правила и меры -> истории с критериями, две остановки оператора и проба готовности. Пишет decision-log, разрешает номер фичи. Активируется при: проработать идею до требований, обдумать фичу, описать новую фичу, собрать BRD, оформить требования, разложить фичу на истории, поправить принятое требование, feature pipeline, функциональные требования, критерии приёмки.",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -3244,7 +3259,7 @@
       "name": "dex-skill-development-track",
       "source": "./plugins/ai-sdlc/dex-skill-development-track",
       "description": "Трек зоны SDLC (реализация) движка dex-sdlc - ТЗ или тикет без спеки -> декомпозиция R/I -> инвентаризация архитектуры -> дизайн с гейтом первоисточника -> edit-план -> TDD-цикл оформляй/делай/стоп -> coverage-гейт -> локальные коммиты без push. Активируется при: реализуй фичу, implement feature, написать код по задаче, разработать функционал, по ТЗ, TDD, покрытие тестами, edit-план, рефакторинг, баг-фикс.",
-      "version": "1.5.1",
+      "version": "1.6.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -3258,7 +3273,7 @@
       "name": "dex-skill-architecture-track",
       "source": "./plugins/ai-sdlc/dex-skill-architecture-track",
       "description": "Трек архитектуры/дизайна движка dex-sdlc - от требований до одобренного design-документа: capacity, implementation plan, диспетчинг architect/architect-dotnet/adr-writer/api-designer/diagram-creator/design-reviewer по node-contract",
-      "version": "2.1.0",
+      "version": "2.2.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -3271,7 +3286,7 @@
       "name": "dex-skill-product-track",
       "source": "./plugins/ai-sdlc/dex-skill-product-track",
       "description": "Трек зоны продукта движка dex-sdlc - корпус уровня 0: BRD продукта с BR-NNN и MOE, доменная модель (словарь), конституция (INV-NNN, NFR-P-NNN). Две остановки оператора, диспетчинг business-requirements-analyst и domain-analyst по node-contract",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "category": "skill",
       "keywords": [
         "skill",
