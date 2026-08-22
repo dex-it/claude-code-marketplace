@@ -37,6 +37,7 @@ Pre-load: `dex-skill-node-contract` (рантайм-контракт узла, �
 
 ## Связанные плагины
 
-- `dex-architect` - `/design` (порождение дизайна) и `/review-arch` (архитектура кода).
+- `dex-skill-architecture-track` - трек `/design`, порождающий дизайн-документ.
+- `dex-architect` - Decide-узел `architecture-track` и ревьюер архитектуры кода (`/review-arch`).
 - `dex-requirements-reviewer` - симметричная приёмка чужих требований (зона 1).
 - `dex-adr-writer` - фиксация согласованного решения в ADR.

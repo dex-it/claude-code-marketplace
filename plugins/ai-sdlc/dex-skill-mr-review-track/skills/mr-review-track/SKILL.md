@@ -8,7 +8,7 @@ description: >-
   фальсификация находки, комментарии к diff.
 ---
 <!-- skill-type: process -->
-<!-- Перенос трека "Ревью входящего MR" (mr-review.md, dex-skill-autonomous-task) без переработки под идиому фаз-контракта. -->
+<!-- Перенос трека "Ревью входящего MR" (mr-review.md, dex-skill-autonomous-task) без переработки под идиому фаз-контракта - редизайн отслеживается issue #216. -->
 
 # MR Review Track
 

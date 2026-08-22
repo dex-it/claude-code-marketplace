@@ -7,7 +7,7 @@ description: >-
   memory leak, core dump, почини инцидент, план гипотез, срез CPU alloc lock IO.
 ---
 <!-- skill-type: process -->
-<!-- Перенос трека "Диагностика/инцидент" (diagnostics.md, dex-skill-autonomous-task) без переработки под идиому фаз-контракта. -->
+<!-- Перенос трека "Диагностика/инцидент" (diagnostics.md, dex-skill-autonomous-task) без переработки под идиому фаз-контракта - редизайн отслеживается issue #216. -->
 
 # Diagnostics Track
 

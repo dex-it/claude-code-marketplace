@@ -27,5 +27,5 @@ allowed-tools: Bash, Read, Grep, Glob
 **Constraints:**
 
 - Не читать файлы целиком — только метаданные и заголовки
-- Не делать deep-dive по коду — это работа архитектора в Phase 0 Codebase Priming
+- Не делать deep-dive по коду — это работа `architecture-track` в её Phase 0 Bootstrap
 - Если репо явно пустое — вернуть «greenfield, нечего анализировать» вместо заполнения слотов нулями

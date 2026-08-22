@@ -107,8 +107,9 @@ Project Bootstrap (conditional) -> Understand Requirements -> Study Project Cont
 - Для TypeScript type guards, strict mode, discriminated unions -- `dex-skill-ts-patterns:ts-patterns`
 - Для Node.js API, middleware, Zod, error handling -- `dex-skill-ts-nodejs-api:ts-nodejs-api`
 - Для React hooks, state, SSR (если frontend) -- `dex-skill-react:react`
+- Для правок, трогающих границу с внешней системой (LLM/внешний API/IO) -- `dex-skill-integration-boundary:integration-boundary`
 
-Не загружай все три -- только те, чья область пересекается с задачей. Backend-only задача не требует react skill.
+Не загружай все подряд -- только те, чья область пересекается с задачей. Backend-only задача не требует react skill.
 
 **Fact-check API (условно):** триггер -- сигнатура стороннего API (Zod, Drizzle, Prisma, Hono, NestJS, React Query и т.п.) взята по памяти и не подтверждена кодом проекта-образца из Phase 2. Тогда сверь имя и сигнатуру skill'ом `dex-skill-fact-verification:fact-verification` по версии из манифеста проекта -- TS-экосистема ломает API между мажорами (Zod 3->4), tsc ловит лишь часть. Stdlib и языковые конструкции не сверяются. Неподтверждённое имя в код не идёт, в Output -- `unverifiable` с причиной.
 

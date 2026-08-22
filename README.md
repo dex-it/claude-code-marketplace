@@ -95,14 +95,14 @@ claude plugins uninstall dex-dotnet-coder
 
 | Плагин | Агент | Команда | Описание |
 |--------|-------|---------|----------|
-| dex-mr-reviewer | mr-reviewer | `/mr-review` | Первичное ревью чужого MR/PR, инлайн-треды через gh/glab |
-| dex-mr-check-reviewer | mr-check-reviewer | `/mr-check-review` | Ре-ревью дельты с прошлого раунда (range-diff) |
-| dex-review-planner | review-planner | `/review-plan` | План правок по ревью без редактирования кода |
+| dex-mr-reviewer | mr-reviewer | `/mr-review` (движок `dex-sdlc`) | Первичное ревью чужого MR/PR, инлайн-треды через gh/glab |
+| dex-mr-check-reviewer | mr-check-reviewer | второй раунд `/mr-review`, не своя команда | Ре-ревью дельты с прошлого раунда (range-diff) |
+| dex-review-planner | review-planner | `/review-plan` (движок `dex-sdlc`) | План правок по ревью без редактирования кода |
 | dex-self-reviewer | self-reviewer | `/self-review` | Pre-push саморевью своей ветки с прогоном тестов |
 | dex-conflict-resolver | conflict-resolver | `/resolve-conflicts` | Подтянуть базу в фича-ветку и развести конфликты merge/rebase без тихой потери стороны |
-| dex-incident-investigator | incident-investigator | `/investigate` | Расследование инцидента на общем стенде, RCA и фикс на источнике, read-only по умолчанию |
+| dex-incident-investigator | incident-investigator | `/investigate` (движок `dex-sdlc`) | Расследование инцидента на общем стенде, RCA и фикс на источнике, read-only по умолчанию |
 
-Реализация фичи по ТЗ до локальных коммитов - `/implement` через движок `dex-sdlc` (см. «Движок SDLC» в Skills). Ставятся набором: `dex-bundle-code-review`. Стек определяется по манифестам, релевантные skills (включая .NET и TypeScript) грузятся условно.
+Все команды с пометкой «движок `dex-sdlc`» - входы этого плагина (`plugins/ai-sdlc/dex-sdlc/commands/`), специалист несёт только агента; `/self-review` и `/resolve-conflicts` остаются собственными командами своих плагинов. Реализация фичи по ТЗ до локальных коммитов - `/implement` через движок `dex-sdlc` (см. «Движок SDLC» в Skills). Ставятся набором: `dex-bundle-code-review`. Стек кодера (агент, не skills) добирается профильным бандлом (`dotnet-developer`/`ts-fullstack`) - см. «Бандлы»; skills по стеку (включая .NET и TypeScript) грузятся условно.
 
 ### Fullstack
 
@@ -196,7 +196,7 @@ claude plugins uninstall dex-dotnet-coder
 
 | Категория | Skills |
 |-----------|--------|
-| **Движок SDLC** | sdlc (`dex-sdlc:engine`, команды `/feature`, `/implement`, `/feature-check`), analytics-track, development-track, architecture-track, bugfix-track, followup-track, acceptance-track, discover-track, test-track, mr-review-track, documentation-track, diagnostics-track |
+| **Движок SDLC** | sdlc (`dex-sdlc:engine`, команды `/feature`, `/implement`, `/feature-check`, `/design`, `/discover`, `/documentation`, `/find-bugs`, `/investigate`, `/mr-review`, `/review-plan`, `/review-stand`, `/root-cause`, `/test`), analytics-track, development-track, architecture-track, bugfix-track, followup-track, acceptance-track, discover-track, test-track, mr-review-track, documentation-track, diagnostics-track |
 | **.NET** | dotnet-patterns, ef-core, async-patterns, linq-optimization, api-development, api-documentation, testing-patterns |
 | **Frontend & TypeScript** | react, ts-patterns, ts-nodejs-api, ts-vitest-jest |
 | **Security** | owasp-security |

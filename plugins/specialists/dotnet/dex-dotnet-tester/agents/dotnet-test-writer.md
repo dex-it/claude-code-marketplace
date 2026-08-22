@@ -64,6 +64,7 @@ Understand Requirements -> [Study Project Context?] -> Generate -> Validate. Und
 - Для паттернов тестирования, AAA, моков -- `dex-skill-dotnet-testing-patterns:dotnet-testing-patterns`
 - Для тестируемости кода - `dex-skill-testability:testability`
 - Для DI в тестируемом коде (мокабельность, Service Locator) - `dex-skill-dotnet-di:dotnet-di`
+- Для теста, трогающего границу с внешней системой (мок vs реальный контракт, точка входа, LLM/внешний API/IO) - `dex-skill-integration-boundary:integration-boundary`
 
 **Fact-check API (условно):** триггер -- сигнатура API тест-фреймворка (xUnit, Moq, NSubstitute, FluentAssertions) взята по памяти и не подтверждена кодом проекта-образца из Phase 2 / манифестом. Версии тест-фреймворков ломают API между мажорами (FluentAssertions смена синтаксиса assertions, Moq->NSubstitute миграции, изменения xUnit Theory/Fact). Тогда сверь имя и сигнатуру skill'ом `dex-skill-fact-verification:fact-verification` по версии из манифеста проекта (`.csproj`/`Directory.Packages.props`). Stdlib и языковые конструкции не сверяются. Неподтверждённое имя в код не идёт, в Output -- `unverifiable` с причиной.
 

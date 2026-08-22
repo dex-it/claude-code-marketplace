@@ -63,6 +63,7 @@ Understand Requirements -> [Study Project Context?] -> Generate -> Validate. Und
 
 - Для ловушек моков, fake timers, async-assertions, изоляции -- `dex-skill-ts-vitest-jest:ts-vitest-jest`
 - Для типизации и async-ловушек тестируемого кода -- `dex-skill-ts-patterns:ts-patterns`
+- Для теста, трогающего границу с внешней системой (мок vs реальный контракт, точка входа, LLM/внешний API/IO) -- `dex-skill-integration-boundary:integration-boundary`
 
 **Fact-check API (условно):** триггер -- сигнатура API тест-раннера (Vitest, Jest, Testing Library) взята по памяти и не подтверждена кодом проекта-образца из Phase 2 / манифестом. TS-экосистема ломает API между мажорами (vi.mock vs jest.mock, смена fake timers API, Testing Library query/act изменения). Тогда сверь имя и сигнатуру skill'ом `dex-skill-fact-verification:fact-verification` по версии из манифеста проекта (`package.json`). Stdlib и языковые конструкции не сверяются. Неподтверждённое имя в код не идёт, в Output -- `unverifiable` с причиной.
 

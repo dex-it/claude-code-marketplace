@@ -38,7 +38,7 @@
 Имя плагина-специалиста (директория `dex-*`) и имя **агента** в его frontmatter (`name`) - разные вещи. Правило для `name`:
 
 - **Стек-специфичный агент** (специфика стека живёт в теле артефакта - идиомы языка, библиотеки экосистемы) -> стек в имени: `dotnet-coder`, `dotnet-test-writer`, `dotnet-ef-specialist`, `ts-test-writer`, `ts-fullstack-assistant`. Generic-имя (`coding-assistant`, `test-writer`) для стекового агента запрещено - оно не отличает агента от общего и даёт коллизию при росте стеков (два `test-writer`'а).
-- **Общий (языко-агностичный) агент** (стек грузится через skills по реестру, тело нейтрально) -> чистая роль без стека: `debugger`, `feature-implementer`, `security-reviewer`, `mr-reviewer`, `self-reviewer`.
+- **Общий (языко-агностичный) агент** (стек грузится через skills по реестру, тело нейтрально) -> чистая роль без стека: `debugger`, `bug-fixer`, `security-reviewer`, `mr-reviewer`, `self-reviewer`.
 
 Имя файла агента совпадает с `name`. Rename агента = major bump (директория плагина и `plugin.json` `name` при этом не меняются - `bundle.json` ссылается на директорию, а не на агента).
 

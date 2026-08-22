@@ -157,7 +157,7 @@ const ALLOWED_PRELOAD_SKILLS = new Map([
 const STAGE_NORMATIVE_READERS = new Map([
   [
     'dex-skill-business-analysis:business-analysis',
-    new Set(['requirements-reviewer', 'requirements-orchestrator']),
+    new Set(['requirements-reviewer']),
   ],
 ]);
 

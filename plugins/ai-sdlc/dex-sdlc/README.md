@@ -24,6 +24,23 @@
 - `/feature-check` - проверка своего готового набора требований (без открытия цикла движка,
   см. Constraints команды)
 - `/implement` - реализация фичи по ТЗ (движок + `dex-skill-development-track:development-track`)
+- `/design` - архитектурная сессия зоны 2, от требований до одобренного design-документа (движок +
+  `dex-skill-architecture-track:architecture-track`)
+- `/mr-review` - ревью входящего MR/PR, первичный раунд и повторные раунды по auto-ledger (движок +
+  `dex-skill-mr-review-track:mr-review-track`)
+- `/review-plan` - обработка ревью на своём MR: план правок, правки узлами, ре-ревью дельты (движок +
+  `dex-skill-followup-track:followup-track`)
+- `/review-stand` - приёмка слитой фичи на стенде против ТЗ, ремедиация подтверждённого (движок +
+  `dex-skill-acceptance-track:acceptance-track`)
+- `/root-cause` - первопричина бага по коду (движок + `dex-skill-diagnostics-track:diagnostics-track`)
+- `/investigate` - расследование инцидента на общем стенде (движок +
+  `dex-skill-diagnostics-track:diagnostics-track`)
+- `/find-bugs` - активный поиск багов в фиче/ветке (движок + `dex-skill-test-track:test-track`)
+- `/test` - закрытие матрицы покрытия тестами по стеку (движок + `dex-skill-test-track:test-track`)
+- `/documentation` - техническая документация с верификацией фактов по коду (движок +
+  `dex-skill-documentation-track:documentation-track`)
+- `/discover` - обзорное ревью существующего проекта вширь (движок +
+  `dex-skill-discover-track:discover-track`)
 
 ## Треки каталога
 
@@ -31,7 +48,7 @@
 |---|---|---|
 | Аналитика (требования зоны 1) | `dex-skill-analytics-track` | полная |
 | Разработка | `dex-skill-development-track` | полная |
-| Архитектура/дизайн | `dex-skill-architecture-track` | заглушка-указатель на `dex-architect:architect` |
+| Архитектура/дизайн | `dex-skill-architecture-track` | полная |
 | Баг-фикс | `dex-skill-bugfix-track` | заглушка (под-вид Разработки) |
 | Обработка ревью своего MR | `dex-skill-followup-track` | заглушка, механический перенос |
 | Приёмка на стенде | `dex-skill-acceptance-track` | заглушка, механический перенос |

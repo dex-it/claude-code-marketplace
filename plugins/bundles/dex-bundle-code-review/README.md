@@ -2,7 +2,7 @@
 
 Bundle для полного цикла работы с кодом, языко-агностично: реализация фичи по ТЗ, интеграция базовой ветки с разрешением конфликтов merge/rebase, pre-push саморевью, ревью чужого MR/PR, итеративное ре-ревью дельты, план правок по ревью. Плюс skills дисциплины ревью и реализации.
 
-Цикл замыкается так: `/implement` через `dex-sdlc` и `dex-skill-development-track` (реализация до локальных коммитов) -> `dex-conflict-resolver` (подтянуть базу и развести конфликты merge/rebase) -> `dex-self-reviewer` (саморевью перед push) -> push и открытие MR -> `dex-mr-reviewer` (ревью на стороне ревьюера) -> автор правит -> `dex-mr-check-reviewer` (ре-ревью дельты) и `dex-review-planner` (план правок на стороне автора).
+Цикл замыкается так: `/implement` через `dex-sdlc` и `dex-skill-development-track` (реализация до локальных коммитов, баг-фикс - под-вид `dex-skill-bugfix-track`, делегирует root cause `dex-debugger`) -> `dex-conflict-resolver` (подтянуть базу и развести конфликты merge/rebase) -> `dex-self-reviewer` (саморевью перед push) -> push и открытие MR -> `dex-mr-reviewer` (ревью на стороне ревьюера) -> автор правит -> `dex-mr-check-reviewer` (ре-ревью дельты) и `dex-review-planner` (план правок на стороне автора).
 
 ## Installation
 
@@ -27,19 +27,21 @@ Bundle для полного цикла работы с кодом, языко-�
 .\install-bundle\uninstall-bundle.ps1 code-review
 ```
 
-## Included Components (22)
+## Included Components (24)
 
-### Движок (3)
-- `dex-sdlc` - движок (`dex-sdlc:engine`) плюс `/feature`, `/implement`, `/feature-check`
+### Движок (4)
+- `dex-sdlc` - движок (`dex-sdlc:engine`) плюс командные входы `/feature`, `/implement`, `/feature-check`, `/mr-review`, `/review-plan` (остальные входы движка требуют плагинов вне этого bundle)
 - `dex-skill-development-track` - порядок работ зоны реализации (`/implement`), баг-фикс - под-вид
+- `dex-skill-bugfix-track` - под-вид `/implement` для бага: red-тест до фикса, делегирует root cause `dex-debugger`
 - `dex-skill-followup-track` - обработка внешнего ревью на уже сданном MR (переход из Development Track)
 
-### Specialists (5)
-- `dex-mr-reviewer` - первичное ревью чужого MR/PR, инлайн-треды через gh/glab (`/mr-review`)
-- `dex-mr-check-reviewer` - итеративное ре-ревью дельты с прошлого раунда (`/mr-check-review`)
-- `dex-review-planner` - план правок по ревью без редактирования кода (`/review-plan`)
+### Specialists (6)
+- `dex-mr-reviewer` - первичное ревью чужого MR/PR, инлайн-треды через gh/glab (`/mr-review`, движок `dex-sdlc`)
+- `dex-mr-check-reviewer` - итеративное ре-ревью дельты с прошлого раунда (второй раунд `/mr-review`, не своя команда)
+- `dex-review-planner` - план правок по ревью без редактирования кода (`/review-plan`, движок `dex-sdlc`)
 - `dex-self-reviewer` - pre-push саморевью своей ветки с реальным прогоном тестов (`/self-review`)
 - `dex-conflict-resolver` - подтянуть базу в фича-ветку и развести конфликты merge/rebase без тихой потери стороны (`/resolve-conflicts`)
+- `dex-debugger` - root cause по коду, вызывается `bugfix-track` при баг-фиксе через `/implement`
 
 ### Skills, новые в этом bundle (6)
 - `dex-skill-no-loose-ends` - незавершённый код и скрытые хаки (TODO, заглушки, fallback, secrets)
@@ -61,5 +63,5 @@ Bundle для полного цикла работы с кодом, языко-�
 
 ## Замечания
 
-- Агенты языко-агностичны: стек определяется по манифестам проекта, релевантные skills (включая .NET и TypeScript) грузятся условно по содержимому diff. Стек-специфичные skills не входят в bundle намеренно: они ставятся со стек-бандлом (например `dex-bundle-dotnet-developer`) и подхватываются по необходимости.
+- Агенты языко-агностичны: стек определяется по манифестам проекта, релевантные skills (включая .NET и TypeScript) грузятся условно по содержимому diff. Стек-специфичные skills не входят в bundle намеренно: они ставятся со стек-бандлом (например `dex-bundle-dotnet-developer`) и подхватываются по необходимости. Кодер под `/implement` (Phase 7 `development-track`) - тоже стек-специфичный агент (`dex-dotnet-coder`/`dex-ts-fullstack-coder`), не входит в этот bundle: без парного стек-бандла реализация фичи недоступна, доступны только ревью/план/саморевью/конфликты.
 - Доставка ревью требует `gh` (GitHub) или `glab` (GitLab) с правом писать комментарии. Без прав агенты останавливаются на этапе плана тредов и не публикуют ничего.

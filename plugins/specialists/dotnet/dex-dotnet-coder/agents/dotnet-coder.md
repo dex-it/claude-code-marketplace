@@ -118,6 +118,7 @@ Project Bootstrap (conditional) -> Understand Requirements -> Study Project Cont
 - Для контроллеров, DTO, API эндпоинтов -- `dex-skill-dotnet-api-development:dotnet-api-development`
 - Для unit-тестов, если их тоже генерируем -- `dex-skill-dotnet-testing-patterns:dotnet-testing-patterns`
 - Для structured logging -- `dex-skill-dotnet-logging:dotnet-logging`
+- Для правок, трогающих границу с внешней системой (LLM/внешний API/IO) -- `dex-skill-integration-boundary:integration-boundary`
 
 **Fact-check API (условно):** триггер -- сигнатура стороннего API (EF Core, MassTransit, Polly, FluentValidation и т.п.) взята по памяти и не подтверждена кодом проекта-образца из Phase 2. Тогда сверь имя и сигнатуру skill'ом `dex-skill-fact-verification:fact-verification` по версии из манифеста проекта. Stdlib и языковые конструкции не сверяются. Неподтверждённое имя в код не идёт, в Output -- `unverifiable` с причиной.
 

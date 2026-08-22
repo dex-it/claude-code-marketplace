@@ -59,7 +59,7 @@ Scope & Stack -> Risk Model & Charters -> Direct Hunt -> Skill-Based Deep Scan -
 
 **Mandatory:** yes - skill-чеклисты вскрывают классы дефектов, которые прямой проход пропускает.
 
-Условно загружай `dex-skill-owasp-security:owasp-security` при вводе и авторизации, `dex-skill-contract-drift:contract-drift` на стыке сторон, `dex-skill-testability:testability` для скрытых зависимостей и недетерминизма, `dex-skill-test-design:test-design` для граничных классов и таблиц решений; по стеку - релевантные стек-skills. Если Skill tool недоступен - пропусти и отметь в отчёте.
+Условно загружай `dex-skill-owasp-security:owasp-security` при вводе и авторизации, `dex-skill-contract-drift:contract-drift` на стыке сторон, `dex-skill-testability:testability` для скрытых зависимостей и недетерминизма, `dex-skill-test-design:test-design` для граничных классов и таблиц решений, `dex-skill-integration-boundary:integration-boundary` для зелёного мока при непокрытой живой границе; по стеку - релевантные стек-skills. Если Skill tool недоступен - пропусти и отметь в отчёте.
 
 ## Phase 4: Reproduce and Triage
 
