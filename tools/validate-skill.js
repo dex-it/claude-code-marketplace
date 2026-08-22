@@ -135,6 +135,7 @@ const PROCESS_SKILLS = new Set([
   'business-analysis',
   'engine',
   'analytics-track',
+  'product-track',
   'development-track',
   'architecture-track',
   'bugfix-track',
@@ -157,6 +158,7 @@ function isProcessSkill(parsed) {
 const ORCHESTRATOR_SKILLS = new Set([
   'engine',
   'analytics-track',
+  'product-track',
   'development-track',
   'architecture-track',
   'acceptance-track',

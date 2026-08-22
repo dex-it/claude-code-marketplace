@@ -20,6 +20,8 @@
 
 ## Команды
 
+- `/product` - корпус уровня 0: BRD продукта, словарь терминов, конституция (движок +
+  `dex-skill-product-track:product-track`)
 - `/feature` - конвейер зоны требований (движок + `dex-skill-analytics-track:analytics-track`)
 - `/feature-check` - проверка своего готового набора требований (без открытия цикла движка,
   см. Constraints команды)
@@ -46,6 +48,7 @@
 
 | Трек | Плагин | Проработка |
 |---|---|---|
+| Продукт (зона продукта) | `dex-skill-product-track` | полная |
 | Требования (зона требований) | `dex-skill-analytics-track` | полная |
 | Разработка | `dex-skill-development-track` | полная |
 | Архитектура/дизайн | `dex-skill-architecture-track` | полная |

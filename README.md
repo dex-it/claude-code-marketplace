@@ -153,6 +153,7 @@ claude plugins uninstall dex-dotnet-coder
 | Плагин | Описание |
 |--------|----------|
 | dex-business-analyst | Бизнес-требования: BRD с `BR-NNN` и MOE |
+| dex-domain-analyst | Словарь продукта и конституция: `INV-NNN`, `NFR-P-NNN` с основанием и методом проверки |
 | dex-roadmap-planner | Strategic planning |
 | dex-backlog-manager | Epic backlog, prioritization |
 | dex-pm-metrics-analyst | KPIs, OKRs, metrics |
@@ -196,7 +197,7 @@ claude plugins uninstall dex-dotnet-coder
 
 | Категория | Skills |
 |-----------|--------|
-| **Движок SDLC** | sdlc (`dex-sdlc:engine`, команды `/feature`, `/implement`, `/feature-check`, `/design`, `/discover`, `/documentation`, `/find-bugs`, `/investigate`, `/mr-review`, `/review-plan`, `/review-stand`, `/root-cause`, `/test`), analytics-track, development-track, architecture-track, bugfix-track, followup-track, acceptance-track, discover-track, test-track, mr-review-track, documentation-track, diagnostics-track |
+| **Движок SDLC** | sdlc (`dex-sdlc:engine`, команды `/product`, `/feature`, `/implement`, `/feature-check`, `/design`, `/discover`, `/documentation`, `/find-bugs`, `/investigate`, `/mr-review`, `/review-plan`, `/review-stand`, `/root-cause`, `/test`), product-track, analytics-track, development-track, architecture-track, bugfix-track, followup-track, acceptance-track, discover-track, test-track, mr-review-track, documentation-track, diagnostics-track |
 | **.NET** | dotnet-patterns, ef-core, async-patterns, linq-optimization, api-development, api-documentation, testing-patterns |
 | **Frontend & TypeScript** | react, ts-patterns, ts-nodejs-api, ts-vitest-jest |
 | **Security** | owasp-security |
