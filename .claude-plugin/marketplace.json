@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "5.57.0",
+  "version": "5.58.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -3175,8 +3175,8 @@
     {
       "name": "dex-skill-discover-track",
       "source": "./plugins/ai-sdlc/dex-skill-discover-track",
-      "description": "Трек обзорного ревью существующего кода движка dex-sdlc - порядок фаз целиком живёт в dex-code-discovery:discover-orchestrator",
-      "version": "1.0.1",
+      "description": "Трек обзорного ревью существующего кода движка dex-sdlc - фан-аут по топикам ведёт dex-code-discovery:discover-orchestrator, трек держит вход, приёмку выхода и handoff. Активируется при: discover, обзорное ревью, инвентаризация проблем проекта, аудит существующего кода, что не так в проекте, breadth-first review, docs/discover, ревью legacy-кода, топиковый фан-аут, калибровка severity по масштабу.",
+      "version": "1.1.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -3214,8 +3214,8 @@
     {
       "name": "dex-skill-documentation-track",
       "source": "./plugins/ai-sdlc/dex-skill-documentation-track",
-      "description": "Трек документирования движка dex-sdlc - нормативный текст, синхрон с кодом и стандартом, без LLM-маркеров. Заглушка, перенос без переработки под идиому фаз-контракта",
-      "version": "1.0.0",
+      "description": "Трек документирования движка dex-sdlc - нормативный текст, верификация синхроном с кодом и стандартом, факты из кода/конфигов, без LLM-маркеров. Активируется при: документирование, write documentation, tech spec, README, ADR, runbook, API-документация, changelog, release notes, single source of truth.",
+      "version": "1.1.0",
       "category": "skill",
       "keywords": [
         "skill",
