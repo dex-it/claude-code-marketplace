@@ -1,0 +1,74 @@
+[
+  {
+    "id": "redis-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-redis:redis",
+    "prompt": "У нас на проде cache stampede: после инвалидации ключа сотни запросов идут в базу одновременно. Как правильно построить кэш на Redis, чтобы этого не было?"
+  },
+  {
+    "id": "redis-near",
+    "mode": "near-miss",
+    "expect": "dex-skill-redis:redis",
+    "prompt": "Запрос к PostgreSQL по таблице orders выполняется 4 секунды. Какой индекс тут нужен и как прочитать план EXPLAIN?"
+  },
+  {
+    "id": "ef-core-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-dotnet-ef-core:dotnet-ef-core",
+    "prompt": "В C#-сервисе выборка заказов с позициями делает по запросу на каждую строку. Как это лечится в EF Core?"
+  },
+  {
+    "id": "ts-vitest-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-ts-vitest-jest:ts-vitest-jest",
+    "prompt": "В vitest мок модуля не подхватывается: тест видит настоящую реализацию, хотя vi.mock объявлен ниже импорта. Почему?"
+  },
+  {
+    "id": "owasp-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-owasp-security:owasp-security",
+    "prompt": "Эндпоинт GET /api/orders/{id} отдаёт заказ по идентификатору из URL, проверки владельца нет. Насколько это опасно и что ещё стоит посмотреть рядом?"
+  },
+  {
+    "id": "ddd-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-ddd:ddd",
+    "prompt": "Класс Order у нас держит только свойства и сеттеры, вся логика в OrderService. Как правильно разложить агрегат и где держать инварианты?"
+  },
+  {
+    "id": "ddd-near",
+    "mode": "near-miss",
+    "expect": "dex-skill-ddd:ddd",
+    "prompt": "Нужно выровнять карточки в сетке по высоте, чтобы кнопка всегда прижималась к низу. Как это сделать на CSS grid?"
+  },
+  {
+    "id": "capacity-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-capacity-planning:capacity-planning",
+    "prompt": "Сколько железа заложить под сервис, если ждём 2 млн событий в сутки и пик втрое выше среднего? Прикинь на салфетке."
+  },
+  {
+    "id": "test-design-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-test-design:test-design",
+    "prompt": "Есть форма с полем «возраст» от 18 до 65 и скидкой по трём условиям. Какие тесты писать, чтобы не гонять все комбинации подряд?"
+  },
+  {
+    "id": "docker-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-docker:docker",
+    "prompt": "Образ приложения весит 1.8 ГБ и собирается 12 минут. Как сократить и то и другое?"
+  },
+  {
+    "id": "conventions-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-codebase-conventions:codebase-conventions",
+    "prompt": "Добавляю новый обработчик в чужой проект. В соседних классах разнобой: где-то throw, где-то Result. Как решить, что писать в новом?"
+  },
+  {
+    "id": "solid-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-solid:solid",
+    "prompt": "У сервиса в конструкторе девять зависимостей, и он растёт с каждой задачей. Как его разложить?"
+  }
+]
