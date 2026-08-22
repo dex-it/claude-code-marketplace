@@ -34,12 +34,14 @@ Bundle для runtime-диагностики .NET-сервисов и натив
 .\install-bundle\uninstall-bundle.ps1 runtime-diagnostics
 ```
 
-## Included Components (13)
+## Included Components
 
-### Specialist (1)
+Полный состав - `bundle.json` (`includes[]`); ниже - ключевые компоненты роли, не весь перечень.
+
+### Specialist
 - `dex-dotnet-runtime-diagnostician` - агент-диагностик с 7 фазами, симптомная матрица загрузки skills
 
-### Skills, новые в этом bundle (6)
+### Skills, новые в этом bundle
 - `dex-skill-managed-debug` - netcoredbg, dotnet diagnostic tools, SOS, managed dumps
 - `dex-skill-native-debug` - GDB / LLDB batch, ptrace, debuginfod, valgrind
 - `dex-skill-syscall-tracing` - strace, bpftrace JSON, bcc-tools
@@ -47,10 +49,10 @@ Bundle для runtime-диагностики .NET-сервисов и натив
 - `dex-skill-core-dumps` - gcore, coredumpctl, dotnet-dump analyze, mismatched libs
 - `dex-skill-binary-inspection` - binutils, Rizin, LIEF, ilspycmd
 
-### Utility (1)
+### Utility
 - `dex-netcoredbg-cli` - slash-команды-обёртки над Samsung netcoredbg (`/ncdbg-attach`, `/ncdbg-launch`, `/ncdbg-exec`, `/ncdbg-dump-stacks`)
 
-### Skills, переиспользуемые из маркетплейса (5)
+### Skills, переиспользуемые из маркетплейса
 - `dex-skill-dotnet-async-patterns` - антипаттерны `.Result`/`.Wait` для managed deadlock
 - `dex-skill-dotnet-resources` - IDisposable, HttpClient lifetime, socket exhaustion
 - `dex-skill-dotnet-logging` - structured logging как первая линия диагностики

@@ -25,15 +25,21 @@ Bundle for Software Architects: architecture design, ADR, diagrams, API design, 
 .\install-bundle\uninstall-bundle.ps1 architect
 ```
 
-## Included Components (22)
+## Included Components
 
-### Specialists (4)
+Полный состав - `bundle.json` (`includes[]`); ниже - ключевые компоненты роли, не весь перечень.
+
+### Команды
+- `/design` - дизайн-решение и ADR
+- `/discover` - обзорное ревью существующего кода
+
+### Specialists
 - `dex-architect` - System design and architecture
 - `dex-adr-writer` - Architecture Decision Records (MADR)
 - `dex-diagram-creator` - C4, sequence, ER, state diagrams
 - `dex-api-designer` - REST/GraphQL/gRPC API design
 
-### Skills (18)
+### Skills
 - `dex-skill-clean-architecture` - Clean Architecture patterns
 - `dex-skill-ddd` - Domain-Driven Design
 - `dex-skill-microservices` - Microservices patterns

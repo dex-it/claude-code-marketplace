@@ -25,14 +25,16 @@ Bundle for Product Managers: business requirements, roadmap, backlog, metrics an
 .\install-bundle\uninstall-bundle.ps1 product-manager
 ```
 
-## Included Components (35)
+## Included Components
 
-### Engine (1)
+Полный состав - `bundle.json` (`includes[]`); ниже - ключевые компоненты роли, не весь перечень.
+
+### Engine
 - `dex-sdlc` - SDLC engine (`dex-sdlc:engine`); delegates zone order to the zone track skill
 - `dex-sdlc-product` - command entry `/product` (product corpus: BRD, domain model, constitution)
 - `dex-sdlc-requirements` - command entries `/feature`, `/feature-check`; zone order in `dex-skill-analytics-track`
 
-### Specialists (9)
+### Specialists
 - `dex-business-analyst` - Business requirements (BRD)
 - `dex-requirements-analyst` - System-level requirements (FR/NFR) from business ones
 - `dex-usecase-analyst` - Use case scenarios from business requirements
@@ -43,7 +45,7 @@ Bundle for Product Managers: business requirements, roadmap, backlog, metrics an
 - `dex-backlog-manager` - Backlog management
 - `dex-pm-metrics-analyst` - Metrics analysis
 
-### Skills (25)
+### Skills
 - `dex-skill-project-docs-map` - Where project docs live
 - `dex-skill-agile` - Agile methodology
 - `dex-skill-product-discovery` - Product discovery

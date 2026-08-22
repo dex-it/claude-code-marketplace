@@ -27,9 +27,11 @@ Bundle для полного цикла работы с кодом, языко-�
 .\install-bundle\uninstall-bundle.ps1 code-review
 ```
 
-## Included Components (24)
+## Included Components
 
-### Движок (4)
+Полный состав - `bundle.json` (`includes[]`); ниже - ключевые компоненты роли, не весь перечень.
+
+### Движок
 - `dex-sdlc` - движок (`dex-sdlc:engine`); командные входы живут в плагинах зон, ставятся отдельно
 - `dex-sdlc-delivery` - вход `/implement` (зона реализации)
 - `dex-sdlc-test` - входы `/test`, `/find-bugs` (зона тест-инжиниринга)
@@ -40,7 +42,7 @@ Bundle для полного цикла работы с кодом, языко-�
 - `dex-skill-bugfix-track` - под-вид `/implement` для бага: red-тест до фикса, делегирует root cause `dex-debugger`
 - `dex-skill-followup-track` - обработка внешнего ревью на уже сданном MR (переход из Development Track)
 
-### Specialists (6)
+### Specialists
 - `dex-mr-reviewer` - первичное ревью чужого MR/PR, инлайн-треды через gh/glab (`/mr-review`, движок `dex-sdlc`)
 - `dex-mr-check-reviewer` - итеративное ре-ревью дельты с прошлого раунда (второй раунд `/mr-review`, не своя команда)
 - `dex-review-planner` - план правок по ревью без редактирования кода (`/review-plan`, движок `dex-sdlc`)
@@ -48,7 +50,7 @@ Bundle для полного цикла работы с кодом, языко-�
 - `dex-conflict-resolver` - подтянуть базу в фича-ветку и развести конфликты merge/rebase без тихой потери стороны (`/resolve-conflicts`)
 - `dex-debugger` - root cause по коду, вызывается `bugfix-track` при баг-фиксе через `/implement`
 
-### Skills, новые в этом bundle (6)
+### Skills, новые в этом bundle
 - `dex-skill-no-loose-ends` - незавершённый код и скрытые хаки (TODO, заглушки, fallback, secrets)
 - `dex-skill-review-evidence` - доказательность находок, фальсификация, рубрики severity/confidence
 - `dex-skill-review-threads` - инлайн-доставка ревью, один тред на находку через gh/glab
@@ -56,7 +58,7 @@ Bundle для полного цикла работы с кодом, языко-�
 - `dex-skill-karpathy-guidelines` - дисциплина изменений по мотивам Karpathy (MIT)
 - `dex-skill-merge-conflict-resolution` - конфликты merge/rebase без тихой потери стороны (ours/theirs в rebase, modify/delete как переезд, lock-файлы, evil merge)
 
-### Skills, переиспользуемые из маркетплейса (8)
+### Skills, переиспользуемые из маркетплейса
 - `dex-skill-review-step-by-step` - пошаговый разбор замечаний через апрув
 - `dex-skill-owasp-security` - OWASP Top 10
 - `dex-skill-solid` - нарушения SOLID

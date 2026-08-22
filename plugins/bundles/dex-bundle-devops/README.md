@@ -25,9 +25,11 @@ Bundle for DevOps engineers: Docker, Kubernetes, CI/CD, monitoring, logging.
 .\install-bundle\uninstall-bundle.ps1 devops
 ```
 
-## Included Components (11)
+## Included Components
 
-### Specialists (6)
+Полный состав - `bundle.json` (`includes[]`); ниже - ключевые компоненты роли, не весь перечень.
+
+### Specialists
 - `dex-docker-specialist` - Docker containers
 - `dex-kubernetes-specialist` - Kubernetes orchestration
 - `dex-cicd-gitlab` - GitLab CI/CD
@@ -35,7 +37,7 @@ Bundle for DevOps engineers: Docker, Kubernetes, CI/CD, monitoring, logging.
 - `dex-logging-seq` - Seq logging
 - `dex-monitoring-grafana` - Grafana monitoring
 
-### Skills (5)
+### Skills
 - `dex-skill-docker` - Docker best practices
 - `dex-skill-kubernetes` - Kubernetes patterns
 - `dex-skill-gitlab-ci` - GitLab CI/CD patterns
