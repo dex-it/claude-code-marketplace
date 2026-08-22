@@ -4,11 +4,11 @@
 
 ## Команда
 
-`/review-plan <MR/PR url или short-id> [REVIEW_SHA]` - план правок и черновики ответов.
+`/review-plan <MR/PR url или short-id> [REVIEW_SHA]` - точка входа команды в `dex-sdlc`, не в этом плагине. Команда вызывает движок `dex-sdlc:engine` и трек `dex-skill-followup-track:followup-track`, который ведёт полный цикл план -> правки -> ре-ревью (правки в код делают исполняющие узлы трека, не этот агент).
 
 ## Архитектура
 
-Команда делегирует агенту `review-planner` (Full Context Gather -> Classify Comments -> Verify Actionables -> Assemble Plan -> Draft Replies -> Present and Loop). Учитывается всё, что изменилось с момента ревью: задача, описание MR, код (коммиты автора), другие треды.
+Трек `followup-track` делегирует планирование агенту `review-planner` (Full Context Gather -> Classify Comments -> Verify Actionables -> Assemble Plan -> Draft Replies -> Present and Loop). Учитывается всё, что изменилось с момента ревью: задача, описание MR, код (коммиты автора), другие треды.
 
 Каждый комментарий классифицируется по осям type / actionability / priority / related / task_alignment. Каждое actionable верифицируется чтением кода (комментарий мог устареть после правок) с оценкой blast radius. План группируется P0..P3.
 
@@ -20,5 +20,5 @@
 
 ## Связанные плагины
 
-- `/implement` через `dex-sdlc` и `dex-skill-development-track` - исполнение плана правок до локальных коммитов.
-- `dex-mr-check-reviewer` - следующий раунд ревью после применения правок.
+- `dex-skill-followup-track` - трек, ведущий цикл этого агента от плана до ре-ревью.
+- `dex-mr-check-reviewer` - следующий раунд ревью после применения правок, тот же трек.

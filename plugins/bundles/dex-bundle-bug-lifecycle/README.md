@@ -21,6 +21,10 @@ Skills методологии: `dex-skill-problem-specification`, `dex-skill-roo
 
 CLI для чтения стенда: `dex-kubectl-cli`, `dex-gitlab-cli`, `dex-github-cli`, `dex-teamcity-cli`, `dex-jira-cli`.
 
+## Замечания
+
+Кодер под `/implement` (Phase 7 `development-track`, баг-фикс - под-вид `bugfix-track`) - стек-специфичный агент (`dex-dotnet-coder`/`dex-ts-fullstack-coder`), не входит в этот bundle: без парного стек-бандла (например `dex-bundle-dotnet-developer`) фикс через `/implement` недоступен, доступны поиск/оформление/расследование и `dex-bug-fixer` для пачки уже найденных багов.
+
 ## Установка
 
 ```bash

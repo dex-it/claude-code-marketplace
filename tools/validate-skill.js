@@ -161,11 +161,13 @@ const ORCHESTRATOR_SKILLS = new Set([
   'architecture-track',
   'acceptance-track',
   'discover-track',
+  'followup-track',
+  'bugfix-track',
 ]);
 
 // Эвристика best-effort: глагол делегирования рядом с бэктик-ссылкой на агента/Agent
-// в одном блоке. Не ловит делегирование без имени агента (bugfix-track) и глаголы
-// вне словаря (mr-review-track) - молчание не значит "не оркестрирует".
+// в одном блоке. Известные пропуски - молчание не значит "не оркестрирует": глагол вне
+// словаря (mr-review-track), короткое имя агента без dex-plugin:-префикса (followup-track).
 const ORCHESTRATION_VERB_RE = /спавн|делегир|вызыва[ею]т|чинит/i;
 const AGENT_MENTION_RE = /`(?:dex-[a-z0-9-]+:[a-z0-9-]+|Agent)`/;
 

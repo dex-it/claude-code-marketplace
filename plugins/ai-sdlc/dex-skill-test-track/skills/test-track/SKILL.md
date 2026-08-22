@@ -7,7 +7,7 @@ description: >-
   matrix, happy-path негатив краевые случаи, все ветки логики, добор покрытия, изоляция тестов.
 ---
 <!-- skill-type: process -->
-<!-- Перенос трека "Тест-инжиниринг" (test-engineering.md, dex-skill-autonomous-task) без переработки под идиому фаз-контракта. -->
+<!-- Перенос трека "Тест-инжиниринг" (test-engineering.md, dex-skill-autonomous-task) без переработки под идиому фаз-контракта - редизайн отслеживается issue #216. -->
 
 # Test Track
 

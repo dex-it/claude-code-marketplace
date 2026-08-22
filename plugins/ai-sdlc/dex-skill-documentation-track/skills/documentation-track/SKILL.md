@@ -7,7 +7,7 @@ description: >-
   API-документация, changelog, release notes, single source of truth.
 ---
 <!-- skill-type: process -->
-<!-- Перенос трека "Документирование" (documentation.md, dex-skill-autonomous-task) без переработки под идиому фаз-контракта. -->
+<!-- Перенос трека "Документирование" (documentation.md, dex-skill-autonomous-task) без переработки под идиому фаз-контракта - редизайн отслеживается issue #216. -->
 
 # Documentation Track
 
