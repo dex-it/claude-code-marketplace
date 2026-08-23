@@ -91,11 +91,10 @@ function findAllSkillFiles() {
 // Прозаическую копию числа держит только он; меняешь порог - правишь оба места одним коммитом.
 const CLAUDE_CODE_HARD_LIMIT = 500; // Anthropic recommendation ("Keep SKILL.md under 500 lines") - not an enforced platform truncation limit
 const PROJECT_RECOMMENDED_MAX = 250; // project line-count guideline (trap-skill: цель 80-120)
-// Process-skill - другой жанр: движок/правило-оркестрация, единый нормативный костяк не дробится
-// на каталог-ловушек размером. Проектный потолок для них поднят выше платформенной рекомендации,
-// т.к. костяк (правила + mandatory-Read список) не режется ради формального лимита; деталь по
-// требованию всё равно выносится в смежные файлы, не раздувается бесконтрольно.
-const PROCESS_SKILL_RECOMMENDED_MAX = 600;
+// Верхний порог общий для обоих типов: рекомендация Anthropic названа в строках и типа skill не
+// различает. Process-skill освобождён только от проектного trap-порога (250) - костяк движка не
+// дробится на каталог ловушек; от платформенного потолка не освобождён никто, деталь по требованию
+// выносится в references/ (файлы оттуда в счёт не идут и контекст не тратят, пока не прочитаны).
 const PROJECT_TARGET_MAX = 120; // ideal range
 
 // --- Frontmatter validation ---------------------------------------------
@@ -298,24 +297,16 @@ function validateFrontmatter(parsed, findings, isProcess = false) {
 function validateSize(rawContent, findings, isProcess = false) {
   const lineCount = rawContent.split('\n').length;
 
-  if (isProcess) {
-    if (lineCount > PROCESS_SKILL_RECOMMENDED_MAX) {
-      findings.push({
-        level: ERROR,
-        rule: 'size-exceeds-recommended',
-        message: `File is ${lineCount} lines - exceeds process-skill project cap of ${PROCESS_SKILL_RECOMMENDED_MAX}. Consider splitting or cutting documentation/procedures`,
-      });
-    }
-    return;
-  }
-
   if (lineCount > CLAUDE_CODE_HARD_LIMIT) {
     findings.push({
       level: ERROR,
       rule: 'size-exceeds-hard-limit',
-      message: `File is ${lineCount} lines - exceeds Anthropic recommendation of ${CLAUDE_CODE_HARD_LIMIT}`,
+      message: `File is ${lineCount} lines - exceeds Anthropic recommendation of ${CLAUDE_CODE_HARD_LIMIT} ("Keep SKILL.md under 500 lines"). Move detailed material to references/ - those files are not counted`,
     });
-  } else if (lineCount > PROJECT_RECOMMENDED_MAX) {
+    return;
+  }
+
+  if (!isProcess && lineCount > PROJECT_RECOMMENDED_MAX) {
     findings.push({
       level: ERROR,
       rule: 'size-exceeds-recommended',

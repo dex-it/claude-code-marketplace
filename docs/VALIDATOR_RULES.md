@@ -88,8 +88,8 @@ tools/__fixtures__/<validator>/<rule>/expect.json   {"also": [...]} - опцио
 | `trap-missing-triad` | error | ловушка без триады «Плохо / Правильно / Почему»; у process-skill не проверяется | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
 | `process-empty` | error | process-skill без содержания правила - ни таблицы-реестра, ни разделов | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
 | `code-fence-too-long` | error | блок кода длиннее допустимого - skill сползает в документацию | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
-| `size-exceeds-recommended` | error | размер выше целевого - у trap-skill и process-skill пороги разные | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
-| `size-exceeds-hard-limit` | error | размер за жёстким потолком; у process-skill не проверяется - там свой единственный порог | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
+| `size-exceeds-recommended` | error | размер выше проектного потолка trap-skill; у process-skill не проверяется - он от этого порога освобождён | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
+| `size-exceeds-hard-limit` | error | размер за рекомендацией Anthropic; действует для обоих типов skill | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
 | `orchestrator-unregistered` | error | process-skill похож на спавн/делегирование агенту (глагол делегирования рядом с бэктик-ссылкой на агента/`Agent` в одном блоке), но не в `ORCHESTRATOR_SKILLS`. Эвристика best-effort, не исчерпывающая - известные пропуски: делегирование без имени агента в тексте, глаголы вне словаря, короткое имя агента без `dex-plugin:`-префикса | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md#норма-каталога-оркестрация---в-скилле-исполнение---в-агенте) |
 
 Тип skill - ось калибровки: `process` опознаётся по allowlist `PROCESS_SKILLS` в самом валидаторе,
