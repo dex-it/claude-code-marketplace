@@ -35,7 +35,7 @@ import { readFileSync, writeFileSync, mkdtempSync, rmSync, readdirSync, existsSy
 import { join, resolve, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..');
@@ -79,15 +79,29 @@ const PLUGIN_DIRS = indexPlugins(join(REPO_ROOT, 'plugins'), 3, new Map());
 function runCase(kase) {
   return new Promise((resolvePromise) => {
     const sandbox = mkdtempSync(join(tmpdir(), 'activation-'));
-    const pluginDir = PLUGIN_DIRS.get(kase.expect.split(':')[0]);
+    // `plugins` кейса - плагины сверх того, что несёт `expect`: скилл поднимается не только
+    // своим полем, но и хуком соседнего плагина, и такой конструкт проверяется только вместе.
+    // Отсутствующий в дереве плагин молча выпадает - кейс тогда судит неполный конструкт,
+    // поэтому недостача называется явно (`missing`), а не гасится.
+    const names = [kase.expect.split(':')[0], ...(kase.plugins ?? [])];
+    const dirs = names.map((n) => PLUGIN_DIRS.get(n)).filter(Boolean);
+    const missing = names.filter((n) => !PLUGIN_DIRS.has(n));
+    // `git: true` - песочница с git-репой: хуки конвейера отличают репозиторий от случайного
+    // каталога и вне репы намеренно молчат, поэтому в пустой директории конструкт не поднялся бы.
+    if (kase.git) {
+      try {
+        execFileSync('git', ['init', '-q'], { cwd: sandbox, stdio: 'ignore' });
+        writeFileSync(join(sandbox, 'package.json'), '{"name":"probe","version":"1.0.0"}\n');
+      } catch { /* без git кейс отработает как обычный - расхождение видно по исходу */ }
+    }
     const args = [
       '-p', kase.prompt,
       '--output-format', 'stream-json',
       '--verbose',
-      '--max-turns', '2',
+      '--max-turns', String(kase.maxTurns ?? 2),
       '--model', MODEL,
       '--disallowed-tools', DISALLOWED,
-      ...(pluginDir ? ['--plugin-dir', pluginDir] : []),
+      ...dirs.flatMap((d) => ['--plugin-dir', d]),
     ];
     const child = spawn('claude', args, { cwd: sandbox, stdio: ['ignore', 'pipe', 'pipe'] });
     let out = '';
@@ -114,7 +128,7 @@ function runCase(kase) {
         }
         if (e.type === 'result') cost = e.total_cost_usd ?? 0;
       }
-      resolvePromise({ skills, cost, listed });
+      resolvePromise({ skills, cost, listed, missing });
     });
   });
 }
@@ -168,7 +182,10 @@ const outcomes = await pool(jobs, async ({ kase, run }) => {
   // и не проваливается: он остаётся непроверенным с явным статусом. Причина - либо кейс
   // ссылается на несуществующий плагин (опечатка в `expect`), либо имя скилла внутри
   // плагина другое; и то и другое чинится в кейсе, не молчанием прогона.
-  const absent = Array.isArray(res.listed) && !res.listed.includes(kase.expect);
+  // Плагин из `plugins` кейса не найден в дереве - конструкт поднялся неполным, и его исход
+  // не говорит ни о срабатывании, ни о его отсутствии: судится тем же статусом «не проверено».
+  const incomplete = (res.missing ?? []).length > 0;
+  const absent = incomplete || (Array.isArray(res.listed) && !res.listed.includes(kase.expect));
   const exact = fired.includes(kase.expect);
   // Голое имя плагина - тот же выбор артефакта, но нерезолвимая форма вызова: модель
   // исправляется следующим ходом, который в лимит ходов не всегда помещается. Предмет
@@ -182,10 +199,11 @@ const outcomes = await pool(jobs, async ({ kase, run }) => {
     : pass ? (bare ? c('yellow', 'ok/гол') : c('green', 'ok    '))
     : c('red', 'ПРОВАЛ');
   const detail = res.error ? res.error
+    : incomplete ? `плагин(ы) кейса не найдены: ${res.missing.join(', ')} - не проверено`
     : absent ? 'скилла нет в сессии - не проверено'
     : fired.length ? fired.join(', ') : 'ни одного Skill';
   console.log(`${mark} ${kase.id}${RUNS > 1 ? `#${run + 1}` : ''} [${kase.mode}] -> ${c('gray', detail)}`);
-  return { id: kase.id, run, mode: kase.mode, expect: kase.expect, fired, pass, bare, absent, error: res.error ?? null, cost: res.cost ?? 0 };
+  return { id: kase.id, run, mode: kase.mode, expect: kase.expect, fired, pass, bare, absent, missing: res.missing ?? [], error: res.error ?? null, cost: res.cost ?? 0 };
 }, CONCURRENCY);
 
 const absent = outcomes.filter((o) => o.absent);
@@ -197,6 +215,8 @@ const secs = Math.round((Date.now() - started) / 1000);
 const checked = outcomes.length - absent.length;
 console.log(`\n${COLORS.bold}Итог:${COLORS.reset} ${checked} проверено из ${outcomes.length}, ${c('green', `${checked - failed.length} прошло`)}, ${failed.length ? c('red', `${failed.length} провал`) : '0 провалов'}, $${cost.toFixed(3)}, ${secs}s, модель ${MODEL}`);
 if (absent.length) console.log(c('gray', `Не проверено - скилла нет в сессии: ${absent.length} (${[...new Set(absent.map((o) => o.expect))].join(', ')}). Плагин не найден в plugins/ или имя скилла в кейсе неверно - поле этих скиллов не проверено ничем.`));
+const incompletes = outcomes.filter((o) => o.missing.length);
+if (incompletes.length) console.log(c('gray', `Не проверено - плагины кейса отсутствуют в plugins/: ${[...new Set(incompletes.flatMap((o) => o.missing))].join(', ')}. Поле `+'`plugins`'+` кейса называет плагин, которого в дереве нет - конструкт судить нечем.`));
 if (bareHits.length) console.log(c('yellow', `Голым именем плагина (вызов не резолвится, попадание засчитано): ${bareHits.length} - ${bareHits.map((o) => o.id).join(', ')}`));
 
 if (JSON_OUT) {

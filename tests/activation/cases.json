@@ -658,5 +658,78 @@
     "mode": "near-miss",
     "expect": "dex-skill-docker:docker",
     "prompt": "Как правильно выставить requests и limits для пода в Kubernetes, чтобы его не убивал OOM?"
+  },
+  {
+    "id": "engine-implement-in",
+    "mode": "in-scope",
+    "expect": "dex-sdlc:engine",
+    "plugins": [
+      "dex-sdlc-nudge"
+    ],
+    "git": true,
+    "prompt": "Реализуй фичу экспорта отчёта в CSV по описанию в задаче. Работай сам до готовых коммитов."
+  },
+  {
+    "id": "engine-bugfix-in",
+    "mode": "in-scope",
+    "expect": "dex-sdlc:engine",
+    "plugins": [
+      "dex-sdlc-nudge",
+      "dex-skill-development-track",
+      "dex-skill-bugfix-track"
+    ],
+    "git": true,
+    "prompt": "Почини баг: удаление комментария бросает ошибку вместо удаления.",
+    "maxTurns": 4
+  },
+  {
+    "id": "engine-review-in",
+    "mode": "in-scope",
+    "expect": "dex-sdlc:engine",
+    "plugins": [
+      "dex-sdlc-nudge"
+    ],
+    "git": true,
+    "prompt": "Отревьюй PR 42."
+  },
+  {
+    "id": "engine-ticket-in",
+    "mode": "in-scope",
+    "expect": "dex-sdlc:engine",
+    "plugins": [
+      "dex-sdlc-nudge"
+    ],
+    "git": true,
+    "prompt": "Возьми тикет и работай автономно до сдачи."
+  },
+  {
+    "id": "engine-requirements-in",
+    "mode": "in-scope",
+    "expect": "dex-sdlc:engine",
+    "plugins": [
+      "dex-sdlc-nudge"
+    ],
+    "git": true,
+    "prompt": "Собери требования на фичу экспорта отчётов."
+  },
+  {
+    "id": "engine-near-question",
+    "mode": "near-miss",
+    "expect": "dex-sdlc:engine",
+    "plugins": [
+      "dex-sdlc-nudge"
+    ],
+    "git": true,
+    "prompt": "Какой у нас стек и где лежат тесты?"
+  },
+  {
+    "id": "engine-near-typo",
+    "mode": "near-miss",
+    "expect": "dex-sdlc:engine",
+    "plugins": [
+      "dex-sdlc-nudge"
+    ],
+    "git": true,
+    "prompt": "Поправь опечатку в README: \"experimantal\" -> \"experimental\"."
   }
 ]
