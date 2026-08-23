@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "5.62.0",
+  "version": "5.63.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -2155,8 +2155,8 @@
     {
       "name": "dex-sdlc-resume",
       "source": "./plugins/ai-sdlc/dex-sdlc-resume",
-      "description": "После компакта контекста напоминает продолжить задачу движка (dex-sdlc:engine) по процедуре \"Возобновление\": находит незакрытый auto-ledger движка (статус \"открыт\") в каталоге данных этой репы и инжектит текст-напоминание через SessionStart (matcher compact).",
-      "version": "2.0.0",
+      "description": "После свёртки контекста или возобновления сессии напоминает продолжить задачу движка (dex-sdlc:engine) по процедуре \"Возобновление\": находит незакрытый auto-ledger движка (статус \"открыт\") в каталоге данных этой репы и инжектит текст через SessionStart (matcher compact|resume), разный по источнику - после свёртки полная процедура, после возобновления сверка с фактическим состоянием дерева.",
+      "version": "2.1.0",
       "category": "utility",
       "keywords": [
         "utility",
@@ -2166,6 +2166,12 @@
         "compact",
         "resume"
       ]
+    },
+    {
+      "name": "dex-sdlc-nudge",
+      "source": "./plugins/ai-sdlc/dex-sdlc-nudge",
+      "description": "Поднимает движок конвейера (dex-sdlc:engine) на рабочей просьбе: инжектит короткое подталкивание через UserPromptSubmit, зону и трек движок определяет сам по реестру зон. Замером подтверждено, что полем description движок на поручении-задаче не поднимается вовсе.",
+      "version": "1.0.0"
     },
     {
       "name": "dex-skill-dotnet-resources",
@@ -3079,7 +3085,7 @@
       "name": "dex-sdlc",
       "source": "./plugins/ai-sdlc/dex-sdlc",
       "description": "Движок доведения цели до конца самостоятельно (AI-SDLC-конвейер) - универсальный цикл, делегирование узлам-агентам по контракту node-contract, диспетчинг по трек-скиллу зоны. Зона-агностичен: порядок работ каждой зоны живёт в своём dex-skill-<зона>-track, движок его не хранит. Команды-входы живут в плагинах зон dex-sdlc-product, dex-sdlc-requirements, dex-sdlc-design, dex-sdlc-discover, dex-sdlc-docs, dex-sdlc-delivery, dex-sdlc-test, dex-sdlc-review, dex-sdlc-acceptance, dex-sdlc-ops - ставятся по надобности роли, не пакетом.",
-      "version": "3.0.0",
+      "version": "3.1.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -3244,7 +3250,7 @@
       "name": "dex-skill-analytics-track",
       "source": "./plugins/ai-sdlc/dex-skill-analytics-track",
       "description": "Трек зоны требований - тема или правка -> BRD -> сценарии -> правила и меры -> истории с критериями, две остановки оператора и проба готовности. Пишет decision-log, разрешает номер фичи. Активируется при: проработать идею до требований, обдумать фичу, описать новую фичу, собрать BRD, оформить требования, разложить фичу на истории, поправить принятое требование, feature pipeline, функциональные требования, критерии приёмки.",
-      "version": "2.2.0",
+      "version": "2.3.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -3259,7 +3265,7 @@
       "name": "dex-skill-development-track",
       "source": "./plugins/ai-sdlc/dex-skill-development-track",
       "description": "Трек зоны SDLC (реализация) движка dex-sdlc - ТЗ или тикет без спеки -> декомпозиция R/I -> инвентаризация архитектуры -> дизайн с гейтом первоисточника -> edit-план -> TDD-цикл оформляй/делай/стоп -> coverage-гейт -> локальные коммиты без push. Активируется при: реализуй фичу, implement feature, написать код по задаче, разработать функционал, по ТЗ, TDD, покрытие тестами, edit-план, рефакторинг, баг-фикс.",
-      "version": "1.6.0",
+      "version": "1.7.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -3273,7 +3279,7 @@
       "name": "dex-skill-architecture-track",
       "source": "./plugins/ai-sdlc/dex-skill-architecture-track",
       "description": "Трек архитектуры/дизайна движка dex-sdlc - от требований до одобренного design-документа: capacity, implementation plan, диспетчинг architect/architect-dotnet/adr-writer/api-designer/diagram-creator/design-reviewer по node-contract",
-      "version": "2.2.0",
+      "version": "2.3.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -3286,7 +3292,7 @@
       "name": "dex-skill-product-track",
       "source": "./plugins/ai-sdlc/dex-skill-product-track",
       "description": "Трек зоны продукта движка dex-sdlc - корпус уровня 0: BRD продукта с BR-NNN и MOE, доменная модель (словарь), конституция (INV-NNN, NFR-P-NNN). Две остановки оператора, диспетчинг business-requirements-analyst и domain-analyst по node-contract",
-      "version": "2.2.0",
+      "version": "2.3.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -3299,7 +3305,7 @@
       "name": "dex-skill-bugfix-track",
       "source": "./plugins/ai-sdlc/dex-skill-bugfix-track",
       "description": "Под-вид трека разработки движка dex-sdlc - процедура баг-фикса: воспроизведи дефект -> тест red через реальный путь -> root-cause до первопричины -> минимальный фикс -> green -> регресс-проход. Активируется при: баг-фикс, fix bug, reproduce defect, воспроизведи дефект, root cause, минимальный фикс, регресс-проход, разберись и почини, red test, тест воспроизводит дефект.",
-      "version": "1.2.0",
+      "version": "1.4.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -3312,7 +3318,7 @@
       "name": "dex-skill-followup-track",
       "source": "./plugins/ai-sdlc/dex-skill-followup-track",
       "description": "Трек обработки ревью своего MR движка dex-sdlc - разбор замечаний, план правок P0..P3, ре-ревью дельты, потолок 5 раундов. Активируется при: обработать ревью, разбор замечаний, ответить ревьюеру, закрыть треды ревью, ре-ревью дельты, follow-up review, замечания на мой MR, довести MR до мерджа, range-diff, LAST_REVIEW_SHA.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -3326,7 +3332,7 @@
       "name": "dex-skill-acceptance-track",
       "source": "./plugins/ai-sdlc/dex-skill-acceptance-track",
       "description": "Трек приёмки слитой фичи на стенде движка dex-sdlc - требование -> проба -> наблюдение -> вердикт, read-only, зелёный деплой не доказательство. Активируется при: приёмка на стенде, слитая фича на стенде, проверить фичу на стенде, приёмка post-merge, проверка развёрнутой фичи, review on stand, соответствие ТЗ на стенде, регрессия после деплоя, проба на стенде, зелёный деплой не значит рабочая фича.",
-      "version": "1.1.1",
+      "version": "1.2.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -3340,7 +3346,7 @@
       "name": "dex-skill-discover-track",
       "source": "./plugins/ai-sdlc/dex-skill-discover-track",
       "description": "Трек обзорного ревью существующего кода движка dex-sdlc - фан-аут по топикам ведёт dex-code-discovery:discover-orchestrator, трек держит вход, приёмку выхода и handoff. Активируется при: discover, обзорное ревью, инвентаризация проблем проекта, аудит существующего кода, что не так в проекте, breadth-first review, docs/discover, ревью legacy-кода, топиковый фан-аут, калибровка severity по масштабу.",
-      "version": "1.1.1",
+      "version": "1.2.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -3353,7 +3359,7 @@
       "name": "dex-skill-test-track",
       "source": "./plugins/ai-sdlc/dex-skill-test-track",
       "description": "Трек тест-инжиниринга движка dex-sdlc - матрица покрытия по осям (happy-path/негатив/краевые/все ветки) и покрытие требований обратным ребром, не прогон ради галочки. Активируется при: тест-инжиниринг, матрица покрытия, добор тестов, покрытие по осям, test engineering, coverage matrix, happy-path негатив краевые случаи, все ветки логики, добор покрытия, изоляция тестов, покрытие требований тестами, трассировка требование-тест, FR без теста, поиск багов, охота за багами, чартеры риска.",
-      "version": "1.4.0",
+      "version": "1.5.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -3366,7 +3372,7 @@
       "name": "dex-skill-mr-review-track",
       "source": "./plugins/ai-sdlc/dex-skill-mr-review-track",
       "description": "Трек ревью входящего MR движка dex-sdlc - read-only, находки с severity, фальсификация каждой против кода, покрытие тестами отдельным фокусом. Активируется при: ревью входящего MR, review incoming PR, проверь чужой pull request, code review, инлайн- находки, ре-ревью дельты, фокус покрытия тестами, тред-вопрос автору, severity находки, фальсификация находки, комментарии к diff.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -3379,7 +3385,7 @@
       "name": "dex-skill-documentation-track",
       "source": "./plugins/ai-sdlc/dex-skill-documentation-track",
       "description": "Трек документирования движка dex-sdlc - нормативный текст, верификация синхроном с кодом и стандартом, факты из кода/конфигов, без LLM-маркеров. Активируется при: документирование, write documentation, tech spec, README, ADR, runbook, API-документация, changelog, release notes, single source of truth.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -3391,7 +3397,7 @@
       "name": "dex-skill-diagnostics-track",
       "source": "./plugins/ai-sdlc/dex-skill-diagnostics-track",
       "description": "Трек диагностики инцидента движка dex-sdlc - симптом на запущенной системе или дампе, план гипотез по срезам, фальсификация корреляции против причинности. Активируется при: инцидент, диагностика, root cause analysis, RCA, hang, crash, memory leak, core dump, почини инцидент, план гипотез, срез CPU alloc lock IO.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "category": "skill",
       "keywords": [
         "skill",

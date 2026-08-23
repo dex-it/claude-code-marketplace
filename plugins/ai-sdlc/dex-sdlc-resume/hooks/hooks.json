@@ -1,9 +1,9 @@
 {
-  "description": "Напоминание о процедуре возобновления dex-sdlc:engine после компакта контекста (по незакрытому auto-ledger движка)",
+  "description": "Напоминание о процедуре возобновления dex-sdlc:engine после свёртки контекста или возобновления сессии (по незакрытому auto-ledger движка)",
   "hooks": {
     "SessionStart": [
       {
-        "matcher": "compact",
+        "matcher": "compact|resume",
         "hooks": [
           {
             "type": "command",
