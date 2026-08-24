@@ -97,6 +97,13 @@ const PROJECT_RECOMMENDED_MAX = 250; // project line-count guideline (trap-skill
 // выносится в references/ (файлы оттуда в счёт не идут и контекст не тратят, пока не прочитаны).
 const PROJECT_TARGET_MAX = 120; // ideal range
 
+// Второй порог мерит то же ограничение другой мерой: окно расходуется символами, а не строками, и
+// строка в этом репозитории стоит от 59 до 293 байт. Замер 25.08.2026: optimize-for-llm - 118 строк
+// при 19 958 символах, engine - 500 строк при 41 099; по строкам они несопоставимы, по расходу окна
+// различаются вдвое, а не вчетверо.
+const CHARS_HARD_LIMIT = 42000; // ~14k токенов: выше этого пара «движок + трек» не собирается в окно после компакта
+const CHARS_RECOMMENDED_MAX = 30000;
+
 // --- Frontmatter validation ---------------------------------------------
 
 const REQUIRED_FIELDS = ['name', 'description'];
@@ -314,6 +321,25 @@ function validateSize(rawContent, findings, isProcess = false) {
       level: ERROR,
       rule: 'size-exceeds-recommended',
       message: `File is ${lineCount} lines - exceeds project recommendation of ${PROJECT_RECOMMENDED_MAX}. Consider splitting or cutting documentation/procedures`,
+    });
+  }
+
+  const charCount = rawContent.length;
+
+  if (charCount > CHARS_HARD_LIMIT) {
+    findings.push({
+      level: ERROR,
+      rule: 'chars-exceed-hard-limit',
+      message: `File is ${charCount} characters (~${Math.round(charCount / 3000)}k tokens) - exceeds ${CHARS_HARD_LIMIT}. The line limit does not bound window cost: move detailed material to references/, those files are not counted`,
+    });
+    return;
+  }
+
+  if (charCount > CHARS_RECOMMENDED_MAX) {
+    findings.push({
+      level: WARNING,
+      rule: 'chars-exceed-recommended',
+      message: `File is ${charCount} characters (~${Math.round(charCount / 3000)}k tokens) - above the ${CHARS_RECOMMENDED_MAX} guideline. Cut or move to references/ before it reaches the ${CHARS_HARD_LIMIT} hard limit`,
     });
   }
 }
