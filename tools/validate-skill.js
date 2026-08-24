@@ -173,10 +173,13 @@ const ORCHESTRATOR_SKILLS = new Set([
 // Эвристика best-effort: глагол делегирования рядом с бэктик-ссылкой на агента/Agent
 // в одном блоке. Молчание не значит "не оркестрирует": глагол вне словаря либо короткое
 // имя агента без dex-plugin:-префикса эвристику не поднимают.
+// Префикс dex-skill- исключён: агентов в этих плагинах нет ни одного, значит совпадение
+// с ним - всегда ссылка на скилл, и глагол делегирования рядом с ней даёт ложное
+// срабатывание (unit-identity/SKILL.md:45).
 const ORCHESTRATION_VERB_RE = /спавн|делегир|вызыва[ею]т|чинит/i;
-const AGENT_MENTION_RE = /`(?:dex-[a-z0-9-]+:[a-z0-9-]+|Agent)`/;
+const AGENT_MENTION_RE = /`(?:dex-(?!skill-)[a-z0-9-]+:[a-z0-9-]+|Agent)`/;
 
-function validateOrchestratorRegistration(parsed, markdownBody, findings) {
+function validateOrchestratorRegistration(parsed, markdownBody, findings, isProcess) {
   const name = parsed.data && parsed.data.name;
   if (ORCHESTRATOR_SKILLS.has(name)) return;
 
@@ -194,7 +197,7 @@ function validateOrchestratorRegistration(parsed, markdownBody, findings) {
     findings.push({
       level: ERROR,
       rule: 'orchestrator-unregistered',
-      message: `Process skill "${name}" reads as spawning/delegating to an agent (delegation verb next to an agent/Agent-tool reference) but is not in ORCHESTRATOR_SKILLS - register it if it genuinely orchestrates the zone, or reword to remove the delegation language if it doesn't`,
+      message: `${isProcess ? 'Process skill' : 'Skill'} "${name}" reads as spawning/delegating to an agent (delegation verb next to an agent/Agent-tool reference) but is not in ORCHESTRATOR_SKILLS - register it if it genuinely orchestrates the zone, or reword to remove the delegation language if it doesn't`,
     });
   }
 }
@@ -532,8 +535,8 @@ function validateFile(filepath) {
   validateTraps(parsed.content, findings, isProcess);
   if (isProcess) {
     validateProcessStructure(parsed.content, findings);
-    validateOrchestratorRegistration(parsed, parsed.content, findings);
   }
+  validateOrchestratorRegistration(parsed, parsed.content, findings, isProcess);
   validateCodeFences(parsed.content, findings);
   validateNoDocumentationTitles(parsed.content, findings);
 
