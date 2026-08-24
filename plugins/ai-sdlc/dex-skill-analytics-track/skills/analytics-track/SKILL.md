@@ -15,14 +15,13 @@ description: >-
 # Analytics Track
 
 Трек зоны требований: ведёт прогон «идея -> цели -> сценарии -> правила и меры -> истории с критериями» до
-набора, по которому пишется код. Артефакты пишут составители-субагенты
-(`dex-business-analyst:business-requirements-analyst` -> BRD с `BR-NNN`,
-`dex-usecase-analyst:usecase-analyst` -> сценарии `UC`, `dex-requirements-analyst:requirements-analyst`
--> `FR`/`NFR`, `dex-user-story-analyst:user-story-analyst` -> истории с `AC`,
-`dex-implementer-reader:implementer-reader` -> проба готовности; `subagent_type` резолвится только
-полной формой `{плагин}:{агент}`, голое имя даёт `Agent type not found`). Трек классифицирует вход,
-спавнит их, судит НАБОР целиком, ведёт следы и собирает единственную остановку оператора. Правая граница -
-принятый набор; дальше зона дизайна (`/design`), другой владелец и другой апрув.
+набора, по которому пишется код. Артефакты пишут составители-субагенты (`dex-business-analyst:business-requirements-analyst` -> BRD с `BR-NNN`,
+`dex-usecase-analyst:usecase-analyst` -> сценарии `UC`, `dex-requirements-analyst:requirements-analyst` -> `FR`/`NFR`,
+`dex-user-story-analyst:user-story-analyst` -> истории с `AC`, `dex-implementer-reader:implementer-reader` -> проба готовности;
+`subagent_type` резолвится только полной формой `{плагин}:{агент}`, голое имя даёт `Agent type not found`). Трек классифицирует
+вход, спавнит их, судит НАБОР целиком, ведёт следы и собирает единственную остановку оператора. Правая граница - принятый набор;
+дальше зона дизайна (`/design`), другой владелец и другой апрув. **Поднят напрямую, без движка** - подними `dex-sdlc:engine`,
+войди через шаг 1: без него нет auto-ledger, стоп-линии, режима.
 
 **Оба уровня-производителя работают без кода, кроме brownfield-исключения**: `business-requirements-analyst`
 не читает код и `FR`/`NFR` не порождает, `requirements-analyst` не читает код и спеку не производит -
