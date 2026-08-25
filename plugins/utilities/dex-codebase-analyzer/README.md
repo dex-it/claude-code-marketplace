@@ -12,34 +12,34 @@
 
 ## Recommended tools (set up for best experience)
 
-Все CLI-инструменты опциональные — команды работают на fallback'ах через встроенные Read/Glob/Grep, но **с CLI результат точнее и быстрее**. Установите один раз для всех команд:
+Все CLI-инструменты опциональные - команды работают на fallback'ах через встроенные Read/Glob/Grep, но **с CLI результат точнее и быстрее**. Установите один раз для всех команд:
 
 ```bash
-# scc — точные метрики LoC + COCOMO (10-100× быстрее find+wc)
+# scc - точные метрики LoC + COCOMO (10-100× быстрее find+wc)
 brew install scc                          # macOS
 sudo apt install scc                      # Debian/Ubuntu (через cargo при отсутствии в repos)
 cargo install scc                         # любая ОС с Rust toolchain
 scoop install scc                         # Windows (Scoop)
 
-# ast-grep — структурный поиск по AST (точнее grep для multi-line patterns)
+# ast-grep - структурный поиск по AST (точнее grep для multi-line patterns)
 brew install ast-grep                     # macOS
 cargo install ast-grep                    # любая ОС с Rust toolchain
 npm install -g @ast-grep/cli              # Node.js окружение
 
-# repomix — упаковка репо для передачи во внешние LLM
+# repomix - упаковка репо для передачи во внешние LLM
 npm install -g repomix
 # или одноразово: npx -y repomix
 
-# madge — circular dependencies + граф импортов для TypeScript/JavaScript
+# madge - circular dependencies + граф импортов для TypeScript/JavaScript
 npm install -g madge
 
-# dependency-cruiser — расширенный граф deps для TS/JS с правилами
+# dependency-cruiser - расширенный граф deps для TS/JS с правилами
 npm install -g dependency-cruiser
 
-# pydeps — графы модулей для Python
+# pydeps - графы модулей для Python
 pip install pydeps
 
-# dotnet list — зависимости для .NET (входит в SDK, ставить отдельно не нужно)
+# dotnet list - зависимости для .NET (входит в SDK, ставить отдельно не нужно)
 dotnet --version                          # проверить установку
 ```
 
@@ -48,10 +48,10 @@ dotnet --version                          # проверить установк�
 Все команды делают graceful fallback на встроенные tools Claude Code:
 
 - **`scc` нет:** `/codebase-summary` использует `find` + `wc -l` по основным расширениям. Менее точно (не различает code/comments/blank), но достаточно для обзора порядков величин.
-- **`repomix` нет:** `/codebase-pack` показывает инструкцию установки. Ручная сборка не предлагается — для упаковки всего репо в один файл нерационально делать через chain Read.
-- **Графовых CLI нет:** `/codebase-graph` использует `grep` по `import` / `using` / `require` — грубый граф (без транзитивных зависимостей и анализа dynamic imports), но рабочий для первичной оценки.
+- **`repomix` нет:** `/codebase-pack` показывает инструкцию установки. Ручная сборка не предлагается - для упаковки всего репо в один файл нерационально делать через chain Read.
+- **Графовых CLI нет:** `/codebase-graph` использует `grep` по `import` / `using` / `require` - грубый граф (без транзитивных зависимостей и анализа dynamic imports), но рабочий для первичной оценки.
 
-## Зависимости — короткая справочная таблица
+## Зависимости - короткая справочная таблица
 
 | CLI | Назначение | Источник |
 |-----|------------|----------|
@@ -68,7 +68,7 @@ dotnet --version                          # проверить установк�
 - В фазе **Bootstrap** трека `architecture-track` перед проектированием новой фичи
 - При **онбординге** в незнакомый репозиторий (быстрое понимание организации)
 - Для **архитектурного review** существующего кода (поиск циклических зависимостей)
-- При подготовке к **миграции** или большому рефакторингу — нужен граф «что от чего зависит»
+- При подготовке к **миграции** или большому рефакторингу - нужен граф «что от чего зависит»
 - Для **передачи snapshot репо во внешний LLM** (только `/codebase-pack`, не для Claude Code-агентов)
 
 ## Что плагин НЕ делает
@@ -78,4 +78,4 @@ dotnet --version                          # проверить установк�
 - Не пишет ADR / документы (для этого `dex-adr-writer`)
 - Не оценивает качество кода (для этого `dex-self-reviewer` / `dex-mr-reviewer` и аналоги)
 
-Это **point tool** для быстрого получения контекста. Глубокий анализ — задача специалистов.
+Это **point tool** для быстрого получения контекста. Глубокий анализ - задача специалистов.

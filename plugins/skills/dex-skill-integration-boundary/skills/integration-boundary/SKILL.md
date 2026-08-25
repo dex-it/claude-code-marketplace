@@ -3,7 +3,7 @@ name: integration-boundary
 description: Граница доверия к тесту в пирамиде тестирования - где заканчивается unit и начинается живая интеграция. Мок внешней границы против реального контракта, зелёный unit при непокрытой интеграции, точка входа до теста, развилки путей, слой сборки и контракта, семантика фейковой среды. Активируется при integration test, contract test, mock boundary, test pyramid, граница интеграции, внешний API, живой прогон, contract drift, testcontainers, fallback, retry, in-memory fake
 ---
 
-# Integration Boundary — ловушки и anti-patterns
+# Integration Boundary - ловушки и anti-patterns
 
 > Как писать код тестируемым (DI, seams, изоляция зависимостей) - см. dex-skill-testability. Этот skill про то, где заканчивается доверие к unit-уровню и что обязано быть проверено живьём.
 
