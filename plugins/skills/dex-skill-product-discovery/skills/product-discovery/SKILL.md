@@ -1,6 +1,6 @@
 ---
 name: product-discovery
-description: Product discovery — ловушки валидации, интервью. Активируется при discovery, customer interviews, validation, JTBD, hypothesis, MVP, fake door, concierge, Mom test, user research, product-market fit
+description: Product discovery — ловушки валидации, интервью. Активируется при discovery, customer interviews, validation, JTBD-интервью на проверке гипотезы, hypothesis, MVP, fake door, concierge, Mom test, user research, product-market fit
 ---
 
 # Product Discovery — ловушки
