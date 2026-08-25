@@ -202,9 +202,16 @@ const outcomes = await pool(jobs, async ({ kase, run }) => {
   // помечается отдельно (`bare`), иначе дефект вызова тонет в зелёном.
   const bare = !exact && fired.includes(kase.expect.split(':')[0]);
   const hit = exact || bare;
-  const pass = res.error || absent ? false : kase.mode === 'near-miss' ? !hit : hit;
+  // Режим `contested`: предмет кейса - не «сработало ли поле», а кто победил в конкуренции за
+  // предмет. Обе стороны исхода информативны, поэтому такой кейс не красит прогон в красное и не
+  // роняет код возврата: он записывает победителя. Иначе ожидаемый перехват печатался бы ПРОВАЛом,
+  // а единственным способом получить зелёный было бы выключить конкурента - ровно то, от чего
+  // страхует `requiresListed`.
+  const contested = kase.mode === 'contested';
+  const pass = res.error || absent ? false : contested ? true : kase.mode === 'near-miss' ? !hit : hit;
   const mark = res.error ? c('yellow', 'ОШИБКА')
     : absent ? c('gray', 'нет   ')
+    : contested ? (hit ? c('green', 'наш   ') : c('yellow', 'перехв'))
     : pass ? (bare ? c('yellow', 'ok/гол') : c('green', 'ok    '))
     : c('red', 'ПРОВАЛ');
   const detail = res.error ? res.error
@@ -216,7 +223,7 @@ const outcomes = await pool(jobs, async ({ kase, run }) => {
   // Сторонние скиллы листинга - это и есть среда конкуренции, в которой получен исход. Без записи
   // «7/7 при живом конкуренте» и «7/7 при выключенном» неразличимы задним числом.
   const foreign = (res.listed ?? []).filter((n) => !n.startsWith('dex-'));
-  return { id: kase.id, run, mode: kase.mode, expect: kase.expect, fired, pass, bare, absent, unmet, foreign, missing: res.missing ?? [], error: res.error ?? null, cost: res.cost ?? 0 };
+  return { id: kase.id, run, mode: kase.mode, expect: kase.expect, fired, pass, bare, absent, unmet, foreign, contestedWon: contested ? hit : null, missing: res.missing ?? [], error: res.error ?? null, cost: res.cost ?? 0 };
 }, CONCURRENCY);
 
 const absent = outcomes.filter((o) => o.absent);
@@ -228,6 +235,8 @@ const secs = Math.round((Date.now() - started) / 1000);
 const checked = outcomes.length - absent.length;
 console.log(`\n${COLORS.bold}Итог:${COLORS.reset} ${checked} проверено из ${outcomes.length}, ${c('green', `${checked - failed.length} прошло`)}, ${failed.length ? c('red', `${failed.length} провал`) : '0 провалов'}, $${cost.toFixed(3)}, ${secs}s, модель ${MODEL}`);
 if (absent.length) console.log(c('gray', `Не проверено - скилла нет в сессии: ${absent.length} (${[...new Set(absent.map((o) => o.expect))].join(', ')}). Плагин не найден в plugins/ или имя скилла в кейсе неверно - поле этих скиллов не проверено ничем.`));
+const contests = outcomes.filter((o) => o.contestedWon !== null && !o.absent);
+if (contests.length) console.log(c('gray', `Спорных за предмет: ${contests.length}, из них наш скилл поднялся в ${contests.filter((o) => o.contestedWon).length}. Режим `+'`contested`'+` меряет величину перехвата и код возврата не роняет.`));
 const unmets = outcomes.filter((o) => o.unmet.length);
 if (unmets.length) console.log(c('gray', `Не проверено - в сессии нет требуемого кейсами: ${[...new Set(unmets.flatMap((o) => o.unmet))].join(', ')}. Поле `+'`requiresListed`'+` называет конкурента, без которого исход кейса ничего не измеряет - включить плагин и прогнать заново.`));
 const incompletes = outcomes.filter((o) => o.missing.length);
