@@ -343,6 +343,27 @@ function validateSize(rawContent, findings, isProcess = false) {
   }
 }
 
+// --- references/ size check ----------------------------------------------
+
+// Файл references/ читается по требованию и в счёт тела не идёт: мера отдельная, только
+// предупреждающая - жёсткого потолка у неё нет. Состав выноса согласуется с владельцем
+// артефакта, счётчик его не режет.
+function validateReferenceSize(skillFilePath, findings) {
+  const dir = join(dirname(skillFilePath), 'references');
+  if (!existsSync(dir)) return;
+  for (const entry of readdirSync(dir).sort()) {
+    const full = join(dir, entry);
+    if (!statSync(full).isFile() || !entry.endsWith('.md')) continue;
+    const charCount = readFileSync(full, 'utf8').length;
+    if (charCount <= CHARS_RECOMMENDED_MAX) continue;
+    findings.push({
+      level: WARNING,
+      rule: 'reference-chars-exceed-recommended',
+      message: `references/${entry} is ${charCount} characters (~${Math.round(charCount / 3000)}k tokens) - above the ${CHARS_RECOMMENDED_MAX} guideline. Not counted in the body limit and not blocking: raise it at review`,
+    });
+  }
+}
+
 // --- Markdown parsing ---------------------------------------------------
 
 /**
@@ -557,6 +578,7 @@ function validateFile(filepath) {
 
   validateFrontmatter(parsed, findings, isProcess);
   validateSize(raw, findings, isProcess);
+  validateReferenceSize(filepath, findings);
   validateTraps(parsed.content, findings, isProcess);
   if (isProcess) {
     validateProcessStructure(parsed.content, findings);
