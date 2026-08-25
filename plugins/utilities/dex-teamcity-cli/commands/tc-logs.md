@@ -21,6 +21,6 @@ argument-hint: "build-id [--tail N] [--watch]"
 
 **Constraints:**
 
-- Требует `teamcity` (CLI от JetBrains) в PATH; если не найден -- показать инструкцию установки и ссылку на [docs/CLI_UTILITIES.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/CLI_UTILITIES.md).
+- Требует `teamcity` (CLI от JetBrains) в PATH; если не найден -- показать инструкцию установки.
 - `--watch` блокирует -- использовать с явным таймаутом или `Ctrl-C`.
 - Для артефактов и тестов используются отдельные команды CLI (`teamcity run artifacts`, `teamcity run download`).

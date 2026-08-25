@@ -268,6 +268,32 @@ function validateNoDocumentationTitles(markdownBody, findings) {
   });
 }
 
+// --- catalog docs link ---------------------------------------------------
+
+// `docs/` каталога - дизайн-тайм: он нормирует авторство артефактов и в установленный плагин не
+// входит. Ссылка на него из тела хуже отсутствия ссылки: адрес выглядит валидным, а исполнитель
+// либо молча его не открывает, либо сочиняет содержимое. Норма, нужная в рантайме, живёт в самом
+// артефакте либо в скилле, который у пользователя установлен.
+const CATALOG_DOCS_LINK_PATTERNS = [
+  /https?:\/\/github\.com\/dex-it\/claude-code-marketplace\/\S*?\/docs\/\S+/g,
+  /\]\((?:\.\.\/)*docs\/[^)\s]+\)/g,
+];
+
+function validateCatalogDocsLink(text, findings, where = '') {
+  const hits = [];
+  for (const re of CATALOG_DOCS_LINK_PATTERNS) {
+    re.lastIndex = 0;
+    for (const m of text.matchAll(re)) hits.push(m[0]);
+  }
+  if (hits.length === 0) return;
+  const shown = hits.slice(0, 3).join(', ');
+  findings.push({
+    level: ERROR,
+    rule: 'catalog-docs-link',
+    message: `${where}links to catalog docs/ (${shown}${hits.length > 3 ? `, +${hits.length - 3} more` : ''}) - docs/ is design-time and is not shipped with the plugin, so the executor cannot open it. Carry the norm in the artifact itself or in a skill the user has installed`,
+  });
+}
+
 // --- File validation orchestration --------------------------------------
 
 function validateFile(filepath) {
@@ -294,6 +320,7 @@ function validateFile(filepath) {
   validateNoBashScripts(parsed.content, findings);
   validateNoDocumentationTitles(parsed.content, findings);
   validateSkillReferences(parsed.content, findings);
+  validateCatalogDocsLink(raw, findings);
 
   return { filepath, findings };
 }

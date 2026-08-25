@@ -22,6 +22,6 @@ argument-hint: "[topic-name] [--describe] [--cluster name]"
 
 **Constraints:**
 
-- Требует `kaf` в PATH; если не найден -- показать инструкцию установки и ссылку на [docs/CLI_UTILITIES.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/CLI_UTILITIES.md).
+- Требует `kaf` в PATH; если не найден -- показать инструкцию установки.
 - Кластер настраивается в `~/.kaf/config` (`kaf config add-cluster ...` / `kaf config select-cluster ...`). Без активного кластера -- сообщить и подсказать команду.
 - Read-only.

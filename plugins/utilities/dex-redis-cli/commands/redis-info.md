@@ -21,6 +21,6 @@ Snapshot состояния Redis-сервера.
 
 **Constraints:**
 
-- Требует `redis-cli` в PATH; если не найден -- показать инструкцию установки и ссылку на [docs/CLI_UTILITIES.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/CLI_UTILITIES.md).
+- Требует `redis-cli` в PATH; если не найден -- показать инструкцию установки.
 - Пароль не печатать в выводе. Не логировать `-a <password>` -- предпочитать `REDISCLI_AUTH` или URI.
 - Read-only.

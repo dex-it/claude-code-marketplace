@@ -762,10 +762,11 @@ function validateAttributeBlocks(markdownBody, findings, bodyOffset = 0) {
 function validateFile(filepath, marketplacePlugins) {
   const findings = [];
   let parsed;
+  let raw;
   let bodyOffset = 0;
 
   try {
-    const raw = readFileSync(filepath, 'utf8');
+    raw = readFileSync(filepath, 'utf8');
     parsed = matter(raw);
     // Позиции из AST считаются по телу без frontmatter; в сообщениях нужен номер
     // строки файла, иначе он не совпадает с тем, что видит открывший файл.
@@ -786,12 +787,39 @@ function validateFile(filepath, marketplacePlugins) {
   validateJudgeCarriesWriter(parsed, findings);
   validateStageNormativeReaders(parsed, findings);
   validateAttributeBlocks(parsed.content, findings, bodyOffset);
+  validateCatalogDocsLink(raw, findings);
 
   if (phaseResult.validated) {
     validateSkillReferences(parsed.content, marketplacePlugins, findings);
   }
 
   return { filepath, findings };
+}
+
+// --- catalog docs link ---------------------------------------------------
+
+// `docs/` каталога - дизайн-тайм: он нормирует авторство артефактов и в установленный плагин не
+// входит. Ссылка на него из тела хуже отсутствия ссылки: адрес выглядит валидным, а исполнитель
+// либо молча его не открывает, либо сочиняет содержимое. Норма, нужная в рантайме, живёт в самом
+// артефакте либо в скилле, который у пользователя установлен.
+const CATALOG_DOCS_LINK_PATTERNS = [
+  /https?:\/\/github\.com\/dex-it\/claude-code-marketplace\/\S*?\/docs\/\S+/g,
+  /\]\((?:\.\.\/)*docs\/[^)\s]+\)/g,
+];
+
+function validateCatalogDocsLink(text, findings, where = '') {
+  const hits = [];
+  for (const re of CATALOG_DOCS_LINK_PATTERNS) {
+    re.lastIndex = 0;
+    for (const m of text.matchAll(re)) hits.push(m[0]);
+  }
+  if (hits.length === 0) return;
+  const shown = hits.slice(0, 3).join(', ');
+  findings.push({
+    level: ERROR,
+    rule: 'catalog-docs-link',
+    message: `${where}links to catalog docs/ (${shown}${hits.length > 3 ? `, +${hits.length - 3} more` : ''}) - docs/ is design-time and is not shipped with the plugin, so the executor cannot open it. Carry the norm in the artifact itself or in a skill the user has installed`,
+  });
 }
 
 // --- Reporting ----------------------------------------------------------

@@ -22,6 +22,6 @@ argument-hint: "job-name [build-number] [--tail N] [-f]"
 
 **Constraints:**
 
-- Требует `jenkins-cli` в PATH; если не найден -- показать инструкцию установки и ссылку на [docs/CLI_UTILITIES.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/CLI_UTILITIES.md).
+- Требует `jenkins-cli` в PATH; если не найден -- показать инструкцию установки.
 - Параметры подключения: env `JENKINS_URL`, `JENKINS_USER_ID`, `JENKINS_API_TOKEN`.
 - `-f` блокирует -- использовать с явным таймаутом или `Ctrl-C`.

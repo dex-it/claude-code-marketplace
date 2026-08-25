@@ -252,8 +252,8 @@ Input `dex-design-reviewer:design-reviewer`: путь к документу(ам
 
 **Цикл автор-судья**: находки -> возврат на доработку `dex-architect:architect`/
 `dex-architect-dotnet:architect-dotnet` (тот же узел Phase 3, не трек) -> повторная приёмка. Потолок
-раундов и решение по каждой открытой находке - `docs/AGENT_FRAMEWORK.md#inter-agent-handoff-
-последовательный-стык`.
+раундов и решение по каждой открытой находке - `dex-skill-node-contract:node-contract`,
+`references/quality-and-review.md` разд. 9: три ревизии на артефакт.
 
 **Гейт (блокирующий):** вердикт по design-документу либо по плану не `passed` -> трек не отдаёт
 хэндофф `development-track` молча -

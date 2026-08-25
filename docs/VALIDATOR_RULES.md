@@ -69,6 +69,7 @@ tools/__fixtures__/<validator>/<rule>/expect.json   {"also": [...]} - опцио
 | `phase-procedural-body` | error | тело фазы - процедура (команды, код), а не контракт | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md) |
 | `glued-attribute-block` | error | атрибут фазы слипся с предыдущим блоком - markdown сливает их в абзац | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md#self-check-перед-коммитом) |
 | `skill-reference-unknown` | error | ссылка на skill-плагин, которого нет в `marketplace.json` | [plugin-changes.md](../.claude/rules/plugin-changes.md) |
+| `catalog-docs-link` | error | тело артефакта ссылается на `docs/` каталога - URL `blob/main/docs/...` либо относительный markdown-линк. `docs/` нормирует авторство и в установленный плагин не входит: адрес выглядит валидным, а исполнитель его не откроет. Норма живёт в самом артефакте либо в установленном скилле | [CLAUDE.md](../CLAUDE.md) |
 
 ## tools/validate-skill.js
 
@@ -93,6 +94,7 @@ tools/__fixtures__/<validator>/<rule>/expect.json   {"also": [...]} - опцио
 | `chars-exceed-hard-limit` | error | размер в символах выше `CHARS_HARD_LIMIT`; вторая мера того же ограничения - плотность строки в каталоге различается кратно, поэтому строчный потолок расход окна почти не ограничивает; замер и его дата - в `SKILL_FRAMEWORK.md`, здесь не дублируются | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
 | `chars-exceed-recommended` | warning | размер в символах выше `CHARS_RECOMMENDED_MAX` - предупреждение до жёсткого потолка, чтобы носитель резали до того, как он упрётся | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
 | `reference-chars-exceed-recommended` | warning | файл `references/` выше `CHARS_RECOMMENDED_MAX`. В счёт тела не идёт и жёсткого потолка не имеет: мера предупреждающая, предъявляется на ревью, мерджа не блокирует | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
+| `catalog-docs-link` | error | тело скилла или файл его `references/` ссылается на `docs/` каталога - URL `blob/main/docs/...` либо относительный markdown-линк. `docs/` нормирует авторство и в установленный плагин не входит: адрес выглядит валидным, а исполнитель его не откроет. Норма живёт в самом артефакте либо в установленном скилле | [CLAUDE.md](../CLAUDE.md) |
 | `orchestrator-unregistered` | error | skill любого типа похож на спавн/делегирование агенту (глагол делегирования рядом с бэктик-ссылкой на агента/`Agent` в одном блоке), но не в `ORCHESTRATOR_SKILLS`. Эвристика best-effort, не исчерпывающая, и ошибается в обе стороны. Известные пропуски: делегирование без имени агента в тексте, глаголы вне словаря, короткое имя агента без `dex-plugin:`-префикса. Известное ложное срабатывание: ссылка на **скилл** формой `плагин:скилл` неотличима от ссылки на агента - префикс `dex-skill-` исключён из шаблона (агентов в этих плагинах нет ни одного), но плагин со скиллами вне этого префикса снова даст ложное | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md#норма-каталога-оркестрация---в-скилле-исполнение---в-агенте) |
 
 Тип skill - ось калибровки: `process` опознаётся по allowlist `PROCESS_SKILLS` в самом валидаторе,
@@ -112,6 +114,7 @@ tools/__fixtures__/<validator>/<rule>/expect.json   {"also": [...]} - опцио
 | `size-exceeds-recommended` | error | размер выше целевого | [COMMAND_FRAMEWORK.md](COMMAND_FRAMEWORK.md) |
 | `size-exceeds-hard-limit` | error | размер за жёстким потолком | [COMMAND_FRAMEWORK.md](COMMAND_FRAMEWORK.md) |
 | `skill-reference-unknown` | error | ссылка `` `{plugin}:{skill}` `` в теле - плагин такого скилла не поставляет (обе половины проверяются, не только плагин) | [plugin-changes.md](../.claude/rules/plugin-changes.md) |
+| `catalog-docs-link` | error | тело артефакта ссылается на `docs/` каталога - URL `blob/main/docs/...` либо относительный markdown-линк. `docs/` нормирует авторство и в установленный плагин не входит: адрес выглядит валидным, а исполнитель его не откроет. Норма живёт в самом артефакте либо в установленном скилле | [CLAUDE.md](../CLAUDE.md) |
 
 ## tools/validate-bundle.js
 

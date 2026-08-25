@@ -21,6 +21,6 @@ argument-hint: "[--node name] [--host url]"
 
 **Constraints:**
 
-- Требует `rabbitmqadmin` (rabbitmqadmin-ng) в PATH; если не найден -- показать инструкцию установки и ссылку на [docs/CLI_UTILITIES.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/CLI_UTILITIES.md).
+- Требует `rabbitmqadmin` (rabbitmqadmin-ng) в PATH; если не найден -- показать инструкцию установки.
 - Параметры подключения: `~/.rabbitmqadmin.conf` (раздел default или `--node` имя профиля) или `--host`/`--port`/`--username`/`--password`/`--vhost`. Пароль не печатать в выводе.
 - Read-only.

@@ -1788,7 +1788,7 @@
       "name": "dex-kubectl-cli",
       "source": "./plugins/utilities/dex-kubectl-cli",
       "description": "CLI Kubernetes: поды, логи, деплойменты, события, контексты через kubectl.",
-      "version": "1.1.4",
+      "version": "1.1.5",
       "category": "utility",
       "keywords": [
         "utility",
@@ -1804,7 +1804,7 @@
       "name": "dex-teamcity-cli",
       "source": "./plugins/utilities/dex-teamcity-cli",
       "description": "CLI TeamCity: прогоны, агенты, логи сборки через официальный teamcity от JetBrains.",
-      "version": "2.0.2",
+      "version": "2.0.3",
       "category": "utility",
       "keywords": [
         "utility",
@@ -1819,7 +1819,7 @@
       "name": "dex-jenkins-cli",
       "source": "./plugins/utilities/dex-jenkins-cli",
       "description": "CLI Jenkins: джобы, сборки, вывод консоли через jenkins-cli.jar.",
-      "version": "2.0.2",
+      "version": "2.0.3",
       "category": "utility",
       "keywords": [
         "utility",
@@ -1834,7 +1834,7 @@
       "name": "dex-jira-cli",
       "source": "./plugins/utilities/dex-jira-cli",
       "description": "CLI Jira: задачи, поиск по JQL, спринт через jira (ankitpokhrel/jira-cli), только чтение.",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "category": "utility",
       "keywords": [
         "utility",
@@ -1851,7 +1851,7 @@
       "name": "dex-psql-cli",
       "source": "./plugins/utilities/dex-psql-cli",
       "description": "CLI PostgreSQL: запросы только на чтение, осмотр схемы, планы EXPLAIN, блокировки через psql.",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "category": "utility",
       "keywords": [
         "utility",
@@ -1866,7 +1866,7 @@
       "name": "dex-redis-cli",
       "source": "./plugins/utilities/dex-redis-cli",
       "description": "CLI Redis: информация о сервере, скан ключей, анализ памяти, сэмплирование в реальном времени через redis-cli.",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "category": "utility",
       "keywords": [
         "utility",
@@ -1880,7 +1880,7 @@
       "name": "dex-kaf-cli",
       "source": "./plugins/utilities/dex-kaf-cli",
       "description": "CLI Kafka: топики, consumer group, чтение хвоста сообщений, тестовая публикация через kaf.",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "category": "utility",
       "keywords": [
         "utility",
@@ -1895,7 +1895,7 @@
       "name": "dex-rabbitmqadmin-cli",
       "source": "./plugins/utilities/dex-rabbitmqadmin-cli",
       "description": "CLI RabbitMQ: обзор кластера, очереди, привязки, тестовая публикация через rabbitmqadmin-ng.",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "category": "utility",
       "keywords": [
         "utility",
@@ -1910,7 +1910,7 @@
       "name": "dex-aws-s3-cli",
       "source": "./plugins/utilities/dex-aws-s3-cli",
       "description": "CLI AWS S3: список бакетов и объектов, сведения о бакете, метаданные объекта, presigned-ссылки через aws s3.",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "category": "utility",
       "keywords": [
         "utility",
@@ -2457,7 +2457,7 @@
       "name": "dex-skill-business-analysis",
       "source": "./plugins/skills/dex-skill-business-analysis",
       "description": "Норматив этапа бизнес-анализа (ISO/IEC/IEEE 29148 §6.2): состав Business requirements specification, разделы BRD, атрибуты бизнес-требования, мера успеха MOE, режим сбора interactive/autonomous, поиск конфликта целей, стадии готовности артефакта, вход и выход этапа",
-      "version": "3.4.0",
+      "version": "3.4.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2496,7 +2496,7 @@
       "name": "dex-skill-requirement-set-quality",
       "source": "./plugins/skills/dex-skill-requirement-set-quality",
       "description": "Дефекты НАБОРА требований как целого (ISO/IEC/IEEE 29148 §5.2.6): неполнота против источника, нерезрешённые TBD/TBS/TBR, осиротевшее требование, дубли и перекрытия, разъехавшийся термин и единицы измерения, расхождение с принятым вне набора, совокупная невыполнимость, непонятность набора, отсутствие способа валидации, неготовность к разработке. Для гейтов оркестратора и ревью набора; единицу требования судит requirement-quality.",
-      "version": "1.6.0",
+      "version": "1.6.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2515,7 +2515,7 @@
       "name": "dex-skill-decision-log",
       "source": "./plugins/skills/dex-skill-decision-log",
       "description": "decision-log конвейера требований: что в него попадает, как требование ссылается на запись, чем он отличается от меток проверок и служебного состояния прогона, что делать при утрате. Общая механика - node-contract, раздел «Журнал решений»; здесь специфика требований: связь записи с единицей, дельта-правка, поднятие оснований заново.",
-      "version": "1.5.2",
+      "version": "1.5.3",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2534,7 +2534,7 @@
       "name": "dex-skill-use-cases",
       "source": "./plugins/skills/dex-skill-use-cases",
       "description": "Сценарий UC как единица требований: актор и его цель, основной ход, расширения с исходом у каждого, предусловия и терминал. Что в сценарий не пишется (правила, числа, экраны) и почему расширение без исхода - самый дорогой дефект конвейера требований.",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2553,7 +2553,7 @@
       "name": "dex-skill-functional-requirements",
       "source": "./plugins/skills/dex-skill-functional-requirements",
       "description": "Правило FR как единица требований: три части формы (случай, субъект, наблюдаемый результат), вывод из шагов и расширений сценария, обязательный метод верификации, граница с мерой NFR по способу проверки, одно правило на единицу.",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2572,7 +2572,7 @@
       "name": "dex-skill-unit-identity",
       "source": "./plugins/skills/dex-skill-unit-identity",
       "description": "Тождество единицы требований: чем ключ отличается от формулировки, как выдаются номера (старший разряд из номера фичи, младший по корпусу), когда пришедшее - правка принятой единицы, а когда новая, что делать с дублем и снятием.",
-      "version": "2.1.0",
+      "version": "2.1.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2591,7 +2591,7 @@
       "name": "dex-skill-artifact-naming",
       "source": "./plugins/skills/dex-skill-artifact-naming",
       "description": "Конвенция имени и подпапки для артефактов конвейера требований: дефолтное дерево фичи для пустого места, границы применения конвенции (занятый корпус диктует раскладку сам), разрешение пути сквозным полем, что не должно попадать в имя файла.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2667,7 +2667,7 @@
       "name": "dex-skill-optimize-for-llm",
       "source": "./plugins/skills/dex-skill-optimize-for-llm",
       "description": "Переписать инструкцию (CLAUDE.md, agent, SKILL.md, команду, prompt) для модели кратко и однозначно: срезать воду и дубли, оставить механизм/условие/исход, сохранить нормативную силу и грабли, выстроить информационную архитектуру и поле срабатывания. Активируется при оптимизируй под LLM, оптимизируй промпт, перепиши под модель, убери воду из инструкции, убери дубли, сократи CLAUDE.md / агента / skill, сделай однозначной, закрой лазейки, напиши description, пересмотри инструкцию, причеши промпт.",
-      "version": "1.7.0",
+      "version": "1.8.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2807,7 +2807,7 @@
       "name": "dex-skill-artifact-review",
       "source": "./plugins/skills/dex-skill-artifact-review",
       "description": "Ревью артефакта каталога (skill / агент / команда) по обязательным осям: соответствие фреймворку, fact-check, полезность против целей продукта, лаконичность, сверка с гайдом модели. Активируется при ревью скилла, ревью агента, ревью команды, приёмке артефакта, оси ревью, стоит ли держать в каталоге, какой цели служит артефакт, сверка с BRD, нарушение инварианта проекта, заявление автора как claim, утверждение о поведении платформы.",
-      "version": "1.6.0",
+      "version": "1.7.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -3098,7 +3098,7 @@
       "name": "dex-sdlc",
       "source": "./plugins/ai-sdlc/dex-sdlc",
       "description": "Движок доведения цели до конца самостоятельно (AI-SDLC-конвейер) - универсальный цикл, делегирование узлам-агентам по контракту node-contract, диспетчинг по трек-скиллу зоны. Агностично правило-тело: порядок работ каждой зоны живёт в своём dex-skill-<зона>-track, движок его не хранит, но справочник зон для резолва голого поручения принадлежит ядру. Команды-входы живут в плагинах зон dex-sdlc-product, dex-sdlc-requirements, dex-sdlc-design, dex-sdlc-discover, dex-sdlc-docs, dex-sdlc-delivery, dex-sdlc-test, dex-sdlc-review, dex-sdlc-acceptance, dex-sdlc-ops - ставятся по надобности роли, не пакетом.",
-      "version": "3.1.2",
+      "version": "3.2.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -3263,7 +3263,7 @@
       "name": "dex-skill-analytics-track",
       "source": "./plugins/ai-sdlc/dex-skill-analytics-track",
       "description": "Трек зоны требований - тема или правка -> BRD -> сценарии -> правила и меры -> истории с критериями, две остановки оператора и проба готовности. Пишет decision-log, разрешает номер фичи. Активируется при: проработать идею до требований, обдумать фичу, описать новую фичу, собрать BRD, оформить требования, разложить фичу на истории, поправить принятое требование, feature pipeline, функциональные требования, критерии приёмки.",
-      "version": "2.5.0",
+      "version": "2.6.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -3292,7 +3292,7 @@
       "name": "dex-skill-architecture-track",
       "source": "./plugins/ai-sdlc/dex-skill-architecture-track",
       "description": "Трек архитектуры/дизайна движка dex-sdlc - от требований до одобренного design-документа: capacity, implementation plan, диспетчинг architect/architect-dotnet/adr-writer/api-designer/diagram-creator/design-reviewer по node-contract",
-      "version": "2.3.1",
+      "version": "2.4.0",
       "category": "skill",
       "keywords": [
         "skill",

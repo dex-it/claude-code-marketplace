@@ -9,7 +9,7 @@ description: "Правило `FR` как единица требований: т
 
 Вход - шаги и расширения `UC`, несценарные ветки от `BR`, действующие рамки (ADR, описание архитектуры). Выход - правило одним предложением с названным методом верификации.
 
-Порядок работ, стыки и виды основания - [docs/pipelines/analytics/PIPELINE.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/pipelines/analytics/PIPELINE.md), разделы 2, 4 и 5. Дефекты формулировки как таковой судит [requirement-quality](../../../dex-skill-requirement-quality/skills/requirement-quality/SKILL.md), свойства набора - `requirement-set-quality`.
+Дефекты формулировки как таковой судит [requirement-quality](../../../dex-skill-requirement-quality/skills/requirement-quality/SKILL.md), свойства набора - `requirement-set-quality`.
 
 ## Форма правила
 
