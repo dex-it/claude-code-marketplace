@@ -185,7 +185,16 @@ const outcomes = await pool(jobs, async ({ kase, run }) => {
   // Плагин из `plugins` кейса не найден в дереве - конструкт поднялся неполным, и его исход
   // не говорит ни о срабатывании, ни о его отсутствии: судится тем же статусом «не проверено».
   const incomplete = (res.missing ?? []).length > 0;
-  const absent = incomplete || (Array.isArray(res.listed) && !res.listed.includes(kase.expect));
+  // Кейс может требовать присутствия конкурента: он меряет не «работает ли поле», а величину
+  // перехвата, и прогон без конкурента даёт зелёный, который ничего не измеряет. Условие держится
+  // полем кейса, а не абзацем README про состояние чьей-то машины: непокрытое требование даёт тот
+  // же статус «не проверено», что и отсутствующий скилл, а не ложный зелёный.
+  const required = kase.requiresListed ?? [];
+  const unmet = Array.isArray(res.listed)
+    ? required.filter((n) => !res.listed.includes(n))
+    : required;
+  const absent = incomplete || unmet.length > 0
+    || (Array.isArray(res.listed) && !res.listed.includes(kase.expect));
   const exact = fired.includes(kase.expect);
   // Голое имя плагина - тот же выбор артефакта, но нерезолвимая форма вызова: модель
   // исправляется следующим ходом, который в лимит ходов не всегда помещается. Предмет
@@ -200,10 +209,14 @@ const outcomes = await pool(jobs, async ({ kase, run }) => {
     : c('red', 'ПРОВАЛ');
   const detail = res.error ? res.error
     : incomplete ? `плагин(ы) кейса не найдены: ${res.missing.join(', ')} - не проверено`
+    : unmet.length ? `нет в сессии требуемого кейсом: ${unmet.join(', ')} - не проверено`
     : absent ? 'скилла нет в сессии - не проверено'
     : fired.length ? fired.join(', ') : 'ни одного Skill';
   console.log(`${mark} ${kase.id}${RUNS > 1 ? `#${run + 1}` : ''} [${kase.mode}] -> ${c('gray', detail)}`);
-  return { id: kase.id, run, mode: kase.mode, expect: kase.expect, fired, pass, bare, absent, missing: res.missing ?? [], error: res.error ?? null, cost: res.cost ?? 0 };
+  // Сторонние скиллы листинга - это и есть среда конкуренции, в которой получен исход. Без записи
+  // «7/7 при живом конкуренте» и «7/7 при выключенном» неразличимы задним числом.
+  const foreign = (res.listed ?? []).filter((n) => !n.startsWith('dex-'));
+  return { id: kase.id, run, mode: kase.mode, expect: kase.expect, fired, pass, bare, absent, unmet, foreign, missing: res.missing ?? [], error: res.error ?? null, cost: res.cost ?? 0 };
 }, CONCURRENCY);
 
 const absent = outcomes.filter((o) => o.absent);
@@ -215,6 +228,8 @@ const secs = Math.round((Date.now() - started) / 1000);
 const checked = outcomes.length - absent.length;
 console.log(`\n${COLORS.bold}Итог:${COLORS.reset} ${checked} проверено из ${outcomes.length}, ${c('green', `${checked - failed.length} прошло`)}, ${failed.length ? c('red', `${failed.length} провал`) : '0 провалов'}, $${cost.toFixed(3)}, ${secs}s, модель ${MODEL}`);
 if (absent.length) console.log(c('gray', `Не проверено - скилла нет в сессии: ${absent.length} (${[...new Set(absent.map((o) => o.expect))].join(', ')}). Плагин не найден в plugins/ или имя скилла в кейсе неверно - поле этих скиллов не проверено ничем.`));
+const unmets = outcomes.filter((o) => o.unmet.length);
+if (unmets.length) console.log(c('gray', `Не проверено - в сессии нет требуемого кейсами: ${[...new Set(unmets.flatMap((o) => o.unmet))].join(', ')}. Поле `+'`requiresListed`'+` называет конкурента, без которого исход кейса ничего не измеряет - включить плагин и прогнать заново.`));
 const incompletes = outcomes.filter((o) => o.missing.length);
 if (incompletes.length) console.log(c('gray', `Не проверено - плагины кейса отсутствуют в plugins/: ${[...new Set(incompletes.flatMap((o) => o.missing))].join(', ')}. Поле `+'`plugins`'+` кейса называет плагин, которого в дереве нет - конструкт судить нечем.`));
 if (bareHits.length) console.log(c('yellow', `Голым именем плагина (вызов не резолвится, попадание засчитано): ${bareHits.length} - ${bareHits.map((o) => o.id).join(', ')}`));
