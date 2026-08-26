@@ -9,7 +9,7 @@ description: "Правило `FR` как единица требований: т
 
 Вход - шаги и расширения `UC`, несценарные ветки от `BR`, действующие рамки (ADR, описание архитектуры). Выход - правило одним предложением с названным методом верификации.
 
-Дефекты формулировки как таковой судит [requirement-quality](../../../dex-skill-requirement-quality/skills/requirement-quality/SKILL.md), свойства набора - `requirement-set-quality`.
+Дефекты формулировки как таковой судит `dex-skill-requirement-quality:requirement-quality`, свойства набора - `dex-skill-requirement-set-quality:requirement-set-quality`.
 
 ## Форма правила
 
