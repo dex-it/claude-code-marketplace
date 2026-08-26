@@ -353,6 +353,8 @@ function validateSize(rawContent, findings, isProcess = false) {
 function validateReferenceSize(skillFilePath, findings) {
   const dir = join(dirname(skillFilePath), 'references');
   if (!existsSync(dir)) return;
+  let dirChars = 0;
+  let fileCount = 0;
   for (const entry of readdirSync(dir).sort()) {
     const full = join(dir, entry);
     if (!statSync(full).isFile() || !entry.endsWith('.md')) continue;
@@ -360,11 +362,22 @@ function validateReferenceSize(skillFilePath, findings) {
     validateCatalogDocsLink(body, findings, `references/${entry} `);
     validateLinkEscapesPlugin(body, full, findings, `references/${entry} `);
     const charCount = body.length;
+    dirChars += charCount;
+    fileCount += 1;
     if (charCount <= CHARS_RECOMMENDED_MAX) continue;
     findings.push({
       level: WARNING,
       rule: 'reference-chars-exceed-recommended',
       message: `references/${entry} is ${charCount} characters (~${Math.round(charCount / 3000)}k tokens) - above the ${CHARS_RECOMMENDED_MAX} guideline. Not counted in the body limit and not blocking: raise it at review`,
+    });
+  }
+  // Пофайловая мера обходится разбиением: тот же материал в двух файлах молчит,
+  // а цена чтения лежит на директории. Порог тот же, своего числа у суммы нет.
+  if (dirChars > CHARS_RECOMMENDED_MAX) {
+    findings.push({
+      level: WARNING,
+      rule: 'reference-dir-chars-exceed-recommended',
+      message: `references/ holds ${dirChars} characters (~${Math.round(dirChars / 3000)}k tokens) across ${fileCount} file(s) - above the same ${CHARS_RECOMMENDED_MAX} guideline the body uses. Splitting a file does not lower the cost: raise the directory at review`,
     });
   }
 }
