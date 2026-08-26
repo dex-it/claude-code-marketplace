@@ -2890,7 +2890,7 @@
       "name": "dex-mr-reviewer",
       "source": "./plugins/specialists/review/dex-mr-reviewer",
       "description": "Языко-агностичный узел первичного ревью чужого MR/PR: карта изменений, параллельные фокусы, фальсификация находок, severity/confidence/scope, доставка инлайн-тредами через gh/glab. Вызывается треком mr-review-track (команда /mr-review в dex-sdlc), не своим командным входом.",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2907,7 +2907,7 @@
       "name": "dex-mr-check-reviewer",
       "source": "./plugins/specialists/review/dex-mr-check-reviewer",
       "description": "Узел ре-ревью дельты MR/PR после правок автора: range-diff дельты, статус прежних находок, новые находки только в дельте, обновление существующих тредов и публикация новых. Вызывается треком mr-review-track на повторных раундах команды /mr-review в dex-sdlc, не своим командным входом.",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -3020,7 +3020,7 @@
       "name": "dex-self-reviewer",
       "source": "./plugins/specialists/review/dex-self-reviewer",
       "description": "Pre-push саморевью своей локальной ветки: committed+staged+worktree diff, скан по фокусам (безопасность, архитектура, регрессии, loose-ends, non-code) с реальным прогоном build/test, фальсификация, чеклист правок до push.",
-      "version": "1.14.0",
+      "version": "1.15.0",
       "category": "specialist",
       "keywords": [
         "specialist",
