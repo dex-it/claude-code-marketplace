@@ -376,7 +376,7 @@ function validateReferenceSize(skillFilePath, findings) {
 // артефакте либо в скилле, который у пользователя установлен.
 const CATALOG_DOCS_LINK_PATTERNS = [
   /https?:\/\/github\.com\/dex-it\/claude-code-marketplace\/\S*?\/docs\/\S+/g,
-  /\]\((?:\.\.\/)*docs\/[^)\s]+\)/g,
+  /\]\((?:\.{1,2}\/)*docs\/[^)\s]+\)/g,
 ];
 
 function validateCatalogDocsLink(text, findings, where = '') {
