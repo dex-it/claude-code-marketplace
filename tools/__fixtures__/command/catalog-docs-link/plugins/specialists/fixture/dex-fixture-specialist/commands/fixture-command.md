@@ -9,3 +9,5 @@ description: Прогнать фикстуру песочницы и верну�
 **Output format:** перечень `правило -> уровень -> файл`; пустой перечень назван явно.
 
 Порядок работ - [docs/pipelines/analytics/PIPELINE.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/pipelines/analytics/PIPELINE.md).
+
+Ограничения окружения - [CLI_UTILITIES](../docs/CLI_UTILITIES.md).

@@ -62,3 +62,5 @@ description: >-
 **Почему:** этот абзац держит ноль находок базы: вернётся широкий шаблон - упадут все фикстуры разом.
 
 Порядок работ - [docs/pipelines/analytics/PIPELINE.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/pipelines/analytics/PIPELINE.md).
+
+Ограничения окружения - [CLI_UTILITIES](../docs/CLI_UTILITIES.md).
