@@ -11,3 +11,5 @@ description: Прогнать фикстуру песочницы и верну�
 Порядок работ - [docs/pipelines/analytics/PIPELINE.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/pipelines/analytics/PIPELINE.md).
 
 Ограничения окружения - [CLI_UTILITIES](../docs/CLI_UTILITIES.md).
+
+Пороги правил - `VALIDATOR_RULES.md`, имя названо код-спаном без ссылки.

@@ -316,18 +316,102 @@ const CATALOG_DOCS_LINK_PATTERNS = [
   /\]\((?:\.{1,2}\/)*docs\/[^)\s]+\)/g,
 ];
 
-function validateCatalogDocsLink(text, findings, where = '') {
+
+// Адресаты правила - документы, которые РЕАЛЬНО существуют в `docs/` каталога. Правило ключит на
+// адресата, а не на форму записи: код-спан и проза уводят исполнителя ровно туда же, куда
+// markdown-ссылка, - к файлу, которого у него нет. Обратная сторона того же ключа: путь, которого в
+// `docs/` каталога нет (`docs/discover/README.md` как выход агента в проекте пользователя), правилом
+// не покрыт - он адресует чужой корпус, а не наш.
+let catalogDocTargetsCache = null;
+function catalogDocTargets() {
+  if (catalogDocTargetsCache) return catalogDocTargetsCache;
+  const paths = new Set();
+  const names = new Set();
+  const walk = (dir, rel) => {
+    if (!existsSync(dir)) return;
+    for (const entry of readdirSync(dir).sort()) {
+      const full = join(dir, entry);
+      const relPath = rel ? `${rel}/${entry}` : entry;
+      if (statSync(full).isDirectory()) {
+        walk(full, relPath);
+        continue;
+      }
+      if (!entry.endsWith('.md')) continue;
+      paths.add(`docs/${relPath}`);
+      // Голым именем адресуются только доки-фреймворки каталога (UPPER_SNAKE). Имя вроде `brd.md`
+      // или `README.md` носит и документ пользователя - на нём правило ловило бы чужой файл.
+      if (/^[A-Z][A-Z0-9_]*\.md$/.test(entry) && entry !== 'README.md') names.add(entry);
+    }
+  };
+  walk(join(REPO_ROOT, 'docs'), '');
+  catalogDocTargetsCache = { paths: [...paths], names: [...names] };
+  return catalogDocTargetsCache;
+}
+
+// Авторские плагины: те, что едут в бандле редактора маркетплейса. Их артефакты исполняются в
+// локальном клоне каталога, где `docs/` лежит рядом, поэтому адрес у них разрешается и правило к
+// ним не применяется. Список - данные бандла, не константа в коде: попал плагин в бандл - получил
+// право адресовать `docs/`.
+const AUTHOR_BUNDLE_JSON = 'plugins/bundles/dex-bundle-market-editor/bundle.json';
+let authorPluginsCache = null;
+function authorPlugins() {
+  if (authorPluginsCache) return authorPluginsCache;
+  authorPluginsCache = new Set();
+  try {
+    const json = JSON.parse(readFileSync(join(REPO_ROOT, AUTHOR_BUNDLE_JSON), 'utf8'));
+    for (const name of json.includes || []) authorPluginsCache.add(name);
+  } catch {
+    // бандла нет (песочница фикстур, урезанное дерево) - исключений нет
+  }
+  return authorPluginsCache;
+}
+
+// Имя плагина, которому принадлежит файл: ближайший вверх каталог с `.claude-plugin/plugin.json`.
+function pluginNameOf(filepath) {
+  let dir = dirname(resolve(filepath));
+  while (dir !== dirname(dir)) {
+    const manifest = join(dir, '.claude-plugin', 'plugin.json');
+    if (existsSync(manifest)) {
+      try {
+        return JSON.parse(readFileSync(manifest, 'utf8')).name || basename(dir);
+      } catch {
+        return basename(dir);
+      }
+    }
+    dir = dirname(dir);
+  }
+  return null;
+}
+
+function validateCatalogDocsLink(text, filepath, findings, where = '') {
+  if (authorPlugins().has(pluginNameOf(filepath))) return;
   const hits = [];
   for (const re of CATALOG_DOCS_LINK_PATTERNS) {
     re.lastIndex = 0;
     for (const m of text.matchAll(re)) hits.push(m[0]);
   }
-  if (hits.length === 0) return;
-  const shown = hits.slice(0, 3).join(', ');
+  if (hits.length > 0) {
+    const shown = hits.slice(0, 3).join(', ');
+    findings.push({
+      level: ERROR,
+      rule: 'catalog-docs-link',
+      message: `${where}links to catalog docs/ (${shown}${hits.length > 3 ? `, +${hits.length - 3} more` : ''}) - docs/ is design-time and is not shipped with the plugin, so the executor cannot open it; a relative link resolves from the artifact's own directory, so it misses even in a clone. Carry the norm in the artifact itself or in a skill the user has installed`,
+    });
+  }
+
+  const { paths, names } = catalogDocTargets();
+  const named = [];
+  for (const target of [...paths, ...names]) {
+    if (!text.includes(target)) continue;
+    if (named.some((t) => t.endsWith(`/${target}`) || target.endsWith(`/${t}`))) continue;
+    named.push(target);
+  }
+  if (named.length === 0) return;
+  const shownNames = named.slice(0, 3).join(', ');
   findings.push({
     level: ERROR,
     rule: 'catalog-docs-link',
-    message: `${where}links to catalog docs/ (${shown}${hits.length > 3 ? `, +${hits.length - 3} more` : ''}) - docs/ is design-time and is not shipped with the plugin, so the executor cannot open it; a relative link resolves from the artifact's own directory, so it misses even in a clone. Carry the norm in the artifact itself or in a skill the user has installed`,
+    message: `${where}names a catalog docs/ document (${shownNames}${named.length > 3 ? `, +${named.length - 3} more` : ''}) - naming it in any form (code span, prose, link) sends the executor to a file the plugin does not ship. Carry the norm in the artifact itself or in a skill the user has installed; author-only artifacts belong in dex-bundle-market-editor`,
   });
 }
 
@@ -357,7 +441,7 @@ function validateFile(filepath) {
   validateNoBashScripts(parsed.content, findings);
   validateNoDocumentationTitles(parsed.content, findings);
   validateSkillReferences(parsed.content, findings);
-  validateCatalogDocsLink(raw, findings);
+  validateCatalogDocsLink(raw, filepath, findings);
   validateLinkEscapesPlugin(raw, filepath, findings);
 
   return { filepath, findings };
