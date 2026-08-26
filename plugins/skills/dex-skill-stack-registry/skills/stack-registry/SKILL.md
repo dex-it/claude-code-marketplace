@@ -45,7 +45,7 @@ description: Реестр стеков и правило загрузки про
 
 **Как конструировать имена.** Из видимого списка available-skills отфильтруй по
 префиксу стека, затем сузь по теме (имя/description skill). Полная форма вызова -
-`{plugin}:{skill}` (например `dex-skill-dotnet-di:dotnet-di`). Список available-skills
+`{plugin}:{skill}`. Список available-skills
 - источник реальных имён; реестр - только маска префикса.
 
 **Префикс и description - две разные оси, не дубль.** `name` и `description` каждого

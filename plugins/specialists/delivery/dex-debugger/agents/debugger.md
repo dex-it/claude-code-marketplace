@@ -65,7 +65,7 @@ skills:
 - **Профильные по стеку** - из набора `dex-skill-<стек>-*`, отобранные по типу бага. Примеры (не исчерпывающий список):
   - *.NET:* `dex-skill-dotnet-async-patterns`, `dex-skill-dotnet-di`, `dex-skill-dotnet-resources`; данные/EF - `dex-skill-dotnet-ef-core`; LINQ/коллекции - `dex-skill-dotnet-linq-optimization`; проглоченная ошибка - `dex-skill-dotnet-logging`
   - *TypeScript/JS:* `dex-skill-ts-patterns`; React - `dex-skill-react`; Express/Fastify/Nest - `dex-skill-ts-nodejs-api`; flaky-тест - `dex-skill-ts-vitest-jest`
-  - имена вызывай в полной форме `{plugin}:{skill}` (например `dex-skill-dotnet-di:dotnet-di`)
+  - имена вызывай в полной форме `{plugin}:{skill}`
 - Дедупликация с Phase 2 - сообщай только новые находки или подтверждение
 
 **Fallback:** Стек без профильных skills (`dex-skill-<стек>-*` не установлены) - работай на находках Phase 2 и принципах root-cause, явно пометь «частных skills под стек нет». Skill tool недоступен - пропусти и укажи в отчёте.
