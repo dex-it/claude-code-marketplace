@@ -20,6 +20,11 @@
  * silently degrades (graceful-degradation branch) or the delegation has no
  * agent to run.
  *
+ * author-only skills (AUTHOR_ONLY_SKILLS) выведены из замыкания целиком: они
+ * ставятся автору каталога, который работает в локальном клоне, а не пользователю
+ * бандла. В includes[] пользовательского бандла им не место, и агент от их
+ * отсутствия не деградирует - его условие загрузки адресует артефакты каталога.
+ *
  * by-stack profile skills (dex-skill-{dotnet,ts,python,...}-*) are exempt
  * ONLY while the bundle ships no skill of that stack: language-agnostic agents
  * load them conditionally per detected project stack (see dex-skill-stack-registry),
@@ -96,6 +101,13 @@ const BY_STACK_PREFIXES = [
   'jenkins',
   'playwright',
 ];
+
+// Author-only skills: ставятся не пользователю бандла, а автору каталога, который
+// правит каталог в локальном клоне. Замыкание бандла на них не распространяется -
+// в includes[] пользовательского бандла их быть не должно вовсе, а деградации нет:
+// условие загрузки у агента адресует артефакты каталога (`plugins/**/SKILL.md`),
+// и в проекте пользователя оно не срабатывает.
+const AUTHOR_ONLY_SKILLS = new Set(['dex-skill-artifact-review']);
 
 // Return the by-stack prefix a skill belongs to (e.g. "dotnet"), or null if
 // the skill is stack-neutral. A `dex-skill-<prefix>-*` (or bare
@@ -382,6 +394,7 @@ function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, age
     if (!loaded) continue; // not a specialist, or loads no skills
     for (const skill of loaded) {
       if (!skillPluginsInRepo.has(skill)) continue; // unknown skill is validate-agent.js's job
+      if (AUTHOR_ONLY_SKILLS.has(skill)) continue; // author-only, вне замыкания
       const st = stackOf(skill);
       if (st && !committedStacks.has(st)) continue; // by-stack, bundle not committed to it
       if (!includeSet.has(skill)) {
@@ -420,6 +433,7 @@ function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, age
     const refs = commandRefMap.get(comp);
     if (!refs) continue;
     for (const skill of refs.skills) {
+      if (AUTHOR_ONLY_SKILLS.has(skill)) continue; // author-only, вне замыкания
       const st = stackOf(skill);
       if (st && !committedStacks.has(st)) continue;
       if (!includeSet.has(skill)) {
