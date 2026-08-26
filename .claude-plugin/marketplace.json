@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "5.72.0",
+  "version": "5.73.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -3092,6 +3092,21 @@
         "lifecycle",
         "requirements",
         "review"
+      ]
+    },
+    {
+      "name": "dex-bundle-market-editor",
+      "source": "./plugins/bundles/dex-bundle-market-editor",
+      "description": "Бандл редактора маркетплейса: ревью артефакта каталога (skill / агент / команда) по осям фреймворка, сверка фактов о поведении инструментов, оптимизация инструкции под LLM, извлечение уроков из чужих MR в предложения по артефактам. Ставится тому, кто правит сам каталог, не пользователю его плагинов.",
+      "version": "1.0.0",
+      "category": "bundle",
+      "keywords": [
+        "bundle",
+        "market-editor",
+        "artifact-review",
+        "skill-authoring",
+        "optimize-for-llm",
+        "knowledge-extraction"
       ]
     },
     {
