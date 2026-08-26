@@ -175,9 +175,11 @@ function loadMarketplaceDescriptions() {
 // Map: specialist plugin dir name -> Set of dex-skill-* plugins its agent(s)
 // load imperatively. Built once by walking plugins/specialists/**/agents/*.md
 // and extracting `dex-skill-X:Y` references (same regex as validate-agent.js).
-function buildAgentSkillMap() {
+function buildAgentSkillMap(allPluginsInRepo) {
   const map = new Map();
-  const re = /`?(dex-skill-[a-z0-9-]+):[a-z0-9-]+`?/gi;
+  // Ключ на любое имя каталога, не только на скилл: имя артефакта в теле исполнитель читает как
+  // «он у меня установлен», поэтому обязательство поставки даёт и `dex-<специалист>:<агент>`.
+  const re = /`?(dex-[a-z0-9-]+):[a-z0-9-]+`?/gi;
 
   function walk(dir) {
     if (!existsSync(dir)) return;
@@ -196,6 +198,7 @@ function buildAgentSkillMap() {
           const skill = match[1];
           // skip glob/example artifacts like `dex-skill-dotnet-*`
           if (/-$/.test(skill)) continue;
+          if (!allPluginsInRepo.has(skill) || skill === plugin) continue;
           set.add(skill);
         }
         map.set(plugin, set);
@@ -232,9 +235,9 @@ function buildSpecialistPluginsInRepo() {
 
 // Mirror of buildAgentSkillMap: skill plugin name -> Set of specialist plugins
 // its body delegates to via `dex-X:Y` (X != dex-skill-*).
-function buildSkillAgentMap(specialistPluginsInRepo) {
+function buildSkillAgentMap(allPluginsInRepo) {
   const map = new Map();
-  const re = /`?(dex-(?!skill-)[a-z0-9-]+):[a-z0-9-]+`?/gi;
+  const re = /`?(dex-[a-z0-9-]+):[a-z0-9-]+`?/gi;
 
   function walk(dir) {
     if (!existsSync(dir)) return;
@@ -242,9 +245,15 @@ function buildSkillAgentMap(specialistPluginsInRepo) {
       const full = join(dir, entry);
       if (statSync(full).isDirectory()) {
         walk(full);
-      } else if (entry === 'SKILL.md') {
-        // <plugin>/skills/<name>/SKILL.md -> <plugin>/.claude-plugin/plugin.json
-        const pj = join(dirname(dirname(dirname(full))), '.claude-plugin', 'plugin.json');
+      } else if (entry.endsWith('.md') && full.includes('/skills/')) {
+        // Тело скилла - это `SKILL.md` и его `references/`: норму, поднятую референсом, исполнитель
+        // читает так же, поэтому названный там артефакт обязателен в составе наравне.
+        // <plugin>/skills/<name>/[references/]<file>.md -> <plugin>/.claude-plugin/plugin.json
+        const rel = full.slice(full.lastIndexOf('/skills/')); // не первое: путь плагина сам бывает plugins/skills/<...>
+        const up = rel.split('/').length - 1; // сколько уровней до корня плагина
+        let root = full;
+        for (let i = 0; i < up; i += 1) root = dirname(root);
+        const pj = join(root, '.claude-plugin', 'plugin.json');
         if (!existsSync(pj)) continue;
         let pluginName;
         try {
@@ -256,7 +265,8 @@ function buildSkillAgentMap(specialistPluginsInRepo) {
         const set = map.get(pluginName) || new Set();
         for (const match of body.matchAll(re)) {
           const agentPlugin = match[1];
-          if (specialistPluginsInRepo.has(agentPlugin)) set.add(agentPlugin);
+          if (/-$/.test(agentPlugin)) continue; // glob/example artifact
+          if (allPluginsInRepo.has(agentPlugin) && agentPlugin !== pluginName) set.add(agentPlugin);
         }
         if (set.size > 0) map.set(pluginName, set);
       }
@@ -323,6 +333,21 @@ function findAllBundleFiles() {
   return result;
 }
 
+// Состав каждого бандла на диске: правилу `author-only-in-user-bundle` нужен ответ про соседей, а
+// не про свой бандл, и при одиночном таргете карта строится так же, как `marketplace.json`.
+function buildBundleIncludes() {
+  const map = new Map();
+  for (const file of findAllBundleFiles()) {
+    try {
+      const json = JSON.parse(readFileSync(file, 'utf8'));
+      map.set(basename(dirname(file)), new Set([...(json.includes || []), ...(json.dependencies || [])]));
+    } catch {
+      // нечитаемый бандл - забота rule `read-failed` его собственного прогона
+    }
+  }
+  return map;
+}
+
 function resolveBundleFile(target) {
   const abs = resolve(target);
   if (existsSync(abs) && statSync(abs).isFile()) return abs;
@@ -336,7 +361,7 @@ function resolveBundleFile(target) {
 
 // --- Validation ---------------------------------------------------------
 
-function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, agentSkillMap, skillPluginsInRepo, skillAgentMap, commandRefMap) {
+function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, agentSkillMap, skillPluginsInRepo, skillAgentMap, commandRefMap, bundleIncludes) {
   const findings = [];
   let bundle;
   try {
@@ -345,20 +370,66 @@ function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, age
     return { filepath: bundleFile, findings: [{ level: ERROR, rule: 'read-failed', message: `Failed to parse bundle.json: ${e.message}` }] };
   }
 
+  // Состав бандла разложен на два списка: `includes[]` - то, ради чего бандл собран (профиль роли),
+  // `dependencies[]` - то, что подтянуто замыканием от профильного. Установка ставит оба; правила
+  // ниже судят состав целиком, поэтому работают с объединением, а не с одним списком.
   const includes = Array.isArray(bundle.includes) ? bundle.includes : [];
+  const dependencies = Array.isArray(bundle.dependencies) ? bundle.dependencies : [];
   if (includes.length === 0) {
     findings.push({ level: ERROR, rule: 'empty-includes', message: 'bundle.json has no includes[]' });
     return { filepath: bundleFile, findings };
   }
-  const includeSet = new Set(includes);
+  const components = [...includes, ...dependencies];
+  const includeSet = new Set(components);
+
+  // 0. Один компонент - один список: запись в обоих делает неоднозначным, профильный он или
+  //    подтянутый, и разводит счётчики установки.
+  const profile = new Set(includes);
+  for (const comp of dependencies) {
+    if (profile.has(comp)) {
+      findings.push({
+        level: ERROR,
+        rule: 'dependency-also-included',
+        message: `"${comp}" is in both includes[] and dependencies[] - a component belongs to exactly one list; drop it from dependencies[] if the bundle ships it for its own sake`,
+      });
+    }
+  }
 
   // 1. Every include exists in marketplace.json (else install-bundle errors).
-  for (const comp of includes) {
+  for (const comp of components) {
     if (!marketplacePlugins.has(comp)) {
       findings.push({
         level: ERROR,
         rule: 'include-not-in-marketplace',
-        message: `includes[] entry "${comp}" not declared in marketplace.json - install-bundle will fail`,
+        message: `component "${comp}" is not declared in marketplace.json - install-bundle will fail`,
+      });
+    }
+  }
+
+  // 1b. `authorOnly[]` - артефакты автора каталога: их норма живёт в `docs/` каталога, и
+  //     валидаторы артефактов снимают с них `catalog-docs-link`, потому что у автора `docs/` лежит
+  //     рядом. Оба условия `INV-021` проверяются здесь: артефакт стоит в составе своего бандла и не
+  //     едет ни одним бандлом роли. Второе - не формальность: в бандл автора попадают и плагины
+  //     замыкания, а такой плагин ставится пользователю, где адрес не разрешится, и молчание
+  //     правила становится дырой.
+  const authorOnly = Array.isArray(bundle.authorOnly) ? bundle.authorOnly : [];
+  const selfBundle = basename(dirname(bundleFile));
+  for (const comp of authorOnly) {
+    if (!includeSet.has(comp)) {
+      findings.push({
+        level: ERROR,
+        rule: 'author-only-not-included',
+        message: `authorOnly[] entry "${comp}" is missing from the author's bundle (includes[]/dependencies[]) - the exemption names a plugin nobody installs from here`,
+      });
+    }
+    const alsoIn = [...bundleIncludes]
+      .filter(([name, includes]) => name !== selfBundle && includes.has(comp))
+      .map(([name]) => name);
+    if (alsoIn.length > 0) {
+      findings.push({
+        level: ERROR,
+        rule: 'author-only-in-user-bundle',
+        message: `authorOnly[] entry "${comp}" also ships in ${alsoIn.join(', ')} - a user bundle installs it without the catalogue's docs/, so it is not author-only; drop it from authorOnly[] or from those bundles`,
       });
     }
   }
@@ -372,23 +443,27 @@ function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, age
   //    Note: commitment is judged by skills in includes[], not by the presence
   //    of a stack-specific specialist - a bundle that ships a stack agent but
   //    zero stack skills is left to review, not flagged here.
+  // Трек зоны - тот же случай, что by-stack: движок называет треки всех зон в реестре, а грузит
+  // трек той зоны, в которой идёт работа. Бандл роли везёт треки своих зон, не весь реестр.
+  const isZoneTrack = (name) => /^dex-skill-[a-z0-9-]+-track$/.test(name);
   const committedStacks = new Set();
-  for (const comp of includes) {
+  for (const comp of components) {
     const st = stackOf(comp);
     if (st) committedStacks.add(st);
   }
-  for (const comp of includes) {
+  for (const comp of components) {
     const loaded = agentSkillMap.get(comp);
     if (!loaded) continue; // not a specialist, or loads no skills
     for (const skill of loaded) {
       if (!skillPluginsInRepo.has(skill)) continue; // unknown skill is validate-agent.js's job
+      if (isZoneTrack(skill) && !includeSet.has(skill)) continue; // by-zone
       const st = stackOf(skill);
       if (st && !committedStacks.has(st)) continue; // by-stack, bundle not committed to it
       if (!includeSet.has(skill)) {
         findings.push({
           level: ERROR,
           rule: 'bundle-not-closed',
-          message: `agent "${comp}" loads "${skill}" but it is missing from includes[] - bundle not closed; add it or the agent degrades`,
+          message: `agent "${comp}" loads "${skill}" but the bundle ships it in neither includes[] nor dependencies[] - bundle not closed; add it or the agent degrades`,
         });
       }
     }
@@ -396,17 +471,20 @@ function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, age
 
   // 2b. Mirror of #2: a specialist a skill in this bundle delegates to must
   //     also be in includes[], same by-stack exemption via agentStackOf.
-  for (const comp of includes) {
+  for (const comp of components) {
     const delegatesTo = skillAgentMap.get(comp);
     if (!delegatesTo) continue;
     for (const agentPlugin of delegatesTo) {
+      if (isZoneTrack(agentPlugin) && !includeSet.has(agentPlugin)) continue; // by-zone
       const st = agentStackOf(agentPlugin);
       if (st && !committedStacks.has(st)) continue;
       if (!includeSet.has(agentPlugin)) {
         findings.push({
           level: ERROR,
           rule: 'bundle-agent-not-closed',
-          message: `skill "${comp}" delegates to "${agentPlugin}" but it is missing from includes[] - bundle not closed; add it or the delegation has no agent to run`,
+          message: skillPluginsInRepo.has(agentPlugin)
+          ? `skill "${comp}" names "${agentPlugin}" but the bundle ships it in neither includes[] nor dependencies[] - bundle not closed; add it or the name resolves to nothing`
+          : `skill "${comp}" delegates to "${agentPlugin}" but the bundle ships it in neither includes[] nor dependencies[] - bundle not closed; add it or the delegation has no agent to run`,
         });
       }
     }
@@ -416,17 +494,18 @@ function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, age
   //     обязан быть в includes[]. Установка плоская: команда приезжает с своим
   //     плагином и появляется в меню, а названный ею исполнитель - нет, и имя
   //     не резолвится молча. By-stack исключение то же, что в #2 и #2b.
-  for (const comp of includes) {
+  for (const comp of components) {
     const refs = commandRefMap.get(comp);
     if (!refs) continue;
     for (const skill of refs.skills) {
+      if (isZoneTrack(skill) && !includeSet.has(skill)) continue; // by-zone
       const st = stackOf(skill);
       if (st && !committedStacks.has(st)) continue;
       if (!includeSet.has(skill)) {
         findings.push({
           level: ERROR,
           rule: 'bundle-command-not-closed',
-          message: `command of "${comp}" names skill "${skill}" but it is missing from includes[] - bundle not closed; add it or the command has no skill to call`,
+          message: `command of "${comp}" names skill "${skill}" but the bundle ships it in neither includes[] nor dependencies[] - bundle not closed; add it or the command has no skill to call`,
         });
       }
     }
@@ -437,7 +516,7 @@ function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, age
         findings.push({
           level: ERROR,
           rule: 'bundle-command-not-closed',
-          message: `command of "${comp}" names specialist "${agentPlugin}" but it is missing from includes[] - bundle not closed; add it or the command has no agent to run`,
+          message: `command of "${comp}" names specialist "${agentPlugin}" but the bundle ships it in neither includes[] nor dependencies[] - bundle not closed; add it or the command has no agent to run`,
         });
       }
     }
@@ -575,16 +654,41 @@ function buildSkillPluginsInRepo() {
   return set;
 }
 
+// Все плагины репозитория: имя из тела обязывает поставку независимо от типа названного
+// артефакта, поэтому цели рёбер сверяются с этим множеством, а не с одним лишь набором скиллов.
+function buildAllPluginsInRepo() {
+  const set = new Set();
+  function walk(dir) {
+    if (!existsSync(dir)) return;
+    for (const entry of readdirSync(dir)) {
+      const full = join(dir, entry);
+      if (statSync(full).isDirectory()) {
+        walk(full);
+      } else if (full.endsWith('/.claude-plugin/plugin.json')) {
+        try {
+          set.add(JSON.parse(readFileSync(full, 'utf8')).name);
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  }
+  walk(join(REPO_ROOT, 'plugins'));
+  return set;
+}
+
 function main() {
   const { target } = parseArgs(process.argv);
   const marketplacePlugins = loadMarketplacePlugins();
   const marketplaceVersions = loadMarketplaceVersions();
   const marketplaceDescriptions = loadMarketplaceDescriptions();
-  const agentSkillMap = buildAgentSkillMap();
+  const allPluginsInRepo = buildAllPluginsInRepo();
+  const agentSkillMap = buildAgentSkillMap(allPluginsInRepo);
   const skillPluginsInRepo = buildSkillPluginsInRepo();
   const specialistPluginsInRepo = buildSpecialistPluginsInRepo();
-  const skillAgentMap = buildSkillAgentMap(specialistPluginsInRepo);
+  const skillAgentMap = buildSkillAgentMap(allPluginsInRepo);
   const commandRefMap = buildCommandRefMap(skillPluginsInRepo, specialistPluginsInRepo);
+  const bundleIncludes = buildBundleIncludes();
 
   let files;
   if (target === 'all') {
@@ -603,7 +707,7 @@ function main() {
   }
 
   const results = files.map((f) =>
-    validateBundle(f, marketplacePlugins, marketplaceVersions, agentSkillMap, skillPluginsInRepo, skillAgentMap, commandRefMap)
+    validateBundle(f, marketplacePlugins, marketplaceVersions, agentSkillMap, skillPluginsInRepo, skillAgentMap, commandRefMap, bundleIncludes)
   );
   // Одиночный таргет сверяет версию только своего плагина, `all` - всех.
   const versionResults =

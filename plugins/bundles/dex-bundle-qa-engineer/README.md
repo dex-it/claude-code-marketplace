@@ -27,7 +27,7 @@ Bundle for QA Engineers: test analysis, test automation, bug reporting.
 
 ## Included Components
 
-Полный состав - `bundle.json` (`includes[]`); ниже - ключевые компоненты роли, не весь перечень.
+Полный состав - `bundle.json`: `includes[]` (профиль роли) плюс `dependencies[]` (подтянутое замыканием); ниже - ключевые компоненты роли, не весь перечень.
 
 ### Команды
 - `/find-bugs` - активный поиск багов в фиче

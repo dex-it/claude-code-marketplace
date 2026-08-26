@@ -27,7 +27,7 @@ Bundle for Product Managers: business requirements, roadmap, backlog, metrics an
 
 ## Included Components
 
-Полный состав - `bundle.json` (`includes[]`); ниже - ключевые компоненты роли, не весь перечень.
+Полный состав - `bundle.json`: `includes[]` (профиль роли) плюс `dependencies[]` (подтянутое замыканием); ниже - ключевые компоненты роли, не весь перечень.
 
 ### Engine
 - `dex-sdlc` - SDLC engine (`dex-sdlc:engine`); delegates zone order to the zone track skill

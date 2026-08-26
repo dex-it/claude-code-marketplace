@@ -877,10 +877,11 @@ function catalogDocTargets() {
   return catalogDocTargetsCache;
 }
 
-// Авторские плагины: те, что едут в бандле редактора маркетплейса. Их артефакты исполняются в
-// локальном клоне каталога, где `docs/` лежит рядом, поэтому адрес у них разрешается и правило к
-// ним не применяется. Список - данные бандла, не константа в коде: попал плагин в бандл - получил
-// право адресовать `docs/`.
+// Авторские плагины: их артефакты исполняются в клоне каталога, где `docs/` лежит рядом, поэтому
+// адрес у них разрешается и правило к ним не применяется. Читается `authorOnly[]`, а не весь состав
+// бандла автора: в состав попадают и плагины замыкания (`dependencies[]`: `artifact-review` грузит
+// `fact-verification` и `optimize-for-llm`), а они едут пользователю в бандлах ролей, где `docs/`
+// каталога нет. Разъезд списка с составами бандлов ловит `validate-bundle.js` (`author-only-*`).
 const AUTHOR_BUNDLE_JSON = 'plugins/bundles/dex-bundle-market-editor/bundle.json';
 let authorPluginsCache = null;
 function authorPlugins() {
@@ -888,7 +889,7 @@ function authorPlugins() {
   authorPluginsCache = new Set();
   try {
     const json = JSON.parse(readFileSync(join(REPO_ROOT, AUTHOR_BUNDLE_JSON), 'utf8'));
-    for (const name of json.includes || []) authorPluginsCache.add(name);
+    for (const name of json.authorOnly || []) authorPluginsCache.add(name);
   } catch {
     // бандла нет (песочница фикстур, урезанное дерево) - исключений нет
   }

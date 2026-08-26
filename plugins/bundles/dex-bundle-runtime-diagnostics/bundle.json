@@ -1,18 +1,29 @@
 {
   "includes": [
-    "dex-skill-node-contract",
     "dex-dotnet-runtime-diagnostician",
+    "dex-netcoredbg-cli",
+    "dex-skill-deep-audit",
+    "dex-skill-observability"
+  ],
+  "dependencies": [
+    "dex-skill-node-contract",
     "dex-skill-managed-debug",
     "dex-skill-native-debug",
     "dex-skill-syscall-tracing",
     "dex-skill-perf-profiling",
     "dex-skill-core-dumps",
     "dex-skill-binary-inspection",
-    "dex-netcoredbg-cli",
     "dex-skill-dotnet-async-patterns",
     "dex-skill-dotnet-resources",
     "dex-skill-dotnet-logging",
-    "dex-skill-deep-audit",
-    "dex-skill-observability"
+    "dex-skill-project-docs-map",
+    "dex-skill-artifact-naming",
+    "dex-sdlc",
+    "dex-skill-unit-identity",
+    "dex-skill-issue-tracking",
+    "dex-skill-codebase-conventions",
+    "dex-skill-stack-registry",
+    "dex-skill-decision-log",
+    "dex-skill-requirement-quality"
   ]
 }

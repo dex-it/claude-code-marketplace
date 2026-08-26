@@ -27,7 +27,7 @@ Bundle for System Analysts: requirements, user stories, BPMN, API specs, documen
 
 ## Included Components
 
-Полный состав - `bundle.json` (`includes[]`); ниже - ключевые компоненты роли, не весь перечень.
+Полный состав - `bundle.json`: `includes[]` (профиль роли) плюс `dependencies[]` (подтянутое замыканием); ниже - ключевые компоненты роли, не весь перечень.
 
 ### Команды
 - `/design` - дизайн-решение и ADR

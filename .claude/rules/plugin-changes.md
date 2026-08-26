@@ -16,7 +16,7 @@ paths:
 | ------------- | ---- | ------ |
 | Новый плагин | `1.0.0` | Создан новый skill / специалист |
 | Новый плагин -> версия каталога | minor каталога | `marketplace.json` `version` `5.6.0` -> `5.7.0` при добавлении плагина |
-| Изменён состав bundle (`includes[]`) | minor bundle | Добавлен/убран компонент - bump версии самого bundle |
+| Изменён состав bundle (`includes[]` или `dependencies[]`) | minor bundle | Добавлен/убран компонент - bump версии самого bundle |
 | Rename плагина | major (`2.0.0`) | Переименование имени в frontmatter / директории |
 | Breaking change в workflow / API агента | major | Новый рецепт, изменение output format |
 | **Добавление новых ловушек в skill** | minor (`+0.1.0`) | Обогащение существующего skill обратно-совместимо |

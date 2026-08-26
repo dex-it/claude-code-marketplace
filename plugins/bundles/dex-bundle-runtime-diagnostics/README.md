@@ -36,7 +36,7 @@ Bundle для runtime-диагностики .NET-сервисов и натив
 
 ## Included Components
 
-Полный состав - `bundle.json` (`includes[]`); ниже - ключевые компоненты роли, не весь перечень.
+Полный состав - `bundle.json`: `includes[]` (профиль роли) плюс `dependencies[]` (подтянутое замыканием); ниже - ключевые компоненты роли, не весь перечень.
 
 ### Specialist
 - `dex-dotnet-runtime-diagnostician` - агент-диагностик с 7 фазами, симптомная матрица загрузки skills

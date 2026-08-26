@@ -27,7 +27,7 @@ Bundle for ML Engineers: experiments, model training, debugging, deployment, dat
 
 ## Included Components
 
-Полный состав - `bundle.json` (`includes[]`); ниже - ключевые компоненты роли, не весь перечень.
+Полный состав - `bundle.json`: `includes[]` (профиль роли) плюс `dependencies[]` (подтянутое замыканием); ниже - ключевые компоненты роли, не весь перечень.
 
 ### Specialists
 - `dex-ml-experimenter` - EDA and feature engineering

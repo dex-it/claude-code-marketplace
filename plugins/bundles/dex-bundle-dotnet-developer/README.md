@@ -27,7 +27,7 @@ Bundle for .NET developers: coding, debugging, testing, code review, EF Core, pe
 
 ## Included Components
 
-Полный состав - `bundle.json` (`includes[]`); ниже - ключевые компоненты роли, не весь перечень.
+Полный состав - `bundle.json`: `includes[]` (профиль роли) плюс `dependencies[]` (подтянутое замыканием); ниже - ключевые компоненты роли, не весь перечень.
 
 ### Команды
 - `/design` - дизайн-решение и ADR
