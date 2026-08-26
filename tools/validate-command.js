@@ -268,6 +268,43 @@ function validateNoDocumentationTitles(markdownBody, findings) {
   });
 }
 
+// --- link escapes the plugin ---------------------------------------------
+
+// Соседний плагин у пользователя ставится сам по себе: `../<плагин>/...` из тела
+// артефакта не резолвится ровно так же, как `docs/` каталога. Внутриплагинный
+// подъём (`../<соседний скилл>/`) законен и правилом не трогается - решает не
+// число `../`, а то, вышел ли разрешённый путь за корень плагина.
+const ESCAPING_LINK_RE = /\]\((\.\.\/[^)\s]+)\)/g;
+
+function pluginRootOf(filepath) {
+  let dir = dirname(resolve(filepath));
+  for (let i = 0; i < 8; i += 1) {
+    if (existsSync(join(dir, '.claude-plugin'))) return dir;
+    const up = dirname(dir);
+    if (up === dir) return null;
+    dir = up;
+  }
+  return null;
+}
+
+function validateLinkEscapesPlugin(text, filepath, findings, where = '') {
+  const pluginRoot = pluginRootOf(filepath);
+  if (!pluginRoot) return;
+  const baseDir = dirname(resolve(filepath));
+  const hits = [];
+  ESCAPING_LINK_RE.lastIndex = 0;
+  for (const m of text.matchAll(ESCAPING_LINK_RE)) {
+    if (relative(pluginRoot, resolve(baseDir, m[1])).startsWith('..')) hits.push(m[1]);
+  }
+  if (hits.length === 0) return;
+  const shown = hits.slice(0, 3).join(', ');
+  findings.push({
+    level: ERROR,
+    rule: 'link-escapes-plugin',
+    message: `${where}link leaves the plugin directory (${shown}${hits.length > 3 ? `, +${hits.length - 3} more` : ''}) - a neighbouring plugin is installed on its own, so the path does not resolve at runtime. Name the neighbour instead: {plugin}:{skill}`,
+  });
+}
+
 // --- catalog docs link ---------------------------------------------------
 
 // `docs/` каталога - дизайн-тайм: он нормирует авторство артефактов и в установленный плагин не
@@ -321,6 +358,7 @@ function validateFile(filepath) {
   validateNoDocumentationTitles(parsed.content, findings);
   validateSkillReferences(parsed.content, findings);
   validateCatalogDocsLink(raw, findings);
+  validateLinkEscapesPlugin(raw, filepath, findings);
 
   return { filepath, findings };
 }
