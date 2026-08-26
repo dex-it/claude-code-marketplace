@@ -117,7 +117,7 @@
 `near-miss`: вопрос не «поднимется ли трек», а «не перехватит ли он запрос соседа»
 (`documentation-track` против `doc-standards`, `diagnostics-track` против `root-cause-analysis`).
 
-**Кейсы `idea-forming-*` заведены, но не прогнаны** (5 штук: 2 `in-scope`, 3 `near-miss`, включая
+**Кейсы `idea-forming-*` заведены, но не прогнаны** (5 штук: 2 `contested`, 3 `near-miss`, включая
 обратный `product-discovery-near-idea`). Ожидание по ним заранее не оптимистичное: `idea-forming`
 делит предмет со сторонним `superpowers:brainstorming`, а прогон 23.08.2026 показал, что скиллы
 этого плагина перехватывают соседей стабильно и правкой своего поля это не снимается

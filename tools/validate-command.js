@@ -327,7 +327,7 @@ function validateCatalogDocsLink(text, findings, where = '') {
   findings.push({
     level: ERROR,
     rule: 'catalog-docs-link',
-    message: `${where}links to catalog docs/ (${shown}${hits.length > 3 ? `, +${hits.length - 3} more` : ''}) - docs/ is design-time and is not shipped with the plugin, so the executor cannot open it. Carry the norm in the artifact itself or in a skill the user has installed`,
+    message: `${where}links to catalog docs/ (${shown}${hits.length > 3 ? `, +${hits.length - 3} more` : ''}) - docs/ is design-time and is not shipped with the plugin, so the executor cannot open it; a relative link resolves from the artifact's own directory, so it misses even in a clone. Carry the norm in the artifact itself or in a skill the user has installed`,
   });
 }
 
