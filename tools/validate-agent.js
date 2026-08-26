@@ -837,20 +837,26 @@ function validateLinkEscapesPlugin(text, filepath, findings, where = '') {
 // --- catalog docs link ---------------------------------------------------
 
 // `docs/` каталога - дизайн-тайм: он нормирует авторство артефактов и в установленный плагин не
-// входит. Ссылка на него из тела хуже отсутствия ссылки: адрес выглядит валидным, а исполнитель
+// входит. Адрес такого документа в теле хуже отсутствия адреса: он выглядит валидным, а исполнитель
 // либо молча его не открывает, либо сочиняет содержимое. Норма, нужная в рантайме, живёт в самом
 // артефакте либо в скилле, который у пользователя установлен.
-const CATALOG_DOCS_LINK_PATTERNS = [
-  /https?:\/\/github\.com\/dex-it\/claude-code-marketplace\/\S*?\/docs\/\S+/g,
+
+// Ключ у правила один - адресат: документ, который РЕАЛЬНО существует в `docs/` каталога. Форма
+// записи ключом не служит - код-спан и проза уводят исполнителя туда же, куда markdown-ссылка.
+// Шаблоны формы работают на текст сообщения: назвать место в тексте и то, что относительная ссылка
+// не разрешается даже в клоне. Обратная сторона того же ключа: путь, которого в `docs/` каталога нет
+// (`docs/discover/README.md` как выход агента в проекте пользователя), не покрыт ни в одной форме -
+// он адресует чужой корпус.
+const CATALOG_DOCS_LINK_FORMS = [
+  /https?:\/\/github\.com\/dex-it\/claude-code-marketplace\/\S*?\/docs\/[^\s)\]]+/g,
   /\]\((?:\.{1,2}\/)*docs\/[^)\s]+\)/g,
 ];
 
+// Каталоги, которые каталог сам раздаёт пользователю: `project-docs-map` несёт дефолты
+// `product: docs/product/` и `domain: docs/domain/` как адрес корпуса уровня 0 ЕГО проекта. Путь под
+// ними в теле артефакта именует чужой документ, а не наш, - из-под правила выведен.
+const USER_CORPUS_DIRS = new Set(['product', 'domain']);
 
-// Адресаты правила - документы, которые РЕАЛЬНО существуют в `docs/` каталога. Правило ключит на
-// адресата, а не на форму записи: код-спан и проза уводят исполнителя ровно туда же, куда
-// markdown-ссылка, - к файлу, которого у него нет. Обратная сторона того же ключа: путь, которого в
-// `docs/` каталога нет (`docs/discover/README.md` как выход агента в проекте пользователя), правилом
-// не покрыт - он адресует чужой корпус, а не наш.
 let catalogDocTargetsCache = null;
 function catalogDocTargets() {
   if (catalogDocTargetsCache) return catalogDocTargetsCache;
@@ -862,19 +868,30 @@ function catalogDocTargets() {
       const full = join(dir, entry);
       const relPath = rel ? `${rel}/${entry}` : entry;
       if (statSync(full).isDirectory()) {
+        if (!rel && USER_CORPUS_DIRS.has(entry)) continue;
         walk(full, relPath);
         continue;
       }
       if (!entry.endsWith('.md')) continue;
       paths.add(`docs/${relPath}`);
-      // Голым именем адресуются только доки-фреймворки каталога (UPPER_SNAKE). Имя вроде `brd.md`
-      // или `README.md` носит и документ пользователя - на нём правило ловило бы чужой файл.
-      if (/^[A-Z][A-Z0-9_]*\.md$/.test(entry) && entry !== 'README.md') names.add(entry);
+      // Голым именем адресуются доки-фреймворки каталога, а они лежат на верхнем уровне `docs/`.
+      // Ниже - внутренние дизайн-доки (`ARCHITECTURE.md`, `PIPELINE.md`), и такое имя носит документ
+      // пользователя не реже нашего: на нём правило ловило бы чужой файл.
+      if (!rel && /^[A-Z][A-Z0-9_]*\.md$/.test(entry) && entry !== 'README.md') names.add(entry);
     }
   };
   walk(join(REPO_ROOT, 'docs'), '');
   catalogDocTargetsCache = { paths: [...paths], names: [...names] };
   return catalogDocTargetsCache;
+}
+
+// Матч по границе, а не подстрокой: `MY_PIPELINE.md` не адресует `PIPELINE.md`. Слева у пути `/`
+// допустим (адрес внутри URL), у голого имени - нет: там `/` значит, что имя уже часть пути и
+// посчитано путём.
+function mentionsTarget(text, target, slashBefore) {
+  const before = slashBefore ? '(?<![\\w.-])' : '(?<![\\w./-])';
+  const escaped = target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`${before}${escaped}(?![\\w])`).test(text);
 }
 
 // Авторские плагины: их артефакты исполняются в клоне каталога, где `docs/` лежит рядом, поэтому
@@ -915,33 +932,37 @@ function pluginNameOf(filepath) {
 
 function validateCatalogDocsLink(text, filepath, findings, where = '') {
   if (authorPlugins().has(pluginNameOf(filepath))) return;
-  const hits = [];
-  for (const re of CATALOG_DOCS_LINK_PATTERNS) {
-    re.lastIndex = 0;
-    for (const m of text.matchAll(re)) hits.push(m[0]);
-  }
-  if (hits.length > 0) {
-    const shown = hits.slice(0, 3).join(', ');
-    findings.push({
-      level: ERROR,
-      rule: 'catalog-docs-link',
-      message: `${where}links to catalog docs/ (${shown}${hits.length > 3 ? `, +${hits.length - 3} more` : ''}) - docs/ is design-time and is not shipped with the plugin, so the executor cannot open it; a relative link resolves from the artifact's own directory, so it misses even in a clone. Carry the norm in the artifact itself or in a skill the user has installed`,
-    });
-  }
 
   const { paths, names } = catalogDocTargets();
   const named = [];
-  for (const target of [...paths, ...names]) {
-    if (!text.includes(target)) continue;
-    if (named.some((t) => t.endsWith(`/${target}`) || target.endsWith(`/${t}`))) continue;
+  for (const target of paths) {
+    if (mentionsTarget(text, target, true)) named.push(target);
+  }
+  for (const target of names) {
+    if (!mentionsTarget(text, target, false)) continue;
+    if (named.some((t) => t.endsWith(`/${target}`))) continue;
     named.push(target);
   }
   if (named.length === 0) return;
-  const shownNames = named.slice(0, 3).join(', ');
+
+  const forms = [];
+  for (const re of CATALOG_DOCS_LINK_FORMS) {
+    re.lastIndex = 0;
+    for (const m of text.matchAll(re)) {
+      // Хвостовая пунктуация предложения в адрес не входит.
+      const form = m[0].replace(/[.,;:]+$/, '');
+      if (named.some((t) => form.includes(t))) forms.push(form);
+    }
+  }
+  const shown = named.slice(0, 3).join(', ');
+  const asLink =
+    forms.length > 0
+      ? ` Here it is written as a link (${forms.slice(0, 2).join(', ')}), which misses even in a clone - a relative link resolves from the artifact's own directory.`
+      : '';
   findings.push({
     level: ERROR,
     rule: 'catalog-docs-link',
-    message: `${where}names a catalog docs/ document (${shownNames}${named.length > 3 ? `, +${named.length - 3} more` : ''}) - naming it in any form (code span, prose, link) sends the executor to a file the plugin does not ship. Carry the norm in the artifact itself or in a skill the user has installed; author-only artifacts belong in dex-bundle-market-editor`,
+    message: `${where}names a catalog docs/ document (${shown}${named.length > 3 ? `, +${named.length - 3} more` : ''}) - naming it in any form (code span, prose, link) sends the executor to a file the plugin does not ship.${asLink} Carry the norm in the artifact itself or in a skill the user has installed; author-only artifacts belong in dex-bundle-market-editor`,
   });
 }
 
