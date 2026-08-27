@@ -446,11 +446,18 @@ function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, age
   // Трек зоны - тот же случай, что by-stack: движок называет треки всех зон в реестре, а грузит
   // трек той зоны, в которой идёт работа. Бандл роли везёт треки своих зон, не весь реестр.
   const isZoneTrack = (name) => /^dex-skill-[a-z0-9-]+-track$/.test(name);
-  const committedStacks = new Set();
-  for (const comp of components) {
-    const st = stackOf(comp);
-    if (st) committedStacks.add(st);
-  }
+  // Профильный скилл приезжает по стеку проекта, поэтому обязанности у бандла на него
+  // нет - кроме случая, когда этот стек и есть предмет самого потребителя: специалист по
+  // логированию грузит скилл логирования не «если в стеке», а всегда. Предмет опознаётся
+  // общим сегментом имён: `dex-logging-seq` и `dex-skill-dotnet-logging` делят `logging`,
+  // а `dex-code-discovery` со своим меню стеков не делит с ними ничего.
+  const GENERIC_SEGMENTS = new Set(['dex', 'skill', 'bundle', 'specialist']);
+  const segmentsOf = (name) => new Set(name.split('-').filter((seg) => !GENERIC_SEGMENTS.has(seg)));
+  const sharesSubject = (a, b) => {
+    const sa = segmentsOf(a);
+    for (const seg of segmentsOf(b)) if (sa.has(seg)) return true;
+    return false;
+  };
   for (const comp of components) {
     const loaded = agentSkillMap.get(comp);
     if (!loaded) continue; // not a specialist, or loads no skills
@@ -458,7 +465,7 @@ function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, age
       if (!skillPluginsInRepo.has(skill)) continue; // unknown skill is validate-agent.js's job
       if (isZoneTrack(skill) && !includeSet.has(skill)) continue; // by-zone
       const st = stackOf(skill);
-      if (st && !committedStacks.has(st)) continue; // by-stack, bundle not committed to it
+      if (st && !sharesSubject(comp, skill)) continue; // by-stack, not this consumer's subject
       if (!includeSet.has(skill)) {
         findings.push({
           level: ERROR,
@@ -477,7 +484,7 @@ function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, age
     for (const agentPlugin of delegatesTo) {
       if (isZoneTrack(agentPlugin) && !includeSet.has(agentPlugin)) continue; // by-zone
       const st = agentStackOf(agentPlugin);
-      if (st && !committedStacks.has(st)) continue;
+      if (st && !sharesSubject(comp, agentPlugin)) continue;
       if (!includeSet.has(agentPlugin)) {
         findings.push({
           level: ERROR,
@@ -500,7 +507,7 @@ function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, age
     for (const skill of refs.skills) {
       if (isZoneTrack(skill) && !includeSet.has(skill)) continue; // by-zone
       const st = stackOf(skill);
-      if (st && !committedStacks.has(st)) continue;
+      if (st && !sharesSubject(comp, skill)) continue;
       if (!includeSet.has(skill)) {
         findings.push({
           level: ERROR,
@@ -511,7 +518,7 @@ function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, age
     }
     for (const agentPlugin of refs.agents) {
       const st = agentStackOf(agentPlugin);
-      if (st && !committedStacks.has(st)) continue;
+      if (st && !sharesSubject(comp, agentPlugin)) continue;
       if (!includeSet.has(agentPlugin)) {
         findings.push({
           level: ERROR,
