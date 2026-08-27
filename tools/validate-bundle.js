@@ -434,24 +434,24 @@ function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, age
     }
   }
 
-  // 2. Closure: each skill an agent in this bundle loads must be in includes[].
-  //    A by-stack skill (dex-skill-<stack>-*) is exempt ONLY while the bundle
-  //    ships no skill of that stack - such skills arrive per the user's stack.
-  //    But once a bundle commits to a stack (already includes >=1 skill of it),
-  //    it is a stack bundle and must be closed over that stack too, else a
-  //    stack-specific agent (e.g. dex-dotnet-coder) silently degrades.
-  //    Note: commitment is judged by skills in includes[], not by the presence
-  //    of a stack-specific specialist - a bundle that ships a stack agent but
-  //    zero stack skills is left to review, not flagged here.
-  // Трек зоны - тот же случай, что by-stack: движок называет треки всех зон в реестре, а грузит
-  // трек той зоны, в которой идёт работа. Бандл роли везёт треки своих зон, не весь реестр.
+  // 2. Замыкание: артефакт, названный компонентом бандла, обязан быть в составе.
+  //    Два вида артефактов приезжают не с бандлом, а по проекту: профильный скилл стека
+  //    (`dex-skill-<стек>-*`) и трек зоны (`dex-skill-<зона>-track`). Их называют списком все
+  //    разом - агностик перечисляет стеки в меню («если Kafka - ...»), движок перечисляет зоны
+  //    в реестре, - а грузят один, по проекту пользователя. Требовать весь список нельзя.
+  //    Обязанность возникает там, где названный артефакт - предмет самого потребителя:
+  //    специалист по логированию грузит скилл логирования не «если в стеке», а всегда, и команда
+  //    зоны грузит трек своей зоны безусловно. Предмет читается общим сегментом имён:
+  //    `dex-logging-seq` и `dex-skill-dotnet-logging` делят `logging`, `dex-sdlc-acceptance`
+  //    и `dex-skill-acceptance-track` - `acceptance`, а `dex-code-discovery` и `dex-sdlc`
+  //    со своими списками не делят с ними ничего.
+  //    Признак структурный намеренно: императив в прозе («вызови Skill tool ...») стоит и в
+  //    условных строках («**Если Redis в стеке** - вызови Skill tool ...»), поэтому по нему
+  //    условие от безусловного не отличить. Цена структурного признака - слепое пятно там, где
+  //    имена зовут одно разными словами: `dex-sdlc-delivery` грузит `dex-skill-development-track`
+  //    безусловно, а сегмента с ним не делит, и обязанности не возникает.
   const isZoneTrack = (name) => /^dex-skill-[a-z0-9-]+-track$/.test(name);
-  // Профильный скилл приезжает по стеку проекта, поэтому обязанности у бандла на него
-  // нет - кроме случая, когда этот стек и есть предмет самого потребителя: специалист по
-  // логированию грузит скилл логирования не «если в стеке», а всегда. Предмет опознаётся
-  // общим сегментом имён: `dex-logging-seq` и `dex-skill-dotnet-logging` делят `logging`,
-  // а `dex-code-discovery` со своим меню стеков не делит с ними ничего.
-  const GENERIC_SEGMENTS = new Set(['dex', 'skill', 'bundle', 'specialist']);
+  const GENERIC_SEGMENTS = new Set(['dex', 'skill', 'bundle', 'specialist', 'track']);
   const segmentsOf = (name) => new Set(name.split('-').filter((seg) => !GENERIC_SEGMENTS.has(seg)));
   const sharesSubject = (a, b) => {
     const sa = segmentsOf(a);
@@ -463,9 +463,7 @@ function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, age
     if (!loaded) continue; // not a specialist, or loads no skills
     for (const skill of loaded) {
       if (!skillPluginsInRepo.has(skill)) continue; // unknown skill is validate-agent.js's job
-      if (isZoneTrack(skill) && !includeSet.has(skill)) continue; // by-zone
-      const st = stackOf(skill);
-      if (st && !sharesSubject(comp, skill)) continue; // by-stack, not this consumer's subject
+      if ((stackOf(skill) || isZoneTrack(skill)) && !sharesSubject(comp, skill)) continue;
       if (!includeSet.has(skill)) {
         findings.push({
           level: ERROR,
@@ -476,15 +474,13 @@ function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, age
     }
   }
 
-  // 2b. Mirror of #2: a specialist a skill in this bundle delegates to must
-  //     also be in includes[], same by-stack exemption via agentStackOf.
+  // 2b. Зеркало #2 со стороны скилла: специалист, которому скилл бандла передаёт работу,
+  //     обязан быть в составе. Исключение то же.
   for (const comp of components) {
     const delegatesTo = skillAgentMap.get(comp);
     if (!delegatesTo) continue;
     for (const agentPlugin of delegatesTo) {
-      if (isZoneTrack(agentPlugin) && !includeSet.has(agentPlugin)) continue; // by-zone
-      const st = agentStackOf(agentPlugin);
-      if (st && !sharesSubject(comp, agentPlugin)) continue;
+      if ((agentStackOf(agentPlugin) || isZoneTrack(agentPlugin)) && !sharesSubject(comp, agentPlugin)) continue;
       if (!includeSet.has(agentPlugin)) {
         findings.push({
           level: ERROR,
@@ -505,9 +501,7 @@ function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, age
     const refs = commandRefMap.get(comp);
     if (!refs) continue;
     for (const skill of refs.skills) {
-      if (isZoneTrack(skill) && !includeSet.has(skill)) continue; // by-zone
-      const st = stackOf(skill);
-      if (st && !sharesSubject(comp, skill)) continue;
+      if ((stackOf(skill) || isZoneTrack(skill)) && !sharesSubject(comp, skill)) continue;
       if (!includeSet.has(skill)) {
         findings.push({
           level: ERROR,
@@ -517,8 +511,7 @@ function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, age
       }
     }
     for (const agentPlugin of refs.agents) {
-      const st = agentStackOf(agentPlugin);
-      if (st && !sharesSubject(comp, agentPlugin)) continue;
+      if ((agentStackOf(agentPlugin) || isZoneTrack(agentPlugin)) && !sharesSubject(comp, agentPlugin)) continue;
       if (!includeSet.has(agentPlugin)) {
         findings.push({
           level: ERROR,
