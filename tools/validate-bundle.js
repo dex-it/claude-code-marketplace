@@ -529,6 +529,29 @@ function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, age
     }
   }
 
+  // 2d. Обратная сторона трёх проверок замыкания: запись `dependencies[]`, которую в бандле
+  //     никто не называет. Списки разводят профиль и подтянутое замыканием, поэтому запись без
+  //     тянущего ребра либо профиль, попавший не в тот список, либо хвост удалённого компонента -
+  //     оба случая молча раздувают установку.
+  const pulled = new Set();
+  for (const comp of components) {
+    for (const skill of agentSkillMap.get(comp) || []) pulled.add(skill);
+    for (const agentPlugin of skillAgentMap.get(comp) || []) pulled.add(agentPlugin);
+    const refs = commandRefMap.get(comp);
+    if (refs) {
+      for (const skill of refs.skills) pulled.add(skill);
+      for (const agentPlugin of refs.agents) pulled.add(agentPlugin);
+    }
+  }
+  for (const dep of dependencies) {
+    if (pulled.has(dep)) continue;
+    findings.push({
+      level: ERROR,
+      rule: 'dependency-not-pulled',
+      message: `"${dep}" stands in dependencies[] but no component of the bundle names it - dependencies[] is what closure pulled, so an entry nothing pulls is either profile composition (move it to includes[]) or the tail of a component already dropped (remove it)`,
+    });
+  }
+
   return { filepath: bundleFile, findings };
 }
 
