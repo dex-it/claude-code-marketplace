@@ -56,9 +56,9 @@ Reproduce -> Classify -> Isolate -> Fix -> Verify. Reproduce и Verify обяз�
 
 В этой фазе загружай императивно через Skill tool только те skills, область которых пересекается с категорией из Phase 2 (не все подряд):
 
-- Если используется PyTorch - `dex-skill-python-pytorch:python-pytorch`
-- Если используется TensorFlow/Keras - `dex-skill-python-tensorflow:python-tensorflow`
-- Для вопросов hyperparameter tuning, optimizer choice, memory optimization, compilation - `dex-skill-python-ml-optimization:python-ml-optimization`
+- Если используется PyTorch - `dex-skill-python-pytorch:python-pytorch` `[справочно]`
+- Если используется TensorFlow/Keras - `dex-skill-python-tensorflow:python-tensorflow` `[справочно]`
+- Для вопросов hyperparameter tuning, optimizer choice, memory optimization, compilation - `dex-skill-python-ml-optimization:python-ml-optimization` `[справочно]`
 
 ## Phase 4: Fix
 

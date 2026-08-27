@@ -170,6 +170,27 @@ function loadMarketplaceDescriptions() {
   return map;
 }
 
+// --- Plugin calls in artifact bodies -------------------------------------
+
+// Вызов, за которым стоит `[справочно]`, называет артефакт как вариант, чужой проекту: реестр зон
+// перечисляет все треки, меню стека - все стеки, а едет то, что проекту своё. Условность по задаче
+// («для DI - ..., для LINQ - ...») поставку не снимает - какой понадобится, решается в работе.
+const REFERENCE_MARK = /^\s*`\[\u0441\u043f\u0440\u0430\u0432\u043e\u0447\u043d\u043e\]`/;
+
+// Ключ на любое имя каталога, не только на скилл: имя артефакта в теле исполнитель читает как
+// «он у меня установлен», поэтому обязательство поставки даёт и `dex-<специалист>:<агент>`.
+function pluginCalls(body) {
+  const re = /`?(dex-[a-z0-9-]+):[a-z0-9-]+`?/gi;
+  const names = [];
+  for (const match of body.matchAll(re)) {
+    const name = match[1];
+    if (/-$/.test(name)) continue; // glob/example artifact: `dex-skill-dotnet-*`
+    if (REFERENCE_MARK.test(body.slice(match.index + match[0].length))) continue;
+    names.push(name);
+  }
+  return names;
+}
+
 // --- Specialist -> loaded skills map -------------------------------------
 
 // Map: specialist plugin dir name -> Set of dex-skill-* plugins its agent(s)
@@ -177,9 +198,6 @@ function loadMarketplaceDescriptions() {
 // and extracting `dex-skill-X:Y` references (same regex as validate-agent.js).
 function buildAgentSkillMap(allPluginsInRepo) {
   const map = new Map();
-  // Ключ на любое имя каталога, не только на скилл: имя артефакта в теле исполнитель читает как
-  // «он у меня установлен», поэтому обязательство поставки даёт и `dex-<специалист>:<агент>`.
-  const re = /`?(dex-[a-z0-9-]+):[a-z0-9-]+`?/gi;
 
   function walk(dir) {
     if (!existsSync(dir)) return;
@@ -194,10 +212,7 @@ function buildAgentSkillMap(allPluginsInRepo) {
         const plugin = m[1];
         const body = readFileSync(full, 'utf8');
         const set = map.get(plugin) || new Set();
-        for (const match of body.matchAll(re)) {
-          const skill = match[1];
-          // skip glob/example artifacts like `dex-skill-dotnet-*`
-          if (/-$/.test(skill)) continue;
+        for (const skill of pluginCalls(body)) {
           if (!allPluginsInRepo.has(skill) || skill === plugin) continue;
           set.add(skill);
         }
@@ -237,7 +252,6 @@ function buildSpecialistPluginsInRepo() {
 // its body delegates to via `dex-X:Y` (X != dex-skill-*).
 function buildSkillAgentMap(allPluginsInRepo) {
   const map = new Map();
-  const re = /`?(dex-[a-z0-9-]+):[a-z0-9-]+`?/gi;
 
   function walk(dir) {
     if (!existsSync(dir)) return;
@@ -263,9 +277,7 @@ function buildSkillAgentMap(allPluginsInRepo) {
         }
         const body = readFileSync(full, 'utf8');
         const set = map.get(pluginName) || new Set();
-        for (const match of body.matchAll(re)) {
-          const agentPlugin = match[1];
-          if (/-$/.test(agentPlugin)) continue; // glob/example artifact
+        for (const agentPlugin of pluginCalls(body)) {
           if (allPluginsInRepo.has(agentPlugin) && agentPlugin !== pluginName) set.add(agentPlugin);
         }
         if (set.size > 0) map.set(pluginName, set);
@@ -286,7 +298,6 @@ function buildSkillAgentMap(allPluginsInRepo) {
 // в прозе не ловится (см. docs/VALIDATOR_RULES.md, границы правила).
 function buildCommandRefMap(skillPluginsInRepo, specialistPluginsInRepo) {
   const map = new Map();
-  const re = /`?(dex-[a-z0-9-]+):[a-z0-9-]+`?/gi;
 
   function walk(dir) {
     if (!existsSync(dir)) return;
@@ -308,9 +319,7 @@ function buildCommandRefMap(skillPluginsInRepo, specialistPluginsInRepo) {
       }
       const body = readFileSync(full, 'utf8');
       const refs = map.get(pluginName) || { skills: new Set(), agents: new Set() };
-      for (const match of body.matchAll(re)) {
-        const target = match[1];
-        if (/-$/.test(target)) continue; // glob/example artifact: `dex-skill-dotnet-*`
+      for (const target of pluginCalls(body)) {
         if (skillPluginsInRepo.has(target)) refs.skills.add(target);
         else if (specialistPluginsInRepo.has(target)) refs.agents.add(target);
       }
@@ -435,35 +444,14 @@ function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, age
   }
 
   // 2. Замыкание: артефакт, названный компонентом бандла, обязан быть в составе.
-  //    Два вида артефактов приезжают не с бандлом, а по проекту: профильный скилл стека
-  //    (`dex-skill-<стек>-*`) и трек зоны (`dex-skill-<зона>-track`). Их называют списком все
-  //    разом - агностик перечисляет стеки в меню («если Kafka - ...»), движок перечисляет зоны
-  //    в реестре, - а грузят один, по проекту пользователя. Требовать весь список нельзя.
-  //    Обязанность возникает там, где названный артефакт - предмет самого потребителя:
-  //    специалист по логированию грузит скилл логирования не «если в стеке», а всегда, и команда
-  //    зоны грузит трек своей зоны безусловно. Предмет читается общим сегментом имён:
-  //    `dex-logging-seq` и `dex-skill-dotnet-logging` делят `logging`, `dex-sdlc-acceptance`
-  //    и `dex-skill-acceptance-track` - `acceptance`, а `dex-code-discovery` и `dex-sdlc`
-  //    со своими списками не делят с ними ничего.
-  //    Признак структурный намеренно: императив в прозе («вызови Skill tool ...») стоит и в
-  //    условных строках («**Если Redis в стеке** - вызови Skill tool ...»), поэтому по нему
-  //    условие от безусловного не отличить. Цена структурного признака - слепое пятно там, где
-  //    имена зовут одно разными словами: `dex-sdlc-delivery` грузит `dex-skill-development-track`
-  //    безусловно, а сегмента с ним не делит, и обязанности не возникает.
-  const isZoneTrack = (name) => /^dex-skill-[a-z0-9-]+-track$/.test(name);
-  const GENERIC_SEGMENTS = new Set(['dex', 'skill', 'bundle', 'specialist', 'track']);
-  const segmentsOf = (name) => new Set(name.split('-').filter((seg) => !GENERIC_SEGMENTS.has(seg)));
-  const sharesSubject = (a, b) => {
-    const sa = segmentsOf(a);
-    for (const seg of segmentsOf(b)) if (sa.has(seg)) return true;
-    return false;
-  };
+  //    Условный вызов из этого счёта выведен пометкой `[справочно]` у самого вызова (`pluginCalls`):
+  //    отличить его от безусловного по прозе нельзя - «вызови Skill tool ...» стоит и в условной
+  //    строке («**Если Redis в стеке** - вызови Skill tool ...»), а по имени нельзя тем более.
   for (const comp of components) {
     const loaded = agentSkillMap.get(comp);
     if (!loaded) continue; // not a specialist, or loads no skills
     for (const skill of loaded) {
       if (!skillPluginsInRepo.has(skill)) continue; // unknown skill is validate-agent.js's job
-      if ((stackOf(skill) || isZoneTrack(skill)) && !sharesSubject(comp, skill)) continue;
       if (!includeSet.has(skill)) {
         findings.push({
           level: ERROR,
@@ -480,7 +468,6 @@ function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, age
     const delegatesTo = skillAgentMap.get(comp);
     if (!delegatesTo) continue;
     for (const agentPlugin of delegatesTo) {
-      if ((agentStackOf(agentPlugin) || isZoneTrack(agentPlugin)) && !sharesSubject(comp, agentPlugin)) continue;
       if (!includeSet.has(agentPlugin)) {
         findings.push({
           level: ERROR,
@@ -501,7 +488,6 @@ function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, age
     const refs = commandRefMap.get(comp);
     if (!refs) continue;
     for (const skill of refs.skills) {
-      if ((stackOf(skill) || isZoneTrack(skill)) && !sharesSubject(comp, skill)) continue;
       if (!includeSet.has(skill)) {
         findings.push({
           level: ERROR,
@@ -511,7 +497,6 @@ function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, age
       }
     }
     for (const agentPlugin of refs.agents) {
-      if ((agentStackOf(agentPlugin) || isZoneTrack(agentPlugin)) && !sharesSubject(comp, agentPlugin)) continue;
       if (!includeSet.has(agentPlugin)) {
         findings.push({
           level: ERROR,

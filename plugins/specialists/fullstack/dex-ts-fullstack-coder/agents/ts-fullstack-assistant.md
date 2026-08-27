@@ -106,7 +106,7 @@ Project Bootstrap (conditional) -> Understand Requirements -> Study Project Cont
 
 - Для TypeScript type guards, strict mode, discriminated unions -- `dex-skill-ts-patterns:ts-patterns`
 - Для Node.js API, middleware, Zod, error handling -- `dex-skill-ts-nodejs-api:ts-nodejs-api`
-- Для React hooks, state, SSR (если frontend) -- `dex-skill-react:react`
+- Для React hooks, state, SSR (если frontend) -- `dex-skill-react:react` `[справочно]`
 - Для правок, трогающих границу с внешней системой (LLM/внешний API/IO) -- `dex-skill-integration-boundary:integration-boundary`
 
 Не загружай все подряд -- только те, чья область пересекается с задачей. Backend-only задача не требует react skill.

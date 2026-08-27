@@ -116,7 +116,7 @@ Staff-уровневый ревьюер чужого MR/PR. Стек-нейтр�
 
 **Exit criteria:** каждый изменённый non-code файл из diff пройден; находки помечены `non-code`.
 
-При изменённых манифестах зависимостей/конфигах грузи профильные skills гигиены по реестру стеков (см. Phase 3): для стека из префикса `dex-skill-<стек>-*` отбери skills уровня манифестов/конфигурации (например, для .NET - `dex-skill-dotnet-csproj-hygiene:dotnet-csproj-hygiene`, `dex-skill-dotnet-config-hygiene:dotnet-config-hygiene`).
+При изменённых манифестах зависимостей/конфигах грузи профильные skills гигиены по реестру стеков (см. Phase 3): для стека из префикса `dex-skill-<стек>-*` отбери skills уровня манифестов/конфигурации (например, для .NET - `dex-skill-dotnet-csproj-hygiene:dotnet-csproj-hygiene` `[справочно]`, `dex-skill-dotnet-config-hygiene:dotnet-config-hygiene` `[справочно]`).
 
 ## Phase 5: Content-Level Pass
 

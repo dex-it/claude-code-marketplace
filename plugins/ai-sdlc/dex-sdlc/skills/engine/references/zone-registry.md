@@ -11,17 +11,17 @@
 
 | Зона | Предмет работы | Трек |
 |---|---|---|
-| продукт | цели продукта целиком, словарь терминов, инварианты - то, что переживает удаление любой одной фичи | `dex-skill-product-track:product-track` |
-| требования | что система должна делать: цели фичи, сценарии, правила и меры, истории с критериями | `dex-skill-analytics-track:analytics-track` |
-| дизайн | как это устроить: дизайн-документ, ADR, контракт API, план реализации | `dex-skill-architecture-track:architecture-track` |
-| разработка | правка исходников до коммитов: фича, баг-фикс, рефакторинг | `dex-skill-development-track:development-track` |
-| тесты | покрытие как предмет работы: матрица осей, добор тестов, активный поиск дефектов | `dex-skill-test-track:test-track` |
-| ревью MR | суждение о чужой готовой правке в MR/PR | `dex-skill-mr-review-track:mr-review-track` |
-| правки ревью | разбор пришедших замечаний, ответы ревьюеру, план правок | `dex-skill-followup-track:followup-track` |
-| приёмка | развёрнутая фича против ТЗ на стенде, read-only | `dex-skill-acceptance-track:acceptance-track` |
-| диагностика | причина отказа на работающем стенде или в дампе, объект - не исходник | `dex-skill-diagnostics-track:diagnostics-track` |
-| документация | документ как результат: руководство, README, release notes | `dex-skill-documentation-track:documentation-track` |
-| обзор | инвентаризация проблем существующего кода вширь, без одной задачи | `dex-skill-discover-track:discover-track` |
+| продукт | цели продукта целиком, словарь терминов, инварианты - то, что переживает удаление любой одной фичи | `dex-skill-product-track:product-track` `[справочно]` |
+| требования | что система должна делать: цели фичи, сценарии, правила и меры, истории с критериями | `dex-skill-analytics-track:analytics-track` `[справочно]` |
+| дизайн | как это устроить: дизайн-документ, ADR, контракт API, план реализации | `dex-skill-architecture-track:architecture-track` `[справочно]` |
+| разработка | правка исходников до коммитов: фича, баг-фикс, рефакторинг | `dex-skill-development-track:development-track` `[справочно]` |
+| тесты | покрытие как предмет работы: матрица осей, добор тестов, активный поиск дефектов | `dex-skill-test-track:test-track` `[справочно]` |
+| ревью MR | суждение о чужой готовой правке в MR/PR | `dex-skill-mr-review-track:mr-review-track` `[справочно]` |
+| правки ревью | разбор пришедших замечаний, ответы ревьюеру, план правок | `dex-skill-followup-track:followup-track` `[справочно]` |
+| приёмка | развёрнутая фича против ТЗ на стенде, read-only | `dex-skill-acceptance-track:acceptance-track` `[справочно]` |
+| диагностика | причина отказа на работающем стенде или в дампе, объект - не исходник | `dex-skill-diagnostics-track:diagnostics-track` `[справочно]` |
+| документация | документ как результат: руководство, README, release notes | `dex-skill-documentation-track:documentation-track` `[справочно]` |
+| обзор | инвентаризация проблем существующего кода вширь, без одной задачи | `dex-skill-discover-track:discover-track` `[справочно]` |
 
 **Соседние зоны, которые путают:**
 

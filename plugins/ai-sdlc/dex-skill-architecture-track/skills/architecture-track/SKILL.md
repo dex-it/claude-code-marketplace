@@ -16,7 +16,7 @@ description: >-
 запускается отдельно от него, движок ведёт цикл и стоп-линию, трек - порядок этой зоны.
 
 **Архитектурное решение трек не делает сам.** Match / alternatives / decide / deep-dive - работа
-узла `dex-architect:architect` (стек-нейтральный) или `dex-architect-dotnet:architect-dotnet`
+узла `dex-architect:architect` (стек-нейтральный) или `dex-architect-dotnet:architect-dotnet` `[справочно]`
 (.NET) - монолит-оркестратор, решающий архитектуру силами трека, дублирует движок и теряет
 специализацию узла (тот же failure mode, что у development-track с кодом). Требования, capacity,
 implementation-план и диспетчинг документации (Phase 0-1-2-4-5) - работа трека (`channel: self`);
@@ -251,7 +251,7 @@ Input `dex-design-reviewer:design-reviewer`: путь к документу(ам
 требований / ADR / архитектуры, полнота набора, severity; документ не мутирует.
 
 **Цикл автор-судья**: находки -> возврат на доработку `dex-architect:architect`/
-`dex-architect-dotnet:architect-dotnet` (тот же узел Phase 3, не трек) -> повторная приёмка. Потолок
+`dex-architect-dotnet:architect-dotnet` `[справочно]` (тот же узел Phase 3, не трек) -> повторная приёмка. Потолок
 раундов и решение по каждой открытой находке - `dex-skill-node-contract:node-contract`,
 `references/quality-and-review.md` разд. 9: три ревизии на артефакт.
 

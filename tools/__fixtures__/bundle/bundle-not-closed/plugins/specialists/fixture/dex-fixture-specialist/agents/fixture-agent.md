@@ -13,8 +13,8 @@ model: sonnet
 
 ## Phase 1: Intake
 
-В фазе грузится `dex-skill-fixture:fixture`, а по проекту - `dex-skill-redis:redis`
- и трек своей зоны `dex-skill-zone-track:zone-track`.
+В фазе грузится `dex-skill-fixture:fixture`, вариант из набора - `dex-skill-quiet:quiet` `[справочно]`.
+Ещё грузится `dex-skill-far:far` - пометка `[справочно]` в этой строке стоит не вплотную к вызову.
 
 **Goal:** Принять вход песочницы и назвать, чего в нём нет.
 
