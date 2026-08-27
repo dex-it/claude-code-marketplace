@@ -68,6 +68,34 @@ function loadMarketplacePlugins() {
   }
 }
 
+// Голое имя плагина в теле - указатель на соседа: «этим ведает вон тот», «подробнее там». Загрузкой
+// оно не является (загрузка пишется полной формой `plugin:skill`), поэтому обязательства поставки не
+// даёт и в замыкание бандла не входит. Но указатель обязан вести в существующее место: имя, которого
+// в каталоге нет, читателя никуда не приводит и сгнить успевает молча - полную форму сторожит
+// `skill-reference-unknown`, голую до сих пор не сторожил никто.
+let catalogPluginsCache = null;
+function catalogPlugins() {
+  if (!catalogPluginsCache) catalogPluginsCache = loadMarketplacePlugins();
+  return catalogPluginsCache;
+}
+
+function validatePluginNameMentions(text, findings, where = '') {
+  const known = catalogPlugins();
+  if (known.size === 0) return; // урезанное дерево без marketplace.json - сверять не с чем
+  const seen = new Set();
+  for (const match of text.matchAll(/`(dex-[a-z0-9-]+)`/g)) {
+    const name = match[1];
+    if (name.endsWith('-')) continue; // не имя, а префикс-шаблон: `dex-skill-`
+    if (known.has(name) || seen.has(name)) continue;
+    seen.add(name);
+    findings.push({
+      level: ERROR,
+      rule: 'plugin-name-unknown',
+      message: `${where}names "${name}" - no such plugin in the catalogue. A bare name is a pointer, not a load, so it carries no delivery obligation - but a pointer must lead somewhere; the full form is guarded by skill-reference-unknown, the bare one by nothing`,
+    });
+  }
+}
+
 // --- File discovery -----------------------------------------------------
 
 function findAllSkillFiles() {
@@ -360,6 +388,7 @@ function validateReferenceSize(skillFilePath, findings) {
     if (!statSync(full).isFile() || !entry.endsWith('.md')) continue;
     const body = readFileSync(full, 'utf8');
     validateCatalogDocsLink(body, full, findings, `references/${entry} `);
+    validatePluginNameMentions(body, findings, `references/${entry} `);
     validateLinkEscapesPlugin(body, full, findings, `references/${entry} `);
     const charCount = body.length;
     dirChars += charCount;
@@ -766,6 +795,7 @@ function validateFile(filepath) {
   validateFrontmatter(parsed, findings, isProcess);
   validateSize(raw, findings, isProcess);
   validateCatalogDocsLink(raw, filepath, findings);
+  validatePluginNameMentions(raw, findings);
   validateLinkEscapesPlugin(raw, filepath, findings);
   validateReferenceSize(filepath, findings);
   validateTraps(parsed.content, findings, isProcess);

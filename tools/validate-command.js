@@ -100,6 +100,40 @@ function validateSkillReferences(markdownBody, findings) {
   }
 }
 
+// Голое имя плагина в теле - указатель на соседа: «этим ведает вон тот», «подробнее там». Загрузкой
+// оно не является (загрузка пишется полной формой `plugin:skill`), поэтому обязательства поставки не
+// даёт и в замыкание бандла не входит. Но указатель обязан вести в существующее место: имя, которого
+// в каталоге нет, читателя никуда не приводит и сгнить успевает молча - полную форму сторожит
+// `skill-reference-unknown`, голую до сих пор не сторожил никто.
+let catalogPluginsCache = null;
+function catalogPlugins() {
+  if (catalogPluginsCache) return catalogPluginsCache;
+  const file = join(REPO_ROOT, '.claude-plugin', 'marketplace.json');
+  try {
+    catalogPluginsCache = new Set((JSON.parse(readFileSync(file, 'utf8')).plugins || []).map((p) => p.name));
+  } catch {
+    catalogPluginsCache = new Set();
+  }
+  return catalogPluginsCache;
+}
+
+function validatePluginNameMentions(text, findings, where = '') {
+  const known = catalogPlugins();
+  if (known.size === 0) return; // урезанное дерево без marketplace.json - сверять не с чем
+  const seen = new Set();
+  for (const match of text.matchAll(/`(dex-[a-z0-9-]+)`/g)) {
+    const name = match[1];
+    if (name.endsWith('-')) continue; // не имя, а префикс-шаблон: `dex-skill-`
+    if (known.has(name) || seen.has(name)) continue;
+    seen.add(name);
+    findings.push({
+      level: ERROR,
+      rule: 'plugin-name-unknown',
+      message: `${where}names "${name}" - no such plugin in the catalogue. A bare name is a pointer, not a load, so it carries no delivery obligation - but a pointer must lead somewhere; the full form is guarded by skill-reference-unknown, the bare one by nothing`,
+    });
+  }
+}
+
 // --- File discovery -----------------------------------------------------
 
 function findAllCommandFiles() {
@@ -464,6 +498,7 @@ function validateFile(filepath) {
   validateNoDocumentationTitles(parsed.content, findings);
   validateSkillReferences(parsed.content, findings);
   validateCatalogDocsLink(raw, filepath, findings);
+  validatePluginNameMentions(raw, findings);
   validateLinkEscapesPlugin(raw, filepath, findings);
 
   return { filepath, findings };
