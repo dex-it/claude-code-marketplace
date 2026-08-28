@@ -73,49 +73,6 @@ const COLORS = {
 const ERROR = 'error';
 const WARNING = 'warning';
 
-// by-stack profile skill prefixes - exempt from the closure rule.
-// A skill `dex-skill-<prefix>-*` is loaded conditionally per project stack
-// by language-agnostic agents, so it is NOT required to sit in every bundle.
-// `dotnet|ts|python` are the canonical stacks from dex-skill-stack-registry;
-// the rest are infra/profile skills loaded the same conditional way.
-const BY_STACK_PREFIXES = [
-  'dotnet',
-  'ts',
-  'python',
-  'react',
-  'rabbitmq',
-  'kafka',
-  'redis',
-  'mongodb',
-  'elasticsearch',
-  'docker',
-  'kubernetes',
-  'gitlab-ci',
-  'github-actions',
-  'teamcity',
-  'jenkins',
-  'playwright',
-];
-
-// Return the by-stack prefix a skill belongs to (e.g. "dotnet"), or null if
-// the skill is stack-neutral. A `dex-skill-<prefix>-*` (or bare
-// `dex-skill-<prefix>`) skill is loaded conditionally per project stack.
-function stackOf(skillPlugin) {
-  return (
-    BY_STACK_PREFIXES.find(
-      (p) => skillPlugin.startsWith(`dex-skill-${p}-`) || skillPlugin === `dex-skill-${p}`
-    ) || null
-  );
-}
-
-// Same idea for specialist agent plugins: naming has no fixed prefix/suffix slot
-// (dex-architect-dotnet, dex-dotnet-tester, dex-ts-fullstack-coder), so match any
-// dash-delimited segment against BY_STACK_PREFIXES instead.
-function agentStackOf(agentPlugin) {
-  const segments = agentPlugin.split('-');
-  return BY_STACK_PREFIXES.find((p) => segments.includes(p)) || null;
-}
-
 // --- CLI parsing --------------------------------------------------------
 
 function parseArgs(argv) {
@@ -175,7 +132,9 @@ function loadMarketplaceDescriptions() {
 // Вызов, за которым стоит `[справочно]`, называет артефакт как вариант, чужой проекту: реестр зон
 // перечисляет все треки, меню стека - все стеки, а едет то, что проекту своё. Условность по задаче
 // («для DI - ..., для LINQ - ...») поставку не снимает - какой понадобится, решается в работе.
-const REFERENCE_MARK = /^\s*`\[\u0441\u043f\u0440\u0430\u0432\u043e\u0447\u043d\u043e\]`/;
+// Читается только вплотную за вызовом, без переноса строки: пометка в начале следующей строки
+// относится к своему тексту, а не к вызову выше, и гасить чужое ребро молча ей нельзя.
+const REFERENCE_MARK = /^[ \t]*`\[\u0441\u043f\u0440\u0430\u0432\u043e\u0447\u043d\u043e\]`/;
 
 // Ключ на любое имя каталога, не только на скилл: имя артефакта в теле исполнитель читает как
 // «он у меня установлен», поэтому обязательство поставки даёт и `dex-<специалист>:<агент>`.

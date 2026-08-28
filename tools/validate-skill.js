@@ -81,7 +81,7 @@ function catalogPlugins() {
 
 function validatePluginNameMentions(text, findings, where = '') {
   const known = catalogPlugins();
-  if (known.size === 0) return; // урезанное дерево без marketplace.json - сверять не с чем
+  if (known.size === 0) return; // каталога нет - имя не «неизвестно», а непроверяемо: сверять не с чем
   const seen = new Set();
   for (const match of text.matchAll(/`(dex-[a-z0-9-]+)`/g)) {
     const name = match[1];
@@ -91,7 +91,7 @@ function validatePluginNameMentions(text, findings, where = '') {
     findings.push({
       level: ERROR,
       rule: 'plugin-name-unknown',
-      message: `${where}names "${name}" - no such plugin in the catalogue. A bare name is a pointer, not a load, so it carries no delivery obligation - but a pointer must lead somewhere; the full form is guarded by skill-reference-unknown, the bare one by nothing`,
+      message: `${where}names "${name}" - no such plugin in the catalogue. A bare name is a pointer, not a load, so it carries no delivery obligation - but a pointer must lead somewhere; the full form is guarded by skill-reference-unknown, the bare one by this rule`,
     });
   }
 }

@@ -3,6 +3,7 @@ name: fixture-agent
 description: >-
   Эталонный валидный агент песочницы - держит базу нулевых находок для раннера правил.
   Триггеры - фикстура агента, база песочницы, прогон правила валидатора, регрессия валидатора.
+  Соседом объявлен `dex-nowhere-frontmatter` - имя видно только во frontmatter.
 tools: Read, Write, Grep, Glob, Skill
 model: sonnet
 ---
