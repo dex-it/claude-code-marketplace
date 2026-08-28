@@ -127,6 +127,37 @@ function loadMarketplaceDescriptions() {
   return map;
 }
 
+// Категория записи каталога не произвольна: она выводится из того, что в плагине
+// лежит, и на дереве совпадает у всех записей. Поле не читает ни один валидатор,
+// поэтому пропуск проходил гейт молча (пойман на dex-sdlc-nudge - запись без
+// `category` и `keywords`). Ключ - имя записи, значение - `null` при отсутствии
+// поля: запись без категории и отсутствие записи вовсе - разные случаи, и второй
+// не предмет этого правила.
+function loadMarketplaceCategories() {
+  const map = new Map();
+  if (!existsSync(MARKETPLACE_JSON)) return map;
+  try {
+    const json = JSON.parse(readFileSync(MARKETPLACE_JSON, 'utf8'));
+    for (const p of json.plugins || []) {
+      if (p && p.name) map.set(p.name, typeof p.category === 'string' ? p.category : null);
+    }
+  } catch {
+    /* ignore */
+  }
+  return map;
+}
+
+// Порядок веток не произволен: специалист несёт `commands/` наравне с `agents/`,
+// а бандл узнаётся только по `bundle.json` - более узкий признак идёт первым.
+// Плагин без всех четырёх признаков категории не имеет, и правило на нём молчит.
+function categoryFromTree(pluginDir) {
+  if (existsSync(join(pluginDir, 'bundle.json'))) return 'bundle';
+  if (existsSync(join(pluginDir, 'agents'))) return 'specialist';
+  if (existsSync(join(pluginDir, 'skills'))) return 'skill';
+  if (existsSync(join(pluginDir, 'hooks')) || existsSync(join(pluginDir, 'commands'))) return 'utility';
+  return null;
+}
+
 // --- Plugin calls in artifact bodies -------------------------------------
 
 // Вызов, за которым стоит `[справочно]`, называет артефакт как вариант, чужой проекту: реестр зон
@@ -498,7 +529,7 @@ function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, age
 // `plugin.json` <-> запись в `marketplace.json`. Проверка жила внутри
 // validateBundle и охватывала лишь bundles/ - рассинхрон обычного плагина
 // проходил гейт молча (пойман на dex-sdlc 2.6.1 vs 2.6.0).
-function validateVersionSync(marketplaceVersions, marketplaceDescriptions, only) {
+function validateVersionSync(marketplaceVersions, marketplaceDescriptions, marketplaceCategories, only) {
   const results = [];
   const walk = (dir) => {
     if (!existsSync(dir)) return;
@@ -508,7 +539,9 @@ function validateVersionSync(marketplaceVersions, marketplaceDescriptions, only)
       const pluginJson = join(full, '.claude-plugin', 'plugin.json');
       if (existsSync(pluginJson)) {
         if (!only || resolve(full) === resolve(only)) {
-          results.push(checkVersionSync(pluginJson, marketplaceVersions, marketplaceDescriptions));
+          results.push(
+            checkVersionSync(pluginJson, marketplaceVersions, marketplaceDescriptions, marketplaceCategories)
+          );
         }
         continue;
       }
@@ -519,7 +552,22 @@ function validateVersionSync(marketplaceVersions, marketplaceDescriptions, only)
   return results.filter((r) => r.findings.length > 0);
 }
 
-function checkVersionSync(pluginJson, marketplaceVersions, marketplaceDescriptions) {
+// Сообщение называет признак, по которому категория выведена: иначе автор видит
+// вердикт без основания и правит поле наугад.
+function categoryEvidence(category) {
+  switch (category) {
+    case 'bundle':
+      return 'bundle.json';
+    case 'specialist':
+      return 'agents/';
+    case 'skill':
+      return 'skills/';
+    default:
+      return 'hooks/ or commands/';
+  }
+}
+
+function checkVersionSync(pluginJson, marketplaceVersions, marketplaceDescriptions, marketplaceCategories) {
   const findings = [];
   try {
     const pj = JSON.parse(readFileSync(pluginJson, 'utf8'));
@@ -548,6 +596,20 @@ function checkVersionSync(pluginJson, marketplaceVersions, marketplaceDescriptio
         level: ERROR,
         rule: 'description-mismatch',
         message: `marketplace.json description != plugin.json description for "${pj.name}" - run \`npm run sync:marketplace\` (plugin.json is the home; the catalog copy is generated)`,
+      });
+    }
+    // Запись без категории и отсутствие записи вовсе - разные случаи: второй ловит
+    // include-not-in-marketplace на составе бандла, здесь он предметом не является.
+    const hasEntry = Boolean(pj.name) && Boolean(marketplaceCategories?.has(pj.name));
+    const expectedCategory = categoryFromTree(dirname(dirname(pluginJson)));
+    const declaredCategory = hasEntry ? marketplaceCategories.get(pj.name) : undefined;
+    if (hasEntry && expectedCategory && declaredCategory !== expectedCategory) {
+      findings.push({
+        level: ERROR,
+        rule: 'catalog-category-mismatch',
+        message: declaredCategory === null
+          ? `marketplace.json entry for "${pj.name}" carries no category - the plugin holds ${categoryEvidence(expectedCategory)}, so the entry belongs to "${expectedCategory}"; without it the plugin drops out of its group in the /plugin storefront`
+          : `marketplace.json category "${declaredCategory}" != "${expectedCategory}" for "${pj.name}" - the plugin holds ${categoryEvidence(expectedCategory)}`,
       });
     }
   } catch {
@@ -649,6 +711,7 @@ function main() {
   const marketplacePlugins = loadMarketplacePlugins();
   const marketplaceVersions = loadMarketplaceVersions();
   const marketplaceDescriptions = loadMarketplaceDescriptions();
+  const marketplaceCategories = loadMarketplaceCategories();
   const allPluginsInRepo = buildAllPluginsInRepo();
   const agentSkillMap = buildAgentSkillMap(allPluginsInRepo);
   const skillPluginsInRepo = buildSkillPluginsInRepo();
@@ -679,8 +742,13 @@ function main() {
   // Одиночный таргет сверяет версию только своего плагина, `all` - всех.
   const versionResults =
     target === 'all'
-      ? validateVersionSync(marketplaceVersions, marketplaceDescriptions)
-      : validateVersionSync(marketplaceVersions, marketplaceDescriptions, dirname(files[0]));
+      ? validateVersionSync(marketplaceVersions, marketplaceDescriptions, marketplaceCategories)
+      : validateVersionSync(
+          marketplaceVersions,
+          marketplaceDescriptions,
+          marketplaceCategories,
+          dirname(files[0])
+        );
   process.exit(report(results, versionResults));
 }
 
