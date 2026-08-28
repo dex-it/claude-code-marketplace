@@ -1,7 +1,7 @@
 ---
-name: fixture-agent
+name: author-agent
 description: >-
-  Эталонный валидный агент песочницы - держит базу нулевых находок для раннера правил.
+  Авторский агент песочницы - держит ветку исключения authorOnly[] для раннера правил.
   Триггеры - фикстура агента, база песочницы, прогон правила валидатора, регрессия валидатора.
 tools: Read, Write, Grep, Glob, Skill
 model: sonnet
@@ -27,17 +27,6 @@ model: sonnet
 
 **Exit criteria:** Output содержит `status` и перечень находок; пустой перечень назван явно.
 
-Порядок работ - [docs/pipelines/analytics/PIPELINE.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/pipelines/analytics/PIPELINE.md).
+## Пороги
 
-Ограничения окружения - [CLI_UTILITIES](../docs/CLI_UTILITIES.md).
-
-Пороги правил - `VALIDATOR_RULES.md`, имя названо код-спаном без ссылки.
-
-## Молчащие адреса
-
-Корпус пользователя, не документация каталога - `docs/product/GLOSSARY.md`.
-
-Чужой файл, чьё имя оканчивается на имя нашего - `MY_CORPUS.md`.
-
-Один документ, названный и путём `docs/VALIDATOR_RULES.md`, и голым именем выше - находка обязана
-назвать его один раз, путём.
+Пороги правил - `docs/CORPUS.md`: артефакт автора исполняется в клоне каталога, где `docs/` лежит рядом, поэтому адрес у него разрешается.
