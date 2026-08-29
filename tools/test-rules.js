@@ -16,11 +16,21 @@
  * Устройство:
  *   tools/__fixtures__/_base/                     эталон нулевых находок
  *   tools/__fixtures__/<validator>/<rule>/        оверлей поверх базы
- *   tools/__fixtures__/<validator>/<rule>/expect.json   {"also": [...]} - опц.
+ *   tools/__fixtures__/<validator>/<rule>/expect.json   {"also": [], "messages": [], "absent": []}
  *
  * Ожидание строгое: набор сработавших правил равен `{<rule>} + also`. Побочное
  * правило, не названное в `also`, - ошибка фикстуры: неучтённая побочка
  * маскирует поломку соседнего правила.
+ *
+ * `messages` - подстроки, каждая обязана найтись хотя бы в одном сообщении
+ * находки. Имя правила одно на все его шаблоны и точки вызова, поэтому смерть
+ * одной из них множество имён не показывает: соседи держат имя живым. Различает
+ * их только текст сообщения, и `messages` - место, где это ожидание записано.
+ *
+ * `absent` - обратная сторона: подстроки, которых в сообщениях быть не должно.
+ * Ветка, которая правило ГАСИТ (исключение по признаку артефакта), срабатыванием
+ * не проверяется вовсе: сломайся она - множество имён то же самое, а находок
+ * станет больше. Ловит это только ожидание тишины на конкретном адресе.
  *
  * Usage:
  *   node tools/test-rules.js [all|<validator>|<validator>/<rule>]
@@ -67,11 +77,15 @@ function runValidator(validator, root) {
   });
   const output = `${result.stdout || ''}${result.stderr || ''}`;
   const rules = new Set();
+  const messages = [];
   for (const line of output.split('\n')) {
-    const m = line.replace(ANSI_RE, '').match(FINDING_RE);
-    if (m) rules.add(m[2]);
+    const clean = line.replace(ANSI_RE, '');
+    const m = clean.match(FINDING_RE);
+    if (!m) continue;
+    rules.add(m[2]);
+    messages.push(clean.trim());
   }
-  return { rules, output };
+  return { rules, messages, output };
 }
 
 function withSandbox(overlayDir, fn) {
@@ -112,7 +126,7 @@ function collectFixtures(target) {
       if (!statSync(dir).isDirectory()) continue;
       const expectFile = join(dir, 'expect.json');
       const expect = existsSync(expectFile) ? JSON.parse(readFileSync(expectFile, 'utf8')) : {};
-      fixtures.push({ validator, rule, dir, also: expect.also || [] });
+      fixtures.push({ validator, rule, dir, also: expect.also || [], messages: expect.messages || [], absent: expect.absent || [] });
     }
   }
   if (!target || target === 'all') return fixtures;
@@ -144,16 +158,25 @@ function checkFixture(fixture, rulesInCode, failures) {
   }
 
   withSandbox(fixture.dir, (sandbox) => {
-    const { rules, output } = runValidator(fixture.validator, sandbox);
+    const { rules, messages, output } = runValidator(fixture.validator, sandbox);
     const expected = new Set([fixture.rule, ...fixture.also]);
     const missing = [...expected].filter((r) => !rules.has(r));
     const unexpected = [...rules].filter((r) => !expected.has(r));
+    // Имя правила говорит только «что-то сработало». У правила с несколькими
+    // шаблонами или несколькими точками вызова имя одно на всех, поэтому смерть
+    // одной из них множество имён не показывает - её видно только по тексту.
+    const silent = fixture.messages.filter((s) => !messages.some((m) => m.includes(s)));
+    // Ветка, гасящая правило, видна только тишиной на своём адресе: сработай она мимо - имя
+    // правила осталось бы тем же самым, и набор имён поломки не показал бы.
+    const leaked = fixture.absent.filter((s) => messages.some((m) => m.includes(s)));
 
-    if (missing.length === 0 && unexpected.length === 0) return;
+    if (missing.length === 0 && unexpected.length === 0 && silent.length === 0 && leaked.length === 0) return;
 
     const parts = [];
     if (missing.length > 0) parts.push(`did not raise: ${missing.join(', ')}`);
     if (unexpected.length > 0) parts.push(`raised unlisted: ${unexpected.join(', ')} (add to expect.json "also" or narrow the overlay)`);
+    if (silent.length > 0) parts.push(`no finding message contains: ${silent.map((s) => JSON.stringify(s)).join(', ')} - a raiser of "${fixture.rule}" went silent while its neighbours kept the rule name alive`);
+    if (leaked.length > 0) parts.push(`a finding message contains what must stay silent: ${leaked.map((s) => JSON.stringify(s)).join(', ')} - a branch that mutes "${fixture.rule}" stopped muting it`);
     failures.push({ name: `${fixture.validator}/${fixture.rule}`, message: parts.join('; '), output });
   });
 }

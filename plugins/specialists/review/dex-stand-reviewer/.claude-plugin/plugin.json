@@ -1,7 +1,7 @@
 {
   "name": "dex-stand-reviewer",
-  "version": "1.5.0",
-  "description": "Ревью слитой фичи на развёрнутом стенде против ТЗ, read-only: привязка образа к merge-коммиту, карта требование -> проба на стенде, параллельные суб-агенты улик, фальсификация находок и утверждений 'выполнено', severity/confidence/scope, отчёт.",
+  "version": "2.0.0",
+  "description": "Узел приёмки слитой фичи на развёрнутом стенде против ТЗ, read-only: привязка образа к merge-коммиту, карта требование -> проба на стенде, параллельные суб-агенты улик, фальсификация находок и утверждений 'выполнено', severity/confidence/scope, отчёт. Вызывается треком acceptance-track (команда /review-stand в dex-sdlc), не своим командным входом.",
   "author": {
     "name": "Dex Team",
     "email": "mmx@dex-it.ru"
@@ -17,8 +17,5 @@
     "regression"
   ],
   "repository": "https://github.com/dex-it/claude-code-marketplace",
-  "license": "GPL-3.0",
-  "commands": [
-    "./commands/review-stand.md"
-  ]
+  "license": "GPL-3.0"
 }

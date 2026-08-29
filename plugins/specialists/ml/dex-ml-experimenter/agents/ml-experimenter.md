@@ -67,9 +67,9 @@ Context -> Direct Analysis -> Skill-Based Deep Scan -> Report. Context обяз�
 
 Когда загружать:
 - Tabular data + baseline нужен -- `dex-skill-python-classical-ml:python-classical-ml` (data leakage, cross-validation traps)
-- Deep learning baseline -- `dex-skill-python-pytorch:python-pytorch` или `dex-skill-python-tensorflow:python-tensorflow`
-- Image data -- `dex-skill-python-computer-vision:python-computer-vision` (augmentation traps)
-- Text data -- `dex-skill-python-nlp-transformers:python-nlp-transformers` (tokenization traps)
+- Deep learning baseline -- `dex-skill-python-pytorch:python-pytorch` `[справочно]` или `dex-skill-python-tensorflow:python-tensorflow` `[справочно]`
+- Image data -- `dex-skill-python-computer-vision:python-computer-vision` `[справочно]` (augmentation traps)
+- Text data -- `dex-skill-python-nlp-transformers:python-nlp-transformers` `[справочно]` (tokenization traps)
 
 ## Phase 4: Report
 

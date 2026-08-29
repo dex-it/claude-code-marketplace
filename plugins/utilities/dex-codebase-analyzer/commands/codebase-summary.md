@@ -1,5 +1,5 @@
 ---
-description: Компактный обзор репозитория — стек, размер, top-level модули
+description: Компактный обзор репозитория - стек, размер, top-level модули
 allowed-tools: Bash, Read, Grep, Glob
 ---
 
@@ -14,18 +14,18 @@ allowed-tools: Bash, Read, Grep, Glob
 - **Stack:** язык + фреймворк + build (например, «.NET 8 + ASP.NET Core + MSBuild с CPM»)
 - **Size:** LoC по языкам, число файлов, число проектов
 - **Top-level layout:** список основных директорий с одной фразой про каждую
-- **Architecture style:** monolith / modular monolith / microservices / library — определить по структуре
+- **Architecture style:** monolith / modular monolith / microservices / library - определить по структуре
 - **Notable manifests:** что найдено (`Directory.Build.props`, `pnpm-workspace.yaml`, `pyproject.toml`, `go.work` и т.п.)
 
 **Scenarios:**
 
-- Если установлен `scc` — использовать для метрик LoC/COCOMO
-- Если `scc` нет — fallback на `find` + `wc -l` по основным расширениям
+- Если установлен `scc` - использовать для метрик LoC/COCOMO
+- Если `scc` нет - fallback на `find` + `wc -l` по основным расширениям
 - Парсить корневой манифест проекта (`*.sln`, `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`) для определения стека
 - Для `.NET`: дополнительно `dotnet sln list` для перечня проектов
 
 **Constraints:**
 
-- Не читать файлы целиком — только метаданные и заголовки
-- Не делать deep-dive по коду — это работа архитектора в Phase 0 Codebase Priming
-- Если репо явно пустое — вернуть «greenfield, нечего анализировать» вместо заполнения слотов нулями
+- Не читать файлы целиком - только метаданные и заголовки
+- Не делать deep-dive по коду - это работа `architecture-track` в её Phase 0 Bootstrap
+- Если репо явно пустое - вернуть «greenfield, нечего анализировать» вместо заполнения слотов нулями

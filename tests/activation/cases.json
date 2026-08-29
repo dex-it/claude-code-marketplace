@@ -1,0 +1,780 @@
+[
+  {
+    "id": "redis-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-redis:redis",
+    "prompt": "У нас на проде cache stampede: после инвалидации ключа сотни запросов идут в базу одновременно. Как правильно построить кэш на Redis, чтобы этого не было?"
+  },
+  {
+    "id": "redis-near",
+    "mode": "near-miss",
+    "expect": "dex-skill-redis:redis",
+    "prompt": "Запрос к PostgreSQL по таблице orders выполняется 4 секунды. Какой индекс тут нужен и как прочитать план EXPLAIN?"
+  },
+  {
+    "id": "ef-core-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-dotnet-ef-core:dotnet-ef-core",
+    "prompt": "В C#-сервисе выборка заказов с позициями делает по запросу на каждую строку. Как это лечится в EF Core?"
+  },
+  {
+    "id": "ts-vitest-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-ts-vitest-jest:ts-vitest-jest",
+    "prompt": "В vitest мок модуля не подхватывается: тест видит настоящую реализацию, хотя vi.mock объявлен ниже импорта. Почему?"
+  },
+  {
+    "id": "owasp-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-owasp-security:owasp-security",
+    "prompt": "Эндпоинт GET /api/orders/{id} отдаёт заказ по идентификатору из URL, проверки владельца нет. Насколько это опасно и что ещё стоит посмотреть рядом?"
+  },
+  {
+    "id": "ddd-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-ddd:ddd",
+    "prompt": "Класс Order у нас держит только свойства и сеттеры, вся логика в OrderService. Как правильно разложить агрегат и где держать инварианты?"
+  },
+  {
+    "id": "ddd-near",
+    "mode": "near-miss",
+    "expect": "dex-skill-ddd:ddd",
+    "prompt": "Нужно выровнять карточки в сетке по высоте, чтобы кнопка всегда прижималась к низу. Как это сделать на CSS grid?"
+  },
+  {
+    "id": "capacity-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-capacity-planning:capacity-planning",
+    "prompt": "Сколько железа заложить под сервис, если ждём 2 млн событий в сутки и пик втрое выше среднего? Прикинь на салфетке."
+  },
+  {
+    "id": "test-design-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-test-design:test-design",
+    "prompt": "Есть форма с полем «возраст» от 18 до 65 и скидкой по трём условиям. Какие тесты писать, чтобы не гонять все комбинации подряд?"
+  },
+  {
+    "id": "docker-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-docker:docker",
+    "prompt": "Образ приложения весит 1.8 ГБ и собирается 12 минут. Как сократить и то и другое?"
+  },
+  {
+    "id": "conventions-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-codebase-conventions:codebase-conventions",
+    "prompt": "Добавляю новый обработчик в чужой проект. В соседних классах разнобой: где-то throw, где-то Result. Как решить, что писать в новом?"
+  },
+  {
+    "id": "solid-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-solid:solid",
+    "prompt": "У сервиса в конструкторе девять зависимостей, и он растёт с каждой задачей. Как его разложить?"
+  },
+  {
+    "id": "adr-quality-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-adr-quality:adr-quality",
+    "prompt": "Написал решение по выбору брокера в docs/adr/0007-broker.md. Посмотри, годится ли оно как ADR или там описание того, что уже в коде."
+  },
+  {
+    "id": "agile-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-agile:agile",
+    "prompt": "Команда спорит, что считать готовой историей: тестировщик говорит одно, разработчик другое. Как договориться и что записать?"
+  },
+  {
+    "id": "api-documentation-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-api-documentation:api-documentation",
+    "prompt": "Swagger показывает 200 на всех методах, хотя половина отдаёт 404 и 409. Как привести схему в порядок и не забыть про генерацию клиента?"
+  },
+  {
+    "id": "api-specification-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-api-specification:api-specification",
+    "prompt": "Проектирую эндпоинты для списка платежей: как назвать, как отдавать страницы и что делать, когда потребуется поменять формат ответа?"
+  },
+  {
+    "id": "api-testing-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-api-testing:api-testing",
+    "prompt": "Пишу интеграционные тесты на наш HTTP-слой. Какие сценарии обязательно закрыть кроме успешного?"
+  },
+  {
+    "id": "artifact-naming-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-artifact-naming:artifact-naming",
+    "prompt": "Как назвать файл с требованиями на новую фичу и по какому слагу собрать её подпапку в корпусе?"
+  },
+  {
+    "id": "binary-inspection-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-binary-inspection:binary-inspection",
+    "prompt": "Есть только бинарник без исходников и он падает. Как посмотреть, какие символы и зависимости внутри?"
+  },
+  {
+    "id": "bpmn-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-bpmn:bpmn",
+    "prompt": "Нужно нарисовать процесс согласования заявки с тремя участниками и ветвлением по сумме. Как правильно оформить?"
+  },
+  {
+    "id": "bug-reproduction-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-bug-reproduction:bug-reproduction",
+    "prompt": "Тестировщик пишет «иногда не сохраняется». Как довести это до повторяемого случая, который можно отдать разработчику?"
+  },
+  {
+    "id": "cap-consistency-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-cap-consistency:cap-consistency",
+    "prompt": "Баланс пользователя читается из реплики и иногда отстаёт от списания. Насколько это нормально и когда так делать нельзя?"
+  },
+  {
+    "id": "change-correlation-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-change-correlation:change-correlation",
+    "prompt": "Ошибки полезли примерно с обеда, за день выкатили три релиза и поменяли конфиг. Как понять, что именно виновато?"
+  },
+  {
+    "id": "ci-gates-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-ci-gates:ci-gates",
+    "prompt": "Пайплайн зелёный, а в main приезжает нерабочий код. Какие проверки должны стоять перед мержем?"
+  },
+  {
+    "id": "clean-architecture-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-clean-architecture:clean-architecture",
+    "prompt": "В доменном слое всплыл IQueryable и вызовы репозитория из контроллера. Как разложить по слоям и где держать транзакцию?"
+  },
+  {
+    "id": "contract-drift-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-contract-drift:contract-drift",
+    "prompt": "Мобилка падает после нашего релиза: у нас поле стало необязательным, а они его читают. Как это ловить заранее?"
+  },
+  {
+    "id": "core-dumps-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-core-dumps:core-dumps",
+    "prompt": "Процесс упал ночью, остался только дамп. С чего начать разбор?"
+  },
+  {
+    "id": "decision-log-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-decision-log:decision-log",
+    "prompt": "По ходу разбора требований мы приняли пять решений в переписке. Где их фиксировать, чтобы требования на них ссылались?"
+  },
+  {
+    "id": "deep-audit-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-deep-audit:deep-audit",
+    "prompt": "Модуль оплаты идёт в релиз. Нужен список слабых мест по коду: нарушенные контракты между слоями, потокобезопасность, поведение на ошибках и повторах."
+  },
+  {
+    "id": "design-quality-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-design-quality:design-quality",
+    "prompt": "Вот дизайн-документ на новую подсистему. Оцени, годится ли он: покрывает ли требования и что в нём не решено."
+  },
+  {
+    "id": "distributed-resilience-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-distributed-resilience:distributed-resilience",
+    "prompt": "Два инстанса одновременно списывают остаток и получается минус. Плюс сервис падает лавиной, когда сосед тормозит. Что делать?"
+  },
+  {
+    "id": "doc-standards-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-doc-standards:doc-standards",
+    "prompt": "В проекте три документа описывают один и тот же процесс по-разному. Как навести порядок в документации?"
+  },
+  {
+    "id": "dotnet-api-dev-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-dotnet-api-development:dotnet-api-development",
+    "prompt": "Делаю контроллер выдачи заказов на ASP.NET Core: как разложить DTO, маршруты и постраничную выдачу?"
+  },
+  {
+    "id": "dotnet-async-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-dotnet-async-patterns:dotnet-async-patterns",
+    "prompt": "В C# сервисе висит запрос: внутри синхронно ждём результат асинхронного метода. Как правильно переписать и как отменять по таймауту?"
+  },
+  {
+    "id": "dotnet-caching-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-dotnet-caching:dotnet-caching",
+    "prompt": "В .NET сервисе хочу закэшировать справочник в памяти и корректно сбрасывать его при обновлении. Что использовать?"
+  },
+  {
+    "id": "dotnet-code-quality-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-dotnet-code-quality:dotnet-code-quality",
+    "prompt": "Билд .NET проекта сыпет предупреждениями, их все игнорируют. Как включить контроль и не утонуть в подавлениях?"
+  },
+  {
+    "id": "dotnet-config-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-dotnet-config-hygiene:dotnet-config-hygiene",
+    "prompt": "Настройки .NET сервиса разъезжаются между стендами, на проде поймали пустую строку подключения. Как это организовать правильно?"
+  },
+  {
+    "id": "dotnet-csproj-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-dotnet-csproj-hygiene:dotnet-csproj-hygiene",
+    "prompt": "В решении на C# у каждого проекта своя версия одного пакета, и транзитивные зависимости тянутся куда попало. Как это причесать?"
+  },
+  {
+    "id": "dotnet-di-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-dotnet-di:dotnet-di",
+    "prompt": "В .NET приложении singleton держит ссылку на scoped-сервис и после первого запроса всё ломается. Как правильно регистрировать?"
+  },
+  {
+    "id": "dotnet-linq-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-dotnet-linq-optimization:dotnet-linq-optimization",
+    "prompt": "Метод на C# перебирает список в цикле и внутри ещё раз ищет по нему же, на десяти тысячах записей стало медленно. Как переписать?"
+  },
+  {
+    "id": "dotnet-logging-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-dotnet-logging:dotnet-logging",
+    "prompt": "В .NET сервисе логов много, а при инциденте ничего не найти: нет связи между записями одного запроса. Как настроить?"
+  },
+  {
+    "id": "dotnet-resilience-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-dotnet-resilience:dotnet-resilience",
+    "prompt": "Наш HttpClient в C# валится, когда соседний сервис моргает. Хочу повторы и защиту, но боюсь задублировать платежи."
+  },
+  {
+    "id": "dotnet-resources-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-dotnet-resources:dotnet-resources",
+    "prompt": "В .NET сервисе память растёт весь день и не отдаётся после сборки мусора, а исходящие HTTP-запросы со временем начинают падать. Что не освобождается?"
+  },
+  {
+    "id": "dotnet-testing-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-dotnet-testing-patterns:dotnet-testing-patterns",
+    "prompt": "Пишу тесты на C# сервис, половина падает через раз в зависимости от порядка запуска. Как правильно оформить и как разложить проверки?"
+  },
+  {
+    "id": "dotnet-validation-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-dotnet-validation:dotnet-validation",
+    "prompt": "В .NET API прилетает DTO с пустыми полями и отрицательной суммой, падает уже в базе. Где и как проверять вход, и что отдавать клиенту?"
+  },
+  {
+    "id": "elasticsearch-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-elasticsearch:elasticsearch",
+    "prompt": "Поиск по названию товара в Elasticsearch не находит частичные совпадения, а фильтр по числовому полю не срабатывает. Что не так с индексом?"
+  },
+  {
+    "id": "epic-planning-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-epic-planning:epic-planning",
+    "prompt": "Эпик разросся - в него уже добавили пять смежных задач, и он не влезает в квартал. Как определить его границы и что вынести за скоуп?"
+  },
+  {
+    "id": "exploratory-testing-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-exploratory-testing:exploratory-testing",
+    "prompt": "Автотесты зелёные, а пользователи находят баги. Как поискать дефекты руками, чтобы это не было бессистемным тыканьем?"
+  },
+  {
+    "id": "fact-verification-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-fact-verification:fact-verification",
+    "prompt": "Коллега утверждает, что у этого метода дефолтный таймаут 30 секунд. Как убедиться, что это правда, а не память?"
+  },
+  {
+    "id": "functional-requirements-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-functional-requirements:functional-requirements",
+    "prompt": "Из сценария оформления заказа надо получить требования. Как их формулировать, чтобы каждое можно было проверить?"
+  },
+  {
+    "id": "git-workflow-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-git-workflow:git-workflow",
+    "prompt": "Ветка отстала от основной на две недели, история грязная, и непонятно, мержить или ребейзить перед ревью. Как правильно?"
+  },
+  {
+    "id": "github-actions-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-github-actions:github-actions",
+    "prompt": "Workflow в GitHub Actions пересобирает зависимости на каждом запуске и стартует дважды на один пуш в PR. Как поправить кэш и параллельные запуски?"
+  },
+  {
+    "id": "gitlab-ci-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-gitlab-ci:gitlab-ci",
+    "prompt": "Джобы в .gitlab-ci.yml гоняются последовательно 40 минут, артефакты между стадиями теряются. Как ускорить?"
+  },
+  {
+    "id": "integration-boundary-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-integration-boundary:integration-boundary",
+    "prompt": "Все unit-тесты сервиса зелёные, но внешний вызов в них замокан, и на стенде фича не работает. Где заканчивается unit и нужна живая интеграция?"
+  },
+  {
+    "id": "jenkins-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-jenkins:jenkins",
+    "prompt": "В Jenkinsfile секреты светятся в логе, а общая библиотека тянется непонятно какой версии. Как правильно оформить?"
+  },
+  {
+    "id": "kafka-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-kafka:kafka",
+    "prompt": "Консьюмер Kafka иногда обрабатывает одно и то же сообщение дважды, а при перезапуске часть сообщений теряется. Как настроить коммит оффсетов и семантику доставки?"
+  },
+  {
+    "id": "karpathy-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-karpathy-guidelines:karpathy-guidelines",
+    "prompt": "Правлю чужой модуль по задаче. Как вынести допущения до написания кода, удержать правку хирургической и не утащить в неё попутный рефакторинг?"
+  },
+  {
+    "id": "kubernetes-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-kubernetes:kubernetes",
+    "prompt": "Под перезапускается по кругу, лимитов не выставляли, трафик иногда уходит в ещё не готовый инстанс. Что настроить в манифестах?"
+  },
+  {
+    "id": "managed-debug-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-managed-debug:managed-debug",
+    "prompt": "Сервис на .NET висит в проде, поток не двигается. Как снять состояние с живого процесса и посмотреть, где он стоит?"
+  },
+  {
+    "id": "merge-conflict-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-merge-conflict-resolution:merge-conflict-resolution",
+    "prompt": "При ребейзе на develop прилетело двадцать конфликтов, часть файлов переименована на той стороне. Как разрулить, чтобы ничего не потерять?"
+  },
+  {
+    "id": "microservices-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-microservices:microservices",
+    "prompt": "Дробим монолит на отдельные сервисы. Как провести границы, чем им ходить друг к другу и что делать с общей базой?"
+  },
+  {
+    "id": "mongodb-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-mongodb:mongodb",
+    "prompt": "Коллекция выросла до десяти миллионов документов, агрегация по датам стала неприлично медленной. Как перестроить схему и индексы?"
+  },
+  {
+    "id": "native-debug-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-native-debug:native-debug",
+    "prompt": "Нативная библиотека падает с segfault, символов нет. Как подцепиться отладчиком и получить внятный стек?"
+  },
+  {
+    "id": "nfr-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-nfr:nfr",
+    "prompt": "Заказчик говорит «должно быть быстро и надёжно». Как превратить это в требование, которое можно проверить?"
+  },
+  {
+    "id": "no-loose-ends-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-no-loose-ends:no-loose-ends",
+    "prompt": "Перед выкаткой хочу пройтись по ветке: не осталось ли заглушек, забытых TODO и проглоченных исключений. На что смотреть?"
+  },
+  {
+    "id": "observability-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-observability:observability",
+    "prompt": "Запрос проходит через четыре сервиса, и при ошибке невозможно понять, где именно встал. Как это инструментировать?"
+  },
+  {
+    "id": "output-hygiene-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-output-hygiene:output-hygiene",
+    "prompt": "Пишу отчёт по ревью для команды. Как писать, чтобы текст не выглядел сгенерированным - без эмодзи, восторженных вводных и воды?"
+  },
+  {
+    "id": "perf-profiling-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-perf-profiling:perf-profiling",
+    "prompt": "Процесс на Linux ест 100% CPU, надо понять, в какой функции. Как снять профиль и посмотреть горячие места?"
+  },
+  {
+    "id": "performance-review-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-performance-review:performance-review",
+    "prompt": "Смотрю чужой diff. На что обращать внимание с точки зрения производительности - что там обычно прячется?"
+  },
+  {
+    "id": "plan-quality-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-plan-quality:plan-quality",
+    "prompt": "Готовлю план реализации фичи по шагам. По каким признакам судить, что план годится и по нему можно начинать работу?"
+  },
+  {
+    "id": "playwright-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-playwright:playwright",
+    "prompt": "E2E-тесты в браузере то проходят, то нет: то элемент не успел появиться, то предыдущий тест оставил состояние. Как писать правильно?"
+  },
+  {
+    "id": "post-merge-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-post-merge-remediation:post-merge-remediation",
+    "prompt": "Фичу уже влили в develop, и на стенде нашли пачку багов. Как их чинить, чтобы не сломать общую ветку?"
+  },
+  {
+    "id": "prioritization-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-prioritization:prioritization",
+    "prompt": "В бэклоге сорок задач, все «важные». Как расставить порядок так, чтобы это можно было объяснить заказчику?"
+  },
+  {
+    "id": "problem-spec-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-problem-specification:problem-specification",
+    "prompt": "Прежде чем искать причину сбоя, хочу чётко описать саму проблему: где проявляется, а где нет. Как это правильно сделать?"
+  },
+  {
+    "id": "product-discovery-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-product-discovery:product-discovery",
+    "prompt": "Есть гипотеза, что пользователям нужна функция шаринга. Как проверить это до разработки, не строя её целиком?"
+  },
+  {
+    "id": "python-classical-ml-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-python-classical-ml:python-classical-ml",
+    "prompt": "Модель на кросс-валидации даёт 0.95, на реальных данных 0.6. Классы при этом сильно несбалансированы. Где я ошибся?"
+  },
+  {
+    "id": "python-cv-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-python-computer-vision:python-computer-vision",
+    "prompt": "Обучаю детектор объектов на своих фото, на валидации метрика хорошая, на новых снимках рамки съезжают. Что посмотреть в подготовке данных?"
+  },
+  {
+    "id": "python-ml-opt-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-python-ml-optimization:python-ml-optimization",
+    "prompt": "Подбор гиперпараметров идёт третьи сутки, а обучение на двух картах медленнее, чем на одной. Как это ускорить?"
+  },
+  {
+    "id": "python-nlp-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-python-nlp-transformers:python-nlp-transformers",
+    "prompt": "Дообучаю BERT из huggingface transformers на своём датасете: не хватает памяти GPU, а после дообучения качество просело. Как правильно?"
+  },
+  {
+    "id": "python-hygiene-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-python-project-hygiene:python-project-hygiene",
+    "prompt": "Настраиваю Python-проект с нуля: линтер, проверка типов и тесты. Что положить в pyproject.toml?"
+  },
+  {
+    "id": "python-pytorch-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-python-pytorch:python-pytorch",
+    "prompt": "Цикл обучения на PyTorch: лосс скачет, на валидации метрики хуже, чем на трейне при том же коде, и GPU загружена на 20%. Что не так?"
+  },
+  {
+    "id": "python-tensorflow-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-python-tensorflow:python-tensorflow",
+    "prompt": "Обучение на Keras: входной конвейер данных тормозит, а после сохранения и загрузки модель предсказывает иначе. Как правильно?"
+  },
+  {
+    "id": "rabbitmq-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-rabbitmq:rabbitmq",
+    "prompt": "Сообщение в RabbitMQ падает при обработке и бесконечно возвращается в очередь, забивая её. Как настроить повторы и куда девать неудачные?"
+  },
+  {
+    "id": "react-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-react:react",
+    "prompt": "Компонент перерисовывается на каждый ввод символа, а запрос в эффекте уходит дважды. Как это чинится?"
+  },
+  {
+    "id": "reference-arch-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-reference-architectures:reference-architectures",
+    "prompt": "Начинаем ленту постов с подписками с нуля. Какие есть типовые схемы доставки постов подписчикам и по какому признаку между ними выбирать?"
+  },
+  {
+    "id": "requirement-quality-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-requirement-quality:requirement-quality",
+    "prompt": "Вот формулировка: «Система должна быстро обрабатывать запросы пользователей». Что с ней не так как с требованием?"
+  },
+  {
+    "id": "requirement-set-quality-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-requirement-set-quality:requirement-set-quality",
+    "prompt": "Набор требований на фичу вроде написан. Как понять, что он полный и по нему можно начинать разработку?"
+  },
+  {
+    "id": "review-evidence-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-review-evidence:review-evidence",
+    "prompt": "Я выписал в ревью десяток замечаний по чтению diff. Как отделить настоящие от тех, что мне показалось?"
+  },
+  {
+    "id": "review-step-by-step-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-review-step-by-step:review-step-by-step",
+    "prompt": "Хочу пройти по замечаниям ревью по одному и на каждом остановиться, а не грести всё разом. Как это организовать?"
+  },
+  {
+    "id": "review-threads-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-review-threads:review-threads",
+    "prompt": "Как оставить замечания в MR так, чтобы каждое висело на своей строке отдельным тредом, а не одной простынёй?"
+  },
+  {
+    "id": "root-cause-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-root-cause-analysis:root-cause-analysis",
+    "prompt": "Ошибку убрали проверкой на null, но она вылезла в соседнем месте. Как докопаться до настоящей причины?"
+  },
+  {
+    "id": "scalability-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-scalability:scalability",
+    "prompt": "Сервис держит сессию в памяти инстанса, из-за чего второй инстанс не помогает. Плюс шардирование по остатку от деления упирается в один горячий шард. Что делать?"
+  },
+  {
+    "id": "shared-stand-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-shared-stand-safety:shared-stand-safety",
+    "prompt": "Расследую баг на общем тестовом стенде, там сидят другие команды. Что можно трогать, а что нет?"
+  },
+  {
+    "id": "stand-verification-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-stand-verification:stand-verification",
+    "prompt": "Фича выкачена на стенд, деплой зелёный. Как доказать, что она действительно работает так, как написано в постановке?"
+  },
+  {
+    "id": "syscall-tracing-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-syscall-tracing:syscall-tracing",
+    "prompt": "Процесс на Linux зачем-то долго висит на вводе-выводе. Как посмотреть, какие системные вызовы он делает и на чём стоит?"
+  },
+  {
+    "id": "teamcity-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-teamcity:teamcity",
+    "prompt": "Сборка в TeamCity тянет артефакты не из той сборки цепочки, конфигурация правится мышкой и разъезжается. Как навести порядок?"
+  },
+  {
+    "id": "tech-audit-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-tech-audit:tech-audit",
+    "prompt": "Команда прислала RFC на новый сервис уведомлений. Проведи аудит предложения: что будет, если не делать, какие альтернативы не рассмотрены и что оно ломает у потребителей."
+  },
+  {
+    "id": "tech-evaluation-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-tech-evaluation:tech-evaluation",
+    "prompt": "Выбираем между managed-сервисом и своим развёртыванием. Как сравнить честно, а не по популярности?"
+  },
+  {
+    "id": "testability-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-testability:testability",
+    "prompt": "Метод внутри сам берёт текущее время и лезет в файловую систему, тест на него написать невозможно. Как переделать?"
+  },
+  {
+    "id": "ts-nodejs-api-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-ts-nodejs-api:ts-nodejs-api",
+    "prompt": "На Node.js сервере ошибка в асинхронном обработчике не доходит до middleware и роняет процесс. Как правильно обрабатывать?"
+  },
+  {
+    "id": "ts-patterns-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-ts-patterns:ts-patterns",
+    "prompt": "В TypeScript тип говорит, что поле есть, а в рантайме приходит undefined из внешнего ответа. Как это правильно закрыть?"
+  },
+  {
+    "id": "unit-identity-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-unit-identity:unit-identity",
+    "prompt": "Переформулировали принятое требование. Это правка старого номера или новая единица? И что делать с задвоенным по смыслу?"
+  },
+  {
+    "id": "use-cases-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-use-cases:use-cases",
+    "prompt": "Как описать сценарий возврата товара: кто действует, что идёт по шагам и куда девать ветку «денег не хватило»?"
+  },
+  {
+    "id": "user-stories-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-user-stories:user-stories",
+    "prompt": "Разбиваю сценарий на истории для спринта. Как их нарезать и откуда брать критерии приёмки?"
+  },
+  {
+    "id": "ef-core-near",
+    "mode": "near-miss",
+    "expect": "dex-skill-dotnet-ef-core:dotnet-ef-core",
+    "prompt": "В Node.js проекте на Prisma миграция не применяется на проде, схема разъехалась с базой. Как это чинить?"
+  },
+  {
+    "id": "kafka-near",
+    "mode": "near-miss",
+    "expect": "dex-skill-kafka:kafka",
+    "prompt": "Надо запускать выгрузку отчёта раз в час на сервере. Как оформить это через systemd timer?"
+  },
+  {
+    "id": "requirement-quality-near",
+    "mode": "near-miss",
+    "expect": "dex-skill-requirement-quality:requirement-quality",
+    "prompt": "Посмотри качество вот этого класса на C#: длинные методы, дублирование. Что переписать?"
+  },
+  {
+    "id": "pytorch-near",
+    "mode": "near-miss",
+    "expect": "dex-skill-python-pytorch:python-pytorch",
+    "prompt": "Как в pandas объединить два датафрейма по ключу и не потерять строки, которых нет во втором?"
+  },
+  {
+    "id": "owasp-near",
+    "mode": "near-miss",
+    "expect": "dex-skill-owasp-security:owasp-security",
+    "prompt": "Логи на сервере забили диск. Как настроить их ротацию и сжатие?"
+  },
+  {
+    "id": "docker-near",
+    "mode": "near-miss",
+    "expect": "dex-skill-docker:docker",
+    "prompt": "Как правильно выставить requests и limits для пода в Kubernetes, чтобы его не убивал OOM?"
+  },
+  {
+    "id": "engine-implement-in",
+    "mode": "in-scope",
+    "expect": "dex-sdlc:engine",
+    "plugins": [
+      "dex-sdlc-nudge"
+    ],
+    "git": true,
+    "prompt": "Реализуй фичу экспорта отчёта в CSV по описанию в задаче. Работай сам до готовых коммитов."
+  },
+  {
+    "id": "engine-bugfix-in",
+    "mode": "in-scope",
+    "expect": "dex-sdlc:engine",
+    "plugins": [
+      "dex-sdlc-nudge",
+      "dex-skill-development-track",
+      "dex-skill-bugfix-track"
+    ],
+    "git": true,
+    "prompt": "Почини баг: удаление комментария бросает ошибку вместо удаления.",
+    "maxTurns": 4
+  },
+  {
+    "id": "engine-review-in",
+    "mode": "in-scope",
+    "expect": "dex-sdlc:engine",
+    "plugins": [
+      "dex-sdlc-nudge"
+    ],
+    "git": true,
+    "prompt": "Отревьюй PR 42."
+  },
+  {
+    "id": "engine-ticket-in",
+    "mode": "in-scope",
+    "expect": "dex-sdlc:engine",
+    "plugins": [
+      "dex-sdlc-nudge"
+    ],
+    "git": true,
+    "prompt": "Возьми тикет и работай автономно до сдачи."
+  },
+  {
+    "id": "engine-requirements-in",
+    "mode": "in-scope",
+    "expect": "dex-sdlc:engine",
+    "plugins": [
+      "dex-sdlc-nudge"
+    ],
+    "git": true,
+    "prompt": "Собери требования на фичу экспорта отчётов."
+  },
+  {
+    "id": "engine-near-question",
+    "mode": "near-miss",
+    "expect": "dex-sdlc:engine",
+    "plugins": [
+      "dex-sdlc-nudge"
+    ],
+    "git": true,
+    "prompt": "Какой у нас стек и где лежат тесты?"
+  },
+  {
+    "id": "engine-near-typo",
+    "mode": "near-miss",
+    "expect": "dex-sdlc:engine",
+    "plugins": [
+      "dex-sdlc-nudge"
+    ],
+    "git": true,
+    "prompt": "Поправь опечатку в README: \"experimantal\" -> \"experimental\"."
+  },
+  {
+    "id": "idea-forming-in",
+    "mode": "contested",
+    "expect": "dex-skill-idea-forming:idea-forming",
+    "prompt": "Есть мысль сделать сервис, который сам собирает отчёт по складу. Дальше идеи не двигается - помоги проработать: непонятно, кому это вообще нужно и с чего начинать.",
+    "requiresListed": [
+      "superpowers:brainstorming"
+    ]
+  },
+  {
+    "id": "idea-forming-in-2",
+    "mode": "contested",
+    "expect": "dex-skill-idea-forming:idea-forming",
+    "prompt": "Хотим внутренний портал для заявок. Прежде чем писать постановку, надо понять, стоит ли это делать и в чём тут ценность - как разложить?",
+    "requiresListed": [
+      "superpowers:brainstorming"
+    ]
+  },
+  {
+    "id": "idea-forming-near",
+    "mode": "near-miss",
+    "expect": "dex-skill-idea-forming:idea-forming",
+    "prompt": "Гипотеза сформулирована, идём проверять. Сколько интервью нужно, чтобы вывод не был случайным, и как не задавать наводящих вопросов?",
+    "requiresListed": [
+      "superpowers:brainstorming"
+    ]
+  },
+  {
+    "id": "idea-forming-near-2",
+    "mode": "near-miss",
+    "expect": "dex-skill-idea-forming:idea-forming",
+    "prompt": "Идея согласована, пишу BRD. Какие разделы обязательны и как оформить бизнес-требование с мерой успеха?",
+    "requiresListed": [
+      "superpowers:brainstorming"
+    ]
+  },
+  {
+    "id": "product-discovery-near-idea",
+    "mode": "near-miss",
+    "expect": "dex-skill-product-discovery:product-discovery",
+    "prompt": "Есть только смутная мысль про автоматизацию закупок, гипотезы ещё нет. Помоги довести её до состояния, когда понятно, чья это проблема и на чём идея держится.",
+    "requiresListed": [
+      "superpowers:brainstorming"
+    ]
+  }
+]

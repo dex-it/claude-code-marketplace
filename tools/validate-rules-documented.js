@@ -10,6 +10,7 @@
  *
  *   `rule-not-documented`  - правило есть в коде, строки в реестре нет
  *   `rule-registry-stale`  - строка есть, правила в коде нет
+ *   `rule-section-missing` - строка есть, но не в разделе того валидатора
  *   `rule-untested`        - у правила нет фикстуры в tools/__fixtures__
  *
  * Третье правило держит регрессию: правило без фикстуры проверено разово и
@@ -69,6 +70,28 @@ function collectRulesFromRegistry(text) {
   return new Set([...text.matchAll(REGISTRY_ROW_RE)].map((m) => m[1]));
 }
 
+// Реестр разбит на разделы по валидаторам, и человек читает раздел того валидатора,
+// чьё имя увидел в выводе. Поэтому та же пара (валидатор, правило), по которой уже
+// считается покрытие фикстурами, нужна и здесь: строка под соседним разделом не
+// приводит читателя никуда.
+function collectRegistrySections(text) {
+  const map = new Map(); // rule -> Set(validator file names)
+  let current = null;
+  for (const line of text.split('\n')) {
+    const heading = line.match(/^##\s+tools\/(validate-[a-z-]+\.js)\s*$/);
+    if (heading) {
+      current = heading[1];
+      continue;
+    }
+    const row = line.match(/^\|\s*`([a-z0-9-]+)`\s*\|/);
+    if (!row || !current) continue;
+    const set = map.get(row[1]) || new Set();
+    set.add(current);
+    map.set(row[1], set);
+  }
+  return map;
+}
+
 function main() {
   if (!existsSync(REGISTRY)) {
     console.log(`${COLORS.red}ERROR${COLORS.reset} rule registry not found: docs/VALIDATOR_RULES.md`);
@@ -95,6 +118,21 @@ function main() {
       rule: 'rule-registry-stale',
       message: `"${rule}" is listed in docs/VALIDATOR_RULES.md but no validator emits it - remove the row or restore the rule`,
     });
+  }
+
+  // Строка есть, но не в разделе того валидатора, который правило эмитит. Правило
+  // без строки вовсе ловит rule-not-documented, поэтому здесь только известные имена.
+  const documentedIn = collectRegistrySections(registryText);
+  for (const [rule, files] of inCode) {
+    const sections = documentedIn.get(rule);
+    if (!sections) continue;
+    for (const file of files) {
+      if (sections.has(file)) continue;
+      findings.push({
+        rule: 'rule-section-missing',
+        message: `"${rule}" is emitted by ${file} but docs/VALIDATOR_RULES.md documents it only under ${[...sections].join(', ')} - the registry is read section by section, and a row under a neighbour leads the reader nowhere`,
+      });
+    }
   }
 
   // Покрытие считается по паре (валидатор, правило): одно имя эмитят несколько

@@ -1,0 +1,17 @@
+{
+  "description": "Напоминание о процедуре возобновления dex-sdlc:engine после свёртки контекста или возобновления сессии (по незакрытому auto-ledger движка)",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "compact|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/resume-reminder.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

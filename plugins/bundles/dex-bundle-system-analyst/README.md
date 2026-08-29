@@ -25,15 +25,22 @@ Bundle for System Analysts: requirements, user stories, BPMN, API specs, documen
 .\install-bundle\uninstall-bundle.ps1 system-analyst
 ```
 
-## Included Components (9)
+## Included Components
 
-### Specialists (4)
+Полный состав - `bundle.json`: `includes[]` (профиль роли) плюс `dependencies[]` (подтянутое замыканием); ниже - ключевые компоненты роли, не весь перечень.
+
+### Команды
+- `/design` - дизайн-решение и ADR
+- `/feature` - требования фичи (BR -> UC -> FR/NFR -> stories)
+- `/feature-check` - ревью готового набора требований
+
+### Specialists
 - `dex-requirements-analyst` - Requirements analysis
 - `dex-user-story-analyst` - User story writing
 - `dex-process-modeler` - BPMN process modeling
 - `dex-doc-writer` - Technical documentation
 
-### Skills (5)
+### Skills
 - `dex-skill-agile` - Agile methodology
 - `dex-skill-user-stories` - User story patterns
 - `dex-skill-bpmn` - BPMN notation

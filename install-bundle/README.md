@@ -113,7 +113,7 @@ It **never installs new agents** - "something new appeared in the market" is a m
 
 ## Renamed and removed plugins (manual step)
 
-Neither `install-bundle.sh` nor `sync-plugins.sh` removes anything: sync only adds missing skills, and the uninstaller walks the bundle's current `includes[]`. A plugin dropped from the marketplace therefore stays installed and keeps being loaded by name - no error is raised, because the file is still on disk.
+Neither `install-bundle.sh` nor `sync-plugins.sh` removes anything: sync only adds missing skills, and the uninstaller walks the bundle's current component lists (`includes[]` + `dependencies[]`). A plugin dropped from the marketplace therefore stays installed and keeps being loaded by name - no error is raised, because the file is still on disk.
 
 Uninstall such plugins by hand:
 
@@ -186,7 +186,7 @@ Current entries:
 ### Installation
 
 1. Reads `bundle.json` from `plugins/bundles/dex-bundle-<name>/`
-2. Extracts the `includes[]` array (list of component plugin names)
+2. Extracts the component lists - `includes[]` (the role profile the bundle is built for) plus `dependencies[]` (what the profile pulls in transitively)
 3. Verifies each component is declared in `marketplace.json`
 4. Resolves the marketplace name from `marketplace.json`
 5. Runs `claude plugins install <component>@<marketplace>` for each component
@@ -194,7 +194,7 @@ Current entries:
 ### Uninstallation
 
 1. Reads `bundle.json` from `plugins/bundles/dex-bundle-<name>/`
-2. Extracts the `includes[]` array (list of component plugin names)
+2. Extracts the component lists - `includes[]` plus `dependencies[]`
 3. Runs `claude plugins uninstall <component>` for each component
 
 > **Note:** Component lists are stored in `bundle.json`, not `plugin.json`.
@@ -286,7 +286,7 @@ chmod +x install-bundle.sh uninstall-bundle.sh
 
 ### Component not found in marketplace.json
 
-The component name in `bundle.json` `includes[]` must match a plugin `name` in `marketplace.json`. Check for typos.
+A component name in `bundle.json` (`includes[]` or `dependencies[]`) must match a plugin `name` in `marketplace.json`. Check for typos.
 
 ## Files
 

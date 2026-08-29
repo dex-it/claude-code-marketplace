@@ -1,0 +1,16 @@
+{
+  "description": "Подталкивает поднять движок dex-sdlc:engine на просьбе, которая является работой конвейера (UserPromptSubmit)",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/engine-nudge.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

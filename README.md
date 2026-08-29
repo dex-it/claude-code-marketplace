@@ -84,6 +84,7 @@ claude plugins uninstall dex-dotnet-coder
 | `bug-lifecycle` | Жизненный цикл бага: поиск, оформление, RCA на стенде, фикс на источнике (языко-агностично) |
 | `runtime-diagnostics` | Runtime-диагностика .NET и native-границы: hang, crash, leak, дампы, netcoredbg |
 | `sdlc` | Полный цикл SDLC языко-агностично: движок автономного доведения задачи, требования, дизайн, реализация, тесты, ревью, стенд, баги, документирование. Стек добирается профильным бандлом |
+| `market-editor` | Редактор маркетплейса: ревью артефакта каталога по осям фреймворка, сверка фактов, оптимизация под LLM, извлечение уроков из чужих MR. Ставится автору каталога, не пользователю |
 
 Подробнее: [install-bundle/README.md](./install-bundle/README.md)
 
@@ -95,15 +96,14 @@ claude plugins uninstall dex-dotnet-coder
 
 | Плагин | Агент | Команда | Описание |
 |--------|-------|---------|----------|
-| dex-mr-reviewer | mr-reviewer | `/mr-review` | Первичное ревью чужого MR/PR, инлайн-треды через gh/glab |
-| dex-mr-check-reviewer | mr-check-reviewer | `/mr-check-review` | Ре-ревью дельты с прошлого раунда (range-diff) |
-| dex-review-planner | review-planner | `/review-plan` | План правок по ревью без редактирования кода |
-| dex-feature-implementer | feature-implementer | `/implement` | Реализация фичи по ТЗ до локальных коммитов |
+| dex-mr-reviewer | mr-reviewer | `/mr-review` (плагин `dex-sdlc-review`) | Первичное ревью чужого MR/PR, инлайн-треды через gh/glab |
+| dex-mr-check-reviewer | mr-check-reviewer | второй раунд `/mr-review`, не своя команда | Ре-ревью дельты с прошлого раунда (range-diff) |
+| dex-review-planner | review-planner | `/review-plan` (плагин `dex-sdlc-review`) | План правок по ревью без редактирования кода |
 | dex-self-reviewer | self-reviewer | `/self-review` | Pre-push саморевью своей ветки с прогоном тестов |
 | dex-conflict-resolver | conflict-resolver | `/resolve-conflicts` | Подтянуть базу в фича-ветку и развести конфликты merge/rebase без тихой потери стороны |
-| dex-incident-investigator | incident-investigator | `/investigate` | Расследование инцидента на общем стенде, RCA и фикс на источнике, read-only по умолчанию |
+| dex-incident-investigator | incident-investigator | `/investigate` (плагин `dex-sdlc-ops`) | Расследование инцидента на общем стенде, RCA и фикс на источнике, read-only по умолчанию |
 
-Ставятся набором: `dex-bundle-code-review`. Стек определяется по манифестам, релевантные skills (включая .NET и TypeScript) грузятся условно.
+Команды с пометкой «плагин `dex-sdlc-*`» - входы движка, живущие в плагине своей зоны (`plugins/ai-sdlc/dex-sdlc-<зона>/commands/`); специалист несёт только агента, а движок `dex-sdlc` ставится вместе с любой зоной. `/self-review` и `/resolve-conflicts` остаются собственными командами своих плагинов. Реализация фичи по ТЗ до локальных коммитов - `/implement` (плагин `dex-sdlc-delivery`, см. «Движок SDLC» в Skills). Ставятся набором: `dex-bundle-code-review`. Стек кодера (агент, не skills) добирается профильным бандлом (`dotnet-developer`/`ts-fullstack`) - см. «Бандлы»; skills по стеку (включая .NET и TypeScript) грузятся условно.
 
 ### Fullstack
 
@@ -154,6 +154,7 @@ claude plugins uninstall dex-dotnet-coder
 | Плагин | Описание |
 |--------|----------|
 | dex-business-analyst | Бизнес-требования: BRD с `BR-NNN` и MOE |
+| dex-domain-analyst | Словарь продукта и конституция: `INV-NNN`, `NFR-P-NNN` с основанием и методом проверки |
 | dex-roadmap-planner | Strategic planning |
 | dex-backlog-manager | Epic backlog, prioritization |
 | dex-pm-metrics-analyst | KPIs, OKRs, metrics |
@@ -162,12 +163,15 @@ claude plugins uninstall dex-dotnet-coder
 
 | Плагин | Описание |
 |--------|----------|
-| dex-requirements-orchestrator | Дирижёр зоны требований (`/feature`): идея -> BRD -> `FR`/`NFR` -> stories, гейты с апрувом оператора |
 | dex-requirements-reviewer | Приёмка чужого набора требований (`/review-requirements`) |
 | dex-requirements-analyst | Требования системного уровня: `FR`/`NFR` из `BR`, пробелы, конфликты |
+| dex-usecase-analyst | Сценарии `UC` из бизнес-требований: актор, основной ход, расширения |
 | dex-user-story-analyst | User stories, acceptance criteria |
+| dex-implementer-reader | Проба готовности набора требований к разработке |
 | dex-process-modeler | BPMN, workflows |
 | dex-doc-writer | Technical specs, API docs |
+
+Зона требований целиком (идея -> BRD -> `UC` -> `FR`/`NFR` -> stories, гейты с апрувом оператора) идёт через `/feature` (плагин `dex-sdlc-requirements`, движок `dex-sdlc`; см. «Движок SDLC» в Skills), не отдельным агентом.
 
 ### QA
 
@@ -194,12 +198,13 @@ claude plugins uninstall dex-dotnet-coder
 
 | Категория | Skills |
 |-----------|--------|
+| **Движок SDLC** | sdlc (`dex-sdlc:engine`; команды-входы - в плагинах зон `dex-sdlc-product`, `dex-sdlc-requirements`, `dex-sdlc-design`, `dex-sdlc-discover`, `dex-sdlc-docs`, `dex-sdlc-delivery`, `dex-sdlc-test`, `dex-sdlc-review`, `dex-sdlc-acceptance`, `dex-sdlc-ops`), product-track, analytics-track, development-track, architecture-track, bugfix-track, followup-track, acceptance-track, discover-track, test-track, mr-review-track, documentation-track, diagnostics-track |
 | **.NET** | dotnet-patterns, ef-core, async-patterns, linq-optimization, api-development, api-documentation, testing-patterns |
 | **Frontend & TypeScript** | react, ts-patterns, ts-nodejs-api, ts-vitest-jest |
 | **Security** | owasp-security |
 | **Workflow** | git-workflow, merge-conflict-resolution |
 | **Infrastructure** | rabbitmq, kafka, elasticsearch, redis, mongodb, docker, kubernetes, gitlab-ci, github-actions, jenkins, teamcity, logging, observability |
-| **Architecture** | clean-architecture, ddd, microservices, system-design, legacy-reconstruction, design-quality |
+| **Architecture** | clean-architecture, ddd, microservices, system-design, legacy-reconstruction, design-quality, plan-quality |
 | **Product & Analysis** | agile, user-stories, bpmn, doc-standards, adr-quality, requirement-quality, requirement-set-quality, api-specification, epic-planning, product-discovery, prioritization |
 | **QA** | test-design, api-testing, deep-audit, tech-audit, playwright, exploratory-testing, bug-reproduction, contract-drift |
 | **Incident & RCA** | problem-specification, root-cause-analysis, change-correlation, shared-stand-safety |

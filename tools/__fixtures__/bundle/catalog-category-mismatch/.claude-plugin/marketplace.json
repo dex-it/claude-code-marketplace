@@ -1,0 +1,64 @@
+{
+  "name": "dex-fixture-marketplace",
+  "owner": {
+    "name": "Dex Team",
+    "email": "mmx@dex-it.ru"
+  },
+  "version": "1.0.0",
+  "plugins": [
+    {
+      "name": "dex-skill-fixture",
+      "source": "./plugins/skills/dex-skill-fixture",
+      "description": "Фикстурный trap-skill для песочницы валидатора",
+      "version": "1.0.0",
+      "category": "specialist",
+      "keywords": [
+        "skill",
+        "fixture"
+      ]
+    },
+    {
+      "name": "dex-fixture-specialist",
+      "source": "./plugins/specialists/fixture/dex-fixture-specialist",
+      "description": "Фикстурный специалист для песочницы валидатора",
+      "version": "1.0.0",
+      "keywords": [
+        "specialist",
+        "fixture"
+      ]
+    },
+    {
+      "name": "dex-bundle-fixture",
+      "source": "./plugins/bundles/dex-bundle-fixture",
+      "description": "Фикстурный бандл для песочницы валидатора",
+      "version": "1.0.0",
+      "category": "bundle",
+      "keywords": [
+        "bundle",
+        "fixture"
+      ]
+    },
+    {
+      "name": "dex-bundle-wrongcat",
+      "source": "./plugins/bundles/dex-bundle-wrongcat",
+      "description": "Фикстурный бандл с неверной категорией записи для песочницы валидатора",
+      "version": "1.0.0",
+      "category": "utility",
+      "keywords": [
+        "bundle",
+        "fixture"
+      ]
+    },
+    {
+      "name": "dex-fixture-utility",
+      "source": "./plugins/utility/dex-fixture-utility",
+      "description": "Фикстурный плагин только с командой и неверной категорией записи для песочницы",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "utility",
+        "fixture"
+      ]
+    }
+  ]
+}

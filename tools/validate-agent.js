@@ -65,6 +65,36 @@ function loadMarketplacePlugins() {
   }
 }
 
+// Голое имя плагина в теле - указатель на соседа: «этим ведает вон тот», «подробнее там». Загрузкой
+// оно не является (загрузка пишется полной формой `plugin:skill`), поэтому обязательства поставки не
+// даёт и в замыкание бандла не входит. Но указатель обязан вести в существующее место: имя, которого
+// в каталоге нет, читателя никуда не приводит и сгнить успевает молча, а голую форму до сих пор не
+// сторожил никто. Полная форма закрыта не целиком: `skill-reference-unknown` здесь судит только
+// имена с префиксом `dex-skill-`, у команды пропускает неизвестный плагин, у скилла его нет вовсе -
+// проверено подстановкой несуществующего имени на живом дереве, остаток вынесен в issue #220.
+let catalogPluginsCache = null;
+function catalogPlugins() {
+  if (!catalogPluginsCache) catalogPluginsCache = loadMarketplacePlugins();
+  return catalogPluginsCache;
+}
+
+function validatePluginNameMentions(text, findings, where = '') {
+  const known = catalogPlugins();
+  if (known.size === 0) return; // каталога нет - имя не «неизвестно», а непроверяемо: сверять не с чем
+  const seen = new Set();
+  for (const match of text.matchAll(/`(dex-[a-z0-9-]+)`/g)) {
+    const name = match[1];
+    if (name.endsWith('-')) continue; // не имя, а префикс-шаблон: `dex-skill-`
+    if (known.has(name) || seen.has(name)) continue;
+    seen.add(name);
+    findings.push({
+      level: ERROR,
+      rule: 'plugin-name-unknown',
+      message: `${where}names "${name}" - no such plugin in the catalogue. A bare name is a pointer, not a load, so it carries no delivery obligation - but a pointer must lead somewhere, and a name that leads nowhere rots silently; this rule is the guard of the bare form`,
+    });
+  }
+}
+
 // --- File discovery -----------------------------------------------------
 
 function findAllAgentFiles() {
@@ -157,7 +187,7 @@ const ALLOWED_PRELOAD_SKILLS = new Map([
 const STAGE_NORMATIVE_READERS = new Map([
   [
     'dex-skill-business-analysis:business-analysis',
-    new Set(['requirements-reviewer', 'requirements-orchestrator']),
+    new Set(['requirements-reviewer']),
   ],
 ]);
 
@@ -762,10 +792,11 @@ function validateAttributeBlocks(markdownBody, findings, bodyOffset = 0) {
 function validateFile(filepath, marketplacePlugins) {
   const findings = [];
   let parsed;
+  let raw;
   let bodyOffset = 0;
 
   try {
-    const raw = readFileSync(filepath, 'utf8');
+    raw = readFileSync(filepath, 'utf8');
     parsed = matter(raw);
     // Позиции из AST считаются по телу без frontmatter; в сообщениях нужен номер
     // строки файла, иначе он не совпадает с тем, что видит открывший файл.
@@ -786,12 +817,184 @@ function validateFile(filepath, marketplacePlugins) {
   validateJudgeCarriesWriter(parsed, findings);
   validateStageNormativeReaders(parsed, findings);
   validateAttributeBlocks(parsed.content, findings, bodyOffset);
+  validateCatalogDocsLink(raw, filepath, findings);
+  validateLinkEscapesPlugin(raw, filepath, findings);
+  validatePluginNameMentions(raw, findings);
 
   if (phaseResult.validated) {
     validateSkillReferences(parsed.content, marketplacePlugins, findings);
   }
 
   return { filepath, findings };
+}
+
+// --- link escapes the plugin ---------------------------------------------
+
+// Соседний плагин у пользователя ставится сам по себе: `../<плагин>/...` из тела
+// артефакта не резолвится ровно так же, как `docs/` каталога. Внутриплагинный
+// подъём (`../<соседний скилл>/`) законен и правилом не трогается - решает не
+// число `../`, а то, вышел ли разрешённый путь за корень плагина.
+const ESCAPING_LINK_RE = /\]\((\.\.\/[^)\s]+)\)/g;
+
+function pluginRootOf(filepath) {
+  let dir = dirname(resolve(filepath));
+  for (let i = 0; i < 8; i += 1) {
+    if (existsSync(join(dir, '.claude-plugin'))) return dir;
+    const up = dirname(dir);
+    if (up === dir) return null;
+    dir = up;
+  }
+  return null;
+}
+
+function validateLinkEscapesPlugin(text, filepath, findings, where = '') {
+  const pluginRoot = pluginRootOf(filepath);
+  if (!pluginRoot) return;
+  const baseDir = dirname(resolve(filepath));
+  const hits = [];
+  ESCAPING_LINK_RE.lastIndex = 0;
+  for (const m of text.matchAll(ESCAPING_LINK_RE)) {
+    if (relative(pluginRoot, resolve(baseDir, m[1])).startsWith('..')) hits.push(m[1]);
+  }
+  if (hits.length === 0) return;
+  const shown = hits.slice(0, 3).join(', ');
+  findings.push({
+    level: ERROR,
+    rule: 'link-escapes-plugin',
+    message: `${where}link leaves the plugin directory (${shown}${hits.length > 3 ? `, +${hits.length - 3} more` : ''}) - a neighbouring plugin is installed on its own, so the path does not resolve at runtime. Name the neighbour instead: {plugin}:{skill}`,
+  });
+}
+
+// --- catalog docs link ---------------------------------------------------
+
+// `docs/` каталога - дизайн-тайм: он нормирует авторство артефактов и в установленный плагин не
+// входит. Адрес такого документа в теле хуже отсутствия адреса: он выглядит валидным, а исполнитель
+// либо молча его не открывает, либо сочиняет содержимое. Норма, нужная в рантайме, живёт в самом
+// артефакте либо в скилле, который у пользователя установлен.
+
+// Ключ у правила один - адресат: документ, который РЕАЛЬНО существует в `docs/` каталога. Форма
+// записи ключом не служит - код-спан и проза уводят исполнителя туда же, куда markdown-ссылка.
+// Шаблоны формы работают на текст сообщения: назвать место в тексте и то, что относительная ссылка
+// не разрешается даже в клоне. Обратная сторона того же ключа: путь, которого в `docs/` каталога нет
+// (`docs/discover/README.md` как выход агента в проекте пользователя), не покрыт ни в одной форме -
+// он адресует чужой корпус.
+const CATALOG_DOCS_LINK_FORMS = [
+  /https?:\/\/github\.com\/dex-it\/claude-code-marketplace\/\S*?\/docs\/[^\s)\]]+/g,
+  /\]\((?:\.{1,2}\/)*docs\/[^)\s]+\)/g,
+];
+
+// Каталоги, которые каталог сам раздаёт пользователю: `project-docs-map` несёт дефолты
+// `product: docs/product/` и `domain: docs/domain/` как адрес корпуса уровня 0 ЕГО проекта. Путь под
+// ними в теле артефакта именует чужой документ, а не наш, - из-под правила выведен.
+const USER_CORPUS_DIRS = new Set(['product', 'domain']);
+
+let catalogDocTargetsCache = null;
+function catalogDocTargets() {
+  if (catalogDocTargetsCache) return catalogDocTargetsCache;
+  const paths = new Set();
+  const names = new Set();
+  const walk = (dir, rel) => {
+    if (!existsSync(dir)) return;
+    for (const entry of readdirSync(dir).sort()) {
+      const full = join(dir, entry);
+      const relPath = rel ? `${rel}/${entry}` : entry;
+      if (statSync(full).isDirectory()) {
+        if (!rel && USER_CORPUS_DIRS.has(entry)) continue;
+        walk(full, relPath);
+        continue;
+      }
+      if (!entry.endsWith('.md')) continue;
+      paths.add(`docs/${relPath}`);
+      // Голым именем адресуются доки-фреймворки каталога, а они лежат на верхнем уровне `docs/`.
+      // Ниже - внутренние дизайн-доки (`ARCHITECTURE.md`, `PIPELINE.md`), и такое имя носит документ
+      // пользователя не реже нашего: на нём правило ловило бы чужой файл.
+      if (!rel && /^[A-Z][A-Z0-9_]*\.md$/.test(entry) && entry !== 'README.md') names.add(entry);
+    }
+  };
+  walk(join(REPO_ROOT, 'docs'), '');
+  catalogDocTargetsCache = { paths: [...paths], names: [...names] };
+  return catalogDocTargetsCache;
+}
+
+// Матч по границе, а не подстрокой: `MY_PIPELINE.md` не адресует `PIPELINE.md`. Слева у пути `/`
+// допустим (адрес внутри URL), у голого имени - нет: там `/` значит, что имя уже часть пути и
+// посчитано путём.
+function mentionsTarget(text, target, slashBefore) {
+  const before = slashBefore ? '(?<![\\w.-])' : '(?<![\\w./-])';
+  const escaped = target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`${before}${escaped}(?![\\w])`).test(text);
+}
+
+// Авторские плагины: их артефакты исполняются в клоне каталога, где `docs/` лежит рядом, поэтому
+// адрес у них разрешается и правило к ним не применяется. Читается `authorOnly[]`, а не весь состав
+// бандла автора: в состав попадают и плагины замыкания (`dependencies[]`: `artifact-review` грузит
+// `fact-verification` и `optimize-for-llm`), а они едут пользователю в бандлах ролей, где `docs/`
+// каталога нет. Разъезд списка с составами бандлов ловит `validate-bundle.js` (`author-only-*`).
+const AUTHOR_BUNDLE_JSON = 'plugins/bundles/dex-bundle-market-editor/bundle.json';
+let authorPluginsCache = null;
+function authorPlugins() {
+  if (authorPluginsCache) return authorPluginsCache;
+  authorPluginsCache = new Set();
+  try {
+    const json = JSON.parse(readFileSync(join(REPO_ROOT, AUTHOR_BUNDLE_JSON), 'utf8'));
+    for (const name of json.authorOnly || []) authorPluginsCache.add(name);
+  } catch {
+    // бандла нет (песочница фикстур, урезанное дерево) - исключений нет
+  }
+  return authorPluginsCache;
+}
+
+// Имя плагина, которому принадлежит файл: ближайший вверх каталог с `.claude-plugin/plugin.json`.
+function pluginNameOf(filepath) {
+  let dir = dirname(resolve(filepath));
+  while (dir !== dirname(dir)) {
+    const manifest = join(dir, '.claude-plugin', 'plugin.json');
+    if (existsSync(manifest)) {
+      try {
+        return JSON.parse(readFileSync(manifest, 'utf8')).name || basename(dir);
+      } catch {
+        return basename(dir);
+      }
+    }
+    dir = dirname(dir);
+  }
+  return null;
+}
+
+function validateCatalogDocsLink(text, filepath, findings, where = '') {
+  if (authorPlugins().has(pluginNameOf(filepath))) return;
+
+  const { paths, names } = catalogDocTargets();
+  const named = [];
+  for (const target of paths) {
+    if (mentionsTarget(text, target, true)) named.push(target);
+  }
+  for (const target of names) {
+    if (!mentionsTarget(text, target, false)) continue;
+    if (named.some((t) => t.endsWith(`/${target}`))) continue;
+    named.push(target);
+  }
+  if (named.length === 0) return;
+
+  const forms = [];
+  for (const re of CATALOG_DOCS_LINK_FORMS) {
+    re.lastIndex = 0;
+    for (const m of text.matchAll(re)) {
+      // Хвостовая пунктуация предложения в адрес не входит.
+      const form = m[0].replace(/[.,;:]+$/, '');
+      if (named.some((t) => form.includes(t))) forms.push(form);
+    }
+  }
+  const shown = named.slice(0, 3).join(', ');
+  const asLink =
+    forms.length > 0
+      ? ` Here it is written as a link (${forms.slice(0, 2).join(', ')}), which misses even in a clone - a relative link resolves from the artifact's own directory.`
+      : '';
+  findings.push({
+    level: ERROR,
+    rule: 'catalog-docs-link',
+    message: `${where}names a catalog docs/ document (${shown}${named.length > 3 ? `, +${named.length - 3} more` : ''}) - naming it in any form (code span, prose, link) sends the executor to a file the plugin does not ship.${asLink} Carry the norm in the artifact itself or in a skill the user has installed; author-only artifacts belong in dex-bundle-market-editor`,
+  });
 }
 
 // --- Reporting ----------------------------------------------------------

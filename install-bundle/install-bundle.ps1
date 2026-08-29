@@ -94,7 +94,7 @@ function Get-BundlesDetailed {
             $config = Get-Content $pluginJson -Raw | ConvertFrom-Json
             $bundleConfig = Get-Content $bundleJson -Raw | ConvertFrom-Json
             $description = if ($config.description) { $config.description } else { "No description" }
-            $includesCount = if ($bundleConfig.includes) { @($bundleConfig.includes).Count } else { 0 }
+            $includesCount = (@($bundleConfig.includes) + @($bundleConfig.dependencies) | Where-Object { $_ }).Count
 
             Write-Info "  $bundleName"
             Write-Dim "    $description"
@@ -229,7 +229,7 @@ function Install-Bundle {
         if ($config.description) { $description = $config.description }
     }
     $bundleConfig = Get-Content $bundleJsonPath -Raw | ConvertFrom-Json
-    $includes = if ($bundleConfig.includes) { @($bundleConfig.includes) } else { @() }
+    $includes = @($bundleConfig.includes) + @($bundleConfig.dependencies) | Where-Object { $_ }
     $total = $includes.Count
 
     Write-Host ""

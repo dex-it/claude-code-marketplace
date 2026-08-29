@@ -4,11 +4,11 @@
 
 ## Команда
 
-`/mr-review <MR/PR url или short-id> [описание задачи]` - первичное ревью. Платформа определяется по форме ссылки (`owner/repo#N` для GitHub, `group/project!N` для GitLab).
+`/mr-review <MR/PR url или short-id> [описание задачи]` - точка входа команды в `dex-sdlc`, не в этом плагине. Первичное ревью; платформа определяется по форме ссылки (`owner/repo#N` для GitHub, `group/project!N` для GitLab). Команда вызывает движок `dex-sdlc:engine` и трек `dex-skill-mr-review-track:mr-review-track`, тот делегирует агенту `mr-reviewer` из этого плагина.
 
 ## Архитектура
 
-Команда `/mr-review` тонкая и делегирует агенту `mr-reviewer` (Context and Diff Capture -> Domain Priming -> Change Map -> Parallel Deep Scan -> Non-Code Audit -> Content-Level Pass -> Falsification and Scoring -> Dedup and Sort -> Cross-Linking and Plan -> Calibration and Labeling -> Report -> Draft Threads -> Publish). Тяжёлые фокусы Phase 3 при крупном diff'е распараллеливаются через `Agent` tool.
+Трек `mr-review-track` делегирует агенту `mr-reviewer` (Context and Diff Capture -> Domain Priming -> Change Map -> Parallel Deep Scan -> Non-Code Audit -> Content-Level Pass -> Falsification and Scoring -> Dedup and Sort -> Cross-Linking and Plan -> Calibration and Labeling -> Report -> Draft Threads -> Publish). Тяжёлые фокусы Phase 3 при крупном diff'е распараллеливаются через `Agent` tool.
 
 Три гейта доставки: отчёт -> `оформляй` (черновики тредов) -> `пушь` (публикация). До `пушь` в MR не пишется ничего, чужие треды не трогаются, approve/unapprove не делается.
 

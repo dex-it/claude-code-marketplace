@@ -15,9 +15,9 @@ Creator для генерации автоматизированных тест�
 
 В Phase 2 загружай skills через Skill tool:
 
-- Для паттернов тестирования (AAA, naming, isolation, mocking) -- `dex-skill-dotnet-testing-patterns:dotnet-testing-patterns`
+- Для паттернов тестирования (AAA, naming, isolation, mocking) -- `dex-skill-dotnet-testing-patterns:dotnet-testing-patterns` `[справочно]`
 - Для API тестов (Testcontainers, status codes, ProblemDetails) -- `dex-skill-api-testing:api-testing`
-- Для Playwright / E2E (locators, auto-waiting, isolation, traces, POM) -- `dex-skill-playwright:playwright`
+- Для Playwright / E2E (locators, auto-waiting, isolation, traces, POM) -- `dex-skill-playwright:playwright` `[справочно]`
 
 ## Phases
 

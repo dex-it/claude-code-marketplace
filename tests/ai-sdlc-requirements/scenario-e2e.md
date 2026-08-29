@@ -50,7 +50,7 @@ Handoff несёт `status`, путь к BRD, `FR`/`NFR`, stories с `[FR-NNN]`,
 
 Выход зоны 2 несёт implementation plan и ожидаемые выходные артефакты (правка предыдущей сессии на месте).
 
-`[FR-NNN]` прослежен по цепочке: `architect` (3 вхождения) -> `feature-implementer` (2) -> `dotnet-coder` (1) -> `dotnet-test-writer` (1). Нить цела.
+`[FR-NNN]` прослежен по цепочке: `architect` (3 вхождения) -> `development-track` (диспетчинг Phase 7) -> `dotnet-coder` (1) -> `dotnet-test-writer` (1). Нить цела.
 
 **Исход:** стык замкнут.
 
