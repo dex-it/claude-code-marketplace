@@ -9,11 +9,27 @@
   `self-check` составителя прогона не заменяет. Слой набора:
   `dex-skill-requirement-set-quality:requirement-set-quality` **самим треком** против источника -
   составитель видит только свой артефакт и полноту множества установить не может. Вместе с
-  оракулом загрузи норматив этапа `dex-skill-business-analysis-29148:business-analysis-29148`: полнота состава
-  судится против него, не по памяти. Норматив не загрузился -> `verdict: unverifiable` по этой оси с
-  причиной. Корпус доступен -> проверяется отношение к принятому: новая цель не дублирует и не
+  оракулом загрузи норматив этапа `dex-skill-business-analysis-29148:business-analysis-29148`:
+  полнота состава судится против него, не по памяти. Норматив не загрузился ->
+  `verdict: unverifiable` по этой оси с причиной. Корпус доступен -> проверяется отношение к принятому: новая цель не дублирует и не
   противоречит существующей. Запись `{artifact: requirement-set, check: requirement-set-quality,
   verdict, revision}` - тип набора отдельный от типа единицы.
+**Норматив состава - свой у каждой фазы, и подменять его соседним нельзя.** Норматив держит состав
+артефакта, оракул судит содержание при заполненных разделах, норма письма ловит формулировку; ни
+один из трёх не заменяет два других.
+
+| Фаза | Норматив состава | Оракул типа | Норма письма |
+|---|---|---|---|
+| Phase 2, BRD | `dex-skill-business-analysis-29148:business-analysis-29148` | - | - |
+| Phase 3, `UC` | `dex-skill-use-cases-cockburn:use-cases-cockburn` | `dex-skill-use-case-quality:use-case-quality` | `dex-skill-use-cases:use-cases` |
+| Phase 4, `FR`/`NFR` | `dex-skill-system-requirements-29148:system-requirements-29148` | - | `dex-skill-functional-requirements:functional-requirements`, `dex-skill-nfr:nfr` |
+| Phase 5, истории с `AC` | - | - | `dex-skill-user-stories:user-stories` |
+
+Прочерк - норматива или оракула этого рода в каталоге нет; ось закрывается записью
+`{check: stage-normative, verdict: unverifiable}` либо `{check: <тип>-quality, verdict: unverifiable}`
+с причиной «в каталоге не заведён», а не подобранной заменой. Подставлять сюда норматив соседней
+фазы запрещено: состав BRD не служит критерием полноты свода, и наоборот.
+
 - **`decision-log`** - путь разрешается процедурой расположения (`references/bootstrap-state.md`,
   «Расположение корпуса») и едет сквозным полем; в корпусе фичи, один файл на фичу для всех фаз,
   второго не заводить. Несёт находки каждого гейта **с их исходом** (закрыта треком с основанием

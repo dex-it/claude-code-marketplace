@@ -1,7 +1,7 @@
 ---
 description: Карта примеров и сборка .feature на Gherkin из AC истории с ревизией источника
 allowed-tools: Read, Write, Edit, Grep, Glob, Skill, Agent
-argument-hint: <фича> (имя или папка фичи в 01-product)
+argument-hint: <фича> (имя или папка фичи в корпусе требований)
 ---
 
 # /bdd
@@ -10,7 +10,7 @@ argument-hint: <фича> (имя или папка фичи в 01-product)
 
 ## Goal
 
-Получить `docs/04-verification/bdd/{фича}.feature`, собранный из AC историй фичи, с шапкой источника и его ревизией, тегами на `FR-NNN` и перечнем находок к источнику.
+Получить `{ключ verification}/bdd/{фича}.feature` (ключ разрешает `dex-skill-project-docs-map:project-docs-map`; ключа нет - дефолт норматива раскладки), собранный из AC историй фичи, с шапкой источника и его ревизией, тегами на `FR-NNN` и перечнем находок к источнику.
 
 ## Input
 
