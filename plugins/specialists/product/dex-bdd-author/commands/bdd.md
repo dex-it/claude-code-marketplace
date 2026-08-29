@@ -1,6 +1,6 @@
 ---
 description: Карта примеров и сборка .feature на Gherkin из AC истории с ревизией источника
-allowed-tools: Read, Write, Edit, Grep, Glob, Skill, Agent
+allowed-tools: Read, Write, Edit, Grep, Glob, Skill
 argument-hint: <фича> (имя или папка фичи в корпусе требований)
 ---
 

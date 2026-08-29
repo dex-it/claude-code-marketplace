@@ -1,6 +1,6 @@
 ---
 description: Сценарии использования по Cockburn для фичи - основной ход, расширения, минимальные гарантии
-allowed-tools: Read, Write, Edit, Grep, Glob, Skill, Agent
+allowed-tools: Read, Write, Edit, Grep, Glob, Skill
 argument-hint: <фича> (имя или папка фичи в корпусе требований)
 ---
 
@@ -10,7 +10,7 @@ argument-hint: <фича> (имя или папка фичи в корпусе �
 
 ## Goal
 
-Получить `{ключ use-cases}/{фича}/UC-{ФИЧА}-NNN-*.md` (ключ разрешает `dex-skill-project-docs-map:project-docs-map`; ключа нет - дефолт норматива раскладки) по требованиям этой фичи, с трассировкой на `FR` и прогнанным оракулом сценария.
+Получить `{ключ usecases}/{фича}/UC-{ФИЧА}-NNN-*.md` (ключ разрешает `dex-skill-project-docs-map:project-docs-map`; ключа нет - дефолт норматива раскладки) по требованиям этой фичи, с трассировкой на `FR` и прогнанным оракулом сценария.
 
 ## Input
 

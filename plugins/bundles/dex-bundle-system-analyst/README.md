@@ -33,9 +33,11 @@ Bundle for System Analysts: requirements, user stories, BPMN, API specs, documen
 - `/design` - дизайн-решение и ADR
 - `/feature` - требования фичи (BR -> UC -> FR/NFR -> stories)
 - `/feature-check` - ревью готового набора требований
+- `/use-cases` - сценарии по Cockburn под уже принятый свод требований (вне прогона `/feature`)
 
 ### Specialists
 - `dex-requirements-analyst` - Requirements analysis
+- `dex-use-case-writer` - сценарии использования по принятым `FR` (узел вне конвейера)
 - `dex-user-story-analyst` - User story writing
 - `dex-process-modeler` - BPMN process modeling
 - `dex-doc-writer` - Technical documentation

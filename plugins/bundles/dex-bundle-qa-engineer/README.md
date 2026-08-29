@@ -33,11 +33,13 @@ Bundle for QA Engineers: test analysis, test automation, bug reporting.
 - `/find-bugs` - активный поиск багов в фиче
 - `/review-stand` - приёмка слитой фичи на стенде
 - `/test` - тесты на изменённый код
+- `/bdd` - карта примеров и сборка `.feature` из `AC` истории
 
 ### Specialists
 - `dex-test-analyst` - Test design and analysis
 - `dex-test-automator` - Test automation
 - `dex-bug-reporter` - Bug reporting
+- `dex-bdd-author` - карта примеров и `.feature` как производная форма `AC`
 
 ### Utilities
 - `dex-playwright-cli` - Playwright CLI: run tests, show report, codegen, trace viewer, browser install
@@ -47,6 +49,7 @@ Bundle for QA Engineers: test analysis, test automation, bug reporting.
 - `dex-skill-api-testing` - API testing
 - `dex-skill-dotnet-testing-patterns` - Testing patterns
 - `dex-skill-playwright` - Playwright E2E traps: locators, auto-waiting, isolation, traces
+- `dex-skill-bdd-gherkin` - Gherkin и Example Mapping: граница «пример против теста»
 
 ## Note
 
