@@ -15,11 +15,11 @@ docs/
 │   ├── BRD.md                               общий: BR-NNN продукта с MOE, границы
 │   ├── 01-installation/
 │   │   ├── BRD-installation.md              бизнес-требования фичи, каждое traced from BR-NNN
-│   │   ├── SRS-installation.md              FR-101..FR-149, NFR-101..: блок номеров за фичей
+│   │   ├── SRS-installation.md              FR-1001..FR-1049, NFR-1001..: блок номеров за фичей
 │   │   ├── decisions-installation.md        журнал решений и гейтов фичи: находки, их исходы, отклонённые варианты
 │   │   └── stories/
-│   │       ├── ST-101-unbox.md              история с AC в Given-When-Then, метки [FR-NNN]
-│   │       └── ST-102-first-launch.md
+│   │       ├── ST-1001-unbox.md             история с AC в Given-When-Then, метки [FR-NNN]
+│   │       └── ST-1002-first-launch.md
 │   ├── 02-configuration/
 │   │   ├── BRD-configuration.md
 │   │   └── SRS-configuration.md
@@ -29,14 +29,14 @@ docs/
 │
 ├── 02-use-cases/
 │   ├── installation/
-│   │   ├── UC-INSTALLATION-001-unbox-and-connect.md
-│   │   └── UC-INSTALLATION-002-first-launch.md
+│   │   ├── UC-INSTALLATION-1001-unbox-and-connect.md
+│   │   └── UC-INSTALLATION-1002-first-launch.md
 │   ├── configuration/
-│   │   ├── UC-CONFIGURATION-001-network-setup.md
-│   │   └── UC-CONFIGURATION-002-add-device.md
-│   ├── hub-core/     UC-HUB-CORE-001-device-pairing.md
-│   ├── operation/    UC-OPERATION-001-scene-trigger.md
-│   └── status/       UC-STATUS-001-health-check.md
+│   │   ├── UC-CONFIGURATION-2001-network-setup.md
+│   │   └── UC-CONFIGURATION-2002-add-device.md
+│   ├── hub-core/     UC-HUB-CORE-3001-device-pairing.md
+│   ├── operation/    UC-OPERATION-4001-scene-trigger.md
+│   └── status/       UC-STATUS-5001-health-check.md
 │
 ├── 03-architecture/
 │   ├── design/
