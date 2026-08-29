@@ -25,27 +25,27 @@ Bundle for System Analysts: requirements, user stories, BPMN, API specs, documen
 .\install-bundle\uninstall-bundle.ps1 system-analyst
 ```
 
-## Included Components (16)
+## Included Components
 
-### Specialists (5)
+Полный состав - `bundle.json`: `includes[]` (профиль роли) плюс `dependencies[]` (подтянутое замыканием); ниже - ключевые компоненты роли, не весь перечень.
+
+### Команды
+- `/design` - дизайн-решение и ADR
+- `/feature` - требования фичи (BR -> UC -> FR/NFR -> stories)
+- `/feature-check` - ревью готового набора требований
+
+### Specialists
 - `dex-requirements-analyst` - Requirements analysis
 - `dex-user-story-analyst` - User story writing
 - `dex-process-modeler` - BPMN process modeling
 - `dex-doc-writer` - Technical documentation
-- `dex-use-case-writer` - Use case authoring (Cockburn)
 
-### Skills (11)
+### Skills
 - `dex-skill-agile` - Agile methodology
 - `dex-skill-user-stories` - User story patterns
 - `dex-skill-bpmn` - BPMN notation
 - `dex-skill-api-specification` - API specification
 - `dex-skill-doc-standards` - Documentation standards
-- `dex-skill-system-requirements-29148` - System requirements stage normative (SRS composition, FR/NFR attributes)
-- `dex-skill-architecture-definition-42010` - Architecture stage normative (concerns/views, arc42 sections)
-- `dex-skill-use-cases-cockburn` - Use case genre normative (goal levels, extensions, guarantees)
-- `dex-skill-docs-layout` - Corpus layout: docs/ tree, mandatory minimum, identifiers
-- `dex-skill-business-analysis-29148` - Business analysis stage normative (BRD composition)
-- `dex-skill-use-case-quality` - Use case oracle
 
 ## Note
 

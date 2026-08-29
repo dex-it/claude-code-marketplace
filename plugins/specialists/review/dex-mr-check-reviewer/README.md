@@ -4,11 +4,11 @@
 
 ## Команда
 
-`/mr-check-review <MR/PR url или short-id> [LAST_REVIEW_SHA]` - следующий раунд ревью. LAST_REVIEW_SHA опционален, если sha прошлого раунда не выводится из истории комментариев.
+Отдельной команды нет: следующий раунд ревью того же MR/PR идёт через ту же команду `/mr-review` в `dex-sdlc` - движок возобновляет цикл по auto-ledger, трек `mr-review-track` делегирует повторный раунд этому агенту вместо первичного ревьюера. `LAST_REVIEW_SHA` опционален, если sha прошлого раунда не выводится из истории комментариев.
 
 ## Архитектура
 
-Команда делегирует агенту `mr-check-reviewer` (Establish Revisions -> Prior Findings Status -> Delta Domain Recall -> New Findings Hunt -> Falsification -> Cross-Link and Calibrate -> Report -> Draft Thread Updates -> Publish). Источник правды дельты - `git range-diff BASE LAST_REVIEW HEAD` (учитывает rebase/squash) плюс плоская дельта.
+Трек делегирует агенту `mr-check-reviewer` (Establish Revisions -> Prior Findings Status -> Delta Domain Recall -> New Findings Hunt -> Falsification -> Cross-Link and Calibrate -> Report -> Draft Thread Updates -> Publish). Источник правды дельты - `git range-diff BASE LAST_REVIEW HEAD` (учитывает rebase/squash) плюс плоская дельта.
 
 Каждой прошлой находке присваивается статус: closed / partial / open / disputed / no-longer-applicable. Свои прошлые треды апдейтятся reply'ями; чужие не трогаются. Гейты `оформляй` и `пушь`, как в первичном ревью.
 

@@ -25,15 +25,21 @@ Bundle for Software Architects: architecture design, ADR, diagrams, API design, 
 .\install-bundle\uninstall-bundle.ps1 architect
 ```
 
-## Included Components (25)
+## Included Components
 
-### Specialists (4)
+Полный состав - `bundle.json`: `includes[]` (профиль роли) плюс `dependencies[]` (подтянутое замыканием); ниже - ключевые компоненты роли, не весь перечень.
+
+### Команды
+- `/design` - дизайн-решение и ADR
+- `/discover` - обзорное ревью существующего кода
+
+### Specialists
 - `dex-architect` - System design and architecture
 - `dex-adr-writer` - Architecture Decision Records (MADR)
 - `dex-diagram-creator` - C4, sequence, ER, state diagrams
 - `dex-api-designer` - REST/GraphQL/gRPC API design
 
-### Skills (21)
+### Skills
 - `dex-skill-clean-architecture` - Clean Architecture patterns
 - `dex-skill-ddd` - Domain-Driven Design
 - `dex-skill-microservices` - Microservices patterns
@@ -52,9 +58,6 @@ Bundle for Software Architects: architecture design, ADR, diagrams, API design, 
 - `dex-skill-tech-evaluation` - Tech evaluation, vendor lock-in, license, expertise
 - `dex-skill-reference-architectures` - Reference architectures (feed/chat/payment/search)
 - `dex-skill-distributed-resilience` - CAS, idempotency, circuit breaker, bulkhead
-- `dex-skill-architecture-definition-42010` - Architecture stage normative (concerns/views, arc42 sections)
-- `dex-skill-interface-definition-openapi` - Interface contract normative (OpenAPI, compatibility classes)
-- `dex-skill-api-spec-quality` - API spec oracle
 
 ## Note
 

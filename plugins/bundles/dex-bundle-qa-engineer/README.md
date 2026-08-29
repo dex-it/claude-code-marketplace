@@ -25,25 +25,28 @@ Bundle for QA Engineers: test analysis, test automation, bug reporting.
 .\install-bundle\uninstall-bundle.ps1 qa-engineer
 ```
 
-## Included Components (12)
+## Included Components
 
-### Specialists (4)
+Полный состав - `bundle.json`: `includes[]` (профиль роли) плюс `dependencies[]` (подтянутое замыканием); ниже - ключевые компоненты роли, не весь перечень.
+
+### Команды
+- `/find-bugs` - активный поиск багов в фиче
+- `/review-stand` - приёмка слитой фичи на стенде
+- `/test` - тесты на изменённый код
+
+### Specialists
 - `dex-test-analyst` - Test design and analysis
 - `dex-test-automator` - Test automation
 - `dex-bug-reporter` - Bug reporting
-- `dex-bdd-author` - Example mapping and .feature assembly from AC
 
-### Utilities (1)
+### Utilities
 - `dex-playwright-cli` - Playwright CLI: run tests, show report, codegen, trace viewer, browser install
 
-### Skills (7)
+### Skills
 - `dex-skill-test-design` - Test design techniques
 - `dex-skill-api-testing` - API testing
 - `dex-skill-dotnet-testing-patterns` - Testing patterns
 - `dex-skill-playwright` - Playwright E2E traps: locators, auto-waiting, isolation, traces
-- `dex-skill-bdd-gherkin` - Executable examples genre normative (Example Mapping, Gherkin)
-- `dex-skill-docs-layout` - Corpus layout: docs/ tree, mandatory minimum, identifiers
-- `dex-skill-verification-planning-29119` - Verification planning stage normative (plan composition, stop criteria)
 
 ## Note
 

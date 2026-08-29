@@ -23,6 +23,6 @@ argument-hint: "[table | schema | --indexes] [--db name]"
 
 **Constraints:**
 
-- Требует `psql` в PATH; если не найден -- показать инструкцию установки и ссылку на [docs/CLI_UTILITIES.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/CLI_UTILITIES.md).
+- Требует `psql` в PATH; если не найден -- показать инструкцию установки.
 - Read-only по природе (`\d`, `pg_catalog`); никаких изменений схемы не выполняется.
 - Размеры таблиц считаются через `pg_total_relation_size` -- может быть медленно на больших инстансах, упомянуть в выводе.

@@ -15,10 +15,10 @@ Creator для обучения ML моделей. Анализирует зад
 
 В Phase 2 загружай skills через Skill tool в зависимости от фреймворка и задачи:
 
-- Если PyTorch -- `dex-skill-python-pytorch:python-pytorch`
-- Если TensorFlow/Keras -- `dex-skill-python-tensorflow:python-tensorflow`
-- Если sklearn/XGBoost -- `dex-skill-python-classical-ml:python-classical-ml`
-- Для оптимизации training (mixed precision, gradient accumulation, Optuna) -- `dex-skill-python-ml-optimization:python-ml-optimization`
+- Если PyTorch -- `dex-skill-python-pytorch:python-pytorch` `[справочно]`
+- Если TensorFlow/Keras -- `dex-skill-python-tensorflow:python-tensorflow` `[справочно]`
+- Если sklearn/XGBoost -- `dex-skill-python-classical-ml:python-classical-ml` `[справочно]`
+- Для оптимизации training (mixed precision, gradient accumulation, Optuna) -- `dex-skill-python-ml-optimization:python-ml-optimization` `[справочно]`
 
 ## Phases
 

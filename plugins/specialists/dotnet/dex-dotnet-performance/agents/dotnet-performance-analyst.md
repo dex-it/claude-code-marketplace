@@ -46,8 +46,8 @@ Root cause -- сформулируй гипотезу: где именно уз�
 - **Всегда** -- вызови Skill tool `dex-skill-dotnet-resources:dotnet-resources` -- memory leak, GC pressure, socket exhaustion, LOH
 - **Если EF Core или БД в стеке** -- вызови Skill tool `dex-skill-dotnet-ef-core:dotnet-ef-core` -- чек-лист: N+1, AsNoTracking, проекция, Split Query, DbContext lifetime, Change Tracker
 - **Если LINQ/коллекции** -- вызови Skill tool `dex-skill-dotnet-linq-optimization:dotnet-linq-optimization` -- материализация, IQueryable vs IEnumerable, HashSet vs List
-- **Если Redis в стеке** -- вызови Skill tool `dex-skill-redis:redis` -- TTL, invalidation, serialization, distributed cache
-- **Если MongoDB в стеке** -- вызови Skill tool `dex-skill-mongodb:mongodb` -- индексы, aggregation pipeline, projection
+- **Если Redis в стеке** -- вызови Skill tool `dex-skill-redis:redis` `[справочно]` -- TTL, invalidation, serialization, distributed cache
+- **Если MongoDB в стеке** -- вызови Skill tool `dex-skill-mongodb:mongodb` `[справочно]` -- индексы, aggregation pipeline, projection
 - **Если OpenTelemetry/distributed tracing** -- вызови Skill tool `dex-skill-observability:observability` -- span coverage, correlation, sampling
 - **Если логирование на hot path** -- вызови Skill tool `dex-skill-dotnet-logging:dotnet-logging` -- structured logging, уровни, overhead
 - Дедупликация с Phase 1 -- сообщай только новые находки

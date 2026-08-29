@@ -21,7 +21,7 @@ argument-hint: "\"SELECT ...\" [--db name] [--json]"
 
 **Constraints:**
 
-- Требует `psql` в PATH; если не найден -- показать инструкцию установки и ссылку на [docs/CLI_UTILITIES.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/CLI_UTILITIES.md).
+- Требует `psql` в PATH; если не найден -- показать инструкцию установки.
 - Параметры подключения берутся из env (`PGHOST`/`PGPORT`/`PGUSER`/`PGPASSWORD`/`PGDATABASE`) или `~/.pgpass`. Пароль не печатать в выводе.
 - Допустимы только `SELECT` / `EXPLAIN` / `SHOW` / `WITH ... SELECT`. Любой `INSERT`/`UPDATE`/`DELETE`/`DROP`/`TRUNCATE`/`ALTER`/`CREATE`/`GRANT` отвергается -- предложить `dex-postgresql-specialist` или явный psql вызов вне команды.
 - Длинные запросы выполнять с `psql -c` без `EXPLAIN ANALYZE` (для планов есть `/psql-explain`).

@@ -2,17 +2,20 @@
 
 # Plugin Sync for Claude Code Marketplace
 #
-# Protects INSTALLED agents from degradation: an agent loads skills imperatively
-# via the Skill tool (`dex-skill-X:Y`). Installation is flat — there is no
-# specialist→skill cascade, so a skill an agent loads but that is not installed
-# will not resolve, and the agent silently degrades.
+# Protects INSTALLED agents AND command entry points from degradation: an
+# agent loads skills imperatively via the Skill tool, and a command (e.g.
+# dex-sdlc-requirements' /feature, dex-sdlc-delivery's /implement) does the
+# same to reach the engine (`dex-sdlc:engine`) and its track-skills
+# (`dex-skill-X:Y`). Installation is flat - there is no
+# specialist->skill or command->skill cascade, so a skill that is referenced but
+# not installed will not resolve, and the agent/command silently degrades.
 #
 # This script anchors on what YOU have installed (not on bundles): for every
-# installed agent it reads the skills that agent loads from the repo's agent
-# files (source of truth = the market), and reports/installs the non-by-stack
-# skills that are missing. It NEVER installs new agents — "something new
-# appeared" is a manual decision. It does NOT touch versions (update is a
-# separate manual op via the marketplace).
+# installed plugin it reads the skills its agent(s) and/or command(s) load
+# from the repo's files (source of truth = the market), and reports/installs
+# the non-by-stack skills that are missing. It NEVER installs new agents -
+# "something new appeared" is a manual decision. It does NOT touch versions
+# (update is a separate manual op via the marketplace).
 #
 # Requires: jq, claude CLI. Run from a clone of the marketplace repo.
 #
@@ -45,7 +48,7 @@ SPECIALISTS_DIR="$PROJECT_ROOT/plugins/specialists"
 MARKETPLACE_JSON="$PROJECT_ROOT/.claude-plugin/marketplace.json"
 MARKETPLACE_NAME="dex-claude-marketplace"
 
-# by-stack profile skill prefixes — loaded conditionally per project stack,
+# by-stack profile skill prefixes - loaded conditionally per project stack,
 # NOT required to be installed for every agent (see dex-skill-stack-registry).
 # Keep in sync with BY_STACK_PREFIXES in tools/validate-bundle.js.
 BY_STACK_PREFIXES="dotnet ts python react rabbitmq kafka redis mongodb elasticsearch docker kubernetes gitlab-ci github-actions teamcity jenkins playwright"
@@ -56,8 +59,8 @@ VERBOSE=false
 show_help() {
   echo "Usage: $0 [OPTIONS]"
   echo ""
-  echo "Protects installed agents from skill degradation by syncing the skills"
-  echo "they load against what is installed."
+  echo "Protects installed agents/commands from skill degradation by syncing the"
+  echo "skills they load against what is installed."
   echo ""
   echo "Options:"
   echo "  --fix          Install missing skills (default: report only)"
@@ -108,6 +111,13 @@ agent_dir_for() {
   [ -n "$d" ] && [ -d "$d/agents" ] && echo "$d/agents"
 }
 
+# Path to a plugin's commands/ dir anywhere under plugins/, or empty.
+command_dir_for() {
+  local plugin="$1" d
+  d=$(find "$PROJECT_ROOT/plugins" -maxdepth 3 -type d -name "$plugin" 2>/dev/null | head -1)
+  [ -n "$d" ] && [ -d "$d/commands" ] && echo "$d/commands"
+}
+
 # Skills a plugin's agent(s) load (dex-skill-X from `dex-skill-X:Y`), deduped.
 skills_loaded_by() {
   local agents_dir="$1"
@@ -120,35 +130,37 @@ skills_loaded_by() {
 main() {
   check_dependencies
 
-  print_header "  Plugin Sync — protecting installed agents from skill degradation"
+  print_header "  Plugin Sync - protecting installed agents/commands from skill degradation"
   echo ""
 
-  local installed missing_total=0 agents_checked=0
+  local installed missing_total=0 plugins_checked=0
   installed=$(installed_plugins)
   [ -z "$installed" ] && { print_warning "No installed plugins from $MARKETPLACE_NAME found."; exit 0; }
 
-  # collect all unique missing skills across installed agents
-  local -A MISSING=()      # skill -> "agent1 agent2"
+  # collect all unique missing skills across installed agents/commands
+  local -A MISSING=()      # skill -> "plugin1 plugin2"
   local installed_set=" $(echo "$installed" | tr '\n' ' ') "
 
   while read -r plugin; do
     [ -z "$plugin" ] && continue
-    local agents_dir; agents_dir=$(agent_dir_for "$plugin") || continue
-    [ -z "$agents_dir" ] && continue
-    agents_checked=$((agents_checked+1))
+    local agents_dir commands_dir
+    agents_dir=$(agent_dir_for "$plugin") || true
+    commands_dir=$(command_dir_for "$plugin") || true
+    [ -z "$agents_dir" ] && [ -z "$commands_dir" ] && continue
+    plugins_checked=$((plugins_checked+1))
 
-    local agent_missing=""
+    local plugin_missing=""
     while read -r skill; do
       [ -z "$skill" ] && continue
       is_by_stack "$skill" && continue
       case "$installed_set" in *" $skill "*) continue ;; esac   # already installed
-      agent_missing="$agent_missing $skill"
+      plugin_missing="$plugin_missing $skill"
       MISSING["$skill"]="${MISSING[$skill]:-}$plugin "
-    done < <(skills_loaded_by "$agents_dir")
+    done < <( { [ -n "$agents_dir" ] && skills_loaded_by "$agents_dir"; [ -n "$commands_dir" ] && skills_loaded_by "$commands_dir"; } | sort -u )
 
-    if [ "$VERBOSE" = true ] && [ -n "$agent_missing" ]; then
+    if [ "$VERBOSE" = true ] && [ -n "$plugin_missing" ]; then
       print_warning "  $plugin loads missing:"
-      for s in $agent_missing; do print_dim "      $s"; done
+      for s in $plugin_missing; do print_dim "      $s"; done
     fi
   done <<< "$installed"
 
@@ -156,13 +168,13 @@ main() {
   missing_total=${#skills[@]}
 
   echo ""
-  print_dim "  Installed agents checked: $agents_checked"
+  print_dim "  Installed agents/commands checked: $plugins_checked"
   if [ "$missing_total" -eq 0 ]; then
-    print_success "  All installed agents are closed over their skills — no drift."
+    print_success "  All installed agents/commands are closed over their skills - no drift."
     exit 0
   fi
 
-  print_warning "  Missing skills (loaded by installed agents, not installed): $missing_total"
+  print_warning "  Missing skills (loaded by installed agents/commands, not installed): $missing_total"
   for skill in $(printf '%s\n' "${skills[@]}" | sort); do
     print_info "    $skill"
     print_dim  "        needed by: $(echo "${MISSING[$skill]}" | tr ' ' '\n' | sort -u | tr '\n' ' ')"
@@ -179,13 +191,13 @@ main() {
   for skill in $(printf '%s\n' "${skills[@]}" | sort); do
     # only install if declared in marketplace.json (else CLI errors)
     if ! jq -e --arg n "$skill" '.plugins[]|select(.name==$n)' "$MARKETPLACE_JSON" >/dev/null 2>&1; then
-      print_error "    ✗ $skill — not declared in marketplace.json, skipping"
+      print_error "    ✗ $skill - not declared in marketplace.json, skipping"
       fail=$((fail+1)); continue
     fi
     if claude plugins install "${skill}@${MARKETPLACE_NAME}" >/dev/null 2>&1; then
       print_success "    ✓ $skill"; ok=$((ok+1))
     else
-      print_error "    ✗ $skill — install failed"; fail=$((fail+1))
+      print_error "    ✗ $skill - install failed"; fail=$((fail+1))
     fi
   done
   echo ""

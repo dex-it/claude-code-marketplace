@@ -57,7 +57,7 @@ description: EF Core — ловушки запросов, миграций, conc
 Правильно: `public ByValueSpec(Guid id) { Query.Where(x => x.Id == id); }` — валидировать на call site, не внутри спецификации
 Почему: guard на non-nullable аргументе делает поведение spec неопределённым: при `Guid.Empty` вернётся вся таблица вместо раннего сбоя у caller'а. Исключение: если `Guid.Empty` — явный публичный контракт «без фильтра»
 
-> Общие LINQ ловушки (Count vs Any, фильтрация, коллекции) — см. `dex-skill-linq-optimization`
+> Общие LINQ ловушки (Count vs Any, фильтрация, коллекции) — см. `dex-skill-dotnet-linq-optimization`
 
 ## Raw SQL
 

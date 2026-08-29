@@ -21,5 +21,5 @@ argument-hint: "[--pool name] [agent-name]"
 
 **Constraints:**
 
-- Требует `teamcity` (CLI от JetBrains) в PATH; если не найден -- показать инструкцию установки и ссылку на [docs/CLI_UTILITIES.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/CLI_UTILITIES.md).
+- Требует `teamcity` (CLI от JetBrains) в PATH; если не найден -- показать инструкцию установки.
 - Read-only. Для shell-доступа к агенту (`teamcity agent term`) или enable/disable -- использовать CLI напрямую, не через slash-команду.

@@ -5,7 +5,7 @@ description: OpenAPI/Swagger — ловушки spec, генерации кли�
 
 # API Documentation — ловушки
 
-> Ловушки контроллеров (ActionResult, CancellationToken, толстые контроллеры) — см. `dex-skill-api-development`
+> Ловушки контроллеров (ActionResult, CancellationToken, толстые контроллеры) — см. `dex-skill-dotnet-api-development`
 > Здесь: только OpenAPI/Swagger/NSwag/Kiota ловушки
 
 ## OpenAPI спецификация

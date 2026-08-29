@@ -1,6 +1,6 @@
 ---
 name: dotnet-csproj-hygiene
-description: MSBuild csproj - гигиена зависимостей, CPM, analyzers. Активируется при csproj, PackageReference, ProjectReference, Directory.Packages.props, Directory.Build.props, CPM, PrivateAssets, analyzer, source generator, транзитивная зависимость
+description: "MSBuild csproj - гигиена зависимостей и структуры проекта: PackageReference и ProjectReference, централизованные версии CPM, инфраструктура Directory.*, транзитивные и циклические ссылки, PrivateAssets у пакета-анализатора. Активируется при csproj, PackageReference, ProjectReference, Directory.Packages.props, Directory.Build.props, CPM, разные версии одного пакета в решении, транзитивная зависимость, циклическая ссылка проектов, PrivateAssets, pre-release версия пакета"
 ---
 
 # MSBuild csproj - ловушки и anti-patterns

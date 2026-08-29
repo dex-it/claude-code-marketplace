@@ -25,9 +25,22 @@ Complete bundle for .NET fullstack: development, databases, messaging, container
 .\install-bundle\uninstall-bundle.ps1 dotnet-fullstack
 ```
 
-## Included Components (31)
+## Included Components
 
-### .NET Specialists (4) + общие ревью/отладка (3)
+Полный состав - `bundle.json`: `includes[]` (профиль роли) плюс `dependencies[]` (подтянутое замыканием); ниже - ключевые компоненты роли, не весь перечень.
+
+### Команды
+- `/design` - дизайн-решение и ADR
+- `/discover` - обзорное ревью существующего кода
+- `/find-bugs` - активный поиск багов в фиче
+- `/implement` - реализация фичи до локальных коммитов
+- `/investigate` - расследование инцидента на стенде
+- `/mr-review` - первичное ревью чужого MR/PR
+- `/review-plan` - план правок по замечаниям ревью
+- `/root-cause` - поиск первопричины бага по коду
+- `/test` - тесты на изменённый код
+
+### .NET Specialists + общие ревью/отладка
 - `dex-dotnet-coder` - .NET coding assistant
 - `dex-dotnet-tester` - Unit testing with xUnit/Moq
 - `dex-ef-specialist` - Entity Framework Core specialist
@@ -36,7 +49,7 @@ Complete bundle for .NET fullstack: development, databases, messaging, container
 - `dex-self-reviewer` - саморевью своей ветки перед push
 - `dex-mr-reviewer` - ревью чужого MR
 
-### Infrastructure Specialists (11)
+### Infrastructure Specialists
 - `dex-postgresql-specialist` - PostgreSQL databases
 - `dex-mongodb-specialist` - MongoDB databases
 - `dex-rabbitmq-specialist` - RabbitMQ messaging
@@ -49,7 +62,7 @@ Complete bundle for .NET fullstack: development, databases, messaging, container
 - `dex-logging-seq` - Seq logging
 - `dex-monitoring-grafana` - Grafana monitoring
 
-### Skills (13)
+### Skills
 - `dex-skill-dotnet-patterns` - SOLID, DI, async/await patterns
 - `dex-skill-dotnet-ef-core` - EF Core best practices
 - `dex-skill-dotnet-async-patterns` - Async/await patterns
@@ -62,7 +75,6 @@ Complete bundle for .NET fullstack: development, databases, messaging, container
 - `dex-skill-kubernetes` - Kubernetes patterns
 - `dex-skill-dotnet-logging` - Logging patterns
 - `dex-skill-observability` - Observability patterns
-- `dex-skill-architecture-definition-42010` - Architecture stage normative (concerns/views, arc42 sections)
 
 ## Note
 

@@ -1,19 +1,19 @@
 ---
 name: agile
-description: Agile — ловушки backlog, stories, sprints, sizing. Активируется при epic, story, sprint, INVEST, DoR, DoD, sprint planning, velocity, story points, backlog, refinement, acceptance criteria, scrum, kanban, user story, retrospective
+description: Agile - ловушки backlog, stories, sprints, sizing. Активируется при epic, story, sprint, INVEST, DoR, DoD, sprint planning, velocity, story points, backlog, refinement, acceptance criteria, scrum, kanban, user story, retrospective
 ---
 
-# Agile — ловушки
+# Agile - ловушки
 
 ## Stories
 
 ### Техзадача вместо user value
-Плохо: `"Внедрить Redis для кэширования"` — технология, не ценность для пользователя
-Правильно: `"Как пользователь, я хочу получать результаты поиска за <2 сек"` — Redis в Technical Notes
-Почему: story без user value невозможно приоритизировать и нельзя проверить — нет acceptance criteria
+Плохо: `"Внедрить Redis для кэширования"` - технология, не ценность для пользователя
+Правильно: `"Как пользователь, я хочу получать результаты поиска за <2 сек"` - Redis в Technical Notes
+Почему: story без user value невозможно приоритизировать и нельзя проверить - нет acceptance criteria
 
 ### Story без Acceptance Criteria
-Плохо: `"Улучшить поиск"` — размыто, нет критериев приёмки
+Плохо: `"Улучшить поиск"` - размыто, нет критериев приёмки
 Правильно: AC в формате `Given фильтр цены 1000-5000 / When применяю / Then вижу только товары в диапазоне`
 Почему: без AC каждый понимает story по-своему, QA не знает что проверять, PO не знает когда принимать
 
@@ -31,20 +31,25 @@ description: Agile — ловушки backlog, stories, sprints, sizing. Акт�
 
 ### Water-Scrum-Fall
 Плохо: все stories написаны заранее на квартал, детализированы до последней запятой
-Правильно: just-in-time refinement — детализируй только то, что берёшь в ближайшие 1-2 спринта
+Правильно: just-in-time refinement - детализируй только то, что берёшь в ближайшие 1-2 спринта
 Почему: требования меняются, детализация "на будущее" = waste. 70% заранее написанных stories переписываются
 
 ### Velocity как KPI
-Плохо: `"Ускоряемся каждый спринт"` — velocity как цель для роста
+Плохо: `"Ускоряемся каждый спринт"` - velocity как цель для роста
 Правильно: velocity = 3-sprint rolling average для прогноза, НЕ метрика производительности
 Почему: команда начинает инфлировать SP чтобы "расти", velocity теряет смысл как инструмент планирования
 
 ### Цепочка зависимостей A-B-C-D
-Плохо: story A блокирует B, B блокирует C — одна задержка останавливает всё
+Плохо: story A блокирует B, B блокирует C - одна задержка останавливает всё
 Правильно: минимизируй зависимости, объединяй зависимые stories, или делай параллельными через interface contracts
 Почему: каждая зависимость = точка отказа. 4 зависимости с 80% вероятностью каждая = 41% общей вероятности успеха
 
 ## DoR / DoD
+
+DoR/DoD ниже - практика спринта команды, критерии задаёт сама команда. Работа идёт через движок
+каталога -> `DoR` там значит другое: условие старта единицы работы (`dex-sdlc:engine`, шаг 3), а
+проверенность входного артефакта - порог допуска (`dex-skill-node-contract:node-contract`, п.5).
+Чеклист спринта ни того, ни другого не заменяет.
 
 ### Нет DoR перед planning
 Плохо: берём story в спринт без AC, без оценки, без понимания scope
@@ -72,5 +77,5 @@ description: Agile — ловушки backlog, stories, sprints, sizing. Акт�
 - Нет stories >8 SP (split!)
 - DoR проверяется перед planning
 - DoD проверяется перед приёмкой
-- Velocity — rolling average, не цель для роста
+- Velocity - rolling average, не цель для роста
 - Backlog refinement каждый спринт (just-in-time)

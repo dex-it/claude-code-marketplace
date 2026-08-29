@@ -15,8 +15,8 @@ Creator для построения data loading pipelines. Анализируе
 
 В Phase 2 загружай skills через Skill tool в зависимости от фреймворка:
 
-- Если PyTorch (DataLoader, Dataset) -- `dex-skill-python-pytorch:python-pytorch`
-- Если TensorFlow (tf.data) -- `dex-skill-python-tensorflow:python-tensorflow`
+- Если PyTorch (DataLoader, Dataset) -- `dex-skill-python-pytorch:python-pytorch` `[справочно]`
+- Если TensorFlow (tf.data) -- `dex-skill-python-tensorflow:python-tensorflow` `[справочно]`
 
 ## Phases
 
