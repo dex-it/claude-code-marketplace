@@ -60,7 +60,7 @@
 
 | Узел | Класс-скилл | Норматив этапа/жанра | Дополнительно | Оракул |
 |---|---|---|---|---|
-| `business-analyst` | - | `business-analysis-29148` (pre-load) | `product-discovery`, `doc-standards`, `legacy-reconstruction` | `requirement-quality` |
+| `business-requirements-analyst` | - | `business-analysis-29148` (pre-load) | `product-discovery`, `doc-standards`, `legacy-reconstruction` | `requirement-quality` |
 | `usecase-analyst` | `use-cases` | `use-cases-cockburn` (pre-load) | `legacy-reconstruction` | - |
 | `requirements-analyst` | `functional-requirements`, `nfr` | `system-requirements-29148` (pre-load) | `legacy-reconstruction` | `requirement-quality` |
 | `user-story-analyst` | `user-stories` | - | `test-design` - техники подбора примеров | `requirement-quality` |
