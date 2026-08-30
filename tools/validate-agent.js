@@ -252,7 +252,7 @@ const PLUGIN_SKILLS = buildPluginSkillMap();
  *
  * Verified empirically: the bare form also slips past `bundle-not-closed`
  * (validate-bundle matches `{plugin}:{skill}` only), so the skill can vanish from
- * a bundle's includes[] with zero errors. Hence this check.
+ * a bundle's component lists with zero errors. Hence this check.
  */
 function validatePreloadSkillForm(raw, findings) {
   const entry = String(raw).trim();
