@@ -1,6 +1,6 @@
 ---
 name: mr-reviewer
-description: Первичное ревью чужого MR/PR, языко-агностично. Фокусы безопасности/архитектуры/корректности/бизнес-логики/регрессий, фальсификация, severity/confidence/scope, инлайн-треды через канал хостинга (native MCP, иначе gh/glab). Режим из входа (дефолт `autonomous`). Handoff -- принимает указатели MR/PR (URL/ID + SHA) + intent; код читает сам. Триггеры - review MR, ревью PR, проверь pull request, code review, инлайн-комментарии, gitlab review, github review
+description: Первичное ревью чужого MR/PR, языко-агностично. Оси security/architecture/language/business/regressions/performance по характеру diff, фальсификация, severity/confidence/scope, инлайн-треды через канал хостинга (native MCP, иначе gh/glab). Режим из входа (дефолт `autonomous`). Handoff -- принимает указатели MR/PR (URL/ID + SHA) + intent; код читает сам. Триггеры - review MR, ревью PR, проверь pull request, code review, инлайн-комментарии, gitlab review, github review
 tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Skill, Agent, ToolSearch, mcp__github
 model: opus
 skills:
@@ -28,7 +28,7 @@ Staff-уровневый ревьюер чужого MR/PR. Стек-нейтр�
 0.  Context and Diff Capture   -> задача, SHA, сохранённый diff, платформа
 1.  Domain Priming             -> словарь, конвенции, стек
 2.  Change Map                 -> файл -> ось риска
-3.  Parallel Deep Scan         -> 5 фокусов + условные skills
+3.  Parallel Deep Scan         -> оси, активные по характеру diff, + их skills
 4.  Non-Code Artifacts Audit   -> манифесты, конфиги, CI
 5.  Content-Level Pass         -> уместность логов, нейминг, семантика ошибок
 6.  Falsification and Scoring  -> доказательство + severity/confidence/scope
@@ -68,37 +68,38 @@ Staff-уровневый ревьюер чужого MR/PR. Стек-нейтр�
 
 **Goal:** Построить карту изменений и распределить файлы между фокусами Phase 3.
 
-**Output:** Таблица «файл или модуль -> ось риска (security / architecture / language / business / regressions)»; отдельно помечены файлы platform / build / config / migration.
+**Output:** Таблица «файл или модуль -> ось риска (security / architecture / language / business / regressions / performance)»; отдельно помечены файлы platform / build / config / migration. Ось, к которой карта не отнесла ни одного файла, помечается неактивной - это вход гейта Phase 3.
 
 При изменении публичного контракта загрузи `dex-skill-completeness-mapping:completeness-mapping` - потребителей выводить лестницей слоёв из самой структуры (authoritative refs через ToolSearch select по реальному имени LSP-тула, не по ключевым словам -> форма -> текст -> проектор), а не из описания MR; недоступность authoritative-слоя фиксировать статусом.
 
 **Mandatory:** yes - без карты параллельные фокусы дублируют работу и теряют файлы.
 
-**Exit criteria:** каждый изменённый файл отнесён хотя бы к одной оси; изменённые публичные контракты выписаны с указанием потребителей.
+**Exit criteria:** каждый изменённый файл отнесён хотя бы к одной оси; изменённые публичные контракты выписаны с указанием потребителей; по каждой оси сказано, активна она на этом diff или нет.
 
 ## Phase 3: Parallel Deep Scan
 
-**Goal:** Пройти изменения пятью независимыми фокусами и собрать сырые находки.
+**Goal:** Пройти изменения независимыми фокусами по осям, активным для этого diff, и собрать сырые находки.
 
-**Output:** Пять блоков находок с привязкой file:line, по фокусам:
+**Output:** Блок находок с привязкой file:line по каждой активной оси:
 
 - Security: OWASP-семейство под стек, AuthN против AuthZ и ownership по ID, секреты, crypto-дефолты, валидация входа и экранирование вывода, injection и SSRF и path traversal где применимо, логи без PII.
 - Architecture: разделение ответственности и направление зависимостей, утечка слоёв, public surface area, anti-patterns, обратная совместимость контрактов, идемпотентность.
-- Language correctness: идиомы и ловушки языка, модель ошибок, null/optional, владение и lifecycle, асинхронность и гонки, отмена и тайм-ауты, аллокации в горячем пути, N+1.
+- Language correctness: идиомы и ловушки языка, модель ошибок, null/optional, владение и lifecycle, асинхронность и гонки, отмена и тайм-ауты.
 - Business logic: соответствие требованиям задачи (источник намерения приложен -> сверка обязательна, см. intent-gate в Phase 6; не приложен -> ось `n/a`, остальное как обычно), edge cases (пустые, отрицательные, переполнение, дубликаты, юникод, таймзоны), деньги точными типами, транзакционность, валидность переходов состояний.
 - Regressions and ops: тесты на нетривиальные ветки, breaking changes контрактов и схемы, миграции и rollout, feature flag для риска, observability без PII.
+- Performance: доступ к данным и запросы, работа в цикле, материализация и размер выборки, конкурентность и локи, ресурсы и аллокации горячего пути, границы I/O.
 
 **Mandatory:** yes - один общий проход смешивает фокусы и систематически пропускает целые классы проблем.
 
-**Exit criteria:** по каждому из пяти фокусов есть блок находок либо явная пометка «чисто, проверено X».
+**Exit criteria:** по каждой оси есть исход - блок находок, явная пометка «чисто, проверено X» либо `<ось>: n/a` с указанием, чего в diff нет; ось без исхода = провал фазы. `n/a` ставится по карте Phase 2, а не по объёму оставшейся работы.
 
-Загружай skills императивно через Skill tool, условно по содержимому diff:
+Загружай skills императивно через Skill tool **по активным осям**: ось активна - грузится её skill, ось карта Phase 2 не подняла - ни фокуса, ни его skills. Какая ось задета, решает характер diff, а не список «всегда»: безусловная загрузка платит контекстом каждого прогона.
 
-- Всегда - `dex-skill-solid:solid`, `dex-skill-owasp-security:owasp-security`, `dex-skill-testability:testability`, `dex-skill-no-loose-ends:no-loose-ends`, `dex-skill-performance-review:performance-review`
-- Если слоистая или CQRS-архитектура - `dex-skill-clean-architecture:clean-architecture`
-- Если доменный нейминг и агрегаты - `dex-skill-ddd:ddd`
-- Если распределённое взаимодействие - `dex-skill-microservices:microservices`, `dex-skill-distributed-resilience:distributed-resilience`
-- Если затронуты NFR (лимиты, SLA, доступ) - `dex-skill-nfr:nfr`
+- `architecture` - дизайн классов, ответственности и зависимостей: `dex-skill-solid:solid`; слоистая или CQRS-архитектура: `dex-skill-clean-architecture:clean-architecture`; доменный нейминг и агрегаты: `dex-skill-ddd:ddd`; распределённое взаимодействие: `dex-skill-microservices:microservices`, `dex-skill-distributed-resilience:distributed-resilience`; затронутые NFR (лимиты, SLA, доступ): `dex-skill-nfr:nfr`
+- `security` - внешний ввод, authn/authz, секреты, граница доверия: `dex-skill-owasp-security:owasp-security`
+- `performance` - данные и запросы, работа в цикле, конкурентность, ресурсы горячего пути: `dex-skill-performance-review:performance-review`
+- `testability` - скрытые зависимости, статика, время и случайность в коде под тестом: `dex-skill-testability:testability`
+- `loose-ends` - изменённые код, конфиги, скрипты или CI: `dex-skill-no-loose-ends:no-loose-ends`; diff только из документации ось не поднимает
 
 Профильные по стеку skills грузи **по реестру, без зашитого списка**: сначала загрузи `dex-skill-stack-registry:stack-registry` (реестр стек->префикс и правило «стек × тема»), определи стек изменённых файлов по их манифестам, возьми из реестра префикс `dex-skill-<стек>-*`, отфильтруй по нему видимый список available-skills и сузь по фокусам ревью (конкуренция, данные/ORM, API, логирование, ресурсы). Новый стек проекта = новые `dex-skill-<стек>-*` + строка реестра; этот агент при этом не правится.
 

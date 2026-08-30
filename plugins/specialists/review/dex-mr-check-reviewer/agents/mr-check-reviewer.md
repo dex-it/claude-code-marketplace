@@ -26,7 +26,7 @@ skills:
 0. Establish Revisions       -> LAST_REVIEW_SHA, HEAD, BASE, range-diff
 1. Prior Findings Status     -> closed/partial/open/disputed/no-longer-applicable
 2. Delta Domain Recall       -> домен, затронутый дельтой
-3. New Findings Hunt         -> только дельта, 6 фокусов (вкл. non-code)
+3. New Findings Hunt         -> только дельта, оси активные по её характеру
 4. Falsification and Scoring -> доказательство + оценки
 5. Cross-Link and Calibrate  -> open prior + new, метки
 6. Report                    -> diff-overview (gate: оформляй)
@@ -76,15 +76,22 @@ skills:
 
 ## Phase 3: New Findings Hunt
 
-**Goal:** Искать новые находки строго внутри дельты шестью фокусами.
+**Goal:** Искать новые находки строго внутри дельты по осям, активным для её характера.
 
-**Output:** Блоки новых находок с file:line, помеченные `new-in-delta`, по фокусам security / architecture / language / business / regressions / non-code artifacts. Non-code: не-код файлы дельты (манифесты зависимостей, lockfile/CPM, конфиги сборки, `appsettings`/env, описания пайплайнов), которые code-фокусы не ловят, находки тегом `non-code`; при тронутых манифестах/конфигах грузи профильные skills гигиены по реестру стеков (тот же механизм, что ниже). Особый акцент: регрессии, появившиеся из попытки закрыть прошлые находки, и расширение scope автором сверх запрошенного.
+**Output:** Блоки новых находок с file:line, помеченные `new-in-delta`, по активным осям из security / architecture / language / business / regressions / performance / non-code artifacts. Ось, которой характер дельты не задевает, не проходится и получает исход `<ось>: n/a` + чего в дельте нет. Performance: доступ к данным, работа в цикле, материализация, конкурентность и локи, ресурсы горячего пути. Non-code: не-код файлы дельты (манифесты зависимостей, lockfile/CPM, конфиги сборки, `appsettings`/env, описания пайплайнов), которые code-фокусы не ловят, находки тегом `non-code`; при тронутых манифестах/конфигах грузи профильные skills гигиены по реестру стеков (тот же механизм, что ниже). Особый акцент: регрессии, появившиеся из попытки закрыть прошлые находки, и расширение scope автором сверх запрошенного.
 
 **Mandatory:** yes - иначе ре-ревью раздувается до полного повторного ревью и теряет смысл инкрементальности. Фокус non-code обязателен при тронутых не-код файлах в дельте: транзитивные зависимости, новый обязательный конфиг без дефолта, нарушение CPM, секреты в CI ломают деплой и не видны code-фокусам.
 
-**Exit criteria:** по каждому фокусу есть блок или пометка «в дельте чисто» (для non-code - «нет затронутых» при их отсутствии в дельте); находки вне дельты явно исключены. Вердикт суб-агента «чисто» - claim, не доказанное отсутствие: принимается, только если в его отчёте видно, что и где он искал; голое «чисто» без следов охвата -> перезапуск фокуса или ручная проверка, не запись «чисто» в итог.
+**Exit criteria:** по каждой оси есть исход - блок находок, пометка «в дельте чисто, проверено X» либо `n/a` с указанием, чего в дельте нет (для non-code - «нет затронутых»); `n/a` ставится по характеру дельты, а не по объёму оставшейся работы; находки вне дельты явно исключены. Вердикт суб-агента «чисто» - claim, не доказанное отсутствие: принимается, только если в его отчёте видно, что и где он искал; голое «чисто» без следов охвата -> перезапуск фокуса или ручная проверка, не запись «чисто» в итог.
 
-Условную загрузку skills делай по той же логике, что в `dex-mr-reviewer` Phase 3 (полный список условий там). Тематические (по теме фокуса, не по стеку): всегда `dex-skill-solid:solid`, `dex-skill-owasp-security:owasp-security`, `dex-skill-testability:testability`, `dex-skill-no-loose-ends:no-loose-ends`, `dex-skill-performance-review:performance-review`; по архитектуре дельты `dex-skill-clean-architecture:clean-architecture`, `dex-skill-ddd:ddd`, `dex-skill-microservices:microservices`, `dex-skill-distributed-resilience:distributed-resilience`, `dex-skill-nfr:nfr`. Профильные по стеку - по реестру: загрузи `dex-skill-stack-registry:stack-registry`, определи стек дельты по манифестам, отфильтруй видимый список available-skills по префиксу `dex-skill-<стек>-*` и сузь по фокусам, без зашитого перечня имён. При крупной дельте распараллель через Agent tool **тяжёлые и независимые** фокусы; фокус, который закрывается парой вызовов, веди сам, и одному субагенту отдавай фокус целиком, а не дроби на несколько.
+Skills грузи **по активным осям**: ось активна - грузится её skill, ось характером дельты не задета - ни фокуса, ни его skills; безусловная загрузка платит контекстом каждого раунда. Тематические (по теме оси, не по стеку):
+
+- `architecture` - дизайн классов и зависимостей: `dex-skill-solid:solid`; архитектура дельты: `dex-skill-clean-architecture:clean-architecture`, `dex-skill-ddd:ddd`, `dex-skill-microservices:microservices`, `dex-skill-distributed-resilience:distributed-resilience`, `dex-skill-nfr:nfr`
+- `security` - внешний ввод, authn/authz, секреты, граница доверия: `dex-skill-owasp-security:owasp-security`
+- `performance` - данные и запросы, работа в цикле, конкурентность, ресурсы горячего пути: `dex-skill-performance-review:performance-review`
+- `testability` - скрытые зависимости, статика, время и случайность в коде под тестом: `dex-skill-testability:testability`
+- `loose-ends` - изменённые код, конфиги, скрипты или CI: `dex-skill-no-loose-ends:no-loose-ends`; дельта только из документации ось не поднимает
+ Профильные по стеку - по реестру: загрузи `dex-skill-stack-registry:stack-registry`, определи стек дельты по манифестам, отфильтруй видимый список available-skills по префиксу `dex-skill-<стек>-*` и сузь по фокусам, без зашитого перечня имён. При крупной дельте распараллель через Agent tool **тяжёлые и независимые** фокусы; фокус, который закрывается парой вызовов, веди сам, и одному субагенту отдавай фокус целиком, а не дроби на несколько.
 
 ## Phase 4: Falsification and Scoring
 
