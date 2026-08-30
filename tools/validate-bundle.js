@@ -183,9 +183,9 @@ function pluginCalls(body) {
 
 // --- Specialist -> loaded skills map -------------------------------------
 
-// Map: specialist plugin dir name -> Set of dex-skill-* plugins its agent(s)
-// load imperatively. Built once by walking plugins/specialists/**/agents/*.md
-// and extracting `dex-skill-X:Y` references (same regex as validate-agent.js).
+// Map: specialist plugin dir name -> Set of catalogue plugins its agent(s) name by the
+// `{plugin}:{artifact}` address - skills it loads imperatively and specialists it hands work off to.
+// Built once by walking plugins/specialists/**/agents/*.md (same regex as validate-agent.js).
 function buildAgentSkillMap(allPluginsInRepo) {
   const map = new Map();
 
@@ -437,16 +437,22 @@ function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, age
   //    Условный вызов из этого счёта выведен пометкой `[справочно]` у самого вызова (`pluginCalls`):
   //    отличить его от безусловного по прозе нельзя - «вызови Skill tool ...» стоит и в условной
   //    строке («**Если Redis в стеке** - вызови Skill tool ...»), а по имени нельзя тем более.
+  //    Цель ребра судится не по её типу: адрес `{plugin}:{artifact}` в теле агента исполнитель
+  //    читает как «он у меня установлен» одинаково для скилла и для соседнего специалиста, которому
+  //    агент отдаёт работу дальше по конвейеру («следующий шаг - ...», «handoff потребляют ...»).
+  //    Зеркала со стороны скилла (2b) и команды (2c) специалиста уже судят; отбор здесь по одному
+  //    лишь skill-типу оставлял класс «агент -> специалист» вне замыкания.
   for (const comp of components) {
     const loaded = agentSkillMap.get(comp);
-    if (!loaded) continue; // not a specialist, or loads no skills
-    for (const skill of loaded) {
-      if (!skillPluginsInRepo.has(skill)) continue; // unknown skill is validate-agent.js's job
-      if (!includeSet.has(skill)) {
+    if (!loaded) continue; // not a specialist, or names nothing
+    for (const target of loaded) {
+      if (!includeSet.has(target)) {
         findings.push({
           level: ERROR,
           rule: 'bundle-not-closed',
-          message: `agent "${comp}" loads "${skill}" but the bundle ships it in neither includes[] nor dependencies[] - bundle not closed; add it or the agent degrades`,
+          message: skillPluginsInRepo.has(target)
+            ? `agent "${comp}" loads "${target}" but the bundle ships it in neither includes[] nor dependencies[] - bundle not closed; add it or the agent degrades`
+            : `agent "${comp}" hands off to "${target}" but the bundle ships it in neither includes[] nor dependencies[] - bundle not closed; add it or the handoff has no agent to run`,
         });
       }
     }

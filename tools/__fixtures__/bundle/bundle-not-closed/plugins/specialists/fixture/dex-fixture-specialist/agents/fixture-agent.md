@@ -31,3 +31,4 @@ model: sonnet
 **Output (handoff):** `status` (`complete`/`blocked`/`partial`), перечень находок, допущения.
 
 **Exit criteria:** Output содержит `status` и перечень находок; пустой перечень назван явно.
+Следующий шаг - `dex-fixture-next:next-agent`.

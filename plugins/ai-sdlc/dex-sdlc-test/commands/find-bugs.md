@@ -25,8 +25,8 @@ Handoff).
 - Модель рисков и чартеры по зонам
 - Кандидаты из прямого прохода и skill-чеклистов с дедупом
 - По каждому подтверждённому багу - минимальное воспроизведение (red) и severity
-- Handoff-карточки, готовые к передаче в `dex-incident-investigator` (расследование) и
-  `dex-bug-reporter` (регистрация)
+- Handoff-карточки, готовые к передаче в `dex-incident-investigator:incident-investigator` (расследование) и
+  `dex-bug-reporter:bug-reporter` (регистрация)
 
 ## Constraints
 
