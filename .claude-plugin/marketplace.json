@@ -1249,7 +1249,7 @@
       "name": "dex-adr-writer",
       "source": "./plugins/specialists/architecture/dex-adr-writer",
       "description": "Автор ADR: пишет Architecture Decision Records в формате MADR - драйверы решения, альтернативы, trade-off.",
-      "version": "3.4.2",
+      "version": "3.4.3",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2125,7 +2125,7 @@
       "name": "dex-skill-node-contract",
       "source": "./plugins/ai-sdlc/dex-skill-node-contract",
       "description": "Рантайм-контракт агента-узла - режим interactive/autonomous, реакция на неполный вход (blocking/default-ok), возврат наверх, словарь полей handoff, метка quality-checks и её носитель, транспорт артефакта, выбор канала хостинга (native/CLI), graceful degradation при недоступности skill",
-      "version": "7.16.1",
+      "version": "7.17.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2184,7 +2184,7 @@
       "name": "dex-sdlc-nudge",
       "source": "./plugins/ai-sdlc/dex-sdlc-nudge",
       "description": "Поднимает движок конвейера (dex-sdlc:engine) на рабочей просьбе: инжектит короткое подталкивание через UserPromptSubmit, зону и трек движок определяет сам по реестру зон. Замером подтверждено, что полем description движок на поручении-задаче не поднимается вовсе.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "category": "utility",
       "keywords": [
         "utility",
@@ -2899,7 +2899,7 @@
       "name": "dex-mr-reviewer",
       "source": "./plugins/specialists/review/dex-mr-reviewer",
       "description": "Языко-агностичный узел первичного ревью чужого MR/PR: карта изменений, параллельные фокусы, фальсификация находок, severity/confidence/scope, доставка инлайн-тредами через gh/glab. Вызывается треком mr-review-track (команда /mr-review в dex-sdlc), не своим командным входом.",
-      "version": "2.1.1",
+      "version": "2.2.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2916,7 +2916,7 @@
       "name": "dex-mr-check-reviewer",
       "source": "./plugins/specialists/review/dex-mr-check-reviewer",
       "description": "Узел ре-ревью дельты MR/PR после правок автора: range-diff дельты, статус прежних находок, новые находки только в дельте, обновление существующих тредов и публикация новых. Вызывается треком mr-review-track на повторных раундах команды /mr-review в dex-sdlc, не своим командным входом.",
-      "version": "2.1.0",
+      "version": "2.2.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -3028,8 +3028,8 @@
     {
       "name": "dex-self-reviewer",
       "source": "./plugins/specialists/review/dex-self-reviewer",
-      "description": "Pre-push саморевью своей локальной ветки: committed+staged+worktree diff, скан по фокусам (безопасность, архитектура, регрессии, loose-ends, non-code) с реальным прогоном build/test, фальсификация, чеклист правок до push.",
-      "version": "1.15.0",
+      "description": "Pre-push саморевью своей локальной ветки: committed+staged+worktree diff, скан по осям diff'а (security, architecture, language, business, regressions, performance, loose-ends, non-code) с реальным прогоном build/test, фальсификация, чеклист правок до push.",
+      "version": "1.16.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -3409,7 +3409,7 @@
       "name": "dex-skill-mr-review-track",
       "source": "./plugins/ai-sdlc/dex-skill-mr-review-track",
       "description": "Трек ревью входящего MR движка dex-sdlc - read-only, находки с severity, фальсификация каждой против кода, покрытие тестами отдельным фокусом. Активируется при: ревью входящего MR, review incoming PR, проверь чужой pull request, code review, инлайн- находки, ре-ревью дельты, фокус покрытия тестами, тред-вопрос автору, severity находки, фальсификация находки, комментарии к diff.",
-      "version": "1.2.1",
+      "version": "1.3.0",
       "category": "skill",
       "keywords": [
         "skill",
