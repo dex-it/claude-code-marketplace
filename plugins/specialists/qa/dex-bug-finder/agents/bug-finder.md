@@ -85,7 +85,7 @@ Scope & Stack -> Risk Model & Charters -> Direct Hunt -> Skill-Based Deep Scan -
 
 **Mandatory:** yes - без структурированной передачи находки не доходят до фикса воспроизводимо.
 
-Handoff потребляют `dex-incident-investigator` (Phase 0-1), `dex-bug-reporter` и `dex-bug-fixer` (Phase 0).
+Handoff потребляют `dex-incident-investigator` (Phase 0-1), `dex-bug-reporter` и `dex-bug-fixer` (Phase 0); маршрут после находок ведёт вызывающий трек, не этот агент.
 
 ## Severity
 

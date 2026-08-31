@@ -12,7 +12,7 @@
       "name": "dex-adr-writer",
       "source": "./plugins/specialists/architecture/dex-adr-writer",
       "description": "Автор ADR: пишет Architecture Decision Records в формате MADR - драйверы решения, альтернативы, trade-off.",
-      "version": "3.4.2",
+      "version": "3.4.3",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -118,7 +118,7 @@
       "name": "dex-bug-finder",
       "source": "./plugins/specialists/qa/dex-bug-finder",
       "description": "Узел активного поиска багов в фиче или ветке, языко-агностично: модель рисков и чартеры, адверсариальная охота, skill-чеклисты, воспроизведение и квалификация, handoff в расследование. Вызывается треком test-track (команда /find-bugs в dex-sdlc), не своим командным входом.",
-      "version": "2.1.0",
+      "version": "2.1.1",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -133,7 +133,7 @@
       "name": "dex-bug-fixer",
       "source": "./plugins/specialists/delivery/dex-bug-fixer",
       "description": "Пакетная ремедиация найденных тестировщиком багов после мерджа: интейк находок, триаж и приоритет, подтверждение причины по одному, фикс на источнике через follow-up MR, верификация red->green на стенде, регрессия соседей; финиш на локальных коммитах без push.",
-      "version": "1.5.1",
+      "version": "1.5.2",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -207,7 +207,7 @@
       "name": "dex-bundle-code-review",
       "source": "./plugins/bundles/dex-bundle-code-review",
       "description": "Бандл жизненного цикла кода: языко-агностичное ревью MR/PR, повторное ревью после правок, план правок, реализация фичи, подтягивание базовой ветки с разрешением конфликтов, саморевью перед push, приёмка слитой фичи на стенде с ремедиацией, расследование инцидента, плюс скиллы дисциплины ревью.",
-      "version": "1.29.0",
+      "version": "1.30.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -235,7 +235,7 @@
       "name": "dex-bundle-dotnet-developer",
       "source": "./plugins/bundles/dex-bundle-dotnet-developer",
       "description": "Бандл для .NET-разработчика: написание кода, отладка, тесты, code review, EF Core, производительность, интерактивный дизайн .NET-архитектуры.",
-      "version": "2.24.0",
+      "version": "2.25.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -247,7 +247,7 @@
       "name": "dex-bundle-dotnet-fullstack",
       "source": "./plugins/bundles/dex-bundle-dotnet-fullstack",
       "description": "Полный бандл для .NET fullstack: разработка, базы данных, брокеры сообщений, контейнеры, CI/CD, мониторинг, интерактивный дизайн архитектуры.",
-      "version": "2.25.0",
+      "version": "2.26.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -314,7 +314,7 @@
       "name": "dex-bundle-qa-engineer",
       "source": "./plugins/bundles/dex-bundle-qa-engineer",
       "description": "Бандл для QA-инженера: тест-анализ, автоматизация (включая E2E на Playwright), активный поиск багов, баг-репорты.",
-      "version": "1.13.0",
+      "version": "1.14.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -372,7 +372,7 @@
       "name": "dex-bundle-ts-fullstack",
       "source": "./plugins/bundles/dex-bundle-ts-fullstack",
       "description": "Бандл для TypeScript fullstack: бэкенд на Node.js/Bun и фронтенд на React, безопасность, Docker, E2E на Playwright.",
-      "version": "1.21.0",
+      "version": "1.22.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -484,7 +484,7 @@
       "name": "dex-conflict-resolver",
       "source": "./plugins/specialists/delivery/dex-conflict-resolver",
       "description": "Подтягивание базовой ветки в фича-ветку и разрешение конфликтов merge/rebase без тихой потери стороны: превью без записи, карта по типам, охота за тихими конфликтами, сведение обоих намерений, фальсификация и финал без push.",
-      "version": "1.3.2",
+      "version": "1.3.3",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -971,7 +971,7 @@
       "name": "dex-mr-check-reviewer",
       "source": "./plugins/specialists/review/dex-mr-check-reviewer",
       "description": "Узел ре-ревью дельты MR/PR после правок автора: range-diff дельты, статус прежних находок, новые находки только в дельте, обновление существующих тредов и публикация новых. Вызывается треком mr-review-track на повторных раундах команды /mr-review в dex-sdlc, не своим командным входом.",
-      "version": "2.1.0",
+      "version": "2.2.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -988,7 +988,7 @@
       "name": "dex-mr-reviewer",
       "source": "./plugins/specialists/review/dex-mr-reviewer",
       "description": "Языко-агностичный узел первичного ревью чужого MR/PR: карта изменений, параллельные фокусы, фальсификация находок, severity/confidence/scope, доставка инлайн-тредами через gh/glab. Вызывается треком mr-review-track (команда /mr-review в dex-sdlc), не своим командным входом.",
-      "version": "2.1.1",
+      "version": "2.2.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1207,7 +1207,7 @@
       "name": "dex-sdlc",
       "source": "./plugins/ai-sdlc/dex-sdlc",
       "description": "Движок доведения цели до конца самостоятельно (AI-SDLC-конвейер) - универсальный цикл, делегирование узлам-агентам по контракту node-contract, диспетчинг по трек-скиллу зоны. Агностично правило-тело: порядок работ каждой зоны живёт в своём dex-skill-<зона>-track, движок его не хранит, но справочник зон для резолва голого поручения принадлежит ядру. Команды-входы живут в плагинах зон dex-sdlc-product, dex-sdlc-requirements, dex-sdlc-design, dex-sdlc-discover, dex-sdlc-docs, dex-sdlc-delivery, dex-sdlc-test, dex-sdlc-review, dex-sdlc-acceptance, dex-sdlc-ops - ставятся по надобности роли, не пакетом.",
-      "version": "3.3.4",
+      "version": "3.4.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -1297,7 +1297,7 @@
       "name": "dex-sdlc-nudge",
       "source": "./plugins/ai-sdlc/dex-sdlc-nudge",
       "description": "Поднимает движок конвейера (dex-sdlc:engine) на рабочей просьбе: инжектит короткое подталкивание через UserPromptSubmit, зону и трек движок определяет сам по реестру зон. Замером подтверждено, что полем description движок на поручении-задаче не поднимается вовсе.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "category": "utility",
       "keywords": [
         "utility",
@@ -1356,8 +1356,8 @@
     {
       "name": "dex-sdlc-resume",
       "source": "./plugins/ai-sdlc/dex-sdlc-resume",
-      "description": "После свёртки контекста или возобновления сессии напоминает продолжить задачу движка (dex-sdlc:engine) по процедуре \"Возобновление\": находит незакрытый auto-ledger движка (статус \"открыт\") в каталоге данных этой репы и инжектит текст через SessionStart (matcher compact|resume), разный по источнику - после свёртки полная процедура, после возобновления сверка с фактическим состоянием дерева.",
-      "version": "2.1.0",
+      "description": "После свёртки контекста или возобновления сессии напоминает продолжить задачу движка (dex-sdlc:engine) по процедуре \"Возобновление\": находит незакрытый auto-ledger движка (статус \"открыт\") в папке сессии каталога данных Claude Code и инжектит текст через SessionStart (matcher compact|resume), разный по источнику - после свёртки полная процедура, после возобновления сверка с фактическим состоянием дерева.",
+      "version": "2.2.0",
       "category": "utility",
       "keywords": [
         "utility",
@@ -1387,7 +1387,7 @@
       "name": "dex-sdlc-test",
       "source": "./plugins/ai-sdlc/dex-sdlc-test",
       "description": "Команды зоны тест-инжиниринга AI-SDLC-конвейера: /test (добор покрытия по осям матрицы и обратному ребру требование-тест), /find-bugs (активная охота за багами - модель рисков, чартеры, воспроизведение). Движок и универсальный цикл - в dex-sdlc, порядок работ зоны - в треке dex-skill-test-track.",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "category": "utility",
       "keywords": [
         "commands",
@@ -1417,8 +1417,8 @@
     {
       "name": "dex-self-reviewer",
       "source": "./plugins/specialists/review/dex-self-reviewer",
-      "description": "Pre-push саморевью своей локальной ветки: committed+staged+worktree diff, скан по фокусам (безопасность, архитектура, регрессии, loose-ends, non-code) с реальным прогоном build/test, фальсификация, чеклист правок до push.",
-      "version": "1.15.0",
+      "description": "Pre-push саморевью своей локальной ветки: committed+staged+worktree diff, скан по осям diff'а (security, architecture, language, business, regressions, performance, loose-ends, non-code) с реальным прогоном build/test, фальсификация, чеклист правок до push.",
+      "version": "1.16.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1916,7 +1916,7 @@
       "name": "dex-skill-development-track",
       "source": "./plugins/ai-sdlc/dex-skill-development-track",
       "description": "Трек зоны SDLC (реализация) движка dex-sdlc - ТЗ или тикет без спеки -> декомпозиция R/I -> инвентаризация архитектуры -> дизайн с гейтом первоисточника -> edit-план -> TDD-цикл оформляй/делай/стоп -> coverage-гейт -> локальные коммиты без push. Активируется при: реализуй фичу, implement feature, написать код по задаче, разработать функционал, по ТЗ, TDD, покрытие тестами, edit-план, рефакторинг, баг-фикс.",
-      "version": "1.7.1",
+      "version": "1.7.2",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2556,7 +2556,7 @@
       "name": "dex-skill-mr-review-track",
       "source": "./plugins/ai-sdlc/dex-skill-mr-review-track",
       "description": "Трек ревью входящего MR движка dex-sdlc - read-only, находки с severity, фальсификация каждой против кода, покрытие тестами отдельным фокусом. Активируется при: ревью входящего MR, review incoming PR, проверь чужой pull request, code review, инлайн- находки, ре-ревью дельты, фокус покрытия тестами, тред-вопрос автору, severity находки, фальсификация находки, комментарии к diff.",
-      "version": "1.2.1",
+      "version": "1.3.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2624,7 +2624,7 @@
       "name": "dex-skill-node-contract",
       "source": "./plugins/ai-sdlc/dex-skill-node-contract",
       "description": "Рантайм-контракт агента-узла - режим interactive/autonomous, реакция на неполный вход (blocking/default-ok), возврат наверх, словарь полей handoff, метка quality-checks и её носитель, транспорт артефакта, выбор канала хостинга (native/CLI), graceful degradation при недоступности skill",
-      "version": "7.17.1",
+      "version": "7.18.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2842,7 +2842,7 @@
       "name": "dex-skill-product-track",
       "source": "./plugins/ai-sdlc/dex-skill-product-track",
       "description": "Трек зоны продукта движка dex-sdlc - корпус уровня 0: BRD продукта с BR-NNN и MOE, доменная модель (словарь), конституция (INV-NNN, NFR-P-NNN). Две остановки оператора, диспетчинг business-requirements-analyst и domain-analyst по node-contract",
-      "version": "2.4.1",
+      "version": "2.4.2",
       "category": "skill",
       "keywords": [
         "skill",
@@ -3498,7 +3498,7 @@
       "name": "dex-stand-reviewer",
       "source": "./plugins/specialists/review/dex-stand-reviewer",
       "description": "Узел приёмки слитой фичи на развёрнутом стенде против ТЗ, read-only: привязка образа к merge-коммиту, карта требование -> проба на стенде, параллельные суб-агенты улик, фальсификация находок и утверждений 'выполнено', severity/confidence/scope, отчёт. Вызывается треком acceptance-track (команда /review-stand в dex-sdlc), не своим командным входом.",
-      "version": "2.0.0",
+      "version": "2.0.1",
       "category": "specialist",
       "keywords": [
         "specialist",

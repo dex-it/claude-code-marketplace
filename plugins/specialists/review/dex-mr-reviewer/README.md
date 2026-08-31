@@ -14,7 +14,7 @@
 
 ## Skills
 
-В Phase 3 агент императивно грузит через Skill tool релевантные стеку skills: всегда `dex-skill-solid`, `dex-skill-owasp-security`, `dex-skill-testability`, `dex-skill-no-loose-ends`, `dex-skill-performance-review`; условно по diff - `dex-skill-clean-architecture`, `dex-skill-ddd`, `dex-skill-microservices`, `dex-skill-nfr`, и стек-специфичные `dex-skill-dotnet-*` / `dex-skill-react` / `dex-skill-ts-patterns` / `dex-skill-ts-nodejs-api`. Дисциплина и доставка: `dex-skill-review-evidence`, `dex-skill-review-threads`, `dex-skill-output-hygiene`.
+В Phase 3 агент императивно грузит через Skill tool skills активных осей - ось, которую diff не задевает, не даёт ни фокуса, ни своих skills: `architecture` - `dex-skill-solid`, `dex-skill-clean-architecture`, `dex-skill-ddd`, `dex-skill-microservices`, `dex-skill-nfr`; `security` - `dex-skill-owasp-security`; `performance` - `dex-skill-performance-review`; `testability` - `dex-skill-testability`; `loose-ends` - `dex-skill-no-loose-ends` (по изменённым коду, конфигам, скриптам, CI), и стек-специфичные `dex-skill-dotnet-*` / `dex-skill-react` / `dex-skill-ts-patterns` / `dex-skill-ts-nodejs-api`. Дисциплина и доставка: `dex-skill-review-evidence`, `dex-skill-review-threads`, `dex-skill-output-hygiene`.
 
 ## Требования
 

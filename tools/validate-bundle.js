@@ -5,7 +5,7 @@
  * Checks that every bundle is *closed*, in both directions:
  *   - each non-by-stack skill that an agent in the bundle loads imperatively
  *     (via the Skill tool, `dex-skill-X:Y`) MUST be listed in the bundle's
- *     includes[] (rule bundle-not-closed).
+ *     component lists - includes[] or dependencies[] (rule bundle-not-closed).
  *   - each specialist a skill in the bundle delegates to (`dex-X:Y`, X !=
  *     dex-skill-*) MUST also be listed (rule bundle-agent-not-closed).
  *   - each skill or specialist a COMMAND in the bundle names as its executor
@@ -14,10 +14,10 @@
  *     entirely, and the gap was real - /find-bugs (dex-sdlc) names
  *     dex-bug-finder as executor while four bundles shipped the command
  *     without that plugin, so the name silently failed to resolve.
- * Installation is flat - install-bundle.sh installs exactly the includes[]
- * entries, there is no specialist->skill or skill->specialist cascade. So a
- * reference the bundle omits will never be installed, and either the agent
- * silently degrades (graceful-degradation branch) or the delegation has no
+ * Installation is flat - install-bundle.sh installs exactly the component lists
+ * (includes[] + dependencies[]), there is no specialist->skill or skill->specialist
+ * cascade. So a reference the bundle omits will never be installed, and either the
+ * agent silently degrades (graceful-degradation branch) or the delegation has no
  * agent to run.
  *
  * by-stack profile skills (dex-skill-{dotnet,ts,python,...}-*) are exempt
@@ -29,7 +29,8 @@
  * (e.g. dex-dotnet-coder) silently degrade.
  *
  * Also checks:
- *   - every includes[] entry exists in marketplace.json (else install fails)
+ *   - every component (includes[] + dependencies[]) exists in marketplace.json
+ *     (else install fails)
  *   - plugin.json version matches marketplace.json for EVERY plugin under
  *     plugins/ (the real two-place sync; bundle.json itself carries no version)
  *   - plugin.json description matches the marketplace.json entry (rule
@@ -183,9 +184,9 @@ function pluginCalls(body) {
 
 // --- Specialist -> loaded skills map -------------------------------------
 
-// Map: specialist plugin dir name -> Set of dex-skill-* plugins its agent(s)
-// load imperatively. Built once by walking plugins/specialists/**/agents/*.md
-// and extracting `dex-skill-X:Y` references (same regex as validate-agent.js).
+// Map: specialist plugin dir name -> Set of catalogue plugins its agent(s) name by the
+// `{plugin}:{artifact}` address - skills it loads imperatively and specialists it hands work off to.
+// Built once by walking plugins/specialists/**/agents/*.md (same regex as validate-agent.js).
 function buildAgentSkillMap(allPluginsInRepo) {
   const map = new Map();
 
@@ -394,7 +395,7 @@ function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, age
     }
   }
 
-  // 1. Every include exists in marketplace.json (else install-bundle errors).
+  // 1. Every component (includes[] + dependencies[]) exists in marketplace.json (else install-bundle errors).
   for (const comp of components) {
     if (!marketplacePlugins.has(comp)) {
       findings.push({
@@ -437,16 +438,22 @@ function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, age
   //    Условный вызов из этого счёта выведен пометкой `[справочно]` у самого вызова (`pluginCalls`):
   //    отличить его от безусловного по прозе нельзя - «вызови Skill tool ...» стоит и в условной
   //    строке («**Если Redis в стеке** - вызови Skill tool ...»), а по имени нельзя тем более.
+  //    Цель ребра судится не по её типу: адрес `{plugin}:{artifact}` в теле агента исполнитель
+  //    читает как «он у меня установлен» одинаково для скилла и для соседнего специалиста, которому
+  //    агент отдаёт работу дальше по конвейеру («следующий шаг - ...», «handoff потребляют ...»).
+  //    Зеркала со стороны скилла (2b) и команды (2c) специалиста уже судят; отбор здесь по одному
+  //    лишь skill-типу оставлял класс «агент -> специалист» вне замыкания.
   for (const comp of components) {
     const loaded = agentSkillMap.get(comp);
-    if (!loaded) continue; // not a specialist, or loads no skills
-    for (const skill of loaded) {
-      if (!skillPluginsInRepo.has(skill)) continue; // unknown skill is validate-agent.js's job
-      if (!includeSet.has(skill)) {
+    if (!loaded) continue; // not a specialist, or names nothing
+    for (const target of loaded) {
+      if (!includeSet.has(target)) {
         findings.push({
           level: ERROR,
           rule: 'bundle-not-closed',
-          message: `agent "${comp}" loads "${skill}" but the bundle ships it in neither includes[] nor dependencies[] - bundle not closed; add it or the agent degrades`,
+          message: skillPluginsInRepo.has(target)
+            ? `agent "${comp}" loads "${target}" but the bundle ships it in neither includes[] nor dependencies[] - bundle not closed; add it or the agent degrades`
+            : `agent "${comp}" hands off to "${target}" but the bundle ships it in neither includes[] nor dependencies[] - bundle not closed; add it or the handoff has no agent to run`,
         });
       }
     }
@@ -471,7 +478,7 @@ function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, age
   }
 
   // 2c. Команда бандла называет исполнителя - скилл или специалиста; он тоже
-  //     обязан быть в includes[]. Установка плоская: команда приезжает с своим
+  //     обязан быть в составе. Установка плоская: команда приезжает с своим
   //     плагином и появляется в меню, а названный ею исполнитель - нет, и имя
   //     не резолвится молча. By-stack исключение то же, что в #2 и #2b.
   for (const comp of components) {
