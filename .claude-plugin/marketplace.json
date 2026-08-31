@@ -1505,7 +1505,7 @@
       "name": "dex-bug-finder",
       "source": "./plugins/specialists/qa/dex-bug-finder",
       "description": "Узел активного поиска багов в фиче или ветке, языко-агностично: модель рисков и чартеры, адверсариальная охота, skill-чеклисты, воспроизведение и квалификация, handoff в расследование. Вызывается треком test-track (команда /find-bugs в dex-sdlc), не своим командным входом.",
-      "version": "2.1.0",
+      "version": "2.1.1",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1613,7 +1613,7 @@
       "name": "dex-bundle-dotnet-developer",
       "source": "./plugins/bundles/dex-bundle-dotnet-developer",
       "description": "Бандл для .NET-разработчика: написание кода, отладка, тесты, code review, EF Core, производительность, интерактивный дизайн .NET-архитектуры.",
-      "version": "2.23.0",
+      "version": "2.24.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -1625,7 +1625,7 @@
       "name": "dex-bundle-dotnet-fullstack",
       "source": "./plugins/bundles/dex-bundle-dotnet-fullstack",
       "description": "Полный бандл для .NET fullstack: разработка, базы данных, брокеры сообщений, контейнеры, CI/CD, мониторинг, интерактивный дизайн архитектуры.",
-      "version": "2.24.0",
+      "version": "2.25.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -1693,7 +1693,7 @@
       "name": "dex-bundle-qa-engineer",
       "source": "./plugins/bundles/dex-bundle-qa-engineer",
       "description": "Бандл для QA-инженера: тест-анализ, автоматизация (включая E2E на Playwright), активный поиск багов, баг-репорты.",
-      "version": "1.12.0",
+      "version": "1.13.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -1719,7 +1719,7 @@
       "name": "dex-bundle-ts-fullstack",
       "source": "./plugins/bundles/dex-bundle-ts-fullstack",
       "description": "Бандл для TypeScript fullstack: бэкенд на Node.js/Bun и фронтенд на React, безопасность, Docker, E2E на Playwright.",
-      "version": "1.20.0",
+      "version": "1.21.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -2125,7 +2125,7 @@
       "name": "dex-skill-node-contract",
       "source": "./plugins/ai-sdlc/dex-skill-node-contract",
       "description": "Рантайм-контракт агента-узла - режим interactive/autonomous, реакция на неполный вход (blocking/default-ok), возврат наверх, словарь полей handoff, метка quality-checks и её носитель, транспорт артефакта, выбор канала хостинга (native/CLI), graceful degradation при недоступности skill",
-      "version": "7.17.0",
+      "version": "7.17.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2155,7 +2155,7 @@
       "name": "dex-skill-project-docs-map",
       "source": "./plugins/ai-sdlc/dex-skill-project-docs-map",
       "description": "Карта документации проекта - где лежат требования, BRD, ADR, спеки, корпус уровня 0 и счётчики номеров; файл путей .docs_layout (ключи product, domain, root, adr, specs, counter), поиск и запись при его отсутствии, статус при недостижимом корпусе",
-      "version": "2.3.2",
+      "version": "2.3.3",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2933,7 +2933,7 @@
       "name": "dex-stand-reviewer",
       "source": "./plugins/specialists/review/dex-stand-reviewer",
       "description": "Узел приёмки слитой фичи на развёрнутом стенде против ТЗ, read-only: привязка образа к merge-коммиту, карта требование -> проба на стенде, параллельные суб-агенты улик, фальсификация находок и утверждений 'выполнено', severity/confidence/scope, отчёт. Вызывается треком acceptance-track (команда /review-stand в dex-sdlc), не своим командным входом.",
-      "version": "2.0.0",
+      "version": "2.0.1",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2967,7 +2967,7 @@
       "name": "dex-bug-fixer",
       "source": "./plugins/specialists/delivery/dex-bug-fixer",
       "description": "Пакетная ремедиация найденных тестировщиком багов после мерджа: интейк находок, триаж и приоритет, подтверждение причины по одному, фикс на источнике через follow-up MR, верификация red->green на стенде, регрессия соседей; финиш на локальных коммитах без push.",
-      "version": "1.5.1",
+      "version": "1.5.2",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -3046,7 +3046,7 @@
       "name": "dex-conflict-resolver",
       "source": "./plugins/specialists/delivery/dex-conflict-resolver",
       "description": "Подтягивание базовой ветки в фича-ветку и разрешение конфликтов merge/rebase без тихой потери стороны: превью без записи, карта по типам, охота за тихими конфликтами, сведение обоих намерений, фальсификация и финал без push.",
-      "version": "1.3.2",
+      "version": "1.3.3",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -3062,7 +3062,7 @@
       "name": "dex-bundle-code-review",
       "source": "./plugins/bundles/dex-bundle-code-review",
       "description": "Бандл жизненного цикла кода: языко-агностичное ревью MR/PR, повторное ревью после правок, план правок, реализация фичи, подтягивание базовой ветки с разрешением конфликтов, саморевью перед push, приёмка слитой фичи на стенде с ремедиацией, расследование инцидента, плюс скиллы дисциплины ревью.",
-      "version": "1.28.0",
+      "version": "1.29.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -3227,7 +3227,7 @@
       "name": "dex-sdlc-test",
       "source": "./plugins/ai-sdlc/dex-sdlc-test",
       "description": "Команды зоны тест-инжиниринга AI-SDLC-конвейера: /test (добор покрытия по осям матрицы и обратному ребру требование-тест), /find-bugs (активная охота за багами - модель рисков, чартеры, воспроизведение). Движок и универсальный цикл - в dex-sdlc, порядок работ зоны - в треке dex-skill-test-track.",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "category": "utility",
       "keywords": [
         "commands",
@@ -3287,7 +3287,7 @@
       "name": "dex-skill-analytics-track",
       "source": "./plugins/ai-sdlc/dex-skill-analytics-track",
       "description": "Трек зоны требований - тема или правка -> BRD -> сценарии -> правила и меры -> истории с критериями, две остановки оператора и проба готовности. Пишет decision-log, разрешает номер фичи. Активируется при: проработать идею до требований, обдумать фичу, описать новую фичу, собрать BRD, оформить требования, разложить фичу на истории, поправить принятое требование, feature pipeline, функциональные требования, критерии приёмки.",
-      "version": "2.6.2",
+      "version": "2.6.3",
       "category": "skill",
       "keywords": [
         "skill",
@@ -3302,7 +3302,7 @@
       "name": "dex-skill-development-track",
       "source": "./plugins/ai-sdlc/dex-skill-development-track",
       "description": "Трек зоны SDLC (реализация) движка dex-sdlc - ТЗ или тикет без спеки -> декомпозиция R/I -> инвентаризация архитектуры -> дизайн с гейтом первоисточника -> edit-план -> TDD-цикл оформляй/делай/стоп -> coverage-гейт -> локальные коммиты без push. Активируется при: реализуй фичу, implement feature, написать код по задаче, разработать функционал, по ТЗ, TDD, покрытие тестами, edit-план, рефакторинг, баг-фикс.",
-      "version": "1.7.1",
+      "version": "1.7.2",
       "category": "skill",
       "keywords": [
         "skill",
@@ -3316,7 +3316,7 @@
       "name": "dex-skill-architecture-track",
       "source": "./plugins/ai-sdlc/dex-skill-architecture-track",
       "description": "Трек архитектуры/дизайна движка dex-sdlc - от требований до одобренного design-документа: capacity, implementation plan, диспетчинг architect/architect-dotnet/adr-writer/api-designer/diagram-creator/design-reviewer по node-contract",
-      "version": "2.4.1",
+      "version": "2.4.2",
       "category": "skill",
       "keywords": [
         "skill",
@@ -3329,7 +3329,7 @@
       "name": "dex-skill-product-track",
       "source": "./plugins/ai-sdlc/dex-skill-product-track",
       "description": "Трек зоны продукта движка dex-sdlc - корпус уровня 0: BRD продукта с BR-NNN и MOE, доменная модель (словарь), конституция (INV-NNN, NFR-P-NNN). Две остановки оператора, диспетчинг business-requirements-analyst и domain-analyst по node-contract",
-      "version": "2.4.0",
+      "version": "2.4.1",
       "category": "skill",
       "keywords": [
         "skill",
