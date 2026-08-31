@@ -18,10 +18,15 @@
 # недоступны по умолчанию на новых моделях (Claude Code changelog 2.1.233,
 # 14.08.2026).
 #
-# Хук вычисляет slug той же формулой, что и движок (git rev-parse
-# --path-format=absolute --git-common-dir, без /.git, символы вне
-# [A-Za-z0-9-] -> "-") и сканирует auto-ledger/ этого slug на файлы со
-# строкой статуса "Статус: открыт" (буквальный контракт - см. P-auto-ledger).
+# Ledger ищется там, где движок его завёл, - в auto-ledger/ папки сессии, и
+# адрес берётся из transcript_path со stdin: projects/<slug>/<session>.jsonl
+# лежит рядом с папкой projects/<slug>/<session>/. Ключ сессии решает главное -
+# найденный ledger принадлежит именно этой сессии, гадать не о чем. Запасная
+# ветка: движок кладёт файл в папку проекта, когда скретчпад ему не назван и
+# <session> взять неоткуда, - она сканируется, только если в папке сессии пусто.
+# В обоих каталогах ищется строка статуса "Статус: открыт" (буквальный контракт
+# - см. P-auto-ledger). Git тут не при чём: триггер - существование незакрытого
+# ledger, а не рабочее дерево.
 # Формат самого auto-ledger (состав полей, трейл исполнителей, действующие
 # нормы) хук не дублирует - это норма движка, копия здесь разойдётся с ней
 # при следующей правке формата.
@@ -35,35 +40,34 @@ fi
 set +e
 
 input=$(cat)
+transcript=$(printf '%s' "$input" | jq -r '.transcript_path // empty' 2>/dev/null)
 cwd=$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null)
 source_kind=$(printf '%s' "$input" | jq -r '.source // empty' 2>/dev/null)
 
-if [ -n "$cwd" ] && [ -d "$cwd" ]; then
-  cd "$cwd" || exit 0
-fi
-
-git_common_dir=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
-
-if [ -z "$git_common_dir" ]; then
-  exit 0
-fi
-
-repo_root="${git_common_dir%/.git}"
-slug=$(printf '%s' "$repo_root" | sed 's/[^A-Za-z0-9-]/-/g')
-config_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
-ledger_dir="$config_dir/projects/$slug/auto-ledger"
-
-if [ ! -d "$ledger_dir" ]; then
-  exit 0
+if [ -n "$transcript" ]; then
+  session_dir="${transcript%.jsonl}"
+  project_dir=$(dirname "$transcript")
+else
+  # Поля нет - папку сессии взять неоткуда, остаётся запасная дверь движка.
+  session_dir=""
+  config_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+  project_dir="$config_dir/projects/$(printf '%s' "${cwd:-$PWD}" | sed 's/[^A-Za-z0-9-]/-/g')"
 fi
 
 open_ledgers=()
-for ledger_file in "$ledger_dir"/*.md; do
-  [ -f "$ledger_file" ] || continue
-  if grep -qiE '^Статус:[[:space:]]*открыт' "$ledger_file" 2>/dev/null; then
-    open_ledgers+=("$ledger_file")
-  fi
-done
+collect_open() {
+  local dir="$1/auto-ledger" ledger_file
+  [ -d "$dir" ] || return 0
+  for ledger_file in "$dir"/*.md; do
+    [ -f "$ledger_file" ] || continue
+    if grep -qiE '^Статус:[[:space:]]*открыт' "$ledger_file" 2>/dev/null; then
+      open_ledgers+=("$ledger_file")
+    fi
+  done
+}
+
+[ -n "$session_dir" ] && collect_open "$session_dir"
+[ ${#open_ledgers[@]} -eq 0 ] && collect_open "$project_dir"
 
 if [ ${#open_ledgers[@]} -eq 0 ]; then
   exit 0
@@ -97,12 +101,12 @@ EOF
 )
   else
     context=$(cat <<EOF
-Сессия возобновлена, а в этой репе несколько незакрытых auto-ledger движка (dex-sdlc:engine):
+Сессия возобновлена, а незакрытых auto-ledger движка (dex-sdlc:engine) несколько:
 ${all_paths}
 
-Какой из них принадлежит этой сессии, хук по файлу определить не может. Работаешь по одной из этих
-целей - прочитай нужный ledger, сверь его с ground truth (ветка, MR, статусы трекера) и только
-потом продолжай. Остальные ledger не трогай - они принадлежат другим сессиям/целям.
+Это разные цели, и какая из них продолжается сейчас, хук по файлу определить не может. Определи по
+запросу пользователя и содержимому файлов, прочитай нужный ledger, сверь его с ground truth (ветка,
+MR, статусы трекера) и только потом продолжай. Остальные не трогай - у них своя работа.
 EOF
 )
   fi
@@ -119,13 +123,13 @@ EOF
 )
 else
   context=$(cat <<EOF
-В этой репе несколько незакрытых auto-ledger движка (dex-sdlc:engine) сразу - какой из них
-принадлежит текущей сессии, хук по файлу определить не может:
+Незакрытых auto-ledger движка (dex-sdlc:engine) несколько сразу - это разные цели, и какая из них
+велась до свёртки, хук по файлу определить не может:
 ${all_paths}
 
 До какой-либо работы: Skill -> dex-sdlc:engine, прочитай каждый кандидат, по содержимому (цель,
-трек, трейл) определи, какая задача велась в ЭТОЙ сессии, и выполни для неё процедуру
-"Возобновление" движка. Остальные ledger не трогай - они принадлежат другим сессиям/целям.
+трек, трейл) определи, какая работа шла, и выполни для неё процедуру "Возобновление" движка.
+Остальные не трогай - у них своя работа.
 EOF
 )
 fi

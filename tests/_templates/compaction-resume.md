@@ -6,7 +6,7 @@
 механизм task-флаг сессии + `session_id`-поиск (движок `autonomous-task`, хук
 `dex-autonomous-task-resume`). Движок переименован в `dex-sdlc:engine`, хук - в `dex-sdlc-resume`,
 и возобновление переписано на **только** auto-ledger (буквальный контракт `Статус: открыт/закрыт`
-в `$CLAUDE_CONFIG_DIR/projects/<slug>/auto-ledger/`, `slug` из git-корня, без task-флага и без
+в `auto-ledger/` папки сессии, без task-флага и без
 `session_id`-поиска - см. `plugins/ai-sdlc/dex-sdlc-resume/hooks/scripts/resume-reminder.sh`).
 Ниже - идентификаторы обновлены, но точки проверки и обязательный набор случаев живого прогона
 писаны под старый (task-флаг) механизм и под новый не переизложены - отдельная работа.
