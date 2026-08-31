@@ -5,7 +5,7 @@
  * Checks that every bundle is *closed*, in both directions:
  *   - each non-by-stack skill that an agent in the bundle loads imperatively
  *     (via the Skill tool, `dex-skill-X:Y`) MUST be listed in the bundle's
- *     includes[] (rule bundle-not-closed).
+ *     component lists - includes[] or dependencies[] (rule bundle-not-closed).
  *   - each specialist a skill in the bundle delegates to (`dex-X:Y`, X !=
  *     dex-skill-*) MUST also be listed (rule bundle-agent-not-closed).
  *   - each skill or specialist a COMMAND in the bundle names as its executor
@@ -472,7 +472,7 @@ function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, age
   }
 
   // 2c. Команда бандла называет исполнителя - скилл или специалиста; он тоже
-  //     обязан быть в includes[]. Установка плоская: команда приезжает с своим
+  //     обязан быть в составе. Установка плоская: команда приезжает с своим
   //     плагином и появляется в меню, а названный ею исполнитель - нет, и имя
   //     не резолвится молча. By-stack исключение то же, что в #2 и #2b.
   for (const comp of components) {
