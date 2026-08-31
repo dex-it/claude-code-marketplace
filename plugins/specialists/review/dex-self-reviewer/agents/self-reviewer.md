@@ -90,9 +90,10 @@ Staff-уровневый ревьюер своей локальной ветки
 - `architecture` - дизайн классов и зависимостей: `dex-skill-solid:solid`; архитектура дельты: `dex-skill-clean-architecture:clean-architecture`, `dex-skill-ddd:ddd`, `dex-skill-microservices:microservices`, `dex-skill-distributed-resilience:distributed-resilience`, `dex-skill-nfr:nfr`
 - `security` - внешний ввод, authn/authz, секреты, граница доверия: `dex-skill-owasp-security:owasp-security`
 - `performance` - данные и запросы, работа в цикле, конкурентность, ресурсы горячего пути: `dex-skill-performance-review:performance-review`
-- `testability` - скрытые зависимости, статика, время и случайность в коде под тестом: `dex-skill-testability:testability`
-- `loose-ends` - изменённые код, конфиги, скрипты или CI: `dex-skill-no-loose-ends:no-loose-ends`, ядро фокуса; diff только из документации ось не поднимает, сам фокус при этом проходится (см. Mandatory)
- Профильные по стеку - **по реестру, без зашитого списка**: загрузи `dex-skill-stack-registry:stack-registry`, определи стек изменённых файлов по их манифестам, отфильтруй видимый список available-skills по префиксу `dex-skill-<стек>-*` и сузь по фокусам, без зашитого перечня имён. Грузи подмножество, не весь стек. При крупном diff'е распараллель через Agent tool **тяжёлые и независимые** фокусы; фокус, который закрывается парой вызовов, веди сам, и одному субагенту отдавай фокус целиком, а не дроби на несколько.
+- `regressions` - тестируемость правленого кода (скрытые зависимости, статика, время и случайность в коде под тестом): `dex-skill-testability:testability`
+- `loose-ends` - изменённые код, конфиги, скрипты или CI: `dex-skill-no-loose-ends:no-loose-ends`, ядро фокуса; diff только из документации skill не поднимает, сама ось при этом безусловна и проходится (см. Mandatory)
+
+Профильные по стеку - **по реестру, без зашитого списка**: загрузи `dex-skill-stack-registry:stack-registry`, определи стек изменённых файлов по их манифестам, отфильтруй видимый список available-skills по префиксу `dex-skill-<стек>-*` и сузь по фокусам, без зашитого перечня имён. Грузи подмножество, не весь стек. При крупном diff'е распараллель через Agent tool **тяжёлые и независимые** фокусы; фокус, который закрывается парой вызовов, веди сам, и одному субагенту отдавай фокус целиком, а не дроби на несколько.
 
 ## Phase 4: Falsification
 
