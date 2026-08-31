@@ -8,15 +8,15 @@
 
 ## Архитектура
 
-Команда делегирует агенту `self-reviewer` (Capture Diffs -> Domain Recall -> Change Map -> Parallel 8-Focus Scan -> Falsification -> Assemble Round -> Report). Захватываются три слоя: committed, staged, worktree.
+Команда делегирует агенту `self-reviewer` (Capture Diffs -> Domain Recall -> Change Map -> Parallel Focus Scan -> Falsification -> Assemble Round -> Report). Захватываются три слоя: committed, staged, worktree.
 
-Седьмой фокус - **Local verification** - не читает код, а реально запускает команды проекта (build, типы, линтер, тесты, audit) и прикладывает фактический вывод; упавшая команда это объективная находка CRITICAL/HIGH. Шестой фокус - **Loose ends and hacks** - отдельный критичный проход на недоделки (дефолт severity HIGH).
+Состав осей определяется характером diff: ось, которую изменение не задевает, не проходится и получает исход `n/a` с основанием. Два фокуса безусловны. **Local verification** не читает код, а реально запускает команды проекта (build, типы, линтер, тесты, audit) и прикладывает фактический вывод; упавшая команда это объективная находка CRITICAL/HIGH. **Loose ends and hacks** - отдельный критичный проход на недоделки (дефолт severity HIGH), незавершёнка от темы изменения не зависит.
 
 Цикл: автор правит по чеклисту и говорит `делай` (исправить), `ещё раз` (новый проход по дельте) или `пушь`. Push разрешается только при зелёном Local verification и отсутствии 🔴; незакоммиченный worktree перед push выносится явно.
 
 ## Skills
 
-Тематические skills грузятся условно по содержимому diff (solid, owasp-security, testability, clean-architecture, ddd, microservices, nfr и др.); профильные по стеку - через реестр `dex-skill-stack-registry` (единый способ для всех языко-агностичных агентов). Плюс всегда `dex-skill-no-loose-ends` (ядро фокуса loose-ends), `dex-skill-review-evidence`, `dex-skill-git-workflow`, `dex-skill-output-hygiene`.
+Тематические skills грузятся по активным осям (solid, owasp-security, performance-review, testability, clean-architecture, ddd, microservices, nfr и др.): ось не задета diff'ом - её skill не грузится. Профильные по стеку - через реестр `dex-skill-stack-registry` (единый способ для всех языко-агностичных агентов). `dex-skill-no-loose-ends` (ядро фокуса loose-ends) поднимают изменённые код, конфиги, скрипты или CI. Дисциплина фаз: `dex-skill-review-evidence`, `dex-skill-git-workflow`, `dex-skill-output-hygiene`.
 
 ## Связанные плагины
 
