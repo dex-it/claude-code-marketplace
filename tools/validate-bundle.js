@@ -5,7 +5,7 @@
  * Checks that every bundle is *closed*, in both directions:
  *   - each non-by-stack skill that an agent in the bundle loads imperatively
  *     (via the Skill tool, `dex-skill-X:Y`) MUST be listed in the bundle's
- *     includes[] (rule bundle-not-closed).
+ *     component lists - includes[] or dependencies[] (rule bundle-not-closed).
  *   - each specialist a skill in the bundle delegates to (`dex-X:Y`, X !=
  *     dex-skill-*) MUST also be listed (rule bundle-agent-not-closed).
  *   - each skill or specialist a COMMAND in the bundle names as its executor
@@ -14,10 +14,10 @@
  *     entirely, and the gap was real - /find-bugs (dex-sdlc) names
  *     dex-bug-finder as executor while four bundles shipped the command
  *     without that plugin, so the name silently failed to resolve.
- * Installation is flat - install-bundle.sh installs exactly the includes[]
- * entries, there is no specialist->skill or skill->specialist cascade. So a
- * reference the bundle omits will never be installed, and either the agent
- * silently degrades (graceful-degradation branch) or the delegation has no
+ * Installation is flat - install-bundle.sh installs exactly the component lists
+ * (includes[] + dependencies[]), there is no specialist->skill or skill->specialist
+ * cascade. So a reference the bundle omits will never be installed, and either the
+ * agent silently degrades (graceful-degradation branch) or the delegation has no
  * agent to run.
  *
  * by-stack profile skills (dex-skill-{dotnet,ts,python,...}-*) are exempt
@@ -29,7 +29,8 @@
  * (e.g. dex-dotnet-coder) silently degrade.
  *
  * Also checks:
- *   - every includes[] entry exists in marketplace.json (else install fails)
+ *   - every component (includes[] + dependencies[]) exists in marketplace.json
+ *     (else install fails)
  *   - plugin.json version matches marketplace.json for EVERY plugin under
  *     plugins/ (the real two-place sync; bundle.json itself carries no version)
  *   - plugin.json description matches the marketplace.json entry (rule
@@ -394,7 +395,7 @@ function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, age
     }
   }
 
-  // 1. Every include exists in marketplace.json (else install-bundle errors).
+  // 1. Every component (includes[] + dependencies[]) exists in marketplace.json (else install-bundle errors).
   for (const comp of components) {
     if (!marketplacePlugins.has(comp)) {
       findings.push({
@@ -471,7 +472,7 @@ function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, age
   }
 
   // 2c. Команда бандла называет исполнителя - скилл или специалиста; он тоже
-  //     обязан быть в includes[]. Установка плоская: команда приезжает с своим
+  //     обязан быть в составе. Установка плоская: команда приезжает с своим
   //     плагином и появляется в меню, а названный ею исполнитель - нет, и имя
   //     не резолвится молча. By-stack исключение то же, что в #2 и #2b.
   for (const comp of components) {
