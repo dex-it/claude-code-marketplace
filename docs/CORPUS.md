@@ -20,7 +20,7 @@
 
 | Носитель | Где | В git | Что несёт | Дом |
 |---|---|---|---|---|
-| корпус проекта | по ключам `.docs_layout` (`root`, `usecases`, `strategy`, `verification`, `product`, `domain`, `adr`, `specs`, `plans`) | да | принятое: требования, ADR, дизайн, планы, уровень 0 | `dex-skill-project-docs-map:project-docs-map` |
+| корпус проекта | по ключам `.docs_layout` (`root`, `usecases`, `strategy`, `verification`, `product`, `domain`, `adr`, `specs`, `plans`, `counter`) | да | принятое: требования, ADR, дизайн, планы, уровень 0 | `dex-skill-project-docs-map:project-docs-map` |
 | документация задачи | `docs/<TASK>/` | да, едет с MR | рабочие документы одной задачи | тот же |
 | auto-ledger | `<config>/projects/<slug>/auto-ledger/<TASK>.md`, вне рабочего дерева | нет | журнал автономного прогона движка | `dex-sdlc:engine` (`P-auto-ledger`), хук `dex-sdlc-resume` |
 

@@ -64,7 +64,8 @@ Bundle for Product Managers: business requirements, roadmap, backlog, metrics an
 - `dex-skill-use-cases` - Use case scenario traps
 - `dex-skill-functional-requirements` - Functional requirement unit traps
 - `dex-skill-unit-identity` - Requirement unit identity (same unit vs new, numbering)
-- `dex-skill-artifact-naming` - Requirements artifact naming/layout convention
+- `dex-skill-artifact-naming` - Requirements artifact naming convention and its boundaries
+- `dex-skill-docs-layout` - Documentation corpus layout normative (tree, identifiers)
 - `dex-skill-test-design` - Test design technique traps
 - `dex-skill-codebase-conventions` - Project convention vs technical decision
 - `dex-skill-ddd` - DDD traps
