@@ -96,3 +96,9 @@ jobs:
       # который трогает .sh. Полная проверка на macOS/Windows - отдельная задача.
       - name: Syntax-check all shell scripts
         run: find . -path ./node_modules -prune -o -name '*.sh' -print0 | xargs -0 -r -n1 bash -n
+
+      # Адрес auto-ledger живёт в двух носителях (текст движка и код хука) и
+      # расходится молча: хук просто перестаёт находить файл. Тест кладёт ledger
+      # в каталог проекта на временном CLAUDE_CONFIG_DIR и проверяет исходы хука.
+      - name: Test resume hook ledger address
+        run: bash tests/hooks/resume-reminder.test.sh
