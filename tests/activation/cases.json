@@ -713,6 +713,16 @@
     "prompt": "Собери требования на фичу экспорта отчётов."
   },
   {
+    "id": "engine-unlisted-in",
+    "mode": "in-scope",
+    "expect": "dex-sdlc:engine",
+    "plugins": [
+      "dex-sdlc-nudge"
+    ],
+    "git": true,
+    "prompt": "Настрой CI-пайплайн для нового сервиса: сборка, тесты, публикация образа."
+  },
+  {
     "id": "engine-near-question",
     "mode": "near-miss",
     "expect": "dex-sdlc:engine",

@@ -13,6 +13,13 @@
 # Почему фильтра по словам нет: условие неприменимости несёт сам текст, и модель его соблюдает
 # (замер: «поправь опечатку», «какой у нас стек» - конвейер не поднят). Регулярка по глаголам
 # давала бы ложные срабатывания там, где модель отсекает верно.
+#
+# Почему перечень работ идёт после признака, а не вместо него: вид работы, которого в перечне нет,
+# оставался без ветки решения. Признак («довести до конца по названному порядку, с проверкой на
+# выходе») решает, перечень держит узнаваемость формулировок, терминал закрывает остаток.
+#
+# Почему текст английский: он инструкция модели, не витрина каталога, и на кириллице тот же смысл
+# стоит дороже токенами (правило русской витрины касается description, не инжекта).
 set -uo pipefail
 
 # Без jq поле cwd не разбирается, cd пропускается и git проверяется в рабочем каталоге самого
@@ -26,5 +33,5 @@ cwd=$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null)
 git rev-parse --git-dir >/dev/null 2>&1 || exit 0
 
 cat <<'JSON'
-{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"Если просьба пользователя - работа конвейера SDLC (реализация, баг-фикс, тесты, ревью MR, разбор замечаний, приёмка на стенде, диагностика отказа, требования, дизайн, документация, обзор кода), до первого действия по ней вызови Skill dex-sdlc:engine - зону и трек он определит сам, в вызове их не называй. Вопрос, объяснение, разговор и правка в пару строк конвейером не ведутся - на них продолжай обычным путём."}}
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"Pipeline work: carried to completion on your own, in a named order, verified at the end - implementation, bug fix, tests, MR review, review follow-up, stand acceptance, failure diagnosis, requirements, design, documentation, code overview. On such a request call Skill dex-sdlc:engine before acting on it; it resolves zone and track itself, do not name them in the call. Questions, explanations, discussion, and edits needing neither build nor review are not pipeline work - continue normally. Looks like work but the kind is unlisted - call the engine anyway."}}
 JSON
