@@ -22,7 +22,7 @@
 |---|---|---|---|---|
 | корпус проекта | по ключам `.docs_layout` (`root`, `product`, `domain`, `adr`, `specs`, `plans`) | да | принятое: требования, ADR, дизайн, планы, уровень 0 | `dex-skill-project-docs-map:project-docs-map` |
 | документация задачи | `docs/<TASK>/` | да, едет с MR | рабочие документы одной задачи | тот же |
-| auto-ledger | `<config>/projects/<slug>/auto-ledger/<TASK>.md`, вне рабочего дерева | нет | журнал автономного прогона движка | `dex-sdlc:engine` (`P-auto-ledger`), хук `dex-sdlc-resume` |
+| auto-ledger | `auto-ledger/<TASK>.md` в папке сессии Claude Code, вне рабочего дерева | нет | журнал автономного прогона движка | `dex-sdlc:engine` (`P-auto-ledger`), хук `dex-sdlc-resume` |
 
 Запись не по назначению даёт либо утечку служебного состояния в MR, либо потерю документации задачи
 вместе со средой.
