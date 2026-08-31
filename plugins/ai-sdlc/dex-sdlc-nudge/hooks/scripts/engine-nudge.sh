@@ -18,6 +18,12 @@
 # оставался без ветки решения. Признак («довести до конца по названному порядку, с проверкой на
 # выходе») решает, перечень держит узнаваемость формулировок, терминал закрывает остаток.
 #
+# Почему продолжение начатой работы оговорено внутри отрицательной ветки, а не пунктом в перечне:
+# «что дальше по задаче» - вопрос по форме, и замер 31.08.2026 показал уход в отрицательную ветку
+# 2 из 2 (движок не поднят). Оговорка стоит там, где просьба терялась: 3 из 3 после правки.
+# Ветка важна тем, что продолжение - единственный путь к auto-ledger в свежей сессии: хук
+# dex-sdlc-resume ловит SessionStart только по compact|resume и здесь не срабатывает.
+#
 # Почему текст английский: он инструкция модели, не витрина каталога, и на кириллице тот же смысл
 # стоит дороже токенами (правило русской витрины касается description, не инжекта).
 set -uo pipefail
@@ -33,5 +39,5 @@ cwd=$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null)
 git rev-parse --git-dir >/dev/null 2>&1 || exit 0
 
 cat <<'JSON'
-{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"Pipeline work: carried to completion on your own, in a named order, verified at the end - implementation, bug fix, tests, MR review, review follow-up, stand acceptance, failure diagnosis, requirements, design, documentation, code overview. On such a request call Skill dex-sdlc:engine before acting on it; it resolves zone and track itself, do not name them in the call. Questions, explanations, discussion, and edits needing neither build nor review are not pipeline work - continue normally. Looks like work but the kind is unlisted - call the engine anyway."}}
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"Pipeline work: carried to completion on your own, in a named order, verified at the end - implementation, bug fix, tests, MR review, review follow-up, stand acceptance, failure diagnosis, requirements, design, documentation, code overview. On such a request call Skill dex-sdlc:engine before acting on it; it resolves zone and track itself, do not name them in the call. Questions, explanations, discussion, and edits needing neither build nor review are not pipeline work - continue normally; an ask to carry on, or what is next, on work already started is pipeline work - the engine picks it up from its ledger. Looks like work but the kind is unlisted - call the engine anyway."}}
 JSON

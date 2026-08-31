@@ -743,6 +743,105 @@
     "prompt": "Поправь опечатку в README: \"experimantal\" -> \"experimental\"."
   },
   {
+    "id": "engine-tests-in",
+    "mode": "in-scope",
+    "expect": "dex-sdlc:engine",
+    "plugins": [
+      "dex-sdlc-nudge"
+    ],
+    "git": true,
+    "prompt": "Покрой тестами модуль расчёта скидок - там сейчас ноль тестов."
+  },
+  {
+    "id": "engine-followup-in",
+    "mode": "in-scope",
+    "expect": "dex-sdlc:engine",
+    "plugins": [
+      "dex-sdlc-nudge"
+    ],
+    "git": true,
+    "prompt": "Пришли замечания по моему MR. Разбери их и подготовь ответы ревьюеру."
+  },
+  {
+    "id": "engine-diagnose-in",
+    "mode": "in-scope",
+    "expect": "dex-sdlc:engine",
+    "plugins": [
+      "dex-sdlc-nudge"
+    ],
+    "git": true,
+    "prompt": "На стенде /profile отдаёт 500 после вчерашнего деплоя. Разберись и предложи решение."
+  },
+  {
+    "id": "engine-design-in",
+    "mode": "in-scope",
+    "expect": "dex-sdlc:engine",
+    "plugins": [
+      "dex-sdlc-nudge"
+    ],
+    "git": true,
+    "prompt": "Спроектируй, как хранить историю изменений заказа."
+  },
+  {
+    "id": "engine-docs-in",
+    "mode": "in-scope",
+    "expect": "dex-sdlc:engine",
+    "plugins": [
+      "dex-sdlc-nudge"
+    ],
+    "git": true,
+    "prompt": "Напиши README для сервиса нотификаций: что это, как запустить, как настроить."
+  },
+  {
+    "id": "engine-acceptance-in",
+    "mode": "in-scope",
+    "expect": "dex-sdlc:engine",
+    "plugins": [
+      "dex-sdlc-nudge"
+    ],
+    "git": true,
+    "prompt": "Фича экспорта уже на стенде - проверь, что она работает по ТЗ."
+  },
+  {
+    "id": "engine-discover-in",
+    "mode": "in-scope",
+    "expect": "dex-sdlc:engine",
+    "plugins": [
+      "dex-sdlc-nudge"
+    ],
+    "git": true,
+    "prompt": "Посмотри проект вширь и собери, что в нём не так."
+  },
+  {
+    "id": "engine-continue-in",
+    "mode": "in-scope",
+    "expect": "dex-sdlc:engine",
+    "plugins": [
+      "dex-sdlc-nudge"
+    ],
+    "git": true,
+    "prompt": "Что дальше по задаче? Продолжай сам."
+  },
+  {
+    "id": "engine-near-explain",
+    "mode": "near-miss",
+    "expect": "dex-sdlc:engine",
+    "plugins": [
+      "dex-sdlc-nudge"
+    ],
+    "git": true,
+    "prompt": "Объясни, как устроена авторизация в этом репозитории."
+  },
+  {
+    "id": "engine-nogit-out",
+    "mode": "near-miss",
+    "expect": "dex-sdlc:engine",
+    "plugins": [
+      "dex-sdlc-nudge"
+    ],
+    "prompt": "Реализуй фичу экспорта отчёта в CSV. Работай сам до готовых коммитов."
+  },
+  {
     "id": "idea-forming-in",
     "mode": "contested",
     "expect": "dex-skill-idea-forming:idea-forming",
