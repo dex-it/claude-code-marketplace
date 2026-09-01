@@ -84,6 +84,11 @@ jobs:
       - name: Test validator rules
         run: node tools/test-rules.js all
 
+      # Стартовый индекс имён генерируется из словаря: правка словаря без
+      # перегенерации даёт индекс, который расходится с домом молча.
+      - name: Check terminology index in sync
+        run: node tools/sync-terminology.js --check
+
   shell-syntax:
     name: Shell scripts syntax check (bash -n)
     runs-on: ubuntu-latest

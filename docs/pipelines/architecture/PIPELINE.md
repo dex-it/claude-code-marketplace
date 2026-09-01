@@ -28,7 +28,7 @@ handoff-механика читаются там; здесь - обзор уст
 | 5 | Document (условно) | узел по типу артефакта | `dex-adr-writer` / `dex-api-designer` / `dex-diagram-creator` |
 | 6 | Design Acceptance | узел | `dex-design-reviewer:design-reviewer` |
 
-Фазы 0-2 и 4 трек ведёт сам (`channel: self` в трейле); фазы 3, 5, 6 - всегда делегированы
+Фазы 0-2 и 4 трек ведёт сам (`channel: self` в журнале исполнителей); фазы 3, 5, 6 - всегда делегированы
 (`channel: delegated`) - архитектурное решение и приёмку трек не переигрывает.
 
 Bootstrap восстанавливает контекст репо (recall-источники, стек по манифесту, `Accepted` ADR,

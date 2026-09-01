@@ -527,7 +527,7 @@
       "name": "dex-design-reviewer",
       "source": "./plugins/specialists/architecture/dex-design-reviewer",
       "description": "Ревью и согласование чужого дизайн-документа (спека, ADR, диаграммы) до написания кода: полнота NFR, дефекты требований, качество ADR-решений, консистентность и слои, полнота и непротиворечивость набора артефактов работы, фальсификация находок, severity. Не архитектура реализованного кода - её ревьюит /review-arch.",
-      "version": "2.7.1",
+      "version": "2.7.2",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -735,7 +735,7 @@
       "name": "dex-implementer-reader",
       "source": "./plugins/specialists/review/dex-implementer-reader",
       "description": "Implementer reader: проба готовности набора требований - чтение корпуса глазами автора кода и список того, что пришлось бы решить самому. Чистый контекст, без следа прогона и журнала решений.",
-      "version": "2.4.2",
+      "version": "2.4.3",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -970,8 +970,8 @@
     {
       "name": "dex-mr-check-reviewer",
       "source": "./plugins/specialists/review/dex-mr-check-reviewer",
-      "description": "Узел ре-ревью дельты MR/PR после правок автора: range-diff дельты, статус прежних находок, новые находки только в дельте, обновление существующих тредов и публикация новых. Вызывается треком mr-review-track на повторных раундах команды /mr-review в dex-sdlc, не своим командным входом.",
-      "version": "2.2.1",
+      "description": "Узел ре-ревью дельты MR/PR после правок автора: range-diff дельты, статус прежних находок, новые находки только в дельте, обновление существующих тредов и публикация новых. Вызывается треком mr-review-track на повторных ревизиях команды /mr-review в dex-sdlc, не своим командным входом.",
+      "version": "2.2.2",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1160,7 +1160,7 @@
       "name": "dex-requirements-reviewer",
       "source": "./plugins/specialists/review/dex-requirements-reviewer",
       "description": "Ревью и согласование чужого готового набора требований (BRD/stories) как документа: дефекты единицы и дефекты набора против источника, фальсификация находок, severity, правки автору без мутации документа.",
-      "version": "1.12.1",
+      "version": "1.12.2",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1207,7 +1207,7 @@
       "name": "dex-sdlc",
       "source": "./plugins/ai-sdlc/dex-sdlc",
       "description": "Движок доведения цели до конца самостоятельно (AI-SDLC-конвейер) - универсальный цикл, делегирование узлам-агентам по контракту node-contract, диспетчинг по трек-скиллу зоны. Агностично правило-тело: порядок работ каждой зоны живёт в своём dex-skill-<зона>-track, движок его не хранит, но справочник зон для резолва голого поручения принадлежит ядру. Команды-входы живут в плагинах зон dex-sdlc-product, dex-sdlc-requirements, dex-sdlc-design, dex-sdlc-discover, dex-sdlc-docs, dex-sdlc-delivery, dex-sdlc-test, dex-sdlc-review, dex-sdlc-acceptance, dex-sdlc-ops - ставятся по надобности роли, не пакетом.",
-      "version": "3.4.1",
+      "version": "3.4.3",
       "category": "skill",
       "keywords": [
         "skill",
@@ -1342,7 +1342,7 @@
       "name": "dex-sdlc-requirements",
       "source": "./plugins/ai-sdlc/dex-sdlc-requirements",
       "description": "Команды зоны требований AI-SDLC-конвейера: /feature (сценарии UC, правила FR/NFR с методом проверки, истории с AC), /feature-check (проверка готового корпуса требований судьями - requirements-reviewer и implementer-reader). Движок и универсальный цикл - в dex-sdlc, порядок работ зоны - в треке dex-skill-analytics-track.",
-      "version": "2.1.1",
+      "version": "2.1.2",
       "category": "utility",
       "keywords": [
         "commands",
@@ -1480,7 +1480,7 @@
       "name": "dex-skill-analytics-track",
       "source": "./plugins/ai-sdlc/dex-skill-analytics-track",
       "description": "Трек зоны требований - тема или правка -> BRD -> сценарии -> правила и меры -> истории с критериями, две остановки оператора и проба готовности. Пишет decision-log, разрешает номер фичи. Активируется при: проработать идею до требований, обдумать фичу, описать новую фичу, собрать BRD, оформить требования, разложить фичу на истории, поправить принятое требование, feature pipeline, функциональные требования, критерии приёмки.",
-      "version": "2.7.1",
+      "version": "2.7.2",
       "category": "skill",
       "keywords": [
         "skill",
@@ -1553,7 +1553,7 @@
       "name": "dex-skill-architecture-definition-42010",
       "source": "./plugins/skills/dex-skill-architecture-definition-42010",
       "description": "Норматив этапа архитектуры (ISO/IEC/IEEE 42010:2022) - concerns сторон и views, двенадцать разделов arc42, граница «решение в SAD против решения в ADR», целевая стадия, вход и выход",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -1570,7 +1570,7 @@
       "name": "dex-skill-architecture-track",
       "source": "./plugins/ai-sdlc/dex-skill-architecture-track",
       "description": "Трек архитектуры/дизайна движка dex-sdlc - от требований до одобренного design-документа: capacity, implementation plan, диспетчинг architect/architect-dotnet/adr-writer/api-designer/diagram-creator/design-reviewer по node-contract",
-      "version": "2.5.1",
+      "version": "2.5.2",
       "category": "skill",
       "keywords": [
         "skill",
@@ -1583,7 +1583,7 @@
       "name": "dex-skill-artifact-naming",
       "source": "./plugins/skills/dex-skill-artifact-naming",
       "description": "Конвенция имени артефакта конвейера требований и границы её применения: занятый корпус диктует раскладку сам, разрешение пути сквозным полем, слаг прогона как ключ, что не должно попадать в имя файла. Дерево и имена классов - у норматива раскладки.",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -1867,7 +1867,7 @@
       "name": "dex-skill-decision-log",
       "source": "./plugins/skills/dex-skill-decision-log",
       "description": "decision-log конвейера требований: что в него попадает, как требование ссылается на запись, чем он отличается от меток проверок и служебного состояния прогона, что делать при утрате. Общая механика - node-contract, раздел «Журнал решений»; здесь специфика требований: связь записи с единицей, дельта-правка, поднятие оснований заново.",
-      "version": "1.5.4",
+      "version": "1.5.5",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2287,8 +2287,8 @@
     {
       "name": "dex-skill-followup-track",
       "source": "./plugins/ai-sdlc/dex-skill-followup-track",
-      "description": "Трек обработки ревью своего MR движка dex-sdlc - разбор замечаний, план правок P0..P3, ре-ревью дельты, потолок 5 раундов. Активируется при: обработать ревью, разбор замечаний, ответить ревьюеру, закрыть треды ревью, ре-ревью дельты, follow-up review, замечания на мой MR, довести MR до мерджа, range-diff, LAST_REVIEW_SHA.",
-      "version": "1.3.0",
+      "description": "Трек обработки ревью своего MR движка dex-sdlc - разбор замечаний, план правок P0..P3, ре-ревью дельты, потолок 5 ревизий. Активируется при: обработать ревью, разбор замечаний, ответить ревьюеру, закрыть треды ревью, ре-ревью дельты, follow-up review, замечания на мой MR, довести MR до мерджа, range-diff, LAST_REVIEW_SHA.",
+      "version": "1.3.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2556,7 +2556,7 @@
       "name": "dex-skill-mr-review-track",
       "source": "./plugins/ai-sdlc/dex-skill-mr-review-track",
       "description": "Трек ревью входящего MR движка dex-sdlc - read-only, находки с severity, фальсификация каждой против кода, покрытие тестами отдельным фокусом. Активируется при: ревью входящего MR, review incoming PR, проверь чужой pull request, code review, инлайн- находки, ре-ревью дельты, фокус покрытия тестами, тред-вопрос автору, severity находки, фальсификация находки, комментарии к diff.",
-      "version": "1.4.0",
+      "version": "1.4.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2624,7 +2624,7 @@
       "name": "dex-skill-node-contract",
       "source": "./plugins/ai-sdlc/dex-skill-node-contract",
       "description": "Рантайм-контракт агента-узла - режим interactive/autonomous, реакция на неполный вход (blocking/default-ok), возврат наверх, словарь полей handoff, метка quality-checks и её носитель, транспорт артефакта, выбор канала хостинга (native/CLI), graceful degradation при недоступности skill",
-      "version": "7.20.0",
+      "version": "7.20.1",
       "category": "skill",
       "keywords": [
         "skill",
