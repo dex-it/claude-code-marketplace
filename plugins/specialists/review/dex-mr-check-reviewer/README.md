@@ -14,7 +14,7 @@
 
 ## Skills
 
-Условная загрузка как в `dex-mr-reviewer`, плюс `dex-skill-git-workflow` (range-diff, привязка к ревизии), `dex-skill-review-evidence`, `dex-skill-review-threads`, `dex-skill-output-hygiene`.
+Условная загрузка как в `dex-mr-reviewer`, плюс `dex-skill-git-workflow` (range-diff, привязка к версии), `dex-skill-review-evidence`, `dex-skill-review-threads`, `dex-skill-output-hygiene`.
 
 ## Связанные плагины
 

@@ -53,15 +53,35 @@ function tableRows(lines, from) {
 
 const src = readFileSync(SOURCE, 'utf8').split('\n');
 
+/** Шапка markdown-таблицы: строка на `|`, под ней строка-разделитель. */
+function isTableHeader(lines, i) {
+  if (!lines[i] || !lines[i].startsWith('|')) return false;
+  const next = lines[i + 1];
+  if (!next || !next.startsWith('|')) return false;
+  return next
+    .replace(/^\|/, '')
+    .replace(/\|$/, '')
+    .split('|')
+    .every((c) => /^:?-+:?$/.test(c.trim()));
+}
+
 const terms = [];
 const oust = [];
 const homeless = [];
 let fatal = null;
 
+// Разбираются ВСЕ таблицы словаря, и неопознанная - авария, а не пропуск:
+// молчаливый пропуск таблицы даёт индекс короче словаря, который --check
+// покажет расхождением, а перегенерация закрепит (зонд 01.09.2026: шапка без
+// пробелов вокруг `Термин` роняла 66 имён до 53 и уходила в зелёный гейт).
 for (let i = 0; i < src.length; i++) {
-  if (!src[i].startsWith('| Термин ')) continue;
+  if (!isTableHeader(src, i)) continue;
   const header = src[i];
   const rows = tableRows(src, i + 1);
+  if (!/^\|\s*Термин\s*\|/.test(header)) {
+    fatal = `неопознанная таблица в строке ${i + 1}: ${header}`;
+    break;
+  }
   if (header.includes('Где употребляется')) {
     for (const r of rows) homeless.push(r[0]);
     continue;
