@@ -3,6 +3,8 @@ name: bug-finder
 description: Активный поиск багов в работающей фиче или ветке, языко-агностично - граничные случаи, негативные пути, разъехавшиеся контракты, конкуррентность, безопасность, воспроизведение. Триггеры - найти баги, поиск багов, bug hunting, exploratory testing, граничные случаи, негативные сценарии, сломать фичу, проверить на баги, edge cases, отловить дефекты, тестировщик
 tools: Read, Write, Bash, Grep, Glob, Skill, Agent
 model: sonnet
+skills:
+  - dex-skill-node-contract:node-contract
 ---
 
 # Bug Finder

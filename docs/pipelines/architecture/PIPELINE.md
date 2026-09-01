@@ -77,7 +77,7 @@ Match -> Propose Alternatives -> Decide -> Deep Dive) и отдаёт решен
 
 Design Acceptance отдаёт пакет решения (Phase 3/5) `design-reviewer` до передачи в
 `development-track` - независимый взгляд, которого не было у монолитного узла. Цикл автор-судья:
-находки -> доработка тем же узлом Phase 3 -> повторная приёмка, с потолком раундов
+находки -> доработка тем же узлом Phase 3 -> повторная приёмка, с потолком ревизий
 (`docs/AGENT_FRAMEWORK.md#inter-agent-handoff-последовательный-стык`). Метку `quality-checks`
 (`design-quality`) ставит судья, не автор.
 

@@ -254,12 +254,12 @@ Input `dex-design-reviewer:design-reviewer`: путь к документу(ам
 
 **Цикл автор-судья**: находки -> возврат на доработку `dex-architect:architect`/
 `dex-architect-dotnet:architect-dotnet` `[справочно]` (тот же узел Phase 3, не трек) -> повторная приёмка. Потолок
-раундов и решение по каждой открытой находке - `dex-skill-node-contract:node-contract`,
+ревизий и решение по каждой открытой находке - `dex-skill-node-contract:node-contract`,
 `references/quality-and-review.md` разд. 9: три ревизии на артефакт.
 
 **Гейт (блокирующий):** вердикт по design-документу либо по плану не `passed` -> трек не отдаёт
 хэндофф `development-track` молча -
-`interactive`: возврат на доработку либо эскалация оператору при исчерпанном потолке раундов;
+`interactive`: возврат на доработку либо эскалация оператору при исчерпанном потолке ревизий;
 `autonomous`: `partial` наверх с перечнем несогласованного.
 
 Метка `quality-checks` (`design-quality`) - в шапке файла дизайна, метка `plan-quality` - в шапке
