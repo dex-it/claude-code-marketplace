@@ -3,8 +3,8 @@
  * Витрина README против витрины каталога: назван ли каждый плагин.
  *
  * Зачем: `README.md` - второй носитель состава каталога, и генератора у него нет,
- * он правится руками. Замер 01.09.2026 показал цену: 83 плагина из 245 не были
- * упомянуты вовсе. Расхождение молчаливое - `sync-marketplace.js --check` судит
+ * он правится руками. Замер 01.09.2026 этим же инструментом на базе PR (`b846fd6f`)
+ * показал цену: 85 плагинов из 245 не были названы ни одной из двух форм. Расхождение молчаливое - `sync-marketplace.js --check` судит
  * только пару `plugin.json` x `marketplace.json` и README не видит.
  *
  * Что судится: КАЖДЫЙ плагин витрины назван в README хотя бы одной из двух форм -
@@ -36,15 +36,16 @@ const REPO_ROOT = process.env.MARKETPLACE_ROOT
   : resolve(__dirname, '..');
 const CHECK = process.argv.includes('--check');
 
-let plugins;
+let catalog;
 let readme;
 try {
-  plugins = JSON.parse(readFileSync(join(REPO_ROOT, '.claude-plugin', 'marketplace.json'), 'utf8')).plugins;
+  catalog = JSON.parse(readFileSync(join(REPO_ROOT, '.claude-plugin', 'marketplace.json'), 'utf8'));
   readme = readFileSync(join(REPO_ROOT, 'README.md'), 'utf8');
 } catch (e) {
   console.error(`Не прочитано: ${e.message}`);
   process.exit(2);
 }
+const plugins = catalog.plugins;
 
 const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const shortNameOf = (name) => name.replace(/^dex-(bundle-|skill-)?/, '');
@@ -57,10 +58,25 @@ for (const p of plugins) {
   missing.push(p.name);
 }
 
-if (missing.length === 0) {
-  console.log(`витрина README полна: ${plugins.length} плагин(ов) названы`);
+// Версия каталога в подвале README - третий её носитель, и он уже расходился:
+// на develop b846fd6f подвал стоял на 5.4.0 при 5.85.0 в витрине. Сверяется
+// ровно строка подвала, а не любое вхождение номера в текст.
+const footer = /\*\*DEX Team\*\*[^\n]*?Version\s+(\d+\.\d+\.\d+)/.exec(readme);
+const versionOk = footer != null && footer[1] === catalog.version;
+
+if (missing.length === 0 && versionOk) {
+  console.log(`витрина README полна: ${plugins.length} плагин(ов) названы, версия ${catalog.version}`);
   process.exit(0);
 }
-console.error(`в README не назван ни одной формой: ${missing.length} из ${plugins.length}`);
-for (const n of missing) console.error(`  ${n}`);
+if (missing.length > 0) {
+  console.error(`в README не назван ни одной формой: ${missing.length} из ${plugins.length}`);
+  for (const n of missing) console.error(`  ${n}`);
+}
+if (!versionOk) {
+  console.error(
+    footer == null
+      ? 'в подвале README не найдена строка версии каталога («**DEX Team** ... Version X.Y.Z»)'
+      : `версия в подвале README (${footer[1]}) не равна версии витрины (${catalog.version})`,
+  );
+}
 process.exit(CHECK ? 1 : 0);
