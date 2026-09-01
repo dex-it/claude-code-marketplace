@@ -108,3 +108,9 @@ jobs:
       # дверь, отдельным случаем) и проверяет исходы хука.
       - name: Test resume hook ledger address
         run: bash tests/hooks/resume-reminder.test.sh
+
+      # Хук подъёма движка: условие «молчим вне git-репозитория» снято в 1.2.0,
+      # и платный прогон активации возврата условия не ловит - кейс зелёный на
+      # обеих редакциях. Механизм пиннится прямым запуском скрипта.
+      - name: Test engine-nudge hook
+        run: bash tests/hooks/engine-nudge.test.sh
