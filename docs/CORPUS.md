@@ -103,7 +103,7 @@
 | Зона (команда) | Артефакт на диске | Оракул типа |
 |---|---|---|
 | продукт (`/product`) | `brd.md`, доменная модель, конституция | `requirement-quality` + `requirement-set-quality`; словарь - `domain-model-quality` не существует -> `unverifiable` |
-| требования (`/feature`) | BRD и SRS фичи, сценарии, истории с AC | `requirement-quality` на единицу, `requirement-set-quality` на набор, проба реализатора на допуск |
+| требования (`/feature`) | BRD и SRS фичи, сценарии, истории с AC | `requirement-quality` на единицу, `requirement-set-quality` на набор, проба готовности на допуск |
 | дизайн (`/design`) | дизайн-документ, ADR, API-спека, план реализации | `design-quality`, `adr-quality`, `plan-quality`, `api-spec-quality` |
 | разработка (`/implement`) | код, edit-план | `plan-quality` на edit-план; код судит ревью |
 | тестирование (`/test`) | тесты, матрица покрытия | оракул - корпус требований (`AC`, `FR`), не отдельный skill |

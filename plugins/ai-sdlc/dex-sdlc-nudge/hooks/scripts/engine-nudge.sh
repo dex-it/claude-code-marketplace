@@ -26,17 +26,17 @@
 #
 # Почему текст английский: он инструкция модели, не витрина каталога, и на кириллице тот же смысл
 # стоит дороже токенами (правило русской витрины касается description, не инжекта).
+#
+# Почему каталог сессии не проверяется вовсе: условие «молчим вне git-репозитория» рубило инжект
+# в моно-каталоге - у рабочего места агента корень держит клоны подкаталогами и сам репозиторием
+# не является, а движок именно такую раскладку и ведёт («каждая репа свой cd»). Цена молчания не
+# нулевая: в замере 31.08.2026 без инжекта модель в одном запуске из двух поднимала трек напрямую,
+# то есть работа шла мимо движка - без зоны и без auto-ledger. Отрицательную ветку несёт текст
+# инжекта, и он же единственный фильтр: фильтра в самом хуке нет по тому же решению, что и по словам.
 set -uo pipefail
 
-# Без jq поле cwd не разбирается, cd пропускается и git проверяется в рабочем каталоге самого
-# хука - обычно он же и есть каталог сессии, так что деградация мягкая, но не гарантированная.
-input=$(cat)
-
-cwd=$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null)
-[ -n "$cwd" ] && cd "$cwd" 2>/dev/null
-
-# Вне git-репозитория конвейера нет: ветки, MR и тикеты - его опоры. Молчим, а не шумим.
-git rev-parse --git-dir >/dev/null 2>&1 || exit 0
+# stdin вычитывается, чтобы вызывающий не получил SIGPIPE; поля события хук не разбирает.
+cat >/dev/null
 
 cat <<'JSON'
 {"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"Pipeline work: carried to completion on your own, in a named order, verified at the end - implementation, bug fix, tests, MR review, review follow-up, stand acceptance, failure diagnosis, requirements, design, documentation, code overview. On such a request call Skill dex-sdlc:engine before acting on it; it resolves zone and track itself, do not name them in the call. Questions, explanations, discussion, and edits needing neither build nor review are not pipeline work - continue normally; an ask to carry on, or what is next, on work already started is pipeline work - the engine picks it up from its ledger. Looks like work but the kind is unlisted - call the engine anyway."}}

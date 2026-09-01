@@ -4,19 +4,21 @@
 
 ## Конвейер
 
-- Движок: `dex-sdlc` (`dex-sdlc:engine`) ведёт цель до конца сам и делегирует узлам-агентам по контракту `dex-skill-node-contract`, порядок каждой зоны - в своём трек-скилле (`dex-skill-<зона>-track`), движок зон не знает. Команды-входы живут в плагинах зон (`dex-sdlc-product`, `dex-sdlc-requirements`, `dex-sdlc-design`, `dex-sdlc-discover`, `dex-sdlc-docs`, `dex-sdlc-delivery`, `dex-sdlc-test`, `dex-sdlc-review`, `dex-sdlc-acceptance`, `dex-sdlc-ops`) - этот bundle несёт все десять. Хук `dex-sdlc-resume` возвращает движок в процедуру возобновления после компакта контекста
+- Движок: `dex-sdlc` (`dex-sdlc:engine`) ведёт цель до конца сам и делегирует узлам-агентам по контракту `dex-skill-node-contract`, порядок каждой зоны - в своём трек-скилле (`dex-skill-<зона>-track`), движок зон не знает. Команды-входы живут в плагинах зон (`dex-sdlc-product`, `dex-sdlc-requirements`, `dex-sdlc-design`, `dex-sdlc-discover`, `dex-sdlc-docs`, `dex-sdlc-delivery`, `dex-sdlc-test`, `dex-sdlc-review`, `dex-sdlc-acceptance`, `dex-sdlc-ops`) - этот bundle несёт все десять. Хук `dex-sdlc-resume` возвращает движок в процедуру возобновления после компакта контекста, хук `dex-sdlc-nudge` поднимает движок на рабочей просьбе, не требуя команды
 - Требования: `/feature` через `dex-skill-analytics-track` ведёт идею через BRD (`dex-business-analyst`), сценарии (`dex-usecase-analyst`), правила и меры (`dex-requirements-analyst`) и stories (`dex-user-story-analyst`) с гейтами качества и пробой готовности (`dex-implementer-reader`); `dex-requirements-reviewer` (`/review-requirements`) судит готовый набор
 - Дизайн: `/design` через `dex-skill-architecture-track` ведёт зону от требований до одобренного design-документа - дизайн-решение принимает `dex-architect`/`dex-architect-dotnet` (по стеку), `dex-adr-writer` фиксирует решение, `dex-api-designer` - контракт, `dex-diagram-creator` - диаграммы, `dex-design-reviewer` согласует чужой дизайн до кода (`/review-design`) либо архитектуру уже реализованного кода (`/review-arch`)
 - Реализация: `/implement` через `dex-skill-development-track` доводит фичу по ТЗ до локальных коммитов (баг-фикс - под-вид, `dex-skill-bugfix-track`); `dex-conflict-resolver` (`/resolve-conflicts`) подтягивает базовую ветку
 - Тесты: `dex-test-analyst` разбирает требования в тест-кейсы, `dex-test-automator` автоматизирует
-- Ревью: `dex-self-reviewer` (`/self-review`) перед push, `dex-mr-reviewer` (`/mr-review`) и `dex-mr-check-reviewer` (второй раунд `/mr-review`, не своя команда) - чужой MR и его дельта, `dex-review-planner` (`/review-plan`) - разбор замечаний на своём MR, `dex-security-reviewer` (`/security-scan`) - отдельный проход по цепочкам эксплойтов
+- Ревью: `dex-self-reviewer` (`/self-review`) перед push, `dex-mr-reviewer` (`/mr-review`) и `dex-mr-check-reviewer` (вторая ревизия `/mr-review`, не своя команда) - чужой MR и его дельта, `dex-review-planner` (`/review-plan`) - разбор замечаний на своём MR, `dex-security-reviewer` (`/security-scan`) - отдельный проход по цепочкам эксплойтов
 - Стенд и баги: `dex-stand-reviewer` (`/review-stand`) принимает слитую фичу, `dex-bug-finder` (`/find-bugs`) ищет дефекты, `dex-bug-reporter` оформляет, `dex-incident-investigator` (`/investigate`) и `dex-debugger` (`/root-cause`) ведут RCA, `dex-bug-fixer` закрывает пачку находок
 - Вход в проект: `dex-codebase-analyzer` даёт обзор репозитория, `dex-code-discovery` (`/discover`) - инвентаризацию проблем вширь
 - Документирование: `dex-doc-writer` пишет спеки, гайды, release notes; `dex-process-modeler` - BPMN
 
 ## Состав
 
-Движок: `dex-sdlc`, `dex-sdlc-resume`, `dex-skill-node-contract`, `dex-skill-project-docs-map`.
+Движок: `dex-sdlc`, `dex-sdlc-resume`, `dex-sdlc-nudge`, `dex-skill-node-contract`, `dex-skill-project-docs-map`.
+
+Оба хука ставятся вместе с бандлом в user scope и работают во **всех** сессиях и в любом каталоге, а не только там, где вы ставили: `dex-sdlc-resume` срабатывает на `SessionStart` по `compact|resume`, `dex-sdlc-nudge` - на каждом промпте (у события `UserPromptSubmit` матчера нет), добавляя к ходу около 145 токенов подсказки. Движок, поднятый подсказкой, идёт в `autonomous`: коммит и push своей ветки, создание MR и issue он делает без спроса, а необратимое и массовое эскалирует по стоп-линии. Подсказка не нужна - `/plugin disable dex-sdlc-nudge@<маркетплейс>`, остальной бандл при этом остаётся на месте.
 
 Треки (порядок работ зоны, `dex-skill-<зона>-track`): `dex-skill-analytics-track`, `dex-skill-development-track`, `dex-skill-architecture-track` - проработаны полностью; `dex-skill-bugfix-track`, `dex-skill-followup-track`, `dex-skill-acceptance-track`, `dex-skill-discover-track`, `dex-skill-test-track`, `dex-skill-mr-review-track`, `dex-skill-documentation-track`, `dex-skill-diagnostics-track` - перенос без переработки, наполнение отдельной работой.
 
@@ -42,6 +44,8 @@ CLI трекера, MR-хостинга, CI и стенда: `dex-github-cli`, `
 ```
 
 Предпросмотр без установки: `./install-bundle/install-bundle.sh sdlc --dry-run`.
+
+Новый компонент в составе добирается повторным прогоном той же команды: установщик идемпотентен и уже поставленное пропускает. Автоматически состав не догоняется - авто-обновление плагинов обновляет версии установленного, а членство в бандле плагином не является, и `sync-plugins.sh` тянет только скиллы, которые называют установленные агенты и команды.
 
 Рядом со стеком:
 

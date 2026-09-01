@@ -99,8 +99,9 @@ function runCase(kase) {
     const names = [kase.expect.split(':')[0], ...(kase.plugins ?? [])];
     const dirs = names.map((n) => PLUGIN_DIRS.get(n)).filter(Boolean);
     const missing = names.filter((n) => !PLUGIN_DIRS.has(n));
-    // `git: true` - песочница с git-репой: хуки конвейера отличают репозиторий от случайного
-    // каталога и вне репы намеренно молчат, поэтому в пустой директории конструкт не поднялся бы.
+    // `git: true` - песочница с репой и манифестом: она похожа на настоящий проект, а промпты
+    // работ это предполагают. Прежней причины («хуки конвейера вне репы намеренно молчат») больше
+    // нет: с `dex-sdlc-nudge` 1.2.0 каталог сессии не разбирает ни один хук каталога.
     if (kase.git) {
       try {
         execFileSync('git', ['init', '-q'], { cwd: sandbox, stdio: 'ignore' });

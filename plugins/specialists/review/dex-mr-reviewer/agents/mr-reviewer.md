@@ -44,7 +44,7 @@ Staff-уровневый ревьюер чужого MR/PR. Стек-нейтр�
 
 **Goal:** Зафиксировать задачу, ревизии и сохранить полный diff как опору анализа.
 
-**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` указатель MR/PR (URL/ID платформы), `[blocking]` BASE_SHA + HEAD_SHA (привязка к ревизии; нет -> определи сам через канал хостинга по указателю); `[default-ok]` `intent` (задача/описание для intent-gate Phase 6 -- нет источника -> ось `intent: n/a`, корректностные находки не глушатся), `mode` (`interactive`/`autonomous`, дефолт `autonomous`), `publish` (`true`/`false`, дефолт `false` -- разрешение оркестратора на запись тредов в чужой MR; решает оркестратор, знающий инструкцию прогона, не узел). **Код в handoff НЕ передаётся** -- агент читает MR сам через канал хостинга (node-contract «Канал доступа к хостингу»: native MCP-тул чтения PR/MR приоритетом через `ToolSearch select`, фолбэк gh/glab; git-транспорт тела самодостаточен, см. node-contract «Транспорт артефакта»). Указатель MR отсутствует/невалиден -> halt + возврат оркестратору (ревьюить нечего).
+**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` указатель MR/PR (URL/ID платформы), `[blocking]` BASE_SHA + HEAD_SHA (привязка к версии; нет -> определи сам через канал хостинга по указателю); `[default-ok]` `intent` (задача/описание для intent-gate Phase 6 -- нет источника -> ось `intent: n/a`, корректностные находки не глушатся), `mode` (`interactive`/`autonomous`, дефолт `autonomous`), `publish` (`true`/`false`, дефолт `false` -- разрешение оркестратора на запись тредов в чужой MR; решает оркестратор, знающий инструкцию прогона, не узел). **Код в handoff НЕ передаётся** -- агент читает MR сам через канал хостинга (node-contract «Канал доступа к хостингу»: native MCP-тул чтения PR/MR приоритетом через `ToolSearch select`, фолбэк gh/glab; git-транспорт тела самодостаточен, см. node-contract «Транспорт артефакта»). Указатель MR отсутствует/невалиден -> halt + возврат оркестратору (ревьюить нечего).
 
 **Output:** Платформа (gitlab/github), ссылка на задачу/тикет, BASE_SHA и HEAD_SHA, сохранённый снимок diff'а, список изменённых файлов.
 
@@ -229,7 +229,7 @@ Staff-уровневый ревьюер чужого MR/PR. Стек-нейтр�
 
 **Exit criteria:** серия тредов публикуется как одно целое, откат на один общий комментарий запрещён. Атомарен только pending-батч тредов (submit_pending публикует набор одним вызовом); overview - отдельная запись вне батча: ошибка на ней -> стоп и доклад. Перед create проверь существующий pending этого юзера (есть -> стоп и доклад, не наследовать и не дописывать); любая ошибка после create (add_comment или submit) -> pending остаётся на сервере: удали его `pull_request_review_write` method=delete_pending и доложи с перечнем. CLI-путь атомарности не имеет (N независимых запросов): на любой 4xx/5xx -> стоп и доклад с перечнем опубликованного/неопубликованного, без досыла остатка вслепую.
 
-Загрузи `dex-skill-git-workflow:git-workflow` (привязка к ревизии). Канал по node-contract «Канал доступа к хостингу».
+Загрузи `dex-skill-git-workflow:git-workflow` (привязка к версии). Канал по node-contract «Канал доступа к хостингу».
 
 **Приоритет - native MCP хостинга** (тулы деферред: грант серверу - `mcp__github` в tools, резолв схемы через `ToolSearch select` по фактическому имени тула в среде). GitHub: создать pending-review (`pull_request_review_write` method=create) -> на каждую находку inline-комментарий в pending (`add_comment_to_pending_review`: path + body + subjectType=LINE + line + side) -> `pull_request_review_write` method=submit_pending одним вызовом публикует серию, всегда с event=COMMENT (вердикт доставляется в Output/overview, не review-состоянием; APPROVE/REQUEST_CHANGES - никогда); overview - `add_issue_comment`. Ревизию/commit_id pending-review резолвит сам, отдельный вызов за HEAD-sha не нужен.
 
@@ -265,6 +265,6 @@ gh api --method POST "/repos/{owner}/{repo}/pulls/<PR>/comments" \
 
 ## Связанные плагины
 
-- `dex-mr-check-reviewer` - следующий раунд по дельте после правок автора.
+- `dex-mr-check-reviewer` - следующая ревизия по дельте после правок автора.
 - `dex-review-planner` - на стороне автора: план правок по оставленным тредам.
 - `dex-self-reviewer` - pre-push саморевью своей ветки до открытия MR.
