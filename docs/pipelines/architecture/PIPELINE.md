@@ -28,7 +28,7 @@ handoff-механика читаются там; здесь - обзор уст
 | 5 | Document (условно) | узел по типу артефакта | `dex-adr-writer` / `dex-api-designer` / `dex-diagram-creator` |
 | 6 | Design Acceptance | узел | `dex-design-reviewer:design-reviewer` |
 
-Фазы 0-2 и 4 трек ведёт сам (`channel: self` в трейле); фазы 3, 5, 6 - всегда делегированы
+Фазы 0-2 и 4 трек ведёт сам (`channel: self` в журнале исполнителей); фазы 3, 5, 6 - всегда делегированы
 (`channel: delegated`) - архитектурное решение и приёмку трек не переигрывает.
 
 Bootstrap восстанавливает контекст репо (recall-источники, стек по манифесту, `Accepted` ADR,
@@ -77,7 +77,7 @@ Match -> Propose Alternatives -> Decide -> Deep Dive) и отдаёт решен
 
 Design Acceptance отдаёт пакет решения (Phase 3/5) `design-reviewer` до передачи в
 `development-track` - независимый взгляд, которого не было у монолитного узла. Цикл автор-судья:
-находки -> доработка тем же узлом Phase 3 -> повторная приёмка, с потолком раундов
+находки -> доработка тем же узлом Phase 3 -> повторная приёмка, с потолком ревизий
 (`docs/AGENT_FRAMEWORK.md#inter-agent-handoff-последовательный-стык`). Метку `quality-checks`
 (`design-quality`) ставит судья, не автор.
 

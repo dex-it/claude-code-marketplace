@@ -12,7 +12,7 @@
       "name": "dex-adr-writer",
       "source": "./plugins/specialists/architecture/dex-adr-writer",
       "description": "Автор ADR: пишет Architecture Decision Records в формате MADR - драйверы решения, альтернативы, trade-off.",
-      "version": "3.4.3",
+      "version": "3.4.4",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -103,7 +103,7 @@
       "name": "dex-bdd-author",
       "source": "./plugins/specialists/product/dex-bdd-author",
       "description": "Составитель исполняемых примеров - карта примеров до кода, .feature на Gherkin с тегом трассировки на FR, красная карточка уходит наверх, а не закрывается догадкой",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -207,7 +207,7 @@
       "name": "dex-bundle-code-review",
       "source": "./plugins/bundles/dex-bundle-code-review",
       "description": "Бандл жизненного цикла кода: языко-агностичное ревью MR/PR, повторное ревью после правок, план правок, реализация фичи, подтягивание базовой ветки с разрешением конфликтов, саморевью перед push, приёмка слитой фичи на стенде с ремедиацией, расследование инцидента, плюс скиллы дисциплины ревью.",
-      "version": "1.30.0",
+      "version": "1.30.1",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -386,7 +386,7 @@
       "name": "dex-business-analyst",
       "source": "./plugins/specialists/product/dex-business-analyst",
       "description": "Бизнес-аналитик: формализует идею в BRD - цели сторон с мерой успеха, стейкхолдеры, риски, эпики.",
-      "version": "5.13.2",
+      "version": "5.13.3",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -527,7 +527,7 @@
       "name": "dex-design-reviewer",
       "source": "./plugins/specialists/architecture/dex-design-reviewer",
       "description": "Ревью и согласование чужого дизайн-документа (спека, ADR, диаграммы) до написания кода: полнота NFR, дефекты требований, качество ADR-решений, консистентность и слои, полнота и непротиворечивость набора артефактов работы, фальсификация находок, severity. Не архитектура реализованного кода - её ревьюит /review-arch.",
-      "version": "2.7.0",
+      "version": "2.7.2",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -598,7 +598,7 @@
       "name": "dex-domain-analyst",
       "source": "./plugins/specialists/product/dex-domain-analyst",
       "description": "Доменный аналитик: ведёт словарь продукта (ubiquitous language) и конституцию проекта - инварианты и сквозные меры с методом проверки.",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -735,7 +735,7 @@
       "name": "dex-implementer-reader",
       "source": "./plugins/specialists/review/dex-implementer-reader",
       "description": "Implementer reader: проба готовности набора требований - чтение корпуса глазами автора кода и список того, что пришлось бы решить самому. Чистый контекст, без следа прогона и журнала решений.",
-      "version": "2.4.1",
+      "version": "2.4.3",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -970,8 +970,8 @@
     {
       "name": "dex-mr-check-reviewer",
       "source": "./plugins/specialists/review/dex-mr-check-reviewer",
-      "description": "Узел ре-ревью дельты MR/PR после правок автора: range-diff дельты, статус прежних находок, новые находки только в дельте, обновление существующих тредов и публикация новых. Вызывается треком mr-review-track на повторных раундах команды /mr-review в dex-sdlc, не своим командным входом.",
-      "version": "2.2.0",
+      "description": "Узел ре-ревью дельты MR/PR после правок автора: range-diff дельты, статус прежних находок, новые находки только в дельте, обновление существующих тредов и публикация новых. Вызывается треком mr-review-track на повторных ревизиях команды /mr-review в dex-sdlc, не своим командным входом.",
+      "version": "2.2.2",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -988,7 +988,7 @@
       "name": "dex-mr-reviewer",
       "source": "./plugins/specialists/review/dex-mr-reviewer",
       "description": "Языко-агностичный узел первичного ревью чужого MR/PR: карта изменений, параллельные фокусы, фальсификация находок, severity/confidence/scope, доставка инлайн-тредами через gh/glab. Вызывается треком mr-review-track (команда /mr-review в dex-sdlc), не своим командным входом.",
-      "version": "2.2.0",
+      "version": "2.2.1",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1160,7 +1160,7 @@
       "name": "dex-requirements-reviewer",
       "source": "./plugins/specialists/review/dex-requirements-reviewer",
       "description": "Ревью и согласование чужого готового набора требований (BRD/stories) как документа: дефекты единицы и дефекты набора против источника, фальсификация находок, severity, правки автору без мутации документа.",
-      "version": "1.12.0",
+      "version": "1.12.2",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1177,7 +1177,7 @@
       "name": "dex-review-planner",
       "source": "./plugins/specialists/delivery/dex-review-planner",
       "description": "Узел планирования правок по комментариям ревью: сбор тредов и коммитов, классификация замечаний, верификация чтением кода, план P0..P3 с blast radius, черновики ответов в треды. Вызывается треком followup-track (команда /review-plan в dex-sdlc), не своим командным входом.",
-      "version": "2.0.0",
+      "version": "2.0.1",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1207,7 +1207,7 @@
       "name": "dex-sdlc",
       "source": "./plugins/ai-sdlc/dex-sdlc",
       "description": "Движок доведения цели до конца самостоятельно (AI-SDLC-конвейер) - универсальный цикл, делегирование узлам-агентам по контракту node-contract, диспетчинг по трек-скиллу зоны. Агностично правило-тело: порядок работ каждой зоны живёт в своём dex-skill-<зона>-track, движок его не хранит, но справочник зон для резолва голого поручения принадлежит ядру. Команды-входы живут в плагинах зон dex-sdlc-product, dex-sdlc-requirements, dex-sdlc-design, dex-sdlc-discover, dex-sdlc-docs, dex-sdlc-delivery, dex-sdlc-test, dex-sdlc-review, dex-sdlc-acceptance, dex-sdlc-ops - ставятся по надобности роли, не пакетом.",
-      "version": "3.4.0",
+      "version": "3.4.3",
       "category": "skill",
       "keywords": [
         "skill",
@@ -1342,7 +1342,7 @@
       "name": "dex-sdlc-requirements",
       "source": "./plugins/ai-sdlc/dex-sdlc-requirements",
       "description": "Команды зоны требований AI-SDLC-конвейера: /feature (сценарии UC, правила FR/NFR с методом проверки, истории с AC), /feature-check (проверка готового корпуса требований судьями - requirements-reviewer и implementer-reader). Движок и универсальный цикл - в dex-sdlc, порядок работ зоны - в треке dex-skill-analytics-track.",
-      "version": "2.1.0",
+      "version": "2.1.2",
       "category": "utility",
       "keywords": [
         "commands",
@@ -1372,7 +1372,7 @@
       "name": "dex-sdlc-review",
       "source": "./plugins/ai-sdlc/dex-sdlc-review",
       "description": "Команды зоны ревью AI-SDLC-конвейера: /mr-review (первичное ревью чужого MR/PR с инлайн-тредами), /review-plan (план правок по пришедшему ревью - классификация замечаний, верификация чтением кода, ответы в треды). Движок и универсальный цикл - в dex-sdlc, порядок работ зоны - в треках dex-skill-mr-review-track и dex-skill-followup-track.",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "category": "utility",
       "keywords": [
         "commands",
@@ -1402,7 +1402,7 @@
       "name": "dex-security-reviewer",
       "source": "./plugins/specialists/delivery/dex-security-reviewer",
       "description": "Языко-агностичный агент глубокого анализа безопасности: threat model (акторы/границы доверия/активы), attack paths по OWASP, цепочки эксплойтов, severity по эксплуатируемости цепочки. Частные skills грузятся условно по стеку.",
-      "version": "1.7.1",
+      "version": "1.7.2",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1418,7 +1418,7 @@
       "name": "dex-self-reviewer",
       "source": "./plugins/specialists/review/dex-self-reviewer",
       "description": "Pre-push саморевью своей локальной ветки: committed+staged+worktree diff, скан по осям diff'а (security, architecture, language, business, regressions, performance, loose-ends, non-code) с реальным прогоном build/test, фальсификация, чеклист правок до push.",
-      "version": "1.16.0",
+      "version": "1.17.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1480,7 +1480,7 @@
       "name": "dex-skill-analytics-track",
       "source": "./plugins/ai-sdlc/dex-skill-analytics-track",
       "description": "Трек зоны требований - тема или правка -> BRD -> сценарии -> правила и меры -> истории с критериями, две остановки оператора и проба готовности. Пишет decision-log, разрешает номер фичи. Активируется при: проработать идею до требований, обдумать фичу, описать новую фичу, собрать BRD, оформить требования, разложить фичу на истории, поправить принятое требование, feature pipeline, функциональные требования, критерии приёмки.",
-      "version": "2.7.0",
+      "version": "2.7.2",
       "category": "skill",
       "keywords": [
         "skill",
@@ -1553,7 +1553,7 @@
       "name": "dex-skill-architecture-definition-42010",
       "source": "./plugins/skills/dex-skill-architecture-definition-42010",
       "description": "Норматив этапа архитектуры (ISO/IEC/IEEE 42010:2022) - concerns сторон и views, двенадцать разделов arc42, граница «решение в SAD против решения в ADR», целевая стадия, вход и выход",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -1570,7 +1570,7 @@
       "name": "dex-skill-architecture-track",
       "source": "./plugins/ai-sdlc/dex-skill-architecture-track",
       "description": "Трек архитектуры/дизайна движка dex-sdlc - от требований до одобренного design-документа: capacity, implementation plan, диспетчинг architect/architect-dotnet/adr-writer/api-designer/diagram-creator/design-reviewer по node-contract",
-      "version": "2.5.0",
+      "version": "2.5.2",
       "category": "skill",
       "keywords": [
         "skill",
@@ -1583,7 +1583,7 @@
       "name": "dex-skill-artifact-naming",
       "source": "./plugins/skills/dex-skill-artifact-naming",
       "description": "Конвенция имени артефакта конвейера требований и границы её применения: занятый корпус диктует раскладку сам, разрешение пути сквозным полем, слаг прогона как ключ, что не должно попадать в имя файла. Дерево и имена классов - у норматива раскладки.",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -1601,8 +1601,8 @@
     {
       "name": "dex-skill-artifact-review",
       "source": "./plugins/skills/dex-skill-artifact-review",
-      "description": "Авторский скилл: работает в клоне репозитория маркетплейса, часть адресов вне его не резолвится. Ревью артефакта каталога (skill / агент / команда) по обязательным осям: соответствие фреймворку, fact-check, полезность против целей продукта, лаконичность, сверка с гайдом модели. Активируется при ревью скилла, ревью агента, ревью команды, приёмке артефакта, оси ревью, стоит ли держать в каталоге, какой цели служит артефакт, сверка с BRD, нарушение инварианта проекта, заявление автора как claim, утверждение о поведении платформы.",
-      "version": "1.8.1",
+      "description": "Авторский скилл: работает в клоне репозитория маркетплейса, часть адресов вне его не резолвится. Ревью артефакта каталога (skill / агент / команда) по обязательным осям: соответствие фреймворку, fact-check, полезность против целей продукта, лаконичность, сверка с гайдом модели, терминология по словарю домена. Активируется при ревью скилла, ревью агента, ревью команды, приёмке артефакта, оси ревью, стоит ли держать в каталоге, какой цели служит артефакт, сверка с BRD, нарушение инварианта проекта, заявление автора как claim, утверждение о поведении платформы, новый термин в артефакте.",
+      "version": "1.9.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -1619,7 +1619,7 @@
       "name": "dex-skill-bdd-gherkin",
       "source": "./plugins/skills/dex-skill-bdd-gherkin",
       "description": "Норматив жанра исполняемых примеров - карта примеров Example Mapping, синтаксис Gherkin, структура файла, стиль шага, тег трассировки на FR, граница «пример против теста»",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -1867,7 +1867,7 @@
       "name": "dex-skill-decision-log",
       "source": "./plugins/skills/dex-skill-decision-log",
       "description": "decision-log конвейера требований: что в него попадает, как требование ссылается на запись, чем он отличается от меток проверок и служебного состояния прогона, что делать при утрате. Общая механика - node-contract, раздел «Журнал решений»; здесь специфика требований: связь записи с единицей, дельта-правка, поднятие оснований заново.",
-      "version": "1.5.3",
+      "version": "1.5.5",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2004,7 +2004,7 @@
       "name": "dex-skill-docs-layout",
       "source": "./plugins/ai-sdlc/dex-skill-docs-layout",
       "description": "Целевая раскладка корпуса документации проекта - дерево docs/, куда кладётся каждый жанр, минимум обязательного по размеру фичи, схема идентификаторов и блоки номеров за фичей, развёртывание заготовки в пустом проекте",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2269,7 +2269,7 @@
       "name": "dex-skill-fact-verification",
       "source": "./plugins/skills/dex-skill-fact-verification",
       "description": "Сверка технического факта с источником истины: имя API по памяти, перевёрнутая причинность, факт на веру из MR/кода. Дисциплина для ревью и диагностики - проверять имена, дефолты и причинность через context7/WebSearch версии проекта, не выдавать неподтверждённое за факт.",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2287,8 +2287,8 @@
     {
       "name": "dex-skill-followup-track",
       "source": "./plugins/ai-sdlc/dex-skill-followup-track",
-      "description": "Трек обработки ревью своего MR движка dex-sdlc - разбор замечаний, план правок P0..P3, ре-ревью дельты, потолок 5 раундов. Активируется при: обработать ревью, разбор замечаний, ответить ревьюеру, закрыть треды ревью, ре-ревью дельты, follow-up review, замечания на мой MR, довести MR до мерджа, range-diff, LAST_REVIEW_SHA.",
-      "version": "1.2.1",
+      "description": "Трек обработки ревью своего MR движка dex-sdlc - разбор замечаний, план правок P0..P3, ре-ревью дельты, потолок 5 ревизий. Активируется при: обработать ревью, разбор замечаний, ответить ревьюеру, закрыть треды ревью, ре-ревью дельты, follow-up review, замечания на мой MR, довести MR до мерджа, range-diff, LAST_REVIEW_SHA.",
+      "version": "1.3.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2302,7 +2302,7 @@
       "name": "dex-skill-functional-requirements",
       "source": "./plugins/skills/dex-skill-functional-requirements",
       "description": "Правило FR как единица требований: три части формы (случай, субъект, наблюдаемый результат), вывод из шагов и расширений сценария, обязательный метод верификации, граница с мерой NFR по способу проверки, одно правило на единицу.",
-      "version": "1.1.3",
+      "version": "1.1.4",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2556,7 +2556,7 @@
       "name": "dex-skill-mr-review-track",
       "source": "./plugins/ai-sdlc/dex-skill-mr-review-track",
       "description": "Трек ревью входящего MR движка dex-sdlc - read-only, находки с severity, фальсификация каждой против кода, покрытие тестами отдельным фокусом. Активируется при: ревью входящего MR, review incoming PR, проверь чужой pull request, code review, инлайн- находки, ре-ревью дельты, фокус покрытия тестами, тред-вопрос автору, severity находки, фальсификация находки, комментарии к diff.",
-      "version": "1.3.0",
+      "version": "1.4.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2624,7 +2624,7 @@
       "name": "dex-skill-node-contract",
       "source": "./plugins/ai-sdlc/dex-skill-node-contract",
       "description": "Рантайм-контракт агента-узла - режим interactive/autonomous, реакция на неполный вход (blocking/default-ok), возврат наверх, словарь полей handoff, метка quality-checks и её носитель, транспорт артефакта, выбор канала хостинга (native/CLI), graceful degradation при недоступности skill",
-      "version": "7.19.0",
+      "version": "7.20.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2842,7 +2842,7 @@
       "name": "dex-skill-product-track",
       "source": "./plugins/ai-sdlc/dex-skill-product-track",
       "description": "Трек зоны продукта движка dex-sdlc - корпус уровня 0: BRD продукта с BR-NNN и MOE, доменная модель (словарь), конституция (INV-NNN, NFR-P-NNN). Две остановки оператора, диспетчинг business-requirements-analyst и domain-analyst по node-contract",
-      "version": "2.4.2",
+      "version": "2.4.3",
       "category": "skill",
       "keywords": [
         "skill",
@@ -3038,7 +3038,7 @@
       "name": "dex-skill-requirement-quality",
       "source": "./plugins/skills/dex-skill-requirement-quality",
       "description": "Дефекты требований как инженерного артефакта: противоречие пунктов, конфликт с инвариантом/ADR, неполнота (только happy path), неоднозначность без критерия, отсутствие метода проверки, техническая невыполнимость, неадекватный уровень абстракции, неполная форма формулировки. Для ревью и для написания спецификаций.",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -3114,7 +3114,7 @@
       "name": "dex-skill-review-threads",
       "source": "./plugins/skills/dex-skill-review-threads",
       "description": "Инлайн-доставка ревью: один тред на находку, привязка к строке через нативный API gh/glab, severity в первой строке, overview без дублирования тредов, протокол resolve, чужие треды не трогать.",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "category": "skill",
       "keywords": [
         "skill",
@@ -3401,7 +3401,7 @@
       "name": "dex-skill-unit-identity",
       "source": "./plugins/skills/dex-skill-unit-identity",
       "description": "Тождество единицы требований: чем ключ отличается от формулировки, как выдаются номера (старший разряд из номера фичи, младший по корпусу), когда пришедшее - правка принятой единицы, а когда новая, что делать с дублем и снятием.",
-      "version": "2.1.1",
+      "version": "2.1.2",
       "category": "skill",
       "keywords": [
         "skill",
@@ -3498,7 +3498,7 @@
       "name": "dex-stand-reviewer",
       "source": "./plugins/specialists/review/dex-stand-reviewer",
       "description": "Узел приёмки слитой фичи на развёрнутом стенде против ТЗ, read-only: привязка образа к merge-коммиту, карта требование -> проба на стенде, параллельные суб-агенты улик, фальсификация находок и утверждений 'выполнено', severity/confidence/scope, отчёт. Вызывается треком acceptance-track (команда /review-stand в dex-sdlc), не своим командным входом.",
-      "version": "2.0.1",
+      "version": "2.0.2",
       "category": "specialist",
       "keywords": [
         "specialist",
