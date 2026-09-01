@@ -44,7 +44,7 @@ Bundle для полного цикла работы с кодом, языко-�
 
 ### Specialists
 - `dex-mr-reviewer` - первичное ревью чужого MR/PR, инлайн-треды через gh/glab (`/mr-review`, движок `dex-sdlc`)
-- `dex-mr-check-reviewer` - итеративное ре-ревью дельты с прошлого раунда (второй раунд `/mr-review`, не своя команда)
+- `dex-mr-check-reviewer` - итеративное ре-ревью дельты с прошлой ревизии (вторая ревизия `/mr-review`, не своя команда)
 - `dex-review-planner` - план правок по ревью без редактирования кода (`/review-plan`, движок `dex-sdlc`)
 - `dex-self-reviewer` - pre-push саморевью своей ветки с реальным прогоном тестов (`/self-review`)
 - `dex-conflict-resolver` - подтянуть базу в фича-ветку и развести конфликты merge/rebase без тихой потери стороны (`/resolve-conflicts`)
