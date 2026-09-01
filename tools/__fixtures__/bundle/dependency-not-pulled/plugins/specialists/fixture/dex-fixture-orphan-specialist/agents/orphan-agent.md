@@ -5,6 +5,8 @@ description: >-
   Триггеры - проба самоссылки, запись без тянущего ребра, обратная сторона замыкания, песочница.
 tools: Read, Grep, Glob, Skill
 model: sonnet
+skills:
+  - dex-skill-node-contract:node-contract
 ---
 
 # Orphan Agent

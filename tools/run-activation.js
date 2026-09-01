@@ -32,6 +32,7 @@
  * Usage:
  *   node tools/run-activation.js                       # все кейсы, sonnet, 1 прогон
  *   node tools/run-activation.js --agents --model haiku # видимость всех агентов дерева
+ *   node tools/run-activation.js --agents --list-cases   # перечень кейсов, без сети
  *   node tools/run-activation.js --model opus --runs 3
  *   node tools/run-activation.js --case redis          # подстрока id кейса
  *   node tools/run-activation.js --only a-in,b-in      # точный список id
@@ -48,9 +49,15 @@ import { join, resolve, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { spawn, execFileSync } from 'node:child_process';
+import matter from 'gray-matter';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = resolve(__dirname, '..');
+// MARKETPLACE_ROOT переносит построение кейсов на дерево-песочницу: тем же
+// хуком пользуется validate-agent.js, и он же даёт бесплатный прогон
+// `agentVisibilityCases()` без сети (tests/tools/agent-visibility.test.sh).
+const REPO_ROOT = process.env.MARKETPLACE_ROOT
+  ? resolve(process.env.MARKETPLACE_ROOT)
+  : resolve(__dirname, '..');
 const CASES_FILE = join(REPO_ROOT, 'tests', 'activation', 'cases.json');
 
 const COLORS = { reset: '\x1b[0m', red: '\x1b[31m', green: '\x1b[32m', yellow: '\x1b[33m', gray: '\x1b[90m', bold: '\x1b[1m' };
@@ -69,6 +76,7 @@ const CONCURRENCY = Number(arg('concurrency', '4'));
 const JSON_OUT = arg('json', null);
 const TIMEOUT_MS = Number(arg('timeout', '300')) * 1000;
 const AGENTS_MODE = process.argv.includes('--agents');
+const LIST_ONLY = process.argv.includes('--list-cases');
 
 // Инструменты действия в прогоне активации не нужны и стоят денег: предмет пробы -
 // какой Skill выбран, а не что агент сделает дальше.
@@ -175,26 +183,40 @@ async function pool(items, worker, limit) {
 function agentVisibilityCases() {
   const out = [];
   const base = join(REPO_ROOT, 'plugins', 'specialists');
+  // Обход рекурсивный, и это предмет пробы, а не удобство: агент из подкаталога
+  // `agents/` поставляется трёхсегментным именем, и кейс на него обязан строиться -
+  // иначе перенос файла вглубь убирает разом и кейс, и ожидание, а прогон остаётся
+  // зелёным. Ожидание при этом всегда каноничной формы `{plugin}:{name}`: именно
+  // расхождение поставки с ней проба и судит.
+  function collect(dir, plugin) {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, e.name);
+      if (e.isDirectory()) { collect(full, plugin); continue; }
+      if (!e.name.endsWith('.md')) continue;
+      // Фронтматтер парсится gray-matter, а не регуляркой: `name: "x"` в кавычках
+      // YAML разрешает и валидатор не запрещает, а регулярка отдала бы имя вместе
+      // с кавычками и уронила бы кейс ложным провалом.
+      const fm = matter(readFileSync(full, 'utf8')).data || {};
+      const name = fm.name == null || String(fm.name).trim() === ''
+        ? e.name.slice(0, -3)
+        : String(fm.name).trim();
+      out.push({
+        id: `${name}-visible`,
+        kind: 'agent',
+        mode: 'in-scope',
+        expect: `${plugin}:${name}`,
+        prompt: 'ok',
+        maxTurns: 1,
+      });
+    }
+  }
   for (const cat of readdirSync(base, { withFileTypes: true })) {
     if (!cat.isDirectory()) continue;
     for (const plug of readdirSync(join(base, cat.name), { withFileTypes: true })) {
       if (!plug.isDirectory()) continue;
       const agentsDir = join(base, cat.name, plug.name, 'agents');
       if (!existsSync(agentsDir) || !statSync(agentsDir).isDirectory()) continue;
-      for (const f of readdirSync(agentsDir)) {
-        if (!f.endsWith('.md')) continue;
-        const body = readFileSync(join(agentsDir, f), 'utf8');
-        const m = /^name:\s*(\S+)\s*$/m.exec(body);
-        const name = m ? m[1] : f.slice(0, -3);
-        out.push({
-          id: `${name}-visible`,
-          kind: 'agent',
-          mode: 'in-scope',
-          expect: `${plug.name}:${name}`,
-          prompt: 'ok',
-          maxTurns: 1,
-        });
-      }
+      collect(agentsDir, plug.name);
     }
   }
   return out.sort((a, b) => a.id.localeCompare(b.id));
@@ -222,6 +244,13 @@ if (ONLY) {
 if (cases.length === 0) {
   console.error('Кейсов под фильтр нет');
   process.exit(2);
+}
+
+// Перечень кейсов без сети и без денег: сам перечень - предмет проверки не меньше,
+// чем исход прогона. Кейс, которого не построилось, ошибкой не выглядит нигде.
+if (LIST_ONLY) {
+  console.log(JSON.stringify(cases, null, 2));
+  process.exit(0);
 }
 
 const jobs = [];

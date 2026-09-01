@@ -5,6 +5,8 @@ description: >-
   Триггеры - ревью требований, приёмка BRD, судящий агент песочницы.
 tools: Read, Grep, Glob, Skill
 model: sonnet
+skills:
+  - dex-skill-node-contract:node-contract
 ---
 
 # Requirements Reviewer (фикстура)

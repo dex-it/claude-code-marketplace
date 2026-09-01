@@ -5,6 +5,8 @@ description: >-
   Триггеры - фикстура приёмника, следующий шаг песочницы, прогон правила валидатора, регрессия замыкания.
 tools: Read, Write, Grep, Glob
 model: sonnet
+skills:
+  - dex-skill-node-contract:node-contract
 ---
 
 # Next Agent

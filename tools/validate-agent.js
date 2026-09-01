@@ -16,7 +16,7 @@
  */
 
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
-import { join, relative, resolve, dirname, basename } from 'node:path';
+import { join, relative, resolve, dirname, basename, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import matter from 'gray-matter';
 import { unified } from 'unified';
@@ -168,6 +168,9 @@ const FORBIDDEN_FRONTMATTER_FIELDS = ['allowed-tools'];
  * the agent OWNING that stage and conditional for everyone else, so an open
  * allowlist would let any agent pre-load a stage normative it never runs.
  */
+const NODE_CONTRACT_SKILL = 'node-contract';
+const NODE_CONTRACT_REF = 'dex-skill-node-contract:node-contract';
+
 const ALLOWED_PRELOAD_SKILLS = new Map([
   ['node-contract', null],
   ['business-analysis-29148', new Set(['business-requirements-analyst'])],
@@ -391,6 +394,27 @@ function validateFrontmatter(parsed, findings) {
     }
   }
 
+  // Присутствие pre-load, а не только его форма. Соседние правила
+  // (`frontmatter-skills-not-preloadable`, `-bare-plugin-name`, `-unknown-skill`)
+  // судят уже написанное значение и на отсутствие поля молчат: замер мутацией
+  // 01.09.2026 - у агента снят весь блок `skills:`, валидатор дал 0 ошибок.
+  // Именно этим механизмом и накапливался остаток, закрытый в #110: норма
+  // «контракт стыка исполняет сам агент» держалась ручной сверкой.
+  // Контракт нужен агенту в любой позиции вызова, поэтому исключений по
+  // «узловости» здесь нет - см. AGENT_FRAMEWORK.md, глоссарий, «Узел».
+  {
+    const raw = 'skills' in fm && fm.skills != null ? fm.skills : [];
+    const entries = Array.isArray(raw) ? raw : String(raw).split(',');
+    const preloaded = entries.map((e) => normalizePreloadSkillName(e)).filter((e) => e !== '');
+    if (!preloaded.includes(NODE_CONTRACT_SKILL)) {
+      findings.push({
+        level: ERROR,
+        rule: 'frontmatter-skills-missing',
+        message: `Frontmatter does not pre-load the node handoff contract - add \`skills:\` with "${NODE_CONTRACT_REF}". Every agent executes the handoff contract itself, so the pre-load is unconditional; without it the agent starts without the contract and nothing reports it`,
+      });
+    }
+  }
+
   // `model` must be explicit (not inherited) and a valid tier or model ID.
   // Default `inherit` runs cheap work on the session model - on an Opus
   // session even trivial agents would run on Opus. See AGENT_FRAMEWORK.md.
@@ -504,10 +528,17 @@ function validateFrontmatter(parsed, findings) {
  * `skills:` - форма выглядит верной и тихо не срабатывает.
  */
 function validateAgentFileIsFlat(filepath, findings) {
-  const marker = '/agents/';
-  const i = filepath.indexOf(marker);
-  if (i === -1) return;
-  const rel = filepath.slice(i + marker.length);
+  // Якорь - корень плагина, а не вхождение подстроки `/agents/` в путь. Путь
+  // абсолютный, и обе стороны поиска подстроки ошибаются: первое вхождение ловит
+  // каталог `agents` выше по дереву (каталог прогона, категория плагинов) и даёт
+  // ложное срабатывание на плоском файле, последнее - слепнет на `agents/agents/`,
+  // который поставляется трёхсегментным именем и правилом ловиться обязан.
+  // Корень плагина обе формы разводит: имя поставки считается от него.
+  const pluginRoot = pluginRootOf(filepath);
+  if (!pluginRoot) return;
+  const fromRoot = relative(pluginRoot, resolve(filepath)).split(sep).join('/');
+  if (!fromRoot.startsWith('agents/')) return;
+  const rel = fromRoot.slice('agents/'.length);
   if (!rel.includes('/')) return;
   findings.push({
     level: ERROR,

@@ -114,3 +114,18 @@ jobs:
       # обеих редакциях. Механизм пиннится прямым запуском скрипта.
       - name: Test engine-nudge hook
         run: bash tests/hooks/engine-nudge.test.sh
+
+      # Проба видимости агента платная и в CI не ходит, но перечень её кейсов
+      # строится из дерева - и строился слепо к подкаталогу `agents/`. Предмет
+      # этого шага - сам перечень: он собирается бесплатно (`--list-cases` в
+      # песочнице через MARKETPLACE_ROOT), а кейс, которого не построилось,
+      # ошибкой не выглядит нигде.
+      - name: Test agent visibility case construction
+        run: bash tests/tools/agent-visibility.test.sh
+
+      # README - второй носитель состава каталога, генератора у него нет.
+      # Замер 01.09.2026: 83 плагина из 245 не были упомянуты вовсе, и
+      # `sync-marketplace --check` этого не видит - он судит только пару
+      # plugin.json x marketplace.json.
+      - name: Check README covers the catalog
+        run: npm run readme:check

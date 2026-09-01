@@ -6,6 +6,8 @@ description: >-
 tools: Read, Write, Grep, Glob, Skill
 model: sonnet
 effort: turbo
+skills:
+  - dex-skill-node-contract:node-contract
 ---
 
 # Fixture Agent

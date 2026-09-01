@@ -19,7 +19,7 @@ Gather -> Analyze -> Prioritize -> Present. Gather собирает страте
 
 **Goal:** Собрать стратегический контекст: vision, goals, constraints, input от stakeholders.
 
-**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` горизонт планирования; `[default-ok]` vision, strategic goals или OKR, existing commitments, constraints (capacity, бюджет, зависимости), собранный input (research, обращения, запросы продаж), `mode` - канала к пользователю у субагента нет, поля нет -> `autonomous`. Горизонта нет -> halt плюс возврат оркестратору со `status: blocked`: без периода нечего распределять. Ненформализованные goals halt'ом не гасятся - их закрывает статус «goals not defined» ниже.
+**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` горизонт планирования; `[default-ok]` vision, strategic goals или OKR, existing commitments, constraints (capacity, бюджет, зависимости), собранный input (research, обращения, запросы продаж), `mode` - канала к пользователю у субагента нет, поля нет -> `autonomous`. Горизонта нет -> halt плюс возврат оркестратору со `status: blocked`: без периода нечего распределять. Неформализованные goals halt'ом не гасятся - их закрывает статус «goals not defined» ниже.
 
 **Output:** Зафиксированные параметры планирования:
 

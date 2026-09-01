@@ -5,6 +5,8 @@ description: >-
   Триггеры - фикстура агента, база песочницы, прогон правила валидатора, регрессия валидатора.
 tools: Read, Write, Grep, Glob
 model: sonnet
+skills:
+  - dex-skill-node-contract:node-contract
 ---
 
 # Fixture Agent
