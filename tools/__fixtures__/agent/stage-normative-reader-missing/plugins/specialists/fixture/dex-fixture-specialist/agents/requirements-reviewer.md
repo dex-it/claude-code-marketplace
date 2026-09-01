@@ -13,4 +13,8 @@ model: sonnet
 
 **Goal:** Отсудить набор требований против источника.
 
+**Input (handoff):** `[blocking]` набор требований под суд; `[default-ok]` режим (дефолт `autonomous`).
+
+**Output (handoff):** `status` (`complete`/`blocked`/`partial`), находки по осям набора, вердикт.
+
 **Exit criteria:** По каждой оси набора есть блок находок либо явная пометка «чисто».

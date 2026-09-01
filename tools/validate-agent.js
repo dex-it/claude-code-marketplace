@@ -720,6 +720,45 @@ function validateJudgeCarriesWriter(parsed, findings) {
 }
 
 /**
+ * Объявленная сигнатура стыка: `**Input (handoff)` и `**Output (handoff)` в теле.
+ *
+ * Принцип 2 фреймворка требует стандартный I/O от КАЖДОГО агента, не только от узла
+ * цепочки: вызывающий обязан знать, что подать и что получит, до спавна
+ * (`docs/AGENT_FRAMEWORK.md`, «у агента стандартизованный вход и выход»). Без
+ * объявленной половины вход не с чем сверить, а выход вызывающему нечем разобрать -
+ * агент молча домысливает недостающее вместо возврата нехватки наверх.
+ *
+ * Проверяется присутствие атрибута в теле, а не его фаза: канонично Input стоит в
+ * фазе входа, но у агента с общим для всех фаз входом он законно живёт в обзорном
+ * разделе `## Phases` (так написаны `architect` и `architect-dotnet`), и привязка к
+ * `## Phase N` дала бы ложное срабатывание на верной форме.
+ */
+const HANDOFF_INPUT_RE = /\*\*\s*Input\s*\(handoff/i;
+const HANDOFF_OUTPUT_RE = /\*\*\s*Output\s*\(handoff/i;
+
+function validateHandoffSignature(parsed, findings) {
+  const body = parsed.content || '';
+
+  if (!HANDOFF_INPUT_RE.test(body)) {
+    findings.push({
+      level: ERROR,
+      rule: 'handoff-input-missing',
+      message:
+        'Agent declares no **Input (handoff):** - the caller has nothing to fill in and the agent has nothing to check the incoming payload against (Agent Framework, principle 2)',
+    });
+  }
+
+  if (!HANDOFF_OUTPUT_RE.test(body)) {
+    findings.push({
+      level: ERROR,
+      rule: 'handoff-output-missing',
+      message:
+        'Agent declares no **Output (handoff):** - the caller cannot parse the result and decisions taken by the agent stay unannounced (Agent Framework, principle 2)',
+    });
+  }
+}
+
+/**
  * Читатель норматива этапа обязан грузить его императивно в фазе. Проверяется
  * наличие полной формы `{plugin}:{skill}` в теле и `Skill` в `tools`: без tool'а
  * запись в теле неисполнима, и проверка состава молча выпадает.
@@ -841,6 +880,7 @@ function validateFile(filepath, marketplacePlugins) {
   validateFactcheckCascade(parsed, findings);
   validateJudgeCarriesWriter(parsed, findings);
   validateStageNormativeReaders(parsed, findings);
+  validateHandoffSignature(parsed, findings);
   validateAttributeBlocks(parsed.content, findings, bodyOffset);
   validateCatalogDocsLink(raw, filepath, findings);
   validateLinkEscapesPlugin(raw, filepath, findings);

@@ -72,6 +72,8 @@ guard мёртв - падает `absent`, guard всегда истинен - п
 | `factcheck-cascade-incomplete` | error | фаза fact-check есть, каскад `ToolSearch`+`WebSearch`+`WebFetch` неполон | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md#fact-verification-и-ответ-второй-стороны) |
 | `judge-without-write` | error | агент пишет запись `quality-checks`, но в `tools` нет ни `Write`, ни `Edit` - вердикт не доходит до файла-метки | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md#tools-агента) |
 | `agent-file-name-mismatch` | error | имя файла не совпадает с `name` | [CLAUDE.md](../CLAUDE.md) |
+| `handoff-input-missing` | error | в теле нет `**Input (handoff)` - вызывающему нечего заполнить, а агенту не с чем сверить пришедшее. Принцип 2 требует объявленную сигнатуру от **каждого** агента, не только от узла цепочки: pre-load `node-contract` это второй ярус, а объявленный вход - первый. Проверяется присутствие атрибута в теле, а не его фаза: у агента с общим для всех фаз входом он законно стоит в обзорном разделе `## Phases` | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md#принцип-2-у-агента-стандартизованный-вход-и-выход) |
+| `handoff-output-missing` | error | в теле нет `**Output (handoff)` - вызывающему нечем разобрать результат, а решения, принятые агентом самостоятельно, остаются необъявленными (свойство 4 принципа 2) | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md#принцип-2-у-агента-стандартизованный-вход-и-выход) |
 | `no-phases` | error | у агента нет ни одной `## Phase N` | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md) |
 | `phase-missing-goal` | error | у фазы нет `**Goal:**` | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md) |
 | `phase-missing-exit` | error | у фазы нет `**Exit criteria:**` | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md) |

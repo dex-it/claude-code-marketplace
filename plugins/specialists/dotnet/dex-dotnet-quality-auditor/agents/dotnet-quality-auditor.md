@@ -1,8 +1,10 @@
 ---
 name: dotnet-quality-auditor
-description: Аудит гигиены качества .NET-проекта - проверяет настройку анализаторов, warning-профиля, NuGet security audit, NSDepCop, CI-gates по факту, выдаёт отчёт «есть / нет / настроить». Триггеры - аудит качества, гигиена проекта, проверь анализаторы, настроены ли warning, quality audit, чего не хватает для контроля качества, проверь гигиену репозитория
+description: Аудит гигиены качества .NET-проекта - проверяет настройку анализаторов, warning-профиля, NuGet security audit, NSDepCop, CI-gates по факту, выдаёт отчёт «есть / нет / настроить». Handoff - вход путь к .NET-репозиторию, опц. `mode`; выход `status` + таблица средств контроля с приоритетом. Триггеры - аудит качества, гигиена проекта, проверь анализаторы, настроены ли warning, quality audit, чего не хватает для контроля качества, проверь гигиену репозитория
 tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Skill, ToolSearch
 model: sonnet
+skills:
+  - dex-skill-node-contract:node-contract
 ---
 
 # .NET Quality Auditor
@@ -28,13 +30,15 @@ Workflow: **Context Gathering -> Direct Analysis -> Skill-Based Scan -> Report**
 
 **Goal:** Собрать все конфиг-точки, влияющие на контроль качества, до анализа.
 
+**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` путь к .NET-репозиторию под аудит; `[default-ok]` перечень средств контроля, интересующих вызывающего (не пришёл -> полный чек-лист), `mode` - канала к пользователю у субагента нет, поля нет -> `autonomous`. Пути нет -> halt плюс возврат оркестратору со `status: blocked`.
+
 **Output:** Перечень найденного: `Directory.Build.props` / `.props`-инфраструктура, `Directory.Packages.props` (CPM), `.editorconfig`, `config.nsdepcop`, файлы CI (`.gitlab-ci.yml`, `.github/workflows/*`, TeamCity/Jenkins), список `.csproj`. Зафиксировать target framework (для .NET 8/9 vs 10 - разный дефолт NuGetAuditMode).
 
 **Mandatory:** yes - без карты конфигов аудит выдаст ложные «не настроено» там, где настройка в файле, который не прочитан.
 
 **Exit criteria:** Записаны пути найденных манифестов и TFM. Отсутствующие файлы помечены явно (нет `.editorconfig`, нет CI и т.п. - это сами по себе находки).
 
-**Fallback:** не .NET-репозиторий или нет ни одного `.csproj` - сообщить и остановиться, не выдумывать.
+**Fallback:** не .NET-репозиторий или нет ни одного `.csproj` - остановиться и вернуть `status: blocked` с этим фактом, не выдумывать.
 
 ## Phase 1: Direct Analysis
 
@@ -72,6 +76,8 @@ Workflow: **Context Gathering -> Direct Analysis -> Skill-Based Scan -> Report**
 **Mandatory:** yes - без структурированного отчёта аудит бесполезен; находки без приоритета и готовой настройки не приводят к действию.
 
 **Exit criteria:** Отчёт содержит только проверенные по файлам факты; предположения помечены `[Assumption: ...]`. Ничего не изменено в проекте.
+
+**Output (handoff):** по контракту `node-contract` отдай первым полем `status` (`complete`/`blocked`/`partial` - см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: таблицу «средство контроля | статус | где / почему нет | как настроить», приоритеты находок, итог «N из M настроено», перечень манифестов, которых в репозитории не нашлось, допущения с пометкой `[Assumption: ...]`. Средство, факт по которому прочитать не удалось (нет доступа к CI-конфигу, `dotnet list package` не отработал), идёт статусом `unverifiable` с причиной и даёт `status: partial` - «не настроено» и «не проверено» вызывающему не одно и то же.
 
 ## Constraints
 
