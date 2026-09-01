@@ -49,19 +49,28 @@
 | `node-contract` | форма стыка: статусы исхода, словарь полей, транспорт указателями, реакция на неполный вход, журнал решений | все |
 | `project-docs-map` | где корпус (`.docs_layout`), где `.req_counter`, что делать при отсутствии и недостижимости | все |
 | `unit-identity` | та же единица или новая; номера, дырки, конфликт счётчика | все |
-| `artifact-naming` | имя и раскладка, когда образца в корпусе нет | трек и все четыре составителя |
+| `docs-layout` | дерево корпуса, имена файлов классов, минимум обязательного, схема идентификаторов | трек и все четыре составителя |
+| `artifact-naming` | границы применения конвенции к занятому корпусу, слаг прогона | трек и все четыре составителя |
 | `decision-log` | форма журнала решений | только трек - писать в него больше некому |
 
 ## 4. Предметные скиллы и оракулы
 
-| Узел | Класс-скилл | Дополнительно | Оракул |
-|---|---|---|---|
-| `business-analyst` | `business-analysis` | `product-discovery`, `doc-standards`, `legacy-reconstruction` | `requirement-quality` |
-| `usecase-analyst` | `use-cases` | `legacy-reconstruction` | - |
-| `requirements-analyst` | `functional-requirements`, `nfr` | `legacy-reconstruction` | `requirement-quality` |
-| `user-story-analyst` | `user-stories` | `test-design` - техники подбора примеров | `requirement-quality` |
-| трек (как судья) | `business-analysis`, `use-cases` | - | `requirement-quality`, `requirement-set-quality` |
-| `requirements-reviewer` | все четыре класс-скилла | `fact-verification`, `review-evidence`, `output-hygiene`, `codebase-conventions`, `ddd` | `requirement-quality`, `requirement-set-quality` |
+Три слоя нормы не сводятся: **норматив** держит состав артефакта, **класс-скилл** - форму
+единицы, **оракул** - вердикт по содержанию. Норматив едет pre-load у составителя своего этапа и
+загружается императивно судьёй; кто именно чей - таблица.
+
+| Узел | Класс-скилл | Норматив этапа/жанра | Дополнительно | Оракул |
+|---|---|---|---|---|
+| `business-requirements-analyst` | - | `business-analysis-29148` (pre-load) | `product-discovery`, `doc-standards`, `legacy-reconstruction` | `requirement-quality` |
+| `usecase-analyst` | `use-cases` | `use-cases-cockburn` (pre-load) | `legacy-reconstruction` | - |
+| `requirements-analyst` | `functional-requirements`, `nfr` | `system-requirements-29148` (pre-load) | `legacy-reconstruction` | `requirement-quality` |
+| `user-story-analyst` | `user-stories` | - | `test-design` - техники подбора примеров | `requirement-quality` |
+| трек (как судья) | `use-cases`, `functional-requirements`, `nfr`, `user-stories` | `business-analysis-29148` (Phase 2), `use-cases-cockburn` (Phase 3), `system-requirements-29148` (Phase 4) | - | `requirement-quality`, `requirement-set-quality`, `use-case-quality` |
+| `requirements-reviewer` | все четыре класс-скилла | `business-analysis-29148`, `use-cases-cockburn`, `system-requirements-29148` - по предмету ревью | `fact-verification`, `review-evidence`, `output-hygiene`, `codebase-conventions`, `ddd` | `requirement-quality`, `requirement-set-quality`; на наборе сценариев - `use-case-quality` **вместо** оракула набора |
+
+Прочерк в любой колонке читается одинаково - артефакта этого рода у узла нет, и закрывается это
+записью `unverifiable` с названной причиной, а не подстановкой соседнего: ни норматив соседней фазы,
+ни оракул соседнего типа в замену не берутся. Ось полноты состава остаётся непроверенной явно.
 
 `legacy-reconstruction` включается на brownfield-входе «код без постановки» и общий у трёх
 составителей. Оракул **единицы** судит форму и атрибуты, оракул **набора** - стыки рёбер; второй

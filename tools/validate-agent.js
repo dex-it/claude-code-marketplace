@@ -170,7 +170,12 @@ const FORBIDDEN_FRONTMATTER_FIELDS = ['allowed-tools'];
  */
 const ALLOWED_PRELOAD_SKILLS = new Map([
   ['node-contract', null],
-  ['business-analysis', new Set(['business-requirements-analyst'])],
+  ['business-analysis-29148', new Set(['business-requirements-analyst'])],
+  ['system-requirements-29148', new Set(['requirements-analyst'])],
+  ['architecture-definition-42010', new Set(['architect', 'architect-dotnet'])],
+  ['interface-definition-openapi', new Set(['api-designer'])],
+  ['use-cases-cockburn', new Set(['usecase-analyst', 'use-case-writer'])],
+  ['bdd-gherkin', new Set(['bdd-author'])],
 ]);
 
 /**
@@ -183,11 +188,31 @@ const ALLOWED_PRELOAD_SKILLS = new Map([
  * Ключ - полная форма ссылки `{plugin}:{skill}` (ровно то, что ищется в теле).
  * Значение - имена агентов (`name` во frontmatter). Rename агента - повод
  * править и эту карту, и ALLOWED_PRELOAD_SKILLS выше.
+ *
+ * Наличие оракула типа от записи не освобождает: оракул судит содержание при
+ * заполненных разделах, состав держит норматив (шапки `use-case-quality`,
+ * `api-spec-quality`). Норматив без судьи в маршруте строки не получает.
  */
 const STAGE_NORMATIVE_READERS = new Map([
   [
-    'dex-skill-business-analysis:business-analysis',
+    'dex-skill-business-analysis-29148:business-analysis-29148',
     new Set(['requirements-reviewer']),
+  ],
+  [
+    'dex-skill-system-requirements-29148:system-requirements-29148',
+    new Set(['requirements-reviewer']),
+  ],
+  [
+    'dex-skill-architecture-definition-42010:architecture-definition-42010',
+    new Set(['design-reviewer']),
+  ],
+  [
+    'dex-skill-use-cases-cockburn:use-cases-cockburn',
+    new Set(['requirements-reviewer']),
+  ],
+  [
+    'dex-skill-interface-definition-openapi:interface-definition-openapi',
+    new Set(['design-reviewer']),
   ],
 ]);
 

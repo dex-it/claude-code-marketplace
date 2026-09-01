@@ -56,7 +56,7 @@ Bundle for Product Managers: business requirements, roadmap, backlog, metrics an
 - `dex-skill-nfr` - Non-functional requirement traps
 - `dex-skill-node-contract` - Agent node handoff contract
 - `dex-skill-analytics-track` - Zone 1 requirements pipeline order (BRD -> use cases -> FR/NFR -> stories)
-- `dex-skill-business-analysis` - Business analysis stage normative (BRD composition)
+- `dex-skill-business-analysis-29148` - Business analysis stage normative (BRD composition)
 - `dex-skill-requirement-set-quality` - Requirement set defect detection
 - `dex-skill-decision-log` - Requirements pipeline decision log
 - `dex-skill-user-stories` - User story traps
@@ -64,7 +64,8 @@ Bundle for Product Managers: business requirements, roadmap, backlog, metrics an
 - `dex-skill-use-cases` - Use case scenario traps
 - `dex-skill-functional-requirements` - Functional requirement unit traps
 - `dex-skill-unit-identity` - Requirement unit identity (same unit vs new, numbering)
-- `dex-skill-artifact-naming` - Requirements artifact naming/layout convention
+- `dex-skill-artifact-naming` - Requirements artifact naming convention and its boundaries
+- `dex-skill-docs-layout` - Documentation corpus layout normative (tree, identifiers)
 - `dex-skill-test-design` - Test design technique traps
 - `dex-skill-codebase-conventions` - Project convention vs technical decision
 - `dex-skill-ddd` - DDD traps

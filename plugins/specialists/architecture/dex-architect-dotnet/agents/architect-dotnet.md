@@ -5,6 +5,7 @@ tools: Read, Write, Edit, Grep, Glob, Skill, ToolSearch, WebSearch, WebFetch
 model: opus
 skills:
   - dex-skill-node-contract:node-contract
+  - dex-skill-architecture-definition-42010:architecture-definition-42010
 ---
 
 # Architect (.NET)

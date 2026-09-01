@@ -2,7 +2,7 @@
 
 **status:** review
 **дата:** 2026-08-22
-**норматив состава:** ISO/IEC/IEEE 29148 §9.3 (19 разделов), атрибуты единицы - `dex-skill-business-analysis:business-analysis`
+**норматив состава:** ISO/IEC/IEEE 29148 §9.3 (19 разделов), атрибуты единицы - `dex-skill-business-analysis-29148:business-analysis-29148`
 **quality-checks:** `{check: requirement-quality, verdict: unverifiable, причина: судьи в маршруте не было - документ написан в основном потоке, оракул набора не прогонялся}`
 
 Документ уровня продукта. Требования фич выводятся из целей этого документа и живут в корпусе
