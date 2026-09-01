@@ -493,6 +493,29 @@ function validateFrontmatter(parsed, findings) {
  * "имя файла агента совпадает с `name`" (CLAUDE.md). Skipped when `name` is
  * missing - that is already reported by `frontmatter-required`.
  */
+/**
+ * Файл агента лежит прямо в `<плагин>/agents/`, без подкаталогов.
+ *
+ * Замер 01.09.2026 на живом рантайме (`claude -p --plugin-dir`, событие `system/init`):
+ * агент из `agents/nested/test-analyst.md` поставляется под именем
+ * `dex-test-analyst:nested:test-analyst` - три сегмента вместо двух. Такое имя не
+ * резолвится ни одной ссылкой вида `{plugin}:{name}`, а `agent-file-name-mismatch`
+ * молчит: имя файла с `name` совпадает. Класс тот же, что у голого имени плагина в
+ * `skills:` - форма выглядит верной и тихо не срабатывает.
+ */
+function validateAgentFileIsFlat(filepath, findings) {
+  const marker = '/agents/';
+  const i = filepath.indexOf(marker);
+  if (i === -1) return;
+  const rel = filepath.slice(i + marker.length);
+  if (!rel.includes('/')) return;
+  findings.push({
+    level: ERROR,
+    rule: 'agent-file-nested',
+    message: `Agent file sits in a subdirectory of agents/ (${rel}) - the runtime then ships it as "{plugin}:{dir}:{name}", a three-segment name no {plugin}:{name} reference resolves. Move the file directly into agents/`,
+  });
+}
+
 function validateFileNameMatchesName(filepath, parsed, findings) {
   const fm = parsed.data || {};
   if (fm.name == null || fm.name === '') return;
@@ -877,6 +900,7 @@ function validateFile(filepath, marketplacePlugins) {
   const phaseResult = validatePhases(parsed.content, findings, bodyOffset);
   validateFrontmatter(parsed, findings);
   validateFileNameMatchesName(filepath, parsed, findings);
+  validateAgentFileIsFlat(filepath, findings);
   validateFactcheckCascade(parsed, findings);
   validateJudgeCarriesWriter(parsed, findings);
   validateStageNormativeReaders(parsed, findings);

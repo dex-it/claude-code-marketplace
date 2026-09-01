@@ -18,8 +18,20 @@
  * opus - скилл + смежный, sonnet - скилл, haiku - ни одного вызова. Модель прогона
  * пишется в отчёт, сравнивать прогоны на разных моделях нельзя.
  *
+ * Второй род прогона - `--agents`: виден ли агент в сессии под каноничной формой
+ * `{plugin}:{name}`. Кейсы не хранятся, а строятся из дерева `plugins/specialists/`,
+ * поэтому разъехаться с диском не могут. Предмет здесь другой и уже: не выбор модели,
+ * а факт поставки. Зонд 01.09.2026 показал, почему полноценной пробы активации у агента
+ * нет: делегирование - решение по объёму работы, а не первый ход, и на мелкой песочнице
+ * не происходит ни при какой формулировке (3 прогона, 0 делегирований), а прямой вопрос
+ * «кому передашь» уводит модель в `ListAgents`. Что проба ловит: агент не поставлен,
+ * переименован, форма `{plugin}:{name}` разъехалась. Чего НЕ ловит: разрешился ли
+ * pre-load `skills:` у самого агента - в `init.skills` скилл виден потому, что его
+ * плагин установлен, а не потому, что агент его связал.
+ *
  * Usage:
  *   node tools/run-activation.js                       # все кейсы, sonnet, 1 прогон
+ *   node tools/run-activation.js --agents --model haiku # видимость всех агентов дерева
  *   node tools/run-activation.js --model opus --runs 3
  *   node tools/run-activation.js --case redis          # подстрока id кейса
  *   node tools/run-activation.js --only a-in,b-in      # точный список id
@@ -31,7 +43,7 @@
  *   2 - ошибка запуска (нет кейсов, нет claude в PATH)
  */
 
-import { readFileSync, writeFileSync, mkdtempSync, rmSync, readdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, rmSync, readdirSync, existsSync, statSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -56,6 +68,7 @@ const ONLY = arg('only', null);
 const CONCURRENCY = Number(arg('concurrency', '4'));
 const JSON_OUT = arg('json', null);
 const TIMEOUT_MS = Number(arg('timeout', '300')) * 1000;
+const AGENTS_MODE = process.argv.includes('--agents');
 
 // Инструменты действия в прогоне активации не нужны и стоят денег: предмет пробы -
 // какой Skill выбран, а не что агент сделает дальше.
@@ -100,7 +113,7 @@ function runCase(kase) {
       '--verbose',
       '--max-turns', String(kase.maxTurns ?? 2),
       '--model', MODEL,
-      '--disallowed-tools', DISALLOWED,
+      '--disallowed-tools', kase.kind === 'agent' ? `${DISALLOWED},Read,Glob,Grep,Skill` : DISALLOWED,
       ...dirs.flatMap((d) => ['--plugin-dir', d]),
     ];
     const child = spawn('claude', args, { cwd: sandbox, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -116,11 +129,15 @@ function runCase(kase) {
       const skills = [];
       let cost = 0;
       let listed = null;
+      let agents = null;
       for (const line of out.split('\n')) {
         if (!line.trim()) continue;
         let e;
         try { e = JSON.parse(line); } catch { continue; }
-        if (e.type === 'system' && e.subtype === 'init' && Array.isArray(e.skills)) listed = e.skills;
+        if (e.type === 'system' && e.subtype === 'init') {
+          if (Array.isArray(e.skills)) listed = e.skills;
+          if (Array.isArray(e.agents)) agents = e.agents;
+        }
         if (e.type === 'assistant') {
           for (const part of e.message?.content ?? []) {
             if (part.type === 'tool_use' && part.name === 'Skill' && part.input?.skill) skills.push(part.input.skill);
@@ -128,7 +145,7 @@ function runCase(kase) {
         }
         if (e.type === 'result') cost = e.total_cost_usd ?? 0;
       }
-      resolvePromise({ skills, cost, listed, missing });
+      resolvePromise({ skills, cost, listed, agents, missing });
     });
   });
 }
@@ -148,12 +165,50 @@ async function pool(items, worker, limit) {
 
 // --- Main ---------------------------------------------------------------
 
+/**
+ * Кейсы видимости строятся из дерева, а не хранятся файлом: перечень агентов меняется
+ * каждым PR, и хранимая копия разъехалась бы молча - ровно тем же способом, каким
+ * разъезжается витрина. Форма ожидания - `{plugin}:{name}`: имя плагина берётся из
+ * каталога, имя агента из frontmatter, и несовпадение файла с `name` ловит валидатор.
+ */
+function agentVisibilityCases() {
+  const out = [];
+  const base = join(REPO_ROOT, 'plugins', 'specialists');
+  for (const cat of readdirSync(base, { withFileTypes: true })) {
+    if (!cat.isDirectory()) continue;
+    for (const plug of readdirSync(join(base, cat.name), { withFileTypes: true })) {
+      if (!plug.isDirectory()) continue;
+      const agentsDir = join(base, cat.name, plug.name, 'agents');
+      if (!existsSync(agentsDir) || !statSync(agentsDir).isDirectory()) continue;
+      for (const f of readdirSync(agentsDir)) {
+        if (!f.endsWith('.md')) continue;
+        const body = readFileSync(join(agentsDir, f), 'utf8');
+        const m = /^name:\s*(\S+)\s*$/m.exec(body);
+        const name = m ? m[1] : f.slice(0, -3);
+        out.push({
+          id: `${name}-visible`,
+          kind: 'agent',
+          mode: 'in-scope',
+          expect: `${plug.name}:${name}`,
+          prompt: 'ok',
+          maxTurns: 1,
+        });
+      }
+    }
+  }
+  return out.sort((a, b) => a.id.localeCompare(b.id));
+}
+
 let cases;
-try {
-  cases = JSON.parse(readFileSync(CASES_FILE, 'utf8'));
-} catch (e) {
-  console.error(`Не прочитан ${CASES_FILE}: ${e.message}`);
-  process.exit(2);
+if (AGENTS_MODE) {
+  cases = agentVisibilityCases();
+} else {
+  try {
+    cases = JSON.parse(readFileSync(CASES_FILE, 'utf8'));
+  } catch (e) {
+    console.error(`Не прочитан ${CASES_FILE}: ${e.message}`);
+    process.exit(2);
+  }
 }
 if (FILTER) cases = cases.filter((k) => k.id.includes(FILTER));
 if (ONLY) {
@@ -185,6 +240,27 @@ const outcomes = await pool(jobs, async ({ kase, run }) => {
   // Плагин из `plugins` кейса не найден в дереве - конструкт поднялся неполным, и его исход
   // не говорит ни о срабатывании, ни о его отсутствии: судится тем же статусом «не проверено».
   const incomplete = (res.missing ?? []).length > 0;
+  // Кейс видимости судит листинг агентов сессии, а не выбор модели: агент либо назван в
+  // `init.agents` каноничной формой, либо нет. Промежуточного исхода тут не бывает, поэтому
+  // ветка отдельная - иначе «агента нет в сессии» попало бы в статус «не проверено», где
+  // ему не место: это и есть проверяемый факт.
+  if (kase.kind === 'agent') {
+    const listedAgents = res.agents;
+    const seen = Array.isArray(listedAgents) && listedAgents.includes(kase.expect);
+    const unchecked = res.error || incomplete || !Array.isArray(listedAgents);
+    const mark = unchecked ? c('yellow', 'ОШИБКА') : seen ? c('green', 'ok    ') : c('red', 'ПРОВАЛ');
+    const near = Array.isArray(listedAgents)
+      ? listedAgents.filter((a) => a.startsWith(`${kase.expect.split(':')[0]}:`))
+      : [];
+    const detail = res.error ? res.error
+      : incomplete ? `плагин(ы) кейса не найдены: ${res.missing.join(', ')} - не проверено`
+      : !Array.isArray(listedAgents) ? 'листинг агентов не получен - не проверено'
+      : seen ? kase.expect
+      : near.length ? `плагин поднялся, но агент назван иначе: ${near.join(', ')}`
+      : 'плагина нет в листинге агентов сессии';
+    console.log(`${mark} ${kase.id}${RUNS > 1 ? `#${run + 1}` : ''} [видимость] -> ${c('gray', detail)}`);
+    return { id: kase.id, run, kind: 'agent', mode: kase.mode, expect: kase.expect, fired: listedAgents ?? [], pass: seen && !unchecked, bare: false, absent: Boolean(unchecked), unmet: [], foreign: [], contestedWon: null, missing: res.missing ?? [], error: res.error ?? null, cost: res.cost ?? 0 };
+  }
   // Кейс может требовать присутствия конкурента: он меряет не «работает ли поле», а величину
   // перехвата, и прогон без конкурента даёт зелёный, который ничего не измеряет. Условие держится
   // полем кейса, а не абзацем README про состояние чьей-то машины: непокрытое требование даёт тот
@@ -234,7 +310,8 @@ const secs = Math.round((Date.now() - started) / 1000);
 
 const checked = outcomes.length - absent.length;
 console.log(`\n${COLORS.bold}Итог:${COLORS.reset} ${checked} проверено из ${outcomes.length}, ${c('green', `${checked - failed.length} прошло`)}, ${failed.length ? c('red', `${failed.length} провал`) : '0 провалов'}, $${cost.toFixed(3)}, ${secs}s, модель ${MODEL}`);
-if (absent.length) console.log(c('gray', `Не проверено - скилла нет в листинге сессии: ${absent.length} (${[...new Set(absent.map((o) => o.expect))].join(', ')}). Поле этих скиллов не проверено ничем. Причину называют строки ниже - нет плагина в `+'`plugins/`'+` либо не выполнено требование кейса; ни одной такой строки нет - значит плагин в дереве есть и имя верно, а в листинг сессии скилл не попал.`));
+if (absent.length && AGENTS_MODE) console.log(c('gray', `Не проверено - листинг агентов не получен либо плагин не найден: ${absent.length}. Это не вердикт о видимости, а несостоявшийся прогон.`));
+if (absent.length && !AGENTS_MODE) console.log(c('gray', `Не проверено - скилла нет в листинге сессии: ${absent.length} (${[...new Set(absent.map((o) => o.expect))].join(', ')}). Поле этих скиллов не проверено ничем. Причину называют строки ниже - нет плагина в `+'`plugins/`'+` либо не выполнено требование кейса; ни одной такой строки нет - значит плагин в дереве есть и имя верно, а в листинг сессии скилл не попал.`));
 const contests = outcomes.filter((o) => o.contestedWon !== null && !o.absent);
 if (contests.length) console.log(c('gray', `Спорных за предмет: ${contests.length}, из них наш скилл поднялся в ${contests.filter((o) => o.contestedWon).length}. Режим `+'`contested`'+` меряет величину перехвата и код возврата не роняет.`));
 const unmets = outcomes.filter((o) => o.unmet.length);
