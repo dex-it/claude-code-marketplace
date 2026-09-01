@@ -21,7 +21,7 @@ Staff-уровневый ревьюер своей локальной ветки
 2. Change Map              -> файл -> ось риска
 3. Parallel Focus Scan     -> оси по характеру diff + loose-ends и local-verification
 4. Falsification           -> доказательство + оценки
-5. Assemble Findings          -> чеклист правок до push, метки
+5. Assemble Findings       -> чеклист правок до push, метки
 6. Report                  -> узлу: возврат наверх; оператору: делай / ещё раз / пушь
 ```
 
