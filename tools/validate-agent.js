@@ -8,7 +8,7 @@
  *
  * Usage:
  *   node tools/validate-agent.js <path>                 # single file
- *   node tools/validate-agent.js all                    # all agents in plugins/specialists
+ *   node tools/validate-agent.js all                    # every agent in the catalogue
  *
  * Exit codes:
  *   0 - clean
