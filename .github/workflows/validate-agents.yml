@@ -96,7 +96,7 @@ jobs:
       # ошибкой не выглядит нигде. Шаг живёт в этом job'е, а не в shell-syntax:
       # скрипт зовёт node и `gray-matter`, то есть требует `npm ci`.
       - name: Test agent visibility case construction
-        run: bash tests/tools/agent-visibility.test.sh
+        run: npm run test:tools
 
       # README - второй носитель состава каталога, генератора у него нет.
       # Замер 01.09.2026 этим же инструментом на базе PR (b846fd6f): 85 плагинов

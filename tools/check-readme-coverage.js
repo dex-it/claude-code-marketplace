@@ -46,6 +46,10 @@ try {
   process.exit(2);
 }
 const plugins = catalog.plugins;
+if (!Array.isArray(plugins)) {
+  console.error('В marketplace.json нет массива `plugins` - витрину не с чем сверять');
+  process.exit(2);
+}
 
 const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const shortNameOf = (name) => name.replace(/^dex-(bundle-|skill-)?/, '');

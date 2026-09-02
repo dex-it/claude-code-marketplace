@@ -511,13 +511,6 @@ function validateFrontmatter(parsed, findings) {
 }
 
 /**
- * The agent file name must match the frontmatter `name`. Claude Code resolves
- * the agent by its `name`; a divergent file name leaves the file looking like a
- * different agent than the one it declares and breaks the project convention
- * "имя файла агента совпадает с `name`" (CLAUDE.md). Skipped when `name` is
- * missing - that is already reported by `frontmatter-required`.
- */
-/**
  * Файл агента лежит прямо в `<плагин>/agents/`, без подкаталогов.
  *
  * Замер 01.09.2026 на живом рантайме (`claude -p --plugin-dir`, событие `system/init`):
@@ -547,6 +540,13 @@ function validateAgentFileIsFlat(filepath, findings) {
   });
 }
 
+/**
+ * The agent file name must match the frontmatter `name`. Claude Code resolves
+ * the agent by its `name`; a divergent file name leaves the file looking like a
+ * different agent than the one it declares and breaks the project convention
+ * "имя файла агента совпадает с `name`" (CLAUDE.md). Skipped when `name` is
+ * missing - that is already reported by `frontmatter-required`.
+ */
 function validateFileNameMatchesName(filepath, parsed, findings) {
   const fm = parsed.data || {};
   if (fm.name == null || fm.name === '') return;
