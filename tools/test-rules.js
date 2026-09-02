@@ -62,7 +62,7 @@ const COLORS = {
   bold: '\x1b[1m',
 };
 
-const VALIDATORS = ['agent', 'skill', 'command', 'bundle', 'standards', 'samples', 'rules-documented'];
+const VALIDATORS = ['agent', 'skill', 'command', 'bundle', 'readme', 'rules-documented'];
 
 const ANSI_RE = /\x1b\[[0-9;]*m/g;
 const FINDING_RE = /^\s*(ERROR|WARN)\s+\[([a-z0-9-]+)\]/;

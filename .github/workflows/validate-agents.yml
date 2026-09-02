@@ -103,8 +103,17 @@ jobs:
       # из 245 не были названы ни полным, ни коротким именем, и
       # `sync-marketplace --check` этого не видит - он судит только пару
       # plugin.json x marketplace.json.
-      - name: Check README covers the catalog
-        run: npm run readme:check
+      - name: Validate README against the catalog
+        run: node tools/validate-readme.js all
+
+      # Оба хука регрессируют своим адресом, разъехавшимся с прозой молча: resume-reminder -
+      # адресом auto-ledger (текст движка vs код хука vs README хука), engine-nudge - условием
+      # «молчим вне git-репозитория», снятым в 1.2.0 без отражения в платной пробе активации.
+      # Через готовый npm-скрипт test:hooks, а не прямым bash - та же форма вызова, что у
+      # остальных шагов job'а; job уже несёт npm ci, дублировать Setup Node.js/npm ci в
+      # shell-syntax под эти два теста незачем.
+      - name: Test hooks (resume-reminder, engine-nudge)
+        run: npm run test:hooks
 
   shell-syntax:
     name: Shell scripts syntax check (bash -n)
@@ -118,16 +127,3 @@ jobs:
       # который трогает .sh. Полная проверка на macOS/Windows - отдельная задача.
       - name: Syntax-check all shell scripts
         run: find . -path ./node_modules -prune -o -name '*.sh' -print0 | xargs -0 -r -n1 bash -n
-
-      # Адрес auto-ledger живёт в двух носителях (текст движка и код хука) и
-      # расходится молча: хук просто перестаёт находить файл. Тест кладёт ledger
-      # в папку сессии на временном CLAUDE_CONFIG_DIR (папка проекта - запасная
-      # дверь, отдельным случаем) и проверяет исходы хука.
-      - name: Test resume hook ledger address
-        run: bash tests/hooks/resume-reminder.test.sh
-
-      # Хук подъёма движка: условие «молчим вне git-репозитория» снято в 1.2.0,
-      # и платный прогон активации возврата условия не ловит - кейс зелёный на
-      # обеих редакциях. Механизм пиннится прямым запуском скрипта.
-      - name: Test engine-nudge hook
-        run: bash tests/hooks/engine-nudge.test.sh
