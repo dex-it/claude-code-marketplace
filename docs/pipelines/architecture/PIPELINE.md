@@ -49,9 +49,9 @@ QPS/storage/bandwidth, опора для решения узла. Implementation
 Манифест затронутой папки несёт `*.csproj`/`*.sln`/`Directory.Build.props` -> узел
 `dex-architect-dotnet:architect-dotnet`; иначе -> `dex-architect:architect` (стек-нейтральный).
 Монорепо - диспетчинг по папке, не по корню репозитория. Узел получает FR/NFR, цифры, constraints,
-`mode`, `Accepted` ADR и журнал решений; исполняет свой внутренний порядок (Reference Architecture
-Match -> Propose Alternatives -> Decide -> Deep Dive) и отдаёт решение-only - без implementation-
-плана и документов, это работа треков-фаз 4 и 5.
+`mode: autonomous` (см. «Гейты»), `Accepted` ADR и журнал решений; исполняет свой внутренний
+порядок (Reference Architecture Match -> Propose Alternatives -> Decide -> Deep Dive) и отдаёт
+решение-only - без implementation-плана и документов, это работа треков-фаз 4 и 5.
 
 ## Гейты
 
@@ -64,8 +64,10 @@ Match -> Propose Alternatives -> Decide -> Deep Dive) и отдаёт решен
 | Выбор альтернатив, содержание deep-dive | неблокирующий | 3 | предъяви + продолжай на предложенном | решает узел, допущением в Output |
 | Вердикт `design-reviewer` не `passed` | блокирующий | 6 | возврат на доработку / эскалация | `partial` + перечень |
 
-`mode` приходит на входе трека (дефолт `autonomous`) и передаётся без изменения во все делегированные
-вызовы - узел канал сам не определяет.
+`mode` приходит на входе трека (дефолт `autonomous`). Вниз режим не наследуется: делегированным
+вызовам трек проставляет `autonomous` - канал держит тот, кого исполняет главный цикл, у спавненного
+его нет физически (`node-contract`, инвариант D п.11). Развилки узла едут наверх, оператору их
+предъявляет трек на своём гейте.
 
 ## Document (Phase 5) и Design Acceptance (Phase 6)
 

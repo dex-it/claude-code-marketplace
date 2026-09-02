@@ -62,7 +62,14 @@ const COLORS = {
   bold: '\x1b[1m',
 };
 
-const VALIDATORS = ['agent', 'skill', 'command', 'bundle', 'readme', 'rules-documented'];
+// Перечень выводится из дерева, а не пишется списком: список расходится с ним в
+// обе стороны молча. Запись без файла раннер пропускал (`existsSync` -> `continue`,
+// так жили `standards` и `samples`), а новый `validate-*.js` без записи не
+// прогонялся бы вовсе - ни то, ни другое не видно ни в одном выводе.
+const VALIDATORS = readdirSync(TOOLS_DIR)
+  .filter((f) => /^validate-[a-z][a-z-]*\.js$/.test(f))
+  .map((f) => f.slice('validate-'.length, -'.js'.length))
+  .sort();
 
 const ANSI_RE = /\x1b\[[0-9;]*m/g;
 const FINDING_RE = /^\s*(ERROR|WARN)\s+\[([a-z0-9-]+)\]/;
@@ -107,9 +114,7 @@ function withSandbox(overlayDir, fn) {
 function collectRulesInCode() {
   const byValidator = new Map();
   for (const validator of VALIDATORS) {
-    const file = join(TOOLS_DIR, `validate-${validator}.js`);
-    if (!existsSync(file)) continue;
-    const text = readFileSync(file, 'utf8');
+    const text = readFileSync(join(TOOLS_DIR, `validate-${validator}.js`), 'utf8');
     byValidator.set(validator, new Set([...text.matchAll(RULE_IN_CODE_RE)].map((m) => m[1])));
   }
   return byValidator;

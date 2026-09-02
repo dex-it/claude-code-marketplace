@@ -142,12 +142,13 @@ Goal: получить архитектурное решение - match / alter
 манифест затронутой папки несёт `*.csproj`/`*.sln`/`Directory.Build.props` -> `dex-architect-dotnet:
 architect-dotnet`; иначе -> `dex-architect:architect`. Монорепо - по папке, не по корню.
 
-Input узлу: FR/NFR (Phase 1), цифры (Phase 2), constraints, `mode`, `quality-checks`, `Accepted` ADR
-+ путь к журналу решений (Phase 0). Узел исполняет свой внутренний порядок (Reference Architecture
-Match -> Propose Alternatives -> Decide -> Deep Dive) и отдаёт по `node-contract`: `status`, дизайн-
-решение (выбранная альтернатива + отвергнутые + CAP/PACELC trade-off), deep-dive разделы,
-`quality-checks`, `self-check`, `fact-check`, допущения, свои строки в журнал решений (дописывает
-сам - `node-contract`, «каждый узел, принявший решение... свои строки»).
+Input узлу: FR/NFR (Phase 1), цифры (Phase 2), constraints, `mode: autonomous` (см. «Режимы и
+гейты»), `quality-checks`, `Accepted` ADR + путь к журналу решений (Phase 0). Узел исполняет свой
+внутренний порядок (Reference Architecture Match -> Propose Alternatives -> Decide -> Deep Dive) и
+отдаёт по `node-contract`: `status`, дизайн-решение (выбранная альтернатива + отвергнутые +
+CAP/PACELC trade-off), deep-dive разделы, `quality-checks`, `self-check`, `fact-check`, допущения,
+свои строки в журнал решений (дописывает сам - `node-contract`, «каждый узел, принявший решение...
+свои строки»).
 
 **Гейт (см. «Режимы и гейты» ниже):** выбор между технически равными альтернативами и содержание
 deep-dive - неблокирующий: `interactive` - трек предъявляет решение с обоснованием и идёт дальше на
@@ -308,8 +309,12 @@ design-документ несёт `design-quality passed`, файл плана 
 | Выбор альтернатив, deep-dive (Phase 3) | неблокирующий | предъяви + продолжай на предложенном | решает трек/узел, допущением в Output |
 | Вердикт `design-reviewer` не `passed` (Phase 6) | блокирующий | возврат на доработку / эскалация | `partial` + перечень |
 
-`mode` - вход трека, дефолт `autonomous` (`node-contract`, инвариант D п.11); передаётся без
-изменения во все делегированные вызовы Phase 3/5/6 - узел сам не «детектирует» канал.
+Источник режима - вход трека (`mode`), нет поля -> `autonomous` (`node-contract`, инвариант D
+п.11). **Вниз режим не наследуется:** делегированным вызовам Phase 3/5/6 трек проставляет
+`autonomous` - канал держит тот, кого исполняет главный цикл, у спавненного его нет физически.
+Развилки узла едут наверх (`status: blocked`/`partial` + допущения), и оператору их предъявляет
+трек на своём гейте - строками таблицы выше. Режим узел не «детектирует» по обстановке: он
+объявлен явно - поле `mode` в handoff либо указание оператора в самой задаче.
 
 ## Журналы решений и исполнителей
 

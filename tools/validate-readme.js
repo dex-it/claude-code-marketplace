@@ -25,7 +25,9 @@
  *                            найдена»).
  *
  * Обе стороны сверки читают один перечень имён - тот, что README ставит в
- * позицию имени плагина. Позиций три, и в каждой имя читается по своему
+ * позицию имени плагина, и берут его из текста без код-блоков: строка
+ * `| dex-... |` внутри примера показывает форму записи, а не называет плагин.
+ * Позиций три, и в каждой имя читается по своему
  * правилу, заданному шапкой таблицы: первая ячейка строки таблицы `Bundle` -
  * короткая форма бандла (`architect` -> `dex-bundle-architect`), первая
  * ячейка прочих витрин - полное имя, code-span в таблице с колонкой `Skills`
@@ -46,6 +48,11 @@
  * а требование полной формы в этой колонке сломало бы её смысл: колонка
  * `Bundle` несёт аргумент установщика (`install-bundle.sh architect`).
  *
+ * Таблица `Skills` называет скилл, а не плагин, и обычно плагин зовётся
+ * `dex-skill-<скилл>`. Где это не так (движок `dex-sdlc` везёт скилл `engine`),
+ * имя резолвится через владельца скилла, и владельцы читаются с дерева при
+ * каждом прогоне - список исключений в коде протухал бы молча.
+ *
  * Чего НЕ судится: содержание строки. Устаревшее описание правило не ловит -
  * его ловит ревью. Предмет здесь один: состав, а не текст.
  *
@@ -58,7 +65,7 @@
  *   2 - marketplace.json or README.md could not be read (tool failure, not a rule finding)
  */
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -95,7 +102,6 @@ if (!Array.isArray(plugins)) {
   process.exit(2);
 }
 
-const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const shortNameOf = (name) => name.replace(/^dex-(bundle-|skill-)?/, '');
 
 const named = new Set(plugins.map((p) => p.name));
@@ -111,11 +117,23 @@ for (const p of plugins) {
   byShortName.get(short).push(p.name);
 }
 
-// README называет движок сокращённым именем СКИЛЛА (`engine`), и таблица
-// Skills читается префиксом `dex-skill-`, которого у движка нет: плагин
-// называется `dex-sdlc`. Само исключение README объявляет прозой перед
-// таблицей.
-const SKILL_NAME_EXCEPTIONS = new Map([['dex-skill-engine', 'dex-sdlc']]);
+// Таблица `Skills` называет СКИЛЛ, а не плагин, и README объявляет их связь
+// прозой перед таблицей: «Имя плагина - `dex-skill-<имя скилла>`, единственное
+// исключение - движок `dex-sdlc:engine`». Владельцы читаются с дерева, а не
+// списком в коде: список исключений протухает молча, а дерево - тот же
+// источник, по которому README и заполняется. Ключ - имя скилла, значение -
+// плагин, который его везёт.
+const skillOwners = new Map();
+for (const p of plugins) {
+  if (typeof p.source !== 'string') continue;
+  const skillsDir = join(REPO_ROOT, p.source, 'skills');
+  if (!existsSync(skillsDir)) continue;
+  for (const entry of readdirSync(skillsDir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    if (!existsSync(join(skillsDir, entry.name, 'SKILL.md'))) continue;
+    if (!skillOwners.has(entry.name)) skillOwners.set(entry.name, p.name);
+  }
+}
 
 // Позиции, в которых README называет плагин, и правило разрешения имени в
 // каждой. Обе стороны сверки - прямая и обратная - читают один перечень:
@@ -153,7 +171,10 @@ function collectNamed(text) {
     if (isSeparatorRow(line)) continue;
     if (isSeparatorRow((lines[i + 1] || '').trim())) {
       inSkillsTable = /\|\s*Skills\s*\|/.test(line);
-      prefix = /\|\s*Bundle\s*\|/i.test(line) ? 'dex-bundle-' : '';
+      // Шапка сверяется дословно, как она стоит в витрине: регистронезависимый
+      // матч у одной шапки и точный у другой дали бы две разные строгости на одном
+      // и том же механизме.
+      prefix = /\|\s*Bundle\s*\|/.test(line) ? 'dex-bundle-' : '';
       continue;
     }
     if (inSkillsTable) {
@@ -166,17 +187,26 @@ function collectNamed(text) {
   return found;
 }
 
+// Пример таблицы внутри код-блока - не витрина: строка `| dex-... |` там
+// показывает форму записи, а не называет плагин. Читать её нельзя в обе
+// стороны сразу: покрытие закрылось бы образцом, а имя-заглушка приехало бы
+// мёртвой ссылкой. Тот же приём и по той же причине - в `validate-agent.js`
+// (сигнатура handoff внутри примера свидетелем не считается).
+const FENCED_BLOCK_RE = /^[ \t]*(`{3,}|~{3,})[^\n]*\n[\s\S]*?^[ \t]*\1[ \t]*$/gm;
+const withoutFences = (text) => text.replace(FENCED_BLOCK_RE, '');
+
 // Имена, которыми README называет плагины, уже приведённые к полной форме.
-const mentioned = collectNamed(readme);
+const mentioned = collectNamed(withoutFences(readme));
 
 const findings = [];
 
 // readme-plugin-unnamed: каждый плагин витрины назван в README хотя бы одной
 // из двух форм - полным именем (`dex-architect`) либо каноничным коротким
-// (`architect` для бандла, `ddd` для скилла). Короткая форма, делящая имя с
-// другим плагином витрины, засчитывается, только когда неоднозначность снята
-// иначе: все соседи по коллизии названы в README полным именем, и на эту
-// короткую форму претендентов больше нет.
+// (`architect` для бандла, `ddd` для скилла). Неоднозначность короткой формы
+// снимает позиция, а не соседи: `collectNamed` уже привела имя к полной форме
+// по шапке таблицы, в которой оно стоит, поэтому здесь остаётся членство в
+// перечне. `collidesWith` считается только ради текста сообщения - оно
+// называет, где искать вторую претендентку на то же короткое имя.
 for (const p of plugins) {
   const short = shortNameOf(p.name);
   const collidesWith = byShortName.get(short).filter((n) => n !== p.name);
@@ -194,7 +224,11 @@ for (const p of plugins) {
 // readme-row-ghost: обратная сторона - ссылка README резолвится в реальный
 // плагин каталога, полным или коротким именем.
 function resolves(name) {
-  return named.has(name) || named.has(SKILL_NAME_EXCEPTIONS.get(name));
+  if (named.has(name)) return true;
+  // Имя из таблицы `Skills` приведено к форме `dex-skill-<скилл>`; плагина с
+  // таким именем может не быть, но скилл в каталоге есть и его кто-то везёт.
+  const short = name.startsWith('dex-skill-') ? name.slice('dex-skill-'.length) : null;
+  return short != null && skillOwners.has(short);
 }
 
 const ghosts = new Set([...mentioned].filter((n) => !resolves(n)));
@@ -211,17 +245,15 @@ for (const n of ghosts) {
 // каталога) равна версии витрины. Сверяется ровно строка подвала, а не любое
 // вхождение номера в текст.
 const footer = /\*\*DEX Team\*\*[^\n]*?Version\s+(\d+\.\d+\.\d+)/.exec(readme);
-if (footer == null) {
+// Пропавшая строка подвала и разошедшийся номер - один исход, поэтому и одна
+// ветка: развилка дала бы правилу второй текст, которому свидетеля не построить
+// (подвал либо есть, либо нет, и в одном прогоне обе стороны не наблюдаются).
+const footerVersion = footer == null ? 'строка подвала не найдена' : footer[1];
+if (footerVersion !== catalog.version) {
   findings.push({
     level: ERROR,
     rule: 'readme-version-drift',
-    message: 'в подвале README не найдена строка версии каталога («**DEX Team** ... Version X.Y.Z»)',
-  });
-} else if (footer[1] !== catalog.version) {
-  findings.push({
-    level: ERROR,
-    rule: 'readme-version-drift',
-    message: `версия в подвале README (${footer[1]}) не равна версии витрины (${catalog.version})`,
+    message: `версия каталога в подвале README («**DEX Team** ... Version X.Y.Z») - ${footerVersion}, в витрине - ${catalog.version}`,
   });
 }
 
