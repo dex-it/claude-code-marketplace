@@ -19,7 +19,7 @@
  * пишется в отчёт, сравнивать прогоны на разных моделях нельзя.
  *
  * Второй род прогона - `--agents`: виден ли агент в сессии под каноничной формой
- * `{plugin}:{name}`. Кейсы не хранятся, а строятся из дерева `plugins/specialists/`,
+ * `{plugin}:{name}`. Кейсы не хранятся, а строятся из корней плагинов `plugins/`,
  * поэтому разъехаться с диском не могут. Предмет здесь другой и уже: не выбор модели,
  * а факт поставки. Зонд 01.09.2026 показал, почему полноценной пробы активации у агента
  * нет: делегирование - решение по объёму работы, а не первый ход, и на мелкой песочнице
@@ -90,8 +90,16 @@ function indexPlugins(dir, depth, acc) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
     const full = join(dir, entry.name);
-    if (existsSync(join(full, '.claude-plugin', 'plugin.json'))) acc.set(entry.name, full);
-    else if (depth > 0) indexPlugins(full, depth - 1, acc);
+    const manifest = join(full, '.claude-plugin', 'plugin.json');
+    if (existsSync(manifest)) {
+      // Ключ - имя из манифеста, а не имя каталога: рантайм адресует плагин по
+      // `name`, и при расхождении каталога с манифестом ключ по каталогу собрал бы
+      // ожидание, которого рантайм не отдаст. Совпадения этих двух имён ничто не
+      // держит - правила на равенство в валидаторах нет.
+      let name = entry.name;
+      try { name = JSON.parse(readFileSync(manifest, 'utf8')).name || entry.name; } catch { /* битый манифест: имя каталога как запасное */ }
+      acc.set(name, full);
+    } else if (depth > 0) indexPlugins(full, depth - 1, acc);
   }
   return acc;
 }
@@ -182,7 +190,6 @@ async function pool(items, worker, limit) {
  */
 function agentVisibilityCases() {
   const out = [];
-  const base = join(REPO_ROOT, 'plugins', 'specialists');
   // Обход рекурсивный, и это предмет пробы, а не удобство: агент из подкаталога
   // `agents/` поставляется трёхсегментным именем, и кейс на него обязан строиться -
   // иначе перенос файла вглубь убирает разом и кейс, и ожидание, а прогон остаётся
@@ -210,14 +217,14 @@ function agentVisibilityCases() {
       });
     }
   }
-  for (const cat of readdirSync(base, { withFileTypes: true })) {
-    if (!cat.isDirectory()) continue;
-    for (const plug of readdirSync(join(base, cat.name), { withFileTypes: true })) {
-      if (!plug.isDirectory()) continue;
-      const agentsDir = join(base, cat.name, plug.name, 'agents');
-      if (!existsSync(agentsDir) || !statSync(agentsDir).isDirectory()) continue;
-      collect(agentsDir, plug.name);
-    }
+  // Корни плагинов берутся из того же индекса, что и `--plugin-dir`: он обходит
+  // `plugins/` целиком и ключует по имени манифеста. Обход по одной ветке дерева
+  // (`plugins/specialists/`) оставил бы агента из другой ветки без кейса - та же
+  // слепота, что была к подкаталогу `agents/`, только шире.
+  for (const [plugin, root] of PLUGIN_DIRS) {
+    const agentsDir = join(root, 'agents');
+    if (!existsSync(agentsDir) || !statSync(agentsDir).isDirectory()) continue;
+    collect(agentsDir, plugin);
   }
   return out.sort((a, b) => a.id.localeCompare(b.id));
 }

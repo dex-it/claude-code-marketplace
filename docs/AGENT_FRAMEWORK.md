@@ -367,7 +367,7 @@ description: ...
 tools: Read, Edit, Bash, Grep, Glob, Skill
 model: sonnet
 effort: low                        # опц.; когда работа устойчиво легче/тяжелее середины
-skills:                            # pre-load безусловного process-skill; контракт стыка несут все агенты каталога
+skills:                            # pre-load: контракт стыка несут все агенты каталога, норматив этапа - только его владелец
   - dex-skill-node-contract:node-contract   # форма {plugin}:{skill} - обязательна, см. «Подключение skills»
 ---
 

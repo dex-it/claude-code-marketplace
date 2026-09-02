@@ -30,7 +30,7 @@ const __dirname = dirname(__filename);
 const REPO_ROOT = process.env.MARKETPLACE_ROOT
   ? resolve(process.env.MARKETPLACE_ROOT)
   : resolve(__dirname, '..');
-const SPECIALISTS_DIR = join(REPO_ROOT, 'plugins', 'specialists');
+const PLUGINS_DIR = join(REPO_ROOT, 'plugins');
 const MARKETPLACE_JSON = join(REPO_ROOT, '.claude-plugin', 'marketplace.json');
 
 const COLORS = {
@@ -97,6 +97,15 @@ function validatePluginNameMentions(text, findings, where = '') {
 
 // --- File discovery -----------------------------------------------------
 
+// Обход берёт `plugins/` целиком, а не только `plugins/specialists/`: обещание
+// правил - «каждый агент каталога», и корень поставки в него не входит. Агент,
+// положенный в другую ветку дерева, при обходе по одной ветке не судится ничем и
+// молчит на всех гейтах сразу - тот же класс, что подкаталог `agents/`.
+// Разделитель приводится к `/` перед сравнением: `join` на Windows отдаёт `\`, и
+// проверка подстроки `/agents/` там не совпала бы ни разу, то есть валидатор
+// нашёл бы ноль файлов и вышел бы зелёным. Свидетеля у этой половины нет и на
+// Linux быть не может - `sep` там `/`, и мутация обратно оставляет прогон зелёным.
+// Ловится только прогоном на Windows, как и остальная портируемость shell-скриптов.
 function findAllAgentFiles() {
   const result = [];
   function walk(dir) {
@@ -105,12 +114,12 @@ function findAllAgentFiles() {
       const full = join(dir, entry);
       const stat = statSync(full);
       if (stat.isDirectory()) walk(full);
-      else if (entry.endsWith('.md') && full.includes('/agents/')) {
+      else if (entry.endsWith('.md') && full.split(sep).join('/').includes('/agents/')) {
         result.push(full);
       }
     }
   }
-  walk(SPECIALISTS_DIR);
+  walk(PLUGINS_DIR);
   return result.sort();
 }
 
@@ -789,9 +798,15 @@ function validateJudgeCarriesWriter(parsed, findings) {
  */
 const HANDOFF_INPUT_RE = /\*\*\s*Input\s*\(handoff/i;
 const HANDOFF_OUTPUT_RE = /\*\*\s*Output\s*\(handoff/i;
+// Свидетель сигнатуры засчитывается только из тела. Тот же атрибут внутри
+// ```-фенса - образец в документации, а не объявление: вызывающий по нему
+// ничего не заполнит. Без вырезания фенсов правило удовлетворялось бы примером,
+// то есть краснело бы ровно там, где автор ничего не написал вовсе.
+const FENCED_BLOCK_RE = /^[ \t]*(`{3,}|~{3,})[^\n]*\n[\s\S]*?^[ \t]*\1[ \t]*$/gm;
+const withoutFences = (text) => text.replace(FENCED_BLOCK_RE, '');
 
 function validateHandoffSignature(parsed, findings) {
-  const body = parsed.content || '';
+  const body = withoutFences(parsed.content || '');
 
   if (!HANDOFF_INPUT_RE.test(body)) {
     findings.push({
@@ -1165,7 +1180,7 @@ function main() {
   if (target === 'all') {
     files = findAllAgentFiles();
     if (files.length === 0) {
-      console.error(`No agent files found under ${relative(REPO_ROOT, SPECIALISTS_DIR)}`);
+      console.error(`No agent files found under ${relative(REPO_ROOT, PLUGINS_DIR)}`);
       process.exit(1);
     }
   } else {
