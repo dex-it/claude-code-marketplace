@@ -13,8 +13,13 @@
  * агентов полным именем плагина, а бандлы и скиллы - коротким: это его
  * конвенция, а не разнобой, и правило судит по ней.
  *
+ * Сверка идёт в обе стороны. Прямая: каждый плагин витрины назван в README.
+ * Обратная: каждая строка таблицы README, открывающаяся именем `dex-*`, ведёт на
+ * существующий плагин - иначе переименование оставляет строку, показывающую на
+ * мёртвое имя, и односторонний гейт остаётся зелёным на ней.
+ *
  * Чего НЕ судится: содержание строки. Устаревшее описание правило не ловит -
- * его ловит ревью. Предмет здесь один: плагин появился, а в витрине его нет.
+ * его ловит ревью. Предмет здесь один: состав, а не текст.
  *
  * Usage:
  *   node tools/check-readme-coverage.js          # отчёт
@@ -62,19 +67,33 @@ for (const p of plugins) {
   missing.push(p.name);
 }
 
+// Обратная сторона: строка таблицы, открывающаяся именем плагина, ведёт на живое имя.
+// Разбирается ровно эта форма (`| dex-... |` в начале строки) - конвенция витрины
+// README; прозаические упоминания плагина в предмет не входят, у них нет обещания
+// вести на запись каталога.
+const named = new Set(catalog.plugins.map((p) => p.name));
+const ghosts = [...readme.matchAll(/^\|\s*(dex-[a-z0-9-]+)\s*\|/gm)]
+  .map((m) => m[1])
+  .filter((n) => !named.has(n));
+const ghostList = [...new Set(ghosts)];
+
 // Версия каталога в подвале README - третий её носитель, и он уже расходился:
 // на develop b846fd6f подвал стоял на 5.4.0 при 5.85.0 в витрине. Сверяется
 // ровно строка подвала, а не любое вхождение номера в текст.
 const footer = /\*\*DEX Team\*\*[^\n]*?Version\s+(\d+\.\d+\.\d+)/.exec(readme);
 const versionOk = footer != null && footer[1] === catalog.version;
 
-if (missing.length === 0 && versionOk) {
-  console.log(`витрина README полна: ${plugins.length} плагин(ов) названы, версия ${catalog.version}`);
+if (missing.length === 0 && ghostList.length === 0 && versionOk) {
+  console.log(`витрина README полна: ${plugins.length} плагин(ов) названы, мёртвых строк нет, версия ${catalog.version}`);
   process.exit(0);
 }
 if (missing.length > 0) {
   console.error(`в README не назван ни одной формой: ${missing.length} из ${plugins.length}`);
   for (const n of missing) console.error(`  ${n}`);
+}
+if (ghostList.length > 0) {
+  console.error(`строка README ведёт на имя, которого нет в витрине: ${ghostList.length}`);
+  for (const n of ghostList) console.error(`  ${n}`);
 }
 if (!versionOk) {
   console.error(
