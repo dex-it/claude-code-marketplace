@@ -23,7 +23,7 @@
 
 ## Архитектура
 
-Команда `/review-design` тонкая (без `Agent` в `allowed-tools`) и делегирует агенту `design-reviewer` с явным `mode: interactive`. Фазы агента: Context (входная приёмка по метке `quality-checks`) -> Domain Priming -> Skill-Based Deep Scan -> Fact Verification -> Cross-Linking -> Severity Calibration -> Deferred Decision Triage -> Output Labeling -> Report.
+Команда `/review-design` тонкая: делегирует агенту `design-reviewer`, а проводку оператора по находкам и выбор канала доставки ведёт сама. `mode: interactive` спавненному агенту во вход не передаётся - канала к оператору у него нет физически (`node-contract`, D.11). Фазы агента: Context (входная приёмка по метке `quality-checks`) -> Domain Priming -> Skill-Based Deep Scan -> Fact Verification -> Cross-Linking -> Severity Calibration -> Deferred Decision Triage -> Output Labeling -> Report.
 
 Агент **не мутирует чужой документ**: `Write`/`Edit` отсутствуют намеренно. Находки предъявляются оператору, правки формулируются автору, канал доставки (задача в трекер либо правка в документ) выбирает оператор в диалоге. Это отделяет «судить» от «чинить», как в код-ревью.
 

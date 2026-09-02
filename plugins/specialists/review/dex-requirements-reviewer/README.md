@@ -8,7 +8,7 @@
 
 ## Архитектура
 
-Команда тонкая и делегирует агенту `requirements-reviewer` с явной передачей `mode: interactive`. Десять фаз: Context and Input Acceptance -> Domain Priming -> Direct Analysis (единица) -> Set Analysis (набор) -> Fact Verification -> Cross-Linking -> Severity Calibration -> Deferred Decision Triage -> Output Labeling -> Report.
+Команда тонкая: делегирует агенту `requirements-reviewer`, а оператора по находкам проводит сама. `mode: interactive` спавненному агенту во вход не передаётся - канала к оператору у него нет физически (`node-contract`, D.11). Десять фаз: Context and Input Acceptance -> Domain Priming -> Direct Analysis (единица) -> Set Analysis (набор) -> Fact Verification -> Cross-Linking -> Severity Calibration -> Deferred Decision Triage -> Output Labeling -> Report.
 
 Set Analysis занимает в этом агенте место, которое в code-ревьюерах занимает Skill-Based Deep Scan: предмет - документ, а не стек, поэтому глубину даёт оракул набора, а не профильные skills по языку.
 
