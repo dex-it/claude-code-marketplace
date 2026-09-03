@@ -4,7 +4,7 @@
 
 ## Конвейер
 
-- Движок: `dex-sdlc` (`dex-sdlc:engine`) ведёт цель до конца сам и делегирует узлам-агентам по контракту `dex-skill-node-contract`, порядок каждой зоны - в своём трек-скилле (`dex-skill-<зона>-track`), движок зон не знает. Команды-входы живут в плагинах зон (`dex-sdlc-product`, `dex-sdlc-requirements`, `dex-sdlc-design`, `dex-sdlc-discover`, `dex-sdlc-docs`, `dex-sdlc-delivery`, `dex-sdlc-test`, `dex-sdlc-review`, `dex-sdlc-acceptance`, `dex-sdlc-ops`) - этот bundle несёт все десять. Хук `dex-sdlc-resume` возвращает движок в процедуру возобновления после компакта контекста, хук `dex-sdlc-nudge` поднимает движок на рабочей просьбе, не требуя команды
+- Движок: `dex-sdlc` (`dex-sdlc:engine`) ведёт цель до конца сам и делегирует узлам-агентам по контракту `dex-skill-node-contract`, порядок каждой зоны - в своём трек-скилле (`dex-skill-<зона>-track`), движок зон не знает. Команды-входы живут в плагинах зон (`dex-sdlc-product`, `dex-sdlc-requirements`, `dex-sdlc-design`, `dex-sdlc-discover`, `dex-sdlc-docs`, `dex-sdlc-delivery`, `dex-sdlc-test`, `dex-sdlc-review`, `dex-sdlc-acceptance`, `dex-sdlc-ops`, `dex-sdlc-rulebook`) - этот bundle несёт все одиннадцать. Хук `dex-sdlc-resume` возвращает движок в процедуру возобновления после компакта контекста, хук `dex-sdlc-nudge` поднимает движок на рабочей просьбе, не требуя команды
 - Требования: `/feature` через `dex-skill-analytics-track` ведёт идею через BRD (`dex-business-analyst`), сценарии (`dex-usecase-analyst`), правила и меры (`dex-requirements-analyst`) и stories (`dex-user-story-analyst`) с гейтами качества и пробой готовности (`dex-implementer-reader`); `dex-requirements-reviewer` (`/review-requirements`) судит готовый набор
 - Дизайн: `/design` через `dex-skill-architecture-track` ведёт зону от требований до одобренного design-документа - дизайн-решение принимает `dex-architect`/`dex-architect-dotnet` (по стеку), `dex-adr-writer` фиксирует решение, `dex-api-designer` - контракт, `dex-diagram-creator` - диаграммы, `dex-design-reviewer` согласует чужой дизайн до кода (`/review-design`) либо архитектуру уже реализованного кода (`/review-arch`)
 - Реализация: `/implement` через `dex-skill-development-track` доводит фичу по ТЗ до локальных коммитов (баг-фикс - под-вид, `dex-skill-bugfix-track`); `dex-conflict-resolver` (`/resolve-conflicts`) подтягивает базовую ветку
@@ -13,6 +13,7 @@
 - Стенд и баги: `dex-stand-reviewer` (`/review-stand`) принимает слитую фичу, `dex-bug-finder` (`/find-bugs`) ищет дефекты, `dex-bug-reporter` оформляет, `dex-incident-investigator` (`/investigate`) и `dex-debugger` (`/root-cause`) ведут RCA, `dex-bug-fixer` закрывает пачку находок
 - Вход в проект: `dex-codebase-analyzer` даёт обзор репозитория, `dex-code-discovery` (`/discover`) - инвентаризацию проблем вширь
 - Документирование: `dex-doc-writer` пишет спеки, гайды, release notes; `dex-process-modeler` - BPMN
+- Свод правил проекта: `/rulebook` через `dex-skill-rulebook-track` выводит из истории ревью то, что в репозитории принято, `dex-rulebook-miner` ведёт добычу, а трек судит свод оракулом `dex-skill-rulebook-quality`; на этот свод ревьюеры опираются вместо своей памяти
 
 ## Состав
 
