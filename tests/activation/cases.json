@@ -896,7 +896,10 @@
     "id": "rulebook-track-near-discover",
     "mode": "near-miss",
     "expect": "dex-skill-rulebook-track:rulebook-track",
-    "prompt": "Пройдись по проекту вширь и составь список того, что в коде плохо: где течёт, где нет тестов, где архитектура поехала. Нужна карта проблем с приоритетами."
+    "prompt": "Пройдись по проекту вширь и составь список того, что в коде плохо: где течёт, где нет тестов, где архитектура поехала. Нужна карта проблем с приоритетами.",
+    "requiresListed": [
+      "dex-skill-discover-track:discover-track"
+    ]
   },
   {
     "id": "project-rulebook-in",
@@ -905,10 +908,13 @@
     "prompt": "Из чего должна состоять единица свода правил проекта и какие поля у неё обязательны? Нужно понять, как классифицировать правило и чем подтверждать источник."
   },
   {
-    "id": "project-rulebook-near-requirements",
+    "id": "project-rulebook-near-mining",
     "mode": "near-miss",
     "expect": "dex-skill-project-rulebook:project-rulebook",
-    "prompt": "Какие разделы обязательны в спецификации системных требований и как оформить единицу FR с методом проверки?"
+    "prompt": "Ревьюер предложил вынести валидацию, автор возразил, тред заглох. Считать это правилом или нет и как записать исход?",
+    "requiresListed": [
+      "dex-skill-rule-mining:rule-mining"
+    ]
   },
   {
     "id": "rule-mining-in",
@@ -920,7 +926,10 @@
     "id": "rule-mining-near-mr-review",
     "mode": "near-miss",
     "expect": "dex-skill-rule-mining:rule-mining",
-    "prompt": "Отревьюй вот этот чужой MR и напиши замечания инлайн-тредами: посмотри на безопасность и на обработку ошибок."
+    "prompt": "Отревьюй вот этот чужой MR и напиши замечания инлайн-тредами: посмотри на безопасность и на обработку ошибок.",
+    "requiresListed": [
+      "dex-skill-mr-review-track:mr-review-track"
+    ]
   },
   {
     "id": "rulebook-quality-in",
@@ -932,6 +941,27 @@
     "id": "rulebook-quality-near-adr",
     "mode": "near-miss",
     "expect": "dex-skill-rulebook-quality:rulebook-quality",
-    "prompt": "Оцени качество вот этого ADR: достаточно ли раскрыты альтернативы и не описывает ли он вместо решения текущее состояние кода."
+    "prompt": "Оцени качество вот этого ADR: достаточно ли раскрыты альтернативы и не описывает ли он вместо решения текущее состояние кода.",
+    "requiresListed": [
+      "dex-skill-adr-quality:adr-quality"
+    ]
+  },
+  {
+    "id": "rulebook-contested-normative-oracle",
+    "mode": "contested",
+    "expect": "dex-skill-project-rulebook:project-rulebook",
+    "requiresListed": [
+      "dex-skill-rulebook-quality:rulebook-quality"
+    ],
+    "prompt": "Какие поля обязательны у единицы свода правил проекта и что делать, если у правила нет контрпримера из истории репозитория?"
+  },
+  {
+    "id": "rulebook-contested-oracle-normative",
+    "mode": "contested",
+    "expect": "dex-skill-rulebook-quality:rulebook-quality",
+    "requiresListed": [
+      "dex-skill-project-rulebook:project-rulebook"
+    ],
+    "prompt": "Прими наш свод правил: часть единиц без контрпримера, у двух совпадает предмет, у одной таксон без версии схемы. Вынеси вердикт."
   }
 ]
