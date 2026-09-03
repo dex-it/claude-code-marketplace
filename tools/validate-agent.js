@@ -177,7 +177,6 @@ const FORBIDDEN_FRONTMATTER_FIELDS = ['allowed-tools'];
  * the agent OWNING that stage and conditional for everyone else, so an open
  * allowlist would let any agent pre-load a stage normative it never runs.
  */
-const NODE_CONTRACT_SKILL = 'node-contract';
 const NODE_CONTRACT_REF = 'dex-skill-node-contract:node-contract';
 
 const ALLOWED_PRELOAD_SKILLS = new Map([
@@ -414,8 +413,13 @@ function validateFrontmatter(parsed, findings) {
   {
     const raw = 'skills' in fm && fm.skills != null ? fm.skills : [];
     const entries = Array.isArray(raw) ? raw : String(raw).split(',');
-    const preloaded = entries.map((e) => normalizePreloadSkillName(e)).filter((e) => e !== '');
-    if (!preloaded.includes(NODE_CONTRACT_SKILL)) {
+    // Сверяется полная форма, а не имя скилла: голое `dex-skill-node-contract`
+    // рантаймом не резолвится (плагин молча пропускается), а голое
+    // `node-contract` не называет плагин. Ловушку голого имени держит и
+    // `frontmatter-skills-bare-plugin-name`, но там она видна только когда
+    // плагин есть в проверяемом дереве - здесь проверка от дерева не зависит.
+    const preloaded = entries.map((e) => String(e).trim()).filter((e) => e !== '');
+    if (!preloaded.includes(NODE_CONTRACT_REF)) {
       findings.push({
         level: ERROR,
         rule: 'frontmatter-skills-missing',
