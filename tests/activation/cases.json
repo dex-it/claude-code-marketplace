@@ -885,5 +885,53 @@
     "requiresListed": [
       "superpowers:brainstorming"
     ]
+  },
+  {
+    "id": "rulebook-track-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-rulebook-track:rulebook-track",
+    "prompt": "Собери по нашему репозиторию свод того, что у нас принято на ревью: пройди слитые MR за полгода, вытащи из тредов правила и положи их в документацию проекта."
+  },
+  {
+    "id": "rulebook-track-near-discover",
+    "mode": "near-miss",
+    "expect": "dex-skill-rulebook-track:rulebook-track",
+    "prompt": "Пройдись по проекту вширь и составь список того, что в коде плохо: где течёт, где нет тестов, где архитектура поехала. Нужна карта проблем с приоритетами."
+  },
+  {
+    "id": "project-rulebook-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-project-rulebook:project-rulebook",
+    "prompt": "Из чего должна состоять единица свода правил проекта и какие поля у неё обязательны? Нужно понять, как классифицировать правило и чем подтверждать источник."
+  },
+  {
+    "id": "project-rulebook-near-requirements",
+    "mode": "near-miss",
+    "expect": "dex-skill-project-rulebook:project-rulebook",
+    "prompt": "Какие разделы обязательны в спецификации системных требований и как оформить единицу FR с методом проверки?"
+  },
+  {
+    "id": "rule-mining-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-rule-mining:rule-mining",
+    "prompt": "Разбираю треды ревью, чтобы вывести из них правила. Ревьюер предложил вынести валидацию, автор возразил, тред заглох - считать это правилом или нет?"
+  },
+  {
+    "id": "rule-mining-near-mr-review",
+    "mode": "near-miss",
+    "expect": "dex-skill-rule-mining:rule-mining",
+    "prompt": "Отревьюй вот этот чужой MR и напиши замечания инлайн-тредами: посмотри на безопасность и на обработку ошибок."
+  },
+  {
+    "id": "rulebook-quality-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-rulebook-quality:rulebook-quality",
+    "prompt": "Прими наш свод правил проекта: проверь, что у каждого правила открывается источник, нет дублей и противоречий, и вынеси вердикт."
+  },
+  {
+    "id": "rulebook-quality-near-adr",
+    "mode": "near-miss",
+    "expect": "dex-skill-rulebook-quality:rulebook-quality",
+    "prompt": "Оцени качество вот этого ADR: достаточно ли раскрыты альтернативы и не описывает ли он вместо решения текущее состояние кода."
   }
 ]
