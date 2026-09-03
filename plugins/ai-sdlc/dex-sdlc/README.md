@@ -27,7 +27,7 @@
 внутри скилла в отдельный плагин действительно завёл его под гейт: у трека проверяются фронтматтер,
 размер, ловушки, регистрация оркестратора и `process-empty` (не заглушка). Но сам стык «движок ->
 трек» не проверяет ничто: якорных имён разделов у него нет, машинного правила тоже. Расхождение уже
-на дереве - раздел режимов есть у шести треков из двенадцати, выход трека у десяти, а
+на дереве - раздел режимов есть у семи треков из тринадцати, выход трека у десяти, а
 `analytics-track` и `product-track` живут в идиоме `## Phase N` целиком. Это риск N1 плана
 («контракт - API между плагинами»), и он открыт: следующая правка не должна считать гейт закрытым.
 
@@ -52,6 +52,7 @@
 | `/review-stand` | `dex-sdlc-acceptance` | `dex-skill-acceptance-track:acceptance-track` |
 | `/root-cause` | `dex-sdlc-ops` | `dex-skill-diagnostics-track:diagnostics-track` |
 | `/investigate` | `dex-sdlc-ops` | `dex-skill-diagnostics-track:diagnostics-track` |
+| `/rulebook` | `dex-sdlc-rulebook` | `dex-skill-rulebook-track:rulebook-track` |
 
 Плагин зоны без своего трека команду не выполняет: замкнутость набора проверяет
 `npm run validate:bundles` (правило `bundle-command-not-closed`).
@@ -72,6 +73,7 @@
 | Ревью входящего MR | `dex-skill-mr-review-track` | - |
 | Документирование | `dex-skill-documentation-track` | - |
 | Диагностика/инцидент | `dex-skill-diagnostics-track` | - |
+| Свод правил проекта | `dex-skill-rulebook-track` | трек-делегат: добычу ведёт `dex-rulebook-miner:rulebook-orchestrator`, трек судит свод |
 
 **Критерий полноты трека** - все четыре пункта, проверяет ревью трека:
 

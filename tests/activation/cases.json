@@ -885,5 +885,125 @@
     "requiresListed": [
       "superpowers:brainstorming"
     ]
+  },
+  {
+    "id": "rulebook-track-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-rulebook-track:rulebook-track",
+    "prompt": "Собери по нашему репозиторию свод того, что у нас принято на ревью: пройди слитые MR за полгода, вытащи из тредов правила и положи их в документацию проекта."
+  },
+  {
+    "id": "rulebook-track-near-discover",
+    "mode": "near-miss",
+    "expect": "dex-skill-rulebook-track:rulebook-track",
+    "plugins": [
+      "dex-skill-discover-track"
+    ],
+    "prompt": "Пройдись по проекту вширь и составь список того, что в коде плохо: где течёт, где нет тестов, где архитектура поехала. Нужна карта проблем с приоритетами.",
+    "requiresListed": [
+      "dex-skill-discover-track:discover-track"
+    ]
+  },
+  {
+    "id": "project-rulebook-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-project-rulebook:project-rulebook",
+    "prompt": "Из чего должна состоять единица свода правил проекта и какие поля у неё обязательны? Нужно понять, как классифицировать правило и чем подтверждать источник."
+  },
+  {
+    "id": "project-rulebook-near-mining",
+    "mode": "near-miss",
+    "expect": "dex-skill-project-rulebook:project-rulebook",
+    "plugins": [
+      "dex-skill-rule-mining"
+    ],
+    "prompt": "Ревьюер предложил вынести валидацию, автор возразил, тред заглох. Считать это правилом проекта или нет?",
+    "requiresListed": [
+      "dex-skill-rule-mining:rule-mining"
+    ]
+  },
+  {
+    "id": "rule-mining-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-rule-mining:rule-mining",
+    "prompt": "Разбираю треды ревью, чтобы вывести из них правила. Ревьюер предложил вынести валидацию, автор возразил, тред заглох - считать это правилом или нет?"
+  },
+  {
+    "id": "rule-mining-near-mr-review",
+    "mode": "near-miss",
+    "expect": "dex-skill-rule-mining:rule-mining",
+    "plugins": [
+      "dex-skill-mr-review-track"
+    ],
+    "prompt": "Отревьюй вот этот чужой MR и напиши замечания инлайн-тредами: посмотри на безопасность и на обработку ошибок.",
+    "requiresListed": [
+      "dex-skill-mr-review-track:mr-review-track"
+    ]
+  },
+  {
+    "id": "rulebook-quality-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-rulebook-quality:rulebook-quality",
+    "prompt": "Прими наш свод правил проекта: проверь, что у каждого правила открывается источник, нет дублей и противоречий, и вынеси вердикт."
+  },
+  {
+    "id": "rulebook-quality-near-adr",
+    "mode": "near-miss",
+    "expect": "dex-skill-rulebook-quality:rulebook-quality",
+    "plugins": [
+      "dex-skill-adr-quality"
+    ],
+    "prompt": "Оцени качество вот этого ADR: достаточно ли раскрыты альтернативы и не описывает ли он вместо решения текущее состояние кода.",
+    "requiresListed": [
+      "dex-skill-adr-quality:adr-quality"
+    ]
+  },
+  {
+    "id": "rulebook-contested-normative-mining",
+    "mode": "contested",
+    "expect": "dex-skill-project-rulebook:project-rulebook",
+    "requiresListed": [
+      "dex-skill-rule-mining:rule-mining"
+    ],
+    "plugins": [
+      "dex-skill-rule-mining"
+    ],
+    "prompt": "Какие поля обязательны у единицы свода правил проекта и что делать, если у правила нет контрпримера из истории репозитория?"
+  },
+  {
+    "id": "rulebook-contested-oracle-normative",
+    "mode": "contested",
+    "expect": "dex-skill-rulebook-quality:rulebook-quality",
+    "requiresListed": [
+      "dex-skill-project-rulebook:project-rulebook"
+    ],
+    "plugins": [
+      "dex-skill-project-rulebook"
+    ],
+    "prompt": "Прими наш свод правил: часть единиц без контрпримера, у двух совпадает предмет, у одной таксон без версии схемы. Вынеси вердикт."
+  },
+  {
+    "id": "rulebook-track-round2-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-rulebook-track:rulebook-track",
+    "requiresListed": [
+      "dex-skill-followup-track:followup-track"
+    ],
+    "plugins": [
+      "dex-skill-followup-track"
+    ],
+    "prompt": "На MR со сводом правил проекта лид оставил замечания: часть правил слишком общие, одно он просит убрать, а про тесты сказал, что их по умолчанию не пишут. Разбери замечания, поправь свод и обнови тот же MR."
+  },
+  {
+    "id": "rulebook-track-near-followup",
+    "mode": "near-miss",
+    "expect": "dex-skill-rulebook-track:rulebook-track",
+    "requiresListed": [
+      "dex-skill-followup-track:followup-track"
+    ],
+    "plugins": [
+      "dex-skill-followup-track"
+    ],
+    "prompt": "Ревьюер оставил семь замечаний на мой MR с хендлером экспорта. Разбери их, поправь код, ответь в треды и подготовь MR к мерджу."
   }
 ]

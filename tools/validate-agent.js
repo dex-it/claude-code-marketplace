@@ -176,6 +176,7 @@ const ALLOWED_PRELOAD_SKILLS = new Map([
   ['interface-definition-openapi', new Set(['api-designer'])],
   ['use-cases-cockburn', new Set(['usecase-analyst', 'use-case-writer'])],
   ['bdd-gherkin', new Set(['bdd-author'])],
+  ['project-rulebook', new Set(['rulebook-orchestrator'])],
 ]);
 
 /**

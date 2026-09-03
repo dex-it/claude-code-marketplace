@@ -32,6 +32,14 @@ else bad "вне репы инжект выдан" "выход пуст либо
 if printf '%s' "$(run "$tmp/repo")" | grep -qF '"additionalContext"'; then ok "в репе инжект выдан"
 else bad "в репе инжект выдан" "выход пуст"; fi
 
+# 2b. Состав перечня родов работы пиннится: правка текста инжекта иначе проходит молча,
+# а перечень держит узнаваемость формулировок, на которых снят замер (README, «Почему перечень»).
+for kind in 'implementation' 'bug fix' 'tests' 'MR review' 'review follow-up' 'stand acceptance' \
+           'failure diagnosis' 'requirements' 'design' 'documentation' 'code overview' 'project rulebook'; do
+  if printf '%s' "$out" | grep -qF "$kind"; then ok "перечень несёт род работы: $kind"
+  else bad "перечень несёт род работы: $kind" "рода нет в тексте инжекта"; fi
+done
+
 # 3. Выход - валидный JSON нужного события. Битый JSON рантайм проглотит молча.
 if printf '%s' "$out" | python3 -c "
 import sys,json

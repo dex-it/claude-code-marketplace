@@ -37,10 +37,14 @@ Bundle для полного цикла работы с кодом, языко-�
 - `dex-sdlc-test` - входы `/test`, `/find-bugs` (зона тест-инжиниринга)
 - `dex-sdlc-review` - входы `/mr-review`, `/review-plan` (зона ревью)
 - `dex-sdlc-acceptance` - вход `/review-stand` (приёмка на стенде)
-- `dex-sdlc-ops` - входы `/investigate`, `/root-cause` (диагностика). Зоны требований, дизайна и документации в этот bundle не входят - их команды ставятся своими плагинами
+- `dex-sdlc-ops` - входы `/investigate`, `/root-cause` (диагностика)
+- `dex-sdlc-rulebook` - вход `/rulebook` (зона свода правил проекта)
+
+Зоны требований, дизайна и документации в этот bundle не входят - их команды ставятся своими плагинами. Состав бандла до уже установивших не доезжает: новые компоненты появляются только при повторном прогоне установщика.
 - `dex-skill-development-track` - порядок работ зоны реализации (`/implement`), баг-фикс - под-вид
 - `dex-skill-bugfix-track` - под-вид `/implement` для бага: red-тест до фикса, делегирует root cause `dex-debugger`
 - `dex-skill-followup-track` - обработка внешнего ревью на уже сданном MR (переход из Development Track)
+- `dex-skill-rulebook-track` - порядок работ зоны свода правил (`/rulebook`); трек судит свод, писать его - дело узла
 
 ### Specialists
 - `dex-mr-reviewer` - первичное ревью чужого MR/PR, инлайн-треды через gh/glab (`/mr-review`, движок `dex-sdlc`)
@@ -49,6 +53,7 @@ Bundle для полного цикла работы с кодом, языко-�
 - `dex-self-reviewer` - pre-push саморевью своей ветки с реальным прогоном тестов (`/self-review`)
 - `dex-conflict-resolver` - подтянуть базу в фича-ветку и развести конфликты merge/rebase без тихой потери стороны (`/resolve-conflicts`)
 - `dex-debugger` - root cause по коду, вызывается `bugfix-track` при баг-фиксе через `/implement`
+- `dex-rulebook-miner` - добыча свода правил проекта из истории ревью: оркестратор пишет корпус, read-only сборщики разбирают источники (`/rulebook`, движок `dex-sdlc`)
 
 ### Skills, новые в этом bundle
 - `dex-skill-no-loose-ends` - незавершённый код и скрытые хаки (TODO, заглушки, fallback, secrets)
