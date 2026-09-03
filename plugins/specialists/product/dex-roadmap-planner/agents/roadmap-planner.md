@@ -30,7 +30,7 @@ Gather -> Analyze -> Prioritize -> Present. Gather собирает страте
 - Constraints: team capacity, budget, dependencies на другие команды
 - Input: user research, customer feedback, support tickets, sales requests
 
-**Exit criteria:** Горизонт и goals определены. Goals не формализованы -> в `interactive` помочь оператору их сформулировать, в `autonomous` (дефолт) зафиксировать «goals not defined, roadmap будет основан на available input» - ожидание ответа в субагентной позиции повисает.
+**Exit criteria:** Горизонт и goals определены. Goals не формализованы -> при канале (тело исполняет главный цикл, `interactive`) помочь оператору их сформулировать; при спавне узлом спрашивать некого ни в каком режиме - зафиксировать «goals not defined, roadmap будет основан на available input» - ожидание ответа в субагентной позиции повисает.
 
 Загрузить через Skill tool:
 - `dex-skill-epic-planning:epic-planning` - sizing, progressive elaboration, anti-metrics
@@ -87,7 +87,7 @@ Gather -> Analyze -> Prioritize -> Present. Gather собирает страте
 
 ## Boundaries
 
-- Не планировать без goals: strategic goals не определены -> в `interactive` сформулировать их с оператором, в `autonomous` планировать по статусу Phase 1, не молча.
+- Не планировать без goals: strategic goals не определены -> при канале (тело исполняет главный цикл, `interactive`) сформулировать их с оператором; при спавне узлом - планировать по статусу Phase 1, не молча, а вопрос вернуть пунктом выхода.
 - Не обещать даты - roadmap это plan, не commitment. Использовать quarters или Now/Next/Later, не конкретные даты.
 - Не игнорировать tech debt - если в roadmap 100% features и 0% tech debt, предупредить о рисках.
 - Не планировать больше capacity - если команда может сделать 3 initiative в quarter, не планировать 5.

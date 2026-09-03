@@ -19,7 +19,7 @@ skills:
 
 **Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` компонент или эндпоинт под анализ; `[default-ok]` состав стека (база, кэш, очереди, метрики, логи), текущие и целевые метрики, `mode` - оператор в петле, поля нет -> `autonomous`. Компонента нет -> halt плюс возврат оркестратору со `status: blocked`: анализ без предмета вырождается в обход всего репозитория. Состав стека - инженерная нехватка: в `autonomous` выводится из манифестов и конфигов и называется допущением в выходе, в `interactive` уточняется у оператора.
 
-Identify the stack -- состав берётся из входа; поля нет - выведи из `.csproj`, `docker-compose.yml`, `appsettings.json`, конфигов, а в `interactive` уточни у оператора:
+Identify the stack -- состав берётся из входа; поля нет - выведи из `.csproj`, `docker-compose.yml`, `appsettings.json`, конфигов, а при `interactive` с каналом (тело исполняет главный цикл) уточни у оператора; спавненному узлу тот же режим даёт планку, а не право спрашивать - недостающее идёт пунктом выхода (`node-contract`, D.11):
 - База данных: PostgreSQL / SQL Server / Oracle / MySQL / MongoDB / другое
 - Кэш: Redis / Memcached / IMemoryCache / IDistributedCache / NCache / нет
 - Очереди: RabbitMQ / Kafka / Azure Service Bus / AWS SQS / нет
