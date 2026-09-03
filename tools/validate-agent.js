@@ -420,10 +420,16 @@ function validateFrontmatter(parsed, findings) {
     // плагин есть в проверяемом дереве - здесь проверка от дерева не зависит.
     const preloaded = entries.map((e) => String(e).trim()).filter((e) => e !== '');
     if (!preloaded.includes(NODE_CONTRACT_REF)) {
+      // Две ветки - «записи нет вовсе» и «запись есть, форма не резолвится» -
+      // различаются текстом сообщения, а не именем правила: имя одно на обе, и
+      // смерть одной видна только по тексту (`messages` фикстуры, tools/test-rules.js).
+      const nearMiss = preloaded.find((e) => normalizePreloadSkillName(e) === 'node-contract');
       findings.push({
         level: ERROR,
         rule: 'frontmatter-skills-missing',
-        message: `Frontmatter does not pre-load the node handoff contract - add \`skills:\` with "${NODE_CONTRACT_REF}". Every agent executes the handoff contract itself, so the pre-load is unconditional; without it the agent starts without the contract and nothing reports it`,
+        message: nearMiss
+          ? `\`skills:\` entry "${nearMiss}" names the node handoff contract in a form that does not resolve - pre-load the full form "${NODE_CONTRACT_REF}". A bare plugin name is skipped silently, a bare skill name does not say which plugin ships it: either way the agent starts without the contract`
+          : `Frontmatter does not pre-load the node handoff contract - add \`skills:\` with "${NODE_CONTRACT_REF}". Every agent executes the handoff contract itself, so the pre-load is unconditional; without it the agent starts without the contract and nothing reports it`,
       });
     }
   }

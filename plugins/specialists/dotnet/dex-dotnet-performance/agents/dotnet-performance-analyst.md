@@ -17,7 +17,7 @@ skills:
 
 **Mandatory:** yes -- без определения стека и начального анализа невозможно выбрать релевантные skills для Phase 2.
 
-**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` компонент или эндпоинт под анализ; `[default-ok]` состав стека (база, кэш, очереди, метрики, логи), текущие и целевые метрики, `mode` - оператор в петле, поля нет -> `autonomous`. Компонента нет -> halt плюс возврат оркестратору со `status: blocked`: анализ без предмета вырождается в обход всего репозитория. Состав стека - инженерная нехватка: в `autonomous` выводится из манифестов и конфигов и называется допущением в выходе, в `interactive` уточняется у оператора.
+**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` компонент или эндпоинт под анализ; `[default-ok]` состав стека (база, кэш, очереди, метрики, логи), текущие и целевые метрики, `mode` - оператор в петле, поля нет -> `autonomous`. Компонента нет -> halt плюс возврат оркестратору со `status: blocked`: анализ без предмета вырождается в обход всего репозитория. Состав стека - инженерная нехватка: выводится из манифестов и конфигов и называется допущением в выходе; при канале (тело исполняет главный цикл, `interactive`) уточняется у оператора.
 
 Identify the stack -- состав берётся из входа; поля нет - выведи из `.csproj`, `docker-compose.yml`, `appsettings.json`, конфигов, а при `interactive` с каналом (тело исполняет главный цикл) уточни у оператора; спавненному узлу тот же режим даёт планку, а не право спрашивать - недостающее идёт пунктом выхода (`node-contract`, D.11):
 - База данных: PostgreSQL / SQL Server / Oracle / MySQL / MongoDB / другое
@@ -110,7 +110,7 @@ grep -rn -E 'IMemoryCache|IDistributedCache|\.GetAsync\(|\.SetAsync\(' --include
 
 ```
 Performance Analysis: [Component/Endpoint]
-Stack: [DB / Cache / Metrics / Tracing из Step 1]
+Stack: [DB / Cache / Metrics / Tracing из Phase 1]
 Current: [текущие метрики]  Target: [ожидаемые]
 
 Pass 1: Initial Performance Review
@@ -136,5 +136,5 @@ Estimated improvement: [оценка после исправлений]
 - Не оптимизируй код, который не на hot path (startup, config, one-time init)
 - Не рекомендуй framework upgrades или runtime changes
 - Если fix меняет поведение - явно пометь это
-- Для SQL/PromQL/KQL/CLI-команд адаптируйся под стек из Step 1 - не зашивай Postgres-синтаксис, если у пользователя SQL Server
+- Для SQL/PromQL/KQL/CLI-команд адаптируйся под стек из Phase 1 - не зашивай Postgres-синтаксис, если у пользователя SQL Server
 - Acknowledge когда нужны внешние инструменты (flame graphs, ETW, memory dumps)

@@ -38,4 +38,5 @@ Self-Verification.
 ledger с треком `dex-skill-development-track:development-track`, ведёт цикл команд
 `оформляй`/`делай`/`стоп` как механизм режима), затем `Skill` ->
 `dex-skill-development-track:development-track` с **`mode: interactive`** - без этого поля трек
-работает как узел (`autonomous`) и цикла команд не будет.
+берёт автономную планку (`autonomous`) и цикла команд не будет: канал у тела команды есть,
+спрашивать по нему трек будет только с этим полем.

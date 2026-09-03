@@ -53,5 +53,6 @@ allowed-tools: Read, Edit, Write, Bash, Grep, Glob, Skill
 Следующий шаг - `/feature`: цели фичи трассируются на принятые `BR-NNN`, единицы фичи проверяются
 против `INV`/`NFR-P`. Вызови `Skill` -> `dex-sdlc:engine` (откроет/возобновит цикл, авто-ledger с треком
 `dex-skill-product-track:product-track`), затем `Skill` -> `dex-skill-product-track:product-track` с
-**`mode: interactive`** - без этого поля трек работает как узел (`autonomous`) и остановки не встанут
-перед оператором.
+**`mode: interactive`** - без этого поля трек берёт автономную планку (`autonomous`) и остановки не
+встанут перед оператором: канал у тела команды есть, останавливаться на нём трек будет только с
+этим полем.

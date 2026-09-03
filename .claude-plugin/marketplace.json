@@ -399,7 +399,7 @@
       "name": "dex-cicd-github",
       "source": "./plugins/specialists/infrastructure/dex-cicd-github",
       "description": "Специалист по GitHub Actions: workflow, matrix-сборки, деплой, переиспользуемые workflow.",
-      "version": "2.3.2",
+      "version": "2.4.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -413,7 +413,7 @@
       "name": "dex-cicd-gitlab",
       "source": "./plugins/specialists/infrastructure/dex-cicd-gitlab",
       "description": "Специалист по GitLab CI/CD: пайплайны и джобы, артефакты, окружения, раннеры, стратегии деплоя.",
-      "version": "2.3.2",
+      "version": "2.4.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -426,7 +426,7 @@
       "name": "dex-cicd-jenkins",
       "source": "./plugins/specialists/infrastructure/dex-cicd-jenkins",
       "description": "Специалист по Jenkins: Jenkinsfile, декларативные пайплайны, shared libraries, multibranch.",
-      "version": "2.3.2",
+      "version": "2.4.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1223,7 +1223,7 @@
       "name": "dex-sdlc-acceptance",
       "source": "./plugins/ai-sdlc/dex-sdlc-acceptance",
       "description": "Команда зоны приёмки AI-SDLC-конвейера: /review-stand (приёмка слитой фичи на развёрнутом стенде против ТЗ - образ против merge-коммита, находки по severity, ремедиация). Движок и универсальный цикл - в dex-sdlc, порядок работ зоны - в треке dex-skill-acceptance-track.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "category": "utility",
       "keywords": [
         "commands",
@@ -1238,7 +1238,7 @@
       "name": "dex-sdlc-delivery",
       "source": "./plugins/ai-sdlc/dex-sdlc-delivery",
       "description": "Команда зоны разработки AI-SDLC-конвейера: /implement (реализация фичи полным циклом разработки - требования, план, код, тесты, саморевью, интеграционная граница). Движок и универсальный цикл - в dex-sdlc, порядок работ зоны - в треке dex-skill-development-track.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "category": "utility",
       "keywords": [
         "commands",
@@ -1252,7 +1252,7 @@
       "name": "dex-sdlc-design",
       "source": "./plugins/ai-sdlc/dex-sdlc-design",
       "description": "Команда зоны архитектуры AI-SDLC-конвейера: /design (дизайн-решение против FR/NFR - reference-match, альтернативы, ADR, диаграммы). Движок и универсальный цикл - в dex-sdlc, порядок работ зоны - в треке dex-skill-architecture-track.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "category": "utility",
       "keywords": [
         "commands",
@@ -1312,7 +1312,7 @@
       "name": "dex-sdlc-ops",
       "source": "./plugins/ai-sdlc/dex-sdlc-ops",
       "description": "Команды зоны диагностики AI-SDLC-конвейера: /investigate (расследование инцидента на стенде), /root-cause (поиск первопричины по коду и уликам). Движок и универсальный цикл - в dex-sdlc, порядок работ зоны - в треке dex-skill-diagnostics-track.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "category": "utility",
       "keywords": [
         "commands",
@@ -1327,7 +1327,7 @@
       "name": "dex-sdlc-product",
       "source": "./plugins/ai-sdlc/dex-sdlc-product",
       "description": "Команда продуктовой зоны AI-SDLC-конвейера: /product (продуктовый корпус - BRD с BR-NNN и мерой успеха, доменная модель, конституция с инвариантами). Движок и универсальный цикл - в dex-sdlc, порядок работ зоны - в треке dex-skill-product-track.",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "category": "utility",
       "keywords": [
         "commands",
@@ -1372,7 +1372,7 @@
       "name": "dex-sdlc-review",
       "source": "./plugins/ai-sdlc/dex-sdlc-review",
       "description": "Команды зоны ревью AI-SDLC-конвейера: /mr-review (первичное ревью чужого MR/PR с инлайн-тредами), /review-plan (план правок по пришедшему ревью - классификация замечаний, верификация чтением кода, ответы в треды). Движок и универсальный цикл - в dex-sdlc, порядок работ зоны - в треках dex-skill-mr-review-track и dex-skill-followup-track.",
-      "version": "1.0.1",
+      "version": "1.1.0",
       "category": "utility",
       "keywords": [
         "commands",
@@ -1943,7 +1943,7 @@
       "name": "dex-skill-discover-track",
       "source": "./plugins/ai-sdlc/dex-skill-discover-track",
       "description": "Трек обзорного ревью существующего кода движка dex-sdlc - фан-аут по топикам ведёт dex-code-discovery:discover-orchestrator, трек держит вход, приёмку выхода и handoff. Активируется при: discover, обзорное ревью, инвентаризация проблем проекта, аудит существующего кода, что не так в проекте, breadth-first review, docs/discover, ревью legacy-кода, топиковый фан-аут, калибровка severity по масштабу.",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "category": "skill",
       "keywords": [
         "skill",
