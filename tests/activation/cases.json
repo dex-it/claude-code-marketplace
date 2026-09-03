@@ -896,6 +896,9 @@
     "id": "rulebook-track-near-discover",
     "mode": "near-miss",
     "expect": "dex-skill-rulebook-track:rulebook-track",
+    "plugins": [
+      "dex-skill-discover-track"
+    ],
     "prompt": "Пройдись по проекту вширь и составь список того, что в коде плохо: где течёт, где нет тестов, где архитектура поехала. Нужна карта проблем с приоритетами.",
     "requiresListed": [
       "dex-skill-discover-track:discover-track"
@@ -911,6 +914,9 @@
     "id": "project-rulebook-near-mining",
     "mode": "near-miss",
     "expect": "dex-skill-project-rulebook:project-rulebook",
+    "plugins": [
+      "dex-skill-rule-mining"
+    ],
     "prompt": "Ревьюер предложил вынести валидацию, автор возразил, тред заглох. Считать это правилом проекта или нет?",
     "requiresListed": [
       "dex-skill-rule-mining:rule-mining"
@@ -926,6 +932,9 @@
     "id": "rule-mining-near-mr-review",
     "mode": "near-miss",
     "expect": "dex-skill-rule-mining:rule-mining",
+    "plugins": [
+      "dex-skill-mr-review-track"
+    ],
     "prompt": "Отревьюй вот этот чужой MR и напиши замечания инлайн-тредами: посмотри на безопасность и на обработку ошибок.",
     "requiresListed": [
       "dex-skill-mr-review-track:mr-review-track"
@@ -941,6 +950,9 @@
     "id": "rulebook-quality-near-adr",
     "mode": "near-miss",
     "expect": "dex-skill-rulebook-quality:rulebook-quality",
+    "plugins": [
+      "dex-skill-adr-quality"
+    ],
     "prompt": "Оцени качество вот этого ADR: достаточно ли раскрыты альтернативы и не описывает ли он вместо решения текущее состояние кода.",
     "requiresListed": [
       "dex-skill-adr-quality:adr-quality"
@@ -953,6 +965,9 @@
     "requiresListed": [
       "dex-skill-rule-mining:rule-mining"
     ],
+    "plugins": [
+      "dex-skill-rule-mining"
+    ],
     "prompt": "Какие поля обязательны у единицы свода правил проекта и что делать, если у правила нет контрпримера из истории репозитория?"
   },
   {
@@ -961,6 +976,9 @@
     "expect": "dex-skill-rulebook-quality:rulebook-quality",
     "requiresListed": [
       "dex-skill-project-rulebook:project-rulebook"
+    ],
+    "plugins": [
+      "dex-skill-project-rulebook"
     ],
     "prompt": "Прими наш свод правил: часть единиц без контрпримера, у двух совпадает предмет, у одной таксон без версии схемы. Вынеси вердикт."
   },
@@ -971,6 +989,9 @@
     "requiresListed": [
       "dex-skill-followup-track:followup-track"
     ],
+    "plugins": [
+      "dex-skill-followup-track"
+    ],
     "prompt": "На MR со сводом правил проекта лид оставил замечания: часть правил слишком общие, одно он просит убрать, а про тесты сказал, что их по умолчанию не пишут. Разбери замечания, поправь свод и обнови тот же MR."
   },
   {
@@ -979,6 +1000,9 @@
     "expect": "dex-skill-rulebook-track:rulebook-track",
     "requiresListed": [
       "dex-skill-followup-track:followup-track"
+    ],
+    "plugins": [
+      "dex-skill-followup-track"
     ],
     "prompt": "Ревьюер оставил семь замечаний на мой MR с хендлером экспорта. Разбери их, поправь код, ответь в треды и подготовь MR к мерджу."
   }
