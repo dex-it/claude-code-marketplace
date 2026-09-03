@@ -198,7 +198,7 @@ claude plugins uninstall dex-dotnet-coder
 
 | Категория | Skills |
 |-----------|--------|
-| **Движок SDLC** | sdlc (`dex-sdlc:engine`; команды-входы - в плагинах зон `dex-sdlc-product`, `dex-sdlc-requirements`, `dex-sdlc-design`, `dex-sdlc-discover`, `dex-sdlc-docs`, `dex-sdlc-delivery`, `dex-sdlc-test`, `dex-sdlc-review`, `dex-sdlc-acceptance`, `dex-sdlc-ops`), product-track, analytics-track, development-track, architecture-track, bugfix-track, followup-track, acceptance-track, discover-track, test-track, mr-review-track, documentation-track, diagnostics-track |
+| **Движок SDLC** | sdlc (`dex-sdlc:engine`; команды-входы - в плагинах зон `dex-sdlc-product`, `dex-sdlc-requirements`, `dex-sdlc-design`, `dex-sdlc-discover`, `dex-sdlc-docs`, `dex-sdlc-delivery`, `dex-sdlc-test`, `dex-sdlc-review`, `dex-sdlc-acceptance`, `dex-sdlc-ops`, `dex-sdlc-rulebook`), product-track, analytics-track, development-track, architecture-track, bugfix-track, followup-track, acceptance-track, discover-track, test-track, mr-review-track, documentation-track, diagnostics-track, rulebook-track |
 | **.NET** | dotnet-patterns, ef-core, async-patterns, linq-optimization, api-development, api-documentation, testing-patterns |
 | **Frontend & TypeScript** | react, ts-patterns, ts-nodejs-api, ts-vitest-jest |
 | **Security** | owasp-security |
