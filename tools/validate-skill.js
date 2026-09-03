@@ -193,6 +193,7 @@ const PROCESS_SKILLS = new Set([
   'diagnostics-track',
   'idea-forming',
   'project-rulebook',
+  'rulebook-track',
 ]);
 
 function isProcessSkill(parsed) {
@@ -215,6 +216,7 @@ const ORCHESTRATOR_SKILLS = new Set([
   'mr-review-track',
   'documentation-track',
   'diagnostics-track',
+  'rulebook-track',
 ]);
 
 // Эвристика best-effort: глагол делегирования рядом с бэктик-ссылкой на агента/Agent
