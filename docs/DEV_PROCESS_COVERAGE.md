@@ -28,7 +28,7 @@
 | **Тест-инжиниринг** | dex-dotnet-tester / dex-ts-tester | тесты + отчёт о покрытии |
 | **Диагностика/инцидент** | dex-dotnet-runtime-diagnostician (+ debug/perf/tracing skills, netcoredbg-cli) | root-cause-отчёт |
 | **Документирование** | dex-doc-writer (+ dex-adr-writer / dex-diagram-creator / dex-api-designer по жанру) | нормативный документ |
-| **Свод правил проекта** (`dex-skill-rulebook-track`) | `/rulebook` -> трек принимает вход, судит свод и держит санкции -> dex-rulebook-miner:rulebook-orchestrator ведёт добычу, спавнит read-only сборщиков по источникам | свод правил в корпусе документации репозитория (ключ `rulebook`) |
+| **Свод правил проекта** (`dex-skill-rulebook-track`) | `/rulebook` -> трек принимает вход, судит свод, публикует MR по санкции и ведёт круг разметки владельца -> dex-rulebook-miner:rulebook-orchestrator ведёт добычу, спавнит read-only сборщиков партиями источников | свод правил в корпусе документации репозитория (ключ `rulebook`) |
 
 **Аналитика/ресёрч треком не является.** Самостоятельного «готово» у ресёрча нет (он
 open-ended), а все треки движка держатся на проверяемом DoD. Ресёрч под задачу - **фаза

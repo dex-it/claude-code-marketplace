@@ -34,7 +34,8 @@ else bad "в репе инжект выдан" "выход пуст"; fi
 
 # 2b. Состав перечня родов работы пиннится: правка текста инжекта иначе проходит молча,
 # а перечень держит узнаваемость формулировок, на которых снят замер (README, «Почему перечень»).
-for kind in 'implementation' 'bug fix' 'MR review' 'requirements' 'design' 'documentation' 'code overview' 'project rulebook'; do
+for kind in 'implementation' 'bug fix' 'tests' 'MR review' 'review follow-up' 'stand acceptance' \
+           'failure diagnosis' 'requirements' 'design' 'documentation' 'code overview' 'project rulebook'; do
   if printf '%s' "$out" | grep -qF "$kind"; then ok "перечень несёт род работы: $kind"
   else bad "перечень несёт род работы: $kind" "рода нет в тексте инжекта"; fi
 done

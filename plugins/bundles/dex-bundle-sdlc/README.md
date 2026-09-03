@@ -13,7 +13,7 @@
 - Стенд и баги: `dex-stand-reviewer` (`/review-stand`) принимает слитую фичу, `dex-bug-finder` (`/find-bugs`) ищет дефекты, `dex-bug-reporter` оформляет, `dex-incident-investigator` (`/investigate`) и `dex-debugger` (`/root-cause`) ведут RCA, `dex-bug-fixer` закрывает пачку находок
 - Вход в проект: `dex-codebase-analyzer` даёт обзор репозитория, `dex-code-discovery` (`/discover`) - инвентаризацию проблем вширь
 - Документирование: `dex-doc-writer` пишет спеки, гайды, release notes; `dex-process-modeler` - BPMN
-- Свод правил проекта: `/rulebook` через `dex-skill-rulebook-track` выводит из истории ревью то, что в репозитории принято, `dex-rulebook-miner` ведёт добычу, а трек судит свод оракулом `dex-skill-rulebook-quality`; на этот свод ревьюеры опираются вместо своей памяти
+- Свод правил проекта: `/rulebook` через `dex-skill-rulebook-track` (норматив жанра `dex-skill-project-rulebook`, ловушки добычи `dex-skill-rule-mining`, оракул `dex-skill-rulebook-quality`) выводит из истории ревью то, что в репозитории принято, `dex-rulebook-miner` ведёт добычу, а трек судит свод оракулом `dex-skill-rulebook-quality`; на этот свод ревьюеры опираются вместо своей памяти
 
 ## Состав
 

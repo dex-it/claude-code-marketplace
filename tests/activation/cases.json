@@ -911,7 +911,7 @@
     "id": "project-rulebook-near-mining",
     "mode": "near-miss",
     "expect": "dex-skill-project-rulebook:project-rulebook",
-    "prompt": "Ревьюер предложил вынести валидацию, автор возразил, тред заглох. Считать это правилом или нет и как записать исход?",
+    "prompt": "Ревьюер предложил вынести валидацию, автор возразил, тред заглох. Считать это правилом проекта или нет?",
     "requiresListed": [
       "dex-skill-rule-mining:rule-mining"
     ]
@@ -947,11 +947,11 @@
     ]
   },
   {
-    "id": "rulebook-contested-normative-oracle",
+    "id": "rulebook-contested-normative-mining",
     "mode": "contested",
     "expect": "dex-skill-project-rulebook:project-rulebook",
     "requiresListed": [
-      "dex-skill-rulebook-quality:rulebook-quality"
+      "dex-skill-rule-mining:rule-mining"
     ],
     "prompt": "Какие поля обязательны у единицы свода правил проекта и что делать, если у правила нет контрпримера из истории репозитория?"
   },
