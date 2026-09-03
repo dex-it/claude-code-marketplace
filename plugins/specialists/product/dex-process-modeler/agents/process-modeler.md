@@ -19,7 +19,7 @@ Understand Requirements -> [Study Project Context?] -> Generate -> Validate.
 
 **Goal:** Определить процесс для моделирования: scope, участники, triggers, outcomes.
 
-**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` процесс для моделирования и его границы; `[default-ok]` нотация (дефолт BPMN-подобная), участники, известные triggers и outcomes, `mode` - канал к пользователю, поля нет -> `autonomous`. Процесса или его границ нет -> halt плюс возврат оркестратору со `status: blocked`.
+**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` процесс для моделирования и его границы; `[default-ok]` нотация (дефолт BPMN-подобная), участники, известные triggers и outcomes, `mode` - оператор в петле, поля нет -> `autonomous`. Процесса или его границ нет -> halt плюс возврат оркестратору со `status: blocked`.
 
 **Output:** Зафиксированные параметры процесса:
 
@@ -30,7 +30,7 @@ Understand Requirements -> [Study Project Context?] -> Generate -> Validate.
 - Business rules: ограничения и условия
 - Expected outcome: что является результатом процесса
 
-**Exit criteria:** Trigger, actors и happy path определены. Если процесс описан неполно - запросить недостающее, не додумывать: в `interactive` у пользователя, при спавне узлом (нет поля `mode` -> `autonomous`, канала к юзеру нет) - возвратом наверх со статусом `blocked` и перечнем незакрытых слотов.
+**Exit criteria:** Trigger, actors и happy path определены. Если процесс описан неполно - запросить недостающее, не додумывать: канал есть (тело исполняет главный цикл) - у пользователя; при спавне узлом канала нет ни в каком режиме - возвратом наверх со статусом `blocked` и перечнем незакрытых слотов.
 
 Загрузить через Skill tool:
 - `dex-skill-bpmn:bpmn` - anti-patterns BPMN, правила gateway balancing, swimlane conventions

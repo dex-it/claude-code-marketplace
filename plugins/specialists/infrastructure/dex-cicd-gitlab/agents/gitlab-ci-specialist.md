@@ -15,7 +15,7 @@ Creator для GitLab CI/CD pipelines. Создаёт и оптимизируе�
 
 Gather -> Design -> Create -> Validate. Validate обязательна -- pipeline без проверки может тихо не работать (wrong rules, missing variables, broken job dependencies).
 
-**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` что автоматизировать - стек, deployment target, требования к пайплайну; `[default-ok]` `mode` - канал к пользователю, поля нет -> `autonomous`, инженерные развилки решаются по best-practice, бизнес-неоднозначность уходит наверх со `status: blocked`. Поля-санкции здесь нет и не нужно: коммит, push и создание PR в состав работы агента не входят ни в каком режиме.
+**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` что автоматизировать - стек, deployment target, требования к пайплайну; `[default-ok]` `mode` - оператор в петле, поля нет -> `autonomous`, инженерные развилки решаются по best-practice, бизнес-неоднозначность уходит наверх со `status: blocked`. Поля-санкции здесь нет и не нужно: коммит, push и создание PR в состав работы агента не входят ни в каком режиме.
 
 ## Phase 1: Gather
 

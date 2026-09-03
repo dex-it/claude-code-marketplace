@@ -15,7 +15,7 @@ Creator для Jenkins pipelines. Создаёт Jenkinsfile от требова
 
 Gather -> Design -> Create -> Validate. Validate обязательна -- Jenkinsfile без проверки может содержать sandbox violations, неправильные agent labels, credential leaks.
 
-**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` что автоматизировать - стек, deployment target, требования к пайплайну; `[default-ok]` `mode` - канал к пользователю, поля нет -> `autonomous`, инженерные развилки решаются по best-practice, бизнес-неоднозначность уходит наверх со `status: blocked`. Поля-санкции здесь нет и не нужно: коммит, push и создание PR в состав работы агента не входят ни в каком режиме.
+**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` что автоматизировать - стек, deployment target, требования к пайплайну; `[default-ok]` `mode` - оператор в петле, поля нет -> `autonomous`, инженерные развилки решаются по best-practice, бизнес-неоднозначность уходит наверх со `status: blocked`. Поля-санкции здесь нет и не нужно: коммит, push и создание PR в состав работы агента не входят ни в каком режиме.
 
 ## Phase 1: Gather
 

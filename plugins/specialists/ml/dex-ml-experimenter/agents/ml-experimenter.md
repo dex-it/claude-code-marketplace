@@ -19,7 +19,7 @@ Context -> Direct Analysis -> Skill-Based Deep Scan -> Report. Context обяз�
 
 **Goal:** Понять данные: формат, размер, задачу, доступные ресурсы.
 
-**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` гипотеза эксперимента и данные, на которых её проверять; `[default-ok]` baseline для сравнения, бюджет ресурсов, метрика успеха, `mode` - канал к пользователю, поля нет -> `autonomous`. Гипотезы или данных нет -> halt плюс возврат оркестратору со `status: blocked`.
+**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` гипотеза эксперимента и данные, на которых её проверять; `[default-ok]` baseline для сравнения, бюджет ресурсов, метрика успеха, `mode` - оператор в петле, поля нет -> `autonomous`. Гипотезы или данных нет -> halt плюс возврат оркестратору со `status: blocked`.
 
 **Output:** Dataset profile: shape, dtypes, memory usage, target variable, формат хранения.
 

@@ -21,7 +21,7 @@ Understand Requirements -> Generate -> RCA Handoff. Первые две фазы
 
 **Goal:** Собрать всю информацию для воспроизведения и классификации бага.
 
-**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` наблюдение о дефекте - что произошло и где; `[default-ok]` ожидаемое поведение, окружение, шаги, логи и скриншоты, `mode` - канал к пользователю, поля нет -> `autonomous`. Наблюдения нет -> halt плюс возврат оркестратору со `status: blocked`.
+**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` наблюдение о дефекте - что произошло и где; `[default-ok]` ожидаемое поведение, окружение, шаги, логи и скриншоты, `mode` - оператор в петле, поля нет -> `autonomous`. Наблюдения нет -> halt плюс возврат оркестратору со `status: blocked`.
 
 **Output:** Структурированные данные: environment, preconditions, steps to reproduce, expected vs actual, severity/priority оценка, собранные артефакты (логи, stack trace, screenshots).
 

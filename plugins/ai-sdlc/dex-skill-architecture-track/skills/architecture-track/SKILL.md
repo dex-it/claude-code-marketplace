@@ -142,7 +142,7 @@ Goal: получить архитектурное решение - match / alter
 манифест затронутой папки несёт `*.csproj`/`*.sln`/`Directory.Build.props` -> `dex-architect-dotnet:
 architect-dotnet`; иначе -> `dex-architect:architect`. Монорепо - по папке, не по корню.
 
-Input узлу: FR/NFR (Phase 1), цифры (Phase 2), constraints, `mode: autonomous` (см. «Режимы и
+Input узлу: FR/NFR (Phase 1), цифры (Phase 2), constraints, `mode` трека (см. «Режимы и
 гейты»), `quality-checks`, `Accepted` ADR + путь к журналу решений (Phase 0). Узел исполняет свой
 внутренний порядок (Reference Architecture Match -> Propose Alternatives -> Decide -> Deep Dive) и
 отдаёт по `node-contract`: `status`, дизайн-решение (выбранная альтернатива + отвергнутые +

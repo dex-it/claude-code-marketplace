@@ -30,7 +30,7 @@ Workflow: **Context Gathering -> Direct Analysis -> Skill-Based Scan -> Report**
 
 **Goal:** Собрать все конфиг-точки, влияющие на контроль качества, до анализа.
 
-**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` путь к .NET-репозиторию под аудит; `[default-ok]` перечень средств контроля, интересующих вызывающего (не пришёл -> полный чек-лист), `mode` - канала к пользователю у субагента нет, поля нет -> `autonomous`. Пути нет -> halt плюс возврат оркестратору со `status: blocked`.
+**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` путь к .NET-репозиторию под аудит; `[default-ok]` перечень средств контроля, интересующих вызывающего (не пришёл -> полный чек-лист), `mode` - оператор в петле, поля нет -> `autonomous`. Пути нет -> halt плюс возврат оркестратору со `status: blocked`.
 
 **Output:** Перечень найденного: `Directory.Build.props` / `.props`-инфраструктура, `Directory.Packages.props` (CPM), `.editorconfig`, `config.nsdepcop`, файлы CI (`.gitlab-ci.yml`, `.github/workflows/*`, TeamCity/Jenkins), список `.csproj`. Зафиксировать target framework (для .NET 8/9 vs 10 - разный дефолт NuGetAuditMode).
 

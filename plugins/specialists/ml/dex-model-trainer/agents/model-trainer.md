@@ -28,7 +28,7 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 
 **Goal:** Определить задачу, данные, фреймворк, ограничения по ресурсам.
 
-**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` задача обучения и данные под неё; `[default-ok]` фреймворк, ограничения по ресурсам и времени, baseline, `mode` - канал к пользователю, поля нет -> `autonomous`. Задачи или данных нет -> halt плюс возврат оркестратору со `status: blocked`.
+**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` задача обучения и данные под неё; `[default-ok]` фреймворк, ограничения по ресурсам и времени, baseline, `mode` - оператор в петле, поля нет -> `autonomous`. Задачи или данных нет -> halt плюс возврат оркестратору со `status: blocked`.
 
 **Output:** Training spec:
 - Задача: classification / regression / NLP / CV / time-series

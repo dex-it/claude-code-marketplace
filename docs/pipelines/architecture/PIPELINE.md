@@ -49,7 +49,7 @@ QPS/storage/bandwidth, опора для решения узла. Implementation
 Манифест затронутой папки несёт `*.csproj`/`*.sln`/`Directory.Build.props` -> узел
 `dex-architect-dotnet:architect-dotnet`; иначе -> `dex-architect:architect` (стек-нейтральный).
 Монорепо - диспетчинг по папке, не по корню репозитория. Узел получает FR/NFR, цифры, constraints,
-`mode: autonomous` (см. «Гейты»), `Accepted` ADR и журнал решений; исполняет свой внутренний
+`mode` трека (см. «Гейты»), `Accepted` ADR и журнал решений; исполняет свой внутренний
 порядок (Reference Architecture Match -> Propose Alternatives -> Decide -> Deep Dive) и отдаёт
 решение-only - без implementation-плана и документов, это работа треков-фаз 4 и 5.
 
