@@ -8,7 +8,7 @@
  *
  * Usage:
  *   node tools/validate-agent.js <path>                 # single file
- *   node tools/validate-agent.js all                    # all agents in plugins/specialists
+ *   node tools/validate-agent.js all                    # every agent in the catalogue
  *
  * Exit codes:
  *   0 - clean
@@ -16,7 +16,7 @@
  */
 
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
-import { join, relative, resolve, dirname, basename } from 'node:path';
+import { join, relative, resolve, dirname, basename, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import matter from 'gray-matter';
 import { unified } from 'unified';
@@ -30,7 +30,7 @@ const __dirname = dirname(__filename);
 const REPO_ROOT = process.env.MARKETPLACE_ROOT
   ? resolve(process.env.MARKETPLACE_ROOT)
   : resolve(__dirname, '..');
-const SPECIALISTS_DIR = join(REPO_ROOT, 'plugins', 'specialists');
+const PLUGINS_DIR = join(REPO_ROOT, 'plugins');
 const MARKETPLACE_JSON = join(REPO_ROOT, '.claude-plugin', 'marketplace.json');
 
 const COLORS = {
@@ -97,6 +97,15 @@ function validatePluginNameMentions(text, findings, where = '') {
 
 // --- File discovery -----------------------------------------------------
 
+// Обход берёт `plugins/` целиком, а не только `plugins/specialists/`: обещание
+// правил - «каждый агент каталога», и корень поставки в него не входит. Агент,
+// положенный в другую ветку дерева, при обходе по одной ветке не судится ничем и
+// молчит на всех гейтах сразу - тот же класс, что подкаталог `agents/`.
+// Разделитель приводится к `/` перед сравнением: `join` на Windows отдаёт `\`, и
+// проверка подстроки `/agents/` там не совпала бы ни разу, то есть валидатор
+// нашёл бы ноль файлов и вышел бы зелёным. Свидетеля у этой половины нет и на
+// Linux быть не может - `sep` там `/`, и мутация обратно оставляет прогон зелёным.
+// Ловится только прогоном на Windows, как и остальная портируемость shell-скриптов.
 function findAllAgentFiles() {
   const result = [];
   function walk(dir) {
@@ -105,12 +114,12 @@ function findAllAgentFiles() {
       const full = join(dir, entry);
       const stat = statSync(full);
       if (stat.isDirectory()) walk(full);
-      else if (entry.endsWith('.md') && full.includes('/agents/')) {
+      else if (entry.endsWith('.md') && full.split(sep).join('/').includes('/agents/')) {
         result.push(full);
       }
     }
   }
-  walk(SPECIALISTS_DIR);
+  walk(PLUGINS_DIR);
   return result.sort();
 }
 
@@ -168,6 +177,8 @@ const FORBIDDEN_FRONTMATTER_FIELDS = ['allowed-tools'];
  * the agent OWNING that stage and conditional for everyone else, so an open
  * allowlist would let any agent pre-load a stage normative it never runs.
  */
+const NODE_CONTRACT_REF = 'dex-skill-node-contract:node-contract';
+
 const ALLOWED_PRELOAD_SKILLS = new Map([
   ['node-contract', null],
   ['business-analysis-29148', new Set(['business-requirements-analyst'])],
@@ -391,6 +402,38 @@ function validateFrontmatter(parsed, findings) {
     }
   }
 
+  // Присутствие pre-load, а не только его форма. Соседние правила
+  // (`frontmatter-skills-not-preloadable`, `-bare-plugin-name`, `-unknown-skill`)
+  // судят уже написанное значение и на отсутствие поля молчат: замер мутацией
+  // 01.09.2026 - у агента снят весь блок `skills:`, валидатор дал 0 ошибок.
+  // Именно этим механизмом и накапливался остаток, закрытый в #110: норма
+  // «контракт стыка исполняет сам агент» держалась ручной сверкой.
+  // Контракт нужен агенту в любой позиции вызова, поэтому исключений по
+  // «узловости» здесь нет - см. AGENT_FRAMEWORK.md, глоссарий, «Узел».
+  {
+    const raw = 'skills' in fm && fm.skills != null ? fm.skills : [];
+    const entries = Array.isArray(raw) ? raw : String(raw).split(',');
+    // Сверяется полная форма, а не имя скилла: голое `dex-skill-node-contract`
+    // рантаймом не резолвится (плагин молча пропускается), а голое
+    // `node-contract` не называет плагин. Ловушку голого имени держит и
+    // `frontmatter-skills-bare-plugin-name`, но там она видна только когда
+    // плагин есть в проверяемом дереве - здесь проверка от дерева не зависит.
+    const preloaded = entries.map((e) => String(e).trim()).filter((e) => e !== '');
+    if (!preloaded.includes(NODE_CONTRACT_REF)) {
+      // Две ветки - «записи нет вовсе» и «запись есть, форма не резолвится» -
+      // различаются текстом сообщения, а не именем правила: имя одно на обе, и
+      // смерть одной видна только по тексту (`messages` фикстуры, tools/test-rules.js).
+      const nearMiss = preloaded.find((e) => normalizePreloadSkillName(e) === 'node-contract');
+      findings.push({
+        level: ERROR,
+        rule: 'frontmatter-skills-missing',
+        message: nearMiss
+          ? `\`skills:\` entry "${nearMiss}" names the node handoff contract in a form that does not resolve - pre-load the full form "${NODE_CONTRACT_REF}". A bare plugin name is skipped silently, a bare skill name does not say which plugin ships it: either way the agent starts without the contract`
+          : `Frontmatter does not pre-load the node handoff contract - add \`skills:\` with "${NODE_CONTRACT_REF}". Every agent executes the handoff contract itself, so the pre-load is unconditional; without it the agent starts without the contract and nothing reports it`,
+      });
+    }
+  }
+
   // `model` must be explicit (not inherited) and a valid tier or model ID.
   // Default `inherit` runs cheap work on the session model - on an Opus
   // session even trivial agents would run on Opus. See AGENT_FRAMEWORK.md.
@@ -484,6 +527,36 @@ function validateFrontmatter(parsed, findings) {
       message: `Agent does not declare "Skill" in tools - will not be able to load skills imperatively in phases`,
     });
   }
+}
+
+/**
+ * Файл агента лежит прямо в `<плагин>/agents/`, без подкаталогов.
+ *
+ * Замер 01.09.2026 на живом рантайме (`claude -p --plugin-dir`, событие `system/init`):
+ * агент из `agents/nested/test-analyst.md` поставляется под именем
+ * `dex-test-analyst:nested:test-analyst` - три сегмента вместо двух. Такое имя не
+ * резолвится ни одной ссылкой вида `{plugin}:{name}`, а `agent-file-name-mismatch`
+ * молчит: имя файла с `name` совпадает. Класс тот же, что у голого имени плагина в
+ * `skills:` - форма выглядит верной и тихо не срабатывает.
+ */
+function validateAgentFileIsFlat(filepath, findings) {
+  // Якорь - корень плагина, а не вхождение подстроки `/agents/` в путь. Путь
+  // абсолютный, и обе стороны поиска подстроки ошибаются: первое вхождение ловит
+  // каталог `agents` выше по дереву (каталог прогона, категория плагинов) и даёт
+  // ложное срабатывание на плоском файле, последнее - слепнет на `agents/agents/`,
+  // который поставляется трёхсегментным именем и правилом ловиться обязан.
+  // Корень плагина обе формы разводит: имя поставки считается от него.
+  const pluginRoot = pluginRootOf(filepath);
+  if (!pluginRoot) return;
+  const fromRoot = relative(pluginRoot, resolve(filepath)).split(sep).join('/');
+  if (!fromRoot.startsWith('agents/')) return;
+  const rel = fromRoot.slice('agents/'.length);
+  if (!rel.includes('/')) return;
+  findings.push({
+    level: ERROR,
+    rule: 'agent-file-nested',
+    message: `Agent file sits in a subdirectory of agents/ (${rel}) - the runtime then ships it as "{plugin}:{dir}:{name}", a three-segment name no {plugin}:{name} reference resolves. Move the file directly into agents/`,
+  });
 }
 
 /**
@@ -720,6 +793,51 @@ function validateJudgeCarriesWriter(parsed, findings) {
 }
 
 /**
+ * Объявленная сигнатура стыка: `**Input (handoff)` и `**Output (handoff)` в теле.
+ *
+ * Принцип 2 фреймворка требует стандартный I/O от КАЖДОГО агента, не только от узла
+ * цепочки: вызывающий обязан знать, что подать и что получит, до спавна
+ * (`docs/AGENT_FRAMEWORK.md`, «у агента стандартизованный вход и выход»). Без
+ * объявленной половины вход не с чем сверить, а выход вызывающему нечем разобрать -
+ * агент молча домысливает недостающее вместо возврата нехватки наверх.
+ *
+ * Проверяется присутствие атрибута в теле, а не его фаза: канонично Input стоит в
+ * фазе входа, но у агента с общим для всех фаз входом он законно живёт в обзорном
+ * разделе `## Phases` (так написаны `architect` и `architect-dotnet`), и привязка к
+ * `## Phase N` дала бы ложное срабатывание на верной форме.
+ */
+const HANDOFF_INPUT_RE = /\*\*\s*Input\s*\(handoff/i;
+const HANDOFF_OUTPUT_RE = /\*\*\s*Output\s*\(handoff/i;
+// Свидетель сигнатуры засчитывается только из тела. Тот же атрибут внутри
+// ```-фенса - образец в документации, а не объявление: вызывающий по нему
+// ничего не заполнит. Без вырезания фенсов правило удовлетворялось бы примером,
+// то есть краснело бы ровно там, где автор ничего не написал вовсе.
+const FENCED_BLOCK_RE = /^[ \t]*(`{3,}|~{3,})[^\n]*\n[\s\S]*?^[ \t]*\1[ \t]*$/gm;
+const withoutFences = (text) => text.replace(FENCED_BLOCK_RE, '');
+
+function validateHandoffSignature(parsed, findings) {
+  const body = withoutFences(parsed.content || '');
+
+  if (!HANDOFF_INPUT_RE.test(body)) {
+    findings.push({
+      level: ERROR,
+      rule: 'handoff-input-missing',
+      message:
+        'Agent declares no **Input (handoff):** - the caller has nothing to fill in and the agent has nothing to check the incoming payload against (Agent Framework, principle 2)',
+    });
+  }
+
+  if (!HANDOFF_OUTPUT_RE.test(body)) {
+    findings.push({
+      level: ERROR,
+      rule: 'handoff-output-missing',
+      message:
+        'Agent declares no **Output (handoff):** - the caller cannot parse the result and decisions taken by the agent stay unannounced (Agent Framework, principle 2)',
+    });
+  }
+}
+
+/**
  * Читатель норматива этапа обязан грузить его императивно в фазе. Проверяется
  * наличие полной формы `{plugin}:{skill}` в теле и `Skill` в `tools`: без tool'а
  * запись в теле неисполнима, и проверка состава молча выпадает.
@@ -838,9 +956,11 @@ function validateFile(filepath, marketplacePlugins) {
   const phaseResult = validatePhases(parsed.content, findings, bodyOffset);
   validateFrontmatter(parsed, findings);
   validateFileNameMatchesName(filepath, parsed, findings);
+  validateAgentFileIsFlat(filepath, findings);
   validateFactcheckCascade(parsed, findings);
   validateJudgeCarriesWriter(parsed, findings);
   validateStageNormativeReaders(parsed, findings);
+  validateHandoffSignature(parsed, findings);
   validateAttributeBlocks(parsed.content, findings, bodyOffset);
   validateCatalogDocsLink(raw, filepath, findings);
   validateLinkEscapesPlugin(raw, filepath, findings);
@@ -1070,7 +1190,7 @@ function main() {
   if (target === 'all') {
     files = findAllAgentFiles();
     if (files.length === 0) {
-      console.error(`No agent files found under ${relative(REPO_ROOT, SPECIALISTS_DIR)}`);
+      console.error(`No agent files found under ${relative(REPO_ROOT, PLUGINS_DIR)}`);
       process.exit(1);
     }
   } else {

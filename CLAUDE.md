@@ -29,7 +29,7 @@
 Устройство (формат, анти-паттерны, рецепты, валидатор) - в фреймворках, читать перед созданием/правкой артефакта:
 
 - **Skill** - [SKILL_FRAMEWORK.md](docs/SKILL_FRAMEWORK.md). Суть: skill - ловушки и anti-patterns, не документация API; формат «Плохо / Правильно / Почему», 3-5 строк на ловушку. Цель и потолки размера - там же («Размер skill»), число здесь не дублируем.
-- **Specialist (агент)** - [AGENT_FRAMEWORK.md](docs/AGENT_FRAMEWORK.md) (+ карта «слот процесса -> агент» - [DEV_PROCESS_COVERAGE.md](docs/DEV_PROCESS_COVERAGE.md); выбор «общий vs стек-специфичный» - «Имя агента» ниже). Суть: агент = workflow через фазы (декларативный контракт goal/output/exit/gate, не процедура); условные skills (по стеку/diff) грузятся императивно через Skill tool в фазах, безусловный process-skill узла - pre-load через `skills:` во frontmatter. Два конститутивных принципа - «фаза = контракт» и «у агента стандартный вход и выход» - развёрнуты там же ([«Inter-agent handoff»](docs/AGENT_FRAMEWORK.md#inter-agent-handoff-последовательный-стык): сигнатура в двух носителях, проверка входящего, возврат нехватки наверх, решения в выход). Дом рантайм-контракта узла (режим `interactive`/`autonomous`, словарь полей, graceful degradation) - `dex-skill-node-contract:node-contract`: там же граница «где оператор в петле, где автономно», а порядок работ зоны требований - [docs/pipelines/analytics/PIPELINE.md](docs/pipelines/analytics/PIPELINE.md).
+- **Specialist (агент)** - [AGENT_FRAMEWORK.md](docs/AGENT_FRAMEWORK.md) (+ карта «слот процесса -> агент» - [DEV_PROCESS_COVERAGE.md](docs/DEV_PROCESS_COVERAGE.md); выбор «общий vs стек-специфичный» - «Имя агента» ниже). Суть: агент = workflow через фазы (декларативный контракт goal/output/exit/gate, не процедура); условные skills (по стеку/diff) грузятся императивно через Skill tool в фазах, безусловный контракт стыка - pre-load через `skills:` во frontmatter, и его несёт каждый агент каталога (правило `frontmatter-skills-missing`). Два конститутивных принципа - «фаза = контракт» и «у агента стандартный вход и выход» - развёрнуты там же ([«Inter-agent handoff»](docs/AGENT_FRAMEWORK.md#inter-agent-handoff-последовательный-стык): сигнатура в двух носителях, проверка входящего, возврат нехватки наверх, решения в выход). Дом рантайм-контракта узла (режим `interactive`/`autonomous`, словарь полей, graceful degradation) - `dex-skill-node-contract:node-contract`: там же граница «где оператор в петле, где автономно», а порядок работ зоны требований - [docs/pipelines/analytics/PIPELINE.md](docs/pipelines/analytics/PIPELINE.md).
 - **Command** - [COMMAND_FRAMEWORK.md](docs/COMMAND_FRAMEWORK.md). Суть: команда = точечное действие (`/build`, `/test`); Goal + Output format, не bash-скрипт. Цель и потолки размера - там же («Размер»), число здесь не дублируем.
 
 ## Конвенции
@@ -57,7 +57,7 @@
 
 ### Frontmatter агентов
 
-Поля и правила (`skills:` - только pre-load безусловного process-skill узла полной формой `dex-skill-node-contract:node-contract` (не голым именем плагина, иначе не резолвится); условные trap-skill грузятся императивно через Skill tool в фазах; `allowed-tools:` не поддерживается; явный `model` по характеру суждения, не `inherit`; выбор opus/sonnet/haiku) - нормативный дом [AGENT_FRAMEWORK.md](docs/AGENT_FRAMEWORK.md#выбор-модели-model) (чеклист frontmatter + раздел «Стоимость: `model` и `effort`»).
+Поля и правила (`skills:` - обязательный pre-load контракта стыка полной формой `dex-skill-node-contract:node-contract` (не голым именем плагина, иначе не резолвится; отсутствие поля ловит `frontmatter-skills-missing`); условные trap-skill грузятся императивно через Skill tool в фазах; `allowed-tools:` не поддерживается; явный `model` по характеру суждения, не `inherit`; выбор opus/sonnet/haiku) - нормативный дом [AGENT_FRAMEWORK.md](docs/AGENT_FRAMEWORK.md#выбор-модели-model) (чеклист frontmatter + раздел «Стоимость: `model` и `effort`»).
 
 **`model` и `effort` - разные оси, и ведут себя по-разному.** `model` - потолок (удешевляет дорогую сессию), `effort` - **override** сессионного уровня, то есть поднятие перебивает режим, выбранный пользователем. Отсюда асимметрия: вниз (`low`/`medium`) - для механической работы свободно, вверх - только с названной в теле причиной, сомневаешься - не ставь (наследование). Значения, таблица решений, модель-специфичность нижнего порога и связка верха с thinking - [AGENT_FRAMEWORK.md](docs/AGENT_FRAMEWORK.md#глубина-рассуждения-effort).
 
@@ -133,7 +133,7 @@ description: Ключевые слова для автоматической а�
 
 ### Версии, синхронизации, гейт перед коммитом
 
-Нормативный дом - `.claude/rules/plugin-changes.md` (path-scoped, перечень путей - `paths` в самом файле): таблица semver-бампов и версия каталога, обязательные синхронизации (marketplace.json, замкнутость бандла, Skill-ссылки), `npm run validate` и то, что CI не закрывает.
+Нормативный дом - `.claude/rules/plugin-changes.md` (path-scoped, перечень путей - `paths` в самом файле): таблица semver-бампов и версия каталога, обязательные синхронизации (marketplace.json, витрина README, замкнутость бандла, Skill-ссылки), `npm run validate` и то, что CI не закрывает.
 
 ## Технологический стек и MCP
 

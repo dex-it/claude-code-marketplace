@@ -45,5 +45,6 @@ Sort, Cross-Linking and Plan, Calibration and Labeling, Report, Draft Threads, P
 
 Вызови `Skill` -> `dex-sdlc:engine` (откроет/возобновит цикл, авто-ledger с треком
 `dex-skill-mr-review-track:mr-review-track`), затем `Skill` -> `dex-skill-mr-review-track:mr-review-track`
-с **`mode: interactive`** - без этого поля трек работает как узел (`autonomous`) и цикла команд
-(`оформляй`/`пушь`/`полный`) не будет.
+с **`mode: interactive`** - без этого поля трек берёт автономную планку (`autonomous`) и цикла
+команд (`оформляй`/`пушь`/`полный`) не будет: канал у тела команды есть, спрашивать по нему трек
+будет только с этим полем.

@@ -41,4 +41,5 @@ Chain, Falsification, Fix Plan, Report, Gated Fix). Трек нарезает г
 Вызови `Skill` -> `dex-sdlc:engine` (откроет/возобновит цикл, авто-ledger с треком
 `dex-skill-diagnostics-track:diagnostics-track`), затем `Skill` ->
 `dex-skill-diagnostics-track:diagnostics-track` с **`mode: interactive`** - без этого поля трек
-работает как узел (`autonomous`) и цикла команд не будет.
+берёт автономную планку (`autonomous`) и цикла команд не будет: канал у тела команды есть,
+спрашивать по нему трек будет только с этим полем.

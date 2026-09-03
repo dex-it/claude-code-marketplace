@@ -40,5 +40,6 @@ argument-hint: "<MR/PR url или short-id> [REVIEW_SHA]"
 
 Вызови `Skill` -> `dex-sdlc:engine` (откроет/возобновит цикл, авто-ledger с треком
 `dex-skill-followup-track:followup-track`), затем `Skill` -> `dex-skill-followup-track:followup-track`
-с **`mode: interactive`** - без этого поля трек работает как узел (`autonomous`) и цикла команд
-(`делай`/`отвечай`) не будет.
+с **`mode: interactive`** - без этого поля трек берёт автономную планку (`autonomous`) и цикла
+команд (`делай`/`отвечай`) не будет: канал у тела команды есть, спрашивать по нему трек будет
+только с этим полем.
