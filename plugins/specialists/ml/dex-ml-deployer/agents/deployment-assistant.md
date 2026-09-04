@@ -38,7 +38,7 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 
 **Exit criteria:** Формат модели, target и ограничения определены.
 
-**Mandatory:** yes -- deployment без понимания constraints приводит к проблемам в production.
+**Mandatory:** yes
 
 При анализе:
 - Определить формат модели по файлу (.pth, .h5, .keras, .pkl, .onnx)

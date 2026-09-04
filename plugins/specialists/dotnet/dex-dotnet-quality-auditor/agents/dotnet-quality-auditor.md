@@ -34,7 +34,7 @@ Workflow: **Context Gathering -> Direct Analysis -> Skill-Based Scan -> Report**
 
 **Output:** Перечень найденного: `Directory.Build.props` / `.props`-инфраструктура, `Directory.Packages.props` (CPM), `.editorconfig`, `config.nsdepcop`, файлы CI (`.gitlab-ci.yml`, `.github/workflows/*`, TeamCity/Jenkins), список `.csproj`. Зафиксировать target framework (для .NET 8/9 vs 10 - разный дефолт NuGetAuditMode).
 
-**Mandatory:** yes - без карты конфигов аудит выдаст ложные «не настроено» там, где настройка в файле, который не прочитан.
+**Mandatory:** yes
 
 **Exit criteria:** Записаны пути найденных манифестов и TFM. Отсутствующие файлы помечены явно (нет `.editorconfig`, нет CI и т.п. - это сами по себе находки).
 
@@ -46,7 +46,7 @@ Workflow: **Context Gathering -> Direct Analysis -> Skill-Based Scan -> Report**
 
 **Output:** Таблица «средство -> статус (вкл / выкл / отсутствует / частично) -> где найдено (файл:строка)».
 
-**Mandatory:** yes - фактическое состояние, без него Skill-Based Scan не с чем сверять.
+**Mandatory:** yes
 
 **Exit criteria:** По каждому пункту чек-листа есть факт из файла либо явная пометка «не найдено».
 
@@ -56,7 +56,7 @@ Workflow: **Context Gathering -> Direct Analysis -> Skill-Based Scan -> Report**
 
 **Output:** Для каждой недостающей / неверной настройки - что не так, почему важно, конкретное MSBuild-свойство / строка `.editorconfig` / CI-шаг для исправления.
 
-**Mandatory:** yes - skill содержит верифицированные дефолты и неочевидные ловушки, которые Direct Analysis по голым знаниям пропустит.
+**Mandatory:** yes
 
 Загрузи skill императивно через Skill tool: `dex-skill-dotnet-code-quality:dotnet-code-quality`. Находка задевает структуру `.csproj` (CPM, `PrivateAssets`) - дополнительно `dex-skill-dotnet-csproj-hygiene:dotnet-csproj-hygiene`; не задевает - скилл не грузится.
 
@@ -73,7 +73,7 @@ Workflow: **Context Gathering -> Direct Analysis -> Skill-Based Scan -> Report**
 - Приоритет находок: 🔴 критично (уязвимости не сканируются, варнинги не фейлят) -> 🟠 важно (нет coverage/format gate, NSDepCop без эскалации) -> 🟡 желательно
 - Итог: «N из M средств настроено», список первых шагов
 
-**Mandatory:** yes - без структурированного отчёта аудит бесполезен; находки без приоритета и готовой настройки не приводят к действию.
+**Mandatory:** yes
 
 **Exit criteria:** Отчёт содержит только проверенные по файлам факты; предположения помечены `[Assumption: ...]`. Ничего не изменено в проекте.
 

@@ -103,8 +103,7 @@ Context Gathering? -> Direct Analysis -> Skill-Based Deep Scan -> Report.
 работу проекта, а владельца, который его снимет, у него нет. Каждое расхождение имён имеет пункт с
 предложением; ни одно не закрыто выбором без записи.
 
-**Mandatory:** yes - словарь и конституция, собранные мимо употреблений и оснований, описывают язык,
-которым в проекте не говорят.
+**Mandatory:** yes
 
 ## Phase 3: Skill-Based Deep Scan
 
@@ -139,8 +138,7 @@ Context Gathering? -> Direct Analysis -> Skill-Based Deep Scan -> Report.
 `status: partial` с этой проверкой в перечне незакрытого (graceful degradation, `node-contract`) -
 молчанием проверка не закрывается.
 
-**Mandatory:** yes - непроверенный инвариант действует на весь корпус: его дефект дороже дефекта
-требования одной фичи ровно во столько раз, сколько артефактов на него сослалось.
+**Mandatory:** yes
 
 ## Phase 4: Report
 

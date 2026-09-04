@@ -69,7 +69,7 @@ const CASES = [
     // Якорь усечён до основы: рез законно меняет падеж, но не тему хвоста охвата.
     mines: ['ТОЛЬКО', '`n/a`', 'npm view', { t: 'не только', near: 'корн' }],
     cut: ['важная часть гигиены', 'sudo apt install ripgrep',
-          'Также агент не занимается правкой манифестов самостоятельно'],
+          'Также агент не занимается правкой манифестов самостоятельно', 'Почему mandatory'],
   },
   {
     id: 'O-03', out: 'c03/dependency-auditor.md', src: 'in-02-agent-phases.md',
@@ -99,7 +99,7 @@ const CASES = [
     id: 'O-06', out: 'c06/migration-writer.md', src: 'in-04b-migration-agent.md',
     mines: ['ТОЛЬКО', 'pg_stat_user_tables'],
     cut: ['цена ошибки заметно выше', 'dotnet tool install --global dotnet-ef',
-          'Здесь агент пишет два метода'],
+          'Здесь агент пишет два метода', 'Почему mandatory'],
   },
   {
     id: 'O-07', out: 'c07/release-check.md', src: 'in-05-prose-order.md',

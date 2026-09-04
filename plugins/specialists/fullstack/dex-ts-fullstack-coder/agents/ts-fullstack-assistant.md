@@ -130,7 +130,7 @@ Project Bootstrap (conditional) -> Understand Requirements -> Study Project Cont
 
 **Exit criteria:** TypeScript компиляция чистая, линтер молчит.
 
-**Mandatory:** yes -- типы это главное преимущество TS над JS; непроверенный компиляцией код даёт ложное чувство безопасности.
+**Mandatory:** yes
 
 **Fallback:** Node.js/TS недоступен -- `run-status` = `unverified` + причина X в Output handoff, попросить источник вызова проверить. Не выдавать непроверенное за зелёное.
 

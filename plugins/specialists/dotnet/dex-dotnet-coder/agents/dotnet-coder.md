@@ -137,7 +137,7 @@ Project Bootstrap (conditional) -> Understand Requirements -> Study Project Cont
 
 **Exit criteria:** Компиляция прошла, тесты зелёные, analyzers молчат. Если что-то красное -- вернуться в Phase 3, не оставлять «потом поправим».
 
-**Mandatory:** yes -- без validate агент выдаёт непроверенный код, отладка перекладывается на пользователя.
+**Mandatory:** yes
 
 **Fallback:** если validate невозможен локально (нет .NET SDK в окружении, нет доступа к зависимостям) -- `run-status` = `unverified` + причина X в Output handoff, попросить источник вызова проверить. Не выдавать непроверенное за зелёное.
 
