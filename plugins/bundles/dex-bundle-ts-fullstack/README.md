@@ -34,6 +34,8 @@ Bundle для TypeScript fullstack: разработка Node/React, тесты,
 - `/implement` - реализация фичи до локальных коммитов
 - `/test` - тесты на изменённый код
 - `/find-bugs` - активный поиск багов в фиче
+- `/mr-review` - ревью входящего MR/PR и ре-ревью дельты
+- `/review-plan` - разбор пришедшего ревью: план правок, ответы в треды
 
 ### Specialists
 - `dex-ts-fullstack-coder` - TypeScript fullstack разработка
@@ -42,6 +44,8 @@ Bundle для TypeScript fullstack: разработка Node/React, тесты,
 - `dex-code-discovery` - обзорное ревью существующего кода
 - `dex-security-reviewer` - модель угроз и attack-path
 - `dex-adr-writer` - фиксация архитектурных решений в ADR
+- `dex-mr-reviewer` / `dex-mr-check-reviewer` - первичное ревью MR/PR и ре-ревью дельты
+- `dex-review-planner` - план правок по пришедшему ревью
 - `dex-skill-merge-conflict-resolution` - подтягивание базовой ветки и разбор конфликтов (`/resolve-conflicts`)
 
 ### Skills
