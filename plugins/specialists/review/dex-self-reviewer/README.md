@@ -16,7 +16,7 @@
 
 ## Skills
 
-Тематические skills грузятся по активным осям (solid, owasp-security, performance-review, testability, clean-architecture, ddd, microservices, nfr и др.): ось не задета diff'ом - её skill не грузится. Профильные по стеку - через реестр `dex-skill-stack-registry` (единый способ для всех языко-агностичных агентов). `dex-skill-no-loose-ends` (ядро фокуса loose-ends) поднимают изменённые код, конфиги, скрипты или CI. Дисциплина фаз: `dex-skill-review-evidence`, `dex-skill-git-workflow`, `dex-skill-output-hygiene`.
+Тематические skills грузятся по активным осям (solid, owasp-security, performance-review, testability, clean-architecture, ddd, microservices, nfr и др.): ось не задета diff'ом - её skill не грузится. Профильные по стеку - через реестр `dex-skill-stack-registry` (единый способ для всех языко-агностичных агентов). `dex-skill-no-loose-ends` (ядро фокуса loose-ends) поднимают изменённые код, конфиги, скрипты или CI. Дисциплина фаз: `dex-skill-review-evidence`, `dex-skill-output-hygiene`.
 
 ## Связанные плагины
 
