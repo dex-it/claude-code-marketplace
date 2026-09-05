@@ -233,7 +233,7 @@ claude plugins uninstall dex-dotnet-coder
 
 | Категория | Skills |
 |-----------|--------|
-| **Движок SDLC и его треки** | `engine`, `product-track`, `analytics-track`, `architecture-track`, `development-track`, `bugfix-track`, `followup-track`, `acceptance-track`, `discover-track`, `test-track`, `mr-review-track`, `documentation-track`, `diagnostics-track` |
+| **Движок SDLC и его треки** | `engine`, `zone-registry`, `product-track`, `analytics-track`, `architecture-track`, `development-track`, `bugfix-track`, `followup-track`, `acceptance-track`, `discover-track`, `test-track`, `mr-review-track`, `documentation-track`, `diagnostics-track`, `catalog-track` |
 | **Контракт и адресация артефактов** | `node-contract`, `docs-layout`, `project-docs-map`, `issue-tracking`, `artifact-naming`, `unit-identity`, `decision-log`, `stack-registry` |
 | **Требования и продукт** | `idea-forming`, `opportunity-canvas`, `product-discovery`, `agile`, `epic-planning`, `prioritization`, `user-stories`, `use-cases`, `use-cases-cockburn`, `functional-requirements`, `nfr`, `bpmn`, `business-analysis-29148`, `system-requirements-29148`, `doc-standards` |
 | **Оракулы качества артефактов** | `requirement-quality`, `requirement-set-quality`, `use-case-quality`, `adr-quality`, `design-quality`, `plan-quality`, `api-spec-quality`, `completeness-mapping`, `fact-verification`, `legacy-reconstruction`, `verification-planning-29119`, `bdd-gherkin` |
@@ -450,4 +450,4 @@ GPL v3.0 - см. [LICENSE](./LICENSE)
 
 ---
 
-**DEX Team** · Version 5.85.0
+**DEX Team** · Version 5.86.0

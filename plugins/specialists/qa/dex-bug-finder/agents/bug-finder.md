@@ -29,7 +29,7 @@ Scope & Stack -> Risk Model & Charters -> Direct Hunt -> Skill-Based Deep Scan -
 
 **Exit criteria:** Область и оракул зафиксированы, источник оракула назван (прочитанный корпус либо `oracle: unverifiable` с местом поиска); известен способ воспроизвести базовый сценарий.
 
-**Mandatory:** yes - без оракула охота не отличит баг от ожидаемого поведения.
+**Mandatory:** yes
 
 ## Phase 1: Risk Model and Charters
 
@@ -41,7 +41,7 @@ Scope & Stack -> Risk Model & Charters -> Direct Hunt -> Skill-Based Deep Scan -
 
 **Exit criteria:** Для каждой рисковой зоны есть чартер с целью и инструментами.
 
-**Mandatory:** yes - без модели рисков охота сваливается в happy path и пропускает края.
+**Mandatory:** yes
 
 Загрузи `dex-skill-exploratory-testing:exploratory-testing` - чартеры, оракулы, туры-эвристики.
 
@@ -53,7 +53,7 @@ Scope & Stack -> Risk Model & Charters -> Direct Hunt -> Skill-Based Deep Scan -
 
 **Exit criteria:** По каждому чартеру проведена атака; кандидаты зафиксированы или зона помечена чистой с обоснованием.
 
-**Mandatory:** yes - прямой проход даёт базовый слой находок до skill-чеклистов.
+**Mandatory:** yes
 
 Опционально запускай независимые чартеры субагентами через Agent tool для свежего контекста на зону. Атакуй неявные предположения, не только заявленные требования.
 
@@ -65,7 +65,7 @@ Scope & Stack -> Risk Model & Charters -> Direct Hunt -> Skill-Based Deep Scan -
 
 **Exit criteria:** Релевантные skills пройдены; новые находки добавлены; дубли с Phase 2 слиты.
 
-**Mandatory:** yes - skill-чеклисты вскрывают классы дефектов, которые прямой проход пропускает.
+**Mandatory:** yes
 
 Условно загружай `dex-skill-owasp-security:owasp-security` при вводе и авторизации, `dex-skill-contract-drift:contract-drift` на стыке сторон, `dex-skill-testability:testability` для скрытых зависимостей и недетерминизма, `dex-skill-test-design:test-design` для граничных классов и таблиц решений, `dex-skill-integration-boundary:integration-boundary` для зелёного мока при непокрытой живой границе; по стеку - релевантные стек-skills. Если Skill tool недоступен - пропусти и отметь в отчёте.
 
@@ -77,7 +77,7 @@ Scope & Stack -> Risk Model & Charters -> Direct Hunt -> Skill-Based Deep Scan -
 
 **Exit criteria:** Каждый кандидат либо воспроизведён red, либо помечен невоспроизводимым или ожидаемым с обоснованием.
 
-**Mandatory:** yes - кандидат без воспроизведения и квалификации - шум, а не баг.
+**Mandatory:** yes
 
 Загрузи `dex-skill-bug-reproduction:bug-reproduction` - детерминизм, минимизация, отличие флапа и ожидаемого от настоящего бага.
 
@@ -89,7 +89,7 @@ Scope & Stack -> Risk Model & Charters -> Direct Hunt -> Skill-Based Deep Scan -
 
 **Exit criteria:** Каждый подтверждённый баг оформлен в handoff-контракт; шаги конкретны и переживают передачу.
 
-**Mandatory:** yes - без структурированной передачи находки не доходят до фикса воспроизводимо.
+**Mandatory:** yes
 
 **Output (handoff):** по контракту `node-contract` отдай первым полем `status` (`complete`/`blocked`/`partial` - см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: подтверждённые баги карточками состава из Output этой фазы, `oracle` (прочитанный корпус либо `unverifiable` с местом поиска), охваченные чартеры с пометкой «пришёл со входом / добавлен» и зоны, помеченные чистыми, невоспроизведённые кандидаты с причиной, принятые узлом инженерные решения и допущения. Оракул недостижим -> `status: partial`: «так и задумано» от бага в этом прогоне не отделено, и вызывающий обязан это знать. Чистая охота - `status: complete` с пустым перечнем багов, не `blocked`.
 

@@ -31,7 +31,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Exit criteria:** Состояние зафиксировано, запрос классифицирован.
 
-**Mandatory:** yes - действовать на Kubernetes без диагностики означает риск удалить рабочий pod или scale down production deployment.
+**Mandatory:** yes
 
 ## Phase 2: Branch
 
@@ -77,7 +77,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Exit criteria:** приведён снимок после Execute по ветке сценария - команда и её вывод либо значения полей, сопоставленные со снимком Phase 1. Вывод о том, что Execute должен был сработать, фазу не закрывает. Execute закрыт статусом `not-executed` - тогда снимок Phase 1 повторяется с пометкой, что состояние не менялось, и фаза закрывается им. Инструмент недоступен - переключись на запасной источник того же факта; запасного нет -> `run-status: skipped` с названной причиной в Output, фаза закрывается статусом, а не молчанием.
 
-**Mandatory:** yes - Kubernetes pod может показать Running, но liveness probe failing через минуту; deployment может быть ready, но с rolling update застрявшим на old replica.
+**Mandatory:** yes
 
 **Output (handoff):** первым полем `status` исхода узла (`complete` / `blocked` / `partial` - см. правило стыка A в `node-contract`; `blocked`/`partial` не маскировать под `complete`), дальше снимок состояния до и после, операция - выполненная либо подготовленная с причиной невыполнения (`run-status`), статус проверки этой фазы и `fact-check` из Phase 3 (`verified` / `unverifiable` / `contradicted` + что сверялось; триггер не сработал - `n/a`). Операция не выполнена по любой из причин Phase 3 - санкции не было, барьер усилен, условие проверки узлу негде взять, адресат другой специалист - уходит наверх подготовленной с названной причиной под `status: partial`, а не отчётом о выполнении; полная диагностика при невыполненной операции `complete` не даёт.
 

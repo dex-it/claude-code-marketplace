@@ -74,7 +74,7 @@ Gather -> Design -> Create -> Validate. Validate обязательна -- pipel
 
 **Exit criteria:** `glab ci lint` вернул valid (либо `unverifiable` с причиной); граф `needs` предъявлен и ацикличен; по каждому пункту выше приведена цитата из файла или запись об отсутствии. «Готов к использованию» без этих выводов фазу не закрывает.
 
-**Mandatory:** yes -- GitLab CI pipeline без валидации может тихо не запускаться (wrong rules), пропускать jobs (broken needs chain), или иметь security holes (exposed variables in logs).
+**Mandatory:** yes
 
 **Output (handoff):** по контракту `node-contract` отдай первым полем `status` исхода узла (`complete`/`blocked`/`partial` - см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: путь записанного `.gitlab-ci.yml`, инженерные развилки, решённые самостоятельно по best-practice, с основанием каждой, развилки бизнес-природы - вопросом наверх нерешёнными, статус каждой проверки этой фазы (`glab ci lint`, граф `needs`, security-пункты; инструмент недоступен - `unverifiable` с причиной, не пропуск пункта) и `fact-check` синтаксиса из Phase 3 (`verified`/`unverifiable`/`contradicted` + что сверялось; триггер не сработал - `n/a`). Проверка не отработала, ключ остался неподтверждённым, развилка ушла наверх - это `partial` либо `blocked`, а не «готово к использованию». Коммит и push в состав выхода не входят: файл отдаётся готовым к коммиту, дальше им распоряжается вызывающий.
 

@@ -82,7 +82,6 @@ guard мёртв - падает `absent`, guard всегда истинен - п
 | `phase-missing-goal` | error | у фазы нет `**Goal:**` | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md) |
 | `phase-missing-exit` | error | у фазы нет `**Exit criteria:**` | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md) |
 | `phase-non-observable-exit` | error | exit criteria не наблюдаемы - выполнение фазы не проверяется | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md) |
-| `phase-mandatory-no-justification` | error | mandatory-фаза без обоснования «почему mandatory» | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md) |
 | `phase-procedural-body` | error | тело фазы - процедура (команды, код), а не контракт | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md) |
 | `glued-attribute-block` | error | атрибут фазы слипся с предыдущим блоком - markdown сливает их в абзац | [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md#self-check-перед-коммитом) |
 | `plugin-name-unknown` | error | голое имя `` `dex-...` `` в теле - плагина с таким именем в каталоге нет. Голое имя это указатель на соседа («этим ведает вон тот», «подробнее там»), а не загрузка: обязательства поставки оно не даёт и в замыкание бандла не входит - но указатель обязан вести в существующее место. Полную форму `skill-reference-unknown` сторожит только при префиксе `dex-skill-`, остальные полные формы не сторожит никто ([#220](https://github.com/dex-it/claude-code-marketplace/issues/220)); голая до сих пор гнила молча. Префикс-шаблон (`` `dex-skill-` ``) именем не считается | [plugin-changes.md](../.claude/rules/plugin-changes.md) |

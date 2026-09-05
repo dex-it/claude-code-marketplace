@@ -65,7 +65,7 @@ Gather -> Analyze -> Prioritize -> Present. Gather собирает страте
 
 **Exit criteria:** Top initiatives распределены по periods. Для каждого placement обоснование связано с goals из Phase 1; goals зафиксированы статусом «not defined» -> обоснование связано с доступным input. Trade-offs сформулированы как «принимаем X ценой Y».
 
-**Mandatory:** yes - roadmap без приоритизации это wishlist, не план.
+**Mandatory:** yes
 
 ## Phase 4: Present
 

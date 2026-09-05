@@ -7,16 +7,44 @@
 # ни одного скилла. Механизм отбора скиллов идёт за справкой о предмете, а режим работы им не
 # выбирается. Тот же прогон с этим хуком - движок поднимается, а на вопросе и мелкой правке нет.
 #
-# Почему текст инжекта не содержит реестра зон: дом реестра один - references/zone-registry.md
-# движка. Копия здесь разошлась бы с ним молча, а движок и так резолвит зону сам (шаг 1 цикла).
+# Почему инжект зовёт реестр зон, а не движок: отсечь внеконвейерный предмет нужно ДО загрузки
+# движка. Пока реестр жил справочником внутри движка, ответ «эта работа не наша» стоил полной
+# загрузки тела, и авторская правка артефактов каталога поднимала конвейер впустую. Реестр вчетверо
+# короче движка, поэтому цена ложного захода в него - та, которую отсечка и экономит.
+#
+# Почему перечня видов работ в инжекте больше нет: он переехал в реестр целиком - таблица зон и
+# есть перечень. Копия здесь расходилась бы с ней молча. Признак («довести до конца по названному
+# порядку, с проверкой на выходе») остаётся в инжекте: он решает, идти ли в реестр вообще.
 #
 # Почему фильтра по словам нет: условие неприменимости несёт сам текст, и модель его соблюдает
 # (замер: «поправь опечатку», «какой у нас стек» - конвейер не поднят). Регулярка по глаголам
 # давала бы ложные срабатывания там, где модель отсекает верно.
 #
-# Почему перечень работ идёт после признака, а не вместо него: вид работы, которого в перечне нет,
-# оставался без ветки решения. Признак («довести до конца по названному порядку, с проверкой на
-# выходе») решает, перечень держит узнаваемость формулировок, терминал закрывает остаток.
+# Почему инжект отправляет мысль, вынесенную на суждение, туда же, куда рабочую просьбу: развилка
+# «зона / норматив идеи / вне конвейера» живёт в реестре одним домом. Держать её и здесь значило бы
+# вести две редакции одного решения в носителях, которые правятся порознь.
+#
+# Почему в инжекте стоит императив «before any creative work»: этой формулировкой сосед из
+# официального маркетплейса (`superpowers:brainstorming`) забирает вход на создание фичи, компонента
+# и изменение поведения, и замер каталога показал, что своим полем активации это не отбивается.
+# Инжект - детерминированный канал, он приходит раньше отбора скиллов, поэтому тот же слот занят
+# здесь и уводится в реестр. Слот именно маршрутный: реестр называет исход, а работу дальше делает
+# тот скилл, которого исход назовёт, - чужой скилл этим не отменяется.
+#
+# Почему хук вообще берёт на себя идею: `idea-forming` - класс 3 базы прогонов активации
+# (аналитический скилл без якоря-технологии: поле не поднимает его ни на одной формулировке,
+# дописывание аспектов молчание не снимает), сам скилл предписывает императивный вызов, а
+# `superpowers:brainstorming` перехватывает тот же предмет своим «You MUST use this before any
+# creative work». Отдельный UserPromptSubmit-хук отклонён: второй инжект в каждом промпте.
+#
+# Почему инжект больше не предписывает подъём движка: реестр сам называет исход, и на двух из трёх
+# его ветвей движок не поднимается вовсе. Прежняя формулировка обязывала звать движок ещё до того,
+# как исход известен.
+#
+# Почему терминал перевёрнут («строки нет - не поднимай») против прежнего «зови движок всё равно»:
+# прежняя форма делала конвейерной любую работу, включая ту, для которой зоны не существует, и
+# движок поднимался на предмете, которого не ведёт. Ветку «зона есть, а трека нет в установке»
+# несёт реестр отдельно - она разрешается иначе (движок поднимается, трек не подменяется).
 #
 # Почему продолжение начатой работы оговорено внутри отрицательной ветки, а не пунктом в перечне:
 # «что дальше по задаче» - вопрос по форме, и замер 31.08.2026 показал уход в отрицательную ветку
@@ -39,5 +67,5 @@ set -uo pipefail
 cat >/dev/null
 
 cat <<'JSON'
-{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"Pipeline work: carried to completion on your own, in a named order, verified at the end - implementation, bug fix, tests, MR review, review follow-up, stand acceptance, failure diagnosis, requirements, design, documentation, code overview. On such a request call Skill dex-sdlc:engine before acting on it; it resolves zone and track itself, do not name them in the call. Questions, explanations, discussion, and edits needing neither build nor review are not pipeline work - continue normally; an ask to carry on, or what is next, on work already started is pipeline work - the engine picks it up from its ledger. Looks like work but the kind is unlisted - call the engine anyway."}}
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"Pipeline work - carried to completion on your own, in a named order, verified at the end - and a thought put up for judgement rather than ordered as work (any language: let's discuss this, I have an idea, critique this): call Skill dex-skill-zone-registry:zone-registry first and follow its outcome. You MUST route through it before any creative work - creating a feature, building a component, adding functionality, modifying behavior - whichever other skill claims that slot: it routes, it does not replace the doer. Do not load the engine yourself, that is the registry's call. A plain question or explanation goes to neither. Carry on, or what is next, on started work skips the registry: call Skill dex-sdlc:engine, it takes the track from its ledger."}}
 JSON

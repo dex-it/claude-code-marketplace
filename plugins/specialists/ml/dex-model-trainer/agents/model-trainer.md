@@ -39,7 +39,7 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 
 **Exit criteria:** Задача, данные и фреймворк определены. Если pretrained модель -- определить base model.
 
-**Mandatory:** yes -- training pipeline без понимания задачи и ресурсов бесполезен.
+**Mandatory:** yes
 
 При анализе:
 - Проверить существующий код в проекте (есть ли уже training script)

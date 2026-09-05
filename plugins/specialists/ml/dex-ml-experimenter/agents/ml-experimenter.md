@@ -25,7 +25,7 @@ Context -> Direct Analysis -> Skill-Based Deep Scan -> Report. Context обяз�
 
 **Exit criteria:** Данные загружены или путь к ним известен, задача (classification/regression/clustering/ranking) определена.
 
-**Mandatory:** yes -- без понимания данных анализ бессмыслен.
+**Mandatory:** yes
 
 При определении контекста:
 - Прочитать файл данных или его описание

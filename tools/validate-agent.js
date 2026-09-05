@@ -693,18 +693,6 @@ function validatePhases(markdownBody, findings, bodyOffset = 0) {
       }
     }
 
-    const mandatoryMatch = body.match(/mandatory:\s*yes([^\n]*)/i);
-    if (mandatoryMatch) {
-      const afterYes = (mandatoryMatch[1] || '').trim();
-      if (afterYes.length < 10) {
-        findings.push({
-          level: ERROR,
-          rule: 'phase-mandatory-no-justification',
-          message: `Phase "${phase.title}" (line ${phase.startLine}) declares **Mandatory:** yes without justification - framework requires explaining "why mandatory"`,
-        });
-      }
-    }
-
     let maxListLen = 0;
     for (const node of phase.nodes) {
       if (node.type === 'list' && node.ordered === true) {

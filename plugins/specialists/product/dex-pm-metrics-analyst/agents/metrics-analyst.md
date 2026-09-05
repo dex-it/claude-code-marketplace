@@ -49,7 +49,7 @@ Context? -> Direct Analysis -> Skill-Based Deep Scan -> Report.
 
 **Exit criteria:** Каждый insight подкреплён конкретными данными (числа, %). Correlation vs causation явно разделены. Есть actionable recommendations, а не только наблюдения.
 
-**Mandatory:** yes - без анализа данных агент не выполняет свою задачу.
+**Mandatory:** yes
 
 ## Phase 3: Skill-Based Deep Scan
 
