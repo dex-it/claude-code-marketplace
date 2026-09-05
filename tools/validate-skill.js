@@ -178,10 +178,12 @@ const PROCESS_SKILLS = new Set([
   'bdd-gherkin',
   'opportunity-canvas',
   'engine',
+  'zone-registry',
   'analytics-track',
   'product-track',
   'development-track',
   'architecture-track',
+  'catalog-track',
   'bugfix-track',
   'followup-track',
   'acceptance-track',
@@ -202,6 +204,7 @@ function isProcessSkill(parsed) {
 // process-skill спавнить агентов не положено. Ручной allowlist, как PROCESS_SKILLS.
 const ORCHESTRATOR_SKILLS = new Set([
   'engine',
+  'catalog-track',
   'analytics-track',
   'product-track',
   'development-track',
