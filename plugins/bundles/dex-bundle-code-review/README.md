@@ -2,7 +2,7 @@
 
 Bundle для полного цикла работы с кодом, языко-агностично: реализация фичи по ТЗ, интеграция базовой ветки с разрешением конфликтов merge/rebase, pre-push саморевью, ревью чужого MR/PR, итеративное ре-ревью дельты, план правок по ревью. Плюс skills дисциплины ревью и реализации.
 
-Цикл замыкается так: `/implement` через `dex-sdlc` и `dex-skill-development-track` (реализация до локальных коммитов, баг-фикс - под-вид `dex-skill-bugfix-track`, делегирует root cause `dex-debugger`) -> `dex-conflict-resolver` (подтянуть базу и развести конфликты merge/rebase) -> `dex-self-reviewer` (саморевью перед push) -> push и открытие MR -> `dex-mr-reviewer` (ревью на стороне ревьюера) -> автор правит -> `dex-mr-check-reviewer` (ре-ревью дельты) и `dex-review-planner` (план правок на стороне автора).
+Цикл замыкается так: `/implement` через `dex-sdlc` и `dex-skill-development-track` (реализация до локальных коммитов, баг-фикс - под-вид `dex-skill-bugfix-track`, делегирует root cause `dex-debugger`) -> `/resolve-conflicts` (подтянуть базу и развести конфликты merge/rebase) -> `dex-self-reviewer` (саморевью перед push) -> push и открытие MR -> `dex-mr-reviewer` (ревью на стороне ревьюера) -> автор правит -> `dex-mr-check-reviewer` (ре-ревью дельты) и `dex-review-planner` (план правок на стороне автора).
 
 ## Installation
 
@@ -47,7 +47,6 @@ Bundle для полного цикла работы с кодом, языко-�
 - `dex-mr-check-reviewer` - итеративное ре-ревью дельты с прошлой ревизии (вторая ревизия `/mr-review`, не своя команда)
 - `dex-review-planner` - план правок по ревью без редактирования кода (`/review-plan`, движок `dex-sdlc`)
 - `dex-self-reviewer` - pre-push саморевью своей ветки с реальным прогоном тестов (`/self-review`)
-- `dex-conflict-resolver` - подтянуть базу в фича-ветку и развести конфликты merge/rebase без тихой потери стороны (`/resolve-conflicts`)
 - `dex-debugger` - root cause по коду, вызывается `bugfix-track` при баг-фиксе через `/implement`
 
 ### Skills, новые в этом bundle

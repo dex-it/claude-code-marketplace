@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "5.86.0",
+  "version": "5.87.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -178,7 +178,7 @@
       "name": "dex-bundle-bug-lifecycle",
       "source": "./plugins/bundles/dex-bundle-bug-lifecycle",
       "description": "Bundle жизненного цикла бага: активный поиск, оформление, расследование корневой причины на общем стенде и фикс на источнике, плюс skills методологии RCA и поиска багов и CLI для чтения стенда и трекера.",
-      "version": "1.22.0",
+      "version": "1.23.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -207,7 +207,7 @@
       "name": "dex-bundle-code-review",
       "source": "./plugins/bundles/dex-bundle-code-review",
       "description": "Бандл жизненного цикла кода: языко-агностичное ревью MR/PR, повторное ревью после правок, план правок, реализация фичи, подтягивание базовой ветки с разрешением конфликтов, саморевью перед push, приёмка слитой фичи на стенде с ремедиацией, расследование инцидента, плюс скиллы дисциплины ревью.",
-      "version": "1.31.0",
+      "version": "1.32.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -235,7 +235,7 @@
       "name": "dex-bundle-dotnet-developer",
       "source": "./plugins/bundles/dex-bundle-dotnet-developer",
       "description": "Бандл для .NET-разработчика: написание кода, отладка, тесты, code review, EF Core, производительность, интерактивный дизайн .NET-архитектуры.",
-      "version": "2.26.0",
+      "version": "2.27.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -247,7 +247,7 @@
       "name": "dex-bundle-dotnet-fullstack",
       "source": "./plugins/bundles/dex-bundle-dotnet-fullstack",
       "description": "Полный бандл для .NET fullstack: разработка, базы данных, брокеры сообщений, контейнеры, CI/CD, мониторинг, интерактивный дизайн архитектуры.",
-      "version": "2.27.0",
+      "version": "2.28.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -343,7 +343,7 @@
       "name": "dex-bundle-sdlc",
       "source": "./plugins/bundles/dex-bundle-sdlc",
       "description": "Bundle полного цикла SDLC, языко-агностично: движок автономного доведения задачи, порождение и ревью требований, архитектурный дизайн и ADR, реализация фичи, тест-инжиниринг, ревью MR и разбор замечаний, приёмка на стенде, поиск багов и расследование инцидентов, документирование, плюс skills дисциплины и CLI трекера, MR-хостинга, CI и стенда.",
-      "version": "1.21.0",
+      "version": "1.22.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -372,7 +372,7 @@
       "name": "dex-bundle-ts-fullstack",
       "source": "./plugins/bundles/dex-bundle-ts-fullstack",
       "description": "Бандл для TypeScript fullstack: бэкенд на Node.js/Bun и фронтенд на React, безопасность, Docker, E2E на Playwright.",
-      "version": "1.24.0",
+      "version": "1.25.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -481,22 +481,6 @@
       ]
     },
     {
-      "name": "dex-conflict-resolver",
-      "source": "./plugins/specialists/delivery/dex-conflict-resolver",
-      "description": "Подтягивание базовой ветки в фича-ветку и разрешение конфликтов merge/rebase без тихой потери стороны: превью без записи, карта по типам, охота за тихими конфликтами, сведение обоих намерений, фальсификация и финал без push.",
-      "version": "1.5.1",
-      "category": "specialist",
-      "keywords": [
-        "specialist",
-        "merge",
-        "rebase",
-        "conflict-resolution",
-        "integration",
-        "git",
-        "operator"
-      ]
-    },
-    {
       "name": "dex-data-pipeline",
       "source": "./plugins/specialists/ml/dex-data-pipeline",
       "description": "Пайплайны данных для ML: загрузка и предобработка, оптимизация DataLoader, схема данных.",
@@ -513,7 +497,7 @@
       "name": "dex-debugger",
       "source": "./plugins/specialists/delivery/dex-debugger",
       "description": "Языко-агностичный узел root-cause debugger: воспроизведение, изоляция, первопричина, red-green тест, фальсификация гипотез. Частные skills грузятся условно по стеку. Вызывается треком diagnostics-track (команда /root-cause в dex-sdlc), не своим командным входом.",
-      "version": "3.1.1",
+      "version": "3.1.2",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1372,7 +1356,7 @@
       "name": "dex-sdlc-review",
       "source": "./plugins/ai-sdlc/dex-sdlc-review",
       "description": "Команды зоны ревью AI-SDLC-конвейера: /mr-review (первичное ревью чужого MR/PR с инлайн-тредами), /review-plan (план правок по пришедшему ревью - классификация замечаний, верификация чтением кода, ответы в треды). Движок и универсальный цикл - в dex-sdlc, порядок работ зоны - в треках dex-skill-mr-review-track и dex-skill-followup-track.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "category": "utility",
       "keywords": [
         "commands",
@@ -1931,7 +1915,7 @@
       "name": "dex-skill-development-track",
       "source": "./plugins/ai-sdlc/dex-skill-development-track",
       "description": "Трек зоны SDLC (реализация) движка dex-sdlc - ТЗ или тикет без спеки -> декомпозиция R/I -> инвентаризация архитектуры -> дизайн с гейтом первоисточника -> edit-план -> TDD-цикл оформляй/делай/стоп -> coverage-гейт -> локальные коммиты без push. Активируется при: реализуй фичу, implement feature, написать код по задаче, разработать функционал, по ТЗ, TDD, покрытие тестами, edit-план, рефакторинг, баг-фикс.",
-      "version": "1.10.0",
+      "version": "1.11.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2303,7 +2287,7 @@
       "name": "dex-skill-followup-track",
       "source": "./plugins/ai-sdlc/dex-skill-followup-track",
       "description": "Трек обработки ревью своего MR движка dex-sdlc - разбор замечаний, план правок P0..P3, ре-ревью дельты, потолок 5 ревизий. Активируется при: обработать ревью, разбор замечаний, ответить ревьюеру, закрыть треды ревью, ре-ревью дельты, follow-up review, замечания на мой MR, довести MR до мерджа, range-diff, LAST_REVIEW_SHA.",
-      "version": "1.5.0",
+      "version": "1.6.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2529,8 +2513,8 @@
     {
       "name": "dex-skill-merge-conflict-resolution",
       "source": "./plugins/skills/dex-skill-merge-conflict-resolution",
-      "description": "Разрешение конфликтов merge/rebase без тихой потери стороны: семантические конфликты, ours/theirs в rebase, modify/delete как переезд, lock-файлы, миграции, evil merge.",
-      "version": "1.0.0",
+      "description": "Протокол подтягивания базовой ветки и разрешения конфликтов merge/rebase без тихой потери стороны: якоря и точка отката, превью без записи, семантические конфликты без маркеров, ours/theirs в rebase, переезды, генерируемое, верификация обеих дельт. Команда /resolve-conflicts.",
+      "version": "2.0.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2886,7 +2870,7 @@
       "name": "dex-skill-project-docs-map",
       "source": "./plugins/ai-sdlc/dex-skill-project-docs-map",
       "description": "Карта документации проекта - где лежат требования, BRD, ADR, спеки, корпус уровня 0 и счётчики номеров; файл путей .docs_layout (ключи product, domain, root, adr, specs, counter), поиск и запись при его отсутствии, статус при недостижимом корпусе",
-      "version": "2.4.0",
+      "version": "2.5.0",
       "category": "skill",
       "keywords": [
         "skill",

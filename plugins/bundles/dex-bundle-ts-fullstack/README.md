@@ -42,7 +42,7 @@ Bundle для TypeScript fullstack: разработка Node/React, тесты,
 - `dex-code-discovery` - обзорное ревью существующего кода
 - `dex-security-reviewer` - модель угроз и attack-path
 - `dex-adr-writer` - фиксация архитектурных решений в ADR
-- `dex-conflict-resolver` - подтягивание базовой ветки и разбор конфликтов
+- `dex-skill-merge-conflict-resolution` - подтягивание базовой ветки и разбор конфликтов (`/resolve-conflicts`)
 
 ### Skills
 - `dex-skill-ts-patterns` - идиомы TypeScript

@@ -112,7 +112,6 @@ claude plugins uninstall dex-dotnet-coder
 | Плагин | Агент | Команда | Описание |
 |--------|-------|---------|----------|
 | dex-bug-fixer | bug-fixer | - | Пакетная ремедиация багов после мерджа: триаж, подтверждение причины, фикс на источнике, follow-up MR |
-| dex-conflict-resolver | conflict-resolver | `/resolve-conflicts` | Подтянуть базу в фича-ветку и развести конфликты merge/rebase без тихой потери стороны |
 | dex-debugger | debugger | - | Языко-агностичный root-cause debugger: воспроизведение, изоляция, red-green тест, фальсификация гипотез |
 | dex-incident-investigator | incident-investigator | `/investigate` (плагин `dex-sdlc-ops`) | Расследование инцидента на общем стенде, RCA и фикс на источнике, read-only по умолчанию |
 | dex-review-planner | review-planner | `/review-plan` (плагин `dex-sdlc-review`) | План правок по ревью без редактирования кода |
@@ -204,7 +203,7 @@ claude plugins uninstall dex-dotnet-coder
 | dex-self-reviewer | self-reviewer | `/self-review` | Pre-push саморевью своей ветки с прогоном тестов |
 | dex-stand-reviewer | stand-reviewer | - | Приёмка слитой фичи на развёрнутом стенде против ТЗ, read-only |
 
-Команды зон движка (`/mr-review`, `/review-plan`, `/implement`, `/test` и прочие) живут в плагинах `dex-sdlc-<зона>`, а не в плагине специалиста: специалист несёт агента, движок `dex-sdlc` ставится вместе с любой зоной. См. «AI-SDLC» ниже. Собственные команды остаются у `/self-review`, `/resolve-conflicts` и прочих, помеченных в колонке. Стек кодера (агент, не skills) добирается профильным бандлом (`dotnet-developer` / `ts-fullstack`); skills по стеку грузятся условно.
+Команды зон движка (`/mr-review`, `/review-plan`, `/implement`, `/test` и прочие) живут в плагинах `dex-sdlc-<зона>`, а не в плагине специалиста: специалист несёт агента, движок `dex-sdlc` ставится вместе с любой зоной. См. «AI-SDLC» ниже. Собственные команды остаются у `/self-review` и прочих, помеченных в колонке; `/resolve-conflicts` живёт в плагине скилла `merge-conflict-resolution` - агента у неё нет. Стек кодера (агент, не skills) добирается профильным бандлом (`dotnet-developer` / `ts-fullstack`); skills по стеку грузятся условно.
 
 
 ## AI-SDLC: движок и зоны
@@ -450,4 +449,4 @@ GPL v3.0 - см. [LICENSE](./LICENSE)
 
 ---
 
-**DEX Team** · Version 5.86.0
+**DEX Team** · Version 5.87.0
