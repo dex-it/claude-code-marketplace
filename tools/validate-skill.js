@@ -194,6 +194,7 @@ const PROCESS_SKILLS = new Set([
   'idea-forming',
   'project-rulebook',
   'rulebook-track',
+  'defect-classification',
 ]);
 
 function isProcessSkill(parsed) {

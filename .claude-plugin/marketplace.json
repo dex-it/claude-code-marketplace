@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "5.91.0",
+  "version": "5.92.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -207,7 +207,7 @@
       "name": "dex-bundle-code-review",
       "source": "./plugins/bundles/dex-bundle-code-review",
       "description": "Бандл жизненного цикла кода: языко-агностичное ревью MR/PR, повторное ревью после правок, план правок, реализация фичи, подтягивание базовой ветки с разрешением конфликтов, саморевью перед push, приёмка слитой фичи на стенде с ремедиацией, расследование инцидента, свод правил проекта из истории ревью, плюс скиллы дисциплины ревью.",
-      "version": "1.31.0",
+      "version": "1.32.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -235,7 +235,7 @@
       "name": "dex-bundle-dotnet-developer",
       "source": "./plugins/bundles/dex-bundle-dotnet-developer",
       "description": "Бандл для .NET-разработчика: написание кода, отладка, тесты, code review, EF Core, производительность, интерактивный дизайн .NET-архитектуры.",
-      "version": "2.25.0",
+      "version": "2.26.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -247,7 +247,7 @@
       "name": "dex-bundle-dotnet-fullstack",
       "source": "./plugins/bundles/dex-bundle-dotnet-fullstack",
       "description": "Полный бандл для .NET fullstack: разработка, базы данных, брокеры сообщений, контейнеры, CI/CD, мониторинг, интерактивный дизайн архитектуры.",
-      "version": "2.26.0",
+      "version": "2.27.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -343,7 +343,7 @@
       "name": "dex-bundle-sdlc",
       "source": "./plugins/bundles/dex-bundle-sdlc",
       "description": "Bundle полного цикла SDLC, языко-агностично: движок автономного доведения задачи, порождение и ревью требований, архитектурный дизайн и ADR, реализация фичи, тест-инжиниринг, ревью MR и разбор замечаний, приёмка на стенде, поиск багов и расследование инцидентов, документирование, свод правил проекта из истории ревью, плюс skills дисциплины и CLI трекера, MR-хостинга, CI и стенда.",
-      "version": "1.21.0",
+      "version": "1.22.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -988,7 +988,7 @@
       "name": "dex-mr-reviewer",
       "source": "./plugins/specialists/review/dex-mr-reviewer",
       "description": "Языко-агностичный узел первичного ревью чужого MR/PR: карта изменений, параллельные фокусы, фальсификация находок, severity/confidence/scope, доставка инлайн-тредами через gh/glab. Вызывается треком mr-review-track (команда /mr-review в dex-sdlc), не своим командным входом.",
-      "version": "2.2.1",
+      "version": "2.3.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1387,7 +1387,7 @@
       "name": "dex-sdlc-review",
       "source": "./plugins/ai-sdlc/dex-sdlc-review",
       "description": "Команды зоны ревью AI-SDLC-конвейера: /mr-review (первичное ревью чужого MR/PR с инлайн-тредами), /review-plan (план правок по пришедшему ревью - классификация замечаний, верификация чтением кода, ответы в треды). Движок и универсальный цикл - в dex-sdlc, порядок работ зоны - в треках dex-skill-mr-review-track и dex-skill-followup-track.",
-      "version": "1.0.1",
+      "version": "1.1.0",
       "category": "utility",
       "keywords": [
         "commands",
@@ -1402,7 +1402,7 @@
       "name": "dex-sdlc-rulebook",
       "source": "./plugins/ai-sdlc/dex-sdlc-rulebook",
       "description": "Команда зоны свода правил AI-SDLC-конвейера: /rulebook (что принято в этом репозитории - правила ревью и конвенции, выведенные из истории правок, с якорем на источник у каждого). Движок и порядок работ зоны живут в своих плагинах.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "category": "utility",
       "keywords": [
         "utility",
@@ -1822,7 +1822,7 @@
       "name": "dex-skill-codebase-conventions",
       "source": "./plugins/skills/dex-skill-codebase-conventions",
       "description": "Конвенции проекта против технического решения: что копировать у соседних классов (форма, нейминг, размещение, интеграция) и где решает ADR, а не код рядом.",
-      "version": "1.10.0",
+      "version": "1.11.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -1924,6 +1924,21 @@
         "concurrency",
         "security",
         "deep-audit"
+      ]
+    },
+    {
+      "name": "dex-skill-defect-classification",
+      "source": "./plugins/skills/dex-skill-defect-classification",
+      "description": "Классификация находки ревью по каталогу типов дефектов - гейт разметки, единица разметки тред, закрытая схема типов на характеристиках качества продукта, независимость типа от критичности, каталог проекта по адресу вместо встроенного, выход разметки",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "defect-classification",
+        "code-review",
+        "taxonomy",
+        "severity",
+        "iso25010"
       ]
     },
     {
@@ -2586,7 +2601,7 @@
       "name": "dex-skill-mr-review-track",
       "source": "./plugins/ai-sdlc/dex-skill-mr-review-track",
       "description": "Трек ревью входящего MR движка dex-sdlc - read-only, находки с severity, фальсификация каждой против кода, покрытие тестами отдельным фокусом. Активируется при: ревью входящего MR, review incoming PR, проверь чужой pull request, code review, инлайн- находки, ре-ревью дельты, фокус покрытия тестами, тред-вопрос автору, severity находки, фальсификация находки, комментарии к diff.",
-      "version": "1.4.1",
+      "version": "1.5.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2654,7 +2669,7 @@
       "name": "dex-skill-node-contract",
       "source": "./plugins/ai-sdlc/dex-skill-node-contract",
       "description": "Рантайм-контракт агента-узла - режим interactive/autonomous, реакция на неполный вход (blocking/default-ok), возврат наверх, словарь полей handoff, метка quality-checks и её носитель, транспорт артефакта, выбор канала хостинга (native/CLI), graceful degradation при недоступности skill",
-      "version": "7.21.0",
+      "version": "7.22.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2915,7 +2930,7 @@
       "name": "dex-skill-project-rulebook",
       "source": "./plugins/skills/dex-skill-project-rulebook",
       "description": "Норматив жанра свод правил проекта - состав свода, атрибуты единицы RUL, таксон вместо свободного тега, реестр источников с исходом на каждый, критерий покрытия правила проверкой, норма без изменчивых адресов, статусы и вытеснение, вход и выход этапа",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -3221,7 +3236,7 @@
       "name": "dex-skill-rulebook-track",
       "source": "./plugins/ai-sdlc/dex-skill-rulebook-track",
       "description": "Трек зоны свода правил проекта движка dex-sdlc - приёмка входа, санкции на запись и приёмку, диспетчинг узла добычи, вердикт по своду, круг разметки владельца и доработка свода по его замечаниям. Свода трек не пишет: написав его, он потерял бы право судить.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "category": "skill",
       "keywords": [
         "skill",

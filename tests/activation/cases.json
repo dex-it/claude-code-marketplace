@@ -813,6 +813,16 @@
     "prompt": "Посмотри проект вширь и собери, что в нём не так."
   },
   {
+    "id": "engine-rulebook-in",
+    "mode": "in-scope",
+    "expect": "dex-sdlc:engine",
+    "plugins": [
+      "dex-sdlc-nudge"
+    ],
+    "git": true,
+    "prompt": "Собери свод правил, за которые у нас возвращают MR, и положи в документацию репозитория."
+  },
+  {
     "id": "engine-continue-in",
     "mode": "in-scope",
     "expect": "dex-sdlc:engine",
@@ -890,6 +900,15 @@
     "id": "rulebook-track-in",
     "mode": "in-scope",
     "expect": "dex-skill-rulebook-track:rulebook-track",
+    "plugins": [
+      "dex-sdlc-nudge",
+      "dex-sdlc"
+    ],
+    "git": true,
+    "maxTurns": 4,
+    "requiresListed": [
+      "dex-sdlc:engine"
+    ],
     "prompt": "Собери по нашему репозиторию свод того, что у нас принято на ревью: пройди слитые MR за полгода, вытащи из тредов правила и положи их в документацию проекта."
   },
   {
@@ -1005,5 +1024,35 @@
       "dex-skill-followup-track"
     ],
     "prompt": "Ревьюер оставил семь замечаний на мой MR с хендлером экспорта. Разбери их, поправь код, ответь в треды и подготовь MR к мерджу."
+  },
+  {
+    "id": "defect-classification-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-defect-classification:defect-classification",
+    "prompt": "Размечай находки ревью по нашему каталогу типов дефектов: каждой проставь тип и уровень. Как выбрать тип, когда замечание и про лишний код, и про слой?"
+  },
+  {
+    "id": "defect-classification-near-rulebook",
+    "mode": "near-miss",
+    "expect": "dex-skill-defect-classification:defect-classification",
+    "plugins": [
+      "dex-skill-project-rulebook"
+    ],
+    "requiresListed": [
+      "dex-skill-project-rulebook:project-rulebook"
+    ],
+    "prompt": "Какой таксон поставить правилу свода про порядок параметров в публичной сигнатуре и обязательна ли версия схемы?"
+  },
+  {
+    "id": "defect-classification-near-review",
+    "mode": "near-miss",
+    "expect": "dex-skill-defect-classification:defect-classification",
+    "plugins": [
+      "dex-skill-mr-review-track"
+    ],
+    "requiresListed": [
+      "dex-skill-mr-review-track:mr-review-track"
+    ],
+    "prompt": "Отревьюй входящий MR: найди проблемы, проверь покрытие тестами и опубликуй находки тредами."
   }
 ]
