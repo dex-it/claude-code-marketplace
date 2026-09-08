@@ -127,21 +127,87 @@ Current entries:
 |---|---|---|
 | `dex-skill-dotnet-project-baseline` | `dex-skill-project-baseline` | stack-neutral successor, same skill name inside the plugin changed from `dotnet-project-baseline` to `project-baseline` |
 
+### Catalogue 6.0.0: the SDLC engine is gone
+
+`6.0.0` drops the engine, its zone-command plugins and its track skills - 27 entries. The commands
+survive under the same slash names inside the plugin of the specialist they delegate to, so **an
+installed old plugin keeps shipping a same-named command whose body still calls the deleted engine**
+(`dex-sdlc:engine`). Which of the two wins is not defined. Uninstall the old plugins **before**
+re-running `install-bundle.sh`:
+
+```bash
+for p in dex-bundle-sdlc dex-sdlc dex-sdlc-acceptance dex-sdlc-delivery dex-sdlc-design \
+         dex-sdlc-discover dex-sdlc-docs dex-sdlc-nudge dex-sdlc-ops dex-sdlc-product \
+         dex-sdlc-requirements dex-sdlc-resume dex-sdlc-review dex-sdlc-test \
+         dex-conflict-resolver dex-skill-acceptance-track dex-skill-analytics-track \
+         dex-skill-architecture-track dex-skill-bugfix-track dex-skill-development-track \
+         dex-skill-diagnostics-track dex-skill-discover-track dex-skill-documentation-track \
+         dex-skill-followup-track dex-skill-mr-review-track dex-skill-product-track \
+         dex-skill-test-track; do
+  claude plugins uninstall "$p"
+done
+```
+
+`./uninstall-bundle.sh sdlc` no longer works: the uninstaller resolves the component list from
+`plugins/bundles/dex-bundle-<name>/bundle.json` in this clone, and that directory is gone. The loop
+above is the replacement for anyone who had the bundle installed.
+
+The engine also left state behind. `auto-ledger/<TASK>.md` files under the Claude Code config
+directory were written by the engine and read by the `dex-sdlc-resume` hook; with both removed
+nothing reads or cleans them, and the directory can be deleted.
+
+| Removed | Replacement | Notes |
+|---|---|---|
+| `dex-bundle-sdlc` | none | profile components redistributed across the role bundles; there is no single successor bundle |
+| `dex-sdlc` | none | the engine itself (skill `engine`, `auto-ledger`, resume cycle) |
+| `dex-sdlc-product` | `dex-business-analyst` | carries `/product` |
+| `dex-sdlc-requirements` | `dex-business-analyst`, `dex-requirements-reviewer` | `/feature` and `/feature-check` respectively |
+| `dex-sdlc-design` | `dex-architect` | carries `/design` |
+| `dex-sdlc-discover` | `dex-code-discovery` | carries `/discover` |
+| `dex-sdlc-delivery` | `dex-implement` | carries `/implement`; stack-agnostic, picks the coder from the repo manifest |
+| `dex-sdlc-test` | `dex-bug-finder`, `dex-test` | `/find-bugs` and `/test` respectively |
+| `dex-sdlc-review` | `dex-mr-reviewer`, `dex-review-planner` | `/mr-review` and `/review-plan` respectively |
+| `dex-sdlc-acceptance` | `dex-stand-reviewer` | carries `/review-stand` |
+| `dex-sdlc-ops` | `dex-incident-investigator`, `dex-debugger` | `/investigate` and `/root-cause` respectively |
+| `dex-sdlc-docs` | `dex-doc-writer` | carries `/documentation` |
+| `dex-sdlc-nudge` | none | hook that raised the engine on a work request; the entry point is now the slash command |
+| `dex-sdlc-resume` | none | hook that reminded to resume after a context compaction |
+| `dex-conflict-resolver` | `dex-skill-merge-conflict-resolution` | the node was dissolved into a skill protocol; `/resolve-conflicts` moved with it |
+| `dex-skill-acceptance-track` | none | zone order absorbed by `/review-stand` |
+| `dex-skill-analytics-track` | none | zone order absorbed by `/feature` |
+| `dex-skill-architecture-track` | none | zone order absorbed by `/design` |
+| `dex-skill-bugfix-track` | none | zone order absorbed by `/implement` |
+| `dex-skill-development-track` | none | zone order absorbed by `/implement` |
+| `dex-skill-diagnostics-track` | none | zone order absorbed by `/investigate` and `/root-cause` |
+| `dex-skill-discover-track` | none | zone order absorbed by `/discover` |
+| `dex-skill-documentation-track` | none | zone order absorbed by `/documentation` |
+| `dex-skill-followup-track` | none | zone order absorbed by `/review-plan` |
+| `dex-skill-mr-review-track` | none | zone order absorbed by `/mr-review` |
+| `dex-skill-product-track` | none | zone order absorbed by `/product` |
+| `dex-skill-test-track` | none | zone order absorbed by `/test` |
+
 ## Available Bundles
 
-| Bundle | Description | Components |
-|--------|-------------|------------|
-| `dotnet-developer` | .NET Developer bundle | 12 |
-| `dotnet-fullstack` | .NET Fullstack bundle | 29 |
-| `devops` | DevOps Engineer bundle | 11 |
-| `product-manager` | Product Manager bundle | 9 |
-| `system-analyst` | System Analyst bundle | 9 |
-| `architect` | Software Architect bundle | 9 |
-| `qa-engineer` | QA Engineer bundle | 6 |
-| `ml-engineer` | ML Engineer bundle | 11 |
-| `infrastructure` | Infrastructure bundle | 37 |
-| `cli-tools` | CLI utilities for diagnostics (gh, glab, kubectl, jenkins, teamcity, psql, redis-cli, kaf, rabbitmqadmin, aws-s3) | 10 |
-| `runtime-diagnostics` | Runtime-диагностика .NET и native: специалист, skills managed/native/perf/tracing/dumps/binary, netcoredbg CLI | 13 |
+Component counts are not listed here: they change with every composition edit and a stale number
+here reads as a promise. `./install-bundle.sh --list` prints the live count next to each bundle.
+
+| Bundle | Description |
+|--------|-------------|
+| `architect` | Software Architect: system design, ADR, diagrams, API design, codebase analysis, security, observability |
+| `bug-lifecycle` | Bug lifecycle: active hunting, reporting, root-cause investigation on a shared stand, fix at the source |
+| `cli-tools` | CLI wrappers for diagnostics (gh, glab, jira, kubectl, jenkins, teamcity, psql, redis-cli, kaf, rabbitmqadmin, aws-s3, playwright) |
+| `code-review` | Code lifecycle, language-agnostic: MR/PR review, delta re-review, fix plan, feature implementation, conflict resolution, pre-push self-review, stand acceptance |
+| `devops` | DevOps Engineer: Docker, Kubernetes, CI/CD, monitoring, logging |
+| `dotnet-developer` | .NET Developer: coding, debugging, tests, code review, EF Core, performance, .NET architecture design |
+| `dotnet-fullstack` | .NET Fullstack: development, databases, message brokers, containers, CI/CD, monitoring, architecture design |
+| `infrastructure` | Infrastructure: databases, message brokers, containers, CI/CD, monitoring |
+| `market-editor` | Marketplace editor: catalogue artefact review, fact verification, LLM optimisation. For the catalogue author, not its users |
+| `ml-engineer` | ML Engineer: experiments, model training, debugging, deployment, data pipelines |
+| `product-manager` | Product Manager: business requirements, roadmap, backlog, metrics analysis |
+| `qa-engineer` | QA Engineer: test analysis, automation (incl. Playwright E2E), active bug hunting, bug reports |
+| `runtime-diagnostics` | Runtime diagnostics for .NET and the native boundary: hang, crash, leak, dumps, netcoredbg |
+| `system-analyst` | System Analyst: requirements, user stories, BPMN, API specs, documentation, feasibility |
+| `ts-fullstack` | TypeScript Fullstack: Node.js/Bun backend and React frontend, security, Docker, Playwright E2E |
 
 ## Command Line Options
 
