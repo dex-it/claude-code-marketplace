@@ -4,14 +4,14 @@
 architecture match (consumer-scale + enterprise/internal-tooling), 2-3 альтернативы, решение с
 CAP/PACELC trade-off'ами, deep dive по storage / API / caching / sharding / failure modes /
 security controls / observability. Требования, capacity, implementation-план и документацию
-(ADR/API-spec/диаграммы) ведёт вызывающий трек `dex-skill-architecture-track:architecture-track`
-(команда `/design` в `dex-sdlc`) - этот агент получает их уже готовыми на входе, не выясняет сам.
+(ADR/API-spec/диаграммы) ведёт вызывающая команда `/design` - этот агент получает их уже готовыми
+на входе, не выясняет сам.
 
 Стек-нейтральный. Для .NET-сессий с конкретными ASP.NET Core / EF Core / MassTransit / Polly / Serilog рекомендациями - `dex-architect-dotnet`.
 
 ## Команда
 
-`/review-arch` - точечное ревью архитектуры уже реализованного кода (не через architecture-track: другой вход - код, не бизнес-задача). Полную дизайн-сессию от требований до одобренного документа запускает `/design` из `dex-sdlc`.
+`/review-arch` - точечное ревью архитектуры уже реализованного кода (другой вход - код, не бизнес-задача). Полную дизайн-сессию от требований до одобренного документа запускает `/design` из этого же плагина.
 
 ## Required skills
 
@@ -48,7 +48,7 @@ claude plugins install dex-architect
 
 ## Связанные плагины
 
-- `dex-skill-architecture-track` - трек, который вызывает этого агента: ведёт требования, capacity, implementation-план, диспетчинг документации и приёмку design-reviewer вокруг Phase 1-4 этого узла
+- `dex-design-reviewer` - приёмка порождённого дизайн-документа до кода
 - `dex-architect-dotnet` - параллельный агент с .NET-конкретикой (ASP.NET Core, EF Core, MassTransit, Polly, Serilog) и .NET-skills в Deep Dive
 - `dex-codebase-analyzer` - utility для подготовки контекста репо (`/codebase-summary`, `/codebase-graph`) **до** запуска агента
 - `dex-adr-writer`, `dex-api-designer`, `dex-diagram-creator` - узлы документации, вызывает трек в своей Phase 5 (Document) по решению этого агента

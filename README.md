@@ -12,8 +12,8 @@ Level 2: SPECIALISTS - агенты с узкой специализацией
 Level 1: SKILLS      - базы знаний (автоматическая активация)
          UTILITIES   - инструменты (hooks, notifications, CLI)
 
-Поверх уровней: AI-SDLC - движок `dex-sdlc:engine`, команды зон и треки,
-которые ведут цель через специалистов и skills от идеи до приёмки.
+Поверх уровней: команды - точки входа в работу (`/feature`, `/design`, `/implement`,
+`/mr-review`), которые ведут порядок через специалистов и skills.
 ```
 
 **Принцип:** атомарные плагины без дублирования. Собирай свой набор из нужных компонентов.
@@ -86,7 +86,6 @@ claude plugins uninstall dex-dotnet-coder
 | `code-review` | Цикл работы с кодом: ревью MR/PR, ре-ревью дельты, план правок, реализация фичи, pre-push саморевью (языко-агностично) |
 | `bug-lifecycle` | Жизненный цикл бага: поиск, оформление, RCA на стенде, фикс на источнике (языко-агностично) |
 | `runtime-diagnostics` | Runtime-диагностика .NET и native-границы: hang, crash, leak, дампы, netcoredbg |
-| `sdlc` | Полный цикл SDLC языко-агностично: движок автономного доведения задачи, требования, дизайн, реализация, тесты, ревью, стенд, баги, документирование. Стек добирается профильным бандлом |
 | `market-editor` | Редактор маркетплейса: ревью артефакта каталога по осям фреймворка, сверка фактов, оптимизация под LLM, извлечение уроков из чужих MR. Ставится автору каталога, не пользователю |
 
 Подробнее: [install-bundle/README.md](./install-bundle/README.md)
@@ -113,8 +112,8 @@ claude plugins uninstall dex-dotnet-coder
 |--------|-------|---------|----------|
 | dex-bug-fixer | bug-fixer | - | Пакетная ремедиация багов после мерджа: триаж, подтверждение причины, фикс на источнике, follow-up MR |
 | dex-debugger | debugger | - | Языко-агностичный root-cause debugger: воспроизведение, изоляция, red-green тест, фальсификация гипотез |
-| dex-incident-investigator | incident-investigator | `/investigate` (плагин `dex-sdlc-ops`) | Расследование инцидента на общем стенде, RCA и фикс на источнике, read-only по умолчанию |
-| dex-review-planner | review-planner | `/review-plan` (плагин `dex-sdlc-review`) | План правок по ревью без редактирования кода |
+| dex-incident-investigator | incident-investigator | `/investigate` | Расследование инцидента на общем стенде, RCA и фикс на источнике, read-only по умолчанию |
+| dex-review-planner | review-planner | `/review-plan` | План правок по ревью без редактирования кода |
 | dex-security-reviewer | security-reviewer | `/security-scan` | Глубокий анализ безопасности: threat model, attack paths по OWASP, цепочки эксплойтов, severity |
 
 ### .NET (`plugins/specialists/dotnet/`)
@@ -181,7 +180,7 @@ claude plugins uninstall dex-dotnet-coder
 | dex-usecase-analyst | usecase-analyst | - | Сценарии `UC` из бизнес-требований: актор, основной ход, расширения |
 | dex-user-story-analyst | user-story-analyst | - | User stories, acceptance criteria |
 
-Зона требований целиком (идея -> BRD -> `UC` -> `FR`/`NFR` -> stories, гейты с апрувом оператора) идёт через `/feature` (плагин `dex-sdlc-requirements`), не отдельным агентом.
+Зона требований целиком (идея -> BRD -> `UC` -> `FR`/`NFR` -> stories, гейты с апрувом оператора) идёт через `/feature`, не отдельным агентом.
 
 ### QA (`plugins/specialists/qa/`)
 
@@ -198,41 +197,42 @@ claude plugins uninstall dex-dotnet-coder
 |--------|-------|---------|----------|
 | dex-implementer-reader | implementer-reader | - | Проба готовности набора требований к разработке |
 | dex-mr-check-reviewer | mr-check-reviewer | второй раунд `/mr-review`, не своя команда | Ре-ревью дельты с прошлого раунда (range-diff) |
-| dex-mr-reviewer | mr-reviewer | `/mr-review` (плагин `dex-sdlc-review`) | Первичное ревью чужого MR/PR, инлайн-треды через gh/glab |
+| dex-mr-reviewer | mr-reviewer | `/mr-review` | Первичное ревью чужого MR/PR, инлайн-треды через gh/glab |
 | dex-requirements-reviewer | requirements-reviewer | `/review-requirements` | Приёмка чужого набора требований (`/review-requirements`) |
 | dex-self-reviewer | self-reviewer | `/self-review` | Pre-push саморевью своей ветки с прогоном тестов |
 | dex-stand-reviewer | stand-reviewer | - | Приёмка слитой фичи на развёрнутом стенде против ТЗ, read-only |
 
-Команды зон движка (`/mr-review`, `/review-plan`, `/implement`, `/test` и прочие) живут в плагинах `dex-sdlc-<зона>`, а не в плагине специалиста: специалист несёт агента, движок `dex-sdlc` ставится вместе с любой зоной. См. «AI-SDLC» ниже. Собственные команды остаются у `/self-review` и прочих, помеченных в колонке; `/resolve-conflicts` живёт в плагине скилла `merge-conflict-resolution` - агента у неё нет. Стек кодера (агент, не skills) добирается профильным бандлом (`dotnet-developer` / `ts-fullstack`); skills по стеку грузятся условно.
+Команда живёт в плагине того специалиста, кому делегирует: `/mr-review` едет с `dex-mr-reviewer`, `/design` - с `dex-architect`. Стек-агностичная команда, выбирающая исполнителя по манифесту репозитория, получает свой плагин в дереве роли (`dex-implement`, `dex-test`) - см. «Команды» ниже. `/resolve-conflicts` живёт в плагине скилла `merge-conflict-resolution` - агента у неё нет. Стек кодера (агент, не skills) добирается профильным бандлом (`dotnet-developer` / `ts-fullstack`); skills по стеку грузятся условно.
 
 
-## AI-SDLC: движок и зоны
+## Команды
 
-Конвейер собран в три слоя: **движок** `dex-sdlc:engine` (универсальный цикл, делегирование, возобновление по ledger), **треки-скиллы** `dex-skill-<зона>-track` (порядок работ своей зоны) и **узлы** - агенты-специалисты, которых трек спавнит на исполнение. Команда-вход лежит в плагине своей зоны, движок ставится вместе с любой из них.
+Команда ведёт порядок работ: спавнит специалистов, держит канал к оператору и сводит их выходы.
+Плагин команды - тот, кому она делегирует; стек-агностичная команда, выбирающая исполнителя по
+манифесту репозитория, несёт свой плагин в дереве роли.
 
-| Плагин | Команды | Зона |
-|--------|---------|------|
-| dex-sdlc | хук, своих команд нет | движок: универсальный цикл, делегирование, ledger возобновления |
-| dex-sdlc-product | `/product` | продукт: корпус уровня 0 (BRD продукта, словарь, конституция) |
-| dex-sdlc-requirements | `/feature-check`, `/feature` | требования: `UC`, `FR`/`NFR` с методом проверки, истории с `AC` |
-| dex-sdlc-design | `/design` | дизайн: reference match, альтернативы, implementation-план |
-| dex-sdlc-discover | `/discover` | обзорное ревью существующего кода вширь |
-| dex-sdlc-delivery | `/implement` | разработка: реализация фичи полным циклом |
-| dex-sdlc-test | `/find-bugs`, `/test` | тест-инжиниринг: добор покрытия, активный поиск багов |
-| dex-sdlc-review | `/mr-review`, `/review-plan` | ревью: первичное ревью чужого MR/PR и план правок по нему |
-| dex-sdlc-acceptance | `/review-stand` | приёмка слитой фичи на развёрнутом стенде |
-| dex-sdlc-ops | `/investigate`, `/root-cause` | диагностика: расследование инцидента, поиск корневой причины |
-| dex-sdlc-docs | `/documentation` | документирование по жанру и стандарту |
-| dex-sdlc-nudge | хук, своих команд нет | подталкивание: поднимает движок на рабочей просьбе |
-| dex-sdlc-resume | хук, своих команд нет | возобновление: напоминает продолжить цель после свёртки контекста |
+| Плагин | Команды | Что ведёт |
+|--------|---------|-----------|
+| dex-business-analyst | `/product`, `/feature` | корпус уровня 0 продукта; требования фичи: `UC`, `FR`/`NFR` с методом проверки, истории с `AC` |
+| dex-requirements-reviewer | `/feature-check` | проверка своего набора требований на готовность к разработке |
+| dex-architect | `/design` | дизайн: reference match, альтернативы, implementation-план |
+| dex-code-discovery | `/discover` | обзорное ревью существующего кода вширь |
+| dex-implement | `/implement` | реализация фичи полным циклом до локальных коммитов |
+| dex-test | `/test` | добор тестового покрытия по осям матрицы |
+| dex-bug-finder | `/find-bugs` | активный поиск багов в фиче или ветке |
+| dex-mr-reviewer | `/mr-review` | первичное ревью чужого MR/PR и ре-ревью дельты |
+| dex-review-planner | `/review-plan` | обработка полученного ревью: план правок, ответы, ре-ревью |
+| dex-stand-reviewer | `/review-stand` | приёмка слитой фичи на развёрнутом стенде |
+| dex-incident-investigator | `/investigate` | расследование инцидента на общем стенде |
+| dex-debugger | `/root-cause` | поиск корневой причины бага по коду |
+| dex-doc-writer | `/documentation` | документирование по жанру и стандарту |
 
 ## Skills (Level 1)
 
-Базы знаний - активируются автоматически по ключевым словам в контексте либо грузятся агентом явно. Имя плагина - `dex-skill-<имя скилла>`, единственное исключение - движок `dex-sdlc:engine`: он назван здесь именем своего скилла. Перечень полный: состав витрины сверяется с `.claude-plugin/marketplace.json` прогоном `node tools/validate-readme.js` - он входит в `npm run validate` и в CI, генератора у этой таблицы нет.
+Базы знаний - активируются автоматически по ключевым словам в контексте либо грузятся агентом явно. Имя плагина - `dex-skill-<имя скилла>`. Перечень полный: состав витрины сверяется с `.claude-plugin/marketplace.json` прогоном `node tools/validate-readme.js` - он входит в `npm run validate` и в CI, генератора у этой таблицы нет.
 
 | Категория | Skills |
 |-----------|--------|
-| **Движок SDLC и его треки** | `engine`, `zone-registry`, `product-track`, `analytics-track`, `architecture-track`, `development-track`, `bugfix-track`, `followup-track`, `acceptance-track`, `discover-track`, `test-track`, `mr-review-track`, `documentation-track`, `diagnostics-track`, `catalog-track` |
 | **Контракт и адресация артефактов** | `node-contract`, `docs-layout`, `project-docs-map`, `issue-tracking`, `artifact-naming`, `unit-identity`, `decision-log`, `stack-registry` |
 | **Требования и продукт** | `idea-forming`, `opportunity-canvas`, `product-discovery`, `agile`, `epic-planning`, `prioritization`, `user-stories`, `use-cases`, `use-cases-cockburn`, `functional-requirements`, `nfr`, `bpmn`, `business-analysis-29148`, `system-requirements-29148`, `doc-standards` |
 | **Оракулы качества артефактов** | `requirement-quality`, `requirement-set-quality`, `use-case-quality`, `adr-quality`, `design-quality`, `plan-quality`, `api-spec-quality`, `completeness-mapping`, `fact-verification`, `legacy-reconstruction`, `verification-planning-29119`, `bdd-gherkin` |
@@ -358,11 +358,6 @@ MCP конфигурации в каталоге `mcp/`. Подробнее: [mc
 ```
 claude-code-marketplace/
 ├── plugins/
-│   ├── ai-sdlc/                   # Движок конвейера, команды зон, треки
-│   │   ├── dex-sdlc/              #   движок (skill engine)
-│   │   ├── dex-sdlc-requirements/ #   команда-вход зоны
-│   │   ├── dex-skill-analytics-track/
-│   │   └── ...
 │   ├── skills/                    # Level 1: базы знаний
 │   │   ├── dex-skill-agile/
 │   │   ├── dex-skill-dotnet-ef-core/
@@ -449,4 +444,4 @@ GPL v3.0 - см. [LICENSE](./LICENSE)
 
 ---
 
-**DEX Team** · Version 5.87.0
+**DEX Team** · Version 6.0.0

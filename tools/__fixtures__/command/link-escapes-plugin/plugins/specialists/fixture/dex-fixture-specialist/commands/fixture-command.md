@@ -8,4 +8,4 @@ description: Прогнать фикстуру песочницы и верну�
 
 **Output format:** перечень `правило -> уровень -> файл`; пустой перечень назван явно.
 
-Смежная дисциплина - [node-contract](../../../../ai-sdlc/dex-skill-node-contract/skills/node-contract/SKILL.md).
+Смежная дисциплина - [node-contract](../../../../misc/dex-skill-node-contract/skills/node-contract/SKILL.md).

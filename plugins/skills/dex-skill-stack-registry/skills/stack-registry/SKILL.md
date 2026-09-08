@@ -8,8 +8,8 @@ description: Реестр стеков и правило загрузки про
 # Реестр стеков - как общий агент грузит профильные skills
 
 Языко-агностичные агенты (`dex-debugger`, `dex-security-reviewer`, `dex-self-reviewer`,
-`dex-mr-reviewer`, `dex-mr-check-reviewer`, `dex-code-discovery`) и трек-скилл движка
-`dex-skill-development-track` не несут зашитого списка имён skills. Способ загрузки
+`dex-mr-reviewer`, `dex-mr-check-reviewer`, `dex-code-discovery`) и стек-агностичные команды
+(`/implement`, `/test`) не несут зашитого списка имён skills. Способ загрузки
 **един для всех**: каждый грузит этот реестр, **детектит стек проекта** и
 **конструирует имена** профильных skills по нему - без ссылок «грузи как в другом
 агенте». Новый стек = новая строка реестра + `dex-skill-<стек>-*` skills; **тела

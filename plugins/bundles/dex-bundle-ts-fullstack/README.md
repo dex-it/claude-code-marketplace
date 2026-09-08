@@ -53,6 +53,7 @@ Bundle для TypeScript fullstack: разработка Node/React, тесты,
 - `dex-skill-ts-nodejs-api` - Node.js API
 - `dex-skill-ts-vitest-jest` - тестирование на Vitest/Jest
 - `dex-skill-react` - React
+- `dex-skill-issue-tracking` - синхрон трекера задач с ходом работы: право двигать статус, решётка «взял/готово/влито», агрегат зонтика
 
 ## Note
 

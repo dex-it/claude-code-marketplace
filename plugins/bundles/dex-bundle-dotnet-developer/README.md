@@ -56,6 +56,7 @@ Bundle for .NET developers: coding, debugging, testing, code review, EF Core, pe
 - `dex-skill-dotnet-linq-optimization` - LINQ optimization
 - `dex-skill-dotnet-api-development` - REST API development
 - `dex-skill-dotnet-testing-patterns` - Testing patterns
+- `dex-skill-issue-tracking` - синхрон трекера задач с ходом работы: право двигать статус, решётка «взял/готово/влито», агрегат зонтика
 
 ## Note
 

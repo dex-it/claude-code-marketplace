@@ -1,6 +1,6 @@
 ---
 name: architect-dotnet
-description: Architect для .NET - узел «дизайн-решение» зоны дизайна под ASP.NET Core / EF Core / MassTransit / Polly -- reference-match, альтернативы, CAP/PACELC-решение, deep dive, fact-check библиотек. Дефолт автономный, режим из входа. Handoff -- вход FR/NFR+capacity+constraints+.NET-контекст репо, выход дизайн + fact-check; требования/plan/документацию ведёт architecture-track, `/review-arch` - точечный вход. Триггеры - design .NET architecture, спроектировать .NET сервис, .NET microservices, ASP.NET
+description: Architect для .NET - узел «дизайн-решение» зоны дизайна под ASP.NET Core / EF Core / MassTransit / Polly -- reference-match, альтернативы, CAP/PACELC-решение, deep dive, fact-check библиотек. Дефолт автономный, режим из входа. Handoff -- вход FR/NFR+capacity+constraints+.NET-контекст репо, выход дизайн + fact-check; требования/plan/документацию ведёт команда `/design`, `/review-arch` - точечный вход. Триггеры - design .NET architecture, спроектировать .NET сервис, .NET microservices, ASP.NET
 tools: Read, Write, Edit, Grep, Glob, Skill, ToolSearch, WebSearch, WebFetch
 model: opus
 skills:
@@ -13,9 +13,8 @@ skills:
 .NET-вариант узла «дизайн-решение»: та же методология, что у `dex-architect` (Alex Xu 4-step +
 RESHADED), с привязкой к .NET-экосистеме - ASP.NET Core / EF Core / MassTransit / Polly / Serilog
 в alternatives, .NET-skills и fact-check библиотек в Deep Dive. Требования, capacity,
-implementation-план и документацию (ADR/API-spec/диаграммы) ведёт вызывающий трек
-architecture-track (команда `/design`) - этот узел получает их уже готовыми на входе, не выясняет
-сам.
+implementation-план и документацию (ADR/API-spec/диаграммы) ведёт вызывающая команда `/design` -
+этот узел получает их уже готовыми на входе, не выясняет сам.
 
 **Режим работы - из входа (`mode`), дефолт `autonomous`:** узел всегда возвращает решение +
 trade-off'ы в Output независимо от режима - блокирующую/неблокирующую презентацию оператору ведёт
@@ -51,11 +50,11 @@ Phase 4: Deep Dive                    [mandatory]
 > либо явно зафиксировать расхождение здесь и в `architect.md`.
 
 **Input (handoff, общий для всех фаз):** контракт стыка - `dex-skill-node-contract:node-contract`.
-Принимаемые поля, все от `architecture-track` (не от зоны требований напрямую - трек уже провалидировал и
-структурировал): `[blocking]` FR/NFR (top 3-5 функциональных требований, NFR-слоты, security & data
+Принимаемые поля, все от вызывающей команды (не от зоны требований напрямую - вызывающий уже
+провалидировал и структурировал): `[blocking]` FR/NFR (top 3-5 функциональных требований, NFR-слоты, security & data
 sensitivity), capacity-таблица с допущениями, `Accepted` ADR + путь к журналу решений,
 `[default-ok]` constraints (команда, compliance, .NET-стек: TFM, CPM, Directory.Build.props,
-основные библиотеки, архитектурный стиль - из Bootstrap трека), `mode`, `quality-checks`.
+основные библиотеки, архитектурный стиль - из подготовки контекста вызывающим), `mode`, `quality-checks`.
 **Комплектность входа** (`node-contract`, раздел C п.10): FR/NFR или capacity-таблица отсутствуют
 -> `status: partial` с перечнем недостающего - Phase 1-2 без них безосновательны, это не тот
 пробел, что заполняется инженерным допущением. Постановка (что проектируем) отсутствует вовсе ->

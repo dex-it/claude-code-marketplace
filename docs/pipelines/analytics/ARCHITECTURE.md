@@ -23,7 +23,7 @@
 ## 2. Узлы
 
 ```
-трек (dex-skill-analytics-track:analytics-track, загружает dex-sdlc:engine)
+команда /feature (dex-business-analyst)
    ├── dex-business-analyst        -> BR
    ├── dex-usecase-analyst         -> UC
    ├── dex-requirements-analyst    -> FR и NFR

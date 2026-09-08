@@ -33,7 +33,7 @@ const REPO_ROOT = process.env.MARKETPLACE_ROOT
   ? resolve(process.env.MARKETPLACE_ROOT)
   : resolve(__dirname, '..');
 // Сканируем весь plugins/ (не только plugins/skills): скиллы живут и в других
-// группах-папках (например plugins/ai-sdlc). Обход по SKILL.md покрывает
+// группах-папках, не только в plugins/skills. Обход по SKILL.md покрывает
 // любую папку без правки валидатора при переносе плагина.
 const SKILLS_DIR = join(REPO_ROOT, 'plugins');
 const MARKETPLACE_JSON = join(REPO_ROOT, '.claude-plugin', 'marketplace.json');
@@ -177,47 +177,20 @@ const PROCESS_SKILLS = new Set([
   'use-cases-cockburn',
   'bdd-gherkin',
   'opportunity-canvas',
-  'engine',
-  'zone-registry',
-  'analytics-track',
-  'product-track',
-  'development-track',
-  'architecture-track',
-  'catalog-track',
-  'bugfix-track',
-  'followup-track',
-  'acceptance-track',
-  'discover-track',
-  'test-track',
-  'mr-review-track',
   'issue-tracking',
-  'documentation-track',
-  'diagnostics-track',
   'idea-forming',
+  'orchestrator-fixture',
 ]);
 
 function isProcessSkill(parsed) {
   return PROCESS_SKILLS.has(parsed.data && parsed.data.name);
 }
 
-// SKILL_FRAMEWORK.md "оркестрация - в скилле, исполнение - в агенте": обычному
+// SKILL_FRAMEWORK.md "оркестрация - у главного потока, исполнение - в агенте": обычному
 // process-skill спавнить агентов не положено. Ручной allowlist, как PROCESS_SKILLS.
-const ORCHESTRATOR_SKILLS = new Set([
-  'engine',
-  'catalog-track',
-  'analytics-track',
-  'product-track',
-  'development-track',
-  'architecture-track',
-  'acceptance-track',
-  'discover-track',
-  'followup-track',
-  'bugfix-track',
-  'test-track',
-  'mr-review-track',
-  'documentation-track',
-  'diagnostics-track',
-]);
+// Носитель гасящей ветки - только фикстура: скилл, спавнящий агента, в каталоге
+// после демонтажа движка не остался. Реального скилла с этим именем нет.
+const ORCHESTRATOR_SKILLS = new Set(['orchestrator-fixture']);
 
 // Эвристика best-effort: глагол делегирования рядом с бэктик-ссылкой на агента/Agent
 // в одном блоке. Молчание не значит "не оркестрирует": глагол вне словаря либо короткое

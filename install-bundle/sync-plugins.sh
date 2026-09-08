@@ -3,10 +3,9 @@
 # Plugin Sync for Claude Code Marketplace
 #
 # Protects INSTALLED agents AND command entry points from degradation: an
-# agent loads skills imperatively via the Skill tool, and a command (e.g.
-# dex-sdlc-requirements' /feature, dex-sdlc-delivery's /implement) does the
-# same to reach the engine (`dex-sdlc:engine`) and its track-skills
-# (`dex-skill-X:Y`). Installation is flat - there is no
+# agent loads skills imperatively via the Skill tool, and a command does the
+# same to reach the skills it names (`dex-skill-X:Y`) before delegating to its
+# specialists. Installation is flat - there is no
 # specialist->skill or command->skill cascade, so a skill that is referenced but
 # not installed will not resolve, and the agent/command silently degrades.
 #

@@ -75,6 +75,7 @@ Complete bundle for .NET fullstack: development, databases, messaging, container
 - `dex-skill-kubernetes` - Kubernetes patterns
 - `dex-skill-dotnet-logging` - Logging patterns
 - `dex-skill-observability` - Observability patterns
+- `dex-skill-issue-tracking` - синхрон трекера задач с ходом работы: право двигать статус, решётка «взял/готово/влито», агрегат зонтика
 
 ## Note
 
