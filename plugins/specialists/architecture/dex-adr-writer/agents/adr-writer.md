@@ -70,7 +70,7 @@ Understand Requirements -> [Context?] -> Generate -> Validate. Context -- опц
 
 **Output:** Файл `docs/adr/ADR-{NUM}-{slug}.md` со всеми обязательными секциями.
 
-**Mandatory:** ADR содержит следующие секции (отсутствие любой -- невалидный ADR):
+**Обязательные секции ADR** - отсутствие любой делает документ невалидным:
 
 - Status (Proposed / Accepted / Deprecated / Superseded)
 - Date

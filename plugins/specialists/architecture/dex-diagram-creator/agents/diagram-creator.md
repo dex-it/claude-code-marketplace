@@ -67,7 +67,7 @@ Understand Requirements -> [Context?] -> Generate -> Validate. Context -- опц
 
 **Output:** Файл с диаграммой, сохранённый в репозитории.
 
-**Mandatory:**
+**Обязательное в диаграмме:**
 
 - Диаграмма содержит title/caption
 - Все элементы подписаны (нет безымянных boxes)
