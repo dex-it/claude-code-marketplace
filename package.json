@@ -21,7 +21,8 @@
     "sync:terminology": "node tools/sync-terminology.js",
     "test:activation": "node tools/run-activation.js",
     "test:activation:agents": "node tools/run-activation.js --agents --model haiku",
-    "metrics:propagation": "node tools/propagation-cost.js"
+    "metrics:propagation": "node tools/propagation-cost.js",
+    "test:hooks": "bash tests/hooks/ledger.test.sh"
   },
   "devDependencies": {
     "gray-matter": "^4.0.3",

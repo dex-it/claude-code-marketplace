@@ -1,0 +1,44 @@
+# dex-auto
+
+Автономные треки под одну открытую цель - разработка и ревью чужого MR: команда `/auto`, ledger вне
+рабочего дерева, Workflow-скрипт на трек, два сторожевых хука. Правило состава - компонент есть только там, где
+наблюдён названный отказ; дизайн-записки и протокол зондов лежат в каталоге:
+[engine-components.md](https://github.com/dex-it/claude-code-marketplace/blob/main/plugins/auto/_docs/engine-components.md),
+[artifacts.md](https://github.com/dex-it/claude-code-marketplace/blob/main/plugins/auto/_docs/artifacts.md),
+[probes.md](https://github.com/dex-it/claude-code-marketplace/blob/main/plugins/auto/_docs/probes.md).
+
+## Что внутри
+
+| Носитель | Обязательство |
+|---|---|
+| `commands/auto.md` | вход, ledger, вызов `Workflow`, маршрутизация по статусу возврата, сдача |
+| `tracks/development.js` | трек разработки: контекст R/I -> кодер по стеку x верификация (потолок 3) -> саморевью -> правка по находкам (потолок 1); статус первым полем каждой схемы |
+| `tracks/review.js` | трек ревью, read-only: предмет ревью -> `mr-reviewer` (или `mr-check-reviewer` на дельте) + `security-reviewer` по поверхности -> фальсификация находок и вердикт по покрытию -> инлайн-треды только при `--post` |
+| `hooks/scripts/ledger.sh` | единственный читатель и писатель машинных строк ledger; адрес `<config>/projects/<slug>/ledger/<TASK>/` |
+| `hooks/scripts/session-start.sh` | `startup\|resume\|compact`: находит открытую цель и инжектит адрес и первое действие; `clear` исключён намеренно |
+| `hooks/scripts/stop-guard.sh` | при открытой цели останавливает ход кодом 2, пока нет `Статус: закрыт`, `Исход: blocked` с нехваткой или `Ожидает: оператор` в `interactive`; свои блоки считает в `00-goal.md`, на потолке пропускает с записью |
+
+Узлы треков - агенты каталога (`Explore`, кодер по стеку `dex-ts-fullstack-coder` /
+`dex-dotnet-coder`, `dex-self-reviewer`, `dex-mr-reviewer`, `dex-mr-check-reviewer`,
+`dex-security-reviewer`); неустановленный агент заменяется `general-purpose` с ролью
+в промпте, замена попадает в возврат полем `degraded` и в `## Решения` ledger.
+
+## Установка и требования
+
+```bash
+/plugin install dex-auto@dex-marketplace
+```
+
+Кодеры и ревьюер ставятся отдельно (бандлом роли либо поштучно). Хукам нужен `jq`
+(без него поля stdin разбираются `sed`, только плоский JSON). `Workflow` - платформенный тул
+Claude Code; команда, чьё тело его вызывает, считается явным согласием оператора на оркестрацию.
+
+## Границы
+
+- Push, деплой, миграции данных и необратимое удаление - стоп-линии: прогон останавливается и
+  называет их оператору.
+- Резюме прогона по id живёт только в той же сессии; после обрыва - `/auto TASK продолжить`,
+  узлы переделывают незачтённые шаги по ledger.
+- Запись в чужой MR - только по флагу `--post`; без него находки возвращаются перечнем.
+- Два трека (разработка с под-видами bugfix / feature, ревью с ревизией дельты по `--delta`).
+  Реестр зон и подъём по намерению заводятся только после наблюдённого отказа выбора трека.
