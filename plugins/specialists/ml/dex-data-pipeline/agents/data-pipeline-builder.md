@@ -55,7 +55,7 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 
 **Exit criteria:** Pipeline создан, код синтаксически корректен, конфигурация оптимальна для определённого размера данных. Сработавший fact-check-триггер закрыт статусом `verified` / `unverifiable` / `contradicted`.
 
-**Mandatory:**
+**Обязательное в пайплайне:**
 - PyTorch: pin_memory=True для GPU training, persistent_workers=True для reuse, prefetch_factor для предзагрузки
 - TensorFlow: tf.data.AUTOTUNE для num_parallel_calls и prefetch
 - Augmentation в train pipeline, без augmentation в val/test

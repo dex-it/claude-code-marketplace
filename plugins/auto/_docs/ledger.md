@@ -1,5 +1,10 @@
 # Ledger нового движка: решения и открытые пункты
 
+> Рабочая записка проектирования, не норма. Валидаторы её не читают: каталог `plugins/auto/` не
+> несёт `plugin.json` и ни в один плагин не входит. Адреса плагинов и путей внутри - историчны,
+> часть из них снята демонтажом движка 07.09.2026; действующая норма живёт в `docs/` и в телах
+> артефактов каталога.
+
 Рабочая записка проектирования. Движка ещё нет; здесь то, что решено про его носитель состояния
 до первой строки кода. Решения приняты в разговоре 06-07.09.2026, ревью не проходили.
 
@@ -182,7 +187,10 @@ constraints: «**носитель состояния лежит вне рабо�
 - «ledger оркестратора» - нормирован в `docs/AGENT_FRAMEWORK.md:329-335`; в
   `dex-skill-node-contract` (SKILL.md и оба `references/`) слова `ledger` нет.
 
-Обе снимаются, `D-7` закрывается решением, в словарь идёт одна строка родового термина.
+Обе предлагаются к снятию, а `D-7` - к закрытию решением, с одной строкой родового термина в
+словаре. На 08.09.2026 ни то, ни другое не сделано: `feature-ledger` нормирован в
+`docs/pipelines/analytics/`, «ledger оркестратора» - в `docs/AGENT_FRAMEWORK.md`, `D-7` в словаре
+открыт. Записка решения не исполняет - предмет закрывается правкой самих носителей.
 
 Пункт 3 issue («прямой конфликт нормы» с `analytics-track/SKILL.md:471`) в текущей редакции
 неверен: файл - 440 строк, строки 471 нет, `feature-ledger` в нём не упоминается. Конфликта
@@ -204,8 +212,8 @@ constraints: «**носитель состояния лежит вне рабо�
 
 - `superpowers 6.3.0`, `skills/subagent-driven-development/SKILL.md` - прочитано 06.09.2026 из
   `<config>/plugins/cache/claude-plugins-official/superpowers/6.3.0/`
-- действующий движок: `plugins/ai-sdlc/dex-sdlc/skills/engine/SKILL.md` и
-  `references/ledger-and-recovery.md`
-- действующий хук: `plugins/ai-sdlc/dex-sdlc-resume/hooks/`
-- обоснование по моно-каталогу: `plugins/ai-sdlc/dex-sdlc-nudge/hooks/scripts/engine-nudge.sh`
+- движок, снятый 07.09.2026: `plugins/ai-sdlc/dex-sdlc/skills/engine/SKILL.md` и
+  `references/ledger-and-recovery.md` - тела в истории до `e228c433`, в рабочем дереве их нет
+- хук возобновления, снятый тогда же: `plugins/ai-sdlc/dex-sdlc-resume/hooks/`
+- обоснование по моно-каталогу: `plugins/ai-sdlc/dex-sdlc-nudge/hooks/scripts/engine-nudge.sh` (снят тогда же)
 - issue #230 и комментарий от 01.09.2026

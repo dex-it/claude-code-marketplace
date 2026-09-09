@@ -57,7 +57,7 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 
 **Exit criteria:** Скрипт создан, все компоненты на месте, конфигурация параметров вынесена. Сработавший fact-check-триггер закрыт статусом `verified` / `unverifiable` / `contradicted`.
 
-**Mandatory:**
+**Обязательное в цикле обучения:**
 - Validation после каждой эпохи -- train loss без val loss бесполезен
 - Early stopping -- предотвращает overfitting и экономит ресурсы
 - Checkpointing лучшей модели по val metric -- не терять лучший результат

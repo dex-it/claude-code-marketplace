@@ -4,10 +4,13 @@
 #
 # Protects INSTALLED agents AND command entry points from degradation: an
 # agent loads skills imperatively via the Skill tool, and a command does the
-# same to reach the skills it names (`dex-skill-X:Y`) before delegating to its
-# specialists. Installation is flat - there is no
-# specialist->skill or command->skill cascade, so a skill that is referenced but
-# not installed will not resolve, and the agent/command silently degrades.
+# same to reach the skills it names (`dex-skill-X:Y`), then delegates the work
+# to the specialist it names (`dex-X:agent`). Installation is flat - there is
+# no specialist->skill, command->skill or command->specialist cascade, so a
+# referenced-but-not-installed artefact will not resolve, and the agent or
+# command silently degrades. Both edges are reported; only the skill edge is
+# auto-installable (--fix), because pulling in a new agent is a deliberate
+# decision - see "never installs new agents" below.
 #
 # This script anchors on what YOU have installed (not on bundles): for every
 # installed plugin it reads the skills its agent(s) and/or command(s) load
@@ -117,6 +120,21 @@ command_dir_for() {
   [ -n "$d" ] && [ -d "$d/commands" ] && echo "$d/commands"
 }
 
+# Specialists a plugin's command(s)/agent(s) hand work to (dex-X from
+# `dex-X:agent`), deduped. `dex-skill-` is excluded - that half is the skill
+# edge above. A call marked `[справочно]` right after it names one option out of
+# a set (a stack menu) and carries no delivery obligation, so it is dropped -
+# same rule the bundle closure uses.
+specialists_named_by() {
+  local dir="$1"
+  grep -rhoE '`dex-[a-z0-9-]+:[a-z0-9-]+`( `\[справочно\]`)?' "$dir" 2>/dev/null \
+    | grep -v '`\[справочно\]`' \
+    | tr -d '`' \
+    | grep -v '^dex-skill-' \
+    | sed 's/:.*//' \
+    | sort -u
+}
+
 # Skills a plugin's agent(s) load (dex-skill-X from `dex-skill-X:Y`), deduped.
 skills_loaded_by() {
   local agents_dir="$1"
@@ -138,6 +156,7 @@ main() {
 
   # collect all unique missing skills across installed agents/commands
   local -A MISSING=()      # skill -> "plugin1 plugin2"
+  local -A MISSING_EXEC=() # specialist -> "plugin1 plugin2"
   local installed_set=" $(echo "$installed" | tr '\n' ' ') "
 
   while read -r plugin; do
@@ -157,11 +176,32 @@ main() {
       MISSING["$skill"]="${MISSING[$skill]:-}$plugin "
     done < <( { [ -n "$agents_dir" ] && skills_loaded_by "$agents_dir"; [ -n "$commands_dir" ] && skills_loaded_by "$commands_dir"; } | sort -u )
 
+    while read -r exec_plugin; do
+      [ -z "$exec_plugin" ] && continue
+      [ "$exec_plugin" = "$plugin" ] && continue
+      case "$installed_set" in *" $exec_plugin "*) continue ;; esac
+      MISSING_EXEC["$exec_plugin"]="${MISSING_EXEC[$exec_plugin]:-}$plugin "
+    done < <( { [ -n "$agents_dir" ] && specialists_named_by "$agents_dir"; [ -n "$commands_dir" ] && specialists_named_by "$commands_dir"; } | sort -u )
+
     if [ "$VERBOSE" = true ] && [ -n "$plugin_missing" ]; then
       print_warning "  $plugin loads missing:"
       for s in $plugin_missing; do print_dim "      $s"; done
     fi
   done <<< "$installed"
+
+  # Executor edge is reported, never auto-installed: pulling in a new agent is a
+  # deliberate decision, and --fix must stay a skill-only operation.
+  local execs=("${!MISSING_EXEC[@]}")
+  if [ "${#execs[@]}" -gt 0 ]; then
+    echo ""
+    print_warning "  Missing executors (named by installed agents/commands, not installed): ${#execs[@]}"
+    for e in $(printf '%s\n' "${execs[@]}" | sort); do
+      print_info "    $e"
+      print_dim  "        named by: $(echo "${MISSING_EXEC[$e]}" | tr ' ' '\n' | sort -u | tr '\n' ' ')"
+      print_dim  "        install:  claude plugins install ${e}@${MARKETPLACE_NAME}"
+    done
+    print_dim "  Not installed by --fix: adding an agent is a manual decision."
+  fi
 
   local skills=("${!MISSING[@]}")
   missing_total=${#skills[@]}
@@ -169,7 +209,11 @@ main() {
   echo ""
   print_dim "  Installed agents/commands checked: $plugins_checked"
   if [ "$missing_total" -eq 0 ]; then
-    print_success "  All installed agents/commands are closed over their skills - no drift."
+    if [ "${#execs[@]}" -eq 0 ]; then
+      print_success "  All installed agents/commands are closed over their skills and executors - no drift."
+      exit 0
+    fi
+    print_success "  All installed agents/commands are closed over their skills; executors above are not."
     exit 0
   fi
 

@@ -55,7 +55,7 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 
 **Exit criteria:** Файлы созданы, код синтаксически корректен, следует паттернам проекта. Гейт выше не пройден, потому что Phase 1 закрылась `status: blocked` - файлы не создаются, и фаза закрывается статусом `n/a (раннера нет, генерировать нечего)`, а не пустым результатом.
 
-**Mandatory:**
+**Обязательное в каждом тесте:**
 - AAA (Arrange-Act-Assert) pattern в каждом тесте
 - Descriptive naming: Method_Scenario_ExpectedBehavior или аналог по конвенции проекта
 - Один concept на тест -- не смешивать несколько assertions на разные темы

@@ -44,8 +44,14 @@ argument-hint: "[бизнес-задача в свободной форме / п
 
 - Требования (FR/NFR + security + ограничения + метрики успеха) и capacity-таблица
 - Design-документ: reference-match, альтернативы, решение с trade-off'ами, deep dive
-- Implementation plan **файлом**: walking skeleton -> vertical slices -> scale-out; критерии приёмки
-  с метками `[FR-NNN]`/`[NFR-NNN]`, контракты пересекаемых границ, артефакты сверх кода
+- Implementation plan **файлом** по ключу `plans` раскладки корпуса (`Skill` ->
+  `dex-skill-docs-layout:docs-layout`); ключа в раскладке нет - файл кладётся рядом с
+  design-документом работы, и ключ заводится тем же заходом. Содержание: walking skeleton ->
+  vertical slices -> scale-out; критерии приёмки с метками `[FR-NNN]`/`[NFR-NNN]`, контракты
+  пересекаемых границ, артефакты сверх кода
+- Решения, принятые за оператора (выбор между технически равными альтернативами, снятые допущения),
+  - перечнем с основанием каждого; форма записи и место хранения - `Skill` ->
+  `dex-skill-decision-log:decision-log`. Ни одного не принято - строка `n/a`, не молчание
 - Вердикты `dex-design-reviewer:design-reviewer`: `design-quality: passed` в шапке design-документа и `plan-quality:
   passed` в шапке плана. Любой не `passed` -> возврат на доработку, работа не сдана
 

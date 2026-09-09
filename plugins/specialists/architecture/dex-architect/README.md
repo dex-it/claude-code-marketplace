@@ -51,8 +51,8 @@ claude plugins install dex-architect
 - `dex-design-reviewer` - приёмка порождённого дизайн-документа до кода
 - `dex-architect-dotnet` - параллельный агент с .NET-конкретикой (ASP.NET Core, EF Core, MassTransit, Polly, Serilog) и .NET-skills в Deep Dive
 - `dex-codebase-analyzer` - utility для подготовки контекста репо (`/codebase-summary`, `/codebase-graph`) **до** запуска агента
-- `dex-adr-writer`, `dex-api-designer`, `dex-diagram-creator` - узлы документации, вызывает трек в своей Phase 5 (Document) по решению этого агента
-- `dex-design-reviewer` - приёмка design-документа, вызывает трек в своей Phase 6 (Design Acceptance)
+- `dex-adr-writer`, `dex-api-designer`, `dex-diagram-creator` - узлы документации, вызывает команда `/design` шагом 3 по решению этого агента
+- `dex-design-reviewer` - приёмка design-документа, вызывает команда `/design` шагом 4
 
 ## Методология
 

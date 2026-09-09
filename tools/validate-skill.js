@@ -179,8 +179,15 @@ const PROCESS_SKILLS = new Set([
   'opportunity-canvas',
   'issue-tracking',
   'idea-forming',
-  'orchestrator-fixture',
 ]);
+
+// Имена, существующие только в фикстурах `tools/__fixtures__`. В продовые перечни не
+// подмешиваются: иначе реальный скилл, названный так же, молча получил бы послабление
+// process-skill и снятие правила orchestrator-unregistered. Подмешиваются только когда
+// валидатор натравлен на дерево фикстуры (`MARKETPLACE_ROOT` задан явно).
+const FIXTURE_ONLY_SKILLS = new Set(['orchestrator-fixture']);
+const FIXTURE_TREE = Boolean(process.env.MARKETPLACE_ROOT);
+if (FIXTURE_TREE) for (const n of FIXTURE_ONLY_SKILLS) PROCESS_SKILLS.add(n);
 
 function isProcessSkill(parsed) {
   return PROCESS_SKILLS.has(parsed.data && parsed.data.name);
@@ -188,9 +195,11 @@ function isProcessSkill(parsed) {
 
 // SKILL_FRAMEWORK.md "оркестрация - у главного потока, исполнение - в агенте": обычному
 // process-skill спавнить агентов не положено. Ручной allowlist, как PROCESS_SKILLS.
-// Носитель гасящей ветки - только фикстура: скилл, спавнящий агента, в каталоге
-// после демонтажа движка не остался. Реального скилла с этим именем нет.
-const ORCHESTRATOR_SKILLS = new Set(['orchestrator-fixture']);
+// Реального скилла-оркестратора в каталоге после демонтажа движка не осталось, поэтому
+// перечень пуст: гасящая ветка проверяется фикстурой, чьё имя подмешивается только на
+// дереве фикстур (см. FIXTURE_ONLY_SKILLS выше).
+const ORCHESTRATOR_SKILLS = new Set();
+if (FIXTURE_TREE) for (const n of FIXTURE_ONLY_SKILLS) ORCHESTRATOR_SKILLS.add(n);
 
 // Эвристика best-effort: глагол делегирования рядом с бэктик-ссылкой на агента/Agent
 // в одном блоке. Молчание не значит "не оркестрирует": глагол вне словаря либо короткое
