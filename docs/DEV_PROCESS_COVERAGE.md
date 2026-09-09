@@ -20,12 +20,13 @@
 | **Требования** | `/feature` -> команда ведёт зону сама, гейты качества по двум слоям (`requirement-quality`/`requirement-set-quality`) и одна остановка оператора -> dex-business-analyst (BRD с `BR-NNN`) -> dex-usecase-analyst (сценарии `UC`) -> dex-requirements-analyst (`FR`/`NFR` из `BR`/`UC`) -> dex-user-story-analyst (stories `[FR-NNN]`) -> dex-implementer-reader (проба готовности набора). Приёмка чужого набора - `/review-requirements` (dex-requirements-reviewer) | BRD + `UC` + набор `FR`/`NFR` + stories (место - из конвенций проекта) |
 | **Дизайн** | `/design` -> команда ведёт требования/capacity/implementation-план/диспетчинг документации сама -> dex-architect / dex-architect-dotnet принимает дизайн-решение (по стеку) -> dex-adr-writer/dex-api-designer/dex-diagram-creator документируют (условно) -> dex-design-reviewer принимает (Design Acceptance). Приёмка чужого дизайн-документа отдельным входом - `/review-design`; ревью архитектуры уже реализованного кода - `/review-arch` | requirements + capacity + дизайн-решение + файл implementation plan (оракул `plan-quality`) + опц. ADR/API-spec/диаграммы |
 | **Разработка** (фича / баг-фикс / рефакторинг) | детальная слот-карта ниже | MR/коммиты |
-| **Ревью входящего MR** | dex-mr-reviewer -> dex-mr-check-reviewer | inline-треды |
+| **Ревью входящего MR** | dex-mr-reviewer -> dex-mr-check-reviewer | inline-треды, по поручению - разбор ревью файлом |
 | **Обработка ревью своего MR** (возвратная петля до мерджа) | dex-review-planner -> исполнители правок (по слот-карте «Разработки») -> dex-mr-check-reviewer | коммиты в свой MR + ответы в тредах |
 | **Приёмка слитой фичи на стенде** (post-merge) | dex-stand-reviewer -> dex-bug-fixer | отчёт-приёмка + follow-up MR |
 | **Тест-инжиниринг** | dex-dotnet-tester / dex-ts-tester | тесты + отчёт о покрытии |
 | **Диагностика/инцидент** | dex-dotnet-runtime-diagnostician (+ debug/perf/tracing skills, netcoredbg-cli) | root-cause-отчёт |
 | **Документирование** | dex-doc-writer (+ dex-adr-writer / dex-diagram-creator / dex-api-designer по жанру) | нормативный документ |
+| **Свод правил проекта** | `/rulebook` -> главный поток ведёт санкции, разметку владельца и публикацию -> dex-rulebook-miner:rulebook-orchestrator ведёт добычу, спавнит read-only сборщиков партиями источников | свод правил в корпусе документации репозитория (ключ `rulebook`) |
 
 **Аналитика/ресёрч треком не является.** Самостоятельного «готово» у ресёрча нет (он
 open-ended), а все треки движка держатся на проверяемом DoD. Ресёрч под задачу - **фаза

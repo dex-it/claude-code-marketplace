@@ -709,5 +709,119 @@
     "requiresListed": [
       "superpowers:brainstorming"
     ]
+  },
+  {
+    "id": "project-rulebook-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-project-rulebook:project-rulebook",
+    "prompt": "Из чего должна состоять единица свода правил проекта и какие поля у неё обязательны? Нужно понять, как классифицировать правило и чем подтверждать источник."
+  },
+  {
+    "id": "project-rulebook-near-mining",
+    "mode": "near-miss",
+    "expect": "dex-skill-project-rulebook:project-rulebook",
+    "plugins": [
+      "dex-skill-rule-mining"
+    ],
+    "prompt": "Ревьюер предложил вынести валидацию, автор возразил, тред заглох. Считать это правилом проекта или нет?",
+    "requiresListed": [
+      "dex-skill-rule-mining:rule-mining"
+    ]
+  },
+  {
+    "id": "rule-mining-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-rule-mining:rule-mining",
+    "prompt": "Разбираю треды ревью, чтобы вывести из них правила. Ревьюер предложил вынести валидацию, автор возразил, тред заглох - считать это правилом или нет?"
+  },
+  {
+    "id": "rule-mining-near-mr-review",
+    "mode": "near-miss",
+    "expect": "dex-skill-rule-mining:rule-mining",
+    "prompt": "Отревьюй вот этот чужой MR и напиши замечания инлайн-тредами: посмотри на безопасность и на обработку ошибок."
+  },
+  {
+    "id": "rulebook-quality-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-rulebook-quality:rulebook-quality",
+    "prompt": "Прими наш свод правил проекта: проверь, что у каждого правила открывается источник, нет дублей и противоречий, и вынеси вердикт."
+  },
+  {
+    "id": "rulebook-quality-near-adr",
+    "mode": "near-miss",
+    "expect": "dex-skill-rulebook-quality:rulebook-quality",
+    "plugins": [
+      "dex-skill-adr-quality"
+    ],
+    "prompt": "Оцени качество вот этого ADR: достаточно ли раскрыты альтернативы и не описывает ли он вместо решения текущее состояние кода.",
+    "requiresListed": [
+      "dex-skill-adr-quality:adr-quality"
+    ]
+  },
+  {
+    "id": "rulebook-contested-normative-mining",
+    "mode": "contested",
+    "expect": "dex-skill-project-rulebook:project-rulebook",
+    "requiresListed": [
+      "dex-skill-rule-mining:rule-mining"
+    ],
+    "plugins": [
+      "dex-skill-rule-mining"
+    ],
+    "prompt": "Какие поля обязательны у единицы свода правил проекта и что делать, если у правила нет контрпримера из истории репозитория?"
+  },
+  {
+    "id": "rulebook-contested-oracle-normative",
+    "mode": "contested",
+    "expect": "dex-skill-rulebook-quality:rulebook-quality",
+    "requiresListed": [
+      "dex-skill-project-rulebook:project-rulebook"
+    ],
+    "plugins": [
+      "dex-skill-project-rulebook"
+    ],
+    "prompt": "Прими наш свод правил: часть единиц без контрпримера, у двух совпадает предмет, у одной таксон без версии схемы. Вынеси вердикт."
+  },
+  {
+    "id": "defect-classification-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-defect-classification:defect-classification",
+    "prompt": "Размечай находки ревью по нашему каталогу типов дефектов: каждой проставь тип и уровень. Как выбрать тип, когда замечание и про лишний код, и про слой?"
+  },
+  {
+    "id": "defect-classification-near-rulebook",
+    "mode": "near-miss",
+    "expect": "dex-skill-defect-classification:defect-classification",
+    "plugins": [
+      "dex-skill-project-rulebook"
+    ],
+    "requiresListed": [
+      "dex-skill-project-rulebook:project-rulebook"
+    ],
+    "prompt": "Какой таксон поставить правилу свода про порядок параметров в публичной сигнатуре и обязательна ли версия схемы?"
+  },
+  {
+    "id": "defect-classification-near-review",
+    "mode": "near-miss",
+    "expect": "dex-skill-defect-classification:defect-classification",
+    "prompt": "Отревьюй входящий MR: найди проблемы, проверь покрытие тестами и опубликуй находки тредами."
+  },
+  {
+    "id": "review-breakdown-in",
+    "mode": "in-scope",
+    "expect": "dex-skill-review-breakdown:review-breakdown",
+    "prompt": "Результаты ревью этого MR надо не только тредами разложить, а сложить в файл: строка на каждый тред, плюс отчёт по MR целиком. Что в этой записи должно лежать и по какому ключу её потом обновлять на втором прогоне?"
+  },
+  {
+    "id": "review-breakdown-near-classification",
+    "mode": "near-miss",
+    "expect": "dex-skill-review-breakdown:review-breakdown",
+    "plugins": [
+      "dex-skill-defect-classification"
+    ],
+    "requiresListed": [
+      "dex-skill-defect-classification:defect-classification"
+    ],
+    "prompt": "Размечай находки ревью по каталогу типов: каждой проставь тип и уровень. Как развести замечание про дубль и замечание про слой?"
   }
 ]

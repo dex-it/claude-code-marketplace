@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "6.0.0",
+  "version": "6.1.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -207,7 +207,7 @@
       "name": "dex-bundle-code-review",
       "source": "./plugins/bundles/dex-bundle-code-review",
       "description": "Бандл жизненного цикла кода: языко-агностичное ревью MR/PR, повторное ревью после правок, план правок, реализация фичи, подтягивание базовой ветки с разрешением конфликтов, саморевью перед push, приёмка слитой фичи на стенде с ремедиацией, расследование инцидента, плюс скиллы дисциплины ревью.",
-      "version": "1.35.0",
+      "version": "1.36.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -235,7 +235,7 @@
       "name": "dex-bundle-dotnet-developer",
       "source": "./plugins/bundles/dex-bundle-dotnet-developer",
       "description": "Бандл для .NET-разработчика: написание кода, отладка, тесты, code review, EF Core, производительность, интерактивный дизайн .NET-архитектуры.",
-      "version": "2.30.0",
+      "version": "2.31.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -247,7 +247,7 @@
       "name": "dex-bundle-dotnet-fullstack",
       "source": "./plugins/bundles/dex-bundle-dotnet-fullstack",
       "description": "Полный бандл для .NET fullstack: разработка, базы данных, брокеры сообщений, контейнеры, CI/CD, мониторинг, интерактивный дизайн архитектуры.",
-      "version": "2.31.0",
+      "version": "2.32.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -357,7 +357,7 @@
       "name": "dex-bundle-ts-fullstack",
       "source": "./plugins/bundles/dex-bundle-ts-fullstack",
       "description": "Бандл для TypeScript fullstack: бэкенд на Node.js/Bun и фронтенд на React, безопасность, Docker, E2E на Playwright.",
-      "version": "1.30.0",
+      "version": "1.31.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -580,7 +580,7 @@
       "name": "dex-dotnet-coder",
       "source": "./plugins/specialists/dotnet/dex-dotnet-coder",
       "description": "Кодер .NET: пишет код и реализует фичи по требованиям, следует конвенциям проекта, отдаёт статус build/test.",
-      "version": "3.3.0",
+      "version": "3.4.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -970,8 +970,8 @@
     {
       "name": "dex-mr-reviewer",
       "source": "./plugins/specialists/review/dex-mr-reviewer",
-      "description": "Языко-агностичный узел первичного ревью чужого MR/PR: карта изменений, параллельные фокусы, фальсификация находок, severity/confidence/scope, доставка инлайн-тредами через gh/glab. Точка входа - команда /mr-review, едет в этом же плагине.",
-      "version": "2.5.1",
+      "description": "Языко-агностичный узел первичного ревью чужого MR/PR: карта изменений, параллельные фокусы, фальсификация находок, severity/confidence/scope, доставка инлайн-тредами через gh/glab. По поручению входа - разметка находок типом и разбор результата в файл с доставкой приёмнику. Точка входа - команда /mr-review, едет в этом же плагине.",
+      "version": "2.6.1",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1184,6 +1184,21 @@
         "roadmap",
         "planning",
         "strategy"
+      ]
+    },
+    {
+      "name": "dex-rulebook-miner",
+      "source": "./plugins/specialists/review/dex-rulebook-miner",
+      "description": "Добыча свода правил проекта из истории ревью: оркестратор ведёт окно и запись, read-only сборщики разбирают источники, каждое правило стоит на дословной цитате и якоре. Точка входа - команда /rulebook в этом же плагине.",
+      "version": "2.0.0",
+      "category": "specialist",
+      "keywords": [
+        "specialist",
+        "review",
+        "rulebook",
+        "conventions",
+        "knowledge-extraction",
+        "code-review"
       ]
     },
     {
@@ -1525,7 +1540,7 @@
       "name": "dex-skill-codebase-conventions",
       "source": "./plugins/skills/dex-skill-codebase-conventions",
       "description": "Конвенции проекта против технического решения: что копировать у соседних классов (форма, нейминг, размещение, интеграция) и где решает ADR, а не код рядом.",
-      "version": "1.9.2",
+      "version": "1.10.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -1630,6 +1645,21 @@
       ]
     },
     {
+      "name": "dex-skill-defect-classification",
+      "source": "./plugins/skills/dex-skill-defect-classification",
+      "description": "Классификация находки ревью по каталогу типов дефектов - гейт разметки, единица разметки тред, закрытая схема типов на характеристиках качества продукта, независимость типа от критичности, каталог проекта по адресу вместо встроенного, выход разметки",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "defect-classification",
+        "code-review",
+        "taxonomy",
+        "severity",
+        "iso25010"
+      ]
+    },
+    {
       "name": "dex-skill-design-quality",
       "source": "./plugins/skills/dex-skill-design-quality",
       "description": "Оракул дизайн-документа: покрытие входного набора требований, открытые развилки с названной ценой, проверяемость, режимы отказа, измеримость NFR.",
@@ -1697,7 +1727,7 @@
       "name": "dex-skill-docs-layout",
       "source": "./plugins/skills/dex-skill-docs-layout",
       "description": "Целевая раскладка корпуса документации проекта - дерево docs/, куда кладётся каждый жанр, минимум обязательного по размеру фичи, схема идентификаторов и блоки номеров за фичей, развёртывание заготовки в пустом проекте",
-      "version": "1.0.2",
+      "version": "1.1.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2278,7 +2308,7 @@
       "name": "dex-skill-node-contract",
       "source": "./plugins/skills/dex-skill-node-contract",
       "description": "Рантайм-контракт агента-узла - режим interactive/autonomous, реакция на неполный вход (blocking/default-ok), возврат наверх, словарь полей handoff, метка quality-checks и её носитель, транспорт артефакта, выбор канала хостинга (native/CLI), graceful degradation при недоступности skill",
-      "version": "7.30.0",
+      "version": "7.31.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2512,7 +2542,7 @@
       "name": "dex-skill-project-docs-map",
       "source": "./plugins/skills/dex-skill-project-docs-map",
       "description": "Карта документации проекта - где лежат требования, BRD, ADR, спеки, корпус уровня 0 и счётчики номеров; файл путей .docs_layout (ключи product, domain, root, adr, specs, counter), поиск и запись при его отсутствии, статус при недостижимом корпусе",
-      "version": "2.5.2",
+      "version": "2.6.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2520,6 +2550,21 @@
         "documentation",
         "adr",
         "requirements"
+      ]
+    },
+    {
+      "name": "dex-skill-project-rulebook",
+      "source": "./plugins/skills/dex-skill-project-rulebook",
+      "description": "Норматив жанра свод правил проекта - состав свода, атрибуты единицы RUL, таксон вместо свободного тега, реестр источников с исходом на каждый, критерий покрытия правила проверкой, норма без изменчивых адресов, статусы и вытеснение, вход и выход этапа",
+      "version": "1.1.1",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "rulebook",
+        "conventions",
+        "documentation",
+        "standard",
+        "code-review"
       ]
     },
     {
@@ -2714,6 +2759,21 @@
       ]
     },
     {
+      "name": "dex-skill-review-breakdown",
+      "source": "./plugins/skills/dex-skill-review-breakdown",
+      "description": "Норматив жанра разбора ревью - файл с результатами разбора MR: единица разбора тред, ключ идемпотентности, две оси судьбы находки (правота и исход), отчёт по MR с перечнем виденных тредов, доставка разбора приёмнику по адресу",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "review-breakdown",
+        "code-review",
+        "merge-request",
+        "findings",
+        "intake"
+      ]
+    },
+    {
       "name": "dex-skill-review-evidence",
       "source": "./plugins/skills/dex-skill-review-evidence",
       "description": "Дисциплина доказательств в ревью: не утверждать без чтения файла, доказывать отсутствие поиском, трассировать путь вход-эффект, фальсифицировать каждую находку, рубрики severity и confidence, порог публикации.",
@@ -2783,6 +2843,34 @@
         "5-whys",
         "cause-effect-chain",
         "fix-falsification"
+      ]
+    },
+    {
+      "name": "dex-skill-rule-mining",
+      "source": "./plugins/skills/dex-skill-rule-mining",
+      "description": "Ловушки добычи правил проекта из истории ревью: тред без исхода, пересказ вместо цитаты, обобщение шире источника, непроверяемая формулировка, покрытие инструментом по конфигу вместо прогона, правило против живого кода, пропуск ревью без признака, индустриальная практика поверх проектной",
+      "version": "1.1.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "rule-mining",
+        "code-review",
+        "conventions",
+        "knowledge-extraction"
+      ]
+    },
+    {
+      "name": "dex-skill-rulebook-quality",
+      "source": "./plugins/skills/dex-skill-rulebook-quality",
+      "description": "Оракул свода правил проекта: единица без якоря, цитата, которая не открывается, дубль и противоречие единиц, непроверяемое на ревью правило, норма на изменчивом адресе, неквалифицированное расхождение с живым кодом, расхождение индекса с разделами и реестра с корпусом",
+      "version": "1.1.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "quality-oracle",
+        "rulebook",
+        "code-review",
+        "conventions"
       ]
     },
     {
@@ -3211,7 +3299,7 @@
       "name": "dex-ts-fullstack-coder",
       "source": "./plugins/specialists/fullstack/dex-ts-fullstack-coder",
       "description": "Fullstack-кодер TypeScript: бэкенд на Node.js/Bun и фронтенд на React, типизация, валидация схем.",
-      "version": "2.3.0",
+      "version": "2.4.0",
       "category": "specialist",
       "keywords": [
         "specialist",
