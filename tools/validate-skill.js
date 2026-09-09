@@ -179,6 +179,9 @@ const PROCESS_SKILLS = new Set([
   'opportunity-canvas',
   'issue-tracking',
   'idea-forming',
+  'project-rulebook',
+  'defect-classification',
+  'review-breakdown',
 ]);
 
 // Имена, существующие только в фикстурах `tools/__fixtures__`. В продовые перечни не
