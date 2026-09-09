@@ -3,6 +3,8 @@ name: fixture-agent
 description: Эталонный валидный агент песочницы, держит базу нулевых находок для раннера правил.
 tools: Read, Write, Grep, Glob, Skill
 model: sonnet
+skills:
+  - dex-skill-node-contract:node-contract
 ---
 
 # Fixture Agent

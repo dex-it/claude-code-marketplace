@@ -6,6 +6,7 @@ description: >-
 tools: Read, Write, Grep, Glob, Skill
 model: sonnet
 skills:
+  - dex-skill-node-contract:node-contract
   - dex-skill-fixture
 ---
 

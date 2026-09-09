@@ -5,6 +5,8 @@ description: >-
   Триггеры - фикстура агента, база песочницы, прогон правила валидатора, регрессия валидатора.
 tools: Read, Write, Grep, Glob, Skill
 model: gpt-4
+skills:
+  - dex-skill-node-contract:node-contract
 ---
 
 # Fixture Agent

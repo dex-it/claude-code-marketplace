@@ -3,6 +3,8 @@ name: fixture-agent
 description: Триггеры - фикстура.
 tools: Read, Write, Grep, Glob, Skill
 model: sonnet
+skills:
+  - dex-skill-node-contract:node-contract
 ---
 
 # Fixture Agent

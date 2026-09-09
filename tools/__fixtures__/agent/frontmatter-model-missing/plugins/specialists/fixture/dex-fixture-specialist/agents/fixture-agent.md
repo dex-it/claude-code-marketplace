@@ -4,6 +4,8 @@ description: >-
   Эталонный валидный агент песочницы - держит базу нулевых находок для раннера правил.
   Триггеры - фикстура агента, база песочницы, прогон правила валидатора, регрессия валидатора.
 tools: Read, Write, Grep, Glob, Skill
+skills:
+  - dex-skill-node-contract:node-contract
 ---
 
 # Fixture Agent

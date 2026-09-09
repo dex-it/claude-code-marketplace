@@ -1,6 +1,6 @@
 # dex-requirements-reviewer
 
-Ревьюер чужого готового набора требований по рецепту **Reviewer**. Предмет ревью - документ (BRD, эпик, набор stories с AC), а не код и не diff. Агент судит: выносит дефекты с цитатой из текста, калибрует severity, формулирует правку автору. Порождение требований - зона `/feature` (трек `dex-skill-analytics-track`), не этого плагина.
+Ревьюер чужого готового набора требований по рецепту **Reviewer**. Предмет ревью - документ (BRD, эпик, набор stories с AC), а не код и не diff. Агент судит: выносит дефекты с цитатой из текста, калибрует severity, формулирует правку автору. Порождение требований - команда `/feature` (плагин `dex-business-analyst`), не этот плагин.
 
 ## Команда
 
@@ -8,7 +8,7 @@
 
 ## Архитектура
 
-Команда тонкая и делегирует агенту `requirements-reviewer` с явной передачей `mode: interactive`. Десять фаз: Context and Input Acceptance -> Domain Priming -> Direct Analysis (единица) -> Set Analysis (набор) -> Fact Verification -> Cross-Linking -> Severity Calibration -> Deferred Decision Triage -> Output Labeling -> Report.
+Команда тонкая: делегирует агенту `requirements-reviewer`, а оператора по находкам проводит сама. Режим передаётся агенту тем же значением, но `interactive` даёт ему планку, а не канал - канала к оператору у него нет физически (`node-contract`, D.11). Десять фаз: Context and Input Acceptance -> Domain Priming -> Direct Analysis (единица) -> Set Analysis (набор) -> Fact Verification -> Cross-Linking -> Severity Calibration -> Deferred Decision Triage -> Output Labeling -> Report.
 
 Set Analysis занимает в этом агенте место, которое в code-ревьюерах занимает Skill-Based Deep Scan: предмет - документ, а не стек, поэтому глубину даёт оракул набора, а не профильные skills по языку.
 
@@ -27,6 +27,6 @@ Pre-load: `dex-skill-node-contract` (контракт узла, входная �
 
 ## Связанные плагины
 
-- `dex-sdlc` (`/feature`, трек `dex-skill-analytics-track`) - порождение требований, адресат правок.
+- `dex-business-analyst` (`/feature`) - порождение требований, адресат правок.
 - `dex-design-reviewer` - симметричный ревьюер зоны дизайна (дизайн-документ).
 - `dex-mr-reviewer` - ревью кода; там `requirement-quality` применяется к ТЗ задачи, а не к набору эпика.

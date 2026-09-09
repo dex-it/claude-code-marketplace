@@ -11,7 +11,7 @@
  *   - each skill or specialist a COMMAND in the bundle names as its executor
  *     (`dex-X:Y`) MUST also be listed (rule bundle-command-not-closed). A
  *     command is the third reference carrier; its body was outside closure
- *     entirely, and the gap was real - /find-bugs (dex-sdlc) names
+ *     entirely, and the gap was real - /find-bugs names
  *     dex-bug-finder as executor while four bundles shipped the command
  *     without that plugin, so the name silently failed to resolve.
  * Installation is flat - install-bundle.sh installs exactly the component lists
@@ -130,7 +130,7 @@ function loadMarketplaceDescriptions() {
 
 // Категория записи каталога не произвольна: она выводится из того, что в плагине
 // лежит, и на дереве совпадает у всех записей. Поле не читает ни один валидатор,
-// поэтому пропуск проходил гейт молча (пойман на dex-sdlc-nudge - запись без
+// поэтому пропуск проходил гейт молча (пойман на плагине-хуке - запись без
 // `category` и `keywords`). Ключ - имя записи, значение - `null` при отсутствии
 // поля: запись без категории и отсутствие записи вовсе - разные случаи, и второй
 // не предмет этого правила.
@@ -284,7 +284,7 @@ function buildSkillAgentMap(allPluginsInRepo) {
 // Третье ребро замыкания. Носителей ссылки на исполнителя три - агент, скилл и
 // команда; первые два проверялись, тело команды не проверялось вовсе.
 // Разделение по членству в репо, а не по префиксу имени: команда называет и
-// `dex-skill-X:Y`, и скилл плагина без префикса (`dex-sdlc:engine`), и агента.
+// `dex-skill-X:Y`, и скилл плагина, чьё имя префикса не несёт, и агента.
 // Форма ссылки та же, что у остальных правил - `plugin:name`; голое имя плагина
 // в прозе не ловится (см. docs/VALIDATOR_RULES.md, границы правила).
 function buildCommandRefMap(skillPluginsInRepo, specialistPluginsInRepo) {
@@ -535,7 +535,7 @@ function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, age
 // Двухместная синхронизация версии касается каждого плагина, не только бандла:
 // `plugin.json` <-> запись в `marketplace.json`. Проверка жила внутри
 // validateBundle и охватывала лишь bundles/ - рассинхрон обычного плагина
-// проходил гейт молча (пойман на dex-sdlc 2.6.1 vs 2.6.0).
+// проходил гейт молча (пойман на паре 2.6.1 vs 2.6.0 у обычного плагина).
 function validateVersionSync(marketplaceVersions, marketplaceDescriptions, marketplaceCategories, only) {
   const results = [];
   const walk = (dir) => {
@@ -663,7 +663,7 @@ function report(results, extraResults = []) {
 
 function buildSkillPluginsInRepo() {
   const set = new Set();
-  // Скиллы живут не только в plugins/skills (например plugins/ai-sdlc). Обходим весь
+  // Скилл может лежать в любой группе plugins/, не только в plugins/skills. Обходим весь
   // plugins/ по SKILL.md - как findAllSkillFiles в validate-skill.js - и берём name из
   // манифеста плагина-владельца. Иначе closure-чек не видит скиллы вне plugins/skills и
   // молча их пропускает (правило bundle-not-closed на них не срабатывает).

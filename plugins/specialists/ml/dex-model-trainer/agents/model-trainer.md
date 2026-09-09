@@ -28,7 +28,7 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 
 **Goal:** Определить задачу, данные, фреймворк, ограничения по ресурсам.
 
-**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` задача обучения и данные под неё; `[default-ok]` фреймворк, ограничения по ресурсам и времени, baseline, `mode` - канал к пользователю, поля нет -> `autonomous`. Задачи или данных нет -> halt плюс возврат оркестратору со `status: blocked`.
+**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` задача обучения и данные под неё; `[default-ok]` фреймворк, ограничения по ресурсам и времени, baseline, `mode` - оператор в петле, поля нет -> `autonomous`. Задачи или данных нет -> halt плюс возврат оркестратору со `status: blocked`.
 
 **Output:** Training spec:
 - Задача: classification / regression / NLP / CV / time-series
@@ -39,7 +39,7 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 
 **Exit criteria:** Задача, данные и фреймворк определены. Если pretrained модель -- определить base model.
 
-**Mandatory:** yes -- training pipeline без понимания задачи и ресурсов бесполезен.
+**Mandatory:** yes
 
 При анализе:
 - Проверить существующий код в проекте (есть ли уже training script)
@@ -57,7 +57,7 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 
 **Exit criteria:** Скрипт создан, все компоненты на месте, конфигурация параметров вынесена. Сработавший fact-check-триггер закрыт статусом `verified` / `unverifiable` / `contradicted`.
 
-**Mandatory:**
+**Обязательное в цикле обучения:**
 - Validation после каждой эпохи -- train loss без val loss бесполезен
 - Early stopping -- предотвращает overfitting и экономит ресурсы
 - Checkpointing лучшей модели по val metric -- не терять лучший результат
