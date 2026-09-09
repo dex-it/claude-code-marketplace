@@ -245,12 +245,9 @@ Staff-уровневый ревьюер чужого MR/PR. Стек-нейтр�
 ```bash
 # GitLab (CLI-фолбэк): SHA-якоря и inline-тред на строку
 glab api "projects/:id/merge_requests/:iid" | jq -r '.diff_refs'
-glab api --method POST "projects/:id/merge_requests/:iid/discussions" \
-  --field body=@<thread-body-file> \
-  --field "position[position_type]=text" \
-  --field "position[base_sha]=$BASE_SHA" --field "position[head_sha]=$HEAD_SHA" \
-  --field "position[start_sha]=$START_SHA" \
-  --field "position[new_path]=$FILE" --field "position[new_line]=$LINE"
+# position уходит ВЛОЖЕННЫМ объектом, тело - на stdin (см. абзац ниже)
+printf '%s' "$JSON" | glab api --method POST --input - \
+  "projects/:id/merge_requests/:iid/discussions" | jq -r '.id'
 ```
 
 ```bash
@@ -260,6 +257,8 @@ gh api --method POST "/repos/{owner}/{repo}/pulls/<PR>/comments" \
   -F body=@<thread-body-file> -f path="$FILE" -F line=$LINE \
   -f side="RIGHT" -f commit_id="$HEAD_SHA"
 ```
+
+**Вложенный `position` не передаётся флагом `--field` с ключом в скобках.** `glab api` шлёт тело JSON'ом, и `position[new_line]` уезжает **литеральным именем поля**, а не путём во вложенный объект: хостинг разбирает такое тело как запрос без позиции и заводит тред на MR целиком вместо строки. Отказа при этом нет - ответ `201`, тред создан, привязки нет, и обнаруживается это только глазами в интерфейсе. Позиция обязана прийти либо вложенным объектом в JSON (`--input -` с телом `{"body": ..., "position": {"position_type": "text", ...}}`), либо form-кодированием (`curl --data "position[new_line]=..."`), где скобочная запись разбирается хостингом штатно. Идентификатор созданного треда - поле `id` ответа: он ключ единицы разбора (Phase 13), и без него разбор к обсуждению не привязать.
 
 **У `glab api` нет флага `--jq`** (в отличие от `gh api`): выборка поля идёт внешним `jq` по пайпу, а с флагом команда падает на `Unknown flag` и три SHA якоря остаются незаполненными - тред тогда создаётся без привязки к строке. `jq` в среде нет - разбирай `diff_refs` из полного ответа, привязку не пропускай. Чтение тела из файла идёт через `-F`/`--field` с префиксом `@` (флаг `-f`/`--raw-field` шлёт литеральную строку, не файл). Порядок при недоступности файла (sandbox-ограничение CLI): 1. stdin тем же `@`-механизмом - `@-` вместо `@<file>` (`printf '%s' "$BODY" | glab api ... -F body=@-`); обходит и файл, и экранирование многострочного тела в argv, тело JSON-кодируется CLI. 2. инлайн literal-строкой (`-f body="..."`) - только если stdin недоступен; ненадёжен на markdown с переносами и спецсимволами. Для удалённых строк используй old_path/old_line (glab) либо side=LEFT (gh). Overview публикуй общим комментарием (`glab api ... discussions` без position либо `gh pr comment`).
 
