@@ -23,12 +23,12 @@
 ## 2. Узлы
 
 ```
-трек (dex-skill-analytics-track:analytics-track, загружает dex-sdlc:engine)
+команда /feature (dex-business-analyst)
    ├── dex-business-analyst        -> BR
    ├── dex-usecase-analyst         -> UC
    ├── dex-requirements-analyst    -> FR и NFR
    └── dex-user-story-analyst      -> истории с AC
-судьи: гейт трека · dex-requirements-reviewer (автор себя не судит)
+судьи: гейт команды `/feature` · dex-requirements-reviewer (автор себя не судит)
 ```
 
 Трек держит номер фичи, `decision-log`, гейты и остановки оператора. Составители нумеруют себя
@@ -49,9 +49,9 @@
 | `node-contract` | форма стыка: статусы исхода, словарь полей, транспорт указателями, реакция на неполный вход, журнал решений | все |
 | `project-docs-map` | где корпус (`.docs_layout`), где `.req_counter`, что делать при отсутствии и недостижимости | все |
 | `unit-identity` | та же единица или новая; номера, дырки, конфликт счётчика | все |
-| `docs-layout` | дерево корпуса, имена файлов классов, минимум обязательного, схема идентификаторов | трек и все четыре составителя |
-| `artifact-naming` | границы применения конвенции к занятому корпусу, слаг прогона | трек и все четыре составителя |
-| `decision-log` | форма журнала решений | только трек - писать в него больше некому |
+| `docs-layout` | дерево корпуса, имена файлов классов, минимум обязательного, схема идентификаторов | команда `/feature` и все четыре составителя |
+| `artifact-naming` | границы применения конвенции к занятому корпусу, слаг прогона | команда `/feature` и все четыре составителя |
+| `decision-log` | форма журнала решений | только команда `/feature` - писать в него больше некому |
 
 ## 4. Предметные скиллы и оракулы
 
@@ -65,7 +65,7 @@
 | `usecase-analyst` | `use-cases` | `use-cases-cockburn` (pre-load) | `legacy-reconstruction` | - |
 | `requirements-analyst` | `functional-requirements`, `nfr` | `system-requirements-29148` (pre-load) | `legacy-reconstruction` | `requirement-quality` |
 | `user-story-analyst` | `user-stories` | - | `test-design` - техники подбора примеров | `requirement-quality` |
-| трек (как судья) | `use-cases`, `functional-requirements`, `nfr`, `user-stories` | `business-analysis-29148` (Phase 2), `use-cases-cockburn` (Phase 3), `system-requirements-29148` (Phase 4) | - | `requirement-quality`, `requirement-set-quality`, `use-case-quality` |
+| команда `/feature` (как судья) | `use-cases`, `functional-requirements`, `nfr`, `user-stories` | `business-analysis-29148` (Phase 2), `use-cases-cockburn` (Phase 3), `system-requirements-29148` (Phase 4) | - | `requirement-quality`, `requirement-set-quality`, `use-case-quality` |
 | `requirements-reviewer` | все четыре класс-скилла | `business-analysis-29148`, `use-cases-cockburn`, `system-requirements-29148` - по предмету ревью | `fact-verification`, `review-evidence`, `output-hygiene`, `codebase-conventions`, `ddd` | `requirement-quality`, `requirement-set-quality`; на наборе сценариев - `use-case-quality` **вместо** оракула набора |
 
 Прочерк в любой колонке читается одинаково - артефакта этого рода у узла нет, и закрывается это
@@ -110,8 +110,8 @@
 ```
 читает:   корпус (по root из .docs_layout) · .req_counter · decision-log
           · quality-checks вместе с полем revision
-пишет:    свой артефакт · свой файл счётчика · строки решений (возвращает треку)
-трек:     + decision-log
+пишет:    свой артефакт · свой файл счётчика · строки решений (возвращает команде)
+команда:  + decision-log
 судья:    + записи quality-checks
 ```
 
@@ -123,7 +123,7 @@
 | `.req_counter` | при корпусе, один на продукт, файл на ключ | восстанавливается проходом по номерам единиц |
 | `.docs_layout` | корень репозитория, имя фиксировано конвенцией | ищется и записывается заново |
 
-Разделение писателей жёсткое: `decision-log` пишет только трек - у файла со многими писателями
+Разделение писателей жёсткое: `decision-log` пишет только команда зоны - у файла со многими писателями
 порядок записи не определён; записи `quality-checks` ставит судья, автор себе метку не ставит.
 
 ## 7. Номера
@@ -134,13 +134,13 @@
 
 Столкновение делается **видимым**: все прогоны правят одни и те же строки одного файла, поэтому две
 ветки, взявшие номер под одним ключом, конфликтуют при слиянии. Конфликт `.req_counter` - вход
-процедуры перенумерации, а не поломка (`project-docs-map`, п.6; исполнитель - `dex-conflict-resolver`).
+процедуры перенумерации, а не поломка (`project-docs-map`, п.6; исполнитель - тот, кто ведёт слияние).
 
 ## 8. Границы
 
 Вверх - одна безусловная остановка оператора: финальная приёмка набора, на ней же предъявляются цели
 и границы. В автономном
-режиме решения принимает трек, выводя каждое из принятого набора, и возвращает их отдельным списком
+режиме решения принимает команда зоны, выводя каждое из принятого набора, и возвращает их отдельным списком
 «принято за оператора, основание такое-то».
 
 Вниз - порог достаточности: набор готов, когда реализатор принимает решения только о способе.

@@ -75,7 +75,7 @@ Understand Requirements -> [Study Project Context?] -> Generate -> Validate.
 
 **Exit criteria:** Все пути от start достигают end event. Gateways сбалансированы (split имеет join). Условия на branches explicitly documented. Нет «висячих» элементов.
 
-**Mandatory:** yes - без диаграммы агент не выполняет свою задачу.
+**Mandatory:** yes
 
 ## Phase 4: Validate
 

@@ -61,4 +61,4 @@ description: >-
 
 **Почему:** этот абзац держит ноль находок базы: вернётся широкий шаблон - упадут все фикстуры разом.
 
-Смежная дисциплина - [node-contract](../../../../ai-sdlc/dex-skill-node-contract/skills/node-contract/SKILL.md).
+Смежная дисциплина - [node-contract](../../../../misc/dex-skill-node-contract/skills/node-contract/SKILL.md).

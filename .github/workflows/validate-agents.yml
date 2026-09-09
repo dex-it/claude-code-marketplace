@@ -106,15 +106,6 @@ jobs:
       - name: Validate README against the catalog
         run: node tools/validate-readme.js all
 
-      # Оба хука регрессируют своим адресом, разъехавшимся с прозой молча: resume-reminder -
-      # адресом auto-ledger (текст движка vs код хука vs README хука), engine-nudge - условием
-      # «молчим вне git-репозитория», снятым в 1.2.0 без отражения в платной пробе активации.
-      # Через готовый npm-скрипт test:hooks, а не прямым bash - та же форма вызова, что у
-      # остальных шагов job'а; job уже несёт npm ci, дублировать Setup Node.js/npm ci в
-      # shell-syntax под эти два теста незачем.
-      - name: Test hooks (resume-reminder, engine-nudge)
-        run: npm run test:hooks
-
   shell-syntax:
     name: Shell scripts syntax check (bash -n)
     runs-on: ubuntu-latest

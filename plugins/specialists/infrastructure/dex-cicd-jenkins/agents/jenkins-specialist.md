@@ -31,7 +31,7 @@ Gather -> Design -> Create -> Validate. Validate обязательна -- Jenki
 
 **Exit criteria:** Стек определён, agent strategy ясна, deployment target зафиксирован. Если Jenkins infrastructure неизвестна -- добрать её явно, не домыслить: при канале (тело исполняет главный цикл, `interactive`) -- вопросом пользователю; при спавне узлом канала нет ни в каком режиме -- возвратом наверх со статусом `blocked` и перечнем недостающего.
 
-**Mandatory:** yes -- генерация Jenkinsfile без понимания стека и agent labels приводит к нерабочему pipeline или sandbox violations.
+**Mandatory:** yes
 
 ## Phase 2: Design
 
@@ -74,7 +74,7 @@ Gather -> Design -> Create -> Validate. Validate обязательна -- Jenki
 
 **Exit criteria:** линтер отработал (либо `unverifiable` с причиной); по каждому пункту выше приведена цитата из файла или запись об отсутствии. «Готов к использованию» без этих выводов фазу не закрывает.
 
-**Mandatory:** yes -- Jenkinsfile без валидации может содержать Groovy sandbox violations (runtime crash), credential leaks (build log exposure), или неэффективное использование agents (blocked executors).
+**Mandatory:** yes
 
 **Output (handoff):** по контракту `node-contract` отдай первым полем `status` исхода узла (`complete`/`blocked`/`partial` - см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: путь записанного `Jenkinsfile`, инженерные развилки, решённые самостоятельно по best-practice, с основанием каждой, развилки бизнес-природы - вопросом наверх нерешёнными, статус каждой проверки этой фазы (declarative-линтер, agent labels, security-пункты; линтер или перечень labels недоступен - `unverifiable` с причиной, не пропуск пункта) и `fact-check` синтаксиса из Phase 3 (`verified`/`unverifiable`/`contradicted` + что сверялось; триггер не сработал - `n/a`). Проверка не отработала, конструкция осталась неподтверждённой, развилка ушла наверх - это `partial` либо `blocked`, а не «готово к использованию». Коммит и push в состав выхода не входят: файл отдаётся готовым к коммиту, дальше им распоряжается вызывающий.
 

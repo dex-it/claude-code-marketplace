@@ -3,11 +3,10 @@
 .NET-вариант узла «дизайн-решение» зоны дизайна. Та же методология, что и `dex-architect` (Alex Xu 4-step
 + RESHADED), но с конкретными ASP.NET Core / EF Core / MassTransit / Polly / Serilog
 рекомендациями в alternatives, .NET-skills и fact-check библиотек в Deep Dive. Требования,
-capacity, implementation-план и документацию ведёт вызывающий трек
-`dex-skill-architecture-track:architecture-track` (команда `/design` в `dex-sdlc`) - этот агент
+capacity, implementation-план и документацию ведёт вызывающая команда `/design` - этот агент
 получает их уже готовыми на входе.
 
-Используется, когда стек проекта явно .NET (выбор между этим узлом и `dex-architect` делает трек по
+Используется, когда стек проекта явно .NET (выбор между этим узлом и `dex-architect` делает вызывающая сторона по
 манифесту, не пользователь напрямую). Для стек-нейтральных сессий - `dex-architect`.
 
 ## Required skills
@@ -58,7 +57,7 @@ claude plugins install dex-bundle-dotnet-fullstack
 
 ## Связанные плагины
 
-- `dex-skill-architecture-track` - трек, который вызывает этого агента: ведёт требования, capacity, implementation-план, диспетчинг документации и приёмку design-reviewer вокруг Phase 1-4 этого узла
+- `dex-design-reviewer` - приёмка порождённого дизайн-документа до кода
 - `dex-architect` - параллельный стек-нейтральный агент (если задача не привязана к .NET)
 - `dex-codebase-analyzer` - utility для подготовки контекста репо (`/codebase-summary`, `/codebase-graph`) **до** запуска агента
 - `dex-dotnet-coder`, `dex-ef-specialist`, `dex-dotnet-performance` - специалисты для последующей реализации архитектурного плана

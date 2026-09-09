@@ -73,7 +73,7 @@ Understand Requirements -> Generate -> Validate.
 
 **Exit criteria:** Каждая story проходит INVEST check по нормам `user-stories`. Acceptance criteria testable (нет «система должна работать корректно»). Каждая story сохранена файлом в `stories/` своей фичи под номером своего ключа.
 
-**Mandatory:** yes - без генерации stories агент не выполняет свою задачу.
+**Mandatory:** yes
 
 ## Phase 3: Validate
 

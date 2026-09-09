@@ -28,7 +28,7 @@ skills:
 
 **Output:** Карточка симптома: тип, артефакты (живой PID, coredump, лог, метрики), окружение (host / Docker / Kubernetes / WSL), baseline permissions (Yama ptrace_scope, CapEff, kernel.perf_event_paranoid).
 
-**Mandatory:** yes - без классификации Phase 3 не знает какие skills грузить, без permissions-baseline тратится время на silent failures при attach.
+**Mandatory:** yes
 
 **Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` указатель на процесс (pid) ИЛИ дамп/coredump (+ лог/метрики если есть); `[blocking]` симптом (hang / crash / leak / slowdown / post-mortem) + ожидаемое корректное поведение (success criteria -- без него нечем мерить «починено»); `[default-ok]` окружение (host / Docker / Kubernetes / WSL), `mode`. Указатель на процесс/дамп или симптом отсутствует -> halt + возврат оркестратору (диагностировать/мерить нечего). Дамп/процесс читается с диска/хоста по указателю (attach / open core - read-only по процессу), не передаётся телом handoff.
 
@@ -40,7 +40,7 @@ skills:
 
 **Output:** Текстовая гипотеза «что сломалось и почему» с привязкой к артефакту, и список инструментов из мысленной матрицы (netcoredbg для managed PID, gdb/lldb для native crash, perf для CPU slowdown, bpftrace для hidden syscall, dotnet-counters для live metric проверки, dotnet-gcdump для GC pressure, gcore для snapshot).
 
-**Mandatory:** yes - без гипотезы Phase 3 превращается в shotgun-загрузку всех skills, Phase 4 - в бессистемный сбор.
+**Mandatory:** yes
 
 **Exit criteria:** Гипотеза записана с прямой ссылкой на наблюдаемый артефакт (log line, метрика, exit code); выбраны инструменты.
 
@@ -50,7 +50,7 @@ skills:
 
 **Output:** Список loaded skills, дедуплицированные с Phase 2 находки.
 
-**Mandatory:** yes - skill-чеклисты содержат permission-ловушки и edge cases, без них агент пропускает CAP / SELinux / mismatched runtime caveats до попыток attach.
+**Mandatory:** yes
 
 Условная матрица загрузки skills по симптомной оси и природе процесса. Три кластера: managed-side, native-side, cross-cutting.
 
@@ -84,7 +84,7 @@ Post-mortem и инспекция артефактов:
 
 **Output:** Набор файлов и текстовых выдержек с привязкой каждого артефакта к пункту гипотезы. Каждый артефакт назван и кратко прокомментирован.
 
-**Mandatory:** yes - без артефакта диагностика остаётся угадыванием; артефакты нужны для воспроизведения у разработчика и для self-review.
+**Mandatory:** yes
 
 **Exit criteria:** Минимум один артефакт доказывает или опровергает гипотезу из Phase 2; артефакты сохранены в файлах или зафиксированы в отчёте текстом.
 
@@ -94,7 +94,7 @@ Post-mortem и инспекция артефактов:
 
 **Output:** RCA-секция с файл:строка либо ключ конфига либо env-параметр; reproducer-артефакт либо явная пометка «не воспроизводится локально, требуются прод-условия» с обоснованием.
 
-**Mandatory:** yes - root cause без точной локализации не позволяет применить fix корректно.
+**Mandatory:** yes
 
 **Exit criteria:** RCA указывает либо файл:строка, либо config-ключ, либо env-параметр; reproducer приложен или явно помечен как невозможный.
 
@@ -114,7 +114,7 @@ Post-mortem и инспекция артефактов:
 
 **Output:** Markdown с секциями Symptom, Triage, Hypothesis, Skills loaded, Evidence, RCA, Reproducer, Fix, Severity, Validation.
 
-**Mandatory:** yes - без отчёта работа не финализирована и не передаваема следующему этапу (ревью, разработке fix, retrospective).
+**Mandatory:** yes
 
 **Output (handoff):** по контракту `node-contract` отдай первым полем `status` (`complete`/`blocked`/`partial` -- см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: root cause из runtime-улик (с доказательством -- стек потоков / GC / нативная граница / flamegraph / strace, привязка файл:строка либо config-ключ либо env), внесённый fix (изменённые файлы + где) ИЛИ предложенный fix/рекомендация если правка вне scope или нужен арх-decision, статус верификации (reproducer red -> green или пометка «требуются прод-условия»), остаточные риски (security implication при правке container security-context, побочные эффекты). Результат узла независимо от режима.
 

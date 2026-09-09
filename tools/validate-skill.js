@@ -33,7 +33,7 @@ const REPO_ROOT = process.env.MARKETPLACE_ROOT
   ? resolve(process.env.MARKETPLACE_ROOT)
   : resolve(__dirname, '..');
 // Сканируем весь plugins/ (не только plugins/skills): скиллы живут и в других
-// группах-папках (например plugins/ai-sdlc). Обход по SKILL.md покрывает
+// группах-папках, не только в plugins/skills. Обход по SKILL.md покрывает
 // любую папку без правки валидатора при переносе плагина.
 const SKILLS_DIR = join(REPO_ROOT, 'plugins');
 const MARKETPLACE_JSON = join(REPO_ROOT, '.claude-plugin', 'marketplace.json');
@@ -177,44 +177,29 @@ const PROCESS_SKILLS = new Set([
   'use-cases-cockburn',
   'bdd-gherkin',
   'opportunity-canvas',
-  'engine',
-  'analytics-track',
-  'product-track',
-  'development-track',
-  'architecture-track',
-  'bugfix-track',
-  'followup-track',
-  'acceptance-track',
-  'discover-track',
-  'test-track',
-  'mr-review-track',
   'issue-tracking',
-  'documentation-track',
-  'diagnostics-track',
   'idea-forming',
 ]);
+
+// Имена, существующие только в фикстурах `tools/__fixtures__`. В продовые перечни не
+// подмешиваются: иначе реальный скилл, названный так же, молча получил бы послабление
+// process-skill и снятие правила orchestrator-unregistered. Подмешиваются только когда
+// валидатор натравлен на дерево фикстуры (`MARKETPLACE_ROOT` задан явно).
+const FIXTURE_ONLY_SKILLS = new Set(['orchestrator-fixture']);
+const FIXTURE_TREE = Boolean(process.env.MARKETPLACE_ROOT);
+if (FIXTURE_TREE) for (const n of FIXTURE_ONLY_SKILLS) PROCESS_SKILLS.add(n);
 
 function isProcessSkill(parsed) {
   return PROCESS_SKILLS.has(parsed.data && parsed.data.name);
 }
 
-// SKILL_FRAMEWORK.md "оркестрация - в скилле, исполнение - в агенте": обычному
+// SKILL_FRAMEWORK.md "оркестрация - у главного потока, исполнение - в агенте": обычному
 // process-skill спавнить агентов не положено. Ручной allowlist, как PROCESS_SKILLS.
-const ORCHESTRATOR_SKILLS = new Set([
-  'engine',
-  'analytics-track',
-  'product-track',
-  'development-track',
-  'architecture-track',
-  'acceptance-track',
-  'discover-track',
-  'followup-track',
-  'bugfix-track',
-  'test-track',
-  'mr-review-track',
-  'documentation-track',
-  'diagnostics-track',
-]);
+// Реального скилла-оркестратора в каталоге после демонтажа движка не осталось, поэтому
+// перечень пуст: гасящая ветка проверяется фикстурой, чьё имя подмешивается только на
+// дереве фикстур (см. FIXTURE_ONLY_SKILLS выше).
+const ORCHESTRATOR_SKILLS = new Set();
+if (FIXTURE_TREE) for (const n of FIXTURE_ONLY_SKILLS) ORCHESTRATOR_SKILLS.add(n);
 
 // Эвристика best-effort: глагол делегирования рядом с бэктик-ссылкой на агента/Agent
 // в одном блоке. Молчание не значит "не оркестрирует": глагол вне словаря либо короткое

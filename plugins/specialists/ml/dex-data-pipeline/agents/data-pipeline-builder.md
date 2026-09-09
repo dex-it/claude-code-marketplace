@@ -37,7 +37,7 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 
 **Exit criteria:** Тип данных, фреймворк и ограничения по памяти определены. Если не указаны -- запросить явно: канал есть (тело исполняет главный цикл) - у пользователя; при спавне узлом канала нет ни в каком режиме -- возвратом наверх со статусом `blocked` и перечнем недостающего.
 
-**Mandatory:** yes -- pipeline для images и text кардинально различаются.
+**Mandatory:** yes
 
 При анализе:
 - Проверить существующий код загрузки данных в проекте
@@ -55,7 +55,7 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 
 **Exit criteria:** Pipeline создан, код синтаксически корректен, конфигурация оптимальна для определённого размера данных. Сработавший fact-check-триггер закрыт статусом `verified` / `unverifiable` / `contradicted`.
 
-**Mandatory:**
+**Обязательное в пайплайне:**
 - PyTorch: pin_memory=True для GPU training, persistent_workers=True для reuse, prefetch_factor для предзагрузки
 - TensorFlow: tf.data.AUTOTUNE для num_parallel_calls и prefetch
 - Augmentation в train pipeline, без augmentation в val/test

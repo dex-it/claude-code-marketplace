@@ -38,7 +38,7 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 
 **Exit criteria:** Формат модели, target и ограничения определены.
 
-**Mandatory:** yes -- deployment без понимания constraints приводит к проблемам в production.
+**Mandatory:** yes
 
 При анализе:
 - Определить формат модели по файлу (.pth, .h5, .keras, .pkl, .onnx)
@@ -56,7 +56,7 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 
 **Exit criteria:** Все компоненты deployment package созданы. Сработавший fact-check-триггер закрыт статусом `verified` / `unverifiable` / `contradicted`.
 
-**Mandatory:**
+**Обязательное в деплое:**
 - Health check endpoint (/health) -- обязательно для production
 - Model loading at startup, не per-request
 - Error handling для невалидных inputs (возвращать 400/422, не 500)

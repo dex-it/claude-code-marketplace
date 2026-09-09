@@ -2,7 +2,7 @@
 
 Bundle для полного цикла работы с кодом, языко-агностично: реализация фичи по ТЗ, интеграция базовой ветки с разрешением конфликтов merge/rebase, pre-push саморевью, ревью чужого MR/PR, итеративное ре-ревью дельты, план правок по ревью. Плюс skills дисциплины ревью и реализации.
 
-Цикл замыкается так: `/implement` через `dex-sdlc` и `dex-skill-development-track` (реализация до локальных коммитов, баг-фикс - под-вид `dex-skill-bugfix-track`, делегирует root cause `dex-debugger`) -> `dex-conflict-resolver` (подтянуть базу и развести конфликты merge/rebase) -> `dex-self-reviewer` (саморевью перед push) -> push и открытие MR -> `dex-mr-reviewer` (ревью на стороне ревьюера) -> автор правит -> `dex-mr-check-reviewer` (ре-ревью дельты) и `dex-review-planner` (план правок на стороне автора).
+Цикл замыкается так: `/implement` (реализация до локальных коммитов; баг-фикс - тот же вход, root cause делегируется `dex-debugger`) -> `/resolve-conflicts` (подтянуть базу и развести конфликты merge/rebase) -> `dex-self-reviewer` (саморевью перед push) -> push и открытие MR -> `dex-mr-reviewer` (ревью на стороне ревьюера) -> автор правит -> `dex-mr-check-reviewer` (ре-ревью дельты) и `dex-review-planner` (план правок на стороне автора).
 
 ## Installation
 
@@ -31,24 +31,19 @@ Bundle для полного цикла работы с кодом, языко-�
 
 Полный состав - `bundle.json`: `includes[]` (профиль роли) плюс `dependencies[]` (подтянутое замыканием); ниже - ключевые компоненты роли, не весь перечень.
 
-### Движок
-- `dex-sdlc` - движок (`dex-sdlc:engine`); командные входы живут в плагинах зон, ставятся отдельно
-- `dex-sdlc-delivery` - вход `/implement` (зона реализации)
-- `dex-sdlc-test` - входы `/test`, `/find-bugs` (зона тест-инжиниринга)
-- `dex-sdlc-review` - входы `/mr-review`, `/review-plan` (зона ревью)
-- `dex-sdlc-acceptance` - вход `/review-stand` (приёмка на стенде)
-- `dex-sdlc-ops` - входы `/investigate`, `/root-cause` (диагностика). Зоны требований, дизайна и документации в этот bundle не входят - их команды ставятся своими плагинами
-- `dex-skill-development-track` - порядок работ зоны реализации (`/implement`), баг-фикс - под-вид
-- `dex-skill-bugfix-track` - под-вид `/implement` для бага: red-тест до фикса, делегирует root cause `dex-debugger`
-- `dex-skill-followup-track` - обработка внешнего ревью на уже сданном MR (переход из Development Track)
+### Команды
+- `dex-implement` - вход `/implement` (реализация фичи до локальных коммитов, кодер по манифесту репозитория)
+- `dex-test` - вход `/test` (добор покрытия по осям матрицы)
+- `dex-bug-finder` - вход `/find-bugs` (активный поиск дефектов)
+- `dex-stand-reviewer` - вход `/review-stand` (приёмка на стенде)
+- `dex-incident-investigator` - вход `/investigate`, `dex-debugger` - вход `/root-cause` (диагностика). Команды зон требований, дизайна и документации в этот bundle не входят - их плагины ставятся отдельно
 
 ### Specialists
-- `dex-mr-reviewer` - первичное ревью чужого MR/PR, инлайн-треды через gh/glab (`/mr-review`, движок `dex-sdlc`)
+- `dex-mr-reviewer` - первичное ревью чужого MR/PR, инлайн-треды через gh/glab (`/mr-review`)
 - `dex-mr-check-reviewer` - итеративное ре-ревью дельты с прошлой ревизии (вторая ревизия `/mr-review`, не своя команда)
-- `dex-review-planner` - план правок по ревью без редактирования кода (`/review-plan`, движок `dex-sdlc`)
+- `dex-review-planner` - план правок по ревью без редактирования кода (`/review-plan`)
 - `dex-self-reviewer` - pre-push саморевью своей ветки с реальным прогоном тестов (`/self-review`)
-- `dex-conflict-resolver` - подтянуть базу в фича-ветку и развести конфликты merge/rebase без тихой потери стороны (`/resolve-conflicts`)
-- `dex-debugger` - root cause по коду, вызывается `bugfix-track` при баг-фиксе через `/implement`
+- `dex-debugger` - root cause по коду (`/root-cause`), вызывается и при баг-фиксе через `/implement`
 
 ### Skills, новые в этом bundle
 - `dex-skill-no-loose-ends` - незавершённый код и скрытые хаки (TODO, заглушки, fallback, secrets)
@@ -67,8 +62,9 @@ Bundle для полного цикла работы с кодом, языко-�
 - `dex-skill-git-workflow` - gitflow, conventional commits, code review
 - `dex-skill-codebase-conventions` - конвенции и словарь проекта
 - `dex-skill-ddd` - aggregate, value object, bounded context
+- `dex-skill-issue-tracking` - синхрон трекера задач с ходом работы: право двигать статус, решётка «взял/готово/влито», агрегат зонтика
 
 ## Замечания
 
-- Агенты языко-агностичны: стек определяется по манифестам проекта, релевантные skills (включая .NET и TypeScript) грузятся условно по содержимому diff. Стек-специфичные skills не входят в bundle намеренно: они ставятся со стек-бандлом (например `dex-bundle-dotnet-developer`) и подхватываются по необходимости. Кодер под `/implement` (Phase 7 `development-track`) - тоже стек-специфичный агент (`dex-dotnet-coder`/`dex-ts-fullstack-coder`), не входит в этот bundle: без парного стек-бандла реализация фичи недоступна, доступны только ревью/план/саморевью/конфликты.
+- Агенты языко-агностичны: стек определяется по манифестам проекта, релевантные skills (включая .NET и TypeScript) грузятся условно по содержимому diff. Стек-специфичные skills не входят в bundle намеренно: они ставятся со стек-бандлом (например `dex-bundle-dotnet-developer`) и подхватываются по необходимости. Кодер под `/implement` - тоже стек-специфичный агент (`dex-dotnet-coder`/`dex-ts-fullstack-coder`), не входит в этот bundle: без парного стек-бандла реализация фичи недоступна, доступны только ревью/план/саморевью/конфликты.
 - Доставка ревью требует `gh` (GitHub) или `glab` (GitLab) с правом писать комментарии. Без прав агенты останавливаются на этапе плана тредов и не публикуют ничего.

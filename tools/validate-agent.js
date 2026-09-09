@@ -693,16 +693,18 @@ function validatePhases(markdownBody, findings, bodyOffset = 0) {
       }
     }
 
-    const mandatoryMatch = body.match(/mandatory:\s*yes([^\n]*)/i);
-    if (mandatoryMatch) {
-      const afterYes = (mandatoryMatch[1] || '').trim();
-      if (afterYes.length < 10) {
-        findings.push({
-          level: ERROR,
-          rule: 'phase-mandatory-no-justification',
-          message: `Phase "${phase.title}" (line ${phase.startLine}) declares **Mandatory:** yes without justification - framework requires explaining "why mandatory"`,
-        });
-      }
+    // AGENT_FRAMEWORK "Gate": пометка обязательности ставится голой - «зачем» несут Goal и
+    // Exit criteria фазы. Обратное правило (`phase-mandatory-no-justification`) снято вместе с
+    // 174 хвостами по каталогу; без парного гейта норма разъезжается молча, что и случилось -
+    // после среза шесть хвостов уцелели. Судится только `yes`: у `no` причина уместна, у
+    // `optional` хвост несёт `skip_if` и обязателен.
+    const mandatoryYes = phaseBodyText(phase).match(/mandatory:\s*yes([^\n]*)/i);
+    if (mandatoryYes && mandatoryYes[1].trim().length > 0) {
+      findings.push({
+        level: ERROR,
+        rule: 'phase-mandatory-tail',
+        message: `Phase "${phase.title}" (line ${phase.startLine}) declares **Mandatory:** yes with a tail - the marker is bare, "why" belongs to Goal and Exit criteria; a condition of skipping belongs to \`optional - skip_if ...\``,
+      });
     }
 
     let maxListLen = 0;

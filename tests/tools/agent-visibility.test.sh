@@ -20,7 +20,7 @@ mk() { # <путь плагина от plugins/> <имя в манифесте> 
 mk specialists/product/dex-flat   dex-flat     flat-agent.md         flat-agent
 mk specialists/product/dex-nested dex-nested   nested/deep-agent.md  deep-agent
 mk specialists/product/dex-quoted dex-quoted   quoted-agent.md       '"quoted-agent"'
-mk ai-sdlc/dex-outside            dex-outside  outside-agent.md      outside-agent
+mk skills/dex-outside             dex-outside  outside-agent.md      outside-agent
 mk specialists/product/renamed    dex-renamed  renamed-agent.md      renamed-agent
 
 ids=$(MARKETPLACE_ROOT="$tmp" node "$root/tools/run-activation.js" --agents --list-cases 2>/dev/null)

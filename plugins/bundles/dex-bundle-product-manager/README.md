@@ -29,10 +29,9 @@ Bundle for Product Managers: business requirements, roadmap, backlog, metrics an
 
 Полный состав - `bundle.json`: `includes[]` (профиль роли) плюс `dependencies[]` (подтянутое замыканием); ниже - ключевые компоненты роли, не весь перечень.
 
-### Engine
-- `dex-sdlc` - SDLC engine (`dex-sdlc:engine`); delegates zone order to the zone track skill
-- `dex-sdlc-product` - command entry `/product` (product corpus: BRD, domain model, constitution)
-- `dex-sdlc-requirements` - command entries `/feature`, `/feature-check`; zone order in `dex-skill-analytics-track`
+### Commands
+- `dex-business-analyst` - command entries `/product` (product corpus: BRD, domain model, constitution) and `/feature` (requirement set for one feature)
+- `dex-requirements-reviewer` - command entries `/feature-check` (own set, readiness for development) and `/review-requirements` (someone else's finished set)
 
 ### Specialists
 - `dex-business-analyst` - Business requirements (BRD)
@@ -55,7 +54,6 @@ Bundle for Product Managers: business requirements, roadmap, backlog, metrics an
 - `dex-skill-requirement-quality` - Requirement defect detection (unit)
 - `dex-skill-nfr` - Non-functional requirement traps
 - `dex-skill-node-contract` - Agent node handoff contract
-- `dex-skill-analytics-track` - Zone 1 requirements pipeline order (BRD -> use cases -> FR/NFR -> stories)
 - `dex-skill-business-analysis-29148` - Business analysis stage normative (BRD composition)
 - `dex-skill-requirement-set-quality` - Requirement set defect detection
 - `dex-skill-decision-log` - Requirements pipeline decision log

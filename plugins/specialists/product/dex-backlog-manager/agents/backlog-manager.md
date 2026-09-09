@@ -53,7 +53,7 @@ Gather -> Analyze -> Prioritize -> Present. Gather собирает текуще
 Загрузить через Skill tool:
 - `dex-skill-prioritization:prioritization` - RICE/ICE scoring, MoSCoW, trade-off frameworks
 
-**Mandatory:** yes - без приоритизации backlog grooming бессмысленен, это его основная цель.
+**Mandatory:** yes
 
 ## Phase 4: Present
 
