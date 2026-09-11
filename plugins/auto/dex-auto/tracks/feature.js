@@ -1,27 +1,27 @@
-// Трек разработки как Workflow-скрипт (artifacts.md, O12 вариант A; форма проверена probes.md P9).
-// Вход через args: { task, goal, done, boundary, mode, kind: 'bugfix'|'feature', cwd }.
+// Трек feature как Workflow-скрипт (artifacts.md, O12 вариант A; форма проверена probes.md P9, P11).
+// Вход через args: { task, goal, done, boundary, mode, cwd, source, goal_path, resume, trail }.
 // Обязательства формы: status первым полем каждой схемы; потолки петель в скрипте; схема несёт
 // поле под каждую часть контракта узла; нумерацию единиц отдаёт узел контекста.
 export const meta = {
-  name: 'dex-auto-development',
-  description: 'Трек разработки: контекст R/I -> правка с верификацией (потолок 3) -> саморевью -> правка по находкам (потолок 1)',
+  name: 'dex-auto-feature',
+  description: 'Трек feature: контекст R/I -> правка с верификацией (потолок 3) -> саморевью -> правка по находкам (потолок 1)',
   phases: [
-    { title: 'Context', detail: 'R/I из тикета, кода и корпуса документации проекта' },
-    { title: 'Implement', detail: 'узел-кодер по стеку x верификация внешним фактом, потолок 3' },
+    { title: 'Context', detail: 'R/I из цели, кода и корпуса документации проекта' },
+    { title: 'Implement', detail: 'узел-кодер по стеку x верификация внешним фактом, потолок 3; при возобновлении - сначала верификация' },
     { title: 'Review', detail: 'саморевью, при блокирующих находках одна правка и повторное ревью' },
   ],
 }
 
 const A = args || {}
-const KIND = A.kind === 'feature' ? 'feature' : 'bugfix'
 const FIX_CEILING = 3, REVIEW_FIX_CEILING = 1
-const HEAD = `mode: ${A.mode || 'autonomous'}\nцель (${A.task}): ${A.goal}\nкритерий «готово»: ${A.done}\nграница: ${A.boundary || 'не выходить за рабочий каталог'}\nРаботай только внутри ${A.cwd}. Push, деплой, миграции данных и удаление вне рабочего дерева не делать - это стоп-линия. Оператора нет: невыводимое не додумывай, верни status: blocked с полем нехватки.\n`
+const HEAD = `mode: ${A.mode || 'autonomous'}\nцель (${A.task}): ${A.goal}\nкритерий «готово»: ${A.done}\nграница: ${A.boundary || 'не выходить за рабочий каталог'}\nфайл цели: ${A.goal_path || 'нет'}\nРаботай только внутри ${A.cwd}. Push, деплой, миграции данных и удаление вне рабочего дерева не делать - это стоп-линия. Оператора нет: невыводимое не додумывай, верни status: blocked с полем нехватки.\n`
+const DONE = A.resume && A.trail ? `\nВозобновление: шаги ниже уже сделаны (из ledger), не повторяй их, продолжай с незакрытого:\n${A.trail}\n` : ''
 
 const STATUS = { type: 'string', enum: ['complete', 'blocked', 'partial'] }
 const CTX = { type: 'object', properties: {
   status: STATUS,
-  stack: { type: 'string', enum: ['ts', 'dotnet', 'python', 'other'], description: 'по манифесту репозитория' },
-  requirements: { type: 'array', items: { type: 'string' }, description: 'единицы R/I с номером R1..Rn и источником файл:строка либо пометкой "допущение"' },
+  stack: { type: 'string', description: 'идентификатор стека по реестру (Skill dex-skill-stack-registry:stack-registry); вне реестра - "other"' },
+  requirements: { type: 'array', items: { type: 'string' }, description: 'единицы R/I с номером R1..Rn и источником файл:строка либо пометкой "допущение"; расхождение с разделом Контекст цели - строкой "расхождение с целью: ..."' },
   files: { type: 'array', items: { type: 'string' } },
   test_cmd: { type: 'string', description: 'команда прогона тестов; нет тестов - пустая строка' },
   build_cmd: { type: 'string', description: 'команда сборки/типизации; нет - пустая строка' },
@@ -32,7 +32,7 @@ const FIX = { type: 'object', properties: {
   status: STATUS,
   changed_files: { type: 'array', items: { type: 'string' } },
   commit: { type: 'string', description: 'sha локального коммита либо пусто' },
-  red_run: { type: 'string', description: 'какой тест был красным до правки и зелёным после; для feature - какие тесты добавлены' },
+  red_run: { type: 'string', description: 'какие тесты добавлены на каждую R и что они были красными до правки' },
   decisions: { type: 'array', items: { type: 'string' }, description: 'каждая закрытая узлом развилка: что выбрано, из чего, почему' },
   missing: { type: 'string' },
 }, required: ['status', 'changed_files', 'commit', 'red_run', 'decisions', 'missing'] }
@@ -65,9 +65,10 @@ async function node(role, prompt, opts, type) {
   }
   return agent(`Роль: ${role}.\n${prompt}`, { ...opts, agentType: 'general-purpose' })
 }
+const isGreen = (v) => !!v && v.exit_code === 0 && v.build_ok && !v.dirty
 
 phase('Context')
-const ctx = await node('аналитик контекста', `${HEAD}Шаг 1 (${KIND}): требования R/I. Источник: ${A.source || 'формулировка цели выше'}; прочитай его, исходники и тесты. Поищи корпус документации проекта (docs/, README, ADR, CLAUDE.md) - нет, так и скажи. Определи стек по манифесту. Верни R/I: каждая единица пронумерована R1..Rn, с источником файл:строка либо пометкой "допущение". Код не меняй.`,
+const ctx = await node('аналитик контекста', `${HEAD}${DONE}Шаг 1: требования R/I. Источник: ${A.source || 'формулировка цели выше'}; прочитай его, исходники и тесты. ${A.goal_path ? `Прочитай файл цели: раздел «Контекст» (файлы, команды тестов и сборки, корпус) сверь с манифестом, не ищи заново; расхождение - строкой "расхождение с целью: ...".` : 'Поищи корпус документации проекта (docs/, README, ADR, CLAUDE.md) - нет, так и скажи.'} Стек - идентификатор по реестру: вызови Skill dex-skill-stack-registry:stack-registry и определи по манифесту. Верни R/I: каждая единица пронумерована R1..Rn, с источником файл:строка либо пометкой "допущение". Код не меняй.`,
   { label: 'ctx:R-I', phase: 'Context', schema: CTX }, 'Explore')
 trail.push({ step: 1, doer: 'Explore', status: ctx ? ctx.status : 'null' })
 if (!ctx || ctx.status === 'blocked') return { status: 'blocked', where: 'Context', missing: ctx ? ctx.missing : 'узел контекста не вернул выход', loops, trail, degraded }
@@ -78,20 +79,23 @@ phase('Implement')
 const verifyOnce = (tag) => node('верификатор', `${HEAD}Верификация (${tag}): ТОЛЬКО прогон и отчёт, код не менять. Выполни ${ctx.build_cmd ? `сборку: ${ctx.build_cmd}; ` : ''}${ctx.test_cmd ? `тесты: ${ctx.test_cmd}` : 'тестов нет - build_ok по сборке, счётчики 0'}; затем git log --oneline -3 и git status --porcelain. Числа - из вывода раннера как есть.`,
   { label: `verify:${tag}`, phase: 'Implement', effort: 'low', schema: VERIFY })
 let fix = null, ver = null
-for (let k = 1; k <= FIX_CEILING; k++) {
+// Возобновление начинается с верификации: зелёное дерево с коммитами не переделывается (ledger.md, «продолжить»).
+if (A.resume) {
+  ver = await verifyOnce('возобновление')
+  trail.push({ step: 'resume', doer: 'general-purpose', passed: isGreen(ver) })
+}
+for (let k = 1; k <= FIX_CEILING && !isGreen(ver); k++) {
   loops.fix = k
-  const prev = ver ? `\nПопытка ${k - 1} не прошла верификацию: exit=${ver.exit_code}, build_ok=${ver.build_ok}, падают: ${ver.failing.join('; ') || 'нет'}, dirty=${ver.dirty}.` : ''
-  fix = await node('кодер', `${HEAD}Шаг 2 (${KIND}), попытка ${k} из ${FIX_CEILING}: реализация по требованиям, TDD${KIND === 'bugfix' ? ' (red-run: целевой тест красный до правки)' : ' (тесты на каждую R)'}.\nТребования:\n${reqText}\nФайлы: ${ctx.files.join(', ')}. Тесты: ${ctx.test_cmd || 'нет'}. Сборка: ${ctx.build_cmd || 'нет'}.${prev}\nПо завершении: сборка и тесты зелёные, коммит локально (сообщение по цели, без служебной нумерации R), push не делать.`,
+  const prev = ver ? `\n${k === 1 ? 'Верификация при возобновлении' : `Попытка ${k - 1}`} не прошла: exit=${ver.exit_code}, build_ok=${ver.build_ok}, падают: ${ver.failing.join('; ') || 'нет'}, dirty=${ver.dirty}.` : ''
+  fix = await node('кодер', `${HEAD}${DONE}Шаг 2, попытка ${k} из ${FIX_CEILING}: реализация по требованиям, TDD (тесты на каждую R).\nТребования:\n${reqText}\nФайлы: ${ctx.files.join(', ')}. Тесты: ${ctx.test_cmd || 'нет'}. Сборка: ${ctx.build_cmd || 'нет'}.${prev}\nПо завершении: сборка и тесты зелёные, коммит локально (сообщение по цели, без служебной нумерации R), push не делать.`,
     { label: `fix:${k}`, phase: 'Implement', schema: FIX }, coderType)
   trail.push({ step: 2, attempt: k, doer: coderType || 'general-purpose', status: fix ? fix.status : 'null' })
   if (!fix || fix.status === 'blocked') return { status: 'blocked', where: `Implement#${k}`, missing: fix ? fix.missing : 'узел-кодер не вернул выход', ctx, loops, trail, degraded }
   ver = await verifyOnce(`после попытки ${k}`)
-  const ok = !!ver && ver.exit_code === 0 && ver.build_ok && !ver.dirty
-  trail.push({ step: '2-exit', attempt: k, doer: 'general-purpose', passed: ok })
-  if (ok) break
-  log(`попытка ${k}: exit=${ver && ver.exit_code}, build_ok=${ver && ver.build_ok}, fail=${ver && ver.fail_count}, dirty=${ver && ver.dirty}`)
+  trail.push({ step: '2-exit', attempt: k, doer: 'general-purpose', passed: isGreen(ver) })
+  if (!isGreen(ver)) log(`попытка ${k}: exit=${ver && ver.exit_code}, build_ok=${ver && ver.build_ok}, fail=${ver && ver.fail_count}, dirty=${ver && ver.dirty}`)
 }
-if (!ver || ver.exit_code !== 0 || !ver.build_ok || ver.dirty) return { status: 'partial', where: `Implement: потолок ${FIX_CEILING} исчерпан`, ver, ctx, fix, loops, trail, degraded }
+if (!isGreen(ver)) return { status: 'partial', where: `Implement: потолок ${FIX_CEILING} исчерпан`, ver, ctx, fix, loops, trail, degraded }
 
 phase('Review')
 const review = (tag) => node('саморевьюер', `${HEAD}Шаг 3 (${tag}): pre-push саморевью локальной ветки - коммиты этой цели плюс рабочее дерево. Источник намерения - требования:\n${reqText}\nПрогон build/test реальный, итог - в run_status, не в findings. Код не меняй.`,
@@ -105,12 +109,12 @@ if (rev && blockingOf(rev).length) {
   fix2 = await node('кодер', `${HEAD}Шаг 2 (повтор после саморевью, потолок ${REVIEW_FIX_CEILING}): закрой находки:\n${blockingOf(rev).map(f => `- [${f.severity}] ${f.anchor}: ${f.text}`).join('\n')}\n${rev.push_blockers ? `Причина отказа в push: ${rev.push_blockers}\n` : ''}Требования:\n${reqText}\nПосле правки сборка и тесты зелёные, коммит локально, push не делать. Находку, которую закрывать не следует, верни в decisions с основанием.`,
     { label: 'fix:after-review', phase: 'Review', schema: FIX }, coderType)
   ver2 = await verifyOnce('после саморевью')
-  trail.push({ step: '2-after-review', doer: coderType || 'general-purpose', status: fix2 ? fix2.status : 'null', passed: !!ver2 && ver2.exit_code === 0 && ver2.build_ok && !ver2.dirty })
+  trail.push({ step: '2-after-review', doer: coderType || 'general-purpose', status: fix2 ? fix2.status : 'null', passed: isGreen(ver2) })
   rev = await review('повторное'); loops.review = 2
   trail.push({ step: '3-repeat', doer: 'self-reviewer', status: rev ? rev.status : 'null', findings: rev ? rev.findings.length : -1, push: rev ? rev.push_recommended : null })
 }
 const finalVer = ver2 || ver
-const green = !!finalVer && finalVer.exit_code === 0 && finalVer.build_ok && !finalVer.dirty
+const green = isGreen(finalVer)
 const open_findings = rev ? rev.findings : []
 return {
   status: green && rev && !blockingOf(rev).length ? 'complete' : 'partial',
