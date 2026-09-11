@@ -218,7 +218,7 @@ claude plugins uninstall dex-dotnet-coder
 | dex-architect | `/design` | дизайн: reference match, альтернативы, implementation-план |
 | dex-code-discovery | `/discover` | обзорное ревью существующего кода вширь |
 | dex-implement | `/implement` | реализация фичи полным циклом до локальных коммитов |
-| dex-auto | `/auto` | автономные треки под открытую цель - разработка (bugfix / feature) и ревью чужого MR: ledger вне рабочего дерева, Workflow-скрипты треков, сторожа SessionStart / Stop |
+| dex-auto | `/goal`, `/auto` | автономные треки под открытую цель - подготовка цели из тикета или спеки, разработка (bugfix / feature) и ревью чужого MR: ledger вне рабочего дерева, Workflow-скрипты треков, сторожа SessionStart / Stop |
 | dex-test | `/test` | добор тестового покрытия по осям матрицы |
 | dex-bug-finder | `/find-bugs` | активный поиск багов в фиче или ветке |
 | dex-mr-reviewer | `/mr-review` | первичное ревью чужого MR/PR и ре-ревью дельты |
@@ -295,7 +295,7 @@ claude plugins uninstall dex-dotnet-coder
 |--------|----------|
 | dex-telegram-notifier | Telegram уведомления о событиях Claude Code |
 | dex-discord-notifier | Discord уведомления о событиях Claude Code |
-| dex-auto | Автономные треки разработки и ревью: `/auto`, ledger, Workflow-скрипты, хуки возобновления и терминала цели |
+| dex-auto | Автономные треки разработки и ревью: `/goal`, `/auto`, ledger, Workflow-скрипты, хуки возобновления и терминала цели |
 | dex-mcp-inspector | MCP Inspector: тестирование и отладка MCP серверов |
 
 ### Анализ репозитория и извлечение уроков
