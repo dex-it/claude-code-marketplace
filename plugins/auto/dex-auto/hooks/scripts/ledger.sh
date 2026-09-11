@@ -46,5 +46,8 @@ case "$cmd" in
   bump) f="$(goal_file "$1")"; [ -f "$f" ] || exit 1; n=$(get_key "$f" "$2"); n=$(( ${n:-0} + 1 )); set_key "$f" "$2" "$n"; printf '%s\n' "$n" ;;
   close) f="$(goal_file "$1")"; [ -f "$f" ] || exit 1; set_key "$f" "Исход" "${2:-complete}"; set_key "$f" "Статус" "закрыт" ;;
   ceiling) printf '%s\n' "$STOP_CEILING" ;;
-  *) echo "usage: ledger.sh root|dir TASK|open TASK [MODE]|find|get TASK KEY|set TASK KEY VALUE|bump TASK KEY|close TASK [OUTCOME]|ceiling" >&2; exit 64 ;;
+  trail) # trail TASK TRACK -> строки всех разделов "### Исполнители" файла трека; файла нет - пусто
+    f="$(root)/$(slug "$1")/01-${2%%>*}.md"; [ -f "$f" ] || exit 0
+    awk '/^### Исполнители/{p=1;next} /^#/{p=0} p&&NF' "$f" ;;
+  *) echo "usage: ledger.sh root|dir TASK|open TASK [MODE]|find|get TASK KEY|set TASK KEY VALUE|bump TASK KEY|close TASK [OUTCOME]|ceiling|trail TASK TRACK" >&2; exit 64 ;;
 esac
