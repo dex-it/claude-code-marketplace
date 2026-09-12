@@ -83,6 +83,8 @@ loops.review = 1
 trail.push({ step: 2, doer: reviewerType, status: rev ? rev.status : 'null', findings: rev ? rev.findings.length : -1 })
 trail.push({ step: '2-security', doer: ctx.security_surface ? 'security-reviewer' : 'n/a', status: sec ? sec.status : (ctx.security_surface ? 'null' : 'n/a'), basis: ctx.security_basis })
 if (!rev || rev.status === 'blocked') return { status: 'blocked', where: 'Review', missing: rev ? rev.missing : 'узел ревью не вернул выход', ctx, loops, trail, degraded }
+// Объявленная поверхность безопасности без отработавшего узла - непроверенная ось, а не чистая: исход трека это обязан отражать.
+const secFail = ctx.security_surface && (!sec || sec.status === 'blocked')
 const claims = [].concat(rev.findings, sec ? sec.findings : [])
 
 phase('Falsify')
@@ -90,7 +92,7 @@ loops.falsify = 1
 const fal = await node('скептик', `${HEAD}Шаг 3: каждая находка ниже - claim, не факт. Сверь с кодом ветки ${ctx.head_sha}: не закрыта ли соседним коммитом, не опирается ли на неверное чтение контракта, воспроизводится ли сценарий. Не выдержавшую - в dropped с причиной; выдержавшую - в confirmed с уликой. Отдельно вердикт по покрытию изменённого поведения тестами через реальный путь (один happy-path покрытием не считается); непокрытая ветка - находка оси coverage в confirmed. Код не меняй.\nНаходки:\n${fmt(claims) || '- находок нет: только вердикт по покрытию'}`,
   { label: 'falsify+coverage', phase: 'Falsify', schema: FALSIFY })
 trail.push({ step: 3, doer: 'general-purpose', status: fal ? fal.status : 'null', confirmed: fal ? fal.confirmed.length : -1, dropped: fal ? fal.dropped.length : -1 })
-if (!fal) return { status: 'partial', where: 'Falsify: узел не вернул выход - находки не проверены', ctx, review: rev, security: sec, claims, loops, trail, degraded }
+if (!fal || fal.status === 'blocked') return { status: 'blocked', where: 'Falsify', missing: fal ? fal.missing || 'скептик вернул blocked без нехватки' : 'скептик не вернул выход - находки не проверены', ctx, review: rev, security: sec, claims, loops, trail, degraded }
 
 phase('Publish')
 let pub = null
@@ -100,13 +102,18 @@ if (A.publish && fal.confirmed.length) {
   trail.push({ step: 4, doer: 'general-purpose', status: pub ? pub.status : 'null', published: pub ? pub.published.length : -1 })
 }
 const allPublished = !A.publish || !fal.confirmed.length || (pub && pub.status === 'complete' && pub.unpublished.length === 0)
+const issues = []
+if (!allPublished) issues.push('часть тредов не опубликована')
+if (fal.status !== 'complete') issues.push(`фальсификация не завершена: ${fal.missing || 'узел не назвал нехватку'}`)
+if (secFail) issues.push(`ось security не проверена: ${(sec && sec.missing) || 'узел не вернул выход'}`)
 return {
-  status: fal.status === 'complete' && allPublished ? 'complete' : 'partial',
-  where: allPublished ? '' : 'часть тредов не опубликована',
+  status: issues.length ? 'partial' : 'complete',
+  where: issues.join('; '),
   subject: { mr: A.mr, base_sha: ctx.base_sha, head_sha: ctx.head_sha, files: ctx.files.length, platform: ctx.platform },
   intent: ctx.intent, verdict: rev.verdict, axes: rev.axes, prior: rev.prior, questions: rev.questions,
-  security: ctx.security_surface ? (sec ? { status: sec.status, axes: sec.axes } : 'узел не вернул выход') : `n/a - ${ctx.security_basis}`,
+  security: ctx.security_surface ? (sec ? { status: sec.status, axes: sec.axes, missing: sec.missing } : 'узел не вернул выход') : `n/a - ${ctx.security_basis}`,
   confirmed: fal.confirmed, dropped: fal.dropped, coverage: fal.coverage,
-  published: pub ? pub.published : [], unpublished: pub ? pub.unpublished : (A.publish ? [] : fal.confirmed.map(f => ({ anchor: f.anchor, reason: 'санкции publish нет - перечень к публикации' }))),
+  published: pub ? pub.published : [],
+  unpublished: pub ? pub.unpublished : fal.confirmed.map(f => ({ anchor: f.anchor, reason: A.publish ? 'узел публикации не вернул выход - находки к публикации' : 'санкции publish нет - перечень к публикации' })),
   loops, trail, degraded,
 }

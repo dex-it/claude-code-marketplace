@@ -27,45 +27,46 @@ argument-hint: "[bugfix|feature TASK цель... | TASK | review MR] [продо
   (`args.last_review_sha`) - ревизия дельты от прошлой ревизии. Критерий «готово»: каждая находка
   имеет статус, вердикт вынесен, при `--post` - треды опубликованы или названы неопубликованными
   с причиной.
-- `--interactive` - режим с каналом к оператору, дефолт `autonomous`. Критерий или граница не
-  выводятся из входа и корпуса проекта: в `autonomous` - `blocked` с `Нехватка:` до первого узла,
-  в `interactive` - `set TASK Ожидает оператор`, вопрос оператору, по ответу `set TASK Ожидает ""`.
+- `--interactive` - режим с каналом к оператору, дефолт `autonomous`. Критерий или граница не выводятся из входа и корпуса
+  проекта: в `autonomous` - `set TASK Исход blocked` и `set TASK Нехватка <текст>` до первого узла (прогона не было,
+  `finish.sh` без возврата не вызывается); в `interactive` - `set TASK Ожидает оператор`, вопрос, по ответу `set TASK Ожидает ""`.
 
-**Ledger.** Файлы пишут скрипты `${CLAUDE_PLUGIN_ROOT}/hooks/scripts/`: `ledger.sh
-open|set|get|trail TASK ...` и `finish.sh TASK TRACK ИСХОД [НЕХВАТКА] < возврат.json`; главный поток
-дописывает лишь строки в `### Решения`. `open TASK [MODE]` заводит `00-goal.md` (путь - в
-`args.goal_path`): под `set` - `Исход:`, `Нехватка:`, `Ожидает:`; разделы `## Цель` (первая строка
-`Вид: bugfix|feature`, вторая `Источник:`), `## Критерий «готово»`, `## Граница` заполняются прозой
-по входу до запуска трека. Цель уже открыта - `open` её не трогает, но до запуска всегда `set TASK
-Режим autonomous` (`--interactive` - `interactive`) и `set TASK Ожидает ""`: `/goal` оставляет
-`interactive` / `оператор`, а под ними сторож Stop ход не держит.
-TRACK - `feature` | `bugfix` | `review` | `review>delta` (при `--delta`); файл трека
-`01-<трек>.md` пишет `finish.sh` по возврату.
+**Ledger.** Пишут только скрипты `${CLAUDE_PLUGIN_ROOT}/hooks/scripts/`: `ledger.sh open|set|get|trail|findings TASK ...`
+и `finish.sh TASK TRACK ИСХОД [НЕХВАТКА] < возврат.json`. Разделы файла трека `01-<трек>.md` (`### Петли`,
+`### Исполнители`, `### Открытые находки` - из `open_findings`, для ревью `confirmed` и `unpublished`, `### Решения`)
+пишет `finish.sh` по возврату; главный поток дописывает в `### Решения` строку решения по каждой находке, первым
+словом её `anchor`. `open TASK [MODE]` заводит `00-goal.md` (путь - в `args.goal_path`); под `set` - `Исход:`,
+`Нехватка:`, `Ожидает:`; разделы `## Цель` (первая строка `Вид: bugfix|feature`, вторая `Источник:`),
+`## Критерий «готово»`, `## Граница` заполняются прозой по входу до запуска трека. Цель уже открыта - `open` её не
+трогает, но до запуска всегда `set TASK Режим autonomous` (`--interactive` - `interactive`) и `set TASK Ожидает ""`:
+`/goal` оставляет `interactive` / `оператор`, а под ними сторож Stop ход не держит. TRACK - `feature` | `bugfix` |
+`review` | `review>delta` (при `--delta`).
 
-**Прогон.** `Workflow` со `scriptPath` `${CLAUDE_PLUGIN_ROOT}/tracks/<трек>.js`; `args`:
-feature - `{task, goal, done, boundary, mode, cwd, source, goal_path, resume, trail}`; bugfix - то
-же, но вместо `goal` - `symptom, expected, env` (симптом - фраза цели, ожидаемое - из критерия,
-окружение - из границы и контекста; чего нет - пустая строка); review -
-`{task, mr, intent, mode, publish, last_review_sha, cwd}`. Узлы, их выбор по стеку, петли и
-потолки - внутри скрипта; главный поток узлы не спавнит и ждёт возврат только повторными
-`TaskOutput` (`block: true`, `timeout` максимальный) до статуса завершения. Закрыть ход «до
-уведомления» или `ScheduleWakeup` нельзя: закрытый ход в headless обрывает прогон по потолку
-ожидания фоновых задач, и ledger остаётся без сдачи. Скрипт на диск не пишет: ledger заполняется
-до прогона и после.
+**Прогон.** `Workflow` со `scriptPath` `${CLAUDE_PLUGIN_ROOT}/tracks/<трек>.js`; `args`: feature - `{task, goal, done,
+boundary, mode, cwd, source, goal_path, resume, trail, open_findings}`; bugfix - то же, но вместо `goal` - `symptom,
+expected, env` (симптом - фраза цели, ожидаемое - из критерия, окружение - из границы и контекста; чего нет - пустая
+строка); review - `{task, mr, intent, mode, publish, last_review_sha, cwd}`. Узлы, их выбор по стеку, петли и потолки -
+внутри скрипта; главный поток узлы не спавнит и ждёт возврат только повторными `TaskOutput` (`block: true`, `timeout`
+максимальный) до статуса завершения. Закрыть ход «до уведомления» или `ScheduleWakeup` нельзя: закрытый ход в headless
+обрывает прогон по потолку ожидания фоновых задач, и ledger остаётся без сдачи. Скрипт на диск не пишет: ledger
+заполняется до прогона и после.
 
 **Scenarios:**
 - Возврат `complete` - критерий «готово» исполнить самому (команда из `00-goal.md`; для ревью -
   у каждой находки возврата статус `confirmed` / `dropped` / `published` / `unpublished`), не
   пересказ узла. Совпал - `finish.sh TASK TRACK complete`; не совпал - как `partial` с тем же
   возвратом, расхождение - строкой в `### Решения`.
-- Возврат `partial` - `finish.sh TASK TRACK partial`; затем по каждой единице `open_findings`
-  (ревью: `unpublished`, `questions`) и отдельно по причине `where` строка в `### Решения` файла
-  трека: `отложено` с владельцем и местом записи либо `блокирует` с названием нехватки; при
-  `блокирует` - `set TASK Исход blocked` и `set TASK Нехватка <текст>`. Цель остаётся открытой.
+- Возврат `partial` - `finish.sh TASK TRACK partial`; затем по каждой строке раздела
+  `### Открытые находки` (ревью - ещё `questions`) и отдельно по причине `where` строка в
+  `### Решения` файла трека: `<anchor>: отложено` с владельцем и местом записи либо
+  `<anchor>: блокирует` с названием нехватки; при `блокирует` - `set TASK Исход blocked` и
+  `set TASK Нехватка <текст>`. Находка раздела без своей строки решения - шаг не выполнен, а не
+  «решения не требуется». Цель остаётся открытой.
 - Возврат `blocked` - `finish.sh TASK TRACK blocked` (нехватку скрипт берёт из `missing`, иначе
   шаг `where`); возврат `null` - `finish.sh TASK TRACK blocked "узел не вернул выход" <<< '{}'`.
 - Аргумент `продолжить` - `Read` `00-goal.md` и файла трека; тот же скрипт с теми же `args` плюс
-  `resume: true` и `trail` - вывод `ledger.sh trail TASK TRACK`; ревью - повторный прогон без них.
+  `resume: true`, `trail` - вывод `ledger.sh trail TASK TRACK`, `open_findings` - вывод
+  `ledger.sh findings TASK TRACK` (пусто - поле не подаётся); ревью - повторный прогон без них.
 
 **Output:** `Исход:` цели первой строкой (`complete` | `blocked` | `partial`), затем `TASK`, путь
 ledger, для feature / bugfix `goal_check` возврата (сборка, тесты, коммит, `head`),

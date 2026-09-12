@@ -14,7 +14,7 @@ open="$("$H/ledger.sh" find)"
 n=$(printf '%s\n' "$open" | wc -l)
 [ "$n" -gt 1 ] && echo "dex-auto: дефект R5 - открыто целей: $n (в проекте допустима одна). Закрой лишние через ledger.sh close <TASK>."
 while IFS=$'\t' read -r task dir; do
-  goal="$(awk '/^## Цель/{f=1;next} f&&NF{print;exit}' "$dir/00-goal.md")"
+  goal="$(awk '/^## Цель/{f=1;next} f&&/^#/{exit} f&&NF&&!/^(Вид|Источник):/{print;exit}' "$dir/00-goal.md")"
   tracks="$(ls "$dir" 2>/dev/null | grep -E '^[0-9]{2}-' | grep -v '^00-' | tr '\n' ' ')"
   echo "dex-auto: открытая цель $task - ${goal:-(цель не заполнена)}. Ledger: $dir. Первое действие: Read $dir/00-goal.md и файлы трека ${tracks:-(треков нет)}; затем продолжай командой /dex-auto:auto $task продолжить либо закрой цель (ledger.sh close $task, при тупике - Исход: blocked и Нехватка:)."
 done <<< "$open"
