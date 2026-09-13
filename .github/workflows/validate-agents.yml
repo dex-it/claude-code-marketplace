@@ -98,6 +98,17 @@ jobs:
       - name: Test agent visibility case construction
         run: npm run test:tools
 
+      # Ledger и сторожа dex-auto: адрес, буквальный контракт статуса, коды выхода
+      # хуков на временном CLAUDE_CONFIG_DIR (ловец адреса по ADR-0001).
+      - name: Test dex-auto ledger and hooks
+        run: npm run test:hooks
+
+      # Треки dex-auto: оркестрация (петли, потолки, ветки blocked, состав возврата)
+      # на подменённых узлах. Валидаторы tracks/*.js не судят вовсе - проверяется
+      # только прогоном; журнал находок - зонд P18.
+      - name: Test dex-auto track orchestration
+        run: npm run test:tracks
+
       # README - второй носитель состава каталога, генератора у него нет.
       # Замер 01.09.2026 этим же инструментом на базе PR (b846fd6f): 85 плагинов
       # из 245 не были названы ни полным, ни коротким именем, и
