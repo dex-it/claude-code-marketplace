@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "6.0.0",
+  "version": "6.1.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -70,6 +70,22 @@
         "asp-net-core",
         "ef-core",
         "masstransit"
+      ]
+    },
+    {
+      "name": "dex-auto",
+      "source": "./plugins/auto/dex-auto",
+      "description": "Автономные треки под открытую цель - feature и bugfix (до локальных коммитов) и ревью чужого MR/PR (read-only, треды по санкции): ledger вне рабочего дерева, Workflow-скрипт на трек с потолками петель и схемами выхода узлов, сдача исхода скриптом finish.sh, сторожа SessionStart (возобновление по открытой цели) и Stop (терминал цели). Команды /goal (подготовка цели из тикета, спеки или симптома) и /auto (прогон трека, возобновление с верификации).",
+      "version": "1.3.0",
+      "category": "utility",
+      "keywords": [
+        "autonomous",
+        "workflow",
+        "ledger",
+        "hooks",
+        "development-track",
+        "review-track",
+        "bugfix"
       ]
     },
     {
