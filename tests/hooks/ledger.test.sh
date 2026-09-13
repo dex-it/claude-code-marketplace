@@ -13,22 +13,19 @@ check "$f" "$T/cfg/projects/-home-u-Work-my-proj/ledger/PROJ-1/00-goal.md" "open
 check "$(grep -c '^Статус: открыт$' "$f")" "1" "open: буквальный контракт статуса"
 check "$("$L" find)" "$(printf 'PROJ-1\t%s' "$(dirname "$f")")" "find: открытая цель одной строкой TASK<TAB>dir"
 "$L" set PROJ-1 Режим interactive; check "$("$L" get PROJ-1 Режим)" "interactive" "set/get: замена строки"
-check "$("$L" bump PROJ-1 stop-блоков)" "1" "bump: счётчик из 0 в 1"
 "$L" set PROJ-1 Новый-ключ x; check "$("$L" get PROJ-1 Новый-ключ)" "x" "set: дописывание отсутствующей строки в шапку"
-check "$(grep -n "^Новый-ключ:" "$f" | cut -d: -f1)" "9" "set: дописанная строка в конце шапки, после stop-блоков"
+check "$(grep -n "^Новый-ключ:" "$f" | cut -d: -f1)" "8" "set: дописанная строка в конце шапки, после Ожидает"
 IN='{"cwd":"/home/u/Work my.proj","source":"startup","hook_event_name":"SessionStart"}'
 out="$(printf '%s' "$IN" | "$H/session-start.sh")"; check "$(printf '%s' "$out" | grep -c 'открытая цель PROJ-1')" "1" "session-start: инжект по открытой цели на startup"
 out="$(printf '%s' "${IN/startup/clear}" | "$H/session-start.sh")"; check "$out" "" "session-start: source=clear молчит"
 out="$(printf '%s' "${IN/startup/compact}" | "$H/session-start.sh")"; check "$(printf '%s' "$out" | grep -c 'PROJ-1')" "1" "session-start: compact поднимает"
-"$L" set PROJ-1 Режим autonomous; "$L" set PROJ-1 stop-блоков 0
+"$L" set PROJ-1 Режим autonomous
 SIN='{"cwd":"/home/u/Work my.proj","stop_hook_active":false}'
 err="$(printf '%s' "$SIN" | "$H/stop-guard.sh" 2>&1 >/dev/null)"; rc=$?
-check "$rc" "2" "stop-guard: открытая цель -> код 2"; check "$(printf '%s' "$err" | grep -c 'стоп-блок 1 из')" "1" "stop-guard: причина в stderr со счётчиком"
-printf '%s' "$SIN" | "$H/stop-guard.sh" >/dev/null 2>&1; printf '%s' "$SIN" | "$H/stop-guard.sh" >/dev/null 2>&1
-check "$("$L" get PROJ-1 stop-блоков)" "3" "stop-guard: счётчик в 00-goal.md"
-printf '%s' "$SIN" | "$H/stop-guard.sh" >/dev/null 2>&1; rc=$?
-check "$rc" "0" "stop-guard: потолок -> пропуск"; check "$(grep -c '^Stop-потолок: достигнут' "$f")" "1" "stop-guard: пропуск на потолке записан"
-"$L" set PROJ-1 stop-блоков 0; "$L" set PROJ-1 Исход blocked
+check "$rc" "2" "stop-guard: открытая цель -> код 2"; check "$(printf '%s' "$err" | grep -c 'цель PROJ-1 открыта')" "1" "stop-guard: причина в stderr"
+for _ in 1 2 3 4; do printf '%s' "$SIN" | "$H/stop-guard.sh" >/dev/null 2>&1; rc=$?; done
+check "$rc" "2" "stop-guard: своего потолка нет - повторные блоки снимает платформа"; check "$(grep -c '^stop-блоков\|^Stop-потолок' "$f")" "0" "stop-guard: счётчика в 00-goal.md нет"
+"$L" set PROJ-1 Исход blocked
 printf '%s' "$SIN" | "$H/stop-guard.sh" >/dev/null 2>&1; check "$?" "2" "stop-guard: blocked без Нехватки не пропускает"
 "$L" set PROJ-1 Нехватка "доступ к стенду"; printf '%s' "$SIN" | "$H/stop-guard.sh" >/dev/null 2>&1; check "$?" "0" "stop-guard: blocked с Нехваткой пропускает"
 "$L" set PROJ-1 Исход ""; "$L" set PROJ-1 Режим interactive; "$L" set PROJ-1 Ожидает оператор

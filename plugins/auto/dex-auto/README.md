@@ -19,7 +19,7 @@
 | `hooks/scripts/ledger.sh` | единственный читатель и писатель машинных строк ledger; адрес `<config>/projects/<slug>/ledger/<TASK>/`; `trail` отдаёт исполнителей прошлых прогонов, `findings` - незакрытые находки для возобновления |
 | `hooks/scripts/finish.sh` | сдача исхода: возврат `Workflow` со stdin -> файл трека `01-<трек>.md` (петли, исполнители, открытые находки, решения, замены узлов) и машинные строки цели; исход и нехватку решает главный поток, скрипт только пишет |
 | `hooks/scripts/session-start.sh` | `startup\|resume\|compact`: находит открытую цель и инжектит адрес и первое действие; `clear` исключён намеренно |
-| `hooks/scripts/stop-guard.sh` | при открытой цели останавливает ход кодом 2, пока нет `Статус: закрыт`, `Исход: blocked` с нехваткой или `Ожидает: оператор` в `interactive`; свои блоки считает в `00-goal.md`, на потолке пропускает с записью |
+| `hooks/scripts/stop-guard.sh` | при открытой цели останавливает ход кодом 2, пока нет `Статус: закрыт`, `Исход: blocked` с нехваткой или `Ожидает: оператор` в `interactive`; своего потолка нет - повторные блоки снимает платформа (`CLAUDE_CODE_STOP_HOOK_BLOCK_CAP`) |
 
 Узлы треков - агенты каталога (`Explore`, `dex-debugger`, кодер по стеку `dex-ts-fullstack-coder` /
 `dex-dotnet-coder`, `dex-self-reviewer`, `dex-mr-reviewer`, `dex-mr-check-reviewer`,

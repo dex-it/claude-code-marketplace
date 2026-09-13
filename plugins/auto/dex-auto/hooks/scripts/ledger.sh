@@ -7,7 +7,6 @@ set -eu
 
 CONFIG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 CWD="${DEX_AUTO_CWD:-$PWD}"
-STOP_CEILING=3
 
 slug() { printf '%s' "$1" | sed 's/[^A-Za-z0-9-]/-/g'; }
 root() { printf '%s/projects/%s/ledger' "$CONFIG" "$(slug "$CWD")"; }
@@ -35,7 +34,7 @@ case "$cmd" in
   open) # open TASK MODE -> путь 00-goal.md; существующий файл не перезаписывается
     task=$1; mode=${2:-autonomous}; d="$(root)/$(slug "$task")"; f="$d/00-goal.md"; mkdir -p "$d"
     if [ ! -f "$f" ]; then
-      printf '# Цель: %s\n\nСтатус: открыт\nРежим: %s\nИсход: \nНехватка: \nОжидает: \nstop-блоков: 0\n\n## Цель\n\n## Критерий «готово»\n\n## Граница\n\n## Решения\n' "$task" "$mode" > "$f"
+      printf '# Цель: %s\n\nСтатус: открыт\nРежим: %s\nИсход: \nНехватка: \nОжидает: \n\n## Цель\n\n## Критерий «готово»\n\n## Граница\n\n## Решения\n' "$task" "$mode" > "$f"
     fi
     printf '%s\n' "$f" ;;
   find) # -> строки "TASK<TAB>путь папки" для целей со Статус: открыт
@@ -46,9 +45,7 @@ case "$cmd" in
     done; exit 0 ;;
   get)  f="$(goal_file "$1")"; [ -f "$f" ] || exit 1; get_key "$f" "$2" ;;
   set)  f="$(goal_file "$1")"; [ -f "$f" ] || exit 1; set_key "$f" "$2" "$3" ;;
-  bump) f="$(goal_file "$1")"; [ -f "$f" ] || exit 1; n=$(get_key "$f" "$2"); n=$(( ${n:-0} + 1 )); set_key "$f" "$2" "$n"; printf '%s\n' "$n" ;;
   close) f="$(goal_file "$1")"; [ -f "$f" ] || exit 1; set_key "$f" "Исход" "${2:-complete}"; set_key "$f" "Статус" "закрыт" ;;
-  ceiling) printf '%s\n' "$STOP_CEILING" ;;
   trail) # trail TASK TRACK -> строки всех разделов "### Исполнители" файла трека; файла нет - пусто
     f="$(root)/$(slug "$1")/01-${2%-delta}.md"; [ -f "$f" ] || exit 0
     awk '/^### Исполнители/{p=1;next} /^#/{p=0} p&&NF' "$f" ;;
@@ -58,5 +55,5 @@ case "$cmd" in
     # правки на зелёном дереве. У trail накопление по всем прогонам намеренное - это перечень сделанного.
     f="$(root)/$(slug "$1")/01-${2%-delta}.md"; [ -f "$f" ] || exit 0
     awk '/^## Прогон /{b=""} /^### Открытые находки/{p=1;next} /^#/{p=0} p&&NF{b=b $0 "\n"} END{printf "%s", b}' "$f" ;;
-  *) echo "usage: ledger.sh root|dir TASK|open TASK [MODE]|find|get TASK KEY|set TASK KEY VALUE|bump TASK KEY|close TASK [OUTCOME]|ceiling|trail TASK TRACK|findings TASK TRACK" >&2; exit 64 ;;
+  *) echo "usage: ledger.sh root|dir TASK|open TASK [MODE]|find|get TASK KEY|set TASK KEY VALUE|close TASK [OUTCOME]|trail TASK TRACK|findings TASK TRACK" >&2; exit 64 ;;
 esac
