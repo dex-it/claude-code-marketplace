@@ -4,9 +4,11 @@
 set -eu
 H="$(cd "$(dirname "$0")" && pwd)"; L="$H/ledger.sh"
 task=${1:-}; track=${2:-}; outcome=${3:-}; lack=${4:-}
-usage() { echo "usage: finish.sh TASK feature|bugfix|review|review>delta complete|partial|blocked [НЕХВАТКА] < return.json" >&2; exit 64; }
+usage() { echo "usage: finish.sh TASK feature|bugfix|review|review-delta complete|partial|blocked [НЕХВАТКА] < return.json" >&2; exit 64; }
 [ -n "$task" ] && [ -n "$track" ] && [ -n "$outcome" ] || usage
-case "$track" in feature|bugfix|review|'review>delta') ;; *) usage ;; esac
+# review-delta, а не review>delta: значение аргумента идёт через оболочку, и `>` там стало бы
+# перенаправлением - трек уехал бы как review, а в рабочем дереве появился бы файл `delta`.
+case "$track" in feature|bugfix|review|review-delta) ;; *) usage ;; esac
 case "$outcome" in complete|partial|blocked) ;; *) usage ;; esac
 command -v jq >/dev/null 2>&1 || { echo "finish.sh: нужен jq - без него разделы файла трека пишутся Edit по той же форме" >&2; exit 3; }
 IN="$(cat)"
@@ -14,10 +16,11 @@ printf '%s' "$IN" | jq -e 'type == "object"' >/dev/null 2>&1 || { echo "finish.s
 "$L" get "$task" "Статус" >/dev/null 2>&1 || { echo "finish.sh: цель $task не заведена (нет 00-goal.md)" >&2; exit 1; }
 j() { printf '%s' "$IN" | jq -r "$1"; }
 
-f="$("$L" dir "$task")/01-${track%%>*}.md"
+f="$("$L" dir "$task")/01-${track%-delta}.md"
 [ "$outcome" = complete ] && st="закрыт" || st="открыт"
 if [ -f "$f" ]; then
-  n=$(( $(grep -c '^## Прогон ' "$f") + 1 )); sed -i "s|^Статус:.*|Статус: $st|" "$f"
+  n=$(( $(grep -c '^## Прогон ' "$f") + 1 ))
+  st="$st" awk 'BEGIN { v = ENVIRON["st"] } !done && index($0, "Статус:") == 1 { print "Статус: " v; done = 1; next } { print }' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
 else
   n=1; printf '# Трек: %s\n\ntrack=%s\nСтатус: %s\n' "$task" "$track" "$st" > "$f"
 fi

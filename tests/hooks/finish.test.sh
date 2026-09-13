@@ -27,22 +27,30 @@ check "$(grep -c '^- R3: выбран split по дефису$' "$f")" "1" "fini
 check "$(grep -c '^- узел заменён: верификатор' "$f")" "1" "finish: degraded с префиксом"
 check "$("$L" get BUG-1 Исход)" "complete" "finish: complete закрывает цель с Исходом"
 check "$("$L" find)" "" "finish: цель исчезла из find"
-check "$("$L" trail BUG-1 feature | wc -l)" "2" "trail: строки исполнителей"
+check "$("$L" trail BUG-1 feature | grep -c '')" "2" "trail: строки исполнителей"
 check "$("$L" trail BUG-1 review)" "" "trail: файла трека нет -> пусто"
 
 "$L" open PR-7 >/dev/null
-"$F" PR-7 'review>delta' partial <<< "$REV" >/dev/null
+# без кавычек намеренно: это та форма, которую читает модель в usage и в auto.md
+"$F" PR-7 review-delta partial <<< "$REV" >/dev/null
 f="$("$L" dir PR-7)/01-review.md"
-check "$(grep -c '^track=review>delta$' "$f")" "1" "finish: review>delta -> файл 01-review.md, track с дельтой"
+check "$(grep -c '^track=review-delta$' "$f")" "1" "finish: review-delta -> файл 01-review.md, track с дельтой"
 check "$(grep -c '^Статус: открыт$' "$f")" "1" "finish: partial -> трек открыт"
 check "$(grep -c '^- снято src/a.ts:10: закрыто коммитом abc$' "$f")" "1" "finish: dropped в Решения"
 check "$(grep -c '^- вопрос автору: зачем retry 5?$' "$f")" "1" "finish: questions в Решения"
 check "$("$L" get PR-7 Исход)" "partial" "finish: partial -> Исход partial, цель открыта"
 check "$("$L" find | cut -f1)" "PR-7" "finish: partial не закрывает цель"
-"$F" PR-7 'review>delta' complete <<< "$REV" >/dev/null
+"$F" PR-7 review-delta complete <<< "$REV" >/dev/null
 check "$(grep -c '^## Прогон 2 ' "$f")" "1" "finish: повторный вызов дописывает Прогон 2"
 check "$(grep -c '^Статус: закрыт$' "$f")" "1" "finish: повторный вызов обновляет Статус трека"
-check "$("$L" trail PR-7 review | wc -l)" "2" "trail: исполнители обоих прогонов"
+check "$("$L" trail PR-7 review | grep -c '')" "2" "trail: исполнители обоих прогонов"
+
+"$L" open F-2 >/dev/null
+"$F" F-2 feature partial <<< '{"status":"partial","trail":[{"step":1}],"open_findings":[{"severity":"P1","anchor":"src/a.ts:10","text":"находка прогона 1"}]}' >/dev/null
+"$F" F-2 feature partial <<< '{"status":"partial","trail":[{"step":2}],"open_findings":[{"severity":"P1","anchor":"src/b.ts:20","text":"находка прогона 2"}]}' >/dev/null
+check "$("$L" findings F-2 feature)" "- [P1] src/b.ts:20: находка прогона 2" "findings: только прошлый прогон, находки прежних не всплывают"
+check "$("$L" trail F-2 feature | grep -c '')" "2" "trail: накопление по всем прогонам - намеренная асимметрия с findings"
+check "$("$L" findings F-2 review)" "" "findings: файла трека нет -> пусто"
 
 "$L" open T-3 >/dev/null
 "$F" T-3 bugfix blocked <<< '{"status":"blocked","where":"Reproduce","missing":"нет доступа к стенду"}' >/dev/null

@@ -40,7 +40,7 @@ argument-hint: "[bugfix|feature TASK цель... | TASK | review MR] [продо
 `## Критерий «готово»`, `## Граница` заполняются прозой по входу до запуска трека. Цель уже открыта - `open` её не
 трогает, но до запуска всегда `set TASK Режим autonomous` (`--interactive` - `interactive`) и `set TASK Ожидает ""`:
 `/goal` оставляет `interactive` / `оператор`, а под ними сторож Stop ход не держит. TRACK - `feature` | `bugfix` |
-`review` | `review>delta` (при `--delta`).
+`review` | `review-delta` (при `--delta`).
 
 **Прогон.** `Workflow` со `scriptPath` `${CLAUDE_PLUGIN_ROOT}/tracks/<трек>.js`; `args`: feature - `{task, goal, done,
 boundary, mode, cwd, source, goal_path, resume, trail, open_findings}`; bugfix - то же, но вместо `goal` - `symptom,
@@ -48,8 +48,8 @@ expected, env` (симптом - фраза цели, ожидаемое - из 
 строка); review - `{task, mr, intent, mode, publish, last_review_sha, cwd}`. Узлы, их выбор по стеку, петли и потолки -
 внутри скрипта; главный поток узлы не спавнит и ждёт возврат только повторными `TaskOutput` (`block: true`, `timeout`
 максимальный) до статуса завершения. Закрыть ход «до уведомления» или `ScheduleWakeup` нельзя: закрытый ход в headless
-обрывает прогон по потолку ожидания фоновых задач, и ledger остаётся без сдачи. Скрипт на диск не пишет: ledger
-заполняется до прогона и после.
+обрывает прогон по потолку ожидания фоновых задач, и ledger остаётся без сдачи. `TaskOutput` помечен DEPRECATED, запасной путь: тул недоступен - возврат из `<task-notification>` и файла
+вывода в результате `Workflow`, не сработало и это - `finish.sh TASK TRACK blocked "нет канала ожидания возврата Workflow" <<< '{}'`. Скрипт на диск не пишет: ledger заполняется до прогона и после.
 
 **Scenarios:**
 - Возврат `complete` - критерий «готово» исполнить самому (команда из `00-goal.md`; для ревью -
