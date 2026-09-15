@@ -14,6 +14,7 @@ import {
   isOnlyMrUrls,
   labelOf,
   mergeLevel,
+  shortenPath,
   mrDataOf,
   mrPath,
   mrRefsOf,
@@ -262,6 +263,34 @@ describe('mrDataOf', () => {
   test('commit titles lose control characters', () => {
     assert.equal(commitsOf([{ short_id: 'a', title: 'fix\u0007 bell', author_name: 'a' }])[0]?.title, 'fix bell')
     assert.equal(oneLine('первая\nвторая'), 'первая вторая')
+  })
+})
+
+describe('shortenPath', () => {
+  const path = 'src/Services/DevMetrics/Application/Eye/Command/CreateEyeLinesData.cs:54'
+
+  test('адрес, который влезает, не трогается', () => {
+    assert.equal(shortenPath('a/b.ts:1', 40), 'a/b.ts:1')
+  })
+
+  test('голова уходит, хвост с именем файла и строкой остаётся', () => {
+    const short = shortenPath(path, 46)
+
+    assert.ok(short.length <= 46, short)
+    assert.ok(short.startsWith('.../'), short)
+    assert.ok(short.endsWith('CreateEyeLinesData.cs:54'), short)
+  })
+
+  test('чем уже, тем меньше сегментов хвоста', () => {
+    assert.ok(shortenPath(path, 46).length >= shortenPath(path, 32).length)
+    assert.ok(shortenPath(path, 32).endsWith('CreateEyeLinesData.cs:54'))
+  })
+
+  test('когда не влезает и имя файла, режется имя, а строка остаётся', () => {
+    const short = shortenPath(path, 16)
+
+    assert.ok(short.length <= 16, short)
+    assert.ok(short.endsWith(':54'), short)
   })
 })
 

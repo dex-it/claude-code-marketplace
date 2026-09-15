@@ -14,7 +14,7 @@ import type {
 } from 'claude-code'
 
 import type { MergeLevel, MrData, Thread } from './gitlab'
-import { approvalsGiven, mergeLevel, threadTally } from './gitlab'
+import { approvalsGiven, mergeLevel, shortenPath, threadTally } from './gitlab'
 import type { Watched } from './watched'
 import { openThreadsOf, plainThreadsOf, resolvedThreadsOf } from './watched'
 
@@ -40,6 +40,8 @@ export type Actions = {
 }
 
 export type PaneModel = {
+  /** Ширина тела панели: её отдаёт поверхность, выбрать её мод не может. */
+  columns: number
   list: readonly Watched[]
   selectedKey: string | null
   showResolved: boolean
@@ -77,6 +79,12 @@ const pipelineColor = (status: string) => PIPELINE_COLOR[status] ?? 'yellow'
 
 const stateWord = (data: MrData) =>
   data.state === 'opened' && data.draft ? 'draft' : data.state
+
+/** Значок, отступ и хвост строки треда, которые адресу не достаются. */
+const ADDRESS_RESERVE_COLUMNS = 24
+
+/** Уже этого адрес не ужимается - дальше режется само имя файла. */
+const MIN_ADDRESS_COLUMNS = 12
 
 const clock = (ms: number) => (ms === 0 ? '-' : new Date(ms).toTimeString().slice(0, 8))
 
@@ -134,18 +142,28 @@ function row(ui: Ui, actions: Actions, watched: Watched): RenderElement {
         <Text color="red">{watched.error === undefined ? '' : ' · опрос не удался'}</Text>
         <Text dimColor>{` · ${data.title}`}</Text>
       </Text>
-      <Box display="none" hover={{ display: 'flex' }} flexShrink={0} flexDirection="row">
+      {/* Приглушённые, но нарисованные: hover требует, чтобы терминал сообщал
+          о мыши, а он это делает не везде. Нарисованную кнопку берёт и фокус
+          полосы (ctrl+x tab), скрытую за hover - нет, её нет в дереве вовсе. */}
+      <Box flexShrink={0} flexDirection="row">
         <Button
           key={`open:${watched.key}`}
           label="открыть"
+          dimColor
           onPress={() => actions.openUrl(data.webUrl)}
         />
         <Button
           key={`pane:${watched.key}`}
           label="детали"
+          dimColor
           onPress={() => actions.select(watched.key)}
         />
-        <Button key={`stop:${watched.key}`} label="×" onPress={() => actions.stop(watched.key)} />
+        <Button
+          key={`stop:${watched.key}`}
+          label="×"
+          dimColor
+          onPress={() => actions.stop(watched.key)}
+        />
       </Box>
     </Box>
   )
@@ -190,13 +208,17 @@ function tabs(ui: Ui, actions: Actions, model: PaneModel): RenderElement {
   )
 }
 
-function threadRow(ui: Ui, thread: Thread): RenderElement {
+function threadRow(ui: Ui, thread: Thread, columns: number): RenderElement {
   const { Box, Text, Link } = ui
+
+  // Значок, отступ и хвост строки съедают своё; остальное - адресу, и режется
+  // он с головы: имя файла со строкой и есть то, ради чего адрес показан.
+  const room = Math.max(MIN_ADDRESS_COLUMNS, columns - ADDRESS_RESERVE_COLUMNS)
 
   const where =
     thread.file === null
       ? 'обсуждение MR'
-      : `${thread.file}${thread.line === null ? '' : `:${thread.line}`}`
+      : shortenPath(`${thread.file}${thread.line === null ? '' : `:${thread.line}`}`, room)
 
   return (
     <Box key={`thread:${thread.id}`} flexDirection="column">
@@ -324,13 +346,13 @@ export function paneView(ui: Ui, actions: Actions, model: PaneModel): RenderElem
       <Text bold>
         {open.length === 0 ? 'Открытых тредов нет' : `Открытые треды (${open.length})`}
       </Text>
-      {open.map(thread => threadRow(ui, thread))}
+      {open.map(thread => threadRow(ui, thread, model.columns))}
       {plain.length === 0 ? (
         <Box />
       ) : (
         <Box flexDirection="column">
           <Text bold>{`Обсуждение MR (${plain.length})`}</Text>
-          {plain.map(thread => threadRow(ui, thread))}
+          {plain.map(thread => threadRow(ui, thread, model.columns))}
         </Box>
       )}
       {resolved.length === 0 ? (
@@ -347,7 +369,7 @@ export function paneView(ui: Ui, actions: Actions, model: PaneModel): RenderElem
           </Box>
           {model.showResolved ? (
             <Box flexDirection="column">
-              {resolved.map(thread => threadRow(ui, thread))}
+              {resolved.map(thread => threadRow(ui, thread, model.columns))}
             </Box>
           ) : (
             <Box />

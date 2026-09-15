@@ -44,6 +44,12 @@ const PANE_ID = 'gitlab-mr'
 const MIN_POLL_MS = 15_000
 const COMMITS_PAGE = 100
 const PANE_COMMITS = 8
+/** Ширина панели до первой отрисовки: ею меряется адрес треда. */
+const PANE_FALLBACK_COLUMNS = 60
+/** Строки над и под списком тредов: шапка, факты, кнопки, подвал. */
+const PANE_CHROME_ROWS = 8
+/** Больше половины экрана панель над вводом не просит. */
+const PANE_MAX_SCREEN_SHARE = 2
 const TOAST_MS = 8000
 /**
  * Опрос по поводу (конец хода, своя команда в Bash) не повторяет то, что
@@ -117,6 +123,10 @@ export const register: Register = (on, pluginOptions) => {
   let showResolved = false
   let isPaneOpen = false
   let hasApprovals = true
+  /** Ширина тела панели, как её отдала поверхность в последнюю отрисовку. */
+  let paneColumns = PANE_FALLBACK_COLUMNS
+  /** Высота экрана, как её отдала последняя отрисовка; 0 - ещё не мерили. */
+  let screenRows = 0
   let pollTimer: Timer | undefined
 
   // Bound at session.start, where `$` is in hand; every later hook calls them.
@@ -134,10 +144,29 @@ export const register: Register = (on, pluginOptions) => {
 
   const list = () => [...watched.values()]
 
+  /**
+   * Сколько строк панель просит, садясь над полем ввода: по содержимому
+   * выбранного MR, но не больше половины экрана. Экран ещё не мерили - не
+   * просим ничего, и поверхность берёт свою треть.
+   */
+  function wantedRows(): number | null {
+    const data = selected()?.data
+
+    if (!data || screenRows === 0) return null
+
+    const rows =
+      PANE_CHROME_ROWS +
+      openThreadsOf(data).length * 2 +
+      Math.min(data.commits.length, PANE_COMMITS)
+
+    return Math.max(1, Math.min(rows, Math.floor(screenRows / PANE_MAX_SCREEN_SHARE)))
+  }
+
   const selected = () =>
     (selectedKey === null ? undefined : watched.get(selectedKey)) ?? list()[0]
 
   const uiModel = (): PaneModel => ({
+    columns: paneColumns,
     list: list(),
     selectedKey: selected()?.key ?? null,
     showResolved,
@@ -354,7 +383,11 @@ export const register: Register = (on, pluginOptions) => {
       status: text => $.ui.status(text),
       invalidate: () => $.ui.invalidate('ui.render'),
       openPane: async title => {
-        await $.ui.open({ id: PANE_ID, title })
+        // Доке аргумент безразличен - она всегда во весь экран; над вводом
+        // панель открывается по содержимому, не на треть экрана по умолчанию.
+        const rows = wantedRows()
+
+        await $.ui.open({ id: PANE_ID, title, ...(rows === null ? {} : { rows }) })
         isPaneOpen = true
       },
       closePane: async () => {
@@ -454,6 +487,9 @@ export const register: Register = (on, pluginOptions) => {
 
     const { Box, Text, Button, Link } = await $.ui.resolve(e)
     const ui: Ui = { Box, Text, Button, Link }
+
+    paneColumns = e.props.bodyColumns
+    screenRows = e.viewport?.rows ?? screenRows
 
     return paneView(ui, actionsOf(), uiModel())
   })

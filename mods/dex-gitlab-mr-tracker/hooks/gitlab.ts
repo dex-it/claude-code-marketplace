@@ -526,6 +526,29 @@ export function changesOf(previous: MrData | undefined, next: MrData): Change[] 
   return out
 }
 
+/**
+ * Адрес треда, ужатый до `max` колонок: голова пути уходит, хвост остаётся.
+ * Обрезка с конца здесь не годится - имя файла и строка и есть то, ради чего
+ * адрес показан, а докнутая панель бывает и в полсотни колонок шириной.
+ */
+export function shortenPath(path: string, max: number): string {
+  if (max <= 0 || path.length <= max) return path
+
+  const segments = path.split('/')
+
+  // Хвост из как можно большего числа сегментов, влезающий вместе с '.../'.
+  for (let from = 1; from < segments.length; from += 1) {
+    const tail = `.../${segments.slice(from).join('/')}`
+
+    if (tail.length <= max) return tail
+  }
+
+  // Не влезает и одно имя файла: режем его с начала, оставляя строку.
+  const name = segments[segments.length - 1] ?? path
+
+  return max <= 3 ? name.slice(-max) : `...${name.slice(-(max - 3))}`
+}
+
 /** `3/7` - open threads over resolvable ones; what the line reads at a glance. */
 export function threadTally(threads: readonly Thread[]) {
   const resolvable = threads.filter(thread => thread.resolvable)
