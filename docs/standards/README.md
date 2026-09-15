@@ -307,7 +307,7 @@ Static Analysis Results Interchange Format. OASIS Standard incorporating Approve
 | Теги **не рекомендуется** (SHOULD NOT) использовать для отнесения находки или правила к категории классификации; для этого рекомендуется (SHOULD) использовать таксономии - **и это распространено на собственную схему инженерной команды** | `dex-skill-project-rulebook` (форма таксона, запрет свободного тега); `dex-skill-defect-classification` (форма значения типа дефекта, запрет свободного тега) | `verified` | **§3.8.2.1 General**, дословно: «Even when defining a custom classification system used within an engineering team, taxonomies SHOULD be used rather than tags when labeling a result or a rule»; альтернатива, на которую указывает правило, - §3.19.3 Taxonomies |
 | Идентификатор правила устойчивее, когда он символьный или числовой, а не описательная строка (стабильность - SHALL, непрозрачность - SHOULD); прежние идентификаторы сохраняются полем `deprecatedIds` | `dex-skill-project-rulebook` (форма `RUL-NNNN` - непрозрачный стабильный ключ) | `verified` | глоссарий раздела 1, определение rule id; `deprecatedIds` - §3.49.4. **Запрета переиспользовать снятый номер спецификация не содержит** - это решение каталога, не требование стандарта |
 
-### ISO/IEC 25010:2023 - опора разреза каталога типов дефектов
+### ISO/IEC 25010:2023 - опора разреза встроенной схемы классификации дефектов
 
 Systems and software engineering - Systems and software Quality Requirements and Evaluation (SQuaRE) - Product quality model. Издание 2023 года, сменившее редакцию 2011.
 

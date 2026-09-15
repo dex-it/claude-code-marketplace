@@ -805,23 +805,5 @@
     "mode": "near-miss",
     "expect": "dex-skill-defect-classification:defect-classification",
     "prompt": "Отревьюй входящий MR: найди проблемы, проверь покрытие тестами и опубликуй находки тредами."
-  },
-  {
-    "id": "review-breakdown-in",
-    "mode": "in-scope",
-    "expect": "dex-skill-review-breakdown:review-breakdown",
-    "prompt": "Результаты ревью этого MR надо не только тредами разложить, а записывать в файл на каждый прогон, и после правок автора тоже. Что в записи прогона должно лежать и как на ре-ревью не повторить уже записанные треды?"
-  },
-  {
-    "id": "review-breakdown-near-classification",
-    "mode": "near-miss",
-    "expect": "dex-skill-review-breakdown:review-breakdown",
-    "plugins": [
-      "dex-skill-defect-classification"
-    ],
-    "requiresListed": [
-      "dex-skill-defect-classification:defect-classification"
-    ],
-    "prompt": "Размечай находки ревью по каталогу типов: каждой проставь тип и уровень. Как развести замечание про дубль и замечание про слой?"
   }
 ]

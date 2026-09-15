@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "6.1.0",
+  "version": "6.2.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -194,7 +194,7 @@
       "name": "dex-bundle-bug-lifecycle",
       "source": "./plugins/bundles/dex-bundle-bug-lifecycle",
       "description": "Bundle жизненного цикла бага: активный поиск, оформление, расследование корневой причины на общем стенде и фикс на источнике, плюс skills методологии RCA и поиска багов и CLI для чтения стенда и трекера.",
-      "version": "1.25.0",
+      "version": "1.26.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -969,7 +969,7 @@
     {
       "name": "dex-mr-check-reviewer",
       "source": "./plugins/specialists/review/dex-mr-check-reviewer",
-      "description": "Узел ре-ревью дельты MR/PR после правок автора: range-diff дельты, статус прежних находок, новые находки только в дельте, обновление существующих тредов и публикация новых, по поручению - обновление разбора ревью исходами ревизии. Вызывается на повторных ревизиях командой /mr-review (плагин dex-mr-reviewer), своего командного входа не имеет.",
+      "description": "Узел ре-ревью дельты MR/PR после правок автора: range-diff дельты, статус прежних находок, новые находки только в дельте, обновление существующих тредов и публикация новых, по поручению - разметка новых находок типом. Вызывается на повторных ревизиях командой /mr-review (плагин dex-mr-reviewer), своего командного входа не имеет.",
       "version": "2.4.0",
       "category": "specialist",
       "keywords": [
@@ -986,7 +986,7 @@
     {
       "name": "dex-mr-reviewer",
       "source": "./plugins/specialists/review/dex-mr-reviewer",
-      "description": "Языко-агностичный узел первичного ревью чужого MR/PR: карта изменений, параллельные фокусы, фальсификация находок, severity/confidence/scope, доставка инлайн-тредами через gh/glab. По поручению входа - разметка находок типом и разбор результата в файл по форме вызывающей стороны. Точка входа - команда /mr-review, едет в этом же плагине.",
+      "description": "Языко-агностичный узел первичного ревью чужого MR/PR: карта изменений, параллельные фокусы, фальсификация находок, severity/confidence/scope, доставка инлайн-тредами через gh/glab. По поручению входа - разметка находок типом в первой строке треда. Точка входа - команда /mr-review, едет в этом же плагине.",
       "version": "2.6.1",
       "category": "specialist",
       "keywords": [
@@ -1236,8 +1236,8 @@
     {
       "name": "dex-self-reviewer",
       "source": "./plugins/specialists/review/dex-self-reviewer",
-      "description": "Pre-push саморевью своей локальной ветки: committed+staged+worktree diff, скан по осям diff'а (security, architecture, language, business, regressions, performance, loose-ends, non-code) с реальным прогоном build/test, фальсификация, чеклист правок до push.",
-      "version": "2.0.2",
+      "description": "Pre-push саморевью своей локальной ветки: committed+staged+worktree diff, скан по осям diff'а (security, architecture, language, business, regressions, performance, loose-ends, non-code) с реальным прогоном build/test, фальсификация, чеклист правок до push, по поручению - разметка находок типом.",
+      "version": "2.1.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1663,7 +1663,7 @@
     {
       "name": "dex-skill-defect-classification",
       "source": "./plugins/skills/dex-skill-defect-classification",
-      "description": "Классификация находки ревью по каталогу типов дефектов - гейт разметки, единица разметки тред, закрытая схема типов на характеристиках качества продукта, независимость типа от критичности, каталог проекта по адресу вместо встроенного, выход разметки",
+      "description": "Разметка находок ревью MR и саморевью типом по схеме классификации дефектов - гейт по поручению, единица - находка, закрытая схема типов на характеристиках качества продукта, независимость типа от критичности, схема проекта по адресу вместо встроенной, выход разметки",
       "version": "1.0.0",
       "category": "skill",
       "keywords": [
@@ -2775,25 +2775,10 @@
       ]
     },
     {
-      "name": "dex-skill-review-breakdown",
-      "source": "./plugins/skills/dex-skill-review-breakdown",
-      "description": "Норматив жанра разбора ревью - журнал записей прогонов MR: запись на прогон ревью и ре-ревью с дельтой и исходом, только новые и изменившиеся треды, одно состояние треда, строки правки, запись по форме вызывающей стороны",
-      "version": "1.0.0",
-      "category": "skill",
-      "keywords": [
-        "skill",
-        "review-breakdown",
-        "code-review",
-        "merge-request",
-        "findings",
-        "record-form"
-      ]
-    },
-    {
       "name": "dex-skill-review-evidence",
       "source": "./plugins/skills/dex-skill-review-evidence",
       "description": "Дисциплина доказательств в ревью: не утверждать без чтения файла, доказывать отсутствие поиском, трассировать путь вход-эффект, фальсифицировать каждую находку, рубрики severity и confidence, порог публикации.",
-      "version": "1.8.0",
+      "version": "1.9.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2831,7 +2816,7 @@
       "name": "dex-skill-review-threads",
       "source": "./plugins/skills/dex-skill-review-threads",
       "description": "Инлайн-доставка ревью: один тред на находку, привязка к строке через нативный API gh/glab, severity в первой строке, overview без дублирования тредов, протокол resolve, чужие треды не трогать.",
-      "version": "1.0.2",
+      "version": "1.1.0",
       "category": "skill",
       "keywords": [
         "skill",
