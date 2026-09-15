@@ -109,6 +109,18 @@ jobs:
       - name: Test dex-auto track orchestration
         run: npm run test:tracks
 
+      # Моды - TypeScript внутри процесса Claude Code: типы держит контракт
+      # `mods/types/claude-code.d.ts` (пишет /plugin-types), и разъезд ловится
+      # только компилятором - валидаторы каталога в .ts не заходят.
+      - name: Typecheck mods
+        run: npm run typecheck:mods
+
+      # Чистая половина мода (разбор remote и ссылок, сборка ответа GitLab,
+      # дельта опроса) проверяется прогоном: в живой сессии её ошибка выглядит
+      # как пустая строка над вводом, а не как падение.
+      - name: Test mods
+        run: npm run test:mods
+
       # README - второй носитель состава каталога, генератора у него нет.
       # Замер 01.09.2026 этим же инструментом на базе PR (b846fd6f): 85 плагинов
       # из 245 не были названы ни полным, ни коротким именем, и
