@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "6.1.0",
+  "version": "6.2.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -714,6 +714,24 @@
         "glab",
         "cli",
         "pipelines"
+      ]
+    },
+    {
+      "name": "dex-gitlab-mr-tracker",
+      "source": "./mods/dex-gitlab-mr-tracker",
+      "description": "Мод на function hooks: следит за merge request GitLab проекта, открытого в сессии. Строка над вводом и панель /mr несут состояние MR, detailed merge status, пайплайн, апрувы, открытые и решённые треды с числом комментариев, коммиты и объём изменений; смена статуса, новый тред, новый комментарий и новые коммиты приходят тостом и строкой в транскрипт. Команда /mr threads отдаёт открытые треды текстом - модель читает их как вход для правок.",
+      "version": "1.0.0",
+      "category": "mod",
+      "keywords": [
+        "utility",
+        "mod",
+        "function-hooks",
+        "gitlab",
+        "merge-requests",
+        "glab",
+        "threads",
+        "pipelines",
+        "code-review"
       ]
     },
     {
