@@ -25,10 +25,14 @@ export type Ui = {
   Link: ElementConstructor<LinkProps>
 }
 
+/**
+ * Опроса здесь нет намеренно: он идёт сам - по таймеру, на конце хода и
+ * после команды, меняющей MR, - а принудительный остаётся командой
+ * `/mr refresh`, которая ещё и печатает состояние текстом для модели.
+ */
 export type Actions = {
   select: (key: string) => void
   openUrl: (url: string) => void
-  refresh: (key: string) => void
   /** Arms the MR's open threads to ride the next prompt as context. */
   ask: (key: string) => void
   stop: (key: string) => void
@@ -314,12 +318,6 @@ export function paneView(ui: Ui, actions: Actions, model: PaneModel): RenderElem
           key={`pane-open:${watched.key}`}
           label="открыть в браузере"
           onPress={() => actions.openUrl(data.webUrl)}
-        />
-        <Text>{' '}</Text>
-        <Button
-          key={`pane-refresh:${watched.key}`}
-          label={watched.busy ? 'обновляется' : 'обновить'}
-          onPress={() => actions.refresh(watched.key)}
         />
         <Text>{' '}</Text>
         <Button

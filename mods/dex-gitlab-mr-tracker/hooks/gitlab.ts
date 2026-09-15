@@ -176,10 +176,6 @@ export const projectId = (project: string) => encodeURIComponent(project)
 export const mrPath = (ref: MrRef) =>
   `projects/${projectId(ref.project)}/merge_requests/${ref.iid}`
 
-/** The pane's id: one pane per MR, and ids must survive any project path. */
-export const paneIdOf = (ref: MrRef) =>
-  `glmr-${`${ref.project}-${ref.iid}`.replace(/[^\w-]/g, '_')}`.slice(0, 64)
-
 // --- Reading the API's JSON ---------------------------------------------
 
 const rec = (value: unknown): Record<string, unknown> =>

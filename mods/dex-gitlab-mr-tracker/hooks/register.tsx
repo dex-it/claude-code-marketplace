@@ -7,8 +7,10 @@
 //   command.run     `/mr` and its words; `clear` / `resume` forget the state.
 //   prompt.submit   MR URLs in a prompt toggle watching; an armed MR's open
 //                   threads ride the prompt as context, once.
-//   tool.call Bash  the URL `glab mr create` prints is watched too.
-//   turn.complete   an MR URL in Claude's answer is watched too.
+//   tool.call Bash  the URL `glab mr create` prints is watched too, and a
+//                   command that moves the MR (push, commit, glab mr) polls.
+//   turn.complete   an MR URL in Claude's answer is watched too, and the end
+//                   of a turn polls what the timer has not refreshed lately.
 //
 // Everything the mod knows lives in this module's own variables: a hot
 // reload or a new session starts from the branch again, which is cheap.
@@ -43,6 +45,11 @@ const MIN_POLL_MS = 15_000
 const COMMITS_PAGE = 100
 const PANE_COMMITS = 8
 const TOAST_MS = 8000
+/**
+ * Опрос по поводу (конец хода, своя команда в Bash) не повторяет то, что
+ * таймер уже принёс: MR, опрошенный свежее этого окна, пропускается.
+ */
+const REFRESH_MIN_AGE_MS = 20_000
 const SOUND_BAD = '/System/Library/Sounds/Basso.aiff'
 const SOUND_CHANGE = '/System/Library/Sounds/Glass.aiff'
 
@@ -162,8 +169,6 @@ export const register: Register = (on, pluginOptions) => {
 
     if (!source) return
 
-    entry.busy = true
-
     try {
       const mr = await source.get(mrPath(entry.ref))
 
@@ -196,13 +201,26 @@ export const register: Register = (on, pluginOptions) => {
     } catch (error) {
       entry.error = messageOf(error)
     } finally {
-      entry.busy = false
       entry.updatedMs = await (bound?.now() ?? Promise.resolve(0))
       bound?.invalidate()
     }
   }
 
   const refreshAll = () => Promise.all(list().map(entry => refresh(entry)))
+
+  /**
+   * Опрос по поводу: ход закончился, или в Bash прошла команда, меняющая MR.
+   * Между тиками таймера это и есть отлов события - ответ в треде виден,
+   * как только вы возвращаетесь к промпту, а не через период опроса.
+   */
+  async function refreshStale(): Promise<void> {
+    if (watched.size === 0 || !bound) return
+
+    const nowMs = await bound.now()
+    const stale = list().filter(entry => nowMs - entry.updatedMs > REFRESH_MIN_AGE_MS)
+
+    await Promise.all(stale.map(entry => refresh(entry)))
+  }
 
   function announce(entry: Watched, next: MrData): void {
     if (settings.notify === 'off' || !bound) return
@@ -609,6 +627,11 @@ export const register: Register = (on, pluginOptions) => {
     const result = await next(e)
 
     if ('deny' in result) return result
+
+    // Команда, которой MR меняется: пуш ветки, коммит, любое действие glab
+    // над MR. После неё GitLab расходится с тем, что нарисовано.
+    if (/\b(git\s+(push|commit)|glab\s+mr)\b/.test(e.command)) void refreshStale()
+
     if (!/\bglab\s+mr\s+(create|new)\b/.test(e.command)) return result
 
     const stdout = rec(result.result).stdout
@@ -624,6 +647,10 @@ export const register: Register = (on, pluginOptions) => {
     if (e.agentId === undefined && e.reason === 'answer') {
       for (const ref of mrRefsOf(e.answer)) watch(ref, true)
     }
+
+    // Ход закончился - человек снова смотрит на строку над вводом, и она
+    // должна нести то, что в GitLab сейчас, а не то, что было на тике.
+    if (e.agentId === undefined) void refreshStale()
 
     return result
   })
@@ -642,11 +669,6 @@ export const register: Register = (on, pluginOptions) => {
         bound?.invalidate()
       },
       openUrl: url => bound?.openUrl(url),
-      refresh: key => {
-        const entry = watched.get(key)
-
-        if (entry) void refresh(entry)
-      },
       ask: key => {
         const entry = watched.get(key)
 

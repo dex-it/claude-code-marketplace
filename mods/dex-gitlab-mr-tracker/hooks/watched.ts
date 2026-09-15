@@ -3,19 +3,17 @@
 // asked for it by hand.
 
 import type { MrData, MrRef } from './gitlab'
-import { keyOf, labelOf, paneIdOf } from './gitlab'
+import { keyOf, labelOf } from './gitlab'
 
 export type Watched = {
   ref: MrRef
   key: string
   label: string
-  pane: string
   /** Found from the current branch; a branch switch drops it, a manual one stays. */
   auto: boolean
   data?: MrData
   /** Why the last poll failed; the previous data stays on screen beside it. */
   error?: string
-  busy: boolean
   updatedMs: number
 }
 
@@ -23,9 +21,7 @@ export const watchedOf = (ref: MrRef, auto: boolean): Watched => ({
   ref,
   key: keyOf(ref),
   label: labelOf(ref),
-  pane: paneIdOf(ref),
   auto,
-  busy: false,
   updatedMs: 0,
 })
 
