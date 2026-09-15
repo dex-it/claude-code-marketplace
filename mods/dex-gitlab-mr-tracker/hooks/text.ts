@@ -27,7 +27,7 @@ const approvalsWord = (data: MrData) => {
   const quota = approvals.required === null ? '' : `/${approvals.required}`
   const by = approvals.by.length > 0 ? ` (${approvals.by.join(', ')})` : ''
 
-  return `апрувы ${given}${quota}${by}`
+  return `${given}${quota}${by}`
 }
 
 /** The MR as one block of transcript text: the same facts the line carries. */
@@ -41,34 +41,31 @@ export function statusText(watched: Watched): string {
   const tally = threadTally(data.threads)
   const plain = plainThreadsOf(data).length
 
-  const head = [
-    `**${watched.label}** ${stateWord(data)} - ${data.title}`,
-    `${data.webUrl}`,
-    `${data.sourceBranch} -> ${data.targetBranch}, автор ${data.author}`,
+  // Один факт - одна строка: сплошную строку через разделители глазом не
+  // разобрать, а модель читает список ровно так же.
+  const rows: Array<[string, string | null]> = [
+    ['Состояние', stateWord(data)],
+    ['Ветки', `${data.sourceBranch} -> ${data.targetBranch}`],
+    ['Автор', data.author],
+    ['Merge', data.hasConflicts ? `${data.mergeStatus}, есть конфликты` : data.mergeStatus],
+    ['Пайплайн', pipelineWord(data)],
+    ['Апрувы', approvalsWord(data)],
+    ['Треды', `${tally.open} открытых из ${tally.resolvable}`],
+    ['Обсуждения без резолва', plain > 0 ? String(plain) : null],
+    ['Комментарии', String(data.notesCount)],
+    ['Коммиты', `${data.commits.length}${data.commitsCapped ? '+' : ''}`],
+    ['Файлов изменено', data.changesCount === '' ? null : data.changesCount],
+    ['Ревьюеры', data.reviewers.length > 0 ? data.reviewers.join(', ') : null],
+    ['Метки', data.labels.length > 0 ? data.labels.join(', ') : null],
+    ['Ссылка', data.webUrl],
+    ['Последний опрос', watched.error === undefined ? null : `не удался: ${watched.error}`],
   ]
 
-  const facts = [
-    `merge: ${data.mergeStatus}`,
-    `пайплайн: ${pipelineWord(data)}`,
-    approvalsWord(data),
-    data.hasConflicts ? 'конфликты' : null,
-  ].filter((fact): fact is string => fact !== null)
+  const listed = rows
+    .filter((row): row is [string, string] => row[1] !== null)
+    .map(([name, value]) => `- ${name}: ${value}`)
 
-  const counts = [
-    `треды: ${tally.open} открытых из ${tally.resolvable}`,
-    plain > 0 ? `обсуждений без резолва: ${plain}` : null,
-    `комментариев: ${data.notesCount}`,
-    `коммитов: ${data.commits.length}${data.commitsCapped ? '+' : ''}`,
-    data.changesCount === '' ? null : `изменено файлов: ${data.changesCount}`,
-  ].filter((count): count is string => count !== null)
-
-  const meta = [
-    data.reviewers.length > 0 ? `ревьюеры: ${data.reviewers.join(', ')}` : null,
-    data.labels.length > 0 ? `метки: ${data.labels.join(', ')}` : null,
-    watched.error === undefined ? null : `последний опрос не удался: ${watched.error}`,
-  ].filter((entry): entry is string => entry !== null)
-
-  return [...head, facts.join(' - '), counts.join(' - '), ...meta].join('\n')
+  return [`**${watched.label}** - ${data.title}`, '', ...listed].join('\n')
 }
 
 /**
@@ -88,7 +85,12 @@ export function threadsText(watched: Watched, max = THREADS_TEXT_MAX_CHARS): str
     return `${watched.label}: открытых тредов нет${resolved > 0 ? ` (закрыто ${resolved})` : ''}`
   }
 
-  const head = `Открытые треды ${watched.label} (${open.length} из ${threadTally(data.threads).resolvable}), ${data.webUrl}`
+  const head = [
+    `**Открытые треды ${watched.label}** - ${open.length} из ${threadTally(data.threads).resolvable}`,
+    data.webUrl,
+    '',
+  ].join('\n')
+
   const lines: string[] = [head]
   let length = head.length
   let shown = 0
@@ -99,10 +101,14 @@ export function threadsText(watched: Watched, max = THREADS_TEXT_MAX_CHARS): str
         ? 'обсуждение MR'
         : `${thread.file}${thread.line === null ? '' : `:${thread.line}`}`
 
+    // Каждый тред - свой блок с пустой строкой после: адрес, кто и сколько,
+    // само замечание, ссылка. Сплошной список слипается и глазом, и в разборе.
     const entry = [
-      `- ${where} - ${thread.author}, комментариев ${thread.notes}, последний от ${thread.lastAuthor}`,
+      `- **${where}**`,
+      `  ${thread.author}, комментариев ${thread.notes}, последний от ${thread.lastAuthor}`,
       `  ${thread.body}`,
       `  ${thread.url}`,
+      '',
     ].join('\n')
 
     if (length + entry.length + 1 > max) break
