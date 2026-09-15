@@ -13,6 +13,7 @@ import {
   commitsOf,
   isOnlyMrUrls,
   labelOf,
+  mergeLevel,
   mrDataOf,
   mrPath,
   mrRefsOf,
@@ -261,6 +262,60 @@ describe('mrDataOf', () => {
   test('commit titles lose control characters', () => {
     assert.equal(commitsOf([{ short_id: 'a', title: 'fix\u0007 bell', author_name: 'a' }])[0]?.title, 'fix bell')
     assert.equal(oneLine('первая\nвторая'), 'первая вторая')
+  })
+})
+
+describe('mergeLevel', () => {
+  // Перечень значений - docs.gitlab.com/api/merge_requests, "Merge status",
+  // сверено 15.09.2026.
+  test('смержить можно сейчас - только mergeable и устаревшее can_be_merged', () => {
+    assert.equal(mergeLevel('mergeable'), 'good')
+    assert.equal(mergeLevel('can_be_merged'), 'good')
+  })
+
+  test('требуют вмешательства в MR или ветку', () => {
+    for (const status of [
+      'conflict',
+      'need_rebase',
+      'commits_status',
+      'requested_changes',
+      'merge_request_blocked',
+      'security_policy_violations',
+      'locked_paths',
+      'locked_lfs_files',
+    ]) {
+      assert.equal(mergeLevel(status), 'bad', status)
+    }
+  })
+
+  test('делать нечего: MR не открыт, черновик или ждёт назначенного времени', () => {
+    for (const status of ['draft_status', 'not_open', 'merge_time']) {
+      assert.equal(mergeLevel(status), 'idle', status)
+    }
+  })
+
+  test('штатный гейт ещё не пройден', () => {
+    for (const status of [
+      'approvals_syncing',
+      'checking',
+      'unchecked',
+      'preparing',
+      'ci_must_pass',
+      'ci_still_running',
+      'discussions_not_resolved',
+      'not_approved',
+      'status_checks_must_pass',
+      'security_policy_pipeline_check',
+      'jira_association_missing',
+      'title_regex',
+    ]) {
+      assert.equal(mergeLevel(status), 'wait', status)
+    }
+  })
+
+  test('значение, которого набор не знает, ждёт, а не падает', () => {
+    assert.equal(mergeLevel('something_gitlab_added_later'), 'wait')
+    assert.equal(mergeLevel(''), 'wait')
   })
 })
 

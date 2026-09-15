@@ -91,6 +91,45 @@ export const IMPORTANT_KINDS: readonly ChangeKind[] = [
   'approval',
 ]
 
+/**
+ * Во что читается `detailed_merge_status`. Перечень значений взят из
+ * документации GitLab (docs.gitlab.com/api/merge_requests, раздел "Merge
+ * status", сверено 15.09.2026), и набор там растёт от версии к версии -
+ * поэтому значение, которого здесь нет, читается как `wait`, а не роняет
+ * отрисовку: на старом self-managed придёт меньше значений, на новом может
+ * прийти незнакомое.
+ *
+ * `good` - смержить можно сейчас; `bad` - нужно вмешательство в MR или
+ * ветку; `wait` - штатный гейт ещё не пройден; `idle` - делать нечего.
+ */
+export type MergeLevel = 'good' | 'bad' | 'wait' | 'idle'
+
+/** Требуют правки MR или ветки. */
+const MERGE_BAD: ReadonlySet<string> = new Set([
+  'commits_status',
+  'conflict',
+  'locked_lfs_files',
+  'locked_paths',
+  'merge_request_blocked',
+  'need_rebase',
+  'requested_changes',
+  'security_policy_violations',
+])
+
+/** Ничего не требуют: MR либо не открыт, либо ждёт назначенного времени. */
+const MERGE_IDLE: ReadonlySet<string> = new Set(['draft_status', 'merge_time', 'not_open'])
+
+export function mergeLevel(status: string): MergeLevel {
+  // `can_be_merged` - значение устаревшего `merge_status`, на который мод
+  // падает обратно там, где инстанс старше 15.6 и `detailed_merge_status`
+  // не отдаёт.
+  if (status === 'mergeable' || status === 'can_be_merged') return 'good'
+  if (MERGE_BAD.has(status)) return 'bad'
+  if (MERGE_IDLE.has(status)) return 'idle'
+
+  return 'wait'
+}
+
 // --- Addresses -----------------------------------------------------------
 
 const TRAILING_GIT = /\.git\/?$/
@@ -216,7 +255,15 @@ export function oneLine(body: string, max = 160): string {
   return line.length > max ? `${line.slice(0, max - 3)}...` : line
 }
 
-/** Threads of an MR: standalone comments (`individual_note`) are not threads. */
+/**
+ * Threads of an MR: standalone comments (`individual_note`) are not threads.
+ *
+ * Допущение: REST не отдаёт состояния на уровне обсуждения - `resolved` и
+ * `resolvable` есть только у каждой заметки (docs.gitlab.com/api/discussions,
+ * сверено 15.09.2026), а правило агрегации документацией не задано. Мод
+ * считает тред закрытым, когда закрыты все его резолвимые заметки; счётчики
+ * тредов на уровне MR есть только в GraphQL.
+ */
 export function threadsOf(raw: unknown, webUrl: string): Thread[] {
   const out: Thread[] = []
 
@@ -245,6 +292,9 @@ export function threadsOf(raw: unknown, webUrl: string): Thread[] {
       body: oneLine(str(first.body)),
       lastAuthor: userOf(last.author),
       lastAt: str(last.updated_at) || str(last.created_at),
+      // Допущение: форма якоря заметки документацией GitLab не задана
+      // (документирован только `Note.url` в GraphQL). Проверена живым
+      // переходом 15.09.2026; сломается - ссылка ведёт на сам MR.
       url: `${webUrl}#note_${idOf(first.id)}`,
     })
   }
@@ -377,10 +427,12 @@ export function changesOf(previous: MrData | undefined, next: MrData): Change[] 
   }
 
   if (previous.mergeStatus !== next.mergeStatus) {
+    const level = mergeLevel(next.mergeStatus)
+
     out.push({
       kind: 'merge',
       text: `merge: ${previous.mergeStatus} -> ${next.mergeStatus}`,
-      level: next.mergeStatus === 'mergeable' ? 'good' : 'bad',
+      level: level === 'good' ? 'good' : level === 'bad' ? 'bad' : 'plain',
     })
   }
 

@@ -13,8 +13,8 @@ import type {
   TextProps,
 } from 'claude-code'
 
-import type { MrData, Thread } from './gitlab'
-import { approvalsGiven, threadTally } from './gitlab'
+import type { MergeLevel, MrData, Thread } from './gitlab'
+import { approvalsGiven, mergeLevel, threadTally } from './gitlab'
 import type { Watched } from './watched'
 import { openThreadsOf, plainThreadsOf, resolvedThreadsOf } from './watched'
 
@@ -55,18 +55,6 @@ const STATE_COLOR: Record<string, string> = {
   locked: 'yellow',
 }
 
-const MERGE_RED = new Set([
-  'blocked_status',
-  'broken_status',
-  'conflict',
-  'merge_request_blocked',
-  'need_rebase',
-  'requested_changes',
-  'security_policy_violations',
-])
-
-const MERGE_GRAY = new Set(['draft_status', 'not_open'])
-
 const PIPELINE_COLOR: Record<string, string> = {
   success: 'green',
   failed: 'red',
@@ -76,14 +64,14 @@ const PIPELINE_COLOR: Record<string, string> = {
   scheduled: 'gray',
 }
 
-const mergeColor = (status: string) =>
-  status === 'mergeable' || status === 'can_be_merged'
-    ? 'green'
-    : MERGE_RED.has(status)
-      ? 'red'
-      : MERGE_GRAY.has(status)
-        ? 'gray'
-        : 'yellow'
+const MERGE_COLOR: Record<MergeLevel, string> = {
+  good: 'green',
+  bad: 'red',
+  wait: 'yellow',
+  idle: 'gray',
+}
+
+const mergeColor = (status: string) => MERGE_COLOR[mergeLevel(status)]
 
 const pipelineColor = (status: string) => PIPELINE_COLOR[status] ?? 'yellow'
 

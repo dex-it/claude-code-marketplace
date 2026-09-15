@@ -60,7 +60,7 @@ proj!128 opened · mergeable · ci success · ●2/7 · ✎24 · ↑12 · ✔1/2
 
 - **`proj!128`** - проект и номер MR, ссылкой (Cmd+click открывает браузер).
 - **состояние** - `opened`, `draft`, `merged`, `closed`.
-- **merge status** - `detailed_merge_status` GitLab как есть: зелёный `mergeable`; красные `conflict`, `need_rebase`, `requested_changes`, `blocked_status`; жёлтое - остальное незавершённое (`ci_still_running`, `not_approved`, `discussions_not_resolved`, `checking`).
+- **merge status** - `detailed_merge_status` GitLab как есть, раскрашенный по смыслу: зелёный `mergeable`; красное требует вмешательства в MR или ветку (`conflict`, `need_rebase`, `commits_status`, `requested_changes`, `merge_request_blocked`, `security_policy_violations`, `locked_paths`, `locked_lfs_files`); серое не требует ничего (`draft_status`, `not_open`, `merge_time`); жёлтое - штатный гейт ещё не пройден (`ci_still_running`, `ci_must_pass`, `not_approved`, `discussions_not_resolved`, `checking`, `unchecked` и прочие). Набор значений GitLab расширяет от версии к версии, поэтому незнакомое значение рисуется жёлтым как есть, а не прячется.
 - **`ci`** - статус пайплайна последнего коммита.
 - **`●2/7`** - открытых тредов из тех, что можно закрыть. Обсуждения без резолва считаются отдельно и видны в панели.
 - **`✎24`** - все комментарии MR, **`↑12`** - коммиты (`12+` значит, что страница заполнилась и это нижняя оценка), **`✔1/2`** - апрувы.
