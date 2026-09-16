@@ -6,10 +6,10 @@
   "type": "module",
   "license": "MIT",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.6.0"
   },
   "scripts": {
-    "validate": "node tools/validate-agent.js all && node tools/validate-skill.js all && node tools/validate-command.js all && node tools/validate-bundle.js all && node tools/validate-readme.js all && node tools/validate-rules-documented.js all && node tools/sync-terminology.js --check",
+    "validate": "node tools/validate-agent.js all && node tools/validate-skill.js all && node tools/validate-command.js all && node tools/validate-bundle.js all && node tools/validate-readme.js all && node tools/validate-rules-documented.js all && node tools/sync-terminology.js --check && npm run typecheck:mods",
     "test": "node tools/test-rules.js all",
     "readme:check": "node tools/validate-readme.js all",
     "test:tools": "bash tests/tools/agent-visibility.test.sh",
@@ -23,13 +23,17 @@
     "test:activation:agents": "node tools/run-activation.js --agents --model haiku",
     "metrics:propagation": "node tools/propagation-cost.js",
     "test:hooks": "bash tests/hooks/ledger.test.sh && bash tests/hooks/finish.test.sh",
-    "test:tracks": "node tests/tracks/run.mjs"
+    "test:tracks": "node tests/tracks/run.mjs",
+    "typecheck:mods": "tsc -p mods && tsc -p mods/tsconfig.tests.json",
+    "test:mods": "node --experimental-strip-types --test \"mods/*/tests/*.test.ts\""
   },
   "devDependencies": {
+    "@types/node": "^22.20.2",
     "gray-matter": "^4.0.3",
     "remark": "^15.0.1",
     "remark-gfm": "^4.0.1",
     "remark-parse": "^11.0.0",
+    "typescript": "^5.9.3",
     "unified": "^11.0.5",
     "unist-util-visit": "^5.0.0"
   }

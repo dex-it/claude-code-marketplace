@@ -1,0 +1,80 @@
+{
+  "name": "dex-gitlab-mr-tracker",
+  "version": "1.0.0",
+  "description": "Мод на function hooks: следит за merge request GitLab проекта, открытого в сессии. Строка над вводом и панель /mr несут состояние MR, detailed merge status, пайплайн, апрувы, открытые и решённые треды с числом комментариев, коммиты и объём изменений; смена статуса, новый тред, новый комментарий и новые коммиты приходят тостом и строкой в транскрипт. Команда /mr threads отдаёт открытые треды текстом - модель читает их как вход для правок.",
+  "author": {
+    "name": "Dex Team",
+    "email": "mmx@dex-it.ru"
+  },
+  "keywords": [
+    "utility",
+    "mod",
+    "function-hooks",
+    "gitlab",
+    "merge-requests",
+    "glab",
+    "threads",
+    "pipelines",
+    "code-review"
+  ],
+  "repository": "https://github.com/dex-it/claude-code-marketplace",
+  "license": "GPL-3.0",
+  "userConfig": {
+    "remote": {
+      "type": "string",
+      "title": "Git remote",
+      "description": "Remote, из URL которого берётся хост и путь проекта GitLab.",
+      "default": "origin"
+    },
+    "host": {
+      "type": "string",
+      "title": "GitLab host",
+      "description": "Хост GitLab, если его не вывести из remote (например, при работе вне клона).",
+      "default": ""
+    },
+    "project": {
+      "type": "string",
+      "title": "Project path",
+      "description": "Путь проекта вида group/subgroup/name, если его не вывести из remote.",
+      "default": ""
+    },
+    "pollSeconds": {
+      "type": "number",
+      "title": "Poll interval, seconds",
+      "description": "Период опроса GitLab. Минимум 15 секунд.",
+      "default": 60
+    },
+    "autoWatchBranch": {
+      "type": "boolean",
+      "title": "Watch the branch MR",
+      "description": "Самому находить открытый MR текущей ветки и следить за ним, переключаясь вместе с веткой.",
+      "default": true
+    },
+    "backend": {
+      "type": "string",
+      "title": "Data source",
+      "description": "auto - glab, а без него REST с токеном; glab - только glab; api - только REST.",
+      "default": "auto",
+      "options": ["auto", "glab", "api"]
+    },
+    "token": {
+      "type": "string",
+      "title": "Access token",
+      "description": "Personal access token со scope read_api для источника api. Пусто - берётся из GITLAB_TOKEN или GLAB_TOKEN.",
+      "sensitive": true
+    },
+    "notify": {
+      "type": "string",
+      "title": "What to announce",
+      "description": "all - каждое изменение, включая комментарии в тредах; important - только состояние, merge status, пайплайн, апрувы и новые треды; off - молча.",
+      "default": "all",
+      "options": ["all", "important", "off"]
+    },
+    "sound": {
+      "type": "boolean",
+      "title": "Sound on change",
+      "description": "Звук системы на изменение (macOS, afplay). По умолчанию выключен - тоста и строки транскрипта хватает.",
+      "default": false
+    }
+  }
+}
