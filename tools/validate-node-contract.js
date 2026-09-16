@@ -2,7 +2,7 @@
 // Имена полей стыка в телах агентов и схемах треков против словаря node-contract; норма и Usage - docs/VALIDATOR_RULES.md.
 
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
-import { join, relative, resolve, dirname } from 'node:path';
+import { join, relative, resolve, dirname, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -259,9 +259,11 @@ function findFiles() {
         walk(full);
         continue;
       }
-      const parent = dirname(full);
-      if (entry.endsWith('.md') && parent.endsWith(`${'/'}agents`)) agents.push(full);
-      else if (entry.endsWith('.js') && parent.endsWith(`${'/'}tracks`)) tracks.push(full);
+      // Разделитель приводится к `/`: `join` на Windows отдаёт `\`, сравнение с `/agents` не совпало бы ни разу,
+      // и прогон нашёл бы ноль файлов - тот же класс, что закрыт в validate-agent.js.
+      const parent = dirname(full).split(sep).join('/');
+      if (entry.endsWith('.md') && parent.endsWith('/agents')) agents.push(full);
+      else if (entry.endsWith('.js') && parent.endsWith('/tracks')) tracks.push(full);
     }
   }
   walk(PLUGINS_DIR);
@@ -330,6 +332,11 @@ function main() {
   let files;
   if (target === 'all') {
     files = findFiles();
+    // Ноль носителей при живом словаре - сломанный обход или чужой корень, а не чистый каталог.
+    if (files.length === 0) {
+      console.error(`No agent or track files found under ${relative(REPO_ROOT, PLUGINS_DIR)}`);
+      process.exit(1);
+    }
   } else {
     const abs = resolve(target);
     if (!existsSync(abs)) {
