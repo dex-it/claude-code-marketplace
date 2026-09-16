@@ -87,8 +87,9 @@ const reqText = ctx.requirements.join('\n')
 const coderType = CODER[ctx.stack]
 
 phase('Implement')
-const verifyOnce = (tag) => node('верификатор', `${HEAD}Верификация (${tag}): ТОЛЬКО прогон и отчёт, код не менять. Выполни ${ctx.build_cmd ? `сборку: ${ctx.build_cmd}; ` : ''}${ctx.test_cmd ? `тесты: ${ctx.test_cmd}` : 'тестов нет - build_ok по сборке, счётчики 0'}; затем git log --oneline -3 и git status --porcelain. Числа - из вывода раннера как есть.`,
-  { label: `verify:${tag}`, phase: 'Implement', effort: 'low', schema: VERIFY })
+// Фаза параметром: verify зовётся и из Review, а фаза берётся из opts, не из phase().
+const verifyOnce = (tag, ph = 'Implement') => node('верификатор', `${HEAD}Верификация (${tag}): ТОЛЬКО прогон и отчёт, код не менять. Выполни ${ctx.build_cmd ? `сборку: ${ctx.build_cmd}; ` : ''}${ctx.test_cmd ? `тесты: ${ctx.test_cmd}` : 'тестов нет - build_ok по сборке, счётчики 0'}; затем git log --oneline -3 и git status --porcelain. Числа - из вывода раннера как есть.`,
+  { label: `verify:${tag}`, phase: ph, effort: 'low', schema: VERIFY })
 // Возобновление начинается с верификации: зелёное дерево с коммитами не переделывается (ledger.md, «продолжить»).
 if (A.resume) {
   ver = await verifyOnce('возобновление')
@@ -122,7 +123,7 @@ if (rev && blockingOf(rev).length) {
   loops.review_fix = REVIEW_FIX_CEILING
   fix2 = await node('кодер', `${HEAD}Шаг 2 (повтор после саморевью, потолок ${REVIEW_FIX_CEILING}): закрой находки:\n${blockingOf(rev).map(f => `- [${f.severity}] ${f.anchor}: ${f.text}`).join('\n')}\n${rev.push_blockers ? `Причина отказа в push: ${rev.push_blockers}\n` : ''}Требования:\n${reqText}\nПосле правки сборка и тесты зелёные, коммит локально, push не делать. Находку, которую закрывать не следует, верни в decisions с основанием.`,
     { label: 'fix:after-review', phase: 'Review', schema: FIX }, coderType)
-  ver2 = !fix2 || fix2.status === 'blocked' ? null : await verifyOnce('после саморевью')
+  ver2 = !fix2 || fix2.status === 'blocked' ? null : await verifyOnce('после саморевью', 'Review')
   trail.push({ step: '2-after-review', doer: coderType || 'general-purpose', status: fix2 ? fix2.status : 'null', passed: isGreen(ver2) })
   if (fix2) decisions.push(...(fix2.decisions || []))
   const openNow = { review: rev, open_findings: rev.findings }
