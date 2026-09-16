@@ -52,10 +52,11 @@ function lineLocator(text) {
 // Возвращает { names } либо { missing: причина }. Нечитаемый словарь - находка, а не пустой прогон:
 // validate-agent.js неизвестный плагин объявляет вне области проверки, переименованный раздел не видит
 // никто, и суд имён выключался бы зелёным. Нет файла, нет раздела, нет строк - один исход: имён ноль.
-// Переводы строк сводятся к `\n`: файл, сохранённый с CRLF, - тот же словарь, а не пропавший.
+// Заголовок ищется построчно (`^...$` в режиме `m`, где `\r` - тоже конец строки): файл, сохранённый с CRLF,
+// или заголовок с хвостовым пробелом - тот же словарь, а не пропавший.
 function loadDictionary() {
   const exists = existsSync(DICTIONARY_FILE);
-  const text = exists ? readFileSync(DICTIONARY_FILE, 'utf8').replace(/\r\n?/g, '\n') : '';
+  const text = exists ? readFileSync(DICTIONARY_FILE, 'utf8') : '';
   const heading = new RegExp(`^${DICTIONARY_HEADING}[ \\t]*$`, 'm').exec(text);
   let section = '';
   if (heading) {

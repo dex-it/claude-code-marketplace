@@ -27,6 +27,11 @@ const AFTER_REGEX = { RED_RUN: { type: 'string' } }
 const hint = `цель: ${String(1).replace(/'/g, '')}`
 const AFTER_INTERP = { DIFF_SCOPE: 1 }
 const CONTROL = { 'run	status': 1 }
+const probe = { p: `${ ({ a: 1 }).a ? '`' : "}" }`, DiffScope: 2 }
+const esc = { a: 'it\'s', b: "a\"b", c: 'x\\', RUN_STATUS: 1 }
+const nested = { p: `в${ [1].map((n) => `${n}}`) }`, Uncovered2: 0, redRun: 3 }
+const tick = { p: `a \` b`, RunStatus: 4 }
+const after = `x`
 
 phase('Fix')
 const fix = await agent(`почини предмет песочницы, итог положи в поле

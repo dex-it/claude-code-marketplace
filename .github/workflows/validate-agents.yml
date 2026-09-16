@@ -100,7 +100,9 @@ jobs:
       # песочнице через MARKETPLACE_ROOT), а кейс, которого не построилось,
       # ошибкой не выглядит нигде. Шаг живёт в этом job'е, а не в shell-syntax:
       # скрипт зовёт node и `gray-matter`, то есть требует `npm ci`.
-      - name: Test agent visibility case construction
+      # Код выхода и CLI-ветки validate-node-contract.js (пустой набор, режим одного файла, словарь
+      # с CRLF и без файла) test-rules.js не видит - он судит только строки находок.
+      - name: Test tool CLI contracts (agent visibility, node contract)
         run: npm run test:tools
 
       # Ledger и сторожа dex-auto: адрес, буквальный контракт статуса, коды выхода

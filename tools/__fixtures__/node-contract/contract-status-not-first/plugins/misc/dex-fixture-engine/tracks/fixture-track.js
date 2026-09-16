@@ -16,6 +16,9 @@ const REVIEW = { type: 'object', properties: {
 const FIX = { type: 'object', properties: {
   status: STATUS, uncovered: { type: 'string' },
 }, required: ["uncovered", "status"] }
+const LIST = { type: 'object', properties: {
+  tags: [{ status: 1 }], status: STATUS,
+}, required: ['status'] }
 
 phase('Review')
 const review = await agent('отревьюй предмет песочницы', { label: 'review', phase: 'Review', schema: REVIEW })
