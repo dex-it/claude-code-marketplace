@@ -36,7 +36,7 @@ const FIX = { type: 'object', properties: {
   'diff-scope': { type: 'array', items: { type: 'string' }, description: 'пути изменённых файлов + ветка/база, не тела' },
   commit: { type: 'string', description: 'sha локального коммита либо пусто' },
   'run-status': { type: 'string', description: 'итог прогона build/test/lint узлом; зелёность трек судит VERIFY-узлом, не этим полем' },
-  'red-run': { type: 'string', description: 'чем показан красным тест на этот дефект и сверенная причина падения; плюс по каждому существующему тесту, чью целевую ветку тронула правка; таких нет - n/a с этой причиной; показать не вышло - unverifiable + чем пробовал' },
+  'red-run': { type: 'string', description: 'чем показан красным тест на этот дефект и сверенная причина падения; плюс по каждому существующему тесту, чью целевую ветку тронула правка; подпадающих тестов нет вовсе (теста на дефект нет и чужих целевых веток не трогал) - n/a с этой причиной; показать не вышло - unverifiable + чем пробовал' },
   uncovered: { type: 'string', description: 'что осталось непокрытым и адресовано следующему узлу; не осталось - "нет" словом' },
   'fact-check': { type: 'string', description: 'verified/unverifiable/contradicted + что сверялось; триггер не сработал - n/a с этой причиной' },
   decisions: { type: 'array', items: { type: 'string' }, description: 'каждая закрытая узлом развилка: что выбрано, из чего, почему' },
