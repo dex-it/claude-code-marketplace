@@ -225,6 +225,9 @@ function buildSpecialistPluginsInRepo() {
       if (statSync(full).isDirectory()) {
         walk(full);
       } else if (full.endsWith('/.claude-plugin/plugin.json')) {
+        // Под plugins/specialists/ лежат и плагины команд без агента - у них категория utility.
+        const pluginRoot = full.replace(/\/\.claude-plugin\/plugin\.json$/, '');
+        if (!existsSync(join(pluginRoot, 'agents'))) continue;
         try {
           set.add(JSON.parse(readFileSync(full, 'utf8')).name);
         } catch {
