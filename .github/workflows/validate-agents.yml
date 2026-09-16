@@ -74,6 +74,11 @@ jobs:
       - name: Validate bundles
         run: node tools/validate-bundle.js all
 
+      # Имя поля, переведённое на слух из прозы агента в схему трека, не показывает
+      # ни один прогон: объект приходит заполненным, просто не тот.
+      - name: Validate node contract field names
+        run: node tools/validate-node-contract.js all
+
       # Мета-гейт: правило без строки в VALIDATOR_RULES.md или без фикстуры
       # проходит test-rules.js молча - он гоняет только то, что заявлено.
       - name: Validate rules documented
