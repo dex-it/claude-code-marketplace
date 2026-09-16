@@ -1,4 +1,4 @@
-// Фикстурный трек: `run_status` и ключ в кавычках `'red_run'` вместо словарных имён, соседние поля написаны верно.
+// Фикстурный трек: `run_status`, ключ в кавычках `'red_run'`, второй ключ в строке `runStatus`, `required` в двойных кавычках - вместо словарных имён; шаблонная строка промпта ключом не считается.
 export const meta = {
   name: 'fixture-track',
   description: 'Трек песочницы: схема узла с разъехавшимся написанием одного поля',
@@ -14,6 +14,15 @@ const FIX = { type: 'object', properties: {
   'red_run': { type: 'string', description: 'чем показан красным тест' },
 }, required: ['status', 'diff-scope', 'run_status', 'uncovered'] }
 
+const VERIFY = { type: 'object', properties: {
+  status: STATUS, commit: { type: 'string' }, runStatus: { type: 'string' },
+}, required: ["status", "Diff_Scope"] }
+
+// { red_run: устаревшее имя в комментарии ключом не считается }
+const pick = (flag, Red_Run) => flag ? Red_Run : 'нет'
+/* { run_status: и в блочном комментарии } */
+
 phase('Fix')
-const fix = await agent('почини предмет песочницы', { label: 'fix', phase: 'Fix', schema: FIX })
+const fix = await agent(`почини предмет песочницы, итог положи в поле
+{ run_status: ${'нет'} }`, { label: 'fix', phase: 'Fix', schema: FIX })
 return { fix }

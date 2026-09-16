@@ -1,7 +1,7 @@
-// Фикстурный трек: имена словарные, но `status` в `required` стоит вторым; вложенная схема находки своего исхода не несёт.
+// Фикстурный трек: имена словарные, но `status` не первым - в `properties` одной схемы и в `required` другой; вложенная схема находки своего исхода не несёт.
 export const meta = {
   name: 'fixture-track',
-  description: 'Трек песочницы: схема узла с исходом не на первом месте',
+  description: 'Трек песочницы: схемы узлов с исходом не на первом месте',
   phases: [{ title: 'Review' }],
 }
 
@@ -12,9 +12,12 @@ const REVIEW = { type: 'object', properties: {
   findings: { type: 'array', items: { type: 'object', properties: {
     severity: { type: 'string', enum: ['P0', 'P1', 'P2', 'P3'] }, anchor: { type: 'string' },
   }, required: ['severity', 'anchor'] } },
-  'run-status': { type: 'string', description: 'итог реального прогона build/test' },
-}, required: ['diff-scope', 'status', 'findings', 'run-status'] }
+}, required: ['status', 'diff-scope', 'findings'] }
+const FIX = { type: 'object', properties: {
+  status: STATUS, uncovered: { type: 'string' },
+}, required: ["uncovered", "status"] }
 
 phase('Review')
 const review = await agent('отревьюй предмет песочницы', { label: 'review', phase: 'Review', schema: REVIEW })
-return { review }
+const fix = await agent('почини предмет песочницы', { label: 'fix', phase: 'Review', schema: FIX })
+return { review, fix }

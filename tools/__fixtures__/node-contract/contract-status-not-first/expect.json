@@ -1,9 +1,11 @@
 {
   "messages": [
-    "carries 'status' at position 2",
-    "'diff-scope', 'status', 'findings', 'run-status'"
+    "properties ['diff-scope', 'status', 'findings'] declares 'status' at position 2",
+    "required: ['uncovered', 'status'] declares 'status' at position 2"
   ],
   "absent": [
-    "'severity', 'anchor'"
+    "'severity', 'anchor'",
+    "required: ['status', 'diff-scope', 'findings']",
+    "properties ['status', 'uncovered']"
   ]
 }

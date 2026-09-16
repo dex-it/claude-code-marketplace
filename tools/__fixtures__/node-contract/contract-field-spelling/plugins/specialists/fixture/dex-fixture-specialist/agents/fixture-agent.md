@@ -27,4 +27,4 @@ skills:
 
 **Output (handoff):** `status` (`complete`/`blocked`/`partial`), `diff_scope`, `Uncovered`, перечень находок, допущения. Поле `diffscope` - другое имя, не другое написание.
 
-**Exit criteria:** Output содержит `status` и перечень находок; пустой перечень назван явно.
+**Exit criteria:** Output содержит `status` и перечень находок; пустой перечень назван явно; `diff_scope` не пустой.

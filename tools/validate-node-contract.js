@@ -52,9 +52,13 @@ function loadDictionary() {
   return { names };
 }
 
-// Разделитель и регистр - то, чем имя расходится молча; прочая разница делает его другим полем, а не другой записью.
+// Разделитель, регистр и граница слова в camelCase - то, чем имя расходится молча; прочая разница делает его
+// другим полем, а не другой записью.
 function normalize(name) {
-  return name.toLowerCase().replace(/[_\s]+/g, '-');
+  return name
+    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+    .toLowerCase()
+    .replace(/[-_.\s]+/g, '-');
 }
 
 function buildSpellingIndex(names) {
@@ -63,58 +67,183 @@ function buildSpellingIndex(names) {
   return index;
 }
 
+function lineOf(text, offset) {
+  let line = 1;
+  for (let i = 0; i < offset; i++) if (text.charCodeAt(i) === 10) line++;
+  return line;
+}
+
 // --- Collecting candidate names ------------------------------------------
 
 // В прозе агента имя поля стоит в backticks.
 function collectFromAgent(text) {
   const found = [];
   for (const m of text.matchAll(/`([A-Za-z][A-Za-z0-9_ -]*)`/g)) {
-    found.push({ name: m[1], where: 'тело агента' });
+    found.push({ name: m[1], where: 'тело агента', line: lineOf(text, m.index) });
   }
   return found;
 }
 
-// Трек читается текстом: рантайма Workflow вне прогона нет, да и предмет здесь - написание.
-function collectFromTrack(text) {
-  const found = [];
-  for (const m of text.matchAll(/^\s*'([^']+)'\s*:|^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:/gm)) {
-    found.push({ name: m[1] || m[2], where: 'ключ схемы' });
+// Трек читается текстом, а не исполняется: рантайма Workflow вне прогона нет, да и предмет здесь -
+// написание. Построчный регэксп видел только ключ в начале строки и одинарные кавычки, поэтому трек
+// разбирается сканером: строки обеих кавычек, комментарии и шаблонные строки (промпты узлам, в том числе
+// вложенные через `${...}`) - отдельно от кода, ключ объекта - имя или строка между `{`/`,` и `:`.
+function skipTemplate(text, i) {
+  while (i < text.length) {
+    const c = text[i];
+    if (c === '\\') { i += 2; continue; }
+    if (c === '`') return i + 1;
+    if (c === '$' && text[i + 1] === '{') { i = skipInterpolation(text, i + 2); continue; }
+    i++;
   }
-  for (const block of text.matchAll(/required:\s*\[([^\]]*)\]/g)) {
-    for (const m of block[1].matchAll(/'([^']+)'/g)) {
-      found.push({ name: m[1], where: 'перечень required' });
+  return i;
+}
+
+function skipInterpolation(text, i) {
+  let depth = 1;
+  while (i < text.length && depth > 0) {
+    const c = text[i];
+    if (c === "'" || c === '"') {
+      i++;
+      while (i < text.length && text[i] !== c && text[i] !== '\n') i += text[i] === '\\' ? 2 : 1;
+      i++;
+      continue;
     }
+    if (c === '`') { i = skipTemplate(text, i + 1); continue; }
+    if (c === '{') depth++;
+    else if (c === '}') depth--;
+    i++;
+  }
+  return i;
+}
+
+function tokenize(text) {
+  const tokens = [];
+  let i = 0;
+  while (i < text.length) {
+    const c = text[i];
+    if (c === '/' && text[i + 1] === '/') {
+      const eol = text.indexOf('\n', i);
+      i = eol === -1 ? text.length : eol;
+      continue;
+    }
+    if (c === '/' && text[i + 1] === '*') {
+      const close = text.indexOf('*/', i + 2);
+      i = close === -1 ? text.length : close + 2;
+      continue;
+    }
+    if (c === "'" || c === '"') {
+      const start = i;
+      let value = '';
+      i++;
+      while (i < text.length && text[i] !== c && text[i] !== '\n') {
+        if (text[i] === '\\') { value += text[i + 1]; i += 2; continue; }
+        value += text[i++];
+      }
+      i++;
+      tokens.push({ type: 'str', value, start });
+      continue;
+    }
+    if (c === '`') { i = skipTemplate(text, i + 1); continue; }
+    if (/[A-Za-z_$]/.test(c)) {
+      const start = i;
+      while (i < text.length && /[\w$]/.test(text[i])) i++;
+      tokens.push({ type: 'ident', value: text.slice(start, i), start });
+      continue;
+    }
+    if (!/\s/.test(c)) tokens.push({ type: 'punct', value: c, start: i });
+    i++;
+  }
+  return tokens;
+}
+
+const isName = (t) => t && (t.type === 'ident' || t.type === 'str');
+const isPunct = (t, v) => t && t.type === 'punct' && t.value === v;
+
+// Ключ объекта: имя или строка, за которой `:`, а перед которой `{` или `,` (так тернарный `? a : b`
+// и `case x:` ключом не считаются).
+function isKeyAt(tokens, k) {
+  return isName(tokens[k]) && isPunct(tokens[k + 1], ':') && (isPunct(tokens[k - 1], '{') || isPunct(tokens[k - 1], ','));
+}
+
+// Ключи первого уровня объекта, открытого `{` на позиции open.
+function objectKeys(tokens, open) {
+  const keys = [];
+  let depth = 0;
+  for (let k = open; k < tokens.length; k++) {
+    const t = tokens[k];
+    if (t.type === 'punct' && '{[('.includes(t.value)) depth++;
+    else if (t.type === 'punct' && '}])'.includes(t.value)) { depth--; if (depth === 0) break; }
+    else if (depth === 1 && isKeyAt(tokens, k)) keys.push(t);
+  }
+  return keys;
+}
+
+// Строки массива, открытого `[` на позиции open.
+function arrayStrings(tokens, open) {
+  const items = [];
+  for (let k = open + 1; k < tokens.length && !isPunct(tokens[k], ']'); k++) {
+    if (tokens[k].type === 'str') items.push(tokens[k]);
+  }
+  return items;
+}
+
+function parseTrack(text) {
+  const tokens = tokenize(text);
+  const keys = [];
+  const requiredLists = [];
+  const propertiesLists = [];
+  for (let k = 0; k < tokens.length; k++) {
+    if (!isKeyAt(tokens, k)) continue;
+    keys.push(tokens[k]);
+    if (tokens[k].value === 'required' && isPunct(tokens[k + 2], '[')) requiredLists.push(arrayStrings(tokens, k + 2));
+    if (tokens[k].value === 'properties' && isPunct(tokens[k + 2], '{')) propertiesLists.push(objectKeys(tokens, k + 2));
+  }
+  return { keys, requiredLists, propertiesLists };
+}
+
+function collectFromTrack(text, parsed) {
+  const found = parsed.keys.map((t) => ({ name: t.value, where: 'ключ схемы', line: lineOf(text, t.start) }));
+  for (const list of parsed.requiredLists) {
+    for (const t of list) found.push({ name: t.value, where: 'перечень required', line: lineOf(text, t.start) });
   }
   return found;
 }
 
 // --- Rules ---------------------------------------------------------------
 
+// Каждое вхождение - своя находка со строкой: схлопнутые повторы всплывали по одному после каждой починки.
 function validateSpelling(candidates, dict, index, findings) {
   const seen = new Set();
-  for (const { name, where } of candidates) {
+  for (const { name, where, line } of candidates) {
     const canonical = index.get(normalize(name));
     if (!canonical || dict.names.has(name)) continue;
-    const key = `${name}|${where}`;
+    const key = `${name}|${where}|${line}`;
     if (seen.has(key)) continue;
     seen.add(key);
     findings.push({
       rule: 'contract-field-spelling',
-      message: `"${name}" (${where}) is the node-contract field \`${canonical}\` spelled differently - the receiver takes a field by name, and a renamed one reads as absent; write \`${canonical}\` verbatim`,
+      message: `line ${line}: "${name}" (${where}) is the node-contract field \`${canonical}\` spelled differently - the receiver takes a field by name, and a renamed one reads as absent; write \`${canonical}\` verbatim`,
     });
   }
 }
 
-// Судится только перечень, где `status` уже есть: у вложенного объекта (находка, звено) своего исхода нет.
-function validateStatusFirst(text, findings) {
-  for (const block of text.matchAll(/required:\s*\[([^\]]*)\]/g)) {
-    const names = [...block[1].matchAll(/'([^']+)'/g)].map((m) => m[1]);
-    if (!names.includes('status') || names[0] === 'status') continue;
+// A.1 объявляет `status` первым полем выхода. Судятся оба места, где схема задаёт порядок: ключи `properties`
+// и перечень `required`. Порядок `required` на валидацию не влияет (JSON Schema, `required` - множество имён),
+// порядок `properties` - порядок объявления; правило держит конвенцию объявления, а не маршрут вызывающего:
+// трек берёт `status` по имени. Судится только объект, где `status` уже есть: у вложенного объекта (находка,
+// звено) своего исхода нет.
+function validateStatusFirst(text, parsed, findings) {
+  const judge = (list, where) => {
+    const names = list.map((t) => t.value);
+    if (!names.includes('status') || names[0] === 'status') return;
     findings.push({
       rule: 'contract-status-not-first',
-      message: `required: [${names.map((n) => `'${n}'`).join(', ')}] carries 'status' at position ${names.indexOf('status') + 1} - node-contract A.1 puts it first, the caller routes by the first field`,
+      message: `line ${lineOf(text, list[0].start)}: ${where} [${names.map((n) => `'${n}'`).join(', ')}] declares 'status' at position ${names.indexOf('status') + 1} - node-contract A.1 declares it the first field of a node output`,
     });
-  }
+  };
+  for (const list of parsed.propertiesLists) judge(list, 'properties');
+  for (const list of parsed.requiredLists) judge(list, 'required:');
 }
 
 // --- Files ---------------------------------------------------------------
@@ -144,9 +273,13 @@ function validateFile(filepath, dict, index) {
   // Файл только что найден обходом: нечитаемость здесь - отказ среды, и падение прогона громче тихой находки.
   const text = readFileSync(filepath, 'utf8');
 
-  const isTrack = filepath.endsWith('.js');
-  validateSpelling(isTrack ? collectFromTrack(text) : collectFromAgent(text), dict, index, findings);
-  if (isTrack) validateStatusFirst(text, findings);
+  if (filepath.endsWith('.js')) {
+    const parsed = parseTrack(text);
+    validateSpelling(collectFromTrack(text, parsed), dict, index, findings);
+    validateStatusFirst(text, parsed, findings);
+  } else {
+    validateSpelling(collectFromAgent(text), dict, index, findings);
+  }
 
   return { filepath, findings };
 }
