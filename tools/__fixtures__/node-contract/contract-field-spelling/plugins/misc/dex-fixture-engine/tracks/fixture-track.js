@@ -22,6 +22,12 @@ const VERIFY = { type: 'object', properties: {
 const pick = (flag, Red_Run) => flag ? Red_Run : 'нет'
 /* { run_status: и в блочном комментарии } */
 
+const unfence = (s) => s.replace(/`/g, "'")
+const AFTER_REGEX = { RED_RUN: { type: 'string' } }
+const hint = `цель: ${String(1).replace(/'/g, '')}`
+const AFTER_INTERP = { DIFF_SCOPE: 1 }
+const CONTROL = { 'run	status': 1 }
+
 phase('Fix')
 const fix = await agent(`почини предмет песочницы, итог положи в поле
 { run_status: ${'нет'} }`, { label: 'fix', phase: 'Fix', schema: FIX })
