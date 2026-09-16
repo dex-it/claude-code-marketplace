@@ -30,14 +30,18 @@ const REPRO = { type: 'object', properties: {
   build_cmd: { type: 'string', description: 'команда сборки/типизации; нет - пустая строка' },
   missing: { type: 'string', description: 'при blocked - чего не хватает и у кого это есть' },
 }, required: ['status', 'stack', 'root_cause', 'reproduction', 'expected_basis', 'fix_proposal', 'files', 'test_cmd', 'build_cmd', 'missing'] }
+// Ключи - имена словаря node-contract буквально: трансляция - место тихого расхождения схемы и словаря.
 const FIX = { type: 'object', properties: {
   status: STATUS,
-  changed_files: { type: 'array', items: { type: 'string' } },
+  'diff-scope': { type: 'array', items: { type: 'string' }, description: 'пути изменённых файлов + ветка/база, не тела' },
   commit: { type: 'string', description: 'sha локального коммита либо пусто' },
-  red_run: { type: 'string', description: 'какой тест был красным до правки и зелёным после' },
+  'run-status': { type: 'string', description: 'итог прогона build/test/lint узлом; зелёность трек судит VERIFY-узлом, не этим полем' },
+  'red-run': { type: 'string', description: 'чем показан красным тест на этот дефект и сверенная причина падения; плюс по каждому существующему тесту, чью целевую ветку тронула правка; показать не вышло - unverifiable + чем пробовал' },
+  uncovered: { type: 'string', description: 'что осталось непокрытым и адресовано следующему узлу; не осталось - "нет" словом' },
+  'fact-check': { type: 'string', description: 'verified/unverifiable/contradicted + что сверялось; триггер не сработал - n/a с этой причиной' },
   decisions: { type: 'array', items: { type: 'string' }, description: 'каждая закрытая узлом развилка: что выбрано, из чего, почему' },
   missing: { type: 'string' },
-}, required: ['status', 'changed_files', 'commit', 'red_run', 'decisions', 'missing'] }
+}, required: ['status', 'diff-scope', 'commit', 'run-status', 'red-run', 'uncovered', 'fact-check', 'decisions', 'missing'] }
 const VERIFY = { type: 'object', properties: {
   status: STATUS,
   exit_code: { type: 'integer' }, pass_count: { type: 'integer' }, fail_count: { type: 'integer' },
@@ -52,11 +56,11 @@ const REVIEW = { type: 'object', properties: {
   findings: { type: 'array', items: { type: 'object', properties: {
     severity: { type: 'string', enum: ['P0', 'P1', 'P2', 'P3'] }, anchor: { type: 'string' }, text: { type: 'string' },
   }, required: ['severity', 'anchor', 'text'] } },
-  run_status: { type: 'string', description: 'итог реального прогона build/test ревьюером' },
+  'run-status': { type: 'string', description: 'итог реального прогона build/test ревьюером' },
   push_recommended: { type: 'boolean' },
   push_blockers: { type: 'string', description: 'почему push не рекомендован; пусто, если рекомендован' },
   missing: { type: 'string', description: 'при blocked - чего не хватило для ревью; иначе пусто' },
-}, required: ['status', 'findings', 'run_status', 'push_recommended', 'push_blockers', 'missing'] }
+}, required: ['status', 'findings', 'run-status', 'push_recommended', 'push_blockers', 'missing'] }
 
 const CODER = { ts: 'dex-ts-fullstack-coder:ts-fullstack-assistant', dotnet: 'dex-dotnet-coder:dotnet-coder' }
 const loops = { fix: 0, review_fix: 0, review: 0 }
@@ -114,7 +118,7 @@ for (let k = 1; k <= FIX_CEILING && (!isGreen(ver) || pending); k++) {
 if (!isGreen(ver)) return { status: 'partial', where: `Fix: потолок ${FIX_CEILING} исчерпан`, ver, repro, fix, loops, trail, degraded, decisions: dec() }
 
 phase('Review')
-const review = (tag) => node('саморевьюер', `${HEAD}Шаг 3 (${tag}): pre-push саморевью локальной ветки - коммиты этой цели плюс рабочее дерево. Источник намерения:\n${causeText}\nПрогон build/test реальный, итог - в run_status, не в findings. Код не меняй.`,
+const review = (tag) => node('саморевьюер', `${HEAD}Шаг 3 (${tag}): pre-push саморевью локальной ветки - коммиты этой цели плюс рабочее дерево. Источник намерения:\n${causeText}\nПрогон build/test реальный, итог - в run-status, не в findings. Код не меняй.`,
   { label: `self-review:${tag}`, phase: 'Review', schema: REVIEW }, 'dex-self-reviewer:self-reviewer')
 let rev = await review('первое'); loops.review = 1
 trail.push({ step: 3, doer: 'self-reviewer', status: rev ? rev.status : 'null', findings: rev ? rev.findings.length : -1, push: rev ? rev.push_recommended : null })
