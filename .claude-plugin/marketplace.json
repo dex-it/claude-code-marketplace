@@ -223,7 +223,7 @@
       "name": "dex-bundle-code-review",
       "source": "./plugins/bundles/dex-bundle-code-review",
       "description": "Бандл жизненного цикла кода: языко-агностичное ревью MR/PR, повторное ревью после правок, план правок, реализация фичи, подтягивание базовой ветки с разрешением конфликтов, саморевью перед push, приёмка слитой фичи на стенде с ремедиацией, расследование инцидента, плюс скиллы дисциплины ревью.",
-      "version": "1.36.0",
+      "version": "1.37.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -1205,8 +1205,8 @@
     {
       "name": "dex-rulebook-miner",
       "source": "./plugins/specialists/review/dex-rulebook-miner",
-      "description": "Добыча свода правил проекта из истории ревью: оркестратор ведёт окно и запись, read-only сборщики разбирают источники, каждое правило стоит на дословной цитате и якоре. Точка входа - команда /rulebook в этом же плагине.",
-      "version": "2.0.0",
+      "description": "Добыча свода правил проекта из истории ревью: оркестратор ведёт окно и запись, read-only сборщики разбирают источники, каждое правило стоит на дословной цитате и якоре. Норматив жанра, ловушки добычи и оракул приёмки свода едут скиллами этого же плагина. Точка входа - команда /rulebook.",
+      "version": "2.1.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2569,21 +2569,6 @@
       ]
     },
     {
-      "name": "dex-skill-project-rulebook",
-      "source": "./plugins/skills/dex-skill-project-rulebook",
-      "description": "Норматив жанра свод правил проекта - состав свода, атрибуты единицы RUL, таксон вместо свободного тега, реестр источников с исходом на каждый, критерий покрытия правила проверкой, норма без изменчивых адресов, статусы и вытеснение, вход и выход этапа",
-      "version": "1.1.1",
-      "category": "skill",
-      "keywords": [
-        "skill",
-        "rulebook",
-        "conventions",
-        "documentation",
-        "standard",
-        "code-review"
-      ]
-    },
-    {
       "name": "dex-skill-python-classical-ml",
       "source": "./plugins/skills/dex-skill-python-classical-ml",
       "description": "Классический ML: scikit-learn, XGBoost, пайплайны, кросс-валидация, утечка данных, дисбаланс классов, отбор модели.",
@@ -2844,34 +2829,6 @@
         "5-whys",
         "cause-effect-chain",
         "fix-falsification"
-      ]
-    },
-    {
-      "name": "dex-skill-rule-mining",
-      "source": "./plugins/skills/dex-skill-rule-mining",
-      "description": "Ловушки добычи правил проекта из истории ревью: тред без исхода, пересказ вместо цитаты, обобщение шире источника, непроверяемая формулировка, покрытие инструментом по конфигу вместо прогона, правило против живого кода, пропуск ревью без признака, индустриальная практика поверх проектной",
-      "version": "1.1.0",
-      "category": "skill",
-      "keywords": [
-        "skill",
-        "rule-mining",
-        "code-review",
-        "conventions",
-        "knowledge-extraction"
-      ]
-    },
-    {
-      "name": "dex-skill-rulebook-quality",
-      "source": "./plugins/skills/dex-skill-rulebook-quality",
-      "description": "Оракул свода правил проекта: единица без якоря, цитата, которая не открывается, дубль и противоречие единиц, непроверяемое на ревью правило, норма на изменчивом адресе, неквалифицированное расхождение с живым кодом, расхождение индекса с разделами и реестра с корпусом",
-      "version": "1.1.0",
-      "category": "skill",
-      "keywords": [
-        "skill",
-        "quality-oracle",
-        "rulebook",
-        "code-review",
-        "conventions"
       ]
     },
     {

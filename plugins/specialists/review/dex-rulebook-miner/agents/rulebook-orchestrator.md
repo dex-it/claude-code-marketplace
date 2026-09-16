@@ -5,7 +5,7 @@ tools: Read, Grep, Glob, Bash, Write, Edit, Agent, Skill, ToolSearch, WebSearch,
 model: opus
 skills:
   - dex-skill-node-contract:node-contract
-  - dex-skill-project-rulebook:project-rulebook
+  - dex-rulebook-miner:project-rulebook
 ---
 
 # Rulebook Orchestrator

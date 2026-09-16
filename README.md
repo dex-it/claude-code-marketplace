@@ -199,7 +199,7 @@ claude plugins uninstall dex-dotnet-coder
 | dex-mr-check-reviewer | mr-check-reviewer | второй раунд `/mr-review`, не своя команда | Ре-ревью дельты с прошлого раунда (range-diff) |
 | dex-mr-reviewer | mr-reviewer | `/mr-review` | Первичное ревью чужого MR/PR, инлайн-треды через gh/glab |
 | dex-requirements-reviewer | requirements-reviewer | `/review-requirements` | Приёмка чужого набора требований (`/review-requirements`) |
-| dex-rulebook-miner | rulebook-orchestrator, rule-collector | `/rulebook` | Свод правил проекта из истории ревью: что в репозитории принято |
+| dex-rulebook-miner | rulebook-orchestrator, rule-collector | `/rulebook` | Свод правил проекта из истории ревью: что в репозитории принято; норматив жанра, ловушки добычи и оракул приёмки едут скиллами этого же плагина |
 | dex-self-reviewer | self-reviewer | `/self-review` | Pre-push саморевью своей ветки с прогоном тестов |
 | dex-stand-reviewer | stand-reviewer | - | Приёмка слитой фичи на развёрнутом стенде против ТЗ, read-only |
 
@@ -238,10 +238,10 @@ claude plugins uninstall dex-dotnet-coder
 |-----------|--------|
 | **Контракт и адресация артефактов** | `node-contract`, `docs-layout`, `project-docs-map`, `issue-tracking`, `artifact-naming`, `unit-identity`, `decision-log`, `stack-registry` |
 | **Требования и продукт** | `idea-forming`, `opportunity-canvas`, `product-discovery`, `agile`, `epic-planning`, `prioritization`, `user-stories`, `use-cases`, `use-cases-cockburn`, `functional-requirements`, `nfr`, `bpmn`, `business-analysis-29148`, `system-requirements-29148`, `doc-standards` |
-| **Оракулы качества артефактов** | `requirement-quality`, `requirement-set-quality`, `use-case-quality`, `adr-quality`, `design-quality`, `plan-quality`, `api-spec-quality`, `rulebook-quality`, `completeness-mapping`, `fact-verification`, `legacy-reconstruction`, `verification-planning-29119`, `bdd-gherkin` |
+| **Оракулы качества артефактов** | `requirement-quality`, `requirement-set-quality`, `use-case-quality`, `adr-quality`, `design-quality`, `plan-quality`, `api-spec-quality`, `completeness-mapping`, `fact-verification`, `legacy-reconstruction`, `verification-planning-29119`, `bdd-gherkin` |
 | **Архитектура и дизайн** | `clean-architecture`, `ddd`, `microservices`, `solid`, `scalability`, `cap-consistency`, `capacity-planning`, `distributed-resilience`, `reference-architectures`, `tech-evaluation`, `api-specification`, `architecture-definition-42010`, `interface-definition-openapi` |
 | **Безопасность** | `owasp-security` |
-| **Ревью и дисциплина изменений** | `git-workflow`, `merge-conflict-resolution`, `review-evidence`, `review-step-by-step`, `review-threads`, `defect-classification`, `project-rulebook`, `rule-mining`, `no-loose-ends`, `performance-review`, `post-merge-remediation`, `ci-gates`, `project-baseline`, `codebase-conventions`, `karpathy-guidelines`, `optimize-for-llm`, `output-hygiene`, `artifact-review` |
+| **Ревью и дисциплина изменений** | `git-workflow`, `merge-conflict-resolution`, `review-evidence`, `review-step-by-step`, `review-threads`, `defect-classification`, `no-loose-ends`, `performance-review`, `post-merge-remediation`, `ci-gates`, `project-baseline`, `codebase-conventions`, `karpathy-guidelines`, `optimize-for-llm`, `output-hygiene`, `artifact-review` |
 | **QA и тестирование** | `test-design`, `api-testing`, `test-coverage`, `testability`, `integration-boundary`, `exploratory-testing`, `bug-reproduction`, `contract-drift`, `deep-audit`, `tech-audit`, `playwright`, `stand-verification` |
 | **Инциденты и RCA** | `problem-specification`, `root-cause-analysis`, `change-correlation`, `shared-stand-safety`, `core-dumps`, `managed-debug`, `native-debug`, `perf-profiling`, `syscall-tracing`, `binary-inspection` |
 | **.NET** | `dotnet-api-development`, `dotnet-async-patterns`, `dotnet-caching`, `dotnet-code-quality`, `dotnet-config-hygiene`, `dotnet-csproj-hygiene`, `dotnet-di`, `dotnet-ef-core`, `dotnet-linq-optimization`, `dotnet-logging`, `dotnet-resilience`, `dotnet-resources`, `dotnet-testing-patterns`, `dotnet-validation`, `api-documentation` |

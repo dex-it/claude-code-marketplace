@@ -713,43 +713,43 @@
   {
     "id": "project-rulebook-in",
     "mode": "in-scope",
-    "expect": "dex-skill-project-rulebook:project-rulebook",
+    "expect": "dex-rulebook-miner:project-rulebook",
     "prompt": "Из чего должна состоять единица свода правил проекта и какие поля у неё обязательны? Нужно понять, как классифицировать правило и чем подтверждать источник."
   },
   {
     "id": "project-rulebook-near-mining",
     "mode": "near-miss",
-    "expect": "dex-skill-project-rulebook:project-rulebook",
+    "expect": "dex-rulebook-miner:project-rulebook",
     "plugins": [
-      "dex-skill-rule-mining"
+      "dex-rulebook-miner"
     ],
     "prompt": "Ревьюер предложил вынести валидацию, автор возразил, тред заглох. Считать это правилом проекта или нет?",
     "requiresListed": [
-      "dex-skill-rule-mining:rule-mining"
+      "dex-rulebook-miner:rule-mining"
     ]
   },
   {
     "id": "rule-mining-in",
     "mode": "in-scope",
-    "expect": "dex-skill-rule-mining:rule-mining",
+    "expect": "dex-rulebook-miner:rule-mining",
     "prompt": "Разбираю треды ревью, чтобы вывести из них правила. Ревьюер предложил вынести валидацию, автор возразил, тред заглох - считать это правилом или нет?"
   },
   {
     "id": "rule-mining-near-mr-review",
     "mode": "near-miss",
-    "expect": "dex-skill-rule-mining:rule-mining",
+    "expect": "dex-rulebook-miner:rule-mining",
     "prompt": "Отревьюй вот этот чужой MR и напиши замечания инлайн-тредами: посмотри на безопасность и на обработку ошибок."
   },
   {
     "id": "rulebook-quality-in",
     "mode": "in-scope",
-    "expect": "dex-skill-rulebook-quality:rulebook-quality",
+    "expect": "dex-rulebook-miner:rulebook-quality",
     "prompt": "Прими наш свод правил проекта: проверь, что у каждого правила открывается источник, нет дублей и противоречий, и вынеси вердикт."
   },
   {
     "id": "rulebook-quality-near-adr",
     "mode": "near-miss",
-    "expect": "dex-skill-rulebook-quality:rulebook-quality",
+    "expect": "dex-rulebook-miner:rulebook-quality",
     "plugins": [
       "dex-skill-adr-quality"
     ],
@@ -761,24 +761,24 @@
   {
     "id": "rulebook-contested-normative-mining",
     "mode": "contested",
-    "expect": "dex-skill-project-rulebook:project-rulebook",
+    "expect": "dex-rulebook-miner:project-rulebook",
     "requiresListed": [
-      "dex-skill-rule-mining:rule-mining"
+      "dex-rulebook-miner:rule-mining"
     ],
     "plugins": [
-      "dex-skill-rule-mining"
+      "dex-rulebook-miner"
     ],
     "prompt": "Какие поля обязательны у единицы свода правил проекта и что делать, если у правила нет контрпримера из истории репозитория?"
   },
   {
     "id": "rulebook-contested-oracle-normative",
     "mode": "contested",
-    "expect": "dex-skill-rulebook-quality:rulebook-quality",
+    "expect": "dex-rulebook-miner:rulebook-quality",
     "requiresListed": [
-      "dex-skill-project-rulebook:project-rulebook"
+      "dex-rulebook-miner:project-rulebook"
     ],
     "plugins": [
-      "dex-skill-project-rulebook"
+      "dex-rulebook-miner"
     ],
     "prompt": "Прими наш свод правил: часть единиц без контрпримера, у двух совпадает предмет, у одной таксон без версии схемы. Вынеси вердикт."
   },
@@ -793,10 +793,10 @@
     "mode": "near-miss",
     "expect": "dex-skill-defect-classification:defect-classification",
     "plugins": [
-      "dex-skill-project-rulebook"
+      "dex-rulebook-miner"
     ],
     "requiresListed": [
-      "dex-skill-project-rulebook:project-rulebook"
+      "dex-rulebook-miner:project-rulebook"
     ],
     "prompt": "Какой таксон поставить правилу свода про порядок параметров в публичной сигнатуре и обязательна ли версия схемы?"
   },
