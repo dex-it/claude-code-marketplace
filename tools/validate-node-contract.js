@@ -2,7 +2,7 @@
 // Имена полей стыка в телах агентов и схемах треков против словаря node-contract; норма и Usage - docs/VALIDATOR_RULES.md.
 
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
-import { basename, join, relative, resolve, dirname } from 'node:path';
+import { join, relative, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -21,44 +21,35 @@ const COLORS = {
 };
 
 const DICTIONARY_HEADING = '## Словарь полей';
-// Служебные ключи JSON Schema: имён полей контракта среди них не бывает.
-const SCHEMA_KEYWORDS = new Set([
-  'type', 'properties', 'items', 'required', 'enum', 'description', 'format',
-  'additionalProperties', 'minItems', 'maxItems', 'minimum', 'maximum', 'default',
-]);
+// Дом имени - один скилл по одному адресу: первый попавшийся при обходе `node-contract/SKILL.md`
+// давал эталон любой копии, а копия без словаря выключала суд целиком.
+const DICTIONARY_FILE = join(PLUGINS_DIR, 'skills', 'dex-skill-node-contract', 'skills', 'node-contract', 'SKILL.md');
 
 // --- Dictionary ---------------------------------------------------------
 
-function findDictionaryFile(dir) {
-  if (!existsSync(dir)) return null;
-  for (const entry of readdirSync(dir)) {
-    const full = join(dir, entry);
-    if (statSync(full).isDirectory()) {
-      const found = findDictionaryFile(full);
-      if (found) return found;
-    } else if (entry === 'SKILL.md' && basename(dir) === 'node-contract') {
-      return full;
-    }
-  }
-  return null;
-}
-
+// Возвращает { names } либо { missing: причина }. Нечитаемый словарь - находка, а не пустой прогон:
+// validate-agent.js неизвестный плагин объявляет вне области проверки, переименованный раздел не видит
+// никто, и суд имён выключался бы зелёным. Нет файла, нет раздела, нет строк - один исход: имён ноль.
 function loadDictionary() {
-  const file = findDictionaryFile(PLUGINS_DIR);
-  if (!file) return null;
-  const text = readFileSync(file, 'utf8');
-  const start = text.indexOf(DICTIONARY_HEADING);
-  if (start === -1) return null;
-  const rest = text.slice(start + DICTIONARY_HEADING.length);
-  const end = rest.indexOf('\n## ');
-  const section = end === -1 ? rest : rest.slice(0, end);
+  const exists = existsSync(DICTIONARY_FILE);
+  const text = exists ? readFileSync(DICTIONARY_FILE, 'utf8') : '';
+  const start = text.indexOf(`\n${DICTIONARY_HEADING}\n`);
+  let section = '';
+  if (start !== -1) {
+    const rest = text.slice(start + DICTIONARY_HEADING.length + 2);
+    const end = rest.indexOf('\n## ');
+    section = end === -1 ? rest : rest.slice(0, end);
+  }
 
   const names = new Set();
   for (const line of section.split('\n')) {
     const m = line.match(/^\|\s*`([^`]+)`\s*\|/);
     if (m) names.add(m[1]);
   }
-  return names.size > 0 ? { file, names } : null;
+  if (names.size === 0) {
+    return { missing: exists ? `no backticked field name in a table under "${DICTIONARY_HEADING}"` : 'file not found' };
+  }
+  return { names };
 }
 
 // Разделитель и регистр - то, чем имя расходится молча; прочая разница делает его другим полем, а не другой записью.
@@ -87,9 +78,7 @@ function collectFromAgent(text) {
 function collectFromTrack(text) {
   const found = [];
   for (const m of text.matchAll(/^\s*'([^']+)'\s*:|^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:/gm)) {
-    const name = m[1] || m[2];
-    if (SCHEMA_KEYWORDS.has(name)) continue;
-    found.push({ name, where: 'ключ схемы' });
+    found.push({ name: m[1] || m[2], where: 'ключ схемы' });
   }
   for (const block of text.matchAll(/required:\s*\[([^\]]*)\]/g)) {
     for (const m of block[1].matchAll(/'([^']+)'/g)) {
@@ -105,7 +94,7 @@ function validateSpelling(candidates, dict, index, findings) {
   const seen = new Set();
   for (const { name, where } of candidates) {
     const canonical = index.get(normalize(name));
-    if (!canonical || canonical === name || dict.names.has(name)) continue;
+    if (!canonical || dict.names.has(name)) continue;
     const key = `${name}|${where}`;
     if (seen.has(key)) continue;
     seen.add(key);
@@ -193,12 +182,15 @@ function report(results) {
 function main() {
   const target = process.argv.slice(2).filter((a) => !a.startsWith('--'))[0] || 'all';
 
-  // Словаря нет - судить нечем; исчезнувший скилл ловит validate-agent.js по ссылке `skills:` каждого агента.
   const dict = loadDictionary();
-  if (!dict) {
-    console.log('');
-    console.log(`${COLORS.bold}Summary:${COLORS.reset} node-contract dictionary not found, nothing to judge`);
-    process.exit(0);
+  if (dict.missing) {
+    process.exit(report([{
+      filepath: DICTIONARY_FILE,
+      findings: [{
+        rule: 'contract-dictionary-missing',
+        message: `node-contract field dictionary is unreadable (${dict.missing}) - no field name in agents or tracks can be judged; restore the "${DICTIONARY_HEADING}" table in ${relative(REPO_ROOT, DICTIONARY_FILE)}`,
+      }],
+    }]));
   }
   const index = buildSpellingIndex(dict.names);
 
