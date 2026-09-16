@@ -80,7 +80,7 @@ function buildPluginSkillMap() {
 
 const PLUGIN_SKILLS = buildPluginSkillMap();
 
-// Скилл и агент одного плагина делят пространство имён `{plugin}:{artifact}` - спавн своего агента формой не отличим от вызова скилла.
+// Скилл, агент и команда одного плагина делят пространство имён `{plugin}:{artifact}` - вызов своего агента или команды формой не отличим от вызова скилла.
 function buildPluginAgentMap() {
   const map = new Map();
   function walk(dir) {
@@ -89,6 +89,17 @@ function buildPluginAgentMap() {
       const full = join(dir, entry);
       if (statSync(full).isDirectory()) {
         walk(full);
+      } else if (entry.endsWith('.md') && basename(dirname(full)) === 'commands') {
+        const pj = join(dirname(dirname(full)), '.claude-plugin', 'plugin.json');
+        if (!existsSync(pj)) continue;
+        try {
+          const plugin = JSON.parse(readFileSync(pj, 'utf8')).name;
+          if (!plugin) continue;
+          if (!map.has(plugin)) map.set(plugin, new Set());
+          map.get(plugin).add(basename(full, '.md'));
+        } catch {
+          // unreadable manifest - skipped
+        }
       } else if (entry.endsWith('.md') && basename(dirname(full)) === 'agents') {
         const pj = join(dirname(dirname(full)), '.claude-plugin', 'plugin.json');
         if (!existsSync(pj)) continue;
