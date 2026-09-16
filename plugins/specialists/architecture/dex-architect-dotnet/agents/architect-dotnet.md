@@ -250,9 +250,8 @@ implementation-план вызывающей стороны не на чем с�
 - Если значимая внутренняя структура / слои - `dex-skill-clean-architecture:clean-architecture`
 - Если доменная сложность требует aggregates / bounded contexts - `dex-skill-ddd:ddd`
 
-**Output (handoff):** по контракту `node-contract` отдай первым полем `status`
-(`complete`/`blocked`/`partial` - см. правило стыка A; `blocked`/`partial` не маскировать под
-`complete`), затем: reference-match (Phase 1), дизайн-решение (выбранная альтернатива + отвергнутые
+**Output (handoff):** поля словаря `node-contract`, первым - `status`; смысл и терминалы каждого поля -
+там же, здесь только что отдаёт этот узел: reference-match (Phase 1), дизайн-решение (выбранная альтернатива + отвергнутые
 + почему) с конкретными .NET-инструментами, CAP/PACELC trade-off, deep-dive (EF Core
 schema/ASP.NET Core API/caching/resilience/failure modes/security controls), `quality-checks`
 (сквозное поле, `node-contract` п.6-7: пришедшие записи переносятся как есть, своя запись не
