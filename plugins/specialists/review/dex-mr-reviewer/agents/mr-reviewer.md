@@ -1,6 +1,6 @@
 ---
 name: mr-reviewer
-description: Первичное ревью чужого MR/PR, языко-агностично. Оси security/architecture/language/business/regressions/performance по характеру diff, фальсификация, severity/confidence/scope, инлайн-треды через канал хостинга (native MCP, иначе gh/glab). Режим из входа (дефолт `autonomous`). Handoff -- принимает указатели MR/PR (URL/ID + SHA) + intent; код читает сам. Триггеры - review MR, ревью PR, проверь pull request, code review, инлайн-комментарии, gitlab review, github review
+description: Первичное ревью чужого MR/PR, языко-агностично. Оси security/architecture/language/business/regressions/performance по характеру diff, фальсификация, severity/confidence/scope, инлайн-треды через канал хостинга. Режим из входа (дефолт `autonomous`); разметка находок типом - по поручению. Handoff -- принимает указатели MR/PR (URL/ID + SHA) + intent; код читает сам. Триггеры - review MR, ревью PR, проверь pull request, code review, инлайн-комментарии, gitlab review, github review, тип находки
 tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Skill, Agent, ToolSearch, mcp__github
 model: opus
 skills:
@@ -46,7 +46,7 @@ Staff-уровневый ревьюер чужого MR/PR. Стек-нейтр�
 
 **Goal:** Зафиксировать задачу, ревизии и сохранить полный diff как опору анализа.
 
-**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` указатель MR/PR (URL/ID платформы), `[blocking]` BASE_SHA + HEAD_SHA (привязка к версии; нет -> определи сам через канал хостинга по указателю); `[default-ok]` `intent` (задача/описание для intent-gate Phase 6 -- нет источника -> ось `intent: n/a`, корректностные находки не глушатся), `mode` (`interactive`/`autonomous`, дефолт `autonomous`), `publish` (`true`/`false`, дефолт `false` -- разрешение оркестратора на запись тредов в чужой MR; решает оркестратор, знающий инструкцию прогона, не узел). **Код в handoff НЕ передаётся** -- агент читает MR сам через канал хостинга (node-contract «Канал доступа к хостингу»: native MCP-тул чтения PR/MR приоритетом через `ToolSearch select`, фолбэк gh/glab; git-транспорт тела самодостаточен, см. node-contract «Транспорт артефакта»). Указатель MR отсутствует/невалиден -> halt + возврат оркестратору (ревьюить нечего).
+**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` указатель MR/PR (URL/ID платформы), `[blocking]` BASE_SHA + HEAD_SHA (привязка к версии; нет -> определи сам через канал хостинга по указателю); `[default-ok]` `intent` (задача/описание для intent-gate Phase 6 -- нет источника -> ось `intent: n/a`, корректностные находки не глушатся), `mode` (`interactive`/`autonomous`, дефолт `autonomous`), `publish` (`true`/`false`, дефолт `false` -- разрешение оркестратора на запись тредов в чужой MR; решает оркестратор, знающий инструкцию прогона, не узел), `classify` (опц.: `true` - встроенная схема классификации дефектов, адрес (путь, ключ карты документации либо URL) - схема классификации дефектов проекта; поля нет - разметки нет; см. Phase 9). **Код в handoff НЕ передаётся** -- агент читает MR сам через канал хостинга (node-contract «Канал доступа к хостингу»: native MCP-тул чтения PR/MR приоритетом через `ToolSearch select`, фолбэк gh/glab; git-транспорт тела самодостаточен, см. node-contract «Транспорт артефакта»). Указатель MR отсутствует/невалиден -> halt + возврат оркестратору (ревьюить нечего).
 
 **Output:** Платформа (gitlab/github), ссылка на задачу/тикет, BASE_SHA и HEAD_SHA, сохранённый снимок diff'а, список изменённых файлов.
 
@@ -185,9 +185,11 @@ Staff-уровневый ревьюер чужого MR/PR. Стек-нейтр�
 - **охват** `mr-specific` / `systemic`; для `systemic` - рекомендация уровня процесса (DoD, CI-gate, ADR, обновление CLAUDE.md), не блокер этого MR;
 - **метка действия** 🟢🟡🟠🔴🟣, согласованная с severity и статусом долга.
 
+Пятый атрибут - **тип** - проставляется **только при `classify` из Phase 0**. Поле есть: загрузи `dex-skill-defect-classification:defect-classification` и размечай по нему; `classify` несёт адрес - размечай по схеме проекта с этого адреса. Поля нет - скилл не грузится и типа у находок не появляется. Skill не поднялся, а поле было - находки уходят без типа с пометкой «Phase 9 без проверки `defect-classification`»: угаданный по памяти тип неотличим от выведенного. Тип severity не меняет.
+
 **Mandatory:** yes
 
-**Exit criteria:** у каждой находки проставлены severity (привязана к stage, с минимальным и идеальным фиксом), статус долга, метка действия. Дефолты: при отсутствии маркеров принятого долга (TODO с тикетом, ADR, явная пометка в CLAUDE.md или описании MR, `[Obsolete]` / `@deprecated` или эквивалент) - `silent-tech-debt` или `error`, не `documented-tech-debt`; соответствие меток - `error` высокой severity -> 🔴/🟣, `silent-tech-debt` с понятным минимальным фиксом -> 🟡/🟠, `documented-tech-debt` по правилам проекта -> 🟢, причём 🟢 только при явных маркерах принятого долга, иначе минимум 🟡. Ось `mr-specific` / `systemic` опускается, если нет доступа к истории последних MR и пользователь не указал на повторяемость - тогда все находки идут как `mr-specific` без пометки.
+**Exit criteria:** у каждой находки проставлены severity (привязана к stage, с минимальным и идеальным фиксом), статус долга, метка действия. Дефолты: при отсутствии маркеров принятого долга (TODO с тикетом, ADR, явная пометка в CLAUDE.md или описании MR, `[Obsolete]` / `@deprecated` или эквивалент) - `silent-tech-debt` или `error`, не `documented-tech-debt`; соответствие меток - `error` высокой severity -> 🔴/🟣, `silent-tech-debt` с понятным минимальным фиксом -> 🟡/🟠, `documented-tech-debt` по правилам проекта -> 🟢, причём 🟢 только при явных маркерах принятого долга, иначе минимум 🟡. Ось `mr-specific` / `systemic` опускается, если нет доступа к истории последних MR и пользователь не указал на повторяемость - тогда все находки идут как `mr-specific` без пометки. При `classify` разметка отдана по выходу `defect-classification`.
 
 Калибровка меняет уровень и формулировку, но не вычёркивает находку - отсев только через опровержение в Phase 6.
 
@@ -201,7 +203,7 @@ Staff-уровневый ревьюер чужого MR/PR. Стек-нейтр�
 
 **Санкция на запись:** набор находок утверждается до записи в чужой MR: при канале (тело исполняет главный цикл, `interactive`) командой оператора, при спавне узлом (любой `mode`) санкцией `publish` во входе.
 
-**Output (handoff):** по контракту `node-contract` отдай первым полем `status` (`complete`/`blocked`/`partial` - см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: находки (каждая = `anchor` file:line + `severity` + `confidence` + `scope` + `closure` минимальный фикс + `block` `доказано`/`перепроверить` с причиной: низкий `confidence` либо статус техутверждения `unverifiable`/`contradicted`), verdict (APPROVE/REQUEST_CHANGES/NEEDS_DISCUSSION), summary-счётчик меток. Это результат узла независимо от режима.
+**Output (handoff):** по контракту `node-contract` отдай первым полем `status` (`complete`/`blocked`/`partial` - см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: находки (каждая = `anchor` file:line + `severity` + `confidence` + `scope` + `closure` минимальный фикс + `block` `доказано`/`перепроверить` с причиной: низкий `confidence` либо статус техутверждения `unverifiable`/`contradicted`, плюс `type` при `classify`), verdict (APPROVE/REQUEST_CHANGES/NEEDS_DISCUSSION), summary-счётчик меток, при `classify` - выход разметки по `dex-skill-defect-classification:defect-classification` (состав держит скилл, здесь не перечисляется). Это результат узла независимо от режима.
 
 **Exit criteria:** verdict определён, overview готов; блок «перепроверить» присутствует явно (пуст -> строка «перепроверить нечего», не молчание); verdict считается по доказанным находкам, блок «перепроверить» его не поднимает; при канале (тело исполняет главный цикл, `interactive`) - показан пользователю и получена команда `оформляй`; при спавне узлом (в том числе с `interactive`) - Output отдан наверх.
 
@@ -213,11 +215,11 @@ Staff-уровневый ревьюер чужого MR/PR. Стек-нейтр�
 
 **Goal:** Оформить каждую находку как отдельный инлайн-тред, привязанный к строке, без LLM-маркеров.
 
-**Output:** Список draft-тредов (один тред = одна находка, severity в первой строке, суть в 2-4 предложения, конкретный fix) плюс draft-overview, ещё не опубликованные.
+**Output:** Список draft-тредов (один тред = одна находка, severity в первой строке, суть в 2-4 предложения, конкретный fix) плюс draft-overview, ещё не опубликованные. При `classify` тип стоит в той же первой строке рядом с severity. Разметки не было - строка остаётся прежней, места под тип в ней не резервируется.
 
 **Mandatory:** yes
 
-**Exit criteria:** для каждой находки готов тред с привязкой file:line и текстом без эмодзи, длинных тире и мета-фраз; находка из блока «перепроверить» идёт в тред **как сомнение с названным пробелом** («не удалось подтвердить X»), не как утверждённый дефект; план тредов (file:line, severity, заголовок, блок) готов; при канале (тело исполняет главный цикл, `interactive`) - показан и получена команда `пушь`; при спавне узлом (любой `mode`) - переход к публикации без ожидания при `publish: true`.
+**Exit criteria:** для каждой находки готов тред с привязкой file:line и текстом без эмодзи, длинных тире и мета-фраз; находка из блока «перепроверить» идёт в тред **как сомнение с названным пробелом** («не удалось подтвердить X»), не как утверждённый дефект; план тредов (file:line, severity, тип при `classify`, заголовок, блок) готов; при канале (тело исполняет главный цикл, `interactive`) - показан и получена команда `пушь`; при спавне узлом (любой `mode`) - переход к публикации без ожидания при `publish: true`.
 
 **Gate to Phase 12:** при канале (тело исполняет главный цикл, `interactive`) - только после явной команды `пушь`. При спавне узлом (любой `mode`) - только при `publish: true` (санкция оркестратора); иначе сюда не доходит.
 
@@ -237,28 +239,7 @@ Staff-уровневый ревьюер чужого MR/PR. Стек-нейтр�
 
 **Приоритет - native MCP хостинга** (тулы деферред: грант серверу - `mcp__github` в tools, резолв схемы через `ToolSearch select` по фактическому имени тула в среде). GitHub: создать pending-review (`pull_request_review_write` method=create) -> на каждую находку inline-комментарий в pending (`add_comment_to_pending_review`: path + body + subjectType=LINE + line + side) -> `pull_request_review_write` method=submit_pending одним вызовом публикует серию, всегда с event=COMMENT (вердикт доставляется в Output/overview, не review-состоянием; APPROVE/REQUEST_CHANGES - никогда); overview - `add_issue_comment`. Ревизию/commit_id pending-review резолвит сам, отдельный вызов за HEAD-sha не нужен.
 
-**Фолбэк - CLI хостинга** (native не подключён в среде ИЛИ не отдаёт операцию): пути ниже.
-
-```bash
-# GitLab (CLI-фолбэк): SHA-якоря и inline-тред на строку
-glab api projects/:id/merge_requests/:iid --jq '.diff_refs'
-glab api --method POST "projects/:id/merge_requests/:iid/discussions" \
-  --field body=@<thread-body-file> \
-  --field "position[position_type]=text" \
-  --field "position[base_sha]=$BASE_SHA" --field "position[head_sha]=$HEAD_SHA" \
-  --field "position[start_sha]=$START_SHA" \
-  --field "position[new_path]=$FILE" --field "position[new_line]=$LINE"
-```
-
-```bash
-# GitHub (CLI-фолбэк): HEAD коммит и inline-тред на строку
-gh pr view <PR> --json headRefOid -q '.headRefOid'
-gh api --method POST "/repos/{owner}/{repo}/pulls/<PR>/comments" \
-  -F body=@<thread-body-file> -f path="$FILE" -F line=$LINE \
-  -f side="RIGHT" -f commit_id="$HEAD_SHA"
-```
-
-Чтение тела из файла идёт через `-F`/`--field` с префиксом `@` (флаг `-f`/`--raw-field` шлёт литеральную строку, не файл). Порядок при недоступности файла (sandbox-ограничение CLI): 1. stdin тем же `@`-механизмом - `@-` вместо `@<file>` (`printf '%s' "$BODY" | glab api ... -F body=@-`); обходит и файл, и экранирование многострочного тела в argv, тело JSON-кодируется CLI. 2. инлайн literal-строкой (`-f body="..."`) - только если stdin недоступен; ненадёжен на markdown с переносами и спецсимволами. Для удалённых строк используй old_path/old_line (glab) либо side=LEFT (gh). Overview публикуй общим комментарием (`glab api ... discussions` без position либо `gh pr comment`).
+**Фолбэк - CLI хостинга** (native не подключён в среде ИЛИ не отдаёт операцию): привязка треда к строке и ревизии, форма запроса и ловушки записи - по `dex-skill-review-threads:review-threads`.
 
 ## Boundaries
 

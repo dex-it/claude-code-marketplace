@@ -80,6 +80,47 @@ function buildPluginSkillMap() {
 
 const PLUGIN_SKILLS = buildPluginSkillMap();
 
+// Скилл, агент и команда одного плагина делят пространство имён `{plugin}:{artifact}` - вызов своего агента или команды формой не отличим от вызова скилла.
+function buildPluginAgentMap() {
+  const map = new Map();
+  function walk(dir) {
+    if (!existsSync(dir)) return;
+    for (const entry of readdirSync(dir)) {
+      const full = join(dir, entry);
+      if (statSync(full).isDirectory()) {
+        walk(full);
+      } else if (entry.endsWith('.md') && basename(dirname(full)) === 'commands') {
+        const pj = join(dirname(dirname(full)), '.claude-plugin', 'plugin.json');
+        if (!existsSync(pj)) continue;
+        try {
+          const plugin = JSON.parse(readFileSync(pj, 'utf8')).name;
+          if (!plugin) continue;
+          if (!map.has(plugin)) map.set(plugin, new Set());
+          map.get(plugin).add(basename(full, '.md'));
+        } catch {
+          // unreadable manifest - skipped
+        }
+      } else if (entry.endsWith('.md') && basename(dirname(full)) === 'agents') {
+        const pj = join(dirname(dirname(full)), '.claude-plugin', 'plugin.json');
+        if (!existsSync(pj)) continue;
+        try {
+          const plugin = JSON.parse(readFileSync(pj, 'utf8')).name;
+          const agent = matter(readFileSync(full, 'utf8')).data?.name;
+          if (!plugin || !agent) continue;
+          if (!map.has(plugin)) map.set(plugin, new Set());
+          map.get(plugin).add(String(agent));
+        } catch {
+          // unreadable manifest or frontmatter - skipped
+        }
+      }
+    }
+  }
+  walk(PLUGINS_DIR);
+  return map;
+}
+
+const PLUGIN_AGENTS = buildPluginAgentMap();
+
 // Plugin half not skill-shipping (agent spawn refs, `file:line`) - out of scope, not a Skill call.
 function validateSkillReferences(markdownBody, findings) {
   const re = /`([a-z][a-z0-9-]*):([a-z][a-z0-9-]*)`/g;
@@ -90,6 +131,7 @@ function validateSkillReferences(markdownBody, findings) {
 
   for (const [ref, [plugin, skill]] of referenced) {
     if (!PLUGIN_SKILLS.has(plugin)) continue;
+    if (PLUGIN_AGENTS.get(plugin)?.has(skill)) continue;
     if (!PLUGIN_SKILLS.get(plugin).has(skill)) {
       findings.push({
         level: ERROR,
