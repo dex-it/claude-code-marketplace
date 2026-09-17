@@ -53,13 +53,17 @@ const VERIFY = { type: 'object', properties: {
 const REVIEW = { type: 'object', properties: {
   status: STATUS,
   findings: { type: 'array', items: { type: 'object', properties: {
-    severity: { type: 'string', enum: ['P0', 'P1', 'P2', 'P3'] }, anchor: { type: 'string' }, text: { type: 'string' },
-  }, required: ['severity', 'anchor', 'text'] } },
-  'run-status': { type: 'string', description: 'итог реального прогона build/test ревьюером' },
+    severity: { type: 'string', enum: ['P0', 'P1', 'P2', 'P3'], description: 'уровень словаря node-contract: P0 = CRITICAL, P1 = HIGH, P2 = MEDIUM, P3 = LOW' }, anchor: { type: 'string' }, text: { type: 'string' },
+    closure: { type: 'string', description: 'критерий, когда находка закрыта' },
+  }, required: ['severity', 'anchor', 'text', 'closure'] } },
+  'run-status': { type: 'string', description: 'итог реального прогона build/test ревьюером: зелёный/красный + что; запуск невозможен - unverifiable + что пробовал' },
+  'red-run': { type: 'string', description: 'вердикт по записям red-run кодера во входе: по каждому тесту дельты запись действует / отсутствует / истекла; записей не было - unverifiable + что искал; тестов в дельте нет - n/a' },
+  'fact-check': { type: 'string', description: 'техутверждения находок: verified/unverifiable/contradicted + что сверялось; триггер не сработал - n/a с этой причиной' },
+  intent: { type: 'string', description: 'сверка с требованиями входа: соответствует / расхождения «корректно, но не то»; источника намерения нет - n/a' },
   push_recommended: { type: 'boolean' },
   push_blockers: { type: 'string', description: 'почему push не рекомендован; пусто, если рекомендован' },
   missing: { type: 'string', description: 'при blocked - чего не хватило для ревью; иначе пусто' },
-}, required: ['status', 'findings', 'run-status', 'push_recommended', 'push_blockers', 'missing'] }
+}, required: ['status', 'findings', 'run-status', 'red-run', 'fact-check', 'intent', 'push_recommended', 'push_blockers', 'missing'] }
 
 const CODER = { ts: 'dex-ts-fullstack-coder:ts-fullstack-assistant', dotnet: 'dex-dotnet-coder:dotnet-coder' }
 const loops = { fix: 0, review_fix: 0, review: 0 }
@@ -76,7 +80,12 @@ const lack = (v) => (v && v.missing) || 'верификатор не верну�
 async function node(role, prompt, opts, type) {
   if (type) {
     try { const r = await agent(prompt, { ...opts, agentType: type }); return r }
-    catch (e) { degraded.push(`${role}: ${type} недоступен (${String(e && e.message || e).slice(0, 120)})`); log(`узел ${type} недоступен, general-purpose`) }
+    catch (e) {
+      // Причина обрыва платформой не типизирована: узел мог не существовать, а мог упасть посреди работы. Замена получает причину и сверяет уже сделанное.
+      const why = String(e && e.message || e).slice(0, 300)
+      degraded.push(`${role}: ${type} не отработал (${why})`); log(`узел ${type} не отработал, general-purpose`)
+      return agent(`Роль: ${role}.\nУзел ${type} на этом шаге оборвался ошибкой: ${why}. Прежде чем действовать, сверь git log и рабочее дерево: сделанное им не повторяй и не коммить второй раз.\n${prompt}`, { ...opts, agentType: 'general-purpose' })
+    }
   }
   return agent(`Роль: ${role}.\n${prompt}`, { ...opts, agentType: 'general-purpose' })
 }
@@ -122,6 +131,7 @@ phase('Review')
 const review = (tag, f) => node('саморевьюер', `${HEAD}Шаг 3 (${tag}): pre-push саморевью локальной ветки - коммиты этой цели плюс рабочее дерево.${f ? `\nВход от кодера - red-run: ${f['red-run']}\nuncovered: ${f.uncovered}` : ''} Источник намерения - требования:\n${reqText}\nПрогон build/test реальный, итог - в run-status, не в findings. Код не меняй.`,
   { label: `self-review:${tag}`, phase: 'Review', schema: REVIEW }, 'dex-self-reviewer:self-reviewer')
 let rev = await review('первое', fix); loops.review = 1
+let carried = []
 trail.push({ step: 3, doer: 'self-reviewer', status: rev ? rev.status : 'null', findings: rev ? rev.findings.length : -1, push: rev ? rev.push_recommended : null })
 const blockingOf = (r) => r ? r.findings.filter(f => f.severity === 'P0' || f.severity === 'P1') : []
 if (rev && blockingOf(rev).length) {
@@ -134,7 +144,10 @@ if (rev && blockingOf(rev).length) {
   const openNow = { review: rev, open_findings: rev.findings }
   if (!fix2 || fix2.status === 'blocked') return bail('Review: правка по находкам', fix2 ? fix2.missing : 'узел-кодер не вернул выход', openNow)
   if (noRun(ver2)) return bail('Review: верификация после правки', lack(ver2), openNow)
+  const rev1 = rev
   rev = await review('повторное', fix2); loops.review = 2
+  // Повторное ревью без выхода или blocked не закрывает находки первого: они остаются открытыми.
+  if (!rev || rev.status === 'blocked') carried = blockingOf(rev1)
   trail.push({ step: '3-repeat', doer: 'self-reviewer', status: rev ? rev.status : 'null', findings: rev ? rev.findings.length : -1, push: rev ? rev.push_recommended : null })
 }
 const finalVer = ver2 || ver
@@ -142,13 +155,14 @@ const finalVer = ver2 || ver
 const authorGap = (f) => !f ? '' : f.status === 'partial' ? `кодер вернул partial: ${f.missing || f['run-status'] || 'нехватка не названа'}` : /^contradicted/.test(f['fact-check'] || '') ? `fact-check кодера: ${f['fact-check']}` : ''
 const gap = authorGap(fix2 || fix)
 const green = isGreen(finalVer)
-const open_findings = rev ? rev.findings : []
+const open_findings = carried.length ? [...carried, ...(rev ? rev.findings : [])] : rev ? rev.findings : []
 return {
-  status: green && rev && rev.status !== 'blocked' && !blockingOf(rev).length && !gap ? 'complete' : 'partial',
+  status: green && rev && rev.status !== 'blocked' && !blockingOf(rev).length && rev.push_recommended !== false && !gap ? 'complete' : 'partial',
   where: !green ? 'верификация после правки по саморевью не прошла'
     : !rev ? 'саморевьюер не вернул выход'
     : rev.status === 'blocked' ? `саморевью не выполнено: ${rev.missing || 'узел вернул blocked без нехватки'}`
-    : blockingOf(rev).length ? 'открытые P0/P1 после повторного саморевью' : gap,
+    : blockingOf(rev).length ? 'открытые P0/P1 после повторного саморевью'
+    : rev.push_recommended === false ? `саморевьюер не рекомендует push: ${rev.push_blockers || 'причина не названа'}` : gap,
   goal_check: { build_ok: !!finalVer && finalVer.build_ok, tests_green: !!finalVer && finalVer.exit_code === 0, committed: !!finalVer && !finalVer.dirty, head: finalVer ? finalVer.head : '' },
   loops, trail, degraded, ctx, fix, fix_after_review: fix2, review: rev, open_findings,
   decisions: dec(),
