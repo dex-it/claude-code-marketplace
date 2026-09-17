@@ -48,7 +48,7 @@ paths:
 
 ## Перед коммитом
 
-`npm run validate` (или точечно `validate:agents` / `validate:skills` / `validate:commands` / `validate:bundles`) - 0 ошибок. Проверки строгие, мягкого режима нет.
+`npm run validate` (или точечно `validate:agents` / `validate:skills` / `validate:commands` / `validate:bundles` / `validate:node-contract`) - 0 ошибок. Проверки строгие, мягкого режима нет.
 
 Цепочка `validate` шире плагинов: за артефактами идёт мета-валидатор `validate-rules-documented.js` (каждое правило из `tools/validate-*.js` имеет строку в [VALIDATOR_RULES.md](../../docs/VALIDATOR_RULES.md), фикстуру в `tools/__fixtures__` - и наоборот).
 

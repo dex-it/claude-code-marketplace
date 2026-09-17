@@ -15,7 +15,7 @@
  *   1 - at least one error found
  */
 
-import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, lstatSync, existsSync } from 'node:fs';
 import { join, relative, resolve, dirname, basename, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import matter from 'gray-matter';
@@ -30,6 +30,17 @@ const __dirname = dirname(__filename);
 const REPO_ROOT = process.env.MARKETPLACE_ROOT
   ? resolve(process.env.MARKETPLACE_ROOT)
   : resolve(__dirname, '..');
+
+// Обход дерева не проходит по symlink и спецфайлам: цикл ссылок ронял прогон стектрейсом ELOOP, FIFO вешал
+// чтение, а ссылка наружу судила чужой файл как свой. Такой узел - отказ с кодом 1, а не тихий пропуск.
+function statPlain(full) {
+  const stat = lstatSync(full);
+  if (stat.isSymbolicLink() || !(stat.isFile() || stat.isDirectory())) {
+    console.error(`Not a regular file or directory (symlinks and special files are not followed): ${relative(REPO_ROOT, full)}`);
+    process.exit(1);
+  }
+  return stat;
+}
 const PLUGINS_DIR = join(REPO_ROOT, 'plugins');
 const MARKETPLACE_JSON = join(REPO_ROOT, '.claude-plugin', 'marketplace.json');
 
@@ -112,7 +123,7 @@ function findAllAgentFiles() {
     if (!existsSync(dir)) return;
     for (const entry of readdirSync(dir)) {
       const full = join(dir, entry);
-      const stat = statSync(full);
+      const stat = statPlain(full);
       if (stat.isDirectory()) walk(full);
       else if (entry.endsWith('.md') && full.split(sep).join('/').includes('/agents/')) {
         result.push(full);
@@ -255,7 +266,7 @@ function buildPluginSkillMap() {
     if (!existsSync(dir)) return;
     for (const entry of readdirSync(dir)) {
       const full = join(dir, entry);
-      if (statSync(full).isDirectory()) {
+      if (statPlain(full).isDirectory()) {
         walk(full);
       } else if (entry === 'SKILL.md') {
         // <plugin>/skills/<skill>/SKILL.md -> <plugin>/.claude-plugin/plugin.json
@@ -1046,7 +1057,7 @@ function catalogDocTargets() {
     for (const entry of readdirSync(dir).sort()) {
       const full = join(dir, entry);
       const relPath = rel ? `${rel}/${entry}` : entry;
-      if (statSync(full).isDirectory()) {
+      if (statPlain(full).isDirectory()) {
         if (!rel && USER_CORPUS_DIRS.has(entry)) continue;
         walk(full, relPath);
         continue;

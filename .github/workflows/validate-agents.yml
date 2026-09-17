@@ -22,6 +22,10 @@ on:
       - 'tools/validate-*.js'
       - '**.sh'
 
+# Чеки только читают репозиторий: токен workflow без записи.
+permissions:
+  contents: read
+
 jobs:
   validate:
     name: Validate agents and skills against frameworks
@@ -102,7 +106,8 @@ jobs:
       # скрипт зовёт node и `gray-matter`, то есть требует `npm ci`.
       # Код выхода и CLI-ветки validate-node-contract.js (пустой набор, режим одного файла, словарь
       # с CRLF и без файла) test-rules.js не видит - он судит только строки находок.
-      - name: Test tool CLI contracts (agent visibility, node contract)
+      # Обход дерева: symlink и спецфайл под plugins/ - отказ всех валидаторов, а не ELOOP, зависание или чужой файл.
+      - name: Test tool CLI contracts (agent visibility, node contract, tree walk)
         run: npm run test:tools
 
       # Ledger и сторожа dex-auto: адрес, буквальный контракт статуса, коды выхода
