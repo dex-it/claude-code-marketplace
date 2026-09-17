@@ -225,6 +225,9 @@ function buildSpecialistPluginsInRepo() {
       if (statSync(full).isDirectory()) {
         walk(full);
       } else if (full.endsWith('/.claude-plugin/plugin.json')) {
+        // Под plugins/specialists/ лежат и плагины команд без агента - у них категория utility.
+        const pluginRoot = full.replace(/\/\.claude-plugin\/plugin\.json$/, '');
+        if (!existsSync(join(pluginRoot, 'agents'))) continue;
         try {
           set.add(JSON.parse(readFileSync(full, 'utf8')).name);
         } catch {
@@ -361,7 +364,9 @@ function resolveBundleFile(target) {
 
 // --- Validation ---------------------------------------------------------
 
-function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, agentSkillMap, skillPluginsInRepo, skillAgentMap, commandRefMap, bundleIncludes) {
+function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, agentSkillMap, skillPluginsInRepo, specialistPluginsInRepo, skillAgentMap, commandRefMap, bundleIncludes) {
+  // Плагин, несущий и агентов и скиллы, скилл-типом не исчерпывается: ребро к нему судится как делегация.
+  const namesSkillOnly = (p) => skillPluginsInRepo.has(p) && !specialistPluginsInRepo.has(p);
   const findings = [];
   let bundle;
   try {
@@ -451,7 +456,7 @@ function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, age
         findings.push({
           level: ERROR,
           rule: 'bundle-not-closed',
-          message: skillPluginsInRepo.has(target)
+          message: namesSkillOnly(target)
             ? `agent "${comp}" loads "${target}" but the bundle ships it in neither includes[] nor dependencies[] - bundle not closed; add it or the agent degrades`
             : `agent "${comp}" hands off to "${target}" but the bundle ships it in neither includes[] nor dependencies[] - bundle not closed; add it or the handoff has no agent to run`,
         });
@@ -469,7 +474,7 @@ function validateBundle(bundleFile, marketplacePlugins, marketplaceVersions, age
         findings.push({
           level: ERROR,
           rule: 'bundle-agent-not-closed',
-          message: skillPluginsInRepo.has(agentPlugin)
+          message: namesSkillOnly(agentPlugin)
           ? `skill "${comp}" names "${agentPlugin}" but the bundle ships it in neither includes[] nor dependencies[] - bundle not closed; add it or the name resolves to nothing`
           : `skill "${comp}" delegates to "${agentPlugin}" but the bundle ships it in neither includes[] nor dependencies[] - bundle not closed; add it or the delegation has no agent to run`,
         });
@@ -744,7 +749,7 @@ function main() {
   }
 
   const results = files.map((f) =>
-    validateBundle(f, marketplacePlugins, marketplaceVersions, agentSkillMap, skillPluginsInRepo, skillAgentMap, commandRefMap, bundleIncludes)
+    validateBundle(f, marketplacePlugins, marketplaceVersions, agentSkillMap, skillPluginsInRepo, specialistPluginsInRepo, skillAgentMap, commandRefMap, bundleIncludes)
   );
   // Одиночный таргет сверяет версию только своего плагина, `all` - всех.
   const versionResults =
