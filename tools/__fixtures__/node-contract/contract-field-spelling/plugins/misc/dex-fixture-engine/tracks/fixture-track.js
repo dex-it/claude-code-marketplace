@@ -32,6 +32,17 @@ const esc = { a: 'it\'s', b: "a\"b", c: 'x\\', RUN_STATUS: 1 }
 const nested = { p: `в${ [1].map((n) => `${n}}`) }`, Uncovered2: 0, redRun: 3 }
 const tick = { p: `a \` b`, RunStatus: 4 }
 const after = `x`
+const re = /`/; const AFTER_EQ = { red_run: 1 }
+const arr = [/'/]; const AFTER_BRACKET = { run_status: 1 }
+const klass = /[/']/; const AFTER_CLASS = { diff_scope: 1 }
+function f(x) { return /'/.test(x) } const AFTER_RETURN = { Run_Status: 1 }
+if (flag) /`/.test(s); const AFTER_IF = { redRun: 1 }
+if (flag) /`/.test(t)
+let n = 0; const h = n++ / 2, AFTER_INC = { run_status: 1 }, z = h / 3
+const esc2 = { 'run\u005fstatus': 1 }
+const DOT = { 'run.status': 1, run__status: 2 }
+const a = fix.run_status, b = fix['red_run'], { diff_scope } = fix
+const good = fix.status + fix['run-status']
 
 phase('Fix')
 const fix = await agent(`почини предмет песочницы, итог положи в поле

@@ -2,11 +2,17 @@
   "messages": [
     "properties ['diff-scope', 'status', 'findings'] declares 'status' at position 2",
     "required: ['uncovered', 'status'] declares 'status' at position 2",
-    "line 20: properties ['tags', 'status'] declares 'status' at position 2"
+    "line 21: properties ['tags', 'status'] declares 'status' at position 2",
+    "line 23: properties ['uncovered'] of a node output schema declares no 'status'",
+    "line 23: required: ['uncovered'] of a node output schema declares no 'status'",
+    "'#\\u0023[warning]forged', '\\u009bcsi', 'status'"
   ],
   "absent": [
     "'severity', 'anchor'",
     "required: ['status', 'diff-scope', 'findings']",
-    "properties ['status', 'uncovered']"
+    "properties ['status', 'uncovered']",
+    "'note', 'status'",
+    "'label', 'status'",
+    "##["
   ]
 }

@@ -27,4 +27,6 @@ skills:
 
 **Output (handoff):** `status` (`complete`/`blocked`/`partial`), `diff_scope`, `Uncovered`, перечень находок, допущения. Поле `diffscope` - другое имя, не другое написание.
 
+Невозможный прогон - `run_status = unverifiable`; запись автора - `fix.red_run`; решения - `Key Decisions = принятые`; первым - `take diff_scope first`; источник - `requirements_R_I`. Чужие форматы: `Type` сервиса, `Status` шапки ADR, событие `APPROVE`.
+
 **Exit criteria:** Output содержит `status` и перечень находок; пустой перечень назван явно; `diff_scope` не пустой.
