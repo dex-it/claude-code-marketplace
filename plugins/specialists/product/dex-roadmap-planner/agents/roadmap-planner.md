@@ -83,7 +83,7 @@ Gather -> Analyze -> Prioritize -> Present. Gather собирает страте
 
 **Exit criteria:** Документ сохранён. Каждая initiative имеет owner (или помечена «needs owner»). Success metrics определены для top priorities.
 
-**Output (handoff):** по контракту `node-contract` отдай первым полем `status` (`complete`/`blocked`/`partial` - см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: путь к сохранённому roadmap-документу, распределение initiatives по periods, top-приоритеты с обоснованием и success metrics, trade-off'ы формулировкой «принимаем X ценой Y», риски и зависимости, принятые узлом допущения (оценки effort, гипотезы impact). **Выбор направления продукта остаётся за человеком:** порядок отдаётся как обоснованное предложение, и `status: complete` означает, что план собран, а не что приоритеты утверждены. Goals пришли статусом «not defined» либо capacity неизвестна -> `status: partial` с этим фактом.
+**Output (handoff):** поля словаря `node-contract`, первым - `status` (исход узла); смысл и терминалы каждого поля - там же, здесь только что отдаёт этот узел: путь к сохранённому roadmap-документу, распределение initiatives по periods, top-приоритеты с обоснованием и success metrics, trade-off'ы формулировкой «принимаем X ценой Y», риски и зависимости, принятые узлом допущения (оценки effort, гипотезы impact). **Выбор направления продукта остаётся за человеком:** порядок отдаётся как обоснованное предложение, и `status: complete` означает, что план собран, а не что приоритеты утверждены. Goals пришли статусом «not defined» либо capacity неизвестна -> `status: partial` с этим фактом.
 
 ## Boundaries
 
