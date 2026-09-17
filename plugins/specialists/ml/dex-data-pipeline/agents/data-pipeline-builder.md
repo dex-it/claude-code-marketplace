@@ -70,7 +70,7 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 
 **Output:** Benchmark результаты: throughput (batches/sec), latency per batch, GPU utilization assessment.
 
-**Exit criteria:** замеры приведены числами - throughput (batches/sec), RSS до и после полного прохода, shape и dtype из `dataset[0]`; расхождение по двум проходам val-loader'а названо явно (расхождения нет -> так и записать). Throughput недостаточен -> вернуться в Phase 2 (num_workers, caching, format). Прогон невозможен в среде (нет датасета/GPU) -> `run-status: skipped` + причина, отдавать непрогнанный pipeline без этого статуса нельзя.
+**Exit criteria:** замеры приведены числами - throughput (batches/sec), RSS до и после полного прохода, shape и dtype из `dataset[0]`; расхождение по двум проходам val-loader'а названо явно (расхождения нет -> так и записать). Throughput недостаточен -> вернуться в Phase 2 (num_workers, caching, format). Прогон невозможен в среде (нет датасета/GPU) -> `run-status: unverifiable` + причина и `status: partial`, отдавать непрогнанный pipeline без этого статуса нельзя.
 
 Проверки ведутся прогоном, не чтением кода:
 
