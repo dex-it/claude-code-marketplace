@@ -34,10 +34,10 @@ const FIX = { type: 'object', properties: {
   status: STATUS,
   'diff-scope': { type: 'array', items: { type: 'string' }, description: 'пути изменённых файлов + ветка/база, не тела' },
   commit: { type: 'string', description: 'sha локального коммита либо пусто' },
-  'run-status': { type: 'string', description: 'итог прогона build/test/lint узлом; зелёность трек судит VERIFY-узлом, не этим полем' },
+  'run-status': { type: 'string', description: 'итог прогона build/test/lint узлом: зелёный/красный + что; проверка неприменима - n/a + причина; запуск невозможен - unverifiable + что пробовал, и тогда status: partial. Зелёность трек судит VERIFY-узлом, не этим полем' },
   'red-run': { type: 'string', description: 'по каждому новому и изменённому тесту и по существующему, чью целевую ветку тронула правка: чем показан красным и сверенная причина падения; таких нет - n/a с этой причиной; показать не вышло - unverifiable + чем пробовал' },
   uncovered: { type: 'string', description: 'что осталось непокрытым и адресовано следующему узлу; не осталось - "нет" словом' },
-  'fact-check': { type: 'string', description: 'verified/unverifiable/contradicted + что сверялось; триггер не сработал - n/a с этой причиной' },
+  'fact-check': { type: 'string', description: 'сверка техутверждений правки с источником (триггер - сигнатура или поведение стороннего API, взятые по памяти): verified/unverifiable/contradicted + что сверялось; триггер не сработал - n/a с этой причиной' },
   decisions: { type: 'array', items: { type: 'string' }, description: 'каждая закрытая узлом развилка: что выбрано, из чего, почему' },
   missing: { type: 'string' },
 }, required: ['status', 'diff-scope', 'commit', 'run-status', 'red-run', 'uncovered', 'fact-check', 'decisions', 'missing'] }
@@ -118,9 +118,10 @@ for (let k = 1; k <= FIX_CEILING && (!isGreen(ver) || pending); k++) {
 if (!isGreen(ver)) return { status: 'partial', where: `Implement: потолок ${FIX_CEILING} исчерпан`, ver, ctx, fix, loops, trail, degraded, decisions: dec() }
 
 phase('Review')
-const review = (tag) => node('саморевьюер', `${HEAD}Шаг 3 (${tag}): pre-push саморевью локальной ветки - коммиты этой цели плюс рабочее дерево. Источник намерения - требования:\n${reqText}\nПрогон build/test реальный, итог - в run-status, не в findings. Код не меняй.`,
+// Записи red-run и uncovered кодера - вход саморевьюера: он судит red-run по записям входа, а uncovered адресован следующему узлу.
+const review = (tag, f) => node('саморевьюер', `${HEAD}Шаг 3 (${tag}): pre-push саморевью локальной ветки - коммиты этой цели плюс рабочее дерево.${f ? `\nВход от кодера - red-run: ${f['red-run']}\nuncovered: ${f.uncovered}` : ''} Источник намерения - требования:\n${reqText}\nПрогон build/test реальный, итог - в run-status, не в findings. Код не меняй.`,
   { label: `self-review:${tag}`, phase: 'Review', schema: REVIEW }, 'dex-self-reviewer:self-reviewer')
-let rev = await review('первое'); loops.review = 1
+let rev = await review('первое', fix); loops.review = 1
 trail.push({ step: 3, doer: 'self-reviewer', status: rev ? rev.status : 'null', findings: rev ? rev.findings.length : -1, push: rev ? rev.push_recommended : null })
 const blockingOf = (r) => r ? r.findings.filter(f => f.severity === 'P0' || f.severity === 'P1') : []
 if (rev && blockingOf(rev).length) {
@@ -133,18 +134,21 @@ if (rev && blockingOf(rev).length) {
   const openNow = { review: rev, open_findings: rev.findings }
   if (!fix2 || fix2.status === 'blocked') return bail('Review: правка по находкам', fix2 ? fix2.missing : 'узел-кодер не вернул выход', openNow)
   if (noRun(ver2)) return bail('Review: верификация после правки', lack(ver2), openNow)
-  rev = await review('повторное'); loops.review = 2
+  rev = await review('повторное', fix2); loops.review = 2
   trail.push({ step: '3-repeat', doer: 'self-reviewer', status: rev ? rev.status : 'null', findings: rev ? rev.findings.length : -1, push: rev ? rev.push_recommended : null })
 }
 const finalVer = ver2 || ver
+// partial кодера и опровергнутая им сверка - исход автора: зелёная верификация и чистое ревью их не закрывают.
+const authorGap = (f) => !f ? '' : f.status === 'partial' ? `кодер вернул partial: ${f.missing || f['run-status'] || 'нехватка не названа'}` : /^contradicted/.test(f['fact-check'] || '') ? `fact-check кодера: ${f['fact-check']}` : ''
+const gap = authorGap(fix2 || fix)
 const green = isGreen(finalVer)
 const open_findings = rev ? rev.findings : []
 return {
-  status: green && rev && rev.status !== 'blocked' && !blockingOf(rev).length ? 'complete' : 'partial',
+  status: green && rev && rev.status !== 'blocked' && !blockingOf(rev).length && !gap ? 'complete' : 'partial',
   where: !green ? 'верификация после правки по саморевью не прошла'
     : !rev ? 'саморевьюер не вернул выход'
     : rev.status === 'blocked' ? `саморевью не выполнено: ${rev.missing || 'узел вернул blocked без нехватки'}`
-    : blockingOf(rev).length ? 'открытые P0/P1 после повторного саморевью' : '',
+    : blockingOf(rev).length ? 'открытые P0/P1 после повторного саморевью' : gap,
   goal_check: { build_ok: !!finalVer && finalVer.build_ok, tests_green: !!finalVer && finalVer.exit_code === 0, committed: !!finalVer && !finalVer.dirty, head: finalVer ? finalVer.head : '' },
   loops, trail, degraded, ctx, fix, fix_after_review: fix2, review: rev, open_findings,
   decisions: dec(),
