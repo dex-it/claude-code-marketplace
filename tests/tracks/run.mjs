@@ -36,9 +36,9 @@ const red = { ...green, exit_code: 1, fail_count: 2, failing: ['T1', 'T2'], head
 const dirty = { ...green, dirty: true }
 const ctxOk = { status: 'complete', stack: 'dotnet', requirements: ['R1 ...'], files: ['src/A.cs'], test_cmd: 'dotnet test', build_cmd: 'dotnet build', prepare_cmd: '', corpus: 'docs/', missing: '' }
 const reproOk = { status: 'complete', stack: 'ts', root_cause: 'src/a.ts:10 неверный ключ', reproduction: 'тест T1: красный', 'expected-basis': 'тест', fix_proposal: 'править ключ', files: ['src/a.ts'], test_cmd: 'npm test', build_cmd: 'tsc', prepare_cmd: 'npm ci', missing: '' }
-const fixOk = { status: 'complete', 'diff-scope': ['src/A.cs'], commit: 'abc123', 'run-status': 'build ok, tests 9/9', 'red-run': 'T1 красный до, зелёный после', uncovered: 'нет', 'dependents-status': 'some', dependents: ['src/Caller.cs:41 вызывает изменённый метод'], 'fact-check': 'n/a (триггер не сработал)', decisions: ['выбран A'], missing: '' }
+const fixOk = { status: 'complete', 'diff-scope': ['src/A.cs'], commit: 'abc123', 'run-status': 'build ok, tests 9/9', 'red-run': 'T1 красный до, зелёный после', 'uncovered-status': 'some', uncovered: ['ветка таймаута'], 'dependents-status': 'some', dependents: ['src/Caller.cs:41 вызывает изменённый метод'], 'fact-check': 'n/a (триггер не сработал)', decisions: ['выбран A'], missing: '' }
 // Правка, замкнутая в себе: оба поля явным «нет» - единственное сочетание, отменяющее второй круг ревью.
-const fixSealed = { ...fixOk, uncovered: 'нет', 'dependents-status': 'none', dependents: [] }
+const fixSealed = { ...fixOk, 'uncovered-status': 'none', uncovered: [], 'dependents-status': 'none', dependents: [] }
 const revClean = { status: 'complete', findings: [], 'run-status': 'build ok, tests 9/9', 'red-run': 'T1 действует', 'fact-check': 'n/a (триггер не сработал)', intent: 'соответствует', push_recommended: true, push_blockers: '', missing: '' }
 const revP1 = { status: 'complete', findings: [{ severity: 'P1', anchor: 'src/A.cs:8', text: 'ретрай не различает случаи', closure: 'случаи различены тестом' }], 'run-status': 'build ok', 'red-run': 'T1 действует', 'fact-check': 'n/a (триггер не сработал)', intent: 'соответствует', push_recommended: false, push_blockers: 'открыта P1', missing: '' }
 const revP2 = { status: 'complete', findings: [{ severity: 'P2', anchor: 'src/A.cs:9', text: 'имя переменной', closure: 'переименовано' }], 'run-status': 'build ok', 'red-run': 'T1 действует', 'fact-check': 'n/a (триггер не сработал)', intent: 'соответствует', push_recommended: true, push_blockers: '', missing: '' }
@@ -96,11 +96,11 @@ const SCENARIOS = [
       ['where называет исход кодера', /кодер вернул partial: прогон не выполнен/.test(result.where)],
     ] },
   { name: 'F21 саморевьюер получает red-run и uncovered кодера', track: 'feature', args: featureArgs,
-    responses: { 'ctx:R-I': ctxOk, 'fix:1': { ...fixOk, uncovered: 'ветка таймаута' }, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
     expect: ({ result, calls }) => [
       ['статус complete', result.status === 'complete'],
       ['red-run во входе ревью', promptOf(calls, 'self-review:первое').includes('red-run: T1 красный до, зелёный после')],
-      ['uncovered во входе ревью', promptOf(calls, 'self-review:первое').includes('uncovered: ветка таймаута')],
+      ['uncovered во входе ревью', promptOf(calls, 'self-review:первое').includes('uncovered: some - ветка таймаута')],
     ] },
   { name: 'B11 fact-check кодера contradicted -> partial', track: 'bugfix', args: bugfixArgs,
     responses: { 'reproduce': reproOk, 'fix:1': { ...fixOk, 'fact-check': 'contradicted: сигнатура retry другая' }, 'verify:после попытки 1': green, 'self-review:первое': revClean },
@@ -175,15 +175,19 @@ const SCENARIOS = [
     ] },
   { name: 'F7c правка оставила непокрытое -> круг покупается', track: 'feature', args: featureArgs,
     responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revP1,
-      'fix:after-review': { ...fixSealed, uncovered: 'ветка таймаута' }, 'verify:после саморевью': green, 'self-review:повторное': revClean },
+      'fix:after-review': { ...fixSealed, 'uncovered-status': 'some', uncovered: ['ветка таймаута'] }, 'verify:после саморевью': green, 'self-review:повторное': revClean },
     expect: ({ calls }) => [['повторное саморевью вызвано', labelsOf(calls).includes('self-review:повторное')]] },
   { name: 'F7d поля замкнутости не заполнены -> круг покупается, молчание пропуска не даёт', track: 'feature', args: featureArgs,
     responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revP1,
-      'fix:after-review': { ...fixSealed, uncovered: '', 'dependents-status': 'unknown' }, 'verify:после саморевью': green, 'self-review:повторное': revClean },
+      'fix:after-review': { ...fixSealed, 'uncovered-status': '', uncovered: [], 'dependents-status': 'unknown' }, 'verify:после саморевью': green, 'self-review:повторное': revClean },
     expect: ({ calls }) => [['повторное саморевью вызвано', labelsOf(calls).includes('self-review:повторное')]] },
   { name: 'F7f unknown признаком замкнутости не считается -> круг покупается', track: 'feature', args: featureArgs,
     responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revP1,
       'fix:after-review': { ...fixSealed, 'dependents-status': 'unknown' }, 'verify:после саморевью': green, 'self-review:повторное': revClean },
+    expect: ({ calls }) => [['повторное саморевью вызвано', labelsOf(calls).includes('self-review:повторное')]] },
+  { name: 'F7g статус none при непустом перечне непокрытого -> круг покупается', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revP1,
+      'fix:after-review': { ...fixSealed, uncovered: ['ветка таймаута'] }, 'verify:после саморевью': green, 'self-review:повторное': revClean },
     expect: ({ calls }) => [['повторное саморевью вызвано', labelsOf(calls).includes('self-review:повторное')]] },
   { name: 'F7e правка замкнута, но верификация красная -> круг покупается', track: 'feature', args: featureArgs,
     responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revP1,

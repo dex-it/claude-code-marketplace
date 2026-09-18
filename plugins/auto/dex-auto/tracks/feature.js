@@ -38,16 +38,17 @@ const FIX = { type: 'object', properties: {
   commit: { type: 'string', description: 'sha локального коммита либо пусто' },
   'run-status': { type: 'string', description: 'зелёность трек судит VERIFY-узлом, не этим полем' },
   'red-run': { type: 'string' },
-  uncovered: { type: 'string' },
   // Признак замкнутости - enum, а не слово в свободной строке: строку модель отдаёт синонимами
   // («none», «отсутствуют», «-»), и разбор превращается в угадывание, а пустое значение
   // неотличимо от невыясненного. Ветка «не выяснено» - законный терминал, не молчание.
+  'uncovered-status': { type: 'string', enum: ['none', 'some', 'unknown'], description: 'осталось ли непокрытое тестами: none - не осталось, some - перечень в uncovered, unknown - покрытие не выяснялось; догадка сюда не пишется' },
+  uncovered: { type: 'array', items: { type: 'string' }, description: 'при some - непокрытое перечнем (ветка, случай, граница); иначе пустой' },
   'dependents-status': { type: 'string', enum: ['none', 'some', 'unknown'], description: 'видно ли правку за пределами diff-scope: вызывающий код, контракт на проводе, схема данных, публичный API. none - не видно, some - видно (перечень в dependents), unknown - не разобрался; догадка сюда не пишется' },
   dependents: { type: 'array', items: { type: 'string' }, description: 'при some - потребители перечнем file:line; иначе пустой' },
   'fact-check': { type: 'string', description: 'триггер сверки - сигнатура или поведение стороннего API, взятые по памяти' },
   decisions: { type: 'array', items: { type: 'string' }, description: 'каждая закрытая узлом развилка: что выбрано, из чего, почему' },
   missing: { type: 'string' },
-}, required: ['status', 'diff-scope', 'commit', 'run-status', 'red-run', 'uncovered', 'dependents-status', 'dependents', 'fact-check', 'decisions', 'missing'] }
+}, required: ['status', 'diff-scope', 'commit', 'run-status', 'red-run', 'uncovered-status', 'uncovered', 'dependents-status', 'dependents', 'fact-check', 'decisions', 'missing'] }
 const VERIFY = { type: 'object', properties: {
   status: STATUS,
   exit_code: { type: 'integer' }, pass_count: { type: 'integer' }, fail_count: { type: 'integer' },
@@ -141,7 +142,7 @@ if (!isGreen(ver)) return { status: 'partial', where: `Implement: потолок
 
 phase('Review')
 // Записи red-run и uncovered кодера - вход саморевьюера: он судит red-run по записям входа, а uncovered адресован следующему узлу.
-const review = (tag, f) => node('саморевьюер', `${HEAD}Шаг 3 (${tag}): pre-push саморевью локальной ветки - коммиты этой цели плюс рабочее дерево.${f ? `\nВход от кодера - red-run: ${f['red-run']}\nuncovered: ${f.uncovered}` : ''} Источник намерения - требования:\n${reqText}\nПрогон build/test реальный, итог - в run-status, не в findings. Код не меняй.`,
+const review = (tag, f) => node('саморевьюер', `${HEAD}Шаг 3 (${tag}): pre-push саморевью локальной ветки - коммиты этой цели плюс рабочее дерево.${f ? `\nВход от кодера - red-run: ${f['red-run']}\nuncovered: ${f['uncovered-status']}${(f.uncovered || []).length ? ' - ' + f.uncovered.join('; ') : ''}` : ''} Источник намерения - требования:\n${reqText}\nПрогон build/test реальный, итог - в run-status, не в findings. Код не меняй.`,
   { label: `self-review:${tag}`, phase: 'Review', schema: REVIEW }, 'dex-self-reviewer:self-reviewer')
 let rev = await review('первое', fix); loops.review = 1
 let carried = []
@@ -160,16 +161,16 @@ if (rev && blockingOf(rev).length) {
   const rev1 = rev
   // Повторное ревью покупается не всегда. Правка, целиком проверенная прогоном и не видимая наружу,
   // получает от второго ревью подтверждение верификации, а не новый факт: по ledger круг окупался
-  // в 5 случаях из 23. Невыясненное круг не отменяет: у dependents-status это отдельное значение
-  // перечня, у uncovered - всё, кроме точного «нет».
-  // Слово, а не перечень, потому что форму uncovered диктует словарь node-contract. Матч точный:
-  // \b в JS работает по ASCII и после кириллицы границы не даёт, а подстрокой «нет» матчится и
-  // «нет данных», и «ничего не выяснено» - это не признак покрытия.
-  const no = (v) => /^нет[\s.]*$/i.test(String(v || '').trim())
-  if (isGreen(ver2) && no(fix2.uncovered) && fix2['dependents-status'] === 'none') {
+  // в 5 случаях из 23. Невыясненное круг не отменяет: у обоих полей это отдельное значение
+  // перечня (unknown), и пропуск даёт только пара none + none.
+  // Перечень судится наравне со статусом: пара «none + непустой перечень» противоречива, и пропуск по
+  // статусу отдал бы решение полю, которое сам же перечень опровергает.
+  const sealed = (f) => f['uncovered-status'] === 'none' && (f.uncovered || []).length === 0
+    && f['dependents-status'] === 'none' && (f.dependents || []).length === 0
+  if (isGreen(ver2) && sealed(fix2)) {
     loops.review = 1
     // Находка без своей строки решения - шаг не выполнен: снятая правкой идёт в decisions поимённо.
-    blockingOf(rev1).forEach(f => decisions.push(`${f.anchor}: закрыта правкой, повторное саморевью не куплено - правка покрыта прогоном (uncovered: нет), наружу не видна (dependents-status: none), верификация зелёная; критерий закрытия: ${f.closure}`))
+    blockingOf(rev1).forEach(f => decisions.push(`${f.anchor}: закрыта правкой, повторное саморевью не куплено - правка покрыта прогоном (uncovered-status: none), наружу не видна (dependents-status: none), верификация зелёная; критерий закрытия: ${f.closure}`))
     rev = { ...rev1, findings: rev1.findings.filter(f => !(f.severity === 'P0' || f.severity === 'P1')) }
     trail.push({ step: '3-repeat', doer: 'не куплено: правка замкнута и проверена прогоном', status: 'skipped', closed: blockingOf(rev1).length })
   } else {

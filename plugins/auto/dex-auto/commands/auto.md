@@ -22,37 +22,36 @@ argument-hint: "[bugfix|feature TASK цель... | TASK | review MR] [продо
   (`args.last_review_sha`) - ревизия дельты от прошлой ревизии. Критерий «готово»: у каждой находки статус, вердикт вынесен,
   при `--post` треды опубликованы либо названы неопубликованными с причиной.
 - `--interactive` - режим с каналом к оператору, дефолт `autonomous`. Критерий или граница не выводятся из входа и корпуса
-  проекта: в `autonomous` - `set TASK Исход blocked` и `Нехватка <текст>` до первого узла (прогона не было, `finish.sh` без
-  возврата не вызывается); в `interactive` - `set TASK Ожидает оператор`, вопрос, по ответу `set TASK Ожидает ""`.
+  проекта: в `autonomous` - `set TASK Исход blocked` и `Нехватка <текст>` до первого узла; в `interactive` - `set TASK Ожидает оператор`, вопрос, по ответу `set TASK Ожидает ""`.
 
-**Ledger.** Пишут только скрипты `${CLAUDE_PLUGIN_ROOT}/hooks/scripts/`: `ledger.sh open|set|get|open-tracks|trail|findings
-TASK ...` и `finish.sh TASK TRACK ИСХОД [НЕХВАТКА] < возврат.json`. Разделы файла трека `01-<трек>.md` пишет `finish.sh` по
-возврату (`### Открытые находки` - из `open_findings`, у ревью из `confirmed` и `unpublished`); главный поток дописывает в
-`### Решения` по строке на находку, первым словом её `anchor`. `open TASK [MODE]` заводит `00-goal.md` (путь -
-`args.goal_path`); под `set` - `Исход:`, `Нехватка:`, `Ожидает:`; разделы `## Цель` (первая строка `Вид: bugfix|feature`,
-вторая `Источник:`), `## Критерий «готово»`, `## Граница` заполняются прозой по входу до запуска трека. Открытую цель `open`
-не трогает, но до запуска всегда `set TASK Режим autonomous` (`--interactive` - `interactive`) и `set TASK Ожидает ""`: под
-оставленными `/goal` `interactive` / `оператор` сторож Stop ход не держит. TRACK - `feature` | `bugfix` | `review` |
-`review-delta` (при `--delta`). `open-tracks TASK` вернул файл другого трека - второй трек не запускается (R5: в папке цели
-открыт максимум один): `set TASK Исход blocked`, `set TASK Нехватка «открыт трек <файл>: продолжить его либо сдать исход»`,
-прогона не было.
+**Ledger.** Пишут только скрипты `${CLAUDE_PLUGIN_ROOT}/hooks/scripts/`: `ledger.sh open|set|get|open-tracks|trail|findings TASK
+...` и `finish.sh TASK TRACK ИСХОД [НЕХВАТКА] < возврат.json`. Ветка, на которой `Workflow` не запускался, сдаётся только через
+`set`: `finish.sh` без возврата узла не вызывается. Разделы файла трека `01-<трек>.md` пишет `finish.sh` по возврату (`### Открытые
+находки` - из `open_findings`, у ревью из `confirmed` и `unpublished`); главный поток дописывает в `### Решения` по строке на
+находку, первым словом её `anchor`. `open TASK [MODE]` заводит `00-goal.md` (путь - `args.goal_path`); под `set` - `Исход:`,
+`Нехватка:`, `Ожидает:`; разделы `## Цель` (первая строка `Вид: bugfix|feature`, вторая `Источник:`), `## Критерий «готово»`, `##
+Граница` заполняются прозой по входу до запуска трека. Открытую цель `open` не трогает, но до запуска всегда `set TASK Режим
+autonomous` (`--interactive` - `interactive`) и `set TASK Ожидает ""`: под оставленными `/goal` `interactive` / `оператор` сторож
+Stop ход не держит. TRACK - `feature` | `bugfix` | `review` | `review-delta` (при `--delta`). `open-tracks TASK` вернул файл другого
+трека - второй трек не запускается (R5: в папке цели открыт максимум один): `set TASK Исход blocked`, `set TASK Нехватка «открыт
+трек <файл>: продолжить его либо сдать исход»`.
 
-**Дерево.** Трек работает только в своём: `worktree.sh path TASK` (ревью - `path TASK --detach`) даёт путь `<repo>-<TASK>`
-на ветке `auto/<TASK>` в `args.cwd`; каталог сессии - в `args.main_cwd`, только на чтение (готовые локальные зависимости).
-Ненулевой код скрипта - `set TASK Исход blocked`, `set TASK Нехватка <stderr>`, `Workflow` не запускается (прогона не было,
-`finish.sh` без возврата не вызывается). `ledger.sh` и `finish.sh` зовутся из каталога сессии, не из дерева трека: адрес
-ledger считается от cwd. После сдачи - `complete`: `worktree.sh drop TASK` (ветка с коммитами остаётся, push делает
-оператор); `partial` и `blocked`: дерево под возобновление; `drop` отказал - путь и причина в Output.
+**Дерево.** Трек работает только в своём: `worktree.sh path TASK` (ревью - `path TASK --detach`) даёт путь `<repo>-<TASK>` на ветке
+`auto/<TASK>` в `args.cwd`; каталог сессии - в `args.main_cwd`, только на чтение. Ненулевой код скрипта - `set TASK Исход blocked`,
+`set TASK Нехватка <stderr>`, `Workflow` не запускается. `ledger.sh` и `finish.sh` зовутся из каталога сессии, не из дерева трека:
+адрес ledger считается от cwd. После сдачи - `complete`: `worktree.sh drop TASK` (ветка с коммитами остаётся, push делает оператор);
+`partial` и `blocked`: дерево под возобновление; `drop` отказал - путь и причина в Output.
 
-**Прогон.** `Workflow` со `scriptPath` `${CLAUDE_PLUGIN_ROOT}/tracks/<трек>.js`; `args`: feature - `{task, goal, done,
-boundary, mode, cwd, main_cwd, source, goal_path, resume, trail, open_findings, ctx}`; bugfix - то же, но вместо `goal` -
-`symptom, expected, env`, и вместо `ctx` - `repro` (симптом - фраза цели, ожидаемое - из критерия, окружение - из границы и контекста; чего нет
-- пустая строка); review - `{task, mr, intent, mode, publish, last_review_sha, cwd}` (дерево `--detach`). Узлы, петли и
-  потолки - внутри скрипта; главный поток узлы не спавнит и ждёт возврат только повторными `TaskOutput` (`block: true`,
-  `timeout` максимальный) до статуса завершения. Закрыть ход «до уведомления» или `ScheduleWakeup` нельзя: в headless это
-  обрывает прогон по потолку ожидания фоновых задач, и ledger остаётся без сдачи. `TaskOutput` помечен DEPRECATED; тула нет
-  - возврат из `<task-notification>` и файла вывода `Workflow`, нет и его - `finish.sh TASK TRACK blocked "нет канала
-  ожидания возврата Workflow" <<< '{}'`. Скрипт на диск не пишет: ledger заполняется до прогона и после.
+**Прогон.** `Workflow` со `scriptPath` `${CLAUDE_PLUGIN_ROOT}/tracks/<трек>.js`; `args`: feature - `{task, goal, done, boundary,
+mode, cwd, main_cwd, source, goal_path, resume, trail, open_findings, ctx}`; bugfix - то же, но вместо `goal` - `symptom, expected,
+env`, и вместо `ctx` - `repro` (симптом - фраза цели, ожидаемое - из критерия, окружение - из границы и контекста; чего нет - пустая
+строка); review - `{task, mr, intent, mode, publish, last_review_sha, cwd}`. Узлы, петли и потолки - внутри скрипта; главный поток
+узлы не спавнит и ждёт возврат, не закрывая ход: `TaskOutput` (`block: true`, `timeout` максимальный) повторно до статуса
+завершения. В headless тула нет вовсе - ожидание циклом `until` в `Bash` по файлу вывода задачи `<Task ID>.output` (Task ID - из
+текста старта `Workflow`); готовность - файл непуст и разбирается как JSON, пустым он заводится при старте. Таймаут цикла - повтор
+ходом; три повтора без готовности - `finish.sh TASK TRACK blocked «возврат Workflow не получен» <<< '{}'`. Закрыть ход «до
+уведомления» или `ScheduleWakeup` нельзя: в headless это обрывает прогон по потолку ожидания фоновых задач, и ledger остаётся без
+сдачи. Скрипт на диск не пишет: ledger заполняется до прогона и после.
 
 **Scenarios:**
 - Возврат `complete` - критерий «готово» исполнить самому (команда из `00-goal.md`; у ревью - статус каждой находки
@@ -69,11 +68,11 @@ boundary, mode, cwd, main_cwd, source, goal_path, resume, trail, open_findings, 
   вывод `ledger.sh ctx TASK TRACK`, разобранный как JSON; вывод команды пуст - поле не подаётся вовсе, и трек выводит его
   узлом заново. Ревью - повторный прогон без них.
 
-**Output:** `Исход:` цели первой строкой (`complete` | `blocked` | `partial`), затем `TASK`, путь ledger, ветка
-`auto/<TASK>`, судьба дерева (снято либо путь), для feature / bugfix `goal_check` возврата (сборка, тесты, коммит, `head`),
+**Output:** `Исход:` цели первой строкой (`complete` | `blocked` | `partial`), затем `TASK`, путь ledger, ветка `auto/<TASK>`,
+судьба дерева (снято либо путь), для feature / bugfix `goal_check` возврата (сборка, тесты, коммит, `head`),
 `review.push_recommended` с `push_blockers`, для bugfix ещё `repro.root_cause`; для ревью `verdict`, подтверждённые и снятые
-находки, покрытие, треды; счётчики петель, замены узлов из `degraded`, решения по открытым находкам, стоп-линии, на которые
-прогон вышел (push, деплой, миграция данных, необратимое удаление, запись в чужой MR без `--post`) - к оператору поимённо.
+находки, покрытие, треды; счётчики петель, замены узлов из `degraded`, решения по открытым находкам, стоп-линии, на которые прогон
+вышел (push, деплой, миграция данных, необратимое удаление, запись в чужой MR без `--post`) - к оператору поимённо.
 
 **Constraints:** работа только внутри `cwd` (дерева трека), `main_cwd` - на чтение; поля возврата брать из значения тула, не
 из пересказа; вопрос оператору в `autonomous` не задаётся - он превращается в `blocked` с нехваткой.
