@@ -45,7 +45,21 @@ case "$cmd" in
     done; exit 0 ;;
   get)  f="$(goal_file "$1")"; [ -f "$f" ] || exit 1; get_key "$f" "$2" ;;
   set)  f="$(goal_file "$1")"; [ -f "$f" ] || exit 1; set_key "$f" "$2" "$3" ;;
-  close) f="$(goal_file "$1")"; [ -f "$f" ] || exit 1; set_key "$f" "Исход" "${2:-complete}"; set_key "$f" "Статус" "закрыт" ;;
+  close) # close TASK ИСХОД -> Исход и Статус: закрыт; исход называет вызывающий
+    # Дефолта нет намеренно: подсказка «закрой цель» без исхода писала недоведённой цели complete (issue #250).
+    f="$(goal_file "$1")"; [ -f "$f" ] || exit 1
+    case "${2:-}" in complete|partial|blocked) ;; *) echo "ledger.sh close: нужен исход - complete|partial|blocked" >&2; exit 64 ;; esac
+    set_key "$f" "Исход" "$2"; set_key "$f" "Статус" "закрыт" ;;
+  open-tracks) # open-tracks TASK -> имена файлов треков со Статус: открыт (R5: в папке цели открыт максимум один)
+    d="$(root)/$(slug "$1")"; [ -d "$d" ] || exit 0
+    for f in "$d"/[0-9][0-9]-*.md; do
+      [ -f "$f" ] || continue
+      case "$(basename "$f")" in 00-goal.md) continue ;; esac
+      grep -q '^Статус: открыт$' "$f" && basename "$f"
+    done; exit 0 ;;
+  ctx) # ctx TASK TRACK -> строка продукта разведки последнего прогона (JSON); нет файла или раздела - пусто
+    f="$(root)/$(slug "$1")/01-${2%-delta}.md"; [ -f "$f" ] || exit 0
+    awk '/^### Контекст/{p=1;next} /^#/{p=0} p&&NF{last=$0} END{if (last != "") print last}' "$f" ;;
   trail) # trail TASK TRACK -> строки всех разделов "### Исполнители" файла трека; файла нет - пусто
     f="$(root)/$(slug "$1")/01-${2%-delta}.md"; [ -f "$f" ] || exit 0
     awk '/^### Исполнители/{p=1;next} /^#/{p=0} p&&NF' "$f" ;;
@@ -55,5 +69,5 @@ case "$cmd" in
     # правки на зелёном дереве. У trail накопление по всем прогонам намеренное - это перечень сделанного.
     f="$(root)/$(slug "$1")/01-${2%-delta}.md"; [ -f "$f" ] || exit 0
     awk '/^## Прогон /{b=""} /^### Открытые находки/{p=1;next} /^#/{p=0} p&&NF{b=b $0 "\n"} END{printf "%s", b}' "$f" ;;
-  *) echo "usage: ledger.sh root|dir TASK|open TASK [MODE]|find|get TASK KEY|set TASK KEY VALUE|close TASK [OUTCOME]|trail TASK TRACK|findings TASK TRACK" >&2; exit 64 ;;
+  *) echo "usage: ledger.sh root|dir TASK|open TASK [MODE]|find|get TASK KEY|set TASK KEY VALUE|close TASK OUTCOME|open-tracks TASK|trail TASK TRACK|findings TASK TRACK" >&2; exit 64 ;;
 esac

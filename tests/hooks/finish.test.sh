@@ -60,4 +60,24 @@ check "$("$L" get T-3 Нехватка)" "цель не подготовлена
 "$F" T-3 bugfix blocked <<< '{"where":"Fix#2"}' >/dev/null
 check "$("$L" get T-3 Нехватка)" "узел не вернул выход, шаг Fix#2" "finish: нет ни аргумента, ни .missing -> шаг where"
 check "$("$L" get T-3 Исход)" "blocked" "finish: blocked -> Исход blocked"
+
+"$L" open C-5 >/dev/null
+"$F" C-5 feature partial <<< '{"loops":{"fix":1},"ctx":{"stack":"ts","test_cmd":"npm test","requirements":["R1 поле"]}}' >/dev/null
+check "$("$L" ctx C-5 feature)" '{"stack":"ts","test_cmd":"npm test","requirements":["R1 поле"]}' "ctx: продукт разведки пишется и читается строкой JSON"
+"$F" C-5 feature partial <<< '{"loops":{"fix":2},"ctx":{"stack":"ts","test_cmd":"npm run t"}}' >/dev/null
+check "$("$L" ctx C-5 feature)" '{"stack":"ts","test_cmd":"npm run t"}' "ctx: читается разведка последнего прогона, не первого"
+"$F" C-5 feature partial <<< '{"loops":{"fix":3}}' >/dev/null
+check "$("$L" ctx C-5 feature)" '{"stack":"ts","test_cmd":"npm run t"}' "ctx: прогон без разведки прежнюю запись не затирает"
+check "$("$L" ctx C-5 review)" "" "ctx: другого трека нет -> пусто"
+"$L" open R-6 >/dev/null
+"$F" R-6 bugfix partial <<< '{"loops":{"fix":1},"repro":{"root_cause":"src/a.ts:10 null"}}' >/dev/null
+check "$("$L" ctx R-6 bugfix)" '{"root_cause":"src/a.ts:10 null"}' "ctx: bugfix отдаёт repro тем же разделом"
+check "$(grep -n '^### ' "$("$L" dir C-5)/01-feature.md" | tail -2 | cut -d: -f2 | tr '\n' ' ')" "### Контекст ### Решения " "ctx: раздел Контекст стоит перед Решениями - те дописываются в конец файла"
+
+"$L" open E-4 >/dev/null
+"$F" E-4 feature complete <<< '{}' >/dev/null 2>&1; check "$?" "65" "finish: complete на пустом возврате -> отказ 65"
+"$F" E-4 feature partial <<< '{"status":"partial"}' >/dev/null 2>&1; check "$?" "65" "finish: partial без loops и trail -> отказ 65"
+check "$("$L" get E-4 Исход)" "" "finish: отказ на пустом возврате не пишет исход цели"
+check "$(ls "$("$L" dir E-4)" | grep -c '^01-')" "0" "finish: отказ на пустом возврате не заводит файл трека"
+"$F" E-4 feature partial <<< '{"loops":{"fix":1}}' >/dev/null; check "$("$L" get E-4 Исход)" "partial" "finish: один loops без trail - прогон был, partial проходит"
 [ "$fail" = 0 ] && echo "finish.test.sh: $n проверок, все прошли" || { echo "finish.test.sh: есть провалы"; exit 1; }

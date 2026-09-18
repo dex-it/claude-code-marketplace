@@ -23,7 +23,7 @@
     "test:activation": "node tools/run-activation.js",
     "test:activation:agents": "node tools/run-activation.js --agents --model haiku",
     "metrics:propagation": "node tools/propagation-cost.js",
-    "test:hooks": "bash tests/hooks/ledger.test.sh && bash tests/hooks/finish.test.sh",
+    "test:hooks": "bash tests/hooks/ledger.test.sh && bash tests/hooks/finish.test.sh && bash tests/hooks/worktree.test.sh",
     "test:tracks": "node tests/tracks/run.mjs"
   },
   "devDependencies": {

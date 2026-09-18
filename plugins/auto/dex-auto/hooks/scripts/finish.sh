@@ -14,6 +14,12 @@ command -v jq >/dev/null 2>&1 || { echo "finish.sh: нужен jq - без не�
 IN="$(cat)"
 printf '%s' "$IN" | jq -e 'type == "object"' >/dev/null 2>&1 || { echo "finish.sh: stdin не JSON-объект, ничего не записано" >&2; exit 4; }
 "$L" get "$task" "Статус" >/dev/null 2>&1 || { echo "finish.sh: цель $task не заведена (нет 00-goal.md)" >&2; exit 1; }
+# Пустой возврат принимает только blocked: прогон без петель и без исполнителей ненаблюдаем, а
+# complete и partial по нему записывали цели сделанный исход разделами, в которых ничего нет.
+case "$outcome" in complete|partial)
+  printf '%s' "$IN" | jq -e '((.trail // []) | length) > 0 or ((.loops // {}) | length) > 0' >/dev/null 2>&1 || {
+    echo "finish.sh: в возврате нет ни loops, ни trail - прогона не было, исход $outcome сдавать нечем; пустой возврат сдаётся как blocked" >&2; exit 65; } ;;
+esac
 j() { printf '%s' "$IN" | jq -r "$1"; }
 
 f="$("$L" dir "$task")/01-${track%-delta}.md"
@@ -33,6 +39,11 @@ fi
   j '(.open_findings // []) | .[] | "- [\(.severity)] \(.anchor): \(.text)"'
   j '(.confirmed // []) | .[] | "- [\(.severity)] \(.anchor): \(.text) (закрытие: \(.closure))"'
   j '(.unpublished // []) | .[] | "- не опубликовано \(.anchor): \(.reason)"'
+  # Продукт разведки (feature - ctx, bugfix - repro) переживает прогон: без него возобновление
+  # заново покупает Explore/debugger и выводит номера R другим узлом, а находки прошлого прогона
+  # ссылаются на прежние. Раздел идёт до «Решения»: тот пополняется дописыванием в конец файла.
+  printf '\n### Контекст\n'
+  j 'if (.ctx // .repro) then ((.ctx // .repro) | tojson) else empty end'
   printf '\n### Решения\n'
   j '(.decisions // []) | .[] | "- " + tostring'
   j '(.degraded // []) | .[] | "- узел заменён: " + tostring'
