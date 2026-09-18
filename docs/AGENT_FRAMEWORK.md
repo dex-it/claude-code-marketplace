@@ -10,7 +10,7 @@
 4. Mandatory-фазы помечай явно.
 5. Hard gate'ы - между критичными переходами (Isolate -> Fix).
 6. В `tools:` добавь `Skill`; в теле фаз - какие skills грузить условно.
-7. `node tools/validate-agent.js <path>` -> 0 ошибок.
+7. `node tools/validate-agent.js <path>` и `node tools/validate-node-contract.js <path>` (написание имён полей словаря `node-contract`) -> 0 ошибок.
 
 ## Глоссарий
 
@@ -988,7 +988,7 @@ Reproduce -> Isolate -> Fix -> Verify. Reproduce и Verify обязательн�
 
 ## Self-check перед коммитом
 
-Часть пунктов проверяет `node tools/validate-agent.js <path>` (frontmatter, фазы, factcheck-cascade, слипшиеся атрибуты, присутствие `Input (handoff)` и `Output (handoff)` в теле). Валидатор судит наличие атрибутов, не их содержание: полнота словаря полей, реакция на неполный вход и фаза, в которой атрибут стоит, остаются ручной сверкой.
+Часть пунктов проверяет `node tools/validate-agent.js <path>` (frontmatter, фазы, factcheck-cascade, слипшиеся атрибуты, присутствие `Input (handoff)` и `Output (handoff)` в теле), написание имён полей стыка - `node tools/validate-node-contract.js <path>`. Валидатор судит наличие атрибутов, не их содержание: полнота словаря полей, реакция на неполный вход и фаза, в которой атрибут стоит, остаются ручной сверкой.
 
 - [ ] Frontmatter: `name`, `description` (роль + области + триггеры-симптомы; > 500 - warning, > 750 - error), `tools` (с `Skill`)
 - [ ] Frontmatter: `skills:` - только безусловный process-skill в форме `{plugin}:{skill}` (узел: `dex-skill-node-contract:node-contract`); условные trap-skill грузятся императивно в фазах, не сюда
