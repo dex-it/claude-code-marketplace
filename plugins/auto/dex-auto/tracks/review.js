@@ -18,7 +18,7 @@ const HEAD = `mode: ${A.mode || 'autonomous'}\nцель (${A.task}): ревью 
 
 const STATUS = { type: 'string', enum: ['complete', 'blocked', 'partial'] }
 const FINDING = { type: 'object', properties: {
-  anchor: { type: 'string', description: 'file:line' }, severity: { type: 'string', enum: ['P0', 'P1', 'P2', 'P3'] },
+  anchor: { type: 'string', description: 'file:line' }, severity: { type: 'string', enum: ['P0', 'P1', 'P2', 'P3'], description: 'уровень словаря node-contract: P0 = CRITICAL, P1 = HIGH, P2 = MEDIUM, P3 = LOW' },
   axis: { type: 'string', enum: ['security', 'architecture', 'language', 'business', 'regressions', 'performance', 'coverage', 'non-code'] },
   text: { type: 'string' }, closure: { type: 'string', description: 'критерий закрытия' }, evidence: { type: 'string' },
 }, required: ['anchor', 'severity', 'axis', 'text', 'closure', 'evidence'] }

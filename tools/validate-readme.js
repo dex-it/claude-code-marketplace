@@ -128,6 +128,11 @@ for (const p of plugins) {
   const skillsDir = join(REPO_ROOT, p.source, 'skills');
   if (!existsSync(skillsDir)) continue;
   for (const entry of readdirSync(skillsDir, { withFileTypes: true })) {
+    // Symlink под деревом не проходится - тот же отказ, что у остальных валидаторов.
+    if (entry.isSymbolicLink()) {
+      console.error(`Not a regular file or directory (symlinks and special files are not followed): ${join(p.source, 'skills', entry.name)}`);
+      process.exit(1);
+    }
     if (!entry.isDirectory()) continue;
     if (!existsSync(join(skillsDir, entry.name, 'SKILL.md'))) continue;
     if (!skillOwners.has(entry.name)) skillOwners.set(entry.name, p.name);

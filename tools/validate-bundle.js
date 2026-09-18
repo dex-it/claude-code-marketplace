@@ -48,7 +48,7 @@
  *   1 - at least one error found
  */
 
-import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync, lstatSync, existsSync } from 'node:fs';
 import { join, relative, resolve, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -59,6 +59,17 @@ const __dirname = dirname(__filename);
 const REPO_ROOT = process.env.MARKETPLACE_ROOT
   ? resolve(process.env.MARKETPLACE_ROOT)
   : resolve(__dirname, '..');
+
+// Обход дерева не проходит по symlink и спецфайлам: цикл ссылок ронял прогон стектрейсом ELOOP, FIFO вешал
+// чтение, а ссылка наружу судила чужой файл как свой. Такой узел - отказ с кодом 1, а не тихий пропуск.
+function statPlain(full) {
+  const stat = lstatSync(full);
+  if (stat.isSymbolicLink() || !(stat.isFile() || stat.isDirectory())) {
+    console.error(`Not a regular file or directory (symlinks and special files are not followed): ${relative(REPO_ROOT, full)}`);
+    process.exit(1);
+  }
+  return stat;
+}
 const BUNDLES_DIR = join(REPO_ROOT, 'plugins', 'bundles');
 const SPECIALISTS_DIR = join(REPO_ROOT, 'plugins', 'specialists');
 const MARKETPLACE_JSON = join(REPO_ROOT, '.claude-plugin', 'marketplace.json');
@@ -194,7 +205,7 @@ function buildAgentSkillMap(allPluginsInRepo) {
     if (!existsSync(dir)) return;
     for (const entry of readdirSync(dir)) {
       const full = join(dir, entry);
-      const stat = statSync(full);
+      const stat = statPlain(full);
       if (stat.isDirectory()) walk(full);
       else if (entry.endsWith('.md') && full.includes('/agents/')) {
         // plugins/specialists/<group>/<plugin>/agents/<agent>.md
@@ -222,7 +233,7 @@ function buildSpecialistPluginsInRepo() {
     if (!existsSync(dir)) return;
     for (const entry of readdirSync(dir)) {
       const full = join(dir, entry);
-      if (statSync(full).isDirectory()) {
+      if (statPlain(full).isDirectory()) {
         walk(full);
       } else if (full.endsWith('/.claude-plugin/plugin.json')) {
         // Под plugins/specialists/ лежат и плагины команд без агента - у них категория utility.
@@ -251,7 +262,7 @@ function buildSkillAgentMap(allPluginsInRepo) {
     if (!existsSync(dir)) return;
     for (const entry of readdirSync(dir)) {
       const full = join(dir, entry);
-      if (statSync(full).isDirectory()) {
+      if (statPlain(full).isDirectory()) {
         walk(full);
       } else if (entry.endsWith('.md') && full.includes('/skills/')) {
         // Тело скилла - это `SKILL.md` и его `references/`: норму, поднятую референсом, исполнитель
@@ -297,7 +308,7 @@ function buildCommandRefMap(skillPluginsInRepo, specialistPluginsInRepo) {
     if (!existsSync(dir)) return;
     for (const entry of readdirSync(dir)) {
       const full = join(dir, entry);
-      if (statSync(full).isDirectory()) {
+      if (statPlain(full).isDirectory()) {
         walk(full);
         continue;
       }
@@ -546,8 +557,8 @@ function validateVersionSync(marketplaceVersions, marketplaceDescriptions, marke
   const walk = (dir) => {
     if (!existsSync(dir)) return;
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue;
       const full = join(dir, entry.name);
+      if (!statPlain(full).isDirectory()) continue;
       const pluginJson = join(full, '.claude-plugin', 'plugin.json');
       if (existsSync(pluginJson)) {
         if (!only || resolve(full) === resolve(only)) {
@@ -676,7 +687,7 @@ function buildSkillPluginsInRepo() {
     if (!existsSync(dir)) return;
     for (const entry of readdirSync(dir)) {
       const full = join(dir, entry);
-      if (statSync(full).isDirectory()) {
+      if (statPlain(full).isDirectory()) {
         walk(full);
       } else if (entry === 'SKILL.md') {
         // <plugin>/skills/<name>/SKILL.md -> <plugin>/.claude-plugin/plugin.json
@@ -703,7 +714,7 @@ function buildAllPluginsInRepo() {
     if (!existsSync(dir)) return;
     for (const entry of readdirSync(dir)) {
       const full = join(dir, entry);
-      if (statSync(full).isDirectory()) {
+      if (statPlain(full).isDirectory()) {
         walk(full);
       } else if (full.endsWith('/.claude-plugin/plugin.json')) {
         try {

@@ -19,6 +19,9 @@ async function runTrack(track, args, responses, unavailable = []) {
     if (!(opts.label in responses)) throw new Error(`сценарий не задал ответ на label "${opts.label}"`)
     const r = responses[opts.label]
     const value = typeof r === 'function' ? r(calls.filter(c => c.label === opts.label).length, prompt) : r
+    // Рантайм Workflow отдаёт только объект, прошедший схему: мок без обязательного поля - дрейф сценария, а не выход узла.
+    const missingKeys = value && opts.schema && opts.schema.required ? opts.schema.required.filter(k => !(k in value)) : []
+    if (missingKeys.length) throw new Error(`ответ на label "${opts.label}" без полей схемы: ${missingKeys.join(', ')}`)
     return value === undefined ? null : value
   }
   const parallel = (fns) => Promise.all(fns.map(f => f()))
@@ -28,15 +31,15 @@ async function runTrack(track, args, responses, unavailable = []) {
   return { result, calls }
 }
 
-const green = { status: 'complete', exit_code: 0, pass_count: 9, fail_count: 0, failing: [], build_ok: true, head: 'abc feat', dirty: false }
+const green = { status: 'complete', exit_code: 0, pass_count: 9, fail_count: 0, failing: [], build_ok: true, head: 'abc feat', dirty: false, missing: '' }
 const red = { ...green, exit_code: 1, fail_count: 2, failing: ['T1', 'T2'], head: 'abc wip' }
 const dirty = { ...green, dirty: true }
 const ctxOk = { status: 'complete', stack: 'dotnet', requirements: ['R1 ...'], files: ['src/A.cs'], test_cmd: 'dotnet test', build_cmd: 'dotnet build', corpus: 'docs/', missing: '' }
-const reproOk = { status: 'complete', stack: 'ts', root_cause: 'src/a.ts:10 неверный ключ', reproduction: 'тест T1: красный', expected_basis: 'тест', fix_proposal: 'править ключ', files: ['src/a.ts'], test_cmd: 'npm test', build_cmd: 'tsc', missing: '' }
-const fixOk = { status: 'complete', changed_files: ['src/A.cs'], commit: 'abc123', red_run: 'T1 красный до, зелёный после', decisions: ['выбран A'], missing: '' }
-const revClean = { status: 'complete', findings: [], run_status: 'build ok, tests 9/9', push_recommended: true, push_blockers: '' }
-const revP1 = { status: 'complete', findings: [{ severity: 'P1', anchor: 'src/A.cs:8', text: 'ретрай не различает случаи' }], run_status: 'build ok', push_recommended: false, push_blockers: 'открыта P1' }
-const revP2 = { status: 'complete', findings: [{ severity: 'P2', anchor: 'src/A.cs:9', text: 'имя переменной' }], run_status: 'build ok', push_recommended: true, push_blockers: '' }
+const reproOk = { status: 'complete', stack: 'ts', root_cause: 'src/a.ts:10 неверный ключ', reproduction: 'тест T1: красный', 'expected-basis': 'тест', fix_proposal: 'править ключ', files: ['src/a.ts'], test_cmd: 'npm test', build_cmd: 'tsc', missing: '' }
+const fixOk = { status: 'complete', 'diff-scope': ['src/A.cs'], commit: 'abc123', 'run-status': 'build ok, tests 9/9', 'red-run': 'T1 красный до, зелёный после', uncovered: 'нет', 'fact-check': 'n/a (триггер не сработал)', decisions: ['выбран A'], missing: '' }
+const revClean = { status: 'complete', findings: [], 'run-status': 'build ok, tests 9/9', 'red-run': 'T1 действует', 'fact-check': 'n/a (триггер не сработал)', intent: 'соответствует', push_recommended: true, push_blockers: '', missing: '' }
+const revP1 = { status: 'complete', findings: [{ severity: 'P1', anchor: 'src/A.cs:8', text: 'ретрай не различает случаи', closure: 'случаи различены тестом' }], 'run-status': 'build ok', 'red-run': 'T1 действует', 'fact-check': 'n/a (триггер не сработал)', intent: 'соответствует', push_recommended: false, push_blockers: 'открыта P1', missing: '' }
+const revP2 = { status: 'complete', findings: [{ severity: 'P2', anchor: 'src/A.cs:9', text: 'имя переменной', closure: 'переименовано' }], 'run-status': 'build ok', 'red-run': 'T1 действует', 'fact-check': 'n/a (триггер не сработал)', intent: 'соответствует', push_recommended: true, push_blockers: '', missing: '' }
 const verBlocked = { status: 'blocked', exit_code: -1, pass_count: 0, fail_count: 0, failing: [], build_ok: false, head: '', dirty: false, missing: 'нет прав на запуск dotnet test' }
 const ctxMr = { status: 'complete', platform: 'github', base_sha: 'aaa', head_sha: 'bbb', files: ['api/user.ts'], security_surface: true, security_basis: 'diff трогает auth', intent: 'issue #12', missing: '' }
 const mrFinding = { anchor: 'api/user.ts:41', severity: 'P1', axis: 'security', text: 'токен в логе', closure: 'убрать поле', evidence: 'logger.info(ctx)' }
@@ -52,6 +55,57 @@ const promptOf = (calls, label) => (calls.find(c => c.label === label) || {}).pr
 const typeOf = (calls, label) => (calls.find(c => c.label === label) || {}).agentType
 
 const SCENARIOS = [
+  { name: 'F22 повторное ревью не вернуло выход -> P1 первого ревью остаются открытыми', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revP1, 'fix:after-review': fixOk, 'verify:после саморевью': green, 'self-review:повторное': null },
+    expect: ({ result }) => [
+      ['статус partial', result.status === 'partial'],
+      ['находка первого ревью в open_findings', result.open_findings.some(f => f.anchor === 'src/A.cs:8')],
+    ] },
+  { name: 'F23 ревью без P0/P1, но push не рекомендован -> partial с причиной', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': { ...revClean, push_recommended: false, push_blockers: 'нет гейта сборки в CI' } },
+    expect: ({ result }) => [
+      ['статус partial', result.status === 'partial'],
+      ['where несёт push_blockers', /нет гейта сборки в CI/.test(result.where)],
+    ] },
+  { name: 'F24 кодер каталога оборвался -> замена получает причину и сверяет сделанное', track: 'feature', args: featureArgs,
+    unavailable: ['dex-dotnet-coder:dotnet-coder'],
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ calls }) => [
+      ['промпт замены называет обрыв', calls.filter(c => c.label === 'fix:1').pop().prompt.includes('оборвался ошибкой: agent type not found')],
+      ['промпт замены велит сверить git log', calls.filter(c => c.label === 'fix:1').pop().prompt.includes('сверь git log')],
+    ] },
+  { name: 'B12 воспроизведение partial (эталон реконструирован) -> partial трека', track: 'bugfix', args: bugfixArgs,
+    responses: { 'reproduce': { ...reproOk, status: 'partial', 'expected-basis': 'реконструирован, не подтверждён', missing: 'эталон не подтверждён постановщиком' }, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result }) => [
+      ['статус partial', result.status === 'partial'],
+      ['where называет воспроизведение', /воспроизведение partial: эталон не подтверждён/.test(result.where)],
+    ] },
+  { name: 'B13 повторное ревью blocked -> P1 первого ревью остаются открытыми', track: 'bugfix', args: bugfixArgs,
+    responses: { 'reproduce': reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revP1, 'fix:after-review': fixOk, 'verify:после саморевью': green, 'self-review:повторное': { ...revClean, status: 'blocked', missing: 'нет доступа' } },
+    expect: ({ result }) => [
+      ['статус partial', result.status === 'partial'],
+      ['находка первого ревью в open_findings', result.open_findings.some(f => f.anchor === 'src/A.cs:8')],
+    ] },
+  { name: 'F20 кодер вернул partial при зелёной верификации и чистом ревью -> partial с его нехваткой', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': { ...fixOk, status: 'partial', 'run-status': 'unverifiable: нет прав на dotnet restore', missing: 'прогон не выполнен' }, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result }) => [
+      ['статус partial', result.status === 'partial'],
+      ['where называет исход кодера', /кодер вернул partial: прогон не выполнен/.test(result.where)],
+    ] },
+  { name: 'F21 саморевьюер получает red-run и uncovered кодера', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': { ...fixOk, uncovered: 'ветка таймаута' }, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['статус complete', result.status === 'complete'],
+      ['red-run во входе ревью', promptOf(calls, 'self-review:первое').includes('red-run: T1 красный до, зелёный после')],
+      ['uncovered во входе ревью', promptOf(calls, 'self-review:первое').includes('uncovered: ветка таймаута')],
+    ] },
+  { name: 'B11 fact-check кодера contradicted -> partial', track: 'bugfix', args: bugfixArgs,
+    responses: { 'reproduce': reproOk, 'fix:1': { ...fixOk, 'fact-check': 'contradicted: сигнатура retry другая' }, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['статус partial', result.status === 'partial'],
+      ['where называет сверку', /fact-check кодера: contradicted/.test(result.where)],
+      ['red-run во входе ревью', promptOf(calls, 'self-review:первое').includes('red-run: ')],
+    ] },
   { name: 'F1 happy: контекст -> правка -> зелёная верификация -> чистое саморевью', track: 'feature', args: featureArgs,
     responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
     expect: ({ result, calls }) => [
