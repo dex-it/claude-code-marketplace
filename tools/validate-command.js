@@ -446,7 +446,7 @@ function mentionsTarget(text, target, slashBefore) {
 // Авторские плагины: их артефакты исполняются в клоне каталога, где `docs/` лежит рядом, поэтому
 // адрес у них разрешается и правило к ним не применяется. Читается `authorOnly[]`, а не весь состав
 // бандла автора: в состав попадают и плагины замыкания (`dependencies[]`: `artifact-review` грузит
-// `fact-verification` и `optimize-for-llm`), а они едут пользователю в бандлах ролей, где `docs/`
+// `fact-verification`, `norm-writing` и `optimize-for-llm`), а они едут пользователю в бандлах ролей, где `docs/`
 // каталога нет. Разъезд списка с составами бандлов ловит `validate-bundle.js` (`author-only-*`).
 const AUTHOR_BUNDLE_JSON = 'plugins/bundles/dex-bundle-market-editor/bundle.json';
 let authorPluginsCache = null;
