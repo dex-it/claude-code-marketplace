@@ -192,6 +192,7 @@ const PROCESS_SKILLS = new Set([
   'idea-forming',
   'project-rulebook',
   'defect-classification',
+  'norm-writing',
 ]);
 
 // Имена, существующие только в фикстурах `tools/__fixtures__`. В продовые перечни не
@@ -518,9 +519,10 @@ function mentionsTarget(text, target, slashBefore) {
 
 // Авторские плагины: их артефакты исполняются в клоне каталога, где `docs/` лежит рядом, поэтому
 // адрес у них разрешается и правило к ним не применяется. Читается `authorOnly[]`, а не весь состав
-// бандла автора: в состав попадают и плагины замыкания (`dependencies[]`: `artifact-review` грузит
-// `fact-verification` и `optimize-for-llm`), а они едут пользователю в бандлах ролей, где `docs/`
-// каталога нет. Разъезд списка с составами бандлов ловит `validate-bundle.js` (`author-only-*`).
+// бандла автора (`includes[]` плюс `dependencies[]`): в составе стоят и плагины, которые едут
+// пользователю бандлами ролей, где `docs/` каталога нет, - исключение даёт только запись в
+// `authorOnly[]`, а не место записи в одном из двух списков. Разъезд `authorOnly[]` с составами
+// бандлов ловит `validate-bundle.js` (`author-only-*`).
 const AUTHOR_BUNDLE_JSON = 'plugins/bundles/dex-bundle-market-editor/bundle.json';
 let authorPluginsCache = null;
 function authorPlugins() {
