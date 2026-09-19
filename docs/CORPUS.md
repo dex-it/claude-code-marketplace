@@ -103,7 +103,7 @@
 ## 5. Зона -> артефакт -> оракул
 
 Судья артефакта - никогда его автор. Реестр «тип артефакта -> оракул» с указанием судьи -
-`dex-skill-node-contract:node-contract`, `references/quality-and-review.md` п.1; здесь - только
+`dex-skill-node-contract:node-contract`, `references/quality-mark.md`; здесь - только
 маршрутная сводка.
 
 | Зона (команда) | Артефакт на диске | Оракул типа |
