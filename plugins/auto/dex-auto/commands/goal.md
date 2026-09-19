@@ -33,7 +33,7 @@ argument-hint: "[TASK] <ключ тикета | owner/repo#N | URL | путь | 
    (headless, `AskUserQuestion` недоступен) - вместо вопроса строка «допущение: ...» в разделе.
 4. Цель с таким `TASK` уже есть (открыта или закрыта) - показать её разделы и остановиться, не
    перезаписывать. Иначе
-   `ledger.sh open TASK interactive`, разделы прозой в `00-goal.md`, `ledger.sh set TASK Ожидает
+   `ledger.py open TASK interactive`, разделы прозой в `00-goal.md`, `ledger.py set TASK Ожидает
    оператор`.
 
 **Форма разделов.**
@@ -50,5 +50,5 @@ argument-hint: "[TASK] <ключ тикета | owner/repo#N | URL | путь | 
 **Output:** путь `00-goal.md`; четыре раздела как записаны; перечень допущений и ответов оператора;
 строка запуска `/dex-auto:auto TASK` - с `--interactive`, если допущения остались.
 
-**Constraints:** машинные строки `00-goal.md` пишет только `ledger.sh`; код и тесты не менять; трек
+**Constraints:** машинные строки `00-goal.md` пишет только `ledger.py`; код и тесты не менять; трек
 не запускать; в трекер и MR не писать.
