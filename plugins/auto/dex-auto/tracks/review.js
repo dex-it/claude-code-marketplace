@@ -14,7 +14,7 @@ export const meta = {
 
 const A = args || {}
 const DELTA = !!A.last_review_sha
-const HEAD = `mode: ${A.mode || 'autonomous'}\nцель (${A.task}): ревью ${A.mr}${DELTA ? ` - ревизия дельты от ${A.last_review_sha}` : ''}.\nread-only: код не менять, тесты не писать, в MR ничего не публиковать - публикует отдельный узел по санкции.\nРаботай из ${A.cwd}: это отдельное detached git worktree трека - ревизии в нём переключай свободно (git fetch нужной ссылки и git checkout --detach <sha>), рабочего дерева сессии это не трогает. Веток не создавай, код не меняй, коммитов не делай. Оператора нет: невыводимое верни status: blocked с полем нехватки; неясность намерения по diff - вопрос автору в перечне, не оператору.\n`
+const HEAD = `mode: ${A.mode || 'autonomous'}\nцель (${A.task}): ревью ${A.mr}${DELTA ? ` - ревизия дельты от ${A.last_review_sha}` : ''}.\nread-only: код не менять, тесты не писать, в MR ничего не публиковать - публикует отдельный узел по санкции.\nРаботай из ${A.cwd}: это отдельное detached git worktree трека - ревизии в нём переключай свободно, рабочего дерева сессии это не трогает. Запуск вне дерева отбивает хук: каждая команда Bash называет дерево и не называет каталог сессии, включая канал хостинга - git -C ${A.cwd} fetch <ссылка>, git -C ${A.cwd} checkout --detach <sha>, cd ${A.cwd} && gh pr diff <N>. Веток не создавай, код не меняй, коммитов не делай. Оператора нет: невыводимое верни status: blocked с полем нехватки; неясность намерения по diff - вопрос автору в перечне, не оператору.\n`
 
 const STATUS = { type: 'string', enum: ['complete', 'blocked', 'partial'] }
 const FINDING = { type: 'object', properties: {

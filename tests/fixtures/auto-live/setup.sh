@@ -37,7 +37,7 @@ if [ -f "$src/origin-blocked" ]; then
   git -C "$dest" remote add origin "$origin"
 fi
 
-# Та же формула слага, что в hooks/scripts/ledger.sh: символ вне [A-Za-z0-9-] -> "-".
+# Та же формула слага, что в hooks/scripts/ledger.py: символ вне [A-Za-z0-9-] -> "-".
 slug=$(printf '%s' "$dest" | sed 's/[^A-Za-z0-9-]/-/g')
 ledger="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects/$slug/ledger/$task"
 mkdir -p "$ledger"

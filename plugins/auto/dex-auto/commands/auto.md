@@ -24,7 +24,7 @@ argument-hint: "[bugfix|feature TASK цель... | TASK | review MR] [продо
 - `--interactive` - режим с каналом к оператору, дефолт `autonomous`. Критерий или граница не выводятся из входа и корпуса
   проекта: в `autonomous` - `set TASK Исход blocked` и `Нехватка <текст>` до первого узла; в `interactive` - `set TASK Ожидает оператор`, вопрос, по ответу `set TASK Ожидает ""`.
 
-**Ledger.** Пишут только скрипты `${CLAUDE_PLUGIN_ROOT}/hooks/scripts/`: `ledger.sh open|set|get|open-tracks|trail|findings TASK
+**Ledger.** Пишут только скрипты `${CLAUDE_PLUGIN_ROOT}/hooks/scripts/`: `ledger.py open|set|get|open-tracks|trail|findings TASK
 ...` и `finish.sh TASK TRACK ИСХОД [НЕХВАТКА] < возврат.json`. Ветка, на которой `Workflow` не запускался, сдаётся только через
 `set`: `finish.sh` без возврата узла не вызывается. Разделы файла трека `01-<трек>.md` пишет `finish.sh` по возврату (`### Открытые
 находки` - из `open_findings`, у ревью из `confirmed` и `unpublished`); главный поток дописывает в `### Решения` по строке на
@@ -36,11 +36,12 @@ Stop ход не держит. TRACK - `feature` | `bugfix` | `review` | `review
 трека - второй трек не запускается (R5: в папке цели открыт максимум один): `set TASK Исход blocked`, `set TASK Нехватка «открыт
 трек <файл>: продолжить его либо сдать исход»`.
 
-**Дерево.** Трек работает только в своём: `worktree.sh path TASK` (ревью - `path TASK --detach`) даёт путь `<repo>-<TASK>` на ветке
+**Дерево.** Трек работает только в своём: `worktree.py path TASK` (ревью - `path TASK --detach`) даёт путь `<repo>-<TASK>` на ветке
 `auto/<TASK>` в `args.cwd`; каталог сессии - в `args.main_cwd`, только на чтение. Ненулевой код скрипта - `set TASK Исход blocked`,
-`set TASK Нехватка <stderr>`, `Workflow` не запускается. `ledger.sh` и `finish.sh` зовутся из каталога сессии, не из дерева трека:
-адрес ledger считается от cwd. После сдачи - `complete`: `worktree.sh drop TASK` (ветка с коммитами остаётся, push делает оператор);
-`partial` и `blocked`: дерево под возобновление; `drop` отказал - путь и причина в Output.
+`set TASK Нехватка <stderr>`, `Workflow` не запускается. `ledger.py` и `finish.sh` зовутся из каталога сессии, не из дерева трека:
+адрес ledger считается от cwd. После сдачи - `complete`: `worktree.py drop TASK` (ветка с коммитами остаётся, push делает оператор);
+`partial` и `blocked`: дерево под возобновление; `drop` отказал - путь и причина в Output. Изоляция принуждается хуком: `PreToolUse`-сторож отбивает правку и запуск узла трека (`agent_type` `workflow-subagent`), если путь ведёт вне дерева
+открытой цели либо команда дерева не называет или называет общее дерево сессии. Прочие субагенты и главный поток не сторожатся - `ledger.py` и `finish.sh` зовутся из каталога сессии.
 
 **Прогон.** `Workflow` со `scriptPath` `${CLAUDE_PLUGIN_ROOT}/tracks/<трек>.js`; `args`: feature - `{task, goal, done, boundary,
 mode, cwd, main_cwd, source, goal_path, resume, trail, open_findings, ctx}`; bugfix - то же, но вместо `goal` - `symptom, expected,
@@ -61,12 +62,12 @@ env`, и вместо `ctx` - `repro` (симптом - фраза цели, о�
   `questions`) и отдельно по причине `where` строка в `### Решения`: `<anchor>: отложено` с владельцем и местом записи либо
   `<anchor>: блокирует` с названием нехватки; при `блокирует` - `set TASK Исход blocked` и `set TASK Нехватка <текст>`.
   Находка без своей строки решения - шаг не выполнен, а не «решения не требуется». Цель остаётся открытой.
-- Возврат `blocked` - `finish.sh TASK TRACK blocked` (нехватку скрипт берёт из `missing`, иначе шаг `where`); возврат `null`
-  - `finish.sh TASK TRACK blocked "узел не вернул выход" <<< '{}'`.
-- Аргумент `продолжить` - `Read` `00-goal.md` и файла трека; тот же скрипт с теми же `args` плюс `resume: true`, `trail` -
-  вывод `ledger.sh trail TASK TRACK`, `open_findings` - вывод `ledger.sh findings TASK TRACK`, `ctx` (bugfix - `repro`) -
-  вывод `ledger.sh ctx TASK TRACK`, разобранный как JSON; вывод команды пуст - поле не подаётся вовсе, и трек выводит его
-  узлом заново. Ревью - повторный прогон без них.
+- Возврат `blocked` - `finish.sh TASK TRACK blocked` (нехватку скрипт берёт из `missing`, иначе шаг `where`); возврат `null` - `finish.sh TASK TRACK blocked "узел не вернул выход" <<< '{}'`.
+- Аргумент `продолжить` при открытом файле трека - `Read` `00-goal.md` и файла трека; тот же скрипт с теми же `args` плюс `resume: true`
+  и поля из `ledger.py trail|findings|ctx TASK TRACK`: `trail`, `open_findings`, `ctx` (bugfix - `repro`, разбирается как JSON); вывод
+  пуст - поле не подаётся вовсе, и трек выводит его узлом заново. Ревью - повторный прогон без них. Файла трека нет - возобновлять нечего:
+  `resume` и его поля не подаются, прогон идёт как первый, и это строка в `### Решения` (`продолжить без трека: прогона по цели не было`);
+  `resume: true` без `trail` пустил бы трек мимо фазы правки по зелёной верификации.
 
 **Output:** `Исход:` цели первой строкой (`complete` | `blocked` | `partial`), затем `TASK`, путь ledger, ветка `auto/<TASK>`,
 судьба дерева (снято либо путь), для feature / bugfix `goal_check` возврата (сборка, тесты, коммит, `head`),

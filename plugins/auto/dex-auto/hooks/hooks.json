@@ -1,12 +1,24 @@
 {
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "^(Write|Edit|MultiEdit|NotebookEdit|Bash)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/run-hook.sh\" tree-guard",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "matcher": "startup|resume|compact",
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/session-start.sh\"",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/run-hook.sh\" session-start",
             "timeout": 10
           }
         ]
@@ -17,7 +29,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/stop-guard.sh\"",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/run-hook.sh\" stop-guard",
             "timeout": 10
           }
         ]

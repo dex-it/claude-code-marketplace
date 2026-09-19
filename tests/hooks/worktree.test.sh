@@ -2,7 +2,7 @@
 # Регрессия изолированного дерева трека (issue #252): дерево-сосед, ветка auto/<TASK>, снятие без потери работы.
 set -u
 H="$(cd "$(dirname "$0")/../.." && pwd)/plugins/auto/dex-auto/hooks/scripts"
-W="$H/worktree.sh"
+W="$H/worktree.py"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 fail=0; n=0
 check() { n=$((n+1)); if [ "$1" = "$2" ]; then echo "ok $n - $3"; else echo "FAIL $n - $3: ожидалось [$2], получено [$1]"; fail=1; fi; }
@@ -44,8 +44,15 @@ p4="$("$W" path PROJ-2 --detach 2>/dev/null)"; rc=$?
 check "$rc" "0" "path: снятое руками дерево не блокирует (prune)"
 check "$p4" "$p3" "path: путь тот же"
 
+check "$("$W" where PROJ-7)" "$(dirname "$R")/$(basename "$R")-PROJ-7" "where: путь несуществующего дерева, ничего не создавая"
+check "$([ -e "$(dirname "$R")/$(basename "$R")-PROJ-7" ] && echo есть || echo нет)" "нет" "where: дерева не завёл"
+check "$("$W" main)" "$R" "main: корень основной рабочей копии"
+check "$(cd "$p4" && DEX_AUTO_CWD="$p4" "$W" main)" "$R" "main: из дерева трека тот же корень"
+
 export DEX_AUTO_CWD="$T"
 "$W" path PROJ-9 >/dev/null 2>&1; check "$?" "1" "path: вне git-репозитория - ненулевой код"
 check "$([ -e "$T/$(basename "$T")-PROJ-9" ] && echo есть || echo нет)" "нет" "path: вне git ничего не создано"
+"$W" where PROJ-9 >/dev/null 2>&1; check "$?" "1" "where: вне git-репозитория - ненулевой код"
+"$W" main >/dev/null 2>&1; check "$?" "1" "main: вне git-репозитория - ненулевой код"
 
 [ "$fail" = 0 ] && echo "worktree.test.sh: $n проверок, все прошли" || { echo "worktree.test.sh: есть провалы"; exit 1; }

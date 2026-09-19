@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Регрессия finish.sh и ledger.sh trail: возврат Workflow -> файл трека и машинные строки цели.
+# Регрессия finish.sh и ledger.py trail: возврат Workflow -> файл трека и машинные строки цели.
 set -u
 H="$(cd "$(dirname "$0")/../.." && pwd)/plugins/auto/dex-auto/hooks/scripts"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 export CLAUDE_CONFIG_DIR="$T/cfg"; export DEX_AUTO_CWD="/home/u/Work/proj"
 fail=0; n=0
 check() { n=$((n+1)); if [ "$1" = "$2" ]; then echo "ok $n - $3"; else echo "FAIL $n - $3: ожидалось [$2], получено [$1]"; fail=1; fi; }
-L="$H/ledger.sh"; F="$H/finish.sh"
+L="$H/ledger.py"; F="$H/finish.sh"
 DEV='{"status":"complete","loops":{"fix":1,"review":2,"review_fix":1},"trail":[{"step":1,"doer":"Explore","status":"complete"},{"step":2,"attempt":1,"doer":"dex-ts-fullstack-coder:ts-fullstack-assistant","status":"complete"}],"degraded":["верификатор: general-purpose"],"decisions":["R3: выбран split по дефису"],"missing":""}'
 REV='{"status":"partial","where":"часть тредов не опубликована","loops":{"review":1,"falsify":1},"trail":[{"step":2,"doer":"dex-mr-reviewer:mr-reviewer"}],"degraded":[],"dropped":[{"anchor":"src/a.ts:10","reason":"закрыто коммитом abc"}],"questions":["зачем retry 5?"]}'
 
@@ -80,4 +80,14 @@ check "$(grep -n '^### ' "$("$L" dir C-5)/01-feature.md" | tail -2 | cut -d: -f2
 check "$("$L" get E-4 Исход)" "" "finish: отказ на пустом возврате не пишет исход цели"
 check "$(ls "$("$L" dir E-4)" | grep -c '^01-')" "0" "finish: отказ на пустом возврате не заводит файл трека"
 "$F" E-4 feature partial <<< '{"loops":{"fix":1}}' >/dev/null; check "$("$L" get E-4 Исход)" "partial" "finish: один loops без trail - прогон был, partial проходит"
+# Без python3 сдача не пишет: молчаливая запись половины разделов хуже отказа с названной причиной.
+"$L" open N-8 >/dev/null
+B="$T/bin"; mkdir -p "$B"
+for u in bash sh env cat dirname cd; do x="$(type -P "$u")" && ln -sf "$x" "$B/$u"; done
+check "$(PATH="$B" command -v python3)" "" "шим прячет python3"
+err="$(PATH="$B" "$F" N-8 feature partial <<< "$DEV" 2>&1 >/dev/null)"; rc=$?
+check "$rc" "3" "без python3: finish отказывает кодом 3"
+check "$(printf '%s' "$err" | grep -c 'python3')" "1" "без python3: причина называет, чего не хватает"
+check "$(ls "$("$L" dir N-8)" | grep -c '^01-')" "0" "без python3: файла трека нет"
+
 [ "$fail" = 0 ] && echo "finish.test.sh: $n проверок, все прошли" || { echo "finish.test.sh: есть провалы"; exit 1; }

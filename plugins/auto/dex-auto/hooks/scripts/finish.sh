@@ -1,62 +1,6 @@
 #!/usr/bin/env bash
-# Сдача исхода прогона: возврат Workflow (stdin, JSON) -> файл трека и машинные строки цели.
-# Суждение (исход, нехватка) приходит аргументами от главного потока; здесь только запись.
-set -eu
-H="$(cd "$(dirname "$0")" && pwd)"; L="$H/ledger.sh"
-task=${1:-}; track=${2:-}; outcome=${3:-}; lack=${4:-}
-usage() { echo "usage: finish.sh TASK feature|bugfix|review|review-delta complete|partial|blocked [НЕХВАТКА] < return.json" >&2; exit 64; }
-[ -n "$task" ] && [ -n "$track" ] && [ -n "$outcome" ] || usage
-# review-delta, а не review>delta: значение аргумента идёт через оболочку, и `>` там стало бы
-# перенаправлением - трек уехал бы как review, а в рабочем дереве появился бы файл `delta`.
-case "$track" in feature|bugfix|review|review-delta) ;; *) usage ;; esac
-case "$outcome" in complete|partial|blocked) ;; *) usage ;; esac
-command -v jq >/dev/null 2>&1 || { echo "finish.sh: нужен jq - без него разделы файла трека пишутся Edit по той же форме" >&2; exit 3; }
-IN="$(cat)"
-printf '%s' "$IN" | jq -e 'type == "object"' >/dev/null 2>&1 || { echo "finish.sh: stdin не JSON-объект, ничего не записано" >&2; exit 4; }
-"$L" get "$task" "Статус" >/dev/null 2>&1 || { echo "finish.sh: цель $task не заведена (нет 00-goal.md)" >&2; exit 1; }
-# Пустой возврат принимает только blocked: прогон без петель и без исполнителей ненаблюдаем, а
-# complete и partial по нему записывали цели сделанный исход разделами, в которых ничего нет.
-case "$outcome" in complete|partial)
-  printf '%s' "$IN" | jq -e '((.trail // []) | length) > 0 or ((.loops // {}) | length) > 0' >/dev/null 2>&1 || {
-    echo "finish.sh: в возврате нет ни loops, ни trail - прогона не было, исход $outcome сдавать нечем; пустой возврат сдаётся как blocked" >&2; exit 65; } ;;
-esac
-j() { printf '%s' "$IN" | jq -r "$1"; }
-
-f="$("$L" dir "$task")/01-${track%-delta}.md"
-[ "$outcome" = complete ] && st="закрыт" || st="открыт"
-if [ -f "$f" ]; then
-  n=$(( $(grep -c '^## Прогон ' "$f") + 1 ))
-  st="$st" awk 'BEGIN { v = ENVIRON["st"] } !done && index($0, "Статус:") == 1 { print "Статус: " v; done = 1; next } { print }' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
-else
-  n=1; printf '# Трек: %s\n\ntrack=%s\nСтатус: %s\n' "$task" "$track" "$st" > "$f"
-fi
-{
-  printf '\n## Прогон %s (%s, исход %s)\n\n### Петли\n' "$n" "$(date -Iseconds)" "$outcome"
-  j '(.loops // {}) | to_entries[] | "- \(.key): \(.value)"'
-  printf '\n### Исполнители\n'
-  j '(.trail // []) | .[] | "- " + tojson'
-  printf '\n### Открытые находки\n'
-  j '(.open_findings // []) | .[] | "- [\(.severity)] \(.anchor): \(.text)"'
-  j '(.confirmed // []) | .[] | "- [\(.severity)] \(.anchor): \(.text) (закрытие: \(.closure))"'
-  j '(.unpublished // []) | .[] | "- не опубликовано \(.anchor): \(.reason)"'
-  # Продукт разведки (feature - ctx, bugfix - repro) переживает прогон: без него возобновление
-  # заново покупает Explore/debugger и выводит номера R другим узлом, а находки прошлого прогона
-  # ссылаются на прежние. Раздел идёт до «Решения»: тот пополняется дописыванием в конец файла.
-  printf '\n### Контекст\n'
-  j 'if (.ctx // .repro) then ((.ctx // .repro) | tojson) else empty end'
-  printf '\n### Решения\n'
-  j '(.decisions // []) | .[] | "- " + tostring'
-  j '(.degraded // []) | .[] | "- узел заменён: " + tostring'
-  j '(.dropped // []) | .[] | "- снято \(.anchor): \(.reason)"'
-  j '(.questions // []) | .[] | "- вопрос автору: " + tostring'
-} >> "$f"
-
-case "$outcome" in
-  complete) "$L" close "$task" complete ;;
-  partial)  "$L" set "$task" "Исход" partial ;;
-  blocked)
-    [ -n "$lack" ] || lack="$(j '.missing // empty')"
-    [ -n "$lack" ] || lack="узел не вернул выход, шаг $(j '.where // "неизвестен"')"
-    "$L" set "$task" "Исход" blocked; "$L" set "$task" "Нехватка" "$lack" ;;
-esac
-printf '%s\n' "$f"
+# Гейт python3 для вызова из главного потока: имя скрипта в auto.md и тестах прежнее, счёт - в finish.py.
+set -u
+H="$(cd "$(dirname "$0")" && pwd)"
+command -v python3 >/dev/null 2>&1 || { echo "finish.sh: нужен python3 - без него исход прогона пишется Edit по форме 01-<трек>.md" >&2; exit 3; }
+exec python3 "$H/finish.py" "$@"
