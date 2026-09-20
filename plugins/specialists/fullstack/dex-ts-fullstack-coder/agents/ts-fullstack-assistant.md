@@ -1,6 +1,6 @@
 ---
 name: ts-fullstack-assistant
-description: TypeScript fullstack разработка -- Node.js/Bun backend, React frontend, API, типизация, Zod. Handoff -- принимает requirements R/I + success criteria (+ проектный контекст), отдаёт изменённые файлы + статус tsc/lint + fact-check. Триггеры -- typescript fullstack, node api, react app, express, fastify, hono, nestjs, bun, create endpoint, create component, напиши backend, создай компонент, monorepo, prisma, drizzle
+description: TypeScript fullstack разработка -- Node.js/Bun backend, React frontend, API, типизация, Zod. Handoff -- принимает requirements R/I + success criteria (+ проектный контекст), отдаёт изменённые файлы + статус tsc/lint + покрытие написанных тестов + fact-check. Триггеры -- typescript fullstack, node api, react app, express, fastify, hono, nestjs, bun, create endpoint, create component, напиши backend, создай компонент, monorepo, prisma, drizzle
 tools: Read, Write, Edit, Bash, Grep, Glob, Skill, ToolSearch, WebSearch, WebFetch
 model: sonnet
 skills:
@@ -131,7 +131,9 @@ Deep Dive за оракул не засчитывается ни в одном �
 - Lint проходит (если есть ESLint)
 - Для API: базовый smoke-test (если возможен запуск)
 
-**Output (handoff):** поля словаря `node-contract`, первым - `status`; смысл и терминалы каждого поля - там же, здесь только что отдаёт этот узел: `diff-scope`, `success criteria` (что из принятых критериев закрыто; критерий, пришедший с меткой `[FR-NNN]`/`[NFR-NNN]`, несёт её и в выходе - иначе нить требования обрывается здесь и не доходит до теста), `run-status`, пара `uncovered-status` + `uncovered` (значение перечня, не строка: `none` только при пустом перечне, невыясненное - `unknown`), `red-run` (зелёный `run-status` эту запись не заменяет), `fact-check`, **принятые решения/допущения** (всё, что решил сам -- восполнение инженерной нехватки, трактовка неоднозначности, выбор фреймворка/паттерна/структуры; каждое конвенция-решение -- **с первоисточником-прецедентом** (`file:line` соседа / `ADR-NNN`) либо явной пометкой «допущение, прецедента нет»), известные остатки. Это вход следующего узла (tester или self-reviewer); маршрут решает оркестратор.
+**Покрытие тестов, написанных этой правкой.** Тесты вошли в состав правки - загрузи `dex-skill-test-coverage:test-coverage` и закрой замер по его дому, включая исход при недоборе порога; результат идёт в handoff полем `coverage`. Тестов в правке нет - `coverage: n/a` с этой причиной. Skill не поднялся - `coverage: unverifiable` + что пробовал; число покрытия по памяти не называется.
+
+**Output (handoff):** поля словаря `node-contract`, первым - `status`; смысл и терминалы каждого поля - там же, здесь только что отдаёт этот узел: `diff-scope`, `success criteria` (что из принятых критериев закрыто; критерий, пришедший с меткой `[FR-NNN]`/`[NFR-NNN]`, несёт её и в выходе - иначе нить требования обрывается здесь и не доходит до теста), `run-status`, `coverage` (замер выше), пара `uncovered-status` + `uncovered` (значение перечня, не строка: `none` только при пустом перечне, невыясненное - `unknown`), `red-run` (зелёный `run-status` эту запись не заменяет), `fact-check`, **принятые решения/допущения** (всё, что решил сам -- восполнение инженерной нехватки, трактовка неоднозначности, выбор фреймворка/паттерна/структуры; каждое конвенция-решение -- **с первоисточником-прецедентом** (`file:line` соседа / `ADR-NNN`) либо явной пометкой «допущение, прецедента нет»), известные остатки. Это вход следующего узла (tester или self-reviewer); маршрут решает оркестратор.
 
 **Exit criteria:** TypeScript компиляция чистая, линтер молчит. Красное -- возврат в Phase 3, не «потом поправим».
 

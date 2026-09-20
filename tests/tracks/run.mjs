@@ -34,12 +34,17 @@ async function runTrack(track, args, responses, unavailable = []) {
 const green = { status: 'complete', exit_code: 0, pass_count: 9, fail_count: 0, failing: [], build_ok: true, head: 'abc feat', dirty: false, missing: '' }
 const red = { ...green, exit_code: 1, fail_count: 2, failing: ['T1', 'T2'], head: 'abc wip' }
 const dirty = { ...green, dirty: true }
-const ctxOk = { status: 'complete', stack: 'dotnet', requirements: ['R1 ...'], files: ['src/A.cs'], test_cmd: 'dotnet test', build_cmd: 'dotnet build', prepare_cmd: '', corpus: 'docs/', 'conflict-status': 'none', conflicts: [], missing: '' }
+const ctxOk = { status: 'complete', requirements: ['R1 ...'], files: ['src/A.cs'], corpus: 'docs/', 'conflict-status': 'none', conflicts: [], missing: '' }
+// Техконтекст отдаёт свой узел: в разведке его полей нет вовсе, иначе сценарий не отличит «трек взял у подготовки» от «взял у разведки».
+const prepOk = { status: 'complete', stack: 'dotnet', stack_basis: 'src/A.csproj:1', test_cmd: 'dotnet test', build_cmd: 'dotnet build', prepare_cmd: 'dotnet restore', 'prepare-status': 'done', prepare_log: 'exit 0, obj/project.assets.json на месте', missing: '' }
+const prepTs = { ...prepOk, stack: 'ts', stack_basis: 'package.json:1', test_cmd: 'npm test', build_cmd: 'tsc', prepare_cmd: 'npm ci' }
+const prepNotNeeded = { ...prepOk, prepare_cmd: '', 'prepare-status': 'not-needed', prepare_log: 'зависимости ставит сама сборка' }
+const prepFailed = { ...prepOk, 'prepare-status': 'failed', prepare_log: 'dotnet restore: NU1101 фид недоступен' }
 // Противоречие источников: AC владельца против критерия «готово» цели. Вторая пара - «none» при
 // непустом перечне: статус сам себя опровергает, и трек судит перечень наравне со статусом.
 const ctxConflict = { ...ctxOk, 'conflict-status': 'some', conflicts: ['FEAT.md:19 (AC2) требует отклонять ../evil ошибкой против R4 goal.md:21 - принимать любое имя'] }
 const ctxConflictMute = { ...ctxConflict, 'conflict-status': 'none' }
-const reproOk = { status: 'complete', stack: 'ts', root_cause: 'src/a.ts:10 неверный ключ', reproduction: 'тест T1: красный', 'expected-basis': 'тест', fix_proposal: 'править ключ', files: ['src/a.ts'], test_cmd: 'npm test', build_cmd: 'tsc', prepare_cmd: 'npm ci', 'conflict-status': 'none', conflicts: [], missing: '' }
+const reproOk = { status: 'complete', root_cause: 'src/a.ts:10 неверный ключ', reproduction: 'тест T1: красный', 'expected-basis': 'тест', fix_proposal: 'править ключ', files: ['src/a.ts'], 'conflict-status': 'none', conflicts: [], missing: '' }
 const reproConflict = { ...reproOk, 'conflict-status': 'some', conflicts: ['AC-4 docs/spec.md:31 требует 409 против ожидаемого входа - 200 с телом ошибки'] }
 const fixOk = { status: 'complete', 'diff-scope': ['src/A.cs'], commit: 'abc123', 'run-status': 'build ok, tests 9/9', 'red-run': 'T1 красный до, зелёный после', 'uncovered-status': 'some', uncovered: ['ветка таймаута'], 'dependents-status': 'some', dependents: ['src/Caller.cs:41 вызывает изменённый метод'], 'fact-check': 'n/a (триггер не сработал)', decisions: ['выбран A'], missing: '' }
 // Правка, замкнутая в себе: оба поля явным «нет» - единственное сочетание, отменяющее второй круг ревью.
@@ -60,6 +65,8 @@ const reviewArgs = { task: 'gh-1', mr: 'owner/repo#7', intent: 'issue #12', mode
 const labelsOf = (calls) => calls.map(c => c.label)
 const promptOf = (calls, label) => (calls.find(c => c.label === label) || {}).prompt || ''
 const typeOf = (calls, label) => (calls.find(c => c.label === label) || {}).agentType
+// Шаг ищется по имени, не по индексу: фаза Context несёт две записи, и порядок их появления - дело планировщика.
+const stepOf = (trail, step) => JSON.stringify(trail.find(t => t.step === step) || {})
 
 const SCENARIOS = [
   { name: 'F22 повторное ревью не вернуло выход -> P1 первого ревью остаются открытыми', track: 'feature', args: featureArgs,
@@ -247,15 +254,16 @@ const SCENARIOS = [
     expect: ({ result, calls }) => [
       ['статус complete', result.status === 'complete'],
       ['узел разведки не вызван', !labelsOf(calls).includes('ctx:R-I')],
-      ['разведка прошлого прогона в промпте верификации', /dotnet test/.test(promptOf(calls, 'verify:возобновление'))],
-      ['источник разведки назван в trail', /ledger/.test(JSON.stringify(result.trail[0]))],
+      ['команда тестов в промпте верификации - от узла подготовки', /dotnet test/.test(promptOf(calls, 'verify:возобновление'))],
+      ['источник разведки назван в trail', /ledger/.test(stepOf(result.trail, '1-req'))],
+      ['подготовка дерева куплена и на возобновлении: дерево - состояние, а не вывод', labelsOf(calls).includes('ctx:tree')],
     ] },
   { name: 'F11b возобновление без записи разведки: узел отрабатывает как в первом прогоне', track: 'feature',
     args: { ...featureArgs, resume: true, trail: '- {"step":1}' },
     responses: { 'ctx:R-I': ctxOk, 'verify:возобновление': green, 'self-review:первое': revClean },
     expect: ({ calls, result }) => [
       ['узел разведки вызван', labelsOf(calls).includes('ctx:R-I')],
-      ['источник разведки назван узлом', /Explore/.test(JSON.stringify(result.trail[0]))],
+      ['источник разведки назван узлом', /Explore/.test(stepOf(result.trail, '1-req'))],
     ] },
   { name: 'F11c «продолжить» без следа прогона: трек идёт как первый', track: 'feature',
     args: { ...featureArgs, resume: true },
@@ -275,7 +283,7 @@ const SCENARIOS = [
       ['работу доделал general-purpose', calls.filter(c => c.label === 'fix:1').pop().agentType === 'general-purpose'],
     ] },
   { name: 'F13 стек вне реестра -> кодер общего назначения без записи о деградации', track: 'feature', args: featureArgs,
-    responses: { 'ctx:R-I': { ...ctxOk, stack: 'other' }, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    responses: { 'ctx:tree': { ...prepOk, stack: 'other' }, 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
     expect: ({ result, calls }) => [
       ['статус complete', result.status === 'complete'],
       ['кодер - general-purpose', typeOf(calls, 'fix:1') === 'general-purpose'],
@@ -357,7 +365,7 @@ const SCENARIOS = [
       ['статус complete', result.status === 'complete'],
       ['узел диагноста не вызван', !labelsOf(calls).includes('reproduce')],
       ['первопричина прошлого прогона в возврате', /неверный ключ/.test(result.repro.root_cause)],
-      ['источник назван в trail', /ledger/.test(JSON.stringify(result.trail[0]))],
+      ['источник назван в trail', /ledger/.test(stepOf(result.trail, '1-repro'))],
     ] },
   { name: 'B4 возобновление с незакрытой находкой', track: 'bugfix',
     args: { ...bugfixArgs, resume: true, trail: '- {"step":1}', open_findings: '- [P1] src/a.ts:88: сужение' },
@@ -528,16 +536,50 @@ const SCENARIOS = [
       ['каталог сессии - на чтение', promptOf(calls, 'fix:1').includes('Каталог сессии /repo - только на чтение')],
       ['ветка трека названа', promptOf(calls, 'fix:1').includes('auto/F-1')],
     ] },
-  { name: 'F26 prepare_cmd контекста уходит кодеру; пустой - строки нет', track: 'feature', args: featureArgs,
-    responses: { 'ctx:R-I': { ...ctxOk, prepare_cmd: 'dotnet restore' }, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
-    expect: ({ calls }) => [
-      ['узел контекста спрошен о подготовке дерева', /зависимости в нём не установлены/.test(promptOf(calls, 'ctx:R-I'))],
-      ['подготовка названа кодеру', promptOf(calls, 'fix:1').includes('до первой сборки выполни подготовку: dotnet restore')],
-    ] },
-  { name: 'F27 пустой prepare_cmd не порождает строки подготовки', track: 'feature', args: featureArgs,
+  { name: 'F26 дерево подготовлено узлом подготовки -> кодеру сказано не повторять установку', track: 'feature', args: featureArgs,
     responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
     expect: ({ calls }) => [
-      ['строки подготовки нет', !/выполни подготовку/.test(promptOf(calls, 'fix:1'))],
+      ['узлу подготовки поручено выполнить установку, а не только назвать', /ВЫПОЛНИ её в дереве/.test(promptOf(calls, 'ctx:tree'))],
+      ['стек выводится по реестру, а не по догадке', /dex-skill-stack-registry:stack-registry/.test(promptOf(calls, 'ctx:tree'))],
+      ['состояние дерева названо кодеру', promptOf(calls, 'fix:1').includes('Дерево подготовлено узлом контекста (dotnet restore) - установку не повторяй')],
+      ['кодеру не предписано ставить зависимости заново', !/до первой сборки выполни её сам/.test(promptOf(calls, 'fix:1'))],
+    ] },
+  { name: 'F27 готовить нечего (not-needed) -> строки подготовки у кодера нет', track: 'feature', args: featureArgs,
+    responses: { 'ctx:tree': prepNotNeeded, 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ calls, result }) => [
+      ['строки подготовки нет', !/Дерево подготовлено|выполни её сам/.test(promptOf(calls, 'fix:1'))],
+      ['not-needed деградацией не считается', !result.degraded.some(d => /подготовка дерева/.test(d))],
+    ] },
+  { name: 'F30 подготовка дерева упала -> кодер предупреждён и лечит дерево сам, трек не встаёт', track: 'feature', args: featureArgs,
+    responses: { 'ctx:tree': prepFailed, 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['трек доезжает до исхода', result.status === 'complete'],
+      ['провал назван оператору', result.degraded.some(d => /подготовка дерева не удалась: dotnet restore: NU1101/.test(d))],
+      ['кодеру названа причина и команда', promptOf(calls, 'fix:1').includes('до первой сборки выполни её сам: dotnet restore')],
+    ] },
+  { name: 'F31 узел подготовки вернул blocked -> трек встаёт на Context, кодер не вызван', track: 'feature', args: featureArgs,
+    responses: { 'ctx:tree': { ...prepOk, status: 'blocked', missing: 'нет доступа к фиду пакетов' }, 'ctx:R-I': ctxOk },
+    expect: ({ result, calls }) => [
+      ['статус blocked', result.status === 'blocked'],
+      ['остановка названа шагом подготовки', result.where === 'Context: подготовка дерева'],
+      ['нехватка прокинута', result.missing === 'нет доступа к фиду пакетов'],
+      ['кодер не вызван', !labelsOf(calls).includes('fix:1')],
+    ] },
+  { name: 'F32 узел подготовки не вернул выход -> blocked с названной причиной', track: 'feature', args: featureArgs,
+    responses: { 'ctx:tree': null, 'ctx:R-I': ctxOk },
+    expect: ({ result }) => [
+      ['статус blocked', result.status === 'blocked'],
+      ['причина названа, а не пустая', result.missing === 'узел подготовки дерева не вернул выход'],
+    ] },
+  { name: 'F33 подготовка и разведка идут параллельно в одной фазе и делят предмет', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['оба узла в фазе Context', calls.filter(c => ['ctx:tree', 'ctx:R-I'].includes(c.label)).every(c => c.phase === 'Context')],
+      ['разведке техконтекст запрещён', /Стек, команды сборки и тестов не выводи/.test(promptOf(calls, 'ctx:R-I'))],
+      ['разведке названо, что дерево в работе у соседа', /соседний узел в этот момент ставит в это дерево зависимости/.test(promptOf(calls, 'ctx:R-I'))],
+      ['подготовке запрещено трогать код и прогоны', /код не правь, сборку и тесты не прогоняй/.test(promptOf(calls, 'ctx:tree'))],
+      ['оба шага легли в trail', result.trail.some(t => t.step === '1-tree') && result.trail.some(t => t.step === '1-req')],
+      ['команды кодеру пришли от подготовки', promptOf(calls, 'fix:1').includes('Тесты: dotnet test') && promptOf(calls, 'fix:1').includes('Сборка: dotnet build')],
     ] },
   { name: 'F28 red-run прошлой попытки подаётся следующей как установленный факт', track: 'feature', args: featureArgs,
     responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'fix:2': fixOk, 'verify:после попытки 1': red, 'verify:после попытки 2': green, 'self-review:первое': revClean },
@@ -561,12 +603,28 @@ const SCENARIOS = [
       ['фаза правки не пропущена', labelsOf(calls).includes('fix:1')],
       ['деградация названа оператору', result.decisions.some(d => /без trail/.test(d))],
     ] },
-  { name: 'B14 prepare_cmd воспроизведения уходит кодеру, дерево трека изолированное', track: 'bugfix', args: bugfixArgs,
+  { name: 'B14 подготовка идёт перед воспроизведением: диагност и кодер получают готовое дерево', track: 'bugfix', args: bugfixArgs,
     responses: { 'reproduce': reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
     expect: ({ calls }) => [
-      ['диагност спрошен о подготовке', /зависимости в нём не установлены/.test(promptOf(calls, 'reproduce'))],
-      ['подготовка названа кодеру', promptOf(calls, 'fix:1').includes('до первой сборки выполни подготовку: npm ci')],
+      ['подготовка вызвана раньше воспроизведения', labelsOf(calls).indexOf('ctx:tree') < labelsOf(calls).indexOf('reproduce')],
+      ['подготовке запрещено чинить баг', /код не правь, баг не чини, тесты не прогоняй/.test(promptOf(calls, 'ctx:tree'))],
+      ['диагност получил команды и состояние дерева', promptOf(calls, 'reproduce').includes('Тесты: npm test') && promptOf(calls, 'reproduce').includes('Дерево подготовлено узлом контекста (npm ci)')],
       ['кодер работает в дереве трека', promptOf(calls, 'fix:1').includes('Работай только внутри /repo-B-1')],
+    ] },
+  { name: 'B15 подготовка упала -> диагносту названа причина и запрет объявить её первопричиной', track: 'bugfix', args: bugfixArgs,
+    responses: { 'ctx:tree': { ...prepTs, 'prepare-status': 'failed', prepare_log: 'npm ci: EAI_AGAIN registry' }, 'reproduce': reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['трек доезжает до исхода', result.status === 'complete'],
+      ['провал назван оператору', result.degraded.some(d => /подготовка дерева не удалась: npm ci: EAI_AGAIN/.test(d))],
+      ['диагносту предписано вылечить дерево самому', promptOf(calls, 'reproduce').includes('до первого прогона выполни её сам: npm ci')],
+      ['падение установки первопричиной бага не называется', /Падение установки первопричиной бага не называй/.test(promptOf(calls, 'reproduce'))],
+    ] },
+  { name: 'B16 подготовка вернула blocked -> диагност не вызван', track: 'bugfix', args: bugfixArgs,
+    responses: { 'ctx:tree': { ...prepTs, status: 'blocked', missing: 'нет доступа к npm registry' } },
+    expect: ({ result, calls }) => [
+      ['статус blocked', result.status === 'blocked'],
+      ['остановка названа шагом подготовки', result.where === 'Context: подготовка дерева'],
+      ['диагност не вызван: воспроизводить нечем', !labelsOf(calls).includes('reproduce')],
     ] },
   { name: 'F25 противоречие источников требований -> трек встаёт на Context, кодер не вызван', track: 'feature', args: { ...featureArgs, source: 'FEAT.md' },
     responses: { 'ctx:R-I': ctxConflict },
@@ -611,7 +669,46 @@ const SCENARIOS = [
       ['рабочее дерево сессии не трогается', /рабочего дерева сессии это не трогает/.test(promptOf(calls, 'review:first'))],
       ['чтение кода - переключением дерева на head_sha', promptOf(calls, 'review:first').includes('переключи /repo-gh-1 на bbb')],
     ] },
+  { name: 'F34 шапка узла подготовки несёт дерево и мандат, но не цель', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ calls }) => [
+      ['цели в шапке нет', !promptOf(calls, 'ctx:tree').includes(featureArgs.goal)],
+      ['критерия «готово» в шапке нет', !promptOf(calls, 'ctx:tree').includes(featureArgs.done)],
+      ['мандат назван: код не предмет узла', /код в дереве не твой предмет/.test(promptOf(calls, 'ctx:tree'))],
+      ['изоляция дерева на месте', promptOf(calls, 'ctx:tree').includes('Работай только внутри /repo-F-1')],
+      ['стоп-линия на месте', /это стоп-линия/.test(promptOf(calls, 'ctx:tree'))],
+      ['кодер цель по-прежнему получает', promptOf(calls, 'fix:1').includes(featureArgs.goal)],
+    ] },
+  { name: 'F35 поле ctx подано не в форме разведки -> узел вызван заново, подмена названа', track: 'feature',
+    args: { ...featureArgs, resume: true, trail: '- {"step":1}', ctx: { stack: 'dotnet', prepare_cmd: 'dotnet restore' } },
+    responses: { 'ctx:R-I': ctxOk, 'verify:возобновление': green, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['трек не падает', result.status === 'complete'],
+      ['разведка куплена узлом', labelsOf(calls).includes('ctx:R-I')],
+      ['подмена названа оператору', result.degraded.some(d => /поле ctx подано не в форме разведки/.test(d))],
+      ['источник разведки в trail - узел, не ledger', /Explore/.test(stepOf(result.trail, '1-req'))],
+    ] },
+  { name: 'B17 поле repro подано не в форме воспроизведения -> диагност вызван заново', track: 'bugfix',
+    args: { ...bugfixArgs, resume: true, trail: '- {"step":1}', repro: { stack: 'ts', test_cmd: 'npm test' } },
+    responses: { 'reproduce': reproOk, 'verify:возобновление': green, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['трек не падает', result.status === 'complete'],
+      ['диагност куплен заново', labelsOf(calls).includes('reproduce')],
+      ['подмена названа оператору', result.degraded.some(d => /поле repro подано не в форме воспроизведения/.test(d))],
+    ] },
+  { name: 'B18 шапка узла подготовки в bugfix не несёт симптома', track: 'bugfix', args: bugfixArgs,
+    responses: { 'reproduce': reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ calls }) => [
+      ['симптома в шапке нет', !promptOf(calls, 'ctx:tree').includes(bugfixArgs.symptom)],
+      ['ожидаемого в шапке нет', !promptOf(calls, 'ctx:tree').includes(bugfixArgs.expected)],
+      ['мандат назван: чинит другой узел', /воспроизводит и чинит другой узел/.test(promptOf(calls, 'ctx:tree'))],
+      ['диагност симптом по-прежнему получает', promptOf(calls, 'reproduce').includes(bugfixArgs.symptom)],
+    ] },
 ]
+
+// Узел подготовки дерева - фон любого сценария feature / bugfix, а не его предмет: ответ по
+// умолчанию задан здесь, сценарий о самой подготовке перекрывает его своим ключом 'ctx:tree'.
+const DEFAULT_TREE = { feature: prepOk, bugfix: prepTs }
 
 const only = process.argv[2]
 let n = 0, failed = 0
@@ -619,7 +716,8 @@ for (const s of SCENARIOS) {
   if (only && !s.name.startsWith(only)) continue
   let checks
   try {
-    checks = s.expect(await runTrack(s.track, s.args, s.responses, s.unavailable))
+    const responses = DEFAULT_TREE[s.track] ? { 'ctx:tree': DEFAULT_TREE[s.track], ...s.responses } : s.responses
+    checks = s.expect(await runTrack(s.track, s.args, responses, s.unavailable))
   } catch (e) {
     n++; failed++
     console.log(`not ok ${n} - ${s.name}: упал прогон - ${e.message}`)
