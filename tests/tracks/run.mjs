@@ -34,8 +34,13 @@ async function runTrack(track, args, responses, unavailable = []) {
 const green = { status: 'complete', exit_code: 0, pass_count: 9, fail_count: 0, failing: [], build_ok: true, head: 'abc feat', dirty: false, missing: '' }
 const red = { ...green, exit_code: 1, fail_count: 2, failing: ['T1', 'T2'], head: 'abc wip' }
 const dirty = { ...green, dirty: true }
-const ctxOk = { status: 'complete', stack: 'dotnet', requirements: ['R1 ...'], files: ['src/A.cs'], test_cmd: 'dotnet test', build_cmd: 'dotnet build', prepare_cmd: '', corpus: 'docs/', missing: '' }
-const reproOk = { status: 'complete', stack: 'ts', root_cause: 'src/a.ts:10 неверный ключ', reproduction: 'тест T1: красный', 'expected-basis': 'тест', fix_proposal: 'править ключ', files: ['src/a.ts'], test_cmd: 'npm test', build_cmd: 'tsc', prepare_cmd: 'npm ci', missing: '' }
+const ctxOk = { status: 'complete', stack: 'dotnet', requirements: ['R1 ...'], files: ['src/A.cs'], test_cmd: 'dotnet test', build_cmd: 'dotnet build', prepare_cmd: '', corpus: 'docs/', 'conflict-status': 'none', conflicts: [], missing: '' }
+// Противоречие источников: AC владельца против критерия «готово» цели. Вторая пара - «none» при
+// непустом перечне: статус сам себя опровергает, и трек судит перечень наравне со статусом.
+const ctxConflict = { ...ctxOk, 'conflict-status': 'some', conflicts: ['FEAT.md:19 (AC2) требует отклонять ../evil ошибкой против R4 goal.md:21 - принимать любое имя'] }
+const ctxConflictMute = { ...ctxConflict, 'conflict-status': 'none' }
+const reproOk = { status: 'complete', stack: 'ts', root_cause: 'src/a.ts:10 неверный ключ', reproduction: 'тест T1: красный', 'expected-basis': 'тест', fix_proposal: 'править ключ', files: ['src/a.ts'], test_cmd: 'npm test', build_cmd: 'tsc', prepare_cmd: 'npm ci', 'conflict-status': 'none', conflicts: [], missing: '' }
+const reproConflict = { ...reproOk, 'conflict-status': 'some', conflicts: ['AC-4 docs/spec.md:31 требует 409 против ожидаемого входа - 200 с телом ошибки'] }
 const fixOk = { status: 'complete', 'diff-scope': ['src/A.cs'], commit: 'abc123', 'run-status': 'build ok, tests 9/9', 'red-run': 'T1 красный до, зелёный после', 'uncovered-status': 'some', uncovered: ['ветка таймаута'], 'dependents-status': 'some', dependents: ['src/Caller.cs:41 вызывает изменённый метод'], 'fact-check': 'n/a (триггер не сработал)', decisions: ['выбран A'], missing: '' }
 // Правка, замкнутая в себе: оба поля явным «нет» - единственное сочетание, отменяющее второй круг ревью.
 const fixSealed = { ...fixOk, 'uncovered-status': 'none', uncovered: [], 'dependents-status': 'none', dependents: [] }
@@ -562,6 +567,35 @@ const SCENARIOS = [
       ['диагност спрошен о подготовке', /зависимости в нём не установлены/.test(promptOf(calls, 'reproduce'))],
       ['подготовка названа кодеру', promptOf(calls, 'fix:1').includes('до первой сборки выполни подготовку: npm ci')],
       ['кодер работает в дереве трека', promptOf(calls, 'fix:1').includes('Работай только внутри /repo-B-1')],
+    ] },
+  { name: 'F25 противоречие источников требований -> трек встаёт на Context, кодер не вызван', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxConflict },
+    expect: ({ result, calls }) => [
+      ['статус blocked', result.status === 'blocked'],
+      ['остановка на Context', result.where === 'Context'],
+      ['нехватка называет обе стороны', /AC2.*R4|R4.*AC2/s.test(result.missing)],
+      ['нехватка называет полномочие', /выбор стороны не за исполнителем/.test(result.missing)],
+      ['кодер не вызван: проигравшая сторона не закреплена тестом', !calls.some(c => c.label === 'fix:1')],
+      ['разведка не уезжает в ledger: решение владельца меняет её источник', result.ctx === null],
+      ['узлу поручено не сводить противоречие в R/I', /стороной не закрывай и в R\/I не своди/.test(promptOf(calls, 'ctx:R-I'))],
+      ['техрасхождение выведено из-под правила', /Расхождение о техконтексте .* противоречием не является/.test(promptOf(calls, 'ctx:R-I'))],
+    ] },
+  { name: 'F26 перечень противоречий при conflict-status none -> трек судит перечень, а не статус', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxConflictMute },
+    expect: ({ result, calls }) => [
+      ['статус blocked', result.status === 'blocked'],
+      ['кодер не вызван', !calls.some(c => c.label === 'fix:1')],
+      ['перечень попал в нехватку', /AC2/.test(result.missing)],
+    ] },
+  { name: 'B14 противоречие источников ожидаемого -> трек встаёт на Reproduce, кодер не вызван', track: 'bugfix', args: bugfixArgs,
+    responses: { 'reproduce': reproConflict },
+    expect: ({ result, calls }) => [
+      ['статус blocked', result.status === 'blocked'],
+      ['остановка на Reproduce', result.where === 'Reproduce'],
+      ['нехватка называет обе стороны', /AC-4.*200|200.*AC-4/s.test(result.missing)],
+      ['кодер не вызван: починка под выбранную сторону не закреплена тестом', !calls.some(c => c.label === 'fix:1')],
+      ['воспроизведение не уезжает в ledger: решение владельца меняет его источник', result.repro === null],
+      ['диагносту поручено не сводить противоречие в ожидаемое', /стороной не закрывай и в ожидаемое не своди/.test(promptOf(calls, 'reproduce'))],
     ] },
   { name: 'R15 ревью работает в detached-дереве трека и переключает его на head_sha', track: 'review', args: reviewArgs,
     responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'review:security': revMr, 'falsify+coverage': falOk },
