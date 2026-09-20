@@ -24,5 +24,5 @@
 
 ## Граница
 - Трогаем только `src/cache.js` и файлы в `test/` (FEAT.md, «Граница»).
-- Не меняется: формат хранения (один JSON-файл на ключ, `CACHE_DIR/<ключ>.json`), сигнатура `readSlugCache(name)`, набор зависимостей (`package.json` без изменений), `src/slugify.js`.
+- Не меняется: формат хранения (один JSON-файл на ключ внутри `CACHE_DIR`), сигнатура `readSlugCache(name)`, набор зависимостей (`package.json` без изменений), `src/slugify.js`.
 - Не трогаем `.gitignore` и `package.json`: вне границы.
