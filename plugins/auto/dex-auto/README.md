@@ -38,7 +38,7 @@
 
 Узлы треков - агенты каталога (`Explore`, `dex-debugger`, кодер по стеку `dex-ts-fullstack-coder` /
 `dex-dotnet-coder`, `dex-self-reviewer`, `dex-mr-reviewer`, `dex-mr-check-reviewer`,
-`dex-security-reviewer`); стек узел определяет по реестру `dex-skill-stack-registry`.
+`dex-security-reviewer`); стек узел определяет по реестру `dex-skill-stack-registry`; требования источника против критерия «готово» судят оракулом `dex-skill-requirement-quality` - `/goal` при постановке, предполёт `/auto` до запуска трека, узел разведки в треке.
 Неустановленный агент заменяется `general-purpose` с ролью в промпте, замена попадает в возврат
 полем `degraded` и в решения файла трека.
 
