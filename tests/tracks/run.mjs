@@ -616,7 +616,9 @@ const SCENARIOS = [
     expect: ({ result, calls }) => [
       ['трек доезжает до исхода', result.status === 'complete'],
       ['провал назван оператору', result.degraded.some(d => /подготовка дерева не удалась: npm ci: EAI_AGAIN/.test(d))],
-      ['диагносту предписано вылечить дерево самому', promptOf(calls, 'reproduce').includes('до первого прогона выполни её сам: npm ci')],
+      ['диагносту названо, что дерево не подготовлено', promptOf(calls, 'reproduce').includes('Дерево узлом контекста не подготовлено (npm ci: EAI_AGAIN registry)')],
+      ['установку диагносту не поручают - инструментов у него нет', !/выполни её сам/.test(promptOf(calls, 'reproduce'))],
+      ['кодеру поручение установки остаётся', promptOf(calls, 'fix:1').includes('до первого прогона выполни её сам: npm ci')],
       ['падение установки первопричиной бага не называется', /Падение установки первопричиной бага не называй/.test(promptOf(calls, 'reproduce'))],
     ] },
   { name: 'B16 подготовка вернула blocked -> диагност не вызван', track: 'bugfix', args: bugfixArgs,
