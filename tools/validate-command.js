@@ -15,7 +15,7 @@
  *   1 - at least one error found
  */
 
-import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, lstatSync, existsSync } from 'node:fs';
 import { basename, join, relative, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import matter from 'gray-matter';
@@ -30,6 +30,17 @@ const __dirname = dirname(__filename);
 const REPO_ROOT = process.env.MARKETPLACE_ROOT
   ? resolve(process.env.MARKETPLACE_ROOT)
   : resolve(__dirname, '..');
+
+// Обход дерева не проходит по symlink и спецфайлам: цикл ссылок ронял прогон стектрейсом ELOOP, FIFO вешал
+// чтение, а ссылка наружу судила чужой файл как свой. Такой узел - отказ с кодом 1, а не тихий пропуск.
+function statPlain(full) {
+  const stat = lstatSync(full);
+  if (stat.isSymbolicLink() || !(stat.isFile() || stat.isDirectory())) {
+    console.error(`Not a regular file or directory (symlinks and special files are not followed): ${relative(REPO_ROOT, full)}`);
+    process.exit(1);
+  }
+  return stat;
+}
 const PLUGINS_DIR = join(REPO_ROOT, 'plugins');
 
 const COLORS = {
@@ -57,7 +68,7 @@ function buildPluginSkillMap() {
     if (!existsSync(dir)) return;
     for (const entry of readdirSync(dir)) {
       const full = join(dir, entry);
-      if (statSync(full).isDirectory()) {
+      if (statPlain(full).isDirectory()) {
         walk(full);
       } else if (entry === 'SKILL.md') {
         const pj = join(dirname(dirname(dirname(full))), '.claude-plugin', 'plugin.json');
@@ -80,6 +91,47 @@ function buildPluginSkillMap() {
 
 const PLUGIN_SKILLS = buildPluginSkillMap();
 
+// Скилл, агент и команда одного плагина делят пространство имён `{plugin}:{artifact}` - вызов своего агента или команды формой не отличим от вызова скилла.
+function buildPluginAgentMap() {
+  const map = new Map();
+  function walk(dir) {
+    if (!existsSync(dir)) return;
+    for (const entry of readdirSync(dir)) {
+      const full = join(dir, entry);
+      if (statPlain(full).isDirectory()) {
+        walk(full);
+      } else if (entry.endsWith('.md') && basename(dirname(full)) === 'commands') {
+        const pj = join(dirname(dirname(full)), '.claude-plugin', 'plugin.json');
+        if (!existsSync(pj)) continue;
+        try {
+          const plugin = JSON.parse(readFileSync(pj, 'utf8')).name;
+          if (!plugin) continue;
+          if (!map.has(plugin)) map.set(plugin, new Set());
+          map.get(plugin).add(basename(full, '.md'));
+        } catch {
+          // unreadable manifest - skipped
+        }
+      } else if (entry.endsWith('.md') && basename(dirname(full)) === 'agents') {
+        const pj = join(dirname(dirname(full)), '.claude-plugin', 'plugin.json');
+        if (!existsSync(pj)) continue;
+        try {
+          const plugin = JSON.parse(readFileSync(pj, 'utf8')).name;
+          const agent = matter(readFileSync(full, 'utf8')).data?.name;
+          if (!plugin || !agent) continue;
+          if (!map.has(plugin)) map.set(plugin, new Set());
+          map.get(plugin).add(String(agent));
+        } catch {
+          // unreadable manifest or frontmatter - skipped
+        }
+      }
+    }
+  }
+  walk(PLUGINS_DIR);
+  return map;
+}
+
+const PLUGIN_AGENTS = buildPluginAgentMap();
+
 // Plugin half not skill-shipping (agent spawn refs, `file:line`) - out of scope, not a Skill call.
 function validateSkillReferences(markdownBody, findings) {
   const re = /`([a-z][a-z0-9-]*):([a-z][a-z0-9-]*)`/g;
@@ -90,6 +142,7 @@ function validateSkillReferences(markdownBody, findings) {
 
   for (const [ref, [plugin, skill]] of referenced) {
     if (!PLUGIN_SKILLS.has(plugin)) continue;
+    if (PLUGIN_AGENTS.get(plugin)?.has(skill)) continue;
     if (!PLUGIN_SKILLS.get(plugin).has(skill)) {
       findings.push({
         level: ERROR,
@@ -144,7 +197,7 @@ function findAllCommandFiles() {
     if (!existsSync(dir)) return;
     for (const entry of readdirSync(dir)) {
       const full = join(dir, entry);
-      const stat = statSync(full);
+      const stat = statPlain(full);
       if (stat.isDirectory()) walk(full);
       else if (entry.endsWith('.md') && full.includes('/commands/')) {
         result.push(full);
@@ -374,7 +427,7 @@ function catalogDocTargets() {
     for (const entry of readdirSync(dir).sort()) {
       const full = join(dir, entry);
       const relPath = rel ? `${rel}/${entry}` : entry;
-      if (statSync(full).isDirectory()) {
+      if (statPlain(full).isDirectory()) {
         if (!rel && USER_CORPUS_DIRS.has(entry)) continue;
         walk(full, relPath);
         continue;
@@ -403,9 +456,10 @@ function mentionsTarget(text, target, slashBefore) {
 
 // Авторские плагины: их артефакты исполняются в клоне каталога, где `docs/` лежит рядом, поэтому
 // адрес у них разрешается и правило к ним не применяется. Читается `authorOnly[]`, а не весь состав
-// бандла автора: в состав попадают и плагины замыкания (`dependencies[]`: `artifact-review` грузит
-// `fact-verification` и `optimize-for-llm`), а они едут пользователю в бандлах ролей, где `docs/`
-// каталога нет. Разъезд списка с составами бандлов ловит `validate-bundle.js` (`author-only-*`).
+// бандла автора (`includes[]` плюс `dependencies[]`): в составе стоят и плагины, которые едут
+// пользователю бандлами ролей, где `docs/` каталога нет, - исключение даёт только запись в
+// `authorOnly[]`, а не место записи в одном из двух списков. Разъезд `authorOnly[]` с составами
+// бандлов ловит `validate-bundle.js` (`author-only-*`).
 const AUTHOR_BUNDLE_JSON = 'plugins/bundles/dex-bundle-market-editor/bundle.json';
 let authorPluginsCache = null;
 function authorPlugins() {

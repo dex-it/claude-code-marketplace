@@ -22,6 +22,10 @@ on:
       - 'tools/validate-*.js'
       - '**.sh'
 
+# Чеки только читают репозиторий: токен workflow без записи.
+permissions:
+  contents: read
+
 jobs:
   validate:
     name: Validate agents and skills against frameworks
@@ -74,6 +78,11 @@ jobs:
       - name: Validate bundles
         run: node tools/validate-bundle.js all
 
+      # Имя поля, переведённое на слух из прозы агента в схему трека, не показывает
+      # ни один прогон: объект приходит заполненным, просто не тот.
+      - name: Validate node contract field names
+        run: node tools/validate-node-contract.js all
+
       # Мета-гейт: правило без строки в VALIDATOR_RULES.md или без фикстуры
       # проходит test-rules.js молча - он гоняет только то, что заявлено.
       - name: Validate rules documented
@@ -95,7 +104,10 @@ jobs:
       # песочнице через MARKETPLACE_ROOT), а кейс, которого не построилось,
       # ошибкой не выглядит нигде. Шаг живёт в этом job'е, а не в shell-syntax:
       # скрипт зовёт node и `gray-matter`, то есть требует `npm ci`.
-      - name: Test agent visibility case construction
+      # Код выхода и CLI-ветки validate-node-contract.js (пустой набор, режим одного файла, словарь
+      # с CRLF и без файла) test-rules.js не видит - он судит только строки находок.
+      # Обход дерева: symlink и спецфайл под plugins/ - отказ всех валидаторов, а не ELOOP, зависание или чужой файл.
+      - name: Test tool CLI contracts (agent visibility, node contract, tree walk)
         run: npm run test:tools
 
       # Ledger и сторожа dex-auto: адрес, буквальный контракт статуса, коды выхода
@@ -104,8 +116,8 @@ jobs:
         run: npm run test:hooks
 
       # Треки dex-auto: оркестрация (петли, потолки, ветки blocked, состав возврата)
-      # на подменённых узлах. Валидаторы tracks/*.js не судят вовсе - проверяется
-      # только прогоном; журнал находок - зонд P18.
+      # на подменённых узлах. Имена полей схем tracks/*.js судит validate-node-contract.js,
+      # оркестрацию - только этот прогон; журнал находок - зонд P18.
       - name: Test dex-auto track orchestration
         run: npm run test:tracks
 

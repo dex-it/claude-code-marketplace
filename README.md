@@ -86,10 +86,10 @@ claude plugins uninstall dex-dotnet-coder
 | `ml-engineer` | ML инженер |
 | `infrastructure` | Вся инфраструктура |
 | `cli-tools` | CLI-утилиты для диагностики (gh, glab, kubectl, jenkins, teamcity, psql, redis-cli, kaf, rabbitmqadmin, aws-s3, playwright) |
-| `code-review` | Цикл работы с кодом: ревью MR/PR, ре-ревью дельты, план правок, реализация фичи, pre-push саморевью (языко-агностично) |
+| `code-review` | Цикл работы с кодом: ревью MR/PR, ре-ревью дельты, план правок, реализация фичи, pre-push саморевью, свод правил проекта (языко-агностично) |
 | `bug-lifecycle` | Жизненный цикл бага: поиск, оформление, RCA на стенде, фикс на источнике (языко-агностично) |
 | `runtime-diagnostics` | Runtime-диагностика .NET и native-границы: hang, crash, leak, дампы, netcoredbg |
-| `market-editor` | Редактор маркетплейса: ревью артефакта каталога по осям фреймворка, сверка фактов, оптимизация под LLM, извлечение уроков из чужих MR. Ставится автору каталога, не пользователю |
+| `market-editor` | Работа с нормой каталога: форма нормативной единицы и бюджет правки, ревью артефакта по осям фреймворка, сверка фактов, рез под LLM, нормы корпуса документов, извлечение уроков из чужих MR. Ставится автору каталога, не пользователю |
 
 Подробнее: [install-bundle/README.md](./install-bundle/README.md)
 
@@ -202,6 +202,7 @@ claude plugins uninstall dex-dotnet-coder
 | dex-mr-check-reviewer | mr-check-reviewer | второй раунд `/mr-review`, не своя команда | Ре-ревью дельты с прошлого раунда (range-diff) |
 | dex-mr-reviewer | mr-reviewer | `/mr-review` | Первичное ревью чужого MR/PR, инлайн-треды через gh/glab |
 | dex-requirements-reviewer | requirements-reviewer | `/review-requirements` | Приёмка чужого набора требований (`/review-requirements`) |
+| dex-rulebook-miner | rulebook-orchestrator, rule-collector | `/rulebook` | Свод правил проекта из истории ревью: что в репозитории принято; норматив жанра, ловушки добычи и оракул приёмки едут скиллами этого же плагина |
 | dex-self-reviewer | self-reviewer | `/self-review` | Pre-push саморевью своей ветки с прогоном тестов |
 | dex-stand-reviewer | stand-reviewer | - | Приёмка слитой фичи на развёрнутом стенде против ТЗ, read-only |
 
@@ -225,6 +226,7 @@ claude plugins uninstall dex-dotnet-coder
 | dex-test | `/test` | добор тестового покрытия по осям матрицы |
 | dex-bug-finder | `/find-bugs` | активный поиск багов в фиче или ветке |
 | dex-mr-reviewer | `/mr-review` | первичное ревью чужого MR/PR и ре-ревью дельты |
+| dex-rulebook-miner | `/rulebook` | свод правил проекта из истории ревью, публикация MR со сводом |
 | dex-review-planner | `/review-plan` | обработка полученного ревью: план правок, ответы, ре-ревью |
 | dex-stand-reviewer | `/review-stand` | приёмка слитой фичи на развёрнутом стенде |
 | dex-incident-investigator | `/investigate` | расследование инцидента на общем стенде |
@@ -233,7 +235,7 @@ claude plugins uninstall dex-dotnet-coder
 
 ## Skills (Level 1)
 
-Базы знаний - активируются автоматически по ключевым словам в контексте либо грузятся агентом явно. Имя плагина - `dex-skill-<имя скилла>`. Перечень полный: состав витрины сверяется с `.claude-plugin/marketplace.json` прогоном `node tools/validate-readme.js` - он входит в `npm run validate` и в CI, генератора у этой таблицы нет.
+Базы знаний - активируются автоматически по ключевым словам в контексте либо грузятся агентом явно. Имя плагина - `dex-skill-<имя скилла>`. Перечень полный по записям каталога: состав витрины сверяется с `.claude-plugin/marketplace.json` прогоном `node tools/validate-readme.js` - он входит в `npm run validate` и в CI, генератора у этой таблицы нет. Скилл, едущий внутри плагина-владельца (CLAUDE.md, «Структура плагина»), своей записи каталога не имеет и отдельной строкой здесь не стоит - его называет витрина владельца.
 
 | Категория | Skills |
 |-----------|--------|
@@ -242,7 +244,7 @@ claude plugins uninstall dex-dotnet-coder
 | **Оракулы качества артефактов** | `requirement-quality`, `requirement-set-quality`, `use-case-quality`, `adr-quality`, `design-quality`, `plan-quality`, `api-spec-quality`, `completeness-mapping`, `fact-verification`, `legacy-reconstruction`, `verification-planning-29119`, `bdd-gherkin` |
 | **Архитектура и дизайн** | `clean-architecture`, `ddd`, `microservices`, `solid`, `scalability`, `cap-consistency`, `capacity-planning`, `distributed-resilience`, `reference-architectures`, `tech-evaluation`, `api-specification`, `architecture-definition-42010`, `interface-definition-openapi` |
 | **Безопасность** | `owasp-security` |
-| **Ревью и дисциплина изменений** | `git-workflow`, `merge-conflict-resolution`, `review-evidence`, `review-step-by-step`, `review-threads`, `no-loose-ends`, `performance-review`, `post-merge-remediation`, `ci-gates`, `project-baseline`, `codebase-conventions`, `karpathy-guidelines`, `optimize-for-llm`, `output-hygiene`, `artifact-review` |
+| **Ревью и дисциплина изменений** | `git-workflow`, `merge-conflict-resolution`, `review-evidence`, `review-step-by-step`, `review-threads`, `defect-classification`, `no-loose-ends`, `performance-review`, `post-merge-remediation`, `ci-gates`, `project-baseline`, `codebase-conventions`, `karpathy-guidelines`, `optimize-for-llm`, `norm-writing`, `output-hygiene`, `artifact-review` |
 | **QA и тестирование** | `test-design`, `api-testing`, `test-coverage`, `testability`, `integration-boundary`, `exploratory-testing`, `bug-reproduction`, `contract-drift`, `deep-audit`, `tech-audit`, `playwright`, `stand-verification` |
 | **Инциденты и RCA** | `problem-specification`, `root-cause-analysis`, `change-correlation`, `shared-stand-safety`, `core-dumps`, `managed-debug`, `native-debug`, `perf-profiling`, `syscall-tracing`, `binary-inspection` |
 | **.NET** | `dotnet-api-development`, `dotnet-async-patterns`, `dotnet-caching`, `dotnet-code-quality`, `dotnet-config-hygiene`, `dotnet-csproj-hygiene`, `dotnet-di`, `dotnet-ef-core`, `dotnet-linq-optimization`, `dotnet-logging`, `dotnet-resilience`, `dotnet-resources`, `dotnet-testing-patterns`, `dotnet-validation`, `api-documentation` |
@@ -470,4 +472,4 @@ GPL v3.0 - см. [LICENSE](./LICENSE)
 
 ---
 
-**DEX Team** · Version 6.2.0
+**DEX Team** - Version 6.5.0

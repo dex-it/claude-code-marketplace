@@ -201,7 +201,7 @@ here reads as a promise. `./install-bundle.sh --list` prints the live count next
 | `dotnet-developer` | .NET Developer: coding, debugging, tests, code review, EF Core, performance, .NET architecture design |
 | `dotnet-fullstack` | .NET Fullstack: development, databases, message brokers, containers, CI/CD, monitoring, architecture design |
 | `infrastructure` | Infrastructure: databases, message brokers, containers, CI/CD, monitoring |
-| `market-editor` | Marketplace editor: catalogue artefact review, fact verification, LLM optimisation. For the catalogue author, not its users |
+| `market-editor` | Catalogue norm authoring: normative unit form and edit budget, catalogue artefact review against framework axes, fact verification, LLM-oriented trimming, document corpus naming and identifiers, lessons mined from other teams' MRs. For the catalogue author, not its users |
 | `ml-engineer` | ML Engineer: experiments, model training, debugging, deployment, data pipelines |
 | `product-manager` | Product Manager: business requirements, roadmap, backlog, metrics analysis |
 | `qa-engineer` | QA Engineer: test analysis, automation (incl. Playwright E2E), active bug hunting, bug reports |

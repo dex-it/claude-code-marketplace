@@ -16,7 +16,7 @@
  *   1 - at least one error found
  */
 
-import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, lstatSync, existsSync } from 'node:fs';
 import { join, relative, resolve, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import matter from 'gray-matter';
@@ -32,6 +32,17 @@ const __dirname = dirname(__filename);
 const REPO_ROOT = process.env.MARKETPLACE_ROOT
   ? resolve(process.env.MARKETPLACE_ROOT)
   : resolve(__dirname, '..');
+
+// Обход дерева не проходит по symlink и спецфайлам: цикл ссылок ронял прогон стектрейсом ELOOP, FIFO вешал
+// чтение, а ссылка наружу судила чужой файл как свой. Такой узел - отказ с кодом 1, а не тихий пропуск.
+function statPlain(full) {
+  const stat = lstatSync(full);
+  if (stat.isSymbolicLink() || !(stat.isFile() || stat.isDirectory())) {
+    console.error(`Not a regular file or directory (symlinks and special files are not followed): ${relative(REPO_ROOT, full)}`);
+    process.exit(1);
+  }
+  return stat;
+}
 // Сканируем весь plugins/ (не только plugins/skills): скиллы живут и в других
 // группах-папках, не только в plugins/skills. Обход по SKILL.md покрывает
 // любую папку без правки валидатора при переносе плагина.
@@ -106,7 +117,7 @@ function findAllSkillFiles() {
     if (!existsSync(dir)) return;
     for (const entry of readdirSync(dir)) {
       const full = join(dir, entry);
-      const stat = statSync(full);
+      const stat = statPlain(full);
       if (stat.isDirectory()) walk(full);
       else if (entry === 'SKILL.md') result.push(full);
     }
@@ -179,6 +190,9 @@ const PROCESS_SKILLS = new Set([
   'opportunity-canvas',
   'issue-tracking',
   'idea-forming',
+  'project-rulebook',
+  'defect-classification',
+  'norm-writing',
 ]);
 
 // Имена, существующие только в фикстурах `tools/__fixtures__`. В продовые перечни не
@@ -380,7 +394,7 @@ function validateReferenceSize(skillFilePath, findings) {
   let fileCount = 0;
   for (const entry of readdirSync(dir).sort()) {
     const full = join(dir, entry);
-    if (!statSync(full).isFile() || !entry.endsWith('.md')) continue;
+    if (!statPlain(full).isFile() || !entry.endsWith('.md')) continue;
     const body = readFileSync(full, 'utf8');
     validateCatalogDocsLink(body, full, findings, `references/${entry} `);
     validatePluginNameMentions(body, findings, `references/${entry} `);
@@ -476,7 +490,7 @@ function catalogDocTargets() {
     for (const entry of readdirSync(dir).sort()) {
       const full = join(dir, entry);
       const relPath = rel ? `${rel}/${entry}` : entry;
-      if (statSync(full).isDirectory()) {
+      if (statPlain(full).isDirectory()) {
         if (!rel && USER_CORPUS_DIRS.has(entry)) continue;
         walk(full, relPath);
         continue;
@@ -505,9 +519,10 @@ function mentionsTarget(text, target, slashBefore) {
 
 // Авторские плагины: их артефакты исполняются в клоне каталога, где `docs/` лежит рядом, поэтому
 // адрес у них разрешается и правило к ним не применяется. Читается `authorOnly[]`, а не весь состав
-// бандла автора: в состав попадают и плагины замыкания (`dependencies[]`: `artifact-review` грузит
-// `fact-verification` и `optimize-for-llm`), а они едут пользователю в бандлах ролей, где `docs/`
-// каталога нет. Разъезд списка с составами бандлов ловит `validate-bundle.js` (`author-only-*`).
+// бандла автора (`includes[]` плюс `dependencies[]`): в составе стоят и плагины, которые едут
+// пользователю бандлами ролей, где `docs/` каталога нет, - исключение даёт только запись в
+// `authorOnly[]`, а не место записи в одном из двух списков. Разъезд `authorOnly[]` с составами
+// бандлов ловит `validate-bundle.js` (`author-only-*`).
 const AUTHOR_BUNDLE_JSON = 'plugins/bundles/dex-bundle-market-editor/bundle.json';
 let authorPluginsCache = null;
 function authorPlugins() {

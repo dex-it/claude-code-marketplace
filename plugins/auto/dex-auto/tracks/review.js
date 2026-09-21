@@ -14,11 +14,11 @@ export const meta = {
 
 const A = args || {}
 const DELTA = !!A.last_review_sha
-const HEAD = `mode: ${A.mode || 'autonomous'}\nцель (${A.task}): ревью ${A.mr}${DELTA ? ` - ревизия дельты от ${A.last_review_sha}` : ''}.\nread-only: код не менять, тесты не писать, в MR ничего не публиковать - публикует отдельный узел по санкции.\nРаботай из ${A.cwd}. Оператора нет: невыводимое верни status: blocked с полем нехватки; неясность намерения по diff - вопрос автору в перечне, не оператору.\n`
+const HEAD = `mode: ${A.mode || 'autonomous'}\nцель (${A.task}): ревью ${A.mr}${DELTA ? ` - ревизия дельты от ${A.last_review_sha}` : ''}.\nread-only: код не менять, тесты не писать, в MR ничего не публиковать - публикует отдельный узел по санкции.\nРаботай из ${A.cwd}: это отдельное detached git worktree трека - ревизии в нём переключай свободно, рабочего дерева сессии это не трогает. Запуск вне дерева отбивает хук: каждая команда Bash называет дерево и не называет каталог сессии, включая канал хостинга - git -C ${A.cwd} fetch <ссылка>, git -C ${A.cwd} checkout --detach <sha>, cd ${A.cwd} && gh pr diff <N>. Веток не создавай, код не меняй, коммитов не делай. Оператора нет: невыводимое верни status: blocked с полем нехватки; неясность намерения по diff - вопрос автору в перечне, не оператору.\n`
 
 const STATUS = { type: 'string', enum: ['complete', 'blocked', 'partial'] }
 const FINDING = { type: 'object', properties: {
-  anchor: { type: 'string', description: 'file:line' }, severity: { type: 'string', enum: ['P0', 'P1', 'P2', 'P3'] },
+  anchor: { type: 'string', description: 'file:line' }, severity: { type: 'string', enum: ['P0', 'P1', 'P2', 'P3'], description: 'уровень словаря node-contract: P0 = CRITICAL, P1 = HIGH, P2 = MEDIUM, P3 = LOW' },
   axis: { type: 'string', enum: ['security', 'architecture', 'language', 'business', 'regressions', 'performance', 'coverage', 'non-code'] },
   text: { type: 'string' }, closure: { type: 'string', description: 'критерий закрытия' }, evidence: { type: 'string' },
 }, required: ['anchor', 'severity', 'axis', 'text', 'closure', 'evidence'] }
@@ -70,7 +70,7 @@ if (!ctx || ctx.status === 'blocked') return { status: 'blocked', where: 'Contex
 
 phase('Review')
 const reviewerType = DELTA ? 'dex-mr-check-reviewer:mr-check-reviewer' : 'dex-mr-reviewer:mr-reviewer'
-const common = `MR/PR: ${A.mr}, BASE_SHA ${ctx.base_sha}, HEAD_SHA ${ctx.head_sha}, файлов ${ctx.files.length}. intent: ${ctx.intent}. publish: false - ноль записей в MR. Код читай с диска в ветке MR либо через канал хостинга.`
+const common = `MR/PR: ${A.mr}, BASE_SHA ${ctx.base_sha}, HEAD_SHA ${ctx.head_sha}, файлов ${ctx.files.length}. intent: ${ctx.intent}. publish: false - ноль записей в MR. Код читай с диска: переключи ${A.cwd} на ${ctx.head_sha} (git fetch ссылки MR, затем git checkout --detach); ревизия не достаётся - канал хостинга, и это названо в missing.`
 const [rev, sec] = await parallel([
   () => node(DELTA ? 'ре-ревьюер дельты' : 'ревьюер MR', `${HEAD}Шаг 2: ${DELTA ? `ре-ревью дельты: LAST_REVIEW_SHA ${A.last_review_sha}, статус прежних находок, новые находки только в дельте` : 'первичное ревью по осям по характеру diff; незадетая ось - явный n/a с основанием'}. ${common} Оси: language, architecture, business, regressions, performance, non-code; security - отдельный узел, здесь не дублируй. Severity в шкале P0-P3.`,
     { label: DELTA ? 'review:delta' : 'review:first', phase: 'Review', schema: REVIEW }, reviewerType),
