@@ -111,7 +111,7 @@ claude plugins uninstall dex-dotnet-coder
 | Плагин | Агент | Команда | Описание |
 |--------|-------|---------|----------|
 | dex-bug-fixer | bug-fixer | - | Пакетная ремедиация багов после мерджа: триаж, подтверждение причины, фикс на источнике, follow-up MR |
-| dex-debugger | debugger | `/root-cause` | Языко-агностичный root-cause debugger: воспроизведение, изоляция, фальсификация причины, список проблем без правки кода |
+| dex-debugger | debugger | `/root-cause` | Языко-агностичный root-cause debugger: красный воспроизводящий тест, изоляция, фальсификация причины, список проблем без правки продуктового кода |
 | dex-incident-investigator | incident-investigator | `/investigate` | Расследование инцидента на общем стенде, RCA и фикс на источнике, read-only по умолчанию |
 | dex-review-planner | review-planner | `/review-plan` | План правок по ревью без редактирования кода |
 | dex-security-reviewer | security-reviewer | `/security-scan` | Глубокий анализ безопасности: threat model, attack paths по OWASP, цепочки эксплойтов, severity |
