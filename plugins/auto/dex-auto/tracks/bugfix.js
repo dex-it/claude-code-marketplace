@@ -175,6 +175,14 @@ const conflictsOf = (d) => d['conflict-status'] === 'some' || (d.conflicts || []
 if (conflictsOf(repro)) return bail('Reproduce', conflictsOf(repro), { repro: null })
 const causeOf = (d) => `Первопричина: ${d.root_cause}\nВоспроизведение: ${d.reproduction}\nОснование ожидаемого: ${d['expected-basis']}\nПредложение фикса: ${d.fix_proposal}${d.repro_test ? `\nТест диагноста: ${d.repro_test}` : ''}`
 let causeText = causeOf(repro)
+// Правка теста диагноста ловится хэшем, а не отчётом кодера: проверку, подогнанную под свой фикс, отчёт не назовёт.
+// Сигнал ревьюеру идёт против теста диагноста и на каждом круге заново: замороженный до фазы Review, он молчал бы о подмене в правке по находкам.
+const touchedOrig = (v) => !!repro.repro_blob && !!v && v.repro_test_hash !== repro.repro_blob
+// Гейт судит против ожидания. `harness-fixed` объясняет расхождение того круга, который его объявил, и только его:
+// ожидание сдвигается сразу на этом круге, иначе законная починка обвязки в середине потолка роняет гейт на последнем круге.
+let expectBlob = repro.repro_blob
+const touchedGate = (v) => !!expectBlob && !!v && v.repro_test_hash !== expectBlob
+const rebase = (f, v) => { if (f && f['diagnosis-check'] === 'harness-fixed' && v && v.repro_test_hash) expectBlob = v.repro_test_hash }
 const coderType = CODER[repro.stack]
 
 phase('Fix')
@@ -213,7 +221,7 @@ for (let k = 1; k <= FIX_CEILING && (!isGreen(ver) || pending); k++) {
     trail.push({ step: '1-redispute', attempt: k, doer: 'debugger', status: re ? re.status : 'null' })
     if (!re || re.status === 'blocked') return bail('Fix: повторный диагноз после спора', re ? re.missing : 'узел воспроизведения не вернул выход', { disputes })
     if (conflictsOf(re)) return bail('Fix: повторный диагноз после спора', conflictsOf(re), { disputes, repro: null })
-    repro = withCtx(re); causeText = causeOf(repro)
+    repro = withCtx(re); causeText = causeOf(repro); expectBlob = repro.repro_blob
     // Дерево спор не менял: попытку правки он не тратит.
     k--; continue
   }
@@ -221,19 +229,10 @@ for (let k = 1; k <= FIX_CEILING && (!isGreen(ver) || pending); k++) {
   ver = await verifyOnce(`после попытки ${k}`)
   trail.push({ step: '2-exit', attempt: k, doer: 'general-purpose', passed: isGreen(ver) })
   if (noRun(ver)) return bail(`Fix#${k}: верификация`, lack(ver))
+  rebase(fix, ver)
   if (!isGreen(ver)) log(`попытка ${k}: exit=${ver && ver.exit_code}, build_ok=${ver && ver.build_ok}, fail=${ver && ver.fail_count}, dirty=${ver && ver.dirty}`)
 }
 if (!isGreen(ver)) return { status: 'partial', where: `Fix: потолок ${FIX_CEILING} исчерпан`, ver, repro, fix, loops, trail, degraded, decisions: dec() }
-// Правка теста диагноста ловится хэшем, а не отчётом кодера: проверку, подогнанную под свой фикс, отчёт не назовёт.
-// Сигнал ревьюеру идёт против теста диагноста и на каждом круге заново: замороженный до фазы Review, он молчал бы о подмене в правке по находкам.
-const touchedOrig = (v) => !!repro.repro_blob && !!v && v.repro_test_hash !== repro.repro_blob
-// Гейт судит против ожидания. `harness-fixed` объясняет расхождение того круга, который его объявил, и только его:
-// дальше ожидание сдвигается на новый снимок, иначе один починенный setup закрывает подмену проверки в любом следующем круге.
-let expectBlob = repro.repro_blob
-const touchedGate = (v) => !!expectBlob && !!v && v.repro_test_hash !== expectBlob
-const rebase = (f, v) => { if (f && f['diagnosis-check'] === 'harness-fixed' && v && v.repro_test_hash) expectBlob = v.repro_test_hash }
-rebase(fix, ver)
-
 phase('Review')
 // Записи red-run и uncovered кодера - вход саморевьюера: он судит red-run по записям входа, а uncovered адресован следующему узлу.
 const review = (tag, f, v) => node('саморевьюер', `${HEAD}Шаг 3 (${tag}): pre-push саморевью локальной ветки - коммиты этой цели плюс рабочее дерево.${touchedOrig(v) ? `\nТест диагноста ${repro.repro_test} изменён кодером: исходник - git show ${repro.repro_blob}. Изменена проверка - вход, вызываемый путь или ожидаемое - находка P1.` : ''}${f ? `\nВход от кодера - red-run: ${f['red-run']}\nuncovered: ${f['uncovered-status']}${(f.uncovered || []).length ? ' - ' + f.uncovered.join('; ') : ''}` : ''} Источник намерения:\n${causeText}\nПрогон build/test реальный, итог - в run-status, не в findings. Код не меняй.`,
