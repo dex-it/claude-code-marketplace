@@ -31,7 +31,7 @@ async function runTrack(track, args, responses, unavailable = []) {
   return { result, calls }
 }
 
-const green = { status: 'complete', exit_code: 0, pass_count: 9, fail_count: 0, failing: [], build_ok: true, head: 'abc feat', dirty: false, missing: '' }
+const green = { status: 'complete', exit_code: 0, pass_count: 9, fail_count: 0, failing: [], build_ok: true, head: 'abc feat', dirty: false, repro_test_hash: '', missing: '' }
 const red = { ...green, exit_code: 1, fail_count: 2, failing: ['T1', 'T2'], head: 'abc wip' }
 const dirty = { ...green, dirty: true }
 const ctxOk = { status: 'complete', requirements: ['R1 ...'], files: ['src/A.cs'], corpus: 'docs/', 'conflict-status': 'none', conflicts: [], missing: '' }
@@ -44,15 +44,18 @@ const prepFailed = { ...prepOk, 'prepare-status': 'failed', prepare_log: 'dotnet
 // непустом перечне: статус сам себя опровергает, и трек судит перечень наравне со статусом.
 const ctxConflict = { ...ctxOk, 'conflict-status': 'some', conflicts: ['FEAT.md:19 (AC2) требует отклонять ../evil ошибкой против R4 goal.md:21 - принимать любое имя'] }
 const ctxConflictMute = { ...ctxConflict, 'conflict-status': 'none' }
-const reproOk = { status: 'complete', root_cause: 'src/a.ts:10 неверный ключ', reproduction: 'тест T1: красный', 'expected-basis': 'тест', fix_proposal: 'править ключ', files: ['src/a.ts'], 'conflict-status': 'none', conflicts: [], missing: '' }
+const reproOk = { status: 'complete', root_cause: 'src/a.ts:10 неверный ключ', reproduction: 'тест T1: красный', repro_test: '', repro_blob: '', 'expected-basis': 'тест', fix_proposal: 'править ключ', files: ['src/a.ts'], 'conflict-status': 'none', conflicts: [], missing: '' }
+const reproTest = { ...reproOk, reproduction: 'тест pay: красный, причина падения сверена', repro_test: 'test/pay.test.ts', repro_blob: 'b1' }
+const greenTest = { ...green, repro_test_hash: 'b1' }
 const reproConflict = { ...reproOk, 'conflict-status': 'some', conflicts: ['AC-4 docs/spec.md:31 требует 409 против ожидаемого входа - 200 с телом ошибки'] }
-const fixOk = { status: 'complete', 'diff-scope': ['src/A.cs'], commit: 'abc123', 'run-status': 'build ok, tests 9/9', 'red-run': 'T1 красный до, зелёный после', 'uncovered-status': 'some', uncovered: ['ветка таймаута'], 'dependents-status': 'some', dependents: ['src/Caller.cs:41 вызывает изменённый метод'], 'fact-check': 'n/a (триггер не сработал)', decisions: ['выбран A'], missing: '' }
+const fixOk = { status: 'complete', 'diff-scope': ['src/A.cs'], commit: 'abc123', 'run-status': 'build ok, tests 9/9', 'red-run': 'T1 красный до, зелёный после', 'uncovered-status': 'some', uncovered: ['ветка таймаута'], 'dependents-status': 'some', dependents: ['src/Caller.cs:41 вызывает изменённый метод'], 'fact-check': 'n/a (триггер не сработал)', decisions: ['выбран A'], 'diagnosis-check': 'accepted', dispute: '', missing: '' }
+const fixDisputeCause = { ...fixOk, status: 'partial', commit: '', 'diagnosis-check': 'disputed-cause', dispute: 'src/pay.ts:40 ключ идемпотентности уже проверяется - причина не в src/pay.ts:12', missing: 'диагноз оспорен' }
 // Правка, замкнутая в себе: оба поля явным «нет» - единственное сочетание, отменяющее второй круг ревью.
 const fixSealed = { ...fixOk, 'uncovered-status': 'none', uncovered: [], 'dependents-status': 'none', dependents: [] }
 const revClean = { status: 'complete', findings: [], 'run-status': 'build ok, tests 9/9', 'red-run': 'T1 действует', 'fact-check': 'n/a (триггер не сработал)', intent: 'соответствует', push_recommended: true, push_blockers: '', missing: '' }
 const revP1 = { status: 'complete', findings: [{ severity: 'P1', anchor: 'src/A.cs:8', text: 'ретрай не различает случаи', closure: 'случаи различены тестом' }], 'run-status': 'build ok', 'red-run': 'T1 действует', 'fact-check': 'n/a (триггер не сработал)', intent: 'соответствует', push_recommended: false, push_blockers: 'открыта P1', missing: '' }
 const revP2 = { status: 'complete', findings: [{ severity: 'P2', anchor: 'src/A.cs:9', text: 'имя переменной', closure: 'переименовано' }], 'run-status': 'build ok', 'red-run': 'T1 действует', 'fact-check': 'n/a (триггер не сработал)', intent: 'соответствует', push_recommended: true, push_blockers: '', missing: '' }
-const verBlocked = { status: 'blocked', exit_code: -1, pass_count: 0, fail_count: 0, failing: [], build_ok: false, head: '', dirty: false, missing: 'нет прав на запуск dotnet test' }
+const verBlocked = { status: 'blocked', exit_code: -1, pass_count: 0, fail_count: 0, failing: [], build_ok: false, head: '', dirty: false, repro_test_hash: '', missing: 'нет прав на запуск dotnet test' }
 const ctxMr = { status: 'complete', platform: 'github', base_sha: 'aaa', head_sha: 'bbb', files: ['api/user.ts'], security_surface: true, security_basis: 'diff трогает auth', intent: 'issue #12', missing: '' }
 const mrFinding = { anchor: 'api/user.ts:41', severity: 'P1', axis: 'security', text: 'токен в логе', closure: 'убрать поле', evidence: 'logger.info(ctx)' }
 const revMr = { status: 'complete', findings: [mrFinding], axes: ['language: чисто'], verdict: 'REQUEST_CHANGES', prior: [], questions: ['вопрос по намерению'], missing: '' }
@@ -703,6 +706,79 @@ const SCENARIOS = [
       ['ожидаемого в шапке нет', !promptOf(calls, 'ctx:tree').includes(bugfixArgs.expected)],
       ['мандат назван: чинит другой узел', /воспроизводит и чинит другой узел/.test(promptOf(calls, 'ctx:tree'))],
       ['диагност симптом по-прежнему получает', promptOf(calls, 'reproduce').includes(bugfixArgs.symptom)],
+    ] },
+  // Приёмка диагноза: спор разрешается уликой за один возврат диагносту, правка теста ловится хэшем снимка.
+  { name: 'B19 тест диагноста доезжает до кодера и верификатора, кодеру предписана приёмка', track: 'bugfix', args: bugfixArgs,
+    responses: { 'reproduce': reproTest, 'fix:1': fixOk, 'verify:после попытки 1': greenTest, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['трек complete', result.status === 'complete'],
+      ['кодеру назван тест диагноста', promptOf(calls, 'fix:1').includes('Тест диагноста: test/pay.test.ts')],
+      ['кодеру предписана приёмка по node-contract', promptOf(calls, 'fix:1').includes('references/diagnosis-acceptance.md')],
+      ['верификатор снимает хэш теста', promptOf(calls, 'verify:после попытки 1').includes('git hash-object test/pay.test.ts')],
+      ['ревью не получает сигнала о правке теста', !promptOf(calls, 'self-review:первое').includes('изменён кодером')],
+    ] },
+  { name: 'B20 кодер оспорил причину -> повторный диагноз с уликой, попытка правки не тратится', track: 'bugfix', args: bugfixArgs,
+    responses: { 'reproduce': reproTest, 'fix:1': (n) => n === 1 ? fixDisputeCause : fixOk, 'reproduce:dispute': { ...reproTest, reproduction: 'улика отбита: src/pay.ts:12 вызывается и на этом пути' }, 'verify:после попытки 1': greenTest, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['трек complete', result.status === 'complete'],
+      ['диагност получил улику', promptOf(calls, 'reproduce:dispute').includes('src/pay.ts:40 ключ идемпотентности уже проверяется')],
+      ['кодер получил ответ диагноста', calls.filter(c => c.label === 'fix:1').pop().prompt.includes('улика отбита: src/pay.ts:12')],
+      ['попытка не потрачена', result.loops.fix === 1],
+      ['верификация до правки не покупалась', calls.filter(c => c.label.startsWith('verify:')).length === 1],
+      ['спор в выходе', result.disputes.length === 1],
+    ] },
+  { name: 'B21 второй спор -> partial с обеими позициями, третьего круга нет', track: 'bugfix', args: bugfixArgs,
+    responses: { 'reproduce': reproTest, 'fix:1': fixDisputeCause, 'reproduce:dispute': reproTest },
+    expect: ({ result, calls }) => [
+      ['статус partial', result.status === 'partial'],
+      ['where называет повторный спор', /диагноз оспорен повторно/.test(result.where)],
+      ['обе позиции в выходе', result.disputes.length === 2],
+      ['диагност повторно вызван один раз', calls.filter(c => c.label === 'reproduce:dispute').length === 1],
+    ] },
+  { name: 'B22 спор об ожидаемом -> blocked, диагност не вызывается', track: 'bugfix', args: bugfixArgs,
+    responses: { 'reproduce': reproTest, 'fix:1': { ...fixDisputeCause, 'diagnosis-check': 'disputed-expected', dispute: 'AC-2 docs/spec.md:14 требует 409, тест ждёт 200' } },
+    expect: ({ result, calls }) => [
+      ['статус blocked', result.status === 'blocked'],
+      ['выбор назван владельцу требований', /выбор стороны за владельцем требований: AC-2/.test(result.missing)],
+      ['диагност не вызван', !labelsOf(calls).includes('reproduce:dispute')],
+      ['воспроизведение не переживает исход', result.repro === null],
+    ] },
+  { name: 'B23 тест диагноста изменён при accepted -> partial, ревью получает сигнал', track: 'bugfix', args: bugfixArgs,
+    responses: { 'reproduce': reproTest, 'fix:1': fixOk, 'verify:после попытки 1': { ...greenTest, repro_test_hash: 'b2' }, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['статус partial', result.status === 'partial'],
+      ['where называет правку теста', /тест диагноста test\/pay.test.ts изменён при diagnosis-check: accepted/.test(result.where)],
+      ['ревьюеру дан исходник теста', promptOf(calls, 'self-review:первое').includes('git show b1')],
+    ] },
+  { name: 'B26 обвязка починена в первом круге, второй круг принял диагноз -> гейт не ложится на законный сдвиг', track: 'bugfix', args: bugfixArgs,
+    responses: { 'reproduce': reproTest,
+      'fix:1': { ...fixOk, 'diagnosis-check': 'harness-fixed' },
+      'verify:после попытки 1': { ...red, repro_test_hash: 'b2' },
+      'fix:2': fixOk,
+      'verify:после попытки 2': { ...greenTest, repro_test_hash: 'b2' },
+      'self-review:первое': revClean },
+    expect: ({ result }) => [
+      ['статус complete', result.status === 'complete'],
+      ['гейт не назвал правку теста', !/изменён при diagnosis-check/.test(result.where || '')],
+    ] },
+  { name: 'B25 обвязка починена в первом круге, проверка подменена в правке по саморевью -> гейт ловит, ревью получает сигнал', track: 'bugfix', args: bugfixArgs,
+    responses: { 'reproduce': reproTest,
+      'fix:1': { ...fixOk, 'diagnosis-check': 'harness-fixed' },
+      'verify:после попытки 1': { ...greenTest, repro_test_hash: 'b2' },
+      'self-review:первое': revP1,
+      'fix:after-review': fixOk,
+      'verify:после саморевью': { ...greenTest, repro_test_hash: 'b9' },
+      'self-review:повторное': revClean },
+    expect: ({ result, calls }) => [
+      ['статус partial', result.status === 'partial'],
+      ['where называет правку теста после приёмки', /тест диагноста test\/pay\.test\.ts изменён при diagnosis-check/.test(result.where || '')],
+      ['повторное ревью получило сигнал по своей верификации', promptOf(calls, 'self-review:повторное').includes('изменён кодером')],
+    ] },
+  { name: 'B24 обвязка теста починена (harness-fixed) -> complete, проверку судит ревью', track: 'bugfix', args: bugfixArgs,
+    responses: { 'reproduce': reproTest, 'fix:1': { ...fixOk, 'diagnosis-check': 'harness-fixed' }, 'verify:после попытки 1': { ...greenTest, repro_test_hash: 'b2' }, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['статус complete', result.status === 'complete'],
+      ['ревью поручено судить проверку', /Изменена проверка - вход, вызываемый путь или ожидаемое - находка P1/.test(promptOf(calls, 'self-review:первое'))],
     ] },
 ]
 
