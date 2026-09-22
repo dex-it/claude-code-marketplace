@@ -225,14 +225,20 @@ for (let k = 1; k <= FIX_CEILING && (!isGreen(ver) || pending); k++) {
 }
 if (!isGreen(ver)) return { status: 'partial', where: `Fix: потолок ${FIX_CEILING} исчерпан`, ver, repro, fix, loops, trail, degraded, decisions: dec() }
 // Правка теста диагноста ловится хэшем, а не отчётом кодера: проверку, подогнанную под свой фикс, отчёт не назовёт.
-const touched = (v) => !!repro.repro_blob && !!v && v.repro_test_hash !== repro.repro_blob
-const testTouched = touched(ver)
+// Сигнал ревьюеру идёт против теста диагноста и на каждом круге заново: замороженный до фазы Review, он молчал бы о подмене в правке по находкам.
+const touchedOrig = (v) => !!repro.repro_blob && !!v && v.repro_test_hash !== repro.repro_blob
+// Гейт судит против ожидания. `harness-fixed` объясняет расхождение того круга, который его объявил, и только его:
+// дальше ожидание сдвигается на новый снимок, иначе один починенный setup закрывает подмену проверки в любом следующем круге.
+let expectBlob = repro.repro_blob
+const touchedGate = (v) => !!expectBlob && !!v && v.repro_test_hash !== expectBlob
+const rebase = (f, v) => { if (f && f['diagnosis-check'] === 'harness-fixed' && v && v.repro_test_hash) expectBlob = v.repro_test_hash }
+rebase(fix, ver)
 
 phase('Review')
 // Записи red-run и uncovered кодера - вход саморевьюера: он судит red-run по записям входа, а uncovered адресован следующему узлу.
-const review = (tag, f) => node('саморевьюер', `${HEAD}Шаг 3 (${tag}): pre-push саморевью локальной ветки - коммиты этой цели плюс рабочее дерево.${testTouched ? `\nТест диагноста ${repro.repro_test} изменён кодером: исходник - git show ${repro.repro_blob}. Изменена проверка - вход, вызываемый путь или ожидаемое - находка P1.` : ''}${f ? `\nВход от кодера - red-run: ${f['red-run']}\nuncovered: ${f['uncovered-status']}${(f.uncovered || []).length ? ' - ' + f.uncovered.join('; ') : ''}` : ''} Источник намерения:\n${causeText}\nПрогон build/test реальный, итог - в run-status, не в findings. Код не меняй.`,
+const review = (tag, f, v) => node('саморевьюер', `${HEAD}Шаг 3 (${tag}): pre-push саморевью локальной ветки - коммиты этой цели плюс рабочее дерево.${touchedOrig(v) ? `\nТест диагноста ${repro.repro_test} изменён кодером: исходник - git show ${repro.repro_blob}. Изменена проверка - вход, вызываемый путь или ожидаемое - находка P1.` : ''}${f ? `\nВход от кодера - red-run: ${f['red-run']}\nuncovered: ${f['uncovered-status']}${(f.uncovered || []).length ? ' - ' + f.uncovered.join('; ') : ''}` : ''} Источник намерения:\n${causeText}\nПрогон build/test реальный, итог - в run-status, не в findings. Код не меняй.`,
   { label: `self-review:${tag}`, phase: 'Review', schema: REVIEW }, 'dex-self-reviewer:self-reviewer')
-let rev = await review('первое', fix); loops.review = 1
+let rev = await review('первое', fix, ver); loops.review = 1
 let carried = []
 trail.push({ step: 3, doer: 'self-reviewer', status: rev ? rev.status : 'null', findings: rev ? rev.findings.length : -1, push: rev ? rev.push_recommended : null })
 const blockingOf = (r) => r ? r.findings.filter(f => f.severity === 'P0' || f.severity === 'P1') : []
@@ -246,6 +252,7 @@ if (rev && blockingOf(rev).length) {
   const openNow = { review: rev, open_findings: rev.findings }
   if (!fix2 || fix2.status === 'blocked') return bail('Review: правка по находкам', fix2 ? fix2.missing : 'узел-кодер не вернул выход', openNow)
   if (noRun(ver2)) return bail('Review: верификация после правки', lack(ver2), openNow)
+  rebase(fix2, ver2)
   const rev1 = rev
   // Повторное ревью покупается не всегда. Правка, целиком проверенная прогоном и не видимая наружу,
   // получает от второго ревью подтверждение верификации, а не новый факт: по ledger круг окупался
@@ -262,7 +269,7 @@ if (rev && blockingOf(rev).length) {
     rev = { ...rev1, findings: rev1.findings.filter(f => !(f.severity === 'P0' || f.severity === 'P1')) }
     trail.push({ step: '3-repeat', doer: 'не куплено: правка замкнута и проверена прогоном', status: 'skipped', closed: blockingOf(rev1).length })
   } else {
-    rev = await review('повторное', fix2); loops.review = 2
+    rev = await review('повторное', fix2, ver2); loops.review = 2
     // Повторное ревью без выхода или blocked не закрывает находки первого: они остаются открытыми.
     if (!rev || rev.status === 'blocked') carried = blockingOf(rev1)
     trail.push({ step: '3-repeat', doer: 'self-reviewer', status: rev ? rev.status : 'null', findings: rev ? rev.findings.length : -1, push: rev ? rev.push_recommended : null })
@@ -271,7 +278,7 @@ if (rev && blockingOf(rev).length) {
 const finalVer = ver2 || ver
 // partial кодера и опровергнутая им сверка - исход автора: зелёная верификация и чистое ревью их не закрывают.
 const authorGap = (f) => !f ? '' : f.status === 'partial' ? `кодер вернул partial: ${f.missing || f['run-status'] || 'нехватка не названа'}` : /^contradicted/.test(f['fact-check'] || '') ? `fact-check кодера: ${f['fact-check']}` : ''
-const testGap = touched(finalVer) && fix['diagnosis-check'] !== 'harness-fixed' ? `тест диагноста ${repro.repro_test} изменён при diagnosis-check: ${fix['diagnosis-check']}` : ''
+const testGap = touchedGate(finalVer) ? `тест диагноста ${repro.repro_test} изменён при diagnosis-check: ${(fix2 || fix)['diagnosis-check']}` : ''
 const gap = authorGap(fix2 || fix) || testGap || (repro.status === 'partial' ? `воспроизведение partial: ${repro.missing || `эталон - ${repro['expected-basis']}`}` : '')
 const green = isGreen(finalVer)
 // Порог допуска: зелёная верификация и ноль открытых P0/P1. Рекомендация push - сигнал оператору в выходе, не гейт:
