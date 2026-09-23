@@ -76,7 +76,7 @@
       "name": "dex-auto",
       "source": "./plugins/auto/dex-auto",
       "description": "Автономные треки под открытую цель - feature и bugfix (до локальных коммитов) и ревью чужого MR/PR (read-only, треды по санкции): ledger вне рабочего дерева, Workflow-скрипт на трек с потолками петель и схемами выхода узлов, сдача исхода скриптом finish.sh, сторожа SessionStart (возобновление по открытой цели) и Stop (терминал цели). Команды /goal (подготовка цели из тикета, спеки или симптома) и /auto (прогон трека, возобновление с верификации).",
-      "version": "7.3.0",
+      "version": "7.3.1",
       "category": "utility",
       "keywords": [
         "autonomous",
@@ -149,7 +149,7 @@
       "name": "dex-bug-fixer",
       "source": "./plugins/specialists/delivery/dex-bug-fixer",
       "description": "Пакетная ремедиация найденных тестировщиком багов после мерджа: интейк находок, триаж и приоритет, подтверждение причины по одному, фикс на источнике через follow-up MR, верификация red->green на стенде, регрессия соседей; финиш на локальных коммитах без push.",
-      "version": "1.8.0",
+      "version": "1.9.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -498,7 +498,7 @@
       "name": "dex-debugger",
       "source": "./plugins/specialists/delivery/dex-debugger",
       "description": "Языко-агностичный узел root-cause debugger: воспроизведение, изоляция, первопричина, фальсификация гипотез. Продуктовый код не правит: воспроизводит красным тестом, отдаёт найденные проблемы списком. Частные skills грузятся условно по стеку. Точка входа - команда /root-cause, едет в этом же плагине.",
-      "version": "4.0.0",
+      "version": "4.1.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -720,7 +720,7 @@
       "name": "dex-implement",
       "source": "./plugins/specialists/delivery/dex-implement",
       "description": "Команда /implement: реализация фичи полным циклом - требования, план правок, код, тесты, саморевью. Стек определяется по манифесту репозитория, написание делегируется кодеру и тестописателю своего стека.",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "category": "utility",
       "keywords": [
         "command",
@@ -2324,7 +2324,7 @@
       "name": "dex-skill-node-contract",
       "source": "./plugins/skills/dex-skill-node-contract",
       "description": "Рантайм-контракт агента-узла - режим interactive/autonomous, реакция на неполный вход (blocking/default-ok), возврат наверх, словарь полей handoff, метка quality-checks и её носитель, транспорт артефакта, выбор канала хостинга (native/CLI), graceful degradation при недоступности skill",
-      "version": "9.1.0",
+      "version": "9.2.0",
       "category": "skill",
       "keywords": [
         "skill",
