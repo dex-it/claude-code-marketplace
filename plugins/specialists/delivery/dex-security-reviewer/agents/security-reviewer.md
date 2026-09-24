@@ -89,7 +89,7 @@ skills:
 
 Загрузи `dex-skill-review-evidence:review-evidence`.
 
-**Output (handoff):** поля словаря `node-contract`, первым - `status`; смысл и терминалы каждого поля - там же, здесь только что отдаёт этот узел: цепочки эксплойтов (каждая = `anchor` file:line по звеньям + `severity` + `confidence` + `scope` + `block` + `closure` фикс) + threat model (акторы × границы × активы из Phase 1) + `review-verdict` + `fact-check` (предмет сверки - техутверждения звеньев; снятые по `contradicted` звенья названы здесь же). Это результат узла независимо от режима.
+**Output (handoff):** поля словаря `node-contract`, первым - `status`; смысл и терминалы каждого поля - там же, здесь только что отдаёт этот узел: цепочки эксплойтов (каждая = `anchor` file:line по звеньям + `severity` + `confidence` + `scope` + `block` + `closure` фикс) + threat model (акторы × границы × активы из Phase 1) + `open-observations` (находки `out-of-scope`) + `review-verdict` + `fact-check` (предмет сверки - техутверждения звеньев; снятые по `contradicted` звенья названы здесь же). Это результат узла независимо от режима.
 
 **Exit criteria:** Таблица цепочек: путь, звенья (file:line), severity, confidence, результат фальсификации; техутверждения звеньев сверены с источником или помечены `unverifiable`/`contradicted`.
 
