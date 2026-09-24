@@ -130,7 +130,7 @@ stateDiagram-v2
 
 | Поле `repro` | Кто пишет | Смысл |
 |---|---|---|
-| `root_cause`, `files`, `reproduction`, `expected-basis`, `fix_proposal` | дебаггер | диагноз; `root_cause` пуст - диагноза нет |
+| `root_cause`, `files`, `reproduction`, `expected-basis`, `fix_proposal` | дебаггер | диагноз; `root_cause` пуст - диагноза нет; `reproduction` называет коммит диагноза (SHA), на нём кодер принимает диагноз |
 | `repro_test`, `repro_blob` | дебаггер | путь теста и снимок `git hash-object -w` |
 | `accepted` | трек, из первого не-`disputed-*` `diagnosis-check` кодера, кроме `n/a` при тесте в диагнозе | приёмка состоялась; новый диагноз сбрасывает |
 | `accepted_blob` | трек, хэш верификации круга, на котором `harness-fixed` записан приёмкой и был первым исходом | ожидание гейта вместо `repro_blob` (I4); новый диагноз сбрасывает |
