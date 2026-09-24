@@ -7,7 +7,7 @@ export const meta = {
   phases: [
     { title: 'Context', detail: 'подготовка дерева по манифесту стека, команды сборки и тестов' },
     { title: 'Reproduce', detail: 'debugger: красный воспроизводящий тест либо прослеженный путь, первопричина, предложение фикса; продуктовый код не меняет' },
-    { title: 'Fix', detail: 'кодер по стеку принимает диагноз и лечит первопричину x верификация внешним фактом, потолок 3; спор с диагнозом - к оператору, продолжение зовёт диагноста с уликой; при возобновлении - сначала верификация, после спора - диагност с уликой' },
+    { title: 'Fix', detail: 'кодер по стеку принимает диагноз и лечит первопричину x верификация внешним фактом, потолок 3; спор с диагнозом - к оператору, продолжение зовёт диагноста с уликой (фаза Reproduce); при возобновлении - сначала верификация' },
     { title: 'Review', detail: 'саморевью, при блокирующих находках одна правка с верификацией и повторное ревью' },
   ],
 }
@@ -114,7 +114,7 @@ const disputes = []
 // Решения копятся по попыткам: fix перезаписывается каждым кругом, и без накопления в ledger уезжает только последний.
 const decisions = []
 const dec = () => decisions.slice()
-const bail = (where, missing, extra) => ({ status: 'blocked', where, missing, loops, trail, degraded, decisions: dec(), repro, fix, ...extra })
+const bail = (where, missing, extra) => ({ status: 'blocked', where, missing: missing || `${where}: узел вернул blocked без нехватки`, loops, trail, degraded, decisions: dec(), repro, fix, ...extra })
 // Верификатор, не сумевший прогнать, по exit_code неотличим от красных тестов: без этой ветки трек проедает потолок правок вхолостую.
 const noRun = (v) => !v || v.status === 'blocked'
 const lack = (v) => (v && v.missing) || 'верификатор не вернул выход'
@@ -124,7 +124,7 @@ async function node(role, prompt, opts, type) {
     try { const r = await agent(prompt, { ...opts, agentType: type }); return r }
     catch (e) {
       // Причина обрыва платформой не типизирована: узел мог не существовать, а мог упасть посреди работы. Замена получает причину и сверяет уже сделанное.
-      const why = String(e && e.message).slice(0, 300)
+      const why = String(e && e.message || e).slice(0, 300)
       degraded.push(`${role}: ${type} не отработал (${why})`); log(`узел ${type} не отработал, general-purpose`)
       // Замена - не узел каталога: норм полей выхода у неё нет, а схема их больше не пересказывает.
       return agent(`Роль: ${role}.\nУзел ${type} на этом шаге оборвался ошибкой: ${why}. Прежде чем действовать, сверь git log и рабочее дерево: сделанное им не повторяй и не коммить второй раз.\nНормы полей выхода (run-status, red-run, fact-check, uncovered, diff-scope, статусы ухода от проверки) у тебя не загружены: вызови Skill dex-skill-node-contract:node-contract до работы и заполняй по ним.\n${prompt}`, { ...opts, agentType: 'general-purpose' })
@@ -164,45 +164,61 @@ phase('Reproduce')
 // Воспроизведение и первопричина - установленный факт прошлого прогона: при возобновлении правка
 // уже наложена, и повторный прогон диагноста не столько дорог, сколько нечестен - симптома он
 // может уже не увидеть. Нет записи в ledger - узел отрабатывает как в первом прогоне.
-const diagPrompt = (dispute) => `${HEAD}${DONE}${dispute && DONE ? 'Шаг 1 выполняется заново: прошлый диагноз оспорен, улика ниже.\n' : ''}Шаг 1 (воспроизведение): первопричина. Источник: ${A.source || 'формулировка выше'}. ${A.goal_path ? 'Прочитай файл цели: раздел «Контекст» (файлы, корпус) сверь с кодом, не ищи заново.' : ''}Стек: ${prep.stack}. Тесты: ${prep.test_cmd || 'нет'}. Сборка: ${prep.build_cmd || 'нет'}.${treeState} Воспроизведи: красный тест через продуктовый путь, прогнанный и падающий по причине симптома, либо, если тест не ставится, прослеженный путь от входа до места сбоя. ${A.source ? `Критерии приёмки корпуса против ожидаемого во входе и критерия «готово» суди вызовом Skill dex-skill-requirement-quality:requirement-quality, раздел «Противоречие»; найденное - в conflicts.` : `Источника требований нет: conflict-status: none, conflicts пустой.`} Расхождение о техконтексте (файлы, команды сборки и тестов, корпус) сюда не подпадает. Продуктовый код не меняй; написанный тест оставь незакоммиченным в дереве. Незакоммиченный тест в дереве до твоего старта - след прошлого диагноза этой цели: падает по причине симптома - он и есть воспроизведение, иначе удали; сдаёшь один тест.${dispute ? `\nКодер оспорил твой диагноз ${ledgerRepro && ledgerRepro.accepted ? `после приёмки (diagnosis-check: ${ledgerRepro.accepted}): его правки по диагнозу - в коммитах ветки, улика судится на дереве с ними` : 'до правки'}, улика: ${dispute}\nЭто первое направление фальсификации: исход по улике - первой строкой reproduction (отбита - чем, файл:строка; сняла причину - новый диагноз).` : ''}`
+const diagPrompt = (dispute) => `${HEAD}${DONE}${DONE ? `Шаг 1 выполняется заново: ${dispute ? 'прошлый диагноз оспорен, улика ниже' : 'диагноза с причиной в ledger нет'}.\n` : ''}Шаг 1 (воспроизведение): первопричина. Источник: ${A.source || 'формулировка выше'}. ${A.goal_path ? 'Прочитай файл цели: раздел «Контекст» (файлы, корпус) сверь с кодом, не ищи заново.' : ''}Стек: ${prep.stack}. Тесты: ${prep.test_cmd || 'нет'}. Сборка: ${prep.build_cmd || 'нет'}.${treeState} Воспроизведи: красный тест через продуктовый путь, прогнанный и падающий по причине симптома, либо, если тест не ставится, прослеженный путь от входа до места сбоя. ${A.source ? `Критерии приёмки корпуса против ожидаемого во входе и критерия «готово» суди вызовом Skill dex-skill-requirement-quality:requirement-quality, раздел «Противоречие»; найденное - в conflicts.` : `Источника требований нет: conflict-status: none, conflicts пустой.`} Расхождение о техконтексте (файлы, команды сборки и тестов, корпус) сюда не подпадает. Продуктовый код не меняй; написанный тест оставь незакоммиченным в дереве. Незакоммиченный тест в дереве до твоего старта - след прошлого диагноза этой цели: падает по причине симптома - он и есть воспроизведение, иначе удали; сдаёшь один тест.${dispute ? `\nКодер оспорил твой диагноз ${ledgerRepro && ledgerRepro.accepted ? `после приёмки (diagnosis-check: ${ledgerRepro.accepted}): его правки по диагнозу - в коммитах ветки, улика судится на дереве с ними` : 'до правки'}, улика: ${dispute}\nЭто первое направление фальсификации: исход по улике - первой строкой reproduction (отбита - чем, файл:строка; сняла причину - новый диагноз).` : ''}`
 const diag = reproResumed || await node('диагност первопричины', diagPrompt(priorDispute), { label: 'reproduce', phase: 'Reproduce', schema: REPRO }, 'dex-debugger:debugger')
 trail.push({ step: '1-repro', doer: reproResumed ? 'ledger (воспроизведение прошлого прогона)' : 'debugger', status: diag ? diag.status : 'null' })
 // Техконтекст свежий даже на возобновлении: ledger отдаёт диагноз, команды и состояние дерева - узел
 // этого прогона. Форма repro общая - её же принимает ledger и подаёт обратно в A.repro.
-// accepted - факт приёмки кодером: живёт в repro, чтобы пережить ledger; новый диагноз его сбрасывает.
-const withCtx = (d) => ({ repro_test: '', repro_blob: '', ...d, dispute: '', accepted: d.accepted || '', stack: prep.stack, build_cmd: prep.build_cmd, test_cmd: prep.test_cmd, prepare_cmd: prep.prepare_cmd })
+// accepted - факт приёмки кодером, accepted_blob - ожидаемый хэш теста после неё: живут в repro, чтобы пережить ledger;
+// новый диагноз их сбрасывает.
+const withCtx = (d) => ({ repro_test: '', repro_blob: '', ...d, dispute: '', accepted: d.accepted || '', accepted_blob: d.accepted_blob || '', stack: prep.stack, build_cmd: prep.build_cmd, test_cmd: prep.test_cmd, prepare_cmd: prep.prepare_cmd })
 // Диагноз без причины на возобновлении: ledger отдаёт его непригодным, и следующий прогон зовёт диагноста заново.
 const RESET = { root_cause: '', files: [] }
 const testLeft = (d) => d && d.repro_test ? `; тест диагноста оставлен в дереве: ${d.repro_test}` : ''
 // Выбор стороны в противоречии источников - полномочие владельца требований, не узла: починка под
 // выбранную сторону закрепляется тестом, и решение в пользу второй стоит его инверсии (зонд P23).
 // Перечень судится наравне со статусом: «none» при непустом перечне сам себя опровергает.
-const conflictsOf = (d) => d['conflict-status'] === 'some' || d.conflicts.length ? `противоречие источников ожидаемого, выбор стороны не за исполнителем: ${d.conflicts.join('; ') || 'перечень не назван при conflict-status: some'}` : ''
+// Перечень из ledger схемой не проверен: repro формы до #255 его не несёт, и форма R2 от этого не перестаёт быть законной.
+const listOf = (d) => Array.isArray(d.conflicts) ? d.conflicts : []
+const conflictsOf = (d) => d['conflict-status'] === 'some' || listOf(d).length ? `противоречие источников ожидаемого, выбор стороны не за исполнителем: ${listOf(d).join('; ') || 'перечень не назван при conflict-status: some'}` : ''
 // Правящему идёт только диагноз с установленной причиной (diagnosis-acceptance.md, «Вызывающий»).
-const noCause = (d, where) => ({ status: 'partial', where, missing: (d.missing || 'диагност не назвал, чего не хватило') + testLeft(d), repro: { ...withCtx(d), dispute: priorDispute ? ledgerRepro.dispute : '' }, disputes, loops, trail, degraded, decisions: dec() })
-if (!diag || diag.status === 'blocked') return bail('Reproduce', diag ? diag.missing : 'узел воспроизведения не вернул выход')
+const noCause = (d, where) => ({ status: 'partial', where, missing: (d.missing || 'диагност не назвал, чего не хватило') + testLeft(d), repro: { ...withCtx(d), ...(priorDispute ? { dispute: ledgerRepro.dispute, accepted: ledgerRepro.accepted || '', accepted_blob: ledgerRepro.accepted_blob || '' } : {}) }, disputes, loops, trail, degraded, decisions: dec() })
+if (!diag || diag.status === 'blocked') return bail('Reproduce', diag ? (diag.missing || 'диагност вернул blocked без нехватки') + testLeft(diag) : 'узел воспроизведения не вернул выход')
 // Противоречие проверяется до причины: без причины оно осталось бы и в следующем прогоне.
-// Воспроизведение этот исход не переживает (repro: null): решение владельца меняет источник ожидаемого,
+// Воспроизведение этот исход не переживает (repro - форма сброса RESET): решение владельца меняет источник ожидаемого,
 // и поданное из ledger оно встало бы на том же противоречии по уже исправленным документам. Пустой Контекст
 // прошлую запись ledger не перекрывает - сброс идёт формой без причины.
 if (conflictsOf(diag)) return bail('Reproduce', conflictsOf(diag) + testLeft(diag), { repro: RESET })
 if (!diag.root_cause) return noCause(diag, 'Reproduce: причина не установлена')
 repro = withCtx(diag)
+if (repro.repro_test && !repro.repro_blob) degraded.push(`тест диагноста ${repro.repro_test} назван без снимка (repro_blob пуст): правка теста хэшем не сверяется, удаление сверяется`)
 const causeOf = (d) => `Первопричина: ${d.root_cause}\nВоспроизведение: ${d.reproduction}\nОснование ожидаемого: ${d['expected-basis']}\nПредложение фикса: ${d.fix_proposal}${d.repro_test ? `\nТест диагноста: ${d.repro_test}` : ''}`
 const causeText = causeOf(repro)
 // Правка теста диагноста ловится хэшем, а не отчётом кодера: проверку, подогнанную под свой фикс, отчёт не назовёт.
 // Сигнал ревьюеру идёт против теста диагноста и на каждом круге заново: замороженный до фазы Review, он молчал бы о подмене в правке по находкам.
 const touchedOrig = (v) => !!repro.repro_blob && !!v && v.repro_test_hash !== repro.repro_blob
-// Приёмка одна на диагноз: исход первой попытки - факт, поздний harness-fixed гейт не открывает.
+// Приёмка одна на диагноз: исход первой попытки - факт, поздний harness-fixed гейт не открывает. Первый исход
+// держится отдельно от записи приёмки: n/a при тесте приёмкой не записывается, но первым исходом остаётся.
+let firstCheck = repro.accepted, harnessRound = false
 const noteCheck = (f) => {
   const dc = f && f['diagnosis-check'] || ''
+  const first = !firstCheck && !!dc
+  if (first) firstCheck = dc
   // n/a - исход «теста в диагнозе нет»: при тесте в диагнозе приёмкой он не считается.
-  if (!repro.accepted && dc && !/^disputed-/.test(dc) && !(dc === 'n/a' && repro.repro_test)) repro.accepted = dc
+  if (!repro.accepted && dc && !/^disputed-/.test(dc) && !(dc === 'n/a' && repro.repro_test)) { repro.accepted = dc; harnessRound = first && dc === 'harness-fixed' }
   return dc
 }
+// Хэш - шестнадцатеричная строка; любой иной ответ верификатора (пусто, missing, текст ошибки git) - файла нет.
+const hashOf = (v) => String(v && v.repro_test_hash || '').trim()
+const testMissing = (v) => !!repro.repro_test && !/^[0-9a-f]+$/i.test(hashOf(v))
+// Гейт судит против ожидания: снимок диагноста, а после harness-fixed первым исходом - хэш верификации этого круга.
+// Сдвигает ожидание только круг приёмки, в прогоне: запись без верификации (обрыв кодера) оставляет снимок диагноста.
+const settle = (v) => { if (harnessRound && v && !testMissing(v)) repro.accepted_blob = hashOf(v); harnessRound = false }
+const expected = () => repro.accepted_blob || repro.repro_blob
 // Попытка после приёмки идёт по изменённому дереву: повторная приёмка дала бы ложный спор о позеленевшем тесте.
+// Снимок идёт вместе с исходом: сверку перед коммитом исполнитель без него не проведёт. Теста диагноста нет - проба своя.
 const acceptance = () => repro.accepted
-  ? `Диагноз принят прошлой попыткой (diagnosis-check: ${repro.accepted}): приёмку не повторяй, diagnosis-check - ${repro.accepted}; правке нужна другая проверка - тест не трогай, diagnosis-check - disputed-* с уликой в dispute. Порядок - Skill dex-skill-node-contract:node-contract, материал references/diagnosis-acceptance.md.`
+  ? `Диагноз принят прошлой попыткой (diagnosis-check: ${repro.accepted}): приёмку не повторяй, diagnosis-check - ${repro.accepted}; ${repro.repro_test ? `правке нужна другая проверка - тест диагноста не трогай, diagnosis-check - disputed-* с уликой в dispute${expected() ? `; снимок приёмки - ${expected()}, сверяй с ним перед коммитом` : ''}` : 'теста диагноста нет - проба твоя, правь её по red-run'}. Порядок - Skill dex-skill-node-contract:node-contract, материал references/diagnosis-acceptance.md.`
   : 'До правки прими диагноз: вызови Skill dex-skill-node-contract:node-contract, материал references/diagnosis-acceptance.md; исход - diagnosis-check, улика спора - dispute.'
 // Спор с диагнозом до и после приёмки идёт одним путём: «продолжить» зовёт диагноста с уликой; ожидаемое - за владельцем требований.
 const disputeExit = (dc, f, where, extra) => {
@@ -246,6 +262,7 @@ for (let k = 1; k <= FIX_CEILING && (!isGreen(ver) || pending); k++) {
   }
   if (!fix || fix.status === 'blocked') return bail(`Fix#${k}`, fix ? fix.missing : 'узел-кодер не вернул выход')
   ver = await verifyOnce(`после попытки ${k}`)
+  settle(ver)
   trail.push({ step: '2-exit', attempt: k, doer: 'general-purpose', passed: isGreen(ver) })
   if (noRun(ver)) return bail(`Fix#${k}: верификация`, lack(ver))
   if (!isGreen(ver)) log(`попытка ${k}: exit=${ver && ver.exit_code}, build_ok=${ver && ver.build_ok}, fail=${ver && ver.fail_count}, dirty=${ver && ver.dirty}`)
@@ -271,6 +288,7 @@ if (rev && blockingOf(rev).length) {
     return disputeExit(dc2, fix2, 'Review: правка по находкам', { fix_after_review: fix2, review: rev, open_findings: rev.findings })
   }
   ver2 = !fix2 || fix2.status === 'blocked' ? null : await verifyOnce('после саморевью', 'Review')
+  settle(ver2)
   trail.push({ step: '2-after-review', doer: coderType || 'general-purpose', status: fix2 ? fix2.status : 'null', passed: isGreen(ver2), 'red-run': fix2 ? fix2['red-run'] : null })
   const openNow = { review: rev, open_findings: rev.findings }
   if (!fix2 || fix2.status === 'blocked') return bail('Review: правка по находкам', fix2 ? fix2.missing : 'узел-кодер не вернул выход', openNow)
@@ -301,9 +319,12 @@ if (rev && blockingOf(rev).length) {
 const finalVer = ver2 || ver
 // partial кодера и опровергнутая им сверка - исход автора: зелёная верификация и чистое ревью их не закрывают.
 const authorGap = (f) => !f ? '' : f.status === 'partial' ? `кодер вернул partial: ${f.missing || f['run-status'] || 'нехватка не названа'}` : /^contradicted/.test(f['fact-check']) ? `fact-check кодера: ${f['fact-check']}` : ''
-// Правка обвязки при приёмке законна, но граница «обвязка или проверка» - суждение, его несёт ревью; удалённый тест обвязкой не бывает.
-// Путь теста верификатору назван треком, поэтому пустой хэш - тоже «файла нет», какой бы литерал верификатор ни выбрал.
-const testGap = touchedOrig(finalVer) && (repro.accepted !== 'harness-fixed' || !finalVer.repro_test_hash || finalVer.repro_test_hash === 'missing') ? `тест диагноста ${repro.repro_test} изменён при diagnosis-check: ${((fix2 || fix) || {})['diagnosis-check'] || repro.accepted || 'не назван'}` : ''
+// Удалённый тест - разрыв при любой приёмке и без снимка: путь верификатору назван треком. Правка теста - против ожидания,
+// а не вердикта: суждение «обвязка или проверка» ревью несёт на круге приёмки, дальше тест держится снимком.
+// Тест в диагнозе, а правка прошла без записанной приёмки (n/a при тесте) - тоже разрыв.
+const testGap = testMissing(finalVer) ? `тест диагноста ${repro.repro_test} удалён (repro_test_hash: ${hashOf(finalVer) || 'пусто'})`
+  : !!expected() && finalVer.repro_test_hash !== expected() ? `тест диагноста ${repro.repro_test} изменён при diagnosis-check: ${((fix2 || fix) || {})['diagnosis-check'] || repro.accepted || 'не назван'}`
+  : fix && repro.repro_test && !repro.accepted ? `приёмка диагноза не проведена: diagnosis-check ${(fix2 || fix)['diagnosis-check'] || 'не назван'} при тесте диагноста ${repro.repro_test}` : ''
 const gap = authorGap(fix2 || fix) || testGap || (repro.status === 'partial' ? `воспроизведение partial: ${repro.missing || `эталон - ${repro['expected-basis']}`}` : '')
 const green = isGreen(finalVer)
 // Порог допуска: зелёная верификация и ноль открытых P0/P1. Рекомендация push - сигнал оператору в выходе, не гейт:
