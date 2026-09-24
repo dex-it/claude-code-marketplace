@@ -54,6 +54,12 @@ const PREP = { type: 'object', properties: {
   prepare_log: { type: 'string', description: 'при done - код возврата и чем подтверждено; при failed - команда и последние строки вывода; при not-needed - почему готовить нечего' },
   missing: { type: 'string', description: 'при blocked - чего не хватает и у кого это есть' },
 }, required: ['status', 'stack', 'stack_basis', 'test_cmd', 'build_cmd', 'prepare_cmd', 'prepare-status', 'prepare_log', 'missing'] }
+const SEV = { type: 'string', enum: ['P0', 'P1', 'P2', 'P3'], description: 'уровень словаря node-contract: P0 = CRITICAL, P1 = HIGH, P2 = MEDIUM, P3 = LOW' }
+// Прежняя находка опознаётся по id реестра ledger: без него finish.sh заводит её новой, и разность «открытые» двоится.
+const PRIOR = { type: 'object', properties: {
+  id: { type: 'string', description: 'id из перечня прежних находок; у находки без id - пусто' }, anchor: { type: 'string' }, severity: SEV, text: { type: 'string' },
+  status: { type: 'string', enum: ['closed', 'partial', 'open', 'disputed', 'no-longer-applicable'] }, evidence: { type: 'string' },
+}, required: ['id', 'anchor', 'severity', 'text', 'status', 'evidence'] }
 // Ключи - имена словаря node-contract буквально: трансляция - место тихого расхождения схемы и
 // словаря, а описание поля снято в пользу дома и резолвится только дословным ключом.
 const FIX = { type: 'object', properties: {
@@ -71,8 +77,9 @@ const FIX = { type: 'object', properties: {
   dependents: { type: 'array', items: { type: 'string' }, description: 'при some - потребители перечнем file:line; иначе пустой' },
   'fact-check': { type: 'string', description: 'триггер сверки - сигнатура или поведение стороннего API, взятые по памяти' },
   decisions: { type: 'array', items: { type: 'string' }, description: 'каждая закрытая узлом развилка: что выбрано, из чего, почему' },
+  prior: { type: 'array', items: PRIOR, description: 'по каждой находке из задания - статус с уликой: closed - закрыта правкой, disputed - закрывать не следует; находок в задании нет - пусто' },
   missing: { type: 'string' },
-}, required: ['status', 'diff-scope', 'commit', 'run-status', 'red-run', 'uncovered-status', 'uncovered', 'dependents-status', 'dependents', 'fact-check', 'decisions', 'missing'] }
+}, required: ['status', 'diff-scope', 'commit', 'run-status', 'red-run', 'uncovered-status', 'uncovered', 'dependents-status', 'dependents', 'fact-check', 'decisions', 'prior', 'missing'] }
 const VERIFY = { type: 'object', properties: {
   status: STATUS,
   exit_code: { type: 'integer' }, pass_count: { type: 'integer' }, fail_count: { type: 'integer' },
@@ -80,14 +87,9 @@ const VERIFY = { type: 'object', properties: {
   build_ok: { type: 'boolean' },
   head: { type: 'string', description: 'git log --oneline -3' },
   dirty: { type: 'boolean', description: 'git status --porcelain непустой' },
+  ahead: { type: 'integer', description: 'коммитов ветки трека, которых нет ни на одной другой ветке' },
   missing: { type: 'string', description: 'при blocked - почему прогон не выполнен; иначе пусто' },
-}, required: ['status', 'exit_code', 'pass_count', 'fail_count', 'failing', 'build_ok', 'head', 'dirty', 'missing'] }
-const SEV = { type: 'string', enum: ['P0', 'P1', 'P2', 'P3'], description: 'уровень словаря node-contract: P0 = CRITICAL, P1 = HIGH, P2 = MEDIUM, P3 = LOW' }
-// Прежняя находка опознаётся по id реестра ledger: без него finish.sh заводит её новой, и разность «открытые» двоится.
-const PRIOR = { type: 'object', properties: {
-  id: { type: 'string', description: 'id из перечня прежних находок; у находки без id - пусто' }, anchor: { type: 'string' }, severity: SEV, text: { type: 'string' },
-  status: { type: 'string', enum: ['closed', 'partial', 'open', 'disputed', 'no-longer-applicable'] }, evidence: { type: 'string' },
-}, required: ['id', 'anchor', 'severity', 'text', 'status', 'evidence'] }
+}, required: ['status', 'exit_code', 'pass_count', 'fail_count', 'failing', 'build_ok', 'head', 'dirty', 'ahead', 'missing'] }
 const REVIEW = { type: 'object', properties: {
   status: STATUS,
   findings: { type: 'array', items: { type: 'object', properties: {
@@ -98,34 +100,37 @@ const REVIEW = { type: 'object', properties: {
   'red-run': { type: 'string', description: 'вердикт по записям red-run кодера во входе: по каждому тесту дельты запись действует / отсутствует / истекла; записей не было - unverifiable + что искал; тестов в дельте нет - n/a' },
   'fact-check': { type: 'string', description: 'предмет сверки - техутверждения находок' },
   intent: { type: 'string', description: 'сверка с требованиями входа: соответствует / расхождения «корректно, но не то»; источника намерения нет - n/a' },
+  'intent-status': { type: 'string', enum: ['match', 'mismatch', 'n/a'], description: 'mismatch - реализовано не то, что требуют требования входа; подробности в intent' },
   prior: { type: 'array', items: PRIOR, description: 'по каждой прежней находке входа - статус с уликой; прежних нет - пусто' },
   'review-verdict': { type: 'string', enum: ['APPROVE', 'REQUEST_CHANGES', 'NEEDS_DISCUSSION'], description: 'по правилу поля review-verdict из node-contract; сигнал оператору, порог допуска трека его не читает' },
   missing: { type: 'string', description: 'при blocked - чего не хватило для ревью; иначе пусто' },
-}, required: ['status', 'findings', 'run-status', 'red-run', 'fact-check', 'intent', 'prior', 'review-verdict', 'missing'] }
+}, required: ['status', 'findings', 'run-status', 'red-run', 'fact-check', 'intent', 'intent-status', 'prior', 'review-verdict', 'missing'] }
 
 const CODER = { ts: 'dex-ts-fullstack-coder:ts-fullstack-assistant', dotnet: 'dex-dotnet-coder:dotnet-coder' }
 const loops = { fix: 0, review_fix: 0, review: 0 }
 const trail = [], degraded = []
-// Реестр ledger приходит массивом либо строкой JSON (ledger.py findings). Непригодное поле прогон не останавливает:
-// записи ledger без события этого прогона остаются открытыми сами.
+// Поля возобновления ledger.py печатает строкой JSON, а главный поток подаёт их как есть либо разобранными.
+const fromLedger = (v) => { if (typeof v !== 'string') return v; try { return JSON.parse(v) } catch (e) { return null } }
+// Непригодный реестр прогон не останавливает: записи ledger без события этого прогона остаются открытыми сами.
 const LEDGER = (() => {
   const v = A.open_findings
   if (!resuming || v === undefined || v === null || v === '') return []
-  let list = v
-  if (typeof v === 'string') { try { list = JSON.parse(v) } catch (e) { list = null } }
+  const list = fromLedger(v)
   if (!Array.isArray(list)) { degraded.push('поле open_findings не JSON-массив реестра ledger - находки прошлого прогона кодеру не поданы'); return [] }
   return list.filter(f => f && typeof f === 'object')
 })()
 const priorLine = (p) => `- ${p.id ? `${p.id} ` : ''}[${p.severity}] ${p.anchor}: ${p.text}`
-const OPEN = LEDGER.length ? `\nНезакрытые находки прошлого прогона (из ledger): закрой каждую либо верни в decisions с основанием, почему закрывать не следует:\n${LEDGER.map(priorLine).join('\n')}\n` : ''
+const OPEN = LEDGER.length ? `\nНезакрытые находки прошлого прогона (из ledger): по каждой - запись в prior с тем же id: closed с уликой либо disputed с основанием, почему закрывать не следует:\n${LEDGER.map(priorLine).join('\n')}\n` : ''
 let ctx = null, fix = null, fix2 = null, ver = null, ver2 = null
 // Решения копятся по попыткам: fix перезаписывается каждым кругом, и без накопления в ledger уезжает только последний.
 const decisions = []
 const dec = () => decisions.slice()
+// fix перезаписывается каждой попыткой: оспаривание прежней находки без переноса в decisions до выхода не доезжает.
+const said = (f) => [...(f.decisions || []), ...(f.prior || []).filter(p => p.status === 'disputed').map(p => `${p.id || p.anchor}: кодер оспорил закрытие - ${p.evidence}`)]
 const bail = (where, missing, extra) => ({ status: 'blocked', where, missing, loops, trail, degraded, decisions: dec(), ctx, fix, ...extra })
 // Верификатор, не сумевший прогнать, по exit_code неотличим от красных тестов: без этой ветки трек проедает потолок правок вхолостую.
 const noRun = (v) => !v || v.status === 'blocked'
-const lack = (v) => (v && v.missing) || 'верификатор не вернул выход'
+const lack = (v, who = 'верификатор') => !v ? `${who} не вернул выход` : v.missing || `${who} вернул blocked, нехватку не назвал`
 // Узел каталога может быть не установлен: тогда general-purpose с ролью в промпте, факт - в degraded (graceful degradation).
 async function node(role, prompt, opts, type) {
   if (type) {
@@ -140,7 +145,8 @@ async function node(role, prompt, opts, type) {
   }
   return agent(`Роль: ${role}.\n${prompt}`, { ...opts, agentType: 'general-purpose' })
 }
-const isGreen = (v) => !!v && v.exit_code === 0 && v.build_ok && !v.dirty
+// exit 0 при упавших тестах даёт конвейер в команде раннера; ноль прошедших при команде тестов - прогон, не бывший прогоном тестов.
+const isGreen = (v) => !!v && v.exit_code === 0 && v.fail_count === 0 && v.build_ok && !v.dirty && !(ctx.test_cmd && v.pass_count === 0)
 
 phase('Context')
 // Разведка выводится из неизменного - цели, манифеста и кода, - поэтому при возобновлении берётся
@@ -152,7 +158,8 @@ phase('Context')
 // Поле возобновления кладёт главный поток из ledger, но подать он может что угодно: непроверенная
 // форма роняла трек на первом же обращении к разведке (зонд P25). Непригодное поле трек не
 // останавливает - разведка покупается узлом, а подмена названа оператору.
-const ctxResumed = A.ctx && Array.isArray(A.ctx.requirements) && A.ctx.requirements.length && Array.isArray(A.ctx.files) ? A.ctx : null
+const ctxIn = fromLedger(A.ctx)
+const ctxResumed = ctxIn && Array.isArray(ctxIn.requirements) && ctxIn.requirements.length && Array.isArray(ctxIn.files) ? ctxIn : null
 if (A.ctx && !ctxResumed) degraded.push('поле ctx подано не в форме разведки (нужны перечни requirements и files) - разведка выведена узлом заново')
 const [prep, req] = await parallel([
   () => node('подготовка дерева', `${PREP_HEAD}Шаг 1 (техконтекст и подготовка дерева). Стек - идентификатор по реестру: вызови Skill dex-skill-stack-registry:stack-registry и сопоставь с манифестом дерева; вне реестра - "other". Манифест, из которого вывел, назови в stack_basis - догадка по именам файлов не принимается. По тому же манифесту назови команды сборки и тестов. Дерево трека новое, зависимости в нём не установлены: назови команду подготовки и ВЫПОЛНИ её в дереве, prepare-status - по коду возврата (0 - done, иначе failed с командой и хвостом вывода; не запускал - тоже failed с причиной).${A.main_cwd ? ` Каталог сессии ${A.main_cwd} с готовыми зависимостями доступен на чтение - переиспользование оформляется самой командой (копия или ссылка).` : ''} Зависимости ставит сама сборка либо их нет - prepare_cmd пустой, prepare-status: not-needed с причиной в prepare_log. Ничего, кроме подготовки, в дереве не делай: код не правь, сборку и тесты не прогоняй - в этот момент то же дерево читает соседний узел.`,
@@ -162,8 +169,10 @@ const [prep, req] = await parallel([
 ])
 trail.push({ step: '1-tree', doer: 'подготовка дерева', status: prep ? prep.status : 'null', prepare: prep ? prep['prepare-status'] : null })
 trail.push({ step: '1-req', doer: ctxResumed ? 'ledger (разведка прошлого прогона)' : 'Explore', status: req ? req.status : 'null' })
-if (!prep || prep.status === 'blocked') return bail('Context: подготовка дерева', prep ? prep.missing : 'узел подготовки дерева не вернул выход')
-if (!req || req.status === 'blocked') return bail('Context', req ? req.missing : 'узел контекста не вернул выход')
+if (!prep || prep.status === 'blocked') return bail('Context: подготовка дерева', lack(prep, 'узел подготовки дерева'))
+if (!req || req.status === 'blocked') return bail('Context', lack(req, 'узел контекста'))
+if (!req.requirements.length) return bail('Context', 'разведка не вывела ни одной единицы R/I - реализовывать нечего')
+if (prep.status === 'partial') degraded.push(`подготовка дерева partial: ${prep.missing || 'нехватка не названа'}`)
 // Техконтекст свежий даже на возобновлении: ledger отдаёт разведку, команды и состояние дерева - узел
 // этого прогона. Форма ctx общая - её же принимает ledger и подаёт обратно в A.ctx.
 ctx = { ...req, stack: prep.stack, build_cmd: prep.build_cmd, test_cmd: prep.test_cmd, prepare_cmd: prep.prepare_cmd }
@@ -182,7 +191,7 @@ const coderType = CODER[ctx.stack]
 
 phase('Implement')
 // Фаза параметром: verify зовётся и из Review, а фаза берётся из opts, не из phase().
-const verifyOnce = (tag, ph = 'Implement') => node('верификатор', `${HEAD}Верификация (${tag}): ТОЛЬКО прогон и отчёт, код не менять. Выполни ${ctx.build_cmd ? `сборку: ${ctx.build_cmd}; ` : ''}${ctx.test_cmd ? `тесты: ${ctx.test_cmd}` : 'тестов нет - build_ok по сборке, счётчики 0'}; затем git log --oneline -3 и git status --porcelain. Числа - из вывода раннера как есть.`,
+const verifyOnce = (tag, ph = 'Implement') => node('верификатор', `${HEAD}Верификация (${tag}): ТОЛЬКО прогон и отчёт, код не менять. Выполни ${ctx.build_cmd ? `сборку: ${ctx.build_cmd}; ` : ''}${ctx.test_cmd ? `тесты: ${ctx.test_cmd}` : 'тестов нет - build_ok по сборке, счётчики 0'}; затем git log --oneline -3, git status --porcelain и git rev-list --count HEAD --not --exclude="$(git branch --show-current)" --branches (это ahead). Числа - из вывода раннера как есть.`,
   { label: `verify:${tag}`, phase: ph, model: 'haiku', schema: VERIFY })
 // Зелёная верификация на цели без прошлого прогона значит «работа не покрыта тестами», а не «сделана»: молча пропустить правку по ней нельзя.
 if (A.resume && !resuming) {
@@ -201,12 +210,12 @@ for (let k = 1; k <= FIX_CEILING && (!isGreen(ver) || pending); k++) {
   loops.fix = k; pending = false
   // red-run прошлой попытки - установленный факт: без него следующая попытка показывает тот же тест красным заново, проедая потолок.
   const priorRed = fix && fix['red-run'] && !/^(n\/a|unverifiable)/.test(fix['red-run']) ? `\nКрасный прогон уже показан прошлой попыткой и перепроверке не подлежит: ${fix['red-run']}` : ''
-  const prev = ver ? `\n${k === 1 ? 'Верификация при возобновлении' : `Попытка ${k - 1}`} не прошла: exit=${ver.exit_code}, build_ok=${ver.build_ok}, падают: ${ver.failing.join('; ') || 'нет'}, dirty=${ver.dirty}. Дерево изолированное: это следствие правок трека, а не чужой работы.${priorRed}` : ''
+  const prev = ver && !isGreen(ver) ? `\n${k === 1 ? 'Верификация при возобновлении' : `Попытка ${k - 1}`} не прошла: exit=${ver.exit_code}, build_ok=${ver.build_ok}, прошло тестов: ${ver.pass_count}, падают: ${ver.failing.join('; ') || 'нет'}, dirty=${ver.dirty}. Дерево изолированное: это следствие правок трека, а не чужой работы.${priorRed}` : ''
   fix = await node('кодер', `${HEAD}${DONE}${OPEN}Шаг 2, попытка ${k} из ${FIX_CEILING}: реализация по требованиям, TDD (тесты на каждую R).\nТребования:\n${reqText}\nФайлы: ${ctx.files.join(', ')}. Тесты: ${ctx.test_cmd || 'нет'}. Сборка: ${ctx.build_cmd || 'нет'}.${prep['prepare-status'] === 'done' ? ` Дерево подготовлено узлом контекста (${ctx.prepare_cmd}) - установку не повторяй.` : prep['prepare-status'] === 'failed' ? ` Подготовка дерева узлом контекста не удалась (${prep.prepare_log || 'причина не названа'}) - до первой сборки выполни её сам: ${ctx.prepare_cmd || 'команда не названа, выведи по манифесту'}` : ''}${prev}\nПо завершении: сборка и тесты зелёные, коммит локально (сообщение по цели, без служебной нумерации R), push не делать.`,
     { label: `fix:${k}`, phase: 'Implement', schema: FIX }, coderType)
   trail.push({ step: 2, attempt: k, doer: coderType || 'general-purpose', status: fix ? fix.status : 'null', 'red-run': fix ? fix['red-run'] : null })
-  if (fix) decisions.push(...(fix.decisions || []))
-  if (!fix || fix.status === 'blocked') return bail(`Implement#${k}`, fix ? fix.missing : 'узел-кодер не вернул выход')
+  if (fix) decisions.push(...said(fix))
+  if (!fix || fix.status === 'blocked') return bail(`Implement#${k}`, lack(fix, 'узел-кодер'))
   ver = await verifyOnce(`после попытки ${k}`)
   trail.push({ step: '2-exit', attempt: k, doer: 'general-purpose', passed: isGreen(ver) })
   if (noRun(ver)) return bail(`Implement#${k}: верификация`, lack(ver))
@@ -216,7 +225,7 @@ if (!isGreen(ver)) return { status: 'partial', where: `Implement: потолок
 
 phase('Review')
 // Записи red-run и uncovered кодера - вход саморевьюера: он судит red-run по записям входа, а uncovered адресован следующему узлу.
-const review = (tag, f, priors) => node('саморевьюер', `${HEAD}Шаг 3 (${tag}): pre-push саморевью локальной ветки - коммиты этой цели плюс рабочее дерево.${f ? `\nВход от кодера - red-run: ${f['red-run']}\nuncovered: ${f['uncovered-status']}${(f.uncovered || []).length ? ' - ' + f.uncovered.join('; ') : ''}` : ''} Источник намерения - требования:\n${reqText}${priors.length ? `\nПрежние находки - статус каждой в prior с тем же id и уликой; оставшаяся в коде идёт в prior, не в findings:\n${priors.map(priorLine).join('\n')}` : ''}\nПрогон build/test реальный, итог - в run-status, не в findings. Код не меняй.`,
+const review = (tag, f, priors) => node('саморевьюер', `${HEAD}Шаг 3 (${tag}): pre-push саморевью локальной ветки - коммиты этой цели плюс рабочее дерево.${f ? `\nВход от кодера - red-run: ${f['red-run']}\nuncovered: ${f['uncovered-status']}${(f.uncovered || []).length ? ' - ' + f.uncovered.join('; ') : ''}\ndependents: ${f['dependents-status']}${(f.dependents || []).length ? ' - ' + f.dependents.join('; ') : ''}` : ''} Источник намерения - требования:\n${reqText}${priors.length ? `\nПрежние находки - статус каждой в prior с тем же id и уликой; оставшаяся в коде идёт в prior, не в findings:\n${priors.map(priorLine).join('\n')}` : ''}\nПрогон build/test реальный, итог - в run-status, не в findings. Код не меняй.`,
   { label: `self-review:${tag}`, phase: 'Review', schema: REVIEW }, 'dex-self-reviewer:self-reviewer')
 let rev = await review('первое', fix, LEDGER); loops.review = 1
 let carried = []
@@ -239,15 +248,15 @@ function apply(r) {
 const openPrior = () => [...priors.values()].filter(p => p.status === 'open' || p.status === 'partial')
 const blockingPrior = () => openPrior().filter(isBlocking)
 apply(rev)
-if (rev && (blockingOf(rev).length || blockingPrior().length)) {
+if (rev && rev.status !== 'blocked' && (blockingOf(rev).length || blockingPrior().length)) {
   loops.review_fix = REVIEW_FIX_CEILING
-  fix2 = await node('кодер', `${HEAD}Шаг 2 (повтор после саморевью, потолок ${REVIEW_FIX_CEILING}): закрой находки:\n${[...blockingPrior(), ...blockingOf(rev)].map(priorLine).join('\n')}\nТребования:\n${reqText}\nПосле правки сборка и тесты зелёные, коммит локально, push не делать. Находку, которую закрывать не следует, верни в decisions с основанием.`,
+  fix2 = await node('кодер', `${HEAD}Шаг 2 (повтор после саморевью, потолок ${REVIEW_FIX_CEILING}): закрой находки:\n${[...blockingPrior(), ...blockingOf(rev)].map(priorLine).join('\n')}\nТребования:\n${reqText}\nПосле правки сборка и тесты зелёные, коммит локально, push не делать. По каждой находке - запись в prior с тем же id и anchor: closed с уликой либо disputed с основанием, почему закрывать не следует.`,
     { label: 'fix:after-review', phase: 'Review', schema: FIX }, coderType)
   ver2 = !fix2 || fix2.status === 'blocked' ? null : await verifyOnce('после саморевью', 'Review')
   trail.push({ step: '2-after-review', doer: coderType || 'general-purpose', status: fix2 ? fix2.status : 'null', passed: isGreen(ver2), 'red-run': fix2 ? fix2['red-run'] : null })
-  if (fix2) decisions.push(...(fix2.decisions || []))
+  if (fix2) decisions.push(...said(fix2))
   const openNow = { review: rev, open_findings: rev.findings, prior: [...priors.values()] }
-  if (!fix2 || fix2.status === 'blocked') return bail('Review: правка по находкам', fix2 ? fix2.missing : 'узел-кодер не вернул выход', openNow)
+  if (!fix2 || fix2.status === 'blocked') return bail('Review: правка по находкам', lack(fix2, 'узел-кодер'), openNow)
   if (noRun(ver2)) return bail('Review: верификация после правки', lack(ver2), openNow)
   const rev1 = rev
   // Повторное ревью покупается не всегда. Правка, целиком проверенная прогоном и не видимая наружу,
@@ -258,7 +267,10 @@ if (rev && (blockingOf(rev).length || blockingPrior().length)) {
   // статусу отдал бы решение полю, которое сам же перечень опровергает.
   const sealed = (f) => f['uncovered-status'] === 'none' && (f.uncovered || []).length === 0
     && f['dependents-status'] === 'none' && (f.dependents || []).length === 0
-  if (isGreen(ver2) && sealed(fix2)) {
+  // Отказ кодера и его молчание - не закрытие: пропуск круга только когда каждую блокирующую он назвал закрытой.
+  const same = (a, b) => a.id && b.id ? a.id === b.id : a.anchor === b.anchor
+  const closedByCoder = (f) => (fix2.prior || []).some(p => same(p, f) && p.status === 'closed')
+  if (isGreen(ver2) && sealed(fix2) && [...blockingPrior(), ...blockingOf(rev1)].every(closedByCoder)) {
     loops.review = 1
     // Находка без своей строки решения - шаг не выполнен: снятая правкой идёт в decisions поимённо.
     const why = 'закрыта правкой, повторное саморевью не куплено - правка покрыта прогоном (uncovered-status: none), наружу не видна (dependents-status: none), верификация зелёная'
@@ -287,18 +299,20 @@ const finalVer = ver2 || ver
 const authorGap = (f) => !f ? '' : f.status === 'partial' ? `кодер вернул partial: ${f.missing || f['run-status'] || 'нехватка не названа'}` : /^contradicted/.test(f['fact-check'] || '') ? `fact-check кодера: ${f['fact-check']}` : ''
 const gap = authorGap(fix2 || fix)
 const green = isGreen(finalVer)
+const reviewGap = !rev || rev.status === 'blocked' ? '' : rev.status === 'partial' ? `саморевью не завершено: ${rev.missing || 'нехватка не названа'}` : rev['intent-status'] === 'mismatch' ? `саморевью: реализовано не то: ${rev.intent}` : ''
+const gaps = [req.status === 'partial' ? `разведка требований неполна: ${req.missing || 'нехватка не названа'}` : '', !ctx.build_cmd && !ctx.test_cmd ? 'внешнего факта нет: ни сборки, ни тестов' : '', finalVer && !finalVer.ahead ? 'коммитов трека нет' : '', reviewGap, gap].filter(Boolean).join('; ')
 // Порог допуска: зелёная верификация и ноль открытых P0/P1. Рекомендация push - сигнал оператору в выходе, не гейт:
 // как гейт она держала прогон на неблокирующих находках (P2/P3 - 85% находок ledger) и требовала лишнего прогона.
 const open_findings = carried.length ? [...carried, ...(rev ? rev.findings : [])] : rev ? rev.findings : []
 const stuck = blockingPrior()
 return {
-  status: green && rev && rev.status !== 'blocked' && !blockingOf(rev).length && !stuck.length && !gap ? 'complete' : 'partial',
+  status: green && rev && rev.status !== 'blocked' && !blockingOf(rev).length && !stuck.length && !gaps ? 'complete' : 'partial',
   where: !green ? 'верификация после правки по саморевью не прошла'
     : !rev ? 'саморевьюер не вернул выход'
     : rev.status === 'blocked' ? `саморевью не выполнено: ${rev.missing || 'узел вернул blocked без нехватки'}`
     : blockingOf(rev).length ? 'открытые P0/P1 после повторного саморевью'
-    : stuck.length ? `прежние P0/P1 не закрыты: ${stuck.map(p => `${p.id || p.anchor} ${p.status} - ${p.evidence}`).join('; ')}` : gap,
-  goal_check: { build_ok: !!finalVer && finalVer.build_ok, tests_green: !!finalVer && finalVer.exit_code === 0, committed: !!finalVer && !finalVer.dirty, head: finalVer ? finalVer.head : '' },
+    : stuck.length ? `прежние P0/P1 не закрыты: ${stuck.map(p => `${p.id || p.anchor} ${p.status} - ${p.evidence}`).join('; ')}` : gaps,
+  goal_check: { build_ok: !!finalVer && finalVer.build_ok, tests_green: !!finalVer && finalVer.exit_code === 0 && finalVer.fail_count === 0, committed: !!finalVer && !finalVer.dirty && finalVer.ahead > 0, head: finalVer ? finalVer.head : '' },
   loops, trail, degraded, ctx, fix, fix_after_review: fix2, review: rev, open_findings, prior: [...priors.values()],
   decisions: dec(),
 }

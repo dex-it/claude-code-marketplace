@@ -31,7 +31,7 @@ async function runTrack(track, args, responses, unavailable = []) {
   return { result, calls }
 }
 
-const green = { status: 'complete', exit_code: 0, pass_count: 9, fail_count: 0, failing: [], build_ok: true, head: 'abc feat', dirty: false, repro_test_hash: '', missing: '' }
+const green = { status: 'complete', exit_code: 0, pass_count: 9, fail_count: 0, failing: [], build_ok: true, head: 'abc feat', dirty: false, ahead: 1, repro_test_hash: '', missing: '' }
 const red = { ...green, exit_code: 1, fail_count: 2, failing: ['T1', 'T2'], head: 'abc wip' }
 const dirty = { ...green, dirty: true }
 const ctxOk = { status: 'complete', requirements: ['R1 ...'], files: ['src/A.cs'], corpus: 'docs/', 'conflict-status': 'none', conflicts: [], missing: '' }
@@ -48,17 +48,18 @@ const reproOk = { status: 'complete', root_cause: 'src/a.ts:10 неверный 
 const reproTest = { ...reproOk, reproduction: 'тест pay: красный, причина падения сверена', repro_test: 'test/pay.test.ts', repro_blob: 'b1' }
 const greenTest = { ...green, repro_test_hash: 'b1' }
 const reproConflict = { ...reproOk, 'conflict-status': 'some', conflicts: ['AC-4 docs/spec.md:31 требует 409 против ожидаемого входа - 200 с телом ошибки'] }
-const fixOk = { status: 'complete', 'diff-scope': ['src/A.cs'], commit: 'abc123', 'run-status': 'build ok, tests 9/9', 'red-run': 'T1 красный до, зелёный после', 'uncovered-status': 'some', uncovered: ['ветка таймаута'], 'dependents-status': 'some', dependents: ['src/Caller.cs:41 вызывает изменённый метод'], 'fact-check': 'n/a (триггер не сработал)', decisions: ['выбран A'], 'diagnosis-check': 'accepted', dispute: '', missing: '' }
+const fixOk = { status: 'complete', 'diff-scope': ['src/A.cs'], commit: 'abc123', 'run-status': 'build ok, tests 9/9', 'red-run': 'T1 красный до, зелёный после', 'uncovered-status': 'some', uncovered: ['ветка таймаута'], 'dependents-status': 'some', dependents: ['src/Caller.cs:41 вызывает изменённый метод'], 'fact-check': 'n/a (триггер не сработал)', decisions: ['выбран A'], 'diagnosis-check': 'accepted', dispute: '', prior: [], missing: '' }
 const fixDisputeCause = { ...fixOk, status: 'partial', commit: '', 'diagnosis-check': 'disputed-cause', dispute: 'src/pay.ts:40 ключ идемпотентности уже проверяется - причина не в src/pay.ts:12', missing: 'диагноз оспорен' }
 // Правка, замкнутая в себе: оба поля явным «нет» - единственное сочетание, отменяющее второй круг ревью.
-const fixSealed = { ...fixOk, 'uncovered-status': 'none', uncovered: [], 'dependents-status': 'none', dependents: [] }
-const revClean = { status: 'complete', findings: [], 'run-status': 'build ok, tests 9/9', 'red-run': 'T1 действует', 'fact-check': 'n/a (триггер не сработал)', intent: 'соответствует', prior: [], 'review-verdict': 'APPROVE', missing: '' }
-const revP1 = { status: 'complete', findings: [{ severity: 'P1', anchor: 'src/A.cs:8', text: 'ретрай не различает случаи', closure: 'случаи различены тестом' }], 'run-status': 'build ok', 'red-run': 'T1 действует', 'fact-check': 'n/a (триггер не сработал)', intent: 'соответствует', prior: [], 'review-verdict': 'REQUEST_CHANGES', missing: '' }
-const revP2 = { status: 'complete', findings: [{ severity: 'P2', anchor: 'src/A.cs:9', text: 'имя переменной', closure: 'переименовано' }], 'run-status': 'build ok', 'red-run': 'T1 действует', 'fact-check': 'n/a (триггер не сработал)', intent: 'соответствует', prior: [], 'review-verdict': 'APPROVE', missing: '' }
+const fixSealed = { ...fixOk, 'uncovered-status': 'none', uncovered: [], 'dependents-status': 'none', dependents: [], prior: [{ id: '', anchor: 'src/A.cs:8', severity: 'P1', text: 'ретрай не различает случаи', status: 'closed', evidence: 'тест T2' }] }
+const revClean = { status: 'complete', findings: [], 'run-status': 'build ok, tests 9/9', 'red-run': 'T1 действует', 'fact-check': 'n/a (триггер не сработал)', intent: 'соответствует', 'intent-status': 'match', prior: [], 'review-verdict': 'APPROVE', missing: '' }
+const revP1 = { status: 'complete', findings: [{ severity: 'P1', anchor: 'src/A.cs:8', text: 'ретрай не различает случаи', closure: 'случаи различены тестом' }], 'run-status': 'build ok', 'red-run': 'T1 действует', 'fact-check': 'n/a (триггер не сработал)', intent: 'соответствует', 'intent-status': 'match', prior: [], 'review-verdict': 'REQUEST_CHANGES', missing: '' }
+const revP2 = { status: 'complete', findings: [{ severity: 'P2', anchor: 'src/A.cs:9', text: 'имя переменной', closure: 'переименовано' }], 'run-status': 'build ok', 'red-run': 'T1 действует', 'fact-check': 'n/a (триггер не сработал)', intent: 'соответствует', 'intent-status': 'match', prior: [], 'review-verdict': 'APPROVE', missing: '' }
 const closedA8 = { id: '', anchor: 'src/A.cs:8', severity: 'P1', text: 'ретрай не различает случаи', status: 'closed', evidence: 'тест T2 различает случаи' }
 const revRecheck = { ...revClean, prior: [closedA8] }
 const ledgerA88 = { id: 'F2', anchor: 'src/A.cs:88', severity: 'P1', text: 'ретрай', closure: 'ретрай различает случаи', status: 'open', run: 1 }
-const verBlocked = { status: 'blocked', exit_code: -1, pass_count: 0, fail_count: 0, failing: [], build_ok: false, head: '', dirty: false, repro_test_hash: '', missing: 'нет прав на запуск dotnet test' }
+const revF2closed = { ...revClean, prior: [{ ...ledgerA88, status: 'closed', evidence: 'тест T3' }] }
+const verBlocked = { status: 'blocked', exit_code: -1, pass_count: 0, fail_count: 0, failing: [], build_ok: false, head: '', dirty: false, ahead: 0, repro_test_hash: '', missing: 'нет прав на запуск dotnet test' }
 const ctxMr = { status: 'complete', platform: 'github', base_sha: 'aaa', head_sha: 'bbb', files: ['api/user.ts'], security_surface: true, security_basis: 'diff трогает auth', intent: 'issue #12', missing: '' }
 const mrFinding = { anchor: 'api/user.ts:41', severity: 'P1', axis: 'security', text: 'токен в логе', closure: 'убрать поле', evidence: 'logger.info(ctx)' }
 const revMr = { status: 'complete', findings: [mrFinding], axes: ['language: чисто'], 'review-verdict': 'REQUEST_CHANGES', prior: [], questions: ['вопрос по намерению'], threat_model: 'аноним -> api/user.ts -> токены', missing: '' }
@@ -643,7 +644,7 @@ const SCENARIOS = [
       ['остановка названа шагом подготовки', result.where === 'Context: подготовка дерева'],
       ['диагност не вызван: воспроизводить нечем', !labelsOf(calls).includes('reproduce')],
     ] },
-  { name: 'F25 противоречие источников требований -> трек встаёт на Context, кодер не вызван', track: 'feature', args: { ...featureArgs, source: 'FEAT.md' },
+  { name: 'F42 противоречие источников требований -> трек встаёт на Context, кодер не вызван', track: 'feature', args: { ...featureArgs, source: 'FEAT.md' },
     responses: { 'ctx:R-I': ctxConflict },
     expect: ({ result, calls }) => [
       ['статус blocked', result.status === 'blocked'],
@@ -655,14 +656,14 @@ const SCENARIOS = [
       ['суждение поручено оракулу требований, а не узлу', /Skill dex-skill-requirement-quality:requirement-quality/.test(promptOf(calls, 'ctx:R-I'))],
       ['техрасхождение выведено из-под правила', /Расхождение о техконтексте .* сюда не подпадает/.test(promptOf(calls, 'ctx:R-I'))],
     ] },
-  { name: 'F26 перечень противоречий при conflict-status none -> трек судит перечень, а не статус', track: 'feature', args: featureArgs,
+  { name: 'F43 перечень противоречий при conflict-status none -> трек судит перечень, а не статус', track: 'feature', args: featureArgs,
     responses: { 'ctx:R-I': ctxConflictMute },
     expect: ({ result, calls }) => [
       ['статус blocked', result.status === 'blocked'],
       ['кодер не вызван', !calls.some(c => c.label === 'fix:1')],
       ['перечень попал в нехватку', /AC2/.test(result.missing)],
     ] },
-  { name: 'F27 источника требований нет -> оракул не зовётся, разведка идёт как обычно', track: 'feature', args: featureArgs,
+  { name: 'F44 источника требований нет -> оракул не зовётся, разведка идёт как обычно', track: 'feature', args: featureArgs,
     responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
     expect: ({ result, calls }) => [
       ['адрес оракула в промпт не попал', !/dex-skill-requirement-quality/.test(promptOf(calls, 'ctx:R-I'))],
@@ -1043,6 +1044,152 @@ const SCENARIOS = [
     expect: ({ result }) => [
       ['непригодное поле названо', result.degraded.some(d => /open_findings/.test(d))],
       ['статус complete', result.status === 'complete'],
+    ] },
+  { name: 'F45 разведка требований partial -> трек не сдаёт complete, нехватка названа', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': { ...ctxOk, status: 'partial', missing: 'раздел AC источника не найден' }, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result }) => [
+      ['статус partial', result.status === 'partial'],
+      ['where называет разведку', /разведка требований неполна: раздел AC источника не найден/.test(result.where)],
+    ] },
+  { name: 'F46 разведка complete без единиц R/I -> blocked на Context, кодер не вызван', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': { ...ctxOk, requirements: [] } },
+    expect: ({ result, calls }) => [
+      ['статус blocked', result.status === 'blocked' && result.where === 'Context'],
+      ['нехватка названа', /ни одной единицы R\/I/.test(result.missing)],
+      ['кодер не вызван', !labelsOf(calls).some(l => l.startsWith('fix'))],
+    ] },
+  { name: 'F47 подготовка дерева partial -> строка в degraded, трек идёт', track: 'feature', args: featureArgs,
+    responses: { 'ctx:tree': { ...prepOk, status: 'partial', missing: 'стек выведен не по манифесту' }, 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result }) => [
+      ['partial подготовки назван', result.degraded.some(d => /подготовка дерева partial: стек выведен не по манифесту/.test(d))],
+      ['статус complete', result.status === 'complete'],
+    ] },
+  { name: 'F48 ни сборки, ни тестов -> внешнего факта нет, complete не отдаётся', track: 'feature', args: featureArgs,
+    responses: { 'ctx:tree': { ...prepOk, build_cmd: '', test_cmd: '' }, 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': { ...green, pass_count: 0 }, 'self-review:первое': revClean },
+    expect: ({ result }) => [
+      ['статус partial', result.status === 'partial'],
+      ['where называет отсутствие факта', /внешнего факта нет: ни сборки, ни тестов/.test(result.where)],
+    ] },
+  { name: 'F49 тестов прошло 0 при команде тестов -> не зелено, попытка повторяется', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'fix:2': fixOk, 'verify:после попытки 1': { ...green, pass_count: 0 }, 'verify:после попытки 2': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['две попытки', result.loops.fix === 2],
+      ['вторая знает, что тесты не шли', /прошло тестов: 0/.test(promptOf(calls, 'fix:2'))],
+    ] },
+  { name: 'F50 exit 0 при упавших тестах -> не зелено', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'fix:2': fixOk, 'verify:после попытки 1': { ...green, fail_count: 2, failing: ['T1', 'T2'] }, 'verify:после попытки 2': green, 'self-review:первое': revClean },
+    expect: ({ result }) => [
+      ['две попытки', result.loops.fix === 2],
+    ] },
+  { name: 'F51 саморевью partial -> трек не сдаёт complete', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': { ...revClean, status: 'partial', missing: 'ось performance не пройдена' } },
+    expect: ({ result }) => [
+      ['статус partial', result.status === 'partial'],
+      ['where называет ревью', /саморевью не завершено: ось performance не пройдена/.test(result.where)],
+    ] },
+  { name: 'F52 саморевью blocked при прежней P1 -> правка по находкам без ревью не заводится', track: 'feature',
+    args: { ...featureArgs, resume: true, trail: '- {"step":1}', open_findings: [ledgerA88] },
+    responses: { 'ctx:R-I': ctxOk, 'verify:возобновление': green, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': { ...revClean, status: 'blocked', missing: 'нет доступа к git' } },
+    expect: ({ result, calls }) => [
+      ['кодер по находкам не вызван', !labelsOf(calls).includes('fix:after-review')],
+      ['статус partial', result.status === 'partial'],
+      ['F2 открыта', result.prior.some(p => p.id === 'F2' && p.status === 'open')],
+    ] },
+  { name: 'F53 кодер не закрыл находку при замкнутой правке -> повторное ревью покупается', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revP1,
+      'fix:after-review': { ...fixSealed, prior: [{ ...fixSealed.prior[0], status: 'disputed', evidence: 'случаи уже различены вызывающим кодом' }] }, 'verify:после саморевью': green, 'self-review:повторное': revRecheck },
+    expect: ({ result, calls }) => [
+      ['повторное ревью куплено', labelsOf(calls).includes('self-review:повторное')],
+      ['закрытие - по ревью, не по отказу кодера', result.prior.some(p => p.anchor === 'src/A.cs:8' && p.status === 'closed' && p.evidence === 'тест T2 различает случаи')],
+    ] },
+  { name: 'F54 кодер правки по находкам промолчал о находке -> пропуска повторного ревью нет', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revP1, 'fix:after-review': { ...fixSealed, prior: [] }, 'verify:после саморевью': green, 'self-review:повторное': revRecheck },
+    expect: ({ calls }) => [
+      ['повторное ревью куплено', labelsOf(calls).includes('self-review:повторное')],
+    ] },
+  { name: 'F55 потребители правки доходят до саморевьюера', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ calls }) => [
+      ['dependents во входе ревью', promptOf(calls, 'self-review:первое').includes('dependents: some - src/Caller.cs:41')],
+    ] },
+  { name: 'F56 саморевью: реализовано не то -> partial', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': { ...revClean, 'intent-status': 'mismatch', intent: 'R1 требует отказ, реализован ретрай' } },
+    expect: ({ result }) => [
+      ['статус partial', result.status === 'partial'],
+      ['where называет расхождение', /реализовано не то: R1 требует отказ/.test(result.where)],
+    ] },
+  { name: 'F57 коммитов трека нет -> committed ложно, complete не отдаётся', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': { ...fixOk, commit: '' }, 'verify:после попытки 1': { ...green, ahead: 0 }, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['статус partial', result.status === 'partial'],
+      ['committed ложно', result.goal_check.committed === false],
+      ['where называет', /коммитов трека нет/.test(result.where)],
+      ['верификатор считает коммиты ветки трека', promptOf(calls, 'verify:после попытки 1').includes('git rev-list --count HEAD --not --exclude="$(git branch --show-current)" --branches')],
+    ] },
+  { name: 'F58 fact-check кодера contradicted -> partial', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': { ...fixOk, 'fact-check': 'contradicted: сигнатура retry другая' }, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result }) => [
+      ['статус partial', result.status === 'partial'],
+      ['where называет сверку', /fact-check кодера: contradicted/.test(result.where)],
+    ] },
+  { name: 'F59 верификатор после правки по находкам не смог прогнать -> blocked, находки в выходе', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revP1, 'fix:after-review': fixOk, 'verify:после саморевью': verBlocked },
+    expect: ({ result }) => [
+      ['статус blocked', result.status === 'blocked' && result.where === 'Review: верификация после правки'],
+      ['находка первого ревью в open_findings', result.open_findings.some(f => f.anchor === 'src/A.cs:8')],
+    ] },
+  { name: 'F60 верификатор при возобновлении не смог прогнать -> blocked, кодер не вызван', track: 'feature',
+    args: { ...featureArgs, resume: true, trail: '- {"step":1}' },
+    responses: { 'ctx:R-I': ctxOk, 'verify:возобновление': verBlocked },
+    expect: ({ result, calls }) => [
+      ['статус blocked', result.status === 'blocked' && result.where === 'Implement: верификация при возобновлении'],
+      ['кодер не вызван', !labelsOf(calls).some(l => l.startsWith('fix'))],
+    ] },
+  { name: 'F61 подготовка дерева blocked без missing -> blocked с названной нехваткой', track: 'feature', args: featureArgs,
+    responses: { 'ctx:tree': { ...prepOk, status: 'blocked' }, 'ctx:R-I': ctxOk },
+    expect: ({ result }) => [
+      ['статус blocked', result.status === 'blocked' && result.where === 'Context: подготовка дерева'],
+      ['missing не пуст', !!result.missing],
+    ] },
+  { name: 'F62 кодер blocked без missing -> blocked с названной нехваткой', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': { ...fixOk, status: 'blocked' } },
+    expect: ({ result }) => [
+      ['статус blocked', result.status === 'blocked' && result.where === 'Implement#1'],
+      ['missing не пуст', !!result.missing],
+    ] },
+  { name: 'F63 верификатор blocked без missing -> blocked с названной нехваткой', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': { ...verBlocked, missing: '' } },
+    expect: ({ result }) => [
+      ['статус blocked', result.status === 'blocked' && result.where === 'Implement#1: верификация'],
+      ['missing не пуст', !!result.missing],
+      ['не выдан за отсутствие выхода', !/не вернул выход/.test(result.missing)],
+    ] },
+  { name: 'F64 возобновление зелёное, попытку завела находка ledger -> кодеру не сказано, что верификация не прошла', track: 'feature',
+    args: { ...featureArgs, resume: true, trail: '- {"step":1}', open_findings: [ledgerA88] },
+    responses: { 'ctx:R-I': ctxOk, 'verify:возобновление': green, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revF2closed },
+    expect: ({ calls }) => [
+      ['находка подана', /F2 \[P1\] src\/A\.cs:88/.test(promptOf(calls, 'fix:1'))],
+      ['ложного «не прошла» нет', !/не прошла/.test(promptOf(calls, 'fix:1'))],
+    ] },
+  { name: 'F65 кодер оспорил находку ledger в prior -> ответ задан в prior, оспаривание в decisions выхода', track: 'feature',
+    args: { ...featureArgs, resume: true, trail: '- {"step":1}', open_findings: [ledgerA88] },
+    responses: { 'ctx:R-I': ctxOk, 'verify:возобновление': green, 'verify:после попытки 1': green, 'self-review:первое': revF2closed,
+      'fix:1': { ...fixOk, decisions: [], prior: [{ ...ledgerA88, status: 'disputed', evidence: 'ретрай различает случаи уже в B.cs:3' }] } },
+    expect: ({ result, calls }) => [
+      ['задание ведёт ответ в prior', /в prior/.test(promptOf(calls, 'fix:1')) && !/в decisions/.test(promptOf(calls, 'fix:1'))],
+      ['оспаривание дошло до выхода', result.decisions.some(d => /F2/.test(d) && /B\.cs:3/.test(d))],
+    ] },
+  { name: 'F67 TASK вне [A-Za-z0-9-] -> ahead считается по ветке дерева, а не по сырому TASK', track: 'feature', args: { ...featureArgs, task: 'PAY_12' },
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ calls }) => [
+      ['сырого TASK в исключении нет', !promptOf(calls, 'verify:после попытки 1').includes('--exclude=auto/PAY_12')],
+    ] },
+  { name: 'F66 поле ctx подано строкой JSON, как его отдаёт ledger.py -> разведка из ledger, узел не куплен', track: 'feature',
+    args: { ...featureArgs, resume: true, trail: '- {"step":1}', ctx: JSON.stringify({ ...ctxOk, stack: 'dotnet', test_cmd: 'dotnet test' }) },
+    responses: { 'verify:возобновление': green, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['разведка не куплена', !labelsOf(calls).includes('ctx:R-I')],
+      ['подмены нет', !result.degraded.some(d => /поле ctx/.test(d))],
     ] },
   { name: 'B27 прежняя P1 из ledger, саморевью о ней промолчало -> partial', track: 'bugfix',
     args: { ...bugfixArgs, resume: true, trail: '- {"step":1}', open_findings: [ledgerA88] },
