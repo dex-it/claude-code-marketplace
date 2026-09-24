@@ -40,6 +40,8 @@ const isBlocking = (f) => f.severity === 'P0' || f.severity === 'P1'
 const priorLine = (p) => `- ${p.id ? `${p.id} ` : ''}[${p.severity}] ${p.axis ? `${p.axis} ` : ''}${p.anchor}: ${p.text}`
 const findingLine = (f) => `${priorLine(f)} (закрытие: ${f.closure})\n  улика: ${f.evidence}`
 // Опознание - по id (ledger.md R10): строка сдвигается правкой, а на одной строке бывают разные находки. Статус прежней - последний, вынесенный узлом; о которой узел промолчал, та остаётся непроверенной.
+// id записей, которые узел закрыл в своём выходе (статус не из открытых).
+const shutBy = (r) => (r.prior || []).filter(p => p.id && !isOpen(p)).map(p => p.id)
 function registry(unsettled) {
   const list = []
   let minted = 0
@@ -54,9 +56,10 @@ function registry(unsettled) {
     return rec.id
   }
   // Страховка от промаха узла: молча склеивает только якорь с той же непустой осью, совпавший один якорь - на вид.
-  const take = (fs, who, known = list.slice()) => {
+  // Запись, которую узел в этом же выходе закрыл, он назвал сам: находка на её месте - другая, склейка отменила бы его статус и потеряла её суть.
+  const take = (fs, who, known = list.slice(), shut = []) => {
     return (fs || []).map(f => {
-      const hit = known.find(q => q.anchor === f.anchor && q.axis && q.axis === f.axis)
+      const hit = known.find(q => q.anchor === f.anchor && q.axis && q.axis === f.axis && !shut.includes(q.id))
       if (hit) { degraded.push(`${who}: находка ${hit.id} (${f.anchor}) подана новой - узел не назвал id, опознана по якорю и оси`); return { f, id: hit.id } }
       const near = known.find(q => q.anchor === f.anchor)
       if (near) degraded.push(`${who}: находка ${f.anchor} (${f.axis || 'ось не названа'}) - возможный дубль ${near.id}, заведена отдельно`)
@@ -75,7 +78,7 @@ function registry(unsettled) {
         if (!p.id || !listed.some(q => q.id === p.id)) degraded.push(`${who}: запись prior ${p.id || 'без id'} (${p.anchor}) не из перечня - статус не принят`)
         else seat(p, p.status, p.evidence)
       }
-      for (const { f, id } of take(r.findings, who, listed)) if (!id) seat(f, 'open', f.evidence); else if (!blocked) seat({ ...f, id }, 'open', f.evidence)
+      for (const { f, id } of take(r.findings, who, listed, blocked ? [] : shutBy(r))) if (!id) seat(f, 'open', f.evidence); else if (!blocked) seat({ ...f, id }, 'open', f.evidence)
     },
   }
 }
@@ -93,7 +96,7 @@ async function node(role, prompt, opts, type) {
       const why = String(e && e.message || e).slice(0, 300)
       degraded.push(`${role}: ${type} не отработал (${why})`); log(`узел ${type} не отработал, general-purpose`)
       // Замена - не узел каталога: норм полей выхода у неё нет, а схема их больше не пересказывает.
-      return agent(`Роль: ${role}.\nУзел ${type} на этом шаге оборвался ошибкой: ${why}. Прежде чем действовать, сверь git log и рабочее дерево: сделанное им не повторяй.\nНормы полей выхода (run-status, red-run, fact-check, uncovered, diff-scope, статусы ухода от проверки) у тебя не загружены: вызови Skill dex-skill-node-contract:node-contract до работы и заполняй по ним.\n${prompt}`, { ...opts, agentType: 'general-purpose' })
+      return agent(`Роль: ${role}.\nУзел ${type} на этом шаге оборвался ошибкой: ${why}. Прежде чем действовать, сверь git log и рабочее дерево: сделанное им не повторяй и не коммить второй раз.\nНормы полей выхода (run-status, red-run, fact-check, uncovered, diff-scope, статусы ухода от проверки) у тебя не загружены: вызови Skill dex-skill-node-contract:node-contract до работы и заполняй по ним.\n${prompt}`, { ...opts, agentType: 'general-purpose' })
     }
   }
   return agent(`Роль: ${role}.\n${prompt}`, { ...opts, agentType: 'general-purpose' })
@@ -196,7 +199,7 @@ trail.push({ step: 3, doer: 'general-purpose', status: fal ? fal.status : 'null'
 if (!fal || fal.status === 'blocked') return outcome('blocked', 'Falsify', lack(fal, 'скептик'), { ctx, review: rev, security: secOut, claims, prior: reg.all() })
 reg.apply(fal, 'скептик')
 const confirmed = []
-for (const { f, id } of reg.take(fal.confirmed, 'скептик')) if (id) reg.seat({ ...f, id }, 'open', f.evidence); else confirmed.push(f)
+for (const { f, id } of reg.take(fal.confirmed, 'скептик', undefined, shutBy(fal))) if (id) reg.seat({ ...f, id }, 'open', f.evidence); else confirmed.push(f)
 const prior = reg.all()
 const unsettled = prior.filter(p => p.status === 'unverified')
 
@@ -208,10 +211,12 @@ if (A.publish && confirmed.length) {
   trail.push({ step: 4, doer: 'general-purpose', status: pub ? pub.status : 'null', published: pub ? pub.published.length : -1 })
 }
 // Находка без исхода публикатора теряется молча: каждая подтверждённая либо опубликована, либо названа неопубликованной.
-// Опознание - same: на одной строке бывают находки разных осей, и названная одна не закрывает другую.
+// Ключ - якорь и ось: на одной строке бывают находки разных осей, и названная одна не закрывает другую. Запись без оси
+// засчитывается только за единственную подтверждённую на своём якоре - иначе неясно, какую из них она называет.
 const told = pub ? [...pub.published, ...pub.unpublished] : []
+const oneAt = (f) => confirmed.filter(c => c.anchor === f.anchor).length === 1
 const unpublished = !pub ? confirmed.map(f => ({ anchor: f.anchor, axis: f.axis, reason: A.publish ? 'узел публикации не вернул выход - находки к публикации' : 'санкции publish нет - перечень к публикации' }))
-  : [...pub.unpublished, ...confirmed.filter(f => !told.some(t => t.anchor === f.anchor && (t.axis === f.axis || !t.axis || !f.axis))).map(f => ({ anchor: f.anchor, axis: f.axis, reason: `публикатор (${pub.status}): исход по находке не назван` }))]
+  : [...pub.unpublished, ...confirmed.filter(f => !told.some(t => t.anchor === f.anchor && (t.axis === f.axis || ((!t.axis || !f.axis) && oneAt(f))))).map(f => ({ anchor: f.anchor, axis: f.axis, reason: `публикатор (${pub.status}): исход по находке не назван` }))]
 const allPublished = !A.publish || !confirmed.length || (pub && pub.status === 'complete' && unpublished.length === 0)
 const issues = []
 if (ledgerUnread) issues.push(LEDGER_UNREAD)
