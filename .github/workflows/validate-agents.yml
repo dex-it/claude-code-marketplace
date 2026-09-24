@@ -98,6 +98,10 @@ jobs:
       - name: Check terminology index in sync
         run: node tools/sync-terminology.js --check
 
+      # Скрипт трека не импортирует, общий код - копия, а словарь статусов находки держат ещё ledger и finish.
+      - name: Check dex-auto track fragments and finding statuses in sync
+        run: node tools/sync-tracks.js --check
+
       # Проба видимости агента платная и в CI не ходит, но перечень её кейсов
       # строится из дерева - и строился слепо к подкаталогу `agents/`. Предмет
       # этого шага - сам перечень: он собирается бесплатно (`--list-cases` в

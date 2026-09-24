@@ -319,8 +319,8 @@ function isKeyAt(tokens, k) {
 }
 
 // Ключи первого уровня объекта `{` на позиции open. Spread, вычисляемый ключ и shorthand на первом уровне
-// `properties` не дают литерального перечня полей - это находка.
-function objectKeys(tokens, open, close, unjudged, match) {
+// `properties` не дают литерального перечня полей - это находка; кроме spread схемы того же файла (`spread`).
+function objectKeys(tokens, open, close, unjudged, match, spread) {
   const keys = [];
   for (let k = open + 1; k < close; k++) {
     const t = tokens[k];
@@ -333,6 +333,8 @@ function objectKeys(tokens, open, close, unjudged, match) {
       k = match.get(k);
     } else if (isKeyAt(tokens, k)) keys.push(t);
     else if (isPunct(t, '.') && isPunct(tokens[k + 1], '.') && isPunct(tokens[k + 2], '.')) {
+      const own = spread && spread(k, 'properties');
+      if (own) { keys.push(...own.items); k = own.end; continue; }
       unjudged.push({ start: t.start, what: 'properties holds a spread "..."' });
       k += 2;
     } else if (t.type === 'ident' && (isPunct(tokens[k - 1], '{') || isPunct(tokens[k - 1], ',')) && (isPunct(tokens[k + 1], ',') || isPunct(tokens[k + 1], '}'))) {
@@ -344,10 +346,12 @@ function objectKeys(tokens, open, close, unjudged, match) {
 
 // Строки массива `[` на позиции open; первый нестроковый элемент (константа, шаблон, spread) - отдельно:
 // порядок и написание такого перечня не судятся.
-function arrayStrings(tokens, open, close) {
+function arrayStrings(tokens, open, close, spread) {
   const items = [];
   let nonLiteral = null;
   for (let k = open + 1; k < close; k++) {
+    const own = isPunct(tokens[k], '.') && spread && spread(k, 'required');
+    if (own) { items.push(...own.items); k = own.end; continue; }
     if (tokens[k].type === 'str') items.push(tokens[k]);
     else if (isPunct(tokens[k], '.')) nonLiteral ??= { value: '...spread', start: tokens[k].start };
     else if (tokens[k].type === 'tmpl') nonLiteral ??= { value: '`template`', start: tokens[k].start };
@@ -377,14 +381,34 @@ function readNames(tokens) {
   return reads;
 }
 
-// Схема выхода узла - объект в `schema:` опций вызова: литерал на месте либо `const NAME = {...}`.
-function schemaObjects(tokens, match, unjudged) {
+function objectConsts(tokens) {
   const consts = new Map();
   for (let k = 0; k + 3 < tokens.length; k++) {
     if (tokens[k].type === 'ident' && ['const', 'let', 'var'].includes(tokens[k].value) && tokens[k + 1].type === 'ident' && isPunct(tokens[k + 2], '=') && isPunct(tokens[k + 3], '{')) {
       consts.set(tokens[k + 1].value, k + 3);
     }
   }
+  return consts;
+}
+
+// Схема того же файла (общий фрагмент треков) судится на своём объявлении: её spread даёт литеральный перечень.
+function schemaSpread(tokens, match, consts) {
+  const resolve = (k, field, seen) => {
+    const [a, b, c, name, dot, key, after] = tokens.slice(k, k + 7);
+    if (![a, b, c, dot].every((t) => isPunct(t, '.')) || !name || name.type !== 'ident' || !key || key.value !== field) return null;
+    if (!(isPunct(after, ',') || isPunct(after, '}') || isPunct(after, ']'))) return null;
+    const open = consts.get(name.value);
+    if (open === undefined || seen.has(open) || !match.has(open)) return null;
+    const next = new Set(seen).add(open);
+    const schema = topLevelSchema(tokens, open, match.get(open), match, (j, f) => resolve(j, f, next));
+    const items = schema[field];
+    return items && !schema.unresolved ? { items, end: k + 5 } : null;
+  };
+  return (k, field) => resolve(k, field, new Set());
+}
+
+// Схема выхода узла - объект в `schema:` опций вызова: литерал на месте либо `const NAME = {...}`.
+function schemaObjects(tokens, match, unjudged, consts) {
   const schemas = [];
   for (let k = 0; k < tokens.length; k++) {
     if (!isKeyAt(tokens, k) || tokens[k].value !== 'schema') continue;
@@ -406,6 +430,8 @@ function parseTrack(text) {
   const tokens = tokenize(text, scan);
   const unjudged = [];
   const match = matchBrackets(tokens, unjudged);
+  const consts = objectConsts(tokens);
+  const spread = schemaSpread(tokens, match, consts);
   const keys = [];
   const requiredLists = [];
   for (let k = 0; k < tokens.length; k++) {
@@ -418,36 +444,42 @@ function parseTrack(text) {
     if (isPunct(value, literalOpen) && match.has(k + 2)) {
       const close = match.get(k + 2);
       if (name === 'required') {
-        const list = arrayStrings(tokens, k + 2, close);
+        const list = arrayStrings(tokens, k + 2, close, spread);
         requiredLists.push({ items: list.items, open: k + 2 });
         if (list.nonLiteral) unjudged.push({ start: list.nonLiteral.start, what: `required: [...] holds a non-literal element "${list.nonLiteral.value}"` });
         if (isPunct(tokens[close + 1], '.')) unjudged.push({ start: tokens[close + 1].start, what: 'required: [...] is followed by a call, the list is not literal' });
       } else {
-        objectKeys(tokens, k + 2, close, unjudged, match);
+        objectKeys(tokens, k + 2, close, unjudged, match, spread);
       }
     } else if (value && !(value.type === 'ident' && LITERAL_WORDS.has(value.value)) && !isPunct(value, literalOpen)) {
       const shown = value.type === 'ident' ? value.value : value.type === 'str' ? `'${value.value}'` : value.type === 'tmpl' ? '`template`' : value.value;
       unjudged.push({ start: value.start, what: `${name}: ${shown} is not a literal ${name === 'required' ? 'list' : 'object'}` });
     }
   }
-  const schemas = schemaObjects(tokens, match, unjudged).map((open) => topLevelSchema(tokens, open, match.get(open), match));
+  const schemas = schemaObjects(tokens, match, unjudged, consts).map((open) => topLevelSchema(tokens, open, match.get(open), match, spread));
   if (scan.unclosed) unjudged.push({ start: scan.unclosed.start, what: `${scan.unclosed.what}, the rest of the file is not scanned` });
   return { keys, requiredLists, reads: readNames(tokens), schemas, unjudged };
 }
 
 // Ключи `properties` и строки `required` первого уровня объекта-схемы.
-function topLevelSchema(tokens, open, close, match) {
-  const schema = { start: tokens[open].start, properties: null, required: null };
+function topLevelSchema(tokens, open, close, match, spread) {
+  const schema = { start: tokens[open].start, properties: null, required: null, unresolved: false };
+  const probe = [];
   for (let k = open + 1; k < close; k++) {
     const t = tokens[k];
     if (t.type === 'punct' && '{[('.includes(t.value)) {
       if (!match.has(k)) break;
       k = match.get(k);
     } else if (isKeyAt(tokens, k) && match.has(k + 2)) {
-      if (t.value === 'properties' && isPunct(tokens[k + 2], '{')) schema.properties = objectKeys(tokens, k + 2, match.get(k + 2), [], match);
-      if (t.value === 'required' && isPunct(tokens[k + 2], '[')) schema.required = arrayStrings(tokens, k + 2, match.get(k + 2)).items;
+      if (t.value === 'properties' && isPunct(tokens[k + 2], '{')) schema.properties = objectKeys(tokens, k + 2, match.get(k + 2), probe, match, spread);
+      if (t.value === 'required' && isPunct(tokens[k + 2], '[')) {
+        const list = arrayStrings(tokens, k + 2, match.get(k + 2), spread);
+        schema.required = list.items;
+        if (list.nonLiteral) schema.unresolved = true;
+      }
     }
   }
+  if (probe.length) schema.unresolved = true;
   return schema;
 }
 

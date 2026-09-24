@@ -54,7 +54,7 @@ env`, и вместо `ctx` - `repro` (симптом - фраза цели, о�
 
 **Scenarios:**
 - Возврат `complete` - критерий «готово» исполнить самому (команда из `00-goal.md`; у ревью - статус каждой находки
-  возврата: `confirmed` / `dropped` / `published` / `unpublished` / `prior`; у feature / bugfix - ни одной `prior` P0/P1 со статусом `open` или `partial`), не пересказ узла. Совпал - `finish.sh TASK TRACK
+  возврата: `confirmed` / `dropped` / `published` / `unpublished` / `prior`; у feature / bugfix - ни одной `prior` P0/P1 со статусом `open`, `partial` или `unverified`), не пересказ узла. Совпал - `finish.sh TASK TRACK
   complete`; не совпал - как `partial` с тем же возвратом, расхождение - строкой в `### Решения`.
 - Возврат `partial` - `finish.sh TASK TRACK partial`; затем по каждой строке `### Открытые находки` (ревью - ещё
   `questions`) и отдельно по причине `where` строка в `### Решения`: `<id>: отложено` с владельцем и местом записи либо
