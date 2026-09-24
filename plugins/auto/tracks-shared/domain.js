@@ -12,30 +12,52 @@ const OPEN_FINDING = ['open', 'partial', 'unverified']
 const FINDING_STATUS = [...OPEN_FINDING, 'closed', 'disputed', 'no-longer-applicable', 'dropped']
 // Прежняя находка опознаётся по id реестра ledger: без него finish.sh заводит её новой, и разность «открытые» двоится.
 const PRIOR = { type: 'object', properties: {
-  id: { type: 'string', description: 'id из перечня прежних находок; находки в перечне нет - пусто' },
+  id: { type: 'string', description: 'id находки из перечня; находки в перечне нет - её место в findings, не здесь' },
   anchor: FINDING.properties.anchor, severity: SEV, axis: { type: 'string', description: 'ось из перечня; не названа - пусто' }, text: { type: 'string' },
   status: { type: 'string', enum: PRIOR_STATUS }, evidence: { type: 'string' },
 }, required: ['id', 'anchor', 'severity', 'axis', 'text', 'status', 'evidence'] }
-// Ось различает находки одной строки, но запись ledger прошлых версий её не несёт: при оси у одной стороны сравнивается anchor.
-const same = (a, b) => a.id && b.id ? a.id === b.id : a.anchor === b.anchor && (!a.axis || !b.axis || a.axis === b.axis)
 const isOpen = (f) => OPEN_FINDING.includes(f.status)
 const isBlocking = (f) => f.severity === 'P0' || f.severity === 'P1'
 const priorLine = (p) => `- ${p.id ? `${p.id} ` : ''}[${p.severity}] ${p.axis ? `${p.axis} ` : ''}${p.anchor}: ${p.text}`
 const findingLine = (f) => `${priorLine(f)} (закрытие: ${f.closure})\n  улика: ${f.evidence}`
-// Статус прежней - последний, вынесенный узлом; о которой узел промолчал, та остаётся непроверенной, а не закрытой.
+// Опознание - по id (ledger.md R10): строка сдвигается правкой, а на одной строке бывают разные находки. Статус прежней - последний, вынесенный узлом; о которой узел промолчал, та остаётся непроверенной.
 function registry(unsettled) {
   const list = []
+  let minted = 0
+  const at = (id) => id ? list.findIndex(q => q.id === id) : -1
   const seat = (p, status, evidence) => {
-    const i = list.findIndex(q => same(q, p))
-    const base = i < 0 ? { id: p.id || '', anchor: p.anchor || '', severity: p.severity || '', axis: p.axis || '', text: p.text || '' } : list[i]
+    const i = at(p.id)
+    // Важность записи только растёт: повторное ревью, поднявшее P2 до P1, должно держать порог допуска.
+    const base = i < 0 ? { id: p.id || `N${++minted}`, anchor: p.anchor || '', severity: p.severity || '', axis: p.axis || '', text: p.text || '', closure: p.closure || '' }
+      : { ...list[i], severity: p.severity && (!list[i].severity || p.severity < list[i].severity) ? p.severity : list[i].severity }
     const rec = { ...base, status: FINDING_STATUS.includes(status) ? status : 'unverified', evidence: FINDING_STATUS.includes(status) ? evidence : `статус вне словаря реестра (${status}): ${evidence}` }
     if (i < 0) list.push(rec); else list[i] = rec
+    return rec.id
+  }
+  // Страховка от промаха узла: молча склеивает только якорь с той же непустой осью, совпавший один якорь - на вид.
+  const take = (fs, who, known = list.slice()) => {
+    return (fs || []).map(f => {
+      const hit = known.find(q => q.anchor === f.anchor && q.axis && q.axis === f.axis)
+      if (hit) { degraded.push(`${who}: находка ${hit.id} (${f.anchor}) подана новой - узел не назвал id, опознана по якорю и оси`); return { f, id: hit.id } }
+      const near = known.find(q => q.anchor === f.anchor)
+      if (near) degraded.push(`${who}: находка ${f.anchor} (${f.axis || 'ось не названа'}) - возможный дубль ${near.id}, заведена отдельно`)
+      return { f, id: '' }
+    })
   }
   return {
-    seat, all: () => list.slice(), open: () => list.filter(isOpen),
+    seat, take, all: () => list.slice(), open: () => list.filter(isOpen),
     blocking: () => list.filter(isOpen).filter(isBlocking),
-    doubt: (p) => seat(p, 'unverified', unsettled),
-    apply: (r) => { if (r && r.status !== 'blocked') for (const p of r.prior || []) seat(p, p.status, p.evidence) },
+    doubt: (p) => seat(p, 'unverified', !p.evidence || p.evidence === unsettled ? unsettled : p.evidence.startsWith(`${unsettled}; `) ? p.evidence : `${unsettled}; ${p.evidence}`),
+    // Опознание - только в перечне, поданном узлу; статус из blocked-выхода не принимается, но его новые находки не теряются.
+    apply: (r, who, listed = list.slice()) => {
+      if (!r) return
+      const blocked = r.status === 'blocked'
+      if (!blocked) for (const p of r.prior || []) {
+        if (!p.id || !listed.some(q => q.id === p.id)) degraded.push(`${who}: запись prior ${p.id || 'без id'} (${p.anchor}) не из перечня - статус не принят`)
+        else seat(p, p.status, p.evidence)
+      }
+      for (const { f, id } of take(r.findings, who, listed)) if (!id) seat(f, 'open', f.evidence); else if (!blocked) seat({ ...f, id }, 'open', f.evidence)
+    },
   }
 }
 // Не-complete без места и нехватки оператору не действенен, а finish.sh пишет цели пустую нехватку: инвариант держит конструктор, не каждый выход.

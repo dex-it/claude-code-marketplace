@@ -40,30 +40,52 @@ const OPEN_FINDING = ['open', 'partial', 'unverified']
 const FINDING_STATUS = [...OPEN_FINDING, 'closed', 'disputed', 'no-longer-applicable', 'dropped']
 // Прежняя находка опознаётся по id реестра ledger: без него finish.sh заводит её новой, и разность «открытые» двоится.
 const PRIOR = { type: 'object', properties: {
-  id: { type: 'string', description: 'id из перечня прежних находок; находки в перечне нет - пусто' },
+  id: { type: 'string', description: 'id находки из перечня; находки в перечне нет - её место в findings, не здесь' },
   anchor: FINDING.properties.anchor, severity: SEV, axis: { type: 'string', description: 'ось из перечня; не названа - пусто' }, text: { type: 'string' },
   status: { type: 'string', enum: PRIOR_STATUS }, evidence: { type: 'string' },
 }, required: ['id', 'anchor', 'severity', 'axis', 'text', 'status', 'evidence'] }
-// Ось различает находки одной строки, но запись ledger прошлых версий её не несёт: при оси у одной стороны сравнивается anchor.
-const same = (a, b) => a.id && b.id ? a.id === b.id : a.anchor === b.anchor && (!a.axis || !b.axis || a.axis === b.axis)
 const isOpen = (f) => OPEN_FINDING.includes(f.status)
 const isBlocking = (f) => f.severity === 'P0' || f.severity === 'P1'
 const priorLine = (p) => `- ${p.id ? `${p.id} ` : ''}[${p.severity}] ${p.axis ? `${p.axis} ` : ''}${p.anchor}: ${p.text}`
 const findingLine = (f) => `${priorLine(f)} (закрытие: ${f.closure})\n  улика: ${f.evidence}`
-// Статус прежней - последний, вынесенный узлом; о которой узел промолчал, та остаётся непроверенной, а не закрытой.
+// Опознание - по id (ledger.md R10): строка сдвигается правкой, а на одной строке бывают разные находки. Статус прежней - последний, вынесенный узлом; о которой узел промолчал, та остаётся непроверенной.
 function registry(unsettled) {
   const list = []
+  let minted = 0
+  const at = (id) => id ? list.findIndex(q => q.id === id) : -1
   const seat = (p, status, evidence) => {
-    const i = list.findIndex(q => same(q, p))
-    const base = i < 0 ? { id: p.id || '', anchor: p.anchor || '', severity: p.severity || '', axis: p.axis || '', text: p.text || '' } : list[i]
+    const i = at(p.id)
+    // Важность записи только растёт: повторное ревью, поднявшее P2 до P1, должно держать порог допуска.
+    const base = i < 0 ? { id: p.id || `N${++minted}`, anchor: p.anchor || '', severity: p.severity || '', axis: p.axis || '', text: p.text || '', closure: p.closure || '' }
+      : { ...list[i], severity: p.severity && (!list[i].severity || p.severity < list[i].severity) ? p.severity : list[i].severity }
     const rec = { ...base, status: FINDING_STATUS.includes(status) ? status : 'unverified', evidence: FINDING_STATUS.includes(status) ? evidence : `статус вне словаря реестра (${status}): ${evidence}` }
     if (i < 0) list.push(rec); else list[i] = rec
+    return rec.id
+  }
+  // Страховка от промаха узла: молча склеивает только якорь с той же непустой осью, совпавший один якорь - на вид.
+  const take = (fs, who, known = list.slice()) => {
+    return (fs || []).map(f => {
+      const hit = known.find(q => q.anchor === f.anchor && q.axis && q.axis === f.axis)
+      if (hit) { degraded.push(`${who}: находка ${hit.id} (${f.anchor}) подана новой - узел не назвал id, опознана по якорю и оси`); return { f, id: hit.id } }
+      const near = known.find(q => q.anchor === f.anchor)
+      if (near) degraded.push(`${who}: находка ${f.anchor} (${f.axis || 'ось не названа'}) - возможный дубль ${near.id}, заведена отдельно`)
+      return { f, id: '' }
+    })
   }
   return {
-    seat, all: () => list.slice(), open: () => list.filter(isOpen),
+    seat, take, all: () => list.slice(), open: () => list.filter(isOpen),
     blocking: () => list.filter(isOpen).filter(isBlocking),
-    doubt: (p) => seat(p, 'unverified', unsettled),
-    apply: (r) => { if (r && r.status !== 'blocked') for (const p of r.prior || []) seat(p, p.status, p.evidence) },
+    doubt: (p) => seat(p, 'unverified', !p.evidence || p.evidence === unsettled ? unsettled : p.evidence.startsWith(`${unsettled}; `) ? p.evidence : `${unsettled}; ${p.evidence}`),
+    // Опознание - только в перечне, поданном узлу; статус из blocked-выхода не принимается, но его новые находки не теряются.
+    apply: (r, who, listed = list.slice()) => {
+      if (!r) return
+      const blocked = r.status === 'blocked'
+      if (!blocked) for (const p of r.prior || []) {
+        if (!p.id || !listed.some(q => q.id === p.id)) degraded.push(`${who}: запись prior ${p.id || 'без id'} (${p.anchor}) не из перечня - статус не принят`)
+        else seat(p, p.status, p.evidence)
+      }
+      for (const { f, id } of take(r.findings, who, listed)) if (!id) seat(f, 'open', f.evidence); else if (!blocked) seat({ ...f, id }, 'open', f.evidence)
+    },
   }
 }
 // Не-complete без места и нехватки оператору не действенен, а finish.sh пишет цели пустую нехватку: инвариант держит конструктор, не каждый выход.
@@ -131,41 +153,40 @@ const FIX = { type: 'object', properties: {
   dependents: { type: 'array', items: { type: 'string' }, description: 'при some - потребители перечнем file:line; иначе пустой' },
   'fact-check': { type: 'string', description: 'триггер сверки - сигнатура или поведение стороннего API, взятые по памяти' },
   decisions: { type: 'array', items: { type: 'string' }, description: 'каждая закрытая узлом развилка: что выбрано, из чего, почему' },
-  prior: { type: 'array', items: PRIOR, description: 'по каждой находке из задания - статус с уликой: closed - закрыта правкой, disputed - закрывать не следует; находок в задании нет - пусто' },
+  prior: { type: 'array', items: PRIOR, description: 'по каждой находке задания - запись с её id: closed - закрыта правкой, disputed - закрывать не следует; находок в задании нет - пусто' },
   missing: { type: 'string' },
 }, required: ['status', 'diff-scope', 'commit', 'run-status', 'red-run', 'uncovered-status', 'uncovered', 'dependents-status', 'dependents', 'fact-check', 'decisions', 'prior', 'missing'] }
 const REVIEW = { type: 'object', properties: {
   status: STATUS,
-  findings: { type: 'array', items: FINDING },
+  findings: { type: 'array', items: FINDING, description: 'только находки, которых нет в перечне прежних' },
   'run-status': { type: 'string', description: 'прогон свой, не пересказ входа' },
   'red-run': { type: 'string', description: 'вердикт по записям red-run кодера во входе: по каждому тесту дельты запись действует / отсутствует / истекла; записей не было - unverifiable + что искал; тестов в дельте нет - n/a' },
   'fact-check': { type: 'string', description: 'предмет сверки - техутверждения находок' },
   intent: { type: 'string', description: 'сверка с источником намерения входа: соответствует / расхождения «корректно, но не то»; источника нет - n/a' },
   'intent-status': { type: 'string', enum: ['match', 'mismatch', 'n/a'], description: 'mismatch - сделано не то, чего требует источник намерения входа; подробности в intent' },
-  prior: { type: 'array', items: PRIOR, description: 'по каждой прежней находке входа - статус с уликой; прежних нет - пусто' },
+  prior: { type: 'array', items: PRIOR, description: 'по каждой находке перечня прежних - запись с её id, статус с уликой; перечня нет - пусто' },
   'review-verdict': { type: 'string', enum: ['APPROVE', 'REQUEST_CHANGES', 'NEEDS_DISCUSSION'], description: 'по правилу поля review-verdict из node-contract; сигнал оператору, порог допуска трека его не читает' },
   missing: { type: 'string', description: 'при blocked - чего не хватило для ревью; иначе пусто' },
 }, required: ['status', 'findings', 'run-status', 'red-run', 'fact-check', 'intent', 'intent-status', 'prior', 'review-verdict', 'missing'] }
 const UNSETTLED = 'статус саморевью не сверен'
+const LISTED = 'Перечень находок: по каждой - запись в prior с её id, статус с уликой; находка перечня идёт только в prior, в findings - то, чего в перечне нет:'
 // fix перезаписывается каждой попыткой: решения и оспаривание прежней находки без переноса в decisions до выхода не доезжают.
 const said = (f) => [...(f.decisions || []), ...(f.prior || []).filter(p => p.status === 'disputed').map(p => `${p.id || p.anchor}: кодер оспорил закрытие - ${p.evidence}`)]
 // Записи red-run и uncovered кодера - вход саморевьюера: он судит red-run по записям входа, а uncovered адресован следующему узлу.
 const coderInput = (f) => f ? `\nВход от кодера - red-run: ${f['red-run']}\nuncovered: ${f['uncovered-status']}${(f.uncovered || []).length ? ' - ' + f.uncovered.join('; ') : ''}\ndependents: ${f['dependents-status']}${(f.dependents || []).length ? ' - ' + f.dependents.join('; ') : ''}` : ''
-const blockingOf = (r) => r ? r.findings.filter(isBlocking) : []
 // Повторное ревью правке, целиком проверенной прогоном и не видимой наружу, нового факта не даёт (ledger: окупалось в 5 из 23); unknown и перечень при none пропуск не дают.
 const sealed = (f) => f['uncovered-status'] === 'none' && (f.uncovered || []).length === 0 && f['dependents-status'] === 'none' && (f.dependents || []).length === 0
 // Отказ кодера и его молчание - не закрытие.
-const closedBy = (f, x) => ((f && f.prior) || []).some(p => same(p, x) && p.status === 'closed')
+const closedBy = (f, x) => ((f && f.prior) || []).some(p => p.id === x.id && p.status === 'closed')
 const SKIPPED = 'закрыта правкой, повторное саморевью не куплено - правка покрыта прогоном (uncovered-status: none), наружу не видна (dependents-status: none), верификация зелёная'
 // partial кодера и опровергнутая им сверка - исход автора: зелёная верификация и чистое ревью их не закрывают.
 const authorGap = (f) => !f ? '' : f.status === 'partial' ? `кодер вернул partial: ${f.missing || f['run-status'] || 'нехватка не названа'}` : /^contradicted/.test(f['fact-check'] || '') ? `fact-check кодера: ${f['fact-check']}` : ''
 const reviewGap = (r) => !r || r.status === 'blocked' ? '' : r.status === 'partial' ? `саморевью не завершено: ${r.missing || 'нехватка не названа'}` : r['intent-status'] === 'mismatch' ? `саморевью: реализовано не то: ${r.intent}` : ''
-// Порог допуска: зелёная верификация и ноль открытых P0/P1, своих и прежних; review-verdict - сигнал оператору, порог его не читает.
+// Порог допуска: зелёная верификация и ноль открытых P0/P1 реестра прогона; review-verdict - сигнал оператору, порог его не читает.
 const admit = (green, rev, stuck, gaps) => !green ? 'верификация после правки по саморевью не прошла'
   : !rev ? 'саморевьюер не вернул выход'
   : rev.status === 'blocked' ? `саморевью не выполнено: ${lack(rev, 'саморевьюер')}`
-  : blockingOf(rev).length ? 'открытые P0/P1 после повторного саморевью'
-  : stuck.length ? `прежние P0/P1 не закрыты: ${stuck.map(p => `${p.id || p.anchor} ${p.status} - ${p.evidence}`).join('; ')}` : gaps
+  : stuck.length ? `открытые P0/P1: ${stuck.map(p => `${p.id} ${p.status} - ${p.evidence}`).join('; ')}` : gaps
 // <<< shared: self-review
 const REQ = { type: 'object', properties: {
   status: STATUS,
@@ -286,45 +307,37 @@ for (let k = 1; k <= FIX_CEILING && (!passed(ver) || pending); k++) {
 if (!passed(ver)) return outcome('partial', `Implement: потолок ${FIX_CEILING} исчерпан`, `дерево не зелёное после ${FIX_CEILING} попыток: ${redNote(ver)}`, { ver, ctx, fix, decisions: dec() })
 
 phase('Review')
-const review = (tag, f, priors) => node('саморевьюер', `${HEAD}Шаг 3 (${tag}): pre-push саморевью локальной ветки - коммиты этой цели плюс рабочее дерево.${coderInput(f)} Источник намерения - требования:\n${reqText}${priors.length ? `\nПрежние находки - статус каждой в prior с тем же id и уликой; оставшаяся в коде идёт в prior, не в findings:\n${priors.map(priorLine).join('\n')}` : ''}\nПрогон build/test реальный, итог - в run-status, не в findings. Код не меняй.`,
+const review = (tag, f, priors) => node('саморевьюер', `${HEAD}Шаг 3 (${tag}): pre-push саморевью локальной ветки - коммиты этой цели плюс рабочее дерево.${coderInput(f)} Источник намерения - требования:\n${reqText}${priors.length ? `\n${LISTED}\n${priors.map(priorLine).join('\n')}` : ''}\nПрогон build/test реальный, итог - в run-status, не в findings. Код не меняй.`,
   { label: `self-review:${tag}`, phase: 'Review', schema: REVIEW }, 'dex-self-reviewer:self-reviewer')
 let rev = await review('первое', fix, LEDGER); loops.review = 1
-let carried = []
 trail.push({ step: 3, doer: 'self-reviewer', status: rev ? rev.status : 'null', findings: rev ? rev.findings.length : -1, verdict: rev ? rev['review-verdict'] : null })
 const reg = registry(UNSETTLED)
 LEDGER.forEach(reg.doubt)
-reg.apply(rev)
-if (rev && rev.status !== 'blocked' && (blockingOf(rev).length || reg.blocking().length)) {
+reg.apply(rev, 'саморевьюер')
+if (rev && rev.status !== 'blocked' && reg.blocking().length) {
   loops.review_fix = REVIEW_FIX_CEILING
-  fix2 = await node('кодер', `${HEAD}Шаг 2 (повтор после саморевью, потолок ${REVIEW_FIX_CEILING}): закрой находки:\n${[...reg.blocking(), ...blockingOf(rev)].map(priorLine).join('\n')}\nТребования:\n${reqText}\nПосле правки сборка и тесты зелёные, коммит локально, push не делать. По каждой находке - запись в prior с тем же id и anchor: closed с уликой либо disputed с основанием, почему закрывать не следует.`,
+  fix2 = await node('кодер', `${HEAD}Шаг 2 (повтор после саморевью, потолок ${REVIEW_FIX_CEILING}): закрой находки:\n${reg.blocking().map(priorLine).join('\n')}\nТребования:\n${reqText}\nПосле правки сборка и тесты зелёные, коммит локально, push не делать. По каждой находке - запись в prior с её id: closed с уликой либо disputed с основанием, почему закрывать не следует.`,
     { label: 'fix:after-review', phase: 'Review', schema: FIX }, coderType)
   ver2 = !fix2 || fix2.status === 'blocked' ? null : await verifyOnce('после саморевью', 'Review')
   trail.push({ step: '2-after-review', doer: coderType || 'general-purpose', status: fix2 ? fix2.status : 'null', passed: passed(ver2), 'red-run': fix2 ? fix2['red-run'] : null })
   if (fix2) decisions.push(...said(fix2))
-  const openNow = { review: rev, open_findings: rev.findings, prior: reg.all() }
+  const openNow = { review: rev, prior: reg.all() }
   if (!fix2 || fix2.status === 'blocked') return bail('Review: правка по находкам', lack(fix2, 'узел-кодер'), openNow)
   if (noRun(ver2)) return bail('Review: верификация после правки', lack(ver2, 'верификатор'), openNow)
-  const rev1 = rev
-  if (passed(ver2) && sealed(fix2) && [...reg.blocking(), ...blockingOf(rev1)].every(f => closedBy(fix2, f))) {
-    loops.review = 1
+  if (passed(ver2) && sealed(fix2) && reg.blocking().every(f => closedBy(fix2, f))) {
     // Находка без своей строки решения - шаг не выполнен: снятая правкой идёт в decisions поимённо.
-    const shut = [...reg.blocking(), ...blockingOf(rev1)]
+    const shut = reg.blocking()
     shut.forEach(f => {
-      decisions.push(`${f.anchor}: ${SKIPPED}${f.closure ? `; критерий закрытия: ${f.closure}` : ''}`)
+      decisions.push(`${f.id} ${f.anchor}: ${SKIPPED}${f.closure ? `; критерий закрытия: ${f.closure}` : ''}`)
       reg.seat(f, 'closed', SKIPPED)
     })
-    rev = { ...rev1, findings: rev1.findings.filter(f => !isBlocking(f)) }
     trail.push({ step: '3-repeat', doer: 'не куплено: правка замкнута и проверена прогоном', status: 'skipped', closed: shut.length })
   } else {
-    const recheck = blockingOf(rev1).map(f => ({ id: '', anchor: f.anchor, severity: f.severity, axis: f.axis, text: f.text }))
-    rev = await review('повторное', fix2, [...reg.open(), ...recheck]); loops.review = 2
-    // Повторное ревью без выхода или blocked не закрывает находки первого: они остаются открытыми.
-    if (!rev || rev.status === 'blocked') carried = blockingOf(rev1)
-    else {
-      // Находка первого ревью, названная повторным снова в findings, уже открыта там - второй записью в prior она задвоилась бы.
-      recheck.filter(f => !rev.findings.some(n => same(n, f))).forEach(reg.doubt)
-      reg.apply(rev)
-    }
+    const listed = reg.open()
+    rev = await review('повторное', fix2, listed); loops.review = 2
+    // Повторное без выхода или blocked статусов не выносит: реестр остаётся, каким его оставило первое.
+    if (rev && rev.status !== 'blocked') listed.forEach(reg.doubt)
+    reg.apply(rev, 'саморевьюер (повторное)', listed)
     trail.push({ step: '3-repeat', doer: 'self-reviewer', status: rev ? rev.status : 'null', findings: rev ? rev.findings.length : -1, verdict: rev ? rev['review-verdict'] : null })
   }
 }
@@ -332,10 +345,9 @@ const finalVer = ver2 || ver
 const gap = authorGap(fix2 || fix)
 const green = passed(finalVer)
 const gaps = [ledgerUnread ? LEDGER_UNREAD : '', req.status === 'partial' ? `разведка требований неполна: ${req.missing || 'нехватка не названа'}` : '', !ctx.build_cmd && !ctx.test_cmd ? 'внешнего факта нет: ни сборки, ни тестов' : '', finalVer && !finalVer.ahead ? 'коммитов трека нет' : '', reviewGap(rev), gap].filter(Boolean).join('; ')
-const open_findings = carried.length ? [...carried, ...(rev ? rev.findings : [])] : rev ? rev.findings : []
 const where = admit(green, rev, reg.blocking(), gaps)
 return outcome(where ? 'partial' : 'complete', where, where, {
   goal_check: { build_ok: !!finalVer && finalVer.build_ok, tests_green: !!finalVer && finalVer.exit_code === 0 && finalVer.fail_count === 0, committed: !!finalVer && !finalVer.dirty && finalVer.ahead > 0, head: finalVer ? finalVer.head : '' },
-  ctx, fix, fix_after_review: fix2, review: rev, open_findings, prior: reg.all(),
+  ctx, fix, fix_after_review: fix2, review: rev, prior: reg.all(),
   decisions: dec(),
 })

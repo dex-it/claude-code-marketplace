@@ -31,30 +31,52 @@ const OPEN_FINDING = ['open', 'partial', 'unverified']
 const FINDING_STATUS = [...OPEN_FINDING, 'closed', 'disputed', 'no-longer-applicable', 'dropped']
 // Прежняя находка опознаётся по id реестра ledger: без него finish.sh заводит её новой, и разность «открытые» двоится.
 const PRIOR = { type: 'object', properties: {
-  id: { type: 'string', description: 'id из перечня прежних находок; находки в перечне нет - пусто' },
+  id: { type: 'string', description: 'id находки из перечня; находки в перечне нет - её место в findings, не здесь' },
   anchor: FINDING.properties.anchor, severity: SEV, axis: { type: 'string', description: 'ось из перечня; не названа - пусто' }, text: { type: 'string' },
   status: { type: 'string', enum: PRIOR_STATUS }, evidence: { type: 'string' },
 }, required: ['id', 'anchor', 'severity', 'axis', 'text', 'status', 'evidence'] }
-// Ось различает находки одной строки, но запись ledger прошлых версий её не несёт: при оси у одной стороны сравнивается anchor.
-const same = (a, b) => a.id && b.id ? a.id === b.id : a.anchor === b.anchor && (!a.axis || !b.axis || a.axis === b.axis)
 const isOpen = (f) => OPEN_FINDING.includes(f.status)
 const isBlocking = (f) => f.severity === 'P0' || f.severity === 'P1'
 const priorLine = (p) => `- ${p.id ? `${p.id} ` : ''}[${p.severity}] ${p.axis ? `${p.axis} ` : ''}${p.anchor}: ${p.text}`
 const findingLine = (f) => `${priorLine(f)} (закрытие: ${f.closure})\n  улика: ${f.evidence}`
-// Статус прежней - последний, вынесенный узлом; о которой узел промолчал, та остаётся непроверенной, а не закрытой.
+// Опознание - по id (ledger.md R10): строка сдвигается правкой, а на одной строке бывают разные находки. Статус прежней - последний, вынесенный узлом; о которой узел промолчал, та остаётся непроверенной.
 function registry(unsettled) {
   const list = []
+  let minted = 0
+  const at = (id) => id ? list.findIndex(q => q.id === id) : -1
   const seat = (p, status, evidence) => {
-    const i = list.findIndex(q => same(q, p))
-    const base = i < 0 ? { id: p.id || '', anchor: p.anchor || '', severity: p.severity || '', axis: p.axis || '', text: p.text || '' } : list[i]
+    const i = at(p.id)
+    // Важность записи только растёт: повторное ревью, поднявшее P2 до P1, должно держать порог допуска.
+    const base = i < 0 ? { id: p.id || `N${++minted}`, anchor: p.anchor || '', severity: p.severity || '', axis: p.axis || '', text: p.text || '', closure: p.closure || '' }
+      : { ...list[i], severity: p.severity && (!list[i].severity || p.severity < list[i].severity) ? p.severity : list[i].severity }
     const rec = { ...base, status: FINDING_STATUS.includes(status) ? status : 'unverified', evidence: FINDING_STATUS.includes(status) ? evidence : `статус вне словаря реестра (${status}): ${evidence}` }
     if (i < 0) list.push(rec); else list[i] = rec
+    return rec.id
+  }
+  // Страховка от промаха узла: молча склеивает только якорь с той же непустой осью, совпавший один якорь - на вид.
+  const take = (fs, who, known = list.slice()) => {
+    return (fs || []).map(f => {
+      const hit = known.find(q => q.anchor === f.anchor && q.axis && q.axis === f.axis)
+      if (hit) { degraded.push(`${who}: находка ${hit.id} (${f.anchor}) подана новой - узел не назвал id, опознана по якорю и оси`); return { f, id: hit.id } }
+      const near = known.find(q => q.anchor === f.anchor)
+      if (near) degraded.push(`${who}: находка ${f.anchor} (${f.axis || 'ось не названа'}) - возможный дубль ${near.id}, заведена отдельно`)
+      return { f, id: '' }
+    })
   }
   return {
-    seat, all: () => list.slice(), open: () => list.filter(isOpen),
+    seat, take, all: () => list.slice(), open: () => list.filter(isOpen),
     blocking: () => list.filter(isOpen).filter(isBlocking),
-    doubt: (p) => seat(p, 'unverified', unsettled),
-    apply: (r) => { if (r && r.status !== 'blocked') for (const p of r.prior || []) seat(p, p.status, p.evidence) },
+    doubt: (p) => seat(p, 'unverified', !p.evidence || p.evidence === unsettled ? unsettled : p.evidence.startsWith(`${unsettled}; `) ? p.evidence : `${unsettled}; ${p.evidence}`),
+    // Опознание - только в перечне, поданном узлу; статус из blocked-выхода не принимается, но его новые находки не теряются.
+    apply: (r, who, listed = list.slice()) => {
+      if (!r) return
+      const blocked = r.status === 'blocked'
+      if (!blocked) for (const p of r.prior || []) {
+        if (!p.id || !listed.some(q => q.id === p.id)) degraded.push(`${who}: запись prior ${p.id || 'без id'} (${p.anchor}) не из перечня - статус не принят`)
+        else seat(p, p.status, p.evidence)
+      }
+      for (const { f, id } of take(r.findings, who, listed)) if (!id) seat(f, 'open', f.evidence); else if (!blocked) seat({ ...f, id }, 'open', f.evidence)
+    },
   }
 }
 // Не-complete без места и нехватки оператору не действенен, а finish.sh пишет цели пустую нехватку: инвариант держит конструктор, не каждый выход.
@@ -96,14 +118,16 @@ const CTX = { type: 'object', properties: {
   intent: { type: 'string', description: 'источник намерения с адресом либо "n/a: <где искали>"' },
   missing: { type: 'string' },
 }, required: ['status', 'platform', 'base_sha', 'head_sha', 'files', 'security_surface', 'security_basis', 'intent', 'missing'] }
+const THREAD = { type: 'object', properties: { anchor: PRIOR.properties.anchor, severity: SEV, axis: PRIOR.properties.axis, text: PRIOR.properties.text, status: PRIOR.properties.status, evidence: PRIOR.properties.evidence }, required: ['anchor', 'severity', 'axis', 'text', 'status', 'evidence'] }
 const REVIEW = { type: 'object', properties: {
-  status: STATUS, findings: { type: 'array', items: FINDING },
+  status: STATUS, findings: { type: 'array', items: FINDING, description: 'только находки, которых нет среди прежних' },
   axes: { type: 'array', items: { type: 'string' }, description: 'исход каждой оси: "<ось>: находки N" | "<ось>: чисто, проверено <что>" | "<ось>: n/a - <чего в diff нет>"' },
   'review-verdict': { type: 'string', enum: ['APPROVE', 'REQUEST_CHANGES', 'NEEDS_DISCUSSION'] },
-  prior: { type: 'array', items: PRIOR, description: 'по каждой прежней находке - статус с доказательством; прежних нет - пусто' },
+  prior: { type: 'array', items: PRIOR, description: 'по каждой находке перечня ledger - запись с её id, статус с доказательством; перечня нет - пусто' },
+  threads: { type: 'array', items: THREAD, description: 'ре-ревью дельты: прежние находки тредов MR, которых нет в перечне ledger, - статус с доказательством; иначе пусто' },
   questions: { type: 'array', items: { type: 'string' }, description: 'вопросы автору по намерению' },
   missing: { type: 'string' },
-}, required: ['status', 'findings', 'axes', 'review-verdict', 'prior', 'questions', 'missing'] }
+}, required: ['status', 'findings', 'axes', 'review-verdict', 'prior', 'threads', 'questions', 'missing'] }
 // review-verdict security-ревьюера трек не читает: итог выносит скептик по всем подтверждённым.
 const SEC = { type: 'object', properties: {
   status: STATUS, findings: { type: 'array', items: FINDING }, axes: REVIEW.properties.axes,
@@ -138,9 +162,9 @@ if (!ctx || ctx.status === 'blocked') return outcome('blocked', 'Context', lack(
 phase('Review')
 const reviewerType = DELTA ? 'dex-mr-check-reviewer:mr-check-reviewer' : 'dex-mr-reviewer:mr-reviewer'
 const common = `MR/PR: ${A.mr}, BASE_SHA ${ctx.base_sha}, HEAD_SHA ${ctx.head_sha}, файлов ${ctx.files.length}. intent: ${ctx.intent}. publish: false - ноль записей в MR. Код читай с диска: переключи ${A.cwd} на ${ctx.head_sha} (git fetch ссылки MR, затем git checkout --detach); ревизия не достаётся - канал хостинга, и это названо в missing.`
-const LEDGER_TEXT = LEDGER.length ? `\nПрежние находки из ledger - статус каждой в prior с тем же id; находка из перечня, оставшаяся в коде, идёт в prior, не в findings:\n${LEDGER.map(priorLine).join('\n')}` : ''
+const LEDGER_TEXT = LEDGER.length ? `\nПрежние находки из ledger - по каждой запись в prior с её id, статус с доказательством; находка перечня идёт только в prior, в findings - то, чего в перечне нет:\n${LEDGER.map(priorLine).join('\n')}` : ''
 const [rev, sec] = await parallel([
-  () => node(DELTA ? 'ре-ревьюер дельты' : 'ревьюер MR', `${HEAD}Шаг 2: ${DELTA ? `ре-ревью дельты: LAST_REVIEW_SHA ${A.last_review_sha}, статус прежних находок, новые находки только в дельте` : 'первичное ревью по осям по характеру diff; незадетая ось - явный n/a с основанием'}. ${common} Оси: language, architecture, business, regressions, performance, non-code; ${ctx.security_surface ? 'security - отдельный узел, здесь не дублируй' : `security: n/a - ${ctx.security_basis}`}. Severity в шкале P0-P3.${DELTA ? ' Прежняя находка из тредов MR, которой нет в перечне ledger, - в prior с пустым id.' : ''}${LEDGER_TEXT}`,
+  () => node(DELTA ? 'ре-ревьюер дельты' : 'ревьюер MR', `${HEAD}Шаг 2: ${DELTA ? `ре-ревью дельты: LAST_REVIEW_SHA ${A.last_review_sha}, статус прежних находок, новые находки только в дельте` : 'первичное ревью по осям по характеру diff; незадетая ось - явный n/a с основанием'}. ${common} Оси: language, architecture, business, regressions, performance, non-code; ${ctx.security_surface ? 'security - отдельный узел, здесь не дублируй' : `security: n/a - ${ctx.security_basis}`}. Severity в шкале P0-P3.${DELTA ? ' Прежняя находка из тредов MR, которой нет в перечне ledger, - в threads, не в prior.' : ''}${LEDGER_TEXT}`,
     { label: DELTA ? 'review:delta' : 'review:first', phase: 'Review', schema: REVIEW }, reviewerType),
   () => ctx.security_surface
     ? node('security-ревьюер', `${HEAD}Шаг 2 (security): модель угроз diff и attack-path по OWASP. ${common} Основание поверхности: ${ctx.security_basis}. Только ось security, severity P0-P3.`,
@@ -153,33 +177,42 @@ trail.push({ step: '2-security', doer: ctx.security_surface ? 'security-reviewer
 const secOut = ctx.security_surface ? (sec ? { status: sec.status, axes: sec.axes, threat_model: sec.threat_model, missing: sec.missing } : 'узел не вернул выход') : `n/a - ${ctx.security_basis}`
 if (!rev || rev.status === 'blocked') return outcome('blocked', 'Review', lack(rev, 'узел ревью'), { ctx, security: secOut, claims: sec ? sec.findings : [] })
 const claims = [].concat(rev.findings, sec ? sec.findings : [])
-// Суду скептика подлежит каждая прежняя: из ledger - с заявлением ревьюера либо без него, из тредов - заявление ревьюера.
-const priorIn = [...LEDGER.map(l => ({ ...l, claim: rev.prior.find(r => same(r, l)) })), ...rev.prior.filter(r => !LEDGER.some(l => same(r, l))).map(r => ({ ...r, claim: r }))]
-// Прежняя, о которой скептик промолчал, не закрыта и не открыта - непроверена, и ревью с ней не сдаётся полным.
-const settle = (unsettled, r) => { const reg = registry(unsettled); priorIn.forEach(reg.doubt); reg.apply(r); return reg.all() }
+// Статус прежней у ревьюера - claim: выносит его скептик, а прежняя, о которой он промолчал, остаётся непроверенной.
+const reg = registry('статус скептиком не сверен')
+LEDGER.forEach(reg.doubt)
+const claimOf = {}
+for (const p of rev.prior) {
+  if (LEDGER.some(l => l.id === p.id)) claimOf[p.id] = p
+  else degraded.push(`ревьюер: запись prior ${p.id || 'без id'} (${p.anchor}) не из перечня ledger - статус не принят`)
+}
+for (const { f, id } of reg.take(rev.threads, 'ревьюер: треды MR')) { const k = id || reg.doubt(f); claimOf[k] = claimOf[k] || f }
+const priorIn = reg.all().map(p => ({ ...p, claim: claimOf[p.id] }))
 
 phase('Falsify')
 loops.falsify = 1
-const fal = await node('скептик', `${HEAD}Шаг 3: каждая находка ниже - claim, не факт. Сверь с кодом ветки ${ctx.head_sha}: не закрыта ли соседним коммитом, не опирается ли на неверное чтение контракта, воспроизводится ли сценарий. Не выдержавшую - в dropped с причиной; выдержавшую - в confirmed с уликой. Отдельно вердикт по покрытию изменённого поведения тестами через реальный путь (один happy-path покрытием не считается); непокрытая ветка - находка оси coverage в confirmed. Итоговый review-verdict - по правилу поля review-verdict словаря node-contract (вызови Skill dex-skill-node-contract:node-contract до вердикта): в счёт идут confirmed и сверенные prior со статусом open или partial, вопросы автору - ниже. Код не меняй.\nНаходки:\n${fmt(claims) || '- находок нет: только вердикт по покрытию'}${priorIn.length ? `\nПрежние находки - статус ре-ревьюера claim, не факт: сверь каждую с кодом ${ctx.head_sha}, в prior - запись на каждую с её id, anchor, severity и text, сверенный статус и улика. Статусы ре-ревьюера: closed, partial, open, disputed, no-longer-applicable; disputed - только если код опровергает находку, а не потому что автор возразил; «закрыта» не подтвердилась - open или partial. Находка из перечня выше, совпавшая с прежней, идёт в prior прежней, не в confirmed:\n${priorIn.map(p => `${priorLine(p)} - ре-ревьюер: ${p.claim ? `${p.claim.status} - ${p.claim.evidence}` : 'статус не назван, сверь сам'}`).join('\n')}` : ''}${rev.questions.length ? `\nВопросы автору от ревьюера:\n${rev.questions.map(q => `- ${q}`).join('\n')}` : ''}`,
+const fal = await node('скептик', `${HEAD}Шаг 3: каждая находка ниже - claim, не факт. Сверь с кодом ветки ${ctx.head_sha}: не закрыта ли соседним коммитом, не опирается ли на неверное чтение контракта, воспроизводится ли сценарий. Не выдержавшую - в dropped с причиной; выдержавшую - в confirmed с уликой. Отдельно вердикт по покрытию изменённого поведения тестами через реальный путь (один happy-path покрытием не считается); непокрытая ветка - находка оси coverage в confirmed. Итоговый review-verdict - по правилу поля review-verdict словаря node-contract (вызови Skill dex-skill-node-contract:node-contract до вердикта): в счёт идут confirmed и сверенные prior со статусом open или partial, вопросы автору - ниже. Код не меняй.\nНаходки:\n${fmt(claims) || '- находок нет: только вердикт по покрытию'}${priorIn.length ? `\nПрежние находки - статус ре-ревьюера claim, не факт: сверь каждую с кодом ${ctx.head_sha}, в prior - запись на каждую с её id, anchor, severity и text, сверенный статус и улика. Статусы ре-ревьюера: closed, partial, open, disputed, no-longer-applicable; disputed - только если код опровергает находку, а не потому что автор возразил; «закрыта» не подтвердилась - open или partial. Находка выше, совпавшая с прежней, идёт в prior с id прежней, не в confirmed:\n${priorIn.map(p => `${priorLine(p)} - ре-ревьюер: ${p.claim ? `${p.claim.status} - ${p.claim.evidence}` : 'статус не назван, сверь сам'}`).join('\n')}` : ''}${rev.questions.length ? `\nВопросы автору от ревьюера:\n${rev.questions.map(q => `- ${q}`).join('\n')}` : ''}`,
   { label: 'falsify+coverage', phase: 'Falsify', schema: FALSIFY })
 trail.push({ step: 3, doer: 'general-purpose', status: fal ? fal.status : 'null', confirmed: fal ? fal.confirmed.length : -1, dropped: fal ? fal.dropped.length : -1 })
-if (!fal || fal.status === 'blocked') return outcome('blocked', 'Falsify', lack(fal, 'скептик'), { ctx, review: rev, security: secOut, claims, prior: settle(`статус не сверен: ${lack(fal, 'скептик')}`, null) })
-const prior = settle('статус скептиком не сверен', fal)
+if (!fal || fal.status === 'blocked') return outcome('blocked', 'Falsify', lack(fal, 'скептик'), { ctx, review: rev, security: secOut, claims, prior: reg.all() })
+reg.apply(fal, 'скептик')
+const confirmed = []
+for (const { f, id } of reg.take(fal.confirmed, 'скептик')) if (id) reg.seat({ ...f, id }, 'open', f.evidence); else confirmed.push(f)
+const prior = reg.all()
 const unsettled = prior.filter(p => p.status === 'unverified')
 
 phase('Publish')
 let pub = null
-if (A.publish && fal.confirmed.length) {
-  pub = await node('публикатор тредов', `${HEAD}Шаг 4: санкция publish=true получена от оператора. Опубликуй каждую находку инлайн-тредом в ${A.mr} по anchor через канал хостинга (MCP платформы через ToolSearch, иначе gh/glab); severity и критерий закрытия - в тексте треда. До публикации прочитай треды MR своего аккаунта: на том же anchor уже есть тред по этой находке - не публикуй, в published с url существующего и note «уже был». Чужие треды не трогать, approve/request changes не ставить. Отказ канала - тред в unpublished с причиной, находку не терять.\n${fmt(fal.confirmed)}`,
+if (A.publish && confirmed.length) {
+  pub = await node('публикатор тредов', `${HEAD}Шаг 4: санкция publish=true получена от оператора. Опубликуй каждую находку инлайн-тредом в ${A.mr} по anchor через канал хостинга (MCP платформы через ToolSearch, иначе gh/glab); severity и критерий закрытия - в тексте треда. До публикации прочитай треды MR своего аккаунта: на том же anchor уже есть тред по этой находке - не публикуй, в published с url существующего и note «уже был». Чужие треды не трогать, approve/request changes не ставить. Отказ канала - тред в unpublished с причиной, находку не терять.\n${fmt(confirmed)}`,
     { label: 'publish', phase: 'Publish', effort: 'low', schema: PUBLISH })
   trail.push({ step: 4, doer: 'general-purpose', status: pub ? pub.status : 'null', published: pub ? pub.published.length : -1 })
 }
 // Находка без исхода публикатора теряется молча: каждая подтверждённая либо опубликована, либо названа неопубликованной.
 // Опознание - same: на одной строке бывают находки разных осей, и названная одна не закрывает другую.
 const told = pub ? [...pub.published, ...pub.unpublished] : []
-const unpublished = !pub ? fal.confirmed.map(f => ({ anchor: f.anchor, axis: f.axis, reason: A.publish ? 'узел публикации не вернул выход - находки к публикации' : 'санкции publish нет - перечень к публикации' }))
-  : [...pub.unpublished, ...fal.confirmed.filter(f => !told.some(t => same(t, f))).map(f => ({ anchor: f.anchor, axis: f.axis, reason: `публикатор (${pub.status}): исход по находке не назван` }))]
-const allPublished = !A.publish || !fal.confirmed.length || (pub && pub.status === 'complete' && unpublished.length === 0)
+const unpublished = !pub ? confirmed.map(f => ({ anchor: f.anchor, axis: f.axis, reason: A.publish ? 'узел публикации не вернул выход - находки к публикации' : 'санкции publish нет - перечень к публикации' }))
+  : [...pub.unpublished, ...confirmed.filter(f => !told.some(t => t.anchor === f.anchor && (t.axis === f.axis || !t.axis || !f.axis))).map(f => ({ anchor: f.anchor, axis: f.axis, reason: `публикатор (${pub.status}): исход по находке не назван` }))]
+const allPublished = !A.publish || !confirmed.length || (pub && pub.status === 'complete' && unpublished.length === 0)
 const issues = []
 if (ledgerUnread) issues.push(LEDGER_UNREAD)
 if (ctx.status === 'partial') issues.push(`предмет ревью неполон: ${ctx.missing || 'узел не назвал нехватку'}`)
@@ -191,14 +224,14 @@ if (fal.status !== 'complete') issues.push(`фальсификация не за
 if (unsettled.length) issues.push(`статус прежних находок не сверен скептиком: ${unsettled.map(p => p.anchor).join(', ')}`)
 if (!allPublished) issues.push('часть тредов не опубликована')
 // Вердикт выносит скептик, но опровергнуть его открытыми находками может и трек: APPROVE при открытой P0/P1 себя опровергает (BR-AUTO-003).
-const openBlocking = [...fal.confirmed, ...prior.filter(isOpen)].filter(isBlocking)
+const openBlocking = [...confirmed, ...prior.filter(isOpen)].filter(isBlocking)
 if (fal['review-verdict'] === 'APPROVE' && openBlocking.length) issues.push(`review-verdict APPROVE при открытых P0/P1: ${openBlocking.map(f => f.id || f.anchor).join(', ')}`)
 const where = issues.join('; ')
 return outcome(where ? 'partial' : 'complete', where, where, {
   subject: { mr: A.mr, base_sha: ctx.base_sha, head_sha: ctx.head_sha, files: ctx.files.length, platform: ctx.platform },
   intent: ctx.intent, 'review-verdict': fal['review-verdict'], reviewer_verdict: rev['review-verdict'], axes: rev.axes, prior, questions: rev.questions,
   security: secOut,
-  confirmed: fal.confirmed, dropped: fal.dropped, coverage: fal.coverage,
+  confirmed, dropped: fal.dropped, coverage: fal.coverage,
   published: pub ? pub.published : [],
   unpublished,
 })

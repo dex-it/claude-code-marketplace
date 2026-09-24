@@ -4,7 +4,7 @@
 трека. Код и сценарии сверяются с этим документом, не наоборот: переход без сценария - дыра покрытия,
 ветка кода без перехода - дефект кода либо недописанная спецификация.
 
-Статус документа: **эталон**, сверен с кодом и сценариями R1-R50 24.09.2026; цель трека - BR-AUTO-003
+Статус документа: **эталон**, сверен с кодом и сценариями R1-R53 24.09.2026; цель трека - BR-AUTO-003
 (`../brd.md`); открытых решений нет (раздел 7).
 
 ## Диаграмма состояний
@@ -75,7 +75,7 @@ stateDiagram-v2
 | Узел | Агент (замена при отказе - `general-purpose`) | Модель / effort | Выход |
 |---|---|---|---|
 | предмет ревью | `general-purpose` | сессии / low | платформа, `base_sha`, `head_sha`, файлы, `security_surface` с основанием, `intent` |
-| ревьюер | `dex-mr-reviewer:mr-reviewer`; при `last_review_sha` - `dex-mr-check-reviewer:mr-check-reviewer` | агента | находки P0-P3 по осям с уликой, исход каждой оси, `review-verdict`, `prior` - запись `{id, anchor, severity, text, status, evidence}` на каждую прежнюю находку, `questions` |
+| ревьюер | `dex-mr-reviewer:mr-reviewer`; при `last_review_sha` - `dex-mr-check-reviewer:mr-check-reviewer` | агента | находки P0-P3 по осям с уликой, исход каждой оси, `review-verdict`, `prior` - запись `{id, anchor, severity, text, status, evidence}` на каждую находку перечня ledger, `threads` - находки тредов MR вне перечня той же формы без `id`, `questions` |
 | security-ревьюер | `dex-security-reviewer:security-reviewer`, только при `security_surface` | агента | находки оси security, исход оси, `threat_model`; своего вердикта в трек не отдаёт |
 | скептик | `general-purpose` | сессии | `confirmed`, `dropped` с причиной, `coverage`, `review-verdict`, `prior` той же формы со сверенным статусом; `status` - словарь ре-ревьюера: closed, partial, open, disputed, no-longer-applicable |
 | публикатор | `general-purpose` | сессии / low | `published` с `axis`, url и `note`, `unpublished` с `axis` и причиной |
@@ -88,14 +88,15 @@ stateDiagram-v2
 **Вход** (`args`): `task, mr, intent, mode, publish, last_review_sha, cwd, open_findings`.
 
 - `open_findings` - реестр ledger (`ledger.py findings`): открытые, `partial` и непроверенные находки прошлых прогонов с `id`,
-  массивом либо строкой JSON, при каждом прогоне. Прежние находки - эти записи плюс найденные ревьюером дельты в тредах MR
-  (без `id`). Поле не JSON-массив - строка в `degraded`, прогон идёт, записи ledger остаются открытыми, `complete` не отдаётся (R49).
+  массивом либо строкой JSON, при каждом прогоне. Прежние находки - эти записи плюс `threads` ревьюера, опознанные и
+  пронумерованные по R10 [ledger.md](../ledger.md) (R51). Поле не JSON-массив - строка в `degraded`, прогон идёт,
+  записи ledger остаются открытыми, `complete` не отдаётся (R49).
 
 - `last_review_sha` задан - ревизия дельты (трек ledger `review-delta`, реестр общий с `review`): ревьюер дельты, новые
   находки только в дельте. Статус прежней находки у ревьюера - claim: скептик сверяет каждую с кодом `head_sha`, в выход
   `prior` идёт сверенный статус с уликой и `id`; `disputed` - только когда код опровергает находку; «закрыта» не
-  подтвердилась - `open` или `partial`, и находка участвует в вердикте. Прежняя, совпавшая с новой, идёт в `prior`, не в
-  `confirmed`.
+  подтвердилась - `open` или `partial`, и находка участвует в вердикте. `prior` и `confirmed` скептика входят в реестр
+  по R10 (R52, R53).
 - `publish` - санкция на инлайн-треды; без неё подтверждённые находки уходят перечнем к публикации.
 - `intent` не передан - узел предмета берёт описание MR и тикет, не нашёл - `n/a` с перечнем, где искал.
 

@@ -68,6 +68,9 @@ check "$("$L" open-tracks F-2)" "01-feature.md" "open-tracks: реестр на�
 "$F" F-2 feature partial <<< '{"status":"partial","trail":[{"step":4}],"prior":[{"id":" F2 ","status":"closed","evidence":"id с пробелами"},{"id":"F99","severity":"P1","anchor":"src/z.ts:1","text":"чужой id","status":"open"}]}' >/dev/null
 check "$(open_ids F-2 feature)" "F3:open" "finish: id нормализуется; неизвестный id заводит новую находку, чужую запись не трогает"
 check "$(grep -c '"ref":"F99"' "$("$L" dir F-2)/01-feature.findings.jsonl")" "1" "finish: поданный неизвестный id остаётся ссылкой ref"
+"$F" F-2 feature partial <<< '{"status":"partial","trail":[{"step":5}],"prior":[{"id":"N1","severity":"P2","anchor":"src/n.ts:1","text":"прогон 5","status":"open"}]}' >/dev/null
+"$F" F-2 feature partial <<< '{"status":"partial","trail":[{"step":6}],"prior":[{"id":"N1","severity":"P2","anchor":"src/n.ts:2","text":"прогон 6","status":"open"}]}' >/dev/null
+check "$(open_ids F-2 feature)" "F3:open F4:open F5:open" "finish: N-id прогона - новая F<n> в каждом прогоне, одноимённый N-id прошлого прогона не склеивает"
 echo 'обрыв записи' >> "$("$L" dir F-2)/01-feature.findings.jsonl"
 before="$(wc -l < "$("$L" dir F-2)/01-feature.md")"
 "$F" F-2 feature partial <<< '{"trail":[{"step":4}]}' >/dev/null 2>&1; check "$?" "5" "finish: испорченный реестр -> отказ 5"
