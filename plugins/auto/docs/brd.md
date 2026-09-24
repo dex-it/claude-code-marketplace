@@ -109,7 +109,7 @@
 
 ## Information environment
 
-`inherited` - продуктовый BRD, раздел Information environment. Своё: протокол зондов `probes.md`
+`inherited` - продуктовый BRD, раздел Information environment. Своё: протокол зондов `notes/probes.md`
 и регрессионные сценарии треков `tests/tracks/run.mjs`; телеметрии прогонов нет (OQ-1 продукта).
 
 ## Business processes

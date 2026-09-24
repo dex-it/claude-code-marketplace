@@ -3,9 +3,9 @@
 Автономные треки под одну открытую цель - feature, bugfix и ревью чужого MR: команды `/goal` и `/auto`, ledger вне
 рабочего дерева, Workflow-скрипт на трек, сдача исхода скриптом, три сторожевых хука. Правило состава - компонент есть только там, где
 наблюдён названный отказ; дизайн-записки и протокол зондов лежат в каталоге:
-[engine-components.md](https://github.com/dex-it/claude-code-marketplace/blob/main/plugins/auto/docs/engine-components.md),
-[artifacts.md](https://github.com/dex-it/claude-code-marketplace/blob/main/plugins/auto/docs/artifacts.md),
-[probes.md](https://github.com/dex-it/claude-code-marketplace/blob/main/plugins/auto/docs/probes.md).
+[engine-components.md](https://github.com/dex-it/claude-code-marketplace/blob/main/plugins/auto/docs/notes/engine-components.md),
+[artifacts.md](https://github.com/dex-it/claude-code-marketplace/blob/main/plugins/auto/docs/notes/artifacts.md),
+[probes.md](https://github.com/dex-it/claude-code-marketplace/blob/main/plugins/auto/docs/notes/probes.md).
 
 ## Требования
 
