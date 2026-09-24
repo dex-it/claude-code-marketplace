@@ -49,11 +49,33 @@ def findings_file(task, track):
     return track_file(task, track)[:-len(".md")] + ".findings.jsonl"
 
 
-def findings_state(path):
+# Строка раздела «### Открытые находки» до реестра: `- [severity] anchor: text`, у подтверждённой - с `(закрытие: ...)`.
+LEGACY_LINE = re.compile(r"^- \[([^\]]*)\] (.+?): (.*?)(?: \(закрытие: (.*)\))?$")
+
+
+def legacy_findings(track_path):
+    # Цель, начатая до реестра: открытые - раздел последнего прогона файла трека, id выдаются по порядку.
+    # Без этого «продолжить» после обновления получал пустую разность и выпускал трек мимо прежней P0/P1.
+    found = []
+    inside = False
+    if not os.path.isfile(track_path):
+        return {}
+    for line in lines_of(track_path):
+        if line.startswith("## Прогон "):
+            found, inside = [], False
+        elif line.startswith("#"):
+            inside = line.startswith("### Открытые находки")
+        elif inside and LEGACY_LINE.match(line):
+            sev, anchor, body, closure = LEGACY_LINE.match(line).groups()
+            found.append({"anchor": anchor, "severity": sev, "text": body, "closure": closure or "", "status": "open"})
+    return {"F%d" % i: dict(rec, id="F%d" % i, run=0) for i, rec in enumerate(found, 1)}
+
+
+def findings_state(path, legacy_track=None):
     # Реестр append-only: состояние находки - её последняя запись, порядок - порядок заведения.
     state = {}
     if not os.path.isfile(path):
-        return state
+        return legacy_findings(legacy_track) if legacy_track else state
     for line in lines_of(path):
         try:
             rec = json.loads(line) if line.strip() else None
@@ -64,8 +86,8 @@ def findings_state(path):
     return state
 
 
-def open_findings(path):
-    return [r for r in findings_state(path).values() if r.get("status") in OPEN_FINDING]
+def open_findings(path, legacy_track=None):
+    return [r for r in findings_state(path, legacy_track).values() if r.get("status") in OPEN_FINDING]
 
 
 def lines_of(path):
