@@ -78,11 +78,13 @@ async function node(role, prompt, opts, type) {
 }
 // Поля возобновления ledger.py печатает строкой JSON, а главный поток подаёт их как есть либо разобранными.
 const fromLedger = (v) => { if (typeof v !== 'string') return v; try { return JSON.parse(v) } catch (e) { return null } }
-// Непригодный реестр прогон не останавливает: записи ledger без события этого прогона остаются открытыми сами.
+// Непригодный реестр прогон не останавливает (записи ledger без события прогона открыты сами), но и complete не выпускает: его P0/P1 трек не видел.
+let ledgerUnread = false
+const LEDGER_UNREAD = 'реестр прежних находок не прочитан - открытые P0/P1 прошлого прогона не сверены'
 const ledgerList = (v, lost) => {
   if (v === undefined || v === null || v === '') return []
   const list = fromLedger(v)
-  if (!Array.isArray(list)) { degraded.push(`поле open_findings не JSON-массив реестра ledger - ${lost}`); return [] }
+  if (!Array.isArray(list)) { ledgerUnread = true; degraded.push(`поле open_findings не JSON-массив реестра ledger - ${lost}`); return [] }
   return list.filter(f => f && typeof f === 'object')
 }
 // <<< shared: domain
@@ -158,7 +160,7 @@ const settle = (unsettled, r) => { const reg = registry(unsettled); priorIn.forE
 
 phase('Falsify')
 loops.falsify = 1
-const fal = await node('скептик', `${HEAD}Шаг 3: каждая находка ниже - claim, не факт. Сверь с кодом ветки ${ctx.head_sha}: не закрыта ли соседним коммитом, не опирается ли на неверное чтение контракта, воспроизводится ли сценарий. Не выдержавшую - в dropped с причиной; выдержавшую - в confirmed с уликой. Отдельно вердикт по покрытию изменённого поведения тестами через реальный путь (один happy-path покрытием не считается); непокрытая ветка - находка оси coverage в confirmed. Итоговый review-verdict вынеси по confirmed и по сверенным prior со статусом open или partial: среди них P0/P1 -> REQUEST_CHANGES; иначе вопрос автору ниже, который код не снимает, -> NEEDS_DISCUSSION; иначе APPROVE. Код не меняй.\nНаходки:\n${fmt(claims) || '- находок нет: только вердикт по покрытию'}${priorIn.length ? `\nПрежние находки - статус ре-ревьюера claim, не факт: сверь каждую с кодом ${ctx.head_sha}, в prior - запись на каждую с её id, anchor, severity и text, сверенный статус и улика. Статусы ре-ревьюера: closed, partial, open, disputed, no-longer-applicable; disputed - только если код опровергает находку, а не потому что автор возразил; «закрыта» не подтвердилась - open или partial. Находка из перечня выше, совпавшая с прежней, идёт в prior прежней, не в confirmed:\n${priorIn.map(p => `${priorLine(p)} - ре-ревьюер: ${p.claim ? `${p.claim.status} - ${p.claim.evidence}` : 'статус не назван, сверь сам'}`).join('\n')}` : ''}${rev.questions.length ? `\nВопросы автору от ревьюера:\n${rev.questions.map(q => `- ${q}`).join('\n')}` : ''}`,
+const fal = await node('скептик', `${HEAD}Шаг 3: каждая находка ниже - claim, не факт. Сверь с кодом ветки ${ctx.head_sha}: не закрыта ли соседним коммитом, не опирается ли на неверное чтение контракта, воспроизводится ли сценарий. Не выдержавшую - в dropped с причиной; выдержавшую - в confirmed с уликой. Отдельно вердикт по покрытию изменённого поведения тестами через реальный путь (один happy-path покрытием не считается); непокрытая ветка - находка оси coverage в confirmed. Итоговый review-verdict - по правилу поля review-verdict словаря node-contract (вызови Skill dex-skill-node-contract:node-contract до вердикта): в счёт идут confirmed и сверенные prior со статусом open или partial, вопросы автору - ниже. Код не меняй.\nНаходки:\n${fmt(claims) || '- находок нет: только вердикт по покрытию'}${priorIn.length ? `\nПрежние находки - статус ре-ревьюера claim, не факт: сверь каждую с кодом ${ctx.head_sha}, в prior - запись на каждую с её id, anchor, severity и text, сверенный статус и улика. Статусы ре-ревьюера: closed, partial, open, disputed, no-longer-applicable; disputed - только если код опровергает находку, а не потому что автор возразил; «закрыта» не подтвердилась - open или partial. Находка из перечня выше, совпавшая с прежней, идёт в prior прежней, не в confirmed:\n${priorIn.map(p => `${priorLine(p)} - ре-ревьюер: ${p.claim ? `${p.claim.status} - ${p.claim.evidence}` : 'статус не назван, сверь сам'}`).join('\n')}` : ''}${rev.questions.length ? `\nВопросы автору от ревьюера:\n${rev.questions.map(q => `- ${q}`).join('\n')}` : ''}`,
   { label: 'falsify+coverage', phase: 'Falsify', schema: FALSIFY })
 trail.push({ step: 3, doer: 'general-purpose', status: fal ? fal.status : 'null', confirmed: fal ? fal.confirmed.length : -1, dropped: fal ? fal.dropped.length : -1 })
 if (!fal || fal.status === 'blocked') return outcome('blocked', 'Falsify', lack(fal, 'скептик'), { ctx, review: rev, security: secOut, claims, prior: settle(`статус не сверен: ${lack(fal, 'скептик')}`, null) })
@@ -179,6 +181,7 @@ const unpublished = !pub ? fal.confirmed.map(f => ({ anchor: f.anchor, axis: f.a
   : [...pub.unpublished, ...fal.confirmed.filter(f => !told.some(t => same(t, f))).map(f => ({ anchor: f.anchor, axis: f.axis, reason: `публикатор (${pub.status}): исход по находке не назван` }))]
 const allPublished = !A.publish || !fal.confirmed.length || (pub && pub.status === 'complete' && unpublished.length === 0)
 const issues = []
+if (ledgerUnread) issues.push(LEDGER_UNREAD)
 if (ctx.status === 'partial') issues.push(`предмет ревью неполон: ${ctx.missing || 'узел не назвал нехватку'}`)
 if (rev.status !== 'complete') issues.push(`ревью не завершено: ${rev.missing || 'узел не назвал нехватку'}`)
 // Объявленная поверхность безопасности без полностью отработавшего узла - непроверенная ось, а не чистая.
@@ -187,6 +190,9 @@ else if (ctx.security_surface && sec.status === 'partial') issues.push(`ось s
 if (fal.status !== 'complete') issues.push(`фальсификация не завершена: ${fal.missing || 'узел не назвал нехватку'}`)
 if (unsettled.length) issues.push(`статус прежних находок не сверен скептиком: ${unsettled.map(p => p.anchor).join(', ')}`)
 if (!allPublished) issues.push('часть тредов не опубликована')
+// Вердикт выносит скептик, но опровергнуть его открытыми находками может и трек: APPROVE при открытой P0/P1 себя опровергает (BR-AUTO-003).
+const openBlocking = [...fal.confirmed, ...prior.filter(isOpen)].filter(isBlocking)
+if (fal['review-verdict'] === 'APPROVE' && openBlocking.length) issues.push(`review-verdict APPROVE при открытых P0/P1: ${openBlocking.map(f => f.id || f.anchor).join(', ')}`)
 const where = issues.join('; ')
 return outcome(where ? 'partial' : 'complete', where, where, {
   subject: { mr: A.mr, base_sha: ctx.base_sha, head_sha: ctx.head_sha, files: ctx.files.length, platform: ctx.platform },

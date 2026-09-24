@@ -87,11 +87,13 @@ async function node(role, prompt, opts, type) {
 }
 // Поля возобновления ledger.py печатает строкой JSON, а главный поток подаёт их как есть либо разобранными.
 const fromLedger = (v) => { if (typeof v !== 'string') return v; try { return JSON.parse(v) } catch (e) { return null } }
-// Непригодный реестр прогон не останавливает: записи ledger без события этого прогона остаются открытыми сами.
+// Непригодный реестр прогон не останавливает (записи ledger без события прогона открыты сами), но и complete не выпускает: его P0/P1 трек не видел.
+let ledgerUnread = false
+const LEDGER_UNREAD = 'реестр прежних находок не прочитан - открытые P0/P1 прошлого прогона не сверены'
 const ledgerList = (v, lost) => {
   if (v === undefined || v === null || v === '') return []
   const list = fromLedger(v)
-  if (!Array.isArray(list)) { degraded.push(`поле open_findings не JSON-массив реестра ledger - ${lost}`); return [] }
+  if (!Array.isArray(list)) { ledgerUnread = true; degraded.push(`поле open_findings не JSON-массив реестра ledger - ${lost}`); return [] }
   return list.filter(f => f && typeof f === 'object')
 }
 // <<< shared: domain
@@ -215,8 +217,11 @@ phase('Context')
 // форма роняла трек на первом же обращении к разведке (зонд P25). Непригодное поле трек не
 // останавливает - разведка покупается узлом, а подмена названа оператору.
 const ctxIn = fromLedger(A.ctx)
-const ctxResumed = ctxIn && Array.isArray(ctxIn.requirements) && ctxIn.requirements.length && Array.isArray(ctxIn.files) ? ctxIn : null
-if (A.ctx && !ctxResumed) degraded.push('поле ctx подано не в форме разведки (нужны перечни requirements и files) - разведка выведена узлом заново')
+const ctxFormed = !!ctxIn && Array.isArray(ctxIn.requirements) && ctxIn.requirements.length > 0 && Array.isArray(ctxIn.files) && (ctxIn.conflicts === undefined || Array.isArray(ctxIn.conflicts))
+// Неполная разведка прошлого прогона - не продукт: недостающее оператор даёт в источник, и «продолжить» выводит её заново, иначе разрыв повторялся бы каждым прогоном.
+const ctxResumed = ctxFormed && ctxIn.status === 'complete' ? ctxIn : null
+if (A.ctx && !ctxFormed) degraded.push('поле ctx подано не в форме разведки (нужны перечни requirements и files, conflicts - перечнем) - разведка выведена узлом заново')
+else if (ctxFormed && !ctxResumed) decisions.push(`разведка прошлого прогона ${ctxIn.status || 'без статуса'} - выведена узлом заново`)
 const [prep, req] = await parallel([
   () => node('подготовка дерева', `${PREP_HEAD}Шаг 1 (техконтекст и подготовка дерева). Стек - идентификатор по реестру: вызови Skill dex-skill-stack-registry:stack-registry и сопоставь с манифестом дерева; вне реестра - "other". Манифест, из которого вывел, назови в stack_basis - догадка по именам файлов не принимается. По тому же манифесту назови команды сборки и тестов. Дерево трека новое, зависимости в нём не установлены: назови команду подготовки и ВЫПОЛНИ её в дереве, prepare-status - по коду возврата (0 - done, иначе failed с командой и хвостом вывода; не запускал - тоже failed с причиной).${A.main_cwd ? ` Каталог сессии ${A.main_cwd} с готовыми зависимостями доступен на чтение - переиспользование оформляется самой командой (копия или ссылка).` : ''} Зависимости ставит сама сборка либо их нет - prepare_cmd пустой, prepare-status: not-needed с причиной в prepare_log. Ничего, кроме подготовки, в дереве не делай: код не правь, сборку и тесты не прогоняй - в этот момент то же дерево читает соседний узел.`,
     { label: 'ctx:tree', phase: 'Context', model: 'haiku', schema: PREP }),
@@ -260,8 +265,9 @@ if (resuming) {
   trail.push({ step: 'resume', doer: 'general-purpose', passed: passed(ver) })
   if (noRun(ver)) return bail('Implement: верификация при возобновлении', lack(ver, 'верификатор'))
 }
-// Зелёное дерево с незакрытыми находками прошлого прогона не выпускает трек мимо правки (ledger.md, «продолжить»).
-let pending = LEDGER.length > 0
+// Зелёное дерево с незакрытыми находками прошлого прогона не выпускает трек мимо правки (ledger.md, «продолжить»);
+// без коммитов трека - тоже: прошлый прогон встал до правки, и зелёные базовые тесты работу не подтверждают.
+let pending = LEDGER.length > 0 || (resuming && !ver.ahead)
 for (let k = 1; k <= FIX_CEILING && (!passed(ver) || pending); k++) {
   loops.fix = k; pending = false
   // red-run прошлой попытки - установленный факт: без него следующая попытка показывает тот же тест красным заново, проедая потолок.
@@ -325,7 +331,7 @@ if (rev && rev.status !== 'blocked' && (blockingOf(rev).length || reg.blocking()
 const finalVer = ver2 || ver
 const gap = authorGap(fix2 || fix)
 const green = passed(finalVer)
-const gaps = [req.status === 'partial' ? `разведка требований неполна: ${req.missing || 'нехватка не названа'}` : '', !ctx.build_cmd && !ctx.test_cmd ? 'внешнего факта нет: ни сборки, ни тестов' : '', finalVer && !finalVer.ahead ? 'коммитов трека нет' : '', reviewGap(rev), gap].filter(Boolean).join('; ')
+const gaps = [ledgerUnread ? LEDGER_UNREAD : '', req.status === 'partial' ? `разведка требований неполна: ${req.missing || 'нехватка не названа'}` : '', !ctx.build_cmd && !ctx.test_cmd ? 'внешнего факта нет: ни сборки, ни тестов' : '', finalVer && !finalVer.ahead ? 'коммитов трека нет' : '', reviewGap(rev), gap].filter(Boolean).join('; ')
 const open_findings = carried.length ? [...carried, ...(rev ? rev.findings : [])] : rev ? rev.findings : []
 const where = admit(green, rev, reg.blocking(), gaps)
 return outcome(where ? 'partial' : 'complete', where, where, {

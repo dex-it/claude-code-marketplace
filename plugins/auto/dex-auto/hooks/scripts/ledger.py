@@ -73,7 +73,7 @@ def main(argv):
             print(line)
     elif cmd == "findings":
         try:
-            found = dx.open_findings(dx.findings_file(args[0], args[1]))
+            found = dx.open_findings(dx.findings_file(args[0], args[1]), dx.track_file(args[0], args[1]))
         except ValueError as e:
             die("ledger.py findings: %s" % e, 5)
         if found:

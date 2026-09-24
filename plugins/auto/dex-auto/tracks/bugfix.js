@@ -87,11 +87,13 @@ async function node(role, prompt, opts, type) {
 }
 // Поля возобновления ledger.py печатает строкой JSON, а главный поток подаёт их как есть либо разобранными.
 const fromLedger = (v) => { if (typeof v !== 'string') return v; try { return JSON.parse(v) } catch (e) { return null } }
-// Непригодный реестр прогон не останавливает: записи ledger без события этого прогона остаются открытыми сами.
+// Непригодный реестр прогон не останавливает (записи ledger без события прогона открыты сами), но и complete не выпускает: его P0/P1 трек не видел.
+let ledgerUnread = false
+const LEDGER_UNREAD = 'реестр прежних находок не прочитан - открытые P0/P1 прошлого прогона не сверены'
 const ledgerList = (v, lost) => {
   if (v === undefined || v === null || v === '') return []
   const list = fromLedger(v)
-  if (!Array.isArray(list)) { degraded.push(`поле open_findings не JSON-массив реестра ledger - ${lost}`); return [] }
+  if (!Array.isArray(list)) { ledgerUnread = true; degraded.push(`поле open_findings не JSON-массив реестра ledger - ${lost}`); return [] }
   return list.filter(f => f && typeof f === 'object')
 }
 // <<< shared: domain
@@ -246,7 +248,8 @@ const reproFormed = !!ledgerRepro && typeof ledgerRepro.root_cause === 'string' 
 const reproResumed = reproFormed && ledgerRepro.root_cause && !ledgerRepro.dispute ? ledgerRepro : null
 const priorDispute = reproFormed && ledgerRepro.dispute ? `${ledgerRepro.dispute}${ledgerRepro.repro_test ? ` (тест прежнего диагноза: ${ledgerRepro.repro_test})` : ''}` : ''
 if (priorDispute) disputes.push(`прежний спор (из ledger): ${ledgerRepro.dispute}`)
-if (ledgerRepro && !reproFormed) degraded.push('поле repro подано не в форме воспроизведения (нужны root_cause строкой и перечень files) - диагност вызван заново')
+// Судится поданное, а не разобранное: строка не JSON разбирается в null и иначе прошла бы молча (R1).
+if (resuming && A.repro && !reproFormed) degraded.push('поле repro подано не в форме воспроизведения (нужны root_cause строкой и перечень files) - диагност вызван заново')
 
 phase('Reproduce')
 // Воспроизведение и первопричина - установленный факт прошлого прогона: при возобновлении правка
@@ -332,7 +335,8 @@ if (resuming) {
   if (noRun(ver)) return bail('Fix: верификация при возобновлении', lack(ver, 'верификатор'))
 }
 // Зелёное дерево не выпускает трек мимо правки, если есть незакрытые находки прошлого прогона либо диагноз поставлен в этом прогоне: его ещё никто не правил.
-let pending = LEDGER.length > 0 || (resuming && !reproResumed)
+// Без коммитов трека - тоже: прошлый прогон встал до правки, и зелёные базовые тесты работу не подтверждают.
+let pending = LEDGER.length > 0 || (resuming && (!reproResumed || !ver.ahead))
 for (let k = 1; k <= FIX_CEILING && (!passed(ver) || pending); k++) {
   loops.fix = k; pending = false
   // red-run прошлой попытки - установленный факт: без него следующая попытка показывает тот же тест красным заново, проедая потолок.
@@ -374,7 +378,7 @@ if (rev && rev.status !== 'blocked' && (blockingOf(rev).length || reg.blocking()
   if (/^disputed-/.test(dc2)) {
     trail.push({ step: '2-after-review', doer: coderType || 'general-purpose', status: fix2.status, 'diagnosis-check': dc2 })
     disputes.push(`${dc2} (правка по находкам): ${fix2.dispute || 'улика не названа'}`)
-    return disputeExit(dc2, fix2, 'Review: правка по находкам', { fix_after_review: fix2, review: rev, open_findings: rev.findings })
+    return disputeExit(dc2, fix2, 'Review: правка по находкам', { fix_after_review: fix2, review: rev, open_findings: rev.findings, prior: reg.all() })
   }
   ver2 = !fix2 || fix2.status === 'blocked' ? null : await verifyOnce('после саморевью', 'Review')
   settle(ver2)
@@ -414,7 +418,7 @@ const finalVer = ver2 || ver
 const testGap = testMissing(finalVer) ? `тест диагноста ${repro.repro_test} удалён (repro_test_hash: ${hashOf(finalVer) || 'пусто'})`
   : !!expected() && finalVer.repro_test_hash !== expected() ? `тест диагноста ${repro.repro_test} изменён при diagnosis-check: ${((fix2 || fix) || {})['diagnosis-check'] || repro.accepted || 'не назван'}`
   : fix && repro.repro_test && !repro.accepted ? `приёмка диагноза не проведена: diagnosis-check ${(fix2 || fix)['diagnosis-check'] || 'не назван'} при тесте диагноста ${repro.repro_test}` : ''
-const gap = [authorGap(fix2 || fix) || testGap || (repro.status === 'partial' ? `воспроизведение partial: ${repro.missing || `эталон - ${repro['expected-basis']}`}` : ''),
+const gap = [ledgerUnread ? LEDGER_UNREAD : '', authorGap(fix2 || fix) || testGap || (repro.status === 'partial' ? `воспроизведение partial: ${repro.missing || `эталон - ${repro['expected-basis']}`}` : ''),
   !repro.build_cmd && !repro.test_cmd ? 'внешнего факта нет: ни сборки, ни тестов' : '', !finalVer.ahead ? 'коммитов трека нет' : '', reviewGap(rev)].filter(Boolean).join('; ')
 const green = passed(finalVer)
 const open_findings = carried.length ? [...carried, ...(rev ? rev.findings : [])] : rev ? rev.findings : []

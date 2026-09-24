@@ -58,16 +58,15 @@ def register(path, state, evs, run):
     top = max([number(i) for i in state] + [0])
     changed = []
     for ev in evs:
-        fid = ev.get("id") if isinstance(ev.get("id"), str) else ""
+        fid = ev.get("id").strip() if isinstance(ev.get("id"), str) else ""
         if fid in state:
             rec = dict(state[fid])
             rec.update({k: v for k, v in ev.items() if v not in ("", None)})
         else:
-            if not fid:
-                top += 1
-                fid = "F%d" % top
-            top = max(top, number(fid))
-            rec = dict(ev)
+            # id не из реестра статус чужой записи не меняет (ledger.md R9): находка новая, поданный id - ссылкой.
+            rec = dict(ev, ref=fid) if fid else dict(ev)
+            top += 1
+            fid = "F%d" % top
         rec["id"], rec["run"] = fid, run
         state[fid] = rec
         changed.append(rec)
@@ -145,10 +144,15 @@ def main(argv):
 
     path = dx.track_file(task, track)
     registry = dx.findings_file(task, track)
+    legacy = not os.path.isfile(registry)
     try:
-        state = dx.findings_state(registry)
+        state = dx.findings_state(registry, path)
     except ValueError as e:
         die("finish.sh: %s; ничего не записано" % e, 5)
+    # Находки цели старого формата заводятся в реестр первыми: иначе после этого прогона их не отдаст ни реестр, ни файл трека.
+    if legacy and state:
+        with open(registry, "a", encoding="utf-8") as fh:
+            fh.write("".join(json.dumps(r, ensure_ascii=False, separators=(",", ":")) + "\n" for r in state.values()))
     status = "закрыт" if outcome == "complete" else "открыт"
     if os.path.isfile(path):
         number = sum(1 for line in dx.lines_of(path) if line.startswith("## Прогон ")) + 1

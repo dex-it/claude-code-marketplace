@@ -59,10 +59,12 @@ async function node(role, prompt, opts, type) {
 }
 // Поля возобновления ledger.py печатает строкой JSON, а главный поток подаёт их как есть либо разобранными.
 const fromLedger = (v) => { if (typeof v !== 'string') return v; try { return JSON.parse(v) } catch (e) { return null } }
-// Непригодный реестр прогон не останавливает: записи ledger без события этого прогона остаются открытыми сами.
+// Непригодный реестр прогон не останавливает (записи ledger без события прогона открыты сами), но и complete не выпускает: его P0/P1 трек не видел.
+let ledgerUnread = false
+const LEDGER_UNREAD = 'реестр прежних находок не прочитан - открытые P0/P1 прошлого прогона не сверены'
 const ledgerList = (v, lost) => {
   if (v === undefined || v === null || v === '') return []
   const list = fromLedger(v)
-  if (!Array.isArray(list)) { degraded.push(`поле open_findings не JSON-массив реестра ledger - ${lost}`); return [] }
+  if (!Array.isArray(list)) { ledgerUnread = true; degraded.push(`поле open_findings не JSON-массив реестра ledger - ${lost}`); return [] }
   return list.filter(f => f && typeof f === 'object')
 }
