@@ -76,7 +76,7 @@
       "name": "dex-auto",
       "source": "./plugins/auto/dex-auto",
       "description": "Автономные треки под открытую цель - feature и bugfix (до локальных коммитов) и ревью чужого MR/PR (read-only, треды по санкции): ledger вне рабочего дерева, Workflow-скрипт на трек с потолками петель и схемами выхода узлов, сдача исхода скриптом finish.sh, сторожа SessionStart (возобновление по открытой цели) и Stop (терминал цели). Команды /goal (подготовка цели из тикета, спеки или симптома) и /auto (прогон трека, возобновление с верификации).",
-      "version": "7.3.0",
+      "version": "7.4.0",
       "category": "utility",
       "keywords": [
         "autonomous",
@@ -970,7 +970,7 @@
       "name": "dex-mr-check-reviewer",
       "source": "./plugins/specialists/review/dex-mr-check-reviewer",
       "description": "Узел ре-ревью дельты MR/PR после правок автора: range-diff дельты, статус прежних находок, новые находки только в дельте, обновление существующих тредов и публикация новых, по поручению - разметка новых находок типом. Вызывается на повторных ревизиях командой /mr-review (плагин dex-mr-reviewer), своего командного входа не имеет.",
-      "version": "2.5.0",
+      "version": "3.0.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -987,7 +987,7 @@
       "name": "dex-mr-reviewer",
       "source": "./plugins/specialists/review/dex-mr-reviewer",
       "description": "Языко-агностичный узел первичного ревью чужого MR/PR: карта изменений, параллельные фокусы, фальсификация находок, severity/confidence/scope, доставка инлайн-тредами через gh/glab. По поручению входа - разметка находок типом в первой строке треда. Точка входа - команда /mr-review, едет в этом же плагине.",
-      "version": "2.7.0",
+      "version": "3.0.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1221,7 +1221,7 @@
       "name": "dex-security-reviewer",
       "source": "./plugins/specialists/delivery/dex-security-reviewer",
       "description": "Языко-агностичный агент глубокого анализа безопасности: threat model (акторы/границы доверия/активы), attack paths по OWASP, цепочки эксплойтов, severity по эксплуатируемости цепочки. Частные skills грузятся условно по стеку.",
-      "version": "1.10.0",
+      "version": "2.0.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1237,7 +1237,7 @@
       "name": "dex-self-reviewer",
       "source": "./plugins/specialists/review/dex-self-reviewer",
       "description": "Pre-push саморевью своей локальной ветки: committed+staged+worktree diff, скан по осям diff'а (security, architecture, language, business, regressions, performance, loose-ends, non-code) с реальным прогоном build/test, фальсификация, чеклист правок до push, по поручению - разметка находок типом.",
-      "version": "2.3.0",
+      "version": "3.0.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2324,7 +2324,7 @@
       "name": "dex-skill-node-contract",
       "source": "./plugins/skills/dex-skill-node-contract",
       "description": "Рантайм-контракт агента-узла - режим interactive/autonomous, реакция на неполный вход (blocking/default-ok), возврат наверх, словарь полей handoff, метка quality-checks и её носитель, транспорт артефакта, выбор канала хостинга (native/CLI), graceful degradation при недоступности skill",
-      "version": "9.1.0",
+      "version": "9.2.0",
       "category": "skill",
       "keywords": [
         "skill",

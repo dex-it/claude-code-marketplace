@@ -41,6 +41,33 @@ def track_file(task, track):
     return os.path.join(task_dir(task), "01-%s.md" % base)
 
 
+# Статусы находки, при которых она остаётся в разности «открытые»: unverified - claim без суда скептика.
+OPEN_FINDING = ("open", "partial", "unverified")
+
+
+def findings_file(task, track):
+    return track_file(task, track)[:-len(".md")] + ".findings.jsonl"
+
+
+def findings_state(path):
+    # Реестр append-only: состояние находки - её последняя запись, порядок - порядок заведения.
+    state = {}
+    if not os.path.isfile(path):
+        return state
+    for line in lines_of(path):
+        try:
+            rec = json.loads(line) if line.strip() else None
+        except ValueError:
+            raise ValueError("реестр находок %s: строка не JSON - %s" % (path, line[:80]))
+        if isinstance(rec, dict) and isinstance(rec.get("id"), str):
+            state[rec["id"]] = rec
+    return state
+
+
+def open_findings(path):
+    return [r for r in findings_state(path).values() if r.get("status") in OPEN_FINDING]
+
+
 def lines_of(path):
     # CR снимается здесь, а не у каждого читателя: файл, правленный на Windows, гасил сверку значений молча.
     with open(path, encoding="utf-8", errors="replace") as fh:
@@ -120,15 +147,12 @@ def open_tracks(task):
     return result
 
 
-def section(path, title, last_run_only=False, last_line_only=False):
+def section(path, title, last_line_only=False):
     if not os.path.isfile(path):
         return []
     collected = []
     inside = False
     for line in lines_of(path):
-        if last_run_only and line.startswith("## Прогон "):
-            collected = []
-            inside = False
         if line.startswith(title):
             inside = True
             continue
