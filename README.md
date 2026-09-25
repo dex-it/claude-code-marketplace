@@ -335,9 +335,13 @@ Windows: `install-bundle\install-cli-tools.ps1` (winget / scoop / choco).
 
 | Мод | Команда | Описание |
 |-----|---------|----------|
+| dex-github-pr-tracker | `/pr` | Pull request GitHub репозитория из папки сессии: состояние, merge state status, исход обязательных проверок, вердикт ревью и апрувы, открытые и решённые треды с комментариями, коммиты - строкой над вводом и панелью; изменения приходят тостом и строкой в транскрипт, `/pr threads` и `/pr checks` отдают треды и упавшие проверки текстом для модели |
 | dex-gitlab-mr-tracker | `/mr` | Merge request GitLab проекта из папки сессии: состояние, merge status, пайплайн, апрувы, открытые и решённые треды с комментариями, коммиты - строкой над вводом и панелью; изменения приходят тостом и строкой в транскрипт, `/mr threads` отдаёт треды текстом для модели |
 
+Два трекера одной формы: строка, панель, команды и настройки у них совпадают, различия идут от хостингов и названы в README каждого.
+
 ```bash
+claude plugin install dex-github-pr-tracker@dex-claude-marketplace
 claude plugin install dex-gitlab-mr-tracker@dex-claude-marketplace
 ```
 
@@ -407,6 +411,7 @@ claude-code-marketplace/
 ├── mods/                          # Моды: function hooks на TypeScript
 │   ├── types/claude-code.d.ts     # контракт API (пишет /plugin-types)
 │   ├── tsconfig.json              # типы хуков; tsconfig.tests.json - типы прогонов
+│   ├── dex-github-pr-tracker/
 │   └── dex-gitlab-mr-tracker/
 ├── docs/                          # Фреймворки, нормативы, ADR каталога
 ├── tests/                         # Фикстуры правил, прогоны, активация
@@ -472,4 +477,4 @@ GPL v3.0 - см. [LICENSE](./LICENSE)
 
 ---
 
-**DEX Team** - Version 6.5.0
+**DEX Team** - Version 6.6.0

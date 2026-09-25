@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "6.5.0",
+  "version": "6.6.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -700,6 +700,24 @@
         "gh",
         "cli",
         "actions"
+      ]
+    },
+    {
+      "name": "dex-github-pr-tracker",
+      "source": "./mods/dex-github-pr-tracker",
+      "description": "Мод на function hooks: следит за pull request GitHub проекта, открытого в сессии. Строка над вводом и панель /pr несут состояние PR, merge state status, исход обязательных проверок, вердикт ревью и апрувы, открытые и решённые треды с числом комментариев, коммиты и объём изменений; смена статуса, новый тред, новый комментарий и новые коммиты приходят тостом и строкой в транскрипт. Команды /pr threads и /pr checks отдают открытые треды и упавшие проверки текстом - модель читает их как вход для правок.",
+      "version": "1.0.0",
+      "category": "mod",
+      "keywords": [
+        "utility",
+        "mod",
+        "function-hooks",
+        "github",
+        "pull-requests",
+        "gh",
+        "threads",
+        "checks",
+        "code-review"
       ]
     },
     {
