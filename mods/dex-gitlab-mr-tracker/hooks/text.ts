@@ -3,10 +3,11 @@
 // they carry the address of every thread (file, line, author, link) and no
 // decoration the model would have to parse past.
 
-import type { MrData } from './gitlab'
-import { approvalsGiven, threadTally } from './gitlab'
-import type { Watched } from './watched'
-import { openThreadsOf, plainThreadsOf, resolvedThreadsOf } from './watched'
+import type { MrData } from './gitlab.ts'
+import { ATTENTION_MANY, ATTENTION_ONE, overviewOf, reasonOf } from './overview.ts'
+import { approvalsGiven, threadTally } from './gitlab.ts'
+import type { Watched } from './watched.ts'
+import { openThreadsOf, plainThreadsOf, resolvedThreadsOf } from './watched.ts'
 
 /** What the threads text may take of a prompt before it is cut. */
 export const THREADS_TEXT_MAX_CHARS = 8000
@@ -127,3 +128,34 @@ export function threadsText(watched: Watched, max = THREADS_TEXT_MAX_CHARS): str
 export const noMrText =
   'MR не найден: откройте merge request для текущей ветки, ' +
   'или назовите его - `/mr 123`, `/mr <ссылка>`.'
+
+/**
+ * Общий список наблюдения текстом: итог и по строке на MR с причиной и
+ * ссылкой. Это текстовый дубль панели-списка - без него список был бы виден
+ * человеку и невидим модели.
+ */
+export function overviewText(list: readonly Watched[]): string {
+  const overview = overviewOf(list)
+
+  if (overview.total === 0) return 'Ни один merge request не отслеживается.'
+
+  const counts: string[] = []
+
+  if (overview.act > 0) counts.push(`${overview.act} ${ATTENTION_MANY.act}`)
+  if (overview.wait > 0) counts.push(`${overview.wait} ${ATTENTION_MANY.wait}`)
+  if (overview.unknown > 0) counts.push(`${overview.unknown} ${ATTENTION_MANY.unknown}`)
+  if (overview.idle > 0) counts.push(`${overview.idle} ${ATTENTION_MANY.idle}`)
+  if (overview.threadsOpen > 0) counts.push(`${overview.threadsOpen} открытых тредов`)
+  if (overview.failed > 0) counts.push(`опрос не удался у ${overview.failed}`)
+
+  const head = `**Мониторинг merge request** - ${overview.total}: ${counts.join(', ')}`
+  const rows = overview.rows.map(row => {
+    const reason = reasonOf(row)
+    const title = row.title === '' ? '' : ` - ${row.title}`
+    const where = row.webUrl === '' ? '' : `\n  ${row.webUrl}`
+
+    return `- **${row.label}** (${ATTENTION_ONE[row.attention]}): ${reason}${title}${where}`
+  })
+
+  return [head, '', ...rows].join('\n')
+}

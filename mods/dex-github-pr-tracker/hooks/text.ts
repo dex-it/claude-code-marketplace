@@ -4,6 +4,7 @@
 // decoration the model would have to parse past.
 
 import type { PrData } from './github.ts'
+import { ATTENTION_MANY, ATTENTION_ONE, overviewOf, reasonOf } from './overview.ts'
 import { decisionWord, threadTally } from './github.ts'
 import type { Watched } from './watched.ts'
 import { openThreadsOf, resolvedThreadsOf } from './watched.ts'
@@ -189,3 +190,34 @@ export function checksText(watched: Watched): string {
 export const noPrText =
   'PR не найден: откройте pull request для текущей ветки, ' +
   'или назовите его - `/pr 123`, `/pr <ссылка>`.'
+
+/**
+ * Общий список наблюдения текстом: итог и по строке на PR с причиной и
+ * ссылкой. Это текстовый дубль панели-списка - без него список был бы виден
+ * человеку и невидим модели.
+ */
+export function overviewText(list: readonly Watched[]): string {
+  const overview = overviewOf(list)
+
+  if (overview.total === 0) return 'Ни один pull request не отслеживается.'
+
+  const counts: string[] = []
+
+  if (overview.act > 0) counts.push(`${overview.act} ${ATTENTION_MANY.act}`)
+  if (overview.wait > 0) counts.push(`${overview.wait} ${ATTENTION_MANY.wait}`)
+  if (overview.unknown > 0) counts.push(`${overview.unknown} ${ATTENTION_MANY.unknown}`)
+  if (overview.idle > 0) counts.push(`${overview.idle} ${ATTENTION_MANY.idle}`)
+  if (overview.threadsOpen > 0) counts.push(`${overview.threadsOpen} открытых тредов`)
+  if (overview.failed > 0) counts.push(`опрос не удался у ${overview.failed}`)
+
+  const head = `**Мониторинг pull request** - ${overview.total}: ${counts.join(', ')}`
+  const rows = overview.rows.map(row => {
+    const reason = reasonOf(row)
+    const title = row.title === '' ? '' : ` - ${row.title}`
+    const where = row.webUrl === '' ? '' : `\n  ${row.webUrl}`
+
+    return `- **${row.label}** (${ATTENTION_ONE[row.attention]}): ${reason}${title}${where}`
+  })
+
+  return [head, '', ...rows].join('\n')
+}

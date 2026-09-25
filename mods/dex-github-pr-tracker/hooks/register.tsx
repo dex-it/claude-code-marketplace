@@ -30,10 +30,12 @@ import {
   prDataOfRaw,
   prRefsOf,
   remoteOf,
+  repoRefOf,
 } from './github.ts'
+import { overviewOf } from './overview.ts'
 import { pollRaw, prOfBranch } from './poll.ts'
-import { checksText, noPrText, statusText, threadsText } from './text.ts'
-import type { Actions, PaneModel, Ui } from './views.tsx'
+import { checksText, noPrText, overviewText, statusText, threadsText } from './text.ts'
+import type { Actions, PaneModel, PaneView, Ui } from './views.tsx'
 import { bandView, paneView } from './views.tsx'
 import type { Watched } from './watched.ts'
 import { openThreadsOf, watchedOf } from './watched.ts'
@@ -43,6 +45,22 @@ const PANE_ID = 'github-pr'
 const MIN_POLL_MS = 15_000
 const PANE_COMMITS = 8
 const PANE_CHECKS = 6
+/**
+ * Больше этого числа PR полоса над вводом рисует не строками, а итогом: десять
+ * строк съедают экран, а «что ждёт меня» на них всё равно не читается - на это
+ * отвечает общий список.
+ */
+const BAND_MAX_ROWS = 3
+/** Строки списка над и под перечнем: шапка, итог, пустая, подсказка. */
+const LIST_CHROME_ROWS = 5
+/** Заголовок панели в виде списка: один на все PR, метки у него нет. */
+const LIST_TITLE = 'Мониторинг PR'
+/**
+ * Хост по умолчанию, когда его не назвал ни remote, ни настройка: тот же, что
+ * у `gh` (`--hostname` по умолчанию github.com, `gh api --help`, сверено
+ * 25.09.2026).
+ */
+const DEFAULT_HOST = 'github.com'
 /** Ширина панели до первой отрисовки: ею меряется адрес треда. */
 const PANE_FALLBACK_COLUMNS = 60
 /** Строки над и под списком тредов: шапка, факты, кнопки, подвал. */
@@ -105,18 +123,6 @@ const rec = (value: unknown): Record<string, unknown> =>
     ? (value as Record<string, unknown>)
     : {}
 
-/** `owner/repo` настройки, разобранный так же строго, как путь remote. */
-function repositoryOf(text: string): { owner: string; repo: string } | null {
-  const parts = text.replace(/^\/+|\/+$/g, '').split('/')
-
-  if (parts.length !== 2) return null
-
-  const owner = parts[0] ?? ''
-  const repo = parts[1] ?? ''
-
-  return owner !== '' && repo !== '' ? { owner, repo } : null
-}
-
 export const register: Register = (on, pluginOptions) => {
   const settings: Settings = {
     remote: optString(pluginOptions, 'remote', 'origin'),
@@ -143,6 +149,12 @@ export const register: Register = (on, pluginOptions) => {
   let showResolved = false
   let isPaneOpen = false
   let pollMs = settings.pollMs
+  /** Какой вид панели показан: общий список или один PR подробно. */
+  let paneMode: PaneView = 'details'
+  /** Откуда взялся выбранный репозиторий - это и есть ответ `/pr repo`. */
+  let repoFrom: 'remote' | 'настройки' | 'команды' | null = null
+  /** Пересобрать источник данных под хост: его задаёт выбранный репозиторий. */
+  let pickBackend: ((hostname: string) => Promise<string>) | null = null
   /** Ширина тела панели, как её отдала поверхность в последнюю отрисовку. */
   let paneColumns = PANE_FALLBACK_COLUMNS
   /** Высота экрана, как её отдала последняя отрисовка; 0 - ещё не мерили. */
@@ -172,9 +184,19 @@ export const register: Register = (on, pluginOptions) => {
    * просим ничего, и поверхность берёт свою треть.
    */
   function wantedRows(): number | null {
+    if (screenRows === 0) return null
+
+    const half = Math.floor(screenRows / PANE_MAX_SCREEN_SHARE)
+
+    // Список просит по строке на PR: он и есть перечень, и обрезать его до
+    // трети экрана значит спрятать то, за чем его открыли.
+    if (paneMode === 'list') {
+      return Math.max(1, Math.min(LIST_CHROME_ROWS + watched.size, half))
+    }
+
     const data = selected()?.data
 
-    if (!data || screenRows === 0) return null
+    if (!data) return null
 
     const rows =
       PANE_CHROME_ROWS +
@@ -182,7 +204,7 @@ export const register: Register = (on, pluginOptions) => {
       Math.min(data.checks?.bad.length ?? 0, PANE_CHECKS) +
       Math.min(data.commits.length, PANE_COMMITS)
 
-    return Math.max(1, Math.min(rows, Math.floor(screenRows / PANE_MAX_SCREEN_SHARE)))
+    return Math.max(1, Math.min(rows, half))
   }
 
   const selected = () =>
@@ -190,7 +212,9 @@ export const register: Register = (on, pluginOptions) => {
 
   const uiModel = (): PaneModel => ({
     columns: paneColumns,
+    view: paneMode,
     list: list(),
+    overview: overviewOf(list()),
     selectedKey: selected()?.key ?? null,
     showResolved,
     armedKey,
@@ -331,7 +355,14 @@ export const register: Register = (on, pluginOptions) => {
     if (autoKey === key) autoKey = null
     if (armedKey === key) armedKey = null
 
-    if (selectedKey === key) selectedKey = list()[0]?.key ?? null
+    // Сняли тот, чьи детали открыты, а другие остались - показываем список:
+    // подставлять вместо снятого соседа значит показать не то, что просили.
+    if (selectedKey === key) {
+      selectedKey = list()[0]?.key ?? null
+
+      if (watched.size > 0 && paneMode === 'details') paneMode = 'list'
+    }
+
     if (watched.size === 0 && isPaneOpen) void bound?.closePane()
 
     bound?.invalidate()
@@ -444,7 +475,40 @@ export const register: Register = (on, pluginOptions) => {
       .catch(() => '')
 
     const fromRemote = remoteOf(remoteUrl)
-    const fromSettings = settings.repository === '' ? null : repositoryOf(settings.repository)
+
+    // Источник данных пересобирается под хост, а не выбирается раз:
+    // репозиторий, названный командой `/pr repo`, может лежать на другом хосте.
+    pickBackend = async hostname => {
+      const token =
+        settings.token !== ''
+          ? settings.token
+          : (await $.env.get('GH_TOKEN')) ??
+            (await $.env.get('GITHUB_TOKEN')) ??
+            (await $.env.get('GH_ENTERPRISE_TOKEN')) ??
+            (await $.env.get('GITHUB_ENTERPRISE_TOKEN')) ??
+            ''
+      const choice = await backendOf(host, {
+        backend: settings.backend,
+        hostname,
+        token,
+        cwd,
+      })
+
+      if (choice.api === undefined) {
+        api = null
+
+        return choice.reason
+      }
+
+      api = choice.api
+
+      return ''
+    }
+
+    const hostFallback =
+      settings.host !== '' ? settings.host : (fromRemote?.host ?? DEFAULT_HOST)
+    const fromSettings =
+      settings.repository === '' ? null : repoRefOf(settings.repository, hostFallback)
 
     if (settings.repository !== '' && fromSettings === null) {
       reason = `настройка repository не в форме owner/repo: "${settings.repository}"`
@@ -452,42 +516,31 @@ export const register: Register = (on, pluginOptions) => {
       return result
     }
 
-    const hostName = settings.host === '' ? fromRemote?.host : settings.host
-    const owner = fromSettings?.owner ?? fromRemote?.owner
-    const repo = fromSettings?.repo ?? fromRemote?.repo
+    const chosen =
+      fromSettings ??
+      (fromRemote === null
+        ? null
+        : { host: hostFallback, owner: fromRemote.owner, repo: fromRemote.repo })
 
-    if (hostName === undefined || owner === undefined || repo === undefined) {
-      reason = `не вижу репозиторий GitHub: remote "${settings.remote}" не назвал его`
-
-      return result
-    }
-
-    remote = { host: hostName, owner, repo }
-
-    const token =
-      settings.token !== ''
-        ? settings.token
-        : (await $.env.get('GH_TOKEN')) ??
-          (await $.env.get('GITHUB_TOKEN')) ??
-          (await $.env.get('GH_ENTERPRISE_TOKEN')) ??
-          (await $.env.get('GITHUB_ENTERPRISE_TOKEN')) ??
-          ''
-
-    const choice = await backendOf(host, {
-      backend: settings.backend,
-      hostname: remote.host,
-      token,
-      cwd,
-    })
-
-    if (choice.api === undefined) {
-      reason = choice.reason
-      $.ui.log(`github-pr: ${choice.reason}`)
+    if (chosen === null) {
+      reason =
+        `не вижу репозиторий GitHub: remote "${settings.remote}" не назвал его. ` +
+        `Назовите его руками: /${COMMAND} repo owner/repo`
 
       return result
     }
 
-    api = choice.api
+    remote = chosen
+    repoFrom = fromSettings === null ? 'remote' : 'настройки'
+
+    const failed = await pickBackend(remote.host)
+
+    if (failed !== '') {
+      reason = failed
+      $.ui.log(`github-pr: ${failed}`)
+
+      return result
+    }
 
     const headOf = () =>
       $.process
@@ -518,7 +571,12 @@ export const register: Register = (on, pluginOptions) => {
     const { Box, Text, Button, Link } = await $.ui.resolve(e)
     const ui: Ui = { Box, Text, Button, Link }
 
-    return bandView(ui, actionsOf(), list(), (await next(e)) as RenderElement)
+    return bandView(
+      ui,
+      actionsOf(),
+      { list: list(), overview: overviewOf(list()), maxRows: BAND_MAX_ROWS },
+      (await next(e)) as RenderElement,
+    )
   })
 
   on('ui.render', { component: 'Pane' }, async ($, e, next) => {
@@ -546,6 +604,76 @@ export const register: Register = (on, pluginOptions) => {
 
     const action = parseArgs(e.args)
 
+    /**
+     * Дождаться первого опроса тех, у кого данных ещё нет. Список, напечатанный
+     * до него, называл бы всё «данных нет»: `watch` опрашивает в фоне, а текст
+     * собирается сразу. Опрос уже идущий не дублируется - `refresh` его ждёт.
+     */
+    const awaitFirstPoll = () =>
+      Promise.all(list().filter(entry => entry.data === undefined).map(entry => refresh(entry)))
+
+    const lookUpBranch = async () => {
+      const head = await $.process
+        .run(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], { cwd: await $.session.cwd() })
+        .then(res => (res.exitCode === 0 ? res.stdout.trim() : ''))
+        .catch(() => '')
+
+      branch = ''
+      await syncBranch(head)
+    }
+
+    // `/pr repo` отвечает и тогда, когда репозитория нет вовсе: это и есть
+    // способ его назвать, поэтому проверка источника данных стоит после него.
+    if (action.kind === 'repo') {
+      if (action.text === '') {
+        return {
+          text:
+            remote === null
+              ? `github-pr: ${reason === '' ? 'репозиторий не выбран' : reason}`
+              : `Репозиторий: **${remote.host}/${remote.owner}/${remote.repo}**, взят из ${repoFrom ?? 'remote'}.`,
+        }
+      }
+
+      const chosen = repoRefOf(action.text, remote?.host ?? settings.host ?? DEFAULT_HOST)
+
+      if (!chosen) {
+        return {
+          text:
+            'Не разобрал адрес репозитория. Форма: `owner/repo`, ' +
+            '`gh.example.com/owner/repo` или ссылка на репозиторий либо PR.',
+        }
+      }
+
+      if (chosen.host !== remote?.host) {
+        const failed = await pickBackend?.(chosen.host)
+
+        if (failed === undefined) return { text: 'github-pr: источник данных ещё не выбран' }
+
+        if (failed !== '') {
+          reason = failed
+
+          return { text: `github-pr: ${failed}` }
+        }
+      }
+
+      // PR, найденный по ветке, принадлежал прежнему репозиторию: он снимается,
+      // а новый ищется в названном. Отмеченные руками остаются - у каждого свой
+      // адрес, и смена репозитория по умолчанию их не касается.
+      if (autoKey !== null) stop(autoKey)
+
+      remote = chosen
+      repoFrom = 'команды'
+      reason = ''
+      await lookUpBranch()
+      bound.invalidate()
+
+      const found = autoKey === null ? '' : ` PR текущей ветки: ${watched.get(autoKey)?.label ?? ''}.`
+
+      return {
+        text: `Репозиторий: **${chosen.host}/${chosen.owner}/${chosen.repo}**.${found}`,
+      }
+    }
+
     if (api === null) {
       return { text: reason === '' ? noPrText : `github-pr: ${reason}` }
     }
@@ -553,6 +681,18 @@ export const register: Register = (on, pluginOptions) => {
     switch (action.kind) {
       case 'help':
         return { text: HELP_TEXT }
+
+      case 'list': {
+        if (watched.size === 0) await lookUpBranch()
+        if (watched.size === 0) return { text: noPrText }
+
+        await awaitFirstPoll()
+
+        paneMode = 'list'
+        await bound.openPane(LIST_TITLE)
+
+        return { text: overviewText(list()) }
+      }
 
       case 'watch': {
         const ref =
@@ -566,6 +706,7 @@ export const register: Register = (on, pluginOptions) => {
         const entry = watch(ref, false)
 
         selectedKey = entry.key
+        paneMode = 'details'
         await bound.openPane(labelOf(ref))
 
         return { text: `Отслеживаю ${entry.label}.` }
@@ -630,15 +771,7 @@ export const register: Register = (on, pluginOptions) => {
       }
 
       default: {
-        if (watched.size === 0) {
-          const head = await $.process
-            .run(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], { cwd: await $.session.cwd() })
-            .then(res => (res.exitCode === 0 ? res.stdout.trim() : ''))
-            .catch(() => '')
-
-          branch = ''
-          await syncBranch(head)
-        }
+        if (watched.size === 0) await lookUpBranch()
 
         const entry = selected()
 
@@ -647,9 +780,21 @@ export const register: Register = (on, pluginOptions) => {
         if (isPaneOpen) {
           await bound.closePane()
 
-          return { text: `Панель ${entry.label} закрыта.` }
+          return { text: 'Панель закрыта.' }
         }
 
+        // Один PR - сразу детали, несколько - общий список: перечень и есть
+        // ответ на «что из этого ждёт меня», а детали берутся входом в строку.
+        if (watched.size > 1) {
+          await awaitFirstPoll()
+
+          paneMode = 'list'
+          await bound.openPane(LIST_TITLE)
+
+          return { text: overviewText(list()) }
+        }
+
+        paneMode = 'details'
         await bound.openPane(entry.label)
 
         return {}
@@ -666,6 +811,7 @@ export const register: Register = (on, pluginOptions) => {
     selectedKey = null
     armedKey = null
     branch = ''
+    paneMode = 'details'
 
     if (isPaneOpen) await bound?.closePane().catch(() => undefined)
 
@@ -749,11 +895,17 @@ export const register: Register = (on, pluginOptions) => {
     return {
       select: key => {
         selectedKey = key
+        paneMode = 'details'
 
         const entry = watched.get(key)
 
-        if (entry && !isPaneOpen) void bound?.openPane(entry.label)
+        if (entry) void bound?.openPane(entry.label)
 
+        bound?.invalidate()
+      },
+      openList: () => {
+        paneMode = 'list'
+        void bound?.openPane(LIST_TITLE)
         bound?.invalidate()
       },
       openUrl: url => bound?.openUrl(url),

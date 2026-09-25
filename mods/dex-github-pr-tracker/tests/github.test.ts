@@ -18,6 +18,7 @@ import {
   prDataOf,
   prRefsOf,
   remoteOf,
+  repoRefOf,
   reviewsOf,
   shortenPath,
   threadTally,
@@ -149,6 +150,54 @@ describe('remoteOf', () => {
     assert.equal(remoteOf('git@github.com:dex-it.git'), null)
     assert.equal(remoteOf(''), null)
     assert.equal(remoteOf('not a url'), null)
+  })
+})
+
+describe('repoRefOf', () => {
+  test('owner and repo, with the host that is known', () => {
+    assert.deepEqual(repoRefOf('dex-it/marketplace', 'github.com'), {
+      host: 'github.com',
+      owner: 'dex-it',
+      repo: 'marketplace',
+    })
+    assert.deepEqual(repoRefOf('  dex-it/marketplace  ', 'github.com'), {
+      host: 'github.com',
+      owner: 'dex-it',
+      repo: 'marketplace',
+    })
+  })
+
+  test('a host in front of the path is taken as the host', () => {
+    assert.deepEqual(repoRefOf('gh.corp/team/app', 'github.com'), {
+      host: 'gh.corp',
+      owner: 'team',
+      repo: 'app',
+    })
+  })
+
+  test('a link to the repository or to a pull request names the same repository', () => {
+    const expected = { host: 'github.com', owner: 'dex-it', repo: 'marketplace' }
+
+    assert.deepEqual(repoRefOf('https://github.com/dex-it/marketplace', 'gh.corp'), expected)
+    assert.deepEqual(repoRefOf('https://github.com/dex-it/marketplace/pull/244', 'gh.corp'), expected)
+    assert.deepEqual(repoRefOf('git@github.com:dex-it/marketplace.git', 'gh.corp'), expected)
+  })
+
+  test('an owner with a dot is an owner: the path is exactly two segments', () => {
+    // Иначе `my.org/repo` прочиталось бы хостом с одним сегментом пути.
+    assert.deepEqual(repoRefOf('my.org/repo', 'github.com'), {
+      host: 'github.com',
+      owner: 'my.org',
+      repo: 'repo',
+    })
+  })
+
+  test('what is not an address is refused instead of guessed', () => {
+    assert.equal(repoRefOf('repo', 'github.com'), null)
+    assert.equal(repoRefOf('', 'github.com'), null)
+    assert.equal(repoRefOf('a/b/c/d', 'github.com'), null)
+    // Хост неизвестен и в тексте его нет: угадывать нечего.
+    assert.equal(repoRefOf('dex-it/marketplace', ''), null)
   })
 })
 

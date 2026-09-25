@@ -40,6 +40,27 @@ describe('parseArgs', () => {
     assert.deepEqual(parseArgs(url), { kind: 'watch', number: null, text: url })
   })
 
+  test('the overview list answers to its own name and to the short one', () => {
+    assert.deepEqual(parseArgs('list'), { kind: 'list' })
+    assert.deepEqual(parseArgs('LS'), { kind: 'list' })
+  })
+
+  test('repo without an argument asks what is chosen', () => {
+    assert.deepEqual(parseArgs('repo'), { kind: 'repo', text: '' })
+    assert.deepEqual(parseArgs('repository'), { kind: 'repo', text: '' })
+  })
+
+  test('repo keeps the case of its argument: owner and repo are case-sensitive', () => {
+    assert.deepEqual(parseArgs('repo dex-IT/Marketplace'), {
+      kind: 'repo',
+      text: 'dex-IT/Marketplace',
+    })
+    assert.deepEqual(parseArgs('repository  gh.corp/Team/App  '), {
+      kind: 'repo',
+      text: 'gh.corp/Team/App',
+    })
+  })
+
   test('anything else asks for the help text instead of guessing', () => {
     assert.deepEqual(parseArgs('что-то ещё'), { kind: 'help' })
     assert.deepEqual(parseArgs('https://github.com/dex-it/marketplace/issues/9'), {

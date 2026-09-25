@@ -2,8 +2,8 @@
 // answer, and whether the mod found it itself from the branch or the person
 // asked for it by hand.
 
-import type { MrData, MrRef } from './gitlab'
-import { keyOf, labelOf } from './gitlab'
+import type { MrData, MrRef } from './gitlab.ts'
+import { keyOf, labelOf } from './gitlab.ts'
 
 export type Watched = {
   ref: MrRef

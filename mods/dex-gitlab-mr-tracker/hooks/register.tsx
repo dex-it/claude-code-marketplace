@@ -17,10 +17,10 @@
 
 import type { PluginOptions, Register, RenderElement, Timer } from 'claude-code'
 
-import { backendOf } from './backend'
-import type { Api, Host } from './backend'
-import { HELP_TEXT, parseArgs } from './args'
-import type { Change, MrData, MrRef, Remote } from './gitlab'
+import { backendOf } from './backend.ts'
+import type { Api, Host } from './backend.ts'
+import { HELP_TEXT, parseArgs } from './args.ts'
+import type { Change, MrData, MrRef, Remote } from './gitlab.ts'
 import {
   IMPORTANT_KINDS,
   changesOf as changesOfData,
@@ -31,19 +31,31 @@ import {
   mrRefsOf,
   mrDataOf,
   projectId,
+  projectRefOf,
   remoteOf,
-} from './gitlab'
-import { noMrText, statusText, threadsText } from './text'
-import type { Actions, PaneModel, Ui } from './views'
-import { bandView, paneView } from './views'
-import type { Watched } from './watched'
-import { openThreadsOf, watchedOf } from './watched'
+} from './gitlab.ts'
+import { overviewOf } from './overview.ts'
+import { noMrText, overviewText, statusText, threadsText } from './text.ts'
+import type { Actions, PaneModel, PaneView, Ui } from './views.tsx'
+import { bandView, paneView } from './views.tsx'
+import type { Watched } from './watched.ts'
+import { openThreadsOf, watchedOf } from './watched.ts'
 
 const COMMAND = 'mr'
 const PANE_ID = 'gitlab-mr'
 const MIN_POLL_MS = 15_000
 const COMMITS_PAGE = 100
 const PANE_COMMITS = 8
+/**
+ * Больше этого числа MR полоса над вводом рисует не строками, а итогом: десять
+ * строк съедают экран, а «что ждёт меня» на них всё равно не читается - на это
+ * отвечает общий список.
+ */
+const BAND_MAX_ROWS = 3
+/** Строки списка над и под перечнем: шапка, итог, пустая, подсказка. */
+const LIST_CHROME_ROWS = 5
+/** Заголовок панели в виде списка: один на все MR, метки у него нет. */
+const LIST_TITLE = 'Мониторинг MR'
 /** Ширина панели до первой отрисовки: ею меряется адрес треда. */
 const PANE_FALLBACK_COLUMNS = 60
 /** Строки над и под списком тредов: шапка, факты, кнопки, подвал. */
@@ -123,6 +135,12 @@ export const register: Register = (on, pluginOptions) => {
   let showResolved = false
   let isPaneOpen = false
   let hasApprovals = true
+  /** Какой вид панели показан: общий список или один MR подробно. */
+  let paneMode: PaneView = 'details'
+  /** Откуда взялся выбранный проект - это и есть ответ `/mr repo`. */
+  let projectFrom: 'remote' | 'настройки' | 'команды' | null = null
+  /** Пересобрать источник данных под хост: его задаёт выбранный проект. */
+  let pickBackend: ((hostname: string) => Promise<string>) | null = null
   /** Ширина тела панели, как её отдала поверхность в последнюю отрисовку. */
   let paneColumns = PANE_FALLBACK_COLUMNS
   /** Высота экрана, как её отдала последняя отрисовка; 0 - ещё не мерили. */
@@ -150,16 +168,26 @@ export const register: Register = (on, pluginOptions) => {
    * просим ничего, и поверхность берёт свою треть.
    */
   function wantedRows(): number | null {
+    if (screenRows === 0) return null
+
+    const half = Math.floor(screenRows / PANE_MAX_SCREEN_SHARE)
+
+    // Список просит по строке на MR: он и есть перечень, и обрезать его до
+    // трети экрана значит спрятать то, за чем его открыли.
+    if (paneMode === 'list') {
+      return Math.max(1, Math.min(LIST_CHROME_ROWS + watched.size, half))
+    }
+
     const data = selected()?.data
 
-    if (!data || screenRows === 0) return null
+    if (!data) return null
 
     const rows =
       PANE_CHROME_ROWS +
       openThreadsOf(data).length * 2 +
       Math.min(data.commits.length, PANE_COMMITS)
 
-    return Math.max(1, Math.min(rows, Math.floor(screenRows / PANE_MAX_SCREEN_SHARE)))
+    return Math.max(1, Math.min(rows, half))
   }
 
   const selected = () =>
@@ -167,7 +195,9 @@ export const register: Register = (on, pluginOptions) => {
 
   const uiModel = (): PaneModel => ({
     columns: paneColumns,
+    view: paneMode,
     list: list(),
+    overview: overviewOf(list()),
     selectedKey: selected()?.key ?? null,
     showResolved,
     armedKey,
@@ -304,7 +334,14 @@ export const register: Register = (on, pluginOptions) => {
     if (autoKey === key) autoKey = null
     if (armedKey === key) armedKey = null
 
-    if (selectedKey === key) selectedKey = list()[0]?.key ?? null
+    // Сняли тот, чьи детали открыты, а другие остались - показываем список:
+    // подставлять вместо снятого соседа значит показать не то, что просили.
+    if (selectedKey === key) {
+      selectedKey = list()[0]?.key ?? null
+
+      if (watched.size > 0 && paneMode === 'details') paneMode = 'list'
+    }
+
     if (watched.size === 0 && isPaneOpen) void bound?.closePane()
 
     bound?.invalidate()
@@ -422,37 +459,54 @@ export const register: Register = (on, pluginOptions) => {
       .catch(() => '')
 
     const fromRemote = remoteOf(remoteUrl)
+
+    // Источник данных пересобирается под хост, а не выбирается раз: проект,
+    // названный командой `/mr repo`, может лежать на другом инстансе.
+    pickBackend = async hostname => {
+      const token =
+        settings.token !== ''
+          ? settings.token
+          : (await $.env.get('GITLAB_TOKEN')) ?? (await $.env.get('GLAB_TOKEN')) ?? ''
+      const choice = await backendOf(host, {
+        backend: settings.backend,
+        hostname,
+        token,
+        cwd,
+      })
+
+      if (choice.api === undefined) {
+        api = null
+
+        return choice.reason
+      }
+
+      api = choice.api
+
+      return ''
+    }
+
     const host_ = settings.host === '' ? fromRemote?.host : settings.host
     const project = settings.project === '' ? fromRemote?.project : settings.project
 
     if (host_ === undefined || project === undefined) {
-      reason = `не вижу проект GitLab: remote "${settings.remote}" не назвал его`
+      reason =
+        `не вижу проект GitLab: remote "${settings.remote}" не назвал его. ` +
+        `Назовите проект руками: /${COMMAND} repo group/proj`
 
       return result
     }
 
     remote = { host: host_, project }
+    projectFrom = settings.project === '' && settings.host === '' ? 'remote' : 'настройки'
 
-    const token =
-      settings.token !== ''
-        ? settings.token
-        : (await $.env.get('GITLAB_TOKEN')) ?? (await $.env.get('GLAB_TOKEN')) ?? ''
+    const failed = await pickBackend(remote.host)
 
-    const choice = await backendOf(host, {
-      backend: settings.backend,
-      hostname: remote.host,
-      token,
-      cwd,
-    })
-
-    if (choice.api === undefined) {
-      reason = choice.reason
-      $.ui.log(`gitlab-mr: ${choice.reason}`)
+    if (failed !== '') {
+      reason = failed
+      $.ui.log(`gitlab-mr: ${failed}`)
 
       return result
     }
-
-    api = choice.api
 
     const headOf = () =>
       $.process
@@ -479,7 +533,12 @@ export const register: Register = (on, pluginOptions) => {
     const { Box, Text, Button, Link } = await $.ui.resolve(e)
     const ui: Ui = { Box, Text, Button, Link }
 
-    return bandView(ui, actionsOf(), list(), (await next(e)) as RenderElement)
+    return bandView(
+      ui,
+      actionsOf(),
+      { list: list(), overview: overviewOf(list()), maxRows: BAND_MAX_ROWS },
+      (await next(e)) as RenderElement,
+    )
   })
 
   on('ui.render', { component: 'Pane' }, async ($, e, next) => {
@@ -507,6 +566,76 @@ export const register: Register = (on, pluginOptions) => {
 
     const action = parseArgs(e.args)
 
+    /**
+     * Дождаться первого опроса тех, у кого данных ещё нет. Список, напечатанный
+     * до него, называл бы всё «данных нет»: `watch` опрашивает в фоне, а текст
+     * собирается сразу. Опрос уже идущий не дублируется - `refresh` его ждёт.
+     */
+    const awaitFirstPoll = () =>
+      Promise.all(list().filter(entry => entry.data === undefined).map(entry => refresh(entry)))
+
+    const lookUpBranch = async () => {
+      const head = await $.process
+        .run(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], { cwd: await $.session.cwd() })
+        .then(res => (res.exitCode === 0 ? res.stdout.trim() : ''))
+        .catch(() => '')
+
+      branch = ''
+      await syncBranch(head)
+    }
+
+    // `/mr repo` отвечает и тогда, когда проекта нет вовсе: это и есть способ
+    // его назвать, поэтому проверка источника данных стоит после него.
+    if (action.kind === 'repo') {
+      if (action.text === '') {
+        return {
+          text:
+            remote === null
+              ? `gitlab-mr: ${reason === '' ? 'проект не выбран' : reason}`
+              : `Проект: **${remote.host}/${remote.project}**, взят из ${projectFrom ?? 'remote'}.`,
+        }
+      }
+
+      const fallbackHost = remote?.host ?? settings.host
+      const chosen = projectRefOf(action.text, fallbackHost)
+
+      if (!chosen) {
+        return {
+          text:
+            fallbackHost === ''
+              ? 'Хост неизвестен - назовите его вместе с проектом: `/mr repo gitlab.example.com/group/proj`.'
+              : 'Не разобрал адрес проекта. Форма: `group/proj`, `gitlab.example.com/group/proj` или ссылка на проект либо MR.',
+        }
+      }
+
+      if (chosen.host !== remote?.host) {
+        const failed = await pickBackend?.(chosen.host)
+
+        if (failed === undefined) return { text: 'gitlab-mr: источник данных ещё не выбран' }
+
+        if (failed !== '') {
+          reason = failed
+
+          return { text: `gitlab-mr: ${failed}` }
+        }
+      }
+
+      // MR, найденный по ветке, принадлежал прежнему проекту: он снимается, а
+      // новый ищется в названном. Отмеченные руками остаются - у каждого свой
+      // адрес, и смена проекта по умолчанию их не касается.
+      if (autoKey !== null) stop(autoKey)
+
+      remote = chosen
+      projectFrom = 'команды'
+      reason = ''
+      await lookUpBranch()
+      bound.invalidate()
+
+      const found = autoKey === null ? '' : ` MR текущей ветки: ${watched.get(autoKey)?.label ?? ''}.`
+
+      return { text: `Проект: **${chosen.host}/${chosen.project}**.${found}` }
+    }
+
     if (api === null) {
       return { text: reason === '' ? noMrText : `gitlab-mr: ${reason}` }
     }
@@ -514,6 +643,18 @@ export const register: Register = (on, pluginOptions) => {
     switch (action.kind) {
       case 'help':
         return { text: HELP_TEXT }
+
+      case 'list': {
+        if (watched.size === 0) await lookUpBranch()
+        if (watched.size === 0) return { text: noMrText }
+
+        await awaitFirstPoll()
+
+        paneMode = 'list'
+        await bound.openPane(LIST_TITLE)
+
+        return { text: overviewText(list()) }
+      }
 
       case 'watch': {
         const ref =
@@ -527,6 +668,7 @@ export const register: Register = (on, pluginOptions) => {
         const entry = watch(ref, false)
 
         selectedKey = entry.key
+        paneMode = 'details'
         await bound.openPane(labelOf(ref))
 
         return { text: `Отслеживаю ${entry.label}.` }
@@ -578,15 +720,7 @@ export const register: Register = (on, pluginOptions) => {
       }
 
       default: {
-        if (watched.size === 0) {
-          const head = await $.process
-            .run(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], { cwd: await $.session.cwd() })
-            .then(res => (res.exitCode === 0 ? res.stdout.trim() : ''))
-            .catch(() => '')
-
-          branch = ''
-          await syncBranch(head)
-        }
+        if (watched.size === 0) await lookUpBranch()
 
         const entry = selected()
 
@@ -595,9 +729,21 @@ export const register: Register = (on, pluginOptions) => {
         if (isPaneOpen) {
           await bound.closePane()
 
-          return { text: `Панель ${entry.label} закрыта.` }
+          return { text: 'Панель закрыта.' }
         }
 
+        // Один MR - сразу детали, несколько - общий список: перечень и есть
+        // ответ на «что из этого ждёт меня», а детали берутся входом в строку.
+        if (watched.size > 1) {
+          await awaitFirstPoll()
+
+          paneMode = 'list'
+          await bound.openPane(LIST_TITLE)
+
+          return { text: overviewText(list()) }
+        }
+
+        paneMode = 'details'
         await bound.openPane(entry.label)
 
         return {}
@@ -614,6 +760,7 @@ export const register: Register = (on, pluginOptions) => {
     selectedKey = null
     armedKey = null
     branch = ''
+    paneMode = 'details'
 
     if (isPaneOpen) await bound?.closePane().catch(() => undefined)
 
@@ -697,11 +844,17 @@ export const register: Register = (on, pluginOptions) => {
     return {
       select: key => {
         selectedKey = key
+        paneMode = 'details'
 
         const entry = watched.get(key)
 
-        if (entry && !isPaneOpen) void bound?.openPane(entry.label)
+        if (entry) void bound?.openPane(entry.label)
 
+        bound?.invalidate()
+      },
+      openList: () => {
+        paneMode = 'list'
+        void bound?.openPane(LIST_TITLE)
         bound?.invalidate()
       },
       openUrl: url => bound?.openUrl(url),

@@ -243,6 +243,47 @@ export function remoteOf(url: string): Remote | null {
   return null
 }
 
+const SCHEME = /^(?:ssh|git|https?):\/\//
+
+/** Хвост веб-адреса PR: сам репозиторий стоит до него. */
+const PR_TAIL = /\/pull\/.*$/
+
+/**
+ * Репозиторий, названный человеком, а не выведенный из remote: `owner/repo`,
+ * `gh.example.com/owner/repo`, веб-адрес репозитория или PR, адрес remote в
+ * любой форме.
+ *
+ * Хост опознаётся по точке в первом сегменте, но проверяется правилом: путь
+ * репозитория GitHub - ровно два сегмента, поэтому `my.org/repo` читается
+ * репозиторием, а `gh.corp/owner/repo` - хостом и репозиторием.
+ */
+export function repoRefOf(text: string, fallbackHost: string): Remote | null {
+  const trimmed = text.trim().replace(PR_TAIL, '')
+  const asRemote = remoteOf(trimmed)
+
+  if (asRemote !== null) return asRemote
+
+  const parts = trimmed
+    .replace(SCHEME, '')
+    .replace(TRAILING_GIT, '')
+    .replace(/^\/+|\/+$/g, '')
+    .split('/')
+    .filter(part => part !== '')
+
+  if (parts.length === 2) {
+    const owner = parts[0] ?? ''
+    const repo = parts[1] ?? ''
+
+    return fallbackHost !== '' && owner !== '' && repo !== ''
+      ? { host: fallbackHost, owner, repo }
+      : null
+  }
+
+  if (parts.length === 3) return splitRepo(parts.slice(1).join('/'), parts[0] ?? '')
+
+  return null
+}
+
 /** A fresh global matcher: a shared one carries `lastIndex` between calls. */
 export const prUrlRe = () =>
   /https?:\/\/([^/\s]+)\/([^/\s]+)\/([^/\s]+)\/pull\/(\d+)/g

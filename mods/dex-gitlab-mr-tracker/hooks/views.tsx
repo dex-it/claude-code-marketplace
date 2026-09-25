@@ -13,10 +13,12 @@ import type {
   TextProps,
 } from 'claude-code'
 
-import type { MergeLevel, MrData, Thread } from './gitlab'
-import { approvalsGiven, mergeLevel, shortenPath, threadTally } from './gitlab'
-import type { Watched } from './watched'
-import { openThreadsOf, plainThreadsOf, resolvedThreadsOf } from './watched'
+import type { CiLevel, MergeLevel, MrData, Thread } from './gitlab.ts'
+import { approvalsGiven, mergeLevel, pipelineLevel, shortenPath, threadTally } from './gitlab.ts'
+import type { Attention, Overview, Row } from './overview.ts'
+import { ATTENTION_MANY, reasonOf } from './overview.ts'
+import type { Watched } from './watched.ts'
+import { openThreadsOf, plainThreadsOf, resolvedThreadsOf } from './watched.ts'
 
 export type Ui = {
   Box: ElementConstructor<BoxProps>
@@ -31,7 +33,10 @@ export type Ui = {
  * `/mr refresh`, которая ещё и печатает состояние текстом для модели.
  */
 export type Actions = {
+  /** Показать детали этого MR: из списка, из полосы, из вкладок. */
   select: (key: string) => void
+  /** Вернуться к общему списку наблюдения. */
+  openList: () => void
   openUrl: (url: string) => void
   /** Arms the MR's open threads to ride the next prompt as context. */
   ask: (key: string) => void
@@ -39,15 +44,33 @@ export type Actions = {
   toggleResolved: () => void
 }
 
+/**
+ * Два вида одной панели: `list` - общий список наблюдения с итогом сверху,
+ * `details` - один MR подробно. Вид держит вызывающий, а не панель: он же
+ * ставит заголовок при открытии.
+ */
+export type PaneView = 'list' | 'details'
+
 export type PaneModel = {
   /** Ширина тела панели: её отдаёт поверхность, выбрать её мод не может. */
   columns: number
+  view: PaneView
   list: readonly Watched[]
+  /** Тот же список, сведённый: порядок внимания, причины, итог. */
+  overview: Overview
   selectedKey: string | null
   showResolved: boolean
   armedKey: string | null
   /** Commits drawn in the pane; the rest are counted, not listed. */
   commitLimit: number
+}
+
+/** Полоса над вводом: строки по MR, пока их мало, и итог, когда их много. */
+export type BandModel = {
+  list: readonly Watched[]
+  overview: Overview
+  /** Больше этого числа MR полоса строками не рисует - только итогом. */
+  maxRows: number
 }
 
 const STATE_COLOR: Record<string, string> = {
@@ -57,13 +80,11 @@ const STATE_COLOR: Record<string, string> = {
   locked: 'yellow',
 }
 
-const PIPELINE_COLOR: Record<string, string> = {
-  success: 'green',
-  failed: 'red',
-  canceled: 'red',
-  skipped: 'gray',
-  manual: 'gray',
-  scheduled: 'gray',
+const CI_COLOR: Record<CiLevel, string> = {
+  ok: 'green',
+  bad: 'red',
+  wait: 'yellow',
+  idle: 'gray',
 }
 
 const MERGE_COLOR: Record<MergeLevel, string> = {
@@ -73,9 +94,24 @@ const MERGE_COLOR: Record<MergeLevel, string> = {
   idle: 'gray',
 }
 
+const ATTENTION_COLOR: Record<Attention, string> = {
+  act: 'red',
+  wait: 'yellow',
+  unknown: 'gray',
+  idle: 'gray',
+}
+
+/** Значок строки списка: круг зовёт, галка не зовёт, вопрос - данных нет. */
+const ATTENTION_MARK: Record<Attention, string> = {
+  act: '\u25cf',
+  wait: '\u25cf',
+  unknown: '?',
+  idle: '\u2713',
+}
+
 const mergeColor = (status: string) => MERGE_COLOR[mergeLevel(status)]
 
-const pipelineColor = (status: string) => PIPELINE_COLOR[status] ?? 'yellow'
+const pipelineColor = (status: string) => CI_COLOR[pipelineLevel(status)]
 
 const stateWord = (data: MrData) =>
   data.state === 'opened' && data.draft ? 'draft' : data.state
@@ -175,19 +211,167 @@ function row(ui: Ui, actions: Actions, watched: Watched): RenderElement {
   )
 }
 
-/** Every watched MR, one row each, in the order they were added. */
+/**
+ * Итог по всему списку одной строкой. Ею полоса заменяет строки по MR, когда
+ * их больше `maxRows`: десять строк над полем ввода съедают экран, а вопрос
+ * «что ждёт меня» на них всё равно не отвечается - на него отвечает список.
+ */
+function summaryRow(ui: Ui, actions: Actions, overview: Overview): RenderElement {
+  const { Box, Text, Button } = ui
+
+  return (
+    <Box key="row:summary" flexDirection="row">
+      <Box flexShrink={0}>
+        <Text bold>{`MR ${overview.total}`}</Text>
+      </Box>
+      <Text wrap="truncate-end">
+        {overview.act === 0 ? (
+          <Text />
+        ) : (
+          <Text color="red">{` \u00b7 ${overview.act} ${ATTENTION_MANY.act}`}</Text>
+        )}
+        {overview.wait === 0 ? (
+          <Text />
+        ) : (
+          <Text color="yellow">{` \u00b7 ${overview.wait} ${ATTENTION_MANY.wait}`}</Text>
+        )}
+        {overview.idle === 0 ? (
+          <Text />
+        ) : (
+          <Text dimColor>{` \u00b7 ${overview.idle} ${ATTENTION_MANY.idle}`}</Text>
+        )}
+        {overview.threadsOpen === 0 ? (
+          <Text />
+        ) : (
+          <Text color="yellow">{` \u00b7 \u25cf${overview.threadsOpen}`}</Text>
+        )}
+        {overview.failed === 0 ? (
+          <Text />
+        ) : (
+          <Text color="red">{` \u00b7 опрос не удался у ${overview.failed}`}</Text>
+        )}
+      </Text>
+      <Box flexShrink={0}>
+        <Button key="band-list" label="список" dimColor onPress={() => actions.openList()} />
+      </Box>
+    </Box>
+  )
+}
+
+/**
+ * Полоса над вводом: по строке на MR, пока их немного, и один итог, когда их
+ * много. Порог, а не всегда-итог: на одном-двух MR строка несёт всё нужное, и
+ * заставлять открывать панель было бы хуже.
+ */
 export function bandView(
   ui: Ui,
   actions: Actions,
-  list: readonly Watched[],
+  band: BandModel,
   beneath: RenderElement,
 ): RenderElement {
   const { Box } = ui
 
   return (
     <Box flexDirection="column">
-      {list.map(watched => row(ui, actions, watched))}
+      {band.list.length > band.maxRows
+        ? summaryRow(ui, actions, band.overview)
+        : band.list.map(watched => row(ui, actions, watched))}
       {beneath}
+    </Box>
+  )
+}
+
+// --- Общий список наблюдения --------------------------------------------
+
+/**
+ * Строка списка: значок внимания, метка, причина и название. Одна строка на
+ * MR - список читается сверху вниз, а подробности берёт панель деталей.
+ */
+function listRow(ui: Ui, actions: Actions, entry: Row, withHost: boolean): RenderElement {
+  const { Box, Text, Button } = ui
+  const reason = reasonOf(entry)
+
+  return (
+    <Box key={`list:${entry.key}`} flexDirection="row">
+      <Box flexShrink={0}>
+        <Text color={ATTENTION_COLOR[entry.attention]}>
+          {`${ATTENTION_MARK[entry.attention]} `}
+        </Text>
+      </Box>
+      <Box flexShrink={0}>
+        <Button
+          key={`list-open:${entry.key}`}
+          label={withHost ? `${entry.host}/${entry.label}` : entry.label}
+          onPress={() => actions.select(entry.key)}
+        />
+      </Box>
+      <Text wrap="truncate-end">
+        <Text color={ATTENTION_COLOR[entry.attention]}>{`  ${reason}`}</Text>
+        {entry.title === '' ? <Text /> : <Text dimColor>{`  ${entry.title}`}</Text>}
+      </Text>
+    </Box>
+  )
+}
+
+/** Итог списка: сколько всего и сколько чего ждёт. */
+function listHead(ui: Ui, overview: Overview): RenderElement {
+  const { Box, Text } = ui
+
+  return (
+    <Box flexDirection="column">
+      <Text bold wrap="truncate-end">{`Мониторинг: ${overview.total}`}</Text>
+      <Text wrap="truncate-end">
+        {overview.act === 0 ? (
+          <Text />
+        ) : (
+          <Text color="red">{`${overview.act} ${ATTENTION_MANY.act}  `}</Text>
+        )}
+        {overview.wait === 0 ? (
+          <Text />
+        ) : (
+          <Text color="yellow">{`${overview.wait} ${ATTENTION_MANY.wait}  `}</Text>
+        )}
+        {overview.idle === 0 ? (
+          <Text />
+        ) : (
+          <Text dimColor>{`${overview.idle} ${ATTENTION_MANY.idle}  `}</Text>
+        )}
+        {overview.threadsOpen === 0 ? (
+          <Text />
+        ) : (
+          <Text color="yellow">{`\u25cf${overview.threadsOpen} тредов  `}</Text>
+        )}
+        {overview.failed === 0 ? (
+          <Text />
+        ) : (
+          <Text color="red">{`опрос не удался у ${overview.failed}`}</Text>
+        )}
+      </Text>
+    </Box>
+  )
+}
+
+/**
+ * Общий список наблюдения: итог сверху, по строке на MR, порядок - по тому,
+ * что ждёт человека. Нажатие на метку открывает детали того же MR.
+ */
+export function listView(ui: Ui, actions: Actions, model: PaneModel): RenderElement {
+  const { Box, Text } = ui
+  const overview = model.overview
+
+  if (overview.total === 0) {
+    return <Text dimColor>Ни один merge request не отслеживается.</Text>
+  }
+
+  return (
+    <Box flexDirection="column">
+      {listHead(ui, overview)}
+      {gap(ui, 'gap:list-head')}
+      {overview.rows.map(entry => listRow(ui, actions, entry, overview.hosts > 1))}
+      {gap(ui, 'gap:list-rows')}
+      <Text dimColor wrap="truncate-end">
+        {'нажмите номер MR, чтобы открыть детали'}
+      </Text>
     </Box>
   )
 }
@@ -288,6 +472,11 @@ function factRow(
  * строкой - в докнутой панели без них всё сливается в стену.
  */
 export function paneView(ui: Ui, actions: Actions, model: PaneModel): RenderElement {
+  return model.view === 'list' ? listView(ui, actions, model) : detailsView(ui, actions, model)
+}
+
+/** Один MR подробно: то, ради чего в строку списка и заходят. */
+function detailsView(ui: Ui, actions: Actions, model: PaneModel): RenderElement {
   const { Box, Text, Button, Link } = ui
   const watched = model.list.find(entry => entry.key === model.selectedKey) ?? model.list[0]
 
@@ -384,6 +573,14 @@ export function paneView(ui: Ui, actions: Actions, model: PaneModel): RenderElem
           dimColor
           onPress={() => actions.stop(watched.key)}
         />
+        {model.list.length < 2 ? (
+          <Box />
+        ) : (
+          <Box flexDirection="row">
+            <Text>{' '}</Text>
+            <Button key="pane-list" label="к списку" onPress={() => actions.openList()} />
+          </Box>
+        )}
       </Box>
       {gap(ui, 'gap:actions')}
 

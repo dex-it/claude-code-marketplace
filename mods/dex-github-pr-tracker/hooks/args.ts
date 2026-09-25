@@ -5,6 +5,13 @@
 export type Action =
   /** `/pr` - open the pane, or close it when it is open. */
   | { kind: 'toggle' }
+  /** `/pr list` - показать общий список наблюдения. */
+  | { kind: 'list' }
+  /**
+   * `/pr repo owner/repo` - назвать репозиторий руками; пустой текст -
+   * показать, какой репозиторий выбран сейчас и откуда он взялся.
+   */
+  | { kind: 'repo'; text: string }
   /** `/pr threads` - print the open threads into the transcript. */
   | { kind: 'threads' }
   /** `/pr status` - print the pull request's facts into the transcript. */
@@ -21,6 +28,8 @@ export type Action =
 
 const WORDS: Record<string, Action> = {
   '': { kind: 'toggle' },
+  list: { kind: 'list' },
+  ls: { kind: 'list' },
   threads: { kind: 'threads' },
   status: { kind: 'status' },
   checks: { kind: 'checks' },
@@ -49,6 +58,12 @@ export function parseArgs(raw: string): Action {
     return { kind: 'drop', target: target === 'all' ? 'all' : Number(target) }
   }
 
+  // Аргумент берётся из исходного текста, а не из приведённого к нижнему
+  // регистру: имя владельца и репозитория регистрозависимо.
+  const repo = /^(?:repo|repository)(?:\s+(.+))?$/i.exec(text)
+
+  if (repo) return { kind: 'repo', text: (repo[1] ?? '').trim() }
+
   const number = /^#?(\d+)$/.exec(text)
 
   if (number) return { kind: 'watch', number: Number(number[1]), text }
@@ -59,11 +74,13 @@ export function parseArgs(raw: string): Action {
 }
 
 export const HELP_TEXT = [
-  '`/pr` - открыть или закрыть панель pull request.',
+  '`/pr` - открыть или закрыть панель: общий список, когда PR несколько, иначе детали.',
+  '`/pr list` - общий список наблюдения с итогом.',
   '`/pr 123` или `/pr <ссылка>` - добавить PR к отслеживанию и показать его.',
   '`/pr threads` - выписать открытые треды текстом (их читает модель).',
   '`/pr status` - выписать состояние PR текстом.',
   '`/pr checks` - выписать проверки головного коммита.',
   '`/pr refresh` - опросить GitHub сейчас.',
   '`/pr drop [123 | all]` - снять с отслеживания.',
+  '`/pr repo owner/repo` - назвать репозиторий руками; `/pr repo` - показать выбранный.',
 ].join('\n')

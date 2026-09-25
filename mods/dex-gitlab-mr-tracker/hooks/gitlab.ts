@@ -130,6 +130,30 @@ export function mergeLevel(status: string): MergeLevel {
   return 'wait'
 }
 
+/**
+ * Во что читается статус пайплайна. Перечень значений GitLab держит у
+ * `pipeline.status` (docs.gitlab.com/api/pipelines, сверено 25.09.2026) и
+ * растит его от версии к версии, поэтому незнакомое значение читается как
+ * ожидание, а не как провал: пайплайн, о котором мод не знает, не повод
+ * звать человека.
+ *
+ * `ok` - зелёный; `bad` - красный, работать надо; `idle` - никто ничего не
+ * ждёт (пропущен, ручной, отложенный); `wait` - ещё идёт.
+ */
+export type CiLevel = 'ok' | 'bad' | 'wait' | 'idle'
+
+const CI_BAD: ReadonlySet<string> = new Set(['canceled', 'canceling', 'failed'])
+
+const CI_IDLE: ReadonlySet<string> = new Set(['manual', 'scheduled', 'skipped'])
+
+export function pipelineLevel(status: string): CiLevel {
+  if (status === 'success') return 'ok'
+  if (CI_BAD.has(status)) return 'bad'
+  if (CI_IDLE.has(status)) return 'idle'
+
+  return 'wait'
+}
+
 // --- Addresses -----------------------------------------------------------
 
 const TRAILING_GIT = /\.git\/?$/
@@ -171,6 +195,56 @@ export function remoteOf(url: string): Remote | null {
 
   return null
 }
+
+const SCHEME = /^(?:ssh|git|https?):\/\//
+
+/** Хвост веб-адреса MR: сам проект стоит до него. */
+const MR_TAIL = /\/-\/merge_requests\/.*$/
+
+/**
+ * Проект, названный человеком, а не выведенный из remote: `group/proj`,
+ * `group/sub/proj`, `gitlab.example.com/group/proj`, веб-адрес проекта или MR.
+ *
+ * Хост опознаётся по точке в первом сегменте - иначе `a/b` было бы не
+ * отличить от хоста без домена. Проект, чья первая группа с точкой, называется
+ * полным адресом; для этого и принимается URL.
+ */
+export function projectRefOf(text: string, fallbackHost: string): Remote | null {
+  const trimmed = text.trim().replace(MR_TAIL, '')
+
+  // Адрес remote в любой форме разбирает `remoteOf` - и с точкой в группе, и
+  // со scp-двоеточием, и с портом. Своё разбирается только то, чего в форме
+  // remote не бывает: путь без схемы и хоста.
+  const asRemote = remoteOf(trimmed)
+
+  if (asRemote !== null) return valid(asRemote)
+
+  const parts = trimmed
+    .replace(SCHEME, '')
+    .replace(TRAILING_GIT, '')
+    .replace(/^\/+|\/+$/g, '')
+    .split('/')
+    .filter(part => part !== '')
+  const head = parts[0] ?? ''
+  const whole = { host: fallbackHost, project: parts.join('/') }
+
+  // Точка в первом сегменте читается как хост - иначе `a/b` не отличить от
+  // хоста без домена. Но группа с точкой тоже бывает, и если хостом прочиталось
+  // так, что проекта не осталось, весь путь читается проектом: `my.group/proj`
+  // - проект, а не хост с одним сегментом.
+  if (parts.length > 1 && head.includes('.')) {
+    return valid({ host: head, project: parts.slice(1).join('/') }) ?? valid(whole)
+  }
+
+  return valid(whole)
+}
+
+/**
+ * Путь проекта GitLab - минимум группа и имя: одиночный сегмент не адрес, а
+ * опечатка, и молча принимать его нельзя - опрос упал бы на 404.
+ */
+const valid = (ref: Remote): Remote | null =>
+  ref.host !== '' && ref.project.includes('/') ? ref : null
 
 /** A fresh global matcher: a shared one carries `lastIndex` between calls. */
 export const mrUrlRe = () =>

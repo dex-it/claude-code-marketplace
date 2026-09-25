@@ -19,6 +19,8 @@ import {
   mrPath,
   mrRefsOf,
   oneLine,
+  pipelineLevel,
+  projectRefOf,
   remoteOf,
   threadTally,
   threadsOf,
@@ -345,6 +347,109 @@ describe('mergeLevel', () => {
   test('значение, которого набор не знает, ждёт, а не падает', () => {
     assert.equal(mergeLevel('something_gitlab_added_later'), 'wait')
     assert.equal(mergeLevel(''), 'wait')
+  })
+})
+
+describe('projectRefOf', () => {
+  // Хост по умолчанию - тот, с которого мод уже работает: путь без хоста
+  // читается как проект на нём.
+  const HOST = 'gitlab.example.com'
+
+  test('a path alone is a project on the host the mod already talks to', () => {
+    assert.deepEqual(projectRefOf('group/proj', HOST), {
+      host: HOST,
+      project: 'group/proj',
+    })
+    assert.deepEqual(projectRefOf('group/sub/proj', HOST), {
+      host: HOST,
+      project: 'group/sub/proj',
+    })
+  })
+
+  test('a dot in the first segment is the host, not the group', () => {
+    assert.deepEqual(projectRefOf('gl.corp/group/proj', HOST), {
+      host: 'gl.corp',
+      project: 'group/proj',
+    })
+  })
+
+  test('the web address of a project and of an MR both read as the project', () => {
+    assert.deepEqual(projectRefOf('https://gl.corp/group/proj', HOST), {
+      host: 'gl.corp',
+      project: 'group/proj',
+    })
+    // Хвост `/-/merge_requests/12` срезается: назван проект, а не сам MR.
+    assert.deepEqual(
+      projectRefOf('https://gl.corp/group/sub/proj/-/merge_requests/12', HOST),
+      { host: 'gl.corp', project: 'group/sub/proj' },
+    )
+  })
+
+  test('the remote forms git writes read the same way', () => {
+    assert.deepEqual(projectRefOf('git@gl.corp:group/proj.git', HOST), {
+      host: 'gl.corp',
+      project: 'group/proj',
+    })
+    assert.deepEqual(projectRefOf('ssh://git@gl.corp:22/g/p', HOST), {
+      host: 'gl.corp',
+      project: 'g/p',
+    })
+  })
+
+  test('a group with a dot in it is a project, not a host of one segment', () => {
+    // Хостом `my.group` прочиталось бы так, что проекта не осталось - значит
+    // это не хост, и весь путь читается проектом.
+    assert.deepEqual(projectRefOf('my.group/proj', HOST), {
+      host: HOST,
+      project: 'my.group/proj',
+    })
+  })
+
+  test('one segment is a typo, not an address, and so is an empty string', () => {
+    assert.equal(projectRefOf('proj', HOST), null)
+    assert.equal(projectRefOf('', HOST), null)
+    assert.equal(projectRefOf('   ', HOST), null)
+  })
+
+  test('the spaces a person typed around the address are cut', () => {
+    assert.deepEqual(projectRefOf('  group/proj  ', HOST), {
+      host: HOST,
+      project: 'group/proj',
+    })
+  })
+})
+
+describe('pipelineLevel', () => {
+  // Перечень значений - docs.gitlab.com/api/pipelines, `pipeline.status`,
+  // сверено 25.09.2026.
+  test('зелёный - только success', () => {
+    assert.equal(pipelineLevel('success'), 'ok')
+  })
+
+  test('красный: работать надо', () => {
+    for (const status of ['failed', 'canceled', 'canceling']) {
+      assert.equal(pipelineLevel(status), 'bad', status)
+    }
+  })
+
+  test('никто ничего не ждёт: пропущен, ручной, отложенный', () => {
+    for (const status of ['manual', 'scheduled', 'skipped']) {
+      assert.equal(pipelineLevel(status), 'idle', status)
+    }
+  })
+
+  test('пайплайн ещё идёт - и незнакомое значение читается так же', () => {
+    for (const status of [
+      'running',
+      'pending',
+      'created',
+      'preparing',
+      'waiting_for_resource',
+      '',
+      'something_gitlab_added_later',
+    ]) {
+      assert.equal(pipelineLevel(status), 'wait', status)
+    }
   })
 })
 

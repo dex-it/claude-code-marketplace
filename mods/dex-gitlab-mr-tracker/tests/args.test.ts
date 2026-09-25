@@ -18,6 +18,33 @@ describe('parseArgs', () => {
     assert.deepEqual(parseArgs('Refresh'), { kind: 'refresh' })
   })
 
+  test('list and its short form ask for the watch list, whatever the case', () => {
+    assert.deepEqual(parseArgs('list'), { kind: 'list' })
+    assert.deepEqual(parseArgs('LIST'), { kind: 'list' })
+    assert.deepEqual(parseArgs('ls'), { kind: 'list' })
+    assert.deepEqual(parseArgs('Ls'), { kind: 'list' })
+  })
+
+  test('repo with no argument asks which project is chosen', () => {
+    assert.deepEqual(parseArgs('repo'), { kind: 'repo', text: '' })
+    assert.deepEqual(parseArgs('project'), { kind: 'repo', text: '' })
+  })
+
+  test('the project argument keeps its case: a GitLab path is case-sensitive', () => {
+    assert.deepEqual(parseArgs('repo group/Proj'), { kind: 'repo', text: 'group/Proj' })
+    assert.deepEqual(parseArgs('project gl.corp/G/P'), {
+      kind: 'repo',
+      text: 'gl.corp/G/P',
+    })
+  })
+
+  test('the spaces around the project argument are cut', () => {
+    assert.deepEqual(parseArgs('  repo   group/Proj  '), {
+      kind: 'repo',
+      text: 'group/Proj',
+    })
+  })
+
   test('drop takes one MR, all of them, or the shown one', () => {
     assert.deepEqual(parseArgs('drop'), { kind: 'drop', target: 'selected' })
     assert.deepEqual(parseArgs('drop all'), { kind: 'drop', target: 'all' })
