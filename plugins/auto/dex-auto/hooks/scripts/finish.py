@@ -3,6 +3,7 @@
 import datetime
 import json
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -31,21 +32,70 @@ def items(data, key):
     return value if isinstance(value, list) else []
 
 
-def run_section(data):
+# Ключ возврата -> статус записи реестра; None - статус несёт сама находка, по умолчанию open.
+FINDING_KEYS = (("open_findings", None), ("confirmed", "open"), ("claims", "unverified"),
+                ("prior", None), ("dropped", "dropped"))
+STATUSES = dx.OPEN_FINDING + ("closed", "disputed", "no-longer-applicable", "dropped")
+
+
+def events(data):
+    out = []
+    for key, forced in FINDING_KEYS:
+        for f in items(data, key):
+            if not isinstance(f, dict):
+                continue
+            ev = {"anchor": f.get("anchor"), "evidence": f.get("reason")} if key == "dropped" else dict(f)
+            status = forced or ev.get("status")
+            # Статус вне словаря не закрывает находку: она остаётся в разности, а не выпадает молча.
+            ev["status"] = status if status in STATUSES else "open"
+            out.append(ev)
+    return out
+
+
+def register(path, state, evs, run):
+    # Находка без id - новая: опознание по anchor склеило бы разные находки одной строки.
+    number = lambda i: int(i[1:]) if re.match(r"^F\d+$", i) else 0
+    top = max([number(i) for i in state] + [0])
+    changed = []
+    for ev in evs:
+        fid = ev.get("id").strip() if isinstance(ev.get("id"), str) else ""
+        if fid in state:
+            rec = dict(state[fid])
+            rec.update({k: v for k, v in ev.items() if v not in ("", None)})
+        else:
+            # id не из реестра статус чужой записи не меняет (ledger.md R9): находка новая, поданный id - ссылкой.
+            rec = dict(ev, ref=fid) if fid else dict(ev)
+            top += 1
+            fid = "F%d" % top
+        rec["id"], rec["run"] = fid, run
+        state[fid] = rec
+        changed.append(rec)
+    if changed:
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write("".join(json.dumps(r, ensure_ascii=False, separators=(",", ":")) + "\n" for r in changed))
+    return state, changed
+
+
+def finding_line(rec, tail):
+    severity = " [%s]" % text(rec["severity"]) if rec.get("severity") else ""
+    return "- %s %s%s %s: %s" % (rec["id"], rec["status"], severity, text(rec.get("anchor")), tail)
+
+
+def run_section(data, state, changed):
     out = ["### Петли"]
     loops = data.get("loops")
     if isinstance(loops, dict):
         out += ["- %s: %s" % (k, text(v)) for k, v in loops.items()]
     out += ["", "### Исполнители"]
     out += ["- " + text(e) for e in items(data, "trail")]
+    # Раздел - разность реестра на конец прогона, а не находки этого прогона: молчание прогона о находке её не закрывает.
     out += ["", "### Открытые находки"]
-    out += ["- [%s] %s: %s" % (text(f.get("severity")), text(f.get("anchor")), text(f.get("text")))
-            for f in items(data, "open_findings")]
-    out += ["- [%s] %s: %s (закрытие: %s)" % (text(f.get("severity")), text(f.get("anchor")),
-                                              text(f.get("text")), text(f.get("closure")))
-            for f in items(data, "confirmed")]
+    out += [finding_line(r, text(r.get("text")) + (" (закрытие: %s)" % text(r["closure"]) if r.get("closure") else ""))
+            for r in state.values() if r.get("status") in dx.OPEN_FINDING]
     out += ["- не опубликовано %s: %s" % (text(f.get("anchor")), text(f.get("reason")))
             for f in items(data, "unpublished")]
+    out += ["", "### Снято в прогоне"]
+    out += [finding_line(r, text(r.get("evidence"))) for r in changed if r["status"] not in dx.OPEN_FINDING]
     # Продукт разведки (feature - ctx, bugfix - repro) переживает прогон: без него возобновление
     # заново покупает Explore/debugger и выводит номера R другим узлом, а находки прошлого прогона
     # ссылаются на прежние. Раздел идёт до «Решения»: тот пополняется дописыванием в конец файла.
@@ -56,8 +106,6 @@ def run_section(data):
     out += ["", "### Решения"]
     out += ["- " + text(d) for d in items(data, "decisions")]
     out += ["- узел заменён: " + text(d) for d in items(data, "degraded")]
-    out += ["- снято %s: %s" % (text(d.get("anchor")), text(d.get("reason")))
-            for d in items(data, "dropped")]
     out += ["- вопрос автору: " + text(q) for q in items(data, "questions")]
     return out
 
@@ -95,6 +143,16 @@ def main(argv):
             "пустой возврат сдаётся как blocked" % outcome, 65)
 
     path = dx.track_file(task, track)
+    registry = dx.findings_file(task, track)
+    legacy = not os.path.isfile(registry)
+    try:
+        state = dx.findings_state(registry, path)
+    except ValueError as e:
+        die("finish.sh: %s; ничего не записано" % e, 5)
+    # Находки цели старого формата заводятся в реестр первыми: иначе после этого прогона их не отдаст ни реестр, ни файл трека.
+    if legacy and state:
+        with open(registry, "a", encoding="utf-8") as fh:
+            fh.write("".join(json.dumps(r, ensure_ascii=False, separators=(",", ":")) + "\n" for r in state.values()))
     status = "закрыт" if outcome == "complete" else "открыт"
     if os.path.isfile(path):
         number = sum(1 for line in dx.lines_of(path) if line.startswith("## Прогон ")) + 1
@@ -103,10 +161,11 @@ def main(argv):
         number = 1
         with open(path, "w", encoding="utf-8") as fh:
             fh.write("# Трек: %s\n\ntrack=%s\nСтатус: %s\n" % (task, track, status))
+    state, changed = register(registry, state, events(data), number)
     stamp = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
     with open(path, "a", encoding="utf-8") as fh:
         fh.write("\n## Прогон %s (%s, исход %s)\n\n" % (number, stamp, outcome))
-        fh.write("\n".join(run_section(data)) + "\n")
+        fh.write("\n".join(run_section(data, state, changed)) + "\n")
 
     if outcome == "complete":
         dx.set_key(goal, "Исход", "complete")

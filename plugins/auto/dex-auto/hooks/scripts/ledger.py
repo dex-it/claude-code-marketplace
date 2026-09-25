@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # CLI ledger: адрес <config>/projects/<slug>/ledger/<TASK>/00-goal.md (ADR-0001 rev.6, ledger.md R1-R2).
+import json
 import os
 import sys
 
@@ -71,9 +72,12 @@ def main(argv):
         for line in dx.section(dx.track_file(args[0], args[1]), "### Исполнители"):
             print(line)
     elif cmd == "findings":
-        # Накопитель сбрасывается на каждом «## Прогон»: возобновлению едут находки последнего прогона, не история трека.
-        for line in dx.section(dx.track_file(args[0], args[1]), "### Открытые находки", last_run_only=True):
-            print(line)
+        try:
+            found = dx.open_findings(dx.findings_file(args[0], args[1]), dx.track_file(args[0], args[1]))
+        except ValueError as e:
+            die("ledger.py findings: %s" % e, 5)
+        if found:
+            print(json.dumps(found, ensure_ascii=False, separators=(",", ":")))
     else:
         die(USAGE)
 

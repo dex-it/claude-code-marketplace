@@ -41,7 +41,7 @@ argument-hint: "<MR/PR url или short-id> [описание задачи] [LAS
 
 ## Output
 
-- Verdict (APPROVE / REQUEST_CHANGES / NEEDS_DISCUSSION) и overview со счётчиком меток
+- `review-verdict` (APPROVE / REQUEST_CHANGES / NEEDS_DISCUSSION) и overview со счётчиком меток
 - Сгруппированные находки с severity, confidence, scope и метками
 - Повторная ревизия: diff-обзор - закрыто / осталось открытым / новое по severity, статусы прежних
   находок (closed / partial / open / disputed / no-longer-applicable)

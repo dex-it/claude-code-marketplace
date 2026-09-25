@@ -76,7 +76,7 @@
       "name": "dex-auto",
       "source": "./plugins/auto/dex-auto",
       "description": "Автономные треки под открытую цель - feature и bugfix (до локальных коммитов) и ревью чужого MR/PR (read-only, треды по санкции): ledger вне рабочего дерева, Workflow-скрипт на трек с потолками петель и схемами выхода узлов, сдача исхода скриптом finish.sh, сторожа SessionStart (возобновление по открытой цели) и Stop (терминал цели). Команды /goal (подготовка цели из тикета, спеки или симптома) и /auto (прогон трека, возобновление с верификации).",
-      "version": "7.2.0",
+      "version": "8.0.0",
       "category": "utility",
       "keywords": [
         "autonomous",
@@ -149,7 +149,7 @@
       "name": "dex-bug-fixer",
       "source": "./plugins/specialists/delivery/dex-bug-fixer",
       "description": "Пакетная ремедиация найденных тестировщиком багов после мерджа: интейк находок, триаж и приоритет, подтверждение причины по одному, фикс на источнике через follow-up MR, верификация red->green на стенде, регрессия соседей; финиш на локальных коммитах без push.",
-      "version": "1.7.0",
+      "version": "1.9.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -330,7 +330,7 @@
       "name": "dex-bundle-qa-engineer",
       "source": "./plugins/bundles/dex-bundle-qa-engineer",
       "description": "Бандл для QA-инженера: тест-анализ, автоматизация (включая E2E на Playwright), активный поиск багов, баг-репорты.",
-      "version": "1.17.0",
+      "version": "1.18.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -497,8 +497,8 @@
     {
       "name": "dex-debugger",
       "source": "./plugins/specialists/delivery/dex-debugger",
-      "description": "Языко-агностичный узел root-cause debugger: воспроизведение, изоляция, первопричина, red-green тест, фальсификация гипотез. Частные skills грузятся условно по стеку. Точка входа - команда /root-cause, едет в этом же плагине.",
-      "version": "3.4.0",
+      "description": "Языко-агностичный узел root-cause debugger: воспроизведение, изоляция, первопричина, фальсификация гипотез. Продуктовый код не правит: воспроизводит красным тестом, отдаёт найденные проблемы списком. Частные skills грузятся условно по стеку. Точка входа - команда /root-cause, едет в этом же плагине.",
+      "version": "4.1.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -738,7 +738,7 @@
       "name": "dex-implement",
       "source": "./plugins/specialists/delivery/dex-implement",
       "description": "Команда /implement: реализация фичи полным циклом - требования, план правок, код, тесты, саморевью. Стек определяется по манифесту репозитория, написание делегируется кодеру и тестописателю своего стека.",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "category": "utility",
       "keywords": [
         "command",
@@ -988,7 +988,7 @@
       "name": "dex-mr-check-reviewer",
       "source": "./plugins/specialists/review/dex-mr-check-reviewer",
       "description": "Узел ре-ревью дельты MR/PR после правок автора: range-diff дельты, статус прежних находок, новые находки только в дельте, обновление существующих тредов и публикация новых, по поручению - разметка новых находок типом. Вызывается на повторных ревизиях командой /mr-review (плагин dex-mr-reviewer), своего командного входа не имеет.",
-      "version": "2.5.0",
+      "version": "3.0.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1005,7 +1005,7 @@
       "name": "dex-mr-reviewer",
       "source": "./plugins/specialists/review/dex-mr-reviewer",
       "description": "Языко-агностичный узел первичного ревью чужого MR/PR: карта изменений, параллельные фокусы, фальсификация находок, severity/confidence/scope, доставка инлайн-тредами через gh/glab. По поручению входа - разметка находок типом в первой строке треда. Точка входа - команда /mr-review, едет в этом же плагине.",
-      "version": "2.7.0",
+      "version": "3.0.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1177,7 +1177,7 @@
       "name": "dex-requirements-reviewer",
       "source": "./plugins/specialists/review/dex-requirements-reviewer",
       "description": "Ревью и согласование чужого готового набора требований (BRD/stories) как документа: дефекты единицы и дефекты набора против источника, фальсификация находок, severity, правки автору без мутации документа.",
-      "version": "1.16.1",
+      "version": "2.0.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1239,7 +1239,7 @@
       "name": "dex-security-reviewer",
       "source": "./plugins/specialists/delivery/dex-security-reviewer",
       "description": "Языко-агностичный агент глубокого анализа безопасности: threat model (акторы/границы доверия/активы), attack paths по OWASP, цепочки эксплойтов, severity по эксплуатируемости цепочки. Частные skills грузятся условно по стеку.",
-      "version": "1.10.0",
+      "version": "2.0.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1255,7 +1255,7 @@
       "name": "dex-self-reviewer",
       "source": "./plugins/specialists/review/dex-self-reviewer",
       "description": "Pre-push саморевью своей локальной ветки: committed+staged+worktree diff, скан по осям diff'а (security, architecture, language, business, regressions, performance, loose-ends, non-code) с реальным прогоном build/test, фальсификация, чеклист правок до push, по поручению - разметка находок типом.",
-      "version": "2.3.0",
+      "version": "3.0.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2342,7 +2342,7 @@
       "name": "dex-skill-node-contract",
       "source": "./plugins/skills/dex-skill-node-contract",
       "description": "Рантайм-контракт агента-узла - режим interactive/autonomous, реакция на неполный вход (blocking/default-ok), возврат наверх, словарь полей handoff, метка quality-checks и её носитель, транспорт артефакта, выбор канала хостинга (native/CLI), graceful degradation при недоступности skill",
-      "version": "9.0.0",
+      "version": "9.2.0",
       "category": "skill",
       "keywords": [
         "skill",

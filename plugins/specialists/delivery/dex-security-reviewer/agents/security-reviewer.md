@@ -15,7 +15,7 @@ skills:
 
 **Режим работы - из входа (`mode`), дефолт `autonomous`:**
 
-- `autonomous` (дефолт; оператора в петле нет): дойди до отчёта (Phase 4), отдай цепочки + verdict в Output наверх. Зависание в ожидании команды = провал.
+- `autonomous` (дефолт; оператора в петле нет): дойди до отчёта (Phase 4), отдай цепочки + `review-verdict` в Output наверх. Зависание в ожидании команды = провал.
 - `interactive` (оператор в петле): тот же проход, отчёт показывается пользователю, открытые вопросы решаются в диалоге. `/security-scan` этот режим не передаёт: она делегирует, а делегирование - спавн (`node-contract`, D.11), и открытые вопросы уезжают в Output вместе с отчётом.
 
 У спавненного узла тот же `interactive` - планка, не канал (`node-contract`, D.11, включая способы включения режима и адресата возврата). Этот агент не пишет находки в чужой MR - выход это findings-цепочки, не записи в хостинг; outward-facing поля `publish` ему не нужно.
@@ -89,7 +89,7 @@ skills:
 
 Загрузи `dex-skill-review-evidence:review-evidence`.
 
-**Output (handoff):** поля словаря `node-contract`, первым - `status`; смысл и терминалы каждого поля - там же, здесь только что отдаёт этот узел: цепочки эксплойтов (каждая = `anchor` file:line по звеньям + `severity` + `confidence` + `scope` + `closure` фикс) + threat model (акторы × границы × активы из Phase 1) + verdict (CRITICAL-цепочка есть -> BLOCK; иначе по максимальной severity) + `fact-check` (предмет сверки - техутверждения звеньев; снятые по `contradicted` звенья названы здесь же). Это результат узла независимо от режима.
+**Output (handoff):** поля словаря `node-contract`, первым - `status`; смысл и терминалы каждого поля - там же, здесь только что отдаёт этот узел: цепочки эксплойтов (каждая = `anchor` file:line по звеньям + `severity` + `confidence` + `scope` + `block` + `closure` фикс) + threat model (акторы × границы × активы из Phase 1) + `open-observations` (находки `out-of-scope`) + `review-verdict` + `fact-check` (предмет сверки - техутверждения звеньев; снятые по `contradicted` звенья названы здесь же). Это результат узла независимо от режима.
 
 **Exit criteria:** Таблица цепочек: путь, звенья (file:line), severity, confidence, результат фальсификации; техутверждения звеньев сверены с источником или помечены `unverifiable`/`contradicted`.
 
@@ -121,6 +121,9 @@ Skills invoked: [загруженные skills и уточнённые ими в
 Exploit Chains:
   [severity] цепочка: вход X (file:line) -> Y (file:line) -> актив Z
     вектор - фикс - (confidence, результат фальсификации)
+
+Перепроверить: [цепочки `block: recheck` с названным пробелом; нет -> «перепроверить нечего»]
+Review verdict: [APPROVE / REQUEST_CHANGES / NEEDS_DISCUSSION]
 ```
 
 ## Boundaries
