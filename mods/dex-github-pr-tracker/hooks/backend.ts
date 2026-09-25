@@ -150,6 +150,10 @@ export function readEnvelope(payload: unknown): unknown {
       return typeof error.type === 'string' ? error.type : ''
     })
 
+    // Отказ «нет такого» или «не твоё» отдаётся как отсутствие, а не как
+    // ошибка, но отдаётся целиком, даже если рядом приехали данные: часть
+    // полей, оставшаяся пустой из-за нехватки прав, была бы неотличима от
+    // «проверок нет» и «тредов нет». Текст на экране называет оба случая.
     if (kinds.every(kind => MISSING.has(kind))) return null
 
     const first = rec(errors[0])
@@ -237,8 +241,18 @@ function restApi(host: Host, hostname: string, token: string): Api {
         throw new Error(`GitHub ответил не-JSON (${response.status}): ${response.text.slice(0, 200)}`)
       }
 
-      if (!response.ok && payload === null) {
-        throw new Error(`GitHub ответил ${response.status}`)
+      // Не-2xx - отказ самого хоста: не тот эндпоинт, сбой, лимит. Ошибка
+      // запроса у GraphQL приезжает полем `errors` с кодом 200, поэтому код
+      // ответа разбирается до конверта, а не после: иначе отказ хоста читался
+      // бы как «PR не найден».
+      if (!response.ok) {
+        const message = rec(payload).message
+
+        throw new Error(
+          typeof message === 'string'
+            ? `GitHub ответил ${response.status}: ${message}`
+            : `GitHub ответил ${response.status}`,
+        )
       }
 
       return readEnvelope(payload)
