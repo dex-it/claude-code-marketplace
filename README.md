@@ -12,6 +12,9 @@ Level 2: SPECIALISTS - агенты с узкой специализацией
 Level 1: SKILLS      - базы знаний (автоматическая активация)
          UTILITIES   - инструменты (hooks, notifications, CLI)
 
+Сбоку от уровней: MODS - плагины на function hooks, меняющие сам Claude Code
+(панели, строки над вводом, перехват вызовов инструментов).
+
 Поверх уровней: команды - точки входа в работу (`/feature`, `/design`, `/implement`,
 `/mr-review`), которые ведут порядок через специалистов и skills.
 ```
@@ -322,6 +325,26 @@ claude plugins uninstall dex-dotnet-coder
 
 Windows: `install-bundle\install-cli-tools.ps1` (winget / scoop / choco).
 
+## Mods
+
+Мод - плагин, поведение которого несёт модуль function hooks: TypeScript, который исполняется
+внутри процесса Claude Code и меняет то, что клиент делает и показывает. Лежат отдельным деревом
+`mods/`, ставятся адресно (в бандлы ролей не входят) и требуют `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1`
+- function hooks в раннем доступе. Как устроен класс и чем проверяется -
+[docs/MOD_FRAMEWORK.md](./docs/MOD_FRAMEWORK.md).
+
+| Мод | Команда | Описание |
+|-----|---------|----------|
+| dex-github-pr-tracker | `/pr` | Pull request GitHub репозитория из папки сессии: состояние, merge state status, исход обязательных проверок, вердикт ревью и апрувы, открытые и решённые треды с комментариями, коммиты - строкой над вводом и панелью; изменения приходят тостом и строкой в транскрипт, `/pr threads` и `/pr checks` отдают треды и упавшие проверки текстом для модели. Нескольких PR сразу сводит `/pr list` - общий список с итогом и входом в детали; `/pr repo` называет репозиторий, когда сессия открыта не в клоне |
+| dex-gitlab-mr-tracker | `/mr` | Merge request GitLab проекта из папки сессии: состояние, merge status, пайплайн, апрувы, открытые и решённые треды с комментариями, коммиты - строкой над вводом и панелью; изменения приходят тостом и строкой в транскрипт, `/mr threads` отдаёт треды текстом для модели. Нескольких MR сразу сводит `/mr list` - общий список с итогом и входом в детали; `/mr repo` называет проект, когда сессия открыта не в клоне |
+
+Два трекера одной формы: строка, панель, общий список наблюдения, команды и настройки у них совпадают, различия идут от хостингов и названы в README каждого.
+
+```bash
+claude plugin install dex-github-pr-tracker@dex-claude-marketplace
+claude plugin install dex-gitlab-mr-tracker@dex-claude-marketplace
+```
+
 ## MCP Servers
 
 MCP конфигурации в каталоге `mcp/`. Подробнее: [mcp/README.md](./mcp/README.md)
@@ -347,6 +370,7 @@ MCP конфигурации в каталоге `mcp/`. Подробнее: [mc
 | [AGENT_FRAMEWORK.md](./docs/AGENT_FRAMEWORK.md) | как устроен агент: фаза-контракт, стандартный вход и выход, рецепты ролей, frontmatter |
 | [SKILL_FRAMEWORK.md](./docs/SKILL_FRAMEWORK.md) | как устроен skill: жанры, поле активации, границы, размер |
 | [COMMAND_FRAMEWORK.md](./docs/COMMAND_FRAMEWORK.md) | как устроена команда-вход и чем она отличается от агента |
+| [MOD_FRAMEWORK.md](./docs/MOD_FRAMEWORK.md) | как устроен мод: function hooks, дерево `mods/`, `userConfig`, контракт типов, инструментарий |
 | [VALIDATOR_RULES.md](./docs/VALIDATOR_RULES.md) | реестр правил валидаторов: что ловит каждое и где живёт его норма |
 | [CORPUS.md](./docs/CORPUS.md) | корпус проекта на диске: носители, уровни артефакта, ключи путей, кто судит |
 | [DEV_PROCESS_COVERAGE.md](./docs/DEV_PROCESS_COVERAGE.md) | карта «слот процесса разработки -> агент, который его закрывает» |
@@ -384,6 +408,11 @@ claude-code-marketplace/
 │   └── bundles/                   # Level 3: наборы
 │       ├── dex-bundle-dotnet-developer/
 │       └── ...
+├── mods/                          # Моды: function hooks на TypeScript
+│   ├── types/claude-code.d.ts     # контракт API (пишет /plugin-types)
+│   ├── tsconfig.json              # типы хуков; tsconfig.tests.json - типы прогонов
+│   ├── dex-github-pr-tracker/
+│   └── dex-gitlab-mr-tracker/
 ├── docs/                          # Фреймворки, нормативы, ADR каталога
 ├── tests/                         # Фикстуры правил, прогоны, активация
 ├── tools/                         # Валидаторы, раннер правил, генератор витрины
@@ -448,4 +477,4 @@ GPL v3.0 - см. [LICENSE](./LICENSE)
 
 ---
 
-**DEX Team** - Version 6.4.0
+**DEX Team** - Version 6.6.0

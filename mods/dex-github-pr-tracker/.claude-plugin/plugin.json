@@ -1,0 +1,90 @@
+{
+  "name": "dex-github-pr-tracker",
+  "version": "1.1.0",
+  "description": "Мод на function hooks: следит за pull request GitHub проекта, открытого в сессии. Строка над вводом и панель /pr несут состояние PR, merge state status, исход обязательных проверок, вердикт ревью и апрувы, открытые и решённые треды с числом комментариев, коммиты и объём изменений; смена статуса, новый тред, новый комментарий и новые коммиты приходят тостом и строкой в транскрипт. Команды /pr threads и /pr checks отдают открытые треды и упавшие проверки текстом - модель читает их как вход для правок. Наблюдать можно несколько PR сразу: /pr list сводит их в общий список с итогом и порядком по тому, что ждёт вас, а вход в строку открывает детали. /pr repo называет репозиторий руками, когда сессия открыта не в клоне.",
+  "author": {
+    "name": "Dex Team",
+    "email": "mmx@dex-it.ru"
+  },
+  "keywords": [
+    "utility",
+    "mod",
+    "function-hooks",
+    "github",
+    "pull-requests",
+    "gh",
+    "threads",
+    "checks",
+    "code-review"
+  ],
+  "repository": "https://github.com/dex-it/claude-code-marketplace",
+  "license": "GPL-3.0",
+  "userConfig": {
+    "remote": {
+      "type": "string",
+      "title": "Git remote",
+      "description": "Remote, из URL которого берутся хост и путь репозитория GitHub.",
+      "default": "origin"
+    },
+    "host": {
+      "type": "string",
+      "title": "GitHub host",
+      "description": "Хост GitHub, если его не вывести из remote (github.com либо адрес Enterprise Server).",
+      "default": ""
+    },
+    "repository": {
+      "type": "string",
+      "title": "Repository",
+      "description": "Репозиторий вида owner/repo, если его не вывести из remote.",
+      "default": ""
+    },
+    "pollSeconds": {
+      "type": "number",
+      "title": "Poll interval, seconds",
+      "description": "Период опроса GitHub. Минимум 15 секунд.",
+      "default": 60,
+      "min": 15,
+      "max": 3600
+    },
+    "autoWatchBranch": {
+      "type": "boolean",
+      "title": "Watch the branch PR",
+      "description": "Самому находить открытый PR текущей ветки и следить за ним, переключаясь вместе с веткой.",
+      "default": true
+    },
+    "backend": {
+      "type": "string",
+      "title": "Data source",
+      "description": "auto - gh, а без него GraphQL с токеном; gh - только gh; api - только GraphQL.",
+      "default": "auto",
+      "options": [
+        "auto",
+        "gh",
+        "api"
+      ]
+    },
+    "token": {
+      "type": "string",
+      "title": "Access token",
+      "description": "Токен с правом чтения pull request для источника api. Пусто - берётся из GH_TOKEN или GITHUB_TOKEN (для Enterprise Server - GH_ENTERPRISE_TOKEN).",
+      "sensitive": true
+    },
+    "notify": {
+      "type": "string",
+      "title": "What to announce",
+      "description": "all - каждое изменение, включая комментарии в тредах; important - только состояние, merge status, проверки, ревью и новые треды; off - молча.",
+      "default": "all",
+      "options": [
+        "all",
+        "important",
+        "off"
+      ]
+    },
+    "sound": {
+      "type": "boolean",
+      "title": "Sound on change",
+      "description": "Звук системы на изменение (macOS, afplay). По умолчанию выключен - тоста и строки транскрипта хватает.",
+      "default": false
+    }
+  }
+}
