@@ -565,7 +565,6 @@ skills:
 **Exit criteria:** ...
 
 Загружай релевантные skills императивно через Skill tool:
-- Всегда `dex-skill-dotnet-di:dotnet-di` - captive dependency, Service Locator
 - Если deadlock/fire-and-forget - `dex-skill-dotnet-async-patterns:dotnet-async-patterns`
 - Если баг с данными/EF - `dex-skill-dotnet-ef-core:dotnet-ef-core`
 ```
@@ -951,7 +950,6 @@ Reproduce -> Isolate -> Fix -> Verify. Reproduce и Verify обязательн�
 **Exit criteria:** Гипотеза «если X в файл.cs:42, то Y, потому что Z» подтверждена чтением кода или repro из Phase 1.
 
 Загружай релевантные skills императивно через Skill tool:
-- Всегда `dex-skill-dotnet-di:dotnet-di` - captive dependency, Service Locator
 - Всегда `dex-skill-dotnet-resources:dotnet-resources` - IDisposable, утечки
 - Если deadlock/fire-and-forget - `dex-skill-dotnet-async-patterns:dotnet-async-patterns`
 - Если баг с данными/EF - `dex-skill-dotnet-ef-core:dotnet-ef-core`

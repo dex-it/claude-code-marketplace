@@ -1,0 +1,72 @@
+name: Deploy EF Core migrations
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Migrations/**'
+  workflow_dispatch: {}
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  EF_TOOL_VERSION: '8.*'
+  # Adjust to the real project layout; Shop.Data holds the DbContext/migrations in this repo.
+  DATA_PROJECT: Shop.Data/Shop.Data.csproj
+
+jobs:
+  build-bundle:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Install dotnet-ef
+        run: dotnet tool install --global dotnet-ef --version ${{ env.EF_TOOL_VERSION }}
+
+      - name: Build self-contained migration bundle
+        env:
+          ASPNETCORE_ENVIRONMENT: Production
+        run: |
+          dotnet ef migrations bundle \
+            --project "$DATA_PROJECT" \
+            --self-contained \
+            --target-runtime linux-x64 \
+            --output artifacts/efbundle
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: efbundle
+          path: artifacts/efbundle
+          retention-days: 7
+
+  deploy-migrations:
+    needs: build-bundle
+    runs-on: ubuntu-latest
+    environment: production
+    # No auto-retry: EF Core 8 has no built-in migration lock (added in EF Core 9), so a second
+    # concurrent run could apply the same schema change twice.
+    concurrency:
+      group: deploy-migrations-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: efbundle
+          path: artifacts
+
+      - name: Apply migrations to production
+        env:
+          ASPNETCORE_ENVIRONMENT: Production
+          PROD_DB_CONNECTION_STRING: ${{ secrets.PROD_DB_CONNECTION_STRING }}
+        run: |
+          chmod +x artifacts/efbundle
+          ./artifacts/efbundle --connection "$PROD_DB_CONNECTION_STRING"
+
+  # The app deployment job (existing in this repo's pipeline) must declare
+  # `needs: deploy-migrations` so the new Categories/OrderCategories tables exist
+  # before the next app version that reads them starts serving traffic.

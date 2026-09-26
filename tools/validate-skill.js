@@ -131,7 +131,7 @@ function findAllSkillFiles() {
 // Пороги размера парны с docs/SKILL_FRAMEWORK.md, раздел "Размер skill" - это их нормативный дом.
 // Прозаическую копию числа держит только он; меняешь порог - правишь оба места одним коммитом.
 const CLAUDE_CODE_HARD_LIMIT = 500; // Anthropic recommendation ("Keep SKILL.md under 500 lines") - not an enforced platform truncation limit
-const PROJECT_RECOMMENDED_MAX = 250; // project line-count guideline (trap-skill: цель 80-120)
+const PROJECT_RECOMMENDED_MAX = 250; // project line-count guideline
 // Верхний порог общий для обоих типов: рекомендация Anthropic названа в строках и типа skill не
 // различает. Process-skill освобождён только от проектного trap-порога (250) - костяк движка не
 // дробится на каталог ловушек; от платформенного потолка не освобождён никто, деталь по требованию
@@ -158,7 +158,7 @@ const MIN_TRIGGER_KEYWORDS = 10;
 /**
  * Process / orchestration skills encode a workflow rule (e.g. "new project ->
  * inherit solution rules") or a registry, not a catalogue of API traps. The trap
- * heuristics (count + Плохо/Правильно/Почему triad) don't apply, so validateTraps
+ * heuristic (Плохо/Правильно/Почему triad) doesn't apply, so validateTraps
  * skips them entirely; instead validateProcessStructure enforces a content floor
  * (a table or >=2 H2 sections) so the exemption can't shelter a stub. Keyword-count,
  * size and description limits stay strict - activation must still be reliable.
@@ -656,21 +656,13 @@ function trapBodyText(trap) {
 
 function validateTraps(markdownBody, findings, isProcess = false) {
   // Process skills encode orchestration rules (registry, decision forks), not a
-  // catalogue of API traps. The trap heuristics (count + Плохо/Правильно/Почему
-  // triad) don't apply to them - structure is checked by validateProcessStructure
+  // catalogue of API traps. The trap heuristic (Плохо/Правильно/Почему triad)
+  // doesn't apply to them - structure is checked by validateProcessStructure
   // instead. Triads remain *allowed* in a process skill (e.g. decision forks in
   // project-baseline), just not *required*.
   if (isProcess) return;
 
   const traps = extractTraps(markdownBody);
-
-  if (traps.length < 5) {
-    findings.push({
-      level: ERROR,
-      rule: 'too-few-traps',
-      message: `Skill has only ${traps.length} H3 sections - framework recommends 10-15 traps per skill`,
-    });
-  }
 
   for (const trap of traps) {
     const body = trapBodyText(trap).toLowerCase();
@@ -697,7 +689,7 @@ function validateTraps(markdownBody, findings, isProcess = false) {
 // --- Process structure validation ---------------------------------------
 
 /**
- * A process skill is exempt from trap heuristics, so it needs its own floor to
+ * A process skill is exempt from the trap triad, so it needs its own floor to
  * stop an empty/under-built skill from slipping through on the exemption alone.
  * It must carry actual orchestration content: a registry table OR at least two
  * H2 rule/decision sections. Below that it's not a process skill - it's a stub.
