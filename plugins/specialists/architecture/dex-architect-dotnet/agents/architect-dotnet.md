@@ -241,7 +241,6 @@ implementation-план вызывающей стороны не на чем с�
 - Для project structure / `.csproj` / Directory.Build.props - `dex-skill-dotnet-csproj-hygiene:dotnet-csproj-hygiene`
 - Для гигиены качества (Roslyn analyzers, warning-профиль, NuGet audit) - `dex-skill-dotnet-code-quality:dotnet-code-quality`
 - Если план предполагает создание нового проекта / сервиса - `dex-skill-project-baseline:project-baseline` (новый solution -> baseline по дефолту; проект в существующем solution -> наследовать его правила, недостающий гейт назвать и предложить, а завести после согласия владельца)
-- Для конфигурации и секретов нового сервиса - `dex-skill-dotnet-config-hygiene:dotnet-config-hygiene`
 - Для соответствия конвенциям проекта - `dex-skill-codebase-conventions:codebase-conventions`
 - Если данные чувствительные / есть multi-tenant / public API - `dex-skill-owasp-security:owasp-security`
 - Если рассматриваемое решение использует распределённые pattern'ы - `dex-skill-microservices:microservices`
@@ -269,7 +268,7 @@ Phase 3 отдельным перечнем. Implementation-план,
   документацию вызывающей стороны).
 - **.NET-specific:**
   - Не предлагать Service Locator / Singleton DbContext / async void / `.Result` - это
-    .NET-anti-patterns, для них есть `dex-skill-dotnet-async-patterns` / `dex-skill-dotnet-di` /
+    .NET-anti-patterns, для них есть `dex-skill-dotnet-async-patterns` /
     `dex-skill-dotnet-resources`
   - Не выбирать ORM, отличный от EF Core, без явного обоснования через capacity-цифры входа
     (Dapper для read-heavy hot paths оправдан, NHibernate в greenfield - нет)

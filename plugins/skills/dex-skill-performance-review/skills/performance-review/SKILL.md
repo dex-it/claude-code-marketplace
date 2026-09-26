@@ -174,7 +174,7 @@ description: Ловушки производительности при ревь
 
 > Runtime-профилирование живого процесса (perf record, FlameGraph) - dex-skill-perf-profiling.
 > .NET-специфичная диагностика (EF-запросы, APM, память) - агент dotnet-performance-analyst.
-> .NET-конкретика граблей этих осей - dex-skill-dotnet-linq-optimization / dex-skill-dotnet-ef-core / dex-skill-dotnet-async-patterns / dex-skill-dotnet-resources; здесь нейтральный принцип, там стековая механика.
+> .NET-конкретика граблей этих осей - dex-skill-dotnet-ef-core / dex-skill-dotnet-async-patterns / dex-skill-dotnet-resources; здесь нейтральный принцип, там стековая механика.
 > Тайм-аут/ретрай/backoff/circuit breaker - dex-skill-distributed-resilience.
 > ReDoS как вектор атаки (вредоносный ввод, DoS) - security-reviewer/owasp; здесь только перф-грань.
 > Что и куда логировать (уровни, PII, структурность) - dex-skill-dotnet-logging (стековый дом, нейтрального нет); здесь только лишняя работа лога.
