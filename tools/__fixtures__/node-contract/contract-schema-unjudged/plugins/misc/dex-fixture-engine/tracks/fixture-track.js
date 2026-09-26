@@ -1,4 +1,4 @@
-// Фикстурный трек: схемы, которые сканер не разбирает литералом, - константа, шаблон, spread (и spread схемы, которая сама не разобрана), вычисляемый ключ, вызов вместо перечня; незакрытый шаблон в конце файла.
+// Фикстурный трек: схемы, которые сканер не разбирает литералом, - константа, шаблон, spread (и spread схемы, которая сама не разобрана, spread подключа, самоссылка и цикл), вычисляемый ключ, вызов вместо перечня; незакрытый шаблон в конце файла.
 export const meta = {
   name: 'fixture-track',
   description: 'Трек песочницы: схемы узлов не литералом',
@@ -21,6 +21,10 @@ const PAREN = { type: 'object', properties: { status: STATUS }, required: (REQ) 
 const NUL = { type: 'object', properties: null, required: false }
 const EXTENDED = { type: 'object', properties: { ...LITERAL.properties, uncovered: STATUS }, required: [...LITERAL.required, 'uncovered'] }
 const CHAINED = { type: 'object', properties: { ...SPREAD.properties }, required: [...FIX.required] }
+const SUBKEY = { type: 'object', properties: { ...LITERAL.properties.status, uncovered: STATUS }, required: ['status'] }
+const SELF = { type: 'object', properties: { ...SELF.properties, uncovered: STATUS }, required: ['status'] }
+const CYC_A = { type: 'object', properties: { ...CYC_B.properties }, required: ['status'] }
+const CYC_B = { type: 'object', properties: { ...CYC_A.properties }, required: ['status'] }
 
 phase('Fix')
 const made = await agent('собери', { label: 'made', phase: 'Fix', schema: makeSchema() })

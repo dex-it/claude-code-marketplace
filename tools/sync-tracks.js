@@ -14,21 +14,43 @@ const SHARED = join(REPO_ROOT, 'plugins', 'auto', 'tracks-shared');
 const TRACKS = join(REPO_ROOT, 'plugins', 'auto', 'dex-auto', 'tracks');
 
 const checkOnly = process.argv.includes('--check');
-const OPEN = /^\/\/ >>> shared: ([a-z0-9-]+)\b/;
+const OPEN = /^\/\/ >>> shared: ([a-z0-9-]+)\s*$/;
 const CLOSE = /^\/\/ <<< shared: ([a-z0-9-]+)\s*$/;
+// Строка, похожая на маркер, но не совпавшая со строгим, молча стала бы кодом трека, а блок - ручной копией.
+const LOOSE = /^\s*\/\/\s*(>>>|<<<)/;
+// Все имена верхнего уровня источника вне блоков трека - копия, которую генератор не видит: так остаётся блок со снятыми маркерами.
+// Одно совпавшее имя - не копия: трек вправе держать своё (review.js - свою схему REVIEW).
+const DECL = /^(?:export\s+)?(?:const|let|var|class|(?:async\s+)?function\*?)\s+([A-Za-z_$][\w$]*)/;
 
 const rel = (p) => relative(REPO_ROOT, p);
 const errors = [];
 const stale = [];
 const used = new Set();
+const sources = existsSync(SHARED) ? readdirSync(SHARED).filter((f) => f.endsWith('.js')) : [];
+const declared = new Map();
+const namesOf = new Map();
+for (const f of sources) {
+  const text = readFileSync(join(SHARED, f), 'utf8');
+  if (text.includes('\r')) errors.push(`${rel(join(SHARED, f))}: CR в источнике - блок трека собрался бы со смешанными концами строк`);
+  text.split('\n').forEach((line, i) => {
+    if (LOOSE.test(line)) errors.push(`${rel(join(SHARED, f))}:${i + 1}: строка маркера в источнике - разметка трека сломалась бы при вставке`);
+    const d = line.match(DECL);
+    if (d) { declared.set(d[1], f); namesOf.set(f, [...(namesOf.get(f) || []), d[1]]); }
+  });
+}
 
 function rebuild(file, text) {
+  if (text.includes('\r')) errors.push(`${rel(file)}: CR в треке - сверка блоков по строкам ненадёжна`);
   const lines = text.split('\n');
   const out = [];
+  const outside = new Set();
   for (let i = 0; i < lines.length; i++) {
     const open = lines[i].match(OPEN);
     if (!open) {
       if (CLOSE.test(lines[i])) errors.push(`${rel(file)}:${i + 1}: закрытие блока без открытия`);
+      else if (LOOSE.test(lines[i])) errors.push(`${rel(file)}:${i + 1}: маркер не по форме \`// >>> shared: <имя>\` / \`// <<< shared: <имя>\` с нулевой колонки`);
+      const d = lines[i].match(DECL);
+      if (d) outside.add(d[1]);
       out.push(lines[i]);
       continue;
     }
@@ -54,6 +76,9 @@ function rebuild(file, text) {
     }
     i = end;
   }
+  for (const [f, names] of namesOf) {
+    if (names.every((n) => outside.has(n))) errors.push(`${rel(file)}: имена ${rel(join(SHARED, f))} (${names.join(', ')}) объявлены вне блока - копия без маркеров, правка источника до неё не дойдёт`);
+  }
   return out.join('\n');
 }
 
@@ -64,7 +89,7 @@ const rebuilt = tracks.map((file) => {
 });
 
 // Источник, который ни один трек не вставляет, - мёртвый дом: правка в нём ни на что не влияет.
-for (const f of existsSync(SHARED) ? readdirSync(SHARED).filter((f) => f.endsWith('.js')) : []) {
+for (const f of sources) {
   const name = f.replace(/\.js$/, '');
   if (!used.has(name)) errors.push(`${rel(join(SHARED, f))}: ни один трек не вставляет блок "${name}"`);
 }
