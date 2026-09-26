@@ -25,9 +25,7 @@
 
 Recommendation for reviewer: apply as-is
 
-**Drop-in:**
-
-### Двойная материализация одной выборки
+**Основание:**
 
 **Плохо:**
 
@@ -39,6 +37,10 @@ var count = items.Where(x => x.IsActive).Count();
 **Правильно:** материализовать выборку один раз в переменную, далее работать с готовой коллекцией -- `filtered.Count`.
 
 **Почему:** повторный `Where(...)` заново проходит источник; для `IQueryable` это второй round-trip в БД.
+
+**Drop-in:**
+
+- Двойная материализация одной выборки
 
 ### dex-skill-dotnet-linq-optimization: Индексация без guard
 
@@ -58,9 +60,7 @@ var count = items.Where(x => x.IsActive).Count();
 
 Recommendation for reviewer: apply as-is
 
-**Drop-in:**
-
-### Индексация результата без проверки на пустоту
+**Основание:**
 
 **Плохо:**
 
@@ -71,6 +71,10 @@ var first = items.Where(x => x.IsActive).First();
 **Правильно:** после фильтра коллекция может быть пуста -- `FirstOrDefault()` + проверка на `null`.
 
 **Почему:** `First()` / `[0]` на пустой выборке бросает исключение; фильтр не гарантирует наличие элементов.
+
+**Drop-in:**
+
+- Индексация результата без проверки на пустоту
 
 ## Skipped (already covered)
 

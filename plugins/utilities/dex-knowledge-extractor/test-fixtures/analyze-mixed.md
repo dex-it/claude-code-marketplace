@@ -20,9 +20,7 @@
 
 Recommendation for reviewer: apply as-is
 
-**Drop-in:**
-
-### ConfigureAwait(false) в библиотечном коде
+**Основание:**
 
 **Плохо:**
 
@@ -44,12 +42,16 @@ public async Task<Result> ProcessAsync()
 }
 ```
 
-**Почему:** В библиотечном коде, не зависящем от UI/SynchronizationContext, отсутствие ConfigureAwait(false) приводит к захвату контекста и потенциальным дедлокам в callers с UI-контекстом. Для Web API (ASP.NET Core) — без разницы (нет SyncContext), но привычка полезна для NuGet-библиотек.
+**Почему:** В библиотечном коде, не зависящем от UI/SynchronizationContext, отсутствие ConfigureAwait(false) приводит к захвату контекста и потенциальным дедлокам в callers с UI-контекстом. Для Web API (ASP.NET Core) - без разницы (нет SyncContext), но привычка полезна для NuGet-библиотек.
+
+**Drop-in:**
+
+- ConfigureAwait(false) в библиотечном коде
 
 ### dex-skill-dotnet-ef-core: AsAsyncEnumerable для streaming больших выборок
 
 **Целевой skill:** dex-skill-dotnet-ef-core
-**H2-секция:** Запросы
+**H2-секция:** список чек-листа (skill без H2)
 
 **Critical assessment:**
 - Generalization confidence: high -- streaming vs материализация больших выборок -- общая граблина EF Core, не проектная
@@ -64,9 +66,7 @@ public async Task<Result> ProcessAsync()
 
 Recommendation for reviewer: apply as-is
 
-**Drop-in:**
-
-### AsAsyncEnumerable для streaming больших выборок
+**Основание:**
 
 **Плохо:**
 
@@ -82,7 +82,11 @@ await foreach (var item in _ctx.Logs.Where(l => l.Date > since).AsAsyncEnumerabl
     await _processor.HandleAsync(item);
 ```
 
-**Почему:** `ToListAsync` материализует всю выборку в память (миллионы строк → OOM). `AsAsyncEnumerable` стримит по строкам через DataReader — память константна. Подходит, когда обработка построчная и не нужно держать всё сразу.
+**Почему:** `ToListAsync` материализует всю выборку в память (миллионы строк -> OOM). `AsAsyncEnumerable` стримит по строкам через DataReader - память константна. Подходит, когда обработка построчная и не нужно держать всё сразу.
+
+**Drop-in:**
+
+- AsAsyncEnumerable для streaming больших выборок
 
 ## Proposed agent changes
 
@@ -104,9 +108,9 @@ await foreach (var item in _ctx.Logs.Where(l => l.Date > since).AsAsyncEnumerabl
 
 Recommendation for reviewer: apply as-is
 
-**Изменение:** в чек-лист фазы Content-Level Pass (Phase 5) добавить пункт «для каждого изменённого/удалённого поля в публичных DTO / API response / контрактах — пометить как breaking change, требующий versioning или миграционного плана. Сюда же — изменение поля required/optional, типа поля, default value».
+**Изменение:** в чек-лист фазы Content-Level Pass (Phase 5) добавить пункт «для каждого изменённого/удалённого поля в публичных DTO / API response / контрактах - пометить как breaking change, требующий versioning или миграционного плана. Сюда же - изменение поля required/optional, типа поля, default value».
 
-**Почему:** ревьюер пропускает контрактные ломки между сервисами (`UserDto.Email` стал nullable → потребитель упал на десериализации). Структурные правки видны в diff, но без специальной проверки воспринимаются как «обычная правка модели».
+**Почему:** ревьюер пропускает контрактные ломки между сервисами (`UserDto.Email` стал nullable -> потребитель упал на десериализации). Структурные правки видны в diff, но без специальной проверки воспринимаются как «обычная правка модели».
 
 ## Skipped (already covered)
 

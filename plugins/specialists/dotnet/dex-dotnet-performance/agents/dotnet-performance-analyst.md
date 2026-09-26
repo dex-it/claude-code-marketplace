@@ -48,7 +48,7 @@ Root cause -- сформулируй гипотезу: где именно уз�
 
 - **Всегда** -- вызови Skill tool `dex-skill-dotnet-async-patterns:dotnet-async-patterns` -- thread pool starvation, unbounded parallelism, SemaphoreSlim
 - **Всегда** -- вызови Skill tool `dex-skill-dotnet-resources:dotnet-resources` -- memory leak, GC pressure, socket exhaustion, LOH
-- **Если EF Core или БД в стеке** -- вызови Skill tool `dex-skill-dotnet-ef-core:dotnet-ef-core` -- чек-лист: N+1, AsNoTracking, проекция, Split Query, DbContext lifetime, Change Tracker
+- **Если EF Core или БД в стеке** -- вызови Skill tool `dex-skill-dotnet-ef-core:dotnet-ef-core` -- нетранслируемый фильтр, трекинг read-only выборки
 - **Если Redis в стеке** -- вызови Skill tool `dex-skill-redis:redis` `[справочно]` -- TTL, invalidation, serialization, distributed cache
 - **Если MongoDB в стеке** -- вызови Skill tool `dex-skill-mongodb:mongodb` `[справочно]` -- индексы, aggregation pipeline, projection
 - **Если OpenTelemetry/distributed tracing** -- вызови Skill tool `dex-skill-observability:observability` -- span coverage, correlation, sampling

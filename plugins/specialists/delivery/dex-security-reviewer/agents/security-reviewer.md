@@ -68,7 +68,7 @@ skills:
   - идемпотентность / rate limit / replay -- `dex-skill-distributed-resilience:distributed-resilience`
   - межсервисное взаимодействие (SSRF, доверие между сервисами) -- `dex-skill-microservices:microservices`
 - **Профильные по стеку** -- из набора `dex-skill-<стек>-*`, отобранные по поверхности атаки. Примеры (не исчерпывающий список):
-  - *.NET:* API/контроллеры - `dex-skill-dotnet-api-development`; EF/доступ к данным - `dex-skill-dotnet-ef-core` (FromSqlRaw, доступ к чужим данным); логи как вектор утечки PII/секретов - `dex-skill-dotnet-logging`
+  - *.NET:* API/контроллеры - `dex-skill-dotnet-api-development`; логи как вектор утечки PII/секретов - `dex-skill-dotnet-logging`
   - *TypeScript/JS:* `dex-skill-ts-nodejs-api` (валидация ввода, секреты в env, порядок auth-middleware)
   - имена вызывай в полной форме `{plugin}:{skill}`
 

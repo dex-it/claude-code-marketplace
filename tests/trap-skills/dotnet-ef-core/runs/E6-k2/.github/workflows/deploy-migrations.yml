@@ -1,0 +1,74 @@
+name: Deploy database migrations
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/Shop.Data/Migrations/**'
+  workflow_dispatch: {}
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  # путь к .csproj с DbContext/Migrations - подставить реальный из решения
+  EF_PROJECT: src/Shop.Data/Shop.Data.csproj
+
+jobs:
+  generate-script:
+    name: Generate idempotent migration script
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore
+        run: dotnet restore "${{ env.EF_PROJECT }}"
+
+      - name: Install dotnet-ef
+        run: dotnet tool install --global dotnet-ef --version 8.*
+
+      - name: Generate idempotent SQL script
+        env:
+          ASPNETCORE_ENVIRONMENT: Production
+        run: |
+          dotnet ef migrations script --idempotent \
+            --project "${{ env.EF_PROJECT }}" \
+            --output migration.sql
+
+      - name: Put SQL into job summary for reviewer
+        run: |
+          {
+            echo '### SQL, который применится на production'
+            echo '```sql'
+            cat migration.sql
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: migration-script
+          path: migration.sql
+          retention-days: 90
+
+  apply-migration:
+    name: Apply migration to production
+    needs: generate-script
+    runs-on: ubuntu-latest
+    # environment.production - Settings -> Environments -> Required reviewers;
+    # апрувер смотрит SQL job summary'ем выше до подтверждения
+    environment: production
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: migration-script
+
+      - name: Install psql client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Apply reviewed SQL
+        env:
+          # отдельная роль с правами DDL, не runtime-подключение приложения
+          PGCONNSTR: ${{ secrets.PRODUCTION_MIGRATION_CONNECTION_STRING }}
+        run: psql "$PGCONNSTR" -v ON_ERROR_STOP=1 -f migration.sql
