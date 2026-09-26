@@ -1953,20 +1953,21 @@
     {
       "name": "dex-skill-fact-verification",
       "source": "./plugins/skills/dex-skill-fact-verification",
-      "description": "Сверка технического факта с источником истины: имя API по памяти, перевёрнутая причинность, факт на веру из MR/кода. Дисциплина для ревью и диагностики - проверять имена, дефолты и причинность через context7/WebSearch версии проекта, не выдавать неподтверждённое за факт.",
-      "version": "1.3.0",
+      "description": "Сверка технического факта с источником истины для ревью, диагностики и аудита - чек-лист: имя API, поведение библиотеки по словам автора, версия проекта против latest, условие нормы, отрицательный факт. Источник по порядку: context7, официальная документация, проба на версии проекта или исходник по тегу; несверенное - статусом unverifiable, не фактом.",
+      "version": "2.0.0",
       "category": "skill",
       "keywords": [
         "skill",
         "fact-verification",
         "fact-check",
         "api-name",
-        "default-behavior",
-        "causality",
-        "context7",
-        "source-of-truth",
         "hallucinated-api",
-        "version-default"
+        "default-behavior",
+        "version-default",
+        "norm-condition",
+        "negative-fact",
+        "context7",
+        "source-of-truth"
       ]
     },
     {

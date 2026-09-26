@@ -19,6 +19,7 @@
 
 | Набор | Скилл | Заход | Итог |
 |---|---|---|---|
+| [fact-verification](fact-verification/README.md) | `dex-skill-fact-verification` 1.3.0 | ревью кода и ADR | 7 ловушек -> чек-лист из 5 пунктов |
 | [performance-review](performance-review/README.md) | `dex-skill-performance-review` 1.0.1 | ревью | 24 ловушки и чек-лист -> чек-лист |
 | [dotnet-ef-core](dotnet-ef-core/README.md) | `dex-skill-dotnet-ef-core` 2.6.2 | поручения на код | 28 ловушек -> 5 -> чек-лист |
 | [removed/dotnet-linq-optimization](removed/dotnet-linq-optimization/README.md) | `dex-skill-dotnet-linq-optimization` 2.3.1 | поручения на код, ревью | снят |
