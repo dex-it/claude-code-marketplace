@@ -19,6 +19,30 @@ check "$(git -C "$p" rev-parse --abbrev-ref HEAD 2>/dev/null)" "auto/PROJ-1" "pa
 check "$("$W" path PROJ-1 2>/dev/null)" "$p" "path: повторный вызов переиспользует дерево"
 check "$(git -C "$R" worktree list | wc -l)" "2" "path: второго дерева на ту же задачу нет"
 
+# Ключ ledger - каталог запуска: после EnterWorktree скрипты и хуки стартуют в дереве трека (ledger.md T2).
+export CLAUDE_CONFIG_DIR="$T/cfg"; unset CLAUDE_PROJECT_DIR
+L="$H/ledger.py"; key="$("$L" root)"
+check "$(DEX_AUTO_CWD="$p" "$L" root)" "$key" "метка: из дерева трека ledger по каталогу запуска"
+mkdir "$p/deep"; check "$(DEX_AUTO_CWD="$p/deep" "$L" root)" "$key" "метка: из подкаталога дерева тот же ключ"; rmdir "$p/deep"
+check "$(DEX_AUTO_CWD="$p" "$W" path PROJ-1 2>/dev/null)" "$p" "метка: path из самого дерева - то же дерево"
+check "$(DEX_AUTO_CWD="$p" "$L" root)" "$key" "метка: path из дерева не перезаписал каталог запуска деревом"
+"$L" open PROJ-1 autonomous >/dev/null
+check "$(printf '{"cwd":"%s","source":"startup"}' "$p" | CLAUDE_PROJECT_DIR="$p" "$H/session-start.py" | grep -c 'открытая цель PROJ-1')" "1" "метка: сессия, поднятая в дереве, находит цель"
+mkdir "$R/sub"; p5="$(DEX_AUTO_CWD="$R/sub" "$W" path PROJ-5 2>/dev/null)"
+check "$(DEX_AUTO_CWD="$p5" "$L" root)" "$(DEX_AUTO_CWD="$R/sub" "$L" root)" "метка: запуск из подкаталога - ключ этого подкаталога"
+mkdir "$p/sm"; echo "gitdir: $T/sm-git" > "$p/sm/.git"
+check "$(DEX_AUTO_CWD="$p/sm" "$L" root)" "$key" "метка: файл .git без метки внутри дерева (подмодуль) подъём не обрывает"
+rm -f "$p/sm/.git"; rmdir "$p/sm"
+echo "$T/gone" > "$(git -C "$p5" rev-parse --absolute-git-dir)/dex-auto-launch"
+own="$T/cfg/projects/$(python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import dexauto; print(dexauto.slug(sys.argv[2]))' "$H" "$p5")/ledger"
+check "$(DEX_AUTO_CWD="$p5" "$L" root)" "$own" "метка: каталог запуска исчез - ключ от своего каталога, не от мёртвой метки"
+printf '\xff\n' > "$(git -C "$p5" rev-parse --absolute-git-dir)/dex-auto-launch"
+check "$(DEX_AUTO_CWD="$p5" "$L" root 2>/dev/null)" "$own" "метка: байты не UTF-8 - ключ от своего каталога, скрипт не падает"
+git init -q "$p/inner"
+inner="$T/cfg/projects/$(python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import dexauto; print(dexauto.slug(sys.argv[2]))' "$H" "$p/inner")/ledger"
+check "$(DEX_AUTO_CWD="$p/inner" "$L" root)" "$inner" "метка: каталог .git внутри дерева обрывает подъём - свой репозиторий, свой ключ"
+rm -rf "${p:?}/inner"
+
 echo two > "$p/b.txt"; git -C "$p" add -A; git -C "$p" commit -qm "работа трека"
 head="$(git -C "$p" rev-parse HEAD)"
 "$W" drop PROJ-1 2>/dev/null; check "$?" "0" "drop: чистое дерево снимается"

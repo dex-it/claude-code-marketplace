@@ -15,7 +15,7 @@ async function runTrack(track, args, responses, unavailable = []) {
   const calls = []
   const agent = async (prompt, opts = {}) => {
     if (opts.agentType && unavailable.includes(opts.agentType)) throw new Error(`agent type not found: ${opts.agentType}`)
-    calls.push({ label: opts.label, phase: opts.phase, agentType: opts.agentType, prompt })
+    calls.push({ label: opts.label, phase: opts.phase, agentType: opts.agentType, prompt, schema: opts.schema })
     if (!(opts.label in responses)) throw new Error(`сценарий не задал ответ на label "${opts.label}"`)
     const r = responses[opts.label]
     const value = typeof r === 'function' ? r(calls.filter(c => c.label === opts.label).length, prompt) : r
@@ -36,7 +36,7 @@ const red = { ...green, exit_code: 1, fail_count: 2, failing: ['T1', 'T2'], head
 const dirty = { ...green, dirty: true }
 const ctxOk = { status: 'complete', requirements: ['R1 ...'], files: ['src/A.cs'], corpus: 'docs/', 'conflict-status': 'none', conflicts: [], missing: '' }
 // Техконтекст отдаёт свой узел: в разведке его полей нет вовсе, иначе сценарий не отличит «трек взял у подготовки» от «взял у разведки».
-const prepOk = { status: 'complete', stack: 'dotnet', stack_basis: 'src/A.csproj:1', test_cmd: 'dotnet test', build_cmd: 'dotnet build', prepare_cmd: 'dotnet restore', 'prepare-status': 'done', prepare_log: 'exit 0, obj/project.assets.json на месте', missing: '' }
+const prepOk = { status: 'complete', stack: 'dotnet', stack_basis: 'src/A.csproj:1', test_cmd: 'dotnet test', build_cmd: 'dotnet build', prepare_cmd: 'dotnet restore', 'prepare-status': 'done', prepare_log: 'exit 0, obj/project.assets.json на месте', 'baseline-status': 'green', baseline_log: 'сборка ok, тестов 9 прошло', missing: '' }
 const prepTs = { ...prepOk, stack: 'ts', stack_basis: 'package.json:1', test_cmd: 'npm test', build_cmd: 'tsc', prepare_cmd: 'npm ci' }
 const prepNotNeeded = { ...prepOk, prepare_cmd: '', 'prepare-status': 'not-needed', prepare_log: 'зависимости ставит сама сборка' }
 const prepFailed = { ...prepOk, 'prepare-status': 'failed', prepare_log: 'dotnet restore: NU1101 фид недоступен' }
@@ -75,14 +75,23 @@ const oldThread = (({ id, ...t }) => t)(oldP1)
 const ledgerF3 = { id: 'F3', anchor: 'api/old.ts:3', severity: 'P1', text: 'проверка владельца', closure: 'owner сверяется', status: 'open', run: 1 }
 const falOk = { status: 'complete', confirmed: [mrFinding], dropped: [{ anchor: 'api/db.ts:7', reason: 'закрыто соседним коммитом' }], coverage: 'ветка X непокрыта', 'review-verdict': 'REQUEST_CHANGES', prior: [], missing: '' }
 
-const featureArgs = { task: 'F-1', goal: 'цель', done: 'npm test -> 0', boundary: 'не трогать схему', mode: 'autonomous', cwd: '/repo-F-1', main_cwd: '/repo' }
-const bugfixArgs = { task: 'B-1', symptom: 'дубль платежа', expected: 'один платёж', env: 'staging', done: 'npm test -> 0', mode: 'autonomous', cwd: '/repo-B-1', main_cwd: '/repo' }
+const featureArgs = { task: 'F-1', goal: 'цель', done: 'npm test -> 0', boundary: 'не трогать схему', mode: 'autonomous', cwd: '/repo-F-1' }
+const bugfixArgs = { task: 'B-1', symptom: 'дубль платежа', expected: 'один платёж', env: 'staging', done: 'npm test -> 0', mode: 'autonomous', cwd: '/repo-B-1' }
 const reviewArgs = { task: 'gh-1', mr: 'owner/repo#7', intent: 'issue #12', mode: 'autonomous', cwd: '/repo-gh-1' }
+const goalArgs = { kind: 'feature', corpus: '/tmp/goal-c1', cwd: '/repo' }
+const probeNode = 'dex-implementer-reader:implementer-reader'
+const guessA = { where: 'goal.md «Критерий «готово»»', decision: 'запись сбрасывает кэш либо он живёт до TTL - вызывающий видит новую или старую цену', cost: 'клиент платит старую цену' }
+const guessB = { where: 'source.md:3', decision: 'предел 100 либо 1000 записей - 101-я получает отказ или нет', cost: 'отказ легитимному клиенту' }
+const probeClean = { status: 'complete', verdict: 'passed', guesses: [], open_items: [], missing: '' }
+const probeFound = { status: 'complete', verdict: 'failed', guesses: [guessA, guessB], open_items: [], missing: '' }
+const sortOk = { status: 'complete', items: [{ id: 'D1', class: 'derived', answer: 'запись сбрасывает кэш', anchor: 'src/cache.ts:42' }, { id: 'D2', class: 'question', answer: '', anchor: '' }], missing: '' }
+const idsOf = (list) => list.map(g => g.id).join(',')
 
 const labelsOf = (calls) => calls.map(c => c.label)
 // Выход трека - реестр прогона в prior (ledger.md R10): открытые - его разность, как у finish.sh.
 const openOf = (r) => (r.prior || []).filter(p => ['open', 'partial', 'unverified'].includes(p.status))
 const promptOf = (calls, label) => (calls.find(c => c.label === label) || {}).prompt || ''
+const prepSchema = (calls) => ((calls.find(c => c.label === 'ctx:tree') || {}).schema || {}).properties || {}
 const typeOf = (calls, label) => (calls.find(c => c.label === label) || {}).agentType
 // Шаг ищется по имени, не по индексу: фаза Context несёт две записи, и порядок их появления - дело планировщика.
 const stepOf = (trail, step) => JSON.stringify(trail.find(t => t.step === step) || {})
@@ -556,19 +565,23 @@ const SCENARIOS = [
       ['нехватка прокинута', result.missing === 'ветка MR не выкачивается'],
       ['находки-claims сохранены', result.claims.length === 2],
     ] },
-  { name: 'F25 дерево трека изолированное: узлы получают cwd трека и main_cwd на чтение', track: 'feature', args: featureArgs,
+  { name: 'F25 дерево трека изолированное: процесс узла уже в дереве, дерево сессии не трогается', track: 'feature', args: featureArgs,
     responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
     expect: ({ calls }) => [
-      ['кодер работает в дереве трека', promptOf(calls, 'fix:1').includes('Работай только внутри /repo-F-1')],
+      ['кодер работает в дереве трека', promptOf(calls, 'fix:1').includes('Рабочий каталог - /repo-F-1') && /процесс уже в нём/.test(promptOf(calls, 'fix:1'))],
       ['дерево названо своим', /чужой работы в нём нет/.test(promptOf(calls, 'fix:1'))],
-      ['каталог сессии - на чтение', promptOf(calls, 'fix:1').includes('Каталог сессии /repo - только на чтение')],
+      ['дерево сессии не трогать, без приставки cd к каждой команде', /Дерево сессии, от которого оно заведено, не трогай/.test(promptOf(calls, 'fix:1')) && !promptOf(calls, 'fix:1').includes('cd /repo-F-1 &&')],
       ['ветка трека названа', promptOf(calls, 'fix:1').includes('auto/F-1')],
     ] },
   { name: 'F26 дерево подготовлено узлом подготовки -> кодеру сказано не повторять установку', track: 'feature', args: featureArgs,
     responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
     expect: ({ calls }) => [
-      ['узлу подготовки поручено выполнить установку, а не только назвать', /ВЫПОЛНИ её в дереве/.test(promptOf(calls, 'ctx:tree'))],
+      ['узлу подготовки поручено выполнить установку, а не только назвать', /выполни её в дереве/.test(promptOf(calls, 'ctx:tree'))],
       ['стек выводится по реестру, а не по догадке', /dex-skill-stack-registry:stack-registry/.test(promptOf(calls, 'ctx:tree'))],
+      ['подготовка не нужна -> команды нет, not-needed', /не нужны - prepare_cmd пуст, prepare-status: not-needed/.test(promptOf(calls, 'ctx:tree'))],
+      ['добавленное подготовкой в git status возвращается: новый путь удаляется, отслеживаемый восстанавливается', /\?\? - удали путь, прочие - git checkout -- путь/.test(promptOf(calls, 'ctx:tree'))],
+      ['шаг и схема судят исход одинаково: failed - только код возврата', /done - команда вернула 0, иначе failed/.test(promptOf(calls, 'ctx:tree')) && /failed - команда вернула не 0 либо не запущена/.test(prepSchema(calls)['prepare-status'].description)],
+      ['схема не сужает not-needed против шага', /подготовка не нужна - пустая строка/.test(prepSchema(calls).prepare_cmd.description)],
       ['состояние дерева названо кодеру', promptOf(calls, 'fix:1').includes('Дерево подготовлено узлом контекста (dotnet restore) - установку не повторяй')],
       ['кодеру не предписано ставить зависимости заново', !/до первой сборки выполни её сам/.test(promptOf(calls, 'fix:1'))],
     ] },
@@ -605,7 +618,7 @@ const SCENARIOS = [
       ['оба узла в фазе Context', calls.filter(c => ['ctx:tree', 'ctx:R-I'].includes(c.label)).every(c => c.phase === 'Context')],
       ['разведке техконтекст запрещён', /Стек, команды сборки и тестов не выводи/.test(promptOf(calls, 'ctx:R-I'))],
       ['разведке названо, что дерево в работе у соседа', /соседний узел в этот момент ставит в это дерево зависимости/.test(promptOf(calls, 'ctx:R-I'))],
-      ['подготовке запрещено трогать код и прогоны', /код не правь, сборку и тесты не прогоняй/.test(promptOf(calls, 'ctx:tree'))],
+      ['подготовке запрещено трогать код и чинить упавшее', /Код не правь и упавшее не чини/.test(promptOf(calls, 'ctx:tree'))],
       ['оба шага легли в trail', result.trail.some(t => t.step === '1-tree') && result.trail.some(t => t.step === '1-req')],
       ['команды кодеру пришли от подготовки', promptOf(calls, 'fix:1').includes('Тесты: dotnet test') && promptOf(calls, 'fix:1').includes('Сборка: dotnet build')],
     ] },
@@ -614,7 +627,7 @@ const SCENARIOS = [
     expect: ({ calls, result }) => [
       ['статус complete', result.status === 'complete'],
       ['вторая попытка несёт red-run первой', promptOf(calls, 'fix:2').includes('перепроверке не подлежит: T1 красный до, зелёный после')],
-      ['падение названо своим, не чужим', /Дерево изолированное: это следствие правок трека/.test(promptOf(calls, 'fix:2'))],
+      ['падение названо своим по зелёной базе', /любое падение внесено правками трека/.test(promptOf(calls, 'fix:2'))],
       ['red-run попытки лёг в trail', result.trail.some(t => t.step === 2 && t['red-run'] === 'T1 красный до, зелёный после')],
     ] },
   { name: 'F29 red-run n/a следующей попытке как факт не подаётся', track: 'feature', args: featureArgs,
@@ -635,9 +648,11 @@ const SCENARIOS = [
     responses: { 'reproduce': reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
     expect: ({ calls }) => [
       ['подготовка вызвана раньше воспроизведения', labelsOf(calls).indexOf('ctx:tree') < labelsOf(calls).indexOf('reproduce')],
-      ['подготовке запрещено чинить баг', /код не правь, баг не чини, тесты не гоняй/.test(promptOf(calls, 'ctx:tree'))],
+      ['подготовке запрещено чинить баг', /баг чинят следующие узлы/.test(promptOf(calls, 'ctx:tree')) && /Код не правь/.test(promptOf(calls, 'ctx:tree'))],
+      ['шаг подготовки тот же, что в feature: ветка not-needed и возврат добавленного', /не нужны - prepare_cmd пуст, prepare-status: not-needed/.test(promptOf(calls, 'ctx:tree')) && /\?\? - удали путь, прочие - git checkout -- путь/.test(promptOf(calls, 'ctx:tree'))],
+      ['схема подготовки та же, что в feature', /failed - команда вернула не 0 либо не запущена/.test(prepSchema(calls)['prepare-status'].description)],
       ['диагност получил команды и состояние дерева', promptOf(calls, 'reproduce').includes('Тесты: npm test') && promptOf(calls, 'reproduce').includes('Дерево подготовлено узлом контекста (npm ci)')],
-      ['кодер работает в дереве трека', promptOf(calls, 'fix:1').includes('Работай только внутри /repo-B-1')],
+      ['кодер работает в дереве трека', promptOf(calls, 'fix:1').includes('Рабочий каталог - /repo-B-1')],
     ] },
   { name: 'B15 подготовка упала -> диагносту названа причина и запрет объявить её первопричиной', track: 'bugfix', args: bugfixArgs,
     responses: { 'ctx:tree': { ...prepTs, 'prepare-status': 'failed', prepare_log: 'npm ci: EAI_AGAIN registry' }, 'reproduce': reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
@@ -694,7 +709,8 @@ const SCENARIOS = [
     responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'review:security': revMr, 'falsify+coverage': falOk },
     expect: ({ calls }) => [
       ['дерево названо detached', /detached git worktree/.test(promptOf(calls, 'review:first'))],
-      ['рабочее дерево сессии не трогается', /рабочего дерева сессии это не трогает/.test(promptOf(calls, 'review:first'))],
+      ['дерево сессии не трогается', /дерева сессии это не трогает/.test(promptOf(calls, 'review:first'))],
+      ['процесс уже в дереве, приставки к команде нет', /процесс уже в нём/.test(promptOf(calls, 'review:first')) && !promptOf(calls, 'review:first').includes('git -C /repo-gh-1')],
       ['чтение кода - переключением дерева на head_sha', promptOf(calls, 'review:first').includes('переключи /repo-gh-1 на bbb')],
     ] },
   { name: 'R16 ревьюер вернул partial -> ревью не сдаётся полным', track: 'review', args: reviewArgs,
@@ -911,7 +927,7 @@ const SCENARIOS = [
       ['цели в шапке нет', !promptOf(calls, 'ctx:tree').includes(featureArgs.goal)],
       ['критерия «готово» в шапке нет', !promptOf(calls, 'ctx:tree').includes(featureArgs.done)],
       ['мандат назван: код не предмет узла', /код в дереве не твой предмет/.test(promptOf(calls, 'ctx:tree'))],
-      ['изоляция дерева на месте', promptOf(calls, 'ctx:tree').includes('Работай только внутри /repo-F-1')],
+      ['изоляция дерева на месте', promptOf(calls, 'ctx:tree').includes('Рабочий каталог - /repo-F-1')],
       ['стоп-линия на месте', /это стоп-линия/.test(promptOf(calls, 'ctx:tree'))],
       ['кодер цель по-прежнему получает', promptOf(calls, 'fix:1').includes(featureArgs.goal)],
     ] },
@@ -937,7 +953,7 @@ const SCENARIOS = [
     expect: ({ calls }) => [
       ['симптома в шапке нет', !promptOf(calls, 'ctx:tree').includes(bugfixArgs.symptom)],
       ['ожидаемого в шапке нет', !promptOf(calls, 'ctx:tree').includes(bugfixArgs.expected)],
-      ['мандат назван: чинит другой узел', /это делают следующие узлы/.test(promptOf(calls, 'ctx:tree'))],
+      ['мандат назван: чинит другой узел', /баг чинят следующие узлы/.test(promptOf(calls, 'ctx:tree'))],
       ['диагност симптом по-прежнему получает', promptOf(calls, 'reproduce').includes(bugfixArgs.symptom)],
     ] },
   // Приёмка диагноза: спор решает оператор, правка теста ловится хэшем снимка.
@@ -1623,7 +1639,6 @@ const SCENARIOS = [
       ['mode по умолчанию', promptOf(calls, 'ctx:tree').includes('mode: autonomous\n') && promptOf(calls, 'reproduce').includes('mode: autonomous\n')],
       ['ожидаемое реконструируется', promptOf(calls, 'reproduce').includes('ожидаемое: не задано - реконструируй')],
       ['окружение не задано', promptOf(calls, 'reproduce').includes('окружение: не задано')],
-      ['каталога сессии нет - не назван', !promptOf(calls, 'reproduce').includes('Каталог сессии ') && !promptOf(calls, 'ctx:tree').includes('Готовые зависимости каталога')],
       ['статус complete', result.status === 'complete'],
     ] },
   { name: 'B61 трек без args не падает', track: 'bugfix', args: undefined,
@@ -1638,7 +1653,7 @@ const SCENARIOS = [
   { name: 'B63 подготовка не нужна, команд нет, файл цели задан -> промпты без состояния дерева и с «нет», внешнего факта нет - partial', track: 'bugfix', args: { ...bugfixArgs, goal_path: 'docs/goals/B-1.md' },
     responses: { 'ctx:tree': { ...prepTs, 'prepare-status': 'not-needed', prepare_cmd: '', test_cmd: '', build_cmd: '' }, 'reproduce': reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
     expect: ({ result, calls }) => [
-      ['файл цели прочитать', promptOf(calls, 'reproduce').includes('Прочитай файл цели')],
+      ['раздел цели дебаггеру не подан', !/раздел «Контекст»/.test(promptOf(calls, 'reproduce')) && promptOf(calls, 'reproduce').includes('файл цели: docs/goals/B-1.md')],
       ['дебаггеру - тестов и сборки нет', promptOf(calls, 'reproduce').includes('Тесты: нет. Сборка: нет.')],
       ['кодеру - тестов и сборки нет', promptOf(calls, 'fix:1').includes('Тесты: нет. Сборка: нет.')],
       ['дерево не упомянуто', !promptOf(calls, 'fix:1').includes('Дерево подготовлено')],
@@ -2003,6 +2018,42 @@ const SCENARIOS = [
       ['N1 не закрыта чужой записью', result.prior.length === 1 && result.prior[0].id === 'N1' && result.prior[0].status === 'unverified'],
       ['ошибка узла названа', result.degraded.some(d => /запись prior N9 .* не из перечня/.test(d))],
     ] },
+  { name: 'B128 база красная -> degraded, диагносту и кодеру названы унаследованные падения', track: 'bugfix', args: bugfixArgs,
+    responses: { 'ctx:tree': { ...prepTs, 'baseline-status': 'red', baseline_log: 'pay.test падает' }, 'reproduce': reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['красная база названа оператору', result.degraded.some(d => d === 'дерево красное до правок трека: pay.test падает')],
+      ['диагносту падения базы названы унаследованными', promptOf(calls, 'reproduce').includes('уже падали (pay.test падает): эти падения унаследованы')],
+      ['кодеру - тоже', promptOf(calls, 'fix:1').includes('уже падали (pay.test падает): эти падения унаследованы')],
+      ['база легла в trail', (t => t && t.baseline === 'red' && t.baseline_log === 'pay.test падает')(result.trail.find(t => t.step === '1-tree'))],
+    ] },
+  { name: 'B129 база зелёная -> диагносту и кодеру любое падение внесено правкой', track: 'bugfix', args: bugfixArgs,
+    responses: { 'reproduce': reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['диагносту названа зелёная база', promptOf(calls, 'reproduce').includes('были зелёными: любое падение внесено правками трека')],
+      ['кодеру - тоже', promptOf(calls, 'fix:1').includes('были зелёными: любое падение внесено правками трека')],
+      ['строки базы в degraded нет', !result.degraded.some(d => /дерево красное/.test(d))],
+    ] },
+  { name: 'B130 возобновление, база n/a -> кодеру база прошлого прогона из trail', track: 'bugfix',
+    args: { ...bugfixArgs, resume: true, trail: ['- ' + JSON.stringify({ step: '1-tree', doer: 'подготовка дерева', status: 'complete', prepare: 'done', baseline: 'red', baseline_log: 'pay.test падает' }), '- {"step":2,"attempt":1,"status":"blocked"}'].join('\n'), repro: JSON.stringify(reproOk) },
+    responses: { 'ctx:tree': { ...prepTs, 'baseline-status': 'n/a', baseline_log: 'в дереве правки трека' }, 'verify:возобновление': { ...green, ahead: 0 }, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['база прошлого прогона названа кодеру', promptOf(calls, 'fix:1').includes('уже падали (pay.test падает): эти падения унаследованы')],
+      ['строки базы в degraded нет', !result.degraded.some(d => /дерево красное/.test(d))],
+    ] },
+  { name: 'B131 возобновление, база n/a и в trail её нет -> строки базы у кодера нет', track: 'bugfix',
+    args: { ...bugfixArgs, resume: true, trail: '- {"step":2,"attempt":1,"status":"blocked"}', repro: JSON.stringify(reproOk) },
+    responses: { 'ctx:tree': { ...prepTs, 'baseline-status': 'n/a', baseline_log: 'в дереве правки трека' }, 'verify:возобновление': { ...green, ahead: 0 }, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['строки базы нет', !/До правок трека сборка и тесты/.test(promptOf(calls, 'fix:1'))],
+      ['замер этого прогона в trail - n/a', (t => t && t.baseline === 'n/a')(result.trail.find(t => t.step === '1-tree'))],
+    ] },
+  { name: 'B132 возобновление, в trail база зелёная, свежий замер red -> кодеру база из trail, degraded без строки базы', track: 'bugfix',
+    args: { ...bugfixArgs, resume: true, trail: ['- ' + JSON.stringify({ step: '1-tree', doer: 'подготовка дерева', status: 'complete', prepare: 'done', baseline: 'green', baseline_log: 'тестов 9 прошло' }), '- {"step":2,"attempt":1,"status":"blocked"}'].join('\n'), repro: JSON.stringify(reproOk) },
+    responses: { 'ctx:tree': { ...prepTs, 'baseline-status': 'red', baseline_log: 'pay.test падает' }, 'verify:возобновление': { ...green, ahead: 0 }, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['кодеру названа база из trail', promptOf(calls, 'fix:1').includes('До правок трека сборка и тесты были зелёными') && !promptOf(calls, 'fix:1').includes('pay.test падает')],
+      ['строки базы в degraded нет', !result.degraded.some(d => /дерево красное/.test(d))],
+    ] },
   { name: 'B127 повторное ревью подняло P2 первого до P1 -> запись P1, partial', track: 'bugfix', args: bugfixArgs,
     responses: { 'reproduce': reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revP1P2, 'fix:after-review': fixOk, 'verify:после саморевью': green,
       'self-review:повторное': { ...revClean, prior: [{ ...closedA8 }, { id: 'N2', anchor: 'src/A.cs:9', severity: 'P1', axis: '', text: 'имя переменной', status: 'open', evidence: 'имя путает случаи' }] } },
@@ -2094,6 +2145,52 @@ const SCENARIOS = [
       ['две записи на якоре', result.prior.filter(p => p.anchor === 'src/A.cs:88').length === 2],
       ['возможный дубль назван', result.degraded.some(d => /возможный дубль F2/.test(d))],
     ] },
+  { name: 'F85 файл цели задан -> разведка ищет корпус сама, техконтекст из цели не берёт', track: 'feature', args: { ...featureArgs, goal_path: 'docs/goals/F-1.md' },
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['корпус ищет сама', /Поищи корпус документации проекта/.test(promptOf(calls, 'ctx:R-I'))],
+      ['раздел цели не подан', !/раздел «Контекст»/.test(promptOf(calls, 'ctx:R-I'))],
+      ['файл цели в шапке', promptOf(calls, 'ctx:R-I').includes('файл цели: docs/goals/F-1.md')],
+      ['статус complete', result.status === 'complete'],
+    ] },
+  { name: 'F86 база красная -> degraded, кодеру названы унаследованные падения, база в trail', track: 'feature', args: featureArgs,
+    responses: { 'ctx:tree': { ...prepOk, 'baseline-status': 'red', baseline_log: 'T9 падает' }, 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['красная база названа оператору', result.degraded.some(d => d === 'дерево красное до правок трека: T9 падает')],
+      ['кодеру падения базы названы унаследованными', promptOf(calls, 'fix:1').includes('До правок трека сборка и тесты уже падали (T9 падает): эти падения унаследованы, прочие внесены правками трека')],
+      ['база легла в trail', (t => t && t.baseline === 'red' && t.baseline_log === 'T9 падает')(result.trail.find(t => t.step === '1-tree'))],
+      ['статус complete', result.status === 'complete'],
+    ] },
+  { name: 'F87 база зелёная -> кодеру любое падение внесено правкой, degraded без строки базы', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['кодеру названа зелёная база', promptOf(calls, 'fix:1').includes('До правок трека сборка и тесты были зелёными: любое падение внесено правками трека')],
+      ['строки базы в degraded нет', !result.degraded.some(d => /дерево красное/.test(d))],
+      ['база легла в trail', (t => t && t.baseline === 'green')(result.trail.find(t => t.step === '1-tree'))],
+    ] },
+  { name: 'F88 возобновление, база n/a -> кодеру база прошлого прогона из trail, degraded без строки базы', track: 'feature',
+    args: { ...featureArgs, resume: true, trail: ['- ' + JSON.stringify({ step: '1-tree', doer: 'подготовка дерева', status: 'complete', prepare: 'done', baseline: 'red', baseline_log: 'T9 падает' }), '- {"step":2,"attempt":1,"status":"partial"}'].join('\n') },
+    responses: { 'ctx:tree': { ...prepOk, 'baseline-status': 'n/a', baseline_log: 'в дереве правки трека' }, 'ctx:R-I': ctxOk, 'verify:возобновление': red, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['база прошлого прогона названа кодеру', promptOf(calls, 'fix:1').includes('уже падали (T9 падает): эти падения унаследованы')],
+      ['строки базы в degraded нет', !result.degraded.some(d => /дерево красное/.test(d))],
+      ['замер этого прогона в trail - n/a', (t => t && t.baseline === 'n/a')(result.trail.find(t => t.step === '1-tree'))],
+    ] },
+  { name: 'F89 возобновление, база n/a и в trail её нет -> строки базы у кодера нет', track: 'feature',
+    args: { ...featureArgs, resume: true, trail: '- {"step":2,"attempt":1,"status":"partial"}' },
+    responses: { 'ctx:tree': { ...prepOk, 'baseline-status': 'n/a', baseline_log: 'в дереве правки трека' }, 'ctx:R-I': ctxOk, 'verify:возобновление': red, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['строки базы нет', !/До правок трека сборка и тесты/.test(promptOf(calls, 'fix:1'))],
+      ['замер этого прогона в trail - n/a', (t => t && t.baseline === 'n/a')(result.trail.find(t => t.step === '1-tree'))],
+    ] },
+  { name: 'F90 возобновление, в trail база зелёная, свежий замер red -> кодеру база из trail, degraded без строки базы', track: 'feature',
+    args: { ...featureArgs, resume: true, trail: ['- ' + JSON.stringify({ step: '1-tree', doer: 'подготовка дерева', status: 'complete', prepare: 'done', baseline: 'green', baseline_log: 'тестов 9 прошло' }), '- {"step":2,"attempt":1,"status":"partial"}'].join('\n') },
+    responses: { 'ctx:tree': { ...prepOk, 'baseline-status': 'red', baseline_log: 'T3 падает' }, 'ctx:R-I': ctxOk, 'verify:возобновление': red, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['кодеру названа база из trail', promptOf(calls, 'fix:1').includes('До правок трека сборка и тесты были зелёными') && !promptOf(calls, 'fix:1').includes('T3 падает')],
+      ['строки базы в degraded нет', !result.degraded.some(d => /дерево красное/.test(d))],
+      ['замер этого прогона в trail - как вернул узел', (t => t && t.baseline === 'red')(result.trail.find(t => t.step === '1-tree'))],
+    ] },
   { name: 'R54 скептик закрыл F3 и подтвердил новую P0 на том же якоре и оси -> P0 опубликована, F3 закрыта', track: 'review',
     args: { ...reviewArgs, last_review_sha: 'ccc', publish: true, open_findings: JSON.stringify([ledgerF3sec]) },
     responses: { 'ctx:subject': ctxMr, 'review:delta': { ...revMr, findings: [] }, 'review:security': { ...revMr, findings: [] },
@@ -2133,6 +2230,141 @@ const SCENARIOS = [
       'falsify+coverage': { ...falOk, confirmed: [], dropped: [], 'review-verdict': 'APPROVE', prior: [{ ...ledgerF3, status: 'open', evidence: 'owner не сверяется' }] } },
     expect: ({ result }) => [
       ['разрыв называет F3', /review-verdict APPROVE при открытых P0\/P1: F3/.test(result.where)],
+    ] },
+  { name: 'G1 вид bugfix -> проба не идёт', track: 'goal', args: { ...goalArgs, kind: 'bugfix' }, responses: {},
+    expect: ({ result, calls }) => [
+      ['исход n/a с видом в причине', result.probe === 'n/a' && result.reason === 'вид bugfix: проба только для feature'],
+      ['узлы не вызваны', calls.length === 0],
+    ] },
+  { name: 'G2 узел пробы не установлен -> unverifiable без замены', track: 'goal', args: goalArgs, responses: {}, unavailable: [probeNode],
+    expect: ({ result, calls }) => [
+      ['исход unverifiable', result.probe === 'unverifiable'],
+      ['причина называет узел и ошибку', result.reason === `узел пробы ${probeNode} не отработал: agent type not found: ${probeNode}`],
+      ['замены и классификатора нет', calls.length === 0 && result.questions.length === 0],
+    ] },
+  { name: 'G3 узел пробы не вернул выход', track: 'goal', args: goalArgs, responses: { probe: null },
+    expect: ({ result, calls }) => [
+      ['unverifiable с причиной', result.probe === 'unverifiable' && result.reason === 'узел пробы не вернул выход'],
+      ['классификатор не вызван', !labelsOf(calls).includes('sort')],
+    ] },
+  { name: 'G4 проба blocked с нехваткой', track: 'goal', args: goalArgs, responses: { probe: { ...probeFound, status: 'blocked', missing: 'корпус не читается' } },
+    expect: ({ result, calls }) => [
+      ['нехватка узла в причине', result.probe === 'unverifiable' && result.reason === 'корпус не читается'],
+      ['домыслы blocked-выхода не классифицируются', !labelsOf(calls).includes('sort') && result.questions.length === 0],
+    ] },
+  { name: 'G4 проба blocked без нехватки', track: 'goal', args: goalArgs, responses: { probe: { ...probeClean, status: 'blocked' } },
+    expect: ({ result }) => [
+      ['нехватка подставлена', result.probe === 'unverifiable' && result.reason === 'узел пробы вернул blocked без нехватки'],
+    ] },
+  { name: 'G5 вердикт unverifiable с причиной', track: 'goal', args: goalArgs, responses: { probe: { ...probeFound, verdict: 'unverifiable', missing: 'источник пуст' } },
+    expect: ({ result, calls }) => [
+      ['причина узла', result.probe === 'unverifiable' && result.reason === 'источник пуст'],
+      ['классификатор не вызван', !labelsOf(calls).includes('sort')],
+    ] },
+  { name: 'G5 вердикт unverifiable без причины', track: 'goal', args: goalArgs, responses: { probe: { ...probeClean, verdict: 'unverifiable' } },
+    expect: ({ result }) => [
+      ['причина подставлена', result.reason === 'узел пробы вынес unverifiable без причины'],
+    ] },
+  { name: 'G6 failed без домыслов и открытых пунктов -> unverifiable', track: 'goal', args: goalArgs, responses: { probe: { ...probeClean, verdict: 'failed' } },
+    expect: ({ result }) => [
+      ['пустой failed не читается как passed', result.probe === 'unverifiable' && result.reason === 'узел пробы вынес failed без домыслов и открытых пунктов'],
+    ] },
+  { name: 'G7 списки пусты -> passed без классификатора', track: 'goal', args: goalArgs, responses: { probe: probeClean },
+    expect: ({ result, calls }) => [
+      ['исход passed', result.probe === 'passed' && result.degraded.length === 0],
+      ['вызван только узел пробы, без замены', labelsOf(calls).join() === 'probe' && typeOf(calls, 'probe') === probeNode],
+      ['промпт пробы: автономный режим, корпус, код, запрет записи', ['mode: autonomous', 'корень корпуса: /tmp/goal-c1', 'в /repo', 'на диск ничего не пиши'].every(t => promptOf(calls, 'probe').includes(t))],
+    ] },
+  { name: 'G8 passed при непустом списке и partial -> судит список, обе строки degraded', track: 'goal', args: goalArgs,
+    responses: { probe: { ...probeFound, status: 'partial', verdict: 'passed', missing: 'контракт API не найден' }, sort: sortOk },
+    expect: ({ result, calls }) => [
+      ['исход failed', result.probe === 'failed'],
+      ['id по порядку списка', /D1\. goal\.md.*\nD2\. source\.md:3/.test(promptOf(calls, 'sort'))],
+      ['passed при списке - строка degraded', result.degraded.includes('узел пробы вынес passed при непустом списке - судит список')],
+      ['partial - строка degraded с нехваткой', result.degraded.includes('проба partial: контракт API не найден')],
+    ] },
+  { name: 'G9 только открытые пункты -> failed без классификатора', track: 'goal', args: goalArgs,
+    responses: { probe: { ...probeClean, verdict: 'failed', open_items: ['AC-3: TBD в источнике'] } },
+    expect: ({ result, calls }) => [
+      ['исход failed с открытым пунктом', result.probe === 'failed' && result.open_items.join() === 'AC-3: TBD в источнике'],
+      ['классификатор не вызван', !labelsOf(calls).includes('sort')],
+      ['derived и questions пусты', result.derived.length === 0 && result.questions.length === 0],
+    ] },
+  { name: 'G10 классификатор blocked -> все домыслы вопросами', track: 'goal', args: goalArgs,
+    responses: { probe: { ...probeFound, open_items: ['AC-3: TBD'] }, sort: { status: 'blocked', items: [], missing: 'код не читается' } },
+    expect: ({ result }) => [
+      ['все в questions', idsOf(result.questions) === 'D1,D2' && result.derived.length === 0],
+      ['open_items сохранены', result.open_items.length === 1],
+      ['degraded называет нехватку', result.degraded.includes('классификатор blocked: код не читается - все домыслы вопросами')],
+    ] },
+  { name: 'G10 классификатор не отработал -> все домыслы вопросами', track: 'goal', args: goalArgs,
+    responses: { probe: probeFound }, unavailable: ['general-purpose'],
+    expect: ({ result }) => [
+      ['все в questions', result.probe === 'failed' && idsOf(result.questions) === 'D1,D2'],
+      ['degraded называет ошибку', result.degraded.includes('классификатор не отработал (agent type not found: general-purpose) - все домыслы вопросами')],
+    ] },
+  { name: 'G10 классификатор не вернул выход -> все домыслы вопросами', track: 'goal', args: goalArgs, responses: { probe: probeFound, sort: null },
+    expect: ({ result }) => [
+      ['все в questions', result.probe === 'failed' && idsOf(result.questions) === 'D1,D2' && result.derived.length === 0],
+      ['degraded без повтора имени узла', result.degraded.join('|') === 'классификатор не вернул выход - все домыслы вопросами'],
+    ] },
+  { name: 'G11 разбор по id: derived с якорем, прочие вопросом', track: 'goal', args: goalArgs, responses: { probe: { ...probeFound, open_items: ['AC-3: TBD'] }, sort: sortOk },
+    expect: ({ result, calls }) => [
+      ['D1 выведен с ответом и якорем', idsOf(result.derived) === 'D1' && result.derived[0].anchor === 'src/cache.ts:42' && result.derived[0].answer === 'запись сбрасывает кэш'],
+      ['D2 вопросом', idsOf(result.questions) === 'D2' && result.questions[0].decision === guessB.decision],
+      ['open_items в выходе', result.open_items.join() === 'AC-3: TBD'],
+      ['каждый узел один раз', labelsOf(calls).join() === 'probe,sort' && result.degraded.length === 0],
+      ['классификатор - general-purpose только на чтение', typeOf(calls, 'sort') === 'general-purpose' && promptOf(calls, 'sort').includes('только чтение: ничего не пиши и не меняй')],
+    ] },
+  { name: 'G12 derived без якоря строки или без ответа -> вопрос', track: 'goal', args: goalArgs,
+    responses: { probe: probeFound, sort: { ...sortOk, items: [{ id: 'D1', class: 'derived', answer: 'запись сбрасывает кэш', anchor: 'src/cache.ts' }, { id: 'D2', class: 'derived', answer: '', anchor: 'src/limits.ts:7' }] } },
+    expect: ({ result }) => [
+      ['оба вопросом', idsOf(result.questions) === 'D1,D2' && result.derived.length === 0],
+    ] },
+  { name: 'G13 пропущенный и чужой id', track: 'goal', args: goalArgs,
+    responses: { probe: probeFound, sort: { ...sortOk, items: [sortOk.items[0], { id: 'D9', class: 'derived', answer: 'x', anchor: 'a.ts:1' }] } },
+    expect: ({ result }) => [
+      ['D2 без записи - вопросом', idsOf(result.questions) === 'D2' && idsOf(result.derived) === 'D1'],
+      ['пропуск и чужой id в degraded', result.degraded.includes('классификатор не разобрал D2 - вопросом') && result.degraded.includes('классификатор вернул чужой id D9')],
+    ] },
+  { name: 'G14 повтор id и partial классификатора', track: 'goal', args: goalArgs,
+    responses: { probe: probeFound, sort: { status: 'partial', items: [{ id: 'D1', class: 'question', answer: '', anchor: '' }, sortOk.items[0], sortOk.items[1]], missing: 'часть кода вне доступа' } },
+    expect: ({ result }) => [
+      ['взята первая запись D1', idsOf(result.questions) === 'D1,D2' && result.derived.length === 0],
+      ['повтор и partial в degraded', result.degraded.includes('классификатор вернул D1 дважды - взята первая запись') && result.degraded.includes('классификатор partial: часть кода вне доступа')],
+    ] },
+  { name: 'G15 partial без домыслов -> unverifiable', track: 'goal', args: goalArgs, responses: { probe: { ...probeClean, status: 'partial', missing: 'source.md не прочитан' } },
+    expect: ({ result }) => [
+      ['partial не читается как passed', result.probe === 'unverifiable' && result.reason === 'проба partial без домыслов: source.md не прочитан'],
+    ] },
+  { name: 'G16 вид не задан -> unverifiable, не n/a', track: 'goal', args: { corpus: '/tmp/goal-c1', cwd: '/repo' }, responses: {},
+    expect: ({ result, calls }) => [
+      ['сломанный вход не читается как ненужная проба', result.probe === 'unverifiable' && result.reason === 'вход пробы не разобран: вид не задан, ждали feature либо bugfix'],
+      ['узлы не вызваны', calls.length === 0],
+    ] },
+  { name: 'G16 args строкой -> unverifiable с формой входа', track: 'goal', args: JSON.stringify(goalArgs), responses: {},
+    expect: ({ result, calls }) => [
+      ['причина называет форму args', result.probe === 'unverifiable' && result.reason === 'вход пробы не разобран: args строкой, а не объектом'],
+      ['узлы не вызваны', calls.length === 0],
+    ] },
+  { name: 'G16 feature без corpus и cwd -> unverifiable до вызова узла', track: 'goal', args: { kind: 'feature', corpus: '', cwd: 3 }, responses: {},
+    expect: ({ result, calls }) => [
+      ['причина называет пустые поля', result.probe === 'unverifiable' && result.reason === 'вход пробы не разобран: пусто либо не строка: corpus, cwd'],
+      ['узлы не вызваны', calls.length === 0],
+    ] },
+  { name: 'G17 якорь с текстом вокруг, диапазон и перечень -> в derived только файл:строка', track: 'goal', args: goalArgs,
+    responses: { probe: { ...probeFound, guesses: [guessA, guessB, guessA] }, sort: { status: 'complete', missing: '', items: [
+      { id: 'D1', class: 'derived', answer: 'чтение бросает', anchor: 'src/cache.js:6-10 (readSlugCache: без try/catch)' },
+      { id: 'D2', class: 'derived', answer: 'синхронно', anchor: 'src/cache.js:1,6-9' },
+      { id: 'D3', class: 'derived', answer: 'как у соседа', anchor: 'см. readSlugCache: без строки' }] } },
+    expect: ({ result }) => [
+      ['текст вокруг снят', result.derived.map(d => d.anchor).join('|') === 'src/cache.js:6-10|src/cache.js:1,6-9'],
+      ['без файл:строка - вопросом', idsOf(result.questions) === 'D3'],
+    ] },
+  { name: 'G18 узлы пробы читают без Bash - узлу в дереве сессии команду отбивает сторож при открытой цели', track: 'goal', args: goalArgs, responses: { probe: probeFound, sort: sortOk },
+    expect: ({ calls }) => [
+      ['пробе запрещён Bash', /Bash не вызывай/.test(promptOf(calls, 'probe'))],
+      ['классификатору запрещён Bash', /Bash не вызывай/.test(promptOf(calls, 'sort'))],
     ] },
 ]
 

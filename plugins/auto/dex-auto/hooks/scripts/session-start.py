@@ -39,7 +39,7 @@ def main():
 
     if (dx.field(data, "source") or "startup") not in SOURCES:
         return
-    os.environ["DEX_AUTO_CWD"] = dx.field(data, "cwd") or os.getcwd()
+    dx.bind_session(data)
     # Числа открытых целей хук не судит: несколько живых целей - принятая цена адреса ledger (ledger.md R2).
     for task, directory in dx.find_open():
         open_tracks = dx.open_tracks(task)

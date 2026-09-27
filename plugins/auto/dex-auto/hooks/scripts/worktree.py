@@ -42,6 +42,7 @@ def cmd_path(args):
     git(main, "worktree", "prune")
     listing = git(main, "worktree", "list", "--porcelain", capture_output=True)
     if ("worktree %s" % path) in listing.stdout.split("\n"):
+        mark_launch(path)
         print(path)
         return
     if os.path.exists(path):
@@ -53,7 +54,19 @@ def cmd_path(args):
         git(main, "worktree", "add", path, branch, stdout=sys.stderr)
     else:
         git(main, "worktree", "add", "-b", branch, path, "HEAD", stdout=sys.stderr)
+    mark_launch(path)
     print(path)
+
+
+def mark_launch(path):
+    gitdir = git(path, "rev-parse", "--absolute-git-dir", capture_output=True) if os.path.isdir(path) else None
+    if gitdir is None or gitdir.returncode != 0:
+        die("worktree.py: дерево %s не заведено" % path, 1)
+    mark = os.path.join(gitdir.stdout.strip(), dx.LAUNCH_MARK)
+    # Через замену: хук, читающий метку в этот момент, не видит её пустой.
+    with open(mark + ".tmp", "w", encoding="utf-8") as f:
+        f.write(dx.cwd() + "\n")
+    os.replace(mark + ".tmp", mark)
 
 
 def cmd_drop(args):

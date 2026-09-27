@@ -16,8 +16,45 @@ def config_dir():
     return os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(os.path.expanduser("~"), ".claude")
 
 
+LAUNCH_MARK = "dex-auto-launch"
+
+
 def cwd():
-    return os.environ.get("DEX_AUTO_CWD") or os.getcwd()
+    base = os.environ.get("DEX_AUTO_CWD") or os.getcwd()
+    return launch_of(base) or base
+
+
+def launch_of(path):
+    # Ключ ledger - каталог запуска, а после EnterWorktree процесс в дереве трека; git не вызывается (ledger.md T2).
+    here = os.path.abspath(path)
+    while not os.path.isdir(os.path.join(here, ".git")):
+        launch = read_mark(os.path.join(here, ".git"))
+        if launch:
+            return launch
+        up = os.path.dirname(here)
+        if up == here:
+            return None
+        here = up
+    return None
+
+
+def read_mark(dotgit):
+    try:
+        with open(dotgit, encoding="utf-8") as f:
+            head = f.readline().strip()
+        if not head.startswith("gitdir:"):
+            return None
+        with open(os.path.join(os.path.dirname(dotgit), head[len("gitdir:"):].strip(), LAUNCH_MARK), encoding="utf-8") as f:
+            launch = f.read().strip()
+    except (OSError, ValueError):
+        return None
+    # Основной репозиторий перенесён после заведения дерева: мёртвая метка увела бы ключ в несуществующий каталог.
+    return launch if os.path.isdir(launch) else None
+
+
+def bind_session(data):
+    # Ключ ledger - каталог запуска сессии (ADR-0001): cwd события после EnterWorktree - дерево трека (P35).
+    os.environ["DEX_AUTO_CWD"] = os.environ.get("CLAUDE_PROJECT_DIR") or field(data or {}, "cwd") or os.getcwd()
 
 
 def slug(text):
