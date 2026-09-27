@@ -68,7 +68,8 @@ def main():
     main_path = dx.main_root()
     if main_path is None:
         return
-    listed = [os.path.realpath(p) for p in (dx.worktree_path(main_path, task) for task, _ in goals) if os.path.isdir(p)]
+    base = dx.tree_base(main_path)
+    listed = [os.path.realpath(p) for p in (dx.worktree_path(base, task) for task, _ in goals) if os.path.isdir(p)]
     # Дерева нет ни у одной открытой цели - трек не запускался, сторожить нечего.
     if not listed:
         return

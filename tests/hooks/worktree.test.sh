@@ -38,6 +38,12 @@ own="$T/cfg/projects/$(python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); 
 check "$(DEX_AUTO_CWD="$p5" "$L" root)" "$own" "метка: каталог запуска исчез - ключ от своего каталога, не от мёртвой метки"
 printf '\xff\n' > "$(git -C "$p5" rev-parse --absolute-git-dir)/dex-auto-launch"
 check "$(DEX_AUTO_CWD="$p5" "$L" root 2>/dev/null)" "$own" "метка: байты не UTF-8 - ключ от своего каталога, скрипт не падает"
+mkdir -p "$T/rel/decoy"; echo decoy > "$(git -C "$p5" rev-parse --absolute-git-dir)/dex-auto-launch"
+check "$(cd "$T/rel" && DEX_AUTO_CWD="$p5" "$L" root)" "$own" "метка: относительный путь - ключ от своего каталога, не от каталога процесса"
+check "$(cd "$T" && DEX_AUTO_CWD=repo "$L" root)" "$key" "ключ: каталог запуска относительным путём - тот же ключ, что абсолютным"
+p6="$(cd "$T" && DEX_AUTO_CWD=repo "$W" path PROJ-6 2>/dev/null)"
+check "$(DEX_AUTO_CWD="$p6" "$L" root)" "$key" "метка: сессия, запущенная относительным путём, - из дерева её ключ"
+"$W" drop PROJ-6 >/dev/null 2>&1
 git init -q "$p/inner"
 inner="$T/cfg/projects/$(python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import dexauto; print(dexauto.slug(sys.argv[2]))' "$H" "$p/inner")/ledger"
 check "$(DEX_AUTO_CWD="$p/inner" "$L" root)" "$inner" "метка: каталог .git внутри дерева обрывает подъём - свой репозиторий, свой ключ"
@@ -58,6 +64,10 @@ echo три > "$p2/c.txt"
 "$W" drop PROJ-1 >/dev/null 2>&1; check "$?" "1" "drop: грязное дерево не снимается"
 check "$([ -d "$p2" ] && echo есть || echo нет)" "есть" "drop: грязное дерево цело"
 rm -f "$p2/c.txt"; "$W" drop PROJ-1 >/dev/null 2>&1
+mkdir "$T/repo-PROJ-8"; echo x > "$T/repo-PROJ-8/keep.txt"
+msg="$(LC_ALL=C "$W" drop PROJ-8 2>&1)"; check "$?" "1" "drop: путь не дерева трека - ненулевой код"
+check "$(printf '%s' "$msg" | grep -c 'не деревом трека')" "1" "drop: отказ на чужом пути называет эту причину, а не незакоммиченное"
+check "$([ -f "$T/repo-PROJ-8/keep.txt" ] && echo есть || echo нет)" "есть" "drop: чужой путь не тронут"
 
 p3="$("$W" path PROJ-2 --detach 2>/dev/null)"
 check "$(git -C "$p3" rev-parse --abbrev-ref HEAD 2>/dev/null)" "HEAD" "path --detach: дерево в detached HEAD"
@@ -70,8 +80,31 @@ check "$p4" "$p3" "path: путь тот же"
 
 check "$("$W" where PROJ-7)" "$(dirname "$R")/$(basename "$R")-PROJ-7" "where: путь несуществующего дерева, ничего не создавая"
 check "$([ -e "$(dirname "$R")/$(basename "$R")-PROJ-7" ] && echo есть || echo нет)" "нет" "where: дерева не завёл"
-check "$("$W" main)" "$R" "main: корень основной рабочей копии"
+check "$("$W" main)" "$R" "main: корень дерева сессии"
 check "$(cd "$p4" && DEX_AUTO_CWD="$p4" "$W" main)" "$R" "main: из дерева трека тот же корень"
+git -C "$R" worktree add -q "$T/own" -b own 2>/dev/null
+check "$(DEX_AUTO_CWD="$T/own" "$W" main)" "$T/own" "main: сессия в своём worktree - корень её дерева, не основной копии"
+git init -q "$T/lib"; git -C "$T/lib" -c user.email=t@t -c user.name=t commit -q --allow-empty -m lib
+git -C "$R" -c protocol.file.allow=always submodule add -q "$T/lib" lib >/dev/null 2>&1
+check "$(DEX_AUTO_CWD="$R/lib" "$W" main)" "$R/lib" "main: сессия в подмодуле - корень подмодуля, не .git суперпроекта"
+check "$(DEX_AUTO_CWD="$R/lib" "$W" where PROJ-3)" "$T/repo-lib-PROJ-3" "where: дерево подмодуля - сосед внешнего суперпроекта, не внутри него"
+check "$(DEX_AUTO_CWD="$R/lib" "$W" path PROJ-3 2>/dev/null)" "$T/repo-lib-PROJ-3" "path: дерево подмодуля заведено соседом суперпроекта"
+check "$(git -C "$T/repo-lib-PROJ-3" rev-parse --abbrev-ref HEAD 2>/dev/null)" "auto/PROJ-3" "path: дерево подмодуля на ветке auto/<TASK>"
+git -C "$R" commit -qm lib
+ps="$("$W" path PROJ-4 2>/dev/null)"; git -C "$ps" -c protocol.file.allow=always submodule update --init -q >/dev/null 2>&1
+msg="$(LC_ALL=C "$W" drop PROJ-4 2>&1)"; check "$?" "1" "drop: дерево с поднятым подмодулем не снимается"
+check "$(printf '%s' "$msg" | grep -c 'submodules')$(printf '%s' "$msg" | grep -c 'незакоммиченные')" "10" "drop: отказ называет причину git, а не незакоммиченное"
+check "$(git -C "$ps/lib" rev-parse HEAD 2>/dev/null)" "$(git -C "$T/lib" rev-parse HEAD)" "drop: подмодуль дерева цел"
+
+F="$T/foreign"; git init -q -b main "$F"; git -C "$F" -c user.email=t@t -c user.name=t commit -q --allow-empty -m f
+msg="$(GIT_DIR="$F/.git" "$W" path PROJ-10 2>&1)"; check "$?" "1" "path: GIT_DIR в окружении - ненулевой код"
+check "$(printf '%s' "$msg" | grep -c 'GIT_DIR')" "1" "path: отказ называет переменную"
+check "$(git -C "$F" worktree list | wc -l)$(git -C "$F" branch --list 'auto/*' | wc -l)$(ls -d "$T"/*-PROJ-10 2>/dev/null | wc -l)" "100" "path: GIT_DIR - ни дерева, ни ветки нигде"
+for v in GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY; do
+  for val in "$F/.git" ""; do
+    msg="$(env "$v=$val" "$W" main 2>&1)"; check "$?:$(printf '%s' "$msg" | grep -c "уводит git ($v)")" "1:1" "main: $v=${val:-пусто} - отказ с именем переменной"
+  done
+done
 
 export DEX_AUTO_CWD="$T"
 "$W" path PROJ-9 >/dev/null 2>&1; check "$?" "1" "path: вне git-репозитория - ненулевой код"

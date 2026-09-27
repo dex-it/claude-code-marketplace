@@ -36,7 +36,7 @@ Stop ход не держит. TRACK - `feature` | `bugfix` | `review` | `review
 трек <файл>: продолжить его либо сдать исход»`.
 
 **Дерево.** Первый шаг команды - `ExitWorktree` (`action: keep`), безусловно. Дерево заводится после предполёта: исход объявлен
-до первого узла - дерева и ветки нет. Порядок: `worktree.py path TASK` (ревью - `path TASK --detach`, без ветки) даёт путь `<repo>-<TASK>` на
+до первого узла - дерева и ветки нет. Порядок: `worktree.py path TASK` (ревью - `path TASK --detach`, без ветки) даёт путь дерева на
 ветке `auto/<TASK>` в `args.cwd` -> `EnterWorktree` с этим `path` -> `Workflow`; ненулевой код `worktree.py` либо отказ
 `EnterWorktree` - `set TASK Исход blocked`, `set TASK Нехватка <stderr либо отказ>`, `Workflow` не запускается. Сверка критерия
 «готово» и сдача идут в дереве, после сдачи при любом исходе - `ExitWorktree` (`action: keep`); затем `complete` - `worktree.py drop

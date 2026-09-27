@@ -38,7 +38,7 @@ check "$(run Write '{"file_path":"'"$R"'/a.txt"}' | verdict)" "allow" "цель 
 
 W="$("$H/worktree.py" path PROJ-1 2>/dev/null)"
 check "$([ -d "$W" ] && echo есть || echo нет)" "есть" "дерево трека заведено"
-check "$("$H/worktree.py" main)" "$R" "worktree.py main отдаёт корень основной копии"
+check "$("$H/worktree.py" main)" "$R" "worktree.py main отдаёт корень дерева сессии"
 
 # Главный поток не вошёл в дерево: узел стартует в дереве сессии, и любой его вызов отбит, даже в дерево трека.
 check "$(run Bash '{"command":"cd '"$W"' && npm test"}' | verdict)" "deny" "узел в дереве сессии: Bash отбит, даже с cd в дерево трека"
@@ -151,5 +151,18 @@ check "$(printf 'не json' | CLAUDE_CONFIG_DIR="$T/empty" "$G" | verdict)" "all
 # Закрытая цель сторожа не держит.
 "$H/ledger.py" close PROJ-1 complete
 check "$(run Write '{"file_path":"'"$R"'/a.txt"}' | verdict)" "allow" "все цели закрыты - сторож молчит"
+
+# Сессия не в основной копии: сторожится её дерево, а не основная копия (свой worktree) и не .git суперпроекта (подмодуль).
+git -C "$R" worktree add -q "$T/own" -b own 2>/dev/null
+git init -q "$T/lib"; git -C "$T/lib" -c user.email=t@t -c user.name=t commit -q --allow-empty -m lib
+git -C "$R" -c protocol.file.allow=always submodule add -q "$T/lib" lib >/dev/null 2>&1
+for s in "свой worktree:$T/own" "подмодуль:$R/lib"; do
+  S="${s#*:}"; export DEX_AUTO_CWD="$S" CLAUDE_PROJECT_DIR="$S"
+  "$H/ledger.py" open PROJ-3 autonomous >/dev/null
+  WS="$("$H/worktree.py" path PROJ-3 2>/dev/null)"
+  check "$(HERE="$S" run Write '{"file_path":"'"$WS"'/x.txt"}' | verdict)" "deny" "сессия - ${s%%:*}: узел, стартовавший в её дереве, отбит"
+  check "$(HERE="$WS" run Write '{"file_path":"'"$S"'/a.txt"}' | verdict)" "deny" "сессия - ${s%%:*}: запись узла в её дерево отбита"
+  check "$(HERE="$WS" run Write '{"file_path":"'"$WS"'/x.txt"}' | verdict)" "allow" "сессия - ${s%%:*}: запись в дерево трека разрешена"
+done
 
 echo "---"; [ "$fail" = 0 ] && echo "все $n проверок пройдены" || echo "есть провалы"; exit "$fail"

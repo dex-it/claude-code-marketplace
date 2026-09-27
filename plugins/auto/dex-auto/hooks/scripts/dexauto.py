@@ -20,7 +20,7 @@ LAUNCH_MARK = "dex-auto-launch"
 
 
 def cwd():
-    base = os.environ.get("DEX_AUTO_CWD") or os.getcwd()
+    base = os.path.abspath(os.environ.get("DEX_AUTO_CWD") or os.getcwd())
     return launch_of(base) or base
 
 
@@ -48,8 +48,8 @@ def read_mark(dotgit):
             launch = f.read().strip()
     except (OSError, ValueError):
         return None
-    # Основной репозиторий перенесён после заведения дерева: мёртвая метка увела бы ключ в несуществующий каталог.
-    return launch if os.path.isdir(launch) else None
+    # Мёртвая метка (репозиторий перенесён) увела бы ключ в несуществующий каталог, относительная - от каталога процесса.
+    return launch if os.path.isabs(launch) and os.path.isdir(launch) else None
 
 
 def bind_session(data):
@@ -226,16 +226,26 @@ def section(path, title, last_line_only=False):
 
 
 def main_root():
-    done = subprocess.run(
-        ["git", "-C", cwd(), "rev-parse", "--path-format=absolute", "--git-common-dir"],
-        capture_output=True, text=True)
+    # Дерево сессии, а не родитель --git-common-dir: в подмодуле это .git суперпроекта, в своём worktree - чужая копия.
+    done = subprocess.run(["git", "-C", cwd(), "rev-parse", "--show-toplevel"], capture_output=True, text=True)
     if done.returncode != 0:
         return None
-    return os.path.dirname(done.stdout.strip())
+    return done.stdout.strip()
 
 
-def worktree_path(main, task):
-    return os.path.join(os.path.dirname(main), "%s-%s" % (os.path.basename(main), slug(task)))
+def tree_base(main):
+    # Подмодуль - сосед внешнего суперпроекта: внутри суперпроекта копия ложится в его рабочее дерево непрослеженной.
+    outer = main
+    while True:
+        up = subprocess.run(["git", "-C", outer, "rev-parse", "--show-superproject-working-tree"], capture_output=True, text=True)
+        if up.returncode != 0 or not up.stdout.strip():
+            break
+        outer = up.stdout.strip()
+    return os.path.join(os.path.dirname(outer), os.path.relpath(main, os.path.dirname(outer)).replace(os.sep, "-"))
+
+
+def worktree_path(base, task):
+    return "%s-%s" % (base, slug(task))
 
 
 def branch_of(task):
