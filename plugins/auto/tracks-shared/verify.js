@@ -8,7 +8,8 @@ const VERIFY = { type: 'object', properties: {
   ahead: { type: 'integer', description: 'коммитов ветки трека, которых нет ни на одной другой ветке' },
   missing: { type: 'string', description: 'при blocked - почему прогон не выполнен; иначе пусто' },
 }, required: ['status', 'exit_code', 'pass_count', 'fail_count', 'failing', 'build_ok', 'head', 'dirty', 'ahead', 'missing'] }
-const VERIFY_CMDS = 'git log --oneline -3, git status --porcelain и git rev-list --count HEAD --not --exclude="$(git branch --show-current)" --branches (это ahead)'
+const AHEAD_CMD = 'git rev-list --count HEAD --not --exclude="$(git branch --show-current)" --branches'
+const VERIFY_CMDS = `git log --oneline -3, git status --porcelain и ${AHEAD_CMD} (это ahead)`
 // Верификатор, не сумевший прогнать, по exit_code неотличим от красных тестов: без этой ветки трек проедает потолок правок вхолостую.
 const noRun = (v) => !v || v.status === 'blocked'
 // exit 0 при упавших тестах даёт конвейер в команде раннера; ноль прошедших при команде тестов - прогон, не бывший прогоном тестов.
