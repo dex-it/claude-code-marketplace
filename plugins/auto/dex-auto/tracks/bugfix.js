@@ -17,7 +17,14 @@ const FIX_CEILING = 3, REVIEW_FIX_CEILING = 1
 // Дерево, стоп-линии и отсутствие оператора одинаковы для любого узла трека; симптом и критерий
 // несёт только тот, кто их исполняет.
 const TREE = `Рабочий каталог - ${A.cwd}: отдельное git worktree трека на ветке auto/${A.task}, процесс уже в нём; чужой работы в нём нет - всё незакоммиченное в нём от этой работы. Дерево сессии, от которого оно заведено, не трогай. Стоп-линия: push, деплой, миграции данных, удаление вне дерева. Оператора нет: невыводимое не додумывай - status: blocked, нехватка в missing.\n`
-const HEAD = `mode: ${A.mode || 'autonomous'}\nцель (${A.task}): починить баг - симптом: ${A.symptom}\nожидаемое: ${A.expected || 'не задано - реконструируй из тестов и корпуса, назови основание'}\nокружение: ${A.env || 'не задано'}\nкритерий «готово»: ${A.done}\nграница: ${A.boundary || 'не выходить за рабочий каталог'}\nфайл цели: ${A.goal_path || 'нет'}\ndecision-log: n/a (трек журнал решений не ведёт; решения - полем decisions)\n${TREE}`
+// >>> shared: goal-args
+// Главный поток может не подать done и boundary: узел берёт их из файла цели, пропуск - в degraded
+const blank = (v) => !String(v || '').trim()
+const fromGoal = (v, absent, section, dflt) => !blank(v) ? v : A.goal_path ? `${absent}, возьми из раздела \`## ${section}\` файла цели ${A.goal_path}` : dflt
+const goalLack = [blank(A.done) && 'критерий «готово» не подан', blank(A.boundary) && 'граница не подана'].filter(Boolean)
+  .map(s => `${s} в args: ${A.goal_path ? `узлы отосланы к файлу цели ${A.goal_path}` : 'файла цели нет'}`)
+// <<< shared: goal-args
+const HEAD = `mode: ${A.mode || 'autonomous'}\nцель (${A.task}): починить баг - симптом: ${A.symptom}\nожидаемое: ${A.expected || 'не задано - реконструируй из тестов и корпуса, назови основание'}\nокружение: ${A.env || 'не задано'}\nкритерий «готово»: ${fromGoal(A.done, 'не подан', 'Критерий «готово»', 'не подан')}\nграница: ${fromGoal(A.boundary, 'не подана', 'Граница', 'не выходить за рабочий каталог')}\nфайл цели: ${A.goal_path || 'нет'}\ndecision-log: n/a (трек журнал решений не ведёт; решения - полем decisions)\n${TREE}`
 // Узел подготовки симптома не получает: прочитав его первой строкой, он чинит баг сам, и хвостовой
 // запрет его не держит (зонд P25). Предмет узла - дерево, и шапка несёт только его.
 const PREP_HEAD = `mode: ${A.mode || 'autonomous'}\nзадача (${A.task}): подготовить дерево трека к сборке и тестам и замерить их до правок - и только это: баг чинят следующие узлы.\n${TREE}`
@@ -236,7 +243,7 @@ const REPRO = { type: 'object', properties: {
   status: STATUS,
   root_cause: { type: 'string', description: 'первопричина с привязкой файл:строка, не симптом; не установлена (гейт первопричины, нужен runtime) - пусто, почему - в missing' },
   reproduction: { type: 'string', description: '"тест <имя>: красный на коммите <git rev-parse HEAD при прогоне; незакоммиченные правки продукта - SHA коммит-объекта этого состояния без правки дерева и индекса (временный индекс: read-tree HEAD, add -A, write-tree, commit-tree -p HEAD)>, <вывод>, причина падения сверена" либо прослеженный путь от входа до места сбоя и почему без теста' },
-  // Снимок теста - опора механической сверки: правку проверки кодером трек ловит сравнением хэшей, а не доверием к его отчёту.
+  // Снимок теста - опора сверки: правку проверки ловит прогон снимка, а не отчёт кодера.
   repro_test: { type: 'string', description: 'путь воспроизводящего теста, оставленного в дереве красным; теста нет - пусто' },
   repro_blob: { type: 'string', description: 'вывод git hash-object -w <путь теста> после его записи; теста нет - пусто' },
   'expected-basis': { type: 'string', description: 'откуда взято ожидаемое: вход, тест, корпус, реконструкция' },
@@ -257,10 +264,14 @@ const BFIX = { type: 'object', properties: {
 }, required: [...FIX.required, 'diagnosis-check', 'dispute'] }
 const BVERIFY = { type: 'object', properties: {
   ...VERIFY.properties,
-  repro_test_hash: { type: 'string', description: 'git hash-object <путь теста диагноста>; путь не назван - пусто; файла нет - "missing"' },
+  repro_test_hash: { type: 'string', description: 'git hash-object -w <путь теста диагноста>; путь не назван - пусто; файла нет - "missing"' },
 }, required: [...VERIFY.required, 'repro_test_hash'] }
+const BSNAP = { type: 'object', properties: {
+  ...BVERIFY.properties,
+  snap_hash: { type: 'string', description: 'git hash-object <путь теста> сразу после git show, до сборки; git show упал - его вывод' },
+}, required: [...BVERIFY.required, 'snap_hash'] }
 const loops = { fix: 0, review_fix: 0, review: 0 }
-const trail = [], degraded = []
+const trail = [], degraded = [...goalLack]
 const LEDGER = resuming ? ledgerList(A.open_findings, 'находки прошлого прогона кодеру не поданы') : []
 const OPEN = LEDGER.length ? `\nНезакрытые находки прошлого прогона (из ledger): по каждой - запись в prior с тем же id: closed с уликой либо disputed с основанием, почему закрывать не следует:\n${LEDGER.map(priorLine).join('\n')}\n` : ''
 let repro = null, fix = null, fix2 = null, ver = null, ver2 = null
@@ -312,7 +323,7 @@ trail.push({ step: '1-repro', doer: reproResumed ? 'ledger (воспроизве
 // этого прогона. Форма repro общая - её же принимает ledger и подаёт обратно в A.repro.
 // accepted - факт приёмки кодером, accepted_blob - ожидаемый хэш теста после неё, accepted_pending - снимок ещё не снят: живут в repro, чтобы пережить ledger;
 // новый диагноз их сбрасывает.
-const withCtx = (d) => ({ repro_test: '', repro_blob: '', ...d, dispute: '', accepted: d.accepted || '', accepted_blob: d.accepted_blob || '', accepted_pending: !!d.accepted_pending, stack: prep.stack, build_cmd: prep.build_cmd, test_cmd: prep.test_cmd, prepare_cmd: prep.prepare_cmd })
+const withCtx = (d) => ({ repro_test: '', ...d, repro_blob: d.repro_test ? String(d.repro_blob || '').trim() : '', dispute: '', accepted: d.accepted || '', accepted_blob: d.repro_test ? String(d.accepted_blob || '').trim() : '', accepted_pending: !!d.accepted_pending, stack: prep.stack, build_cmd: prep.build_cmd, test_cmd: prep.test_cmd, prepare_cmd: prep.prepare_cmd })
 // Диагноз без причины на возобновлении: ledger отдаёт его непригодным, и следующий прогон зовёт диагноста заново.
 const RESET = { root_cause: '', files: [] }
 const testLeft = (d) => d && d.repro_test ? `; тест диагноста оставлен в дереве: ${d.repro_test}` : ''
@@ -332,12 +343,13 @@ if (!diag || diag.status === 'blocked') return bail('Reproduce', lack(diag, 'д�
 if (conflictsOf(diag)) return bail('Reproduce', conflictsOf(diag) + testLeft(diag), { repro: RESET })
 if (!diag.root_cause) return noCause(diag, 'Reproduce: причина не установлена')
 repro = withCtx(diag)
+if (!repro.repro_test && String(diag.repro_blob || '').trim()) degraded.push(`снимок теста диагноста ${String(diag.repro_blob).trim()} без пути (repro_test пуст): правка и удаление теста не сверяются`)
 if (repro.repro_test && !repro.repro_blob) degraded.push(`тест диагноста ${repro.repro_test} назван без снимка (repro_blob пуст): правка теста хэшем не сверяется, удаление сверяется`)
 const causeOf = (d) => `Первопричина: ${d.root_cause}\nВоспроизведение: ${d.reproduction}\nОснование ожидаемого: ${d['expected-basis']}\nПредложение фикса: ${d.fix_proposal}${d.repro_test ? `\nТест диагноста: ${d.repro_test}` : ''}`
 const causeText = causeOf(repro)
 // Правка теста диагноста ловится хэшем, а не отчётом кодера: проверку, подогнанную под свой фикс, отчёт не назовёт.
 // Сигнал ревьюеру идёт против теста диагноста и на каждом круге заново: замороженный до фазы Review, он молчал бы о подмене в правке по находкам.
-const touchedOrig = (v) => !!repro.repro_blob && !!v && v.repro_test_hash !== repro.repro_blob
+const touchedOrig = (v) => !!repro.repro_blob && !!v && hashOf(v) !== repro.repro_blob
 // Приёмка одна на диагноз: исход первой попытки - факт, поздний harness-fixed гейт не открывает. Первый исход
 // держится отдельно от записи приёмки: n/a при тесте приёмкой не записывается, но первым исходом остаётся.
 let firstCheck = repro.accepted
@@ -370,9 +382,10 @@ const disputeExit = (dc, f, where, extra) => {
 const coderType = CODER[repro.stack]
 
 phase('Fix')
+// -w: хэш прогона может стать снимком приёмки, а git show и git diff читают лишь записанный объект.
+const verifyText = (tag, snap) => `${HEAD}Верификация (${tag}): ТОЛЬКО прогон и отчёт, код не менять${snap ? ` и не коммитить. Сначала git show ${snap} > ${repro.repro_test}, git hash-object ${repro.repro_test} - в snap_hash` : ''}. Выполни ${repro.build_cmd ? `сборку: ${repro.build_cmd}; ` : ''}${repro.test_cmd ? `тесты: ${repro.test_cmd}` : 'тестов нет - build_ok по сборке, счётчики 0'}; затем ${snap ? `git checkout -- ${repro.repro_test} при любом исходе, blocked тоже, после него ` : ''}${VERIFY_CMDS}${repro.repro_test ? `; git hash-object -w ${repro.repro_test} - в repro_test_hash` : '; repro_test_hash пустой'}. Числа - из вывода раннера как есть.`
 // Фаза параметром: verify зовётся и из Review, а фаза берётся из opts, не из phase().
-const verifyOnce = (tag, ph = 'Fix') => node('верификатор', `${HEAD}Верификация (${tag}): ТОЛЬКО прогон и отчёт, код не менять. Выполни ${repro.build_cmd ? `сборку: ${repro.build_cmd}; ` : ''}${repro.test_cmd ? `тесты: ${repro.test_cmd}` : 'тестов нет - build_ok по сборке, счётчики 0'}; затем ${VERIFY_CMDS}${repro.repro_test ? `; git hash-object ${repro.repro_test} - в repro_test_hash` : '; repro_test_hash пустой'}. Числа - из вывода раннера как есть.`,
-  { label: `verify:${tag}`, phase: ph, model: 'haiku', schema: BVERIFY })
+const verifyOnce = (tag, ph = 'Fix') => node('верификатор', verifyText(tag, ''), { label: `verify:${tag}`, phase: ph, model: 'haiku', schema: BVERIFY })
 // Зелёная верификация на цели без прошлого прогона значит «работа не покрыта тестами», а не «сделана»: молча пропустить правку по ней нельзя.
 if (A.resume && !resuming) {
   log('«продолжить» без следа прошлого прогона в ledger: трек идёт как первый, фаза правки не пропускается')
@@ -437,7 +450,7 @@ if (rev && rev.status !== 'blocked' && reg.blocking().length) {
   if (!fix2 || fix2.status === 'blocked') return bail('Review: правка по находкам', lack(fix2, 'узел-кодер'), openNow)
   if (noRun(ver2)) return bail('Review: верификация после правки', lack(ver2, 'верификатор'), openNow)
   // Правку теста после harness-fixed гейт отдаёт ревью: сменивший хэш круг повторное ревью не пропускает.
-  if (passed(ver2) && sealed(fix2) && ver2.repro_test_hash === ver.repro_test_hash && reg.blocking().every(f => closedBy(fix2, f))) {
+  if (passed(ver2) && sealed(fix2) && hashOf(ver2) === hashOf(ver) && reg.blocking().every(f => closedBy(fix2, f))) {
     // Находка без своей строки решения - шаг не выполнен: снятая правкой идёт в decisions поимённо.
     const shut = reg.blocking()
     shut.forEach(f => {
@@ -455,15 +468,28 @@ if (rev && rev.status !== 'blocked' && reg.blocking().length) {
   }
 }
 const finalVer = ver2 || ver
+const green = passed(finalVer)
+// Снимок - когда исход не решили кодер, ревью, P0/P1; его blocked - стоп, как у верификатора круга.
+const wantSnap = !admit(green, rev, reg.blocking(), '') && !authorGap(fix2 || fix) && !!repro.test_cmd && !testMissing(finalVer) && !!expected() && hashOf(finalVer) !== expected()
+const snap = wantSnap ? await node('верификатор', verifyText('снимок', expected()), { label: 'verify:снимок', phase: 'Review', model: 'haiku', schema: BSNAP }) : null
+const placed = !!snap && String(snap.snap_hash || '').trim() === expected()
+const back = !!snap && !snap.dirty && hashOf(snap) === hashOf(finalVer) && snap.ahead === finalVer.ahead
+const sha = String(finalVer.head || '').trim().split(/\s/)[0]
+// --soft: коммит верификатора, если он был, уходит в индекс и виден в git status, а не теряется.
+const restore = (A.cwd ? `cd ${A.cwd} && ` : '') + (/^[0-9a-f]+$/i.test(sha) ? `git reset --soft ${sha} && git checkout ${sha} -- ${repro.repro_test}` : `git show ${hashOf(finalVer)} > ${repro.repro_test}`)
+if (wantSnap) trail.push({ step: 'snapshot', doer: 'general-purpose', status: snap ? snap.status : 'null', placed, passed: passed(snap), returned: back })
+if (wantSnap && noRun(snap)) return bail('Review: прогон снимка', `${lack(snap, 'верификатор')}; ${repro.repro_test} мог остаться снимком, вернуть: ${restore}`, { fix_after_review: fix2, review: rev, prior: reg.all() })
+const snapNote = !repro.test_cmd ? '; снимок не прогнан: команды тестов нет' : !wantSnap ? ''
+  : (!placed ? `; снимок ${expected()} не поставлен: snap_hash ${snap.snap_hash || 'пусто'}` : !passed(snap) ? `; снимок ${expected()} на итоговом коде не зелёный: ${redNote(snap)}` : '')
+    + (!back ? `; файл теста после прогона снимка ${expected()} не возвращён: repro_test_hash ${hashOf(snap) || 'пусто'} при итоговом ${hashOf(finalVer)}, ahead ${snap.ahead} при итоговом ${finalVer.ahead}, dirty=${snap.dirty}, вернуть: ${restore}` : '')
 // Удалённый тест - разрыв при любой приёмке и без снимка: путь верификатору назван треком. Правка теста - против ожидания,
 // а не вердикта: суждение «обвязка или проверка» ревью несёт на круге приёмки, дальше тест держится снимком.
 // Тест в диагнозе, а правка прошла без записанной приёмки (n/a при тесте) - тоже разрыв.
 const testGap = testMissing(finalVer) ? `тест диагноста ${repro.repro_test} удалён (repro_test_hash: ${hashOf(finalVer) || 'пусто'})`
-  : !!expected() && finalVer.repro_test_hash !== expected() ? `тест диагноста ${repro.repro_test} изменён при diagnosis-check: ${((fix2 || fix) || {})['diagnosis-check'] || repro.accepted || 'не назван'}`
+  : !!expected() && hashOf(finalVer) !== expected() && !(placed && back && passed(snap)) ? `тест диагноста ${repro.repro_test} изменён при diagnosis-check: ${((fix2 || fix) || {})['diagnosis-check'] || repro.accepted || 'не назван'}${snapNote}`
   : fix && repro.repro_test && !repro.accepted ? `приёмка диагноза не проведена: diagnosis-check ${(fix2 || fix)['diagnosis-check'] || 'не назван'} при тесте диагноста ${repro.repro_test}` : ''
 const gap = [ledgerUnread ? LEDGER_UNREAD : '', authorGap(fix2 || fix) || testGap || (repro.status === 'partial' ? `воспроизведение partial: ${repro.missing || `эталон - ${repro['expected-basis']}`}` : ''),
   !repro.build_cmd && !repro.test_cmd ? 'внешнего факта нет: ни сборки, ни тестов' : '', !finalVer.ahead ? 'коммитов трека нет' : '', reviewGap(rev)].filter(Boolean).join('; ')
-const green = passed(finalVer)
 const where = admit(green, rev, reg.blocking(), gap)
 return outcome(where ? 'partial' : 'complete', where, where, {
   goal_check: { build_ok: finalVer.build_ok, tests_green: finalVer.exit_code === 0 && finalVer.fail_count === 0, committed: !finalVer.dirty && finalVer.ahead > 0, head: finalVer.head },

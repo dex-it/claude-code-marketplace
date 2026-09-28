@@ -17,7 +17,14 @@ const FIX_CEILING = 3, REVIEW_FIX_CEILING = 1
 // Дерево, стоп-линии и отсутствие оператора одинаковы для любого узла трека; цель и критерий
 // несёт только тот, кто их исполняет.
 const TREE = `Рабочий каталог - ${A.cwd}: отдельное git worktree трека на ветке auto/${A.task}, процесс уже в нём; чужой работы в нём нет - всё незакоммиченное в нём от этой работы. Дерево сессии, от которого оно заведено, не трогай. Push, деплой, миграции данных и удаление вне рабочего дерева не делать - это стоп-линия. Оператора нет: невыводимое не додумывай, верни status: blocked с полем нехватки.\n`
-const HEAD = `mode: ${A.mode || 'autonomous'}\nцель (${A.task}): ${A.goal}\nкритерий «готово»: ${A.done}\nграница: ${A.boundary || 'не выходить за рабочий каталог'}\nфайл цели: ${A.goal_path || 'нет'}\ndecision-log: n/a (трек журнал решений не ведёт; решения - полем decisions)\n${TREE}`
+// >>> shared: goal-args
+// Главный поток может не подать done и boundary: узел берёт их из файла цели, пропуск - в degraded
+const blank = (v) => !String(v || '').trim()
+const fromGoal = (v, absent, section, dflt) => !blank(v) ? v : A.goal_path ? `${absent}, возьми из раздела \`## ${section}\` файла цели ${A.goal_path}` : dflt
+const goalLack = [blank(A.done) && 'критерий «готово» не подан', blank(A.boundary) && 'граница не подана'].filter(Boolean)
+  .map(s => `${s} в args: ${A.goal_path ? `узлы отосланы к файлу цели ${A.goal_path}` : 'файла цели нет'}`)
+// <<< shared: goal-args
+const HEAD = `mode: ${A.mode || 'autonomous'}\nцель (${A.task}): ${A.goal}\nкритерий «готово»: ${fromGoal(A.done, 'не подан', 'Критерий «готово»', 'не подан')}\nграница: ${fromGoal(A.boundary, 'не подана', 'Граница', 'не выходить за рабочий каталог')}\nфайл цели: ${A.goal_path || 'нет'}\ndecision-log: n/a (трек журнал решений не ведёт; решения - полем decisions)\n${TREE}`
 // Узел подготовки цели не получает: прочитав её первой строкой, он реализует фичу целиком, и
 // хвостовой запрет его не держит (зонд P25). Предмет узла - дерево, и шапка несёт только его.
 const PREP_HEAD = `mode: ${A.mode || 'autonomous'}\nзадача (${A.task}): подготовить дерево трека к сборке и тестам и замерить их до правок - и только это. Цель трека тебе не передана намеренно: реализацию ведёт другой узел, и код в дереве не твой предмет.\n${TREE}`
@@ -245,7 +252,7 @@ const REQ = { type: 'object', properties: {
   missing: { type: 'string', description: 'при blocked - чего не хватает и у кого это есть' },
 }, required: ['status', 'requirements', 'files', 'corpus', 'conflict-status', 'conflicts', 'missing'] }
 const loops = { fix: 0, review_fix: 0, review: 0 }
-const trail = [], degraded = []
+const trail = [], degraded = [...goalLack]
 const LEDGER = resuming ? ledgerList(A.open_findings, 'находки прошлого прогона кодеру не поданы') : []
 const OPEN = LEDGER.length ? `\nНезакрытые находки прошлого прогона (из ledger): по каждой - запись в prior с тем же id: closed с уликой либо disputed с основанием, почему закрывать не следует:\n${LEDGER.map(priorLine).join('\n')}\n` : ''
 let ctx = null, fix = null, fix2 = null, ver = null, ver2 = null
