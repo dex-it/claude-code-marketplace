@@ -664,6 +664,20 @@ function validateTraps(markdownBody, findings, isProcess = false) {
 
   const traps = extractTraps(markdownBody);
 
+  // Floor of a trap skill: a checklist item or an H3 trap. Without either the
+  // skill carries nothing to apply - the trap-side counterpart of process-empty.
+  let hasListItem = false;
+  visit(parseMarkdown(markdownBody), 'listItem', () => {
+    hasListItem = true;
+  });
+  if (traps.length === 0 && !hasListItem) {
+    findings.push({
+      level: ERROR,
+      rule: 'trap-empty',
+      message: 'Trap skill has neither a checklist item nor an H3 trap - nothing for the executor to apply',
+    });
+  }
+
   for (const trap of traps) {
     const body = trapBodyText(trap).toLowerCase();
 
