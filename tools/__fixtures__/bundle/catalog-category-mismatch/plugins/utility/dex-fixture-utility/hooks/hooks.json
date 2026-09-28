@@ -1,0 +1,16 @@
+{
+  "description": "Классический хук-плагин: ключа modules нет, поэтому категория остаётся utility - свидетель обратной стороны ветки mod",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/noop.sh\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
