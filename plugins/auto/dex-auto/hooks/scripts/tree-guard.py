@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# PreToolUse: `args.cwd` промпта рабочим каталогом процесса не является, поэтому дерево трека принуждает хук (issue #252).
+# PreToolUse: узел трека работает в дереве, куда главный поток вошёл до запуска (P34); хук - страховка, что дерево сессии узел не трогает.
 import json
 import os
 import re
@@ -10,6 +10,8 @@ import dexauto as dx
 
 WATCHED = ("Write", "Edit", "MultiEdit", "NotebookEdit", "Bash")
 TOKEN_TAIL = re.compile(r"[A-Za-z0-9._-]")
+# Абсолютный путь с начала слова: `cat $W/../repo/a` называет дерево сессии, не называя его буквально.
+ABS_PATH = re.compile(r"(?<![^\s'\"`=:;|&<>(])/[^\s'\"`:;|&<>()$]*")
 
 
 def deny(reason):
@@ -32,77 +34,71 @@ def names(command, path):
     return False
 
 
+def operator_subagent(data):
+    # Событием узел Workflow от субагента Agent не отличить, различает место транскрипта (P33); файла нет - сторожим.
+    path = dx.field(data, "transcript_path")
+    if not path.endswith(".jsonl"):
+        return False
+    return os.path.isfile(os.path.join(path[:-len(".jsonl")], "subagents", "agent-%s.jsonl" % dx.field(data, "agent_id")))
+
+
+def inside(path, root):
+    return path == root or path.startswith(root + os.sep)
+
+
 def main():
     data = dx.event()
     if data is None:
         # Событие не разобрано: молчать здесь и есть та дыра, ради которой сторож заведён.
+        dx.bind_session(None)
         if dx.find_open():
             deny("dex-auto: сторож дерева трека не разобрал событие PreToolUse. Событие не является валидным JSON.")
         return
 
-    # Узлы движка спавнит Workflow; прочие субагенты приходят с именем своего типа и не сторожатся.
-    if data.get("agent_type") != "workflow-subagent":
+    if not dx.field(data, "agent_id") or operator_subagent(data):
         return
     tool = dx.field(data, "tool_name")
     if tool not in WATCHED:
         return
 
-    os.environ["DEX_AUTO_CWD"] = dx.field(data, "cwd") or os.getcwd()
+    dx.bind_session(data)
     goals = dx.find_open()
     if not goals:
         return
-
     main_path = dx.main_root()
-    trees, listed = [], []
-    for task, _ in goals:
-        if main_path is None:
-            break
-        path = dx.worktree_path(main_path, task)
-        if not os.path.isdir(path):
-            continue
-        canon = os.path.realpath(path)
-        listed.append(canon)
-        # Обе формы: путь дерева приходит узлу из промпта неканоническим, а сверяется он с каноническим.
-        trees.append(canon)
-        if canon != path:
-            trees.append(path)
+    if main_path is None:
+        return
+    base = dx.tree_base(main_path)
+    listed = [os.path.realpath(p) for p in (dx.worktree_path(base, task) for task, _ in goals) if os.path.isdir(p)]
     # Дерева нет ни у одной открытой цели - трек не запускался, сторожить нечего.
-    if not trees:
+    if not listed:
         return
     listing = " ".join(listed)
+    canon_main = os.path.realpath(main_path)
+    here = os.path.realpath(dx.field(data, "cwd") or os.getcwd())
+
+    if inside(here, canon_main):
+        deny("dex-auto: субагент запущен в дереве сессии (%s) при открытой цели с деревом трека (%s). Ничего не выполняй. "
+             "Узел трека: главный поток не вошёл в дерево трека до запуска Workflow - верни status: blocked с этой нехваткой. "
+             "Узел другого Workflow: дерево сессии закрыто, пока цель открыта - верни эту причину вызывающему." % (canon_main, listing))
 
     if tool == "Bash":
         subject = dx.field(data, "tool_input.command")
-        what = "команда"
     else:
         subject = dx.field(data, "tool_input.file_path") or dx.field(data, "tool_input.notebook_path")
-        what = "путь"
     if not subject:
-        deny("dex-auto: сторож дерева трека не нашёл в событии предмет вызова (%s). "
-             "Подай инструменту путь внутри дерева трека." % tool)
+        deny("dex-auto: сторож дерева трека не нашёл в событии предмет вызова (%s)." % tool)
 
     if tool == "Bash":
-        canon_main = os.path.realpath(main_path) if main_path else None
-        if canon_main and (names(subject, canon_main) or names(subject, main_path)):
-            deny("dex-auto: команда узла называет общее дерево сессии (%s), а трек работает только в своём (%s): %s. "
-                 "Убери обращение к общему дереву - оно только на чтение, и читается Read/Grep, не через Bash."
-                 % (canon_main, listing, subject))
-        for path in trees:
-            if names(subject, path):
-                return
-        deny("dex-auto: узел трека запускает команды только в дереве открытой цели (%s), а эта его не называет: %s. "
-             "Префиксуй cd <дерево> && ... либо подай инструменту путь дерева. Каталог сессии - только на чтение, "
-             "и читается Read/Grep, не через Bash." % (listing, subject))
+        if (names(subject, canon_main) or names(subject, main_path)
+                or any(inside(os.path.realpath(m.group(0)), canon_main) for m in ABS_PATH.finditer(subject))):
+            deny("dex-auto: команда узла ведёт в дерево сессии (%s), а узел трека работает в дереве открытой цели (%s): %s. "
+                 "Работай в рабочем каталоге, путь дерева сессии не называй." % (canon_main, listing, subject))
+        return
 
-    if not subject.startswith("/"):
-        deny("dex-auto: узел трека правит только дерево открытой цели (%s), а %s задан относительно каталога сессии: %s. "
-             "Пиши по абсолютному пути внутри дерева." % (listing, what, subject))
-    target = os.path.realpath(subject)
-    for path in trees:
-        if target == path or target.startswith(path + os.sep):
-            return
-    deny("dex-auto: узел трека правит только дерево открытой цели (%s), а %s ведёт наружу: %s. "
-         "Пиши по абсолютному пути внутри дерева; каталог сессии - только на чтение." % (listing, what, subject))
+    if inside(os.path.realpath(os.path.join(here, subject)), canon_main):
+        deny("dex-auto: правка узла ведёт в дерево сессии (%s), а узел трека правит дерево открытой цели (%s): %s. "
+             "Пиши в рабочем каталоге." % (canon_main, listing, subject))
 
 
 if __name__ == "__main__":
