@@ -232,7 +232,7 @@ AsSplitQuery, IQueryable, ExecuteUpdate, cartesian explosion, GroupBy, owned typ
 
 Skill без прогона сжатия формы не судится: его ловушки стоят как написаны, пока их не сжали по свидетельству.
 
-Основание - прогоны `dex-skill-dotnet-ef-core` ([tests/trap-skills/dotnet-ef-core](../tests/trap-skills/dotnet-ef-core/README.md), заход 3) и `dex-skill-performance-review` ([tests/trap-skills/performance-review](../tests/trap-skills/performance-review/README.md)): названия поймали всё, что ловили триады, кроме одного факта версии Npgsql, без которого исполнитель брал тип колонки со страницы ADO-драйвера; с этим фактом при названии - равное обнаружение.
+Основание - прогоны `dex-skill-dotnet-ef-core` ([tests/trap-skills/dotnet-ef-core](../tests/trap-skills/dotnet-ef-core/README.md), заходы 3-4) и `dex-skill-performance-review` ([tests/trap-skills/performance-review](../tests/trap-skills/performance-review/README.md)). Названия ловят большую часть того, что ловили триады; шаг 2 поставил факт версии Npgsql, без которого исполнитель брал тип колонки со страницы ADO-драйвера. Шаг 3 поставил заход 4: без предписания искать документацию названия и пункт «что сверить» проваливают soft-delete при required FK и запись в `timestamp` (E4 0/4 и 0/2), пункт «какой исход обязателен» проходит (2/2). Заход 3 шёл с предписанием поиска в задании, и обнаружение там давало в основном оно (без скилла 9/10) - поэтому форма мерится заданием без предписания (шаг 2 метода), а вводная строка «решение - по документации» поиск не заменяет: в заходе 4 ни один прогон её не выполнил.
 
 ## Размер skill
 
