@@ -151,6 +151,8 @@ function runOne(row) {
       const meta = summarize(raw, { row, code, err, started, finished: new Date(), dirs });
       const dest = join(RESEARCH, 'runs', row.id);
       mkdirSync(dest, { recursive: true });
+      // case.txt - не условие: судье кейс нужен, форма и модель - нет.
+      writeFileSync(join(dest, 'case.txt'), row.case + '\n');
       writeFileSync(join(dest, 'answer.md'), meta.answer ?? '');
       delete meta.answer;
       writeFileSync(join(dest, 'meta.json'), JSON.stringify(meta, null, 2));
