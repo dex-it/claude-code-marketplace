@@ -1,0 +1,18 @@
+{
+  "id": "E3",
+  "kind": "code",
+  "stack": ".NET",
+  "skill": "ef-core",
+  "project": "Shop (EF Core 8 + Npgsql 8, .NET 8)",
+  "inputs": [
+    {
+      "from": "tests/trap-skills/dotnet-ef-core/inputs/Model.cs",
+      "to": "Model.cs"
+    },
+    {
+      "from": "tests/trap-skills/dotnet-ef-core/inputs/OrderRepository.cs",
+      "to": "OrderRepository.cs"
+    }
+  ],
+  "task": "Добавь сервис CatalogMaintenance: (а) поднять цены на 10% всем продуктам категории; (б) ночная очистка AuditLogs старше года (в таблице ~50 млн строк, из них под удаление ~40 млн); (в) метод Restock(IEnumerable<(Guid id, int add)>): загрузить продукты и увеличить Stock, сохранить; (г) метод CreateProduct(string sku, ...): создать продукт с новым Guid."
+}

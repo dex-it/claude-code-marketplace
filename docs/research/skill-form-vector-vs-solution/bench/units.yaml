@@ -1,0 +1,287 @@
+# Единицы старых trap-skill для генерации форм F1-F5 (gen-forms.mjs).
+#
+# Форма применяется ко всему скиллу. F5 - тело старой редакции дословно (как команда им пользовалась).
+# F1 - вводная + название каждой единицы. F2-F4 растут только у единиц с заполненным полем:
+#   F2 = название + fact
+#   F3 = название + fact + check   (что сверить)
+#   F4 = название + fact + outcome (какой исход обязателен)
+# Единица без поля на шаге остаётся названием: так лестница «Формы пункта» и работает.
+# Поле class и cases - только у единиц, которые меряются кейсами (ключ - PREREG.md).
+# Факты fact сверены с первоисточником, адреса - SOURCES.md, «Факты, сверенные для форм F2-F4».
+
+ef-core:
+  meta:
+    name: dotnet-ef-core
+    plugin: dex-skill-dotnet-ef-core
+    description: "EF Core — ловушки запросов, миграций, concurrency, mapping. Активируется при ef core, dbcontext, migration, N+1, AsNoTracking, Include, AsSplitQuery, IQueryable, ExecuteUpdate, cartesian explosion, GroupBy, owned types, DateTime, DateTimeKind, timestamp, timestamptz, Npgsql, Unspecified, ToUniversalTime, value converter"
+    role: "правила EF Core, принятые в команде"
+  f5: tests/trap-skills/dotnet-ef-core/inputs/SKILL-2.6.2.md
+  title: "# Entity Framework Core - чек-лист"
+  intro: "Пункт называет ситуацию, которую изменение проверяет; решение - по документации EF Core / Npgsql версии из манифеста проекта."
+  units:
+    - id: lazy-n1
+      name: Ленивая загрузка навигации в цикле
+    - id: readonly-tracking
+      name: Трекинг выборки только для чтения
+      check: попадает ли выборка в Change Tracker
+      outcome: выборка только для чтения не отслеживается - `AsNoTracking` или проекция
+      class: A
+      cases: [E1]
+    - id: tolist-projection
+      name: Полная сущность там, где нужна часть полей
+    - id: filter-in-memory
+      name: Фильтр после материализации
+    - id: aggregate-in-memory
+      name: Группировка и агрегаты после материализации
+    - id: untranslatable-filter
+      name: Нетранслируемое условие фильтра
+      check: где выполняется условие - в SQL или после материализации
+      outcome: условие целиком в `IQueryable` до материализации
+      class: A
+      cases: [E1]
+    - id: repo-materializes
+      name: Репозиторий материализует выборку
+    - id: null-forgiving-aggregate
+      name: "`!` на nullable-значении без фильтра по null"
+    - id: single-not-unique
+      name: "`Single` на условии, которое в домене не уникально"
+      check: уникально ли условие в домене и что вернёт метод при нескольких совпадениях
+      outcome: при нескольких совпадениях запись не выбирается молча - условие уточняется до уникального или неоднозначность возвращается явно
+      class: D
+      cases: [E2]
+    - id: null-guard-spec
+      name: Null-guard в спецификации на ненулевом параметре
+    - id: fromsql-alias
+      name: Динамически собираемый `FromSqlRaw`
+      check: алиас в собираемых условиях против алиаса шаблона
+      outcome: условия ссылаются на алиас шаблона, значения идут параметрами
+      class: A
+      cases: [R]
+    - id: add-async
+      name: "`Add` и `AddAsync`"
+    - id: owned-single-field
+      name: Owned-тип из одного поля
+    - id: datetime-column
+      name: "`DateTime` и тип колонки в Npgsql"
+      fact: с Npgsql 6 свойство без явного типа - `timestamptz`
+      check: "`Kind` против типа колонки при записи, чтении и в параметре запроса"
+      outcome: в `timestamptz` пишется `Kind=Utc`; в `timestamp without time zone` пишется `Kind=Unspecified`, прочитанное помечается `Utc`
+      class: B
+      cases: [E3, E4]
+    - id: softdelete-cascade
+      name: Soft-delete (`HasQueryFilter`) и каскад FK
+      check: что сделает БД с зависимыми строками при физическом `DELETE` родителя
+      outcome: FK зависимых в БД без каскада
+      class: A
+      cases: [E4]
+    - id: required-orphans
+      name: Разрыв required-связи (`Clear()` коллекции зависимых)
+      fact: при `Restrict` и `ClientSetNull` разрыв required-связи в `SaveChanges` бросает `InvalidOperationException`
+      check: что делает `SaveChanges` с зависимым, убранным из required-коллекции, при выбранном `OnDelete`
+      outcome: зависимые удаляет код, и разрыв required-связи не бросает исключение
+      class: B
+      cases: [E4]
+    - id: concurrency-token
+      name: Параллельная правка одной записи
+    - id: pessimistic-lock
+      name: "`FOR UPDATE` и граница транзакции"
+    - id: savechanges-loop
+      name: "`SaveChanges` в цикле по строкам"
+    - id: bulk-delete
+      name: Массовое удаление одной транзакцией
+    - id: updaterange-tracked
+      name: "`UpdateRange` на отслеживаемых сущностях"
+    - id: cartesian
+      name: Несколько коллекций в одном `Include`-запросе
+    - id: split-single
+      name: Split query на выборке одной сущности
+      check: сколько строк даёт JOIN коллекций этой выборки
+      outcome: две и более коллекций одного уровня - split законен и на одной сущности
+      class: D
+      cases: [R, N0]
+    - id: prod-migration
+      name: Применение миграции на production
+      check: какой SQL уйдёт в базу и кто увидит его до применения
+      outcome: в production-пайплайне нет `dotnet ef database update` - SQL идёт через idempotent-скрипт с ревью или migrations bundle
+      class: C
+      cases: [E6]
+    - id: data-and-schema
+      name: Данные и схема в одной миграции
+    - id: schema-without-data
+      name: Схемная миграция и исторические данные
+    - id: dbcontext-singleton
+      name: Время жизни `DbContext`
+    - id: dbcontext-background
+      name: "`DbContext` в `BackgroundService`"
+
+linq:
+  meta:
+    name: dotnet-linq-optimization
+    plugin: dex-skill-dotnet-linq-optimization
+    description: "LINQ и коллекции — ловушки производительности. Активируется при linq, query, collection, hashset, dictionary, IEnumerable, IQueryable, ToList, Any, Count, GroupBy, FirstOrDefault, Select, Where"
+    role: "ловушки LINQ, принятые в команде"
+  f5: tests/trap-skills/removed/dotnet-linq-optimization/inputs/SKILL-2.3.1.md
+  title: "# LINQ и коллекции - чек-лист"
+  intro: "Пункт называет ситуацию, которую изменение проверяет; решение - по документации .NET / EF Core версии из манифеста проекта."
+  units:
+    - id: tolist-early
+      name: Материализация в начале цепочки
+    - id: whole-entity-list
+      name: Полная сущность для списка
+    - id: count-any
+      name: Проверка наличия через `Count() > 0`
+      check: сколько строк считает запрос, чтобы ответить «есть или нет»
+      outcome: наличие проверяется `Any` / `AnyAsync`
+      class: A
+      cases: [MRA]
+    - id: query-in-loop
+      name: Запрос в цикле
+    - id: contains-list
+      name: "`Contains` по большому списку в запросе"
+      fact: EF Core 8 передаёт список одним параметром; в Npgsql `list.Contains(x)` - `x = ANY(@p)`
+      check: сколько параметров и запросов даёт `Contains` по списку в версии проекта
+      outcome: список не режется на пачки ради лимита параметров
+      class: D
+      cases: [L5]
+    - id: groupby-tolist
+      name: "`GroupBy` с материализацией внутри `Select`"
+    - id: order-after-projection
+      name: Сортировка после проекции
+    - id: list-contains-hot
+      name: "`List.Contains` в горячем цикле"
+    - id: firstordefault-lookup
+      name: Поиск по списку в цикле
+    - id: multiple-enumeration
+      name: Повторный обход `IEnumerable`
+    - id: distinct-reference
+      name: "`Distinct()` на объектах"
+    - id: dedup-batch
+      name: Дубли во входном списке id
+      check: повторяются ли id во входе и что получит повторённый id
+      outcome: один id - одно действие; дубли снимаются до обработки
+      class: A
+      cases: [L5]
+    - id: first-empty
+      name: "`[0]` / `First()` после фильтра"
+    - id: aggregate-empty
+      name: "`Average` / `Min` / `Max` на коллекции, которая бывает пустой"
+    - id: tolist-each-branch
+      name: Материализация в каждой ветке динамического запроса
+
+di:
+  meta:
+    name: dotnet-di
+    plugin: dex-skill-dotnet-di
+    description: ".NET DI — ловушки регистрации, lifetime, Service Locator. Активируется при dependency injection, регистрация сервиса, AddScoped, AddSingleton, configure services, captive dependency, scoped в singleton, IServiceProvider, lifetime, DI, startup"
+    role: "правила DI в .NET, принятые в команде"
+  f5: bench/forms-src/dotnet-di-1.1.1.md
+  title: "# .NET DI - чек-лист"
+  intro: "Пункт называет ситуацию, которую изменение проверяет; решение - по документации .NET версии из манифеста проекта."
+  units:
+    - id: captive
+      name: Scoped-зависимость в Singleton
+    - id: transient-disposable
+      name: Transient `IDisposable`
+    - id: singleton-instance
+      name: "`AddSingleton` с готовым экземпляром"
+    - id: lifetime-raise
+      name: Повышение lifetime до Singleton
+    - id: concrete-class
+      name: Регистрация конкретного класса вместо интерфейса
+    - id: new-service
+      name: "`new` сервиса вместо DI"
+    - id: tryadd
+      name: Двойная регистрация одного сервиса
+    - id: open-generics
+      name: Open generics и ограничения типа
+    - id: service-locator
+      name: "`IServiceProvider` в бизнес-коде"
+    - id: decorate-order
+      name: Порядок декораторов
+    - id: keyed-literal
+      name: Ключ keyed-сервиса строкой-литералом в регистрации и в `[FromKeyedServices]`
+      check: сколько мест держат один и тот же ключ
+      outcome: одна константа на регистрацию и `[FromKeyedServices]`, не строка-литерал в каждом месте
+      class: C
+      cases: [K1]
+    - id: validate-scopes
+      name: "`ValidateScopes` в Production"
+
+config:
+  meta:
+    name: dotnet-config-hygiene
+    plugin: dex-skill-dotnet-config-hygiene
+    description: ".NET config hygiene - appsettings, IOptions, env-настройки, валидация. Активируется при appsettings, IOptions, IOptionsMonitor, IOptionsSnapshot, BindConfiguration, AddOptions, ValidateOnStart, окружения, staging, production, options pattern"
+    role: "ловушки конфигурации .NET, принятые в команде"
+  f5: tests/trap-skills/removed/dotnet-config-hygiene/inputs/SKILL-1.3.1.md
+  title: "# .NET Config Hygiene - чек-лист"
+  intro: "Пункт называет ситуацию, которую изменение проверяет; решение - по документации .NET версии из манифеста проекта."
+  units:
+    - id: staging-gt-prod
+      name: Staging агрессивнее Production
+      check: какие лимиты Staging выше Production и записана ли причина
+      outcome: лимиты Staging не выше Production, если причина не записана рядом
+      class: C
+      cases: [CFG]
+    - id: unit-in-name
+      name: Имя настройки без единицы
+    - id: no-start-validation
+      name: Валидация конфигурации при старте
+    - id: validator-unregistered
+      name: Валидатор опций и его регистрация
+    - id: ioptions-reload
+      name: "`IOptions` при требовании менять значение на лету"
+    - id: cross-field-if
+      name: Кросс-полевой инвариант опций
+    - id: nonnullable-required
+      name: Non-nullable свойство опций без значения из конфигурации
+      fact: модификатор `required` к валидации опций отношения не имеет
+      check: что остановит сервис при отсутствии значения в конфигурации
+      outcome: отсутствие значения ловит валидация опций на старте (`ValidateDataAnnotations` или валидатор + `ValidateOnStart`), не `required`
+      class: D
+      cases: [CFG]
+    - id: unit-in-name-read
+      name: Единица измерения в имени настройки
+    - id: default-duplicated
+      name: Значение по умолчанию в каждом env-файле
+      check: какие значения env-файла совпадают с дефолтом
+      outcome: env-файл несёт только отличия от дефолта
+      class: C
+      cases: [CFG]
+    - id: secrets-in-repo
+      name: Секреты в appsettings в репозитории
+
+fv:
+  meta:
+    name: fact-verification
+    plugin: dex-skill-fact-verification
+    description: "Сверка технического факта с источником истины - для ревью, диагностики и аудита. Активируется при сверка факта, fact verification, fact-check, имя API, сигнатура метода, дефолт фреймворка, default behavior, поведение по умолчанию, дефолт SDK, перевёрнутая причинность, причинность гипотезы, root cause факт, бросает ли исключение, context7, источник истины, неподтверждённый факт, выдуманный API"
+    role: "дисциплина, принятая в команде"
+  f5: tests/trap-skills/fact-verification/inputs/SKILL-1.3.0.md
+  # Процедурная часть скилла (каскад источников) - не ловушки и остаётся во всех формах.
+  preamble_from_f5: true
+  title: "## Чек-лист"
+  intro: "Пункт называет ситуацию, в которой факт сверяется."
+  units:
+    - id: api-by-memory
+      name: Имя API или сигнатура по памяти
+    - id: causality
+      name: Причинно-следственная связь
+    - id: fact-on-faith
+      name: Технический факт из MR, кода или лога
+      check: чем подтверждено утверждение в комментарии кода или описании MR
+      outcome: каждое утверждение комментария кода сверено отдельно и помечено подтверждённым, опровергнутым или неподтверждённым
+      class: B
+      cases: [FVB]
+    - id: latest-vs-version
+      name: Сверка по latest вместо версии проекта
+      check: версия библиотеки в манифесте проекта и документация этой версии
+      outcome: поведение сверено по документации версии из манифеста, не latest
+      class: B
+      cases: [FVB]
+    - id: norm-condition
+      name: Разрешение нормы без условия применимости
+    - id: source-status-date
+      name: Статус источника на дату использования
+    - id: negative-fact
+      name: Отрицательный факт «такого API нет»

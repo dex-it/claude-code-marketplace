@@ -1,0 +1,170 @@
+# Ключи кейсов. Записаны до прогонов, коммит PREREG.md фиксирует их вместе с гипотезами.
+#
+# Род строки:
+#   unit      - единица скилла под гипотезы (class A-D); исход pass | fail | disputed
+#   skill     - дефект под ловушку, которую база ловит сама; recall скилла, не гипотеза
+#   harm      - вредное действие: ложная находка на приманке, неверный готовый ответ; исход yes | no
+#   mine      - мина кода: сломана -> yes; тоже вред
+#   coverage  - дефект вне скилла; исход found | missed
+# Засчитывается применение в выходе (код в diff, находка в ответе). Правило, названное, но не
+# применённое, - fail. Текст ответа о коде не заменяет код: оценка по diff.patch.
+# disputed - исход, который ключ заранее называет спорным; в основном анализе считается как указано
+# в поле primary, в анализе чувствительности - наоборот.
+#
+# Источники ключей - README наборов (строки указаны); N0 заведён этим исследованием.
+
+E1:
+  source: tests/trap-skills/dotnet-ef-core/README.md:26-35
+  items:
+    - {id: E1-filter, kind: unit, unit: untranslatable-filter, class: A,
+       pass: "метод (в) - просроченные заказы: условие IsOverdue (ShippedAt == null и CreatedAt + 3 дня < now) целиком выражено в IQueryable и выполняется в SQL до материализации",
+       fail: "вызов Order.IsOverdue(now) внутри запроса, фильтр после ToList/AsEnumerable/материализации, выборка всех заказов с фильтром в памяти"}
+    - {id: E1-tracking, kind: unit, unit: readonly-tracking, class: A,
+       pass: "ни один из трёх методов не отслеживает выборку: AsNoTracking или проекция Select в не-сущность",
+       fail: "хотя бы один метод материализует отслеживаемые сущности"}
+    - {id: E1-m-n1, kind: mine, what: "запрос на каждую строку через ленивую навигацию (lazy proxies включены) - например Customer.Name или Items.Count после материализации без Include/проекции"}
+    - {id: E1-m-agg, kind: mine, what: "(б) число заказов по категориям считается в памяти, а не GroupBy на сервере"}
+    - {id: E1-m-getall, kind: mine, what: "для отчёта используется OrderRepository.GetAllAsync"}
+
+E2:
+  source: tests/trap-skills/dotnet-ef-core/README.md:37-47; ключ захода 4 - :228-229, :258-262
+  items:
+    - {id: E2-single, kind: unit, unit: single-not-unique, class: D,
+       pass: "(в) при warehouse == null и нескольких продуктах с этим SKU склад не выбирается молча: явная ошибка/результат неоднозначности (своё исключение с сообщением, Result, список кандидатов) или обязательный склад",
+       fail: "FirstOrDefault / OrderBy(...).First... молча берёт один склад",
+       disputed: "голый Single/SingleOrDefault без обработки неоднозначности (бросит InvalidOperationException)", primary: fail}
+    - {id: E2-h-split, kind: harm, what: "(а) карточка одного заказа грузит Items и Payments одним JOIN-запросом без split, и решение обосновано тем, что для одной сущности split не нужен (или AsSplitQuery убран по этой причине)"}
+    - {id: E2-m-cart, kind: mine, what: "(б) выгрузка заказов клиента с Items и Payments одним запросом с двумя коллекциями в Include без AsSplitQuery и без проекции, дающей отдельные запросы"}
+    - {id: E2-m-nullagg, kind: mine, what: "(г) `!` или .Value на nullable-агрегате (Max(ShippedAt)) без фильтра ShippedAt != null до агрегата"}
+
+E3:
+  source: tests/trap-skills/dotnet-ef-core/README.md:49-57
+  items:
+    - {id: E3-kind, kind: unit, unit: datetime-column, class: B,
+       pass: "(б) граница «старше года» для AuditLog.At передаётся с Kind=Utc (DateTime.UtcNow.AddYears(-1) или эквивалент); тип колонки не меняется",
+       fail: "граница из DateTime.Now, Kind=Local или Kind=Unspecified (SpecifyKind Unspecified), либо смена типа колонки AuditLog.At на timestamp"}
+    - {id: E3-m-update, kind: mine, what: "(а) цены поднимаются загрузкой продуктов и SaveChanges, а не одним UPDATE (ExecuteUpdate или сырой SQL)"}
+    - {id: E3-m-batch, kind: mine, what: "(б) 40 млн строк удаляются одной операцией/транзакцией без батчей"}
+    - {id: E3-m-oneq, kind: mine, what: "(в) продукты грузятся запросом на каждый id"}
+
+E4:
+  source: tests/trap-skills/dotnet-ef-core/README.md:59-68; исполнение - inputs/e4-harness/
+  exec: e4-harness
+  items:
+    - {id: E4-ts, kind: unit, unit: datetime-column, class: B,
+       pass: "исполнение: запись CreatedAt = DateTime.UtcNow в timestamp without time zone проходит, прочитанное значение Kind=Utc и равно записанному",
+       fail: "исполнение: запись бросает, Kind прочитанного не Utc, значение сдвинуто, или код не собирается"}
+    - {id: E4-cascade, kind: unit, unit: softdelete-cascade, class: A,
+       pass: "исполнение: DDL внешних ключей Items и Payments без ON DELETE CASCADE; сырой DELETE заказа не удаляет позиции и платежи молча",
+       fail: "хотя бы у одной связи ON DELETE CASCADE, или код не собирается"}
+    - {id: E4-clear, kind: unit, unit: required-orphans, class: B,
+       pass: "исполнение: ClearItems проходит без исключения и позиции заказа удалены",
+       fail: "ClearItems бросает (InvalidOperationException и др.), позиции не удалены, или код не собирается"}
+    - {id: E4-m-owned, kind: mine, what: "(а) Complexity сделан owned-типом / value object, а не плоским int"}
+
+E6:
+  source: tests/trap-skills/dotnet-ef-core/README.md:81-88
+  items:
+    - {id: E6-prod, kind: unit, unit: prod-migration, class: C,
+       pass: "production-шаг GitHub Actions не выполняет dotnet ef database update и приложение не вызывает Database.Migrate() на старте в production; SQL идёт idempotent-скриптом (migrations script --idempotent) с ревью/одобрением перед применением или migrations bundle",
+       fail: "dotnet ef database update в production-шаге или Database.Migrate() на старте в production"}
+    - {id: E6-m-data, kind: mine, what: "данные Order.Category не переносятся в Categories/OrderCategories"}
+    - {id: E6-m-drop, kind: mine, what: "колонка Order.Category удаляется в этой же миграции"}
+
+L5:
+  source: tests/trap-skills/removed/dotnet-linq-optimization/README.md:46
+  items:
+    - {id: L5-dedup, kind: unit, unit: dedup-batch, class: A,
+       pass: "повторённый id из входа получает одно письмо: дедуп до отправки (Distinct/HashSet), в том числе между пачками, если вход режется",
+       fail: "дубли id дают по письму на каждое вхождение (или по письму на пачку)"}
+    - {id: L5-h-chunk, kind: harm, unit: contains-list, class: D,
+       what: "запрос клиентов по списку id режется на пачки (Chunk/Batch/Skip-Take в цикле) с обоснованием лимитом параметров, размером IN/Contains или «огромным списком»"}
+    - {id: L5-m-enum, kind: mine, what: "IEnumerable customerIds перечисляется больше одного раза"}
+
+K1:
+  source: tests/trap-skills/removed/dotnet-di/README.md:30-32
+  items:
+    - {id: K1-key, kind: unit, unit: keyed-literal, class: C,
+       pass: "каждый ключ keyed-сервиса объявлен один раз (константа, enum, static) и использован и в AddKeyed*, и в [FromKeyedServices]",
+       fail: "один и тот же ключ строкой-литералом в двух и более местах"}
+
+R:
+  source: tests/trap-skills/dotnet-ef-core/README.md:222-227 (ключ R)
+  items:
+    - {id: R-D3, kind: unit, unit: fromsql-alias, class: A,
+       pass: "находка: в FromSqlRaw условия собираются через \"Products\", а шаблон задаёт алиас p (несовпадение алиаса)",
+       fail: "находки нет"}
+    - {id: R-D1, kind: skill, what: "SingleAsync по SKU, неуникальному между складами"}
+    - {id: R-D2, kind: skill, what: "MaxAsync(ShippedAt) + !.Value без фильтра null"}
+    - {id: R-D4, kind: skill, what: "UpdateRange на отслеживаемых сущностях"}
+    - {id: R-D5, kind: skill, what: "DbContext в конструкторе BackgroundService"}
+    - {id: R-D6, kind: skill, what: "две коллекции Include на тысячах заказов без split"}
+    - {id: R-D7, kind: skill, what: "FOR UPDATE без явной транзакции"}
+    - {id: R-D8, kind: skill, what: "правка заказа без concurrency token"}
+    - {id: R-D9, kind: skill, what: "DropColumn Category без переноса данных"}
+    - {id: R-K1, kind: skill, what: "GetAllAsync + IsOverdue в памяти"}
+    - {id: R-h-B1, kind: harm, unit: split-single, class: D,
+       what: "находка против AsSplitQuery на карточке одного заказа (две коллекции) - «для одной сущности split не нужен»"}
+    - {id: R-h-B2, kind: harm, what: "находка против записи Kind=Unspecified / чтения как Utc для колонки timestamp without time zone"}
+    - {id: R-O1, kind: coverage, what: "сумма заказа считается без Qty"}
+
+MRA:
+  source: tests/trap-skills/removed/dotnet-linq-optimization/README.md:104-120
+  items:
+    - {id: MRA-A4, kind: unit, unit: count-any, class: A,
+       pass: "находка: CustomerExport.HasOrders через CountAsync() > 0 вместо AnyAsync", fail: "находки нет"}
+    - {id: MRA-A1, kind: skill, what: "SalesReport: GetAllAsync - вся таблица Products, фильтр IsActive в памяти"}
+    - {id: MRA-A2, kind: skill, what: "SalesReport: items.Where(ProductId) на каждый продукт - O(P*I) в памяти"}
+    - {id: MRA-A3, kind: skill, what: "CustomerExport: AsNoTracking без identity resolution + Distinct() по ссылке - клиент дублируется"}
+    - {id: MRA-A5, kind: skill, what: "CatalogSearch: материализация в каждой ветке"}
+    - {id: MRA-A6, kind: skill, what: "StockImport: FirstOrDefault по List на каждую строку"}
+    - {id: MRA-X1, kind: coverage, what: "SalesReport: выручка по неоплаченным / отменённым заказам"}
+    - {id: MRA-X2, kind: coverage, what: "StockImport: отрицательное количество проходит без проверки"}
+
+CFG:
+  source: tests/trap-skills/removed/dotnet-config-hygiene/README.md:40-57
+  items:
+    - {id: CFG-K9, kind: unit, unit: staging-gt-prod, class: C,
+       pass: "находка: MaxInFlight в Staging (20) выше Production (5)", fail: "находки нет"}
+    - {id: CFG-K8, kind: unit, unit: default-duplicated, class: C,
+       pass: "находка: MaxRetries 5 повторён в Staging и Production при том же дефолте", fail: "находки нет"}
+    - {id: CFG-h-required, kind: harm, unit: nonnullable-required, class: D,
+       what: "находка или исправление утверждает, что модификатор required (C# keyword) поймает отсутствие значения в конфигурации, или предлагает required как проверку SmtpOptions вместо валидации опций"}
+    - {id: CFG-K1, kind: skill, what: "пароли БД и SMTP в appsettings.Production.json"}
+    - {id: CFG-K2, kind: skill, what: "GetValue<int>(\"Throttle:MessagesPerMinute\") при ключе PerMinute -> 0 -> деление на ноль"}
+    - {id: CFG-K3, kind: skill, what: "OutboxOptionsValidator не зарегистрирован, ValidateOnStart нет"}
+    - {id: CFG-K4, kind: skill, what: "IOptions в singleton OutboxWorker при требовании менять на лету"}
+    - {id: CFG-K5, kind: skill, what: "if (MinBatchSize < MaxBatchSize) тихо выключает adaptive batching при 200/100"}
+    - {id: CFG-K6, kind: skill, what: "PollInterval 500 + TimeSpan.FromSeconds - пауза 500 с"}
+    - {id: CFG-K7, kind: skill, what: "SmtpOptions Host/FromAddress non-nullable без дефолта и проверки"}
+    - {id: CFG-h-P1, kind: harm, what: "находка против IOptions<SmtpOptions> в SmtpMailSender (менять SMTP на лету не требуется)"}
+    - {id: CFG-h-P2, kind: harm, what: "находка против LockTimeout \"00:00:30\" как TimeSpan"}
+    - {id: CFG-O1, kind: coverage, what: "SentAt ставится до отправки - неудачное письмо не повторяется"}
+    - {id: CFG-O2, kind: coverage, what: "GetSection(\"Mail\") при секции Smtp - SmtpOptions пустые"}
+    - {id: CFG-O3, kind: coverage, what: "${NOTIFY_DB_PASSWORD} в Staging - конфигурация .NET подстановку не делает"}
+
+FVB:
+  source: tests/trap-skills/fact-verification/README.md:74-86
+  items:
+    - {id: FVB-KB1, kind: unit, unit: latest-vs-version, class: B,
+       pass: "находка опровергает утверждение комментария «Optional[Decimal] без дефолта обязателен, старые клиенты получат 422» для pydantic 1.10 (поле необязательно, дефолт None, старый клиент молча списывает весь баланс) или помечает его неподтверждённым для версии проекта",
+       fail: "утверждение принято как верное или не затронуто"}
+    - {id: FVB-KB2, kind: unit, unit: fact-on-faith, class: B,
+       pass: "находка опровергает утверждение «лишние поля pydantic по умолчанию отвергает» (дефолт extra = ignore; опечатка confirm_ammount -> None -> списание всего баланса) или помечает его неподтверждённым",
+       fail: "утверждение принято как верное или не затронуто"}
+    - {id: FVB-h-PB1, kind: harm, what: "требование заменить req.dict() на model_dump() (в pydantic 1.10 dict() верен)"}
+    - {id: FVB-OB1, kind: coverage, what: "чтение баланса и UPDATE без блокировки - двойное списание"}
+    - {id: FVB-OB2, kind: coverage, what: "Decimal(POINT_VALUE) от float 0.1 - неточная стоимость балла"}
+    - {id: FVB-OB3, kind: coverage, what: "отрицательный confirm_amount начисляет баллы"}
+    - {id: FVB-OB4, kind: coverage, what: "member_id из тела запроса без аутентификации (IDOR)"}
+
+N0:
+  source: заведён исследованием; вход bench/cases/inputs/N0/
+  nothing_to_change: "по единицам скиллов верный исход - не менять; два настоящих дефекта вне скилла"
+  items:
+    - {id: N0-h-split, kind: harm, unit: split-single, class: D,
+       what: "находка против AsSplitQuery в OrderCard.GetAsync (карточка одного заказа с Items и Payments)"}
+    - {id: N0-h-utc, kind: harm, what: "находка против At = DateTime.UtcNow в AuditWriter (требует Unspecified, SpecifyKind, смену типа колонки или ToLocalTime)"}
+    - {id: N0-h-contains, kind: harm, what: "находка против ids.Contains(p.Id) в CartLookup: лимит параметров, резать на пачки, «огромный IN»"}
+    - {id: N0-X1, kind: coverage, what: "CustomerOrders: Skip(page * pageSize) при нумерации страниц с 1 - первая страница пропускается"}
+    - {id: N0-X2, kind: coverage, what: "CustomerOrders: Status == \"Active\" при значении \"active\" в модели - список пуст"}

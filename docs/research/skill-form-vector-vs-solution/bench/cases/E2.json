@@ -1,0 +1,18 @@
+{
+  "id": "E2",
+  "kind": "code",
+  "stack": ".NET",
+  "skill": "ef-core",
+  "project": "Shop (EF Core 8 + Npgsql 8, .NET 8)",
+  "inputs": [
+    {
+      "from": "tests/trap-skills/dotnet-ef-core/inputs/Model.cs",
+      "to": "Model.cs"
+    },
+    {
+      "from": "tests/trap-skills/dotnet-ef-core/inputs/OrderRepository.cs",
+      "to": "OrderRepository.cs"
+    }
+  ],
+  "task": "Добавь сервис OrderQueries: (а) карточка одного заказа по Id со всеми позициями и платежами; (б) выгрузка всех заказов клиента с позициями и платежами (у клиента бывают тысячи заказов); (в) метод GetProductBySku(string sku, string warehouse) - продукт по SKU на складе; одинаковый SKU лежит на разных складах, на одном складе SKU уникален - но сейчас бизнес передаёт только sku, склад может быть null; (г) дата отгрузки последнего отгруженного заказа клиента (DateTime, не nullable)."
+}
