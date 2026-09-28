@@ -161,13 +161,28 @@ function loadMarketplaceCategories() {
 
 // Порядок веток не произволен: специалист несёт `commands/` наравне с `agents/`,
 // а бандл узнаётся только по `bundle.json` - более узкий признак идёт первым.
-// Плагин без всех четырёх признаков категории не имеет, и правило на нём молчит.
+// Мод узнаётся по ключу `modules` в `hooks/hooks.json` - это TypeScript внутри
+// процесса Claude Code, а не команда оболочки, поэтому его ветка стоит до
+// утилиты, которую даёт сама папка `hooks/`.
+// Плагин без всех признаков категории не имеет, и правило на нём молчит.
 function categoryFromTree(pluginDir) {
   if (existsSync(join(pluginDir, 'bundle.json'))) return 'bundle';
   if (existsSync(join(pluginDir, 'agents'))) return 'specialist';
   if (existsSync(join(pluginDir, 'skills'))) return 'skill';
+  if (hasHooksModules(join(pluginDir, 'hooks', 'hooks.json'))) return 'mod';
   if (existsSync(join(pluginDir, 'hooks')) || existsSync(join(pluginDir, 'commands'))) return 'utility';
   return null;
+}
+
+// Ключ `modules` отличает мод от классического хука: у обоих папка `hooks/` и
+// файл `hooks.json`, но у мода в нём перечислены модули на TypeScript.
+function hasHooksModules(hooksJson) {
+  if (!existsSync(hooksJson)) return false;
+  try {
+    return Array.isArray(JSON.parse(readFileSync(hooksJson, 'utf8')).modules);
+  } catch {
+    return false;
+  }
 }
 
 // --- Plugin calls in artifact bodies -------------------------------------
@@ -571,7 +586,10 @@ function validateVersionSync(marketplaceVersions, marketplaceDescriptions, marke
       walk(full);
     }
   };
+  // Моды лежат отдельным деревом: класс артефакта другой, а сверка версии,
+  // описания и категории у них та же, и без второго корня она бы их не видела.
   walk(join(REPO_ROOT, 'plugins'));
+  walk(join(REPO_ROOT, 'mods'));
   return results.filter((r) => r.findings.length > 0);
 }
 
@@ -585,6 +603,8 @@ function categoryEvidence(category) {
       return 'agents/';
     case 'skill':
       return 'skills/';
+    case 'mod':
+      return 'hooks/hooks.json с ключом modules';
     default:
       return 'hooks/ or commands/';
   }
