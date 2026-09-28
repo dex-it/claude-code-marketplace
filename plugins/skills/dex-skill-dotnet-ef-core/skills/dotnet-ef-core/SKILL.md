@@ -9,6 +9,7 @@ description: EF Core - чек-лист запросов, трекинга, ма�
 
 - Нетранслируемое условие фильтра
 - Трекинг выборки только для чтения
-- `DateTime` и `timestamp` / `timestamptz` в Npgsql: с Npgsql 6 свойство без явного типа - `timestamptz`
-- Soft-delete и каскад FK
+- Дубли во входном списке id
+- `DateTime` и тип колонки в Npgsql: с Npgsql 6 свойство без явного типа - `timestamptz` и пишется `Kind=Utc`; в `timestamp without time zone` пишется `Kind=Unspecified`, прочитанное помечается `Utc`
+- Soft-delete (`HasQueryFilter`) при required FK: FK в БД без каскада; зависимые удаляет код, и разрыв required-связи не бросает исключение
 - Применение миграции на production
