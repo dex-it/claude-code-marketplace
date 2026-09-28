@@ -1,6 +1,6 @@
 // Трек bugfix как Workflow-скрипт (artifacts.md, O12 вариант A). Ядро - debugger на воспроизведении и первопричине,
 // фикс - кодер по стеку (коммит в его контракте, у debugger - нет). Модель находки, узел-обёртка, верификация и саморевью - общие фрагменты tracks-shared.
-// Вход через args: { task, symptom, expected, env, done, boundary, mode, cwd, main_cwd, source, goal_path, resume, trail, open_findings, repro }.
+// Вход через args: { task, symptom, expected, env, done, boundary, mode, cwd, source, goal_path, resume, trail, open_findings, repro }.
 export const meta = {
   name: 'dex-auto-bugfix',
   description: 'Трек bugfix: подготовка дерева -> воспроизведение и первопричина (debugger) -> фикс кодером с верификацией (потолок 3) -> саморевью -> правка по находкам (потолок 1)',
@@ -16,17 +16,21 @@ const A = args || {}
 const FIX_CEILING = 3, REVIEW_FIX_CEILING = 1
 // Дерево, стоп-линии и отсутствие оператора одинаковы для любого узла трека; симптом и критерий
 // несёт только тот, кто их исполняет.
-const TREE = `Работай только внутри ${A.cwd}: отдельное git worktree трека на ветке auto/${A.task}, чужой работы в нём нет - всё незакоммиченное и все падения сборки и тестов в нём от этой работы. Каждая команда Bash - в дереве (cd ${A.cwd} && ...) и без каталога сессии ни в одном звене, иначе хук отбивает её целиком; чужое читай Read и Grep.${A.main_cwd ? ` Каталог сессии ${A.main_cwd} - только чтение (готовые локальные зависимости).` : ''} Стоп-линия: push, деплой, миграции данных, удаление вне дерева. Оператора нет: невыводимое не додумывай - status: blocked, нехватка в missing.\n`
+const TREE = `Рабочий каталог - ${A.cwd}: отдельное git worktree трека на ветке auto/${A.task}, процесс уже в нём; чужой работы в нём нет - всё незакоммиченное в нём от этой работы. Дерево сессии, от которого оно заведено, не трогай. Стоп-линия: push, деплой, миграции данных, удаление вне дерева. Оператора нет: невыводимое не додумывай - status: blocked, нехватка в missing.\n`
 const HEAD = `mode: ${A.mode || 'autonomous'}\nцель (${A.task}): починить баг - симптом: ${A.symptom}\nожидаемое: ${A.expected || 'не задано - реконструируй из тестов и корпуса, назови основание'}\nокружение: ${A.env || 'не задано'}\nкритерий «готово»: ${A.done}\nграница: ${A.boundary || 'не выходить за рабочий каталог'}\nфайл цели: ${A.goal_path || 'нет'}\ndecision-log: n/a (трек журнал решений не ведёт; решения - полем decisions)\n${TREE}`
 // Узел подготовки симптома не получает: прочитав его первой строкой, он чинит баг сам, и хвостовой
 // запрет его не держит (зонд P25). Предмет узла - дерево, и шапка несёт только его.
-const PREP_HEAD = `mode: ${A.mode || 'autonomous'}\nзадача (${A.task}): подготовить дерево трека к сборке и тестам - и только это: код не правь, баг не чини, тесты не гоняй - это делают следующие узлы.\n${TREE}`
+const PREP_HEAD = `mode: ${A.mode || 'autonomous'}\nзадача (${A.task}): подготовить дерево трека к сборке и тестам и замерить их до правок - и только это: баг чинят следующие узлы.\n${TREE}`
 // Возобновление - это «продолжить» плюс след прошлого прогона: без следа прогона не было, и возобновлять нечего.
 const resuming = !!(A.resume && A.trail)
 const DONE = resuming ? `\nВозобновление: шаги ниже уже сделаны (из ledger), не повторяй их, продолжай с незакрытого:\n${A.trail}\n` : ''
 
-// >>> shared: domain
+// >>> shared: contract
 const STATUS = { type: 'string', enum: ['complete', 'blocked', 'partial'] }
+const lack = (v, who) => !v ? `${who} не вернул выход` : v.missing || `${who} вернул blocked без нехватки`
+const why = (e) => String(e && e.message || e).slice(0, 300)
+// <<< shared: contract
+// >>> shared: domain
 const SEV = { type: 'string', enum: ['P0', 'P1', 'P2', 'P3'], description: 'уровень словаря node-contract: P0 = CRITICAL, P1 = HIGH, P2 = MEDIUM, P3 = LOW' }
 const AXIS = { type: 'string', enum: ['security', 'architecture', 'language', 'business', 'regressions', 'performance', 'coverage', 'loose-ends', 'non-code'] }
 // Форма одна у всех ревьюеров: ledger хранит находку одной записью, и поле, которого нет у одного узла, из реестра выпадает молча.
@@ -95,17 +99,16 @@ function registry(unsettled) {
 const outcome = (status, where, missing, extra) => status === 'complete'
   ? { status, where: '', missing: '', loops, trail, degraded, ...extra }
   : { status, where: where || 'место не названо', missing: missing || `${where || 'шаг не назван'}: нехватка не названа`, loops, trail, degraded, ...extra }
-const lack = (v, who) => !v ? `${who} не вернул выход` : v.missing || `${who} вернул blocked без нехватки`
 // Узел каталога может быть не установлен: тогда general-purpose с ролью в промпте, факт - в degraded (graceful degradation).
 async function node(role, prompt, opts, type) {
   if (type) {
     try { const r = await agent(prompt, { ...opts, agentType: type }); return r }
     catch (e) {
       // Причина обрыва платформой не типизирована: узел мог не существовать, а мог упасть посреди работы. Замена получает причину и сверяет уже сделанное.
-      const why = String(e && e.message || e).slice(0, 300)
-      degraded.push(`${role}: ${type} не отработал (${why})`); log(`узел ${type} не отработал, general-purpose`)
+      const w = why(e)
+      degraded.push(`${role}: ${type} не отработал (${w})`); log(`узел ${type} не отработал, general-purpose`)
       // Замена - не узел каталога: норм полей выхода у неё нет, а схема их больше не пересказывает.
-      return agent(`Роль: ${role}.\nУзел ${type} на этом шаге оборвался ошибкой: ${why}. Прежде чем действовать, сверь git log и рабочее дерево: сделанное им не повторяй и не коммить второй раз.\nНормы полей выхода (run-status, red-run, fact-check, uncovered, diff-scope, статусы ухода от проверки) у тебя не загружены: вызови Skill dex-skill-node-contract:node-contract до работы и заполняй по ним.\n${prompt}`, { ...opts, agentType: 'general-purpose' })
+      return agent(`Роль: ${role}.\nУзел ${type} на этом шаге оборвался ошибкой: ${w}. Прежде чем действовать, сверь git log и рабочее дерево: сделанное им не повторяй и не коммить второй раз.\nНормы полей выхода (run-status, red-run, fact-check, uncovered, diff-scope, статусы ухода от проверки) у тебя не загружены: вызови Skill dex-skill-node-contract:node-contract до работы и заполняй по ним.\n${prompt}`, { ...opts, agentType: 'general-purpose' })
     }
   }
   return agent(`Роль: ${role}.\n${prompt}`, { ...opts, agentType: 'general-purpose' })
@@ -133,13 +136,51 @@ const VERIFY = { type: 'object', properties: {
   ahead: { type: 'integer', description: 'коммитов ветки трека, которых нет ни на одной другой ветке' },
   missing: { type: 'string', description: 'при blocked - почему прогон не выполнен; иначе пусто' },
 }, required: ['status', 'exit_code', 'pass_count', 'fail_count', 'failing', 'build_ok', 'head', 'dirty', 'ahead', 'missing'] }
-const VERIFY_CMDS = 'git log --oneline -3, git status --porcelain и git rev-list --count HEAD --not --exclude="$(git branch --show-current)" --branches (это ahead)'
+const AHEAD_CMD = 'git rev-list --count HEAD --not --exclude="$(git branch --show-current)" --branches'
+const VERIFY_CMDS = `git log --oneline -3, git status --porcelain и ${AHEAD_CMD} (это ahead)`
 // Верификатор, не сумевший прогнать, по exit_code неотличим от красных тестов: без этой ветки трек проедает потолок правок вхолостую.
 const noRun = (v) => !v || v.status === 'blocked'
 // exit 0 при упавших тестах даёт конвейер в команде раннера; ноль прошедших при команде тестов - прогон, не бывший прогоном тестов.
 const isGreen = (v, testCmd) => !!v && v.exit_code === 0 && v.fail_count === 0 && v.build_ok && !v.dirty && !(testCmd && v.pass_count === 0)
 const redNote = (v) => `exit=${v.exit_code}, build_ok=${v.build_ok}, прошло тестов: ${v.pass_count}, падают: ${v.failing.join('; ') || 'нет'}, dirty=${v.dirty}`
 // <<< shared: verify
+// >>> shared: prep
+// Техконтекст выводится из манифеста, а не из цели: его отдаёт дешёвый узел подготовки, следующие узлы получают команды готовыми.
+const PREP = { type: 'object', properties: {
+  status: STATUS,
+  stack: { type: 'string', description: 'идентификатор стека по реестру (Skill dex-skill-stack-registry:stack-registry); вне реестра - "other"' },
+  stack_basis: { type: 'string', description: 'манифест, из которого выведен стек (путь:строка); манифеста нет - чем определено иначе' },
+  test_cmd: { type: 'string', description: 'команда прогона тестов; нет тестов - пустая строка' },
+  build_cmd: { type: 'string', description: 'команда сборки/типизации; нет - пустая строка' },
+  prepare_cmd: { type: 'string', description: 'команда подготовки дерева до сборки; подготовка не нужна - пустая строка' },
+  // Enum: «дерево готово» и «готовить нечего» ведут к разному промпту дальше, а провал установки пустой строкой неотличим от успеха до первой сборки.
+  'prepare-status': { type: 'string', enum: ['done', 'not-needed', 'failed'], description: 'done - команда вернула 0; not-needed - prepare_cmd пуст; failed - команда вернула не 0 либо не запущена' },
+  prepare_log: { type: 'string', description: 'при done - код возврата, чем подтверждено и возвращённые пути; при failed - команда и последние строки вывода; при not-needed - почему готовить нечего' },
+  // Без базы унаследованное падение судится внесённым правкой, и кодер лечит чужой дефект из потолка попыток.
+  'baseline-status': { type: 'string', enum: ['green', 'red', 'n/a'], description: 'сборка и тесты до правок трека: green - прошли; red - что-то упало; n/a - не прогонялись: в дереве уже есть правки трека, подготовка failed либо нет ни сборки, ни тестов' },
+  baseline_log: { type: 'string', description: 'при red - что упало: сборка с хвостом вывода, тесты поимённо; при green - сколько тестов прошло; при n/a - почему не прогонялись' },
+  missing: { type: 'string', description: 'при blocked - чего не хватает и у кого это есть' },
+}, required: ['status', 'stack', 'stack_basis', 'test_cmd', 'build_cmd', 'prepare_cmd', 'prepare-status', 'prepare_log', 'baseline-status', 'baseline_log', 'missing'] }
+// Правки проверяются до установки: неигнорируемый артефакт установки иначе читался бы правкой трека.
+const PREP_STEPS = `1. Правки трека: git status --porcelain и ${AHEAD_CMD}. Вывод непуст либо число больше нуля - в дереве уже есть правки трека.
+2. Стек - идентификатор по реестру: вызови Skill dex-skill-stack-registry:stack-registry и сопоставь с манифестом дерева; вне реестра - "other". Манифест, из которого вывел, назови в stack_basis - догадка по именам файлов не принимается. По тому же манифесту назови команды сборки и тестов.
+3. Подготовка: дереву до сборки нужны зависимости, которых сборка сама не ставит, либо шаг подготовки, названный проектом, - назови команду и выполни её в дереве; не нужны - prepare_cmd пуст, prepare-status: not-needed. Строки git status --porcelain, которых до команды не было, верни: ?? - удали путь, прочие - git checkout -- путь. prepare-status: done - команда вернула 0, иначе failed.
+4. База: правки трека есть, prepare-status failed либо нет ни сборки, ни тестов - baseline-status: n/a с причиной. Иначе выполни сборку и тесты названными командами: всё прошло - green, что-то упало - red, упавшее в baseline_log.
+Код не правь и упавшее не чини: база - замер до правок, чинят следующие узлы.`
+// Первый замер green либо red из trail старше свежего: на возобновлении дерево несёт правки трека, а их опознание узлом не гарантия.
+function baselineOf(p, trail) {
+  const steps = Array.isArray(trail) ? trail : String(trail || '').split('\n')
+  for (const s of steps) {
+    const e = typeof s === 'string' ? fromLedger(s.replace(/^- /, '')) : s
+    if (e && e.step === '1-tree' && ['green', 'red'].includes(e.baseline)) return { status: e.baseline, log: e.baseline_log || '', fresh: false }
+  }
+  if (p && ['green', 'red'].includes(p['baseline-status'])) return { status: p['baseline-status'], log: p.baseline_log || '', fresh: true }
+  return null
+}
+const baselineNote = (b) => !b ? '' : b.status === 'red'
+  ? ` До правок трека сборка и тесты уже падали (${b.log || 'что упало, не названо'}): эти падения унаследованы, прочие внесены правками трека.`
+  : ' До правок трека сборка и тесты были зелёными: любое падение внесено правками трека.'
+// <<< shared: prep
 // >>> shared: self-review
 const CODER = { ts: 'dex-ts-fullstack-coder:ts-fullstack-assistant', dotnet: 'dex-dotnet-coder:dotnet-coder' }
 // Ключи - имена словаря node-contract буквально: трансляция - место тихого расхождения схемы и словаря, а описание поля резолвится только дословным ключом.
@@ -207,23 +248,6 @@ const REPRO = { type: 'object', properties: {
   conflicts: { type: 'array', items: { type: 'string' }, description: 'при some - каждое противоречие строкой: якорь обеих сторон и что требует каждая; иначе пустой' },
   missing: { type: 'string', description: 'при blocked - чего не хватает и у кого это есть' },
 }, required: ['status', 'root_cause', 'reproduction', 'repro_test', 'repro_blob', 'expected-basis', 'fix_proposal', 'files', 'conflict-status', 'conflicts', 'missing'] }
-// Техконтекст отделён от воспроизведения: он выводится из манифеста, а не из симптома. Параллели с
-// диагностом здесь нет - воспроизведение требует подготовленного дерева, и два узла, одновременно
-// ставящие зависимости и гоняющие тесты в одном дереве, портят прогон друг другу. Выигрыш другой:
-// механическую работу ведёт дешёвый узел, а диагност получает команды готовыми.
-const PREP = { type: 'object', properties: {
-  status: STATUS,
-  stack: { type: 'string', description: 'идентификатор стека по реестру (Skill dex-skill-stack-registry:stack-registry); вне реестра - "other"' },
-  stack_basis: { type: 'string', description: 'манифест, из которого выведен стек (путь:строка); манифеста нет - чем определено иначе' },
-  test_cmd: { type: 'string', description: 'команда прогона тестов; нет тестов - пустая строка' },
-  build_cmd: { type: 'string', description: 'команда сборки/типизации; нет - пустая строка' },
-  prepare_cmd: { type: 'string', description: 'команда подготовки дерева до сборки (установка зависимостей по манифесту стека); зависимости ставит сама сборка либо их нет - пустая строка.' },
-  // Исход подготовки - enum: «дерево готово» и «готовить нечего» ведут к разному промпту дальше, а
-  // провал установки, поданный пустой строкой, неотличим от успеха и всплывает только на прогоне.
-  'prepare-status': { type: 'string', enum: ['done', 'not-needed', 'failed'], description: 'done - команда выполнена и вернула 0; not-needed - prepare_cmd пуст; failed - команда упала либо не запущена' },
-  prepare_log: { type: 'string', description: 'при done - код возврата и чем подтверждено; при failed - команда и последние строки вывода; при not-needed - почему готовить нечего' },
-  missing: { type: 'string', description: 'при blocked - чего не хватает и у кого это есть' },
-}, required: ['status', 'stack', 'stack_basis', 'test_cmd', 'build_cmd', 'prepare_cmd', 'prepare-status', 'prepare_log', 'missing'] }
 // Приёмка диагноза - часть контракта кодера только в этом треке: общая схема правки расширяется, а не копируется.
 const BFIX = { type: 'object', properties: {
   ...FIX.properties,
@@ -248,18 +272,20 @@ const bail = (where, missing, extra) => outcome('blocked', where, missing, { dec
 const passed = (v) => isGreen(v, repro && repro.test_cmd)
 
 phase('Context')
-// Подготовка дерева из ledger не берётся ни при каком следе: дерево - это состояние, а не вывод, и
-// запись «установлено» на холодном дереве трека ложна. Узел отдельный и дешёвый: работа механическая,
-// а диагност дальше получает команды готовыми и тратит своё окно на первопричину.
-const prep = await node('подготовка дерева', `${PREP_HEAD}Шаг 1 (техконтекст): стек определи по реестру - вызови Skill dex-skill-stack-registry:stack-registry и сопоставь с манифестом дерева; догадка по именам файлов не принимается. По тому же манифесту - команды сборки и тестов. Зависимости в новом дереве не установлены: команду подготовки выполни в дереве, не только назови.${A.main_cwd ? ` Готовые зависимости каталога сессии ${A.main_cwd} переиспользует только сама команда (копия или ссылка).` : ''}`,
+// Подготовка дерева из ledger не берётся ни при каком следе: дерево - это состояние, а не вывод.
+// С диагностом не параллельно: воспроизведение идёт по подготовленному дереву, а два узла, ставящие
+// зависимости и гоняющие тесты в одном дереве, портят прогон друг другу.
+const prep = await node('подготовка дерева', `${PREP_HEAD}Шаг 1 (техконтекст, подготовка и база):\n${PREP_STEPS}`,
   { label: 'ctx:tree', phase: 'Context', model: 'haiku', schema: PREP })
-trail.push({ step: '1-tree', doer: 'подготовка дерева', status: prep ? prep.status : 'null', prepare: prep ? prep['prepare-status'] : null })
+trail.push({ step: '1-tree', doer: 'подготовка дерева', status: prep ? prep.status : 'null', prepare: prep ? prep['prepare-status'] : null, baseline: prep ? prep['baseline-status'] : null, baseline_log: prep ? prep.baseline_log : null })
 if (!prep || prep.status === 'blocked') return bail('Context: подготовка дерева', lack(prep, 'узел подготовки дерева'))
 if (prep.status === 'partial') degraded.push(`подготовка дерева partial: ${prep.missing || 'нехватка не названа'}`)
 // Провал подготовки - не стоп: дерево лечит следующий узел, но знать о провале он обязан, иначе
 // примет падение установки за падение продукта и назовёт первопричиной его.
 if (prep['prepare-status'] === 'failed') degraded.push(`подготовка дерева не удалась: ${prep.prepare_log || 'причина не названа'}`)
-const treeState = prep['prepare-status'] === 'done' ? ` Дерево подготовлено узлом контекста (${prep.prepare_cmd}) - установку не повторяй.` : prep['prepare-status'] === 'failed' ? ` Подготовка дерева узлом контекста не удалась (${prep.prepare_log || 'причина не названа'}) - до первого прогона выполни её сам: ${prep.prepare_cmd || 'команда не названа, выведи по манифесту'}. Падение установки первопричиной бага не называй.` : ''
+const treeBase = baselineOf(prep, resuming ? A.trail : null)
+if (treeBase && treeBase.fresh && treeBase.status === 'red') degraded.push(`дерево красное до правок трека: ${treeBase.log || 'что упало, не названо'}`)
+const treeState = `${prep['prepare-status'] === 'done' ? ` Дерево подготовлено узлом контекста (${prep.prepare_cmd}) - установку не повторяй.` : prep['prepare-status'] === 'failed' ? ` Подготовка дерева узлом контекста не удалась (${prep.prepare_log || 'причина не названа'}) - до первого прогона выполни её сам: ${prep.prepare_cmd || 'команда не названа, выведи по манифесту'}. Падение установки первопричиной бага не называй.` : ''}${baselineNote(treeBase)}`
 
 // Поле возобновления кладёт главный поток из ledger, но подать он может что угодно: непроверенная
 // форма роняла соседний трек на первом же обращении к разведке (зонд P25). Непригодное поле трек не
@@ -279,7 +305,7 @@ phase('Reproduce')
 // Воспроизведение и первопричина - установленный факт прошлого прогона: при возобновлении правка
 // уже наложена, и повторный прогон диагноста не столько дорог, сколько нечестен - симптома он
 // может уже не увидеть. Нет записи в ledger - узел отрабатывает как в первом прогоне.
-const diagPrompt = (dispute) => `${HEAD}${DONE}${DONE ? `Шаг 1 выполняется заново: ${dispute ? 'прошлый диагноз оспорен, улика ниже' : 'диагноза с причиной в ledger нет'}.\n` : ''}Шаг 1 (воспроизведение): первопричина. Источник: ${A.source || 'формулировка выше'}. ${A.goal_path ? 'Прочитай файл цели: раздел «Контекст» (файлы, корпус) сверь с кодом, не ищи заново.' : ''}Стек: ${prep.stack}. Тесты: ${prep.test_cmd || 'нет'}. Сборка: ${prep.build_cmd || 'нет'}.${treeState} Воспроизведи: красный тест через продуктовый путь, прогнанный и падающий по причине симптома, либо, если тест не ставится, прослеженный путь от входа до места сбоя. ${A.source ? `Критерии приёмки корпуса против ожидаемого во входе и критерия «готово» суди вызовом Skill dex-skill-requirement-quality:requirement-quality, раздел «Противоречие»; найденное - в conflicts.` : `Источника требований нет: conflict-status: none, conflicts пустой.`} Расхождение о техконтексте (файлы, команды сборки и тестов, корпус) сюда не подпадает. Продуктовый код не меняй; написанный тест оставь незакоммиченным в дереве. Незакоммиченный тест в дереве до твоего старта - след прошлого диагноза этой цели: падает по причине симптома - он и есть воспроизведение, иначе удали; сдаёшь один тест.${dispute ? `\nКодер оспорил твой диагноз ${ledgerRepro && ledgerRepro.accepted ? `после приёмки (diagnosis-check: ${ledgerRepro.accepted}): его правки по диагнозу - в коммитах ветки, улика судится на дереве с ними` : 'до правки'}, улика: ${dispute}\nЭто первое направление фальсификации: исход по улике - первой строкой reproduction (отбита - чем, файл:строка; сняла причину - новый диагноз).` : ''}`
+const diagPrompt = (dispute) => `${HEAD}${DONE}${DONE ? `Шаг 1 выполняется заново: ${dispute ? 'прошлый диагноз оспорен, улика ниже' : 'диагноза с причиной в ledger нет'}.\n` : ''}Шаг 1 (воспроизведение): первопричина. Источник: ${A.source || 'формулировка выше'}. Стек: ${prep.stack}. Тесты: ${prep.test_cmd || 'нет'}. Сборка: ${prep.build_cmd || 'нет'}.${treeState} Воспроизведи: красный тест через продуктовый путь, прогнанный и падающий по причине симптома, либо, если тест не ставится, прослеженный путь от входа до места сбоя. ${A.source ? `Критерии приёмки корпуса против ожидаемого во входе и критерия «готово» суди вызовом Skill dex-skill-requirement-quality:requirement-quality, раздел «Противоречие»; найденное - в conflicts.` : `Источника требований нет: conflict-status: none, conflicts пустой.`} Расхождение о техконтексте (файлы, команды сборки и тестов, корпус) сюда не подпадает: техконтекст берётся из дерева. Продуктовый код не меняй; написанный тест оставь незакоммиченным в дереве. Незакоммиченный тест в дереве до твоего старта - след прошлого диагноза этой цели: падает по причине симптома - он и есть воспроизведение, иначе удали; сдаёшь один тест.${dispute ? `\nКодер оспорил твой диагноз ${ledgerRepro && ledgerRepro.accepted ? `после приёмки (diagnosis-check: ${ledgerRepro.accepted}): его правки по диагнозу - в коммитах ветки, улика судится на дереве с ними` : 'до правки'}, улика: ${dispute}\nЭто первое направление фальсификации: исход по улике - первой строкой reproduction (отбита - чем, файл:строка; сняла причину - новый диагноз).` : ''}`
 const diag = reproResumed || await node('диагност первопричины', diagPrompt(priorDispute), { label: 'reproduce', phase: 'Reproduce', schema: REPRO }, 'dex-debugger:debugger')
 trail.push({ step: '1-repro', doer: reproResumed ? 'ledger (воспроизведение прошлого прогона)' : 'debugger', status: diag ? diag.status : 'null' })
 // Техконтекст свежий даже на возобновлении: ledger отдаёт диагноз, команды и состояние дерева - узел

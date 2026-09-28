@@ -1,6 +1,6 @@
 ---
 description: Автономный трек под открытую цель - feature, bugfix или ревью чужого MR; ledger вне рабочего дерева, Workflow-скрипт трека, сдача исхода скриптом finish.sh
-allowed-tools: Workflow, TaskOutput, Skill, ToolSearch, Bash, Read, Write, Edit, Glob, Grep
+allowed-tools: Workflow, TaskOutput, EnterWorktree, ExitWorktree, Skill, ToolSearch, Bash, Read, Write, Edit, Glob, Grep
 argument-hint: "[bugfix|feature TASK цель... | TASK | review MR] [продолжить] [--interactive] [--post] [--delta SHA]"
 ---
 
@@ -16,7 +16,7 @@ argument-hint: "[bugfix|feature TASK цель... | TASK | review MR] [продо
   цели. Цели нет - `blocked` «цель не подготовлена»; `Вид:` нет, расходится со словом трека или цель дана без слова трека -
   `blocked` «вид не задан»; цель закрыта - её исход в выход без прогона.
 - feature / bugfix: `TASK`, цель фразой (bugfix - симптом), критерий «готово» в проверяемой форме, граница «чего не делаем»,
-  источник, если назван; из подготовленной цели - ещё `Источник:` и `## Контекст`.
+  источник, если назван; из подготовленной цели - ещё `Источник:`.
 - Ревью: указатель MR/PR (URL, `owner/repo#N`, `group/project!N`), `TASK` из него (`owner-repo-N`); intent, если назван;
   `--post` (`args.publish`) - санкция на инлайн-треды в чужом MR (без неё находки перечнем в выход); `--delta SHA`
   (`args.last_review_sha`) - ревизия дельты от прошлой ревизии. Критерий «готово»: у каждой находки статус, вердикт вынесен,
@@ -35,25 +35,26 @@ Stop ход не держит. TRACK - `feature` | `bugfix` | `review` | `review
 трека - второй трек не запускается (R5: в папке цели открыт максимум один): `set TASK Исход blocked`, `set TASK Нехватка «открыт
 трек <файл>: продолжить его либо сдать исход»`.
 
-**Дерево.** Трек работает только в своём: `worktree.py path TASK` (ревью - `path TASK --detach`) даёт путь `<repo>-<TASK>` на ветке
-`auto/<TASK>` в `args.cwd`; каталог сессии - в `args.main_cwd`, только на чтение. Ненулевой код скрипта - `set TASK Исход blocked`,
-`set TASK Нехватка <stderr>`, `Workflow` не запускается. `ledger.py` и `finish.sh` зовутся из каталога сессии, не из дерева трека:
-адрес ledger считается от cwd. Дерево заводится после предполёта: исход объявлен до первого узла - дерева и ветки нет. После сдачи - `complete`: `worktree.py drop TASK` (ветка с коммитами остаётся, push делает оператор);
-`partial` и `blocked` в треке: дерево под возобновление; `drop` отказал - путь и причина в Output. Изоляция принуждается хуком: `PreToolUse`-сторож отбивает правку и запуск узла трека (`agent_type` `workflow-subagent`), если путь ведёт вне дерева
-открытой цели либо команда дерева не называет или называет общее дерево сессии. Прочие субагенты и главный поток не сторожатся.
+**Дерево.** Первый шаг команды - `ExitWorktree` (`action: keep`), безусловно. Дерево заводится после предполёта: исход объявлен
+до первого узла - дерева и ветки нет. Порядок: `worktree.py path TASK` (ревью - `path TASK --detach`, без ветки) даёт путь дерева на
+ветке `auto/<TASK>` в `args.cwd` -> `EnterWorktree` с этим `path` -> `Workflow`; ненулевой код `worktree.py` либо отказ
+`EnterWorktree` - `set TASK Исход blocked`, `set TASK Нехватка <stderr либо отказ>`, `Workflow` не запускается. Сверка критерия
+«готово» и сдача идут в дереве, после сдачи при любом исходе - `ExitWorktree` (`action: keep`); затем `complete` - `worktree.py drop
+TASK` (ветка с коммитами остаётся, push - оператор); `partial` и `blocked` в треке: дерево под возобновление; `drop` отказал - путь и
+причина в Output.
 
 **Прогон.** `Workflow` со `scriptPath` `${CLAUDE_PLUGIN_ROOT}/tracks/<трек>.js`; `args`: feature - `{task, goal, done, boundary,
-mode, cwd, main_cwd, source, goal_path, resume, trail, open_findings, ctx}`; bugfix - то же, но вместо `goal` - `symptom, expected,
-env`, и вместо `ctx` - `repro` (симптом - фраза цели, ожидаемое - из критерия, окружение - из границы и контекста; чего нет - пустая
+mode, cwd, source, goal_path, resume, trail, open_findings, ctx}`; bugfix - то же, но вместо `goal` - `symptom, expected,
+env`, и вместо `ctx` - `repro` (симптом - фраза цели, ожидаемое - из критерия, окружение - из `## Цель` и `## Граница`; чего нет - пустая
 строка); review - `{task, mr, intent, mode, publish, last_review_sha, cwd, open_findings}`, `open_findings` - вывод `ledger.py findings TASK review` при каждом прогоне, не только на `продолжить`: статус прежней находки ревью выносит по её `id`. Узлы, петли и потолки - внутри скрипта; главный поток
 узлы не спавнит и ждёт возврат, не закрывая ход: `TaskOutput` (`block: true`, `timeout` максимальный) повторно до статуса
 завершения. `TaskOutput` в инструментах нет - закрыть ход «до уведомления» и `ScheduleWakeup` нельзя: закрытый ход убивает
 прогон по потолку ожидания фоновых задач, ledger остаётся без сдачи. Ждать только циклом `until` в `Bash` по файлу вывода задачи
-`<Task ID>.output` (Task ID - из текста старта `Workflow`); готовность - файл непуст и разбирается как JSON, пустым он заводится при
+`<Task ID>.output` под `claude-<uid>` временного каталога (первый заданный из `CLAUDE_CODE_TMPDIR`, `TMPDIR`, `TMP`, `TEMP`, иначе `/tmp`), Task ID - из текста старта `Workflow`; готовность - файл непуст и разбирается как JSON, пустым он заводится при
 старте. Таймаут цикла - повтор ходом; три повтора без готовности - `finish.sh TASK TRACK blocked «возврат Workflow не получен» <<< '{}'`. Скрипт на диск не пишет: ledger заполняется до прогона и после.
 
 **Scenarios:**
-- Возврат `complete` - критерий «готово» исполнить самому (команда из `00-goal.md`; у ревью - статус каждой находки
+- Возврат `complete` - критерий «готово» проверить самому (признак каждого пункта `00-goal.md`; у ревью - статус каждой находки
   возврата: `confirmed` / `dropped` / `published` / `unpublished` / `prior`; у feature / bugfix - ни одной `prior` P0/P1 со статусом `open`, `partial` или `unverified`), не пересказ узла. Совпал - `finish.sh TASK TRACK
   complete`; не совпал - как `partial` с тем же возвратом, расхождение - строкой в `### Решения`.
 - Возврат `partial` - `finish.sh TASK TRACK partial`; затем по каждой строке `### Открытые находки` (ревью - ещё
@@ -73,5 +74,4 @@ env`, и вместо `ctx` - `repro` (симптом - фраза цели, о�
 подтверждённые и снятые находки, `prior` дельты, покрытие, треды; счётчики петель, замены узлов из `degraded`, решения по открытым находкам, стоп-линии, на которые прогон
 вышел (push, деплой, миграция данных, необратимое удаление, запись в чужой MR без `--post`) - к оператору поимённо.
 
-**Constraints:** работа только внутри `cwd` (дерева трека), `main_cwd` - на чтение; поля возврата брать из значения тула, не
-из пересказа; вопрос оператору в `autonomous` не задаётся - он превращается в `blocked` с нехваткой.
+**Constraints:** поля возврата брать из значения тула, не из пересказа; вопрос оператору в `autonomous` не задаётся - он превращается в `blocked` с нехваткой.

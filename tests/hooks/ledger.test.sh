@@ -3,6 +3,8 @@
 set -u
 H="$(cd "$(dirname "$0")/../.." && pwd)/plugins/auto/dex-auto/hooks/scripts"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
+# Хук берёт каталог запуска из CLAUDE_PROJECT_DIR (P35): унаследованная от окружения увела бы ledger в чужой проект.
+unset CLAUDE_PROJECT_DIR
 export CLAUDE_CONFIG_DIR="$T/cfg"; export DEX_AUTO_CWD="/home/u/Work my.proj"
 fail=0; n=0
 check() { n=$((n+1)); if [ "$1" = "$2" ]; then echo "ok $n - $3"; else echo "FAIL $n - $3: ожидалось [$2], получено [$1]"; fail=1; fi; }
@@ -30,6 +32,9 @@ rm "$(dirname "$f")/01-feature.md"
 SIN='{"cwd":"/home/u/Work my.proj","stop_hook_active":false}'
 err="$(printf '%s' "$SIN" | "$H/stop-guard.py" 2>&1 >/dev/null)"; rc=$?
 check "$rc" "2" "stop-guard: открытая цель -> код 2"; check "$(printf '%s' "$err" | grep -c 'цель PROJ-1 открыта')" "1" "stop-guard: причина в stderr"
+# Главный поток вошёл в дерево трека: cwd события - дерево, ledger ищется по каталогу запуска сессии (P35).
+check "$(printf '%s' '{"cwd":"/home/u/Work my.proj-PROJ-1","source":"startup"}' | CLAUDE_PROJECT_DIR="/home/u/Work my.proj" "$H/session-start.py" | grep -c 'открытая цель PROJ-1')" "1" "session-start: в дереве трека цель найдена по каталогу запуска"
+check "$(printf '%s' '{"cwd":"/home/u/Work my.proj-PROJ-1","stop_hook_active":false}' | CLAUDE_PROJECT_DIR="/home/u/Work my.proj" "$H/stop-guard.py" >/dev/null 2>&1; echo $?)" "2" "stop-guard: в дереве трека открытая цель найдена по каталогу запуска"
 for _ in 1 2 3 4; do printf '%s' "$SIN" | "$H/stop-guard.py" >/dev/null 2>&1; rc=$?; done
 check "$rc" "2" "stop-guard: своего потолка нет - повторные блоки снимает платформа"; check "$(grep -c '^stop-блоков\|^Stop-потолок' "$f")" "0" "stop-guard: счётчика в 00-goal.md нет"
 "$L" set PROJ-1 Исход blocked

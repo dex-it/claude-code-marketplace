@@ -14,10 +14,14 @@ export const meta = {
 
 const A = args || {}
 const DELTA = !!A.last_review_sha
-const HEAD = `mode: ${A.mode || 'autonomous'}\nцель (${A.task}): ревью ${A.mr}${DELTA ? ` - ревизия дельты от ${A.last_review_sha}` : ''}.\nread-only: код не менять, тесты не писать, в MR ничего не публиковать - публикует отдельный узел по санкции.\nРаботай из ${A.cwd}: это отдельное detached git worktree трека - ревизии в нём переключай свободно, рабочего дерева сессии это не трогает. Запуск вне дерева отбивает хук: каждая команда Bash называет дерево и не называет каталог сессии, включая канал хостинга - git -C ${A.cwd} fetch <ссылка>, git -C ${A.cwd} checkout --detach <sha>, cd ${A.cwd} && gh pr diff <N>. Веток не создавай, код не меняй, коммитов не делай. Оператора нет: невыводимое верни status: blocked с полем нехватки; неясность намерения по diff - вопрос автору в перечне, не оператору.\n`
+const HEAD = `mode: ${A.mode || 'autonomous'}\nцель (${A.task}): ревью ${A.mr}${DELTA ? ` - ревизия дельты от ${A.last_review_sha}` : ''}.\nread-only: код не менять, тесты не писать, в MR ничего не публиковать - публикует отдельный узел по санкции.\nРабочий каталог - ${A.cwd}: отдельное detached git worktree трека, процесс уже в нём - ревизии в нём переключай свободно (git fetch <ссылка>, git checkout --detach <sha>), дерева сессии это не трогает. Дерево сессии не трогай. Веток не создавай, код не меняй, коммитов не делай. Оператора нет: невыводимое верни status: blocked с полем нехватки; неясность намерения по diff - вопрос автору в перечне, не оператору.\n`
 
-// >>> shared: domain
+// >>> shared: contract
 const STATUS = { type: 'string', enum: ['complete', 'blocked', 'partial'] }
+const lack = (v, who) => !v ? `${who} не вернул выход` : v.missing || `${who} вернул blocked без нехватки`
+const why = (e) => String(e && e.message || e).slice(0, 300)
+// <<< shared: contract
+// >>> shared: domain
 const SEV = { type: 'string', enum: ['P0', 'P1', 'P2', 'P3'], description: 'уровень словаря node-contract: P0 = CRITICAL, P1 = HIGH, P2 = MEDIUM, P3 = LOW' }
 const AXIS = { type: 'string', enum: ['security', 'architecture', 'language', 'business', 'regressions', 'performance', 'coverage', 'loose-ends', 'non-code'] }
 // Форма одна у всех ревьюеров: ledger хранит находку одной записью, и поле, которого нет у одного узла, из реестра выпадает молча.
@@ -86,17 +90,16 @@ function registry(unsettled) {
 const outcome = (status, where, missing, extra) => status === 'complete'
   ? { status, where: '', missing: '', loops, trail, degraded, ...extra }
   : { status, where: where || 'место не названо', missing: missing || `${where || 'шаг не назван'}: нехватка не названа`, loops, trail, degraded, ...extra }
-const lack = (v, who) => !v ? `${who} не вернул выход` : v.missing || `${who} вернул blocked без нехватки`
 // Узел каталога может быть не установлен: тогда general-purpose с ролью в промпте, факт - в degraded (graceful degradation).
 async function node(role, prompt, opts, type) {
   if (type) {
     try { const r = await agent(prompt, { ...opts, agentType: type }); return r }
     catch (e) {
       // Причина обрыва платформой не типизирована: узел мог не существовать, а мог упасть посреди работы. Замена получает причину и сверяет уже сделанное.
-      const why = String(e && e.message || e).slice(0, 300)
-      degraded.push(`${role}: ${type} не отработал (${why})`); log(`узел ${type} не отработал, general-purpose`)
+      const w = why(e)
+      degraded.push(`${role}: ${type} не отработал (${w})`); log(`узел ${type} не отработал, general-purpose`)
       // Замена - не узел каталога: норм полей выхода у неё нет, а схема их больше не пересказывает.
-      return agent(`Роль: ${role}.\nУзел ${type} на этом шаге оборвался ошибкой: ${why}. Прежде чем действовать, сверь git log и рабочее дерево: сделанное им не повторяй и не коммить второй раз.\nНормы полей выхода (run-status, red-run, fact-check, uncovered, diff-scope, статусы ухода от проверки) у тебя не загружены: вызови Skill dex-skill-node-contract:node-contract до работы и заполняй по ним.\n${prompt}`, { ...opts, agentType: 'general-purpose' })
+      return agent(`Роль: ${role}.\nУзел ${type} на этом шаге оборвался ошибкой: ${w}. Прежде чем действовать, сверь git log и рабочее дерево: сделанное им не повторяй и не коммить второй раз.\nНормы полей выхода (run-status, red-run, fact-check, uncovered, diff-scope, статусы ухода от проверки) у тебя не загружены: вызови Skill dex-skill-node-contract:node-contract до работы и заполняй по ним.\n${prompt}`, { ...opts, agentType: 'general-purpose' })
     }
   }
   return agent(`Роль: ${role}.\n${prompt}`, { ...opts, agentType: 'general-purpose' })

@@ -20,7 +20,7 @@ def main():
         sys.stderr.write("dex-auto: сторож остановки не разобрал событие Stop, терминал цели не проверен\n")
         return 0
 
-    os.environ["DEX_AUTO_CWD"] = dx.field(data, "cwd") or os.getcwd()
+    dx.bind_session(data)
     for task, directory in dx.find_open():
         goal = os.path.join(directory, "00-goal.md")
         if dx.get_key(goal, "Исход") == "blocked" and dx.get_key(goal, "Нехватка"):
