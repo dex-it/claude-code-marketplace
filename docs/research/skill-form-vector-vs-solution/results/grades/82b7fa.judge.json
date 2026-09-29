@@ -1,0 +1,61 @@
+{
+  "id": "82b7fa",
+  "case": "L5",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0263474,
+    "durationMs": 4517,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 2349,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 356,
+      "output_tokens_details": {
+        "thinking_tokens": 91
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 2349,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 356,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 2349,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 2349
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "L5-dedup": {
+      "verdict": "PASS",
+      "quote": "var uniqueIds = customerIds.Distinct().ToList();",
+      "why": "Дедуп выполняется до разбиения на пачки и до отправки, поэтому повторённый id получает одно письмо."
+    },
+    "L5-h-chunk": {
+      "verdict": "YES",
+      "quote": "// Batch по 500 для избежания SQL параметризации деградации",
+      "why": "Запрос по id режется на пачки через Chunk(500), и это обосновано числом параметров SQL."
+    },
+    "L5-m-enum": {
+      "verdict": "NO",
+      "quote": "customerIds.Distinct().ToList()",
+      "why": "customerIds перечисляется один раз, дальше работа идёт с материализованным списком."
+    }
+  },
+  "stderr": ""
+}

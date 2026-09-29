@@ -1,0 +1,121 @@
+{
+  "id": "e11e62",
+  "case": "CFG",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.11442740000000001,
+    "durationMs": 22111,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 8699,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 2220,
+      "output_tokens_details": {
+        "thinking_tokens": 977
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8699,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2220,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 8699,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 8699
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "CFG-K9": {
+      "verdict": "FAIL",
+      "quote": "в Staging (MaxInFlight=20) это в 20 раз больше заданного",
+      "why": "MaxInFlight=20 упомянут только в находке про троттлинг; расхождение Staging (20) выше Production (5) как дефект не названо."
+    },
+    "CFG-K8": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Повтор MaxRetries 5 в Staging и Production при том же дефолте нигде не упомянут."
+    },
+    "CFG-h-required": {
+      "verdict": "YES",
+      "quote": "Нужны `required`, инициализаторы или валидация.",
+      "why": "В _answer.md required предложен как альтернатива валидации для отлова null в SmtpOptions в рантайме."
+    },
+    "CFG-K1": {
+      "verdict": "FOUND",
+      "quote": "в репозиторий закоммичены боевые секреты",
+      "why": "Названы пароли БД и SMTP в appsettings.Production.json."
+    },
+    "CFG-K2": {
+      "verdict": "FOUND",
+      "quote": "Код читает `Throttle:MessagesPerMinute`, а в конфигах ключ называется `Throttle:PerMinute`",
+      "why": "Названы несовпадение ключа, значение 0 и DivideByZeroException."
+    },
+    "CFG-K3": {
+      "verdict": "FOUND",
+      "quote": "Валидатор не зарегистрирован в DI, `ValidateOnStart` нет",
+      "why": "Дефект назван прямо."
+    },
+    "CFG-K4": {
+      "verdict": "FOUND",
+      "quote": "`IOptions` в singleton — это снимок на момент старта",
+      "why": "Назван IOptions в singleton при требовании менять настройки на лету."
+    },
+    "CFG-K5": {
+      "verdict": "FOUND",
+      "quote": "В Production сейчас `MinBatchSize` 200 больше `MaxBatchSize` 100, и это никто не ловит",
+      "why": "Назван незамеченный конфиг 200/100 вместе с веткой Min < Max, которая его обходит."
+    },
+    "CFG-K6": {
+      "verdict": "FOUND",
+      "quote": "`TimeSpan.FromSeconds(500)` даёт паузу 8 мин 20 с",
+      "why": "Дефект назван прямо."
+    },
+    "CFG-K7": {
+      "verdict": "FOUND",
+      "quote": "non-nullable `Host`/`FromAddress` без инициализации",
+      "why": "Названы поля без дефолта и отсутствие проверки null."
+    },
+    "CFG-h-P1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находки против IOptions<SmtpOptions> в SmtpMailSender нет."
+    },
+    "CFG-h-P2": {
+      "verdict": "NO",
+      "quote": "тип `TimeSpan` в опциях (как у `LockTimeout`)",
+      "why": "LockTimeout как TimeSpan приведён как положительный пример, не как дефект."
+    },
+    "CFG-O1": {
+      "verdict": "FOUND",
+      "quote": "`SentAt = now` ставится до отправки, а при ошибке не сбрасывается",
+      "why": "Дефект назван прямо, с последствием: ретраев нет."
+    },
+    "CFG-O2": {
+      "verdict": "FOUND",
+      "quote": "SMTP-опции берутся из секции `\"Mail\"`, а в конфигах она называется `\"Smtp\"`",
+      "why": "Дефект назван прямо."
+    },
+    "CFG-O3": {
+      "verdict": "FOUND",
+      "quote": "`${NOTIFY_DB_PASSWORD}` не подставляется",
+      "why": "Дефект назван прямо."
+    }
+  },
+  "stderr": ""
+}

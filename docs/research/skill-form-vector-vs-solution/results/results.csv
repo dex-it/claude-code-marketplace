@@ -1397,3 +1397,606 @@ deb731,B,N0,F3,sonnet,high,none,path,N0-X2,coverage,,,,found,judge,"метод, 
 2eaf74,B,E4,F2,sonnet,high,none,path,E4-cascade,unit,softdelete-cascade,A,,pass,e4,FK без каскада: 2 строк DDL
 2eaf74,B,E4,F2,sonnet,high,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
 2eaf74,B,E4,F2,sonnet,high,none,path,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }              // сложность комплектации, 1..5"
+b26690,C,K1,F5,opus,medium,none,path,K1-key,unit,keyed-literal,C,,pass,judge,"public const string Sms = ""sms"";"
+231bbf,C,K1,F5,opus,medium,none,path,K1-key,unit,keyed-literal,C,,pass,judge,"builder.Services.AddKeyedSingleton<INotificationSender, SmsSender>(NotificationChannels.Sms);"
+3897bf,C,CFG,F1,opus,medium,none,path,CFG-K9,unit,staging-gt-prod,C,,pass,judge,"На staging `MaxInFlight: 20`, в проде `5`."
+3897bf,C,CFG,F1,opus,medium,none,path,CFG-K8,unit,default-duplicated,C,,fail,judge,нет
+3897bf,C,CFG,F1,opus,medium,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,нет
+3897bf,C,CFG,F1,opus,medium,none,path,CFG-K1,skill,,,,found,judge,`appsettings.Production.json`: в репозитории лежат боевые секреты
+3897bf,C,CFG,F1,opus,medium,none,path,CFG-K2,skill,,,,found,judge,`60_000 / perMinute` бросает `DivideByZeroException` при каждом вызове
+3897bf,C,CFG,F1,opus,medium,none,path,CFG-K3,skill,,,,found,judge,`OutboxOptionsValidator` нигде не регистрируется
+3897bf,C,CFG,F1,opus,medium,none,path,CFG-K4,skill,,,,found,judge,`IOptions<T>` — singleton: значение вычисляется один раз и **после перезагрузки файла не меняется**
+3897bf,C,CFG,F1,opus,medium,none,path,CFG-K5,skill,,,,found,judge,адаптивный батчинг в проде **молча отключается**
+3897bf,C,CFG,F1,opus,medium,none,path,CFG-K6,skill,,,,found,judge,"Получается пауза **500 с (≈ 8,3 мин)** между опросами."
+3897bf,C,CFG,F1,opus,medium,none,path,CFG-K7,skill,,,,found,judge,`Host` и `FromAddress` — non-nullable `string` без значения по умолчанию и без валидации
+3897bf,C,CFG,F1,opus,medium,none,path,CFG-h-P1,harm,,,,yes,judge,"`OutboxWorker` (конструктор) и `SmtpMailSender`: `IOptions<T>`, хотя требуется менять значения на лету"
+3897bf,C,CFG,F1,opus,medium,none,path,CFG-h-P2,harm,,,,no,judge,"сделать тип `TimeSpan` (`""00:00:00.500""`), как у `LockTimeout`"
+3897bf,C,CFG,F1,opus,medium,none,path,CFG-O1,coverage,,,,found,judge,**неудачное письмо больше никогда не будет повторено и числится отправленным**
+3897bf,C,CFG,F1,opus,medium,none,path,CFG-O2,coverage,,,,found,judge,"`SmtpOptions` привязаны к секции `""Mail""`, а в конфигурации она называется `""Smtp""`"
+3897bf,C,CFG,F1,opus,medium,none,path,CFG-O3,coverage,,,,found,judge,Конфигурация .NET не раскрывает переменные окружения внутри значений.
+10adc2,C,E4,F0,opus,medium,none,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+10adc2,C,E4,F0,opus,medium,none,path,E4-cascade,unit,softdelete-cascade,A,,fail,e4,"CASCADE: DDL  CONSTRAINT ""FK_OrderItem_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE"
+10adc2,C,E4,F0,opus,medium,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+10adc2,C,E4,F0,opus,medium,none,path,E4-m-owned,mine,,,,no,judge,public int Complexity { get; set; } = MinComplexity;
+f8d50f,C,L5,F4,opus,medium,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,var ids = customerIds.Distinct().ToArray();
+f8d50f,C,L5,F4,opus,medium,none,path,L5-h-chunk,harm,contains-list,D,,no,judge,Один запрос: Npgsql передаёт массив одним параметром (Id = ANY(@ids))
+f8d50f,C,L5,F4,opus,medium,none,path,L5-m-enum,mine,,,,no,judge,var ids = customerIds.Distinct().ToArray();
+791f29,C,L5,F5,opus,medium,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,var uniqueIds = customerIds.Distinct().ToList();
+791f29,C,L5,F5,opus,medium,none,path,L5-h-chunk,harm,contains-list,D,,yes,judge,"пачками по 500 id (`Chunk`, в SQL — `WHERE Id IN (...)`), чтобы не раздувать список параметров в PostgreSQL"
+791f29,C,L5,F5,opus,medium,none,path,L5-m-enum,mine,,,,no,judge,var uniqueIds = customerIds.Distinct().ToList();
+6431af,C,L5,F0,opus,medium,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,foreach (var chunk in customerIds.Where(seen.Add).Chunk(BatchSize))
+6431af,C,L5,F0,opus,medium,none,path,L5-h-chunk,harm,contains-list,D,,yes,judge,Список из маркетинговой системы может быть большим: читаем клиентов пачками
+6431af,C,L5,F0,opus,medium,none,path,L5-m-enum,mine,,,,no,judge,customerIds.Where(seen.Add).Chunk(BatchSize)
+c7a707,C,CFG,F4,opus,medium,none,path,CFG-K9,unit,staging-gt-prod,C,,pass,judge,"в Staging `MaxInFlight: 20`, в Production `5`, причина не указана"
+c7a707,C,CFG,F4,opus,medium,none,path,CFG-K8,unit,default-duplicated,C,,pass,judge,"В Production это `MaxBatchSize: 100`, `MaxInFlight: 5`, `MaxRetries: 5`, в Staging `MaxRetries: 5`"
+c7a707,C,CFG,F4,opus,medium,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,модификатор `required` эту проблему не решает. Отсутствие значения ловит только валидация опций на старте
+c7a707,C,CFG,F4,opus,medium,none,path,CFG-K1,skill,,,,found,judge,Пароль БД (`Password=Kx7!pQ2vR9wz`) и пароль SMTP-релея (`rl_live_9f3a1c77e2b04d6d`) закоммичены открытым текстом
+c7a707,C,CFG,F4,opus,medium,none,path,CFG-K2,skill,,,,found,judge,"`GetValue<int>` возвращает 0, и `60_000 / 0` бросает `DivideByZeroException` на каждом вызове"
+c7a707,C,CFG,F4,opus,medium,none,path,CFG-K3,skill,,,,found,judge,"валидатор написан, но не зарегистрирован, `ValidateOnStart` нет"
+c7a707,C,CFG,F4,opus,medium,none,path,CFG-K4,skill,,,,found,judge,`IOptions<OutboxOptions>` не соответствует требованию MR менять значения на лету
+c7a707,C,CFG,F4,opus,medium,none,path,CFG-K5,skill,,,,found,judge,"Условие `Min < Max` в воркере ложно, и адаптивный батчинг в проде молча выключен"
+c7a707,C,CFG,F4,opus,medium,none,path,CFG-K6,skill,,,,found,judge,`PollInterval: 500` читается через `TimeSpan.FromSeconds`
+c7a707,C,CFG,F4,opus,medium,none,path,CFG-K7,skill,,,,found,judge,В `SmtpOptions` свойства `Host` и `FromAddress` non-nullable без значения
+c7a707,C,CFG,F4,opus,medium,none,path,CFG-h-P1,harm,,,,no,judge,нет
+c7a707,C,CFG,F4,opus,medium,none,path,CFG-h-P2,harm,,,,no,judge,нет
+c7a707,C,CFG,F4,opus,medium,none,path,CFG-O1,coverage,,,,found,judge,"`SentAt = now` ставится до отправки, при ошибке не сбрасывается. Упавшие письма теряются"
+c7a707,C,CFG,F4,opus,medium,none,path,CFG-O2,coverage,,,,found,judge,"`Configure<SmtpOptions>` привязан к секции `""Mail""`, а в конфигах секция называется `""Smtp""`"
+c7a707,C,CFG,F4,opus,medium,none,path,CFG-O3,coverage,,,,found,judge,"Конфигурация .NET не подставляет `${...}`, строка уйдёт в Npgsql буквально"
+ab3625,C,E4,F4,opus,medium,none,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+ab3625,C,E4,F4,opus,medium,none,path,E4-cascade,unit,softdelete-cascade,A,,pass,e4,FK без каскада: 2 строк DDL
+ab3625,C,E4,F4,opus,medium,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+ab3625,C,E4,F4,opus,medium,none,path,E4-m-owned,mine,,,,no,judge,public int Complexity { get; set; } = 1;
+ab27dc,C,E4,F4,opus,medium,none,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+ab27dc,C,E4,F4,opus,medium,none,path,E4-cascade,unit,softdelete-cascade,A,,pass,e4,FK без каскада: 2 строк DDL
+ab27dc,C,E4,F4,opus,medium,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+ab27dc,C,E4,F4,opus,medium,none,path,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }              // сложность комплектации, 1..5"
+4c034f,C,CFG,F4,opus,medium,none,path,CFG-K9,unit,staging-gt-prod,C,,pass,judge,"`MaxInFlight` в Staging 20, в Production 5, и причина рядом не записана"
+4c034f,C,CFG,F4,opus,medium,none,path,CFG-K8,unit,default-duplicated,C,,pass,judge,"В Production: `MaxBatchSize`, `MaxInFlight`, `MaxRetries`. В Staging: `MaxRetries`."
+4c034f,C,CFG,F4,opus,medium,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,Модификатор `required` здесь не поможет
+4c034f,C,CFG,F4,opus,medium,none,path,CFG-K1,skill,,,,found,judge,Пароль БД (`Password=Kx7!pQ2vR9wz`) и пароль SMTP-релея (`rl_live_9f3a1c77e2b04d6d`) лежат открытым текстом
+4c034f,C,CFG,F4,opus,medium,none,path,CFG-K2,skill,,,,found,judge,"читается 0, и `60_000 / perMinute` бросает `DivideByZeroException`"
+4c034f,C,CFG,F4,opus,medium,none,path,CFG-K3,skill,,,,found,judge,"валидатор нигде не зарегистрирован. Нет ни регистрации в DI, ни `ValidateOnStart`"
+4c034f,C,CFG,F4,opus,medium,none,path,CFG-K4,skill,,,,found,judge,`OutboxWorker`: `IOptions` вместо `IOptionsMonitor`
+4c034f,C,CFG,F4,opus,medium,none,path,CFG-K5,skill,,,,found,judge,Из-за условия `if (o.MinBatchSize < o.MaxBatchSize)` адаптивный батчинг в проде молча отключается
+4c034f,C,CFG,F4,opus,medium,none,path,CFG-K6,skill,,,,found,judge,воркер опрашивает outbox раз в 500 с (≈8 мин)
+4c034f,C,CFG,F4,opus,medium,none,path,CFG-K7,skill,,,,found,judge,`SmtpOptions`: non-nullable `Host`/`FromAddress` без значения из конфига
+4c034f,C,CFG,F4,opus,medium,none,path,CFG-h-P1,harm,,,,no,judge,нет
+4c034f,C,CFG,F4,opus,medium,none,path,CFG-h-P2,harm,,,,no,judge,как у `LockTimeout`
+4c034f,C,CFG,F4,opus,medium,none,path,CFG-O1,coverage,,,,found,judge,`SentAt = now` сохраняется в БД ещё до `SendAsync`
+4c034f,C,CFG,F4,opus,medium,none,path,CFG-O2,coverage,,,,found,judge,"В коде `GetSection(""Mail"")`, а в конфигах секция называется `""Smtp""`"
+4c034f,C,CFG,F4,opus,medium,none,path,CFG-O3,coverage,,,,found,judge,Конфигурация .NET не раскрывает переменные окружения внутри значений
+afe360,C,FVB,F4,opus,medium,none,path,FVB-KB1,unit,latest-vs-version,B,,pass,judge,"Комментарий говорит, что `Optional` без значения по умолчанию делает поле обязательным. Это **опровергнуто**: в pydantic 1.10"
+afe360,C,FVB,F4,opus,medium,none,path,FVB-KB2,unit,fact-on-faith,B,,pass,judge,Комментарий «лишние поля pydantic по умолчанию отвергает» **опровергнут**: в 1.10 по умолчанию `Config.extra = Extra.ignore`
+afe360,C,FVB,F4,opus,medium,none,path,FVB-h-PB1,harm,,,,no,judge,нет
+afe360,C,FVB,F4,opus,medium,none,path,FVB-OB1,coverage,,,,found,judge,Параллельные запросы приводят к lost update и двойной трате.
+afe360,C,FVB,F4,opus,medium,none,path,FVB-OB2,coverage,,,,found,judge,`POINT_VALUE = 0.1` задан как float. `Decimal(0.1)` даёт точную двоичную величину `0.1000000000000000055…`
+afe360,C,FVB,F4,opus,medium,none,path,FVB-OB3,coverage,,,,found,judge,"При отрицательной сумме проверка `amount > balance` проходит, а `points -= int(...)` **начисляет** баллы."
+afe360,C,FVB,F4,opus,medium,none,path,FVB-OB4,coverage,,,,missed,judge,нет
+d6a65e,C,L5,F4,opus,medium,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,var ids = customerIds.Distinct().ToList();
+d6a65e,C,L5,F4,opus,medium,none,path,L5-h-chunk,harm,contains-list,D,,no,judge,список уходит одним параметром (Npgsql: Id = ANY(@ids))
+d6a65e,C,L5,F4,opus,medium,none,path,L5-m-enum,mine,,,,no,judge,var ids = customerIds.Distinct().ToList();
+910d6b,C,E2,F4,opus,medium,none,path,E2-single,unit,single-not-unique,D,fail,pass,judge,"_ => new ProductLookupResult(ProductLookupStatus.Ambiguous, null, warehouses)"
+910d6b,C,E2,F4,opus,medium,none,path,E2-h-split,harm,,,,no,judge,".AsSplitQuery()
+            .SingleOrDefaultAsync(ct);"
+910d6b,C,E2,F4,opus,medium,none,path,E2-m-cart,mine,,,,no,judge,"ProjectCards(_db.Orders.Where(o => o.CustomerId == customerId)...)
+            .AsSplitQuery()
+            .AsAsyncEnumerable();"
+910d6b,C,E2,F4,opus,medium,none,path,E2-m-nullagg,mine,,,,no,judge,".Where(o => o.CustomerId == customerId && o.ShippedAt != null)
+            .MaxAsync(o => o.ShippedAt, ct);"
+eb029b,C,K1,F4,opus,medium,none,path,K1-key,unit,keyed-literal,C,,pass,judge,"public const string Email = ""email"";"
+01d535,C,E4,F4,opus,medium,none,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+01d535,C,E4,F4,opus,medium,none,path,E4-cascade,unit,softdelete-cascade,A,,pass,e4,FK без каскада: 2 строк DDL
+01d535,C,E4,F4,opus,medium,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+01d535,C,E4,F4,opus,medium,none,path,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }               // сложность комплектации, 1..5"
+aac39c,C,K1,F1,opus,medium,none,path,K1-key,unit,keyed-literal,C,,pass,judge,"builder.Services.AddKeyedSingleton<INotificationSender, SmsSender>(NotificationChannels.Sms);"
+ad1447,C,L5,F1,opus,medium,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,var ids = customerIds.Distinct().ToArray();
+ad1447,C,L5,F1,opus,medium,none,path,L5-h-chunk,harm,contains-list,D,,yes,judge,Список из маркетинговой системы может быть большим - читаем клиентов пачками
+ad1447,C,L5,F1,opus,medium,none,path,L5-m-enum,mine,,,,no,judge,customerIds.Distinct().ToArray()
+e69096,C,L5,F5,opus,medium,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,var uniqueIds = customerIds.Distinct().ToList();
+e69096,C,L5,F5,opus,medium,none,path,L5-h-chunk,harm,contains-list,D,,yes,judge,грузим адреса пачками по 500 (`Chunk` + `Contains`) ... без N+1 и без огромного `IN`
+e69096,C,L5,F5,opus,medium,none,path,L5-m-enum,mine,,,,no,judge,customerIds.Distinct().ToList()
+3f6123,C,E2,F1,opus,medium,none,path,E2-single,unit,single-not-unique,D,fail,pass,judge,"if (found.Count > 1) throw new InvalidOperationException($""SKU '{sku}' is stocked in several warehouses; warehouse must be specified."");"
+3f6123,C,E2,F1,opus,medium,none,path,E2-h-split,harm,,,,yes,judge,// (а) Один заказ: одна сущность - один round-trip; декартово произведение Items x Payments одного заказа мало.
+3f6123,C,E2,F1,opus,medium,none,path,E2-m-cart,mine,,,,no,judge,ToCard(_db.Orders.Where(o => o.CustomerId == customerId).OrderBy(o => o.Id)).AsSplitQuery()
+3f6123,C,E2,F1,opus,medium,none,path,E2-m-nullagg,mine,,,,no,judge,".Where(o => o.CustomerId == customerId && o.ShippedAt != null).MaxAsync(o => o.ShippedAt, ct); return last ?? throw"
+03cb5a,C,E4,F0,opus,medium,none,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+03cb5a,C,E4,F0,opus,medium,none,path,E4-cascade,unit,softdelete-cascade,A,,fail,e4,"CASCADE: DDL  CONSTRAINT ""FK_OrderItem_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE"
+03cb5a,C,E4,F0,opus,medium,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+03cb5a,C,E4,F0,opus,medium,none,path,E4-m-owned,mine,,,,no,judge,public int Complexity { get; set; } = 1;
+30b070,C,L5,F0,opus,medium,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,foreach (var batch in customerIds.Where(seenIds.Add).Chunk(BatchSize))
+30b070,C,L5,F0,opus,medium,none,path,L5-h-chunk,harm,contains-list,D,,yes,judge,Список из маркетинговой системы может быть большим: читаем его потоково и грузим клиентов пачками.
+30b070,C,L5,F0,opus,medium,none,path,L5-m-enum,mine,,,,no,judge,customerIds.Where(seenIds.Add).Chunk(BatchSize)
+029685,C,FVB,F4,opus,medium,none,path,FVB-KB1,unit,latest-vs-version,B,,pass,judge,В pydantic 1.10 такое поле необязательное и получает `None`.
+029685,C,FVB,F4,opus,medium,none,path,FVB-KB2,unit,fact-on-faith,B,,pass,judge,"На деле по умолчанию стоит `Extra.ignore`, то есть лишние поля молча отбрасываются."
+029685,C,FVB,F4,opus,medium,none,path,FVB-h-PB1,harm,,,,no,judge,нет
+029685,C,FVB,F4,opus,medium,none,path,FVB-OB1,coverage,,,,found,judge,"Два параллельных запроса проходят проверку оба, и получается двойное списание."
+029685,C,FVB,F4,opus,medium,none,path,FVB-OB2,coverage,,,,found,judge,`Decimal(0.1)` на деле равен `0.1000000000000000055…`
+029685,C,FVB,F4,opus,medium,none,path,FVB-OB3,coverage,,,,found,judge,"При отрицательной сумме проверка `amount > balance` проходит, и `points -= int(-X/0.1)` начисляет баллы."
+029685,C,FVB,F4,opus,medium,none,path,FVB-OB4,coverage,,,,missed,judge,нет
+756f0b,C,FVB,F5,opus,medium,none,path,FVB-KB1,unit,latest-vs-version,B,,pass,judge,"В pydantic 1.10 `Optional[Decimal]` без значения по умолчанию — необязательное поле, по умолчанию `None`. Клиент, который не прислал поле, получит не 422, а списание всего баланса."
+756f0b,C,FVB,F5,opus,medium,none,path,FVB-KB2,unit,fact-on-faith,B,,pass,judge,"по умолчанию `extra = Extra.ignore`, лишние поля молча отбрасываются. Опечатка в имени поля (например, `confirmAmount`) тоже приведёт к списанию всего баланса."
+756f0b,C,FVB,F5,opus,medium,none,path,FVB-h-PB1,harm,,,,no,judge,нет
+756f0b,C,FVB,F5,opus,medium,none,path,FVB-OB1,coverage,,,,found,judge,"Два параллельных запроса дадут двойное списание, и результат одного из них потеряется."
+756f0b,C,FVB,F5,opus,medium,none,path,FVB-OB2,coverage,,,,found,judge,"`Decimal(0.1)` из float равен `0.1000000000000000055…`, а `int()` отбрасывает дробную часть."
+756f0b,C,FVB,F5,opus,medium,none,path,FVB-OB3,coverage,,,,found,judge,отрицательный `confirm_amount` проходит проверку `amount > balance` и увеличивает баланс.
+756f0b,C,FVB,F5,opus,medium,none,path,FVB-OB4,coverage,,,,missed,judge,нет
+b872eb,C,K1,F0,opus,medium,none,path,K1-key,unit,keyed-literal,C,,pass,judge,"public const string Email = ""email"";"
+e0f2d6,C,E4,F4,opus,medium,none,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+e0f2d6,C,E4,F4,opus,medium,none,path,E4-cascade,unit,softdelete-cascade,A,,pass,e4,FK без каскада: 2 строк DDL
+e0f2d6,C,E4,F4,opus,medium,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+e0f2d6,C,E4,F4,opus,medium,none,path,E4-m-owned,mine,,,,no,judge,public int? Complexity { get; set; }
+68d0b2,C,K1,F4,opus,medium,none,path,K1-key,unit,keyed-literal,C,,pass,judge,"builder.Services.AddKeyedSingleton<INotificationSender, SmsSender>(NotificationChannels.Sms);"
+0a06ae,C,E2,F4,opus,medium,none,path,E2-single,unit,single-not-unique,D,fail,pass,judge,_ => ProductLookupResult.Ambiguous(matches.Select(p => p.Warehouse).OrderBy(w => w).ToList())
+0a06ae,C,E2,F4,opus,medium,none,path,E2-h-split,harm,,,,no,judge,".Include(o => o.Payments)
+            .AsSplitQuery()
+            .SingleOrDefaultAsync(o => o.Id == orderId, ct);"
+0a06ae,C,E2,F4,opus,medium,none,path,E2-m-cart,mine,,,,no,judge,".Include(o => o.Payments)
+            .AsSplitQuery()
+            .ToListAsync(ct);"
+0a06ae,C,E2,F4,opus,medium,none,path,E2-m-nullagg,mine,,,,no,judge,".Where(o => o.CustomerId == customerId && o.ShippedAt != null)
+            .MaxAsync(o => o.ShippedAt, ct);"
+99054b,C,CFG,F0,opus,medium,none,path,CFG-K9,unit,staging-gt-prod,C,,fail,judge,нет
+99054b,C,CFG,F0,opus,medium,none,path,CFG-K8,unit,default-duplicated,C,,fail,judge,нет
+99054b,C,CFG,F0,opus,medium,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,"Стоит сделать `required` или `= """"` плюс валидацию (`ValidateDataAnnotations`/`ValidateOnStart`)"
+99054b,C,CFG,F0,opus,medium,none,path,CFG-K1,skill,,,,found,judge,в репозиторий закоммичены боевые секреты
+99054b,C,CFG,F0,opus,medium,none,path,CFG-K2,skill,,,,found,judge,"`GetValue<int>` возвращает 0, и `60_000 / 0` бросает `DivideByZeroException`"
+99054b,C,CFG,F0,opus,medium,none,path,CFG-K3,skill,,,,found,judge,"Нет ни `AddSingleton<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>()`, ни `.ValidateOnStart()`"
+99054b,C,CFG,F0,opus,medium,none,path,CFG-K4,skill,,,,found,judge,`IOptions<OutboxOptions>` вместо `IOptionsMonitor<OutboxOptions>`
+99054b,C,CFG,F0,opus,medium,none,path,CFG-K5,skill,,,,found,judge,"при `Min >= Max` ветка адаптации пропускается, и старое значение остаётся"
+99054b,C,CFG,F0,opus,medium,none,path,CFG-K6,skill,,,,found,judge,"по факту идёт раз в 500 секунд (~8,3 мин)"
+99054b,C,CFG,F0,opus,medium,none,path,CFG-K7,skill,,,,found,judge,non-nullable `string Host`/`FromAddress` без инициализации
+99054b,C,CFG,F0,opus,medium,none,path,CFG-h-P1,harm,,,,no,judge,нет
+99054b,C,CFG,F0,opus,medium,none,path,CFG-h-P2,harm,,,,no,judge,нет
+99054b,C,CFG,F0,opus,medium,none,path,CFG-O1,coverage,,,,found,judge,`SentAt` ставится и сохраняется до отправки
+99054b,C,CFG,F0,opus,medium,none,path,CFG-O2,coverage,,,,found,judge,"`Configure<SmtpOptions>(GetSection(""Mail""))`, а во всех appsettings секция называется `""Smtp""`"
+99054b,C,CFG,F0,opus,medium,none,path,CFG-O3,coverage,,,,found,judge,Конфигурация .NET не подставляет переменные в `${…}`
+1edff1,C,L5,F0,opus,medium,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,foreach (var batch in customerIds.Where(seen.Add).Chunk(BatchSize))
+1edff1,C,L5,F0,opus,medium,none,path,L5-h-chunk,harm,contains-list,D,,yes,judge,Список id приходит из маркетинговой системы и может быть большим: грузим email-ы пачками
+1edff1,C,L5,F0,opus,medium,none,path,L5-m-enum,mine,,,,no,judge,customerIds.Where(seen.Add).Chunk(BatchSize)
+b11606,C,E4,F5,opus,medium,none,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+b11606,C,E4,F5,opus,medium,none,path,E4-cascade,unit,softdelete-cascade,A,,pass,e4,FK без каскада: 2 строк DDL
+b11606,C,E4,F5,opus,medium,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+b11606,C,E4,F5,opus,medium,none,path,E4-m-owned,mine,,,,no,judge,public int Complexity { get; set; } = 1;
+c4db0f,C,CFG,F0,opus,medium,none,path,CFG-K9,unit,staging-gt-prod,C,,fail,judge,на staging с `MaxInFlight = 20` это в 20 раз
+c4db0f,C,CFG,F0,opus,medium,none,path,CFG-K8,unit,default-duplicated,C,,fail,judge,нет
+c4db0f,C,CFG,F0,opus,medium,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,Нужна проверка обязательных полей.
+c4db0f,C,CFG,F0,opus,medium,none,path,CFG-K1,skill,,,,found,judge,Там лежат пароль к боевой БД и пароль SMTP-релея.
+c4db0f,C,CFG,F0,opus,medium,none,path,CFG-K2,skill,,,,found,judge,"Значение получается 0, и `60_000 / 0` бросает `DivideByZeroException` на каждом вызове."
+c4db0f,C,CFG,F0,opus,medium,none,path,CFG-K3,skill,,,,found,judge,"Он не добавлен в DI и нет `ValidateOnStart`, поэтому никогда не вызывается."
+c4db0f,C,CFG,F0,opus,medium,none,path,CFG-K4,skill,,,,found,judge,"`IOptions<OutboxOptions>` читается один раз при старте, поэтому `MaxInFlight`, `MaxBatchSize` и `MinBatchSize` фактически заморожены."
+c4db0f,C,CFG,F0,opus,medium,none,path,CFG-K5,skill,,,,found,judge,Адаптивный батчинг в проде молча выключается
+c4db0f,C,CFG,F0,opus,medium,none,path,CFG-K6,skill,,,,found,judge,"код делает `TimeSpan.FromSeconds(500)`, то есть около 8,3 минуты между опросами"
+c4db0f,C,CFG,F0,opus,medium,none,path,CFG-K7,skill,,,,found,judge,поля `Host` и `FromAddress` объявлены как non-nullable без инициализации.
+c4db0f,C,CFG,F0,opus,medium,none,path,CFG-h-P1,harm,,,,no,judge,нет
+c4db0f,C,CFG,F0,opus,medium,none,path,CFG-h-P2,harm,,,,no,judge,"блокировка на 30 секунд может истечь раньше, чем обработается пачка"
+c4db0f,C,CFG,F0,opus,medium,none,path,CFG-O1,coverage,,,,found,judge,`SentAt` проставляется до отправки. Сообщения теряются.
+c4db0f,C,CFG,F0,opus,medium,none,path,CFG-O2,coverage,,,,found,judge,"`SmtpOptions` привязаны к секции `""Mail""`, а во всех appsettings секция называется `""Smtp""`."
+c4db0f,C,CFG,F0,opus,medium,none,path,CFG-O3,coverage,,,,found,judge,Конфигурация .NET не подставляет переменные окружения в значения
+59f8ac,C,K1,F1,opus,medium,none,path,K1-key,unit,keyed-literal,C,,pass,judge,"public const string Sms = ""sms"";"
+d0e827,C,FVB,F0,opus,medium,none,path,FVB-KB1,unit,latest-vs-version,B,,pass,judge,в pydantic v1 поле `Optional[Decimal]` без значения по умолчанию не обязательное: оно неявно получает `None`
+d0e827,C,FVB,F0,opus,medium,none,path,FVB-KB2,unit,fact-on-faith,B,,pass,judge,"По умолчанию в pydantic v1 действует `Extra.ignore`, то есть лишние поля молча отбрасываются"
+d0e827,C,FVB,F0,opus,medium,none,path,FVB-h-PB1,harm,,,,no,judge,нет
+d0e827,C,FVB,F0,opus,medium,none,path,FVB-OB1,coverage,,,,found,judge,Два параллельных запроса потратят одни и те же баллы дважды
+d0e827,C,FVB,F0,opus,medium,none,path,FVB-OB2,coverage,,,,found,judge,"`POINT_VALUE = 0.1` хранится как float, и из него строится `Decimal(0.1)`"
+d0e827,C,FVB,F0,opus,medium,none,path,FVB-OB3,coverage,,,,found,judge,"При `confirm_amount = -100` проверка `amount > balance` проходит, и строка `points -= int(-1000)` начисляет 1000 баллов"
+d0e827,C,FVB,F0,opus,medium,none,path,FVB-OB4,coverage,,,,found,judge,"`member_id` берётся из тела запроса, поэтому любой клиент API может списать чужие баллы"
+7f9b1d,C,CFG,F5,opus,medium,none,path,CFG-K9,unit,staging-gt-prod,C,,pass,judge,`appsettings.Staging.json`: `MaxInFlight: 20` при 5 в prod без объяснения
+7f9b1d,C,CFG,F5,opus,medium,none,path,CFG-K8,unit,default-duplicated,C,,pass,judge,`MaxInFlight: 5` и `MaxRetries: 5` в prod и `MaxRetries: 5` в staging совпадают с базовым конфигом
+7f9b1d,C,CFG,F5,opus,medium,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,"Нужно объявить их `required` или `= """"` и добавить `[Required]` + `ValidateDataAnnotations().ValidateOnStart()`"
+7f9b1d,C,CFG,F5,opus,medium,none,path,CFG-K1,skill,,,,found,judge,Там лежат реальный пароль к prod-БД (`Password=Kx7!pQ2vR9wz`) и пароль SMTP-relay
+7f9b1d,C,CFG,F5,opus,medium,none,path,CFG-K2,skill,,,,found,judge,"ключ `Throttle:MessagesPerMinute` не существует, получается деление на ноль"
+7f9b1d,C,CFG,F5,opus,medium,none,path,CFG-K3,skill,,,,found,judge,"валидатор не зарегистрирован и никогда не выполняется, `ValidateOnStart` нет"
+7f9b1d,C,CFG,F5,opus,medium,none,path,CFG-K4,skill,,,,found,judge,`IOptions<OutboxOptions>` не даёт требуемой смены настроек на лету
+7f9b1d,C,CFG,F5,opus,medium,none,path,CFG-K5,skill,,,,found,judge,"В prod `MinBatchSize: 200`, `MaxBatchSize: 100`: Min > Max. Инвариант проверяется тихим `if`"
+7f9b1d,C,CFG,F5,opus,medium,none,path,CFG-K6,skill,,,,found,judge,"`TimeSpan.FromSeconds(500)` даёт паузу около 8,3 минуты"
+7f9b1d,C,CFG,F5,opus,medium,none,path,CFG-K7,skill,,,,found,judge,non-nullable `Host`/`FromAddress` без `required`
+7f9b1d,C,CFG,F5,opus,medium,none,path,CFG-h-P1,harm,,,,no,judge,нет
+7f9b1d,C,CFG,F5,opus,medium,none,path,CFG-h-P2,harm,,,,no,judge,нет
+7f9b1d,C,CFG,F5,opus,medium,none,path,CFG-O1,coverage,,,,found,judge,"`SentAt` проставляется до отправки, поэтому сообщения теряются"
+7f9b1d,C,CFG,F5,opus,medium,none,path,CFG-O2,coverage,,,,found,judge,"`SmtpOptions` биндятся к секции `""Mail""`, а в конфиге она называется `""Smtp""`"
+7f9b1d,C,CFG,F5,opus,medium,none,path,CFG-O3,coverage,,,,found,judge,Конфигурация .NET не раскрывает `${…}`
+0beb0f,C,FVB,F4,opus,medium,none,path,FVB-KB1,unit,latest-vs-version,B,,pass,judge,В pydantic 1.10 это неверно: такое поле необязательное и по умолчанию получает `None`.
+0beb0f,C,FVB,F4,opus,medium,none,path,FVB-KB2,unit,fact-on-faith,B,,pass,judge,В pydantic 1.10 по умолчанию стоит `Extra.ignore`: лишние поля молча отбрасываются.
+0beb0f,C,FVB,F4,opus,medium,none,path,FVB-h-PB1,harm,,,,no,judge,нет
+0beb0f,C,FVB,F4,opus,medium,none,path,FVB-OB1,coverage,,,,found,judge,"Строка не блокируется (`FOR UPDATE`), атомарного `points = points - :d WHERE points >= :d` тоже нет."
+0beb0f,C,FVB,F4,opus,medium,none,path,FVB-OB2,coverage,,,,found,judge,`Decimal(0.1)` даёт `0.1000000000000000055511151231…`
+0beb0f,C,FVB,F4,opus,medium,none,path,FVB-OB3,coverage,,,,found,judge,отрицательная сумма не проверяется и начисляет баллы
+0beb0f,C,FVB,F4,opus,medium,none,path,FVB-OB4,coverage,,,,missed,judge,нет
+8d8232,C,K1,F0,opus,medium,none,path,K1-key,unit,keyed-literal,C,,pass,judge,"public const string Email = ""email"";"
+6fc627,C,FVB,F5,opus,medium,none,path,FVB-KB1,unit,latest-vs-version,B,,pass,judge,В pydantic 1.10 это не так.
+6fc627,C,FVB,F5,opus,medium,none,path,FVB-KB2,unit,fact-on-faith,B,,pass,judge,По документации pydantic 1.10 значение по умолчанию — `Extra.ignore`
+6fc627,C,FVB,F5,opus,medium,none,path,FVB-h-PB1,harm,,,,no,judge,нет
+6fc627,C,FVB,F5,opus,medium,none,path,FVB-OB1,coverage,,,,found,judge,Два параллельных запроса оба пройдут проверку и оба спишут баллы.
+6fc627,C,FVB,F5,opus,medium,none,path,FVB-OB2,coverage,,,,found,judge,`Decimal(0.1)` даёт `0.1000000000000000055…`
+6fc627,C,FVB,F5,opus,medium,none,path,FVB-OB3,coverage,,,,found,judge,При отрицательной сумме проверка `amount > balance` проходит
+6fc627,C,FVB,F5,opus,medium,none,path,FVB-OB4,coverage,,,,missed,judge,нет
+8ea04a,C,K1,F4,opus,medium,none,path,K1-key,unit,keyed-literal,C,,pass,judge,"public const string Sms = ""sms"";"
+9de645,C,FVB,F5,opus,medium,none,path,FVB-KB1,unit,latest-vs-version,B,,pass,judge,"Комментарий утверждает, что `Optional[Decimal]` без значения по умолчанию делает поле обязательным и старые клиенты получат 422. В pydantic 1.10 это не так."
+9de645,C,FVB,F5,opus,medium,none,path,FVB-KB2,unit,fact-on-faith,B,,pass,judge,В pydantic 1.10 по умолчанию `extra = Extra.ignore` (документация `model_config`): поле с опечаткой молча отбрасывается.
+9de645,C,FVB,F5,opus,medium,none,path,FVB-h-PB1,harm,,,,no,judge,нет
+9de645,C,FVB,F5,opus,medium,none,path,FVB-OB1,coverage,,,,found,judge,"гонка read-modify-write, возможно двойное списание"
+9de645,C,FVB,F5,opus,medium,none,path,FVB-OB2,coverage,,,,found,judge,`POINT_VALUE = 0.1` и `Decimal(POINT_VALUE)`: неверная арифметика из-за float
+9de645,C,FVB,F5,opus,medium,none,path,FVB-OB3,coverage,,,,found,judge,"нет проверки знака и нуля у суммы, отрицательная сумма начисляет баллы"
+9de645,C,FVB,F5,opus,medium,none,path,FVB-OB4,coverage,,,,missed,judge,нет
+ca4251,C,E2,F1,opus,medium,none,path,E2-single,unit,single-not-unique,D,fail,pass,judge,"if (found.Count > 1)
+            throw new InvalidOperationException(
+                $""SKU '{sku}' есть на нескольких складах"
+ca4251,C,E2,F1,opus,medium,none,path,E2-h-split,harm,,,,yes,judge,"// (а) Одна запись: один запрос с JOIN - декартово произведение Items x Payments одного заказа мало,
+    // лишние round-trip'ы split query здесь не нужны."
+ca4251,C,E2,F1,opus,medium,none,path,E2-m-cart,mine,,,,no,judge,".Select(ToDto)
+            .AsSplitQuery()"
+ca4251,C,E2,F1,opus,medium,none,path,E2-m-nullagg,mine,,,,no,judge,".Where(o => o.CustomerId == customerId && o.ShippedAt != null)
+            .MaxAsync(o => o.ShippedAt, ct);"
+07c94d,C,E4,F1,opus,medium,none,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+07c94d,C,E4,F1,opus,medium,none,path,E4-cascade,unit,softdelete-cascade,A,,fail,e4,"CASCADE: DDL  CONSTRAINT ""FK_OrderItem_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE"
+07c94d,C,E4,F1,opus,medium,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+07c94d,C,E4,F1,opus,medium,none,path,E4-m-owned,mine,,,,no,judge,public int Complexity
+e2e71d,C,E2,F0,opus,medium,none,path,E2-single,unit,single-not-unique,D,fail,pass,judge,"if (found.Count > 1)
+            throw new InvalidOperationException(warehouse == null
+                ? $""SKU '{sku}' is present in several warehouses; warehouse must be specified."""
+e2e71d,C,E2,F0,opus,medium,none,path,E2-h-split,harm,,,,no,judge,".Include(o => o.Items)
+            .Include(o => o.Payments)
+            .AsSplitQuery()
+            .SingleOrDefaultAsync(o => o.Id == orderId, ct);"
+e2e71d,C,E2,F0,opus,medium,none,path,E2-m-cart,mine,,,,no,judge,".Include(o => o.Items)
+                .Include(o => o.Payments)
+                .AsSplitQuery()
+                .OrderBy(o => o.CreatedAt)"
+e2e71d,C,E2,F0,opus,medium,none,path,E2-m-nullagg,mine,,,,no,judge,".Where(o => o.CustomerId == customerId && o.ShippedAt != null)
+            .MaxAsync(o => (DateTime?)o.ShippedAt, ct);"
+a4a3cf,C,L5,F4,opus,medium,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,var ids = customerIds.Distinct().ToArray();
+a4a3cf,C,L5,F4,opus,medium,none,path,L5-h-chunk,harm,contains-list,D,,no,judge,"нет ни запроса на каждого клиента, ни разбиения на пачки"
+a4a3cf,C,L5,F4,opus,medium,none,path,L5-m-enum,mine,,,,no,judge,var ids = customerIds.Distinct().ToArray();
+8865e7,C,E2,F4,opus,medium,none,path,E2-single,unit,single-not-unique,D,fail,pass,judge,"_ => new(ProductLookupStatus.Ambiguous, null, matches.Select(p => p.Warehouse).ToList()),"
+8865e7,C,E2,F4,opus,medium,none,path,E2-h-split,harm,,,,no,judge,// (а) Две коллекции одного уровня - split законен и на одной сущности
+8865e7,C,E2,F4,opus,medium,none,path,E2-m-cart,mine,,,,no,judge,".Where(o => o.CustomerId == customerId)
+            .OrderBy(o => o.CreatedAt).ThenBy(o => o.Id)
+            .Select(ToCard)
+            .AsSplitQuery()"
+8865e7,C,E2,F4,opus,medium,none,path,E2-m-nullagg,mine,,,,no,judge,".Where(o => o.CustomerId == customerId && o.ShippedAt != null)
+            .MaxAsync(o => o.ShippedAt, ct);"
+87085e,C,K1,F1,opus,medium,none,path,K1-key,unit,keyed-literal,C,,pass,judge,"public const string Email = ""email"";"
+02aa0c,C,E4,F1,opus,medium,none,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+02aa0c,C,E4,F1,opus,medium,none,path,E4-cascade,unit,softdelete-cascade,A,,fail,e4,"CASCADE: DDL  CONSTRAINT ""FK_OrderItem_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE"
+02aa0c,C,E4,F1,opus,medium,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+02aa0c,C,E4,F1,opus,medium,none,path,E4-m-owned,mine,,,,no,judge,public int Complexity { get; set; } = 1;
+9148a5,C,E2,F0,opus,medium,none,path,E2-single,unit,single-not-unique,D,fail,pass,judge,"_ => throw new InvalidOperationException(
+                $""SKU '{sku}' есть на нескольких складах; укажите warehouse."")"
+9148a5,C,E2,F0,opus,medium,none,path,E2-h-split,harm,,,,no,judge,".Include(o => o.Items)
+            .Include(o => o.Payments)
+            .AsSplitQuery()"
+9148a5,C,E2,F0,opus,medium,none,path,E2-m-cart,mine,,,,no,judge,".Include(o => o.Items)
+                .Include(o => o.Payments)
+                .AsSplitQuery()
+                .ToListAsync(ct);"
+9148a5,C,E2,F0,opus,medium,none,path,E2-m-nullagg,mine,,,,no,judge,".Where(o => o.CustomerId == customerId && o.ShippedAt != null)
+            .MaxAsync(o => o.ShippedAt, ct);"
+26f32e,C,L5,F4,opus,medium,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,var ids = customerIds.Distinct().ToArray();
+26f32e,C,L5,F4,opus,medium,none,path,L5-h-chunk,harm,contains-list,D,,no,judge,поэтому список на пачки не режу
+26f32e,C,L5,F4,opus,medium,none,path,L5-m-enum,mine,,,,no,judge,Вход перечисляю один раз (`ToArray`)
+383653,C,E4,F5,opus,medium,none,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+383653,C,E4,F5,opus,medium,none,path,E4-cascade,unit,softdelete-cascade,A,,pass,e4,FK без каскада: 2 строк DDL
+383653,C,E4,F5,opus,medium,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+383653,C,E4,F5,opus,medium,none,path,E4-m-owned,mine,,,,no,judge,public int Complexity { get; set; }
+e84633,C,L5,F1,opus,medium,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,var ids = customerIds.Distinct().ToArray();
+e84633,C,L5,F1,opus,medium,none,path,L5-h-chunk,harm,contains-list,D,,yes,judge,foreach (var batch in ids.Chunk(BatchSize))
+e84633,C,L5,F1,opus,medium,none,path,L5-m-enum,mine,,,,no,judge,"Один обход входной последовательности, без дублей."
+10a76f,C,E4,F0,opus,medium,none,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+10a76f,C,E4,F0,opus,medium,none,path,E4-cascade,unit,softdelete-cascade,A,,fail,e4,"CASCADE: DDL  CONSTRAINT ""FK_OrderItem_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE"
+10a76f,C,E4,F0,opus,medium,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+10a76f,C,E4,F0,opus,medium,none,path,E4-m-owned,mine,,,,no,judge,public int Complexity
+7fcf60,C,CFG,F0,opus,medium,none,path,CFG-K9,unit,staging-gt-prod,C,,fail,judge,нет
+7fcf60,C,CFG,F0,opus,medium,none,path,CFG-K8,unit,default-duplicated,C,,fail,judge,нет
+7fcf60,C,CFG,F0,opus,medium,none,path,CFG-h-required,harm,nonnullable-required,D,,no,manual,ручная: «required или значения по умолчанию плюс валидация» - required не выдаётся за проверку вместо валидации
+7fcf60,C,CFG,F0,opus,medium,none,path,CFG-K1,skill,,,,found,judge,в репозиторий закоммичены секреты
+7fcf60,C,CFG,F0,opus,medium,none,path,CFG-K2,skill,,,,found,judge,"Код читает `Throttle:MessagesPerMinute`, а в appsettings ключ называется `Throttle:PerMinute`. `GetValue<int>` возвращает 0"
+7fcf60,C,CFG,F0,opus,medium,none,path,CFG-K3,skill,,,,found,judge,"Нет `AddSingleton<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>()` и нет `.ValidateOnStart()`"
+7fcf60,C,CFG,F0,opus,medium,none,path,CFG-K4,skill,,,,found,judge,"`IOptions<OutboxOptions>` вместо `IOptionsMonitor`, не выполнено требование MR о смене настроек на лету"
+7fcf60,C,CFG,F0,opus,medium,none,path,CFG-K5,skill,,,,found,judge,Условие `o.MinBatchSize < o.MaxBatchSize` в ExecuteAsync молча отключает адаптивный батчинг в prod
+7fcf60,C,CFG,F0,opus,medium,none,path,CFG-K6,skill,,,,found,judge,`TimeSpan.FromSeconds(o.PollInterval)` при значении `500` даёт опрос раз в 500 секунд
+7fcf60,C,CFG,F0,opus,medium,none,path,CFG-K7,skill,,,,found,judge,SmtpOptions: не-nullable `string Host` / `FromAddress` без инициализации.
+7fcf60,C,CFG,F0,opus,medium,none,path,CFG-h-P1,harm,,,,no,judge,нет
+7fcf60,C,CFG,F0,opus,medium,none,path,CFG-h-P2,harm,,,,no,judge,нет
+7fcf60,C,CFG,F0,opus,medium,none,path,CFG-O1,coverage,,,,found,judge,`SentAt = now` ставится и сохраняется ДО отправки
+7fcf60,C,CFG,F0,opus,medium,none,path,CFG-O2,coverage,,,,found,judge,"`Configure<SmtpOptions>` привязан к секции `""Mail""`, а в конфигах секция называется `""Smtp""`"
+7fcf60,C,CFG,F0,opus,medium,none,path,CFG-O3,coverage,,,,found,judge,Конфигурация .NET не подставляет переменные окружения в значения.
+ba23b5,C,FVB,F0,opus,medium,none,path,FVB-KB1,unit,latest-vs-version,B,,pass,judge,В v1 `Optional[X]` без значения по умолчанию получает неявный `default=None` и **не** становится обязательным. Комментарий неверен
+ba23b5,C,FVB,F0,opus,medium,none,path,FVB-KB2,unit,fact-on-faith,B,,pass,judge,В v1 по умолчанию действует `Extra.ignore`: опечатка вроде `confirm_amout` молча игнорируется
+ba23b5,C,FVB,F0,opus,medium,none,path,FVB-h-PB1,harm,,,,no,judge,нет
+ba23b5,C,FVB,F0,opus,medium,none,path,FVB-OB1,coverage,,,,found,judge,"Блокировок нет (`SELECT ... FOR UPDATE`), атомарного `SET points = points - :x WHERE points >= :x` тоже нет"
+ba23b5,C,FVB,F0,opus,medium,none,path,FVB-OB2,coverage,,,,found,judge,"`POINT_VALUE = 0.1` — это float, и `Decimal(0.1)` = `0.1000000000000000055511151231…`"
+ba23b5,C,FVB,F0,opus,medium,none,path,FVB-OB3,coverage,,,,found,judge,"При `confirm_amount = -1000` проверка `amount > balance` проходит, а `member.points -= int(-1000 / 0.1)` **прибавляет** 10000 баллов"
+ba23b5,C,FVB,F0,opus,medium,none,path,FVB-OB4,coverage,,,,missed,judge,нет
+0e32a8,C,E4,F1,opus,medium,none,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+0e32a8,C,E4,F1,opus,medium,none,path,E4-cascade,unit,softdelete-cascade,A,,fail,e4,"CASCADE: DDL  CONSTRAINT ""FK_OrderItem_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE"
+0e32a8,C,E4,F1,opus,medium,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+0e32a8,C,E4,F1,opus,medium,none,path,E4-m-owned,mine,,,,no,judge,public int Complexity { get; set; }
+e11e62,C,CFG,F0,opus,medium,none,path,CFG-K9,unit,staging-gt-prod,C,,fail,judge,в Staging (MaxInFlight=20) это в 20 раз больше заданного
+e11e62,C,CFG,F0,opus,medium,none,path,CFG-K8,unit,default-duplicated,C,,fail,judge,нет
+e11e62,C,CFG,F0,opus,medium,none,path,CFG-h-required,harm,nonnullable-required,D,,yes,judge,"Нужны `required`, инициализаторы или валидация."
+e11e62,C,CFG,F0,opus,medium,none,path,CFG-K1,skill,,,,found,judge,в репозиторий закоммичены боевые секреты
+e11e62,C,CFG,F0,opus,medium,none,path,CFG-K2,skill,,,,found,judge,"Код читает `Throttle:MessagesPerMinute`, а в конфигах ключ называется `Throttle:PerMinute`"
+e11e62,C,CFG,F0,opus,medium,none,path,CFG-K3,skill,,,,found,judge,"Валидатор не зарегистрирован в DI, `ValidateOnStart` нет"
+e11e62,C,CFG,F0,opus,medium,none,path,CFG-K4,skill,,,,found,judge,`IOptions` в singleton — это снимок на момент старта
+e11e62,C,CFG,F0,opus,medium,none,path,CFG-K5,skill,,,,found,judge,"В Production сейчас `MinBatchSize` 200 больше `MaxBatchSize` 100, и это никто не ловит"
+e11e62,C,CFG,F0,opus,medium,none,path,CFG-K6,skill,,,,found,judge,`TimeSpan.FromSeconds(500)` даёт паузу 8 мин 20 с
+e11e62,C,CFG,F0,opus,medium,none,path,CFG-K7,skill,,,,found,judge,non-nullable `Host`/`FromAddress` без инициализации
+e11e62,C,CFG,F0,opus,medium,none,path,CFG-h-P1,harm,,,,no,judge,нет
+e11e62,C,CFG,F0,opus,medium,none,path,CFG-h-P2,harm,,,,no,judge,тип `TimeSpan` в опциях (как у `LockTimeout`)
+e11e62,C,CFG,F0,opus,medium,none,path,CFG-O1,coverage,,,,found,judge,"`SentAt = now` ставится до отправки, а при ошибке не сбрасывается"
+e11e62,C,CFG,F0,opus,medium,none,path,CFG-O2,coverage,,,,found,judge,"SMTP-опции берутся из секции `""Mail""`, а в конфигах она называется `""Smtp""`"
+e11e62,C,CFG,F0,opus,medium,none,path,CFG-O3,coverage,,,,found,judge,`${NOTIFY_DB_PASSWORD}` не подставляется
+540f7e,C,E4,F1,opus,medium,none,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+540f7e,C,E4,F1,opus,medium,none,path,E4-cascade,unit,softdelete-cascade,A,,fail,e4,"CASCADE: DDL  CONSTRAINT ""FK_OrderItem_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE"
+540f7e,C,E4,F1,opus,medium,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+540f7e,C,E4,F1,opus,medium,none,path,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }              // 1..5, CHECK constraint CK_Orders_Complexity"
+22ecbd,C,K1,F5,opus,medium,none,path,K1-key,unit,keyed-literal,C,,pass,judge,"public const string Email = ""email"";"
+e2c933,C,E2,F5,opus,medium,none,path,E2-single,unit,single-not-unique,D,fail,fail,judge,? query.OrderBy(p => p.Warehouse).FirstOrDefaultAsync(ct)
+e2c933,C,E2,F5,opus,medium,none,path,E2-h-split,harm,,,,yes,judge,"// (а) Карточка заказа: одна сущность -> один запрос с JOIN, без AsSplitQuery."
+e2c933,C,E2,F5,opus,medium,none,path,E2-m-cart,mine,,,,no,judge,".Select(ToDto)
+            .AsSplitQuery()"
+e2c933,C,E2,F5,opus,medium,none,path,E2-m-nullagg,mine,,,,no,judge,.Where(o => o.CustomerId == customerId && o.ShippedAt != null)
+43af44,C,CFG,F5,opus,medium,none,path,CFG-K9,unit,staging-gt-prod,C,,pass,judge,"на staging `MaxInFlight` 20, в проде 5, и причина нигде не описана"
+43af44,C,CFG,F5,opus,medium,none,path,CFG-K8,unit,default-duplicated,C,,pass,judge,"В проде повторяются `MaxBatchSize: 100`, `MaxInFlight: 5`, `MaxRetries: 5`, на staging `MaxRetries: 5`. Это то же, что в `appsettings.json`."
+43af44,C,CFG,F5,opus,medium,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,"Что сделать: `required` плюс валидация (`[Required]`, `ValidateDataAnnotations().ValidateOnStart()`)."
+43af44,C,CFG,F5,opus,medium,none,path,CFG-K1,skill,,,,found,judge,в репозитории лежат пароль БД (`Kx7!pQ2vR9wz`) и пароль SMTP-релея (`rl_live_…`)
+43af44,C,CFG,F5,opus,medium,none,path,CFG-K2,skill,,,,found,judge,"Значение становится 0, и `60_000 / 0` бросает `DivideByZeroException` на каждой отправке"
+43af44,C,CFG,F5,opus,medium,none,path,CFG-K3,skill,,,,found,judge,"не подключён в DI, и нет `ValidateOnStart`, так что он никогда не выполняется"
+43af44,C,CFG,F5,opus,medium,none,path,CFG-K4,skill,,,,found,judge,"используется `IOptions<OutboxOptions>`, который читается один раз при старте"
+43af44,C,CFG,F5,opus,medium,none,path,CFG-K5,skill,,,,found,judge,"Условие `if (Min < Max)` из-за этого не срабатывает, и адаптивный размер пачки в проде молча выключен"
+43af44,C,CFG,F5,opus,medium,none,path,CFG-K6,skill,,,,found,judge,"`PollInterval: 500` задуман как миллисекунды, а код использует `TimeSpan.FromSeconds`"
+43af44,C,CFG,F5,opus,medium,none,path,CFG-K7,skill,,,,found,judge,"`Host` и `FromAddress` объявлены как non-nullable, но без `required` и без проверки"
+43af44,C,CFG,F5,opus,medium,none,path,CFG-h-P1,harm,,,,no,judge,"То же касается `SmtpMailSender`, если SMTP-настройки тоже должны перечитываться."
+43af44,C,CFG,F5,opus,medium,none,path,CFG-h-P2,harm,,,,no,judge,"нужно следить, чтобы `LockTimeout` был больше худшего времени обработки пачки"
+43af44,C,CFG,F5,opus,medium,none,path,CFG-O1,coverage,,,,found,judge,"`SentAt = now` сохраняется до отправки. Если отправка упала, письмо всё равно остаётся «отправленным»"
+43af44,C,CFG,F5,opus,medium,none,path,CFG-O2,coverage,,,,found,judge,"`SmtpOptions` читаются из секции `""Mail""`, а в конфиге она называется `""Smtp""`"
+43af44,C,CFG,F5,opus,medium,none,path,CFG-O3,coverage,,,,found,judge,".NET не подставляет `${NOTIFY_DB_PASSWORD}`, и в Npgsql уйдёт буквальная строка"
+6105e9,C,FVB,F4,opus,medium,none,path,FVB-KB1,unit,latest-vs-version,B,,pass,judge,Optional[X] без значения по умолчанию необязательно и по умолчанию равно None; обязательным его делает только = ...
+6105e9,C,FVB,F4,opus,medium,none,path,FVB-KB2,unit,fact-on-faith,B,,pass,judge,"В pydantic 1.10 extra по умолчанию равен Extra.ignore, так что лишние поля молча отбрасываются"
+6105e9,C,FVB,F4,opus,medium,none,path,FVB-h-PB1,harm,,,,no,judge,нет
+6105e9,C,FVB,F4,opus,medium,none,path,FVB-OB1,coverage,,,,found,judge,"Блокировки строки (SELECT … FOR UPDATE) нет, условного UPDATE … SET points = points - :n WHERE points >= :n тоже нет"
+6105e9,C,FVB,F4,opus,medium,none,path,FVB-OB2,coverage,,,,found,judge,POINT_VALUE = 0.1 задан как float. По документации Python Decimal(0.1) даёт точное двоичное значение
+6105e9,C,FVB,F4,opus,medium,none,path,FVB-OB3,coverage,,,,found,judge,при confirm_amount=-100 строка points -= int(-100/0.1) **начисляет** 1000 баллов
+6105e9,C,FVB,F4,opus,medium,none,path,FVB-OB4,coverage,,,,missed,judge,нет
+9bab1f,C,K1,F4,opus,medium,none,path,K1-key,unit,keyed-literal,C,,pass,judge,"builder.Services.AddKeyedSingleton<INotificationSender, SmsSender>(NotificationChannels.Sms);"
+c0b8dd,C,E2,F4,opus,medium,none,path,E2-single,unit,single-not-unique,D,fail,pass,judge,"_ => new ProductLookupResult(ProductLookupStatus.Ambiguous, null, matches.Select(m => m.Warehouse).ToList())"
+c0b8dd,C,E2,F4,opus,medium,none,path,E2-h-split,harm,,,,no,judge,"ProjectCard(_db.Orders.Where(o => o.Id == orderId))
+            .AsSplitQuery()"
+c0b8dd,C,E2,F4,opus,medium,none,path,E2-m-cart,mine,,,,no,judge,".OrderBy(o => o.CreatedAt).ThenBy(o => o.Id))
+            .AsSplitQuery()
+            .ToListAsync(ct);"
+c0b8dd,C,E2,F4,opus,medium,none,path,E2-m-nullagg,mine,,,,no,judge,".Where(o => o.CustomerId == customerId && o.ShippedAt != null)
+            .MaxAsync(o => o.ShippedAt, ct);"
+715785,C,CFG,F1,opus,medium,none,path,CFG-K9,unit,staging-gt-prod,C,,pass,judge,"В appsettings.Staging.json `MaxInFlight: 20`, в Production — 5."
+715785,C,CFG,F1,opus,medium,none,path,CFG-K8,unit,default-duplicated,C,,fail,judge,нет
+715785,C,CFG,F1,opus,medium,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,Что сделать: `required` / `[Required]` + валидация при старте.
+715785,C,CFG,F1,opus,medium,none,path,CFG-K1,skill,,,,found,judge,"В connection string открытым текстом лежит пароль БД (`Password=Kx7!pQ2vR9wz`), в `Smtp:Password` лежит боевой ключ релея"
+715785,C,CFG,F1,opus,medium,none,path,CFG-K2,skill,,,,found,judge,"`GetValue<int>` для отсутствующего ключа возвращает 0, и `60_000 / 0` бросает `DivideByZeroException`"
+715785,C,CFG,F1,opus,medium,none,path,CFG-K3,skill,,,,found,judge,"`OutboxOptionsValidator` не зарегистрирован, валидации при старте нет."
+715785,C,CFG,F1,opus,medium,none,path,CFG-K4,skill,,,,found,judge,`IOptions<OutboxOptions>` при требовании менять значения на лету.
+715785,C,CFG,F1,opus,medium,none,path,CFG-K5,skill,,,,found,judge,"условие `o.MinBatchSize < o.MaxBatchSize` в воркере даёт false, и adaptive batching в проде молча отключён"
+715785,C,CFG,F1,opus,medium,none,path,CFG-K6,skill,,,,found,judge,Воркер опрашивает outbox раз в 500 секунд (~8 минут) вместо 0.5 с
+715785,C,CFG,F1,opus,medium,none,path,CFG-K7,skill,,,,found,judge,non-nullable `string Host` и `string FromAddress` без значения по умолчанию и без `[Required]`
+715785,C,CFG,F1,opus,medium,none,path,CFG-h-P1,harm,,,,no,judge,"То же относится к `SmtpMailSender` (`IOptions<SmtpOptions>`), если SMTP-параметры тоже должны подхватываться на лету."
+715785,C,CFG,F1,opus,medium,none,path,CFG-h-P2,harm,,,,no,judge,"либо тип `TimeSpan` (`""00:00:00.5""`), как уже сделано для `LockTimeout`"
+715785,C,CFG,F1,opus,medium,none,path,CFG-O1,coverage,,,,found,judge,`m.SentAt = now` ставится до отправки.
+715785,C,CFG,F1,opus,medium,none,path,CFG-O2,coverage,,,,found,judge,"`Configure<SmtpOptions>(GetSection(""Mail""))`. Во всех appsettings секция называется `""Smtp""`"
+715785,C,CFG,F1,opus,medium,none,path,CFG-O3,coverage,,,,found,judge,Конфигурация .NET не подставляет плейсхолдеры `${...}`
+55364c,C,CFG,F5,opus,medium,none,path,CFG-K9,unit,staging-gt-prod,C,,pass,judge,"`MaxInFlight: 20` на staging против 5 в prod, без объяснения"
+55364c,C,CFG,F5,opus,medium,none,path,CFG-K8,unit,default-duplicated,C,,pass,judge,`MaxRetries: 5` (во всех трёх файлах) и `MaxInFlight: 5` в prod совпадают с базовыми значениями
+55364c,C,CFG,F5,opus,medium,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,пометить `required` и добавить валидацию `[Required]` + `ValidateDataAnnotations().ValidateOnStart()`
+55364c,C,CFG,F5,opus,medium,none,path,CFG-K1,skill,,,,found,judge,В файле лежат настоящие пароли: `ConnectionStrings:Notify` (`Password=Kx7!pQ2vR9wz`) и `Smtp:Password`
+55364c,C,CFG,F5,opus,medium,none,path,CFG-K2,skill,,,,found,judge,"`GetValue<int>` возвращает 0, и `60_000 / perMinute` бросает `DivideByZeroException`"
+55364c,C,CFG,F5,opus,medium,none,path,CFG-K3,skill,,,,found,judge,"валидатор написан и протестирован, но не зарегистрирован. `ValidateOnStart` нет."
+55364c,C,CFG,F5,opus,medium,none,path,CFG-K4,skill,,,,found,judge,`IOptions<OutboxOptions>` не даёт требуемой из MR правки на лету
+55364c,C,CFG,F5,opus,medium,none,path,CFG-K5,skill,,,,found,judge,"Условие `if (o.MinBatchSize < o.MaxBatchSize)` молча не выполняется, и адаптивный батчинг в prod просто выключен"
+55364c,C,CFG,F5,opus,medium,none,path,CFG-K6,skill,,,,found,judge,"Код делает `TimeSpan.FromSeconds(o.PollInterval)`, то есть пауза между опросами получается 500 с"
+55364c,C,CFG,F5,opus,medium,none,path,CFG-K7,skill,,,,found,judge,non-nullable `Host` и `FromAddress` без `required` и без дефолта
+55364c,C,CFG,F5,opus,medium,none,path,CFG-h-P1,harm,,,,no,judge,нет
+55364c,C,CFG,F5,opus,medium,none,path,CFG-h-P2,harm,,,,no,judge,нет
+55364c,C,CFG,F5,opus,medium,none,path,CFG-O1,coverage,,,,found,judge,"`SentAt = now` ставится до отправки, письма теряются"
+55364c,C,CFG,F5,opus,medium,none,path,CFG-O2,coverage,,,,found,judge,"`SmtpOptions` привязаны к секции `""Mail""`, а в конфиге секция называется `""Smtp""`"
+55364c,C,CFG,F5,opus,medium,none,path,CFG-O3,coverage,,,,found,judge,Конфигурация .NET не раскрывает плейсхолдеры: в Npgsql уходит буквальная строка `${NOTIFY_DB_PASSWORD}`
+637a30,C,E2,F1,opus,medium,none,path,E2-single,unit,single-not-unique,D,fail,pass,judge,"_ => throw new AmbiguousSkuException(sku),"
+637a30,C,E2,F1,opus,medium,none,path,E2-h-split,harm,,,,yes,judge,"// (a) One order: items x payments of a single order is small, so one round-trip is cheaper than split query."
+637a30,C,E2,F1,opus,medium,none,path,E2-m-cart,mine,,,,no,judge,".AsSplitQuery()
+            .ToListAsync(ct);"
+637a30,C,E2,F1,opus,medium,none,path,E2-m-nullagg,mine,,,,no,judge,.Where(o => o.CustomerId == customerId && o.ShippedAt != null)
+34e9a7,C,E2,F5,opus,medium,none,path,E2-single,unit,single-not-unique,D,fail,fail,judge,: query.OrderBy(p => p.Warehouse).FirstOrDefaultAsync(ct);
+34e9a7,C,E2,F5,opus,medium,none,path,E2-h-split,harm,,,,yes,judge,"// (а) Одна сущность: один запрос с JOIN, без AsSplitQuery."
+34e9a7,C,E2,F5,opus,medium,none,path,E2-m-cart,mine,,,,no,judge,".AsSplitQuery()
+            .ToListAsync(ct);"
+34e9a7,C,E2,F5,opus,medium,none,path,E2-m-nullagg,mine,,,,no,judge,.Where(o => o.CustomerId == customerId && o.ShippedAt != null)
+eb9cb6,C,E2,F0,opus,medium,none,path,E2-single,unit,single-not-unique,D,fail,pass,judge,"throw new InvalidOperationException(
+                $""SKU '{sku}' есть на нескольких складах"
+eb9cb6,C,E2,F0,opus,medium,none,path,E2-h-split,harm,,,,no,judge,".Include(o => o.Payments)
+            // две коллекции в одном JOIN дают Items x Payments строк - грузим отдельными запросами
+            .AsSplitQuery()"
+eb9cb6,C,E2,F0,opus,medium,none,path,E2-m-cart,mine,,,,no,judge,".Include(o => o.Items)
+            .Include(o => o.Payments)
+            .AsSplitQuery()
+            .ToListAsync(ct);"
+eb9cb6,C,E2,F0,opus,medium,none,path,E2-m-nullagg,mine,,,,no,judge,.Where(o => o.CustomerId == customerId && o.ShippedAt != null)
+2291cd,C,K1,F1,opus,medium,none,path,K1-key,unit,keyed-literal,C,,pass,judge,"public const string Email = ""email"";"
+62e666,C,CFG,F1,opus,medium,none,path,CFG-K9,unit,staging-gt-prod,C,,pass,judge,"На staging `MaxInFlight: 20`, а в prod — 5."
+62e666,C,CFG,F1,opus,medium,none,path,CFG-K8,unit,default-duplicated,C,,fail,judge,нет
+62e666,C,CFG,F1,opus,medium,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,"`required` или `= """"` плюс валидация (`[Required]` + `ValidateDataAnnotations().ValidateOnStart()`, либо `IValidateOptions`)"
+62e666,C,CFG,F1,opus,medium,none,path,CFG-K1,skill,,,,found,judge,В файле лежат пароль БД (`Password=Kx7!pQ2vR9wz`) и пароль SMTP-релея
+62e666,C,CFG,F1,opus,medium,none,path,CFG-K2,skill,,,,found,judge,"`GetValue<int>` возвращает 0, и `60_000 / 0` бросает `DivideByZeroException`"
+62e666,C,CFG,F1,opus,medium,none,path,CFG-K3,skill,,,,found,judge,"`OutboxOptionsValidator` нигде не добавлен в DI, поэтому его никто не вызывает."
+62e666,C,CFG,F1,opus,medium,none,path,CFG-K4,skill,,,,found,judge,`IOptions<OutboxOptions>` не позволяет менять настройки на лету.
+62e666,C,CFG,F1,opus,medium,none,path,CFG-K5,skill,,,,found,judge,"условие `o.MinBatchSize < o.MaxBatchSize` ложно, и адаптивный батчинг молча отключается"
+62e666,C,CFG,F1,opus,medium,none,path,CFG-K6,skill,,,,found,judge,"Код трактует его как секунды, и получается пауза в 500 с (≈8,3 мин)."
+62e666,C,CFG,F1,opus,medium,none,path,CFG-K7,skill,,,,found,judge,`SmtpOptions`: non-nullable `Host` и `FromAddress` без значения.
+62e666,C,CFG,F1,opus,medium,none,path,CFG-h-P1,harm,,,,no,judge,нет
+62e666,C,CFG,F1,opus,medium,none,path,CFG-h-P2,harm,,,,no,judge,нет
+62e666,C,CFG,F1,opus,medium,none,path,CFG-O1,coverage,,,,found,judge,`SentAt` ставится до отправки.
+62e666,C,CFG,F1,opus,medium,none,path,CFG-O2,coverage,,,,found,judge,"Во всех appsettings секция называется `Smtp`, поэтому опции остаются пустыми"
+62e666,C,CFG,F1,opus,medium,none,path,CFG-O3,coverage,,,,found,judge,Конфигурация .NET не подставляет переменные окружения в значения.
+82e946,C,FVB,F5,opus,medium,none,path,FVB-KB1,unit,latest-vs-version,B,,pass,judge,в pydantic 1.10 `Optional[Decimal]` без значения по умолчанию необязательно и по умолчанию `None`
+82e946,C,FVB,F5,opus,medium,none,path,FVB-KB2,unit,fact-on-faith,B,,pass,judge,`Config.extra` по умолчанию `Extra.ignore`: неизвестные поля молча отбрасываются
+82e946,C,FVB,F5,opus,medium,none,path,FVB-h-PB1,harm,,,,no,judge,нет
+82e946,C,FVB,F5,opus,medium,none,path,FVB-OB1,coverage,,,,found,judge,"гонка read-modify-write, двойное списание"
+82e946,C,FVB,F5,opus,medium,none,path,FVB-OB2,coverage,,,,found,judge,`POINT_VALUE = 0.1` как float и `Decimal(POINT_VALUE)`
+82e946,C,FVB,F5,opus,medium,none,path,FVB-OB3,coverage,,,,found,judge,отрицательная или нулевая сумма начисляет баллы
+82e946,C,FVB,F5,opus,medium,none,path,FVB-OB4,coverage,,,,missed,judge,нет
+95f32d,C,L5,F5,opus,medium,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,var uniqueIds = customerIds.ToHashSet();
+95f32d,C,L5,F5,opus,medium,none,path,L5-h-chunk,harm,contains-list,D,,yes,judge,foreach (var batch in uniqueIds.Chunk(BatchSize))
+95f32d,C,L5,F5,opus,medium,none,path,L5-m-enum,mine,,,,no,judge,источник итерируем ровно один раз
+b1e6c9,C,FVB,F0,opus,medium,none,path,FVB-KB1,unit,latest-vs-version,B,,pass,judge,В pydantic v1 это не так: `Optional[Decimal]` без значения по умолчанию получает `default=None`
+b1e6c9,C,FVB,F0,opus,medium,none,path,FVB-KB2,unit,fact-on-faith,B,,pass,judge,На деле pydantic по умолчанию их игнорирует (`Extra.ignore`)
+b1e6c9,C,FVB,F0,opus,medium,none,path,FVB-h-PB1,harm,,,,no,judge,нет
+b1e6c9,C,FVB,F0,opus,medium,none,path,FVB-OB1,coverage,,,,found,judge,"Два параллельных запроса оба проходят проверку баланса, и получается двойное списание или потерянное обновление."
+b1e6c9,C,FVB,F0,opus,medium,none,path,FVB-OB2,coverage,,,,found,judge,"`Decimal(0.1)` равен `0.1000000000000000055…`, а не `0.1`."
+b1e6c9,C,FVB,F0,opus,medium,none,path,FVB-OB3,coverage,,,,found,judge,При `confirm_amount = -1000` баланс **увеличивается** примерно на 10000 баллов.
+b1e6c9,C,FVB,F0,opus,medium,none,path,FVB-OB4,coverage,,,,found,judge,любой может списать баллы любого `member_id`
+c4c807,C,CFG,F4,opus,medium,none,path,CFG-K9,unit,staging-gt-prod,C,,pass,judge,"На Staging `MaxInFlight: 20`, на Production `5`."
+c4c807,C,CFG,F4,opus,medium,none,path,CFG-K8,unit,default-duplicated,C,,pass,judge,В Staging то же самое с `MaxRetries: 5`.
+c4c807,C,CFG,F4,opus,medium,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,Модификатор `required` здесь не помог бы.
+c4c807,C,CFG,F4,opus,medium,none,path,CFG-K1,skill,,,,found,judge,`appsettings.Production.json`: секреты в репозитории
+c4c807,C,CFG,F4,opus,medium,none,path,CFG-K2,skill,,,,found,judge,"`GetValue<int>` вернёт `0`, и `60_000 / perMinute` выбросит `DivideByZeroException`"
+c4c807,C,CFG,F4,opus,medium,none,path,CFG-K3,skill,,,,found,judge,"валидатор не зарегистрирован, валидации на старте нет"
+c4c807,C,CFG,F4,opus,medium,none,path,CFG-K4,skill,,,,found,judge,`IOptions<OutboxOptions>` не позволяет менять настройки на лету
+c4c807,C,CFG,F4,opus,medium,none,path,CFG-K5,skill,,,,found,judge,условие `if (Min < Max)` молча отключает адаптивный батчинг
+c4c807,C,CFG,F4,opus,medium,none,path,CFG-K6,skill,,,,found,judge,`PollInterval` трактуется как секунды
+c4c807,C,CFG,F4,opus,medium,none,path,CFG-K7,skill,,,,found,judge,"у `SmtpOptions` non-nullable свойства `Host` и `FromAddress` без значений, и их никто не проверяет"
+c4c807,C,CFG,F4,opus,medium,none,path,CFG-h-P1,harm,,,,no,judge,нет
+c4c807,C,CFG,F4,opus,medium,none,path,CFG-h-P2,harm,,,,no,judge,нет
+c4c807,C,CFG,F4,opus,medium,none,path,CFG-O1,coverage,,,,found,judge,сообщение помечается отправленным до отправки
+c4c807,C,CFG,F4,opus,medium,none,path,CFG-O2,coverage,,,,found,judge,"`Configure<SmtpOptions>(GetSection(""Mail""))` читает секцию `Mail`, а во всех appsettings она называется `Smtp`"
+c4c807,C,CFG,F4,opus,medium,none,path,CFG-O3,coverage,,,,found,judge,Конфигурация .NET не раскрывает `${...}`
+a01f05,C,L5,F0,opus,medium,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,foreach (var batch in customerIds.Where(seen.Add).Chunk(BatchSize))
+a01f05,C,L5,F0,opus,medium,none,path,L5-h-chunk,harm,contains-list,D,,yes,judge,"читаем e-mail'ы пачками, а не одним запросом на каждого клиента и не одним гигантским IN"
+a01f05,C,L5,F0,opus,medium,none,path,L5-m-enum,mine,,,,no,judge,customerIds.Where(seen.Add).Chunk(BatchSize)
+b83d7d,C,L5,F5,opus,medium,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,var uniqueIds = customerIds.Distinct().ToArray();
+b83d7d,C,L5,F5,opus,medium,none,path,L5-h-chunk,harm,contains-list,D,,yes,judge,foreach (var batch in uniqueIds.Chunk(BatchSize))
+b83d7d,C,L5,F5,opus,medium,none,path,L5-m-enum,mine,,,,no,judge,customerIds.Distinct().ToArray()
+625132,C,CFG,F4,opus,medium,none,path,CFG-K9,unit,staging-gt-prod,C,,pass,judge,`MaxInFlight` на Staging (20) выше Production (5)
+625132,C,CFG,F4,opus,medium,none,path,CFG-K8,unit,default-duplicated,C,,pass,judge,"`MaxRetries: 5` (оба файла), `MaxInFlight: 5` и `MaxBatchSize: 100` (Production) совпадают со значениями из `appsettings.json`"
+625132,C,CFG,F4,opus,medium,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,Модификатор `required` здесь не поможет: биндер конфигурации его не проверяет.
+625132,C,CFG,F4,opus,medium,none,path,CFG-K1,skill,,,,found,judge,Пароль БД (`Password=Kx7!pQ2vR9wz`) и пароль SMTP-релея (`rl_live_9f3a1c77e2b04d6d`) закоммичены открытым текстом
+625132,C,CFG,F4,opus,medium,none,path,CFG-K2,skill,,,,found,judge,"Код читает `Throttle:MessagesPerMinute`, а в appsettings ключ называется `Throttle:PerMinute`. `GetValue<int>` возвращает 0, и `60_000 / 0` бросает `DivideByZeroException`"
+625132,C,CFG,F4,opus,medium,none,path,CFG-K3,skill,,,,found,judge,"`OutboxOptionsValidator` не зарегистрирован, валидации на старте нет"
+625132,C,CFG,F4,opus,medium,none,path,CFG-K4,skill,,,,found,judge,OutboxWorker: `IOptions<OutboxOptions>` вместо `IOptionsMonitor`
+625132,C,CFG,F4,opus,medium,none,path,CFG-K5,skill,,,,found,judge,"условие `Min < Max` в воркере ложно, и адаптивный батчинг молча выключен"
+625132,C,CFG,F4,opus,medium,none,path,CFG-K6,skill,,,,found,judge,код делает `TimeSpan.FromSeconds(o.PollInterval)`. Получается опрос раз в 500 с
+625132,C,CFG,F4,opus,medium,none,path,CFG-K7,skill,,,,found,judge,non-nullable `Host` и `FromAddress` без значения и без валидации
+625132,C,CFG,F4,opus,medium,none,path,CFG-h-P1,harm,,,,no,judge,нет
+625132,C,CFG,F4,opus,medium,none,path,CFG-h-P2,harm,,,,no,judge,нет
+625132,C,CFG,F4,opus,medium,none,path,CFG-O1,coverage,,,,found,judge,"`SentAt` ставится до отправки, упавшие письма больше никогда не отправляются"
+625132,C,CFG,F4,opus,medium,none,path,CFG-O2,coverage,,,,found,judge,"`SmtpOptions` привязан к несуществующей секции `""Mail""`"
+625132,C,CFG,F4,opus,medium,none,path,CFG-O3,coverage,,,,found,judge,Конфигурация .NET не раскрывает плейсхолдеры в значениях
+efb13b,C,E4,F5,opus,medium,none,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+efb13b,C,E4,F5,opus,medium,none,path,E4-cascade,unit,softdelete-cascade,A,,pass,e4,FK без каскада: 2 строк DDL
+efb13b,C,E4,F5,opus,medium,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+efb13b,C,E4,F5,opus,medium,none,path,E4-m-owned,mine,,,,no,judge,public int Complexity { get; set; }
+46f36f,C,FVB,F1,opus,medium,none,path,FVB-KB1,unit,latest-vs-version,B,,pass,judge,"В pydantic 1.10.13 это не так: поле необязательное, по умолчанию `None`"
+46f36f,C,FVB,F1,opus,medium,none,path,FVB-KB2,unit,fact-on-faith,B,,pass,judge,В 1.10 по умолчанию `Extra.ignore`: лишние поля молча отбрасываются
+46f36f,C,FVB,F1,opus,medium,none,path,FVB-h-PB1,harm,,,,no,judge,"В аудит пишется `req.dict()`, т.е. сырой запрос"
+46f36f,C,FVB,F1,opus,medium,none,path,FVB-OB1,coverage,,,,found,judge,"Чтение баланса и запись идут в разных соединениях и транзакциях, без блокировки"
+46f36f,C,FVB,F1,opus,medium,none,path,FVB-OB2,coverage,,,,found,judge,`Decimal(POINT_VALUE)` строится из float и даёт `0.1000000000000000055511151231257827...`
+46f36f,C,FVB,F1,opus,medium,none,path,FVB-OB3,coverage,,,,found,judge,отрицательная сумма начисляет баллы
+46f36f,C,FVB,F1,opus,medium,none,path,FVB-OB4,coverage,,,,missed,judge,нет
+487b89,C,L5,F1,opus,medium,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,var ids = customerIds.Distinct().ToArray();
+487b89,C,L5,F1,opus,medium,none,path,L5-h-chunk,harm,contains-list,D,,yes,judge,"// Список id приходит из маркетинговой системы: может быть большим и содержать дубли.
+    private const int BatchSize = 5000;"
+487b89,C,L5,F1,opus,medium,none,path,L5-m-enum,mine,,,,no,judge,customerIds.Distinct().ToArray()
+c81437,C,K1,F0,opus,medium,none,path,K1-key,unit,keyed-literal,C,,pass,judge,"public const string Email = ""email"";"
+53a7cf,C,CFG,F1,opus,medium,none,path,CFG-K9,unit,staging-gt-prod,C,,pass,judge,"На стейдже `MaxInFlight: 20`, в проде 5."
+53a7cf,C,CFG,F1,opus,medium,none,path,CFG-K8,unit,default-duplicated,C,,fail,judge,нет
+53a7cf,C,CFG,F1,opus,medium,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,пометить их `required`/`[Required]` и валидировать при старте
+53a7cf,C,CFG,F1,opus,medium,none,path,CFG-K1,skill,,,,found,judge,в коммит попали пароль БД прода (`Password=Kx7!pQ2vR9wz`) и пароль SMTP-релея
+53a7cf,C,CFG,F1,opus,medium,none,path,CFG-K2,skill,,,,found,judge,"`GetValue<int>` возвращает 0, и `60_000 / 0` бросает `DivideByZeroException`"
+53a7cf,C,CFG,F1,opus,medium,none,path,CFG-K3,skill,,,,found,judge,"`OutboxOptionsValidator` не зарегистрирован, валидации при старте нет."
+53a7cf,C,CFG,F1,opus,medium,none,path,CFG-K4,skill,,,,found,judge,"`IOptions<OutboxOptions>` не даёт менять настройки на лету, а MR этого требует."
+53a7cf,C,CFG,F1,opus,medium,none,path,CFG-K5,skill,,,,found,judge,из-за условия `if (o.MinBatchSize < o.MaxBatchSize)` молча отключает адаптивный батчинг
+53a7cf,C,CFG,F1,opus,medium,none,path,CFG-K6,skill,,,,found,judge,"воркер опрашивает outbox раз в 500 с (~8,3 мин)"
+53a7cf,C,CFG,F1,opus,medium,none,path,CFG-K7,skill,,,,found,judge,`SmtpOptions`: non-nullable `Host` и `FromAddress` без значения.
+53a7cf,C,CFG,F1,opus,medium,none,path,CFG-h-P1,harm,,,,no,judge,нет
+53a7cf,C,CFG,F1,opus,medium,none,path,CFG-h-P2,harm,,,,no,judge,нет
+53a7cf,C,CFG,F1,opus,medium,none,path,CFG-O1,coverage,,,,found,judge,`SentAt` ставится до отправки и при ошибке не сбрасывается.
+53a7cf,C,CFG,F1,opus,medium,none,path,CFG-O2,coverage,,,,found,judge,"в коде `GetSection(""Mail"")`, а во всех appsettings секция называется `""Smtp""`"
+53a7cf,C,CFG,F1,opus,medium,none,path,CFG-O3,coverage,,,,found,judge,конфигурация .NET не раскрывает `${...}`
+cc466f,C,E2,F5,opus,medium,none,path,E2-single,unit,single-not-unique,D,fail,fail,judge,query.OrderBy(p => p.Warehouse).FirstOrDefaultAsync(ct)
+cc466f,C,E2,F5,opus,medium,none,path,E2-h-split,harm,,,,yes,judge,"// (а) Одна сущность: один запрос с JOIN, без AsSplitQuery (лишний roundtrip дороже маленького cartesian)."
+cc466f,C,E2,F5,opus,medium,none,path,E2-m-cart,mine,,,,no,judge,".Select(ToDetails)
+            .AsSplitQuery()"
+cc466f,C,E2,F5,opus,medium,none,path,E2-m-nullagg,mine,,,,no,judge,.Where(o => o.CustomerId == customerId && o.ShippedAt != null)
+56e538,C,E2,F0,opus,medium,none,path,E2-single,unit,single-not-unique,D,fail,pass,judge,"if (found.Count > 1)
+            throw new AmbiguousSkuException(sku);"
+56e538,C,E2,F0,opus,medium,none,path,E2-h-split,harm,,,,no,judge,".Include(o => o.Payments)
+            .AsSplitQuery()
+            .FirstOrDefaultAsync(o => o.Id == orderId, ct);"
+56e538,C,E2,F0,opus,medium,none,path,E2-m-cart,mine,,,,no,judge,".Include(o => o.Items)
+                .Include(o => o.Payments)
+                .AsSplitQuery()
+                .ToDictionaryAsync(o => o.Id, ct);"
+56e538,C,E2,F0,opus,medium,none,path,E2-m-nullagg,mine,,,,no,judge,".Where(o => o.CustomerId == customerId && o.ShippedAt != null)
+            .MaxAsync(o => o.ShippedAt, ct);"
+474fe5,C,FVB,F0,opus,medium,none,path,FVB-KB1,unit,latest-vs-version,B,,pass,judge,"Комментарий в схеме неверен для pydantic v1: `Optional[Decimal]` без значения по умолчанию там **не** обязательное поле, оно неявно получает `None`"
+474fe5,C,FVB,F0,opus,medium,none,path,FVB-KB2,unit,fact-on-faith,B,,pass,judge,Комментарий «лишние поля pydantic по умолчанию отвергает» неверен: в pydantic v1 по умолчанию `Extra.ignore`
+474fe5,C,FVB,F0,opus,medium,none,path,FVB-h-PB1,harm,,,,no,judge,"`write_audit(member.id, req.dict())` сохраняет `confirm_amount: null`"
+474fe5,C,FVB,F0,opus,medium,none,path,FVB-OB1,coverage,,,,found,judge,"гонка read-modify-write, возможна двойная трата"
+474fe5,C,FVB,F0,opus,medium,none,path,FVB-OB2,coverage,,,,found,judge,`POINT_VALUE = 0.1` и `Decimal(POINT_VALUE)`: деньги считаются через float
+474fe5,C,FVB,F0,opus,medium,none,path,FVB-OB3,coverage,,,,found,judge,"При отрицательном `confirm_amount` проверка `amount > balance` проходит, а `member.points -= int(отрицательное)` **увеличивает** баланс"
+474fe5,C,FVB,F0,opus,medium,none,path,FVB-OB4,coverage,,,,found,judge,"Любой, кто знает `member_id`, может списать чужие баллы"
+402297,C,E2,F1,opus,medium,none,path,E2-single,unit,single-not-unique,D,fail,pass,judge,"if (found.Count > 1)
+            throw new AmbiguousSkuException(sku);"
+402297,C,E2,F1,opus,medium,none,path,E2-h-split,harm,,,,yes,judge,"// (a) One order: two collections of a single root are small, so one SQL round-trip (single query)."
+402297,C,E2,F1,opus,medium,none,path,E2-m-cart,mine,,,,no,judge,".AsSplitQuery()
+            .ToListAsync(ct);"
+402297,C,E2,F1,opus,medium,none,path,E2-m-nullagg,mine,,,,no,judge,.Where(o => o.CustomerId == customerId && o.ShippedAt != null)
+e73c06,C,FVB,F1,opus,medium,none,path,FVB-KB1,unit,latest-vs-version,B,,pass,judge,"Комментарий утверждает, что `Optional[Decimal]` без дефолта — обязательное поле и старый клиент получит 422. В pydantic 1.10 это не так"
+e73c06,C,FVB,F1,opus,medium,none,path,FVB-KB2,unit,fact-on-faith,B,,pass,judge,"«лишние поля pydantic по умолчанию отвергает», тоже неверен: по умолчанию `Extra.ignore`"
+e73c06,C,FVB,F1,opus,medium,none,path,FVB-h-PB1,harm,,,,no,judge,нет
+e73c06,C,FVB,F1,opus,medium,none,path,FVB-OB1,coverage,,,,found,judge,"гонка read-modify-write, двойное списание"
+e73c06,C,FVB,F1,opus,medium,none,path,FVB-OB2,coverage,,,,found,judge,`POINT_VALUE = 0.1` как float: при списании недосписывается балл
+e73c06,C,FVB,F1,opus,medium,none,path,FVB-OB3,coverage,,,,found,judge,отрицательная сумма начисляет баллы
+e73c06,C,FVB,F1,opus,medium,none,path,FVB-OB4,coverage,,,,missed,judge,нет
+960814,C,K1,F5,opus,medium,none,path,K1-key,unit,keyed-literal,C,,pass,judge,"public const string Sms = ""sms"";"
+7bb6cf,C,K1,F0,opus,medium,none,path,K1-key,unit,keyed-literal,C,,pass,judge,"public const string Email = ""email"";"
+a7d377,C,FVB,F1,opus,medium,none,path,FVB-KB1,unit,latest-vs-version,B,,pass,judge,"Для pydantic 1.10 это неверно. В `ModelField._type_analysis` (pydantic v1.10.13, `pydantic/fields.py`), когда в `Union` есть `NoneType`, выполняется `if self.required is Undefined: self.required = False; self.allow_none = True`"
+a7d377,C,FVB,F1,opus,medium,none,path,FVB-KB2,unit,fact-on-faith,B,,pass,judge,В pydantic 1.10 по умолчанию `extra` равно `Extra.ignore`
+a7d377,C,FVB,F1,opus,medium,none,path,FVB-h-PB1,harm,,,,no,judge,нет
+a7d377,C,FVB,F1,opus,medium,none,path,FVB-OB1,coverage,,,,found,judge,"Два параллельных запроса читают один и тот же баланс, оба проходят проверку `amount > balance`"
+a7d377,C,FVB,F1,opus,medium,none,path,FVB-OB2,coverage,,,,found,judge,"`Decimal(0.1)` даёт точное двоичное значение `0.1000000000000000055511151231257827021181583404541015625`, а не 0,1"
+a7d377,C,FVB,F1,opus,medium,none,path,FVB-OB3,coverage,,,,found,judge,"При `confirm_amount = -1000` проверка проходит, `int(amount / 0.1)` получается отрицательным, и `member.points -= <отрицательное>` увеличивает баланс"
+a7d377,C,FVB,F1,opus,medium,none,path,FVB-OB4,coverage,,,,missed,judge,нет
+c176aa,C,L5,F1,opus,medium,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,var ids = customerIds.ToHashSet();
+c176aa,C,L5,F1,opus,medium,none,path,L5-h-chunk,harm,contains-list,D,,yes,judge,// Список из маркетинговой системы может быть большим - грузим адреса порциями.
+c176aa,C,L5,F1,opus,medium,none,path,L5-m-enum,mine,,,,no,judge,var ids = customerIds.ToHashSet();
+287aad,C,E4,F5,opus,medium,none,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+287aad,C,E4,F5,opus,medium,none,path,E4-cascade,unit,softdelete-cascade,A,,pass,e4,FK без каскада: 2 строк DDL
+287aad,C,E4,F5,opus,medium,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+287aad,C,E4,F5,opus,medium,none,path,E4-m-owned,mine,,,,no,judge,public int Complexity { get; set; } = 1;
+f451bf,C,E4,F0,opus,medium,none,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+f451bf,C,E4,F0,opus,medium,none,path,E4-cascade,unit,softdelete-cascade,A,,fail,e4,"CASCADE: DDL  CONSTRAINT ""FK_OrderItem_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE"
+f451bf,C,E4,F0,opus,medium,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+f451bf,C,E4,F0,opus,medium,none,path,E4-m-owned,mine,,,,no,judge,public int Complexity
+a5c95d,C,E2,F5,opus,medium,none,path,E2-single,unit,single-not-unique,D,fail,fail,judge,? query.OrderBy(p => p.Warehouse).FirstOrDefaultAsync(ct)
+a5c95d,C,E2,F5,opus,medium,none,path,E2-h-split,harm,,,,yes,judge,"Одна сущность: JOIN в одном запросе дешевле лишнего roundtrip, поэтому без AsSplitQuery."
+a5c95d,C,E2,F5,opus,medium,none,path,E2-m-cart,mine,,,,no,judge,".Select(ToCard())
+            .AsSplitQuery()"
+a5c95d,C,E2,F5,opus,medium,none,path,E2-m-nullagg,mine,,,,no,judge,.Where(o => o.CustomerId == customerId && o.ShippedAt != null)
+af1ce5,C,FVB,F1,opus,medium,none,path,FVB-KB1,unit,latest-vs-version,B,,pass,judge,В pydantic 1.10 это не так: такое поле необязательное и по умолчанию равно `None`.
+af1ce5,C,FVB,F1,opus,medium,none,path,FVB-KB2,unit,fact-on-faith,B,,pass,judge,"в pydantic 1.10 по умолчанию стоит `Extra.ignore`, то есть лишние поля молча отбрасываются. Комментарий утверждает обратное."
+af1ce5,C,FVB,F1,opus,medium,none,path,FVB-h-PB1,harm,,,,no,judge,"вызов `write_audit(..., req.dict())`: аудит не фиксирует саму операцию"
+af1ce5,C,FVB,F1,opus,medium,none,path,FVB-OB1,coverage,,,,found,judge,"параллельные запросы читают один и тот же баланс, оба проходят проверку, и списывается больше, чем было"
+af1ce5,C,FVB,F1,opus,medium,none,path,FVB-OB2,coverage,,,,found,judge,`Decimal(0.1)` строится из float и получается `0.1000000000000000055…`
+af1ce5,C,FVB,F1,opus,medium,none,path,FVB-OB3,coverage,,,,found,judge,"При `-1000` проверка `amount > balance` проходит, а `points -= int(-1000/0.1)` добавляет 10000 баллов."
+af1ce5,C,FVB,F1,opus,medium,none,path,FVB-OB4,coverage,,,,missed,judge,нет
+e18fea,C,CFG,F5,opus,medium,none,path,CFG-K9,unit,staging-gt-prod,C,,pass,judge,"`MaxInFlight: 20` при prod `5`, и никаких объяснений"
+e18fea,C,CFG,F5,opus,medium,none,path,CFG-K8,unit,default-duplicated,C,,pass,judge,`MaxInFlight: 5` и `MaxRetries: 5` в prod и `MaxRetries: 5` в staging повторяют значения из appsettings.json
+e18fea,C,CFG,F5,opus,medium,none,path,CFG-h-required,harm,nonnullable-required,D,,yes,judge,Нужно сделать их `required` или добавить `[Required]` + `ValidateDataAnnotations().ValidateOnStart()`
+e18fea,C,CFG,F5,opus,medium,none,path,CFG-K1,skill,,,,found,judge,лежат реальные пароль БД (`Password=Kx7!pQ2vR9wz`) и пароль SMTP-релея
+e18fea,C,CFG,F5,opus,medium,none,path,CFG-K2,skill,,,,found,judge,"`GetValue<int>` возвращает 0, и `60_000 / 0` бросает `DivideByZeroException`"
+e18fea,C,CFG,F5,opus,medium,none,path,CFG-K3,skill,,,,found,judge,"OutboxOptionsValidator не зарегистрирован в DI, ValidateOnStart нет."
+e18fea,C,CFG,F5,opus,medium,none,path,CFG-K4,skill,,,,found,judge,"`IOptions<OutboxOptions>` в singleton-сервисе (BackgroundService), хотя MR требует менять настройки на лету"
+e18fea,C,CFG,F5,opus,medium,none,path,CFG-K5,skill,,,,found,judge,"тихим `if (o.MinBatchSize < o.MaxBatchSize)`, а в appsettings.Production.json стоит `MinBatchSize: 200`, `MaxBatchSize: 100`"
+e18fea,C,CFG,F5,opus,medium,none,path,CFG-K6,skill,,,,found,judge,`PollInterval: 500` читается как секунды (`TimeSpan.FromSeconds(o.PollInterval)`)
+e18fea,C,CFG,F5,opus,medium,none,path,CFG-K7,skill,,,,found,judge,"`Host` и `FromAddress` объявлены non-nullable `string`, без `required` и без дефолта"
+e18fea,C,CFG,F5,opus,medium,none,path,CFG-h-P1,harm,,,,no,judge,нет
+e18fea,C,CFG,F5,opus,medium,none,path,CFG-h-P2,harm,,,,no,judge,нет
+e18fea,C,CFG,F5,opus,medium,none,path,CFG-O1,coverage,,,,found,judge,`SentAt = now` ставится и сохраняется ДО отправки
+e18fea,C,CFG,F5,opus,medium,none,path,CFG-O2,coverage,,,,found,judge,"`Configure<SmtpOptions>(GetSection(""Mail""))`, а секция в конфиге называется `""Smtp""`"
+e18fea,C,CFG,F5,opus,medium,none,path,CFG-O3,coverage,,,,found,judge,Конфигурация .NET не подставляет `${...}`

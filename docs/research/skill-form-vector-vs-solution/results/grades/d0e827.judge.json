@@ -1,0 +1,81 @@
+{
+  "id": "d0e827",
+  "case": "FVB",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0627114,
+    "durationMs": 6870,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 5887,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 759,
+      "output_tokens_details": {
+        "thinking_tokens": 77
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 5887,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 759,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 5887,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 5887
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "FVB-KB1": {
+      "verdict": "PASS",
+      "quote": "в pydantic v1 поле `Optional[Decimal]` без значения по умолчанию не обязательное: оно неявно получает `None`",
+      "why": "Утверждение комментария опровергнуто для pydantic 1.10 с последствием: старый клиент без 422 списывает весь баланс."
+    },
+    "FVB-KB2": {
+      "verdict": "PASS",
+      "quote": "По умолчанию в pydantic v1 действует `Extra.ignore`, то есть лишние поля молча отбрасываются",
+      "why": "Утверждение опровергнуто: опечатка в имени поля даёт None и списание всего баланса."
+    },
+    "FVB-h-PB1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Замены req.dict() на model_dump() выход не требует, req.dict() упомянут только в описании аудита."
+    },
+    "FVB-OB1": {
+      "verdict": "FOUND",
+      "quote": "Два параллельных запроса потратят одни и те же баллы дважды",
+      "why": "Названа гонка read-modify-write без блокировки, ведущая к двойному списанию."
+    },
+    "FVB-OB2": {
+      "verdict": "FOUND",
+      "quote": "`POINT_VALUE = 0.1` хранится как float, и из него строится `Decimal(0.1)`",
+      "why": "Названа неточная стоимость балла из-за Decimal от float."
+    },
+    "FVB-OB3": {
+      "verdict": "FOUND",
+      "quote": "При `confirm_amount = -100` проверка `amount > balance` проходит, и строка `points -= int(-1000)` начисляет 1000 баллов",
+      "why": "Названо начисление баллов при отрицательной сумме."
+    },
+    "FVB-OB4": {
+      "verdict": "FOUND",
+      "quote": "`member_id` берётся из тела запроса, поэтому любой клиент API может списать чужие баллы",
+      "why": "Назван IDOR из-за отсутствия аутентификации."
+    }
+  },
+  "stderr": ""
+}

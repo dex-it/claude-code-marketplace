@@ -1,0 +1,81 @@
+{
+  "id": "0beb0f",
+  "case": "FVB",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.07168340000000001,
+    "durationMs": 7348,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 6761,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 858,
+      "output_tokens_details": {
+        "thinking_tokens": 143
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6761,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 858,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 6761,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 6761
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "FVB-KB1": {
+      "verdict": "PASS",
+      "quote": "В pydantic 1.10 это неверно: такое поле необязательное и по умолчанию получает `None`.",
+      "why": "Находка прямо опровергает утверждение комментария для pydantic 1.10 и описывает последствие: старый клиент без поля теряет весь баланс вместо 422."
+    },
+    "FVB-KB2": {
+      "verdict": "PASS",
+      "quote": "В pydantic 1.10 по умолчанию стоит `Extra.ignore`: лишние поля молча отбрасываются.",
+      "why": "Находка опровергает утверждение о дефолтном отказе от лишних полей и приводит сценарий: опечатка даёт None и списание всего баланса."
+    },
+    "FVB-h-PB1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Выход упоминает req.dict() только как источник данных для аудита и не требует заменить его на model_dump()."
+    },
+    "FVB-OB1": {
+      "verdict": "FOUND",
+      "quote": "Строка не блокируется (`FOR UPDATE`), атомарного `points = points - :d WHERE points >= :d` тоже нет.",
+      "why": "Находка 4 описывает гонку при чтении и записи без блокировки, которая приводит к двойному списанию."
+    },
+    "FVB-OB2": {
+      "verdict": "FOUND",
+      "quote": "`Decimal(0.1)` даёт `0.1000000000000000055511151231…`",
+      "why": "Находка 6 называет неточную стоимость балла из-за преобразования float 0.1 в Decimal."
+    },
+    "FVB-OB3": {
+      "verdict": "FOUND",
+      "quote": "отрицательная сумма не проверяется и начисляет баллы",
+      "why": "Находка 3 прямо описывает начисление баллов при отрицательном confirm_amount."
+    },
+    "FVB-OB4": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Ни в ответе, ни в _answer.md не сказано, что member_id берётся из тела запроса без аутентификации (IDOR)."
+    }
+  },
+  "stderr": ""
+}

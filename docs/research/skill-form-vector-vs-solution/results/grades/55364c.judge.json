@@ -1,0 +1,121 @@
+{
+  "id": "55364c",
+  "case": "CFG",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.11647940000000001,
+    "durationMs": 16874,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 9083,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 2169,
+      "output_tokens_details": {
+        "thinking_tokens": 679
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9083,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2169,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 9083,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 9083
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "CFG-K9": {
+      "verdict": "PASS",
+      "quote": "`MaxInFlight: 20` на staging против 5 в prod, без объяснения",
+      "why": "Находка 13 прямо называет, что MaxInFlight в Staging выше, чем в Production."
+    },
+    "CFG-K8": {
+      "verdict": "PASS",
+      "quote": "`MaxRetries: 5` (во всех трёх файлах) и `MaxInFlight: 5` в prod совпадают с базовыми значениями",
+      "why": "Находка 18 называет повтор MaxRetries 5 в env-файлах при том же дефолте."
+    },
+    "CFG-h-required": {
+      "verdict": "NO",
+      "quote": "пометить `required` и добавить валидацию `[Required]` + `ValidateDataAnnotations().ValidateOnStart()`",
+      "why": "Выход не утверждает, что required ловит отсутствие значения в конфиге, и предлагает его вместе с валидацией опций, а не вместо неё."
+    },
+    "CFG-K1": {
+      "verdict": "FOUND",
+      "quote": "В файле лежат настоящие пароли: `ConnectionStrings:Notify` (`Password=Kx7!pQ2vR9wz`) и `Smtp:Password`",
+      "why": "Находка 1 называет оба production-секрета в репозитории."
+    },
+    "CFG-K2": {
+      "verdict": "FOUND",
+      "quote": "`GetValue<int>` возвращает 0, и `60_000 / perMinute` бросает `DivideByZeroException`",
+      "why": "Находка 4 описывает неверный ключ, значение 0 и деление на ноль."
+    },
+    "CFG-K3": {
+      "verdict": "FOUND",
+      "quote": "валидатор написан и протестирован, но не зарегистрирован. `ValidateOnStart` нет.",
+      "why": "Находка 7 называет ровно этот дефект."
+    },
+    "CFG-K4": {
+      "verdict": "FOUND",
+      "quote": "`IOptions<OutboxOptions>` не даёт требуемой из MR правки на лету",
+      "why": "Находка 6 указывает, что IOptions в воркере не видит изменений конфигурации, которые MR требует применять на лету."
+    },
+    "CFG-K5": {
+      "verdict": "FOUND",
+      "quote": "Условие `if (o.MinBatchSize < o.MaxBatchSize)` молча не выполняется, и адаптивный батчинг в prod просто выключен",
+      "why": "Находка 8 описывает тихое выключение адаптивного батчинга при значениях 200/100."
+    },
+    "CFG-K6": {
+      "verdict": "FOUND",
+      "quote": "Код делает `TimeSpan.FromSeconds(o.PollInterval)`, то есть пауза между опросами получается 500 с",
+      "why": "Находка 5 называет паузу 500 с вместо 500 мс."
+    },
+    "CFG-K7": {
+      "verdict": "FOUND",
+      "quote": "non-nullable `Host` и `FromAddress` без `required` и без дефолта",
+      "why": "Находка 15 называет non-nullable поля без дефолта и без проверки."
+    },
+    "CFG-h-P1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находок против IOptions<SmtpOptions> в SmtpMailSender нет: IOptionsMonitor предлагается только для OutboxWorker и ThrottleService."
+    },
+    "CFG-h-P2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "LockTimeout в выходе вообще не упоминается."
+    },
+    "CFG-O1": {
+      "verdict": "FOUND",
+      "quote": "`SentAt = now` ставится до отправки, письма теряются",
+      "why": "Находка 2 описывает, что неудачное письмо больше не повторяется."
+    },
+    "CFG-O2": {
+      "verdict": "FOUND",
+      "quote": "`SmtpOptions` привязаны к секции `\"Mail\"`, а в конфиге секция называется `\"Smtp\"`",
+      "why": "Находка 3 называет пустые SmtpOptions из-за неверного имени секции."
+    },
+    "CFG-O3": {
+      "verdict": "FOUND",
+      "quote": "Конфигурация .NET не раскрывает плейсхолдеры: в Npgsql уходит буквальная строка `${NOTIFY_DB_PASSWORD}`",
+      "why": "Находка 12 называет именно этот дефект."
+    }
+  },
+  "stderr": ""
+}

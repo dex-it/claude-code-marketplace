@@ -1,0 +1,81 @@
+diff --git a/OrderQueries.cs b/OrderQueries.cs
+new file mode 100644
+index 0000000..aca1a2d
+--- /dev/null
++++ b/OrderQueries.cs
+@@ -0,0 +1,55 @@
++namespace Shop.Data;
++
++public class OrderQueries
++{
++    private readonly ShopDbContext _db;
++
++    public OrderQueries(ShopDbContext db) => _db = db;
++
++    // (а) Карточка одного заказа по Id со всеми позициями и платежами
++    public async Task<Order?> GetOrderDetailsAsync(Guid orderId)
++    {
++        return await _db.Orders
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            .FirstOrDefaultAsync(o => o.Id == orderId);
++    }
++
++    // (б) Выгрузка всех заказов клиента с позициями и платежами
++    // Использует IAsyncEnumerable для оптимизации памяти при больших объёмах
++    public IAsyncEnumerable<Order> GetCustomerOrdersAsync(Guid customerId)
++    {
++        return _db.Orders
++            .Where(o => o.CustomerId == customerId)
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            .AsAsyncEnumerable();
++    }
++
++    // (в) Получить продукт по SKU; склад может быть null
++    // Если warehouse не задан, берём первый доступный SKU
++    public async Task<Product?> GetProductBySkuAsync(string sku, string? warehouse = null)
++    {
++        var query = _db.Products.Where(p => p.Sku == sku);
++
++        if (!string.IsNullOrEmpty(warehouse))
++        {
++            query = query.Where(p => p.Warehouse == warehouse);
++        }
++
++        return await query.FirstOrDefaultAsync();
++    }
++
++    // (г) Дата отгрузки последнего отгруженного заказа клиента
++    // Возвращает DateTime.MinValue если отгруженных заказов нет
++    public async Task<DateTime> GetLastShippedDateAsync(Guid customerId)
++    {
++        var lastShipped = await _db.Orders
++            .Where(o => o.CustomerId == customerId && o.ShippedAt.HasValue)
++            .OrderByDescending(o => o.ShippedAt)
++            .Select(o => o.ShippedAt)
++            .FirstOrDefaultAsync();
++
++        return lastShipped ?? default;
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..b101b24
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,14 @@
++# OrderQueries Service
++
++## Созданные/Изменённые файлы
++- `OrderQueries.cs` - новый сервис с методами запросов заказов
++
++## О решениях
++
++1. **GetOrderDetailsAsync** (требование а): загружает заказ с Include для Items и Payments, оптимально использует EF Core.
++
++2. **GetCustomerOrdersAsync** (требование б): использует IAsyncEnumerable вместо List для обработки тысяч заказов без загрузки всех в память одновременно. Клиент может итерировать результаты поточно.
++
++3. **GetProductBySkuAsync** (требование в): параметр warehouse nullable, если не указан — берёт первый найденный SKU (допускает неоднозначность). Логика соответствует требованию бизнеса.
++
++4. **GetLastShippedDateAsync** (требование г): возвращает DateTime (не nullable) с фильтром по ShippedAt.HasValue, при отсутствии отгруженных заказов возвращает DateTime.MinValue.

@@ -1,0 +1,24 @@
+{
+  "id": "0f176b",
+  "case": "E4",
+  "build": "ok",
+  "log": "DDL  CONSTRAINT \"FK_OrderItem_Orders_OrderId\" FOREIGN KEY (\"OrderId\") REFERENCES \"Orders\" (\"Id\") ON DELETE CASCADE\nDDL  CONSTRAINT \"FK_Payment_Orders_OrderId\" FOREIGN KEY (\"OrderId\") REFERENCES \"Orders\" (\"Id\") ON DELETE CASCADE\nWRITE FAIL Cannot write DateTime with Kind=UTC to PostgreSQL type 'timestamp without time zone', consider using 'timestamp with time zone'. Note that it's not possible to mix DateTimes with different Kinds in an array, range, or multirange. (Parameter 'value')\nWRITE-FALLBACK ok\nREAD Kind=Utc driftMs=23447663989.61 equalsWritten=False\nCLEAR ok, items left in DB = 0\nSQL DELETE order -> payments left = 0",
+  "items": {
+    "E4-ts": {
+      "verdict": "fail",
+      "basis": "WRITE FAIL Cannot write DateTime with Kind=UTC to PostgreSQL type 'timestamp without time zone', consider using 'timestamp with time zone'. Note that it's not possible to mix DateTimes with different Kinds in an array, range, or multirange. (Parameter 'value')"
+    },
+    "E4-cascade": {
+      "verdict": "fail",
+      "basis": "CASCADE: DDL  CONSTRAINT \"FK_OrderItem_Orders_OrderId\" FOREIGN KEY (\"OrderId\") REFERENCES \"Orders\" (\"Id\") ON DELETE CASCADE | DDL  CONSTRAINT \"FK_Payment_Orders_OrderId\" FOREIGN KEY (\"OrderId\") REFERENCES \"Orders\" (\"Id\") ON DELETE CASCADE"
+    },
+    "E4-clear": {
+      "verdict": "pass",
+      "basis": "CLEAR ok, позиций 0"
+    }
+  },
+  "fkLines": {
+    "items": 1,
+    "payments": 1
+  }
+}

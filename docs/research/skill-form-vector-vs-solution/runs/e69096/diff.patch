@@ -1,0 +1,94 @@
+diff --git a/CustomerNotifier.cs b/CustomerNotifier.cs
+new file mode 100644
+index 0000000..0b1b079
+--- /dev/null
++++ b/CustomerNotifier.cs
+@@ -0,0 +1,74 @@
++using Microsoft.EntityFrameworkCore;
++
++namespace Shop;
++
++public record NotifyResult(int Sent, IReadOnlyList<Guid> NotFound, IReadOnlyList<Guid> Failed);
++
++public class CustomerNotifier
++{
++    private const int BatchSize = 500;
++    private const string Subject = "Сообщение от магазина";
++
++    private readonly ShopDbContext _db;
++    private readonly IEmailSender _email;
++
++    public CustomerNotifier(ShopDbContext db, IEmailSender email)
++    {
++        _db = db;
++        _email = email;
++    }
++
++    // customerIds приходят из маркетинговой системы: могут быть дубликаты,
++    // неизвестные id и тысячи элементов.
++    public async Task<NotifyResult> NotifyCustomers(
++        IEnumerable<Guid> customerIds, string text, CancellationToken ct = default)
++    {
++        ArgumentNullException.ThrowIfNull(customerIds);
++        ArgumentException.ThrowIfNullOrWhiteSpace(text);
++
++        // Один клиент — одно письмо; источник перечисляем один раз.
++        var uniqueIds = customerIds.Distinct().ToList();
++        if (uniqueIds.Count == 0)
++            return new NotifyResult(0, Array.Empty<Guid>(), Array.Empty<Guid>());
++
++        var notFound = new List<Guid>();
++        var failed = new List<Guid>();
++        var sentEmails = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
++        var sent = 0;
++
++        foreach (var batch in uniqueIds.Chunk(BatchSize))
++        {
++            var recipients = await _db.Customers
++                .AsNoTracking()
++                .Where(c => batch.Contains(c.Id))
++                .Select(c => new { c.Id, c.Email })
++                .ToDictionaryAsync(c => c.Id, c => c.Email, ct);
++
++            foreach (var id in batch)
++            {
++                if (!recipients.TryGetValue(id, out var email) || string.IsNullOrWhiteSpace(email))
++                {
++                    notFound.Add(id);
++                    continue;
++                }
++
++                // Разные клиенты с одним адресом не должны получить письмо дважды.
++                if (!sentEmails.Add(email))
++                    continue;
++
++                try
++                {
++                    await _email.SendAsync(email, Subject, text, ct);
++                    sent++;
++                }
++                catch (Exception) when (!ct.IsCancellationRequested)
++                {
++                    // Сбой одного адреса не прерывает рассылку остальным.
++                    failed.Add(id);
++                }
++            }
++        }
++
++        return new NotifyResult(sent, notFound, failed);
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..3d55f07
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,8 @@
++Файлы:
++- `CustomerNotifier.cs` — создан (класс `CustomerNotifier` + record `NotifyResult`)
++- `_answer.md` — создан
++
++Решения:
++- Список из маркетинга считаем недоверенным: перечисляем один раз, убираем дубликаты id (`Distinct`), грузим адреса пачками по 500 (`Chunk` + `Contains`), берём из БД только `Id, Email` без трекинга — один запрос на пачку, без N+1 и без огромного `IN`.
++- Одно письмо на адрес (разным клиентам с одним email дважды не шлём). Неизвестные id и id без email попадают в `NotFound`. Ошибка отправки одному получателю не останавливает рассылку: такой id попадает в `Failed`, отмена через `ct` пробрасывается.
++- Метод асинхронный, т.к. `IEmailSender.SendAsync` асинхронный: `Task<NotifyResult> NotifyCustomers(ids, text, ct)`. В задаче не указана тема письма, поэтому стоит константа `Subject` — её нужно уточнить. Сборку и тесты не запускал.

@@ -1,0 +1,83 @@
+diff --git a/OrderQueries.cs b/OrderQueries.cs
+new file mode 100644
+index 0000000..deacbf8
+--- /dev/null
++++ b/OrderQueries.cs
+@@ -0,0 +1,53 @@
++namespace Shop.Data;
++
++public class OrderQueries
++{
++    private readonly ShopDbContext _db;
++    public OrderQueries(ShopDbContext db) => _db = db;
++
++    public async Task<Order?> GetOrderCardAsync(Guid orderId)
++    {
++        return await _db.Orders
++            .AsNoTracking()
++            .Where(o => o.Id == orderId)
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            .AsSplitQuery()
++            .FirstOrDefaultAsync();
++    }
++
++    public async Task<List<Order>> GetCustomerOrdersAsync(Guid customerId)
++    {
++        return await _db.Orders
++            .AsNoTracking()
++            .Where(o => o.CustomerId == customerId)
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            .AsSplitQuery()
++            .ToListAsync();
++    }
++
++    public async Task<Product?> GetProductBySku(string sku, string? warehouse)
++    {
++        var query = _db.Products.AsNoTracking().Where(p => p.Sku == sku);
++
++        if (!string.IsNullOrEmpty(warehouse))
++        {
++            query = query.Where(p => p.Warehouse == warehouse);
++        }
++
++        return await query.FirstOrDefaultAsync();
++    }
++
++    public async Task<DateTime> GetLastShippedDateAsync(Guid customerId)
++    {
++        var lastShipped = await _db.Orders
++            .AsNoTracking()
++            .Where(o => o.CustomerId == customerId && o.ShippedAt != null)
++            .OrderByDescending(o => o.ShippedAt)
++            .Select(o => o.ShippedAt)
++            .FirstOrDefaultAsync();
++
++        return lastShipped ?? default(DateTime);
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..06bfaeb
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,18 @@
++# OrderQueries Service
++
++## Созданные/изменённые файлы
++- **OrderQueries.cs** (новый файл)
++
++## Решение
++
++Создан сервис OrderQueries со следующими методами:
++
++1. **GetOrderCardAsync(Guid orderId)** - возвращает карточку заказа с позициями (Items) и платежами (Payments), используя `AsSplitQuery()` для избежания N+1 при загрузке двух коллекций.
++
++2. **GetCustomerOrdersAsync(Guid customerId)** - выгружает все заказы клиента с позициями и платежами, оптимизирована для больших объемов с `AsNoTracking()` и `AsSplitQuery()`.
++
++3. **GetProductBySku(string sku, string? warehouse)** - ищет продукт по SKU с опциональной фильтрацией по складу; если warehouse не указан, возвращает первый найденный продукт с данным SKU.
++
++4. **GetLastShippedDateAsync(Guid customerId)** - возвращает дату отгрузки (ShippedAt) последнего отгруженного заказа клиента; если нет отгруженных заказов, возвращает DateTime.MinValue.
++
++Все методы используют `AsNoTracking()` для выборок только для чтения согласно чек-листу SKILL.md.

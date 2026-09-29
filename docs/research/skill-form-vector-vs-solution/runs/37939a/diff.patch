@@ -1,0 +1,103 @@
+diff --git a/CatalogMaintenanceService.cs b/CatalogMaintenanceService.cs
+new file mode 100644
+index 0000000..54ef808
+--- /dev/null
++++ b/CatalogMaintenanceService.cs
+@@ -0,0 +1,82 @@
++namespace Shop.Data;
++
++// Register as Scoped; callers (cron/Hangfire job, minimal API handler, etc.) must
++// resolve this from a fresh scope per run rather than holding it in a BackgroundService.
++public class CatalogMaintenanceService
++{
++    private const int AuditLogBatchSize = 10_000;
++
++    private readonly ShopDbContext _db;
++    public CatalogMaintenanceService(ShopDbContext db) => _db = db;
++
++    // (a) Bulk price increase — single UPDATE statement, no entity materialization/tracking.
++    public Task<int> RaisePricesByCategoryAsync(string category, decimal percent = 0.10m, CancellationToken ct = default) =>
++        _db.Products
++            .Where(p => p.Category == category)
++            .ExecuteUpdateAsync(s => s.SetProperty(p => p.Price, p => p.Price * (1 + percent)), ct);
++
++    // (b) Nightly purge of AuditLogs older than a year. ~40M/50M rows are eligible for
++    // deletion, so this runs in bounded batches (each its own short transaction) instead
++    // of one giant DELETE, to avoid long locks / WAL bloat on the live table.
++    public async Task<long> PurgeOldAuditLogsAsync(CancellationToken ct = default)
++    {
++        var cutoffUtc = DateTime.UtcNow.AddYears(-1);
++        long totalDeleted = 0;
++
++        while (true)
++        {
++            var boundaryId = await _db.AuditLogs
++                .Where(a => a.At < cutoffUtc)
++                .OrderBy(a => a.Id)
++                .Skip(AuditLogBatchSize - 1)
++                .Select(a => (long?)a.Id)
++                .FirstOrDefaultAsync(ct);
++
++            var deleted = boundaryId is null
++                ? await _db.AuditLogs.Where(a => a.At < cutoffUtc).ExecuteDeleteAsync(ct)
++                : await _db.AuditLogs.Where(a => a.At < cutoffUtc && a.Id <= boundaryId.Value).ExecuteDeleteAsync(ct);
++
++            totalDeleted += deleted;
++            if (deleted < AuditLogBatchSize) break;
++        }
++
++        return totalDeleted;
++    }
++
++    // (в) Restock: load only the targeted products, sum duplicate ids, save once.
++    public async Task RestockAsync(IEnumerable<(Guid Id, int Add)> items, CancellationToken ct = default)
++    {
++        var adds = items
++            .GroupBy(i => i.Id)
++            .ToDictionary(g => g.Key, g => g.Sum(i => i.Add));
++
++        if (adds.Count == 0) return;
++
++        var products = await _db.Products
++            .Where(p => adds.Keys.Contains(p.Id))
++            .ToListAsync(ct);
++
++        foreach (var product in products)
++            product.Stock += adds[product.Id];
++
++        await _db.SaveChangesAsync(ct);
++    }
++
++    // (г) Client-generated Guid, so plain Add (no DB round-trip needed for the key).
++    public async Task<Product> CreateProductAsync(string sku, string warehouse, string category, decimal price, int stock, CancellationToken ct = default)
++    {
++        var product = new Product
++        {
++            Id = Guid.NewGuid(),
++            Sku = sku,
++            Warehouse = warehouse,
++            Category = category,
++            Price = price,
++            Stock = stock,
++        };
++
++        _db.Products.Add(product);
++        await _db.SaveChangesAsync(ct);
++        return product;
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..16fcc1b
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,9 @@
++Создан файл: `CatalogMaintenanceService.cs` (namespace `Shop.Data`).
++
++Решения:
++- (а) `RaisePricesByCategoryAsync` — `ExecuteUpdateAsync` (один `UPDATE`, без загрузки/трекинга сущностей).
++- (б) `PurgeOldAuditLogsAsync` — удаление батчами по 10 000 строк через `ExecuteDeleteAsync` с границей по `Id` (keyset), каждый батч — своя короткая транзакция, а не одна транзакция на ~40 млн строк; сравнение идёт по `DateTime.UtcNow`, т.к. `AuditLog.At` не переопределён в `OnModelCreating` и по конвенции Npgsql маппится в `timestamp with time zone`, требующий `Kind=Utc`.
++- (в) `RestockAsync` — грузит только нужные продукты, суммирует дубликаты id на клиенте, один `SaveChangesAsync` после цикла (без `SaveChanges` на каждой строке).
++- (г) `CreateProductAsync` — `Guid.NewGuid()` генерируется на клиенте, поэтому используется `Add`, а не `AddAsync`.
++
++Сервис ожидает Scoped-регистрацию и вызов из планировщика (cron/Hangfire) с новым scope на запуск, а не хранение `DbContext` внутри `BackgroundService`.

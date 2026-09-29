@@ -1,0 +1,72 @@
+diff --git a/OrderReportService.cs b/OrderReportService.cs
+new file mode 100644
+index 0000000..d7c3556
+--- /dev/null
++++ b/OrderReportService.cs
+@@ -0,0 +1,30 @@
++namespace Shop.Data;
++
++public record ActiveOrderSummary(Guid OrderId, string CustomerName, decimal Total, int ItemCount);
++
++public record OverdueOrderSummary(Guid OrderId, string CustomerName, decimal Total, DateTime CreatedAt);
++
++public class OrderReportService
++{
++    private readonly OrderRepository _orders;
++    public OrderReportService(OrderRepository orders) => _orders = orders;
++
++    public Task<List<ActiveOrderSummary>> GetActiveOrdersAsync() =>
++        _orders.QueryActive()
++            .Select(o => new ActiveOrderSummary(o.Id, o.Customer.Name, o.Total, o.Items.Count))
++            .ToListAsync();
++
++    public async Task<Dictionary<string, int>> GetActiveOrderCountByCategoryAsync()
++    {
++        var rows = await _orders.QueryActive()
++            .GroupBy(o => o.Category)
++            .Select(g => new { Category = g.Key, Count = g.Count() })
++            .ToListAsync();
++        return rows.ToDictionary(r => r.Category, r => r.Count);
++    }
++
++    public Task<List<OverdueOrderSummary>> GetOverdueOrdersAsync(DateTime now) =>
++        _orders.QueryOverdue(now)
++            .Select(o => new OverdueOrderSummary(o.Id, o.Customer.Name, o.Total, o.CreatedAt))
++            .ToListAsync();
++}
+diff --git a/OrderRepository.cs b/OrderRepository.cs
+index 72637b8..546e10c 100644
+--- a/OrderRepository.cs
++++ b/OrderRepository.cs
+@@ -6,4 +6,12 @@ public class OrderRepository
+     public OrderRepository(ShopDbContext db) => _db = db;
+     public Task<List<Order>> GetAllAsync() => _db.Orders.ToListAsync();
+     public Task<Order?> GetAsync(Guid id) => _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
++
++    // Unmaterialized queries for read-only reporting: callers project/group before executing.
++    public IQueryable<Order> QueryActive() =>
++        _db.Orders.AsNoTracking().Where(o => o.Status == "active");
++
++    // now must be DateTime.Kind = Unspecified to match the "timestamp without time zone" column.
++    public IQueryable<Order> QueryOverdue(DateTime now) =>
++        _db.Orders.AsNoTracking().Where(o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < now);
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..98508cb
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,13 @@
++## Изменённые/созданные файлы
++
++- `OrderRepository.cs` — добавлены `QueryActive()` и `QueryOverdue(DateTime now)`, возвращающие `IQueryable<Order>` (без материализации, `AsNoTracking`), чтобы сервис отчётов мог дальше проецировать/группировать без лишней загрузки данных.
++- `OrderReportService.cs` (новый) — сервис с тремя read-only методами:
++  - `GetActiveOrdersAsync()` → `List<ActiveOrderSummary>` (Id, имя клиента, Total, число позиций через `Items.Count`);
++  - `GetActiveOrderCountByCategoryAsync()` → `Dictionary<string,int>` (группировка активных заказов по `Category`, агрегация на стороне БД);
++  - `GetOverdueOrdersAsync(DateTime now)` → `List<OverdueOrderSummary>`, использует то же условие, что и `Order.IsOverdue` (`ShippedAt == null && CreatedAt.AddDays(3) < now`), инлайнированное в LINQ, т.к. вызов метода экземпляра `o.IsOverdue(now)` в EF Core не транслируется в SQL.
++
++## Решения
++
++- `OrderRepository` расширён `IQueryable`-методами, а не готовыми списками — иначе сервис отчётов был бы вынужден фильтровать/группировать уже в памяти после материализации.
++- Проекции берут только нужные поля (`o.Customer.Name`, `o.Items.Count`) вместо `Include` всей сущности — меньше данных и трансляция в join/subquery-count на стороне PostgreSQL.
++- `now` для `GetOverdueOrdersAsync` должен иметь `DateTimeKind.Unspecified`, т.к. колонка `CreatedAt` — `timestamp without time zone`; это тот же контракт, что уже подразумевает `Order.IsOverdue(DateTime now)`.

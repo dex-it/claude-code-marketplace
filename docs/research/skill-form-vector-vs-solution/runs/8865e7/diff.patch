@@ -1,0 +1,99 @@
+diff --git a/OrderQueries.cs b/OrderQueries.cs
+new file mode 100644
+index 0000000..6618fa8
+--- /dev/null
++++ b/OrderQueries.cs
+@@ -0,0 +1,78 @@
++namespace Shop.Data;
++
++public record OrderItemDto(int Id, Guid ProductId, int Qty);
++public record PaymentDto(int Id, decimal Amount);
++public record OrderCardDto(
++    Guid Id, Guid CustomerId, string Status, string Category, decimal Total,
++    DateTime CreatedAt, DateTime? ShippedAt,
++    IReadOnlyList<OrderItemDto> Items, IReadOnlyList<PaymentDto> Payments);
++
++public record ProductDto(Guid Id, string Sku, string Warehouse, string Category, decimal Price, int Stock);
++
++public enum ProductLookupStatus { Found, NotFound, Ambiguous }
++
++// Ambiguous: склад не передан, а SKU лежит на нескольких складах - Product = null, Warehouses = склады-кандидаты.
++public record ProductLookupResult(ProductLookupStatus Status, ProductDto? Product, IReadOnlyList<string> Warehouses);
++
++public class OrderQueries
++{
++    private readonly ShopDbContext _db;
++    public OrderQueries(ShopDbContext db) => _db = db;
++
++    // (а) Две коллекции одного уровня - split законен и на одной сущности; проекция вместо прокси-сущностей.
++    public Task<OrderCardDto?> GetOrderCardAsync(Guid id, CancellationToken ct = default) =>
++        _db.Orders
++            .AsNoTracking()
++            .Where(o => o.Id == id)
++            .Select(ToCard)
++            .AsSplitQuery()
++            .SingleOrDefaultAsync(ct);
++
++    // (б) Тысячи заказов x позиции x платежи: split query вместо декартова взрыва одного JOIN.
++    public Task<List<OrderCardDto>> GetCustomerOrdersAsync(Guid customerId, CancellationToken ct = default) =>
++        _db.Orders
++            .AsNoTracking()
++            .Where(o => o.CustomerId == customerId)
++            .OrderBy(o => o.CreatedAt).ThenBy(o => o.Id)
++            .Select(ToCard)
++            .AsSplitQuery()
++            .ToListAsync(ct);
++
++    // (в) Уникален только (Sku, Warehouse). Без склада первый попавшийся не берём - неоднозначность возвращается явно.
++    public async Task<ProductLookupResult> GetProductBySku(string sku, string? warehouse, CancellationToken ct = default)
++    {
++        var query = _db.Products.AsNoTracking().Where(p => p.Sku == sku);
++        if (warehouse != null)
++            query = query.Where(p => p.Warehouse == warehouse);
++
++        var matches = await query
++            .OrderBy(p => p.Warehouse)
++            .Select(p => new ProductDto(p.Id, p.Sku, p.Warehouse, p.Category, p.Price, p.Stock))
++            .ToListAsync(ct);
++
++        return matches.Count switch
++        {
++            0 => new(ProductLookupStatus.NotFound, null, Array.Empty<string>()),
++            1 => new(ProductLookupStatus.Found, matches[0], new[] { matches[0].Warehouse }),
++            _ => new(ProductLookupStatus.Ambiguous, null, matches.Select(p => p.Warehouse).ToList()),
++        };
++    }
++
++    // (г) Агрегат в БД. ShippedAt без явного типа -> timestamptz, читается с Kind=Utc.
++    // Нет отгруженных заказов - явное исключение, а не default(DateTime).
++    public async Task<DateTime> GetLastShippedAtAsync(Guid customerId, CancellationToken ct = default)
++    {
++        var last = await _db.Orders
++            .Where(o => o.CustomerId == customerId && o.ShippedAt != null)
++            .MaxAsync(o => o.ShippedAt, ct);
++
++        return last ?? throw new InvalidOperationException($"Customer {customerId} has no shipped orders.");
++    }
++
++    private static readonly System.Linq.Expressions.Expression<Func<Order, OrderCardDto>> ToCard = o =>
++        new OrderCardDto(
++            o.Id, o.CustomerId, o.Status, o.Category, o.Total,
++            DateTime.SpecifyKind(o.CreatedAt, DateTimeKind.Utc), o.ShippedAt,
++            o.Items.OrderBy(i => i.Id).Select(i => new OrderItemDto(i.Id, i.ProductId, i.Qty)).ToList(),
++            o.Payments.OrderBy(p => p.Id).Select(p => new PaymentDto(p.Id, p.Amount)).ToList());
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..daf6e40
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,9 @@
++Файлы:
++- создан `OrderQueries.cs` (сервис OrderQueries и DTO к нему); `Model.cs` и `OrderRepository.cs` не менялись.
++
++Решения:
++- (а)/(б) Запросы только читают данные: `AsNoTracking` и проекция в DTO, без прокси и ленивой загрузки. Позиции и платежи — две коллекции одного уровня, поэтому `AsSplitQuery`. Для тысяч заказов клиента это убирает декартов взрыв, для одного заказа такой режим тоже допустим. `CreatedAt` хранится как `timestamp without time zone`, прочитанное значение помечается `Utc`.
++- (в) Уникальна только пара (Sku, Warehouse), поэтому `warehouse` стал `string?`. Если склад не передан и SKU лежит на нескольких складах, первый попавшийся продукт не берётся: метод возвращает `ProductLookupResult` со статусом `Ambiguous` и списком складов. Остальные статусы — `Found` и `NotFound`.
++- (г) `Max` считается в БД по заказам, где `ShippedAt != null`. Если у клиента нет отгруженных заказов, метод бросает `InvalidOperationException` вместо `default(DateTime)`. `ShippedAt` хранится как `timestamptz`, поэтому значение приходит с `Kind=Utc`.
++
++Сборка и тесты не запускались.
