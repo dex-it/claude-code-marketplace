@@ -15,7 +15,7 @@ async function runTrack(track, args, responses, unavailable = []) {
   const calls = []
   const agent = async (prompt, opts = {}) => {
     if (opts.agentType && unavailable.includes(opts.agentType)) throw new Error(`agent type not found: ${opts.agentType}`)
-    calls.push({ label: opts.label, phase: opts.phase, agentType: opts.agentType, prompt, schema: opts.schema })
+    calls.push({ label: opts.label, phase: opts.phase, agentType: opts.agentType, model: opts.model, effort: opts.effort, prompt, schema: opts.schema })
     if (!(opts.label in responses)) throw new Error(`сценарий не задал ответ на label "${opts.label}"`)
     const r = responses[opts.label]
     const value = typeof r === 'function' ? r(calls.filter(c => c.label === opts.label).length, prompt) : r
@@ -81,12 +81,19 @@ const featureArgs = { task: 'F-1', goal: 'цель', done: 'npm test -> 0', boun
 const bugfixArgs = { task: 'B-1', symptom: 'дубль платежа', expected: 'один платёж', env: 'staging', done: 'npm test -> 0', boundary: 'не трогать схему', mode: 'autonomous', cwd: '/repo-B-1' }
 const reviewArgs = { task: 'gh-1', mr: 'owner/repo#7', intent: 'issue #12', mode: 'autonomous', cwd: '/repo-gh-1' }
 const goalArgs = { kind: 'feature', corpus: '/tmp/goal-c1', cwd: '/repo' }
-const probeNode = 'dex-implementer-reader:implementer-reader'
+const probeNode = 'dex-auto:goal-reader'
 const guessA = { where: 'goal.md «Критерий «готово»»', decision: 'запись сбрасывает кэш либо он живёт до TTL - вызывающий видит новую или старую цену', cost: 'клиент платит старую цену' }
 const guessB = { where: 'source.md:3', decision: 'предел 100 либо 1000 записей - 101-я получает отказ или нет', cost: 'отказ легитимному клиенту' }
-const probeClean = { status: 'complete', verdict: 'passed', guesses: [], open_items: [], missing: '' }
-const probeFound = { status: 'complete', verdict: 'failed', guesses: [guessA, guessB], open_items: [], missing: '' }
-const sortOk = { status: 'complete', items: [{ id: 'D1', class: 'derived', answer: 'запись сбрасывает кэш', anchor: 'src/cache.ts:42' }, { id: 'D2', class: 'question', answer: '', anchor: '' }], missing: '' }
+const probePlan = ['writeSlugCache: файл ключа внутри CACHE_DIR - черновик, критерий R4']
+const gapA = { where: 'source.md R4', gap: 'пустое имя - исход не назван' }
+const gapB = { where: 'goal.md «Критерий «готово»», R2', gap: 'тест R2 стирает реальный CACHE_DIR' }
+const probePromises = ['R4: для любого имени ключа запись лежит внутри CACHE_DIR']
+const traceA = { where: 'source.md:4', delivery: 'goal.md:8', diff: 'черновик хранит любое значение JSON, источник - результат slugify', kind: 'breaks' }
+const traceB = { where: 'source.md:11', delivery: 'goal.md:15', diff: 'нет', kind: 'refines' }
+const traceC = { where: 'source.md:9', delivery: 'goal.md:14', diff: 'черновик добавил: запись без CACHE_DIR не бросает', kind: 'refines' }
+const traceD = { where: 'source.md:6', delivery: 'нет', diff: 'черновик не доставляет подключение кеша к slugify', kind: 'breaks' }
+const probeClean = { status: 'complete', plan: probePlan, promises: probePromises, trace: [], gaps: [], guesses: [], open_items: [], missing: '' }
+const probeFound = { status: 'complete', plan: probePlan, promises: probePromises, trace: [traceB], gaps: [gapA], guesses: [{ ...guessA, covers: [1], traces: [] }, guessB], open_items: [], missing: '' }
 const idsOf = (list) => list.map(g => g.id).join(',')
 
 const labelsOf = (calls) => calls.map(c => c.label)
@@ -95,6 +102,11 @@ const openOf = (r) => (r.prior || []).filter(p => ['open', 'partial', 'unverifie
 const promptOf = (calls, label) => (calls.find(c => c.label === label) || {}).prompt || ''
 const prepSchema = (calls) => ((calls.find(c => c.label === 'ctx:tree') || {}).schema || {}).properties || {}
 const typeOf = (calls, label) => (calls.find(c => c.label === label) || {}).agentType
+// Запрет записи держат tools узла, а не промпт, цену ставит трек: сверяется frontmatter агента, который поедет в плагине.
+const frontmatter = (name) => readFileSync(join(TRACKS, '..', 'agents', `${name}.md`), 'utf8').split(/^---$/m)[1] || ''
+const agentBody = (name) => readFileSync(join(TRACKS, '..', 'agents', `${name}.md`), 'utf8').split(/^---$/m).slice(2).join('---')
+const schemaFields = (s) => !s || typeof s !== 'object' ? [] : [...Object.keys(s.properties || {}), ...Object.values(s.properties || {}).flatMap(schemaFields), ...schemaFields(s.items)]
+const agentTools = (name) => ((frontmatter(name).match(/^tools:(.*)$/m) || [])[1] || '').split(',').map(t => t.trim()).filter(Boolean).sort().join()
 // Шаг ищется по имени, не по индексу: фаза Context несёт две записи, и порядок их появления - дело планировщика.
 const stepOf = (trail, step) => JSON.stringify(trail.find(t => t.step === step) || {})
 
@@ -112,9 +124,9 @@ const SCENARIOS = [
       ['вердикт ревью сохранён в возврате', result.review['review-verdict'] === 'NEEDS_DISCUSSION'],
       ['второй круг не куплен: правки по ревью не было', !calls.some(c => c.label === 'fix:after-review')],
     ] },
-  { name: 'F24 кодер каталога оборвался -> замена получает причину и сверяет сделанное', track: 'feature', args: featureArgs,
-    unavailable: ['dex-dotnet-coder:dotnet-coder'],
-    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+  { name: 'B159 кодер каталога оборвался -> замена получает причину и сверяет сделанное', track: 'bugfix', args: bugfixArgs,
+    unavailable: ['dex-ts-fullstack-coder:ts-fullstack-assistant'],
+    responses: { reproduce: reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
     expect: ({ calls }) => [
       ['промпт замены называет обрыв', calls.filter(c => c.label === 'fix:1').pop().prompt.includes('оборвался ошибкой: agent type not found')],
       ['промпт замены велит сверить git log', calls.filter(c => c.label === 'fix:1').pop().prompt.includes('сверь git log')],
@@ -158,7 +170,7 @@ const SCENARIOS = [
       ['статус complete', result.status === 'complete'],
       ['петли: одна правка, одно ревью', result.loops.fix === 1 && result.loops.review === 1 && result.loops.review_fix === 0],
       ['goal_check собран из верификации', result.goal_check.build_ok && result.goal_check.tests_green && result.goal_check.committed],
-      ['кодер выбран по стеку dotnet', typeOf(calls, 'fix:1') === 'dex-dotnet-coder:dotnet-coder'],
+      ['кодер - dex-auto:coder', typeOf(calls, 'fix:1') === 'dex-auto:coder'],
       ['решения узла в возврате', result.decisions.includes('выбран A')],
       ['открытых находок нет', openOf(result).length === 0],
     ] },
@@ -308,21 +320,6 @@ const SCENARIOS = [
       ['верификация возобновления не покупалась', !labelsOf(calls).includes('verify:возобновление')],
       ['фаза правки не пропущена', labelsOf(calls).includes('fix:1')],
       ['деградация названа оператору', result.decisions.some(d => /без trail/.test(d))],
-    ] },
-  { name: 'F12 агент-кодер каталога не установлен', track: 'feature', args: featureArgs,
-    unavailable: ['dex-dotnet-coder:dotnet-coder'],
-    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
-    expect: ({ result, calls }) => [
-      ['статус complete', result.status === 'complete'],
-      ['замена узла записана', result.degraded.some(d => /dotnet-coder/.test(d))],
-      ['работу доделал general-purpose', calls.filter(c => c.label === 'fix:1').pop().agentType === 'general-purpose'],
-    ] },
-  { name: 'F13 стек вне реестра -> кодер общего назначения без записи о деградации', track: 'feature', args: featureArgs,
-    responses: { 'ctx:tree': { ...prepOk, stack: 'other' }, 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
-    expect: ({ result, calls }) => [
-      ['статус complete', result.status === 'complete'],
-      ['кодер - general-purpose', typeOf(calls, 'fix:1') === 'general-purpose'],
-      ['деградацией это не считается', result.degraded.length === 0],
     ] },
   { name: 'F14 саморевьюер не вернул выход', track: 'feature', args: featureArgs,
     responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': null },
@@ -697,6 +694,66 @@ const SCENARIOS = [
       ['узлу назван исход вместо суждения', /сверять не с чем: conflict-status: none/.test(promptOf(calls, 'ctx:R-I'))],
       ['трек доезжает до исхода', result.status === 'complete'],
     ] },
+  { name: 'F93 пункт цели с пометкой «ответ оператора» -> разведке назван стороной оператора, а не противоречием', track: 'feature',
+    args: { ...featureArgs, source: 'FEAT.md', done: 'пустое имя -> TypeError (ответ оператора; к R4, FEAT.md:12)' },
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['пункт с ответом назван стороной оператора', /«ответ оператора» - сторона, выбранная оператором/.test(promptOf(calls, 'ctx:R-I'))],
+      ['расхождение источника с ним выведено из conflicts', /противоречием не судится и в conflicts не идёт/.test(promptOf(calls, 'ctx:R-I'))],
+      ['трек доезжает до исхода', result.status === 'complete'],
+    ] },
+  { name: 'F94 возобновление с partial-находкой ledger -> кодеру поданы её критерий закрытия и последняя улика', track: 'feature',
+    args: { ...featureArgs, resume: true, trail: '- {"step":1}', open_findings: [{ ...ledgerA88, status: 'partial', evidence: 'второй случай не различён; тест пишется подменой модуля' }] },
+    responses: { 'ctx:R-I': ctxOk, 'verify:возобновление': green, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revF2closed },
+    expect: ({ calls }) => [
+      ['критерий закрытия в задании кодера', /\(закрытие: ретрай различает случаи\)/.test(promptOf(calls, 'fix:1'))],
+      ['последняя улика в задании кодера', /улика: второй случай не различён; тест пишется подменой модуля/.test(promptOf(calls, 'fix:1'))],
+    ] },
+  { name: 'F95 правка по P1 ревью -> кодеру поданы критерий закрытия и улика находки', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green,
+      'self-review:первое': { ...revP1, findings: [{ ...revP1.findings[0], evidence: 'B.cs:3 ловит оба исключения одним catch' }] },
+      'fix:after-review': fixOk, 'verify:после саморевью': green, 'self-review:повторное': revRecheck },
+    expect: ({ calls }) => [
+      ['критерий закрытия в задании правки', /\(закрытие: случаи различены тестом\)/.test(promptOf(calls, 'fix:after-review'))],
+      ['улика в задании правки', /улика: B\.cs:3 ловит оба исключения одним catch/.test(promptOf(calls, 'fix:after-review'))],
+    ] },
+  { name: 'F96 саморевью - узел dex-auto:reviewer на opus, схема без отсылки к node-contract', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['узел dex-auto:reviewer', typeOf(calls, 'self-review:первое') === 'dex-auto:reviewer'],
+      ['исполнитель в trail', result.trail.some(t => t.step === 3 && t.doer === 'dex-auto:reviewer')],
+      ['модель opus', calls.find(c => c.label === 'self-review:первое').model === 'opus'],
+      ['схема без node-contract', !JSON.stringify(calls.find(c => c.label === 'self-review:первое').schema).includes('node-contract')],
+    ] },
+  { name: 'F97 узел dex-auto:reviewer не отработал -> без замены general-purpose, partial, причина в degraded', track: 'feature', args: featureArgs,
+    unavailable: ['dex-auto:reviewer'],
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['статус partial', result.status === 'partial'],
+      ['место - ревью без выхода', /саморевьюер не вернул выход/.test(result.where)],
+      ['замены нет', !calls.some(c => c.label === 'self-review:первое')],
+      ['отказ в degraded', result.degraded.some(d => /dex-auto:reviewer не отработал/.test(d))],
+    ] },
+  { name: 'F98 кодер - узел dex-auto:coder на sonnet и вне реестра стеков, деградации нет', track: 'feature', args: featureArgs,
+    responses: { 'ctx:tree': { ...prepOk, stack: 'other' }, 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revP1,
+      'fix:after-review': fixOk, 'verify:после саморевью': green, 'self-review:повторное': revRecheck },
+    expect: ({ result, calls }) => [
+      ['статус complete', result.status === 'complete'],
+      ['попытка правки - dex-auto:coder', typeOf(calls, 'fix:1') === 'dex-auto:coder'],
+      ['правка по находкам - dex-auto:coder', typeOf(calls, 'fix:after-review') === 'dex-auto:coder'],
+      ['модель sonnet', ['fix:1', 'fix:after-review'].every(l => calls.find(c => c.label === l).model === 'sonnet')],
+      ['исполнитель в trail', result.trail.filter(t => t.step === 2 || t.step === '2-after-review').every(t => t.doer === 'dex-auto:coder')],
+      ['деградации нет', result.degraded.length === 0],
+    ] },
+  { name: 'F99 узел dex-auto:coder не отработал -> без замены general-purpose, blocked, причина в degraded', track: 'feature', args: featureArgs,
+    unavailable: ['dex-auto:coder'],
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['статус blocked', result.status === 'blocked'],
+      ['место - первая попытка правки', result.where === 'Implement#1'],
+      ['замены нет', !calls.some(c => c.label === 'fix:1')],
+      ['отказ в degraded', result.degraded.some(d => /dex-auto:coder не отработал/.test(d))],
+    ] },
   { name: 'B109 противоречие источников ожидаемого -> трек встаёт на Reproduce, кодер не вызван', track: 'bugfix', args: { ...bugfixArgs, source: 'BUG.md' },
     responses: { 'reproduce': reproConflict },
     expect: ({ result, calls }) => [
@@ -706,6 +763,45 @@ const SCENARIOS = [
       ['кодер не вызван: починка под выбранную сторону не закреплена тестом', !calls.some(c => c.label === 'fix:1')],
       ['воспроизведение сброшено в ledger формой без причины: решение владельца меняет его источник', result.repro.root_cause === '' && result.repro.files.length === 0],
       ['суждение поручено оракулу требований, а не узлу', /Skill dex-skill-requirement-quality:requirement-quality/.test(promptOf(calls, 'reproduce'))],
+    ] },
+  { name: 'B154 пункт цели с пометкой «ответ оператора» -> диагносту назван стороной оператора, а не противоречием', track: 'bugfix',
+    args: { ...bugfixArgs, source: 'BUG.md', done: 'повтор запроса -> 409 (ответ оператора; к AC-4)' },
+    responses: { 'reproduce': reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ calls }) => [
+      ['пункт с ответом назван стороной оператора', /«ответ оператора» - сторона, выбранная оператором/.test(promptOf(calls, 'reproduce'))],
+      ['расхождение источника с ним выведено из conflicts', /противоречием не судится и в conflicts не идёт/.test(promptOf(calls, 'reproduce'))],
+    ] },
+  { name: 'B155 возобновление с partial-находкой ledger -> кодеру поданы её критерий закрытия и последняя улика', track: 'bugfix',
+    args: { ...bugfixArgs, resume: true, trail: '- {"step":1}', repro: JSON.stringify(reproOk), open_findings: JSON.stringify([{ ...ledgerA88, status: 'partial', evidence: 'второй случай не различён; тест пишется подменой модуля' }]) },
+    responses: { 'verify:возобновление': green, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revF2closed },
+    expect: ({ calls }) => [
+      ['критерий закрытия в задании кодера', /\(закрытие: ретрай различает случаи\)/.test(promptOf(calls, 'fix:1'))],
+      ['последняя улика в задании кодера', /улика: второй случай не различён; тест пишется подменой модуля/.test(promptOf(calls, 'fix:1'))],
+    ] },
+  { name: 'B156 правка по P1 ревью -> кодеру поданы критерий закрытия и улика находки', track: 'bugfix', args: bugfixArgs,
+    responses: { reproduce: reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green,
+      'self-review:первое': { ...revP1, findings: [{ ...revP1.findings[0], evidence: 'B.cs:3 ловит оба исключения одним catch' }] },
+      'fix:after-review': fixOk, 'verify:после саморевью': green, 'self-review:повторное': revRecheck },
+    expect: ({ calls }) => [
+      ['критерий закрытия в задании правки', /\(закрытие: случаи различены тестом\)/.test(promptOf(calls, 'fix:after-review'))],
+      ['улика в задании правки', /улика: B\.cs:3 ловит оба исключения одним catch/.test(promptOf(calls, 'fix:after-review'))],
+    ] },
+  { name: 'B157 саморевью - узел dex-auto:reviewer на opus, схема без отсылки к node-contract', track: 'bugfix', args: bugfixArgs,
+    responses: { reproduce: reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['узел dex-auto:reviewer', typeOf(calls, 'self-review:первое') === 'dex-auto:reviewer'],
+      ['исполнитель в trail', result.trail.some(t => t.step === 3 && t.doer === 'dex-auto:reviewer')],
+      ['модель opus', calls.find(c => c.label === 'self-review:первое').model === 'opus'],
+      ['схема без node-contract', !JSON.stringify(calls.find(c => c.label === 'self-review:первое').schema).includes('node-contract')],
+    ] },
+  { name: 'B158 узел dex-auto:reviewer не отработал -> без замены general-purpose, partial, причина в degraded', track: 'bugfix', args: bugfixArgs,
+    unavailable: ['dex-auto:reviewer'],
+    responses: { reproduce: reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['статус partial', result.status === 'partial'],
+      ['место - ревью без выхода', /саморевьюер не вернул выход/.test(result.where)],
+      ['замены нет', !calls.some(c => c.label === 'self-review:первое')],
+      ['отказ в degraded', result.degraded.some(d => /dex-auto:reviewer не отработал/.test(d))],
     ] },
   { name: 'R15 ревью работает в detached-дереве трека и переключает его на head_sha', track: 'review', args: reviewArgs,
     responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'review:security': revMr, 'falsify+coverage': falOk },
@@ -2432,98 +2528,53 @@ const SCENARIOS = [
     expect: ({ result, calls }) => [
       ['исход unverifiable', result.probe === 'unverifiable'],
       ['причина называет узел и ошибку', result.reason === `узел пробы ${probeNode} не отработал: agent type not found: ${probeNode}`],
-      ['замены и классификатора нет', calls.length === 0 && result.questions.length === 0],
+      ['замены нет', calls.length === 0 && result.questions.length === 0],
     ] },
   { name: 'G3 узел пробы не вернул выход', track: 'goal', args: goalArgs, responses: { probe: null },
-    expect: ({ result, calls }) => [
+    expect: ({ result }) => [
       ['unverifiable с причиной', result.probe === 'unverifiable' && result.reason === 'узел пробы не вернул выход'],
-      ['классификатор не вызван', !labelsOf(calls).includes('sort')],
     ] },
   { name: 'G4 проба blocked с нехваткой', track: 'goal', args: goalArgs, responses: { probe: { ...probeFound, status: 'blocked', missing: 'корпус не читается' } },
-    expect: ({ result, calls }) => [
+    expect: ({ result }) => [
       ['нехватка узла в причине', result.probe === 'unverifiable' && result.reason === 'корпус не читается'],
-      ['домыслы blocked-выхода не классифицируются', !labelsOf(calls).includes('sort') && result.questions.length === 0],
+      ['домыслы blocked-выхода не отдаются', result.questions.length === 0],
     ] },
   { name: 'G4 проба blocked без нехватки', track: 'goal', args: goalArgs, responses: { probe: { ...probeClean, status: 'blocked' } },
     expect: ({ result }) => [
       ['нехватка подставлена', result.probe === 'unverifiable' && result.reason === 'узел пробы вернул blocked без нехватки'],
     ] },
-  { name: 'G5 вердикт unverifiable с причиной', track: 'goal', args: goalArgs, responses: { probe: { ...probeFound, verdict: 'unverifiable', missing: 'источник пуст' } },
-    expect: ({ result, calls }) => [
-      ['причина узла', result.probe === 'unverifiable' && result.reason === 'источник пуст'],
-      ['классификатор не вызван', !labelsOf(calls).includes('sort')],
+  { name: 'G5 узел - агент dex-auto, цена из таблицы узлов, вход путями, один вызов', track: 'goal', args: goalArgs, responses: { probe: probeFound },
+    expect: ({ calls }) => [
+      ['проба - goal-reader на sonnet, effort сессии', typeOf(calls, 'probe') === probeNode && calls[0].model === 'sonnet' && calls[0].effort === undefined],
+      ['вызвана только проба, один раз', labelsOf(calls).join() === 'probe'],
+      ['проба отдаёт план, обещания, трассу и пробелы до домыслов', (s => Object.keys(s.properties).join() === 'status,plan,promises,trace,gaps,guesses,open_items,missing' && ['plan', 'promises', 'trace', 'gaps'].every(f => s.required.includes(f)))(calls[0].schema)],
+      ['проба получает черновик, источник и код', ['/tmp/goal-c1/goal.md', '/tmp/goal-c1/source.md', '/repo'].every(t => promptOf(calls, 'probe').includes(t))],
     ] },
-  { name: 'G5 вердикт unverifiable без причины', track: 'goal', args: goalArgs, responses: { probe: { ...probeClean, verdict: 'unverifiable' } },
+  { name: 'G6 файл узла: инструменты только на чтение, без model и effort, смысл каждого поля выдачи', track: 'goal', args: goalArgs, responses: { probe: probeFound },
+    expect: ({ calls }) => {
+      const schema = (calls.find(c => c.label === 'probe') || {}).schema
+      return [
+        ['tools Read, Grep, Glob', agentTools('goal-reader') === 'Glob,Grep,Read'],
+        ['model и effort не заданы', !/^(model|effort):/m.test(frontmatter('goal-reader'))],
+        ['каждое поле схемы названо в файле, описаний в схеме нет', !!schema && schemaFields(schema).every(f => agentBody('goal-reader').includes(`\`${f}\``)) && !JSON.stringify(schema).includes('"description"')],
+      ]
+    } },
+  { name: 'G7 списки пусты, в трассе нет расхождений -> passed', track: 'goal', args: goalArgs, responses: { probe: { ...probeClean, trace: [traceB, { ...traceB, diff: ' - ' }, { ...traceB, diff: '' }] } },
     expect: ({ result }) => [
-      ['причина подставлена', result.reason === 'узел пробы вынес unverifiable без причины'],
-    ] },
-  { name: 'G6 failed без домыслов и открытых пунктов -> unverifiable', track: 'goal', args: goalArgs, responses: { probe: { ...probeClean, verdict: 'failed' } },
-    expect: ({ result }) => [
-      ['пустой failed не читается как passed', result.probe === 'unverifiable' && result.reason === 'узел пробы вынес failed без домыслов и открытых пунктов'],
-    ] },
-  { name: 'G7 списки пусты -> passed без классификатора', track: 'goal', args: goalArgs, responses: { probe: probeClean },
-    expect: ({ result, calls }) => [
       ['исход passed', result.probe === 'passed' && result.degraded.length === 0],
-      ['вызван только узел пробы, без замены', labelsOf(calls).join() === 'probe' && typeOf(calls, 'probe') === probeNode],
-      ['промпт пробы: автономный режим, корпус, код, запрет записи', ['mode: autonomous', 'корень корпуса: /tmp/goal-c1', 'в /repo', 'на диск ничего не пиши'].every(t => promptOf(calls, 'probe').includes(t))],
     ] },
-  { name: 'G8 passed при непустом списке и partial -> судит список, обе строки degraded', track: 'goal', args: goalArgs,
-    responses: { probe: { ...probeFound, status: 'partial', verdict: 'passed', missing: 'контракт API не найден' }, sort: sortOk },
-    expect: ({ result, calls }) => [
+  { name: 'G8 partial при непустом списке -> строка degraded, id по порядку', track: 'goal', args: goalArgs,
+    responses: { probe: { ...probeFound, status: 'partial', missing: 'контракт API не найден' } },
+    expect: ({ result }) => [
       ['исход failed', result.probe === 'failed'],
-      ['id по порядку списка', /D1\. goal\.md.*\nD2\. source\.md:3/.test(promptOf(calls, 'sort'))],
-      ['passed при списке - строка degraded', result.degraded.includes('узел пробы вынес passed при непустом списке - судит список')],
-      ['partial - строка degraded с нехваткой', result.degraded.includes('проба partial: контракт API не найден')],
+      ['id по порядку списка', idsOf(result.questions) === 'D1,D2' && result.questions[0].decision === guessA.decision && result.questions[1].decision === guessB.decision],
+      ['partial - строка degraded с нехваткой', result.degraded.join('|') === 'проба partial: контракт API не найден'],
     ] },
-  { name: 'G9 только открытые пункты -> failed без классификатора', track: 'goal', args: goalArgs,
-    responses: { probe: { ...probeClean, verdict: 'failed', open_items: ['AC-3: TBD в источнике'] } },
-    expect: ({ result, calls }) => [
+  { name: 'G9 только открытые пункты -> failed без домыслов', track: 'goal', args: goalArgs,
+    responses: { probe: { ...probeClean, open_items: ['AC-3: TBD в источнике'] } },
+    expect: ({ result }) => [
       ['исход failed с открытым пунктом', result.probe === 'failed' && result.open_items.join() === 'AC-3: TBD в источнике'],
-      ['классификатор не вызван', !labelsOf(calls).includes('sort')],
-      ['derived и questions пусты', result.derived.length === 0 && result.questions.length === 0],
-    ] },
-  { name: 'G10 классификатор blocked -> все домыслы вопросами', track: 'goal', args: goalArgs,
-    responses: { probe: { ...probeFound, open_items: ['AC-3: TBD'] }, sort: { status: 'blocked', items: [], missing: 'код не читается' } },
-    expect: ({ result }) => [
-      ['все в questions', idsOf(result.questions) === 'D1,D2' && result.derived.length === 0],
-      ['open_items сохранены', result.open_items.length === 1],
-      ['degraded называет нехватку', result.degraded.includes('классификатор blocked: код не читается - все домыслы вопросами')],
-    ] },
-  { name: 'G10 классификатор не отработал -> все домыслы вопросами', track: 'goal', args: goalArgs,
-    responses: { probe: probeFound }, unavailable: ['general-purpose'],
-    expect: ({ result }) => [
-      ['все в questions', result.probe === 'failed' && idsOf(result.questions) === 'D1,D2'],
-      ['degraded называет ошибку', result.degraded.includes('классификатор не отработал (agent type not found: general-purpose) - все домыслы вопросами')],
-    ] },
-  { name: 'G10 классификатор не вернул выход -> все домыслы вопросами', track: 'goal', args: goalArgs, responses: { probe: probeFound, sort: null },
-    expect: ({ result }) => [
-      ['все в questions', result.probe === 'failed' && idsOf(result.questions) === 'D1,D2' && result.derived.length === 0],
-      ['degraded без повтора имени узла', result.degraded.join('|') === 'классификатор не вернул выход - все домыслы вопросами'],
-    ] },
-  { name: 'G11 разбор по id: derived с якорем, прочие вопросом', track: 'goal', args: goalArgs, responses: { probe: { ...probeFound, open_items: ['AC-3: TBD'] }, sort: sortOk },
-    expect: ({ result, calls }) => [
-      ['D1 выведен с ответом и якорем', idsOf(result.derived) === 'D1' && result.derived[0].anchor === 'src/cache.ts:42' && result.derived[0].answer === 'запись сбрасывает кэш'],
-      ['D2 вопросом', idsOf(result.questions) === 'D2' && result.questions[0].decision === guessB.decision],
-      ['open_items в выходе', result.open_items.join() === 'AC-3: TBD'],
-      ['каждый узел один раз', labelsOf(calls).join() === 'probe,sort' && result.degraded.length === 0],
-      ['классификатор - general-purpose только на чтение', typeOf(calls, 'sort') === 'general-purpose' && promptOf(calls, 'sort').includes('только чтение: ничего не пиши и не меняй')],
-    ] },
-  { name: 'G12 derived без якоря строки или без ответа -> вопрос', track: 'goal', args: goalArgs,
-    responses: { probe: probeFound, sort: { ...sortOk, items: [{ id: 'D1', class: 'derived', answer: 'запись сбрасывает кэш', anchor: 'src/cache.ts' }, { id: 'D2', class: 'derived', answer: '', anchor: 'src/limits.ts:7' }] } },
-    expect: ({ result }) => [
-      ['оба вопросом', idsOf(result.questions) === 'D1,D2' && result.derived.length === 0],
-    ] },
-  { name: 'G13 пропущенный и чужой id', track: 'goal', args: goalArgs,
-    responses: { probe: probeFound, sort: { ...sortOk, items: [sortOk.items[0], { id: 'D9', class: 'derived', answer: 'x', anchor: 'a.ts:1' }] } },
-    expect: ({ result }) => [
-      ['D2 без записи - вопросом', idsOf(result.questions) === 'D2' && idsOf(result.derived) === 'D1'],
-      ['пропуск и чужой id в degraded', result.degraded.includes('классификатор не разобрал D2 - вопросом') && result.degraded.includes('классификатор вернул чужой id D9')],
-    ] },
-  { name: 'G14 повтор id и partial классификатора', track: 'goal', args: goalArgs,
-    responses: { probe: probeFound, sort: { status: 'partial', items: [{ id: 'D1', class: 'question', answer: '', anchor: '' }, sortOk.items[0], sortOk.items[1]], missing: 'часть кода вне доступа' } },
-    expect: ({ result }) => [
-      ['взята первая запись D1', idsOf(result.questions) === 'D1,D2' && result.derived.length === 0],
-      ['повтор и partial в degraded', result.degraded.includes('классификатор вернул D1 дважды - взята первая запись') && result.degraded.includes('классификатор partial: часть кода вне доступа')],
+      ['questions пуст', result.questions.length === 0],
     ] },
   { name: 'G15 partial без домыслов -> unverifiable', track: 'goal', args: goalArgs, responses: { probe: { ...probeClean, status: 'partial', missing: 'source.md не прочитан' } },
     expect: ({ result }) => [
@@ -2544,19 +2595,66 @@ const SCENARIOS = [
       ['причина называет пустые поля', result.probe === 'unverifiable' && result.reason === 'вход пробы не разобран: пусто либо не строка: corpus, cwd'],
       ['узлы не вызваны', calls.length === 0],
     ] },
-  { name: 'G17 якорь с текстом вокруг, диапазон и перечень -> в derived только файл:строка', track: 'goal', args: goalArgs,
-    responses: { probe: { ...probeFound, guesses: [guessA, guessB, guessA] }, sort: { status: 'complete', missing: '', items: [
-      { id: 'D1', class: 'derived', answer: 'чтение бросает', anchor: 'src/cache.js:6-10 (readSlugCache: без try/catch)' },
-      { id: 'D2', class: 'derived', answer: 'синхронно', anchor: 'src/cache.js:1,6-9' },
-      { id: 'D3', class: 'derived', answer: 'как у соседа', anchor: 'см. readSlugCache: без строки' }] } },
+  { name: 'G18 пробел без домысла -> вопросом как есть', track: 'goal', args: goalArgs,
+    responses: { probe: { ...probeClean, gaps: [gapA, gapB], guesses: [{ ...guessA, covers: [1] }] } },
     expect: ({ result }) => [
-      ['текст вокруг снят', result.derived.map(d => d.anchor).join('|') === 'src/cache.js:6-10|src/cache.js:1,6-9'],
-      ['без файл:строка - вопросом', idsOf(result.questions) === 'D3'],
+      ['пробел 2 - вопросом с местом и текстом пробела', idsOf(result.questions) === 'D1,D2' && (q => q.where === gapB.where && q.decision === gapB.gap && q.cost === '' && q.gaps.join() === gapB.gap)(result.questions[1])],
+      ['degraded называет пробел', result.degraded.join('|') === 'пробелы 2 не покрыты домыслом пробы - вопросом как есть'],
     ] },
-  { name: 'G18 узлы пробы читают без Bash - узлу в дереве сессии команду отбивает сторож при открытой цели', track: 'goal', args: goalArgs, responses: { probe: probeFound, sort: sortOk },
-    expect: ({ calls }) => [
-      ['пробе запрещён Bash', /Bash не вызывай/.test(promptOf(calls, 'probe'))],
-      ['классификатору запрещён Bash', /Bash не вызывай/.test(promptOf(calls, 'sort'))],
+  { name: 'G18 только пробелы -> failed, не passed', track: 'goal', args: goalArgs,
+    responses: { probe: { ...probeClean, gaps: [gapA] } },
+    expect: ({ result }) => [
+      ['исход failed, пробел вопросом', result.probe === 'failed' && idsOf(result.questions) === 'D1' && result.questions[0].decision === gapA.gap],
+    ] },
+  { name: 'G19 номер вне списка пробелов снят', track: 'goal', args: goalArgs,
+    responses: { probe: { ...probeClean, gaps: [gapA], guesses: [{ ...guessA, covers: [1, 5, 0, 1] }] } },
+    expect: ({ result }) => [
+      ['покрыт только существующий пробел, без повтора', result.questions[0].gaps.join('|') === gapA.gap],
+      ['degraded называет снятые номера', result.degraded.join('|') === 'домыслы ссылаются на пробелы вне списка: 5, 0 - сняты'],
+    ] },
+  { name: 'G20 домысел, снимающий больше пробелов, - первым', track: 'goal', args: goalArgs,
+    responses: { probe: { ...probeClean, gaps: [gapA, gapB], guesses: [guessB, { ...guessA, covers: [2, 1] }] } },
+    expect: ({ result }) => [
+      ['D1 - домысел с двумя пробелами', result.questions[0].id === 'D1' && result.questions[0].decision === guessA.decision && result.questions[0].gaps.join('|') === `${gapB.gap}|${gapA.gap}`],
+      ['без пробелов - вторым', result.questions[1].decision === guessB.decision && result.questions[1].gaps.length === 0 && result.degraded.length === 0],
+    ] },
+  { name: 'G22 расхождение трассы без домысла -> вопросом как есть', track: 'goal', args: goalArgs,
+    responses: { probe: { ...probeClean, trace: [traceB, traceA] } },
+    expect: ({ result }) => [
+      ['исход failed, не passed', result.probe === 'failed'],
+      ['строка 2 - вопросом с местом и текстом расхождения', idsOf(result.questions) === 'D1' && (q => q.where === traceA.where && q.decision === traceA.diff && q.cost === '' && q.gaps.join() === traceA.diff)(result.questions[0])],
+      ['строка «нет» расхождением не считается', result.degraded.join('|') === 'расхождения трассы 2 не покрыты домыслом пробы - вопросом как есть'],
+    ] },
+  { name: 'G22 расхождение и пробел без домысла -> расхождение первым', track: 'goal', args: goalArgs,
+    responses: { probe: { ...probeClean, gaps: [gapA], trace: [traceA] } },
+    expect: ({ result }) => [
+      ['D1 - расхождение, D2 - пробел', result.questions.map(q => q.decision).join('|') === `${traceA.diff}|${gapA.gap}`],
+      ['degraded называет оба', ['пробелы 1 не покрыты домыслом пробы - вопросом как есть', 'расхождения трассы 1 не покрыты домыслом пробы - вопросом как есть'].every(d => result.degraded.includes(d))],
+    ] },
+  { name: 'G23 номер трассы вне списка или на строку без расхождения снят', track: 'goal', args: goalArgs,
+    responses: { probe: { ...probeClean, trace: [traceA, traceB], guesses: [{ ...guessA, covers: [], traces: [1, 2, 7, 1] }] } },
+    expect: ({ result }) => [
+      ['домысел снимает только расхождение 1, без повтора', idsOf(result.questions) === 'D1' && result.questions[0].gaps.join('|') === traceA.diff],
+      ['degraded называет снятые номера', result.degraded.join('|') === 'домыслы ссылаются на строки трассы без расхождения: 2, 7 - сняты'],
+    ] },
+  { name: 'G24 вес домысла - пробелы и расхождения трассы вместе', track: 'goal', args: goalArgs,
+    responses: { probe: { ...probeClean, gaps: [gapA], trace: [traceC, { ...traceC, where: 'source.md:10' }], guesses: [{ ...guessB, covers: [1], traces: [] }, { ...guessA, covers: [], traces: [1, 2] }] } },
+    expect: ({ result }) => [
+      ['D1 - домысел с двумя расхождениями', result.questions[0].decision === guessA.decision && result.questions[0].gaps.join('|') === `${traceC.diff}|${traceC.diff}`],
+      ['D2 - домысел с одним пробелом', result.questions[1].decision === guessB.decision && result.questions[1].gaps.join('|') === gapA.gap && result.degraded.length === 0],
+    ] },
+  { name: 'G25 метка breaks: kind вне refines - true, refines и без трассы - false', track: 'goal', args: goalArgs,
+    responses: { probe: { ...probeClean, gaps: [gapA], trace: [traceA, traceC, { ...traceD, kind: undefined }], guesses: [{ ...guessA, covers: [], traces: [1] }, { ...guessB, covers: [1], traces: [] }, { ...guessA, covers: [], traces: [2] }] } },
+    expect: ({ result }) => [
+      ['все домыслы вопросами, выводимое скрипт не делит', result.probe === 'failed' && idsOf(result.questions) === 'D1,D2,D3,D4' && !('derived' in result)],
+      ['breaks у расхождения breaks и у kind без значения', result.questions.map(q => `${q.decision === traceD.diff ? 'D' : q.decision === guessA.decision ? 'A' : 'B'}${q.breaks}`).join() === 'Atrue,Dtrue,Bfalse,Afalse'],
+      ['поля домысла - форма выхода', result.questions.every(q => Object.keys(q).join() === 'id,where,decision,cost,gaps,breaks')],
+    ] },
+  { name: 'G26 домысел с расхождением breaks - первым в очереди при меньшем весе', track: 'goal', args: goalArgs,
+    responses: { probe: { ...probeClean, gaps: [gapA, gapB], trace: [traceA], guesses: [{ ...guessB, covers: [1, 2], traces: [] }, { ...guessA, covers: [], traces: [1] }] } },
+    expect: ({ result }) => [
+      ['D1 - домысел с breaks, D2 - с двумя пробелами', idsOf(result.questions) === 'D1,D2' && result.questions[0].decision === guessA.decision && result.questions[0].breaks === true && result.questions[1].decision === guessB.decision],
+      ['degraded пуст', result.degraded.length === 0],
     ] },
 ]
 
@@ -2564,8 +2662,19 @@ const SCENARIOS = [
 // умолчанию задан здесь, сценарий о самой подготовке перекрывает его своим ключом 'ctx:tree'.
 const DEFAULT_TREE = { feature: prepOk, bugfix: prepTs }
 
+// Команды зовут трек именем `dex-auto:<meta.name>` из каталога `workflows` манифеста (P67).
+const manifest = JSON.parse(readFileSync(join(TRACKS, '..', '.claude-plugin', 'plugin.json'), 'utf8'))
+const REGISTRATION = [['манифест регистрирует tracks/ каталогом workflows', manifest.workflows === './tracks/'],
+  ...['feature', 'bugfix', 'review', 'goal'].map(t => [`meta.name трека ${t} - dex-auto-${t}`,
+    /export const meta = \{\s*name: '([^']+)'/.exec(readFileSync(join(TRACKS, `${t}.js`), 'utf8'))?.[1] === `dex-auto-${t}`])]
+
 const only = process.argv[2]
 let n = 0, failed = 0
+for (const [what, ok] of only ? [] : REGISTRATION) {
+  n++
+  if (!ok) failed++
+  console.log(`${ok ? 'ok' : 'not ok'} ${n} - регистрация / ${what}`)
+}
 for (const s of SCENARIOS) {
   if (only && !s.name.startsWith(only)) continue
   let checks

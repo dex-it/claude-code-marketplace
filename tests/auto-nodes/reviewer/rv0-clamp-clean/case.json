@@ -1,0 +1,18 @@
+{
+  "task": "FEAT-0",
+  "kind": "feature",
+  "commit": "feat(math): clamp",
+  "goal": "В модуле math есть clamp(n, min, max) по требованиям FEAT.md.",
+  "done": "Требования FEAT.md R1-R2 исполнены, на каждое есть тест; npm test зелёный; правка закоммичена локально.",
+  "boundary": "Правка в src/math.js и test/; sum не меняется; новых зависимостей нет.",
+  "requirements": [
+    "R1. clamp(n, min, max) возвращает n, если min <= n <= max; min, если n < min; max, если n > max. (FEAT.md:4)",
+    "R2. min > max - RangeError, в сообщении оба значения. (FEAT.md:5)"
+  ],
+  "coder": {
+    "red-run": "тесты R1 и R2 красные до правки: clamp is not a function; после правки зелёные",
+    "uncovered-status": "none", "uncovered": [],
+    "dependents-status": "none", "dependents": []
+  },
+  "mines": []
+}
