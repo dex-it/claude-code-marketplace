@@ -2000,3 +2000,461 @@ e18fea,C,CFG,F5,opus,medium,none,path,CFG-h-P2,harm,,,,no,judge,нет
 e18fea,C,CFG,F5,opus,medium,none,path,CFG-O1,coverage,,,,found,judge,`SentAt = now` ставится и сохраняется ДО отправки
 e18fea,C,CFG,F5,opus,medium,none,path,CFG-O2,coverage,,,,found,judge,"`Configure<SmtpOptions>(GetSection(""Mail""))`, а секция в конфиге называется `""Smtp""`"
 e18fea,C,CFG,F5,opus,medium,none,path,CFG-O3,coverage,,,,found,judge,Конфигурация .NET не подставляет `${...}`
+97328c,H,FVB,F1,haiku,,none,path,FVB-KB1,unit,latest-vs-version,B,,fail,judge,нет
+97328c,H,FVB,F1,haiku,,none,path,FVB-KB2,unit,fact-on-faith,B,,fail,judge,нет
+97328c,H,FVB,F1,haiku,,none,path,FVB-h-PB1,harm,,,,no,judge,"write_audit(member.id, req.dict())"
+97328c,H,FVB,F1,haiku,,none,path,FVB-OB1,coverage,,,,missed,judge,нет
+97328c,H,FVB,F1,haiku,,none,path,FVB-OB2,coverage,,,,found,judge,"`POINT_VALUE = 0.1` (float) вместо `Decimal(""0.1"")` — потеря точности"
+97328c,H,FVB,F1,haiku,,none,path,FVB-OB3,coverage,,,,missed,judge,Нет валидации `confirm_amount > 0` → можно списать 0 руб
+97328c,H,FVB,F1,haiku,,none,path,FVB-OB4,coverage,,,,missed,judge,нет
+c53908,H,FVB,F5,haiku,,none,path,FVB-KB1,unit,latest-vs-version,B,,fail,judge,нет
+c53908,H,FVB,F5,haiku,,none,path,FVB-KB2,unit,fact-on-faith,B,,fail,judge,нет
+c53908,H,FVB,F5,haiku,,none,path,FVB-h-PB1,harm,,,,no,judge,нет
+c53908,H,FVB,F5,haiku,,none,path,FVB-OB1,coverage,,,,missed,judge,нет
+c53908,H,FVB,F5,haiku,,none,path,FVB-OB2,coverage,,,,found,judge,POINT_VALUE определена как float литерал `0.1`. При преобразовании `Decimal(0.1)` используется уже неточное представление float.
+c53908,H,FVB,F5,haiku,,none,path,FVB-OB3,coverage,,,,found,judge,"Отрицательные значения - это попытка добавить баллы, что не входит в функциональность списания."
+c53908,H,FVB,F5,haiku,,none,path,FVB-OB4,coverage,,,,missed,judge,нет
+f3ec1d,H,CFG,F0,haiku,,none,path,CFG-K9,unit,staging-gt-prod,C,,fail,judge,нет
+f3ec1d,H,CFG,F0,haiku,,none,path,CFG-K8,unit,default-duplicated,C,,fail,judge,нет
+f3ec1d,H,CFG,F0,haiku,,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,нет
+f3ec1d,H,CFG,F0,haiku,,none,path,CFG-K1,skill,,,,missed,judge,нет
+f3ec1d,H,CFG,F0,haiku,,none,path,CFG-K2,skill,,,,found,judge,"Код ищет `""Throttle:MessagesPerMinute""`, но в конфиге ключ `""PerMinute""`... `DivideByZeroException`"
+f3ec1d,H,CFG,F0,haiku,,none,path,CFG-K3,skill,,,,missed,judge,OutboxOptionsValidator.cs — Неполная валидация
+f3ec1d,H,CFG,F0,haiku,,none,path,CFG-K4,skill,,,,missed,judge,нет
+f3ec1d,H,CFG,F0,haiku,,none,path,CFG-K5,skill,,,,found,judge,Условие `if (o.MinBatchSize < o.MaxBatchSize)` на line 25 препятствует обновлению `_batchSize`
+f3ec1d,H,CFG,F0,haiku,,none,path,CFG-K6,skill,,,,found,judge,Current value в appsettings.json (500 сек) явно ошибочен
+f3ec1d,H,CFG,F0,haiku,,none,path,CFG-K7,skill,,,,missed,judge,нет
+f3ec1d,H,CFG,F0,haiku,,none,path,CFG-h-P1,harm,,,,no,judge,нет
+f3ec1d,H,CFG,F0,haiku,,none,path,CFG-h-P2,harm,,,,no,judge,нет
+f3ec1d,H,CFG,F0,haiku,,none,path,CFG-O1,coverage,,,,found,judge,`m.SentAt = now;` на line 53 устанавливается и сохраняется (line 55) ДО попытки отправки
+f3ec1d,H,CFG,F0,haiku,,none,path,CFG-O2,coverage,,,,missed,judge,нет
+f3ec1d,H,CFG,F0,haiku,,none,path,CFG-O3,coverage,,,,missed,judge,нет
+d0f50a,H,E4,F0,haiku,,none,path,E4-ts,unit,datetime-column,B,,fail,e4,"WRITE FAIL Cannot write DateTime with Kind=UTC to PostgreSQL type 'timestamp without time zone', consider using 'timestamp with time zone'. Note that it's not possible to mix DateTimes with different Kinds in an array, range, or multirange. (Parameter 'value')"
+d0f50a,H,E4,F0,haiku,,none,path,E4-cascade,unit,softdelete-cascade,A,,fail,e4,"CASCADE: DDL  CONSTRAINT ""FK_OrderItem_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE | DDL  CONSTRAINT ""FK_Payment_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE"
+d0f50a,H,E4,F0,haiku,,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+d0f50a,H,E4,F0,haiku,,none,path,E4-m-owned,mine,,,,no,judge,public int Complexity { get; set; }
+362aad,H,K1,F1,haiku,,none,path,K1-key,unit,keyed-literal,C,,fail,judge,"AddKeyedSingleton<INotificationSender, EmailSender>(""email""); ... [FromKeyedServices(""email"")]"
+73b8e7,H,E2,F5,haiku,,none,path,E2-single,unit,single-not-unique,D,fail,fail,judge,".Where(p => p.Sku == sku && (warehouse == null || p.Warehouse == warehouse))
+            .FirstOrDefaultAsync();"
+73b8e7,H,E2,F5,haiku,,none,path,E2-h-split,harm,,,,yes,judge,Include для Items и Payments без AsSplitQuery (одна сущность — JOIN эффективнее)
+73b8e7,H,E2,F5,haiku,,none,path,E2-m-cart,mine,,,,no,judge,".Include(o => o.Payments)
+            .AsSplitQuery()"
+73b8e7,H,E2,F5,haiku,,none,path,E2-m-nullagg,mine,,,,no,judge,.Where(o => o.CustomerId == customerId && o.ShippedAt != null)
+0f176b,H,E4,F1,haiku,,none,path,E4-ts,unit,datetime-column,B,,fail,e4,"WRITE FAIL Cannot write DateTime with Kind=UTC to PostgreSQL type 'timestamp without time zone', consider using 'timestamp with time zone'. Note that it's not possible to mix DateTimes with different Kinds in an array, range, or multirange. (Parameter 'value')"
+0f176b,H,E4,F1,haiku,,none,path,E4-cascade,unit,softdelete-cascade,A,,fail,e4,"CASCADE: DDL  CONSTRAINT ""FK_OrderItem_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE | DDL  CONSTRAINT ""FK_Payment_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE"
+0f176b,H,E4,F1,haiku,,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+0f176b,H,E4,F1,haiku,,none,path,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }              // 1..5, бизнес: сложность комплектации"
+95e89f,H,FVB,F5,haiku,,none,path,FVB-KB1,unit,latest-vs-version,B,,fail,judge,нет
+95e89f,H,FVB,F5,haiku,,none,path,FVB-KB2,unit,fact-on-faith,B,,fail,judge,нет
+95e89f,H,FVB,F5,haiku,,none,path,FVB-h-PB1,harm,,,,no,judge,"write_audit(member.id, req.dict())"
+95e89f,H,FVB,F5,haiku,,none,path,FVB-OB1,coverage,,,,found,judge,Race condition при конкурирующих операциях
+95e89f,H,FVB,F5,haiku,,none,path,FVB-OB2,coverage,,,,found,judge,При преобразовании `Decimal(0.1)` из float получится точное бинарное представление
+95e89f,H,FVB,F5,haiku,,none,path,FVB-OB3,coverage,,,,found,judge,Позволяет клиенту добавлять себе баллы вместо их списания
+95e89f,H,FVB,F5,haiku,,none,path,FVB-OB4,coverage,,,,missed,judge,нет
+aae018,H,L5,F0,haiku,,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,.Where(c => customerIds.Contains(c.Id))
+aae018,H,L5,F0,haiku,,none,path,L5-h-chunk,harm,contains-list,D,,no,judge,нет
+aae018,H,L5,F0,haiku,,none,path,L5-m-enum,mine,,,,no,judge,.Where(c => customerIds.Contains(c.Id))
+82b7fa,H,L5,F5,haiku,,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,var uniqueIds = customerIds.Distinct().ToList();
+82b7fa,H,L5,F5,haiku,,none,path,L5-h-chunk,harm,contains-list,D,,yes,judge,// Batch по 500 для избежания SQL параметризации деградации
+82b7fa,H,L5,F5,haiku,,none,path,L5-m-enum,mine,,,,no,judge,customerIds.Distinct().ToList()
+165b8e,H,E2,F0,haiku,,none,path,E2-single,unit,single-not-unique,D,fail,fail,judge,return await query.FirstOrDefaultAsync();
+165b8e,H,E2,F0,haiku,,none,path,E2-h-split,harm,,,,no,judge,прямой запрос с Include для Items и Payments
+165b8e,H,E2,F0,haiku,,none,path,E2-m-cart,mine,,,,yes,judge,".Include(o => o.Items)
+            .Include(o => o.Payments)
+            .AsNoTracking();"
+165b8e,H,E2,F0,haiku,,none,path,E2-m-nullagg,mine,,,,no,judge,o.ShippedAt.HasValue ... return lastShippedDate ?? DateTime.MinValue;
+a8606d,H,CFG,F5,haiku,,none,path,CFG-K9,unit,staging-gt-prod,C,,pass,judge,"Staging `""MaxInFlight"": 20`, Production `""MaxInFlight"": 5`. Staging более агрессивный без документации."
+a8606d,H,CFG,F5,haiku,,none,path,CFG-K8,unit,default-duplicated,C,,pass,judge,"Дублируют дефолтные значения из appsettings.json (напр., `""MaxRetries"": 5` везде)."
+a8606d,H,CFG,F5,haiku,,none,path,CFG-h-required,harm,nonnullable-required,D,,yes,judge,"`required` ловит отсутствие значения на компиляции, а не в runtime."
+a8606d,H,CFG,F5,haiku,,none,path,CFG-K1,skill,,,,found,judge,"Пароль БД хранится в файле репозитория: `""Password"": ""Kx7!pQ2vR9wz""`."
+a8606d,H,CFG,F5,haiku,,none,path,CFG-K2,skill,,,,found,judge,"`config.GetValue<int>(""Throttle:MessagesPerMinute"")` вернёт 0 ... даст `DivisionByZeroException`"
+a8606d,H,CFG,F5,haiku,,none,path,CFG-K3,skill,,,,found,judge,Валидатор `OutboxOptionsValidator` не зарегистрирован в DI.
+a8606d,H,CFG,F5,haiku,,none,path,CFG-K4,skill,,,,found,judge,"Использует `IOptions<OutboxOptions>`, что не поддерживает reload on change."
+a8606d,H,CFG,F5,haiku,,none,path,CFG-K5,skill,,,,found,judge,"Кросс-полевой инвариант Options проверяется тихим `if`, а не валидацией"
+a8606d,H,CFG,F5,haiku,,none,path,CFG-K6,skill,,,,found,judge,"`Task.Delay(TimeSpan.FromSeconds(o.PollInterval), ct)` ... задержку в 500 секунд"
+a8606d,H,CFG,F5,haiku,,none,path,CFG-K7,skill,,,,found,judge,Свойства `Host` и `FromAddress` - non-nullable строки без `required` и без дефолтов.
+a8606d,H,CFG,F5,haiku,,none,path,CFG-h-P1,harm,,,,yes,judge,"SmtpMailSender.cs, строка 8 ... Использует `IOptions<SmtpOptions>`, что не поддерживает reload on change."
+a8606d,H,CFG,F5,haiku,,none,path,CFG-h-P2,harm,,,,no,judge,нет
+a8606d,H,CFG,F5,haiku,,none,path,CFG-O1,coverage,,,,missed,judge,нет
+a8606d,H,CFG,F5,haiku,,none,path,CFG-O2,coverage,,,,missed,judge,нет
+a8606d,H,CFG,F5,haiku,,none,path,CFG-O3,coverage,,,,missed,judge,нет
+e31103,H,L5,F1,haiku,,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,var distinctIds = customerIds.Distinct().ToList();
+e31103,H,L5,F1,haiku,,none,path,L5-h-chunk,harm,contains-list,D,,no,judge,нет
+e31103,H,L5,F1,haiku,,none,path,L5-m-enum,mine,,,,no,judge,customerIds.Distinct().ToList()
+2fd7d3,H,K1,F5,haiku,,none,path,K1-key,unit,keyed-literal,C,,fail,judge,"builder.Services.AddKeyedScoped<INotificationSender, SmsSender>(""sms"");"
+05fa9d,H,FVB,F0,haiku,,none,path,FVB-KB1,unit,latest-vs-version,B,,fail,judge,нет
+05fa9d,H,FVB,F0,haiku,,none,path,FVB-KB2,unit,fact-on-faith,B,,fail,judge,нет
+05fa9d,H,FVB,F0,haiku,,none,path,FVB-h-PB1,harm,,,,no,judge,"`write_audit(member.id, req.dict())` сохраняет в аудит только исходный запрос"
+05fa9d,H,FVB,F0,haiku,,none,path,FVB-OB1,coverage,,,,found,judge,"другой процесс может изменить баланс члена, что приведет к потере обновления (lost update)"
+05fa9d,H,FVB,F0,haiku,,none,path,FVB-OB2,coverage,,,,found,judge,"При преобразовании в Decimal через `Decimal(POINT_VALUE)` теряется точность, так как float 0.1 не может быть точно представлен"
+05fa9d,H,FVB,F0,haiku,,none,path,FVB-OB3,coverage,,,,missed,judge,нет
+05fa9d,H,FVB,F0,haiku,,none,path,FVB-OB4,coverage,,,,missed,judge,нет
+c68673,H,E2,F0,haiku,,none,path,E2-single,unit,single-not-unique,D,fail,fail,judge,return await query.FirstOrDefaultAsync();
+c68673,H,E2,F0,haiku,,none,path,E2-h-split,harm,,,,no,judge,".Include(o => o.Items)
+            .Include(o => o.Payments)
+            .FirstOrDefaultAsync(o => o.Id == orderId);"
+c68673,H,E2,F0,haiku,,none,path,E2-m-cart,mine,,,,yes,judge,".Where(o => o.CustomerId == customerId)
+            .Include(o => o.Items)
+            .Include(o => o.Payments)
+            .AsAsyncEnumerable();"
+c68673,H,E2,F0,haiku,,none,path,E2-m-nullagg,mine,,,,no,judge,"o.ShippedAt.HasValue)
+            .OrderByDescending(o => o.ShippedAt)
+            .Select(o => o.ShippedAt)
+            .FirstOrDefaultAsync();
+
+        return lastShipped ?? default;"
+b15643,H,K1,F5,haiku,,none,path,K1-key,unit,keyed-literal,C,,pass,judge,"public const string Email = ""email"";"
+a3cab4,H,CFG,F0,haiku,,none,path,CFG-K9,unit,staging-gt-prod,C,,fail,judge,нет
+a3cab4,H,CFG,F0,haiku,,none,path,CFG-K8,unit,default-duplicated,C,,fail,judge,нет
+a3cab4,H,CFG,F0,haiku,,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,нет
+a3cab4,H,CFG,F0,haiku,,none,path,CFG-K1,skill,,,,missed,judge,нет
+a3cab4,H,CFG,F0,haiku,,none,path,CFG-K2,skill,,,,found,judge,"Ключ никогда не будет найден, GetValue вернет 0 (дефолт для int). Это приведет к делению на ноль"
+a3cab4,H,CFG,F0,haiku,,none,path,CFG-K3,skill,,,,missed,judge,Отсутствует валидация PollInterval и MinBatchSize
+a3cab4,H,CFG,F0,haiku,,none,path,CFG-K4,skill,,,,missed,judge,нет
+a3cab4,H,CFG,F0,haiku,,none,path,CFG-K5,skill,,,,found,judge,"MinBatchSize может быть > MaxBatchSize (как в appsettings.Production.json: MinBatchSize=200, MaxBatchSize=100), что нарушает логику adaptive batching"
+a3cab4,H,CFG,F0,haiku,,none,path,CFG-K6,skill,,,,found,judge,"`TimeSpan.FromSeconds(o.PollInterval)` интерпретирует PollInterval как секунды, но в config это 500 миллисекунд"
+a3cab4,H,CFG,F0,haiku,,none,path,CFG-K7,skill,,,,missed,judge,нет
+a3cab4,H,CFG,F0,haiku,,none,path,CFG-h-P1,harm,,,,no,judge,нет
+a3cab4,H,CFG,F0,haiku,,none,path,CFG-h-P2,harm,,,,no,judge,нет
+a3cab4,H,CFG,F0,haiku,,none,path,CFG-O1,coverage,,,,found,judge,Письмо помечается как отправленное (SentAt = now) ДО фактической отправки
+a3cab4,H,CFG,F0,haiku,,none,path,CFG-O2,coverage,,,,missed,judge,нет
+a3cab4,H,CFG,F0,haiku,,none,path,CFG-O3,coverage,,,,missed,judge,нет
+3fd1a9,H,L5,F5,haiku,,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,var uniqueIds = new HashSet<Guid>(customerIds);
+3fd1a9,H,L5,F5,haiku,,none,path,L5-h-chunk,harm,contains-list,D,,yes,judge,// Batching для больших списков (SKILL: Contains ограничен ~2100 параметров)
+3fd1a9,H,L5,F5,haiku,,none,path,L5-m-enum,mine,,,,no,judge,var uniqueIds = new HashSet<Guid>(customerIds);
+193633,H,E2,F5,haiku,,none,path,E2-single,unit,single-not-unique,D,fail,fail,judge,return query.FirstOrDefaultAsync();
+193633,H,E2,F5,haiku,,none,path,E2-h-split,harm,,,,no,judge,".AsSplitQuery()
+            .Where(o => o.Id == id)"
+193633,H,E2,F5,haiku,,none,path,E2-m-cart,mine,,,,no,judge,"ItemsCount = o.Items.Count,
+                PaymentsCount = o.Payments.Count"
+193633,H,E2,F5,haiku,,none,path,E2-m-nullagg,mine,,,,no,judge,"o.ShippedAt != null)
+            .OrderByDescending(o => o.ShippedAt)"
+f90c3d,H,E4,F5,haiku,,none,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+f90c3d,H,E4,F5,haiku,,none,path,E4-cascade,unit,softdelete-cascade,A,,pass,e4,FK без каскада: 2 строк DDL
+f90c3d,H,E4,F5,haiku,,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+f90c3d,H,E4,F5,haiku,,none,path,E4-m-owned,mine,,,,no,judge,public int Complexity { get; set; } = 1;        // 1..5 комплектации
+c8aff8,H,CFG,F5,haiku,,none,path,CFG-K9,unit,staging-gt-prod,C,,pass,judge,"appsettings.Staging.json: `""MaxInFlight"": 20` ← ВЫШЕ"
+c8aff8,H,CFG,F5,haiku,,none,path,CFG-K8,unit,default-duplicated,C,,fail,judge,нет
+c8aff8,H,CFG,F5,haiku,,none,path,CFG-h-required,harm,nonnullable-required,D,,yes,judge,`required` ловит отсутствие на компиляции
+c8aff8,H,CFG,F5,haiku,,none,path,CFG-K1,skill,,,,found,judge,Пароли БД и API-ключи SMTP сохранены в открытом виде в репозитории
+c8aff8,H,CFG,F5,haiku,,none,path,CFG-K2,skill,,,,found,judge,"GetValue вернёт 0 (не найдёт ключ), потом `60_000 / 0` = DivisionByZero"
+c8aff8,H,CFG,F5,haiku,,none,path,CFG-K3,skill,,,,found,judge,"OutboxOptionsValidator существует, но не добавлен в контейнер"
+c8aff8,H,CFG,F5,haiku,,none,path,CFG-K4,skill,,,,found,judge,"Но `IOptions<T>` — это singleton, изменения в appsettings.json не видны. Нужно `IOptionsMonitor<OutboxOptions>`."
+c8aff8,H,CFG,F5,haiku,,none,path,CFG-K5,skill,,,,found,judge,"при нарушении инварианта код молча не выполняется, фича отключается без сигнала"
+c8aff8,H,CFG,F5,haiku,,none,path,CFG-K6,skill,,,,found,judge,При текущем коде `TimeSpan.FromSeconds(500)` = 500 секунд (~8 минут)
+c8aff8,H,CFG,F5,haiku,,none,path,CFG-K7,skill,,,,found,judge,Реально `null` доезжает до первого использования (SmtpMailSender.cs строка 14: `o.FromAddress`) и даёт NRE
+c8aff8,H,CFG,F5,haiku,,none,path,CFG-h-P1,harm,,,,no,judge,нет
+c8aff8,H,CFG,F5,haiku,,none,path,CFG-h-P2,harm,,,,no,judge,использовать `TimeSpan LockTimeout` как образец
+c8aff8,H,CFG,F5,haiku,,none,path,CFG-O1,coverage,,,,missed,judge,нет
+c8aff8,H,CFG,F5,haiku,,none,path,CFG-O2,coverage,,,,found,judge,"Код ищет секцию `""Mail""`, а в конфиге везде `""Smtp""`"
+c8aff8,H,CFG,F5,haiku,,none,path,CFG-O3,coverage,,,,missed,judge,нет
+5a026f,H,E4,F5,haiku,,none,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+5a026f,H,E4,F5,haiku,,none,path,E4-cascade,unit,softdelete-cascade,A,,pass,e4,FK без каскада: 2 строк DDL
+5a026f,H,E4,F5,haiku,,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+5a026f,H,E4,F5,haiku,,none,path,E4-m-owned,mine,,,,no,judge,public int Complexity { get; set; }              // 1..5 - complexity score
+37dfc9,H,L5,F1,haiku,,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,var uniqueIds = new HashSet<Guid>(customerIds);
+37dfc9,H,L5,F1,haiku,,none,path,L5-h-chunk,harm,contains-list,D,,no,judge,нет
+37dfc9,H,L5,F1,haiku,,none,path,L5-m-enum,mine,,,,no,judge,var uniqueIds = new HashSet<Guid>(customerIds);
+59ec72,H,E4,F0,haiku,,none,path,E4-ts,unit,datetime-column,B,,fail,e4,не собирается
+59ec72,H,E4,F0,haiku,,none,path,E4-cascade,unit,softdelete-cascade,A,,fail,e4,не собирается
+59ec72,H,E4,F0,haiku,,none,path,E4-clear,unit,required-orphans,B,,fail,e4,не собирается
+59ec72,H,E4,F0,haiku,,none,path,E4-m-owned,mine,,,,no,judge,public int Complexity { get; set; } = 1;
+7179df,H,K1,F0,haiku,,none,path,K1-key,unit,keyed-literal,C,,fail,judge,"AddKeyedSingleton<INotificationSender, EmailSender>(""email""); ... [FromKeyedServices(""email"")] INotificationSender emailSender"
+554167,H,CFG,F1,haiku,,none,path,CFG-K9,unit,staging-gt-prod,C,,fail,judge,нет
+554167,H,CFG,F1,haiku,,none,path,CFG-K8,unit,default-duplicated,C,,fail,judge,нет
+554167,H,CFG,F1,haiku,,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,нет
+554167,H,CFG,F1,haiku,,none,path,CFG-K1,skill,,,,found,judge,Пароли БД и SMTP-relay-токены хранятся в репозитории вместо переменных окружения
+554167,H,CFG,F1,haiku,,none,path,CFG-K2,skill,,,,found,judge,"Код ищет `""Throttle:MessagesPerMinute""`, но в конфиге это `""Throttle:PerMinute""`"
+554167,H,CFG,F1,haiku,,none,path,CFG-K3,skill,,,,found,judge,"Валидатор создан, но не регистрирован"
+554167,H,CFG,F1,haiku,,none,path,CFG-K4,skill,,,,found,judge,Для изменений на лету требуется `IOptionsMonitor<T>`
+554167,H,CFG,F1,haiku,,none,path,CFG-K5,skill,,,,found,manual,"ручная: конфликт MinBatchSize 200 > MaxBatchSize 100 назван; неверен механизм, дефект по существу тот же"
+554167,H,CFG,F1,haiku,,none,path,CFG-K6,skill,,,,found,judge,`FromSeconds(500)` даст 500 секунд вместо 0.5 секунды
+554167,H,CFG,F1,haiku,,none,path,CFG-K7,skill,,,,found,judge,"`Host`, `FromAddress` - non-nullable строки без инициализации"
+554167,H,CFG,F1,haiku,,none,path,CFG-h-P1,harm,,,,no,judge,нет
+554167,H,CFG,F1,haiku,,none,path,CFG-h-P2,harm,,,,no,judge,нет
+554167,H,CFG,F1,haiku,,none,path,CFG-O1,coverage,,,,missed,judge,нет
+554167,H,CFG,F1,haiku,,none,path,CFG-O2,coverage,,,,missed,judge,нет
+554167,H,CFG,F1,haiku,,none,path,CFG-O3,coverage,,,,missed,judge,нет
+bc2455,H,FVB,F1,haiku,,none,path,FVB-KB1,unit,latest-vs-version,B,,fail,judge,нет
+bc2455,H,FVB,F1,haiku,,none,path,FVB-KB2,unit,fact-on-faith,B,,fail,judge,нет
+bc2455,H,FVB,F1,haiku,,none,path,FVB-h-PB1,harm,,,,no,judge,"логировать `{**req.dict(), ""redeemed"": amount"
+bc2455,H,FVB,F1,haiku,,none,path,FVB-OB1,coverage,,,,missed,judge,нет
+bc2455,H,FVB,F1,haiku,,none,path,FVB-OB2,coverage,,,,found,judge,`Decimal(0.1)` вернёт `Decimal('0.1000000000000000055511151231257827021181583404541015625')`
+bc2455,H,FVB,F1,haiku,,none,path,FVB-OB3,coverage,,,,missed,judge,нет
+bc2455,H,FVB,F1,haiku,,none,path,FVB-OB4,coverage,,,,missed,judge,нет
+024d56,H,E2,F1,haiku,,none,path,E2-single,unit,single-not-unique,D,fail,fail,judge,return query.FirstOrDefaultAsync();
+024d56,H,E2,F1,haiku,,none,path,E2-h-split,harm,,,,no,judge,".Include(o => o.Payments)
+            .AsSplitQuery()"
+024d56,H,E2,F1,haiku,,none,path,E2-m-cart,mine,,,,no,judge,".Include(o => o.Payments)
+            .AsSplitQuery()
+            .AsNoTracking()
+            .AsAsyncEnumerable();"
+024d56,H,E2,F1,haiku,,none,path,E2-m-nullagg,mine,,,,no,judge,o.ShippedAt != null)
+1db5a9,H,K1,F5,haiku,,none,path,K1-key,unit,keyed-literal,C,,pass,judge,"public const string Sms = ""sms"";"
+1f87d2,H,E4,F1,haiku,,none,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+1f87d2,H,E4,F1,haiku,,none,path,E4-cascade,unit,softdelete-cascade,A,,fail,e4,"CASCADE: DDL  CONSTRAINT ""FK_OrderItem_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE | DDL  CONSTRAINT ""FK_Payment_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE"
+1f87d2,H,E4,F1,haiku,,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+1f87d2,H,E4,F1,haiku,,none,path,E4-m-owned,mine,,,,no,judge,public int Complexity { get; set; }
+a0160b,H,FVB,F0,haiku,,none,path,FVB-KB1,unit,latest-vs-version,B,,fail,judge,нет
+a0160b,H,FVB,F0,haiku,,none,path,FVB-KB2,unit,fact-on-faith,B,,fail,judge,нет
+a0160b,H,FVB,F0,haiku,,none,path,FVB-h-PB1,harm,,,,no,judge,нет
+a0160b,H,FVB,F0,haiku,,none,path,FVB-OB1,coverage,,,,found,judge,"два параллельных запроса для одного пользователя могут прочитать одинаковый баланс, оба вычесть баллы и сохранить результаты независимо"
+a0160b,H,FVB,F0,haiku,,none,path,FVB-OB2,coverage,,,,found,judge,Конвертация `Decimal(0.1)` приводит к потере точности из-за погрешностей представления float
+a0160b,H,FVB,F0,haiku,,none,path,FVB-OB3,coverage,,,,found,judge,Клиент может отправить отрицательное значение (чтобы вернуть баллы вместо списания)
+a0160b,H,FVB,F0,haiku,,none,path,FVB-OB4,coverage,,,,missed,judge,нет
+b5e32a,H,FVB,F5,haiku,,none,path,FVB-KB1,unit,latest-vs-version,B,,fail,judge,нет
+b5e32a,H,FVB,F5,haiku,,none,path,FVB-KB2,unit,fact-on-faith,B,,fail,judge,нет
+b5e32a,H,FVB,F5,haiku,,none,path,FVB-h-PB1,harm,,,,no,judge,нет
+b5e32a,H,FVB,F5,haiku,,none,path,FVB-OB1,coverage,,,,missed,judge,нет
+b5e32a,H,FVB,F5,haiku,,none,path,FVB-OB2,coverage,,,,found,judge,"`POINT_VALUE = 0.1` используется как float при работе с Decimal, теряя точность при конвертации"
+b5e32a,H,FVB,F5,haiku,,none,path,FVB-OB3,coverage,,,,missed,judge,нет
+b5e32a,H,FVB,F5,haiku,,none,path,FVB-OB4,coverage,,,,missed,judge,нет
+bf5501,H,L5,F0,haiku,,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,.Where(c => customerIds.Contains(c.Id))
+bf5501,H,L5,F0,haiku,,none,path,L5-h-chunk,harm,contains-list,D,,no,judge,нет
+bf5501,H,L5,F0,haiku,,none,path,L5-m-enum,mine,,,,no,judge,.Where(c => customerIds.Contains(c.Id))
+422de4,H,CFG,F5,haiku,,none,path,CFG-K9,unit,staging-gt-prod,C,,pass,judge,"Staging MaxInFlight = 20, Production = 5. Staging is 4× more aggressive without documented reason."
+422de4,H,CFG,F5,haiku,,none,path,CFG-K8,unit,default-duplicated,C,,pass,judge,"`""MaxRetries"": 5` is in both appsettings.json (line 10) and appsettings.Production.json (line 9)."
+422de4,H,CFG,F5,haiku,,none,path,CFG-h-required,harm,nonnullable-required,D,,yes,judge,Add `required` to SmtpOptions and OutboxOptions non-nullable properties
+422de4,H,CFG,F5,haiku,,none,path,CFG-K1,skill,,,,found,judge,"Database password ""Kx7!pQ2vR9wz"" and MailRelay API key ""rl_live_9f3a1c77e2b04d6d"" hardcoded in repository"
+422de4,H,CFG,F5,haiku,,none,path,CFG-K2,skill,,,,found,judge,Key mismatch → GetValue returns 0 (default). Line 8: `60_000 / perMinute` throws DivisionByZeroException.
+422de4,H,CFG,F5,haiku,,none,path,CFG-K3,skill,,,,found,judge,Program.cs only calls `Configure()` without registering validator to DI or calling `.ValidateOnStart()`
+422de4,H,CFG,F5,haiku,,none,path,CFG-K4,skill,,,,found,judge,"With IOptions, edits to appsettings are never visible to running worker."
+422de4,H,CFG,F5,haiku,,none,path,CFG-K5,skill,,,,found,judge,Batch logic silently breaks when constraint is violated instead of failing loudly at startup.
+422de4,H,CFG,F5,haiku,,none,path,CFG-K6,skill,,,,found,judge,Result: 500 seconds delay (8+ minutes) instead of 0.5 seconds required by MR.
+422de4,H,CFG,F5,haiku,,none,path,CFG-K7,skill,,,,found,judge,Properties `Host` and `FromAddress` are non-nullable (`string`) but lack `required` modifier.
+422de4,H,CFG,F5,haiku,,none,path,CFG-h-P1,harm,,,,no,judge,нет
+422de4,H,CFG,F5,haiku,,none,path,CFG-h-P2,harm,,,,no,judge,нет
+422de4,H,CFG,F5,haiku,,none,path,CFG-O1,coverage,,,,missed,judge,нет
+422de4,H,CFG,F5,haiku,,none,path,CFG-O2,coverage,,,,missed,judge,нет
+422de4,H,CFG,F5,haiku,,none,path,CFG-O3,coverage,,,,missed,judge,нет
+22e8e9,H,K1,F1,haiku,,none,path,K1-key,unit,keyed-literal,C,,fail,judge,"[FromKeyedServices(""email"")] INotificationSender emailSender"
+e2d885,H,FVB,F0,haiku,,none,path,FVB-KB1,unit,latest-vs-version,B,,fail,judge,нет
+e2d885,H,FVB,F0,haiku,,none,path,FVB-KB2,unit,fact-on-faith,B,,fail,judge,нет
+e2d885,H,FVB,F0,haiku,,none,path,FVB-h-PB1,harm,,,,yes,judge,`req.dict()` method doesn't exist in Pydantic v2+ ... **Expected:** `req.model_dump()`
+e2d885,H,FVB,F0,haiku,,none,path,FVB-OB1,coverage,,,,found,judge,Race condition - read (get_member) and write (save_member) operations are not in the same transaction
+e2d885,H,FVB,F0,haiku,,none,path,FVB-OB2,coverage,,,,found,judge,"`POINT_VALUE = 0.1` is a float, not Decimal ... **Expected:** `POINT_VALUE = Decimal(""0.1"")`"
+e2d885,H,FVB,F0,haiku,,none,path,FVB-OB3,coverage,,,,missed,judge,нет
+e2d885,H,FVB,F0,haiku,,none,path,FVB-OB4,coverage,,,,missed,judge,нет
+4a86b9,H,L5,F1,haiku,,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,var idSet = new HashSet<Guid>(customerIds);
+4a86b9,H,L5,F1,haiku,,none,path,L5-h-chunk,harm,contains-list,D,,no,judge,нет
+4a86b9,H,L5,F1,haiku,,none,path,L5-m-enum,mine,,,,no,judge,var idSet = new HashSet<Guid>(customerIds);
+4d8b0f,H,K1,F0,haiku,,none,path,K1-key,unit,keyed-literal,C,,fail,judge,"builder.Services.AddKeyedSingleton<INotificationSender, SmsSender>(""sms"");"
+9dfc55,H,CFG,F5,haiku,,none,path,CFG-K9,unit,staging-gt-prod,C,,pass,judge,"Staging в 4× более нагруженный, чем Production"
+9dfc55,H,CFG,F5,haiku,,none,path,CFG-K8,unit,default-duplicated,C,,fail,judge,нет
+9dfc55,H,CFG,F5,haiku,,none,path,CFG-h-required,harm,nonnullable-required,D,,yes,judge,Решение: Добавить `required`
+9dfc55,H,CFG,F5,haiku,,none,path,CFG-K1,skill,,,,found,judge,Пароли БД и SMTP хранятся в коммиченном файле
+9dfc55,H,CFG,F5,haiku,,none,path,CFG-K2,skill,,,,found,judge,DivisionByZeroException в line 8: `60_000 / perMinute`
+9dfc55,H,CFG,F5,haiku,,none,path,CFG-K3,skill,,,,found,judge,Не зарегистрирован в DI (нет `.TryAddEnumerable`)
+9dfc55,H,CFG,F5,haiku,,none,path,CFG-K4,skill,,,,found,judge,"`IOptions<T>` кэшируется на весь lifetime приложения (singleton), не поддерживает reload"
+9dfc55,H,CFG,F5,haiku,,none,path,CFG-K5,skill,,,,found,judge,адаптивная пакетизация - молча не работает при нарушении условия
+9dfc55,H,CFG,F5,haiku,,none,path,CFG-K6,skill,,,,found,judge,500 сек ≈ 8 минут вместо 0.5 сек
+9dfc55,H,CFG,F5,haiku,,none,path,CFG-K7,skill,,,,found,judge,"SmtpOptions.cs:5,7 - Non-nullable свойства без `required`"
+9dfc55,H,CFG,F5,haiku,,none,path,CFG-h-P1,harm,,,,no,judge,нет
+9dfc55,H,CFG,F5,haiku,,none,path,CFG-h-P2,harm,,,,no,judge,нет
+9dfc55,H,CFG,F5,haiku,,none,path,CFG-O1,coverage,,,,missed,judge,нет
+9dfc55,H,CFG,F5,haiku,,none,path,CFG-O2,coverage,,,,found,judge,"Код ищет раздел `""Mail""`, но в appsettings это `""Smtp""`"
+9dfc55,H,CFG,F5,haiku,,none,path,CFG-O3,coverage,,,,missed,judge,нет
+e479a6,H,L5,F5,haiku,,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,var idsList = customerIds.Distinct().ToList();
+e479a6,H,L5,F5,haiku,,none,path,L5-h-chunk,harm,contains-list,D,,yes,judge,// Batching для больших списков (SQL параметры ограничены)
+e479a6,H,L5,F5,haiku,,none,path,L5-m-enum,mine,,,,no,judge,customerIds.Distinct().ToList()
+03c20e,H,K1,F0,haiku,,none,path,K1-key,unit,keyed-literal,C,,fail,judge,"builder.Services.AddKeyedSingleton<INotificationSender, SmsSender>(""sms"");"
+d06814,H,CFG,F1,haiku,,none,path,CFG-K9,unit,staging-gt-prod,C,,fail,judge,нет
+d06814,H,CFG,F1,haiku,,none,path,CFG-K8,unit,default-duplicated,C,,fail,judge,нет
+d06814,H,CFG,F1,haiku,,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,нет
+d06814,H,CFG,F1,haiku,,none,path,CFG-K1,skill,,,,missed,judge,нет
+d06814,H,CFG,F1,haiku,,none,path,CFG-K2,skill,,,,found,judge,"`GetValue<int>()` вернёт 0 (значение по умолчанию), что приведёт к `60_000 / 0` — **делению на ноль**"
+d06814,H,CFG,F1,haiku,,none,path,CFG-K3,skill,,,,found,judge,"OutboxOptionsValidator не зарегистрирован в DI, валидация конфигурации не работает"
+d06814,H,CFG,F1,haiku,,none,path,CFG-K4,skill,,,,missed,judge,ThrottleService.cs — должен использовать IOptions<ThrottleOptions> вместо IConfiguration
+d06814,H,CFG,F1,haiku,,none,path,CFG-K5,skill,,,,found,judge,"проверяет `if (o.MinBatchSize < o.MaxBatchSize)`, но в Production это условие никогда не будет истинно. Адаптивное батчинг не будет работать."
+d06814,H,CFG,F1,haiku,,none,path,CFG-K6,skill,,,,found,judge,Опрос будет раз в 500 сек вместо 0.5 сек
+d06814,H,CFG,F1,haiku,,none,path,CFG-K7,skill,,,,found,judge,"SmtpOptions имеет non-nullable строковые свойства, которые будут привязаны к null"
+d06814,H,CFG,F1,haiku,,none,path,CFG-h-P1,harm,,,,no,judge,нет
+d06814,H,CFG,F1,haiku,,none,path,CFG-h-P2,harm,,,,no,judge,нет
+d06814,H,CFG,F1,haiku,,none,path,CFG-O1,coverage,,,,missed,judge,нет
+d06814,H,CFG,F1,haiku,,none,path,CFG-O2,coverage,,,,missed,judge,нет
+d06814,H,CFG,F1,haiku,,none,path,CFG-O3,coverage,,,,missed,judge,нет
+f53be3,H,FVB,F0,haiku,,none,path,FVB-KB1,unit,latest-vs-version,B,,fail,judge,нет
+f53be3,H,FVB,F0,haiku,,none,path,FVB-KB2,unit,fact-on-faith,B,,fail,judge,нет
+f53be3,H,FVB,F0,haiku,,none,path,FVB-h-PB1,harm,,,,no,judge,нет
+f53be3,H,FVB,F0,haiku,,none,path,FVB-OB1,coverage,,,,missed,judge,нет
+f53be3,H,FVB,F0,haiku,,none,path,FVB-OB2,coverage,,,,found,judge,Float представление 0.1 неточно (0.1000000000000000055...)
+f53be3,H,FVB,F0,haiku,,none,path,FVB-OB3,coverage,,,,missed,judge,нет
+f53be3,H,FVB,F0,haiku,,none,path,FVB-OB4,coverage,,,,missed,judge,нет
+98c874,H,CFG,F1,haiku,,none,path,CFG-K9,unit,staging-gt-prod,C,,fail,judge,нет
+98c874,H,CFG,F1,haiku,,none,path,CFG-K8,unit,default-duplicated,C,,fail,judge,нет
+98c874,H,CFG,F1,haiku,,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,нет
+98c874,H,CFG,F1,haiku,,none,path,CFG-K1,skill,,,,found,judge,"Содержит в открытом виде критические секреты: пароль БД (`Kx7!pQ2vR9wz`), пароль SMTP"
+98c874,H,CFG,F1,haiku,,none,path,CFG-K2,skill,,,,found,judge,"Ищет ""Throttle:MessagesPerMinute"", но в конфигурационных файлах ключ ""Throttle:PerMinute"""
+98c874,H,CFG,F1,haiku,,none,path,CFG-K3,skill,,,,found,judge,"OutboxOptionsValidator создан (Options/OutboxOptionsValidator.cs), но не зарегистрирован в DI контейнере. Валидация конфигурации при старте не происходит"
+98c874,H,CFG,F1,haiku,,none,path,CFG-K4,skill,,,,found,judge,Используется IOptions<OutboxOptions> и IOptions<SmtpOptions> вместо IOptionsMonitor
+98c874,H,CFG,F1,haiku,,none,path,CFG-K5,skill,,,,found,judge,"MinBatchSize (200) > MaxBatchSize (100), что является невалидной конфигурацией"
+98c874,H,CFG,F1,haiku,,none,path,CFG-K6,skill,,,,found,judge,"`TimeSpan.FromSeconds(o.PollInterval)` интерпретирует PollInterval как секунды, но в конфигурации это миллисекунды (500)"
+98c874,H,CFG,F1,haiku,,none,path,CFG-K7,skill,,,,found,judge,"SmtpOptions содержит non-nullable свойства (Host, Port, FromAddress), но нет валидатора"
+98c874,H,CFG,F1,haiku,,none,path,CFG-h-P1,harm,,,,yes,judge,Используется IOptions<OutboxOptions> и IOptions<SmtpOptions> вместо IOptionsMonitor
+98c874,H,CFG,F1,haiku,,none,path,CFG-h-P2,harm,,,,no,judge,нет
+98c874,H,CFG,F1,haiku,,none,path,CFG-O1,coverage,,,,missed,judge,нет
+98c874,H,CFG,F1,haiku,,none,path,CFG-O2,coverage,,,,missed,judge,нет
+98c874,H,CFG,F1,haiku,,none,path,CFG-O3,coverage,,,,missed,judge,нет
+c9519b,H,E2,F5,haiku,,none,path,E2-single,unit,single-not-unique,D,fail,fail,judge,"если null, берёт FirstOrDefaultAsync без фильтра по складу"
+c9519b,H,E2,F5,haiku,,none,path,E2-h-split,harm,,,,yes,judge,AsSplitQuery для больших наборов
+c9519b,H,E2,F5,haiku,,none,path,E2-m-cart,mine,,,,no,judge,".AsSplitQuery()
+            .ToListAsync();"
+c9519b,H,E2,F5,haiku,,none,path,E2-m-nullagg,mine,,,,no,judge,o.ShippedAt != null ... return date ?? DateTime.MinValue;
+b1bafb,H,FVB,F1,haiku,,none,path,FVB-KB1,unit,latest-vs-version,B,,fail,judge,нет
+b1bafb,H,FVB,F1,haiku,,none,path,FVB-KB2,unit,fact-on-faith,B,,fail,judge,нет
+b1bafb,H,FVB,F1,haiku,,none,path,FVB-h-PB1,harm,,,,yes,judge,req.dict() может не работать на Pydantic v2 (нужен model_dump())
+b1bafb,H,FVB,F1,haiku,,none,path,FVB-OB1,coverage,,,,missed,judge,нет
+b1bafb,H,FVB,F1,haiku,,none,path,FVB-OB2,coverage,,,,found,judge,"POINT_VALUE это float (0.1), конвертируется в Decimal с неточностью"
+b1bafb,H,FVB,F1,haiku,,none,path,FVB-OB3,coverage,,,,missed,judge,нет
+b1bafb,H,FVB,F1,haiku,,none,path,FVB-OB4,coverage,,,,missed,judge,нет
+54f8aa,H,FVB,F1,haiku,,none,path,FVB-KB1,unit,latest-vs-version,B,,fail,judge,Многострочный комментарий в коде
+54f8aa,H,FVB,F1,haiku,,none,path,FVB-KB2,unit,fact-on-faith,B,,fail,judge,нет
+54f8aa,H,FVB,F1,haiku,,none,path,FVB-h-PB1,harm,,,,yes,judge,Заменить на `req.model_dump()`
+54f8aa,H,FVB,F1,haiku,,none,path,FVB-OB1,coverage,,,,found,judge,"если две операции одновременно вызовут get_member, изменят points и вызовут save_member, вторая операция перезапишет первую"
+54f8aa,H,FVB,F1,haiku,,none,path,FVB-OB2,coverage,,,,found,judge,При вызове `Decimal(0.1)` получится `Decimal('0.1000000000000000055511151231257827021181583404541015625')`
+54f8aa,H,FVB,F1,haiku,,none,path,FVB-OB3,coverage,,,,missed,judge,нет
+54f8aa,H,FVB,F1,haiku,,none,path,FVB-OB4,coverage,,,,missed,judge,нет
+33a880,H,K1,F0,haiku,,none,path,K1-key,unit,keyed-literal,C,,fail,judge,"GetRequiredKeyedService<INotificationSender>(""email"")"
+d61bd0,H,E2,F0,haiku,,none,path,E2-single,unit,single-not-unique,D,fail,fail,judge,return results.Count == 1 ? results[0] : null;
+d61bd0,H,E2,F0,haiku,,none,path,E2-h-split,harm,,,,no,judge,"используют `Include()` для загрузки связанных Items и Payments одним запросом, что более эффективно для больших объёмов данных чем N+1 queries"
+d61bd0,H,E2,F0,haiku,,none,path,E2-m-cart,mine,,,,yes,judge,".Where(o => o.CustomerId == customerId)
+            .Include(o => o.Items)
+            .Include(o => o.Payments)
+            .ToListAsync();"
+d61bd0,H,E2,F0,haiku,,none,path,E2-m-nullagg,mine,,,,no,judge,.Where(o => o.CustomerId == customerId && o.ShippedAt != null)
+0b52b6,H,K1,F5,haiku,,none,path,K1-key,unit,keyed-literal,C,,pass,judge,"public const string Email = ""email""; ... AddKeyedSingleton<INotificationSender, EmailSender>(NotificationServiceKeys.Email); ... [FromKeyedServices(NotificationServiceKeys.Sms)]"
+567b29,H,CFG,F1,haiku,,none,path,CFG-K9,unit,staging-gt-prod,C,,fail,judge,нет
+567b29,H,CFG,F1,haiku,,none,path,CFG-K8,unit,default-duplicated,C,,fail,judge,нет
+567b29,H,CFG,F1,haiku,,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,нет
+567b29,H,CFG,F1,haiku,,none,path,CFG-K1,skill,,,,found,judge,"ConnectionString содержит пароль: `""Password=Kx7!pQ2vR9wz""`"
+567b29,H,CFG,F1,haiku,,none,path,CFG-K2,skill,,,,found,judge,"`GetValue` вернёт значение по умолчанию (0), что приведёт к делению на ноль"
+567b29,H,CFG,F1,haiku,,none,path,CFG-K3,skill,,,,found,judge,"`OutboxOptionsValidator` создан, но никогда не зарегистрирован в DI контейнере"
+567b29,H,CFG,F1,haiku,,none,path,CFG-K4,skill,,,,missed,judge,нет
+567b29,H,CFG,F1,haiku,,none,path,CFG-K5,skill,,,,found,judge,"код проверяет `if (o.MinBatchSize < o.MaxBatchSize)`, при таких значениях логика адаптивной пакетизации не будет работать корректно"
+567b29,H,CFG,F1,haiku,,none,path,CFG-K6,skill,,,,found,judge,`FromSeconds` интерпретирует его как 500 секунд
+567b29,H,CFG,F1,haiku,,none,path,CFG-K7,skill,,,,found,manual,ручная: non-nullable FromAddress без значения назван дефектом
+567b29,H,CFG,F1,haiku,,none,path,CFG-h-P1,harm,,,,no,judge,нет
+567b29,H,CFG,F1,haiku,,none,path,CFG-h-P2,harm,,,,no,judge,нет
+567b29,H,CFG,F1,haiku,,none,path,CFG-O1,coverage,,,,found,judge,Флаг `m.SentAt = now;` устанавливается для всего батча ДО попытки отправки
+567b29,H,CFG,F1,haiku,,none,path,CFG-O2,coverage,,,,found,judge,"`builder.Configuration.GetSection(""Mail"")` ищет раздел `""Mail""`, но в конфигурационных файлах раздел называется `""Smtp""`"
+567b29,H,CFG,F1,haiku,,none,path,CFG-O3,coverage,,,,missed,judge,нет
+107c47,H,E2,F1,haiku,,none,path,E2-single,unit,single-not-unique,D,fail,fail,judge,return await query.FirstOrDefaultAsync();
+107c47,H,E2,F1,haiku,,none,path,E2-h-split,harm,,,,no,judge,".Include(o => o.Payments)
+            .AsSplitQuery()
+            .FirstOrDefaultAsync();"
+107c47,H,E2,F1,haiku,,none,path,E2-m-cart,mine,,,,no,judge,".Where(o => o.CustomerId == customerId)
+            .Include(o => o.Items)
+            .Include(o => o.Payments)
+            .AsSplitQuery()"
+107c47,H,E2,F1,haiku,,none,path,E2-m-nullagg,mine,,,,no,judge,.Where(o => o.CustomerId == customerId && o.ShippedAt != null)
+249988,H,L5,F5,haiku,,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,var uniqueIds = customerIds.Distinct().ToList();
+249988,H,L5,F5,haiku,,none,path,L5-h-chunk,harm,contains-list,D,,no,judge,нет
+249988,H,L5,F5,haiku,,none,path,L5-m-enum,mine,,,,no,judge,customerIds.Distinct().ToList()
+37fd6a,H,CFG,F0,haiku,,none,path,CFG-K9,unit,staging-gt-prod,C,,fail,judge,нет
+37fd6a,H,CFG,F0,haiku,,none,path,CFG-K8,unit,default-duplicated,C,,fail,judge,нет
+37fd6a,H,CFG,F0,haiku,,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,нет
+37fd6a,H,CFG,F0,haiku,,none,path,CFG-K1,skill,,,,found,judge,Пароли от БД и API-ключи mail relay хранятся в открытом виде в исходном коде
+37fd6a,H,CFG,F0,haiku,,none,path,CFG-K2,skill,,,,found,judge,"Ключ `PerMinute` не совпадает с запрашиваемым `MessagesPerMinute`. Конфиг не будет найден, вернется default значение (0), что приведет к `DivideByZeroException`"
+37fd6a,H,CFG,F0,haiku,,none,path,CFG-K3,skill,,,,missed,judge,Валидатор не проверяет:
+37fd6a,H,CFG,F0,haiku,,none,path,CFG-K4,skill,,,,missed,judge,Поле `_batchSize` типа `int` не потокобезопасно
+37fd6a,H,CFG,F0,haiku,,none,path,CFG-K5,skill,,,,found,judge,Противоречивая конфигурация: `MinBatchSize: 200` > `MaxBatchSize: 100`... Невозможно установить адаптивный батчинг между 200 и 100 элементами
+37fd6a,H,CFG,F0,haiku,,none,path,CFG-K6,skill,,,,found,judge,`PollInterval: 500` интерпретируется как 500 **секунд**
+37fd6a,H,CFG,F0,haiku,,none,path,CFG-K7,skill,,,,missed,judge,нет
+37fd6a,H,CFG,F0,haiku,,none,path,CFG-h-P1,harm,,,,no,judge,нет
+37fd6a,H,CFG,F0,haiku,,none,path,CFG-h-P2,harm,,,,no,judge,нет
+37fd6a,H,CFG,F0,haiku,,none,path,CFG-O1,coverage,,,,found,judge,`SentAt` устанавливается на строке 53 ДО фактической попытки отправки
+37fd6a,H,CFG,F0,haiku,,none,path,CFG-O2,coverage,,,,missed,judge,нет
+37fd6a,H,CFG,F0,haiku,,none,path,CFG-O3,coverage,,,,missed,judge,нет
+4dd262,H,E4,F0,haiku,,none,path,E4-ts,unit,datetime-column,B,,fail,e4,"WRITE FAIL Cannot write DateTime with Kind=UTC to PostgreSQL type 'timestamp without time zone', consider using 'timestamp with time zone'. Note that it's not possible to mix DateTimes with different Kinds in an array, range, or multirange. (Parameter 'value')"
+4dd262,H,E4,F0,haiku,,none,path,E4-cascade,unit,softdelete-cascade,A,,pass,e4,FK без каскада: 2 строк DDL
+4dd262,H,E4,F0,haiku,,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+4dd262,H,E4,F0,haiku,,none,path,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }             // 1..5, сложность комплектации"
+0f6e92,H,E2,F1,haiku,,none,path,E2-single,unit,single-not-unique,D,fail,fail,judge,return await query.FirstOrDefaultAsync();
+0f6e92,H,E2,F1,haiku,,none,path,E2-h-split,harm,,,,no,judge,".Include(o => o.Payments)
+            .AsSplitQuery()
+            .FirstOrDefaultAsync();"
+0f6e92,H,E2,F1,haiku,,none,path,E2-m-cart,mine,,,,no,judge,".Where(o => o.CustomerId == customerId)
+            .Include(o => o.Items)
+            .Include(o => o.Payments)
+            .AsSplitQuery()"
+0f6e92,H,E2,F1,haiku,,none,path,E2-m-nullagg,mine,,,,no,judge,.Where(o => o.CustomerId == customerId && o.ShippedAt.HasValue)
+ee105c,H,L5,F1,haiku,,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,.Where(c => idsList.Contains(c.Id))
+ee105c,H,L5,F1,haiku,,none,path,L5-h-chunk,harm,contains-list,D,,no,judge,нет
+ee105c,H,L5,F1,haiku,,none,path,L5-m-enum,mine,,,,no,judge,var idsList = customerIds.ToList();
+bbea2f,H,CFG,F0,haiku,,none,path,CFG-K9,unit,staging-gt-prod,C,,fail,judge,нет
+bbea2f,H,CFG,F0,haiku,,none,path,CFG-K8,unit,default-duplicated,C,,fail,judge,нет
+bbea2f,H,CFG,F0,haiku,,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,нет
+bbea2f,H,CFG,F0,haiku,,none,path,CFG-K1,skill,,,,found,judge,Пароли и API ключи в открытом виде в исходном коде
+bbea2f,H,CFG,F0,haiku,,none,path,CFG-K2,skill,,,,found,judge,"GetValue вернёт 0 (default для int), что приведёт к DivideByZeroException"
+bbea2f,H,CFG,F0,haiku,,none,path,CFG-K3,skill,,,,found,judge,OutboxOptionsValidator не зарегистрирован в DI контейнере
+bbea2f,H,CFG,F0,haiku,,none,path,CFG-K4,skill,,,,found,judge,Используется `IOptions<OutboxOptions>` вместо `IOptionsMonitor<OutboxOptions>`
+bbea2f,H,CFG,F0,haiku,,none,path,CFG-K5,skill,,,,found,judge,Логика адаптивного батчинга сломается
+bbea2f,H,CFG,F0,haiku,,none,path,CFG-K6,skill,,,,missed,judge,нет
+bbea2f,H,CFG,F0,haiku,,none,path,CFG-K7,skill,,,,missed,judge,нет
+bbea2f,H,CFG,F0,haiku,,none,path,CFG-h-P1,harm,,,,no,judge,нет
+bbea2f,H,CFG,F0,haiku,,none,path,CFG-h-P2,harm,,,,no,judge,нет
+bbea2f,H,CFG,F0,haiku,,none,path,CFG-O1,coverage,,,,found,judge,"Сообщения помечаются как отправленные (`m.SentAt = now`) ДО того, как они фактически отправлены"
+bbea2f,H,CFG,F0,haiku,,none,path,CFG-O2,coverage,,,,missed,judge,нет
+bbea2f,H,CFG,F0,haiku,,none,path,CFG-O3,coverage,,,,missed,judge,нет
+731cab,H,E4,F5,haiku,,none,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+731cab,H,E4,F5,haiku,,none,path,E4-cascade,unit,softdelete-cascade,A,,pass,e4,FK без каскада: 2 строк DDL
+731cab,H,E4,F5,haiku,,none,path,E4-clear,unit,required-orphans,B,,fail,e4,"CLEAR FAIL InvalidOperationException: The association between entity types 'Order' and 'OrderItem' has been severed, but the relationship is either marked as required or is implicitly required because the foreign key is not nullable"
+731cab,H,E4,F5,haiku,,none,path,E4-m-owned,mine,,,,no,judge,public int Complexity { get; set; }
+d16f73,H,L5,F0,haiku,,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,.Where(c => customerIds.Contains(c.Id))
+d16f73,H,L5,F0,haiku,,none,path,L5-h-chunk,harm,contains-list,D,,no,judge,нет
+d16f73,H,L5,F0,haiku,,none,path,L5-m-enum,mine,,,,no,judge,.Where(c => customerIds.Contains(c.Id))
+9b9473,H,L5,F0,haiku,,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,.Where(c => customerIds.Contains(c.Id))
+9b9473,H,L5,F0,haiku,,none,path,L5-h-chunk,harm,contains-list,D,,no,judge,нет
+9b9473,H,L5,F0,haiku,,none,path,L5-m-enum,mine,,,,no,judge,.Where(c => customerIds.Contains(c.Id))
+268892,H,E2,F1,haiku,,none,path,E2-single,unit,single-not-unique,D,fail,fail,judge,".Where(p => p.Sku == sku && (warehouse == null || p.Warehouse == warehouse))
+            .FirstOrDefaultAsync();"
+268892,H,E2,F1,haiku,,none,path,E2-h-split,harm,,,,no,judge,".Include(o => o.Items)
+            .Include(o => o.Payments)
+            .FirstOrDefaultAsync();"
+268892,H,E2,F1,haiku,,none,path,E2-m-cart,mine,,,,no,judge,".Include(o => o.Payments)
+            .AsSplitQuery()
+            .ToListAsync();"
+268892,H,E2,F1,haiku,,none,path,E2-m-nullagg,mine,,,,no,judge,".Where(o => o.CustomerId == customerId && o.ShippedAt != null)
+            .MaxAsync(o => (DateTime?)o.ShippedAt);
+        return date ?? DateTime.MinValue;"
+ab72e2,H,K1,F1,haiku,,none,path,K1-key,unit,keyed-literal,C,,fail,judge,"builder.Services.AddKeyedSingleton<INotificationSender, SmsSender>(""sms"");"
+d9bd84,H,E4,F1,haiku,,none,path,E4-ts,unit,datetime-column,B,,fail,e4,"WRITE FAIL Cannot write DateTime with Kind=UTC to PostgreSQL type 'timestamp without time zone', consider using 'timestamp with time zone'. Note that it's not possible to mix DateTimes with different Kinds in an array, range, or multirange. (Parameter 'value')"
+d9bd84,H,E4,F1,haiku,,none,path,E4-cascade,unit,softdelete-cascade,A,,fail,e4,"CASCADE: DDL  CONSTRAINT ""FK_OrderItem_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE | DDL  CONSTRAINT ""FK_Payment_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE"
+d9bd84,H,E4,F1,haiku,,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+d9bd84,H,E4,F1,haiku,,none,path,E4-m-owned,mine,,,,no,judge,public int Complexity { get; set; }
+ff187b,H,K1,F1,haiku,,none,path,K1-key,unit,keyed-literal,C,,fail,judge,"builder.Services.AddKeyedSingleton<INotificationSender, SmsSender>(""sms"");"
+bd7c77,H,FVB,F5,haiku,,none,path,FVB-KB1,unit,latest-vs-version,B,,fail,judge,нет
+bd7c77,H,FVB,F5,haiku,,none,path,FVB-KB2,unit,fact-on-faith,B,,fail,judge,нет
+bd7c77,H,FVB,F5,haiku,,none,path,FVB-h-PB1,harm,,,,no,judge,нет
+bd7c77,H,FVB,F5,haiku,,none,path,FVB-OB1,coverage,,,,missed,judge,нет
+bd7c77,H,FVB,F5,haiku,,none,path,FVB-OB2,coverage,,,,found,judge,"POINT_VALUE следует определить как `Decimal(""0.1"")`"
+bd7c77,H,FVB,F5,haiku,,none,path,FVB-OB3,coverage,,,,missed,judge,нет
+bd7c77,H,FVB,F5,haiku,,none,path,FVB-OB4,coverage,,,,missed,judge,нет
+d8ba9c,H,E4,F1,haiku,,none,path,E4-ts,unit,datetime-column,B,,fail,e4,не собирается
+d8ba9c,H,E4,F1,haiku,,none,path,E4-cascade,unit,softdelete-cascade,A,,fail,e4,не собирается
+d8ba9c,H,E4,F1,haiku,,none,path,E4-clear,unit,required-orphans,B,,fail,e4,не собирается
+d8ba9c,H,E4,F1,haiku,,none,path,E4-m-owned,mine,,,,no,judge,public int Complexity { get; set; }
+f528e3,H,E4,F0,haiku,,none,path,E4-ts,unit,datetime-column,B,,fail,e4,"WRITE FAIL Cannot write DateTime with Kind=UTC to PostgreSQL type 'timestamp without time zone', consider using 'timestamp with time zone'. Note that it's not possible to mix DateTimes with different Kinds in an array, range, or multirange. (Parameter 'value')"
+f528e3,H,E4,F0,haiku,,none,path,E4-cascade,unit,softdelete-cascade,A,,fail,e4,"CASCADE: DDL  CONSTRAINT ""FK_OrderItem_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE | DDL  CONSTRAINT ""FK_Payment_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE"
+f528e3,H,E4,F0,haiku,,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+f528e3,H,E4,F0,haiku,,none,path,E4-m-owned,mine,,,,no,judge,public int Complexity { get; set; }
+2addf4,H,E2,F5,haiku,,none,path,E2-single,unit,single-not-unique,D,fail,fail,judge,return await query.FirstOrDefaultAsync();
+2addf4,H,E2,F5,haiku,,none,path,E2-h-split,harm,,,,no,judge,Загружает одно заказ со всеми позициями (Items) и платежами (Payments) через `Include`
+2addf4,H,E2,F5,haiku,,none,path,E2-m-cart,mine,,,,no,judge,".AsSplitQuery()
+            .Include(o => o.Items)
+            .Include(o => o.Payments)"
+2addf4,H,E2,F5,haiku,,none,path,E2-m-nullagg,mine,,,,no,judge,o.ShippedAt != null ... return result ?? default;
+fdf790,H,E2,F0,haiku,,none,path,E2-single,unit,single-not-unique,D,fail,fail,judge,"return await _db.Products
+            .Where(p => p.Sku == sku)
+            .FirstOrDefaultAsync();"
+fdf790,H,E2,F0,haiku,,none,path,E2-h-split,harm,,,,no,judge,загружает заказ с Include для Items и Payments
+fdf790,H,E2,F0,haiku,,none,path,E2-m-cart,mine,,,,yes,judge,".Where(o => o.CustomerId == customerId)
+            .Include(o => o.Items)
+            .Include(o => o.Payments)
+            .AsNoTracking();"
+fdf790,H,E2,F0,haiku,,none,path,E2-m-nullagg,mine,,,,no,judge,"o.ShippedAt != null)
+            .OrderByDescending(o => o.ShippedAt)"
+2a0283,H,E4,F5,haiku,,none,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+2a0283,H,E4,F5,haiku,,none,path,E4-cascade,unit,softdelete-cascade,A,,pass,e4,FK без каскада: 2 строк DDL
+2a0283,H,E4,F5,haiku,,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+2a0283,H,E4,F5,haiku,,none,path,E4-m-owned,mine,,,,no,judge,public int Complexity { get; set; }

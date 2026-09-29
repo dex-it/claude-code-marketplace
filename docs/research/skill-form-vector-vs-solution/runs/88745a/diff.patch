@@ -1,0 +1,98 @@
+diff --git a/OrderReportModels.cs b/OrderReportModels.cs
+new file mode 100644
+index 0000000..da0a217
+--- /dev/null
++++ b/OrderReportModels.cs
+@@ -0,0 +1,4 @@
++namespace Shop.Data;
++
++// DTO для страницы отчётов: только поля, нужные там, без подтягивания целой сущности Order.
++public record OrderSummaryDto(Guid Id, string CustomerName, decimal Total, int ItemsCount);
+diff --git a/OrderReportService.cs b/OrderReportService.cs
+new file mode 100644
+index 0000000..9ca5020
+--- /dev/null
++++ b/OrderReportService.cs
+@@ -0,0 +1,23 @@
++namespace Shop.Data;
++
++// Только чтение: данные для страницы отчётов. Опирается на OrderRepository,
++// который делает выборку и группировку на стороне БД (не в памяти).
++public class OrderReportService
++{
++    private readonly OrderRepository _orders;
++    public OrderReportService(OrderRepository orders) => _orders = orders;
++
++    // (а) Активные заказы: Id, имя клиента, Total, число позиций.
++    public Task<List<OrderSummaryDto>> GetActiveOrdersAsync() =>
++        _orders.GetActiveSummariesAsync();
++
++    // (б) Число активных заказов по категориям.
++    public Task<Dictionary<string, int>> GetActiveOrderCountsByCategoryAsync() =>
++        _orders.GetActiveCountsByCategoryAsync();
++
++    // (в) Просроченные заказы на момент now (правило см. Order.IsOverdue).
++    // now должен быть того же DateTimeKind, что и CreatedAt (Unspecified,
++    // колонка timestamp without time zone) — иначе сравнение будет некорректным.
++    public Task<List<OrderSummaryDto>> GetOverdueOrdersAsync(DateTime now) =>
++        _orders.GetOverdueSummariesAsync(now);
++}
+diff --git a/OrderRepository.cs b/OrderRepository.cs
+index 72637b8..62b6850 100644
+--- a/OrderRepository.cs
++++ b/OrderRepository.cs
+@@ -1,3 +1,5 @@
++using System.Linq.Expressions;
++
+ namespace Shop.Data;
+ 
+ public class OrderRepository
+@@ -6,4 +8,31 @@ public class OrderRepository
+     public OrderRepository(ShopDbContext db) => _db = db;
+     public Task<List<Order>> GetAllAsync() => _db.Orders.ToListAsync();
+     public Task<Order?> GetAsync(Guid id) => _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
++
++    // Тот же критерий, что и в Order.IsOverdue, но как выражение: вызов самого
++    // инстанс-метода внутри LINQ-запроса EF Core не транслирует в SQL.
++    private static Expression<Func<Order, bool>> OverdueFilter(DateTime now) =>
++        o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < now;
++
++    private static readonly Expression<Func<Order, OrderSummaryDto>> ToSummary =
++        o => new OrderSummaryDto(o.Id, o.Customer.Name, o.Total, o.Items.Count);
++
++    public Task<List<OrderSummaryDto>> GetActiveSummariesAsync() =>
++        _db.Orders.AsNoTracking()
++            .Where(o => o.Status == "active")
++            .Select(ToSummary)
++            .ToListAsync();
++
++    public async Task<Dictionary<string, int>> GetActiveCountsByCategoryAsync() =>
++        await _db.Orders.AsNoTracking()
++            .Where(o => o.Status == "active")
++            .GroupBy(o => o.Category)
++            .Select(g => new { Category = g.Key, Count = g.Count() })
++            .ToDictionaryAsync(x => x.Category, x => x.Count);
++
++    public Task<List<OrderSummaryDto>> GetOverdueSummariesAsync(DateTime now) =>
++        _db.Orders.AsNoTracking()
++            .Where(OverdueFilter(now))
++            .Select(ToSummary)
++            .ToListAsync();
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..e29c082
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,11 @@
++## Созданные/изменённые файлы
++
++- `OrderReportModels.cs` (новый) — `OrderSummaryDto(Id, CustomerName, Total, ItemsCount)`.
++- `OrderRepository.cs` (изменён) — добавлены `GetActiveSummariesAsync()`, `GetActiveCountsByCategoryAsync()`, `GetOverdueSummariesAsync(DateTime now)`.
++- `OrderReportService.cs` (новый) — `OrderReportService` с тремя методами: `GetActiveOrdersAsync()`, `GetActiveOrderCountsByCategoryAsync()`, `GetOverdueOrdersAsync(DateTime now)`, вызывающими `OrderRepository`.
++
++## Решения
++
++Всё считается на стороне БД: `Select` в `OrderSummaryDto` (без `Include`/лениво подгружаемого `Customer`, `Items.Count` уходит подзапросом) и `GroupBy` по категориям с `Count()`, плюс `AsNoTracking()` — читающий отчёт не должен тянуть целые сущности и трекать их.
++
++Правило `Order.IsOverdue` продублировано как `Expression<Func<Order,bool>>` в репозитории вместо прямого вызова `o.IsOverdue(now)` внутри LINQ — инстанс-метод EF Core в SQL не транслирует, и запрос упал бы (или ушёл в клиентскую оценку). `now` должен приходить с тем же `DateTimeKind`, что и `CreatedAt` (`timestamp without time zone` → `Unspecified`), это отмечено в комментарии у сервиса.
