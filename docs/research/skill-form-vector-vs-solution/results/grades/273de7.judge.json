@@ -1,0 +1,111 @@
+{
+  "id": "273de7",
+  "case": "R",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.08262340000000001,
+    "durationMs": 13464,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 6111,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1665,
+      "output_tokens_details": {
+        "thinking_tokens": 569
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6111,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1665,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 6111,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 6111
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "R-D3": {
+      "verdict": "FAIL",
+      "quote": "имена/позиции плейсхолдеров `@p{args.Count}` вручную синхронизируются с индексами в списке `args`",
+      "why": "Находка 11 касается синхронизации плейсхолдеров с параметрами; о несовпадении \"Products\" в условиях с алиасом p из шаблона в выходе ничего нет."
+    },
+    "R-D1": {
+      "verdict": "FOUND",
+      "quote": "`SingleAsync` на неуникальном в домене условии",
+      "why": "Прямо назван SingleAsync по SKU, который не уникален между складами."
+    },
+    "R-D2": {
+      "verdict": "FOUND",
+      "quote": "`MaxAsync(o => o.ShippedAt)` вернёт `null`, если у клиента нет заказов или ни один ещё не отгружен",
+      "why": "Назван !/.Value на nullable-результате MaxAsync без проверки на null."
+    },
+    "R-D4": {
+      "verdict": "FOUND",
+      "quote": "`UpdateRange` на уже отслеживаемых сущностях",
+      "why": "Дефект назван прямо."
+    },
+    "R-D5": {
+      "verdict": "FOUND",
+      "quote": "`DbContext` захвачен в singleton-воркере",
+      "why": "Назван scoped DbContext в конструкторе BackgroundService, предложен IServiceScopeFactory."
+    },
+    "R-D6": {
+      "verdict": "FOUND",
+      "quote": "`Include(Items).Include(Payments)` без `AsSplitQuery()` даёт декартово произведение",
+      "why": "Названы две коллекции Include без split на тысячах заказов."
+    },
+    "R-D7": {
+      "verdict": "FOUND",
+      "quote": "`FOR UPDATE` вне границы транзакции",
+      "why": "Дефект назван прямо."
+    },
+    "R-D8": {
+      "verdict": "FOUND",
+      "quote": "сохраняет без concurrency token (`RowVersion`/`xmin`)",
+      "why": "Названа правка заказа без concurrency token."
+    },
+    "R-D9": {
+      "verdict": "FOUND",
+      "quote": "в `Up()` нет шага переноса существующих значений `Orders.Category`",
+      "why": "Назван DropColumn Category без переноса данных."
+    },
+    "R-K1": {
+      "verdict": "FOUND",
+      "quote": "`_repo.GetAllAsync()` тянет **все** заказы",
+      "why": "Названы GetAllAsync и фильтрация IsOverdue в памяти."
+    },
+    "R-h-B1": {
+      "verdict": "NO",
+      "quote": "В `GetCard` этот же паттерн сделан правильно (`AsSplitQuery`)",
+      "why": "AsSplitQuery в карточке заказа выход считает правильным."
+    },
+    "R-h-B2": {
+      "verdict": "YES",
+      "quote": "вычисление `border` через `DateTime.SpecifyKind(..., Unspecified)`",
+      "why": "Находка 13 объявляет проблемой (low) корректный приём Kind=Unspecified для колонки timestamp without time zone."
+    },
+    "R-O1": {
+      "verdict": "FOUND",
+      "quote": "суммирует только цену за единицу, без умножения на `Qty`",
+      "why": "Дефект назван прямо."
+    }
+  },
+  "stderr": ""
+}

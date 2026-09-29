@@ -1,0 +1,111 @@
+{
+  "id": "7ac6b0",
+  "case": "R",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.08651539999999999,
+    "durationMs": 12044,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 7120,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1456,
+      "output_tokens_details": {
+        "thinking_tokens": 252
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7120,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1456,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 7120,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 7120
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "R-D3": {
+      "verdict": "FAIL",
+      "quote": "сам паттерн — сборка текста SQL через `string.Format`/конкатенацию условий — хрупкий",
+      "why": "Находка #12 критикует динамический FromSqlRaw в целом, но не называет несовпадение алиаса: условия собираются через \"Products\", а шаблон задаёт алиас p."
+    },
+    "R-D1": {
+      "verdict": "FOUND",
+      "quote": "`SingleAsync(p => p.Sku == sku)` бросит `InvalidOperationException`, как только у SKU больше одной складской записи",
+      "why": "Находка #7 прямо называет SingleAsync по SKU, который не уникален между складами."
+    },
+    "R-D2": {
+      "verdict": "FOUND",
+      "quote": "`MaxAsync` по `ShippedAt` вернёт `null`... `last!.Value` в этом случае бросит",
+      "why": "Находка #8 называет MaxAsync с последующим !.Value без обработки null."
+    },
+    "R-D4": {
+      "verdict": "FOUND",
+      "quote": "Явный `UpdateRange` на уже отслеживаемых сущностях помечает **все** свойства",
+      "why": "Находка #11 называет UpdateRange на отслеживаемых сущностях."
+    },
+    "R-D5": {
+      "verdict": "FOUND",
+      "quote": "`OverdueNotifier : BackgroundService` получает `ShopDbContext` через конструктор",
+      "why": "Находка #13 называет DbContext в конструкторе BackgroundService (captive dependency)."
+    },
+    "R-D6": {
+      "verdict": "FOUND",
+      "quote": "Два `Include` на коллекции в одном запросе без `AsSplitQuery()` дают декартово произведение",
+      "why": "Находка #5 называет две коллекции Include на тысячах заказов без split."
+    },
+    "R-D7": {
+      "verdict": "FOUND",
+      "quote": "`FOR UPDATE` без явной границы транзакции",
+      "why": "Находка #10 называет FOR UPDATE без явной транзакции."
+    },
+    "R-D8": {
+      "verdict": "FOUND",
+      "quote": "сохраняет без concurrency-токена/проверки",
+      "why": "Находка #2 называет правку заказа без concurrency token."
+    },
+    "R-D9": {
+      "verdict": "FOUND",
+      "quote": "`Up()` просто теряет значения `Category` вместо заполнения `Categories`/`OrderCategories`",
+      "why": "Находка #1 называет DropColumn Category без переноса данных."
+    },
+    "R-K1": {
+      "verdict": "FOUND",
+      "quote": "`_repo.GetAllAsync()`... вытягивает в память **весь** `Orders`... фильтрует по `IsOverdue(now)`",
+      "why": "Находка #4 называет GetAllAsync с фильтрацией IsOverdue в памяти."
+    },
+    "R-h-B1": {
+      "verdict": "YES",
+      "quote": "Для единичной сущности с небольшими коллекциями обычно дешевле и безопаснее один запрос",
+      "why": "Находка #6 объявляет дефектом правильный AsSplitQuery на карточке одного заказа с двумя коллекциями."
+    },
+    "R-h-B2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находок против Kind=Unspecified или чтения как Utc в выходе нет."
+    },
+    "R-O1": {
+      "verdict": "FOUND",
+      "quote": "`OrderItem.Qty` игнорируется",
+      "why": "Находка #3 называет расчёт суммы заказа без Qty."
+    }
+  },
+  "stderr": ""
+}

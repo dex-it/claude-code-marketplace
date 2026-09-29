@@ -953,3 +953,447 @@ d65fa0,A,L5,F1,sonnet,high,none,path,L5-m-enum,mine,,,,no,judge,var ids = custom
 f6e44e,A,L5,F1,sonnet,high,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,var ids = customerIds.Distinct().ToList();
 f6e44e,A,L5,F1,sonnet,high,none,path,L5-h-chunk,harm,contains-list,D,,no,judge,нет
 f6e44e,A,L5,F1,sonnet,high,none,path,L5-m-enum,mine,,,,no,judge,var ids = customerIds.Distinct().ToList();
+d0a991,B,R,F4,sonnet,high,none,path,R-D3,unit,fromsql-alias,A,,pass,judge,"Шаблон задаёт алиас `p` (`FROM ""Products"" p`), но условия ссылаются на исходное имя таблицы"
+d0a991,B,R,F4,sonnet,high,none,path,R-D1,skill,,,,found,judge,"`SingleAsync` по SKU, хотя SKU уникален только в рамках склада, а не глобально"
+d0a991,B,R,F4,sonnet,high,none,path,R-D2,skill,,,,found,judge,"`MaxAsync` может вернуть `null` (нет отгруженных заказов), далее `last!.Value` без проверки"
+d0a991,B,R,F4,sonnet,high,none,path,R-D4,skill,,,,found,judge,"`UpdateRange` вызывается на уже отслеживаемых сущностях, помечает все колонки как Modified"
+d0a991,B,R,F4,sonnet,high,none,path,R-D5,skill,,,,found,judge,Scoped `ShopDbContext` внедрён напрямую в singleton `BackgroundService`
+d0a991,B,R,F4,sonnet,high,none,path,R-D6,skill,,,,found,judge,"две коллекции (`Items`, `Payments`) в одном `Include` без `AsSplitQuery`"
+d0a991,B,R,F4,sonnet,high,none,path,R-D7,skill,,,,found,judge,"`FOR UPDATE` выполняется без явной транзакции, охватывающей последующий `SaveChangesAsync`"
+d0a991,B,R,F4,sonnet,high,none,path,R-D8,skill,,,,found,judge,нет optimistic concurrency (RowVersion/токен)
+d0a991,B,R,F4,sonnet,high,none,path,R-D9,skill,,,,found,judge,Колонка `Category` дропается без переноса значений в новые `Categories`/`OrderCategories`
+d0a991,B,R,F4,sonnet,high,none,path,R-K1,skill,,,,found,judge,"через `OrderRepository.GetAllAsync()` материализует всю таблицу заказов, фильтр `IsOverdue` применяется уже в памяти"
+d0a991,B,R,F4,sonnet,high,none,path,R-h-B1,harm,split-single,D,,no,judge,"в отличие от `GetCard`, где `AsSplitQuery` уже применён"
+d0a991,B,R,F4,sonnet,high,none,path,R-h-B2,harm,,,,no,judge,нет
+d0a991,B,R,F4,sonnet,high,none,path,R-O1,coverage,,,,found,judge,"суммируются только цены за единицу, без `Qty`"
+d1a943,B,CFG,F2,sonnet,high,none,path,CFG-K9,unit,staging-gt-prod,C,,pass,judge,"`Outbox:MaxInFlight` в Staging = 20, в Production = 5"
+d1a943,B,CFG,F2,sonnet,high,none,path,CFG-K8,unit,default-duplicated,C,,fail,judge,нет
+d1a943,B,CFG,F2,sonnet,high,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,"без инициализатора и без `required`, но при этом отсутствует какой-либо `IValidateOptions<SmtpOptions>` и `ValidateOnStart`"
+d1a943,B,CFG,F2,sonnet,high,none,path,CFG-K1,skill,,,,found,judge,Пароль от БД (`Kx7!pQ2vR9wz`) и пароль от SMTP-релея (`rl_live_9f3a1c77e2b04d6d`) закоммичены в открытом виде
+d1a943,B,CFG,F2,sonnet,high,none,path,CFG-K2,skill,,,,found,judge,"`GetValue<int>` на отсутствующем ключе вернёт `0`, и `60_000 / perMinute` бросит `DivideByZeroException`"
+d1a943,B,CFG,F2,sonnet,high,none,path,CFG-K3,skill,,,,found,judge,"`OutboxOptionsValidator` (и тесты на него) существует, но нигде не подключён"
+d1a943,B,CFG,F2,sonnet,high,none,path,CFG-K4,skill,,,,found,judge,`IOptions<OutboxOptions>` вычисляется один раз и не обновляется при изменении конфигурации в рантайме
+d1a943,B,CFG,F2,sonnet,high,none,path,CFG-K5,skill,,,,found,judge,в `appsettings.Production.json` фактически `MinBatchSize: 200 > MaxBatchSize: 100`
+d1a943,B,CFG,F2,sonnet,high,none,path,CFG-K6,skill,,,,found,judge,"код интерпретирует это как **секунды**, т.е. реальный опрос будет раз в ~8.3 минуты"
+d1a943,B,CFG,F2,sonnet,high,none,path,CFG-K7,skill,,,,found,judge,`Host` и `FromAddress` объявлены как non-nullable `string` без инициализатора
+d1a943,B,CFG,F2,sonnet,high,none,path,CFG-h-P1,harm,,,,no,judge,нет
+d1a943,B,CFG,F2,sonnet,high,none,path,CFG-h-P2,harm,,,,no,judge,нет
+d1a943,B,CFG,F2,sonnet,high,none,path,CFG-O1,coverage,,,,found,judge,`SentAt` выставляется всем сообщениям батча ещё до попытки отправки и никогда не откатывается при ошибке
+d1a943,B,CFG,F2,sonnet,high,none,path,CFG-O2,coverage,,,,missed,judge,нет
+d1a943,B,CFG,F2,sonnet,high,none,path,CFG-O3,coverage,,,,found,judge,Стандартный `IConfiguration`/`ConfigurationBuilder` в .NET не подставляет `${VAR}` внутрь значения
+27d269,B,CFG,F4,sonnet,high,none,path,CFG-K9,unit,staging-gt-prod,C,,pass,judge,"`Outbox:MaxInFlight`: Staging = 20, Production = 5. Staging агрессивнее Production без обоснования рядом"
+27d269,B,CFG,F4,sonnet,high,none,path,CFG-K8,unit,default-duplicated,C,,pass,judge,`MaxRetries: 5` в обоих env-файлах и `MaxInFlight: 5` в Production совпадают со значением по умолчанию
+27d269,B,CFG,F4,sonnet,high,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,нет
+27d269,B,CFG,F4,sonnet,high,none,path,CFG-K1,skill,,,,found,judge,секреты закоммичены в открытом виде: пароль БД `Kx7!pQ2vR9wz` и ключ SMTP-релея
+27d269,B,CFG,F4,sonnet,high,none,path,CFG-K2,skill,,,,found,judge,"`GetValue<int>` вернёт `0`, и `60_000 / perMinute` бросит `DivideByZeroException`"
+27d269,B,CFG,F4,sonnet,high,none,path,CFG-K3,skill,,,,found,judge,`OutboxOptionsValidator : IValidateOptions<OutboxOptions>` нигде не зарегистрирован в DI
+27d269,B,CFG,F4,sonnet,high,none,path,CFG-K4,skill,,,,found,judge,используется `IOptions<OutboxOptions>` вместо `IOptionsMonitor<OutboxOptions>`
+27d269,B,CFG,F4,sonnet,high,none,path,CFG-K5,skill,,,,found,judge,"условие `MinBatchSize < MaxBatchSize` всегда false, `_batchSize` замирает на `MaxBatchSize`"
+27d269,B,CFG,F4,sonnet,high,none,path,CFG-K6,skill,,,,found,judge,Код трактует 500 как секунды → воркер опрашивает outbox раз в ~8.3 минуты
+27d269,B,CFG,F4,sonnet,high,none,path,CFG-K7,skill,,,,found,judge,"`Host`, `FromAddress` — non-nullable `string` без значений по умолчанию"
+27d269,B,CFG,F4,sonnet,high,none,path,CFG-h-P1,harm,,,,no,judge,нет
+27d269,B,CFG,F4,sonnet,high,none,path,CFG-h-P2,harm,,,,no,judge,нет
+27d269,B,CFG,F4,sonnet,high,none,path,CFG-O1,coverage,,,,found,judge,`m.SentAt = now` проставляется и коммитится (`SaveChangesAsync`) до фактической отправки письма
+27d269,B,CFG,F4,sonnet,high,none,path,CFG-O2,coverage,,,,found,judge,"`Configure<SmtpOptions>(builder.Configuration.GetSection(""Mail""))`, но во всех appsettings*.json секция называется `""Smtp""`"
+27d269,B,CFG,F4,sonnet,high,none,path,CFG-O3,coverage,,,,found,judge,"в проекте не подключён provider, разворачивающий `${...}`"
+00fbbd,B,R,F3,sonnet,high,none,path,R-D3,unit,fromsql-alias,A,,pass,judge,Нужно использовать алиас `p` в условиях.
+00fbbd,B,R,F3,sonnet,high,none,path,R-D1,skill,,,,found,judge,SKU сам по себе не уникален
+00fbbd,B,R,F3,sonnet,high,none,path,R-D2,skill,,,,found,judge,"`MaxAsync` вернёт `null`, если у клиента нет заказов"
+00fbbd,B,R,F3,sonnet,high,none,path,R-D4,skill,,,,found,judge,`UpdateRange` на уже трекаемых сущностях принудительно помечает **все** свойства как `Modified`
+00fbbd,B,R,F3,sonnet,high,none,path,R-D5,skill,,,,found,judge,Scoped `ShopDbContext` внедрён в конструктор singleton `BackgroundService`
+00fbbd,B,R,F3,sonnet,high,none,path,R-D6,skill,,,,found,judge,"Два `Include` (Items, Payments) без `AsSplitQuery()`"
+00fbbd,B,R,F3,sonnet,high,none,path,R-D7,skill,,,,found,judge,`FOR UPDATE` выполняется без явной транзакции
+00fbbd,B,R,F3,sonnet,high,none,path,R-D8,skill,,,,found,judge,без concurrency-токена
+00fbbd,B,R,F3,sonnet,high,none,path,R-D9,skill,,,,found,judge,Колонка `Orders.Category` удаляется без переноса данных
+00fbbd,B,R,F3,sonnet,high,none,path,R-K1,skill,,,,found,judge,`GetAllAsync()` тянет в память вообще все заказы
+00fbbd,B,R,F3,sonnet,high,none,path,R-h-B1,harm,split-single,D,,no,judge,`GetCard` в этом же файле корректно использует `AsSplitQuery()`
+00fbbd,B,R,F3,sonnet,high,none,path,R-h-B2,harm,,,,no,judge,нет
+00fbbd,B,R,F3,sonnet,high,none,path,R-O1,coverage,,,,found,judge,Должно быть `prices[i.ProductId] * i.Qty`.
+b4d1fc,B,N0,F3,sonnet,high,none,path,N0-h-split,harm,split-single,D,,yes,judge,`Items` и `Payments` через `AsSplitQuery()` выполняются отдельными round-trip'ами без явной транзакции.
+b4d1fc,B,N0,F3,sonnet,high,none,path,N0-h-utc,harm,,,,no,judge,нет
+b4d1fc,B,N0,F3,sonnet,high,none,path,N0-h-contains,harm,,,,no,judge,нет
+b4d1fc,B,N0,F3,sonnet,high,none,path,N0-X1,coverage,,,,found,judge,`Skip(page * pageSize)` при нумерации страниц с 1 пропускает всю первую страницу
+b4d1fc,B,N0,F3,sonnet,high,none,path,N0-X2,coverage,,,,found,judge,"Фильтр `o.Status == ""Active""` (с большой буквы) против домена, где `Order.Status` по умолчанию `""active""`"
+328026,B,N0,F4,sonnet,high,none,path,N0-h-split,harm,split-single,D,,no,judge,оставив `Include`/`AsSplitQuery` только для коллекций `Items`/`Payments`
+328026,B,N0,F4,sonnet,high,none,path,N0-h-utc,harm,,,,no,judge,`ShopDbContext` инжектируется через конструктор без признаков создания scope на операцию
+328026,B,N0,F4,sonnet,high,none,path,N0-h-contains,harm,,,,no,judge,"корректно работает и для ""нескольких тысяч id"" без риска упереться в лимит параметров"
+328026,B,N0,F4,sonnet,high,none,path,N0-X1,coverage,,,,found,judge,Off-by-one в пагинации: `Skip(page * pageSize)`
+328026,B,N0,F4,sonnet,high,none,path,N0-X2,coverage,,,,found,judge,"Несовпадение регистра в фильтре статуса: `o.Status == ""Active""`"
+b86262,B,CFG,F3,sonnet,high,none,path,CFG-K9,unit,staging-gt-prod,C,,pass,judge,"Staging `MaxInFlight=20` выше Production `MaxInFlight=5`, причина нигде не зафиксирована"
+b86262,B,CFG,F3,sonnet,high,none,path,CFG-K8,unit,default-duplicated,C,,pass,judge,`MaxRetries: 5` в обоих файлах и `MaxInFlight: 5` в Production совпадают со значением по умолчанию
+b86262,B,CFG,F3,sonnet,high,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,non-nullable `Host`/`FromAddress` без `required` и без валидатора
+b86262,B,CFG,F3,sonnet,high,none,path,CFG-K1,skill,,,,found,judge,пароли БД и SMTP закоммичены в открытом виде
+b86262,B,CFG,F3,sonnet,high,none,path,CFG-K2,skill,,,,found,judge,"читает `Throttle:MessagesPerMinute`, а в конфиге ключ `Throttle:PerMinute` → `DivideByZeroException`"
+b86262,B,CFG,F3,sonnet,high,none,path,CFG-K3,skill,,,,found,judge,`OutboxOptionsValidator` не зарегистрирован в DI и нет `.ValidateOnStart()`
+b86262,B,CFG,F3,sonnet,high,none,path,CFG-K4,skill,,,,found,judge,использует `IOptions<OutboxOptions>` вместо `IOptionsMonitor<OutboxOptions>`; в singleton-хостед-сервисе значение кэшируется
+b86262,B,CFG,F3,sonnet,high,none,path,CFG-K5,skill,,,,found,judge,"условие `o.MinBatchSize < o.MaxBatchSize` в `OutboxWorker.ExecuteAsync` всегда `false`, то есть адаптивное изменение размера пачки в проде тихо отключено"
+b86262,B,CFG,F3,sonnet,high,none,path,CFG-K6,skill,,,,found,judge,код делает `TimeSpan.FromSeconds(...)` → реальный интервал 500 сек вместо 0.5 сек
+b86262,B,CFG,F3,sonnet,high,none,path,CFG-K7,skill,,,,found,judge,non-nullable `Host`/`FromAddress` без `required` и без валидатора; ошибка конфигурации проявится только в рантайме
+b86262,B,CFG,F3,sonnet,high,none,path,CFG-h-P1,harm,,,,no,judge,нет
+b86262,B,CFG,F3,sonnet,high,none,path,CFG-h-P2,harm,,,,no,judge,нет
+b86262,B,CFG,F3,sonnet,high,none,path,CFG-O1,coverage,,,,found,judge,`SentAt` проставляется и коммитится до фактической отправки письма; упавшие отправки никогда не переотправляются
+b86262,B,CFG,F3,sonnet,high,none,path,CFG-O2,coverage,,,,found,judge,"`Configure<SmtpOptions>` биндится на секцию `""Mail""`, а в appsettings секция называется `""Smtp""`"
+b86262,B,CFG,F3,sonnet,high,none,path,CFG-O3,coverage,,,,missed,judge,"в отличие от Staging, где пароль вынесен в `${NOTIFY_DB_PASSWORD}`"
+126318,B,E4,F3,sonnet,high,none,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+126318,B,E4,F3,sonnet,high,none,path,E4-cascade,unit,softdelete-cascade,A,,fail,e4,"CASCADE: DDL  CONSTRAINT ""FK_OrderItem_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE"
+126318,B,E4,F3,sonnet,high,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+126318,B,E4,F3,sonnet,high,none,path,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }              // сложность комплектации, 1..5"
+a10dfd,B,R,F4,sonnet,high,none,path,R-D3,unit,fromsql-alias,A,,pass,judge,"условия фильтра ссылаются на `""Products"".""Category""`/`""Products"".""Price""` вместо `p.""Category""`/`p.""Price""`"
+a10dfd,B,R,F4,sonnet,high,none,path,R-D1,skill,,,,found,judge,`SingleAsync` бросит `InvalidOperationException` при наличии того же SKU на нескольких складах
+a10dfd,B,R,F4,sonnet,high,none,path,R-D2,skill,,,,found,judge,`null!.Value` бросит `InvalidOperationException` в рантайме
+a10dfd,B,R,F4,sonnet,high,none,path,R-D4,skill,,,,found,judge,Явный `UpdateRange` на отслеживаемых сущностях помечает Modified **все** свойства
+a10dfd,B,R,F4,sonnet,high,none,path,R-D5,skill,,,,found,judge,`ShopDbContext` внедрён напрямую в `BackgroundService`
+a10dfd,B,R,F4,sonnet,high,none,path,R-D6,skill,,,,found,judge,две коллекции в одном `Include`-запросе без `AsSplitQuery`
+a10dfd,B,R,F4,sonnet,high,none,path,R-D7,skill,,,,found,judge,`FOR UPDATE` без границы транзакции
+a10dfd,B,R,F4,sonnet,high,none,path,R-D8,skill,,,,found,judge,читает-меняет-сохраняет без concurrency token (rowversion/xmin)
+a10dfd,B,R,F4,sonnet,high,none,path,R-D9,skill,,,,found,judge,Существующие значения `Orders.Category` нигде не переносятся в `Categories`/`OrderCategories` перед дропом колонки
+a10dfd,B,R,F4,sonnet,high,none,path,R-K1,skill,,,,found,judge,"фильтрация по `IsOverdue` (метод на C#, не транслируется в SQL) идёт уже в памяти"
+a10dfd,B,R,F4,sonnet,high,none,path,R-h-B1,harm,split-single,D,,no,judge,`GetCard` рядом в этом же файле сделан правильно (`AsSplitQuery`)
+a10dfd,B,R,F4,sonnet,high,none,path,R-h-B2,harm,,,,no,judge,нет
+a10dfd,B,R,F4,sonnet,high,none,path,R-O1,coverage,,,,found,judge,"Текущий код игнорирует `Qty`, что даёт неверную сумму заказа"
+5f6fbf,B,CFG,F2,sonnet,high,none,path,CFG-K9,unit,staging-gt-prod,C,,pass,judge,"`Outbox.MaxInFlight` в Staging = 20, а в Production = 5"
+5f6fbf,B,CFG,F2,sonnet,high,none,path,CFG-K8,unit,default-duplicated,C,,fail,judge,нет
+5f6fbf,B,CFG,F2,sonnet,high,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,"объявлены как non-nullable `string` без инициализатора и без `required`. Ни валидатора, ни `ValidateOnStart()`"
+5f6fbf,B,CFG,F2,sonnet,high,none,path,CFG-K1,skill,,,,found,judge,"`ConnectionStrings:Notify` содержит реальный пароль БД `Kx7!pQ2vR9wz`, а `Smtp.Password` — реальный ключ"
+5f6fbf,B,CFG,F2,sonnet,high,none,path,CFG-K2,skill,,,,found,judge,`GetValue<int>` всегда вернёт `0` ... `60_000 / perMinute` кидает `DivideByZeroException`
+5f6fbf,B,CFG,F2,sonnet,high,none,path,CFG-K3,skill,,,,found,judge,"нигде нет `services.AddSingleton<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>()` (и `.ValidateOnStart()`)"
+5f6fbf,B,CFG,F2,sonnet,high,none,path,CFG-K4,skill,,,,found,judge,используется `IOptions<OutboxOptions>` вместо `IOptionsMonitor<OutboxOptions>`
+5f6fbf,B,CFG,F2,sonnet,high,none,path,CFG-K5,skill,,,,found,judge,"условие `if (o.MinBatchSize < o.MaxBatchSize)` в этом случае `false`, поэтому адаптивное изменение размера пачки в проде молча выключается"
+5f6fbf,B,CFG,F2,sonnet,high,none,path,CFG-K6,skill,,,,found,judge,`TimeSpan.FromSeconds(500)` ≈ 8.3 минуты
+5f6fbf,B,CFG,F2,sonnet,high,none,path,CFG-K7,skill,,,,found,judge,`Host` и `FromAddress` объявлены как non-nullable `string` без инициализатора
+5f6fbf,B,CFG,F2,sonnet,high,none,path,CFG-h-P1,harm,,,,no,judge,нет
+5f6fbf,B,CFG,F2,sonnet,high,none,path,CFG-h-P2,harm,,,,no,judge,"сменить тип на `TimeSpan`, как уже сделано для `LockTimeout`"
+5f6fbf,B,CFG,F2,sonnet,high,none,path,CFG-O1,coverage,,,,missed,judge,нет
+5f6fbf,B,CFG,F2,sonnet,high,none,path,CFG-O2,coverage,,,,missed,judge,нет
+5f6fbf,B,CFG,F2,sonnet,high,none,path,CFG-O3,coverage,,,,found,judge,Строка подключения к БД на Staging в итоге будет содержать буквальный текст `${NOTIFY_DB_PASSWORD}`
+af9696,B,CFG,F2,sonnet,high,none,path,CFG-K9,unit,staging-gt-prod,C,,pass,judge,Staging `MaxInFlight=20` агрессивнее Production `MaxInFlight=5` — похоже на перепутанные значения.
+af9696,B,CFG,F2,sonnet,high,none,path,CFG-K8,unit,default-duplicated,C,,pass,judge,`Outbox:MaxRetries=5` продублирован одинаковым значением во всех трёх appsettings-файлов без надобности.
+af9696,B,CFG,F2,sonnet,high,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,non-nullable без `required` и без отдельного валидатора
+af9696,B,CFG,F2,sonnet,high,none,path,CFG-K1,skill,,,,found,judge,"в репозитории закоммичены боевые секреты открытым текстом (пароль БД, пароль/ключ SMTP-релея)"
+af9696,B,CFG,F2,sonnet,high,none,path,CFG-K2,skill,,,,found,judge,"`GetValue<int>` для отсутствующего ключа вернёт `0`, и `60_000 / perMinute` кинет `DivideByZeroException`"
+af9696,B,CFG,F2,sonnet,high,none,path,CFG-K3,skill,,,,found,judge,"Валидатор опций нигде не зарегистрирован в DI, `.ValidateOnStart()` не вызван"
+af9696,B,CFG,F2,sonnet,high,none,path,CFG-K4,skill,,,,found,judge,`OutboxWorker` использует `IOptions<OutboxOptions>` вместо `IOptionsMonitor<OutboxOptions>` — прямое нарушение требования MR о live-reload
+af9696,B,CFG,F2,sonnet,high,none,path,CFG-K5,skill,,,,found,judge,`MinBatchSize: 200 > MaxBatchSize: 100` ... адаптивная логика батчинга ... будет вести себя непредсказуемо/противоречиво
+af9696,B,CFG,F2,sonnet,high,none,path,CFG-K6,skill,,,,found,judge,`Task.Delay(TimeSpan.FromSeconds(o.PollInterval))` при значении `PollInterval=500` ... раз в ~8 минут
+af9696,B,CFG,F2,sonnet,high,none,path,CFG-K7,skill,,,,found,judge,`SmtpOptions.Host/FromAddress` non-nullable без `required` и без отдельного валидатора — тихий NRE
+af9696,B,CFG,F2,sonnet,high,none,path,CFG-h-P1,harm,,,,no,judge,нет
+af9696,B,CFG,F2,sonnet,high,none,path,CFG-h-P2,harm,,,,no,judge,нет
+af9696,B,CFG,F2,sonnet,high,none,path,CFG-O1,coverage,,,,found,judge,"`SentAt` коммитится в БД до фактической отправки, а при ошибке не сбрасывается"
+af9696,B,CFG,F2,sonnet,high,none,path,CFG-O2,coverage,,,,found,judge,"`Configure<SmtpOptions>` биндится из секции `""Mail""`, а в appsettings она называется `""Smtp""`"
+af9696,B,CFG,F2,sonnet,high,none,path,CFG-O3,coverage,,,,found,judge,"`appsettings.Staging.json` использует плейсхолдер `${NOTIFY_DB_PASSWORD}`, но подстановки переменных внутри строки конфигурации в проекте нет"
+9637dc,B,CFG,F4,sonnet,high,none,path,CFG-K9,unit,staging-gt-prod,C,,pass,judge,"appsettings.Staging.json — `Outbox:MaxInFlight = 20` выше, чем в Production (`5`)"
+9637dc,B,CFG,F4,sonnet,high,none,path,CFG-K8,unit,default-duplicated,C,,pass,judge,"`Outbox:MaxInFlight=5`, `Outbox:MaxRetries=5`, `Outbox:MaxBatchSize=100` в точности совпадают со значениями в базовом `appsettings.json`"
+9637dc,B,CFG,F4,sonnet,high,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,`required`-модификатор здесь не поможет (см. чек-лист)
+9637dc,B,CFG,F4,sonnet,high,none,path,CFG-K1,skill,,,,found,judge,Пароль БД (`Kx7!pQ2vR9wz`) и API-ключ SMTP-релея (`rl_live_9f3a1c77e2b04d6d`) закоммичены как plaintext
+9637dc,B,CFG,F4,sonnet,high,none,path,CFG-K2,skill,,,,found,judge,"`GetValue<int>` на отсутствующем ключе возвращает `0`, поэтому `60_000 / perMinute` кидает `DivideByZeroException`"
+9637dc,B,CFG,F4,sonnet,high,none,path,CFG-K3,skill,,,,found,judge,"в `Program.cs` нет `services.AddSingleton<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>()` (или `AddOptions<T>().ValidateOnStart()`)"
+9637dc,B,CFG,F4,sonnet,high,none,path,CFG-K4,skill,,,,found,judge,используется `IOptions<OutboxOptions>` вместо `IOptionsMonitor<OutboxOptions>`
+9637dc,B,CFG,F4,sonnet,high,none,path,CFG-K5,skill,,,,found,judge,`OutboxWorker` просто не включает адаптивное батчирование при `Min >= Max`
+9637dc,B,CFG,F4,sonnet,high,none,path,CFG-K6,skill,,,,missed,judge,источник потенциальной ошибки при будущей правке конфигов
+9637dc,B,CFG,F4,sonnet,high,none,path,CFG-K7,skill,,,,found,judge,`Host` и `FromAddress` объявлены non-nullable `string` без значений по умолчанию и без валидатора опций
+9637dc,B,CFG,F4,sonnet,high,none,path,CFG-h-P1,harm,,,,no,judge,нет
+9637dc,B,CFG,F4,sonnet,high,none,path,CFG-h-P2,harm,,,,no,judge,нет
+9637dc,B,CFG,F4,sonnet,high,none,path,CFG-O1,coverage,,,,found,judge,`m.SentAt = now` выставляется до отправки и не откатывается при ошибке
+9637dc,B,CFG,F4,sonnet,high,none,path,CFG-O2,coverage,,,,found,judge,"Секция в конфиге называется `""Smtp""` ... а биндинг идёт из `""Mail""`"
+9637dc,B,CFG,F4,sonnet,high,none,path,CFG-O3,coverage,,,,missed,judge,Staging корректно использует плейсхолдер `${NOTIFY_DB_PASSWORD}`
+a6303c,B,CFG,F2,sonnet,high,none,path,CFG-K9,unit,staging-gt-prod,C,,pass,judge,"`MaxInFlight`: Staging = 20, Production = 5"
+a6303c,B,CFG,F2,sonnet,high,none,path,CFG-K8,unit,default-duplicated,C,,fail,judge,нет
+a6303c,B,CFG,F2,sonnet,high,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,объявлены как non-nullable `string` без `required` и без инициализатора; для `SmtpOptions` нет `IValidateOptions`/`ValidateOnStart`
+a6303c,B,CFG,F2,sonnet,high,none,path,CFG-K1,skill,,,,found,judge,"Пароль БД (`Password=Kx7!pQ2vR9wz`) и API-ключ SMTP-релея (`""Password"": ""rl_live_9f3a1c77e2b04d6d""`) закоммичены в открытом виде"
+a6303c,B,CFG,F2,sonnet,high,none,path,CFG-K2,skill,,,,found,judge,"`GetValue<int>` для отсутствующего ключа вернёт `0`, и `60_000 / perMinute` бросит `DivideByZeroException`"
+a6303c,B,CFG,F2,sonnet,high,none,path,CFG-K3,skill,,,,found,judge,Класс `OutboxOptionsValidator` нигде не подключён в `Program.cs`
+a6303c,B,CFG,F2,sonnet,high,none,path,CFG-K4,skill,,,,found,judge,`IOptions<OutboxOptions>` вместо `IOptionsMonitor<OutboxOptions>`
+a6303c,B,CFG,F2,sonnet,high,none,path,CFG-K5,skill,,,,found,judge,Из-за строки `if (o.MinBatchSize < o.MaxBatchSize)` в `OutboxWorker.ExecuteAsync` адаптивное изменение размера пачки в проде просто молча отключается
+a6303c,B,CFG,F2,sonnet,high,none,path,CFG-K6,skill,,,,found,judge,реальный интервал опроса ~8.3 минуты вместо 0.5 секунды
+a6303c,B,CFG,F2,sonnet,high,none,path,CFG-K7,skill,,,,found,judge,`Host`/`FromAddress` объявлены как non-nullable `string` без `required` и без инициализатора
+a6303c,B,CFG,F2,sonnet,high,none,path,CFG-h-P1,harm,,,,no,judge,нет
+a6303c,B,CFG,F2,sonnet,high,none,path,CFG-h-P2,harm,,,,no,judge,хранить `TimeSpan` в конфиге (как сделано для `LockTimeout`)
+a6303c,B,CFG,F2,sonnet,high,none,path,CFG-O1,coverage,,,,found,judge,"`SentAt` выставляется и коммитится (`SaveChangesAsync`) сразу при захвате батча, до вызова `sender.SendAsync`"
+a6303c,B,CFG,F2,sonnet,high,none,path,CFG-O2,coverage,,,,found,judge,"Секция биндится как `builder.Configuration.GetSection(""Mail"")`, а во всех appsettings.*.json секция называется `""Smtp""`"
+a6303c,B,CFG,F2,sonnet,high,none,path,CFG-O3,coverage,,,,missed,judge,В `appsettings.Staging.json` для БД корректно используется плейсхолдер `${NOTIFY_DB_PASSWORD}`
+0d82f8,B,E4,F3,sonnet,high,none,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+0d82f8,B,E4,F3,sonnet,high,none,path,E4-cascade,unit,softdelete-cascade,A,,fail,e4,"CASCADE: DDL  CONSTRAINT ""FK_OrderItem_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE"
+0d82f8,B,E4,F3,sonnet,high,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+0d82f8,B,E4,F3,sonnet,high,none,path,E4-m-owned,mine,,,,no,judge,public int Complexity { get; set; }              // сложность комплектации: 1..5
+6de0f1,B,N0,F2,sonnet,high,none,path,N0-h-split,harm,split-single,D,,no,judge,"комбинация `Include` двух коллекций + `AsSplitQuery()` в `OrderCard` — это штатное решение, не баг"
+6de0f1,B,N0,F2,sonnet,high,none,path,N0-h-utc,harm,,,,no,judge,риск времени жизни `DbContext` в воркере
+6de0f1,B,N0,F2,sonnet,high,none,path,N0-h-contains,harm,,,,no,judge,`ids.Contains(p.Id)` корректно транслируется Npgsql в `= ANY(@ids)` (единый параметр-массив)
+6de0f1,B,N0,F2,sonnet,high,none,path,N0-X1,coverage,,,,found,judge,`Skip(page * pageSize)` при нумерации страниц с 1 пропускает всю первую страницу
+6de0f1,B,N0,F2,sonnet,high,none,path,N0-X2,coverage,,,,found,judge,"Фильтр `o.Status == ""Active""` не совпадает с доменным дефолтом `Status = ""active""` в `Model.cs`"
+d32ad5,B,CFG,F3,sonnet,high,none,path,CFG-K9,unit,staging-gt-prod,C,,pass,judge,"Staging: `MaxInFlight: 20`, Production: `MaxInFlight: 5`"
+d32ad5,B,CFG,F3,sonnet,high,none,path,CFG-K8,unit,default-duplicated,C,,pass,judge,"`appsettings.Staging.json` (`Outbox:MaxRetries: 5`), `appsettings.Production.json` (`Outbox:MaxRetries: 5`"
+d32ad5,B,CFG,F3,sonnet,high,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,non-nullable `string` без инициализатора и без `IValidateOptions<SmtpOptions>`
+d32ad5,B,CFG,F3,sonnet,high,none,path,CFG-K1,skill,,,,found,judge,Пароль БД (`Kx7!pQ2vR9wz`) и пароль SMTP-релея (`rl_live_9f3a1c77e2b04d6d`) хранятся открытым текстом
+d32ad5,B,CFG,F3,sonnet,high,none,path,CFG-K2,skill,,,,found,judge,`GetValue<int>` на отсутствующем ключе вернёт `0` → `60_000 / 0` бросает `DivideByZeroException`
+d32ad5,B,CFG,F3,sonnet,high,none,path,CFG-K3,skill,,,,found,judge,нет `.ValidateOnStart()` после `Configure<OutboxOptions>`
+d32ad5,B,CFG,F3,sonnet,high,none,path,CFG-K4,skill,,,,found,judge,"Нужен `IOptionsMonitor<OutboxOptions>` (`.CurrentValue`), а не `IOptions<T>`"
+d32ad5,B,CFG,F3,sonnet,high,none,path,CFG-K5,skill,,,,found,judge,"условие `if (o.MinBatchSize < o.MaxBatchSize)` просто окажется `false`, адаптивный батчинг молча отключится"
+d32ad5,B,CFG,F3,sonnet,high,none,path,CFG-K6,skill,,,,found,judge,"Реальный интервал опроса — 500 секунд (~8,3 минуты) вместо требуемых 0,5 секунды"
+d32ad5,B,CFG,F3,sonnet,high,none,path,CFG-K7,skill,,,,found,judge,Свойства объявлены как non-nullable `string` без инициализатора и без `IValidateOptions<SmtpOptions>`
+d32ad5,B,CFG,F3,sonnet,high,none,path,CFG-h-P1,harm,,,,no,judge,нет
+d32ad5,B,CFG,F3,sonnet,high,none,path,CFG-h-P2,harm,,,,no,judge,нет
+d32ad5,B,CFG,F3,sonnet,high,none,path,CFG-O1,coverage,,,,found,judge,"`SentAt` проставляется всем сообщениям пачки сразу после выборки, ещё до вызова `sender.SendAsync`"
+d32ad5,B,CFG,F3,sonnet,high,none,path,CFG-O2,coverage,,,,found,judge,"В appsettings секция называется `""Smtp""`, а не `""Mail""`"
+d32ad5,B,CFG,F3,sonnet,high,none,path,CFG-O3,coverage,,,,found,judge,не выполняет интерполяцию `${VAR}` внутри строковых значений
+66f808,B,E4,F4,sonnet,high,none,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+66f808,B,E4,F4,sonnet,high,none,path,E4-cascade,unit,softdelete-cascade,A,,pass,e4,FK без каскада: 2 строк DDL
+66f808,B,E4,F4,sonnet,high,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+66f808,B,E4,F4,sonnet,high,none,path,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }               // сложность комплектации, 1..5"
+c83c47,B,R,F4,sonnet,high,none,path,R-D3,unit,fromsql-alias,A,,pass,judge,"Шаблон `FromSqlRaw` алиасит таблицу как `p` (`FROM ""Products"" p WHERE {0}`), но собираемые условия ссылаются на исходное имя таблицы"
+c83c47,B,R,F4,sonnet,high,none,path,R-D1,skill,,,,found,judge,"`SingleAsync` по SKU, который уникален только в рамках склада, а не глобально"
+c83c47,B,R,F4,sonnet,high,none,path,R-D2,skill,,,,found,judge,`last!.Value` снимает null-предупреждение без проверки
+c83c47,B,R,F4,sonnet,high,none,path,R-D4,skill,,,,found,judge,избыточный `UpdateRange` на уже отслеживаемых сущностях
+c83c47,B,R,F4,sonnet,high,none,path,R-D5,skill,,,,found,judge,`ShopDbContext` инжектится напрямую в конструктор `BackgroundService`
+c83c47,B,R,F4,sonnet,high,none,path,R-D6,skill,,,,found,judge,два `Include`-коллекции без `AsSplitQuery()` при тысячах заказов на клиента
+c83c47,B,R,F4,sonnet,high,none,path,R-D7,skill,,,,found,judge,"`FOR UPDATE` без явной транзакции, охватывающей SELECT и `SaveChanges`"
+c83c47,B,R,F4,sonnet,high,none,path,R-D8,skill,,,,found,judge,нет optimistic concurrency при явно заявленном параллельном редактировании операторами
+c83c47,B,R,F4,sonnet,high,none,path,R-D9,skill,,,,found,judge,нет шага переноса данных из `Orders.Category` в новые таблицы
+c83c47,B,R,F4,sonnet,high,none,path,R-K1,skill,,,,found,judge,грузит всю таблицу `Orders` через `GetAllAsync()` и фильтрует в памяти вместо SQL
+c83c47,B,R,F4,sonnet,high,none,path,R-h-B1,harm,split-single,D,,no,judge,В соседнем методе `GetCard` этого же файла для точно такого же набора Include корректно применён `AsSplitQuery()`
+c83c47,B,R,F4,sonnet,high,none,path,R-h-B2,harm,,,,no,judge,нет
+c83c47,B,R,F4,sonnet,high,none,path,R-O1,coverage,,,,found,judge,`OrderAdmin.RecalcTotal` — сумма заказа считается без учёта `Qty`
+bd3bbc,B,R,F3,sonnet,high,none,path,R-D3,unit,fromsql-alias,A,,pass,judge,"собираемые условия квалифицируют колонки исходным именем `""Products""`, а не алиасом"
+bd3bbc,B,R,F3,sonnet,high,none,path,R-D1,skill,,,,found,judge,"`SingleAsync` бросит `InvalidOperationException`, как только товар с этим SKU лежит больше чем на одном складе"
+bd3bbc,B,R,F3,sonnet,high,none,path,R-D2,skill,,,,found,judge,`.Value` на `null` бросит исключение в рантайме. Нужна проверка на `null` до `.Value`.
+bd3bbc,B,R,F3,sonnet,high,none,path,R-D4,skill,,,,found,judge,Явный вызов `UpdateRange` на уже трекаемых сущностях помечает **все** свойства как `Modified`
+bd3bbc,B,R,F3,sonnet,high,none,path,R-D5,skill,,,,found,judge,Внедрение scoped-зависимости напрямую в конструктор singleton-сервиса
+bd3bbc,B,R,F3,sonnet,high,none,path,R-D6,skill,,,,found,judge,"Две коллекции (`Items`, `Payments`) в одном `Include`-запросе без `AsSplitQuery()`"
+bd3bbc,B,R,F3,sonnet,high,none,path,R-D7,skill,,,,found,judge,`SELECT ... FOR UPDATE` выполняется отдельной командой вне явной транзакции
+bd3bbc,B,R,F3,sonnet,high,none,path,R-D8,skill,,,,found,judge,Нет проверки конкурентного изменения (нет concurrency-токена / rowversion
+bd3bbc,B,R,F3,sonnet,high,none,path,R-D9,skill,,,,found,judge,существующие значения `Order.Category` никуда не переносятся
+bd3bbc,B,R,F3,sonnet,high,none,path,R-K1,skill,,,,found,judge,`OrderRepository.GetAllAsync()` материализует **всю** таблицу `Orders` целиком
+bd3bbc,B,R,F3,sonnet,high,none,path,R-h-B1,harm,split-single,D,,no,judge,Рядом же в `GetCard` `AsSplitQuery()` применён верно
+bd3bbc,B,R,F3,sonnet,high,none,path,R-h-B2,harm,,,,no,judge,нет
+bd3bbc,B,R,F3,sonnet,high,none,path,R-O1,coverage,,,,found,judge,"Суммируется только цена за единицу (`Product.Price`), без умножения на `OrderItem.Qty`"
+85371e,B,R,F3,sonnet,high,none,path,R-D3,unit,fromsql-alias,A,,pass,judge,"шаблон аліасит таблицу как `p`, но динамически собранные условия квалифицируют колонки как `""Products"".""Category""`/`""Products"".""Price""` — рассинхрон алиасов"
+85371e,B,R,F3,sonnet,high,none,path,R-D1,skill,,,,found,judge,"`SingleAsync` по `Sku`, хотя по модели SKU уникален только в рамках склада, а не глобально"
+85371e,B,R,F3,sonnet,high,none,path,R-D2,skill,,,,found,judge,"`last!.Value` без проверки на null; `MaxAsync` вернёт null, если у клиента нет отгруженных заказов"
+85371e,B,R,F3,sonnet,high,none,path,R-D4,skill,,,,found,judge,"сущности уже трекаются (`ToListAsync` без `AsNoTracking`), но вызывается `UpdateRange`"
+85371e,B,R,F3,sonnet,high,none,path,R-D5,skill,,,,found,judge,`ShopDbContext` (scoped) внедрён напрямую в конструктор `BackgroundService`
+85371e,B,R,F3,sonnet,high,none,path,R-D6,skill,,,,found,judge,"два коллекционных `Include` (`Items`, `Payments`) без `AsSplitQuery()`: декартово произведение строк, критично при «тысячах заказов»"
+85371e,B,R,F3,sonnet,high,none,path,R-D7,skill,,,,found,judge,`SELECT ... FOR UPDATE` через `FromSqlRaw` выполняется без явной транзакции
+85371e,B,R,F3,sonnet,high,none,path,R-D8,skill,,,,found,judge,"нет optimistic concurrency (RowVersion/xmin), хотя MR прямо описывает параллельную правку заказа"
+85371e,B,R,F3,sonnet,high,none,path,R-D9,skill,,,,found,judge,"`DropColumn(""Category"",""Orders"")` без переноса существующих значений в `Categories`/`OrderCategories`"
+85371e,B,R,F3,sonnet,high,none,path,R-K1,skill,,,,found,judge,через `OrderRepository.GetAllAsync()` тянет всю таблицу `Orders` без фильтра ... фильтрует в памяти доменным методом `IsOverdue`
+85371e,B,R,F3,sonnet,high,none,path,R-h-B1,harm,split-single,D,,no,judge,"в отличие от соседнего `GetCard`, где `AsSplitQuery` есть"
+85371e,B,R,F3,sonnet,high,none,path,R-h-B2,harm,,,,no,judge,нет
+85371e,B,R,F3,sonnet,high,none,path,R-O1,coverage,,,,found,judge,`order.Items.Sum(i => prices[i.ProductId])` не умножает на `i.Qty`
+223ee6,B,N0,F2,sonnet,high,none,path,N0-h-split,harm,split-single,D,,yes,judge,неатомарность чтения при AsSplitQuery() + AsNoTracking()
+223ee6,B,N0,F2,sonnet,high,none,path,N0-h-utc,harm,,,,no,judge,ShopDbContext инжектится напрямую в класс из Workers/
+223ee6,B,N0,F2,sonnet,high,none,path,N0-h-contains,harm,,,,no,judge,корректно транслируется Npgsql в один параметризованный `= ANY(@p)`
+223ee6,B,N0,F2,sonnet,high,none,path,N0-X1,coverage,,,,found,judge,Должно быть `Skip((page - 1) * pageSize)`
+223ee6,B,N0,F2,sonnet,high,none,path,N0-X2,coverage,,,,found,judge,запрос молча вернёт пустой список вместо активных заказов
+14390a,B,E4,F2,sonnet,high,none,path,E4-ts,unit,datetime-column,B,,fail,e4,"WRITE FAIL Cannot write DateTime with Kind=UTC to PostgreSQL type 'timestamp without time zone', consider using 'timestamp with time zone'. Note that it's not possible to mix DateTimes with different Kinds in an array, range, or multirange. (Parameter 'value')"
+14390a,B,E4,F2,sonnet,high,none,path,E4-cascade,unit,softdelete-cascade,A,,fail,e4,"CASCADE: DDL  CONSTRAINT ""FK_OrderItem_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE"
+14390a,B,E4,F2,sonnet,high,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+14390a,B,E4,F2,sonnet,high,none,path,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }               // сложность комплектации, 1..5"
+988578,B,E4,F4,sonnet,high,none,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+988578,B,E4,F4,sonnet,high,none,path,E4-cascade,unit,softdelete-cascade,A,,pass,e4,FK без каскада: 2 строк DDL
+988578,B,E4,F4,sonnet,high,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+988578,B,E4,F4,sonnet,high,none,path,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }              // сложность комплектации, 1..5"
+87231e,B,N0,F2,sonnet,high,none,path,N0-h-split,harm,split-single,D,,no,manual,"ручная: split назван оправданным, находка - только согласованность снимков без транзакции (документированная оговорка EF), не довод «одной сущности split не нужен»"
+87231e,B,N0,F2,sonnet,high,none,path,N0-h-utc,harm,,,,no,judge,`DateTime.UtcNow` для `AuditLog.At` согласуется с дефолтным маппингом Npgsql
+87231e,B,N0,F2,sonnet,high,none,path,N0-h-contains,harm,,,,no,judge,корректно для Npgsql даже при тысячах id (транслируется в `= ANY(@array)` с одним параметром
+87231e,B,N0,F2,sonnet,high,none,path,N0-X1,coverage,,,,found,judge,"При `page = 1` код делает `Skip(1 * pageSize)`, то есть пропускает первую страницу целиком"
+87231e,B,N0,F2,sonnet,high,none,path,N0-X2,coverage,,,,found,judge,"фильтр `== ""Active""` с большой буквы не совпадёт с реальными данными и метод будет систематически возвращать пустой список"
+3e3231,B,E4,F3,sonnet,high,none,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+3e3231,B,E4,F3,sonnet,high,none,path,E4-cascade,unit,softdelete-cascade,A,,fail,e4,"CASCADE: DDL  CONSTRAINT ""FK_OrderItem_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE | DDL  CONSTRAINT ""FK_Payment_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE"
+3e3231,B,E4,F3,sonnet,high,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+3e3231,B,E4,F3,sonnet,high,none,path,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }               // сложность комплектации, 1..5"
+cf776c,B,E4,F2,sonnet,high,none,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+cf776c,B,E4,F2,sonnet,high,none,path,E4-cascade,unit,softdelete-cascade,A,,fail,e4,"CASCADE: DDL  CONSTRAINT ""FK_OrderItem_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE | DDL  CONSTRAINT ""FK_Payment_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE"
+cf776c,B,E4,F2,sonnet,high,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+cf776c,B,E4,F2,sonnet,high,none,path,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }              // сложность комплектации, 1..5"
+dd5ef9,B,N0,F2,sonnet,high,none,path,N0-h-split,harm,split-single,D,,yes,judge,`AsSplitQuery()` на выборке одной сущности по уникальному ключу
+dd5ef9,B,N0,F2,sonnet,high,none,path,N0-h-utc,harm,,,,no,judge,нет
+dd5ef9,B,N0,F2,sonnet,high,none,path,N0-h-contains,harm,,,,no,judge,"транслируется в `= ANY(...)`, безопасно для тысяч id"
+dd5ef9,B,N0,F2,sonnet,high,none,path,N0-X1,coverage,,,,found,judge,Для `page = 1` получаем `Skip(pageSize)` — первая страница полностью пропускается
+dd5ef9,B,N0,F2,sonnet,high,none,path,N0-X2,coverage,,,,found,judge,"Фильтр: `o.Status == ""Active""`. В `Model.cs` значение по умолчанию для `Order.Status` — `""active""`"
+7e91ff,B,N0,F4,sonnet,high,none,path,N0-h-split,harm,split-single,D,,no,judge,легитимный `AsSplitQuery` для двух коллекций одного уровня
+7e91ff,B,N0,F4,sonnet,high,none,path,N0-h-utc,harm,,,,no,judge,`DateTime.UtcNow` корректно пишется в колонку по умолчанию `timestamptz`
+7e91ff,B,N0,F4,sonnet,high,none,path,N0-h-contains,harm,,,,no,judge,"`Contains` на массиве id транслируется Npgsql в один параметр `ANY(...)`, безопасно для тысяч id"
+7e91ff,B,N0,F4,sonnet,high,none,path,N0-X1,coverage,,,,found,judge,`Skip(page * pageSize)` вместо `Skip((page - 1) * pageSize)`. Первая страница (page=1) молча пропускает первые `pageSize` заказов
+7e91ff,B,N0,F4,sonnet,high,none,path,N0-X2,coverage,,,,missed,judge,нет
+e48f32,B,R,F4,sonnet,high,none,path,R-D3,unit,fromsql-alias,A,,pass,judge,"условия `FromSqlRaw` ссылаются на `""Products"".Col`, а таблице в запросе присвоен алиас `p`"
+e48f32,B,R,F4,sonnet,high,none,path,R-D1,skill,,,,found,judge,"`SingleAsync` по `Sku`, хотя SKU уникален только в пределах склада"
+e48f32,B,R,F4,sonnet,high,none,path,R-D2,skill,,,,found,judge,`last!.Value` без проверки на null при `MaxAsync` по nullable-полю
+e48f32,B,R,F4,sonnet,high,none,path,R-D4,skill,,,,found,judge,лишний `UpdateRange` на уже отслеживаемых сущностях помечает все поля Modified
+e48f32,B,R,F4,sonnet,high,none,path,R-D5,skill,,,,found,judge,scoped `ShopDbContext` инжектится в конструктор singleton-`BackgroundService`
+e48f32,B,R,F4,sonnet,high,none,path,R-D6,skill,,,,found,judge,"два `Include` коллекций без `AsSplitQuery()` → декартово произведение, критично при тысячах заказов у клиента"
+e48f32,B,R,F4,sonnet,high,none,path,R-D7,skill,,,,found,judge,`FOR UPDATE` и последующий `SaveChangesAsync` не в одной явной транзакции
+e48f32,B,R,F4,sonnet,high,none,path,R-D8,skill,,,,found,judge,нет optimistic concurrency при параллельной правке заказа несколькими операторами
+e48f32,B,R,F4,sonnet,high,none,path,R-D9,skill,,,,found,judge,"`DropColumn(""Category"", ""Orders"")` без переноса существующих значений"
+e48f32,B,R,F4,sonnet,high,none,path,R-K1,skill,,,,found,judge,грузит всю таблицу Orders в память и фильтрует в LINQ-to-Objects после материализации
+e48f32,B,R,F4,sonnet,high,none,path,R-h-B1,harm,split-single,D,,no,judge,`GetCard` в этом же файле сделан правильно (`AsSplitQuery()` при двух Include)
+e48f32,B,R,F4,sonnet,high,none,path,R-h-B2,harm,,,,no,judge,нет
+e48f32,B,R,F4,sonnet,high,none,path,R-O1,coverage,,,,found,judge,сумма считается как `Sum(price)` без учёта `Qty`
+67761e,B,R,F3,sonnet,high,none,path,R-D3,unit,fromsql-alias,A,,pass,judge,"таблице присвоен алиас `p`, но динамически собираемые условия ссылаются на исходное имя таблицы"
+67761e,B,R,F3,sonnet,high,none,path,R-D1,skill,,,,found,judge,`SingleAsync(p => p.Sku == sku)` без фильтра по складу.
+67761e,B,R,F3,sonnet,high,none,path,R-D2,skill,,,,found,judge,результат разворачивается через `last!.Value` без проверки на `null`
+67761e,B,R,F3,sonnet,high,none,path,R-D4,skill,,,,found,judge,вызов `UpdateRange` на уже трекаемых сущностях помечает ВСЕ свойства как `Modified`
+67761e,B,R,F3,sonnet,high,none,path,R-D5,skill,,,,found,judge,`ShopDbContext` (регистрируется как Scoped в `Program.cs`) внедряется прямо в конструктор `BackgroundService`
+67761e,B,R,F3,sonnet,high,none,path,R-D6,skill,,,,found,judge,Одновременные `Include(o => o.Items)` и `Include(o => o.Payments)` без `.AsSplitQuery()`
+67761e,B,R,F3,sonnet,high,none,path,R-D7,skill,,,,found,judge,`FromSqlRaw(... FOR UPDATE)` выполняется без явной транзакции
+67761e,B,R,F3,sonnet,high,none,path,R-D8,skill,,,,found,judge,Нет контроля параллельного доступа (concurrency token / проверка версии перед записью)
+67761e,B,R,F3,sonnet,high,none,path,R-D9,skill,,,,found,judge,не переносит существующие значения `Category` в новые таблицы перед дропом колонки
+67761e,B,R,F3,sonnet,high,none,path,R-K1,skill,,,,found,judge,"Метод вызывает `_repo.GetAllAsync()`, который материализует (`ToListAsync`) ВСЮ таблицу `Orders`"
+67761e,B,R,F3,sonnet,high,none,path,R-h-B1,harm,split-single,D,,no,judge,"в отличие от `GetCard`, где split query для тех же двух коллекций применён правильно"
+67761e,B,R,F3,sonnet,high,none,path,R-h-B2,harm,,,,no,judge,нет
+67761e,B,R,F3,sonnet,high,none,path,R-O1,coverage,,,,found,judge,суммируется цена за единицу без умножения на `i.Qty`
+c1cbcf,B,N0,F3,sonnet,high,none,path,N0-h-split,harm,split-single,D,,no,judge,"`AsNoTracking()` + `AsSplitQuery()` для двух коллекций (`Items`, `Payments`) — верно избегает декартова произведения"
+c1cbcf,B,N0,F3,sonnet,high,none,path,N0-h-utc,harm,,,,no,judge,`DateTime.UtcNow` для поля без явного маппинга колонки корректно соответствует Npgsql 8
+c1cbcf,B,N0,F3,sonnet,high,none,path,N0-h-contains,harm,,,,no,judge,транслируется Npgsql в `= ANY(@array)` одним параметром — не деградирует на больших списках id
+c1cbcf,B,N0,F3,sonnet,high,none,path,N0-X1,coverage,,,,found,judge,`Skip(page * pageSize)` вместо `Skip((page - 1) * pageSize)` при страницах с 1 — первая страница (самые свежие заказы) никогда не отдаётся
+c1cbcf,B,N0,F3,sonnet,high,none,path,N0-X2,coverage,,,,found,judge,"фильтр `o.Status == ""Active""`, а в `Model.cs` статус по умолчанию `""active""`"
+b2153f,B,N0,F4,sonnet,high,none,path,N0-h-split,harm,split-single,D,,no,judge,корректный `AsSplitQuery` для двух коллекций одного уровня — здесь всё сделано правильно
+b2153f,B,N0,F4,sonnet,high,none,path,N0-h-utc,harm,,,,no,judge,"`DateTime.UtcNow` (Kind=Utc) пишется в колонку без явного `HasColumnType`, то есть по умолчанию `timestamptz` — соответствует конвенции команды"
+b2153f,B,N0,F4,sonnet,high,none,path,N0-h-contains,harm,,,,no,judge,"транслируется Npgsql в `= ANY(@p)` одним параметром-массивом, безопасно и для ""нескольких тысяч id"""
+b2153f,B,N0,F4,sonnet,high,none,path,N0-X1,coverage,,,,found,judge,При `page == 1` (первая страница) `Skip(1 * pageSize)` пропускает ровно `pageSize` записей
+b2153f,B,N0,F4,sonnet,high,none,path,N0-X2,coverage,,,,found,judge,метод будет молча возвращать пустой список для таких заказов
+cda796,B,E4,F3,sonnet,high,none,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+cda796,B,E4,F3,sonnet,high,none,path,E4-cascade,unit,softdelete-cascade,A,,fail,e4,"CASCADE: DDL  CONSTRAINT ""FK_OrderItem_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE | DDL  CONSTRAINT ""FK_Payment_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE"
+cda796,B,E4,F3,sonnet,high,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+cda796,B,E4,F3,sonnet,high,none,path,E4-m-owned,mine,,,,no,judge,public int Complexity { get; set; }
+b2df97,B,N0,F4,sonnet,high,none,path,N0-h-split,harm,split-single,D,,no,judge,"две коллекции одного уровня (`Items`, `Payments`) корректно вынесены в `AsSplitQuery()`"
+b2df97,B,N0,F4,sonnet,high,none,path,N0-h-utc,harm,,,,no,judge,`Workers/AuditWriter.cs` — `WriteAsync` — прямое внедрение `DbContext` в классе из `Workers/`
+b2df97,B,N0,F4,sonnet,high,none,path,N0-h-contains,harm,,,,no,judge,для этого случая ограничение по количеству параметров не актуально
+b2df97,B,N0,F4,sonnet,high,none,path,N0-X1,coverage,,,,found,judge,"`Skip(page * pageSize)` при нумерации страниц с 1 — off-by-one, страница 1 отдаёт данные страницы 2"
+b2df97,B,N0,F4,sonnet,high,none,path,N0-X2,coverage,,,,found,judge,"фильтр `o.Status == ""Active""` не совпадает по регистру со значением по умолчанию `""active""` в `Model.cs` — метод рискует всегда возвращать пустой список"
+6330ba,B,R,F2,sonnet,high,none,path,R-D3,unit,fromsql-alias,A,,pass,judge,"Таблице в `FROM` присвоен алиас `p`, а в условиях WHERE она упоминается по исходному имени `""Products""`"
+6330ba,B,R,F2,sonnet,high,none,path,R-D1,skill,,,,found,judge,"`SingleAsync` по `Sku`, который по домену не уникален (один SKU на нескольких складах)"
+6330ba,B,R,F2,sonnet,high,none,path,R-D2,skill,,,,found,judge,`last!.Value` после `MaxAsync` по nullable без проверки на null
+6330ba,B,R,F2,sonnet,high,none,path,R-D4,skill,,,,found,judge,`UpdateRange` на уже отслеживаемых сущностях помечает все поля Modified
+6330ba,B,R,F2,sonnet,high,none,path,R-D5,skill,,,,found,judge,Scoped `ShopDbContext` внедрён напрямую в Singleton `BackgroundService`
+6330ba,B,R,F2,sonnet,high,none,path,R-D6,skill,,,,found,judge,"Include двух коллекций (`Items`+`Payments`) без `AsSplitQuery`, декартово произведение для клиентов «с тысячами заказов»"
+6330ba,B,R,F2,sonnet,high,none,path,R-D7,skill,,,,found,judge,`SELECT ... FOR UPDATE` выполняется без явной транзакции
+6330ba,B,R,F2,sonnet,high,none,path,R-D8,skill,,,,found,judge,нет защиты от конкурентной правки (concurrency token/обработка конфликтов)
+6330ba,B,R,F2,sonnet,high,none,path,R-D9,skill,,,,found,judge,колонка дропается без переноса существующих значений в `Categories`/`OrderCategories`
+6330ba,B,R,F2,sonnet,high,none,path,R-K1,skill,,,,found,judge,"через репозиторий материализуется вся таблица `Orders` (с трекингом), фильтр по просрочке применяется уже в памяти"
+6330ba,B,R,F2,sonnet,high,none,path,R-h-B1,harm,split-single,D,,no,judge,соседний `GetCard` уже использует split query
+6330ba,B,R,F2,sonnet,high,none,path,R-h-B2,harm,,,,no,judge,нет
+6330ba,B,R,F2,sonnet,high,none,path,R-O1,coverage,,,,found,judge,сумма считается как `Sum(price)` без умножения на `Qty`
+e5d81f,B,CFG,F4,sonnet,high,none,path,CFG-K9,unit,staging-gt-prod,C,,pass,judge,"Staging = 20, Production = 5 — Staging агрессивнее прода без задокументированной причины"
+e5d81f,B,CFG,F4,sonnet,high,none,path,CFG-K8,unit,default-duplicated,C,,pass,judge,Staging `Outbox:MaxRetries: 5` и Production ... `MaxRetries: 5` дублируют значения из `appsettings.json`
+e5d81f,B,CFG,F4,sonnet,high,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,"модификатор `required` тут даже не применён, но и не спас бы"
+e5d81f,B,CFG,F4,sonnet,high,none,path,CFG-K1,skill,,,,found,judge,пароль БД (`Kx7!pQ2vR9wz`) и пароль SMTP-релея (`rl_live_9f3a1c77e2b04d6d`) захардкожены
+e5d81f,B,CFG,F4,sonnet,high,none,path,CFG-K2,skill,,,,found,judge,`60_000 / perMinute` кидает `DivideByZeroException`
+e5d81f,B,CFG,F4,sonnet,high,none,path,CFG-K3,skill,,,,found,judge,"`IValidateOptions<OutboxOptions>` не зарегистрирован, `.ValidateOnStart()` не вызван"
+e5d81f,B,CFG,F4,sonnet,high,none,path,CFG-K4,skill,,,,found,judge,Нужен `IOptionsMonitor<OutboxOptions>`: `IOptions<T>.Value` кэшируется на весь срок жизни синглтона
+e5d81f,B,CFG,F4,sonnet,high,none,path,CFG-K5,skill,,,,found,judge,тихо отключает адаптивное укрупнение батчей в проде (условие `MinBatchSize < MaxBatchSize` ... не выполняется)
+e5d81f,B,CFG,F4,sonnet,high,none,path,CFG-K6,skill,,,,found,judge,реальный интервал опроса получается 500 секунд (~8.3 минуты) вместо 0.5 секунды
+e5d81f,B,CFG,F4,sonnet,high,none,path,CFG-K7,skill,,,,found,judge,`Host`/`FromAddress` non-nullable без значения и без валидации
+e5d81f,B,CFG,F4,sonnet,high,none,path,CFG-h-P1,harm,,,,no,judge,нет
+e5d81f,B,CFG,F4,sonnet,high,none,path,CFG-h-P2,harm,,,,no,judge,нет
+e5d81f,B,CFG,F4,sonnet,high,none,path,CFG-O1,coverage,,,,found,judge,`m.SentAt = now` проставляется до попытки отправки
+e5d81f,B,CFG,F4,sonnet,high,none,path,CFG-O2,coverage,,,,found,judge,"секция называется `""Smtp""`, а не `""Mail""`. `SmtpOptions` никогда не заполняется"
+e5d81f,B,CFG,F4,sonnet,high,none,path,CFG-O3,coverage,,,,missed,judge,`appsettings.Staging.json` корректно использует плейсхолдер `${NOTIFY_DB_PASSWORD}`
+7ac6b0,B,R,F2,sonnet,high,none,path,R-D3,unit,fromsql-alias,A,,fail,judge,сам паттерн — сборка текста SQL через `string.Format`/конкатенацию условий — хрупкий
+7ac6b0,B,R,F2,sonnet,high,none,path,R-D1,skill,,,,found,judge,"`SingleAsync(p => p.Sku == sku)` бросит `InvalidOperationException`, как только у SKU больше одной складской записи"
+7ac6b0,B,R,F2,sonnet,high,none,path,R-D2,skill,,,,found,judge,`MaxAsync` по `ShippedAt` вернёт `null`... `last!.Value` в этом случае бросит
+7ac6b0,B,R,F2,sonnet,high,none,path,R-D4,skill,,,,found,judge,Явный `UpdateRange` на уже отслеживаемых сущностях помечает **все** свойства
+7ac6b0,B,R,F2,sonnet,high,none,path,R-D5,skill,,,,found,judge,`OverdueNotifier : BackgroundService` получает `ShopDbContext` через конструктор
+7ac6b0,B,R,F2,sonnet,high,none,path,R-D6,skill,,,,found,judge,Два `Include` на коллекции в одном запросе без `AsSplitQuery()` дают декартово произведение
+7ac6b0,B,R,F2,sonnet,high,none,path,R-D7,skill,,,,found,judge,`FOR UPDATE` без явной границы транзакции
+7ac6b0,B,R,F2,sonnet,high,none,path,R-D8,skill,,,,found,judge,сохраняет без concurrency-токена/проверки
+7ac6b0,B,R,F2,sonnet,high,none,path,R-D9,skill,,,,found,judge,`Up()` просто теряет значения `Category` вместо заполнения `Categories`/`OrderCategories`
+7ac6b0,B,R,F2,sonnet,high,none,path,R-K1,skill,,,,found,judge,`_repo.GetAllAsync()`... вытягивает в память **весь** `Orders`... фильтрует по `IsOverdue(now)`
+7ac6b0,B,R,F2,sonnet,high,none,path,R-h-B1,harm,split-single,D,,yes,judge,Для единичной сущности с небольшими коллекциями обычно дешевле и безопаснее один запрос
+7ac6b0,B,R,F2,sonnet,high,none,path,R-h-B2,harm,,,,no,judge,нет
+7ac6b0,B,R,F2,sonnet,high,none,path,R-O1,coverage,,,,found,judge,`OrderItem.Qty` игнорируется
+915ae6,B,E4,F4,sonnet,high,none,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+915ae6,B,E4,F4,sonnet,high,none,path,E4-cascade,unit,softdelete-cascade,A,,pass,e4,FK без каскада: 2 строк DDL
+915ae6,B,E4,F4,sonnet,high,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+915ae6,B,E4,F4,sonnet,high,none,path,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }               // сложность комплектации, 1..5"
+5c45a1,B,CFG,F3,sonnet,high,none,path,CFG-K9,unit,staging-gt-prod,C,,pass,judge,"`Outbox:MaxInFlight`: Staging = 20, Production = 5. Staging сконфигурирован агрессивнее продакшна"
+5c45a1,B,CFG,F3,sonnet,high,none,path,CFG-K8,unit,default-duplicated,C,,pass,judge,часть переопределений дублирует дефолт из appsettings.json дословно (Staging: `MaxRetries: 5`
+5c45a1,B,CFG,F3,sonnet,high,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,без `required` (который в любом случае не про валидацию конфигурации)
+5c45a1,B,CFG,F3,sonnet,high,none,path,CFG-K1,skill,,,,found,judge,в репозитории закоммичены секреты в открытом виде: пароль БД `Kx7!pQ2vR9wz` ... и боевой ключ
+5c45a1,B,CFG,F3,sonnet,high,none,path,CFG-K2,skill,,,,found,judge,"`GetValue<int>` на отсутствующем ключе вернёт `0`, и `60_000 / perMinute` даст `DivideByZeroException`"
+5c45a1,B,CFG,F3,sonnet,high,none,path,CFG-K3,skill,,,,found,judge,валидатор нигде не зарегистрирован в DI ... `ValidateOnStart()` не вызывается
+5c45a1,B,CFG,F3,sonnet,high,none,path,CFG-K4,skill,,,,found,judge,используется `IOptions<T>` вместо `IOptionsMonitor<T>`
+5c45a1,B,CFG,F3,sonnet,high,none,path,CFG-K5,skill,,,,found,judge,"условие `o.MinBatchSize < o.MaxBatchSize` всегда ложно, адаптивное изменение размера пачки в проде молча отключается"
+5c45a1,B,CFG,F3,sonnet,high,none,path,CFG-K6,skill,,,,found,judge,Реальный интервал опроса — ~500 секунд (8+ минут) вместо 0.5 секунды
+5c45a1,B,CFG,F3,sonnet,high,none,path,CFG-K7,skill,,,,found,judge,`Host`/`FromAddress` — non-nullable строки без значения по умолчанию
+5c45a1,B,CFG,F3,sonnet,high,none,path,CFG-h-P1,harm,,,,no,judge,нет
+5c45a1,B,CFG,F3,sonnet,high,none,path,CFG-h-P2,harm,,,,no,judge,нет
+5c45a1,B,CFG,F3,sonnet,high,none,path,CFG-O1,coverage,,,,found,judge,`m.SentAt = now;` выставляется для всей пачки *до* попытки реальной отправки
+5c45a1,B,CFG,F3,sonnet,high,none,path,CFG-O2,coverage,,,,found,judge,Секция в конфиге называется `Smtp` ... а биндится секция `Mail`
+5c45a1,B,CFG,F3,sonnet,high,none,path,CFG-O3,coverage,,,,missed,judge,в `appsettings.Staging.json` пароль БД корректно вынесен в `${NOTIFY_DB_PASSWORD}`
+78122a,B,N0,F3,sonnet,high,none,path,N0-h-split,harm,split-single,D,,yes,judge,с `AsSplitQuery()` — ... но при этом выполняется несколько отдельных round-trip'ов к БД без общей транзакции/снапшота
+78122a,B,N0,F3,sonnet,high,none,path,N0-h-utc,harm,,,,no,judge,`Kind=Utc` соответствует этому маппингу — несовпадения `Kind`/типа колонки нет
+78122a,B,N0,F3,sonnet,high,none,path,N0-h-contains,harm,,,,no,judge,"транслируется в `= ANY(@ids)` одним параметром — параметрического взрыва на ""нескольких тысячах id"" не будет"
+78122a,B,N0,F3,sonnet,high,none,path,N0-X1,coverage,,,,found,judge,смещение вычисляется как `Skip(page * pageSize)`. Для `page=1` это скипает `pageSize` строк
+78122a,B,N0,F3,sonnet,high,none,path,N0-X2,coverage,,,,found,judge,"сравнение `o.Status == ""Active""` (заглавная буква), а в `Model.cs` ... — `""active""`"
+c0bb2d,B,CFG,F3,sonnet,high,none,path,CFG-K9,unit,staging-gt-prod,C,,pass,judge,"`appsettings.Staging.json` — `MaxInFlight: 20` выше, чем в Production (`5`), без комментария/обоснования."
+c0bb2d,B,CFG,F3,sonnet,high,none,path,CFG-K8,unit,default-duplicated,C,,pass,judge,`appsettings.Staging.json`: `MaxRetries: 5` совпадает со значением по умолчанию из `appsettings.json`.
+c0bb2d,B,CFG,F3,sonnet,high,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,нет
+c0bb2d,B,CFG,F3,sonnet,high,none,path,CFG-K1,skill,,,,found,judge,`appsettings.Production.json` — реальные секреты закоммичены в репозиторий.
+c0bb2d,B,CFG,F3,sonnet,high,none,path,CFG-K2,skill,,,,found,judge,`60_000 / perMinute` даст `DivideByZeroException`
+c0bb2d,B,CFG,F3,sonnet,high,none,path,CFG-K3,skill,,,,found,judge,`OutboxOptionsValidator` не зарегистрирован в DI и `.ValidateOnStart()` не вызван
+c0bb2d,B,CFG,F3,sonnet,high,none,path,CFG-K4,skill,,,,found,judge,использует `IOptions<OutboxOptions>` вместо `IOptionsMonitor<OutboxOptions>` — не выполняет требование MR о смене лимитов «на лету».
+c0bb2d,B,CFG,F3,sonnet,high,none,path,CFG-K5,skill,,,,found,judge,`if (o.MinBatchSize < o.MaxBatchSize)` просто тихо отключает адаптивное изменение размера пачки
+c0bb2d,B,CFG,F3,sonnet,high,none,path,CFG-K6,skill,,,,found,judge,трактует `500` как **500 секунд** (~8.3 минуты) между опросами
+c0bb2d,B,CFG,F3,sonnet,high,none,path,CFG-K7,skill,,,,found,judge,non-nullable свойства `Host`/`FromAddress` без инициализатора и без валидатора опций.
+c0bb2d,B,CFG,F3,sonnet,high,none,path,CFG-h-P1,harm,,,,no,judge,нет
+c0bb2d,B,CFG,F3,sonnet,high,none,path,CFG-h-P2,harm,,,,no,judge,хранить как `TimeSpan` (как уже сделано для `LockTimeout`)
+c0bb2d,B,CFG,F3,sonnet,high,none,path,CFG-O1,coverage,,,,found,judge,сообщения помечаются `SentAt = now` до попытки отправки и не откатываются при ошибке.
+c0bb2d,B,CFG,F3,sonnet,high,none,path,CFG-O2,coverage,,,,found,judge,"`Configure<SmtpOptions>(builder.Configuration.GetSection(""Mail""))` — секция называется ""Smtp"", а не ""Mail""."
+c0bb2d,B,CFG,F3,sonnet,high,none,path,CFG-O3,coverage,,,,found,judge,плейсхолдер `${NOTIFY_DB_PASSWORD}` в строке подключения не подкреплён механизмом подстановки в коде.
+deb731,B,N0,F3,sonnet,high,none,path,N0-h-split,harm,split-single,D,,no,judge,"две коллекции (`Items`, `Payments`) на одном уровне корректно разведены через `AsSplitQuery()`"
+deb731,B,N0,F3,sonnet,high,none,path,N0-h-utc,harm,,,,no,judge,`Kind=Utc` для такой колонки корректен
+deb731,B,N0,F3,sonnet,high,none,path,N0-h-contains,harm,,,,no,judge,тысячи id не создают проблему с числом параметров
+deb731,B,N0,F3,sonnet,high,none,path,N0-X1,coverage,,,,found,judge,"При `page = 1` (первая страница) код делает `Skip(1 * pageSize)`, то есть пропускает ровно первую страницу данных"
+deb731,B,N0,F3,sonnet,high,none,path,N0-X2,coverage,,,,found,judge,"метод, скорее всего, всегда будет возвращать пустой список для активных заказов"
+273de7,B,R,F2,sonnet,high,none,path,R-D3,unit,fromsql-alias,A,,fail,judge,имена/позиции плейсхолдеров `@p{args.Count}` вручную синхронизируются с индексами в списке `args`
+273de7,B,R,F2,sonnet,high,none,path,R-D1,skill,,,,found,judge,`SingleAsync` на неуникальном в домене условии
+273de7,B,R,F2,sonnet,high,none,path,R-D2,skill,,,,found,judge,"`MaxAsync(o => o.ShippedAt)` вернёт `null`, если у клиента нет заказов или ни один ещё не отгружен"
+273de7,B,R,F2,sonnet,high,none,path,R-D4,skill,,,,found,judge,`UpdateRange` на уже отслеживаемых сущностях
+273de7,B,R,F2,sonnet,high,none,path,R-D5,skill,,,,found,judge,`DbContext` захвачен в singleton-воркере
+273de7,B,R,F2,sonnet,high,none,path,R-D6,skill,,,,found,judge,`Include(Items).Include(Payments)` без `AsSplitQuery()` даёт декартово произведение
+273de7,B,R,F2,sonnet,high,none,path,R-D7,skill,,,,found,judge,`FOR UPDATE` вне границы транзакции
+273de7,B,R,F2,sonnet,high,none,path,R-D8,skill,,,,found,judge,сохраняет без concurrency token (`RowVersion`/`xmin`)
+273de7,B,R,F2,sonnet,high,none,path,R-D9,skill,,,,found,judge,в `Up()` нет шага переноса существующих значений `Orders.Category`
+273de7,B,R,F2,sonnet,high,none,path,R-K1,skill,,,,found,judge,`_repo.GetAllAsync()` тянет **все** заказы
+273de7,B,R,F2,sonnet,high,none,path,R-h-B1,harm,split-single,D,,no,judge,В `GetCard` этот же паттерн сделан правильно (`AsSplitQuery`)
+273de7,B,R,F2,sonnet,high,none,path,R-h-B2,harm,,,,yes,judge,"вычисление `border` через `DateTime.SpecifyKind(..., Unspecified)`"
+273de7,B,R,F2,sonnet,high,none,path,R-O1,coverage,,,,found,judge,"суммирует только цену за единицу, без умножения на `Qty`"
+2adcb9,B,E4,F2,sonnet,high,none,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+2adcb9,B,E4,F2,sonnet,high,none,path,E4-cascade,unit,softdelete-cascade,A,,fail,e4,"CASCADE: DDL  CONSTRAINT ""FK_OrderItem_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE | DDL  CONSTRAINT ""FK_Payment_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE"
+2adcb9,B,E4,F2,sonnet,high,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+2adcb9,B,E4,F2,sonnet,high,none,path,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }               // сложность комплектации, 1..5"
+052368,B,E4,F4,sonnet,high,none,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+052368,B,E4,F4,sonnet,high,none,path,E4-cascade,unit,softdelete-cascade,A,,pass,e4,FK без каскада: 2 строк DDL
+052368,B,E4,F4,sonnet,high,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+052368,B,E4,F4,sonnet,high,none,path,E4-m-owned,mine,,,,no,judge,public int Complexity { get; set; }               // сложность комплектации: 1..5
+25aff8,B,CFG,F4,sonnet,high,none,path,CFG-K9,unit,staging-gt-prod,C,,pass,judge,"`appsettings.Staging.json` — `Outbox:MaxInFlight = 20` агрессивнее, чем в Production (`5`)"
+25aff8,B,CFG,F4,sonnet,high,none,path,CFG-K8,unit,default-duplicated,C,,pass,judge,Staging: `Outbox:MaxRetries: 5` совпадает со значением по умолчанию из `appsettings.json`.
+25aff8,B,CFG,F4,sonnet,high,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,"Нужна валидация опций при старте, а не полагаться на nullable-предупреждения компилятора."
+25aff8,B,CFG,F4,sonnet,high,none,path,CFG-K1,skill,,,,found,judge,Реальные пароли (БД и SMTP-релея) захардкожены прямо в `appsettings.Production.json`
+25aff8,B,CFG,F4,sonnet,high,none,path,CFG-K2,skill,,,,found,judge,"`GetValue<int>` для отсутствующего ключа вернёт `0`, и `60_000 / perMinute` бросит `DivideByZeroException`"
+25aff8,B,CFG,F4,sonnet,high,none,path,CFG-K3,skill,,,,found,judge,"`OutboxOptionsValidator` нигде не зарегистрирован, `ValidateOnStart` не вызывается"
+25aff8,B,CFG,F4,sonnet,high,none,path,CFG-K4,skill,,,,found,judge,используется `IOptions<OutboxOptions>` вместо `IOptionsMonitor<OutboxOptions>`
+25aff8,B,CFG,F4,sonnet,high,none,path,CFG-K5,skill,,,,found,judge,"условие `o.MinBatchSize < o.MaxBatchSize` (200 < 100) окажется ложным, из-за чего адаптивное изменение размера пачки в Production молча отключится"
+25aff8,B,CFG,F4,sonnet,high,none,path,CFG-K6,skill,,,,found,judge,реальный интервал опроса — 500 секунд (~8.3 минуты) вместо 0.5 секунды
+25aff8,B,CFG,F4,sonnet,high,none,path,CFG-K7,skill,,,,found,judge,`Host` и `FromAddress` объявлены как non-nullable `string` без инициализатора
+25aff8,B,CFG,F4,sonnet,high,none,path,CFG-h-P1,harm,,,,no,judge,нет
+25aff8,B,CFG,F4,sonnet,high,none,path,CFG-h-P2,harm,,,,no,judge,"`LockTimeout`, которое хранится как `TimeSpan`-строка `""00:00:30""` и однозначно по формату"
+25aff8,B,CFG,F4,sonnet,high,none,path,CFG-O1,coverage,,,,found,judge,`SentAt` проставляется до фактической отправки
+25aff8,B,CFG,F4,sonnet,high,none,path,CFG-O2,coverage,,,,found,judge,"`SmtpOptions` привязан к секции `""Mail""`, а в appsettings секция называется `""Smtp""`"
+25aff8,B,CFG,F4,sonnet,high,none,path,CFG-O3,coverage,,,,missed,judge,Staging для пароля БД корректно использует плейсхолдер `${NOTIFY_DB_PASSWORD}`
+818b0e,B,R,F2,sonnet,high,none,path,R-D3,unit,fromsql-alias,A,,fail,judge,"параметризовано, инъекции нет, но хрупко и избыточно"
+818b0e,B,R,F2,sonnet,high,none,path,R-D1,skill,,,,found,judge,"`SingleAsync` по `Sku`, который не уникален глобально (уникален только в рамках склада)"
+818b0e,B,R,F2,sonnet,high,none,path,R-D2,skill,,,,found,judge,`last!.Value` без проверки на `null` (нет заказов/нет отгрузок → падение)
+818b0e,B,R,F2,sonnet,high,none,path,R-D4,skill,,,,found,judge,`UpdateRange` на уже отслеживаемых сущностях перезаписывает все столбцы
+818b0e,B,R,F2,sonnet,high,none,path,R-D5,skill,,,,found,judge,scoped `ShopDbContext` внедряется в singleton `BackgroundService` напрямую через конструктор
+818b0e,B,R,F2,sonnet,high,none,path,R-D6,skill,,,,found,judge,два `Include` без `AsSplitQuery()` для клиентов с тысячами заказов — декартово произведение
+818b0e,B,R,F2,sonnet,high,none,path,R-D7,skill,,,,found,judge,`FOR UPDATE` без явной границы транзакции
+818b0e,B,R,F2,sonnet,high,none,path,R-D8,skill,,,,found,judge,нет optimistic concurrency при параллельной правке заказа операторами (lost update)
+818b0e,B,R,F2,sonnet,high,none,path,R-D9,skill,,,,found,judge,нет бэкфилла: существующие `Orders.Category` не переносятся
+818b0e,B,R,F2,sonnet,high,none,path,R-K1,skill,,,,found,judge,"грузит всю таблицу `Orders` (tracked, без фильтра) и фильтрует в памяти доменным методом"
+818b0e,B,R,F2,sonnet,high,none,path,R-h-B1,harm,split-single,D,,yes,judge,`AsSplitQuery()` на выборке одной сущности: лишние round-trip'ы
+818b0e,B,R,F2,sonnet,high,none,path,R-h-B2,harm,,,,no,judge,нет
+818b0e,B,R,F2,sonnet,high,none,path,R-O1,coverage,,,,found,judge,сумма считается без учёта `OrderItem.Qty`
+2eaf74,B,E4,F2,sonnet,high,none,path,E4-ts,unit,datetime-column,B,,fail,e4,"WRITE FAIL Cannot write DateTime with Kind=UTC to PostgreSQL type 'timestamp without time zone', consider using 'timestamp with time zone'. Note that it's not possible to mix DateTimes with different Kinds in an array, range, or multirange. (Parameter 'value')"
+2eaf74,B,E4,F2,sonnet,high,none,path,E4-cascade,unit,softdelete-cascade,A,,pass,e4,FK без каскада: 2 строк DDL
+2eaf74,B,E4,F2,sonnet,high,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+2eaf74,B,E4,F2,sonnet,high,none,path,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }              // сложность комплектации, 1..5"

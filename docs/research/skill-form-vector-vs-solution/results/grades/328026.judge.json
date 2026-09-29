@@ -1,0 +1,71 @@
+{
+  "id": "328026",
+  "case": "N0",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.049975399999999996,
+    "durationMs": 6831,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 4495,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 679,
+      "output_tokens_details": {
+        "thinking_tokens": 159
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4495,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 679,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 4495,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 4495
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "N0-h-split": {
+      "verdict": "NO",
+      "quote": "оставив `Include`/`AsSplitQuery` только для коллекций `Items`/`Payments`",
+      "why": "Находка 6 направлена против Include(Customer), а AsSplitQuery для коллекций выход прямо предлагает сохранить."
+    },
+    "N0-h-utc": {
+      "verdict": "NO",
+      "quote": "`ShopDbContext` инжектируется через конструктор без признаков создания scope на операцию",
+      "why": "Находка по AuditWriter касается жизненного цикла DbContext; претензий к At = DateTime.UtcNow нет, а п.4 относится к чтению CreatedAt в CustomerOrders."
+    },
+    "N0-h-contains": {
+      "verdict": "NO",
+      "quote": "корректно работает и для \"нескольких тысяч id\" без риска упереться в лимит параметров",
+      "why": "Выход явно признаёт Contains в CartLookup корректным."
+    },
+    "N0-X1": {
+      "verdict": "FOUND",
+      "quote": "Off-by-one в пагинации: `Skip(page * pageSize)`",
+      "why": "Дефект назван прямо: при нумерации с 1 первая страница пропускается."
+    },
+    "N0-X2": {
+      "verdict": "FOUND",
+      "quote": "Несовпадение регистра в фильтре статуса: `o.Status == \"Active\"`",
+      "why": "Указано, что дефолтное значение \"active\" не совпадает с фильтром и набор данных оказывается пустым."
+    }
+  },
+  "stderr": ""
+}

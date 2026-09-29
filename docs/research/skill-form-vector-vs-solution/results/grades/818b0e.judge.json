@@ -1,0 +1,111 @@
+{
+  "id": "818b0e",
+  "case": "R",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0816114,
+    "durationMs": 10670,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 6687,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1384,
+      "output_tokens_details": {
+        "thinking_tokens": 265
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6687,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1384,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 6687,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 6687
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "R-D3": {
+      "verdict": "FAIL",
+      "quote": "параметризовано, инъекции нет, но хрупко и избыточно",
+      "why": "Находка по Search есть, но в ней нет несовпадения алиаса: условия собираются через \"Products\", а шаблон задаёт алиас p."
+    },
+    "R-D1": {
+      "verdict": "FOUND",
+      "quote": "`SingleAsync` по `Sku`, который не уникален глобально (уникален только в рамках склада)",
+      "why": "Прямо названо, что SingleAsync падает на SKU, который повторяется между складами."
+    },
+    "R-D2": {
+      "verdict": "FOUND",
+      "quote": "`last!.Value` без проверки на `null` (нет заказов/нет отгрузок → падение)",
+      "why": "Названы MaxAsync по ShippedAt и разыменование !.Value без обработки null."
+    },
+    "R-D4": {
+      "verdict": "FOUND",
+      "quote": "`UpdateRange` на уже отслеживаемых сущностях перезаписывает все столбцы",
+      "why": "Дефект UpdateRange на tracked-сущностях назван прямо."
+    },
+    "R-D5": {
+      "verdict": "FOUND",
+      "quote": "scoped `ShopDbContext` внедряется в singleton `BackgroundService` напрямую через конструктор",
+      "why": "Названа инъекция DbContext в конструктор BackgroundService."
+    },
+    "R-D6": {
+      "verdict": "FOUND",
+      "quote": "два `Include` без `AsSplitQuery()` для клиентов с тысячами заказов — декартово произведение",
+      "why": "Названы две коллекции в Include без split на тысячах заказов."
+    },
+    "R-D7": {
+      "verdict": "FOUND",
+      "quote": "`FOR UPDATE` без явной границы транзакции",
+      "why": "Названо отсутствие явной транзакции вокруг FOR UPDATE."
+    },
+    "R-D8": {
+      "verdict": "FOUND",
+      "quote": "нет optimistic concurrency при параллельной правке заказа операторами (lost update)",
+      "why": "Названо отсутствие concurrency token при правке заказа."
+    },
+    "R-D9": {
+      "verdict": "FOUND",
+      "quote": "нет бэкфилла: существующие `Orders.Category` не переносятся",
+      "why": "Назван DropColumn Category без переноса данных."
+    },
+    "R-K1": {
+      "verdict": "FOUND",
+      "quote": "грузит всю таблицу `Orders` (tracked, без фильтра) и фильтрует в памяти доменным методом",
+      "why": "Названы GetAllAsync и фильтрация IsOverdue в памяти."
+    },
+    "R-h-B1": {
+      "verdict": "YES",
+      "quote": "`AsSplitQuery()` на выборке одной сущности: лишние round-trip'ы",
+      "why": "Выход объявляет дефектом правильный AsSplitQuery на карточке одного заказа с двумя коллекциями."
+    },
+    "R-h-B2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находок против записи Kind=Unspecified или чтения как Utc нет."
+    },
+    "R-O1": {
+      "verdict": "FOUND",
+      "quote": "сумма считается без учёта `OrderItem.Qty`",
+      "why": "Назван расчёт суммы заказа без Qty."
+    }
+  },
+  "stderr": ""
+}

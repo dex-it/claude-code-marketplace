@@ -1,0 +1,72 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..c877823
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,66 @@
++# Ревью MR !4210: карточка заказа, выгрузка корзины и аудит для админки
++
++## 1. Services/CustomerOrders.cs — `ActivePageAsync` — off-by-one в пагинации
++**Severity: critical**
++
++```csharp
++.Skip(page * pageSize)
++.Take(pageSize)
++```
++
++Комментарий в коде и MR явно говорят: "page - номер страницы с 1". При `page == 1` (первая страница) `Skip(1 * pageSize)` пропускает ровно `pageSize` записей — то есть отдаётся вторая страница, а первая недоступна вообще. Все последующие страницы тоже сдвинуты на одну вперёд. Это ломает основную заявленную в MR функциональность (постраничный список заказов клиента). Нужно `Skip((page - 1) * pageSize)`.
++
++## 2. Services/CustomerOrders.cs — `ActivePageAsync` — несовпадение регистра в фильтре по статусу
++**Severity: high**
++
++```csharp
++.Where(o => o.CustomerId == customerId && o.Status == "Active")
++```
++
++В `Model.cs` значение по умолчанию для `Order.Status` — `"active"` (нижний регистр):
++```csharp
++public string Status { get; set; } = "active";
++```
++PostgreSQL сравнивает `text` регистрозависимо, `=` не транслируется в case-insensitive сравнение. Если реальные заказы создаются со значением по умолчанию (или вообще где-то пишется `"active"`), метод будет молча возвращать пустой список для таких заказов. Нужно либо согласовать константу статуса (enum/константа вместо строкового литерала), либо явно обосновать, почему в БД гарантированно `"Active"` с большой буквы. В текущем виде — расхождение между кодом модели и кодом фильтра, стоит перепроверить перед мерджем.
++
++## 3. Workers/AuditWriter.cs — конструктор — риск неверного времени жизни `DbContext`
++**Severity: high (требует проверки DI-регистрации)**
++
++```csharp
++public class AuditWriter
++{
++    private readonly ShopDbContext _db;
++    public AuditWriter(ShopDbContext db) => _db = db;
++    ...
++}
++```
++
++Класс лежит в `Workers/` (по неймингу — компонент для использования из фоновой обработки/`BackgroundService`) и получает `ShopDbContext` напрямую через конструктор. `DbContext` по умолчанию Scoped и не потокобезопасен; если `AuditWriter` регистрируется как Singleton (типично для воркеров) или вызывается из `BackgroundService`, это классическая ошибка "DbContext в BackgroundService" из чек-листа: либо DI не соберёт граф (captive dependency при включённой валидации скоупов), либо при параллельных вызовах `WriteAsync` из разных потоков контекст будет использоваться конкурентно с непредсказуемым поведением/исключениями. Файлы DI-регистрации в это MR не входят, поэтому это не подтверждённый баг, а конкретный риск, который стоит закрыть до мерджа: либо `AuditWriter` должен создавать себе scope (`IServiceScopeFactory`) / использовать `IDbContextFactory<ShopDbContext>` на каждый вызов, либо явно зафиксировать, что сам `AuditWriter` регистрируется Scoped и вызывается только из скоупа запроса, а не из долгоживущего воркера.
++
++## 4. Services/CustomerOrders.cs — `ActivePageAsync` — сортировка без tie-breaker при постраничной выборке
++**Severity: low**
++
++```csharp
++.OrderByDescending(o => o.CreatedAt)
++.Skip(...).Take(...)
++```
++
++Сортировка только по `CreatedAt` не гарантирует стабильный порядок при совпадающих значениях (несколько заказов, созданных в одну и ту же секунду/миллисекунду — вполне реальный сценарий под нагрузкой). При смене страниц через `Skip/Take` это может приводить к пропуску или дублированию записей между страницами. Стоит добавить вторичный ключ сортировки, например `.ThenByDescending(o => o.Id)`.
++
++## 5. Services/OrderCard.cs — `GetAsync` — сущности EF прокидываются наружу вместо проекции
++**Severity: low**
++
++```csharp
++return order is null
++    ? null
++    : new OrderCardDto(order.Id, order.Customer.Name, order.Total, order.Items, order.Payments);
++```
++
++`OrderCardDto` содержит `IReadOnlyList<OrderItem>` и `IReadOnlyList<Payment>` — то есть сами сущности модели персистентности (со служебными полями вроде `OrderId`), а не спроецированные под нужды карточки DTO. Это не ломает функциональность (данные читаются через `AsNoTracking` + корректный `AsSplitQuery` для двух коллекций одного уровня — здесь всё сделано правильно), но заводит зависимость слоя API/представления от модели EF, что усложняет последующую эволюцию схемы. Стоит спроецировать в отдельные `OrderItemDto`/`PaymentDto`.
++
++---
++
++## Что проверено и не является дефектом
++- `OrderCard.GetAsync`: `AsNoTracking()` + `Include(Items)/Include(Payments)` + `AsSplitQuery()` — корректное решение для двух коллекций одного уровня (пункт чек-листа про split query на одной сущности учтён правильно), `SingleOrDefaultAsync(o => o.Id == id)` — условие по PK, уникальность гарантирована.
++- `CartLookup.GetAsync`: `Where(p => ids.Contains(p.Id))` транслируется Npgsql в `= ANY(@p)` одним параметром-массивом, безопасно и для "нескольких тысяч id" из MR; используется проекция (`Select` в DTO), а не полная сущность; `AsNoTracking()` на месте.
++- `AuditWriter.WriteAsync`: используется синхронный `Add` (не `AddAsync`) — это правильно для Npgsql/serial-ключей, где `AddAsync` не нужен и вызывает лишний обход хранилища значений. `DateTime.UtcNow` (Kind=Utc) пишется в колонку без явного `HasColumnType`, то есть по умолчанию `timestamptz` — соответствует конвенции команды.
