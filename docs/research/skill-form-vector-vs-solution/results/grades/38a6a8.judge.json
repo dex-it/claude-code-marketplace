@@ -1,0 +1,81 @@
+{
+  "id": "38a6a8",
+  "case": "FVB",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0701554,
+    "durationMs": 9932,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 6040,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1070,
+      "output_tokens_details": {
+        "thinking_tokens": 305
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6040,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1070,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 6040,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 6040
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "FVB-KB1": {
+      "verdict": "PASS",
+      "quote": "Старый клиент, не знающий о поле, не получит `422`, как задумано автором, а пришлёт запрос без `confirm_amount` → pydantic подставит `None` → `redeem()` трактует `None` как «списать весь баланс»",
+      "why": "Находка прямо опровергает утверждение комментария для pydantic 1.10: поле необязательно, дефолт None, и старый клиент спишет весь баланс."
+    },
+    "FVB-KB2": {
+      "verdict": "PASS",
+      "quote": "дефолтное значение `Config.extra` — **`Extra.ignore`**, то есть лишние/опечатанные поля во входных данных **молча игнорируются**",
+      "why": "Утверждение комментария опровергнуто через дефолт extra=ignore; связь опечатки с None и списанием всего баланса не показана, но опровержение по существу есть."
+    },
+    "FVB-h-PB1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Выход нигде не требует заменить req.dict() на model_dump()."
+    },
+    "FVB-OB1": {
+      "verdict": "FOUND",
+      "quote": "Два параллельных запроса на списание одного и того же `member_id` могут оба прочитать одинаковый баланс, оба пройти проверку",
+      "why": "Названа гонка: чтение и UPDATE идут без блокировки, что ведёт к двойному списанию."
+    },
+    "FVB-OB2": {
+      "verdict": "FOUND",
+      "quote": "`Decimal(0.1)` не равен `Decimal(\"0.1\")` — конструктор `Decimal` из `float` даёт двоичное приближение",
+      "why": "Неточная стоимость балла из-за Decimal от float названа прямо."
+    },
+    "FVB-OB3": {
+      "verdict": "FOUND",
+      "quote": "при отрицательном `amount` **увеличивает** `member.points` вместо списания",
+      "why": "Начисление баллов через отрицательный confirm_amount названо явно."
+    },
+    "FVB-OB4": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Ни одна находка не говорит, что member_id берётся из тела запроса без аутентификации (IDOR)."
+    }
+  },
+  "stderr": ""
+}

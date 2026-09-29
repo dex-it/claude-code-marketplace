@@ -16,13 +16,14 @@ const opt = (n, d) => { const i = argv.indexOf(`--${n}`); return i >= 0 ? argv[i
 const STAGES = opt('stage', 'A').split(',');
 const FILTER = { model: opt('model'), search: opt('search'), delivery: opt('delivery') };
 const LABEL = opt('label', STAGES.join(''));
+const CASES = opt('cases')?.split(',');
 
 const pass = (r, flip) => {
   // disputed: основной анализ - по полю primary ключа, чувствительность - наоборот.
   if (r.verdict === 'disputed') return flip ? r.primary !== 'pass' : r.primary === 'pass';
   return r.verdict === 'pass';
 };
-const keep = (r) => STAGES.includes(r.stage) && Object.entries(FILTER).every(([k, v]) => !v || r[k] === v);
+const keep = (r) => STAGES.includes(r.stage) && (!CASES || CASES.includes(r.case)) && Object.entries(FILTER).every(([k, v]) => !v || r[k] === v);
 const items = parseCsv(readFileSync(join(HERE, 'results.csv'), 'utf8')).filter(keep).filter((r) => r.verdict);
 const runs = parseCsv(readFileSync(join(HERE, 'runs.csv'), 'utf8')).filter(keep);
 const FORMS = opt('forms', [...new Set(items.map((r) => r.form))].sort().join(',')).split(',');
@@ -57,7 +58,7 @@ function harmRuns(form, cases) {
   return { k: rs.filter((r) => bad.has(r.run_id)).length, n: rs.length };
 }
 
-out.push(`# Таблицы: стадии ${STAGES.join(', ')}${Object.values(FILTER).some(Boolean) ? `, фильтр ${JSON.stringify(FILTER)}` : ''}`);
+out.push(`# Таблицы: стадии ${STAGES.join(', ')}${Object.values(FILTER).some(Boolean) ? `, фильтр ${JSON.stringify(FILTER)}` : ''}${CASES ? `, кейсы ${CASES.join(', ')}` : ''}`);
 out.push('', `Прогонов: ${runs.length}; строк оценки: ${items.length}. Сгенерировано results/analyze.mjs из results.csv и runs.csv.`);
 
 for (const [title, flip] of [['Применение по классу и форме (k/n, доля, 95% Уилсон)', false], ['Чувствительность: disputed наоборот', true]]) {

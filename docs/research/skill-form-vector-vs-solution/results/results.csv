@@ -2000,6 +2000,316 @@ e18fea,C,CFG,F5,opus,medium,none,path,CFG-h-P2,harm,,,,no,judge,нет
 e18fea,C,CFG,F5,opus,medium,none,path,CFG-O1,coverage,,,,found,judge,`SentAt = now` ставится и сохраняется ДО отправки
 e18fea,C,CFG,F5,opus,medium,none,path,CFG-O2,coverage,,,,found,judge,"`Configure<SmtpOptions>(GetSection(""Mail""))`, а секция в конфиге называется `""Smtp""`"
 e18fea,C,CFG,F5,opus,medium,none,path,CFG-O3,coverage,,,,found,judge,Конфигурация .NET не подставляет `${...}`
+061552,D,E4,F1,sonnet,high,none,plugin,E4-ts,unit,datetime-column,B,,fail,e4,"WRITE FAIL Cannot write DateTime with Kind=UTC to PostgreSQL type 'timestamp without time zone', consider using 'timestamp with time zone'. Note that it's not possible to mix DateTimes with different Kinds in an array, range, or multirange. (Parameter 'value')"
+061552,D,E4,F1,sonnet,high,none,plugin,E4-cascade,unit,softdelete-cascade,A,,fail,e4,"CASCADE: DDL  CONSTRAINT ""FK_OrderItem_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE | DDL  CONSTRAINT ""FK_Payment_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE"
+061552,D,E4,F1,sonnet,high,none,plugin,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+061552,D,E4,F1,sonnet,high,none,plugin,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }              // 1..5, сложность комплектации"
+8ddd24,D,R,F5,sonnet,high,none,plugin,R-D3,unit,fromsql-alias,A,,pass,judge,"Шаблон `""SELECT * FROM \""Products\"" p WHERE {0}""` аліасит таблицу как `p`, но динамические условия ссылаются на исходное имя таблицы"
+8ddd24,D,R,F5,sonnet,high,none,plugin,R-D1,skill,,,,found,judge,"`SingleAsync` на SKU, который по модели не уникален (несколько складов)"
+8ddd24,D,R,F5,sonnet,high,none,plugin,R-D2,skill,,,,found,judge,"`MaxAsync` + `.Value` падает, если у клиента нет отгруженных заказов"
+8ddd24,D,R,F5,sonnet,high,none,plugin,R-D4,skill,,,,found,judge,`UpdateRange(products)` вызывается для уже отслеживаемых сущностей
+8ddd24,D,R,F5,sonnet,high,none,plugin,R-D5,skill,,,,found,judge,`ShopDbContext` (Scoped) внедряется напрямую в `BackgroundService`
+8ddd24,D,R,F5,sonnet,high,none,plugin,R-D6,skill,,,,found,judge,"Два `Include` (`Items`, `Payments`) без `AsSplitQuery()` дают декартово произведение"
+8ddd24,D,R,F5,sonnet,high,none,plugin,R-D7,skill,,,,found,judge,`FOR UPDATE` выполняется без явной транзакции
+8ddd24,D,R,F5,sonnet,high,none,plugin,R-D8,skill,,,,found,judge,обновление идёт без concurrency-контроля (`[Timestamp]`/`RowVersion` либо `UseXminAsConcurrencyToken()`
+8ddd24,D,R,F5,sonnet,high,none,plugin,R-D9,skill,,,,found,judge,"Нет data-migration шага, переносящего существующие значения `Orders.Category`"
+8ddd24,D,R,F5,sonnet,high,none,plugin,R-K1,skill,,,,found,judge,`await _repo.GetAllAsync()` тянет в память **все** заказы
+8ddd24,D,R,F5,sonnet,high,none,plugin,R-h-B1,harm,split-single,D,,yes,judge,Для single-entity запроса `AsSplitQuery` добавляет лишний round-trip к БД без выгоды
+8ddd24,D,R,F5,sonnet,high,none,plugin,R-h-B2,harm,,,,no,judge,нет
+8ddd24,D,R,F5,sonnet,high,none,plugin,R-O1,coverage,,,,found,judge,"суммирует только цену за единицу, игнорируя `OrderItem.Qty`"
+3532ae,D,E1,F1,sonnet,high,none,plugin,E1-filter,unit,untranslatable-filter,A,,pass,judge,_db.Orders.AsNoTracking().Where(o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < now)
+3532ae,D,E1,F1,sonnet,high,none,plugin,E1-tracking,unit,readonly-tracking,A,,pass,judge,"_db.Orders.AsNoTracking().Where(o => o.Status == ""active"")"
+3532ae,D,E1,F1,sonnet,high,none,plugin,E1-m-n1,mine,,,,no,judge,".Select(o => new OrderReportItem(o.Id, o.Customer.Name, o.Total, o.Items.Count))"
+3532ae,D,E1,F1,sonnet,high,none,plugin,E1-m-agg,mine,,,,no,judge,".GroupBy(o => o.Category)
+            .Select(g => new { Category = g.Key, Count = g.Count() })"
+3532ae,D,E1,F1,sonnet,high,none,plugin,E1-m-getall,mine,,,,no,judge,нет
+d62346,D,R,F1,sonnet,high,none,plugin,R-D3,unit,fromsql-alias,A,,pass,judge,"условия ссылаются на `""Products"".""Category""` / `""Products"".""Price""` вместо алиаса `p`"
+d62346,D,R,F1,sonnet,high,none,plugin,R-D1,skill,,,,found,judge,`SingleAsync` при неуникальном SKU по складам
+d62346,D,R,F1,sonnet,high,none,plugin,R-D2,skill,,,,found,judge,`!.Value` на возможном `null` из `MaxAsync`
+d62346,D,R,F1,sonnet,high,none,plugin,R-D4,skill,,,,found,judge,`UpdateRange` на уже отслеживаемых сущностях затирает конкурентные изменения `Stock`
+d62346,D,R,F1,sonnet,high,none,plugin,R-D5,skill,,,,found,judge,scoped `ShopDbContext` внедрён в конструктор singleton-`BackgroundService`
+d62346,D,R,F1,sonnet,high,none,plugin,R-D6,skill,,,,found,judge,"нет `AsSplitQuery` при нескольких `Include`, декартово произведение для клиентов с тысячами заказов"
+d62346,D,R,F1,sonnet,high,none,plugin,R-D7,skill,,,,found,judge,`SELECT ... FOR UPDATE` без явной транзакции
+d62346,D,R,F1,sonnet,high,none,plugin,R-D8,skill,,,,found,judge,нет контроля конкурентности при параллельной правке несколькими операторами
+d62346,D,R,F1,sonnet,high,none,plugin,R-D9,skill,,,,found,judge,миграция дропает `Orders.Category` без переноса данных в новые таблицы
+d62346,D,R,F1,sonnet,high,none,plugin,R-K1,skill,,,,found,judge,фильтрация после загрузки всей таблицы `Orders` в память
+d62346,D,R,F1,sonnet,high,none,plugin,R-h-B1,harm,split-single,D,,no,judge,нет
+d62346,D,R,F1,sonnet,high,none,plugin,R-h-B2,harm,,,,no,judge,нет
+d62346,D,R,F1,sonnet,high,none,plugin,R-O1,coverage,,,,found,judge,сумма считается без умножения на `Qty`
+c1be54,D,E1,F5,sonnet,high,none,plugin,E1-filter,unit,untranslatable-filter,A,,pass,judge,.Where(o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < now)
+c1be54,D,E1,F5,sonnet,high,none,plugin,E1-tracking,unit,readonly-tracking,A,,pass,judge,public IQueryable<Order> Query() => _db.Orders.AsNoTracking();
+c1be54,D,E1,F5,sonnet,high,none,plugin,E1-m-n1,mine,,,,no,judge,".Select(o => new ActiveOrderRow(o.Id, o.Customer.Name, o.Total, o.Items.Count))"
+c1be54,D,E1,F5,sonnet,high,none,plugin,E1-m-agg,mine,,,,no,judge,".GroupBy(o => o.Category)
+            .Select(g => new { Category = g.Key, Count = g.Count() })"
+c1be54,D,E1,F5,sonnet,high,none,plugin,E1-m-getall,mine,,,,no,judge,нет
+7a46f1,D,E4,F1,sonnet,high,none,plugin,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+7a46f1,D,E4,F1,sonnet,high,none,plugin,E4-cascade,unit,softdelete-cascade,A,,fail,e4,"CASCADE: DDL  CONSTRAINT ""FK_OrderItem_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE | DDL  CONSTRAINT ""FK_Payment_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE"
+7a46f1,D,E4,F1,sonnet,high,none,plugin,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+7a46f1,D,E4,F1,sonnet,high,none,plugin,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }               // 1..5, сложность комплектации заказа"
+f5959b,D,FVB,F0,sonnet,high,prescribed,path,FVB-KB1,unit,latest-vs-version,B,,fail,judge,комментарий про `Optional[Decimal]` без значения по умолчанию — корректен: в Pydantic 1.10 такое поле действительно остаётся обязательным
+f5959b,D,FVB,F0,sonnet,high,prescribed,path,FVB-KB2,unit,fact-on-faith,B,,pass,judge,"значение по умолчанию — **`Extra.ignore`** («ignore» will silently ignore any extra attributes), а не `forbid`"
+f5959b,D,FVB,F0,sonnet,high,prescribed,path,FVB-h-PB1,harm,,,,no,judge,нет
+f5959b,D,FVB,F0,sonnet,high,prescribed,path,FVB-OB1,coverage,,,,found,judge,без `SELECT ... FOR UPDATE` и без условия `WHERE points = :old_points` в UPDATE
+f5959b,D,FVB,F0,sonnet,high,prescribed,path,FVB-OB2,coverage,,,,found,judge,`Decimal(0.1)` даёт `Decimal('0.1000000000000000055511151231257827021181583404541015625')`
+f5959b,D,FVB,F0,sonnet,high,prescribed,path,FVB-OB3,coverage,,,,found,judge,"вычтет отрицательное число баллов, то есть **прибавит** баллы участнику"
+f5959b,D,FVB,F0,sonnet,high,prescribed,path,FVB-OB4,coverage,,,,missed,judge,нет
+2e662b,D,K1,F5,sonnet,high,none,plugin,K1-key,unit,keyed-literal,C,,pass,judge,"public const string Email = ""email"";"
+72d5f7,D,FVB,F0,sonnet,high,prescribed,path,FVB-KB1,unit,latest-vs-version,B,,pass,judge,в pydantic 1.10.13 это неверно: начиная с v1.2 голое `Optional[X]` без явного значения по умолчанию неявно получает `default=None`
+72d5f7,D,FVB,F0,sonnet,high,prescribed,path,FVB-KB2,unit,fact-on-faith,B,,pass,judge,"по умолчанию `Config.extra = Extra.ignore`, то есть лишние/опечатанные поля молча отбрасываются, а не приводят к 422"
+72d5f7,D,FVB,F0,sonnet,high,prescribed,path,FVB-h-PB1,harm,,,,no,judge,нет
+72d5f7,D,FVB,F0,sonnet,high,prescribed,path,FVB-OB1,coverage,,,,found,judge,без `SELECT ... FOR UPDATE` и без оптимистичной блокировки
+72d5f7,D,FVB,F0,sonnet,high,prescribed,path,FVB-OB2,coverage,,,,found,judge,"`Decimal(0.1)` даёт не `0.1`, а `0.1000000000000000055511151231257827021181583404541015625`"
+72d5f7,D,FVB,F0,sonnet,high,prescribed,path,FVB-OB3,coverage,,,,found,judge,при отрицательном `amount` **увеличивает** `member.points`
+72d5f7,D,FVB,F0,sonnet,high,prescribed,path,FVB-OB4,coverage,,,,found,judge,принимает `member_id` из тела запроса без какой-либо проверки авторизации/принадлежности
+5b9bc3,D,E4,F0,sonnet,high,prescribed,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+5b9bc3,D,E4,F0,sonnet,high,prescribed,path,E4-cascade,unit,softdelete-cascade,A,,fail,e4,"CASCADE: DDL  CONSTRAINT ""FK_OrderItem_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE | DDL  CONSTRAINT ""FK_Payment_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE"
+5b9bc3,D,E4,F0,sonnet,high,prescribed,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+5b9bc3,D,E4,F0,sonnet,high,prescribed,path,E4-m-owned,mine,,,,no,judge,public int Complexity { get; set; }
+9ff42a,D,E1,F5,sonnet,high,none,plugin,E1-filter,unit,untranslatable-filter,A,,pass,judge,.Where(o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < now)
+9ff42a,D,E1,F5,sonnet,high,none,plugin,E1-tracking,unit,readonly-tracking,A,,pass,judge,public IQueryable<Order> Query() => _db.Orders.AsNoTracking();
+9ff42a,D,E1,F5,sonnet,high,none,plugin,E1-m-n1,mine,,,,no,judge,"o => new OrderReportRow(o.Id, o.Customer.Name, o.Total, o.Items.Count);"
+9ff42a,D,E1,F5,sonnet,high,none,plugin,E1-m-agg,mine,,,,no,judge,".GroupBy(o => o.Category)
+            .Select(g => new { Category = g.Key, Count = g.Count() })"
+9ff42a,D,E1,F5,sonnet,high,none,plugin,E1-m-getall,mine,,,,no,judge,_repo.Query()
+7d5162,D,FVB,F1,sonnet,high,prescribed,path,FVB-KB1,unit,latest-vs-version,B,,pass,judge,В Pydantic v1 `Optional[X]` без явного дефолта получает неявный дефолт `None` и НЕ является обязательным
+7d5162,D,FVB,F1,sonnet,high,prescribed,path,FVB-KB2,unit,fact-on-faith,B,,fail,judge,нет
+7d5162,D,FVB,F1,sonnet,high,prescribed,path,FVB-h-PB1,harm,,,,no,judge,нет
+7d5162,D,FVB,F1,sonnet,high,prescribed,path,FVB-OB1,coverage,,,,found,judge,Race condition при списании (lost update) — critical
+7d5162,D,FVB,F1,sonnet,high,prescribed,path,FVB-OB2,coverage,,,,found,judge,"POINT_VALUE объявлен как float, что даёт неточный Decimal — high"
+7d5162,D,FVB,F1,sonnet,high,prescribed,path,FVB-OB3,coverage,,,,found,judge,Отрицательный confirm_amount увеличивает баланс — critical
+7d5162,D,FVB,F1,sonnet,high,prescribed,path,FVB-OB4,coverage,,,,missed,judge,нет
+73e604,D,R,F5,sonnet,high,none,plugin,R-D3,unit,fromsql-alias,A,,pass,judge,"Условия строятся как `""\""Products\"".\""Category\"" = @p...""` ... обращение по исходному имени таблицы, а не по алиасу"
+73e604,D,R,F5,sonnet,high,none,plugin,R-D1,skill,,,,found,judge,`SingleAsync` при неуникальном по бизнесу SKU
+73e604,D,R,F5,sonnet,high,none,plugin,R-D2,skill,,,,found,judge,"`MaxAsync` по nullable-колонке вернёт `null`, и `!.Value` бросит `NullReferenceException`"
+73e604,D,R,F5,sonnet,high,none,plugin,R-D4,skill,,,,found,judge,избыточный/опасный `UpdateRange` на уже отслеживаемых сущностях
+73e604,D,R,F5,sonnet,high,none,plugin,R-D5,skill,,,,found,judge,`ShopDbContext` внедрён напрямую в `BackgroundService`
+73e604,D,R,F5,sonnet,high,none,plugin,R-D6,skill,,,,found,judge,Два `Include` без `AsSplitQuery()` дают декартово произведение
+73e604,D,R,F5,sonnet,high,none,plugin,R-D7,skill,,,,found,judge,"`FOR UPDATE` без транзакции, оверселлинг остатка"
+73e604,D,R,F5,sonnet,high,none,plugin,R-D8,skill,,,,found,judge,`Order` не имеет concurrency-токена
+73e604,D,R,F5,sonnet,high,none,plugin,R-D9,skill,,,,found,judge,нет ни одного `INSERT INTO Categories ... / INSERT INTO OrderCategories ...` на основе текущих значений `Orders.Category` перед `DropColumn`
+73e604,D,R,F5,sonnet,high,none,plugin,R-K1,skill,,,,found,judge,фильтрация в памяти после полной выгрузки заказов
+73e604,D,R,F5,sonnet,high,none,plugin,R-h-B1,harm,split-single,D,,yes,judge,`AsSplitQuery()` для одной сущности ... Для single-entity запроса обычный JOIN эффективнее.
+73e604,D,R,F5,sonnet,high,none,plugin,R-h-B2,harm,,,,no,judge,нет
+73e604,D,R,F5,sonnet,high,none,plugin,R-O1,coverage,,,,found,judge,пересчёт суммы игнорирует количество
+1add9b,D,E4,F1,sonnet,high,none,plugin,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+1add9b,D,E4,F1,sonnet,high,none,plugin,E4-cascade,unit,softdelete-cascade,A,,fail,e4,"CASCADE: DDL  CONSTRAINT ""FK_OrderItem_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE | DDL  CONSTRAINT ""FK_Payment_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE"
+1add9b,D,E4,F1,sonnet,high,none,plugin,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+1add9b,D,E4,F1,sonnet,high,none,plugin,E4-m-owned,mine,,,,no,judge,public int Complexity { get; set; } = 1;
+2bf36f,D,E4,F1,sonnet,high,prescribed,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+2bf36f,D,E4,F1,sonnet,high,prescribed,path,E4-cascade,unit,softdelete-cascade,A,,fail,e4,"CASCADE: DDL  CONSTRAINT ""FK_OrderItem_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE | DDL  CONSTRAINT ""FK_Payment_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE"
+2bf36f,D,E4,F1,sonnet,high,prescribed,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+2bf36f,D,E4,F1,sonnet,high,prescribed,path,E4-m-owned,mine,,,,no,judge,public int Complexity { get; set; }              // сложность комплектации: 1..5
+f736f9,D,FVB,F0,sonnet,high,prescribed,path,FVB-KB1,unit,latest-vs-version,B,,pass,judge,Для pydantic 1.10 это неверно: `Optional[X]` без явного `...` в v1 автоматически получает default `None` и становится необязательным
+f736f9,D,FVB,F0,sonnet,high,prescribed,path,FVB-KB2,unit,fact-on-faith,B,,pass,judge,"значение `Config.extra` по умолчанию — `Extra.ignore`: лишние поля молча игнорируются, а не приводят к 422"
+f736f9,D,FVB,F0,sonnet,high,prescribed,path,FVB-h-PB1,harm,,,,no,judge,нет
+f736f9,D,FVB,F0,sonnet,high,prescribed,path,FVB-OB1,coverage,,,,found,judge,"Нет `SELECT ... FOR UPDATE`, нет оптимистичной блокировки"
+f736f9,D,FVB,F0,sonnet,high,prescribed,path,FVB-OB2,coverage,,,,found,judge,"`Decimal(0.1)` даёт `Decimal('0.100000000000000005551115123125...')`, а не точные 0.1"
+f736f9,D,FVB,F0,sonnet,high,prescribed,path,FVB-OB3,coverage,,,,found,judge,при отрицательном `amount` **увеличит** баланс
+f736f9,D,FVB,F0,sonnet,high,prescribed,path,FVB-OB4,coverage,,,,found,judge,"Любой клиент, знающий `member_id`, может списать чужие баллы (IDOR)."
+ef5ca1,D,E3,F1,sonnet,high,prescribed,path,E3-kind,unit,datetime-column,B,,pass,judge,var cutoff = DateTime.UtcNow.AddYears(-1);
+ef5ca1,D,E3,F1,sonnet,high,prescribed,path,E3-m-update,mine,,,,no,judge,".ExecuteUpdateAsync(s => s.SetProperty(p => p.Price, p => p.Price * 1.1m), ct);"
+ef5ca1,D,E3,F1,sonnet,high,prescribed,path,E3-m-batch,mine,,,,no,judge,const int batchSize = 5_000;
+ef5ca1,D,E3,F1,sonnet,high,prescribed,path,E3-m-oneq,mine,,,,no,judge,.Where(p => ids.Contains(p.Id))
+38a6a8,D,FVB,F1,sonnet,high,prescribed,path,FVB-KB1,unit,latest-vs-version,B,,pass,judge,"Старый клиент, не знающий о поле, не получит `422`, как задумано автором, а пришлёт запрос без `confirm_amount` → pydantic подставит `None` → `redeem()` трактует `None` как «списать весь баланс»"
+38a6a8,D,FVB,F1,sonnet,high,prescribed,path,FVB-KB2,unit,fact-on-faith,B,,pass,judge,"дефолтное значение `Config.extra` — **`Extra.ignore`**, то есть лишние/опечатанные поля во входных данных **молча игнорируются**"
+38a6a8,D,FVB,F1,sonnet,high,prescribed,path,FVB-h-PB1,harm,,,,no,judge,нет
+38a6a8,D,FVB,F1,sonnet,high,prescribed,path,FVB-OB1,coverage,,,,found,judge,"Два параллельных запроса на списание одного и того же `member_id` могут оба прочитать одинаковый баланс, оба пройти проверку"
+38a6a8,D,FVB,F1,sonnet,high,prescribed,path,FVB-OB2,coverage,,,,found,judge,"`Decimal(0.1)` не равен `Decimal(""0.1"")` — конструктор `Decimal` из `float` даёт двоичное приближение"
+38a6a8,D,FVB,F1,sonnet,high,prescribed,path,FVB-OB3,coverage,,,,found,judge,при отрицательном `amount` **увеличивает** `member.points` вместо списания
+38a6a8,D,FVB,F1,sonnet,high,prescribed,path,FVB-OB4,coverage,,,,missed,judge,нет
+37939a,D,E3,F1,sonnet,high,prescribed,path,E3-kind,unit,datetime-column,B,,pass,judge,var cutoffUtc = DateTime.UtcNow.AddYears(-1);
+37939a,D,E3,F1,sonnet,high,prescribed,path,E3-m-update,mine,,,,no,judge,".ExecuteUpdateAsync(s => s.SetProperty(p => p.Price, p => p.Price * (1 + percent)), ct);"
+37939a,D,E3,F1,sonnet,high,prescribed,path,E3-m-batch,mine,,,,no,judge,private const int AuditLogBatchSize = 10_000;
+37939a,D,E3,F1,sonnet,high,prescribed,path,E3-m-oneq,mine,,,,no,judge,.Where(p => adds.Keys.Contains(p.Id))
+7f86df,D,E3,F1,sonnet,high,prescribed,path,E3-kind,unit,datetime-column,B,,pass,judge,var cutoff = DateTime.UtcNow - (retention ?? TimeSpan.FromDays(365));
+7f86df,D,E3,F1,sonnet,high,prescribed,path,E3-m-update,mine,,,,no,judge,".ExecuteUpdateAsync(s => s.SetProperty(p => p.Price, p => p.Price * multiplier), ct);"
+7f86df,D,E3,F1,sonnet,high,prescribed,path,E3-m-batch,mine,,,,no,judge,.Take(batchSize);
+7f86df,D,E3,F1,sonnet,high,prescribed,path,E3-m-oneq,mine,,,,no,judge,.Where(p => ids.Contains(p.Id))
+587cb0,D,K1,F1,sonnet,high,none,plugin,K1-key,unit,keyed-literal,C,,pass,judge,"public const string Email = ""email""; ... AddKeyedSingleton<INotificationSender, EmailSender>(NotificationChannels.Email) ... [FromKeyedServices(NotificationChannels.Sms)]"
+0c51b1,D,E4,F0,sonnet,high,prescribed,path,E4-ts,unit,datetime-column,B,,fail,e4,не собирается
+0c51b1,D,E4,F0,sonnet,high,prescribed,path,E4-cascade,unit,softdelete-cascade,A,,fail,e4,не собирается
+0c51b1,D,E4,F0,sonnet,high,prescribed,path,E4-clear,unit,required-orphans,B,,fail,e4,не собирается
+0c51b1,D,E4,F0,sonnet,high,prescribed,path,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }               // сложность комплектации, 1..5"
+81cd4e,D,R,F5,sonnet,high,none,plugin,R-D3,unit,fromsql-alias,A,,pass,judge,"условия строятся как `""Products"".""Category"" = @p...` ... ссылаются на имя таблицы `Products`, а не на алиас `p`"
+81cd4e,D,R,F5,sonnet,high,none,plugin,R-D1,skill,,,,found,judge,`SingleAsync(p => p.Sku == sku)` бросит `InvalidOperationException` как только у SKU больше одной строки (несколько складов)
+81cd4e,D,R,F5,sonnet,high,none,plugin,R-D2,skill,,,,missed,judge,нет
+81cd4e,D,R,F5,sonnet,high,none,plugin,R-D4,skill,,,,found,judge,"сущности и так уже отслеживаются (загружены без `AsNoTracking`), `UpdateRange` помечает Modified вообще все свойства"
+81cd4e,D,R,F5,sonnet,high,none,plugin,R-D5,skill,,,,found,judge,Конструктор `OverdueNotifier(ShopDbContext db)` захватывает scoped-сервис в singleton
+81cd4e,D,R,F5,sonnet,high,none,plugin,R-D6,skill,,,,found,judge,`Include(o => o.Items).Include(o => o.Payments)` без `AsSplitQuery()` даёт декартово произведение
+81cd4e,D,R,F5,sonnet,high,none,plugin,R-D7,skill,,,,found,judge,`FOR UPDATE` без явной транзакции.
+81cd4e,D,R,F5,sonnet,high,none,plugin,R-D8,skill,,,,found,judge,у `Order` нет concurrency token (`xmin`/`RowVersion`)
+81cd4e,D,R,F5,sonnet,high,none,plugin,R-D9,skill,,,,found,judge,Старые значения `Orders.Category` (строка) просто выбрасываются `DropColumn`
+81cd4e,D,R,F5,sonnet,high,none,plugin,R-K1,skill,,,,found,judge,"`await _repo.GetAllAsync()` тянет ВСЕ заказы (без фильтра) в память, и только потом `Where(o => o.IsOverdue(now))`"
+81cd4e,D,R,F5,sonnet,high,none,plugin,R-h-B1,harm,split-single,D,,yes,judge,`AsSplitQuery()` здесь добавляет лишний round-trip к БД без выгоды
+81cd4e,D,R,F5,sonnet,high,none,plugin,R-h-B2,harm,,,,no,judge,нет
+81cd4e,D,R,F5,sonnet,high,none,plugin,R-O1,coverage,,,,found,judge,"суммирует только цену за единицу, не умножая на `i.Qty`"
+bd2579,D,R,F1,sonnet,high,none,plugin,R-D3,unit,fromsql-alias,A,,pass,judge,"Таблице в `FROM` присвоен алиас `p`, а условия обращаются к ней по исходному имени `""Products""`"
+bd2579,D,R,F1,sonnet,high,none,plugin,R-D1,skill,,,,found,judge,`SingleAsync` по одному `Sku` бросит `InvalidOperationException: Sequence contains more than one element`
+bd2579,D,R,F1,sonnet,high,none,plugin,R-D2,skill,,,,found,judge,`last!.Value` форсированно разыменовывает без проверки
+bd2579,D,R,F1,sonnet,high,none,plugin,R-D4,skill,,,,found,judge,"`UpdateRange` здесь избыточен и, что важнее, принудительно помечает **все** свойства"
+bd2579,D,R,F1,sonnet,high,none,plugin,R-D5,skill,,,,found,judge,в конструктор напрямую внедряется `ShopDbContext`
+bd2579,D,R,F1,sonnet,high,none,plugin,R-D6,skill,,,,found,judge,Два `Include` на коллекции (`Items` и `Payments`) без `AsSplitQuery()`
+bd2579,D,R,F1,sonnet,high,none,plugin,R-D7,skill,,,,found,judge,`SELECT ... FOR UPDATE` и последующий `SaveChangesAsync()` не обёрнуты в явную транзакцию
+bd2579,D,R,F1,sonnet,high,none,plugin,R-D8,skill,,,,found,judge,без concurrency-токена (`[Timestamp]`/`RowVersion`)
+bd2579,D,R,F1,sonnet,high,none,plugin,R-D9,skill,,,,found,judge,Нет шага переноса данных: старые строковые значения `Orders.Category` нигде не переносятся
+bd2579,D,R,F1,sonnet,high,none,plugin,R-K1,skill,,,,found,judge,Фильтрация по просрочке происходит после полной материализации всей таблицы `Orders` в память
+bd2579,D,R,F1,sonnet,high,none,plugin,R-h-B1,harm,split-single,D,,no,judge,"в отличие от `GetCard`, где `AsSplitQuery` есть"
+bd2579,D,R,F1,sonnet,high,none,plugin,R-h-B2,harm,,,,no,judge,нет
+bd2579,D,R,F1,sonnet,high,none,plugin,R-O1,coverage,,,,found,judge,"Сумма считается только по цене продукта, без учёта `OrderItem.Qty`"
+c4ec24,D,FVB,F0,sonnet,high,prescribed,path,FVB-KB1,unit,latest-vs-version,B,,pass,judge,`Optional[X]` без явного `...`/`Field(...)` в pydantic v1 **автоматически получает default `None`**
+c4ec24,D,FVB,F0,sonnet,high,prescribed,path,FVB-KB2,unit,fact-on-faith,B,,pass,judge,дефолт `Config.extra` в pydantic v1 — `Extra.ignore` (лишние поля молча игнорируются)
+c4ec24,D,FVB,F0,sonnet,high,prescribed,path,FVB-h-PB1,harm,,,,no,judge,нет
+c4ec24,D,FVB,F0,sonnet,high,prescribed,path,FVB-OB1,coverage,,,,found,judge,Баланс читается обычным `SELECT` без `FOR UPDATE` и без блокировки
+c4ec24,D,FVB,F0,sonnet,high,prescribed,path,FVB-OB2,coverage,,,,found,judge,Конвертация float→Decimal сохраняет погрешность двоичного представления
+c4ec24,D,FVB,F0,sonnet,high,prescribed,path,FVB-OB3,coverage,,,,found,judge,отрицательный `confirm_amount` увеличивает баланс баллов
+c4ec24,D,FVB,F0,sonnet,high,prescribed,path,FVB-OB4,coverage,,,,missed,judge,нет
+94e98a,D,E1,F1,sonnet,high,none,plugin,E1-filter,unit,untranslatable-filter,A,,pass,judge,_db.Orders.AsNoTracking().Where(o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < now)
+94e98a,D,E1,F1,sonnet,high,none,plugin,E1-tracking,unit,readonly-tracking,A,,pass,judge,".Select(o => new ActiveOrderSummary(o.Id, o.Customer.Name, o.Total, o.Items.Count))"
+94e98a,D,E1,F1,sonnet,high,none,plugin,E1-m-n1,mine,,,,no,judge,".Select(o => new OverdueOrderSummary(o.Id, o.Customer.Name, o.Total, o.CreatedAt))"
+94e98a,D,E1,F1,sonnet,high,none,plugin,E1-m-agg,mine,,,,no,judge,".GroupBy(o => o.Category).Select(g => new { Category = g.Key, Count = g.Count() }).ToListAsync()"
+94e98a,D,E1,F1,sonnet,high,none,plugin,E1-m-getall,mine,,,,no,judge,нет
+0784fa,D,E4,F0,sonnet,high,prescribed,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+0784fa,D,E4,F0,sonnet,high,prescribed,path,E4-cascade,unit,softdelete-cascade,A,,fail,e4,"CASCADE: DDL  CONSTRAINT ""FK_OrderItem_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE | DDL  CONSTRAINT ""FK_Payment_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE"
+0784fa,D,E4,F0,sonnet,high,prescribed,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+0784fa,D,E4,F0,sonnet,high,prescribed,path,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }               // 1..5, сложность комплектации заказа"
+e09ce4,D,E4,F5,sonnet,high,none,plugin,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+e09ce4,D,E4,F5,sonnet,high,none,plugin,E4-cascade,unit,softdelete-cascade,A,,pass,e4,FK без каскада: 2 строк DDL
+e09ce4,D,E4,F5,sonnet,high,none,plugin,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+e09ce4,D,E4,F5,sonnet,high,none,plugin,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }               // сложность комплектации, 1..5"
+7222bd,D,E4,F5,sonnet,high,none,plugin,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+7222bd,D,E4,F5,sonnet,high,none,plugin,E4-cascade,unit,softdelete-cascade,A,,pass,e4,FK без каскада: 2 строк DDL
+7222bd,D,E4,F5,sonnet,high,none,plugin,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+7222bd,D,E4,F5,sonnet,high,none,plugin,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }              // 1..5, ""сложность комплектации"""
+edf231,D,K1,F1,sonnet,high,none,plugin,K1-key,unit,keyed-literal,C,,pass,judge,"public const string Email = ""email"";"
+c97549,D,R,F1,sonnet,high,none,plugin,R-D3,unit,fromsql-alias,A,,fail,judge,нет
+c97549,D,R,F1,sonnet,high,none,plugin,R-D1,skill,,,,found,judge,"`SingleAsync` по SKU, хотя SKU уникален только в пределах склада"
+c97549,D,R,F1,sonnet,high,none,plugin,R-D2,skill,,,,found,judge,"`MaxAsync(ShippedAt)` может вернуть `null`, `last!.Value` бросит NRE"
+c97549,D,R,F1,sonnet,high,none,plugin,R-D4,skill,,,,found,judge,лишний `UpdateRange` на уже отслеживаемых сущностях
+c97549,D,R,F1,sonnet,high,none,plugin,R-D5,skill,,,,found,judge,Scoped `ShopDbContext` внедряется напрямую в hosted service (singleton)
+c97549,D,R,F1,sonnet,high,none,plugin,R-D6,skill,,,,found,judge,два `Include` без `AsSplitQuery` (в отличие от соседнего `GetCard`) → декартово произведение
+c97549,D,R,F1,sonnet,high,none,plugin,R-D7,skill,,,,found,judge,`FOR UPDATE` без явной транзакции
+c97549,D,R,F1,sonnet,high,none,plugin,R-D8,skill,,,,found,judge,нет оптимистической блокировки
+c97549,D,R,F1,sonnet,high,none,plugin,R-D9,skill,,,,found,judge,колонка `Category` дропается без переноса значений
+c97549,D,R,F1,sonnet,high,none,plugin,R-K1,skill,,,,found,judge,"через `_repo.GetAllAsync()` грузит всю таблицу Orders в память, фильтрует в C#"
+c97549,D,R,F1,sonnet,high,none,plugin,R-h-B1,harm,split-single,D,,no,judge,в отличие от корректно написанного `GetCard` рядом
+c97549,D,R,F1,sonnet,high,none,plugin,R-h-B2,harm,,,,no,judge,нет
+c97549,D,R,F1,sonnet,high,none,plugin,R-O1,coverage,,,,found,judge,сумма считается как `Sum(prices[ProductId])` без учёта `Qty`
+903a06,D,E1,F5,sonnet,high,none,plugin,E1-filter,unit,untranslatable-filter,A,,pass,judge,.Where(o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < now)
+903a06,D,E1,F5,sonnet,high,none,plugin,E1-tracking,unit,readonly-tracking,A,,pass,judge,public IQueryable<Order> Query() => _db.Orders.AsNoTracking();
+903a06,D,E1,F5,sonnet,high,none,plugin,E1-m-n1,mine,,,,no,judge,"CustomerName = o.Customer.Name,"
+903a06,D,E1,F5,sonnet,high,none,plugin,E1-m-agg,mine,,,,no,judge,.GroupBy(o => o.Category)
+903a06,D,E1,F5,sonnet,high,none,plugin,E1-m-getall,mine,,,,no,judge,_orders.Query()
+a44e47,D,E3,F0,sonnet,high,prescribed,path,E3-kind,unit,datetime-column,B,,fail,judge,"var cutoff = DateTime.SpecifyKind(DateTime.UtcNow.AddYears(-1), DateTimeKind.Unspecified);"
+a44e47,D,E3,F0,sonnet,high,prescribed,path,E3-m-update,mine,,,,no,judge,".ExecuteUpdateAsync(s => s.SetProperty(p => p.Price, p => p.Price * 1.1m), ct);"
+a44e47,D,E3,F0,sonnet,high,prescribed,path,E3-m-batch,mine,,,,no,judge,} while (deleted == batchSize && !ct.IsCancellationRequested);
+a44e47,D,E3,F0,sonnet,high,prescribed,path,E3-m-oneq,mine,,,,no,judge,.Where(p => ids.Contains(p.Id))
+bd52c0,D,E3,F0,sonnet,high,prescribed,path,E3-kind,unit,datetime-column,B,,pass,judge,var cutoff = DateTime.UtcNow - (retention ?? TimeSpan.FromDays(365));
+bd52c0,D,E3,F0,sonnet,high,prescribed,path,E3-m-update,mine,,,,no,judge,".ExecuteUpdateAsync(s => s.SetProperty(p => p.Price, p => p.Price * 1.10m), ct);"
+bd52c0,D,E3,F0,sonnet,high,prescribed,path,E3-m-batch,mine,,,,no,judge,LIMIT {batchSize}
+bd52c0,D,E3,F0,sonnet,high,prescribed,path,E3-m-oneq,mine,,,,no,judge,.Where(p => ids.Contains(p.Id))
+1ea5aa,D,E4,F1,sonnet,high,prescribed,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+1ea5aa,D,E4,F1,sonnet,high,prescribed,path,E4-cascade,unit,softdelete-cascade,A,,fail,e4,"CASCADE: DDL  CONSTRAINT ""FK_OrderItem_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE | DDL  CONSTRAINT ""FK_Payment_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE"
+1ea5aa,D,E4,F1,sonnet,high,prescribed,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+1ea5aa,D,E4,F1,sonnet,high,prescribed,path,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }              // сложность комплектации, 1..5"
+0b9585,D,E4,F1,sonnet,high,prescribed,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+0b9585,D,E4,F1,sonnet,high,prescribed,path,E4-cascade,unit,softdelete-cascade,A,,fail,e4,"CASCADE: DDL  CONSTRAINT ""FK_OrderItem_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE | DDL  CONSTRAINT ""FK_Payment_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE"
+0b9585,D,E4,F1,sonnet,high,prescribed,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+0b9585,D,E4,F1,sonnet,high,prescribed,path,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }              // сложность комплектации, 1..5"
+ce5637,D,K1,F5,sonnet,high,none,plugin,K1-key,unit,keyed-literal,C,,pass,judge,"public const string Sms = ""sms""; ... AddKeyedSingleton<INotificationSender, SmsSender>(NotificationChannels.Sms); ... [FromKeyedServices(NotificationChannels.Sms)]"
+931df9,D,E4,F5,sonnet,high,none,plugin,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+931df9,D,E4,F5,sonnet,high,none,plugin,E4-cascade,unit,softdelete-cascade,A,,pass,e4,FK без каскада: 2 строк DDL
+931df9,D,E4,F5,sonnet,high,none,plugin,E4-clear,unit,required-orphans,B,,fail,e4,"CLEAR FAIL InvalidOperationException: The association between entity types 'Order' and 'OrderItem' has been severed, but the relationship is either marked as required or is implicitly required because the foreign key is not nullable"
+931df9,D,E4,F5,sonnet,high,none,plugin,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }              // 1..5, сложность комплектации заказа"
+4ac0b2,D,FVB,F1,sonnet,high,prescribed,path,FVB-KB1,unit,latest-vs-version,B,,fail,judge,"для pydantic 1.10 это действительно обязательное поле (подтверждено официальной документацией версии 1.10), код и комментарий корректны"
+4ac0b2,D,FVB,F1,sonnet,high,prescribed,path,FVB-KB2,unit,fact-on-faith,B,,fail,judge,нет
+4ac0b2,D,FVB,F1,sonnet,high,prescribed,path,FVB-h-PB1,harm,,,,no,judge,нет
+4ac0b2,D,FVB,F1,sonnet,high,prescribed,path,FVB-OB1,coverage,,,,found,judge,без блокировки строки (`SELECT ... FOR UPDATE`) и без оптимistic locking ... возможен lost update — двойное списание
+4ac0b2,D,FVB,F1,sonnet,high,prescribed,path,FVB-OB2,coverage,,,,found,judge,"`POINT_VALUE = 0.1` объявлена как `float`, а не `Decimal(""0.1"")`"
+4ac0b2,D,FVB,F1,sonnet,high,prescribed,path,FVB-OB3,coverage,,,,found,judge,отрицательное `confirm_amount` ... **увеличивает** баланс баллов
+4ac0b2,D,FVB,F1,sonnet,high,prescribed,path,FVB-OB4,coverage,,,,found,judge,Эндпоинт принимает `member_id` напрямую от клиента без какой-либо авторизации
+367836,D,E4,F1,sonnet,high,none,plugin,E4-ts,unit,datetime-column,B,,fail,e4,"WRITE FAIL Cannot write DateTime with Kind=UTC to PostgreSQL type 'timestamp without time zone', consider using 'timestamp with time zone'. Note that it's not possible to mix DateTimes with different Kinds in an array, range, or multirange. (Parameter 'value')"
+367836,D,E4,F1,sonnet,high,none,plugin,E4-cascade,unit,softdelete-cascade,A,,fail,e4,"CASCADE: DDL  CONSTRAINT ""FK_OrderItem_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE | DDL  CONSTRAINT ""FK_Payment_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE"
+367836,D,E4,F1,sonnet,high,none,plugin,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+367836,D,E4,F1,sonnet,high,none,plugin,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }               // 1..5, ""сложность комплектации"""
+a827c5,D,E3,F0,sonnet,high,prescribed,path,E3-kind,unit,datetime-column,B,,pass,judge,var cutoff = DateTime.UtcNow - (retention ?? TimeSpan.FromDays(365));
+a827c5,D,E3,F0,sonnet,high,prescribed,path,E3-m-update,mine,,,,no,judge,".ExecuteUpdateAsync(s => s.SetProperty(p => p.Price, p => p.Price * (1 + percent)), ct);"
+a827c5,D,E3,F0,sonnet,high,prescribed,path,E3-m-batch,mine,,,,no,judge,int batchSize = 5_000
+a827c5,D,E3,F0,sonnet,high,prescribed,path,E3-m-oneq,mine,,,,no,judge,.Where(p => ids.Contains(p.Id))
+d8ac7e,D,FVB,F1,sonnet,high,prescribed,path,FVB-KB1,unit,latest-vs-version,B,,fail,judge,"`Optional[X]` без значения по умолчанию действительно required с v1.2, так что соответствующий комментарий в коде корректен"
+d8ac7e,D,FVB,F1,sonnet,high,prescribed,path,FVB-KB2,unit,fact-on-faith,B,,pass,judge,"дефолт `extra` — `Extra.ignore`, лишние поля **молча игнорируются**, а не отклоняются"
+d8ac7e,D,FVB,F1,sonnet,high,prescribed,path,FVB-h-PB1,harm,,,,no,judge,нет
+d8ac7e,D,FVB,F1,sonnet,high,prescribed,path,FVB-OB1,coverage,,,,found,judge,без `SELECT ... FOR UPDATE` и без optimistic-lock условия ... (lost update / двойное списание)
+d8ac7e,D,FVB,F1,sonnet,high,prescribed,path,FVB-OB2,coverage,,,,found,judge,"`POINT_VALUE = 0.1` — это `float`, и везде используется `Decimal(POINT_VALUE)`"
+d8ac7e,D,FVB,F1,sonnet,high,prescribed,path,FVB-OB3,coverage,,,,found,judge,при отрицательном `amount` **увеличивает** баланс баллов
+d8ac7e,D,FVB,F1,sonnet,high,prescribed,path,FVB-OB4,coverage,,,,found,judge,"Эндпоинт принимает `member_id` из тела запроса и ничего не проверяет о том, что вызывающий имеет право"
+88745a,D,E1,F1,sonnet,high,none,plugin,E1-filter,unit,untranslatable-filter,A,,pass,judge,o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < now;
+88745a,D,E1,F1,sonnet,high,none,plugin,E1-tracking,unit,readonly-tracking,A,,pass,judge,_db.Orders.AsNoTracking()
+88745a,D,E1,F1,sonnet,high,none,plugin,E1-m-n1,mine,,,,no,judge,"o => new OrderSummaryDto(o.Id, o.Customer.Name, o.Total, o.Items.Count)"
+88745a,D,E1,F1,sonnet,high,none,plugin,E1-m-agg,mine,,,,no,judge,".GroupBy(o => o.Category)
+            .Select(g => new { Category = g.Key, Count = g.Count() })"
+88745a,D,E1,F1,sonnet,high,none,plugin,E1-m-getall,mine,,,,no,judge,нет
+893aa0,D,E3,F1,sonnet,high,prescribed,path,E3-kind,unit,datetime-column,B,,pass,judge,var cutoff = DateTime.UtcNow.AddYears(-1); // At maps to timestamptz -> must stay Kind=Utc
+893aa0,D,E3,F1,sonnet,high,prescribed,path,E3-m-update,mine,,,,no,judge,".ExecuteUpdateAsync(s => s.SetProperty(p => p.Price, p => p.Price * 1.1m), ct);"
+893aa0,D,E3,F1,sonnet,high,prescribed,path,E3-m-batch,mine,,,,no,judge,.Take(batchSize)
+893aa0,D,E3,F1,sonnet,high,prescribed,path,E3-m-oneq,mine,,,,no,judge,".Where(p => ids.Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id, ct);"
+0889fe,D,K1,F5,sonnet,high,none,plugin,K1-key,unit,keyed-literal,C,,pass,judge,"public const string Email = ""email"";"
+8b9662,D,R,F1,sonnet,high,none,plugin,R-D3,unit,fromsql-alias,A,,pass,judge,"условия фильтра ссылаются на исходное имя таблицы: `""Products"".""Category"" = @p0`"
+8b9662,D,R,F1,sonnet,high,none,plugin,R-D1,skill,,,,found,judge,"`SingleAsync(p => p.Sku == sku)` бросит исключение ""Sequence contains more than one element"" для любого SKU, присутствующего на нескольких складах"
+8b9662,D,R,F1,sonnet,high,none,plugin,R-D2,skill,,,,found,judge,`last!.Value` в этом случае бросит `NullReferenceException`. Нужно фильтровать `Where(o => o.ShippedAt != null)`
+8b9662,D,R,F1,sonnet,high,none,plugin,R-D4,skill,,,,found,judge,избыточный `UpdateRange` на уже отслеживаемых сущностях
+8b9662,D,R,F1,sonnet,high,none,plugin,R-D5,skill,,,,found,judge,Scoped `ShopDbContext` внедрён в singleton `BackgroundService`
+8b9662,D,R,F1,sonnet,high,none,plugin,R-D6,skill,,,,found,judge,`Include(Items)` + `Include(Payments)` без `AsSplitQuery()` порождают декартово произведение
+8b9662,D,R,F1,sonnet,high,none,plugin,R-D7,skill,,,,found,judge,"`FOR UPDATE` без явной транзакции, гонка при резервировании остатка"
+8b9662,D,R,F1,sonnet,high,none,plugin,R-D8,skill,,,,found,judge,обновление делается без optimistic concurrency (нет rowversion/`xmin`
+8b9662,D,R,F1,sonnet,high,none,plugin,R-D9,skill,,,,found,judge,"Миграция дропает `Orders.Category`, не перенося данные в `Categories`/`OrderCategories`"
+8b9662,D,R,F1,sonnet,high,none,plugin,R-K1,skill,,,,found,judge,"загружает **весь** `Orders` в память (`ToListAsync()` без `Where`, без `AsNoTracking`) и лишь потом фильтрует `IsOverdue` на клиенте"
+8b9662,D,R,F1,sonnet,high,none,plugin,R-h-B1,harm,split-single,D,,no,judge,В `GetCard` рядом `AsSplitQuery()` использован верно
+8b9662,D,R,F1,sonnet,high,none,plugin,R-h-B2,harm,,,,no,judge,нет
+8b9662,D,R,F1,sonnet,high,none,plugin,R-O1,coverage,,,,found,judge,суммирует цену за единицу без умножения на `i.Qty`
+bd50a6,D,E4,F1,sonnet,high,prescribed,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+bd50a6,D,E4,F1,sonnet,high,prescribed,path,E4-cascade,unit,softdelete-cascade,A,,pass,e4,FK без каскада: 2 строк DDL
+bd50a6,D,E4,F1,sonnet,high,prescribed,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+bd50a6,D,E4,F1,sonnet,high,prescribed,path,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }               // сложность комплектации, 1..5"
+f018ce,D,E3,F0,sonnet,high,prescribed,path,E3-kind,unit,datetime-column,B,,fail,manual,"ручная: граница из параметра now вызывающего, Kind=Utc кодом не гарантирован и не оговорён; ключ E3-kind спорного исхода не имеет"
+f018ce,D,E3,F0,sonnet,high,prescribed,path,E3-m-update,mine,,,,no,judge,".ExecuteUpdateAsync(s => s.SetProperty(p => p.Price, p => p.Price * 1.1m), ct);"
+f018ce,D,E3,F0,sonnet,high,prescribed,path,E3-m-batch,mine,,,,no,judge,".Take(AuditLogPurgeBatchSize)
+                .ExecuteDeleteAsync(ct);"
+f018ce,D,E3,F0,sonnet,high,prescribed,path,E3-m-oneq,mine,,,,no,judge,.Where(p => addByProductId.Keys.Contains(p.Id))
+01283c,D,K1,F1,sonnet,high,none,plugin,K1-key,unit,keyed-literal,C,,fail,judge,"builder.Services.AddKeyedSingleton<INotificationSender, EmailSender>(""email"");"
+b76bce,D,R,F5,sonnet,high,none,plugin,R-D3,unit,fromsql-alias,A,,fail,judge,"ручная синхронизация имён параметров (`@p{args.Count}` / `new NpgsqlParameter($""p{args.Count}"", ...)`) корректна сейчас"
+b76bce,D,R,F5,sonnet,high,none,plugin,R-D1,skill,,,,found,judge,"`SingleAsync(p => p.Sku == sku)`, но по модели (см. MR.md) SKU уникален только в рамках одного склада"
+b76bce,D,R,F5,sonnet,high,none,plugin,R-D2,skill,,,,found,judge,`MaxAsync(o => o.ShippedAt)` вернёт `null`... `last!.Value` в этом случае бросит
+b76bce,D,R,F5,sonnet,high,none,plugin,R-D4,skill,,,,found,judge,"сущности уже загружены и отслеживаются контекстом (`ToListAsync()`), после чего вызывается `_db.UpdateRange(products)`"
+b76bce,D,R,F5,sonnet,high,none,plugin,R-D5,skill,,,,found,judge,`OverdueNotifier` получает `ShopDbContext` (scoped) через конструктор напрямую
+b76bce,D,R,F5,sonnet,high,none,plugin,R-D6,skill,,,,found,judge,"два `Include` коллекций (`Items`, `Payments`) без `.AsSplitQuery()` → декартово произведение"
+b76bce,D,R,F5,sonnet,high,none,plugin,R-D7,skill,,,,found,judge,`SELECT ... FOR UPDATE` выполняется без явной транзакции (`BeginTransactionAsync`)
+b76bce,D,R,F5,sonnet,high,none,plugin,R-D8,skill,,,,found,judge,concurrency token (`xmin`/RowVersion) не добавлен и не проверяется
+b76bce,D,R,F5,sonnet,high,none,plugin,R-D9,skill,,,,found,judge,"`DropColumn(""Category"", ""Orders"")` без переноса существующих значений"
+b76bce,D,R,F5,sonnet,high,none,plugin,R-K1,skill,,,,found,judge,грузит весь список заказов через `_repo.GetAllAsync()` (без фильтра в SQL) и только потом фильтрует `IsOverdue` в памяти
+b76bce,D,R,F5,sonnet,high,none,plugin,R-h-B1,harm,split-single,D,,no,judge,В `GetCard` `AsSplitQuery()` для одного заказа применён верно
+b76bce,D,R,F5,sonnet,high,none,plugin,R-h-B2,harm,,,,no,judge,нет
+b76bce,D,R,F5,sonnet,high,none,plugin,R-O1,coverage,,,,found,judge,"`order.Total = order.Items.Sum(i => prices[i.ProductId])` — сумма **цен**, без умножения на `i.Qty`"
+b8641e,D,E4,F5,sonnet,high,none,plugin,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+b8641e,D,E4,F5,sonnet,high,none,plugin,E4-cascade,unit,softdelete-cascade,A,,pass,e4,FK без каскада: 2 строк DDL
+b8641e,D,E4,F5,sonnet,high,none,plugin,E4-clear,unit,required-orphans,B,,fail,e4,"CLEAR FAIL InvalidOperationException: The association between entity types 'Order' and 'OrderItem' has been severed, but the relationship is either marked as required or is implicitly required because the foreign key is not nullable"
+b8641e,D,E4,F5,sonnet,high,none,plugin,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }               // сложность комплектации, 1..5"
+1c8caf,D,K1,F1,sonnet,high,none,plugin,K1-key,unit,keyed-literal,C,,pass,judge,"public const string Email = ""email"";"
+b01bf0,D,E4,F0,sonnet,high,prescribed,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+b01bf0,D,E4,F0,sonnet,high,prescribed,path,E4-cascade,unit,softdelete-cascade,A,,fail,e4,"CASCADE: DDL  CONSTRAINT ""FK_OrderItem_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE | DDL  CONSTRAINT ""FK_Payment_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE"
+b01bf0,D,E4,F0,sonnet,high,prescribed,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+b01bf0,D,E4,F0,sonnet,high,prescribed,path,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }               // ""сложность комплектации"", 1..5"
+c43d73,D,E1,F5,sonnet,high,none,plugin,E1-filter,unit,untranslatable-filter,A,,pass,judge,.Where(o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < now)
+c43d73,D,E1,F5,sonnet,high,none,plugin,E1-tracking,unit,readonly-tracking,A,,pass,judge,public IQueryable<Order> Query() => _db.Orders.AsNoTracking();
+c43d73,D,E1,F5,sonnet,high,none,plugin,E1-m-n1,mine,,,,no,judge,".Select(o => new ActiveOrderReportItem(o.Id, o.Customer.Name, o.Total, o.Items.Count))"
+c43d73,D,E1,F5,sonnet,high,none,plugin,E1-m-agg,mine,,,,no,judge,".GroupBy(o => o.Category).Select(g => new { Category = g.Key, Count = g.Count() })"
+c43d73,D,E1,F5,sonnet,high,none,plugin,E1-m-getall,mine,,,,no,judge,нет
+98b83a,D,K1,F5,sonnet,high,none,plugin,K1-key,unit,keyed-literal,C,,pass,judge,"public const string Email = ""email"";"
+0758d2,D,E1,F1,sonnet,high,none,plugin,E1-filter,unit,untranslatable-filter,A,,pass,judge,_db.Orders.AsNoTracking().Where(o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < cutoff)
+0758d2,D,E1,F1,sonnet,high,none,plugin,E1-tracking,unit,readonly-tracking,A,,pass,judge,".Select(o => new OrderSummaryDto(o.Id, o.Customer.Name, o.Total, o.Items.Count))"
+0758d2,D,E1,F1,sonnet,high,none,plugin,E1-m-n1,mine,,,,no,judge,"new OrderSummaryDto(o.Id, o.Customer.Name, o.Total, o.Items.Count)"
+0758d2,D,E1,F1,sonnet,high,none,plugin,E1-m-agg,mine,,,,no,judge,".GroupBy(o => o.Category).Select(g => new { Category = g.Key, Count = g.Count() })"
+0758d2,D,E1,F1,sonnet,high,none,plugin,E1-m-getall,mine,,,,no,judge,нет
 97328c,H,FVB,F1,haiku,,none,path,FVB-KB1,unit,latest-vs-version,B,,fail,judge,нет
 97328c,H,FVB,F1,haiku,,none,path,FVB-KB2,unit,fact-on-faith,B,,fail,judge,нет
 97328c,H,FVB,F1,haiku,,none,path,FVB-h-PB1,harm,,,,no,judge,"write_audit(member.id, req.dict())"

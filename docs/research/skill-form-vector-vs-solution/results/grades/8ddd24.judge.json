@@ -1,0 +1,111 @@
+{
+  "id": "8ddd24",
+  "case": "R",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0834114,
+    "durationMs": 12170,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 6847,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1410,
+      "output_tokens_details": {
+        "thinking_tokens": 239
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6847,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1410,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 6847,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 6847
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "R-D3": {
+      "verdict": "PASS",
+      "quote": "Шаблон `\"SELECT * FROM \\\"Products\\\" p WHERE {0}\"` аліасит таблицу как `p`, но динамические условия ссылаются на исходное имя таблицы",
+      "why": "Выход прямо называет несовпадение алиаса p и условий через \"Products\" в FromSqlRaw."
+    },
+    "R-D1": {
+      "verdict": "FOUND",
+      "quote": "`SingleAsync` на SKU, который по модели не уникален (несколько складов)",
+      "why": "Дефект SingleAsync по SKU, неуникальному между складами, назван явно."
+    },
+    "R-D2": {
+      "verdict": "FOUND",
+      "quote": "`MaxAsync` + `.Value` падает, если у клиента нет отгруженных заказов",
+      "why": "Названо падение на .Value, когда MaxAsync(ShippedAt) возвращает null."
+    },
+    "R-D4": {
+      "verdict": "FOUND",
+      "quote": "`UpdateRange(products)` вызывается для уже отслеживаемых сущностей",
+      "why": "Лишний UpdateRange на отслеживаемых сущностях назван как проблема."
+    },
+    "R-D5": {
+      "verdict": "FOUND",
+      "quote": "`ShopDbContext` (Scoped) внедряется напрямую в `BackgroundService`",
+      "why": "Названа инъекция DbContext в конструктор BackgroundService."
+    },
+    "R-D6": {
+      "verdict": "FOUND",
+      "quote": "Два `Include` (`Items`, `Payments`) без `AsSplitQuery()` дают декартово произведение",
+      "why": "Названы две коллекции Include на тысячах заказов без split."
+    },
+    "R-D7": {
+      "verdict": "FOUND",
+      "quote": "`FOR UPDATE` выполняется без явной транзакции",
+      "why": "Дефект назван прямо."
+    },
+    "R-D8": {
+      "verdict": "FOUND",
+      "quote": "обновление идёт без concurrency-контроля (`[Timestamp]`/`RowVersion` либо `UseXminAsConcurrencyToken()`",
+      "why": "Названо отсутствие concurrency token при правке заказа."
+    },
+    "R-D9": {
+      "verdict": "FOUND",
+      "quote": "Нет data-migration шага, переносящего существующие значения `Orders.Category`",
+      "why": "Назван DropColumn Category без переноса данных."
+    },
+    "R-K1": {
+      "verdict": "FOUND",
+      "quote": "`await _repo.GetAllAsync()` тянет в память **все** заказы",
+      "why": "Названа загрузка всех заказов через GetAllAsync с фильтрацией IsOverdue в памяти."
+    },
+    "R-h-B1": {
+      "verdict": "YES",
+      "quote": "Для single-entity запроса `AsSplitQuery` добавляет лишний round-trip к БД без выгоды",
+      "why": "Выход объявляет дефектом корректный AsSplitQuery на карточке одного заказа с двумя коллекциями."
+    },
+    "R-h-B2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находок против записи Kind=Unspecified или чтения как Utc в выходе нет."
+    },
+    "R-O1": {
+      "verdict": "FOUND",
+      "quote": "суммирует только цену за единицу, игнорируя `OrderItem.Qty`",
+      "why": "Назван подсчёт суммы заказа без учёта Qty."
+    }
+  },
+  "stderr": ""
+}

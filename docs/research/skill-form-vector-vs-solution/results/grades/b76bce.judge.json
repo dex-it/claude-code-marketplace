@@ -1,0 +1,111 @@
+{
+  "id": "b76bce",
+  "case": "R",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0647154,
+    "durationMs": 11777,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 4420,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1446,
+      "output_tokens_details": {
+        "thinking_tokens": 206
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4420,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1446,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 4420,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 4420
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "R-D3": {
+      "verdict": "FAIL",
+      "quote": "ручная синхронизация имён параметров (`@p{args.Count}` / `new NpgsqlParameter($\"p{args.Count}\", ...)`) корректна сейчас",
+      "why": "Находка по Search касается только имён параметров; несовпадение \"Products\" в условиях и алиаса p в шаблоне не названо."
+    },
+    "R-D1": {
+      "verdict": "FOUND",
+      "quote": "`SingleAsync(p => p.Sku == sku)`, но по модели (см. MR.md) SKU уникален только в рамках одного склада",
+      "why": "Прямо названо падение SingleAsync при SKU на нескольких складах."
+    },
+    "R-D2": {
+      "verdict": "FOUND",
+      "quote": "`MaxAsync(o => o.ShippedAt)` вернёт `null`... `last!.Value` в этом случае бросит",
+      "why": "Назван null от MaxAsync и разыменование через !.Value."
+    },
+    "R-D4": {
+      "verdict": "FOUND",
+      "quote": "сущности уже загружены и отслеживаются контекстом (`ToListAsync()`), после чего вызывается `_db.UpdateRange(products)`",
+      "why": "Дефект UpdateRange на отслеживаемых сущностях назван."
+    },
+    "R-D5": {
+      "verdict": "FOUND",
+      "quote": "`OverdueNotifier` получает `ShopDbContext` (scoped) через конструктор напрямую",
+      "why": "Назван DbContext в конструкторе BackgroundService, предложен IServiceScopeFactory."
+    },
+    "R-D6": {
+      "verdict": "FOUND",
+      "quote": "два `Include` коллекций (`Items`, `Payments`) без `.AsSplitQuery()` → декартово произведение",
+      "why": "Назван cartesian explosion на тысячах заказов без split."
+    },
+    "R-D7": {
+      "verdict": "FOUND",
+      "quote": "`SELECT ... FOR UPDATE` выполняется без явной транзакции (`BeginTransactionAsync`)",
+      "why": "Прямо назван FOR UPDATE без транзакции."
+    },
+    "R-D8": {
+      "verdict": "FOUND",
+      "quote": "concurrency token (`xmin`/RowVersion) не добавлен и не проверяется",
+      "why": "Назван lost update при правке заказа без concurrency token."
+    },
+    "R-D9": {
+      "verdict": "FOUND",
+      "quote": "`DropColumn(\"Category\", \"Orders\")` без переноса существующих значений",
+      "why": "Назван DropColumn без data migration."
+    },
+    "R-K1": {
+      "verdict": "FOUND",
+      "quote": "грузит весь список заказов через `_repo.GetAllAsync()` (без фильтра в SQL) и только потом фильтрует `IsOverdue` в памяти",
+      "why": "Назван GetAllAsync с фильтрацией IsOverdue в памяти."
+    },
+    "R-h-B1": {
+      "verdict": "NO",
+      "quote": "В `GetCard` `AsSplitQuery()` для одного заказа применён верно",
+      "why": "AsSplitQuery на карточке заказа признан правильным, находки против него нет."
+    },
+    "R-h-B2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находок про Kind=Unspecified/Utc для timestamp without time zone нет."
+    },
+    "R-O1": {
+      "verdict": "FOUND",
+      "quote": "`order.Total = order.Items.Sum(i => prices[i.ProductId])` — сумма **цен**, без умножения на `i.Qty`",
+      "why": "Прямо назван расчёт суммы без Qty."
+    }
+  },
+  "stderr": ""
+}
