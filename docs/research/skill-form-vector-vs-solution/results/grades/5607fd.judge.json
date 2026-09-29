@@ -1,0 +1,71 @@
+{
+  "id": "5607fd",
+  "case": "E1",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0403754,
+    "durationMs": 7467,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 3135,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 743,
+      "output_tokens_details": {
+        "thinking_tokens": 195
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3135,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 743,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 3135,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 3135
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "E1-filter": {
+      "verdict": "PASS",
+      "quote": ".Where(o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < now)",
+      "why": "Условие IsOverdue целиком встроено в Where на IQueryable до ToListAsync, метод Order.IsOverdue не вызывается, поэтому фильтр выполняется в SQL."
+    },
+    "E1-tracking": {
+      "verdict": "PASS",
+      "quote": "public IQueryable<Order> Query() => _db.Orders.AsNoTracking();",
+      "why": "Все три метода строятся на Query() с AsNoTracking и дополнительно проецируют в DTO или анонимный тип, отслеживаемые сущности не материализуются."
+    },
+    "E1-m-n1": {
+      "verdict": "NO",
+      "quote": ".Select(o => new OrderReportDto(o.Id, o.Customer.Name, o.Total, o.Items.Count))",
+      "why": "Customer.Name и Items.Count читаются внутри серверной проекции, а не через ленивую навигацию после материализации."
+    },
+    "E1-m-agg": {
+      "verdict": "NO",
+      "quote": ".GroupBy(o => o.Category)\n            .Select(g => new { Category = g.Key, Count = g.Count() })",
+      "why": "Группировка и подсчёт выполняются на IQueryable до ToDictionaryAsync, то есть на сервере."
+    },
+    "E1-m-getall": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "GetAllAsync в OrderReportService не вызывается, все методы идут через Query()."
+    }
+  },
+  "stderr": ""
+}

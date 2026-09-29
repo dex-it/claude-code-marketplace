@@ -1,0 +1,71 @@
+{
+  "id": "4e2f6f",
+  "case": "N0",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.06613139999999999,
+    "durationMs": 15035,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 4787,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1370,
+      "output_tokens_details": {
+        "thinking_tokens": 845
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4787,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1370,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 4787,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 4787
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "N0-h-split": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находок против AsSplitQuery в OrderCard нет; единственная находка по OrderCard (№8) касается глобального query filter для soft-deleted."
+    },
+    "N0-h-utc": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находки по AuditWriter (№6, №7) касаются актора и валидации text; против DateTime.UtcNow ничего нет."
+    },
+    "N0-h-contains": {
+      "verdict": "DISPUTED",
+      "quote": "что приведёт к большому параметру запроса и лишней нагрузке на БД",
+      "why": "Находка №5 нацелена на список ids в CartLookup и требует верхний лимит из-за «большого параметра запроса», но подаёт это как DoS-валидацию для сотен тысяч id, а не как дефект Contains в заявленном диапазоне тысяч."
+    },
+    "N0-X1": {
+      "verdict": "FOUND",
+      "quote": "`Skip(page * pageSize)` при нумерации страниц с 1 сдвигает всё на одну страницу",
+      "why": "Off-by-one пагинации назван прямо, с исправлением Skip((page - 1) * pageSize)."
+    },
+    "N0-X2": {
+      "verdict": "FOUND",
+      "quote": "Фильтр `o.Status == \"Active\"`, а дефолт в модели — `\"active\"` (нижний регистр)",
+      "why": "Несовпадение регистра статуса и пустой результат названы явно."
+    }
+  },
+  "stderr": ""
+}

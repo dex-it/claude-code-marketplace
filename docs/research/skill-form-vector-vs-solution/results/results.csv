@@ -1,0 +1,955 @@
+run_id,stage,case,form,model,effort,search,delivery,item_id,kind,unit,class,primary,verdict,grader,basis
+331892,A,K1,F1,sonnet,high,none,path,K1-key,unit,keyed-literal,C,,pass,judge,"public const string Email = ""email"";"
+13774e,A,E6,F1,sonnet,high,none,path,E6-prod,unit,prod-migration,C,,pass,judge,"dotnet ef migrations bundle \ ... run: ./efbundle --connection ""$ConnectionStrings__Shop"""
+13774e,A,E6,F1,sonnet,high,none,path,E6-m-data,mine,,,,no,judge,"INSERT INTO ""OrderCategories"" (""OrderId"", ""CategoryId"") SELECT o.""Id"", c.""Id"" FROM ""Orders"" o JOIN ""Categories"" c ON c.""Name"" = o.""Category"""
+13774e,A,E6,F1,sonnet,high,none,path,E6-m-drop,mine,,,,no,judge,Order.Category is left untouched here on purpose - it is dropped in a later migration
+59cdba,A,E4,F5,sonnet,high,none,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+59cdba,A,E4,F5,sonnet,high,none,path,E4-cascade,unit,softdelete-cascade,A,,pass,e4,FK без каскада: 2 строк DDL
+59cdba,A,E4,F5,sonnet,high,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+59cdba,A,E4,F5,sonnet,high,none,path,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }              // сложность комплектации, 1..5"
+c3ccc9,A,E2,F0,sonnet,high,none,path,E2-single,unit,single-not-unique,D,fail,pass,judge,"if (candidates.Count > 1) throw new InvalidOperationException($""SKU '{sku}' найден на нескольких складах; для однозначного выбора нужно передать warehouse."");"
+c3ccc9,A,E2,F0,sonnet,high,none,path,E2-h-split,harm,,,,no,judge,".AsSplitQuery() // две независимые коллекции (Items, Payments) - раздельные запросы вместо JOIN-декартова произведения"
+c3ccc9,A,E2,F0,sonnet,high,none,path,E2-m-cart,mine,,,,no,judge,".AsSplitQuery()
+            .Where(o => o.CustomerId == customerId)
+            .Include(o => o.Items)
+            .Include(o => o.Payments)"
+c3ccc9,A,E2,F0,sonnet,high,none,path,E2-m-nullagg,mine,,,,no,judge,.Where(o => o.CustomerId == customerId && o.ShippedAt != null)
+6eedf4,A,E2,F0,sonnet,high,none,path,E2-single,unit,single-not-unique,D,fail,disputed,judge,return query.SingleOrDefaultAsync(ct);
+6eedf4,A,E2,F0,sonnet,high,none,path,E2-h-split,harm,,,,no,judge,".AsSplitQuery()
+            .Include(o => o.Items)
+            .Include(o => o.Payments)
+            .FirstOrDefaultAsync(o => o.Id == id, ct);"
+6eedf4,A,E2,F0,sonnet,high,none,path,E2-m-cart,mine,,,,no,judge,".AsSplitQuery()
+            .Where(o => o.CustomerId == customerId)"
+6eedf4,A,E2,F0,sonnet,high,none,path,E2-m-nullagg,mine,,,,no,judge,".Where(o => o.CustomerId == customerId && o.ShippedAt != null)
+            .MaxAsync(o => (DateTime?)o.ShippedAt, ct);"
+b0f980,A,FVB,F0,sonnet,high,none,path,FVB-KB1,unit,latest-vs-version,B,,pass,judge,"в закреплённой версии `pydantic==1.10.13` `Optional[X]` без `Field(...)` даёт `default=None`, т.е. поле необязательно"
+b0f980,A,FVB,F0,sonnet,high,none,path,FVB-KB2,unit,fact-on-faith,B,,pass,judge,"при опечатке (например, `confirm_amout`) запрос пройдёт валидацию как `confirm_amount = None`, что по п.4 означает списание всего баланса"
+b0f980,A,FVB,F0,sonnet,high,none,path,FVB-h-PB1,harm,,,,no,judge,нет
+b0f980,A,FVB,F0,sonnet,high,none,path,FVB-OB1,coverage,,,,found,judge,без блокировки строки (`SELECT ... FOR UPDATE`) и без оптимистичной блокировки
+b0f980,A,FVB,F0,sonnet,high,none,path,FVB-OB2,coverage,,,,found,judge,`Decimal(0.1)` (из float) даёт `Decimal('0.1000000000000000055511151231257827021181583404541015625')`
+b0f980,A,FVB,F0,sonnet,high,none,path,FVB-OB3,coverage,,,,found,judge,вычитание отрицательного числа увеличивает баланс баллов участника
+b0f980,A,FVB,F0,sonnet,high,none,path,FVB-OB4,coverage,,,,missed,judge,нет
+a7ba16,A,CFG,F0,sonnet,high,none,path,CFG-K9,unit,staging-gt-prod,C,,fail,judge,нет
+a7ba16,A,CFG,F0,sonnet,high,none,path,CFG-K8,unit,default-duplicated,C,,fail,judge,нет
+a7ba16,A,CFG,F0,sonnet,high,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,объявлены как non-nullable `string` без значения по умолчанию и без `required`
+a7ba16,A,CFG,F0,sonnet,high,none,path,CFG-K1,skill,,,,found,judge,В открытом виде закоммичены боевые (судя по виду) пароль от БД (`Kx7!pQ2vR9wz`) и ключ SMTP-релея
+a7ba16,A,CFG,F0,sonnet,high,none,path,CFG-K2,skill,,,,found,judge,"`GetValue<int>` на отсутствующий ключ возвращает `0`, из-за чего `60_000 / perMinute` кидает `DivideByZeroException`"
+a7ba16,A,CFG,F0,sonnet,high,none,path,CFG-K3,skill,,,,found,judge,`OutboxOptionsValidator` нигде не зарегистрирован... и нет `.ValidateOnStart()`
+a7ba16,A,CFG,F0,sonnet,high,none,path,CFG-K4,skill,,,,found,judge,"нужен `IOptionsMonitor<OutboxOptions>` (читать `.CurrentValue` на каждой итерации), а не `IOptions<T>`"
+a7ba16,A,CFG,F0,sonnet,high,none,path,CFG-K5,skill,,,,found,judge,"условие `o.MinBatchSize < o.MaxBatchSize` в `OutboxWorker` становится ложным, и адаптивное изменение размера пачки в проде полностью отключается"
+a7ba16,A,CFG,F0,sonnet,high,none,path,CFG-K6,skill,,,,found,judge,Получается интервал опроса ~500 секунд (≈8.3 минуты) вместо 0.5 секунды
+a7ba16,A,CFG,F0,sonnet,high,none,path,CFG-K7,skill,,,,found,judge,`SmtpOptions.Host` / `FromAddress` объявлены как non-nullable `string` без значения по умолчанию
+a7ba16,A,CFG,F0,sonnet,high,none,path,CFG-h-P1,harm,,,,no,judge,нет
+a7ba16,A,CFG,F0,sonnet,high,none,path,CFG-h-P2,harm,,,,no,judge,нет
+a7ba16,A,CFG,F0,sonnet,high,none,path,CFG-O1,coverage,,,,found,judge,`m.SentAt = now` выставляется всей пачке *до* попытки отправки... и никогда не сбрасывается при неудаче
+a7ba16,A,CFG,F0,sonnet,high,none,path,CFG-O2,coverage,,,,found,judge,"`GetSection(""Mail"")`, но во всех appsettings SMTP-настройки лежат в секции `""Smtp""`"
+a7ba16,A,CFG,F0,sonnet,high,none,path,CFG-O3,coverage,,,,missed,judge,`appsettings.Staging.json` правильно выносит пароль в переменную окружения (`${NOTIFY_DB_PASSWORD}`)
+5607fd,A,E1,F5,sonnet,high,none,path,E1-filter,unit,untranslatable-filter,A,,pass,judge,.Where(o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < now)
+5607fd,A,E1,F5,sonnet,high,none,path,E1-tracking,unit,readonly-tracking,A,,pass,judge,public IQueryable<Order> Query() => _db.Orders.AsNoTracking();
+5607fd,A,E1,F5,sonnet,high,none,path,E1-m-n1,mine,,,,no,judge,".Select(o => new OrderReportDto(o.Id, o.Customer.Name, o.Total, o.Items.Count))"
+5607fd,A,E1,F5,sonnet,high,none,path,E1-m-agg,mine,,,,no,judge,".GroupBy(o => o.Category)
+            .Select(g => new { Category = g.Key, Count = g.Count() })"
+5607fd,A,E1,F5,sonnet,high,none,path,E1-m-getall,mine,,,,no,judge,нет
+da0344,A,FVB,F1,sonnet,high,none,path,FVB-KB1,unit,latest-vs-version,B,,pass,judge,Это неверно для Pydantic v1 (`pydantic==1.10.13`): в Pydantic v1 поле типа `Optional[X]` без явного default неявно получает default `None`
+da0344,A,FVB,F1,sonnet,high,none,path,FVB-KB2,unit,fact-on-faith,B,,pass,judge,Фактически в Pydantic v1 default `Config.extra = Extra.ignore` — лишние/опечатанные поля молча отбрасываются
+da0344,A,FVB,F1,sonnet,high,none,path,FVB-h-PB1,harm,,,,no,judge,нет
+da0344,A,FVB,F1,sonnet,high,none,path,FVB-OB1,coverage,,,,found,judge,Два параллельных запроса на списание одного и того же участника могут оба прочитать одинаковый баланс и оба пройти проверку — двойное списание
+da0344,A,FVB,F1,sonnet,high,none,path,FVB-OB2,coverage,,,,found,judge,"`Decimal(0.1)` не равен `Decimal(""0.1"")`: конструктор берёт точное двоичное представление float"
+da0344,A,FVB,F1,sonnet,high,none,path,FVB-OB3,coverage,,,,found,judge,Нет проверки `confirm_amount >= 0`... увеличивает баланс баллов участника
+da0344,A,FVB,F1,sonnet,high,none,path,FVB-OB4,coverage,,,,found,judge,эндпоинт принимает `member_id` напрямую из тела запроса без проверки... (IDOR)
+563fac,A,MRA,F1,sonnet,high,none,path,MRA-A4,unit,count-any,A,,pass,judge,"`await _db.Orders.CountAsync(o => o.CustomerId == customerId, ct) > 0` — классическая ловушка ""Проверка наличия через `Count() > 0`"""
+563fac,A,MRA,F1,sonnet,high,none,path,MRA-A1,skill,,,,found,judge,"`_products.GetAllAsync(ct)` тянет из БД все товары ... а фильтрация `Where(p => p.IsActive)` выполняется уже после материализации, в памяти"
+563fac,A,MRA,F1,sonnet,high,none,path,MRA-A2,skill,,,,found,judge,`items.Where(i => i.ProductId == p.Id).ToList()` внутри `Select` — ... O(products × items)
+563fac,A,MRA,F1,sonnet,high,none,path,MRA-A3,skill,,,,found,judge,"запрос выполняется с `AsNoTracking()`, поэтому EF **не** делает identity resolution ... `Distinct()` сравнивает по ссылкам и не устраняет дубли"
+563fac,A,MRA,F1,sonnet,high,none,path,MRA-A5,skill,,,,found,judge,"каждая из которых независимо строит и материализует (`ToListAsync`) запрос — ""Материализация в каждой ветке динамического запроса"""
+563fac,A,MRA,F1,sonnet,high,none,path,MRA-A6,skill,,,,found,judge,`products.FirstOrDefault(p => p.Id == id)` вызывается внутри `foreach` по строкам CSV — линейный поиск
+563fac,A,MRA,F1,sonnet,high,none,path,MRA-X1,coverage,,,,missed,judge,нет
+563fac,A,MRA,F1,sonnet,high,none,path,MRA-X2,coverage,,,,found,judge,"Нет проверки `qty >= 0`: `int.TryParse(parts[1], out var qty)` пропускает отрицательные числа как валидные"
+21d605,A,E2,F1,sonnet,high,none,path,E2-single,unit,single-not-unique,D,fail,fail,judge,".OrderBy(p => p.Warehouse)
+            .FirstOrDefaultAsync();"
+21d605,A,E2,F1,sonnet,high,none,path,E2-h-split,harm,,,,no,judge,".Include(o => o.Payments)
+            .AsSplitQuery()
+            .SingleOrDefaultAsync();"
+21d605,A,E2,F1,sonnet,high,none,path,E2-m-cart,mine,,,,no,judge,".Include(o => o.Payments)
+            .AsSplitQuery()
+            .ToListAsync();"
+21d605,A,E2,F1,sonnet,high,none,path,E2-m-nullagg,mine,,,,no,judge,.Where(o => o.CustomerId == customerId && o.ShippedAt != null)
+0c5322,A,E1,F0,sonnet,high,none,path,E1-filter,unit,untranslatable-filter,A,,fail,judge,.Where(o => o.IsOverdue(now))
+0c5322,A,E1,F0,sonnet,high,none,path,E1-tracking,unit,readonly-tracking,A,,pass,judge,".AsNoTracking()
+            .ToListAsync();"
+0c5322,A,E1,F0,sonnet,high,none,path,E1-m-n1,mine,,,,no,judge,".Include(o => o.Customer)
+            .Include(o => o.Items)"
+0c5322,A,E1,F0,sonnet,high,none,path,E1-m-agg,mine,,,,yes,judge,".GroupBy(o => o.Category)
+            .ToDictionary(g => g.Key, g => g.Count());"
+0c5322,A,E1,F0,sonnet,high,none,path,E1-m-getall,mine,,,,no,judge,нет
+9ccc1c,A,E1,F0,sonnet,high,none,path,E1-filter,unit,untranslatable-filter,A,,pass,judge,_db.Orders.Where(o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < now).ToListAsync()
+9ccc1c,A,E1,F0,sonnet,high,none,path,E1-tracking,unit,readonly-tracking,A,,fail,judge,"public Task<List<Order>> GetOverdueOrdersAsync(DateTime now) =>
+        _db.Orders.Where(o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < now).ToListAsync();"
+9ccc1c,A,E1,F0,sonnet,high,none,path,E1-m-n1,mine,,,,no,judge,".Select(o => new ActiveOrderSummary(o.Id, o.Customer.Name, o.Total, o.Items.Count))"
+9ccc1c,A,E1,F0,sonnet,high,none,path,E1-m-agg,mine,,,,no,judge,".GroupBy(o => o.Category)
+            .Select(g => new CategoryOrderCount(g.Key, g.Count()))"
+9ccc1c,A,E1,F0,sonnet,high,none,path,E1-m-getall,mine,,,,no,judge,нет
+a422ee,A,E2,F1,sonnet,high,none,path,E2-single,unit,single-not-unique,D,fail,pass,judge,"throw new InvalidOperationException(
+                $""SKU '{sku}' найден на нескольких складах, требуется указать склад."");"
+a422ee,A,E2,F1,sonnet,high,none,path,E2-h-split,harm,,,,no,judge,".Include(o => o.Items)
+            .Include(o => o.Payments)
+            .AsSplitQuery()
+            .FirstOrDefaultAsync(o => o.Id == id);"
+a422ee,A,E2,F1,sonnet,high,none,path,E2-m-cart,mine,,,,no,judge,".Where(o => o.CustomerId == customerId)
+            .Include(o => o.Items)
+            .Include(o => o.Payments)
+            .AsSplitQuery()"
+a422ee,A,E2,F1,sonnet,high,none,path,E2-m-nullagg,mine,,,,no,judge,.Where(o => o.CustomerId == customerId && o.ShippedAt != null)
+4101b9,A,N0,F5,sonnet,high,none,path,N0-h-split,harm,split-single,D,,no,judge,"два `Include` коллекций (`Items`, `Payments`) на одной сущности — ровно случай cartesian-explosion, для которого `AsSplitQuery` уместен"
+4101b9,A,N0,F5,sonnet,high,none,path,N0-h-utc,harm,,,,no,judge,риск захвата Scoped DbContext в Singleton/BackgroundService
+4101b9,A,N0,F5,sonnet,high,none,path,N0-h-contains,harm,,,,no,judge,"для Npgsql список из тысяч id транслируется в `= ANY(@ids)`, отдельного риска производительности нет"
+4101b9,A,N0,F5,sonnet,high,none,path,N0-X1,coverage,,,,found,judge,`Skip(page * pageSize)` при нумерации страниц с 1 ... при `page = 1` пропускает `pageSize` записей
+4101b9,A,N0,F5,sonnet,high,none,path,N0-X2,coverage,,,,found,judge,"Фильтр `o.Status == ""Active""`, но `Order.Status` в `Model.cs` по умолчанию инициализируется как `""active""`"
+4b6a66,A,MRA,F1,sonnet,high,none,path,MRA-A4,unit,count-any,A,,pass,judge,`CustomerExport.HasOrders` — `CountAsync(...) > 0` вместо `AnyAsync(...)`.
+4b6a66,A,MRA,F1,sonnet,high,none,path,MRA-A1,skill,,,,found,judge,`GetAllAsync()` тянет все продукты целиком (включая `Image byte[]`) и фильтрует `IsActive` уже в памяти
+4b6a66,A,MRA,F1,sonnet,high,none,path,MRA-A2,skill,,,,found,judge,"`items.Where(i => i.ProductId == p.Id)` — поиск по списку в цикле, O(products × items)"
+4b6a66,A,MRA,F1,sonnet,high,none,path,MRA-A3,skill,,,,found,judge,`Distinct()` по `Customer` после `AsNoTracking().Include()` не дедуплицирует: без identity resolution
+4b6a66,A,MRA,F1,sonnet,high,none,path,MRA-A5,skill,,,,found,judge,"4 ветки, каждая со своей материализацией, вместо одного `IQueryable` с условными `.Where`"
+4b6a66,A,MRA,F1,sonnet,high,none,path,MRA-A6,skill,,,,found,judge,`products.FirstOrDefault(...)` внутри `foreach` по CSV — линейный поиск на каждую строку файла
+4b6a66,A,MRA,F1,sonnet,high,none,path,MRA-X1,coverage,,,,missed,judge,нет
+4b6a66,A,MRA,F1,sonnet,high,none,path,MRA-X2,coverage,,,,missed,judge,нет
+8444a2,A,E4,F5,sonnet,high,none,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+8444a2,A,E4,F5,sonnet,high,none,path,E4-cascade,unit,softdelete-cascade,A,,pass,e4,FK без каскада: 2 строк DDL
+8444a2,A,E4,F5,sonnet,high,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+8444a2,A,E4,F5,sonnet,high,none,path,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }               // сложность комплектации, 1..5"
+79bdd8,A,K1,F5,sonnet,high,none,path,K1-key,unit,keyed-literal,C,,pass,judge,"public const string Email = ""email"";"
+3a45c8,A,E4,F5,sonnet,high,none,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+3a45c8,A,E4,F5,sonnet,high,none,path,E4-cascade,unit,softdelete-cascade,A,,pass,e4,FK без каскада: 2 строк DDL
+3a45c8,A,E4,F5,sonnet,high,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+3a45c8,A,E4,F5,sonnet,high,none,path,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }              // сложность комплектации, 1..5"
+7a8055,A,FVB,F1,sonnet,high,none,path,FVB-KB1,unit,latest-vs-version,B,,pass,judge,Заявленная «защита от старых клиентов» не работает и делает ровно противоположное — полное списание баланса без явного согласия клиента.
+7a8055,A,FVB,F1,sonnet,high,none,path,FVB-KB2,unit,fact-on-faith,B,,pass,judge,"Дефолтное значение `Config.extra` в pydantic 1.10 — `Extra.ignore` («silently ignore any extra attributes»), а не `forbid`."
+7a8055,A,FVB,F1,sonnet,high,none,path,FVB-h-PB1,harm,,,,no,judge,нет
+7a8055,A,FVB,F1,sonnet,high,none,path,FVB-OB1,coverage,,,,found,judge,"Между чтением и записью нет ни `SELECT ... FOR UPDATE`, ни оптимистической блокировки"
+7a8055,A,FVB,F1,sonnet,high,none,path,FVB-OB2,coverage,,,,found,judge,"`POINT_VALUE` объявлен как `float`, а затем оборачивается в `Decimal(POINT_VALUE)`"
+7a8055,A,FVB,F1,sonnet,high,none,path,FVB-OB3,coverage,,,,found,judge,при отрицательном `amount` **увеличивает** `member.points`
+7a8055,A,FVB,F1,sonnet,high,none,path,FVB-OB4,coverage,,,,found,judge,"любой клиент может списать (или, из-за п.1, начислить) баллы произвольному участнику программы лояльности, зная только его `member_id`"
+2f844d,A,E6,F0,sonnet,high,none,path,E6-prod,unit,prod-migration,C,,pass,judge,"dotnet ef migrations bundle \ ... run: ./efbundle --connection ""$ConnectionStrings__Default"""
+2f844d,A,E6,F0,sonnet,high,none,path,E6-m-data,mine,,,,no,judge,"INSERT INTO """"OrderCategories"""" (""""OrderId"""", """"CategoryId"""")"
+2f844d,A,E6,F0,sonnet,high,none,path,E6-m-drop,mine,,,,no,judge,"Orders.""Category"" is left untouched here."
+5d1b70,A,E4,F1,sonnet,high,none,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+5d1b70,A,E4,F1,sonnet,high,none,path,E4-cascade,unit,softdelete-cascade,A,,fail,e4,"CASCADE: DDL  CONSTRAINT ""FK_OrderItem_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE"
+5d1b70,A,E4,F1,sonnet,high,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+5d1b70,A,E4,F1,sonnet,high,none,path,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }              // сложность комплектации, 1..5"
+808307,A,R,F0,sonnet,high,none,path,R-D3,unit,fromsql-alias,A,,fail,judge,"значения параметризованы корректно (инъекции нет), но такой паттерн легко сломать при следующем изменении фильтров"
+808307,A,R,F0,sonnet,high,none,path,R-D1,skill,,,,found,judge,"`SingleAsync` по SKU, хотя SKU уникален только в рамках склада, а не глобально"
+808307,A,R,F0,sonnet,high,none,path,R-D2,skill,,,,found,judge,"`MaxAsync` вернёт `null`, если отгрузок не было; `last!.Value` бросает исключение в рантайме"
+808307,A,R,F0,sonnet,high,none,path,R-D4,skill,,,,found,judge,лишний `UpdateRange` на уже отслеживаемых сущностях
+808307,A,R,F0,sonnet,high,none,path,R-D5,skill,,,,found,judge,Scoped `ShopDbContext` внедрён напрямую в singleton `BackgroundService`
+808307,A,R,F0,sonnet,high,none,path,R-D6,skill,,,,found,judge,"`Include(Items).Include(Payments)` без `AsSplitQuery()` при ""тысячах заказов"" клиента"
+808307,A,R,F0,sonnet,high,none,path,R-D7,skill,,,,found,judge,`SELECT ... FOR UPDATE` выполняется вне явной транзакции
+808307,A,R,F0,sonnet,high,none,path,R-D8,skill,,,,found,judge,"нет оптимистичной блокировки, хотя MR явно говорит про параллельную правку заказов операторами — lost update"
+808307,A,R,F0,sonnet,high,none,path,R-D9,skill,,,,found,judge,дропает `Orders.Category` без переноса данных в новые `Categories`/`OrderCategories`
+808307,A,R,F0,sonnet,high,none,path,R-K1,skill,,,,found,judge,грузит всю таблицу `Orders` в память и фильтрует на клиенте вместо SQL-фильтра
+808307,A,R,F0,sonnet,high,none,path,R-h-B1,harm,split-single,D,,no,judge,В `GetCard` рядом `AsSplitQuery()` уже применяется
+808307,A,R,F0,sonnet,high,none,path,R-h-B2,harm,,,,no,judge,"`OverdueNotifier` явно приводит границу к `DateTimeKind.Unspecified`, чтобы соответствовать колонке `timestamp without time zone`"
+808307,A,R,F0,sonnet,high,none,path,R-O1,coverage,,,,found,judge,суммируются только `Product.Price` без умножения на `OrderItem.Qty`
+e6ab1a,A,E6,F5,sonnet,high,none,path,E6-prod,unit,prod-migration,C,,pass,judge,dotnet-ef migrations script --idempotent ... environment: production ... psql -v ON_ERROR_STOP=1 -f migration.sql
+e6ab1a,A,E6,F5,sonnet,high,none,path,E6-m-data,mine,,,,no,judge,"INSERT INTO """"OrderCategories"""" (""""OrderId"""", """"CategoryId"""") SELECT o.""""Id"""", c.""""Id"""""
+e6ab1a,A,E6,F5,sonnet,high,none,path,E6-m-drop,mine,,,,no,judge,Order.Category (строка) пока не трогаем — удалим отдельной миграцией
+5cd8f5,A,CFG,F0,sonnet,high,none,path,CFG-K9,unit,staging-gt-prod,C,,fail,judge,нет
+5cd8f5,A,CFG,F0,sonnet,high,none,path,CFG-K8,unit,default-duplicated,C,,fail,judge,нет
+5cd8f5,A,CFG,F0,sonnet,high,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,нет
+5cd8f5,A,CFG,F0,sonnet,high,none,path,CFG-K1,skill,,,,found,judge,"Пароль от БД (`Password=Kx7!pQ2vR9wz`) и API-ключ SMTP-релея (`""Password"": ""rl_live_9f3a1c77e2b04d6d""`) закоммичены как есть"
+5cd8f5,A,CFG,F0,sonnet,high,none,path,CFG-K2,skill,,,,found,judge,"`GetValue<int>` для отсутствующего ключа вернёт `0`, и `60_000 / perMinute` кидает `DivideByZeroException`"
+5cd8f5,A,CFG,F0,sonnet,high,none,path,CFG-K3,skill,,,,found,judge,"(`AddSingleton<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>()` / `ValidateOnStart()` отсутствуют)"
+5cd8f5,A,CFG,F0,sonnet,high,none,path,CFG-K4,skill,,,,found,judge,используется `IOptions<OutboxOptions>` вместо `IOptionsMonitor<OutboxOptions>`
+5cd8f5,A,CFG,F0,sonnet,high,none,path,CFG-K5,skill,,,,found,judge,Из-за проверки `if (o.MinBatchSize < o.MaxBatchSize)` в `OutboxWorker.ExecuteAsync` адаптивное изменение размера пачки в проде тихо отключается
+5cd8f5,A,CFG,F0,sonnet,high,none,path,CFG-K6,skill,,,,found,judge,при значении `Outbox:PollInterval = 500` даёт задержку **500 секунд (~8.3 минуты)**
+5cd8f5,A,CFG,F0,sonnet,high,none,path,CFG-K7,skill,,,,found,judge,"`Host`, `FromAddress` объявлены как `string` (не `string?`) без инициализатора"
+5cd8f5,A,CFG,F0,sonnet,high,none,path,CFG-h-P1,harm,,,,no,judge,нет
+5cd8f5,A,CFG,F0,sonnet,high,none,path,CFG-h-P2,harm,,,,no,judge,нет
+5cd8f5,A,CFG,F0,sonnet,high,none,path,CFG-O1,coverage,,,,found,judge,`SentAt` выставляется до фактической отправки и не откатывается при ошибке
+5cd8f5,A,CFG,F0,sonnet,high,none,path,CFG-O2,coverage,,,,missed,judge,нет
+5cd8f5,A,CFG,F0,sonnet,high,none,path,CFG-O3,coverage,,,,missed,judge,`appsettings.Staging.json` для сравнения корректно использует плейсхолдер `${NOTIFY_DB_PASSWORD}`
+00b6d6,A,FVB,F0,sonnet,high,none,path,FVB-KB1,unit,latest-vs-version,B,,pass,judge,"Это неверно для Pydantic v1: поле, объявленное как `Optional[X]` без явного default, автоматически получает `default=None` и становится **необязательным**"
+00b6d6,A,FVB,F0,sonnet,high,none,path,FVB-KB2,unit,fact-on-faith,B,,pass,judge,"Для Pydantic v1 это неверно: поведение по умолчанию — `Extra.ignore` (лишние поля молча отбрасываются), а не `forbid`"
+00b6d6,A,FVB,F0,sonnet,high,none,path,FVB-h-PB1,harm,,,,no,judge,нет
+00b6d6,A,FVB,F0,sonnet,high,none,path,FVB-OB1,coverage,,,,found,judge,без блокировки строки (`SELECT ... FOR UPDATE`) ... возможен classic lost update — двойное списание
+00b6d6,A,FVB,F0,sonnet,high,none,path,FVB-OB2,coverage,,,,found,judge,"Конструктор `Decimal(float)` конвертирует бинарное представление float ""как есть"""
+00b6d6,A,FVB,F0,sonnet,high,none,path,FVB-OB3,coverage,,,,found,judge,Если прислать отрицательное значение ... фактически **увеличит** баланс баллов клиента
+00b6d6,A,FVB,F0,sonnet,high,none,path,FVB-OB4,coverage,,,,found,judge,"налицо IDOR: любой может списать чужие баллы, указав чужой `member_id`"
+10ee45,A,L5,F5,sonnet,high,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,var uniqueIds = customerIds.Distinct().ToList();
+10ee45,A,L5,F5,sonnet,high,none,path,L5-h-chunk,harm,contains-list,D,,yes,judge,"Список ID батчится по 500 (`Chunk`) перед `Contains`, чтобы не деградировал план запроса в PostgreSQL на больших списках."
+10ee45,A,L5,F5,sonnet,high,none,path,L5-m-enum,mine,,,,no,judge,customerIds.Distinct().ToList()
+6bda88,A,N0,F5,sonnet,high,none,path,N0-h-split,harm,split-single,D,,no,judge,"`AsSplitQuery()` уместен, т.к. два `Include` коллекций (Items + Payments) дают cartesian explosion"
+6bda88,A,N0,F5,sonnet,high,none,path,N0-h-utc,harm,,,,yes,judge,"Нужно либо сменить тип колонки на `timestamptz` (тогда `UtcNow` пишется штатно), либо явно нормализовать значение под `timestamp` (`DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified)`)"
+6bda88,A,N0,F5,sonnet,high,none,path,N0-h-contains,harm,,,,no,judge,"`Contains` по массиву id (транслируется в `= ANY(@p)`, безопасно для тысяч id) — соответствует правилам"
+6bda88,A,N0,F5,sonnet,high,none,path,N0-X1,coverage,,,,found,judge,`Skip(page * pageSize)` при нумерации страниц с 1 ... первая страница вообще недоступна клиенту
+6bda88,A,N0,F5,sonnet,high,none,path,N0-X2,coverage,,,,found,judge,"Фильтр `o.Status == ""Active""` сравнивается с фактическим значением сущности `Order.Status = ""active""`"
+7b76b0,A,N0,F1,sonnet,high,none,path,N0-h-split,harm,split-single,D,,no,judge,"правильно применён `AsSplitQuery()`, что предотвращает декартово произведение"
+7b76b0,A,N0,F1,sonnet,high,none,path,N0-h-utc,harm,,,,yes,judge,"Нужно явно задать тип колонки для `AuditLog.At` (согласовав с остальной схемой) и/или использовать `DateTime` с `Kind`, соответствующим типу колонки."
+7b76b0,A,N0,F1,sonnet,high,none,path,N0-h-contains,harm,,,,no,judge,транслируется Npgsql в `= ANY(@ids)` одним параметром — безопасно и для нескольких тысяч id
+7b76b0,A,N0,F1,sonnet,high,none,path,N0-X1,coverage,,,,found,judge,Off-by-one в пагинации: `Skip(page * pageSize)` вместо `Skip((page - 1) * pageSize)`
+7b76b0,A,N0,F1,sonnet,high,none,path,N0-X2,coverage,,,,found,judge,"Фильтр `o.Status == ""Active""` не совпадает по регистру со значением домена"
+3be4f6,A,CFG,F5,sonnet,high,none,path,CFG-K9,unit,staging-gt-prod,C,,pass,judge,"`MaxInFlight`: staging (20) > production (5), без объяснения"
+3be4f6,A,CFG,F5,sonnet,high,none,path,CFG-K8,unit,default-duplicated,C,,pass,judge,`MaxRetries: 5` в Staging совпадают со значениями по умолчанию в `appsettings.json`
+3be4f6,A,CFG,F5,sonnet,high,none,path,CFG-h-required,harm,nonnullable-required,D,,yes,judge,`required` заставил бы компилятор потребовать значение уже на этапе создания объекта
+3be4f6,A,CFG,F5,sonnet,high,none,path,CFG-K1,skill,,,,found,judge,"`ConnectionStrings:Notify` содержит реальный пароль БД `Kx7!pQ2vR9wz`, `Smtp:Password` содержит `rl_live_9f3a1c77e2b04d6d`"
+3be4f6,A,CFG,F5,sonnet,high,none,path,CFG-K2,skill,,,,found,judge,"`GetValue<int>` на отсутствующем ключе вернёт `0` (default(int)), а `60_000 / perMinute` даст `DivideByZeroException`"
+3be4f6,A,CFG,F5,sonnet,high,none,path,CFG-K3,skill,,,,found,judge,"в `Program.cs` нет `services.AddSingleton<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>()` ... и нет `.ValidateOnStart()`"
+3be4f6,A,CFG,F5,sonnet,high,none,path,CFG-K4,skill,,,,found,judge,"`OutboxWorker` — singleton (`BackgroundService`), внедряет `IOptions<OutboxOptions>`, которое биндится один раз"
+3be4f6,A,CFG,F5,sonnet,high,none,path,CFG-K5,skill,,,,found,judge,"условие `if (o.MinBatchSize < o.MaxBatchSize)` — `false`, ветка адаптации никогда не выполняется"
+3be4f6,A,CFG,F5,sonnet,high,none,path,CFG-K6,skill,,,,found,judge,"при `""PollInterval"": 500` (appsettings.json) — это 500 **секунд**"
+3be4f6,A,CFG,F5,sonnet,high,none,path,CFG-K7,skill,,,,found,judge,"`Host`, `FromAddress` объявлены как `string` (non-nullable) без `required` и без значения по умолчанию"
+3be4f6,A,CFG,F5,sonnet,high,none,path,CFG-h-P1,harm,,,,no,judge,нет
+3be4f6,A,CFG,F5,sonnet,high,none,path,CFG-h-P2,harm,,,,no,judge,нет
+3be4f6,A,CFG,F5,sonnet,high,none,path,CFG-O1,coverage,,,,found,judge,"Как только строка помечена `SentAt = now`, она больше никогда не попадёт в выборку, даже если `SendAsync` упал"
+3be4f6,A,CFG,F5,sonnet,high,none,path,CFG-O2,coverage,,,,found,judge,"Секция биндинга указана как `""Mail""`, а во всех appsettings.*.json настройки лежат под ключом `""Smtp""`"
+3be4f6,A,CFG,F5,sonnet,high,none,path,CFG-O3,coverage,,,,missed,judge,Staging корректно использует плейсхолдер `${NOTIFY_DB_PASSWORD}` для пароля БД
+634cb4,A,L5,F5,sonnet,high,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,var uniqueIds = customerIds.Distinct().ToList();
+634cb4,A,L5,F5,sonnet,high,none,path,L5-h-chunk,harm,contains-list,D,,yes,judge,"ID батчатся по 500 (`Chunk(500)`) перед `WHERE IN`, чтобы не деградировал план запроса Postgres на больших списках."
+634cb4,A,L5,F5,sonnet,high,none,path,L5-m-enum,mine,,,,no,judge,customerIds.Distinct().ToList()
+0efc28,A,R,F5,sonnet,high,none,path,R-D3,unit,fromsql-alias,A,,pass,judge,"динамически собираемые условия ссылаются на `""Products"".""Category""` / `""Products"".""Price""` — то есть на исходное имя таблицы, а не на алиас"
+0efc28,A,R,F5,sonnet,high,none,path,R-D1,skill,,,,found,judge,При наличии товара на ≥2 складах `SingleAsync` бросит `InvalidOperationException`
+0efc28,A,R,F5,sonnet,high,none,path,R-D2,skill,,,,found,judge,"`!` подавляет предупреждение, но не убирает null — на первом же таком клиенте `NullReferenceException`"
+0efc28,A,R,F5,sonnet,high,none,path,R-D4,skill,,,,found,judge,`UpdateRange` на уже отслеживаемых сущностях избыточен и помечает все свойства как `Modified`
+0efc28,A,R,F5,sonnet,high,none,path,R-D5,skill,,,,found,judge,в конструктор напрямую инжектируется scoped `ShopDbContext`
+0efc28,A,R,F5,sonnet,high,none,path,R-D6,skill,,,,found,judge,"Два `Include` (`Items`, `Payments`) без `AsSplitQuery()`"
+0efc28,A,R,F5,sonnet,high,none,path,R-D7,skill,,,,found,judge,"`FromSqlRaw(""... FOR UPDATE"")` выполняется без явной транзакции"
+0efc28,A,R,F5,sonnet,high,none,path,R-D8,skill,,,,found,judge,нет concurrency token у `Order`
+0efc28,A,R,F5,sonnet,high,none,path,R-D9,skill,,,,found,judge,Миграция дропает колонку `Orders.Category` без единого шага data migration
+0efc28,A,R,F5,sonnet,high,none,path,R-K1,skill,,,,found,judge,только после материализации фильтрует по `IsOverdue` в памяти
+0efc28,A,R,F5,sonnet,high,none,path,R-h-B1,harm,split-single,D,,no,judge,в `GetCard` (тот же файл) уже корректно закрыт через `AsSplitQuery`
+0efc28,A,R,F5,sonnet,high,none,path,R-h-B2,harm,,,,no,judge,нет
+0efc28,A,R,F5,sonnet,high,none,path,R-O1,coverage,,,,found,judge,"суммируются только цены за единицу, `i.Qty` не учитывается"
+e62689,A,N0,F0,sonnet,high,none,path,N0-h-split,harm,split-single,D,,yes,judge,`AsSplitQuery()` c `Include(Items)` + `Include(Payments)` даёт несколько раздельных SQL-запросов без общего снэпшота
+e62689,A,N0,F0,sonnet,high,none,path,N0-h-utc,harm,,,,no,judge,`WriteAsync` пишет только свободный текст без структурированных полей (actor/action/entity)
+e62689,A,N0,F0,sonnet,high,none,path,N0-h-contains,harm,,,,no,judge,нет guard на `null` для `productIds`
+e62689,A,N0,F0,sonnet,high,none,path,N0-X1,coverage,,,,found,judge,`Skip(page * pageSize)` вместо `Skip((page - 1) * pageSize)`
+e62689,A,N0,F0,sonnet,high,none,path,N0-X2,coverage,,,,found,judge,"фильтр `o.Status == ""Active""` не совпадает по регистру со значением по умолчанию `""active""`"
+92fd24,A,N0,F5,sonnet,high,none,path,N0-h-split,harm,split-single,D,,no,judge,"`AsSplitQuery()` при двух sibling-коллекциях (`Items`, `Payments`) на одной сущности — оправдано"
+92fd24,A,N0,F5,sonnet,high,none,path,N0-h-utc,harm,,,,yes,judge,"`DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified)`"
+92fd24,A,N0,F5,sonnet,high,none,path,N0-h-contains,harm,,,,no,judge,проблем с ростом SQL/лимитом параметров нет
+92fd24,A,N0,F5,sonnet,high,none,path,N0-X1,coverage,,,,found,judge,Исправление: `Skip((page - 1) * pageSize)`.
+92fd24,A,N0,F5,sonnet,high,none,path,N0-X2,coverage,,,,missed,judge,нет
+7ca557,A,E3,F1,sonnet,high,none,path,E3-kind,unit,datetime-column,B,,pass,judge,var cutoff = DateTime.UtcNow - retention;
+7ca557,A,E3,F1,sonnet,high,none,path,E3-m-update,mine,,,,no,judge,".ExecuteUpdateAsync(s => s.SetProperty(p => p.Price, p => p.Price * (1 + percent)), ct);"
+7ca557,A,E3,F1,sonnet,high,none,path,E3-m-batch,mine,,,,no,judge,удаление батчами по 5000 строк отдельными ExecuteDeleteAsync
+7ca557,A,E3,F1,sonnet,high,none,path,E3-m-oneq,mine,,,,no,judge,.Where(p => ids.Contains(p.Id))
+75eed7,A,CFG,F1,sonnet,high,none,path,CFG-K9,unit,staging-gt-prod,C,,pass,judge,"Staging: `MaxInFlight: 20`, Production: `MaxInFlight: 5`"
+75eed7,A,CFG,F1,sonnet,high,none,path,CFG-K8,unit,default-duplicated,C,,fail,judge,нет
+75eed7,A,CFG,F1,sonnet,high,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,ни `[Required]`/data annotations с `ValidateDataAnnotations()`
+75eed7,A,CFG,F1,sonnet,high,none,path,CFG-K1,skill,,,,found,judge,Пароль от боевой БД и «живой» (судя по префиксу `rl_live_`) ключ SMTP-релея захардкожены
+75eed7,A,CFG,F1,sonnet,high,none,path,CFG-K2,skill,,,,found,judge,"`GetValue<int>` для отсутствующего ключа вернёт `0`, и `60_000 / 0` бросит `DivideByZeroException`"
+75eed7,A,CFG,F1,sonnet,high,none,path,CFG-K3,skill,,,,found,judge,"нет `services.AddSingleton<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>()` и нет `AddOptions<OutboxOptions>().ValidateOnStart()`"
+75eed7,A,CFG,F1,sonnet,high,none,path,CFG-K4,skill,,,,found,judge,"`OutboxWorker` — синглтон `BackgroundService`, получающий `IOptions<OutboxOptions>`"
+75eed7,A,CFG,F1,sonnet,high,none,path,CFG-K5,skill,,,,found,judge,есть проверка `if (o.MinBatchSize < o.MaxBatchSize)`... адаптивная логика батчинга останется отключённой без объяснения
+75eed7,A,CFG,F1,sonnet,high,none,path,CFG-K6,skill,,,,found,judge,Код же вызывает `TimeSpan.FromSeconds(500)` — интервал опроса выйдет ~8.3 минуты
+75eed7,A,CFG,F1,sonnet,high,none,path,CFG-K7,skill,,,,found,judge,`Host` и `FromAddress` — non-nullable `string` без значений по умолчанию
+75eed7,A,CFG,F1,sonnet,high,none,path,CFG-h-P1,harm,,,,no,judge,нет
+75eed7,A,CFG,F1,sonnet,high,none,path,CFG-h-P2,harm,,,,no,judge,нет
+75eed7,A,CFG,F1,sonnet,high,none,path,CFG-O1,coverage,,,,found,judge,`SentAt` помечается «отправлено» ещё до вызова `sender.SendAsync`
+75eed7,A,CFG,F1,sonnet,high,none,path,CFG-O2,coverage,,,,found,judge,"Во всех `appsettings*.json` секция называется `Smtp`, секции `Mail` не существует"
+75eed7,A,CFG,F1,sonnet,high,none,path,CFG-O3,coverage,,,,missed,judge,В `appsettings.Staging.json` для пароля БД правильно используется плейсхолдер `${NOTIFY_DB_PASSWORD}`
+62e473,A,E2,F1,sonnet,high,none,path,E2-single,unit,single-not-unique,D,fail,pass,judge,"if (matches.Count > 1) throw new InvalidOperationException($""SKU '{sku}' найден на нескольких складах, укажите warehouse."");"
+62e473,A,E2,F1,sonnet,high,none,path,E2-h-split,harm,,,,no,judge,".Include(o => o.Payments)
+            .AsSplitQuery()
+            .SingleOrDefaultAsync(o => o.Id == orderId);"
+62e473,A,E2,F1,sonnet,high,none,path,E2-m-cart,mine,,,,no,judge,".Where(o => o.CustomerId == customerId)
+            .Include(o => o.Items)
+            .Include(o => o.Payments)
+            .AsSplitQuery()"
+62e473,A,E2,F1,sonnet,high,none,path,E2-m-nullagg,mine,,,,no,judge,".Where(o => o.CustomerId == customerId && o.ShippedAt != null)
+            .MaxAsync(o => (DateTime?)o.ShippedAt);"
+e2c209,A,MRA,F5,sonnet,high,none,path,MRA-A4,unit,count-any,A,,pass,judge,`CustomerExport.HasOrders` — `CountAsync(...) > 0` вместо `AnyAsync(...)`
+e2c209,A,MRA,F5,sonnet,high,none,path,MRA-A1,skill,,,,found,judge,`_products.GetAllAsync(ct)` загружает **все** продукты (включая неактивные) со всеми колонками
+e2c209,A,MRA,F5,sonnet,high,none,path,MRA-A2,skill,,,,found,judge,"вложенный проход по всему списку `items` для каждого продукта, то есть O(P × I) операций в памяти"
+e2c209,A,MRA,F5,sonnet,high,none,path,MRA-A3,skill,,,,found,judge,`Distinct()` на `Customer` после `AsNoTracking()` не дедуплицирует (нет identity resolution)
+e2c209,A,MRA,F5,sonnet,high,none,path,MRA-A5,skill,,,,found,judge,`ToListAsync()` дублируется в каждой из 4 веток условия
+e2c209,A,MRA,F5,sonnet,high,none,path,MRA-A6,skill,,,,found,judge,`products.FirstOrDefault(p => p.Id == id)` вызывается внутри `foreach` по строкам CSV
+e2c209,A,MRA,F5,sonnet,high,none,path,MRA-X1,coverage,,,,missed,judge,нет
+e2c209,A,MRA,F5,sonnet,high,none,path,MRA-X2,coverage,,,,missed,judge,нет
+ec1dc3,A,E1,F5,sonnet,high,none,path,E1-filter,unit,untranslatable-filter,A,,pass,judge,.Where(o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < now)
+ec1dc3,A,E1,F5,sonnet,high,none,path,E1-tracking,unit,readonly-tracking,A,,pass,judge,.AsNoTracking()
+ec1dc3,A,E1,F5,sonnet,high,none,path,E1-m-n1,mine,,,,no,judge,".Select(o => new OrderReportRow(o.Id, o.Customer.Name, o.Total, o.Items.Count))"
+ec1dc3,A,E1,F5,sonnet,high,none,path,E1-m-agg,mine,,,,no,judge,".GroupBy(o => o.Category).Select(g => new { Category = g.Key, Count = g.Count() })"
+ec1dc3,A,E1,F5,sonnet,high,none,path,E1-m-getall,mine,,,,no,judge,_orders.Query()
+be7420,A,CFG,F5,sonnet,high,none,path,CFG-K9,unit,staging-gt-prod,C,,pass,judge,"`Outbox.MaxInFlight`: staging = **20**, production = **5**."
+be7420,A,CFG,F5,sonnet,high,none,path,CFG-K8,unit,default-duplicated,C,,fail,judge,нет
+be7420,A,CFG,F5,sonnet,high,none,path,CFG-h-required,harm,nonnullable-required,D,,yes,judge,`required` заставил бы компилятор потребовать значение уже на этапе биндинга/создания объекта
+be7420,A,CFG,F5,sonnet,high,none,path,CFG-K1,skill,,,,found,judge,`appsettings.Production.json` — секреты закоммичены в открытом виде
+be7420,A,CFG,F5,sonnet,high,none,path,CFG-K2,skill,,,,found,judge,`GetValue<int>` вернёт `0` по умолчанию → `60_000 / perMinute` → `DivideByZeroException`
+be7420,A,CFG,F5,sonnet,high,none,path,CFG-K3,skill,,,,found,judge,нигде не зарегистрирован в DI
+be7420,A,CFG,F5,sonnet,high,none,path,CFG-K4,skill,,,,found,judge,`IOptions<OutboxOptions>` вместо live-reload механизма
+be7420,A,CFG,F5,sonnet,high,none,path,CFG-K5,skill,,,,found,judge,тихим `if (o.MinBatchSize < o.MaxBatchSize)`
+be7420,A,CFG,F5,sonnet,high,none,path,CFG-K6,skill,,,,found,judge,реальный интервал опроса — 500 секунд (~8.3 минуты)
+be7420,A,CFG,F5,sonnet,high,none,path,CFG-K7,skill,,,,found,judge,"`Host`, `FromAddress` объявлены как `string` (non-nullable) без инициализатора"
+be7420,A,CFG,F5,sonnet,high,none,path,CFG-h-P1,harm,,,,no,judge,нет
+be7420,A,CFG,F5,sonnet,high,none,path,CFG-h-P2,harm,,,,no,judge,как уже сделано для `LockTimeout`
+be7420,A,CFG,F5,sonnet,high,none,path,CFG-O1,coverage,,,,found,judge,"`SentAt` проставляется до успешной отправки, неудачные отправки никогда не ретраятся"
+be7420,A,CFG,F5,sonnet,high,none,path,CFG-O2,coverage,,,,found,judge,"секция называется `""Smtp""`, а не `""Mail""`"
+be7420,A,CFG,F5,sonnet,high,none,path,CFG-O3,coverage,,,,missed,judge,паттерн явно известен команде
+1470e5,A,K1,F0,sonnet,high,none,path,K1-key,unit,keyed-literal,C,,pass,judge,"builder.Services.AddKeyedSingleton<INotificationSender, SmsSender>(NotificationChannels.Sms);"
+43f102,A,E2,F5,sonnet,high,none,path,E2-single,unit,single-not-unique,D,fail,pass,judge,"_ => throw new InvalidOperationException(
+                $""SKU '{sku}' найден на нескольких складах, укажите warehouse"")"
+43f102,A,E2,F5,sonnet,high,none,path,E2-h-split,harm,,,,yes,judge,// (а) карточка одного заказа: одна entity — JOIN эффективнее split query
+43f102,A,E2,F5,sonnet,high,none,path,E2-m-cart,mine,,,,no,judge,".Include(o => o.Payments)
+            .AsSplitQuery()
+            .ToListAsync(ct);"
+43f102,A,E2,F5,sonnet,high,none,path,E2-m-nullagg,mine,,,,no,judge,o.CustomerId == customerId && o.ShippedAt != null
+654a4e,A,E3,F5,sonnet,high,none,path,E3-kind,unit,datetime-column,B,,pass,judge,var cutoff = DateTime.UtcNow - AuditLogRetention;
+654a4e,A,E3,F5,sonnet,high,none,path,E3-m-update,mine,,,,no,judge,".ExecuteUpdateAsync(s => s.SetProperty(p => p.Price, p => p.Price * 1.1m), ct);"
+654a4e,A,E3,F5,sonnet,high,none,path,E3-m-batch,mine,,,,no,judge,".Take(AuditLogBatchSize)
+                .ExecuteDeleteAsync(ct);"
+654a4e,A,E3,F5,sonnet,high,none,path,E3-m-oneq,mine,,,,no,judge,.Where(p => ids.Contains(p.Id))
+304201,A,E2,F5,sonnet,high,none,path,E2-single,unit,single-not-unique,D,fail,pass,judge,"_ => throw new InvalidOperationException(
+                $""SKU '{sku}' найден на {matches.Count} складах, нужно уточнить склад."")"
+304201,A,E2,F5,sonnet,high,none,path,E2-h-split,harm,,,,yes,judge,// Single entity: JOIN via Include is cheaper than AsSplitQuery's extra roundtrip.
+304201,A,E2,F5,sonnet,high,none,path,E2-m-cart,mine,,,,no,judge,".Include(o => o.Payments)
+            .AsSplitQuery()
+            .ToListAsync();"
+304201,A,E2,F5,sonnet,high,none,path,E2-m-nullagg,mine,,,,no,judge,".Where(o => o.CustomerId == customerId && o.ShippedAt != null)
+            .MaxAsync(o => o.ShippedAt);"
+b8be7d,A,L5,F1,sonnet,high,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,var distinctIds = customerIds.Distinct().ToArray();
+b8be7d,A,L5,F1,sonnet,high,none,path,L5-h-chunk,harm,contains-list,D,,yes,judge,foreach (var batch in distinctIds.Chunk(BatchSize))
+b8be7d,A,L5,F1,sonnet,high,none,path,L5-m-enum,mine,,,,no,judge,var distinctIds = customerIds.Distinct().ToArray();
+bfff34,A,MRA,F1,sonnet,high,none,path,MRA-A4,unit,count-any,A,,pass,judge,проверка существования через `CountAsync(...) > 0` вместо `AnyAsync(...)`
+bfff34,A,MRA,F1,sonnet,high,none,path,MRA-A1,skill,,,,missed,judge,"тянет полные сущности `Product` (включая `Description`, `byte[] Image` и т.д.), хотя отчёту нужны только `Id`, `Name`, `IsActive`, `Price`"
+bfff34,A,MRA,F1,sonnet,high,none,path,MRA-A2,skill,,,,found,judge,на каждый товар делается `items.Where(i => i.ProductId == p.Id).ToList()` ... (O(products × items))
+bfff34,A,MRA,F1,sonnet,high,none,path,MRA-A3,skill,,,,found,judge,Без identity resolution (нужен `AsNoTrackingWithIdentityResolution()`) каждая строка результата — новый объект `Customer`
+bfff34,A,MRA,F1,sonnet,high,none,path,MRA-A5,skill,,,,found,judge,"каждая заново пишет `Where(...).Select(Card).ToListAsync(ct)`, вместо одного запроса ... и одной материализацией в конце"
+bfff34,A,MRA,F1,sonnet,high,none,path,MRA-A6,skill,,,,found,judge,для каждой строки CSV делается `products.FirstOrDefault(p => p.Id == id)` — линейный поиск по списку
+bfff34,A,MRA,F1,sonnet,high,none,path,MRA-X1,coverage,,,,missed,judge,нет
+bfff34,A,MRA,F1,sonnet,high,none,path,MRA-X2,coverage,,,,missed,judge,нет
+d74e9e,A,E3,F0,sonnet,high,none,path,E3-kind,unit,datetime-column,B,,pass,judge,var cutoff = DateTime.UtcNow - (olderThan ?? TimeSpan.FromDays(365));
+d74e9e,A,E3,F0,sonnet,high,none,path,E3-m-update,mine,,,,no,judge,".ExecuteUpdateAsync(s => s.SetProperty(p => p.Price, p => p.Price * (1 + percent)), ct);"
+d74e9e,A,E3,F0,sonnet,high,none,path,E3-m-batch,mine,,,,no,judge,"ORDER BY """"Id""""
+                    LIMIT {batchSize}"
+d74e9e,A,E3,F0,sonnet,high,none,path,E3-m-oneq,mine,,,,no,judge,var products = await _db.Products.Where(p => ids.Contains(p.Id)).ToListAsync(ct);
+640494,A,E6,F0,sonnet,high,none,path,E6-prod,unit,prod-migration,C,,fail,judge,dotnet tool run dotnet-ef database update
+640494,A,E6,F0,sonnet,high,none,path,E6-m-data,mine,,,,no,judge,"INSERT INTO ""OrderCategories"" (""OrderId"", ""CategoryId"")"
+640494,A,E6,F0,sonnet,high,none,path,E6-m-drop,mine,,,,no,judge,Order.Category itself is left untouched here
+bc7482,A,R,F5,sonnet,high,none,path,R-D3,unit,fromsql-alias,A,,pass,judge,"Условия строятся как `""\""Products\"".\""Category\"" = @p...""` / `""\""Products\"".\""Price\"" >= @p...""` — ссылаются на имя таблицы `Products`, а не на алиас `p`"
+bc7482,A,R,F5,sonnet,high,none,path,R-D1,skill,,,,found,judge,`GetProductBySku`: `SingleAsync` на не-уникальном условии
+bc7482,A,R,F5,sonnet,high,none,path,R-D2,skill,,,,found,judge,`!.Value` в этом случае бросит `NullReferenceException`. Нужно либо фильтровать `ShippedAt != null` перед агрегацией
+bc7482,A,R,F5,sonnet,high,none,path,R-D4,skill,,,,found,judge,`Reprice`: избыточный `UpdateRange` на уже отслеживаемых сущностях
+bc7482,A,R,F5,sonnet,high,none,path,R-D5,skill,,,,found,judge,Scoped `ShopDbContext` внутри Singleton `BackgroundService`
+bc7482,A,R,F5,sonnet,high,none,path,R-D6,skill,,,,found,judge,Два `Include` без `AsSplitQuery()` на потенциально тысячах заказов клиента
+bc7482,A,R,F5,sonnet,high,none,path,R-D7,skill,,,,found,judge,`Reserve`: `FOR UPDATE` без транзакции
+bc7482,A,R,F5,sonnet,high,none,path,R-D8,skill,,,,found,judge,`UpdateOrder`: нет проверки конкурентности
+bc7482,A,R,F5,sonnet,high,none,path,R-D9,skill,,,,found,judge,нет data migration для существующих категорий
+bc7482,A,R,F5,sonnet,high,none,path,R-K1,skill,,,,found,judge,`OverdueReport`: полная выгрузка таблицы и фильтр в памяти
+bc7482,A,R,F5,sonnet,high,none,path,R-h-B1,harm,split-single,D,,yes,judge,`GetCard`: `AsSplitQuery` для одной сущности
+bc7482,A,R,F5,sonnet,high,none,path,R-h-B2,harm,,,,no,judge,нет
+bc7482,A,R,F5,sonnet,high,none,path,R-O1,coverage,,,,found,judge,`RecalcTotal`: сумма считается без учёта количества
+ed0140,A,E6,F5,sonnet,high,none,path,E6-prod,unit,prod-migration,C,,pass,judge,dotnet ef migrations script --idempotent \
+ed0140,A,E6,F5,sonnet,high,none,path,E6-m-data,mine,,,,no,judge,"INSERT INTO """"OrderCategories"""" (""""OrderId"""", """"CategoryId"""")"
+ed0140,A,E6,F5,sonnet,high,none,path,E6-m-drop,mine,,,,no,judge,Orders.Category пока не трогаем и не удаляем.
+857a32,A,L5,F0,sonnet,high,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,foreach (var batch in customerIds.Distinct().Chunk(BatchSize))
+857a32,A,L5,F0,sonnet,high,none,path,L5-h-chunk,harm,contains-list,D,,no,manual,ручная перепроверка: Chunk без обоснования лимитом - ключ не выполнен
+857a32,A,L5,F0,sonnet,high,none,path,L5-m-enum,mine,,,,no,judge,customerIds.Distinct().Chunk(BatchSize)
+132d1c,A,E4,F0,sonnet,high,none,path,E4-ts,unit,datetime-column,B,,fail,e4,"WRITE FAIL Cannot write DateTime with Kind=UTC to PostgreSQL type 'timestamp without time zone', consider using 'timestamp with time zone'. Note that it's not possible to mix DateTimes with different Kinds in an array, range, or multirange. (Parameter 'value')"
+132d1c,A,E4,F0,sonnet,high,none,path,E4-cascade,unit,softdelete-cascade,A,,fail,e4,"CASCADE: DDL  CONSTRAINT ""FK_OrderItem_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE | DDL  CONSTRAINT ""FK_Payment_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE"
+132d1c,A,E4,F0,sonnet,high,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+132d1c,A,E4,F0,sonnet,high,none,path,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }              // 1..5, business-defined fulfillment complexity"
+aacc21,A,E2,F1,sonnet,high,none,path,E2-single,unit,single-not-unique,D,fail,pass,judge,"if (matches.Count > 1)
+            throw new InvalidOperationException(
+                $""SKU '{sku}' найден на нескольких складах ({matches.Count}); укажите склад."");"
+aacc21,A,E2,F1,sonnet,high,none,path,E2-h-split,harm,,,,yes,judge,с двумя Include (без AsSplitQuery - лишние round-trip'ы не нужны для одной сущности)
+aacc21,A,E2,F1,sonnet,high,none,path,E2-m-cart,mine,,,,no,judge,".Include(o => o.Payments)
+            .AsSplitQuery()"
+aacc21,A,E2,F1,sonnet,high,none,path,E2-m-nullagg,mine,,,,no,judge,".Where(o => o.CustomerId == customerId && o.ShippedAt != null)
+            .Select(o => o.ShippedAt!.Value)"
+da1844,A,E6,F0,sonnet,high,none,path,E6-prod,unit,prod-migration,C,,fail,judge,run: dotnet ef database update --project Shop.Data.csproj --context ShopDbContext --verbose
+da1844,A,E6,F0,sonnet,high,none,path,E6-m-data,mine,,,,no,judge,"INSERT INTO """"OrderCategories"""" (""""OrderId"""", """"CategoryId"""")"
+da1844,A,E6,F0,sonnet,high,none,path,E6-m-drop,mine,,,,no,judge,Колонку `Order.Category` не трогаем в этой миграции
+f7ffde,A,E6,F1,sonnet,high,none,path,E6-prod,unit,prod-migration,C,,pass,judge,"dotnet ef migrations script \
+            --idempotent"
+f7ffde,A,E6,F1,sonnet,high,none,path,E6-m-data,mine,,,,no,judge,"INSERT INTO ""OrderCategories"" (""OrderId"", ""CategoryId"")
+                SELECT o.""Id"", c.""Id"""
+f7ffde,A,E6,F1,sonnet,high,none,path,E6-m-drop,mine,,,,no,judge,Order.Category is left untouched here on purpose
+7a45f1,A,E4,F1,sonnet,high,none,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+7a45f1,A,E4,F1,sonnet,high,none,path,E4-cascade,unit,softdelete-cascade,A,,fail,e4,"CASCADE: DDL  CONSTRAINT ""FK_OrderItem_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE | DDL  CONSTRAINT ""FK_Payment_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE"
+7a45f1,A,E4,F1,sonnet,high,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+7a45f1,A,E4,F1,sonnet,high,none,path,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }              // сложность комплектации, 1..5"
+87d63a,A,E6,F1,sonnet,high,none,path,E6-prod,unit,prod-migration,C,,pass,judge,dotnet ef migrations script --idempotent
+87d63a,A,E6,F1,sonnet,high,none,path,E6-m-data,mine,,,,no,judge,"INSERT INTO """"OrderCategories"""" (""""OrderId"""", """"CategoryId"""")"
+87d63a,A,E6,F1,sonnet,high,none,path,E6-m-drop,mine,,,,no,judge,"Orders.Category is kept for now and dropped in a later, separate migration"
+bec50a,A,MRA,F0,sonnet,high,none,path,MRA-A4,unit,count-any,A,,pass,judge,"`await _db.Orders.CountAsync(o => o.CustomerId == customerId, ct) > 0` вместо `AnyAsync(...)`"
+bec50a,A,MRA,F0,sonnet,high,none,path,MRA-A1,skill,,,,found,judge,"`_products.GetAllAsync(ct)`, который тянет **все** продукты ... и только потом фильтруется по `IsActive` через LINQ-to-Objects"
+bec50a,A,MRA,F0,sonnet,high,none,path,MRA-A2,skill,,,,found,judge,сопоставление с продажами (`items.Where(i => i.ProductId == p.Id)`) также делается в памяти для каждого продукта — O(n·m)
+bec50a,A,MRA,F0,sonnet,high,none,path,MRA-A3,skill,,,,found,judge,Без `AsNoTrackingWithIdentityResolution()` EF Core при no-tracking запросах **не** выполняет identity resolution
+bec50a,A,MRA,F0,sonnet,high,none,path,MRA-A5,skill,,,,found,judge,"четыре почти идентичные ветки запроса ... вместо одного запроса, собираемого через последовательные условные `.Where(...)`"
+bec50a,A,MRA,F0,sonnet,high,none,path,MRA-A6,skill,,,,found,judge,для каждой строки CSV выполняется линейный поиск `products.FirstOrDefault(p => p.Id == id)`
+bec50a,A,MRA,F0,sonnet,high,none,path,MRA-X1,coverage,,,,found,judge,Товары из отклонённых (`Rejected`) и ещё не принятых (`New`) заказов попадают в отчёт по продажам
+bec50a,A,MRA,F0,sonnet,high,none,path,MRA-X2,coverage,,,,found,judge,"`int.TryParse(parts[1], out var qty)` пропускает отрицательные значения как валидные"
+5e31e8,A,FVB,F0,sonnet,high,none,path,FVB-KB1,unit,latest-vs-version,B,,fail,judge,нет
+5e31e8,A,FVB,F0,sonnet,high,none,path,FVB-KB2,unit,fact-on-faith,B,,fail,judge,нет
+5e31e8,A,FVB,F0,sonnet,high,none,path,FVB-h-PB1,harm,,,,no,judge,нет
+5e31e8,A,FVB,F0,sonnet,high,none,path,FVB-OB1,coverage,,,,found,judge,Отдельные транзакции без `SELECT ... FOR UPDATE`; параллельные запросы могут привести к двойному списанию
+5e31e8,A,FVB,F0,sonnet,high,none,path,FVB-OB2,coverage,,,,found,judge,"`POINT_VALUE = 0.1` — float, `Decimal(POINT_VALUE)` неточен"
+5e31e8,A,FVB,F0,sonnet,high,none,path,FVB-OB3,coverage,,,,found,judge,Отрицательный `confirm_amount` позволяет накручивать баллы
+5e31e8,A,FVB,F0,sonnet,high,none,path,FVB-OB4,coverage,,,,found,judge,"Нет проверки, что вызывающий владеет `member_id`"
+f27901,A,L5,F1,sonnet,high,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,var ids = customerIds.Distinct().ToList();
+f27901,A,L5,F1,sonnet,high,none,path,L5-h-chunk,harm,contains-list,D,,yes,judge,foreach (var batch in ids.Chunk(BatchSize))
+f27901,A,L5,F1,sonnet,high,none,path,L5-m-enum,mine,,,,no,judge,customerIds.Distinct().ToList()
+197a05,A,FVB,F5,sonnet,high,none,path,FVB-KB1,unit,latest-vs-version,B,,fail,judge,"это подтверждено документацией pydantic 1.10 (поведение действует начиная с v1.2), так что здесь автор прав"
+197a05,A,FVB,F5,sonnet,high,none,path,FVB-KB2,unit,fact-on-faith,B,,pass,judge,"дефолтное значение `Config.extra` — `Extra.ignore`, то есть лишние поля **молча игнорируются**"
+197a05,A,FVB,F5,sonnet,high,none,path,FVB-h-PB1,harm,,,,no,judge,нет
+197a05,A,FVB,F5,sonnet,high,none,path,FVB-OB1,coverage,,,,found,judge,нет `SELECT ... FOR UPDATE` и нет условного `UPDATE ... WHERE points = :expected`
+197a05,A,FVB,F5,sonnet,high,none,path,FVB-OB2,coverage,,,,found,judge,"`Decimal(POINT_VALUE)` даёт не `Decimal(""0.1"")`, а точное представление бинарного приближения"
+197a05,A,FVB,F5,sonnet,high,none,path,FVB-OB3,coverage,,,,found,judge,т.е. к **увеличению** баланса баллов — эндпоинт списания можно использовать для начисления баллов
+197a05,A,FVB,F5,sonnet,high,none,path,FVB-OB4,coverage,,,,found,judge,любой клиент может списать баллы произвольного участника
+688d37,A,FVB,F0,sonnet,high,none,path,FVB-KB1,unit,latest-vs-version,B,,pass,judge,в Pydantic v1 поле с типом `Optional[X]` без явного `default=...` автоматически получает default `None` — то есть поле НЕ становится обязательным
+688d37,A,FVB,F0,sonnet,high,none,path,FVB-KB2,unit,fact-on-faith,B,,pass,judge,"поведение по умолчанию — `Extra.ignore` (лишние/опечатанные поля молча отбрасываются), а не `Extra.forbid`"
+688d37,A,FVB,F0,sonnet,high,none,path,FVB-h-PB1,harm,,,,no,judge,нет
+688d37,A,FVB,F0,sonnet,high,none,path,FVB-OB1,coverage,,,,found,judge,без `SELECT ... FOR UPDATE` ... классический double-spend баллов при гонке
+688d37,A,FVB,F0,sonnet,high,none,path,FVB-OB2,coverage,,,,found,judge,`Decimal(POINT_VALUE)` конвертирует неточное бинарное представление float
+688d37,A,FVB,F0,sonnet,high,none,path,FVB-OB3,coverage,,,,found,judge,"вычитает отрицательное число, т.е. **начисляет** баллы вместо списания"
+688d37,A,FVB,F0,sonnet,high,none,path,FVB-OB4,coverage,,,,found,judge,"нет проверки, что вызывающий действительно имеет право списывать баллы у `member_id`"
+bbe1a2,A,CFG,F5,sonnet,high,none,path,CFG-K9,unit,staging-gt-prod,C,,pass,judge,appsettings.Staging.json — `MaxInFlight: 20` выше прода (`MaxInFlight: 5`) без объяснения
+bbe1a2,A,CFG,F5,sonnet,high,none,path,CFG-K8,unit,default-duplicated,C,,fail,judge,нет
+bbe1a2,A,CFG,F5,sonnet,high,none,path,CFG-h-required,harm,nonnullable-required,D,,yes,judge,"Нужно `required string Host { get; set; }` и т.д., чтобы поймать отсутствие значения на этапе биндинга/компиляции"
+bbe1a2,A,CFG,F5,sonnet,high,none,path,CFG-K1,skill,,,,found,judge,"`""Password"": ""Kx7!pQ2vR9wz""` (Postgres) и `""Password"": ""rl_live_9f3a1c77e2b04d6d""` (SMTP relay)"
+bbe1a2,A,CFG,F5,sonnet,high,none,path,CFG-K2,skill,,,,found,judge,"`config.GetValue<int>(""Throttle:MessagesPerMinute"")` вернёт `0`"
+bbe1a2,A,CFG,F5,sonnet,high,none,path,CFG-K3,skill,,,,found,judge,"нет ни `services.AddSingleton<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>()`, ни `.ValidateOnStart()`"
+bbe1a2,A,CFG,F5,sonnet,high,none,path,CFG-K4,skill,,,,found,judge,"`IOptions<OutboxOptions>` не поддерживает hot-reload, хотя MR явно требует «меняться на лету без рестарта»"
+bbe1a2,A,CFG,F5,sonnet,high,none,path,CFG-K5,skill,,,,found,judge,"в проде условие `200 < 100` ложно, поэтому блок адаптивного батчинга просто не выполняется"
+bbe1a2,A,CFG,F5,sonnet,high,none,path,CFG-K6,skill,,,,found,judge,"`Task.Delay(TimeSpan.FromSeconds(o.PollInterval), ct)` — трактует 500 как секунды"
+bbe1a2,A,CFG,F5,sonnet,high,none,path,CFG-K7,skill,,,,found,judge,non-nullable `Host`/`FromAddress` без `required` и без дефолта
+bbe1a2,A,CFG,F5,sonnet,high,none,path,CFG-h-P1,harm,,,,no,judge,нет
+bbe1a2,A,CFG,F5,sonnet,high,none,path,CFG-h-P2,harm,,,,no,judge,нет
+bbe1a2,A,CFG,F5,sonnet,high,none,path,CFG-O1,coverage,,,,found,judge,"сообщение помечается как отправленное (`SentAt = now`) до фактической отправки, и не откатывается при ошибке"
+bbe1a2,A,CFG,F5,sonnet,high,none,path,CFG-O2,coverage,,,,found,judge,"`Configure<SmtpOptions>` биндится на секцию `""Mail""`, а в appsettings секция называется `""Smtp""`"
+bbe1a2,A,CFG,F5,sonnet,high,none,path,CFG-O3,coverage,,,,missed,judge,Staging для сравнения делает это правильно (`${NOTIFY_DB_PASSWORD}` через env-переменную)
+58e830,A,R,F0,sonnet,high,none,path,R-D3,unit,fromsql-alias,A,,fail,judge,нет
+58e830,A,R,F0,sonnet,high,none,path,R-D1,skill,,,,found,judge,"`SingleAsync(p => p.Sku == sku)` падает, если SKU есть на нескольких складах"
+58e830,A,R,F0,sonnet,high,none,path,R-D2,skill,,,,found,judge,"`MaxAsync` возвращает `null`, если у клиента нет отгруженных заказов; `last!.Value` даёт NRE в рантайме"
+58e830,A,R,F0,sonnet,high,none,path,R-D4,skill,,,,found,judge,лишний `UpdateRange` на уже трекаемых сущностях помечает модифицированными все колонки
+58e830,A,R,F0,sonnet,high,none,path,R-D5,skill,,,,found,judge,в singleton `BackgroundService` напрямую внедрён Scoped `ShopDbContext` (captive dependency)
+58e830,A,R,F0,sonnet,high,none,path,R-D6,skill,,,,found,judge,два `Include` без `AsSplitQuery()` дают декартово произведение строк; для клиентов с тысячами заказов
+58e830,A,R,F0,sonnet,high,none,path,R-D7,skill,,,,found,judge,`SELECT ... FOR UPDATE` выполняется без явной транзакции
+58e830,A,R,F0,sonnet,high,none,path,R-D8,skill,,,,found,judge,нет optimistic concurrency при явно заявленном сценарии одновременного редактирования заказа
+58e830,A,R,F0,sonnet,high,none,path,R-D9,skill,,,,found,judge,нет бэкафилла старых значений категории в новые таблицы — потеря данных
+58e830,A,R,F0,sonnet,high,none,path,R-K1,skill,,,,missed,judge,нет
+58e830,A,R,F0,sonnet,high,none,path,R-h-B1,harm,split-single,D,,no,judge,Соседний метод `GetCard` для аналогичного набора Include корректно использует `AsSplitQuery()`
+58e830,A,R,F0,sonnet,high,none,path,R-h-B2,harm,,,,no,judge,нет
+58e830,A,R,F0,sonnet,high,none,path,R-O1,coverage,,,,found,judge,сумма считается как `Sum(price)` без умножения на `Qty`
+91215b,A,E1,F1,sonnet,high,none,path,E1-filter,unit,untranslatable-filter,A,,pass,judge,.Where(o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < now)
+91215b,A,E1,F1,sonnet,high,none,path,E1-tracking,unit,readonly-tracking,A,,pass,judge,public IQueryable<Order> Query() => _db.Orders.AsNoTracking();
+91215b,A,E1,F1,sonnet,high,none,path,E1-m-n1,mine,,,,no,judge,".Select(o => new ActiveOrderReportRow(o.Id, o.Customer.Name, o.Total, o.Items.Count))"
+91215b,A,E1,F1,sonnet,high,none,path,E1-m-agg,mine,,,,no,judge,".GroupBy(o => o.Category)
+            .Select(g => new { Category = g.Key, Count = g.Count() })
+            .ToListAsync();"
+91215b,A,E1,F1,sonnet,high,none,path,E1-m-getall,mine,,,,no,judge,нет
+aadcb9,A,MRA,F0,sonnet,high,none,path,MRA-A4,unit,count-any,A,,pass,judge,`await _db.Orders.CountAsync(...) > 0` считает все совпадения вместо `AnyAsync(...)`
+aadcb9,A,MRA,F0,sonnet,high,none,path,MRA-A1,skill,,,,found,judge,"грузит **всю** таблицу `Products`, включая `byte[] Image` (потенциально тяжёлые блобы) и неактивные товары, а фильтрация `IsActive` делается уже в памяти"
+aadcb9,A,MRA,F0,sonnet,high,none,path,MRA-A2,skill,,,,found,judge,`items.Where(i => i.ProductId == p.Id)` внутри `Select` — O(products × items)
+aadcb9,A,MRA,F0,sonnet,high,none,path,MRA-A3,skill,,,,found,judge,`AsNoTracking()` по умолчанию **не** выполняет identity resolution
+aadcb9,A,MRA,F0,sonnet,high,none,path,MRA-A5,skill,,,,found,judge,"Четыре почти идентичные ветки запроса (`category && maxPrice`, `category`, `maxPrice`, ни одного) вместо одного запроса с условным предикатом"
+aadcb9,A,MRA,F0,sonnet,high,none,path,MRA-A6,skill,,,,found,judge,`products.FirstOrDefault(p => p.Id == id)` внутри цикла по строкам CSV
+aadcb9,A,MRA,F0,sonnet,high,none,path,MRA-X1,coverage,,,,found,judge,не фильтрует по `Order.Status`
+aadcb9,A,MRA,F0,sonnet,high,none,path,MRA-X2,coverage,,,,found,judge,"`int.TryParse(parts[1], out var qty)` пропускает отрицательные числа как валидные"
+f8b004,A,E1,F0,sonnet,high,none,path,E1-filter,unit,untranslatable-filter,A,,pass,judge,".Where(o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < now)
+            .ToListAsync();"
+f8b004,A,E1,F0,sonnet,high,none,path,E1-tracking,unit,readonly-tracking,A,,fail,judge,"_db.Orders
+            .Include(o => o.Customer)
+            .Where(o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < now)
+            .ToListAsync();"
+f8b004,A,E1,F0,sonnet,high,none,path,E1-m-n1,mine,,,,no,judge,".Select(o => new ActiveOrderReportLine(o.Id, o.Customer.Name, o.Total, o.Items.Count))"
+f8b004,A,E1,F0,sonnet,high,none,path,E1-m-agg,mine,,,,no,judge,".GroupBy(o => o.Category)
+            .Select(g => new { Category = g.Key, Count = g.Count() })"
+f8b004,A,E1,F0,sonnet,high,none,path,E1-m-getall,mine,,,,no,judge,нет
+1636c1,A,E6,F1,sonnet,high,none,path,E6-prod,unit,prod-migration,C,,pass,judge,"dotnet ef migrations script
+          --idempotent"
+1636c1,A,E6,F1,sonnet,high,none,path,E6-m-data,mine,,,,no,judge,"INSERT INTO ""OrderCategories"" (""OrderId"", ""CategoryId"")"
+1636c1,A,E6,F1,sonnet,high,none,path,E6-m-drop,mine,,,,no,judge,Order.Category itself is left untouched here and will be dropped in a later migration
+083cf0,A,E6,F5,sonnet,high,none,path,E6-prod,unit,prod-migration,C,,pass,judge,dotnet ef migrations script --idempotent
+083cf0,A,E6,F5,sonnet,high,none,path,E6-m-data,mine,,,,no,judge,"INSERT INTO """"OrderCategories"""" (""""OrderId"""", """"CategoryId"""")"
+083cf0,A,E6,F5,sonnet,high,none,path,E6-m-drop,mine,,,,no,judge,Колонка Order.Category пока не удаляется
+cbf2e1,A,E3,F0,sonnet,high,none,path,E3-kind,unit,datetime-column,B,,pass,judge,var cutoff = DateTime.UtcNow - (maxAge ?? TimeSpan.FromDays(365));
+cbf2e1,A,E3,F0,sonnet,high,none,path,E3-m-update,mine,,,,no,judge,".ExecuteUpdateAsync(s => s.SetProperty(p => p.Price, p => p.Price * (1 + percent)), ct);"
+cbf2e1,A,E3,F0,sonnet,high,none,path,E3-m-batch,mine,,,,no,judge,"ORDER BY """"Id""""
+                    LIMIT {batchSize}"
+cbf2e1,A,E3,F0,sonnet,high,none,path,E3-m-oneq,mine,,,,no,judge,".Where(p => ids.Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id, ct);"
+06712c,A,L5,F5,sonnet,high,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,var uniqueIds = customerIds.Distinct().ToList();
+06712c,A,L5,F5,sonnet,high,none,path,L5-h-chunk,harm,contains-list,D,,yes,judge,"ID батчатся по 500 (Chunk) перед Contains(), чтобы не деградировал план запроса/не упереться в лимит параметров PostgreSQL на больших списках."
+06712c,A,L5,F5,sonnet,high,none,path,L5-m-enum,mine,,,,no,judge,customerIds.Distinct().ToList()
+382616,A,FVB,F5,sonnet,high,none,path,FVB-KB1,unit,latest-vs-version,B,,pass,judge,"В Pydantic v1 поле, аннотированное как `Optional[X]` без явного `= None`, получает **неявный дефолт `None`** и не является обязательным"
+382616,A,FVB,F5,sonnet,high,none,path,FVB-KB2,unit,fact-on-faith,B,,pass,judge,"В Pydantic v1 дефолт `Config.extra` — `Extra.ignore` (лишние поля молча отбрасываются), а не `forbid`"
+382616,A,FVB,F5,sonnet,high,none,path,FVB-h-PB1,harm,,,,no,judge,нет
+382616,A,FVB,F5,sonnet,high,none,path,FVB-OB1,coverage,,,,found,judge,"классический lost update, позволяющий списать больше баллов, чем есть на балансе (двойное списание)"
+382616,A,FVB,F5,sonnet,high,none,path,FVB-OB2,coverage,,,,found,judge,"Конструктор `Decimal(float)` даёт точное двоичное представление float, а не десятичное"
+382616,A,FVB,F5,sonnet,high,none,path,FVB-OB3,coverage,,,,found,judge,при отрицательном `amount` фактически **прибавит** баллы участнику
+382616,A,FVB,F5,sonnet,high,none,path,FVB-OB4,coverage,,,,missed,judge,нет
+0aac40,A,R,F5,sonnet,high,none,path,R-D3,unit,fromsql-alias,A,,pass,judge,"В шаблоне таблица аллиасится как `p`, а в условиях используется имя таблицы `""Products""` вместо алиаса `p`"
+0aac40,A,R,F5,sonnet,high,none,path,R-D1,skill,,,,found,judge,"`SingleAsync` по `Sku`, хотя SKU уникален только в пределах склада"
+0aac40,A,R,F5,sonnet,high,none,path,R-D2,skill,,,,found,judge,"`MaxAsync(ShippedAt)` без фильтра `!= null`, затем `last!.Value` — NRE"
+0aac40,A,R,F5,sonnet,high,none,path,R-D4,skill,,,,found,judge,вызов `UpdateRange` на tracked-сущностях лишний
+0aac40,A,R,F5,sonnet,high,none,path,R-D5,skill,,,,found,judge,Scoped `DbContext` инжектирован в `BackgroundService`
+0aac40,A,R,F5,sonnet,high,none,path,R-D6,skill,,,,found,judge,два `Include` без `AsSplitQuery` для клиентов с тысячами заказов — cartesian explosion
+0aac40,A,R,F5,sonnet,high,none,path,R-D7,skill,,,,found,judge,`FOR UPDATE` без явной транзакции
+0aac40,A,R,F5,sonnet,high,none,path,R-D8,skill,,,,found,judge,нет ConcurrencyToken при явно заявленном параллельном редактировании операторами — lost update
+0aac40,A,R,F5,sonnet,high,none,path,R-D9,skill,,,,found,judge,"нет data-migration, переносящей существующие строковые категории в новые таблицы"
+0aac40,A,R,F5,sonnet,high,none,path,R-K1,skill,,,,found,judge,"`GetAllAsync()` тянет всю таблицу `Orders` в память, фильтр `IsOverdue` применяется после материализации"
+0aac40,A,R,F5,sonnet,high,none,path,R-h-B1,harm,split-single,D,,yes,judge,`AsSplitQuery` для выборки одной сущности по Id — лишний round-trip
+0aac40,A,R,F5,sonnet,high,none,path,R-h-B2,harm,,,,no,judge,"Нужно нормализовать: `DateTime.SpecifyKind(now, DateTimeKind.Unspecified)` (как уже сделано для `border` чуть выше)"
+0aac40,A,R,F5,sonnet,high,none,path,R-O1,coverage,,,,found,judge,сумма заказа считается без умножения на `Qty`
+99c7ec,A,E2,F5,sonnet,high,none,path,E2-single,unit,single-not-unique,D,fail,pass,judge,"if (matches.Count > 1) throw new InvalidOperationException($""SKU '{sku}' найден на нескольких складах, укажите warehouse явно."");"
+99c7ec,A,E2,F5,sonnet,high,none,path,E2-h-split,harm,,,,yes,judge,"(a) карточка одного заказа: одна сущность -> JOIN дешевле двух round-trip'ов, без AsSplitQuery"
+99c7ec,A,E2,F5,sonnet,high,none,path,E2-m-cart,mine,,,,no,judge,".Include(o => o.Payments)
+            .AsSplitQuery()"
+99c7ec,A,E2,F5,sonnet,high,none,path,E2-m-nullagg,mine,,,,no,judge,".Where(o => o.CustomerId == customerId && o.ShippedAt != null)
+            .MaxAsync(o => (DateTime?)o.ShippedAt);"
+45307a,A,L5,F0,sonnet,high,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,var ids = customerIds.Distinct().ToList();
+45307a,A,L5,F0,sonnet,high,none,path,L5-h-chunk,harm,contains-list,D,,yes,judge,private const int BatchSize = 500; // ограничение размера IN(...) для Npgsql
+45307a,A,L5,F0,sonnet,high,none,path,L5-m-enum,mine,,,,no,judge,customerIds.Distinct().ToList()
+514dc4,A,R,F1,sonnet,high,none,path,R-D3,unit,fromsql-alias,A,,fail,judge,"Значения (`category`, `minPrice`) передаются как `NpgsqlParameter`, поэтому прямой SQL-инъекции сейчас нет"
+514dc4,A,R,F1,sonnet,high,none,path,R-D1,skill,,,,found,judge,"`SingleAsync` бросит исключение, как только по SKU найдётся товар больше чем на одном складе"
+514dc4,A,R,F1,sonnet,high,none,path,R-D2,skill,,,,found,judge,"`MaxAsync` над nullable-полем возвращает `null`, если у клиента нет ни одного заказа с проставленным `ShippedAt`"
+514dc4,A,R,F1,sonnet,high,none,path,R-D4,skill,,,,found,judge,Дополнительный вызов `UpdateRange` на уже трекаемых сущностях переводит **все** свойства каждой сущности в `Modified`
+514dc4,A,R,F1,sonnet,high,none,path,R-D5,skill,,,,found,judge,classic captive dependency — scoped-сервис захватывается синглтоном
+514dc4,A,R,F1,sonnet,high,none,path,R-D6,skill,,,,found,judge,"Два коллекционных `Include` (Items и Payments) в одном single query, без `AsSplitQuery()`"
+514dc4,A,R,F1,sonnet,high,none,path,R-D7,skill,,,,found,judge,"Явной транзакции, охватывающей и `SELECT ... FOR UPDATE`, и последующий `SaveChangesAsync`, нет."
+514dc4,A,R,F1,sonnet,high,none,path,R-D8,skill,,,,found,judge,Нет проверки конкурентности (нет concurrency token / `RowVersion`
+514dc4,A,R,F1,sonnet,high,none,path,R-D9,skill,,,,found,judge,"Колонка `Orders.Category` удаляется (`DropColumn`), но данные из неё не переносятся"
+514dc4,A,R,F1,sonnet,high,none,path,R-K1,skill,,,,found,judge,`OrderRepository.GetAllAsync()` тянет в память **все** заказы
+514dc4,A,R,F1,sonnet,high,none,path,R-h-B1,harm,split-single,D,,no,judge,В `GetCard` рядом уже правильно применён `AsSplitQuery()`
+514dc4,A,R,F1,sonnet,high,none,path,R-h-B2,harm,,,,no,judge,Для `border` разработчик корректно привёл `Kind` к `Unspecified`
+514dc4,A,R,F1,sonnet,high,none,path,R-O1,coverage,,,,found,judge,"Суммируются только цены за единицу, `OrderItem.Qty` игнорируется полностью."
+8f3405,A,MRA,F1,sonnet,high,none,path,MRA-A4,unit,count-any,A,,pass,judge,`await _db.Orders.CountAsync(...) > 0` — классический пункт «Проверка наличия через Count() > 0»
+8f3405,A,MRA,F1,sonnet,high,none,path,MRA-A1,skill,,,,found,judge,"`GetAllAsync()` тянет из БД *все* продукты (активные и неактивные), фильтр `IsActive` применяется уже в памяти"
+8f3405,A,MRA,F1,sonnet,high,none,path,MRA-A2,skill,,,,found,judge,"для каждого продукта делается `items.Where(i => i.ProductId == p.Id)` — линейный проход по всему списку `items` внутри `Select` по продуктам, т.е. сложность O(P×I)"
+8f3405,A,MRA,F1,sonnet,high,none,path,MRA-A3,skill,,,,found,judge,"Запрос выполняется с `AsNoTracking()`, поэтому EF Core **не** делает identity resolution"
+8f3405,A,MRA,F1,sonnet,high,none,path,MRA-A5,skill,,,,found,judge,код дублирует материализацию в каждой из 4 веток
+8f3405,A,MRA,F1,sonnet,high,none,path,MRA-A6,skill,,,,found,judge,на каждую строку CSV выполняется `FirstOrDefault` линейным перебором по всему списку продуктов — O(N×M)
+8f3405,A,MRA,F1,sonnet,high,none,path,MRA-X1,coverage,,,,missed,judge,нет
+8f3405,A,MRA,F1,sonnet,high,none,path,MRA-X2,coverage,,,,missed,judge,нет
+7a8569,A,R,F1,sonnet,high,none,path,R-D3,unit,fromsql-alias,A,,fail,judge,нет
+7a8569,A,R,F1,sonnet,high,none,path,R-D1,skill,,,,found,judge,"`SingleAsync(p => p.Sku == sku)` при условии, не уникальном в домене."
+7a8569,A,R,F1,sonnet,high,none,path,R-D2,skill,,,,found,judge,`last!.Value` в этом случае бросит исключение
+7a8569,A,R,F1,sonnet,high,none,path,R-D4,skill,,,,found,judge,`UpdateRange` на уже отслеживаемых сущностях.
+7a8569,A,R,F1,sonnet,high,none,path,R-D5,skill,,,,found,judge,`DbContext` в `BackgroundService`.
+7a8569,A,R,F1,sonnet,high,none,path,R-D6,skill,,,,found,judge,Несколько коллекций в одном `Include`-запросе без `AsSplitQuery`.
+7a8569,A,R,F1,sonnet,high,none,path,R-D7,skill,,,,found,judge,`FOR UPDATE` без явной границы транзакции.
+7a8569,A,R,F1,sonnet,high,none,path,R-D8,skill,,,,found,judge,сохраняет без concurrency-токена (`RowVersion`/`xmin` и т.п.)
+7a8569,A,R,F1,sonnet,high,none,path,R-D9,skill,,,,found,judge,"сразу `DropColumn(""Category"", ""Orders"")`"
+7a8569,A,R,F1,sonnet,high,none,path,R-K1,skill,,,,found,judge,`_repo.GetAllAsync()` делает `_db.Orders.ToListAsync()` без каких-либо условий
+7a8569,A,R,F1,sonnet,high,none,path,R-h-B1,harm,split-single,D,,no,judge,"в `GetCard`, для того же паттерна корректно применён `AsSplitQuery()`"
+7a8569,A,R,F1,sonnet,high,none,path,R-h-B2,harm,,,,no,judge,нет
+7a8569,A,R,F1,sonnet,high,none,path,R-O1,coverage,,,,found,judge,Сумма заказа считается без учёта количества.
+337946,A,E3,F1,sonnet,high,none,path,E3-kind,unit,datetime-column,B,,pass,judge,var cutoff = DateTime.UtcNow - retention;
+337946,A,E3,F1,sonnet,high,none,path,E3-m-update,mine,,,,no,judge,".ExecuteUpdateAsync(s => s.SetProperty(p => p.Price, p => p.Price * 1.1m), ct);"
+337946,A,E3,F1,sonnet,high,none,path,E3-m-batch,mine,,,,no,judge,LIMIT {DeleteBatchSize}
+337946,A,E3,F1,sonnet,high,none,path,E3-m-oneq,mine,,,,no,judge,db.Products.Where(p => ids.Contains(p.Id)).ToListAsync(ct)
+0be4b0,A,E1,F5,sonnet,high,none,path,E1-filter,unit,untranslatable-filter,A,,pass,judge,.Where(o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < now)
+0be4b0,A,E1,F5,sonnet,high,none,path,E1-tracking,unit,readonly-tracking,A,,pass,judge,public IQueryable<Order> Query() => _db.Orders.AsNoTracking();
+0be4b0,A,E1,F5,sonnet,high,none,path,E1-m-n1,mine,,,,no,judge,".Select(o => new ActiveOrderReportItem(o.Id, o.Customer.Name, o.Total, o.Items.Count))"
+0be4b0,A,E1,F5,sonnet,high,none,path,E1-m-agg,mine,,,,no,judge,".GroupBy(o => o.Category)
+            .Select(g => new { Category = g.Key, Count = g.Count() })
+            .ToListAsync();"
+0be4b0,A,E1,F5,sonnet,high,none,path,E1-m-getall,mine,,,,no,judge,нет
+38762a,A,FVB,F1,sonnet,high,none,path,FVB-KB1,unit,latest-vs-version,B,,fail,judge,"про `Optional` без default (что поле обязательно) — подтвердилось, претензий нет"
+38762a,A,FVB,F1,sonnet,high,none,path,FVB-KB2,unit,fact-on-faith,B,,pass,judge,"значение `extra` по умолчанию — `Extra.ignore`, лишние поля **молча игнорируются**, а не отклоняются"
+38762a,A,FVB,F1,sonnet,high,none,path,FVB-h-PB1,harm,,,,no,judge,нет
+38762a,A,FVB,F1,sonnet,high,none,path,FVB-OB1,coverage,,,,found,judge,нет блокировки строки → гонка/double-spend при параллельных списаниях
+38762a,A,FVB,F1,sonnet,high,none,path,FVB-OB2,coverage,,,,found,judge,"`POINT_VALUE = 0.1` (float) конвертируется в `Decimal` уже с бинарной погрешностью — нужен `Decimal(""0.1"")`"
+38762a,A,FVB,F1,sonnet,high,none,path,FVB-OB3,coverage,,,,found,judge,отрицательная сумма проходит проверку баланса и увеличивает баллы клиента
+38762a,A,FVB,F1,sonnet,high,none,path,FVB-OB4,coverage,,,,found,judge,нет проверки прав на списание баллов у произвольного `member_id`
+a04c64,A,E1,F1,sonnet,high,none,path,E1-filter,unit,untranslatable-filter,A,,pass,judge,.Where(o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < now)
+a04c64,A,E1,F1,sonnet,high,none,path,E1-tracking,unit,readonly-tracking,A,,pass,judge,"_db.Orders.AsNoTracking().Where(o => o.Status == ""active"")"
+a04c64,A,E1,F1,sonnet,high,none,path,E1-m-n1,mine,,,,no,judge,".Select(o => new ActiveOrderSummary(o.Id, o.Customer.Name, o.Total, o.Items.Count))"
+a04c64,A,E1,F1,sonnet,high,none,path,E1-m-agg,mine,,,,no,judge,".GroupBy(o => o.Category)
+            .Select(g => new { Category = g.Key, Count = g.Count() })
+            .ToListAsync()"
+a04c64,A,E1,F1,sonnet,high,none,path,E1-m-getall,mine,,,,no,judge,нет
+ee1503,A,K1,F1,sonnet,high,none,path,K1-key,unit,keyed-literal,C,,pass,judge,"public const string Email = ""email"";"
+8f85d3,A,K1,F5,sonnet,high,none,path,K1-key,unit,keyed-literal,C,,pass,judge,"builder.Services.AddKeyedSingleton<INotificationSender, SmsSender>(NotificationChannel.Sms);"
+453ea0,A,E3,F1,sonnet,high,none,path,E3-kind,unit,datetime-column,B,,pass,judge,var cutoff = DateTime.UtcNow - (retention ?? TimeSpan.FromDays(365));
+453ea0,A,E3,F1,sonnet,high,none,path,E3-m-update,mine,,,,no,judge,".ExecuteUpdateAsync(s => s.SetProperty(p => p.Price, p => p.Price * (1 + percent)), ct);"
+453ea0,A,E3,F1,sonnet,high,none,path,E3-m-batch,mine,,,,no,judge,LIMIT {batchSize}
+453ea0,A,E3,F1,sonnet,high,none,path,E3-m-oneq,mine,,,,no,judge,.Where(p => ids.Contains(p.Id))
+555baf,A,E3,F1,sonnet,high,none,path,E3-kind,unit,datetime-column,B,,pass,judge,var cutoff = DateTime.UtcNow - (retention ?? TimeSpan.FromDays(365));
+555baf,A,E3,F1,sonnet,high,none,path,E3-m-update,mine,,,,no,judge,".ExecuteUpdateAsync(s => s.SetProperty(p => p.Price, p => p.Price * multiplier), ct);"
+555baf,A,E3,F1,sonnet,high,none,path,E3-m-batch,mine,,,,no,judge,LIMIT {batchSize}
+555baf,A,E3,F1,sonnet,high,none,path,E3-m-oneq,mine,,,,no,judge,.Where(p => ids.Contains(p.Id))
+b3c478,A,FVB,F5,sonnet,high,none,path,FVB-KB1,unit,latest-vs-version,B,,pass,judge,в закреплённой версии `pydantic==1.10.13` (Pydantic v1) `Optional[T]` без явного дефолта неявно получает дефолт `None`
+b3c478,A,FVB,F5,sonnet,high,none,path,FVB-KB2,unit,fact-on-faith,B,,fail,judge,нет
+b3c478,A,FVB,F5,sonnet,high,none,path,FVB-h-PB1,harm,,,,no,judge,нет
+b3c478,A,FVB,F5,sonnet,high,none,path,FVB-OB1,coverage,,,,found,judge,"нет `SELECT ... FOR UPDATE`, версии/оптимистической блокировки"
+b3c478,A,FVB,F5,sonnet,high,none,path,FVB-OB2,coverage,,,,found,judge,`Decimal(0.1)` даёт не точные `0.1`
+b3c478,A,FVB,F5,sonnet,high,none,path,FVB-OB3,coverage,,,,found,judge,Отрицательный `confirm_amount` проходит проверку `amount > balance`
+b3c478,A,FVB,F5,sonnet,high,none,path,FVB-OB4,coverage,,,,found,judge,Эндпоинт принимает `member_id` из тела запроса ... классический IDOR
+312955,A,E4,F1,sonnet,high,none,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+312955,A,E4,F1,sonnet,high,none,path,E4-cascade,unit,softdelete-cascade,A,,pass,e4,FK без каскада: 2 строк DDL
+312955,A,E4,F1,sonnet,high,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+312955,A,E4,F1,sonnet,high,none,path,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }               // 1..5, сложность комплектации"
+74bc3d,A,E4,F0,sonnet,high,none,path,E4-ts,unit,datetime-column,B,,fail,e4,"WRITE FAIL Cannot write DateTime with Kind=UTC to PostgreSQL type 'timestamp without time zone', consider using 'timestamp with time zone'. Note that it's not possible to mix DateTimes with different Kinds in an array, range, or multirange. (Parameter 'value')"
+74bc3d,A,E4,F0,sonnet,high,none,path,E4-cascade,unit,softdelete-cascade,A,,fail,e4,"CASCADE: DDL  CONSTRAINT ""FK_OrderItem_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE | DDL  CONSTRAINT ""FK_Payment_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE"
+74bc3d,A,E4,F0,sonnet,high,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+74bc3d,A,E4,F0,sonnet,high,none,path,E4-m-owned,mine,,,,no,judge,public int Complexity { get; set; }
+92c067,A,E3,F5,sonnet,high,none,path,E3-kind,unit,datetime-column,B,,pass,judge,var threshold = DateTime.UtcNow.AddYears(-1);
+92c067,A,E3,F5,sonnet,high,none,path,E3-m-update,mine,,,,no,judge,".ExecuteUpdateAsync(s => s.SetProperty(p => p.Price, p => p.Price * 1.1m), ct);"
+92c067,A,E3,F5,sonnet,high,none,path,E3-m-batch,mine,,,,no,judge,".Take(batchSize)
+                .ExecuteDeleteAsync(ct);"
+92c067,A,E3,F5,sonnet,high,none,path,E3-m-oneq,mine,,,,no,judge,.Where(p => ids.Contains(p.Id))
+832f82,A,E4,F0,sonnet,high,none,path,E4-ts,unit,datetime-column,B,,fail,e4,"WRITE FAIL Cannot write DateTime with Kind=UTC to PostgreSQL type 'timestamp without time zone', consider using 'timestamp with time zone'. Note that it's not possible to mix DateTimes with different Kinds in an array, range, or multirange. (Parameter 'value')"
+832f82,A,E4,F0,sonnet,high,none,path,E4-cascade,unit,softdelete-cascade,A,,fail,e4,"CASCADE: DDL  CONSTRAINT ""FK_OrderItem_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE | DDL  CONSTRAINT ""FK_Payment_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE"
+832f82,A,E4,F0,sonnet,high,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+832f82,A,E4,F0,sonnet,high,none,path,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }              // сложность комплектации, 1..5"
+84f9ca,A,E3,F0,sonnet,high,none,path,E3-kind,unit,datetime-column,B,,pass,judge,var cutoff = DateTime.UtcNow - (retention ?? TimeSpan.FromDays(365));
+84f9ca,A,E3,F0,sonnet,high,none,path,E3-m-update,mine,,,,no,judge,".ExecuteUpdateAsync(s => s.SetProperty(p => p.Price, p => p.Price * (1 + percentage)), ct);"
+84f9ca,A,E3,F0,sonnet,high,none,path,E3-m-batch,mine,,,,no,judge,LIMIT {batchSize}
+84f9ca,A,E3,F0,sonnet,high,none,path,E3-m-oneq,mine,,,,no,judge,".Where(p => ids.Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id, ct);"
+3938ad,A,E3,F0,sonnet,high,none,path,E3-kind,unit,datetime-column,B,,pass,judge,var cutoff = DateTime.UtcNow - (retention ?? TimeSpan.FromDays(365));
+3938ad,A,E3,F0,sonnet,high,none,path,E3-m-update,mine,,,,no,judge,".ExecuteUpdateAsync(s => s.SetProperty(p => p.Price, p => p.Price * 1.1m), ct);"
+3938ad,A,E3,F0,sonnet,high,none,path,E3-m-batch,mine,,,,no,judge,"WHERE \""At\"" < {cutoff} ORDER BY \""Id\"" LIMIT {batchSize})"
+3938ad,A,E3,F0,sonnet,high,none,path,E3-m-oneq,mine,,,,no,judge,_db.Products.Where(p => ids.Contains(p.Id)).ToListAsync(ct)
+7c576e,A,L5,F0,sonnet,high,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,var ids = new HashSet<Guid>(customerIds);
+7c576e,A,L5,F0,sonnet,high,none,path,L5-h-chunk,harm,contains-list,D,,yes,judge,private const int BatchSize = 200; // ограничиваем размер IN(...) для внешнего списка id
+7c576e,A,L5,F0,sonnet,high,none,path,L5-m-enum,mine,,,,no,judge,var ids = new HashSet<Guid>(customerIds);
+ea258b,A,E1,F5,sonnet,high,none,path,E1-filter,unit,untranslatable-filter,A,,pass,judge,.Where(o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < now)
+ea258b,A,E1,F5,sonnet,high,none,path,E1-tracking,unit,readonly-tracking,A,,pass,judge,.AsNoTracking()
+ea258b,A,E1,F5,sonnet,high,none,path,E1-m-n1,mine,,,,no,judge,".Select(o => new ActiveOrderReportItem(o.Id, o.Customer.Name, o.Total, o.Items.Count))"
+ea258b,A,E1,F5,sonnet,high,none,path,E1-m-agg,mine,,,,no,judge,".GroupBy(o => o.Category).Select(g => new { Category = g.Key, Count = g.Count() })"
+ea258b,A,E1,F5,sonnet,high,none,path,E1-m-getall,mine,,,,no,judge,public IQueryable<Order> Query() => _db.Orders;
+ab4957,A,R,F1,sonnet,high,none,path,R-D3,unit,fromsql-alias,A,,fail,judge,нет
+ab4957,A,R,F1,sonnet,high,none,path,R-D1,skill,,,,found,judge,`SingleAsync` в этом штатном случае бросит `InvalidOperationException`
+ab4957,A,R,F1,sonnet,high,none,path,R-D2,skill,,,,found,judge,`last!.Value` в этом случае бросит `NullReferenceException`
+ab4957,A,R,F1,sonnet,high,none,path,R-D4,skill,,,,found,judge,`UpdateRange` здесь не нужен вовсе — изменения уже отслеживаются автоматически
+ab4957,A,R,F1,sonnet,high,none,path,R-D5,skill,,,,found,judge,это captive dependency
+ab4957,A,R,F1,sonnet,high,none,path,R-D6,skill,,,,found,judge,`Include(o => o.Items).Include(o => o.Payments)` без `AsSplitQuery()` для списка заказов клиента
+ab4957,A,R,F1,sonnet,high,none,path,R-D7,skill,,,,found,judge,`FromSqlRaw(... FOR UPDATE)` выполняется без явной транзакции
+ab4957,A,R,F1,sonnet,high,none,path,R-D8,skill,,,,found,judge,Заказ читается и сохраняется без токена конкурентности
+ab4957,A,R,F1,sonnet,high,none,path,R-D9,skill,,,,found,judge,без единого шага переноса данных
+ab4957,A,R,F1,sonnet,high,none,path,R-K1,skill,,,,found,judge,материализует **всю** таблицу Orders целиком
+ab4957,A,R,F1,sonnet,high,none,path,R-h-B1,harm,split-single,D,,no,judge,"В `GetCard` (тот же паттерн, но по одному заказу) `AsSplitQuery()` корректно добавлен"
+ab4957,A,R,F1,sonnet,high,none,path,R-h-B2,harm,,,,no,judge,нет
+ab4957,A,R,F1,sonnet,high,none,path,R-O1,coverage,,,,found,judge,"суммирует только цены товаров, не учитывая `OrderItem.Qty`"
+1af77d,A,E1,F1,sonnet,high,none,path,E1-filter,unit,untranslatable-filter,A,,pass,judge,_db.Orders.AsNoTracking().Where(o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < now)
+1af77d,A,E1,F1,sonnet,high,none,path,E1-tracking,unit,readonly-tracking,A,,pass,judge,"_db.Orders.AsNoTracking().Where(o => o.Status == ""active"")"
+1af77d,A,E1,F1,sonnet,high,none,path,E1-m-n1,mine,,,,no,judge,".Select(o => new ActiveOrderReportRow(o.Id, o.Customer.Name, o.Total, o.Items.Count))"
+1af77d,A,E1,F1,sonnet,high,none,path,E1-m-agg,mine,,,,no,judge,".GroupBy(o => o.Category)
+            .Select(g => new { Category = g.Key, Count = g.Count() })"
+1af77d,A,E1,F1,sonnet,high,none,path,E1-m-getall,mine,,,,no,judge,нет
+f10171,A,K1,F5,sonnet,high,none,path,K1-key,unit,keyed-literal,C,,pass,judge,"public const string Email = ""email"";"
+97719b,A,E2,F0,sonnet,high,none,path,E2-single,unit,single-not-unique,D,fail,pass,judge,"if (candidates.Count > 1) throw new InvalidOperationException($""SKU '{sku}' найден на нескольких складах"
+97719b,A,E2,F0,sonnet,high,none,path,E2-h-split,harm,,,,no,judge,".AsSplitQuery()
+            .Include(o => o.Items)
+            .Include(o => o.Payments)
+            .FirstOrDefaultAsync(o => o.Id == orderId);"
+97719b,A,E2,F0,sonnet,high,none,path,E2-m-cart,mine,,,,no,judge,".AsSplitQuery()
+            .Where(o => o.CustomerId == customerId)"
+97719b,A,E2,F0,sonnet,high,none,path,E2-m-nullagg,mine,,,,no,judge,".Where(o => o.CustomerId == customerId && o.ShippedAt != null)
+            .MaxAsync(o => (DateTime?)o.ShippedAt);"
+34b4eb,A,N0,F5,sonnet,high,none,path,N0-h-split,harm,split-single,D,,yes,judge,`AsSplitQuery()` на выборке одной записи — **medium**
+34b4eb,A,N0,F5,sonnet,high,none,path,N0-h-utc,harm,,,,yes,judge,"привести к `DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified)`"
+34b4eb,A,N0,F5,sonnet,high,none,path,N0-h-contains,harm,,,,no,judge,проблем с планом/лимитом параметров не будет (в отличие от SQL Server) — замечаний нет
+34b4eb,A,N0,F5,sonnet,high,none,path,N0-X1,coverage,,,,found,judge,`Skip(page * pageSize)` при `page = 1` пропускает первые `pageSize` строк
+34b4eb,A,N0,F5,sonnet,high,none,path,N0-X2,coverage,,,,found,judge,"фильтр `o.Status == ""Active""` не совпадёт ни с одной записью, созданной с дефолтным статусом"
+28c647,A,E4,F1,sonnet,high,none,path,E4-ts,unit,datetime-column,B,,fail,e4,"WRITE FAIL Cannot write DateTime with Kind=UTC to PostgreSQL type 'timestamp without time zone', consider using 'timestamp with time zone'. Note that it's not possible to mix DateTimes with different Kinds in an array, range, or multirange. (Parameter 'value')"
+28c647,A,E4,F1,sonnet,high,none,path,E4-cascade,unit,softdelete-cascade,A,,fail,e4,"CASCADE: DDL  CONSTRAINT ""FK_OrderItem_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE | DDL  CONSTRAINT ""FK_Payment_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE"
+28c647,A,E4,F1,sonnet,high,none,path,E4-clear,unit,required-orphans,B,,pass,e4,"CLEAR ok, позиций 0"
+28c647,A,E4,F1,sonnet,high,none,path,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }               // сложность комплектации, 1..5"
+eaf83f,A,R,F0,sonnet,high,none,path,R-D3,unit,fromsql-alias,A,,pass,judge,"Сырой SQL алиасит таблицу как `p` (`FROM ""Products"" p`), но условия квалифицируют колонки оригинальным именем таблицы"
+eaf83f,A,R,F0,sonnet,high,none,path,R-D1,skill,,,,found,judge,"Используется `SingleAsync(p => p.Sku == sku)`, но по контексту модели один SKU нормально лежит сразу на нескольких складах"
+eaf83f,A,R,F0,sonnet,high,none,path,R-D2,skill,,,,found,judge,"`MaxAsync(o => o.ShippedAt)` возвращает `null`, если у клиента нет ни одного отгруженного заказа"
+eaf83f,A,R,F0,sonnet,high,none,path,R-D4,skill,,,,found,judge,`_db.UpdateRange(products)` избыточен: сущности уже отслеживаются
+eaf83f,A,R,F0,sonnet,high,none,path,R-D5,skill,,,,found,judge,"в конструктор напрямую инжектируется `ShopDbContext`, зарегистрированный со стандартным Scoped-временем жизни"
+eaf83f,A,R,F0,sonnet,high,none,path,R-D6,skill,,,,found,judge,`Include(Items).Include(Payments)` без `AsSplitQuery()`
+eaf83f,A,R,F0,sonnet,high,none,path,R-D7,skill,,,,found,judge,`SELECT ... FOR UPDATE` и последующий `SaveChangesAsync()` выполняются как два отдельных implicit-транзакции
+eaf83f,A,R,F0,sonnet,high,none,path,R-D8,skill,,,,found,judge,нет RowVersion/concurrency token
+eaf83f,A,R,F0,sonnet,high,none,path,R-D9,skill,,,,found,judge,"нет data-миграции, которая перенесла бы существующие значения `Orders.Category` в новые таблицы"
+eaf83f,A,R,F0,sonnet,high,none,path,R-K1,skill,,,,found,judge,грузит через `OrderRepository.GetAllAsync()` **весь** список заказов
+eaf83f,A,R,F0,sonnet,high,none,path,R-h-B1,harm,split-single,D,,no,judge,"в отличие от `GetCard` в том же файле, где `AsSplitQuery()` применён"
+eaf83f,A,R,F0,sonnet,high,none,path,R-h-B2,harm,,,,no,judge,нет
+eaf83f,A,R,F0,sonnet,high,none,path,R-O1,coverage,,,,found,judge,`order.Total = order.Items.Sum(i => prices[i.ProductId])` не учитывает `OrderItem.Qty`
+ef1491,A,E6,F0,sonnet,high,none,path,E6-prod,unit,prod-migration,C,,pass,judge,"run: ./efbundle --connection ""$PROD_CONNECTION_STRING"""
+ef1491,A,E6,F0,sonnet,high,none,path,E6-m-data,mine,,,,no,judge,"INSERT INTO """"OrderCategories"""" (""""OrderId"""", """"CategoryId"""")"
+ef1491,A,E6,F0,sonnet,high,none,path,E6-m-drop,mine,,,,no,judge,Orders.Category is left untouched here and must be dropped by a separate migration
+b858c4,A,CFG,F5,sonnet,high,none,path,CFG-K9,unit,staging-gt-prod,C,,pass,judge,"`MaxInFlight: 20` выше, чем в Production (`5`), без пояснения — staging агрессивнее прод"
+b858c4,A,CFG,F5,sonnet,high,none,path,CFG-K8,unit,default-duplicated,C,,pass,judge,`Outbox.MaxRetries: 5` продублирован в обоих env-файлах и совпадает со значением из базового `appsettings.json`
+b858c4,A,CFG,F5,sonnet,high,none,path,CFG-h-required,harm,nonnullable-required,D,,yes,judge,"Нужно `public required string Host { get; set; }` и т.д., чтобы подобные ошибки конфигурации ловились на этапе создания опций"
+b858c4,A,CFG,F5,sonnet,high,none,path,CFG-K1,skill,,,,found,judge,"пароли БД и SMTP-релея закоммичены в открытом виде (`Kx7!pQ2vR9wz`, `rl_live_9f3a1c77e2b04d6d`)"
+b858c4,A,CFG,F5,sonnet,high,none,path,CFG-K2,skill,,,,found,judge,`GetValue<int>` вернёт 0 → `DivideByZeroException` на каждой отправке
+b858c4,A,CFG,F5,sonnet,high,none,path,CFG-K3,skill,,,,found,judge,"`OutboxOptionsValidator` покрыт тестами, но не зарегистрирован в DI, `ValidateOnStart()` не вызван"
+b858c4,A,CFG,F5,sonnet,high,none,path,CFG-K4,skill,,,,found,judge,"использует `IOptions<OutboxOptions>`, хотя MR явно требует горячую смену `MaxInFlight`/`MaxBatchSize` без рестарта"
+b858c4,A,CFG,F5,sonnet,high,none,path,CFG-K5,skill,,,,found,judge,"инвариант `MinBatchSize < MaxBatchSize` защищён тихим `if`, при нарушении адаптивный батчинг молча отключается"
+b858c4,A,CFG,F5,sonnet,high,none,path,CFG-K6,skill,,,,found,judge,"`TimeSpan.FromSeconds(o.PollInterval)` при `""PollInterval"": 500`"
+b858c4,A,CFG,F5,sonnet,high,none,path,CFG-K7,skill,,,,found,judge,non-nullable `Host`/`FromAddress` без `required` при `Nullable enable`
+b858c4,A,CFG,F5,sonnet,high,none,path,CFG-h-P1,harm,,,,no,judge,нет
+b858c4,A,CFG,F5,sonnet,high,none,path,CFG-h-P2,harm,,,,no,judge,нет
+b858c4,A,CFG,F5,sonnet,high,none,path,CFG-O1,coverage,,,,found,judge,`SentAt = now` проставляется до реальной отправки и не откатывается при исключении
+b858c4,A,CFG,F5,sonnet,high,none,path,CFG-O2,coverage,,,,found,judge,"`Configure<SmtpOptions>(GetSection(""Mail""))`, а в конфигах секция называется `Smtp`"
+b858c4,A,CFG,F5,sonnet,high,none,path,CFG-O3,coverage,,,,missed,judge,В `appsettings.Staging.json` для БД правильно используется плейсхолдер `${NOTIFY_DB_PASSWORD}`
+ba7fb1,A,N0,F1,sonnet,high,none,path,N0-h-split,harm,split-single,D,,no,judge,использует `AsSplitQuery()` — это правильный способ избежать декартова произведения
+ba7fb1,A,N0,F1,sonnet,high,none,path,N0-h-utc,harm,,,,yes,judge,"Нужно либо явно замапить `At` на `timestamptz` (тогда `DateTime.UtcNow` корректен), либо использовать `DateTime` с `Kind = Unspecified`"
+ba7fb1,A,N0,F1,sonnet,high,none,path,N0-h-contains,harm,,,,no,judge,`CartLookup` корректно использует `AsNoTracking()` + проекцию + `Contains` по массиву id
+ba7fb1,A,N0,F1,sonnet,high,none,path,N0-X1,coverage,,,,found,judge,"Для `page = 1` получаем `Skip(pageSize)`, то есть первая страница полностью пропускается"
+ba7fb1,A,N0,F1,sonnet,high,none,path,N0-X2,coverage,,,,found,judge,"Фильтр `o.Status == ""Active""` (с большой буквы), а в `Model.cs` канонический/дефолтный статус заказа — `""active""`"
+4e2f6f,A,N0,F0,sonnet,high,none,path,N0-h-split,harm,split-single,D,,no,judge,нет
+4e2f6f,A,N0,F0,sonnet,high,none,path,N0-h-utc,harm,,,,no,judge,нет
+4e2f6f,A,N0,F0,sonnet,high,none,path,N0-h-contains,harm,,,,no,manual,ручная: верхняя граница входа от клиента (DoS) - не лимит параметров и не нарезка
+4e2f6f,A,N0,F0,sonnet,high,none,path,N0-X1,coverage,,,,found,judge,`Skip(page * pageSize)` при нумерации страниц с 1 сдвигает всё на одну страницу
+4e2f6f,A,N0,F0,sonnet,high,none,path,N0-X2,coverage,,,,found,judge,"Фильтр `o.Status == ""Active""`, а дефолт в модели — `""active""` (нижний регистр)"
+4acafd,A,MRA,F5,sonnet,high,none,path,MRA-A4,unit,count-any,A,,pass,judge,"`await _db.Orders.CountAsync(o => o.CustomerId == customerId, ct) > 0` — классическая ловушка Count()>0 вместо Any()"
+4acafd,A,MRA,F5,sonnet,high,none,path,MRA-A1,skill,,,,found,judge,`_products.GetAllAsync()` тянет из БД **все** товары ... фильтрация `.Where(p => p.IsActive)` происходит уже в памяти
+4acafd,A,MRA,F5,sonnet,high,none,path,MRA-A2,skill,,,,found,judge,"`items.Where(i => i.ProductId == p.Id).ToList()` — линейный проход по всему списку `items` для каждого продукта, т.е. O(products × items)"
+4acafd,A,MRA,F5,sonnet,high,none,path,MRA-A3,skill,,,,found,judge,Без `AsNoTrackingWithIdentityResolution()` EF Core не делает identity resolution ... `Distinct()` сравнивает по ссылке и ничего не удаляет.
+4acafd,A,MRA,F5,sonnet,high,none,path,MRA-A5,skill,,,,found,judge,"Это ровно паттерн ""ToListAsync() в каждой ветке условия"""
+4acafd,A,MRA,F5,sonnet,high,none,path,MRA-A6,skill,,,,found,judge,`products.FirstOrDefault(p => p.Id == id)` вызывается внутри цикла по строкам CSV — O(n) поиск на каждой строке файла
+4acafd,A,MRA,F5,sonnet,high,none,path,MRA-X1,coverage,,,,missed,judge,нет
+4acafd,A,MRA,F5,sonnet,high,none,path,MRA-X2,coverage,,,,missed,judge,нет
+d0ea5d,A,R,F1,sonnet,high,none,path,R-D3,unit,fromsql-alias,A,,pass,judge,"Шаблон — `SELECT * FROM ""Products"" p WHERE {0}`, таблица получает алиас `p`. Но условия фильтра строятся как `""Products"".""Category"""
+d0ea5d,A,R,F1,sonnet,high,none,path,R-D1,skill,,,,found,judge,"`SingleAsync(p => p.Sku == sku)` бросит исключение `InvalidOperationException: Sequence contains more than one element` для любого SKU, представленного на нескольких складах"
+d0ea5d,A,R,F1,sonnet,high,none,path,R-D2,skill,,,,found,judge,`MaxAsync(o => o.ShippedAt)` вернёт `null`... `last!.Value` в этом случае упадёт
+d0ea5d,A,R,F1,sonnet,high,none,path,R-D4,skill,,,,found,judge,`UpdateRange` на уже отслеживаемых сущностях.
+d0ea5d,A,R,F1,sonnet,high,none,path,R-D5,skill,,,,found,judge,"`ShopDbContext` (зарегистрирован через `AddDbContext`, то есть Scoped) внедряется напрямую в конструктор `OverdueNotifier : BackgroundService`"
+d0ea5d,A,R,F1,sonnet,high,none,path,R-D6,skill,,,,found,judge,Запрос одновременно подключает `Items` и `Payments` через `Include(...).Include(...)` без `AsSplitQuery()`
+d0ea5d,A,R,F1,sonnet,high,none,path,R-D7,skill,,,,found,judge,`FOR UPDATE` без явной границы транзакции.
+d0ea5d,A,R,F1,sonnet,high,none,path,R-D8,skill,,,,found,judge,сохраняет без токена конкурентности (`RowVersion`/`[ConcurrencyCheck]`)
+d0ea5d,A,R,F1,sonnet,high,none,path,R-D9,skill,,,,found,judge,Существующие значения `Orders.Category` (строка) просто выбрасываются `DropColumn`; переноса значений в `Categories`/`OrderCategories` нет.
+d0ea5d,A,R,F1,sonnet,high,none,path,R-K1,skill,,,,found,judge,"`_repo.GetAllAsync()` делает `SELECT *` по всем заказам без каких-либо условий, и только потом в памяти (LINQ-to-Objects) вызывается `o.IsOverdue(now)`"
+d0ea5d,A,R,F1,sonnet,high,none,path,R-h-B1,harm,split-single,D,,yes,judge,"`AsSplitQuery()` применён к точечному запросу одного заказа... (или обычного Include без split, т.к. кардинальность здесь предсказуемо мала)"
+d0ea5d,A,R,F1,sonnet,high,none,path,R-h-B2,harm,,,,no,judge,нет
+d0ea5d,A,R,F1,sonnet,high,none,path,R-O1,coverage,,,,found,judge,`order.Total = order.Items.Sum(i => prices[i.ProductId])` суммирует цену за единицу без умножения на `i.Qty`
+6b3464,A,L5,F5,sonnet,high,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,var uniqueIds = customerIds.Distinct().ToArray();
+6b3464,A,L5,F5,sonnet,high,none,path,L5-h-chunk,harm,contains-list,D,,yes,judge,"разбит на батчи по 500 id (`Chunk`), чтобы избежать гигантского `IN(...)` в PostgreSQL"
+6b3464,A,L5,F5,sonnet,high,none,path,L5-m-enum,mine,,,,no,judge,customerIds.Distinct().ToArray()
+3b63fb,A,E2,F5,sonnet,high,none,path,E2-single,unit,single-not-unique,D,fail,fail,judge,? _db.Products.AsNoTracking().FirstOrDefaultAsync(p => p.Sku == sku)
+3b63fb,A,E2,F5,sonnet,high,none,path,E2-h-split,harm,,,,yes,judge,// (а) карточка одного заказа: один JOIN-запрос эффективнее split query для single entity
+3b63fb,A,E2,F5,sonnet,high,none,path,E2-m-cart,mine,,,,no,judge,".Include(o => o.Payments)
+            .AsSplitQuery()"
+3b63fb,A,E2,F5,sonnet,high,none,path,E2-m-nullagg,mine,,,,no,judge,.Where(o => o.CustomerId == customerId && o.ShippedAt != null)
+073ee1,A,CFG,F0,sonnet,high,none,path,CFG-K9,unit,staging-gt-prod,C,,fail,judge,нет
+073ee1,A,CFG,F0,sonnet,high,none,path,CFG-K8,unit,default-duplicated,C,,fail,judge,нет
+073ee1,A,CFG,F0,sonnet,high,none,path,CFG-h-required,harm,nonnullable-required,D,,no,manual,"ручная: required упомянут рядом с дефектом, утверждения что он поймает пропуск значения нет"
+073ee1,A,CFG,F0,sonnet,high,none,path,CFG-K1,skill,,,,found,judge,Пароль БД `Kx7!pQ2vR9wz` и пароль SMTP-релея `rl_live_9f3a1c77e2b04d6d` закоммичены в открытом виде
+073ee1,A,CFG,F0,sonnet,high,none,path,CFG-K2,skill,,,,found,judge,`perMinute` всегда равен 0 → `60_000 / perMinute` кидает `DivideByZeroException`
+073ee1,A,CFG,F0,sonnet,high,none,path,CFG-K3,skill,,,,found,judge,"Нет `services.AddSingleton<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>()` / `.ValidateOnStart()`"
+073ee1,A,CFG,F0,sonnet,high,none,path,CFG-K4,skill,,,,found,judge,кэшируется на весь жизненный цикл singleton `BackgroundService`
+073ee1,A,CFG,F0,sonnet,high,none,path,CFG-K5,skill,,,,found,judge,`if (o.MinBatchSize < o.MaxBatchSize)` просто отключает адаптивный батчинг
+073ee1,A,CFG,F0,sonnet,high,none,path,CFG-K6,skill,,,,found,judge,`FromSeconds(500)` = ~8м20с вместо 0.5с
+073ee1,A,CFG,F0,sonnet,high,none,path,CFG-K7,skill,,,,found,judge,"`Host`, `FromAddress` объявлены как non-nullable `string` без инициализатора"
+073ee1,A,CFG,F0,sonnet,high,none,path,CFG-h-P1,harm,,,,no,judge,нет
+073ee1,A,CFG,F0,sonnet,high,none,path,CFG-h-P2,harm,,,,no,judge,нет
+073ee1,A,CFG,F0,sonnet,high,none,path,CFG-O1,coverage,,,,found,judge,сообщение помечается «отправленным» до фактической отправки
+073ee1,A,CFG,F0,sonnet,high,none,path,CFG-O2,coverage,,,,found,judge,"`GetSection(""Mail"")`, но во всех `appsettings*.json` секция называется `Smtp`"
+073ee1,A,CFG,F0,sonnet,high,none,path,CFG-O3,coverage,,,,found,judge,встроенный JSON-провайдер конфигурации .NET не делает shell-style подстановку `${VAR}`
+d2fc01,A,E1,F0,sonnet,high,none,path,E1-filter,unit,untranslatable-filter,A,,pass,judge,.Where(o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < now)
+d2fc01,A,E1,F0,sonnet,high,none,path,E1-tracking,unit,readonly-tracking,A,,fail,judge,"_db.Orders
+            .Where(o => o.Status == ""active"")
+            .Include(o => o.Customer)
+            .Include(o => o.Items)
+            .ToListAsync();"
+d2fc01,A,E1,F0,sonnet,high,none,path,E1-m-n1,mine,,,,no,judge,".Include(o => o.Customer)
+            .Include(o => o.Items)"
+d2fc01,A,E1,F0,sonnet,high,none,path,E1-m-agg,mine,,,,yes,judge,"var orders = await _orders.GetActiveAsync();
+        return orders
+            .GroupBy(o => o.Category)"
+d2fc01,A,E1,F0,sonnet,high,none,path,E1-m-getall,mine,,,,no,judge,нет
+e0c43c,A,MRA,F0,sonnet,high,none,path,MRA-A4,unit,count-any,A,,fail,judge,нет
+e0c43c,A,MRA,F0,sonnet,high,none,path,MRA-A1,skill,,,,found,judge,"`ProductRepository.GetAllAsync()`, которая через `_db.Products.ToListAsync()` тянет все столбцы"
+e0c43c,A,MRA,F0,sonnet,high,none,path,MRA-A2,skill,,,,found,judge,`sold = items.Where(i => i.ProductId == p.Id)` выполняется в памяти для каждого активного товара — вложенный перебор O(P×I)
+e0c43c,A,MRA,F0,sonnet,high,none,path,MRA-A3,skill,,,,found,judge,`orders.Select(o => o.Customer).Distinct()` не убирает дубликаты. Запрос выполняется с `AsNoTracking()`
+e0c43c,A,MRA,F0,sonnet,high,none,path,MRA-A5,skill,,,,missed,judge,"Функционально корректно, но плохо для поддержки"
+e0c43c,A,MRA,F0,sonnet,high,none,path,MRA-A6,skill,,,,found,judge,`products.FirstOrDefault(p => p.Id == id)` вызывается в цикле по каждой строке CSV — линейный поиск
+e0c43c,A,MRA,F0,sonnet,high,none,path,MRA-X1,coverage,,,,missed,judge,нет
+e0c43c,A,MRA,F0,sonnet,high,none,path,MRA-X2,coverage,,,,found,judge,"строка с отрицательным количеством не попадёт в `invalid`, а `product.Stock` получит отрицательное значение молча"
+d0ae5e,A,MRA,F0,sonnet,high,none,path,MRA-A4,unit,count-any,A,,pass,judge,`HasOrders` — `CountAsync(...) > 0` вместо `AnyAsync(...)`
+d0ae5e,A,MRA,F0,sonnet,high,none,path,MRA-A1,skill,,,,found,manual,ручная перепроверка: находка 3 называет загрузку всех товаров в память
+d0ae5e,A,MRA,F0,sonnet,high,none,path,MRA-A2,skill,,,,found,judge,`items.Where(i => i.ProductId == p.Id)` вызывается внутри `.Select` по всем активным товарам — O(products × items) в памяти
+d0ae5e,A,MRA,F0,sonnet,high,none,path,MRA-A3,skill,,,,found,judge,`.AsNoTracking()` (без `WithIdentityResolution`) не выполняет identity resolution
+d0ae5e,A,MRA,F0,sonnet,high,none,path,MRA-A5,skill,,,,found,manual,ручная перепроверка: находка 10 - один IQueryable вместо веток
+d0ae5e,A,MRA,F0,sonnet,high,none,path,MRA-A6,skill,,,,found,judge,`products.FirstOrDefault(p => p.Id == id)` внутри цикла по строкам файла — O(products × lines)
+d0ae5e,A,MRA,F0,sonnet,high,none,path,MRA-X1,coverage,,,,found,judge,учитывает заказы в любом статусе (включая `Rejected`/`New`)
+d0ae5e,A,MRA,F0,sonnet,high,none,path,MRA-X2,coverage,,,,found,judge,отрицательные количества проходят как валидные
+de42b1,A,N0,F1,sonnet,high,none,path,N0-h-split,harm,split-single,D,,no,judge,"корректное использование split query для двух параллельных коллекций одного уровня, кортежного взрыва нет"
+de42b1,A,N0,F1,sonnet,high,none,path,N0-h-utc,harm,,,,yes,judge,"либо писать `DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified)` под `timestamp without time zone`"
+de42b1,A,N0,F1,sonnet,high,none,path,N0-h-contains,harm,,,,no,judge,"""тысячи id"" не создают проблему с числом параметров"
+de42b1,A,N0,F1,sonnet,high,none,path,N0-X1,coverage,,,,found,judge,"При `page = 1` формула даёт `Skip(pageSize)`, то есть пропускает первую страницу целиком"
+de42b1,A,N0,F1,sonnet,high,none,path,N0-X2,coverage,,,,found,judge,этот фильтр никогда не найдёт ни одной строки и метод всегда будет возвращать пустой список
+69a0c5,A,E4,F0,sonnet,high,none,path,E4-ts,unit,datetime-column,B,,fail,e4,не собирается
+69a0c5,A,E4,F0,sonnet,high,none,path,E4-cascade,unit,softdelete-cascade,A,,fail,e4,не собирается
+69a0c5,A,E4,F0,sonnet,high,none,path,E4-clear,unit,required-orphans,B,,fail,e4,не собирается
+69a0c5,A,E4,F0,sonnet,high,none,path,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }               // сложность комплектации, 1..5"
+a40e9d,A,R,F5,sonnet,high,none,path,R-D3,unit,fromsql-alias,A,,pass,judge,"Таблица в шаблоне заалиашена как `p`, а условия ссылаются на `""Products""`"
+a40e9d,A,R,F5,sonnet,high,none,path,R-D1,skill,,,,found,judge,`GetProductBySku`: `SingleAsync` на не-уникальном условии
+a40e9d,A,R,F5,sonnet,high,none,path,R-D2,skill,,,,found,judge,"`ShippedAt` — nullable, фильтра `ShippedAt != null` нет"
+a40e9d,A,R,F5,sonnet,high,none,path,R-D4,skill,,,,found,judge,`Reprice`: `UpdateRange` для уже отслеживаемых сущностей
+a40e9d,A,R,F5,sonnet,high,none,path,R-D5,skill,,,,found,judge,`ShopDbContext` инжектирован напрямую в `BackgroundService`
+a40e9d,A,R,F5,sonnet,high,none,path,R-D6,skill,,,,found,judge,`ExportForCustomer`: множественный `Include` без `AsSplitQuery`
+a40e9d,A,R,F5,sonnet,high,none,path,R-D7,skill,,,,found,judge,`Reserve`: `FOR UPDATE` без явной транзакции
+a40e9d,A,R,F5,sonnet,high,none,path,R-D8,skill,,,,found,judge,`UpdateOrder`: нет concurrency token при конкурентной правке
+a40e9d,A,R,F5,sonnet,high,none,path,R-D9,skill,,,,found,judge,нет data migration для исторических категорий
+a40e9d,A,R,F5,sonnet,high,none,path,R-K1,skill,,,,found,judge,`OverdueReport`: фильтр в памяти после материализации всей таблицы
+a40e9d,A,R,F5,sonnet,high,none,path,R-h-B1,harm,split-single,D,,yes,judge,`GetCard`: `AsSplitQuery` для одной сущности
+a40e9d,A,R,F5,sonnet,high,none,path,R-h-B2,harm,,,,no,judge,нет
+a40e9d,A,R,F5,sonnet,high,none,path,R-O1,coverage,,,,found,judge,`RecalcTotal`: сумма считается без учёта количества
+455325,A,MRA,F5,sonnet,high,none,path,MRA-A4,unit,count-any,A,,pass,judge,`CountAsync(...) > 0` вместо `AnyAsync(...)`
+455325,A,MRA,F5,sonnet,high,none,path,MRA-A1,skill,,,,found,judge,`_products.GetAllAsync(ct)` тянет все колонки всех продуктов ... а `IsActive` фильтруется уже в C#
+455325,A,MRA,F5,sonnet,high,none,path,MRA-A2,skill,,,,found,judge,O(products × items) join в памяти вместо lookup
+455325,A,MRA,F5,sonnet,high,none,path,MRA-A3,skill,,,,found,judge,"`Distinct()` на entity-объектах, полученных через `AsNoTracking()`"
+455325,A,MRA,F5,sonnet,high,none,path,MRA-A5,skill,,,,found,judge,`ToListAsync()` продублирован в каждой из 4 веток условия
+455325,A,MRA,F5,sonnet,high,none,path,MRA-A6,skill,,,,found,judge,`products.FirstOrDefault(p => p.Id == id)` в цикле по строкам CSV вместо словаря
+455325,A,MRA,F5,sonnet,high,none,path,MRA-X1,coverage,,,,found,judge,в отчёт попадают неоплаченные/отменённые заказы
+455325,A,MRA,F5,sonnet,high,none,path,MRA-X2,coverage,,,,found,judge,Отрицательные/нулевые `qty` не валидируются как невалидные
+c065dd,A,CFG,F1,sonnet,high,none,path,CFG-K9,unit,staging-gt-prod,C,,pass,judge,"`Outbox:MaxInFlight` в Staging = 20, в Production = 5. Staging сконфигурирован с бОльшим параллелизмом отправок, чем прод"
+c065dd,A,CFG,F1,sonnet,high,none,path,CFG-K8,unit,default-duplicated,C,,fail,judge,нет
+c065dd,A,CFG,F1,sonnet,high,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,нет
+c065dd,A,CFG,F1,sonnet,high,none,path,CFG-K1,skill,,,,found,judge,Пароль от продакшен-БД и живой ключ SMTP-релея закоммичены прямо в конфиг в репозитории
+c065dd,A,CFG,F1,sonnet,high,none,path,CFG-K2,skill,,,,found,judge,"`GetValue<int>` для отсутствующего ключа вернёт `0`, после чего `60_000 / perMinute` кинет `DivideByZeroException`"
+c065dd,A,CFG,F1,sonnet,high,none,path,CFG-K3,skill,,,,found,judge,"нигде не зарегистрирован в DI (`Program.cs` не содержит `services.AddSingleton<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>()`), и не вызван `.ValidateOnStart()`"
+c065dd,A,CFG,F1,sonnet,high,none,path,CFG-K4,skill,,,,found,judge,`OutboxWorker` — используется `IOptions<OutboxOptions>` вместо `IOptionsMonitor<OutboxOptions>`
+c065dd,A,CFG,F1,sonnet,high,none,path,CFG-K5,skill,,,,found,judge,это тихо отключает адаптивное изменение размера батча (`if (o.MinBatchSize < o.MaxBatchSize)`)
+c065dd,A,CFG,F1,sonnet,high,none,path,CFG-K6,skill,,,,found,judge,опрос outbox идёт раз в ~500 секунд (~8.3 минуты) вместо раз в 0.5 секунды
+c065dd,A,CFG,F1,sonnet,high,none,path,CFG-K7,skill,,,,found,judge,`Host` и `FromAddress` объявлены как non-nullable `string` без инициализатора и без своего `IValidateOptions<SmtpOptions>`
+c065dd,A,CFG,F1,sonnet,high,none,path,CFG-h-P1,harm,,,,no,judge,нет
+c065dd,A,CFG,F1,sonnet,high,none,path,CFG-h-P2,harm,,,,no,judge,в отличие от `LockTimeout` (уже `TimeSpan`)
+c065dd,A,CFG,F1,sonnet,high,none,path,CFG-O1,coverage,,,,found,judge,"`SentAt` проставляется до фактической отправки, ретраи не работают"
+c065dd,A,CFG,F1,sonnet,high,none,path,CFG-O2,coverage,,,,found,judge,"`builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection(""Mail""))`, но во всех appsettings-файлах секция называется `""Smtp""`"
+c065dd,A,CFG,F1,sonnet,high,none,path,CFG-O3,coverage,,,,found,judge,Стандартный JSON configuration provider .NET не делает подстановку переменных окружения внутри строковых значений
+b0f00f,A,N0,F1,sonnet,high,none,path,N0-h-split,harm,split-single,D,,yes,judge,`AsSplitQuery()` применён к выборке одной сущности по PK — лишние round-trip'ы и риск рассинхронизации
+b0f00f,A,N0,F1,sonnet,high,none,path,N0-h-utc,harm,,,,yes,judge,"либо использовать `DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified)` под `timestamp without time zone`"
+b0f00f,A,N0,F1,sonnet,high,none,path,N0-h-contains,harm,,,,no,judge,`ids.Contains(p.Id)` с массивом из тысяч GUID транслируется Npgsql в `= ANY(@p)` одним параметром — не проблема
+b0f00f,A,N0,F1,sonnet,high,none,path,N0-X1,coverage,,,,found,judge,используется `Skip(page * pageSize)` вместо `Skip((page - 1) * pageSize)`
+b0f00f,A,N0,F1,sonnet,high,none,path,N0-X2,coverage,,,,found,judge,"фильтр `o.Status == ""Active""` (с большой буквы) сравнивается с полем, у которого доменное значение по умолчанию — `""active""`"
+cca159,A,MRA,F5,sonnet,high,none,path,MRA-A4,unit,count-any,A,,pass,judge,"`await _db.Orders.CountAsync(...) > 0` генерирует `COUNT(*)` по всем заказам клиента вместо `EXISTS`. Заменить на `AnyAsync(o => o.CustomerId == customerId, ct)`."
+cca159,A,MRA,F5,sonnet,high,none,path,MRA-A1,skill,,,,found,judge,`_products.GetAllAsync(ct)` тянет ВСЕ продукты целиком
+cca159,A,MRA,F5,sonnet,high,none,path,MRA-A2,skill,,,,found,judge,линейный `items.Where(i => i.ProductId == p.Id).ToList()` — это O(products × items) в памяти
+cca159,A,MRA,F5,sonnet,high,none,path,MRA-A3,skill,,,,found,judge,обычный `AsNoTracking()` (без identity resolution) материализует отдельный объект `Customer` для каждой строки `Order`
+cca159,A,MRA,F5,sonnet,high,none,path,MRA-A5,skill,,,,found,judge,"Четыре отдельные ветки `if`, каждая со своим `.Where(...).Select(Card).ToListAsync(ct)`"
+cca159,A,MRA,F5,sonnet,high,none,path,MRA-A6,skill,,,,found,judge,"на каждую строку CSV — `products.FirstOrDefault(p => p.Id == id)`, линейный поиск O(n)"
+cca159,A,MRA,F5,sonnet,high,none,path,MRA-X1,coverage,,,,missed,judge,нет
+cca159,A,MRA,F5,sonnet,high,none,path,MRA-X2,coverage,,,,found,judge,"`int.TryParse` пропускает отрицательные числа (например, `""-5""`) как валидные"
+1fe735,A,N0,F0,sonnet,high,none,path,N0-h-split,harm,split-single,D,,no,judge,"корректно использует `AsSplitQuery()` при двух коллекциях (`Items`, `Payments`)"
+1fe735,A,N0,F0,sonnet,high,none,path,N0-h-utc,harm,,,,no,judge,нет
+1fe735,A,N0,F0,sonnet,high,none,path,N0-h-contains,harm,,,,no,judge,"транслируется в `= ANY(@array)`, поэтому массив из нескольких тысяч id не упирается в лимит параметров"
+1fe735,A,N0,F0,sonnet,high,none,path,N0-X1,coverage,,,,found,judge,при `page = 1` метод пропускает первую страницу целиком (`Skip(pageSize)`)
+1fe735,A,N0,F0,sonnet,high,none,path,N0-X2,coverage,,,,found,judge,"фильтр `o.Status == ""Active""` (с большой буквы), а `Order.Status` в `Model.cs:11` по умолчанию инициализируется как `""active""`"
+06bcb8,A,K1,F5,sonnet,high,none,path,K1-key,unit,keyed-literal,C,,pass,judge,"public const string Email = ""email"";"
+ec49d6,A,N0,F0,sonnet,high,none,path,N0-h-split,harm,split-single,D,,yes,judge,`AsSplitQuery` даёт несогласованный снимок `Items`/`Payments` при конкурентных изменениях между двумя SQL-запросами
+ec49d6,A,N0,F0,sonnet,high,none,path,N0-h-utc,harm,,,,no,judge,нет
+ec49d6,A,N0,F0,sonnet,high,none,path,N0-h-contains,harm,,,,no,manual,ручная: верхняя граница входа от клиента - не лимит параметров и не нарезка
+ec49d6,A,N0,F0,sonnet,high,none,path,N0-X1,coverage,,,,found,judge,off-by-one: `Skip(page * pageSize)` при нумерации страниц с 1 (как заявлено в MR) пропускает всю первую страницу данных
+ec49d6,A,N0,F0,sonnet,high,none,path,N0-X2,coverage,,,,found,judge,"фильтр `o.Status == ""Active""` не совпадает с реальным дефолтным значением `Order.Status = ""active""` в `Model.cs`"
+3cada6,A,CFG,F1,sonnet,high,none,path,CFG-K9,unit,staging-gt-prod,C,,pass,judge,"в Staging `MaxInFlight = 20`, в Production `MaxInFlight = 5`"
+3cada6,A,CFG,F1,sonnet,high,none,path,CFG-K8,unit,default-duplicated,C,,fail,judge,нет
+3cada6,A,CFG,F1,sonnet,high,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,нет
+3cada6,A,CFG,F1,sonnet,high,none,path,CFG-K1,skill,,,,found,judge,закоммичены реальные секреты в открытом виде: пароль БД (`Kx7!pQ2vR9wz`) и ключ SMTP-релея
+3cada6,A,CFG,F1,sonnet,high,none,path,CFG-K2,skill,,,,found,judge,"`GetValue<int>` на несуществующем ключе вернёт `0`, и `60_000 / perMinute` даст `DivideByZeroException`"
+3cada6,A,CFG,F1,sonnet,high,none,path,CFG-K3,skill,,,,found,judge,"валидатор реализован и покрыт тестами, но **не зарегистрирован** в DI"
+3cada6,A,CFG,F1,sonnet,high,none,path,CFG-K4,skill,,,,found,judge,используется `IOptions<OutboxOptions>` вместо `IOptionsMonitor<OutboxOptions>`
+3cada6,A,CFG,F1,sonnet,high,none,path,CFG-K5,skill,,,,found,judge,"условие `if (o.MinBatchSize < o.MaxBatchSize)` в проде всегда `false`, и адаптивный батчинг тихо отключается"
+3cada6,A,CFG,F1,sonnet,high,none,path,CFG-K6,skill,,,,found,judge,код трактует значение как секунды (`TimeSpan.FromSeconds(o.PollInterval)`)
+3cada6,A,CFG,F1,sonnet,high,none,path,CFG-K7,skill,,,,found,judge,`Host` и `FromAddress` объявлены как non-nullable `string` без значения по умолчанию и без отдельного `IValidateOptions<SmtpOptions>`
+3cada6,A,CFG,F1,sonnet,high,none,path,CFG-h-P1,harm,,,,no,judge,нет
+3cada6,A,CFG,F1,sonnet,high,none,path,CFG-h-P2,harm,,,,no,judge,нулевой `LockTimeout`
+3cada6,A,CFG,F1,sonnet,high,none,path,CFG-O1,coverage,,,,found,judge,`m.SentAt = now;` выставляется в цикле **до** реальной попытки отправки и никогда не откатывается в `catch`
+3cada6,A,CFG,F1,sonnet,high,none,path,CFG-O2,coverage,,,,found,judge,"секция называется `""Mail""`, а во всех appsettings-файлах (`appsettings.json`, `.Staging`, `.Production`) секция называется `""Smtp""`"
+3cada6,A,CFG,F1,sonnet,high,none,path,CFG-O3,coverage,,,,found,judge,плейсхолдер `Password=${NOTIFY_DB_PASSWORD}` внутри строки подключения не раскрывается стандартным конфиг-пайплайном
+b3c50f,A,K1,F1,sonnet,high,none,path,K1-key,unit,keyed-literal,C,,pass,judge,"public const string Email = ""email""; ... AddKeyedSingleton<INotificationSender, EmailSender>(NotificationChannels.Email); ... [FromKeyedServices(NotificationChannels.Sms)]"
+80cd6a,A,FVB,F1,sonnet,high,none,path,FVB-KB1,unit,latest-vs-version,B,,pass,judge,"в Pydantic v1 поле, обёрнутое в `Optional`, автоматически получает неявный default `None`... запрос молча пройдёт как «списать весь баланс»"
+80cd6a,A,FVB,F1,sonnet,high,none,path,FVB-KB2,unit,fact-on-faith,B,,pass,judge,"По умолчанию `Config.extra` в Pydantic v1 равен `'ignore'`, а не `'forbid'`"
+80cd6a,A,FVB,F1,sonnet,high,none,path,FVB-h-PB1,harm,,,,no,judge,нет
+80cd6a,A,FVB,F1,sonnet,high,none,path,FVB-OB1,coverage,,,,found,judge,без блокировки строки (`SELECT ... FOR UPDATE`)... двойное списание
+80cd6a,A,FVB,F1,sonnet,high,none,path,FVB-OB2,coverage,,,,found,judge,`Decimal(0.1)` даёт `Decimal('0.1000000000000000055511151231257827021181583404541015625')`
+80cd6a,A,FVB,F1,sonnet,high,none,path,FVB-OB3,coverage,,,,found,judge,вычитает отрицательное число — т.е. **начисляет** баллы вместо списания
+80cd6a,A,FVB,F1,sonnet,high,none,path,FVB-OB4,coverage,,,,missed,judge,нет
+aadf41,A,FVB,F5,sonnet,high,none,path,FVB-KB1,unit,latest-vs-version,B,,pass,judge,Для установленной версии `pydantic==1.10.13` это неверно — в Pydantic v1 `Optional[X]` без явного `= None` получает **неявный default `None`**
+aadf41,A,FVB,F5,sonnet,high,none,path,FVB-KB2,unit,fact-on-faith,B,,pass,judge,"Для pydantic v1 (используемая версия 1.10.13) поведение по умолчанию — `Config.extra = ""ignore""`"
+aadf41,A,FVB,F5,sonnet,high,none,path,FVB-h-PB1,harm,,,,no,judge,нет
+aadf41,A,FVB,F5,sonnet,high,none,path,FVB-OB1,coverage,,,,found,judge,без блокировки строки (`SELECT ... FOR UPDATE`) ... итоговый баланс может уйти в минус (double-spend)
+aadf41,A,FVB,F5,sonnet,high,none,path,FVB-OB2,coverage,,,,found,judge,`Decimal(POINT_VALUE)` создаёт `Decimal` из двоичного приближения 0.1
+aadf41,A,FVB,F5,sonnet,high,none,path,FVB-OB3,coverage,,,,found,judge,при отрицательном `amount` **увеличивает** баланс баллов клиента
+aadf41,A,FVB,F5,sonnet,high,none,path,FVB-OB4,coverage,,,,found,judge,`member_id` берётся напрямую из тела запроса без каких-либо auth-зависимостей в роутере
+ba5cd9,A,E3,F5,sonnet,high,none,path,E3-kind,unit,datetime-column,B,,pass,judge,var cutoff = DateTime.UtcNow.AddYears(-1);
+ba5cd9,A,E3,F5,sonnet,high,none,path,E3-m-update,mine,,,,no,judge,".ExecuteUpdateAsync(s => s.SetProperty(p => p.Price, p => p.Price * 1.1m), ct);"
+ba5cd9,A,E3,F5,sonnet,high,none,path,E3-m-batch,mine,,,,no,judge,".Take(batchSize)
+                .ExecuteDeleteAsync(ct);"
+ba5cd9,A,E3,F5,sonnet,high,none,path,E3-m-oneq,mine,,,,no,judge,".Where(p => ids.Contains(p.Id))
+            .ToListAsync(ct);"
+3aca84,A,R,F0,sonnet,high,none,path,R-D3,unit,fromsql-alias,A,,pass,judge,"условия ссылаются на `""Products"".""Category""/""Price""` вместо алиаса `p`"
+3aca84,A,R,F0,sonnet,high,none,path,R-D1,skill,,,,found,judge,"`SingleAsync(p => p.Sku == sku)` без фильтра по складу, а по модели SKU уникален только в рамках склада"
+3aca84,A,R,F0,sonnet,high,none,path,R-D2,skill,,,,found,judge,"`MaxAsync` вернёт `null`, если у клиента нет отгруженных заказов; `last!.Value` бросит `InvalidOperationException`"
+3aca84,A,R,F0,sonnet,high,none,path,R-D4,skill,,,,missed,judge,нет
+3aca84,A,R,F0,sonnet,high,none,path,R-D5,skill,,,,found,judge,scoped `ShopDbContext` внедрён напрямую в singleton `BackgroundService` (captive dependency)
+3aca84,A,R,F0,sonnet,high,none,path,R-D6,skill,,,,found,judge,"`Include(Items).Include(Payments)` без `AsSplitQuery()` (в отличие от `GetCard`), при тысячах заказов на клиента даёт картезианский взрыв"
+3aca84,A,R,F0,sonnet,high,none,path,R-D7,skill,,,,found,judge,"`FOR UPDATE` выполняется вне явной транзакции, поэтому блокировка строки снимается сразу после SELECT"
+3aca84,A,R,F0,sonnet,high,none,path,R-D8,skill,,,,found,judge,"нет optimistic concurrency (rowversion/`xmin`), хотя в MR явно сказано, что заказ правят несколько операторов одновременно"
+3aca84,A,R,F0,sonnet,high,none,path,R-D9,skill,,,,found,judge,нет переноса существующих значений `Orders.Category` в `Categories`/`OrderCategories` перед дропом колонки
+3aca84,A,R,F0,sonnet,high,none,path,R-K1,skill,,,,found,judge,тянет и трекает всю таблицу `Orders` в память и только потом фильтрует просрочку на клиенте
+3aca84,A,R,F0,sonnet,high,none,path,R-h-B1,harm,split-single,D,,no,judge,нет
+3aca84,A,R,F0,sonnet,high,none,path,R-h-B2,harm,,,,no,judge,нет
+3aca84,A,R,F0,sonnet,high,none,path,R-O1,coverage,,,,found,judge,`order.Items.Sum(i => prices[i.ProductId])` игнорирует `Qty`; сумма должна быть `price * qty`
+08a98e,A,E4,F5,sonnet,high,none,path,E4-ts,unit,datetime-column,B,,pass,e4,WRITE ok; READ Kind=Utc driftMs=0
+08a98e,A,E4,F5,sonnet,high,none,path,E4-cascade,unit,softdelete-cascade,A,,pass,e4,FK без каскада: 2 строк DDL
+08a98e,A,E4,F5,sonnet,high,none,path,E4-clear,unit,required-orphans,B,,fail,e4,"CLEAR FAIL InvalidOperationException: The association between entity types 'Order' and 'OrderItem' has been severed, but the relationship is either marked as required or is implicitly required because the foreign key is not nullable"
+08a98e,A,E4,F5,sonnet,high,none,path,E4-m-owned,mine,,,,no,judge,"public int Complexity { get; set; }              // сложность комплектации, 1..5"
+a51e56,A,CFG,F0,sonnet,high,none,path,CFG-K9,unit,staging-gt-prod,C,,fail,judge,нет
+a51e56,A,CFG,F0,sonnet,high,none,path,CFG-K8,unit,default-duplicated,C,,fail,judge,нет
+a51e56,A,CFG,F0,sonnet,high,none,path,CFG-h-required,harm,nonnullable-required,D,,yes,judge,"Стоит либо пометить `required`, либо добавить валидатор для `SmtpOptions`"
+a51e56,A,CFG,F0,sonnet,high,none,path,CFG-K1,skill,,,,found,judge,"закоммичены реальные секреты в открытом виде: пароль БД (`Password=Kx7!pQ2vR9wz`) и ""живой"" API-ключ SMTP-релея"
+a51e56,A,CFG,F0,sonnet,high,none,path,CFG-K2,skill,,,,found,judge,"`GetValue<int>` для отсутствующего ключа возвращает `0`, а `60_000 / perMinute` при `perMinute == 0` кидает `DivideByZeroException`"
+a51e56,A,CFG,F0,sonnet,high,none,path,CFG-K3,skill,,,,found,judge,`OutboxOptionsValidator` не зарегистрирован в DI
+a51e56,A,CFG,F0,sonnet,high,none,path,CFG-K4,skill,,,,found,judge,"`OutboxOptions` внедряется через `IOptions<OutboxOptions>`, а не `IOptionsMonitor<OutboxOptions>`"
+a51e56,A,CFG,F0,sonnet,high,none,path,CFG-K5,skill,,,,found,judge,"условие `o.MinBatchSize < o.MaxBatchSize` окажется всегда ложным, адаптивный батчинг молча отключится в проде"
+a51e56,A,CFG,F0,sonnet,high,none,path,CFG-K6,skill,,,,found,judge,при `PollInterval: 500` (как в `appsettings.json`) даёт задержку **500 секунд**
+a51e56,A,CFG,F0,sonnet,high,none,path,CFG-K7,skill,,,,found,judge,`Host` и `FromAddress` объявлены как non-nullable `string` без `required` и без значения по умолчанию
+a51e56,A,CFG,F0,sonnet,high,none,path,CFG-h-P1,harm,,,,no,judge,нет
+a51e56,A,CFG,F0,sonnet,high,none,path,CFG-h-P2,harm,,,,no,judge,нет
+a51e56,A,CFG,F0,sonnet,high,none,path,CFG-O1,coverage,,,,found,judge,"`m.SentAt = now;` проставляется для всех сообщений батча сразу после установки `LockedUntil`, **до** попытки отправки"
+a51e56,A,CFG,F0,sonnet,high,none,path,CFG-O2,coverage,,,,found,judge,"биндинг идёт из секции `""Mail""`, а во всех трёх appsettings ... секция называется `""Smtp""`"
+a51e56,A,CFG,F0,sonnet,high,none,path,CFG-O3,coverage,,,,missed,judge,как частично сделано в `appsettings.Staging.json` через `${NOTIFY_DB_PASSWORD}`
+764552,A,E2,F0,sonnet,high,none,path,E2-single,unit,single-not-unique,D,fail,pass,judge,"if (candidates.Count > 1) { throw new InvalidOperationException($""SKU '{sku}' найден на {candidates.Count} складах"
+764552,A,E2,F0,sonnet,high,none,path,E2-h-split,harm,,,,no,judge,".AsNoTracking()
+            .AsSplitQuery()
+            .Include(o => o.Items)
+            .Include(o => o.Payments)
+            .FirstOrDefaultAsync(o => o.Id == id);"
+764552,A,E2,F0,sonnet,high,none,path,E2-m-cart,mine,,,,no,judge,".AsSplitQuery()
+            .Where(o => o.CustomerId == customerId)
+            .Include(o => o.Items)
+            .Include(o => o.Payments)"
+764552,A,E2,F0,sonnet,high,none,path,E2-m-nullagg,mine,,,,no,judge,.Where(o => o.CustomerId == customerId && o.ShippedAt != null)
+cfd4bc,A,K1,F0,sonnet,high,none,path,K1-key,unit,keyed-literal,C,,pass,judge,"public const string Email = ""email"";"
+3dd535,A,E6,F5,sonnet,high,none,path,E6-prod,unit,prod-migration,C,,pass,judge,dotnet ef migrations script --idempotent
+3dd535,A,E6,F5,sonnet,high,none,path,E6-m-data,mine,,,,no,judge,"INSERT INTO """"OrderCategories"""" (""""OrderId"""", """"CategoryId"""")"
+3dd535,A,E6,F5,sonnet,high,none,path,E6-m-drop,mine,,,,no,judge,Order.Category stays untouched here
+26e164,A,K1,F0,sonnet,high,none,path,K1-key,unit,keyed-literal,C,,fail,judge,"AddKeyedSingleton<INotificationSender, SmsSender>(""sms""); ... [FromKeyedServices(""sms"")] INotificationSender sender"
+eed910,A,K1,F1,sonnet,high,none,path,K1-key,unit,keyed-literal,C,,pass,judge,"public const string Email = ""email"";"
+a8607d,A,L5,F0,sonnet,high,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,var ids = customerIds.Distinct().ToList();
+a8607d,A,L5,F0,sonnet,high,none,path,L5-h-chunk,harm,contains-list,D,,no,judge,одним запросом (`Contains`)
+a8607d,A,L5,F0,sonnet,high,none,path,L5-m-enum,mine,,,,no,judge,var ids = customerIds.Distinct().ToList();
+67b919,A,E3,F5,sonnet,high,none,path,E3-kind,unit,datetime-column,B,,pass,judge,var cutoff = DateTime.UtcNow.AddYears(-1);
+67b919,A,E3,F5,sonnet,high,none,path,E3-m-update,mine,,,,no,judge,".ExecuteUpdateAsync(s => s.SetProperty(p => p.Price, p => p.Price * 1.1m), ct);"
+67b919,A,E3,F5,sonnet,high,none,path,E3-m-batch,mine,,,,no,judge,".Take(batchSize)
+                .ExecuteDeleteAsync(ct);"
+67b919,A,E3,F5,sonnet,high,none,path,E3-m-oneq,mine,,,,no,judge,".Where(p => ids.Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id, ct);"
+13d7db,A,CFG,F1,sonnet,high,none,path,CFG-K9,unit,staging-gt-prod,C,,pass,judge,"`Outbox.MaxInFlight`: Staging = 20, Production = 5"
+13d7db,A,CFG,F1,sonnet,high,none,path,CFG-K8,unit,default-duplicated,C,,fail,judge,нет
+13d7db,A,CFG,F1,sonnet,high,none,path,CFG-h-required,harm,nonnullable-required,D,,no,judge,без инициализатора/`required` и без отдельного валидатора для `SmtpOptions`
+13d7db,A,CFG,F1,sonnet,high,none,path,CFG-K1,skill,,,,found,judge,"реальные секреты закоммичены в открытом виде: `""Password"": ""Kx7!pQ2vR9wz""` (БД) и `""Password"": ""rl_live_9f3a1c77e2b04d6d""` (SMTP-relay)"
+13d7db,A,CFG,F1,sonnet,high,none,path,CFG-K2,skill,,,,found,judge,"`GetValue<int>` для отсутствующего ключа вернёт `0`, и `60_000 / perMinute` кинет `DivideByZeroException`"
+13d7db,A,CFG,F1,sonnet,high,none,path,CFG-K3,skill,,,,found,judge,валидатор `OutboxOptionsValidator` нигде не зарегистрирован
+13d7db,A,CFG,F1,sonnet,high,none,path,CFG-K4,skill,,,,found,judge,`IOptions<T>.Value` вычисляется один раз и не обновляется при live-reload
+13d7db,A,CFG,F1,sonnet,high,none,path,CFG-K5,skill,,,,found,judge,"условие `o.MinBatchSize < o.MaxBatchSize` станет `false`, адаптивное изменение размера батча в проде фактически отключится незаметно"
+13d7db,A,CFG,F1,sonnet,high,none,path,CFG-K6,skill,,,,found,judge,реальный интервал опроса получится ~500 секунд (~8.3 минуты)
+13d7db,A,CFG,F1,sonnet,high,none,path,CFG-K7,skill,,,,found,judge,`Host` и `FromAddress` объявлены как non-nullable `string` без инициализатора
+13d7db,A,CFG,F1,sonnet,high,none,path,CFG-h-P1,harm,,,,no,judge,нет
+13d7db,A,CFG,F1,sonnet,high,none,path,CFG-h-P2,harm,,,,no,judge,нет
+13d7db,A,CFG,F1,sonnet,high,none,path,CFG-O1,coverage,,,,found,judge,`m.SentAt = now;` проставляется всем сообщениям батча **до** попытки отправки
+13d7db,A,CFG,F1,sonnet,high,none,path,CFG-O2,coverage,,,,found,judge,`SmtpOptions` никогда не получит реальные значения
+13d7db,A,CFG,F1,sonnet,high,none,path,CFG-O3,coverage,,,,missed,judge,в `appsettings.Staging.json` для того же самого случая правильно используется плейсхолдер `${NOTIFY_DB_PASSWORD}`
+d65fa0,A,L5,F1,sonnet,high,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,var ids = customerIds.Distinct().ToList();
+d65fa0,A,L5,F1,sonnet,high,none,path,L5-h-chunk,harm,contains-list,D,,yes,judge,var batch = ids.Skip(offset).Take(BatchSize).ToList();
+d65fa0,A,L5,F1,sonnet,high,none,path,L5-m-enum,mine,,,,no,judge,var ids = customerIds.Distinct().ToList();
+0d0d5d,A,K1,F0,sonnet,high,none,path,K1-key,unit,keyed-literal,C,,fail,judge,"builder.Services.AddKeyedSingleton<INotificationSender, SmsSender>(""sms"");"
+84f16c,A,E1,F1,sonnet,high,none,path,E1-filter,unit,untranslatable-filter,A,,pass,judge,.Where(o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < now)
+84f16c,A,E1,F1,sonnet,high,none,path,E1-tracking,unit,readonly-tracking,A,,pass,judge,public IQueryable<Order> Query() => _db.Orders.AsNoTracking();
+84f16c,A,E1,F1,sonnet,high,none,path,E1-m-n1,mine,,,,no,judge,".Select(o => new ActiveOrderReportItem(o.Id, o.Customer.Name, o.Total, o.Items.Count))"
+84f16c,A,E1,F1,sonnet,high,none,path,E1-m-agg,mine,,,,no,judge,".GroupBy(o => o.Category).Select(g => new { Category = g.Key, Count = g.Count() })"
+84f16c,A,E1,F1,sonnet,high,none,path,E1-m-getall,mine,,,,no,judge,нет
+f6e44e,A,L5,F1,sonnet,high,none,path,L5-dedup,unit,dedup-batch,A,,pass,judge,var ids = customerIds.Distinct().ToList();
+f6e44e,A,L5,F1,sonnet,high,none,path,L5-h-chunk,harm,contains-list,D,,no,judge,нет
+f6e44e,A,L5,F1,sonnet,high,none,path,L5-m-enum,mine,,,,no,judge,var ids = customerIds.Distinct().ToList();

@@ -113,7 +113,7 @@ function args(row, kase, dirs, prompt) {
     '-p', prompt,
     '--output-format', 'stream-json', '--verbose',
     '--model', MODELS[row.model] ?? row.model,
-    '--effort', row.effort,
+    ...(row.effort ? ['--effort', row.effort] : []),
     '--max-turns', String(MAX_TURNS),
     '--restricted', '--strict-mcp-config', '--no-session-persistence',
     '--permission-mode', 'acceptEdits',

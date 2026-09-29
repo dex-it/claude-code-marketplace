@@ -1,0 +1,58 @@
+diff --git a/CustomerNotifier.cs b/CustomerNotifier.cs
+new file mode 100644
+index 0000000..e869668
+--- /dev/null
++++ b/CustomerNotifier.cs
+@@ -0,0 +1,39 @@
++using Microsoft.EntityFrameworkCore;
++
++namespace Shop;
++
++public class CustomerNotifier
++{
++    private const int BatchSize = 500; // ограничение размера IN(...) для Npgsql
++
++    private readonly ShopDbContext _db;
++    private readonly IEmailSender _emailSender;
++
++    public CustomerNotifier(ShopDbContext db, IEmailSender emailSender)
++    {
++        _db = db;
++        _emailSender = emailSender;
++    }
++
++    // customerIds приходит из внешней маркетинговой системы, поэтому не доверяем
++    // ему напрямую: берём email только по существующим в БД клиентам.
++    public async Task NotifyCustomers(IEnumerable<Guid> customerIds, string text, CancellationToken ct = default)
++    {
++        var ids = customerIds.Distinct().ToList();
++
++        foreach (var batch in ids.Chunk(BatchSize))
++        {
++            var customers = await _db.Customers
++                .AsNoTracking()
++                .Where(c => batch.Contains(c.Id))
++                .Select(c => c.Email)
++                .ToListAsync(ct);
++
++            foreach (var email in customers)
++            {
++                if (string.IsNullOrWhiteSpace(email)) continue;
++                await _emailSender.SendAsync(email, "Уведомление", text, ct);
++            }
++        }
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..4a836e3
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,7 @@
++## Изменённые/созданные файлы
++- Создан `CustomerNotifier.cs` — класс `CustomerNotifier` с методом `NotifyCustomers(IEnumerable<Guid> customerIds, string text, CancellationToken ct = default)`.
++
++## Решения
++- Список `customerIds` приходит из внешней (маркетинговой) системы, поэтому не считаем его доверенным: берём email только по клиентам, реально найденным в БД, а не рассылаем "вслепую" по переданным id.
++- Id дедуплицируются и обрабатываются пачками по 500 (`Chunk`), чтобы не упереться в лимит размера `IN (...)` при большом списке от маркетинговой системы; запрос выполняется через `AsNoTracking`, т.к. данные только читаются.
++- Пустые/отсутствующие email пропускаются перед отправкой через `IEmailSender.SendAsync`.

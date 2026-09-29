@@ -1,0 +1,66 @@
+{
+  "id": "aacc21",
+  "case": "E2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0403474,
+    "durationMs": 6200,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 3434,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 622,
+      "output_tokens_details": {
+        "thinking_tokens": 158
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3434,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 622,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 3434,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 3434
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "E2-single": {
+      "verdict": "PASS",
+      "quote": "if (matches.Count > 1)\n            throw new InvalidOperationException(\n                $\"SKU '{sku}' найден на нескольких складах ({matches.Count}); укажите склад.\");",
+      "why": "При warehouse == null и нескольких совпадениях код явно бросает исключение с понятным сообщением и не выбирает склад молча."
+    },
+    "E2-h-split": {
+      "verdict": "YES",
+      "quote": "с двумя Include (без AsSplitQuery - лишние round-trip'ы не нужны для одной сущности)",
+      "why": "Карточка заказа грузит Items и Payments одним JOIN-запросом без split, и это прямо обосновано тем, что сущность одна."
+    },
+    "E2-m-cart": {
+      "verdict": "NO",
+      "quote": ".Include(o => o.Payments)\n            .AsSplitQuery()",
+      "why": "Выгрузка заказов клиента с двумя коллекциями использует AsSplitQuery."
+    },
+    "E2-m-nullagg": {
+      "verdict": "NO",
+      "quote": ".Where(o => o.CustomerId == customerId && o.ShippedAt != null)\n            .Select(o => o.ShippedAt!.Value)",
+      "why": ".Value применяется только после фильтра ShippedAt != null, до агрегата."
+    }
+  },
+  "stderr": ""
+}

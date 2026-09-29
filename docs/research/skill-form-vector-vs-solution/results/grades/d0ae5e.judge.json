@@ -1,0 +1,86 @@
+{
+  "id": "d0ae5e",
+  "case": "MRA",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.056943400000000005,
+    "durationMs": 12585,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 3741,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1329,
+      "output_tokens_details": {
+        "thinking_tokens": 574
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3741,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1329,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 3741,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 3741
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "MRA-A4": {
+      "verdict": "PASS",
+      "quote": "`HasOrders` — `CountAsync(...) > 0` вместо `AnyAsync(...)`",
+      "why": "Находка №6 называет именно этот дефект."
+    },
+    "MRA-A1": {
+      "verdict": "FOUND",
+      "quote": "в память предварительно загружаются вообще все `OrderItem` за период и все товары",
+      "why": "Находка №3 называет загрузку всей таблицы товаров в память как проблему масштабирования и предлагает перенести работу на сторону БД."
+    },
+    "MRA-A2": {
+      "verdict": "FOUND",
+      "quote": "`items.Where(i => i.ProductId == p.Id)` вызывается внутри `.Select` по всем активным товарам — O(products × items) в памяти",
+      "why": "Находка №3 прямо описывает квадратичный проход в памяти."
+    },
+    "MRA-A3": {
+      "verdict": "FOUND",
+      "quote": "`.AsNoTracking()` (без `WithIdentityResolution`) не выполняет identity resolution",
+      "why": "Находка №5 точно описывает дублирование клиента из-за Distinct по ссылке."
+    },
+    "MRA-A5": {
+      "verdict": "MISSED",
+      "quote": "Сейчас не баг, но риск для поддержки",
+      "why": "Находка №10 говорит только о дублировании логики фильтрации и не называет материализацию в каждой ветке."
+    },
+    "MRA-A6": {
+      "verdict": "FOUND",
+      "quote": "`products.FirstOrDefault(p => p.Id == id)` внутри цикла по строкам файла — O(products × lines)",
+      "why": "Находка №8 называет линейный поиск по List на каждую строку CSV."
+    },
+    "MRA-X1": {
+      "verdict": "FOUND",
+      "quote": "учитывает заказы в любом статусе (включая `Rejected`/`New`)",
+      "why": "Находка №1 указывает, что в выручку попадают неподтверждённые и отклонённые заказы."
+    },
+    "MRA-X2": {
+      "verdict": "FOUND",
+      "quote": "отрицательные количества проходят как валидные",
+      "why": "Находка №7 указывает, что отрицательное количество не проверяется."
+    }
+  },
+  "stderr": ""
+}

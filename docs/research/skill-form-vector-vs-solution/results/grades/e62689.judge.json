@@ -1,0 +1,71 @@
+{
+  "id": "e62689",
+  "case": "N0",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0520394,
+    "durationMs": 6904,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 4753,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 679,
+      "output_tokens_details": {
+        "thinking_tokens": 121
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4753,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 679,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 4753,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 4753
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "N0-h-split": {
+      "verdict": "YES",
+      "quote": "`AsSplitQuery()` c `Include(Items)` + `Include(Payments)` даёт несколько раздельных SQL-запросов без общего снэпшота",
+      "why": "Выход объявляет AsSplitQuery в OrderCard.GetAsync дефектом средней severity и предлагает заменить его на AsSingleQuery или транзакцию."
+    },
+    "N0-h-utc": {
+      "verdict": "NO",
+      "quote": "`WriteAsync` пишет только свободный текст без структурированных полей (actor/action/entity)",
+      "why": "Находка по AuditWriter касается только отсутствия структурированных полей; против DateTime.UtcNow, Unspecified или SpecifyKind ничего не сказано."
+    },
+    "N0-h-contains": {
+      "verdict": "NO",
+      "quote": "нет guard на `null` для `productIds`",
+      "why": "Находка по CartLookup касается только проверки на null; лимит параметров, разбиение на пачки и большой IN не упоминаются."
+    },
+    "N0-X1": {
+      "verdict": "FOUND",
+      "quote": "`Skip(page * pageSize)` вместо `Skip((page - 1) * pageSize)`",
+      "why": "Дефект назван точно: при нумерации страниц с 1 первая страница пропускается."
+    },
+    "N0-X2": {
+      "verdict": "FOUND",
+      "quote": "фильтр `o.Status == \"Active\"` не совпадает по регистру со значением по умолчанию `\"active\"`",
+      "why": "Дефект назван точно: из-за расхождения регистра список будет пуст."
+    }
+  },
+  "stderr": ""
+}

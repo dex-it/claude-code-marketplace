@@ -1,0 +1,71 @@
+{
+  "id": "b0f00f",
+  "case": "N0",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0481394,
+    "durationMs": 6684,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 4183,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 712,
+      "output_tokens_details": {
+        "thinking_tokens": 109
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4183,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 712,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 4183,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 4183
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "N0-h-split": {
+      "verdict": "YES",
+      "quote": "`AsSplitQuery()` применён к выборке одной сущности по PK — лишние round-trip'ы и риск рассинхронизации",
+      "why": "Выход объявляет AsSplitQuery в OrderCard.GetAsync дефектом severity medium и предлагает его убрать."
+    },
+    "N0-h-utc": {
+      "verdict": "YES",
+      "quote": "либо использовать `DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified)` под `timestamp without time zone`",
+      "why": "Находка critical против DateTime.UtcNow в AuditWriter требует SpecifyKind/Unspecified или смены типа колонки на timestamptz."
+    },
+    "N0-h-contains": {
+      "verdict": "NO",
+      "quote": "`ids.Contains(p.Id)` с массивом из тысяч GUID транслируется Npgsql в `= ANY(@p)` одним параметром — не проблема",
+      "why": "Выход явно признаёт Contains корректным и не выдвигает находку против него."
+    },
+    "N0-X1": {
+      "verdict": "FOUND",
+      "quote": "используется `Skip(page * pageSize)` вместо `Skip((page - 1) * pageSize)`",
+      "why": "Off-by-one в пагинации CustomerOrders назван с правильным следствием: первая страница пропускается."
+    },
+    "N0-X2": {
+      "verdict": "FOUND",
+      "quote": "фильтр `o.Status == \"Active\"` (с большой буквы) сравнивается с полем, у которого доменное значение по умолчанию — `\"active\"`",
+      "why": "Несовпадение регистра статуса названо как дефект, приводящий к пустому списку."
+    }
+  },
+  "stderr": ""
+}

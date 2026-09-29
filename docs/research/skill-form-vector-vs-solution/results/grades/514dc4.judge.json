@@ -1,0 +1,111 @@
+{
+  "id": "514dc4",
+  "case": "R",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.1092314,
+    "durationMs": 16321,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 8412,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 2075,
+      "output_tokens_details": {
+        "thinking_tokens": 752
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8412,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2075,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 8412,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 8412
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "R-D3": {
+      "verdict": "FAIL",
+      "quote": "Значения (`category`, `minPrice`) передаются как `NpgsqlParameter`, поэтому прямой SQL-инъекции сейчас нет",
+      "why": "Находка #14 критикует только динамическую сборку FromSqlRaw; несовпадение имени \"Products\" в условиях с алиасом p из шаблона не названо."
+    },
+    "R-D1": {
+      "verdict": "FOUND",
+      "quote": "`SingleAsync` бросит исключение, как только по SKU найдётся товар больше чем на одном складе",
+      "why": "Находка #4 прямо называет SingleAsync по SKU, неуникальному между складами."
+    },
+    "R-D2": {
+      "verdict": "FOUND",
+      "quote": "`MaxAsync` над nullable-полем возвращает `null`, если у клиента нет ни одного заказа с проставленным `ShippedAt`",
+      "why": "Находка #9 называет разыменование !.Value результата MaxAsync(ShippedAt) без фильтра null."
+    },
+    "R-D4": {
+      "verdict": "FOUND",
+      "quote": "Дополнительный вызов `UpdateRange` на уже трекаемых сущностях переводит **все** свойства каждой сущности в `Modified`",
+      "why": "Находка #12 называет UpdateRange на отслеживаемых сущностях в Reprice."
+    },
+    "R-D5": {
+      "verdict": "FOUND",
+      "quote": "classic captive dependency — scoped-сервис захватывается синглтоном",
+      "why": "Находка #6 называет DbContext, внедрённый в конструктор BackgroundService."
+    },
+    "R-D6": {
+      "verdict": "FOUND",
+      "quote": "Два коллекционных `Include` (Items и Payments) в одном single query, без `AsSplitQuery()`",
+      "why": "Находка #8 называет две коллекции Include на тысячах заказов без split."
+    },
+    "R-D7": {
+      "verdict": "FOUND",
+      "quote": "Явной транзакции, охватывающей и `SELECT ... FOR UPDATE`, и последующий `SaveChangesAsync`, нет.",
+      "why": "Находка #5 называет FOR UPDATE без явной транзакции."
+    },
+    "R-D8": {
+      "verdict": "FOUND",
+      "quote": "Нет проверки конкурентности (нет concurrency token / `RowVersion`",
+      "why": "Находка #10 называет правку заказа без concurrency token."
+    },
+    "R-D9": {
+      "verdict": "FOUND",
+      "quote": "Колонка `Orders.Category` удаляется (`DropColumn`), но данные из неё не переносятся",
+      "why": "Находка #1 называет DropColumn Category без переноса данных."
+    },
+    "R-K1": {
+      "verdict": "FOUND",
+      "quote": "`OrderRepository.GetAllAsync()` тянет в память **все** заказы",
+      "why": "Находка #11 называет GetAllAsync и фильтр IsOverdue в памяти."
+    },
+    "R-h-B1": {
+      "verdict": "NO",
+      "quote": "В `GetCard` рядом уже правильно применён `AsSplitQuery()`",
+      "why": "AsSplitQuery в GetCard исполнитель признаёт правильным и не атакует."
+    },
+    "R-h-B2": {
+      "verdict": "NO",
+      "quote": "Для `border` разработчик корректно привёл `Kind` к `Unspecified`",
+      "why": "Запись Unspecified для timestamp without time zone признана корректной. Находка #7 бьёт по записи Utc в AuditLog.At, а это другой код; вдобавок её посылка о конвенции Npgsql сомнительна."
+    },
+    "R-O1": {
+      "verdict": "FOUND",
+      "quote": "Суммируются только цены за единицу, `OrderItem.Qty` игнорируется полностью.",
+      "why": "Находка #3 называет расчёт суммы заказа без Qty."
+    }
+  },
+  "stderr": ""
+}

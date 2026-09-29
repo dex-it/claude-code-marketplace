@@ -1,0 +1,86 @@
+{
+  "id": "e0c43c",
+  "case": "MRA",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0561474,
+    "durationMs": 12477,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 3479,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1394,
+      "output_tokens_details": {
+        "thinking_tokens": 605
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3479,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1394,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 3479,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 3479
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "MRA-A4": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Находки про HasOrders через CountAsync() > 0 вместо AnyAsync в выходе нет."
+    },
+    "MRA-A1": {
+      "verdict": "FOUND",
+      "quote": "`ProductRepository.GetAllAsync()`, которая через `_db.Products.ToListAsync()` тянет все столбцы",
+      "why": "Загрузка всей таблицы Products через GetAllAsync названа проблемой; акцент на лишних столбцах, но дефект и место те же."
+    },
+    "MRA-A2": {
+      "verdict": "FOUND",
+      "quote": "`sold = items.Where(i => i.ProductId == p.Id)` выполняется в памяти для каждого активного товара — вложенный перебор O(P×I)",
+      "why": "Дефект назван прямо, с исправлением через ToLookup/GroupBy."
+    },
+    "MRA-A3": {
+      "verdict": "FOUND",
+      "quote": "`orders.Select(o => o.Customer).Distinct()` не убирает дубликаты. Запрос выполняется с `AsNoTracking()`",
+      "why": "Назван AsNoTracking без identity resolution и Distinct по ссылке, из-за чего клиент дублируется."
+    },
+    "MRA-A5": {
+      "verdict": "MISSED",
+      "quote": "Функционально корректно, но плохо для поддержки",
+      "why": "Про CatalogSearch отмечено только дублирование веток; материализация в каждой ветке не названа."
+    },
+    "MRA-A6": {
+      "verdict": "FOUND",
+      "quote": "`products.FirstOrDefault(p => p.Id == id)` вызывается в цикле по каждой строке CSV — линейный поиск",
+      "why": "Дефект назван, предложен Dictionary."
+    },
+    "MRA-X1": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Выручка по неоплаченным или отменённым заказам не упомянута; пункт про IsActive касается другого дефекта."
+    },
+    "MRA-X2": {
+      "verdict": "FOUND",
+      "quote": "строка с отрицательным количеством не попадёт в `invalid`, а `product.Stock` получит отрицательное значение молча",
+      "why": "Отсутствие проверки отрицательного количества названо прямо."
+    }
+  },
+  "stderr": ""
+}

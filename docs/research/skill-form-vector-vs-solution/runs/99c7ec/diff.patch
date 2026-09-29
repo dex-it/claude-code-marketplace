@@ -1,0 +1,79 @@
+diff --git a/OrderQueries.cs b/OrderQueries.cs
+new file mode 100644
+index 0000000..1622f4b
+--- /dev/null
++++ b/OrderQueries.cs
+@@ -0,0 +1,57 @@
++using Microsoft.EntityFrameworkCore;
++
++namespace Shop.Data;
++
++public class OrderQueries
++{
++    private readonly ShopDbContext _db;
++    public OrderQueries(ShopDbContext db) => _db = db;
++
++    // (a) карточка одного заказа: одна сущность -> JOIN дешевле двух round-trip'ов, без AsSplitQuery
++    public Task<Order?> GetOrderCardAsync(Guid id) =>
++        _db.Orders
++            .AsNoTracking()
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            .FirstOrDefaultAsync(o => o.Id == id);
++
++    // (b) у клиента бывают тысячи заказов: два Include дали бы cartesian explosion, поэтому AsSplitQuery
++    public Task<List<Order>> GetCustomerOrdersWithDetailsAsync(Guid customerId) =>
++        _db.Orders
++            .AsNoTracking()
++            .Where(o => o.CustomerId == customerId)
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            .AsSplitQuery()
++            .ToListAsync();
++
++    // (c) SKU уникален только в рамках склада; warehouse может отсутствовать -> не гадать, а явно
++    // упасть, если по одному SKU без склада находится больше одной записи (Single() без уникального условия — бомба)
++    public async Task<Product?> GetProductBySkuAsync(string sku, string? warehouse)
++    {
++        var query = _db.Products.AsNoTracking().Where(p => p.Sku == sku);
++        if (warehouse != null)
++            query = query.Where(p => p.Warehouse == warehouse);
++
++        var matches = await query.Take(2).ToListAsync();
++        if (matches.Count > 1)
++            throw new InvalidOperationException(
++                $"SKU '{sku}' найден на нескольких складах, укажите warehouse явно.");
++
++        return matches.SingleOrDefault();
++    }
++
++    // (г) дата отгрузки последнего отгруженного заказа; ShippedAt nullable в БД -> фильтр на null
++    // до агрегации, исключение вместо тихого DateTime.MinValue, если отгруженных заказов ещё нет
++    public async Task<DateTime> GetLastShippedAtAsync(Guid customerId)
++    {
++        var lastShippedAt = await _db.Orders
++            .Where(o => o.CustomerId == customerId && o.ShippedAt != null)
++            .MaxAsync(o => (DateTime?)o.ShippedAt);
++
++        if (lastShippedAt == null)
++            throw new InvalidOperationException($"У клиента {customerId} нет отгруженных заказов.");
++
++        return lastShippedAt.Value;
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..e6b6c75
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,10 @@
++## Изменённые/созданные файлы
++
++- Создан `OrderQueries.cs` — сервис с 4 read-методами.
++
++## Решения
++
++- (а) карточка заказа — одна сущность, поэтому `Include`×2 без `AsSplitQuery` (JOIN дешевле доп. round-trip'а); `AsNoTracking`, т.к. read-only.
++- (б) выгрузка заказов клиента — при тысячах заказов два `Include` дают cartesian explosion, поэтому добавлен `AsSplitQuery`; фильтр по `CustomerId` до материализации.
++- (в) `GetProductBySkuAsync` — SKU уникален только в рамках склада, а склад может быть `null`; вместо слепого `Single()` (бомба замедленного действия) беру `Take(2)` и явно бросаю исключение, если без склада нашлось больше одной записи — неоднозначность не скрывается.
++- (г) `GetLastShippedAtAsync` — `MAX(ShippedAt)` считается в SQL с предварительным `WHERE ShippedAt != null`; поскольку возврат не-nullable `DateTime`, при отсутствии отгруженных заказов бросается явное исключение вместо фиктивного значения.

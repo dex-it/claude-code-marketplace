@@ -93,6 +93,17 @@ h('## Вред: прогоны хотя бы с одним событием harm
   if (f1.n && f5.n) out.push('', `F5 против F1: Фишер p = ${fisher(f5.k, f5.n - f5.k, f1.k, f1.n - f1.k).toFixed(3)}.`);
 }
 
+h('## Вред класса D: неверный готовый ответ (строки harm класса D и fail по unit класса D)');
+{
+  const dEv = (form) => {
+    const rs = items.filter((r) => r.form === form && r.class === 'D' && (r.kind === 'harm' || r.kind === 'unit'));
+    return { k: rs.filter((r) => (r.kind === 'harm' ? r.verdict === 'yes' : !pass(r))).length, n: rs.length };
+  };
+  table(['Форма', 'События вреда класса D'], FORMS.map((f) => { const v = dEv(f); return [f, kn(v.k, v.n)]; }));
+  const a = dEv('F5'); const b = dEv('F1');
+  if (a.n && b.n) out.push('', `F5 против F1: Фишер p = ${fisher(a.k, a.n - a.k, b.k, b.n - b.k).toFixed(3)}.`);
+}
+
 h('## Вред по строкам ключа (yes / прогонов)');
 {
   const ids = [...new Set(items.filter((r) => r.kind === 'harm' || r.kind === 'mine').map((r) => r.item_id))].sort();

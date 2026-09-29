@@ -1,0 +1,71 @@
+{
+  "id": "d2fc01",
+  "case": "E1",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.052715399999999996,
+    "durationMs": 12289,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 3310,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1290,
+      "output_tokens_details": {
+        "thinking_tokens": 699
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3310,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1290,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 3310,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 3310
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "E1-filter": {
+      "verdict": "PASS",
+      "quote": ".Where(o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < now)",
+      "why": "Правило IsOverdue целиком выражено в IQueryable и выполняется в SQL до ToListAsync; повторная проверка IsOverdue(now) в памяти избыточна и не заменяет серверный фильтр."
+    },
+    "E1-tracking": {
+      "verdict": "FAIL",
+      "quote": "_db.Orders\n            .Where(o => o.Status == \"active\")\n            .Include(o => o.Customer)\n            .Include(o => o.Items)\n            .ToListAsync();",
+      "why": "GetActiveAsync и GetOverdueAsync материализуют сущности без AsNoTracking, а проекция в DTO происходит уже после материализации."
+    },
+    "E1-m-n1": {
+      "verdict": "NO",
+      "quote": ".Include(o => o.Customer)\n            .Include(o => o.Items)",
+      "why": "Customer и Items подгружаются через Include, поэтому обращения Customer.Name и Items.Count после материализации не порождают ленивых запросов."
+    },
+    "E1-m-agg": {
+      "verdict": "YES",
+      "quote": "var orders = await _orders.GetActiveAsync();\n        return orders\n            .GroupBy(o => o.Category)",
+      "why": "Группировка по категориям выполняется в памяти над материализованным списком, а не через GroupBy на сервере."
+    },
+    "E1-m-getall": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "GetAllAsync в отчёте не используется: вызываются только новые методы GetActiveAsync и GetOverdueAsync."
+    }
+  },
+  "stderr": ""
+}

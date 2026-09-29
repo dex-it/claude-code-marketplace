@@ -1,0 +1,86 @@
+{
+  "id": "bfff34",
+  "case": "MRA",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.06780340000000001,
+    "durationMs": 17180,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 4196,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1690,
+      "output_tokens_details": {
+        "thinking_tokens": 868
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4196,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1690,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 4196,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 4196
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "MRA-A4": {
+      "verdict": "PASS",
+      "quote": "проверка существования через `CountAsync(...) > 0` вместо `AnyAsync(...)`",
+      "why": "Находка есть и совпадает с ключом: CountAsync() > 0 вместо AnyAsync в HasOrders."
+    },
+    "MRA-A1": {
+      "verdict": "MISSED",
+      "quote": "тянет полные сущности `Product` (включая `Description`, `byte[] Image` и т.д.), хотя отчёту нужны только `Id`, `Name`, `IsActive`, `Price`",
+      "why": "Находка говорит о лишних колонках (ширине сущности), но не о загрузке всех строк таблицы и фильтрации IsActive в памяти вместо SQL."
+    },
+    "MRA-A2": {
+      "verdict": "FOUND",
+      "quote": "на каждый товар делается `items.Where(i => i.ProductId == p.Id).ToList()` ... (O(products × items))",
+      "why": "Прямо названо повторное сканирование items на каждый продукт с оценкой O(P*I)."
+    },
+    "MRA-A3": {
+      "verdict": "FOUND",
+      "quote": "Без identity resolution (нужен `AsNoTrackingWithIdentityResolution()`) каждая строка результата — новый объект `Customer`",
+      "why": "Названы AsNoTracking без identity resolution и Distinct по ссылке, из-за которых клиент дублируется."
+    },
+    "MRA-A5": {
+      "verdict": "FOUND",
+      "quote": "каждая заново пишет `Where(...).Select(Card).ToListAsync(ct)`, вместо одного запроса ... и одной материализацией в конце",
+      "why": "Названа материализация в каждой из веток вместо одной в конце."
+    },
+    "MRA-A6": {
+      "verdict": "FOUND",
+      "quote": "для каждой строки CSV делается `products.FirstOrDefault(p => p.Id == id)` — линейный поиск по списку",
+      "why": "Дефект назван точно, предложен Dictionary."
+    },
+    "MRA-X1": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Выручка по неоплаченным и отменённым заказам в SalesReport не упомянута."
+    },
+    "MRA-X2": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Отсутствие проверки отрицательного количества в StockImport не упомянуто."
+    }
+  },
+  "stderr": ""
+}

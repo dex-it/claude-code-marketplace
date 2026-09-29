@@ -1,0 +1,86 @@
+{
+  "id": "ef1491",
+  "exitCode": 0,
+  "started": "2026-09-29T06:46:48.105Z",
+  "finished": "2026-09-29T06:48:33.515Z",
+  "wallMs": 105410,
+  "init": {
+    "model": "claude-sonnet-5",
+    "skills": [],
+    "plugins": [
+      {
+        "name": "agents-md",
+        "path": "builtin",
+        "source": "agents-md@builtin"
+      },
+      {
+        "name": "telemetry",
+        "path": "builtin",
+        "source": "telemetry@builtin"
+      }
+    ],
+    "tools": [
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "WebFetch",
+      "WebSearch",
+      "Write"
+    ],
+    "mcpServers": [],
+    "cwd": "/Users/anonymous/.cache/research/runs/ef1491/work",
+    "claudeCodeVersion": "2.1.284"
+  },
+  "toolCalls": {
+    "Glob": 4,
+    "Read": 2,
+    "Edit": 3,
+    "Write": 4
+  },
+  "webCalls": 0,
+  "skillCalls": [],
+  "readPaths": [
+    "/Users/anonymous/.cache/research/runs/ef1491/work/Model.cs",
+    "/Users/anonymous/.cache/research/runs/ef1491/work/OrderRepository.cs"
+  ],
+  "usage": {
+    "input_tokens": 22,
+    "cache_creation_input_tokens": 15839,
+    "cache_read_input_tokens": 190317,
+    "output_tokens": 12778,
+    "output_tokens_details": {
+      "thinking_tokens": 6210
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 15839,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 602,
+        "cache_read_input_tokens": 24469,
+        "cache_creation_input_tokens": 1230,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1230
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "costUsd": 0.22924340000000004,
+  "durationMs": 104159,
+  "numTurns": 14,
+  "isError": false,
+  "stderr": "",
+  "resultSubtype": "success"
+}

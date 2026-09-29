@@ -1,0 +1,81 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..9623559
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,75 @@
++# Ревью MR !4210 (карточка заказа, выгрузка корзины, аудит)
++
++## 1. Workers/AuditWriter.cs — `WriteAsync` — **critical**
++
++```csharp
++_db.AuditLogs.Add(new AuditLog { At = DateTime.UtcNow, Text = text });
++```
++
++`AuditLog.At` не имеет явного `HasColumnType` в `OnModelCreating`, поэтому провайдер Npgsql маппит его в
++`timestamp without time zone` (это дефолт для `DateTime` в Npgsql, тот же тип, что явно указан для
++`Order.CreatedAt`). `DateTime.UtcNow` имеет `Kind = Utc`. Начиная с Npgsql/EFCore.PG 6.0+ запись значения
++с `Kind=Utc` в колонку `timestamp without time zone` запрещена и провайдер бросает исключение уже на
++`SaveChangesAsync` (`Cannot write DateTime with Kind=Utc to PostgreSQL type 'timestamp without time zone'`).
++
++Итог: каждый вызов `AuditWriter.WriteAsync` будет падать в runtime — запись аудита (основная фича MR)
++полностью не работает.
++
++Исправление: либо смаппить колонку на `timestamptz` (`timestamp with time zone`), либо перед записью
++привести к `DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified)`, если колонка осознанно
++остаётся `timestamp`.
++
++## 2. Services/CustomerOrders.cs — `ActivePageAsync` — off-by-one в пагинации — **high**
++
++```csharp
++// page - номер страницы с 1, как в MR.
++.Skip(page * pageSize)
++.Take(pageSize)
++```
++
++Комментарий и MR.md декларируют нумерацию страниц с 1, но `Skip(page * pageSize)` при `page = 1`
++пропускает первые `pageSize` строк — то есть настоящая первая страница (записи 0..pageSize-1) никогда не
++возвращается пользователю, а результат `page=1` фактически является второй страницей. Должно быть
++`Skip((page - 1) * pageSize)`.
++
++## 3. Services/CustomerOrders.cs — `ActivePageAsync` — регистр в фильтре по статусу — **high**
++
++```csharp
++.Where(o => o.CustomerId == customerId && o.Status == "Active")
++```
++
++В `Model.cs` домен по умолчанию проставляет `Status = "active"` (строчными, `Order.Status` default value).
++Сравнение строк в Postgres по умолчанию регистрозависимое (колонка `text`, не `citext`), поэтому фильтр
++`o.Status == "Active"` не совпадёт ни с одной записью, созданной с дефолтным статусом — метод будет
++возвращать пустой список для всех клиентов, у которых статус не выставлен явно в верхнем регистре где-то
++в другом (не показанном) коде. Нужно либо согласовать регистр констант со значением по умолчанию в
++модели, либо использовать `EF.Functions.ILike` / нормализовать регистр в БД.
++
++## 4. Services/OrderCard.cs — `GetAsync` — `AsSplitQuery()` на выборке одной записи — **medium**
++
++```csharp
++var order = await _db.Orders
++    .AsNoTracking()
++    .Include(o => o.Customer)
++    .Include(o => o.Items)
++    .Include(o => o.Payments)
++    .AsSplitQuery()
++    .SingleOrDefaultAsync(o => o.Id == id, ct);
++```
++
++Это буквально анти-паттерн команды «AsSplitQuery для single entity»: запрос грузит ровно один `Order`
++по `Id` (`SingleOrDefaultAsync`), а `AsSplitQuery()` добавляет 2 дополнительных roundtrip'а к БД (по
++одному на `Items` и `Payments`) вместо одного JOIN-запроса. Для одной записи оverhead доп. roundtrip'ов,
++как правило, больше, чем overhead небольшого cartesian-произведения `Items × Payments` одного заказа.
++Рекомендация: убрать `AsSplitQuery()` для этого метода (оставить split query для сценариев со списком
++заказов, где реально возникает cartesian explosion).
++
++---
++
++### Не дефекты, но стоит отметить
++- `CartLookup.GetAsync`: `Where(p => ids.Contains(p.Id))` с несколькими тысячами id — для Npgsql это
++  транслируется в `= ANY(@ids)` с одним параметром-массивом, проблем с планом/лимитом параметров не будет
++  (в отличие от SQL Server) — замечаний нет.
++- `AuditWriter` лежит в папке `Workers`, что намекает на использование из `BackgroundService`. Файлов DI
++  (Program.cs/Startup) в диффе нет — стоит убедиться на review, что `ShopDbContext` резолвится через
++  `IServiceScopeFactory.CreateScope()`, а не заинжектен напрямую в singleton-хостед-сервис.

@@ -1,0 +1,71 @@
+{
+  "id": "4101b9",
+  "case": "N0",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0353994,
+    "durationMs": 7133,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 2673,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 679,
+      "output_tokens_details": {
+        "thinking_tokens": 72
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 2673,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 679,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 2673,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 2673
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "N0-h-split": {
+      "verdict": "NO",
+      "quote": "два `Include` коллекций (`Items`, `Payments`) на одной сущности — ровно случай cartesian-explosion, для которого `AsSplitQuery` уместен",
+      "why": "Выход явно признаёт AsSplitQuery в OrderCard корректным и не выдвигает против него находок."
+    },
+    "N0-h-utc": {
+      "verdict": "NO",
+      "quote": "риск захвата Scoped DbContext в Singleton/BackgroundService",
+      "why": "Единственная находка по AuditWriter касается времени жизни DbContext в DI; против DateTime.UtcNow, Kind, типа колонки или ToLocalTime выход ничего не утверждает."
+    },
+    "N0-h-contains": {
+      "verdict": "NO",
+      "quote": "для Npgsql список из тысяч id транслируется в `= ANY(@ids)`, отдельного риска производительности нет",
+      "why": "Contains в CartLookup признан корректным, про лимит параметров и разбиение на пачки находок нет."
+    },
+    "N0-X1": {
+      "verdict": "FOUND",
+      "quote": "`Skip(page * pageSize)` при нумерации страниц с 1 ... при `page = 1` пропускает `pageSize` записей",
+      "why": "Выход называет off-by-one пагинации с потерей первой страницы и предлагает исправление Skip((page - 1) * pageSize)."
+    },
+    "N0-X2": {
+      "verdict": "FOUND",
+      "quote": "Фильтр `o.Status == \"Active\"`, но `Order.Status` в `Model.cs` по умолчанию инициализируется как `\"active\"`",
+      "why": "Выход указывает на несовпадение регистра, из-за которого метод возвращает пустой список."
+    }
+  },
+  "stderr": ""
+}

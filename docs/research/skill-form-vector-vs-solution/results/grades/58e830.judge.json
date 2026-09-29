@@ -1,0 +1,111 @@
+{
+  "id": "58e830",
+  "case": "R",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0850034,
+    "durationMs": 11963,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 6826,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1498,
+      "output_tokens_details": {
+        "thinking_tokens": 371
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6826,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1498,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 6826,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 6826
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "R-D3": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Нет находки о том, что условия в FromSqlRaw собираются через \"Products\", а шаблон задаёт алиас p; находка 3 по Reserve касается только отсутствия транзакции."
+    },
+    "R-D1": {
+      "verdict": "FOUND",
+      "quote": "`SingleAsync(p => p.Sku == sku)` падает, если SKU есть на нескольких складах",
+      "why": "Названа неуникальность SKU между складами при SingleAsync."
+    },
+    "R-D2": {
+      "verdict": "FOUND",
+      "quote": "`MaxAsync` возвращает `null`, если у клиента нет отгруженных заказов; `last!.Value` даёт NRE в рантайме",
+      "why": "Назван null от MaxAsync(ShippedAt) и разыменование через !.Value."
+    },
+    "R-D4": {
+      "verdict": "FOUND",
+      "quote": "лишний `UpdateRange` на уже трекаемых сущностях помечает модифицированными все колонки",
+      "why": "Назван UpdateRange на отслеживаемых сущностях."
+    },
+    "R-D5": {
+      "verdict": "FOUND",
+      "quote": "в singleton `BackgroundService` напрямую внедрён Scoped `ShopDbContext` (captive dependency)",
+      "why": "Назван DbContext в конструкторе BackgroundService."
+    },
+    "R-D6": {
+      "verdict": "FOUND",
+      "quote": "два `Include` без `AsSplitQuery()` дают декартово произведение строк; для клиентов с тысячами заказов",
+      "why": "Названы две коллекции Include без split на тысячах заказов."
+    },
+    "R-D7": {
+      "verdict": "FOUND",
+      "quote": "`SELECT ... FOR UPDATE` выполняется без явной транзакции",
+      "why": "Назван FOR UPDATE без явной транзакции."
+    },
+    "R-D8": {
+      "verdict": "FOUND",
+      "quote": "нет optimistic concurrency при явно заявленном сценарии одновременного редактирования заказа",
+      "why": "Названо отсутствие concurrency token при правке заказа."
+    },
+    "R-D9": {
+      "verdict": "FOUND",
+      "quote": "нет бэкафилла старых значений категории в новые таблицы — потеря данных",
+      "why": "Назван DropColumn Category без переноса данных."
+    },
+    "R-K1": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "GetAllAsync упомянут только как пример падающего SELECT, а загрузка всех заказов с фильтрацией IsOverdue в памяти как дефект не названа."
+    },
+    "R-h-B1": {
+      "verdict": "NO",
+      "quote": "Соседний метод `GetCard` для аналогичного набора Include корректно использует `AsSplitQuery()`",
+      "why": "AsSplitQuery в GetCard назван корректным, находки против него нет."
+    },
+    "R-h-B2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находок про Kind=Unspecified и чтение как Utc для timestamp without time zone нет."
+    },
+    "R-O1": {
+      "verdict": "FOUND",
+      "quote": "сумма считается как `Sum(price)` без умножения на `Qty`",
+      "why": "Назван расчёт суммы заказа без Qty."
+    }
+  },
+  "stderr": ""
+}

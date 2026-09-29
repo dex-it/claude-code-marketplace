@@ -1,0 +1,51 @@
+diff --git a/CustomerNotifier.cs b/CustomerNotifier.cs
+new file mode 100644
+index 0000000..8cfb719
+--- /dev/null
++++ b/CustomerNotifier.cs
+@@ -0,0 +1,33 @@
++using Microsoft.EntityFrameworkCore;
++
++namespace Shop;
++
++public class CustomerNotifier
++{
++    private readonly ShopDbContext _db;
++    private readonly IEmailSender _emailSender;
++
++    public CustomerNotifier(ShopDbContext db, IEmailSender emailSender)
++    {
++        _db = db;
++        _emailSender = emailSender;
++    }
++
++    public async Task NotifyCustomers(IEnumerable<Guid> customerIds, string text, CancellationToken ct = default)
++    {
++        // customerIds - из маркетинговой системы: обходим один раз и убираем дубли сразу.
++        var ids = customerIds.Distinct().ToList();
++        if (ids.Count == 0)
++            return;
++
++        var emails = await _db.Customers
++            .Where(c => ids.Contains(c.Id))
++            .Select(c => c.Email)
++            .ToListAsync(ct);
++
++        foreach (var email in emails)
++        {
++            await _emailSender.SendAsync(email, "Уведомление", text, ct);
++        }
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..97d8bb4
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,6 @@
++Создан файл: CustomerNotifier.cs (класс `CustomerNotifier` с методом `NotifyCustomers(IEnumerable<Guid> customerIds, string text, CancellationToken ct = default)`).
++
++Решения:
++- Входной `customerIds` из внешней (маркетинговой) системы обходится ровно один раз через `.Distinct().ToList()` — убирает дубли id и защищает от повторного перечисления "чужого" `IEnumerable`.
++- Один батч-запрос `Where(c => ids.Contains(c.Id))` с проекцией `Select(c => c.Email)` вместо запроса в цикле и загрузки полных сущностей `Customer`; `Contains` по списку id для Npgsql транслируется в `= ANY(@array)`, поэтому безопасен и для больших списков.
++- Письма отправляются в цикле по уже материализованному списку email (`ToListAsync` в конце цепочки, не в начале).

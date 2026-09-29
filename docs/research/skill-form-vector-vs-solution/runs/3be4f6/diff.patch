@@ -1,0 +1,66 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..f442ca7
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,60 @@
++# Ревью MR: Notify.Worker (outbox-воркер рассылки)
++
++## Critical
++
++1. **Program.cs — `builder.Services.Configure<SmtpOptions>(...)`**
++   Секция биндинга указана как `"Mail"`, а во всех appsettings.*.json настройки лежат под ключом `"Smtp"`. В итоге `SmtpOptions` всегда биндится из пустой секции: `Host`/`FromAddress` останутся `null` (объявлены как non-nullable string без `required` — см. отдельный пункт), `Port` = 0. Реальные значения хоста/порта/пароля из конфига никогда не попадают в `SmtpOptions`.
++   Почему дефект: письмо не может быть отправлено ни в одной среде — падение на первом же `MailboxAddress.Parse(o.FromAddress)` / `client.ConnectAsync(o.Host, o.Port, ...)` в `SmtpMailSender.SendAsync`. Это делает всю фичу рассылки нерабочей.
++
++2. **ThrottleService.WaitAsync — рассинхронизация имени ключа**
++   Код читает `config.GetValue<int>("Throttle:MessagesPerMinute")`, а в appsettings ключ называется `"Throttle:PerMinute"`. `GetValue<int>` на отсутствующем ключе вернёт `0` (default(int)), а `60_000 / perMinute` даст `DivideByZeroException` при первом же вызове `WaitAsync` — воркер будет падать на каждой попытке отправки.
++
++3. **OutboxWorker.ProcessBatchAsync — `SentAt` проставляется до фактической отправки**
++   ```
++   m.LockedUntil = now + o.LockTimeout;
++   m.SentAt = now;         // <-- выставляется сразу для всей выборки
++   ...
++   await db.SaveChangesAsync(ct);   // фиксируется ДО отправки
++   ...
++   catch (Exception ex) { m.Attempts++; ... }   // SentAt не откатывается
++   ```
++   Почему дефект: запрос выборки — `m.SentAt == null && m.Attempts < o.MaxRetries`. Как только строка помечена `SentAt = now`, она больше никогда не попадёт в выборку, даже если `SendAsync` упал с исключением. `MaxRetries`/`Attempts` де-факто мертвый код: неудачные отправки молча считаются «отправленными» и теряются без единого повторного шанса и без видимого сигнала (кроме warning-лога).
++
++4. **OutboxWorker.ExecuteAsync — unit confusion в `PollInterval`**
++   `await Task.Delay(TimeSpan.FromSeconds(o.PollInterval), ct);` при `"PollInterval": 500` (appsettings.json) — это 500 **секунд** (~8.3 минуты) между опросами outbox. Описание MR требует опрос «раз в полсекунды» (0.5 c = 500 мс) — автор конфига почти наверняка имел в виду миллисекунды. Имя настройки в `OutboxOptions.PollInterval` не содержит единицы измерения — классическая ловушка unit confusion. Итог: вместо частоты 2 раза/сек воркер реально опрашивает раз в 8+ минут — рассылка фактически не работает по требуемому SLA.
++
++5. **Options/OutboxOptionsValidator.cs + Program.cs — валидатор написан, но нигде не зарегистрирован**
++   `OutboxOptionsValidator : IValidateOptions<OutboxOptions>` покрыт зелёными юнит-тестами (`tests/OutboxOptionsValidatorTests.cs`), но в `Program.cs` нет `services.AddSingleton<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>()` (или `TryAddEnumerable`) и нет `.ValidateOnStart()`. Правило никогда не исполняется в реальном приложении — некорректный конфиг (нулевой `MaxBatchSize`, отрицательный `MaxRetries`, `LockTimeout <= 0`) будет спокойно принят и упадёт только в рантайме под нагрузкой, а не на старте деплоя. Тесты создают ложное чувство защищённости.
++
++6. **appsettings.Production.json — секреты закоммичены в открытом виде**
++   `ConnectionStrings:Notify` содержит реальный пароль БД `Kx7!pQ2vR9wz`, `Smtp:Password` содержит `rl_live_9f3a1c77e2b04d6d`. Staging корректно использует плейсхолдер `${NOTIFY_DB_PASSWORD}` для пароля БД — прод этому паттерну не следует. Утёкшие в git-историю секреты нужно считать скомпрометированными и ротировать после удаления из репозитория.
++
++## High
++
++7. **appsettings.Staging.json vs appsettings.Production.json — `MaxInFlight`: staging (20) > production (5), без объяснения**
++   Нагрузочный параметр параллельных отправок в staging в 4 раза выше, чем в проде, и нигде не задокументировано, зачем. По правилам конфиг-гигиены staging должен воспроизводить прод-поведение (staging ≤ prod); иначе баги под нагрузкой (например, деление на 0 в `ThrottleService` при большом параллелизме, гонки при блокировке outbox-строк) не будут пойманы до продакшена.
++
++8. **appsettings.Production.json — `MinBatchSize` (200) > `MaxBatchSize` (100)**
++   Инвариант `MinBatchSize <= MaxBatchSize` нарушен, и это не ловится валидатором (`OutboxOptionsValidator` вообще не проверяет соотношение Min/Max — только `MaxBatchSize > 0`). В `OutboxWorker.ExecuteAsync` это приводит к тихому отключению адаптивной пакетной обработки: условие `if (o.MinBatchSize < o.MaxBatchSize)` — `false`, ветка адаптации никогда не выполняется, без единого лога/сигнала о том, что фича выключена из-за опечатки в конфиге. Ровно паттерн «кросс-field инвариант проверяется тихим if» из чек-листа команды.
++
++9. **Options/SmtpOptions.cs — non-nullable свойства без `required`**
++   `Host`, `FromAddress` объявлены как `string` (non-nullable) без `required` и без значения по умолчанию, при этом проект собран с `<Nullable>enable</Nullable>` (Notify.Worker.csproj). Компилятор выдаёт CS8618 (предупреждение, скорее всего проигнорировано), а реально из-за бага №1 (секция "Mail" вместо "Smtp") в эти поля попадёт `null`, что дальше долетает до `MailboxAddress.Parse` / `SmtpClient.ConnectAsync` как runtime-исключение. `required` заставил бы компилятор потребовать значение уже на этапе создания объекта.
++
++## Medium
++
++10. **Program.cs / OutboxWorker.cs — `IOptions<OutboxOptions>` вместо `IOptionsMonitor<OutboxOptions>`**
++    Описание MR явно требует: «лимит параллельных отправок и размер пачки должны меняться на лету правкой appsettings, без рестарта». `OutboxWorker` — singleton (`BackgroundService`), внедряет `IOptions<OutboxOptions>`, которое биндится один раз и кэшируется на весь lifetime процесса. Правка `appsettings.json` в рантайме не повлияет на `MaxInFlight`/`MaxBatchSize`/etc, пока процесс не перезапущен — то есть ключевое требование MR не выполнено кодом. Нужен `IOptionsMonitor<OutboxOptions>` (с `CurrentValue` на каждой итерации цикла).
++
++11. **ThrottleService.WaitAsync — чтение конфига мимо options-пайплайна**
++    Использует `IConfiguration.GetValue<int>(...)` напрямую вместо `IOptions/IOptionsMonitor<ThrottleOptions>`. Помимо рассинхронизации ключа (см. критический пункт 2), это означает отсутствие какой-либо валидации (`PerMinute <= 0` даст тот же `DivideByZeroException`) и bypass общего механизма конфигурации, принятого для остальных настроек проекта.
++
++12. **OutboxWorker.ProcessBatchAsync — гонка при захвате outbox-строк**
++    Выборка (`SELECT ... WHERE SentAt IS NULL AND LockedUntil ...`) и последующая простановка `LockedUntil`/`SentAt` выполняются как два отдельных шага (LINQ-запрос, затем `SaveChangesAsync`) без транзакции/`SELECT ... FOR UPDATE SKIP LOCKED`/optimistic concurrency token. При нескольких параллельных инстансах воркера (что вполне вероятно для «worker service» в проде) два инстанса могут выбрать одни и те же строки до того, как первый успеет проставить `LockedUntil`, что приведёт к дублирующей отправке писем. Поле `LockTimeout` намекает на то, что многоинстансный сценарий предполагался.
++
++## Low
++
++13. **appsettings.Production.json / appsettings.Staging.json — дублирование значений по умолчанию**
++    `MaxInFlight: 5`, `MaxRetries: 5`, `MaxBatchSize: 100` в Production и `MaxRetries: 5` в Staging совпадают со значениями по умолчанию в `appsettings.json`. Env-файлы должны содержать только отклонения — иначе при смене дефолта разработчики забудут обновить не все файлы, и реальные различия между средами становится сложнее увидеть на фоне «шумных» повторов.
++
++14. **tests/OutboxOptionsValidatorTests.cs — тесты не покрывают то, что нужно**
++    Юнит-тесты проверяют только логику самого `Validate(...)`, но не проверяют ни регистрацию валидатора в DI, ни `ValidateOnStart`, ни (что важнее с учётом найденного бага №8) кросс-field инвариант `MinBatchSize <= MaxBatchSize`. Зелёные тесты создают ложную уверенность, что конфигурация «проверена».

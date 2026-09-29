@@ -1,0 +1,94 @@
+diff --git a/Model.cs b/Model.cs
+index cc90064..92d91fc 100644
+--- a/Model.cs
++++ b/Model.cs
+@@ -1,4 +1,6 @@
+ // Shop.Data - EF Core 8, PostgreSQL (Npgsql.EntityFrameworkCore.PostgreSQL 8)
++using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
++
+ namespace Shop.Data;
+ 
+ public class Customer { public Guid Id { get; set; } public string Name { get; set; } = ""; public List<Order> Orders { get; set; } = new(); }
+@@ -11,6 +13,7 @@ public class Order
+     public string Status { get; set; } = "active";
+     public string Category { get; set; } = "";
+     public decimal Total { get; set; }
++    public int Complexity { get; set; }               // сложность комплектации, 1..5
+     public DateTime CreatedAt { get; set; }          // column: timestamp without time zone
+     public DateTime? ShippedAt { get; set; }
+     public bool IsDeleted { get; set; }
+@@ -44,7 +47,40 @@ public class ShopDbContext : DbContext
+     protected override void OnModelCreating(ModelBuilder b)
+     {
+         b.Entity<Order>().HasQueryFilter(o => !o.IsDeleted);
+-        b.Entity<Order>().Property(o => o.CreatedAt).HasColumnType("timestamp without time zone");
++
++        b.Entity<Order>()
++            .ToTable(t => t.HasCheckConstraint("CK_Order_Complexity", "\"Complexity\" BETWEEN 1 AND 5"));
++
++        // Колонка остаётся timestamp without time zone (её видят отчёты DBA), но в коде
++        // CreatedAt всегда должен быть DateTime.Kind == Utc. Конвертер сохраняет "naive"
++        // значение как UTC-инстант и явно проставляет Kind=Utc при чтении, иначе Npgsql
++        // вернёт Kind=Unspecified и клиенты в разных таймзонах будут трактовать его по-разному.
++        var utcConverter = new ValueConverter<DateTime, DateTime>(
++            v => v.Kind == DateTimeKind.Utc ? v : v.ToUniversalTime(),
++            v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
++        b.Entity<Order>()
++            .Property(o => o.CreatedAt)
++            .HasColumnType("timestamp without time zone")
++            .HasConversion(utcConverter);
++
++        // Обе коллекции - обязательные зависимые (FK не nullable). Явная конфигурация
++        // с Cascade нужна, чтобы Items.Clear()/Payments.Clear() приводили к удалению
++        // осиротевших строк, а не к попытке проставить NULL в required FK, и чтобы
++        // случайный hard-delete Order (соглашение - soft-delete через IsDeleted)
++        // не оставлял в БД позиции/платежи без родителя мимо HasQueryFilter на Order.
++        b.Entity<Order>()
++            .HasMany(o => o.Items)
++            .WithOne()
++            .HasForeignKey(i => i.OrderId)
++            .IsRequired()
++            .OnDelete(DeleteBehavior.Cascade);
++
++        b.Entity<Order>()
++            .HasMany(o => o.Payments)
++            .WithOne()
++            .HasForeignKey(p => p.OrderId)
++            .IsRequired()
++            .OnDelete(DeleteBehavior.Cascade);
+     }
+ }
+ // Options: UseNpgsql(cs).UseLazyLoadingProxies()
+diff --git a/OrderRepository.cs b/OrderRepository.cs
+index 72637b8..0066695 100644
+--- a/OrderRepository.cs
++++ b/OrderRepository.cs
+@@ -6,4 +6,15 @@ public class OrderRepository
+     public OrderRepository(ShopDbContext db) => _db = db;
+     public Task<List<Order>> GetAllAsync() => _db.Orders.ToListAsync();
+     public Task<Order?> GetAsync(Guid id) => _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
++
++    public async Task ClearItemsAsync(Guid orderId)
++    {
++        var order = await _db.Orders.Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == orderId);
++        if (order is null) return;
++
++        // OrderItem.OrderId - required FK с OnDelete(Cascade) (см. OnModelCreating),
++        // поэтому Clear() помечает осиротевшие позиции на удаление, а не на обнуление FK.
++        order.Items.Clear();
++        await _db.SaveChangesAsync();
++    }
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..f73e761
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,7 @@
++Изменённые файлы:
++- Model.cs — добавлено поле `Order.Complexity` (int) с check-constraint 1..5; `CreatedAt` замаплен через `ValueConverter<DateTime, DateTime>` (колонка осталась `timestamp without time zone`, но конвертер приводит запись к UTC и явно проставляет `Kind=Utc` при чтении); явно сконфигурированы обязательные связи `Order → Items` и `Order → Payments` (`HasForeignKey`, `IsRequired()`, `OnDelete(DeleteBehavior.Cascade)`), что и обеспечивает корректную работу `Clear()`.
++- OrderRepository.cs — добавлен метод `ClearItemsAsync(Guid orderId)`: подгружает заказ с `Items`, делает `Items.Clear()` и `SaveChangesAsync()`.
++
++Решения:
++- Тип колонки `CreatedAt` не трогали (отчёты DBA), поэтому UTC-гарантия сделана конвертером, а не `timestamptz`/`UseNpgsqlDateTimeInfinityConversions`.
++- FK у `OrderItem`/`Payment` объявлены required + Cascade — это позволяет `Items.Clear()`/`Payments.Clear()` удалять осиротевшие строки вместо попытки обнулить non-nullable `OrderId`, и не оставляет "чужие" строки при случайном hard-delete заказа (soft-delete у Order идёт через `IsDeleted`/`HasQueryFilter`).

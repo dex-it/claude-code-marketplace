@@ -1,0 +1,86 @@
+{
+  "id": "8f3405",
+  "case": "MRA",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.058135400000000004,
+    "durationMs": 6810,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 5240,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 789,
+      "output_tokens_details": {
+        "thinking_tokens": 0
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 5240,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 789,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 5240,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 5240
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "MRA-A4": {
+      "verdict": "PASS",
+      "quote": "`await _db.Orders.CountAsync(...) > 0` — классический пункт «Проверка наличия через Count() > 0»",
+      "why": "Находка прямо называет CountAsync() > 0 в HasOrders и предлагает AnyAsync."
+    },
+    "MRA-A1": {
+      "verdict": "FOUND",
+      "quote": "`GetAllAsync()` тянет из БД *все* продукты (активные и неактивные), фильтр `IsActive` применяется уже в памяти",
+      "why": "Дефект загрузки всей таблицы с фильтром IsActive в памяти назван явно."
+    },
+    "MRA-A2": {
+      "verdict": "FOUND",
+      "quote": "для каждого продукта делается `items.Where(i => i.ProductId == p.Id)` — линейный проход по всему списку `items` внутри `Select` по продуктам, т.е. сложность O(P×I)",
+      "why": "Квадратичный поиск items по ProductId на каждый продукт назван с оценкой O(P×I)."
+    },
+    "MRA-A3": {
+      "verdict": "FOUND",
+      "quote": "Запрос выполняется с `AsNoTracking()`, поэтому EF Core **не** делает identity resolution",
+      "why": "Названы и AsNoTracking без identity resolution, и Distinct по ссылке, и дубли клиентов."
+    },
+    "MRA-A5": {
+      "verdict": "FOUND",
+      "quote": "код дублирует материализацию в каждой из 4 веток",
+      "why": "Материализация в каждой ветке CatalogSearch.Search названа проблемой."
+    },
+    "MRA-A6": {
+      "verdict": "FOUND",
+      "quote": "на каждую строку CSV выполняется `FirstOrDefault` линейным перебором по всему списку продуктов — O(N×M)",
+      "why": "Линейный FirstOrDefault по List на каждую строку импорта назван явно."
+    },
+    "MRA-X1": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Выручка по неоплаченным или отменённым заказам в SalesReport не упомянута."
+    },
+    "MRA-X2": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Отсутствие проверки отрицательного количества в StockImport не упомянуто."
+    }
+  },
+  "stderr": ""
+}

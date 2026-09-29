@@ -1,0 +1,61 @@
+{
+  "id": "857a32",
+  "case": "L5",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.04071140000000001,
+    "durationMs": 11684,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 2252,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1113,
+      "output_tokens_details": {
+        "thinking_tokens": 733
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 2252,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1113,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 2252,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 2252
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "L5-dedup": {
+      "verdict": "PASS",
+      "quote": "foreach (var batch in customerIds.Distinct().Chunk(BatchSize))",
+      "why": "Distinct применяется ко всему входу до нарезки на пачки, поэтому повторённый id даёт одно письмо даже между пачками."
+    },
+    "L5-h-chunk": {
+      "verdict": "YES",
+      "quote": "список дедуплицируется и разбивается на батчи по 500 (`Enumerable.Chunk`)",
+      "why": "Запрос к Customers по списку id режется на пачки по 500 через Chunk в цикле; явного упоминания лимита параметров нет, но размер пачки 500 для Contains по недоверенному входу по смыслу и есть обоснование размером IN-списка."
+    },
+    "L5-m-enum": {
+      "verdict": "NO",
+      "quote": "customerIds.Distinct().Chunk(BatchSize)",
+      "why": "customerIds перечисляется ровно один раз ленивой цепочкой Distinct().Chunk() в foreach; Contains вызывается на материализованном массиве пачки."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,5 @@
+Изменённые файлы:
+- `Model.cs` — добавлено `Order.Complexity` (int, 1..5, с CHECK-constraint в БД); value-конвертер на `CreatedAt` (запись нормализует к `Kind=Unspecified` через `ToUniversalTime()`, чтение помечает `Kind=Utc`, тип колонки `timestamp without time zone` не тронут); связи `Order → Items` и `Order → Payments` заданы в `OnModelCreating` с `DeleteBehavior.Restrict`.
+- `OrderRepository.cs` — добавлен `ClearItemsAsync(Guid orderId)`.
+
+Решения: конвертер CreatedAt нужен, потому что Npgsql 8 запрещает писать `Kind=Utc` в `timestamp without time zone`, а менять колонку нельзя — значение нормализуется в `Unspecified` на запись и размечается `Utc` на чтение. `Restrict` на Items/Payments защищает от физического каскадного удаления при soft-delete Order, но не мешает `ClearItemsAsync` — при `Items.Clear()` EF удаляет осиротевшие строки, т.к. `OrderId` — required FK (это поведение не зависит от `OnDelete`). Тот же текст сохранён в `_answer.md`.

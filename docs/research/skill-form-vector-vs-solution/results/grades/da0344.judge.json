@@ -1,0 +1,81 @@
+{
+  "id": "da0344",
+  "case": "FVB",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.049407400000000004,
+    "durationMs": 9111,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 3779,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 937,
+      "output_tokens_details": {
+        "thinking_tokens": 241
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3779,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 937,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 3779,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 3779
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "FVB-KB1": {
+      "verdict": "PASS",
+      "quote": "Это неверно для Pydantic v1 (`pydantic==1.10.13`): в Pydantic v1 поле типа `Optional[X]` без явного default неявно получает default `None`",
+      "why": "Находка прямо опровергает утверждение комментария и указывает на полное списание баланса у старых клиентов."
+    },
+    "FVB-KB2": {
+      "verdict": "PASS",
+      "quote": "Фактически в Pydantic v1 default `Config.extra = Extra.ignore` — лишние/опечатанные поля молча отбрасываются",
+      "why": "Находка опровергает утверждение о том, что pydantic по умолчанию отвергает лишние поля."
+    },
+    "FVB-h-PB1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "В выходе нет требования заменить req.dict() на model_dump()."
+    },
+    "FVB-OB1": {
+      "verdict": "FOUND",
+      "quote": "Два параллельных запроса на списание одного и того же участника могут оба прочитать одинаковый баланс и оба пройти проверку — двойное списание",
+      "why": "Находка называет отсутствие блокировки и двойное списание."
+    },
+    "FVB-OB2": {
+      "verdict": "FOUND",
+      "quote": "`Decimal(0.1)` не равен `Decimal(\"0.1\")`: конструктор берёт точное двоичное представление float",
+      "why": "Находка называет неточную стоимость балла из-за Decimal от float."
+    },
+    "FVB-OB3": {
+      "verdict": "FOUND",
+      "quote": "Нет проверки `confirm_amount >= 0`... увеличивает баланс баллов участника",
+      "why": "Находка называет начисление баллов при отрицательном confirm_amount."
+    },
+    "FVB-OB4": {
+      "verdict": "FOUND",
+      "quote": "эндпоинт принимает `member_id` напрямую из тела запроса без проверки... (IDOR)",
+      "why": "Находка называет IDOR по member_id без аутентификации."
+    }
+  },
+  "stderr": ""
+}
