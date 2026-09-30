@@ -9,14 +9,9 @@ const HEAD = C.kind === 'bugfix'
 const causeOf = (d) => `Первопричина: ${d.root_cause}\nВоспроизведение: ${d.reproduction}\nОснование ожидаемого: ${d['expected-basis']}\nПредложение фикса: ${d.fix_proposal}${d.repro_test ? `\nТест диагноста: ${d.repro_test}` : ''}`
 const INTENT = C.kind === 'bugfix' ? ` Источник намерения:\n${causeOf(C.repro)}` : ` Источник намерения - требования:\n${C.requirements.join('\n')}`
 const PROMPT = `${HEAD}Шаг 3 (первое): pre-push саморевью локальной ветки - коммиты этой цели плюс рабочее дерево.${coderInput(C.coder)}${INTENT}\nПрогон build/test реальный, итог - в run-status, не в findings. Код не меняй.`
-// Новый узел node-contract не грузит: схема для него без ссылок на словарь node-contract.
-const NEUTRAL = JSON.parse(JSON.stringify(REVIEW))
-NEUTRAL.properties['review-verdict'].description = 'сигнал оператору, порог допуска трека его не читает'
-NEUTRAL.properties.findings.items.properties.severity.description = 'P0 - CRITICAL, P1 - HIGH, P2 - MEDIUM, P3 - LOW'
-NEUTRAL.properties.prior.items.properties.severity.description = 'P0 - CRITICAL, P1 - HIGH, P2 - MEDIUM, P3 - LOW'
 const NODES = {
   old: { agentType: 'dex-self-reviewer:self-reviewer', schema: REVIEW },
-  new: { agentType: 'dex-auto:reviewer', model: 'opus', schema: NEUTRAL },
+  new: { agentType: 'dex-auto:reviewer', model: 'opus', schema: REVIEW },
 }
 phase('Review')
 return await agent(PROMPT, { label: `review:${A.node}:${A.case}`, phase: 'Review', ...NODES[A.node] })

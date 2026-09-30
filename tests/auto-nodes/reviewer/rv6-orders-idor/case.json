@@ -1,0 +1,20 @@
+{
+  "task": "FEAT-6",
+  "kind": "feature",
+  "commit": "feat(orders): cancelOrder",
+  "goal": "В src/orders.js есть cancelOrder по требованиям FEAT.md.",
+  "done": "Требования FEAT.md R1-R2 исполнены, на каждое есть тест; npm test зелёный; правка закоммичена локально.",
+  "boundary": "Правка в src/orders.js и test/; новых зависимостей нет.",
+  "requirements": [
+    "R1. Пользователь отменяет заказ в статусе new: статус становится cancelled. (FEAT.md:3)",
+    "R2. Заказ не в статусе new не отменяется: OrderStateError. (FEAT.md:4)"
+  ],
+  "coder": {
+    "red-run": "тесты R1, R2 красные до правки: cancelOrder is not a function; после правки зелёные",
+    "uncovered-status": "none", "uncovered": [],
+    "dependents-status": "none", "dependents": []
+  },
+  "mines": [
+    { "id": "M11", "file": "src/orders.js", "lines": [14, 14], "blocking": true, "what": "cancelOrder ищет заказ без ownerId: пользователь отменяет чужой заказ (IDOR); требования о владельце молчат, соседние listOrders и getOrder фильтруют по владельцу" }
+  ]
+}

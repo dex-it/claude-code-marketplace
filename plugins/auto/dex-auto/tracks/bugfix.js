@@ -37,6 +37,8 @@ const DONE = resuming ? `\nВозобновление: шаги ниже уже 
 const STATUS = { type: 'string', enum: ['complete', 'blocked', 'partial'] }
 const lack = (v, who) => !v ? `${who} не вернул выход` : v.missing || `${who} вернул blocked без нехватки`
 const why = (e) => String(e && e.message || e).slice(0, 300)
+// Форма вызова сверена зондом P75: «загружается скилл, чьё описание называет стек» - 0 вызовов из 6.
+const SKILLS = (read, before) => `Прочитав ${read}, и до ${before} вызови Skill полным именем (плагин:скилл) на каждый скилл из перечня доступных тебе, чей предмет - стек задетого кода либо используемые им фреймворк, библиотека, тестовый фреймворк или область API; нужность не судится. `
 // <<< shared: contract
 // >>> shared: nodes
 // Цену узла ставит трек, frontmatter узла её не несёт; запись без model и effort - уровень сессии.
@@ -427,7 +429,7 @@ for (let k = 1; k <= FIX_CEILING && (!passed(ver) || pending); k++) {
   // red-run прошлой попытки - установленный факт: без него следующая попытка показывает тот же тест красным заново, проедая потолок.
   const priorRed = fix && fix['red-run'] && !/^(n\/a|unverifiable)/.test(fix['red-run']) ? `\nКрасный прогон уже показан прошлой попыткой и перепроверке не подлежит: ${fix['red-run']}` : ''
   const prev = ver && !passed(ver) ? `\n${k === 1 ? 'Верификация при возобновлении' : `Попытка ${k - 1}`} не прошла: ${redNote(ver)}.${priorRed}` : ''
-  fix = await own('кодер', `${HEAD}${DONE}${OPEN}Шаг 2, попытка ${k} из ${FIX_CEILING}: лечи первопричину, не симптом; один баг - один фикс, попутного рефакторинга нет.\n${causeText}\nФайлы: ${repro.files.join(', ')}. Тесты: ${repro.test_cmd || 'нет'}. Сборка: ${repro.build_cmd || 'нет'}.${treeState}${prev}\n${acceptance()} Red-run: тест диагноста - твоя проба, в коммит; теста нет - пишешь свой. По завершении: сборка и тесты зелёные, коммит локально (сообщение по симптому).`,
+  fix = await own('кодер', `${HEAD}${DONE}${OPEN}Шаг 2, попытка ${k} из ${FIX_CEILING}: лечи первопричину, не симптом; один баг - один фикс, попутного рефакторинга нет.\n${causeText}\nФайлы: ${repro.files.join(', ')}. Тесты: ${repro.test_cmd || 'нет'}. Сборка: ${repro.build_cmd || 'нет'}.${treeState}${prev}\n${acceptance()} Red-run: тест диагноста - твоя проба, в коммит; теста нет - пишешь свой. По завершении: коммит локально (сообщение по симптому).`,
     { label: `fix:${k}`, phase: 'Fix', schema: BFIX }, NODE.coder)
   trail.push({ step: 2, attempt: k, doer: NODE.coder.agentType, status: fix ? fix.status : 'null', 'red-run': fix ? fix['red-run'] : null, 'diagnosis-check': fix ? fix['diagnosis-check'] : null })
   if (fix) decisions.push(...said(fix))
@@ -455,7 +457,7 @@ LEDGER.forEach(reg.doubt)
 reg.apply(rev, 'саморевьюер')
 if (rev && rev.status !== 'blocked' && reg.blocking().length) {
   loops.review_fix = REVIEW_FIX_CEILING
-  fix2 = await own('кодер', `${HEAD}Шаг 2 (повтор после саморевью, потолок ${REVIEW_FIX_CEILING}): закрой находки:\n${reg.blocking().map(findingLine).join('\n')}\n${causeText}\n${acceptance()}\nПосле правки сборка и тесты зелёные, коммит локально, push не делать. По каждой находке - запись в prior с её id: closed с уликой либо disputed с основанием, почему закрывать не следует.`,
+  fix2 = await own('кодер', `${HEAD}Шаг 2 (повтор после саморевью, потолок ${REVIEW_FIX_CEILING}): закрой находки:\n${reg.blocking().map(findingLine).join('\n')}\n${causeText}\n${acceptance()}\nПосле правки коммит локально, push не делать. По каждой находке - запись в prior с её id: closed с уликой либо disputed с основанием, почему закрывать не следует.`,
     { label: 'fix:after-review', phase: 'Review', schema: BFIX }, NODE.coder)
   const dc2 = noteCheck(fix2)
   if (fix2) decisions.push(...said(fix2))
