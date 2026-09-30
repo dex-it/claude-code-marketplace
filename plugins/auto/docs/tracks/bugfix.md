@@ -118,14 +118,13 @@ stateDiagram-v2
 | Узел | Агент | Модель | Выход |
 |---|---|---|---|
 | подготовка дерева | `general-purpose` | haiku | стек, команды сборки/тестов/подготовки, `prepare-status`, строки `git status --porcelain`, добавленные подготовкой, возвращены (B14), `baseline-status` - сборка и тесты до правок трека |
-| дебаггер | `dex-debugger:debugger` | агента | причина `файл:строка`, красный тест (`repro_test`, снимок `repro_blob`), `conflict-status` |
-| кодер | по стеку: `dex-ts-fullstack-coder:ts-fullstack-assistant` / `dex-dotnet-coder:dotnet-coder`, иначе `general-purpose` | агента | правка + локальный коммит, `diagnosis-check`, `dispute`, `prior` по находкам задания |
+| дебаггер | `dex-auto:debugger` на любом стеке (B162) | opus | причина `файл:строка`, красный тест (`repro_test`, снимок `repro_blob`), `conflict-status`, `falsification` - попытки опровергнуть причину с исходом, `fact-check` утверждений о стороннем API в основе причины |
+| кодер | `dex-auto:coder` на любом стеке (B160) | sonnet | `plan` - план реализации с трассой каждого изменения, правка + локальный коммит, `diagnosis-check`, `dispute`, `prior` по находкам задания |
 | верификатор | `general-purpose` | haiku | exit code, счётчики, `dirty`, `head`, `ahead` - коммитов текущей ветки дерева, которых нет на других ветках, `repro_test_hash` (`git hash-object -w`: объект читается снимком); на T22a - тот же выход по прогону снимка и `snap_hash` - хэш файла сразу после постановки |
 | саморевьюер | `dex-auto:reviewer` (B157) | opus | `findings` P0-P3, `intent-status`, `prior`, `review-verdict` (сигнал оператору, порогом не является) |
 
-Узел каталога, упавший ошибкой платформы, заменяется `general-purpose` с ролью и причиной обрыва в
-промпте; факт замены - строкой `degraded` (B5, B159). Узел `dex-auto` не заменяется: отказ - ревью `null`,
-`partial` по T23, причина - строкой `degraded` (B158).
+Узел `dex-auto` не заменяется: отказ - выход `null` диагноста (T3, B5), кодера (T12, B161) либо ревью (`partial` по
+T23, B158), причина - строкой `degraded`.
 
 ## 3. Вход и состояние между прогонами
 
@@ -183,7 +182,7 @@ stateDiagram-v2
 
 | # | Условие | Действие | Выход |
 |---|---|---|---|
-| T3 | дебаггер `null` / `blocked` | стоп, путь теста в `missing` | `blocked` / Reproduce / `repro` не пишется: прошлая запись ledger остаётся, «продолжить» повторяет тот же вход (R3 / R4) |
+| T3 | дебаггер `null` (B5) / `blocked` | стоп, путь теста в `missing` | `blocked` / Reproduce / `repro` не пишется: прошлая запись ledger остаётся, «продолжить» повторяет тот же вход (R3 / R4) |
 | T4 | `conflict-status: some` или непустой `conflicts` (проверяется до T5) | стоп, путь теста в `missing` | `blocked` / Reproduce / сброс |
 | T5 | `root_cause` пуст | стоп, путь теста в `missing` | `partial` / «причина не установлена» / диагноз без причины + улика R4, если была |
 | T6 | иначе | `repro` = диагноз + техконтекст, `accepted` и `dispute` пусты | - |

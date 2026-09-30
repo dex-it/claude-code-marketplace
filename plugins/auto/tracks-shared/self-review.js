@@ -1,7 +1,7 @@
-const CODER = { ts: 'dex-ts-fullstack-coder:ts-fullstack-assistant', dotnet: 'dex-dotnet-coder:dotnet-coder' }
 // Ключи - имена словаря node-contract буквально: трансляция - место тихого расхождения схемы и словаря, а описание поля резолвится только дословным ключом.
 const FIX = { type: 'object', properties: {
   status: STATUS,
+  plan: { type: 'array', items: { type: 'object', properties: { where: { type: 'string' }, change: { type: 'string' }, trace: { type: 'string' } }, required: ['where', 'change', 'trace'] }, description: 'план реализации в итоговой редакции: where - файл или символ, change - суть изменения, у отступления - с причиной, trace - требование, правило проекта с якорем, стандарт или практика' },
   'diff-scope': { type: 'array', items: { type: 'string' } },
   commit: { type: 'string', description: 'sha локального коммита либо пусто' },
   'run-status': { type: 'string', description: 'зелёность трек судит VERIFY-узлом, не этим полем' },
@@ -15,7 +15,7 @@ const FIX = { type: 'object', properties: {
   decisions: { type: 'array', items: { type: 'string' }, description: 'каждая закрытая узлом развилка: что выбрано, из чего, почему' },
   prior: { type: 'array', items: PRIOR, description: 'по каждой находке задания - запись с её id: closed - закрыта правкой, disputed - закрывать не следует; находок в задании нет - пусто' },
   missing: { type: 'string' },
-}, required: ['status', 'diff-scope', 'commit', 'run-status', 'red-run', 'uncovered-status', 'uncovered', 'dependents-status', 'dependents', 'fact-check', 'decisions', 'prior', 'missing'] }
+}, required: ['status', 'plan', 'diff-scope', 'commit', 'run-status', 'red-run', 'uncovered-status', 'uncovered', 'dependents-status', 'dependents', 'fact-check', 'decisions', 'prior', 'missing'] }
 const REVIEW = { type: 'object', properties: {
   status: STATUS,
   findings: { type: 'array', items: FINDING, description: 'только находки, которых нет в перечне прежних' },

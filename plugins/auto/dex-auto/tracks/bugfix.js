@@ -1,5 +1,5 @@
-// Трек bugfix как Workflow-скрипт (artifacts.md, O12 вариант A). Ядро - debugger на воспроизведении и первопричине,
-// фикс - кодер по стеку (коммит в его контракте, у debugger - нет). Модель находки, узел-обёртка, верификация и саморевью - общие фрагменты tracks-shared.
+// Трек bugfix как Workflow-скрипт (artifacts.md, O12 вариант A). Ядро - узел dex-auto:debugger на воспроизведении и первопричине,
+// фикс - узел dex-auto:coder (коммит в его контракте, у диагноста - нет). Модель находки, узел-обёртка, верификация и саморевью - общие фрагменты tracks-shared.
 // Вход через args: { task, symptom, expected, env, done, boundary, mode, cwd, source, goal_path, resume, trail, open_findings, repro }.
 export const meta = {
   name: 'dex-auto-bugfix',
@@ -7,7 +7,7 @@ export const meta = {
   phases: [
     { title: 'Context', detail: 'подготовка дерева по манифесту стека, команды сборки и тестов' },
     { title: 'Reproduce', detail: 'debugger: красный воспроизводящий тест либо прослеженный путь, первопричина, предложение фикса; продуктовый код не меняет' },
-    { title: 'Fix', detail: 'кодер по стеку принимает диагноз и лечит первопричину x верификация внешним фактом, потолок 3; спор с диагнозом - к оператору, продолжение зовёт диагноста с уликой (фаза Reproduce); при возобновлении - сначала верификация' },
+    { title: 'Fix', detail: 'кодер принимает диагноз и лечит первопричину x верификация внешним фактом, потолок 3; спор с диагнозом - к оператору, продолжение зовёт диагноста с уликой (фаза Reproduce); при возобновлении - сначала верификация' },
     { title: 'Review', detail: 'саморевью, при блокирующих находках одна правка с верификацией и повторное ревью' },
   ],
 }
@@ -47,6 +47,8 @@ const NODE = {
   reviewer: { agentType: 'dex-auto:reviewer', model: 'opus' },
   // sonnet - модель кодеров каталога: сверка P75 различает норму, а не модель.
   coder: { agentType: 'dex-auto:coder', model: 'sonnet' },
+  // opus - модель контроля dex-debugger: сверка P91 различает норму, а не модель.
+  debugger: { agentType: 'dex-auto:debugger', model: 'opus' },
 }
 // <<< shared: nodes
 // >>> shared: domain
@@ -206,10 +208,10 @@ const baselineNote = (b) => !b ? '' : b.status === 'red'
   : ' До правок трека сборка и тесты были зелёными: любое падение внесено правками трека.'
 // <<< shared: prep
 // >>> shared: self-review
-const CODER = { ts: 'dex-ts-fullstack-coder:ts-fullstack-assistant', dotnet: 'dex-dotnet-coder:dotnet-coder' }
 // Ключи - имена словаря node-contract буквально: трансляция - место тихого расхождения схемы и словаря, а описание поля резолвится только дословным ключом.
 const FIX = { type: 'object', properties: {
   status: STATUS,
+  plan: { type: 'array', items: { type: 'object', properties: { where: { type: 'string' }, change: { type: 'string' }, trace: { type: 'string' } }, required: ['where', 'change', 'trace'] }, description: 'план реализации в итоговой редакции: where - файл или символ, change - суть изменения, у отступления - с причиной, trace - требование, правило проекта с якорем, стандарт или практика' },
   'diff-scope': { type: 'array', items: { type: 'string' } },
   commit: { type: 'string', description: 'sha локального коммита либо пусто' },
   'run-status': { type: 'string', description: 'зелёность трек судит VERIFY-узлом, не этим полем' },
@@ -223,7 +225,7 @@ const FIX = { type: 'object', properties: {
   decisions: { type: 'array', items: { type: 'string' }, description: 'каждая закрытая узлом развилка: что выбрано, из чего, почему' },
   prior: { type: 'array', items: PRIOR, description: 'по каждой находке задания - запись с её id: closed - закрыта правкой, disputed - закрывать не следует; находок в задании нет - пусто' },
   missing: { type: 'string' },
-}, required: ['status', 'diff-scope', 'commit', 'run-status', 'red-run', 'uncovered-status', 'uncovered', 'dependents-status', 'dependents', 'fact-check', 'decisions', 'prior', 'missing'] }
+}, required: ['status', 'plan', 'diff-scope', 'commit', 'run-status', 'red-run', 'uncovered-status', 'uncovered', 'dependents-status', 'dependents', 'fact-check', 'decisions', 'prior', 'missing'] }
 const REVIEW = { type: 'object', properties: {
   status: STATUS,
   findings: { type: 'array', items: FINDING, description: 'только находки, которых нет в перечне прежних' },
@@ -264,6 +266,9 @@ const REPRO = { type: 'object', properties: {
   repro_test: { type: 'string', description: 'путь воспроизводящего теста, оставленного в дереве красным; теста нет - пусто' },
   repro_blob: { type: 'string', description: 'вывод git hash-object -w <путь теста> после его записи; теста нет - пусто' },
   'expected-basis': { type: 'string', description: 'откуда взято ожидаемое: вход, тест, корпус, реконструкция' },
+  // Шаг без следа в выходе не наблюдаем: опровержение причины, не названное полем, пропускается молча.
+  falsification: { type: 'array', items: { type: 'object', properties: { prediction: { type: 'string' }, observation: { type: 'string' }, outcome: { type: 'string', enum: ['held', 'refuted'] } }, required: ['prediction', 'observation', 'outcome'] }, description: 'попытки опровергнуть причину: prediction - что обязано наблюдаться, будь причина верна, observation - что видно, с файл:строка или выводом прогона, outcome - held: причина устояла, refuted: снята' },
+  'fact-check': { type: 'string', description: 'предмет сверки - утверждения о стороннем API в основе причины' },
   fix_proposal: { type: 'string', description: 'минимальная правка словами: файл, что меняется' },
   files: { type: 'array', items: { type: 'string' } },
   // Ожидаемое берётся из нескольких источников сразу, и они расходятся: вход цели против критерия
@@ -271,7 +276,7 @@ const REPRO = { type: 'object', properties: {
   'conflict-status': { type: 'string', enum: ['none', 'some'], description: 'противоречие между источниками ожидаемого: none - нет, some - перечень в conflicts' },
   conflicts: { type: 'array', items: { type: 'string' }, description: 'при some - каждое противоречие строкой: якорь обеих сторон и что требует каждая; иначе пустой' },
   missing: { type: 'string', description: 'при blocked - чего не хватает и у кого это есть' },
-}, required: ['status', 'root_cause', 'reproduction', 'repro_test', 'repro_blob', 'expected-basis', 'fix_proposal', 'files', 'conflict-status', 'conflicts', 'missing'] }
+}, required: ['status', 'root_cause', 'reproduction', 'repro_test', 'repro_blob', 'expected-basis', 'falsification', 'fact-check', 'fix_proposal', 'files', 'conflict-status', 'conflicts', 'missing'] }
 // Приёмка диагноза - часть контракта кодера только в этом треке: общая схема правки расширяется, а не копируется.
 const BFIX = { type: 'object', properties: {
   ...FIX.properties,
@@ -333,9 +338,9 @@ phase('Reproduce')
 // Воспроизведение и первопричина - установленный факт прошлого прогона: при возобновлении правка
 // уже наложена, и повторный прогон диагноста не столько дорог, сколько нечестен - симптома он
 // может уже не увидеть. Нет записи в ledger - узел отрабатывает как в первом прогоне.
-const diagPrompt = (dispute) => `${HEAD}${DONE}${DONE ? `Шаг 1 выполняется заново: ${dispute ? 'прошлый диагноз оспорен, улика ниже' : 'диагноза с причиной в ledger нет'}.\n` : ''}Шаг 1 (воспроизведение): первопричина. Источник: ${A.source || 'формулировка выше'}. Стек: ${prep.stack}. Тесты: ${prep.test_cmd || 'нет'}. Сборка: ${prep.build_cmd || 'нет'}.${treeState} Воспроизведи: красный тест через продуктовый путь, прогнанный и падающий по причине симптома, либо, если тест не ставится, прослеженный путь от входа до места сбоя. ${A.source ? `Критерии приёмки корпуса против ожидаемого во входе и критерия «готово» суди вызовом Skill dex-skill-requirement-quality:requirement-quality, раздел «Противоречие»; найденное - в conflicts. ${ownerSide}` : `Источника требований нет: conflict-status: none, conflicts пустой.`} Расхождение о техконтексте (файлы, команды сборки и тестов, корпус) сюда не подпадает: техконтекст берётся из дерева. Продуктовый код не меняй; написанный тест оставь незакоммиченным в дереве. Незакоммиченный тест в дереве до твоего старта - след прошлого диагноза этой цели: падает по причине симптома - он и есть воспроизведение, иначе удали; сдаёшь один тест.${dispute ? `\nКодер оспорил твой диагноз ${ledgerRepro && ledgerRepro.accepted ? `после приёмки (diagnosis-check: ${ledgerRepro.accepted}): его правки по диагнозу - в коммитах ветки, улика судится на дереве с ними` : 'до правки'}, улика: ${dispute}\nЭто первое направление фальсификации: исход по улике - первой строкой reproduction (отбита - чем, файл:строка; сняла причину - новый диагноз).` : ''}`
-const diag = reproResumed || await node('диагност первопричины', diagPrompt(priorDispute), { label: 'reproduce', phase: 'Reproduce', schema: REPRO }, 'dex-debugger:debugger')
-trail.push({ step: '1-repro', doer: reproResumed ? 'ledger (воспроизведение прошлого прогона)' : 'debugger', status: diag ? diag.status : 'null' })
+const diagPrompt = (dispute) => `${HEAD}${DONE}${DONE ? `Шаг 1 выполняется заново: ${dispute ? 'прошлый диагноз оспорен, улика ниже' : 'диагноза с причиной в ledger нет'}.\n` : ''}Шаг 1 (воспроизведение): первопричина. Источник: ${A.source || 'формулировка выше'}. Стек: ${prep.stack}. Тесты: ${prep.test_cmd || 'нет'}. Сборка: ${prep.build_cmd || 'нет'}.${treeState} Воспроизведи: красный тест через продуктовый путь, прогнанный и падающий по причине симптома, либо, если тест не ставится, прослеженный путь от входа до места сбоя. ${A.source ? `Критерии приёмки корпуса против ожидаемого во входе и критерия «готово» суди вызовом Skill dex-skill-requirement-quality:requirement-quality, раздел «Противоречие»; найденное - в conflicts. ${ownerSide}` : `Источника требований нет: conflict-status: none, conflicts пустой.`} Расхождение о техконтексте (файлы, команды сборки и тестов, корпус) сюда не подпадает: техконтекст берётся из дерева. Продуктовый код не меняй; написанный тест оставь незакоммиченным в дереве. Незакоммиченный тест в дереве до твоего старта - след прошлого диагноза этой цели: падает по причине симптома - он и есть воспроизведение, иначе удали; сдаёшь один тест.${dispute ? `\nКодер оспорил твой диагноз ${ledgerRepro && ledgerRepro.accepted ? `после приёмки (diagnosis-check: ${ledgerRepro.accepted}): его правки по диагнозу - в коммитах ветки, улика судится на дереве с ними` : 'до правки'}, улика: ${dispute}\nУлика - первая запись falsification: held - чем отбита, файл:строка; refuted - новый диагноз.` : ''}`
+const diag = reproResumed || await own('диагност первопричины', diagPrompt(priorDispute), { label: 'reproduce', phase: 'Reproduce', schema: REPRO }, NODE.debugger)
+trail.push({ step: '1-repro', doer: reproResumed ? 'ledger (воспроизведение прошлого прогона)' : NODE.debugger.agentType, status: diag ? diag.status : 'null' })
 // Техконтекст свежий даже на возобновлении: ledger отдаёт диагноз, команды и состояние дерева - узел
 // этого прогона. Форма repro общая - её же принимает ledger и подаёт обратно в A.repro.
 // accepted - факт приёмки кодером, accepted_blob - ожидаемый хэш теста после неё, accepted_pending - снимок ещё не снят: живут в repro, чтобы пережить ledger;
@@ -396,7 +401,6 @@ const disputeExit = (dc, f, where, extra) => {
   if (dc === 'disputed-expected') return bail(`${where}: спор об ожидаемом`, `кодер оспорил ожидаемое, выбор стороны за владельцем требований: ${clue}${testLeft(repro)}`, { disputes, repro: RESET, ...extra })
   return outcome('partial', `${where}: кодер оспорил диагноз (${dc})`, `решение оператора: «продолжить» вернёт диагноз диагносту с уликой - ${clue}${testLeft(repro)}`, { disputes, repro: { ...repro, dispute: clue }, fix, decisions: dec(), ...extra })
 }
-const coderType = CODER[repro.stack]
 
 phase('Fix')
 // -w: хэш прогона может стать снимком приёмки, а git show и git diff читают лишь записанный объект.
@@ -423,9 +427,9 @@ for (let k = 1; k <= FIX_CEILING && (!passed(ver) || pending); k++) {
   // red-run прошлой попытки - установленный факт: без него следующая попытка показывает тот же тест красным заново, проедая потолок.
   const priorRed = fix && fix['red-run'] && !/^(n\/a|unverifiable)/.test(fix['red-run']) ? `\nКрасный прогон уже показан прошлой попыткой и перепроверке не подлежит: ${fix['red-run']}` : ''
   const prev = ver && !passed(ver) ? `\n${k === 1 ? 'Верификация при возобновлении' : `Попытка ${k - 1}`} не прошла: ${redNote(ver)}.${priorRed}` : ''
-  fix = await node('кодер', `${HEAD}${DONE}${OPEN}Шаг 2, попытка ${k} из ${FIX_CEILING}: лечи первопричину, не симптом; один баг - один фикс, попутного рефакторинга нет.\n${causeText}\nФайлы: ${repro.files.join(', ')}. Тесты: ${repro.test_cmd || 'нет'}. Сборка: ${repro.build_cmd || 'нет'}.${treeState}${prev}\n${acceptance()} Red-run: тест диагноста - твоя проба, в коммит; теста нет - пишешь свой. По завершении: сборка и тесты зелёные, коммит локально (сообщение по симптому).`,
-    { label: `fix:${k}`, phase: 'Fix', schema: BFIX }, coderType)
-  trail.push({ step: 2, attempt: k, doer: coderType || 'general-purpose', status: fix ? fix.status : 'null', 'red-run': fix ? fix['red-run'] : null, 'diagnosis-check': fix ? fix['diagnosis-check'] : null })
+  fix = await own('кодер', `${HEAD}${DONE}${OPEN}Шаг 2, попытка ${k} из ${FIX_CEILING}: лечи первопричину, не симптом; один баг - один фикс, попутного рефакторинга нет.\n${causeText}\nФайлы: ${repro.files.join(', ')}. Тесты: ${repro.test_cmd || 'нет'}. Сборка: ${repro.build_cmd || 'нет'}.${treeState}${prev}\n${acceptance()} Red-run: тест диагноста - твоя проба, в коммит; теста нет - пишешь свой. По завершении: сборка и тесты зелёные, коммит локально (сообщение по симптому).`,
+    { label: `fix:${k}`, phase: 'Fix', schema: BFIX }, NODE.coder)
+  trail.push({ step: 2, attempt: k, doer: NODE.coder.agentType, status: fix ? fix.status : 'null', 'red-run': fix ? fix['red-run'] : null, 'diagnosis-check': fix ? fix['diagnosis-check'] : null })
   if (fix) decisions.push(...said(fix))
   // Спор идёт раньше статуса: при нём кодер отдаёт partial без правки.
   const dc = noteCheck(fix)
@@ -451,18 +455,18 @@ LEDGER.forEach(reg.doubt)
 reg.apply(rev, 'саморевьюер')
 if (rev && rev.status !== 'blocked' && reg.blocking().length) {
   loops.review_fix = REVIEW_FIX_CEILING
-  fix2 = await node('кодер', `${HEAD}Шаг 2 (повтор после саморевью, потолок ${REVIEW_FIX_CEILING}): закрой находки:\n${reg.blocking().map(findingLine).join('\n')}\n${causeText}\n${acceptance()}\nПосле правки сборка и тесты зелёные, коммит локально, push не делать. По каждой находке - запись в prior с её id: closed с уликой либо disputed с основанием, почему закрывать не следует.`,
-    { label: 'fix:after-review', phase: 'Review', schema: BFIX }, coderType)
+  fix2 = await own('кодер', `${HEAD}Шаг 2 (повтор после саморевью, потолок ${REVIEW_FIX_CEILING}): закрой находки:\n${reg.blocking().map(findingLine).join('\n')}\n${causeText}\n${acceptance()}\nПосле правки сборка и тесты зелёные, коммит локально, push не делать. По каждой находке - запись в prior с её id: closed с уликой либо disputed с основанием, почему закрывать не следует.`,
+    { label: 'fix:after-review', phase: 'Review', schema: BFIX }, NODE.coder)
   const dc2 = noteCheck(fix2)
   if (fix2) decisions.push(...said(fix2))
   if (/^disputed-/.test(dc2)) {
-    trail.push({ step: '2-after-review', doer: coderType || 'general-purpose', status: fix2.status, 'diagnosis-check': dc2 })
+    trail.push({ step: '2-after-review', doer: NODE.coder.agentType, status: fix2.status, 'diagnosis-check': dc2 })
     disputes.push(`${dc2} (правка по находкам): ${fix2.dispute || 'улика не названа'}`)
     return disputeExit(dc2, fix2, 'Review: правка по находкам', { fix_after_review: fix2, review: rev, prior: reg.all() })
   }
   ver2 = !fix2 || fix2.status === 'blocked' ? null : await verifyOnce('после саморевью', 'Review')
   settle(ver2)
-  trail.push({ step: '2-after-review', doer: coderType || 'general-purpose', status: fix2 ? fix2.status : 'null', passed: passed(ver2), 'red-run': fix2 ? fix2['red-run'] : null })
+  trail.push({ step: '2-after-review', doer: NODE.coder.agentType, status: fix2 ? fix2.status : 'null', passed: passed(ver2), 'red-run': fix2 ? fix2['red-run'] : null })
   const openNow = { review: rev, prior: reg.all() }
   if (!fix2 || fix2.status === 'blocked') return bail('Review: правка по находкам', lack(fix2, 'узел-кодер'), openNow)
   if (noRun(ver2)) return bail('Review: верификация после правки', lack(ver2, 'верификатор'), openNow)

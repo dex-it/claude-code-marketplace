@@ -44,13 +44,13 @@ const prepFailed = { ...prepOk, 'prepare-status': 'failed', prepare_log: 'dotnet
 // непустом перечне: статус сам себя опровергает, и трек судит перечень наравне со статусом.
 const ctxConflict = { ...ctxOk, 'conflict-status': 'some', conflicts: ['FEAT.md:19 (AC2) требует отклонять ../evil ошибкой против R4 goal.md:21 - принимать любое имя'] }
 const ctxConflictMute = { ...ctxConflict, 'conflict-status': 'none' }
-const reproOk = { status: 'complete', root_cause: 'src/a.ts:10 неверный ключ', reproduction: 'тест T1: красный', repro_test: '', repro_blob: '', 'expected-basis': 'тест', fix_proposal: 'править ключ', files: ['src/a.ts'], 'conflict-status': 'none', conflicts: [], missing: '' }
+const reproOk = { status: 'complete', root_cause: 'src/a.ts:10 неверный ключ', reproduction: 'тест T1: красный', repro_test: '', repro_blob: '', 'expected-basis': 'тест', falsification: [{ prediction: 'ключ читается из src/a.ts:10', observation: 'src/a.ts:10 берёт id вместо key', outcome: 'held' }], 'fact-check': 'n/a (причина не держится на стороннем API)', fix_proposal: 'править ключ', files: ['src/a.ts'], 'conflict-status': 'none', conflicts: [], missing: '' }
 const reproTest = { ...reproOk, reproduction: 'тест pay: красный, причина падения сверена', repro_test: 'test/pay.test.ts', repro_blob: 'b1' }
 const greenTest = { ...green, repro_test_hash: 'b1' }
 // Снимок красный и возвращён: разрыв «изменён» держит прогон снимка, а не байты файла.
 const snapRed = (h, e = 'b1') => ({ ...red, repro_test_hash: h, snap_hash: e })
 const reproConflict = { ...reproOk, 'conflict-status': 'some', conflicts: ['AC-4 docs/spec.md:31 требует 409 против ожидаемого входа - 200 с телом ошибки'] }
-const fixOk = { status: 'complete', 'diff-scope': ['src/A.cs'], commit: 'abc123', 'run-status': 'build ok, tests 9/9', 'red-run': 'T1 красный до, зелёный после', 'uncovered-status': 'some', uncovered: ['ветка таймаута'], 'dependents-status': 'some', dependents: ['src/Caller.cs:41 вызывает изменённый метод'], 'fact-check': 'n/a (триггер не сработал)', decisions: ['выбран A'], 'diagnosis-check': 'accepted', dispute: '', prior: [], missing: '' }
+const fixOk = { status: 'complete', plan: [{ where: 'src/A.cs', change: 'ретрай по коду ответа', trace: 'R1' }], 'diff-scope': ['src/A.cs'], commit: 'abc123', 'run-status': 'build ok, tests 9/9', 'red-run': 'T1 красный до, зелёный после', 'uncovered-status': 'some', uncovered: ['ветка таймаута'], 'dependents-status': 'some', dependents: ['src/Caller.cs:41 вызывает изменённый метод'], 'fact-check': 'n/a (триггер не сработал)', decisions: ['выбран A'], 'diagnosis-check': 'accepted', dispute: '', prior: [], missing: '' }
 const fixDisputeCause = { ...fixOk, status: 'partial', commit: '', 'diagnosis-check': 'disputed-cause', dispute: 'src/pay.ts:40 ключ идемпотентности уже проверяется - причина не в src/pay.ts:12', missing: 'диагноз оспорен' }
 // Правка, замкнутая в себе: оба поля явным «нет» - единственное сочетание, отменяющее второй круг ревью.
 const fixSealed = { ...fixOk, 'uncovered-status': 'none', uncovered: [], 'dependents-status': 'none', dependents: [], prior: [{ id: 'N1', anchor: 'src/A.cs:8', severity: 'P1', text: 'ретрай не различает случаи', status: 'closed', evidence: 'тест T2' }] }
@@ -123,14 +123,6 @@ const SCENARIOS = [
       ['статус complete: порог допуска - P0/P1 и зелёная верификация', result.status === 'complete'],
       ['вердикт ревью сохранён в возврате', result.review['review-verdict'] === 'NEEDS_DISCUSSION'],
       ['второй круг не куплен: правки по ревью не было', !calls.some(c => c.label === 'fix:after-review')],
-    ] },
-  { name: 'B159 кодер каталога оборвался -> замена получает причину и сверяет сделанное', track: 'bugfix', args: bugfixArgs,
-    unavailable: ['dex-ts-fullstack-coder:ts-fullstack-assistant'],
-    responses: { reproduce: reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
-    expect: ({ calls }) => [
-      ['промпт замены называет обрыв', calls.filter(c => c.label === 'fix:1').pop().prompt.includes('оборвался ошибкой: agent type not found')],
-      ['промпт замены велит сверить git log', calls.filter(c => c.label === 'fix:1').pop().prompt.includes('сверь git log')],
-      ['промпт замены запрещает второй коммит', calls.filter(c => c.label === 'fix:1').pop().prompt.includes('не коммить второй раз')],
     ] },
   { name: 'B12 воспроизведение partial (эталон реконструирован) -> partial трека', track: 'bugfix', args: bugfixArgs,
     responses: { 'reproduce': { ...reproOk, status: 'partial', 'expected-basis': 'реконструирован, не подтверждён', missing: 'эталон не подтверждён постановщиком' }, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
@@ -372,8 +364,8 @@ const SCENARIOS = [
     expect: ({ result, calls }) => [
       ['статус complete', result.status === 'complete'],
       ['первопричина в возврате', /src\/a\.ts:10/.test(result.repro.root_cause)],
-      ['кодер выбран по стеку ts', typeOf(calls, 'fix:1') === 'dex-ts-fullstack-coder:ts-fullstack-assistant'],
-      ['диагност - агент каталога', typeOf(calls, 'reproduce') === 'dex-debugger:debugger'],
+      ['кодер - dex-auto:coder', typeOf(calls, 'fix:1') === 'dex-auto:coder'],
+      ['диагност - узел dex-auto', typeOf(calls, 'reproduce') === 'dex-auto:debugger'],
     ] },
   { name: 'B2 воспроизведение вернуло blocked', track: 'bugfix', args: bugfixArgs,
     responses: { reproduce: { ...reproOk, status: 'blocked', missing: 'нет доступа к стенду' } },
@@ -409,13 +401,15 @@ const SCENARIOS = [
       ['кодер вызван на зелёном дереве', labelsOf(calls).includes('fix:1')],
       ['находка в промпте', /src\/a\.ts:88/.test(promptOf(calls, 'fix:1'))],
     ] },
-  { name: 'B5 диагност каталога не установлен', track: 'bugfix', args: bugfixArgs,
-    unavailable: ['dex-debugger:debugger'],
+  { name: 'B5 узел dex-auto:debugger не отработал -> без замены general-purpose, blocked на Reproduce, причина в degraded', track: 'bugfix', args: bugfixArgs,
+    unavailable: ['dex-auto:debugger'],
     responses: { reproduce: reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
     expect: ({ result, calls }) => [
-      ['статус complete', result.status === 'complete'],
-      ['замена узла записана', result.degraded.some(d => /debugger/.test(d))],
-      ['роль передана в промпте general-purpose', /Роль: диагност первопричины/.test(calls.filter(c => c.label === 'reproduce').pop().prompt)],
+      ['статус blocked', result.status === 'blocked'],
+      ['место - Reproduce', result.where === 'Reproduce'],
+      ['замены нет', !calls.some(c => c.label === 'reproduce')],
+      ['кодер не вызван', !calls.some(c => c.label === 'fix:1')],
+      ['отказ в degraded', result.degraded.some(d => /dex-auto:debugger не отработал/.test(d))],
     ] },
   { name: 'B6 блокирующая находка -> правка -> чистое повторное ревью', track: 'bugfix', args: bugfixArgs,
     responses: { reproduce: reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revP1,
@@ -534,6 +528,19 @@ const SCENARIOS = [
       ['обе замены записаны', result.degraded.length === 2],
       ['причина отказа - текст ошибки без типа', result.degraded[0].includes('(agent type not found: dex-mr-reviewer:mr-reviewer)')],
     ] },
+  { name: 'R59 ревьюер каталога оборвался -> замена получает роль, причину обрыва и сверяет сделанное', track: 'review', args: reviewArgs,
+    unavailable: ['dex-mr-reviewer:mr-reviewer'],
+    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'review:security': revMr, 'falsify+coverage': falOk },
+    expect: ({ calls }) => {
+      const p = promptOf(calls, 'review:first')
+      return [
+        ['замена - general-purpose', typeOf(calls, 'review:first') === 'general-purpose'],
+        ['промпт замены называет роль', /^Роль: /.test(p)],
+        ['промпт замены называет обрыв', p.includes('оборвался ошибкой: agent type not found')],
+        ['промпт замены велит сверить git log', p.includes('сверь git log')],
+        ['промпт замены запрещает второй коммит', p.includes('не коммить второй раз')],
+      ]
+    } },
   { name: 'R11 security-узел вернул blocked при объявленной поверхности', track: 'review', args: reviewArgs,
     responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'falsify+coverage': falOk,
       'review:security': { ...revMr, status: 'blocked', findings: [], missing: 'нет доступа к зависимостям' } },
@@ -793,6 +800,35 @@ const SCENARIOS = [
       ['исполнитель в trail', result.trail.some(t => t.step === 3 && t.doer === 'dex-auto:reviewer')],
       ['модель opus', calls.find(c => c.label === 'self-review:первое').model === 'opus'],
       ['схема без node-contract', !JSON.stringify(calls.find(c => c.label === 'self-review:первое').schema).includes('node-contract')],
+    ] },
+  { name: 'B160 кодер - узел dex-auto:coder на sonnet и вне реестра стеков, деградации нет', track: 'bugfix', args: bugfixArgs,
+    responses: { 'ctx:tree': { ...prepTs, stack: 'other' }, reproduce: reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revP1,
+      'fix:after-review': fixOk, 'verify:после саморевью': green, 'self-review:повторное': revRecheck },
+    expect: ({ result, calls }) => [
+      ['попытка правки - dex-auto:coder', typeOf(calls, 'fix:1') === 'dex-auto:coder'],
+      ['правка по находкам - dex-auto:coder', typeOf(calls, 'fix:after-review') === 'dex-auto:coder'],
+      ['модель sonnet', ['fix:1', 'fix:after-review'].every(l => calls.find(c => c.label === l).model === 'sonnet')],
+      ['исполнитель в trail', result.trail.filter(t => t.step === 2 || t.step === '2-after-review').every(t => t.doer === 'dex-auto:coder')],
+      ['деградации нет', result.degraded.length === 0],
+    ] },
+  { name: 'B162 диагност - узел dex-auto:debugger на opus, схема без отсылки к node-contract, деградации нет', track: 'bugfix', args: bugfixArgs,
+    responses: { 'ctx:tree': { ...prepTs, stack: 'other' }, reproduce: reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['узел dex-auto:debugger', typeOf(calls, 'reproduce') === 'dex-auto:debugger'],
+      ['модель opus', calls.find(c => c.label === 'reproduce').model === 'opus'],
+      ['исполнитель в trail', result.trail.some(t => t.step === '1-repro' && t.doer === 'dex-auto:debugger')],
+      ['схема требует попытки опровержения и fact-check', ['falsification', 'fact-check'].every(k => calls.find(c => c.label === 'reproduce').schema.required.includes(k))],
+      ['схема без node-contract', !JSON.stringify(calls.find(c => c.label === 'reproduce').schema).includes('node-contract')],
+      ['деградации нет', result.degraded.length === 0],
+    ] },
+  { name: 'B161 узел dex-auto:coder не отработал -> без замены general-purpose, blocked, причина в degraded', track: 'bugfix', args: bugfixArgs,
+    unavailable: ['dex-auto:coder'],
+    responses: { reproduce: reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['статус blocked', result.status === 'blocked'],
+      ['место - первая попытка правки', result.where === 'Fix#1'],
+      ['замены нет', !calls.some(c => c.label === 'fix:1')],
+      ['отказ в degraded', result.degraded.some(d => /dex-auto:coder не отработал/.test(d))],
     ] },
   { name: 'B158 узел dex-auto:reviewer не отработал -> без замены general-purpose, partial, причина в degraded', track: 'bugfix', args: bugfixArgs,
     unavailable: ['dex-auto:reviewer'],
@@ -1710,14 +1746,6 @@ const SCENARIOS = [
       ['статус partial', result.status === 'partial'],
       ['where называет нехватку кодера', result.where === 'кодер вернул partial: миграция не прогнана'],
     ] },
-  { name: 'B57 стек вне реестра -> правит general-purpose, в том числе по находкам', track: 'bugfix', args: bugfixArgs,
-    responses: { 'ctx:tree': { ...prepTs, stack: 'other' }, 'reproduce': reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revP1,
-      'fix:after-review': fixOk, 'verify:после саморевью': green, 'self-review:повторное': revRecheck },
-    expect: ({ result, calls }) => [
-      ['кодер - general-purpose', calls.find(c => c.label === 'fix:1').agentType === 'general-purpose'],
-      ['след правки называет general-purpose', result.trail.filter(t => t.step === 2 || t.step === '2-after-review').every(t => t.doer === 'general-purpose')],
-      ['статус complete', result.status === 'complete'],
-    ] },
   { name: 'B58 верификатор не вернул выход -> blocked с названной причиной', track: 'bugfix', args: bugfixArgs,
     responses: { 'reproduce': reproOk, 'fix:1': fixOk, 'verify:после попытки 1': null },
     expect: ({ result }) => [
@@ -1778,12 +1806,12 @@ const SCENARIOS = [
       ['статус partial', result.status === 'partial'],
       ['улика подставлена', result.repro.dispute === 'улика не названа' && result.disputes[0].endsWith('улика не названа')],
     ] },
-  { name: 'B67 правка по находкам оспорила без улики, стек вне реестра -> след с general-purpose', track: 'bugfix', args: bugfixArgs,
+  { name: 'B67 правка по находкам оспорила без улики -> след с dex-auto:coder, улика подставлена', track: 'bugfix', args: bugfixArgs,
     responses: { 'ctx:tree': { ...prepTs, stack: 'other' }, 'reproduce': reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revP1,
       'fix:after-review': { ...fixOk, status: 'partial', 'diagnosis-check': 'disputed-test', dispute: '' } },
     expect: ({ result }) => [
       ['статус partial', result.status === 'partial'],
-      ['след правки - general-purpose', result.trail.some(t => t.step === '2-after-review' && t.doer === 'general-purpose')],
+      ['след правки - dex-auto:coder', result.trail.some(t => t.step === '2-after-review' && t.doer === 'dex-auto:coder')],
       ['улика подставлена', result.disputes.some(d => d.endsWith('улика не названа'))],
     ] },
   { name: 'B68 красное без перечня падений до потолка -> «нет» в промпте и в нехватке', track: 'bugfix', args: bugfixArgs,

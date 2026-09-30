@@ -24,6 +24,8 @@ const NODE = {
   reviewer: { agentType: 'dex-auto:reviewer', model: 'opus' },
   // sonnet - модель кодеров каталога: сверка P75 различает норму, а не модель.
   coder: { agentType: 'dex-auto:coder', model: 'sonnet' },
+  // opus - модель контроля dex-debugger: сверка P91 различает норму, а не модель.
+  debugger: { agentType: 'dex-auto:debugger', model: 'opus' },
 }
 // <<< shared: nodes
 

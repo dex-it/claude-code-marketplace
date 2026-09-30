@@ -80,8 +80,8 @@ stateDiagram-v2
 | скептик | `general-purpose` | сессии | `confirmed`, `dropped` с причиной, `coverage`, `review-verdict`, `prior` той же формы со сверенным статусом; `status` - словарь ре-ревьюера: closed, partial, open, disputed, no-longer-applicable |
 | публикатор | `general-purpose` | сессии / low | `published` с `axis`, url и `note`, `unpublished` с `axis` и причиной |
 
-Узел, упавший ошибкой платформы, заменяется `general-purpose` с ролью в промпте; факт замены - строкой
-`degraded`. Ревьюер и security-ревьюер идут параллельно.
+Узел, упавший ошибкой платформы, заменяется `general-purpose` с ролью и причиной обрыва в промпте; факт замены -
+строкой `degraded` (R10, R59). Ревьюер и security-ревьюер идут параллельно.
 
 ## 3. Вход и состояние между прогонами
 

@@ -34,6 +34,20 @@ const snapshot = (repo, dest, ahead) => {
   else cpSync(repo, dest, { recursive: true, filter: (s) => !/\/(bin|obj|node_modules|__pycache__|\.pytest_cache)$/.test(s) })
 }
 
+const toolTally = (logs) => {
+  const skills = [], tools = {}
+  for (const f of logs) for (const line of readFileSync(f, 'utf8').split('\n')) {
+    let e; try { e = JSON.parse(line) } catch { continue }
+    for (const b of (e.message && Array.isArray(e.message.content) ? e.message.content : [])) {
+      if (b.type !== 'tool_use') continue
+      tools[b.name] = (tools[b.name] || 0) + 1
+      if (b.name === 'Skill') skills.push(b.input && b.input.skill)
+    }
+  }
+  console.log(`  Skill: ${skills.join(', ') || 'нет'}`)
+  console.log(`  tools: ${Object.entries(tools).map(([k, v]) => `${k}=${v}`).join(' ')}`)
+}
+
 function reviewer(c, r) {
   const mines = JSON.parse(readFileSync(join(here, 'reviewer', c, 'case.json'), 'utf8')).mines
   console.log(`  status=${r.status} verdict=${r['review-verdict']} intent-status=${r['intent-status']} findings=${r.findings.length}`)
@@ -51,6 +65,7 @@ function coder(id, c, r, repo, logs) {
   const sc = JSON.parse(readFileSync(join(caseDir, 'case.json'), 'utf8')).score
   const log = execFileSync('git', ['-C', repo, 'log', '--format=%h %s', 'main..HEAD'], { encoding: 'utf8' }).trim().split('\n').filter(Boolean)
   console.log(`  status=${r.status} commit=${r.commit || '-'} коммитов на ветке: ${log.length}${log.length ? ' - ' + log.map(l => cut(l, 80)).join('; ') : ''}`)
+  console.log(`  plan (${(r.plan || []).length}):\n` + (r.plan || []).map(x => `    ${x.where}: ${x.change} [${x.trace}]`).join('\n'))
   console.log(`  run-status: ${cut(r['run-status'], 160)}`)
   console.log(`  red-run: ${cut(r['red-run'], 240)}`)
   console.log(`  uncovered: ${r['uncovered-status']} ${cut((r.uncovered || []).join('; '), 200)}`)
@@ -59,23 +74,17 @@ function coder(id, c, r, repo, logs) {
   ;(r.decisions || []).forEach(d => console.log(`  decision: ${cut(d, 220)}`))
   if (r.missing) console.log(`  missing: ${cut(r.missing)}`)
   if ((r.degraded || []).length) console.log(`  degraded: ${cut(r.degraded.join('; '))}`)
-  const skills = [], tools = {}
-  for (const f of logs) for (const line of readFileSync(f, 'utf8').split('\n')) {
-    let e; try { e = JSON.parse(line) } catch { continue }
-    for (const b of (e.message && Array.isArray(e.message.content) ? e.message.content : [])) {
-      if (b.type !== 'tool_use') continue
-      tools[b.name] = (tools[b.name] || 0) + 1
-      if (b.name === 'Skill') skills.push(b.input && b.input.skill)
-    }
-  }
-  console.log(`  Skill: ${skills.join(', ') || 'нет'}`)
-  console.log(`  tools: ${Object.entries(tools).map(([k, v]) => `${k}=${v}`).join(' ')}`)
+  toolTally(logs)
   const base = join(out, id, 'eval-')
   const src = log.length ? 'HEAD' : 'рабочее дерево (коммита нет)'
   snapshot(repo, base + 'oracle', log.length)
   cpSync(join(caseDir, 'oracle'), join(base + 'oracle', sc.oracle_dest), { recursive: true })
   const o = sh(sc.oracle_cmd, base + 'oracle', sc.fail_re)
   console.log(`  оракул на ${src}: exit=${o.code} упали: ${o.failed.join(', ') || (o.code ? o.tail : 'нет')}`)
+  for (const [what, cmd] of Object.entries(sc.shape || {})) {
+    let t; try { t = execFileSync('bash', ['-c', cmd], { cwd: repo, encoding: 'utf8' }) } catch (e) { t = String(e.stdout || e.message) }
+    console.log(`  форма - ${what}:\n    ${t.trim().split('\n').join('\n    ')}`)
+  }
   // Эталон вместо реализации кодера снимает его добавки к API: убит тот мутант, на котором краснеет тест, зелёный на эталоне.
   const overlay = (name, from) => {
     snapshot(repo, base + name, log.length)
@@ -96,6 +105,35 @@ function coder(id, c, r, repo, logs) {
   console.log(`  мутанты из ${Object.keys(sc.mutants).length}: ${Object.entries(tally).map(([k, n]) => `${k} ${n}`).join(', ')}`)
 }
 
+// Причина засчитана, если якорь root_cause попал в место засеянной причины; только в приманку - назван симптом.
+// Тест диагноста судится прогоном: красный на дереве узла и зелёный под эталонной правкой - падает по причине симптома.
+function debuggerNode(id, c, r, repo, logs) {
+  const caseDir = join(here, 'debugger', c)
+  const k = JSON.parse(readFileSync(join(caseDir, 'case.json'), 'utf8'))
+  const anchors = [...String(r.root_cause || '').matchAll(/([\w./-]+\.\w+):(\d+)/g)].map(m => ({ anchor: `${m[1]}:${m[2]}` }))
+  const at = (m) => anchors.some(a => near(a, m))
+  const verdict = at(k.cause) ? 'ПРИЧИНА' : k.decoys.some(at) ? 'симптом' : anchors.length ? 'мимо' : 'нет якоря'
+  const log = execFileSync('git', ['-C', repo, 'log', '--format=%h %s', 'main..HEAD'], { encoding: 'utf8' }).trim().split('\n').filter(Boolean)
+  console.log(`  status=${r.status} причина: ${verdict} коммитов на ветке: ${log.length}`)
+  console.log(`  root_cause: ${cut(r.root_cause, 300)}`)
+  console.log(`  expected-basis: ${cut(r['expected-basis'], 160)}`)
+  console.log(`  reproduction: ${cut(r.reproduction, 240)}`)
+  console.log(`  fix_proposal: ${cut(r.fix_proposal, 200)}`)
+  const fl = r.falsification || []
+  console.log(`  falsification (${fl.length}; refuted ${fl.filter(x => x.outcome === 'refuted').length}):\n` + fl.map(x => `    ${x.outcome}: ${cut(x.prediction, 140)} -> ${cut(x.observation, 140)}`).join('\n'))
+  console.log(`  fact-check: ${cut(r['fact-check'], 160)}`)
+  console.log(`  conflicts: ${r['conflict-status']} ${cut((r.conflicts || []).join('; '), 200)}`)
+  if (r.missing) console.log(`  missing: ${cut(r.missing)}`)
+  if ((r.degraded || []).length) console.log(`  degraded: ${cut(r.degraded.join('; '))}`)
+  toolTally(logs)
+  const base = join(out, id, 'eval-')
+  const onTree = sh(k.score.tests_cmd, repo, k.score.fail_re)
+  snapshot(repo, base + 'ref', false)
+  cpSync(join(caseDir, 'ref'), base + 'ref', { recursive: true })
+  const onRef = sh(k.score.tests_cmd, base + 'ref', k.score.fail_re)
+  console.log(`  тест ${r.repro_test || '-'}: дерево узла exit=${onTree.code} упали: ${onTree.failed.join(', ') || '-'}; под эталоном exit=${onRef.code}${onRef.code ? ' упали: ' + (onRef.failed.join(', ') || onRef.tail) : ''}`)
+}
+
 for (const id of readdirSync(out).filter(d => existsSync(join(out, d, 'repo'))).sort()) {
   const c = id.replace(/-(old|new)-\d+$/, '')
   const repo = join(out, id, 'repo')
@@ -108,10 +146,12 @@ for (const id of readdirSync(out).filter(d => existsSync(join(out, d, 'repo'))).
   const tokens = wf ? (wf.workflowProgress || []).reduce((a, w) => a + (w.tokens || 0), 0) : 0
   console.log(`\n## ${id}  cost(main+nodes)=$${(head.total_cost_usd || 0).toFixed(2)}  node-tokens=${tokens}  dur=${Math.round((head.duration_ms || 0) / 1000)}s`)
   const litter = readdirSync(join(out, id)).filter(e => !['repo', 'out.json', 'err.log'].includes(e) && !e.startsWith('eval-')).map(e => `../${e}`)
-  // У кодера сборочный вывод под .gitignore законен; следом считается только неотслеживаемое и изменённое.
-  const dirty = execFileSync('git', ['-C', repo, 'status', '--porcelain', ...(nodeName === 'coder' ? [] : ['--ignored'])], { encoding: 'utf8' }).split('\n').filter(Boolean)
+  // У кодера и диагноста вывод сборки и тестов под .gitignore законен; следом считается только неотслеживаемое и изменённое.
+  const dirty = execFileSync('git', ['-C', repo, 'status', '--porcelain', ...(nodeName === 'reviewer' ? ['--ignored'] : [])], { encoding: 'utf8' }).split('\n').filter(Boolean)
   console.log(`  следы: ${[...litter, ...dirty].join(', ') || 'нет'}`)
   if (!r) { console.log('  результата нет'); continue }
-  if (nodeName === 'coder') coder(id, c, r, repo, walk(dir, p => /\/subagents\/.*agent-[^/]*\.jsonl$/.test(p)))
-  else reviewer(c, r)
+  const logs = walk(dir, p => /\/subagents\/.*agent-[^/]*\.jsonl$/.test(p))
+  if (nodeName === 'coder') coder(id, c, r, repo, logs)
+  else if (nodeName === 'debugger') debuggerNode(id, c, r, repo, logs)
+  else { reviewer(c, r); toolTally(logs) }
 }
