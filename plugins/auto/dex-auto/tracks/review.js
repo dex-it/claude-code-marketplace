@@ -146,13 +146,14 @@ const CTX = { type: 'object', properties: {
 const THREAD = { type: 'object', properties: { anchor: PRIOR.properties.anchor, severity: SEV, axis: PRIOR.properties.axis, text: PRIOR.properties.text, status: PRIOR.properties.status, evidence: PRIOR.properties.evidence }, required: ['anchor', 'severity', 'axis', 'text', 'status', 'evidence'] }
 const REVIEW = { type: 'object', properties: {
   status: STATUS, findings: { type: 'array', items: FINDING, description: 'только находки, которых нет среди прежних' },
+  security: { type: 'string', description: 'исход оси безопасности по правке: "находки N" - N находок оси security в findings | "чисто, проверено <что>" | "n/a - <чего в diff нет>"' },
   'fact-check': { type: 'string', description: 'предмет сверки - техутверждения находок' },
   'review-verdict': { type: 'string', enum: ['APPROVE', 'REQUEST_CHANGES', 'NEEDS_DISCUSSION'] },
   prior: { type: 'array', items: PRIOR, description: 'по каждой находке перечня ledger - запись с её id, статус с доказательством; перечня нет - пусто' },
   threads: { type: 'array', items: THREAD, description: 'ре-ревью дельты: прежние находки тредов MR, которых нет в перечне ledger, - статус с доказательством; иначе пусто' },
   questions: { type: 'array', items: { type: 'string' }, description: 'вопросы автору по намерению' },
   missing: { type: 'string' },
-}, required: ['status', 'findings', 'fact-check', 'review-verdict', 'prior', 'threads', 'questions', 'missing'] }
+}, required: ['status', 'findings', 'security', 'fact-check', 'review-verdict', 'prior', 'threads', 'questions', 'missing'] }
 const FALSIFY = { type: 'object', properties: {
   status: STATUS,
   confirmed: { type: 'array', items: FINDING },
@@ -172,6 +173,7 @@ const loops = { review: 0, falsify: 0 }
 const trail = [], degraded = []
 const LEDGER = ledgerList(A.open_findings, 'прежние находки этим прогоном не сверены')
 const fmt = (fs) => fs.map(findingLine).join('\n')
+const SECURITY_OUTCOME = /^(находки \d+|чисто, проверено \S|n\/a - \S)/
 
 phase('Context')
 const ctx = await node('сбор предмета ревью', `${HEAD}Шаг 1: предмет ревью. Канал хостинга - MCP платформы через ToolSearch, иначе gh/glab. Возьми метаданные ${A.mr}: base/head SHA, список файлов diff, описание. Переключи рабочий каталог на head SHA (git fetch ссылки MR, затем git checkout --detach <sha>); at_head - переключился ли; не переключился - status partial, причина в missing. Источник намерения: ${A.intent || 'не передан - возьми описание MR и связанный тикет; нет и их - "n/a" с перечнем, где искали'}. Код и MR не меняй.`,
@@ -182,7 +184,7 @@ if (!ctx || ctx.status === 'blocked') return outcome('blocked', 'Context', lack(
 phase('Review')
 const common = `MR/PR: ${A.mr}, BASE_SHA ${ctx.base_sha}, HEAD_SHA ${ctx.head_sha}, файлов ${ctx.files.length}. intent: ${ctx.intent}. publish: false - ноль записей в MR. ${ctx.at_head ? `Дерево ${A.cwd} переключено на ${ctx.head_sha}, код читай с диска` : `Дерево ${A.cwd} на ${ctx.head_sha} не переключено (${ctx.missing || 'причина не названа'}): код правки читай через канал хостинга на этой ревизии`}; ревизию не переключай - нужна другая, читай её через git show.`
 const LEDGER_TEXT = LEDGER.length ? `\nПрежние находки из ledger - по каждой запись в prior с её id, статус с доказательством; находка перечня идёт только в prior, в findings - то, чего в перечне нет:\n${LEDGER.map(priorLine).join('\n')}` : ''
-const rev = await own(DELTA ? 'ре-ревьюер дельты' : 'ревьюер MR', `${HEAD}Шаг 2: ${DELTA ? `ре-ревью дельты: LAST_REVIEW_SHA ${A.last_review_sha}, статус прежних находок, новые находки только в дельте` : `первичное ревью правки ${ctx.base_sha}..${ctx.head_sha}`}. ${common}${DELTA ? ' Прежняя находка из тредов MR, которой нет в перечне ledger, - в threads, не в prior.' : ''}${LEDGER_TEXT}`,
+const rev = await own(DELTA ? 'ре-ревьюер дельты' : 'ревьюер MR', `${HEAD}Шаг 2: ${DELTA ? `ре-ревью дельты: LAST_REVIEW_SHA ${A.last_review_sha}, статус прежних находок, новые находки только в дельте` : `первичное ревью правки ${ctx.base_sha}..${ctx.head_sha}`}. ${common} Исход оси безопасности - поле security, и когда находок по ней нет.${DELTA ? ' Прежняя находка из тредов MR, которой нет в перечне ledger, - в threads, не в prior.' : ''}${LEDGER_TEXT}`,
   { label: DELTA ? 'review:delta' : 'review:first', phase: 'Review', schema: REVIEW }, NODE.reviewer)
 loops.review = 1
 trail.push({ step: 2, doer: NODE.reviewer.agentType, status: rev ? rev.status : 'null', findings: rev ? rev.findings.length : -1 })
@@ -230,6 +232,8 @@ const issues = []
 if (ledgerUnread) issues.push(LEDGER_UNREAD)
 if (ctx.status === 'partial') issues.push(`предмет ревью неполон: ${ctx.missing || 'узел не назвал нехватку'}`)
 if (rev.status !== 'complete') issues.push(`ревью не завершено: ${rev.missing || 'узел не назвал нехватку'}`)
+// Непросмотренная ось безопасности чистой не отдаётся (I9): исход - одна из трёх форм поля security.
+if (!SECURITY_OUTCOME.test(String(rev.security || '').trim())) issues.push(`ось security не проверена: ${rev.security ? `исход не в форме - ${rev.security}` : 'ревьюер не назвал исход оси'}`)
 if (fal.status !== 'complete') issues.push(`фальсификация не завершена: ${fal.missing || 'узел не назвал нехватку'}`)
 if (unsettled.length) issues.push(`статус прежних находок не сверен скептиком: ${unsettled.map(p => p.anchor).join(', ')}`)
 if (!allPublished) issues.push('часть тредов не опубликована')
@@ -239,7 +243,7 @@ if (fal['review-verdict'] === 'APPROVE' && openBlocking.length) issues.push(`rev
 const where = issues.join('; ')
 return outcome(where ? 'partial' : 'complete', where, where, {
   subject: { mr: A.mr, base_sha: ctx.base_sha, head_sha: ctx.head_sha, files: ctx.files.length, platform: ctx.platform },
-  intent: ctx.intent, 'review-verdict': fal['review-verdict'], reviewer_verdict: rev['review-verdict'], 'fact-check': rev['fact-check'], prior, questions: rev.questions,
+  intent: ctx.intent, 'review-verdict': fal['review-verdict'], reviewer_verdict: rev['review-verdict'], security: rev.security, 'fact-check': rev['fact-check'], prior, questions: rev.questions,
   confirmed, dropped: fal.dropped, coverage: fal.coverage,
   published: pub ? pub.published : [],
   unpublished,

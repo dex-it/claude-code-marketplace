@@ -67,7 +67,7 @@ const revF2closed = { ...revClean, prior: [{ ...ledgerA88, status: 'closed', evi
 const verBlocked = { status: 'blocked', exit_code: -1, pass_count: 0, fail_count: 0, failing: [], build_ok: false, head: '', dirty: false, ahead: 0, repro_test_hash: '', missing: 'нет прав на запуск dotnet test' }
 const ctxMr = { status: 'complete', platform: 'github', base_sha: 'aaa', head_sha: 'bbb', files: ['api/user.ts'], at_head: true, intent: 'issue #12', missing: '' }
 const mrFinding = { anchor: 'api/user.ts:41', severity: 'P1', axis: 'security', text: 'токен в логе', closure: 'убрать поле', evidence: 'logger.info(ctx)' }
-const revMr = { status: 'complete', findings: [mrFinding], 'fact-check': 'n/a (триггер не сработал)', 'review-verdict': 'REQUEST_CHANGES', prior: [], threads: [], questions: ['вопрос по намерению'], missing: '' }
+const revMr = { status: 'complete', findings: [mrFinding], security: 'находки 1', 'fact-check': 'n/a (триггер не сработал)', 'review-verdict': 'REQUEST_CHANGES', prior: [], threads: [], questions: ['вопрос по намерению'], missing: '' }
 // Прежняя находка - структура с id реестра ledger; найденная ре-ревьюером в тредах идёт с пустым id.
 const oldP1 = { id: 'N1', anchor: 'api/old.ts:3', severity: 'P1', text: 'проверка владельца', status: 'closed', evidence: 'автор: закрыта' }
 const ledgerF3sec = { id: 'F3', anchor: 'api/old.ts:3', severity: 'P1', axis: 'security', text: 'проверка владельца', closure: 'owner сверяется', status: 'open', run: 1 }
@@ -472,7 +472,7 @@ const SCENARIOS = [
       ['причина названа', /часть тредов не опубликована/.test(result.where)],
       ['находка не потеряна', result.unpublished.length === 1],
     ] },
-  { name: 'R4 ревью - один узел плагина: ось безопасности у ревьюера, в выходе fact-check без осей', track: 'review', args: reviewArgs,
+  { name: 'R4 ревью - один узел плагина: ось безопасности у ревьюера, её исход и fact-check в выходе', track: 'review', args: reviewArgs,
     responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'falsify+coverage': falOk },
     expect: ({ result, calls }) => [
       ['статус complete', result.status === 'complete'],
@@ -480,7 +480,8 @@ const SCENARIOS = [
       ['первичное ревью - свой узел', typeOf(calls, 'review:first') === 'dex-auto:reviewer'],
       ['модель - из таблицы узлов', calls.find(c => c.label === 'review:first').model === 'opus'],
       ['fact-check ревьюера в выходе', result['fact-check'] === revMr['fact-check']],
-      ['полей осей и security нет', !('axes' in result) && !('security' in result)],
+      ['исход оси security ревьюера в выходе', result.security === revMr.security],
+      ['ревьюеру сказано отдать исход оси безопасности', /Исход оси безопасности - поле security/.test(promptOf(calls, 'review:first'))],
     ] },
   { name: 'R5 ревизия дельты', track: 'review', args: { ...reviewArgs, last_review_sha: 'ccc' },
     responses: { 'ctx:subject': ctxMr, 'review:delta': { ...revMr, threads: [oldThread] }, 'falsify+coverage': { ...falOk, prior: [{ ...oldP1, evidence: 'api/old.ts:3 owner сверяется' }] } },
@@ -2641,6 +2642,24 @@ const SCENARIOS = [
     expect: ({ calls }) => [
       ['скептику - вызов Skill по перечню до вердикта', /и до вердикта по ним вызови Skill полным именем \(плагин:скилл\) на каждый скилл из перечня доступных тебе/.test(promptOf(calls, 'falsify+coverage'))],
       ['предмету ревью и публикатору - нет', !/перечня доступных тебе/.test(promptOf(calls, 'ctx:subject') + promptOf(calls, 'publish'))],
+    ] },
+  { name: 'R62 ревьюер не назвал исход оси безопасности -> ось не проверена, ревью не сдаётся полным', track: 'review', args: reviewArgs,
+    responses: { 'ctx:subject': ctxMr, 'review:first': { ...revMr, security: '' }, 'falsify+coverage': falOk },
+    expect: ({ result }) => [
+      ['статус partial', result.status === 'partial'],
+      ['разрыв назван', result.where === 'ось security не проверена: ревьюер не назвал исход оси'],
+    ] },
+  { name: 'R63 исход оси безопасности не в форме -> ось не проверена', track: 'review', args: reviewArgs,
+    responses: { 'ctx:subject': ctxMr, 'review:first': { ...revMr, security: 'всё в порядке' }, 'falsify+coverage': falOk },
+    expect: ({ result }) => [
+      ['статус partial', result.status === 'partial'],
+      ['исход назван в разрыве', result.where === 'ось security не проверена: исход не в форме - всё в порядке'],
+    ] },
+  { name: 'R64 ось безопасности n/a с основанием -> ревью сдаётся полным', track: 'review', args: reviewArgs,
+    responses: { 'ctx:subject': ctxMr, 'review:first': { ...revMr, findings: [], security: 'n/a - правка только в README.md' }, 'falsify+coverage': { ...falOk, confirmed: [], 'review-verdict': 'APPROVE' } },
+    expect: ({ result }) => [
+      ['статус complete', result.status === 'complete'],
+      ['исход n/a в выходе', result.security === 'n/a - правка только в README.md'],
     ] },
 ]
 
