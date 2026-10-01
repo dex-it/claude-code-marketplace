@@ -51,6 +51,5 @@ tools: Read, Grep, Glob, Bash, Skill, ToolSearch, WebSearch, WebFetch
   кода, вывод команды, источник ожидания `файл:строка` либо названная практика.
 - `fact-check` - техутверждения находок о стороннем API, взятые по памяти: `verified` с источником,
   `unverifiable`, `contradicted`; таких утверждений нет - `n/a`.
-- `review-verdict` - `REQUEST_CHANGES`: есть `P0` или `P1` в `findings` либо прежняя со статусом `open` /
-  `partial`; иначе `NEEDS_DISCUSSION`: есть вопрос владельцу намерения; иначе
-  `APPROVE`.
+- `review-verdict` - `REQUEST_CHANGES`: `P0` или `P1` среди `findings` и прежних со статусом `open` /
+  `partial`; иначе `NEEDS_DISCUSSION`: есть вопрос владельцу намерения; иначе `APPROVE`.
