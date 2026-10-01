@@ -51,7 +51,7 @@ guard мёртв - падает `absent`, guard всегда истинен - п
 
 ## tools/validate-agent.js
 
-Узел трека `dex-auto` (`plugins/auto/<плагин>/agents/*.md`) - не специалист каталога: вызывается только скриптом трека, модель задаёт таблица `NODE` трека, выход - JSON-схема трека, `node-contract` узел не грузит. К нему не применяются `no-phases`, `frontmatter-skills-missing`, `frontmatter-model-missing`, `frontmatter-description-no-triggers`, `handoff-input-missing`, `handoff-output-missing`; остальные правила действуют. Тишину держит база фикстур (`_base/plugins/auto/dex-fixture-auto`) - [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md#узел-трека-dex-auto---не-агент-каталога).
+Узел трека `dex-auto` (`plugins/auto/<плагин>/agents/*.md`) - не специалист каталога: вызывается только скриптом трека, модель задаёт таблица `NODE` трека, выход - JSON-схема трека, `node-contract` узел не грузит. К нему не применяются `no-phases`, `frontmatter-skills-missing`, `frontmatter-model-missing`, `frontmatter-description-no-triggers`, `handoff-input-missing`, `handoff-output-missing`, `frontmatter-no-skill-tool`; остальные правила действуют. Тишину держит база фикстур (`_base/plugins/auto/dex-fixture-auto`) - [AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md#узел-трека-dex-auto---не-агент-каталога).
 
 | Правило | Уровень | Что ловит | Норма |
 |---|---|---|---|

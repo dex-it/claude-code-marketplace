@@ -959,6 +959,8 @@ const TRACK_NODE_EXEMPT = new Set([
   'frontmatter-description-no-triggers',
   'handoff-input-missing',
   'handoff-output-missing',
+  // Инструменты узла задаёт его роль в треке: узлу без фаз Skill не нужен для загрузки скиллов по фазам.
+  'frontmatter-no-skill-tool',
 ]);
 const isTrackNode = (filepath) => TRACK_NODE_RE.test(relative(REPO_ROOT, resolve(filepath)).split(sep).join('/'));
 
