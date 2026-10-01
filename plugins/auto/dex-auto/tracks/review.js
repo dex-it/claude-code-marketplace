@@ -173,6 +173,9 @@ const LEDGER = ledgerList(A.open_findings, 'прежние находки эти
 const fmt = (fs) => fs.map(findingLine).join('\n')
 const SECURITY_OUTCOME = /^(находки \d+|чисто, проверено \S|n\/a - \S)/
 
+// Вход собирает /auto; workflow, вызванный по имени, приходит без него - узлы без цели и каталога не запускаются (T0).
+const noInput = ['task', 'mr', 'cwd'].filter(k => !String(A[k] || '').trim())
+if (noInput.length) return outcome('blocked', 'Context', `трек вызван без входа: нет ${noInput.join(', ')}`)
 phase('Context')
 const ctx = await node('сбор предмета ревью', `${HEAD}Шаг 1: предмет ревью. Канал хостинга - MCP платформы через ToolSearch, иначе gh/glab. Возьми метаданные ${A.mr}: base/head SHA, список файлов diff, описание. Переключи рабочий каталог на head SHA (git fetch ссылки MR, затем git checkout --detach <sha>); at_head - переключился ли; не переключился - status partial, причина в missing. Источник намерения: ${A.intent || 'не передан - возьми описание MR и связанный тикет; нет и их - "n/a" с перечнем, где искали'}. Код и MR не меняй.`,
   { label: 'ctx:subject', phase: 'Context', effort: 'low', schema: CTX })

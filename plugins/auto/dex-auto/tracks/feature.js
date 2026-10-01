@@ -281,6 +281,9 @@ const dec = () => decisions.slice()
 const bail = (where, missing, extra) => outcome('blocked', where, missing, { decisions: dec(), ctx, fix, ...extra })
 const passed = (v) => isGreen(v, ctx && ctx.test_cmd)
 
+// Вход собирает /auto; workflow, вызванный по имени, приходит без него - узлы без цели и каталога не запускаются (T0).
+const noInput = ['task', 'goal', 'cwd'].filter(k => !String(A[k] || '').trim())
+if (noInput.length) return outcome('blocked', 'Context', `трек вызван без входа: нет ${noInput.join(', ')}`)
 phase('Context')
 // Разведка выводится из неизменного - цели, манифеста и кода, - поэтому при возобновлении берётся
 // из ledger, а не покупается заново: повтор ещё и перевыводит номера R, на которые ссылаются

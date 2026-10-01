@@ -888,7 +888,7 @@ const SCENARIOS = [
       ['публикации не было', !labelsOf(calls).includes('publish')],
       ['статус complete', result.status === 'complete'],
     ] },
-  { name: 'R29 args не переданы -> режим по умолчанию autonomous', track: 'review', args: undefined,
+  { name: 'R29 mode не передан -> режим по умолчанию autonomous', track: 'review', args: { ...reviewArgs, mode: undefined },
     responses: { 'ctx:subject': null },
     expect: ({ result, calls }) => [
       ['статус blocked', result.status === 'blocked' && result.where === 'Context'],
@@ -1712,9 +1712,11 @@ const SCENARIOS = [
       ['окружение не задано', promptOf(calls, 'reproduce').includes('окружение: не задано')],
       ['статус complete', result.status === 'complete'],
     ] },
-  { name: 'B61 трек без args не падает', track: 'bugfix', args: undefined,
-    responses: { 'reproduce': reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
-    expect: ({ result }) => [['статус complete', result.status === 'complete']] },
+  { name: 'B61 трек без args не падает - blocked до первого узла (T0)', track: 'bugfix', args: undefined, responses: {},
+    expect: ({ result, calls }) => [
+      ['ни одного узла', calls.length === 0],
+      ['blocked на Context с нехваткой', result.status === 'blocked' && result.where === 'Context' && result.missing === 'трек вызван без входа: нет task, symptom, cwd'],
+    ] },
   { name: 'B62 подготовка упала без лога и команды -> подстановки названы диагносту и в degraded', track: 'bugfix', args: bugfixArgs,
     responses: { 'ctx:tree': { ...prepTs, 'prepare-status': 'failed', prepare_log: '', prepare_cmd: '' }, 'reproduce': reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
     expect: ({ result, calls }) => [
@@ -2668,6 +2670,33 @@ const SCENARIOS = [
       ['статус partial', result.status === 'partial'],
       ['разрыв по флагу назван', result.where === 'дерево трека не на head_sha: причина не названа'],
       ['скептику сказано читать код правки через канал хостинга', promptOf(calls, 'falsify+coverage').includes('не переключено (причина не названа): код правки читай через канал хостинга')],
+    ] },
+  { name: 'F101 feature вызван по имени workflow без args -> blocked до первого узла', track: 'feature', args: undefined, responses: {},
+    expect: ({ result, calls }) => [
+      ['ни одного узла', calls.length === 0],
+      ['blocked на Context', result.status === 'blocked' && result.where === 'Context'],
+      ['нехватка названа', result.missing === 'трек вызван без входа: нет task, goal, cwd'],
+    ] },
+  { name: 'F101 feature без cwd -> blocked до первого узла', track: 'feature', args: { ...featureArgs, cwd: '' }, responses: {},
+    expect: ({ result, calls }) => [
+      ['ни одного узла', calls.length === 0],
+      ['нехватка - только cwd', result.status === 'blocked' && result.missing === 'трек вызван без входа: нет cwd'],
+    ] },
+  { name: 'B163 bugfix без cwd -> blocked до первого узла', track: 'bugfix', args: { ...bugfixArgs, cwd: '' }, responses: {},
+    expect: ({ result, calls }) => [
+      ['ни одного узла', calls.length === 0],
+      ['нехватка - только cwd', result.status === 'blocked' && result.missing === 'трек вызван без входа: нет cwd'],
+    ] },
+  { name: 'R66 review вызван по имени workflow без args -> blocked до первого узла', track: 'review', args: undefined, responses: {},
+    expect: ({ result, calls }) => [
+      ['ни одного узла', calls.length === 0],
+      ['blocked на Context', result.status === 'blocked' && result.where === 'Context'],
+      ['нехватка названа', result.missing === 'трек вызван без входа: нет task, mr, cwd'],
+    ] },
+  { name: 'R66 review без cwd -> blocked до первого узла', track: 'review', args: { ...reviewArgs, cwd: '' }, responses: {},
+    expect: ({ result, calls }) => [
+      ['ни одного узла', calls.length === 0],
+      ['нехватка - только cwd', result.status === 'blocked' && result.missing === 'трек вызван без входа: нет cwd'],
     ] },
 ]
 

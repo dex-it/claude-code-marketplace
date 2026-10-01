@@ -304,6 +304,9 @@ const dec = () => decisions.slice()
 const bail = (where, missing, extra) => outcome('blocked', where, missing, { decisions: dec(), repro, fix, ...extra })
 const passed = (v) => isGreen(v, repro && repro.test_cmd)
 
+// Вход собирает /auto; workflow, вызванный по имени, приходит без него - узлы без цели и каталога не запускаются (T0).
+const noInput = ['task', 'symptom', 'cwd'].filter(k => !String(A[k] || '').trim())
+if (noInput.length) return outcome('blocked', 'Context', `трек вызван без входа: нет ${noInput.join(', ')}`)
 phase('Context')
 // Подготовка дерева из ledger не берётся ни при каком следе: дерево - это состояние, а не вывод.
 // С диагностом не параллельно: воспроизведение идёт по подготовленному дереву, а два узла, ставящие
