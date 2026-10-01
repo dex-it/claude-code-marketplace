@@ -2708,6 +2708,18 @@ const SCENARIOS = [
         ['diff-scope - пути, не тела', /пути изменённых файлов/.test(p['diff-scope'].description || '')],
       ]
     } },
+  { name: 'F103 Explore не установлен -> разведку ведёт general-purpose с ролью, отказ в degraded, трек идёт', track: 'feature', args: featureArgs,
+    unavailable: ['Explore'],
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => {
+      const req = calls.filter(c => c.label === 'ctx:R-I')
+      return [
+        ['замена - general-purpose', req.length === 1 && req[0].agentType === 'general-purpose'],
+        ['роль и причина обрыва в промпте замены', req[0].prompt.startsWith('Роль: аналитик контекста.\nУзел Explore на этом шаге оборвался ошибкой: agent type not found: Explore')],
+        ['отказ в degraded', result.degraded.includes('аналитик контекста: Explore не отработал (agent type not found: Explore)')],
+        ['трек дошёл до конца', result.status === 'complete'],
+      ]
+    } },
 ]
 
 // Узел подготовки дерева - фон любого сценария feature / bugfix, а не его предмет: ответ по

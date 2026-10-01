@@ -85,7 +85,7 @@ stateDiagram-v2
 | Узел | Агент | Модель | Выход |
 |---|---|---|---|
 | подготовка дерева | `general-purpose` | haiku | стек по реестру с манифестом-основанием, команды сборки / тестов / подготовки, `prepare-status` done / not-needed / failed, строки `git status --porcelain`, добавленные подготовкой, возвращены (F26), `baseline-status` green / red / n/a - сборка и тесты до правок трека |
-| разведка | `Explore` | сессии | R/I с источником, файлы, корпус, `conflict-status` с перечнем |
+| разведка | `Explore`; не установлен - `general-purpose` с ролью и причиной обрыва, строка `degraded` (F103) | сессии | R/I с источником, файлы, корпус, `conflict-status` с перечнем |
 | кодер | `dex-auto:coder` на любом стеке (F98) | sonnet | `plan` - план реализации с трассой каждого изменения, коммит, `red-run`, `uncovered-status`, `dependents-status`, `fact-check`, `decisions`, `prior` по находкам задания; `node-contract` узел не грузит - правила `red-run` (и существующий тест задетой ветки), `run-status` и `diff-scope` несёт схема FIX (F102) |
 | верификатор | `general-purpose` | haiku | `exit_code`, `pass_count`, `fail_count`, `build_ok`, `dirty`, `ahead` - коммитов текущей ветки дерева, которых нет на других ветках (имя ветки из TASK не собирается - скрипт дерева его нормализует) |
 | саморевьюер | `dex-auto:reviewer` (F96) | opus | `findings` P0-P3, `intent-status`, `prior`, `review-verdict` |
