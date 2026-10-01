@@ -1,22 +1,23 @@
 ---
-description: Автономный трек под открытую цель - feature, bugfix или ревью чужого MR; ledger вне рабочего дерева, Workflow-скрипт трека, сдача исхода скриптом finish.sh
+description: Автономный трек под открытую цель - feature, bugfix или ревью чужого MR; ledger вне рабочего дерева, Workflow-скрипт трека, сдача исхода скриптом finish.sh, по --pr - PR/MR своей ветки
 allowed-tools: Workflow, EnterWorktree, ExitWorktree, Skill, ToolSearch, Bash, Read, Write, Edit, Glob, Grep
-argument-hint: "[bugfix|feature TASK цель... | TASK | review MR] [продолжить] [--interactive] [--post] [--delta SHA]"
+argument-hint: "[bugfix|feature TASK цель... | TASK | review MR] [продолжить] [--interactive] [--pr [--draft] [--base BRANCH]] [--post] [--delta SHA]"
 ---
 
 # /auto
 
 **Goal:** цель закрыта подтверждённым внешним фактом (критерий «готово» из `00-goal.md` исполнен командой или проверкой)
 либо остановлена статусом `blocked` / `partial` с названной нехваткой и решением по каждой открытой находке; третьего исхода
-нет. Треки: **feature** и **bugfix** - до локальных коммитов (push никогда); **ревью** чужого MR/PR - read-only, треды
-только по `--post`.
+нет. Треки: **feature** и **bugfix** - до локальных коммитов, по `--pr` цель `complete` сдаётся PR/MR ветки `auto/<TASK>`;
+**ревью** чужого MR/PR - read-only, треды только по `--post`.
 
 **Вход.** Трек - по первому слову: `review` - ревью; `bugfix` / `feature` - далее `TASK` и цель (цели в аргументе нет
 - берётся из открытого `00-goal.md`, подготовленного `/dex-auto:goal`); `TASK` без слова трека - трек по строке `Вид:` этой
   цели. Цели нет - `blocked` «цель не подготовлена»; `Вид:` нет, расходится со словом трека или цель дана без слова трека -
-  `blocked` «вид не задан»; цель закрыта - её исход в выход без прогона.
+  `blocked` «вид не задан»; цель закрыта - её исход в выход без прогона (`complete` с `--pr` без `PR:` с адресом - ещё сдача кода).
 - feature / bugfix: `TASK`, цель фразой (bugfix - симптом), критерий «готово» в проверяемой форме, граница «чего не делаем»,
-  источник, если назван; из подготовленной цели - ещё `Источник:`.
+  источник, если назван; из подготовленной цели - ещё `Источник:`. `--pr` - санкция на push ветки `auto/<TASK>` и PR/MR
+  после `complete`, без неё push нет; `--draft` - черновиком, `--base BRANCH` - целевая ветка (без него - по умолчанию у remote).
 - Ревью: указатель MR/PR (URL, `owner/repo#N`, `group/project!N`), `TASK` из него (`owner-repo-N`); intent, если назван;
   `--post` (`args.publish`) - санкция на инлайн-треды в чужом MR (без неё находки перечнем в выход); `--delta SHA`
   (`args.last_review_sha`) - ревизия дельты от прошлой ревизии. Критерий «готово»: у каждой находки статус, вердикт вынесен,
@@ -28,7 +29,7 @@ argument-hint: "[bugfix|feature TASK цель... | TASK | review MR] [продо
 `set`: `finish.sh` без возврата узла не вызывается. Разделы файла трека `01-<трек>.md` пишет `finish.sh` по возврату, находки - реестром `01-<трек>.findings.jsonl` с `id` на каждую (`### Открытые
 находки` - разность реестра на конец прогона, `### Снято в прогоне` - снятые этим прогоном); главный поток дописывает в `### Решения` по строке на
 находку, первым словом её `id`. `open TASK [MODE]` заводит `00-goal.md` (путь - `args.goal_path`); под `set` - `Исход:`,
-`Нехватка:`, `Ожидает:`; разделы `## Цель` (первая строка `Вид: bugfix|feature`, вторая `Источник:`), `## Критерий «готово»`, `##
+`Нехватка:`, `Ожидает:`, `PR:` (сдача кода); разделы `## Цель` (первая строка `Вид: bugfix|feature`, вторая `Источник:`), `## Критерий «готово»`, `##
 Граница` заполняются прозой по входу до запуска трека. Открытую цель `open` не трогает, но до запуска всегда `set TASK Режим
 autonomous` (`--interactive` - `interactive`) и `set TASK Ожидает ""`: под оставленными `/goal` `interactive` / `оператор` сторож
 Stop ход не держит. TRACK - `feature` | `bugfix` | `review` | `review-delta` (при `--delta`). `open-tracks TASK` вернул файл другого
@@ -40,8 +41,11 @@ Stop ход не держит. TRACK - `feature` | `bugfix` | `review` | `review
 ветке `auto/<TASK>` в `args.cwd` -> `EnterWorktree` с этим `path` -> `Workflow`; ненулевой код `worktree.py` либо отказ
 `EnterWorktree` - `set TASK Исход blocked`, `set TASK Нехватка <stderr либо отказ>`, `Workflow` не запускается. Сверка критерия
 «готово» идёт в дереве, затем при любом исходе - `ExitWorktree` (`action: keep`) и сдача из каталога запуска: в дереве платформа
-отказывает команде `Bash` со словом `complete`. После сдачи `complete` - `worktree.py drop TASK` (ветка с коммитами остаётся);
-`partial` и `blocked` в треке: дерево под возобновление; `drop` отказал - путь и причина в Output.
+отказывает команде `Bash` со словом `complete`. После сдачи `complete` - при `--pr` сдача кода, затем `worktree.py drop TASK` (ветка с коммитами остаётся);
+`partial` и `blocked` в треке: дерево под возобновление; `drop` отказал - путь и причина в Output. Сдача кода: `EnterWorktree` в
+дерево (у закрытой цели - от `worktree.py path TASK`) -> `Workflow` `dex-auto:dex-auto-deliver`, `args` `{task, track, branch, base, draft, goal_path, cwd}` (`branch` - ветка
+дерева, `cwd` - его путь; `base` без `--base` не подаётся) -> `ExitWorktree` -> `set TASK PR <url>` при `pr: opened`, иначе
+`set TASK PR "не открыт - <reason либо отказ Workflow>"`; исход цели остаётся `complete`.
 
 **Прогон.** `Workflow` с `name` `dex-auto:dex-auto-<трек>`, трек - `feature`, `bugfix` либо `review` (и при `--delta`); `args`: feature - `{task, goal, done, boundary,
 mode, cwd, source, goal_path, resume, trail, open_findings, ctx}`; bugfix - то же, но вместо `goal` - `symptom, expected,
@@ -68,8 +72,8 @@ env`, и вместо `ctx` - `repro` (симптом - фраза цели, о�
 
 **Output:** `Исход:` цели первой строкой (`complete` | `blocked` | `partial`), затем `TASK`, путь ledger, ветка `auto/<TASK>`,
 судьба дерева (снято либо путь), исход сверки требований оракулом (`расхождений нет` либо перечень сторон), для feature / bugfix `goal_check` возврата (сборка, тесты, коммит, `head`),
-`review-verdict` саморевью и `prior` с `id`, для bugfix ещё `repro.root_cause`; для ревью `review-verdict` скептика и рядом `reviewer_verdict` ревьюера,
+`review-verdict` саморевью и `prior` с `id`, при `--pr` - строка `PR:` цели, для bugfix ещё `repro.root_cause`; для ревью `review-verdict` скептика и рядом `reviewer_verdict` ревьюера,
 подтверждённые и снятые находки, `prior` дельты, покрытие, треды; счётчики петель, строки `degraded`, решения по открытым находкам, стоп-линии, на которые прогон
-вышел (push, деплой, миграция данных, необратимое удаление, запись в чужой MR без `--post`) - к оператору поимённо.
+вышел (push без `--pr`, деплой, миграция данных, необратимое удаление, запись в чужой MR без `--post`) - к оператору поимённо.
 
 **Constraints:** поля возврата брать из значения тула, не из пересказа; вопрос оператору в `autonomous` не задаётся - он превращается в `blocked` с нехваткой.
