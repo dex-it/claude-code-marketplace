@@ -1,4 +1,4 @@
-// build.mjs <узел> <out.js>: скрипт Workflow прогона узла - источники tracks-shared, кейсы узла без полей судьи (mines, score, cause, decoys), тело <узел>/node.js.
+// build.mjs <узел> <out.js>: скрипт Workflow прогона узла - источники tracks-shared (с таблицей узлов nodes.js), кейсы узла без полей судьи (mines, score, cause, decoys), тело <узел>/node.js.
 import { readFileSync, readdirSync, writeFileSync, existsSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -19,6 +19,14 @@ const src = (f) => `// >>> ${f}\n${readFileSync(join(shared, f), 'utf8')}\n`
 const repro = nodeName === 'debugger'
   ? readFileSync(join(here, '../../plugins/auto/dex-auto/tracks/bugfix.js'), 'utf8').match(/^const REPRO = [\s\S]*?^\}, required: .*$/m)[0] + '\n'
   : ''
-writeFileSync(out, meta + src('contract.js') + src('domain.js') + src('self-review.js') + repro
+// Промпт узла - тот же, что в треке: хвост шага кодера сверяется с feature.js, расхождение - отказ сборки (молча разъехавшийся
+// промпт делает меру стенда мерой не того узла, который едет в треке).
+if (nodeName === 'coder') {
+  const tail = (s) => (s.match(/\\nПо завершении: [^`]*`/) || [])[0]
+  const track = tail(readFileSync(join(here, '../../plugins/auto/dex-auto/tracks/feature.js'), 'utf8').split('\n').find(l => l.includes("fix = await own('кодер'")) || '')
+  const bench = tail(readFileSync(join(here, 'coder/node.js'), 'utf8'))
+  if (!track || track !== bench) { console.error(`промпт кодера стенда разошёлся с feature.js: ${bench} против ${track}`); process.exit(1) }
+}
+writeFileSync(out, meta + src('contract.js') + src('nodes.js') + src('domain.js') + src('self-review.js') + repro
   + `const CASES = ${JSON.stringify(cases, null, 2)}\n` + readFileSync(join(here, nodeName, 'node.js'), 'utf8'))
 console.log(out)

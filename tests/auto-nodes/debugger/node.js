@@ -10,5 +10,5 @@ const opts = { label: `reproduce:${A.node}:${A.case}`, phase: 'Reproduce', schem
 phase('Reproduce')
 const r = A.node === 'old'
   ? await node('диагност первопричины', PROMPT, opts, 'dex-debugger:debugger')
-  : await own('диагност первопричины', PROMPT, opts, { agentType: 'dex-auto:debugger', model: 'opus' })
+  : await own('диагност первопричины', PROMPT, opts, NODE.debugger)
 return { ...r, degraded }
