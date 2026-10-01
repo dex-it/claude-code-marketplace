@@ -2698,6 +2698,16 @@ const SCENARIOS = [
       ['ни одного узла', calls.length === 0],
       ['нехватка - только cwd', result.status === 'blocked' && result.missing === 'трек вызван без входа: нет cwd'],
     ] },
+  { name: 'F102 кодер без node-contract получает правила red-run, run-status и diff-scope в схеме FIX', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ calls }) => {
+      const p = (calls.find(c => c.label === 'fix:1') || {}).schema.properties
+      return [
+        ['red-run - и существующий тест задетой ветки', /существующий, чью целевую ветку тронула правка/.test(p['red-run'].description || '')],
+        ['run-status - n/a и unverifiable', /n\/a с причиной/.test(p['run-status'].description) && /unverifiable/.test(p['run-status'].description)],
+        ['diff-scope - пути, не тела', /пути изменённых файлов/.test(p['diff-scope'].description || '')],
+      ]
+    } },
 ]
 
 // Узел подготовки дерева - фон любого сценария feature / bugfix, а не его предмет: ответ по
