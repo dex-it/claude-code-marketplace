@@ -10,7 +10,7 @@
     "R2. createSession({ ttlMs }) с ttlMs <= 0 отклоняется как неверный вход. (FEAT.md:4)"
   ],
   "coder": {
-    "red-run": "тесты R1 красные до правки: isExpired is not a function; R2 красный до правки: createSession не бросает; после правки зелёные",
+    "red-run": "тесты R1 и R2 красные до правки: файл тестов не загружается - в src/session.js нет экспорта isExpired (SyntaxError импорта); после правки зелёные",
     "uncovered-status": "none", "uncovered": [],
     "dependents-status": "none", "dependents": []
   },
