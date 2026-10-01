@@ -27,7 +27,7 @@ const why = (e) => String(e && e.message || e).slice(0, 300)
 // >>> shared: nodes
 // Цену узла ставит трек, frontmatter узла её не несёт; запись без model и effort - уровень сессии.
 const NODE = {
-  // sonnet - модель пробы в прогонах P76-P86.
+  // sonnet - модель пробы в прогонах P76-P86 и P95.
   'goal-reader': { agentType: 'dex-auto:goal-reader', model: 'sonnet' },
   // opus - модель контроля dex-self-reviewer: сверка P74 различает норму, а не модель.
   reviewer: { agentType: 'dex-auto:reviewer', model: 'opus' },
@@ -46,12 +46,14 @@ const SEV = { type: 'string', enum: ['P0', 'P1', 'P2', 'P3'], description: 'P0 =
 const AXIS = { type: 'string', enum: ['security', 'architecture', 'language', 'business', 'regressions', 'performance', 'coverage', 'loose-ends', 'non-code'] }
 const AXIS_OUTCOME = ['findings', 'clean', 'unverifiable', 'n/a']
 const AXES = { type: 'array', items: { type: 'object', properties: { name: AXIS, outcome: { type: 'string', enum: AXIS_OUTCOME }, checked: { type: 'string' } }, required: ['name', 'outcome', 'checked'] } }
-// Трек судит форму набора осей, верность исхода судит скептик.
-const axesGap = (axes) => {
+// Трек судит форму набора осей и её согласие с findings, верность исхода судит скептик.
+const axesGap = (axes, findings) => {
   const a = axes || []
   const unnamed = AXIS.enum.filter(n => !a.some(x => x.name === n && x.outcome))
+  const count = (n) => (findings || []).filter(f => f.axis === n).length
   return [unnamed.length ? `оси не названы: ${unnamed.join(', ')}` : '',
-    ...a.filter(x => x.outcome === 'unverifiable').map(x => `ось не проверена: ${x.name} - ${x.checked || 'причина не названа'}`)].filter(Boolean).join('; ')
+    ...a.filter(x => x.outcome === 'unverifiable').map(x => `ось не проверена: ${x.name} - ${x.checked || 'причина не названа'}`),
+    ...(findings ? a.filter(x => (x.outcome === 'findings') !== count(x.name) > 0).map(x => `исход оси расходится с findings: ${x.name} - ${x.outcome}, находок оси ${count(x.name)}`) : [])].filter(Boolean).join('; ')
 }
 // Форма одна у всех ревьюеров: ledger хранит находку одной записью, и поле, которого нет у одного узла, из реестра выпадает молча.
 const FINDING = { type: 'object', properties: {
@@ -198,7 +200,9 @@ trail.push({ step: 1, doer: 'general-purpose', status: ctx ? ctx.status : 'null'
 if (!ctx || ctx.status === 'blocked') return outcome('blocked', 'Context', lack(ctx, 'узел контекста'))
 
 phase('Review')
-const common = `MR/PR: ${A.mr}, BASE_SHA ${ctx.base_sha}, HEAD_SHA ${ctx.head_sha}, файлов ${ctx.files.length}. intent: ${ctx.intent}. publish: false - ноль записей в MR. ${ctx.at_head ? `Дерево ${A.cwd} переключено на ${ctx.head_sha}, код читай с диска` : `Дерево ${A.cwd} на ${ctx.head_sha} не переключено (${ctx.missing || 'причина не названа'}): код правки читай через канал хостинга на этой ревизии`}; ревизию не переключай - нужна другая, читай её через git show.`
+// Где читать код правки, знают оба узла суждения: скептик, читающий диск не на head_sha, сбросил бы находки о правке.
+const TREE_AT = `${ctx.at_head ? `Дерево ${A.cwd} переключено на ${ctx.head_sha}, код читай с диска` : `Дерево ${A.cwd} на ${ctx.head_sha} не переключено (${ctx.missing || 'причина не названа'}): код правки читай через канал хостинга на этой ревизии`}; ревизию не переключай - нужна другая, читай её через git show.`
+const common = `MR/PR: ${A.mr}, BASE_SHA ${ctx.base_sha}, HEAD_SHA ${ctx.head_sha}, файлов ${ctx.files.length}. intent: ${ctx.intent}. publish: false - ноль записей в MR. ${TREE_AT}`
 const LEDGER_TEXT = LEDGER.length ? `\nПрежние находки из ledger - по каждой запись в prior с её id, статус с доказательством; находка перечня идёт только в prior, в findings - то, чего в перечне нет:\n${LEDGER.map(priorLine).join('\n')}` : ''
 const rev = await own(DELTA ? 'ре-ревьюер дельты' : 'ревьюер MR', `${HEAD}Шаг 2: ${DELTA ? `ре-ревью дельты: LAST_REVIEW_SHA ${A.last_review_sha}, статус прежних находок, новые находки только в дельте` : `первичное ревью правки ${ctx.base_sha}..${ctx.head_sha}`}. ${common}${DELTA ? ' Прежняя находка из тредов MR, которой нет в перечне ledger, - в threads, не в prior.' : ''}${LEDGER_TEXT}`,
   { label: DELTA ? 'review:delta' : 'review:first', phase: 'Review', schema: REVIEW }, NODE.reviewer)
@@ -248,9 +252,9 @@ const allPublished = !A.publish || !confirmed.length || (pub && pub.status === '
 const issues = []
 if (ledgerUnread) issues.push(LEDGER_UNREAD)
 if (ctx.status === 'partial') issues.push(`предмет ревью неполон: ${ctx.missing || 'узел не назвал нехватку'}`)
-if (!ctx.at_head) issues.push(`дерево трека не на head_sha${ctx.status === 'partial' ? '' : `: ${ctx.missing || 'причина не названа'}`}`)
+else if (!ctx.at_head) issues.push(`дерево трека не на head_sha: ${ctx.missing || 'причина не названа'}`)
 if (rev.status !== 'complete') issues.push(`ревью не завершено: ${rev.missing || 'узел не назвал нехватку'}`)
-if (axesGap(axes)) issues.push(`ревью: ${axesGap(axes)}`)
+if (axesGap(axes, rev.findings)) issues.push(`ревью: ${axesGap(axes, rev.findings)}`)
 if (fal.status !== 'complete') issues.push(`фальсификация не завершена: ${fal.missing || 'узел не назвал нехватку'}`)
 if (unsettled.length) issues.push(`статус прежних находок не сверен скептиком: ${unsettled.map(p => p.anchor).join(', ')}`)
 if (!allPublished) issues.push('часть тредов не опубликована')
@@ -260,7 +264,7 @@ if (fal['review-verdict'] === 'APPROVE' && openBlocking.length) issues.push(`rev
 const where = issues.join('; ')
 return outcome(where ? 'partial' : 'complete', where, where, {
   subject: { mr: A.mr, base_sha: ctx.base_sha, head_sha: ctx.head_sha, files: ctx.files.length, platform: ctx.platform },
-  intent: ctx.intent, 'review-verdict': fal['review-verdict'], reviewer_verdict: rev['review-verdict'], 'fact-check': rev['fact-check'], prior, questions: rev.questions,
+  intent: ctx.intent, 'review-verdict': fal['review-verdict'], reviewer_verdict: rev['review-verdict'], axes, 'fact-check': rev['fact-check'], prior, questions: rev.questions,
   confirmed, dropped: fal.dropped, coverage: fal.coverage,
   published: pub ? pub.published : [],
   unpublished,

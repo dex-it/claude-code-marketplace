@@ -25,9 +25,14 @@
 node score.mjs <каталог>
 ```
 
+Нужен `timeout` из GNU coreutils (на macOS - `brew install coreutils`, годится и `gtimeout`); без него
+`run.sh` отказывает до первого прогона. Кейс, который `setup.sh` не собрал, прогона не получает.
+
 `build.mjs` собирает скрипт `Workflow` из источников `plugins/auto/tracks-shared/` и тела
-`<узел>/node.js`: промпт узла тот же, что в треке, модель - из таблицы узлов трека `NODE`, варианты
-узла - таблица `NODES` в `node.js`. `run.sh` требует `timeout` (GNU coreutils, на macOS - `gtimeout`). Каждый
+`<узел>/node.js`: промпт узла тот же, что в треке (хвост промпта кодера `build.mjs` сверяет с `feature.js` и при
+расхождении отказывает), модель - из таблицы `NODE` трека (`tracks-shared/nodes.js`), варианты узла - таблица
+`NODES` в `node.js`. `run.sh` требует `timeout` (GNU coreutils, на macOS - `gtimeout`). Каждый
+
 прогон - свой `claude -p` в своём репозитории с `--plugin-dir` рабочего дерева `dex-auto`. `score.mjs`
 печатает выход узла и следы - лишнее рядом с репозиторием и `git status` (у ревьюера с `--ignored`,
 у кодера сборочный вывод под `.gitignore` законен). Токены узла (`node-usage`) - по транскриптам субагентов, максимум по `message.id`;

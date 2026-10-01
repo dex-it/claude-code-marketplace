@@ -44,7 +44,7 @@ const why = (e) => String(e && e.message || e).slice(0, 300)
 // >>> shared: nodes
 // Цену узла ставит трек, frontmatter узла её не несёт; запись без model и effort - уровень сессии.
 const NODE = {
-  // sonnet - модель пробы в прогонах P76-P86.
+  // sonnet - модель пробы в прогонах P76-P86 и P95.
   'goal-reader': { agentType: 'dex-auto:goal-reader', model: 'sonnet' },
   // opus - модель контроля dex-self-reviewer: сверка P74 различает норму, а не модель.
   reviewer: { agentType: 'dex-auto:reviewer', model: 'opus' },
@@ -63,12 +63,14 @@ const SEV = { type: 'string', enum: ['P0', 'P1', 'P2', 'P3'], description: 'P0 =
 const AXIS = { type: 'string', enum: ['security', 'architecture', 'language', 'business', 'regressions', 'performance', 'coverage', 'loose-ends', 'non-code'] }
 const AXIS_OUTCOME = ['findings', 'clean', 'unverifiable', 'n/a']
 const AXES = { type: 'array', items: { type: 'object', properties: { name: AXIS, outcome: { type: 'string', enum: AXIS_OUTCOME }, checked: { type: 'string' } }, required: ['name', 'outcome', 'checked'] } }
-// Трек судит форму набора осей, верность исхода судит скептик.
-const axesGap = (axes) => {
+// Трек судит форму набора осей и её согласие с findings, верность исхода судит скептик.
+const axesGap = (axes, findings) => {
   const a = axes || []
   const unnamed = AXIS.enum.filter(n => !a.some(x => x.name === n && x.outcome))
+  const count = (n) => (findings || []).filter(f => f.axis === n).length
   return [unnamed.length ? `оси не названы: ${unnamed.join(', ')}` : '',
-    ...a.filter(x => x.outcome === 'unverifiable').map(x => `ось не проверена: ${x.name} - ${x.checked || 'причина не названа'}`)].filter(Boolean).join('; ')
+    ...a.filter(x => x.outcome === 'unverifiable').map(x => `ось не проверена: ${x.name} - ${x.checked || 'причина не названа'}`),
+    ...(findings ? a.filter(x => (x.outcome === 'findings') !== count(x.name) > 0).map(x => `исход оси расходится с findings: ${x.name} - ${x.outcome}, находок оси ${count(x.name)}`) : [])].filter(Boolean).join('; ')
 }
 // Форма одна у всех ревьюеров: ledger хранит находку одной записью, и поле, которого нет у одного узла, из реестра выпадает молча.
 const FINDING = { type: 'object', properties: {
@@ -229,10 +231,10 @@ const baselineNote = (b) => !b ? '' : b.status === 'red'
 const FIX = { type: 'object', properties: {
   status: STATUS,
   plan: { type: 'array', items: { type: 'object', properties: { where: { type: 'string' }, change: { type: 'string' }, trace: { type: 'string' } }, required: ['where', 'change', 'trace'] }, description: 'план реализации в итоговой редакции: where - файл или символ, change - суть изменения, у отступления - с причиной, trace - требование, правило проекта с якорем, стандарт или практика' },
-  'diff-scope': { type: 'array', items: { type: 'string' } },
+  'diff-scope': { type: 'array', items: { type: 'string' }, description: 'пути изменённых файлов и ветка, не тела' },
   commit: { type: 'string', description: 'sha локального коммита либо пусто' },
-  'run-status': { type: 'string', description: 'зелёность трек судит VERIFY-узлом, не этим полем' },
-  'red-run': { type: 'string' },
+  'run-status': { type: 'string', description: 'свой прогон сборки и тестов: команда и исход; проверка неприменима - n/a с причиной, запуск невозможен - unverifiable с тем, что пробовал, и тогда status partial; зелёность трек судит VERIFY-узлом, не этим полем' },
+  'red-run': { type: 'string', description: 'чем показано, что тест сторожит требование: нарушение (код до правки либо порча целевой ветки), на котором он был красным, и сверенная причина падения - на каждый новый и изменённый тест и на существующий, чью целевую ветку тронула правка (прежняя запись истекает с прежним поведением); подпадающих тестов нет - n/a с причиной; показать не вышло - unverifiable + чем пробовал' },
   // Признак замкнутости - enum: свободную строку модель отдаёт синонимами, а пустое значение неотличимо от невыясненного.
   'uncovered-status': { type: 'string', enum: ['none', 'some', 'unknown'], description: 'осталось ли непокрытое тестами: none - не осталось, some - перечень в uncovered, unknown - покрытие не выяснялось; догадка сюда не пишется' },
   uncovered: { type: 'array', items: { type: 'string' }, description: 'при some - непокрытое перечнем (ветка, случай, граница); иначе пустой' },
@@ -324,6 +326,9 @@ const dec = () => decisions.slice()
 const bail = (where, missing, extra) => outcome('blocked', where, missing, { decisions: dec(), repro, fix, ...extra })
 const passed = (v) => isGreen(v, repro && repro.test_cmd)
 
+// Вход собирает /auto; workflow, вызванный по имени, приходит без него - узлы без цели и каталога не запускаются (T0).
+const noInput = ['task', 'symptom', 'cwd'].filter(k => !String(A[k] || '').trim())
+if (noInput.length) return outcome('blocked', 'Context', `трек вызван без входа: нет ${noInput.join(', ')}`)
 phase('Context')
 // Подготовка дерева из ledger не берётся ни при каком следе: дерево - это состояние, а не вывод.
 // С диагностом не параллельно: воспроизведение идёт по подготовленному дереву, а два узла, ставящие

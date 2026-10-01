@@ -21,7 +21,7 @@ const why = (e) => String(e && e.message || e).slice(0, 300)
 // >>> shared: nodes
 // Цену узла ставит трек, frontmatter узла её не несёт; запись без model и effort - уровень сессии.
 const NODE = {
-  // sonnet - модель пробы в прогонах P76-P86.
+  // sonnet - модель пробы в прогонах P76-P86 и P95.
   'goal-reader': { agentType: 'dex-auto:goal-reader', model: 'sonnet' },
   // opus - модель контроля dex-self-reviewer: сверка P74 различает норму, а не модель.
   reviewer: { agentType: 'dex-auto:reviewer', model: 'opus' },

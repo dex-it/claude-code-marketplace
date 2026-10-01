@@ -11,6 +11,8 @@ mkdir -p "$out"; out=$(cd "$out" && pwd)
 plugin=$(cd "$here/../../plugins/auto/dex-auto" && pwd)
 to=$(command -v timeout || command -v gtimeout) || { printf 'run.sh: нет timeout (GNU coreutils; на macOS - gtimeout из brew coreutils)\n' >&2; exit 2; }
 tmp="${CLAUDE_CODE_TMPDIR:-${TMPDIR:-${TMP:-${TEMP:-/tmp}}}}/claude-$(id -u)"
+# timeout - из GNU coreutils; в стандартной macOS его нет, там он ставится как gtimeout.
+to=$(command -v timeout || command -v gtimeout) || { printf 'нет timeout (GNU coreutils; на macOS - brew install coreutils)\n' >&2; exit 2; }
 node "$here/build.mjs" "$node_name" "$out/workflow.js" >/dev/null
 
 one() {
@@ -18,10 +20,11 @@ one() {
   id="$c-$v-$n"; d="$out/$id"
   [ -e "$d" ] && { printf '%s: занят, пропуск\n' "$id"; return 0; }
   mkdir -p "$d"
-  # set -eu в bash -c не наследуется, а cd "" на bash 3.2 остаётся в текущем каталоге - claude -p работал бы в маркетплейсе.
+  # set -eu в функцию под xargs bash -c не наследуется: пустой repo дал бы `cd ""`, на bash 3.2 это успех в текущем каталоге.
   repo=$("$here/setup.sh" "$here/$node_name/$c" "$d/repo") || { printf '%s: setup упал\n' "$id"; return 1; }
   [ -d "$repo" ] || { printf '%s: setup не отдал каталог\n' "$id"; return 1; }
   args=$(printf '{"case": "%s", "cwd": "%s", "node": "%s", "base": "%s", "head": "%s"}' "$c" "$repo" "$v" "$(git -C "$repo" rev-parse main)" "$(git -C "$repo" rev-parse HEAD)")
+
   (cd "$repo" && CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0 "$to" 3000 claude -p "Прогон зонда. Вызови Workflow со scriptPath $out/workflow.js и args $args.
 Он идёт в фоне: дождись возврата в этом же ходе циклом until в Bash (sleep 20 между проверками) по файлу вывода задачи <Task ID>.output - ищи find $tmp -name '<Task ID>.output'; готов - файл непуст и разбирается как JSON. Потолок ожидания 45 минут. Затем выведи содержимое файла дословно, без пересказа. Файлов не правь." \
     --model sonnet --dangerously-skip-permissions --plugin-dir "$plugin" --output-format json > "$d/out.json" 2> "$d/err.log" < /dev/null; echo "exit $?" >> "$d/err.log")

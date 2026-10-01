@@ -521,7 +521,7 @@ const SCENARIOS = [
       ['причина названа', /часть тредов не опубликована/.test(result.where)],
       ['находка не потеряна', result.unpublished.length === 1],
     ] },
-  { name: 'R4 ревью - один узел плагина: ось безопасности у ревьюера, в выходе fact-check без осей', track: 'review', args: reviewArgs,
+  { name: 'R4 ревью - один узел плагина: ось безопасности у ревьюера, исходы осей и fact-check в выходе', track: 'review', args: reviewArgs,
     responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'falsify+coverage': falOk },
     expect: ({ result, calls }) => [
       ['статус complete', result.status === 'complete'],
@@ -529,7 +529,7 @@ const SCENARIOS = [
       ['первичное ревью - свой узел', typeOf(calls, 'review:first') === 'dex-auto:reviewer'],
       ['модель - из таблицы узлов', calls.find(c => c.label === 'review:first').model === 'opus'],
       ['fact-check ревьюера в выходе', result['fact-check'] === revMr['fact-check']],
-      ['полей осей и security нет', !('axes' in result) && !('security' in result)],
+      ['исходы осей ревьюера в выходе, поля security нет', JSON.stringify(result.axes) === JSON.stringify(revMr.axes) && !('security' in result)],
     ] },
   { name: 'R5 ревизия дельты', track: 'review', args: { ...reviewArgs, last_review_sha: 'ccc' },
     responses: { 'ctx:subject': ctxMr, 'review:delta': { ...revMr, threads: [oldThread] }, 'falsify+coverage': { ...falOk, prior: [{ ...oldP1, evidence: 'api/old.ts:3 owner сверяется' }] } },
@@ -561,7 +561,7 @@ const SCENARIOS = [
     ] },
   { name: 'R9 находок нет: скептик судит покрытие', track: 'review', args: reviewArgs,
     responses: { 'ctx:subject': ctxMr,
-      'review:first': { ...revMr, findings: [], 'review-verdict': 'APPROVE', questions: [] },
+      'review:first': { ...revMr, findings: [], axes: axesWith({ security: ['clean', 'ввод на границе и права на ресурс'] }), 'review-verdict': 'APPROVE', questions: [] },
       'falsify+coverage': { status: 'complete', confirmed: [], dropped: [], coverage: 'покрыто: T1', 'review-verdict': 'APPROVE', prior: [], missing: '' } },
     expect: ({ result, calls }) => [
       ['статус complete', result.status === 'complete'],
@@ -2710,6 +2710,7 @@ const SCENARIOS = [
       ['ревьюеру названы отказ и причина', promptOf(calls, 'review:first').includes('на bbb не переключено (git fetch pull/7/head: доступа к форку нет): код правки читай через канал хостинга')],
       ['ревью не сдаётся полным', result.status === 'partial' && result.where.startsWith('предмет ревью неполон: git fetch pull/7/head')],
       ['скептику та же развилка дерева', promptOf(calls, 'falsify+coverage').includes('на bbb не переключено (git fetch pull/7/head: доступа к форку нет): код правки читай через канал хостинга')],
+      ['разрыв один, без дубля по флагу', !/дерево трека не на head_sha/.test(result.where)],
     ] },
   { name: 'R65 предмет complete при at_head: false -> разрыв по самому флагу', track: 'review', args: reviewArgs,
     responses: { 'ctx:subject': { ...ctxMr, status: 'complete', at_head: false, missing: '' }, 'review:first': revMr, 'falsify+coverage': falOk },
@@ -2777,6 +2778,43 @@ const SCENARIOS = [
     ] },
   { name: 'R64 пустое обязательное поле -> blocked, поле названо', track: 'review', args: { ...reviewArgs, cwd: ' ' }, responses: {},
     expect: ({ result, calls }) => [['blocked по cwd', calls.length === 0 && result.missing === 'трек вызван без входа: нет cwd']] },
+  { name: 'F109 кодер без node-contract получает правила red-run, run-status и diff-scope в схеме FIX', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ calls }) => {
+      const p = (calls.find(c => c.label === 'fix:1') || {}).schema.properties
+      return [
+        ['red-run - и существующий тест задетой ветки', /существующий, чью целевую ветку тронула правка/.test(p['red-run'].description || '')],
+        ['run-status - n/a и unverifiable', /n\/a с причиной/.test(p['run-status'].description) && /unverifiable/.test(p['run-status'].description)],
+        ['diff-scope - пути, не тела', /пути изменённых файлов/.test(p['diff-scope'].description || '')],
+      ]
+    } },
+  { name: 'F100 узлы суждения feature сверяют перечень скиллов с предметом правки; разведке, подготовке и верификатору это не предписано', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ calls }) => [
+      ['кодеру и ревьюеру - вызов Skill на каждый скилл, чей предмет правка задевает', ['coder', 'reviewer'].every(n => /сверь\s+перечень доступных тебе скиллов с предметом правки/.test(agentBody(n)) && /вызови `Skill` полным именем \(`плагин:скилл`\)\s+на каждый, чей предмет правка задевает/.test(agentBody(n)))],
+      ['разведке, подготовке и верификатору - нет', !/перечень доступных тебе скиллов|перечня доступных тебе/.test(promptOf(calls, 'ctx:R-I') + promptOf(calls, 'ctx:tree') + promptOf(calls, 'verify:после попытки 1'))],
+    ] },
+  { name: 'B167 диагност сверяет перечень скиллов с предметом сбоя; подготовке и верификатору это не предписано', track: 'bugfix', args: bugfixArgs,
+    responses: { reproduce: reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ calls }) => [
+      ['диагносту - вызов Skill на каждый скилл, чей предмет сбой задевает', /сверь перечень доступных тебе скиллов с предметом сбоя/.test(agentBody('debugger')) && /на\s+каждый, чей предмет сбой задевает/.test(agentBody('debugger'))],
+      ['подготовке и верификатору - нет', !/перечень доступных тебе скиллов|перечня доступных тебе/.test(promptOf(calls, 'ctx:tree') + promptOf(calls, 'verify:после попытки 1'))],
+    ] },
+  { name: 'G27 проба сверяет перечень скиллов с предметом цели', track: 'goal', args: goalArgs, responses: { probe: probeClean },
+    expect: () => [['узлу пробы - вызов Skill на каждый скилл, чей предмет цель задевает', /сверь перечень доступных тебе скиллов с предметом цели/.test(agentBody('goal-reader')) && /на\s+каждый, чей предмет цель задевает/.test(agentBody('goal-reader'))]] },
+  { name: 'R60 скептик сверяет перечень скиллов с предметом правки; предмету ревью и публикатору это не предписано', track: 'review', args: { ...reviewArgs, publish: true },
+    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'falsify+coverage': falOk,
+      publish: { status: 'complete', published: [{ anchor: 'api/user.ts:41', axis: 'security', url: 'https://x/1', note: '' }], unpublished: [] } },
+    expect: ({ calls }) => [
+      ['скептику и ревьюеру - вызов Skill на каждый скилл, чей предмет правка задевает', ['skeptic', 'reviewer'].every(n => /сверь\s+перечень доступных тебе скиллов с предметом\s+правки/.test(agentBody(n)) && /на каждый, чей предмет правка задевает/.test(agentBody(n)))],
+      ['предмету ревью и публикатору - нет', !/перечень доступных тебе скиллов|перечня доступных тебе/.test(promptOf(calls, 'ctx:subject') + promptOf(calls, 'publish'))],
+    ] },
+  { name: 'R66 исход findings без находок оси в findings -> разрыв', track: 'review', args: reviewArgs,
+    responses: { 'ctx:subject': ctxMr, 'review:first': { ...revMr, axes: revMr.axes.map(a => a.name === 'performance' ? { name: 'performance', outcome: 'findings', checked: '' } : a) }, 'falsify+coverage': falOk },
+    expect: ({ result }) => [['расхождение названо', result.status === 'partial' && result.where.includes('ревью: исход оси расходится с findings: performance - findings, находок оси 0')]] },
+  { name: 'R67 исход clean при находке оси в findings -> разрыв', track: 'review', args: reviewArgs,
+    responses: { 'ctx:subject': ctxMr, 'review:first': { ...revMr, axes: revMr.axes.map(a => a.name === 'security' ? { name: 'security', outcome: 'clean', checked: 'ввод и права' } : a) }, 'falsify+coverage': falOk },
+    expect: ({ result }) => [['расхождение названо', result.status === 'partial' && result.where.includes('ревью: исход оси расходится с findings: security - clean, находок оси 1')]] },
   { name: 'D1 узел сдачи - агент dex-auto на sonnet, вход: ветка, цель, файл трека, base не назван, готовым к ревью', track: 'deliver', args: deliverArgs, responses: { deliver: delivered },
     expect: ({ result, calls }) => [
       ['один вызов deliverer на sonnet', labelsOf(calls).join() === 'deliver' && typeOf(calls, 'deliver') === deliverNode && calls[0].model === 'sonnet'],

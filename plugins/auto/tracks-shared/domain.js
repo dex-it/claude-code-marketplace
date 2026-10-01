@@ -2,12 +2,14 @@ const SEV = { type: 'string', enum: ['P0', 'P1', 'P2', 'P3'], description: 'P0 =
 const AXIS = { type: 'string', enum: ['security', 'architecture', 'language', 'business', 'regressions', 'performance', 'coverage', 'loose-ends', 'non-code'] }
 const AXIS_OUTCOME = ['findings', 'clean', 'unverifiable', 'n/a']
 const AXES = { type: 'array', items: { type: 'object', properties: { name: AXIS, outcome: { type: 'string', enum: AXIS_OUTCOME }, checked: { type: 'string' } }, required: ['name', 'outcome', 'checked'] } }
-// Трек судит форму набора осей, верность исхода судит скептик.
-const axesGap = (axes) => {
+// Трек судит форму набора осей и её согласие с findings, верность исхода судит скептик.
+const axesGap = (axes, findings) => {
   const a = axes || []
   const unnamed = AXIS.enum.filter(n => !a.some(x => x.name === n && x.outcome))
+  const count = (n) => (findings || []).filter(f => f.axis === n).length
   return [unnamed.length ? `оси не названы: ${unnamed.join(', ')}` : '',
-    ...a.filter(x => x.outcome === 'unverifiable').map(x => `ось не проверена: ${x.name} - ${x.checked || 'причина не названа'}`)].filter(Boolean).join('; ')
+    ...a.filter(x => x.outcome === 'unverifiable').map(x => `ось не проверена: ${x.name} - ${x.checked || 'причина не названа'}`),
+    ...(findings ? a.filter(x => (x.outcome === 'findings') !== count(x.name) > 0).map(x => `исход оси расходится с findings: ${x.name} - ${x.outcome}, находок оси ${count(x.name)}`) : [])].filter(Boolean).join('; ')
 }
 // Форма одна у всех ревьюеров: ledger хранит находку одной записью, и поле, которого нет у одного узла, из реестра выпадает молча.
 const FINDING = { type: 'object', properties: {

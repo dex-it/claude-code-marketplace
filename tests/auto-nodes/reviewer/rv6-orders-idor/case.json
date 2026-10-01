@@ -10,7 +10,8 @@
     "R2. Заказ не в статусе new не отменяется: OrderStateError. (FEAT.md:4)"
   ],
   "coder": {
-    "red-run": "тестовый файл на коде до правки не загружается: нет экспорта cancelOrder - красные все тесты файла, R1 и R2 в их числе; после правки зелёные",
+    "red-run": "тестовый файл на коде до правки не загружается: в src/orders.js нет экспорта cancelOrder (SyntaxError импорта) - красные все тесты файла, R1 и R2 в их числе; после правки зелёные",
+
     "uncovered-status": "none", "uncovered": [],
     "dependents-status": "none", "dependents": []
   },
