@@ -25,6 +25,9 @@
 node score.mjs <каталог>
 ```
 
+Нужен `timeout` из GNU coreutils (на macOS - `brew install coreutils`, годится и `gtimeout`); без него
+`run.sh` отказывает до первого прогона. Кейс, который `setup.sh` не собрал, прогона не получает.
+
 `build.mjs` собирает скрипт `Workflow` из источников `plugins/auto/tracks-shared/` и тела
 `<узел>/node.js`: промпт узла тот же, что в треке, варианты узла - таблица `NODES` там же. Каждый
 прогон - свой `claude -p` в своём репозитории с `--plugin-dir` рабочего дерева `dex-auto`. `score.mjs`
