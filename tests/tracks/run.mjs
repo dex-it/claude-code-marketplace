@@ -80,6 +80,9 @@ const bugfixArgs = { task: 'B-1', symptom: 'дубль платежа', expected
 const reviewArgs = { task: 'gh-1', mr: 'owner/repo#7', intent: 'issue #12', mode: 'autonomous', cwd: '/repo-gh-1' }
 const goalArgs = { kind: 'feature', corpus: '/tmp/goal-c1', cwd: '/repo' }
 const probeNode = 'dex-auto:goal-reader'
+const deliverArgs = { task: 'F-1', track: 'feature', branch: 'auto/F-1', goal_path: '/ledger/F-1/00-goal.md', cwd: '/repo-F-1' }
+const deliverNode = 'dex-auto:deliverer'
+const delivered = { status: 'complete', url: 'https://host/o/r/pull/1', channel: 'gh', head: 'abc', missing: '' }
 const guessA = { where: 'goal.md «Критерий «готово»»', decision: 'запись сбрасывает кэш либо он живёт до TTL - вызывающий видит новую или старую цену', cost: 'клиент платит старую цену' }
 const guessB = { where: 'source.md:3', decision: 'предел 100 либо 1000 записей - 101-я получает отказ или нет', cost: 'отказ легитимному клиенту' }
 const probePlan = ['writeSlugCache: файл ключа внутри CACHE_DIR - черновик, критерий R4']
@@ -2642,6 +2645,81 @@ const SCENARIOS = [
       ['скептику - вызов Skill по перечню до вердикта', /и до вердикта по ним вызови Skill полным именем \(плагин:скилл\) на каждый скилл из перечня доступных тебе/.test(promptOf(calls, 'falsify+coverage'))],
       ['предмету ревью и публикатору - нет', !/перечня доступных тебе/.test(promptOf(calls, 'ctx:subject') + promptOf(calls, 'publish'))],
     ] },
+  { name: 'D1 узел сдачи - агент dex-auto на sonnet, вход: ветка, цель, файл трека, base не назван, готовым к ревью', track: 'deliver', args: deliverArgs, responses: { deliver: delivered },
+    expect: ({ result, calls }) => [
+      ['один вызов deliverer на sonnet', labelsOf(calls).join() === 'deliver' && typeOf(calls, 'deliver') === deliverNode && calls[0].model === 'sonnet'],
+      ['вход называет ветку, каталог, цель и файл трека', ['auto/F-1', '/repo-F-1', '/ledger/F-1/00-goal.md', '/ledger/F-1/01-feature.md'].every(t => promptOf(calls, 'deliver').includes(t))],
+      ['base не назван, черновика нет', /Целевая ветка: не названа\. PR\/MR - готовым к ревью\./.test(promptOf(calls, 'deliver'))],
+      ['opened с адресом и каналом', result.pr === 'opened' && result.url === delivered.url && result.channel === 'gh' && result.reason === ''],
+    ] },
+  { name: 'D2 base и draft входа - в промпт узла', track: 'deliver', args: { ...deliverArgs, track: 'bugfix', base: 'dev', draft: true }, responses: { deliver: delivered },
+    expect: ({ calls }) => [
+      ['целевая ветка и черновик названы', /Целевая ветка: dev\. PR\/MR - черновиком\./.test(promptOf(calls, 'deliver'))],
+      ['файл трека bugfix', promptOf(calls, 'deliver').includes('/ledger/F-1/01-bugfix.md')],
+    ] },
+  { name: 'D3 чужая ветка -> not-opened до вызова узла', track: 'deliver', args: { ...deliverArgs, branch: 'main' }, responses: {},
+    expect: ({ result, calls }) => [
+      ['чужая ветка - отказ с причиной', result.pr === 'not-opened' && result.reason === 'вход сдачи не разобран: ветка main не ветка трека цели F-1'],
+      ['узел не вызван', calls.length === 0],
+    ] },
+  { name: 'D10 пустое поле, трек review, draft и base не по типу, args строкой -> not-opened', track: 'deliver', args: { ...deliverArgs, cwd: '' }, responses: {},
+    expect: async ({ result }) => {
+      const review = (await runTrack('deliver', { ...deliverArgs, track: 'review' }, {})).result
+      const draft = (await runTrack('deliver', { ...deliverArgs, draft: 'yes' }, {})).result
+      const base = (await runTrack('deliver', { ...deliverArgs, base: 7 }, {})).result
+      const str = (await runTrack('deliver', JSON.stringify(deliverArgs), {})).result
+      const other = (await runTrack('deliver', { ...deliverArgs, branch: 'auto/F-2' }, {})).result
+      const slug = (await runTrack('deliver', { ...deliverArgs, task: 'gh#1', branch: 'auto/gh-1' }, { deliver: delivered })).result
+      const goal = (await runTrack('deliver', { ...deliverArgs, goal_path: '/ledger/F-1/01-feature.md' }, {})).result
+      return [
+        ['base не строка', base.reason === 'вход сдачи не разобран: base не строка'],
+        ['args строкой', str.reason === 'вход сдачи не разобран: args строкой, а не объектом'],
+        ['ветка другой цели auto/F-2 - отказ', other.pr === 'not-opened' && other.reason === 'вход сдачи не разобран: ветка auto/F-2 не ветка трека цели F-1'],
+        ['имя ветки - slug TASK, как branch_of', slug.pr === 'opened'],
+        ['goal_path не 00-goal.md', goal.reason === 'вход сдачи не разобран: goal_path /ledger/F-1/01-feature.md не файл цели 00-goal.md'],
+        ['пустое поле названо', result.reason === 'вход сдачи не разобран: пусто либо не строка: cwd'],
+        ['трек вне feature/bugfix', review.reason === 'вход сдачи не разобран: трек «review», ждали feature либо bugfix'],
+        ['draft не логическое', draft.pr === 'not-opened' && draft.reason === 'вход сдачи не разобран: draft не логическое'],
+      ]
+    } },
+  { name: 'D11 многострочная нехватка узла -> reason одной строкой', track: 'deliver', args: deliverArgs,
+    responses: { deliver: { ...delivered, status: 'partial', url: '', missing: 'gh: не авторизован\n  glab: нет в PATH\n' } },
+    expect: ({ result }) => [
+      ['переводы строк заменены', result.reason === 'gh: не авторизован; glab: нет в PATH'],
+    ] },
+  { name: 'D4 узел не установлен -> not-opened без замены', track: 'deliver', args: deliverArgs, responses: {}, unavailable: [deliverNode],
+    expect: ({ result, calls }) => [
+      ['причина называет узел и ошибку', result.pr === 'not-opened' && result.reason === `узел сдачи ${deliverNode} не отработал: agent type not found: ${deliverNode}`],
+      ['замены нет', calls.length === 0],
+    ] },
+  { name: 'D5 узел не вернул выход', track: 'deliver', args: deliverArgs, responses: { deliver: null },
+    expect: ({ result }) => [
+      ['not-opened с причиной', result.pr === 'not-opened' && result.reason === 'узел сдачи не вернул выход'],
+    ] },
+  { name: 'D6 push отвергнут -> not-opened с нехваткой узла', track: 'deliver', args: deliverArgs,
+    responses: { deliver: { ...delivered, status: 'blocked', url: '', channel: '', head: '', missing: 'push отвергнут: non-fast-forward' } },
+    expect: ({ result }) => [
+      ['нехватка - причиной', result.pr === 'not-opened' && result.reason === 'push отвергнут: non-fast-forward' && result.head === ''],
+    ] },
+  { name: 'D7 ветка опубликована, PR нет -> not-opened, head сохранён', track: 'deliver', args: deliverArgs,
+    responses: { deliver: { ...delivered, status: 'partial', url: '', channel: '', missing: '' } },
+    expect: ({ result }) => [
+      ['нехватка подставлена', result.pr === 'not-opened' && result.reason === 'узел сдачи вернул partial без нехватки'],
+      ['head опубликованной ветки в выходе', result.head === 'abc'],
+    ] },
+  { name: 'D8 complete без адреса -> not-opened', track: 'deliver', args: deliverArgs, responses: { deliver: { ...delivered, url: '' } },
+    expect: ({ result }) => [
+      ['адреса нет - не открыт', result.pr === 'not-opened' && result.reason === 'узел сдачи вернул complete без адреса PR/MR'],
+    ] },
+  { name: 'D9 файл узла: без model и effort, смысл каждого поля выдачи', track: 'deliver', args: deliverArgs, responses: { deliver: delivered },
+    expect: ({ calls }) => {
+      const schema = (calls.find(c => c.label === 'deliver') || {}).schema
+      return [
+        ['tools: чтение, Bash и ToolSearch, без записи файлов', agentTools('deliverer') === 'Bash,Glob,Grep,Read,ToolSearch'],
+        ['model и effort не заданы', !/^(model|effort):/m.test(frontmatter('deliverer'))],
+        ['каждое поле схемы названо в файле, описаний в схеме нет', !!schema && schemaFields(schema).every(f => agentBody('deliverer').includes(`\`${f}\``)) && !JSON.stringify(schema).includes('"description"')],
+      ]
+    } },
 ]
 
 // Узел подготовки дерева - фон любого сценария feature / bugfix, а не его предмет: ответ по
@@ -2651,7 +2729,7 @@ const DEFAULT_TREE = { feature: prepOk, bugfix: prepTs }
 // Команды зовут трек именем `dex-auto:<meta.name>` из каталога `workflows` манифеста (P67).
 const manifest = JSON.parse(readFileSync(join(TRACKS, '..', '.claude-plugin', 'plugin.json'), 'utf8'))
 const REGISTRATION = [['манифест регистрирует tracks/ каталогом workflows', manifest.workflows === './tracks/'],
-  ...['feature', 'bugfix', 'review', 'goal'].map(t => [`meta.name трека ${t} - dex-auto-${t}`,
+  ...['feature', 'bugfix', 'review', 'goal', 'deliver'].map(t => [`meta.name трека ${t} - dex-auto-${t}`,
     /export const meta = \{\s*name: '([^']+)'/.exec(readFileSync(join(TRACKS, `${t}.js`), 'utf8'))?.[1] === `dex-auto-${t}`])]
 
 const only = process.argv[2]
@@ -2666,7 +2744,7 @@ for (const s of SCENARIOS) {
   let checks
   try {
     const responses = DEFAULT_TREE[s.track] ? { 'ctx:tree': DEFAULT_TREE[s.track], ...s.responses } : s.responses
-    checks = s.expect(await runTrack(s.track, s.args, responses, s.unavailable))
+    checks = await s.expect(await runTrack(s.track, s.args, responses, s.unavailable))
   } catch (e) {
     n++; failed++
     console.log(`not ok ${n} - ${s.name}: упал прогон - ${e.message}`)

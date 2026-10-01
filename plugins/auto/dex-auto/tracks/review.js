@@ -34,6 +34,8 @@ const NODE = {
   coder: { agentType: 'dex-auto:coder', model: 'sonnet' },
   // opus - модель контроля dex-debugger: сверка P91 различает норму, а не модель.
   debugger: { agentType: 'dex-auto:debugger', model: 'opus' },
+  // sonnet - узел исполняет публикацию по каналу хостинга, суждения о коде у него нет.
+  deliverer: { agentType: 'dex-auto:deliverer', model: 'sonnet' },
 }
 // <<< shared: nodes
 // >>> shared: domain
