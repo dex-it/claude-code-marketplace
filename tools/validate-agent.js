@@ -946,6 +946,21 @@ function validateAttributeBlocks(markdownBody, findings, bodyOffset = 0) {
 
 // --- File validation orchestration --------------------------------------
 
+// Узел трека dex-auto (`plugins/auto/<плагин>/agents/*.md`) - не специалист каталога: его вызывает
+// только скрипт трека через `agent()`, модель задаёт таблица `NODE` трека, выход - JSON-схема трека,
+// триггеров и автоматической делегации нет, `node-contract` узел не грузит. Правила формы специалиста
+// к нему не применяются; остальные (имя файла, ссылки, имена плагинов, скиллы в теле) действуют.
+const TRACK_NODE_RE = /^plugins\/auto\/[^/]+\/agents\/[^/]+\.md$/;
+const TRACK_NODE_EXEMPT = new Set([
+  'no-phases',
+  'frontmatter-skills-missing',
+  'frontmatter-model-missing',
+  'frontmatter-description-no-triggers',
+  'handoff-input-missing',
+  'handoff-output-missing',
+]);
+const isTrackNode = (filepath) => TRACK_NODE_RE.test(relative(REPO_ROOT, resolve(filepath)).split(sep).join('/'));
+
 function validateFile(filepath, marketplacePlugins) {
   const findings = [];
   let parsed;
@@ -980,11 +995,12 @@ function validateFile(filepath, marketplacePlugins) {
   validateLinkEscapesPlugin(raw, filepath, findings);
   validatePluginNameMentions(raw, findings);
 
-  if (phaseResult.validated) {
+  const trackNode = isTrackNode(filepath);
+  if (phaseResult.validated || trackNode) {
     validateSkillReferences(parsed.content, marketplacePlugins, findings);
   }
 
-  return { filepath, findings };
+  return { filepath, findings: trackNode ? findings.filter((f) => !TRACK_NODE_EXEMPT.has(f.rule)) : findings };
 }
 
 // --- link escapes the plugin ---------------------------------------------

@@ -259,6 +259,10 @@ Mandatory-фазы - **защита от failure mode'ов**. Пометка с�
 
 Свойства 1-4 - требование к каждому агенту каталога, а не только к новому. Агент без `Input (handoff)` или `Output (handoff)` в теле не проходит `npm run validate`: класс держат правила `handoff-input-missing` и `handoff-output-missing`, оба error, оба без исключений по возрасту файла.
 
+### Узел трека dex-auto - не агент каталога
+
+Файл `plugins/auto/<плагин>/agents/*.md` - узел трека: его вызывает только скрипт трека через `agent()`, сигнатура - JSON-схема трека, модель и effort - таблица `NODE` (`plugins/auto/tracks-shared/nodes.js`), автоматической делегации нет. Тело узла - цель и смысл полей выдачи, без фаз; `node-contract` узел не грузит, правила полей несёт схема трека. Поэтому правила формы специалиста (фазы, триггеры в `description`, явный `model`, pre-load контракта стыка, `Input`/`Output (handoff)`) к нему не применяются - перечень в [VALIDATOR_RULES.md](VALIDATOR_RULES.md#toolsvalidate-agentjs).
+
 ## Parallel Reviewer Orchestration (fan-out)
 
 ### Порог делегирования
