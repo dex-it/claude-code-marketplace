@@ -152,7 +152,7 @@ if (checkOnly) {
     for (const s of stale) console.error(`ERROR ${s}; пересобрать: npm run sync:tracks`);
     process.exit(1);
   }
-  console.log(`sync-tracks: ${tracks.length} треков и узлов, блоков из ${used.size} источников - синхронно; словарь статусов находки совпадает с ledger и finish, enum схем названы в словаре стыка`);
+  console.log(`sync-tracks: ${tracks.length} треков и узлов, блоков из ${used.size} источников - синхронно; словарь статусов находки совпадает с ledger и finish, enum STATUS, VERDICT, AXIS, AXIS_OUTCOME, PRIOR_STATUS и diagnosis-check названы в словаре стыка`);
   process.exit(0);
 }
 
