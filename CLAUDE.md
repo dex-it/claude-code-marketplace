@@ -59,7 +59,7 @@
 
 #### By-stack loading: общий агент грузит профильные skills по реестру
 
-Общие агенты не хранят зашитый список «если .NET -> skill X»: они грузят process-skill `dex-skill-stack-registry:stack-registry`, определяют стек по манифесту и фильтруют available-skills по префиксу `dex-skill-{стек}-*`. Отсюда конвенция репо: **новый стек = новые `dex-skill-{стек}-*` + строка реестра, агенты не правятся**. Механизм отбора и эмпирическое обоснование префикса - [docs/AGENT_FRAMEWORK.md](docs/AGENT_FRAMEWORK.md#by-stack-loading-общий-агент-грузит-профильные-skills-по-реестру).
+Общие агенты не хранят зашитый список «если .NET -> skill X»: они грузят process-skill `dex-skill-stack-registry:stack-registry`, определяют стек по манифесту и фильтруют available-skills по префиксу `dex-skill-{стек}-*`. Отсюда конвенция репо: **новый стек = новые `dex-skill-{стек}-*` + строка реестра, агенты не правятся**. Механизм отбора и эмпирическое обоснование префикса - [docs/AGENT_FRAMEWORK.md](docs/AGENT_FRAMEWORK.md#by-stack-loading-общий-агент-грузит-профильные-skills-по-реестру). Узел трека `dex-auto` под это правило не подпадает: скиллы стека он берёт из перечня доступных по своему суждению ([«Узел трека»](docs/AGENT_FRAMEWORK.md#узел-трека-dex-auto---не-агент-каталога)).
 
 ### Frontmatter агентов
 

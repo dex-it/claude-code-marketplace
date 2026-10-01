@@ -37,8 +37,6 @@ const DONE = resuming ? `\nВозобновление: шаги ниже уже 
 const STATUS = { type: 'string', enum: ['complete', 'blocked', 'partial'] }
 const lack = (v, who) => !v ? `${who} не вернул выход` : v.missing || `${who} вернул blocked без нехватки`
 const why = (e) => String(e && e.message || e).slice(0, 300)
-// Форма вызова сверена зондом P75: «загружается скилл, чьё описание называет стек» - 0 вызовов из 6.
-const SKILLS = (read, before) => `Прочитав ${read}, и до ${before} вызови Skill полным именем (плагин:скилл) на каждый скилл из перечня доступных тебе, чей предмет - стек задетого кода либо используемые им фреймворк, библиотека, тестовый фреймворк или область API; нужность не судится. `
 // <<< shared: contract
 // >>> shared: nodes
 // Цену узла ставит трек, frontmatter узла её не несёт; запись без model и effort - уровень сессии.
