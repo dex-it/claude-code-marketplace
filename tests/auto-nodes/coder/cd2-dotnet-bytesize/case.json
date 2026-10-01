@@ -1,0 +1,36 @@
+{
+  "kind": "feature",
+  "task": "FEAT-1",
+  "stack": "dotnet",
+  "goal": "ByteSize.Parse понимает единицы B, KB, MB, GB и дробное число",
+  "done": "R1-R4 исполнены, на каждое требование есть тест, dotnet test зелёный",
+  "boundary": "только этот репозиторий; пакетов не добавлять",
+  "requirements": [
+    "R1. ByteSize.Parse(text) возвращает байты для '<число><единица>'; единицы B, KB, MB, GB с множителем 1024, без единицы - байты: '512' -> 512, '512B' -> 512, '2MB' -> 2097152, '1GB' -> 1073741824 (источник: цель)",
+    "R2. Число может быть дробным, с десятичной точкой: '1.5KB' -> 1536; дробный остаток байта отбрасывается: '1.9KB' -> 1945 (источник: цель)",
+    "R3. Единица без учёта регистра, между числом и единицей допустимы пробелы: '1 kb' -> 1024 (источник: цель)",
+    "R4. Пустая строка, отрицательное число, неизвестная единица -> FormatException, в сообщении исходная строка (источник: цель)"
+  ],
+  "files": [
+    "src/ByteSizes/ByteSize.cs",
+    "tests/ByteSizes.Tests/ByteSizeTests.cs"
+  ],
+  "test_cmd": "dotnet test",
+  "build_cmd": "dotnet build",
+  "score": {
+    "oracle_dest": "tests/ByteSizes.Tests",
+    "oracle_cmd": "dotnet test --filter FullyQualifiedName~OracleTests --logger \"console;verbosity=normal\"",
+    "tests_cmd": "dotnet test --logger \"console;verbosity=normal\"",
+    "fail_re": "(?:Failed|Не пройден) (.+?) \\[[^\\]]*\\]\\s*$",
+    "mutants": {
+      "m1-1000": "R1: множитель 1000",
+      "m2-round": "R2: округление вместо отбрасывания",
+      "m3-case": "R3: единица с учётом регистра",
+      "m4-space": "R3: пробел между числом и единицей не принят",
+      "m5-neg": "R4: отрицательное принято",
+      "m6-msg": "R4: сообщение без исходной строки",
+      "m7-culture": "разбор числа по культуре процесса",
+      "m8-nounit": "R1: число без единицы не принято"
+    }
+  }
+}

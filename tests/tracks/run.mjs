@@ -15,7 +15,7 @@ async function runTrack(track, args, responses, unavailable = []) {
   const calls = []
   const agent = async (prompt, opts = {}) => {
     if (opts.agentType && unavailable.includes(opts.agentType)) throw new Error(`agent type not found: ${opts.agentType}`)
-    calls.push({ label: opts.label, phase: opts.phase, agentType: opts.agentType, prompt, schema: opts.schema })
+    calls.push({ label: opts.label, phase: opts.phase, agentType: opts.agentType, model: opts.model, effort: opts.effort, prompt, schema: opts.schema })
     if (!(opts.label in responses)) throw new Error(`сценарий не задал ответ на label "${opts.label}"`)
     const r = responses[opts.label]
     const value = typeof r === 'function' ? r(calls.filter(c => c.label === opts.label).length, prompt) : r
@@ -44,30 +44,35 @@ const prepFailed = { ...prepOk, 'prepare-status': 'failed', prepare_log: 'dotnet
 // непустом перечне: статус сам себя опровергает, и трек судит перечень наравне со статусом.
 const ctxConflict = { ...ctxOk, 'conflict-status': 'some', conflicts: ['FEAT.md:19 (AC2) требует отклонять ../evil ошибкой против R4 goal.md:21 - принимать любое имя'] }
 const ctxConflictMute = { ...ctxConflict, 'conflict-status': 'none' }
-const reproOk = { status: 'complete', root_cause: 'src/a.ts:10 неверный ключ', reproduction: 'тест T1: красный', repro_test: '', repro_blob: '', 'expected-basis': 'тест', fix_proposal: 'править ключ', files: ['src/a.ts'], 'conflict-status': 'none', conflicts: [], missing: '' }
+const reproOk = { status: 'complete', root_cause: 'src/a.ts:10 неверный ключ', reproduction: 'тест T1: красный', repro_test: '', repro_blob: '', 'expected-basis': 'тест', falsification: [{ prediction: 'ключ читается из src/a.ts:10', observation: 'src/a.ts:10 берёт id вместо key', outcome: 'held' }], 'fact-check': 'n/a (причина не держится на стороннем API)', fix_proposal: 'править ключ', files: ['src/a.ts'], 'conflict-status': 'none', conflicts: [], missing: '' }
 const reproTest = { ...reproOk, reproduction: 'тест pay: красный, причина падения сверена', repro_test: 'test/pay.test.ts', repro_blob: 'b1' }
 const greenTest = { ...green, repro_test_hash: 'b1' }
+// Снимок красный и возвращён: разрыв «изменён» держит прогон снимка, а не байты файла.
+const snapRed = (h, e = 'b1') => ({ ...red, repro_test_hash: h, snap_hash: e })
 const reproConflict = { ...reproOk, 'conflict-status': 'some', conflicts: ['AC-4 docs/spec.md:31 требует 409 против ожидаемого входа - 200 с телом ошибки'] }
-const fixOk = { status: 'complete', 'diff-scope': ['src/A.cs'], commit: 'abc123', 'run-status': 'build ok, tests 9/9', 'red-run': 'T1 красный до, зелёный после', 'uncovered-status': 'some', uncovered: ['ветка таймаута'], 'dependents-status': 'some', dependents: ['src/Caller.cs:41 вызывает изменённый метод'], 'fact-check': 'n/a (триггер не сработал)', decisions: ['выбран A'], 'diagnosis-check': 'accepted', dispute: '', prior: [], missing: '' }
+const fixOk = { status: 'complete', plan: [{ where: 'src/A.cs', change: 'ретрай по коду ответа', trace: 'R1' }], 'diff-scope': ['src/A.cs'], commit: 'abc123', 'run-status': 'build ok, tests 9/9', 'red-run': 'T1 красный до, зелёный после', 'uncovered-status': 'some', uncovered: ['ветка таймаута'], 'dependents-status': 'some', dependents: ['src/Caller.cs:41 вызывает изменённый метод'], 'fact-check': 'n/a (триггер не сработал)', decisions: ['выбран A'], 'diagnosis-check': 'accepted', dispute: '', prior: [], missing: '' }
 const fixDisputeCause = { ...fixOk, status: 'partial', commit: '', 'diagnosis-check': 'disputed-cause', dispute: 'src/pay.ts:40 ключ идемпотентности уже проверяется - причина не в src/pay.ts:12', missing: 'диагноз оспорен' }
 // Правка, замкнутая в себе: оба поля явным «нет» - единственное сочетание, отменяющее второй круг ревью.
 const fixSealed = { ...fixOk, 'uncovered-status': 'none', uncovered: [], 'dependents-status': 'none', dependents: [], prior: [{ id: 'N1', anchor: 'src/A.cs:8', severity: 'P1', text: 'ретрай не различает случаи', status: 'closed', evidence: 'тест T2' }] }
-const revClean = { status: 'complete', findings: [], 'run-status': 'build ok, tests 9/9', 'red-run': 'T1 действует', 'fact-check': 'n/a (триггер не сработал)', intent: 'соответствует', 'intent-status': 'match', prior: [], 'review-verdict': 'APPROVE', missing: '' }
-const revP1 = { status: 'complete', findings: [{ severity: 'P1', anchor: 'src/A.cs:8', text: 'ретрай не различает случаи', closure: 'случаи различены тестом' }], 'run-status': 'build ok', 'red-run': 'T1 действует', 'fact-check': 'n/a (триггер не сработал)', intent: 'соответствует', 'intent-status': 'match', prior: [], 'review-verdict': 'REQUEST_CHANGES', missing: '' }
-const revP2 = { status: 'complete', findings: [{ severity: 'P2', anchor: 'src/A.cs:9', text: 'имя переменной', closure: 'переименовано' }], 'run-status': 'build ok', 'red-run': 'T1 действует', 'fact-check': 'n/a (триггер не сработал)', intent: 'соответствует', 'intent-status': 'match', prior: [], 'review-verdict': 'APPROVE', missing: '' }
+const fixSealedP2 = { ...fixSealed, prior: [{ id: 'N1', anchor: 'src/A.cs:9', severity: 'P2', text: 'имя переменной', status: 'closed', evidence: 'переименовано' }] }
+const AXES_ALL = ['security', 'architecture', 'language', 'business', 'regressions', 'performance', 'coverage', 'loose-ends', 'non-code']
+const axesWith = (set = {}) => [...Object.keys(set), ...AXES_ALL.filter(n => !(n in set))].map(name => ({ name, outcome: set[name] ? set[name][0] : 'n/a', checked: set[name] ? set[name][1] : 'правка ось не задевает' }))
+const axesOk = axesWith()
+const revClean = { status: 'complete', axes: axesOk, findings: [], 'run-status': 'build ok, tests 9/9', 'red-run': 'T1 действует', 'fact-check': 'n/a (триггер не сработал)', intent: 'соответствует', 'intent-status': 'match', prior: [], 'review-verdict': 'APPROVE', missing: '' }
+const revP1 = { status: 'complete', axes: axesOk, findings: [{ severity: 'P1', anchor: 'src/A.cs:8', text: 'ретрай не различает случаи', closure: 'случаи различены тестом' }], 'run-status': 'build ok', 'red-run': 'T1 действует', 'fact-check': 'n/a (триггер не сработал)', intent: 'соответствует', 'intent-status': 'match', prior: [], 'review-verdict': 'REQUEST_CHANGES', missing: '' }
+const revP2 = { status: 'complete', axes: axesOk, findings: [{ severity: 'P2', anchor: 'src/A.cs:9', text: 'имя переменной', closure: 'переименовано' }], 'run-status': 'build ok', 'red-run': 'T1 действует', 'fact-check': 'n/a (триггер не сработал)', intent: 'соответствует', 'intent-status': 'match', prior: [], 'review-verdict': 'APPROVE', missing: '' }
 const closedA8 = { id: 'N1', anchor: 'src/A.cs:8', severity: 'P1', text: 'ретрай не различает случаи', status: 'closed', evidence: 'тест T2 различает случаи' }
 const revP1again = { ...revP1, findings: [], prior: [{ id: 'N1', anchor: 'src/A.cs:8', severity: 'P1', axis: '', text: 'ретрай не различает случаи', status: 'open', evidence: 'случаи по-прежнему не различены' }] }
 const revP1ax = { ...revP1, findings: [{ ...revP1.findings[0], axis: 'business' }] }
 const revP1P2 = { ...revP1, findings: [...revP1.findings, ...revP2.findings] }
+const revP3 = { ...revP2, findings: [{ ...revP2.findings[0], severity: 'P3' }] }
 const revRecheck = { ...revClean, prior: [closedA8] }
 const ledgerA88 = { id: 'F2', anchor: 'src/A.cs:88', severity: 'P1', text: 'ретрай', closure: 'ретрай различает случаи', status: 'open', run: 1 }
 const revF2closed = { ...revClean, prior: [{ ...ledgerA88, status: 'closed', evidence: 'тест T3' }] }
 const verBlocked = { status: 'blocked', exit_code: -1, pass_count: 0, fail_count: 0, failing: [], build_ok: false, head: '', dirty: false, ahead: 0, repro_test_hash: '', missing: 'нет прав на запуск dotnet test' }
-const ctxMr = { status: 'complete', platform: 'github', base_sha: 'aaa', head_sha: 'bbb', files: ['api/user.ts'], security_surface: true, security_basis: 'diff трогает auth', intent: 'issue #12', missing: '' }
+const ctxMr = { status: 'complete', platform: 'github', base_sha: 'aaa', head_sha: 'bbb', files: ['api/user.ts'], at_head: true, intent: 'issue #12', missing: '' }
 const mrFinding = { anchor: 'api/user.ts:41', severity: 'P1', axis: 'security', text: 'токен в логе', closure: 'убрать поле', evidence: 'logger.info(ctx)' }
-const revMr = { status: 'complete', findings: [mrFinding], axes: ['language: чисто'], 'review-verdict': 'REQUEST_CHANGES', prior: [], threads: [], questions: ['вопрос по намерению'], threat_model: 'аноним -> api/user.ts -> токены', missing: '' }
-const secFinding = { anchor: 'api/auth.ts:12', severity: 'P0', axis: 'security', text: 'проверка владельца пропущена', closure: 'владелец сверяется', evidence: 'getUser(id) без owner' }
-const revSec = { ...revMr, findings: [secFinding], axes: ['security: находки 1'], questions: [] }
+const revMr = { status: 'complete', findings: [mrFinding], 'fact-check': 'n/a (триггер не сработал)', axes: axesWith({ security: ['findings', ''], coverage: ['clean', 'тест на чужой user id'] }), 'review-verdict': 'REQUEST_CHANGES', prior: [], threads: [], questions: ['вопрос по намерению'], missing: '' }
 // Прежняя находка - структура с id реестра ledger; найденная ре-ревьюером в тредах идёт с пустым id.
 const oldP1 = { id: 'N1', anchor: 'api/old.ts:3', severity: 'P1', text: 'проверка владельца', status: 'closed', evidence: 'автор: закрыта' }
 const ledgerF3sec = { id: 'F3', anchor: 'api/old.ts:3', severity: 'P1', axis: 'security', text: 'проверка владельца', closure: 'owner сверяется', status: 'open', run: 1 }
@@ -76,15 +81,25 @@ const ledgerF3 = { id: 'F3', anchor: 'api/old.ts:3', severity: 'P1', text: 'пр
 const falOk = { status: 'complete', confirmed: [mrFinding], dropped: [{ anchor: 'api/db.ts:7', reason: 'закрыто соседним коммитом' }], coverage: 'ветка X непокрыта', 'review-verdict': 'REQUEST_CHANGES', prior: [], missing: '' }
 
 const featureArgs = { task: 'F-1', goal: 'цель', done: 'npm test -> 0', boundary: 'не трогать схему', mode: 'autonomous', cwd: '/repo-F-1' }
-const bugfixArgs = { task: 'B-1', symptom: 'дубль платежа', expected: 'один платёж', env: 'staging', done: 'npm test -> 0', mode: 'autonomous', cwd: '/repo-B-1' }
+const bugfixArgs = { task: 'B-1', symptom: 'дубль платежа', expected: 'один платёж', env: 'staging', done: 'npm test -> 0', boundary: 'не трогать схему', mode: 'autonomous', cwd: '/repo-B-1' }
 const reviewArgs = { task: 'gh-1', mr: 'owner/repo#7', intent: 'issue #12', mode: 'autonomous', cwd: '/repo-gh-1' }
 const goalArgs = { kind: 'feature', corpus: '/tmp/goal-c1', cwd: '/repo' }
-const probeNode = 'dex-implementer-reader:implementer-reader'
+const probeNode = 'dex-auto:goal-reader'
+const deliverArgs = { task: 'F-1', track: 'feature', branch: 'auto/F-1', goal_path: '/ledger/F-1/00-goal.md', cwd: '/repo-F-1' }
+const deliverNode = 'dex-auto:deliverer'
+const delivered = { status: 'complete', url: 'https://host/o/r/pull/1', channel: 'gh', head: 'abc', missing: '' }
 const guessA = { where: 'goal.md «Критерий «готово»»', decision: 'запись сбрасывает кэш либо он живёт до TTL - вызывающий видит новую или старую цену', cost: 'клиент платит старую цену' }
 const guessB = { where: 'source.md:3', decision: 'предел 100 либо 1000 записей - 101-я получает отказ или нет', cost: 'отказ легитимному клиенту' }
-const probeClean = { status: 'complete', verdict: 'passed', guesses: [], open_items: [], missing: '' }
-const probeFound = { status: 'complete', verdict: 'failed', guesses: [guessA, guessB], open_items: [], missing: '' }
-const sortOk = { status: 'complete', items: [{ id: 'D1', class: 'derived', answer: 'запись сбрасывает кэш', anchor: 'src/cache.ts:42' }, { id: 'D2', class: 'question', answer: '', anchor: '' }], missing: '' }
+const probePlan = ['writeSlugCache: файл ключа внутри CACHE_DIR - черновик, критерий R4']
+const gapA = { where: 'source.md R4', gap: 'пустое имя - исход не назван' }
+const gapB = { where: 'goal.md «Критерий «готово»», R2', gap: 'тест R2 стирает реальный CACHE_DIR' }
+const probePromises = ['R4: для любого имени ключа запись лежит внутри CACHE_DIR']
+const traceA = { where: 'source.md:4', delivery: 'goal.md:8', diff: 'черновик хранит любое значение JSON, источник - результат slugify', kind: 'breaks' }
+const traceB = { where: 'source.md:11', delivery: 'goal.md:15', diff: 'нет', kind: 'refines' }
+const traceC = { where: 'source.md:9', delivery: 'goal.md:14', diff: 'черновик добавил: запись без CACHE_DIR не бросает', kind: 'refines' }
+const traceD = { where: 'source.md:6', delivery: 'нет', diff: 'черновик не доставляет подключение кеша к slugify', kind: 'breaks' }
+const probeClean = { status: 'complete', plan: probePlan, promises: probePromises, trace: [], gaps: [], guesses: [], open_items: [], missing: '' }
+const probeFound = { status: 'complete', plan: probePlan, promises: probePromises, trace: [traceB], gaps: [gapA], guesses: [{ ...guessA, covers: [1], traces: [] }, guessB], open_items: [], missing: '' }
 const idsOf = (list) => list.map(g => g.id).join(',')
 
 const labelsOf = (calls) => calls.map(c => c.label)
@@ -93,6 +108,11 @@ const openOf = (r) => (r.prior || []).filter(p => ['open', 'partial', 'unverifie
 const promptOf = (calls, label) => (calls.find(c => c.label === label) || {}).prompt || ''
 const prepSchema = (calls) => ((calls.find(c => c.label === 'ctx:tree') || {}).schema || {}).properties || {}
 const typeOf = (calls, label) => (calls.find(c => c.label === label) || {}).agentType
+// Запрет записи держат tools узла, а не промпт, цену ставит трек: сверяется frontmatter агента, который поедет в плагине.
+const frontmatter = (name) => readFileSync(join(TRACKS, '..', 'agents', `${name}.md`), 'utf8').split(/^---$/m)[1] || ''
+const agentBody = (name) => readFileSync(join(TRACKS, '..', 'agents', `${name}.md`), 'utf8').split(/^---$/m).slice(2).join('---')
+const schemaFields = (s) => !s || typeof s !== 'object' ? [] : [...Object.keys(s.properties || {}), ...Object.values(s.properties || {}).flatMap(schemaFields), ...schemaFields(s.items)]
+const agentTools = (name) => ((frontmatter(name).match(/^tools:(.*)$/m) || [])[1] || '').split(',').map(t => t.trim()).filter(Boolean).sort().join()
 // Шаг ищется по имени, не по индексу: фаза Context несёт две записи, и порядок их появления - дело планировщика.
 const stepOf = (trail, step) => JSON.stringify(trail.find(t => t.step === step) || {})
 
@@ -109,14 +129,6 @@ const SCENARIOS = [
       ['статус complete: порог допуска - P0/P1 и зелёная верификация', result.status === 'complete'],
       ['вердикт ревью сохранён в возврате', result.review['review-verdict'] === 'NEEDS_DISCUSSION'],
       ['второй круг не куплен: правки по ревью не было', !calls.some(c => c.label === 'fix:after-review')],
-    ] },
-  { name: 'F24 кодер каталога оборвался -> замена получает причину и сверяет сделанное', track: 'feature', args: featureArgs,
-    unavailable: ['dex-dotnet-coder:dotnet-coder'],
-    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
-    expect: ({ calls }) => [
-      ['промпт замены называет обрыв', calls.filter(c => c.label === 'fix:1').pop().prompt.includes('оборвался ошибкой: agent type not found')],
-      ['промпт замены велит сверить git log', calls.filter(c => c.label === 'fix:1').pop().prompt.includes('сверь git log')],
-      ['промпт замены запрещает второй коммит', calls.filter(c => c.label === 'fix:1').pop().prompt.includes('не коммить второй раз')],
     ] },
   { name: 'B12 воспроизведение partial (эталон реконструирован) -> partial трека', track: 'bugfix', args: bugfixArgs,
     responses: { 'reproduce': { ...reproOk, status: 'partial', 'expected-basis': 'реконструирован, не подтверждён', missing: 'эталон не подтверждён постановщиком' }, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
@@ -156,7 +168,7 @@ const SCENARIOS = [
       ['статус complete', result.status === 'complete'],
       ['петли: одна правка, одно ревью', result.loops.fix === 1 && result.loops.review === 1 && result.loops.review_fix === 0],
       ['goal_check собран из верификации', result.goal_check.build_ok && result.goal_check.tests_green && result.goal_check.committed],
-      ['кодер выбран по стеку dotnet', typeOf(calls, 'fix:1') === 'dex-dotnet-coder:dotnet-coder'],
+      ['кодер - dex-auto:coder', typeOf(calls, 'fix:1') === 'dex-auto:coder'],
       ['решения узла в возврате', result.decisions.includes('выбран A')],
       ['открытых находок нет', openOf(result).length === 0],
     ] },
@@ -255,12 +267,53 @@ const SCENARIOS = [
       ['причина названа', /открытые P0\/P1/.test(result.where)],
       ['находка в возврате для ledger', openOf(result).length === 1],
     ] },
-  { name: 'F9 непроходная находка P2 не держит трек', track: 'feature', args: featureArgs,
-    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revP2 },
+  { name: 'F9 находка P2 -> правка по находкам, закрыта замкнутой правкой -> complete', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revP2,
+      'fix:after-review': fixSealedP2, 'verify:после саморевью': green },
+    expect: ({ result, calls }) => [
+      ['статус complete', result.status === 'complete'],
+      ['P2 подана в правку по находкам', /имя переменной/.test(promptOf(calls, 'fix:after-review'))],
+      ['повторное саморевью не куплено', !labelsOf(calls).includes('self-review:повторное')],
+      ['P2 закрыта в реестре', result.prior.some(p => p.id === 'N1' && p.status === 'closed')],
+    ] },
+  { name: 'F104 P2 оспорена кодером, правка замкнута -> круг не покупается, P2 открыта, complete', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revP2,
+      'fix:after-review': { ...fixSealedP2, prior: [{ ...fixSealedP2.prior[0], status: 'disputed', evidence: 'имя из контракта API' }] }, 'verify:после саморевью': green },
+    expect: ({ result, calls }) => [
+      ['повторное саморевью не куплено', !labelsOf(calls).includes('self-review:повторное')],
+      ['P2 открыта в реестре', openOf(result).some(f => f.severity === 'P2')],
+      ['статус complete: P2 порога не держит', result.status === 'complete'],
+      ['оспаривание в decisions', result.decisions.some(d => /оспорил/.test(d))],
+    ] },
+  { name: 'F105 P1 и P2, кодер закрыл только P1 -> круг не покупается, P2 открыта, complete', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revP1P2,
+      'fix:after-review': fixSealed, 'verify:после саморевью': green },
+    expect: ({ result, calls }) => [
+      ['обе находки поданы в правку', /ретрай не различает/.test(promptOf(calls, 'fix:after-review')) && /имя переменной/.test(promptOf(calls, 'fix:after-review'))],
+      ['повторное саморевью не куплено', !labelsOf(calls).includes('self-review:повторное')],
+      ['P1 закрыта, P2 открыта', !openOf(result).some(f => f.severity === 'P1') && openOf(result).some(f => f.severity === 'P2')],
+      ['статус complete', result.status === 'complete'],
+    ] },
+  { name: 'F107 только P2, кодер правки по находкам blocked -> трек blocked', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revP2,
+      'fix:after-review': { ...fixOk, status: 'blocked', missing: 'нет доступа к файлу' } },
+    expect: ({ result }) => [
+      ['статус blocked', result.status === 'blocked'],
+      ['шаг назван', result.where === 'Review: правка по находкам'],
+    ] },
+  { name: 'F108 только P2, верификация после правки красная -> повторное ревью, partial', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revP2,
+      'fix:after-review': fixSealedP2, 'verify:после саморевью': red, 'self-review:повторное': revClean },
+    expect: ({ result, calls }) => [
+      ['повторное саморевью вызвано', labelsOf(calls).includes('self-review:повторное')],
+      ['статус partial: верификация не прошла', result.status === 'partial'],
+    ] },
+  { name: 'F106 только P3 -> правки по находкам нет, P3 в ledger', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revP3 },
     expect: ({ result, calls }) => [
       ['статус complete', result.status === 'complete'],
       ['правки по находкам не было', !labelsOf(calls).includes('fix:after-review')],
-      ['находка всё равно отдана в ledger', openOf(result).length === 1],
+      ['находка отдана в ledger', openOf(result).length === 1],
     ] },
   { name: 'F10 возобновление: зелёное дерево с незакрытой находкой', track: 'feature',
     args: { ...featureArgs, resume: true, trail: '- {"step":1}', open_findings: JSON.stringify([ledgerA88]) },
@@ -306,21 +359,6 @@ const SCENARIOS = [
       ['верификация возобновления не покупалась', !labelsOf(calls).includes('verify:возобновление')],
       ['фаза правки не пропущена', labelsOf(calls).includes('fix:1')],
       ['деградация названа оператору', result.decisions.some(d => /без trail/.test(d))],
-    ] },
-  { name: 'F12 агент-кодер каталога не установлен', track: 'feature', args: featureArgs,
-    unavailable: ['dex-dotnet-coder:dotnet-coder'],
-    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
-    expect: ({ result, calls }) => [
-      ['статус complete', result.status === 'complete'],
-      ['замена узла записана', result.degraded.some(d => /dotnet-coder/.test(d))],
-      ['работу доделал general-purpose', calls.filter(c => c.label === 'fix:1').pop().agentType === 'general-purpose'],
-    ] },
-  { name: 'F13 стек вне реестра -> кодер общего назначения без записи о деградации', track: 'feature', args: featureArgs,
-    responses: { 'ctx:tree': { ...prepOk, stack: 'other' }, 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
-    expect: ({ result, calls }) => [
-      ['статус complete', result.status === 'complete'],
-      ['кодер - general-purpose', typeOf(calls, 'fix:1') === 'general-purpose'],
-      ['деградацией это не считается', result.degraded.length === 0],
     ] },
   { name: 'F14 саморевьюер не вернул выход', track: 'feature', args: featureArgs,
     responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': null },
@@ -373,8 +411,8 @@ const SCENARIOS = [
     expect: ({ result, calls }) => [
       ['статус complete', result.status === 'complete'],
       ['первопричина в возврате', /src\/a\.ts:10/.test(result.repro.root_cause)],
-      ['кодер выбран по стеку ts', typeOf(calls, 'fix:1') === 'dex-ts-fullstack-coder:ts-fullstack-assistant'],
-      ['диагност - агент каталога', typeOf(calls, 'reproduce') === 'dex-debugger:debugger'],
+      ['кодер - dex-auto:coder', typeOf(calls, 'fix:1') === 'dex-auto:coder'],
+      ['диагност - узел dex-auto', typeOf(calls, 'reproduce') === 'dex-auto:debugger'],
     ] },
   { name: 'B2 воспроизведение вернуло blocked', track: 'bugfix', args: bugfixArgs,
     responses: { reproduce: { ...reproOk, status: 'blocked', missing: 'нет доступа к стенду' } },
@@ -410,13 +448,15 @@ const SCENARIOS = [
       ['кодер вызван на зелёном дереве', labelsOf(calls).includes('fix:1')],
       ['находка в промпте', /src\/a\.ts:88/.test(promptOf(calls, 'fix:1'))],
     ] },
-  { name: 'B5 диагност каталога не установлен', track: 'bugfix', args: bugfixArgs,
-    unavailable: ['dex-debugger:debugger'],
+  { name: 'B5 узел dex-auto:debugger не отработал -> без замены general-purpose, blocked на Reproduce, причина в degraded', track: 'bugfix', args: bugfixArgs,
+    unavailable: ['dex-auto:debugger'],
     responses: { reproduce: reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
     expect: ({ result, calls }) => [
-      ['статус complete', result.status === 'complete'],
-      ['замена узла записана', result.degraded.some(d => /debugger/.test(d))],
-      ['роль передана в промпте general-purpose', /Роль: диагност первопричины/.test(calls.filter(c => c.label === 'reproduce').pop().prompt)],
+      ['статус blocked', result.status === 'blocked'],
+      ['место - Reproduce', result.where === 'Reproduce'],
+      ['замены нет', !calls.some(c => c.label === 'reproduce')],
+      ['кодер не вызван', !calls.some(c => c.label === 'fix:1')],
+      ['отказ в degraded', result.degraded.some(d => /dex-auto:debugger не отработал/.test(d))],
     ] },
   { name: 'B6 блокирующая находка -> правка -> чистое повторное ревью', track: 'bugfix', args: bugfixArgs,
     responses: { reproduce: reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revP1,
@@ -457,7 +497,7 @@ const SCENARIOS = [
       ['нехватка прокинута', result.missing === 'нужен доступ к боевой базе'],
     ] },
   { name: 'R1 без санкции: находки возвращаются перечнем, в MR ничего не пишется', track: 'review', args: reviewArgs,
-    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'review:security': revMr, 'falsify+coverage': falOk },
+    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'falsify+coverage': falOk },
     expect: ({ result, calls }) => [
       ['статус complete', result.status === 'complete'],
       ['публикации не было', !labelsOf(calls).includes('publish')],
@@ -466,7 +506,7 @@ const SCENARIOS = [
       ['вердикт ревьюера в возврате отдельным полем', result.reviewer_verdict === 'REQUEST_CHANGES'],
     ] },
   { name: 'R2 с санкцией: треды опубликованы', track: 'review', args: { ...reviewArgs, publish: true },
-    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'review:security': revMr, 'falsify+coverage': falOk,
+    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'falsify+coverage': falOk,
       publish: { status: 'complete', published: [{ anchor: 'api/user.ts:41', axis: 'security', url: 'https://x/1', note: '' }], unpublished: [] } },
     expect: ({ result }) => [
       ['статус complete', result.status === 'complete'],
@@ -474,25 +514,28 @@ const SCENARIOS = [
       ['неопубликованных нет', result.unpublished.length === 0],
     ] },
   { name: 'R3 с санкцией: канал отказал на части тредов', track: 'review', args: { ...reviewArgs, publish: true },
-    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'review:security': revMr, 'falsify+coverage': falOk,
+    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'falsify+coverage': falOk,
       publish: { status: 'partial', published: [], unpublished: [{ anchor: 'api/user.ts:41', axis: 'security', reason: '403 от хостинга' }] } },
     expect: ({ result }) => [
       ['статус partial', result.status === 'partial'],
       ['причина названа', /часть тредов не опубликована/.test(result.where)],
       ['находка не потеряна', result.unpublished.length === 1],
     ] },
-  { name: 'R4 diff не трогает поверхность безопасности', track: 'review', args: reviewArgs,
-    responses: { 'ctx:subject': { ...ctxMr, security_surface: false, security_basis: 'diff только в README' }, 'review:first': revMr, 'falsify+coverage': falOk },
+  { name: 'R4 ревью - один узел плагина: ось безопасности у ревьюера, исходы осей и fact-check в выходе', track: 'review', args: reviewArgs,
+    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'falsify+coverage': falOk },
     expect: ({ result, calls }) => [
       ['статус complete', result.status === 'complete'],
-      ['security-узел не спавнился', !labelsOf(calls).includes('review:security')],
-      ['пропуск объяснён явным n/a с основанием', /^n\/a - diff только в README$/.test(result.security)],
+      ['отдельного security-узла нет', !labelsOf(calls).includes('review:security')],
+      ['первичное ревью - свой узел', typeOf(calls, 'review:first') === 'dex-auto:reviewer'],
+      ['модель - из таблицы узлов', calls.find(c => c.label === 'review:first').model === 'opus'],
+      ['fact-check ревьюера в выходе', result['fact-check'] === revMr['fact-check']],
+      ['исходы осей ревьюера в выходе, поля security нет', JSON.stringify(result.axes) === JSON.stringify(revMr.axes) && !('security' in result)],
     ] },
   { name: 'R5 ревизия дельты', track: 'review', args: { ...reviewArgs, last_review_sha: 'ccc' },
-    responses: { 'ctx:subject': ctxMr, 'review:delta': { ...revMr, threads: [oldThread] }, 'review:security': revMr, 'falsify+coverage': { ...falOk, prior: [{ ...oldP1, evidence: 'api/old.ts:3 owner сверяется' }] } },
+    responses: { 'ctx:subject': ctxMr, 'review:delta': { ...revMr, threads: [oldThread] }, 'falsify+coverage': { ...falOk, prior: [{ ...oldP1, evidence: 'api/old.ts:3 owner сверяется' }] } },
     expect: ({ result, calls }) => [
       ['статус complete', result.status === 'complete'],
-      ['ре-ревьюер вместо первичного', typeOf(calls, 'review:delta') === 'dex-mr-check-reviewer:mr-check-reviewer'],
+      ['ре-ревью - тем же узлом плагина', typeOf(calls, 'review:delta') === 'dex-auto:reviewer' && !labelsOf(calls).includes('review:first')],
       ['статусы прежних находок - сверенные скептиком', result.prior.length === 1 && result.prior[0].status === 'closed'],
       ['SHA прошлой ревизии в промпте', /LAST_REVIEW_SHA ccc/.test(promptOf(calls, 'review:delta'))],
     ] },
@@ -503,22 +546,22 @@ const SCENARIOS = [
       ['шаг назван', result.where === 'Context'],
     ] },
   { name: 'R7 скептик не вернул выход - находки непроверены', track: 'review', args: reviewArgs,
-    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'review:security': revMr, 'falsify+coverage': null },
+    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'falsify+coverage': null },
     expect: ({ result }) => [
       ['статус blocked - как у любого узла без выхода', result.status === 'blocked'],
       ['нехватка названа', result.missing === 'скептик не вернул выход'],
-      ['непроверенные находки не потеряны', result.claims.length === 2],
+      ['непроверенные находки не потеряны', result.claims.length === 1],
     ] },
   { name: 'R8 ревьюер вернул blocked', track: 'review', args: reviewArgs,
-    responses: { 'ctx:subject': ctxMr, 'review:first': { ...revMr, status: 'blocked', missing: 'ветка MR не выкачивается' }, 'review:security': revMr, 'falsify+coverage': falOk },
+    responses: { 'ctx:subject': ctxMr, 'review:first': { ...revMr, status: 'blocked', missing: 'ветка MR не выкачивается' }, 'falsify+coverage': falOk },
     expect: ({ result }) => [
       ['статус blocked', result.status === 'blocked'],
       ['шаг назван', result.where === 'Review'],
       ['нехватка прокинута', result.missing === 'ветка MR не выкачивается'],
     ] },
   { name: 'R9 находок нет: скептик судит покрытие', track: 'review', args: reviewArgs,
-    responses: { 'ctx:subject': { ...ctxMr, security_surface: false, security_basis: 'diff только в тестах' },
-      'review:first': { ...revMr, findings: [], 'review-verdict': 'APPROVE', questions: [] },
+    responses: { 'ctx:subject': ctxMr,
+      'review:first': { ...revMr, findings: [], axes: axesWith({ security: ['clean', 'ввод на границе и права на ресурс'] }), 'review-verdict': 'APPROVE', questions: [] },
       'falsify+coverage': { status: 'complete', confirmed: [], dropped: [], coverage: 'покрыто: T1', 'review-verdict': 'APPROVE', prior: [], missing: '' } },
     expect: ({ result, calls }) => [
       ['статус complete', result.status === 'complete'],
@@ -527,43 +570,36 @@ const SCENARIOS = [
       ['пустой перечень находок назван явно', /находок нет/.test(promptOf(calls, 'falsify+coverage'))],
       ['вопросов нет - блока вопросов нет', !/Вопросы автору от ревьюера/.test(promptOf(calls, 'falsify+coverage'))],
     ] },
-  { name: 'R10 узлы ревью каталога не установлены', track: 'review', args: reviewArgs,
-    unavailable: ['dex-mr-reviewer:mr-reviewer', 'dex-security-reviewer:security-reviewer'],
-    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'review:security': revMr, 'falsify+coverage': falOk },
-    expect: ({ result }) => [
-      ['статус complete', result.status === 'complete'],
-      ['обе замены записаны', result.degraded.length === 2],
-      ['причина отказа - текст ошибки без типа', result.degraded[0].includes('(agent type not found: dex-mr-reviewer:mr-reviewer)')],
-    ] },
-  { name: 'R11 security-узел вернул blocked при объявленной поверхности', track: 'review', args: reviewArgs,
-    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'falsify+coverage': falOk,
-      'review:security': { ...revMr, status: 'blocked', findings: [], missing: 'нет доступа к зависимостям' } },
-    expect: ({ result }) => [
-      ['ревью не сдаётся полным', result.status === 'partial'],
-      ['непроверенная ось названа в причине', /security/.test(result.where)],
-      ['находки основного ревьюера сохранены', result.confirmed.length === 1],
+  { name: 'R10 узел ревью не отработал -> blocked на Review, замены нет, причина в degraded', track: 'review', args: reviewArgs,
+    unavailable: ['dex-auto:reviewer'],
+    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'falsify+coverage': falOk },
+    expect: ({ result, calls }) => [
+      ['статус blocked на шаге ревью', result.status === 'blocked' && result.where === 'Review'],
+      ['замены general-purpose нет', !calls.some(c => c.label === 'review:first')],
+      ['скептик не зван', !labelsOf(calls).includes('falsify+coverage')],
+      ['причина отказа - текст ошибки', result.degraded.length === 1 && result.degraded[0].includes('(agent type not found: dex-auto:reviewer)')],
     ] },
   { name: 'R12 публикатор не вернул выход', track: 'review', args: { ...reviewArgs, publish: true },
-    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'review:security': revMr, 'falsify+coverage': falOk, publish: null },
+    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'falsify+coverage': falOk, publish: null },
     expect: ({ result }) => [
       ['статус partial', result.status === 'partial'],
       ['находка не потеряна', result.unpublished.length === 1],
       ['причина неопубликования названа', result.unpublished[0].reason === 'узел публикации не вернул выход - находки к публикации'],
     ] },
   { name: 'R13 скептик вернул partial', track: 'review', args: reviewArgs,
-    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'review:security': revMr,
+    responses: { 'ctx:subject': ctxMr, 'review:first': revMr,
       'falsify+coverage': { ...falOk, status: 'partial', missing: 'ветка MR не выкачивается, сверено по diff' } },
     expect: ({ result }) => [
       ['статус partial', result.status === 'partial'],
       ['причина названа', /ветка MR не выкачивается/.test(result.where)],
     ] },
   { name: 'R14 скептик вернул blocked', track: 'review', args: reviewArgs,
-    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'review:security': revMr,
+    responses: { 'ctx:subject': ctxMr, 'review:first': revMr,
       'falsify+coverage': { ...falOk, status: 'blocked', missing: 'ветка MR не выкачивается' } },
     expect: ({ result }) => [
       ['статус blocked', result.status === 'blocked'],
       ['нехватка прокинута', result.missing === 'ветка MR не выкачивается'],
-      ['находки-claims сохранены', result.claims.length === 2],
+      ['находки-claims сохранены', result.claims.length === 1],
     ] },
   { name: 'F25 дерево трека изолированное: процесс узла уже в дереве, дерево сессии не трогается', track: 'feature', args: featureArgs,
     responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
@@ -695,6 +731,66 @@ const SCENARIOS = [
       ['узлу назван исход вместо суждения', /сверять не с чем: conflict-status: none/.test(promptOf(calls, 'ctx:R-I'))],
       ['трек доезжает до исхода', result.status === 'complete'],
     ] },
+  { name: 'F93 пункт цели с пометкой «ответ оператора» -> разведке назван стороной оператора, а не противоречием', track: 'feature',
+    args: { ...featureArgs, source: 'FEAT.md', done: 'пустое имя -> TypeError (ответ оператора; к R4, FEAT.md:12)' },
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['пункт с ответом назван стороной оператора', /«ответ оператора» - сторона, выбранная оператором/.test(promptOf(calls, 'ctx:R-I'))],
+      ['расхождение источника с ним выведено из conflicts', /противоречием не судится и в conflicts не идёт/.test(promptOf(calls, 'ctx:R-I'))],
+      ['трек доезжает до исхода', result.status === 'complete'],
+    ] },
+  { name: 'F94 возобновление с partial-находкой ledger -> кодеру поданы её критерий закрытия и последняя улика', track: 'feature',
+    args: { ...featureArgs, resume: true, trail: '- {"step":1}', open_findings: [{ ...ledgerA88, status: 'partial', evidence: 'второй случай не различён; тест пишется подменой модуля' }] },
+    responses: { 'ctx:R-I': ctxOk, 'verify:возобновление': green, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revF2closed },
+    expect: ({ calls }) => [
+      ['критерий закрытия в задании кодера', /\(закрытие: ретрай различает случаи\)/.test(promptOf(calls, 'fix:1'))],
+      ['последняя улика в задании кодера', /улика: второй случай не различён; тест пишется подменой модуля/.test(promptOf(calls, 'fix:1'))],
+    ] },
+  { name: 'F95 правка по P1 ревью -> кодеру поданы критерий закрытия и улика находки', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green,
+      'self-review:первое': { ...revP1, findings: [{ ...revP1.findings[0], evidence: 'B.cs:3 ловит оба исключения одним catch' }] },
+      'fix:after-review': fixOk, 'verify:после саморевью': green, 'self-review:повторное': revRecheck },
+    expect: ({ calls }) => [
+      ['критерий закрытия в задании правки', /\(закрытие: случаи различены тестом\)/.test(promptOf(calls, 'fix:after-review'))],
+      ['улика в задании правки', /улика: B\.cs:3 ловит оба исключения одним catch/.test(promptOf(calls, 'fix:after-review'))],
+    ] },
+  { name: 'F96 саморевью - узел dex-auto:reviewer на opus, схема без отсылки к node-contract', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['узел dex-auto:reviewer', typeOf(calls, 'self-review:первое') === 'dex-auto:reviewer'],
+      ['исполнитель в trail', result.trail.some(t => t.step === 3 && t.doer === 'dex-auto:reviewer')],
+      ['модель opus', calls.find(c => c.label === 'self-review:первое').model === 'opus'],
+      ['схема без node-contract', !JSON.stringify(calls.find(c => c.label === 'self-review:первое').schema).includes('node-contract')],
+    ] },
+  { name: 'F97 узел dex-auto:reviewer не отработал -> без замены general-purpose, partial, причина в degraded', track: 'feature', args: featureArgs,
+    unavailable: ['dex-auto:reviewer'],
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['статус partial', result.status === 'partial'],
+      ['место - ревью без выхода', /саморевьюер не вернул выход/.test(result.where)],
+      ['замены нет', !calls.some(c => c.label === 'self-review:первое')],
+      ['отказ в degraded', result.degraded.some(d => /dex-auto:reviewer не отработал/.test(d))],
+    ] },
+  { name: 'F98 кодер - узел dex-auto:coder на sonnet и вне реестра стеков, деградации нет', track: 'feature', args: featureArgs,
+    responses: { 'ctx:tree': { ...prepOk, stack: 'other' }, 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revP1,
+      'fix:after-review': fixOk, 'verify:после саморевью': green, 'self-review:повторное': revRecheck },
+    expect: ({ result, calls }) => [
+      ['статус complete', result.status === 'complete'],
+      ['попытка правки - dex-auto:coder', typeOf(calls, 'fix:1') === 'dex-auto:coder'],
+      ['правка по находкам - dex-auto:coder', typeOf(calls, 'fix:after-review') === 'dex-auto:coder'],
+      ['модель sonnet', ['fix:1', 'fix:after-review'].every(l => calls.find(c => c.label === l).model === 'sonnet')],
+      ['исполнитель в trail', result.trail.filter(t => t.step === 2 || t.step === '2-after-review').every(t => t.doer === 'dex-auto:coder')],
+      ['деградации нет', result.degraded.length === 0],
+    ] },
+  { name: 'F99 узел dex-auto:coder не отработал -> без замены general-purpose, blocked, причина в degraded', track: 'feature', args: featureArgs,
+    unavailable: ['dex-auto:coder'],
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['статус blocked', result.status === 'blocked'],
+      ['место - первая попытка правки', result.where === 'Implement#1'],
+      ['замены нет', !calls.some(c => c.label === 'fix:1')],
+      ['отказ в degraded', result.degraded.some(d => /dex-auto:coder не отработал/.test(d))],
+    ] },
   { name: 'B109 противоречие источников ожидаемого -> трек встаёт на Reproduce, кодер не вызван', track: 'bugfix', args: { ...bugfixArgs, source: 'BUG.md' },
     responses: { 'reproduce': reproConflict },
     expect: ({ result, calls }) => [
@@ -705,66 +801,129 @@ const SCENARIOS = [
       ['воспроизведение сброшено в ledger формой без причины: решение владельца меняет его источник', result.repro.root_cause === '' && result.repro.files.length === 0],
       ['суждение поручено оракулу требований, а не узлу', /Skill dex-skill-requirement-quality:requirement-quality/.test(promptOf(calls, 'reproduce'))],
     ] },
-  { name: 'R15 ревью работает в detached-дереве трека и переключает его на head_sha', track: 'review', args: reviewArgs,
-    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'review:security': revMr, 'falsify+coverage': falOk },
+  { name: 'B154 пункт цели с пометкой «ответ оператора» -> диагносту назван стороной оператора, а не противоречием', track: 'bugfix',
+    args: { ...bugfixArgs, source: 'BUG.md', done: 'повтор запроса -> 409 (ответ оператора; к AC-4)' },
+    responses: { 'reproduce': reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ calls }) => [
+      ['пункт с ответом назван стороной оператора', /«ответ оператора» - сторона, выбранная оператором/.test(promptOf(calls, 'reproduce'))],
+      ['расхождение источника с ним выведено из conflicts', /противоречием не судится и в conflicts не идёт/.test(promptOf(calls, 'reproduce'))],
+    ] },
+  { name: 'B155 возобновление с partial-находкой ledger -> кодеру поданы её критерий закрытия и последняя улика', track: 'bugfix',
+    args: { ...bugfixArgs, resume: true, trail: '- {"step":1}', repro: JSON.stringify(reproOk), open_findings: JSON.stringify([{ ...ledgerA88, status: 'partial', evidence: 'второй случай не различён; тест пишется подменой модуля' }]) },
+    responses: { 'verify:возобновление': green, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revF2closed },
+    expect: ({ calls }) => [
+      ['критерий закрытия в задании кодера', /\(закрытие: ретрай различает случаи\)/.test(promptOf(calls, 'fix:1'))],
+      ['последняя улика в задании кодера', /улика: второй случай не различён; тест пишется подменой модуля/.test(promptOf(calls, 'fix:1'))],
+    ] },
+  { name: 'B156 правка по P1 ревью -> кодеру поданы критерий закрытия и улика находки', track: 'bugfix', args: bugfixArgs,
+    responses: { reproduce: reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green,
+      'self-review:первое': { ...revP1, findings: [{ ...revP1.findings[0], evidence: 'B.cs:3 ловит оба исключения одним catch' }] },
+      'fix:after-review': fixOk, 'verify:после саморевью': green, 'self-review:повторное': revRecheck },
+    expect: ({ calls }) => [
+      ['критерий закрытия в задании правки', /\(закрытие: случаи различены тестом\)/.test(promptOf(calls, 'fix:after-review'))],
+      ['улика в задании правки', /улика: B\.cs:3 ловит оба исключения одним catch/.test(promptOf(calls, 'fix:after-review'))],
+    ] },
+  { name: 'B157 саморевью - узел dex-auto:reviewer на opus, схема без отсылки к node-contract', track: 'bugfix', args: bugfixArgs,
+    responses: { reproduce: reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['узел dex-auto:reviewer', typeOf(calls, 'self-review:первое') === 'dex-auto:reviewer'],
+      ['исполнитель в trail', result.trail.some(t => t.step === 3 && t.doer === 'dex-auto:reviewer')],
+      ['модель opus', calls.find(c => c.label === 'self-review:первое').model === 'opus'],
+      ['схема без node-contract', !JSON.stringify(calls.find(c => c.label === 'self-review:первое').schema).includes('node-contract')],
+    ] },
+  { name: 'B160 кодер - узел dex-auto:coder на sonnet и вне реестра стеков, деградации нет', track: 'bugfix', args: bugfixArgs,
+    responses: { 'ctx:tree': { ...prepTs, stack: 'other' }, reproduce: reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revP1,
+      'fix:after-review': fixOk, 'verify:после саморевью': green, 'self-review:повторное': revRecheck },
+    expect: ({ result, calls }) => [
+      ['попытка правки - dex-auto:coder', typeOf(calls, 'fix:1') === 'dex-auto:coder'],
+      ['правка по находкам - dex-auto:coder', typeOf(calls, 'fix:after-review') === 'dex-auto:coder'],
+      ['модель sonnet', ['fix:1', 'fix:after-review'].every(l => calls.find(c => c.label === l).model === 'sonnet')],
+      ['исполнитель в trail', result.trail.filter(t => t.step === 2 || t.step === '2-after-review').every(t => t.doer === 'dex-auto:coder')],
+      ['деградации нет', result.degraded.length === 0],
+    ] },
+  { name: 'B162 диагност - узел dex-auto:debugger на opus, схема без отсылки к node-contract, деградации нет', track: 'bugfix', args: bugfixArgs,
+    responses: { 'ctx:tree': { ...prepTs, stack: 'other' }, reproduce: reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['узел dex-auto:debugger', typeOf(calls, 'reproduce') === 'dex-auto:debugger'],
+      ['модель opus', calls.find(c => c.label === 'reproduce').model === 'opus'],
+      ['исполнитель в trail', result.trail.some(t => t.step === '1-repro' && t.doer === 'dex-auto:debugger')],
+      ['схема требует попытки опровержения и fact-check', ['falsification', 'fact-check'].every(k => calls.find(c => c.label === 'reproduce').schema.required.includes(k))],
+      ['схема без node-contract', !JSON.stringify(calls.find(c => c.label === 'reproduce').schema).includes('node-contract')],
+      ['деградации нет', result.degraded.length === 0],
+    ] },
+  { name: 'B161 узел dex-auto:coder не отработал -> без замены general-purpose, blocked, причина в degraded', track: 'bugfix', args: bugfixArgs,
+    unavailable: ['dex-auto:coder'],
+    responses: { reproduce: reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['статус blocked', result.status === 'blocked'],
+      ['место - первая попытка правки', result.where === 'Fix#1'],
+      ['замены нет', !calls.some(c => c.label === 'fix:1')],
+      ['отказ в degraded', result.degraded.some(d => /dex-auto:coder не отработал/.test(d))],
+    ] },
+  { name: 'B158 узел dex-auto:reviewer не отработал -> без замены general-purpose, partial, причина в degraded', track: 'bugfix', args: bugfixArgs,
+    unavailable: ['dex-auto:reviewer'],
+    responses: { reproduce: reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['статус partial', result.status === 'partial'],
+      ['место - ревью без выхода', /саморевьюер не вернул выход/.test(result.where)],
+      ['замены нет', !calls.some(c => c.label === 'self-review:первое')],
+      ['отказ в degraded', result.degraded.some(d => /dex-auto:reviewer не отработал/.test(d))],
+    ] },
+  { name: 'R15 дерево на head_sha переключает узел контекста, ревьюер ревизию не трогает', track: 'review', args: reviewArgs,
+    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'falsify+coverage': falOk },
     expect: ({ calls }) => [
       ['дерево названо detached', /detached git worktree/.test(promptOf(calls, 'review:first'))],
       ['дерево сессии не трогается', /дерева сессии это не трогает/.test(promptOf(calls, 'review:first'))],
       ['процесс уже в дереве, приставки к команде нет', /процесс уже в нём/.test(promptOf(calls, 'review:first')) && !promptOf(calls, 'review:first').includes('git -C /repo-gh-1')],
-      ['чтение кода - переключением дерева на head_sha', promptOf(calls, 'review:first').includes('переключи /repo-gh-1 на bbb')],
+      ['переключение на head - у узла контекста', /Переключи рабочий каталог на head SHA/.test(promptOf(calls, 'ctx:subject'))],
+      ['ревьюеру дерево отдано на head_sha', promptOf(calls, 'review:first').includes('Дерево /repo-gh-1 переключено на bbb')],
+      ['ревьюеру ревизию переключать запрещено', /ревизию не переключай/.test(promptOf(calls, 'review:first'))],
     ] },
   { name: 'R16 ревьюер вернул partial -> ревью не сдаётся полным', track: 'review', args: reviewArgs,
-    responses: { 'ctx:subject': ctxMr, 'review:first': { ...revMr, status: 'partial', missing: 'ось performance не пройдена' }, 'review:security': revMr, 'falsify+coverage': falOk },
+    responses: { 'ctx:subject': ctxMr, 'review:first': { ...revMr, status: 'partial', missing: 'ось performance не пройдена' }, 'falsify+coverage': falOk },
     expect: ({ result }) => [
       ['статус partial', result.status === 'partial'],
       ['нехватка ревьюера в where', /ревью не завершено: ось performance не пройдена/.test(result.where)],
-    ] },
-  { name: 'R17 security-ревьюер вернул partial при объявленной поверхности -> ось не закрыта', track: 'review', args: reviewArgs,
-    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'review:security': { ...revMr, status: 'partial', missing: 'зависимости не просмотрены' }, 'falsify+coverage': falOk },
-    expect: ({ result }) => [
-      ['статус partial', result.status === 'partial'],
-      ['ось security названа', /ось security проверена не полностью: зависимости не просмотрены/.test(result.where)],
     ] },
   { name: 'R18 предмет blocked без нехватки -> нехватка подставлена', track: 'review', args: reviewArgs,
     responses: { 'ctx:subject': { ...ctxMr, status: 'blocked', missing: '' } },
     expect: ({ result }) => [['нехватка не пуста', result.missing === 'узел контекста вернул blocked без нехватки']] },
   { name: 'R19 ревьюер blocked без нехватки -> нехватка подставлена', track: 'review', args: reviewArgs,
-    responses: { 'ctx:subject': ctxMr, 'review:first': { ...revMr, status: 'blocked', missing: '' }, 'review:security': revMr },
+    responses: { 'ctx:subject': ctxMr, 'review:first': { ...revMr, status: 'blocked', missing: '' } },
     expect: ({ result }) => [['нехватка не пуста', result.missing === 'узел ревью вернул blocked без нехватки']] },
   { name: 'R20 partial несёт нехватку', track: 'review', args: reviewArgs,
-    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'review:security': revMr, 'falsify+coverage': { ...falOk, status: 'partial', missing: 'сверено по diff' } },
+    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'falsify+coverage': { ...falOk, status: 'partial', missing: 'сверено по diff' } },
     expect: ({ result }) => [['missing равен where', result.status === 'partial' && !!result.missing && result.missing === result.where]] },
   { name: 'R21 публикатор blocked с пустыми перечнями -> подтверждённая находка в unpublished', track: 'review', args: { ...reviewArgs, publish: true },
-    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'review:security': revMr, 'falsify+coverage': falOk, publish: { status: 'blocked', published: [], unpublished: [] } },
+    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'falsify+coverage': falOk, publish: { status: 'blocked', published: [], unpublished: [] } },
     expect: ({ result }) => [
       ['статус partial', result.status === 'partial'],
       ['находка названа неопубликованной', result.unpublished.length === 1 && result.unpublished[0].anchor === 'api/user.ts:41' && /исход по находке не назван/.test(result.unpublished[0].reason)],
     ] },
   { name: 'R22 публикатор сверяет треды MR до публикации -> повтор не публикуется', track: 'review', args: { ...reviewArgs, publish: true },
-    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'review:security': revMr, 'falsify+coverage': falOk,
+    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'falsify+coverage': falOk,
       publish: { status: 'complete', published: [{ anchor: 'api/user.ts:41', axis: 'security', url: 'https://x/1', note: 'уже был' }], unpublished: [] } },
     expect: ({ result, calls }) => [
       ['предписана сверка существующих тредов', /До публикации прочитай треды MR своего аккаунта/.test(promptOf(calls, 'publish'))],
       ['существующий тред засчитан', result.status === 'complete' && result.published[0].note === 'уже был'],
     ] },
-  { name: 'R23 ревьюер не вернул выход -> находки security не теряются', track: 'review', args: reviewArgs,
-    responses: { 'ctx:subject': ctxMr, 'review:first': null, 'review:security': revMr },
-    expect: ({ result }) => [
+  { name: 'R23 ревьюер не вернул выход -> blocked с причиной, скептик не зван', track: 'review', args: reviewArgs,
+    responses: { 'ctx:subject': ctxMr, 'review:first': null },
+    expect: ({ result, calls }) => [
       ['статус blocked', result.status === 'blocked'],
       ['нехватка названа', result.missing === 'узел ревью не вернул выход'],
-      ['находки security-ревьюера отданы непроверенными', result.claims.length === 1 && result.claims[0].anchor === 'api/user.ts:41'],
-      ['поле security - в форме финала', result.security.status === 'complete' && !('findings' in result.security)],
+      ['скептик не зван', !labelsOf(calls).includes('falsify+coverage')],
     ] },
   { name: 'R24 итоговый вердикт выносит скептик, вердикт ревьюера - отдельным полем', track: 'review', args: reviewArgs,
-    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'review:security': revMr, 'falsify+coverage': { ...falOk, confirmed: [], 'review-verdict': 'APPROVE' } },
+    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'falsify+coverage': { ...falOk, confirmed: [], 'review-verdict': 'APPROVE' } },
     expect: ({ result, calls }) => [
       ['review-verdict - скептика', result['review-verdict'] === 'APPROVE'],
       ['вердикт ревьюера сохранён', result.reviewer_verdict === 'REQUEST_CHANGES'],
-      ['скептику предписан вердикт по дому правила', /Итоговый review-verdict - по правилу поля review-verdict словаря node-contract \(вызови Skill dex-skill-node-contract:node-contract/.test(promptOf(calls, 'falsify+coverage'))],
+      ['скептик - свой узел, правило вердикта - словарём стыка в его файле', typeOf(calls, 'falsify+coverage') === 'dex-auto:skeptic' && agentBody('skeptic').includes('<!-- >>> shared: review-verdict -->\n- `review-verdict` - `REQUEST_CHANGES`')],
+      ['скептик не отправлен в node-contract', !promptOf(calls, 'falsify+coverage').includes('node-contract')],
     ] },
   { name: 'R25 дельта: статусы прежних находок проверяет скептик', track: 'review', args: { ...reviewArgs, last_review_sha: 'ccc' },
-    responses: { 'ctx:subject': ctxMr, 'review:delta': { ...revMr, threads: [oldThread] }, 'review:security': revMr,
-      'falsify+coverage': { ...falOk, prior: [{ ...oldP1, status: 'open', evidence: 'проверка по-прежнему отсутствует' }] } },
+    responses: { 'ctx:subject': ctxMr, 'review:delta': { ...revMr, threads: [oldThread] }, 'falsify+coverage': { ...falOk, prior: [{ ...oldP1, status: 'open', evidence: 'проверка по-прежнему отсутствует' }] } },
     expect: ({ result, calls }) => [
       ['статус прежней находки в промпте скептика', /api\/old\.ts:3: проверка владельца - ре-ревьюер: closed/.test(promptOf(calls, 'falsify+coverage'))],
       ['в выходе - сверенный статус структурой', result.prior[0].status === 'open' && result.prior[0].anchor === 'api/old.ts:3' && result.prior[0].text === 'проверка владельца'],
@@ -772,19 +931,13 @@ const SCENARIOS = [
   { name: 'R26 предмет ревью не вернул выход', track: 'review', args: reviewArgs,
     responses: { 'ctx:subject': null },
     expect: ({ result }) => [['blocked с причиной', result.status === 'blocked' && result.missing === 'узел контекста не вернул выход']] },
-  { name: 'R27 security-ревьюер не вернул выход при объявленной поверхности', track: 'review', args: reviewArgs,
-    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'review:security': null, 'falsify+coverage': falOk },
-    expect: ({ result }) => [
-      ['статус partial', result.status === 'partial'],
-      ['ось названа', /ось security не проверена: узел не вернул выход/.test(result.where)],
-    ] },
   { name: 'R28 санкция есть, подтверждённых нет -> публикатор не зовётся', track: 'review', args: { ...reviewArgs, publish: true },
-    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'review:security': revMr, 'falsify+coverage': { ...falOk, confirmed: [], 'review-verdict': 'APPROVE' } },
+    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'falsify+coverage': { ...falOk, confirmed: [], 'review-verdict': 'APPROVE' } },
     expect: ({ result, calls }) => [
       ['публикации не было', !labelsOf(calls).includes('publish')],
       ['статус complete', result.status === 'complete'],
     ] },
-  { name: 'R29 args не переданы -> режим по умолчанию autonomous', track: 'review', args: undefined,
+  { name: 'R29 mode не передан -> режим по умолчанию autonomous', track: 'review', args: { ...reviewArgs, mode: undefined },
     responses: { 'ctx:subject': null },
     expect: ({ result, calls }) => [
       ['статус blocked', result.status === 'blocked' && result.where === 'Context'],
@@ -794,26 +947,25 @@ const SCENARIOS = [
     responses: { 'ctx:subject': null },
     expect: ({ calls }) => [['указано, где искать намерение', /не передан - возьми описание MR и связанный тикет/.test(promptOf(calls, 'ctx:subject'))]] },
   { name: 'R31 скептик blocked без нехватки -> нехватка подставлена', track: 'review', args: reviewArgs,
-    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'review:security': revMr, 'falsify+coverage': { ...falOk, status: 'blocked', missing: '' } },
+    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'falsify+coverage': { ...falOk, status: 'blocked', missing: '' } },
     expect: ({ result }) => [['нехватка названа', result.status === 'blocked' && result.missing === 'скептик вернул blocked без нехватки']] },
-  { name: 'R32 partial ревьюера, security и скептика без нехватки -> каждый разрыв назван', track: 'review', args: reviewArgs,
-    responses: { 'ctx:subject': ctxMr, 'review:first': { ...revMr, status: 'partial', missing: '' }, 'review:security': { ...revMr, status: 'partial', missing: '' },
+  { name: 'R32 partial ревьюера и скептика без нехватки -> каждый разрыв назван', track: 'review', args: reviewArgs,
+    responses: { 'ctx:subject': ctxMr, 'review:first': { ...revMr, status: 'partial', missing: '' },
       'falsify+coverage': { ...falOk, status: 'partial', missing: '' } },
     expect: ({ result }) => [
       ['статус partial', result.status === 'partial'],
-      ['все три разрыва с подстановкой', result.where === 'ревью не завершено: узел не назвал нехватку; ось security проверена не полностью: узел не назвал нехватку; фальсификация не завершена: узел не назвал нехватку'],
+      ['оба разрыва с подстановкой', result.where === 'ревью не завершено: узел не назвал нехватку; фальсификация не завершена: узел не назвал нехватку'],
     ] },
   { name: 'R33 дельта: прежняя открыта при пустом confirmed -> вердикт по prior и вопросам', track: 'review', args: { ...reviewArgs, last_review_sha: 'ccc' },
-    responses: { 'ctx:subject': ctxMr, 'review:delta': { ...revMr, findings: [], threads: [oldThread] }, 'review:security': { ...revMr, findings: [] },
-      'falsify+coverage': { ...falOk, confirmed: [], prior: [{ ...oldP1, status: 'open', evidence: 'проверки нет' }] } },
+    responses: { 'ctx:subject': ctxMr, 'review:delta': { ...revMr, findings: [], threads: [oldThread] }, 'falsify+coverage': { ...falOk, confirmed: [], prior: [{ ...oldP1, status: 'open', evidence: 'проверки нет' }] } },
     expect: ({ result, calls }) => [
       ['вопросы автору доходят до скептика', promptOf(calls, 'falsify+coverage').includes('вопрос по намерению')],
-      ['в счёт вердикта идут незакрытые prior', /в счёт идут confirmed и сверенные prior со статусом open или partial/.test(promptOf(calls, 'falsify+coverage'))],
-      ['вопросы автору - в счёте вердикта', /вопросы автору - ниже/.test(promptOf(calls, 'falsify+coverage'))],
+      ['в счёт вердикта идут сверенные prior', /прежние: `prior`/.test(agentBody('skeptic'))],
+      ['вопросы автору - в счёте вердикта', /вопрос владельцу намерения: вопросы\s+автору во входе/.test(agentBody('skeptic'))],
       ['открытая прежняя в выходе', result.prior[0].status === 'open'],
     ] },
   { name: 'R34 две находки на одном anchor с разной осью, публикатор назвал одну -> вторая не теряется', track: 'review', args: { ...reviewArgs, publish: true },
-    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'review:security': revMr,
+    responses: { 'ctx:subject': ctxMr, 'review:first': revMr,
       'falsify+coverage': { ...falOk, confirmed: [mrFinding, { ...mrFinding, axis: 'language', text: 'имя поля' }] },
       publish: { status: 'complete', published: [{ anchor: 'api/user.ts:41', axis: 'security', url: 'https://x/1', note: '' }], unpublished: [] } },
     expect: ({ result }) => [
@@ -821,61 +973,38 @@ const SCENARIOS = [
       ['находка другой оси названа неопубликованной', result.unpublished.length === 1 && result.unpublished[0].axis === 'language'],
     ] },
   { name: 'R35 предмет ревью partial -> ревью не сдаётся полным', track: 'review', args: reviewArgs,
-    responses: { 'ctx:subject': { ...ctxMr, status: 'partial', missing: 'diff обрезан каналом на 300 файлах' }, 'review:first': revMr, 'review:security': revMr, 'falsify+coverage': falOk },
+    responses: { 'ctx:subject': { ...ctxMr, status: 'partial', missing: 'diff обрезан каналом на 300 файлах' }, 'review:first': revMr, 'falsify+coverage': falOk },
     expect: ({ result }) => [
       ['статус partial', result.status === 'partial'],
       ['разрыв первым', result.where.startsWith('предмет ревью неполон: diff обрезан каналом на 300 файлах')],
     ] },
-  { name: 'R36 поверхности нет -> ревьюеру ось security названа n/a с основанием', track: 'review', args: reviewArgs,
-    responses: { 'ctx:subject': { ...ctxMr, security_surface: false, security_basis: 'diff только в README' }, 'review:first': revMr, 'falsify+coverage': falOk },
-    expect: ({ calls }) => [
-      ['n/a с основанием', promptOf(calls, 'review:first').includes('security: n/a - diff только в README')],
-      ['отсылки к отдельному узлу нет', !/не дублируй/.test(promptOf(calls, 'review:first'))],
-    ] },
-  { name: 'R37 поверхность есть -> security только у своего узла, его находки у скептика', track: 'review', args: reviewArgs,
-    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'review:security': revSec, 'falsify+coverage': falOk },
-    expect: ({ calls }) => [
-      ['ревьюеру ось security запрещена', /security - отдельный узел, здесь не дублируй/.test(promptOf(calls, 'review:first'))],
-      ['находка security-ревьюера у скептика', promptOf(calls, 'falsify+coverage').includes('api/auth.ts:12')],
-      ['находка ревьюера у скептика', promptOf(calls, 'falsify+coverage').includes('api/user.ts:41')],
-    ] },
   { name: 'R38 публикатор получает только подтверждённые с severity и критерием закрытия', track: 'review', args: { ...reviewArgs, publish: true },
-    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'review:security': revMr, 'falsify+coverage': falOk,
+    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'falsify+coverage': falOk,
       publish: { status: 'complete', published: [{ anchor: 'api/user.ts:41', axis: 'security', url: 'https://x/1', note: '' }], unpublished: [] } },
     expect: ({ calls }) => [
       ['severity и критерий закрытия', promptOf(calls, 'publish').includes('[P1] security api/user.ts:41: токен в логе (закрытие: убрать поле)')],
       ['снятая скептиком не публикуется', !promptOf(calls, 'publish').includes('api/db.ts:7')],
     ] },
   { name: 'R39 публикатор complete промолчал о находке -> она в unpublished', track: 'review', args: { ...reviewArgs, publish: true },
-    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'review:security': revMr, 'falsify+coverage': falOk, publish: { status: 'complete', published: [], unpublished: [] } },
+    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'falsify+coverage': falOk, publish: { status: 'complete', published: [], unpublished: [] } },
     expect: ({ result }) => [
       ['статус partial', result.status === 'partial'],
       ['находка названа с осью и причиной', result.unpublished.length === 1 && result.unpublished[0].axis === 'security' && result.unpublished[0].reason === 'публикатор (complete): исход по находке не назван'],
     ] },
-  { name: 'R41 ревьюер blocked без поверхности безопасности -> claims пусты, ось n/a', track: 'review', args: reviewArgs,
-    responses: { 'ctx:subject': { ...ctxMr, security_surface: false, security_basis: 'diff только в README' }, 'review:first': { ...revMr, status: 'blocked', missing: 'ветка не выкачивается' } },
+  { name: 'R41 ревьюер blocked -> claims пусты', track: 'review', args: reviewArgs,
+    responses: { 'ctx:subject': ctxMr, 'review:first': { ...revMr, status: 'blocked', missing: 'ветка не выкачивается' } },
     expect: ({ result }) => [
       ['статус blocked', result.status === 'blocked' && result.where === 'Review'],
-      ['непроверенных нет', Array.isArray(result.claims) && result.claims.length === 0],
-      ['ось названа n/a', result.security === 'n/a - diff только в README'],
-    ] },
-  { name: 'R42 security-ревьюер отдаёт свою форму: цепочки и модель угроз, без вердикта ревьюера', track: 'review', args: reviewArgs,
-    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'falsify+coverage': falOk,
-      'review:security': { status: 'complete', findings: [secFinding], axes: ['security: находки 1'], threat_model: 'аноним -> api/auth.ts -> чужой профиль', missing: '' } },
-    expect: ({ result }) => [
-      ['статус complete', result.status === 'complete'],
-      ['модель угроз в выходе', result.security.threat_model === 'аноним -> api/auth.ts -> чужой профиль'],
+      ['непроверенных нет', !result.claims || result.claims.length === 0],
     ] },
   { name: 'R43 дельта: словарь статусов ре-ревьюера в промпте скептика, disputed проходит своим статусом', track: 'review', args: { ...reviewArgs, last_review_sha: 'ccc' },
-    responses: { 'ctx:subject': ctxMr, 'review:delta': { ...revMr, threads: [{ ...oldThread, status: 'disputed', evidence: 'owner сверяется в middleware' }] }, 'review:security': revMr,
-      'falsify+coverage': { ...falOk, prior: [{ ...oldP1, status: 'disputed', evidence: 'api/mw.ts:9 сверяет owner' }] } },
+    responses: { 'ctx:subject': ctxMr, 'review:delta': { ...revMr, threads: [{ ...oldThread, status: 'disputed', evidence: 'owner сверяется в middleware' }] }, 'falsify+coverage': { ...falOk, prior: [{ ...oldP1, status: 'disputed', evidence: 'api/mw.ts:9 сверяет owner' }] } },
     expect: ({ result, calls }) => [
-      ['статусы ре-ревьюера названы скептику', /closed, partial, open, disputed, no-longer-applicable/.test(promptOf(calls, 'falsify+coverage'))],
+      ['словарь статусов prior - в файле скептика', ['closed', 'partial', 'open', 'disputed', 'no-longer-applicable'].every(v => agentBody('skeptic').includes(`- \`${v}\` - `))],
       ['опровергнутая прежняя в выходе со своим статусом', result.prior[0].status === 'disputed'],
     ] },
   { name: 'R45 скептик не сверил одну из прежних -> она непроверенной в prior, ревью не сдаётся полным', track: 'review', args: { ...reviewArgs, last_review_sha: 'ccc' },
-    responses: { 'ctx:subject': ctxMr, 'review:delta': { ...revMr, threads: [oldThread, { ...oldThread, anchor: 'api/pay.ts:9', text: 'двойное списание', status: 'open' }] }, 'review:security': revMr,
-      'falsify+coverage': { ...falOk, prior: [{ ...oldP1, evidence: 'owner сверяется' }] } },
+    responses: { 'ctx:subject': ctxMr, 'review:delta': { ...revMr, threads: [oldThread, { ...oldThread, anchor: 'api/pay.ts:9', text: 'двойное списание', status: 'open' }] }, 'falsify+coverage': { ...falOk, prior: [{ ...oldP1, evidence: 'owner сверяется' }] } },
     expect: ({ result }) => [
       ['обе прежние в выходе', result.prior.length === 2],
       ['пропущенная скептиком - unverified', result.prior.some(p => p.anchor === 'api/pay.ts:9' && p.status === 'unverified')],
@@ -883,16 +1012,14 @@ const SCENARIOS = [
       ['разрыв назван с anchor', /статус прежних находок не сверен скептиком: api\/pay\.ts:9/.test(result.where)],
     ] },
   { name: 'R46 дельта: скептик не вернул выход -> прежние уходят в prior непроверенными', track: 'review', args: { ...reviewArgs, last_review_sha: 'ccc' },
-    responses: { 'ctx:subject': ctxMr, 'review:delta': { ...revMr, threads: [oldThread] }, 'review:security': revMr, 'falsify+coverage': null },
+    responses: { 'ctx:subject': ctxMr, 'review:delta': { ...revMr, threads: [oldThread] }, 'falsify+coverage': null },
     expect: ({ result }) => [
       ['статус blocked', result.status === 'blocked'],
       ['прежняя в prior со статусом unverified', result.prior.length === 1 && result.prior[0].status === 'unverified' && result.prior[0].anchor === 'api/old.ts:3'],
-      ['security в форме финала, без находок', result.security.threat_model && !('findings' in result.security)],
     ] },
   { name: 'R47 открытые находки ledger едут ре-ревьюеру и скептику с id, id доходит до выхода', track: 'review',
     args: { ...reviewArgs, last_review_sha: 'ccc', open_findings: JSON.stringify([ledgerF3]) },
-    responses: { 'ctx:subject': ctxMr, 'review:delta': { ...revMr, prior: [{ ...oldP1, id: 'F3' }] }, 'review:security': revMr,
-      'falsify+coverage': { ...falOk, prior: [{ ...oldP1, id: 'F3', status: 'open', evidence: 'owner не сверяется' }] } },
+    responses: { 'ctx:subject': ctxMr, 'review:delta': { ...revMr, prior: [{ ...oldP1, id: 'F3' }] }, 'falsify+coverage': { ...falOk, prior: [{ ...oldP1, id: 'F3', status: 'open', evidence: 'owner не сверяется' }] } },
     expect: ({ result, calls }) => [
       ['ре-ревьюер получил находку ledger с id', /F3 \[P1\] api\/old\.ts:3: проверка владельца/.test(promptOf(calls, 'review:delta'))],
       ['скептик получил её с id', /F3 \[P1\] api\/old\.ts:3/.test(promptOf(calls, 'falsify+coverage'))],
@@ -900,26 +1027,26 @@ const SCENARIOS = [
     ] },
   { name: 'R48 перезапуск первичного ревью: находку ledger, о которой ревьюер молчит, сверяет скептик', track: 'review',
     args: { ...reviewArgs, open_findings: [ledgerF3] },
-    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'review:security': revMr,
+    responses: { 'ctx:subject': ctxMr, 'review:first': revMr,
       'falsify+coverage': { ...falOk, prior: [{ ...oldP1, id: 'F3', status: 'closed', evidence: 'api/old.ts:3 owner сверяется' }] } },
     expect: ({ result, calls }) => [
       ['скептику названо, что статус не заявлен', /F3 \[P1\] api\/old\.ts:3: проверка владельца - ре-ревьюер: статус не назван/.test(promptOf(calls, 'falsify+coverage'))],
-      ['скептику запрещено заводить её второй раз', /не в confirmed/.test(promptOf(calls, 'falsify+coverage'))],
+      ['скептику запрещено заводить её второй раз', /совпавшая с\s+прежней, идёт в `prior` с id прежней, не сюда/.test(agentBody('skeptic'))],
       ['статус в выходе', result.prior.length === 1 && result.prior[0].id === 'F3' && result.prior[0].status === 'closed'],
       ['статус complete', result.status === 'complete'],
     ] },
   { name: 'R49 open_findings не JSON-массив -> прогон идёт, подмена названа, complete не отдаётся', track: 'review',
     args: { ...reviewArgs, open_findings: '- [P1] api/old.ts:3: строкой' },
-    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'review:security': revMr, 'falsify+coverage': falOk },
+    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'falsify+coverage': falOk },
     expect: ({ result }) => [
       ['статус partial: прежние P0/P1 не сверены', result.status === 'partial' && /реестр прежних находок не прочитан/.test(result.where)],
       ['подмена названа', result.degraded.some(d => /open_findings/.test(d))],
     ] },
   { name: 'R44 скептик получает улику ревьюера, а не только формулировку', track: 'review', args: reviewArgs,
-    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'review:security': revMr, 'falsify+coverage': falOk },
+    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'falsify+coverage': falOk },
     expect: ({ calls }) => [['улика у скептика', promptOf(calls, 'falsify+coverage').includes('улика: logger.info(ctx)')]] },
   { name: 'R40 предмет partial без нехватки -> нехватка подставлена', track: 'review', args: reviewArgs,
-    responses: { 'ctx:subject': { ...ctxMr, status: 'partial', missing: '' }, 'review:first': revMr, 'review:security': revMr, 'falsify+coverage': falOk },
+    responses: { 'ctx:subject': { ...ctxMr, status: 'partial', missing: '' }, 'review:first': revMr, 'falsify+coverage': falOk },
     expect: ({ result }) => [['подстановка', result.where === 'предмет ревью неполон: узел не назвал нехватку']] },
   { name: 'F34 шапка узла подготовки несёт дерево и мандат, но не цель', track: 'feature', args: featureArgs,
     responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
@@ -962,8 +1089,8 @@ const SCENARIOS = [
     expect: ({ result, calls }) => [
       ['трек complete', result.status === 'complete'],
       ['кодеру назван тест диагноста', promptOf(calls, 'fix:1').includes('Тест диагноста: test/pay.test.ts')],
-      ['кодеру предписана приёмка по node-contract', promptOf(calls, 'fix:1').includes('До правки прими диагноз') && !promptOf(calls, 'fix:1').includes('Диагноз принят прошлой попыткой')],
-      ['верификатор снимает хэш теста', promptOf(calls, 'verify:после попытки 1').includes('git hash-object test/pay.test.ts')],
+      ['кодеру предписана приёмка без node-contract', promptOf(calls, 'fix:1').includes('До правки прими диагноз') && !promptOf(calls, 'fix:1').includes('Диагноз принят прошлой попыткой') && !promptOf(calls, 'fix:1').includes('node-contract')],
+      ['верификатор снимает хэш теста и пишет объект', promptOf(calls, 'verify:после попытки 1').includes('git hash-object -w test/pay.test.ts')],
       ['ревью не получает сигнала о правке теста', !promptOf(calls, 'self-review:первое').includes('изменён кодером')],
       ['исход приёмки в возврате для ledger', result.repro.accepted === 'accepted'],
       ['диагносту предписана судьба прежнего теста', promptOf(calls, 'reproduce').includes('сдаёшь один тест')],
@@ -1002,7 +1129,7 @@ const SCENARIOS = [
       ['воспроизведение сброшено формой без причины', result.repro.root_cause === '' && result.repro.files.length === 0],
     ] },
   { name: 'B23 тест диагноста изменён при accepted -> partial, ревью получает сигнал', track: 'bugfix', args: bugfixArgs,
-    responses: { 'reproduce': reproTest, 'fix:1': fixOk, 'verify:после попытки 1': { ...greenTest, repro_test_hash: 'b2' }, 'self-review:первое': revClean },
+    responses: { 'verify:снимок': snapRed('b2'), 'reproduce': reproTest, 'fix:1': fixOk, 'verify:после попытки 1': { ...greenTest, repro_test_hash: 'b2' }, 'self-review:первое': revClean },
     expect: ({ result, calls }) => [
       ['статус partial', result.status === 'partial'],
       ['where называет правку теста', /тест диагноста test\/pay.test.ts изменён при diagnosis-check: accepted/.test(result.where)],
@@ -1020,7 +1147,7 @@ const SCENARIOS = [
       ['гейт не назвал правку теста', !/изменён при diagnosis-check/.test(result.where || '')],
     ] },
   { name: 'B25 приёмка harness-fixed, замкнутая правка по саморевью снова меняет тест -> гейт ловит против снимка приёмки, повторное ревью получает сигнал', track: 'bugfix', args: bugfixArgs,
-    responses: { 'reproduce': reproTest,
+    responses: { 'verify:снимок': snapRed('b9', 'b2'), 'reproduce': reproTest,
       'fix:1': { ...fixOk, 'diagnosis-check': 'harness-fixed' },
       'verify:после попытки 1': { ...greenTest, repro_test_hash: 'b2' },
       'self-review:первое': revP1,
@@ -1030,6 +1157,7 @@ const SCENARIOS = [
     expect: ({ result, calls }) => [
       ['статус partial', result.status === 'partial'],
       ['where называет правку теста после приёмки', /тест диагноста test\/pay\.test\.ts изменён при diagnosis-check/.test(result.where || '')],
+      ['снимок - ожидание приёмки', /снимок b2 на итоговом коде не зелёный/.test(result.where || '')],
       ['ожидание сдвинуто кругом приёмки', result.repro.accepted_blob === 'b2'],
       ['правке по ревью приёмка не предписана заново', promptOf(calls, 'fix:after-review').includes('Диагноз принят прошлой попыткой (diagnosis-check: harness-fixed)')],
       ['замкнутая правка, сменившая тест, повторное ревью не пропускает', labelsOf(calls).includes('self-review:повторное')],
@@ -1391,7 +1519,7 @@ const SCENARIOS = [
       ['подмены нет', !result.degraded.some(d => /не в форме воспроизведения/.test(d))],
     ] },
   { name: 'B29 вторая попытка не принимает диагноз заново; поздний harness-fixed гейт не открывает', track: 'bugfix', args: bugfixArgs,
-    responses: { 'reproduce': reproTest,
+    responses: { 'verify:снимок': snapRed('b7'), 'reproduce': reproTest,
       'fix:1': fixOk,
       'verify:после попытки 1': { ...red, repro_test_hash: 'b1' },
       'fix:2': { ...fixOk, 'diagnosis-check': 'harness-fixed' },
@@ -1453,7 +1581,7 @@ const SCENARIOS = [
     ] },
   { name: 'B35 продолжить после остановки по гейту теста: дерево зелёное, правки нет -> снова partial, не падение', track: 'bugfix',
     args: { ...bugfixArgs, resume: true, trail: '- {"step":2}', repro: { ...reproTest, accepted: 'accepted' } },
-    responses: { 'verify:возобновление': { ...greenTest, repro_test_hash: 'b2' }, 'self-review:первое': revClean },
+    responses: { 'verify:снимок': snapRed('b2'), 'verify:возобновление': { ...greenTest, repro_test_hash: 'b2' }, 'self-review:первое': revClean },
     expect: ({ result }) => [
       ['статус partial', result.status === 'partial'],
       ['where называет исход приёмки из ledger', /изменён при diagnosis-check: accepted/.test(result.where)],
@@ -1506,7 +1634,7 @@ const SCENARIOS = [
     expect: ({ result, calls }) => [
       ['трек complete', result.status === 'complete'],
       ['диагност не вызван', !labelsOf(calls).includes('reproduce')],
-      ['кодеру предписана приёмка по node-contract', promptOf(calls, 'fix:1').includes('До правки прими диагноз') && !promptOf(calls, 'fix:1').includes('Диагноз принят прошлой попыткой')],
+      ['кодеру предписана приёмка без node-contract', promptOf(calls, 'fix:1').includes('До правки прими диагноз') && !promptOf(calls, 'fix:1').includes('Диагноз принят прошлой попыткой') && !promptOf(calls, 'fix:1').includes('node-contract')],
       ['исход приёмки записан', result.repro.accepted === 'accepted'],
     ] },
   { name: 'B42 подготовка не вернула выход -> blocked, диагност не вызван', track: 'bugfix', args: bugfixArgs,
@@ -1611,14 +1739,6 @@ const SCENARIOS = [
       ['статус partial', result.status === 'partial'],
       ['where называет нехватку кодера', result.where === 'кодер вернул partial: миграция не прогнана'],
     ] },
-  { name: 'B57 стек вне реестра -> правит general-purpose, в том числе по находкам', track: 'bugfix', args: bugfixArgs,
-    responses: { 'ctx:tree': { ...prepTs, stack: 'other' }, 'reproduce': reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revP1,
-      'fix:after-review': fixOk, 'verify:после саморевью': green, 'self-review:повторное': revRecheck },
-    expect: ({ result, calls }) => [
-      ['кодер - general-purpose', calls.find(c => c.label === 'fix:1').agentType === 'general-purpose'],
-      ['след правки называет general-purpose', result.trail.filter(t => t.step === 2 || t.step === '2-after-review').every(t => t.doer === 'general-purpose')],
-      ['статус complete', result.status === 'complete'],
-    ] },
   { name: 'B58 верификатор не вернул выход -> blocked с названной причиной', track: 'bugfix', args: bugfixArgs,
     responses: { 'reproduce': reproOk, 'fix:1': fixOk, 'verify:после попытки 1': null },
     expect: ({ result }) => [
@@ -1641,9 +1761,9 @@ const SCENARIOS = [
       ['окружение не задано', promptOf(calls, 'reproduce').includes('окружение: не задано')],
       ['статус complete', result.status === 'complete'],
     ] },
-  { name: 'B61 трек без args не падает', track: 'bugfix', args: undefined,
+  { name: 'B61 трек без args не падает исключением - останавливается на входе', track: 'bugfix', args: undefined,
     responses: { 'reproduce': reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
-    expect: ({ result }) => [['статус complete', result.status === 'complete']] },
+    expect: ({ result }) => [['статус blocked на входе', result.status === 'blocked' && result.missing.startsWith('трек вызван без входа')]] },
   { name: 'B62 подготовка упала без лога и команды -> подстановки названы диагносту и в degraded', track: 'bugfix', args: bugfixArgs,
     responses: { 'ctx:tree': { ...prepTs, 'prepare-status': 'failed', prepare_log: '', prepare_cmd: '' }, 'reproduce': reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
     expect: ({ result, calls }) => [
@@ -1659,6 +1779,7 @@ const SCENARIOS = [
       ['дерево не упомянуто', !promptOf(calls, 'fix:1').includes('Дерево подготовлено')],
       ['верификатор без команд', promptOf(calls, 'verify:после попытки 1').includes('тестов нет - build_ok по сборке') && !promptOf(calls, 'verify:после попытки 1').includes('сборку:')],
       ['статус partial: внешнего факта нет', result.status === 'partial' && /внешнего факта нет/.test(result.where)],
+      ['поданные done и boundary - в шапке как есть, пропуска нет', promptOf(calls, 'fix:1').includes('критерий «готово»: npm test -> 0\nграница: не трогать схему\n') && !result.degraded.some(d => / в args: /.test(d))],
     ] },
   { name: 'B64 противоречие some без перечня, диагноз без причины без нехватки -> подстановки названы', track: 'bugfix', args: bugfixArgs,
     responses: { 'reproduce': (n) => ({ ...reproOk, 'conflict-status': 'some', conflicts: [] }) },
@@ -1678,12 +1799,12 @@ const SCENARIOS = [
       ['статус partial', result.status === 'partial'],
       ['улика подставлена', result.repro.dispute === 'улика не названа' && result.disputes[0].endsWith('улика не названа')],
     ] },
-  { name: 'B67 правка по находкам оспорила без улики, стек вне реестра -> след с general-purpose', track: 'bugfix', args: bugfixArgs,
+  { name: 'B67 правка по находкам оспорила без улики -> след с dex-auto:coder, улика подставлена', track: 'bugfix', args: bugfixArgs,
     responses: { 'ctx:tree': { ...prepTs, stack: 'other' }, 'reproduce': reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revP1,
       'fix:after-review': { ...fixOk, status: 'partial', 'diagnosis-check': 'disputed-test', dispute: '' } },
     expect: ({ result }) => [
       ['статус partial', result.status === 'partial'],
-      ['след правки - general-purpose', result.trail.some(t => t.step === '2-after-review' && t.doer === 'general-purpose')],
+      ['след правки - dex-auto:coder', result.trail.some(t => t.step === '2-after-review' && t.doer === 'dex-auto:coder')],
       ['улика подставлена', result.disputes.some(d => d.endsWith('улика не названа'))],
     ] },
   { name: 'B68 красное без перечня падений до потолка -> «нет» в промпте и в нехватке', track: 'bugfix', args: bugfixArgs,
@@ -1709,7 +1830,7 @@ const SCENARIOS = [
     expect: ({ result }) => [['where называет эталон', result.where === 'воспроизведение partial: эталон - реконструирован']] },
   { name: 'B72 возобновление без правки, приёмки нет, тест изменён -> исход приёмки «не назван»', track: 'bugfix',
     args: { ...bugfixArgs, resume: true, trail: '- {"step":2}', repro: reproTest },
-    responses: { 'verify:возобновление': { ...greenTest, repro_test_hash: 'b2' }, 'self-review:первое': revClean },
+    responses: { 'verify:снимок': snapRed('b2'), 'verify:возобновление': { ...greenTest, repro_test_hash: 'b2' }, 'self-review:первое': revClean },
     expect: ({ result }) => [
       ['статус partial', result.status === 'partial'],
       ['исход приёмки не назван', /изменён при diagnosis-check: не назван/.test(result.where)],
@@ -1742,16 +1863,17 @@ const SCENARIOS = [
       ['диагноз из ledger, диагност не вызван', !labelsOf(calls).includes('reproduce')],
     ] },
   { name: 'B77 harness-fixed первым исходом, попытка 2 переписывает проверку -> разрыв против снимка приёмки', track: 'bugfix', args: bugfixArgs,
-    responses: { 'reproduce': reproTest,
+    responses: { 'verify:снимок': snapRed('b9', 'b2'), 'reproduce': reproTest,
       'fix:1': { ...fixOk, 'diagnosis-check': 'harness-fixed' }, 'verify:после попытки 1': { ...red, repro_test_hash: 'b2' },
       'fix:2': fixOk, 'verify:после попытки 2': { ...greenTest, repro_test_hash: 'b9' },
       'self-review:первое': revClean },
     expect: ({ result }) => [
       ['статус partial', result.status === 'partial'],
       ['where называет правку теста', /тест диагноста test\/pay\.test\.ts изменён при diagnosis-check/.test(result.where)],
+      ['снимок - ожидание приёмки', /снимок b2 на итоговом коде не зелёный/.test(result.where)],
     ] },
   { name: 'B78 n/a при тесте первым исходом, поздний harness-fixed переписывает тест -> ожидание не сдвинуто, разрыв', track: 'bugfix', args: bugfixArgs,
-    responses: { 'reproduce': reproTest,
+    responses: { 'verify:снимок': snapRed('b9'), 'reproduce': reproTest,
       'fix:1': { ...fixOk, 'diagnosis-check': 'n/a' }, 'verify:после попытки 1': { ...red, repro_test_hash: 'b1' },
       'fix:2': { ...fixOk, 'diagnosis-check': 'harness-fixed' }, 'verify:после попытки 2': { ...greenTest, repro_test_hash: 'b9' },
       'self-review:первое': revClean },
@@ -1965,7 +2087,7 @@ const SCENARIOS = [
       ['вторую P1 трек не закрыл сам', !result.decisions.some(d => /src\/A\.cs:20/.test(d))],
     ] },
   { name: 'R50 скептик вынес APPROVE при подтверждённой P1 -> вердикт опровергнут разрывом, partial', track: 'review', args: reviewArgs,
-    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'review:security': revMr, 'falsify+coverage': { ...falOk, dropped: [], 'review-verdict': 'APPROVE' } },
+    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'falsify+coverage': { ...falOk, dropped: [], 'review-verdict': 'APPROVE' } },
     expect: ({ result }) => [
       ['статус partial', result.status === 'partial'],
       ['разрыв называет находку', /review-verdict APPROVE при открытых P0\/P1: api\/user\.ts:41/.test(result.where)],
@@ -1991,7 +2113,7 @@ const SCENARIOS = [
       files: ['src/pay.ts'], 'conflict-status': 'none', conflicts: [], missing: '',
       accepted: 'harness-fixed', accepted_blob: '', accepted_pending: false, dispute: '',
     }) },
-    responses: { 'verify:возобновление': { ...greenTest, ahead: 1, repro_test_hash: 'b2' }, 'self-review:первое': revClean },
+    responses: { 'verify:снимок': snapRed('b2'), 'verify:возобновление': { ...greenTest, ahead: 1, repro_test_hash: 'b2' }, 'self-review:первое': revClean },
     expect: ({ result }) => [
       ['ожидалось partial: поздний harness-fixed гейт не открывает и на возобновлении', result.status === 'partial'],
       ['снимка приёмки нет', result.repro.accepted_blob === ''],
@@ -2054,6 +2176,197 @@ const SCENARIOS = [
       ['кодеру названа база из trail', promptOf(calls, 'fix:1').includes('До правок трека сборка и тесты были зелёными') && !promptOf(calls, 'fix:1').includes('pay.test падает')],
       ['строки базы в degraded нет', !result.degraded.some(d => /дерево красное/.test(d))],
     ] },
+  { name: 'B133 к тесту диагноста дописаны тесты в тот же файл, снимок на итоговом коде зелёный и возвращён -> complete', track: 'bugfix', args: bugfixArgs,
+    responses: { 'reproduce': reproTest, 'fix:1': fixOk, 'verify:после попытки 1': { ...greenTest, repro_test_hash: 'b2' }, 'self-review:первое': revClean,
+      'verify:снимок': { ...greenTest, repro_test_hash: 'b2', snap_hash: 'b1' } },
+    expect: ({ result, calls }) => [
+      ['статус complete: дописанное рядом правкой теста не считается', result.status === 'complete'],
+      ['верификатор ставит снимок диагноста', promptOf(calls, 'verify:снимок').includes('git show b1 > test/pay.test.ts')],
+      ['постановка снимка снимается хэшем до сборки', promptOf(calls, 'verify:снимок').includes('git hash-object test/pay.test.ts - в snap_hash')],
+      ['верификатор возвращает файл при любом исходе', promptOf(calls, 'verify:снимок').includes('git checkout -- test/pay.test.ts при любом исходе, blocked тоже')],
+      ['прогон снимка в trail', /"placed":true,"passed":true,"returned":true/.test(stepOf(result.trail, 'snapshot'))],
+    ] },
+  { name: 'B134 снимок на итоговом коде красный -> partial, разрыв называет красный снимок', track: 'bugfix', args: bugfixArgs,
+    responses: { 'reproduce': reproTest, 'fix:1': fixOk, 'verify:после попытки 1': { ...greenTest, repro_test_hash: 'b2' }, 'self-review:первое': revClean,
+      'verify:снимок': snapRed('b2') },
+    expect: ({ result }) => [
+      ['статус partial', result.status === 'partial'],
+      ['разрыв называет красный снимок', /изменён при diagnosis-check: accepted; снимок b1 на итоговом коде не зелёный: exit=1/.test(result.where)],
+    ] },
+  { name: 'B135 снимок зелёный, но файл остался снимком -> partial, разрыв называет невозвращённый файл', track: 'bugfix', args: bugfixArgs,
+    responses: { 'reproduce': reproTest, 'fix:1': fixOk, 'verify:после попытки 1': { ...greenTest, repro_test_hash: 'b2' }, 'self-review:первое': revClean,
+      'verify:снимок': { ...greenTest, dirty: true, snap_hash: 'b1' } },
+    expect: ({ result }) => [
+      ['статус partial', result.status === 'partial'],
+      ['разрыв называет невозвращённый файл', /после прогона снимка b1 не возвращён: repro_test_hash b1 при итоговом b2, ahead 1 при итоговом 1, dirty=true, вернуть: cd \/repo-B-1 && git reset --soft abc && git checkout abc -- test\/pay\.test\.ts/.test(result.where)],
+    ] },
+  { name: 'B140 снимок зелёный, верификатор закоммитил -> partial, ahead разошёлся с итогом', track: 'bugfix', args: bugfixArgs,
+    responses: { 'reproduce': reproTest, 'fix:1': fixOk, 'verify:после попытки 1': { ...greenTest, repro_test_hash: 'b2' }, 'self-review:первое': revClean,
+      'verify:снимок': { ...greenTest, repro_test_hash: 'b2', ahead: 2, snap_hash: 'b1' } },
+    expect: ({ result }) => [
+      ['статус partial', result.status === 'partial'],
+      ['разрыв называет ahead', /не возвращён: repro_test_hash b2 при итоговом b2, ahead 2 при итоговом 1, dirty=false, вернуть: cd \/repo-B-1 && git reset --soft abc && git checkout abc -- test\/pay\.test\.ts/.test(result.where)],
+    ] },
+  { name: 'B136 верификатор снимка blocked -> стоп blocked, как T19', track: 'bugfix', args: bugfixArgs,
+    responses: { 'reproduce': reproTest, 'fix:1': fixOk, 'verify:после попытки 1': { ...greenTest, repro_test_hash: 'b2' }, 'self-review:первое': revClean,
+      'verify:снимок': { ...verBlocked, snap_hash: '' } },
+    expect: ({ result }) => [
+      ['статус blocked', result.status === 'blocked'],
+      ['место и нехватка названы', result.where === 'Review: прогон снимка' && /нет прав на запуск dotnet test/.test(result.missing)],
+      ['оператору названо, как вернуть дерево', /test\/pay\.test\.ts мог остаться снимком, вернуть: cd \/repo-B-1 && git reset --soft abc && git checkout abc -- test\/pay\.test\.ts/.test(result.missing)],
+      ['ревью отдано в ledger', result.review === revClean],
+    ] },
+  { name: 'B141 верификатор снимка не вернул выход -> стоп blocked', track: 'bugfix', args: bugfixArgs,
+    responses: { 'reproduce': reproTest, 'fix:1': fixOk, 'verify:после попытки 1': { ...greenTest, repro_test_hash: 'b2' }, 'self-review:первое': revClean,
+      'verify:снимок': null },
+    expect: ({ result }) => [
+      ['статус blocked', result.status === 'blocked'],
+      ['нехватка названа', /верификатор не вернул выход; test\/pay\.test\.ts мог остаться снимком/.test(result.missing)],
+      ['прогон снимка в trail', /"status":"null"/.test(stepOf(result.trail, 'snapshot'))],
+    ] },
+  { name: 'B137 приёмка harness-fixed, правка по ревью дописывает в файл теста -> снимок приёмки зелёный, complete', track: 'bugfix', args: bugfixArgs,
+    responses: { 'reproduce': reproTest,
+      'fix:1': { ...fixOk, 'diagnosis-check': 'harness-fixed' },
+      'verify:после попытки 1': { ...greenTest, repro_test_hash: 'b2' },
+      'self-review:первое': revP1,
+      'fix:after-review': { ...fixSealed, 'diagnosis-check': 'harness-fixed' },
+      'verify:после саморевью': { ...greenTest, repro_test_hash: 'b3' },
+      'self-review:повторное': revRecheck,
+      'verify:снимок': { ...greenTest, repro_test_hash: 'b3', snap_hash: 'b2' } },
+    expect: ({ result, calls }) => [
+      ['статус complete', result.status === 'complete'],
+      ['снимок - приёмки, не диагноста', promptOf(calls, 'verify:снимок').includes('git show b2 > test/pay.test.ts')],
+    ] },
+  { name: 'B138 итог после правки по ревью красный -> снимок не прогоняется, разрыв - красное дерево', track: 'bugfix', args: bugfixArgs,
+    responses: { 'reproduce': reproTest, 'fix:1': fixOk, 'verify:после попытки 1': greenTest,
+      'self-review:первое': revP1, 'fix:after-review': fixSealed, 'verify:после саморевью': { ...red, repro_test_hash: 'b2' },
+      'self-review:повторное': revRecheck },
+    expect: ({ result, calls }) => [
+      ['статус partial', result.status === 'partial'],
+      ['прогона снимка нет', !labelsOf(calls).includes('verify:снимок')],
+      ['разрыв - красное дерево', /верификация после правки по саморевью не прошла/.test(result.where)],
+    ] },
+  { name: 'B139 команды тестов нет, тест изменён -> снимок не прогоняется, разрыв называет причину', track: 'bugfix', args: bugfixArgs,
+    responses: { 'ctx:tree': { ...prepTs, test_cmd: '' }, 'reproduce': reproTest, 'fix:1': fixOk,
+      'verify:после попытки 1': { ...greenTest, pass_count: 0, repro_test_hash: 'b2' }, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['статус partial', result.status === 'partial'],
+      ['прогона снимка нет', !labelsOf(calls).includes('verify:снимок')],
+      ['разрыв называет причину', /изменён при diagnosis-check: accepted; снимок не прогнан: команды тестов нет/.test(result.where)],
+    ] },
+  { name: 'B142 git show не поставил снимок, тесты зелёные на пустом файле -> partial, снимок не поставлен', track: 'bugfix', args: bugfixArgs,
+    responses: { 'reproduce': reproTest, 'fix:1': fixOk, 'verify:после попытки 1': { ...greenTest, repro_test_hash: 'b2' }, 'self-review:первое': revClean,
+      'verify:снимок': { ...greenTest, repro_test_hash: 'b2', snap_hash: 'e69de29' } },
+    expect: ({ result }) => [
+      ['статус partial', result.status === 'partial'],
+      ['разрыв называет непоставленный снимок', /изменён при diagnosis-check: accepted; снимок b1 не поставлен: snap_hash e69de29/.test(result.where)],
+    ] },
+  { name: 'B143 после прогона снимка дерево чистое, ahead тот же, хэш файла другой -> partial, файл не возвращён', track: 'bugfix', args: bugfixArgs,
+    responses: { 'reproduce': reproTest, 'fix:1': fixOk, 'verify:после попытки 1': { ...greenTest, repro_test_hash: 'b2' }, 'self-review:первое': revClean,
+      'verify:снимок': { ...greenTest, repro_test_hash: 'b9', snap_hash: 'b1' } },
+    expect: ({ result }) => [
+      ['статус partial', result.status === 'partial'],
+      ['разрыв называет оба хэша', /не возвращён: repro_test_hash b9 при итоговом b2, ahead 1 при итоговом 1, dirty=false, вернуть: cd \/repo-B-1 && git reset --soft abc && git checkout abc -- test\/pay\.test\.ts/.test(result.where)],
+    ] },
+  { name: 'B144 кодер вернул partial, тест изменён -> снимок не прогоняется, итог держит разрыв кодера', track: 'bugfix', args: bugfixArgs,
+    responses: { 'reproduce': reproTest, 'fix:1': { ...fixOk, status: 'partial', missing: 'миграция не прогнана' }, 'verify:после попытки 1': { ...greenTest, repro_test_hash: 'b2' },
+      'self-review:первое': revClean, 'verify:снимок': { ...verBlocked, snap_hash: '' } },
+    expect: ({ result, calls }) => [
+      ['прогона снимка нет', !labelsOf(calls).includes('verify:снимок')],
+      ['статус partial, не стоп снимка', result.status === 'partial' && /кодер вернул partial: миграция не прогнана/.test(result.where)],
+    ] },
+  { name: 'B145 после ревью открыт P1, тест изменён -> снимок не прогоняется, итог держит находку', track: 'bugfix', args: bugfixArgs,
+    responses: { 'reproduce': reproTest, 'fix:1': fixOk, 'verify:после попытки 1': greenTest,
+      'self-review:первое': revP1, 'fix:after-review': fixOk, 'verify:после саморевью': { ...greenTest, repro_test_hash: 'b2' },
+      'self-review:повторное': { ...revP1, prior: [{ ...closedA8, status: 'open', evidence: 'случаи не различены' }] },
+      'verify:снимок': { ...verBlocked, snap_hash: '' } },
+    expect: ({ result, calls }) => [
+      ['прогона снимка нет', !labelsOf(calls).includes('verify:снимок')],
+      ['статус partial, не стоп снимка', result.status === 'partial' && /^открытые P0\/P1/.test(result.where)],
+    ] },
+  { name: 'B146 хэш теста с переводом строки равен ожиданию -> тест не изменён, ревью без сигнала, complete', track: 'bugfix', args: bugfixArgs,
+    responses: { 'reproduce': reproTest, 'fix:1': fixOk, 'verify:после попытки 1': { ...greenTest, repro_test_hash: 'b1\n' }, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['статус complete', result.status === 'complete'],
+      ['прогона снимка нет', !labelsOf(calls).includes('verify:снимок')],
+      ['ревью не получает сигнала о правке теста', !promptOf(calls, 'self-review:первое').includes('изменён кодером')],
+    ] },
+  { name: 'B147 правка по находкам замкнута, хэш теста отличается переводом строки -> повторное ревью не куплено', track: 'bugfix', args: bugfixArgs,
+    responses: { 'reproduce': reproTest, 'fix:1': fixOk, 'verify:после попытки 1': greenTest, 'self-review:первое': revP1,
+      'fix:after-review': fixSealed, 'verify:после саморевью': { ...greenTest, repro_test_hash: 'b1\n' }, 'self-review:повторное': revRecheck },
+    expect: ({ result, calls }) => [
+      ['повторное саморевью не вызвано', !labelsOf(calls).includes('self-review:повторное')],
+      ['статус complete', result.status === 'complete'],
+    ] },
+  { name: 'B148 снимок диагноста с переводом строки, хэш теста тот же -> тест не изменён, complete', track: 'bugfix', args: bugfixArgs,
+    responses: { 'reproduce': { ...reproTest, repro_blob: 'b1\n' }, 'fix:1': fixOk, 'verify:после попытки 1': greenTest, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['статус complete', result.status === 'complete'],
+      ['прогона снимка нет', !labelsOf(calls).includes('verify:снимок')],
+      ['ревью не получает сигнала о правке теста', !promptOf(calls, 'self-review:первое').includes('изменён кодером')],
+    ] },
+  { name: 'B149 снимок диагноста без пути теста -> ожидания нет, строка degraded, complete', track: 'bugfix', args: bugfixArgs,
+    responses: { 'reproduce': { ...reproTest, repro_test: '' }, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['прогона снимка нет', !labelsOf(calls).includes('verify:снимок')],
+      ['статус complete', result.status === 'complete'],
+      ['ревью без сигнала о правке теста', !promptOf(calls, 'self-review:первое').includes('изменён кодером')],
+      ['снимок без пути назван', result.degraded.some(d => /снимок теста диагноста b1 без пути/.test(d))],
+    ] },
+  { name: 'B151 git show не поставил снимок и файл не возвращён -> разрыв называет оба и команду возврата', track: 'bugfix', args: bugfixArgs,
+    responses: { 'reproduce': reproTest, 'fix:1': fixOk, 'verify:после попытки 1': { ...greenTest, repro_test_hash: 'b2' }, 'self-review:первое': revClean,
+      'verify:снимок': { ...greenTest, dirty: true, repro_test_hash: 'e69de29', snap_hash: 'fatal: bad object b1' } },
+    expect: ({ result }) => [
+      ['статус partial', result.status === 'partial'],
+      ['снимок не поставлен', /снимок b1 не поставлен: snap_hash fatal: bad object b1/.test(result.where)],
+      ['файл не возвращён, команда названа', /не возвращён: repro_test_hash e69de29 при итоговом b2, ahead 1 при итоговом 1, dirty=true, вернуть: cd \/repo-B-1 && git reset --soft abc && git checkout abc -- test\/pay\.test\.ts/.test(result.where)],
+    ] },
+  { name: 'B150 верификатор снимка blocked, коммит итогового прогона не разобран -> файл из объекта итоговой верификации', track: 'bugfix', args: bugfixArgs,
+    responses: { 'reproduce': reproTest, 'fix:1': fixOk, 'verify:после попытки 1': { ...greenTest, head: '', repro_test_hash: 'b2' }, 'self-review:первое': revClean,
+      'verify:снимок': { ...verBlocked, snap_hash: '' } },
+    expect: ({ result }) => [
+      ['статус blocked', result.status === 'blocked'],
+      ['возврат - содержимое итоговой верификации', /мог остаться снимком, вернуть: cd \/repo-B-1 && git show b2 > test\/pay\.test\.ts$/.test(result.missing)],
+    ] },
+  { name: 'B152 done и boundary не поданы, файл цели задан -> шапка шлёт узлы в разделы файла цели, пропуск в degraded', track: 'bugfix',
+    args: { ...bugfixArgs, done: '', boundary: '', goal_path: 'docs/goals/B-1.md' },
+    responses: { 'reproduce': reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['шапка каждого узла - раздел критерия', ['reproduce', 'fix:1', 'verify:после попытки 1', 'self-review:первое'].every(l => promptOf(calls, l).includes('критерий «готово»: не подан, возьми из раздела `## Критерий «готово»` файла цели docs/goals/B-1.md\n'))],
+      ['граница - раздел файла цели', promptOf(calls, 'fix:1').includes('граница: не подана, возьми из раздела `## Граница` файла цели docs/goals/B-1.md\n')],
+      ['пропуск обоих полей в degraded', result.degraded.includes('критерий «готово» не подан в args: узлы отосланы к файлу цели docs/goals/B-1.md') && result.degraded.includes('граница не подана в args: узлы отосланы к файлу цели docs/goals/B-1.md')],
+      ['статус complete', result.status === 'complete'],
+    ] },
+  { name: 'B153 done пробелами, boundary и файла цели нет -> «не подан», граница по умолчанию, пропуск в degraded', track: 'bugfix',
+    args: { task: 'B-1', symptom: 'дубль платежа', done: '  ', cwd: '/repo-B-1' },
+    responses: { 'reproduce': reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['критерий «не подан»', promptOf(calls, 'reproduce').includes('критерий «готово»: не подан\n')],
+      ['граница по умолчанию', promptOf(calls, 'reproduce').includes('граница: не выходить за рабочий каталог\n')],
+      ['пропуск обоих полей в degraded', result.degraded.includes('критерий «готово» не подан в args: файла цели нет') && result.degraded.includes('граница не подана в args: файла цели нет')],
+    ] },
+  { name: 'B164 находка P2 -> правка по находкам, закрыта замкнутой правкой -> complete', track: 'bugfix', args: bugfixArgs,
+    responses: { 'reproduce': reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revP2,
+      'fix:after-review': fixSealedP2, 'verify:после саморевью': green },
+    expect: ({ result, calls }) => [
+      ['P2 подана в правку по находкам', /имя переменной/.test(promptOf(calls, 'fix:after-review'))],
+      ['повторное саморевью не куплено', !labelsOf(calls).includes('self-review:повторное')],
+      ['P2 закрыта в реестре', result.prior.some(p => p.id === 'N1' && p.status === 'closed')],
+      ['статус complete', result.status === 'complete'],
+    ] },
+  { name: 'B166 только P2, кодер правки по находкам blocked -> трек blocked', track: 'bugfix', args: bugfixArgs,
+    responses: { 'reproduce': reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revP2,
+      'fix:after-review': { ...fixOk, status: 'blocked', missing: 'нет доступа к файлу' } },
+    expect: ({ result }) => [
+      ['статус blocked', result.status === 'blocked'],
+      ['шаг назван', result.where === 'Review: правка по находкам'],
+    ] },
+  { name: 'B165 только P3 -> правки по находкам нет', track: 'bugfix', args: bugfixArgs,
+    responses: { 'reproduce': reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revP3 },
+    expect: ({ result, calls }) => [
+      ['правки по находкам не было', !labelsOf(calls).includes('fix:after-review')],
+      ['статус complete', result.status === 'complete'],
+    ] },
   { name: 'B127 повторное ревью подняло P2 первого до P1 -> запись P1, partial', track: 'bugfix', args: bugfixArgs,
     responses: { 'reproduce': reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revP1P2, 'fix:after-review': fixOk, 'verify:после саморевью': green,
       'self-review:повторное': { ...revClean, prior: [{ ...closedA8 }, { id: 'N2', anchor: 'src/A.cs:9', severity: 'P1', axis: '', text: 'имя переменной', status: 'open', evidence: 'имя путает случаи' }] } },
@@ -2089,8 +2402,7 @@ const SCENARIOS = [
     args: { ...reviewArgs, last_review_sha: 'ccc', open_findings: JSON.stringify([ledgerF3sec]) },
     responses: { 'ctx:subject': ctxMr,
       'review:delta': { ...revMr, threads: [{ anchor: 'api/old.ts:3', severity: 'P2', axis: '', text: 'опечатка в имени переменной', status: 'open', evidence: 'var ownerr' }] },
-      'review:security': revMr,
-      'falsify+coverage': { ...falOk, prior: [{ id: 'F3', anchor: 'api/old.ts:3', severity: 'P1', axis: 'security', text: 'проверка владельца', status: 'open', evidence: 'owner всё ещё не проверяется' }] } },
+            'falsify+coverage': { ...falOk, prior: [{ id: 'F3', anchor: 'api/old.ts:3', severity: 'P1', axis: 'security', text: 'проверка владельца', status: 'open', evidence: 'owner всё ещё не проверяется' }] } },
     expect: ({ result, calls }) => [
       ['тред дошёл до скептика своим id', /N1 \[P2\] api\/old\.ts:3: опечатка в имени переменной/.test(promptOf(calls, 'falsify+coverage'))],
       ['в выходе обе записи', result.prior.length === 2 && result.prior.some(p => p.id === 'F3') && result.prior.some(p => p.id === 'N1')],
@@ -2098,8 +2410,7 @@ const SCENARIOS = [
     ] },
   { name: 'R52 ре-ревьюер и скептик вернули prior с id не из перечня -> статус не принят, запись ledger непроверена', track: 'review',
     args: { ...reviewArgs, last_review_sha: 'ccc', open_findings: JSON.stringify([ledgerF3sec]) },
-    responses: { 'ctx:subject': ctxMr, 'review:delta': { ...revMr, prior: [{ ...oldP1, id: 'F9' }] }, 'review:security': revMr,
-      'falsify+coverage': { ...falOk, prior: [{ ...oldP1, id: '', status: 'closed', evidence: 'owner сверяется' }] } },
+    responses: { 'ctx:subject': ctxMr, 'review:delta': { ...revMr, prior: [{ ...oldP1, id: 'F9' }] }, 'falsify+coverage': { ...falOk, prior: [{ ...oldP1, id: '', status: 'closed', evidence: 'owner сверяется' }] } },
     expect: ({ result }) => [
       ['F3 не закрыта чужой записью', result.prior.length === 1 && result.prior[0].id === 'F3' && result.prior[0].status === 'unverified'],
       ['ошибка ре-ревьюера названа', result.degraded.some(d => /ревьюер: запись prior F9 .* не из перечня ledger/.test(d))],
@@ -2108,8 +2419,7 @@ const SCENARIOS = [
     ] },
   { name: 'R53 скептик подтвердил находку, совпавшую с прежней по якорю и оси -> одна запись, промах назван', track: 'review',
     args: { ...reviewArgs, last_review_sha: 'ccc', open_findings: JSON.stringify([ledgerF3sec]) },
-    responses: { 'ctx:subject': ctxMr, 'review:delta': { ...revMr, findings: [] }, 'review:security': { ...revMr, findings: [] },
-      'falsify+coverage': { ...falOk, confirmed: [{ anchor: 'api/old.ts:3', severity: 'P1', axis: 'security', text: 'owner не сверяется', closure: 'сверить owner', evidence: 'api/old.ts:3' }],
+    responses: { 'ctx:subject': ctxMr, 'review:delta': { ...revMr, findings: [] }, 'falsify+coverage': { ...falOk, confirmed: [{ anchor: 'api/old.ts:3', severity: 'P1', axis: 'security', text: 'owner не сверяется', closure: 'сверить owner', evidence: 'api/old.ts:3' }],
         prior: [{ id: 'F3', anchor: 'api/old.ts:3', severity: 'P1', axis: 'security', text: 'проверка владельца', status: 'open', evidence: 'не сверяется' }] } },
     expect: ({ result }) => [
       ['одна запись F3, открыта', result.prior.length === 1 && result.prior[0].id === 'F3' && result.prior[0].status === 'open'],
@@ -2151,6 +2461,7 @@ const SCENARIOS = [
       ['корпус ищет сама', /Поищи корпус документации проекта/.test(promptOf(calls, 'ctx:R-I'))],
       ['раздел цели не подан', !/раздел «Контекст»/.test(promptOf(calls, 'ctx:R-I'))],
       ['файл цели в шапке', promptOf(calls, 'ctx:R-I').includes('файл цели: docs/goals/F-1.md')],
+      ['поданные done и boundary - в шапке как есть, пропуска нет', promptOf(calls, 'fix:1').includes('критерий «готово»: npm test -> 0\nграница: не трогать схему\n') && !result.degraded.some(d => / в args: /.test(d))],
       ['статус complete', result.status === 'complete'],
     ] },
   { name: 'F86 база красная -> degraded, кодеру названы унаследованные падения, база в trail', track: 'feature', args: featureArgs,
@@ -2191,10 +2502,26 @@ const SCENARIOS = [
       ['строки базы в degraded нет', !result.degraded.some(d => /дерево красное/.test(d))],
       ['замер этого прогона в trail - как вернул узел', (t => t && t.baseline === 'red')(result.trail.find(t => t.step === '1-tree'))],
     ] },
+  { name: 'F91 done и boundary не поданы, файл цели задан -> шапка шлёт узлы в разделы файла цели, пропуск в degraded', track: 'feature',
+    args: { ...featureArgs, done: undefined, boundary: undefined, goal_path: 'docs/goals/F-1.md' },
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['шапка каждого узла - раздел критерия', ['ctx:R-I', 'fix:1', 'verify:после попытки 1', 'self-review:первое'].every(l => promptOf(calls, l).includes('критерий «готово»: не подан, возьми из раздела `## Критерий «готово»` файла цели docs/goals/F-1.md\n'))],
+      ['граница - раздел файла цели', promptOf(calls, 'fix:1').includes('граница: не подана, возьми из раздела `## Граница` файла цели docs/goals/F-1.md\n')],
+      ['пропуск обоих полей в degraded', result.degraded.includes('критерий «готово» не подан в args: узлы отосланы к файлу цели docs/goals/F-1.md') && result.degraded.includes('граница не подана в args: узлы отосланы к файлу цели docs/goals/F-1.md')],
+      ['статус complete', result.status === 'complete'],
+    ] },
+  { name: 'F92 done пробелами, boundary и файла цели нет -> «не подан», граница по умолчанию, пропуск в degraded', track: 'feature',
+    args: { task: 'F-1', goal: 'цель', done: '  ', cwd: '/repo-F-1' },
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['критерий «не подан»', promptOf(calls, 'fix:1').includes('критерий «готово»: не подан\n')],
+      ['граница по умолчанию', promptOf(calls, 'fix:1').includes('граница: не выходить за рабочий каталог\n')],
+      ['пропуск обоих полей в degraded', result.degraded.includes('критерий «готово» не подан в args: файла цели нет') && result.degraded.includes('граница не подана в args: файла цели нет')],
+    ] },
   { name: 'R54 скептик закрыл F3 и подтвердил новую P0 на том же якоре и оси -> P0 опубликована, F3 закрыта', track: 'review',
     args: { ...reviewArgs, last_review_sha: 'ccc', publish: true, open_findings: JSON.stringify([ledgerF3sec]) },
-    responses: { 'ctx:subject': ctxMr, 'review:delta': { ...revMr, findings: [] }, 'review:security': { ...revMr, findings: [] },
-      'falsify+coverage': { ...falOk, dropped: [], confirmed: [{ anchor: 'api/old.ts:3', severity: 'P0', axis: 'security', text: 'SQL-инъекция', closure: 'параметризовать', evidence: 'query(`...${id}`)' }],
+    responses: { 'ctx:subject': ctxMr, 'review:delta': { ...revMr, findings: [] }, 'falsify+coverage': { ...falOk, dropped: [], confirmed: [{ anchor: 'api/old.ts:3', severity: 'P0', axis: 'security', text: 'SQL-инъекция', closure: 'параметризовать', evidence: 'query(`...${id}`)' }],
         prior: [{ ...ledgerF3sec, status: 'closed', evidence: 'owner сверяется' }] },
       publish: { status: 'complete', published: [{ anchor: 'api/old.ts:3', axis: 'security', url: 'https://x/9', note: '' }], unpublished: [] } },
     expect: ({ result, calls }) => [
@@ -2203,7 +2530,7 @@ const SCENARIOS = [
       ['F3 закрыта скептиком', result.prior.some(p => p.id === 'F3' && p.status === 'closed')],
     ] },
   { name: 'R55 две подтверждённые на одном якоре, публикатор назвал одну без оси -> ни одна не засчитана опубликованной', track: 'review', args: { ...reviewArgs, publish: true },
-    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'review:security': revMr,
+    responses: { 'ctx:subject': ctxMr, 'review:first': revMr,
       'falsify+coverage': { ...falOk, confirmed: [mrFinding, { ...mrFinding, axis: 'language', text: 'имя поля' }] },
       publish: { status: 'complete', published: [{ anchor: 'api/user.ts:41', axis: '', url: 'https://x/1', note: '' }], unpublished: [] } },
     expect: ({ result }) => [
@@ -2211,23 +2538,21 @@ const SCENARIOS = [
       ['запись без оси не отнесена ни к одной', result.unpublished.length === 2],
     ] },
   { name: 'R56 одна подтверждённая, публикатор назвал её без оси -> опубликована', track: 'review', args: { ...reviewArgs, publish: true },
-    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'review:security': revMr, 'falsify+coverage': falOk,
+    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'falsify+coverage': falOk,
       publish: { status: 'complete', published: [{ anchor: 'api/user.ts:41', axis: '', url: 'https://x/1', note: '' }], unpublished: [] } },
     expect: ({ result }) => [
       ['неопубликованных нет', result.unpublished.length === 0],
     ] },
   { name: 'R57 тред MR на якоре и оси записи ledger -> опознан ею, отдельной записи нет', track: 'review',
     args: { ...reviewArgs, last_review_sha: 'ccc', open_findings: JSON.stringify([ledgerF3sec]) },
-    responses: { 'ctx:subject': ctxMr, 'review:delta': { ...revMr, findings: [], threads: [{ ...oldThread, axis: 'security' }] }, 'review:security': { ...revMr, findings: [] },
-      'falsify+coverage': { ...falOk, confirmed: [], dropped: [], prior: [{ ...ledgerF3sec, status: 'closed', evidence: 'owner сверяется' }] } },
+    responses: { 'ctx:subject': ctxMr, 'review:delta': { ...revMr, findings: [], threads: [{ ...oldThread, axis: 'security' }] }, 'falsify+coverage': { ...falOk, confirmed: [], dropped: [], prior: [{ ...ledgerF3sec, status: 'closed', evidence: 'owner сверяется' }] } },
     expect: ({ result, calls }) => [
       ['одна запись реестра', result.prior.length === 1 && result.prior[0].id === 'F3'],
       ['claim треда подан скептику при F3', /F3 .*api\/old\.ts:3.*- ре-ревьюер: closed - автор: закрыта/s.test(promptOf(calls, 'falsify+coverage'))],
     ] },
   { name: 'R58 скептик вынес APPROVE при открытой прежней P1 -> вердикт опровергнут разрывом', track: 'review',
     args: { ...reviewArgs, last_review_sha: 'ccc', open_findings: JSON.stringify([ledgerF3]) },
-    responses: { 'ctx:subject': ctxMr, 'review:delta': { ...revMr, findings: [] }, 'review:security': { ...revMr, findings: [] },
-      'falsify+coverage': { ...falOk, confirmed: [], dropped: [], 'review-verdict': 'APPROVE', prior: [{ ...ledgerF3, status: 'open', evidence: 'owner не сверяется' }] } },
+    responses: { 'ctx:subject': ctxMr, 'review:delta': { ...revMr, findings: [] }, 'falsify+coverage': { ...falOk, confirmed: [], dropped: [], 'review-verdict': 'APPROVE', prior: [{ ...ledgerF3, status: 'open', evidence: 'owner не сверяется' }] } },
     expect: ({ result }) => [
       ['разрыв называет F3', /review-verdict APPROVE при открытых P0\/P1: F3/.test(result.where)],
     ] },
@@ -2240,98 +2565,53 @@ const SCENARIOS = [
     expect: ({ result, calls }) => [
       ['исход unverifiable', result.probe === 'unverifiable'],
       ['причина называет узел и ошибку', result.reason === `узел пробы ${probeNode} не отработал: agent type not found: ${probeNode}`],
-      ['замены и классификатора нет', calls.length === 0 && result.questions.length === 0],
+      ['замены нет', calls.length === 0 && result.questions.length === 0],
     ] },
   { name: 'G3 узел пробы не вернул выход', track: 'goal', args: goalArgs, responses: { probe: null },
-    expect: ({ result, calls }) => [
+    expect: ({ result }) => [
       ['unverifiable с причиной', result.probe === 'unverifiable' && result.reason === 'узел пробы не вернул выход'],
-      ['классификатор не вызван', !labelsOf(calls).includes('sort')],
     ] },
   { name: 'G4 проба blocked с нехваткой', track: 'goal', args: goalArgs, responses: { probe: { ...probeFound, status: 'blocked', missing: 'корпус не читается' } },
-    expect: ({ result, calls }) => [
+    expect: ({ result }) => [
       ['нехватка узла в причине', result.probe === 'unverifiable' && result.reason === 'корпус не читается'],
-      ['домыслы blocked-выхода не классифицируются', !labelsOf(calls).includes('sort') && result.questions.length === 0],
+      ['домыслы blocked-выхода не отдаются', result.questions.length === 0],
     ] },
   { name: 'G4 проба blocked без нехватки', track: 'goal', args: goalArgs, responses: { probe: { ...probeClean, status: 'blocked' } },
     expect: ({ result }) => [
       ['нехватка подставлена', result.probe === 'unverifiable' && result.reason === 'узел пробы вернул blocked без нехватки'],
     ] },
-  { name: 'G5 вердикт unverifiable с причиной', track: 'goal', args: goalArgs, responses: { probe: { ...probeFound, verdict: 'unverifiable', missing: 'источник пуст' } },
-    expect: ({ result, calls }) => [
-      ['причина узла', result.probe === 'unverifiable' && result.reason === 'источник пуст'],
-      ['классификатор не вызван', !labelsOf(calls).includes('sort')],
+  { name: 'G5 узел - агент dex-auto, цена из таблицы узлов, вход путями, один вызов', track: 'goal', args: goalArgs, responses: { probe: probeFound },
+    expect: ({ calls }) => [
+      ['проба - goal-reader на sonnet, effort сессии', typeOf(calls, 'probe') === probeNode && calls[0].model === 'sonnet' && calls[0].effort === undefined],
+      ['вызвана только проба, один раз', labelsOf(calls).join() === 'probe'],
+      ['проба отдаёт план, обещания, трассу и пробелы до домыслов', (s => Object.keys(s.properties).join() === 'status,plan,promises,trace,gaps,guesses,open_items,missing' && ['plan', 'promises', 'trace', 'gaps'].every(f => s.required.includes(f)))(calls[0].schema)],
+      ['проба получает черновик, источник и код', ['/tmp/goal-c1/goal.md', '/tmp/goal-c1/source.md', '/repo'].every(t => promptOf(calls, 'probe').includes(t))],
     ] },
-  { name: 'G5 вердикт unverifiable без причины', track: 'goal', args: goalArgs, responses: { probe: { ...probeClean, verdict: 'unverifiable' } },
+  { name: 'G6 файл узла: инструменты только на чтение, без model и effort, смысл каждого поля выдачи', track: 'goal', args: goalArgs, responses: { probe: probeFound },
+    expect: ({ calls }) => {
+      const schema = (calls.find(c => c.label === 'probe') || {}).schema
+      return [
+        ['tools Read, Grep, Glob, Skill', agentTools('goal-reader') === 'Glob,Grep,Read,Skill'],
+        ['model и effort не заданы', !/^(model|effort):/m.test(frontmatter('goal-reader'))],
+        ['каждое поле схемы названо в файле, описаний в схеме нет', !!schema && schemaFields(schema).every(f => agentBody('goal-reader').includes(`\`${f}\``)) && !JSON.stringify(schema).includes('"description"')],
+      ]
+    } },
+  { name: 'G7 списки пусты, в трассе нет расхождений -> passed', track: 'goal', args: goalArgs, responses: { probe: { ...probeClean, trace: [traceB, { ...traceB, diff: ' - ' }, { ...traceB, diff: '' }] } },
     expect: ({ result }) => [
-      ['причина подставлена', result.reason === 'узел пробы вынес unverifiable без причины'],
-    ] },
-  { name: 'G6 failed без домыслов и открытых пунктов -> unverifiable', track: 'goal', args: goalArgs, responses: { probe: { ...probeClean, verdict: 'failed' } },
-    expect: ({ result }) => [
-      ['пустой failed не читается как passed', result.probe === 'unverifiable' && result.reason === 'узел пробы вынес failed без домыслов и открытых пунктов'],
-    ] },
-  { name: 'G7 списки пусты -> passed без классификатора', track: 'goal', args: goalArgs, responses: { probe: probeClean },
-    expect: ({ result, calls }) => [
       ['исход passed', result.probe === 'passed' && result.degraded.length === 0],
-      ['вызван только узел пробы, без замены', labelsOf(calls).join() === 'probe' && typeOf(calls, 'probe') === probeNode],
-      ['промпт пробы: автономный режим, корпус, код, запрет записи', ['mode: autonomous', 'корень корпуса: /tmp/goal-c1', 'в /repo', 'на диск ничего не пиши'].every(t => promptOf(calls, 'probe').includes(t))],
     ] },
-  { name: 'G8 passed при непустом списке и partial -> судит список, обе строки degraded', track: 'goal', args: goalArgs,
-    responses: { probe: { ...probeFound, status: 'partial', verdict: 'passed', missing: 'контракт API не найден' }, sort: sortOk },
-    expect: ({ result, calls }) => [
+  { name: 'G8 partial при непустом списке -> строка degraded, id по порядку', track: 'goal', args: goalArgs,
+    responses: { probe: { ...probeFound, status: 'partial', missing: 'контракт API не найден' } },
+    expect: ({ result }) => [
       ['исход failed', result.probe === 'failed'],
-      ['id по порядку списка', /D1\. goal\.md.*\nD2\. source\.md:3/.test(promptOf(calls, 'sort'))],
-      ['passed при списке - строка degraded', result.degraded.includes('узел пробы вынес passed при непустом списке - судит список')],
-      ['partial - строка degraded с нехваткой', result.degraded.includes('проба partial: контракт API не найден')],
+      ['id по порядку списка', idsOf(result.questions) === 'D1,D2' && result.questions[0].decision === guessA.decision && result.questions[1].decision === guessB.decision],
+      ['partial - строка degraded с нехваткой', result.degraded.join('|') === 'проба partial: контракт API не найден'],
     ] },
-  { name: 'G9 только открытые пункты -> failed без классификатора', track: 'goal', args: goalArgs,
-    responses: { probe: { ...probeClean, verdict: 'failed', open_items: ['AC-3: TBD в источнике'] } },
-    expect: ({ result, calls }) => [
+  { name: 'G9 только открытые пункты -> failed без домыслов', track: 'goal', args: goalArgs,
+    responses: { probe: { ...probeClean, open_items: ['AC-3: TBD в источнике'] } },
+    expect: ({ result }) => [
       ['исход failed с открытым пунктом', result.probe === 'failed' && result.open_items.join() === 'AC-3: TBD в источнике'],
-      ['классификатор не вызван', !labelsOf(calls).includes('sort')],
-      ['derived и questions пусты', result.derived.length === 0 && result.questions.length === 0],
-    ] },
-  { name: 'G10 классификатор blocked -> все домыслы вопросами', track: 'goal', args: goalArgs,
-    responses: { probe: { ...probeFound, open_items: ['AC-3: TBD'] }, sort: { status: 'blocked', items: [], missing: 'код не читается' } },
-    expect: ({ result }) => [
-      ['все в questions', idsOf(result.questions) === 'D1,D2' && result.derived.length === 0],
-      ['open_items сохранены', result.open_items.length === 1],
-      ['degraded называет нехватку', result.degraded.includes('классификатор blocked: код не читается - все домыслы вопросами')],
-    ] },
-  { name: 'G10 классификатор не отработал -> все домыслы вопросами', track: 'goal', args: goalArgs,
-    responses: { probe: probeFound }, unavailable: ['general-purpose'],
-    expect: ({ result }) => [
-      ['все в questions', result.probe === 'failed' && idsOf(result.questions) === 'D1,D2'],
-      ['degraded называет ошибку', result.degraded.includes('классификатор не отработал (agent type not found: general-purpose) - все домыслы вопросами')],
-    ] },
-  { name: 'G10 классификатор не вернул выход -> все домыслы вопросами', track: 'goal', args: goalArgs, responses: { probe: probeFound, sort: null },
-    expect: ({ result }) => [
-      ['все в questions', result.probe === 'failed' && idsOf(result.questions) === 'D1,D2' && result.derived.length === 0],
-      ['degraded без повтора имени узла', result.degraded.join('|') === 'классификатор не вернул выход - все домыслы вопросами'],
-    ] },
-  { name: 'G11 разбор по id: derived с якорем, прочие вопросом', track: 'goal', args: goalArgs, responses: { probe: { ...probeFound, open_items: ['AC-3: TBD'] }, sort: sortOk },
-    expect: ({ result, calls }) => [
-      ['D1 выведен с ответом и якорем', idsOf(result.derived) === 'D1' && result.derived[0].anchor === 'src/cache.ts:42' && result.derived[0].answer === 'запись сбрасывает кэш'],
-      ['D2 вопросом', idsOf(result.questions) === 'D2' && result.questions[0].decision === guessB.decision],
-      ['open_items в выходе', result.open_items.join() === 'AC-3: TBD'],
-      ['каждый узел один раз', labelsOf(calls).join() === 'probe,sort' && result.degraded.length === 0],
-      ['классификатор - general-purpose только на чтение', typeOf(calls, 'sort') === 'general-purpose' && promptOf(calls, 'sort').includes('только чтение: ничего не пиши и не меняй')],
-    ] },
-  { name: 'G12 derived без якоря строки или без ответа -> вопрос', track: 'goal', args: goalArgs,
-    responses: { probe: probeFound, sort: { ...sortOk, items: [{ id: 'D1', class: 'derived', answer: 'запись сбрасывает кэш', anchor: 'src/cache.ts' }, { id: 'D2', class: 'derived', answer: '', anchor: 'src/limits.ts:7' }] } },
-    expect: ({ result }) => [
-      ['оба вопросом', idsOf(result.questions) === 'D1,D2' && result.derived.length === 0],
-    ] },
-  { name: 'G13 пропущенный и чужой id', track: 'goal', args: goalArgs,
-    responses: { probe: probeFound, sort: { ...sortOk, items: [sortOk.items[0], { id: 'D9', class: 'derived', answer: 'x', anchor: 'a.ts:1' }] } },
-    expect: ({ result }) => [
-      ['D2 без записи - вопросом', idsOf(result.questions) === 'D2' && idsOf(result.derived) === 'D1'],
-      ['пропуск и чужой id в degraded', result.degraded.includes('классификатор не разобрал D2 - вопросом') && result.degraded.includes('классификатор вернул чужой id D9')],
-    ] },
-  { name: 'G14 повтор id и partial классификатора', track: 'goal', args: goalArgs,
-    responses: { probe: probeFound, sort: { status: 'partial', items: [{ id: 'D1', class: 'question', answer: '', anchor: '' }, sortOk.items[0], sortOk.items[1]], missing: 'часть кода вне доступа' } },
-    expect: ({ result }) => [
-      ['взята первая запись D1', idsOf(result.questions) === 'D1,D2' && result.derived.length === 0],
-      ['повтор и partial в degraded', result.degraded.includes('классификатор вернул D1 дважды - взята первая запись') && result.degraded.includes('классификатор partial: часть кода вне доступа')],
+      ['questions пуст', result.questions.length === 0],
     ] },
   { name: 'G15 partial без домыслов -> unverifiable', track: 'goal', args: goalArgs, responses: { probe: { ...probeClean, status: 'partial', missing: 'source.md не прочитан' } },
     expect: ({ result }) => [
@@ -2352,34 +2632,289 @@ const SCENARIOS = [
       ['причина называет пустые поля', result.probe === 'unverifiable' && result.reason === 'вход пробы не разобран: пусто либо не строка: corpus, cwd'],
       ['узлы не вызваны', calls.length === 0],
     ] },
-  { name: 'G17 якорь с текстом вокруг, диапазон и перечень -> в derived только файл:строка', track: 'goal', args: goalArgs,
-    responses: { probe: { ...probeFound, guesses: [guessA, guessB, guessA] }, sort: { status: 'complete', missing: '', items: [
-      { id: 'D1', class: 'derived', answer: 'чтение бросает', anchor: 'src/cache.js:6-10 (readSlugCache: без try/catch)' },
-      { id: 'D2', class: 'derived', answer: 'синхронно', anchor: 'src/cache.js:1,6-9' },
-      { id: 'D3', class: 'derived', answer: 'как у соседа', anchor: 'см. readSlugCache: без строки' }] } },
+  { name: 'G18 пробел без домысла -> вопросом как есть', track: 'goal', args: goalArgs,
+    responses: { probe: { ...probeClean, gaps: [gapA, gapB], guesses: [{ ...guessA, covers: [1] }] } },
     expect: ({ result }) => [
-      ['текст вокруг снят', result.derived.map(d => d.anchor).join('|') === 'src/cache.js:6-10|src/cache.js:1,6-9'],
-      ['без файл:строка - вопросом', idsOf(result.questions) === 'D3'],
+      ['пробел 2 - вопросом с местом и текстом пробела', idsOf(result.questions) === 'D1,D2' && (q => q.where === gapB.where && q.decision === gapB.gap && q.cost === '' && q.gaps.join() === gapB.gap)(result.questions[1])],
+      ['degraded называет пробел', result.degraded.join('|') === 'пробелы 2 не покрыты домыслом пробы - вопросом как есть'],
     ] },
-  { name: 'G18 узлы пробы читают без Bash - узлу в дереве сессии команду отбивает сторож при открытой цели', track: 'goal', args: goalArgs, responses: { probe: probeFound, sort: sortOk },
+  { name: 'G18 только пробелы -> failed, не passed', track: 'goal', args: goalArgs,
+    responses: { probe: { ...probeClean, gaps: [gapA] } },
+    expect: ({ result }) => [
+      ['исход failed, пробел вопросом', result.probe === 'failed' && idsOf(result.questions) === 'D1' && result.questions[0].decision === gapA.gap],
+    ] },
+  { name: 'G19 номер вне списка пробелов снят', track: 'goal', args: goalArgs,
+    responses: { probe: { ...probeClean, gaps: [gapA], guesses: [{ ...guessA, covers: [1, 5, 0, 1] }] } },
+    expect: ({ result }) => [
+      ['покрыт только существующий пробел, без повтора', result.questions[0].gaps.join('|') === gapA.gap],
+      ['degraded называет снятые номера', result.degraded.join('|') === 'домыслы ссылаются на пробелы вне списка: 5, 0 - сняты'],
+    ] },
+  { name: 'G20 домысел, снимающий больше пробелов, - первым', track: 'goal', args: goalArgs,
+    responses: { probe: { ...probeClean, gaps: [gapA, gapB], guesses: [guessB, { ...guessA, covers: [2, 1] }] } },
+    expect: ({ result }) => [
+      ['D1 - домысел с двумя пробелами', result.questions[0].id === 'D1' && result.questions[0].decision === guessA.decision && result.questions[0].gaps.join('|') === `${gapB.gap}|${gapA.gap}`],
+      ['без пробелов - вторым', result.questions[1].decision === guessB.decision && result.questions[1].gaps.length === 0 && result.degraded.length === 0],
+    ] },
+  { name: 'G22 расхождение трассы без домысла -> вопросом как есть', track: 'goal', args: goalArgs,
+    responses: { probe: { ...probeClean, trace: [traceB, traceA] } },
+    expect: ({ result }) => [
+      ['исход failed, не passed', result.probe === 'failed'],
+      ['строка 2 - вопросом с местом и текстом расхождения', idsOf(result.questions) === 'D1' && (q => q.where === traceA.where && q.decision === traceA.diff && q.cost === '' && q.gaps.join() === traceA.diff)(result.questions[0])],
+      ['строка «нет» расхождением не считается', result.degraded.join('|') === 'расхождения трассы 2 не покрыты домыслом пробы - вопросом как есть'],
+    ] },
+  { name: 'G22 расхождение и пробел без домысла -> расхождение первым', track: 'goal', args: goalArgs,
+    responses: { probe: { ...probeClean, gaps: [gapA], trace: [traceA] } },
+    expect: ({ result }) => [
+      ['D1 - расхождение, D2 - пробел', result.questions.map(q => q.decision).join('|') === `${traceA.diff}|${gapA.gap}`],
+      ['degraded называет оба', ['пробелы 1 не покрыты домыслом пробы - вопросом как есть', 'расхождения трассы 1 не покрыты домыслом пробы - вопросом как есть'].every(d => result.degraded.includes(d))],
+    ] },
+  { name: 'G23 номер трассы вне списка или на строку без расхождения снят', track: 'goal', args: goalArgs,
+    responses: { probe: { ...probeClean, trace: [traceA, traceB], guesses: [{ ...guessA, covers: [], traces: [1, 2, 7, 1] }] } },
+    expect: ({ result }) => [
+      ['домысел снимает только расхождение 1, без повтора', idsOf(result.questions) === 'D1' && result.questions[0].gaps.join('|') === traceA.diff],
+      ['degraded называет снятые номера', result.degraded.join('|') === 'домыслы ссылаются на строки трассы без расхождения: 2, 7 - сняты'],
+    ] },
+  { name: 'G24 вес домысла - пробелы и расхождения трассы вместе', track: 'goal', args: goalArgs,
+    responses: { probe: { ...probeClean, gaps: [gapA], trace: [traceC, { ...traceC, where: 'source.md:10' }], guesses: [{ ...guessB, covers: [1], traces: [] }, { ...guessA, covers: [], traces: [1, 2] }] } },
+    expect: ({ result }) => [
+      ['D1 - домысел с двумя расхождениями', result.questions[0].decision === guessA.decision && result.questions[0].gaps.join('|') === `${traceC.diff}|${traceC.diff}`],
+      ['D2 - домысел с одним пробелом', result.questions[1].decision === guessB.decision && result.questions[1].gaps.join('|') === gapA.gap && result.degraded.length === 0],
+    ] },
+  { name: 'G25 метка breaks: kind вне refines - true, refines и без трассы - false', track: 'goal', args: goalArgs,
+    responses: { probe: { ...probeClean, gaps: [gapA], trace: [traceA, traceC, { ...traceD, kind: undefined }], guesses: [{ ...guessA, covers: [], traces: [1] }, { ...guessB, covers: [1], traces: [] }, { ...guessA, covers: [], traces: [2] }] } },
+    expect: ({ result }) => [
+      ['все домыслы вопросами, выводимое скрипт не делит', result.probe === 'failed' && idsOf(result.questions) === 'D1,D2,D3,D4' && !('derived' in result)],
+      ['breaks у расхождения breaks и у kind без значения', result.questions.map(q => `${q.decision === traceD.diff ? 'D' : q.decision === guessA.decision ? 'A' : 'B'}${q.breaks}`).join() === 'Atrue,Dtrue,Bfalse,Afalse'],
+      ['поля домысла - форма выхода', result.questions.every(q => Object.keys(q).join() === 'id,where,decision,cost,gaps,breaks')],
+    ] },
+  { name: 'G26 домысел с расхождением breaks - первым в очереди при меньшем весе', track: 'goal', args: goalArgs,
+    responses: { probe: { ...probeClean, gaps: [gapA, gapB], trace: [traceA], guesses: [{ ...guessB, covers: [1, 2], traces: [] }, { ...guessA, covers: [], traces: [1] }] } },
+    expect: ({ result }) => [
+      ['D1 - домысел с breaks, D2 - с двумя пробелами', idsOf(result.questions) === 'D1,D2' && result.questions[0].decision === guessA.decision && result.questions[0].breaks === true && result.questions[1].decision === guessB.decision],
+      ['degraded пуст', result.degraded.length === 0],
+    ] },
+  { name: 'F101 Explore не отработал -> разведка на general-purpose с ролью, строка в degraded, трек идёт дальше', track: 'feature', args: featureArgs,
+    unavailable: ['Explore'],
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result, calls }) => [
+      ['разведка на general-purpose', typeOf(calls, 'ctx:R-I') === 'general-purpose'],
+      ['замене названы роль и обрыв', promptOf(calls, 'ctx:R-I').startsWith('Роль: аналитик контекста.\nУзел Explore на этом шаге оборвался ошибкой')],
+      ['замена не отправлена в node-contract', !promptOf(calls, 'ctx:R-I').includes('node-contract')],
+      ['отказ - строкой degraded', result.degraded.some(d => d.startsWith('аналитик контекста: Explore не отработал'))],
+      ['трек complete', result.status === 'complete'],
+    ] },
+  { name: 'R61 дерево на head_sha не переключилось -> ревьюеру это сказано, код через канал хостинга, ревью не полное', track: 'review', args: reviewArgs,
+    responses: { 'ctx:subject': { ...ctxMr, status: 'partial', at_head: false, missing: 'git fetch pull/7/head: доступа к форку нет' }, 'review:first': revMr, 'falsify+coverage': falOk },
+    expect: ({ result, calls }) => [
+      ['ревьюеру не сказано, что дерево на head', !promptOf(calls, 'review:first').includes('переключено на bbb, код читай с диска')],
+      ['ревьюеру названы отказ и причина', promptOf(calls, 'review:first').includes('на bbb не переключено (git fetch pull/7/head: доступа к форку нет): код правки читай через канал хостинга')],
+      ['ревью не сдаётся полным', result.status === 'partial' && result.where.startsWith('предмет ревью неполон: git fetch pull/7/head')],
+      ['скептику та же развилка дерева', promptOf(calls, 'falsify+coverage').includes('на bbb не переключено (git fetch pull/7/head: доступа к форку нет): код правки читай через канал хостинга')],
+      ['разрыв один, без дубля по флагу', !/дерево трека не на head_sha/.test(result.where)],
+    ] },
+  { name: 'R65 предмет complete при at_head: false -> разрыв по самому флагу', track: 'review', args: reviewArgs,
+    responses: { 'ctx:subject': { ...ctxMr, status: 'complete', at_head: false, missing: '' }, 'review:first': revMr, 'falsify+coverage': falOk },
+    expect: ({ result }) => [
+      ['ревью не сдаётся полным', result.status === 'partial' && result.where === 'дерево трека не на head_sha: причина не названа'],
+    ] },
+  { name: 'R62 узел скептика не отработал -> blocked на Falsify, замены нет, причина в degraded', track: 'review', args: reviewArgs,
+    unavailable: ['dex-auto:skeptic'],
+    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'falsify+coverage': falOk },
+    expect: ({ result, calls }) => [
+      ['статус blocked на фальсификации', result.status === 'blocked' && result.where === 'Falsify'],
+      ['замены general-purpose нет', calls.filter(c => c.label === 'falsify+coverage').length === 0],
+      ['причина отказа - текст ошибки', result.degraded.length === 1 && result.degraded[0].startsWith('скептик: dex-auto:skeptic не отработал (agent type not found: dex-auto:skeptic)')],
+      ['находки ушли непроверенными', result.claims && result.claims.length === revMr.findings.length],
+    ] },
+  { name: 'R63 оси ревьюера: пустой набор -> partial, все оси названы в разрыве, скептику сказано', track: 'review', args: reviewArgs,
+    responses: { 'ctx:subject': ctxMr, 'review:first': { ...revMr, axes: [] }, 'falsify+coverage': falOk },
+    expect: ({ result, calls }) => [
+      ['пустой набор осей - разрыв с перечнем', result.status === 'partial' && result.where.includes(`ревью: оси не названы: ${AXES_ALL.join(', ')}`)],
+      ['скептику названо, что осей нет', promptOf(calls, 'falsify+coverage').includes('Оси ревьюера:\n- не названы')],
+    ] },
+  { name: 'R63 ось перечня без записи либо без outcome -> partial, ось названа', track: 'review', args: reviewArgs,
+    responses: { 'ctx:subject': ctxMr, 'review:first': { ...revMr, axes: revMr.axes.filter(a => a.name !== 'non-code').map(a => a.name === 'language' ? { name: 'language', checked: '' } : a) }, 'falsify+coverage': falOk },
+    expect: ({ result }) => [['названы пропущенная и без исхода', result.status === 'partial' && result.where.includes('ревью: оси не названы: language, non-code')]] },
+  { name: 'R63 ось unverifiable -> partial, разрыв несёт checked', track: 'review', args: reviewArgs,
+    responses: { 'ctx:subject': ctxMr, 'review:first': { ...revMr, axes: revMr.axes.map(a => a.name === 'performance' ? { name: 'performance', outcome: 'unverifiable', checked: 'нагрузочного стенда нет' } : a) }, 'falsify+coverage': falOk },
+    expect: ({ result }) => [['ось не проверена', result.status === 'partial' && result.where.includes('ревью: ось не проверена: performance - нагрузочного стенда нет')]] },
+  { name: 'R63 исход по каждой оси перечня -> скептик получает набор, разрыва нет', track: 'review', args: reviewArgs,
+    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'falsify+coverage': falOk },
+    expect: ({ result, calls }) => [
+      ['оси с исходом и проверенным - в промпте скептика', promptOf(calls, 'falsify+coverage').includes('Оси ревьюера:\n- security: findings\n- coverage: clean - тест на чужой user id\n- architecture: n/a - правка ось не задевает')],
+      ['разрыва по осям нет', !/оси не названы|ось не проверена/.test(result.where)],
+      ['словарь осей с четырьмя исходами - у ревьюера и скептика', ['reviewer', 'skeptic'].every(n => ['findings', 'clean', 'unverifiable', 'n/a'].every(o => agentBody(n).includes(`\`${o}\``)) && agentBody(n).includes('<!-- >>> shared: axes -->'))],
+    ] },
+  { name: 'F103 саморевью: ось перечня не названа либо unverifiable -> partial', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': { ...revClean, axes: axesOk.filter(a => a.name !== 'security').map(a => a.name === 'coverage' ? { ...a, outcome: 'unverifiable', checked: 'тесты не запускаются' } : a) } },
+    expect: ({ result }) => [
+      ['статус partial', result.status === 'partial'],
+      ['where называет ось без записи и непроверенную', result.where.includes('саморевью: оси не названы: security; ось не проверена: coverage - тесты не запускаются')],
+    ] },
+  { name: 'F103 полный набор осей в саморевью -> разрыва нет', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ result }) => [['complete', result.status === 'complete']] },
+  { name: 'B163 саморевью bugfix: набор осей пуст -> partial', track: 'bugfix', args: bugfixArgs,
+    responses: { reproduce: reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': { ...revClean, axes: [] } },
+    expect: ({ result }) => [['статус partial, оси названы', result.status === 'partial' && result.where.includes('саморевью: оси не названы: security')]] },
+  { name: 'F102 трек вызван без args -> blocked на Context до первого узла', track: 'feature', args: undefined, responses: {},
+    expect: ({ result, calls }) => [
+      ['ни одного узла', calls.length === 0],
+      ['blocked с названными полями', result.status === 'blocked' && result.where === 'Context' && result.missing === 'трек вызван без входа: нет task, cwd, goal'],
+    ] },
+  { name: 'F102 пустое обязательное поле -> blocked, поле названо', track: 'feature', args: { ...featureArgs, cwd: ' ' }, responses: {},
+    expect: ({ result, calls }) => [['blocked по cwd', calls.length === 0 && result.missing === 'трек вызван без входа: нет cwd']] },
+  { name: 'B159 трек вызван без args -> blocked на Context до первого узла', track: 'bugfix', args: undefined, responses: {},
+    expect: ({ result, calls }) => [
+      ['ни одного узла', calls.length === 0],
+      ['blocked с названными полями', result.status === 'blocked' && result.where === 'Context' && result.missing === 'трек вызван без входа: нет task, cwd, symptom'],
+    ] },
+  { name: 'B159 пустое обязательное поле -> blocked, поле названо', track: 'bugfix', args: { ...bugfixArgs, cwd: ' ' }, responses: {},
+    expect: ({ result, calls }) => [['blocked по cwd', calls.length === 0 && result.missing === 'трек вызван без входа: нет cwd']] },
+  { name: 'R64 трек вызван без args -> blocked на Context до первого узла', track: 'review', args: undefined, responses: {},
+    expect: ({ result, calls }) => [
+      ['ни одного узла', calls.length === 0],
+      ['blocked с названными полями', result.status === 'blocked' && result.where === 'Context' && result.missing === 'трек вызван без входа: нет task, cwd, mr'],
+    ] },
+  { name: 'R64 пустое обязательное поле -> blocked, поле названо', track: 'review', args: { ...reviewArgs, cwd: ' ' }, responses: {},
+    expect: ({ result, calls }) => [['blocked по cwd', calls.length === 0 && result.missing === 'трек вызван без входа: нет cwd']] },
+  { name: 'F109 кодер без node-contract получает правила red-run, run-status и diff-scope в схеме FIX', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ calls }) => {
+      const p = (calls.find(c => c.label === 'fix:1') || {}).schema.properties
+      return [
+        ['red-run - и существующий тест задетой ветки', /существующий, чью целевую ветку тронула правка/.test(p['red-run'].description || '')],
+        ['run-status - n/a и unverifiable', /n\/a с причиной/.test(p['run-status'].description) && /unverifiable/.test(p['run-status'].description)],
+        ['diff-scope - пути, не тела', /пути изменённых файлов/.test(p['diff-scope'].description || '')],
+      ]
+    } },
+  { name: 'F100 узлы суждения feature сверяют перечень скиллов с предметом правки; разведке, подготовке и верификатору это не предписано', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
     expect: ({ calls }) => [
-      ['пробе запрещён Bash', /Bash не вызывай/.test(promptOf(calls, 'probe'))],
-      ['классификатору запрещён Bash', /Bash не вызывай/.test(promptOf(calls, 'sort'))],
+      ['кодеру и ревьюеру - вызов Skill на каждый скилл, чей предмет правка задевает', ['coder', 'reviewer'].every(n => /Вызов вернул `Unknown skill` - повтори его именем,\s+как оно стоит в\s+перечне/.test(agentBody(n)) && /вне стека\s+\(тесты,/.test(agentBody(n)) && /сверь\s+перечень доступных тебе скиллов с предметом правки/.test(agentBody(n)) && /вызови `Skill` полным именем \(`плагин:скилл`\)\s+на каждый,\s+чей предмет правка задевает/.test(agentBody(n)))],
+      ['разведке, подготовке и верификатору - нет', !/перечень доступных тебе скиллов|перечня доступных тебе/.test(promptOf(calls, 'ctx:R-I') + promptOf(calls, 'ctx:tree') + promptOf(calls, 'verify:после попытки 1'))],
     ] },
+  { name: 'B167 диагност сверяет перечень скиллов с предметом сбоя; подготовке и верификатору это не предписано', track: 'bugfix', args: bugfixArgs,
+    responses: { reproduce: reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
+    expect: ({ calls }) => [
+      ['диагносту - вызов Skill на каждый скилл, чей предмет сбой задевает', /Вызов вернул `Unknown skill` - повтори его именем,\s+как оно стоит в\s+перечне/.test(agentBody('debugger')) && /вне стека\s+\(тесты,/.test(agentBody('debugger')) && /сверь перечень доступных тебе скиллов с предметом сбоя/.test(agentBody('debugger')) && /на\s+каждый, чей предмет сбой задевает/.test(agentBody('debugger'))],
+      ['подготовке и верификатору - нет', !/перечень доступных тебе скиллов|перечня доступных тебе/.test(promptOf(calls, 'ctx:tree') + promptOf(calls, 'verify:после попытки 1'))],
+    ] },
+  { name: 'G27 проба сверяет перечень скиллов с предметом цели', track: 'goal', args: goalArgs, responses: { probe: probeClean },
+    expect: () => [['узлу пробы - вызов Skill на каждый скилл, чей предмет цель задевает', /Вызов вернул `Unknown skill` - повтори его именем,\s+как оно стоит в\s+перечне/.test(agentBody('goal-reader')) && /вне стека\s+\(тесты,/.test(agentBody('goal-reader')) && /сверь перечень доступных тебе скиллов с предметом цели/.test(agentBody('goal-reader')) && /на\s+каждый, чей предмет цель задевает/.test(agentBody('goal-reader'))]] },
+  { name: 'R60 скептик сверяет перечень скиллов с предметом правки; предмету ревью и публикатору это не предписано', track: 'review', args: { ...reviewArgs, publish: true },
+    responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'falsify+coverage': falOk,
+      publish: { status: 'complete', published: [{ anchor: 'api/user.ts:41', axis: 'security', url: 'https://x/1', note: '' }], unpublished: [] } },
+    expect: ({ calls }) => [
+      ['скептику и ревьюеру - вызов Skill на каждый скилл, чей предмет правка задевает', ['skeptic', 'reviewer'].every(n => /Вызов вернул `Unknown skill` - повтори его именем,\s+как оно стоит в\s+перечне/.test(agentBody(n)) && /вне стека\s+\(тесты,/.test(agentBody(n)) && /сверь\s+перечень доступных тебе скиллов с предметом\s+правки/.test(agentBody(n)) && /на каждый, чей предмет правка задевает/.test(agentBody(n)))],
+      ['предмету ревью и публикатору - нет', !/перечень доступных тебе скиллов|перечня доступных тебе/.test(promptOf(calls, 'ctx:subject') + promptOf(calls, 'publish'))],
+    ] },
+  { name: 'R66 исход findings без находок оси в findings -> разрыв', track: 'review', args: reviewArgs,
+    responses: { 'ctx:subject': ctxMr, 'review:first': { ...revMr, axes: revMr.axes.map(a => a.name === 'performance' ? { name: 'performance', outcome: 'findings', checked: '' } : a) }, 'falsify+coverage': falOk },
+    expect: ({ result }) => [['расхождение названо', result.status === 'partial' && result.where.includes('ревью: исход оси расходится с findings: performance - findings, находок оси 0')]] },
+  { name: 'R67 исход clean при находке оси в findings -> разрыв', track: 'review', args: reviewArgs,
+    responses: { 'ctx:subject': ctxMr, 'review:first': { ...revMr, axes: revMr.axes.map(a => a.name === 'security' ? { name: 'security', outcome: 'clean', checked: 'ввод и права' } : a) }, 'falsify+coverage': falOk },
+    expect: ({ result }) => [['расхождение названо', result.status === 'partial' && result.where.includes('ревью: исход оси расходится с findings: security - clean, находок оси 1')]] },
+  { name: 'D1 узел сдачи - агент dex-auto на sonnet, вход: ветка, цель, файл трека, base не назван, готовым к ревью', track: 'deliver', args: deliverArgs, responses: { deliver: delivered },
+    expect: ({ result, calls }) => [
+      ['один вызов deliverer на sonnet', labelsOf(calls).join() === 'deliver' && typeOf(calls, 'deliver') === deliverNode && calls[0].model === 'sonnet'],
+      ['вход называет ветку, каталог, цель и файл трека', ['auto/F-1', '/repo-F-1', '/ledger/F-1/00-goal.md', '/ledger/F-1/01-feature.md'].every(t => promptOf(calls, 'deliver').includes(t))],
+      ['base не назван, черновика нет', /Целевая ветка: не названа\. PR\/MR - готовым к ревью\./.test(promptOf(calls, 'deliver'))],
+      ['opened с адресом и каналом', result.pr === 'opened' && result.url === delivered.url && result.channel === 'gh' && result.reason === ''],
+    ] },
+  { name: 'D2 base и draft входа - в промпт узла', track: 'deliver', args: { ...deliverArgs, track: 'bugfix', base: 'dev', draft: true }, responses: { deliver: delivered },
+    expect: ({ calls }) => [
+      ['целевая ветка и черновик названы', /Целевая ветка: dev\. PR\/MR - черновиком\./.test(promptOf(calls, 'deliver'))],
+      ['файл трека bugfix', promptOf(calls, 'deliver').includes('/ledger/F-1/01-bugfix.md')],
+    ] },
+  { name: 'D3 чужая ветка -> not-opened до вызова узла', track: 'deliver', args: { ...deliverArgs, branch: 'main' }, responses: {},
+    expect: ({ result, calls }) => [
+      ['чужая ветка - отказ с причиной', result.pr === 'not-opened' && result.reason === 'вход сдачи не разобран: ветка main не ветка трека цели F-1'],
+      ['узел не вызван', calls.length === 0],
+    ] },
+  { name: 'D10 пустое поле, трек review, draft и base не по типу, args строкой -> not-opened', track: 'deliver', args: { ...deliverArgs, cwd: '' }, responses: {},
+    expect: async ({ result }) => {
+      const review = (await runTrack('deliver', { ...deliverArgs, track: 'review' }, {})).result
+      const draft = (await runTrack('deliver', { ...deliverArgs, draft: 'yes' }, {})).result
+      const base = (await runTrack('deliver', { ...deliverArgs, base: 7 }, {})).result
+      const str = (await runTrack('deliver', JSON.stringify(deliverArgs), {})).result
+      const other = (await runTrack('deliver', { ...deliverArgs, branch: 'auto/F-2' }, {})).result
+      const slug = (await runTrack('deliver', { ...deliverArgs, task: 'gh#1', branch: 'auto/gh-1' }, { deliver: delivered })).result
+      const goal = (await runTrack('deliver', { ...deliverArgs, goal_path: '/ledger/F-1/01-feature.md' }, {})).result
+      return [
+        ['base не строка', base.reason === 'вход сдачи не разобран: base не строка'],
+        ['args строкой', str.reason === 'вход сдачи не разобран: args строкой, а не объектом'],
+        ['ветка другой цели auto/F-2 - отказ', other.pr === 'not-opened' && other.reason === 'вход сдачи не разобран: ветка auto/F-2 не ветка трека цели F-1'],
+        ['имя ветки - slug TASK, как branch_of', slug.pr === 'opened'],
+        ['goal_path не 00-goal.md', goal.reason === 'вход сдачи не разобран: goal_path /ledger/F-1/01-feature.md не файл цели 00-goal.md'],
+        ['пустое поле названо', result.reason === 'вход сдачи не разобран: пусто либо не строка: cwd'],
+        ['трек вне feature/bugfix', review.reason === 'вход сдачи не разобран: трек «review», ждали feature либо bugfix'],
+        ['draft не логическое', draft.pr === 'not-opened' && draft.reason === 'вход сдачи не разобран: draft не логическое'],
+      ]
+    } },
+  { name: 'D11 многострочная нехватка узла -> reason одной строкой', track: 'deliver', args: deliverArgs,
+    responses: { deliver: { ...delivered, status: 'partial', url: '', missing: 'gh: не авторизован\n  glab: нет в PATH\n' } },
+    expect: ({ result }) => [
+      ['переводы строк заменены', result.reason === 'gh: не авторизован; glab: нет в PATH'],
+    ] },
+  { name: 'D4 узел не установлен -> not-opened без замены', track: 'deliver', args: deliverArgs, responses: {}, unavailable: [deliverNode],
+    expect: ({ result, calls }) => [
+      ['причина называет узел и ошибку', result.pr === 'not-opened' && result.reason === `узел сдачи ${deliverNode} не отработал: agent type not found: ${deliverNode}`],
+      ['замены нет', calls.length === 0],
+    ] },
+  { name: 'D5 узел не вернул выход', track: 'deliver', args: deliverArgs, responses: { deliver: null },
+    expect: ({ result }) => [
+      ['not-opened с причиной', result.pr === 'not-opened' && result.reason === 'узел сдачи не вернул выход'],
+    ] },
+  { name: 'D6 push отвергнут -> not-opened с нехваткой узла', track: 'deliver', args: deliverArgs,
+    responses: { deliver: { ...delivered, status: 'blocked', url: '', channel: '', head: '', missing: 'push отвергнут: non-fast-forward' } },
+    expect: ({ result }) => [
+      ['нехватка - причиной', result.pr === 'not-opened' && result.reason === 'push отвергнут: non-fast-forward' && result.head === ''],
+    ] },
+  { name: 'D7 ветка опубликована, PR нет -> not-opened, head сохранён', track: 'deliver', args: deliverArgs,
+    responses: { deliver: { ...delivered, status: 'partial', url: '', channel: '', missing: '' } },
+    expect: ({ result }) => [
+      ['нехватка подставлена', result.pr === 'not-opened' && result.reason === 'узел сдачи вернул partial без нехватки'],
+      ['head опубликованной ветки в выходе', result.head === 'abc'],
+    ] },
+  { name: 'D8 complete без адреса -> not-opened', track: 'deliver', args: deliverArgs, responses: { deliver: { ...delivered, url: '' } },
+    expect: ({ result }) => [
+      ['адреса нет - не открыт', result.pr === 'not-opened' && result.reason === 'узел сдачи вернул complete без адреса PR/MR'],
+    ] },
+  { name: 'D9 файл узла: без model и effort, смысл каждого поля выдачи', track: 'deliver', args: deliverArgs, responses: { deliver: delivered },
+    expect: ({ calls }) => {
+      const schema = (calls.find(c => c.label === 'deliver') || {}).schema
+      return [
+        ['tools: чтение, Bash и ToolSearch, без записи файлов', agentTools('deliverer') === 'Bash,Glob,Grep,Read,ToolSearch'],
+        ['model и effort не заданы', !/^(model|effort):/m.test(frontmatter('deliverer'))],
+        ['каждое поле схемы названо в файле, описаний в схеме нет', !!schema && schemaFields(schema).every(f => agentBody('deliverer').includes(`\`${f}\``)) && !JSON.stringify(schema).includes('"description"')],
+      ]
+    } },
 ]
 
 // Узел подготовки дерева - фон любого сценария feature / bugfix, а не его предмет: ответ по
 // умолчанию задан здесь, сценарий о самой подготовке перекрывает его своим ключом 'ctx:tree'.
 const DEFAULT_TREE = { feature: prepOk, bugfix: prepTs }
 
+// Команды зовут трек именем `dex-auto:<meta.name>` из каталога `workflows` манифеста (P67).
+const manifest = JSON.parse(readFileSync(join(TRACKS, '..', '.claude-plugin', 'plugin.json'), 'utf8'))
+const REGISTRATION = [['манифест регистрирует tracks/ каталогом workflows', manifest.workflows === './tracks/'],
+  ...['feature', 'bugfix', 'review', 'goal', 'deliver'].map(t => [`meta.name трека ${t} - dex-auto-${t}`,
+    /export const meta = \{\s*name: '([^']+)'/.exec(readFileSync(join(TRACKS, `${t}.js`), 'utf8'))?.[1] === `dex-auto-${t}`])]
+
 const only = process.argv[2]
 let n = 0, failed = 0
+for (const [what, ok] of only ? [] : REGISTRATION) {
+  n++
+  if (!ok) failed++
+  console.log(`${ok ? 'ok' : 'not ok'} ${n} - регистрация / ${what}`)
+}
 for (const s of SCENARIOS) {
   if (only && !s.name.startsWith(only)) continue
   let checks
   try {
     const responses = DEFAULT_TREE[s.track] ? { 'ctx:tree': DEFAULT_TREE[s.track], ...s.responses } : s.responses
-    checks = s.expect(await runTrack(s.track, s.args, responses, s.unavailable))
+    checks = await s.expect(await runTrack(s.track, s.args, responses, s.unavailable))
   } catch (e) {
     n++; failed++
     console.log(`not ok ${n} - ${s.name}: упал прогон - ${e.message}`)

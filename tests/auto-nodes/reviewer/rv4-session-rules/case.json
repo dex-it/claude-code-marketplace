@@ -1,0 +1,22 @@
+{
+  "task": "FEAT-4",
+  "kind": "feature",
+  "commit": "feat(session): isExpired и проверка ttlMs",
+  "goal": "В src/session.js есть isExpired, а createSession отклоняет неверный ttlMs, по требованиям FEAT.md.",
+  "done": "Требования FEAT.md R1-R2 исполнены, на каждое есть тест; npm test зелёный; правка закоммичена локально.",
+  "boundary": "Правка в src/session.js и test/; новых зависимостей нет.",
+  "requirements": [
+    "R1. isExpired(session) - true, если текущее время >= session.createdAt + session.ttlMs, иначе false. (FEAT.md:3)",
+    "R2. createSession({ ttlMs }) с ttlMs <= 0 отклоняется как неверный вход. (FEAT.md:4)"
+  ],
+  "coder": {
+    "red-run": "тестовый файл на коде до правки не загружается: в src/session.js нет экспорта isExpired (SyntaxError импорта) - красные все тесты файла, R1 и R2 в их числе; после правки зелёные",
+
+    "uncovered-status": "none", "uncovered": [],
+    "dependents-status": "none", "dependents": []
+  },
+  "mines": [
+    { "id": "M8", "file": "src/session.js", "lines": [9, 9], "blocking": false, "what": "isExpired читает Date.now() напрямую вопреки ADR-0001 (docs/adr/0001-clock.md:4) и CLAUDE.md:4: часы через setNow() не подменяются" },
+    { "id": "M9", "file": "src/session.js", "lines": [4, 4], "blocking": false, "what": "неверный ttlMs бросает Error, а CLAUDE.md:3 требует ValidationError из src/errors.js; тест R2 проверяет только факт выброса" }
+  ]
+}

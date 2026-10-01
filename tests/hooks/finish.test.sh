@@ -8,7 +8,7 @@ fail=0; n=0
 check() { n=$((n+1)); if [ "$1" = "$2" ]; then echo "ok $n - $3"; else echo "FAIL $n - $3: ожидалось [$2], получено [$1]"; fail=1; fi; }
 L="$H/ledger.py"; F="$H/finish.sh"
 DEV='{"status":"complete","loops":{"fix":1,"review":2,"review_fix":1},"trail":[{"step":1,"doer":"Explore","status":"complete"},{"step":2,"attempt":1,"doer":"dex-ts-fullstack-coder:ts-fullstack-assistant","status":"complete"}],"degraded":["верификатор: general-purpose"],"decisions":["R3: выбран split по дефису"],"missing":""}'
-REV='{"status":"partial","where":"часть тредов не опубликована","loops":{"review":1,"falsify":1},"trail":[{"step":2,"doer":"dex-mr-reviewer:mr-reviewer"}],"degraded":[],"dropped":[{"anchor":"src/a.ts:10","reason":"закрыто коммитом abc"}],"questions":["зачем retry 5?"],"prior":[{"id":"","anchor":"src/b.ts:3","severity":"P1","text":"нет проверки","status":"open","evidence":"проверки нет"},{"id":"","anchor":"src/c.ts:5","severity":"P2","text":"лишнее поле","status":"closed","evidence":"поле убрано"},{"id":"","anchor":"src/e.ts:2","severity":"P1","text":"гонка","status":"disputed","evidence":"lock в src/e.ts:1"},{"id":"","anchor":"src/g.ts:4","severity":"P2","text":"два пути","status":"partial","evidence":"закрыт один путь"},{"id":"","anchor":"src/h.ts:6","severity":"P3","text":"имя","status":"no-longer-applicable","evidence":"файл удалён"}],"claims":[{"severity":"P0","anchor":"src/d.ts:1","text":"IDOR"}]}'
+REV='{"status":"partial","where":"часть тредов не опубликована","loops":{"review":1,"falsify":1},"trail":[{"step":2,"doer":"dex-auto:reviewer"}],"degraded":[],"dropped":[{"anchor":"src/a.ts:10","reason":"закрыто коммитом abc"}],"questions":["зачем retry 5?"],"prior":[{"id":"","anchor":"src/b.ts:3","severity":"P1","text":"нет проверки","status":"open","evidence":"проверки нет"},{"id":"","anchor":"src/c.ts:5","severity":"P2","text":"лишнее поле","status":"closed","evidence":"поле убрано"},{"id":"","anchor":"src/e.ts:2","severity":"P1","text":"гонка","status":"disputed","evidence":"lock в src/e.ts:1"},{"id":"","anchor":"src/g.ts:4","severity":"P2","text":"два пути","status":"partial","evidence":"закрыт один путь"},{"id":"","anchor":"src/h.ts:6","severity":"P3","text":"имя","status":"no-longer-applicable","evidence":"файл удалён"}],"claims":[{"severity":"P0","anchor":"src/d.ts:1","text":"IDOR"}]}'
 REV2='{"status":"complete","loops":{"review":1},"trail":[{"step":2}],"prior":[{"id":"F2","status":"closed","evidence":"проверка добавлена"},{"id":"F1","status":"closed","evidence":"владелец сверяется"}]}'
 # Состояние реестра одной строкой: id:статус открытых находок в порядке заведения.
 open_ids() { "$L" findings "$1" "$2" | python3 -c 'import json,sys; t=sys.stdin.read(); print(" ".join(r["id"]+":"+r["status"] for r in json.loads(t)) if t.strip() else "")'; }
@@ -27,7 +27,7 @@ check "$(grep -c '^## Прогон 1 (.*исход complete)$' "$f")" "1" "finis
 check "$(grep -c '^- fix: 1$' "$f")" "1" "finish: петли из .loops"
 check "$(grep -c '^- {"step":2,' "$f")" "1" "finish: исполнители построчно компактным JSON"
 check "$(grep -c '^- R3: выбран split по дефису$' "$f")" "1" "finish: decisions в Решения"
-check "$(grep -c '^- узел заменён: верификатор' "$f")" "1" "finish: degraded с префиксом"
+check "$(grep -c '^- degraded: верификатор' "$f")" "1" "finish: degraded с префиксом"
 check "$("$L" get BUG-1 Исход)" "complete" "finish: complete закрывает цель с Исходом"
 check "$("$L" find)" "" "finish: цель исчезла из find"
 check "$("$L" trail BUG-1 feature | grep -c '')" "2" "trail: строки исполнителей"

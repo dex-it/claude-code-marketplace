@@ -105,7 +105,7 @@ def run_section(data, state, changed):
         out.append(json.dumps(scout, ensure_ascii=False, separators=(",", ":")))
     out += ["", "### Решения"]
     out += ["- " + text(d) for d in items(data, "decisions")]
-    out += ["- узел заменён: " + text(d) for d in items(data, "degraded")]
+    out += ["- degraded: " + text(d) for d in items(data, "degraded")]
     out += ["- вопрос автору: " + text(q) for q in items(data, "questions")]
     return out
 

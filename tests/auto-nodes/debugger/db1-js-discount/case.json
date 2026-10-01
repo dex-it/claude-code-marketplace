@@ -1,0 +1,20 @@
+{
+  "task": "BUG-11",
+  "stack": "ts",
+  "goal": "у VIP-клиента итог оформления меньше превью: checkout({ vip: true }, корзина на 100) даёт preview 90, total 81.",
+  "expected": "скидка VIP 10% применяется к счёту один раз, preview и total совпадают",
+  "done": "checkout VIP-клиента: preview = total = 90 на корзине в 100; npm test зелёный; правка закоммичена локально.",
+  "boundary": "только этот репозиторий; зависимостей не добавлять",
+  "source": "README.md",
+  "test_cmd": "npm test",
+  "build_cmd": "",
+  "cause": { "file": "src/discount.js", "lines": [1, 3], "what": "applyDiscount меняет цены позиций входа на месте: второй расчёт по той же корзине скидывает уже скинутое" },
+  "decoys": [
+    { "file": "src/checkout.js", "lines": [3, 7], "what": "двойной вызов invoiceTotal - место, где симптом виден" },
+    { "file": "src/invoice.js", "lines": [3, 6], "what": "передаёт корзину в applyDiscount без копии" }
+  ],
+  "score": {
+    "tests_cmd": "node --test --test-reporter=tap",
+    "fail_re": "^not ok \\d+ - (.+)$"
+  }
+}

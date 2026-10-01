@@ -1,0 +1,102 @@
+{
+  "task": "FEAT-6",
+  "base": "auto-nodes/reviewer/rv6-orders-idor/base",
+  "change": "auto-nodes/reviewer/rv6-orders-idor/change",
+  "commit": "feat(orders): cancelOrder",
+  "requirements": [
+    "R1. Пользователь отменяет заказ в статусе new: статус становится cancelled. (FEAT.md:3)",
+    "R2. Заказ не в статусе new не отменяется: OrderStateError. (FEAT.md:4)"
+  ],
+  "files": [
+    "src/orders.js",
+    "test/orders.test.js"
+  ],
+  "findings": [
+    {
+      "anchor": "src/orders.js:14",
+      "severity": "P0",
+      "axis": "security",
+      "text": "cancelOrder ищет заказ только по id, без ownerId: пользователь отменяет чужой заказ; listOrders и getOrder фильтруют по владельцу",
+      "closure": "поиск по id и ownerId, тест на чужой заказ",
+      "evidence": "строка 14: db.orders.find(o => o.id === id)"
+    },
+    {
+      "anchor": "src/orders.js:16",
+      "severity": "P1",
+      "axis": "business",
+      "text": "cancelOrder отменяет заказ в любом статусе: проверки статуса new нет, R2 нарушено",
+      "closure": "бросать OrderStateError для статуса не new",
+      "evidence": "строка 17 ставит cancelled без условия"
+    }
+  ],
+  "axes": [
+    {
+      "name": "security",
+      "outcome": "findings",
+      "checked": "поиск заказа в cancelOrder"
+    },
+    {
+      "name": "architecture",
+      "outcome": "n/a",
+      "checked": "правка эту ось не задевает"
+    },
+    {
+      "name": "language",
+      "outcome": "clean",
+      "checked": "ESM, node:test"
+    },
+    {
+      "name": "business",
+      "outcome": "findings",
+      "checked": "R1, R2 против cancelOrder"
+    },
+    {
+      "name": "regressions",
+      "outcome": "clean",
+      "checked": "listOrders и getOrder не тронуты"
+    },
+    {
+      "name": "performance",
+      "outcome": "n/a",
+      "checked": "правка эту ось не задевает"
+    },
+    {
+      "name": "coverage",
+      "outcome": "clean",
+      "checked": "тесты R1, R2 в test/orders.test.js"
+    },
+    {
+      "name": "loose-ends",
+      "outcome": "n/a",
+      "checked": "правка эту ось не задевает"
+    },
+    {
+      "name": "non-code",
+      "outcome": "n/a",
+      "checked": "правка эту ось не задевает"
+    }
+  ],
+  "expect": {
+    "confirm": [
+      {
+        "id": "M11",
+        "file": "src/orders.js",
+        "lines": [
+          14,
+          14
+        ],
+        "blocking": true
+      }
+    ],
+    "drop": [
+      {
+        "id": "X1",
+        "file": "src/orders.js",
+        "lines": [
+          16,
+          17
+        ]
+      }
+    ]
+  }
+}

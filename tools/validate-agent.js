@@ -357,7 +357,7 @@ const EFFORT_LEVELS = ['low', 'medium', 'high', 'xhigh', 'max'];
  */
 const EFFORTLESS_MODEL_RE = /^(haiku|claude-haiku)/;
 
-function validateFrontmatter(parsed, findings) {
+function validateFrontmatter(parsed, findings, trackNode = false) {
   const fm = parsed.data || {};
 
   for (const field of REQUIRED_FRONTMATTER_FIELDS) {
@@ -420,9 +420,9 @@ function validateFrontmatter(parsed, findings) {
   // 01.09.2026 - у агента снят весь блок `skills:`, валидатор дал 0 ошибок.
   // Именно этим механизмом и накапливался остаток, закрытый в #110: норма
   // «контракт стыка исполняет сам агент» держалась ручной сверкой.
-  // Контракт нужен агенту в любой позиции вызова, поэтому исключений по
-  // «узловости» здесь нет - см. AGENT_FRAMEWORK.md, глоссарий, «Узел».
-  {
+  // Исключение одно - узел трека: это класс, не позиция вызова, и его контракт -
+  // файл узла (AGENT_FRAMEWORK.md, глоссарий, «Узел трека»).
+  if (!trackNode) {
     const raw = 'skills' in fm && fm.skills != null ? fm.skills : [];
     const entries = Array.isArray(raw) ? raw : String(raw).split(',');
     // Сверяется полная форма, а не имя скилла: голое `dex-skill-node-contract`
@@ -450,7 +450,7 @@ function validateFrontmatter(parsed, findings) {
   // Default `inherit` runs cheap work on the session model - on an Opus
   // session even trivial agents would run on Opus. See AGENT_FRAMEWORK.md.
   if (fm.model == null || fm.model === '') {
-    findings.push({
+    if (!trackNode) findings.push({
       level: ERROR,
       rule: 'frontmatter-model-missing',
       message: `Missing required frontmatter field: model - set explicit \`opus\` / \`sonnet\` / \`haiku\` by judgment type (not \`inherit\`)`,
@@ -522,6 +522,7 @@ function validateFrontmatter(parsed, findings) {
   }
 
   if (
+    !trackNode &&
     typeof fm.description === 'string' &&
     !/триггер|активируется|trigger/i.test(fm.description)
   ) {
@@ -532,7 +533,7 @@ function validateFrontmatter(parsed, findings) {
     });
   }
 
-  if (typeof fm.tools === 'string' && !/\bSkill\b/.test(fm.tools)) {
+  if (!trackNode && typeof fm.tools === 'string' && !/\bSkill\b/.test(fm.tools)) {
     findings.push({
       level: ERROR,
       rule: 'frontmatter-no-skill-tool',
@@ -946,6 +947,32 @@ function validateAttributeBlocks(markdownBody, findings, bodyOffset = 0) {
 
 // --- File validation orchestration --------------------------------------
 
+// Узел трека - агент, которого вызывает по `agentType` скрипт из каталога `workflows` своего плагина.
+// Делегации по description у него нет, модель и схему выхода задаёт скрипт, контракт узла - его файл:
+// фазы, handoff, pre-load контракта стыка, `model`, триггеры и `Skill` в `tools` к нему не применяются.
+const trackNodeRefs = new Map();
+
+function isTrackNode(filepath, parsed) {
+  const root = pluginRootOf(filepath);
+  const name = String(parsed.data?.name ?? '').trim();
+  if (!root || !name) return false;
+  if (!trackNodeRefs.has(root)) {
+    let refs = '';
+    try {
+      const manifest = JSON.parse(readFileSync(join(root, '.claude-plugin', 'plugin.json'), 'utf8'));
+      const dir = typeof manifest.workflows === 'string' ? resolve(root, manifest.workflows) : null;
+      if (dir && existsSync(dir)) {
+        refs = readdirSync(dir).filter((f) => f.endsWith('.js')).map((f) => readFileSync(join(dir, f), 'utf8')).join('\n');
+      }
+      trackNodeRefs.set(root, { plugin: manifest.name, refs });
+    } catch {
+      trackNodeRefs.set(root, { plugin: null, refs: '' });
+    }
+  }
+  const { plugin, refs } = trackNodeRefs.get(root);
+  return Boolean(plugin) && new RegExp(`agentType:\\s*['"]${plugin}:${name}['"]`).test(refs);
+}
+
 function validateFile(filepath, marketplacePlugins) {
   const findings = [];
   let parsed;
@@ -967,14 +994,15 @@ function validateFile(filepath, marketplacePlugins) {
     };
   }
 
-  const phaseResult = validatePhases(parsed.content, findings, bodyOffset);
-  validateFrontmatter(parsed, findings);
+  const trackNode = isTrackNode(filepath, parsed);
+  const phaseResult = trackNode ? { validated: true } : validatePhases(parsed.content, findings, bodyOffset);
+  validateFrontmatter(parsed, findings, trackNode);
   validateFileNameMatchesName(filepath, parsed, findings);
   validateAgentFileIsFlat(filepath, findings);
   validateFactcheckCascade(parsed, findings);
   validateJudgeCarriesWriter(parsed, findings);
   validateStageNormativeReaders(parsed, findings);
-  validateHandoffSignature(parsed, findings);
+  if (!trackNode) validateHandoffSignature(parsed, findings);
   validateAttributeBlocks(parsed.content, findings, bodyOffset);
   validateCatalogDocsLink(raw, filepath, findings);
   validateLinkEscapesPlugin(raw, filepath, findings);
