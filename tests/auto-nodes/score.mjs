@@ -14,12 +14,13 @@ const walk = (d, hit) => existsSync(d) ? readdirSync(d).flatMap(e => {
   const p = join(d, e)
   return statSync(p).isDirectory() ? walk(p, hit) : hit(p) ? [p] : []
 }) : []
-const near = (f, m) => {
+const nearBy = (f, m, slack = 2) => {
   const [file, line] = String(f.anchor || '').split(':')
   if (!file || !file.endsWith(m.file)) return false
   const n = parseInt(line, 10)
-  return Number.isNaN(n) || (n >= m.lines[0] - 2 && n <= m.lines[1] + 2)
+  return Number.isNaN(n) || (n >= m.lines[0] - slack && n <= m.lines[1] + slack)
 }
+const near = (f, m) => nearBy(f, m)
 const sh = (cmd, cwd, re) => {
   let text = '', code = 0
   try { text = execSync(`${cmd} 2>&1`, { cwd, shell: '/bin/bash', encoding: 'utf8', timeout: 600000, maxBuffer: 1 << 26 }) }
@@ -32,6 +33,22 @@ const snapshot = (repo, dest, ahead) => {
   rmSync(dest, { recursive: true, force: true })
   if (ahead) execFileSync('git', ['clone', '-q', repo, dest])
   else cpSync(repo, dest, { recursive: true, filter: (s) => !/\/(bin|obj|node_modules|__pycache__|\.pytest_cache)$/.test(s) })
+}
+
+// Запись транскрипта повторяет message.id по блоку контента с растущим usage - сумма без максимума завышает.
+const usageOf = (logs) => {
+  const m = new Map()
+  for (const f of logs) for (const line of readFileSync(f, 'utf8').split('\n')) {
+    let e; try { e = JSON.parse(line) } catch { continue }
+    const u = e.message && e.message.usage
+    if (!u) continue
+    const p = m.get(e.message.id) || {}
+    for (const k of ['input_tokens', 'cache_creation_input_tokens', 'cache_read_input_tokens', 'output_tokens']) p[k] = Math.max(p[k] || 0, u[k] || 0)
+    m.set(e.message.id, p)
+  }
+  const s = { in: 0, cw: 0, cr: 0, out: 0 }
+  for (const p of m.values()) { s.in += p.input_tokens; s.cw += p.cache_creation_input_tokens; s.cr += p.cache_read_input_tokens; s.out += p.output_tokens }
+  return `in=${s.in} cache-write=${s.cw} cache-read=${s.cr} out=${s.out}`
 }
 
 const toolTally = (logs) => {
@@ -134,6 +151,26 @@ function debuggerNode(id, c, r, repo, logs) {
   console.log(`  тест ${r.repro_test || '-'}: дерево узла exit=${onTree.code} упали: ${onTree.failed.join(', ') || '-'}; под эталоном exit=${onRef.code}${onRef.code ? ' упали: ' + (onRef.failed.join(', ') || onRef.tail) : ''}`)
 }
 
+// Находка ревьюера засчитана подтверждённой, если в confirmed есть якорь в её строках, отброшенной - если якорь в dropped; покрытие - по названным требованиям.
+// Без допуска по строкам: подтверждаемая и отбрасываемая находки кейса стоят в соседних строках.
+function skeptic(c, r) {
+  const k = JSON.parse(readFileSync(join(here, 'skeptic', c, 'case.json'), 'utf8')).expect
+  const near = (f, m) => nearBy(f, m, 0)
+  console.log(`  status=${r.status} verdict=${r['review-verdict']} confirmed=${r.confirmed.length} dropped=${r.dropped.length}`)
+  for (const m of k.confirm) {
+    const hits = r.confirmed.filter(f => near(f, m))
+    console.log(`  подтвердить ${m.id}${m.blocking ? '*' : ''} ${m.file}:${m.lines.join('-')} -> ${hits.map(f => `${f.severity} ${f.axis}`).join(',') || '-'}${r.dropped.some(d => near(d, m)) ? ' ОТБРОШЕНА' : ''}`)
+  }
+  for (const m of k.drop) {
+    const kept = r.confirmed.filter(f => near(f, m))
+    console.log(`  отбросить ${m.id} ${m.file}:${m.lines.join('-')} -> ${r.dropped.some(d => near(d, m)) ? 'отброшена' : 'нет в dropped'}${kept.length ? ` ПОДТВЕРЖДЕНА ${kept.map(f => f.severity).join(',')}` : ''}`)
+  }
+  if (k.coverage) console.log(`  покрытие ${k.coverage.join(', ')} -> ${k.coverage.map(x => (r.coverage.includes(x) || r.confirmed.some(f => f.text.includes(x))) ? x : `нет ${x}`).join(', ')}`)
+  console.log(`  coverage: ${cut(r.coverage, 240)}`)
+  r.confirmed.forEach((f, i) => console.log(`  [+${i}] ${f.severity} ${f.axis} ${f.anchor}: ${cut(f.text, 200)}`))
+  r.dropped.forEach((d, i) => console.log(`  [-${i}] ${d.anchor}: ${cut(d.reason, 200)}`))
+}
+
 for (const id of readdirSync(out).filter(d => existsSync(join(out, d, 'repo'))).sort()) {
   const c = id.replace(/-(old|new)-\d+$/, '')
   const repo = join(out, id, 'repo')
@@ -143,15 +180,19 @@ for (const id of readdirSync(out).filter(d => existsSync(join(out, d, 'repo'))).
   let head = {}
   try { head = JSON.parse(readFileSync(join(out, id, 'out.json'), 'utf8')) } catch {}
   const r = wf && wf.result
-  const tokens = wf ? (wf.workflowProgress || []).reduce((a, w) => a + (w.tokens || 0), 0) : 0
-  console.log(`\n## ${id}  cost(main+nodes)=$${(head.total_cost_usd || 0).toFixed(2)}  node-tokens=${tokens}  dur=${Math.round((head.duration_ms || 0) / 1000)}s`)
+  const nodes = wf ? (wf.workflowProgress || []).filter(w => w.type === 'workflow_agent') : []
+  const tokens = nodes.reduce((a, w) => a + (w.tokens || 0), 0)
+  const nodeDur = Math.round(nodes.reduce((a, w) => a + (w.durationMs || 0), 0) / 1000)
+  const logs = walk(dir, p => /\/subagents\/.*agent-[^/]*\.jsonl$/.test(p))
+  console.log(`\n## ${id}  cost(main+nodes)=$${(head.total_cost_usd || 0).toFixed(2)}  node-tokens=${tokens}  node-dur=${nodeDur}s  dur=${Math.round((head.duration_ms || 0) / 1000)}s`)
+  console.log(`  node-usage: ${usageOf(logs)}`)
   const litter = readdirSync(join(out, id)).filter(e => !['repo', 'out.json', 'err.log'].includes(e) && !e.startsWith('eval-')).map(e => `../${e}`)
   // У кодера и диагноста вывод сборки и тестов под .gitignore законен; следом считается только неотслеживаемое и изменённое.
   const dirty = execFileSync('git', ['-C', repo, 'status', '--porcelain', ...(nodeName === 'reviewer' ? ['--ignored'] : [])], { encoding: 'utf8' }).split('\n').filter(Boolean)
   console.log(`  следы: ${[...litter, ...dirty].join(', ') || 'нет'}`)
   if (!r) { console.log('  результата нет'); continue }
-  const logs = walk(dir, p => /\/subagents\/.*agent-[^/]*\.jsonl$/.test(p))
   if (nodeName === 'coder') coder(id, c, r, repo, logs)
   else if (nodeName === 'debugger') debuggerNode(id, c, r, repo, logs)
+  else if (nodeName === 'skeptic') { skeptic(c, r); toolTally(logs) }
   else { reviewer(c, r); toolTally(logs) }
 }

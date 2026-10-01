@@ -11,7 +11,7 @@ const INTENT = C.kind === 'bugfix' ? ` Источник намерения:\n${c
 const PROMPT = `${HEAD}Шаг 3 (первое): pre-push саморевью локальной ветки - коммиты этой цели плюс рабочее дерево.${coderInput(C.coder)}${INTENT}\nПрогон build/test реальный, итог - в run-status, не в findings. Код не меняй.`
 const NODES = {
   old: { agentType: 'dex-self-reviewer:self-reviewer', schema: REVIEW },
-  new: { agentType: 'dex-auto:reviewer', model: 'opus', schema: REVIEW },
+  new: { ...NODE.reviewer, schema: REVIEW },
 }
 phase('Review')
 return await agent(PROMPT, { label: `review:${A.node}:${A.case}`, phase: 'Review', ...NODES[A.node] })

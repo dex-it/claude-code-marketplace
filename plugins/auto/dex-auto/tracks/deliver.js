@@ -11,18 +11,21 @@ const A = args && typeof args === 'object' ? args : {}
 
 // >>> shared: contract
 const STATUS = { type: 'string', enum: ['complete', 'blocked', 'partial'] }
+const VERDICT = { type: 'string', enum: ['APPROVE', 'REQUEST_CHANGES', 'NEEDS_DISCUSSION'] }
 const lack = (v, who) => !v ? `${who} не вернул выход` : v.missing || `${who} вернул blocked без нехватки`
+// Трек виден в списке / и зовётся без args: узлы с правом записи на пустом cwd работали бы в дереве сессии.
+const unfed = (A, fields) => fields.filter(f => !String(A[f] ?? '').trim())
 const why = (e) => String(e && e.message || e).slice(0, 300)
-// Форма вызова сверена зондом P75: «загружается скилл, чьё описание называет стек» - 0 вызовов из 6.
-const SKILLS = (read, before) => `Прочитав ${read}, и до ${before} вызови Skill полным именем (плагин:скилл) на каждый скилл из перечня доступных тебе, чей предмет - стек задетого кода либо используемые им фреймворк, библиотека, тестовый фреймворк или область API; нужность не судится. `
 // <<< shared: contract
 // >>> shared: nodes
 // Цену узла ставит трек, frontmatter узла её не несёт; запись без model и effort - уровень сессии.
 const NODE = {
-  // sonnet - модель контроля implementer-reader: сверка на одном кейсе различает норму, а не модель.
+  // sonnet - модель пробы в прогонах P76-P86.
   'goal-reader': { agentType: 'dex-auto:goal-reader', model: 'sonnet' },
   // opus - модель контроля dex-self-reviewer: сверка P74 различает норму, а не модель.
   reviewer: { agentType: 'dex-auto:reviewer', model: 'opus' },
+  // без model - замера модели скептика нет (#289).
+  skeptic: { agentType: 'dex-auto:skeptic' },
   // sonnet - модель кодеров каталога: сверка P75 различает норму, а не модель.
   coder: { agentType: 'dex-auto:coder', model: 'sonnet' },
   // opus - модель контроля dex-debugger: сверка P91 различает норму, а не модель.

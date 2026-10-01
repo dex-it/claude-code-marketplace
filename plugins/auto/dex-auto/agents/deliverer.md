@@ -34,8 +34,15 @@ tools: Read, Grep, Glob, Bash, ToolSearch
 Текст полей - на языке входа.
 
 - `status` - `complete`: ветка опубликована, PR/MR открыт либо обновлён; `partial`: ветка опубликована,
-  PR/MR нет; `blocked`: ветка не опубликована. Причина не-`complete` - в `missing`.
+  PR/MR нет; `blocked`: ветка не опубликована.
 - `url` - адрес PR/MR; PR/MR нет - пусто.
 - `channel` - канал, которым открыт PR/MR; PR/MR нет - пусто.
 - `head` - коммит ветки цели на remote после push; push не было - пусто.
 - `missing` - нехватка; при `complete` - пусто.
+
+## Статусы стыка
+
+<!-- >>> shared: status -->
+- `status` - `complete` | `partial` | `blocked` по признакам из «Выдачи»; при `partial` и `blocked` нехватка
+  названа в `missing`.
+<!-- <<< shared: status -->

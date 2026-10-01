@@ -18,18 +18,21 @@ const HEAD = `mode: ${A.mode || 'autonomous'}\nцель (${A.task}): ревью 
 
 // >>> shared: contract
 const STATUS = { type: 'string', enum: ['complete', 'blocked', 'partial'] }
+const VERDICT = { type: 'string', enum: ['APPROVE', 'REQUEST_CHANGES', 'NEEDS_DISCUSSION'] }
 const lack = (v, who) => !v ? `${who} не вернул выход` : v.missing || `${who} вернул blocked без нехватки`
+// Трек виден в списке / и зовётся без args: узлы с правом записи на пустом cwd работали бы в дереве сессии.
+const unfed = (A, fields) => fields.filter(f => !String(A[f] ?? '').trim())
 const why = (e) => String(e && e.message || e).slice(0, 300)
-// Форма вызова сверена зондом P75: «загружается скилл, чьё описание называет стек» - 0 вызовов из 6.
-const SKILLS = (read, before) => `Прочитав ${read}, и до ${before} вызови Skill полным именем (плагин:скилл) на каждый скилл из перечня доступных тебе, чей предмет - стек задетого кода либо используемые им фреймворк, библиотека, тестовый фреймворк или область API; нужность не судится. `
 // <<< shared: contract
 // >>> shared: nodes
 // Цену узла ставит трек, frontmatter узла её не несёт; запись без model и effort - уровень сессии.
 const NODE = {
-  // sonnet - модель контроля implementer-reader: сверка на одном кейсе различает норму, а не модель.
+  // sonnet - модель пробы в прогонах P76-P86.
   'goal-reader': { agentType: 'dex-auto:goal-reader', model: 'sonnet' },
   // opus - модель контроля dex-self-reviewer: сверка P74 различает норму, а не модель.
   reviewer: { agentType: 'dex-auto:reviewer', model: 'opus' },
+  // без model - замера модели скептика нет (#289).
+  skeptic: { agentType: 'dex-auto:skeptic' },
   // sonnet - модель кодеров каталога: сверка P75 различает норму, а не модель.
   coder: { agentType: 'dex-auto:coder', model: 'sonnet' },
   // opus - модель контроля dex-debugger: сверка P91 различает норму, а не модель.
@@ -41,6 +44,15 @@ const NODE = {
 // >>> shared: domain
 const SEV = { type: 'string', enum: ['P0', 'P1', 'P2', 'P3'], description: 'P0 = CRITICAL, P1 = HIGH, P2 = MEDIUM, P3 = LOW' }
 const AXIS = { type: 'string', enum: ['security', 'architecture', 'language', 'business', 'regressions', 'performance', 'coverage', 'loose-ends', 'non-code'] }
+const AXIS_OUTCOME = ['findings', 'clean', 'unverifiable', 'n/a']
+const AXES = { type: 'array', items: { type: 'object', properties: { name: AXIS, outcome: { type: 'string', enum: AXIS_OUTCOME }, checked: { type: 'string' } }, required: ['name', 'outcome', 'checked'] } }
+// Трек судит форму набора осей, верность исхода судит скептик.
+const axesGap = (axes) => {
+  const a = axes || []
+  const unnamed = AXIS.enum.filter(n => !a.some(x => x.name === n && x.outcome))
+  return [unnamed.length ? `оси не названы: ${unnamed.join(', ')}` : '',
+    ...a.filter(x => x.outcome === 'unverifiable').map(x => `ось не проверена: ${x.name} - ${x.checked || 'причина не названа'}`)].filter(Boolean).join('; ')
+}
 // Форма одна у всех ревьюеров: ledger хранит находку одной записью, и поле, которого нет у одного узла, из реестра выпадает молча.
 const FINDING = { type: 'object', properties: {
   anchor: { type: 'string', description: 'file:line' }, severity: SEV, axis: AXIS,
@@ -58,6 +70,7 @@ const PRIOR = { type: 'object', properties: {
 }, required: ['id', 'anchor', 'severity', 'axis', 'text', 'status', 'evidence'] }
 const isOpen = (f) => OPEN_FINDING.includes(f.status)
 const isBlocking = (f) => f.severity === 'P0' || f.severity === 'P1'
+const isFixable = (f) => isBlocking(f) || f.severity === 'P2'
 const priorLine = (p) => `- ${p.id ? `${p.id} ` : ''}[${p.severity}] ${p.axis ? `${p.axis} ` : ''}${p.anchor}: ${p.text}`
 const findingLine = (f) => `${priorLine(f)}${f.closure ? ` (закрытие: ${f.closure})` : ''}${f.evidence ? `\n  улика: ${f.evidence}` : ''}`
 // Опознание - по id (ledger.md R10): строка сдвигается правкой, а на одной строке бывают разные находки. Статус прежней - последний, вынесенный узлом; о которой узел промолчал, та остаётся непроверенной.
@@ -90,6 +103,7 @@ function registry(unsettled) {
   return {
     seat, take, all: () => list.slice(), open: () => list.filter(isOpen),
     blocking: () => list.filter(isOpen).filter(isBlocking),
+    fixable: () => list.filter(isOpen).filter(isFixable),
     doubt: (p) => seat(p, 'unverified', !p.evidence || p.evidence === unsettled ? unsettled : p.evidence.startsWith(`${unsettled}; `) ? p.evidence : `${unsettled}; ${p.evidence}`),
     // Опознание - только в перечне, поданном узлу; статус из blocked-выхода не принимается, но его новые находки не теряются.
     apply: (r, who, listed = list.slice()) => {
@@ -115,8 +129,7 @@ async function node(role, prompt, opts, type) {
       // Причина обрыва платформой не типизирована: узел мог не существовать, а мог упасть посреди работы. Замена получает причину и сверяет уже сделанное.
       const w = why(e)
       degraded.push(`${role}: ${type} не отработал (${w})`); log(`узел ${type} не отработал, general-purpose`)
-      // Замена - не узел каталога: норм полей выхода у неё нет, а схема их больше не пересказывает.
-      return agent(`Роль: ${role}.\nУзел ${type} на этом шаге оборвался ошибкой: ${w}. Прежде чем действовать, сверь git log и рабочее дерево: сделанное им не повторяй и не коммить второй раз.\nНормы полей выхода (run-status, red-run, fact-check, uncovered, diff-scope, статусы ухода от проверки) у тебя не загружены: вызови Skill dex-skill-node-contract:node-contract до работы и заполняй по ним.\n${prompt}`, { ...opts, agentType: 'general-purpose' })
+      return agent(`Роль: ${role}.\nУзел ${type} на этом шаге оборвался ошибкой: ${w}. Прежде чем действовать, сверь git log и рабочее дерево: сделанное им не повторяй и не коммить второй раз.\n${prompt}`, { ...opts, agentType: 'general-purpose' })
     }
   }
   return agent(`Роль: ${role}.\n${prompt}`, { ...opts, agentType: 'general-purpose' })
@@ -149,18 +162,19 @@ const THREAD = { type: 'object', properties: { anchor: PRIOR.properties.anchor, 
 const REVIEW = { type: 'object', properties: {
   status: STATUS, findings: { type: 'array', items: FINDING, description: 'только находки, которых нет среди прежних' },
   'fact-check': { type: 'string', description: 'предмет сверки - техутверждения находок' },
-  'review-verdict': { type: 'string', enum: ['APPROVE', 'REQUEST_CHANGES', 'NEEDS_DISCUSSION'] },
+  axes: AXES,
+  'review-verdict': VERDICT,
   prior: { type: 'array', items: PRIOR, description: 'по каждой находке перечня ledger - запись с её id, статус с доказательством; перечня нет - пусто' },
   threads: { type: 'array', items: THREAD, description: 'ре-ревью дельты: прежние находки тредов MR, которых нет в перечне ledger, - статус с доказательством; иначе пусто' },
   questions: { type: 'array', items: { type: 'string' }, description: 'вопросы автору по намерению' },
   missing: { type: 'string' },
-}, required: ['status', 'findings', 'fact-check', 'review-verdict', 'prior', 'threads', 'questions', 'missing'] }
+}, required: ['status', 'findings', 'fact-check', 'axes', 'review-verdict', 'prior', 'threads', 'questions', 'missing'] }
 const FALSIFY = { type: 'object', properties: {
   status: STATUS,
   confirmed: { type: 'array', items: FINDING },
   dropped: { type: 'array', items: { type: 'object', properties: { anchor: { type: 'string' }, reason: { type: 'string' } }, required: ['anchor', 'reason'] } },
   coverage: { type: 'string', description: 'вердикт по покрытию изменённого поведения: непокрытые ветки поимённо либо "покрыто: <чем>"' },
-  'review-verdict': { type: 'string', enum: ['APPROVE', 'REQUEST_CHANGES', 'NEEDS_DISCUSSION'], description: 'итоговый вердикт по confirmed и по prior со статусом open или partial' },
+  'review-verdict': VERDICT,
   prior: { type: 'array', items: PRIOR, description: 'сверенный с кодом статус каждой прежней находки перечня; прежних нет - пусто' },
   missing: { type: 'string' },
 }, required: ['status', 'confirmed', 'dropped', 'coverage', 'review-verdict', 'prior', 'missing'] }
@@ -172,6 +186,8 @@ const PUBLISH = { type: 'object', properties: {
 
 const loops = { review: 0, falsify: 0 }
 const trail = [], degraded = []
+const unfedArgs = unfed(A, ['task', 'cwd', 'mr'])
+if (unfedArgs.length) return outcome('blocked', 'Context', `трек вызван без входа: нет ${unfedArgs.join(', ')}`)
 const LEDGER = ledgerList(A.open_findings, 'прежние находки этим прогоном не сверены')
 const fmt = (fs) => fs.map(findingLine).join('\n')
 
@@ -190,6 +206,7 @@ loops.review = 1
 trail.push({ step: 2, doer: NODE.reviewer.agentType, status: rev ? rev.status : 'null', findings: rev ? rev.findings.length : -1 })
 if (!rev || rev.status === 'blocked') return outcome('blocked', 'Review', lack(rev, 'узел ревью'), { ctx })
 const claims = rev.findings
+const axes = rev.axes || []
 // Статус прежней у ревьюера - claim: выносит его скептик, а прежняя, о которой он промолчал, остаётся непроверенной.
 const reg = registry('статус скептиком не сверен')
 LEDGER.forEach(reg.doubt)
@@ -203,9 +220,9 @@ const priorIn = reg.all().map(p => ({ ...p, claim: claimOf[p.id] }))
 
 phase('Falsify')
 loops.falsify = 1
-const fal = await node('скептик', `${HEAD}Шаг 3: каждая находка ниже - claim, не факт. Сверь с кодом ветки ${ctx.head_sha}: не закрыта ли соседним коммитом, не опирается ли на неверное чтение контракта, воспроизводится ли сценарий. ${SKILLS('находки и код, который они задевают', 'вердикта по ним')}Не выдержавшую - в dropped с причиной; выдержавшую - в confirmed с уликой. Отдельно вердикт по покрытию изменённого поведения тестами через реальный путь (один happy-path покрытием не считается); непокрытая ветка - находка оси coverage в confirmed. Итоговый review-verdict - по правилу поля review-verdict словаря node-contract (вызови Skill dex-skill-node-contract:node-contract до вердикта): в счёт идут confirmed и сверенные prior со статусом open или partial, вопросы автору - ниже. Код не меняй.\nНаходки:\n${fmt(claims) || '- находок нет: только вердикт по покрытию'}${priorIn.length ? `\nПрежние находки - статус ре-ревьюера claim, не факт: сверь каждую с кодом ${ctx.head_sha}, в prior - запись на каждую с её id, anchor, severity и text, сверенный статус и улика. Статусы ре-ревьюера: closed, partial, open, disputed, no-longer-applicable; disputed - только если код опровергает находку, а не потому что автор возразил; «закрыта» не подтвердилась - open или partial. Находка выше, совпавшая с прежней, идёт в prior с id прежней, не в confirmed:\n${priorIn.map(p => `${priorLine(p)} - ре-ревьюер: ${p.claim ? `${p.claim.status} - ${p.claim.evidence}` : 'статус не назван, сверь сам'}`).join('\n')}` : ''}${rev.questions.length ? `\nВопросы автору от ревьюера:\n${rev.questions.map(q => `- ${q}`).join('\n')}` : ''}`,
-  { label: 'falsify+coverage', phase: 'Falsify', schema: FALSIFY })
-trail.push({ step: 3, doer: 'general-purpose', status: fal ? fal.status : 'null', confirmed: fal ? fal.confirmed.length : -1, dropped: fal ? fal.dropped.length : -1 })
+const fal = await own('скептик', `${HEAD}Шаг 3: фальсификация находок ревьюера и вердикт по покрытию. ${common}\nНаходки:\n${fmt(claims) || '- находок нет: только вердикт по покрытию'}${priorIn.length ? `\nПрежние находки - статус ре-ревьюера:\n${priorIn.map(p => `${priorLine(p)} - ре-ревьюер: ${p.claim ? `${p.claim.status} - ${p.claim.evidence}` : 'статус не назван'}`).join('\n')}` : ''}\nОси ревьюера:\n${axes.map(a => `- ${a.name}: ${a.outcome}${a.checked ? ` - ${a.checked}` : ''}`).join('\n') || '- не названы'}${rev.questions.length ? `\nВопросы автору от ревьюера:\n${rev.questions.map(q => `- ${q}`).join('\n')}` : ''}`,
+  { label: 'falsify+coverage', phase: 'Falsify', schema: FALSIFY }, NODE.skeptic)
+trail.push({ step: 3, doer: NODE.skeptic.agentType, status: fal ? fal.status : 'null', confirmed: fal ? fal.confirmed.length : -1, dropped: fal ? fal.dropped.length : -1 })
 if (!fal || fal.status === 'blocked') return outcome('blocked', 'Falsify', lack(fal, 'скептик'), { ctx, review: rev, claims, prior: reg.all() })
 reg.apply(fal, 'скептик')
 const confirmed = []
@@ -231,7 +248,9 @@ const allPublished = !A.publish || !confirmed.length || (pub && pub.status === '
 const issues = []
 if (ledgerUnread) issues.push(LEDGER_UNREAD)
 if (ctx.status === 'partial') issues.push(`предмет ревью неполон: ${ctx.missing || 'узел не назвал нехватку'}`)
+if (!ctx.at_head) issues.push(`дерево трека не на head_sha${ctx.status === 'partial' ? '' : `: ${ctx.missing || 'причина не названа'}`}`)
 if (rev.status !== 'complete') issues.push(`ревью не завершено: ${rev.missing || 'узел не назвал нехватку'}`)
+if (axesGap(axes)) issues.push(`ревью: ${axesGap(axes)}`)
 if (fal.status !== 'complete') issues.push(`фальсификация не завершена: ${fal.missing || 'узел не назвал нехватку'}`)
 if (unsettled.length) issues.push(`статус прежних находок не сверен скептиком: ${unsettled.map(p => p.anchor).join(', ')}`)
 if (!allPublished) issues.push('часть тредов не опубликована')

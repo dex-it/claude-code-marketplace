@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# setup.sh <кейс> <каталог>: репозиторий кейса - база коммитом на main, ветка auto/<TASK>; правка кодера (change/) - коммитом на ней, если есть.
+# setup.sh <кейс> <каталог>: репозиторий кейса - база коммитом на main, ветка auto/<TASK>; правка кодера (change/ либо путь поля change от tests/) - коммитом на ней, если есть.
 set -eu
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -22,8 +22,10 @@ g init -q -b main
 g add -A
 g commit -q -m 'база кейса'
 g checkout -q -b "auto/$(field task)"
-if [ -d "$case_dir/change" ]; then
-  cp -r "$case_dir/change/." "$dest/"
+change=$(field change)
+if [ -n "$change" ]; then change="$here/../$change"; else change="$case_dir/change"; fi
+if [ -d "$change" ]; then
+  cp -r "$change/." "$dest/"
   g add -A
   g commit -q -m "$(field commit)"
 fi
