@@ -1877,7 +1877,8 @@ scratchpad сессии `9187226b`, в репозиторий не входят.
 - **Среда.** 01.10.2026, CLI 2.1.286, `claude -p` sonnet, узел opus, `--plugin-dir` рабочего дерева `dex-auto` и
   `--plugin-dir plugins/skills` - каталог скиллов доступен целиком; норма ревьюера `eedd09c5`. A - норма как есть,
   B - та же норма без фразы. Кейсы RV0-RV6 стенда `tests/auto-nodes`, по 2 прогона на вариант, 28 прогонов. Кодер -
-  `cd5-js-rules` x4 на норме с фразой.
+  `cd5-js-rules` x4 на норме с фразой. Вариант B - копия `dex-auto` без фразы в `agents/reviewer.md`, `run.sh` со вторым
+  `--plugin-dir`; сырые выходы - вне репозитория, на машине прогона.
 - **Наблюдение.**
   1. Вызовы `Skill`: A - 2-5 скиллов в 14 из 14 (`ts-patterns`, `ts-vitest-jest`, `ts-nodejs-api`, `owasp-security`,
      `test-design`, раз `node-contract`), B - 0 из 14.

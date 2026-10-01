@@ -171,7 +171,7 @@ const loops = { review: 0, falsify: 0 }
 const trail = [], degraded = []
 const LEDGER = ledgerList(A.open_findings, 'прежние находки этим прогоном не сверены')
 const fmt = (fs) => fs.map(findingLine).join('\n')
-const SECURITY_OUTCOME = /^(находки \d+|чисто, проверено \S|n\/a - \S)/
+const SECURITY_OUTCOME = /^(?:находки ([1-9]\d*)|чисто, проверено \S|n\/a - \S)/
 
 // Вход собирает /auto; workflow, вызванный по имени, приходит без него - узлы без цели и каталога не запускаются (T0).
 const noInput = ['task', 'mr', 'cwd'].filter(k => !String(A[k] || '').trim())
@@ -237,8 +237,12 @@ if (ctx.status === 'partial') issues.push(`предмет ревью непол�
 // Флаг судит трек сам: complete предмета при at_head: false - тоже не на head (T2).
 else if (!ctx.at_head) issues.push(`дерево трека не на head_sha: ${ctx.missing || 'причина не названа'}`)
 if (rev.status !== 'complete') issues.push(`ревью не завершено: ${rev.missing || 'узел не назвал нехватку'}`)
-// Непросмотренная ось безопасности чистой не отдаётся (I9): исход - одна из трёх форм поля security.
-if (!SECURITY_OUTCOME.test(String(rev.security || '').trim())) issues.push(`ось security не проверена: ${rev.security ? `исход не в форме - ${rev.security}` : 'ревьюер не назвал исход оси'}`)
+// Непросмотренная ось безопасности чистой не отдаётся (I9): исход - одна из трёх форм поля security, и он сходится с findings.
+const secOut = String(rev.security || '').trim()
+const secForm = secOut.match(SECURITY_OUTCOME)
+const secFound = rev.findings.filter(f => f.axis === 'security').length
+if (!secForm) issues.push(`ось security не проверена: ${secOut ? `исход не в форме - ${secOut}` : 'ревьюер не назвал исход оси'}`)
+else if (secForm[1] ? +secForm[1] !== secFound : secFound > 0) issues.push(`ось security не проверена: исход «${secOut}» расходится с находками оси security в findings (${secFound})`)
 if (fal.status !== 'complete') issues.push(`фальсификация не завершена: ${fal.missing || 'узел не назвал нехватку'}`)
 if (unsettled.length) issues.push(`статус прежних находок не сверен скептиком: ${unsettled.map(p => p.anchor).join(', ')}`)
 if (!allPublished) issues.push('часть тредов не опубликована')

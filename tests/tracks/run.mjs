@@ -513,7 +513,7 @@ const SCENARIOS = [
     ] },
   { name: 'R9 находок нет: скептик судит покрытие', track: 'review', args: reviewArgs,
     responses: { 'ctx:subject': ctxMr,
-      'review:first': { ...revMr, findings: [], 'review-verdict': 'APPROVE', questions: [] },
+      'review:first': { ...revMr, findings: [], security: 'чисто, проверено ввод на границе и права на ресурс', 'review-verdict': 'APPROVE', questions: [] },
       'falsify+coverage': { status: 'complete', confirmed: [], dropped: [], coverage: 'покрыто: T1', 'review-verdict': 'APPROVE', prior: [], missing: '' } },
     expect: ({ result, calls }) => [
       ['статус complete', result.status === 'complete'],
@@ -2720,6 +2720,15 @@ const SCENARIOS = [
         ['трек дошёл до конца', result.status === 'complete'],
       ]
     } },
+  { name: 'R67 «находки 0» - не исход: чистую ось называет «чисто, проверено»', track: 'review', args: reviewArgs,
+    responses: { 'ctx:subject': ctxMr, 'review:first': { ...revMr, findings: [], security: 'находки 0' }, 'falsify+coverage': { ...falOk, confirmed: [], 'review-verdict': 'APPROVE' } },
+    expect: ({ result }) => [['ось не проверена', result.status === 'partial' && result.where === 'ось security не проверена: исход не в форме - находки 0']] },
+  { name: 'R68 «находки 2» при одной находке оси security -> расхождение', track: 'review', args: reviewArgs,
+    responses: { 'ctx:subject': ctxMr, 'review:first': { ...revMr, security: 'находки 2' }, 'falsify+coverage': falOk },
+    expect: ({ result }) => [['расхождение названо', result.status === 'partial' && result.where === 'ось security не проверена: исход «находки 2» расходится с находками оси security в findings (1)']] },
+  { name: 'R69 «чисто» при находке оси security -> расхождение', track: 'review', args: reviewArgs,
+    responses: { 'ctx:subject': ctxMr, 'review:first': { ...revMr, security: 'чисто, проверено ввод и права' }, 'falsify+coverage': falOk },
+    expect: ({ result }) => [['расхождение названо', result.status === 'partial' && /расходится с находками оси security в findings \(1\)/.test(result.where)]] },
 ]
 
 // Узел подготовки дерева - фон любого сценария feature / bugfix, а не его предмет: ответ по
