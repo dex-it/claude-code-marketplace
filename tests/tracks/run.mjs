@@ -2634,6 +2634,8 @@ const SCENARIOS = [
       ['ревьюеру не сказано, что дерево на head', !promptOf(calls, 'review:first').includes('переключено на bbb, код читай с диска')],
       ['ревьюеру названы отказ и причина', promptOf(calls, 'review:first').includes('на bbb не переключено (git fetch pull/7/head: доступа к форку нет): код правки читай через канал хостинга')],
       ['ревью не сдаётся полным', result.status === 'partial' && result.where.startsWith('предмет ревью неполон: git fetch pull/7/head')],
+      ['скептику тоже сказано, где читать код правки', promptOf(calls, 'falsify+coverage').includes('на bbb не переключено (git fetch pull/7/head: доступа к форку нет): код правки читай через канал хостинга')],
+      ['разрыв один, без дубля по флагу', !/дерево трека не на head_sha/.test(result.where)],
     ] },
   { name: 'R60 ни скептику, ни предмету ревью, ни публикатору безусловный вызов скиллов не предписан (P94)', track: 'review', args: { ...reviewArgs, publish: true },
     responses: { 'ctx:subject': ctxMr, 'review:first': revMr, 'falsify+coverage': falOk,
@@ -2659,6 +2661,13 @@ const SCENARIOS = [
     expect: ({ result }) => [
       ['статус complete', result.status === 'complete'],
       ['исход n/a в выходе', result.security === 'n/a - правка только в README.md'],
+    ] },
+  { name: 'R65 предмет complete, но дерево не на head_sha -> трек судит флаг сам, ревью не полное', track: 'review', args: reviewArgs,
+    responses: { 'ctx:subject': { ...ctxMr, at_head: false }, 'review:first': revMr, 'falsify+coverage': falOk },
+    expect: ({ result, calls }) => [
+      ['статус partial', result.status === 'partial'],
+      ['разрыв по флагу назван', result.where === 'дерево трека не на head_sha: причина не названа'],
+      ['скептику сказано читать код правки через канал хостинга', promptOf(calls, 'falsify+coverage').includes('не переключено (причина не названа): код правки читай через канал хостинга')],
     ] },
 ]
 
