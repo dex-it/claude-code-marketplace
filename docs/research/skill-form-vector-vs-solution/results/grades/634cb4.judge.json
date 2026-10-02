@@ -1,0 +1,61 @@
+{
+  "id": "634cb4",
+  "case": "L5",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.024791399999999998,
+    "durationMs": 4848,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 2062,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 393,
+      "output_tokens_details": {
+        "thinking_tokens": 92
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 2062,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 393,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 2062,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 2062
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "L5-dedup": {
+      "verdict": "PASS",
+      "quote": "var uniqueIds = customerIds.Distinct().ToList();",
+      "why": "Дедупликация выполняется до разбиения на пачки, поэтому повторный id получает одно письмо и между пачками."
+    },
+    "L5-h-chunk": {
+      "verdict": "YES",
+      "quote": "ID батчатся по 500 (`Chunk(500)`) перед `WHERE IN`, чтобы не деградировал план запроса Postgres на больших списках.",
+      "why": "Запрос клиентов режется на пачки через Chunk в цикле, и это обосновано размером IN на больших списках."
+    },
+    "L5-m-enum": {
+      "verdict": "NO",
+      "quote": "customerIds.Distinct().ToList()",
+      "why": "customerIds перечисляется один раз, дальше код работает с материализованным списком."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,77 @@
+diff --git a/OrderQueries.cs b/OrderQueries.cs
+new file mode 100644
+index 0000000..f0a495a
+--- /dev/null
++++ b/OrderQueries.cs
+@@ -0,0 +1,51 @@
++namespace Shop.Data;
++
++public class OrderQueries
++{
++    private readonly ShopDbContext _db;
++
++    public OrderQueries(ShopDbContext db) => _db = db;
++
++    public async Task<Order?> GetOrderDetailsAsync(Guid orderId)
++    {
++        return await _db.Orders
++            .Where(o => o.Id == orderId)
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            .FirstOrDefaultAsync();
++    }
++
++    public IQueryable<Order> GetCustomerOrdersQuery(Guid customerId)
++    {
++        return _db.Orders
++            .Where(o => o.CustomerId == customerId)
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            .AsNoTracking();
++    }
++
++    public async Task<Product?> GetProductBySkuAsync(string sku, string? warehouse)
++    {
++        if (warehouse != null)
++        {
++            return await _db.Products
++                .Where(p => p.Sku == sku && p.Warehouse == warehouse)
++                .FirstOrDefaultAsync();
++        }
++
++        return await _db.Products
++            .Where(p => p.Sku == sku)
++            .FirstOrDefaultAsync();
++    }
++
++    public async Task<DateTime> GetLastShippedDateAsync(Guid customerId)
++    {
++        var lastShipped = await _db.Orders
++            .Where(o => o.CustomerId == customerId && o.ShippedAt != null)
++            .OrderByDescending(o => o.ShippedAt)
++            .Select(o => o.ShippedAt)
++            .FirstOrDefaultAsync();
++
++        return lastShipped ?? DateTime.MinValue;
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..67f3d8e
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,14 @@
++# OrderQueries Service
++
++## Созданные/изменённые файлы
++- `OrderQueries.cs` - новый сервис с четырьмя методами
++
++## Решения
++
++**GetOrderDetailsAsync(Guid orderId)** - загружает заказ с Include для Items и Payments. 
++
++**GetCustomerOrdersQuery(Guid customerId)** - возвращает IQueryable (не Task<List>), чтобы клиент мог применить Skip/Take для обработки тысяч заказов без загрузки всех в памяти; включены Items и Payments, AsNoTracking для производительности.
++
++**GetProductBySkuAsync(string sku, string? warehouse)** - если warehouse указан, фильтрует по обоим полям; если null, ищет по SKU (может вернуть любой из доступных складов).
++
++**GetLastShippedDateAsync(Guid customerId)** - ищет последний отгруженный заказ (ShippedAt != null), возвращает DateTime.MinValue если таких нет (не nullable по контракту).

@@ -1,0 +1,111 @@
+{
+  "id": "67761e",
+  "case": "R",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0805314,
+    "durationMs": 11621,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 6307,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1482,
+      "output_tokens_details": {
+        "thinking_tokens": 254
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6307,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1482,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 6307,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 6307
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "R-D3": {
+      "verdict": "PASS",
+      "quote": "таблице присвоен алиас `p`, но динамически собираемые условия ссылаются на исходное имя таблицы",
+      "why": "Находка №3 прямо называет несовпадение алиаса p и \"Products\" в условиях FromSqlRaw."
+    },
+    "R-D1": {
+      "verdict": "FOUND",
+      "quote": "`SingleAsync(p => p.Sku == sku)` без фильтра по складу.",
+      "why": "Находка №5 указывает, что SKU не уникален между складами и SingleAsync бросит исключение."
+    },
+    "R-D2": {
+      "verdict": "FOUND",
+      "quote": "результат разворачивается через `last!.Value` без проверки на `null`",
+      "why": "Находка №7 описывает MaxAsync(ShippedAt), который возвращает null, и падение на .Value."
+    },
+    "R-D4": {
+      "verdict": "FOUND",
+      "quote": "вызов `UpdateRange` на уже трекаемых сущностях помечает ВСЕ свойства как `Modified`",
+      "why": "Находка №11 называет UpdateRange на отслеживаемых сущностях в Reprice."
+    },
+    "R-D5": {
+      "verdict": "FOUND",
+      "quote": "`ShopDbContext` (регистрируется как Scoped в `Program.cs`) внедряется прямо в конструктор `BackgroundService`",
+      "why": "Находка №1 называет DbContext в конструкторе BackgroundService."
+    },
+    "R-D6": {
+      "verdict": "FOUND",
+      "quote": "Одновременные `Include(o => o.Items)` и `Include(o => o.Payments)` без `.AsSplitQuery()`",
+      "why": "Находка №8 описывает cartesian explosion на тысячах заказов в ExportForCustomer."
+    },
+    "R-D7": {
+      "verdict": "FOUND",
+      "quote": "`FromSqlRaw(... FOR UPDATE)` выполняется без явной транзакции",
+      "why": "Находка №2 называет FOR UPDATE без явной транзакции в Reserve."
+    },
+    "R-D8": {
+      "verdict": "FOUND",
+      "quote": "Нет контроля параллельного доступа (concurrency token / проверка версии перед записью)",
+      "why": "Находка №10 указывает на отсутствие concurrency token при правке заказа."
+    },
+    "R-D9": {
+      "verdict": "FOUND",
+      "quote": "не переносит существующие значения `Category` в новые таблицы перед дропом колонки",
+      "why": "Находка №4 называет DropColumn Category без переноса данных."
+    },
+    "R-K1": {
+      "verdict": "FOUND",
+      "quote": "Метод вызывает `_repo.GetAllAsync()`, который материализует (`ToListAsync`) ВСЮ таблицу `Orders`",
+      "why": "Находка №9 описывает GetAllAsync с последующей фильтрацией IsOverdue в памяти."
+    },
+    "R-h-B1": {
+      "verdict": "NO",
+      "quote": "в отличие от `GetCard`, где split query для тех же двух коллекций применён правильно",
+      "why": "Выход признаёт AsSplitQuery в GetCard корректным и не выдвигает против него находку."
+    },
+    "R-h-B2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "В выходе нет находки против Kind=Unspecified или чтения колонки как Utc."
+    },
+    "R-O1": {
+      "verdict": "FOUND",
+      "quote": "суммируется цена за единицу без умножения на `i.Qty`",
+      "why": "Находка №6 называет расчёт суммы заказа без учёта Qty."
+    }
+  },
+  "stderr": ""
+}

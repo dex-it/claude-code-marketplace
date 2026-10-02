@@ -1,0 +1,206 @@
+diff --git a/HousingDbContext.cs b/HousingDbContext.cs
+index b6add19..de99f8e 100644
+--- a/HousingDbContext.cs
++++ b/HousingDbContext.cs
+@@ -32,6 +32,7 @@ public class HousingDbContext : DbContext
+         {
+             e.Property(r => r.Status).HasConversion<string>().HasMaxLength(16);
+             e.Property(r => r.Category).HasMaxLength(50);
++            e.Property(r => r.PhoneNumber).HasMaxLength(20);
+             e.HasIndex(r => r.CreatedAt);
+             // search_vector - generated tsvector-колонка (создана SQL в миграции AddRequestSearch), в модель не входит
+         });
+diff --git a/HousingService.cs b/HousingService.cs
+index a5041e3..358bd6f 100644
+--- a/HousingService.cs
++++ b/HousingService.cs
+@@ -5,15 +5,15 @@ using Npgsql;
+ namespace Domovoy.Housing;
+ 
+ public record RequestSearch(string? Text, RequestStatus? Status, int? HouseId, string? District,
+-    int Page = 1, int PageSize = 50);
++    string Sort = "date", string Dir = "desc", int Page = 1, int PageSize = 50);
+ 
+ public record RequestRow(int Id, DateTime CreatedAt, string Address, string Apartment,
+-    RequestStatus Status, string Category, string Text);
++    RequestStatus Status, string Category, string Text, string? PhoneNumber);
+ 
+ public record RequestCard(int Id, DateTime CreatedAt, string Address, string Apartment,
+-    RequestStatus Status, string Category, string Text);
++    RequestStatus Status, string Category, string Text, string? PhoneNumber);
+ 
+-public record NewRequest(int ApartmentId, string Text, string Category);
++public record NewRequest(int ApartmentId, string Text, string Category, string? PhoneNumber = null);
+ 
+ public class HousingService
+ {
+@@ -30,6 +30,7 @@ public class HousingService
+             Category = req.Category,
+             Status = RequestStatus.New,
+             CreatedAt = DateTime.UtcNow,
++            PhoneNumber = req.PhoneNumber,
+         };
+         _db.ServiceRequests.Add(request);
+         await _db.SaveChangesAsync();
+@@ -47,7 +48,21 @@ public class HousingService
+         return r is null
+             ? null
+             : new RequestCard(r.Id, r.CreatedAt, r.Apartment.House.Address, r.Apartment.Number,
+-                r.Status, r.Category, r.Text);
++                r.Status, r.Category, r.Text, r.PhoneNumber);
++    }
++
++    // Закрыть заявку: статус Done, обязательный комментарий. Только из InProgress.
++    public async Task CloseRequestAsync(int id, string comment)
++    {
++        var request = await _db.ServiceRequests.FirstOrDefaultAsync(x => x.Id == id)
++            ?? throw new KeyNotFoundException("Заявка не найдена");
++
++        if (request.Status != RequestStatus.InProgress)
++            throw new InvalidOperationException("Заявку можно закрыть только из статуса InProgress");
++
++        request.Status = RequestStatus.Done;
++        request.CompletionComment = comment.Trim();
++        await _db.SaveChangesAsync();
+     }
+ 
+     // Реестр заявок для диспетчерской.
+@@ -55,13 +70,14 @@ public class HousingService
+     {
+         // Без search_vector: колонка тяжёлая и в модели её нет.
+         var sql = new StringBuilder("""
+-            SELECT r.id, r.apartment_id, r.text, r.category, r.status, r.created_at
++            SELECT r.id, r.apartment_id, r.text, r.category, r.status, r.created_at, r.phone_number
+             FROM service_requests r
+             """);
+         var where = new List<string>();
+         var parameters = new List<NpgsqlParameter>();
++        var needHouses = s.HouseId is not null || !string.IsNullOrWhiteSpace(s.District);
+ 
+-        if (s.HouseId is not null || !string.IsNullOrWhiteSpace(s.District))
++        if (needHouses)
+             sql.Append(" JOIN apartments a ON a.id = r.apartment_id");
+ 
+         if (s.HouseId is { } houseId)
+@@ -92,9 +108,17 @@ public class HousingService
+         if (where.Count > 0)
+             sql.Append(" WHERE ").Append(string.Join(" AND ", where));
+ 
++        var orderBy = s.Sort switch
++        {
++            "address" => needHouses ? "a.house_id, a.number" : "a.house_id, a.number",
++            "status" => "r.status",
++            _ => "r.created_at"
++        };
++        var dir = s.Dir.Equals("asc", StringComparison.OrdinalIgnoreCase) ? "ASC" : "DESC";
++        sql.Append($" ORDER BY {orderBy} {dir}");
++
+         var pageSize = Math.Clamp(s.PageSize, 1, 200);
+         var offset = (Math.Max(s.Page, 1) - 1) * pageSize;
+-        sql.Append(" ORDER BY r.created_at DESC");
+         sql.Append($" LIMIT {pageSize} OFFSET {offset}");
+ 
+         var requests = await _db.ServiceRequests
+@@ -111,7 +135,7 @@ public class HousingService
+ 
+         return requests
+             .Select(r => new RequestRow(r.Id, r.CreatedAt, apartments[r.ApartmentId].Address,
+-                apartments[r.ApartmentId].Number, r.Status, r.Category, r.Text))
++                apartments[r.ApartmentId].Number, r.Status, r.Category, r.Text, r.PhoneNumber))
+             .ToList();
+     }
+ }
+diff --git a/Models.cs b/Models.cs
+index d11ec0f..9337232 100644
+--- a/Models.cs
++++ b/Models.cs
+@@ -27,6 +27,8 @@ public class ServiceRequest
+     public string Category { get; set; } = "";
+     public RequestStatus Status { get; set; }
+     public DateTime CreatedAt { get; set; }
++    public string? PhoneNumber { get; set; }
++    public string? CompletionComment { get; set; }
+ }
+ 
+ // План планово-предупредительных работ по дому.
+diff --git a/PlanService.cs b/PlanService.cs
+index b7d6b67..31ef6f0 100644
+--- a/PlanService.cs
++++ b/PlanService.cs
+@@ -4,6 +4,8 @@ namespace Domovoy.Housing;
+ 
+ public record PlanItemDto(string WorkCode, string Title, int PeriodDays, DateOnly? LastDoneOn, DateOnly? NextDueOn);
+ 
++public record PlanItemUpdate(string WorkCode, string Title, int PeriodDays);
++
+ public class PlanService
+ {
+     private readonly HousingDbContext _db;
+@@ -46,6 +48,43 @@ public class PlanService
+         await _db.SaveChangesAsync();
+     }
+ 
++    // Обновить план дома целиком: заменить список работ, сохранив историю выполнения для оставляющихся работ.
++    public async Task UpdatePlanAsync(int houseId, List<PlanItemUpdate> updates)
++    {
++        var plan = await _db.MaintenancePlans.Include(p => p.Items)
++            .SingleOrDefaultAsync(p => p.HouseId == houseId)
++            ?? throw new KeyNotFoundException($"План дома {houseId} не найден");
++
++        var newCodes = updates.Select(u => u.WorkCode).ToHashSet();
++
++        // Удалить работы, которых нет в новом плане
++        var toRemove = plan.Items.Where(i => !newCodes.Contains(i.WorkCode)).ToList();
++        foreach (var item in toRemove)
++            plan.Items.Remove(item);
++
++        // Обновить или добавить работы
++        foreach (var update in updates)
++        {
++            var existing = plan.Items.FirstOrDefault(i => i.WorkCode == update.WorkCode);
++            if (existing is not null)
++            {
++                existing.Title = update.Title;
++                existing.PeriodDays = update.PeriodDays;
++            }
++            else
++            {
++                plan.Items.Add(new PlanItem
++                {
++                    WorkCode = update.WorkCode,
++                    Title = update.Title,
++                    PeriodDays = update.PeriodDays,
++                });
++            }
++        }
++
++        await _db.SaveChangesAsync();
++    }
++
+     // Дома объединены в один комплекс: работы плана fromHouse, которых нет в плане toHouse,
+     // переходят в план toHouse со своей историей выполнения.
+     public async Task MergePlansAsync(int fromHouseId, int toHouseId)
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..431ee58
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,18 @@
++# Решение
++
++## Созданные/изменённые файлы
++
++1. **Models.cs** — добавлены поля `PhoneNumber` и `CompletionComment` в `ServiceRequest`
++2. **HousingService.cs** — обновлены всё записи (`RequestSearch`, `RequestRow`, `RequestCard`, `NewRequest`), метод `CreateRequestAsync` для телефона, метод `GetRequestAsync` для телефона, добавлен метод `CloseRequestAsync`, метод `SearchAsync` расширен для сортировки по date/address/status и включает `PhoneNumber`
++3. **PlanService.cs** — добавлена запись `PlanItemUpdate` и метод `UpdatePlanAsync` для полного обновления плана дома
++4. **HousingDbContext.cs** — добавлена конфигурация поля `PhoneNumber` (HasMaxLength(20))
++
++## Решения
++
++**Поручение (а)** — Сортировка реестра заявок по клику на заголовок (date/address/status) реализована добавлением параметров `Sort` и `Dir` в `RequestSearch`. SQL динамически составляется с правильным `ORDER BY` в зависимости от выбора, по умолчанию дата DESC (новые сверху).
++
++**Поручение (б)** — Закрытие заявки реализовано методом `CloseRequestAsync(id, comment)`, который проверяет статус InProgress (иначе выбрасывает исключение для обработки 409), устанавливает статус Done и сохраняет обязательный комментарий в `CompletionComment`.
++
++**Поручение (в)** — Обновление плана дома целиком реализовано методом `UpdatePlanAsync(houseId, updates)`: удаляет работы, которых нет в новом плане, обновляет существующие (сохраняя историю completions), добавляет новые, всё в одном SaveChanges.
++
++**Поручение (г)** — Контактный телефон добавлен как опциональное поле `PhoneNumber` в `ServiceRequest`, передаётся через `NewRequest.PhoneNumber` при приёме заявки, отображается в карточке `RequestCard` и в строке реестра `RequestRow`.

@@ -1,0 +1,75 @@
+diff --git a/OrderQueries.cs b/OrderQueries.cs
+new file mode 100644
+index 0000000..f24a29e
+--- /dev/null
++++ b/OrderQueries.cs
+@@ -0,0 +1,57 @@
++namespace Shop.Data;
++
++public class OrderQueries
++{
++    private readonly ShopDbContext _db;
++    public OrderQueries(ShopDbContext db) => _db = db;
++
++    // (а) карточка одного заказа: одна entity — JOIN эффективнее split query
++    public Task<Order?> GetOrderCardAsync(Guid orderId, CancellationToken ct = default) =>
++        _db.Orders
++            .AsNoTracking()
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            .FirstOrDefaultAsync(o => o.Id == orderId, ct);
++
++    // (б) тысячи заказов × Items × Payments — split query, иначе cartesian explosion
++    public Task<List<Order>> GetCustomerOrdersAsync(Guid customerId, CancellationToken ct = default) =>
++        _db.Orders
++            .AsNoTracking()
++            .Where(o => o.CustomerId == customerId)
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            .AsSplitQuery()
++            .ToListAsync(ct);
++
++    // (в) warehouse == null: SKU не уникален глобально, Single() тут — бомба.
++    // Берём максимум 2 строки: если складов с этим SKU больше одного — просим уточнить,
++    // а не угадываем склад произвольным FirstOrDefault.
++    public async Task<Product?> GetProductBySku(string sku, string? warehouse, CancellationToken ct = default)
++    {
++        var bySku = _db.Products.AsNoTracking().Where(p => p.Sku == sku);
++
++        if (warehouse is not null)
++            return await bySku.SingleOrDefaultAsync(p => p.Warehouse == warehouse, ct);
++
++        var candidates = await bySku.Take(2).ToListAsync(ct);
++        return candidates.Count switch
++        {
++            0 => null,
++            1 => candidates[0],
++            _ => throw new InvalidOperationException(
++                $"SKU '{sku}' найден на нескольких складах, укажите warehouse")
++        };
++    }
++
++    // (г) DateTime не nullable: ShippedAt!.Value безопасен только после Where(ShippedAt != null);
++    // если у клиента ни один заказ не отгружен — это ошибка вызывающей стороны, а не magic-значение
++    public async Task<DateTime> GetLastShippedAtAsync(Guid customerId, CancellationToken ct = default)
++    {
++        var shipped = _db.Orders.Where(o => o.CustomerId == customerId && o.ShippedAt != null);
++
++        if (!await shipped.AnyAsync(ct))
++            throw new InvalidOperationException($"У клиента {customerId} нет отгруженных заказов");
++
++        return await shipped.MaxAsync(o => o.ShippedAt!.Value, ct);
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..d4ba921
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,6 @@
++Создан файл: OrderQueries.cs (новый сервис Shop.Data.OrderQueries).
++
++Решения:
++- (а) карточка заказа — Include без AsSplitQuery (single entity, JOIN эффективнее доп. roundtrip) + AsNoTracking; (б) выгрузка заказов клиента — AsSplitQuery (тысячи заказов × Items × Payments = cartesian explosion) + AsNoTracking.
++- (в) GetProductBySku: при заданном warehouse — SingleOrDefaultAsync(sku && warehouse), это безопасно по бизнес-инварианту "SKU уникален на складе"; при warehouse == null не гадаем через FirstOrDefault — берём Take(2) и либо возвращаем единственный результат, либо кидаем InvalidOperationException с просьбой уточнить склад (SKU не уникален глобально).
++- (г) GetLastShippedAtAsync: фильтр `ShippedAt != null` до использования `!.Value` (null-forgiving только после WHERE), пустой результат — явный InvalidOperationException, а не magic default(DateTime), т.к. возвращаемый тип не nullable.

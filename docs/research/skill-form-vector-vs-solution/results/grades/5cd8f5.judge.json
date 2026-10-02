@@ -1,0 +1,121 @@
+{
+  "id": "5cd8f5",
+  "case": "CFG",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.08762339999999999,
+    "durationMs": 14535,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 6251,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1859,
+      "output_tokens_details": {
+        "thinking_tokens": 438
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6251,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1859,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 6251,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 6251
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "CFG-K9": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Расхождение MaxInFlight между Staging (20) и Production (5) в выходе не упомянуто."
+    },
+    "CFG-K8": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Дублирование MaxRetries 5 в Staging и Production при том же дефолте не отмечено."
+    },
+    "CFG-h-required": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Модификатор required как проверка SmtpOptions нигде не предлагается."
+    },
+    "CFG-K1": {
+      "verdict": "FOUND",
+      "quote": "Пароль от БД (`Password=Kx7!pQ2vR9wz`) и API-ключ SMTP-релея (`\"Password\": \"rl_live_9f3a1c77e2b04d6d\"`) закоммичены как есть",
+      "why": "Выход прямо называет секреты БД и SMTP в appsettings.Production.json."
+    },
+    "CFG-K2": {
+      "verdict": "FOUND",
+      "quote": "`GetValue<int>` для отсутствующего ключа вернёт `0`, и `60_000 / perMinute` кидает `DivideByZeroException`",
+      "why": "Выход описывает несовпадение ключа, результат 0 и деление на ноль."
+    },
+    "CFG-K3": {
+      "verdict": "FOUND",
+      "quote": "(`AddSingleton<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>()` / `ValidateOnStart()` отсутствуют)",
+      "why": "Выход отмечает, что валидатор не зарегистрирован и ValidateOnStart нет."
+    },
+    "CFG-K4": {
+      "verdict": "FOUND",
+      "quote": "используется `IOptions<OutboxOptions>` вместо `IOptionsMonitor<OutboxOptions>`",
+      "why": "Выход связывает IOptions в синглтоне OutboxWorker с требованием менять настройки на лету."
+    },
+    "CFG-K5": {
+      "verdict": "FOUND",
+      "quote": "Из-за проверки `if (o.MinBatchSize < o.MaxBatchSize)` в `OutboxWorker.ExecuteAsync` адаптивное изменение размера пачки в проде тихо отключается",
+      "why": "Выход называет тихое отключение adaptive batching при 200/100."
+    },
+    "CFG-K6": {
+      "verdict": "FOUND",
+      "quote": "при значении `Outbox:PollInterval = 500` даёт задержку **500 секунд (~8.3 минуты)**",
+      "why": "Выход называет ошибку единиц в PollInterval."
+    },
+    "CFG-K7": {
+      "verdict": "FOUND",
+      "quote": "`Host`, `FromAddress` объявлены как `string` (не `string?`) без инициализатора",
+      "why": "Выход отмечает non-nullable свойства без дефолта и без проверки при старте."
+    },
+    "CFG-h-P1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находки против IOptions<SmtpOptions> в SmtpMailSender нет."
+    },
+    "CFG-h-P2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Против LockTimeout \"00:00:30\" как TimeSpan претензий нет."
+    },
+    "CFG-O1": {
+      "verdict": "FOUND",
+      "quote": "`SentAt` выставляется до фактической отправки и не откатывается при ошибке",
+      "why": "Выход описывает, что неудачное письмо не будет повторено."
+    },
+    "CFG-O2": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Несовпадение GetSection(\"Mail\") с секцией Smtp не названо; в п.12 есть только общее упоминание отсутствия секции."
+    },
+    "CFG-O3": {
+      "verdict": "MISSED",
+      "quote": "`appsettings.Staging.json` для сравнения корректно использует плейсхолдер `${NOTIFY_DB_PASSWORD}`",
+      "why": "Выход считает плейсхолдер корректным и не замечает, что .NET-конфигурация не делает подстановку."
+    }
+  },
+  "stderr": ""
+}

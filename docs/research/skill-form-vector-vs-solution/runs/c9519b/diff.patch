@@ -1,0 +1,146 @@
+diff --git a/OrderQueries.cs b/OrderQueries.cs
+new file mode 100644
+index 0000000..f771261
+--- /dev/null
++++ b/OrderQueries.cs
+@@ -0,0 +1,122 @@
++namespace Shop.Data;
++
++public class OrderQueries
++{
++    private readonly ShopDbContext _db;
++
++    public OrderQueries(ShopDbContext db) => _db = db;
++
++    // (а) Карточка одного заказа по Id со всеми позициями и платежами
++    public async Task<OrderCardDto?> GetOrderCardAsync(Guid orderId)
++    {
++        return await _db.Orders
++            .AsNoTracking()
++            .Where(o => o.Id == orderId)
++            .Select(o => new OrderCardDto
++            {
++                Id = o.Id,
++                CustomerId = o.CustomerId,
++                Status = o.Status,
++                Category = o.Category,
++                Total = o.Total,
++                CreatedAt = o.CreatedAt,
++                ShippedAt = o.ShippedAt,
++                Items = o.Items.Select(i => new OrderItemDto
++                {
++                    Id = i.Id,
++                    ProductId = i.ProductId,
++                    Qty = i.Qty
++                }).ToList(),
++                Payments = o.Payments.Select(p => new PaymentDto
++                {
++                    Id = p.Id,
++                    Amount = p.Amount
++                }).ToList()
++            })
++            .FirstOrDefaultAsync();
++    }
++
++    // (б) Выгрузка всех заказов клиента с позициями и платежами (для тысяч заказов)
++    public async Task<List<OrderCardDto>> GetCustomerOrdersAsync(Guid customerId)
++    {
++        return await _db.Orders
++            .AsNoTracking()
++            .Where(o => o.CustomerId == customerId)
++            .OrderByDescending(o => o.CreatedAt)
++            .Select(o => new OrderCardDto
++            {
++                Id = o.Id,
++                CustomerId = o.CustomerId,
++                Status = o.Status,
++                Category = o.Category,
++                Total = o.Total,
++                CreatedAt = o.CreatedAt,
++                ShippedAt = o.ShippedAt,
++                Items = o.Items.Select(i => new OrderItemDto
++                {
++                    Id = i.Id,
++                    ProductId = i.ProductId,
++                    Qty = i.Qty
++                }).ToList(),
++                Payments = o.Payments.Select(p => new PaymentDto
++                {
++                    Id = p.Id,
++                    Amount = p.Amount
++                }).ToList()
++            })
++            .AsSplitQuery()
++            .ToListAsync();
++    }
++
++    // (в) Получить продукт по SKU на складе (warehouse может быть null)
++    public async Task<Product?> GetProductBySkuAsync(string sku, string? warehouse = null)
++    {
++        var query = _db.Products
++            .AsNoTracking()
++            .Where(p => p.Sku == sku);
++
++        if (!string.IsNullOrEmpty(warehouse))
++            query = query.Where(p => p.Warehouse == warehouse);
++
++        return await query.FirstOrDefaultAsync();
++    }
++
++    // (г) Дата отгрузки последнего отгруженного заказа клиента (DateTime, не nullable)
++    public async Task<DateTime> GetLastShippedDateAsync(Guid customerId)
++    {
++        var date = await _db.Orders
++            .AsNoTracking()
++            .Where(o => o.CustomerId == customerId && o.ShippedAt != null)
++            .Select(o => o.ShippedAt)
++            .OrderByDescending(o => o)
++            .FirstOrDefaultAsync();
++
++        return date ?? DateTime.MinValue;
++    }
++}
++
++public class OrderCardDto
++{
++    public Guid Id { get; set; }
++    public Guid CustomerId { get; set; }
++    public string Status { get; set; } = "";
++    public string Category { get; set; } = "";
++    public decimal Total { get; set; }
++    public DateTime CreatedAt { get; set; }
++    public DateTime? ShippedAt { get; set; }
++    public List<OrderItemDto> Items { get; set; } = new();
++    public List<PaymentDto> Payments { get; set; } = new();
++}
++
++public class OrderItemDto
++{
++    public int Id { get; set; }
++    public Guid ProductId { get; set; }
++    public int Qty { get; set; }
++}
++
++public class PaymentDto
++{
++    public int Id { get; set; }
++    public decimal Amount { get; set; }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..24f37b4
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,12 @@
++# OrderQueries Service
++
++## Созданные/изменённые файлы
++- **OrderQueries.cs** (создан)
++
++## Решения
++
++1. **Проекция вместо Include**: методы (а) и (б) используют `Select(o => new OrderCardDto {...})` с вложенными Select для Items и Payments вместо Include. Это избегает раздувания Change Tracker (по SKILL.md: "ToList() вместо проекции" — anti-pattern) и гарантирует загрузку только нужных данных.
++
++2. **AsSplitQuery для больших наборов**: GetCustomerOrdersAsync использует `.AsSplitQuery()` перед `.ToListAsync()` для избежания cartesian explosion при множественных Select (10 заказов × 5 позиций × 3 платежа = 150 строк вместо 10+50+30, по SKILL.md).
++
++3. **Простота по SKU и минимальное состояние**: GetProductBySkuAsync принимает опциональный warehouse — если null, берёт FirstOrDefaultAsync без фильтра по складу; GetLastShippedDateAsync возвращает DateTime.MinValue при отсутствии отгруженных заказов (не nullable как требовалось).

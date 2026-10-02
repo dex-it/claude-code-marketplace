@@ -1,0 +1,59 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..03a61aa
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,53 @@
++# Результаты ревью MR !87
++
++## Дефекты
++
++### 1. BatchService.ListAsync (line 49) — неправильная постраничная навигация
++**Метод:** `ListAsync`  
++**Проблема:** Формула `Skip(page * pageSize)` неправильна для 1-indexed страниц. Комментарий говорит "Номер страницы, начиная с 1", но код пропускает page*pageSize элементов. Если передать page=1 (первая страница), пропустятся первые 20 элементов вместо вывода их.  
++**Исправление:** `Skip((page - 1) * pageSize)`  
++**Severity:** HIGH
++
++---
++
++### 2. BatchService.CompliancePercentAsync (line 107) — целочисленное деление
++**Метод:** `CompliancePercentAsync`  
++**Проблема:** Выражение `compliant / total * 100` выполняется как целочисленное деление: (2 / 3) * 100 = 0 * 100 = 0 вместо ≈67. Результат всегда будет 0, если compliant < total.  
++**Исправление:** `(compliant * 100) / total` или `(int)((decimal)compliant / total * 100)`  
++**Severity:** CRITICAL
++
++---
++
++### 3. BatchService.CompliancePercentAsync (line 107) — деление на ноль
++**Метод:** `CompliancePercentAsync`  
++**Проблема:** Если партия содержит 0 проб, total=0, и вычисление `compliant / total` бросит `DivideByZeroException`.  
++**Исправление:** Добавить проверку: `if (total == 0) return 0;` перед делением.  
++**Severity:** HIGH
++
++---
++
++### 4. BatchService.CloseAsync (line 58) — неправильный метод EF для PK
++**Метод:** `CloseAsync`  
++**Проблема:** Используется `FirstOrDefaultAsync` на первичном ключе. По SKILL.md: "Single/SingleOrDefault - только на условии, уникальность которого гарантирует схема (PK/уникальный индекс)".  
++**Исправление:** `SingleOrDefaultAsync` или `FindAsync(batchId)`  
++**Severity:** LOW
++
++---
++
++### 5. BatchService.RetagAsync (line 93) — разрыв required-связи без явного delete behavior
++**Метод:** `RetagAsync`  
++**Проблема:** `sample.Tags.Clear()` разрывает required-связь. В LabDbContext.OnModelCreating не указано явно `OnDelete()` для SampleTag, полагаясь на default behavior. По SKILL.md: при `Restrict` и `ClientSetNull` это бросит исключение при SaveChanges. Хотя default для required FK в EF Core — `Cascade`, это неявно и может измениться или быть перекрыто. Нужна явная гарантия.  
++**Исправление:** В LabDbContext добавить `.OnDelete(DeleteBehavior.Cascade)` для SampleTag, или переделать переразметку.  
++**Severity:** MEDIUM
++
++---
++
++## Сводка
++
++| Файл | Метод | Тип | Severity |
++|------|-------|-----|----------|
++| BatchService.cs | ListAsync | Логическая ошибка (offset) | HIGH |
++| BatchService.cs | CompliancePercentAsync | Целочисленное деление | CRITICAL |
++| BatchService.cs | CompliancePercentAsync | Деление на 0 | HIGH |
++| BatchService.cs | CloseAsync | Выбор метода EF | LOW |
++| BatchService.cs | RetagAsync | Delete behavior | MEDIUM |

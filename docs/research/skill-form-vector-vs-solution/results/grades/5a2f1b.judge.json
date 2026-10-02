@@ -1,0 +1,97 @@
+{
+  "id": "5a2f1b",
+  "case": "V3",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.146731,
+    "durationMs": 12475,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 14537,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1500,
+      "output_tokens_details": {
+        "thinking_tokens": 243
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 14537,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1500,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 14537,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 14537
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "V3-promo-on-early-price": {
+      "verdict": "FOUND",
+      "quote": "По договорам с партнёрами (комментарий к `PromoCode`) скидка считается от полной цены и с ранним тарифом не суммируется.",
+      "why": "Находка 4 связывает расчёт скидки от BasePrice (ранней цены) с правилом из комментария к PromoCode и называет финансовые потери."
+    },
+    "V3-capacity-group-seats": {
+      "verdict": "FOUND",
+      "quote": "Выкупленные, но ещё не заполненные места групповых заказов (`GroupOrder.Quantity`) в подсчёт не попадают.",
+      "why": "Находка 2 указывает, что FreeSeatsAsync не учитывает невписанные места групповых заказов, и описывает перепродажу сверх 600 мест."
+    },
+    "V3-group-seat-reuse": {
+      "verdict": "FOUND",
+      "quote": "`order.Participants.Count >= order.Quantity` считает всех участников, включая `Cancelled`.",
+      "why": "Находка 6 называет, что отменённые участники продолжают занимать место заказа, приводит ответ 409 и расхождение со списком заказов."
+    },
+    "V3-orgadmin-passport": {
+      "verdict": "FOUND",
+      "quote": "Проекция всегда включает `PassportNumber` и `PassportCountry`. Эндпоинт доступен ролям `OrgAdmin` и `Organizer`.",
+      "why": "Находка 7 связывает выдачу списка OrgAdmin с паспортными полями ParticipantDto и правилом MR о визовой группе."
+    },
+    "V3-vat-on-top": {
+      "verdict": "FOUND",
+      "quote": "НДС начисляется сверху на цену, которая уже включает НДС",
+      "why": "Находка 3 предлагает выделять НДС по формуле amount*20/120 и указывает на завышение счёта и AmountKopecks на 20 %."
+    },
+    "V3-invoice-before-idempotency": {
+      "verdict": "FOUND",
+      "quote": "Он вызывает шину ещё раз, и в 1С появляется второй счёт.",
+      "why": "Находка 1 связывает выставление внешнего счёта до фиксации ключа с повтором по таймауту и описывает лишний счёт в 1С."
+    },
+    "V3-promo-notracking": {
+      "verdict": "PASS",
+      "quote": "Промокод загружается с `AsNoTracking()`, поэтому `promo.UsedCount++` (стр. 97) не попадает в change tracker и `SaveChanges` его не сохраняет.",
+      "why": "Находка 5 называет несохраняемый инкремент, неработающий UsageLimit и предлагает атомарный ExecuteUpdate с условием."
+    },
+    "V3-unspecified-timestamptz": {
+      "verdict": "PASS",
+      "quote": "`DateOnly.ToDateTime(TimeOnly.MinValue)` возвращает `Kind=Unspecified`. Колонка `Registration.CreatedAt` по умолчанию имеет тип `timestamptz` (Npgsql ≥ 6).",
+      "why": "Находка 8 описывает исключение Npgsql и предлагает границы с Kind=Utc и осознанным выбором часового пояса (Москва)."
+    },
+    "V3-h-partial-unique-index": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Частичный уникальный индекс в выходе дефектом не объявлен и не изменён."
+    },
+    "V3-h-unique-violation-catch": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Перехват UniqueViolation упоминается только в описании сценария, замену на check-then-insert выход не требует."
+    }
+  },
+  "stderr": ""
+}

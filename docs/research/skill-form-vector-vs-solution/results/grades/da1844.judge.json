@@ -1,0 +1,61 @@
+{
+  "id": "da1844",
+  "case": "E6",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.1096874,
+    "durationMs": 3847,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 12874,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 313,
+      "output_tokens_details": {
+        "thinking_tokens": 0
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 12874,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 313,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 12874,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 12874
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "E6-prod": {
+      "verdict": "FAIL",
+      "quote": "run: dotnet ef database update --project Shop.Data.csproj --context ShopDbContext --verbose",
+      "why": "Production-шаг GitHub Actions применяет миграции через dotnet ef database update, а не через idempotent-скрипт или bundle."
+    },
+    "E6-m-data": {
+      "verdict": "NO",
+      "quote": "INSERT INTO \"\"OrderCategories\"\" (\"\"OrderId\"\", \"\"CategoryId\"\")",
+      "why": "Миграция бэкфиллит Categories и OrderCategories из Orders.Category через SQL."
+    },
+    "E6-m-drop": {
+      "verdict": "NO",
+      "quote": "Колонку `Order.Category` не трогаем в этой миграции",
+      "why": "В Up нет DropColumn, колонка Category остаётся в модели и снепшоте."
+    }
+  },
+  "stderr": ""
+}

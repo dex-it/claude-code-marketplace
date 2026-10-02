@@ -1,0 +1,65 @@
+diff --git a/CustomerNotifier.cs b/CustomerNotifier.cs
+new file mode 100644
+index 0000000..1491dd2
+--- /dev/null
++++ b/CustomerNotifier.cs
+@@ -0,0 +1,35 @@
++using Microsoft.EntityFrameworkCore;
++
++namespace Shop;
++
++public class CustomerNotifier
++{
++    private readonly ShopDbContext _db;
++    private readonly IEmailSender _emailSender;
++
++    public CustomerNotifier(ShopDbContext db, IEmailSender emailSender)
++    {
++        _db = db;
++        _emailSender = emailSender;
++    }
++
++    public async Task NotifyCustomers(IEnumerable<Guid> customerIds, string text, CancellationToken ct = default)
++    {
++        var uniqueIds = customerIds.Distinct().ToList();
++        if (uniqueIds.Count == 0) return;
++
++        // Batch по 500 для избежания SQL параметризации деградации
++        foreach (var batch in uniqueIds.Chunk(500))
++        {
++            var customers = await _db.Customers
++                .Where(c => batch.Contains(c.Id))
++                .Select(c => new { c.Email, c.Name })
++                .ToListAsync(ct);
++
++            foreach (var customer in customers)
++            {
++                await _emailSender.SendAsync(customer.Email, "Notification", text, ct);
++            }
++        }
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..868e52e
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,18 @@
++# Решение: CustomerNotifier.NotifyCustomers
++
++## Созданные/изменённые файлы
++- **CustomerNotifier.cs** — создан новый класс
++
++## Решение
++
++Добавлен класс `CustomerNotifier` с методом `NotifyCustomers(IEnumerable<Guid> customerIds, string text)`, который отправляет письмо через `IEmailSender` каждому клиенту из списка.
++
++**Ключевые решения согласно SKILL.md:**
++
++1. **Дедупликация входного списка** — `Distinct().ToList()` предотвращает повторную обработку одного клиента и избавляет от дублированных DB-запросов.
++
++2. **Батчинг по 500 ID** — используется `.Chunk(500)` для избежания деградации SQL-плана при параметризации больших списков (PostgreSQL чувствителен к 5000+ параметрам).
++
++3. **Select вместо загрузки полной entity** — `.Select(c => new { c.Email, c.Name })` грузит только нужные поля, экономя трафик и память Change Tracker'а, вместо загрузки всей Customer.
++
++Метод использует async/await для неблокирующей отправки писем и поддерживает CancellationToken для graceful shutdown.

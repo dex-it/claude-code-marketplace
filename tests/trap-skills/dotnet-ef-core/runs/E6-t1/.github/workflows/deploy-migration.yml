@@ -1,0 +1,61 @@
+name: Deploy DB migration
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Migrations/**"
+  workflow_dispatch: {}
+
+jobs:
+  # Turns pending migrations into SQL and makes it visible before anything touches production.
+  generate-script:
+    runs-on: ubuntu-latest
+    outputs:
+      script-name: migration.sql
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - run: dotnet tool install --global dotnet-ef --version 8.*
+
+      - run: dotnet restore
+
+      # --idempotent: safe to (re)run against a DB at any prior migration state, including a retry of this job.
+      - run: dotnet ef migrations script --idempotent --project Shop.Data.csproj --output migration.sql
+
+      - name: Publish SQL for review
+        run: |
+          echo '## Pending migration SQL' >> "$GITHUB_STEP_SUMMARY"
+          echo '```sql' >> "$GITHUB_STEP_SUMMARY"
+          cat migration.sql >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: migration-sql
+          path: migration.sql
+          retention-days: 90
+
+  # Gated by the production environment's required reviewers: someone reads the SQL above and approves this job
+  # before it runs. Applies the exact script that was generated and reviewed, not a fresh `dotnet ef` run.
+  apply-to-production:
+    needs: generate-script
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: migration-sql
+
+      - name: Apply reviewed SQL to production
+        env:
+          PGHOST: ${{ secrets.PROD_DB_HOST }}
+          PGPORT: ${{ secrets.PROD_DB_PORT }}
+          PGDATABASE: ${{ secrets.PROD_DB_NAME }}
+          PGUSER: ${{ secrets.PROD_DB_USER }}
+          PGPASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
+        run: psql -v ON_ERROR_STOP=1 -f migration.sql

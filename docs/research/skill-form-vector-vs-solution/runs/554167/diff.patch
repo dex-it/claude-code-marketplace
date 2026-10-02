@@ -1,0 +1,89 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..e0a8854
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,83 @@
++# Code Review: Notify.Worker MR
++
++## Findings
++
++### 1. Секреты (пароли БД и SMTP-токены) в репозитории
++- **File**: `appsettings.Production.json` (строки 3, 16)
++- **Issue**: Пароли БД и SMTP-relay-токены хранятся в репозитории вместо переменных окружения
++- **Why**: Нарушение п.14 SKILL.md (Секреты в appsettings в репозитории); критический риск безопасности
++- **Severity**: **CRITICAL**
++
++### 2. Логический конфликт в конфигурации Production
++- **File**: `appsettings.Production.json` (строки 6-7)
++- **Issue**: `MinBatchSize: 200` > `MaxBatchSize: 100` (несовместимые значения)
++- **Why**: Это приведёт к ошибке валидации при старте: нельзя установить минимум больше максимума
++- **Severity**: **CRITICAL**
++
++### 3. OutboxOptionsValidator не регистрирован в DI
++- **File**: `Program.cs`
++- **Issue**: Валидатор создан, но не регистрирован через `builder.Services.AddOptions()` или добавлен в обработчик опций
++- **Why**: Нарушение п.8 SKILL.md (Валидатор опций и его регистрация); валидация не запустится при старте хоста, ошибки конфигурации не будут обнаружены
++- **Severity**: **CRITICAL**
++
++### 4. Недопустимо используется IOptions для изменяемых на лету параметров
++- **File**: `OutboxWorker.cs` (строка 11, использование в строке 22)
++- **Issue**: Используется `IOptions<OutboxOptions>`, но в MR-описании сказано "Лимит параллельных отправок и размер пачки должны меняться на лету правкой appsettings, без рестарта"
++- **Why**: `IOptions` кэшируется один раз при создании класса. Для изменений на лету требуется `IOptionsMonitor<T>` (п.9 SKILL.md)
++- **Severity**: **HIGH**
++
++### 5. Кросс-полевой инвариант не проверяется
++- **File**: `Options/OutboxOptionsValidator.cs`
++- **Issue**: Валидатор не проверяет условие `MinBatchSize <= MaxBatchSize`
++- **Why**: Нарушение п.10 SKILL.md (Кросс-полевой инвариант опций). Production конфиг уже это демонстрирует
++- **Severity**: **HIGH**
++
++### 6. Non-nullable свойства опций без инициализации
++- **File**: `Options/OutboxOptions.cs` (все строки)
++- **Issue**: Свойства `PollInterval`, `MinBatchSize`, etc. - non-nullable int без значений, что нарушает контракт #nullable enable
++- **Why**: Нарушение п.11 SKILL.md; при десериализации могут остаться с default(int) = 0, что невалидно; нужны значения по умолчанию в классе или инициализаторы
++- **Severity**: **HIGH**
++
++### 7. Non-nullable строки в SmtpOptions без инициализации
++- **File**: `Options/SmtpOptions.cs` (строки 5, 7)
++- **Issue**: `Host`, `FromAddress` - non-nullable строки без инициализации (no = null!, no default values)
++- **Why**: Нарушение п.11 SKILL.md; при неполной конфигурации это приведёт к NullReferenceException
++- **Severity**: **HIGH**
++
++### 8. Неправильное преобразование единиц времени
++- **File**: `OutboxWorker.cs` (строка 33)
++- **Issue**: `TimeSpan.FromSeconds(o.PollInterval)` где `PollInterval` в миллисекундах (500 в конфиге)
++- **Why**: `FromSeconds(500)` даст 500 секунд вместо 0.5 секунды. Должно быть `FromMilliseconds()`. Это приведёт к опросу outbox каждые 500 секунд вместо каждые 500 мс
++- **Severity**: **HIGH**
++
++### 9. Несовпадение имена параметра конфигурации в коде и конфиге
++- **File**: `ThrottleService.cs` (строка 7) vs `appsettings.json` (строка 21)
++- **Issue**: Код ищет `"Throttle:MessagesPerMinute"`, но в конфиге это `"Throttle:PerMinute"`
++- **Why**: Ключ не найдётся, вернётся 0 (default int), division by zero при вычислении `60_000 / perMinute`
++- **Severity**: **HIGH**
++
++### 10. Имя настройки без единицы измерения
++- **File**: `appsettings.json` (строка 6, `"PollInterval": 500`)
++- **Issue**: Имя `PollInterval` не указывает единицу (миллисекунды), что противоречит п.6 SKILL.md
++- **Why**: Потребитель может неправильно интерпретировать значение (500 чего? мс или сек?)
++- **Severity**: **MEDIUM**
++
++### 11. appsettings.Staging.json не переопределяет все значения по умолчанию
++- **File**: `appsettings.Staging.json`
++- **Issue**: Не содержит `PollInterval`, `MinBatchSize`, `MaxBatchSize`, `LockTimeout`, `Smtp.FromAddress`
++- **Why**: Нарушение п.13 SKILL.md (Значение по умолчанию в каждом env-файле). Staging будет использовать значения из Dev конфига, что может быть неожиданно
++- **Severity**: **MEDIUM**
++
++### 12. Отсутствует валидация конфигурации при запуске
++- **File**: `Program.cs`
++- **Issue**: Нет вызова `options.ValidateOnStart()` при регистрации опций (даже после регистрации валидатора)
++- **Why**: Нарушение п.7 SKILL.md (Валидация конфигурации при старте). Ошибки конфигурации будут обнаружены только при первом использовании опций
++- **Severity**: **MEDIUM**
++
++---
++
++## Summary
++
++**CRITICAL (3)**: Секреты в коде, логический конфликт MinBatchSize > MaxBatchSize, отсутствие регистрации валидатора  
++**HIGH (6)**: IOptions для изменяемых параметров, отсутствие кросс-полевой валидации, неинициализированные non-nullable свойства, неправильное преобразование единиц времени, несовпадение имён параметров конфигурации  
++**MEDIUM (3)**: Имена без единиц, неполная конфигурация Staging, отсутствие ValidateOnStart()

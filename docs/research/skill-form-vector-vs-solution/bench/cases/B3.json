@@ -1,0 +1,30 @@
+{
+  "id": "B3",
+  "kind": "code",
+  "stack": ".NET",
+  "skill": "ef-core",
+  "project": "VetClinic.Journal - журнал приёмов ветклиники «Лапа» (филиал в Екатеринбурге). ASP.NET Core 8, EF Core 8.0.x, Npgsql.EntityFrameworkCore.PostgreSQL 8.0.x, PostgreSQL 16.",
+  "inputs": [
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/B3/README.md",
+      "to": "README.md"
+    },
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/B3/Domain.cs",
+      "to": "Domain.cs"
+    },
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/B3/ClinicDbContext.cs",
+      "to": "ClinicDbContext.cs"
+    },
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/B3/Program.cs",
+      "to": "Program.cs"
+    },
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/B3/VisitJournalService.cs",
+      "to": "VisitJournalService.cs"
+    }
+  ],
+  "task": "Доработки журнала приёмов, все в VisitJournalService (эндпоинты добавь в Program.cs):\n\n(а) Поиск по журналу (SearchAsync) сейчас ищет только по жалобе. Врачи хотят выбирать, где искать: в жалобе, в диагнозе или в назначенных препаратах. Выбор приходит из query string параметром scope со значениями complaint | diagnosis | drug. Поиск должен остаться полнотекстовым и попадать в индексы из README; постраничный вывод и формат строки - как сейчас.\n\n(б) Экран врача: карточка последнего визита питомца - GetLastVisitCardAsync(petId): данные визита, врач, все анализы и все назначения этого визита.\n\n(в) Бухгалтерии нужна выгрузка приёмов врача за период: ExportVetVisitsCsvAsync(vetId, DateOnly from, DateOnly to), даты - по местному времени клиники, обе включительно. За год у врача бывает до 100 тыс. приёмов. Колонки CSV: дата и время приёма (местное), кличка питомца, жалоба, диагноз, число назначений. Вернуть CSV строкой или писать в Stream - на твоё усмотрение.\n\nПокажи новые и изменённые файлы целиком."
+}

@@ -1,0 +1,121 @@
+{
+  "id": "b86262",
+  "case": "CFG",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.09365140000000001,
+    "durationMs": 18550,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 6047,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 2242,
+      "output_tokens_details": {
+        "thinking_tokens": 702
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6047,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2242,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 6047,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 6047
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "CFG-K9": {
+      "verdict": "PASS",
+      "quote": "Staging `MaxInFlight=20` выше Production `MaxInFlight=5`, причина нигде не зафиксирована",
+      "why": "Находка №11 прямо называет, что Staging задаёт больший лимит параллельных отправок, чем Production."
+    },
+    "CFG-K8": {
+      "verdict": "PASS",
+      "quote": "`MaxRetries: 5` в обоих файлах и `MaxInFlight: 5` в Production совпадают со значением по умолчанию",
+      "why": "Находка №13 указывает, что MaxRetries 5 повторён в Staging и Production при том же дефолте."
+    },
+    "CFG-h-required": {
+      "verdict": "NO",
+      "quote": "non-nullable `Host`/`FromAddress` без `required` и без валидатора",
+      "why": "Отсутствие required упомянуто лишь рядом с отсутствием валидатора; выход не утверждает, что required сам поймает пустой конфиг, и не предлагает его вместо валидации опций."
+    },
+    "CFG-K1": {
+      "verdict": "FOUND",
+      "quote": "пароли БД и SMTP закоммичены в открытом виде",
+      "why": "Находка №7 называет секреты в appsettings.Production.json."
+    },
+    "CFG-K2": {
+      "verdict": "FOUND",
+      "quote": "читает `Throttle:MessagesPerMinute`, а в конфиге ключ `Throttle:PerMinute` → `DivideByZeroException`",
+      "why": "Находка №4 описывает несовпадение ключа, значение 0 и деление на ноль."
+    },
+    "CFG-K3": {
+      "verdict": "FOUND",
+      "quote": "`OutboxOptionsValidator` не зарегистрирован в DI и нет `.ValidateOnStart()`",
+      "why": "Находка №8 совпадает с ключом дословно по существу."
+    },
+    "CFG-K4": {
+      "verdict": "FOUND",
+      "quote": "использует `IOptions<OutboxOptions>` вместо `IOptionsMonitor<OutboxOptions>`; в singleton-хостед-сервисе значение кэшируется",
+      "why": "Находка №5 связывает IOptions в singleton-воркере с требованием менять настройки на лету."
+    },
+    "CFG-K5": {
+      "verdict": "FOUND",
+      "quote": "условие `o.MinBatchSize < o.MaxBatchSize` в `OutboxWorker.ExecuteAsync` всегда `false`, то есть адаптивное изменение размера пачки в проде тихо отключено",
+      "why": "Находка №9 называет тихое отключение adaptive batching при 200/100."
+    },
+    "CFG-K6": {
+      "verdict": "FOUND",
+      "quote": "код делает `TimeSpan.FromSeconds(...)` → реальный интервал 500 сек вместо 0.5 сек",
+      "why": "Находка №2 описывает ровно этот дефект единиц."
+    },
+    "CFG-K7": {
+      "verdict": "FOUND",
+      "quote": "non-nullable `Host`/`FromAddress` без `required` и без валидатора; ошибка конфигурации проявится только в рантайме",
+      "why": "Находка №10 называет отсутствие дефолта и проверки у Host/FromAddress."
+    },
+    "CFG-h-P1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Против IOptions<SmtpOptions> в SmtpMailSender находок нет."
+    },
+    "CFG-h-P2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "LockTimeout как TimeSpan нигде не оспаривается."
+    },
+    "CFG-O1": {
+      "verdict": "FOUND",
+      "quote": "`SentAt` проставляется и коммитится до фактической отправки письма; упавшие отправки никогда не переотправляются",
+      "why": "Находка №1 совпадает с ключом."
+    },
+    "CFG-O2": {
+      "verdict": "FOUND",
+      "quote": "`Configure<SmtpOptions>` биндится на секцию `\"Mail\"`, а в appsettings секция называется `\"Smtp\"`",
+      "why": "Находка №3 описывает несовпадение имени секции и пустые SmtpOptions."
+    },
+    "CFG-O3": {
+      "verdict": "MISSED",
+      "quote": "в отличие от Staging, где пароль вынесен в `${NOTIFY_DB_PASSWORD}`",
+      "why": "Выход считает плейсхолдер правильной практикой и не отмечает, что конфигурация .NET не делает подстановку."
+    }
+  },
+  "stderr": ""
+}

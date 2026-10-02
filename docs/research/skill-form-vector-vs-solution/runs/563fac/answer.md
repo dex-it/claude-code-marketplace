@@ -1,0 +1,1 @@
+Ревью завершено, найдено 9 дефектов — самый серьёзный (critical) в `CustomerExport.CustomersWithOrders`, где `Distinct()` по сущностям не убирает дубли клиентов из-за `AsNoTracking()`. Полный список с обоснованием и severity записан в `work/_answer.md`.

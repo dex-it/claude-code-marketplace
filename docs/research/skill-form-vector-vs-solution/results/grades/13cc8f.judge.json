@@ -1,0 +1,87 @@
+{
+  "id": "13cc8f",
+  "case": "B1",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.126439,
+    "durationMs": 10104,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 12918,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1133,
+      "output_tokens_details": {
+        "thinking_tokens": 250
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 12918,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1133,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 12918,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 12918
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "B1-senior-filter": {
+      "verdict": "PASS",
+      "quote": "Expression.LessThanOrEqual(Expression.Property(p, nameof(Pet.BirthDate)), Expression.Constant(today.AddYears(-seniorAge)))",
+      "why": "Предикат собран деревом выражений над маппленными колонками Species и BirthDate. Граничные даты вычислены в C# до запроса, фильтр выполняется в PostgreSQL, а IsSenior и AgeYears в запросе не используются."
+    },
+    "B1-phone-translate": {
+      "verdict": "PASS",
+      "quote": "var normalized = PhoneFormat.Normalize(phone); ... .Where(o => o.Phone == normalized)",
+      "why": "Нормализуется только введённый номер, колонка Phone сравнивается с ним без вызова C#-методов."
+    },
+    "B1-report-notracking": {
+      "verdict": "PASS",
+      "quote": ".AsNoTracking() ... .Select(p => new SeniorRabiesReminderRow(p.Name, p.Species, p.Owner.FullName, p.Owner.Phone))",
+      "why": "Отчёт проецируется в record без сущностей и дополнительно идёт с AsNoTracking."
+    },
+    "B1-phone-multi": {
+      "verdict": "PASS",
+      "quote": "public async Task<List<Owner>> FindByPhoneAsync(string phone) ... .ToListAsync()",
+      "why": "Метод возвращает всех владельцев с этим номером списком, без Single и First."
+    },
+    "B1-optout-utc": {
+      "verdict": "PASS",
+      "quote": "owner.SmsConsentChangedAt = DateTime.UtcNow;",
+      "why": "Момент записывается с Kind=Utc, поэтому совместим с timestamptz."
+    },
+    "B1-h-email-single": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByEmailAsync с SingleOrDefaultAsync оставлен без изменений и ошибкой не назван."
+    },
+    "B1-h-legacy-switch": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Ни переключатель EnableLegacyTimestampBehavior, ни смена типа колонки в выходе не встречаются."
+    },
+    "B1-m-notracking-write": {
+      "verdict": "NO",
+      "quote": "var owner = await db.Owners.SingleAsync(o => o.Id == ownerId);",
+      "why": "RevokeSmsConsentAsync и UpdateContactsAsync читают отслеживаемую сущность, AsNoTracking стоит только в запросах на чтение."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,72 @@
+{
+  "id": "edf17a",
+  "case": "G6",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.1210422,
+    "durationMs": 11433,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 12256,
+      "cache_read_input_tokens": 531,
+      "output_tokens": 1144,
+      "output_tokens_details": {
+        "thinking_tokens": 548
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 12256,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1144,
+          "cache_read_input_tokens": 531,
+          "cache_creation_input_tokens": 12256,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 12256
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G6-sort-alias": {
+      "verdict": "FAIL",
+      "quote": "if (s.HouseId is not null || !string.IsNullOrWhiteSpace(s.District) || s.Sort == \"address\")\n            sql.Append(\" JOIN apartments a ON a.id = r.apartment_id\");",
+      "why": "Белый список для sort/dir соблюдён, но JOIN дописывается после WHERE, а это синтаксически неверный SQL при любом фильтре; общего набора присоединённых таблиц с JOIN фильтров HouseId/District нет, поэтому при таком фильтре алиас a/h повторяется."
+    },
+    "G6-search-columns": {
+      "verdict": "FAIL",
+      "quote": "public string? ContactPhone { get; set; }\n    public string? CompletionComment { get; set; }",
+      "why": "Свойства замаплены и добавлены миграцией, но явный список колонок сырого SQL в SearchAsync в diff не дополнен, поэтому FromSqlRaw падает на каждом запросе реестра."
+    },
+    "G6-plan-orphans": {
+      "verdict": "FAIL",
+      "quote": "plan.Items.Remove(item);",
+      "why": "Работы убираются только из коллекции, без _db.PlanItems.Remove; при DeleteOrphansTiming = Never SaveChanges бросает исключение о разорванной обязательной связи."
+    },
+    "G6-h-move-items": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "MergePlansAsync не затронут и не упомянут."
+    },
+    "G6-h-limit": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Подстановка LIMIT/OFFSET оставлена как есть и инъекцией не названа."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,26 @@
+{
+  "id": "G4",
+  "kind": "code",
+  "stack": ".NET",
+  "skill": "ef-core",
+  "project": "Pixelwork.Timesheets - учёт рабочего времени дизайн-агентства по клиентам и проектам, закрытие месяцев по актам; ASP.NET Core 8, EF Core 8, Npgsql, PostgreSQL 16, выкатка релизом с EF migrations bundle",
+  "inputs": [
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/G4/Models.cs",
+      "to": "Models.cs"
+    },
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/G4/AgencyDbContext.cs",
+      "to": "AgencyDbContext.cs"
+    },
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/G4/ProjectService.cs",
+      "to": "ProjectService.cs"
+    },
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/G4/TimeEntryService.cs",
+      "to": "TimeEntryService.cs"
+    }
+  ],
+  "task": "Задачи по сервису учёта времени.\n(а) Бухгалтерии нужна сводка за год: по каждому месяцу года - закрыт ли он (дата подписания акта) и сколько часов списано за месяц по всем проектам. Endpoint GET /reports/year/{year}.\n(б) Когда договор с клиентом расторгнут, менеджер удаляет все проекты клиента одной кнопкой - проектов бывает несколько десятков, по одному удалять долго. Endpoint DELETE /clients/{id}/projects.\n(в) Двух проектов с одним кодом быть не должно - сейчас это проверяет только CreateAsync. Подстраховаться на уровне БД; миграцию приложить, выкатка обычным релизом (efbundle в pipeline).\n(г) Сотрудник не может списать за один день больше 12 часов суммарно по всем проектам - 400 при добавлении и при правке записи."
+}

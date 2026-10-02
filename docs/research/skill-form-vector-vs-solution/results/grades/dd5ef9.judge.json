@@ -1,0 +1,71 @@
+{
+  "id": "dd5ef9",
+  "case": "N0",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0435874,
+    "durationMs": 4526,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 4274,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 448,
+      "output_tokens_details": {
+        "thinking_tokens": 0
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4274,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 448,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 4274,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 4274
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "N0-h-split": {
+      "verdict": "YES",
+      "quote": "`AsSplitQuery()` на выборке одной сущности по уникальному ключу",
+      "why": "Находка №4 объявляет AsSplitQuery в OrderCard.GetAsync дефектом и рекомендует его убрать."
+    },
+    "N0-h-utc": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находка по AuditWriter касается инъекции DbContext, а не DateTime.UtcNow/Kind."
+    },
+    "N0-h-contains": {
+      "verdict": "NO",
+      "quote": "транслируется в `= ANY(...)`, безопасно для тысяч id",
+      "why": "Выход явно признаёт Contains в CartLookup корректным."
+    },
+    "N0-X1": {
+      "verdict": "FOUND",
+      "quote": "Для `page = 1` получаем `Skip(pageSize)` — первая страница полностью пропускается",
+      "why": "Дефект off-by-one в пагинации назван точно."
+    },
+    "N0-X2": {
+      "verdict": "FOUND",
+      "quote": "Фильтр: `o.Status == \"Active\"`. В `Model.cs` значение по умолчанию для `Order.Status` — `\"active\"`",
+      "why": "Несовпадение регистра и пустой список названы как дефект."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,55 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..dd94404
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,49 @@
++# Результаты code review MR !87
++
++## Найденные дефекты
++
++### 1. BatchService.cs, ListAsync (строка 49)
++**Файл:** BatchService.cs  
++**Метод:** ListAsync  
++**Проблема:** Ошибка логики пагинации. Используется `Skip(page * pageSize)` вместо `Skip((page - 1) * pageSize)`. 
++
++При page=1 пропускаются первые 20 записей (вместо 0), первая страница содержит записи 21-40. Комментарий метода указывает "Номер страницы, начиная с 1", но реализация этому не соответствует.
++
++**Severity:** critical
++
++---
++
++### 2. BatchService.cs, CompliancePercentAsync (строка 105)
++**Файл:** BatchService.cs  
++**Метод:** CompliancePercentAsync  
++**Проблема:** LINQ-выражение `s.Results.All(r => r.Value <= r.Limit)` на коллекции навигации не транслируется в SQL. 
++
++Нарушение SKILL.md п.10 (нетранслируемое условие фильтра). Будет выброшено исключение `InvalidOperationException: "The LINQ expression ... could not be translated"` при выполнении CountAsync. Нужно использовать отрицание Any: `!s.Results.Any(r => r.Value > r.Limit)`.
++
++**Severity:** high
++
++---
++
++### 3. BatchService.cs, CompliancePercentAsync (строка 107)
++**Файл:** BatchService.cs  
++**Метод:** CompliancePercentAsync  
++**Проблема:** Два дефекта в операции расчёта процента:
++
++a) Целочисленное деление теряет точность. Выражение `compliant / total * 100` при compliant=1, total=3 дает 0 вместо 33. Правильный порядок: `compliant * 100 / total`.
++
++b) Возможно деление на нуль, если партия не содержит проб (total==0). Это вызовет `DivideByZeroException`.
++
++**Severity:** high
++
++---
++
++### 4. BatchService.cs, RetagAsync (строка 93)
++**Файл:** BatchService.cs  
++**Метод:** RetagAsync  
++**Проблема:** Использование `sample.Tags.Clear()` на коллекции с обязательным FK (SampleId не nullable) без явной конфигурации DeleteBehavior.
++
++Нарушение SKILL.md п.20. В LabDbContext.cs для конфигурации `e.HasMany(s => s.Tags).WithOne().HasForeignKey(...)` отсутствует `.OnDelete(DeleteBehavior.Cascade)`. При использовании default behavior (Restrict или ClientSetNull) вызовет `InvalidOperationException: "Cannot set property 'SampleId' to null..."` в SaveChanges, так как невозможно разорвать обязательную связь.
++
++**Решение:** Добавить `.OnDelete(DeleteBehavior.Cascade)` в конфигурацию SampleTag, или явно удалить зависимые объекты перед Clear().
++
++**Severity:** medium

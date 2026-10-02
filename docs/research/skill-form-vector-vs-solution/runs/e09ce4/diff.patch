@@ -1,0 +1,78 @@
+diff --git a/Model.cs b/Model.cs
+index cc90064..bef6a05 100644
+--- a/Model.cs
++++ b/Model.cs
+@@ -10,6 +10,7 @@ public class Order
+     public virtual Customer Customer { get; set; } = null!;
+     public string Status { get; set; } = "active";
+     public string Category { get; set; } = "";
++    public int Complexity { get; set; }               // сложность комплектации, 1..5
+     public decimal Total { get; set; }
+     public DateTime CreatedAt { get; set; }          // column: timestamp without time zone
+     public DateTime? ShippedAt { get; set; }
+@@ -43,8 +44,34 @@ public class ShopDbContext : DbContext
+     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+     protected override void OnModelCreating(ModelBuilder b)
+     {
+-        b.Entity<Order>().HasQueryFilter(o => !o.IsDeleted);
+-        b.Entity<Order>().Property(o => o.CreatedAt).HasColumnType("timestamp without time zone");
++        var order = b.Entity<Order>();
++
++        order.HasQueryFilter(o => !o.IsDeleted);
++
++        // Колонка остаётся timestamp without time zone (на неё смотрят отчёты DBA).
++        // На запись нормализуем к UTC и снимаем Kind (Npgsql не даёт писать Kind=Utc в timestamp),
++        // на чтение помечаем значение как Utc, не сдвигая его.
++        order.Property(o => o.CreatedAt)
++            .HasColumnType("timestamp without time zone")
++            .HasConversion(
++                v => DateTime.SpecifyKind(v.ToUniversalTime(), DateTimeKind.Unspecified),
++                v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
++
++        order.Property(o => o.Complexity).IsRequired();
++        order.ToTable(t => t.HasCheckConstraint("CK_Order_Complexity_Range", "\"Complexity\" >= 1 AND \"Complexity\" <= 5"));
++
++        // Order — мягко удаляемый агрегат (IsDeleted), поэтому связи с Items/Payments
++        // настроены на Restrict: физический DELETE родителя не должен каскадно уносить
++        // позиции и платежи, если кто-то (миграция, DBA-скрипт) удалит строку напрямую.
++        order.HasMany(o => o.Items)
++            .WithOne()
++            .HasForeignKey(i => i.OrderId)
++            .OnDelete(DeleteBehavior.Restrict);
++
++        order.HasMany(o => o.Payments)
++            .WithOne()
++            .HasForeignKey(p => p.OrderId)
++            .OnDelete(DeleteBehavior.Restrict);
+     }
+ }
+ // Options: UseNpgsql(cs).UseLazyLoadingProxies()
+diff --git a/OrderRepository.cs b/OrderRepository.cs
+index 72637b8..277c588 100644
+--- a/OrderRepository.cs
++++ b/OrderRepository.cs
+@@ -6,4 +6,9 @@ public class OrderRepository
+     public OrderRepository(ShopDbContext db) => _db = db;
+     public Task<List<Order>> GetAllAsync() => _db.Orders.ToListAsync();
+     public Task<Order?> GetAsync(Guid id) => _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
++
++    // Bulk-удаление позиций одним SQL DELETE: не зависит от DeleteBehavior связи
++    // Order->Items и не тянет позиции в Change Tracker ради последующего SaveChanges.
++    public Task ClearItems(Guid orderId) =>
++        _db.Set<OrderItem>().Where(i => i.OrderId == orderId).ExecuteDeleteAsync();
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..221681b
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,9 @@
++Изменённые файлы:
++- Model.cs — добавлено свойство `Order.Complexity` (int) + конфигурация в `OnModelCreating`; конвертер для `CreatedAt`; связи `Order->Items` и `Order->Payments`.
++- OrderRepository.cs — добавлен метод `ClearItems(Guid orderId)`.
++
++Решения:
++- Complexity: `int` с `IsRequired()` и check-constraint `CK_Order_Complexity_Range` (1..5) на уровне БД — диапазон гарантирован не только в коде.
++- CreatedAt: колонка осталась `timestamp without time zone`; добавлен `HasConversion` — на запись значение переводится в UTC и Kind сбрасывается в `Unspecified` (Npgsql не пишет `Kind=Utc` в `timestamp`), на чтение значение помечается `Kind=Utc` без сдвига — в коде всегда UTC, независимо от таймзоны клиента/сервера.
++- Order->Items и Order->Payments настроены явно с `DeleteBehavior.Restrict`: раз Order удаляется мягко (`IsDeleted`), физический каскад на дочерние таблицы не нужен и опасен при случайном хард-делете.
++- `ClearItems` реализован через `ExecuteDeleteAsync` (один SQL DELETE по `OrderId`), а не через `Items.Clear()+SaveChanges` — это не зависит от `DeleteBehavior` связи и не тянет позиции в Change Tracker.

@@ -1,0 +1,66 @@
+{
+  "id": "d61bd0",
+  "case": "E2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0468874,
+    "durationMs": 11332,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 2694,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1245,
+      "output_tokens_details": {
+        "thinking_tokens": 757
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 2694,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1245,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 2694,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 2694
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "E2-single": {
+      "verdict": "FAIL",
+      "quote": "return results.Count == 1 ? results[0] : null;",
+      "why": "Склад молча не выбирается, но неоднозначность возвращается тем же null, что и «не найдено»; явной ошибки, Result или списка кандидатов нет, поэтому условие PASS не выполнено."
+    },
+    "E2-h-split": {
+      "verdict": "NO",
+      "quote": "используют `Include()` для загрузки связанных Items и Payments одним запросом, что более эффективно для больших объёмов данных чем N+1 queries",
+      "why": "Карточка грузится одним JOIN без split, но обоснование другое: не «для одной сущности split не нужен», а сравнение с N+1."
+    },
+    "E2-m-cart": {
+      "verdict": "YES",
+      "quote": ".Where(o => o.CustomerId == customerId)\n            .Include(o => o.Items)\n            .Include(o => o.Payments)\n            .ToListAsync();",
+      "why": "Выгрузка заказов клиента включает две коллекции одним запросом без AsSplitQuery и без проекции."
+    },
+    "E2-m-nullagg": {
+      "verdict": "NO",
+      "quote": ".Where(o => o.CustomerId == customerId && o.ShippedAt != null)",
+      "why": "Фильтр ShippedAt != null стоит до выборки, а nullable-агрегата Max с `!` или .Value нет."
+    }
+  },
+  "stderr": ""
+}

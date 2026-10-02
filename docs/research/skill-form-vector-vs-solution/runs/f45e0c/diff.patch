@@ -1,0 +1,81 @@
+diff --git a/Model.cs b/Model.cs
+index cc90064..b92f551 100644
+--- a/Model.cs
++++ b/Model.cs
+@@ -11,7 +11,8 @@ public class Order
+     public string Status { get; set; } = "active";
+     public string Category { get; set; } = "";
+     public decimal Total { get; set; }
+-    public DateTime CreatedAt { get; set; }          // column: timestamp without time zone
++    public int Complexity { get; set; }              // сложность комплектации, 1..5
++    public DateTime CreatedAt { get; set; }          // column: timestamp without time zone, всегда Kind=Utc в коде
+     public DateTime? ShippedAt { get; set; }
+     public bool IsDeleted { get; set; }
+     public List<OrderItem> Items { get; set; } = new();
+@@ -44,7 +45,33 @@ public class ShopDbContext : DbContext
+     protected override void OnModelCreating(ModelBuilder b)
+     {
+         b.Entity<Order>().HasQueryFilter(o => !o.IsDeleted);
+-        b.Entity<Order>().Property(o => o.CreatedAt).HasColumnType("timestamp without time zone");
++
++        b.Entity<Order>()
++            .ToTable(t => t.HasCheckConstraint("CK_Order_Complexity_Range", "\"Complexity\" BETWEEN 1 AND 5"));
++
++        // Колонка остаётся timestamp without time zone (на неё смотрят отчёты DBA).
++        // На запись нормализуем к Kind=Unspecified (иначе Npgsql 8 бросает на Kind=Utc в timestamp),
++        // на чтение помечаем Kind=Utc, чтобы в коде дата всегда была UTC независимо от таймзоны клиента.
++        b.Entity<Order>()
++            .Property(o => o.CreatedAt)
++            .HasColumnType("timestamp without time zone")
++            .HasConversion(
++                v => DateTime.SpecifyKind(v.ToUniversalTime(), DateTimeKind.Unspecified),
++                v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
++
++        // Soft-delete у Order + required FK у детей: не даём БД физически каскадно удалять
++        // Items/Payments при DELETE родителя (Order удаляется только через IsDeleted).
++        b.Entity<Order>()
++            .HasMany(o => o.Items)
++            .WithOne()
++            .HasForeignKey(i => i.OrderId)
++            .OnDelete(DeleteBehavior.Restrict);
++
++        b.Entity<Order>()
++            .HasMany(o => o.Payments)
++            .WithOne()
++            .HasForeignKey(p => p.OrderId)
++            .OnDelete(DeleteBehavior.Restrict);
+     }
+ }
+ // Options: UseNpgsql(cs).UseLazyLoadingProxies()
+diff --git a/OrderRepository.cs b/OrderRepository.cs
+index 72637b8..4a076f5 100644
+--- a/OrderRepository.cs
++++ b/OrderRepository.cs
+@@ -6,4 +6,12 @@ public class OrderRepository
+     public OrderRepository(ShopDbContext db) => _db = db;
+     public Task<List<Order>> GetAllAsync() => _db.Orders.ToListAsync();
+     public Task<Order?> GetAsync(Guid id) => _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
++
++    public async Task ClearItems(Guid orderId)
++    {
++        var order = await _db.Orders.Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == orderId);
++        if (order is null) return;
++        order.Items.Clear();
++        await _db.SaveChangesAsync();
++    }
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..5629faa
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,9 @@
++## Изменённые файлы
++- `Model.cs` — добавлено поле `Order.Complexity` (int, 1..5), конфигурация в `OnModelCreating`
++- `OrderRepository.cs` — добавлен метод `ClearItems(Guid orderId)`
++
++## Решения
++- `Complexity` — плоское свойство `int`, не Owned-Type (по правилу SKILL: Value Object из одного поля — псевдо-абстракция); диапазон 1..5 закреплён CHECK-constraint в БД, а не только в C#.
++- `CreatedAt`: колонка осталась `timestamp without time zone`; добавлен `HasConversion` — на запись `ToUniversalTime()` + `SpecifyKind(Unspecified)` (Npgsql 8 иначе бросает исключение на `Kind=Utc` в `timestamp`), на чтение `SpecifyKind(Utc)`. В коде дата всегда UTC независимо от таймзоны клиента, для DBA-отчётов формат колонки не изменился.
++- Связи `Order → Items` и `Order → Payments` явно объявлены в `OnModelCreating` с `OnDelete(DeleteBehavior.Restrict)`: FK у детей обязательные (`Guid OrderId`), Order удаляется только мягко (`IsDeleted`/`HasQueryFilter`), поэтому физический каскад на уровне БД запрещён, чтобы случайный `DELETE FROM orders` не снёс Items/Payments.
++- `ClearItems(Guid orderId)`: загружает заказ с `Include(o => o.Items)`, вызывает `Items.Clear()` и `SaveChangesAsync()`. Так как `OrderItem.OrderId` — required FK, EF не может занулить связь и физически удалит строки позиций (ожидаемое поведение для «убрать все позиции»), Payments не затрагиваются.

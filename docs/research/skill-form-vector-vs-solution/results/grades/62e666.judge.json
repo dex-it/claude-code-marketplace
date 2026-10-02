@@ -1,0 +1,121 @@
+{
+  "id": "62e666",
+  "case": "CFG",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.10965140000000001,
+    "durationMs": 15336,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 9082,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1828,
+      "output_tokens_details": {
+        "thinking_tokens": 479
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9082,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1828,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 9082,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 9082
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "CFG-K9": {
+      "verdict": "PASS",
+      "quote": "На staging `MaxInFlight: 20`, а в prod — 5.",
+      "why": "Находка прямо указывает, что MaxInFlight в Staging выше, чем в Production."
+    },
+    "CFG-K8": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Дублирование MaxRetries 5 в Staging и Production при том же дефолте нигде не упомянуто."
+    },
+    "CFG-h-required": {
+      "verdict": "NO",
+      "quote": "`required` или `= \"\"` плюс валидация (`[Required]` + `ValidateDataAnnotations().ValidateOnStart()`, либо `IValidateOptions`)",
+      "why": "required предложен вместе с валидацией опций, а не вместо неё, и нигде не сказано, что он ловит отсутствие значения в конфигурации."
+    },
+    "CFG-K1": {
+      "verdict": "FOUND",
+      "quote": "В файле лежат пароль БД (`Password=Kx7!pQ2vR9wz`) и пароль SMTP-релея",
+      "why": "Секреты в appsettings.Production.json названы critical-дефектом."
+    },
+    "CFG-K2": {
+      "verdict": "FOUND",
+      "quote": "`GetValue<int>` возвращает 0, и `60_000 / 0` бросает `DivideByZeroException`",
+      "why": "Описаны несовпадение ключа и деление на ноль."
+    },
+    "CFG-K3": {
+      "verdict": "FOUND",
+      "quote": "`OutboxOptionsValidator` нигде не добавлен в DI, поэтому его никто не вызывает.",
+      "why": "Названы отсутствие регистрации валидатора и отсутствие ValidateOnStart."
+    },
+    "CFG-K4": {
+      "verdict": "FOUND",
+      "quote": "`IOptions<OutboxOptions>` не позволяет менять настройки на лету.",
+      "why": "Дефект назван, в качестве исправления предложен IOptionsMonitor."
+    },
+    "CFG-K5": {
+      "verdict": "FOUND",
+      "quote": "условие `o.MinBatchSize < o.MaxBatchSize` ложно, и адаптивный батчинг молча отключается",
+      "why": "Описано тихое отключение adaptive batching при конфигурации 200/100."
+    },
+    "CFG-K6": {
+      "verdict": "FOUND",
+      "quote": "Код трактует его как секунды, и получается пауза в 500 с (≈8,3 мин).",
+      "why": "Дефект единиц измерения PollInterval назван."
+    },
+    "CFG-K7": {
+      "verdict": "FOUND",
+      "quote": "`SmtpOptions`: non-nullable `Host` и `FromAddress` без значения.",
+      "why": "Названы non-nullable поля без дефолта, для исправления предложена валидация."
+    },
+    "CFG-h-P1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находки против IOptions<SmtpOptions> в SmtpMailSender нет; п.17 касается SMTP-соединений, а не опций."
+    },
+    "CFG-h-P2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "LockTimeout как TimeSpan нигде не оспаривается."
+    },
+    "CFG-O1": {
+      "verdict": "FOUND",
+      "quote": "`SentAt` ставится до отправки.",
+      "why": "Описано, что неудачная отправка теряется и повторно не выбирается."
+    },
+    "CFG-O2": {
+      "verdict": "FOUND",
+      "quote": "Во всех appsettings секция называется `Smtp`, поэтому опции остаются пустыми",
+      "why": "Несовпадение секций Mail и Smtp названо critical-дефектом."
+    },
+    "CFG-O3": {
+      "verdict": "FOUND",
+      "quote": "Конфигурация .NET не подставляет переменные окружения в значения.",
+      "why": "Дефект с ${NOTIFY_DB_PASSWORD} в Staging назван."
+    }
+  },
+  "stderr": ""
+}

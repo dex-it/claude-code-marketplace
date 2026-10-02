@@ -1,0 +1,88 @@
+diff --git a/OrderReportService.cs b/OrderReportService.cs
+new file mode 100644
+index 0000000..272faaf
+--- /dev/null
++++ b/OrderReportService.cs
+@@ -0,0 +1,56 @@
++namespace Shop.Data;
++
++public class ActiveOrderReportItem
++{
++    public Guid Id { get; set; }
++    public string CustomerName { get; set; } = "";
++    public decimal Total { get; set; }
++    public int ItemsCount { get; set; }
++}
++
++public class OverdueOrderReportItem
++{
++    public Guid Id { get; set; }
++    public string CustomerName { get; set; } = "";
++    public decimal Total { get; set; }
++    public DateTime CreatedAt { get; set; }
++}
++
++// Read-only reports built on top of OrderRepository.Query(); no entities are tracked or mutated here.
++public class OrderReportService
++{
++    private readonly OrderRepository _orders;
++    public OrderReportService(OrderRepository orders) => _orders = orders;
++
++    public Task<List<ActiveOrderReportItem>> GetActiveOrdersAsync(CancellationToken ct = default) =>
++        _orders.Query()
++            .Where(o => o.Status == "active")
++            .Select(o => new ActiveOrderReportItem
++            {
++                Id = o.Id,
++                CustomerName = o.Customer.Name,
++                Total = o.Total,
++                ItemsCount = o.Items.Count
++            })
++            .ToListAsync(ct);
++
++    public Task<Dictionary<string, int>> GetActiveOrderCountsByCategoryAsync(CancellationToken ct = default) =>
++        _orders.Query()
++            .Where(o => o.Status == "active")
++            .GroupBy(o => o.Category)
++            .Select(g => new { Category = g.Key, Count = g.Count() })
++            .ToDictionaryAsync(x => x.Category, x => x.Count, ct);
++
++    // Mirrors Order.IsOverdue(now); kept inline because EF Core cannot translate a call to the instance method into SQL.
++    public Task<List<OverdueOrderReportItem>> GetOverdueOrdersAsync(DateTime now, CancellationToken ct = default) =>
++        _orders.Query()
++            .Where(o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < now)
++            .Select(o => new OverdueOrderReportItem
++            {
++                Id = o.Id,
++                CustomerName = o.Customer.Name,
++                Total = o.Total,
++                CreatedAt = o.CreatedAt
++            })
++            .ToListAsync(ct);
++}
+diff --git a/OrderRepository.cs b/OrderRepository.cs
+index 72637b8..309e34b 100644
+--- a/OrderRepository.cs
++++ b/OrderRepository.cs
+@@ -6,4 +6,7 @@ public class OrderRepository
+     public OrderRepository(ShopDbContext db) => _db = db;
+     public Task<List<Order>> GetAllAsync() => _db.Orders.ToListAsync();
+     public Task<Order?> GetAsync(Guid id) => _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
++
++    // Read-only composable source for reports: no tracking, callers add their own Where/Select/GroupBy.
++    public IQueryable<Order> Query() => _db.Orders.AsNoTracking();
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..8206976
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,8 @@
++## Изменённые/созданные файлы
++- `OrderRepository.cs` — добавлен метод `IQueryable<Order> Query()` (AsNoTracking, без материализации) для композиции отчётных запросов.
++- `OrderReportService.cs` (новый) — сервис `OrderReportService` с тремя read-only методами и DTO `ActiveOrderReportItem`, `OverdueOrderReportItem`.
++
++## Решения
++- Все три метода строятся на `IQueryable` из `OrderRepository.Query()` и делают `Where`/`Select`/`GroupBy` до материализации — фильтрация, подсчёт позиций и группировка по категориям выполняются в SQL, а не в памяти (нет N+1, нет лишнего трафика).
++- Активные заказы отбираются условием `Status == "active"`; soft-deleted заказы уже отфильтрованы глобальным `HasQueryFilter` в `ShopDbContext`.
++- Правило просроченности заказов (`ShippedAt == null && CreatedAt.AddDays(3) < now`) продублировано инлайном в LINQ-запросе, а не вызовом `Order.IsOverdue(now)`, так как EF Core не транслирует вызов инстанс-метода в SQL (бросил бы `InvalidOperationException`); соответствие с `Order.IsOverdue` зафиксировано комментарием у метода.

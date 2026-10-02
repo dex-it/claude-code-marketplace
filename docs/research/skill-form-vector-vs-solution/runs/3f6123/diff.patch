@@ -1,0 +1,91 @@
+diff --git a/OrderQueries.cs b/OrderQueries.cs
+new file mode 100644
+index 0000000..572f8f4
+--- /dev/null
++++ b/OrderQueries.cs
+@@ -0,0 +1,70 @@
++namespace Shop.Data;
++
++public record OrderItemDto(int Id, Guid ProductId, int Qty);
++public record PaymentDto(int Id, decimal Amount);
++public record OrderCardDto(
++    Guid Id, Guid CustomerId, string Status, string Category, decimal Total,
++    DateTime CreatedAt, DateTime? ShippedAt,
++    List<OrderItemDto> Items, List<PaymentDto> Payments);
++
++// Read-only запросы: проекция в DTO (без трекинга и lazy-load прокси), soft-delete фильтр Order применяется автоматически.
++// Регистрировать как scoped вместе с ShopDbContext.
++public class OrderQueries
++{
++    private readonly ShopDbContext _db;
++    public OrderQueries(ShopDbContext db) => _db = db;
++
++    private static IQueryable<OrderCardDto> ToCard(IQueryable<Order> orders) =>
++        orders.Select(o => new OrderCardDto(
++            o.Id, o.CustomerId, o.Status, o.Category, o.Total, o.CreatedAt, o.ShippedAt,
++            o.Items.Select(i => new OrderItemDto(i.Id, i.ProductId, i.Qty)).ToList(),
++            o.Payments.Select(p => new PaymentDto(p.Id, p.Amount)).ToList()));
++
++    // (а) Один заказ: одна сущность - один round-trip; декартово произведение Items x Payments одного заказа мало.
++    public Task<OrderCardDto?> GetOrderCardAsync(Guid orderId, CancellationToken ct = default) =>
++        ToCard(_db.Orders.Where(o => o.Id == orderId))
++            .AsSingleQuery()
++            .FirstOrDefaultAsync(ct);
++
++    // (б) Тысячи заказов с двумя коллекциями: split query, чтобы не было взрыва Orders x Items x Payments.
++    // Порядок по Id нужен для согласованной склейки результатов split-запросов.
++    public Task<List<OrderCardDto>> GetCustomerOrdersAsync(Guid customerId, CancellationToken ct = default) =>
++        ToCard(_db.Orders.Where(o => o.CustomerId == customerId).OrderBy(o => o.Id))
++            .AsSplitQuery()
++            .ToListAsync(ct);
++
++    // (в) SKU уникален только в пределах склада. Со складом - SingleOrDefault по (Sku, Warehouse).
++    // Без склада SKU может быть на нескольких складах: не выбираем произвольный (разные цена/остаток),
++    // а возвращаем единственный либо явно сообщаем о неоднозначности. Все варианты - GetProductsBySkuAsync.
++    public async Task<Product?> GetProductBySku(string sku, string? warehouse, CancellationToken ct = default)
++    {
++        var query = _db.Products.AsNoTracking().Where(p => p.Sku == sku);
++
++        if (warehouse is not null)
++            return await query.SingleOrDefaultAsync(p => p.Warehouse == warehouse, ct);
++
++        var found = await query.OrderBy(p => p.Warehouse).Take(2).ToListAsync(ct);
++        if (found.Count > 1)
++            throw new InvalidOperationException(
++                $"SKU '{sku}' is stocked in several warehouses; warehouse must be specified.");
++        return found.SingleOrDefault();
++    }
++
++    public Task<List<Product>> GetProductsBySkuAsync(string sku, CancellationToken ct = default) =>
++        _db.Products.AsNoTracking()
++            .Where(p => p.Sku == sku)
++            .OrderBy(p => p.Warehouse)
++            .ToListAsync(ct);
++
++    // (г) Агрегат в БД. ShippedAt nullable: фильтруем null и берём MAX как DateTime?, чтобы пустой набор
++    // не падал внутри EF; отсутствие отгрузок - явное исключение, а не default(DateTime).
++    public async Task<DateTime> GetLastShippedAtAsync(Guid customerId, CancellationToken ct = default)
++    {
++        var last = await _db.Orders
++            .Where(o => o.CustomerId == customerId && o.ShippedAt != null)
++            .MaxAsync(o => o.ShippedAt, ct);
++
++        return last ?? throw new InvalidOperationException(
++            $"Customer {customerId} has no shipped orders.");
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..e89d0b7
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,9 @@
++Файлы:
++- создан `OrderQueries.cs`: сервис OrderQueries и DTO (OrderCardDto, OrderItemDto, PaymentDto)
++- создан `_answer.md`
++- `Model.cs` и `OrderRepository.cs` не изменялись
++
++Решения:
++- Все методы только читают данные: заказы проецируются в DTO, продукты читаются с AsNoTracking, так что lazy-load прокси и трекинг не задействуются. Soft-delete фильтр для заказов работает сам. Одна карточка (а) грузится одним запросом (AsSingleQuery). Выгрузка тысяч заказов (б) идёт через AsSplitQuery с OrderBy(Id), чтобы не было декартова произведения Items x Payments.
++- GetProductBySku: `warehouse` стал `string?`. Если склад передан, работает SingleOrDefault по паре (Sku, Warehouse). Если склад null, а SKU лежит на нескольких складах, метод бросает исключение о неоднозначности. Произвольный склад не выбирается, потому что у складов разные цена и остаток. Для списка по всем складам добавлен GetProductsBySkuAsync. Уникальность (Sku, Warehouse) стоит закрепить уникальным индексом через отдельную миграцию; я её не добавлял.
++- Дата последней отгрузки (г) считается в БД через MAX по ShippedAt с фильтром `!= null`. Если у клиента нет отгрузок, метод бросает понятное исключение и не возвращает default(DateTime). Имейте в виду: у ShippedAt не задан тип колонки, поэтому Npgsql 8 по умолчанию делает `timestamptz` и возвращает Kind=Utc, а CreatedAt хранится как `timestamp without time zone`.

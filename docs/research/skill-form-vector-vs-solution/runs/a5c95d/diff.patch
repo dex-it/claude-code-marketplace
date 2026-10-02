@@ -1,0 +1,85 @@
+diff --git a/OrderQueries.cs b/OrderQueries.cs
+new file mode 100644
+index 0000000..71beed8
+--- /dev/null
++++ b/OrderQueries.cs
+@@ -0,0 +1,64 @@
++namespace Shop.Data;
++
++public record OrderItemDto(int Id, Guid ProductId, int Qty);
++public record PaymentDto(int Id, decimal Amount);
++public record OrderCardDto(
++    Guid Id, Guid CustomerId, string Status, string Category, decimal Total,
++    DateTime CreatedAt, DateTime? ShippedAt,
++    List<OrderItemDto> Items, List<PaymentDto> Payments);
++
++public class OrderQueries
++{
++    private readonly ShopDbContext _db;
++    public OrderQueries(ShopDbContext db) => _db = db;
++
++    // (а) Одна сущность: JOIN в одном запросе дешевле лишнего roundtrip, поэтому без AsSplitQuery.
++    // Проекция в DTO — чтобы lazy-proxy (UseLazyLoadingProxies) не утекали наружу и не давали N+1.
++    public Task<OrderCardDto?> GetOrderCardAsync(Guid orderId, CancellationToken ct = default) =>
++        _db.Orders
++            .AsNoTracking()
++            .Where(o => o.Id == orderId)
++            .Select(ToCard())
++            .SingleOrDefaultAsync(ct);
++
++    // (б) Тысячи заказов × позиции × платежи: две коллекции одним JOIN дают cartesian explosion,
++    // поэтому AsSplitQuery (3 запроса: заказы, позиции, платежи). Сортировка — для стабильного split.
++    public Task<List<OrderCardDto>> GetCustomerOrdersAsync(Guid customerId, CancellationToken ct = default) =>
++        _db.Orders
++            .AsNoTracking()
++            .Where(o => o.CustomerId == customerId)
++            .OrderBy(o => o.CreatedAt).ThenBy(o => o.Id)
++            .Select(ToCard())
++            .AsSplitQuery()
++            .ToListAsync(ct);
++
++    // (в) Уникальность есть только у пары (Sku, Warehouse). Со складом — SingleOrDefault по уникальному ключу.
++    // Без склада SKU может быть на нескольких складах: Single упал бы при росте данных, поэтому берём
++    // первый в детерминированном порядке (по Warehouse). Какой склад предпочитать — открытый вопрос к бизнесу.
++    public Task<Product?> GetProductBySku(string sku, string? warehouse, CancellationToken ct = default)
++    {
++        var query = _db.Products.AsNoTracking().Where(p => p.Sku == sku);
++
++        return warehouse is null
++            ? query.OrderBy(p => p.Warehouse).FirstOrDefaultAsync(ct)
++            : query.Where(p => p.Warehouse == warehouse).SingleOrDefaultAsync(ct);
++    }
++
++    // (г) MAX на сервере; ShippedAt nullable — фильтруем null явно, а отсутствие отгрузок
++    // превращаем в понятное исключение вместо NRE/"Sequence contains no elements".
++    public async Task<DateTime> GetLastShippedAtAsync(Guid customerId, CancellationToken ct = default)
++    {
++        var last = await _db.Orders
++            .Where(o => o.CustomerId == customerId && o.ShippedAt != null)
++            .MaxAsync(o => o.ShippedAt, ct);
++
++        return last ?? throw new InvalidOperationException(
++            $"Customer {customerId} has no shipped orders.");
++    }
++
++    private static System.Linq.Expressions.Expression<Func<Order, OrderCardDto>> ToCard() =>
++        o => new OrderCardDto(
++            o.Id, o.CustomerId, o.Status, o.Category, o.Total, o.CreatedAt, o.ShippedAt,
++            o.Items.Select(i => new OrderItemDto(i.Id, i.ProductId, i.Qty)).ToList(),
++            o.Payments.Select(p => new PaymentDto(p.Id, p.Amount)).ToList());
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..d395431
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,9 @@
++Файлы:
++- создан `OrderQueries.cs` (сервис `OrderQueries` + DTO `OrderCardDto`, `OrderItemDto`, `PaymentDto`);
++- создан `_answer.md`. Существующие файлы не менялись.
++
++Решения:
++- (а) и (б): `AsNoTracking` и проекция в DTO, чтобы lazy-proxy не выходили наружу и не было N+1. В (а) заказ один, поэтому запрос с JOIN без `AsSplitQuery`. В (б) у клиента тысячи заказов и две коллекции на каждый, поэтому `AsSplitQuery`, чтобы не было cartesian explosion, и стабильная сортировка `CreatedAt, Id`.
++- (в): параметр склада сделан `string?`. Если склад передан, вызывается `SingleOrDefault` по уникальной паре (Sku, Warehouse). Если `null`, вызывается `FirstOrDefault` с сортировкой по `Warehouse`: `Single` упал бы, как только SKU окажется на двух складах. Какой склад выбирать, когда он не указан, — открытый вопрос к бизнесу.
++- (г): `MAX(ShippedAt)` считается на сервере с явным фильтром `ShippedAt != null`. Если у клиента нет отгруженных заказов, метод бросает понятное `InvalidOperationException`, а не NRE, и возвращаемый тип остаётся `DateTime`. Удалённые заказы отсекаются существующим query filter.
++- Сборка и тесты не запускались.

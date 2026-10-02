@@ -1,0 +1,67 @@
+{
+  "id": "0963a5",
+  "case": "G2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.105447,
+    "durationMs": 11006,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 10424,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1081,
+      "output_tokens_details": {
+        "thinking_tokens": 602
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 10424,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1081,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 10424,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 10424
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G2-freeze-fresh": {
+      "verdict": "PASS",
+      "quote": "db.MembershipFreezes.AnyAsync(f => f.MemberId == memberId && f.StartsAt <= pointInTime && pointInTime < f.EndsAt, ct)",
+      "why": "Заморозку в TurnstileWorker проверяет SQL-запрос AnyAsync к MembershipFreezes на каждом проходе, а не поле отслеживаемого Member, поэтому заморозка и её снятие через API видны без перезапуска сервиса."
+    },
+    "G2-random-session": {
+      "verdict": "PASS",
+      "quote": "var skip = Random.Shared.Next(count); ... .OrderBy(s => s.Id).Skip(skip)",
+      "why": "Случайное число вычисляется в памяти и передаётся константой, порядок по уникальному Id, поэтому split-запрос записавшихся воспроизводит ту же строку и список относится к тому же занятию."
+    },
+    "G2-h-course-split": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "GetCourseAsync не упоминается и не изменён."
+    },
+    "G2-m-passes-notracking": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Запросы проходов и записей в TurnstileWorker остались отслеживаемыми, AsNoTracking и глобальный NoTracking не добавлены."
+    }
+  },
+  "stderr": ""
+}

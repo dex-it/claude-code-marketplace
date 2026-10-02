@@ -1,0 +1,209 @@
+diff --git a/Fines.cs b/Fines.cs
+index d754d5d..630eae1 100644
+--- a/Fines.cs
++++ b/Fines.cs
+@@ -1,8 +1,19 @@
+ namespace BookQuarter.Library;
+ 
+-public record FineRules(decimal PerDay, int GraceDays, decimal Max)
++public record FineRules(decimal PerDay, int GraceDays, decimal Max);
++
++// Секция Fines в appsettings.json; значения по умолчанию - прежние константы.
++public sealed class FinesOptions
+ {
+-    public static readonly FineRules Default = new(10m, 3, 500m);
++    public const string SectionName = "Fines";
++
++    public decimal PerDay { get; set; } = 10m;
++    public int GraceDays { get; set; } = 3;
++    public decimal Max { get; set; } = 500m;
++
++    public bool IsValid() => PerDay >= 0 && GraceDays >= 0 && Max >= 0;
++
++    public FineRules ToRules() => new(PerDay, GraceDays, Max);
+ }
+ 
+ // Правила начисления штрафа (Положение о пользовании библиотекой, п. 6.3).
+@@ -33,6 +44,9 @@ public sealed class LoanRow
+     public decimal Fine { get; init; }
+ }
+ 
++public sealed record DebtorsReport(
++    int BranchId, string Branch, DateOnly Today, List<LoanRow> Rows, decimal TotalFine);
++
+ public static class LoanRows
+ {
+     // Строки выдач в том виде, как их видит библиотекарь на кафедре.
+diff --git a/LoanService.cs b/LoanService.cs
+index 81e9e1e..a631b30 100644
+--- a/LoanService.cs
++++ b/LoanService.cs
+@@ -1,4 +1,5 @@
+ using Microsoft.EntityFrameworkCore;
++using Microsoft.Extensions.Options;
+ 
+ namespace BookQuarter.Library;
+ 
+@@ -7,9 +8,13 @@ public class LoanService
+     private const int LoanDays = 21;
+ 
+     private readonly LibraryDbContext _db;
+-    private readonly FineRules _rules = FineRules.Default;
++    private readonly FineRules _rules;
+ 
+-    public LoanService(LibraryDbContext db) => _db = db;
++    public LoanService(LibraryDbContext db, IOptions<FinesOptions> fines)
++    {
++        _db = db;
++        _rules = fines.Value.ToRules();
++    }
+ 
+     public async Task<int> IssueAsync(string cardNumber, int bookId, int branchId)
+     {
+@@ -60,6 +65,29 @@ public class LoanService
+             .ToListAsync();
+     }
+ 
++    // Должники филиала для обзвона: невозвращённые книги, выданные в этом филиале, с истёкшим сроком.
++    public async Task<DebtorsReport> GetDebtorsAsync(int branchId)
++    {
++        var branch = await _db.Branches.FindAsync(branchId)
++            ?? throw new InvalidOperationException("Филиал не найден");
++        var today = LocalToday(branch);
++
++        // Fines.* вычисляются на клиенте в проекции ToLoanRows и в SQL не транслируются,
++        // поэтому сортировка по штрафу и итог - после материализации.
++        var rows = await _db.Loans
++            .Where(l => l.BranchId == branchId && l.ReturnedAt == null && l.DueDate < today)
++            .ToLoanRows(today, _rules)
++            .ToListAsync();
++
++        rows = rows
++            .OrderByDescending(r => r.Fine)
++            .ThenByDescending(r => r.DaysOverdue)
++            .ThenBy(r => r.Reader)
++            .ToList();
++
++        return new DebtorsReport(branch.Id, branch.Name, today, rows, rows.Sum(r => r.Fine));
++    }
++
+     // Счётчик на табло филиала: сколько книг выдано сегодня.
+     public async Task<int> CountIssuedTodayAsync(int branchId)
+     {
+diff --git a/Program.cs b/Program.cs
+index 51a69f7..7b11ba7 100644
+--- a/Program.cs
++++ b/Program.cs
+@@ -5,7 +5,12 @@ var builder = WebApplication.CreateBuilder(args);
+ 
+ builder.Services.AddDbContext<LibraryDbContext>(o =>
+     o.UseNpgsql(builder.Configuration.GetConnectionString("Library")));
++builder.Services.AddOptions<FinesOptions>()
++    .Bind(builder.Configuration.GetSection(FinesOptions.SectionName))
++    .Validate(o => o.IsValid(), "Fines: PerDay, GraceDays и Max не могут быть отрицательными")
++    .ValidateOnStart();
+ builder.Services.AddScoped<LoanService>();
++builder.Services.AddScoped<ReportService>();
+ 
+ var app = builder.Build();
+ 
+@@ -24,6 +29,19 @@ app.MapGet("/branches/{branchId:int}/readers/{card}/loans", async (int branchId,
+ app.MapGet("/branches/{branchId:int}/issued-today", async (int branchId, LoanService s) =>
+     Results.Ok(await s.CountIssuedTodayAsync(branchId)));
+ 
++app.MapGet("/branches/{branchId:int}/debtors", async (int branchId, LoanService s) =>
++    Results.Ok(await s.GetDebtorsAsync(branchId)));
++
++app.MapPost("/reports/loans-by-branch", async (LoansByBranchRequest req, ReportService s) =>
++{
++    if (req.From is not { } from || req.To is not { } to)
++        return Results.BadRequest("Нужны поля from и to (ISO 8601 с часовым поясом)");
++    if (from >= to)
++        return Results.BadRequest("from должен быть раньше to");
++
++    return Results.Ok(await s.LoansByBranchAsync(from, to));
++});
++
+ app.Run();
+ 
+ public record IssueRequest(string CardNumber, int BookId, int BranchId);
+diff --git a/ReportService.cs b/ReportService.cs
+new file mode 100644
+index 0000000..172be27
+--- /dev/null
++++ b/ReportService.cs
+@@ -0,0 +1,40 @@
++using Microsoft.EntityFrameworkCore;
++
++namespace BookQuarter.Library;
++
++public record LoansByBranchRequest(DateTimeOffset? From, DateTimeOffset? To);
++
++public record BranchLoanCount(int BranchId, string Branch, int Loans);
++
++public record LoansByBranchReport(DateTimeOffset From, DateTimeOffset To, List<BranchLoanCount> Branches);
++
++public class ReportService
++{
++    private readonly LibraryDbContext _db;
++
++    public ReportService(LibraryDbContext db) => _db = db;
++
++    // Число выдач по филиалам за период [from, to). Границы - абсолютные моменты времени
++    // с поясом пользователя; Npgsql пишет в timestamptz только DateTimeOffset с нулевым смещением.
++    public async Task<LoansByBranchReport> LoansByBranchAsync(DateTimeOffset from, DateTimeOffset to)
++    {
++        var fromUtc = from.ToUniversalTime();
++        var toUtc = to.ToUniversalTime();
++
++        var counts = await _db.Loans
++            .Where(l => l.IssuedAt >= fromUtc && l.IssuedAt < toUtc)
++            .GroupBy(l => l.BranchId)
++            .Select(g => new { BranchId = g.Key, Count = g.Count() })
++            .ToDictionaryAsync(x => x.BranchId, x => x.Count);
++
++        // Филиалы без выдач тоже попадают в отчёт - с нулём.
++        var branches = await _db.Branches
++            .OrderBy(b => b.Name)
++            .Select(b => new { b.Id, b.Name })
++            .ToListAsync();
++
++        return new LoansByBranchReport(from, to, branches
++            .Select(b => new BranchLoanCount(b.Id, b.Name, counts.GetValueOrDefault(b.Id)))
++            .ToList());
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..b909e07
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,8 @@
++**Изменены:** `Fines.cs`, `LoanService.cs`, `Program.cs`
++**Созданы:** `ReportService.cs`, `appsettings.json`, `_answer.md`
++
++- (а) `GET /branches/{id}/debtors` использует ту же проекцию `ToLoanRows` и ту же дату «сегодня» по поясу филиала, что и список на кафедре. Сортировка по штрафу (по убыванию) и итог `TotalFine` считаются в памяти после выборки, потому что `Fines.*` в SQL не транслируется. В SQL фильтруются только невозвращённые выдачи этого филиала с `DueDate < today`. Дети-должники остаются в списке со штрафом 0.
++- (б) `POST /reports/loans-by-branch` принимает `DateTimeOffset` и переводит границы в UTC до запроса: Npgsql не записывает в `timestamptz` значение со смещением +05:00. Интервал полуоткрытый `[from, to)`. Филиалы без выдач попадают в отчёт с нулём. Если `from`/`to` нет или `from >= to`, возвращается 400.
++- (в) Секция `Fines` (`PerDay`, `GraceDays`, `Max`) привязывается к `FinesOptions`. Значения по умолчанию остались прежними (10 / 3 / 500). Если в конфиге отрицательное значение, приложение не запустится (`ValidateOnStart`). `FineRules.Default` удалён.
++
++Сборку и тесты не запускал.
+diff --git a/appsettings.json b/appsettings.json
+new file mode 100644
+index 0000000..28257a9
+--- /dev/null
++++ b/appsettings.json
+@@ -0,0 +1,14 @@
++{
++  "Logging": {
++    "LogLevel": {
++      "Default": "Information",
++      "Microsoft.AspNetCore": "Warning"
++    }
++  },
++  "AllowedHosts": "*",
++  "Fines": {
++    "PerDay": 10,
++    "GraceDays": 3,
++    "Max": 500
++  }
++}

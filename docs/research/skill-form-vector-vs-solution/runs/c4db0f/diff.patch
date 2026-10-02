@@ -1,0 +1,76 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..12fbaff
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,70 @@
++# Ревью MR: Outbox-воркер рассылки уведомлений (Notify.Worker)
++
++## Critical
++
++1. **OutboxWorker.cs, `ProcessBatchAsync`: `SentAt` проставляется до отправки. Сообщения теряются.**
++   В первом `SaveChangesAsync` каждое сообщение пачки сохраняется с `SentAt = now`, и только потом идёт отправка. При ошибке в `catch` увеличивается `Attempts`, но `SentAt` не сбрасывается. Фильтр `SentAt == null` такое сообщение больше не выберет, поэтому ретраев фактически нет, а `MaxRetries` и `Attempts` ни на что не влияют. Если процесс упадёт или его остановят между двумя `SaveChangesAsync`, вся пачка останется в БД «отправленной», хотя письма не ушли. Получается at-most-once с молчаливой потерей писем. Как исправить: в первом сохранении ставить только `LockedUntil`, а `SentAt` записывать после успешного `SendAsync`.
++
++2. **Program.cs: `SmtpOptions` привязаны к секции `"Mail"`, а во всех appsettings секция называется `"Smtp"`.**
++   Опции остаются пустыми: `Host = null`, `Port = 0`, `FromAddress = null`. В `SmtpMailSender.SendAsync` вызов `MailboxAddress.Parse(null)` бросает исключение на каждом письме. В сочетании с п.1 все письма помечаются отправленными, но не уходят.
++
++3. **ThrottleService.cs, `WaitAsync`: код читает ключ `Throttle:MessagesPerMinute`, а в конфиге ключ `Throttle:PerMinute`.**
++   `GetValue<int>` возвращает 0, и `60_000 / 0` бросает `DivideByZeroException` на каждом вызове. Исключение ловится в `catch` воркера, так что ни одно письмо не отправляется. Нулевое или отрицательное значение ничем не проверяется.
++
++4. **appsettings.Production.json: в репозиторий закоммичены боевые секреты.**
++   Там лежат пароль к prod-БД (`Password=Kx7!pQ2vR9wz`) и пароль SMTP-релея (`rl_live_9f3a1c77e2b04d6d`). Их надо убрать в секрет-хранилище или переменные окружения. Поскольку они уже попали в историю git, их нужно ротировать.
++
++## High
++
++5. **OutboxWorker.cs: нарушено требование MR «менять лимит параллельных отправок и размер пачки на лету, без рестарта».**
++   В воркер внедряется `IOptions<OutboxOptions>`. Это синглтон-снапшот, который после старта не перечитывается, поэтому `MaxInFlight`, `MaxBatchSize` и `MinBatchSize` фактически заморожены. Нужен `IOptionsMonitor<OutboxOptions>.CurrentValue`. Вдобавок `_batchSize` берётся из `MaxBatchSize` один раз и дальше не ограничивается новым диапазоном: если `MaxBatchSize` уменьшат при `Min >= Max`, адаптивная ветка пропускается и старый размер пачки остаётся.
++
++6. **OutboxWorker.cs, `ExecuteAsync`: единицы измерения `PollInterval` не совпадают.**
++   В конфиге `500` (по описанию MR это полсекунды), а код делает `TimeSpan.FromSeconds(o.PollInterval)`, то есть 500 с (около 8,3 мин) между опросами. Нужно `FromMilliseconds` или переименовать поле в `PollIntervalMs`. При `PollInterval = 0` получится busy-loop по БД, и валидатор это не ловит.
++
++7. **OutboxWorker.cs, `ProcessBatchAsync`: нет защиты от конкурентных воркеров.**
++   Пачка сначала читается обычным SELECT, а `LockedUntil` пишется отдельным UPDATE без `FOR UPDATE SKIP LOCKED` и без concurrency token. Если запустить две реплики или перезапуск наложится на старый процесс, обе заберут одни и те же строки и отправят письма дважды. Нужен атомарный claim: `SELECT ... FOR UPDATE SKIP LOCKED` в транзакции или `UPDATE ... RETURNING`, либо xmin/rowversion как concurrency token.
++
++8. **OutboxWorker.cs, `ExecuteAsync`: в цикле нет обработки исключений.**
++   Любая транзиентная ошибка БД (или любая другая за пределами `catch` вокруг отправки) выходит из `ExecuteAsync`. В .NET 8 по умолчанию действует `BackgroundServiceExceptionBehavior.StopHost`, и весь сервис останавливается. Итерацию нужно обернуть в try/catch с логированием и продолжать цикл.
++
++9. **tests/OutboxOptionsValidatorTests.cs и Notify.Worker.csproj: тест попадает в компиляцию основного проекта.**
++   Файл лежит внутри каталога `Notify.Worker.csproj`. SDK по умолчанию включает `**/*.cs`, поэтому тест компилируется вместе с воркером, а пакета xunit в проекте нет. Сборка падает. Тесты нужно вынести в отдельный тестовый проект или исключить через `<Compile Remove="tests/**" />`.
++
++## Medium
++
++10. **Program.cs и OutboxOptionsValidator.cs: валидатор нигде не зарегистрирован и неполон.**
++    `OutboxOptionsValidator` не добавлен в DI: нет ни `AddSingleton<IValidateOptions<OutboxOptions>, ...>`, ни `AddOptions<>().ValidateOnStart()`, так что он никогда не вызывается. Кроме того, он не проверяет:
++    - `MinBatchSize >= 1`. При `Min = 0` `_batchSize` может уйти в 0, тогда `Take(0)` и воркер навсегда перестаёт обрабатывать outbox, потому что `0 * 2 = 0`.
++    - `MinBatchSize <= MaxBatchSize`.
++    - `PollInterval > 0`.
++    - `MaxRetries >= 1`. При 0 не выбирается ни одно сообщение.
++
++11. **appsettings.Production.json: `MinBatchSize: 200` больше `MaxBatchSize: 100`.**
++    Конфигурация некорректна. Адаптивный батчинг в проде молча выключается условием `Min < Max`, и ошибку никто не видит, потому что валидатор не работает (п.10).
++
++12. **appsettings.Staging.json: в строке подключения `Password=${NOTIFY_DB_PASSWORD}`.**
++    Конфигурация .NET не подставляет переменные окружения в значения, поэтому паролем станет буквальная строка `${NOTIFY_DB_PASSWORD}` и подключение к staging-БД не пройдёт. Правильно переопределять через `ConnectionStrings__Notify` или user secrets / секрет-хранилище.
++
++13. **ThrottleService.cs, `WaitAsync`: это не лимитер скорости.**
++    Метод просто делает задержку `60000/perMinute` в каждом из параллельных потоков. При `MaxInFlight = N` реальная скорость примерно в N раз выше `PerMinute` (на staging с `MaxInFlight = 20` это ×20), поэтому лимит релея будет превышен. Нужен общий rate limiter, например `System.Threading.RateLimiting.TokenBucketRateLimiter` или `SlidingWindowRateLimiter`.
++
++14. **OutboxWorker.cs, `ProcessBatchAsync`: неправильно обрабатывается отмена.**
++    `OperationCanceledException` из `sender.SendAsync` / `throttle.WaitAsync` при остановке ловится общим `catch (Exception)`. Отмена засчитывается как неудачная попытка (`Attempts++`) и логируется как warning. Следом финальный `SaveChangesAsync(ct)` с уже отменённым токеном бросает OCE, и результаты пачки не сохраняются, а `SentAt`/`LockedUntil` уже записаны. Отмену нужно отфильтровать (`catch when (!ct.IsCancellationRequested)`), а финальное сохранение делать без отменённого токена.
++
++15. **OutboxWorker.cs: `LockTimeout` (30 с) может истечь раньше, чем обработается пачка.**
++    Пачка до 100 писем с троттлингом и новым SMTP-подключением на каждое письмо легко обрабатывается дольше 30 с. После исправления п.1 lease истечёт, и строки подхватит следующий опрос или другая реплика, что даст дубли. Lease нужно продлевать или согласовать его с размером пачки и скоростью отправки.
++
++## Low
++
++16. **SmtpMailSender.cs, `SendAsync`: для каждого письма заново делаются connect, auth и disconnect.**
++    Это дорого и увеличивает время пачки (см. п.15). Лучше переиспользовать соединение в пределах пачки или держать пул.
++
++17. **OutboxWorker.cs: сообщения, исчерпавшие `MaxRetries`, молча остаются в таблице навсегда.**
++    Нет ни dead-letter, ни лога или метрики. Кроме того, `ProcessBatchAsync` возвращает `batch.Count` (сколько выбрано), а не число успешно отправленных, при этом переменная называется `sent`, что вводит в заблуждение.
++
++18. **Options/SmtpOptions.cs: при `<Nullable>enable</Nullable>` поля `Host` и `FromAddress` объявлены как non-nullable `string` без инициализации.**
++    Компилятор даёт предупреждения, а на деле, как показывает п.2, там может оказаться null. Нужна валидация обязательных полей.
++
++19. **tests/OutboxOptionsValidatorTests.cs: тесты покрывают только `MaxBatchSize` и happy path.**
++    Нет проверок `MaxInFlight`, `LockTimeout`, `MaxRetries` и соотношения Min/Max. Нет тестов на сам воркер: ретраи, пометку `SentAt`, адаптивный батчинг.

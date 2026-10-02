@@ -1,0 +1,57 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..5dd4655
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,51 @@
++# Ревью MR !4127 — сервисы заказов и каталога для админки
++
++## Critical
++
++### 1. `CatalogService.Search` — SQL-ошибка при использовании фильтра (алиас таблицы)
++`Services/CatalogService.cs:21-38`. Запрос строится как `SELECT * FROM "Products" p WHERE ...`, но условия фильтра ссылаются на исходное имя таблицы: `"Products"."Category" = @p0`, `"Products"."Price" >= @p1`. В PostgreSQL после присвоения алиасу (`p`) обращаться к таблице по исходному имени в том же запросе нельзя — сервер вернёт `ERROR: invalid reference to FROM-clause entry for table "Products"`. Метод будет падать с ошибкой всегда, когда передан хотя бы один фильтр (`category` или `minPrice`), т.е. в основном сценарии использования — единственный случай без ошибки — вызов без фильтров вовсе. Это ломает основную функцию MR ("поиск продуктов с динамическим фильтром").
++
++### 2. `CatalogService.Reserve` — `FOR UPDATE` без явной транзакции, гонка при резервировании остатка
++`Services/CatalogService.cs:10-19`. `SELECT ... FOR UPDATE` выполняется как отдельная неявная транзакция (EF/Npgsql не оборачивает `FromSqlRaw` и последующий `SaveChangesAsync()` в одну транзакцию автоматически). Блокировка строки снимается сразу после завершения `SELECT`, то есть к моменту проверки `Stock < qty` и записи через `SaveChangesAsync` защита уже не действует. Два одновременных вызова `Reserve` для одного и того же товара могут оба пройти проверку остатка и оба списать qty — overselling. Нужно явно открыть транзакцию (`BeginTransactionAsync`), выполнить `FOR UPDATE`, изменение и `SaveChangesAsync`/`CommitAsync` внутри неё.
++
++### 3. `Workers/OverdueNotifier` — Scoped `ShopDbContext` внедрён в singleton `BackgroundService`
++`Workers/OverdueNotifier.cs:5-9`, `Program.cs:12`. `AddHostedService<OverdueNotifier>()` создаёт singleton-инстанс воркера, а `ShopDbContext` конструктором внедряется напрямую — но `AddDbContext` по умолчанию регистрирует контекст как Scoped. Это классическая ошибка «scoped-зависимость в singleton»: при включённой валидации скоупов (по умолчанию в Development) приложение упадёт при старте; при отключённой валидации получится "captive dependency" — один и тот же `DbContext`-инстанс используется вечно в цикле `while`, что небезопасно (DbContext не потокобезопасен, не рассчитан на долгоживущее использование) и приводит к неограниченному росту ChangeTracker (каждую минуту добавляются новые `AuditLog`, которые никогда не освобождаются). Нужно внедрять `IServiceScopeFactory` и создавать `scope`/новый `DbContext` на каждой итерации.
++
++### 4. Миграция дропает `Orders.Category`, не перенося данные в `Categories`/`OrderCategories`
++`Migrations/20260920_OrderCategories.cs:18` (`mb.DropColumn("Category", "Orders")`). Создаются новые таблицы `Categories` и `OrderCategories`, но нет ни одного шага, переносящего существующие значения `Orders.Category` в новую нормализованную структуру (`INSERT INTO "Categories" ...` / `INSERT INTO "OrderCategories" ...`). Колонка просто удаляется — вся историческая информация о категориях существующих заказов безвозвратно теряется. Схемная миграция без миграции данных.
++
++### 5. Модель `Order`/сервисы не приведены в соответствие новой схеме — приложение сломано после миграции
++`Model.cs:12` (`Order.Category`), `Services/OrderAdmin.cs:15` (`order.Category = edit.Category`), отсутствие `DbSet<Category>`/`DbSet<OrderCategory>` и Fluent-конфигурации связи в `ShopDbContext.OnModelCreating`. После накатывания миграции колонка `Orders.Category` в БД отсутствует, но EF по конвенции продолжает мапить свойство `Order.Category` на колонку с этим именем — любой запрос/сохранение `Order` (включая `OrderQueries.GetCard`, `ExportForCustomer`, `OrderAdmin.UpdateOrder` и т.д.) будет падать с ошибкой БД "column does not exist". MR описывает вынос категорий в отдельные таблицы, но модель, `OrderEdit` и бизнес-логика этого не отражают — миграция и код рассогласованы.
++
++### 6. `OrderAdmin.RecalcTotal` — сумма заказа считается без учёта количества
++`Services/OrderAdmin.cs:19-27`. `order.Total = order.Items.Sum(i => prices[i.ProductId])` суммирует цену за единицу без умножения на `i.Qty`, хотя по описанию модели "Product.Price — цена за единицу, OrderItem.Qty — количество". Итог: при qty > 1 сумма заказа занижена. Это финансовая ошибка в бизнес-логике. Дополнительно: если у позиции заказа `ProductId` отсутствует в `prices` (товар удалён), будет `KeyNotFoundException`.
++
++## High
++
++### 7. `OrderQueries.GetProductBySku` — `SingleAsync` по неуникальному в домене условию
++`Services/OrderQueries.cs:24-25`. По описанию модели один SKU лежит на нескольких складах и уникален только в рамках склада. `SingleAsync(p => p.Sku == sku)` бросит исключение "Sequence contains more than one element" для любого SKU, присутствующего на нескольких складах — то есть штатного случая. Нужно либо фильтровать по складу, либо возвращать список.
++
++### 8. `OrderAdmin.UpdateOrder` — нет защиты от параллельной правки (lost update)
++`Services/OrderAdmin.cs:11-17`. MR явно описывает сценарий "несколько операторов правят заказы одновременно", но обновление делается без optimistic concurrency (нет rowversion/`xmin`, нет проверки исходного состояния). При гонке двух операторов один перезапишет изменения другого целиком (Status и Category затираются последним `SaveChangesAsync`), потери правок останутся незамеченными.
++
++### 9. `OrderQueries.ExportForCustomer` — несколько коллекций в одном `Include` без `AsSplitQuery`
++`Services/OrderQueries.cs:16-22`. `Include(Items)` + `Include(Payments)` без `AsSplitQuery()` порождают декартово произведение (cartesian explosion) в едином SQL-запросе. MR прямо указывает, что "у крупных клиентов тысячи заказов" — для таких клиентов запрос будет возвращать кратно раздутый результат (число_заказов × items × payments строк), что резко увеличивает объём данных, время и память. В `GetCard` рядом `AsSplitQuery()` использован верно — здесь его забыли.
++
++### 10. `OrderQueries.LastShippedAt` — `NullReferenceException`, если у клиента нет отгруженных заказов
++`Services/OrderQueries.cs:27-33`. `MaxAsync(o => o.ShippedAt)` вернёт `null`, если у клиента вообще нет заказов или все заказы ещё не отгружены (`ShippedAt == null` у всех). `last!.Value` в этом случае бросит `NullReferenceException`. Нужно фильтровать `Where(o => o.ShippedAt != null)` и корректно обрабатывать отсутствие результата (например, `DateTime?` на выходе).
++
++### 11. `CatalogService.Reprice` — избыточный `UpdateRange` на уже отслеживаемых сущностях, риск затирания параллельных изменений
++`Services/CatalogService.cs:40-46`. `products` загружены без `AsNoTracking`, то есть уже отслеживаются контекстом; после изменения `Price` ChangeTracker сам пометит только это поле как Modified. Вызов `_db.UpdateRange(products)` принудительно помечает **все** свойства сущности как Modified, из-за чего генерируется `UPDATE`, перезаписывающий все колонки значениями, считанными в момент загрузки — включая `Stock`. Если параллельно выполнится `Reserve` (уменьшит `Stock`) между чтением и записью в `Reprice`, `Reprice` перезапишет `Stock` устаревшим значением — потерянное обновление остатка.
++
++## Medium
++
++### 12. `OrderAdmin.OverdueReport` / `OrderRepository.GetAllAsync` — фильтрация после материализации всей таблицы заказов
++`Services/OrderAdmin.cs:29-33`, `OrderRepository.cs:7`. Отчёт по просроченным заказам загружает **весь** `Orders` в память (`ToListAsync()` без `Where`, без `AsNoTracking`) и лишь потом фильтрует `IsOverdue` на клиенте. При объёмах, упомянутых в MR (клиенты с тысячами заказов), это не масштабируется — стоит фильтровать условием `ShippedAt == null && CreatedAt < threshold` прямо в SQL и добавить `AsNoTracking`, как это уже сделано в `OverdueNotifier`.
++
++### 13. `OverdueNotifier.ExecuteAsync` — отсутствует обработка ошибок в бесконечном цикле
++`Workers/OverdueNotifier.cs:10-25`. Тело цикла не обёрнуто в `try/catch`. При любой транзиентной ошибке (обрыв соединения с БД и т.п.) необработанное исключение выйдет из `ExecuteAsync`; для `BackgroundService` в .NET 8 поведение по умолчанию (`BackgroundServiceExceptionBehavior.StopHost`) останавливает весь хост — то есть уронит всё приложение (включая веб-API), а не только фоновую задачу.
++
++## Low
++
++### 14. Имя файла миграции не соответствует обычному формату timestamp
++`Migrations/20260920_OrderCategories.cs`. Префикс `20260920` — это только дата (8 цифр) без времени, тогда как EF Core по умолчанию генерирует 14-значный timestamp (`yyyyMMddHHmmss`). При появлении второй миграции в тот же день без ручного контроля порядка возможна коллизия/неоднозначная сортировка миграций.

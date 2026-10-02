@@ -1,0 +1,97 @@
+{
+  "id": "8fa06a",
+  "case": "V1",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.121751,
+    "durationMs": 10782,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 11917,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1299,
+      "output_tokens_details": {
+        "thinking_tokens": 176
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11917,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1299,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 11917,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 11917
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "V1-hold-late-payment": {
+      "verdict": "FOUND",
+      "quote": "Неоплаченная бронь держит место 30 минут, а ссылка на оплату живёт 24 часа.",
+      "why": "Связаны истечение 30-минутного удержания, 24-часовая ссылка и подтверждение в RegisterPayment без проверки пересечений, итог — две подтверждённые брони на одном месте."
+    },
+    "V1-kopecks-cast": {
+      "verdict": "FOUND",
+      "quote": "`(long)rubles * 100` отбрасывает копейки до умножения: депозит 1234.56 ₽ уходит в PayGate как 1234.00 ₽.",
+      "why": "Названы приоритет приведения и последствия для подтверждения брони (PaidAmount < Deposit) и для возвратов."
+    },
+    "V1-extend-long-stay": {
+      "verdict": "FOUND",
+      "quote": "Скидка применяется только к добавленному отрезку, а не ко всей стоянке.",
+      "why": "Указано, что скидка за длительность при продлении не учитывает всю стоянку, приведён пример 2+5 ночей."
+    },
+    "V1-beam-not-checked": {
+      "verdict": "FOUND",
+      "quote": "Ширина (`BeamM` против `MaxBeamM`) не проверяется.",
+      "why": "Отсутствие проверки ширины названо прямо, с примером катамарана."
+    },
+    "V1-calendar-vessel-pii": {
+      "verdict": "FOUND",
+      "quote": "Анонимный метод отдаёт полный `VesselDto`: бортовой номер, имя и телефон шкипера, номер страхового полиса.",
+      "why": "Анонимный календарь связан с персональными полями VesselDto."
+    },
+    "V1-tariff-singleton-state": {
+      "verdict": "FOUND",
+      "quote": "Сервис зарегистрирован как singleton, а буфер `_nights` — общее изменяемое поле для всех запросов.",
+      "why": "Изменяемое поле связано с singleton-регистрацией и параллельными вызовами, названы неверные итоги и исключения."
+    },
+    "V1-seasonal-rates-not-loaded": {
+      "verdict": "PASS",
+      "quote": "Место загружается через `LockBerthAsync` (`FromSql … FOR UPDATE`) без `SeasonalRates`, ленивая загрузка не настроена.",
+      "why": "Указаны пустая коллекция ставок, расчёт по базовой ставке, расхождение с калькулятором и исправление через отдельную загрузку."
+    },
+    "V1-h-fromsql-interpolated": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FromSql не назван SQL-инъекцией, замены на FromSqlRaw или конкатенацию исполнитель не требует."
+    },
+    "V1-h-xmin-timestamp": {
+      "verdict": "NO",
+      "quote": "Concurrency token через `xmin` есть, но нигде нет `catch (DbUpdateConcurrencyException)`.",
+      "why": "Механизм xmin признан рабочим, претензия только к отсутствию обработки исключения."
+    },
+    "V1-h-dateonly-mapping": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Конвертер для DateOnly или замену на DateTime исполнитель не требует."
+    }
+  },
+  "stderr": ""
+}

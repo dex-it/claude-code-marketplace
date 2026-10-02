@@ -1,0 +1,146 @@
+K1:
+  source: заведён калиброванной слепой стадией
+  items:
+    - {id: K1-overdue-filter, kind: unit, unit: untranslatable-filter,
+       pass: "Отбор и сортировка просроченных выдач (а) и должников (б) в запросах к БД выражены через маппленные колонки (ReturnedAt == null, DueDate < сегодняшняя дата параметром, сортировка по DueDate) либо IsOverdue/OverdueDays вычисляются только после материализации; оба запроса выполняются без исключения.",
+       fail: "Loan.IsOverdue или Loan.OverdueDays (get-only свойства, не входят в модель) использованы в Where/OrderBy/Sum/Select-с-последующим-OrderBy IQueryable до материализации - запрос падает InvalidOperationException «could not be translated»."}
+    - {id: K1-export-mask, kind: unit, unit: readonly-tracking,
+       pass: "После выгрузки CSV телефоны и e-mail читателей в таблице Readers не меняются: маска применяется к DTO/строке CSV, либо читатели загружены AsNoTracking/проекцией, либо ExportLog сохраняется так, что изменённые MaskContacts сущности не попадают в SaveChanges.",
+       fail: "Выгрузка загружает Reader отслеживающим запросом, вызывает существующий MaskContacts (мутирует Phone/Email) и в том же DbContext вызывает SaveChanges для ExportLog - замаскированные значения записываются в Readers, исходные контакты потеряны."}
+    - {id: K1-period-utc, kind: unit, unit: datetime-column,
+       pass: "Границы периода, сравниваемые с Loan.IssuedAt (DateTime без HasColumnType -> timestamptz), передаются как DateTime с Kind=Utc (ToDateTime(..., DateTimeKind.Utc), SpecifyKind, ToUniversalTime) или DateTimeOffset со смещением 0, либо сравнение идёт по дате без отправки non-UTC DateTime.",
+       fail: "Границы получены через DateOnly.ToDateTime(TimeOnly) / new DateTime(y, m, d) / DateTime.Parse без Kind (Unspecified) или DateTime.Today/Now (Local) и сравниваются с IssuedAt в запросе - Npgsql бросает исключение при отправке non-UTC DateTime как timestamptz, отчёт не работает."}
+    - {id: K1-h-card-single, kind: harm, unit: single-not-unique,
+       what: "Называет дефектом или переписывает SingleOrDefaultAsync(r => r.CardNumber == ...) в IssueAsync/GetReaderCardAsync как «Single на неуникальном условии»: CardNumber покрыт уникальным индексом."}
+    - {id: K1-m-global-notracking, kind: mine,
+       what: "Переключает контекст на NoTracking по умолчанию (UseQueryTrackingBehavior(NoTracking) / ChangeTracker.QueryTrackingBehavior) ради выгрузки - ReturnAsync перестаёт сохранять ReturnedAt и начисленный штраф: изменения неотслеживаемых сущностей SaveChanges не видит."}
+
+K2:
+  source: заведён калиброванной слепой стадией
+  items:
+    - {id: K2-checkin-phone, kind: unit, unit: single-not-unique,
+       pass: "Отметка прихода по телефону учитывает, что номер может быть у нескольких клиентов (Phone - неуникальный индекс, дети на семейном абонементе с телефоном родителя): не падает, сужает до записанных на текущее/ближайшее занятие и при оставшейся неоднозначности отмечает каждого записанного с этим номером или возвращает список для выбора.",
+       fail: "Клиент ищется Single/SingleOrDefault по Phone (InvalidOperationException при нескольких членах семьи) или First/FirstOrDefault по Phone без учёта записи на занятие (отмечается не тот член семьи либо ответ «не записан»).",
+       disputed: "Отметка сразу всех записанных на это занятие членов семьи с одним номером может не совпасть с фактом прихода", primary: pass}
+    - {id: K2-replace-sessions, kind: unit, unit: required-orphans,
+       pass: "Замена расписания черновика не падает: прежние Session удаляются явно (Remove/RemoveRange/ExecuteDelete) или обновляются на месте, новые добавляются; конфигурация связи Course->Session (required, Restrict) не меняется.",
+       fail: "Старые занятия только убираются из course.Sessions (Clear()/Remove из коллекции/новый список вместо старого) без удаления сущностей - SaveChanges бросает InvalidOperationException о разорванной обязательной связи (DeleteBehavior.Restrict)."}
+    - {id: K2-screen-next, kind: unit, unit: split-single,
+       pass: "Выборка ближайшего занятия с записавшимися при глобальном SplitQuery (Program.cs) не опирается на неуникальный порядок: добавлен уникальный tie-break (ThenBy(s => s.Id)), либо запрос помечен AsSingleQuery, либо сначала выбирается Id занятия, затем записавшиеся грузятся по этому Id.",
+       fail: "OrderBy(s => s.StartsAt) + First/FirstOrDefault/Take(1) с Include или проекцией коллекции Enrollments без уникального tie-break при включённом SplitQuery - при нескольких занятиях в одно время (параллельные залы) split-запросы могут выбрать разные занятия, на экране список записавшихся другого занятия."}
+    - {id: K2-h-course-split, kind: harm, unit: split-single,
+       what: "Называет дефектом (риск чужих/перемешанных данных) GetCourseAsync под SplitQuery или переводит его в AsSingleQuery как исправление: выборка по первичному ключу (c.Id == id) однозначна."}
+    - {id: K2-m-cascade, kind: mine,
+       what: "Меняет OnDelete(Restrict) связи Course->Session на Cascade/ClientCascade, чтобы заработал Clear() - DeleteCourseAsync, который сейчас блокируется для курса с занятиями, начинает удалять занятия вместе с записями клиентов (Enrollment->Session каскад по умолчанию)."}
+
+K3:
+  source: заведён калиброванной слепой стадией
+  items:
+    - {id: K3-greenhouse-fk, kind: unit, unit: prod-migration,
+       pass: "Миграция применима к production-базе с существующими датчиками: создаёт greenhouses, вставляет «Теплицу №1» и назначает её существующим датчикам до включения NOT NULL и внешнего ключа (nullable -> UPDATE -> NOT NULL, либо defaultValue на заведомо существующий Id теплицы, вставленной раньше в той же миграции).",
+       fail: "Миграция (написанная вручную или «выполните dotnet ef migrations add» без правки) добавляет sensors.greenhouse_id NOT NULL с defaultValue 0 или без заполнения и AddForeignKey - на prod с датчиками ADD CONSTRAINT ... FOREIGN KEY падает, шаг migrate_production (efbundle) завершается ошибкой."}
+    - {id: K3-label-filter, kind: unit, unit: fromsql-alias,
+       pass: "Фрагмент метки попадает в SQL отчёта только параметром (NpgsqlParameter/@label, плейсхолдер {N} FromSqlRaw) либо фильтр применяется LINQ-ом поверх FromSqlRaw; в строку SQL по-прежнему вставляются только значения из switch, int и enum.",
+       fail: "Введённый агрономом фрагмент вставляется в строку FromSqlRaw конкатенацией/интерполяцией (например AND s.label ILIKE '%{fragment}%') - SQL-инъекция."}
+    - {id: K3-takenat-fallback, kind: unit, unit: datetime-column,
+       pass: "Значение, подставляемое в Reading.TakenAt при отсутствии времени (колонка timestamp without time zone через HasColumnType), имеет Kind Unspecified/Local и выражено в местном времени площадки, как остальные значения колонки (например TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, зона площадки)); пакет сохраняется без исключения.",
+       fail: "TakenAt = item.TakenAt ?? DateTime.UtcNow (или иное значение с Kind=Utc, например по образцу InstalledAt) - Npgsql 6+ не пишет DateTime Kind=Utc в timestamp without time zone, SaveChanges пакета падает.",
+       disputed: "DateTime.Now (Kind=Local) не вызывает исключения, но даёт время сервера, а не площадки, если их зоны различаются", primary: pass}
+    - {id: K3-h-raw-safe-parts, kind: harm, unit: fromsql-alias,
+       what: "Называет SQL-инъекцией существующие подстановки в FromSqlRaw: orderBy (выбор из switch), sensorIds (List<int>) или metric (enum Metric) - пользовательский текст туда не попадает."}
+    - {id: K3-m-timestamptz, kind: mine,
+       what: "Переводит readings.taken_at в timestamp with time zone простым AlterColumn без USING ... AT TIME ZONE <зона площадки> - PostgreSQL трактует существующие местные значения в часовом поясе сессии, исторические показания сдвигаются на разницу зон."}
+
+K4:
+  source: заведён калиброванной слепой стадией
+  items:
+    - {id: K4-tag-filter, kind: unit, unit: untranslatable-filter,
+       pass: "Фильтр по тегу и список тегов работают без обращения к членам List<string> Tags внутри IQueryable (свойство с value converter в строку «a;b;c»): запрос к строковому представлению колонки (сырой SQL/приведение к провайдерному типу с учётом разделителя), материализация проекции Tags перед фильтрацией/распаковкой, либо смена хранения тегов с миграцией.",
+       fail: "q.Where(p => p.Tags.Contains(tag)) или _db.Projects.SelectMany(p => p.Tags) / Any по Tags в IQueryable - EF Core не транслирует обращение внутрь сконвертированного значения, запрос падает исключением трансляции."}
+    - {id: K4-delete-hours, kind: unit, unit: softdelete-cascade,
+       pass: "После удаления проекта (soft-delete через override SaveChangesAsync) все его TimeEntry остаются в БД: часы считаются агрегатом в БД (SumAsync) или AsNoTracking, записи времени не попадают в отслеживаемый контекст перед Remove(project), либо их удаление явно предотвращено.",
+       fail: "Перед _db.Projects.Remove(project) записи загружаются в тот же контекст с отслеживанием (Include(p => p.Entries), Entry(...).Collection(...).Load, отслеживаемый ToListAsync по TimeEntries) - каскад обязательной связи помечает их Deleted, override переводит в soft-delete только ISoftDeletable, TimeEntry физически удаляются; после RestoreProjectAsync часов нет."}
+    - {id: K4-closed-update, kind: unit, unit: readonly-tracking,
+       pass: "Проверка закрытого периода в UpdateAsync читает текущую запись без постановки в отслеживание (AsNoTracking, проекция WorkDate, AnyAsync) перед существующим Update(dto.ToEntity()), либо Update заменён на изменение загруженной отслеживаемой сущности; правка открытой записи сохраняется без исключения.",
+       fail: "Текущая запись читается отслеживающим запросом (FirstOrDefaultAsync/FindAsync/SingleAsync по Id) и затем вызывается _db.TimeEntries.Update(entry) с новым экземпляром того же Id - InvalidOperationException «another instance with the same key value is already being tracked», любая правка записи времени падает."}
+    - {id: K4-h-ilike, kind: harm, unit: "",
+       what: "Называет SQL-инъекцией EF.Functions.ILike(p.Name, $\"%{f.Search}%\") в ListAsync: это LINQ, шаблон уходит параметром (максимум - замечание об экранировании % и _ в шаблоне, что не инъекция)."}
+
+K5:
+  source: заведён калиброванной слепой стадией
+  items:
+    - {id: K5-checkin-email, kind: unit, unit: single-not-unique,
+       pass: "Поиск регистрации учитывает, что e-mail уникален только в паре с EventId (индекс EventId+Email): запрос ограничен мероприятием (eventId стойки/запроса или мероприятия текущего дня), и при нескольких найденных регистрациях метод не падает и не берёт произвольную (уточнение мероприятия/выбор).",
+       fail: "Single/SingleOrDefault по Email (или по Email и дате, хотя в один день идёт несколько мероприятий) - InvalidOperationException для участника нескольких мероприятий; либо First/FirstOrDefault по Email без ограничения мероприятием - отмечается приход и печатается бейдж чужого мероприятия."}
+    - {id: K5-revenue-hall, kind: unit, unit: softdelete-cascade,
+       pass: "Выручка за квартал включает оплаты воркшопов в залах с IsDeleted = true (строка такого зала есть в отчёте): отчёт использует IgnoreQueryFilters или группирует по Workshop.HallId без перехода через отфильтрованную навигацию Hall и подтягивает названия залов с IgnoreQueryFilters.",
+       fail: "Отчёт строится через навигацию Workshop.Hall (Include/Select/GroupBy по t.Workshop.Hall.Name) при HasQueryFilter(!IsDeleted) на обязательной связи - EF делает INNER JOIN с отфильтрованным залом, оплаты воркшопов в выведенных из эксплуатации залах молча выпадают из суммы."}
+    - {id: K5-program-latest, kind: unit, unit: split-single,
+       pass: "Последняя версия программы выбирается по уникальному порядку (PublishedOn, затем Id) либо запрос с Items выполняется AsSingleQuery, либо пункты грузятся отдельным запросом по Id выбранной версии.",
+       fail: "OrderByDescending(v => v.PublishedOn) + First/FirstOrDefault с Include(v => v.Items) (или проекцией коллекции) при глобальном SplitQuery - PublishedOn (DateOnly) совпадает у версий, опубликованных в один день, split-запросы могут вернуть шапку одной версии и пункты другой."}
+    - {id: K5-h-register-single, kind: harm, unit: single-not-unique,
+       what: "Называет дефектом SingleOrDefaultAsync(r => r.EventId == eventId && r.Email == email) в RegisterAsync: пара покрыта уникальным индексом."}
+
+K6:
+  source: заведён калиброванной слепой стадией
+  items:
+    - {id: K6-sort-column, kind: unit, unit: fromsql-alias,
+       pass: "Имя столбца и направление сортировки из query string попадают в строку FromSqlRaw только через белый список (switch/словарь -> фиксированный SQL-фрагмент, неизвестное значение -> дефолт или 400), либо сортировка вынесена в LINQ.",
+       fail: "sort и/или dir из запроса подставляются в SQL как есть (ORDER BY {sort} {dir}, в т.ч. с префиксом r./h.) - SQL-инъекция через имя столбца/направление."}
+    - {id: K6-total-count, kind: unit, unit: fromsql-alias,
+       pass: "Общее количество считается по тем же условиям поиска без LIMIT/OFFSET (отдельный COUNT по SQL без пагинации или CountAsync поверх FromSqlRaw, собранного до добавления ORDER BY/LIMIT); total равен числу всех найденных заявок.",
+       fail: "CountAsync()/Count() компонуется поверх строки FromSqlRaw, в которую уже добавлены LIMIT/OFFSET - EF оборачивает SQL в подзапрос, total не больше размера страницы."}
+    - {id: K6-account-index, kind: unit, unit: prod-migration,
+       pass: "Миграция защиты лицевого счёта не падает на prod, где после переноса из старого биллинга есть дубли AccountNumber: дубли устраняются в миграции до CREATE UNIQUE INDEX с сохранением ссылок заявок, либо ограничение не накладывается на существующие дубли (например частичный индекс), либо в ответе явно сказано, что выкатывать миграцию до чистки дублей нельзя, и указан порядок действий.",
+       fail: "Миграция создаёт уникальный индекс на apartments.account_number без обработки существующих дублей - CREATE UNIQUE INDEX падает при efbundle в release-пайплайне."}
+    - {id: K6-plan-replace, kind: unit, unit: required-orphans,
+       pass: "После замены плана отметки выполнения (PlanItemCompletion) по работам, которые остаются в новом плане (тот же WorkCode), сохраняются: существующие PlanItem обновляются на месте, удаляются только отсутствующие в новом плане, отсутствующие добавляются.",
+       fail: "План заменяется через plan.Items.Clear()/удаление всех PlanItem и создание новых - сироты обязательной связи удаляются EF, а ON DELETE CASCADE PlanItem->PlanItemCompletion стирает историю выполнения и по сохраняющимся работам (либо замена падает на уникальном индексе PlanId+WorkCode)."}
+    - {id: K6-h-limit, kind: harm, unit: fromsql-alias,
+       what: "Называет SQL-инъекцией существующую подстановку LIMIT {pageSize} OFFSET {offset} в SearchAsync: это вычисленные int (pageSize ограничен Clamp)."}
+    - {id: K6-m-dedup-delete, kind: mine,
+       what: "Устраняет дубли лицевых счетов удалением «лишних» строк apartments без переноса ссылок - каскадом (ServiceRequest->Apartment, required, ON DELETE CASCADE) удаляются заявки жильцов этих квартир."}
+
+KR:
+  source: заведён калиброванной слепой стадией
+  items:
+    - {id: KR-rename-drop, kind: unit, unit: prod-migration,
+       pass: "Ревью указывает, что миграция DriverDisplayNameAndTripRoute удаляет drivers.full_name и создаёт пустой display_name - ФИО всех водителей на prod теряются; требует RenameColumn или перенос данных до DropColumn.",
+       fail: "Миграция пропущена как корректная или замечание ограничено стилем/Down."}
+    - {id: KR-permits-clear, kind: unit, unit: required-orphans,
+       pass: "Отмечено, что ReplacePermitsAsync делает driver.Permits.Clear() при обязательной связи DriverPermit->Driver с OnDelete(NoAction) - SaveChanges бросит InvalidOperationException; предложено явное удаление (RemoveRange) старых допусков, обновление на месте или смена поведения связи на каскадное.",
+       fail: "Дефект не найден."}
+    - {id: KR-search-inject, kind: unit, unit: fromsql-alias,
+       pass: "Отмечена SQL-инъекция в TripService.SearchAsync: route вставляется в строку FromSqlRaw внутри кавычек, SqlText.LikeContains экранирует только \\, % и _, но не одинарную кавычку; требуется передавать шаблон параметром.",
+       fail: "Дефект не найден или LikeContains принят за достаточную защиту."}
+    - {id: KR-offday-filter, kind: unit, unit: untranslatable-filter,
+       pass: "Отмечено, что WorkCalendar.IsWorkingDay в Where запроса к Trips не транслируется в SQL - MileageAsync падает при каждом вызове; предложено фильтровать после материализации или выразить условие в SQL (день недели + таблица праздников).",
+       fail: "Дефект не найден."}
+    - {id: KR-plate-single, kind: unit, unit: single-not-unique,
+       pass: "Отмечено, что госномер уникален только среди несписанных машин (индекс с HasFilter decommissioned_at IS NULL), а GetVehicleByPlateAsync делает SingleAsync только по PlateNumber - при номере, перешедшем от списанной машины, импорт падает; нужен фильтр DecommissionedAt == null.",
+       fail: "Дефект не найден."}
+    - {id: KR-import-kind, kind: unit, unit: datetime-column,
+       pass: "Отмечено, что DateTime.ParseExact даёт Kind=Unspecified, а Trip.StartedAt/FinishedAt маппятся в timestamptz - SaveChanges импорта падает; нужно перевести московское время в UTC (TimeZoneInfo) с Kind=Utc.",
+       fail: "Дефект не найден или предложено лишь SpecifyKind(..., Utc) без перевода из московского времени (время поездок сдвинется на 3 часа)."}
+    - {id: KR-avg-zero, kind: coverage, what: "MileageAsync: totalKm / count в int при отсутствии завершённых поездок за период - DivideByZeroException."}
+    - {id: KR-permits-auth, kind: coverage, what: "PUT /api/drivers/{id}/permits не требует политики Hr/FleetManager - любой аутентифицированный сотрудник (в т.ч. водитель) может выдать себе допуск к грузовику."}
+    - {id: KR-h-utc-bounds, kind: harm, unit: datetime-column,
+       what: "Называет дефектом from.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc) в MileageAsync (утверждает, что упадёт или что нужен Unspecified/Local): Kind=Utc - корректное значение для timestamptz."}
+
+KN:
+  source: заведён калиброванной слепой стадией
+  items:
+    - {id: KN-h-datetime, kind: harm, unit: datetime-column,
+       what: "Утверждает, что DateTime.UtcNow.Date (Batch.ReportDate, since в GetRecentBySiteAsync) теряет Kind=Utc и упадёт при записи/сравнении с timestamptz, или что PlannedLocal = day.ToDateTime(time) (Kind Unspecified) упадёт; либо меняет Kind/тип колонки PlannedLocal. .Date сохраняет Kind, PlannedLocal замаплен на timestamp without time zone, куда Unspecified пишется штатно. Нейтральная рекомендация хранить UTC без утверждения о дефекте - не вред."}
+    - {id: KN-h-card-split, kind: harm, unit: split-single,
+       what: "Называет дефектом (риск неверных/перемешанных данных) AsSplitQuery в GetCardAsync или требует его убрать: выборка по первичному ключу однозначна, две коллекции на одном уровне - типичный случай для split. Неблокирующее упоминание о согласованности при конкурентных изменениях - не вред."}
+    - {id: KN-h-inanalysis-tracking, kind: harm, unit: readonly-tracking,
+       what: "Предлагает добавить AsNoTracking в SampleRepository.GetInAnalysisForBatchAsync («метод только читает») или правит так: CloseAsync меняет Status полученных проб и вызывает SaveChanges - без отслеживания закрытие партии перестанет сохранять статусы проб."}
+    - {id: KN-h-fromsql, kind: harm, unit: fromsql-alias,
+       what: "Называет SQL-инъекцией GetRecentBySiteAsync: FromSql с интерполированной строкой передаёт siteCode и since как DbParameter."}
+    - {id: KN-h-retag-clear, kind: harm, unit: required-orphans,
+       what: "Утверждает, что sample.Tags.Clear() в RetagAsync упадёт или оставит сирот: связь SampleTag->Sample обязательная с каскадом по умолчанию, теги загружены Include - EF удаляет их как сирот."}
+    - {id: KN-h-labcode-single, kind: harm, unit: single-not-unique,
+       what: "Называет дефектом SingleOrDefaultAsync по LabCode в FindByLabCodeAsync: LabCode покрыт уникальным индексом."}
+    - {id: KN-percent-int, kind: coverage, what: "CompliancePercentAsync: compliant / total * 100 в int - 0 для любой доли меньше 100%, для пустой партии DivideByZeroException."}
+    - {id: KN-page-offset, kind: coverage, what: "ListAsync: page по документации начинается с 1, Skip(page * pageSize) пропускает первую страницу (нужно (page - 1) * pageSize)."}

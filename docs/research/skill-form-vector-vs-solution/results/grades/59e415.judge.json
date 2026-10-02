@@ -1,0 +1,67 @@
+{
+  "id": "59e415",
+  "case": "G3",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.08597099999999999,
+    "durationMs": 6231,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 9297,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 558,
+      "output_tokens_details": {
+        "thinking_tokens": 173
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9297,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 558,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 9297,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 9297
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G3-contract-null": {
+      "verdict": "PASS",
+      "quote": "var subscriber = contractNo is null ? null : await _subscribers.FindTrackedByContractAsync(contractNo);",
+      "why": "При нераспознанном номере поиск по ContractNo не выполняется, строка уходит в UnmatchedPayments без зачисления."
+    },
+    "G3-credit-time": {
+      "verdict": "PASS",
+      "quote": "var now = DateTime.Now;",
+      "why": "Значения CreditedAt, CreatedAt и ResumedAt берутся из DateTime.Now с Kind=Local, как в существующих CreatedAt/ConnectedAt, поэтому Npgsql не падает на timestamp without time zone."
+    },
+    "G3-h-bycontract": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "GetByContractAsync в diff не изменён и дефектом не назван."
+    },
+    "G3-m-utcnow": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Существующие CreateLeadAsync и SignContractAsync не тронуты, замены на UtcNow нет."
+    }
+  },
+  "stderr": ""
+}

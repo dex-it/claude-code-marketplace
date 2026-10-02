@@ -1,0 +1,87 @@
+{
+  "id": "4d2806",
+  "case": "GN",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.087087,
+    "durationMs": 10176,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 8029,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1121,
+      "output_tokens_details": {
+        "thinking_tokens": 149
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8029,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1121,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 8029,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 8029
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GN-h-datetime": {
+      "verdict": "NO",
+      "quote": "`PlannedLocal` явно замаплен на `timestamp without time zone` и всегда записывается со значением `Kind=Unspecified` (`DateOnly.ToDateTime(TimeOnly)`) — соответствует правилу Npgsql/DateTime",
+      "why": "Выход признаёт работу с DateTime корректной и ни Kind, ни тип колонки не меняет."
+    },
+    "GN-h-card-split": {
+      "verdict": "NO",
+      "quote": "`GetCardAsync` явно указывает `AsSplitQuery()` при двух коллекциях одного уровня — правило чек-листа соблюдено.",
+      "why": "AsSplitQuery выход оценивает как правильное решение, а не как дефект."
+    },
+    "GN-h-inanalysis-tracking": {
+      "verdict": "NO",
+      "quote": "`FindByLabCodeAsync` и `GetInAnalysisForBatchAsync`, используемые для записи в `RetagAsync`/`CloseAsync`, намеренно без `AsNoTracking()`",
+      "why": "Отсутствие AsNoTracking названо намеренным, правки в код нет."
+    },
+    "GN-h-fromsql": {
+      "verdict": "NO",
+      "quote": "`GetRecentBySiteAsync` использует параметризованный `FromSql` (интерполяция уходит как `DbParameter`)... SQL-инъекции нет.",
+      "why": "Выход прямо отрицает SQL-инъекцию."
+    },
+    "GN-h-retag-clear": {
+      "verdict": "NO",
+      "quote": "`Tags.Clear()` на обязательной (non-nullable FK) связи — корректно приводит к удалению осиротевших тегов",
+      "why": "Clear() выход признаёт корректным."
+    },
+    "GN-h-labcode-single": {
+      "verdict": "NO",
+      "quote": "`SingleOrDefaultAsync` в `FindByLabCodeAsync`/`GetCardAsync` применяется к полям с уникальными индексами/PK — условие уникальности гарантировано схемой.",
+      "why": "SingleOrDefaultAsync выход признаёт корректным."
+    },
+    "GN-percent-int": {
+      "verdict": "FOUND",
+      "quote": "`compliant / total` выполняется как целочисленное деление **до** умножения на 100, поэтому результат равен 0 при любом `compliant < total`",
+      "why": "Найдены оба дефекта ключа: целочисленное деление и DivideByZeroException при total == 0."
+    },
+    "GN-page-offset": {
+      "verdict": "FOUND",
+      "quote": "Для `page = 1` код пропускает `pageSize` (20) записей — то есть первая страница списка партий... никогда не возвращается",
+      "why": "Off-by-one назван, предложено исправление Skip((page - 1) * pageSize)."
+    }
+  },
+  "stderr": ""
+}

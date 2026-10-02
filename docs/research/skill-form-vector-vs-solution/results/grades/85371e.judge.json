@@ -1,0 +1,111 @@
+{
+  "id": "85371e",
+  "case": "R",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.08559140000000001,
+    "durationMs": 11041,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 7077,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1427,
+      "output_tokens_details": {
+        "thinking_tokens": 152
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7077,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1427,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 7077,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 7077
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "R-D3": {
+      "verdict": "PASS",
+      "quote": "шаблон аліасит таблицу как `p`, но динамически собранные условия квалифицируют колонки как `\"Products\".\"Category\"`/`\"Products\".\"Price\"` — рассинхрон алиасов",
+      "why": "Находка прямо называет несовпадение алиаса p и квалификации через \"Products\" в FromSqlRaw."
+    },
+    "R-D1": {
+      "verdict": "FOUND",
+      "quote": "`SingleAsync` по `Sku`, хотя по модели SKU уникален только в рамках склада, а не глобально",
+      "why": "Дефект SingleAsync по неуникальному между складами SKU назван."
+    },
+    "R-D2": {
+      "verdict": "FOUND",
+      "quote": "`last!.Value` без проверки на null; `MaxAsync` вернёт null, если у клиента нет отгруженных заказов",
+      "why": "Названо падение на !.Value при null из MaxAsync(ShippedAt)."
+    },
+    "R-D4": {
+      "verdict": "FOUND",
+      "quote": "сущности уже трекаются (`ToListAsync` без `AsNoTracking`), но вызывается `UpdateRange`",
+      "why": "Назван UpdateRange на уже отслеживаемых сущностях."
+    },
+    "R-D5": {
+      "verdict": "FOUND",
+      "quote": "`ShopDbContext` (scoped) внедрён напрямую в конструктор `BackgroundService`",
+      "why": "Назван DbContext в конструкторе BackgroundService (captive dependency)."
+    },
+    "R-D6": {
+      "verdict": "FOUND",
+      "quote": "два коллекционных `Include` (`Items`, `Payments`) без `AsSplitQuery()`: декартово произведение строк, критично при «тысячах заказов»",
+      "why": "Назван дефект двух коллекционных Include без split на тысячах заказов."
+    },
+    "R-D7": {
+      "verdict": "FOUND",
+      "quote": "`SELECT ... FOR UPDATE` через `FromSqlRaw` выполняется без явной транзакции",
+      "why": "Назван FOR UPDATE без явной транзакции."
+    },
+    "R-D8": {
+      "verdict": "FOUND",
+      "quote": "нет optimistic concurrency (RowVersion/xmin), хотя MR прямо описывает параллельную правку заказа",
+      "why": "Назван отсутствующий concurrency token при правке заказа."
+    },
+    "R-D9": {
+      "verdict": "FOUND",
+      "quote": "`DropColumn(\"Category\",\"Orders\")` без переноса существующих значений в `Categories`/`OrderCategories`",
+      "why": "Назван DropColumn Category без переноса данных."
+    },
+    "R-K1": {
+      "verdict": "FOUND",
+      "quote": "через `OrderRepository.GetAllAsync()` тянет всю таблицу `Orders` без фильтра ... фильтрует в памяти доменным методом `IsOverdue`",
+      "why": "Назван GetAllAsync с фильтрацией IsOverdue в памяти."
+    },
+    "R-h-B1": {
+      "verdict": "NO",
+      "quote": "в отличие от соседнего `GetCard`, где `AsSplitQuery` есть",
+      "why": "AsSplitQuery в GetCard упомянут как корректный, находки против него нет."
+    },
+    "R-h-B2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Выход не содержит находок про Kind=Unspecified/Utc для timestamp without time zone."
+    },
+    "R-O1": {
+      "verdict": "FOUND",
+      "quote": "`order.Items.Sum(i => prices[i.ProductId])` не умножает на `i.Qty`",
+      "why": "Назван расчёт суммы заказа без Qty."
+    }
+  },
+  "stderr": ""
+}

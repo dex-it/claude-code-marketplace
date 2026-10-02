@@ -1,0 +1,111 @@
+{
+  "id": "d62346",
+  "case": "R",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0779754,
+    "durationMs": 10438,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 6545,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1259,
+      "output_tokens_details": {
+        "thinking_tokens": 185
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6545,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1259,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 6545,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 6545
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "R-D3": {
+      "verdict": "PASS",
+      "quote": "условия ссылаются на `\"Products\".\"Category\"` / `\"Products\".\"Price\"` вместо алиаса `p`",
+      "why": "Находка #2 прямо называет несовпадение алиаса p и имени \"Products\" в условиях Search."
+    },
+    "R-D1": {
+      "verdict": "FOUND",
+      "quote": "`SingleAsync` при неуникальном SKU по складам",
+      "why": "Находка #5 называет SingleAsync по SKU, неуникальному между складами."
+    },
+    "R-D2": {
+      "verdict": "FOUND",
+      "quote": "`!.Value` на возможном `null` из `MaxAsync`",
+      "why": "Находка #6 называет MaxAsync(ShippedAt) и !.Value без проверки на null."
+    },
+    "R-D4": {
+      "verdict": "FOUND",
+      "quote": "`UpdateRange` на уже отслеживаемых сущностях затирает конкурентные изменения `Stock`",
+      "why": "Находка #4 называет UpdateRange на отслеживаемых сущностях как дефект."
+    },
+    "R-D5": {
+      "verdict": "FOUND",
+      "quote": "scoped `ShopDbContext` внедрён в конструктор singleton-`BackgroundService`",
+      "why": "Находка #11 называет DbContext в конструкторе BackgroundService."
+    },
+    "R-D6": {
+      "verdict": "FOUND",
+      "quote": "нет `AsSplitQuery` при нескольких `Include`, декартово произведение для клиентов с тысячами заказов",
+      "why": "Находка #7 называет две коллекции Include без split на тысячах заказов."
+    },
+    "R-D7": {
+      "verdict": "FOUND",
+      "quote": "`SELECT ... FOR UPDATE` без явной транзакции",
+      "why": "Находка #3 называет FOR UPDATE без явной транзакции."
+    },
+    "R-D8": {
+      "verdict": "FOUND",
+      "quote": "нет контроля конкурентности при параллельной правке несколькими операторами",
+      "why": "Находка #8 называет правку заказа без concurrency token."
+    },
+    "R-D9": {
+      "verdict": "FOUND",
+      "quote": "миграция дропает `Orders.Category` без переноса данных в новые таблицы",
+      "why": "Находка #1 называет DropColumn Category без переноса данных."
+    },
+    "R-K1": {
+      "verdict": "FOUND",
+      "quote": "фильтрация после загрузки всей таблицы `Orders` в память",
+      "why": "Находка #10 называет GetAllAsync с фильтром IsOverdue в памяти."
+    },
+    "R-h-B1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Против AsSplitQuery в GetCard находки нет, выход ставит его в пример."
+    },
+    "R-h-B2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находок против Kind=Unspecified/Utc для timestamp without time zone нет."
+    },
+    "R-O1": {
+      "verdict": "FOUND",
+      "quote": "сумма считается без умножения на `Qty`",
+      "why": "Находка #9 называет расчёт суммы заказа без Qty."
+    }
+  },
+  "stderr": ""
+}

@@ -104,8 +104,8 @@ guard мёртв - падает `absent`, guard всегда истинен - п
 | `description-no-activation` | error / warning у process | в `description` нет ключевых слов активации | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
 | `description-few-keywords` | error / warning у process | ключевых слов слишком мало для срабатывания | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
 | `documentation-style-title` | error | skill оформлен как документация API, а не как каталог ловушек | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
-| `too-few-traps` | error | ловушек меньше минимума; у process-skill не проверяется | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
 | `trap-missing-triad` | error | ловушка без триады «Плохо / Правильно / Почему»; у process-skill не проверяется | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
+| `trap-empty` | error | trap-skill без пункта чек-листа и без ловушки H3; у process-skill не проверяется | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
 | `process-empty` | error | process-skill без содержания правила - ни таблицы-реестра, ни разделов | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
 | `code-fence-too-long` | error | блок кода длиннее допустимого - skill сползает в документацию | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |
 | `size-exceeds-recommended` | error | размер выше проектного потолка trap-skill; у process-skill не проверяется - он от этого порога освобождён | [SKILL_FRAMEWORK.md](SKILL_FRAMEWORK.md) |

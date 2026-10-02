@@ -1,0 +1,24 @@
+{
+  "id": "0d82f8",
+  "case": "E4",
+  "build": "ok",
+  "log": "DDL  CONSTRAINT \"FK_OrderItem_Orders_OrderId\" FOREIGN KEY (\"OrderId\") REFERENCES \"Orders\" (\"Id\") ON DELETE CASCADE\nDDL  CONSTRAINT \"FK_Payment_Orders_OrderId\" FOREIGN KEY (\"OrderId\") REFERENCES \"Orders\" (\"Id\") ON DELETE RESTRICT\nWRITE ok\nREAD Kind=Utc driftMs=0 equalsWritten=True\nCLEAR ok, items left in DB = 0\nSQL DELETE blocked: 23503: update or delete on table \"Orders\" violates foreign key constraint \"FK_Payment_Orders_OrderId\" on table \"Payment\"",
+  "items": {
+    "E4-ts": {
+      "verdict": "pass",
+      "basis": "WRITE ok; READ Kind=Utc driftMs=0"
+    },
+    "E4-cascade": {
+      "verdict": "fail",
+      "basis": "CASCADE: DDL  CONSTRAINT \"FK_OrderItem_Orders_OrderId\" FOREIGN KEY (\"OrderId\") REFERENCES \"Orders\" (\"Id\") ON DELETE CASCADE"
+    },
+    "E4-clear": {
+      "verdict": "pass",
+      "basis": "CLEAR ok, позиций 0"
+    }
+  },
+  "fkLines": {
+    "items": 1,
+    "payments": 1
+  }
+}

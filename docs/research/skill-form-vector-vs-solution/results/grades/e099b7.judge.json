@@ -1,0 +1,67 @@
+{
+  "id": "e099b7",
+  "case": "G1",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.097587,
+    "durationMs": 13575,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 8674,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1388,
+      "output_tokens_details": {
+        "thinking_tokens": 870
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8674,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1388,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 8674,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 8674
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G1-debtors-fine": {
+      "verdict": "PASS",
+      "quote": ".Where(r => r.DaysOverdue > 0)\n            .OrderByDescending(r => r.Fine)\n            .ToList();",
+      "why": "Запрос фильтрует по маппленным колонкам (BranchId, ReturnedAt == null) и материализуется через ToListAsync; DaysOverdue, Fine, отбор, сортировка и TotalFine считаются в памяти, поэтому список не падает. Отбор DueDate < today в SQL не вынесен, а сделан в памяти через DaysOverdue > 0: это неэффективно, но результат верный."
+    },
+    "G1-period-offset": {
+      "verdict": "FAIL",
+      "quote": ".Where(l => l.IssuedAt >= request.From && l.IssuedAt <= request.To)",
+      "why": "DateTimeOffset из тела запроса со смещением +05:00 сравнивается с timestamptz без приведения к UTC, и Npgsql отвергает такой параметр."
+    },
+    "G1-h-loanrows": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "ToLoanRows и GetActiveLoansAsync не названы дефектными и не изменены; замечание о нетранслируемости Fines.Amount относится только к новому запросу."
+    },
+    "G1-h-today-utc": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "CountIssuedTodayAsync не затронут в diff и не упомянут как дефект."
+    }
+  },
+  "stderr": ""
+}

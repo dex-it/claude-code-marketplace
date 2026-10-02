@@ -1,0 +1,61 @@
+{
+  "id": "ef1491",
+  "case": "E6",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0648754,
+    "durationMs": 5854,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 6755,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 520,
+      "output_tokens_details": {
+        "thinking_tokens": 186
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6755,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 520,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 6755,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 6755
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "E6-prod": {
+      "verdict": "PASS",
+      "quote": "run: ./efbundle --connection \"$PROD_CONNECTION_STRING\"",
+      "why": "В production-шаге применяется migrations bundle за gate'ом environment production; dotnet ef database update и Database.Migrate() на старте в diff отсутствуют."
+    },
+    "E6-m-data": {
+      "verdict": "NO",
+      "quote": "INSERT INTO \"\"OrderCategories\"\" (\"\"OrderId\"\", \"\"CategoryId\"\")",
+      "why": "Отдельная data-миграция переносит значения Orders.Category в Categories и создаёт связи в OrderCategories."
+    },
+    "E6-m-drop": {
+      "verdict": "NO",
+      "quote": "Orders.Category is left untouched here and must be dropped by a separate migration",
+      "why": "Колонка Order.Category не удаляется ни в одной из миграций diff, удаление отложено по expand-contract."
+    }
+  },
+  "stderr": ""
+}

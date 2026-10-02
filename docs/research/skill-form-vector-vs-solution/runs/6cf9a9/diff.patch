@@ -1,0 +1,114 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..94735ce
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,108 @@
++# Результаты code review MR !87
++
++## Критические дефекты
++
++### 1. BatchService.ListAsync, строка 49
++**Дефект:** Неправильная формула для постраничной выборки
++```csharp
++.Skip(page * pageSize)
++```
++**Проблема:** При page=1 (первая страница) будет Skip(20), получим результаты 21-40 вместо 1-20. Формула работает, как если бы нумерация страниц начиналась с 0.
++
++**Исправление:** Должно быть `(page - 1) * pageSize`
++
++**Severity:** CRITICAL
++
++---
++
++### 2. BatchService.CompliancePercentAsync, строка 107
++**Дефект:** Целочисленное деление при расчёте процента
++```csharp
++return compliant / total * 100;
++```
++**Проблема:** 
++- При compliant=1, total=2 получим: 1/2=0 (целочисленное деление), затем 0*100=0 вместо ожидаемых 50%
++- Отсутствует проверка на total==0, что вызовет DivideByZeroException при партии без проб
++
++**Исправление:** Привести к дробному типу: `(compliant * 100) / total` или `(decimal)compliant / total * 100`. Добавить проверку `if (total == 0) return 0;`
++
++**Severity:** CRITICAL
++
++---
++
++## Дефекты высокой серьёзности
++
++### 3. BatchService.CompliancePercentAsync, строка 105
++**Дефект:** Использование .All() в EF Core LINQ запросе
++```csharp
++var compliant = await _db.Samples
++    .CountAsync(s => s.BatchId == batchId && s.Results.All(r => r.Value <= r.Limit));
++```
++**Проблема:** .All() может неправильно перевести в SQL или не перевести вообще, что вызовет загрузку всех данных в память и снизит производительность.
++
++**Исправление:** Переписать через NOT EXISTS: `!s.Results.Any(r => r.Value > r.Limit)`
++
++**Severity:** HIGH
++
++---
++
++### 4. Sample.PlannedLocal и LabDbContext, линии 22 (Models.cs), 25 (LabDbContext.cs), 80 (BatchService.cs)
++**Дефект:** Неправильное хранение и обработка времени по местной временной зоне
++```csharp
++// Models.cs
++public DateTime PlannedLocal { get; set; }
++
++// LabDbContext.cs
++e.Property(s => s.PlannedLocal).HasColumnType("timestamp without time zone");
++
++// BatchService.cs
++PlannedLocal = day.ToDateTime(time),
++```
++**Проблема:** 
++- PlannedLocal хранит время без привязки к временной зоне объекта (используется тип "timestamp without time zone")
++- Информация о временной зоне объекта (из Site.TimeZoneId) не используется
++- При восстановлении значения из БД будет неясно, к какой временной зоне оно относится
++- Нарушается консистентность при сравнении с UTC-временем
++
++**Исправление:** Использовать поле для смещения UTC от объекта, либо хранить в UTC с явным преобразованием
++
++**Severity:** HIGH
++
++---
++
++## Дефекты средней серьёзности
++
++### 5. SampleRepository.GetRecentBySiteAsync, строки 26-34
++**Дефект:** Использование raw SQL вместо LINQ
++```csharp
++public Task<List<Sample>> GetRecentBySiteAsync(string siteCode, int days)
++{
++    var since = DateTime.UtcNow.Date.AddDays(-days);
++    return _db.Samples
++        .FromSql($"""...""")
++        .AsNoTracking()
++        ...
++}
++```
++**Проблема:**
++- Raw SQL сложнее поддерживать и подвержен ошибкам при изменении схемы
++- Не загружаются связанные сущности (Tags, Results), что может быть неожиданно для вызывающего кода
++- Параметризация выглядит правильной, но это более подвержено ошибкам, чем LINQ
++
++**Исправление:** Переписать через LINQ с Include для необходимых связей
++
++**Severity:** MEDIUM
++
++---
++
++## Итоговая статистика
++
++| Severity  | Количество |
++|-----------|-----------|
++| CRITICAL  | 2         |
++| HIGH      | 2         |
++| MEDIUM    | 1         |
++| **ВСЕГО**     | **5**         |
++
++### Рекомендация
++Необходимо исправить как минимум критические дефекты (1 и 2) перед мержем. Дефект 3 может привести к проблемам производительности при обработке больших партий.

@@ -1,0 +1,67 @@
+diff --git a/OrderReportService.cs b/OrderReportService.cs
+new file mode 100644
+index 0000000..667914c
+--- /dev/null
++++ b/OrderReportService.cs
+@@ -0,0 +1,33 @@
++namespace Shop.Data;
++
++public record ActiveOrderReportItem(Guid Id, string CustomerName, decimal Total, int ItemsCount);
++
++public record OverdueOrderReportItem(Guid Id, string CustomerName, decimal Total, DateTime CreatedAt, DateTime? ShippedAt);
++
++// Read-only reporting queries backed by OrderRepository.Query(). No tracking, no writes.
++public class OrderReportService
++{
++    private readonly OrderRepository _orders;
++
++    public OrderReportService(OrderRepository orders) => _orders = orders;
++
++    public Task<List<ActiveOrderReportItem>> GetActiveOrdersAsync() =>
++        _orders.Query()
++            .Where(o => o.Status == "active")
++            .Select(o => new ActiveOrderReportItem(o.Id, o.Customer.Name, o.Total, o.Items.Count))
++            .ToListAsync();
++
++    public Task<Dictionary<string, int>> GetActiveOrderCountsByCategoryAsync() =>
++        _orders.Query()
++            .Where(o => o.Status == "active")
++            .GroupBy(o => o.Category)
++            .Select(g => new { Category = g.Key, Count = g.Count() })
++            .ToDictionaryAsync(x => x.Category, x => x.Count);
++
++    // Mirrors Order.IsOverdue(now) inline, since instance methods don't translate to SQL.
++    public Task<List<OverdueOrderReportItem>> GetOverdueOrdersAsync(DateTime now) =>
++        _orders.Query()
++            .Where(o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < now)
++            .Select(o => new OverdueOrderReportItem(o.Id, o.Customer.Name, o.Total, o.CreatedAt, o.ShippedAt))
++            .ToListAsync();
++}
+diff --git a/OrderRepository.cs b/OrderRepository.cs
+index 72637b8..8501bc9 100644
+--- a/OrderRepository.cs
++++ b/OrderRepository.cs
+@@ -6,4 +6,7 @@ public class OrderRepository
+     public OrderRepository(ShopDbContext db) => _db = db;
+     public Task<List<Order>> GetAllAsync() => _db.Orders.ToListAsync();
+     public Task<Order?> GetAsync(Guid id) => _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
++
++    // Read-only composable query for reporting/projection scenarios.
++    public IQueryable<Order> Query() => _db.Orders.AsNoTracking();
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..0dc14e3
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,10 @@
++## Изменённые/созданные файлы
++
++- `OrderReportService.cs` (новый) — сервис `OrderReportService` с методами `GetActiveOrdersAsync`, `GetActiveOrderCountsByCategoryAsync`, `GetOverdueOrdersAsync(now)`, и DTO `ActiveOrderReportItem`, `OverdueOrderReportItem`.
++- `OrderRepository.cs` (изменён) — добавлен метод `Query()`, возвращающий `IQueryable<Order>` с `AsNoTracking()`, для композиции read-only запросов без материализации всей таблицы.
++
++## Решения
++
++- Все три отчёта строятся через `IQueryable`-композицию над `OrderRepository.Query()`: фильтрация, `GroupBy`/`Count` и проекция в DTO выполняются на стороне SQL (без построения списков в памяти), с `AsNoTracking()`.
++- Правило `Order.IsOverdue(now)` продублировано инлайн в `Where` (`ShippedAt == null && CreatedAt.AddDays(3) < now`), т.к. вызов экземплярного метода в LINQ-выражении не транслируется EF Core в SQL.
++- «Активные» заказы определены как `Status == "active"`; глобальный query filter `!IsDeleted` из `ShopDbContext` применяется автоматически.

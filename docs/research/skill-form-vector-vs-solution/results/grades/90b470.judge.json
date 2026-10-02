@@ -1,0 +1,72 @@
+{
+  "id": "90b470",
+  "case": "G6",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.121087,
+    "durationMs": 8900,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 12869,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 885,
+      "output_tokens_details": {
+        "thinking_tokens": 291
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 12869,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 885,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 12869,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 12869
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G6-sort-alias": {
+      "verdict": "PASS",
+      "quote": "var needsHouseJoin = !string.IsNullOrWhiteSpace(s.District) || s.SortBy == RequestSortField.Address;",
+      "why": "JOIN apartments и JOIN houses управляются общими флагами, которые учитывают и фильтры HouseId/District, и сортировку по адресу, поэтому каждый добавляется ровно один раз; JOIN из блока District убран, а sort/dir приходят как enum из белого списка."
+    },
+    "G6-search-columns": {
+      "verdict": "PASS",
+      "quote": "SELECT r.id, r.apartment_id, r.text, r.category, r.status, r.created_at,\n                   r.contact_phone, r.closing_comment",
+      "why": "Новые маппленные колонки дописаны в явный SELECT сырого SQL, поэтому FromSqlRaw материализует сущность полностью."
+    },
+    "G6-plan-orphans": {
+      "verdict": "PASS",
+      "quote": "plan.Items.Remove(removed);\n            _db.PlanItems.Remove(removed);",
+      "why": "Убранные работы удаляются явно через _db.PlanItems.Remove, совпавшие обновляются на месте, новые добавляются, так что история по остающимся работам сохраняется."
+    },
+    "G6-h-move-items": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "MergePlansAsync не изменён, а утверждений о его падении или потере работ в выходе нет."
+    },
+    "G6-h-limit": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Подстановка LIMIT/OFFSET оставлена как есть, и SQL-инъекцией она нигде не названа."
+    }
+  },
+  "stderr": ""
+}

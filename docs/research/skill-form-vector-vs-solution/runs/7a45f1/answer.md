@@ -1,0 +1,6 @@
+Изменённые/созданные файлы:
+- `Model.cs` — поле `Order.Complexity` (int, CHECK 1..5); `ValueConverter` для `CreatedAt` (снимает `Kind` при записи, ставит `Utc` при чтении — колонка `timestamp without time zone` не тронута); навигации `Order` в `OrderItem`/`Payment`; в `OnModelCreating` явные обязательные связи `Order -> Items`/`Order -> Payments` (`IsRequired` + `Cascade`) и зеркальные `HasQueryFilter` на `OrderItem`/`Payment` по `!Order.IsDeleted`.
+- `OrderRepository.cs` — метод `ClearItemsAsync(Guid orderId)`: грузит заказ с `Include(Items)`, `Items.Clear()`, `SaveChangesAsync()`.
+- `_answer.md` — тот же отчёт.
+
+Ключевое решение: конвертер `CreatedAt` не меняет тип/имя колонки (важно для DBA-отчётов), но избавляет от несовместимости Npgsql с `Kind=Utc` для `timestamp without time zone`, полагаясь на то, что в код пишется только `UtcNow`. Обязательность связей `Order -> Items/Payments` нужна, чтобы `Items.Clear()` в `ClearItemsAsync` действительно удалял позиции (а не падал на попытке обнулить non-nullable `OrderId`); соответствующие `HasQueryFilter` на зависимых сущностях устраняют рассинхрон с soft-delete фильтром родителя.

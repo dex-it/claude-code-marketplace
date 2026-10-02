@@ -1,0 +1,71 @@
+{
+  "id": "c1cbcf",
+  "case": "N0",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0387954,
+    "durationMs": 5451,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 3445,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 540,
+      "output_tokens_details": {
+        "thinking_tokens": 0
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3445,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 540,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 3445,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 3445
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "N0-h-split": {
+      "verdict": "NO",
+      "quote": "`AsNoTracking()` + `AsSplitQuery()` для двух коллекций (`Items`, `Payments`) — верно избегает декартова произведения",
+      "why": "AsSplitQuery явно признан корректным; находка 4 касается Include(Customer), а не сплит-квери."
+    },
+    "N0-h-utc": {
+      "verdict": "NO",
+      "quote": "`DateTime.UtcNow` для поля без явного маппинга колонки корректно соответствует Npgsql 8",
+      "why": "UtcNow в AuditWriter признан корректным, находка 3 касается времени жизни DbContext, а не времени."
+    },
+    "N0-h-contains": {
+      "verdict": "NO",
+      "quote": "транслируется Npgsql в `= ANY(@array)` одним параметром — не деградирует на больших списках id",
+      "why": "Contains признан корректным, пачек и лимита параметров не требуется."
+    },
+    "N0-X1": {
+      "verdict": "FOUND",
+      "quote": "`Skip(page * pageSize)` вместо `Skip((page - 1) * pageSize)` при страницах с 1 — первая страница (самые свежие заказы) никогда не отдаётся",
+      "why": "Дефект пагинации назван точно, как в ключе."
+    },
+    "N0-X2": {
+      "verdict": "FOUND",
+      "quote": "фильтр `o.Status == \"Active\"`, а в `Model.cs` статус по умолчанию `\"active\"`",
+      "why": "Несовпадение регистра и пустой список названы прямо."
+    }
+  },
+  "stderr": ""
+}

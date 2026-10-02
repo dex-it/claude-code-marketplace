@@ -1,0 +1,71 @@
+{
+  "id": "903a06",
+  "case": "E1",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0403674,
+    "durationMs": 6328,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 3429,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 625,
+      "output_tokens_details": {
+        "thinking_tokens": 155
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3429,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 625,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 3429,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 3429
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "E1-filter": {
+      "verdict": "PASS",
+      "quote": ".Where(o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < now)",
+      "why": "Условие IsOverdue целиком записано в IQueryable до ToListAsync, без вызова Order.IsOverdue и без фильтрации в памяти."
+    },
+    "E1-tracking": {
+      "verdict": "PASS",
+      "quote": "public IQueryable<Order> Query() => _db.Orders.AsNoTracking();",
+      "why": "Все три метода берут данные из Query() с AsNoTracking и проецируют их в DTO или анонимный тип, поэтому ни одна сущность не отслеживается."
+    },
+    "E1-m-n1": {
+      "verdict": "NO",
+      "quote": "CustomerName = o.Customer.Name,",
+      "why": "Customer.Name и Items.Count читаются внутри серверной проекции Select, а не через ленивую навигацию после материализации."
+    },
+    "E1-m-agg": {
+      "verdict": "NO",
+      "quote": ".GroupBy(o => o.Category)",
+      "why": "Группировка и Count выполняются на сервере до ToDictionaryAsync."
+    },
+    "E1-m-getall": {
+      "verdict": "NO",
+      "quote": "_orders.Query()",
+      "why": "Отчёты построены на новом Query(), GetAllAsync не вызывается."
+    }
+  },
+  "stderr": ""
+}

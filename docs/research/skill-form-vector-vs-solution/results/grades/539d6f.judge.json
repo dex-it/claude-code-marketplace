@@ -1,0 +1,67 @@
+{
+  "id": "539d6f",
+  "case": "G1",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.086271,
+    "durationMs": 20687,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 8702,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 811,
+      "output_tokens_details": {
+        "thinking_tokens": 289
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8702,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 811,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 8702,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 8702
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G1-debtors-fine": {
+      "verdict": "FAIL",
+      "quote": "loans.ToLoanRows(today, rules).Where(r => r.Fine > 0); ... debtors.OrderByDescending(r => r.Fine).ToListAsync(); ... debtors.SumAsync(r => r.Fine)",
+      "why": "Where, OrderByDescending и SumAsync по Fine применены к IQueryable после ToLoanRows. Fine вычисляется клиентским Fines.Amount в проекции, EF не транслирует такие операции, и GET /branches/{id}/debtors падает."
+    },
+    "G1-period-offset": {
+      "verdict": "FAIL",
+      "quote": "_db.Loans.Count(l => l.BranchId == b.Id && l.IssuedAt >= from && l.IssuedAt < to)",
+      "why": "DateTimeOffset из тела запроса со смещением +05:00 передаётся в сравнение с timestamptz без приведения к смещению 0. Npgsql отклоняет такой параметр, отчёт падает."
+    },
+    "G1-h-loanrows": {
+      "verdict": "NO",
+      "quote": "Должники переиспользуют существующую проекцию `ToLoanRows`",
+      "why": "Существующие ToLoanRows и GetActiveLoansAsync не названы дефектными и не изменены."
+    },
+    "G1-h-today-utc": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "CountIssuedTodayAsync не тронут и не объявлен ошибочным."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,87 @@
+{
+  "id": "376746",
+  "case": "GN",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.08703100000000001,
+    "durationMs": 12740,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 8422,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 961,
+      "output_tokens_details": {
+        "thinking_tokens": 185
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8422,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 961,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 8422,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 8422
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GN-h-datetime": {
+      "verdict": "NO",
+      "quote": "значение из `DateOnly.ToDateTime(TimeOnly)` имеет `Kind=Unspecified` — соответствует правилу Npgsql",
+      "why": "Выход признаёт работу с DateTime корректной и не меняет ни Kind, ни тип колонки."
+    },
+    "GN-h-card-split": {
+      "verdict": "NO",
+      "quote": "явный `AsSplitQuery()` при нескольких коллекциях одного уровня (`Instruments`, `Samples.Results`) — соответствует правилу",
+      "why": "AsSplitQuery в GetCardAsync признан корректным, убрать его выход не требует."
+    },
+    "GN-h-inanalysis-tracking": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Добавить AsNoTracking в GetInAnalysisForBatchAsync выход не предлагает; находка 6 касается конкурентности, а не отслеживания."
+    },
+    "GN-h-fromsql": {
+      "verdict": "NO",
+      "quote": "использует `FromSql` с интерполяцией (параметризуется автоматически...) — SQL-инъекции нет",
+      "why": "Выход прямо отрицает наличие инъекции."
+    },
+    "GN-h-retag-clear": {
+      "verdict": "NO",
+      "quote": "поэтому `Clear()` корректно удалит старые тэги, исключение не ожидается",
+      "why": "Clear() признан корректным благодаря каскаду по умолчанию."
+    },
+    "GN-h-labcode-single": {
+      "verdict": "NO",
+      "quote": "`SingleOrDefaultAsync` по `LabCode`, на которое есть `IsUnique()` индекс — обоснованно",
+      "why": "Дефектом это не названо."
+    },
+    "GN-percent-int": {
+      "verdict": "FOUND",
+      "quote": "`compliant / total` выполняется **до** умножения на 100 и округляется вниз",
+      "why": "Названы и целочисленное деление, и DivideByZeroException при пустой партии."
+    },
+    "GN-page-offset": {
+      "verdict": "FOUND",
+      "quote": "Должно быть `Skip((page - 1) * pageSize)`.",
+      "why": "Off-by-one в пагинации назван точно, с правильным исправлением."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,82 @@
+{
+  "id": "6ef147",
+  "case": "B3",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.134971,
+    "durationMs": 16886,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 12267,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1820,
+      "output_tokens_details": {
+        "thinking_tokens": 813
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 12267,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1820,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 12267,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 12267
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "B3-scope-sql": {
+      "verdict": "PASS",
+      "quote": "case \"diagnosis\": scope = SearchScope.Diagnosis; return true;",
+      "why": "Scope проходит через белый список switch в enum, а неизвестное значение даёт 400. Поиск переписан на LINQ с PlainToTsQuery, поэтому текст уходит параметром и сырого SQL нет."
+    },
+    "B3-drug-resultset": {
+      "verdict": "PASS",
+      "quote": "v.Prescriptions.Any(p => EF.Functions.ToTsVector(\"russian\", p.Drug).Matches(query))",
+      "why": "Поиск по препаратам вынесен в LINQ-подзапрос EXISTS над Prescriptions, запрос возвращает только Visits, и каждый визит попадает в выдачу один раз."
+    },
+    "B3-lastvisit-split": {
+      "verdict": "PASS",
+      "quote": ".Where(v => v.SlotStart == slot)\n            .OrderBy(v => v.Id)",
+      "why": "Сначала определяется слот через MaxAsync, затем грузятся все визиты этого слота с уникальным порядком по Id. Проекция коллекций под split однозначно привязана к каждому визиту, произвольного FirstOrDefault нет."
+    },
+    "B3-export-notracking": {
+      "verdict": "PASS",
+      "quote": "PrescriptionCount = v.Prescriptions.Count()",
+      "why": "Выгрузка идёт проекцией в анонимный тип через AsAsyncEnumerable, число назначений считается в SQL, отслеживаемые сущности не создаются."
+    },
+    "B3-export-range-utc": {
+      "verdict": "PASS",
+      "quote": "TimeZoneInfo.ConvertTimeToUtc(date.ToDateTime(TimeOnly.MinValue, DateTimeKind.Unspecified), Zone)",
+      "why": "Местные даты переводятся в UTC с учётом Asia/Yekaterinburg и получают Kind=Utc. Верхняя граница — начало дня to+1 (полуинтервал), время в CSV выводится через ClinicTime.ToLocal."
+    },
+    "B3-h-existing-search": {
+      "verdict": "NO",
+      "quote": "`FromSqlRaw` заменил на LINQ с `EF.Functions.ToTsVector",
+      "why": "Замена объяснена совпадением выражений с GIN-индексами. Существующий код уязвимым к инъекции не объявлен."
+    },
+    "B3-m-fts-lost": {
+      "verdict": "NO",
+      "quote": "EF.Functions.ToTsVector(\"russian\", v.Diagnosis ?? \"\").Matches(query)",
+      "why": "Полнотекстовый поиск сохранён: to_tsvector('russian', …) и plainto_tsquery, выражения заявлены совпадающими с индексами, включая coalesce для диагноза. На LIKE/Contains поиск не заменён."
+    }
+  },
+  "stderr": ""
+}

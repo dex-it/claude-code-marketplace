@@ -1,0 +1,61 @@
+{
+  "id": "9b9473",
+  "case": "L5",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0279994,
+    "durationMs": 6913,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 1998,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 579,
+      "output_tokens_details": {
+        "thinking_tokens": 283
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 1998,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 579,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 1998,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 1998
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "L5-dedup": {
+      "verdict": "PASS",
+      "quote": ".Where(c => customerIds.Contains(c.Id))",
+      "why": "Письма отправляются по строкам клиентов из БД, а не по входным id, поэтому повторённый id даёт одну строку и одно письмо; явного Distinct нет, но дубли по письму на вхождение не возникают."
+    },
+    "L5-h-chunk": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Запрос клиентов выполняется одним Contains без Chunk/Batch/Skip-Take и без обоснования лимитом параметров."
+    },
+    "L5-m-enum": {
+      "verdict": "NO",
+      "quote": ".Where(c => customerIds.Contains(c.Id))",
+      "why": "customerIds используется только один раз, при трансляции запроса, повторного перечисления нет."
+    }
+  },
+  "stderr": ""
+}

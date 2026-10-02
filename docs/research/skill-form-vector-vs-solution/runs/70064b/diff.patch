@@ -1,0 +1,322 @@
+diff --git a/Endpoints.cs b/Endpoints.cs
+new file mode 100644
+index 0000000..ab4c34e
+--- /dev/null
++++ b/Endpoints.cs
+@@ -0,0 +1,73 @@
++using Microsoft.AspNetCore.Mvc;
++
++namespace Domovoy.Housing;
++
++public record CloseRequestBody(string Comment);
++
++public static class HousingEndpoints
++{
++    public static void MapHousingEndpoints(this IEndpointRouteBuilder app)
++    {
++        // Реестр заявок диспетчера: фильтры + sort=date|address|status, dir=asc|desc.
++        app.MapGet("/requests", async ([AsParameters] RequestSearch search, HousingService service) =>
++        {
++            try
++            {
++                return Results.Ok(await service.SearchAsync(search));
++            }
++            catch (ArgumentException ex)
++            {
++                return Results.BadRequest(ex.Message);
++            }
++        });
++
++        app.MapGet("/requests/{id:int}", async (int id, HousingService service) =>
++        {
++            var card = await service.GetRequestAsync(id);
++            return card is null ? Results.NotFound() : Results.Ok(card);
++        });
++
++        // Приём заявки диспетчером, включая необязательный контактный телефон заявителя.
++        app.MapPost("/requests", async (NewRequest body, HousingService service) =>
++        {
++            var id = await service.CreateRequestAsync(body);
++            return Results.Created($"/requests/{id}", id);
++        });
++
++        // Мастер закрывает заявку: Done + обязательный комментарий, только из InProgress.
++        app.MapPost("/requests/{id:int}/close", async (int id, CloseRequestBody body, HousingService service) =>
++        {
++            try
++            {
++                await service.CloseRequestAsync(id, body.Comment);
++                return Results.NoContent();
++            }
++            catch (KeyNotFoundException ex)
++            {
++                return Results.NotFound(ex.Message);
++            }
++            catch (ArgumentException ex)
++            {
++                return Results.BadRequest(ex.Message);
++            }
++            catch (RequestStateConflictException ex)
++            {
++                return Results.Conflict(ex.Message);
++            }
++        });
++
++        // Инженер присылает план дома целиком - план дома становится ровно таким.
++        app.MapPut("/houses/{id:int}/plan", async (int id, List<PlanItemInput> body, PlanService service) =>
++        {
++            try
++            {
++                await service.ReplacePlanAsync(id, body);
++                return Results.NoContent();
++            }
++            catch (InvalidOperationException ex)
++            {
++                return Results.NotFound(ex.Message);
++            }
++        });
++    }
++}
+diff --git a/HousingDbContext.cs b/HousingDbContext.cs
+index b6add19..7baaf24 100644
+--- a/HousingDbContext.cs
++++ b/HousingDbContext.cs
+@@ -32,10 +32,16 @@ public class HousingDbContext : DbContext
+         {
+             e.Property(r => r.Status).HasConversion<string>().HasMaxLength(16);
+             e.Property(r => r.Category).HasMaxLength(50);
++            e.Property(r => r.ApplicantPhone).HasMaxLength(32);
++            e.Property(r => r.CompletionComment).HasMaxLength(2000);
+             e.HasIndex(r => r.CreatedAt);
+             // search_vector - generated tsvector-колонка (создана SQL в миграции AddRequestSearch), в модель не входит
+         });
+ 
++        // Один план на дом: на этом рассчитан SingleAsync(p => p.HouseId == ...)
++        // в PlanService (ReplacePlanAsync, MergePlansAsync).
++        b.Entity<MaintenancePlan>().HasIndex(p => p.HouseId).IsUnique();
++
+         b.Entity<MaintenancePlan>()
+             .HasMany(p => p.Items)
+             .WithOne(i => i.Plan)
+diff --git a/HousingService.cs b/HousingService.cs
+index a5041e3..d84e933 100644
+--- a/HousingService.cs
++++ b/HousingService.cs
+@@ -5,15 +5,21 @@ using Npgsql;
+ namespace Domovoy.Housing;
+ 
+ public record RequestSearch(string? Text, RequestStatus? Status, int? HouseId, string? District,
+-    int Page = 1, int PageSize = 50);
++    int Page = 1, int PageSize = 50, string Sort = "date", string Dir = "desc");
+ 
+ public record RequestRow(int Id, DateTime CreatedAt, string Address, string Apartment,
+     RequestStatus Status, string Category, string Text);
+ 
+ public record RequestCard(int Id, DateTime CreatedAt, string Address, string Apartment,
+-    RequestStatus Status, string Category, string Text);
++    RequestStatus Status, string Category, string Text, string? ApplicantPhone);
+ 
+-public record NewRequest(int ApartmentId, string Text, string Category);
++public record NewRequest(int ApartmentId, string Text, string Category, string? ApplicantPhone = null);
++
++// Заявку в этом статусе нельзя закрыть (не InProgress) - 409 на уровне API.
++public class RequestStateConflictException : Exception
++{
++    public RequestStateConflictException(string message) : base(message) { }
++}
+ 
+ public class HousingService
+ {
+@@ -30,12 +36,32 @@ public class HousingService
+             Category = req.Category,
+             Status = RequestStatus.New,
+             CreatedAt = DateTime.UtcNow,
++            ApplicantPhone = string.IsNullOrWhiteSpace(req.ApplicantPhone) ? null : req.ApplicantPhone.Trim(),
+         };
+         _db.ServiceRequests.Add(request);
+         await _db.SaveChangesAsync();
+         return request.Id;
+     }
+ 
++    // Мастер закрывает заявку: статус -> Done, с комментарием о выполненных работах.
++    // Закрыть можно только заявку в статусе InProgress.
++    public async Task CloseRequestAsync(int id, string comment)
++    {
++        if (string.IsNullOrWhiteSpace(comment))
++            throw new ArgumentException("Комментарий о выполненных работах обязателен", nameof(comment));
++
++        var request = await _db.ServiceRequests.FirstOrDefaultAsync(r => r.Id == id)
++            ?? throw new KeyNotFoundException($"Заявка {id} не найдена");
++
++        if (request.Status != RequestStatus.InProgress)
++            throw new RequestStateConflictException(
++                $"Заявка {id} в статусе {request.Status}: закрыть можно только заявку в статусе InProgress");
++
++        request.Status = RequestStatus.Done;
++        request.CompletionComment = comment.Trim();
++        await _db.SaveChangesAsync();
++    }
++
+     // Карточка заявки для мастера.
+     public async Task<RequestCard?> GetRequestAsync(int id)
+     {
+@@ -47,22 +73,31 @@ public class HousingService
+         return r is null
+             ? null
+             : new RequestCard(r.Id, r.CreatedAt, r.Apartment.House.Address, r.Apartment.Number,
+-                r.Status, r.Category, r.Text);
++                r.Status, r.Category, r.Text, r.ApplicantPhone);
+     }
+ 
+     // Реестр заявок для диспетчерской.
+     public async Task<List<RequestRow>> SearchAsync(RequestSearch s)
+     {
+         // Без search_vector: колонка тяжёлая и в модели её нет.
++        // FromSqlRaw материализует полную сущность ServiceRequest - нужны все её колонки,
++        // даже если в RequestRow попадает не всё.
+         var sql = new StringBuilder("""
+-            SELECT r.id, r.apartment_id, r.text, r.category, r.status, r.created_at
++            SELECT r.id, r.apartment_id, r.text, r.category, r.status, r.created_at,
++                   r.applicant_phone, r.completion_comment
+             FROM service_requests r
+             """);
+         var where = new List<string>();
+         var parameters = new List<NpgsqlParameter>();
+ 
+-        if (s.HouseId is not null || !string.IsNullOrWhiteSpace(s.District))
++        // Сортировка по адресу тоже требует apartments/houses, поэтому джойны зависят не только от фильтров.
++        var needsApartmentJoin = s.HouseId is not null || !string.IsNullOrWhiteSpace(s.District) || s.Sort == "address";
++        var needsHouseJoin = !string.IsNullOrWhiteSpace(s.District) || s.Sort == "address";
++
++        if (needsApartmentJoin)
+             sql.Append(" JOIN apartments a ON a.id = r.apartment_id");
++        if (needsHouseJoin)
++            sql.Append(" JOIN houses h ON h.id = a.house_id");
+ 
+         if (s.HouseId is { } houseId)
+         {
+@@ -72,7 +107,6 @@ public class HousingService
+ 
+         if (!string.IsNullOrWhiteSpace(s.District))
+         {
+-            sql.Append(" JOIN houses h ON h.id = a.house_id");
+             where.Add("h.district = @district");
+             parameters.Add(new NpgsqlParameter("district", s.District));
+         }
+@@ -92,9 +126,25 @@ public class HousingService
+         if (where.Count > 0)
+             sql.Append(" WHERE ").Append(string.Join(" AND ", where));
+ 
++        // sort/dir приходят от фронта как часть URL - в текст SQL идёт не ввод, а фиксированный
++        // whitelisted-фрагмент, выбранный по нему.
++        var direction = s.Dir switch
++        {
++            "asc" => "ASC",
++            "desc" => "DESC",
++            _ => throw new ArgumentException($"Неизвестное направление сортировки '{s.Dir}'", nameof(s)),
++        };
++        var orderBy = s.Sort switch
++        {
++            "date" => $"r.created_at {direction}",
++            "status" => $"r.status {direction}",
++            "address" => $"h.address {direction}, a.number {direction}",
++            _ => throw new ArgumentException($"Неизвестное поле сортировки '{s.Sort}'", nameof(s)),
++        };
++
+         var pageSize = Math.Clamp(s.PageSize, 1, 200);
+         var offset = (Math.Max(s.Page, 1) - 1) * pageSize;
+-        sql.Append(" ORDER BY r.created_at DESC");
++        sql.Append($" ORDER BY {orderBy}");
+         sql.Append($" LIMIT {pageSize} OFFSET {offset}");
+ 
+         var requests = await _db.ServiceRequests
+diff --git a/Models.cs b/Models.cs
+index d11ec0f..6f5c287 100644
+--- a/Models.cs
++++ b/Models.cs
+@@ -27,6 +27,8 @@ public class ServiceRequest
+     public string Category { get; set; } = "";
+     public RequestStatus Status { get; set; }
+     public DateTime CreatedAt { get; set; }
++    public string? ApplicantPhone { get; set; }      // контактный телефон заявителя, вносится диспетчером
++    public string? CompletionComment { get; set; }   // комментарий мастера о выполненных работах (при закрытии)
+ }
+ 
+ // План планово-предупредительных работ по дому.
+diff --git a/PlanService.cs b/PlanService.cs
+index b7d6b67..870158d 100644
+--- a/PlanService.cs
++++ b/PlanService.cs
+@@ -4,6 +4,8 @@ namespace Domovoy.Housing;
+ 
+ public record PlanItemDto(string WorkCode, string Title, int PeriodDays, DateOnly? LastDoneOn, DateOnly? NextDueOn);
+ 
++public record PlanItemInput(string WorkCode, string Title, int PeriodDays);
++
+ public class PlanService
+ {
+     private readonly HousingDbContext _db;
+@@ -46,6 +48,44 @@ public class PlanService
+         await _db.SaveChangesAsync();
+     }
+ 
++    // Инженер присылает план дома целиком: план становится ровно таким списком работ.
++    // Работы, которые остаются (совпадает WorkCode), сохраняют свою историю выполнения;
++    // работы, которых больше нет в присланном плане, удаляются вместе со своей историей.
++    public async Task ReplacePlanAsync(int houseId, List<PlanItemInput> items)
++    {
++        var plan = await _db.MaintenancePlans.Include(p => p.Items)
++            .SingleAsync(p => p.HouseId == houseId);
++
++        var incomingCodes = items.Select(i => i.WorkCode).ToHashSet();
++
++        foreach (var existing in plan.Items.ToList())
++        {
++            if (!incomingCodes.Contains(existing.WorkCode))
++                _db.PlanItems.Remove(existing);
++        }
++
++        foreach (var incoming in items)
++        {
++            var existing = plan.Items.SingleOrDefault(i => i.WorkCode == incoming.WorkCode);
++            if (existing is not null)
++            {
++                existing.Title = incoming.Title;
++                existing.PeriodDays = incoming.PeriodDays;
++            }
++            else
++            {
++                plan.Items.Add(new PlanItem
++                {
++                    WorkCode = incoming.WorkCode,
++                    Title = incoming.Title,
++                    PeriodDays = incoming.PeriodDays,
++                });
++            }
++        }
++
++        await _db.SaveChangesAsync();
++    }
++
+     // Дома объединены в один комплекс: работы плана fromHouse, которых нет в плане toHouse,
+     // переходят в план toHouse со своей историей выполнения.
+     public async Task MergePlansAsync(int fromHouseId, int toHouseId)
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..b742b13
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,13 @@
++Изменённые файлы:
++- Models.cs — в `ServiceRequest` добавлены `ApplicantPhone` (телефон заявителя, опционален) и `CompletionComment` (комментарий мастера при закрытии).
++- HousingDbContext.cs — маппинг новых полей (`HasMaxLength`), добавлен уникальный индекс `MaintenancePlan.HouseId` (один план на дом — на нём опирается `SingleAsync` в `ReplacePlanAsync`/`MergePlansAsync`).
++- HousingService.cs — `RequestSearch` получил `Sort`/`Dir`; `SearchAsync` строит джойны и `ORDER BY` по whitelist (date/address/status × asc/desc), а не по сырому вводу; добавлен `CloseRequestAsync` (комментарий обязателен, переход только из `InProgress`, иначе `RequestStateConflictException`); `NewRequest`/`CreateRequestAsync` и `RequestCard`/`GetRequestAsync` — телефон заявителя.
++- PlanService.cs — новый `ReplacePlanAsync(houseId, items)`: план дома приводится ровно к присланному списку работ по `WorkCode` — совпавшие обновляются (история выполнения не трогается), отсутствующие в присланном списке удаляются через `_db.PlanItems.Remove` (каскадно удаляет их `PlanItemCompletions`), новые добавляются.
++- Endpoints.cs (новый) — минимальный API: `GET /requests` (реестр с сортировкой), `GET/POST /requests`, `POST /requests/{id}/close` (404/400/409), `PUT /houses/{id}/plan` (404 если плана нет).
++
++Решения:
++- sort/dir — whitelist-выбор SQL-фрагмента (switch), а не конкатенация пользовательского ввода в SQL (правило "динамический FromSqlRaw").
++- Удаление пунктов плана — явный `DbSet.Remove`, а не разрыв навигационной связи, так как в контексте `DeleteOrphansTiming = CascadeTiming.Never`.
++- Для `ReplacePlanAsync`/`MergePlansAsync` добросовестность `SingleAsync(HouseId)` закрыта уникальным индексом на `MaintenancePlan.HouseId`.
++
++Не выполнено по ограничениям: EF-миграция под новые колонки/индекс не сгенерирована (нет каталога Migrations в снимке и запрет на запуск `dotnet ef`/сборки) — нужно сделать `dotnet ef migrations add` перед выкаткой.

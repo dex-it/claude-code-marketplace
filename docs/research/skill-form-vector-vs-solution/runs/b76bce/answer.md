@@ -1,0 +1,1 @@
+Ревью готово и сохранено в `_answer.md`: 6 critical, 4 high, 3 medium, 1 low. Самое серьёзное — рассинхрон миграции и модели вокруг `Order.Category` (потеря данных + рантайм-ошибка), гонка в `CatalogService.Reserve` из-за `FOR UPDATE` без транзакции, неверный расчёт суммы заказа без учёта `Qty`, и краш DI из-за scoped `ShopDbContext` в singleton-воркере.

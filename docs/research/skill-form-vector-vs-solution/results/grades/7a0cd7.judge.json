@@ -1,0 +1,67 @@
+{
+  "id": "7a0cd7",
+  "case": "G2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.080887,
+    "durationMs": 6941,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 8329,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 691,
+      "output_tokens_details": {
+        "thinking_tokens": 193
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8329,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 691,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 8329,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 8329
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G2-freeze-fresh": {
+      "verdict": "FAIL",
+      "quote": "else if (member.FrozenUntil.HasValue && member.FrozenUntil.Value >= pass.PassedAt)",
+      "why": "Признак заморозки берётся из уже загруженного существующим запросом Member в долгоживущем контексте воркера; нет AsNoTracking, проекции, нового scope или ChangeTracker.Clear, поэтому заморозка или её снятие после первого прохода клиента не видны."
+    },
+    "G2-random-session": {
+      "verdict": "FAIL",
+      "quote": ".Include(s => s.Enrollments).ThenInclude(e => e.Member)\n            .OrderBy(x => EF.Functions.Random())\n            .FirstOrDefaultAsync();",
+      "why": "Один запрос с OrderBy(EF.Functions.Random()), FirstOrDefault и Include коллекции без AsSingleQuery: при глобальном SplitQuery запрос записей заново вычисляет случайный порядок."
+    },
+    "G2-h-course-split": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "GetCourseAsync не тронут и дефектом не назван."
+    },
+    "G2-m-passes-notracking": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Запросы проходов и записей в TurnstileWorker не переведены в AsNoTracking, глобальное поведение трекинга не менялось."
+    }
+  },
+  "stderr": ""
+}

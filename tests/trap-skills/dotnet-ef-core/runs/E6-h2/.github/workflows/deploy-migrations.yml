@@ -1,0 +1,37 @@
+name: Deploy migrations
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Migrations/**"
+
+jobs:
+  migrate-production:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Install dotnet-ef
+        run: dotnet tool install --global dotnet-ef --version 8.*
+
+      # Bundle decouples the migration run from app startup: no race between app instances
+      # applying migrations concurrently, and the target host needs no SDK or source checkout.
+      - name: Build migration bundle
+        run: >
+          dotnet ef migrations bundle
+          --project Shop.Data
+          --startup-project Shop.Data
+          --self-contained -r linux-x64
+          --output efbundle
+          --force
+
+      - name: Apply migrations to production
+        env:
+          CONNECTION_STRING: ${{ secrets.PROD_DB_CONNECTION_STRING }}
+        run: ./efbundle --connection "$CONNECTION_STRING"

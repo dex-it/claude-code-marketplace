@@ -1,0 +1,67 @@
+{
+  "id": "378307",
+  "case": "G1",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.110039,
+    "durationMs": 22717,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 8323,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 2151,
+      "output_tokens_details": {
+        "thinking_tokens": 1735
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8323,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2151,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 8323,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 8323
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G1-debtors-fine": {
+      "verdict": "FAIL",
+      "quote": ".Where(l => l.BranchId == branchId && l.ReturnedAt == null)",
+      "why": "Сортировка и сумма считаются в памяти, поэтому запрос не падает. Но отбора просроченных выдач нет ни в SQL (DueDate < сегодня), ни в памяти (Fine/DaysOverdue > 0), и в «список должников» попадают все невозвращённые выдачи. Кроме того, конструктор `=> { ... }` не компилируется."
+    },
+    "G1-period-offset": {
+      "verdict": "PASS",
+      "quote": "var fromUtc = from.ToUniversalTime();",
+      "why": "Обе границы приводятся к смещению 0 с сохранением момента времени до сравнения с IssuedAt."
+    },
+    "G1-h-loanrows": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "ToLoanRows и GetActiveLoansAsync не затронуты, дефектными не названы."
+    },
+    "G1-h-today-utc": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "CountIssuedTodayAsync не изменён, претензий к нему нет."
+    }
+  },
+  "stderr": ""
+}

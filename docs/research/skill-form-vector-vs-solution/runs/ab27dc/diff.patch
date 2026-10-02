@@ -1,0 +1,71 @@
+diff --git a/Model.cs b/Model.cs
+index cc90064..180dad7 100644
+--- a/Model.cs
++++ b/Model.cs
+@@ -11,7 +11,8 @@ public class Order
+     public string Status { get; set; } = "active";
+     public string Category { get; set; } = "";
+     public decimal Total { get; set; }
+-    public DateTime CreatedAt { get; set; }          // column: timestamp without time zone
++    public int Complexity { get; set; }              // сложность комплектации, 1..5
++    public DateTime CreatedAt { get; set; }          // column: timestamp without time zone, в коде всегда UTC
+     public DateTime? ShippedAt { get; set; }
+     public bool IsDeleted { get; set; }
+     public List<OrderItem> Items { get; set; } = new();
+@@ -44,7 +45,20 @@ public class ShopDbContext : DbContext
+     protected override void OnModelCreating(ModelBuilder b)
+     {
+         b.Entity<Order>().HasQueryFilter(o => !o.IsDeleted);
+-        b.Entity<Order>().Property(o => o.CreatedAt).HasColumnType("timestamp without time zone");
++        b.Entity<Order>().ToTable(t => t.HasCheckConstraint("CK_Order_Complexity", "\"Complexity\" BETWEEN 1 AND 5"));
++
++        // timestamp without time zone принимает только Kind=Unspecified; хранится UTC-значение, при чтении помечается Utc
++        b.Entity<Order>().Property(o => o.CreatedAt)
++            .HasColumnType("timestamp without time zone")
++            .HasConversion(
++                v => DateTime.SpecifyKind(v.Kind == DateTimeKind.Local ? v.ToUniversalTime() : v, DateTimeKind.Unspecified),
++                v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
++
++        // Заказы удаляются мягко: каскад в БД не нужен, зависимые удаляет код
++        b.Entity<Order>().HasMany(o => o.Items).WithOne()
++            .HasForeignKey(i => i.OrderId).IsRequired().OnDelete(DeleteBehavior.Restrict);
++        b.Entity<Order>().HasMany(o => o.Payments).WithOne()
++            .HasForeignKey(p => p.OrderId).IsRequired().OnDelete(DeleteBehavior.Restrict);
+     }
+ }
+ // Options: UseNpgsql(cs).UseLazyLoadingProxies()
+diff --git a/OrderRepository.cs b/OrderRepository.cs
+index 72637b8..524aa66 100644
+--- a/OrderRepository.cs
++++ b/OrderRepository.cs
+@@ -6,4 +6,13 @@ public class OrderRepository
+     public OrderRepository(ShopDbContext db) => _db = db;
+     public Task<List<Order>> GetAllAsync() => _db.Orders.ToListAsync();
+     public Task<Order?> GetAsync(Guid id) => _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
++
++    // Связь Order -> Items required + Restrict: Items.Clear() упал бы в SaveChanges, поэтому позиции удаляются явно
++    public async Task ClearItems(Guid orderId)
++    {
++        var order = await _db.Orders.Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == orderId)
++            ?? throw new InvalidOperationException($"Order {orderId} not found");
++        _db.RemoveRange(order.Items);
++        await _db.SaveChangesAsync();
++    }
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..573b485
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,11 @@
++Изменённые файлы:
++- `Model.cs`: добавлены `Order.Complexity` и check-ограничение 1..5, конвертер для `CreatedAt`, связи Order -> Items и Order -> Payments.
++- `OrderRepository.cs`: добавлен метод `ClearItems(Guid orderId)`.
++- `_answer.md`: этот ответ.
++
++Решения:
++- `Complexity` — обычное поле `int` с CHECK `BETWEEN 1 AND 5`, а не owned-тип из одного поля. Колонка `timestamp without time zone` не изменилась. `CreatedAt` пишется с `Kind=Unspecified` (UTC-значение), а при чтении помечается `Utc`. Без этого Npgsql 6+ отказывается писать `Utc` в такую колонку.
++- Связи required и настроены с `OnDelete(Restrict)`: заказы удаляются мягко, поэтому каскада в БД нет. Из-за этого `Items.Clear()` бросил бы исключение в `SaveChanges`. Поэтому `ClearItems` загружает заказ с позициями через `Include` (фильтр `IsDeleted` применяется) и удаляет их явно через `RemoveRange` одним `SaveChanges`.
++- Миграцию я не писал, в проекте их нет. Для уже существующих строк колонке `Complexity` нужно значение по умолчанию из 1..5: 0 не пройдёт проверку. Какое именно значение взять, должен решить бизнес.
++
++Сборку и тесты я не запускал.

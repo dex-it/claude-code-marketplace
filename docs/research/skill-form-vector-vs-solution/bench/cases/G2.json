@@ -1,0 +1,30 @@
+{
+  "id": "G2",
+  "kind": "code",
+  "stack": ".NET",
+  "skill": "ef-core",
+  "project": "FlowStudio.Schedule - расписание, запись клиентов и учёт посещений по турникету в студии йоги и пилатеса; ASP.NET Core 8 minimal API + фоновый обработчик, EF Core 8, Npgsql, PostgreSQL 16",
+  "inputs": [
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/G2/Models.cs",
+      "to": "Models.cs"
+    },
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/G2/StudioDbContext.cs",
+      "to": "StudioDbContext.cs"
+    },
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/G2/Program.cs",
+      "to": "Program.cs"
+    },
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/G2/ScheduleService.cs",
+      "to": "ScheduleService.cs"
+    },
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/G2/TurnstileWorker.cs",
+      "to": "TurnstileWorker.cs"
+    }
+  ],
+  "task": "Задачи по сервису студии.\n(а) Администратор может заморозить абонемент клиента на N дней (болезнь, отпуск) и снять заморозку досрочно. Endpoints POST /members/{id}/freeze { days } и DELETE /members/{id}/freeze.\n(б) Пока абонемент заморожен, проход по карте через турникет занятие не засчитывает: запись остаётся «записан», в журнале прохода - пометка «абонемент заморожен». После снятия заморозки или окончания срока проходы засчитываются как обычно.\n(в) «Тайный гость»: управляющий раз в неделю выбирает для проверки случайное занятие из ближайших 7 дней. Endpoint GET /quality/random-session отдаёт такое занятие: курс, тренер, зал, время начала и имена записавшихся (без отменённых).\n(г) Не давать записаться на занятие, если абонемент клиента заморожен на момент начала занятия - 409."
+}

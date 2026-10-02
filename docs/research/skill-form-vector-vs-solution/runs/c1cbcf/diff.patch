@@ -1,0 +1,34 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..ce7f8aa
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,28 @@
++# Ревью MR !4210 (карточка заказа, выгрузка корзины, аудит)
++
++## 1. Services/CustomerOrders.cs — `ActivePageAsync`
++**Severity: critical**
++
++`Skip(page * pageSize)` при том, что метод (и комментарий в самом файле: "page - номер страницы с 1") документирован как страницы с 1. Для `page = 1` код пропускает `pageSize` строк, то есть отдаёт вторую страницу вместо первой; первая страница (самые свежие активные заказы клиента) вообще никогда не будет показана ни при каком значении `page` из задокументированного диапазона. Должно быть `Skip((page - 1) * pageSize)`.
++
++## 2. Services/CustomerOrders.cs — `ActivePageAsync`
++**Severity: critical**
++
++Фильтр `o.Status == "Active"` (с большой буквы), в то время как в `Model.cs` статус заказа по умолчанию — `"active"` (`public string Status { get; set; } = "active";`). Сравнение строк в PostgreSQL регистрозависимое, и в кодовой базе не видно места, где статусу присваивается значение `"Active"`. В результате метод в обычном сценарии (заказы со статусом по умолчанию) будет всегда возвращать пустой список — фактически "список активных заказов клиента" не работает.
++
++## 3. Workers/AuditWriter.cs — `WriteAsync`
++**Severity: medium**
++
++Класс лежит в каталоге `Workers`, что обычно означает использование внутри `BackgroundService`/hosted service. `ShopDbContext` в проекте регистрируется как scoped (стандартный `AddDbContext`), а `BackgroundService` в DI — singleton. Если `AuditWriter` создаётся один раз в конструкторе фонового сервиса (а не через `IServiceScopeFactory.CreateScope()` на каждую операцию), то захваченный `ShopDbContext` будет жить дольше своего scope: возможны `ObjectDisposedException`, состояние гонки при параллельных вызовах `WriteAsync` из разных запросов и накопление отслеживаемых сущностей в одном и том же контексте. По самому файлу не видно, как и откуда `AuditWriter` конструируется — нужно убедиться в DI-регистрации/месте вызова, что `ShopDbContext`/`AuditWriter` резолвятся per-scope, а не как singleton или long-lived worker instance.
++
++## 4. Services/OrderCard.cs — `GetAsync`
++**Severity: low**
++
++`Include(o => o.Customer)` подгружает всю сущность `Customer`, хотя используется только `order.Customer.Name`. Сейчас `Customer` — узкая сущность (Id, Name), поэтому цена невелика, но по принятому в команде правилу ("Полная сущность там, где нужна часть полей") лучше явно проецировать нужное поле (например, через `Select` в проекцию до `Include`), чтобы не тянуть лишние/будущие поля и не зависеть от навигаций `Customer`, которые могут появиться позже.
++
++---
++
++### Проверено и сделано корректно (для контекста, не является находкой)
++- `OrderCard.GetAsync`: `AsNoTracking()` + `AsSplitQuery()` для двух коллекций (`Items`, `Payments`) — верно избегает декартова произведения при одном `Include`-запросе; `SingleOrDefaultAsync` по `Id` — условие уникально (PK).
++- `CartLookup.GetAsync`: `Where(p => ids.Contains(p.Id))` с массивом из нескольких тысяч Guid транслируется Npgsql в `= ANY(@array)` одним параметром — не деградирует на больших списках id; используется `AsNoTracking()` и проекция в DTO (`Select`), а не полная сущность.
++- `AuditWriter.WriteAsync`: используется `Add` (не `AddAsync`) — оправдано, т.к. `AuditLog.Id` не требует асинхронной генерации значения перед вставкой; `DateTime.UtcNow` для поля без явного маппинга колонки корректно соответствует Npgsql 8 (`timestamptz` по умолчанию).

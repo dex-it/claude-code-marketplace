@@ -1,0 +1,66 @@
+{
+  "id": "453ea0",
+  "case": "E3",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.045707399999999995,
+    "durationMs": 5839,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 4299,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 544,
+      "output_tokens_details": {
+        "thinking_tokens": 149
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4299,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 544,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 4299,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 4299
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "E3-kind": {
+      "verdict": "PASS",
+      "quote": "var cutoff = DateTime.UtcNow - (retention ?? TimeSpan.FromDays(365));",
+      "why": "Граница вычисляется от DateTime.UtcNow (Kind=Utc), а тип колонки At в diff не меняется."
+    },
+    "E3-m-update": {
+      "verdict": "NO",
+      "quote": ".ExecuteUpdateAsync(s => s.SetProperty(p => p.Price, p => p.Price * (1 + percent)), ct);",
+      "why": "Цены поднимаются одним UPDATE через ExecuteUpdateAsync, продукты не загружаются."
+    },
+    "E3-m-batch": {
+      "verdict": "NO",
+      "quote": "LIMIT {batchSize}",
+      "why": "Удаление идёт в цикле пачками по batchSize, каждая пачка в своей autocommit-транзакции."
+    },
+    "E3-m-oneq": {
+      "verdict": "NO",
+      "quote": ".Where(p => ids.Contains(p.Id))",
+      "why": "Продукты грузятся одним запросом с Contains, а не запросом на каждый id."
+    }
+  },
+  "stderr": ""
+}

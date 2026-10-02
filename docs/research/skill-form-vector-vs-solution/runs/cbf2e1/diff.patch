@@ -1,0 +1,111 @@
+diff --git a/CatalogMaintenance.cs b/CatalogMaintenance.cs
+new file mode 100644
+index 0000000..84c089d
+--- /dev/null
++++ b/CatalogMaintenance.cs
+@@ -0,0 +1,90 @@
++namespace Shop.Data;
++
++public class CatalogMaintenance
++{
++    private readonly ShopDbContext _db;
++    public CatalogMaintenance(ShopDbContext db) => _db = db;
++
++    // Bulk update in a single UPDATE statement — avoids loading the whole category into memory.
++    public Task<int> RaisePricesAsync(string category, decimal percent = 0.10m, CancellationToken ct = default) =>
++        _db.Products
++            .Where(p => p.Category == category)
++            .ExecuteUpdateAsync(s => s.SetProperty(p => p.Price, p => p.Price * (1 + percent)), ct);
++
++    // Deletes AuditLogs older than maxAge in small batches instead of one DELETE, since ~40M of ~50M
++    // rows are expected to match: a single statement would hold a long transaction/lock and bloat WAL.
++    // Requires an index on AuditLogs.At to avoid a full scan per batch; each batch commits independently
++    // so a restart (e.g. next nightly run) resumes safely without redoing already-deleted rows.
++    public async Task<long> CleanupOldAuditLogsAsync(
++        TimeSpan? maxAge = null,
++        int batchSize = 5000,
++        TimeSpan? delayBetweenBatches = null,
++        CancellationToken ct = default)
++    {
++        var cutoff = DateTime.UtcNow - (maxAge ?? TimeSpan.FromDays(365));
++        var delay = delayBetweenBatches ?? TimeSpan.FromMilliseconds(200);
++        long totalDeleted = 0;
++
++        while (true)
++        {
++            ct.ThrowIfCancellationRequested();
++
++            var deleted = await _db.Database.ExecuteSqlInterpolatedAsync($@"
++                DELETE FROM ""AuditLogs""
++                WHERE ""Id"" IN (
++                    SELECT ""Id"" FROM ""AuditLogs""
++                    WHERE ""At"" < {cutoff}
++                    ORDER BY ""Id""
++                    LIMIT {batchSize}
++                )", ct);
++
++            totalDeleted += deleted;
++            if (deleted < batchSize)
++                break;
++
++            await Task.Delay(delay, ct);
++        }
++
++        return totalDeleted;
++    }
++
++    // Loads the requested products in one query and increments Stock; unknown ids are ignored.
++    public async Task RestockAsync(IEnumerable<(Guid Id, int Add)> updates, CancellationToken ct = default)
++    {
++        var list = updates as ICollection<(Guid Id, int Add)> ?? updates.ToList();
++        var ids = list.Select(u => u.Id).ToList();
++
++        var products = await _db.Products
++            .Where(p => ids.Contains(p.Id))
++            .ToDictionaryAsync(p => p.Id, ct);
++
++        foreach (var (id, add) in list)
++            if (products.TryGetValue(id, out var product))
++                product.Stock += add;
++
++        await _db.SaveChangesAsync(ct);
++    }
++
++    public async Task<Product> CreateProductAsync(
++        string sku,
++        string warehouse,
++        string category,
++        decimal price,
++        int stock = 0,
++        CancellationToken ct = default)
++    {
++        var product = new Product
++        {
++            Id = Guid.NewGuid(),
++            Sku = sku,
++            Warehouse = warehouse,
++            Category = category,
++            Price = price,
++            Stock = stock
++        };
++
++        _db.Products.Add(product);
++        await _db.SaveChangesAsync(ct);
++        return product;
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..cfc3d97
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,9 @@
++## Созданные/изменённые файлы
++
++- `CatalogMaintenance.cs` (новый) — сервис `Shop.Data.CatalogMaintenance`.
++
++## Решения
++
++- (а) `RaisePricesAsync` делает bulk `ExecuteUpdateAsync` по всей категории одним UPDATE-запросом, без загрузки продуктов в память.
++- (б) `CleanupOldAuditLogsAsync` удаляет старые записи пачками (`DELETE ... WHERE Id IN (SELECT ... ORDER BY Id LIMIT batchSize)`) с паузой между пачками — при ~40 млн строк на удаление из 50 млн одна большая транзакция создала бы долгую блокировку таблицы и разрастание WAL; батчевый подход коммитит каждую пачку отдельно и безопасно возобновляется при перезапуске. Предполагается индекс на `AuditLogs.At`.
++- (в)/(г) `RestockAsync` грузит продукты одним запросом по списку id и увеличивает `Stock`; `CreateProductAsync` создаёт `Product` с `Guid.NewGuid()`. Обе точки сохраняют через `SaveChangesAsync`.

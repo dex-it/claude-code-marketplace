@@ -1,0 +1,64 @@
+diff --git a/Model.cs b/Model.cs
+index cc90064..9549126 100644
+--- a/Model.cs
++++ b/Model.cs
+@@ -14,6 +14,7 @@ public class Order
+     public DateTime CreatedAt { get; set; }          // column: timestamp without time zone
+     public DateTime? ShippedAt { get; set; }
+     public bool IsDeleted { get; set; }
++    public int Complexity { get; set; }              // сложность комплектации, 1..5
+     public List<OrderItem> Items { get; set; } = new();
+     public List<Payment> Payments { get; set; } = new();
+     public bool IsOverdue(DateTime now) => ShippedAt == null && CreatedAt.AddDays(3) < now;
+@@ -44,7 +45,18 @@ public class ShopDbContext : DbContext
+     protected override void OnModelCreating(ModelBuilder b)
+     {
+         b.Entity<Order>().HasQueryFilter(o => !o.IsDeleted);
+-        b.Entity<Order>().Property(o => o.CreatedAt).HasColumnType("timestamp without time zone");
++        // Колонка остаётся timestamp: пишем Kind=Unspecified (значение в UTC), при чтении только помечаем Kind=Utc
++        b.Entity<Order>().Property(o => o.CreatedAt)
++            .HasColumnType("timestamp without time zone")
++            .HasConversion(
++                v => DateTime.SpecifyKind(v.Kind == DateTimeKind.Local ? v.ToUniversalTime() : v, DateTimeKind.Unspecified),
++                v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
++
++        b.Entity<Order>().ToTable(t => t.HasCheckConstraint("CK_Orders_Complexity", "\"Complexity\" BETWEEN 1 AND 5"));
++
++        // Soft-delete: в БД без CASCADE, orphan-позиции удаляет только EF (ClientCascade)
++        b.Entity<Order>().HasMany(o => o.Items).WithOne().HasForeignKey(i => i.OrderId).OnDelete(DeleteBehavior.ClientCascade);
++        b.Entity<Order>().HasMany(o => o.Payments).WithOne().HasForeignKey(p => p.OrderId).OnDelete(DeleteBehavior.Restrict);
+     }
+ }
+ // Options: UseNpgsql(cs).UseLazyLoadingProxies()
+diff --git a/OrderRepository.cs b/OrderRepository.cs
+index 72637b8..ba3dcee 100644
+--- a/OrderRepository.cs
++++ b/OrderRepository.cs
+@@ -6,4 +6,12 @@ public class OrderRepository
+     public OrderRepository(ShopDbContext db) => _db = db;
+     public Task<List<Order>> GetAllAsync() => _db.Orders.ToListAsync();
+     public Task<Order?> GetAsync(Guid id) => _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
++
++    public async Task ClearItems(Guid orderId)
++    {
++        var order = await _db.Orders.Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == orderId)
++            ?? throw new KeyNotFoundException($"Order {orderId} not found");
++        order.Items.Clear(); // FK OrderId required -> EF удалит позиции (DELETE), а не обнулит FK
++        await _db.SaveChangesAsync();
++    }
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..8b35d15
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,9 @@
++Изменённые файлы:
++- `Model.cs` — `Order.Complexity`, конвертер для `CreatedAt`, check-constraint, связи Order -> Items/Payments
++- `OrderRepository.cs` — метод `ClearItems(Guid orderId)`
++- `_answer.md` — этот ответ
++
++Решения:
++- `Complexity` — обычное поле `int` с CHECK `1..5`. Отдельный owned-type из одного поля не делал. При миграции существующих строк нужно значение по умолчанию или заполнение отдельной data-миграцией: без этого CHECK/NOT NULL не пройдёт. Какое значение ставить — решает бизнес.
++- `CreatedAt`: колонка остаётся `timestamp`. При записи значение в UTC уходит с `Kind=Unspecified` (Npgsql не даёт писать `Kind=Utc` в `timestamp`). При чтении ставится только метка `SpecifyKind(Utc)`, без `ToLocalTime`.
++- Мягкое удаление: FK в БД без CASCADE. Для Items стоит `ClientCascade`, потому что при `Restrict` EF бросает исключение на `Items.Clear()` с обязательным FK. Для Payments стоит `Restrict`. `ClearItems` загружает заказ через `Include` (удалённые заказы отсекает фильтр запроса), затем вызывает `Items.Clear()` и `SaveChangesAsync`, и EF удаляет позиции-сироты.

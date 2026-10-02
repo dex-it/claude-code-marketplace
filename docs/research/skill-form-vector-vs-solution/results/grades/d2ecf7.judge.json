@@ -1,0 +1,67 @@
+{
+  "id": "d2ecf7",
+  "case": "G4",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.088283,
+    "durationMs": 10694,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 9411,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 628,
+      "output_tokens_details": {
+        "thinking_tokens": 173
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9411,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 628,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 9411,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 9411
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G4-year-closed": {
+      "verdict": "FAIL",
+      "quote": ".Where(p => p.Month.Year == year)",
+      "why": "Запрос к ClosedPeriods обращается к члену Year сконвертированного в int YearMonth; EF его не транслирует, поэтому GET /reports/year/{year} упадёт с InvalidOperationException."
+    },
+    "G4-client-projects": {
+      "verdict": "PASS",
+      "quote": "foreach (var project in projects)\n            _db.Projects.Remove(project);",
+      "why": "Проекты загружаются без Include записей времени и удаляются через Remove + SaveChangesAsync. Override переводит удаление в мягкое, записи времени остаются в БД."
+    },
+    "G4-code-index": {
+      "verdict": "FAIL",
+      "quote": "e.HasIndex(p => p.Code).IsUnique();",
+      "why": "Уникальный индекс полный, без HasFilter по IsDeleted, а миграция не устраняет дубли кодов у удалённых проектов. CREATE UNIQUE INDEX на prod упадёт, и в ответе об этом не сказано."
+    },
+    "G4-h-month-equality": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "EnsureOpenAsync и сравнение p.Month == month не тронуты и дефектом не названы."
+    }
+  },
+  "stderr": ""
+}

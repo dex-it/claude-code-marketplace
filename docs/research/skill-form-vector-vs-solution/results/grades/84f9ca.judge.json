@@ -1,0 +1,66 @@
+{
+  "id": "84f9ca",
+  "case": "E3",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0426994,
+    "durationMs": 6050,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 3868,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 566,
+      "output_tokens_details": {
+        "thinking_tokens": 133
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3868,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 566,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 3868,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 3868
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "E3-kind": {
+      "verdict": "PASS",
+      "quote": "var cutoff = DateTime.UtcNow - (retention ?? TimeSpan.FromDays(365));",
+      "why": "Граница строится от DateTime.UtcNow, поэтому Kind=Utc. Тип колонки AuditLog.At не меняется: в Model.cs добавлен только индекс."
+    },
+    "E3-m-update": {
+      "verdict": "NO",
+      "quote": ".ExecuteUpdateAsync(s => s.SetProperty(p => p.Price, p => p.Price * (1 + percentage)), ct);",
+      "why": "Цены поднимаются одним серверным UPDATE, продукты в память не загружаются."
+    },
+    "E3-m-batch": {
+      "verdict": "NO",
+      "quote": "LIMIT {batchSize}",
+      "why": "Удаление идёт в цикле батчами по 5000, каждый батч отдельной командой, а не одной операцией."
+    },
+    "E3-m-oneq": {
+      "verdict": "NO",
+      "quote": ".Where(p => ids.Contains(p.Id))\n            .ToDictionaryAsync(p => p.Id, ct);",
+      "why": "Все продукты загружаются одним запросом через Contains, а не запросом на каждый id."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,87 @@
+{
+  "id": "e53a06",
+  "case": "GN",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.069407,
+    "durationMs": 9914,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 6079,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1017,
+      "output_tokens_details": {
+        "thinking_tokens": 271
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6079,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1017,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 6079,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 6079
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GN-h-datetime": {
+      "verdict": "NO",
+      "quote": "DateTime конфигурирован правильно (PlannedLocal как timestamp без timezone)",
+      "why": "Выход признаёт работу с DateTime корректной и не меняет Kind или тип колонки."
+    },
+    "GN-h-card-split": {
+      "verdict": "NO",
+      "quote": "AsSplitQuery() используется для нескольких коллекций в одном запросе",
+      "why": "AsSplitQuery выход отмечает как правильное решение, а не как дефект."
+    },
+    "GN-h-inanalysis-tracking": {
+      "verdict": "NO",
+      "quote": "AsNoTracking() применяется для read-only запросов",
+      "why": "Добавить AsNoTracking в GetInAnalysisForBatchAsync выход не предлагает, код не правится."
+    },
+    "GN-h-fromsql": {
+      "verdict": "NO",
+      "quote": "FromSql параметризован через DbParameter",
+      "why": "Выход прямо подтверждает, что запрос параметризован, и инъекцией его не называет."
+    },
+    "GN-h-retag-clear": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "RetagAsync и Tags.Clear() в выходе не упоминаются."
+    },
+    "GN-h-labcode-single": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "SingleOrDefaultAsync в FindByLabCodeAsync в выходе не упоминается."
+    },
+    "GN-percent-int": {
+      "verdict": "FOUND",
+      "quote": "Выражение `compliant / total * 100` выполняет целочисленное деление (int/int=int). Результат всегда неправильный, например 1/3*100=0",
+      "why": "Основной дефект с целочисленным делением назван; деление на ноль для пустой партии упущено, но суть находки совпадает с ключом."
+    },
+    "GN-page-offset": {
+      "verdict": "FOUND",
+      "quote": "Используется `Skip(page * pageSize)`, но комментарий указывает что page начинается с 1 ... Должно быть `Skip((page - 1) * pageSize)`",
+      "why": "Выход точно называет пропуск первой страницы и даёт правильную формулу."
+    }
+  },
+  "stderr": ""
+}

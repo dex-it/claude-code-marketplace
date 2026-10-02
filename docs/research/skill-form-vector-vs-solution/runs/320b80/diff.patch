@@ -1,0 +1,222 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..995bcc9
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,35 @@
++# Изменённые/созданные файлы
++
++- `src/VetClinic.Records/Domain.cs` — `Visit.Notes` → `Visit.Anamnesis`.
++- `src/VetClinic.Records/ClinicCardService.cs` — добавлены `DeleteOwnerAsync(ownerId)` и
++  `ReplaceAllergiesAsync(petId, IReadOnlyList<AllergyInput>)`; `Notes`/`UpdateVisitNotesAsync`
++  переименованы в `Anamnesis`/`UpdateVisitAnamnesisAsync` (в `VisitDto` и проекциях тоже).
++- `src/VetClinic.Records/Program.cs` — эндпоинты: `DELETE /owners/{id}`,
++  `PUT /pets/{id}/allergies` (замена списка), `PUT /visits/{id}/anamnesis` (переименован с `/notes`).
++- `src/VetClinic.Records/Migrations/20261002120000_RenameVisitNotesToAnamnesis.cs` (новый) —
++  `RenameColumn("Notes" → "Anamnesis")` на таблице `Visits`.
++
++# Решения
++
++- Клиенты/карты физически не удаляются (README, 5 лет истории) — `DeleteOwnerAsync` каскадно
++  помечает `IsDeleted/DeletedAt` у владельца, его питомцев, их аллергий и визитов одним
++  `SaveChangesAsync` (одна транзакция, без `SaveChanges` в цикле). Загрузка `Owner → Pets →
++  (Allergies, Visits)` — через `AsSplitQuery()`, т.к. это две коллекции на одном уровне.
++- `ReplaceAllergiesAsync` не удаляет старые строки физически: помечает прежние аллергии питомца
++  удалёнными и добавляет присланный список — после этого актуальный (видимый) набор аллергий
++  питомца равен ровно присланному, история сохранена.
++- `Notes → Anamnesis` — переименование без изменения типа/nullability, поэтому отдельная миграция
++  с `RenameColumn` безопасна и не требует шага "данные + схема в одной миграции"; переименование
++  согласуется с пайплайном `.gitlab-ci.yml` (приложение останавливается на окно миграции, т.е.
++  старый и новый код схему одновременно не используют — двухфазный rename не нужен).
++
++# Ограничение, о котором нужно знать команде
++
++В выданном рабочем каталоге нет папки `Migrations` и `ClinicDbContextModelSnapshot.cs` из
++реального репозитория (видимо, они не входили в срез для задания) — я не стал реконструировать
++полный снапшот модели вручную, чтобы не внести туда ошибку и не разойтись с реальной историей
++миграций. Добавлен только файл самой миграции с атрибутами `[DbContext]`/`[Migration]` (этого
++достаточно для `dotnet ef migrations script --idempotent` из CI). Перед выкладкой в проде нужно
++либо прогнать `dotnet ef migrations add` в окружении с реальной историей миграций, чтобы
++`ClinicDbContextModelSnapshot.cs` обновился автоматически, либо вручную поправить в нём секцию
++`Visit`: `Notes` → `Anamnesis`.
+diff --git a/src/VetClinic.Records/ClinicCardService.cs b/src/VetClinic.Records/ClinicCardService.cs
+index 0c4baf2..7ab12af 100644
+--- a/src/VetClinic.Records/ClinicCardService.cs
++++ b/src/VetClinic.Records/ClinicCardService.cs
+@@ -6,7 +6,7 @@ namespace VetClinic.Records.Services;
+ 
+ public record AllergyInput(string Allergen, string? Reaction, AllergySeverity Severity);
+ public record AllergyDto(int Id, string Allergen, string? Reaction, AllergySeverity Severity);
+-public record VisitDto(int Id, DateTime ScheduledAt, string VetName, VisitStatus Status, string? Notes);
++public record VisitDto(int Id, DateTime ScheduledAt, string VetName, VisitStatus Status, string? Anamnesis);
+ public record PetCardDto(int Id, string Name, string Species, string OwnerName,
+     List<AllergyDto> Allergies, List<VisitDto> Visits);
+ 
+@@ -22,7 +22,7 @@ public class ClinicCardService(ClinicDbContext db)
+                     .ToList(),
+                 p.Visits
+                     .OrderByDescending(v => v.ScheduledAt)
+-                    .Select(v => new VisitDto(v.Id, v.ScheduledAt, v.VetName, v.Status, v.Notes))
++                    .Select(v => new VisitDto(v.Id, v.ScheduledAt, v.VetName, v.Status, v.Anamnesis))
+                     .ToList()))
+             .SingleOrDefaultAsync();
+ 
+@@ -31,7 +31,7 @@ public class ClinicCardService(ClinicDbContext db)
+         await db.Visits
+             .Where(v => v.VetName == vetName && v.Status == VisitStatus.Planned)
+             .OrderBy(v => v.ScheduledAt)
+-            .Select(v => new VisitDto(v.Id, v.ScheduledAt, v.VetName, v.Status, v.Notes))
++            .Select(v => new VisitDto(v.Id, v.ScheduledAt, v.VetName, v.Status, v.Anamnesis))
+             .ToListAsync();
+ 
+     public async Task AddAllergyAsync(int petId, AllergyInput input)
+@@ -46,10 +46,72 @@ public class ClinicCardService(ClinicDbContext db)
+         await db.SaveChangesAsync();
+     }
+ 
+-    public async Task UpdateVisitNotesAsync(int visitId, string? notes)
++    // Форма присылает полный актуальный список аллергий питомца; старые записи истории не теряем - помечаем удалёнными.
++    public async Task ReplaceAllergiesAsync(int petId, IReadOnlyList<AllergyInput> allergies)
++    {
++        var pet = await db.Pets
++            .Include(p => p.Allergies)
++            .SingleAsync(p => p.Id == petId);
++
++        var now = DateTime.UtcNow;
++        foreach (var allergy in pet.Allergies)
++        {
++            allergy.IsDeleted = true;
++            allergy.DeletedAt = now;
++        }
++
++        foreach (var input in allergies)
++        {
++            pet.Allergies.Add(new Allergy
++            {
++                Allergen = input.Allergen.Trim(),
++                Reaction = input.Reaction,
++                Severity = input.Severity
++            });
++        }
++
++        await db.SaveChangesAsync();
++    }
++
++    public async Task UpdateVisitAnamnesisAsync(int visitId, string? anamnesis)
+     {
+         var visit = await db.Visits.SingleAsync(v => v.Id == visitId);
+-        visit.Notes = notes;
++        visit.Anamnesis = anamnesis;
++        await db.SaveChangesAsync();
++    }
++
++    // Клиент, его питомцы, их аллергии и визиты физически не удаляются (5 лет истории) - помечаем IsDeleted каскадно,
++    // чтобы ни одна запись не прошла сквозь глобальные фильтры HasQueryFilter.
++    public async Task DeleteOwnerAsync(int ownerId)
++    {
++        var owner = await db.Owners
++            .Include(o => o.Pets).ThenInclude(p => p.Allergies)
++            .Include(o => o.Pets).ThenInclude(p => p.Visits)
++            .AsSplitQuery()
++            .SingleAsync(o => o.Id == ownerId);
++
++        var now = DateTime.UtcNow;
++        owner.IsDeleted = true;
++        owner.DeletedAt = now;
++
++        foreach (var pet in owner.Pets)
++        {
++            pet.IsDeleted = true;
++            pet.DeletedAt = now;
++
++            foreach (var allergy in pet.Allergies)
++            {
++                allergy.IsDeleted = true;
++                allergy.DeletedAt = now;
++            }
++
++            foreach (var visit in pet.Visits)
++            {
++                visit.IsDeleted = true;
++                visit.DeletedAt = now;
++            }
++        }
++
+         await db.SaveChangesAsync();
+     }
+ }
+diff --git a/src/VetClinic.Records/Domain.cs b/src/VetClinic.Records/Domain.cs
+index dba95f4..c042ab8 100644
+--- a/src/VetClinic.Records/Domain.cs
++++ b/src/VetClinic.Records/Domain.cs
+@@ -72,7 +72,7 @@ public class Visit : ISoftDeletable
+     public string VetName { get; set; } = "";
+     public DateTime ScheduledAt { get; set; }
+     public VisitStatus Status { get; set; }
+-    public string? Notes { get; set; }
++    public string? Anamnesis { get; set; }
+ 
+     public bool IsDeleted { get; set; }
+     public DateTime? DeletedAt { get; set; }
+diff --git a/src/VetClinic.Records/Migrations/20261002120000_RenameVisitNotesToAnamnesis.cs b/src/VetClinic.Records/Migrations/20261002120000_RenameVisitNotesToAnamnesis.cs
+new file mode 100644
+index 0000000..1625cb6
+--- /dev/null
++++ b/src/VetClinic.Records/Migrations/20261002120000_RenameVisitNotesToAnamnesis.cs
+@@ -0,0 +1,28 @@
++using Microsoft.EntityFrameworkCore.Migrations;
++using VetClinic.Records.Data;
++
++#nullable disable
++
++namespace VetClinic.Records.Migrations
++{
++    [DbContext(typeof(ClinicDbContext))]
++    [Migration("20261002120000_RenameVisitNotesToAnamnesis")]
++    public partial class RenameVisitNotesToAnamnesis : Migration
++    {
++        protected override void Up(MigrationBuilder migrationBuilder)
++        {
++            migrationBuilder.RenameColumn(
++                name: "Notes",
++                table: "Visits",
++                newName: "Anamnesis");
++        }
++
++        protected override void Down(MigrationBuilder migrationBuilder)
++        {
++            migrationBuilder.RenameColumn(
++                name: "Anamnesis",
++                table: "Visits",
++                newName: "Notes");
++        }
++    }
++}
+diff --git a/src/VetClinic.Records/Program.cs b/src/VetClinic.Records/Program.cs
+index 589f4a8..6d0c3b9 100644
+--- a/src/VetClinic.Records/Program.cs
++++ b/src/VetClinic.Records/Program.cs
+@@ -23,9 +23,21 @@ app.MapPost("/pets/{id:int}/allergies", async (int id, AllergyInput input, Clini
+     return Results.NoContent();
+ });
+ 
+-app.MapPut("/visits/{id:int}/notes", async (int id, string? notes, ClinicCardService s) =>
++app.MapPut("/pets/{id:int}/allergies", async (int id, List<AllergyInput> allergies, ClinicCardService s) =>
+ {
+-    await s.UpdateVisitNotesAsync(id, notes);
++    await s.ReplaceAllergiesAsync(id, allergies);
++    return Results.NoContent();
++});
++
++app.MapPut("/visits/{id:int}/anamnesis", async (int id, string? anamnesis, ClinicCardService s) =>
++{
++    await s.UpdateVisitAnamnesisAsync(id, anamnesis);
++    return Results.NoContent();
++});
++
++app.MapDelete("/owners/{id:int}", async (int id, ClinicCardService s) =>
++{
++    await s.DeleteOwnerAsync(id);
+     return Results.NoContent();
+ });
+ 

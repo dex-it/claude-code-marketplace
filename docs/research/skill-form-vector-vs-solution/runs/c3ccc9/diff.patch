@@ -1,0 +1,84 @@
+diff --git a/OrderQueries.cs b/OrderQueries.cs
+new file mode 100644
+index 0000000..3c37658
+--- /dev/null
++++ b/OrderQueries.cs
+@@ -0,0 +1,66 @@
++namespace Shop.Data;
++
++public class OrderQueries
++{
++    private readonly ShopDbContext _db;
++    public OrderQueries(ShopDbContext db) => _db = db;
++
++    // (a) Карточка заказа: сам заказ + все позиции + все платежи.
++    public Task<Order?> GetOrderCardAsync(Guid orderId) =>
++        _db.Orders
++            .AsNoTracking()
++            .AsSplitQuery() // две независимые коллекции (Items, Payments) - раздельные запросы вместо JOIN-декартова произведения
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            .FirstOrDefaultAsync(o => o.Id == orderId);
++
++    // (b) Все заказы клиента с позициями и платежами. У клиента могут быть тысячи заказов,
++    // поэтому отдаём поток (IAsyncEnumerable), а не List<Order>, чтобы не держать всё в памяти разом.
++    public IAsyncEnumerable<Order> GetCustomerOrdersAsync(Guid customerId) =>
++        _db.Orders
++            .AsNoTracking()
++            .AsSplitQuery()
++            .Where(o => o.CustomerId == customerId)
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            .AsAsyncEnumerable();
++
++    // (в) Продукт по SKU на складе. Один и тот же SKU может лежать на разных складах,
++    // но на конкретном складе SKU уникален. Склад может быть не передан бизнесом:
++    // - если warehouse задан, ищем точное совпадение (sku, warehouse);
++    // - если warehouse не задан, а SKU лежит только на одном складе - возвращаем его;
++    // - если warehouse не задан, а SKU лежит на нескольких складах - выбор неоднозначен,
++    //   поэтому явно бросаем исключение вместо того, чтобы тихо вернуть "случайный" склад.
++    public async Task<Product?> GetProductBySku(string sku, string? warehouse)
++    {
++        var query = _db.Products.AsNoTracking().Where(p => p.Sku == sku);
++
++        if (!string.IsNullOrEmpty(warehouse))
++            return await query.FirstOrDefaultAsync(p => p.Warehouse == warehouse);
++
++        var candidates = await query.Take(2).ToListAsync();
++        if (candidates.Count > 1)
++            throw new InvalidOperationException(
++                $"SKU '{sku}' найден на нескольких складах; для однозначного выбора нужно передать warehouse.");
++
++        return candidates.SingleOrDefault();
++    }
++
++    // (г) Дата отгрузки последнего отгруженного заказа клиента.
++    // Тип возврата не nullable, поэтому при отсутствии отгруженных заказов бросаем исключение,
++    // а не подменяем "нет данных" каким-либо DateTime-значением по умолчанию.
++    public async Task<DateTime> GetLastShippedDateAsync(Guid customerId)
++    {
++        var lastShippedAt = await _db.Orders
++            .AsNoTracking()
++            .Where(o => o.CustomerId == customerId && o.ShippedAt != null)
++            .OrderByDescending(o => o.ShippedAt)
++            .Select(o => o.ShippedAt)
++            .FirstOrDefaultAsync();
++
++        if (lastShippedAt is null)
++            throw new InvalidOperationException($"У клиента {customerId} нет отгруженных заказов.");
++
++        return lastShippedAt.Value;
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..f3fbb33
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,6 @@
++Создан файл: OrderQueries.cs (новый сервис Shop.Data.OrderQueries).
++
++Решения:
++- (а)/(б): `Include` для Items и Payments + `AsSplitQuery`, чтобы не получать декартово произведение при двух коллекциях; для (б) результат отдаётся как `IAsyncEnumerable<Order>`, а не `List<Order>`, т.к. у клиента могут быть тысячи заказов — не буферизуем всё в памяти.
++- (в) `GetProductBySku(sku, warehouse)`: при заданном warehouse — точный поиск по паре (sku, warehouse); при `null` — если SKU есть только на одном складе, возвращаем его, а если на нескольких — бросаем `InvalidOperationException` вместо угадывания склада.
++- (г) `GetLastShippedDateAsync` выбирает только колонку `ShippedAt` последнего отгруженного заказа; поскольку тип возврата не nullable, при отсутствии отгруженных заказов бросает `InvalidOperationException`, а не подставляет "заглушечную" дату.

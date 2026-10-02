@@ -1,0 +1,51 @@
+{
+  "id": "f45e0c",
+  "case": "E4",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0064064000000000005,
+    "durationMs": 4461,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 5592,
+      "output_tokens": 264,
+      "output_tokens_details": {
+        "thinking_tokens": 157
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 264,
+          "cache_read_input_tokens": 5592,
+          "cache_creation_input_tokens": 0,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "E4-m-owned": {
+      "verdict": "NO",
+      "quote": "public int Complexity { get; set; }",
+      "why": "Complexity сделан плоским свойством int с CHECK-constraint, а не owned-типом или value object; исполнитель прямо пишет «не Owned-Type»."
+    }
+  },
+  "stderr": ""
+}

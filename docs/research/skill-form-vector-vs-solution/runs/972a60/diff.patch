@@ -1,0 +1,334 @@
+diff --git a/Program.cs b/Program.cs
+index f52e6bd..5ab74a2 100644
+--- a/Program.cs
++++ b/Program.cs
+@@ -27,9 +27,49 @@ app.MapDelete("/courses/{id:int}", async (int id, ScheduleService s) =>
+     return Results.NoContent();
+ });
+ 
+-app.MapPost("/sessions/{id:int}/enroll", async (int id, EnrollRequest req, ScheduleService s) =>
+-    Results.Ok(await s.EnrollAsync(req.CardNumber, id)));
++app.MapPost("/sessions/{id:int}/enroll", (int id, EnrollRequest req, ScheduleService s) =>
++    Handle(async () => Results.Ok(await s.EnrollAsync(req.CardNumber, id))));
++
++app.MapPost("/checkin", (CheckInRequest req, ScheduleService s) =>
++    Handle(async () => Results.Ok(await s.CheckInAsync(req.Phone ?? "", req.MemberId))));
++
++app.MapPut("/courses/{id:int}/sessions", (int id, List<SessionInput> sessions, ScheduleService s) =>
++    Handle(async () =>
++    {
++        await s.ReplaceSessionsAsync(id, sessions);
++        return Results.NoContent();
++    }));
++
++app.MapGet("/screen/next", async (ScheduleService s) =>
++    Results.Ok(await s.GetNextSessionsAsync()));
+ 
+ app.Run();
+ 
++static async Task<IResult> Handle(Func<Task<IResult>> action)
++{
++    try
++    {
++        return await action();
++    }
++    catch (KeyNotFoundException e)
++    {
++        return Results.NotFound(new { error = e.Message });
++    }
++    catch (ConflictException e)
++    {
++        return Results.Conflict(new { error = e.Message, details = e.Details });
++    }
++    catch (InvalidOperationException e)
++    {
++        return Results.Conflict(new { error = e.Message });
++    }
++    catch (ArgumentException e)
++    {
++        return Results.BadRequest(new { error = e.Message });
++    }
++}
++
+ public record EnrollRequest(string CardNumber);
++
++// MemberId - необязательное уточнение, когда по одному телефону нашлось несколько записей.
++public record CheckInRequest(string? Phone, int? MemberId);
+diff --git a/ScheduleService.cs b/ScheduleService.cs
+index f2d8bb8..57ac0bc 100644
+--- a/ScheduleService.cs
++++ b/ScheduleService.cs
+@@ -7,8 +7,28 @@ public record CourseDto(int Id, string Title, string Trainer, CourseStatus Statu
+ 
+ public record SessionDto(int Id, DateTime StartsAt, int DurationMinutes, string Hall, int Booked);
+ 
++public record SessionInput(DateTimeOffset StartsAt, int DurationMinutes, int HallId);
++
++public record CheckInCandidate(int EnrollmentId, int MemberId, string MemberName, string Course,
++    string Hall, DateTime StartsAt);
++
++public record CheckInResult(int EnrollmentId, string MemberName, string Course, string Hall,
++    DateTime StartsAt, DateTime AttendedAt);
++
++public record ScreenSessionDto(int SessionId, string Course, string Hall, DateTime StartsAt,
++    int DurationMinutes, IReadOnlyList<string> Attendees);
++
++// Ошибки бизнес-правил, которые отдаются клиенту как 409.
++public class ConflictException : Exception
++{
++    public object? Details { get; }
++    public ConflictException(string message, object? details = null) : base(message) => Details = details;
++}
++
+ public class ScheduleService
+ {
++    private static readonly TimeSpan CheckInLead = TimeSpan.FromMinutes(30);
++
+     private readonly StudioDbContext _db;
+ 
+     public ScheduleService(StudioDbContext db) => _db = db;
+@@ -58,22 +78,216 @@ public class ScheduleService
+         var member = await _db.Members.SingleOrDefaultAsync(m => m.CardNumber == cardNumber)
+             ?? throw new KeyNotFoundException("Карта не найдена");
+ 
++        await using var tx = await _db.Database.BeginTransactionAsync();
++
++        // Блокируем строку занятия: параллельные записи на одно занятие проходят проверку
++        // вместимости по очереди, иначе два запроса на последнее место пройдут оба.
+         var session = await _db.Sessions
+-            .Include(s => s.Course)
+-            .FirstOrDefaultAsync(s => s.Id == sessionId)
++            .FromSqlInterpolated($"SELECT * FROM \"Sessions\" WHERE \"Id\" = {sessionId} FOR UPDATE")
++            .FirstOrDefaultAsync()
+             ?? throw new KeyNotFoundException("Занятие не найдено");
++        await _db.Entry(session).Reference(s => s.Course).LoadAsync();
++        await _db.Entry(session).Reference(s => s.Hall).LoadAsync();
+ 
+         if (session.Course.Status != CourseStatus.Published)
+             throw new InvalidOperationException("Запись на курс не открыта");
+ 
+-        var enrollment = new Enrollment
++        var existing = await _db.Enrollments
++            .FirstOrDefaultAsync(e => e.SessionId == session.Id && e.MemberId == member.Id);
++        if (existing is not null && existing.Status != EnrollmentStatus.Cancelled)
++            return existing.Id;
++
++        var booked = await _db.Enrollments
++            .CountAsync(e => e.SessionId == session.Id && e.Status != EnrollmentStatus.Cancelled);
++        if (booked >= session.Hall.Capacity)
++            throw new ConflictException("Мест на занятие нет");
++
++        // Уникальный индекс (SessionId, MemberId): повторная запись после отмены
++        // восстанавливает прежнюю запись, а не создаёт новую.
++        if (existing is not null)
+         {
+-            SessionId = session.Id,
+-            MemberId = member.Id,
+-            Status = EnrollmentStatus.Booked,
+-        };
+-        _db.Enrollments.Add(enrollment);
++            existing.Status = EnrollmentStatus.Booked;
++            existing.AttendedAt = null;
++        }
++        else
++        {
++            existing = new Enrollment
++            {
++                SessionId = session.Id,
++                MemberId = member.Id,
++                Status = EnrollmentStatus.Booked,
++            };
++            _db.Enrollments.Add(existing);
++        }
++
+         await _db.SaveChangesAsync();
+-        return enrollment.Id;
++        await tx.CommitAsync();
++        return existing.Id;
++    }
++
++    // Один телефон может быть у нескольких клиентов (дети на семейном абонементе указаны
++    // с телефоном родителя), а у клиента может быть два подходящих занятия. Если подходящих
++    // записей больше одной, ничего не отмечаем и возвращаем кандидатов - ресепшен уточняет memberId.
++    public async Task<CheckInResult> CheckInAsync(string phone, int? memberId)
++    {
++        phone = phone.Trim();
++        if (phone.Length == 0)
++            throw new ArgumentException("Не указан телефон");
++
++        var now = DateTime.UtcNow;
++        var windowEnd = now + CheckInLead;
++        // Отсекаем заведомо закончившиеся занятия в SQL, точную проверку конца делаем в памяти.
++        var lowerBound = now.AddDays(-1);
++
++        var query = _db.Enrollments
++            .Include(e => e.Member)
++            .Include(e => e.Session).ThenInclude(s => s.Course)
++            .Include(e => e.Session).ThenInclude(s => s.Hall)
++            .Where(e => e.Member.Phone == phone
++                && e.Status != EnrollmentStatus.Cancelled
++                && e.Session.Course.Status == CourseStatus.Published
++                && e.Session.StartsAt <= windowEnd
++                && e.Session.StartsAt >= lowerBound);
++        if (memberId is not null)
++            query = query.Where(e => e.MemberId == memberId);
++
++        var candidates = (await query.ToListAsync())
++            .Where(e => e.Session.StartsAt.AddMinutes(e.Session.DurationMinutes) > now)
++            .OrderBy(e => e.Session.StartsAt)
++            .ToList();
++
++        if (candidates.Count == 0)
++            throw new KeyNotFoundException("Нет записи на текущее или ближайшее занятие");
++
++        if (candidates.Count > 1)
++            throw new ConflictException("Найдено несколько записей, уточните клиента",
++                candidates.Select(e => new CheckInCandidate(e.Id, e.MemberId, e.Member.FullName,
++                    e.Session.Course.Title, e.Session.Hall.Name, e.Session.StartsAt)).ToList());
++
++        var enrollment = candidates[0];
++        // Повторное сканирование не перезаписывает время первого прихода.
++        if (enrollment.Status != EnrollmentStatus.Attended)
++        {
++            enrollment.Status = EnrollmentStatus.Attended;
++            enrollment.AttendedAt = now;
++            await _db.SaveChangesAsync();
++        }
++
++        return new CheckInResult(enrollment.Id, enrollment.Member.FullName,
++            enrollment.Session.Course.Title, enrollment.Session.Hall.Name,
++            enrollment.Session.StartsAt, enrollment.AttendedAt!.Value);
++    }
++
++    public async Task ReplaceSessionsAsync(int courseId, IReadOnlyList<SessionInput> input)
++    {
++        if (input.Count == 0)
++            throw new ArgumentException("Расписание пустое");
++
++        var items = input.Select(i => new
++            {
++                StartsAt = i.StartsAt.UtcDateTime,
++                i.DurationMinutes,
++                i.HallId,
++            })
++            .OrderBy(i => i.StartsAt)
++            .ToList();
++
++        foreach (var i in items)
++        {
++            if (i.DurationMinutes <= 0)
++                throw new ArgumentException($"Некорректная длительность занятия {i.StartsAt:u}");
++            if (i.StartsAt.Minute % 30 != 0 || i.StartsAt.Second != 0 || i.StartsAt.Millisecond != 0)
++                throw new ArgumentException($"Начало занятия {i.StartsAt:u} не попадает в сетку :00/:30");
++        }
++
++        var hallIds = items.Select(i => i.HallId).Distinct().ToList();
++        var knownHalls = await _db.Halls.Where(h => hallIds.Contains(h.Id)).Select(h => h.Id).ToListAsync();
++        var unknownHalls = hallIds.Except(knownHalls).ToList();
++        if (unknownHalls.Count > 0)
++            throw new ArgumentException($"Зал не найден: {string.Join(", ", unknownHalls)}");
++
++        // Пересечения внутри присланного расписания: один зал в одно время.
++        for (var a = 0; a < items.Count; a++)
++            for (var b = a + 1; b < items.Count; b++)
++                if (items[a].HallId == items[b].HallId
++                    && items[b].StartsAt < items[a].StartsAt.AddMinutes(items[a].DurationMinutes))
++                    throw new ConflictException($"Занятия {items[a].StartsAt:u} и {items[b].StartsAt:u} пересекаются в одном зале");
++
++        await using var tx = await _db.Database.BeginTransactionAsync();
++
++        // Блокировка строки курса: параллельная публикация дождётся окончания замены
++        // и не опубликует курс с наполовину заменённым расписанием.
++        var course = await _db.Courses
++            .FromSqlInterpolated($"SELECT * FROM \"Courses\" WHERE \"Id\" = {courseId} FOR UPDATE")
++            .FirstOrDefaultAsync()
++            ?? throw new KeyNotFoundException("Курс не найден");
++
++        if (course.Status != CourseStatus.Draft)
++            throw new ConflictException("Расписание можно менять только у черновика");
++
++        // Пересечения с занятиями других действующих курсов в тех же залах.
++        var from = items.First().StartsAt.AddDays(-1);
++        var to = items.Max(i => i.StartsAt.AddMinutes(i.DurationMinutes));
++        var busy = await _db.Sessions
++            .AsNoTracking()
++            .Where(s => s.CourseId != courseId
++                && s.Course.Status == CourseStatus.Published
++                && hallIds.Contains(s.HallId)
++                && s.StartsAt < to && s.StartsAt >= from)
++            .Select(s => new { s.HallId, s.StartsAt, s.DurationMinutes, s.Course.Title })
++            .ToListAsync();
++
++        foreach (var i in items)
++        {
++            var end = i.StartsAt.AddMinutes(i.DurationMinutes);
++            var clash = busy.FirstOrDefault(s => s.HallId == i.HallId
++                && s.StartsAt < end && i.StartsAt < s.StartsAt.AddMinutes(s.DurationMinutes));
++            if (clash is not null)
++                throw new ConflictException($"Зал занят в {i.StartsAt:u} курсом «{clash.Title}»");
++        }
++
++        var old = await _db.Sessions.Where(s => s.CourseId == courseId).ToListAsync();
++        if (old.Count > 0 && await _db.Enrollments.AnyAsync(e => e.Session.CourseId == courseId))
++            throw new ConflictException("На занятия курса уже есть записи");
++        _db.Sessions.RemoveRange(old);
++
++        _db.Sessions.AddRange(items.Select(i => new Session
++        {
++            CourseId = courseId,
++            HallId = i.HallId,
++            StartsAt = i.StartsAt,
++            DurationMinutes = i.DurationMinutes,
++        }));
++
++        await _db.SaveChangesAsync();
++        await tx.CommitAsync();
++    }
++
++    // Залы работают параллельно, поэтому в ближайший слот может начинаться несколько
++    // занятий - возвращаем все занятия с минимальным временем начала.
++    public async Task<IReadOnlyList<ScreenSessionDto>> GetNextSessionsAsync()
++    {
++        var now = DateTime.UtcNow;
++
++        var nextStart = await _db.Sessions
++            .Where(s => s.StartsAt >= now && s.Course.Status == CourseStatus.Published)
++            .OrderBy(s => s.StartsAt)
++            .Select(s => (DateTime?)s.StartsAt)
++            .FirstOrDefaultAsync();
++
++        if (nextStart is null)
++            return Array.Empty<ScreenSessionDto>();
++
++        return await _db.Sessions
++            .AsNoTracking()
++            .Where(s => s.StartsAt == nextStart && s.Course.Status == CourseStatus.Published)
++            .OrderBy(s => s.Hall.Name)
++            .Select(s => new ScreenSessionDto(s.Id, s.Course.Title, s.Hall.Name, s.StartsAt, s.DurationMinutes,
++                s.Enrollments
++                    .Where(e => e.Status != EnrollmentStatus.Cancelled)
++                    .OrderBy(e => e.Member.FullName)
++                    .Select(e => e.Member.FullName)
++                    .ToList()))
++            .ToListAsync();
+     }
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..5a0a00a
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,13 @@
++Добавил все четыре задачи. Сборку и тесты, как и требовалось, не запускал, поэтому код не проверен.
++
++Изменённые файлы (новых нет):
++- `ScheduleService.cs`: новые методы `CheckInAsync`, `ReplaceSessionsAsync` и `GetNextSessionsAsync`, проверка мест в `EnrollAsync`, класс `ConflictException` и DTO.
++- `Program.cs`: эндпоинты `POST /checkin`, `PUT /courses/{id}/sessions` и `GET /screen/next`. Ошибки теперь возвращаются как коды 404/409/400, а не 500.
++
++Решения:
++- **Отметка посещения (`/checkin`).** Телефон у клиентов не уникален: у детей на семейном абонементе записан телефон родителя. Поэтому, если по номеру нашлось несколько подходящих записей, ничего не отмечается: возвращается 409 со списком кандидатов, и ресепшен повторяет запрос с `memberId`. Повторная отметка не меняет время первого прихода. Телефон сравнивается точно (только обрезаются пробелы), нормализации формата нет.
++- **Экран (`/screen/next`) и загрузка расписания (`/courses/{id}/sessions`).**
++  - Залы работают параллельно, поэтому экран возвращает все занятия, которые начинаются в ближайший слот, а не одно.
++  - Расписание заменяется только у черновика, иначе 409. Перед заменой строка курса блокируется (`FOR UPDATE`), чтобы одновременная публикация не прошла посреди замены.
++  - Проверяется сетка :00/:30, длительность больше нуля, существование зала и пересечения по залу: внутри присланного списка и с опубликованными курсами. Время начала нужно присылать с часовым поясом.
++- **Ограничение мест.** Проверка вместимости идёт под блокировкой строки занятия, чтобы два одновременных запроса не заняли одно последнее место. Если клиент записывается повторно после отмены, восстанавливается его старая запись: иначе сработал бы уникальный индекс (SessionId, MemberId).

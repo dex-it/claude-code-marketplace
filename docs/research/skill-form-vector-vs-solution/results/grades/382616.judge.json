@@ -1,0 +1,81 @@
+{
+  "id": "382616",
+  "case": "FVB",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0640154,
+    "durationMs": 9188,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 5785,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 865,
+      "output_tokens_details": {
+        "thinking_tokens": 197
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 5785,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 865,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 5785,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 5785
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "FVB-KB1": {
+      "verdict": "PASS",
+      "quote": "В Pydantic v1 поле, аннотированное как `Optional[X]` без явного `= None`, получает **неявный дефолт `None`** и не является обязательным",
+      "why": "Утверждение комментария опровергнуто для pydantic 1.10.13, и указано следствие: старый клиент молча списывает весь баланс."
+    },
+    "FVB-KB2": {
+      "verdict": "PASS",
+      "quote": "В Pydantic v1 дефолт `Config.extra` — `Extra.ignore` (лишние поля молча отбрасываются), а не `forbid`",
+      "why": "Утверждение опровергнуто: опечатка в имени поля молча игнорируется и не даёт 422."
+    },
+    "FVB-h-PB1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Замену req.dict() на model_dump() выход не требует."
+    },
+    "FVB-OB1": {
+      "verdict": "FOUND",
+      "quote": "классический lost update, позволяющий списать больше баллов, чем есть на балансе (двойное списание)",
+      "why": "Названы чтение и UPDATE без блокировки строки и последствие в виде двойного списания."
+    },
+    "FVB-OB2": {
+      "verdict": "FOUND",
+      "quote": "Конструктор `Decimal(float)` даёт точное двоичное представление float, а не десятичное",
+      "why": "Дефект Decimal(0.1) от float назван, предложено Decimal(\"0.1\")."
+    },
+    "FVB-OB3": {
+      "verdict": "FOUND",
+      "quote": "при отрицательном `amount` фактически **прибавит** баллы участнику",
+      "why": "Отрицательный confirm_amount назван как способ начислить баллы."
+    },
+    "FVB-OB4": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Про member_id из тела запроса без аутентификации (IDOR) в выходе ничего нет."
+    }
+  },
+  "stderr": ""
+}

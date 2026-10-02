@@ -1,0 +1,67 @@
+{
+  "id": "8b062d",
+  "case": "G4",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.101379,
+    "durationMs": 7983,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 10863,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 702,
+      "output_tokens_details": {
+        "thinking_tokens": 194
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 10863,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 702,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 10863,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 10863
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G4-year-closed": {
+      "verdict": "PASS",
+      "quote": "(await _db.ClosedPeriods.AsNoTracking().ToListAsync())\n            .Where(p => p.Month.Year == year)",
+      "why": "Закрытые периоды загружаются целиком, а фильтр по p.Month.Year выполняется в памяти, поэтому трансляции членов YearMonth нет."
+    },
+    "G4-client-projects": {
+      "verdict": "PASS",
+      "quote": "var projects = await _db.Projects.Where(p => p.ClientId == clientId).ToListAsync();\n        _db.Projects.RemoveRange(projects);\n        await _db.SaveChangesAsync();",
+      "why": "Проекты загружаются без Include(Entries), удаляются через RemoveRange и сохраняются переопределённым SaveChangesAsync: удаление мягкое, записи времени не трогаются."
+    },
+    "G4-code-index": {
+      "verdict": "PASS",
+      "quote": ".IsUnique()\n                .HasFilter(\"\\\"IsDeleted\\\" = false\")",
+      "why": "Уникальный индекс частичный по неудалённым проектам и в модели, и в миграции, поэтому пары «удалённый + заведённый заново» его не нарушают."
+    },
+    "G4-h-month-equality": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "EnsureOpenAsync и сравнение p.Month == month не изменены и не названы дефектом."
+    }
+  },
+  "stderr": ""
+}

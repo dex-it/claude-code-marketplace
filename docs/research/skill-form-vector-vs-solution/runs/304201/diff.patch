@@ -1,0 +1,72 @@
+diff --git a/OrderQueries.cs b/OrderQueries.cs
+new file mode 100644
+index 0000000..bba6e1e
+--- /dev/null
++++ b/OrderQueries.cs
+@@ -0,0 +1,54 @@
++namespace Shop.Data;
++
++public class OrderQueries
++{
++    private readonly ShopDbContext _db;
++    public OrderQueries(ShopDbContext db) => _db = db;
++
++    // Single entity: JOIN via Include is cheaper than AsSplitQuery's extra roundtrip.
++    public Task<Order?> GetOrderCardAsync(Guid id) =>
++        _db.Orders.AsNoTracking()
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            .FirstOrDefaultAsync(o => o.Id == id);
++
++    // Two Includes on a possibly large result set -> AsSplitQuery to avoid cartesian explosion.
++    public Task<List<Order>> GetCustomerOrdersAsync(Guid customerId) =>
++        _db.Orders.AsNoTracking()
++            .Where(o => o.CustomerId == customerId)
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            .AsSplitQuery()
++            .ToListAsync();
++
++    public async Task<Product?> GetProductBySkuAsync(string sku, string? warehouse)
++    {
++        if (warehouse is not null)
++            return await _db.Products.AsNoTracking()
++                .SingleOrDefaultAsync(p => p.Sku == sku && p.Warehouse == warehouse);
++
++        // Sku alone is not unique across warehouses, so Single() here would blow up
++        // as soon as a second warehouse stocks the same sku. Resolve only if unambiguous.
++        var matches = await _db.Products.AsNoTracking()
++            .Where(p => p.Sku == sku)
++            .ToListAsync();
++
++        return matches.Count switch
++        {
++            0 => null,
++            1 => matches[0],
++            _ => throw new InvalidOperationException(
++                $"SKU '{sku}' найден на {matches.Count} складах, нужно уточнить склад.")
++        };
++    }
++
++    public async Task<DateTime> GetLastShippedAtAsync(Guid customerId)
++    {
++        var lastShippedAt = await _db.Orders.AsNoTracking()
++            .Where(o => o.CustomerId == customerId && o.ShippedAt != null)
++            .MaxAsync(o => o.ShippedAt);
++
++        return lastShippedAt
++            ?? throw new InvalidOperationException($"У клиента {customerId} нет отгруженных заказов.");
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..2b82435
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,6 @@
++Создан файл: `OrderQueries.cs` (новый сервис `Shop.Data.OrderQueries`).
++
++Решения:
++- (а) карточка заказа — `Include` без `AsSplitQuery` (single entity, JOIN дешевле лишнего roundtrip'а); (б) выгрузка заказов клиента — те же два `Include`, но с `AsSplitQuery`, т.к. список может быть большим и два Include дают cartesian explosion; оба метода с `AsNoTracking` (read-only).
++- (в) `GetProductBySkuAsync(sku, warehouse?)`: при заданном складе — `SingleOrDefaultAsync` (уникально по контракту); при `warehouse == null` — не вызываю голый `Single()` на неуникальном условии (SKU без склада может матчить несколько строк), а явно разруливаю 0/1/>1 совпадений, бросая исключение при неоднозначности вместо тихого падения `Single()`.
++- (г) `GetLastShippedAtAsync`: агрегат `MaxAsync` в SQL (не `ToList().Max()`), возврат `DateTime` без null-forgiving — при отсутствии отгруженных заказов бросаю исключение, а не подавляю через `!`.

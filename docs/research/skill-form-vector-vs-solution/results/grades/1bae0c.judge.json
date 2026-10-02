@@ -1,0 +1,97 @@
+{
+  "id": "1bae0c",
+  "case": "V3",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.129919,
+    "durationMs": 12115,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 12788,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1359,
+      "output_tokens_details": {
+        "thinking_tokens": 300
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 12788,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1359,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 12788,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 12788
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "V3-promo-on-early-price": {
+      "verdict": "FOUND",
+      "quote": "Скидка считается от `BasePrice`, то есть от ранней цены, если ранний тариф ещё действует",
+      "why": "Расчёт от ранней цены прямо связан с условием договоров из модели PromoCode."
+    },
+    "V3-capacity-group-seats": {
+      "verdict": "FOUND",
+      "quote": "Занятые места считаются только по `Registrations`. Создание `GroupOrder` регистраций не создаёт",
+      "why": "Назван неучёт невписанных мест групповых заказов и продажа сверх 600 мест."
+    },
+    "V3-group-seat-reuse": {
+      "verdict": "FOUND",
+      "quote": "Проверка `order.Participants.Count >= order.Quantity` учитывает и регистрации со статусом `Cancelled`.",
+      "why": "Указано, что отменённые продолжают занимать место заказа, приведены 409 и расхождение со списком заказов."
+    },
+    "V3-orgadmin-passport": {
+      "verdict": "FOUND",
+      "quote": "В список участников попадают `PassportNumber` и `PassportCountry`. Этот эндпоинт доступен ролям `OrgAdmin`",
+      "why": "Выдача паспортных полей DTO связана с доступом OrgAdmin и требованием MR о визовой группе."
+    },
+    "V3-vat-on-top": {
+      "verdict": "FOUND",
+      "quote": "НДС начисляется сверху на цену, которая уже включает НДС",
+      "why": "Назван дефект и дано исправление amount * 20 / 120, итог равен amount."
+    },
+    "V3-invoice-before-idempotency": {
+      "verdict": "FOUND",
+      "quote": "Счёт в 1С (`_billing.CreateInvoiceAsync`) выставляется **до** того, как в базу попадает запись с ключом",
+      "why": "Внешний счёт до фиксации ключа связан с повтором фронта и гонкой запросов."
+    },
+    "V3-promo-notracking": {
+      "verdict": "PASS",
+      "quote": "`promo.UsedCount++` меняет объект, который контекст не отслеживает, и `SaveChangesAsync` его не сохраняет",
+      "why": "Указаны AsNoTracking, несохранение инкремента и атомарный UPDATE с условием UsedCount < UsageLimit как исправление."
+    },
+    "V3-unspecified-timestamptz": {
+      "verdict": "PASS",
+      "quote": "`from.ToDateTime(TimeOnly.MinValue)` даёт `DateTime` с `Kind = Unspecified`",
+      "why": "Указаны исключение Npgsql на timestamptz и перевод границ дат в UTC с учётом московского времени."
+    },
+    "V3-h-partial-unique-index": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Частичный уникальный индекс в выходе не оспаривается."
+    },
+    "V3-h-unique-violation-catch": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Перехват UniqueViolation в выходе не критикуется и не заменяется проверкой AnyAsync."
+    }
+  },
+  "stderr": ""
+}
