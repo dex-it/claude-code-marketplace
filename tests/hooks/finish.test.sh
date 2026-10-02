@@ -27,7 +27,7 @@ check "$(grep -c '^## Прогон 1 (.*исход complete)$' "$f")" "1" "finis
 check "$(grep -c '^- fix: 1$' "$f")" "1" "finish: петли из .loops"
 check "$(grep -c '^- {"step":2,' "$f")" "1" "finish: исполнители построчно компактным JSON"
 check "$(grep -c '^- R3: выбран split по дефису$' "$f")" "1" "finish: decisions в Решения"
-check "$(grep -c '^- узел заменён: верификатор' "$f")" "1" "finish: degraded с префиксом"
+check "$(grep -c '^- degraded: верификатор' "$f")" "1" "finish: degraded с префиксом"
 check "$("$L" get BUG-1 Исход)" "complete" "finish: complete закрывает цель с Исходом"
 check "$("$L" find)" "" "finish: цель исчезла из find"
 check "$("$L" trail BUG-1 feature | grep -c '')" "2" "trail: строки исполнителей"
