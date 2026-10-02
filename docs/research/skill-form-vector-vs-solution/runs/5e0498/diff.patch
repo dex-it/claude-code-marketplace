@@ -1,0 +1,277 @@
+diff --git a/AgencyDbContext.cs b/AgencyDbContext.cs
+index 1c80d9a..0bcafdf 100644
+--- a/AgencyDbContext.cs
++++ b/AgencyDbContext.cs
+@@ -21,7 +21,11 @@ public class AgencyDbContext : DbContext
+             e.HasQueryFilter(p => !p.IsDeleted);
+             e.Property(p => p.Code).HasMaxLength(32);
+             e.Property(p => p.HourlyRate).HasPrecision(10, 2);
+-            e.HasIndex(p => p.Code);
++            // Код проекта уникален среди активных (не удалённых) проектов, чтобы
++            // восстановление/повторное создание проекта под тем же кодом оставалось возможным.
++            e.HasIndex(p => p.Code)
++                .IsUnique()
++                .HasFilter(@"NOT ""IsDeleted""");
+ 
+             e.HasMany(p => p.Entries)
+                 .WithOne(t => t.Project)
+diff --git a/Controllers/ClientsController.cs b/Controllers/ClientsController.cs
+new file mode 100644
+index 0000000..01cadc2
+--- /dev/null
++++ b/Controllers/ClientsController.cs
+@@ -0,0 +1,29 @@
++using Microsoft.AspNetCore.Mvc;
++using Microsoft.EntityFrameworkCore;
++
++namespace Pixelwork.Timesheets.Controllers;
++
++[ApiController]
++[Route("clients")]
++public class ClientsController : ControllerBase
++{
++    private readonly AgencyDbContext _db;
++    private readonly ProjectService _projects;
++
++    public ClientsController(AgencyDbContext db, ProjectService projects)
++    {
++        _db = db;
++        _projects = projects;
++    }
++
++    [HttpDelete("{id:int}/projects")]
++    public async Task<IActionResult> DeleteAllProjects(int id)
++    {
++        var clientExists = await _db.Clients.AnyAsync(c => c.Id == id);
++        if (!clientExists)
++            return NotFound();
++
++        var deletedCount = await _projects.DeleteAllByClientAsync(id);
++        return Ok(new { deletedCount });
++    }
++}
+diff --git a/Controllers/ReportsController.cs b/Controllers/ReportsController.cs
+new file mode 100644
+index 0000000..5799881
+--- /dev/null
++++ b/Controllers/ReportsController.cs
+@@ -0,0 +1,21 @@
++using Microsoft.AspNetCore.Mvc;
++
++namespace Pixelwork.Timesheets.Controllers;
++
++[ApiController]
++[Route("reports")]
++public class ReportsController : ControllerBase
++{
++    private readonly ReportService _reports;
++
++    public ReportsController(ReportService reports) => _reports = reports;
++
++    [HttpGet("year/{year:int}")]
++    public async Task<ActionResult<YearReport>> GetYear(int year)
++    {
++        if (year is < 2000 or > 2100)
++            return BadRequest("Некорректный год");
++
++        return Ok(await _reports.GetYearSummaryAsync(year));
++    }
++}
+diff --git a/Migrations/20261002120000_ProjectCodeUniqueIndex.cs b/Migrations/20261002120000_ProjectCodeUniqueIndex.cs
+new file mode 100644
+index 0000000..c605a51
+--- /dev/null
++++ b/Migrations/20261002120000_ProjectCodeUniqueIndex.cs
+@@ -0,0 +1,40 @@
++using Microsoft.EntityFrameworkCore.Migrations;
++
++#nullable disable
++
++namespace Pixelwork.Timesheets.Migrations
++{
++    /// <summary>
++    /// Заменяет обычный индекс по Project.Code на частичный уникальный индекс
++    /// (только среди не удалённых проектов), чтобы дубли кода отлавливались и на уровне БД,
++    /// а не только проверкой в ProjectService.CreateAsync.
++    /// </summary>
++    public partial class ProjectCodeUniqueIndex : Migration
++    {
++        protected override void Up(MigrationBuilder migrationBuilder)
++        {
++            migrationBuilder.DropIndex(
++                name: "IX_Projects_Code",
++                table: "Projects");
++
++            migrationBuilder.CreateIndex(
++                name: "IX_Projects_Code",
++                table: "Projects",
++                column: "Code",
++                unique: true,
++                filter: "NOT \"IsDeleted\"");
++        }
++
++        protected override void Down(MigrationBuilder migrationBuilder)
++        {
++            migrationBuilder.DropIndex(
++                name: "IX_Projects_Code",
++                table: "Projects");
++
++            migrationBuilder.CreateIndex(
++                name: "IX_Projects_Code",
++                table: "Projects",
++                column: "Code");
++        }
++    }
++}
+diff --git a/ProjectService.cs b/ProjectService.cs
+index 87e12ae..f640eca 100644
+--- a/ProjectService.cs
++++ b/ProjectService.cs
+@@ -59,6 +59,19 @@ public class ProjectService
+         return true;
+     }
+ 
++    // Удаление всех проектов клиента одним вызовом (расторжение договора).
++    // Как и одиночное удаление, фактически это soft-delete (см. AgencyDbContext.SaveChangesAsync).
++    public async Task<int> DeleteAllByClientAsync(int clientId)
++    {
++        var projects = await _db.Projects.Where(p => p.ClientId == clientId).ToListAsync();
++        if (projects.Count == 0)
++            return 0;
++
++        _db.Projects.RemoveRange(projects);
++        await _db.SaveChangesAsync();
++        return projects.Count;
++    }
++
+     // Восстановление удалённого проекта вместе с его часами. Появилось весной 2026;
+     // до этого удалённый по ошибке проект менеджеры заводили заново под тем же кодом.
+     public async Task<bool> RestoreProjectAsync(int id)
+diff --git a/ReportService.cs b/ReportService.cs
+new file mode 100644
+index 0000000..9524fd6
+--- /dev/null
++++ b/ReportService.cs
+@@ -0,0 +1,44 @@
++using Microsoft.EntityFrameworkCore;
++
++namespace Pixelwork.Timesheets;
++
++public record MonthSummary(int Year, int Month, bool IsClosed, DateOnly? ActSignedOn, decimal TotalHours);
++
++public record YearReport(int Year, List<MonthSummary> Months);
++
++public class ReportService
++{
++    private readonly AgencyDbContext _db;
++
++    public ReportService(AgencyDbContext db) => _db = db;
++
++    public async Task<YearReport> GetYearSummaryAsync(int year)
++    {
++        // ClosedPeriod.Month конвертируется в int через HasConversion, поэтому сравнение
++        // по Year/Month на уровне LINQ-to-SQL недоступно - фильтруем на клиенте
++        // (таблица закрытых периодов маленькая: одна запись на месяц на всё агентство).
++        var closedPeriods = await _db.ClosedPeriods.AsNoTracking().ToListAsync();
++        var closedByMonth = closedPeriods
++            .Where(p => p.Month.Year == year)
++            .ToDictionary(p => p.Month.Month, p => p.ActSignedOn);
++
++        var from = new DateOnly(year, 1, 1);
++        var to = from.AddYears(1);
++        var hoursByMonth = await _db.TimeEntries
++            .AsNoTracking()
++            .Where(t => t.WorkDate >= from && t.WorkDate < to)
++            .GroupBy(t => t.WorkDate.Month)
++            .Select(g => new { Month = g.Key, Hours = g.Sum(t => t.Hours) })
++            .ToDictionaryAsync(g => g.Month, g => g.Hours);
++
++        var months = new List<MonthSummary>(12);
++        for (var month = 1; month <= 12; month++)
++        {
++            var actSignedOn = closedByMonth.GetValueOrDefault(month);
++            var hours = hoursByMonth.GetValueOrDefault(month);
++            months.Add(new MonthSummary(year, month, actSignedOn is not null, actSignedOn, hours));
++        }
++
++        return new YearReport(year, months);
++    }
++}
+diff --git a/TimeEntryService.cs b/TimeEntryService.cs
+index 97b816b..fb5007f 100644
+--- a/TimeEntryService.cs
++++ b/TimeEntryService.cs
+@@ -6,6 +6,8 @@ public record TimeEntryDto(int Id, int ProjectId, int EmployeeId, DateOnly WorkD
+ 
+ public class TimeEntryService
+ {
++    public const decimal MaxDailyHours = 12m;
++
+     private readonly AgencyDbContext _db;
+ 
+     public TimeEntryService(AgencyDbContext db) => _db = db;
+@@ -14,6 +16,7 @@ public class TimeEntryService
+     {
+         ValidateHours(dto.Hours);
+         await EnsureOpenAsync(dto.WorkDate);
++        await EnsureDailyLimitAsync(dto.EmployeeId, dto.WorkDate, dto.Hours, excludeEntryId: null);
+ 
+         var entry = new TimeEntry
+         {
+@@ -37,6 +40,7 @@ public class TimeEntryService
+ 
+         await EnsureOpenAsync(entry.WorkDate);
+         await EnsureOpenAsync(dto.WorkDate);
++        await EnsureDailyLimitAsync(entry.EmployeeId, dto.WorkDate, dto.Hours, excludeEntryId: entry.Id);
+ 
+         entry.ProjectId = dto.ProjectId;
+         entry.WorkDate = dto.WorkDate;
+@@ -61,6 +65,18 @@ public class TimeEntryService
+             throw new ClosedPeriodException(month);
+     }
+ 
++    // Сумма часов сотрудника за день по всем проектам не должна превышать MaxDailyHours.
++    private async Task EnsureDailyLimitAsync(int employeeId, DateOnly workDate, decimal hours, int? excludeEntryId)
++    {
++        var otherHours = await _db.TimeEntries
++            .Where(t => t.EmployeeId == employeeId && t.WorkDate == workDate && t.Id != (excludeEntryId ?? -1))
++            .SumAsync(t => (decimal?)t.Hours) ?? 0m;
++
++        var total = otherHours + hours;
++        if (total > MaxDailyHours)
++            throw new DailyHoursLimitExceededException(employeeId, workDate, total);
++    }
++
+     private static void ValidateHours(decimal hours)
+     {
+         if (hours is <= 0 or > 24)
+@@ -70,3 +86,7 @@ public class TimeEntryService
+ 
+ public class ClosedPeriodException(YearMonth month)
+     : InvalidOperationException($"Месяц {month} закрыт актом");
++
++public class DailyHoursLimitExceededException(int employeeId, DateOnly workDate, decimal totalHours)
++    : InvalidOperationException(
++        $"Сотрудник {employeeId} не может списать больше {TimeEntryService.MaxDailyHours} ч за {workDate:yyyy-MM-dd} (итого вышло бы {totalHours} ч)");
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..509e6c1
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,16 @@
++# Изменённые/созданные файлы
++
++- `ReportService.cs` (новый) — `ReportService.GetYearSummaryAsync(year)`: сводка по 12 месяцам (закрыт/нет, дата акта, сумма часов).
++- `Controllers/ReportsController.cs` (новый) — `GET /reports/year/{year}`.
++- `Controllers/ClientsController.cs` (новый) — `DELETE /clients/{id}/projects`.
++- `ProjectService.cs` (изменён) — добавлен `DeleteAllByClientAsync(clientId)`, удаляющий все проекты клиента одним `SaveChangesAsync` (soft-delete, как и одиночное удаление).
++- `AgencyDbContext.cs` (изменён) — индекс по `Project.Code` сделан уникальным с частичным фильтром `WHERE NOT "IsDeleted"`.
++- `Migrations/20261002120000_ProjectCodeUniqueIndex.cs` (новый) — пересоздаёт индекс `IX_Projects_Code` как уникальный частичный.
++- `TimeEntryService.cs` (изменён) — в `AddAsync`/`UpdateAsync` добавлена проверка `EnsureDailyLimitAsync`: сумма часов сотрудника за день по всем проектам (с учётом редактируемой записи) не может превышать `MaxDailyHours = 12`; добавлен `DailyHoursLimitExceededException` (наследник `InvalidOperationException`, по аналогии с существующим `ClosedPeriodException`, который уже маппится в 400 где-то в middleware).
++
++# Решения и нюансы
++
++- Уникальный индекс сделан **частичным** (`NOT "IsDeleted"`), а не обычным уникальным — иначе сломался бы существующий `RestoreProjectAsync`/повторное создание проекта под тем же кодом после удаления (`CreateAsync` сейчас проверяет уникальность только среди неудалённых через query filter).
++- Сводка по году считает закрытые периоды в памяти (таблица `ClosedPeriods` маленькая — по записи на месяц на всё агентство), т.к. `YearMonth` — конвертируемый через `HasConversion` value object и `.Year`/`.Month` недоступны для трансляции в SQL напрямую.
++- Лимит 12 ч/день проверяется по `EmployeeId` записи (не по `dto.EmployeeId` в `UpdateAsync`, т.к. существующий код и так не даёт менять исполнителя при редактировании) и исключает саму редактируемую запись из суммы.
++- В каталоге нет `Program.cs`/`.csproj`/папки `Migrations` с историей — контроллеры и миграция написаны по месту, конфликтов регистрации (DI, `MapControllers`) не вносилось; Designer/ModelSnapshot для миграции в каталоге отсутствуют, их нужно будет дособрать штатным `dotnet ef migrations add` в полном репозитории перед сборкой efbundle.

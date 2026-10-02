@@ -1,0 +1,50 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..c9563e2
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,44 @@
++# Ревью MR !231 «Процедурный кабинет»
++
++## 1. `Services/ProcedureService.cs` — `CalculateDoseMlAsync`: граммы подставлены как килограммы — **critical**
++`doseMg = weightGrams * drugMgPerKg`, хотя формула в комментарии считает от веса **в кг**, а `Pet.WeightGrams` хранит вес в граммах.
++Объём получается завышенным в 1000 раз. Пример: кот весом 4 кг (4000 г), 2.5 мг/кг, 10 мг/мл → 1000 мл вместо 1 мл.
++Это ошибка в расчёте дозы препарата для живого пациента. Как исправить: `weightGrams / 1000m * drugMgPerKg`.
++
++## 2. `Domain/Pet.cs` / `Services/ProcedureService.cs` — `WeightGrams` не nullable, при нулевом весе доза = 0 — **high**
++`WeightGrams` объявлен как `int` (NOT NULL). Миграция проставит 0 всем уже существующим питомцам; у не взвешенных питомцев тоже будет 0.
++`CalculateDoseMlAsync` молча вернёт 0 мл вместо ошибки «вес неизвестен».
++Как исправить: сделать поле `int?` и бросать исключение, если вес не задан или ≤ 0.
++
++## 3. `Services/ProcedureSheetService.cs` — `GetDaySheetAsync`: пагинация от 0, а по контракту от 1 — **high**
++Контракт: страницы нумеруются с 1. В коде `Skip(page * PageSize)`, поэтому `page=1` пропускает первые 30 процедур дня. Лист дня теряет утренние записи, и персонал их не увидит.
++Ещё нет проверки `page >= 1`: при `page=0` получится смещение 0, при отрицательных значениях — исключение (500).
++Как исправить: `Skip((page - 1) * PageSize)` и проверять `page`.
++
++## 4. `Services/ProcedureSheetService.cs` — `SearchNotesAsync`: не ищет по заметкам персонала — **medium**
++По MR нужен «поиск по заметкам», а заметки персонала живут в отдельной таблице `StaffNotes`. Запрос же смотрит только в `Procedures.Notes`, так что поиск по заметкам персонала ничего не находит.
++Кроме того, нет GIN-индекса по `to_tsvector('russian', ...)`, и каждый запрос выполняет full scan с вычислением tsvector.
++Как исправить: добавить `EXISTS (SELECT 1 FROM "StaffNotes" n WHERE n."ProcedureId" = p."Id" AND to_tsvector(...) @@ ...)` и индекс (выражение или generated column).
++
++## 5. `Data/ClinicDbContext.cs` — `OnModelCreating`: каскадное удаление от `Pet` — **medium**
++`Procedure.PetId` — обязательный FK, и EF по умолчанию ставит `ON DELETE CASCADE` на всю цепочку Pet → Procedures → ConsumableLines/StaffNotes.
++При удалении питомца пропадут и закрытые процедуры вместе со списанием. README запрещает менять расходники закрытых процедур, а отчёт `GetConsumptionAsync` задним числом изменится.
++Как исправить: `OnDelete(DeleteBehavior.Restrict)` для Pet→Procedure. Для Procedure→ConsumableLine можно рассмотреть то же самое.
++
++## 6. `Services/ProcedureService.cs` — `RemoveConsumableAsync`: гонка с закрытием процедуры — **medium**
++Сначала читается статус, затем строка удаляется. Защиты от конкурентного изменения нет: ни concurrency token (`xmin`), ни блокировки.
++Если процедуру закроют между чтением и `SaveChanges`, строка удалится уже из закрытого списания, что нарушает правило README.
++Как исправить: concurrency token на `Procedure` (Npgsql `UseXminAsConcurrencyToken` / `IsRowVersion` на `uint xmin`). Другой вариант — один `DELETE ... WHERE ... AND EXISTS(процедура не Closed)`.
++Попутно: `Include(p => p.Consumables)` грузит сотни строк ради удаления одной. Достаточно загрузить статус и саму строку.
++
++## 7. `Services/ProcedureService.cs` — `ScheduleAsync`: нет валидации входа — **low**
++- `Title == null` → NullReferenceException (500).
++- Длина больше 200 и пустой title не проверяются, ошибка вылетает только из БД.
++- Несуществующий `PetId` → FK violation (500) вместо 404/400.
++
++## 8. `Services/ProcedureService.cs` — `GetCardAsync`: расходники без порядка — **low**
++`Consumables` идут в карточку без `OrderBy`. В split query порядок строк из PostgreSQL не гарантирован, и в карточках с сотнями строк он будет «прыгать». Нужно `OrderBy(c => c.Id)`.
++
++## 9. `Services/ProcedureService.cs` — `ScheduleAsync`/`RescheduleAsync`: время со смещением сдвигается — **low**
++Если клиент всё-таки пришлёт время со смещением (`+03:00`), System.Text.Json вернёт `DateTime` с `Kind=Local`, уже пересчитанный в пояс сервера. После `SpecifyKind` в БД попадёт сдвинутое настенное время.
++Лучше явно отклонять значения с `Kind != Unspecified` (или принимать строку / `DateTimeOffset` и брать `.DateTime` без пересчёта).

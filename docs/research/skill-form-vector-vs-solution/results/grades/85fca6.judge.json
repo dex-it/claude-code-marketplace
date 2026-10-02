@@ -1,0 +1,92 @@
+{
+  "id": "85fca6",
+  "case": "GR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.077843,
+    "durationMs": 11414,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 6646,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1212,
+      "output_tokens_details": {
+        "thinking_tokens": 365
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6646,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1212,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 6646,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 6646
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GR-offday-rows": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "OffDayTripsAsync и непереводимый Where по OffDay после ToRows() в выходе не упомянуты."
+    },
+    "GR-open-semicolon": {
+      "verdict": "FAIL",
+      "quote": "Это приводит к загрузке всех незакрытых путевых листов в память, потере оптимизации ORDER BY",
+      "why": "Место найдено, но механизм назван неверно: производительность вместо синтаксической ошибки PostgreSQL из-за ';' при оборачивании в подзапрос; фикс не предложен."
+    },
+    "GR-equipment-clear": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Clear() на незагруженной коллекции Equipment и нарушение уникального индекса в выходе не упомянуты."
+    },
+    "GR-model-length": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Миграция AlterColumn vehicles.model до varchar(40) в выходе не рассматривается."
+    },
+    "GR-last-inspection": {
+      "verdict": "FAIL",
+      "quote": "Метод сортирует по `CreatedAt` (время приёма сервером), но требование проверяется по `InspectedAt`",
+      "why": "Названа другая проблема (CreatedAt вместо InspectedAt); неуникальный порядок при SplitQuery и рассинхрон замечаний не отмечены, ThenByDescending(Id)/AsSingleQuery не предложены."
+    },
+    "GR-permit-lastday": {
+      "verdict": "FOUND",
+      "quote": "Условие `p.ValidUntil > today` неправильно... Текущая проверка исключает сам день окончания.",
+      "why": "Дефект с последним днём допуска назван со ссылкой на MR и правильным исправлением."
+    },
+    "GR-equipment-auth": {
+      "verdict": "FOUND",
+      "quote": "Endpoint не требует авторизации, хотя согласно требованиям механик отправляет комплектацию.",
+      "why": "Отсутствие политики на PUT equipment отмечено как дефект безопасности."
+    },
+    "GR-h-permits-clear": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "ReplacePermitsAsync и Permits.Clear() дефектом не названы."
+    },
+    "GR-h-plate-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByPlateAsync в выходе не упоминается."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,92 @@
+{
+  "id": "415973",
+  "case": "GR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.115387,
+    "durationMs": 12976,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 10574,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1518,
+      "output_tokens_details": {
+        "thinking_tokens": 490
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 10574,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1518,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 10574,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 10574
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GR-rename-drop": {
+      "verdict": "PASS",
+      "quote": "Миграция удаляет колонку `full_name` (`DropColumn`) и создаёт новую `display_name` (`AddColumn`) с пустым значением по умолчанию. На prod это необратимо сотрёт ФИО всех водителей",
+      "why": "Исполнитель назвал потерю ФИО на prod из-за DropColumn и потребовал RenameColumn."
+    },
+    "GR-permits-clear": {
+      "verdict": "PASS",
+      "quote": "`Permits.Clear()` не удаляет старые допуски: `SaveChanges` бросает `InvalidOperationException`",
+      "why": "Указаны обязательная связь и NoAction, предложены RemoveRange/ExecuteDeleteAsync или каскадное удаление."
+    },
+    "GR-search-inject": {
+      "verdict": "PASS",
+      "quote": "`LikeContains` экранирует только `\\`, `%` и `_`, а одинарную кавычку пропускает",
+      "why": "Инъекция через FromSqlRaw описана, предложены параметры или EF.Functions.ILike."
+    },
+    "GR-offday-filter": {
+      "verdict": "PASS",
+      "quote": "Вызов `WorkCalendar.IsWorkingDay` стоит внутри запроса к БД. EF не может перевести его в SQL, поэтому отчёт падает при каждом вызове.",
+      "why": "Дефект трансляции назван, предложено считать выходной пробег после материализации."
+    },
+    "GR-plate-single": {
+      "verdict": "PASS",
+      "quote": "Если номер был переиспользован, `SingleAsync` падает",
+      "why": "Отмечен фильтрованный уникальный индекс, предложен фильтр `DecommissionedAt == null`."
+    },
+    "GR-import-kind": {
+      "verdict": "PASS",
+      "quote": "Нужен явный перевод из `Europe/Moscow` в UTC.",
+      "why": "Указаны Kind=Unspecified и отказ записи в timestamptz, предложен TimeZoneInfo.ConvertTimeToUtc, а не SpecifyKind."
+    },
+    "GR-avg-zero": {
+      "verdict": "FOUND",
+      "quote": "Если поездок за период нет, `totalKm / count` делит на ноль.",
+      "why": "Деление на ноль при пустом периоде названо явно."
+    },
+    "GR-permits-auth": {
+      "verdict": "FOUND",
+      "quote": "У endpoint нет политики `Hr`, поэтому любой вошедший пользователь может выдать себе допуск, например к грузовику.",
+      "why": "Отсутствие политики авторизации на PUT permits названо дефектом."
+    },
+    "GR-h-utc-bounds": {
+      "verdict": "NO",
+      "quote": "Период `from..to` режется по полуночи UTC",
+      "why": "Исполнитель не утверждает, что Kind=Utc упадёт, и не требует Unspecified/Local; замечание касается бизнес-границ дня по МСК, а не Kind для timestamptz."
+    }
+  },
+  "stderr": ""
+}

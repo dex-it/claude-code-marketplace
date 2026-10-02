@@ -1,0 +1,72 @@
+{
+  "id": "5caeae",
+  "case": "G5",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.127827,
+    "durationMs": 12713,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 12574,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1340,
+      "output_tokens_details": {
+        "thinking_tokens": 785
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 12574,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1340,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 12574,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 12574
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G5-login-email": {
+      "verdict": "PASS",
+      "quote": "return matches.Count == 1 ? matches[0] : null;",
+      "why": "Single/SingleOrDefault не используется: при двух карточках, различающихся регистром, ToListAsync не падает, а запрос и подтверждение кода одинаково отказывают (null → BadRequest), детерминированно и без исключения."
+    },
+    "G5-graduates-school": {
+      "verdict": "PASS",
+      "quote": "_db.Students.IgnoreQueryFilters()\n            .Where(s => s.SchoolId == schoolId",
+      "why": "IgnoreQueryFilters снят и у Instructor, и у Student, условие SchoolId == schoolId добавлено явно к каждому, а уволенные инструкторы попадают в отчёт с FullName и признаком IsDeleted."
+    },
+    "G5-instructor-list": {
+      "verdict": "PASS",
+      "quote": "var raw = await _db.Students.AsNoTracking()",
+      "why": "Ученики читаются неотслеживаемой проекцией, маска применяется к DTO через Mask.Email/Mask.Passport, поэтому SaveChangesFilter ничего не запишет в БД."
+    },
+    "G5-h-find-exact": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Существующий FindByEmailAsync с точным SingleOrDefaultAsync в diff не тронут и дефектом не назван."
+    },
+    "G5-m-notracking": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "NoTracking по умолчанию не включён, SaveChangesFilter не удалён."
+    }
+  },
+  "stderr": ""
+}

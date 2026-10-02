@@ -1,0 +1,177 @@
+diff --git a/BillingDbContext.cs b/BillingDbContext.cs
+index a178566..527f9c4 100644
+--- a/BillingDbContext.cs
++++ b/BillingDbContext.cs
+@@ -9,6 +9,7 @@ public class BillingDbContext : DbContext
+     public DbSet<Tariff> Tariffs => Set<Tariff>();
+     public DbSet<Subscriber> Subscribers => Set<Subscriber>();
+     public DbSet<Payment> Payments => Set<Payment>();
++    public DbSet<UnparsedStatement> UnparsedStatements => Set<UnparsedStatement>();
+ 
+     protected override void ConfigureConventions(ModelConfigurationBuilder b)
+     {
+@@ -33,5 +34,13 @@ public class BillingDbContext : DbContext
+             e.HasIndex(p => p.BankRef).IsUnique();
+             e.Property(p => p.BankRef).HasMaxLength(64);
+         });
++
++        b.Entity<UnparsedStatement>(e =>
++        {
++            e.HasIndex(u => u.BankRef).IsUnique();
++            e.Property(u => u.BankRef).HasMaxLength(64);
++            e.Property(u => u.PayerName).HasMaxLength(500);
++            e.Property(u => u.Purpose).HasMaxLength(500);
++        });
+     }
+ }
+diff --git a/Models.cs b/Models.cs
+index bfb8200..3276dc9 100644
+--- a/Models.cs
++++ b/Models.cs
+@@ -39,3 +39,14 @@ public class Payment
+     public DateTime CreditedAt { get; set; }
+     public string Purpose { get; set; } = "";
+ }
++
++public class UnparsedStatement
++{
++    public int Id { get; set; }
++    public string BankRef { get; set; } = "";
++    public DateOnly PaidOn { get; set; }
++    public decimal Amount { get; set; }
++    public string PayerName { get; set; } = "";
++    public string Purpose { get; set; } = "";
++    public DateTime CreatedAt { get; set; }
++}
+diff --git a/Program.cs b/Program.cs
+index 81dd291..f667468 100644
+--- a/Program.cs
++++ b/Program.cs
+@@ -21,4 +21,18 @@ app.MapPost("/subscribers/{id:int}/contract", async (int id, ContractRequest req
+ app.MapGet("/subscribers/by-contract/{contractNo}", async (string contractNo, SubscriberService s) =>
+     await s.GetByContractAsync(contractNo) is { } dto ? Results.Ok(dto) : Results.NotFound());
+ 
++app.MapPost("/bank/statements", async (HttpContext context, SubscriberService s) =>
++{
++    if (context.Request.ContentType?.StartsWith("text/csv") != true &&
++        context.Request.ContentType?.StartsWith("application/octet-stream") != true)
++        return Results.BadRequest("Content-Type должен быть text/csv или application/octet-stream");
++
++    using var reader = new StreamReader(context.Request.Body);
++    var result = await s.ProcessBankStatementAsync(reader);
++    return Results.Ok(result);
++});
++
++app.MapGet("/subscribers/search", async (string phone, SubscriberService s) =>
++    Results.Ok(await s.SearchByPhoneAsync(phone)));
++
+ app.Run();
+diff --git a/SubscriberService.cs b/SubscriberService.cs
+index af52716..a5e7cfa 100644
+--- a/SubscriberService.cs
++++ b/SubscriberService.cs
+@@ -6,6 +6,7 @@ public record LeadRequest(string FullName, string Phone, string Address);
+ public record ContractRequest(string ContractNo, int TariffId);
+ public record SubscriberDto(int Id, string FullName, string Phone, string Address, string? ContractNo,
+     SubscriberStatus Status, decimal Balance);
++public record BankStatementUploadResult(int ProcessedCount, int UnparsedCount);
+ 
+ public class SubscriberService
+ {
+@@ -50,4 +51,75 @@ public class SubscriberService
+             ? null
+             : new SubscriberDto(s.Id, s.FullName, s.Phone, s.Address, s.ContractNo, s.Status, s.Balance);
+     }
++
++    public async Task<BankStatementUploadResult> ProcessBankStatementAsync(TextReader reader)
++    {
++        var lines = BankStatement.Parse(reader);
++        int processedCount = 0;
++        int unparsedCount = 0;
++
++        foreach (var line in lines)
++        {
++            if (await _db.Payments.AnyAsync(p => p.BankRef == line.BankRef))
++                continue;
++
++            var contractNo = PaymentPurpose.ExtractContractNo(line.Purpose);
++            var subscriber = contractNo is not null
++                ? await _db.Subscribers.FirstOrDefaultAsync(s => s.ContractNo == contractNo)
++                : null;
++
++            if (subscriber is null)
++            {
++                var existing = await _db.UnparsedStatements.AnyAsync(u => u.BankRef == line.BankRef);
++                if (!existing)
++                {
++                    _db.UnparsedStatements.Add(new UnparsedStatement
++                    {
++                        BankRef = line.BankRef,
++                        PaidOn = line.PaidOn,
++                        Amount = line.Amount,
++                        PayerName = line.PayerName,
++                        Purpose = line.Purpose,
++                        CreatedAt = DateTime.Now
++                    });
++                    unparsedCount++;
++                }
++            }
++            else
++            {
++                subscriber.Balance += line.Amount;
++
++                if (subscriber.Status == SubscriberStatus.Suspended && subscriber.Balance >= 0)
++                {
++                    subscriber.Status = SubscriberStatus.Active;
++                }
++
++                _db.Payments.Add(new Payment
++                {
++                    SubscriberId = subscriber.Id,
++                    Amount = line.Amount,
++                    BankRef = line.BankRef,
++                    PaidOn = line.PaidOn,
++                    CreditedAt = DateTime.Now,
++                    Purpose = line.Purpose
++                });
++
++                processedCount++;
++            }
++        }
++
++        await _db.SaveChangesAsync();
++        return new BankStatementUploadResult(processedCount, unparsedCount);
++    }
++
++    public async Task<List<SubscriberDto>> SearchByPhoneAsync(string phoneSuffix)
++    {
++        var subscribers = await _db.Subscribers.AsNoTracking()
++            .Where(s => s.Phone.EndsWith(phoneSuffix))
++            .Take(20)
++            .ToListAsync();
++
++        return subscribers.Select(s => new SubscriberDto(s.Id, s.FullName, s.Phone, s.Address, s.ContractNo, s.Status, s.Balance))
++            .ToList();
++    }
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..1e0cb71
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,15 @@
++# Решение задач биллинга провайдера
++
++## Созданные/изменённые файлы:
++- Models.cs - добавлена сущность UnparsedStatement для хранения неразобранных платежей
++- BillingDbContext.cs - добавлен DbSet<UnparsedStatement> и конфигурация для индекса по BankRef
++- SubscriberService.cs - добавлены методы ProcessBankStatementAsync, SearchByPhoneAsync и record BankStatementUploadResult
++- Program.cs - добавлены endpoints POST /bank/statements и GET /subscribers/search
++
++## Решения:
++
++**(a) Загрузка банковской выписки**: Эндпоинт POST /bank/statements принимает CSV-файл в теле запроса, парсит строки с помощью BankStatement.Parse, извлекает номер договора из назначения платежа через PaymentPurpose.ExtractContractNo, находит абонента и зачисляет сумму на баланс. Платежи со статусом BankRef уже в базе пропускаются. Неразобранные строки (абонент не найден) сохраняются в UnparsedStatement с уникальным индексом по BankRef.
++
++**(б) Реактивация абонента**: После зачисления платежа проверяется статус подписчика - если он Suspended и баланс стал >= 0, то статус меняется на Active в той же транзакции (момент сохранения - текущее время в CreditedAt платежа).
++
++**(в) Поиск по телефону**: Эндпоинт GET /subscribers/search?phone=4518 использует LIKE с EndsWith для поиска по последним цифрам телефона, ограничивает результаты 20 записями через Take.

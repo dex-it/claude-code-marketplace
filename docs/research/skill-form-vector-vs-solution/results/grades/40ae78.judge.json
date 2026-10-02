@@ -1,0 +1,82 @@
+{
+  "id": "40ae78",
+  "case": "B3",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.153643,
+    "durationMs": 12505,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 15906,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1298,
+      "output_tokens_details": {
+        "thinking_tokens": 456
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 15906,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1298,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 15906,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 15906
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "B3-scope-sql": {
+      "verdict": "PASS",
+      "quote": "SearchScope.Drug => db.Visits.FromSql(",
+      "why": "Scope разбирается белым списком в TryParseScope (неизвестное значение даёт 400) и switch выбирает фиксированный SQL-шаблон, а текст уходит параметром через интерполяцию FromSql."
+    },
+    "B3-drug-resultset": {
+      "verdict": "PASS",
+      "quote": "SELECT v.* FROM \"Visits\" AS v\n                WHERE EXISTS (",
+      "why": "Запрос возвращает только колонки Visits, а EXISTS по назначениям даёт каждый визит один раз."
+    },
+    "B3-lastvisit-split": {
+      "verdict": "PASS",
+      "quote": "var lastSlot = await held.MaxAsync(v => (DateTime?)v.SlotStart);",
+      "why": "Сначала определяется слот, затем грузятся все визиты этого слота с уникальной сортировкой по Id без First, поэтому коллекции split-запросов привязаны к своим визитам и не смешиваются."
+    },
+    "B3-export-notracking": {
+      "verdict": "PASS",
+      "quote": "PrescriptionCount = v.Prescriptions.Count",
+      "why": "Выгрузка идёт проекцией в анонимный тип, Count считается в базе, отслеживаемые сущности не создаются."
+    },
+    "B3-export-range-utc": {
+      "verdict": "PASS",
+      "quote": "TimeZoneInfo.ConvertTimeToUtc(day.ToDateTime(TimeOnly.MinValue), Zone)",
+      "why": "Границы переводятся из пояса Asia/Yekaterinburg в UTC с Kind=Utc, верхняя граница берётся как начало дня to+1 (полуинтервал), а время в CSV выводится через ClinicTime.ToLocal."
+    },
+    "B3-h-existing-search": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Исполнитель не называет прежний FromSqlRaw с {0} уязвимым к инъекции."
+    },
+    "B3-m-fts-lost": {
+      "verdict": "NO",
+      "quote": "to_tsvector('russian', coalesce(v.\"Diagnosis\", '')) @@ plainto_tsquery('russian', {text})",
+      "why": "Полнотекстовый поиск сохранён, выражения to_tsvector повторяют индексы, LIKE/Contains не используются."
+    }
+  },
+  "stderr": ""
+}

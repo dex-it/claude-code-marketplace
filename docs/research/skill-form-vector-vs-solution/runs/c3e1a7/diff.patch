@@ -1,0 +1,74 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..659d42d
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,68 @@
++# Ревью MR !214 — находки
++
++## Critical
++
++### 1. `Services/InpatientReportService.cs` — `GetOccupancyAsync`: SQL-инъекция
++`ward` и `sortBy` приходят из query string (`/inpatient/reports/occupancy?ward=...&sortBy=...`) и подставляются в SQL через интерполяцию C#, затем выполняются через `FromSqlRaw`. Любой аутентифицированный пользователь (эндпоинт требует только `RequireAuthorization()`) может прочитать или изменить произвольные данные: `ward=x' OR 1=1 --`, `sortBy=Id"; DROP TABLE ...--` и т. п. Кавычки вокруг `"{sortBy}"` не спасают, потому что их можно закрыть.
++**Исправить:** `ward` передавать параметром (`FromSql($"... {ward} ...")` или просто LINQ). `sortBy` сверять с белым списком и сортировать через LINQ (`switch` → `OrderBy(...)`).
++
++## High
++
++### 2. `Data/ClinicDbContext.cs` (`HasQueryFilter` на `Box`) + `WardService.GetWardPatientsAsync` / `GetLongStaysAsync` / `GetBoxCardAsync` / `DischargeAsync`, `InpatientReportService.GetOccupancyAsync`: пациенты в выведенном боксе «пропадают»
++`Stay → Box` — обязательная навигация, а у `Box` есть глобальный фильтр `!IsDecommissioned`. EF Core добавляет фильтр и в JOIN/Include обязательной навигации (INNER JOIN на отфильтрованные боксы); при построении модели об этом выдаётся предупреждение 10622. Поэтому после `DecommissionBoxAsync`:
++- `GetWardPatientsAsync` (`s.Box.Ward == ward`) и отчёт по занятости перестают показывать пациентов, которые ещё лежат в этом боксе. Это прямо нарушает правило README: «все госпитализированные пациенты должны оставаться в списках отделения, пока их не выписали»;
++- `DischargeAsync` (`Include(s => s.Box)` + `SingleAsync`) падает с `InvalidOperationException`, то есть такого пациента нельзя выписать;
++- `GetBoxCardAsync` отдаёт 404 по боксу, в котором лежат пациенты; `GetLongStaysAsync` их тоже теряет.
++
++**Исправить:** не прятать боксы глобальным фильтром. Фильтровать `!IsDecommissioned` явно только там, где бокс выбирают для поступления. Другой вариант — `IgnoreQueryFilters()` во всех запросах по госпитализациям.
++
++### 3. `Services/WardService.cs` — `GetLongStaysAsync`: непереводимое выражение
++`DaysInWard` — вычисляемое C#-свойство, в модели его нет. `Where(s => s.DaysInWard > 14)` не транслируется в SQL, и EF Core 8 бросает `InvalidOperationException ... could not be translated`. Эндпоинт `/inpatient/long-stays` всегда отвечает 500.
++**Исправить:** считать порог в коде (`var threshold = today.AddDays(-14)`) и фильтровать по `s.AdmittedOn < threshold`, заодно согласовав это с правилом подсчёта дней. Кроме того, `DateTime.UtcNow` для «сегодня» даёт сдвиг даты относительно локального дня клиники (это low).
++
++### 4. `Services/WardService.cs` — `DischargeAsync`: неверный расчёт стоимости
++По README стоимость = число календарных дней **включая день поступления и день выписки** × тариф. Код считает `dischargedOn.DayNumber - AdmittedOn.DayNumber`, то есть на 1 день меньше. При выписке в день поступления сумма равна 0. Это ошибка в деньгах на каждом счёте. Та же ошибка «минус один день» есть в `Stay.DaysInWard`.
++**Исправить:** `days = dischargedOn.DayNumber - stay.AdmittedOn.DayNumber + 1`.
++
++### 5. `Api/InpatientEndpoints.cs` — `POST /stays/{id}/discharge`: не та политика авторизации
++По README выписку оформляет только врач (политика `Vet`), администраторы ресепшена выписывать не должны. Эндпоинт защищён только `.RequireAuthorization()`, поэтому выписать и выставить счёт может любой аутентифицированный пользователь.
++**Исправить:** `.RequireAuthorization("Vet")`.
++
++### 6. `Services/WardService.cs` — `ReplaceMedicationPlanAsync`: физическое удаление назначений / метод не работает
++`stay.MedicationOrders.Clear()` разрывает обязательную связь. При `DeleteBehavior.Restrict` EF Core на `SaveChanges` бросает `InvalidOperationException` («association ... has been severed ... required»), и замена плана не работает совсем. Если «починить» это переходом на Cascade, назначения начнут физически удаляться, а README прямо запрещает это: назначения — часть медкарты, отмена делается через `CancelledAt`.
++**Исправить:** у действующих назначений проставлять `CancelledAt = DateTime.UtcNow` и добавлять новые. Желательно ещё запретить менять план у выписанной госпитализации и валидировать вход (`TimesPerDay > 0`, `DoseMg > 0`, `Route` из допустимого набора).
++
++### 7. `Services/WardService.cs` — `GetBoxCardAsync`: `SingleOrDefaultAsync` при вместимости больше 1
++По README в боксе может лежать до `Capacity` животных (помёт, животные одного владельца). Если в боксе больше одного активного пациента, `SingleOrDefaultAsync` бросает `InvalidOperationException` (500). DTO тоже рассчитан только на одного пациента.
++**Исправить:** выбирать список текущих пациентов (`Where(...).Select(...).ToListAsync()`) и вернуть в `BoxCardDto` коллекцию.
++
++### 8. `Program.cs`: `MigrateAsync()` при старте приложения
++- В проде приложение работает под ролью `vet_app` без прав на DDL. При любой неприменённой миграции старт падает, и под уходит в crash-loop.
++- Запуск при старте обходит принятый процесс: идемпотентный скрипт, ревью DBA, ручная джоба `db-migrate` под `vet_migrator`.
++- 3 реплики при rolling update будут одновременно пытаться мигрировать: гонка, а в EF Core 8 нет блокировки миграций.
++- Каждый старт делает лишние запросы к `__EFMigrationsHistory` и привязывает доступность сервиса к состоянию схемы.
++
++Проверка «у меня локально применилось» сделана под суперпользователем docker-postgres и прод-условия не отражает.
++**Исправить:** убрать автомиграцию (максимум оставить её под `IsDevelopment()`) и пользоваться существующим `db-migrate`.
++
++## Medium
++
++### 9. `Services/WardService.cs` — `GetLatestStayAsync`: недетерминированный выбор «последней» госпитализации
++`AdmittedOn` — дата без времени, и повторная госпитализация в тот же день бывает (об этом сказано в комментарии к `Stay`). `OrderByDescending(s => s.AdmittedOn)` без вторичного ключа при совпадении дат возвращает произвольную запись. Врач может увидеть уже закрытую утреннюю госпитализацию вместо текущей, с её назначениями.
++**Исправить:** добавить `.ThenByDescending(s => s.Id)`, как сделано в `GetPetHistoryAsync`.
++
++### 10. `Services/InpatientReportService.cs` — `GetOccupancyAsync`: сортировка теряется
++`FromSqlRaw` с `ORDER BY` дальше компонуется (`.Select` с навигациями `Pet`/`Box`). EF оборачивает исходный SQL в подзапрос и делает JOIN, а PostgreSQL не гарантирует сохранение порядка подзапроса во внешнем запросе. Сортировка «по выбранному столбцу» работает нестабильно. Это решается тем же переходом на LINQ `OrderBy`, что и в п. 1.
++
++### 11. `Services/WardService.cs` — `DischargeAsync`: гонка при двойной выписке
++Проверка `DischargedOn is not null` и запись идут без токена конкурентности и без условного UPDATE. Два одновременных запроса (двойной клик, повтор с клиента) оба проходят проверку, оба пишут, и счёт может пересчитаться с другой датой.
++**Исправить:** токен конкурентности (`xmin` через `UseXminAsConcurrencyToken` / `IsRowVersion`) или `ExecuteUpdate ... WHERE "DischargedOn" IS NULL` с проверкой числа обновлённых строк.
++
++## Low
++
++### 12. `Services/WardService.cs` — `DecommissionBoxAsync` / `FindBoxByCodeAsync`
++- Из-за глобального фильтра повторный вывод бокса или вывод несуществующего бокса падает в `SingleAsync` (500 вместо 404 или идемпотентного 204).
++- `FindBoxByCodeAsync` не находит выведенный бокс, хотя уникальный индекс по `Code` его учитывает. Создать бокс с тем же кодом нельзя, а найти существующий тоже нельзя.
++
++### 13. `Api/InpatientEndpoints.cs` / `WardService`: ошибки домена превращаются в 500
++`SingleAsync` для несуществующих `stayId`/`boxId`, а также `InvalidOperationException("Пациент уже выписан")` и `ArgumentException` в `DischargeAsync` не преобразуются в 404/409/400. Клиент получает 500.

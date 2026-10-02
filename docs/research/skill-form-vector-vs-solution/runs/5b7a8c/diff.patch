@@ -1,0 +1,239 @@
+diff --git a/AgencyDbContext.cs b/AgencyDbContext.cs
+index 1c80d9a..ae98501 100644
+--- a/AgencyDbContext.cs
++++ b/AgencyDbContext.cs
+@@ -21,7 +21,9 @@ public class AgencyDbContext : DbContext
+             e.HasQueryFilter(p => !p.IsDeleted);
+             e.Property(p => p.Code).HasMaxLength(32);
+             e.Property(p => p.HourlyRate).HasPrecision(10, 2);
+-            e.HasIndex(p => p.Code);
++            e.HasIndex(p => p.Code)
++                .IsUnique()
++                .HasFilter("\"IsDeleted\" = false");
+ 
+             e.HasMany(p => p.Entries)
+                 .WithOne(t => t.Project)
+diff --git a/Controllers/ProjectsController.cs b/Controllers/ProjectsController.cs
+new file mode 100644
+index 0000000..9063d44
+--- /dev/null
++++ b/Controllers/ProjectsController.cs
+@@ -0,0 +1,19 @@
++using Microsoft.AspNetCore.Mvc;
++
++namespace Pixelwork.Timesheets.Controllers;
++
++[ApiController]
++[Route("clients/{clientId}/projects")]
++public class ProjectsController : ControllerBase
++{
++    private readonly ProjectService _projectService;
++
++    public ProjectsController(ProjectService projectService) => _projectService = projectService;
++
++    [HttpDelete]
++    public async Task<IActionResult> DeleteAllClientProjects(int clientId)
++    {
++        await _projectService.DeleteAllClientProjectsAsync(clientId);
++        return NoContent();
++    }
++}
+diff --git a/Controllers/ReportsController.cs b/Controllers/ReportsController.cs
+new file mode 100644
+index 0000000..7f78541
+--- /dev/null
++++ b/Controllers/ReportsController.cs
+@@ -0,0 +1,19 @@
++using Microsoft.AspNetCore.Mvc;
++
++namespace Pixelwork.Timesheets.Controllers;
++
++[ApiController]
++[Route("reports")]
++public class ReportsController : ControllerBase
++{
++    private readonly ReportService _reportService;
++
++    public ReportsController(ReportService reportService) => _reportService = reportService;
++
++    [HttpGet("year/{year}")]
++    public async Task<ActionResult<List<YearMonthReport>>> GetYearReport(int year)
++    {
++        var report = await _reportService.GetYearReportAsync(year);
++        return Ok(report);
++    }
++}
+diff --git a/Migrations/20261002_AddUniqueConstraintProjectCode.cs b/Migrations/20261002_AddUniqueConstraintProjectCode.cs
+new file mode 100644
+index 0000000..a2fd773
+--- /dev/null
++++ b/Migrations/20261002_AddUniqueConstraintProjectCode.cs
+@@ -0,0 +1,32 @@
++using Microsoft.EntityFrameworkCore.Migrations;
++
++namespace Pixelwork.Timesheets.Migrations;
++
++public partial class AddUniqueConstraintProjectCode : Migration
++{
++    protected override void Up(MigrationBuilder migrationBuilder)
++    {
++        migrationBuilder.DropIndex(
++            name: "IX_Projects_Code",
++            table: "Projects");
++
++        migrationBuilder.CreateIndex(
++            name: "IX_Projects_Code",
++            table: "Projects",
++            column: "Code",
++            unique: true,
++            filter: "\"IsDeleted\" = false");
++    }
++
++    protected override void Down(MigrationBuilder migrationBuilder)
++    {
++        migrationBuilder.DropIndex(
++            name: "IX_Projects_Code",
++            table: "Projects");
++
++        migrationBuilder.CreateIndex(
++            name: "IX_Projects_Code",
++            table: "Projects",
++            column: "Code");
++    }
++}
+diff --git a/ProjectService.cs b/ProjectService.cs
+index 87e12ae..4f0ec03 100644
+--- a/ProjectService.cs
++++ b/ProjectService.cs
+@@ -74,4 +74,16 @@ public class ProjectService
+         await _db.SaveChangesAsync();
+         return true;
+     }
++
++    public async Task DeleteAllClientProjectsAsync(int clientId)
++    {
++        var projects = await _db.Projects
++            .Where(p => p.ClientId == clientId)
++            .ToListAsync();
++
++        foreach (var project in projects)
++            _db.Projects.Remove(project);
++
++        await _db.SaveChangesAsync();
++    }
+ }
+diff --git a/ReportService.cs b/ReportService.cs
+new file mode 100644
+index 0000000..8abc7c5
+--- /dev/null
++++ b/ReportService.cs
+@@ -0,0 +1,38 @@
++using Microsoft.EntityFrameworkCore;
++
++namespace Pixelwork.Timesheets;
++
++public record YearMonthReport(int Month, DateOnly? ActSignedOn, decimal Hours);
++
++public class ReportService
++{
++    private readonly AgencyDbContext _db;
++
++    public ReportService(AgencyDbContext db) => _db = db;
++
++    public async Task<List<YearMonthReport>> GetYearReportAsync(int year)
++    {
++        var closed = await _db.ClosedPeriods
++            .Where(cp => cp.Month.Year == year)
++            .AsNoTracking()
++            .ToDictionaryAsync(cp => cp.Month, cp => cp.ActSignedOn);
++
++        var entries = await _db.TimeEntries
++            .Where(te => te.WorkDate.Year == year)
++            .AsNoTracking()
++            .GroupBy(te => YearMonth.Of(te.WorkDate))
++            .Select(g => new { Month = g.Key, Hours = g.Sum(te => te.Hours) })
++            .ToListAsync();
++
++        var report = new List<YearMonthReport>();
++        for (int month = 1; month <= 12; month++)
++        {
++            var ym = new YearMonth(year, month);
++            var hours = entries.FirstOrDefault(e => e.Month == ym)?.Hours ?? 0;
++            var signedOn = closed.TryGetValue(ym, out var date) ? date : null;
++            report.Add(new YearMonthReport(month, signedOn, hours));
++        }
++
++        return report;
++    }
++}
+diff --git a/TimeEntryService.cs b/TimeEntryService.cs
+index 97b816b..95d14de 100644
+--- a/TimeEntryService.cs
++++ b/TimeEntryService.cs
+@@ -14,6 +14,7 @@ public class TimeEntryService
+     {
+         ValidateHours(dto.Hours);
+         await EnsureOpenAsync(dto.WorkDate);
++        await EnsureDailyLimitAsync(dto.EmployeeId, dto.WorkDate, dto.Hours);
+ 
+         var entry = new TimeEntry
+         {
+@@ -37,6 +38,7 @@ public class TimeEntryService
+ 
+         await EnsureOpenAsync(entry.WorkDate);
+         await EnsureOpenAsync(dto.WorkDate);
++        await EnsureDailyLimitAsync(dto.EmployeeId, dto.WorkDate, dto.Hours, dto.Id);
+ 
+         entry.ProjectId = dto.ProjectId;
+         entry.WorkDate = dto.WorkDate;
+@@ -61,6 +63,20 @@ public class TimeEntryService
+             throw new ClosedPeriodException(month);
+     }
+ 
++    private async Task EnsureDailyLimitAsync(int employeeId, DateOnly workDate, decimal hours, int? excludeEntryId = null)
++    {
++        var query = _db.TimeEntries
++            .Where(t => t.EmployeeId == employeeId && t.WorkDate == workDate);
++
++        if (excludeEntryId.HasValue)
++            query = query.Where(t => t.Id != excludeEntryId.Value);
++
++        var dailyHours = await query.SumAsync(t => t.Hours);
++
++        if (dailyHours + hours > 12)
++            throw new InvalidOperationException("Не можно списать более 12 часов в день");
++    }
++
+     private static void ValidateHours(decimal hours)
+     {
+         if (hours is <= 0 or > 24)
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..4874fb0
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,24 @@
++# Решение задач по сервису Pixelwork.Timesheets
++
++## Созданные/изменённые файлы
++
++**Новые файлы:**
++- `ReportService.cs` - сервис отчётов для сводки за год по месяцам
++- `Migrations/20261002_AddUniqueConstraintProjectCode.cs` - миграция для уникальности кода проекта на БД
++- `Controllers/ReportsController.cs` - контроллер GET /reports/year/{year}
++- `Controllers/ProjectsController.cs` - контроллер DELETE /clients/{id}/projects
++
++**Изменённые файлы:**
++- `AgencyDbContext.cs` - добавлен фильтр для уникального индекса Code
++- `ProjectService.cs` - добавлен метод DeleteAllClientProjectsAsync
++- `TimeEntryService.cs` - добавлена проверка на 12 часов в день
++
++## Решения
++
++**(a) GET /reports/year/{year}:** ReportService группирует часы по месяцам и объединяет с ClosedPeriods для получения даты подписания акта; возвращает список YearMonthReport для всех 12 месяцев года независимо от наличия данных.
++
++**(б) DELETE /clients/{id}/projects:** Метод DeleteAllClientProjectsAsync загружает все проекты клиента за один запрос и удаляет их массово через soft-delete в SaveChangesAsync; мягкое удаление автоматически устанавливает IsDeleted=true и DeletedAt.
++
++**(в) Уникальность кода проекта:** В OnModelCreating добавлена конфигурация уникального индекса с фильтром IsDeleted=false, что позволяет восстанавливать проекты с тем же кодом; миграция переиндексирует существующее поле Code.
++
++**(г) Ограничение 12 часов в день:** EnsureDailyLimitAsync проверяет сумму часов сотрудника за день перед AddAsync и UpdateAsync (исключая текущую запись при редактировании), возвращает 400 при превышении лимита.

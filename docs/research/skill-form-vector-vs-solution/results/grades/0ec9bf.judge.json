@@ -1,0 +1,92 @@
+{
+  "id": "0ec9bf",
+  "case": "GR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.10728299999999999,
+    "durationMs": 14893,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 9356,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1600,
+      "output_tokens_details": {
+        "thinking_tokens": 564
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9356,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1600,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 9356,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 9356
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GR-offday-rows": {
+      "verdict": "PASS",
+      "quote": "EF Core выбросит `InvalidOperationException: ... could not be translated` при любом вызове `OffDayTripsAsync` (FLEET-109",
+      "why": "Названы нетранслируемый WorkCalendar.IsWorkingDay в проекции и Where по OffDay до материализации; исправление (материализация через ToList/AsEnumerable) из текста следует."
+    },
+    "GR-open-semicolon": {
+      "verdict": "PASS",
+      "quote": "Точка с запятой внутри скобок — синтаксическая ошибка Postgres.",
+      "why": "Описаны завершающая ';', оборачивание в подзапрос при фильтре по vehicleId и то, что путь без фильтра прошёл локальную проверку."
+    },
+    "GR-equipment-clear": {
+      "verdict": "PASS",
+      "quote": "`FindVehicleAsync` (`_db.Vehicles.FirstOrDefaultAsync(...)`) не делает `.Include(v => v.Equipment)`",
+      "why": "Названы пустой Clear(), нарушение уникального индекса (vehicle_id, code) и накопление старых позиций; как пример исправления приведён Include в ReplacePermitsAsync."
+    },
+    "GR-model-length": {
+      "verdict": "PASS",
+      "quote": "`ALTER COLUMN TYPE varchar(40)` упадёт с ошибкой Postgres",
+      "why": "Отмечено, что сужение колонки без усечения данных уронит migration bundle на prod."
+    },
+    "GR-last-inspection": {
+      "verdict": "FAIL",
+      "quote": "Сортировать нужно по `InspectedAt`.",
+      "why": "Найден другой дефект (CreatedAt вместо InspectedAt при офлайн-синхронизации); неуникальность порядка при одинаковом CreatedAt в пачке и расхождение запросов при SplitQuery не названы, ThenBy(Id) и AsSingleQuery не предложены."
+    },
+    "GR-permit-lastday": {
+      "verdict": "FOUND",
+      "quote": "сравнение должно быть `p.ValidUntil >= today`",
+      "why": "Названо, что в последний день допуска водителю откажут в выпуске на линию."
+    },
+    "GR-equipment-auth": {
+      "verdict": "FOUND",
+      "quote": "любой аутентифицированный пользователь (водитель, диспетчер и т.д.) может подменить комплектацию любой машины",
+      "why": "Отмечено отсутствие ролевой политики на PUT equipment."
+    },
+    "GR-h-permits-clear": {
+      "verdict": "NO",
+      "quote": "`ReplacePermitsAsync` ... делает `.Include(d => d.Permits)` перед `Clear()` — эталонный пример",
+      "why": "ReplacePermitsAsync приведён как корректный эталон, а не как дефект."
+    },
+    "GR-h-plate-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByPlateAsync в выходе не упоминается."
+    }
+  },
+  "stderr": ""
+}

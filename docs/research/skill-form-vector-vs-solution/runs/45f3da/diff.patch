@@ -1,0 +1,380 @@
+diff --git a/Program.cs b/Program.cs
+index f52e6bd..dd8fc7d 100644
+--- a/Program.cs
++++ b/Program.cs
+@@ -8,10 +8,31 @@ builder.Services.AddDbContext<StudioDbContext>(o =>
+         builder.Configuration.GetConnectionString("Studio"),
+         npgsql => npgsql.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)));
+ 
++builder.Services.AddSingleton(TimeProvider.System);
+ builder.Services.AddScoped<ScheduleService>();
+ 
+ var app = builder.Build();
+ 
++// Доменные ошибки сервиса -> HTTP-статусы.
++app.Use(async (ctx, next) =>
++{
++    try
++    {
++        await next(ctx);
++    }
++    catch (Exception ex) when (!ctx.Response.HasStarted &&
++        ex is KeyNotFoundException or InvalidOperationException or ArgumentException)
++    {
++        var status = ex switch
++        {
++            KeyNotFoundException => StatusCodes.Status404NotFound,
++            InvalidOperationException => StatusCodes.Status409Conflict,
++            _ => StatusCodes.Status400BadRequest,
++        };
++        await Results.Problem(detail: ex.Message, statusCode: status).ExecuteAsync(ctx);
++    }
++});
++
+ app.MapGet("/courses/{id:int}", async (int id, ScheduleService s) =>
+     await s.GetCourseAsync(id) is { } c ? Results.Ok(c) : Results.NotFound());
+ 
+@@ -27,9 +48,25 @@ app.MapDelete("/courses/{id:int}", async (int id, ScheduleService s) =>
+     return Results.NoContent();
+ });
+ 
++app.MapPut("/courses/{id:int}/sessions", async (int id, List<SessionInput> sessions, ScheduleService s) =>
++{
++    await s.ReplaceSessionsAsync(id, sessions);
++    return Results.NoContent();
++});
++
+ app.MapPost("/sessions/{id:int}/enroll", async (int id, EnrollRequest req, ScheduleService s) =>
+     Results.Ok(await s.EnrollAsync(req.CardNumber, id)));
+ 
++app.MapPost("/checkin", async (CheckinRequest req, ScheduleService s) =>
++{
++    var result = await s.CheckinAsync(req.Phone ?? "", req.EnrollmentId);
++    // Несколько записей на один телефон (семья) - администратор выбирает enrollmentId и повторяет запрос.
++    return result.Matched is null ? Results.Conflict(result) : Results.Ok(result);
++});
++
++app.MapGet("/screen/next", async (ScheduleService s) => Results.Ok(await s.GetNextSessionsAsync()));
++
+ app.Run();
+ 
+ public record EnrollRequest(string CardNumber);
++public record CheckinRequest(string? Phone, int? EnrollmentId);
+diff --git a/ScheduleService.cs b/ScheduleService.cs
+index f2d8bb8..c5ff64f 100644
+--- a/ScheduleService.cs
++++ b/ScheduleService.cs
+@@ -7,11 +7,32 @@ public record CourseDto(int Id, string Title, string Trainer, CourseStatus Statu
+ 
+ public record SessionDto(int Id, DateTime StartsAt, int DurationMinutes, string Hall, int Booked);
+ 
++public record SessionInput(DateTime StartsAt, int DurationMinutes, int HallId);
++
++public record CheckinCandidate(int EnrollmentId, string Member, string Course, string Hall,
++    DateTime StartsAt, EnrollmentStatus Status);
++
++// Matched == null && Candidates.Count > 1 - телефон общий (семейный абонемент), нужен выбор enrollmentId.
++public record CheckinResult(CheckinCandidate? Matched, bool AlreadyCheckedIn,
++    IReadOnlyList<CheckinCandidate> Candidates);
++
++public record ScreenSessionDto(int SessionId, string Course, string Hall, DateTime StartsAt,
++    int DurationMinutes, IReadOnlyList<string> Members);
++
+ public class ScheduleService
+ {
++    // Отмечаем занятия, которые начнутся не позже чем через это время или уже идут.
++    private static readonly TimeSpan CheckinWindow = TimeSpan.FromMinutes(30);
++    private const int MaxDurationMinutes = 24 * 60;
++
+     private readonly StudioDbContext _db;
++    private readonly TimeProvider _clock;
+ 
+-    public ScheduleService(StudioDbContext db) => _db = db;
++    public ScheduleService(StudioDbContext db, TimeProvider clock)
++    {
++        _db = db;
++        _clock = clock;
++    }
+ 
+     public async Task<CourseDto?> GetCourseAsync(int id)
+     {
+@@ -58,22 +79,251 @@ public class ScheduleService
+         var member = await _db.Members.SingleOrDefaultAsync(m => m.CardNumber == cardNumber)
+             ?? throw new KeyNotFoundException("Карта не найдена");
+ 
++        await using var tx = await _db.Database.BeginTransactionAsync();
++
++        // Блокируем строку занятия: параллельные записи на одно занятие выполняются по очереди,
++        // иначе две записи на последнее место обе пройдут проверку вместимости.
++        await _db.Database.ExecuteSqlInterpolatedAsync(
++            $@"SELECT 1 FROM ""Sessions"" WHERE ""Id"" = {sessionId} FOR UPDATE");
++
+         var session = await _db.Sessions
+             .Include(s => s.Course)
++            .Include(s => s.Hall)
+             .FirstOrDefaultAsync(s => s.Id == sessionId)
+             ?? throw new KeyNotFoundException("Занятие не найдено");
+ 
+         if (session.Course.Status != CourseStatus.Published)
+             throw new InvalidOperationException("Запись на курс не открыта");
+ 
+-        var enrollment = new Enrollment
++        var existing = await _db.Enrollments
++            .FirstOrDefaultAsync(e => e.SessionId == session.Id && e.MemberId == member.Id);
++        if (existing is { Status: not EnrollmentStatus.Cancelled })
++            throw new InvalidOperationException("Клиент уже записан на это занятие");
++
++        var booked = await _db.Enrollments
++            .CountAsync(e => e.SessionId == session.Id && e.Status != EnrollmentStatus.Cancelled);
++        if (booked >= session.Hall.Capacity)
++            throw new InvalidOperationException("Свободных мест нет");
++
++        Enrollment enrollment;
++        if (existing is not null)
+         {
+-            SessionId = session.Id,
+-            MemberId = member.Id,
+-            Status = EnrollmentStatus.Booked,
+-        };
+-        _db.Enrollments.Add(enrollment);
++            // Уникальный индекс (SessionId, MemberId): повторная запись после отмены восстанавливает старую.
++            enrollment = existing;
++            enrollment.Status = EnrollmentStatus.Booked;
++            enrollment.AttendedAt = null;
++        }
++        else
++        {
++            enrollment = new Enrollment
++            {
++                SessionId = session.Id,
++                MemberId = member.Id,
++                Status = EnrollmentStatus.Booked,
++            };
++            _db.Enrollments.Add(enrollment);
++        }
++
+         await _db.SaveChangesAsync();
++        await tx.CommitAsync();
+         return enrollment.Id;
+     }
++
++    // Телефон не уникален: у детей на семейном абонементе указан телефон родителя,
++    // поэтому при нескольких подходящих записях ничего не отмечаем и отдаём список для выбора.
++    public async Task<CheckinResult> CheckinAsync(string phone, int? enrollmentId)
++    {
++        var normalized = phone.Trim();
++        if (normalized.Length == 0)
++            throw new ArgumentException("Не указан телефон");
++
++        var now = _clock.GetUtcNow().UtcDateTime;
++        var windowEnd = now + CheckinWindow;
++        var earliestStart = now.AddMinutes(-MaxDurationMinutes);
++
++        var enrollments = await _db.Enrollments
++            .Include(e => e.Member)
++            .Include(e => e.Session).ThenInclude(s => s.Course)
++            .Include(e => e.Session).ThenInclude(s => s.Hall)
++            .Where(e => e.Member.Phone == normalized
++                && e.Status != EnrollmentStatus.Cancelled
++                && e.Session.Course.Status == CourseStatus.Published
++                && e.Session.StartsAt <= windowEnd
++                && e.Session.StartsAt > earliestStart)
++            .ToListAsync();
++
++        // Занятие ещё не закончилось (длительность у каждого своя - доводим фильтр в памяти).
++        enrollments = enrollments
++            .Where(e => e.Session.StartsAt.AddMinutes(e.Session.DurationMinutes) > now)
++            .OrderBy(e => e.Session.StartsAt)
++            .ToList();
++
++        if (enrollmentId is not null)
++            enrollments = enrollments.Where(e => e.Id == enrollmentId).ToList();
++
++        if (enrollments.Count == 0)
++            throw new KeyNotFoundException("Нет записи на текущее или ближайшее занятие");
++
++        if (enrollments.Count > 1)
++            return new CheckinResult(null, false, enrollments.Select(ToCandidate).ToList());
++
++        var enrollment = enrollments[0];
++        var alreadyCheckedIn = enrollment.Status == EnrollmentStatus.Attended;
++        if (!alreadyCheckedIn)
++        {
++            enrollment.Status = EnrollmentStatus.Attended;
++            enrollment.AttendedAt = now;
++            await _db.SaveChangesAsync();
++        }
++
++        var matched = ToCandidate(enrollment);
++        return new CheckinResult(matched, alreadyCheckedIn, new[] { matched });
++    }
++
++    private static CheckinCandidate ToCandidate(Enrollment e) =>
++        new(e.Id, e.Member.FullName, e.Session.Course.Title, e.Session.Hall.Name,
++            e.Session.StartsAt, e.Status);
++
++    public async Task ReplaceSessionsAsync(int courseId, IReadOnlyList<SessionInput> input)
++    {
++        var sessions = input.Select(Normalize).OrderBy(s => s.StartsAt).ToList();
++
++        var hallIds = sessions.Select(s => s.HallId).Distinct().ToList();
++        var knownHalls = await _db.Halls.Where(h => hallIds.Contains(h.Id)).Select(h => h.Id).ToListAsync();
++        var missingHalls = hallIds.Except(knownHalls).ToList();
++        if (missingHalls.Count > 0)
++            throw new ArgumentException($"Зал {missingHalls[0]} не найден");
++
++        await using var tx = await _db.Database.BeginTransactionAsync();
++
++        // Блокировка строки курса защищает от одновременной публикации: курс опубликуют
++        // либо до замены (тогда 409), либо после неё.
++        await _db.Database.ExecuteSqlInterpolatedAsync(
++            $@"SELECT 1 FROM ""Courses"" WHERE ""Id"" = {courseId} FOR UPDATE");
++
++        var course = await _db.Courses.FirstOrDefaultAsync(c => c.Id == courseId)
++            ?? throw new KeyNotFoundException("Курс не найден");
++
++        if (course.Status != CourseStatus.Draft)
++            throw new InvalidOperationException("Расписание можно менять только у черновика");
++
++        var old = await _db.Sessions
++            .Where(s => s.CourseId == courseId)
++            .Include(s => s.Enrollments)
++            .ToListAsync();
++        // Удаление занятий каскадно удалило бы записи клиентов - такого молча делать нельзя.
++        if (old.Any(s => s.Enrollments.Count > 0))
++            throw new InvalidOperationException("На занятия курса уже есть записи");
++
++        EnsureNoOverlaps(sessions, s => s.HallId, "Занятия курса пересекаются в одном зале");
++        if (sessions.Count > 0)
++            await EnsureNoConflictsAsync(course, sessions);
++
++        _db.Sessions.RemoveRange(old);
++        _db.Sessions.AddRange(sessions.Select(s => new Session
++        {
++            CourseId = courseId,
++            HallId = s.HallId,
++            StartsAt = s.StartsAt,
++            DurationMinutes = s.DurationMinutes,
++        }));
++
++        await _db.SaveChangesAsync();
++        await tx.CommitAsync();
++    }
++
++    private static SessionInput Normalize(SessionInput s)
++    {
++        var startsAt = s.StartsAt.Kind switch
++        {
++            DateTimeKind.Utc => s.StartsAt,
++            DateTimeKind.Local => s.StartsAt.ToUniversalTime(),
++            // Время без пояса неоднозначно (сервер vs студия) - требуем явный UTC/смещение.
++            _ => throw new ArgumentException($"Время {s.StartsAt:s} указано без часового пояса"),
++        };
++        if (startsAt.Minute % 30 != 0 || startsAt.Second != 0 || startsAt.Millisecond != 0)
++            throw new ArgumentException($"Начало {startsAt:s}Z не попадает в сетку :00/:30");
++        if (s.DurationMinutes <= 0 || s.DurationMinutes > MaxDurationMinutes)
++            throw new ArgumentException($"Недопустимая длительность {s.DurationMinutes} мин");
++        return s with { StartsAt = startsAt };
++    }
++
++    private static void EnsureNoOverlaps(IReadOnlyList<SessionInput> sessions, Func<SessionInput, int> key,
++        string message)
++    {
++        foreach (var group in sessions.GroupBy(key))
++        {
++            DateTime? prevEnd = null;
++            foreach (var s in group.OrderBy(x => x.StartsAt))
++            {
++                if (prevEnd > s.StartsAt)
++                    throw new InvalidOperationException($"{message}: {s.StartsAt:s}Z");
++                prevEnd = s.StartsAt.AddMinutes(s.DurationMinutes);
++            }
++        }
++    }
++
++    // Зал и тренер не могут быть заняты другим (неархивным) курсом в то же время.
++    private async Task EnsureNoConflictsAsync(Course course, IReadOnlyList<SessionInput> sessions)
++    {
++        var from = sessions.Min(s => s.StartsAt).AddMinutes(-MaxDurationMinutes);
++        var to = sessions.Max(s => s.StartsAt.AddMinutes(s.DurationMinutes));
++        var hallIds = sessions.Select(s => s.HallId).Distinct().ToList();
++
++        var others = await _db.Sessions
++            .AsNoTracking()
++            .Include(s => s.Course)
++            .Include(s => s.Hall)
++            .Where(s => s.CourseId != course.Id
++                && s.Course.Status != CourseStatus.Archived
++                && (hallIds.Contains(s.HallId) || s.Course.TrainerId == course.TrainerId)
++                && s.StartsAt < to
++                && s.StartsAt > from)
++            .ToListAsync();
++
++        foreach (var s in sessions)
++        {
++            var end = s.StartsAt.AddMinutes(s.DurationMinutes);
++            foreach (var o in others)
++            {
++                if (o.StartsAt >= end || o.StartsAt.AddMinutes(o.DurationMinutes) <= s.StartsAt)
++                    continue;
++                if (o.HallId == s.HallId)
++                    throw new InvalidOperationException(
++                        $"Зал «{o.Hall.Name}» занят курсом «{o.Course.Title}» в {o.StartsAt:s}Z");
++                if (o.Course.TrainerId == course.TrainerId)
++                    throw new InvalidOperationException(
++                        $"Тренер уже ведёт курс «{o.Course.Title}» в {o.StartsAt:s}Z");
++            }
++        }
++    }
++
++    // Залы работают параллельно, поэтому в ближайший момент могут начинаться несколько занятий -
++    // возвращаем все.
++    public async Task<IReadOnlyList<ScreenSessionDto>> GetNextSessionsAsync()
++    {
++        var now = _clock.GetUtcNow().UtcDateTime;
++
++        var published = _db.Sessions.Where(s => s.Course.Status == CourseStatus.Published && s.StartsAt >= now);
++        var nextStart = await published.OrderBy(s => s.StartsAt)
++            .Select(s => (DateTime?)s.StartsAt)
++            .FirstOrDefaultAsync();
++        if (nextStart is null)
++            return Array.Empty<ScreenSessionDto>();
++
++        var sessions = await published
++            .AsNoTracking()
++            .Where(s => s.StartsAt == nextStart)
++            .Include(s => s.Course)
++            .Include(s => s.Hall)
++            .Include(s => s.Enrollments.Where(e => e.Status != EnrollmentStatus.Cancelled))
++                .ThenInclude(e => e.Member)
++            .OrderBy(s => s.Hall.Name)
++            .ToListAsync();
++
++        return sessions
++            .Select(s => new ScreenSessionDto(s.Id, s.Course.Title, s.Hall.Name, s.StartsAt, s.DurationMinutes,
++                s.Enrollments.Select(e => e.Member.FullName).OrderBy(n => n).ToList()))
++            .ToList();
++    }
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..14e464d
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,16 @@
++## Изменённые файлы
++- `ScheduleService.cs`: добавлены `CheckinAsync`, `ReplaceSessionsAsync`, `GetNextSessionsAsync` и проверка вместимости в `EnrollAsync`.
++- `Program.cs`: новые эндпоинты `POST /checkin`, `PUT /courses/{id}/sessions` и `GET /screen/next`. Добавлены `TimeProvider` и обработчик, который превращает ошибки сервиса в HTTP-коды 404/409/400.
++- `_answer.md`: этот ответ.
++
++## Решения
++- **Отметка посещения (`/checkin`).** У детей на семейном абонементе указан телефон родителя, поэтому один номер может подойти к нескольким записям. В таком случае ничего не отмечаем и возвращаем 409 со списком записей. Администратор выбирает нужную и повторяет запрос с `enrollmentId`. Повторная отметка той же записи ничего не меняет.
++- **Экран (`/screen/next`).** Залы работают параллельно, поэтому возвращаются все занятия, которые начинаются в ближайшее время, а не одно.
++- **Вместимость зала.** Строка занятия блокируется через `SELECT ... FOR UPDATE`, чтобы две одновременные записи не заняли одно последнее место. Если клиент раньше отменил запись и записывается снова, восстанавливается старая запись: этого требует уникальный индекс.
++- **Загрузка расписания (`PUT /courses/{id}/sessions`).**
++  - Строка курса блокируется, чтобы загрузка не пересеклась с публикацией.
++  - Если на занятия уже есть записи клиентов, возвращается 409: удаление занятий каскадно удалило бы и записи.
++  - Время без часового пояса и время вне сетки :00/:30 отклоняются.
++  - Проверяется, что занятия не пересекаются в одном зале и у одного тренера с другими неархивными курсами.
++  - Ограничение: две одновременные загрузки разных курсов эту проверку пересечений не сериализуют.
++- Сборку и тесты я не запускал.

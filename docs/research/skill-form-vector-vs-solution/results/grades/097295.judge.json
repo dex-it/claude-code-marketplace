@@ -1,0 +1,87 @@
+{
+  "id": "097295",
+  "case": "GN",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.086175,
+    "durationMs": 8002,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 8670,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 819,
+      "output_tokens_details": {
+        "thinking_tokens": 0
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8670,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 819,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 8670,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 8670
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GN-h-datetime": {
+      "verdict": "NO",
+      "quote": "`DateOnly.ToDateTime(TimeOnly)` даёт `DateTime.Kind = Unspecified`, что соответствует типу колонки `timestamp without time zone` у `PlannedLocal` — запись корректна",
+      "why": "Выход прямо признаёт Kind у PlannedLocal корректным, не трогает ReportDate/since и не меняет тип колонки; находка 6 касается миграции/backfill, а не Kind."
+    },
+    "GN-h-card-split": {
+      "verdict": "NO",
+      "quote": "явно вынесены в `AsSplitQuery()`, что соответствует правилу команды",
+      "why": "AsSplitQuery назван корректным; находка 7 предлагает проекцию ради трафика, но не объявляет split дефектом."
+    },
+    "GN-h-inanalysis-tracking": {
+      "verdict": "NO",
+      "quote": "корректно не используют `AsNoTracking()`, так как возвращаемые сущности затем мутируются",
+      "why": "Выход явно отвергает добавление AsNoTracking в GetInAnalysisForBatchAsync."
+    },
+    "GN-h-fromsql": {
+      "verdict": "NO",
+      "quote": "EF Core сам параметризует значения, SQL-инъекции нет",
+      "why": "FromSql признан безопасным."
+    },
+    "GN-h-retag-clear": {
+      "verdict": "NO",
+      "quote": "`Tags.Clear()` в `RetagAsync` не вызовет `InvalidOperationException` при разрыве связи",
+      "why": "Clear признан корректным благодаря каскаду на обязательной связи."
+    },
+    "GN-h-labcode-single": {
+      "verdict": "NO",
+      "quote": "использование `Single...` на этих условиях легитимно",
+      "why": "SingleOrDefaultAsync по LabCode признан корректным из-за уникального индекса."
+    },
+    "GN-percent-int": {
+      "verdict": "FOUND",
+      "quote": "деление `int/int` выполняется раньше умножения, результат обрезается до целого",
+      "why": "Найдены и целочисленное усечение до 0, и DivideByZeroException для пустой партии."
+    },
+    "GN-page-offset": {
+      "verdict": "FOUND",
+      "quote": "Должно быть `Skip((page - 1) * pageSize)`",
+      "why": "Дефект пагинации назван точно, с правильным исправлением."
+    }
+  },
+  "stderr": ""
+}

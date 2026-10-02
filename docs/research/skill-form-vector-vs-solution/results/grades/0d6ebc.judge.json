@@ -1,0 +1,87 @@
+{
+  "id": "0d6ebc",
+  "case": "GN",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.080051,
+    "durationMs": 11856,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 7197,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1102,
+      "output_tokens_details": {
+        "thinking_tokens": 414
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7197,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1102,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 7197,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 7197
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GN-h-datetime": {
+      "verdict": "NO",
+      "quote": "EF Core создаст её как `timestamp without time zone`, хотя семантически это дата",
+      "why": "Находка о ReportDate касается семантики типа колонки (date против timestamp). Выход не утверждает, что .Date теряет Kind=Utc или что запись упадёт, и PlannedLocal не трогает."
+    },
+    "GN-h-card-split": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "AsSplitQuery в GetCardAsync в выходе не упоминается."
+    },
+    "GN-h-inanalysis-tracking": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "AsNoTracking для GetInAnalysisForBatchAsync не предлагается, кода нет."
+    },
+    "GN-h-fromsql": {
+      "verdict": "NO",
+      "quote": "Хотя EF Core 6+ автоматически параметризует переменные, это не best practice",
+      "why": "Выход прямо признаёт параметризацию и не называет текущий код SQL-инъекцией. Претензия стилевая: читаемость и риск при копировании."
+    },
+    "GN-h-retag-clear": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Tags.Clear() в RetagAsync не упоминается."
+    },
+    "GN-h-labcode-single": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "SingleOrDefaultAsync по LabCode не упоминается."
+    },
+    "GN-percent-int": {
+      "verdict": "FOUND",
+      "quote": "результат всегда будет 0 при compliant < total",
+      "why": "Названы оба дефекта: целочисленное деление, дающее 0, и DivideByZeroException для пустой партии."
+    },
+    "GN-page-offset": {
+      "verdict": "FOUND",
+      "quote": ".Skip(page * pageSize)  // Должно быть (page - 1) * pageSize",
+      "why": "Указано, что для 1-based page первая страница пропускается, и предложена верная формула."
+    }
+  },
+  "stderr": ""
+}

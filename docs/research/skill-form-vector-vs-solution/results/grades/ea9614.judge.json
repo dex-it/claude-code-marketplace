@@ -1,0 +1,92 @@
+{
+  "id": "ea9614",
+  "case": "GR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.088743,
+    "durationMs": 13734,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 7496,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1417,
+      "output_tokens_details": {
+        "thinking_tokens": 348
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7496,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1417,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 7496,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 7496
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GR-offday-rows": {
+      "verdict": "PASS",
+      "quote": "как только после проекции есть `Where`/`OrderBy`, запрос целиком перестаёт транслироваться, и `ToListAsync()` упадёт",
+      "why": "Назван фильтр по клиентски вычисляемому OffDay после ToRows() и падение FLEET-109 при каждом вызове; причина (нетранслируемая проекция) прямо указывает, куда переносить фильтр."
+    },
+    "GR-open-semicolon": {
+      "verdict": "PASS",
+      "quote": "символ `;` внутри скобок подзапроса даёт синтаксическую ошибку SQL",
+      "why": "Описан весь механизм: Where при vehicleId оборачивает SQL в подзапрос, ';' ломает его, а путь без фильтра работает и поэтому прошёл проверку; ';' назван источником ошибки."
+    },
+    "GR-equipment-clear": {
+      "verdict": "PASS",
+      "quote": "`vehicle.Equipment.Clear()` ничего не удаляет из БД",
+      "why": "Названы отсутствие Include, сохранение старых позиций и нарушение уникального индекса (vehicle_id, code); как правильный образец приведён Include в ReplacePermitsAsync."
+    },
+    "GR-model-length": {
+      "verdict": "PASS",
+      "quote": "сужает `vehicles.model` с `varchar(200)` до `varchar(40)` без предварительного `UPDATE`/`substring` существующих данных",
+      "why": "Отмечено падение ALTER на проде из-за длинных значений со ссылкой на MR и предложено обработать данные до смены типа."
+    },
+    "GR-last-inspection": {
+      "verdict": "FAIL",
+      "quote": "Сортировка \"последнего\" осмотра идёт по `CreatedAt` (время приёма сервером), а не по `InspectedAt`",
+      "why": "Найден другой дефект (выбор поля сортировки); неуникальность CreatedAt в пачке при SplitQuery и рассогласование запроса замечаний не названы."
+    },
+    "GR-permit-lastday": {
+      "verdict": "FOUND",
+      "quote": "`p.ValidUntil > today`. По описанию задачи \"допуск действует по указанную в нём дату включительно\", значит должно быть `>=`",
+      "why": "Off-by-one в последний день действия допуска назван прямо."
+    },
+    "GR-equipment-auth": {
+      "verdict": "FOUND",
+      "quote": "нет `.RequireAuthorization(\"...\")` с ролевой политикой",
+      "why": "Назван PUT equipment без ролевой политики, доступный любому аутентифицированному, в том числе водителю."
+    },
+    "GR-h-permits-clear": {
+      "verdict": "NO",
+      "quote": "`DriverService.ReplacePermitsAsync` корректно делает `.Include(d => d.Permits)` перед `Clear()`",
+      "why": "Permits.Clear() признан корректным, а не дефектом."
+    },
+    "GR-h-plate-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByPlateAsync в выходе не упоминается."
+    }
+  },
+  "stderr": ""
+}

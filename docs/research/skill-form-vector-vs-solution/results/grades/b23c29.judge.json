@@ -1,0 +1,72 @@
+{
+  "id": "b23c29",
+  "case": "G1",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.117587,
+    "durationMs": 10032,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 12404,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 896,
+      "output_tokens_details": {
+        "thinking_tokens": 242
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 12404,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 896,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 12404,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 12404
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G1-overdue-filter": {
+      "verdict": "PASS",
+      "quote": ".Where(l => l.BranchId == branchId && l.ReturnedAt == null && l.DueDate < today)\n            .OrderBy(l => l.DueDate)",
+      "why": "Оба запроса фильтруют по маппленным ReturnedAt и DueDate, сортируют по DueDate, а дни просрочки считают через today.DayNumber - r.DueDate.DayNumber после ToListAsync."
+    },
+    "G1-export-mask": {
+      "verdict": "PASS",
+      "quote": ".AsNoTracking()   // контакты маскируем; сущности не должны попасть в трекер",
+      "why": "Выгрузка берёт контакты проекцией без отслеживания, маска MaskPhone/MaskEmail применяется к анонимному DTO, поэтому SaveChanges для ExportLog не трогает Readers."
+    },
+    "G1-period-utc": {
+      "verdict": "PASS",
+      "quote": "var start = from.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);",
+      "why": "Обе границы периода создаются с Kind=Utc, поэтому сравнение с IssuedAt (timestamptz) в Npgsql не падает."
+    },
+    "G1-h-card-single": {
+      "verdict": "NO",
+      "quote": ".SingleOrDefaultAsync(r => r.CardNumber == cardNumber);",
+      "why": "SingleOrDefaultAsync по CardNumber оставлен как есть, исполнитель добавил только AsNoTracking и дефектом его не называл."
+    },
+    "G1-m-global-notracking": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Глобального UseQueryTrackingBehavior в diff нет, AsNoTracking ставится точечно, поэтому ReturnAsync по-прежнему сохраняет ReturnedAt и штраф."
+    }
+  },
+  "stderr": ""
+}

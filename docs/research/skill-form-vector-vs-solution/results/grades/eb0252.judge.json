@@ -1,0 +1,92 @@
+{
+  "id": "eb0252",
+  "case": "GR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.10067100000000001,
+    "durationMs": 20156,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 7282,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 2099,
+      "output_tokens_details": {
+        "thinking_tokens": 1139
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7282,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2099,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 7282,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 7282
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GR-offday-rows": {
+      "verdict": "FAIL",
+      "quote": "`ToRows()` материализует запрос (возвращает `IEnumerable<TripRow>`), затем `Where(r => r.OffDay)` фильтрует в памяти... Это неэффективно",
+      "why": "Место названо, но механизм неверен: исполнитель считает, что фильтр работает в памяти и только неэффективен, а то, что EF не транслирует Where по клиентскому OffDay и отчёт падает при каждом вызове, не отмечено."
+    },
+    "GR-open-semicolon": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "GetOpenWaybillsAsync и точка с запятой в FromSqlRaw при компоновке с Where не упомянуты."
+    },
+    "GR-equipment-clear": {
+      "verdict": "PASS",
+      "quote": "`FindVehicleAsync()` не загружает коллекцию `Equipment` через `Include()`. При вызове `vehicle.Equipment.Clear()` на незагруженную коллекцию ... старые записи `VehicleEquipment` в БД остаются",
+      "why": "Механизм назван верно: Clear на незагруженной коллекции не удаляет старые позиции, нужна предварительная загрузка; падение по уникальному индексу не названо, но суть совпадает."
+    },
+    "GR-model-length": {
+      "verdict": "DISPUTED",
+      "quote": "Если в существующих данных есть модели длинные модели (>40 символов), они будут обрезаны без предупреждения",
+      "why": "Миграция отмечена как дефект из-за длинных prod-данных, и предложено обработать их до смены типа, но последствие названо неверно: PostgreSQL не обрезает значения, ALTER TABLE падает и bundle не применяется."
+    },
+    "GR-last-inspection": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "GetLastInspectionAsync и неуникальный порядок при SplitQuery не упомянуты."
+    },
+    "GR-permit-lastday": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Сравнение ValidUntil > today в StartTripAsync не упомянуто."
+    },
+    "GR-equipment-auth": {
+      "verdict": "FOUND",
+      "quote": "Endpoint не имеет `.RequireAuthorization()` или `.RequireAuthorization(\"FleetManager\")`",
+      "why": "Отсутствие политики на PUT equipment названо дефектом."
+    },
+    "GR-h-permits-clear": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "ReplacePermitsAsync дефектом не назван."
+    },
+    "GR-h-plate-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByPlateAsync дефектом не назван."
+    }
+  },
+  "stderr": ""
+}

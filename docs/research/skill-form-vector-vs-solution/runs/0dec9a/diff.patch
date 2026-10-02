@@ -1,0 +1,112 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..06a7129
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,106 @@
++# Результаты ревью MR !238
++
++## Найденные дефекты
++
++### Дефект 1: TripService.OffDayTripsAsync — нетранслируемое условие в Select и фильтр после материализации
++
++**Файл/метод:** `TripService.cs:OffDayTripsAsync` (строки 66–79)
++
++**Что не так:**
++```csharp
++return await _db.Trips
++    .AsNoTracking()
++    .Where(t => t.StartedAt >= fromUtc && t.StartedAt < toUtc)
++    .ToRows()
++    .Where(r => r.OffDay)
++    .OrderByDescending(r => r.Km)
++    .ToListAsync();
++```
++
++Метод `ToRows()` содержит нетранслируемый вызов метода клиента: `OffDay = !WorkCalendar.IsWorkingDay(t.StartedAt)`. EF Core не может перевести `WorkCalendar.IsWorkingDay()` в SQL и выбросит исключение при выполнении. Даже если это пройдет, последующий `.Where(r => r.OffDay)` — фильтр после вычисленного поля, что нарушает SKILL.md пп.4 и 6.
++
++**Почему это дефект:**
++- Нарушение SKILL.md #4 (фильтр после материализации)
++- Нарушение SKILL.md #6 (нетранслируемое условие фильтра целиком должно быть в IQueryable до материализации)
++- Код упадет с исключением при выполнении
++
++**Severity:** HIGH
++
++---
++
++### Дефект 2: TripService.GetOpenWaybillsAsync — неправильное использование FromSqlRaw с динамическим WHERE
++
++**Файл/метод:** `TripService.cs:GetOpenWaybillsAsync` (строки 82–96)
++
++**Что не так:**
++```csharp
++var query = _db.Trips.FromSqlRaw("""
++    SELECT t.*
++    FROM trips t
++    WHERE t.finished_at IS NULL
++      AND t.started_at < now() - interval '24 hours'
++    ORDER BY t.started_at;
++    """);
++
++if (vehicleId is { } id)
++    query = query.Where(t => t.VehicleId == id);
++```
++
++Используется `FromSqlRaw` с полным SELECT запросом, включая `ORDER BY`, а потом добавляется `WHERE` через `.Where()`. EF Core не сможет корректно объединить это в один SQL запрос, так как WHERE условие добавляется после `ORDER BY` исходного шаблона. Нарушает SKILL.md #11: условия должны быть в самом SQL шаблоне с параметрами.
++
++**Почему это дефект:**
++- Нарушение SKILL.md #11 (динамически собираемый FromSqlRaw: условия в алиасе шаблона, значения параметрами)
++- Сгенерируется некорректный SQL (WHERE после ORDER BY)
++- Параметр vehicleId может быть проигнорирован или запрос упадет
++
++**Severity:** HIGH
++
++---
++
++### Дефект 3: Program.cs — отсутствие авторизации на PUT /vehicles/{id:int}/equipment
++
++**Файл/метод:** `Program.cs` (строки 53–57)
++
++**Что не так:**
++```csharp
++api.MapPut("/vehicles/{id:int}/equipment", async (int id, List<EquipmentDto> items, VehicleService s) =>
++{
++    await s.ReplaceEquipmentAsync(id, items);
++    return Results.NoContent();
++});
++```
++
++Endpoint не имеет `.RequireAuthorization()`, в то время как:
++- `/vehicles/{id:int}/decommission` имеет `.RequireAuthorization("FleetManager")`
++- `/inspections/sync` имеет `.RequireAuthorization("Mechanic")`
++
++Это позволяет любому авторизованному пользователю менять комплектацию машин без ограничений по ролям.
++
++**Почему это дефект:**
++- Недостаток контроля доступа
++- Логически, изменение оснащения должно быть ограничено (вероятно, механиками или менеджерами)
++- Несогласованность с другими endpoints изменения данных
++
++**Severity:** MEDIUM
++
++---
++
++### Дефект 4: VehicleService.ReplaceEquipmentAsync — использование Clear() на required-связи
++
++**Файл/метод:** `VehicleService.cs:ReplaceEquipmentAsync` (строка 39)
++
++**Что не так:**
++```csharp
++vehicle.Equipment.Clear();
++foreach (var item in items.DistinctBy(i => i.Code))
++    vehicle.Equipment.Add(new VehicleEquipment { Code = item.Code, Qty = item.Qty });
++```
++
++Используется `Clear()` на коллекции зависимых сущностей, где `VehicleEquipment.Vehicle` помечена как required (`= null!`). Хотя в миграции FK использует `Cascade`, SKILL.md #20 рекомендует явно удалять зависимые записи в коде перед разрывом required-связи, чтобы избежать неожиданного поведения.
++
++**Почему это дефект:**
++- Нарушает рекомендацию SKILL.md #20
++- Код не явен о том, что удаляются связанные записи
++- Может вызвать проблемы, если DeleteBehavior будет изменен на Restrict или ClientSetNull
++
++**Severity:** LOW

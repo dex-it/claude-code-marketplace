@@ -1,0 +1,67 @@
+{
+  "id": "e3d3d7",
+  "case": "G5",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.103879,
+    "durationMs": 8557,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 10713,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 887,
+      "output_tokens_details": {
+        "thinking_tokens": 305
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 10713,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 887,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 10713,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 10713
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G5-checkin-email": {
+      "verdict": "PASS",
+      "quote": "query = eventId is int id\n            ? query.Where(r => r.EventId == id)\n            : query.Where(r => r.Event.Date == today);",
+      "why": "Поиск ограничен мероприятием: переданным eventId или сегодняшними мероприятиями. При нескольких кандидатах метод возвращает Ambiguous (409) со списком и ничего не отмечает, поэтому не падает и не берёт произвольную регистрацию."
+    },
+    "G5-revenue-hall": {
+      "verdict": "PASS",
+      "quote": ".IgnoreQueryFilters()\n            .Where(t => t.PaidOn >= from && t.PaidOn < to)\n            .GroupBy(t => new { t.Workshop.HallId, t.Workshop.Hall.Name })",
+      "why": "Отчёт снимает глобальный фильтр через IgnoreQueryFilters. Поэтому переход через Hall не отсекает залы с IsDeleted, и их оплаты остаются в сумме."
+    },
+    "G5-program-latest": {
+      "verdict": "PASS",
+      "quote": ".OrderByDescending(v => v.PublishedOn).ThenByDescending(v => v.Id)",
+      "why": "Порядок уникален (PublishedOn, затем Id), поэтому при SplitQuery шапка и пункты относятся к одной и той же версии."
+    },
+    "G5-h-register-single": {
+      "verdict": "NO",
+      "quote": ".SingleOrDefaultAsync(r => r.EventId == eventId && r.Email == email);",
+      "why": "SingleOrDefault в RegisterAsync сохранён как был и дефектом не назван."
+    }
+  },
+  "stderr": ""
+}

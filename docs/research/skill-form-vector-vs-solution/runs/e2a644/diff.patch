@@ -1,0 +1,252 @@
+diff --git a/Models.cs b/Models.cs
+index 0111c7f..3b8e8da 100644
+--- a/Models.cs
++++ b/Models.cs
+@@ -22,6 +22,7 @@ public class Member
+     public string CardNumber { get; set; } = "";
+     public string FullName { get; set; } = "";
+     public string Phone { get; set; } = "";
++    public MemberFreeze? Freeze { get; set; }
+ }
+ 
+ public class Course
+@@ -57,6 +58,14 @@ public class Enrollment
+     public DateTime? AttendedAt { get; set; }
+ }
+ 
++public class MemberFreeze
++{
++    public int Id { get; set; }
++    public int MemberId { get; set; }
++    public Member Member { get; set; } = null!;
++    public DateTime FrozenUntil { get; set; }    // UTC
++}
++
+ // Проходы через турникет. Строки пишет сервис турникетов (отдельный процесс на ресепшене).
+ public class TurnstilePass
+ {
+diff --git a/Program.cs b/Program.cs
+index ad8e6b2..c3bb199 100644
+--- a/Program.cs
++++ b/Program.cs
+@@ -23,7 +23,17 @@ app.MapPost("/courses/{id:int}/publish", async (int id, ScheduleService s) =>
+ });
+ 
+ app.MapPost("/sessions/{id:int}/enroll", async (int id, EnrollRequest req, ScheduleService s) =>
+-    Results.Ok(await s.EnrollAsync(req.CardNumber, id)));
++{
++    try
++    {
++        var enrollmentId = await s.EnrollAsync(req.CardNumber, id);
++        return Results.Ok(enrollmentId);
++    }
++    catch (InvalidOperationException ex) when (ex.Message == "Абонемент заморожен")
++    {
++        return Results.Conflict();
++    }
++});
+ 
+ app.MapDelete("/enrollments/{id:int}", async (int id, ScheduleService s) =>
+ {
+@@ -31,6 +41,22 @@ app.MapDelete("/enrollments/{id:int}", async (int id, ScheduleService s) =>
+     return Results.NoContent();
+ });
+ 
++app.MapPost("/members/{id:int}/freeze", async (int id, FreezeRequest req, ScheduleService s) =>
++{
++    await s.FreezeAsync(id, req.Days);
++    return Results.NoContent();
++});
++
++app.MapDelete("/members/{id:int}/freeze", async (int id, ScheduleService s) =>
++{
++    await s.UnfreezeAsync(id);
++    return Results.NoContent();
++});
++
++app.MapGet("/quality/random-session", async (ScheduleService s) =>
++    await s.GetRandomSessionAsync() is { } session ? Results.Ok(session) : Results.NotFound());
++
+ app.Run();
+ 
+ public record EnrollRequest(string CardNumber);
++public record FreezeRequest(int Days);
+diff --git a/ScheduleService.cs b/ScheduleService.cs
+index bd9f0ab..4dcb341 100644
+--- a/ScheduleService.cs
++++ b/ScheduleService.cs
+@@ -7,6 +7,9 @@ public record CourseDto(int Id, string Title, string Trainer, CourseStatus Statu
+ 
+ public record SessionDto(int Id, DateTime StartsAt, int DurationMinutes, string Hall, int Booked);
+ 
++public record RandomSessionDto(string Course, string Trainer, string Hall, DateTime StartsAt,
++    IReadOnlyList<string> EnrolledMembers);
++
+ public class ScheduleService
+ {
+     private readonly StudioDbContext _db;
+@@ -46,7 +49,9 @@ public class ScheduleService
+ 
+     public async Task<int> EnrollAsync(string cardNumber, int sessionId)
+     {
+-        var member = await _db.Members.SingleOrDefaultAsync(m => m.CardNumber == cardNumber)
++        var member = await _db.Members
++            .Include(m => m.Freeze)
++            .SingleOrDefaultAsync(m => m.CardNumber == cardNumber)
+             ?? throw new KeyNotFoundException("Карта не найдена");
+ 
+         var session = await _db.Sessions
+@@ -58,6 +63,9 @@ public class ScheduleService
+         if (session.Course.Status != CourseStatus.Published)
+             throw new InvalidOperationException("Запись на курс не открыта");
+ 
++        if (member.Freeze?.FrozenUntil >= session.StartsAt)
++            throw new InvalidOperationException("Абонемент заморожен");
++
+         var booked = await _db.Enrollments.CountAsync(e =>
+             e.SessionId == sessionId && e.Status != EnrollmentStatus.Cancelled);
+         if (booked >= session.Hall.Capacity)
+@@ -81,4 +89,68 @@ public class ScheduleService
+         enrollment.Status = EnrollmentStatus.Cancelled;
+         await _db.SaveChangesAsync();
+     }
++
++    public async Task FreezeAsync(int memberId, int days)
++    {
++        var member = await _db.Members
++            .Include(m => m.Freeze)
++            .FirstOrDefaultAsync(m => m.Id == memberId)
++            ?? throw new KeyNotFoundException();
++
++        var frozenUntil = DateTime.UtcNow.AddDays(days);
++
++        if (member.Freeze is null)
++        {
++            member.Freeze = new MemberFreeze { MemberId = memberId, FrozenUntil = frozenUntil };
++            _db.MemberFreezes.Add(member.Freeze);
++        }
++        else
++        {
++            member.Freeze.FrozenUntil = frozenUntil;
++        }
++
++        await _db.SaveChangesAsync();
++    }
++
++    public async Task UnfreezeAsync(int memberId)
++    {
++        var freeze = await _db.MemberFreezes.FirstOrDefaultAsync(f => f.MemberId == memberId);
++        if (freeze is not null)
++        {
++            _db.MemberFreezes.Remove(freeze);
++            await _db.SaveChangesAsync();
++        }
++    }
++
++    public async Task<RandomSessionDto?> GetRandomSessionAsync()
++    {
++        var now = DateTime.UtcNow;
++        var weekFromNow = now.AddDays(7);
++
++        var session = await _db.Sessions
++            .AsNoTracking()
++            .Where(s => s.StartsAt >= now && s.StartsAt <= weekFromNow)
++            .Include(s => s.Course).ThenInclude(c => c.Trainer)
++            .Include(s => s.Hall)
++            .Include(s => s.Enrollments)
++            .OrderBy(s => EF.Functions.Random())
++            .FirstOrDefaultAsync();
++
++        if (session is null)
++            return null;
++
++        var enrolledMembers = await _db.Enrollments
++            .AsNoTracking()
++            .Where(e => e.SessionId == session.Id && e.Status != EnrollmentStatus.Cancelled)
++            .Select(e => e.Member.FullName)
++            .ToListAsync();
++
++        return new RandomSessionDto(
++            session.Course.Title,
++            session.Course.Trainer.FullName,
++            session.Hall.Name,
++            session.StartsAt,
++            enrolledMembers
++        );
++    }
+ }
+diff --git a/StudioDbContext.cs b/StudioDbContext.cs
+index 7323dc2..ec31f0f 100644
+--- a/StudioDbContext.cs
++++ b/StudioDbContext.cs
+@@ -12,6 +12,7 @@ public class StudioDbContext : DbContext
+     public DbSet<Course> Courses => Set<Course>();
+     public DbSet<Session> Sessions => Set<Session>();
+     public DbSet<Enrollment> Enrollments => Set<Enrollment>();
++    public DbSet<MemberFreeze> MemberFreezes => Set<MemberFreeze>();
+     public DbSet<TurnstilePass> TurnstilePasses => Set<TurnstilePass>();
+ 
+     protected override void OnModelCreating(ModelBuilder b)
+@@ -30,6 +31,15 @@ public class StudioDbContext : DbContext
+             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(16);
+         });
+ 
++        b.Entity<MemberFreeze>(e =>
++        {
++            e.HasOne(f => f.Member)
++                .WithOne(m => m.Freeze)
++                .HasForeignKey<MemberFreeze>(f => f.MemberId)
++                .OnDelete(DeleteBehavior.Cascade);
++            e.HasIndex(f => f.FrozenUntil);
++        });
++
+         b.Entity<TurnstilePass>(e =>
+         {
+             e.HasIndex(p => p.ProcessedAt);
+diff --git a/TurnstileWorker.cs b/TurnstileWorker.cs
+index 3e8cb17..ed493f7 100644
+--- a/TurnstileWorker.cs
++++ b/TurnstileWorker.cs
+@@ -44,11 +44,15 @@ public class TurnstileWorker : BackgroundService
+ 
+         foreach (var pass in passes)
+         {
+-            var member = await db.Members.FirstOrDefaultAsync(m => m.CardNumber == pass.CardNumber, ct);
++            var member = await db.Members.Include(m => m.Freeze).FirstOrDefaultAsync(m => m.CardNumber == pass.CardNumber, ct);
+             if (member is null)
+             {
+                 pass.Note = "карта не найдена";
+             }
++            else if (member.Freeze?.FrozenUntil >= pass.PassedAt)
++            {
++                pass.Note = "абонемент заморожен";
++            }
+             else
+             {
+                 // Проход засчитывается за занятие, начавшееся не раньше чем за 1,5 часа
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..03092a1
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,20 @@
++# Решение: Задачи по сервису студии
++
++## Созданные/изменённые файлы:
++1. **Models.cs** - добавлена сущность `MemberFreeze` (Member.FrozenUntil)
++2. **StudioDbContext.cs** - добавлена конфигурация `MemberFreeze` с FK Cascade на Member
++3. **ScheduleService.cs** - добавлены методы:
++   - `FreezeAsync(memberId, days)` - заморозить абонемент
++   - `UnfreezeAsync(memberId)` - снять заморозку
++   - `GetRandomSessionAsync()` - случайное занятие из ближайших 7 дней
++   - обновлён `EnrollAsync()` с проверкой заморозки → 409 Conflict
++4. **TurnstileWorker.cs** - добавлена проверка заморозки в `ProcessBatchAsync()`, при заморозке пометка "абонемент заморожен"
++5. **Program.cs** - добавлены endpoints:
++   - POST /members/{id}/freeze
++   - DELETE /members/{id}/freeze
++   - GET /quality/random-session
++
++## Решения:
++- **Замораживание**: один-к-одному отношение Member↔MemberFreeze, FrozenUntil хранит UTC-время окончания. При записи и проходе проверяется, заморожен ли абонемент на момент занятия.
++- **Турникет**: если заморожен — не засчитывает, оставляет запись "записан", пишет "абонемент заморожен". После разморозки/истечения проходы засчитываются как обычно.
++- **Тайный гость**: `OrderBy(EF.Functions.Random())` выбирает из ближайших 7 дней, проекция в DTO отдаёт только нужные поля (курс, тренер, зал, время, имена активных участников).

@@ -1,0 +1,169 @@
+diff --git a/Fines.cs b/Fines.cs
+index d754d5d..49619c0 100644
+--- a/Fines.cs
++++ b/Fines.cs
+@@ -33,6 +33,30 @@ public sealed class LoanRow
+     public decimal Fine { get; init; }
+ }
+ 
++public sealed class DebtorRow
++{
++    public string CardNumber { get; init; } = "";
++    public string Reader { get; init; } = "";
++    public string Phone { get; init; } = "";
++    public string Book { get; init; } = "";
++    public DateOnly DueDate { get; init; }
++    public int DaysOverdue { get; init; }
++    public decimal Fine { get; init; }
++}
++
++public sealed class DebtorsReport
++{
++    public List<DebtorRow> Debtors { get; init; } = new();
++    public decimal TotalFine { get; init; }
++}
++
++public sealed class BranchLoansReport
++{
++    public int BranchId { get; init; }
++    public string BranchName { get; init; } = "";
++    public int LoanCount { get; init; }
++}
++
+ public static class LoanRows
+ {
+     // Строки выдач в том виде, как их видит библиотекарь на кафедре.
+diff --git a/LoanService.cs b/LoanService.cs
+index 81e9e1e..3a90841 100644
+--- a/LoanService.cs
++++ b/LoanService.cs
+@@ -7,9 +7,18 @@ public class LoanService
+     private const int LoanDays = 21;
+ 
+     private readonly LibraryDbContext _db;
+-    private readonly FineRules _rules = FineRules.Default;
++    private readonly FineRules _rules;
+ 
+-    public LoanService(LibraryDbContext db) => _db = db;
++    public LoanService(LibraryDbContext db, IConfiguration config) =>
++    {
++        _db = db;
++        var finesConfig = config.GetSection("Fines");
++        _rules = new FineRules(
++            decimal.Parse(finesConfig["PerDay"] ?? "10"),
++            int.Parse(finesConfig["GraceDays"] ?? "3"),
++            decimal.Parse(finesConfig["Max"] ?? "500")
++        );
++    }
+ 
+     public async Task<int> IssueAsync(string cardNumber, int bookId, int branchId)
+     {
+@@ -75,6 +84,52 @@ public class LoanService
+             l.BranchId == branchId && l.IssuedAt >= dayStart && l.IssuedAt < dayEnd);
+     }
+ 
++    // Список должников для обзвона: самые большие штрафы в начале, итог в конце.
++    public async Task<DebtorsReport> GetDebtorsAsync(int branchId)
++    {
++        var branch = await _db.Branches.FindAsync(branchId)
++            ?? throw new InvalidOperationException("Филиал не найден");
++
++        var debtors = await _db.Loans
++            .Where(l => l.BranchId == branchId && l.ReturnedAt == null)
++            .AsNoTracking()
++            .Select(l => new DebtorRow
++            {
++                CardNumber = l.Reader.CardNumber,
++                Reader = l.Reader.FullName,
++                Phone = l.Reader.Phone,
++                Book = l.Book.Title,
++                DueDate = l.DueDate,
++                DaysOverdue = Fines.DaysOverdue(l.DueDate, LocalToday(branch)),
++                Fine = Fines.Amount(l.DueDate, LocalToday(branch), l.Reader.Category, _rules),
++            })
++            .ToListAsync();
++
++        var sorted = debtors.OrderByDescending(d => d.Fine).ToList();
++        var total = sorted.Sum(d => d.Fine);
++        return new DebtorsReport { Debtors = sorted, TotalFine = total };
++    }
++
++    // Отчёт: число выдач по каждому филиалу за период.
++    public async Task<List<BranchLoansReport>> GetLoansByBranchReportAsync(DateTimeOffset from, DateTimeOffset to)
++    {
++        var fromUtc = from.ToUniversalTime();
++        var toUtc = to.ToUniversalTime();
++
++        return await _db.Loans
++            .Where(l => l.IssuedAt >= fromUtc && l.IssuedAt < toUtc)
++            .AsNoTracking()
++            .GroupBy(l => new { l.BranchId, l.Branch.Name })
++            .Select(g => new BranchLoansReport
++            {
++                BranchId = g.Key.BranchId,
++                BranchName = g.Key.Name,
++                LoanCount = g.Count()
++            })
++            .OrderBy(r => r.BranchId)
++            .ToListAsync();
++    }
++
+     private static DateOnly LocalToday(Branch branch)
+     {
+         var tz = TimeZoneInfo.FindSystemTimeZoneById(branch.TimeZoneId);
+diff --git a/Program.cs b/Program.cs
+index 51a69f7..4e2caa0 100644
+--- a/Program.cs
++++ b/Program.cs
+@@ -24,6 +24,13 @@ app.MapGet("/branches/{branchId:int}/readers/{card}/loans", async (int branchId,
+ app.MapGet("/branches/{branchId:int}/issued-today", async (int branchId, LoanService s) =>
+     Results.Ok(await s.CountIssuedTodayAsync(branchId)));
+ 
++app.MapGet("/branches/{id:int}/debtors", async (int id, LoanService s) =>
++    Results.Ok(await s.GetDebtorsAsync(id)));
++
++app.MapPost("/reports/loans-by-branch", async (PeriodRequest req, LoanService s) =>
++    Results.Ok(await s.GetLoansByBranchReportAsync(req.From, req.To)));
++
+ app.Run();
+ 
+ public record IssueRequest(string CardNumber, int BookId, int BranchId);
++public record PeriodRequest(DateTimeOffset From, DateTimeOffset To);
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..33e71ba
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,16 @@
++# Решение задач по сервису выдачи книг
++
++## Созданные и изменённые файлы
++
++1. **appsettings.json** — создан с конфигурацией штрафов (секция Fines: PerDay=10, GraceDays=3, Max=500)
++2. **Fines.cs** — добавлены DTO классы DebtorRow, DebtorsReport, BranchLoansReport
++3. **LoanService.cs** — обновлён конструктор для инжекции IConfiguration; добавлены методы GetDebtorsAsync() и GetLoansByBranchReportAsync()
++4. **Program.cs** — добавлены endpoints GET /branches/{id}/debtors и POST /reports/loans-by-branch
++
++## Решения
++
++**(а) Endpoint GET /branches/{id}/debtors** — выполняет no-tracking запрос с проекцией в DTO, фильтрует активные выдачи по филиалу, сортирует по штрафу (убывание) и возвращает DebtorsReport с массивом должников и итоговой суммой штрафов.
++
++**(б) Endpoint POST /reports/loans-by-branch** — парсит периоды из ISO 8601 (с часовым поясом), конвертирует их в UTC, выполняет GROUP BY BranchId в SQL с COUNT() и возвращает список выдач по филиалам за период.
++
++**(в) Конфигурация Fines** — параметры (ставка за день, льготный период, потолок штрафа) вынесены в appsettings.json; LoanService инжектирует IConfiguration и парсит значения в конструкторе при создании FineRules.
+diff --git a/appsettings.json b/appsettings.json
+new file mode 100644
+index 0000000..633c6ee
+--- /dev/null
++++ b/appsettings.json
+@@ -0,0 +1,10 @@
++{
++  "ConnectionStrings": {
++    "Library": "Host=localhost;Database=bookquarter;Username=postgres;Password=postgres"
++  },
++  "Fines": {
++    "PerDay": 10.0,
++    "GraceDays": 3,
++    "Max": 500.0
++  }
++}

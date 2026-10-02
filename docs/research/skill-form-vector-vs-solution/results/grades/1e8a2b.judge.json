@@ -1,0 +1,72 @@
+{
+  "id": "1e8a2b",
+  "case": "G1",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.118047,
+    "durationMs": 8534,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 12509,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 877,
+      "output_tokens_details": {
+        "thinking_tokens": 239
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 12509,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 877,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 12509,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 12509
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G1-overdue-filter": {
+      "verdict": "PASS",
+      "quote": ".Where(l => l.BranchId == branchId && l.ReturnedAt == null && l.DueDate < today)",
+      "why": "Оба запроса фильтруют и сортируют по маппленным колонкам ReturnedAt и DueDate, передавая today параметром, а дни просрочки считаются через DayNumber уже после ToListAsync."
+    },
+    "G1-export-mask": {
+      "verdict": "PASS",
+      "quote": "Phone = ReaderExtensions.MaskPhone(r.Phone),",
+      "why": "Выгрузка берёт анонимную проекцию с AsNoTracking и маскирует строки, а не сущность Reader, поэтому SaveChanges для ExportLog не трогает Readers."
+    },
+    "G1-period-utc": {
+      "verdict": "PASS",
+      "quote": "DateTime.SpecifyKind(from.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc)",
+      "why": "Обе границы периода получают Kind=Utc до сравнения с IssuedAt, так что Npgsql не бросит исключение."
+    },
+    "G1-h-card-single": {
+      "verdict": "NO",
+      "quote": ".SingleOrDefaultAsync(r => r.CardNumber == cardNumber);",
+      "why": "SingleOrDefaultAsync по CardNumber оставлен без изменений и дефектом не назван; в GetReaderCardAsync добавлен только AsNoTracking."
+    },
+    "G1-m-global-notracking": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "UseQueryTrackingBehavior и ChangeTracker.QueryTrackingBehavior не трогаются; AsNoTracking ставится точечно, и ReturnAsync по-прежнему работает с отслеживаемыми сущностями."
+    }
+  },
+  "stderr": ""
+}

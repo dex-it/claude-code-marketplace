@@ -1,0 +1,72 @@
+{
+  "id": "d232d3",
+  "case": "G6",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.134551,
+    "durationMs": 8658,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 14477,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 915,
+      "output_tokens_details": {
+        "thinking_tokens": 289
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 14477,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 915,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 14477,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 14477
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G6-sort-alias": {
+      "verdict": "PASS",
+      "quote": "var needHouse = !string.IsNullOrWhiteSpace(s.District) || s.Sort == RequestSort.Address;\n        var needApartment = needHouse || s.HouseId is not null;",
+      "why": "JOIN apartments a и houses h добавляются по общим флагам ровно один раз при любой комбинации фильтров и сортировки, а sort и dir проходят через enum-белый список (TryParseExact, BuildOrderBy)."
+    },
+    "G6-search-columns": {
+      "verdict": "PASS",
+      "quote": "SELECT r.id, r.apartment_id, r.text, r.category, r.status, r.created_at,\n                   r.contact_phone, r.completion_comment, r.closed_at",
+      "why": "Все три новых маппленных свойства (ContactPhone, CompletionComment, ClosedAt) добавлены в явный список SELECT сырого SQL в SearchAsync."
+    },
+    "G6-plan-orphans": {
+      "verdict": "PASS",
+      "quote": "plan.Items.Remove(existing);\n            _db.PlanItems.Remove(existing);",
+      "why": "Совпавшие работы обновляются на месте, отсутствующие удаляются явно через DbSet, новые добавляются, поэтому при DeleteOrphansTiming=Never сирот не остаётся."
+    },
+    "G6-h-move-items": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "MergePlansAsync не изменён, и выход не утверждает, что он упадёт или потеряет переносимые работы."
+    },
+    "G6-h-limit": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Подстановку LIMIT {pageSize} OFFSET {offset} выход не трогает и SQL-инъекцией не называет."
+    }
+  },
+  "stderr": ""
+}

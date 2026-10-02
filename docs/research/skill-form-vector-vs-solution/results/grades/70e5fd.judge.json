@@ -1,0 +1,67 @@
+{
+  "id": "70e5fd",
+  "case": "G4",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.11046299999999999,
+    "durationMs": 7472,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 11996,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 703,
+      "output_tokens_details": {
+        "thinking_tokens": 207
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11996,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 703,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 11996,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 11996
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G4-year-closed": {
+      "verdict": "FAIL",
+      "quote": ".Where(p => p.Month.Year == year)",
+      "why": "Запрос к ClosedPeriods обращается к члену Year у Month, замапленного через HasConversion в int. EF не транслирует такое выражение, поэтому GET /reports/year/{year} упадёт с InvalidOperationException."
+    },
+    "G4-client-projects": {
+      "verdict": "PASS",
+      "quote": "_db.Projects.Remove(project);",
+      "why": "Проекты загружаются без Include(Entries), удаляются через Remove и SaveChangesAsync. Переопределённый SaveChangesAsync переводит их в мягкое удаление, а записи времени не попадают в контекст и остаются в БД."
+    },
+    "G4-code-index": {
+      "verdict": "FAIL",
+      "quote": "e.HasIndex(p => p.Code).IsUnique();",
+      "why": "Создаётся полный уникальный индекс без HasFilter по IsDeleted. Перед ним нет чистки дублей, и в ответе нет предупреждения, поэтому на prod CREATE UNIQUE INDEX упадёт на парах «удалённый проект + заведённый заново»."
+    },
+    "G4-h-month-equality": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Сравнение p.Month == month в EnsureOpenAsync не тронуто, и в выходе оно не названо дефектом."
+    }
+  },
+  "stderr": ""
+}

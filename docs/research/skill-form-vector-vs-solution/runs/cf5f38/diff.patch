@@ -1,0 +1,167 @@
+diff --git a/Fines.cs b/Fines.cs
+index d754d5d..a66a422 100644
+--- a/Fines.cs
++++ b/Fines.cs
+@@ -33,6 +33,19 @@ public sealed class LoanRow
+     public decimal Fine { get; init; }
+ }
+ 
++public sealed class DebtorsReport
++{
++    public List<LoanRow> Debtors { get; init; } = new();
++    public decimal TotalFine { get; init; }
++}
++
++public sealed class LoansByBranchRow
++{
++    public int BranchId { get; init; }
++    public string BranchName { get; init; } = "";
++    public int LoanCount { get; init; }
++}
++
+ public static class LoanRows
+ {
+     // Строки выдач в том виде, как их видит библиотекарь на кафедре.
+diff --git a/LoanService.cs b/LoanService.cs
+index 81e9e1e..6f1e90c 100644
+--- a/LoanService.cs
++++ b/LoanService.cs
+@@ -7,9 +7,13 @@ public class LoanService
+     private const int LoanDays = 21;
+ 
+     private readonly LibraryDbContext _db;
+-    private readonly FineRules _rules = FineRules.Default;
++    private readonly FineRules _rules;
+ 
+-    public LoanService(LibraryDbContext db) => _db = db;
++    public LoanService(LibraryDbContext db, FineRules rules)
++    {
++        _db = db;
++        _rules = rules;
++    }
+ 
+     public async Task<int> IssueAsync(string cardNumber, int bookId, int branchId)
+     {
+@@ -75,6 +79,40 @@ public class LoanService
+             l.BranchId == branchId && l.IssuedAt >= dayStart && l.IssuedAt < dayEnd);
+     }
+ 
++    // Список должников филиала с суммой штрафа в конце.
++    public async Task<DebtorsReport> GetDebtorsAsync(int branchId)
++    {
++        var branch = await _db.Branches.FindAsync(branchId)
++            ?? throw new InvalidOperationException("Филиал не найден");
++
++        var today = LocalToday(branch);
++        var debtors = await _db.Loans
++            .Where(l => l.BranchId == branchId && l.ReturnedAt == null)
++            .ToLoanRows(today, _rules)
++            .ToListAsync();
++
++        debtors = debtors.OrderByDescending(d => d.Fine).ToList();
++
++        var totalFine = debtors.Sum(d => d.Fine);
++        return new DebtorsReport { Debtors = debtors, TotalFine = totalFine };
++    }
++
++    // Отчёт: число выдач по каждому филиалу за период.
++    public async Task<List<LoansByBranchRow>> GetLoansByBranchReportAsync(DateTimeOffset from, DateTimeOffset to)
++    {
++        return await _db.Loans
++            .Where(l => l.IssuedAt >= from && l.IssuedAt < to)
++            .GroupBy(l => l.Branch)
++            .Select(g => new LoansByBranchRow
++            {
++                BranchId = g.Key.Id,
++                BranchName = g.Key.Name,
++                LoanCount = g.Count()
++            })
++            .OrderBy(r => r.BranchId)
++            .ToListAsync();
++    }
++
+     private static DateOnly LocalToday(Branch branch)
+     {
+         var tz = TimeZoneInfo.FindSystemTimeZoneById(branch.TimeZoneId);
+diff --git a/Program.cs b/Program.cs
+index 51a69f7..ac03481 100644
+--- a/Program.cs
++++ b/Program.cs
+@@ -3,9 +3,11 @@ using Microsoft.EntityFrameworkCore;
+ 
+ var builder = WebApplication.CreateBuilder(args);
+ 
++var fineRules = builder.Configuration.GetSection("Fines").Get<FineRules>() ?? FineRules.Default;
++
+ builder.Services.AddDbContext<LibraryDbContext>(o =>
+     o.UseNpgsql(builder.Configuration.GetConnectionString("Library")));
+-builder.Services.AddScoped<LoanService>();
++builder.Services.AddScoped<LoanService>(sp => new LoanService(sp.GetRequiredService<LibraryDbContext>(), fineRules));
+ 
+ var app = builder.Build();
+ 
+@@ -24,6 +26,13 @@ app.MapGet("/branches/{branchId:int}/readers/{card}/loans", async (int branchId,
+ app.MapGet("/branches/{branchId:int}/issued-today", async (int branchId, LoanService s) =>
+     Results.Ok(await s.CountIssuedTodayAsync(branchId)));
+ 
++app.MapGet("/branches/{id:int}/debtors", async (int id, LoanService s) =>
++    Results.Ok(await s.GetDebtorsAsync(id)));
++
++app.MapPost("/reports/loans-by-branch", async (LoanReportRequest req, LoanService s) =>
++    Results.Ok(await s.GetLoansByBranchReportAsync(req.From, req.To)));
++
+ app.Run();
+ 
+ public record IssueRequest(string CardNumber, int BookId, int BranchId);
++public record LoanReportRequest(DateTimeOffset From, DateTimeOffset To);
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..7a8783c
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,29 @@
++# Решение задач по сервису выдачи книг
++
++## Созданные/изменённые файлы
++
++1. **appsettings.json** (создан)
++   - Конфигурация штрафов: ставка за день, льготный период, потолок
++
++2. **Program.cs** (изменён)
++   - Загрузка FineRules из конфигурации
++   - Регистрация LoanService с конфигурацией
++   - Endpoint GET `/branches/{id}/debtors` — список должников
++   - Endpoint POST `/reports/loans-by-branch` — отчёт по выдачам за период
++
++3. **LoanService.cs** (изменён)
++   - Конструктор принимает FineRules из конфигурации
++   - Метод `GetDebtorsAsync()` — должники филиала с общей суммой штрафа
++   - Метод `GetLoansByBranchReportAsync()` — выдачи по филиалам за период
++
++4. **Fines.cs** (изменён)
++   - DTO `DebtorsReport` — результат для должников (список + общая сумма)
++   - DTO `LoansByBranchRow` — строка отчёта (филиал, кол-во выдач)
++
++## Решения
++
++**(а) Список должников:** Endpoint использует проекцию `ToLoanRows()` для выборки нужных полей, материализует данные, затем сортирует в памяти по штрафу (по убыванию) и возвращает с общей суммой.
++
++**(б) Отчёт по выдачам:** Endpoint принимает period с часовым поясом (ISO 8601), фильтрует выдачи по `IssuedAt`, группирует по филиалу и считает кол-во на стороне БД.
++
++**(в) Конфигурация штрафов:** FineRules загружаются из `appsettings.json` при старте и передаются в LoanService через конструктор, позволяя управлять штрафами без изменения кода.
+diff --git a/appsettings.json b/appsettings.json
+new file mode 100644
+index 0000000..85d66ed
+--- /dev/null
++++ b/appsettings.json
+@@ -0,0 +1,10 @@
++{
++  "ConnectionStrings": {
++    "Library": "Host=localhost;Database=library;Username=postgres;Password=postgres"
++  },
++  "Fines": {
++    "PerDay": 10.0,
++    "GraceDays": 3,
++    "Max": 500.0
++  }
++}

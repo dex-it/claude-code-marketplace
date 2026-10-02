@@ -1,0 +1,67 @@
+{
+  "id": "49a90c",
+  "case": "G4",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.088503,
+    "durationMs": 8329,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 9196,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 725,
+      "output_tokens_details": {
+        "thinking_tokens": 256
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9196,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 725,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 9196,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 9196
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G4-year-closed": {
+      "verdict": "FAIL",
+      "quote": ".Where(p => p.Month.Year == year)",
+      "why": "Запрос к ClosedPeriods обращается к члену YearMonth. Month сконвертирован в int, EF не транслирует такой запрос, и GET /reports/year/{year} упадёт с InvalidOperationException."
+    },
+    "G4-client-projects": {
+      "verdict": "PASS",
+      "quote": "_db.Projects.Remove(project);",
+      "why": "Проекты загружаются без Include(Entries) и удаляются через Remove + SaveChangesAsync. Переопределённый SaveChangesAsync переводит это в мягкое удаление, записи времени не загружены и каскадно не помечаются."
+    },
+    "G4-code-index": {
+      "verdict": "FAIL",
+      "quote": "column: \"Code\",\n                unique: true);",
+      "why": "Индекс уникальный по всей таблице, без HasFilter по IsDeleted. Дубли не устраняются, предупреждения в ответе нет, поэтому на парах «удалённый + заведённый заново» CREATE UNIQUE INDEX упадёт."
+    },
+    "G4-h-month-equality": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Сравнение p.Month == month в EnsureOpenAsync не тронуто и дефектом не названо."
+    }
+  },
+  "stderr": ""
+}

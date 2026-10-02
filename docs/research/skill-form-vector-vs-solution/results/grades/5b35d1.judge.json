@@ -1,0 +1,92 @@
+{
+  "id": "5b35d1",
+  "case": "GR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.11965500000000001,
+    "durationMs": 19404,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 9775,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 2051,
+      "output_tokens_details": {
+        "thinking_tokens": 986
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9775,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2051,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 9775,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 9775
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GR-offday-rows": {
+      "verdict": "PASS",
+      "quote": "`WorkCalendar.IsWorkingDay` нельзя оттранслировать в SQL",
+      "why": "Находка называет клиентский IsWorkingDay в проекции ToRows(), который продолжает компоноваться через Where и не транслируется EF, и падение OffDayTripsAsync (FLEET-109) при каждом вызове; явного способа исправления нет, но дефект и его механизм названы верно."
+    },
+    "GR-open-semicolon": {
+      "verdict": "PASS",
+      "quote": "висящий `;` в `FromSqlRaw` ломает запрос при фильтре по машине",
+      "why": "Находка описывает обёртку SQL в подзапрос при Where, синтаксическую ошибку PostgreSQL и то, почему локальная проверка без фильтра прошла."
+    },
+    "GR-equipment-clear": {
+      "verdict": "PASS",
+      "quote": "`FindVehicleAsync` не делает `.Include(v => v.Equipment)`",
+      "why": "Находка называет Clear() на незагруженной коллекции, DbUpdateException на уникальном индексе (vehicle_id, code) и дописывание несовпадающих позиций; как исправление указан паттерн Include."
+    },
+    "GR-model-length": {
+      "verdict": "PASS",
+      "quote": "Postgres не обрезает данные автоматически при сужении `varchar`",
+      "why": "Находка указывает, что ALTER упадёт на prod-данных длиннее 40 символов, и предлагает обрезку или нормализацию перед AlterColumn."
+    },
+    "GR-last-inspection": {
+      "verdict": "FAIL",
+      "quote": "сортировка по `CreatedAt` вместо `InspectedAt`",
+      "why": "Находка описывает другой механизм (CreatedAt против InspectedAt при офлайн-синхронизации); неуникальный порядок при одинаковом CreatedAt у пачки и расхождение запросов при SplitQuery не названы, ThenByDescending(Id) или AsSingleQuery не предложены."
+    },
+    "GR-permit-lastday": {
+      "verdict": "FOUND",
+      "quote": "в последний разрешённый день водителя не выпустят на линию",
+      "why": "Дефект строгого сравнения `>` при допуске, действующем по дату включительно, назван."
+    },
+    "GR-equipment-auth": {
+      "verdict": "FOUND",
+      "quote": "`PUT /api/vehicles/{id}/equipment` без ограничения по роли",
+      "why": "Находка указывает, что эндпоинт доступен любому аутентифицированному пользователю без политики Mechanic."
+    },
+    "GR-h-permits-clear": {
+      "verdict": "NO",
+      "quote": "`DriverService.ReplacePermitsAsync` (не менялся в этом MR) делает `.Include(d => d.Permits)` правильно",
+      "why": "ReplacePermitsAsync назван корректным образцом, а не дефектом."
+    },
+    "GR-h-plate-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByPlateAsync в выходе не упоминается."
+    }
+  },
+  "stderr": ""
+}

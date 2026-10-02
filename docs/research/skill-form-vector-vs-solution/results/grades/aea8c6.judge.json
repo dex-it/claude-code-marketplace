@@ -1,0 +1,72 @@
+{
+  "id": "aea8c6",
+  "case": "G6",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.106219,
+    "durationMs": 8299,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 11288,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 774,
+      "output_tokens_details": {
+        "thinking_tokens": 239
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11288,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 774,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 11288,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 11288
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G6-sort-alias": {
+      "verdict": "PASS",
+      "quote": "var needsHouseJoin = !string.IsNullOrWhiteSpace(s.District) || sortColumn == \"address\";",
+      "why": "JOIN apartments/houses добавляются ровно один раз по общим флагам, которые учитывают и фильтры HouseId/District, и sort=address; JOIN из блока District перенесён под флаг; столбец и направление берутся из switch-белого списка."
+    },
+    "G6-search-columns": {
+      "verdict": "PASS",
+      "quote": "r.contact_phone, r.closing_comment, r.closed_at",
+      "why": "Новые маппленные свойства ServiceRequest добавлены в явный SELECT сырого SQL в SearchAsync, поэтому FromSqlRaw получает все колонки сущности."
+    },
+    "G6-plan-orphans": {
+      "verdict": "PASS",
+      "quote": "_db.PlanItems.Remove(existing);",
+      "why": "Совпавшие работы обновляются на месте, пропавшие удаляются явно через DbSet, новые добавляются; Clear() и удаление из коллекции без явного Remove не используются."
+    },
+    "G6-h-move-items": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "MergePlansAsync в diff не изменён, и выход не утверждает, что он падает или теряет работы."
+    },
+    "G6-h-limit": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Строка LIMIT/OFFSET оставлена как была, инъекцией она не названа."
+    }
+  },
+  "stderr": ""
+}

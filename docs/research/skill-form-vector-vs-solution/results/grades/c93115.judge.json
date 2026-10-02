@@ -1,0 +1,67 @@
+{
+  "id": "c93115",
+  "case": "G2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.077171,
+    "durationMs": 6974,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 7877,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 686,
+      "output_tokens_details": {
+        "thinking_tokens": 265
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7877,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 686,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 7877,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 7877
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G2-freeze-fresh": {
+      "verdict": "FAIL",
+      "quote": "else if (member.FrozenUntil >= DateTime.UtcNow)",
+      "why": "Признак заморозки читается из member, загруженного существующим отслеживающим запросом в долгоживущем контексте воркера; AsNoTracking, проекция, новый scope или ChangeTracker.Clear/Reload не добавлены, поэтому для уже загруженного клиента заморозка и её снятие не видны."
+    },
+    "G2-random-session": {
+      "verdict": "PASS",
+      "quote": "var session = sessions[random.Next(sessions.Count)];",
+      "why": "Случайное занятие выбирается в памяти после загрузки, поэтому записавшиеся гарантированно относятся к выбранному занятию."
+    },
+    "G2-h-course-split": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "GetCourseAsync не затронут и дефектом не назван."
+    },
+    "G2-m-passes-notracking": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "AsNoTracking добавлен только в GetRandomSessionAsync; запросы проходов и записей в TurnstileWorker остались отслеживаемыми."
+    }
+  },
+  "stderr": ""
+}

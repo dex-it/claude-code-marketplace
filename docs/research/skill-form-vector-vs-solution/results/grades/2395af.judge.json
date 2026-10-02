@@ -1,0 +1,112 @@
+{
+  "id": "2395af",
+  "case": "BR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.140011,
+    "durationMs": 19576,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 12277,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 2068,
+      "output_tokens_details": {
+        "thinking_tokens": 607
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 12277,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2068,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 12277,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 12277
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "BR-long-stays": {
+      "verdict": "PASS",
+      "quote": "вычислить границу на клиенте (`var cutoff = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-14);`) и фильтровать `s.AdmittedOn < cutoff`",
+      "why": "Назван нетранслируемый DaysInWard с InvalidOperationException и предложено транслируемое условие по дате, вычисленной до запроса, без загрузки в память."
+    },
+    "BR-box-occupant": {
+      "verdict": "PASS",
+      "quote": "При двух и более пациентах `SingleOrDefaultAsync` бросает `InvalidOperationException`",
+      "why": "Исполнитель указал неуникальность условия при Capacity из README и предложил возвращать список текущих пациентов."
+    },
+    "BR-decommission-filter": {
+      "verdict": "PASS",
+      "quote": "в `DischargeAsync` запрос `Include(s => s.Box).SingleAsync(...)` возвращает 0 строк и бросает `InvalidOperationException`",
+      "why": "Описаны INNER JOIN с отфильтрованным Box, пропажа пациентов из списка отделения и отчёта, падение выписки; предложены перенос фильтра или IgnoreQueryFilters."
+    },
+    "BR-medplan-clear": {
+      "verdict": "PASS",
+      "quote": "активным назначениям ставить `CancelledAt = DateTime.UtcNow` (Kind = Utc, колонка `timestamptz`), новые добавлять. Связь `Restrict` оставить.",
+      "why": "Названо исключение на SaveChanges при разрыве обязательной связи с Restrict и правило README про CancelledAt."
+    },
+    "BR-latest-stay-split": {
+      "verdict": "DISPUTED",
+      "quote": "«последняя» выбирается произвольно, и врач может увидеть уже закрытую госпитализацию. Нужно `.ThenByDescending(s => s.Id)`",
+      "why": "Неуникальный AdmittedOn и исправление через ThenByDescending(Id) совпадают с ключом, но механизм split query не назван: при нём назначения и наблюдения подтягиваются от другой госпитализации."
+    },
+    "BR-occupancy-sql": {
+      "verdict": "PASS",
+      "quote": "`ward` передавать как параметр (`FromSql($\"... = {ward}\")` или `DbParameter`). `sortBy` проверять по белому списку",
+      "why": "Инъекция названа по обоим входам; предложены параметр для значения и белый список с LINQ для столбца."
+    },
+    "BR-startup-migrate": {
+      "verdict": "PASS",
+      "quote": "В EF Core 8 у `Migrate` нет блокировки (она появилась только в EF 9)",
+      "why": "Названы все три довода (нет DDL у vet_app, обход проверки DBA, гонка реплик) и предложено удалить блок."
+    },
+    "BR-billing": {
+      "verdict": "FOUND",
+      "quote": "По README считаются календарные дни **включая день поступления и день выписки**, то есть нужно `+ 1`",
+      "why": "Найдена нехватка +1 и нулевая стоимость при выписке в день поступления."
+    },
+    "BR-discharge-auth": {
+      "verdict": "FOUND",
+      "quote": "Стоит `.RequireAuthorization()` без политики. Выписать пациента и выставить счёт может любой аутентифицированный пользователь",
+      "why": "Найдено отсутствие политики Vet на выписке."
+    },
+    "BR-h-box-code": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindBoxByCodeAsync дефектом не объявлен."
+    },
+    "BR-h-history-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "GetPetHistoryAsync инъекцией не назван."
+    },
+    "BR-m-cascade-fix": {
+      "verdict": "NO",
+      "quote": "Даже если поменять на `Cascade`, это нарушит правило из README",
+      "why": "Cascade прямо отвергнут, предложена отмена через CancelledAt."
+    },
+    "BR-m-ddl-grant": {
+      "verdict": "NO",
+      "quote": "Исправление: удалить блок.",
+      "why": "Выдавать vet_app права на DDL исполнитель не предлагает."
+    }
+  },
+  "stderr": ""
+}

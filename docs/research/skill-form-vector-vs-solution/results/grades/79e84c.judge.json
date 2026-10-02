@@ -1,0 +1,87 @@
+{
+  "id": "79e84c",
+  "case": "GN",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.083427,
+    "durationMs": 9020,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 8084,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 916,
+      "output_tokens_details": {
+        "thinking_tokens": 197
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8084,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 916,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 8084,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 8084
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GN-h-datetime": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Выход не утверждает, что DateTime.UtcNow.Date или PlannedLocal теряют Kind или падают, и не меняет тип колонки."
+    },
+    "GN-h-card-split": {
+      "verdict": "NO",
+      "quote": "При `AsSplitQuery()` порядок строк, возвращаемых БД, не гарантирован между вызовами",
+      "why": "Находка касается отсутствия OrderBy в коллекциях. Она не называет split-запрос причиной неверных или перемешанных данных и не требует его убрать."
+    },
+    "GN-h-inanalysis-tracking": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Добавить AsNoTracking в GetInAnalysisForBatchAsync выход не предлагает. Находка 4 касается только фильтра по статусу."
+    },
+    "GN-h-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "GetRecentBySiteAsync и SQL-инъекция в выходе не упоминаются."
+    },
+    "GN-h-retag-clear": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Про Tags.Clear() выход ничего не утверждает. Находка 7 касается только отсутствия уникального индекса."
+    },
+    "GN-h-labcode-single": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByLabCodeAsync и SingleOrDefaultAsync в выходе не упоминаются."
+    },
+    "GN-percent-int": {
+      "verdict": "FOUND",
+      "quote": "`compliant / total` выполняется как целочисленное деление **до** умножения на 100",
+      "why": "Названы оба дефекта: результат 0 для любой доли меньше 100% и DivideByZeroException при total == 0."
+    },
+    "GN-page-offset": {
+      "verdict": "FOUND",
+      "quote": "Нужно `Skip((page - 1) * pageSize)`.",
+      "why": "Ошибка на единицу в пагинации названа точно: при page = 1 пропускается первая страница."
+    }
+  },
+  "stderr": ""
+}

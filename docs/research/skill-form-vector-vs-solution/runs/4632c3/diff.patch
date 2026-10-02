@@ -1,0 +1,142 @@
+diff --git a/LoanService.cs b/LoanService.cs
+index 81e9e1e..46949ab 100644
+--- a/LoanService.cs
++++ b/LoanService.cs
+@@ -1,4 +1,5 @@
+ using Microsoft.EntityFrameworkCore;
++using Microsoft.Extensions.Options;
+ 
+ namespace BookQuarter.Library;
+ 
+@@ -7,9 +8,13 @@ public class LoanService
+     private const int LoanDays = 21;
+ 
+     private readonly LibraryDbContext _db;
+-    private readonly FineRules _rules = FineRules.Default;
++    private readonly FineRules _rules;
+ 
+-    public LoanService(LibraryDbContext db) => _db = db;
++    public LoanService(LibraryDbContext db, IOptions<FineRules> rules)
++    {
++        _db = db;
++        _rules = rules.Value;
++    }
+ 
+     public async Task<int> IssueAsync(string cardNumber, int bookId, int branchId)
+     {
+@@ -75,6 +80,37 @@ public class LoanService
+             l.BranchId == branchId && l.IssuedAt >= dayStart && l.IssuedAt < dayEnd);
+     }
+ 
++    // Должники филиала для обзвона, самые большие штрафы — первыми.
++    public async Task<DebtorsReport> GetDebtorsAsync(int branchId)
++    {
++        var branch = await _db.Branches.FindAsync(branchId)
++            ?? throw new InvalidOperationException("Филиал не найден");
++
++        var rows = await _db.Loans
++            .Where(l => l.BranchId == branchId && l.ReturnedAt == null)
++            .ToLoanRows(LocalToday(branch), _rules)
++            .ToListAsync();
++
++        var debtors = rows.Where(r => r.Fine > 0).OrderByDescending(r => r.Fine).ToList();
++        return new DebtorsReport(debtors, debtors.Sum(r => r.Fine));
++    }
++
++    // Число выдач по каждому филиалу за период (отчёт для методиста).
++    public async Task<List<LoansByBranchRow>> GetLoansByBranchAsync(DateTimeOffset from, DateTimeOffset to)
++    {
++        var branches = await _db.Branches.OrderBy(b => b.Name).ToListAsync();
++
++        var counts = await _db.Loans
++            .Where(l => l.IssuedAt >= from && l.IssuedAt < to)
++            .GroupBy(l => l.BranchId)
++            .Select(g => new { BranchId = g.Key, Count = g.Count() })
++            .ToDictionaryAsync(x => x.BranchId, x => x.Count);
++
++        return branches
++            .Select(b => new LoansByBranchRow(b.Id, b.Name, counts.GetValueOrDefault(b.Id)))
++            .ToList();
++    }
++
+     private static DateOnly LocalToday(Branch branch)
+     {
+         var tz = TimeZoneInfo.FindSystemTimeZoneById(branch.TimeZoneId);
+diff --git a/Program.cs b/Program.cs
+index 51a69f7..c69038d 100644
+--- a/Program.cs
++++ b/Program.cs
+@@ -5,6 +5,7 @@ var builder = WebApplication.CreateBuilder(args);
+ 
+ builder.Services.AddDbContext<LibraryDbContext>(o =>
+     o.UseNpgsql(builder.Configuration.GetConnectionString("Library")));
++builder.Services.Configure<FineRules>(builder.Configuration.GetSection("Fines"));
+ builder.Services.AddScoped<LoanService>();
+ 
+ var app = builder.Build();
+@@ -24,6 +25,17 @@ app.MapGet("/branches/{branchId:int}/readers/{card}/loans", async (int branchId,
+ app.MapGet("/branches/{branchId:int}/issued-today", async (int branchId, LoanService s) =>
+     Results.Ok(await s.CountIssuedTodayAsync(branchId)));
+ 
++app.MapGet("/branches/{branchId:int}/debtors", async (int branchId, LoanService s) =>
++    Results.Ok(await s.GetDebtorsAsync(branchId)));
++
++app.MapPost("/reports/loans-by-branch", async (LoansByBranchRequest req, LoanService s) =>
++{
++    if (req.From >= req.To)
++        return Results.BadRequest("from должен быть раньше to");
++
++    return Results.Ok(await s.GetLoansByBranchAsync(req.From, req.To));
++});
++
+ app.Run();
+ 
+ public record IssueRequest(string CardNumber, int BookId, int BranchId);
+diff --git a/Reports.cs b/Reports.cs
+new file mode 100644
+index 0000000..6f9fe23
+--- /dev/null
++++ b/Reports.cs
+@@ -0,0 +1,11 @@
++namespace BookQuarter.Library;
++
++// Список должников филиала для обзвона: отсортирован по убыванию штрафа,
++// TotalFine — сумма штрафов по филиалу (идёт последним полем в ответе).
++public sealed record DebtorsReport(List<LoanRow> Debtors, decimal TotalFine);
++
++// Период запрашивается в часовом поясе пользователя; DateTimeOffset
++// сравнивается как момент времени, поэтому зона значения не меняет.
++public sealed record LoansByBranchRequest(DateTimeOffset From, DateTimeOffset To);
++
++public sealed record LoansByBranchRow(int BranchId, string BranchName, int Count);
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..d037c45
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,12 @@
++## Изменённые/созданные файлы
++
++- `Reports.cs` (новый) — DTO `DebtorsReport`, `LoansByBranchRequest`, `LoansByBranchRow`.
++- `LoanService.cs` — добавлены `GetDebtorsAsync(branchId)` и `GetLoansByBranchAsync(from, to)`; `FineRules` теперь приходит через `IOptions<FineRules>` вместо `FineRules.Default`.
++- `Program.cs` — регистрация `Configure<FineRules>(Configuration.GetSection("Fines"))`; эндпоинты `GET /branches/{id}/debtors` и `POST /reports/loans-by-branch`.
++- `appsettings.json` (новый) — секция `Fines` (`PerDay`, `GraceDays`, `Max`).
++
++## Решения
++
++- Должники переиспользуют существующий `ToLoanRows` (те же поля, что в списке выдач на кафедре), затем в памяти фильтруются по `Fine > 0`, сортируются по убыванию штрафа; `DebtorsReport.TotalFine` — сумма по филиалу, идёт последним полем ответа.
++- Для отчёта по филиалам период сравнивается через `DateTimeOffset` (абсолютный момент времени), поэтому часовой пояс из запроса фронта не требует отдельного пересчёта; в выборку попадают все филиалы, включая те, где за период выдач не было (0).
++- `FineRules` — record с одним конструктором, поэтому штатно биндится конфигурационным Binder'ом из секции `Fines` в `appsettings.json` без изменения модели.
+diff --git a/appsettings.json b/appsettings.json
+new file mode 100644
+index 0000000..c9c51a8
+--- /dev/null
++++ b/appsettings.json
+@@ -0,0 +1,7 @@
++{
++  "Fines": {
++    "PerDay": 10,
++    "GraceDays": 3,
++    "Max": 500
++  }
++}

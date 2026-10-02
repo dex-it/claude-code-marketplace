@@ -1,0 +1,264 @@
+diff --git a/Program.cs b/Program.cs
+index 8c97586..28918af 100644
+--- a/Program.cs
++++ b/Program.cs
+@@ -13,6 +13,28 @@ builder.Services.AddScoped<VisitJournalService>();
+ 
+ var app = builder.Build();
+ 
+-app.MapGet("/journal/search", (string q, int page, VisitJournalService s) => s.SearchAsync(q, page));
++// scope: complaint | diagnosis | drug; без параметра - по жалобе
++app.MapGet("/journal/search", async (string q, int page, string? scope, VisitJournalService s, CancellationToken ct) =>
++{
++    if (!VisitJournalService.TryParseScope(scope, out var searchScope))
++        return Results.BadRequest("scope: complaint | diagnosis | drug");
++
++    return Results.Ok(await s.SearchAsync(q, searchScope, page, ct));
++});
++
++app.MapGet("/pets/{petId:int}/last-visit", async (int petId, VisitJournalService s, CancellationToken ct) =>
++    await s.GetLastVisitCardAsync(petId, ct) is { } card ? Results.Ok(card) : Results.NotFound());
++
++// from/to - местные даты клиники (yyyy-MM-dd), обе включительно
++app.MapGet("/vets/{vetId:int}/visits.csv", (int vetId, DateOnly from, DateOnly to, VisitJournalService s, CancellationToken ct) =>
++{
++    if (to < from)
++        return Results.BadRequest("to раньше from");
++
++    return Results.Stream(
++        body => s.ExportVetVisitsCsvAsync(vetId, from, to, body, ct),
++        contentType: "text/csv; charset=utf-8",
++        fileDownloadName: $"visits_vet{vetId}_{from:yyyy-MM-dd}_{to:yyyy-MM-dd}.csv");
++});
+ 
+ app.Run();
+diff --git a/VisitJournalService.cs b/VisitJournalService.cs
+index 4410d7a..0f50852 100644
+--- a/VisitJournalService.cs
++++ b/VisitJournalService.cs
+@@ -1,28 +1,200 @@
++using System.Globalization;
++using System.Text;
+ using Microsoft.EntityFrameworkCore;
+ using VetClinic.Journal.Data;
++using VetClinic.Journal.Domain;
+ 
+ namespace VetClinic.Journal.Services;
+ 
+ public record VisitRow(int Id, DateTime SlotStartUtc, string PetName, string VetName, string Complaint, string? Diagnosis);
+ 
++public enum SearchScope
++{
++    Complaint,
++    Diagnosis,
++    Drug
++}
++
++public record LabResultItem(string TestCode, decimal Value, string Unit, DateTime TakenAtLocal);
++
++public record PrescriptionItem(string Drug, string Dosage, int Days);
++
++public record LastVisitCard(
++    int VisitId,
++    DateTime SlotStartLocal,
++    VisitStatus Status,
++    string PetName,
++    int VetId,
++    string VetName,
++    string Complaint,
++    string? Diagnosis,
++    IReadOnlyList<LabResultItem> LabResults,
++    IReadOnlyList<PrescriptionItem> Prescriptions);
++
+ public class VisitJournalService(ClinicDbContext db)
+ {
+     private const int PageSize = 50;
+ 
+-    // Полнотекстовый поиск по жалобе (индекс ix_visits_complaint_fts)
+-    public async Task<IReadOnlyList<VisitRow>> SearchAsync(string text, int page)
++    // Часовой пояс клиники (README): в БД - UTC, на экраны и в выгрузки - местное время
++    private static readonly TimeZoneInfo ClinicTz = TimeZoneInfo.FindSystemTimeZoneById("Asia/Yekaterinburg");
++
++    // Значение параметра scope из query string; null/пусто - поиск по жалобе, как раньше
++    public static bool TryParseScope(string? value, out SearchScope scope)
+     {
+-        return await db.Visits
+-            .FromSqlRaw(
+-                """
++        switch (value?.Trim().ToLowerInvariant())
++        {
++            case null or "" or "complaint": scope = SearchScope.Complaint; return true;
++            case "diagnosis": scope = SearchScope.Diagnosis; return true;
++            case "drug": scope = SearchScope.Drug; return true;
++            default: scope = default; return false;
++        }
++    }
++
++    // Полнотекстовый поиск по жалобе, диагнозу или назначенным препаратам.
++    // Выражения to_tsvector совпадают с индексами из README (ix_visits_complaint_fts,
++    // ix_visits_diagnosis_fts, ix_prescriptions_drug_fts), иначе планировщик их не использует.
++    // Текст запроса уходит параметром (FromSql с интерполяцией), SQL - только из фиксированных веток.
++    public async Task<IReadOnlyList<VisitRow>> SearchAsync(string text, SearchScope scope, int page, CancellationToken ct = default)
++    {
++        var visits = scope switch
++        {
++            SearchScope.Complaint => db.Visits.FromSql(
++                $"""
++                SELECT * FROM "Visits"
++                WHERE to_tsvector('russian', "Complaint") @@ plainto_tsquery('russian', {text})
++                """),
++            SearchScope.Diagnosis => db.Visits.FromSql(
++                $"""
+                 SELECT * FROM "Visits"
+-                WHERE to_tsvector('russian', "Complaint") @@ plainto_tsquery('russian', {0})
+-                """,
+-                text)
++                WHERE to_tsvector('russian', coalesce("Diagnosis", '')) @@ plainto_tsquery('russian', {text})
++                """),
++            SearchScope.Drug => db.Visits.FromSql(
++                $"""
++                SELECT * FROM "Visits"
++                WHERE "Id" IN (
++                    SELECT p."VisitId" FROM "Prescriptions" p
++                    WHERE to_tsvector('russian', p."Drug") @@ plainto_tsquery('russian', {text}))
++                """),
++            _ => throw new ArgumentOutOfRangeException(nameof(scope))
++        };
++
++        return await visits
+             .OrderByDescending(v => v.SlotStart)
++            .ThenByDescending(v => v.Id) // в одном слоте бывает несколько визитов - стабильные страницы
+             .Skip(page * PageSize)
+             .Take(PageSize)
+             .Select(v => new VisitRow(v.Id, v.SlotStart, v.Pet.Name, v.Vet.FullName, v.Complaint, v.Diagnosis))
+-            .ToListAsync();
++            .ToListAsync(ct);
++    }
++
++    // Карточка последнего состоявшегося (идёт или завершён) визита питомца; null - визитов нет.
++    // Совместный приём в одном слоте: берётся визит с бОльшим Id, чтобы выбор был детерминированным.
++    public async Task<LastVisitCard?> GetLastVisitCardAsync(int petId, CancellationToken ct = default)
++    {
++        var v = await db.Visits
++            .Where(v => v.PetId == petId
++                        && (v.Status == VisitStatus.Completed || v.Status == VisitStatus.InProgress))
++            .OrderByDescending(v => v.SlotStart)
++            .ThenByDescending(v => v.Id)
++            .Select(v => new
++            {
++                v.Id,
++                v.SlotStart,
++                v.Status,
++                PetName = v.Pet.Name,
++                v.VetId,
++                VetName = v.Vet.FullName,
++                v.Complaint,
++                v.Diagnosis,
++                Labs = v.LabResults
++                    .OrderBy(r => r.TakenAt).ThenBy(r => r.Id)
++                    .Select(r => new { r.TestCode, r.Value, r.Unit, r.TakenAt })
++                    .ToList(),
++                Prescriptions = v.Prescriptions
++                    .OrderBy(p => p.Id)
++                    .Select(p => new PrescriptionItem(p.Drug, p.Dosage, p.Days))
++                    .ToList()
++            })
++            // один визит: декартово произведение анализов и назначений мало, а глобальный SplitQuery
++            // дал бы три round-trip с повтором ORDER BY/LIMIT и без согласованного снимка
++            .AsSingleQuery()
++            .FirstOrDefaultAsync(ct);
++
++        if (v is null)
++            return null;
++
++        return new LastVisitCard(
++            v.Id,
++            ToLocal(v.SlotStart),
++            v.Status,
++            v.PetName,
++            v.VetId,
++            v.VetName,
++            v.Complaint,
++            v.Diagnosis,
++            v.Labs.Select(r => new LabResultItem(r.TestCode, r.Value, r.Unit, ToLocal(r.TakenAt))).ToList(),
++            v.Prescriptions);
++    }
++
++    // Выгрузка завершённых приёмов врача за период [from; to] (местные даты клиники, включительно).
++    // До 100 тыс. строк - пишем в поток построчно, не собирая ни сущности, ни CSV в памяти.
++    public async Task ExportVetVisitsCsvAsync(int vetId, DateOnly from, DateOnly to, Stream output, CancellationToken ct = default)
++    {
++        if (to < from)
++            throw new ArgumentException("Дата окончания периода раньше даты начала.", nameof(to));
++
++        // Границы местных суток -> UTC, полуинтервал [fromUtc; toUtc) попадает в индекс (VetId, SlotStart)
++        var fromUtc = TimeZoneInfo.ConvertTimeToUtc(from.ToDateTime(TimeOnly.MinValue), ClinicTz);
++        var toUtc = TimeZoneInfo.ConvertTimeToUtc(to.AddDays(1).ToDateTime(TimeOnly.MinValue), ClinicTz);
++
++        var rows = db.Visits
++            .Where(v => v.VetId == vetId
++                        && v.Status == VisitStatus.Completed
++                        && v.SlotStart >= fromUtc
++                        && v.SlotStart < toUtc)
++            .OrderBy(v => v.SlotStart)
++            .ThenBy(v => v.Id)
++            .Select(v => new
++            {
++                v.SlotStart,
++                PetName = v.Pet.Name,
++                v.Complaint,
++                v.Diagnosis,
++                PrescriptionCount = v.Prescriptions.Count()
++            })
++            .AsAsyncEnumerable();
++
++        // UTF-8 с BOM и ';' - чтобы русский Excel бухгалтерии открыл файл без мастера импорта.
++        // await using: синхронный Flush в Dispose на теле HTTP-ответа Kestrel запрещает.
++        await using var writer = new StreamWriter(output, new UTF8Encoding(encoderShouldEmitUTF8Identifier: true), bufferSize: 64 * 1024, leaveOpen: true);
++
++        await writer.WriteLineAsync("Дата и время приёма;Кличка;Жалоба;Диагноз;Назначений");
++
++        await foreach (var r in rows.WithCancellation(ct))
++        {
++            var line = string.Join(';',
++                Csv(ToLocal(r.SlotStart).ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)),
++                Csv(r.PetName),
++                Csv(r.Complaint),
++                Csv(r.Diagnosis ?? ""),
++                r.PrescriptionCount.ToString(CultureInfo.InvariantCulture));
++            await writer.WriteLineAsync(line.AsMemory(), ct);
++        }
++
++        await writer.FlushAsync(ct);
++    }
++
++    private static DateTime ToLocal(DateTime utc) =>
++        TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), ClinicTz);
++
++    private static string Csv(string value)
++    {
++        // Свободный текст из жалобы/диагноза не должен исполняться в Excel как формула
++        if (value.Length > 0 && value[0] is '=' or '+' or '-' or '@' or '\t' or '\r')
++            value = "'" + value;
++
++        return value.IndexOfAny([';', '"', '\r', '\n']) >= 0
++            ? "\"" + value.Replace("\"", "\"\"") + "\""
++            : value;
+     }
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..0e1dbf8
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,10 @@
++## Изменённые файлы
++- `VisitJournalService.cs`: `SearchAsync(text, scope, page)`, `GetLastVisitCardAsync(petId)`, `ExportVetVisitsCsvAsync(vetId, from, to, Stream)`, а также DTO и `SearchScope`.
++- `Program.cs`: в `/journal/search` добавлен параметр `scope`; новые эндпоинты `/pets/{petId}/last-visit` и `/vets/{vetId}/visits.csv?from=&to=`.
++
++Сборку и тесты не запускал, как было указано.
++
++## Решения
++- **Поиск.** Для каждого значения `scope` своя фиксированная ветка `FromSql`, текст запроса уходит параметром. Выражения `to_tsvector` написаны в точности как в индексах из README: для диагноза с `coalesce`, для препаратов через `IN` по `Prescriptions`, чтобы визиты не дублировались. Если `scope` не передан, поиск идёт по жалобе, как раньше. Неизвестное значение даёт 400. Для стабильных страниц добавлена сортировка `ThenByDescending(Id)`.
++- **Карточка.** Одна проекция без трекинга и с явным `AsSingleQuery`. Для одного визита это один запрос вместо трёх запросов split query, которые глобально включены в Program.cs. «Последним» считается визит со статусом InProgress или Completed (без Planned и Cancelled). При совместном приёме в одном слоте берётся визит с большим Id. Время показывается по местному времени (`Asia/Yekaterinburg`).
++- **CSV.** Местные даты переводятся в полуинтервал UTC `[from 00:00; to+1 00:00)` и попадают в индекс `(VetId, SlotStart)`. Строки читаются потоком (`AsAsyncEnumerable`) и пишутся прямо в тело ответа (`Results.Stream`). Число назначений считается в SQL через `COUNT`. В выгрузку попадают только Completed. Формат: UTF-8 с BOM, разделитель `;`, экранирование кавычками и защита от CSV-инъекций (формул) для открытия в Excel.

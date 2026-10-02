@@ -5,6 +5,7 @@
 #   F2 = название + fact
 #   F3 = название + fact + check   (что сверить)
 #   F4 = название + fact + outcome (какой исход обязателен)
+#   F4b = название + fact + outcome_blind (слепая стадия, PREREG-blind.md); единицы blind_convention в F4b не входят
 # Единица без поля на шаге остаётся названием: так лестница «Формы пункта» и работает.
 # Поле class и cases - только у единиц, которые меряются кейсами (ключ - PREREG.md).
 # Факты fact сверены с первоисточником, адреса - SOURCES.md, «Факты, сверенные для форм F2-F4».
@@ -21,48 +22,62 @@ ef-core:
   units:
     - id: lazy-n1
       name: Ленивая загрузка навигации в цикле
+      outcome_blind: "Связанные данные, нужные в цикле, загружаются заранее одним запросом (Include или проекция), а не отдельным round-trip на каждую итерацию"
     - id: readonly-tracking
       name: Трекинг выборки только для чтения
+      outcome_blind: "Сущности, которые в этой единице работы не изменяются, не попадают в change tracker (no-tracking запрос, no-tracking по умолчанию в контексте или проекция без сущностей)"
       check: попадает ли выборка в Change Tracker
       outcome: выборка только для чтения не отслеживается - `AsNoTracking` или проекция
       class: A
       cases: [E1]
     - id: tolist-projection
       name: Полная сущность там, где нужна часть полей
+      outcome_blind: "Для чтения запрос выбирает из БД только нужные столбцы (проекция в DTO/анонимный тип), а не полные сущности со всеми колонками"
     - id: filter-in-memory
       name: Фильтр после материализации
+      outcome_blind: "Бизнес-фильтр выполняется в SQL (WHERE) до материализации: из БД приходят только прошедшие его строки, а не вся таблица для фильтрации в памяти"
     - id: aggregate-in-memory
       name: Группировка и агрегаты после материализации
+      outcome_blind: "Группировка и агрегаты (Count/Sum/Max/Any…) вычисляются в SQL (GROUP BY, агрегатные функции): клиент получает ключи и итоги, а не все строки"
     - id: untranslatable-filter
       name: Нетранслируемое условие фильтра
+      outcome_blind: "Условие фильтра выражено через маппленные свойства и транслируемые функции и выполняется в SQL; клиентская часть - только явно (AsEnumerable) после серверного сужения выборки"
       check: где выполняется условие - в SQL или после материализации
       outcome: условие целиком в `IQueryable` до материализации
       class: A
       cases: [E1]
     - id: repo-materializes
       name: Репозиторий материализует выборку
+      blind_convention: true
     - id: null-forgiving-aggregate
       name: "`!` на nullable-значении без фильтра по null"
+      outcome_blind: "Значение из nullable-колонки разыменовывается только после исключения null в запросе (IS NOT NULL) или явной проверки в коде; `!` защитой не считается - в runtime он ничего не делает"
     - id: single-not-unique
       name: "`Single` на условии, которое в домене не уникально"
+      outcome_blind: "Single/SingleOrDefault - только на условии, уникальность которого гарантирует схема (PK/уникальный индекс); при допустимых дубликатах выбор строки детерминирован или обрабатываются все"
       check: уникально ли условие в домене и что вернёт метод при нескольких совпадениях
       outcome: при нескольких совпадениях запись не выбирается молча - условие уточняется до уникального или неоднозначность возвращается явно
       class: D
       cases: [E2]
     - id: null-guard-spec
       name: Null-guard в спецификации на ненулевом параметре
+      blind_convention: true
     - id: fromsql-alias
       name: Динамически собираемый `FromSqlRaw`
+      outcome_blind: "Значения в динамическом FromSqlRaw уходят как DbParameter; в текст SQL вставляются только проверенные фрагменты/идентификаторы (белый список), не пользовательский ввод"
       check: алиас в собираемых условиях против алиаса шаблона
       outcome: условия ссылаются на алиас шаблона, значения идут параметрами
       class: A
       cases: [R]
     - id: add-async
       name: "`Add` и `AddAsync`"
+      outcome_blind: "Сущность добавляется синхронным Add; AddAsync - только если генератор значений ключа обращается к БД (HiLo/sequence)"
     - id: owned-single-field
       name: Owned-тип из одного поля
+      blind_convention: true
     - id: datetime-column
       name: "`DateTime` и тип колонки в Npgsql"
+      outcome_blind: "Kind DateTime соответствует колонке: в timestamptz (дефолт для DateTime) пишется только Kind=Utc, в timestamp - только Unspecified/Local; иначе Npgsql бросает при записи"
       fact: с Npgsql 6 свойство без явного типа - `timestamptz`
       check: "`Kind` против типа колонки при записи, чтении и в параметре запроса"
       outcome: в `timestamptz` пишется `Kind=Utc`; в `timestamp without time zone` пишется `Kind=Unspecified`, прочитанное помечается `Utc`
@@ -70,12 +85,14 @@ ef-core:
       cases: [E3, E4]
     - id: softdelete-cascade
       name: Soft-delete (`HasQueryFilter`) и каскад FK
+      outcome_blind: "У FK на soft-delete сущность нет ON DELETE CASCADE в БД; при HasQueryFilter у principal и required-связи у зависимых согласованный фильтр или связь optional"
       check: что сделает БД с зависимыми строками при физическом `DELETE` родителя
       outcome: FK зависимых в БД без каскада
       class: A
       cases: [E4]
     - id: required-orphans
       name: Разрыв required-связи (`Clear()` коллекции зависимых)
+      outcome_blind: "Код, разрывающий required-связь, рассчитан на один из исходов: зависимые удаляются (Cascade/ClientCascade) или SaveChanges бросает; открепить без удаления - только при optional FK"
       fact: при `Restrict` и `ClientSetNull` разрыв required-связи в `SaveChanges` бросает `InvalidOperationException`
       check: что делает `SaveChanges` с зависимым, убранным из required-коллекции, при выбранном `OnDelete`
       outcome: зависимые удаляет код, и разрыв required-связи не бросает исключение
@@ -83,16 +100,21 @@ ef-core:
       cases: [E4]
     - id: concurrency-token
       name: Параллельная правка одной записи
+      outcome_blind: "Параллельная правка одной записи не перезаписывается молча: устаревшее сохранение обнаруживается (concurrency token → DbUpdateConcurrencyException или изоляция) и обрабатывается"
     - id: pessimistic-lock
       name: "`FOR UPDATE` и граница транзакции"
+      outcome_blind: "SELECT … FOR UPDATE, изменение и SaveChanges идут в одной явной транзакции на одном соединении; блокировка держится до Commit, без транзакции снимается сразу после SELECT"
     - id: savechanges-loop
       name: "`SaveChanges` в цикле по строкам"
+      outcome_blind: "Изменения набора строк уходят одним SaveChanges после цикла (EF батчит) или одним set-based ExecuteUpdate/ExecuteDelete, а не round-trip на каждую строку"
     - id: bulk-delete
       name: Массовое удаление одной транзакцией
     - id: updaterange-tracked
       name: "`UpdateRange` на отслеживаемых сущностях"
+      outcome_blind: "Для уже отслеживаемых сущностей Update/UpdateRange не вызывается: SaveChanges сам находит изменения и пишет только изменённые колонки"
     - id: cartesian
       name: Несколько коллекций в одном `Include`-запросе
+      outcome_blind: "Для запроса с ≥2 коллекциями одного уровня режим задан явно (split или single, на запросе или глобально) с учётом декартова роста строк; без этого EF пишет предупреждение"
     - id: split-single
       name: Split query на выборке одной сущности
       check: сколько строк даёт JOIN коллекций этой выборки
@@ -101,18 +123,23 @@ ef-core:
       cases: [R, N0]
     - id: prod-migration
       name: Применение миграции на production
+      outcome_blind: "Применяемые на production миграции заранее проверены и протестированы; катятся артефактом (SQL-скрипт или migration bundle), а не `dotnet ef database update` с SDK и исходниками"
       check: какой SQL уйдёт в базу и кто увидит его до применения
       outcome: в production-пайплайне нет `dotnet ef database update` - SQL идёт через idempotent-скрипт с ревью или migrations bundle
       class: C
       cases: [E6]
     - id: data-and-schema
       name: Данные и схема в одной миграции
+      blind_convention: true
     - id: schema-without-data
       name: Схемная миграция и исторические данные
+      outcome_blind: "Миграция, меняющая место хранения данных, переносит существующие строки в новую структуру до удаления источника; новый код с первого деплоя видит исторические данные"
     - id: dbcontext-singleton
       name: Время жизни `DbContext`
+      outcome_blind: "Экземпляр DbContext живёт одну единицу работы (в веб - scope запроса), освобождается после неё и никогда не используется параллельно; не singleton и не static"
     - id: dbcontext-background
       name: "`DbContext` в `BackgroundService`"
+      outcome_blind: "BackgroundService не держит DbContext из конструктора: на каждую единицу работы создаётся и освобождается свой экземпляр (scope через IServiceScopeFactory или IDbContextFactory)"
 
 linq:
   meta:

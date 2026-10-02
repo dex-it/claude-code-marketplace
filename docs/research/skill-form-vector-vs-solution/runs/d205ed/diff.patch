@@ -1,0 +1,185 @@
+diff --git a/Fines.cs b/Fines.cs
+index d754d5d..dbbd1f6 100644
+--- a/Fines.cs
++++ b/Fines.cs
+@@ -49,3 +49,46 @@ public static class LoanRows
+             Fine = Fines.Amount(l.DueDate, today, l.Reader.Category, rules),
+         });
+ }
++
++public sealed class DebtorRow
++{
++    public string CardNumber { get; init; } = "";
++    public string Reader { get; init; } = "";
++    public string Phone { get; init; } = "";
++    public string Book { get; init; } = "";
++    public DateOnly DueDate { get; init; }
++    public int DaysOverdue { get; init; }
++    public decimal Fine { get; init; }
++}
++
++public sealed class DebtorsResponse
++{
++    public List<DebtorRow> Debtors { get; init; } = new();
++    public decimal TotalFine { get; init; }
++}
++
++public sealed class BranchLoanCount
++{
++    public string BranchName { get; init; } = "";
++    public int LoanCount { get; init; }
++}
++
++public sealed class LoansReportResponse
++{
++    public List<BranchLoanCount> Branches { get; init; } = new();
++}
++
++public static class Debtors
++{
++    public static IQueryable<DebtorRow> ToDebtorRows(this IQueryable<Loan> loans, DateOnly today, FineRules rules) =>
++        loans.Select(l => new DebtorRow
++        {
++            CardNumber = l.Reader.CardNumber,
++            Reader = l.Reader.FullName,
++            Phone = l.Reader.Phone,
++            Book = l.Book.Title,
++            DueDate = l.DueDate,
++            DaysOverdue = Fines.DaysOverdue(l.DueDate, today),
++            Fine = Fines.Amount(l.DueDate, today, l.Reader.Category, rules),
++        });
++}
+diff --git a/LoanService.cs b/LoanService.cs
+index 81e9e1e..37ab085 100644
+--- a/LoanService.cs
++++ b/LoanService.cs
+@@ -7,9 +7,13 @@ public class LoanService
+     private const int LoanDays = 21;
+ 
+     private readonly LibraryDbContext _db;
+-    private readonly FineRules _rules = FineRules.Default;
++    private readonly FineRules _rules;
+ 
+-    public LoanService(LibraryDbContext db) => _db = db;
++    public LoanService(LibraryDbContext db, FineRules rules)
++    {
++        _db = db;
++        _rules = rules;
++    }
+ 
+     public async Task<int> IssueAsync(string cardNumber, int bookId, int branchId)
+     {
+@@ -75,6 +79,43 @@ public class LoanService
+             l.BranchId == branchId && l.IssuedAt >= dayStart && l.IssuedAt < dayEnd);
+     }
+ 
++    // Список должников по филиалу.
++    public async Task<DebtorsResponse> GetDebtorsAsync(int branchId)
++    {
++        var branch = await _db.Branches.FindAsync(branchId)
++            ?? throw new InvalidOperationException("Филиал не найден");
++
++        var today = LocalToday(branch);
++        var debtors = await _db.Loans
++            .Where(l => l.BranchId == branchId && l.ReturnedAt == null && l.DueDate < today)
++            .Include(l => l.Reader)
++            .Include(l => l.Book)
++            .ToDebtorRows(today, _rules)
++            .OrderByDescending(d => d.Fine)
++            .ToListAsync();
++
++        var totalFine = debtors.Sum(d => d.Fine);
++        return new DebtorsResponse { Debtors = debtors, TotalFine = totalFine };
++    }
++
++    // Отчёт: число выдач по каждому филиалу за период.
++    public async Task<LoansReportResponse> GetLoansByBranchAsync(DateTimeOffset from, DateTimeOffset to)
++    {
++        var loans = await _db.Loans
++            .Where(l => l.IssuedAt >= from && l.IssuedAt < to)
++            .Include(l => l.Branch)
++            .GroupBy(l => l.Branch)
++            .Select(g => new BranchLoanCount
++            {
++                BranchName = g.Key.Name,
++                LoanCount = g.Count()
++            })
++            .OrderBy(x => x.BranchName)
++            .ToListAsync();
++
++        return new LoansReportResponse { Branches = loans };
++    }
++
+     private static DateOnly LocalToday(Branch branch)
+     {
+         var tz = TimeZoneInfo.FindSystemTimeZoneById(branch.TimeZoneId);
+diff --git a/Program.cs b/Program.cs
+index 51a69f7..6ff7976 100644
+--- a/Program.cs
++++ b/Program.cs
+@@ -5,6 +5,13 @@ var builder = WebApplication.CreateBuilder(args);
+ 
+ builder.Services.AddDbContext<LibraryDbContext>(o =>
+     o.UseNpgsql(builder.Configuration.GetConnectionString("Library")));
++
++var fineRules = new FineRules(
++    (decimal)builder.Configuration.GetValue<double>("Fines:PerDay"),
++    builder.Configuration.GetValue<int>("Fines:GraceDays"),
++    (decimal)builder.Configuration.GetValue<double>("Fines:Max")
++);
++builder.Services.AddSingleton(fineRules);
+ builder.Services.AddScoped<LoanService>();
+ 
+ var app = builder.Build();
+@@ -24,6 +31,13 @@ app.MapGet("/branches/{branchId:int}/readers/{card}/loans", async (int branchId,
+ app.MapGet("/branches/{branchId:int}/issued-today", async (int branchId, LoanService s) =>
+     Results.Ok(await s.CountIssuedTodayAsync(branchId)));
+ 
++app.MapGet("/branches/{id:int}/debtors", async (int id, LoanService s) =>
++    Results.Ok(await s.GetDebtorsAsync(id)));
++
++app.MapPost("/reports/loans-by-branch", async (ReportRequest req, LoanService s) =>
++    Results.Ok(await s.GetLoansByBranchAsync(req.From, req.To)));
++
+ app.Run();
+ 
+ public record IssueRequest(string CardNumber, int BookId, int BranchId);
++public record ReportRequest(DateTimeOffset From, DateTimeOffset To);
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..382181a
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,16 @@
++# Решение задач по сервису выдачи книг
++
++## Созданные/изменённые файлы:
++
++1. **appsettings.json** - создан файл с конфигурацией штрафов (ставка, льготный период, потолок)
++2. **Program.cs** - добавлена регистрация FineRules из конфигурации в DI контейнер, добавлены два новых endpoint'а
++3. **LoanService.cs** - конструктор теперь принимает FineRules через DI, добавлены методы GetDebtorsAsync и GetLoansByBranchAsync
++4. **Fines.cs** - добавлены классы DebtorRow, DebtorsResponse, BranchLoanCount, LoansReportResponse и расширение Debtors.ToDebtorRows
++
++## О решениях:
++
++**(а) Endpoint GET /branches/{id}/debtors**: Возвращает список должников филиала (только просроченные невозвращённые книги) в формате DebtorsResponse с массивом DebtorRow, отсортированным по штрафу (убывание), и суммарным штрафом. Используется местное время филиала для определения просрочки.
++
++**(б) Endpoint POST /reports/loans-by-branch**: Принимает JSON {"from": "...", "to": "..."} с ISO 8601 временем, возвращает LoansReportResponse со списком филиалов и количеством выдач за период. Период интерпретируется как UTC (переданные временные метки уже содержат смещение часового пояса).
++
++**(в) Конфигурация штрафов**: Ставка (PerDay: 10), льготный период (GraceDays: 3) и потолок (Max: 500) вынесены в appsettings.json, секция Fines. FineRules регистрируется как singleton в DI и инжектируется в LoanService.
+diff --git a/appsettings.json b/appsettings.json
+new file mode 100644
+index 0000000..c472175
+--- /dev/null
++++ b/appsettings.json
+@@ -0,0 +1,10 @@
++{
++  "ConnectionStrings": {
++    "Library": "Host=localhost;Database=library;Username=postgres;Password=postgres"
++  },
++  "Fines": {
++    "PerDay": 10,
++    "GraceDays": 3,
++    "Max": 500
++  }
++}

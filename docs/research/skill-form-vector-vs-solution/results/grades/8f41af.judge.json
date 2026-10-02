@@ -1,0 +1,92 @@
+{
+  "id": "8f41af",
+  "case": "GR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.087795,
+    "durationMs": 14530,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 7225,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1478,
+      "output_tokens_details": {
+        "thinking_tokens": 680
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7225,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1478,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 7225,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 7225
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GR-offday-rows": {
+      "verdict": "PASS",
+      "quote": "При выполнении `OffDayTripsAsync` запрос упадёт с `InvalidOperationException` (The LINQ expression could not be translated)",
+      "why": "Названо падение отчёта из-за клиентского WorkCalendar.IsWorkingDay и предложена материализация с последующим .Where(r => r.OffDay). Механизм указан неточно: виновником назван Select, хотя на деле не транслируется Where поверх проекции."
+    },
+    "GR-open-semicolon": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "GetOpenWaybillsAsync, точка с запятой и композиция FromSqlRaw с Where в выходе не упоминаются."
+    },
+    "GR-equipment-clear": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Clear() по незагруженной коллекции Equipment в ReplaceEquipmentAsync не найден, эндпоинт разобран только с точки зрения авторизации."
+    },
+    "GR-model-length": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Миграция AlterColumn vehicles.model до varchar(40) не рассмотрена."
+    },
+    "GR-last-inspection": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Неуникальный порядок при SplitQuery в GetLastInspectionAsync не найден."
+    },
+    "GR-permit-lastday": {
+      "verdict": "FOUND",
+      "quote": "Проверка допуска использует `>` вместо `>=`",
+      "why": "Найдено, что в последний день действия допуска водителя не выпустят, предложено сравнение >=."
+    },
+    "GR-equipment-auth": {
+      "verdict": "FOUND",
+      "quote": "Любой пользователь может изменять оснащение машин.",
+      "why": "Отмечено отсутствие политики на PUT /vehicles/{id}/equipment, предложен RequireAuthorization."
+    },
+    "GR-h-permits-clear": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "ReplacePermitsAsync и Permits.Clear() дефектом не названы."
+    },
+    "GR-h-plate-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByPlateAsync в выходе не упоминается."
+    }
+  },
+  "stderr": ""
+}
