@@ -1,0 +1,102 @@
+{
+  "id": "20a53d",
+  "case": "V2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.134707,
+    "durationMs": 12687,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 13014,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1508,
+      "output_tokens_details": {
+        "thinking_tokens": 211
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 13014,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1508,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 13014,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 13014
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "V2-coi-organization": {
+      "verdict": "FOUND",
+      "quote": "Заявки организации, где работает эксперт (`a.OrganizationInn == expert.OrganizationInn`, п. 4.3 положения, см. `Expert.OrganizationInn`), не отсекаются.",
+      "why": "Находка прямо называет отсутствие сверки ИНН организации эксперта с ИНН организации заявки в ConflictOfInterest.Find."
+    },
+    "V2-reassign-draft-carryover": {
+      "verdict": "FOUND",
+      "quote": "Новому эксперту переходят назначения в статусе `Draft` вместе с `Scores`, `Comment` и `Total` предыдущего эксперта.",
+      "why": "Назван перенос черновых баллов и комментария прежнего эксперта; предложены сброс полей и статус Assigned."
+    },
+    "V2-ranking-expert-access": {
+      "verdict": "FOUND",
+      "quote": "Роль `Expert` разрешили на уровне всего контроллера, а не только на `GET /api/contests/{id}`. В итоге эксперт может открыть `/ranking` и `/ranking.csv`",
+      "why": "Находка указывает, что эксперты получают доступ к рейтингу и CSV через атрибут класса."
+    },
+    "V2-tiebreak-created": {
+      "verdict": "FOUND",
+      "quote": "При равном балле сортировка идёт `ThenBy(x => x.CreatedAt)`, то есть по дате создания черновика в кабинете.",
+      "why": "Указано использование CreatedAt вместо SubmittedAt."
+    },
+    "V2-csv-culture": {
+      "verdict": "FOUND",
+      "quote": "После `UseRequestLocalization` с `ru-RU` это даёт `85,33` и `150000,00`, причём без кавычек. В CSV с разделителем-запятой каждое такое число разваливается на две колонки",
+      "why": "Культура ru-RU связана с десятичной запятой и разделителем-запятой в CSV."
+    },
+    "V2-deadline-last-day": {
+      "verdict": "FOUND",
+      "quote": "то есть с 00:00 UTC *дня дедлайна*. Приём закрывается на сутки раньше обещанного",
+      "why": "Указано, что граница стоит в начале дня дедлайна и последний день исключён."
+    },
+    "V2-parallel-dbcontext": {
+      "verdict": "PASS",
+      "quote": "`ToListAsync` и `CountAsync` запускаются параллельно через `Task.WhenAll` на одном scoped `GrantsDbContext`.",
+      "why": "Названы параллельные операции на одном DbContext, InvalidOperationException и последовательное выполнение как исправление."
+    },
+    "V2-string-equals-comparison": {
+      "verdict": "PASS",
+      "quote": "`a.Region.Equals(r, StringComparison.OrdinalIgnoreCase)` EF Core 8 / Npgsql в SQL не транслирует",
+      "why": "Указана нетранслируемость и предложены EF.Functions.ILike и citext/collation."
+    },
+    "V2-h-collection-replace-orphans": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находки о задвоении старых ReviewScore или требования RemoveRange/Clear нет; находка 9 касается гонок статуса."
+    },
+    "V2-h-filtered-include": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находка 12 говорит о лишней загрузке для эксперта, но не утверждает, что filtered include не поддерживается."
+    },
+    "V2-h-executeupdate-in-transaction": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Утверждения, что ExecuteUpdate не сохранится или не участвует в транзакции, нет; CloseReview упомянут только в контексте гонки с submit."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,97 @@
+{
+  "id": "1cecb1",
+  "case": "V3",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.129839,
+    "durationMs": 11971,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 12673,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1401,
+      "output_tokens_details": {
+        "thinking_tokens": 215
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 12673,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1401,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 12673,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 12673
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "V3-promo-on-early-price": {
+      "verdict": "FOUND",
+      "quote": "В `PromoCode` записано: «скидка считается от полной цены билета, с ранним тарифом промокод не суммируется». А `Quote` применяет скидку к `BasePrice(ticket, today)`",
+      "why": "Находка 7 связывает правило из PromoCode с расчётом скидки от ранней цены и указывает на потерю денег конференцией."
+    },
+    "V3-capacity-group-seats": {
+      "verdict": "FOUND",
+      "quote": "`GroupOrder.Quantity` в расчёт не входит, а участников в заказ вписывают позже",
+      "why": "Находка 3 называет неучёт невписанных мест групповых заказов в FreeSeatsAsync и овербукинг сверх 600 мест."
+    },
+    "V3-group-seat-reuse": {
+      "verdict": "FOUND",
+      "quote": "Проверка `order.Participants.Count >= order.Quantity` учитывает и отменённые регистрации.",
+      "why": "Находка 4 показывает, что отменённые участники занимают место заказа, замена получает 409, а список при этом показывает свободное место."
+    },
+    "V3-orgadmin-passport": {
+      "verdict": "FOUND",
+      "quote": "администратор организации видит паспорта сотрудников (в том числе тех, кто регистрировался сам и только указан в `org_id`)",
+      "why": "Находка 9 связывает доступ OrgAdmin с паспортными полями ParticipantDto.Projection."
+    },
+    "V3-vat-on-top": {
+      "verdict": "FOUND",
+      "quote": "НДС нужно выделять из суммы: `vat = amount * 20 / 120`",
+      "why": "Находка 8 указывает, что НДС начисляется сверху на цены, уже включающие НДС, и завышает счёт и AmountKopecks."
+    },
+    "V3-invoice-before-idempotency": {
+      "verdict": "FOUND",
+      "quote": "Он снова вызывает `_billing.CreateInvoiceAsync`, и в 1С появляется второй счёт.",
+      "why": "Находка 1 связывает выставление внешнего счёта до фиксации ключа с повтором по таймауту и лишним счётом в 1С."
+    },
+    "V3-promo-notracking": {
+      "verdict": "PASS",
+      "quote": "`FindPromoAsync` загружает промокод через `AsNoTracking()`. Поэтому `promo.UsedCount++` меняет не отслеживаемый объект",
+      "why": "Находка 6 называет несохраняемый инкремент и неработающий UsageLimit и предлагает атомарный UPDATE с условием или отслеживаемую загрузку."
+    },
+    "V3-unspecified-timestamptz": {
+      "verdict": "PASS",
+      "quote": "`from.ToDateTime(TimeOnly.MinValue)` даёт `DateTime` с `Kind=Unspecified`",
+      "why": "Находка 10 описывает исключение Npgsql на timestamptz и требует UTC-границ с осознанным выбором часового пояса."
+    },
+    "V3-h-partial-unique-index": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Частичный уникальный индекс в выходе не оспаривается и не меняется."
+    },
+    "V3-h-unique-violation-catch": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Перехват UniqueViolation в RegisterAsync не объявляется дефектом, и замена на AnyAsync не предлагается."
+    }
+  },
+  "stderr": ""
+}

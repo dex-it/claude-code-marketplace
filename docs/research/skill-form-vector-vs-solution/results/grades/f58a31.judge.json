@@ -1,0 +1,97 @@
+{
+  "id": "f58a31",
+  "case": "V3",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.12715900000000002,
+    "durationMs": 12172,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 12193,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1459,
+      "output_tokens_details": {
+        "thinking_tokens": 226
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 12193,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1459,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 12193,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 12193
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "V3-promo-on-early-price": {
+      "verdict": "FOUND",
+      "quote": "Скидка считается от `BasePrice(ticket, today)`, то есть от ранней цены, если ранний тариф ещё действует. В модели `PromoCode` прямо сказано: «по договорам с партнёрами скидка считается от полной цены билета, с ранним тарифом промокод не суммируется».",
+      "why": "Находка 5 прямо связывает правило из комментария к PromoCode с расчётом скидки от ранней цены."
+    },
+    "V3-capacity-group-seats": {
+      "verdict": "FOUND",
+      "quote": "Групповой заказ при создании не создаёт ни одной `Registration`, поэтому его `Quantity` в расчёт не попадает",
+      "why": "Находка 3 называет неучёт невписанных мест групповых заказов в FreeSeatsAsync и переполнение площадки через AddParticipantAsync."
+    },
+    "V3-group-seat-reuse": {
+      "verdict": "FOUND",
+      "quote": "`order.Participants.Count >= order.Quantity` считает и регистрации со статусом `Cancelled`.",
+      "why": "Находка 6 указывает, что отменённые участники занимают места заказа и замену вписать нельзя."
+    },
+    "V3-orgadmin-passport": {
+      "verdict": "FOUND",
+      "quote": "отдаётся и роли `Organizer` (весь оргкомитет), и `OrgAdmin` (администратор организации видит паспорта сотрудников)",
+      "why": "Находка 7 связывает выдачу OrgAdmin с паспортными полями ParticipantDto."
+    },
+    "V3-vat-on-top": {
+      "verdict": "FOUND",
+      "quote": "НДС надо выделять из суммы, а не добавлять к ней: `vat = amount * 20 / 120`, итог `= amount`",
+      "why": "Находка 1 указывает, что НДС начисляется сверху на цену, которая его уже содержит."
+    },
+    "V3-invoice-before-idempotency": {
+      "verdict": "FOUND",
+      "quote": "повтор с тем же `Idempotency-Key` создаёт в 1С второй счёт",
+      "why": "Находка 2 связывает выставление внешнего счёта до фиксации ключа с повтором запроса и лишним счётом в 1С."
+    },
+    "V3-promo-notracking": {
+      "verdict": "PASS",
+      "quote": "`FindPromoAsync` загружает промокод с `AsNoTracking()`, поэтому `promo.UsedCount++` меняет неотслеживаемый объект и `SaveChangesAsync` его не сохраняет.",
+      "why": "Механизм назван, исправление через атомарный ExecuteUpdate с условием UsedCount < UsageLimit предложено."
+    },
+    "V3-unspecified-timestamptz": {
+      "verdict": "PASS",
+      "quote": "Npgsql бросает `Cannot write DateTime with Kind=Unspecified to PostgreSQL type 'timestamp with time zone'`, поэтому отчёт падает на каждом вызове",
+      "why": "Названы Kind=Unspecified и колонка timestamptz, исправление с переводом границ в UTC учитывает часовой пояс."
+    },
+    "V3-h-partial-unique-index": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Частичный уникальный индекс в выходе не оспаривается."
+    },
+    "V3-h-unique-violation-catch": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Перехват UniqueViolation в RegisterAsync не объявлен дефектом, и замена на AnyAsync не предлагается."
+    }
+  },
+  "stderr": ""
+}

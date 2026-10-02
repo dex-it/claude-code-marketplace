@@ -1,0 +1,97 @@
+{
+  "id": "434c93",
+  "case": "V3",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.153431,
+    "durationMs": 13935,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 15067,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1623,
+      "output_tokens_details": {
+        "thinking_tokens": 280
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 15067,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1623,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 15067,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 15067
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "V3-promo-on-early-price": {
+      "verdict": "FOUND",
+      "quote": "в контракте `PromoCode` сказано: «скидка считается от полной цены билета, с ранним тарифом промокод не суммируется». В период early bird участник получает обе скидки",
+      "why": "Находка 4 связывает правило из PromoCode с расчётом скидки от ранней цены в BasePrice и называет потерю выручки."
+    },
+    "V3-capacity-group-seats": {
+      "verdict": "FOUND",
+      "quote": "У группового заказа сразу после создания участников нет (`Participants` пустой), поэтому его `Quantity` в расчёт не попадает.",
+      "why": "Находка 1 прямо называет, что невписанные места групповых заказов не учитываются во вместимости, и площадка продаётся сверх 600 мест."
+    },
+    "V3-group-seat-reuse": {
+      "verdict": "FOUND",
+      "quote": "`order.Participants.Count >= order.Quantity` учитывает все регистрации заказа, в том числе со статусом `Cancelled`.",
+      "why": "Находка 7 указывает, что отменённые участники продолжают занимать место, и замена получает 409."
+    },
+    "V3-orgadmin-passport": {
+      "verdict": "FOUND",
+      "quote": "в проекцию входят `PassportNumber` и `PassportCountry`. Эндпоинт доступен ролям `Organizer` и `OrgAdmin`.",
+      "why": "Находка 10 связывает выдачу данных OrgAdmin с паспортными полями DTO в нарушение правила MR о визовой группе."
+    },
+    "V3-vat-on-top": {
+      "verdict": "FOUND",
+      "quote": "`vat = amount * 20 / 100`, `Total = amount + vat`. По контракту (`TicketType.PriceKopecks`) «все цены на сайте указаны с НДС»",
+      "why": "Находка 2 указывает, что НДС начисляется сверху на цену с НДС, и предлагает выделять его из суммы."
+    },
+    "V3-invoice-before-idempotency": {
+      "verdict": "FOUND",
+      "quote": "Повтор не находит заказ, потому что первый ещё не закоммичен. Затем он ждёт на `FOR UPDATE`... снова вызывает `_billing.CreateInvoiceAsync`",
+      "why": "Находка 5 связывает выставление внешнего счёта до фиксации ключа с повтором запроса и созданием лишнего счёта в 1С."
+    },
+    "V3-promo-notracking": {
+      "verdict": "PASS",
+      "quote": "`FindPromoAsync` загружает промокод через `AsNoTracking()`, затем выполняется `promo.UsedCount++`. Сущность не отслеживается, поэтому `SaveChanges` это изменение не запишет.",
+      "why": "Механизм назван точно, последствие для UsageLimit указано, предложен атомарный ExecuteUpdate с условием."
+    },
+    "V3-unspecified-timestamptz": {
+      "verdict": "PASS",
+      "quote": "`from.ToDateTime(TimeOnly.MinValue)` возвращает `DateTime` с `Kind=Unspecified`. `Registration.CreatedAt` замаплен по умолчанию, то есть в Npgsql 6+ это `timestamptz`.",
+      "why": "Названы падение Npgsql на Kind=Unspecified и перевод границ в UTC с осознанным выбором московского часового пояса."
+    },
+    "V3-h-partial-unique-index": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Фильтрованный уникальный индекс выход не критикует: в находке 12 он упомянут только как механизм, который должна создать миграция."
+    },
+    "V3-h-unique-violation-catch": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Перехват UniqueViolation в RegisterAsync выход не называет дефектом и не предлагает заменить его на check-then-insert."
+    }
+  },
+  "stderr": ""
+}

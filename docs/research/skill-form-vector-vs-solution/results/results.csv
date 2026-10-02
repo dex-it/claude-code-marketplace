@@ -5146,3 +5146,583 @@ ea9614,E7,GR,F6,sonnet,high,none,path,GR-h-plate-fromsql,harm,fromsql-alias,,,no
 94214e,E7,G6,F6,sonnet,high,none,path,G6-plan-orphans,unit,required-orphans,,,pass,judge,_db.PlanItems.Remove(obsolete);
 94214e,E7,G6,F6,sonnet,high,none,path,G6-h-move-items,harm,required-orphans,,,no,judge,нет
 94214e,E7,G6,F6,sonnet,high,none,path,G6-h-limit,harm,fromsql-alias,,,no,judge,нет
+5ae8e7,KV2,V2,F0,opus,medium,none,path,V2-coi-organization,coverage,,,,found,judge,"Заявки организации эксперта (`OrganizationInn`, п. 4.3 положения) не ловятся, хотя MR обещает автоматическую проверку."
+5ae8e7,KV2,V2,F0,opus,medium,none,path,V2-reassign-draft-carryover,coverage,,,,found,judge,Черновики передаются новому эксперту вместе с баллами и комментарием прежнего.
+5ae8e7,KV2,V2,F0,opus,medium,none,path,V2-ranking-expert-access,coverage,,,,found,judge,"Роль Expert добавили в `[Authorize]` всего контроллера, а не только метода `Get`. Поэтому эксперты теперь видят рейтинг и CSV"
+5ae8e7,KV2,V2,F0,opus,medium,none,path,V2-tiebreak-created,coverage,,,,found,judge,"При равном балле сортировка идёт по `CreatedAt` (когда создан черновик), а по положению нужен `SubmittedAt`"
+5ae8e7,KV2,V2,F0,opus,medium,none,path,V2-csv-culture,coverage,,,,found,judge,"В культуре ru-RU числа выводятся с запятой (`85,33`), а запятая — разделитель полей CSV."
+5ae8e7,KV2,V2,F0,opus,medium,none,path,V2-deadline-last-day,coverage,,,,found,judge,"Приём оценок закрывается в 00:00 UTC в начале дня дедлайна, то есть на сутки раньше обещанного"
+5ae8e7,KV2,V2,F0,opus,medium,none,path,V2-parallel-dbcontext,unit,dbcontext-concurrency,,,pass,judge,"Два запроса идут одновременно (`Task.WhenAll`) через один DbContext, а EF Core это запрещает и бросает `InvalidOperationException`."
+5ae8e7,KV2,V2,F0,opus,medium,none,path,V2-string-equals-comparison,unit,query-translation,,,pass,judge,"EF Core не умеет перевести в SQL сравнение `string.Equals(..., StringComparison.OrdinalIgnoreCase)`."
+5ae8e7,KV2,V2,F0,opus,medium,none,path,V2-h-collection-replace-orphans,harm,orphan-deletion,,,no,judge,нет
+5ae8e7,KV2,V2,F0,opus,medium,none,path,V2-h-filtered-include,harm,filtered-include,,,no,judge,нет
+5ae8e7,KV2,V2,F0,opus,medium,none,path,V2-h-executeupdate-in-transaction,harm,bulk-update,,,no,judge,нет
+5542e0,KV2,V4,F0,opus,medium,none,path,V4-container-count,coverage,,,,found,judge,"`var net = gross - container.TareKg;` вычитает массу только одной единицы тары, хотя `ContainerCount` принимается и сохраняется"
+5542e0,KV2,V4,F0,opus,medium,none,path,V4-honeytype-moisture,coverage,,,,found,judge,Значения `HoneyType.MaxMoistureGradeA/B` не используются: вид мёда только проверяется на существование через `AnyAsync`
+5542e0,KV2,V4,F0,opus,medium,none,path,V4-correction-after-payout,coverage,,,,found,judge,`CorrectAsync` не проверяет `batch.Status` и `batch.PayoutId`
+5542e0,KV2,V4,F0,opus,medium,none,path,V4-delete-draft-advance,coverage,,,,found,judge,"`DeleteDraftAsync` удаляет черновик, но `AdvanceWithheld` обратно не добавляет"
+5542e0,KV2,V4,F0,opus,medium,none,path,V4-adjust-four-eyes,coverage,,,,found,judge,"`AdjustAsync` не записывает, кто изменил черновик. `ApproveAsync` сравнивает утверждающего только с `CreatedBy`"
+5542e0,KV2,V4,F0,opus,medium,none,path,V4-registry-upload-swallowed,coverage,,,,found,judge,"Если отправка падает, `BankGatewayException` только пишется в лог, а метод всё равно возвращает `RegistryDto`, и контроллер отвечает 200 OK"
+5542e0,KV2,V4,F0,opus,medium,none,path,V4-temp-key-fk,unit,generated-keys,,,pass,judge,временное значение EF Core хранит у себя и в объект не записывает
+5542e0,KV2,V4,F0,opus,medium,none,path,V4-h-decimal-numeric,harm,provider-type-mapping,,,no,judge,нет
+5542e0,KV2,V4,F0,opus,medium,none,path,V4-h-executeupdate-in-transaction,harm,bulk-update,,,no,judge,`ExecuteUpdate` ставит партиям `BatchStatus.Paid` в момент утверждения
+1cecb1,KV2,V3,F0,opus,medium,none,path,V3-promo-on-early-price,coverage,,,,found,judge,"В `PromoCode` записано: «скидка считается от полной цены билета, с ранним тарифом промокод не суммируется». А `Quote` применяет скидку к `BasePrice(ticket, today)`"
+1cecb1,KV2,V3,F0,opus,medium,none,path,V3-capacity-group-seats,coverage,,,,found,judge,"`GroupOrder.Quantity` в расчёт не входит, а участников в заказ вписывают позже"
+1cecb1,KV2,V3,F0,opus,medium,none,path,V3-group-seat-reuse,coverage,,,,found,judge,Проверка `order.Participants.Count >= order.Quantity` учитывает и отменённые регистрации.
+1cecb1,KV2,V3,F0,opus,medium,none,path,V3-orgadmin-passport,coverage,,,,found,judge,"администратор организации видит паспорта сотрудников (в том числе тех, кто регистрировался сам и только указан в `org_id`)"
+1cecb1,KV2,V3,F0,opus,medium,none,path,V3-vat-on-top,coverage,,,,found,judge,НДС нужно выделять из суммы: `vat = amount * 20 / 120`
+1cecb1,KV2,V3,F0,opus,medium,none,path,V3-invoice-before-idempotency,coverage,,,,found,judge,"Он снова вызывает `_billing.CreateInvoiceAsync`, и в 1С появляется второй счёт."
+1cecb1,KV2,V3,F0,opus,medium,none,path,V3-promo-notracking,unit,change-tracking,,,pass,judge,`FindPromoAsync` загружает промокод через `AsNoTracking()`. Поэтому `promo.UsedCount++` меняет не отслеживаемый объект
+1cecb1,KV2,V3,F0,opus,medium,none,path,V3-unspecified-timestamptz,unit,npgsql-datetime,,,pass,judge,`from.ToDateTime(TimeOnly.MinValue)` даёт `DateTime` с `Kind=Unspecified`
+1cecb1,KV2,V3,F0,opus,medium,none,path,V3-h-partial-unique-index,harm,index-filter,,,no,judge,нет
+1cecb1,KV2,V3,F0,opus,medium,none,path,V3-h-unique-violation-catch,harm,unique-constraint-handling,,,no,judge,нет
+c5c4da,KV2,V4,F0,opus,medium,none,path,V4-container-count,coverage,,,,found,judge,"`net = gross - container.TareKg` вычитает массу одной фляги, хотя `ContainerCount` принимается и сохраняется"
+c5c4da,KV2,V4,F0,opus,medium,none,path,V4-honeytype-moisture,coverage,,,,found,judge,"Используются константы 18,5 % и 20 %, а `HoneyType.MaxMoistureGradeA/B` (у каждого вида своя норма, например у верескового) не читаются"
+c5c4da,KV2,V4,F0,opus,medium,none,path,V4-correction-after-payout,coverage,,,,found,judge,"`CorrectAsync`: можно исправить партию, которая уже в выплате или оплачена"
+c5c4da,KV2,V4,F0,opus,medium,none,path,V4-delete-draft-advance,coverage,,,,found,judge,"`DeleteDraftAsync` удаляет выплату, но баланс аванса не восстанавливает"
+c5c4da,KV2,V4,F0,opus,medium,none,path,V4-adjust-four-eyes,coverage,,,,found,judge,Бухгалтер Б может сам начислить премию в черновике бухгалтера А и сам же его утвердить
+c5c4da,KV2,V4,F0,opus,medium,none,path,V4-registry-upload-swallowed,coverage,,,,found,judge,"Если загрузка падает, `BankGatewayException` только логируется, а метод возвращает 200 с `RegistryDto`, будто реестр ушёл"
+c5c4da,KV2,V4,F0,opus,medium,none,path,V4-temp-key-fk,unit,generated-keys,,,pass,judge,До `SaveChangesAsync` значение `entry.Id` равно 0: начиная с EF Core 3 временные ключи не записываются в свойство сущности
+c5c4da,KV2,V4,F0,opus,medium,none,path,V4-h-decimal-numeric,harm,provider-type-mapping,,,no,judge,нет
+c5c4da,KV2,V4,F0,opus,medium,none,path,V4-h-executeupdate-in-transaction,harm,bulk-update,,,no,judge,нет
+9c1bad,KV2,V2,F0,opus,medium,none,path,V2-coi-organization,coverage,,,,found,judge,Сравнения `a.OrganizationInn == expert.OrganizationInn` нет.
+9c1bad,KV2,V2,F0,opus,medium,none,path,V2-reassign-draft-carryover,coverage,,,,found,judge,"Назначения в статусе `Draft` передаются новому эксперту вместе с черновиком прежнего: `Scores`, `Comment` и `Total` не сбрасываются."
+9c1bad,KV2,V2,F0,opus,medium,none,path,V2-ranking-expert-access,coverage,,,,found,judge,Вместе с карточкой конкурса экспертам открылись `GET {id}/ranking` и `GET {id}/ranking.csv`.
+9c1bad,KV2,V2,F0,opus,medium,none,path,V2-tiebreak-created,coverage,,,,found,judge,"При равном балле заявки сортируются `ThenBy(x => x.CreatedAt)`, то есть по времени создания черновика"
+9c1bad,KV2,V2,F0,opus,medium,none,path,V2-csv-culture,coverage,,,,found,judge,"`UseRequestLocalization` с единственной культурой `ru-RU` делает её культурой каждого запроса. Получаются `85,33` и `150000,00`"
+9c1bad,KV2,V2,F0,opus,medium,none,path,V2-deadline-last-day,coverage,,,,found,judge,закрывает приём в 00:00 UTC **в начале** дня дедлайна
+9c1bad,KV2,V2,F0,opus,medium,none,path,V2-parallel-dbcontext,unit,dbcontext-concurrency,,,pass,judge,`ToListAsync` и `CountAsync` запускаются параллельно (`Task.WhenAll`) на одном и том же scoped-экземпляре `GrantsDbContext`
+9c1bad,KV2,V2,F0,opus,medium,none,path,V2-string-equals-comparison,unit,query-translation,,,pass,judge,перегрузку `string.Equals` со `StringComparison` провайдер не поддерживает
+9c1bad,KV2,V2,F0,opus,medium,none,path,V2-h-collection-replace-orphans,harm,orphan-deletion,,,no,judge,нет
+9c1bad,KV2,V2,F0,opus,medium,none,path,V2-h-filtered-include,harm,filtered-include,,,no,judge,нет
+9c1bad,KV2,V2,F0,opus,medium,none,path,V2-h-executeupdate-in-transaction,harm,bulk-update,,,no,judge,нет
+283e05,KV2,V3,F0,opus,medium,none,path,V3-promo-on-early-price,coverage,,,,found,judge,Промокод считается от ранней цены и суммируется с ранним тарифом.
+283e05,KV2,V3,F0,opus,medium,none,path,V3-capacity-group-seats,coverage,,,,found,judge,Места под групповые заказы не резервируются.
+283e05,KV2,V3,F0,opus,medium,none,path,V3-group-seat-reuse,coverage,,,,found,judge,Проверка `order.Participants.Count >= order.Quantity` учитывает и `Cancelled` регистрации.
+283e05,KV2,V3,F0,opus,medium,none,path,V3-orgadmin-passport,coverage,,,,found,judge,Паспортные данные видны администраторам организаций и всему оргкомитету.
+283e05,KV2,V3,F0,opus,medium,none,path,V3-vat-on-top,coverage,,,,found,judge,"НДС прибавляется сверху к цене, в которую он уже входит."
+283e05,KV2,V3,F0,opus,medium,none,path,V3-invoice-before-idempotency,coverage,,,,found,judge,Повтор с тем же `Idempotency-Key` создаёт в 1С второй счёт.
+283e05,KV2,V3,F0,opus,medium,none,path,V3-promo-notracking,unit,change-tracking,,,pass,judge,"Промокод загружен через `FindPromoAsync` с `AsNoTracking()`, поэтому `promo.UsedCount++` меняет отсоединённый объект"
+283e05,KV2,V3,F0,opus,medium,none,path,V3-unspecified-timestamptz,unit,npgsql-datetime,,,pass,judge,Npgsql 6+ не разрешает передавать `Unspecified` в параметр `timestamptz` и бросает `InvalidCastException`
+283e05,KV2,V3,F0,opus,medium,none,path,V3-h-partial-unique-index,harm,index-filter,,,no,judge,нет
+283e05,KV2,V3,F0,opus,medium,none,path,V3-h-unique-violation-catch,harm,unique-constraint-handling,,,no,judge,нет
+50cf29,KV2,V1,F0,opus,medium,none,path,V1-hold-late-payment,coverage,,,,found,judge,"Место удерживается 30 минут (`BookingQueries.DepositHold`), а ссылка PayGate по контракту `IPaymentGateway` действует 24 часа."
+50cf29,KV2,V1,F0,opus,medium,none,path,V1-kopecks-cast,coverage,,,,found,judge,"`(long)rubles * 100` сначала приводит сумму к `long`, то есть отбрасывает дробную часть, и только потом умножает."
+50cf29,KV2,V1,F0,opus,medium,none,path,V1-extend-long-stay,coverage,,,,found,judge,"Пересчитывать надо всю стоянку: `Calculate(berth, vessel, booking.Arrival, newDeparture).Total`."
+50cf29,KV2,V1,F0,opus,medium,none,path,V1-beam-not-checked,coverage,,,,found,judge,`vessel.BeamM` с `berth.MaxBeamM` не сравнивается.
+50cf29,KV2,V1,F0,opus,medium,none,path,V1-calendar-vessel-pii,coverage,,,,found,judge,"Метод `[AllowAnonymous]` возвращает `VesselDto.From(b.Vessel)`, то есть полную карточку из реестра диспетчерской: имя и телефон шкипера"
+50cf29,KV2,V1,F0,opus,medium,none,path,V1-tariff-singleton-state,coverage,,,,found,judge,"`TariffCalculator` зарегистрирован как `AddSingleton`, а `_nights` — общий список на все запросы."
+50cf29,KV2,V1,F0,opus,medium,none,path,V1-seasonal-rates-not-loaded,unit,related-data-loading,,,pass,judge,`LockBerthAsync` загружает `Berth` через `FromSql(... FOR UPDATE)` без `Include(b => b.SeasonalRates)`.
+50cf29,KV2,V1,F0,opus,medium,none,path,V1-h-fromsql-interpolated,harm,raw-sql-parameters,,,no,judge,нет
+50cf29,KV2,V1,F0,opus,medium,none,path,V1-h-xmin-timestamp,harm,concurrency-token,,,no,judge,`xmin` приведёт к `DbUpdateConcurrencyException`
+50cf29,KV2,V1,F0,opus,medium,none,path,V1-h-dateonly-mapping,harm,provider-type-mapping,,,no,judge,нет
+d2c083,KV2,V1,F0,opus,medium,none,path,V1-hold-late-payment,coverage,,,,found,judge,"неоплаченная бронь держит место 30 минут, а ссылка PayGate действует 24 часа"
+d2c083,KV2,V1,F0,opus,medium,none,path,V1-kopecks-cast,coverage,,,,found,judge,"`(long)rubles * 100` сначала приводит к `long`, то есть отрезает дробную часть"
+d2c083,KV2,V1,F0,opus,medium,none,path,V1-extend-long-stay,coverage,,,,found,judge,"Если 2 ночи продлить на 5, получается 7 ночей, но без скидки"
+d2c083,KV2,V1,F0,opus,medium,none,path,V1-beam-not-checked,coverage,,,,found,judge,`vessel.BeamM` с `berth.MaxBeamM` (ширина между пальцами понтона) не сравнивается
+d2c083,KV2,V1,F0,opus,medium,none,path,V1-calendar-vessel-pii,coverage,,,,found,judge,публичный (`[AllowAnonymous]`) календарь отдаёт полный `VesselDto` из реестра диспетчерской: имя и телефон шкипера
+d2c083,KV2,V1,F0,opus,medium,none,path,V1-tariff-singleton-state,coverage,,,,found,judge,`TariffCalculator` зарегистрирован как `AddSingleton`. При этом каждый вызов `Calculate` очищает и заполняет общее поле `_nights`
+d2c083,KV2,V1,F0,opus,medium,none,path,V1-seasonal-rates-not-loaded,unit,related-data-loading,,,pass,judge,"место загружается через `FromSql(... FOR UPDATE)` без `Include(b => b.SeasonalRates)`, lazy loading не настроен"
+d2c083,KV2,V1,F0,opus,medium,none,path,V1-h-fromsql-interpolated,harm,raw-sql-parameters,,,no,judge,нет
+d2c083,KV2,V1,F0,opus,medium,none,path,V1-h-xmin-timestamp,harm,concurrency-token,,,no,judge,"optimistic concurrency через `xmin` включена, но исключение не перехватывается"
+d2c083,KV2,V1,F0,opus,medium,none,path,V1-h-dateonly-mapping,harm,provider-type-mapping,,,no,judge,нет
+6c31de,T8,V3,F4b2,opus,medium,none,path,V3-promo-on-early-price,coverage,,,,found,judge,"`Quote` же берёт `BasePrice(ticket, today)`, то есть в период раннего тарифа это `EarlyPriceKopecks`, и вычитает скидку из неё."
+6c31de,T8,V3,F4b2,opus,medium,none,path,V3-capacity-group-seats,coverage,,,,found,judge,"`FreeSeatsAsync` считает только неотменённые `Registrations`, а у нового `GroupOrder` регистраций ещё нет."
+6c31de,T8,V3,F4b2,opus,medium,none,path,V3-group-seat-reuse,coverage,,,,found,judge,"`order.Participants.Count >= order.Quantity` считает всех участников, включая отменённых"
+6c31de,T8,V3,F4b2,opus,medium,none,path,V3-orgadmin-passport,coverage,,,,found,judge,`ParticipantDto` с `PassportNumber` и `PassportCountry` получает любой `Organizer` и любой `OrgAdmin`
+6c31de,T8,V3,F4b2,opus,medium,none,path,V3-vat-on-top,coverage,,,,found,judge,"НДС начисляется сверху на цену, которая уже включает НДС"
+6c31de,T8,V3,F4b2,opus,medium,none,path,V3-invoice-before-idempotency,coverage,,,,found,judge,"Повторный запрос не находит ключ, ждёт снятия блокировки, ещё раз проверяет места и снова вызывает 1С, а значит создаёт второй счёт."
+6c31de,T8,V3,F4b2,opus,medium,none,path,V3-promo-notracking,unit,change-tracking,,,pass,judge,"`FindPromoAsync` читает промокод через `AsNoTracking()`, поэтому `promo.UsedCount++` меняет объект, которого нет в change tracker"
+6c31de,T8,V3,F4b2,opus,medium,none,path,V3-unspecified-timestamptz,unit,npgsql-datetime,,,pass,judge,`from.ToDateTime(TimeOnly.MinValue)` возвращает `DateTime` с `Kind=Unspecified`.
+6c31de,T8,V3,F4b2,opus,medium,none,path,V3-h-partial-unique-index,harm,index-filter,,,no,judge,нет
+6c31de,T8,V3,F4b2,opus,medium,none,path,V3-h-unique-violation-catch,harm,unique-constraint-handling,,,no,judge,нет
+e6067c,T8,V1,F4b2,opus,medium,none,path,V1-hold-late-payment,coverage,,,,found,judge,"Неоплаченная бронь держит место 30 минут, а ссылка на оплату действует 24 часа."
+e6067c,T8,V1,F4b2,opus,medium,none,path,V1-kopecks-cast,coverage,,,,found,judge,"`(long)rubles * 100` сначала обрезает рубли до целого, потом умножает"
+e6067c,T8,V1,F4b2,opus,medium,none,path,V1-extend-long-stay,coverage,,,,found,judge,Сценарий из MR «2 ночи плюс 5 ночей продления» скидку 10 % не получит: ни один кусок не дотягивает до 7 ночей.
+e6067c,T8,V1,F4b2,opus,medium,none,path,V1-beam-not-checked,coverage,,,,found,judge,Сравнивается только длина. Поле `MaxBeamM` (ширина места между пальцами понтона) нигде не используется
+e6067c,T8,V1,F4b2,opus,medium,none,path,V1-calendar-vessel-pii,coverage,,,,found,judge,"Метод доступен без авторизации и отдаёт карточку судна из реестра диспетчерской целиком: имя и телефон шкипера, бортовой номер, номер страхового полиса."
+e6067c,T8,V1,F4b2,opus,medium,none,path,V1-tariff-singleton-state,coverage,,,,found,judge,"Список `_nights` общий для всех запросов, а `List<T>` не потокобезопасен."
+e6067c,T8,V1,F4b2,opus,medium,none,path,V1-seasonal-rates-not-loaded,unit,related-data-loading,,,pass,judge,"Место загружается через `LockBerthAsync` без `Include(SeasonalRates)`, а lazy loading не подключён."
+e6067c,T8,V1,F4b2,opus,medium,none,path,V1-h-fromsql-interpolated,harm,raw-sql-parameters,,,no,judge,`FromSql` параметризован;
+e6067c,T8,V1,F4b2,opus,medium,none,path,V1-h-xmin-timestamp,harm,concurrency-token,,,no,judge,нет
+e6067c,T8,V1,F4b2,opus,medium,none,path,V1-h-dateonly-mapping,harm,provider-type-mapping,,,no,judge,нет
+1bae0c,E8,V3,F0,opus,medium,none,path,V3-promo-on-early-price,coverage,,,,found,judge,"Скидка считается от `BasePrice`, то есть от ранней цены, если ранний тариф ещё действует"
+1bae0c,E8,V3,F0,opus,medium,none,path,V3-capacity-group-seats,coverage,,,,found,judge,Занятые места считаются только по `Registrations`. Создание `GroupOrder` регистраций не создаёт
+1bae0c,E8,V3,F0,opus,medium,none,path,V3-group-seat-reuse,coverage,,,,found,judge,Проверка `order.Participants.Count >= order.Quantity` учитывает и регистрации со статусом `Cancelled`.
+1bae0c,E8,V3,F0,opus,medium,none,path,V3-orgadmin-passport,coverage,,,,found,judge,В список участников попадают `PassportNumber` и `PassportCountry`. Этот эндпоинт доступен ролям `OrgAdmin`
+1bae0c,E8,V3,F0,opus,medium,none,path,V3-vat-on-top,coverage,,,,found,judge,"НДС начисляется сверху на цену, которая уже включает НДС"
+1bae0c,E8,V3,F0,opus,medium,none,path,V3-invoice-before-idempotency,coverage,,,,found,judge,"Счёт в 1С (`_billing.CreateInvoiceAsync`) выставляется **до** того, как в базу попадает запись с ключом"
+1bae0c,E8,V3,F0,opus,medium,none,path,V3-promo-notracking,unit,change-tracking,,,pass,judge,"`promo.UsedCount++` меняет объект, который контекст не отслеживает, и `SaveChangesAsync` его не сохраняет"
+1bae0c,E8,V3,F0,opus,medium,none,path,V3-unspecified-timestamptz,unit,npgsql-datetime,,,pass,judge,`from.ToDateTime(TimeOnly.MinValue)` даёт `DateTime` с `Kind = Unspecified`
+1bae0c,E8,V3,F0,opus,medium,none,path,V3-h-partial-unique-index,harm,index-filter,,,no,judge,нет
+1bae0c,E8,V3,F0,opus,medium,none,path,V3-h-unique-violation-catch,harm,unique-constraint-handling,,,no,judge,нет
+ccfed1,E8,V3,F4b,opus,medium,none,path,V3-promo-on-early-price,coverage,,,,found,judge,"По договорам с партнёрами (комментарий к `PromoCode`) скидка считается от полной цены, а с ранним тарифом промокод не суммируется. Код же берёт `BasePrice` (раннюю цену в период early bird)"
+ccfed1,E8,V3,F4b,opus,medium,none,path,V3-capacity-group-seats,coverage,,,,found,judge,"`GroupOrder.Quantity` в подсчёт не входит, хотя по MR «места под заказ резервируются сразу»"
+ccfed1,E8,V3,F4b,opus,medium,none,path,V3-group-seat-reuse,coverage,,,,found,judge,`order.Participants.Count >= order.Quantity` считает и регистрации со статусом `Cancelled`
+ccfed1,E8,V3,F4b,opus,medium,none,path,V3-orgadmin-passport,coverage,,,,found,judge,Сейчас их получает любой администратор организации-клиента (по своим сотрудникам)
+ccfed1,E8,V3,F4b,opus,medium,none,path,V3-vat-on-top,coverage,,,,found,judge,"НДС начисляется сверху на цену, которая уже включает НДС"
+ccfed1,E8,V3,F4b,opus,medium,none,path,V3-invoice-before-idempotency,coverage,,,,found,judge,"Повтор проходит проверку, ждёт на `FOR UPDATE` и после коммита первого запроса снова вызывает `_billing.CreateInvoiceAsync`"
+ccfed1,E8,V3,F4b,opus,medium,none,path,V3-promo-notracking,unit,change-tracking,,,pass,judge,"`FindPromoAsync` загружает промокод с `AsNoTracking()`. `promo.UsedCount++` меняет неотслеживаемый объект, и `SaveChanges` его не пишет."
+ccfed1,E8,V3,F4b,opus,medium,none,path,V3-unspecified-timestamptz,unit,npgsql-datetime,,,pass,judge,`from.ToDateTime(TimeOnly.MinValue)` даёт `Kind=Unspecified`. При записи такого параметра для `timestamptz` Npgsql бросает исключение
+ccfed1,E8,V3,F4b,opus,medium,none,path,V3-h-partial-unique-index,harm,index-filter,,,no,judge,"частичный уникальный индекс `(ConferenceId, UserId) WHERE Status <> 2`"
+ccfed1,E8,V3,F4b,opus,medium,none,path,V3-h-unique-violation-catch,harm,unique-constraint-handling,,,no,judge,нет
+18bc70,E8,V4,F4b,opus,medium,none,path,V4-container-count,coverage,,,,found,judge,"тара вычитается за одну единицу, а не за `ContainerCount`"
+18bc70,E8,V4,F4b,opus,medium,none,path,V4-honeytype-moisture,coverage,,,,found,judge,Нормы из `HoneyType.MaxMoistureGradeA/B` не используются
+18bc70,E8,V4,F4b,opus,medium,none,path,V4-correction-after-payout,coverage,,,,found,judge,"исправление разрешено для партий, которые уже в выплате или оплачены"
+18bc70,E8,V4,F4b,opus,medium,none,path,V4-delete-draft-advance,coverage,,,,found,judge,при удалении черновика не возвращается удержанный аванс
+18bc70,E8,V4,F4b,opus,medium,none,path,V4-adjust-four-eyes,coverage,,,,found,judge,Проверяется только `CreatedBy`. Бухгалтер может сам начислить премию в чужом черновике и сам же его утвердить.
+18bc70,E8,V4,F4b,opus,medium,none,path,V4-registry-upload-swallowed,coverage,,,,found,judge,"`BankGatewayException` только пишется в лог, а контроллер отвечает `200 OK`"
+18bc70,E8,V4,F4b,opus,medium,none,path,V4-temp-key-fk,unit,generated-keys,,,pass,judge,"в журнал пишется `PriceListEntryId = entry.Id`, который до `SaveChanges` равен 0"
+18bc70,E8,V4,F4b,opus,medium,none,path,V4-h-decimal-numeric,harm,provider-type-mapping,,,no,judge,нет
+18bc70,E8,V4,F4b,opus,medium,none,path,V4-h-executeupdate-in-transaction,harm,bulk-update,,,no,judge,"`ApproveAsync` открывает транзакцию, но в Read Committed без `FOR UPDATE` она ничего не блокирует"
+61e340,E8,V1,F4b,opus,medium,none,path,V1-hold-late-payment,coverage,,,,found,judge,"Неоплаченная бронь держит место 30 минут (`BookingQueries.DepositHold`), а ссылка PayGate живёт 24 часа"
+61e340,E8,V1,F4b,opus,medium,none,path,V1-kopecks-cast,coverage,,,,found,judge,"`(long)rubles * 100` сначала приводит рубли к `long`, а потом умножает на 100, поэтому дробная часть теряется"
+61e340,E8,V1,F4b,opus,medium,none,path,V1-extend-long-stay,coverage,,,,found,judge,"Скидка 10 % считается от числа ночей именно в этом куске, поэтому «выходные + 5 дней» (всего 7 ночей) её не получают"
+61e340,E8,V1,F4b,opus,medium,none,path,V1-beam-not-checked,coverage,,,,found,judge,а `vessel.BeamM` с `berth.MaxBeamM` (ширина между пальцами понтона) не сравнивается
+61e340,E8,V1,F4b,opus,medium,none,path,V1-calendar-vessel-pii,coverage,,,,found,judge,Анонимный (`[AllowAnonymous]`) метод отдаёт для каждой брони полный `VesselDto`
+61e340,E8,V1,F4b,opus,medium,none,path,V1-tariff-singleton-state,coverage,,,,found,judge,"`TariffCalculator` зарегистрирован через `AddSingleton`, а `Calculate` пишет в поле `_nights`"
+61e340,E8,V1,F4b,opus,medium,none,path,V1-seasonal-rates-not-loaded,unit,related-data-loading,,,pass,judge,Место берётся через `LockBerthAsync` (`FromSql ... FOR UPDATE`) без `Include(b => b.SeasonalRates)`. Ленивой загрузки нет
+61e340,E8,V1,F4b,opus,medium,none,path,V1-h-fromsql-interpolated,harm,raw-sql-parameters,,,no,judge,нет
+61e340,E8,V1,F4b,opus,medium,none,path,V1-h-xmin-timestamp,harm,concurrency-token,,,no,judge,"Concurrency token через `xmin` настроен, но конфликт нигде не перехватывается"
+61e340,E8,V1,F4b,opus,medium,none,path,V1-h-dateonly-mapping,harm,provider-type-mapping,,,no,judge,нет
+152712,E8,V3,F0,opus,medium,none,path,V3-promo-on-early-price,coverage,,,,found,judge,"Комментарий к `PromoCode` (условия договоров с партнёрами) требует, чтобы скидка считалась от полной цены (`PriceKopecks`) и не складывалась с ранним тарифом"
+152712,E8,V3,F0,opus,medium,none,path,V3-capacity-group-seats,coverage,,,,found,judge,"Выкупленные групповым заказом места (`GroupOrder.Quantity`) в расчёт не попадают, пока в них никого не вписали"
+152712,E8,V3,F0,opus,medium,none,path,V3-group-seat-reuse,coverage,,,,found,judge,`order.Participants.Count >= order.Quantity` считает и отменённые регистрации (`Status == Cancelled`)
+152712,E8,V3,F0,opus,medium,none,path,V3-orgadmin-passport,coverage,,,,found,judge,`PassportNumber` и `PassportCountry` возвращаются всем с ролью `Organizer` и любому `OrgAdmin` для его сотрудников
+152712,E8,V3,F0,opus,medium,none,path,V3-vat-on-top,coverage,,,,found,judge,"В `TicketType.PriceKopecks` указано, что все цены уже с НДС. При этом `vat = amount * 20 / 100` и `Total = amount + vat`"
+152712,E8,V3,F0,opus,medium,none,path,V3-invoice-before-idempotency,coverage,,,,found,judge,Повтор не находит ключ (запись ещё не закоммичена) и ждёт ту же блокировку
+152712,E8,V3,F0,opus,medium,none,path,V3-promo-notracking,unit,change-tracking,,,pass,judge,"`FindPromoAsync` загружает промокод через `AsNoTracking()`, поэтому `promo.UsedCount++` меняет неотслеживаемый объект"
+152712,E8,V3,F0,opus,medium,none,path,V3-unspecified-timestamptz,unit,npgsql-datetime,,,pass,judge,`from.ToDateTime(TimeOnly.MinValue)` даёт `DateTime` с `Kind=Unspecified`... Npgsql бросает исключение
+152712,E8,V3,F0,opus,medium,none,path,V3-h-partial-unique-index,harm,index-filter,,,no,judge,NULL в PostgreSQL не конфликтуют
+152712,E8,V3,F0,opus,medium,none,path,V3-h-unique-violation-catch,harm,unique-constraint-handling,,,no,judge,нет
+751535,E8,V1,F4b,opus,medium,none,path,V1-hold-late-payment,coverage,,,,found,judge,"Ссылка PayGate действует 24 часа, а удержание брони только 30 минут."
+751535,E8,V1,F4b,opus,medium,none,path,V1-kopecks-cast,coverage,,,,found,judge,"`(long)rubles * 100` сначала приводит к `long` и отбрасывает дробную часть, а потом умножает."
+751535,E8,V1,F4b,opus,medium,none,path,V1-extend-long-stay,coverage,,,,found,judge,"Пример: 2 ночи + продление на 5 = 7 ночей, но скидки нет ни на одном из отрезков."
+751535,E8,V1,F4b,opus,medium,none,path,V1-beam-not-checked,coverage,,,,found,judge,"Проверяется только `vessel.LengthM > berth.MaxLengthM`, а `BeamM` против `MaxBeamM` не сравнивается."
+751535,E8,V1,F4b,opus,medium,none,path,V1-calendar-vessel-pii,coverage,,,,found,judge,Публичный (`[AllowAnonymous]`) метод для каждого слота отдаёт `VesselDto.From(b.Vessel)`
+751535,E8,V1,F4b,opus,medium,none,path,V1-tariff-singleton-state,coverage,,,,found,judge,"`TariffCalculator` зарегистрирован через `AddSingleton`, а `Calculate` пишет в общее поле `_nights`"
+751535,E8,V1,F4b,opus,medium,none,path,V1-seasonal-rates-not-loaded,unit,related-data-loading,,,pass,judge,`LockBerthAsync` загружает `Berth` через `FromSql` без `SeasonalRates`. Lazy loading не включён
+751535,E8,V1,F4b,opus,medium,none,path,V1-h-fromsql-interpolated,harm,raw-sql-parameters,,,no,judge,нет
+751535,E8,V1,F4b,opus,medium,none,path,V1-h-xmin-timestamp,harm,concurrency-token,,,no,judge,"Токен `xmin` на `Booking` добавлен, но устаревшее сохранение только бросает исключение"
+751535,E8,V1,F4b,opus,medium,none,path,V1-h-dateonly-mapping,harm,provider-type-mapping,,,no,judge,нет
+733454,E8,V4,F4b,opus,medium,none,path,V4-container-count,coverage,,,,found,judge,`net = gross - TareKg` не учитывает `ContainerCount`
+733454,E8,V4,F4b,opus,medium,none,path,V4-honeytype-moisture,coverage,,,,found,judge,Нормы влажности конкретного вида мёда (`HoneyType.MaxMoistureGradeA/B`) не используются
+733454,E8,V4,F4b,opus,medium,none,path,V4-correction-after-payout,coverage,,,,found,judge,"`IntakeService.CorrectAsync`: нет проверки, что партия уже в выплате или оплачена"
+733454,E8,V4,F4b,opus,medium,none,path,V4-delete-draft-advance,coverage,,,,found,judge,`PayoutService.DeleteDraftAsync`: удержанный аванс не возвращается на баланс
+733454,E8,V4,F4b,opus,medium,none,path,V4-adjust-four-eyes,coverage,,,,found,judge,Бухгалтер B может поставить премию в чужом черновике и сам его утвердить. Проверяется только совпадение с `CreatedBy`
+733454,E8,V4,F4b,opus,medium,none,path,V4-registry-upload-swallowed,coverage,,,,found,judge,"`ExportedAt` и `RegistryFile` сохраняются до загрузки на SFTP. `BankGatewayException` только пишется в лог, а клиент получает 200"
+733454,E8,V4,F4b,opus,medium,none,path,V4-temp-key-fk,unit,generated-keys,,,pass,judge,"в журнал записывается `PriceListEntryId = entry.Id`, который до `SaveChanges` равен 0"
+733454,E8,V4,F4b,opus,medium,none,path,V4-h-decimal-numeric,harm,provider-type-mapping,,,no,judge,нет
+733454,E8,V4,F4b,opus,medium,none,path,V4-h-executeupdate-in-transaction,harm,bulk-update,,,no,judge,нет
+5a2f1b,E8,V3,F4b,opus,medium,none,path,V3-promo-on-early-price,coverage,,,,found,judge,По договорам с партнёрами (комментарий к `PromoCode`) скидка считается от полной цены и с ранним тарифом не суммируется.
+5a2f1b,E8,V3,F4b,opus,medium,none,path,V3-capacity-group-seats,coverage,,,,found,judge,"Выкупленные, но ещё не заполненные места групповых заказов (`GroupOrder.Quantity`) в подсчёт не попадают."
+5a2f1b,E8,V3,F4b,opus,medium,none,path,V3-group-seat-reuse,coverage,,,,found,judge,"`order.Participants.Count >= order.Quantity` считает всех участников, включая `Cancelled`."
+5a2f1b,E8,V3,F4b,opus,medium,none,path,V3-orgadmin-passport,coverage,,,,found,judge,Проекция всегда включает `PassportNumber` и `PassportCountry`. Эндпоинт доступен ролям `OrgAdmin` и `Organizer`.
+5a2f1b,E8,V3,F4b,opus,medium,none,path,V3-vat-on-top,coverage,,,,found,judge,"НДС начисляется сверху на цену, которая уже включает НДС"
+5a2f1b,E8,V3,F4b,opus,medium,none,path,V3-invoice-before-idempotency,coverage,,,,found,judge,"Он вызывает шину ещё раз, и в 1С появляется второй счёт."
+5a2f1b,E8,V3,F4b,opus,medium,none,path,V3-promo-notracking,unit,change-tracking,,,pass,judge,"Промокод загружается с `AsNoTracking()`, поэтому `promo.UsedCount++` (стр. 97) не попадает в change tracker и `SaveChanges` его не сохраняет."
+5a2f1b,E8,V3,F4b,opus,medium,none,path,V3-unspecified-timestamptz,unit,npgsql-datetime,,,pass,judge,`DateOnly.ToDateTime(TimeOnly.MinValue)` возвращает `Kind=Unspecified`. Колонка `Registration.CreatedAt` по умолчанию имеет тип `timestamptz` (Npgsql ≥ 6).
+5a2f1b,E8,V3,F4b,opus,medium,none,path,V3-h-partial-unique-index,harm,index-filter,,,no,judge,нет
+5a2f1b,E8,V3,F4b,opus,medium,none,path,V3-h-unique-violation-catch,harm,unique-constraint-handling,,,no,judge,нет
+6a6552,E8,V2,F4b,opus,medium,none,path,V2-coi-organization,coverage,,,,found,judge,"Совпадение `OrganizationInn` не проверяется, а ручную проверку координатора MR убрал."
+6a6552,E8,V2,F4b,opus,medium,none,path,V2-reassign-draft-carryover,coverage,,,,found,judge,"вместе с назначениями в статусе `Draft` переходят `Scores`, `Comment` и `Total` выбывшего эксперта"
+6a6552,E8,V2,F4b,opus,medium,none,path,V2-ranking-expert-access,coverage,,,,found,judge,"Своего `[Authorize(Roles = Coordinator)]` у `ranking` и `ranking.csv` нет, он есть только у `CloseReview`."
+6a6552,E8,V2,F4b,opus,medium,none,path,V2-tiebreak-created,coverage,,,,found,judge,"порядок при равном балле задаёт `ThenBy(CreatedAt)`, то есть дата создания черновика"
+6a6552,E8,V2,F4b,opus,medium,none,path,V2-csv-culture,coverage,,,,found,judge,"`Score` и `RequestedAmount` форматируются культурой `ru-RU`, заданной в `Program.cs`. Получается `87,35`, и эти поля не экранируются."
+6a6552,E8,V2,F4b,opus,medium,none,path,V2-deadline-last-day,coverage,,,,found,judge,условие `utcNow < ReviewDeadline` в 00:00 UTC закрывает приём в начале дня дедлайна
+6a6552,E8,V2,F4b,opus,medium,none,path,V2-parallel-dbcontext,unit,dbcontext-concurrency,,,pass,judge,`ToListAsync` и `CountAsync` запускаются одновременно через `Task.WhenAll` на одном контексте.
+6a6552,E8,V2,F4b,opus,medium,none,path,V2-string-equals-comparison,unit,query-translation,,,pass,judge,"EF Core 8 не транслирует `string.Equals(r, StringComparison.OrdinalIgnoreCase)` в SQL."
+6a6552,E8,V2,F4b,opus,medium,none,path,V2-h-collection-replace-orphans,harm,orphan-deletion,,,no,judge,нет
+6a6552,E8,V2,F4b,opus,medium,none,path,V2-h-filtered-include,harm,filtered-include,,,no,judge,нет
+6a6552,E8,V2,F4b,opus,medium,none,path,V2-h-executeupdate-in-transaction,harm,bulk-update,,,no,judge,нет
+e815db,E8,V4,F4b2,opus,medium,none,path,V4-container-count,coverage,,,,found,judge,"тара вычитается за одну единицу, а не за `ContainerCount`"
+e815db,E8,V4,F4b2,opus,medium,none,path,V4-honeytype-moisture,coverage,,,,found,judge,"сорт считается по жёстким константам 18,5 / 20 %, а не по виду мёда"
+e815db,E8,V4,F4b2,opus,medium,none,path,V4-correction-after-payout,coverage,,,,found,judge,"можно исправить партию, которая уже в выплате, утверждена или оплачена"
+e815db,E8,V4,F4b2,opus,medium,none,path,V4-delete-draft-advance,coverage,,,,found,judge,`DeleteDraftAsync`: удержанный аванс не возвращается на баланс
+e815db,E8,V4,F4b2,opus,medium,none,path,V4-adjust-four-eyes,coverage,,,,found,judge,обход принципа четырёх глаз через корректировку
+e815db,E8,V4,F4b2,opus,medium,none,path,V4-registry-upload-swallowed,coverage,,,,found,judge,"ошибка отправки проглатывается, а выплаты уже помечены выгруженными"
+e815db,E8,V4,F4b2,opus,medium,none,path,V4-temp-key-fk,unit,generated-keys,,,pass,judge,"В EF Core 8 временное значение ключа в CLR-свойство не попадает, поэтому `Id == 0`"
+e815db,E8,V4,F4b2,opus,medium,none,path,V4-h-decimal-numeric,harm,provider-type-mapping,,,no,judge,нет
+e815db,E8,V4,F4b2,opus,medium,none,path,V4-h-executeupdate-in-transaction,harm,bulk-update,,,no,judge,нет
+93e147,E8,V3,F0,opus,medium,none,path,V3-promo-on-early-price,coverage,,,,found,judge,"`Quote` берёт `BasePrice(ticket, today)`, то есть раннюю цену, и вычитает из неё скидку."
+93e147,E8,V3,F0,opus,medium,none,path,V3-capacity-group-seats,coverage,,,,found,judge,"Метод считает только регистрации, которые не отменены. `GroupOrder.Quantity` в подсчёт не попадает."
+93e147,E8,V3,F0,opus,medium,none,path,V3-group-seat-reuse,coverage,,,,found,judge,`order.Participants.Count >= order.Quantity` учитывает и отменённых участников.
+93e147,E8,V3,F0,opus,medium,none,path,V3-orgadmin-passport,coverage,,,,found,judge,"их получают все `Organizer`, а также `OrgAdmin` для сотрудников своей организации"
+93e147,E8,V3,F0,opus,medium,none,path,V3-vat-on-top,coverage,,,,found,judge,"НДС прибавляется к цене, хотя цена уже с НДС."
+93e147,E8,V3,F0,opus,medium,none,path,V3-invoice-before-idempotency,coverage,,,,found,judge,"Уникальный индекс здесь защищает от второй записи в базе, но не от второго счёта."
+93e147,E8,V3,F0,opus,medium,none,path,V3-promo-notracking,unit,change-tracking,,,pass,judge,"`FindPromoAsync` загружает промокод через `AsNoTracking()`. Поэтому `promo.UsedCount++` меняет объект, который контекст не отслеживает"
+93e147,E8,V3,F0,opus,medium,none,path,V3-unspecified-timestamptz,unit,npgsql-datetime,,,pass,judge,`from.ToDateTime(TimeOnly.MinValue)` возвращает `DateTimeKind.Unspecified`.
+93e147,E8,V3,F0,opus,medium,none,path,V3-h-partial-unique-index,harm,index-filter,,,no,judge,нет
+93e147,E8,V3,F0,opus,medium,none,path,V3-h-unique-violation-catch,harm,unique-constraint-handling,,,no,judge,нет
+803410,E8,V2,F4b2,opus,medium,none,path,V2-coi-organization,coverage,,,,found,judge,Проверяется только `ApplicantId`. Совпадение ИНН организации эксперта по п. 4.3 положения не проверяется.
+803410,E8,V2,F4b2,opus,medium,none,path,V2-reassign-draft-carryover,coverage,,,,found,judge,"Черновики передаются новому эксперту вместе с баллами, комментарием и итогом прежнего эксперта."
+803410,E8,V2,F4b2,opus,medium,none,path,V2-ranking-expert-access,coverage,,,,found,judge,"Роль `Expert` добавили на весь контроллер, а не только на метод `Get`. Поэтому экспертам стали доступны `ranking` и `ranking.csv`."
+803410,E8,V2,F4b2,opus,medium,none,path,V2-tiebreak-created,coverage,,,,found,judge,"При равном балле сортировка идёт по `CreatedAt` (создание черновика), а по положению выше та заявка, что раньше подана, то есть `SubmittedAt`."
+803410,E8,V2,F4b2,opus,medium,none,path,V2-csv-culture,coverage,,,,found,judge,"Числа форматируются в культуре ru-RU (`87,5`) и не берутся в кавычки. В CSV запятая разделяет поля"
+803410,E8,V2,F4b2,opus,medium,none,path,V2-deadline-last-day,coverage,,,,found,judge,"Приём закрывается в 00:00 UTC в начале дня дедлайна, то есть в 03:00 МСК, а не после этого дня."
+803410,E8,V2,F4b2,opus,medium,none,path,V2-parallel-dbcontext,unit,dbcontext-concurrency,,,pass,judge,Два запроса идут параллельно через `Task.WhenAll` на одном `DbContext`. EF бросит `InvalidOperationException`
+803410,E8,V2,F4b2,opus,medium,none,path,V2-string-equals-comparison,unit,query-translation,,,pass,judge,"`string.Equals(..., StringComparison.OrdinalIgnoreCase)` EF не переводит в SQL, поэтому поиск по региону падает. Подойдёт `EF.Functions.ILike` или `citext`."
+803410,E8,V2,F4b2,opus,medium,none,path,V2-h-collection-replace-orphans,harm,orphan-deletion,,,no,judge,Автосохранение черновика может молча перезаписать уже отправленную оценку обратно в `Draft` и добавить второй набор баллов.
+803410,E8,V2,F4b2,opus,medium,none,path,V2-h-filtered-include,harm,filtered-include,,,no,judge,"Для эксперта всё равно загружаются оценки коллег, которые потом отбрасываются."
+803410,E8,V2,F4b2,opus,medium,none,path,V2-h-executeupdate-in-transaction,harm,bulk-update,,,no,judge,нет
+609a51,E8,V1,F0,opus,medium,none,path,V1-hold-late-payment,coverage,,,,found,judge,"Неоплаченная бронь держит место 30 минут, а платёжная ссылка PayGate действует 24 часа (`IPaymentGateway.CreatePaymentAsync`)"
+609a51,E8,V1,F0,opus,medium,none,path,V1-kopecks-cast,coverage,,,,found,judge,"`(long)rubles * 100` сначала приводит рубли к `long`, а потом умножает на 100. Копейки теряются"
+609a51,E8,V1,F0,opus,medium,none,path,V1-extend-long-stay,coverage,,,,found,judge,Скидка 10 % применяется только если *само продление* не короче 7 ночей
+609a51,E8,V1,F0,opus,medium,none,path,V1-beam-not-checked,coverage,,,,found,judge,"Проверяется только `vessel.LengthM > berth.MaxLengthM`, а `Berth.MaxBeamM` (ширина между пальцами понтона) игнорируется"
+609a51,E8,V1,F0,opus,medium,none,path,V1-calendar-vessel-pii,coverage,,,,found,judge,Публичный (`[AllowAnonymous]`) календарь отдаёт полный `VesselDto`
+609a51,E8,V1,F0,opus,medium,none,path,V1-tariff-singleton-state,coverage,,,,found,judge,"`TariffCalculator` зарегистрирован как `AddSingleton`, а `_nights` — общий для всех запросов `List<NightCharge>`"
+609a51,E8,V1,F0,opus,medium,none,path,V1-seasonal-rates-not-loaded,unit,related-data-loading,,,pass,judge,"`LockBerthAsync` загружает `Berth` через `FromSql(... FOR UPDATE)` без `Include(SeasonalRates)`, поэтому `berth.SeasonalRates` пуст"
+609a51,E8,V1,F0,opus,medium,none,path,V1-h-fromsql-interpolated,harm,raw-sql-parameters,,,no,judge,нет
+609a51,E8,V1,F0,opus,medium,none,path,V1-h-xmin-timestamp,harm,concurrency-token,,,no,judge,"`xmin` ловит конфликт отмены и вебхука, но исключение нигде не обрабатывается"
+609a51,E8,V1,F0,opus,medium,none,path,V1-h-dateonly-mapping,harm,provider-type-mapping,,,no,judge,нет
+8fa06a,E8,V1,F4b,opus,medium,none,path,V1-hold-late-payment,coverage,,,,found,judge,"Неоплаченная бронь держит место 30 минут, а ссылка на оплату живёт 24 часа."
+8fa06a,E8,V1,F4b,opus,medium,none,path,V1-kopecks-cast,coverage,,,,found,judge,`(long)rubles * 100` отбрасывает копейки до умножения: депозит 1234.56 ₽ уходит в PayGate как 1234.00 ₽.
+8fa06a,E8,V1,F4b,opus,medium,none,path,V1-extend-long-stay,coverage,,,,found,judge,"Скидка применяется только к добавленному отрезку, а не ко всей стоянке."
+8fa06a,E8,V1,F4b,opus,medium,none,path,V1-beam-not-checked,coverage,,,,found,judge,Ширина (`BeamM` против `MaxBeamM`) не проверяется.
+8fa06a,E8,V1,F4b,opus,medium,none,path,V1-calendar-vessel-pii,coverage,,,,found,judge,"Анонимный метод отдаёт полный `VesselDto`: бортовой номер, имя и телефон шкипера, номер страхового полиса."
+8fa06a,E8,V1,F4b,opus,medium,none,path,V1-tariff-singleton-state,coverage,,,,found,judge,"Сервис зарегистрирован как singleton, а буфер `_nights` — общее изменяемое поле для всех запросов."
+8fa06a,E8,V1,F4b,opus,medium,none,path,V1-seasonal-rates-not-loaded,unit,related-data-loading,,,pass,judge,"Место загружается через `LockBerthAsync` (`FromSql … FOR UPDATE`) без `SeasonalRates`, ленивая загрузка не настроена."
+8fa06a,E8,V1,F4b,opus,medium,none,path,V1-h-fromsql-interpolated,harm,raw-sql-parameters,,,no,judge,нет
+8fa06a,E8,V1,F4b,opus,medium,none,path,V1-h-xmin-timestamp,harm,concurrency-token,,,no,judge,"Concurrency token через `xmin` есть, но нигде нет `catch (DbUpdateConcurrencyException)`."
+8fa06a,E8,V1,F4b,opus,medium,none,path,V1-h-dateonly-mapping,harm,provider-type-mapping,,,no,judge,нет
+db8e9c,E8,V4,F4b2,opus,medium,none,path,V4-container-count,coverage,,,,found,judge,`var net = gross - container.TareKg;` — `ContainerCount` не учитывается
+db8e9c,E8,V4,F4b2,opus,medium,none,path,V4-honeytype-moisture,coverage,,,,found,judge,"в справочнике `HoneyType` есть `MaxMoistureGradeA/B`, свои для каждого вида"
+db8e9c,E8,V4,F4b2,opus,medium,none,path,V4-correction-after-payout,coverage,,,,found,judge,`CorrectAsync` никак не проверяет `Status`/`PayoutId`
+db8e9c,E8,V4,F4b2,opus,medium,none,path,V4-delete-draft-advance,coverage,,,,found,judge,"`DeleteDraftAsync` удаляет черновик и освобождает партии, но `AdvanceBalance += payout.AdvanceWithheld` не делает"
+db8e9c,E8,V4,F4b2,opus,medium,none,path,V4-adjust-four-eyes,coverage,,,,found,judge,Бухгалтер Б может начислить премию до 1 000 000 в чужом черновике и сам же его утвердить: `ApproveAsync` сравнивает только `CreatedBy`
+db8e9c,E8,V4,F4b2,opus,medium,none,path,V4-registry-upload-swallowed,coverage,,,,found,judge,"`BankGatewayException` ловится, пишется в лог, а метод возвращает `200 OK`"
+db8e9c,E8,V4,F4b2,opus,medium,none,path,V4-temp-key-fk,unit,generated-keys,,,pass,judge,"В EF Core 8 при `Add` временный ключ хранится в change tracker и в свойство сущности не пишется, поэтому `entry.Id == 0`"
+db8e9c,E8,V4,F4b2,opus,medium,none,path,V4-h-decimal-numeric,harm,provider-type-mapping,,,no,judge,нет
+db8e9c,E8,V4,F4b2,opus,medium,none,path,V4-h-executeupdate-in-transaction,harm,bulk-update,,,no,judge,нет
+d2f9fd,E8,V3,F0,opus,medium,none,path,V3-promo-on-early-price,coverage,,,,found,judge,скидка промокода считается от ранней цены и суммируется с ранним тарифом
+d2f9fd,E8,V3,F0,opus,medium,none,path,V3-capacity-group-seats,coverage,,,,found,judge,"`FreeSeatsAsync` считает только неотменённые `Registrations`. `CreateAsync` проверяет, что `free >= Quantity`, но ничего не резервирует"
+d2f9fd,E8,V3,F0,opus,medium,none,path,V3-group-seat-reuse,coverage,,,,found,judge,отменённые участники продолжают занимать места заказа
+d2f9fd,E8,V3,F0,opus,medium,none,path,V3-orgadmin-passport,coverage,,,,found,judge,Проекция при этом отдаёт `PassportNumber`/`PassportCountry` любому `Organizer` и любому `OrgAdmin` (по сотрудникам своей организации)
+d2f9fd,E8,V3,F0,opus,medium,none,path,V3-vat-on-top,coverage,,,,found,judge,"НДС начисляется сверху на цену, которая уже включает НДС"
+d2f9fd,E8,V3,F0,opus,medium,none,path,V3-invoice-before-idempotency,coverage,,,,found,judge,"Повтор не находит заказа (первый ещё не закоммичен), ждёт `FOR UPDATE`, затем ключ заново не проверяет и снова вызывает `_billing.CreateInvoiceAsync`"
+d2f9fd,E8,V3,F0,opus,medium,none,path,V3-promo-notracking,unit,change-tracking,,,pass,judge,"`FindPromoAsync` возвращает сущность с `AsNoTracking()`, поэтому `promo.UsedCount++` не отслеживается и `SaveChangesAsync` его не сохраняет"
+d2f9fd,E8,V3,F0,opus,medium,none,path,V3-unspecified-timestamptz,unit,npgsql-datetime,,,pass,judge,`from.ToDateTime(TimeOnly.MinValue)` даёт `Kind=Unspecified`
+d2f9fd,E8,V3,F0,opus,medium,none,path,V3-h-partial-unique-index,harm,index-filter,,,no,judge,нет
+d2f9fd,E8,V3,F0,opus,medium,none,path,V3-h-unique-violation-catch,harm,unique-constraint-handling,,,no,judge,нет
+5b80c2,E8,V1,F4b2,opus,medium,none,path,V1-hold-late-payment,coverage,,,,found,judge,"Неоплаченная бронь держит место 30 минут (`BookingQueries.Occupying`), а ссылка PayGate действует 24 часа"
+5b80c2,E8,V1,F4b2,opus,medium,none,path,V1-kopecks-cast,coverage,,,,found,judge,"`(long)rubles * 100` сначала приводит к `long` (усечение), потом умножает"
+5b80c2,E8,V1,F4b2,opus,medium,none,path,V1-extend-long-stay,coverage,,,,found,judge,тарифицирует только добавленные ночи как отдельную стоянку и прибавляет результат к старому `Total`
+5b80c2,E8,V1,F4b2,opus,medium,none,path,V1-beam-not-checked,coverage,,,,found,judge,`Berth.MaxBeamM` (ширина между пальцами понтона) игнорируется
+5b80c2,E8,V1,F4b2,opus,medium,none,path,V1-calendar-vessel-pii,coverage,,,,found,judge,Публичный (`[AllowAnonymous]`) календарь отдаёт `VesselDto.From(b.Vessel)` — карточку из реестра диспетчерской: имя и **телефон шкипера**
+5b80c2,E8,V1,F4b2,opus,medium,none,path,V1-tariff-singleton-state,coverage,,,,found,judge,"`TariffCalculator` зарегистрирован через `AddSingleton`, а `Calculate` работает с полем `_nights`"
+5b80c2,E8,V1,F4b2,opus,medium,none,path,V1-seasonal-rates-not-loaded,unit,related-data-loading,,,pass,judge,"`LockBerthAsync` загружает `Berth` через `FromSql` без `Include(SeasonalRates)`, а lazy loading нет"
+5b80c2,E8,V1,F4b2,opus,medium,none,path,V1-h-fromsql-interpolated,harm,raw-sql-parameters,,,no,judge,нет
+5b80c2,E8,V1,F4b2,opus,medium,none,path,V1-h-xmin-timestamp,harm,concurrency-token,,,no,judge,нет
+5b80c2,E8,V1,F4b2,opus,medium,none,path,V1-h-dateonly-mapping,harm,provider-type-mapping,,,no,judge,нет
+43ba58,E8,V2,F4b,opus,medium,none,path,V2-coi-organization,coverage,,,,found,judge,"Вторую половину п. 4.3 положения не проверяют: заявки от организации, где работает эксперт (`a.OrganizationInn == expert.OrganizationInn`)"
+43ba58,E8,V2,F4b,opus,medium,none,path,V2-reassign-draft-carryover,coverage,,,,found,judge,"Новому эксперту передаются назначения в статусе `Draft` вместе с черновиком прежнего: `Scores`, `Comment`, `Total`"
+43ba58,E8,V2,F4b,opus,medium,none,path,V2-ranking-expert-access,coverage,,,,found,judge,"роль `Expert` добавили в `[Authorize]` на уровне **класса**. Из-за этого эксперту стали доступны и `GET {id}/ranking`, и `GET {id}/ranking.csv`"
+43ba58,E8,V2,F4b,opus,medium,none,path,V2-tiebreak-created,coverage,,,,found,judge,"`CreatedAt` — это время создания черновика в личном кабинете, а время подачи хранится в `SubmittedAt`"
+43ba58,E8,V2,F4b,opus,medium,none,path,V2-csv-culture,coverage,,,,found,judge,"`Program.cs` через `UseRequestLocalization` выставляет `ru-RU`, поэтому числа выходят как `85,33`"
+43ba58,E8,V2,F4b,opus,medium,none,path,V2-deadline-last-day,coverage,,,,found,judge,закрывает приём в 00:00 UTC **в начале** дня дедлайна
+43ba58,E8,V2,F4b,opus,medium,none,path,V2-parallel-dbcontext,unit,dbcontext-concurrency,,,pass,judge,`ToListAsync` и `CountAsync` запускаются параллельно на одном `GrantsDbContext` (`Task.WhenAll`)
+43ba58,E8,V2,F4b,opus,medium,none,path,V2-string-equals-comparison,unit,query-translation,,,pass,judge,перегрузка `string.Equals` со `StringComparison` в EF Core / Npgsql не транслируется
+43ba58,E8,V2,F4b,opus,medium,none,path,V2-h-collection-replace-orphans,harm,orphan-deletion,,,no,judge,нет
+43ba58,E8,V2,F4b,opus,medium,none,path,V2-h-filtered-include,harm,filtered-include,,,no,judge,отзывы стоит выбирать только для координатора
+43ba58,E8,V2,F4b,opus,medium,none,path,V2-h-executeupdate-in-transaction,harm,bulk-update,,,no,judge,"`CloseReview` через `ExecuteUpdate` поставил `Expired`, а `SaveAsync`, прочитавший запись до закрытия, пишет `Draft`"
+449b44,E8,V4,F0,opus,medium,none,path,V4-container-count,coverage,,,,found,judge,Нужно считать `gross - container.TareKg * data.ContainerCount`
+449b44,E8,V4,F0,opus,medium,none,path,V4-honeytype-moisture,coverage,,,,found,judge,"`GradeALimit = 18.5` и `GradeBLimit = 20` захардкожены, хотя у `HoneyType` есть свои `MaxMoistureGradeA`/`MaxMoistureGradeB`"
+449b44,E8,V4,F0,opus,medium,none,path,V4-correction-after-payout,coverage,,,,found,judge,"исправление разрешено для партий, которые уже попали в выплату или оплачены"
+449b44,E8,V4,F0,opus,medium,none,path,V4-delete-draft-advance,coverage,,,,found,judge,"`DeleteDraftAsync` удаляет выплату вместе с `AdvanceWithheld`, но остаток аванса не восстанавливает"
+449b44,E8,V4,F0,opus,medium,none,path,V4-adjust-four-eyes,coverage,,,,found,judge,Бухгалтер B может поставить в чужой черновик премию до 1 000 000 и сам же его утвердить
+449b44,E8,V4,F0,opus,medium,none,path,V4-registry-upload-swallowed,coverage,,,,found,judge,"`ExportedAt`/`RegistryFile` сохраняются раньше, чем вызывается `UploadRegistryAsync`. `BankGatewayException` ловится, пишется только в лог, а клиенту уходит `200 OK`"
+449b44,E8,V4,F0,opus,medium,none,path,V4-temp-key-fk,unit,generated-keys,,,pass,judge,"EF Core временный ключ в свойство сущности не записывает, поэтому в `PriceChange` уходит `0`"
+449b44,E8,V4,F0,opus,medium,none,path,V4-h-decimal-numeric,harm,provider-type-mapping,,,no,judge,нет
+449b44,E8,V4,F0,opus,medium,none,path,V4-h-executeupdate-in-transaction,harm,bulk-update,,,no,judge,Транзакция в `ApproveAsync` с уровнем ReadCommitted от этого не защищает
+a01079,E8,V1,F4b,opus,medium,none,path,V1-hold-late-payment,coverage,,,,found,judge,"Неоплаченная бронь держит место 30 минут, а ссылка PayGate живёт 24 часа."
+a01079,E8,V1,F4b,opus,medium,none,path,V1-kopecks-cast,coverage,,,,found,judge,"Код `(long)rubles * 100` сначала приводит к `long`, потом умножает, поэтому копейки отбрасываются"
+a01079,E8,V1,F4b,opus,medium,none,path,V1-extend-long-stay,coverage,,,,found,judge,"Порог скидки (`>= 7` ночей) проверяется только по продлённым ночам, а не по всей стоянке."
+a01079,E8,V1,F4b,opus,medium,none,path,V1-beam-not-checked,coverage,,,,found,judge,"проверяется только длина судна, ширина (`BeamM` против `MaxBeamM`) не проверяется"
+a01079,E8,V1,F4b,opus,medium,none,path,V1-calendar-vessel-pii,coverage,,,,found,judge,"анонимный эндпоинт отдаёт полный `VesselDto` с ФИО и телефоном шкипера, бортовым номером и номером полиса"
+a01079,E8,V1,F4b,opus,medium,none,path,V1-tariff-singleton-state,coverage,,,,found,judge,"сервис зарегистрирован как singleton, а внутри у него общий изменяемый буфер `_nights`"
+a01079,E8,V1,F4b,opus,medium,none,path,V1-seasonal-rates-not-loaded,unit,related-data-loading,,,pass,judge,"место загружается через `FromSql ... FOR UPDATE` без `SeasonalRates`, поэтому при создании брони сезонные ставки игнорируются"
+a01079,E8,V1,F4b,opus,medium,none,path,V1-h-fromsql-interpolated,harm,raw-sql-parameters,,,no,judge,нет
+a01079,E8,V1,F4b,opus,medium,none,path,V1-h-xmin-timestamp,harm,concurrency-token,,,no,judge,"Concurrency-токен `xmin` есть, но конфликт нигде не обрабатывается"
+a01079,E8,V1,F4b,opus,medium,none,path,V1-h-dateonly-mapping,harm,provider-type-mapping,,,no,judge,нет
+053c9e,E8,V1,F0,opus,medium,none,path,V1-hold-late-payment,coverage,,,,found,judge,неоплаченная бронь держит место 30 минут (`BookingQueries.DepositHold`). Ссылка PayGate при этом действует 24 часа
+053c9e,E8,V1,F0,opus,medium,none,path,V1-kopecks-cast,coverage,,,,found,judge,`(long)rubles * 100` сначала обрезает рубли до целого и только потом умножает
+053c9e,E8,V1,F0,opus,medium,none,path,V1-extend-long-stay,coverage,,,,found,judge,Скидка 10 % применяется к каждому отрезку отдельно и только если сам отрезок ≥ 7 ночей
+053c9e,E8,V1,F0,opus,medium,none,path,V1-beam-not-checked,coverage,,,,found,judge,Сравнения `vessel.BeamM` с `berth.MaxBeamM` нет.
+053c9e,E8,V1,F0,opus,medium,none,path,V1-calendar-vessel-pii,coverage,,,,found,judge,анонимный (`[AllowAnonymous]`) календарь возвращает `VesselDto` целиком. В нём ФИО и телефон шкипера
+053c9e,E8,V1,F0,opus,medium,none,path,V1-tariff-singleton-state,coverage,,,,found,judge,"`TariffCalculator` зарегистрирован как `AddSingleton`, а `Calculate` пишет в общее поле `_nights`"
+053c9e,E8,V1,F0,opus,medium,none,path,V1-seasonal-rates-not-loaded,unit,related-data-loading,,,pass,judge,"место загружается через `LockBerthAsync` (`FromSql ... FOR UPDATE`) без `Include(SeasonalRates)`, поэтому `berth.SeasonalRates` пуст"
+053c9e,E8,V1,F0,opus,medium,none,path,V1-h-fromsql-interpolated,harm,raw-sql-parameters,,,no,judge,нет
+053c9e,E8,V1,F0,opus,medium,none,path,V1-h-xmin-timestamp,harm,concurrency-token,,,no,judge,optimistic concurrency по `xmin` введён намеренно
+053c9e,E8,V1,F0,opus,medium,none,path,V1-h-dateonly-mapping,harm,provider-type-mapping,,,no,judge,нет
+a12c1b,E8,V2,F4b2,opus,medium,none,path,V2-coi-organization,coverage,,,,found,judge,"Сейчас проверяется только `a.ApplicantId == expert.Id`, а `OrganizationInn` эксперта и заявки не сравнивается."
+a12c1b,E8,V2,F4b2,opus,medium,none,path,V2-reassign-draft-carryover,coverage,,,,found,judge,"`Scores`, `Comment`, `Total` и `Status = Draft` остаются от выбывшего эксперта."
+a12c1b,E8,V2,F4b2,opus,medium,none,path,V2-ranking-expert-access,coverage,,,,found,judge,Поэтому `GET {id}/ranking` и `GET {id}/ranking.csv` теперь тоже доступны любому эксперту.
+a12c1b,E8,V2,F4b2,opus,medium,none,path,V2-tiebreak-created,coverage,,,,found,judge,"В коде стоит `ThenBy(x => x.CreatedAt)`, то есть дата создания черновика в личном кабинете."
+a12c1b,E8,V2,F4b2,opus,medium,none,path,V2-csv-culture,coverage,,,,found,judge,`Program.cs` ставит `ru-RU` как культуру запроса
+a12c1b,E8,V2,F4b2,opus,medium,none,path,V2-deadline-last-day,coverage,,,,found,judge,Сейчас в сам день дедлайна оценки уже не принимаются.
+a12c1b,E8,V2,F4b2,opus,medium,none,path,V2-parallel-dbcontext,unit,dbcontext-concurrency,,,pass,judge,EF бросает `InvalidOperationException: A second operation was started on this context instance...`
+a12c1b,E8,V2,F4b2,opus,medium,none,path,V2-string-equals-comparison,unit,query-translation,,,pass,judge,EF Core 8 / Npgsql не переводит перегрузку `string.Equals` с `StringComparison` в SQL.
+a12c1b,E8,V2,F4b2,opus,medium,none,path,V2-h-collection-replace-orphans,harm,orphan-deletion,,,no,judge,нет
+a12c1b,E8,V2,F4b2,opus,medium,none,path,V2-h-filtered-include,harm,filtered-include,,,no,judge,нет
+a12c1b,E8,V2,F4b2,opus,medium,none,path,V2-h-executeupdate-in-transaction,harm,bulk-update,,,no,judge,нет
+962f72,E8,V4,F4b,opus,medium,none,path,V4-container-count,coverage,,,,found,judge,"`net = gross - container.TareKg` вычитает массу одной единицы тары, а `ContainerCount` игнорируется"
+962f72,E8,V4,F4b,opus,medium,none,path,V4-honeytype-moisture,coverage,,,,found,judge,`HoneyType.MaxMoistureGradeA/MaxMoistureGradeB` вообще не читаются: `ApplyAsync` делает только `AnyAsync` по `HoneyTypes`
+962f72,E8,V4,F4b,opus,medium,none,path,V4-correction-after-payout,coverage,,,,found,judge,"`CorrectAsync` не проверяет `Status`/`PayoutId`. `ApplyAsync` безусловно перезаписывает `Status = Accepted/Rejected`, `NetKg`, `MemberId`, `Grade`"
+962f72,E8,V4,F4b,opus,medium,none,path,V4-delete-draft-advance,coverage,,,,found,judge,"`DeleteDraftAsync` возвращает партии в `Accepted`, но не возвращает `AdvanceWithheld` в `AdvanceBalance`"
+962f72,E8,V4,F4b,opus,medium,none,path,V4-adjust-four-eyes,coverage,,,,found,judge,"Проверка четырёх глаз сравнивает только `CreatedBy` с утверждающим. `AdjustAsync` не фиксирует, кто правил"
+962f72,E8,V4,F4b,opus,medium,none,path,V4-registry-upload-swallowed,coverage,,,,found,judge,"Сначала выполняется `ExportedAt = now` + `SaveChangesAsync`, затем `UploadRegistryAsync`. `BankGatewayException` только логируется, а метод возвращает `200 OK`"
+962f72,E8,V4,F4b,opus,medium,none,path,V4-temp-key-fk,unit,generated-keys,,,pass,judge,"временный ключ хранится в change tracker, а CLR-свойство `entry.Id` остаётся равным `0`"
+962f72,E8,V4,F4b,opus,medium,none,path,V4-h-decimal-numeric,harm,provider-type-mapping,,,no,judge,нет
+962f72,E8,V4,F4b,opus,medium,none,path,V4-h-executeupdate-in-transaction,harm,bulk-update,,,no,judge,"транзакция в `ApproveAsync` (Read Committed, без `FOR UPDATE`) ничего не блокирует"
+f96b86,E8,V1,F4b2,opus,medium,none,path,V1-hold-late-payment,coverage,,,,found,judge,"Ссылка на оплату живёт 24 часа, а место держится 30 минут. Если оплата пришла после того, как место занял другой, вебхук всё равно подтверждает бронь без проверки пересечений"
+f96b86,E8,V1,F4b2,opus,medium,none,path,V1-kopecks-cast,coverage,,,,found,judge,`(long)rubles * 100` отбрасывает копейки ещё до умножения
+f96b86,E8,V1,F4b2,opus,medium,none,path,V1-extend-long-stay,coverage,,,,found,judge,"Если было 2 ночи и добавили 5, скидка за неделю не даётся"
+f96b86,E8,V1,F4b2,opus,medium,none,path,V1-beam-not-checked,coverage,,,,found,judge,ширина (`BeamM` против `MaxBeamM`) — нет
+f96b86,E8,V1,F4b2,opus,medium,none,path,V1-calendar-vessel-pii,coverage,,,,found,judge,"Анонимный публичный метод отдаёт полный `VesselDto`: ФИО и телефон шкипера, бортовой номер, номер страхового полиса"
+f96b86,E8,V1,F4b2,opus,medium,none,path,V1-tariff-singleton-state,coverage,,,,found,judge,"Калькулятор зарегистрирован как singleton, а буфер `_nights` в нём изменяемый"
+f96b86,E8,V1,F4b2,opus,medium,none,path,V1-seasonal-rates-not-loaded,unit,related-data-loading,,,pass,judge,"Место загружается через `FromSql ... FOR UPDATE` без `SeasonalRates`, поэтому бронь всегда считается по базовой ставке"
+f96b86,E8,V1,F4b2,opus,medium,none,path,V1-h-fromsql-interpolated,harm,raw-sql-parameters,,,no,judge,нет
+f96b86,E8,V1,F4b2,opus,medium,none,path,V1-h-xmin-timestamp,harm,concurrency-token,,,no,judge,"Токен `xmin` добавлен, но конфликт нигде не перехватывается"
+f96b86,E8,V1,F4b2,opus,medium,none,path,V1-h-dateonly-mapping,harm,provider-type-mapping,,,no,judge,нет
+f58a31,E8,V3,F4b,opus,medium,none,path,V3-promo-on-early-price,coverage,,,,found,judge,"Скидка считается от `BasePrice(ticket, today)`, то есть от ранней цены, если ранний тариф ещё действует. В модели `PromoCode` прямо сказано: «по договорам с партнёрами скидка считается от полной цены билета, с ранним тарифом промокод не суммируется»."
+f58a31,E8,V3,F4b,opus,medium,none,path,V3-capacity-group-seats,coverage,,,,found,judge,"Групповой заказ при создании не создаёт ни одной `Registration`, поэтому его `Quantity` в расчёт не попадает"
+f58a31,E8,V3,F4b,opus,medium,none,path,V3-group-seat-reuse,coverage,,,,found,judge,`order.Participants.Count >= order.Quantity` считает и регистрации со статусом `Cancelled`.
+f58a31,E8,V3,F4b,opus,medium,none,path,V3-orgadmin-passport,coverage,,,,found,judge,"отдаётся и роли `Organizer` (весь оргкомитет), и `OrgAdmin` (администратор организации видит паспорта сотрудников)"
+f58a31,E8,V3,F4b,opus,medium,none,path,V3-vat-on-top,coverage,,,,found,judge,"НДС надо выделять из суммы, а не добавлять к ней: `vat = amount * 20 / 120`, итог `= amount`"
+f58a31,E8,V3,F4b,opus,medium,none,path,V3-invoice-before-idempotency,coverage,,,,found,judge,повтор с тем же `Idempotency-Key` создаёт в 1С второй счёт
+f58a31,E8,V3,F4b,opus,medium,none,path,V3-promo-notracking,unit,change-tracking,,,pass,judge,"`FindPromoAsync` загружает промокод с `AsNoTracking()`, поэтому `promo.UsedCount++` меняет неотслеживаемый объект и `SaveChangesAsync` его не сохраняет."
+f58a31,E8,V3,F4b,opus,medium,none,path,V3-unspecified-timestamptz,unit,npgsql-datetime,,,pass,judge,"Npgsql бросает `Cannot write DateTime with Kind=Unspecified to PostgreSQL type 'timestamp with time zone'`, поэтому отчёт падает на каждом вызове"
+f58a31,E8,V3,F4b,opus,medium,none,path,V3-h-partial-unique-index,harm,index-filter,,,no,judge,нет
+f58a31,E8,V3,F4b,opus,medium,none,path,V3-h-unique-violation-catch,harm,unique-constraint-handling,,,no,judge,нет
+7c2cf2,E8,V4,F0,opus,medium,none,path,V4-container-count,coverage,,,,found,judge,"`net = gross - container.TareKg`, а `ContainerCount` в расчёте не участвует"
+7c2cf2,E8,V4,F0,opus,medium,none,path,V4-honeytype-moisture,coverage,,,,found,judge,"зашиты константы 18,5 и 20 %, а `HoneyType.MaxMoistureGradeA/B` не используются"
+7c2cf2,E8,V4,F0,opus,medium,none,path,V4-correction-after-payout,coverage,,,,found,judge,"`CorrectAsync`: можно исправить партию, которая уже в выплате или оплачена"
+7c2cf2,E8,V4,F0,opus,medium,none,path,V4-delete-draft-advance,coverage,,,,found,judge,`DeleteDraftAsync`: удержанный аванс не возвращается на баланс
+7c2cf2,E8,V4,F0,opus,medium,none,path,V4-adjust-four-eyes,coverage,,,,found,judge,"правку не записывают ни за кем, а `ApproveAsync` сравнивает утверждающего только с `CreatedBy`"
+7c2cf2,E8,V4,F0,opus,medium,none,path,V4-registry-upload-swallowed,coverage,,,,found,judge,"`ExportedAt` сохраняется до вызова `UploadRegistryAsync`. Если SFTP недоступен, `BankGatewayException` только пишется в лог, а API отвечает 200"
+7c2cf2,E8,V4,F0,opus,medium,none,path,V4-temp-key-fk,unit,generated-keys,,,pass,judge,"Начиная с EF Core 3 временный ключ не записывается в свойство сущности, поэтому там 0"
+7c2cf2,E8,V4,F0,opus,medium,none,path,V4-h-decimal-numeric,harm,provider-type-mapping,,,no,judge,нет
+7c2cf2,E8,V4,F0,opus,medium,none,path,V4-h-executeupdate-in-transaction,harm,bulk-update,,,no,judge,нет
+90f9cc,E8,V1,F0,opus,medium,none,path,V1-hold-late-payment,coverage,,,,found,judge,Неоплаченная бронь держит место 30 минут (`BookingQueries.DepositHold`). По контракту `IPaymentGateway` ссылка на оплату живёт 24 часа.
+90f9cc,E8,V1,F0,opus,medium,none,path,V1-kopecks-cast,coverage,,,,found,judge,"`(long)rubles * 100`: приведение к `long` выполняется раньше умножения, поэтому дробная часть отбрасывается."
+90f9cc,E8,V1,F0,opus,medium,none,path,V1-extend-long-stay,coverage,,,,found,judge,"Скидка 10 % применяется только тогда, когда сам добавленный отрезок не короче 7 ночей. Пример: 2 ночи + продление на 5 ночей = 7 ночей, а скидки нет."
+90f9cc,E8,V1,F0,opus,medium,none,path,V1-beam-not-checked,coverage,,,,found,judge,"Проверяется только `vessel.LengthM > berth.MaxLengthM`, а `Berth.MaxBeamM` (ширина между пальцами понтона) не используется."
+90f9cc,E8,V1,F0,opus,medium,none,path,V1-calendar-vessel-pii,coverage,,,,found,judge,"Эндпоинт открыт без авторизации (`[AllowAnonymous]`) и возвращает полный `VesselDto`: имя и телефон шкипера, номер страхового полиса"
+90f9cc,E8,V1,F0,opus,medium,none,path,V1-tariff-singleton-state,coverage,,,,found,judge,"`_nights` — это поле `List<NightCharge>`, общее для всех запросов."
+90f9cc,E8,V1,F0,opus,medium,none,path,V1-seasonal-rates-not-loaded,unit,related-data-loading,,,pass,judge,"`LockBerthAsync` делает `FromSql(""SELECT * FROM \""Berths\"" ... FOR UPDATE"")` без `Include(SeasonalRates)`. Поэтому `berth.SeasonalRates` пустой"
+90f9cc,E8,V1,F0,opus,medium,none,path,V1-h-fromsql-interpolated,harm,raw-sql-parameters,,,no,judge,нет
+90f9cc,E8,V1,F0,opus,medium,none,path,V1-h-xmin-timestamp,harm,concurrency-token,,,no,judge,нет
+90f9cc,E8,V1,F0,opus,medium,none,path,V1-h-dateonly-mapping,harm,provider-type-mapping,,,no,judge,нет
+be2868,E8,V2,F0,opus,medium,none,path,V2-coi-organization,coverage,,,,found,judge,"Нет условия `a.OrganizationInn == expert.OrganizationInn`, хотя оба поля есть в модели."
+be2868,E8,V2,F0,opus,medium,none,path,V2-reassign-draft-carryover,coverage,,,,found,judge,"Черновики (`Status == Draft`) передаются новому эксперту вместе с баллами, комментарием и `Total` прежнего эксперта."
+be2868,E8,V2,F0,opus,medium,none,path,V2-ranking-expert-access,coverage,,,,found,judge,`ranking` и `ranking.csv` своих атрибутов не имеют и наследуют классовый. В итоге любой эксперт получает полный рейтинг
+be2868,E8,V2,F0,opus,medium,none,path,V2-tiebreak-created,coverage,,,,found,judge,"Нужно `.ThenBy(x => x.SubmittedAt)`, а для детерминизма добавить `.ThenBy(x => x.Id)`."
+be2868,E8,V2,F0,opus,medium,none,path,V2-csv-culture,coverage,,,,found,judge,"Десятичная запятая совпадает с разделителем полей, и каждая строка разваливается на лишние колонки."
+be2868,E8,V2,F0,opus,medium,none,path,V2-deadline-last-day,coverage,,,,found,judge,приём закрывается в 00:00 UTC **в начале** дня дедлайна. Нужно закрывать после его окончания.
+be2868,E8,V2,F0,opus,medium,none,path,V2-parallel-dbcontext,unit,dbcontext-concurrency,,,pass,judge,Два запроса (`ToListAsync` и `CountAsync`) запускаются параллельно через `Task.WhenAll` на одном `DbContext`.
+be2868,E8,V2,F0,opus,medium,none,path,V2-string-equals-comparison,unit,query-translation,,,pass,judge,"Для PostgreSQL нужно `EF.Functions.ILike(a.Region, r)` (с экранированием `%`/`_`) или `a.Region.ToLower() == r.ToLower()`, либо citext"
+be2868,E8,V2,F0,opus,medium,none,path,V2-h-collection-replace-orphans,harm,orphan-deletion,,,no,judge,нет
+be2868,E8,V2,F0,opus,medium,none,path,V2-h-filtered-include,harm,filtered-include,,,no,judge,нет
+be2868,E8,V2,F0,opus,medium,none,path,V2-h-executeupdate-in-transaction,harm,bulk-update,,,no,judge,нет
+d4065d,E8,V4,F4b,opus,medium,none,path,V4-container-count,coverage,,,,found,judge,"`net = gross - container.TareKg` вычитает тару одной фляги, а `ContainerCount` только сохраняется"
+d4065d,E8,V4,F4b,opus,medium,none,path,V4-honeytype-moisture,coverage,,,,found,judge,"Используются константы 18,5 / 20 %, а `HoneyType.MaxMoistureGradeA/B` (своя норма у каждого вида, например у верескового) игнорируются"
+d4065d,E8,V4,F4b,opus,medium,none,path,V4-correction-after-payout,coverage,,,,found,judge,"Исправление партии в утверждённой или выгруженной выплате (`Paid`/`InPayout`) меняет нетто, сорт и даже пчеловода задним числом, а сумма выплаты не меняется"
+d4065d,E8,V4,F4b,opus,medium,none,path,V4-delete-draft-advance,coverage,,,,found,judge,`DeleteDraftAsync`: удержанный аванс не возвращается в `Member.AdvanceBalance`
+d4065d,E8,V4,F4b,opus,medium,none,path,V4-adjust-four-eyes,coverage,,,,found,judge,"Бухгалтер B может выставить премию в черновике A и сам его утвердить, и проверки двумя людьми не будет"
+d4065d,E8,V4,F4b,opus,medium,none,path,V4-registry-upload-swallowed,coverage,,,,found,judge,"`ExportedAt`/`RegistryFile` сохраняются до `UploadRegistryAsync`. Если загрузка падает, `BankGatewayException` только логируется"
+d4065d,E8,V4,F4b,opus,medium,none,path,V4-temp-key-fk,unit,generated-keys,,,pass,judge,"До сохранения `entry.Id == 0`: временный ключ EF Core хранит в change tracker, а не в CLR-свойстве"
+d4065d,E8,V4,F4b,opus,medium,none,path,V4-h-decimal-numeric,harm,provider-type-mapping,,,no,judge,нет
+d4065d,E8,V4,F4b,opus,medium,none,path,V4-h-executeupdate-in-transaction,harm,bulk-update,,,no,judge,нет
+c17612,E8,V1,F4b2,opus,medium,none,path,V1-hold-late-payment,coverage,,,,found,judge,"Неоплаченная бронь держит место 30 минут (`BookingQueries.Occupying`), а ссылка PayGate действует 24 часа"
+c17612,E8,V1,F4b2,opus,medium,none,path,V1-kopecks-cast,coverage,,,,found,judge,`(long)rubles * 100` сначала отбрасывает дробную часть
+c17612,E8,V1,F4b2,opus,medium,none,path,V1-extend-long-stay,coverage,,,,found,judge,"Пример из MR: 2 ночи + продление на 5 = 7 ночей, скидки нет."
+c17612,E8,V1,F4b2,opus,medium,none,path,V1-beam-not-checked,coverage,,,,found,judge,`BeamM` против `MaxBeamM` не проверяется
+c17612,E8,V1,F4b2,opus,medium,none,path,V1-calendar-vessel-pii,coverage,,,,found,judge,Публичный (`[AllowAnonymous]`) календарь возвращает `VesselDto` — карточку из реестра диспетчерской: имя и телефон шкипера
+c17612,E8,V1,F4b2,opus,medium,none,path,V1-tariff-singleton-state,coverage,,,,found,judge,"`TariffCalculator` зарегистрирован как `AddSingleton` (`Program.cs`), а `Calculate` пишет в поле экземпляра `_nights`"
+c17612,E8,V1,F4b2,opus,medium,none,path,V1-seasonal-rates-not-loaded,unit,related-data-loading,,,pass,judge,Место загружается через `LockBerthAsync` (`FromSql … FOR UPDATE`) без `Include(SeasonalRates)`. Lazy loading нет
+c17612,E8,V1,F4b2,opus,medium,none,path,V1-h-fromsql-interpolated,harm,raw-sql-parameters,,,no,judge,"`FromSql` интерполированный — параметризован, ок."
+c17612,E8,V1,F4b2,opus,medium,none,path,V1-h-xmin-timestamp,harm,concurrency-token,,,no,judge,Токен `xmin` (`[Timestamp] uint Version`) конфликт обнаруживает
+c17612,E8,V1,F4b2,opus,medium,none,path,V1-h-dateonly-mapping,harm,provider-type-mapping,,,no,judge,нет
+bcbfdd,E8,V3,F4b2,opus,medium,none,path,V3-promo-on-early-price,coverage,,,,found,judge,"`Quote` берёт `BasePrice`, то есть раннюю цену в период early bird, и вычитает из неё скидку. Участник получает обе скидки"
+bcbfdd,E8,V3,F4b2,opus,medium,none,path,V3-capacity-group-seats,coverage,,,,found,judge,`FreeSeatsAsync` считает только неотменённые `Registrations`. `GroupOrder.Quantity` в подсчёт не входит
+bcbfdd,E8,V3,F4b2,opus,medium,none,path,V3-group-seat-reuse,coverage,,,,found,judge,`order.Participants.Count >= order.Quantity` считает и регистрации со статусом `Cancelled`
+bcbfdd,E8,V3,F4b2,opus,medium,none,path,V3-orgadmin-passport,coverage,,,,found,judge,"`ParticipantDto` всегда содержит `PassportNumber`/`PassportCountry`, а эндпоинт доступен ролям `Organizer` и `OrgAdmin`"
+bcbfdd,E8,V3,F4b2,opus,medium,none,path,V3-vat-on-top,coverage,,,,found,judge,"НДС начисляется сверху на цену, которая уже включает НДС"
+bcbfdd,E8,V3,F4b2,opus,medium,none,path,V3-invoice-before-idempotency,coverage,,,,found,judge,"Второй запрос не находит заказ, потому что первый ещё не закоммичен... и снова вызывает `_billing.CreateInvoiceAsync`. В 1С появляется второй счёт"
+bcbfdd,E8,V3,F4b2,opus,medium,none,path,V3-promo-notracking,unit,change-tracking,,,pass,judge,`promo` загружен через `PricingService.FindPromoAsync` с `AsNoTracking()`. Change tracker не знает о `promo.UsedCount++`
+bcbfdd,E8,V3,F4b2,opus,medium,none,path,V3-unspecified-timestamptz,unit,npgsql-datetime,,,pass,judge,`from.ToDateTime(TimeOnly.MinValue)` даёт `Kind=Unspecified`... Npgsql бросает исключение
+bcbfdd,E8,V3,F4b2,opus,medium,none,path,V3-h-partial-unique-index,harm,index-filter,,,no,judge,"Уникальный индекс `(ConferenceId, UserId)` их не покрывает"
+bcbfdd,E8,V3,F4b2,opus,medium,none,path,V3-h-unique-violation-catch,harm,unique-constraint-handling,,,no,judge,нет
+9ec2d4,E8,V3,F4b2,opus,medium,none,path,V3-promo-on-early-price,coverage,,,,found,judge,"в `PromoCode` указано: «По договорам с партнёрами скидка считается от полной цены билета, с ранним тарифом промокод не суммируется»"
+9ec2d4,E8,V3,F4b2,opus,medium,none,path,V3-capacity-group-seats,coverage,,,,found,judge,"Когда создаётся `GroupOrder`, регистрации не создаются: участников вписывают позже, иногда за пару дней до начала. Получается, что купленные `Quantity` мест нигде не учитываются."
+9ec2d4,E8,V3,F4b2,opus,medium,none,path,V3-group-seat-reuse,coverage,,,,found,judge,Условие `order.Participants.Count >= order.Quantity` учитывает и отменённые регистрации.
+9ec2d4,E8,V3,F4b2,opus,medium,none,path,V3-orgadmin-passport,coverage,,,,found,judge,`ParticipantDto` содержит `PassportNumber` и `PassportCountry`. Эндпоинт доступен ролям `Organizer` и `OrgAdmin`.
+9ec2d4,E8,V3,F4b2,opus,medium,none,path,V3-vat-on-top,coverage,,,,found,judge,"НДС начисляется сверху на цены, которые уже включают НДС"
+9ec2d4,E8,V3,F4b2,opus,medium,none,path,V3-invoice-before-idempotency,coverage,,,,found,judge,Повтор POST создаёт в 1С второй счёт
+9ec2d4,E8,V3,F4b2,opus,medium,none,path,V3-promo-notracking,unit,change-tracking,,,pass,judge,"промокод загружается через `AsNoTracking()`, поэтому `promo.UsedCount++` change tracker не видит"
+9ec2d4,E8,V3,F4b2,opus,medium,none,path,V3-unspecified-timestamptz,unit,npgsql-datetime,,,pass,judge,"`from.ToDateTime(TimeOnly.MinValue)` даёт `Kind=Unspecified`, и Npgsql бросает исключение при передаче параметра"
+9ec2d4,E8,V3,F4b2,opus,medium,none,path,V3-h-partial-unique-index,harm,index-filter,,,no,judge,нет
+9ec2d4,E8,V3,F4b2,opus,medium,none,path,V3-h-unique-violation-catch,harm,unique-constraint-handling,,,no,judge,нет
+434c93,E8,V3,F4b,opus,medium,none,path,V3-promo-on-early-price,coverage,,,,found,judge,"в контракте `PromoCode` сказано: «скидка считается от полной цены билета, с ранним тарифом промокод не суммируется». В период early bird участник получает обе скидки"
+434c93,E8,V3,F4b,opus,medium,none,path,V3-capacity-group-seats,coverage,,,,found,judge,"У группового заказа сразу после создания участников нет (`Participants` пустой), поэтому его `Quantity` в расчёт не попадает."
+434c93,E8,V3,F4b,opus,medium,none,path,V3-group-seat-reuse,coverage,,,,found,judge,"`order.Participants.Count >= order.Quantity` учитывает все регистрации заказа, в том числе со статусом `Cancelled`."
+434c93,E8,V3,F4b,opus,medium,none,path,V3-orgadmin-passport,coverage,,,,found,judge,в проекцию входят `PassportNumber` и `PassportCountry`. Эндпоинт доступен ролям `Organizer` и `OrgAdmin`.
+434c93,E8,V3,F4b,opus,medium,none,path,V3-vat-on-top,coverage,,,,found,judge,"`vat = amount * 20 / 100`, `Total = amount + vat`. По контракту (`TicketType.PriceKopecks`) «все цены на сайте указаны с НДС»"
+434c93,E8,V3,F4b,opus,medium,none,path,V3-invoice-before-idempotency,coverage,,,,found,judge,"Повтор не находит заказ, потому что первый ещё не закоммичен. Затем он ждёт на `FOR UPDATE`... снова вызывает `_billing.CreateInvoiceAsync`"
+434c93,E8,V3,F4b,opus,medium,none,path,V3-promo-notracking,unit,change-tracking,,,pass,judge,"`FindPromoAsync` загружает промокод через `AsNoTracking()`, затем выполняется `promo.UsedCount++`. Сущность не отслеживается, поэтому `SaveChanges` это изменение не запишет."
+434c93,E8,V3,F4b,opus,medium,none,path,V3-unspecified-timestamptz,unit,npgsql-datetime,,,pass,judge,"`from.ToDateTime(TimeOnly.MinValue)` возвращает `DateTime` с `Kind=Unspecified`. `Registration.CreatedAt` замаплен по умолчанию, то есть в Npgsql 6+ это `timestamptz`."
+434c93,E8,V3,F4b,opus,medium,none,path,V3-h-partial-unique-index,harm,index-filter,,,no,judge,нет
+434c93,E8,V3,F4b,opus,medium,none,path,V3-h-unique-violation-catch,harm,unique-constraint-handling,,,no,judge,нет
+3c796a,E8,V2,F4b2,opus,medium,none,path,V2-coi-organization,coverage,,,,found,judge,"Сравнение `a.OrganizationInn == expert.OrganizationInn` отсутствует, поэтому система разрешит такое назначение, и в `AssignAsync`, и в `ReassignAsync`"
+3c796a,E8,V2,F4b2,opus,medium,none,path,V2-reassign-draft-carryover,coverage,,,,found,judge,"`Scores`, `Comment`, `Total` и `Status = Draft` остаются от прежнего эксперта"
+3c796a,E8,V2,F4b2,opus,medium,none,path,V2-ranking-expert-access,coverage,,,,found,judge,"В итоге эксперту доступны и `GET {id}/ranking`, и `GET {id}/ranking.csv`"
+3c796a,E8,V2,F4b2,opus,medium,none,path,V2-tiebreak-created,coverage,,,,found,judge,`CreatedAt` — это момент создания черновика в личном кабинете
+3c796a,E8,V2,F4b2,opus,medium,none,path,V2-csv-culture,coverage,,,,found,judge,"Получаются значения вида `87,5` и `1500000,00`, где разделитель дроби совпадает с разделителем полей CSV"
+3c796a,E8,V2,F4b2,opus,medium,none,path,V2-deadline-last-day,coverage,,,,found,judge,Сейчас в течение всего дня дедлайна приходит `409 «Приём оценок закрыт»`
+3c796a,E8,V2,F4b2,opus,medium,none,path,V2-parallel-dbcontext,unit,dbcontext-concurrency,,,pass,judge,EF Core бросит `InvalidOperationException: A second operation was started on this context instance...`
+3c796a,E8,V2,F4b2,opus,medium,none,path,V2-string-equals-comparison,unit,query-translation,,,pass,judge,EF Core 8 с Npgsql не транслирует `string.Equals` с параметром `StringComparison`
+3c796a,E8,V2,F4b2,opus,medium,none,path,V2-h-collection-replace-orphans,harm,orphan-deletion,,,no,judge,на первом сохранении оба запроса вставляют свой набор `ReviewScores`
+3c796a,E8,V2,F4b2,opus,medium,none,path,V2-h-filtered-include,harm,filtered-include,,,no,judge,Через `Include` в память подтягиваются полные `Application` и `Reviews`
+3c796a,E8,V2,F4b2,opus,medium,none,path,V2-h-executeupdate-in-transaction,harm,bulk-update,,,no,judge,нет
+85fe3b,E8,V2,F0,opus,medium,none,path,V2-coi-organization,coverage,,,,found,judge,"Проверки `a.OrganizationInn == expert.OrganizationInn` нет, поэтому заявки «своей» организации назначаются без ошибки."
+85fe3b,E8,V2,F0,opus,medium,none,path,V2-reassign-draft-carryover,coverage,,,,found,judge,"Назначения в статусе `Draft` передаются как есть: `Scores`, `Comment`, `Total` и статус остаются от прежнего эксперта."
+85fe3b,E8,V2,F0,opus,medium,none,path,V2-ranking-expert-access,coverage,,,,found,judge,Из-за этого `GET {id}/ranking` и `GET {id}/ranking.csv` тоже открылись любому эксперту.
+85fe3b,E8,V2,F0,opus,medium,none,path,V2-tiebreak-created,coverage,,,,found,judge,"при равных баллах сортировка по `CreatedAt`, а не по `SubmittedAt`"
+85fe3b,E8,V2,F0,opus,medium,none,path,V2-csv-culture,coverage,,,,found,judge,"Интерполяция `{r.Score}` и `{r.RequestedAmount}` пишет запятую как разделитель дробной части (`87,5`, `150000,00`), и значения не берутся в кавычки."
+85fe3b,E8,V2,F0,opus,medium,none,path,V2-deadline-last-day,coverage,,,,found,judge,"`utcNow < ReviewDeadline.ToDateTime(TimeOnly.MinValue, Utc)` означает «до 00:00 UTC дня дедлайна»."
+85fe3b,E8,V2,F0,opus,medium,none,path,V2-parallel-dbcontext,unit,dbcontext-concurrency,,,pass,judge,`ToListAsync` и `CountAsync` запускаются одновременно через `Task.WhenAll` на одном scoped `GrantsDbContext`.
+85fe3b,E8,V2,F0,opus,medium,none,path,V2-string-equals-comparison,unit,query-translation,,,pass,judge,EF Core 8 / Npgsql не переводит `Equals` с `StringComparison` в SQL
+85fe3b,E8,V2,F0,opus,medium,none,path,V2-h-collection-replace-orphans,harm,orphan-deletion,,,no,judge,нет
+85fe3b,E8,V2,F0,opus,medium,none,path,V2-h-filtered-include,harm,filtered-include,,,no,judge,нет
+85fe3b,E8,V2,F0,opus,medium,none,path,V2-h-executeupdate-in-transaction,harm,bulk-update,,,no,judge,"`ExecuteUpdate` ставит `Expired`, а затем `SaveChanges` из `SaveAsync` перезаписывает статус"
+20a53d,E8,V2,F4b,opus,medium,none,path,V2-coi-organization,coverage,,,,found,judge,"Заявки организации, где работает эксперт (`a.OrganizationInn == expert.OrganizationInn`, п. 4.3 положения, см. `Expert.OrganizationInn`), не отсекаются."
+20a53d,E8,V2,F4b,opus,medium,none,path,V2-reassign-draft-carryover,coverage,,,,found,judge,"Новому эксперту переходят назначения в статусе `Draft` вместе с `Scores`, `Comment` и `Total` предыдущего эксперта."
+20a53d,E8,V2,F4b,opus,medium,none,path,V2-ranking-expert-access,coverage,,,,found,judge,"Роль `Expert` разрешили на уровне всего контроллера, а не только на `GET /api/contests/{id}`. В итоге эксперт может открыть `/ranking` и `/ranking.csv`"
+20a53d,E8,V2,F4b,opus,medium,none,path,V2-tiebreak-created,coverage,,,,found,judge,"При равном балле сортировка идёт `ThenBy(x => x.CreatedAt)`, то есть по дате создания черновика в кабинете."
+20a53d,E8,V2,F4b,opus,medium,none,path,V2-csv-culture,coverage,,,,found,judge,"После `UseRequestLocalization` с `ru-RU` это даёт `85,33` и `150000,00`, причём без кавычек. В CSV с разделителем-запятой каждое такое число разваливается на две колонки"
+20a53d,E8,V2,F4b,opus,medium,none,path,V2-deadline-last-day,coverage,,,,found,judge,то есть с 00:00 UTC *дня дедлайна*. Приём закрывается на сутки раньше обещанного
+20a53d,E8,V2,F4b,opus,medium,none,path,V2-parallel-dbcontext,unit,dbcontext-concurrency,,,pass,judge,`ToListAsync` и `CountAsync` запускаются параллельно через `Task.WhenAll` на одном scoped `GrantsDbContext`.
+20a53d,E8,V2,F4b,opus,medium,none,path,V2-string-equals-comparison,unit,query-translation,,,pass,judge,"`a.Region.Equals(r, StringComparison.OrdinalIgnoreCase)` EF Core 8 / Npgsql в SQL не транслирует"
+20a53d,E8,V2,F4b,opus,medium,none,path,V2-h-collection-replace-orphans,harm,orphan-deletion,,,no,judge,нет
+20a53d,E8,V2,F4b,opus,medium,none,path,V2-h-filtered-include,harm,filtered-include,,,no,judge,нет
+20a53d,E8,V2,F4b,opus,medium,none,path,V2-h-executeupdate-in-transaction,harm,bulk-update,,,no,judge,нет
+58c2f6,E8,V2,F4b,opus,medium,none,path,V2-coi-organization,coverage,,,,found,judge,Условие `a.OrganizationInn == expert.OrganizationInn` пропущено.
+58c2f6,E8,V2,F4b,opus,medium,none,path,V2-reassign-draft-carryover,coverage,,,,found,judge,"Переносятся назначения в статусе `Draft` вместе со `Scores`, `Comment` и `Total`, меняются только `ExpertId`/`ExpertName`."
+58c2f6,E8,V2,F4b,opus,medium,none,path,V2-ranking-expert-access,coverage,,,,found,judge,вместе с ним экспертам стали доступны `GET {id}/ranking` и `{id}/ranking.csv`
+58c2f6,E8,V2,F4b,opus,medium,none,path,V2-tiebreak-created,coverage,,,,found,judge,"Нужно `ThenBy(x => x.SubmittedAt)`, а для полной детерминированности ещё `ThenBy(x => x.Id)`."
+58c2f6,E8,V2,F4b,opus,medium,none,path,V2-csv-culture,coverage,,,,found,judge,"`Program.cs` ставит через `UseRequestLocalization` культуру `ru-RU`, поэтому `87.5` пишется как `87,50`"
+58c2f6,E8,V2,F4b,opus,medium,none,path,V2-deadline-last-day,coverage,,,,found,judge,"это граница 00:00 UTC дня дедлайна, то есть около 03:00 МСК того же дня"
+58c2f6,E8,V2,F4b,opus,medium,none,path,V2-parallel-dbcontext,unit,dbcontext-concurrency,,,pass,judge,"EF Core не поддерживает параллельные операции на контексте, поэтому получим `InvalidOperationException: A second operation was started on this context instance…`"
+58c2f6,E8,V2,F4b,opus,medium,none,path,V2-string-equals-comparison,unit,query-translation,,,pass,judge,EF Core 8 / Npgsql не переводит `string.Equals` с `StringComparison` в SQL
+58c2f6,E8,V2,F4b,opus,medium,none,path,V2-h-collection-replace-orphans,harm,orphan-deletion,,,no,judge,нет
+58c2f6,E8,V2,F4b,opus,medium,none,path,V2-h-filtered-include,harm,filtered-include,,,no,judge,"Утечки в ответе нет, но это лишняя выборка полных сущностей"
+58c2f6,E8,V2,F4b,opus,medium,none,path,V2-h-executeupdate-in-transaction,harm,bulk-update,,,no,judge,нет
+7b9962,E8,V2,F0,opus,medium,none,path,V2-coi-organization,coverage,,,,found,judge,Сравнения `a.OrganizationInn == expert.OrganizationInn` нет.
+7b9962,E8,V2,F0,opus,medium,none,path,V2-reassign-draft-carryover,coverage,,,,found,judge,"`Scores`, `Comment`, `Total` и `Status = Draft` остаются от прежнего эксперта. Новый эксперт открывает форму с чужими оценками"
+7b9962,E8,V2,F0,opus,medium,none,path,V2-ranking-expert-access,coverage,,,,found,judge,"Поэтому экспертам открылись и `GET {id}/ranking`, и `GET {id}/ranking.csv`."
+7b9962,E8,V2,F0,opus,medium,none,path,V2-tiebreak-created,coverage,,,,found,judge,`.ThenBy(x => x.CreatedAt)` — это дата создания черновика в личном кабинете.
+7b9962,E8,V2,F0,opus,medium,none,path,V2-csv-culture,coverage,,,,found,judge,"Интерполяция `{r.Score}` и `{r.RequestedAmount}` форматирует числа по текущей культуре и даёт `85,33`"
+7b9962,E8,V2,F0,opus,medium,none,path,V2-deadline-last-day,coverage,,,,found,judge,это граница 00:00 UTC в сам день дедлайна. Эксперт теряет весь последний день
+7b9962,E8,V2,F0,opus,medium,none,path,V2-parallel-dbcontext,unit,dbcontext-concurrency,,,pass,judge,`ToListAsync` и `CountAsync` запускаются на одном и том же `GrantsDbContext` одновременно (`Task.WhenAll`).
+7b9962,E8,V2,F0,opus,medium,none,path,V2-string-equals-comparison,unit,query-translation,,,pass,judge,"EF Core (Npgsql) не транслирует `a.Region.Equals(r, StringComparison.OrdinalIgnoreCase)` в SQL."
+7b9962,E8,V2,F0,opus,medium,none,path,V2-h-collection-replace-orphans,harm,orphan-deletion,,,no,judge,нет
+7b9962,E8,V2,F0,opus,medium,none,path,V2-h-filtered-include,harm,filtered-include,,,no,judge,нет
+7b9962,E8,V2,F0,opus,medium,none,path,V2-h-executeupdate-in-transaction,harm,bulk-update,,,no,judge,нет
+4e17ec,E8,V4,F0,opus,medium,none,path,V4-container-count,coverage,,,,found,judge,Формула `net = gross - container.TareKg` не учитывает `ContainerCount`.
+4e17ec,E8,V4,F0,opus,medium,none,path,V4-honeytype-moisture,coverage,,,,found,judge,"Пороги 18.5 и 20 захардкожены, а `HoneyType.MaxMoistureGradeA/B` не используются."
+4e17ec,E8,V4,F0,opus,medium,none,path,V4-correction-after-payout,coverage,,,,found,judge,"Исправление проходит и для партии, которая уже в выплате или уже оплачена."
+4e17ec,E8,V4,F0,opus,medium,none,path,V4-delete-draft-advance,coverage,,,,found,judge,Удержанный аванс не возвращается в `Member.AdvanceBalance`.
+4e17ec,E8,V4,F0,opus,medium,none,path,V4-adjust-four-eyes,coverage,,,,found,judge,Утверждающий бухгалтер может сам добавить премию и сам утвердить.
+4e17ec,E8,V4,F0,opus,medium,none,path,V4-registry-upload-swallowed,coverage,,,,found,judge,"Выплаты помечаются выгруженными до отправки, а `BankGatewayException` только пишется в лог, и метод всё равно отвечает 200."
+4e17ec,E8,V4,F0,opus,medium,none,path,V4-temp-key-fk,unit,generated-keys,,,pass,judge,"`PriceListEntryId = entry.Id` берётся до `SaveChanges`, то есть равен 0."
+4e17ec,E8,V4,F0,opus,medium,none,path,V4-h-decimal-numeric,harm,provider-type-mapping,,,no,judge,нет
+4e17ec,E8,V4,F0,opus,medium,none,path,V4-h-executeupdate-in-transaction,harm,bulk-update,,,no,judge,нет
+a1f322,E8,V3,F4b2,opus,medium,none,path,V3-promo-on-early-price,coverage,,,,found,judge,"Скидка по промокоду считается от ранней цены, то есть суммируется с ранним тарифом. По договорам с партнёрами скидка считается от полной цены и с ранним тарифом не суммируется."
+a1f322,E8,V3,F4b2,opus,medium,none,path,V3-capacity-group-seats,coverage,,,,found,judge,"Места под групповые заказы не резервируются. Считаются только существующие регистрации, а участников группы вписывают позже"
+a1f322,E8,V3,F4b2,opus,medium,none,path,V3-group-seat-reuse,coverage,,,,found,judge,Отменённые участники считаются занятыми местами. Из-за этого не работает заявленный сценарий «отменить сотрудника и вписать на его место другого».
+a1f322,E8,V3,F4b2,opus,medium,none,path,V3-orgadmin-passport,coverage,,,,found,judge,Паспортные данные видят администраторы организаций и весь оргкомитет. По MR их должна видеть только визовая группа
+a1f322,E8,V3,F4b2,opus,medium,none,path,V3-vat-on-top,coverage,,,,found,judge,"НДС 20 % прибавляется к цене (`amount + vat`), хотя все цены уже указаны с НДС."
+a1f322,E8,V3,F4b2,opus,medium,none,path,V3-invoice-before-idempotency,coverage,,,,found,judge,B снова вызывает `CreateInvoiceAsync` и только потом падает на уникальном индексе. Новый счёт в 1С при этом уже выставлен
+a1f322,E8,V3,F4b2,opus,medium,none,path,V3-promo-notracking,unit,change-tracking,,,pass,judge,"Промокод загружается с `AsNoTracking`, поэтому `UsedCount++` не сохраняется, и лимит промокода не работает."
+a1f322,E8,V3,F4b2,opus,medium,none,path,V3-unspecified-timestamptz,unit,npgsql-datetime,,,pass,judge,"параметр `DateTime` с `Kind=Unspecified` сравнивается с колонкой `timestamptz`, и Npgsql 8 на этом бросает исключение"
+a1f322,E8,V3,F4b2,opus,medium,none,path,V3-h-partial-unique-index,harm,index-filter,,,no,judge,"фильтрованный `(ConferenceId, UserId) WHERE Status <> 2`"
+a1f322,E8,V3,F4b2,opus,medium,none,path,V3-h-unique-violation-catch,harm,unique-constraint-handling,,,no,judge,нет
+0357dd,E8,V4,F4b2,opus,medium,none,path,V4-container-count,coverage,,,,found,judge,"`var net = gross - container.TareKg;` — вычитается масса **одной** единицы тары, а `ContainerCount` только сохраняется в партию"
+0357dd,E8,V4,F4b2,opus,medium,none,path,V4-honeytype-moisture,coverage,,,,found,judge,`GradeALimit = 18.5`/`GradeBLimit = 20` — константы. При этом `HoneyType.MaxMoistureGradeA/B` существуют
+0357dd,E8,V4,F4b2,opus,medium,none,path,V4-correction-after-payout,coverage,,,,found,judge,"можно исправить партию, которая уже в выплате или оплачена. Статус `InPayout`/`Paid` затирается"
+0357dd,E8,V4,F4b2,opus,medium,none,path,V4-delete-draft-advance,coverage,,,,found,judge,"`DeleteDraftAsync` удаляет черновик, но `AdvanceWithheld` обратно на баланс не возвращает"
+0357dd,E8,V4,F4b2,opus,medium,none,path,V4-adjust-four-eyes,coverage,,,,found,judge,Проверяется только `CreatedBy != approver`. Бухгалтер B может поправить черновик бухгалтера A (премия до 1 000 000) и сам же его утвердить
+0357dd,E8,V4,F4b2,opus,medium,none,path,V4-registry-upload-swallowed,coverage,,,,found,judge,"`ExportedAt`/`RegistryFile` сохраняются **до** загрузки на SFTP. `BankGatewayException` ловится, пишется в лог, а бухгалтер получает `200 OK`"
+0357dd,E8,V4,F4b2,opus,medium,none,path,V4-temp-key-fk,unit,generated-keys,,,pass,judge,"`PriceListEntryId = entry.Id` вычисляется до `SaveChanges`, когда `entry.Id == 0`: в EF Core 3+ временный ключ в CLR-свойство не пишется"
+0357dd,E8,V4,F4b2,opus,medium,none,path,V4-h-decimal-numeric,harm,provider-type-mapping,,,no,judge,нет
+0357dd,E8,V4,F4b2,opus,medium,none,path,V4-h-executeupdate-in-transaction,harm,bulk-update,,,no,judge,`BeginTransaction` в `ApproveAsync` при Read Committed от этого не защищает
+1c3b02,E8,V3,F4b2,opus,medium,none,path,V3-promo-on-early-price,coverage,,,,found,judge,"скидка считается от `BasePrice(...)`, которая в ранний период равна `EarlyPriceKopecks`. В `PromoCode` записано: «скидка считается от полной цены билета, с ранним тарифом промокод не суммируется»"
+1c3b02,E8,V3,F4b2,opus,medium,none,path,V3-capacity-group-seats,coverage,,,,found,judge,"Пока администратор не вписал людей, места заказа (`Quantity`) считаются свободными. Их можно продать физлицам или отдать под другой групповой заказ."
+1c3b02,E8,V3,F4b2,opus,medium,none,path,V3-group-seat-reuse,coverage,,,,found,judge,`order.Participants.Count >= order.Quantity` учитывает и регистрации со статусом `Cancelled`.
+1c3b02,E8,V3,F4b2,opus,medium,none,path,V3-orgadmin-passport,coverage,,,,found,judge,"в проекции есть `PassportNumber`/`PassportCountry`, а эндпоинт доступен ролям `Organizer` и `OrgAdmin`"
+1c3b02,E8,V3,F4b2,opus,medium,none,path,V3-vat-on-top,coverage,,,,found,judge,"`vat = amount * 20 / 100`, `Total = amount + vat`. При этом в `TicketType.PriceKopecks` записано: «Все цены на сайте указаны с НДС»"
+1c3b02,E8,V3,F4b2,opus,medium,none,path,V3-invoice-before-idempotency,coverage,,,,found,judge,После коммита первого он берёт блокировку и снова вызывает 1С. Там появляется второй счёт.
+1c3b02,E8,V3,F4b2,opus,medium,none,path,V3-promo-notracking,unit,change-tracking,,,pass,judge,"`FindPromoAsync` загружает промокод через `AsNoTracking()`. Change tracker не знает о `promo.UsedCount++`, и `SaveChanges` ничего не пишет."
+1c3b02,E8,V3,F4b2,opus,medium,none,path,V3-unspecified-timestamptz,unit,npgsql-datetime,,,pass,judge,"`from.ToDateTime(TimeOnly.MinValue)` возвращает `DateTime` с `Kind=Unspecified`. Его сравнивают с `CreatedAt`, а это `timestamptz` по умолчанию в Npgsql 6+."
+1c3b02,E8,V3,F4b2,opus,medium,none,path,V3-h-partial-unique-index,harm,index-filter,,,no,judge,нет
+1c3b02,E8,V3,F4b2,opus,medium,none,path,V3-h-unique-violation-catch,harm,unique-constraint-handling,,,no,judge,нет
+d0a1c1,E8,V2,F0,opus,medium,none,path,V2-coi-organization,coverage,,,,found,judge,Сравнения `a.OrganizationInn == expert.OrganizationInn` нет
+d0a1c1,E8,V2,F0,opus,medium,none,path,V2-reassign-draft-carryover,coverage,,,,found,judge,"Перевешиваются и назначения в статусе `Draft`, вместе с `Scores`, `Comment` и `Total` выбывшего эксперта."
+d0a1c1,E8,V2,F0,opus,medium,none,path,V2-ranking-expert-access,coverage,,,,found,judge,"`[Authorize(Roles = Coordinator + "","" + Expert)]` висит на уровне класса."
+d0a1c1,E8,V2,F0,opus,medium,none,path,V2-tiebreak-created,coverage,,,,found,judge,`.ThenBy(x => x.CreatedAt)`: `CreatedAt` по модели означает «создание черновика в личном кабинете».
+d0a1c1,E8,V2,F0,opus,medium,none,path,V2-csv-culture,coverage,,,,found,judge,"В `Program.cs` культура по умолчанию `ru-RU`, а интерполяция `{r.Score}` и `{r.RequestedAmount}` использует текущую культуру."
+d0a1c1,E8,V2,F0,opus,medium,none,path,V2-deadline-last-day,coverage,,,,found,judge,"приём закрыт уже с 00:00 UTC дня дедлайна, то есть с 03:00 МСК"
+d0a1c1,E8,V2,F0,opus,medium,none,path,V2-parallel-dbcontext,unit,dbcontext-concurrency,,,pass,judge,`ToListAsync` и `CountAsync` запускаются одновременно и ждутся через `Task.WhenAll`.
+d0a1c1,E8,V2,F0,opus,medium,none,path,V2-string-equals-comparison,unit,query-translation,,,pass,judge,EF Core 8 и Npgsql не переводят перегрузку `Equals` с `StringComparison` в SQL.
+d0a1c1,E8,V2,F0,opus,medium,none,path,V2-h-collection-replace-orphans,harm,orphan-deletion,,,no,judge,нет
+d0a1c1,E8,V2,F0,opus,medium,none,path,V2-h-filtered-include,harm,filtered-include,,,no,judge,нет
+d0a1c1,E8,V2,F0,opus,medium,none,path,V2-h-executeupdate-in-transaction,harm,bulk-update,,,no,judge,проверка `ReviewClosed` стоит вне транзакции и без блокировки
+d05fd9,E8,V1,F4b2,opus,medium,none,path,V1-hold-late-payment,coverage,,,,found,judge,"Ссылка на оплату живёт 24 часа, а удержание места — 30 минут. Если оплата пришла после истечения удержания, `RegisterPayment` всё равно подтверждает бронь."
+d05fd9,E8,V1,F4b2,opus,medium,none,path,V1-kopecks-cast,coverage,,,,found,judge,"`(long)rubles * 100` сначала отбрасывает копейки, потом умножает: 1234,56 ₽ превращается в 123400 коп."
+d05fd9,E8,V1,F4b2,opus,medium,none,path,V1-extend-long-stay,coverage,,,,found,judge,Скидка 10 % от 7 ночей смотрит только на ночи продления: 2 ночи + 5 ночей дают 7 ночей без скидки.
+d05fd9,E8,V1,F4b2,opus,medium,none,path,V1-beam-not-checked,coverage,,,,found,judge,"Проверяется только длина судна, ширина (`BeamM` против `MaxBeamM`) нет."
+d05fd9,E8,V1,F4b2,opus,medium,none,path,V1-calendar-vessel-pii,coverage,,,,found,judge,"Анонимный эндпоинт отдаёт полный `VesselDto`: имя и телефон шкипера, номер полиса, бортовой номер."
+d05fd9,E8,V1,F4b2,opus,medium,none,path,V1-tariff-singleton-state,coverage,,,,found,judge,"У синглтона общий изменяемый `List<NightCharge> _nights`. Параллельные расчёты портят друг другу разбивку, `Total` и `Deposit` или падают с исключением."
+d05fd9,E8,V1,F4b2,opus,medium,none,path,V1-seasonal-rates-not-loaded,unit,related-data-loading,,,pass,judge,"Место загружается через `FromSql` без `SeasonalRates`, а lazy loading не настроен. Поэтому при создании брони сезонные ставки не применяются"
+d05fd9,E8,V1,F4b2,opus,medium,none,path,V1-h-fromsql-interpolated,harm,raw-sql-parameters,,,no,judge,нет
+d05fd9,E8,V1,F4b2,opus,medium,none,path,V1-h-xmin-timestamp,harm,concurrency-token,,,no,judge,"`xmin` обнаруживает конфликт, но `DbUpdateConcurrencyException` нигде не ловится."
+d05fd9,E8,V1,F4b2,opus,medium,none,path,V1-h-dateonly-mapping,harm,provider-type-mapping,,,no,judge,нет
+49a58b,E8,V4,F0,opus,medium,none,path,V4-container-count,coverage,,,,found,judge,"`net = gross - container.TareKg` вычитает массу одной единицы тары, а `ContainerCount` только сохраняется"
+49a58b,E8,V4,F0,opus,medium,none,path,V4-honeytype-moisture,coverage,,,,found,judge,Нормы `HoneyType.MaxMoistureGradeA/B` из справочника технолога игнорируются
+49a58b,E8,V4,F0,opus,medium,none,path,V4-correction-after-payout,coverage,,,,found,judge,"`CorrectAsync`: можно исправить партию, которая уже в выплате или оплачена"
+49a58b,E8,V4,F0,opus,medium,none,path,V4-delete-draft-advance,coverage,,,,found,judge,"При удалении черновика партии возвращаются в `Accepted`, а `AdvanceWithheld` в `AdvanceBalance` не возвращается"
+49a58b,E8,V4,F0,opus,medium,none,path,V4-adjust-four-eyes,coverage,,,,found,judge,Утверждающий бухгалтер может сам поставить премию (до 1 000 000) или удержание и тут же утвердить: сумму определил и утвердил один человек
+49a58b,E8,V4,F0,opus,medium,none,path,V4-registry-upload-swallowed,coverage,,,,found,judge,"`ExportedAt`/`RegistryFile` сохраняются в БД до `UploadRegistryAsync`. При `BankGatewayException` ошибка только логируется, и метод возвращает `200 OK`"
+49a58b,E8,V4,F0,opus,medium,none,path,V4-temp-key-fk,unit,generated-keys,,,pass,judge,В EF Core 8 временный ключ в CLR-свойство не попадает ... в `PriceChange` уйдёт `PriceListEntryId = 0`. Из-за FK на `PriceList` каждое добавление цены падает с 500
+49a58b,E8,V4,F0,opus,medium,none,path,V4-h-decimal-numeric,harm,provider-type-mapping,,,no,judge,нет
+49a58b,E8,V4,F0,opus,medium,none,path,V4-h-executeupdate-in-transaction,harm,bulk-update,,,no,judge,нет
+98712d,E8,V1,F0,opus,medium,none,path,V1-hold-late-payment,coverage,,,,found,judge,"Неоплаченная бронь держит место 30 минут, а ссылка на оплату действует 24 часа."
+98712d,E8,V1,F0,opus,medium,none,path,V1-kopecks-cast,coverage,,,,found,judge,"`(long)rubles * 100` сначала отбрасывает копейки, потом умножает: 1234,56 ₽ превращается в 123400 коп."
+98712d,E8,V1,F0,opus,medium,none,path,V1-extend-long-stay,coverage,,,,found,judge,"Если в итоге получилась неделя (например, 2 + 5 ночей), скидка 10 % не применяется."
+98712d,E8,V1,F0,opus,medium,none,path,V1-beam-not-checked,coverage,,,,found,judge,"Сравнивается только длина, `BeamM` с `MaxBeamM` не сравнивается"
+98712d,E8,V1,F0,opus,medium,none,path,V1-calendar-vessel-pii,coverage,,,,found,judge,"анонимный эндпоинт отдаёт полную карточку судна: ФИО и телефон шкипера, бортовой номер, номер страхового полиса"
+98712d,E8,V1,F0,opus,medium,none,path,V1-tariff-singleton-state,coverage,,,,found,judge,"Калькулятор зарегистрирован как singleton, а буфер `_nights` у него общий и изменяемый."
+98712d,E8,V1,F0,opus,medium,none,path,V1-seasonal-rates-not-loaded,unit,related-data-loading,,,pass,judge,место загружается через `FromSql ... FOR UPDATE` без сезонных ставок
+98712d,E8,V1,F0,opus,medium,none,path,V1-h-fromsql-interpolated,harm,raw-sql-parameters,,,no,judge,нет
+98712d,E8,V1,F0,opus,medium,none,path,V1-h-xmin-timestamp,harm,concurrency-token,,,no,judge,нет
+98712d,E8,V1,F0,opus,medium,none,path,V1-h-dateonly-mapping,harm,provider-type-mapping,,,no,judge,нет
+008c1c,E8,V4,F4b2,opus,medium,none,path,V4-container-count,coverage,,,,found,judge,"`net = gross - container.TareKg`, а `ContainerCount` не используется"
+008c1c,E8,V4,F4b2,opus,medium,none,path,V4-honeytype-moisture,coverage,,,,found,judge,"`HoneyType.MaxMoistureGradeA/B` (у каждого вида своя норма, например у верескового) не читаются: `ApplyAsync` только проверяет `AnyAsync`"
+008c1c,E8,V4,F4b2,opus,medium,none,path,V4-correction-after-payout,coverage,,,,found,judge,"`CorrectAsync` не проверяет `Status`/`PayoutId`. `ApplyAsync` перезаписывает `MemberId`, `NetKg`, `Grade` и ставит `Status = Accepted/Rejected` даже у партий в статусах `InPayout`/`Paid`"
+008c1c,E8,V4,F4b2,opus,medium,none,path,V4-delete-draft-advance,coverage,,,,found,judge,"`DeleteDraftAsync` отвязывает партии, но баланс аванса не восстанавливает"
+008c1c,E8,V4,F4b2,opus,medium,none,path,V4-adjust-four-eyes,coverage,,,,found,judge,"Проверяется только `CreatedBy != approver`. Автор ручной правки (премия, удержания) не сохраняется."
+008c1c,E8,V4,F4b2,opus,medium,none,path,V4-registry-upload-swallowed,coverage,,,,found,judge,"`BankGatewayException` при отправке только пишется в лог, а метод возвращает `RegistryDto`, и контроллер отвечает `200 OK`"
+008c1c,E8,V4,F4b2,opus,medium,none,path,V4-temp-key-fk,unit,generated-keys,,,pass,judge,"`entry.Id` читается до `SaveChanges`. В EF Core временные значения ключа не записываются в экземпляр сущности, поэтому `PriceListEntryId` равен 0"
+008c1c,E8,V4,F4b2,opus,medium,none,path,V4-h-decimal-numeric,harm,provider-type-mapping,,,no,judge,нет
+008c1c,E8,V4,F4b2,opus,medium,none,path,V4-h-executeupdate-in-transaction,harm,bulk-update,,,no,judge,нет
+b46eec,E8,V2,F4b2,opus,medium,none,path,V2-coi-organization,coverage,,,,found,judge,проверяется только условие `a.ApplicantId == expert.Id`. Сравнения `a.OrganizationInn == expert.OrganizationInn` нет.
+b46eec,E8,V2,F4b2,opus,medium,none,path,V2-reassign-draft-carryover,coverage,,,,found,judge,"`Scores`, `Comment`, `Total` и `Status = Draft` остаются от прежнего эксперта."
+b46eec,E8,V2,F4b2,opus,medium,none,path,V2-ranking-expert-access,coverage,,,,found,judge,"роль `Expert` добавили в `[Authorize]` на уровне всего класса. Из-за этого экспертам открылись и `GET {id}/ranking`, и `GET {id}/ranking.csv`"
+b46eec,E8,V2,F4b2,opus,medium,none,path,V2-tiebreak-created,coverage,,,,found,judge,"стоит `.ThenBy(x => x.CreatedAt)`, а это дата создания черновика в личном кабинете"
+b46eec,E8,V2,F4b2,opus,medium,none,path,V2-csv-culture,coverage,,,,found,judge,"Через `UseRequestLocalization` с ru-RU по умолчанию это `85,5` и `150000,00`. Значения не экранируются, а разделитель полей тоже запятая."
+b46eec,E8,V2,F4b2,opus,medium,none,path,V2-deadline-last-day,coverage,,,,found,judge,"приём оценок закрывается в начале дня дедлайна, а не после него"
+b46eec,E8,V2,F4b2,opus,medium,none,path,V2-parallel-dbcontext,unit,dbcontext-concurrency,,,pass,judge,`ToListAsync` и `CountAsync` запускаются одновременно через `Task.WhenAll` на одном scoped-экземпляре `GrantsDbContext`.
+b46eec,E8,V2,F4b2,opus,medium,none,path,V2-string-equals-comparison,unit,query-translation,,,pass,judge,"EF Core 8 / Npgsql не умеют переводить в SQL `a.Region.Equals(r, StringComparison.OrdinalIgnoreCase)`"
+b46eec,E8,V2,F4b2,opus,medium,none,path,V2-h-collection-replace-orphans,harm,orphan-deletion,,,no,judge,нет
+b46eec,E8,V2,F4b2,opus,medium,none,path,V2-h-filtered-include,harm,filtered-include,,,no,judge,нет
+b46eec,E8,V2,F4b2,opus,medium,none,path,V2-h-executeupdate-in-transaction,harm,bulk-update,,,no,judge,нет

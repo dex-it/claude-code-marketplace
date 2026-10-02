@@ -1,0 +1,97 @@
+{
+  "id": "609a51",
+  "case": "V1",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.118371,
+    "durationMs": 14764,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 11067,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1470,
+      "output_tokens_details": {
+        "thinking_tokens": 224
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11067,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1470,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 11067,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 11067
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "V1-hold-late-payment": {
+      "verdict": "FOUND",
+      "quote": "Неоплаченная бронь держит место 30 минут, а платёжная ссылка PayGate действует 24 часа (`IPaymentGateway.CreatePaymentAsync`)",
+      "why": "Находка 3 связывает истечение 30-минутного удержания и 24-часовую ссылку с подтверждением через RegisterPayment без проверки пересечений, итог — две подтверждённые брони."
+    },
+    "V1-kopecks-cast": {
+      "verdict": "FOUND",
+      "quote": "`(long)rubles * 100` сначала приводит рубли к `long`, а потом умножает на 100. Копейки теряются",
+      "why": "Названы приоритет приведения, неподтверждение брони по `PaidAmount >= Deposit`, потеря места через 30 минут и урезание возврата в CancelAsync."
+    },
+    "V1-extend-long-stay": {
+      "verdict": "FOUND",
+      "quote": "Скидка 10 % применяется только если *само продление* не короче 7 ночей",
+      "why": "Указано, что скидка за длительность не учитывает всю стоянку при продлении, предложен пересчёт от Arrival до newDeparture."
+    },
+    "V1-beam-not-checked": {
+      "verdict": "FOUND",
+      "quote": "Проверяется только `vessel.LengthM > berth.MaxLengthM`, а `Berth.MaxBeamM` (ширина между пальцами понтона) игнорируется",
+      "why": "Отсутствие проверки ширины названо прямо, исправление — сравнение `vessel.BeamM > berth.MaxBeamM`."
+    },
+    "V1-calendar-vessel-pii": {
+      "verdict": "FOUND",
+      "quote": "Публичный (`[AllowAnonymous]`) календарь отдаёт полный `VesselDto`",
+      "why": "Анонимный календарь связан с телефоном шкипера, бортовым номером и номером страхового полиса из VesselDto."
+    },
+    "V1-tariff-singleton-state": {
+      "verdict": "FOUND",
+      "quote": "`TariffCalculator` зарегистрирован как `AddSingleton`, а `_nights` — общий для всех запросов `List<NightCharge>`",
+      "why": "Изменяемое поле связано с singleton-регистрацией и параллельными вызовами, названы перемешанные суммы и InvalidOperationException."
+    },
+    "V1-seasonal-rates-not-loaded": {
+      "verdict": "PASS",
+      "quote": "`LockBerthAsync` загружает `Berth` через `FromSql(... FOR UPDATE)` без `Include(SeasonalRates)`, поэтому `berth.SeasonalRates` пуст",
+      "why": "Указаны применение BaseRatePerMeter, расхождение с калькулятором, где стоит Include, и исправление догрузкой коллекции."
+    },
+    "V1-h-fromsql-interpolated": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Интерполяцию в FromSql исполнитель SQL-инъекцией не называет и замену на FromSqlRaw не требует."
+    },
+    "V1-h-xmin-timestamp": {
+      "verdict": "NO",
+      "quote": "`xmin` ловит конфликт отмены и вебхука, но исключение нигде не обрабатывается",
+      "why": "Механизм xmin признан рабочим, претензия касается только необработанного DbUpdateConcurrencyException."
+    },
+    "V1-h-dateonly-mapping": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Маппинг DateOnly в выходе не оспаривается, конвертер не требуется."
+    }
+  },
+  "stderr": ""
+}

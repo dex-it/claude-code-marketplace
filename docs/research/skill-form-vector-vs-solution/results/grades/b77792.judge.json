@@ -1,0 +1,107 @@
+{
+  "id": "b77792",
+  "case": "V2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.114827,
+    "durationMs": 13495,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 10719,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1432,
+      "output_tokens_details": {
+        "thinking_tokens": 177
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 10719,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1432,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 10719,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 10719
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "V2-foreign-review": {
+      "verdict": "FOUND",
+      "quote": "Оценка загружается только по `reviewId`. Проверка на эксперта сводится к `review.Application.ApplicantId == expertId`, а `review.ExpertId == expertId` не проверяется.",
+      "why": "Названо отсутствие проверки владельца оценки и возможность перезаписать чужие оценки перебором id."
+    },
+    "V2-blind-review-leak": {
+      "verdict": "FOUND",
+      "quote": "Эксперту, которому назначена заявка, приходят отправленные оценки всех экспертов: имя, `Total`, `Comment`.",
+      "why": "Указано нарушение слепой экспертизы в ApplicationsController.Get."
+    },
+    "V2-max-score": {
+      "verdict": "FOUND",
+      "quote": "По критерию с `MaxScore = 5` можно поставить 10: вклад критерия станет 200%, а `Total` превысит 100.",
+      "why": "Названо отсутствие сверки балла с MaxScore критерия."
+    },
+    "V2-average-unsubmitted": {
+      "verdict": "FOUND",
+      "quote": "Туда попадают `Assigned` и `Expired` с `Total = 0`, а также черновики `Draft` с промежуточным `Total`.",
+      "why": "Указано усреднение по неотправленным оценкам вопреки MR."
+    },
+    "V2-min-reviews": {
+      "verdict": "FOUND",
+      "quote": "условие порога `> MinReviews` вместо `>=`",
+      "why": "Названо отсечение заявок ровно с тремя экспертизами."
+    },
+    "V2-budget-stop": {
+      "verdict": "FOUND",
+      "quote": "выставляется `budgetExhausted = true`, и все следующие заявки остаются без гранта, даже если остаток их покрывает",
+      "why": "Описан дефект остановки распределения бюджета."
+    },
+    "V2-invalid-204": {
+      "verdict": "FOUND",
+      "quote": "В `switch` нет ветки для `Invalid`, поэтому срабатывает `_ => NoContent()`.",
+      "why": "Указано, что Invalid возвращает 204 как успех."
+    },
+    "V2-parallel-dbcontext": {
+      "verdict": "PASS",
+      "quote": "`contestTask` и `rowsTask` запускаются одновременно и ждутся через `Task.WhenAll`.",
+      "why": "Названы параллельные запросы на одном DbContext, InvalidOperationException и последовательное ожидание как исправление."
+    },
+    "V2-string-equals-comparison": {
+      "verdict": "PASS",
+      "quote": "EF Core 8 с Npgsql не умеет переводить `Equals` с `StringComparison` в SQL.",
+      "why": "Указано исключение трансляции, предложены ILike, citext/collation и нормализация."
+    },
+    "V2-h-collection-replace-orphans": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Замена коллекции Scores дефектом не объявлена."
+    },
+    "V2-h-filtered-include": {
+      "verdict": "NO",
+      "quote": "Для координатора и для эксперта выполняется один и тот же запрос: `Include(a => a.Reviews.Where(r => r.Status == Submitted))`.",
+      "why": "Filtered include упомянут корректно, без утверждения о его неработоспособности."
+    },
+    "V2-h-executeupdate-in-transaction": {
+      "verdict": "NO",
+      "quote": "Два параллельных `close-review` оба проходят проверку `ReviewClosed`, потому что контест читается вне транзакции.",
+      "why": "Указана гонка проверки ReviewClosed, но не утверждается, что ExecuteUpdate не сохраняется или не участвует в транзакции."
+    }
+  },
+  "stderr": ""
+}

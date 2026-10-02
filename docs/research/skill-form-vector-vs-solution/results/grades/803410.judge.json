@@ -1,0 +1,102 @@
+{
+  "id": "803410",
+  "case": "V2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.129127,
+    "durationMs": 14881,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 11849,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1695,
+      "output_tokens_details": {
+        "thinking_tokens": 371
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11849,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1695,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 11849,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 11849
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "V2-coi-organization": {
+      "verdict": "FOUND",
+      "quote": "Проверяется только `ApplicantId`. Совпадение ИНН организации эксперта по п. 4.3 положения не проверяется.",
+      "why": "Выход прямо называет отсутствие сверки Expert.OrganizationInn с GrantApplication.OrganizationInn и упоминает, что через AssignAsync/ReassignAsync такие заявки назначаются."
+    },
+    "V2-reassign-draft-carryover": {
+      "verdict": "FOUND",
+      "quote": "Черновики передаются новому эксперту вместе с баллами, комментарием и итогом прежнего эксперта.",
+      "why": "Назван перенос черновика прежнего эксперта; предложен сброс назначения в Assigned."
+    },
+    "V2-ranking-expert-access": {
+      "verdict": "FOUND",
+      "quote": "Роль `Expert` добавили на весь контроллер, а не только на метод `Get`. Поэтому экспертам стали доступны `ranking` и `ranking.csv`.",
+      "why": "Указан доступ экспертов к рейтингу и CSV через атрибут класса."
+    },
+    "V2-tiebreak-created": {
+      "verdict": "FOUND",
+      "quote": "При равном балле сортировка идёт по `CreatedAt` (создание черновика), а по положению выше та заявка, что раньше подана, то есть `SubmittedAt`.",
+      "why": "Прямо указано, что используется CreatedAt вместо SubmittedAt."
+    },
+    "V2-csv-culture": {
+      "verdict": "FOUND",
+      "quote": "Числа форматируются в культуре ru-RU (`87,5`) и не берутся в кавычки. В CSV запятая разделяет поля",
+      "why": "Культура ru-RU связана с десятичной запятой и разделителем полей CSV."
+    },
+    "V2-deadline-last-day": {
+      "verdict": "FOUND",
+      "quote": "Приём закрывается в 00:00 UTC в начале дня дедлайна, то есть в 03:00 МСК, а не после этого дня.",
+      "why": "Указано, что день дедлайна исключён, потому что граница стоит в начале дня."
+    },
+    "V2-parallel-dbcontext": {
+      "verdict": "PASS",
+      "quote": "Два запроса идут параллельно через `Task.WhenAll` на одном `DbContext`. EF бросит `InvalidOperationException`",
+      "why": "Дефект назван, предложено выполнять запросы последовательно."
+    },
+    "V2-string-equals-comparison": {
+      "verdict": "PASS",
+      "quote": "`string.Equals(..., StringComparison.OrdinalIgnoreCase)` EF не переводит в SQL, поэтому поиск по региону падает. Подойдёт `EF.Functions.ILike` или `citext`.",
+      "why": "Названа нетранслируемость и предложены ILike/citext."
+    },
+    "V2-h-collection-replace-orphans": {
+      "verdict": "NO",
+      "quote": "Автосохранение черновика может молча перезаписать уже отправленную оценку обратно в `Draft` и добавить второй набор баллов.",
+      "why": "Второй набор баллов выводится из гонки параллельных запросов, а не из утверждения, что замена коллекции оставляет сирот; RemoveRange/Clear исполнитель не требует."
+    },
+    "V2-h-filtered-include": {
+      "verdict": "NO",
+      "quote": "Для эксперта всё равно загружаются оценки коллег, которые потом отбрасываются.",
+      "why": "Речь об избыточной выборке для эксперта; исполнитель не утверждает, что filtered include не поддерживается или грузит все отзывы."
+    },
+    "V2-h-executeupdate-in-transaction": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "ExecuteUpdate и транзакцию в CloseReview исполнитель дефектом не объявляет."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,97 @@
+{
+  "id": "a1f322",
+  "case": "V3",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.138183,
+    "durationMs": 12933,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 13341,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1551,
+      "output_tokens_details": {
+        "thinking_tokens": 315
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 13341,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1551,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 13341,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 13341
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "V3-promo-on-early-price": {
+      "verdict": "FOUND",
+      "quote": "Скидка по промокоду считается от ранней цены, то есть суммируется с ранним тарифом. По договорам с партнёрами скидка считается от полной цены и с ранним тарифом не суммируется.",
+      "why": "Находка 5 связывает правило из PromoCode с расчётом скидки от ранней цены в PricingService.Quote."
+    },
+    "V3-capacity-group-seats": {
+      "verdict": "FOUND",
+      "quote": "Места под групповые заказы не резервируются. Считаются только существующие регистрации, а участников группы вписывают позже",
+      "why": "Находка 3 указывает, что FreeSeatsAsync не учитывает невписанные места групповых заказов, и говорит о переполнении площадки."
+    },
+    "V3-group-seat-reuse": {
+      "verdict": "FOUND",
+      "quote": "Отменённые участники считаются занятыми местами. Из-за этого не работает заявленный сценарий «отменить сотрудника и вписать на его место другого».",
+      "why": "Находка 7 называет дефект проверки в AddParticipantAsync и упоминает расхождение со списком заказов."
+    },
+    "V3-orgadmin-passport": {
+      "verdict": "FOUND",
+      "quote": "Паспортные данные видят администраторы организаций и весь оргкомитет. По MR их должна видеть только визовая группа",
+      "why": "Находка 6 связывает выдачу данных роли OrgAdmin с паспортными полями ParticipantDto.Projection."
+    },
+    "V3-vat-on-top": {
+      "verdict": "FOUND",
+      "quote": "НДС 20 % прибавляется к цене (`amount + vat`), хотя все цены уже указаны с НДС.",
+      "why": "Находка 1 указывает, что НДС начисляется сверху на цену, которая его уже включает, и предлагает выделять amount*20/120."
+    },
+    "V3-invoice-before-idempotency": {
+      "verdict": "FOUND",
+      "quote": "B снова вызывает `CreateInvoiceAsync` и только потом падает на уникальном индексе. Новый счёт в 1С при этом уже выставлен",
+      "why": "Находка 2 связывает выставление внешнего счёта до фиксации ключа с повтором запроса и гонкой."
+    },
+    "V3-promo-notracking": {
+      "verdict": "PASS",
+      "quote": "Промокод загружается с `AsNoTracking`, поэтому `UsedCount++` не сохраняется, и лимит промокода не работает.",
+      "why": "Находка 4 называет причину и последствие и предлагает атомарный UPDATE с условием UsedCount < UsageLimit."
+    },
+    "V3-unspecified-timestamptz": {
+      "verdict": "PASS",
+      "quote": "параметр `DateTime` с `Kind=Unspecified` сравнивается с колонкой `timestamptz`, и Npgsql 8 на этом бросает исключение",
+      "why": "Находка 10 описывает падение отчёта и предлагает перейти к UTC с осознанным выбором часового пояса (московская полночь)."
+    },
+    "V3-h-partial-unique-index": {
+      "verdict": "NO",
+      "quote": "фильтрованный `(ConferenceId, UserId) WHERE Status <> 2`",
+      "why": "Индекс упомянут только как опора инварианта в находке о миграции, а не как дефект."
+    },
+    "V3-h-unique-violation-catch": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Перехват UniqueViolation в RegisterAsync не оспаривается, и замена на AnyAsync не предлагается."
+    }
+  },
+  "stderr": ""
+}

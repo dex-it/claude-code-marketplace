@@ -1,0 +1,107 @@
+{
+  "id": "72dbaa",
+  "case": "V1",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.130747,
+    "durationMs": 13781,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 12164,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1650,
+      "output_tokens_details": {
+        "thinking_tokens": 213
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 12164,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1650,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 12164,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 12164
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "V1-vessel-filter-idor": {
+      "verdict": "FOUND",
+      "quote": "Если передан `vesselId`, фильтр `OwnerId == userId` не применяется: ветки `if/else if`.",
+      "why": "Назван именно обход владения через vesselId в List с утечкой ContactPhone, сумм и дат."
+    },
+    "V1-started-meter": {
+      "verdict": "FOUND",
+      "quote": "`Math.Round(vessel.LengthM, MidpointRounding.AwayFromZero)` превращает 12.3 м в 12. По условию тарифицируется каждый начатый метр, значит нужно 13: `Math.Ceiling`.",
+      "why": "Прямо указано расхождение с правилом «каждый начатый метр» и предложен Math.Ceiling."
+    },
+    "V1-turnover-day": {
+      "verdict": "FOUND",
+      "quote": "Условие `b.Arrival <= req.Departure && b.Departure >= req.Arrival` включает границы.",
+      "why": "Назван отказ в брони в день выезда и предложены строгие неравенства, как в Calendar."
+    },
+    "V1-cancel-timezone": {
+      "verdict": "FOUND",
+      "quote": "`booking.Arrival.ToDateTime(CheckInTime)` — это 14:00 по местному времени марины (`Marina.TimeZoneId`), но вычитается `DateTime.UtcNow`.",
+      "why": "Указано смешение местного времени заезда и UTC со сдвигом границы 48 часов для Москвы."
+    },
+    "V1-webhook-duplicate": {
+      "verdict": "FOUND",
+      "quote": "Проверки по `ProviderEventId` нет. В `MarinaDbContext` нет уникального индекса на `Payment.ProviderEventId`",
+      "why": "Названы отсутствие идемпотентности при at-least-once, повторный рост PaidAmount и завышенный возврат."
+    },
+    "V1-webhook-kopecks": {
+      "verdict": "FOUND",
+      "quote": "Код пишет `Amount = evt.Amount` и делает `booking.PaidAmount += evt.Amount` без деления на 100.",
+      "why": "Описаны копейки вместо рублей, подтверждение при 1 % депозита и возврат в 100 раз больше."
+    },
+    "V1-calendar-pii": {
+      "verdict": "FOUND",
+      "quote": "Публичный `[AllowAnonymous]` календарь возвращает полный `BookingDto`: Id брони, название судна, телефон шкипера, `Total`/`Deposit`/`PaidAmount`.",
+      "why": "Названа утечка телефонов и сумм через анонимный календарь, которому по MR нужны только даты."
+    },
+    "V1-refund-swallowed": {
+      "verdict": "FOUND",
+      "quote": "При `PaymentGatewayException` ошибка только логируется. После этого бронь всё равно переводится в `Cancelled`, `RefundedAmount = refund`",
+      "why": "Описано, что неудачный возврат записывается как проведённый, а повторить его нельзя."
+    },
+    "V1-seasonal-rates-not-loaded": {
+      "verdict": "PASS",
+      "quote": "Место читается через `FromSql(... FOR UPDATE)` без `.Include(b => b.SeasonalRates)`. Lazy loading не настроен, поэтому `berth.SeasonalRates` всегда пуст",
+      "why": "Указаны пустая коллекция и постоянная базовая ставка; предложены Include после FromSql или отдельная загрузка ставок."
+    },
+    "V1-h-fromsql-interpolated": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Интерполяцию в FromSql исполнитель SQL-инъекцией не называет и замены на FromSqlRaw не требует."
+    },
+    "V1-h-xmin-timestamp": {
+      "verdict": "NO",
+      "quote": "`xmin` даст `DbUpdateConcurrencyException`",
+      "why": "xmin трактуется как работающий concurrency token, к маппингу Version претензий нет."
+    },
+    "V1-h-dateonly-mapping": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Отображение DateOnly дефектом не объявлено, конвертер не требуется."
+    }
+  },
+  "stderr": ""
+}
