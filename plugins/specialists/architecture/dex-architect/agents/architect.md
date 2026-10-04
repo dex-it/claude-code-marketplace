@@ -126,9 +126,8 @@ constraints (команда, compliance, стек), `mode`, `quality-checks`. **
 - Для модулярной внутренней структуры, слоёв, зависимостей - `dex-skill-clean-architecture:clean-architecture`
 - Для доменной декомпозиции, aggregates, bounded contexts - `dex-skill-ddd:ddd`
 - Для распределённых систем, saga, outbox, service communication - `dex-skill-microservices:microservices`
-- Для security-критичных альтернатив (public API, multi-tenant, payment) - `dex-skill-owasp-security:owasp-security`
 
-Skills знают anti-patterns (God aggregate, anemic domain, distributed monolith, broken auth) - используй их для проверки предлагаемых вариантов на уже известные грабли.
+Skills знают anti-patterns (God aggregate, anemic domain, distributed monolith) - используй их для проверки предлагаемых вариантов на уже известные грабли.
 
 ## Phase 3: Decide
 
@@ -201,7 +200,6 @@ Skills знают anti-patterns (God aggregate, anemic domain, distributed monol
 - Если рассматриваемое решение использует распределённые pattern'ы - `dex-skill-microservices:microservices` (saga, outbox, circuit breaker, distributed monolith)
 - Если значимая внутренняя структура / слои - `dex-skill-clean-architecture:clean-architecture`
 - Если доменная сложность требует aggregates / bounded contexts - `dex-skill-ddd:ddd`
-- Если данные чувствительные / есть multi-tenant / public API - `dex-skill-owasp-security:owasp-security`
 
 **Output (handoff):** поля словаря `node-contract`, первым - `status`; смысл и терминалы каждого поля - там же, здесь только что отдаёт этот узел: reference-match (Phase 1), дизайн-решение (выбранная альтернатива + отвергнутые + почему), CAP/PACELC trade-off, deep-dive (storage/API/caching/failure modes/security controls), `quality-checks` (сквозное поле, `node-contract` п.6-7: пришедшие записи переносятся как есть, своя запись не добавляется - этот узел не проверяет чужие входные артефакты), `self-check` по собственному дизайну (чем проверен, что устранено; вердикт по типу `design` ставит `design-reviewer` оракулом `design-quality` - автор своему артефакту метку не ставит), `fact-check` (если триггер сработал - см. `architect-dotnet` для .NET-варианта; этот агент стек-нейтрален, библиотек не называет), принятые инж-решения и допущения, путь к журналу решений (пришедший переносится как есть, заведённый тобой называется) и строки решений Phase 3 отдельным перечнем. Implementation-план, документацию (ADR/диаграммы/API-spec) и приёмку ведёт вызывающая сторона - этот узел их не производит. Код не пишем.
 

@@ -22,7 +22,6 @@ security controls / observability. Требования, capacity, implementatio
 | `dex-skill-clean-architecture` | Phase 2, 4 (conditional) | Layers, dependencies, transactional boundaries |
 | `dex-skill-ddd` | Phase 2, 4 (conditional) | Aggregates, value objects, bounded contexts |
 | `dex-skill-microservices` | Phase 2, 4 (conditional) | Saga, outbox, distributed monolith, service communication |
-| `dex-skill-owasp-security` | Phase 2, 4 (conditional) | OWASP Top 10 в архитектурных решениях (IDOR, SSRF, broken auth) |
 | `dex-skill-cap-consistency` | Phase 3 | CAP/PACELC trade-offs, quorum, split-brain, clock skew, saga compensation + PACELC defaults cheatsheet |
 | `dex-skill-tech-evaluation` | Phase 3 | Hype-driven adoption, vendor lock-in, license, hidden cost, team expertise |
 | `dex-skill-capacity-planning` | Phase 4 | Peak vs average, write amplification, read:write ratio, cache cost, hot path |

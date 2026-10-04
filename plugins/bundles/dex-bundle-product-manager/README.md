@@ -68,8 +68,7 @@ Bundle for Product Managers: business requirements, roadmap, backlog, metrics an
 - `dex-skill-codebase-conventions` - Project conventions: decision source, ADR over neighbour code
 - `dex-skill-ddd` - DDD traps
 - `dex-skill-fact-verification` - Technical fact verification against source of truth
-- `dex-skill-review-evidence` - Review evidence discipline and falsification
-- `dex-skill-output-hygiene` - Output text hygiene without LLM markers
+- `dex-skill-review-evidence` - Review intent source (intent-gate) and confidence threshold
 
 ## Note
 

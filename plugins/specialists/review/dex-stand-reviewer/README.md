@@ -21,7 +21,7 @@
 
 ## Skills
 
-Загружаются императивно по фазам: `dex-skill-shared-stand-safety`, `dex-skill-stand-verification` (включая дисциплину временных E2E), `dex-skill-codebase-conventions`, `dex-skill-completeness-mapping`, `dex-skill-change-correlation`, `dex-skill-review-evidence`, `dex-skill-fact-verification`, `dex-skill-requirement-quality`, `dex-skill-no-loose-ends`, `dex-skill-output-hygiene`, плюс by-stack skills по реестру и `dex-skill-owasp-security` / `dex-skill-contract-drift` / `dex-skill-observability` по контексту.
+Загружаются императивно по фазам: `dex-skill-shared-stand-safety`, `dex-skill-stand-verification` (включая дисциплину временных E2E), `dex-skill-codebase-conventions`, `dex-skill-completeness-mapping`, `dex-skill-change-correlation`, `dex-skill-review-evidence`, `dex-skill-fact-verification`, `dex-skill-requirement-quality`, плюс by-stack skills по реестру и `dex-skill-contract-drift` / `dex-skill-observability` по контексту.
 
 ## Установка
 

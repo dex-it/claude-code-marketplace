@@ -193,6 +193,7 @@ const PROCESS_SKILLS = new Set([
   'project-rulebook',
   'defect-classification',
   'norm-writing',
+  'review-evidence',
 ]);
 
 // Имена, существующие только в фикстурах `tools/__fixtures__`. В продовые перечни не

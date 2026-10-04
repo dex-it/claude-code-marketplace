@@ -47,7 +47,6 @@ Bundle for Software Architects: architecture design, ADR, diagrams, API design, 
 - `dex-skill-api-documentation` - API documentation
 - `dex-skill-api-specification` - API specification & contracts
 - `dex-skill-observability` - OpenTelemetry, metrics, tracing
-- `dex-skill-owasp-security` - OWASP Top 10, security
 - `dex-skill-doc-standards` - Documentation standards (BRD, PRD, ADR)
 - `dex-skill-adr-quality` - ADR authoring traps (norm vs code, closure)
 - `dex-skill-git-workflow` - Git workflow, conventional commits

@@ -21,7 +21,7 @@
 
 ## Skills
 
-Загружаются императивно по фазам: `dex-skill-problem-specification`, `dex-skill-root-cause-analysis`, `dex-skill-change-correlation`, `dex-skill-shared-stand-safety`, `dex-skill-contract-drift`, плюс `dex-skill-observability` и `dex-skill-owasp-security` по контексту.
+Загружаются императивно по фазам: `dex-skill-problem-specification`, `dex-skill-root-cause-analysis`, `dex-skill-change-correlation`, `dex-skill-shared-stand-safety`, `dex-skill-contract-drift`, плюс `dex-skill-observability` по контексту.
 
 ## Установка
 

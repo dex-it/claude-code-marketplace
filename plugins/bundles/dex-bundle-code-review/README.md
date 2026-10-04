@@ -46,18 +46,15 @@ Bundle для полного цикла работы с кодом, языко-�
 - `dex-debugger` - root cause по коду (`/root-cause`), вызывается и при баг-фиксе через `/implement`
 
 ### Skills, новые в этом bundle
-- `dex-skill-no-loose-ends` - незавершённый код и скрытые хаки (TODO, заглушки, fallback, secrets)
-- `dex-skill-review-evidence` - доказательность находок, фальсификация, рубрики severity/confidence
+- `dex-skill-review-evidence` - источник намерения ревью (intent-gate) и порог уверенности находок
 - `dex-skill-review-threads` - инлайн-доставка ревью, один тред на находку через gh/glab
-- `dex-skill-output-hygiene` - текст без LLM-маркеров для людей и ревью
 - `dex-skill-karpathy-guidelines` - дисциплина изменений по мотивам Karpathy (MIT)
 - `dex-skill-merge-conflict-resolution` - конфликты merge/rebase без тихой потери стороны (ours/theirs в rebase, modify/delete как переезд, lock-файлы, evil merge)
 
 ### Skills, переиспользуемые из маркетплейса
 - `dex-skill-review-step-by-step` - пошаговый разбор замечаний через апрув
-- `dex-skill-owasp-security` - OWASP Top 10
 - `dex-skill-solid` - нарушения SOLID
-- `dex-skill-testability` - тестируемость, скрытые зависимости, детерминизм
+- `dex-skill-testability` - тестируемость: внешний мир без шва для подмены в тесте
 - `dex-skill-clean-architecture` - слои, зависимости, транзакции
 - `dex-skill-git-workflow` - gitflow, conventional commits, code review
 - `dex-skill-codebase-conventions` - конвенции и словарь проекта

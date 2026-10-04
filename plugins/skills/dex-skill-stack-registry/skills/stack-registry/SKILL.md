@@ -65,7 +65,6 @@ skill видны агенту **до** загрузки (тело SKILL.md - н�
 Часть skills не привязана к языку backend и грузится **по теме**, в дополнение к
 стековым, независимо от детектированного стека:
 
-- безопасность - `dex-skill-owasp-security` (всегда при эндпоинтах/доступе к данным);
 - архитектура/принципы - `dex-skill-solid`, `dex-skill-clean-architecture`, `dex-skill-testability`, `dex-skill-nfr`, `dex-skill-microservices`, `dex-skill-distributed-resilience`;
 - инфраструктура - `dex-skill-docker`, `dex-skill-kubernetes`, `dex-skill-observability`;
 - CI - `dex-skill-ci-gates` (минимум гейтов, платформо-агностично) плюс skill своей платформы (`dex-skill-github-actions`, `dex-skill-gitlab-ci`, `dex-skill-jenkins`, `dex-skill-teamcity`);
@@ -85,5 +84,5 @@ skill видны агенту **до** загрузки (тело SKILL.md - н�
 1. Детектировал стек по манифесту папки затронутого кода (не по корню моно-репо).
 2. Взял префикс `dex-skill-<стек>-*` из реестра.
 3. Отфильтровал видимый available-skills по префиксу, сузил по теме работы.
-4. Добавил тематические skills по теме (owasp/solid/...), не по стеку.
+4. Добавил тематические skills по теме (solid/...), не по стеку.
 5. Вызвал в форме `{plugin}:{skill}`; пустой результат под стек -> fallback, не стоп.
