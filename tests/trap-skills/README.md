@@ -24,7 +24,7 @@
 | Набор | Скилл | Заход | Итог |
 |---|---|---|---|
 | [fact-verification](fact-verification/README.md) | `dex-skill-fact-verification` 1.3.0, 2.0.0, 2.1.0 | ревью кода и ADR; звенья каскада; факт в коде проекта | 7 ловушек -> чек-лист из 5 пунктов; 2.1.0 - отрицательный факт с исходом |
-| [codebase-conventions](codebase-conventions/README.md) | `dex-skill-codebase-conventions` 1.10.0 | ревью, фича | 19 ловушек и граница -> чек-лист: 5 названий, 1 с исходом |
+| [codebase-conventions](codebase-conventions/README.md) | `dex-skill-codebase-conventions` 1.10.0 | ревью, фича | 17 ловушек, граница и гейт -> чек-лист из 8 названий |
 | [performance-review](performance-review/README.md) | `dex-skill-performance-review` 1.0.1 | ревью | 24 ловушки и чек-лист -> чек-лист |
 | [dotnet-ef-core](dotnet-ef-core/README.md) | `dex-skill-dotnet-ef-core` 2.6.2 | поручения на код, ревью | 28 ловушек -> 5 -> чек-лист; 3.1.0 - два пункта шагом 3 |
 | [removed/dotnet-linq-optimization](removed/dotnet-linq-optimization/README.md) | `dex-skill-dotnet-linq-optimization` 2.3.1 | поручения на код, ревью | снят |
