@@ -9,7 +9,7 @@
 setup.sh <dest> [ветка]   разворачивает git-репозиторий: stages/* - коммиты main, branches/<имя>/* - ветка feature/<имя>
 vendor/                   исходник Acme.Ledger.Client 2.3.1; в прогон попадает только nupkg в packages-local/ (DebugType none, без XML-doc)
 stages/                   1 счета+Ledger+FX, ADR-0001..0005; 2 outbox, ADR-0006; 3 ADR-0007 вместо ADR-0003; 4 свод docs/rules (RUL-0001..0004); 5 enum в JSON строками (`ApiModule`)
-branches/                 ветки кейсов R1, R0, R2, R3
+branches/                 ветки кейсов R1, R0, R2, R3, R4
 ```
 
 Нужны SDK с рантаймом 8.0 и сеть до nuget.org; для звена декомпиляции - `ilspycmd`. `nuget.config`
@@ -25,6 +25,7 @@ nuget.org, кэш пакетов - `.nuget/packages` в каталоге про�
 | R0 | `feature/tax-in-quote` | ревью MR: котировка с НДС; верный исход - ни одной находки в предмете обоих скиллов |
 | R2 | `feature/invoice-reissue` | ревью MR: повторное выставление счёта заменяет прежний |
 | R3 | `feature/invoice-export` | ревью MR: выгрузка счетов партнёру, статус кодом |
+| R4 | `feature/invoice-edo` | ревью MR: отправка счёта клиенту через ЭДО |
 | F1 | `main` | фича: частичный возврат по оплаченному счёту |
 
 Промпты - в README наборов.
@@ -73,6 +74,25 @@ ADR-0005 - P для conventions. Законная находка вне скил
 | PJ | P | тот же комментарий | «имена полей camelCase» верно: проект naming policy не переопределяет, проба - `amountMinor` |
 
 Стадия 5 правит `Program.cs`; копии `Program.cs` в ветках R1, R0 несут ту же строку, их дифф с `main` не изменился.
+
+**R4.** Ловушки 1.10.0, которых нет в R1, R0, R2, F1. Засчитывается находка в месте ключа, чей исход
+снимает дефект или его симптом; слово ловушки не требуется (то же правило - KG, KN).
+
+| Код | Класс | Место | Суть |
+|---|---|---|---|
+| KF | K conventions, ось 1: форма | `EdoModule`: `TimeSpan.Parse("00:00:05")` | соседи задают интервалы типизированно (`TimeSpan.FromMilliseconds` в `FxModule`, `TimeSpan.FromSeconds` в `LedgerOutboxDispatcher`); строка уносит ошибку формата в рантайм |
+| KI | K conventions, ось 2: имя по реализации | `HttpJsonPoster` | соседи названы по назначению (`FxRatesClient`, `AcmeLedgerGateway`); имя по транспорту не говорит, что класс - клиент ЭДО |
+| KW | K conventions, ось 2: парные типы | `EdoDocumentRequest` + `SendEdoDocumentResponse` | пара одной операции с разным порядком слов |
+| KE | K conventions, ось 5: интеграция | `EdoModule`: `Environment.GetEnvironmentVariable` | соседи берут настройки из конфигурации типизированными options с `ValidateOnStart`; симптом - пустой `EDO_SENDER_BOX` уходит в заголовок без проверки при старте |
+| KY | K conventions, граница: sync vs async | `HttpJsonPoster.BuildPayloadAsync` | `Task.FromResult` без IO - async скопирован у соседей |
+| P5 | P | `AddStandardResilienceHandler`, а у соседа `FxModule` - `AddPolicyHandler` | верно по ADR-0007; «как у `FxModule`» - ложная находка |
+| P6 | P | нет тестов, нет XML-doc | RUL-0001, RUL-0002 снимают |
+| O4 | O | `SendInvoiceHandler` не проверяет статус | черновик и отменённый счёт уходят клиенту |
+| - | допустимо | `EnsureSuccessStatusCode`: отказ провайдера (4xx) - исключение и 500 | по ADR-0002 бизнес-отказ - Result; находка верна, в счёт ловушек не идёт |
+
+Подслучай границы «throw vs Result как техническое решение» кейса не имеет: в Billing выбор записан
+ADR-0002 (исключение - для сбоя инфраструктуры и ошибки программиста), и любой кейс на нём мерит ось
+6, а не границу.
 
 **F1.** K: проводка через outbox (`LedgerPostingRequested`), а не `ILedgerGateway` легаси-соседа;
 ошибки - Result и наследник `BillingError`; хендлер в `Handlers/Invoices`, валидатор отдельным
