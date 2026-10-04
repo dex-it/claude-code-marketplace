@@ -1,0 +1,121 @@
+{
+  "id": "715785",
+  "case": "CFG",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.1249914,
+    "durationMs": 20192,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 9497,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 2429,
+      "output_tokens_details": {
+        "thinking_tokens": 918
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9497,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2429,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 9497,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 9497
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "CFG-K9": {
+      "verdict": "PASS",
+      "quote": "В appsettings.Staging.json `MaxInFlight: 20`, в Production — 5.",
+      "why": "Находка 14 прямо называет, что MaxInFlight на стейдже выше, чем в проде."
+    },
+    "CFG-K8": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Про дублирование MaxRetries 5 в Staging и Production при том же дефолте ничего не сказано; п.15 говорит о противоположном, о непереопределённых значениях."
+    },
+    "CFG-h-required": {
+      "verdict": "NO",
+      "quote": "Что сделать: `required` / `[Required]` + валидация при старте.",
+      "why": "required предлагается вместе с валидацией при старте, а не вместо неё, и нигде не утверждается, что сам модификатор поймает отсутствие значения."
+    },
+    "CFG-K1": {
+      "verdict": "FOUND",
+      "quote": "В connection string открытым текстом лежит пароль БД (`Password=Kx7!pQ2vR9wz`), в `Smtp:Password` лежит боевой ключ релея",
+      "why": "Секреты БД и SMTP в Production-конфиге названы критическим дефектом."
+    },
+    "CFG-K2": {
+      "verdict": "FOUND",
+      "quote": "`GetValue<int>` для отсутствующего ключа возвращает 0, и `60_000 / 0` бросает `DivideByZeroException`",
+      "why": "Неверный ключ, 0 и деление на ноль описаны точно."
+    },
+    "CFG-K3": {
+      "verdict": "FOUND",
+      "quote": "`OutboxOptionsValidator` не зарегистрирован, валидации при старте нет.",
+      "why": "Отсутствие регистрации валидатора и ValidateOnStart названо."
+    },
+    "CFG-K4": {
+      "verdict": "FOUND",
+      "quote": "`IOptions<OutboxOptions>` при требовании менять значения на лету.",
+      "why": "Названо, что IOptions в singleton-воркере не даёт менять значения без рестарта."
+    },
+    "CFG-K5": {
+      "verdict": "FOUND",
+      "quote": "условие `o.MinBatchSize < o.MaxBatchSize` в воркере даёт false, и adaptive batching в проде молча отключён",
+      "why": "Тихое отключение adaptive batching при 200/100 описано."
+    },
+    "CFG-K6": {
+      "verdict": "FOUND",
+      "quote": "Воркер опрашивает outbox раз в 500 секунд (~8 минут) вместо 0.5 с",
+      "why": "Ошибка единиц PollInterval с FromSeconds названа."
+    },
+    "CFG-K7": {
+      "verdict": "FOUND",
+      "quote": "non-nullable `string Host` и `string FromAddress` без значения по умолчанию и без `[Required]`",
+      "why": "Дефект SmtpOptions без дефолта и без проверки назван."
+    },
+    "CFG-h-P1": {
+      "verdict": "NO",
+      "quote": "То же относится к `SmtpMailSender` (`IOptions<SmtpOptions>`), если SMTP-параметры тоже должны подхватываться на лету.",
+      "why": "Упоминание условное и в финальный список находок не вынесено; IOptions<SmtpOptions> дефектом не объявлен."
+    },
+    "CFG-h-P2": {
+      "verdict": "NO",
+      "quote": "либо тип `TimeSpan` (`\"00:00:00.5\"`), как уже сделано для `LockTimeout`",
+      "why": "LockTimeout как TimeSpan приведён в качестве правильного образца."
+    },
+    "CFG-O1": {
+      "verdict": "FOUND",
+      "quote": "`m.SentAt = now` ставится до отправки.",
+      "why": "Названо, что неудачное письмо не повторяется, потому что SentAt уже заполнен."
+    },
+    "CFG-O2": {
+      "verdict": "FOUND",
+      "quote": "`Configure<SmtpOptions>(GetSection(\"Mail\"))`. Во всех appsettings секция называется `\"Smtp\"`",
+      "why": "Неверная секция и пустые SmtpOptions описаны."
+    },
+    "CFG-O3": {
+      "verdict": "FOUND",
+      "quote": "Конфигурация .NET не подставляет плейсхолдеры `${...}`",
+      "why": "Отсутствие подстановки ${NOTIFY_DB_PASSWORD} на стейдже названо."
+    }
+  },
+  "stderr": ""
+}

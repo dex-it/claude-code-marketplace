@@ -1,0 +1,14 @@
+{
+  "id": "K1",
+  "kind": "code",
+  "stack": ".NET",
+  "skill": "di",
+  "project": "Notify.Api (ASP.NET Core 8)",
+  "inputs": [
+    {
+      "from": "tests/trap-skills/removed/dotnet-di/inputs/code",
+      "to": ""
+    }
+  ],
+  "task": "Появляется второй канал уведомлений - SMS: добавь SmsSender : INotificationSender (пока пишет в лог). Подтверждение заказа (OrderService) теперь уходит по SMS. Добавь ReportsController с эндпоинтом POST /reports/{id}/send?email=..., который отправляет отчёт по email. Оба отправителя остаются за интерфейсом INotificationSender; используй keyed-сервисы .NET 8."
+}

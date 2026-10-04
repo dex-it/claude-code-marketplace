@@ -1,0 +1,111 @@
+{
+  "id": "73e604",
+  "case": "R",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0881834,
+    "durationMs": 11103,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 7411,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1423,
+      "output_tokens_details": {
+        "thinking_tokens": 266
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7411,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1423,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 7411,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 7411
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "R-D3": {
+      "verdict": "PASS",
+      "quote": "Условия строятся как `\"\\\"Products\\\".\\\"Category\\\" = @p...\"` ... обращение по исходному имени таблицы, а не по алиасу",
+      "why": "Находка №4 называет несовпадение алиаса p и ссылок на \"Products\" в FromSqlRaw."
+    },
+    "R-D1": {
+      "verdict": "FOUND",
+      "quote": "`SingleAsync` при неуникальном по бизнесу SKU",
+      "why": "Находка №6 называет SingleAsync по SKU, который неуникален между складами."
+    },
+    "R-D2": {
+      "verdict": "FOUND",
+      "quote": "`MaxAsync` по nullable-колонке вернёт `null`, и `!.Value` бросит `NullReferenceException`",
+      "why": "Находка №11 называет MaxAsync(ShippedAt) с !.Value без обработки null."
+    },
+    "R-D4": {
+      "verdict": "FOUND",
+      "quote": "избыточный/опасный `UpdateRange` на уже отслеживаемых сущностях",
+      "why": "Находка №13 называет UpdateRange на tracked-сущностях как проблему."
+    },
+    "R-D5": {
+      "verdict": "FOUND",
+      "quote": "`ShopDbContext` внедрён напрямую в `BackgroundService`",
+      "why": "Находка №7 называет DbContext в конструкторе BackgroundService."
+    },
+    "R-D6": {
+      "verdict": "FOUND",
+      "quote": "Два `Include` без `AsSplitQuery()` дают декартово произведение",
+      "why": "Находка №8 называет две коллекции Include на тысячах заказов без split."
+    },
+    "R-D7": {
+      "verdict": "FOUND",
+      "quote": "`FOR UPDATE` без транзакции, оверселлинг остатка",
+      "why": "Находка №3 называет FOR UPDATE без явной транзакции."
+    },
+    "R-D8": {
+      "verdict": "FOUND",
+      "quote": "`Order` не имеет concurrency-токена",
+      "why": "Находка №10 называет правку заказа без concurrency token."
+    },
+    "R-D9": {
+      "verdict": "FOUND",
+      "quote": "нет ни одного `INSERT INTO Categories ... / INSERT INTO OrderCategories ...` на основе текущих значений `Orders.Category` перед `DropColumn`",
+      "why": "Находка №2 называет DropColumn Category без переноса данных."
+    },
+    "R-K1": {
+      "verdict": "FOUND",
+      "quote": "фильтрация в памяти после полной выгрузки заказов",
+      "why": "Находка №9 называет GetAllAsync с фильтрацией IsOverdue в памяти."
+    },
+    "R-h-B1": {
+      "verdict": "YES",
+      "quote": "`AsSplitQuery()` для одной сущности ... Для single-entity запроса обычный JOIN эффективнее.",
+      "why": "Находка №15 объявляет дефектом правильный AsSplitQuery на карточке одного заказа."
+    },
+    "R-h-B2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находок про Kind=Unspecified/Utc и timestamp without time zone в выходе нет."
+    },
+    "R-O1": {
+      "verdict": "FOUND",
+      "quote": "пересчёт суммы игнорирует количество",
+      "why": "Находка №5 называет расчёт суммы заказа без учёта Qty."
+    }
+  },
+  "stderr": ""
+}

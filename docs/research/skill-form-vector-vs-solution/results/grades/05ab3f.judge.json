@@ -1,0 +1,67 @@
+{
+  "id": "05ab3f",
+  "case": "G1",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.07862699999999999,
+    "durationMs": 6943,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 8039,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 694,
+      "output_tokens_details": {
+        "thinking_tokens": 211
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8039,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 694,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 8039,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 8039
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G1-debtors-fine": {
+      "verdict": "FAIL",
+      "quote": ".OrderByDescending(l => Fines.Amount(l.DueDate, today, l.Reader.Category, _rules))\n            .ToLoanRows(today, _rules)\n            .Where(l => l.DaysOverdue > 0)",
+      "why": "Внутри OrderByDescending запроса вызывается Fines.Amount, а после ToLoanRows к IQueryable применён Where по DaysOverdue. EF не транслирует ни то ни другое, поэтому запрос упадёт; фильтра DueDate < today по маппленной колонке тоже нет."
+    },
+    "G1-period-offset": {
+      "verdict": "FAIL",
+      "quote": ".Where(l => l.IssuedAt >= from && l.IssuedAt <= to)",
+      "why": "Границы from/to со смещением +05:00 передаются в сравнение с timestamptz без приведения к UTC, и Npgsql отклонит такой параметр."
+    },
+    "G1-h-loanrows": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Исполнитель не называет ToLoanRows и GetActiveLoansAsync дефектом и не меняет их."
+    },
+    "G1-h-today-utc": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "CountIssuedTodayAsync не затронут и не объявлен ошибочным."
+    }
+  },
+  "stderr": ""
+}

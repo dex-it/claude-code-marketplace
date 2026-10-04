@@ -1,0 +1,68 @@
+diff --git a/OrderReportService.cs b/OrderReportService.cs
+new file mode 100644
+index 0000000..a5086a6
+--- /dev/null
++++ b/OrderReportService.cs
+@@ -0,0 +1,27 @@
++namespace Shop.Data;
++
++public record OrderSummaryDto(Guid Id, string CustomerName, decimal Total, int ItemCount);
++
++// Read-only queries for the reports page. Projections keep results to the
++// columns/counts actually needed instead of materializing full Order graphs.
++public class OrderReportService
++{
++    private readonly OrderRepository _orders;
++    public OrderReportService(OrderRepository orders) => _orders = orders;
++
++    public Task<List<OrderSummaryDto>> GetActiveOrdersAsync() =>
++        _orders.ActiveOrders()
++            .Select(o => new OrderSummaryDto(o.Id, o.Customer.Name, o.Total, o.Items.Count))
++            .ToListAsync();
++
++    public Task<Dictionary<string, int>> GetActiveOrderCountsByCategoryAsync() =>
++        _orders.ActiveOrders()
++            .GroupBy(o => o.Category)
++            .Select(g => new { Category = g.Key, Count = g.Count() })
++            .ToDictionaryAsync(x => x.Category, x => x.Count);
++
++    public Task<List<OrderSummaryDto>> GetOverdueOrdersAsync(DateTime now) =>
++        _orders.OverdueOrders(now)
++            .Select(o => new OrderSummaryDto(o.Id, o.Customer.Name, o.Total, o.Items.Count))
++            .ToListAsync();
++}
+diff --git a/OrderRepository.cs b/OrderRepository.cs
+index 72637b8..6e149a7 100644
+--- a/OrderRepository.cs
++++ b/OrderRepository.cs
+@@ -6,4 +6,16 @@ public class OrderRepository
+     public OrderRepository(ShopDbContext db) => _db = db;
+     public Task<List<Order>> GetAllAsync() => _db.Orders.ToListAsync();
+     public Task<Order?> GetAsync(Guid id) => _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
++
++    public IQueryable<Order> ActiveOrders() =>
++        _db.Orders.AsNoTracking().Where(o => o.Status == "active");
++
++    // Order.IsOverdue(now) can't be translated by EF (instance method on the entity),
++    // so the rule is inlined here. CreatedAt/the column are "timestamp without time zone",
++    // so `now` is normalized to Kind=Unspecified to avoid Npgsql rejecting a Utc/Local value.
++    public IQueryable<Order> OverdueOrders(DateTime now)
++    {
++        var cutoff = DateTime.SpecifyKind(now, DateTimeKind.Unspecified);
++        return _db.Orders.AsNoTracking().Where(o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < cutoff);
++    }
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..8f0c47e
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,8 @@
++## Созданные/изменённые файлы
++- `OrderReportService.cs` (новый) — сервис `OrderReportService` с методами `GetActiveOrdersAsync()`, `GetActiveOrderCountsByCategoryAsync()`, `GetOverdueOrdersAsync(DateTime now)`, DTO `OrderSummaryDto(Id, CustomerName, Total, ItemCount)`.
++- `OrderRepository.cs` (изменён) — добавлены `ActiveOrders()` и `OverdueOrders(DateTime now)`, возвращающие `IQueryable<Order>` с `AsNoTracking()`.
++
++## Решения
++- `Order.IsOverdue(now)` — обычный C#-метод экземпляра, EF Core не умеет транслировать его в SQL, поэтому правило `ShippedAt == null && CreatedAt.AddDays(3) < now` продублировано прямо в LINQ-запросе `OverdueOrders`.
++- Колонка `CreatedAt` — `timestamp without time zone`, поэтому входящий `now` нормализуется через `DateTime.SpecifyKind(now, DateTimeKind.Unspecified)`, чтобы Npgsql не отклонял значения с `Kind=Utc/Local`.
++- Все методы используют проекции (`Select` с нужными полями, `Items.Count` как коррелированный подзапрос, группировка на сервере) и `AsNoTracking`, чтобы не тянуть лишние данные и не материализовывать сущности для read-only отчётов.

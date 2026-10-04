@@ -1,0 +1,74 @@
+diff --git a/OrderReportService.cs b/OrderReportService.cs
+new file mode 100644
+index 0000000..af14097
+--- /dev/null
++++ b/OrderReportService.cs
+@@ -0,0 +1,36 @@
++namespace Shop.Data;
++
++public record ActiveOrderReportItem(Guid OrderId, string CustomerName, decimal Total, int ItemsCount);
++public record OverdueOrderReportItem(Guid OrderId, string CustomerName, DateTime CreatedAt, decimal Total);
++
++// Read-only service for the reports page. Delegates data access to OrderRepository.
++public class OrderReportService
++{
++    private readonly OrderRepository _orders;
++    public OrderReportService(OrderRepository orders) => _orders = orders;
++
++    public async Task<List<ActiveOrderReportItem>> GetActiveOrdersAsync()
++    {
++        var orders = await _orders.GetActiveOrdersWithDetailsAsync();
++        return orders
++            .Select(o => new ActiveOrderReportItem(o.Id, o.Customer.Name, o.Total, o.Items.Count))
++            .ToList();
++    }
++
++    public async Task<Dictionary<string, int>> GetActiveOrdersCountByCategoryAsync()
++    {
++        var orders = await _orders.GetActiveOrdersWithDetailsAsync();
++        return orders
++            .GroupBy(o => o.Category)
++            .ToDictionary(g => g.Key, g => g.Count());
++    }
++
++    public async Task<List<OverdueOrderReportItem>> GetOverdueOrdersAsync(DateTime now)
++    {
++        var orders = await _orders.GetActiveOrdersWithDetailsAsync();
++        return orders
++            .Where(o => o.IsOverdue(now))
++            .Select(o => new OverdueOrderReportItem(o.Id, o.Customer.Name, o.CreatedAt, o.Total))
++            .ToList();
++    }
++}
+diff --git a/OrderRepository.cs b/OrderRepository.cs
+index 72637b8..48de533 100644
+--- a/OrderRepository.cs
++++ b/OrderRepository.cs
+@@ -6,4 +6,13 @@ public class OrderRepository
+     public OrderRepository(ShopDbContext db) => _db = db;
+     public Task<List<Order>> GetAllAsync() => _db.Orders.ToListAsync();
+     public Task<Order?> GetAsync(Guid id) => _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
++
++    // Read-only projection for report pages: active orders with Customer/Items loaded, no tracking.
++    public Task<List<Order>> GetActiveOrdersWithDetailsAsync() =>
++        _db.Orders
++            .Where(o => o.Status == "active")
++            .Include(o => o.Customer)
++            .Include(o => o.Items)
++            .AsNoTracking()
++            .ToListAsync();
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..2870d58
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,8 @@
++## Изменённые/созданные файлы
++- `OrderRepository.cs` — добавлен метод `GetActiveOrdersWithDetailsAsync()`.
++- `OrderReportService.cs` (новый) — сервис `OrderReportService` с методами `GetActiveOrdersAsync()`, `GetActiveOrdersCountByCategoryAsync()`, `GetOverdueOrdersAsync(DateTime now)`.
++
++## Решения
++- «Активный» заказ = `Status == "active"`; метод-источник данных один — `OrderRepository.GetActiveOrdersWithDetailsAsync()` с `Include(Customer)`, `Include(Items)` и `AsNoTracking()` (report-запросы read-only, lazy loading не включён в проекте).
++- Просроченные заказы считаются среди активных с применением `Order.IsOverdue(now)`, как и просили; для отчёта заведены DTO-record'ы (`ActiveOrderReportItem`, `OverdueOrderReportItem`) вместо отдачи EF-сущностей наружу.
++- Каждый публичный метод сервиса независимо обращается к репозиторию (три отдельных запроса) — для read-only страницы отчётов это проще, чем городить общий кэш/единый метод загрузки.

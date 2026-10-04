@@ -1,0 +1,105 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..651d5ac
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,99 @@
++# Ревью MR «Списание баллов лояльности»
++
++Проверено: requirements.txt (fastapi==0.95.2, pydantic==1.10.13, SQLAlchemy==1.4.49),
++app/db.py, app/repo.py, app/schemas.py, app/redeem.py.
++Поведение библиотек сверено с документацией версий из манифеста (pydantic 1.10, FastAPI encoders).
++
++## Находки
++
++### 1. app/redeem.py — `POINT_VALUE = 0.1` (используется в `redeem()`)
++Severity: **critical**
++
++`POINT_VALUE` объявлен как `float`, а затем оборачивается в `Decimal(POINT_VALUE)`.
++`Decimal(0.1)` даёт не `0.1`, а `0.1000000000000000055511151231257827021181583404541015625` —
++бинарная неточность float "протекает" в Decimal. Все вычисления баланса/суммы списания получают
++"мусорную" точность, а поскольку FastAPI по умолчанию сериализует `Decimal` через
++`decimal_encoder` (в `ENCODERS_BY_TYPE`), который возвращает `float` при ненулевой дробной части,
++эта неточность попадёт и в JSON-ответ (`redeemed`, `balance_left`).
++Нужно `POINT_VALUE = Decimal("0.1")`.
++
++### 2. app/schemas.py — `RedeemRequest.confirm_amount: Optional[Decimal]`
++Severity: **critical**
++
++Комментарий утверждает, что «Optional без значения по умолчанию делает поле обязательным»,
++но в pydantic 1.10.13 это неверно: начиная с v1.2 голое `Optional[X]` без явного значения по
++умолчанию неявно получает `default=None`, и поле **не является обязательным**
++(обязательным оно становится только при `Optional[X] = ...`). Подтверждено официальной
++документацией pydantic 1.10 (раздел "Required Optional fields"); поведение изменилось лишь
++в pydantic v2. В итоге старые клиенты, не приславшие `confirm_amount`, не получат 422, как
++задумано, а тихо спишут весь баланс — прямо противоположно намерению из комментария.
++
++### 3. app/redeem.py: `redeem()`
++Severity: **critical**
++
++Нет проверки, что `confirm_amount` положителен (ни `Field(gt=0)` в схеме, ни проверки в
++хендлере). Отрицательное `confirm_amount` проходит проверку `amount > balance` (отрицательное
++число всегда меньше баланса), а строка
++`member.points -= int(amount / Decimal(POINT_VALUE))` при отрицательном `amount`
++**увеличивает** `member.points`. Позволяет произвольно "начислять" баллы через
++отрицательную сумму в запросе.
++
++### 4. app/redeem.py: `redeem()` + app/repo.py: `get_member`/`save_member`
++Severity: **critical**
++
++Чтение (`engine.connect()`) и запись (`engine.begin()`) баланса выполняются в двух независимых
++несинхронизированных транзакциях, без `SELECT ... FOR UPDATE` и без оптимистичной блокировки по
++версии/текущему значению. Классический race condition read-modify-write: два параллельных
++списания для одного `member_id` могут привести к потере одного из обновлений и повторному
++использованию одних и тех же баллов (double spend).
++
++### 5. app/redeem.py: `redeem()` + app/repo.py: `save_member`/`write_audit`
++Severity: **high**
++
++Списание баланса и запись аудита — две раздельные несвязанные транзакции без компенсирующего
++отката. Если процесс упадёт между `save_member` и `write_audit`, баллы окажутся списаны без
++аудиторской записи — а именно аудит операции заявлен как цель этого MR.
++
++### 6. app/schemas.py: `RedeemRequest`
++Severity: **medium**
++
++Комментарий «Лишние поля pydantic по умолчанию отвергает» неверен для pydantic 1.10.13:
++по умолчанию `Config.extra = Extra.ignore`, то есть лишние/опечатанные поля молча
++отбрасываются, а не приводят к 422. Без явного `class Config: extra = "forbid"` описанной в
++комментарии защиты от опечаток в полях не существует.
++
++### 7. app/schemas.py: `RedeemRequest.points` / app/redeem.py: `redeem()`
++Severity: **medium**
++
++Поле `points: int` объявлено обязательным, но нигде не используется и не валидируется в
++`redeem()` — на сумму списания влияет только `confirm_amount`. Либо это мёртвое/вводящее в
++заблуждение поле API, либо потеряна сверка (например, что `points` соответствует количеству
++баллов, вычисленному из `confirm_amount`).
++
++### 8. app/redeem.py: `redeem()`
++Severity: **medium**
++
++`int(amount / Decimal(POINT_VALUE))` округляет усечением к нулю, а не по правилам округления.
++В сочетании с неточным `POINT_VALUE` (п.1) частичные списания могут систематически списывать
++больше/меньше баллов, чем соответствует запрошенной сумме, — постепенный дрейф баланса.
++
++### 9. app/redeem.py: `redeem()`
++Severity: **low** (понижено, т.к. возможно обрабатывается вне представленных файлов)
++
++Эндпоинт принимает `member_id` из тела запроса без какой-либо проверки
++авторизации/принадлежности вызывающего этому участнику программы лояльности — в рамках кода из
++MR любой вызывающий может списать баллы любого `member_id`. Если авторизация реализована
++middleware вне этого диффа — снять пункт, иначе это существенная уязвимость.
++
++### 10. app/repo.py: `write_audit()`
++Severity: **low**
++
++В payload аудита попадает только исходный запрос (`req.dict()`) — нет фактически списанной
++суммы, баланса до/после и `valid_until`. Для заявленной цели MR («аудит операции») это неполный
++след: по одной записи нельзя восстановить фактический результат операции, особенно когда
++`confirm_amount is None` (полное списание).
++
++## Источники
++- pydantic 1.10 docs — Required Optional fields: https://pydantic.dev/docs/validation/1.10/concepts/models/
++- pydantic 1.10 docs — Model Config (extra): https://pydantic.dev/docs/validation/1.10/usage/model_config/
++- FastAPI encoders.py — decimal_encoder / ENCODERS_BY_TYPE: https://github.com/fastapi/fastapi/blob/master/fastapi/encoders.py

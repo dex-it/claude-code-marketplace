@@ -1,0 +1,92 @@
+{
+  "id": "6ae010",
+  "case": "BN",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.094143,
+    "durationMs": 10588,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 8971,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1097,
+      "output_tokens_details": {
+        "thinking_tokens": 286
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8971,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1097,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 8971,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 8971
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "BN-h-local-time": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Выход не трогает ScheduledLocal и не требует переводить время в UTC."
+    },
+    "BN-h-split-card": {
+      "verdict": "NO",
+      "quote": "Заметки сортируются, а `Consumables` нет",
+      "why": "По GetCardAsync выход замечает только порядок расходников, AsSplitQuery ошибкой не называет."
+    },
+    "BN-h-tracking": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "AsNoTracking нигде не предлагается; для RemoveConsumableAsync предложен ExecuteDeleteAsync, а не отключение отслеживания."
+    },
+    "BN-h-chip-single": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindPetByChipAsync и SingleOrDefaultAsync в выходе не упоминаются."
+    },
+    "BN-h-fromsql": {
+      "verdict": "NO",
+      "quote": "при `sort == null` `TryGetValue` бросает `ArgumentNullException`",
+      "why": "SQL-инъекции не заявлены: по SearchNotesAsync замечание только об индексе, по GetConsumptionAsync только о null в sort."
+    },
+    "BN-h-tolower": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Трансляцию ToLower/Contains в FindByTitleAsync выход под сомнение не ставит."
+    },
+    "BN-h-consumable-remove": {
+      "verdict": "NO",
+      "quote": "Статус проверяется в памяти, после чего строка удаляется.",
+      "why": "Выход говорит о гонке и лишней загрузке; что строка не удалится, осиротеет или упадёт на FK, не утверждается."
+    },
+    "BN-pagination": {
+      "verdict": "FOUND",
+      "quote": "При `page=1` пропускаются первые 30 процедур дня.",
+      "why": "Дефект Skip(page * PageSize) при нумерации страниц с 1 назван точно, исправление `.Skip((page - 1) * PageSize)`."
+    },
+    "BN-dose-grams": {
+      "verdict": "FOUND",
+      "quote": "вес в **граммах** умножается на дозировку в **мг/кг**. Деления на 1000 нет",
+      "why": "Найдено завышение дозы в 1000 раз, предложено исправление с делением на 1000."
+    }
+  },
+  "stderr": ""
+}

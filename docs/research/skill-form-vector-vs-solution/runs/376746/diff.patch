@@ -1,0 +1,76 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..877fe4b
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,70 @@
++# Ревью MR !87 (Партии проб)
++
++## Критичные дефекты
++
++### 1. `BatchService.CompliancePercentAsync` — целочисленное деление даёт неверный процент
++```csharp
++return compliant / total * 100;
++```
++`compliant` и `total` — `int`. `compliant / total` выполняется **до** умножения на 100 и округляется вниз: при `compliant < total` результат деления равен `0`, и весь метод почти всегда возвращает `0%`, кроме случая `compliant == total` (тогда 100%). Для дашборда (LAB-147) это значит, что любое значение, кроме 0% и 100%, никогда не будет показано.
++Нужно: `compliant * 100 / total` (или `(double)compliant / total * 100`).
++**Severity: critical**
++
++### 2. `BatchService.CompliancePercentAsync` — деление на ноль при пустой партии
++Если у партии нет проб (`total == 0`, что вполне возможно для только созданной партии или если все пробы сняты с партии), `compliant / total` бросает `DivideByZeroException` — необработанное исключение обрушит дашборд/карточку.
++**Severity: critical**
++
++## Дефекты высокой серьёзности
++
++### 3. `BatchService.CompliancePercentAsync` — проба без результатов засчитывается как «соответствующая»
++```csharp
++s.Results.All(r => r.Value <= r.Limit)
++```
++`Enumerable.All` (и его SQL-перевод через `NOT EXISTS`) на **пустой** коллекции `Results` возвращает `true` — vacuous truth. Проба без единого результата попадёт в `compliant`, хотя по смыслу «доля проб, у которых все показатели в норме» для неё норма не проверялась вообще. Нужно дополнительно требовать `s.Results.Any() && s.Results.All(...)`.
++**Severity: high**
++
++### 4. `BatchService.ListAsync` — ошибка на единицу в пагинации (off-by-one)
++```csharp
++/// <param name="page">Номер страницы, начиная с 1.</param>
++public async Task<List<BatchListItem>> ListAsync(int page, int pageSize = 20)
++{
++    ...
++    .Skip(page * pageSize)
++    .Take(pageSize)
++```
++Комментарий явно говорит, что нумерация страниц начинается с 1, но `Skip(page * pageSize)` при `page = 1` пропускает первые 20 записей — т.е. "первая" страница на самом деле показывает вторую. Последняя валидная страница всегда выпадает (её последние элементы недостижимы), а запрошенная «последняя+1» страница возвращает пустой список данных, которые на самом деле ещё не показывались. Должно быть `Skip((page - 1) * pageSize)`.
++Примечательно, что в описании MR протестирована карточка партии, закрытие и переразметка, но не список с пагинацией (LAB-141) — отсюда и пропуск бага.
++**Severity: high**
++
++### 5. `BatchService.CloseAsync` — проверка «нет проб без результатов» охватывает не все пробы партии
++```csharp
++var samples = await _samples.GetInAnalysisForBatchAsync(batchId); // Status == InAnalysis
++if (samples.Any(s => s.Results.Count == 0))
++    throw new InvalidOperationException("Есть пробы без результатов");
++```
++`GetInAnalysisForBatchAsync` фильтрует только пробы со статусом `InAnalysis`. Требование MR («Закрыть партию с пробами без результатов нельзя») сформулировано как общее правило, а не только для `InAnalysis`. Проба со статусом `Planned`/`Collected`, уже привязанная к партии (`BatchId == batchId`), по определению без результатов — но она не попадёт ни в проверку, ни в переход в `Done`. В итоге партию можно закрыть, нарушив заявленный инвариант, а такие пробы навсегда останутся «подвешенными» в закрытой партии в незавершённом статусе.
++**Severity: high**
++
++## Дефекты средней серьёзности
++
++### 6. `BatchService.CloseAsync` — отсутствует защита от конкурентного изменения (TOCTOU)
++Между чтением проб (`GetInAnalysisForBatchAsync`) и `SaveChangesAsync` нет ни явной транзакции с нужным уровнем изоляции, ни конкурентного токена (`xmin`/rowversion) ни на `Batch`, ни на `Sample`. Если в этот промежуток параллельный запрос добьёт в партию новую пробу в статусе `InAnalysis` без результатов (или переведёт существующую пробу в `InAnalysis`), инвариант «нет проб без результатов» будет нарушен без каких-либо признаков конфликта — проверка не перехватит этот случай и не бросит исключение. Согласно правилам команды (EF Core, п. «Параллельная правка одной записи»), конкурентное изменение не должно молча проходить проверку.
++**Severity: medium**
++
++## Низкая серьёзность / замечания
++
++### 7. Нет файла миграции в списке изменений
++`Models.cs`/`LabDbContext.cs` добавляют новые колонки (`Sample.PlannedLocal`, `Batch.ReportDate`) и новую сущность `SampleTag`, но в списке изменённых файлов миграция EF Core не упомянута. Если она не приложена отдельно, модель и фактическая схема БД разойдутся при деплое. Стоит убедиться, что миграция создана и включена в MR (или явно подтвердить, что она идёт отдельным коммитом/файлом).
++**Severity: low**
++
++### 8. `BatchService.CompliancePercentAsync` — два отдельных round-trip к БД
++`total` и `compliant` считаются двумя независимыми запросами (`CountAsync`), хотя могли бы быть получены одним запросом с условной агрегацией (`SUM(CASE ...)`). Не является ошибкой, но лишний round-trip на каждый вызов дашборда.
++**Severity: low**
++
++## Что проверено и не вызывает вопросов
++- `LabDbContext`: `PlannedLocal` явно замаплен на `timestamp without time zone`, значение из `DateOnly.ToDateTime(TimeOnly)` имеет `Kind=Unspecified` — соответствует правилу Npgsql. `ClosedAt`/`ReportDate` заполняются через `DateTime.UtcNow` (`Kind=Utc`) — корректно для колонок `timestamptz` по умолчанию.
++- `SampleRepository.GetRecentBySiteAsync`: использует `FromSql` с интерполяцией (параметризуется автоматически, не `FromSqlRaw` со склейкой строк) — SQL-инъекции нет; корректно помечен `AsNoTracking()` как read-only выборка.
++- `SampleRepository.FindByLabCodeAsync`: `SingleOrDefaultAsync` по `LabCode`, на которое есть `IsUnique()` индекс — обоснованно.
++- `BatchService.GetCardAsync`: явный `AsSplitQuery()` при нескольких коллекциях одного уровня (`Instruments`, `Samples.Results`) — соответствует правилу.
++- `BatchService.RetagAsync`: `Tags.Clear()` + добавление новых — FK `SampleId` обязательный, `OnDelete` не переопределён (default `Cascade`), поэтому `Clear()` корректно удалит старые тэги, исключение не ожидается.
++- Нет `SaveChanges` в цикле — все пакетные изменения (`CloseAsync`, `RetagAsync`) сохраняются одним вызовом после цикла.

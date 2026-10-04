@@ -1,0 +1,121 @@
+{
+  "id": "c7a707",
+  "case": "CFG",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.10383139999999999,
+    "durationMs": 12825,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 8662,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1705,
+      "output_tokens_details": {
+        "thinking_tokens": 318
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8662,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1705,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 8662,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 8662
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "CFG-K9": {
+      "verdict": "PASS",
+      "quote": "в Staging `MaxInFlight: 20`, в Production `5`, причина не указана",
+      "why": "Находка прямо называет, что лимит в Staging выше, чем в Production."
+    },
+    "CFG-K8": {
+      "verdict": "PASS",
+      "quote": "В Production это `MaxBatchSize: 100`, `MaxInFlight: 5`, `MaxRetries: 5`, в Staging `MaxRetries: 5`",
+      "why": "Находка называет повтор дефолтного MaxRetries 5 в обоих env-файлах."
+    },
+    "CFG-h-required": {
+      "verdict": "NO",
+      "quote": "модификатор `required` эту проблему не решает. Отсутствие значения ловит только валидация опций на старте",
+      "why": "Выход прямо отвергает required и предлагает валидацию опций."
+    },
+    "CFG-K1": {
+      "verdict": "FOUND",
+      "quote": "Пароль БД (`Password=Kx7!pQ2vR9wz`) и пароль SMTP-релея (`rl_live_9f3a1c77e2b04d6d`) закоммичены открытым текстом",
+      "why": "Секреты БД и SMTP в Production-конфиге названы как critical-дефект."
+    },
+    "CFG-K2": {
+      "verdict": "FOUND",
+      "quote": "`GetValue<int>` возвращает 0, и `60_000 / 0` бросает `DivideByZeroException` на каждом вызове",
+      "why": "Названо несовпадение ключа MessagesPerMinute/PerMinute и деление на ноль."
+    },
+    "CFG-K3": {
+      "verdict": "FOUND",
+      "quote": "валидатор написан, но не зарегистрирован, `ValidateOnStart` нет",
+      "why": "Дефект назван дословно."
+    },
+    "CFG-K4": {
+      "verdict": "FOUND",
+      "quote": "`IOptions<OutboxOptions>` не соответствует требованию MR менять значения на лету",
+      "why": "Названо использование IOptions в singleton-воркере вопреки требованию hot-reload."
+    },
+    "CFG-K5": {
+      "verdict": "FOUND",
+      "quote": "Условие `Min < Max` в воркере ложно, и адаптивный батчинг в проде молча выключен",
+      "why": "Названо тихое выключение adaptive batching при 200/100."
+    },
+    "CFG-K6": {
+      "verdict": "FOUND",
+      "quote": "`PollInterval: 500` читается через `TimeSpan.FromSeconds`",
+      "why": "Названа пауза 500 секунд вместо полсекунды."
+    },
+    "CFG-K7": {
+      "verdict": "FOUND",
+      "quote": "В `SmtpOptions` свойства `Host` и `FromAddress` non-nullable без значения",
+      "why": "Назван дефект non-nullable свойств без дефолта и проверки, предложена валидация."
+    },
+    "CFG-h-P1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находки против IOptions<SmtpOptions> в SmtpMailSender нет; п.17 касается переиспользования соединения."
+    },
+    "CFG-h-P2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "LockTimeout как TimeSpan дефектом не объявлен."
+    },
+    "CFG-O1": {
+      "verdict": "FOUND",
+      "quote": "`SentAt = now` ставится до отправки, при ошибке не сбрасывается. Упавшие письма теряются",
+      "why": "Дефект назван прямо."
+    },
+    "CFG-O2": {
+      "verdict": "FOUND",
+      "quote": "`Configure<SmtpOptions>` привязан к секции `\"Mail\"`, а в конфигах секция называется `\"Smtp\"`",
+      "why": "Названа неверная секция и пустые SmtpOptions."
+    },
+    "CFG-O3": {
+      "verdict": "FOUND",
+      "quote": "Конфигурация .NET не подставляет `${...}`, строка уйдёт в Npgsql буквально",
+      "why": "Названо отсутствие подстановки переменной в Staging."
+    }
+  },
+  "stderr": ""
+}

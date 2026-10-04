@@ -1,0 +1,298 @@
+diff --git a/.github/workflows/deploy-migration.yml b/.github/workflows/deploy-migration.yml
+new file mode 100644
+index 0000000..f1e7d7d
+--- /dev/null
++++ b/.github/workflows/deploy-migration.yml
+@@ -0,0 +1,59 @@
++name: Deploy DB migration
++
++on:
++  workflow_dispatch: {}
++  push:
++    branches: [main]
++    paths:
++      - 'Migrations/**'
++
++jobs:
++  generate-script:
++    runs-on: ubuntu-latest
++    steps:
++      - uses: actions/checkout@v4
++
++      - uses: actions/setup-dotnet@v4
++        with:
++          dotnet-version: '8.0.x'
++
++      - name: Install dotnet-ef
++        run: dotnet tool install --global dotnet-ef --version 8.*
++
++      - name: Restore
++        run: dotnet restore
++
++      # SKILL.md: "dotnet ef database update на production" запрещён —
++      # генерируем идемпотентный SQL-скрипт для ревью вместо прямого apply
++      - name: Generate idempotent migration script
++        run: >
++          ~/.dotnet/tools/dotnet-ef migrations script --idempotent
++          --project Shop.Data/Shop.Data.csproj
++          --output migration.sql
++
++      - name: Upload migration script for review
++        uses: actions/upload-artifact@v4
++        with:
++          name: migration-sql
++          path: migration.sql
++
++  apply-to-production:
++    needs: generate-script
++    runs-on: ubuntu-latest
++    # environment "production" настроен в репозитории с обязательными reviewers —
++    # это и есть шаг "ревью SQL" из SKILL.md перед применением на проде
++    environment: production
++    steps:
++      - name: Download reviewed migration script
++        uses: actions/download-artifact@v4
++        with:
++          name: migration-sql
++
++      - name: Apply migration to production DB
++        env:
++          PGHOST: ${{ secrets.PROD_DB_HOST }}
++          PGPORT: ${{ secrets.PROD_DB_PORT }}
++          PGDATABASE: ${{ secrets.PROD_DB_NAME }}
++          PGUSER: ${{ secrets.PROD_DB_USER }}
++          PGPASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
++        run: psql -v ON_ERROR_STOP=1 -f migration.sql
+diff --git a/Migrations/20260929120000_AddCategoriesAndOrderCategories.cs b/Migrations/20260929120000_AddCategoriesAndOrderCategories.cs
+new file mode 100644
+index 0000000..66c3952
+--- /dev/null
++++ b/Migrations/20260929120000_AddCategoriesAndOrderCategories.cs
+@@ -0,0 +1,69 @@
++using Microsoft.EntityFrameworkCore.Migrations;
++
++#nullable disable
++
++namespace Shop.Data.Migrations
++{
++    /// <summary>
++    /// Схема: таблицы Categories и OrderCategories (связка Order N..N Category).
++    /// Order.Category (строка) пока не трогаем — удалим отдельной миграцией после перехода читателей на новую схему.
++    /// </summary>
++    public partial class AddCategoriesAndOrderCategories : Migration
++    {
++        protected override void Up(MigrationBuilder migrationBuilder)
++        {
++            migrationBuilder.CreateTable(
++                name: "Categories",
++                columns: table => new
++                {
++                    Id = table.Column<Guid>(type: "uuid", nullable: false),
++                    Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false)
++                },
++                constraints: table =>
++                {
++                    table.PrimaryKey("PK_Categories", x => x.Id);
++                });
++
++            migrationBuilder.CreateTable(
++                name: "OrderCategories",
++                columns: table => new
++                {
++                    OrderId = table.Column<Guid>(type: "uuid", nullable: false),
++                    CategoryId = table.Column<Guid>(type: "uuid", nullable: false)
++                },
++                constraints: table =>
++                {
++                    table.PrimaryKey("PK_OrderCategories", x => new { x.OrderId, x.CategoryId });
++                    table.ForeignKey(
++                        name: "FK_OrderCategories_Orders_OrderId",
++                        column: x => x.OrderId,
++                        principalTable: "Orders",
++                        principalColumn: "Id",
++                        onDelete: ReferentialAction.Cascade);
++                    table.ForeignKey(
++                        name: "FK_OrderCategories_Categories_CategoryId",
++                        column: x => x.CategoryId,
++                        principalTable: "Categories",
++                        principalColumn: "Id",
++                        onDelete: ReferentialAction.Restrict);
++                });
++
++            migrationBuilder.CreateIndex(
++                name: "IX_Categories_Name",
++                table: "Categories",
++                column: "Name",
++                unique: true);
++
++            migrationBuilder.CreateIndex(
++                name: "IX_OrderCategories_CategoryId",
++                table: "OrderCategories",
++                column: "CategoryId");
++        }
++
++        protected override void Down(MigrationBuilder migrationBuilder)
++        {
++            migrationBuilder.DropTable(name: "OrderCategories");
++            migrationBuilder.DropTable(name: "Categories");
++        }
++    }
++}
+diff --git a/Migrations/20260929120100_BackfillOrderCategories.cs b/Migrations/20260929120100_BackfillOrderCategories.cs
+new file mode 100644
+index 0000000..facde78
+--- /dev/null
++++ b/Migrations/20260929120100_BackfillOrderCategories.cs
+@@ -0,0 +1,53 @@
++using Microsoft.EntityFrameworkCore.Migrations;
++
++#nullable disable
++
++namespace Shop.Data.Migrations
++{
++    /// <summary>
++    /// Data migration: переносит исторические значения Order.Category (строка) в Categories/OrderCategories.
++    /// Отдельно от схемной миграции (см. SKILL.md — "Данные и схема в одной миграции").
++    /// Order.Category не трогаем и не удаляем — это сделает последующая миграция, когда все читатели перейдут на новую схему.
++    /// </summary>
++    public partial class BackfillOrderCategories : Migration
++    {
++        protected override void Up(MigrationBuilder migrationBuilder)
++        {
++            // gen_random_uuid() для новых строк Categories (ядро PostgreSQL 13+, pgcrypto для более старых версий)
++            migrationBuilder.Sql("CREATE EXTENSION IF NOT EXISTS pgcrypto;");
++
++            // 1) уникальные непустые значения Order.Category -> строки в Categories
++            migrationBuilder.Sql(@"
++                INSERT INTO ""Categories"" (""Id"", ""Name"")
++                SELECT gen_random_uuid(), src.""Category""
++                FROM (
++                    SELECT DISTINCT ""Category""
++                    FROM ""Orders""
++                    WHERE ""Category"" IS NOT NULL AND ""Category"" <> ''
++                ) src
++                WHERE NOT EXISTS (
++                    SELECT 1 FROM ""Categories"" c WHERE c.""Name"" = src.""Category""
++                );
++            ");
++
++            // 2) связки Order <-> Category по прежнему строковому значению.
++            // Раскрыт весь Orders (включая IsDeleted = true), т.к. raw SQL не применяет query filter, а soft-deleted
++            // заказы всё ещё существуют физически и должны сохранить свои категории.
++            migrationBuilder.Sql(@"
++                INSERT INTO ""OrderCategories"" (""OrderId"", ""CategoryId"")
++                SELECT o.""Id"", c.""Id""
++                FROM ""Orders"" o
++                JOIN ""Categories"" c ON c.""Name"" = o.""Category""
++                WHERE o.""Category"" IS NOT NULL AND o.""Category"" <> ''
++                ON CONFLICT (""OrderId"", ""CategoryId"") DO NOTHING;
++            ");
++        }
++
++        protected override void Down(MigrationBuilder migrationBuilder)
++        {
++            // Намеренно no-op: к моменту отката в Categories/OrderCategories могут появиться записи,
++            // созданные пользователями уже после деплоя (не только бэкафилл) — безопасного отката данных нет.
++            // Схема (таблицы) откатывается предыдущей миграцией.
++        }
++    }
++}
+diff --git a/Model.cs b/Model.cs
+index cc90064..88052dc 100644
+--- a/Model.cs
++++ b/Model.cs
+@@ -9,19 +9,35 @@ public class Order
+     public Guid CustomerId { get; set; }
+     public virtual Customer Customer { get; set; } = null!;
+     public string Status { get; set; } = "active";
+-    public string Category { get; set; } = "";
++    public string Category { get; set; } = ""; // deprecated: заменяется Categories/OrderCategories, колонку удалим отдельной миграцией позже
+     public decimal Total { get; set; }
+     public DateTime CreatedAt { get; set; }          // column: timestamp without time zone
+     public DateTime? ShippedAt { get; set; }
+     public bool IsDeleted { get; set; }
+     public List<OrderItem> Items { get; set; } = new();
+     public List<Payment> Payments { get; set; } = new();
++    public List<OrderCategory> OrderCategories { get; set; } = new();
+     public bool IsOverdue(DateTime now) => ShippedAt == null && CreatedAt.AddDays(3) < now;
+ }
+ 
+ public class OrderItem { public int Id { get; set; } public Guid OrderId { get; set; } public Guid ProductId { get; set; } public int Qty { get; set; } }
+ public class Payment { public int Id { get; set; } public Guid OrderId { get; set; } public decimal Amount { get; set; } }
+ 
++public class Category
++{
++    public Guid Id { get; set; }
++    public string Name { get; set; } = "";
++    public List<OrderCategory> OrderCategories { get; set; } = new();
++}
++
++public class OrderCategory
++{
++    public Guid OrderId { get; set; }
++    public Order Order { get; set; } = null!;
++    public Guid CategoryId { get; set; }
++    public Category Category { get; set; } = null!;
++}
++
+ public class Product
+ {
+     public Guid Id { get; set; }
+@@ -41,10 +57,31 @@ public class ShopDbContext : DbContext
+     public DbSet<Order> Orders => Set<Order>();
+     public DbSet<Product> Products => Set<Product>();
+     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
++    public DbSet<Category> Categories => Set<Category>();
++    public DbSet<OrderCategory> OrderCategories => Set<OrderCategory>();
+     protected override void OnModelCreating(ModelBuilder b)
+     {
+         b.Entity<Order>().HasQueryFilter(o => !o.IsDeleted);
+         b.Entity<Order>().Property(o => o.CreatedAt).HasColumnType("timestamp without time zone");
++
++        b.Entity<Category>(e =>
++        {
++            e.Property(c => c.Name).IsRequired().HasMaxLength(200);
++            e.HasIndex(c => c.Name).IsUnique();
++        });
++
++        b.Entity<OrderCategory>(e =>
++        {
++            e.HasKey(oc => new { oc.OrderId, oc.CategoryId });
++            e.HasOne(oc => oc.Order)
++                .WithMany(o => o.OrderCategories)
++                .HasForeignKey(oc => oc.OrderId)
++                .OnDelete(DeleteBehavior.Cascade);
++            e.HasOne(oc => oc.Category)
++                .WithMany(c => c.OrderCategories)
++                .HasForeignKey(oc => oc.CategoryId)
++                .OnDelete(DeleteBehavior.Restrict);
++        });
+     }
+ }
+ // Options: UseNpgsql(cs).UseLazyLoadingProxies()
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..0f20840
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,20 @@
++# Категории заказов: Categories + OrderCategories
++
++## Изменённые/созданные файлы
++
++- `Model.cs` — добавлены сущности `Category`, `OrderCategory` (связка Order N..N Category), навигация `Order.OrderCategories`, `DbSet<Category>`/`DbSet<OrderCategory>` и конфигурация в `OnModelCreating` (уникальный индекс на `Category.Name`, композитный PK у связки, `Cascade` на FK к Order и `Restrict` на FK к Category). `Order.Category` (строка) оставлена как есть — удалим отдельной миграцией позже.
++- `Migrations/20260929120000_AddCategoriesAndOrderCategories.cs` — схемная миграция: создаёт таблицы `Categories` и `OrderCategories`, FK, индексы. Данные не трогает.
++- `Migrations/20260929120100_BackfillOrderCategories.cs` — отдельная data-миграция: переносит исторические значения `Order.Category` в `Categories`/`OrderCategories` (raw SQL, set-based INSERT/SELECT, `ON CONFLICT DO NOTHING`).
++- `.github/workflows/deploy-migration.yml` — новый workflow: job `generate-script` собирает идемпотентный SQL (`dotnet ef migrations script --idempotent`) и кладёт его артефактом; job `apply-to-production` гейтится GitHub Environment `production` (обязательные reviewers) и применяет уже реально сгенерированный SQL через `psql`.
++
++## Решения
++
++- Схема и бэкафилл данных разнесены по двум миграциям (SKILL.md: «данные и схема в одной миграции» — риск для лока и отката); `Order.Category` не удаляется в этом шаге — отдельная миграция после переключения читателей на новую схему.
++- FK `OrderId → Cascade` (строка связки — не самостоятельная ценность, удаляется вместе с заказом), FK `CategoryId → Restrict` (случайное удаление категории с активными связками не должно тихо стереть данные).
++- Деплой в CI не делает `dotnet ef database update` на проде: генерирует idempotent-скрипт, кладёт на ревью артефактом, применяет отдельным job'ом за ручным approval (GitHub Environment) — согласно SKILL.md.
++
++## Важно / ограничения
++
++- Миграции написаны вручную (без прогона `dotnet ef migrations add`, т.к. запуск сборки был запрещён условиями задачи) — в репозитории нет `.csproj`/существующей папки `Migrations` и снапшота модели для диффа. Перед мержем команде нужно прогнать `dotnet ef migrations add` локально (или `dotnet ef migrations script` от текущей БД), чтобы получить/сверить `*.Designer.cs` и `ShopDbContextModelSnapshot.cs`.
++- Путь `Shop.Data/Shop.Data.csproj` в workflow — предположение о структуре решения; поправьте под реальное имя проекта.
++- Сборка и тесты не запускались (по ограничению задачи).

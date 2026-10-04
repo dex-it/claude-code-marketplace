@@ -1,0 +1,18 @@
+{
+  "id": "E6",
+  "kind": "code",
+  "stack": ".NET",
+  "skill": "ef-core",
+  "project": "Shop (EF Core 8 + Npgsql 8, .NET 8)",
+  "inputs": [
+    {
+      "from": "tests/trap-skills/dotnet-ef-core/inputs/Model.cs",
+      "to": "Model.cs"
+    },
+    {
+      "from": "tests/trap-skills/dotnet-ef-core/inputs/OrderRepository.cs",
+      "to": "OrderRepository.cs"
+    }
+  ],
+  "task": "Выносим категории заказов в отдельную таблицу Categories и таблицу-связку OrderCategories (заказ может иметь несколько категорий); строковую колонку Order.Category потом удалим. Напиши миграцию(и) EF Core и шаг деплоя этой миграции на production в GitHub Actions."
+}

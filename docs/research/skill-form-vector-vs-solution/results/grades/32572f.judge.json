@@ -1,0 +1,92 @@
+{
+  "id": "32572f",
+  "case": "GR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.126315,
+    "durationMs": 12334,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 12255,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1392,
+      "output_tokens_details": {
+        "thinking_tokens": 372
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 12255,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1392,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 12255,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 12255
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GR-rename-drop": {
+      "verdict": "PASS",
+      "quote": "заменить на `migrationBuilder.RenameColumn(name: \"full_name\", table: \"drivers\", newName: \"display_name\")`",
+      "why": "Ревью указывает, что DropColumn+AddColumn с пустым default стирает ФИО всех водителей на prod, и требует RenameColumn."
+    },
+    "GR-permits-clear": {
+      "verdict": "PASS",
+      "quote": "удалять явно: `_db.DriverPermits.RemoveRange(driver.Permits)` до `Clear()`/добавления",
+      "why": "Назван Clear() при обязательном FK и NoAction с InvalidOperationException на SaveChanges, предложены RemoveRange или каскад."
+    },
+    "GR-search-inject": {
+      "verdict": "PASS",
+      "quote": "`LikeContains` экранирует только `\\`, `%` и `_`. Одинарная кавычка не экранируется.",
+      "why": "Инъекция через FromSqlRaw описана с механизмом, исправление — передавать шаблон параметром."
+    },
+    "GR-offday-filter": {
+      "verdict": "PASS",
+      "quote": "EF Core 8 бросит `InvalidOperationException` (\"could not be translated\")",
+      "why": "Отмечено, что IsWorkingDay не транслируется в SQL, предложены подсчёт после материализации или таблица календаря в БД."
+    },
+    "GR-plate-single": {
+      "verdict": "PASS",
+      "quote": "добавить фильтр `v.DecommissionedAt == null`",
+      "why": "Ревью связывает частичный уникальный индекс с SingleAsync, который падает на номере, перешедшем от списанной машины."
+    },
+    "GR-import-kind": {
+      "verdict": "PASS",
+      "quote": "`TimeZoneInfo.ConvertTimeToUtc(parsed, TimeZoneInfo.FindSystemTimeZoneById(\"Europe/Moscow\"))`",
+      "why": "Указаны Kind=Unspecified и падение записи в timestamptz, предложен перевод из московского времени в UTC, а не SpecifyKind."
+    },
+    "GR-avg-zero": {
+      "verdict": "FOUND",
+      "quote": "`totalKm / count` вычисляется без проверки `count == 0`.",
+      "why": "Деление на ноль при отсутствии закрытых поездок названо дефектом."
+    },
+    "GR-permits-auth": {
+      "verdict": "FOUND",
+      "quote": "любой сотрудник, в том числе сам водитель, может выдать себе или другому допуск к грузовикам",
+      "why": "Отмечено отсутствие политики на PUT permits и эскалация прав."
+    },
+    "GR-h-utc-bounds": {
+      "verdict": "NO",
+      "quote": "период `from..to` переводится в UTC-полночь",
+      "why": "Находка 11 спорит о семантике часового пояса границ периода, но не утверждает, что Kind=Utc упадёт, и не требует Unspecified/Local."
+    }
+  },
+  "stderr": ""
+}

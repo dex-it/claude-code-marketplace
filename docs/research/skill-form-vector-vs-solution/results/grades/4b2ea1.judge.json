@@ -1,0 +1,67 @@
+{
+  "id": "4b2ea1",
+  "case": "G4",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.10848300000000001,
+    "durationMs": 6454,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 11926,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 632,
+      "output_tokens_details": {
+        "thinking_tokens": 182
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11926,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 632,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 11926,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 11926
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G4-year-closed": {
+      "verdict": "PASS",
+      "quote": ".FirstOrDefaultAsync(p => p.Month == ym);",
+      "why": "Месяц сравнивается целиком со значением new YearMonth(year, month), к членам YearMonth запрос не обращается, поэтому EF транслирует его через конвертер."
+    },
+    "G4-client-projects": {
+      "verdict": "PASS",
+      "quote": "_db.Projects.RemoveRange(projects);\n        await _db.SaveChangesAsync();",
+      "why": "Проекты загружаются без Include(Entries) и удаляются через RemoveRange + SaveChangesAsync, поэтому срабатывает мягкое удаление в override, а записи времени остаются в БД."
+    },
+    "G4-code-index": {
+      "verdict": "PASS",
+      "quote": ".IsUnique()\n                .HasFilter(\"\\\"IsDeleted\\\" = false\");",
+      "why": "Уникальный индекс частичный по неудалённым проектам, поэтому пары «удалённый + заведённый заново» не мешают его созданию на prod."
+    },
+    "G4-h-month-equality": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Сравнение p.Month == month в EnsureOpenAsync не тронуто и дефектом не названо."
+    }
+  },
+  "stderr": ""
+}

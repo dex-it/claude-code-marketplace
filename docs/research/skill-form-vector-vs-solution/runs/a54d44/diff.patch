@@ -1,0 +1,133 @@
+diff --git a/LoanService.cs b/LoanService.cs
+index 81e9e1e..c6f9406 100644
+--- a/LoanService.cs
++++ b/LoanService.cs
+@@ -7,9 +7,13 @@ public class LoanService
+     private const int LoanDays = 21;
+ 
+     private readonly LibraryDbContext _db;
+-    private readonly FineRules _rules = FineRules.Default;
++    private readonly FineRules _rules;
+ 
+-    public LoanService(LibraryDbContext db) => _db = db;
++    public LoanService(LibraryDbContext db, FineRules rules)
++    {
++        _db = db;
++        _rules = rules;
++    }
+ 
+     public async Task<int> IssueAsync(string cardNumber, int bookId, int branchId)
+     {
+@@ -75,6 +79,34 @@ public class LoanService
+             l.BranchId == branchId && l.IssuedAt >= dayStart && l.IssuedAt < dayEnd);
+     }
+ 
++    // Список должников филиала для обзвона: от самого большого штрафа к меньшему, с итогом по филиалу.
++    public async Task<DebtorsReport> GetDebtorsAsync(int branchId)
++    {
++        var branch = await _db.Branches.FindAsync(branchId)
++            ?? throw new InvalidOperationException("Филиал не найден");
++        var today = LocalToday(branch);
++
++        var overdueLoans = _db.Loans
++            .Where(l => l.BranchId == branchId && l.ReturnedAt == null && l.DueDate < today)
++            .ToLoanRows(today, _rules);
++
++        var debtors = await overdueLoans.OrderByDescending(r => r.Fine).ToListAsync();
++        var totalFines = await overdueLoans.SumAsync(r => r.Fine);
++
++        return new DebtorsReport { Debtors = debtors, TotalFines = totalFines };
++    }
++
++    // Отчёт методиста: число выдач по каждому филиалу за период (границы периода - моменты времени, не локальные даты).
++    public Task<List<LoansByBranchRow>> GetLoansByBranchAsync(DateTimeOffset from, DateTimeOffset to) =>
++        _db.Branches
++            .Select(b => new LoansByBranchRow
++            {
++                BranchId = b.Id,
++                BranchName = b.Name,
++                LoanCount = _db.Loans.Count(l => l.BranchId == b.Id && l.IssuedAt >= from && l.IssuedAt < to),
++            })
++            .ToListAsync();
++
+     private static DateOnly LocalToday(Branch branch)
+     {
+         var tz = TimeZoneInfo.FindSystemTimeZoneById(branch.TimeZoneId);
+diff --git a/Program.cs b/Program.cs
+index 51a69f7..67ecfc2 100644
+--- a/Program.cs
++++ b/Program.cs
+@@ -5,6 +5,7 @@ var builder = WebApplication.CreateBuilder(args);
+ 
+ builder.Services.AddDbContext<LibraryDbContext>(o =>
+     o.UseNpgsql(builder.Configuration.GetConnectionString("Library")));
++builder.Services.AddSingleton(builder.Configuration.GetSection("Fines").Get<FineRules>() ?? FineRules.Default);
+ builder.Services.AddScoped<LoanService>();
+ 
+ var app = builder.Build();
+@@ -24,6 +25,13 @@ app.MapGet("/branches/{branchId:int}/readers/{card}/loans", async (int branchId,
+ app.MapGet("/branches/{branchId:int}/issued-today", async (int branchId, LoanService s) =>
+     Results.Ok(await s.CountIssuedTodayAsync(branchId)));
+ 
++app.MapGet("/branches/{branchId:int}/debtors", async (int branchId, LoanService s) =>
++    Results.Ok(await s.GetDebtorsAsync(branchId)));
++
++app.MapPost("/reports/loans-by-branch", async (LoansByBranchRequest req, LoanService s) =>
++    Results.Ok(await s.GetLoansByBranchAsync(req.From, req.To)));
++
+ app.Run();
+ 
+ public record IssueRequest(string CardNumber, int BookId, int BranchId);
++public record LoansByBranchRequest(DateTimeOffset From, DateTimeOffset To);
+diff --git a/Reports.cs b/Reports.cs
+new file mode 100644
+index 0000000..153d831
+--- /dev/null
++++ b/Reports.cs
+@@ -0,0 +1,14 @@
++namespace BookQuarter.Library;
++
++public sealed class DebtorsReport
++{
++    public List<LoanRow> Debtors { get; init; } = new();
++    public decimal TotalFines { get; init; }
++}
++
++public sealed class LoansByBranchRow
++{
++    public int BranchId { get; init; }
++    public string BranchName { get; init; } = "";
++    public int LoanCount { get; init; }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..2234b28
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,10 @@
++Созданные/изменённые файлы:
++- Reports.cs (новый) — DTO `DebtorsReport` (список должников + `TotalFines`) и `LoansByBranchRow` для отчёта методиста.
++- LoanService.cs — добавлены `GetDebtorsAsync(branchId)` и `GetLoansByBranchAsync(from, to)`; `FineRules` теперь приходит через конструктор (DI), а не `FineRules.Default`.
++- Program.cs — `FineRules` регистрируется из конфигурации (`builder.Configuration.GetSection("Fines").Get<FineRules>()`, с fallback на `FineRules.Default`); добавлены эндпоинты `GET /branches/{id}/debtors` и `POST /reports/loans-by-branch` с record `LoansByBranchRequest(DateTimeOffset From, DateTimeOffset To)`.
++- appsettings.json (новый) — секция `Fines` (`PerDay`, `GraceDays`, `Max`) и плейсхолдер `ConnectionStrings:Library` (раньше файла конфигурации в проекте не было).
++
++Решения:
++- Должники переиспользуют существующую проекцию `ToLoanRows` (тот же вид строки, что и на кафедре); список и сумма штрафов по филиалу считаются двумя отдельными запросами к одному и тому же `IQueryable`, чтобы `ORDER BY` и `SUM` выполнялись в БД, а не после материализации.
++- Отчёт по филиалам строится одним запросом от `Branches` с коррелированным `COUNT` по `Loans` за период — так в отчёте есть все филиалы, включая филиалы без выдач за период; сравнение идёт по `DateTimeOffset` (момент времени), часовой пояс филиала тут не нужен — `IssuedAt` хранится как `timestamptz`, и совпадает с абсолютным моментом независимо от присланного офсета.
++- Правила штрафа (`FineRules`) вынесены в `appsettings` под ключ `Fines` и регистрируются как singleton в DI, `LoanService` получает их через конструктор вместо жёстко заданного `FineRules.Default`.
+diff --git a/appsettings.json b/appsettings.json
+new file mode 100644
+index 0000000..5849f2f
+--- /dev/null
++++ b/appsettings.json
+@@ -0,0 +1,10 @@
++{
++  "ConnectionStrings": {
++    "Library": "Host=localhost;Port=5432;Database=bookquarter;Username=bookquarter;Password=changeme"
++  },
++  "Fines": {
++    "PerDay": 10,
++    "GraceDays": 3,
++    "Max": 500
++  }
++}

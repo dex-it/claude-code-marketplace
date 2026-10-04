@@ -1,0 +1,87 @@
+{
+  "id": "682fcc",
+  "case": "B1",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.15588300000000002,
+    "durationMs": 10130,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 16681,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1100,
+      "output_tokens_details": {
+        "thinking_tokens": 265
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 16681,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1100,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 16681,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 16681
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "B1-senior-filter": {
+      "verdict": "PASS",
+      "quote": "Expression.LessThanOrEqual(Expression.Property(pet, nameof(Pet.BirthDate)), Expression.Constant(birthCutoff))",
+      "why": "Возраст выражен сравнением BirthDate с граничными датами по видам, вычисленными в C# до запроса; IsSenior и AgeYears в запросе не используются, весь отбор идёт в БД."
+    },
+    "B1-phone-translate": {
+      "verdict": "PASS",
+      "quote": "var normalized = PhoneFormat.Normalize(phone);",
+      "why": "Нормализуется только введённое значение, в Where стоит простое сравнение o.Phone == normalized без C#-методов над колонкой."
+    },
+    "B1-report-notracking": {
+      "verdict": "PASS",
+      "quote": ".Select(p => new SeniorRabiesReminderRow(p.Name, p.Species, p.Owner.FullName, p.Owner.Phone))",
+      "why": "Строки отчёта проецируются в record без сущностей, вдобавок на запросе стоит AsNoTracking."
+    },
+    "B1-phone-multi": {
+      "verdict": "PASS",
+      "quote": "public async Task<List<Owner>> FindByPhoneAsync(string phone)",
+      "why": "Метод возвращает список всех владельцев с этим номером через ToListAsync, Single не используется."
+    },
+    "B1-optout-utc": {
+      "verdict": "PASS",
+      "quote": "owner.SmsConsentChangedAt = DateTime.UtcNow;",
+      "why": "Момент отказа записывается с Kind=Utc."
+    },
+    "B1-h-email-single": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByEmailAsync не изменён; SingleOrDefault признан неподходящим только для неуникального телефона, а не для email."
+    },
+    "B1-h-legacy-switch": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Переключатель EnableLegacyTimestampBehavior не включается, тип колонки не меняется."
+    },
+    "B1-m-notracking-write": {
+      "verdict": "NO",
+      "quote": "var owner = await db.Owners.SingleAsync(o => o.Id == ownerId);",
+      "why": "В RevokeSmsConsentAsync и UpdateContactsAsync сущность читается с отслеживанием; AsNoTracking стоит только на запросах, которые ничего не пишут."
+    }
+  },
+  "stderr": ""
+}

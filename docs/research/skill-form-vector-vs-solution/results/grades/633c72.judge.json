@@ -1,0 +1,87 @@
+{
+  "id": "633c72",
+  "case": "GN",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.086159,
+    "durationMs": 10650,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 8343,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 949,
+      "output_tokens_details": {
+        "thinking_tokens": 268
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8343,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 949,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 8343,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 8343
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GN-h-datetime": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Выход ничего не утверждает о Kind у DateTime.UtcNow.Date и PlannedLocal и эти поля не меняет."
+    },
+    "GN-h-card-split": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "AsSplitQuery в GetCardAsync в выходе не упоминается."
+    },
+    "GN-h-inanalysis-tracking": {
+      "verdict": "NO",
+      "quote": "Можно считать наличие результатов через `Any`/`Count` в самом запросе",
+      "why": "Находка 6 предлагает не грузить Results, но не предлагает AsNoTracking и не отключает отслеживание проб, статусы которых меняет CloseAsync."
+    },
+    "GN-h-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "GetRecentBySiteAsync и FromSql SQL-инъекцией не названы."
+    },
+    "GN-h-retag-clear": {
+      "verdict": "NO",
+      "quote": "У `Sample`/`SampleTag` нет concurrency-токена",
+      "why": "Находка о RetagAsync касается lost update при параллельной правке, а не падения или сирот от Tags.Clear()."
+    },
+    "GN-h-labcode-single": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "SingleOrDefaultAsync в FindByLabCodeAsync дефектом не назван."
+    },
+    "GN-percent-int": {
+      "verdict": "FOUND",
+      "quote": "`compliant / total` выполняется как целочисленное деление и обнуляется",
+      "why": "Названы оба дефекта: целочисленное деление и DivideByZeroException при пустой партии."
+    },
+    "GN-page-offset": {
+      "verdict": "FOUND",
+      "quote": "Должно быть `Skip((page - 1) * pageSize)`",
+      "why": "Назван off-by-one, из-за которого при нумерации с 1 пропускается первая страница."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,67 @@
+{
+  "id": "5bdcc6",
+  "case": "G1",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.075727,
+    "durationMs": 5664,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 8214,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 479,
+      "output_tokens_details": {
+        "thinking_tokens": 0
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8214,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 479,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 8214,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 8214
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G1-debtors-fine": {
+      "verdict": "FAIL",
+      "quote": ".ToLoanRows(today, _rules)\n            .OrderByDescending(r => r.Fine)\n            .ToListAsync();",
+      "why": "OrderByDescending по Fine применён к IQueryable после ToLoanRows, где Fine вычисляется клиентским Fines.Amount; EF не транслирует сортировку, и запрос падает с InvalidOperationException."
+    },
+    "G1-period-offset": {
+      "verdict": "FAIL",
+      "quote": ".Where(l => l.IssuedAt >= from && l.IssuedAt < to)",
+      "why": "DateTimeOffset из тела запроса со смещением +05:00 передаётся в сравнение с timestamptz как есть, без ToUniversalTime/ToOffset(0); Npgsql такое смещение отвергает, и отчёт падает."
+    },
+    "G1-h-loanrows": {
+      "verdict": "NO",
+      "quote": "переиспользует тот же `ToLoanRows`, что и на кафедре",
+      "why": "Существующий ToLoanRows и GetActiveLoansAsync исполнитель дефектом не называет и не меняет."
+    },
+    "G1-h-today-utc": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "CountIssuedTodayAsync исполнитель не трогает и о нём ничего не утверждает."
+    }
+  },
+  "stderr": ""
+}

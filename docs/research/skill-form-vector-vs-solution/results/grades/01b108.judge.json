@@ -1,0 +1,112 @@
+{
+  "id": "01b108",
+  "case": "BR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.139267,
+    "durationMs": 14701,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 13024,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1732,
+      "output_tokens_details": {
+        "thinking_tokens": 417
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 13024,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1732,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 13024,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 13024
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "BR-long-stays": {
+      "verdict": "PASS",
+      "quote": "EF Core 8 не может перевести `s.DaysInWard > 14` в SQL и бросает `InvalidOperationException`",
+      "why": "Найдено нетранслируемое вычисляемое свойство; предложено транслируемое условие `AdmittedOn < border` с границей, вычисленной до запроса."
+    },
+    "BR-box-occupant": {
+      "verdict": "PASS",
+      "quote": "Если в боксе ≥2 пациентов, `SingleOrDefaultAsync` бросает `InvalidOperationException`",
+      "why": "Найдена неуникальность условия при Capacity > 1; предложено возвращать список пациентов и поменять `BoxCardDto`."
+    },
+    "BR-decommission-filter": {
+      "verdict": "PASS",
+      "quote": "EF Core строит INNER JOIN с уже отфильтрованным `Boxes`",
+      "why": "Названы последствия: потеря пациентов в GetWardPatientsAsync и в отчёте, падение DischargeAsync; предложены явный фильтр при поступлении и IgnoreQueryFilters."
+    },
+    "BR-medplan-clear": {
+      "verdict": "PASS",
+      "quote": "`stay.MedicationOrders.Clear()` разрывает required-связь, и при `SaveChangesAsync` EF бросает `InvalidOperationException`",
+      "why": "Найдены и исключение, и требование README не удалять назначения; предложено ставить CancelledAt и добавлять новые."
+    },
+    "BR-latest-stay-split": {
+      "verdict": "PASS",
+      "quote": "корневой запрос и запросы коллекций могут выбрать разные строки",
+      "why": "Найдена неуникальная сортировка при AsSplitQuery; предложен `ThenByDescending(s => s.Id)`."
+    },
+    "BR-occupancy-sql": {
+      "verdict": "PASS",
+      "quote": "`sortBy` сопоставлять с белым списком (`switch` → `OrderBy(s => s.AdmittedOn)` и т. п.)",
+      "why": "Инъекция найдена через оба значения; ward предложено передавать параметром, sortBy — по белому списку."
+    },
+    "BR-startup-migrate": {
+      "verdict": "PASS",
+      "quote": "В EF Core 8 нет блокировки миграций, поэтому возможны гонки параллельного применения.",
+      "why": "Названы роль vet_app без DDL, обход просмотра DBA и гонка трёх реплик; предложено убрать блок и оставить db-migrate."
+    },
+    "BR-billing": {
+      "verdict": "FOUND",
+      "quote": "то есть нужно `+ 1`",
+      "why": "Найден off-by-one в расчёте стоимости, включая нулевой счёт при выписке в день поступления."
+    },
+    "BR-discharge-auth": {
+      "verdict": "FOUND",
+      "quote": "Стоит `.RequireAuthorization()` без политики.",
+      "why": "Найдено отсутствие политики Vet на эндпоинте выписки."
+    },
+    "BR-h-box-code": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindBoxByCodeAsync в выходе не упоминается."
+    },
+    "BR-h-history-fromsql": {
+      "verdict": "NO",
+      "quote": "Как в `GetPetHistoryAsync`.",
+      "why": "GetPetHistoryAsync приведён как правильный образец, инъекцией не назван."
+    },
+    "BR-m-cascade-fix": {
+      "verdict": "NO",
+      "quote": "Переключать на Cascade тоже нельзя",
+      "why": "Cascade прямо отвергнут; предложена отмена назначений через CancelledAt."
+    },
+    "BR-m-ddl-grant": {
+      "verdict": "NO",
+      "quote": "**Как исправить:** убрать блок.",
+      "why": "Выдать vet_app права на DDL не предлагается."
+    }
+  },
+  "stderr": ""
+}

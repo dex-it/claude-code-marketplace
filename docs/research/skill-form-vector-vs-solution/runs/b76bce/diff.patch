@@ -1,0 +1,43 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..9aa15d4
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,37 @@
++# Ревью MR !4127 (сервисы заказов и каталога для админки)
++
++## Критичные (critical)
++
++- **Program.cs:12 + Workers/OverdueNotifier.cs** — `AddHostedService<OverdueNotifier>()` регистрирует воркер как singleton, а `OverdueNotifier` получает `ShopDbContext` (scoped) через конструктор напрямую. DI бросит `InvalidOperationException` ("Cannot consume scoped service... from singleton") при старте, либо (если валидация отключена) один и тот же DbContext будет жить всё время работы приложения — Change Tracker бесконечно растёт, DbContext не thread-safe. Нужно инжектить `IServiceScopeFactory` и создавать scope на каждую итерацию цикла.
++
++- **Services/CatalogService.cs — Reserve** — `SELECT ... FOR UPDATE` выполняется без явной транзакции (`BeginTransactionAsync`). Блокировка строки снимается сразу после завершения SELECT, до последующего `SaveChangesAsync`. Два параллельных вызова `Reserve` могут оба пройти проверку `Stock < qty` и уйти в минус — гонка/овербукинг остатка, ровно то, для чего резерв и делался.
++
++- **Services/OrderQueries.cs — GetProductBySku** — `SingleAsync(p => p.Sku == sku)`, но по модели (см. MR.md) SKU уникален только в рамках одного склада и лежит на нескольких складах одновременно — это нормальный случай, а не край. Метод упадёт с `InvalidOperationException` всякий раз, когда товар с таким SKU есть на 2+ складах. Нужен параметр склада или явная обработка нескольких результатов.
++
++- **Services/OrderAdmin.cs — RecalcTotal** — `order.Total = order.Items.Sum(i => prices[i.ProductId])` — сумма **цен**, без умножения на `i.Qty`. По контракту модели `Product.Price` — цена за единицу, а `OrderItem.Qty` — количество. Итог: сумма заказа считается неверно почти всегда (кроме qty=1 у всех позиций).
++
++- **Migrations/20260920_OrderCategories.cs — Up()** — `DropColumn("Category", "Orders")` без переноса существующих значений в новые таблицы `Categories`/`OrderCategories`. Схемная миграция без data migration для исторических данных — после деплоя все существующие заказы теряют категорию безвозвратно (тихая потеря данных, не исключение).
++
++- **Model.cs (не менялся в MR) vs Migrations/20260920_OrderCategories.cs** — миграция удаляет колонку `Orders.Category`, но свойство `Order.Category` продолжает существовать и маппиться EF-моделью, а `Categories`/`OrderCategories` вообще не описаны в модели (нет `DbSet<Category>`, нет join-сущности). Рассинхрон миграции и модели: `OrderAdmin.UpdateOrder` (`order.Category = edit.Category`) упадёт в рантайме, т.к. колонки больше нет в БД; следующий `dotnet ef migrations add` сгенерирует мусорный diff, пытаясь "вернуть" Category. MR описывает вынос категорий в отдельные таблицы, но код сервисов их вообще не использует — миграция фактически не завершена на уровне кода.
++
++## Высокие (high)
++
++- **Services/OrderQueries.cs — ExportForCustomer** — два `Include` коллекций (`Items`, `Payments`) без `.AsSplitQuery()` → декартово произведение строк (rows = items × payments на заказ). Явно указанный в MR сценарий ("у крупных клиентов тысячи заказов") делает проблему особенно болезненной — трафик и память могут вырасти на порядки. В `GetCard` `AsSplitQuery()` для одного заказа применён верно, здесь для массовой выгрузки — забыт.
++
++- **Services/OrderAdmin.cs — OverdueReport** — грузит весь список заказов через `_repo.GetAllAsync()` (без фильтра в SQL) и только потом фильтрует `IsOverdue` в памяти. Для таблицы с тысячами/миллионами заказов — полное сканирование в память приложения вместо WHERE в БД; логика просрочки к тому же продублирована и реализована иначе (в SQL), чем в `OverdueNotifier`.
++
++- **Services/OrderAdmin.cs — UpdateOrder / RecalcTotal** — MR прямо указывает, что несколько операторов правят заказ одновременно, но concurrency token (`xmin`/RowVersion) не добавлен и не проверяется. Конкурентные правки одного и того же заказа могут тихо перезаписать друг друга без ошибки (lost update).
++
++- **Services/CatalogService.cs — Reprice** — сущности уже загружены и отслеживаются контекстом (`ToListAsync()`), после чего вызывается `_db.UpdateRange(products)`. Это помечает все колонки как изменённые (а не только `Price`), и при сохранении может перезаписать конкурентно изменённый `Stock` (например, из `Reserve`) устаревшим значением — ещё один lost update, плюс лишний вызов.
++
++## Средние (medium)
++
++- **Services/OrderQueries.cs — LastShippedAt** — `MaxAsync(o => o.ShippedAt)` вернёт `null`, если у клиента нет заказов или ни один ещё не отгружен; `last!.Value` в этом случае бросит `NullReferenceException` в рантайме — `!` лишь подавляет предупреждение компилятора, не устраняет причину.
++
++- **Services/OrderAdmin.cs — RecalcTotal** — `prices[i.ProductId]` бросит `KeyNotFoundException`, если товар из позиции заказа был удалён из каталога и не попал в выборку `_db.Products.Where(...)`.
++
++- **Workers/OverdueNotifier.cs — ExecuteAsync** — тело цикла не обёрнуто в try/catch; необработанное исключение (например, временная недоступность БД) навсегда останавливает `BackgroundService` — уведомления о просрочке перестанут писаться до перезапуска приложения, без сигнала об этом.
++
++## Низкие (low)
++
++- **Services/CatalogService.cs — Search** — ручная синхронизация имён параметров (`@p{args.Count}` / `new NpgsqlParameter($"p{args.Count}", ...)`) корректна сейчас, но хрупкая конструкция: при рефакторинге порядка условий легко случайно рассинхронизировать имя плейсхолдера и параметра без compile-time проверки. Стоит вынести в более безопасный паттерн.

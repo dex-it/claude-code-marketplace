@@ -1,0 +1,40 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..00b6e97
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,34 @@
++# Ревью MR !231 «Процедурный кабинет»
++
++## 1. `Services/ProcedureService.cs` — `CalculateDoseMlAsync`: доза считается от веса в граммах вместо килограммов — **critical**
++`var doseMg = weightGrams * drugMgPerKg;` — `drugMgPerKg` задан в мг/кг, а `Pet.WeightGrams` хранится в граммах. Деления на 1000 нет, поэтому объём препарата получается в 1000 раз больше нужного. Комментарий в коде («вес, кг × мг/кг») с кодом не совпадает. Для инфузии это прямая угроза жизни животного.
++Исправление: `weightGrams / 1000m * drugMgPerKg`, плюс юнит-тест на эталонный пример.
++
++## 2. `Domain/Pet.cs` (`WeightGrams`) + `CalculateDoseMlAsync`: «не взвешен» хранится как 0, доза получается 0 мл — **high**
++`WeightGrams` — ненулевой `int`. Миграция `AddProcedures` добавит в существующую таблицу `Pets` колонку NOT NULL со значением по умолчанию 0. У всех ранее заведённых питомцев (и у новых, которых ещё не взвешивали) вес будет 0, и `CalculateDoseMlAsync` молча вернёт `0` мл вместо ошибки «вес неизвестен». Это пункт чек-листа «Схемная миграция и исторические данные».
++Исправление: `int? WeightGrams` (nullable колонка). В расчёте дозы: если веса нет или он `<= 0`, бросать понятное исключение.
++
++## 3. `Services/ProcedureSheetService.cs` — `GetDaySheetAsync`: смещение страницы на единицу — **high**
++По контракту API страницы нумеруются с 1, а в коде `Skip(page * PageSize)`. При `page=1` пропускаются первые 30 процедур дня, и первая страница листа дня никогда не показывается: процедуры теряются из листа. Параметр `page` тоже не проверяется (`0` и отрицательные значения).
++Исправление: `Skip((page - 1) * PageSize)` и проверка `page >= 1`.
++
++## 4. `Services/ProcedureService.cs` — `RemoveConsumableAsync`: гонка с закрытием процедуры — **medium**
++Сначала проверяется `Status != Closed`, потом удаляется строка. Блокировки и concurrency-токена у `Procedure` нет. Если процедуру закроют параллельно между чтением и `SaveChanges`, строка расходника удалится из уже закрытого списания, а это нарушает правило из README. Пункт чек-листа «Параллельная правка одной записи».
++Исправление: concurrency-токен на `Procedure`, для Npgsql это `xmin` (`UseXminAsConcurrencyToken` / `IsRowVersion` на `uint xmin`), и закрытие процедуры должно его менять. Другой вариант — `SELECT ... FOR UPDATE` строки процедуры в явной транзакции, которая охватывает и проверку, и удаление.
++Попутно (low): ради удаления одной строки загружаются все расходники процедуры, а у длительных инфузий их сотни. Достаточно загрузить процедуру (или только её статус) и одну строку: `db.ConsumableLines.SingleOrDefaultAsync(c => c.Id == lineId && c.ProcedureId == procedureId)`, затем `Remove`.
++(Сам разрыв связи через `Consumables.Remove(line)` корректен: связь required, каскад по умолчанию, поэтому сирота помечается `Deleted`.)
++
++## 5. `Services/ProcedureService.cs` — `RescheduleAsync`: lost update при параллельной правке — **medium**
++Та же схема «прочитал статус → проверил → сохранил» без concurrency-токена. Параллельный перенос и старт или отмена процедуры могут перенести уже начатую или отменённую процедуру. Последний перенос молча перезаписывает другой. Исправление то же, что в п. 4 (`xmin`), с обработкой `DbUpdateConcurrencyException`.
++
++## 6. `Services/ProcedureService.cs` — `GetCardAsync`: полные сущности вместо проекции — **low**
++`Include(Pet/Consumables/StaffNotes)` загружает целиком `Pet` (нужен только `Name`) и все колонки строк, после чего они перекладываются в DTO в памяти. Split query здесь законен: у процедуры две коллекции одного уровня, их сотни строк, и одиночный запрос дал бы декартов взрыв. Но лучше сделать проекцию `Select(p => new ProcedureCardDto(..., p.Pet.Name, ..., p.Consumables.Select(...).ToList(), p.StaffNotes.OrderBy(...).Select(...).ToList()))` вместе с `AsSplitQuery()`. Ещё у `Consumables` не задан порядок, поэтому он нестабилен между вызовами.
++
++## 7. `Services/ProcedureService.cs` — `ScheduleAsync`: нет проверки существования питомца и `Title` — **low**
++Несуществующий `PetId` даёт `DbUpdateException` (FK violation) и 500 вместо 404/400. Если `Title` равен `null`, будет `NullReferenceException` на `Trim()`. Пустой заголовок не отсекается.
++
++## 8. `Services/ProcedureSheetService.cs` — `SearchNotesAsync`: поиск только по `Procedure.Notes` и без индекса — **low**
++В MR заявлен «поиск по заметкам», но запрос ищет только в `Procedures."Notes"` и не смотрит в `StaffNotes` («заметки персонала»). Это нужно сверить с требованием. К тому же `to_tsvector('russian', coalesce("Notes",''))` вычисляется для каждой строки без GIN-индекса по выражению, то есть это полный скан таблицы. Сам SQL безопасен: `FromSql` с интерполяцией параметризует `{text}`.
++
++---
++Проверено, дефектов нет: `ScheduledLocal` как `timestamp without time zone` с `Kind=Unspecified` при записи и в параметрах `GetConsumptionAsync`; `CreatedAt = DateTime.UtcNow` в `timestamptz`; `ORDER BY` в `GetConsumptionAsync` берётся из белого списка, значения передаются параметрами; `SingleOrDefault` по `ChipNumber` опирается на уникальный индекс; `FindByTitleAsync` и `GetDaySheetAsync` используют проекции, фильтр выполняется в БД.

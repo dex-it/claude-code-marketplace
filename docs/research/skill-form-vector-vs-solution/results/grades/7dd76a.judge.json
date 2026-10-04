@@ -1,0 +1,92 @@
+{
+  "id": "7dd76a",
+  "case": "GR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.087187,
+    "durationMs": 14000,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 7309,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1414,
+      "output_tokens_details": {
+        "thinking_tokens": 642
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7309,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1414,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 7309,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 7309
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GR-offday-rows": {
+      "verdict": "PASS",
+      "quote": "вычисление `OffDay = !WorkCalendar.IsWorkingDay(t.StartedAt)` — это вызов статического метода, который не переводится в SQL",
+      "why": "Найдены фильтр по OffDay после ToRows() и нетранслируемый клиентский вызов, предложены перенос в SQL или AsEnumerable; последствие описано неверно (фильтрация в памяти вместо исключения EF), но дефект и исправление совпадают."
+    },
+    "GR-open-semicolon": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Точка с запятой в SQL GetOpenWaybillsAsync и композиция Where поверх FromSqlRaw не упомянуты."
+    },
+    "GR-equipment-clear": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Clear() на незагруженной коллекции Equipment в ReplaceEquipmentAsync не упомянут."
+    },
+    "GR-model-length": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Сужение vehicles.model до varchar(40) в миграции не рассмотрено."
+    },
+    "GR-last-inspection": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Неуникальный порядок по CreatedAt при SplitQuery в GetLastInspectionAsync не упомянут."
+    },
+    "GR-permit-lastday": {
+      "verdict": "FOUND",
+      "quote": "Проверка `p.ValidUntil > today` отклоняет допуски в их последний день",
+      "why": "Дефект назван точно, предложено заменить на >=."
+    },
+    "GR-equipment-auth": {
+      "verdict": "FOUND",
+      "quote": "Без проверки авторизации любой аутентифицированный пользователь может менять комплектацию машин.",
+      "why": "Отсутствие политики на PUT equipment названо дефектом."
+    },
+    "GR-h-permits-clear": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "driver.Permits.Clear() дефектом не назван."
+    },
+    "GR-h-plate-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByPlateAsync не упомянут."
+    }
+  },
+  "stderr": ""
+}

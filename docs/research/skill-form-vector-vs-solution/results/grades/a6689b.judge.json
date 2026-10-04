@@ -1,0 +1,67 @@
+{
+  "id": "a6689b",
+  "case": "G1",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.087203,
+    "durationMs": 8358,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 9261,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 634,
+      "output_tokens_details": {
+        "thinking_tokens": 201
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9261,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 634,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 9261,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 9261
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G1-debtors-fine": {
+      "verdict": "PASS",
+      "quote": ".Where(l => l.BranchId == branchId && l.ReturnedAt == null && l.DueDate < today)",
+      "why": "Отбор идёт по маппленным колонкам до ToLoanRows, today передаётся параметром, а OrderByDescending по Fine и Sum выполняются в памяти после ToListAsync."
+    },
+    "G1-period-offset": {
+      "verdict": "PASS",
+      "quote": "var fromUtc = from.ToUniversalTime();",
+      "why": "Обе границы приводятся к UTC с сохранением момента времени и только потом сравниваются с IssuedAt."
+    },
+    "G1-h-loanrows": {
+      "verdict": "NO",
+      "quote": "Fines.* вычисляются на клиенте в проекции ToLoanRows и в SQL не транслируются",
+      "why": "Исполнитель не называет ToLoanRows и GetActiveLoansAsync дефектом и не меняет их, а только учитывает клиентскую проекцию в новом коде."
+    },
+    "G1-h-today-utc": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "CountIssuedTodayAsync в diff не изменён, и претензий к нему в ответе нет."
+    }
+  },
+  "stderr": ""
+}

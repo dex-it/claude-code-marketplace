@@ -1,0 +1,9 @@
+## Изменённые/созданные файлы
+- `Models.cs` — в `ServiceRequest` добавлены `ContactPhone` и `ClosingComment`.
+- `HousingDbContext.cs` — маппинг длины новых колонок.
+- `HousingService.cs` — сортировка реестра (`sort`/`dir` → `RequestSortField`/`SortDirection`, white-list `ORDER BY`, джойны apartments/houses только когда нужны), `CloseRequestAsync` + `RequestNotInProgressException`, телефон в `NewRequest`/`RequestCard`, новые колонки добавлены в `SELECT` сырого SQL.
+- `PlanService.cs` — `ReplacePlanAsync`/`PlanItemInput`: план дома заменяется целиком, история работ, оставшихся в плане, сохраняется (трекаемое обновление, а не удаление+вставка), убранные работы удаляются явно.
+- `Endpoints.cs` (новый) — `GET /requests`, `GET /requests/{id}`, `POST /requests/{id}/close`, `PUT /houses/{id}/plan` с валидацией входных параметров и маппингом ошибок на 400/404/409.
+
+## Решения
+`sort`/`dir` парсятся в enum на границе API до построения SQL, поэтому `ORDER BY` в `FromSqlRaw` собирается только из фиксированного whitelist-набора фрагментов — без инъекции; сортировка по статусу идёт по бизнес-порядку (New→...→Rejected), а не по алфавиту. В `ReplacePlanAsync` совпавшие по коду работы обновляются как трекаемые сущности (история в `PlanItemCompletions` не трогается), а исчезнувшие из плана работы удаляются явно, так как в контексте `CascadeTiming.Never`. Миграцию для новых колонок `contact_phone`/`closing_comment` не создавал — запуск `dotnet ef` запрещён условиями задачи; команде нужно сгенерировать её перед деплоем через существующий migrations bundle. Тот же текст сохранён в `work/_answer.md`.

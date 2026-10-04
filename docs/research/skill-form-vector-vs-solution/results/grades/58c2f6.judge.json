@@ -1,0 +1,102 @@
+{
+  "id": "58c2f6",
+  "case": "V2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.137319,
+    "durationMs": 13784,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 13158,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1581,
+      "output_tokens_details": {
+        "thinking_tokens": 337
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 13158,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1581,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 13158,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 13158
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "V2-coi-organization": {
+      "verdict": "FOUND",
+      "quote": "Условие `a.OrganizationInn == expert.OrganizationInn` пропущено.",
+      "why": "Выход прямо называет отсутствие сверки ИНН организации эксперта и заявки по п. 4.3, в том числе при Assign и Reassign."
+    },
+    "V2-reassign-draft-carryover": {
+      "verdict": "FOUND",
+      "quote": "Переносятся назначения в статусе `Draft` вместе со `Scores`, `Comment` и `Total`, меняются только `ExpertId`/`ExpertName`.",
+      "why": "Назван перенос черновых баллов и комментария новому эксперту и предложен сброс в Assigned."
+    },
+    "V2-ranking-expert-access": {
+      "verdict": "FOUND",
+      "quote": "вместе с ним экспертам стали доступны `GET {id}/ranking` и `{id}/ranking.csv`",
+      "why": "Указано, что атрибут класса открывает экспертам рейтинг и CSV."
+    },
+    "V2-tiebreak-created": {
+      "verdict": "FOUND",
+      "quote": "Нужно `ThenBy(x => x.SubmittedAt)`, а для полной детерминированности ещё `ThenBy(x => x.Id)`.",
+      "why": "Названа сортировка по CreatedAt вместо SubmittedAt при равном балле."
+    },
+    "V2-csv-culture": {
+      "verdict": "FOUND",
+      "quote": "`Program.cs` ставит через `UseRequestLocalization` культуру `ru-RU`, поэтому `87.5` пишется как `87,50`",
+      "why": "Культура ru-RU связана с десятичной запятой и разделителем-запятой в CSV."
+    },
+    "V2-deadline-last-day": {
+      "verdict": "FOUND",
+      "quote": "это граница 00:00 UTC дня дедлайна, то есть около 03:00 МСК того же дня",
+      "why": "Указано, что день дедлайна исключён и граница нужна на начало следующего дня."
+    },
+    "V2-parallel-dbcontext": {
+      "verdict": "PASS",
+      "quote": "EF Core не поддерживает параллельные операции на контексте, поэтому получим `InvalidOperationException: A second operation was started on this context instance…`",
+      "why": "Дефект Task.WhenAll на одном GrantsDbContext назван, предложено выполнять запросы последовательно."
+    },
+    "V2-string-equals-comparison": {
+      "verdict": "PASS",
+      "quote": "EF Core 8 / Npgsql не переводит `string.Equals` с `StringComparison` в SQL",
+      "why": "Названа ошибка трансляции и предложены ILike, ToLower и недетерминированная collation."
+    },
+    "V2-h-collection-replace-orphans": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Выход не утверждает, что старые оценки задвоятся, и не требует ручного RemoveRange или Clear; удаление ReviewScore упомянуто только в контексте гонки."
+    },
+    "V2-h-filtered-include": {
+      "verdict": "NO",
+      "quote": "Утечки в ответе нет, но это лишняя выборка полных сущностей",
+      "why": "Filtered include не объявлен неподдерживаемым и не описан как загрузка всех отзывов; замечание касается только лишней выборки для эксперта."
+    },
+    "V2-h-executeupdate-in-transaction": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Выход не утверждает, что ExecuteUpdate не сохранится или не участвует в транзакции; гонка описана между CloseReview и параллельным запросом эксперта."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,92 @@
+{
+  "id": "841cb5",
+  "case": "GR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.07527900000000001,
+    "durationMs": 10322,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 6708,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1059,
+      "output_tokens_details": {
+        "thinking_tokens": 249
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6708,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1059,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 6708,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 6708
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GR-offday-rows": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Фильтр по TripRow.OffDay после ToRows(), который EF не транслирует, в выходе не упомянут."
+    },
+    "GR-open-semicolon": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Про ';' в SQL GetOpenWaybillsAsync и падение при компоновке Where поверх FromSqlRaw ничего не сказано."
+    },
+    "GR-equipment-clear": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Про Clear() на коллекции оснащения, загруженной без Include, и нарушение уникального индекса (vehicle_id, code) находки нет."
+    },
+    "GR-model-length": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Миграция AlterColumn vehicles.model до varchar(40) в ревью не рассмотрена, то есть пропущена как корректная."
+    },
+    "GR-last-inspection": {
+      "verdict": "FAIL",
+      "quote": "Проверка свежести осмотра использует `InspectedAt` вместо `CreatedAt`",
+      "why": "Находка касается поля проверки свежести, а не неуникального порядка OrderByDescending(CreatedAt) при SplitQuery; этот дефект не найден."
+    },
+    "GR-permit-lastday": {
+      "verdict": "FOUND",
+      "quote": "Используется условие `p.ValidUntil > today`, но по описанию MR допуск \"действует по указанную в нём дату включительно\"",
+      "why": "Дефект последнего дня допуска назван прямо, предложено `>=`."
+    },
+    "GR-equipment-auth": {
+      "verdict": "FOUND",
+      "quote": "Endpoint изменения комплектации машины без авторизации",
+      "why": "Названо отсутствие политики на PUT equipment и предложен RequireAuthorization(\"Mechanic\"); формулировка про неавторизованных пользователей неточна, но дефект тот же по существу."
+    },
+    "GR-h-permits-clear": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "ReplacePermitsAsync и Permits.Clear() дефектом не названы."
+    },
+    "GR-h-plate-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByPlateAsync не упоминается."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,112 @@
+{
+  "id": "4e62b0",
+  "case": "BR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.128643,
+    "durationMs": 16284,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 11271,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1902,
+      "output_tokens_details": {
+        "thinking_tokens": 357
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11271,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1902,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 11271,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 11271
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "BR-long-stays": {
+      "verdict": "PASS",
+      "quote": "`DaysInWard` — вычисляемое C#-свойство без маппинга. EF Core 8 не может перевести `s.DaysInWard > 14` в SQL и бросает `InvalidOperationException`",
+      "why": "Дефект назван, предложено транслируемое условие `s.AdmittedOn < DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-14)` с датой, вычисленной заранее; загрузки в память нет."
+    },
+    "BR-box-occupant": {
+      "verdict": "PASS",
+      "quote": "Как только в боксе два текущих пациента, `SingleOrDefault` бросает `InvalidOperationException`, и карточка бокса отвечает 500. Нужно возвращать список текущих пациентов",
+      "why": "Учтена вместимость `Capacity`, названо исключение и предложено вернуть коллекцию."
+    },
+    "BR-decommission-filter": {
+      "verdict": "PASS",
+      "quote": "EF делает INNER JOIN с отфильтрованными `Boxes` (и пишет предупреждение 10622). Поэтому госпитализации в выведенном боксе исчезают из списка отделения",
+      "why": "Названы последствия для `GetWardPatientsAsync`, отчёта занятости и `DischargeAsync`, предложены перенос фильтра, `IgnoreQueryFilters` или optional-связь."
+    },
+    "BR-medplan-clear": {
+      "verdict": "PASS",
+      "quote": "При `stay.MedicationOrders.Clear()` связь разрывается, и `SaveChanges` бросает `InvalidOperationException`",
+      "why": "Указаны Restrict на required-связи и требование README ставить `CancelledAt`, новые назначения предложено добавлять."
+    },
+    "BR-latest-stay-split": {
+      "verdict": "PASS",
+      "quote": "Из-за `AsSplitQuery()` с `FirstOrDefault` запросы коллекций повторяют TOP-1-подзапрос отдельно и при неуникальной сортировке могут выбрать другую госпитализацию",
+      "why": "Названы неуникальный `AdmittedOn` и расхождение split-запросов, предложены `ThenByDescending(Id)` и одна проекция."
+    },
+    "BR-occupancy-sql": {
+      "verdict": "PASS",
+      "quote": "`ward` передавать как параметр (`FromSql($\"…{ward}…\")` или `NpgsqlParameter`), а `sortBy` сверять с белым списком столбцов",
+      "why": "Инъекция найдена по обоим входам, исправление через параметр и белый список."
+    },
+    "BR-startup-migrate": {
+      "verdict": "PASS",
+      "quote": "В проде приложение работает под ролью `vet_app` (только DML, README/.gitlab-ci.yml). `CREATE TABLE` из миграции упадёт с permission denied",
+      "why": "Названы права роли, гонка трёх реплик без блокировки в EF 8 и обход ревью DBA и джобы `db-migrate`; блок предложено удалить."
+    },
+    "BR-billing": {
+      "verdict": "FOUND",
+      "quote": "По README стоимость считается за календарные дни, включая день поступления и день выписки, значит нужно `+ 1`",
+      "why": "Дефект назван точно, включая нулевой счёт при выписке в день поступления."
+    },
+    "BR-discharge-auth": {
+      "verdict": "FOUND",
+      "quote": "Стоит `.RequireAuthorization()` без политики, поэтому выписать может любой аутентифицированный пользователь",
+      "why": "Названы отсутствие политики Vet и требование README."
+    },
+    "BR-h-box-code": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "`FindBoxByCodeAsync` в выходе не упоминается."
+    },
+    "BR-h-history-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "`GetPetHistoryAsync` инъекцией не назван."
+    },
+    "BR-m-cascade-fix": {
+      "verdict": "NO",
+      "quote": "Даже при другой настройке каскада назначения удалялись бы физически, а README требует их не удалять",
+      "why": "Каскад отвергнут, предложено проставлять `CancelledAt`."
+    },
+    "BR-m-ddl-grant": {
+      "verdict": "NO",
+      "quote": "Блок нужно удалить (в лучшем случае оставить только для Development)",
+      "why": "Выдать DDL-права роли `vet_app` не предлагается."
+    }
+  },
+  "stderr": ""
+}

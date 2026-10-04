@@ -1,0 +1,72 @@
+{
+  "id": "41e407",
+  "case": "G5",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.1179502,
+    "durationMs": 13269,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 11247,
+      "cache_read_input_tokens": 531,
+      "output_tokens": 1393,
+      "output_tokens_details": {
+        "thinking_tokens": 801
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11247,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1393,
+          "cache_read_input_tokens": 531,
+          "cache_creation_input_tokens": 11247,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 11247
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G5-login-email": {
+      "verdict": "PASS",
+      "quote": "FirstOrDefaultAsync(s => s.Email.ToLower() == email.ToLower())",
+      "why": "Поиск без учёта регистра идёт через FirstOrDefault, а не Single/SingleOrDefault, поэтому две карточки, различающиеся регистром e-mail, не роняют запрос; токен хранится под одним нормализованным e-mail, и проверка кода тоже не падает."
+    },
+    "G5-graduates-school": {
+      "verdict": "PASS",
+      "quote": "_db.Instructors.IgnoreQueryFilters()\n                .Where(i => i.Id == grad.InstructorId && i.SchoolId == _db.SchoolId)",
+      "why": "Выпускники выбираются с действующим фильтром школы; уволенные инструкторы подтягиваются отдельным запросом с IgnoreQueryFilters и явным условием по SchoolId."
+    },
+    "G5-instructor-list": {
+      "verdict": "FAIL",
+      "quote": "foreach (var student in students.Select(x => x.MaskForInstructor()))",
+      "why": "Ученики загружены отслеживающим запросом без AsNoTracking, маска применяется к отслеживаемым сущностям в группе /api, и SaveChangesFilter запишет замаскированные паспорт и e-mail в БД."
+    },
+    "G5-h-find-exact": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByEmailAsync в diff не затронут и дефектом не назван."
+    },
+    "G5-m-notracking": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "NoTracking по умолчанию не включён, SaveChangesFilter не удалён."
+    }
+  },
+  "stderr": ""
+}

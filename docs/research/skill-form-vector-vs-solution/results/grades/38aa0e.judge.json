@@ -1,0 +1,72 @@
+{
+  "id": "38aa0e",
+  "case": "G6",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.110695,
+    "durationMs": 9681,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 11405,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 951,
+      "output_tokens_details": {
+        "thinking_tokens": 422
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11405,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 951,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 11405,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 11405
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G6-sort-alias": {
+      "verdict": "PASS",
+      "quote": "var needHouses = !string.IsNullOrWhiteSpace(s.District) || sortColumn == \"address\";",
+      "why": "JOIN apartments и houses добавляются по одному общему флагу, который учитывает и фильтры, и сортировку по адресу; столбец и направление берутся из switch-белого списка."
+    },
+    "G6-search-columns": {
+      "verdict": "FAIL",
+      "quote": "SELECT r.id, r.apartment_id, r.text, r.category, r.status, r.created_at",
+      "why": "ContactPhone и CompletionComment замаплены в модели и в HousingDbContext, но в явный список SELECT в SearchAsync не добавлены: FromSqlRaw не вернёт все свойства сущности, и реестр будет падать на каждом запросе."
+    },
+    "G6-plan-orphans": {
+      "verdict": "PASS",
+      "quote": "_db.PlanItems.Remove(removed);",
+      "why": "Совпавшие пункты обновляются на месте, выпавшие удаляются явно через DbSet, новые добавляются; история остающихся работ сохраняется."
+    },
+    "G6-h-move-items": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "MergePlansAsync не изменён, и выход не утверждает, что он упадёт."
+    },
+    "G6-h-limit": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Подстановку LIMIT/OFFSET выход не называет инъекцией и не трогает."
+    }
+  },
+  "stderr": ""
+}

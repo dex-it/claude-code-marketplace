@@ -1,0 +1,71 @@
+{
+  "id": "6bda88",
+  "case": "N0",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0380434,
+    "durationMs": 6745,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 2786,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 766,
+      "output_tokens_details": {
+        "thinking_tokens": 143
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 2786,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 766,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 2786,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 2786
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "N0-h-split": {
+      "verdict": "NO",
+      "quote": "`AsSplitQuery()` уместен, т.к. два `Include` коллекций (Items + Payments) дают cartesian explosion",
+      "why": "Выход прямо одобряет AsSplitQuery; находка 4 по OrderCard касается проекции DTO, а не AsSplitQuery."
+    },
+    "N0-h-utc": {
+      "verdict": "YES",
+      "quote": "Нужно либо сменить тип колонки на `timestamptz` (тогда `UtcNow` пишется штатно), либо явно нормализовать значение под `timestamp` (`DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified)`)",
+      "why": "Critical-находка объявляет At = DateTime.UtcNow дефектом и требует SpecifyKind/Unspecified или смену типа колонки."
+    },
+    "N0-h-contains": {
+      "verdict": "NO",
+      "quote": "`Contains` по массиву id (транслируется в `= ANY(@p)`, безопасно для тысяч id) — соответствует правилам",
+      "why": "Выход считает Contains корректным и не требует резать на пачки."
+    },
+    "N0-X1": {
+      "verdict": "FOUND",
+      "quote": "`Skip(page * pageSize)` при нумерации страниц с 1 ... первая страница вообще недоступна клиенту",
+      "why": "Дефект пагинации назван по существу, предложен Skip((page - 1) * pageSize)."
+    },
+    "N0-X2": {
+      "verdict": "FOUND",
+      "quote": "Фильтр `o.Status == \"Active\"` сравнивается с фактическим значением сущности `Order.Status = \"active\"`",
+      "why": "Назван дефект регистра статуса, из-за которого список всегда пуст."
+    }
+  },
+  "stderr": ""
+}

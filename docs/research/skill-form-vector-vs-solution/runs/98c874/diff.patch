@@ -1,0 +1,91 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..7a52604
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,85 @@
++# Результаты ревью MR
++
++## Дефекты
++
++### 1. Секреты в репозитории
++- **Файл:** appsettings.Production.json
++- **Метод/Область:** Конфигурация
++- **Проблема:** Содержит в открытом виде критические секреты: пароль БД (`Kx7!pQ2vR9wz`), пароль SMTP (`rl_live_9f3a1c77e2b04d6d`), username для SMTP (`notify-relay`). Нарушает SKILL.md пункт 14.
++- **Severity:** CRITICAL
++
++### 2. Критическая ошибка единицы времени в PollInterval
++- **Файл:** OutboxWorker.cs, строка 33
++- **Метод:** ExecuteAsync
++- **Проблема:** `TimeSpan.FromSeconds(o.PollInterval)` интерпретирует PollInterval как секунды, но в конфигурации это миллисекунды (500). Это причинит задержку в 1000 раз больше чем задумано (вместо 500 мс будет опрос раз в ~500 секунд). Требование MR: "опрос outbox раз в полсекунды" не будет выполнено.
++- **Severity:** CRITICAL
++
++### 3. Валидатор опций не зарегистрирован
++- **Файл:** Program.cs
++- **Метод:** Main (конфигурация)
++- **Проблема:** OutboxOptionsValidator создан (Options/OutboxOptionsValidator.cs), но не зарегистрирован в DI контейнере. Валидация конфигурации при старте не происходит, что нарушает SKILL.md пункты 7-8.
++- **Severity:** HIGH
++
++### 4. Нарушение кросс-полевого инварианта опций
++- **Файл:** appsettings.Production.json
++- **Метод/Область:** Outbox конфигурация
++- **Проблема:** MinBatchSize (200) > MaxBatchSize (100), что является невалидной конфигурацией. Нарушает SKILL.md пункт 10. Должно быть MinBatchSize ≤ MaxBatchSize.
++- **Severity:** HIGH
++
++### 5. Неполная конфигурация для Staging окружения
++- **Файл:** appsettings.Staging.json
++- **Метод/Область:** Outbox и Mail конфигурация
++- **Проблема:** Отсутствуют значения обязательных параметров: PollInterval, MinBatchSize, MaxBatchSize, LockTimeout в секции Outbox; FromAddress в секции Mail. Нарушает SKILL.md пункт 13 "Значение по умолчанию в каждом env-файле".
++- **Severity:** HIGH
++
++### 6. IOptions вместо IOptionsMonitor для динамических изменений
++- **Файл:** OutboxWorker.cs, строка 11; SmtpMailSender.cs, строка 8
++- **Метод:** OutboxWorker constructor, SmtpMailSender constructor
++- **Проблема:** Используется IOptions<OutboxOptions> и IOptions<SmtpOptions> вместо IOptionsMonitor. Требование MR: "Лимит параллельных отправок и размер пачки должны меняться на лету правкой appsettings, без рестарта". IOptions кэширует значение при старте, изменения конфигурации не будут применены. Нарушает SKILL.md пункт 9.
++- **Severity:** HIGH
++
++### 7. Неправильный ключ конфигурации в ThrottleService
++- **Файл:** ThrottleService.cs, строка 7
++- **Метод:** WaitAsync
++- **Проблема:** Ищет "Throttle:MessagesPerMinute", но в конфигурационных файлах ключ "Throttle:PerMinute". Кроме того, код не использует IOptionsMonitor, поэтому изменения на лету не работают. Требование MR не может быть выполнено.
++- **Severity:** HIGH
++
++### 8. Division by zero в ThrottleService
++- **Файл:** ThrottleService.cs, строка 8
++- **Метод:** WaitAsync
++- **Проблема:** appsettings.Staging.json не содержит секции "Throttle", GetValue вернет 0, приведет к 60_000 / 0 = DivideByZeroException при первом вызове.
++- **Severity:** HIGH
++
++### 9. Отсутствие единицы измерения в имени свойства
++- **Файл:** Options/OutboxOptions.cs, строка 5
++- **Метод/Область:** Свойство PollInterval
++- **Проблема:** Имя не указывает на единицу измерения. По конфигурации это явно миллисекунды (500), но это не видно из имени. Нарушает SKILL.md пункт 12 "Единица измерения в имени настройки". Должно быть PollIntervalMs или PollIntervalMilliseconds.
++- **Severity:** MEDIUM
++
++### 10. Неполная валидация OutboxOptions
++- **Файл:** Options/OutboxOptionsValidator.cs
++- **Метод:** Validate
++- **Проблема:** Не проверяет PollInterval (может быть ≤ 0, что вызовет ошибку при использовании). Не проверяет кросс-полевой инвариант: MinBatchSize должно быть ≤ MaxBatchSize. Нарушает SKILL.md пункт 10.
++- **Severity:** MEDIUM
++
++### 11. Отсутствие валидатора для SmtpOptions
++- **Файл:** Program.cs, Options/SmtpOptions.cs
++- **Метод/Область:** Конфигурация
++- **Проблема:** SmtpOptions содержит non-nullable свойства (Host, Port, FromAddress), но нет валидатора и регистрации в DI. Не гарантируется наличие обязательных значений при старте. Нарушает SKILL.md пункты 7-8.
++- **Severity:** MEDIUM
++
++### 12. Отсутствие значения FromAddress в Staging конфигурации
++- **Файл:** appsettings.Staging.json
++- **Метод/Область:** Smtp конфигурация
++- **Проблема:** FromAddress не указан в Staging (в то время как это обязательное non-nullable свойство). Нарушает SKILL.md пункт 13.
++- **Severity:** MEDIUM
++
++---
++
++## Резюме
++Всего найдено 12 дефектов:
++- 2 CRITICAL (секреты в Production, критическая ошибка времени в PollInterval)
++- 6 HIGH (отсутствие валидатора, нарушение инвариантов, неполная конфигурация, неправильные типы опций, ошибки конфигурации)
++- 4 MEDIUM (имя без единицы, неполная валидация, отсутствие валидатора для Smtp, неполная конфигурация)
++
++Рекомендация: **MR не готов к мержу** до исправления как минимум всех CRITICAL и HIGH дефектов.

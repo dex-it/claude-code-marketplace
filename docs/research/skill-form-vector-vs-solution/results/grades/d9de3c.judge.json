@@ -1,0 +1,72 @@
+{
+  "id": "d9de3c",
+  "case": "G6",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.11743500000000001,
+    "durationMs": 8960,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 12425,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 880,
+      "output_tokens_details": {
+        "thinking_tokens": 313
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 12425,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 880,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 12425,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 12425
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G6-sort-alias": {
+      "verdict": "PASS",
+      "quote": "var needsHouseJoin = !string.IsNullOrWhiteSpace(s.District) || s.Sort == RequestSort.Address;",
+      "why": "JOIN apartments/houses добавляются ровно один раз по общим флагам, учитывающим и фильтры HouseId/District, и sort=address; старый JOIN houses из ветки District убран, а sort/dir берутся из enum-белого списка."
+    },
+    "G6-search-columns": {
+      "verdict": "PASS",
+      "quote": "SELECT r.id, r.apartment_id, r.text, r.category, r.status, r.created_at,\n                   r.contact_phone, r.close_comment",
+      "why": "Новые маппленные свойства ContactPhone и CloseComment добавлены в явный список колонок FromSqlRaw."
+    },
+    "G6-plan-orphans": {
+      "verdict": "PASS",
+      "quote": "_db.PlanItems.RemoveRange(removed);",
+      "why": "Совпавшие работы обновляются на месте, выпавшие удаляются явным RemoveRange, новые добавляются; Clear() и удаление из навигации не используются."
+    },
+    "G6-h-move-items": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "MergePlansAsync не изменён и не объявлен дефектным: выход лишь ссылается на него как на причину настройки DeleteOrphansTiming = Never."
+    },
+    "G6-h-limit": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Подстановка LIMIT/OFFSET не названа инъекцией и в коде осталась без изменений."
+    }
+  },
+  "stderr": ""
+}

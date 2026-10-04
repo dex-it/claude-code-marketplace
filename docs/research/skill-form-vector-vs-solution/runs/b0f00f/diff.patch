@@ -1,0 +1,37 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..3cafb87
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,31 @@
++# Ревью MR !4210 (карточка заказа, выгрузка корзины, аудит)
++
++## 1. `Services/CustomerOrders.cs` — `CustomerOrders.ActivePageAsync`
++**Дефект:** off-by-one в пагинации. Комментарий в коде и MR явно говорят, что `page` нумеруется с 1, но используется `Skip(page * pageSize)` вместо `Skip((page - 1) * pageSize)`.
++Следствие: при `page = 1` пропускается первая страница целиком (`Skip(pageSize)`), т.е. клиент никогда не увидит первые `pageSize` заказов; при любом `page` выдаётся содержимое "следующей" страницы вместо запрошенной.
++**Severity: critical** — ломает основную функциональность метода для всех вызовов.
++
++## 2. `Services/CustomerOrders.cs` — `CustomerOrders.ActivePageAsync`
++**Дефект:** фильтр `o.Status == "Active"` (с большой буквы) сравнивается с полем, у которого доменное значение по умолчанию — `"active"` (строчными, см. `Model.cs:11`: `public string Status { get; set; } = "active";`). Сравнение строк в Postgres по умолчанию регистрозависимое, поэтому если где-то в системе статус реально выставляется как `"active"`, метод никогда не найдёт ни одного заказа.
++**Severity: high** — при рассинхроне регистра метод молча возвращает пустую страницу вместо активных заказов; нужно свериться с фактическими значениями статуса в БД/бизнес-логике до мерджа.
++
++## 3. `Workers/AuditWriter.cs` — `AuditWriter.WriteAsync`
++**Дефект:** `AuditLog.At = DateTime.UtcNow`, при этом колонка `AuditLog.At` нигде явно не сконфигурирована (`OnModelCreating` конфигурирует только `Order.CreatedAt` как `timestamp without time zone`), значит для неё действует конвенция Npgsql по умолчанию — тоже `timestamp without time zone`. Начиная с Npgsql 6+ запись `DateTime` с `Kind = Utc` в колонку `timestamp without time zone` выбрасывает исключение (`Cannot write DateTime with Kind=Utc to PostgreSQL type 'timestamp without time zone'`), если не включён legacy-switch (в проекте он не упоминается).
++Следствие: `SaveChangesAsync` будет падать при каждом вызове `WriteAsync`, то есть аудит операторских действий будет полностью не работать (либо ронять вызывающий код).
++**Severity: critical** — соответствует пункту чек-листа "DateTime и тип колонки в Npgsql"; нужно либо писать `DateTime.UtcNow` в колонку `timestamptz`, либо использовать `DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified)` под `timestamp without time zone` (согласовав с остальной схемой, где `CreatedAt` уже хранится как `timestamp without time zone`).
++
++## 4. `Workers/AuditWriter.cs` — класс `AuditWriter` (расположение/паттерн использования)
++**Дефект (риск, требует проверки):** класс лежит в `Workers/` и получает `ShopDbContext` через конструктор напрямую, без `IServiceScopeFactory`. Если `AuditWriter` регистрируется с длительным временем жизни (singleton) или создаётся один раз внутри `BackgroundService` (что подсказывает и namespace, и MR-описание "запись события аудита по действию оператора" в фоне), это приведёт либо к ошибке DI ("Cannot consume scoped service from singleton"), либо к использованию одного и того же `DbContext` из нескольких параллельных вызовов (не потокобезопасно).
++**Severity: medium** — код регистрации DI не входит в изменённые файлы и не виден в ревью, но по месту размещения класса стоит явно подтвердить, что `AuditWriter` резолвится per-scope/per-request, а не как singleton/поле долгоживущего воркера.
++
++## 5. `Services/OrderCard.cs` — `OrderCard.GetAsync`
++**Дефект:** `AsSplitQuery()` применён к запросу, который и так ограничен `SingleOrDefaultAsync(o => o.Id == id)`, то есть выбирает ровно одну сущность по первичному ключу. Split query здесь превращает один round-trip в три отдельных запроса (Order, Items, Payments) без транзакции/снепшота, что даёт риск рассинхронизации данных между запросами (например, платёж или позиция может быть добавлена/удалена между вторым и третьим запросом) и лишние сетевые обращения там, где обычный single query с декартовым произведением двух небольших коллекций (позиции и платежи одного заказа) был бы дешевле и консистентнее.
++**Severity: medium** — соответствует отдельному пункту чек-листа "Split query на выборке одной сущности"; стоит либо убрать `AsSplitQuery()` (коллекции одного заказа обычно малы), либо явно обосновать и обернуть в транзакцию с соответствующим уровнем изоляции, если разрастание всё же существенно.
++
++---
++
++### Что проверено и не вызывает вопросов
++- `AsNoTracking()` применён во всех read-only выборках (`OrderCard`, `CartLookup`, `CustomerOrders`) — соответствует правилам.
++- `CartLookup.GetAsync` корректно проецирует только нужные поля (`Select` в `CartLine`), а `ids.Contains(p.Id)` с массивом из тысяч GUID транслируется Npgsql в `= ANY(@p)` одним параметром — не проблема производительности/трансляции.
++- `SingleOrDefaultAsync(o => o.Id == id)` в `OrderCard` корректен, т.к. `Id` — первичный ключ, условие действительно уникально.
++- `AuditWriter` использует `Add` (не `AddAsync`) — корректно, т.к. генератор значения ключа не требует обращения к БД на этапе `Add`.

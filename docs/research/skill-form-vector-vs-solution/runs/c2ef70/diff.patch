@@ -1,0 +1,149 @@
+diff --git a/PeriodClosedException.cs b/PeriodClosedException.cs
+new file mode 100644
+index 0000000..e75d771
+--- /dev/null
++++ b/PeriodClosedException.cs
+@@ -0,0 +1,15 @@
++namespace Pixelwork.Timesheets;
++
++// Месяц закрыт актом (ClosedPeriods). На уровне API отдаётся как 409 Conflict.
++public class PeriodClosedException : Exception
++{
++    public int Year { get; }
++    public int Month { get; }
++
++    public PeriodClosedException(int year, int month)
++        : base($"Period {year:D4}-{month:D2} is closed.")
++    {
++        Year = year;
++        Month = month;
++    }
++}
+diff --git a/ProjectService.cs b/ProjectService.cs
+index a6ff2ed..f46eb60 100644
+--- a/ProjectService.cs
++++ b/ProjectService.cs
+@@ -4,7 +4,9 @@ namespace Pixelwork.Timesheets;
+ 
+ public record ProjectListItem(int Id, string Name, string Client, decimal HourlyRate, IReadOnlyList<string> Tags);
+ 
+-public record ProjectFilter(int? ClientId, string? Search);
++public record ProjectFilter(int? ClientId, string? Search, string? Tag = null);
++
++public record ProjectDeletionResult(decimal TotalHours, decimal CurrentMonthHours);
+ 
+ public class ProjectService
+ {
+@@ -14,7 +16,14 @@ public class ProjectService
+ 
+     public async Task<List<ProjectListItem>> ListAsync(ProjectFilter f)
+     {
+-        var q = _db.Projects.AsNoTracking().AsQueryable();
++        // Tags хранятся строкой "a;b;c" через ValueConverter, LINQ-предикат по List<string>
++        // в SQL не транслируется — фильтруем точным совпадением элемента на стороне PostgreSQL.
++        // Query filter (soft delete) и остальные Where накладываются поверх FromSql.
++        var q = string.IsNullOrEmpty(f.Tag)
++            ? _db.Projects.AsNoTracking()
++            : _db.Projects
++                .FromSql($"""SELECT * FROM "Projects" WHERE {f.Tag} = ANY(string_to_array("Tags", ';'))""")
++                .AsNoTracking();
+ 
+         if (f.ClientId is { } clientId)
+             q = q.Where(p => p.ClientId == clientId);
+@@ -28,15 +37,43 @@ public class ProjectService
+             .ToListAsync();
+     }
+ 
+-    public async Task<bool> DeleteProjectAsync(int id)
++    // Теги для выпадающего списка фильтра: только у неудалённых проектов (иначе фильтр вернёт пусто),
++    // без повторов, по алфавиту. Проектов у агентства немного — разбираем строки в памяти тем же конвертером.
++    public async Task<List<string>> ListTagsAsync()
++    {
++        var tagLists = await _db.Projects
++            .AsNoTracking()
++            .Select(p => p.Tags)
++            .ToListAsync();
++
++        return tagLists
++            .SelectMany(t => t)
++            .Distinct(StringComparer.Ordinal)
++            .OrderBy(t => t, StringComparer.CurrentCultureIgnoreCase)
++            .ThenBy(t => t, StringComparer.Ordinal)
++            .ToList();
++    }
++
++    // null — проект не найден. Записи времени при мягком удалении остаются, часы считаем до удаления.
++    public async Task<ProjectDeletionResult?> DeleteProjectAsync(int id)
+     {
+         var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == id);
+         if (project is null)
+-            return false;
++            return null;
++
++        var monthStart = DateOnly.FromDateTime(DateTime.Now);
++        monthStart = new DateOnly(monthStart.Year, monthStart.Month, 1);
++        var nextMonthStart = monthStart.AddMonths(1);
++
++        var entries = _db.TimeEntries.Where(t => t.ProjectId == id);
++        var totalHours = await entries.SumAsync(t => t.Hours);
++        var currentMonthHours = await entries
++            .Where(t => t.WorkDate >= monthStart && t.WorkDate < nextMonthStart)
++            .SumAsync(t => t.Hours);
+ 
+         _db.Projects.Remove(project);
+         await _db.SaveChangesAsync();
+-        return true;
++        return new ProjectDeletionResult(totalHours, currentMonthHours);
+     }
+ 
+     public async Task<bool> RestoreProjectAsync(int id)
+diff --git a/TimeEntryService.cs b/TimeEntryService.cs
+index 04db0a6..b23b032 100644
+--- a/TimeEntryService.cs
++++ b/TimeEntryService.cs
+@@ -35,11 +35,32 @@ public class TimeEntryService
+         if (dto.Hours is <= 0 or > 24)
+             throw new ArgumentOutOfRangeException(nameof(dto.Hours));
+ 
++        // Дату берём из БД, а не из DTO: иначе запись из закрытого месяца можно «вытащить», прислав открытую дату.
++        var current = await _db.TimeEntries
++            .AsNoTracking()
++            .Where(t => t.Id == dto.Id)
++            .Select(t => (DateOnly?)t.WorkDate)
++            .FirstOrDefaultAsync();
++        if (current is not { } currentDate)
++            throw new KeyNotFoundException($"Time entry {dto.Id} not found.");
++
++        await EnsureMonthOpenAsync(currentDate);
++        if (currentDate.Year != dto.WorkDate.Year || currentDate.Month != dto.WorkDate.Month)
++            await EnsureMonthOpenAsync(dto.WorkDate);
++
+         var entry = dto.ToEntity();
+         _db.TimeEntries.Update(entry);
+         await _db.SaveChangesAsync();
+     }
+ 
++    private async Task EnsureMonthOpenAsync(DateOnly date)
++    {
++        var closed = await _db.ClosedPeriods
++            .AnyAsync(p => p.Year == date.Year && p.Month == date.Month);
++        if (closed)
++            throw new PeriodClosedException(date.Year, date.Month);
++    }
++
+     public async Task<decimal> HoursForMonthAsync(int employeeId, int year, int month)
+     {
+         var from = new DateOnly(year, month, 1);
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..790e246
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,7 @@
++**Изменены:** `ProjectService.cs`, `TimeEntryService.cs`. **Создан:** `PeriodClosedException.cs`.
++
++- (а) В `ProjectFilter` добавлено поле `Tag`. Теги хранятся одной строкой `a;b;c` через ValueConverter, и предикат по `List<string>` в SQL не переводится. Поэтому корень запроса — `FromSql` с условием `{tag} = ANY(string_to_array("Tags", ';'))`: тег передаётся параметром и сравнивается точно, без LIKE, поэтому `mobile` не совпадёт с `mobile-app`. Soft-delete и остальные фильтры накладываются поверх. (б) `ListTagsAsync()` берёт теги только неудалённых проектов, убирает повторы и сортирует по алфавиту без учёта регистра.
++- (в) `DeleteProjectAsync` теперь возвращает `ProjectDeletionResult(TotalHours, CurrentMonthHours)` или `null`, если проект не найден (раньше возвращал `bool`). Часы считаются до мягкого удаления. Текущий месяц определяется по локальному времени сервера.
++- (г) `UpdateAsync` берёт дату записи из БД, а не из DTO, и проверяет по `ClosedPeriods` и старый месяц, и новый. Если месяц закрыт — `PeriodClosedException`; если записи нет — `KeyNotFoundException`.
++
++Контроллеров и `Program.cs` в репозитории нет. Поэтому endpoint для (б), маппинг `PeriodClosedException` → 409 и обработку нового типа ответа удаления нужно сделать на уровне API. `AddAsync` по заданию не трогал: сейчас он позволяет добавить запись в закрытый месяц — стоит решить, нужно ли закрыть и это. Сборку и тесты не запускал.

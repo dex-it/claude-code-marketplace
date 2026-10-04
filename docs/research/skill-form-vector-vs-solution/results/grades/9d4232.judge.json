@@ -1,0 +1,72 @@
+{
+  "id": "9d4232",
+  "case": "G6",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.095179,
+    "durationMs": 12396,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 8773,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1228,
+      "output_tokens_details": {
+        "thinking_tokens": 662
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8773,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1228,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 8773,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 8773
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G6-sort-alias": {
+      "verdict": "PASS",
+      "quote": "else if (s.Sort == \"address\")\n        {\n            sql.Append(\" JOIN houses h ON h.id = a.house_id\");",
+      "why": "JOIN apartments a добавляется один раз под общим условием с флагом needsApartments, houses h присоединяется для сортировки только при отсутствии фильтра District; столбец сортировки выбирается через switch, направление — из пары ASC/DESC."
+    },
+    "G6-search-columns": {
+      "verdict": "FAIL",
+      "quote": "public string? Phone { get; set; }\n    public string? CloseComment { get; set; }",
+      "why": "Phone и CloseComment замаплены в HousingDbContext, а явный список колонок сырого SQL в SearchAsync не дополнен, поэтому FromSqlRaw упадёт на каждом запросе реестра."
+    },
+    "G6-plan-orphans": {
+      "verdict": "FAIL",
+      "quote": "item.Completions.Clear();\n            plan.Items.Remove(item);",
+      "why": "Работы и их история удаляются только из коллекций, без явного _db.PlanItems.Remove; при DeleteOrphansTiming = Never SaveChanges бросит исключение о разорванной обязательной связи."
+    },
+    "G6-h-move-items": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "MergePlansAsync не изменён и в ответе не упоминается."
+    },
+    "G6-h-limit": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Подстановку LIMIT/OFFSET выход инъекцией не называет и не меняет."
+    }
+  },
+  "stderr": ""
+}

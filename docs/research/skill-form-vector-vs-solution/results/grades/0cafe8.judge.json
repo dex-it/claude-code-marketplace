@@ -1,0 +1,72 @@
+{
+  "id": "0cafe8",
+  "case": "G6",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.11366300000000001,
+    "durationMs": 10982,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 11551,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1041,
+      "output_tokens_details": {
+        "thinking_tokens": 446
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11551,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1041,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 11551,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 11551
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G6-sort-alias": {
+      "verdict": "PASS",
+      "quote": "var needsHouseJoin = !string.IsNullOrWhiteSpace(s.District) || s.Sort?.ToLowerInvariant() == \"address\";",
+      "why": "Каждый JOIN apartments a и houses h добавляется ровно один раз под общим флагом, который учитывает и фильтры, и sort=address; sort и dir берутся только из белого списка через switch, на неизвестное значение бросается ArgumentException."
+    },
+    "G6-search-columns": {
+      "verdict": "FAIL",
+      "quote": "SELECT r.id, r.apartment_id, r.text, r.category, r.status, r.created_at",
+      "why": "В ServiceRequest добавлены маппленные Phone, ClosingComment и ClosedAt, а явный список колонок в SearchAsync не дополнен; FromSqlRaw не найдёт эти колонки в результате, и реестр будет падать на каждом запросе."
+    },
+    "G6-plan-orphans": {
+      "verdict": "PASS",
+      "quote": "plan.Items.Remove(existing);\n                _db.PlanItems.Remove(existing);",
+      "why": "Остающиеся PlanItem обновляются на месте с сохранением истории, отсутствующие в новом плане удаляются явно через _db.PlanItems.Remove, новые добавляются."
+    },
+    "G6-h-move-items": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "MergePlansAsync не изменён и не объявлен дефектным."
+    },
+    "G6-h-limit": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Подстановку LIMIT/OFFSET исполнитель не называет инъекцией и не трогает."
+    }
+  },
+  "stderr": ""
+}

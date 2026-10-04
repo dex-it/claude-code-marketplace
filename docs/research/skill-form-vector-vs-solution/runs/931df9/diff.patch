@@ -1,0 +1,76 @@
+diff --git a/Model.cs b/Model.cs
+index cc90064..c6f41a6 100644
+--- a/Model.cs
++++ b/Model.cs
+@@ -14,6 +14,7 @@ public class Order
+     public DateTime CreatedAt { get; set; }          // column: timestamp without time zone
+     public DateTime? ShippedAt { get; set; }
+     public bool IsDeleted { get; set; }
++    public int Complexity { get; set; }              // 1..5, сложность комплектации заказа
+     public List<OrderItem> Items { get; set; } = new();
+     public List<Payment> Payments { get; set; } = new();
+     public bool IsOverdue(DateTime now) => ShippedAt == null && CreatedAt.AddDays(3) < now;
+@@ -44,7 +45,31 @@ public class ShopDbContext : DbContext
+     protected override void OnModelCreating(ModelBuilder b)
+     {
+         b.Entity<Order>().HasQueryFilter(o => !o.IsDeleted);
+-        b.Entity<Order>().Property(o => o.CreatedAt).HasColumnType("timestamp without time zone");
++
++        // Колонка остаётся timestamp without time zone (на неё смотрят отчёты DBA).
++        // На запись значение нормализуется к UTC и помечается Unspecified, т.к. Npgsql
++        // не позволяет писать Kind=Utc в timestamp without time zone; на чтение
++        // колонка не хранит Kind, поэтому явно помечаем результат как Utc.
++        b.Entity<Order>().Property(o => o.CreatedAt)
++            .HasColumnType("timestamp without time zone")
++            .HasConversion(
++                v => DateTime.SpecifyKind(v.ToUniversalTime(), DateTimeKind.Unspecified),
++                v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
++
++        b.Entity<Order>().Property(o => o.Complexity).IsRequired();
++        b.Entity<Order>().ToTable(t => t.HasCheckConstraint("CK_Order_Complexity_Range", "\"Complexity\" BETWEEN 1 AND 5"));
++
++        b.Entity<Order>()
++            .HasMany(o => o.Items)
++            .WithOne()
++            .HasForeignKey(i => i.OrderId)
++            .OnDelete(DeleteBehavior.Restrict);
++
++        b.Entity<Order>()
++            .HasMany(o => o.Payments)
++            .WithOne()
++            .HasForeignKey(p => p.OrderId)
++            .OnDelete(DeleteBehavior.Restrict);
+     }
+ }
+ // Options: UseNpgsql(cs).UseLazyLoadingProxies()
+diff --git a/OrderRepository.cs b/OrderRepository.cs
+index 72637b8..585a9d7 100644
+--- a/OrderRepository.cs
++++ b/OrderRepository.cs
+@@ -6,4 +6,12 @@ public class OrderRepository
+     public OrderRepository(ShopDbContext db) => _db = db;
+     public Task<List<Order>> GetAllAsync() => _db.Orders.ToListAsync();
+     public Task<Order?> GetAsync(Guid id) => _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
++
++    public async Task ClearItemsAsync(Guid orderId)
++    {
++        var order = await _db.Orders.Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == orderId);
++        if (order is null) return;
++        order.Items.Clear();
++        await _db.SaveChangesAsync();
++    }
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..5c4cfb9
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,8 @@
++Изменённые файлы:
++- Model.cs — добавлено поле Order.Complexity (int, 1..5) с check-constraint на уровне БД; для Order.CreatedAt настроен HasConversion (запись — ToUniversalTime + Kind=Unspecified, чтение — Kind=Utc), тип колонки timestamp without time zone не менялся; в OnModelCreating явно сконфигурированы связи Order->Items и Order->Payments (HasMany/WithOne/HasForeignKey, OnDelete(Restrict)).
++- OrderRepository.cs — добавлен метод ClearItemsAsync(Guid orderId): подгружает заказ с Items, чистит коллекцию и сохраняет; поскольку OrderId — обязательный FK, EF физически удаляет позиции при SaveChanges.
++
++Решения:
++- CreatedAt хранится как timestamp without time zone (не трогаем колонку/отчёты DBA), но конвертер гарантирует Kind=Utc в коде на чтение и корректно нормализует к UTC на запись (Npgsql запрещает писать Kind=Utc в timestamp без tz, поэтому перед записью ставится Unspecified).
++- Complexity ограничен диапазоном 1..5 через CHECK-constraint в БД, а не только конвенцией в коде.
++- Order->Items/Payments настроены с DeleteBehavior.Restrict, чтобы не потерять дочерние записи при случайном хард-делете родителя (soft-delete остаётся единственным штатным способом «удаления» заказа); ClearItemsAsync использует штатное поведение EF (orphan delete при обязательном FK) для физического удаления позиций.

@@ -1,0 +1,144 @@
+diff --git a/LoanService.cs b/LoanService.cs
+index 81e9e1e..533a23d 100644
+--- a/LoanService.cs
++++ b/LoanService.cs
+@@ -7,9 +7,13 @@ public class LoanService
+     private const int LoanDays = 21;
+ 
+     private readonly LibraryDbContext _db;
+-    private readonly FineRules _rules = FineRules.Default;
++    private readonly FineRules _rules;
+ 
+-    public LoanService(LibraryDbContext db) => _db = db;
++    public LoanService(LibraryDbContext db, FineRules rules)
++    {
++        _db = db;
++        _rules = rules;
++    }
+ 
+     public async Task<int> IssueAsync(string cardNumber, int bookId, int branchId)
+     {
+@@ -75,6 +79,39 @@ public class LoanService
+             l.BranchId == branchId && l.IssuedAt >= dayStart && l.IssuedAt < dayEnd);
+     }
+ 
++    // Список должников для обзвона: те же строки, что и на кафедре, по всему филиалу.
++    public async Task<DebtorsReport> GetDebtorsAsync(int branchId)
++    {
++        var branch = await _db.Branches.FindAsync(branchId)
++            ?? throw new InvalidOperationException("Филиал не найден");
++
++        var today = LocalToday(branch);
++
++        var debtors = await _db.Loans
++            .Where(l => l.BranchId == branchId && l.ReturnedAt == null && l.DueDate < today)
++            .ToLoanRows(today, _rules)
++            .OrderByDescending(r => r.Fine)
++            .ToListAsync();
++
++        return new DebtorsReport(debtors, debtors.Sum(d => d.Fine));
++    }
++
++    // Отчёт методиста: число выдач по каждому филиалу за период (period — абсолютные моменты времени).
++    public async Task<List<BranchLoanCount>> GetLoansByBranchAsync(DateTimeOffset from, DateTimeOffset to)
++    {
++        var counts = await _db.Loans
++            .Where(l => l.IssuedAt >= from && l.IssuedAt < to)
++            .GroupBy(l => l.BranchId)
++            .Select(g => new { BranchId = g.Key, Count = g.Count() })
++            .ToDictionaryAsync(x => x.BranchId, x => x.Count);
++
++        var branches = await _db.Branches.OrderBy(b => b.Name).ToListAsync();
++
++        return branches
++            .Select(b => new BranchLoanCount(b.Id, b.Name, counts.GetValueOrDefault(b.Id)))
++            .ToList();
++    }
++
+     private static DateOnly LocalToday(Branch branch)
+     {
+         var tz = TimeZoneInfo.FindSystemTimeZoneById(branch.TimeZoneId);
+diff --git a/Program.cs b/Program.cs
+index 51a69f7..c006631 100644
+--- a/Program.cs
++++ b/Program.cs
+@@ -5,6 +5,9 @@ var builder = WebApplication.CreateBuilder(args);
+ 
+ builder.Services.AddDbContext<LibraryDbContext>(o =>
+     o.UseNpgsql(builder.Configuration.GetConnectionString("Library")));
++
++var fineRules = builder.Configuration.GetSection("Fines").Get<FineRules>() ?? FineRules.Default;
++builder.Services.AddSingleton(fineRules);
+ builder.Services.AddScoped<LoanService>();
+ 
+ var app = builder.Build();
+@@ -24,6 +27,17 @@ app.MapGet("/branches/{branchId:int}/readers/{card}/loans", async (int branchId,
+ app.MapGet("/branches/{branchId:int}/issued-today", async (int branchId, LoanService s) =>
+     Results.Ok(await s.CountIssuedTodayAsync(branchId)));
+ 
++app.MapGet("/branches/{branchId:int}/debtors", async (int branchId, LoanService s) =>
++    Results.Ok(await s.GetDebtorsAsync(branchId)));
++
++app.MapPost("/reports/loans-by-branch", async (LoansByBranchRequest req, LoanService s) =>
++{
++    if (req.From >= req.To)
++        return Results.BadRequest("from должен быть раньше to");
++
++    return Results.Ok(await s.GetLoansByBranchAsync(req.From, req.To));
++});
++
+ app.Run();
+ 
+ public record IssueRequest(string CardNumber, int BookId, int BranchId);
+diff --git a/Reports.cs b/Reports.cs
+new file mode 100644
+index 0000000..5a439b7
+--- /dev/null
++++ b/Reports.cs
+@@ -0,0 +1,8 @@
++namespace BookQuarter.Library;
++
++// Список должников филиала: строки в формате кафедры, в конце — общая сумма штрафов.
++public sealed record DebtorsReport(List<LoanRow> Debtors, decimal TotalFine);
++
++public sealed record LoansByBranchRequest(DateTimeOffset From, DateTimeOffset To);
++
++public sealed record BranchLoanCount(int BranchId, string BranchName, int Count);
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..4e06f17
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,10 @@
++Изменённые/созданные файлы:
++- `LoanService.cs` — изменён: `FineRules` теперь приходит через DI (конструктор), а не `FineRules.Default`; добавлены `GetDebtorsAsync(branchId)` и `GetLoansByBranchAsync(from, to)`.
++- `Reports.cs` — создан: DTO `DebtorsReport`, `LoansByBranchRequest`, `BranchLoanCount`.
++- `Program.cs` — изменён: `FineRules` читается из секции `Fines` конфигурации и регистрируется в DI; добавлены эндпоинты `GET /branches/{id}/debtors` и `POST /reports/loans-by-branch` (с проверкой `from < to`).
++- `appsettings.json` — создан: секция `Fines` (`PerDay`, `GraceDays`, `Max`) со значениями прежнего `FineRules.Default`, плюс заглушка `ConnectionStrings:Library`.
++
++Решения:
++- Должники (а) переиспользуют `ToLoanRows` — тот же формат строк, что и на кафедре, только по всем непогашенным выдачам филиала с `DueDate < сегодня`; сортировка по убыванию штрафа, сумма штрафов отдаётся отдельным полем `TotalFine` (последним в JSON-ответе).
++- Для отчёта (б) `IssuedAt` хранится как абсолютный момент времени (`DateTimeOffset`), поэтому сравнение с `from`/`to` из тела запроса (тоже со смещением) корректно работает независимо от часового пояса филиала или фронта — пересчёт в локальное время филиала не нужен; в отчёт попадают все филиалы, включая филиалы с нулём выдач за период.
++- Ставка, льготный период и потолок штрафа читаются из `Fines` в `appsettings.json` (`FineRules` как record биндится из секции), с fallback на `FineRules.Default`, если секция отсутствует.
+diff --git a/appsettings.json b/appsettings.json
+new file mode 100644
+index 0000000..22dbafe
+--- /dev/null
++++ b/appsettings.json
+@@ -0,0 +1,16 @@
++{
++  "ConnectionStrings": {
++    "Library": "Host=localhost;Database=bookquarter;Username=postgres;Password=postgres"
++  },
++  "Fines": {
++    "PerDay": 10,
++    "GraceDays": 3,
++    "Max": 500
++  },
++  "Logging": {
++    "LogLevel": {
++      "Default": "Information",
++      "Microsoft.AspNetCore": "Warning"
++    }
++  }
++}

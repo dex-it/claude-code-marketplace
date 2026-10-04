@@ -1,0 +1,92 @@
+{
+  "id": "3efe4c",
+  "case": "GR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.119539,
+    "durationMs": 20321,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 9608,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 2112,
+      "output_tokens_details": {
+        "thinking_tokens": 1098
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9608,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2112,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 9608,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 9608
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GR-offday-rows": {
+      "verdict": "DISPUTED",
+      "quote": "OffDayTripsAsync упадёт на первом же вызове",
+      "why": "Падение отчёта FLEET-109 названо, но причина приписана самой проекции, а не Where по OffDay после ToRows(); отсюда ложная регрессия GetVehicleTripsAsync, хотя клиентская оценка в финальном Select допустима. Исправление (фильтр после материализации или условие в SQL) не предложено."
+    },
+    "GR-open-semicolon": {
+      "verdict": "PASS",
+      "quote": "Точка с запятой внутри скобок — синтаксическая ошибка PostgreSQL",
+      "why": "Механизм назван точно: подзапрос при vehicleId и работа без фильтра, объясняющая локальную проверку. Убрать ';' прямо не предложено, но правка следует из описания однозначно."
+    },
+    "GR-equipment-clear": {
+      "verdict": "PASS",
+      "quote": "FindVehicleAsync не делает .Include(v => v.Equipment)",
+      "why": "Названы бездействующий Clear(), DbUpdateException по уникальному индексу (vehicle_id, code) и дописывание к старым позициям. Исправление указано через образец ReplacePermitsAsync с Include."
+    },
+    "GR-model-length": {
+      "verdict": "PASS",
+      "quote": "упадёт с ошибкой value too long for type character varying(40)",
+      "why": "Падение ALTER на длинных данных prod связано с мотивацией из MR. Предложено сначала обрезать или проверить данные."
+    },
+    "GR-last-inspection": {
+      "verdict": "DISPUTED",
+      "quote": "порядок \"последнего\" осмотра внутри пачки не определён",
+      "why": "Неуникальный CreatedAt в пачке и риск для выпуска на линию названы, но связь с глобальным SplitQuery (замечания из другого осмотра) пропущена. Предложенная сортировка по InspectedAt уникальности порядка не гарантирует."
+    },
+    "GR-permit-lastday": {
+      "verdict": "FOUND",
+      "quote": "должно быть p.ValidUntil >= today",
+      "why": "Отказ в выпуске в последний день допуска назван прямо."
+    },
+    "GR-equipment-auth": {
+      "verdict": "FOUND",
+      "quote": "достаточно любой аутентифицированной роли",
+      "why": "Отсутствие политики на PUT equipment названо с ожидаемыми ролями Mechanic/FleetManager."
+    },
+    "GR-h-permits-clear": {
+      "verdict": "NO",
+      "quote": "Правильный паттерн уже есть рядом в этом же проекте: DriverService.ReplacePermitsAsync",
+      "why": "ReplacePermitsAsync приведён как корректный образец, а не как дефект."
+    },
+    "GR-h-plate-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByPlateAsync в выходе не упоминается."
+    }
+  },
+  "stderr": ""
+}

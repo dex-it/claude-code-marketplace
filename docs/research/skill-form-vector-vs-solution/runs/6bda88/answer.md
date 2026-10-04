@@ -1,0 +1,1 @@
+Ревью завершено, найдено 3 значимых дефекта и 1 замечание низкой важности (полный текст выше и в `_answer.md`). Главные проблемы — падение `AuditWriter.WriteAsync` из-за `Kind=Utc` в `timestamp without time zone` и полностью нерабочий фильтр/пагинация в `CustomerOrders.ActivePageAsync`.

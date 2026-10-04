@@ -1,0 +1,121 @@
+{
+  "id": "a3cab4",
+  "case": "CFG",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0799154,
+    "durationMs": 19088,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 4240,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 2278,
+      "output_tokens_details": {
+        "thinking_tokens": 1055
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4240,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2278,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 4240,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 4240
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "CFG-K9": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Выход не упоминает, что MaxInFlight в Staging (20) выше, чем в Production (5)."
+    },
+    "CFG-K8": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Выход не упоминает, что MaxRetries 5 повторён в Staging и Production при том же дефолте."
+    },
+    "CFG-h-required": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Модификатор required нигде не предлагается и не упоминается."
+    },
+    "CFG-K1": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Пароли БД и SMTP в appsettings.Production.json не названы проблемой."
+    },
+    "CFG-K2": {
+      "verdict": "FOUND",
+      "quote": "Ключ никогда не будет найден, GetValue вернет 0 (дефолт для int). Это приведет к делению на ноль",
+      "why": "Названы расхождение ключей MessagesPerMinute/PerMinute, ноль и деление на ноль."
+    },
+    "CFG-K3": {
+      "verdict": "MISSED",
+      "quote": "Отсутствует валидация PollInterval и MinBatchSize",
+      "why": "Находка про недостающие проверки внутри валидатора, а не про то, что он не зарегистрирован и нет ValidateOnStart."
+    },
+    "CFG-K4": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "IOptions в singleton OutboxWorker при требовании менять настройки на лету не упомянут."
+    },
+    "CFG-K5": {
+      "verdict": "FOUND",
+      "quote": "MinBatchSize может быть > MaxBatchSize (как в appsettings.Production.json: MinBatchSize=200, MaxBatchSize=100), что нарушает логику adaptive batching",
+      "why": "Названа инверсия 200/100 в Production, которая незаметно ломает adaptive batching; по существу тот же дефект, хотя условие if в коде не разобрано."
+    },
+    "CFG-K6": {
+      "verdict": "FOUND",
+      "quote": "`TimeSpan.FromSeconds(o.PollInterval)` интерпретирует PollInterval как секунды, но в config это 500 миллисекунд",
+      "why": "Названа пауза 500 с вместо 0,5 с."
+    },
+    "CFG-K7": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Non-nullable Host/FromAddress в SmtpOptions без дефолта и проверки не названы; находка 6 касается парсинга адреса получателя."
+    },
+    "CFG-h-P1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находок против IOptions<SmtpOptions> в SmtpMailSender нет."
+    },
+    "CFG-h-P2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "LockTimeout не упоминается."
+    },
+    "CFG-O1": {
+      "verdict": "FOUND",
+      "quote": "Письмо помечается как отправленное (SentAt = now) ДО фактической отправки",
+      "why": "Назван дефект установки SentAt до отправки и потери письма."
+    },
+    "CFG-O2": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Расхождение GetSection(\"Mail\") с секцией Smtp не названо."
+    },
+    "CFG-O3": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Отсутствие подстановки ${NOTIFY_DB_PASSWORD} в конфигурации .NET не названо."
+    }
+  },
+  "stderr": ""
+}

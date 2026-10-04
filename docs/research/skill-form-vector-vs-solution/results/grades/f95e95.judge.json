@@ -1,0 +1,102 @@
+{
+  "id": "f95e95",
+  "case": "V4",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.11415499999999999,
+    "durationMs": 11162,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 10955,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1304,
+      "output_tokens_details": {
+        "thinking_tokens": 220
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 10955,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1304,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 10955,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 10955
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "V4-gross-invariant-culture": {
+      "verdict": "FOUND",
+      "quote": "`decimal.Parse(\"41,250\", CultureInfo.InvariantCulture)` возвращает **41250**: в InvariantCulture запятая означает разделитель тысяч",
+      "why": "Дефект назван точно: запятая против InvariantCulture и завышение в 1000 раз."
+    },
+    "V4-moisture-boundary": {
+      "verdict": "FOUND",
+      "quote": "Стоит `< 18.5` вместо `<= 18.5`. При влажности ровно 18,5 % мёд получает сорт B вместо A.",
+      "why": "Названы строгая граница и нужное исправление на <=."
+    },
+    "V4-dedupe-ignores-terminal": {
+      "verdict": "FOUND",
+      "quote": "Проверяется только `WeighingNo`, без `TerminalId`.",
+      "why": "Описаны ложный дубликат, ответ 200 и потеря партии."
+    },
+    "V4-unknown-member-200": {
+      "verdict": "FOUND",
+      "quote": "Если пчеловод или тара не найдены, сервер отвечает 200 вместо 4xx. Терминал удаляет запись",
+      "why": "Дефект назван, в качестве исправления предложен 4xx."
+    },
+    "V4-month-last-day": {
+      "verdict": "FOUND",
+      "quote": "`to` указывает на последний день месяца 00:00 и сравнивается через `<=`. Партии последнего дня не попадают в выплату",
+      "why": "Назван дефект, исправление — полуинтервал `< from.AddMonths(1)`."
+    },
+    "V4-price-on-calc-date": {
+      "verdict": "FOUND",
+      "quote": "Для всех партий берётся сегодняшняя цена, а не цена на дату приёмки каждой партии.",
+      "why": "Дефект назван по существу."
+    },
+    "V4-advance-remainder-lost": {
+      "verdict": "FOUND",
+      "quote": "`AdvanceBalance = 0` выполняется всегда ... Должно быть `-= withheld`.",
+      "why": "Названы и дефект, и исправление из ключа."
+    },
+    "V4-four-eyes": {
+      "verdict": "FOUND",
+      "quote": "Нет проверки `CreatedBy != accountantId`, поэтому бухгалтер может утвердить собственный расчёт.",
+      "why": "Нарушение принципа четырёх глаз названо."
+    },
+    "V4-temp-key-fk": {
+      "verdict": "PASS",
+      "quote": "До `SaveChangesAsync` у новой выплаты `payout.Id == 0`: временный ключ EF Core в CLR-свойство не попадает.",
+      "why": "Названы механизм, нарушение FK и исправление через навигацию."
+    },
+    "V4-h-decimal-numeric": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находки про точность decimal или HasPrecision в выходе нет."
+    },
+    "V4-h-executeupdate-in-transaction": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находка 16 говорит о гонке чтения без блокировки, а не о том, что ExecuteUpdate выполняется вне транзакции или без SaveChanges."
+    }
+  },
+  "stderr": ""
+}

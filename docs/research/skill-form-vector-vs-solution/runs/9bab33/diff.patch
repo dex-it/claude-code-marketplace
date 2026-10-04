@@ -1,0 +1,75 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..05771be
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,69 @@
++# Ревью MR !87 (Партии проб)
++
++## 1. `BatchService.CompliancePercentAsync` — целочисленное деление и деление на ноль
++**Severity: critical**
++
++```csharp
++var total = await _db.Samples.CountAsync(s => s.BatchId == batchId);
++var compliant = await _db.Samples.CountAsync(...);
++return compliant / total * 100;
++```
++`compliant` и `total` — `int`, поэтому `compliant / total` всегда 0, если `compliant != total` (целочисленное деление выполняется раньше умножения на 100). В реальности процент соответствия почти всегда будет 0% или 100% — метрика для дашборда (LAB-147) сломана.
++Дополнительно: если в партии нет проб (`total == 0`), выражение бросает `DivideByZeroException` — дашборд на свежесозданной партии получит 500-ю ошибку.
++Исправление: считать в `decimal`/`double` и явно обработать `total == 0`, например `total == 0 ? 0 : (int)Math.Round(compliant * 100m / total)`.
++
++Побочное замечание той же строки: проба без единого результата проходит `Results.All(r => r.Value <= r.Limit)` как «истинно» (пустая коллекция), то есть считается «соответствующей норме», хотя у неё просто нет показателей — стоит уточнить, должна ли такая проба попадать в знаменатель/числитель вовсе.
++
++## 2. `BatchService.ListAsync` — ошибка в пагинации (off-by-one)
++**Severity: high**
++
++```csharp
++/// <param name="page">Номер страницы, начиная с 1.</param>
++public async Task<List<BatchListItem>> ListAsync(int page, int pageSize = 20)
++{
++    ...
++    .Skip(page * pageSize)
++    .Take(pageSize)
++```
++Контракт метода (XML-комментарий и, судя по всему, вызывающий код LAB-141) — страницы с 1. При `page = 1` код делает `Skip(20)`, то есть пропускает первую страницу и показывает вторую; корректное первое «новые сверху» всегда недоступно через документированный API. Должно быть `Skip((page - 1) * pageSize)`.
++
++## 3. `BatchService.CloseAsync` — проверка «без результатов» и перевод в Done затрагивают не все пробы партии
++**Severity: high**
++
++```csharp
++var samples = await _samples.GetInAnalysisForBatchAsync(batchId); // только Status == InAnalysis
++if (samples.Any(s => s.Results.Count == 0))
++    throw new InvalidOperationException("Есть пробы без результатов");
++
++foreach (var s in samples)
++    s.Status = SampleStatus.Done;
++```
++Если в партии остались пробы со статусом `Planned`/`Collected` (ещё не дошли до анализа), они не попадают в выборку `GetInAnalysisForBatchAsync` — соответственно не проверяются на наличие результатов и не переводятся в `Done`. Партия при этом успешно закрывается, получает `ClosedAt`/`ReportDate`, а эти пробы остаются «подвешенными» в промежуточном статусе навсегда, и к ним больше никто не вернётся (выборка в `CloseAsync` ищет именно `InAnalysis`). Нужно либо блокировать закрытие при наличии незавершённых проб любого статуса в партии, либо явно описать, почему это допустимо.
++
++## 4. `BatchService.CloseAsync` / `RetagAsync` — нет контроля параллельной правки
++**Severity: medium**
++
++В `Batch` и `Sample` нет версии строки / конкурентного токена (`xmin`, `rowversion`) в конфигурации `LabDbContext`. При двух параллельных вызовах `CloseAsync` для одной партии (или `CloseAsync` и `RetagAsync` для одной и той же пробы) изменения молча перезатираются по правилу «последний записавший выигрывает» — EF не обнаружит конфликт и не бросит исключение. Согласно чек-листу команды конкурентная правка одной записи не должна молча терять изменения — нужна либо блокировка/изоляция, либо concurrency token с обработкой конфликта. Для операции «закрытие партии» (финализация отчёта) это особенно критично.
++
++## 5. `SampleRepository.GetRecentBySiteAsync` — отсутствует индекс под новый запрос
++**Severity: low**
++
++Запрос фильтрует `samples` по `site_id` (через джойн `sites.code`) и `collected_at >= since`, но индекса `(SiteId, CollectedAt)` (или хотя бы `SiteId`) в `LabDbContext` не добавлено. При росте таблицы `samples` карточка объекта будет делать seq scan. Стоит добавить индекс, раз запрос — новая постоянная точка входа (карточка объекта).
++
++## 6. `SampleRepository.GetRecentBySiteAsync` — raw SQL там, где достаточно LINQ
++**Severity: low**
++
++```csharp
++_db.Samples.FromSql($"""SELECT s.* FROM samples s JOIN sites t ...""")
++```
++Сам по себе запрос безопасен (интерполяция `FromSql`, а не `FromSqlRaw`, параметризуется автоматически — SQL-инъекции нет), но джойн по `Site.Code` с фильтром по `CollectedAt` полностью транслируется обычным LINQ (`_db.Samples.Where(s => s.Site.Code == siteCode && s.CollectedAt >= since)`). Raw SQL здесь не даёт выигрыша, но увеличивает риск рассинхронизации с моделью при будущих миграциях (переименование колонок/таблиц не будет замечено компилятором).
++
++---
++
++### Что проверено и не является дефектом (для контекста ревью)
++- `PlannedLocal` хранится как `timestamp without time zone`, заполняется из `DateOnly.ToDateTime(TimeOnly)` → `Kind=Unspecified` — соответствует правилу Npgsql.
++- `ClosedAt`/`ReportDate` — `timestamptz` по умолчанию, заполняются `DateTime.UtcNow`/`.Date` → `Kind=Utc` сохраняется, соответствует правилу.
++- `GetCardAsync` явно использует `AsSplitQuery()` для двух коллекций одного уровня (`Instruments`, `Samples→Results`) — корректно.
++- `FindByLabCodeAsync`/`GetCardAsync` используют `Single(OrDefault)` только там, где уникальность гарантирована уникальными индексами/PK.
++- Сохранение в `CloseAsync`/`RetagAsync` — одно `SaveChangesAsync` на операцию, без `SaveChanges` в цикле и без лишнего `Update/UpdateRange` на уже отслеживаемых сущностях.
++- `sample.Tags.Clear()` в `RetagAsync` безопасен: связь `SampleTag.SampleId` required без явного `OnDelete`, конвенция EF Core — Cascade, осиротевшие теги будут удалены, а не вызовут `InvalidOperationException`.

@@ -1,0 +1,168 @@
+diff --git a/CatalogMaintenance.cs b/CatalogMaintenance.cs
+new file mode 100644
+index 0000000..df9a4aa
+--- /dev/null
++++ b/CatalogMaintenance.cs
+@@ -0,0 +1,149 @@
++using Microsoft.EntityFrameworkCore;
++using Microsoft.Extensions.DependencyInjection;
++using Microsoft.Extensions.Hosting;
++using Microsoft.Extensions.Logging;
++
++namespace Shop.Data;
++
++public class CatalogMaintenanceService
++{
++    private readonly ShopDbContext _db;
++    public CatalogMaintenanceService(ShopDbContext db) => _db = db;
++
++    // (а) Бамповое обновление цены без загрузки сущностей в трекер.
++    public Task<int> RaisePricesAsync(string category, decimal percent = 0.10m, CancellationToken ct = default) =>
++        _db.Products
++           .Where(p => p.Category == category)
++           .ExecuteUpdateAsync(s => s.SetProperty(p => p.Price, p => p.Price * (1 + percent)), ct);
++
++    // (б) Удаление батчами: каждая ExecuteDeleteAsync - своя короткая транзакция,
++    // без одной гигантской транзакции на ~40 млн строк. Требует индекс на AuditLogs.At,
++    // иначе выборка батча будет полным сканом таблицы на каждой итерации.
++    public async Task<long> PurgeOldAuditLogsAsync(
++        TimeSpan retention,
++        int batchSize = 5000,
++        TimeSpan? pauseBetweenBatches = null,
++        CancellationToken ct = default)
++    {
++        var cutoff = DateTime.UtcNow - retention;
++        long totalDeleted = 0;
++
++        while (true)
++        {
++            ct.ThrowIfCancellationRequested();
++
++            var batchIds = await _db.AuditLogs
++                .Where(a => a.At < cutoff)
++                .OrderBy(a => a.At)
++                .Select(a => a.Id)
++                .Take(batchSize)
++                .ToListAsync(ct);
++
++            if (batchIds.Count == 0)
++                break;
++
++            totalDeleted += await _db.AuditLogs
++                .Where(a => batchIds.Contains(a.Id))
++                .ExecuteDeleteAsync(ct);
++
++            if (pauseBetweenBatches is { } pause && pause > TimeSpan.Zero)
++                await Task.Delay(pause, ct);
++        }
++
++        return totalDeleted;
++    }
++
++    // (в) Одна выборка всех нужных продуктов, один SaveChanges на весь набор изменений.
++    public async Task RestockAsync(IEnumerable<(Guid id, int add)> updates, CancellationToken ct = default)
++    {
++        var list = updates as IReadOnlyCollection<(Guid id, int add)> ?? updates.ToList();
++        if (list.Count == 0)
++            return;
++
++        var ids = list.Select(u => u.id).ToArray();
++        var products = await _db.Products
++            .Where(p => ids.Contains(p.Id))
++            .ToDictionaryAsync(p => p.Id, ct);
++
++        foreach (var (id, add) in list)
++        {
++            if (products.TryGetValue(id, out var product))
++                product.Stock += add;
++        }
++
++        await _db.SaveChangesAsync(ct);
++    }
++
++    // (г) Guid генерируется на клиенте, поэтому Add, а не AddAsync.
++    public async Task<Product> CreateProductAsync(
++        string sku,
++        string warehouse,
++        string category,
++        decimal price,
++        int stock,
++        CancellationToken ct = default)
++    {
++        var product = new Product
++        {
++            Id = Guid.NewGuid(),
++            Sku = sku,
++            Warehouse = warehouse,
++            Category = category,
++            Price = price,
++            Stock = stock,
++        };
++
++        _db.Products.Add(product);
++        await _db.SaveChangesAsync(ct);
++        return product;
++    }
++}
++
++// Ночной запуск очистки: своя область DI и свой ShopDbContext на каждый прогон,
++// а не один DbContext на всё время жизни BackgroundService.
++public class AuditLogCleanupHostedService : BackgroundService
++{
++    private static readonly TimeSpan RunAt = TimeSpan.FromHours(3);
++    private static readonly TimeSpan Retention = TimeSpan.FromDays(365);
++
++    private readonly IServiceScopeFactory _scopeFactory;
++    private readonly ILogger<AuditLogCleanupHostedService> _logger;
++
++    public AuditLogCleanupHostedService(IServiceScopeFactory scopeFactory, ILogger<AuditLogCleanupHostedService> logger)
++    {
++        _scopeFactory = scopeFactory;
++        _logger = logger;
++    }
++
++    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
++    {
++        while (!stoppingToken.IsCancellationRequested)
++        {
++            var now = DateTime.UtcNow;
++            var nextRun = now.Date + RunAt;
++            if (nextRun <= now)
++                nextRun = nextRun.AddDays(1);
++
++            await Task.Delay(nextRun - now, stoppingToken);
++            if (stoppingToken.IsCancellationRequested)
++                break;
++
++            try
++            {
++                using var scope = _scopeFactory.CreateScope();
++                var maintenance = scope.ServiceProvider.GetRequiredService<CatalogMaintenanceService>();
++                var deleted = await maintenance.PurgeOldAuditLogsAsync(
++                    Retention,
++                    batchSize: 5000,
++                    pauseBetweenBatches: TimeSpan.FromMilliseconds(100),
++                    stoppingToken);
++
++                _logger.LogInformation("AuditLogs cleanup: deleted {Deleted} rows", deleted);
++            }
++            catch (Exception ex) when (ex is not OperationCanceledException)
++            {
++                _logger.LogError(ex, "AuditLogs cleanup failed");
++            }
++        }
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..9cac10f
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,7 @@
++Создан файл: CatalogMaintenance.cs (CatalogMaintenanceService + AuditLogCleanupHostedService).
++
++Решения:
++- Повышение цены (а) — через ExecuteUpdateAsync (bulk update на сервере, без загрузки сущностей и трекинга).
++- Очистка AuditLogs (б) — удаление батчами по 5000 строк отдельными ExecuteDeleteAsync (каждый — своя короткая транзакция), а не одной транзакцией на ~40 млн строк; между батчами пауза, чтобы не душить реплику/WAL. Для приемлемой скорости выборки батча по `At` нужен индекс на этом столбце (миграцию не создавал, вне рамок задачи). Запускается ночью через BackgroundService, который создаёт свежий scope/DbContext на каждый прогон, а не держит DbContext всё время жизни сервиса.
++- Restock (в) — один запрос для загрузки всех нужных продуктов (Where + Contains), обновление Stock в памяти, один SaveChangesAsync на весь набор (без SaveChanges в цикле).
++- CreateProduct (г) — Guid генерируется на клиенте, поэтому используется синхронный `Add`, а не `AddAsync`.

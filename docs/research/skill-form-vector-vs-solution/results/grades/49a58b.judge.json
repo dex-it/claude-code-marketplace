@@ -1,0 +1,92 @@
+{
+  "id": "49a58b",
+  "case": "V4",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.12419100000000001,
+    "durationMs": 13447,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 12082,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1355,
+      "output_tokens_details": {
+        "thinking_tokens": 236
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 12082,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1355,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 12082,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 12082
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "V4-container-count": {
+      "verdict": "FOUND",
+      "quote": "`net = gross - container.TareKg` вычитает массу одной единицы тары, а `ContainerCount` только сохраняется",
+      "why": "Выход называет вычитание тары одной единицы без учёта ContainerCount и предлагает `gross - container.TareKg * data.ContainerCount`."
+    },
+    "V4-honeytype-moisture": {
+      "verdict": "FOUND",
+      "quote": "Нормы `HoneyType.MaxMoistureGradeA/B` из справочника технолога игнорируются",
+      "why": "Выход прямо указывает, что сорт определяется по константам 18.5/20, а не по нормам вида мёда, и приводит пример с вересковым мёдом."
+    },
+    "V4-correction-after-payout": {
+      "verdict": "FOUND",
+      "quote": "`CorrectAsync`: можно исправить партию, которая уже в выплате или оплачена",
+      "why": "Выход отмечает затирание статусов InPayout/Paid при сохранённом PayoutId, смену пчеловода и предлагает отвечать 409/422."
+    },
+    "V4-delete-draft-advance": {
+      "verdict": "FOUND",
+      "quote": "При удалении черновика партии возвращаются в `Accepted`, а `AdvanceWithheld` в `AdvanceBalance` не возвращается",
+      "why": "Выход связывает удаление черновика с невосстановленным AdvanceBalance и с потерей аванса при пересчёте."
+    },
+    "V4-adjust-four-eyes": {
+      "verdict": "FOUND",
+      "quote": "Утверждающий бухгалтер может сам поставить премию (до 1 000 000) или удержание и тут же утвердить: сумму определил и утвердил один человек",
+      "why": "Выход связывает ручную правку черновика без фиксации автора с обходом четырёх глаз при утверждении."
+    },
+    "V4-registry-upload-swallowed": {
+      "verdict": "FOUND",
+      "quote": "`ExportedAt`/`RegistryFile` сохраняются в БД до `UploadRegistryAsync`. При `BankGatewayException` ошибка только логируется, и метод возвращает `200 OK`",
+      "why": "Выход связывает пометку до отправки, проглоченную ошибку, ответ 200 и фильтр ExportedAt == null."
+    },
+    "V4-temp-key-fk": {
+      "verdict": "PASS",
+      "quote": "В EF Core 8 временный ключ в CLR-свойство не попадает ... в `PriceChange` уйдёт `PriceListEntryId = 0`. Из-за FK на `PriceList` каждое добавление цены падает с 500",
+      "why": "Выход верно описывает механизм временного ключа и падение на FK и предлагает навигацию или два сохранения в транзакции."
+    },
+    "V4-h-decimal-numeric": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Выход не заявляет об усечении decimal и не требует HasPrecision."
+    },
+    "V4-h-executeupdate-in-transaction": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Выход не утверждает, что ExecuteUpdate выполняется вне транзакции или требует SaveChanges; п. 12 касается только семантики статуса Paid."
+    }
+  },
+  "stderr": ""
+}

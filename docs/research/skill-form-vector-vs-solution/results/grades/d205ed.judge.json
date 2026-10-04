@@ -1,0 +1,67 @@
+{
+  "id": "d205ed",
+  "case": "G1",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.081711,
+    "durationMs": 7432,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 8592,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 627,
+      "output_tokens_details": {
+        "thinking_tokens": 195
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8592,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 627,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 8592,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 8592
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G1-debtors-fine": {
+      "verdict": "FAIL",
+      "quote": ".ToDebtorRows(today, _rules)\n            .OrderByDescending(d => d.Fine)\n            .ToListAsync();",
+      "why": "Сортировка по Fine применена к IQueryable после проекции с клиентским Fines.Amount. EF не транслирует её, и GET /branches/{id}/debtors падает с «could not be translated», хотя Sum считается уже в памяти."
+    },
+    "G1-period-offset": {
+      "verdict": "FAIL",
+      "quote": ".Where(l => l.IssuedAt >= from && l.IssuedAt < to)",
+      "why": "DateTimeOffset со смещением +05:00 передаётся в сравнение с timestamptz без приведения к UTC. Npgsql такой параметр отвергает, и отчёт падает."
+    },
+    "G1-h-loanrows": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "ToLoanRows и GetActiveLoansAsync исполнитель дефектом не объявлял и не менял."
+    },
+    "G1-h-today-utc": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "CountIssuedTodayAsync не тронут и не назван ошибочным."
+    }
+  },
+  "stderr": ""
+}

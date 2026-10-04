@@ -1,0 +1,101 @@
+diff --git a/OrderQueries.cs b/OrderQueries.cs
+new file mode 100644
+index 0000000..dea225c
+--- /dev/null
++++ b/OrderQueries.cs
+@@ -0,0 +1,79 @@
++namespace Shop.Data;
++
++/// <summary>
++/// Read-only запросы по заказам. Все выборки AsNoTracking + явный Include:
++/// контекст настроен с UseLazyLoadingProxies, и без Include обход Items/Payments
++/// превращался бы в N+1 запросов.
++/// </summary>
++public class OrderQueries
++{
++    private readonly ShopDbContext _db;
++    public OrderQueries(ShopDbContext db) => _db = db;
++
++    /// <summary>(а) Карточка заказа со всеми позициями и платежами. null, если заказа нет (или он удалён).</summary>
++    public Task<Order?> GetOrderCardAsync(Guid orderId, CancellationToken ct = default) =>
++        _db.Orders
++            .AsNoTracking()
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            // две коллекции в одном JOIN дают Items x Payments строк - грузим отдельными запросами
++            .AsSplitQuery()
++            .SingleOrDefaultAsync(o => o.Id == orderId, ct);
++
++    /// <summary>
++    /// (б) Все заказы клиента с позициями и платежами.
++    /// Split query: без него JOIN двух коллекций на тысячах заказов даёт декартов взрыв строк.
++    /// Сортировка по уникальному ключу обязательна для согласованности split-запросов.
++    /// </summary>
++    public Task<List<Order>> GetCustomerOrdersAsync(Guid customerId, CancellationToken ct = default) =>
++        _db.Orders
++            .AsNoTracking()
++            .Where(o => o.CustomerId == customerId)
++            .OrderBy(o => o.Id)
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            .AsSplitQuery()
++            .ToListAsync(ct);
++
++    /// <summary>
++    /// (в) Продукт по SKU на складе. Пара (Sku, Warehouse) уникальна, сам SKU - нет.
++    /// Если склад не передан: возвращаем продукт, только если SKU лежит ровно на одном складе;
++    /// при нескольких складах бросаем исключение, а не отдаём произвольную запись.
++    /// </summary>
++    public async Task<Product?> GetProductBySku(string sku, string? warehouse, CancellationToken ct = default)
++    {
++        ArgumentException.ThrowIfNullOrWhiteSpace(sku);
++
++        if (warehouse is not null)
++            // Отдельная ветка: сравнение с null-параметром EF перевёл бы в "Warehouse IS NULL"
++            return await _db.Products.AsNoTracking()
++                .SingleOrDefaultAsync(p => p.Sku == sku && p.Warehouse == warehouse, ct);
++
++        var matches = await _db.Products.AsNoTracking()
++            .Where(p => p.Sku == sku)
++            .OrderBy(p => p.Warehouse)
++            .Take(2)
++            .ToListAsync(ct);
++
++        if (matches.Count > 1)
++            throw new InvalidOperationException(
++                $"SKU '{sku}' есть на нескольких складах ({matches[0].Warehouse}, {matches[1].Warehouse}, ...); укажите склад.");
++        return matches.SingleOrDefault();
++    }
++
++    /// <summary>
++    /// (г) Дата отгрузки последнего отгруженного заказа клиента.
++    /// Бросает InvalidOperationException, если отгруженных заказов нет:
++    /// у non-nullable DateTime нет честного значения "нет данных", а DateTime.MinValue было бы тихой ошибкой.
++    /// Для сценариев, где "нет отгрузок" - норма, используйте <see cref="TryGetLastShippedAtAsync"/>.
++    /// </summary>
++    public async Task<DateTime> GetLastShippedAtAsync(Guid customerId, CancellationToken ct = default) =>
++        await TryGetLastShippedAtAsync(customerId, ct)
++        ?? throw new InvalidOperationException($"У клиента {customerId} нет отгруженных заказов.");
++
++    public Task<DateTime?> TryGetLastShippedAtAsync(Guid customerId, CancellationToken ct = default) =>
++        _db.Orders
++            .Where(o => o.CustomerId == customerId && o.ShippedAt != null)
++            // Max по nullable: на пустом наборе вернёт null, а не упадёт "Sequence contains no elements"
++            .MaxAsync(o => o.ShippedAt, ct);
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..1a244a0
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,10 @@
++**Файлы:** создан `OrderQueries.cs`, создан `_answer.md`. `Model.cs` и `OrderRepository.cs` не менялись. Сборку и тесты не запускал.
++
++**Решения:**
++- **(а) и (б):** загрузка с `AsNoTracking` + `Include(Items)` + `Include(Payments)` + `AsSplitQuery`. Явный Include нужен из-за lazy-loading proxies, иначе получится N+1. Split query убирает декартов взрыв двух коллекций на тысячах заказов. Для (б) задана сортировка по `Id`, чтобы split-запросы давали согласованный результат.
++- **(в):** параметр `warehouse` стал `string?`. Если склад передан, ищется пара (Sku, Warehouse) через `SingleOrDefault`. Если склад `null`, продукт возвращается только когда SKU лежит на одном складе. Если складов несколько, бросается `InvalidOperationException`: произвольная запись не возвращается. Сравнение с null-параметром EF перевёл бы в `IS NULL`, поэтому ветки разведены.
++- **(г):** `GetLastShippedAtAsync` возвращает `DateTime` и бросает исключение, если отгрузок нет (вместо значения `DateTime.MinValue`). Рядом есть `TryGetLastShippedAtAsync` → `DateTime?`. Внутри используется `Max` по nullable-полю, поэтому на пустом наборе запрос не падает. Удалённые заказы отсекает существующий query filter.
++
++**Проблемы, которые я не трогал:**
++- `UseLazyLoadingProxies` требует, чтобы навигации были `virtual`. `Order.Items`, `Order.Payments` и `Customer.Orders` сейчас не `virtual`, поэтому модель, скорее всего, упадёт при старте.
++- Стоит добавить уникальный индекс `(Sku, Warehouse)` на `Product` (это миграция).

@@ -1,0 +1,100 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..27b7a12
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,94 @@
++# Code review MR !238 — Motorpool.Fleet
++
++## 1. `VehicleService.cs` — `ReplaceEquipmentAsync` / `FindVehicleAsync` — **critical**
++
++`FindVehicleAsync` не делает `.Include(v => v.Equipment)`. В `ReplaceEquipmentAsync`:
++
++```csharp
++var vehicle = await FindVehicleAsync(vehicleId) ?? throw new KeyNotFoundException();
++vehicle.Equipment.Clear();
++foreach (var item in items.DistinctBy(i => i.Code))
++    vehicle.Equipment.Add(new VehicleEquipment { Code = item.Code, Qty = item.Qty });
++await _db.SaveChangesAsync();
++```
++
++`vehicle.Equipment` — пустой in-memory список (инициализация `= new()` в `Models.cs`), а не реальные строки из БД: навигационное свойство никогда не загружалось. `Clear()` — no-op над пустой коллекцией, старые записи `vehicle_equipment` в базе никуда не исчезают. EF видит только добавленные новые `VehicleEquipment` как новые сущности для вставки.
++
++Последствия:
++- при повторной присылке комплектации с тем же `Code` — `DbUpdateException` из-за уникального индекса `(vehicle_id, code)`;
++- при изменении набора кодов — старые записи остаются навечно (не заменяются, а копятся), что прямо противоречит требованию FLEET-104 «заменяем на присланную целиком».
++
++Это основная логика новой функциональности комплектации — она не работает. Нужно `_db.Vehicles.Include(v => v.Equipment).FirstOrDefaultAsync(...)` в этом сценарии (или отдельный метод с `Include`).
++
++## 2. `TripService.cs` — `StartTripAsync` — **high**
++
++```csharp
++if (!driver.Permits.Any(p => p.Class == vehicle.Class && p.ValidUntil > today))
++    throw new TripDeniedException("Нет действующего допуска к классу машины");
++```
++
++По описанию FLEET-107 «допуск действует по указанную в нём дату включительно», т.е. условие должно быть `p.ValidUntil >= today`. Со строгим `>` диспетчер не сможет выпустить машину в последний день действия допуска — ложный отказ в выпуске на линию.
++
++## 3. `VehicleService.cs` — `GetLastInspectionAsync` (используется в `TripService.StartTripAsync`) — **high**
++
++```csharp
++.OrderByDescending(i => i.CreatedAt)
++.FirstOrDefaultAsync();
++```
++
++«Последний» осмотр выбирается по времени приёма сервером (`CreatedAt`), а не по фактическому времени осмотра (`InspectedAt`). Комментарий в `SyncInspectionsAsync` прямо говорит, что планшет копит осмотры офлайн и шлёт их пачкой при появлении сети — то есть порядок синхронизации не совпадает с хронологией осмотров. Повторный осмотр после устранения замечания («отдельная запись», упомянуто в комментарии) может синхронизироваться раньше или позже исходного — в результате проверка 12 часов и блокирующих замечаний в `StartTripAsync` может сработать на неактуальной записи: машину можно как необоснованно не выпустить (актуальный «чистый» осмотр подъехал раньше старого блокирующего по `CreatedAt`), так и выпустить с висящим блокирующим замечанием, если «починочный» чистый осмотр синхронизировался позже старого. Сортировать нужно по `InspectedAt`.
++
++## 4. `Program.cs` — `PUT /api/vehicles/{id:int}/equipment` — **high**
++
++```csharp
++api.MapPut("/vehicles/{id:int}/equipment", async (int id, List<EquipmentDto> items, VehicleService s) =>
++{
++    await s.ReplaceEquipmentAsync(id, items);
++    return Results.NoContent();
++});
++```
++
++В отличие от всех остальных «мутирующих» эндпоинтов (`decommission` → `FleetManager`, `/inspections/sync` → `Mechanic`, `/drivers/.../permits` → `Hr`), здесь нет `.RequireAuthorization("...")` с конкретной политикой — действует только общий `RequireAuthorization()` группы `/api`. Любой аутентифицированный пользователь (водитель, HR и т.д.) может менять комплектацию машины. Нужна политика, аналогичная `/inspections/sync` (например `Mechanic`).
++
++## 5. `TripService.cs` — `GetOpenWaybillsAsync` — **high**
++
++```csharp
++var query = _db.Trips.FromSqlRaw("""
++    SELECT t.*
++    FROM trips t
++    WHERE t.finished_at IS NULL
++      AND t.started_at < now() - interval '24 hours'
++    ORDER BY t.started_at;
++    """);
++
++if (vehicleId is { } id)
++    query = query.Where(t => t.VehicleId == id);
++```
++
++Raw SQL заканчивается точкой с запятой. Когда передан `vehicleId`, EF Core композирует `.Where` над `FromSqlRaw`, оборачивая исходный SQL как подзапрос: `SELECT ... FROM (<raw sql>) AS t WHERE t.vehicle_id = @p0`. Точка с запятой внутри вложенного подзапроса — синтаксическая ошибка Postgres, запрос с фильтром по машине (явно требуемый FLEET-112: «список... с фильтром по машине») упадёт с исключением в runtime. Без фильтра (`vehicleId == null`) запрос выполняется как есть и работает — отсюда легко не заметить проблему при ручной проверке «список по всему парку», которая упомянута в MR как протестированная, а фильтр по машине — нет.
++
++## 6. `Migrations/20260924100000_VehicleEquipmentAndModelLength.cs` — **high**
++
++```csharp
++migrationBuilder.AlterColumn<string>(
++    name: "model",
++    table: "vehicles",
++    type: "character varying(40)",
++    ...
++    oldType: "character varying(200)",
++    ...);
++```
++
++Сужение `vehicles.model` с 200 до 40 символов сделано без шага усечения/нормализации существующих данных. Сама мотивация задачи (FLEET-115) — то, что в проде существуют длинные названия моделей, которые принтер обрезает. Если в таблице `vehicles` есть хоть одна строка с `model` длиннее 40 символов, `ALTER COLUMN ... TYPE character varying(40)` упадёт на проде с ошибкой Postgres «value too long for type character varying(40)», и миграция (а с ней весь деплой через pipeline) не пройдёт. Проверка «применена на dev-базе» не гарантирует наличие таких длинных значений там же. Нужен явный `UPDATE vehicles SET model = substring(model, 1, 40) WHERE length(model) > 40` (или аналог) перед `AlterColumn`, плюс консультация с продуктом/бизнесом о том, что усечение данных это ожидаемо.
++
++## 7. `TripService.cs` — `StartTripAsync` — **medium**
++
++Нет проверки, что для машины/водителя уже нет незакрытого путевого листа (`FinishedAt == null`). Диспетчер может выпустить ту же машину (или того же водителя) на линию второй раз, пока первый путевой лист не закрыт — дублирующиеся «активные» поездки. Сама же задача FLEET-112 вводит понятие «незакрытых путевых листов», что подтверждает, что это реальный и ожидаемый кейс, который стоит предотвращать на выпуске, а не только детектировать постфактум.
++
++## 8. `TripService.cs` — `OffDayTripsAsync` — **low**
++
++`Km` для ещё не завершённых поездок (`EndOdometerKm == null`) считается как `0` (см. `TripRows.ToRows`), и такие строки уходят в конец отчёта «самые длинные сверху» (`OrderByDescending(r => r.Km)`). Отчёт для службы безопасности за месяц, построенный в середине/начале следующего месяца, может содержать поездки в выходные, которые ещё официально не закрыты — такая поездка не всплывёт в начале списка, даже если по факту она самая длинная, что противоречит цели отчёта («самые длинные сверху»).
++
++## 9. `VehicleService.cs` / `Program.cs` — `ReplaceEquipmentAsync` — **low**
++
++Нет валидации `EquipmentDto.Qty` (например, отрицательное количество) и `Code` (пусто/длина) на уровне сервиса/эндпоинта — ошибка обнаружится только на `SaveChangesAsync` как необработанное исключение БД (500 вместо осмысленного 400). Не критично, но стоит добавить базовую валидацию входных данных на границе API.

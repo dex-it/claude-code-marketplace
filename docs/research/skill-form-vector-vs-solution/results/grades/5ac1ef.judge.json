@@ -1,0 +1,92 @@
+{
+  "id": "5ac1ef",
+  "case": "GR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.10512300000000001,
+    "durationMs": 19828,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 9801,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1314,
+      "output_tokens_details": {
+        "thinking_tokens": 361
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9801,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1314,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 9801,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 9801
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GR-offday-rows": {
+      "verdict": "FAIL",
+      "quote": "Незакрытые поездки получают `Km=0` и проваливаются в конец отчёта",
+      "why": "Находка про OffDayTripsAsync касается сортировки незакрытых поездок. О том, что EF не транслирует Where по клиентскому OffDay и отчёт падает, в выходе не сказано."
+    },
+    "GR-open-semicolon": {
+      "verdict": "PASS",
+      "quote": "Точка с запятой внутри вложенного подзапроса — синтаксическая ошибка Postgres",
+      "why": "Механизм назван: при фильтре по vehicleId EF оборачивает SQL в подзапрос. Объяснено, почему без фильтра запрос работает и прошёл ручную проверку."
+    },
+    "GR-equipment-clear": {
+      "verdict": "PASS",
+      "quote": "`FindVehicleAsync` не делает `.Include(v => v.Equipment)`",
+      "why": "Названы оба следствия: Clear() на незагруженной коллекции ничего не удаляет, совпадающие коды дают DbUpdateException по уникальному индексу, остальные копятся. Предложен Include."
+    },
+    "GR-model-length": {
+      "verdict": "PASS",
+      "quote": "`ALTER COLUMN ... TYPE character varying(40)` упадёт на проде",
+      "why": "Указано, что на проде есть длинные названия и миграция упадёт. Предложено укоротить данные до смены типа."
+    },
+    "GR-last-inspection": {
+      "verdict": "FAIL",
+      "quote": "Сортировать нужно по `InspectedAt`.",
+      "why": "Дефект подменён другим: сортировка по времени приёма вместо времени осмотра. Неуникальный CreatedAt внутри пачки при SplitQuery, из-за которого замечания берутся от другого осмотра, не назван; предложенная правка его не устраняет."
+    },
+    "GR-permit-lastday": {
+      "verdict": "FOUND",
+      "quote": "Проверка допуска `p.ValidUntil > today` вместо `>= today`",
+      "why": "Найдено: в последний день действия допуска водителя ложно не выпускают на линию."
+    },
+    "GR-equipment-auth": {
+      "verdict": "FOUND",
+      "quote": "здесь нет `.RequireAuthorization(\"...\")` с конкретной политикой",
+      "why": "Найдено: любой аутентифицированный пользователь, включая водителя, может менять комплектацию."
+    },
+    "GR-h-permits-clear": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "ReplacePermitsAsync дефектом не названа."
+    },
+    "GR-h-plate-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByPlateAsync дефектом не названа."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,121 @@
+{
+  "id": "9dfc55",
+  "case": "CFG",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.07870740000000001,
+    "durationMs": 12708,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 5799,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1594,
+      "output_tokens_details": {
+        "thinking_tokens": 355
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 5799,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1594,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 5799,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 5799
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "CFG-K9": {
+      "verdict": "PASS",
+      "quote": "Staging в 4× более нагруженный, чем Production",
+      "why": "Находка №10 прямо указывает MaxInFlight 20 в Staging против 5 в Production."
+    },
+    "CFG-K8": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Повтор MaxRetries 5 в Staging и Production при том же дефолте нигде не упомянут."
+    },
+    "CFG-h-required": {
+      "verdict": "YES",
+      "quote": "Решение: Добавить `required`",
+      "why": "Находка №12 предлагает модификатор required как исправление SmtpOptions вместо валидации опций."
+    },
+    "CFG-K1": {
+      "verdict": "FOUND",
+      "quote": "Пароли БД и SMTP хранятся в коммиченном файле",
+      "why": "Находка №4 называет секреты в appsettings.Production.json."
+    },
+    "CFG-K2": {
+      "verdict": "FOUND",
+      "quote": "DivisionByZeroException в line 8: `60_000 / perMinute`",
+      "why": "Находка №3 описывает неверный ключ MessagesPerMinute, значение 0 и деление на ноль."
+    },
+    "CFG-K3": {
+      "verdict": "FOUND",
+      "quote": "Не зарегистрирован в DI (нет `.TryAddEnumerable`)",
+      "why": "Находка №7 называет и отсутствие регистрации валидатора, и отсутствие ValidateOnStart."
+    },
+    "CFG-K4": {
+      "verdict": "FOUND",
+      "quote": "`IOptions<T>` кэшируется на весь lifetime приложения (singleton), не поддерживает reload",
+      "why": "Находка №6 указывает на IOptions в OutboxWorker при требовании менять параметры на лету."
+    },
+    "CFG-K5": {
+      "verdict": "FOUND",
+      "quote": "адаптивная пакетизация - молча не работает при нарушении условия",
+      "why": "Находки №5 и №9 описывают тихое отключение adaptive batching при значениях 200/100."
+    },
+    "CFG-K6": {
+      "verdict": "FOUND",
+      "quote": "500 сек ≈ 8 минут вместо 0.5 сек",
+      "why": "Находка №2 описывает, что значение 500 передаётся в TimeSpan.FromSeconds."
+    },
+    "CFG-K7": {
+      "verdict": "FOUND",
+      "quote": "SmtpOptions.cs:5,7 - Non-nullable свойства без `required`",
+      "why": "Находка №12 называет проблемой non-nullable Host и FromAddress, которые остаются null; исправление неверное, но дефект назван."
+    },
+    "CFG-h-P1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находок против IOptions<SmtpOptions> в SmtpMailSender нет."
+    },
+    "CFG-h-P2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "LockTimeout в выходе не упоминается."
+    },
+    "CFG-O1": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Проблема установки SentAt до отправки не названа."
+    },
+    "CFG-O2": {
+      "verdict": "FOUND",
+      "quote": "Код ищет раздел `\"Mail\"`, но в appsettings это `\"Smtp\"`",
+      "why": "Находка №1 описывает, что из-за неверной секции SmtpOptions остаются пустыми."
+    },
+    "CFG-O3": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Отсутствие подстановки ${NOTIFY_DB_PASSWORD} в Staging не упомянуто."
+    }
+  },
+  "stderr": ""
+}

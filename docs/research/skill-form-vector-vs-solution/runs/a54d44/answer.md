@@ -1,0 +1,7 @@
+Созданные/изменённые файлы:
+- **Reports.cs** (новый) — DTO `DebtorsReport` (список должников + `TotalFines`) и `LoansByBranchRow` для отчёта методиста.
+- **LoanService.cs** — добавлены `GetDebtorsAsync(branchId)` и `GetLoansByBranchAsync(from, to)`; `FineRules` теперь приходит через конструктор (DI), а не `FineRules.Default`.
+- **Program.cs** — `FineRules` регистрируется из конфигурации с fallback на `FineRules.Default`; добавлены эндпоинты `GET /branches/{id}/debtors` и `POST /reports/loans-by-branch` с record `LoansByBranchRequest(DateTimeOffset From, DateTimeOffset To)`.
+- **appsettings.json** (новый) — секция `Fines` (`PerDay`, `GraceDays`, `Max`) и плейсхолдер `ConnectionStrings:Library` (файла конфигурации в проекте раньше не было).
+
+Решения: должники переиспользуют проекцию `ToLoanRows` (тот же вид строки, что на кафедре), а сортировка и сумма штрафов считаются в БД двумя запросами к одному `IQueryable`. Отчёт по филиалам строится одним запросом от `Branches` с коррелированным `COUNT` по `Loans`, чтобы показать все филиалы (в т.ч. без выдач); сравнение идёт по `DateTimeOffset`, так как `IssuedAt` — `timestamptz` и совпадает с абсолютным моментом независимо от присланного офиса пользователя. Тот же текст записан в `_answer.md`.

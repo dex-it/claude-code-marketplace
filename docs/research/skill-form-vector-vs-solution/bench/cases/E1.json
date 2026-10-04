@@ -1,0 +1,18 @@
+{
+  "id": "E1",
+  "kind": "code",
+  "stack": ".NET",
+  "skill": "ef-core",
+  "project": "Shop (EF Core 8 + Npgsql 8, .NET 8)",
+  "inputs": [
+    {
+      "from": "tests/trap-skills/dotnet-ef-core/inputs/Model.cs",
+      "to": "Model.cs"
+    },
+    {
+      "from": "tests/trap-skills/dotnet-ef-core/inputs/OrderRepository.cs",
+      "to": "OrderRepository.cs"
+    }
+  ],
+  "task": "Добавь в Shop.Data сервис OrderReportService с тремя методами для страницы отчётов (только чтение): (а) список активных заказов: Id, имя клиента, Total, число позиций; (б) число активных заказов по категориям (словарь категория -> число); (в) просроченные заказы на момент now (по правилу Order.IsOverdue). Используй существующий OrderRepository, если он подходит, либо расширь его."
+}

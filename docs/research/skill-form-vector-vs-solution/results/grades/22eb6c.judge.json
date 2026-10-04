@@ -1,0 +1,87 @@
+{
+  "id": "22eb6c",
+  "case": "GN",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.074879,
+    "durationMs": 6661,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 7613,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 677,
+      "output_tokens_details": {
+        "thinking_tokens": 73
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7613,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 677,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 7613,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 7613
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GN-h-datetime": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Выход не утверждает потерю Kind у DateTime.UtcNow.Date или PlannedLocal и не меняет тип колонки."
+    },
+    "GN-h-card-split": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "AsSplitQuery в GetCardAsync в выходе не упоминается."
+    },
+    "GN-h-inanalysis-tracking": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Выход не предлагает AsNoTracking в GetInAnalysisForBatchAsync, а лишь ссылается на этот метод в находке 5."
+    },
+    "GN-h-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "SQL-инъекция в GetRecentBySiteAsync не заявлена."
+    },
+    "GN-h-retag-clear": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Про Tags.Clear() ничего не утверждается; находки по RetagAsync касаются пустых тегов и индекса."
+    },
+    "GN-h-labcode-single": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "SingleOrDefaultAsync по LabCode дефектом не назван."
+    },
+    "GN-percent-int": {
+      "verdict": "FOUND",
+      "quote": "2/3*100 = 0*100 = 0 вместо 66",
+      "why": "Названы и целочисленное деление до умножения, и DivideByZeroException на пустой партии."
+    },
+    "GN-page-offset": {
+      "verdict": "FOUND",
+      "quote": "Нужно `Skip((page - 1) * pageSize)`.",
+      "why": "Off-by-one при page с 1 назван с верным исправлением."
+    }
+  },
+  "stderr": ""
+}

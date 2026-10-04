@@ -1,0 +1,161 @@
+diff --git a/Fines.cs b/Fines.cs
+index d754d5d..5068b14 100644
+--- a/Fines.cs
++++ b/Fines.cs
+@@ -33,6 +33,21 @@ public sealed class LoanRow
+     public decimal Fine { get; init; }
+ }
+ 
++public sealed class DebtorReportRow
++{
++    public int BranchId { get; set; }
++    public string BranchName { get; set; } = "";
++    public List<LoanRow> Debtors { get; set; } = new();
++    public decimal TotalFine { get; set; }
++}
++
++public sealed class LoansCountRow
++{
++    public int BranchId { get; set; }
++    public string BranchName { get; set; } = "";
++    public int LoansCount { get; set; }
++}
++
+ public static class LoanRows
+ {
+     // Строки выдач в том виде, как их видит библиотекарь на кафедре.
+diff --git a/LoanService.cs b/LoanService.cs
+index 81e9e1e..2aa85f7 100644
+--- a/LoanService.cs
++++ b/LoanService.cs
+@@ -1,4 +1,5 @@
+ using Microsoft.EntityFrameworkCore;
++using Microsoft.Extensions.Configuration;
+ 
+ namespace BookQuarter.Library;
+ 
+@@ -7,9 +8,18 @@ public class LoanService
+     private const int LoanDays = 21;
+ 
+     private readonly LibraryDbContext _db;
+-    private readonly FineRules _rules = FineRules.Default;
++    private readonly FineRules _rules;
+ 
+-    public LoanService(LibraryDbContext db) => _db = db;
++    public LoanService(LibraryDbContext db, IConfiguration config)
++    {
++        _db = db;
++        var finesConfig = config.GetSection("Fines");
++        _rules = new FineRules(
++            decimal.Parse(finesConfig["PerDay"] ?? "10"),
++            int.Parse(finesConfig["GraceDays"] ?? "3"),
++            decimal.Parse(finesConfig["Max"] ?? "500")
++        );
++    }
+ 
+     public async Task<int> IssueAsync(string cardNumber, int bookId, int branchId)
+     {
+@@ -75,6 +85,48 @@ public class LoanService
+             l.BranchId == branchId && l.IssuedAt >= dayStart && l.IssuedAt < dayEnd);
+     }
+ 
++    // Список должников филиала для обзвона.
++    public async Task<DebtorReportRow> GetDebtorsAsync(int branchId)
++    {
++        var branch = await _db.Branches.FindAsync(branchId)
++            ?? throw new InvalidOperationException("Филиал не найден");
++
++        var today = LocalToday(branch);
++
++        var debtors = await _db.Loans
++            .Where(l => l.BranchId == branchId && l.ReturnedAt == null)
++            .Where(l => Fines.DaysOverdue(l.DueDate, today) > 0)
++            .OrderByDescending(l => Fines.Amount(l.DueDate, today, l.Reader.Category, _rules))
++            .ToLoanRows(today, _rules)
++            .ToListAsync();
++
++        var totalFine = debtors.Sum(d => d.Fine);
++
++        return new DebtorReportRow
++        {
++            BranchId = branchId,
++            BranchName = branch.Name,
++            Debtors = debtors,
++            TotalFine = totalFine
++        };
++    }
++
++    // Отчёт: число выдач по филиалам за период.
++    public async Task<List<LoansCountRow>> GetLoansCountByBranchAsync(DateTimeOffset from, DateTimeOffset to)
++    {
++        return await _db.Loans
++            .Where(l => l.IssuedAt >= from && l.IssuedAt < to)
++            .GroupBy(l => l.BranchId)
++            .Select(g => new LoansCountRow
++            {
++                BranchId = g.Key,
++                BranchName = g.First().Branch.Name,
++                LoansCount = g.Count()
++            })
++            .OrderBy(r => r.BranchName)
++            .ToListAsync();
++    }
++
+     private static DateOnly LocalToday(Branch branch)
+     {
+         var tz = TimeZoneInfo.FindSystemTimeZoneById(branch.TimeZoneId);
+diff --git a/Program.cs b/Program.cs
+index 51a69f7..7a6b218 100644
+--- a/Program.cs
++++ b/Program.cs
+@@ -24,6 +24,13 @@ app.MapGet("/branches/{branchId:int}/readers/{card}/loans", async (int branchId,
+ app.MapGet("/branches/{branchId:int}/issued-today", async (int branchId, LoanService s) =>
+     Results.Ok(await s.CountIssuedTodayAsync(branchId)));
+ 
++app.MapGet("/branches/{id:int}/debtors", async (int id, LoanService s) =>
++    Results.Ok(await s.GetDebtorsAsync(id)));
++
++app.MapPost("/reports/loans-by-branch", async (PeriodRequest req, LoanService s) =>
++    Results.Ok(await s.GetLoansCountByBranchAsync(req.From, req.To)));
++
+ app.Run();
+ 
+ public record IssueRequest(string CardNumber, int BookId, int BranchId);
++public record PeriodRequest(DateTimeOffset From, DateTimeOffset To);
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..17eb4f8
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,15 @@
++# Решение задач BookQuarter.Library
++
++## Созданные/изменённые файлы:
++- **appsettings.json** (создан) — конфигурация штрафов (PerDay, GraceDays, Max)
++- **LoanService.cs** (изменён) — добавлены методы GetDebtorsAsync() и GetLoansCountByBranchAsync(); конструктор читает FineRules из configuration
++- **Fines.cs** (изменён) — добавлены типы DebtorReportRow и LoansCountRow для ответов
++- **Program.cs** (изменён) — добавлены endpoints GET /branches/{id}/debtors и POST /reports/loans-by-branch; добавлен record PeriodRequest
++
++## Решения:
++
++**(а) Endpoint GET /branches/{id}/debtors** — возвращает DebtorReportRow с массивом должников (заимствованием LoanRow с фильтром по просрочке и сортировкой по штрафам), общей суммой штрафов по филиалу.
++
++**(б) Endpoint POST /reports/loans-by-branch** — принимает PeriodRequest с DateTimeOffset from/to, возвращает List<LoansCountRow> с числом выдач по каждому филиалу, отсортированные по названию.
++
++**(в) Конфигурация штрафов** — вынесена в appsettings.json (секция Fines), читается в конструкторе LoanService через IConfiguration, парсится в FineRules.
+diff --git a/appsettings.json b/appsettings.json
+new file mode 100644
+index 0000000..c472175
+--- /dev/null
++++ b/appsettings.json
+@@ -0,0 +1,10 @@
++{
++  "ConnectionStrings": {
++    "Library": "Host=localhost;Database=library;Username=postgres;Password=postgres"
++  },
++  "Fines": {
++    "PerDay": 10,
++    "GraceDays": 3,
++    "Max": 500
++  }
++}

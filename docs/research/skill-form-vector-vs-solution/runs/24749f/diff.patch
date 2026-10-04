@@ -1,0 +1,401 @@
+diff --git a/AgencyDbContext.cs b/AgencyDbContext.cs
+index 1c80d9a..f14bffd 100644
+--- a/AgencyDbContext.cs
++++ b/AgencyDbContext.cs
+@@ -21,7 +21,9 @@ public class AgencyDbContext : DbContext
+             e.HasQueryFilter(p => !p.IsDeleted);
+             e.Property(p => p.Code).HasMaxLength(32);
+             e.Property(p => p.HourlyRate).HasPrecision(10, 2);
+-            e.HasIndex(p => p.Code);
++            // Уникален только среди неудалённых: в базе есть пары "удалённый + заведённый заново"
++            // с одним кодом (так делали до появления восстановления), а soft delete оставляет строки.
++            e.HasIndex(p => p.Code).IsUnique().HasFilter("\"IsDeleted\" = false");
+ 
+             e.HasMany(p => p.Entries)
+                 .WithOne(t => t.Project)
+diff --git a/Migrations/20261002120000_UniqueActiveProjectCode.cs b/Migrations/20261002120000_UniqueActiveProjectCode.cs
+new file mode 100644
+index 0000000..501fc8a
+--- /dev/null
++++ b/Migrations/20261002120000_UniqueActiveProjectCode.cs
+@@ -0,0 +1,59 @@
++using Microsoft.EntityFrameworkCore.Infrastructure;
++using Microsoft.EntityFrameworkCore.Migrations;
++
++#nullable disable
++
++namespace Pixelwork.Timesheets.Migrations
++{
++    [DbContext(typeof(AgencyDbContext))]
++    [Migration("20261002120000_UniqueActiveProjectCode")]
++    public partial class UniqueActiveProjectCode : Migration
++    {
++        protected override void Up(MigrationBuilder migrationBuilder)
++        {
++            // Если среди активных проектов уже есть дубли кода, CREATE UNIQUE INDEX упадёт
++            // с невнятной ошибкой. Падаем сами со списком кодов: миграция идёт в транзакции,
++            // база останется как была. Дубли разбирают вручную (коды печатаются в актах,
++            // переименовывать их автоматически нельзя).
++            migrationBuilder.Sql("""
++                DO $$
++                DECLARE dups text;
++                BEGIN
++                    SELECT string_agg("Code", ', ' ORDER BY "Code") INTO dups
++                    FROM (
++                        SELECT "Code" FROM "Projects"
++                        WHERE NOT "IsDeleted"
++                        GROUP BY "Code"
++                        HAVING count(*) > 1
++                    ) d;
++                    IF dups IS NOT NULL THEN
++                        RAISE EXCEPTION 'Duplicate active project codes: %. Resolve them before applying UniqueActiveProjectCode.', dups;
++                    END IF;
++                END $$;
++                """);
++
++            migrationBuilder.DropIndex(
++                name: "IX_Projects_Code",
++                table: "Projects");
++
++            migrationBuilder.CreateIndex(
++                name: "IX_Projects_Code",
++                table: "Projects",
++                column: "Code",
++                unique: true,
++                filter: "\"IsDeleted\" = false");
++        }
++
++        protected override void Down(MigrationBuilder migrationBuilder)
++        {
++            migrationBuilder.DropIndex(
++                name: "IX_Projects_Code",
++                table: "Projects");
++
++            migrationBuilder.CreateIndex(
++                name: "IX_Projects_Code",
++                table: "Projects",
++                column: "Code");
++        }
++    }
++}
+diff --git a/ProjectService.cs b/ProjectService.cs
+index 87e12ae..98d47f0 100644
+--- a/ProjectService.cs
++++ b/ProjectService.cs
+@@ -1,4 +1,5 @@
+ using Microsoft.EntityFrameworkCore;
++using Npgsql;
+ 
+ namespace Pixelwork.Timesheets;
+ 
+@@ -44,10 +45,35 @@ public class ProjectService
+             HourlyRate = req.HourlyRate,
+         };
+         _db.Projects.Add(project);
+-        await _db.SaveChangesAsync();
++        try
++        {
++            await _db.SaveChangesAsync();
++        }
++        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
++        {
++            // Параллельное создание с тем же кодом: проверку выше прошли оба, отсёк уникальный индекс.
++            throw new InvalidOperationException($"Проект с кодом {code} уже есть");
++        }
+         return project.Id;
+     }
+ 
++    // Мягкое удаление всех активных проектов клиента одним UPDATE.
++    // ExecuteUpdate идёт мимо SaveChangesAsync, поэтому IsDeleted/DeletedAt выставляем явно;
++    // ExecuteDelete нельзя - он удалит строки физически вместе с часами.
++    // Возвращает число удалённых проектов или null, если клиента нет.
++    public async Task<int?> DeleteClientProjectsAsync(int clientId)
++    {
++        if (!await _db.Clients.AnyAsync(c => c.Id == clientId))
++            return null;
++
++        var now = DateTime.UtcNow;
++        return await _db.Projects
++            .Where(p => p.ClientId == clientId)
++            .ExecuteUpdateAsync(s => s
++                .SetProperty(p => p.IsDeleted, true)
++                .SetProperty(p => p.DeletedAt, now));
++    }
++
+     public async Task<bool> DeleteProjectAsync(int id)
+     {
+         var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == id);
+@@ -69,9 +95,23 @@ public class ProjectService
+         if (project is null)
+             return false;
+ 
++        // Код мог быть занят заново, пока проект был удалён (уникальность - только среди активных).
++        if (await _db.Projects.AnyAsync(p => p.Code == project.Code))
++            throw new InvalidOperationException($"Проект с кодом {project.Code} уже есть, восстановление невозможно");
++
+         project.IsDeleted = false;
+         project.DeletedAt = null;
+-        await _db.SaveChangesAsync();
++        try
++        {
++            await _db.SaveChangesAsync();
++        }
++        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
++        {
++            throw new InvalidOperationException($"Проект с кодом {project.Code} уже есть, восстановление невозможно");
++        }
+         return true;
+     }
++
++    private static bool IsUniqueViolation(DbUpdateException ex) =>
++        ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation };
+ }
+diff --git a/ReportService.cs b/ReportService.cs
+new file mode 100644
+index 0000000..52ba10d
+--- /dev/null
++++ b/ReportService.cs
+@@ -0,0 +1,45 @@
++using Microsoft.EntityFrameworkCore;
++
++namespace Pixelwork.Timesheets;
++
++public record MonthSummary(int Month, bool IsClosed, DateOnly? ActSignedOn, decimal Hours);
++
++public record YearSummary(int Year, List<MonthSummary> Months, decimal TotalHours);
++
++public class ReportService
++{
++    private readonly AgencyDbContext _db;
++
++    public ReportService(AgencyDbContext db) => _db = db;
++
++    public async Task<YearSummary> YearSummaryAsync(int year)
++    {
++        var from = new DateOnly(year, 1, 1);
++        var to = from.AddYears(1);
++
++        // Часы считаем по всем записям, включая записи удалённых проектов: эти часы
++        // уже могли войти в подписанные акты, и сводка бухгалтерии должна с ними сходиться.
++        var hoursByMonth = await _db.TimeEntries
++            .AsNoTracking()
++            .Where(t => t.WorkDate >= from && t.WorkDate < to)
++            .GroupBy(t => t.WorkDate.Month)
++            .Select(g => new { Month = g.Key, Hours = g.Sum(t => t.Hours) })
++            .ToDictionaryAsync(x => x.Month, x => x.Hours);
++
++        // Month хранится через конвертер (YearMonth -> int), по Year/Month в SQL не отфильтровать;
++        // закрытых периодов - одна строка на месяц, читаем целиком.
++        var closed = (await _db.ClosedPeriods.AsNoTracking().ToListAsync())
++            .Where(p => p.Month.Year == year)
++            .ToDictionary(p => p.Month.Month, p => p.ActSignedOn);
++
++        var months = Enumerable.Range(1, 12)
++            .Select(m => new MonthSummary(
++                m,
++                closed.ContainsKey(m),
++                closed.TryGetValue(m, out var signedOn) ? signedOn : null,
++                hoursByMonth.GetValueOrDefault(m)))
++            .ToList();
++
++        return new YearSummary(year, months, months.Sum(m => m.Hours));
++    }
++}
+diff --git a/TimeEntryService.cs b/TimeEntryService.cs
+index 97b816b..be38f22 100644
+--- a/TimeEntryService.cs
++++ b/TimeEntryService.cs
+@@ -6,6 +6,8 @@ public record TimeEntryDto(int Id, int ProjectId, int EmployeeId, DateOnly WorkD
+ 
+ public class TimeEntryService
+ {
++    public const decimal MaxHoursPerDay = 12m;
++
+     private readonly AgencyDbContext _db;
+ 
+     public TimeEntryService(AgencyDbContext db) => _db = db;
+@@ -15,17 +17,25 @@ public class TimeEntryService
+         ValidateHours(dto.Hours);
+         await EnsureOpenAsync(dto.WorkDate);
+ 
+-        var entry = new TimeEntry
++        var strategy = _db.Database.CreateExecutionStrategy();
++        return await strategy.ExecuteAsync(async () =>
+         {
+-            ProjectId = dto.ProjectId,
+-            EmployeeId = dto.EmployeeId,
+-            WorkDate = dto.WorkDate,
+-            Hours = dto.Hours,
+-            Comment = dto.Comment,
+-        };
+-        _db.TimeEntries.Add(entry);
+-        await _db.SaveChangesAsync();
+-        return entry.Id;
++            await using var tx = await _db.Database.BeginTransactionAsync();
++            await EnsureDailyLimitAsync(dto.EmployeeId, dto.WorkDate, dto.Hours);
++
++            var entry = new TimeEntry
++            {
++                ProjectId = dto.ProjectId,
++                EmployeeId = dto.EmployeeId,
++                WorkDate = dto.WorkDate,
++                Hours = dto.Hours,
++                Comment = dto.Comment,
++            };
++            _db.TimeEntries.Add(entry);
++            await _db.SaveChangesAsync();
++            await tx.CommitAsync();
++            return entry.Id;
++        });
+     }
+ 
+     public async Task UpdateAsync(TimeEntryDto dto)
+@@ -38,11 +48,20 @@ public class TimeEntryService
+         await EnsureOpenAsync(entry.WorkDate);
+         await EnsureOpenAsync(dto.WorkDate);
+ 
+-        entry.ProjectId = dto.ProjectId;
+-        entry.WorkDate = dto.WorkDate;
+-        entry.Hours = dto.Hours;
+-        entry.Comment = dto.Comment;
+-        await _db.SaveChangesAsync();
++        var strategy = _db.Database.CreateExecutionStrategy();
++        await strategy.ExecuteAsync(async () =>
++        {
++            await using var tx = await _db.Database.BeginTransactionAsync();
++            // Сама правимая запись в сумму дня не входит - её часы заменяются новыми.
++            await EnsureDailyLimitAsync(entry.EmployeeId, dto.WorkDate, dto.Hours, excludeEntryId: entry.Id);
++
++            entry.ProjectId = dto.ProjectId;
++            entry.WorkDate = dto.WorkDate;
++            entry.Hours = dto.Hours;
++            entry.Comment = dto.Comment;
++            await _db.SaveChangesAsync();
++            await tx.CommitAsync();
++        });
+     }
+ 
+     public async Task<decimal> HoursForMonthAsync(int employeeId, int year, int month)
+@@ -54,6 +73,23 @@ public class TimeEntryService
+             .SumAsync(t => t.Hours);
+     }
+ 
++    // Вызывать внутри транзакции. Advisory-lock на пару (сотрудник, день) сериализует
++    // параллельные списания за один день, иначе два запроса по 8 ч оба пройдут проверку.
++    // Лок снимается при commit/rollback.
++    private async Task EnsureDailyLimitAsync(int employeeId, DateOnly workDate, decimal hours, int excludeEntryId = 0)
++    {
++        await _db.Database.ExecuteSqlInterpolatedAsync(
++            $"SELECT pg_advisory_xact_lock({employeeId}, {workDate.DayNumber})");
++
++        // Записи удалённых проектов тоже считаются: часы в этот день реально отработаны.
++        var alreadyLogged = await _db.TimeEntries
++            .Where(t => t.EmployeeId == employeeId && t.WorkDate == workDate && t.Id != excludeEntryId)
++            .SumAsync(t => t.Hours);
++
++        if (alreadyLogged + hours > MaxHoursPerDay)
++            throw new DailyHoursLimitException(workDate, alreadyLogged);
++    }
++
+     private async Task EnsureOpenAsync(DateOnly workDate)
+     {
+         var month = YearMonth.Of(workDate);
+@@ -70,3 +106,8 @@ public class TimeEntryService
+ 
+ public class ClosedPeriodException(YearMonth month)
+     : InvalidOperationException($"Месяц {month} закрыт актом");
++
++// Наследник ArgumentException - как и ArgumentOutOfRangeException из ValidateHours, уходит в 400.
++public class DailyHoursLimitException(DateOnly workDate, decimal alreadyLogged)
++    : ArgumentException(
++        $"За {workDate:yyyy-MM-dd} нельзя списать больше {TimeEntryService.MaxHoursPerDay} ч; уже списано {alreadyLogged} ч");
+diff --git a/TimesheetsEndpoints.cs b/TimesheetsEndpoints.cs
+new file mode 100644
+index 0000000..989e810
+--- /dev/null
++++ b/TimesheetsEndpoints.cs
+@@ -0,0 +1,47 @@
++using Microsoft.AspNetCore.Diagnostics;
++using Microsoft.AspNetCore.Mvc;
++
++namespace Pixelwork.Timesheets;
++
++// Регистрация в Program.cs:
++//   builder.Services.AddScoped<ReportService>();
++//   builder.Services.AddExceptionHandler<DailyHoursLimitExceptionHandler>();
++//   builder.Services.AddProblemDetails();
++//   app.UseExceptionHandler();
++//   app.MapTimesheetsEndpoints();
++public static class TimesheetsEndpoints
++{
++    public static IEndpointRouteBuilder MapTimesheetsEndpoints(this IEndpointRouteBuilder app)
++    {
++        app.MapGet("/reports/year/{year:int}", async (int year, ReportService reports) =>
++            year is < 2000 or > 2100
++                ? Results.BadRequest(new { error = "Некорректный год" })
++                : Results.Ok(await reports.YearSummaryAsync(year)));
++
++        app.MapDelete("/clients/{id:int}/projects", async (int id, ProjectService projects) =>
++            await projects.DeleteClientProjectsAsync(id) is { } deleted
++                ? Results.Ok(new { deleted })
++                : Results.NotFound());
++
++        return app;
++    }
++}
++
++// 400 на превышение дневного лимита для существующих endpoint'ов добавления/правки записей.
++public class DailyHoursLimitExceptionHandler : IExceptionHandler
++{
++    public async ValueTask<bool> TryHandleAsync(HttpContext ctx, Exception ex, CancellationToken ct)
++    {
++        if (ex is not DailyHoursLimitException)
++            return false;
++
++        ctx.Response.StatusCode = StatusCodes.Status400BadRequest;
++        await ctx.Response.WriteAsJsonAsync(new ProblemDetails
++        {
++            Status = StatusCodes.Status400BadRequest,
++            Title = "Превышен дневной лимит часов",
++            Detail = ex.Message,
++        }, ct);
++        return true;
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..661c1bf
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,31 @@
++**Файлы**
++
++Новые:
++- `ReportService.cs`: сводка за год (а).
++- `TimesheetsEndpoints.cs`: `GET /reports/year/{year}`, `DELETE /clients/{id}/projects` и `DailyHoursLimitExceptionHandler`, который отдаёт 400.
++- `Migrations/20261002120000_UniqueActiveProjectCode.cs`: миграция для (в).
++- `_answer.md`.
++
++Изменённые:
++- `AgencyDbContext.cs`
++- `ProjectService.cs`
++- `TimeEntryService.cs`
++
++**Решения**
++
++- **(б) Удаление проектов клиента.** Сделано одним `ExecuteUpdateAsync`, который ставит `IsDeleted` и `DeletedAt`. `ExecuteUpdate`/`ExecuteDelete` идут в обход переопределённого `SaveChangesAsync`, поэтому `ExecuteDelete` удалил бы проекты физически, а каскадом и их часы, в том числе из закрытых актов.
++- **(в) Уникальность кода.** Индекс уникальный только среди неудалённых проектов (`WHERE "IsDeleted" = false`). До весны 2026 удалённые проекты заводили заново под тем же кодом, и полностью уникальный индекс не создался бы на этих данных.
++  - Если в базе уже есть дубли среди активных проектов, миграция остановит релиз и выведет список кодов. Она выполняется в транзакции, так что база останется как была.
++  - `RestoreProjectAsync` теперь проверяет, не занят ли код. `CreateAsync` при гонке ловит `23505` и сообщает о дубле.
++- **(г) Лимит 12 ч в день.** Сумма за день считается по всем проектам, при правке без самой редактируемой записи. Чтобы два одновременных запроса не прошли проверку оба, она идёт в транзакции под `pg_advisory_xact_lock(сотрудник, день)`.
++- **(а) и (г): записи удалённых проектов учитываются.** Эти часы уже могли попасть в подписанные акты.
++
++**Что нужно сделать перед выкаткой**
++
++- **Регистрация в `Program.cs`.** Сделать по комментарию в `TimesheetsEndpoints.cs`: `AddScoped<ReportService>`, `AddExceptionHandler<DailyHoursLimitExceptionHandler>`, `UseExceptionHandler`, `MapTimesheetsEndpoints`.
++- **Авторизация.** Проверить, что `DELETE /clients/{id}/projects` доступен только менеджерам. Авторизации в присланных файлах нет.
++- **Файлы миграции.** Каталога `Migrations` и snapshot в каталоге не было, поэтому миграция написана вручную, без `.Designer.cs`. Нужно запустить `dotnet ef migrations add` в основном репозитории и сверить или обновить `AgencyDbContextModelSnapshot`.
++- **Проверка на дубли.** До релиза стоит выполнить на проде:
++  `SELECT "Code", count(*) FROM "Projects" WHERE NOT "IsDeleted" GROUP BY "Code" HAVING count(*) > 1;`
++
++Сборку и тесты не запускал.

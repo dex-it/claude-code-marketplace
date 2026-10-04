@@ -1,0 +1,42 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..b3b4cab
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,36 @@
++# Ревью MR !4210
++
++## 1. Services/CustomerOrders.cs — `ActivePageAsync` — off-by-one в пагинации
++**Severity: critical**
++
++`Skip(page * pageSize)` при том, что страницы нумеруются с 1 (это явно указано в MR и в комментарии). Для `page = 1` получаем `Skip(pageSize)`, то есть первая страница полностью пропускается, а вторая страница отдаётся под видом первой и т.д. — весь список заказов клиента сдвинут на одну страницу. Нужно `Skip((page - 1) * pageSize)`.
++
++## 2. Services/CustomerOrders.cs — `ActivePageAsync` — несовпадение значения статуса
++**Severity: high**
++
++Фильтр `o.Status == "Active"` (с большой буквы), а в `Model.cs` канонический/дефолтный статус заказа — `"active"` (`public string Status { get; set; } = "active";`). Сравнение строк в Postgres по `=` регистрозависимо, поэтому запрос рискует не находить ни одного активного заказа, если реальные данные записываются с тем же регистром, что и дефолт сущности. Даже если по факту где-то в системе используется другое написание — расхождение с каноническим значением в модели однозначно указывает на риск бага, который надо явно перепроверить/зафиксировать константой, а не строковым литералом.
++
++## 3. Services/CustomerOrders.cs — `ActivePageAsync` — нестабильная сортировка при пагинации
++**Severity: medium**
++
++`OrderByDescending(o => o.CreatedAt)` без вторичного уникального ключа (например, `Id`) перед `Skip/Take`. При совпадающих значениях `CreatedAt` (а `timestamp without time zone` вполне может содержать дубликаты, например при пакетном создании заказов) Postgres не гарантирует стабильный порядок одинаковых строк между двумя разными выполнениями запроса — при постраничном обходе возможны как задвоение, так и пропуск заказов между соседними страницами.
++
++## 4. Workers/AuditWriter.cs — `WriteAsync` — DateTime.Kind не совпадает с типом колонки Npgsql
++**Severity: critical**
++
++`AuditLog.At = DateTime.UtcNow` (Kind = Utc), при этом колонка `At` явного `HasColumnType` не имеет и по умолчанию в EF Core/Npgsql 8 мапится на `timestamp without time zone` (так же, как явно замаплен `Order.CreatedAt` в этом же `OnModelCreating`). Начиная с Npgsql 6 строгая проверка `DateTime.Kind` включена по умолчанию: запись значения с `Kind = Utc` в `timestamp without time zone` завершается исключением во время выполнения (`Cannot write DateTime with Kind=Utc to PostgreSQL type 'timestamp without time zone'`). То есть каждый вызов `AuditWriter.WriteAsync` будет падать в рантайме — аудит писаться не будет вовсе. Нужно либо явно замапить `At` на `timestamptz` (тогда `DateTime.UtcNow` корректен), либо использовать `DateTime` с `Kind = Unspecified`, если колонка остаётся `timestamp without time zone`.
++
++## 5. Workers/AuditWriter.cs — размещение класса и время жизни `ShopDbContext`
++**Severity: medium (требует проверки)**
++
++Класс лежит в `Workers/` и получает `ShopDbContext` через конструктор — типичное место для использования из `BackgroundService`/hosted service, который обычно регистрируется как singleton. Файлы с composition root (DI-регистрация, `Program.cs`) в этот MR не входят и не видны в ревью, поэтому нельзя подтвердить, что `AuditWriter` создаётся per-scope (например, через `IServiceScopeFactory.CreateScope()` на каждую запись), а не захватывается как singleton вместе со scoped `DbContext`. Если хотя бы один вызывающий код резолвит `AuditWriter` один раз на время жизни воркера — это долгоживущий `DbContext`, конкурентные обращения к которому из разных потоков/тасков приведут к `InvalidOperationException` ("A second operation was started...") и утечке состояния между запросами. Нужно явно подтвердить схему создания scope в месте использования этого класса из воркера.
++
++## 6. Services/OrderCard.cs — `GetAsync` — загрузка полной сущности вместо нужных полей
++**Severity: low**
++
++Через `Include(o => o.Customer)` подгружается вся сущность `Order` (в т.ч. `Status`, `Category`, `CreatedAt`, `ShippedAt`, `IsDeleted`, `CustomerId`) и вся сущность `Customer`, хотя `OrderCardDto` использует только `Id`, `Total` и `Customer.Name`. При использовании `AsSplitQuery()` эти лишние колонки перегоняются в каждом из трёх отдельных SQL-запросов. Для карточки одного заказа по id это не критично по объёму данных, но соответствует чек-листу «полная сущность там, где нужна часть полей» — лучше переписать как проекцию (`Select` сразу в DTO), не теряя при этом корректность `Items`/`Payments`.
++
++---
++
++### Не является дефектом (для контекста)
++`OrderCard.GetAsync` одновременно инклюдит две коллекции (`Items`, `Payments`) и использует `AsSplitQuery()` — это правильный способ избежать декартова произведения, а не нарушение соответствующего пункта чек-листа. `CartLookup` корректно использует `AsNoTracking()` + проекцию + `Contains` по массиву id (Npgsql транслирует это в `= ANY(@ids)`, единый параметр независимо от количества id). `AuditWriter` использует `Add`, а не `AddAsync` — корректно, т.к. генератор значения `Id` (long/identity) не требует асинхронного обращения к БД.

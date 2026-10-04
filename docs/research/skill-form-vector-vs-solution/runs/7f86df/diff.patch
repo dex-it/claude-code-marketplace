@@ -1,0 +1,114 @@
+diff --git a/CatalogMaintenance.cs b/CatalogMaintenance.cs
+new file mode 100644
+index 0000000..eb26de5
+--- /dev/null
++++ b/CatalogMaintenance.cs
+@@ -0,0 +1,95 @@
++namespace Shop.Data;
++
++// Резолвить через новый DI-scope на каждый запуск (см. BackgroundService),
++// не держать один и тот же ShopDbContext/сервис на весь жизненный цикл хоста.
++public class CatalogMaintenance
++{
++    private readonly ShopDbContext _db;
++    public CatalogMaintenance(ShopDbContext db) => _db = db;
++
++    // (а) Массовое обновление цен - один SQL UPDATE без выборки и трекинга сущностей.
++    public Task<int> RaisePricesAsync(string category, decimal percentage = 0.10m, CancellationToken ct = default)
++    {
++        var multiplier = 1m + percentage;
++        return _db.Products
++            .Where(p => p.Category == category)
++            .ExecuteUpdateAsync(s => s.SetProperty(p => p.Price, p => p.Price * multiplier), ct);
++    }
++
++    // (б) Ночная очистка AuditLogs старше года.
++    // ExecuteDelete не поддерживает Skip/Take напрямую, поэтому границы батча
++    // задаются подзапросом (ORDER BY + LIMIT через Contains). Каждый вызов
++    // ExecuteDeleteAsync - своя короткая транзакция, поэтому ~40 млн строк
++    // не блокируются и не удаляются одной гигантской транзакцией.
++    public async Task<long> PurgeOldAuditLogsAsync(
++        TimeSpan? retention = null,
++        int batchSize = 5_000,
++        TimeSpan? delayBetweenBatches = null,
++        CancellationToken ct = default)
++    {
++        var cutoff = DateTime.UtcNow - (retention ?? TimeSpan.FromDays(365));
++        long totalDeleted = 0;
++
++        while (!ct.IsCancellationRequested)
++        {
++            var idsToDelete = _db.AuditLogs
++                .Where(a => a.At < cutoff)
++                .OrderBy(a => a.Id)
++                .Select(a => a.Id)
++                .Take(batchSize);
++
++            var deleted = await _db.AuditLogs
++                .Where(a => idsToDelete.Contains(a.Id))
++                .ExecuteDeleteAsync(ct);
++
++            totalDeleted += deleted;
++            if (deleted < batchSize) break;
++
++            if (delayBetweenBatches is { } delay)
++                await Task.Delay(delay, ct);
++        }
++
++        return totalDeleted;
++    }
++
++    // (в) Пополнение склада: одна выборка по всем id, один SaveChanges в конце.
++    // Суммируем дубли по id из входа заранее, чтобы каждый продукт трогался один раз.
++    public async Task RestockAsync(IEnumerable<(Guid Id, int Add)> deltas, CancellationToken ct = default)
++    {
++        var totalsById = deltas
++            .GroupBy(d => d.Id)
++            .ToDictionary(g => g.Key, g => g.Sum(d => d.Add));
++
++        if (totalsById.Count == 0) return;
++
++        var ids = totalsById.Keys.ToList();
++        var products = await _db.Products
++            .Where(p => ids.Contains(p.Id))
++            .ToListAsync(ct);
++
++        foreach (var product in products)
++            product.Stock += totalsById[product.Id];
++
++        await _db.SaveChangesAsync(ct);
++    }
++
++    // (г) Создание продукта с новым Guid, сгенерированным на клиенте -
++    // значит генератор значений синхронный и Add (не AddAsync) достаточен.
++    public async Task<Product> CreateProductAsync(
++        string sku, string warehouse, string category, decimal price, int stock = 0, CancellationToken ct = default)
++    {
++        var product = new Product
++        {
++            Id = Guid.NewGuid(),
++            Sku = sku,
++            Warehouse = warehouse,
++            Category = category,
++            Price = price,
++            Stock = stock,
++        };
++
++        _db.Products.Add(product);
++        await _db.SaveChangesAsync(ct);
++        return product;
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..8b45031
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,7 @@
++Созданные/изменённые файлы:
++- CatalogMaintenance.cs (новый) — сервис `Shop.Data.CatalogMaintenance` с методами `RaisePricesAsync`, `PurgeOldAuditLogsAsync`, `RestockAsync`, `CreateProductAsync`.
++
++Решения:
++- (a) Поднятие цен и (б) очистка AuditLogs сделаны через `ExecuteUpdateAsync`/`ExecuteDeleteAsync` (EF Core 8) — без материализации и трекинга сущностей; удаление батчами по `Id` через подзапрос `OrderBy+Take+Contains`, т.к. `ExecuteDelete` не поддерживает `Skip/Take` напрямую, а каждый батч — своя короткая транзакция вместо одной на ~40 млн строк.
++- (в) `RestockAsync` заранее суммирует дубли по `id`, делает одну выборку по списку id и один `SaveChangesAsync` в конце (без `SaveChanges` в цикле и без лишнего `UpdateRange` по уже отслеживаемым сущностям).
++- (г) `CreateProductAsync` генерирует `Guid` на клиенте, поэтому используется `Add` (не `AddAsync`); cutoff для очистки берётся как `DateTime.UtcNow`, т.к. Npgsql 8 требует `Kind=Utc` для колонок `timestamp with time zone`, в которые по умолчанию маппится `DateTime` без явной конфигурации типа колонки.

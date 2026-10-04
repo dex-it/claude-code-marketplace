@@ -1,0 +1,161 @@
+diff --git a/Fines.cs b/Fines.cs
+index d754d5d..b2ecb8b 100644
+--- a/Fines.cs
++++ b/Fines.cs
+@@ -49,3 +49,9 @@ public static class LoanRows
+             Fine = Fines.Amount(l.DueDate, today, l.Reader.Category, rules),
+         });
+ }
++
++public sealed class DebtorsResponse
++{
++    public List<LoanRow> Items { get; init; } = new();
++    public decimal TotalFine { get; init; }
++}
+diff --git a/LoanService.cs b/LoanService.cs
+index 81e9e1e..791e1c6 100644
+--- a/LoanService.cs
++++ b/LoanService.cs
+@@ -7,9 +7,13 @@ public class LoanService
+     private const int LoanDays = 21;
+ 
+     private readonly LibraryDbContext _db;
+-    private readonly FineRules _rules = FineRules.Default;
++    private readonly FineRules _rules;
+ 
+-    public LoanService(LibraryDbContext db) => _db = db;
++    public LoanService(LibraryDbContext db, FineRules rules)
++    {
++        _db = db;
++        _rules = rules;
++    }
+ 
+     public async Task<int> IssueAsync(string cardNumber, int bookId, int branchId)
+     {
+@@ -60,6 +64,22 @@ public class LoanService
+             .ToListAsync();
+     }
+ 
++    // Список должников филиала для обзвона: самые большие штрафы сначала, в конце - сумма по филиалу.
++    public async Task<DebtorsResponse> GetDebtorsAsync(int branchId)
++    {
++        var branch = await _db.Branches.FindAsync(branchId)
++            ?? throw new InvalidOperationException("Филиал не найден");
++
++        var items = await _db.Loans
++            .Where(l => l.BranchId == branchId && l.ReturnedAt == null)
++            .ToLoanRows(LocalToday(branch), _rules)
++            .Where(r => r.Fine > 0)
++            .OrderByDescending(r => r.Fine)
++            .ToListAsync();
++
++        return new DebtorsResponse { Items = items, TotalFine = items.Sum(r => r.Fine) };
++    }
++
+     // Счётчик на табло филиала: сколько книг выдано сегодня.
+     public async Task<int> CountIssuedTodayAsync(int branchId)
+     {
+diff --git a/Program.cs b/Program.cs
+index 51a69f7..d6ad8b1 100644
+--- a/Program.cs
++++ b/Program.cs
+@@ -5,7 +5,11 @@ var builder = WebApplication.CreateBuilder(args);
+ 
+ builder.Services.AddDbContext<LibraryDbContext>(o =>
+     o.UseNpgsql(builder.Configuration.GetConnectionString("Library")));
++
++var fineRules = builder.Configuration.GetSection("Fines").Get<FineRules>() ?? FineRules.Default;
++builder.Services.AddSingleton(fineRules);
+ builder.Services.AddScoped<LoanService>();
++builder.Services.AddScoped<ReportService>();
+ 
+ var app = builder.Build();
+ 
+@@ -24,6 +28,17 @@ app.MapGet("/branches/{branchId:int}/readers/{card}/loans", async (int branchId,
+ app.MapGet("/branches/{branchId:int}/issued-today", async (int branchId, LoanService s) =>
+     Results.Ok(await s.CountIssuedTodayAsync(branchId)));
+ 
++app.MapGet("/branches/{branchId:int}/debtors", async (int branchId, LoanService s) =>
++    Results.Ok(await s.GetDebtorsAsync(branchId)));
++
++app.MapPost("/reports/loans-by-branch", async (LoansByBranchReportRequest req, ReportService s) =>
++{
++    if (req.To <= req.From)
++        return Results.BadRequest("to must be after from");
++
++    return Results.Ok(await s.GetLoansByBranchAsync(req.From, req.To));
++});
++
+ app.Run();
+ 
+ public record IssueRequest(string CardNumber, int BookId, int BranchId);
+diff --git a/ReportService.cs b/ReportService.cs
+new file mode 100644
+index 0000000..8be040d
+--- /dev/null
++++ b/ReportService.cs
+@@ -0,0 +1,34 @@
++using Microsoft.EntityFrameworkCore;
++
++namespace BookQuarter.Library;
++
++public record LoansByBranchReportRequest(DateTimeOffset From, DateTimeOffset To);
++
++public sealed class LoansByBranchRow
++{
++    public int BranchId { get; init; }
++    public string BranchName { get; init; } = "";
++    public int LoanCount { get; init; }
++}
++
++public class ReportService
++{
++    private readonly LibraryDbContext _db;
++
++    public ReportService(LibraryDbContext db) => _db = db;
++
++    // Число выдач по каждому филиалу за период [from, to); DateTimeOffset сравнивается по
++    // абсолютному моменту времени, поэтому часовой пояс, присланный фронтом, роли не играет.
++    public async Task<List<LoansByBranchRow>> GetLoansByBranchAsync(DateTimeOffset from, DateTimeOffset to) =>
++        await _db.Loans
++            .Where(l => l.IssuedAt >= from && l.IssuedAt < to)
++            .GroupBy(l => new { l.BranchId, l.Branch.Name })
++            .Select(g => new LoansByBranchRow
++            {
++                BranchId = g.Key.BranchId,
++                BranchName = g.Key.Name,
++                LoanCount = g.Count(),
++            })
++            .OrderBy(r => r.BranchName)
++            .ToListAsync();
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..fb03ae8
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,11 @@
++Изменённые/созданные файлы:
++- Fines.cs — изменён: добавлен `DebtorsResponse` (Items + TotalFine).
++- LoanService.cs — изменён: `FineRules` теперь приходит через DI-конструктор (не `FineRules.Default`); добавлен `GetDebtorsAsync(branchId)` для GET /branches/{id}/debtors.
++- ReportService.cs — создан: `GetLoansByBranchAsync(from, to)` для POST /reports/loans-by-branch.
++- Program.cs — изменён: регистрация `FineRules` из конфигурации и `ReportService` в DI, добавлены эндпоинты `GET /branches/{id}/debtors` и `POST /reports/loans-by-branch`.
++- appsettings.json — создан: секция `Fines` (PerDay, GraceDays, Max).
++
++Решения:
++- Список должников переиспользует существующие `ToLoanRows`/`LoanRow` (тот же проекция, что и на кафедре), фильтрует незакрытые выдачи филиала с Fine > 0, сортирует по убыванию штрафа в SQL; TotalFine считается в памяти над уже полученным для отображения списком (без лишнего запроса).
++- В отчёте по филиалам `IssuedAt` — `DateTimeOffset` (timestamptz), сравнение идёт по абсолютному моменту, поэтому часовой пояс во входном `from`/`to` не требует конвертации; группировка и Count() выполняются в SQL.
++- `FineRules` биндится из секции `Fines` конфигурации (`GetSection("Fines").Get<FineRules>()`) и регистрируется как singleton; `FineRules.Default` оставлен как fallback, если секция не задана.
+diff --git a/appsettings.json b/appsettings.json
+new file mode 100644
+index 0000000..c9c51a8
+--- /dev/null
++++ b/appsettings.json
+@@ -0,0 +1,7 @@
++{
++  "Fines": {
++    "PerDay": 10,
++    "GraceDays": 3,
++    "Max": 500
++  }
++}

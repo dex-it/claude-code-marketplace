@@ -1,0 +1,199 @@
+diff --git a/AuditLogPurgeHostedService.cs b/AuditLogPurgeHostedService.cs
+new file mode 100644
+index 0000000..6324ddd
+--- /dev/null
++++ b/AuditLogPurgeHostedService.cs
+@@ -0,0 +1,46 @@
++namespace Shop.Data;
++
++// Triggers CatalogMaintenance.PurgeOldAuditLogsAsync once a day at a low-traffic hour.
++// ShopDbContext/CatalogMaintenance are scoped services, so a scope is created per run rather than
++// injecting them into this singleton BackgroundService.
++public class AuditLogPurgeHostedService : BackgroundService
++{
++    private static readonly TimeOnly RunAt = new(3, 0); // 03:00 UTC
++
++    private readonly IServiceScopeFactory _scopeFactory;
++    private readonly ILogger<AuditLogPurgeHostedService> _logger;
++
++    public AuditLogPurgeHostedService(IServiceScopeFactory scopeFactory, ILogger<AuditLogPurgeHostedService> logger)
++    {
++        _scopeFactory = scopeFactory;
++        _logger = logger;
++    }
++
++    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
++    {
++        while (!stoppingToken.IsCancellationRequested)
++        {
++            await Task.Delay(GetDelayUntilNextRun(DateTime.UtcNow), stoppingToken);
++
++            try
++            {
++                using var scope = _scopeFactory.CreateScope();
++                var maintenance = scope.ServiceProvider.GetRequiredService<CatalogMaintenance>();
++                var deleted = await maintenance.PurgeOldAuditLogsAsync(ct: stoppingToken);
++                _logger.LogInformation("Nightly AuditLogs purge finished, {Deleted} rows removed", deleted);
++            }
++            catch (Exception ex) when (ex is not OperationCanceledException)
++            {
++                _logger.LogError(ex, "Nightly AuditLogs purge failed");
++            }
++        }
++    }
++
++    private static TimeSpan GetDelayUntilNextRun(DateTime nowUtc)
++    {
++        var next = nowUtc.Date + RunAt.ToTimeSpan();
++        if (next <= nowUtc)
++            next = next.AddDays(1);
++        return next - nowUtc;
++    }
++}
+diff --git a/CatalogMaintenance.cs b/CatalogMaintenance.cs
+new file mode 100644
+index 0000000..4f668a1
+--- /dev/null
++++ b/CatalogMaintenance.cs
+@@ -0,0 +1,111 @@
++namespace Shop.Data;
++
++public class CatalogMaintenance
++{
++    private readonly ShopDbContext _db;
++    private readonly ILogger<CatalogMaintenance> _logger;
++
++    public CatalogMaintenance(ShopDbContext db, ILogger<CatalogMaintenance> logger)
++    {
++        _db = db;
++        _logger = logger;
++    }
++
++    // (a) Raise all prices in a category by 10%. Runs as a single UPDATE via ExecuteUpdateAsync so it
++    // never loads rows into memory/change tracker, no matter how many products the category has.
++    public Task<int> RaisePricesAsync(string category, CancellationToken ct = default) =>
++        _db.Products
++            .Where(p => p.Category == category)
++            .ExecuteUpdateAsync(s => s.SetProperty(p => p.Price, p => p.Price * 1.10m), ct);
++
++    // (b) Nightly retention purge of AuditLogs older than a year.
++    // The table has ~50M rows with ~40M eligible for deletion, so a single ExecuteDeleteAsync (one
++    // DELETE statement) would hold a long-running transaction, bloat WAL, and take heavy locks/IO for
++    // the whole run. PostgreSQL's DELETE has no LIMIT clause and EF's ExecuteDelete can't translate
++    // Take()/Skip() for Npgsql, so batching is done with raw SQL: repeatedly delete small chunks
++    // (selected via the "At" index) in their own short transactions, with a short pause between
++    // batches so autovacuum/replication/other traffic aren't starved. Intended to be invoked nightly
++    // by a scheduler (see AuditLogPurgeHostedService).
++    public async Task<long> PurgeOldAuditLogsAsync(
++        TimeSpan? retention = null,
++        int batchSize = 5_000,
++        TimeSpan? delayBetweenBatches = null,
++        CancellationToken ct = default)
++    {
++        var cutoff = DateTime.UtcNow - (retention ?? TimeSpan.FromDays(365));
++        var pause = delayBetweenBatches ?? TimeSpan.FromMilliseconds(200);
++        long totalDeleted = 0;
++
++        while (true)
++        {
++            ct.ThrowIfCancellationRequested();
++
++            var deleted = await _db.Database.ExecuteSqlInterpolatedAsync(
++                $"""
++                 DELETE FROM "AuditLogs"
++                 WHERE "Id" IN (
++                     SELECT "Id" FROM "AuditLogs"
++                     WHERE "At" < {cutoff}
++                     LIMIT {batchSize}
++                 )
++                 """, ct);
++
++            totalDeleted += deleted;
++            _logger.LogInformation("AuditLogs purge: deleted {Deleted} rows this batch, {Total} total", deleted, totalDeleted);
++
++            if (deleted < batchSize)
++                break;
++
++            await Task.Delay(pause, ct);
++        }
++
++        return totalDeleted;
++    }
++
++    // (c) Load the requested products and bump Stock, then persist in one SaveChanges call.
++    public async Task RestockAsync(IEnumerable<(Guid id, int add)> deltas, CancellationToken ct = default)
++    {
++        var list = deltas as IReadOnlyCollection<(Guid id, int add)> ?? deltas.ToList();
++        if (list.Count == 0)
++            return;
++
++        var ids = list.Select(d => d.id).ToArray();
++        var products = await _db.Products
++            .Where(p => ids.Contains(p.Id))
++            .ToDictionaryAsync(p => p.Id, ct);
++
++        foreach (var (id, add) in list)
++        {
++            if (products.TryGetValue(id, out var product))
++                product.Stock += add;
++            else
++                _logger.LogWarning("Restock: product {ProductId} not found, skipped", id);
++        }
++
++        await _db.SaveChangesAsync(ct);
++    }
++
++    // (d) Create a new product with a fresh Guid.
++    public async Task<Product> CreateProductAsync(
++        string sku,
++        string category,
++        string warehouse,
++        decimal price,
++        int stock = 0,
++        CancellationToken ct = default)
++    {
++        var product = new Product
++        {
++            Id = Guid.NewGuid(),
++            Sku = sku,
++            Category = category,
++            Warehouse = warehouse,
++            Price = price,
++            Stock = stock,
++        };
++
++        _db.Products.Add(product);
++        await _db.SaveChangesAsync(ct);
++        return product;
++    }
++}
+diff --git a/Model.cs b/Model.cs
+index cc90064..89eadef 100644
+--- a/Model.cs
++++ b/Model.cs
+@@ -45,6 +45,8 @@ public class ShopDbContext : DbContext
+     {
+         b.Entity<Order>().HasQueryFilter(o => !o.IsDeleted);
+         b.Entity<Order>().Property(o => o.CreatedAt).HasColumnType("timestamp without time zone");
++        b.Entity<AuditLog>().HasIndex(a => a.At);       // required for the batched retention purge to seek instead of scan 50M rows
++        b.Entity<Product>().HasIndex(p => p.Category);  // required for the bulk price-raise UPDATE to hit an index
+     }
+ }
+ // Options: UseNpgsql(cs).UseLazyLoadingProxies()
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..5cae6fe
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,11 @@
++## Изменённые/созданные файлы
++
++- `CatalogMaintenance.cs` — новый сервис: `RaisePricesAsync(category)`, `PurgeOldAuditLogsAsync(...)`, `RestockAsync(deltas)`, `CreateProductAsync(sku, ...)`.
++- `AuditLogPurgeHostedService.cs` — новый `BackgroundService`, ежедневно (03:00 UTC) вызывающий `PurgeOldAuditLogsAsync` в отдельном scope.
++- `Model.cs` — добавлены индексы `AuditLog.At` и `Product.Category` (нужны обеим bulk-операциям, чтобы работать сканом по индексу, а не по таблице).
++
++## Решения
++
++- Повышение цен и restock/create не грузят лишние данные: цены поднимаются одним `ExecuteUpdateAsync` (UPDATE на сервере, без трекинга сущностей), а restock грузит только запрошенные Guid'ы через `Contains` (Npgsql транслирует в `= ANY(...)`, без разрастания параметров).
++- Для очистки AuditLogs (50 млн строк, ~40 млн под удаление) не годится ни `ExecuteDeleteAsync` целиком (одна многочасовая транзакция, распухание WAL/блокировки), ни `Take()`/`Skip()` внутри него — Npgsql не транслирует LIMIT в DELETE. Поэтому удаление батчами по 5000 через raw SQL с подзапросом `... WHERE At < cutoff LIMIT n` и паузой между батчами, чтобы не мешать репликации/autovacuum; метод сам завершает цикл, когда батч приходит неполным.
++- Nightly-запуск сделан отдельным `BackgroundService` со своим DI-scope (CatalogMaintenance/DbContext — scoped), а не таймером внутри самого сервиса, чтобы сервис оставался обычным scoped-классом без знания о хостинге. Регистрация в Program.cs (`AddScoped<CatalogMaintenance>()`, `AddHostedService<AuditLogPurgeHostedService>()`) в проекте не добавлялась — в каталоге нет файла хоста.

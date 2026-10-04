@@ -1,0 +1,97 @@
+{
+  "id": "9ec2d4",
+  "case": "V3",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.141155,
+    "durationMs": 12773,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 14015,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1430,
+      "output_tokens_details": {
+        "thinking_tokens": 272
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 14015,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1430,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 14015,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 14015
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "V3-promo-on-early-price": {
+      "verdict": "FOUND",
+      "quote": "в `PromoCode` указано: «По договорам с партнёрами скидка считается от полной цены билета, с ранним тарифом промокод не суммируется»",
+      "why": "Находка 8 связывает расчёт скидки от `BasePrice` (ранней цены) с правилом из комментария к PromoCode."
+    },
+    "V3-capacity-group-seats": {
+      "verdict": "FOUND",
+      "quote": "Когда создаётся `GroupOrder`, регистрации не создаются: участников вписывают позже, иногда за пару дней до начала. Получается, что купленные `Quantity` мест нигде не учитываются.",
+      "why": "Находка 1 называет неучёт невписанных мест групповых заказов во FreeSeatsAsync и перепродажу сверх 600 мест."
+    },
+    "V3-group-seat-reuse": {
+      "verdict": "FOUND",
+      "quote": "Условие `order.Participants.Count >= order.Quantity` учитывает и отменённые регистрации.",
+      "why": "Находка 5 указывает, что отменённые участники занимают место и замена получает 409."
+    },
+    "V3-orgadmin-passport": {
+      "verdict": "FOUND",
+      "quote": "`ParticipantDto` содержит `PassportNumber` и `PassportCountry`. Эндпоинт доступен ролям `Organizer` и `OrgAdmin`.",
+      "why": "Находка 6 связывает выдачу списка OrgAdmin с паспортными полями DTO вопреки правилу MR."
+    },
+    "V3-vat-on-top": {
+      "verdict": "FOUND",
+      "quote": "НДС начисляется сверху на цены, которые уже включают НДС",
+      "why": "Находка 3 называет дефект и даёт правильный расчёт amount*20/120, итог = amount."
+    },
+    "V3-invoice-before-idempotency": {
+      "verdict": "FOUND",
+      "quote": "Повтор POST создаёт в 1С второй счёт",
+      "why": "Находка 4 связывает внешний счёт до фиксации ключа с повтором по таймауту и сбоем SaveChanges."
+    },
+    "V3-promo-notracking": {
+      "verdict": "PASS",
+      "quote": "промокод загружается через `AsNoTracking()`, поэтому `promo.UsedCount++` change tracker не видит",
+      "why": "Находка 2 называет несохраняемый инкремент и предлагает атомарный ExecuteUpdate с условием UsedCount < UsageLimit."
+    },
+    "V3-unspecified-timestamptz": {
+      "verdict": "PASS",
+      "quote": "`from.ToDateTime(TimeOnly.MinValue)` даёт `Kind=Unspecified`, и Npgsql бросает исключение при передаче параметра",
+      "why": "Находка 7 называет падение на timestamptz и предлагает границы в UTC с учётом часового пояса."
+    },
+    "V3-h-partial-unique-index": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Фильтрованный индекс не назван ошибочным, а слова о UserId = null касаются дублей участников, не нарушения индекса."
+    },
+    "V3-h-unique-violation-catch": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Перехват UniqueViolation в RegisterAsync не оспаривается и замена на AnyAsync не предлагается."
+    }
+  },
+  "stderr": ""
+}

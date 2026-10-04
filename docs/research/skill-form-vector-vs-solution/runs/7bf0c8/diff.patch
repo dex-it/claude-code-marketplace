@@ -1,0 +1,83 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..14c009f
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,77 @@
++# Результаты ревью MR !87
++
++## Найденные дефекты
++
++### 1. BatchService.cs:49 — Неправильная пагинация
++**Метод**: `ListAsync`  
++**Проблема**: `Skip(page * pageSize)` вместо `Skip((page - 1) * pageSize)`
++
++```csharp
++.Skip(page * pageSize)  // ❌ Неправильно
++.Take(pageSize)
++```
++
++**Почему дефект**: При page=1 (первая страница) будет пропущено 20 элементов. Первая страница вернёт элементы 21-40 вместо 1-20. Пагинация полностью сломана.
++
++**Severity**: CRITICAL
++
++---
++
++### 2. BatchService.cs:105 — Нетранслируемое условие в LINQ-to-SQL
++**Метод**: `CompliancePercentAsync`  
++**Проблема**: `.All()` на коллекции в SQL-запросе
++
++```csharp
++var compliant = await _db.Samples
++    .CountAsync(s => s.BatchId == batchId && s.Results.All(r => r.Value <= r.Limit));
++    // ❌ s.Results.All() — нетранслируемо в SQL
++```
++
++**Почему дефект**: EF Core не может перевести `.All()` на ненагруженную коллекцию в SQL-запрос. Results не загружена через Include, поэтому при выполнении будет исключение InvalidOperationException или NullReferenceException.
++
++**Severity**: CRITICAL
++
++---
++
++### 3. BatchService.cs:107 — Целочисленное деление вместо вещественного
++**Метод**: `CompliancePercentAsync`  
++**Проблема**: `compliant / total * 100`
++
++```csharp
++return compliant / total * 100;  // ❌ Целочисленное деление
++```
++
++**Почему дефект**: При целочисленном делении `5 / 10 * 100` даст 0, а не 50. Нужно либо `(compliant * 100) / total`, либо привести к decimal: `(int)((decimal)compliant / total * 100)`. Также не обработан случай деления на ноль (total = 0).
++
++**Severity**: HIGH
++
++---
++
++### 4. LabDbContext.cs:25 — Отсутствует конфигурация DateTimeKind для PlannedLocal
++**Метод**: `OnModelCreating`  
++**Проблема**: PlannedLocal хранит местное время, но без явной конфигурации Kind
++
++```csharp
++e.Property(s => s.PlannedLocal).HasColumnType("timestamp without time zone");
++```
++
++**Почему дефект**: Правило 18 SKILL.md предписывает: при использовании `timestamp without time zone` значения пишутся как Kind=Unspecified, а при чтении помечаются как Utc. Но PlannedLocal — это местное время объекта (по комментарию в Sample), а не UTC. При чтении из БД значение будет неправильно интерпретировано как Utc. Нужна явная конфигурация через ValueConverter для сохранения Kind=Unspecified при чтении:
++
++```csharp
++e.Property(s => s.PlannedLocal)
++    .HasColumnType("timestamp without time zone")
++    .HasConversion(
++        v => v,
++        v => DateTime.SpecifyKind(v, DateTimeKind.Unspecified));
++```
++
++**Severity**: MEDIUM
++
++---
++
++## Итого
++- **CRITICAL**: 2 дефекта (пагинация, нетранслируемое условие)
++- **HIGH**: 1 дефект (целочисленное деление)
++- **MEDIUM**: 1 дефект (DateTimeKind)
++
++Рекомендация: исправить CRITICAL перед мержем, так как код упадёт в runtime.

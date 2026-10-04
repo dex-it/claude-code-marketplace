@@ -1,0 +1,54 @@
+diff --git a/CustomerNotifier.cs b/CustomerNotifier.cs
+new file mode 100644
+index 0000000..1c34828
+--- /dev/null
++++ b/CustomerNotifier.cs
+@@ -0,0 +1,35 @@
++using Microsoft.EntityFrameworkCore;
++
++namespace Shop;
++
++public class CustomerNotifier
++{
++    private readonly ShopDbContext _db;
++    private readonly IEmailSender _emailSender;
++
++    public CustomerNotifier(ShopDbContext db, IEmailSender emailSender)
++    {
++        _db = db;
++        _emailSender = emailSender;
++    }
++
++    public async Task NotifyCustomers(IEnumerable<Guid> customerIds, string text, CancellationToken ct = default)
++    {
++        // Материализовать в HashSet: удаляет дубли и позволяет повторный обход
++        var uniqueIds = new HashSet<Guid>(customerIds);
++
++        if (uniqueIds.Count == 0)
++            return;
++
++        // Загрузить customers один раз
++        var customers = await _db.Customers
++            .Where(c => uniqueIds.Contains(c.Id))
++            .ToListAsync(ct);
++
++        // Отправить письма каждому
++        foreach (var customer in customers)
++        {
++            await _emailSender.SendAsync(customer.Email, "Уведомление", text, ct);
++        }
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..dffa7a0
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,7 @@
++# Решение: CustomerNotifier
++
++## Созданные/изменённые файлы
++- **CustomerNotifier.cs** (создан)
++
++## Описание решения
++Добавлен класс `CustomerNotifier` с методом `NotifyCustomers(IEnumerable<Guid> customerIds, string text)`. Решение учитывает ловушки SKILL.md: (1) IEnumerable материализуется в HashSet для удаления дубликатов и безопасного повторного обхода; (2) customers загружаются один раз из БД через Where + ToListAsync; (3) письма отправляются в цикле через IEmailSender.SendAsync каждому клиенту.

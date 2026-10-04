@@ -1,0 +1,92 @@
+{
+  "id": "9004dd",
+  "case": "GR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.116615,
+    "durationMs": 15323,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 10295,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1691,
+      "output_tokens_details": {
+        "thinking_tokens": 595
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 10295,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1691,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 10295,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 10295
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GR-offday-rows": {
+      "verdict": "PASS",
+      "quote": "Здесь же после проекции идут `.Where(r => r.OffDay)` и `.OrderByDescending(r => r.Km)`, и они ссылаются на это клиентское значение.",
+      "why": "Названо, что клиентский WorkCalendar.IsWorkingDay в проекции не транслируется под Where и FLEET-109 падает всегда; предложено фильтровать в памяти или передать даты в SQL."
+    },
+    "GR-open-semicolon": {
+      "verdict": "PASS",
+      "quote": "Точка с запятой внутри подзапроса даёт синтаксическую ошибку, ответ 500.",
+      "why": "Описана композиция Where поверх FromSqlRaw с ';', объяснено, почему вариант без фильтра прошёл проверку, предложено убрать ';' и ORDER BY в LINQ."
+    },
+    "GR-equipment-clear": {
+      "verdict": "PASS",
+      "quote": "`FindVehicleAsync` грузит машину без `.Include(v => v.Equipment)`, поэтому `vehicle.Equipment.Clear()` очищает пустую коллекцию",
+      "why": "Названы нарушение уникального индекса (vehicle_id, code) и накопление старых позиций; предложены Include или явное удаление."
+    },
+    "GR-model-length": {
+      "verdict": "PASS",
+      "quote": "В описании MR прямо сказано, что длинные модели есть («принтер обрезал на середине»), поэтому bundle на prod упадёт.",
+      "why": "Указано, что ALTER TYPE не обрезает значения и падает с 22001; предложено ограничивать длину в печатной форме или готовить данные до миграции."
+    },
+    "GR-last-inspection": {
+      "verdict": "PASS",
+      "quote": "У всех осмотров пачки одинаковый `CreatedAt`, и `FirstOrDefault` вернёт произвольный из них.",
+      "why": "Неуникальный порядок из-за общего now() в одном SaveChanges назван, последствия для выпуска на линию описаны, предложен тай-брейк по Id; связь со SplitQuery не упомянута, но дефект тот же по существу."
+    },
+    "GR-permit-lastday": {
+      "verdict": "FOUND",
+      "quote": "в коде стоит `p.ValidUntil > today`. В последний день срока водителя не выпустят на линию.",
+      "why": "Дефект назван, предложено исправление на >=."
+    },
+    "GR-equipment-auth": {
+      "verdict": "FOUND",
+      "quote": "комплектацию любой машины может перезаписать любой аутентифицированный пользователь, включая водителя или HR",
+      "why": "Указано отсутствие политики, предложено RequireAuthorization(\"Mechanic\")."
+    },
+    "GR-h-permits-clear": {
+      "verdict": "NO",
+      "quote": "Сравните с `DriverService.ReplacePermitsAsync`: там `Include` есть.",
+      "why": "ReplacePermitsAsync приведён как корректный образец, а не как дефект."
+    },
+    "GR-h-plate-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByPlateAsync в выходе не упоминается."
+    }
+  },
+  "stderr": ""
+}

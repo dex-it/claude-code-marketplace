@@ -1,0 +1,121 @@
+{
+  "id": "bbea2f",
+  "case": "CFG",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0819114,
+    "durationMs": 18324,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 4707,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 2191,
+      "output_tokens_details": {
+        "thinking_tokens": 1023
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4707,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2191,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 4707,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 4707
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "CFG-K9": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Выход не сравнивает MaxInFlight между Staging (20) и Production (5)."
+    },
+    "CFG-K8": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Повтор MaxRetries 5 в Staging и Production при том же дефолте не упомянут."
+    },
+    "CFG-h-required": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Модификатор required нигде не предлагается и не упоминается."
+    },
+    "CFG-K1": {
+      "verdict": "FOUND",
+      "quote": "Пароли и API ключи в открытом виде в исходном коде",
+      "why": "Названы пароль БД и ключ mailrelay в appsettings.Production.json как критическая проблема."
+    },
+    "CFG-K2": {
+      "verdict": "FOUND",
+      "quote": "GetValue вернёт 0 (default для int), что приведёт к DivideByZeroException",
+      "why": "Названы несовпадение ключа MessagesPerMinute/PerMinute, значение 0 и деление на ноль."
+    },
+    "CFG-K3": {
+      "verdict": "FOUND",
+      "quote": "OutboxOptionsValidator не зарегистрирован в DI контейнере",
+      "why": "Дефект назван по существу: валидация не выполняется; ValidateOnStart отдельно не упомянут."
+    },
+    "CFG-K4": {
+      "verdict": "FOUND",
+      "quote": "Используется `IOptions<OutboxOptions>` вместо `IOptionsMonitor<OutboxOptions>`",
+      "why": "Находка связана с требованием MR менять значения на лету без рестарта."
+    },
+    "CFG-K5": {
+      "verdict": "FOUND",
+      "quote": "Логика адаптивного батчинга сломается",
+      "why": "Названо, что 200/100 в Production ломает adaptive batching; механизм описан неточно (Math.Max/Min вместо условия if), но дефект тот же."
+    },
+    "CFG-K6": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Про PollInterval есть только проверка > 0; пауза 500 с из-за TimeSpan.FromSeconds не названа."
+    },
+    "CFG-K7": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "SmtpOptions Host/FromAddress без дефолта и проверки не упомянуты."
+    },
+    "CFG-h-P1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находка про IOptions касается только OutboxWorker, а не SmtpMailSender."
+    },
+    "CFG-h-P2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "LockTimeout в выходе не упоминается."
+    },
+    "CFG-O1": {
+      "verdict": "FOUND",
+      "quote": "Сообщения помечаются как отправленные (`m.SentAt = now`) ДО того, как они фактически отправлены",
+      "why": "Назван тот же дефект: SentAt ставится до отправки, и сообщение теряется."
+    },
+    "CFG-O2": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Несовпадение GetSection(\"Mail\") и секции Smtp не названо."
+    },
+    "CFG-O3": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Подстановка ${NOTIFY_DB_PASSWORD} в Staging не упомянута."
+    }
+  },
+  "stderr": ""
+}

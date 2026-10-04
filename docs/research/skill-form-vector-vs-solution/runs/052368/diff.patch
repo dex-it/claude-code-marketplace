@@ -1,0 +1,80 @@
+diff --git a/Model.cs b/Model.cs
+index cc90064..1a0c9ba 100644
+--- a/Model.cs
++++ b/Model.cs
+@@ -11,6 +11,7 @@ public class Order
+     public string Status { get; set; } = "active";
+     public string Category { get; set; } = "";
+     public decimal Total { get; set; }
++    public int Complexity { get; set; }               // сложность комплектации: 1..5
+     public DateTime CreatedAt { get; set; }          // column: timestamp without time zone
+     public DateTime? ShippedAt { get; set; }
+     public bool IsDeleted { get; set; }
+@@ -44,7 +45,30 @@ public class ShopDbContext : DbContext
+     protected override void OnModelCreating(ModelBuilder b)
+     {
+         b.Entity<Order>().HasQueryFilter(o => !o.IsDeleted);
+-        b.Entity<Order>().Property(o => o.CreatedAt).HasColumnType("timestamp without time zone");
++
++        // Колонка timestamp without time zone неизменна (на неё смотрят отчёты DBA);
++        // конвертер хранит UTC-момент как Unspecified и восстанавливает Kind=Utc при чтении.
++        b.Entity<Order>().Property(o => o.CreatedAt)
++            .HasColumnType("timestamp without time zone")
++            .HasConversion(
++                v => DateTime.SpecifyKind(v, DateTimeKind.Unspecified),
++                v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
++
++        b.Entity<Order>().ToTable(t => t.HasCheckConstraint("CK_Order_Complexity", "\"Complexity\" BETWEEN 1 AND 5"));
++
++        // FK зависимых без каскада: реальное удаление Items/Payments делает код (см. ClearItemsAsync),
++        // а не БД - Order удаляется только мягко (IsDeleted).
++        b.Entity<Order>()
++            .HasMany(o => o.Items)
++            .WithOne()
++            .HasForeignKey(i => i.OrderId)
++            .OnDelete(DeleteBehavior.Restrict);
++
++        b.Entity<Order>()
++            .HasMany(o => o.Payments)
++            .WithOne()
++            .HasForeignKey(p => p.OrderId)
++            .OnDelete(DeleteBehavior.Restrict);
+     }
+ }
+ // Options: UseNpgsql(cs).UseLazyLoadingProxies()
+diff --git a/OrderRepository.cs b/OrderRepository.cs
+index 72637b8..06d30fc 100644
+--- a/OrderRepository.cs
++++ b/OrderRepository.cs
+@@ -6,4 +6,16 @@ public class OrderRepository
+     public OrderRepository(ShopDbContext db) => _db = db;
+     public Task<List<Order>> GetAllAsync() => _db.Orders.ToListAsync();
+     public Task<Order?> GetAsync(Guid id) => _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
++
++    public async Task ClearItemsAsync(Guid orderId)
++    {
++        var order = await _db.Orders.Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == orderId);
++        if (order is null) return;
++
++        // FK Items->Order настроен как Restrict (required-связь): нельзя просто очистить
++        // навигацию, нужно явно удалить зависимые строки, иначе SaveChanges бросит исключение.
++        _db.RemoveRange(order.Items);
++        order.Items.Clear();
++        await _db.SaveChangesAsync();
++    }
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..5418f0e
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,9 @@
++Изменённые файлы:
++- Model.cs
++- OrderRepository.cs
++
++Решения:
++- `Complexity` (int) добавлен в `Order`; ограничение 1..5 задано check-constraint'ом в `OnModelCreating` (не CLR-валидацией), т.к. колонка и так `int` и check-constraint защищает от некорректных значений на уровне БД.
++- Колонку `CreatedAt` трогать нельзя (`timestamp without time zone`), поэтому вместо смены типа добавлен `HasConversion`: при записи `Kind=Utc` превращается в `Unspecified` (иначе Npgsql 8 бросит исключение при вставке `Kind=Utc` в `timestamp without time zone`), при чтении `Unspecified` помечается обратно как `Utc` — в коде везде остаётся UTC, отчёты DBA видят тот же тип колонки и те же значения.
++- `Order->Items` и `Order->Payments` сконфигурированы с `OnDelete(DeleteBehavior.Restrict)`: раз `Order` удаляется только мягко (`IsDeleted` + `HasQueryFilter`), БД-каскад для реального удаления не нужен и опасен — зависимые строки должен удалять код явно.
++- `ClearItemsAsync(orderId)` в `OrderRepository`: т.к. связь required и `Restrict`, простое `Items.Clear()` (разрыв FK) в `SaveChanges` бросило бы `InvalidOperationException`; вместо этого зависимые `OrderItem` удаляются явно через `RemoveRange` перед `SaveChangesAsync`.

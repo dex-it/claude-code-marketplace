@@ -1,0 +1,67 @@
+{
+  "id": "4137aa",
+  "case": "G4",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.086215,
+    "durationMs": 7014,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 8995,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 691,
+      "output_tokens_details": {
+        "thinking_tokens": 205
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8995,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 691,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 8995,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 8995
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G4-year-closed": {
+      "verdict": "PASS",
+      "quote": ".FirstOrDefaultAsync(p => p.Month == yearMonth);",
+      "why": "Месяц сравнивается с new YearMonth(year, month) целиком, к членам YearMonth внутри запроса к ClosedPeriods обращений нет, поэтому EF транслирует запрос через конвертер."
+    },
+    "G4-client-projects": {
+      "verdict": "PASS",
+      "quote": "foreach (var project in projects)\n            _db.Projects.Remove(project);",
+      "why": "Проекты загружаются без Include(Entries) и удаляются через Remove + SaveChangesAsync, поэтому override переводит их в мягкое удаление, а записи времени остаются в БД."
+    },
+    "G4-code-index": {
+      "verdict": "FAIL",
+      "quote": "e.HasIndex(p => p.Code).IsUnique();",
+      "why": "Миграция создаёт полный уникальный индекс без HasFilter по IsDeleted и не устраняет дубли кодов у удалённых и заведённых заново проектов; в ответе утверждается «без потери данных», хотя на prod CREATE UNIQUE INDEX упадёт."
+    },
+    "G4-h-month-equality": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "EnsureOpenAsync в diff не тронут, сравнение p.Month == month дефектом не названо."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,51 @@
+{
+  "id": "68d0b2",
+  "case": "K1",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.039951400000000005,
+    "durationMs": 4042,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 4192,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 299,
+      "output_tokens_details": {
+        "thinking_tokens": 136
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4192,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 299,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 4192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 4192
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "K1-key": {
+      "verdict": "PASS",
+      "quote": "builder.Services.AddKeyedSingleton<INotificationSender, SmsSender>(NotificationChannels.Sms);",
+      "why": "Ключи объявлены один раз константами в NotificationChannels и используются и в AddKeyedSingleton, и в [FromKeyedServices] (OrderService, ReportsController); строковые литералы ключей встречаются только в объявлении констант."
+    }
+  },
+  "stderr": ""
+}

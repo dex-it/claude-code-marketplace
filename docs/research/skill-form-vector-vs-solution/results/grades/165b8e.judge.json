@@ -1,0 +1,66 @@
+{
+  "id": "165b8e",
+  "case": "E2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0371514,
+    "durationMs": 7908,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 2727,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 745,
+      "output_tokens_details": {
+        "thinking_tokens": 297
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 2727,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 745,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 2727,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 2727
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "E2-single": {
+      "verdict": "FAIL",
+      "quote": "return await query.FirstOrDefaultAsync();",
+      "why": "При warehouse == null метод молча берёт первый продукт с этим SKU с любого склада и не сообщает о неоднозначности."
+    },
+    "E2-h-split": {
+      "verdict": "NO",
+      "quote": "прямой запрос с Include для Items и Payments",
+      "why": "Карточка заказа действительно грузится одним JOIN без split, но выход не обосновывает это тем, что для одной сущности split не нужен, и AsSplitQuery не удаляет."
+    },
+    "E2-m-cart": {
+      "verdict": "YES",
+      "quote": ".Include(o => o.Items)\n            .Include(o => o.Payments)\n            .AsNoTracking();",
+      "why": "Заказы клиента грузятся с двумя коллекциями в Include одним запросом, без AsSplitQuery и без проекции, поэтому возникает декартов взрыв."
+    },
+    "E2-m-nullagg": {
+      "verdict": "NO",
+      "quote": "o.ShippedAt.HasValue ... return lastShippedDate ?? DateTime.MinValue;",
+      "why": "Null отфильтрован до выборки, результат обработан через ??, а `!` и .Value на nullable-агрегате не используются."
+    }
+  },
+  "stderr": ""
+}

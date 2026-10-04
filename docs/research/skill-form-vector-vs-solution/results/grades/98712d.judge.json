@@ -1,0 +1,97 @@
+{
+  "id": "98712d",
+  "case": "V1",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.116755,
+    "durationMs": 10623,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 11595,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1178,
+      "output_tokens_details": {
+        "thinking_tokens": 175
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11595,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1178,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 11595,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 11595
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "V1-hold-late-payment": {
+      "verdict": "FOUND",
+      "quote": "Неоплаченная бронь держит место 30 минут, а ссылка на оплату действует 24 часа.",
+      "why": "Истечение 30-минутного удержания и 24-часовая ссылка связаны с безусловным подтверждением в вебхуке и двумя подтверждёнными бронями на одном месте."
+    },
+    "V1-kopecks-cast": {
+      "verdict": "FOUND",
+      "quote": "`(long)rubles * 100` сначала отбрасывает копейки, потом умножает: 1234,56 ₽ превращается в 123400 коп.",
+      "why": "Названы приоритет приведения, неподтверждённая бронь и урезанный возврат."
+    },
+    "V1-extend-long-stay": {
+      "verdict": "FOUND",
+      "quote": "Если в итоге получилась неделя (например, 2 + 5 ночей), скидка 10 % не применяется.",
+      "why": "Указано, что скидка за длительность не учитывает всю стоянку при продлении."
+    },
+    "V1-beam-not-checked": {
+      "verdict": "FOUND",
+      "quote": "Сравнивается только длина, `BeamM` с `MaxBeamM` не сравнивается",
+      "why": "Отсутствие проверки ширины названо прямо."
+    },
+    "V1-calendar-vessel-pii": {
+      "verdict": "FOUND",
+      "quote": "анонимный эндпоинт отдаёт полную карточку судна: ФИО и телефон шкипера, бортовой номер, номер страхового полиса",
+      "why": "Анонимный календарь связан с персональными полями VesselDto."
+    },
+    "V1-tariff-singleton-state": {
+      "verdict": "FOUND",
+      "quote": "Калькулятор зарегистрирован как singleton, а буфер `_nights` у него общий и изменяемый.",
+      "why": "Изменяемое поле связано с singleton-регистрацией и параллельными запросами."
+    },
+    "V1-seasonal-rates-not-loaded": {
+      "verdict": "PASS",
+      "quote": "место загружается через `FromSql ... FOR UPDATE` без сезонных ставок",
+      "why": "Названы отсутствие Include, расчёт по базовой ставке и расхождение с калькулятором, предложен Include."
+    },
+    "V1-h-fromsql-interpolated": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FromSql не объявлен SQL-инъекцией, замена на FromSqlRaw не требуется."
+    },
+    "V1-h-xmin-timestamp": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Отображение xmin через [Timestamp] uint не оспаривается: упомянута только необработанная DbUpdateConcurrencyException."
+    },
+    "V1-h-dateonly-mapping": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Конвертер DateOnly не требуется, замена на DateTime не предлагается."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,92 @@
+{
+  "id": "848ee2",
+  "case": "BN",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.113695,
+    "durationMs": 11613,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 11105,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1221,
+      "output_tokens_details": {
+        "thinking_tokens": 252
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11105,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1221,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 11105,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 11105
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "BN-h-local-time": {
+      "verdict": "NO",
+      "quote": "`timestamp without time zone` для `ScheduledLocal` вместе с `SpecifyKind(Unspecified)` ... Это соответствует README.",
+      "why": "Хранение локального времени в Unspecified выход признал корректным и UTC не требует."
+    },
+    "BN-h-split-card": {
+      "verdict": "NO",
+      "quote": "В `GetCardAsync` `AsNoTracking` и явный split query оправданы двумя большими коллекциями.",
+      "why": "Split query в GetCardAsync выход признал уместным."
+    },
+    "BN-h-tracking": {
+      "verdict": "NO",
+      "quote": "загрузить только статус процедуры и нужную строку ... либо выполнить `ExecuteDeleteAsync`",
+      "why": "AsNoTracking выход нигде не предлагает: п.5 касается объёма загрузки, а не отключения отслеживания."
+    },
+    "BN-h-chip-single": {
+      "verdict": "NO",
+      "quote": "`SingleOrDefault` по `ChipNumber` опирается на уникальный индекс.",
+      "why": "SingleOrDefault выход признал корректным."
+    },
+    "BN-h-fromsql": {
+      "verdict": "NO",
+      "quote": "Сама параметризация в порядке: `FromSql` с интерполяцией передаёт `{text}` как параметр.",
+      "why": "Инъекций выход не нашёл ни в SearchNotesAsync, ни в GetConsumptionAsync, а белый список сортировки отметил как корректный."
+    },
+    "BN-h-tolower": {
+      "verdict": "NO",
+      "quote": "`FindByTitleAsync` транслируется в SQL.",
+      "why": "Трансляцию ToLower/Contains выход подтвердил."
+    },
+    "BN-h-consumable-remove": {
+      "verdict": "NO",
+      "quote": "Сам механизм удаления корректен: FK обязательный, каскад по умолчанию, поэтому `Remove` из коллекции удалит сироту.",
+      "why": "Удаление через коллекцию выход признал корректным; п.4 говорит о гонке со статусом, а не о неработающем Remove."
+    },
+    "BN-pagination": {
+      "verdict": "FOUND",
+      "quote": "По контракту MR страницы нумеруются с 1, а код делает `Skip(page * PageSize)`. Для `page=1` пропускаются первые 30 процедур дня.",
+      "why": "Дефект назван точно, исправление предложено: Skip((page - 1) * PageSize)."
+    },
+    "BN-dose-grams": {
+      "verdict": "FOUND",
+      "quote": "Код читает вес в граммах (`Pet.WeightGrams`) и сразу умножает его на дозировку в мг/кг",
+      "why": "Выход называет завышение объёма в 1000 раз из-за отсутствия деления на 1000."
+    }
+  },
+  "stderr": ""
+}

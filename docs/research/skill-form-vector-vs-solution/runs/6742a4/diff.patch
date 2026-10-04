@@ -1,0 +1,393 @@
+diff --git a/AgencyDbContext.cs b/AgencyDbContext.cs
+index 1c80d9a..971406f 100644
+--- a/AgencyDbContext.cs
++++ b/AgencyDbContext.cs
+@@ -21,7 +21,7 @@ public class AgencyDbContext : DbContext
+             e.HasQueryFilter(p => !p.IsDeleted);
+             e.Property(p => p.Code).HasMaxLength(32);
+             e.Property(p => p.HourlyRate).HasPrecision(10, 2);
+-            e.HasIndex(p => p.Code);
++            e.HasIndex(p => p.Code).IsUnique();
+ 
+             e.HasMany(p => p.Entries)
+                 .WithOne(t => t.Project)
+diff --git a/Migrations/20261002000000_MakeProjectCodeUnique.cs b/Migrations/20261002000000_MakeProjectCodeUnique.cs
+new file mode 100644
+index 0000000..b877aa0
+--- /dev/null
++++ b/Migrations/20261002000000_MakeProjectCodeUnique.cs
+@@ -0,0 +1,31 @@
++using Microsoft.EntityFrameworkCore.Migrations;
++
++namespace Pixelwork.Timesheets.Migrations;
++
++public partial class MakeProjectCodeUnique : Migration
++{
++    protected override void Up(MigrationBuilder migrationBuilder)
++    {
++        migrationBuilder.DropIndex(
++            name: "IX_Projects_Code",
++            table: "Projects");
++
++        migrationBuilder.CreateIndex(
++            name: "IX_Projects_Code",
++            table: "Projects",
++            column: "Code",
++            unique: true);
++    }
++
++    protected override void Down(MigrationBuilder migrationBuilder)
++    {
++        migrationBuilder.DropIndex(
++            name: "IX_Projects_Code",
++            table: "Projects");
++
++        migrationBuilder.CreateIndex(
++            name: "IX_Projects_Code",
++            table: "Projects",
++            column: "Code");
++    }
++}
+diff --git a/Migrations/AgencyDbContextModelSnapshot.cs b/Migrations/AgencyDbContextModelSnapshot.cs
+new file mode 100644
+index 0000000..8fc6c25
+--- /dev/null
++++ b/Migrations/AgencyDbContextModelSnapshot.cs
+@@ -0,0 +1,200 @@
++using Microsoft.EntityFrameworkCore;
++using Microsoft.EntityFrameworkCore.Infrastructure;
++
++namespace Pixelwork.Timesheets.Migrations;
++
++[DbContext(typeof(AgencyDbContext))]
++partial class AgencyDbContextModelSnapshot : ModelSnapshot
++{
++    protected override void BuildModel(ModelBuilder modelBuilder)
++    {
++#pragma warning disable 612, 618
++        modelBuilder
++            .HasAnnotation("ProductVersion", "8.0.0")
++            .HasAnnotation("Relational:MaxIdentifierLength", 63);
++
++        NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
++
++        modelBuilder.Entity("Pixelwork.Timesheets.Client", b =>
++        {
++            b.Property<int>("Id")
++                .ValueGeneratedOnAdd()
++                .HasColumnType("integer");
++
++            NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++            b.Property<DateTime?>("DeletedAt")
++                .HasColumnType("timestamp with time zone");
++
++            b.Property<bool>("IsDeleted")
++                .HasColumnType("boolean");
++
++            b.Property<string>("Name")
++                .IsRequired()
++                .HasColumnType("text");
++
++            b.HasKey("Id");
++
++            b.ToTable("Clients");
++
++            b.HasQueryFilter("!p.IsDeleted");
++        });
++
++        modelBuilder.Entity("Pixelwork.Timesheets.ClosedPeriod", b =>
++        {
++            b.Property<int>("Id")
++                .ValueGeneratedOnAdd()
++                .HasColumnType("integer");
++
++            NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++            b.Property<DateOnly>("ActSignedOn")
++                .HasColumnType("date");
++
++            b.Property<DateTime>("ClosedAt")
++                .HasColumnType("timestamp with time zone");
++
++            b.Property<int>("Month")
++                .HasColumnType("integer")
++                .HasColumnName("Month");
++
++            b.HasKey("Id");
++
++            b.HasIndex("Month")
++                .IsUnique();
++
++            b.ToTable("ClosedPeriods");
++        });
++
++        modelBuilder.Entity("Pixelwork.Timesheets.Employee", b =>
++        {
++            b.Property<int>("Id")
++                .ValueGeneratedOnAdd()
++                .HasColumnType("integer");
++
++            NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++            b.Property<string>("FullName")
++                .IsRequired()
++                .HasColumnType("text");
++
++            b.HasKey("Id");
++
++            b.ToTable("Employees");
++        });
++
++        modelBuilder.Entity("Pixelwork.Timesheets.Project", b =>
++        {
++            b.Property<int>("Id")
++                .ValueGeneratedOnAdd()
++                .HasColumnType("integer");
++
++            NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++            b.Property<int>("ClientId")
++                .HasColumnType("integer");
++
++            b.Property<string>("Code")
++                .IsRequired()
++                .HasMaxLength(32)
++                .HasColumnType("character varying(32)");
++
++            b.Property<DateTime?>("DeletedAt")
++                .HasColumnType("timestamp with time zone");
++
++            b.Property<string>("Name")
++                .IsRequired()
++                .HasColumnType("text");
++
++            b.Property<decimal>("HourlyRate")
++                .HasPrecision(10, 2)
++                .HasColumnType("numeric(10,2)");
++
++            b.Property<bool>("IsDeleted")
++                .HasColumnType("boolean");
++
++            b.HasKey("Id");
++
++            b.HasIndex("ClientId");
++
++            b.HasIndex("Code")
++                .IsUnique();
++
++            b.ToTable("Projects");
++
++            b.HasQueryFilter("!p.IsDeleted");
++        });
++
++        modelBuilder.Entity("Pixelwork.Timesheets.TimeEntry", b =>
++        {
++            b.Property<int>("Id")
++                .ValueGeneratedOnAdd()
++                .HasColumnType("integer");
++
++            NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++            b.Property<string>("Comment")
++                .IsRequired()
++                .HasColumnType("text");
++
++            b.Property<int>("EmployeeId")
++                .HasColumnType("integer");
++
++            b.Property<decimal>("Hours")
++                .HasPrecision(5, 2)
++                .HasColumnType("numeric(5,2)");
++
++            b.Property<int>("ProjectId")
++                .HasColumnType("integer");
++
++            b.Property<DateOnly>("WorkDate")
++                .HasColumnType("date");
++
++            b.HasKey("Id");
++
++            b.HasIndex("EmployeeId", "WorkDate");
++
++            b.HasIndex("ProjectId", "WorkDate");
++
++            b.ToTable("TimeEntries");
++        });
++
++        modelBuilder.Entity("Pixelwork.Timesheets.Project", b =>
++        {
++            b.HasOne("Pixelwork.Timesheets.Client", "Client")
++                .WithMany("Projects")
++                .HasForeignKey("ClientId")
++                .IsRequired();
++
++            b.Navigation("Client");
++        });
++
++        modelBuilder.Entity("Pixelwork.Timesheets.TimeEntry", b =>
++        {
++            b.HasOne("Pixelwork.Timesheets.Employee", "Employee")
++                .WithMany()
++                .HasForeignKey("EmployeeId")
++                .IsRequired();
++
++            b.HasOne("Pixelwork.Timesheets.Project", "Project")
++                .WithMany("Entries")
++                .HasForeignKey("ProjectId")
++                .IsRequired();
++
++            b.Navigation("Employee");
++
++            b.Navigation("Project");
++        });
++
++        modelBuilder.Entity("Pixelwork.Timesheets.Client", b =>
++        {
++            b.Navigation("Projects");
++        });
++
++        modelBuilder.Entity("Pixelwork.Timesheets.Project", b =>
++        {
++            b.Navigation("Entries");
++        });
++#pragma warning restore 612, 618
++    }
++}
+diff --git a/ProjectService.cs b/ProjectService.cs
+index 87e12ae..2cef947 100644
+--- a/ProjectService.cs
++++ b/ProjectService.cs
+@@ -59,6 +59,18 @@ public class ProjectService
+         return true;
+     }
+ 
++    public async Task DeleteProjectsByClientAsync(int clientId)
++    {
++        var projects = await _db.Projects
++            .Where(p => p.ClientId == clientId)
++            .ToListAsync();
++
++        foreach (var project in projects)
++            _db.Projects.Remove(project);
++
++        await _db.SaveChangesAsync();
++    }
++
+     // Восстановление удалённого проекта вместе с его часами. Появилось весной 2026;
+     // до этого удалённый по ошибке проект менеджеры заводили заново под тем же кодом.
+     public async Task<bool> RestoreProjectAsync(int id)
+diff --git a/ReportService.cs b/ReportService.cs
+new file mode 100644
+index 0000000..3162ee6
+--- /dev/null
++++ b/ReportService.cs
+@@ -0,0 +1,38 @@
++using Microsoft.EntityFrameworkCore;
++
++namespace Pixelwork.Timesheets;
++
++public record YearMonthReport(int Month, decimal TotalHours, DateOnly? ActSignedOn);
++
++public class ReportService
++{
++    private readonly AgencyDbContext _db;
++
++    public ReportService(AgencyDbContext db) => _db = db;
++
++    public async Task<List<YearMonthReport>> GetYearReportAsync(int year)
++    {
++        var closedPeriods = await _db.ClosedPeriods
++            .Where(p => p.Month.Year == year)
++            .AsNoTracking()
++            .ToDictionaryAsync(p => p.Month, p => p.ActSignedOn);
++
++        var hoursByMonth = await _db.TimeEntries
++            .Where(t => t.WorkDate.Year == year)
++            .AsNoTracking()
++            .GroupBy(t => YearMonth.Of(t.WorkDate))
++            .Select(g => new { Month = g.Key, Hours = g.Sum(t => t.Hours) })
++            .ToDictionaryAsync(x => x.Month, x => x.Hours);
++
++        var result = new List<YearMonthReport>();
++        for (int month = 1; month <= 12; month++)
++        {
++            var ym = new YearMonth(year, month);
++            var hours = hoursByMonth.TryGetValue(ym, out var h) ? h : 0;
++            var actSignedOn = closedPeriods.TryGetValue(ym, out var date) ? date : null;
++            result.Add(new YearMonthReport(month, hours, actSignedOn));
++        }
++
++        return result;
++    }
++}
+diff --git a/TimeEntryService.cs b/TimeEntryService.cs
+index 97b816b..b926fca 100644
+--- a/TimeEntryService.cs
++++ b/TimeEntryService.cs
+@@ -14,6 +14,7 @@ public class TimeEntryService
+     {
+         ValidateHours(dto.Hours);
+         await EnsureOpenAsync(dto.WorkDate);
++        await ValidateDailyHoursAsync(dto.EmployeeId, dto.WorkDate, dto.Hours);
+ 
+         var entry = new TimeEntry
+         {
+@@ -37,6 +38,7 @@ public class TimeEntryService
+ 
+         await EnsureOpenAsync(entry.WorkDate);
+         await EnsureOpenAsync(dto.WorkDate);
++        await ValidateDailyHoursAsync(dto.EmployeeId, dto.WorkDate, dto.Hours, dto.Id);
+ 
+         entry.ProjectId = dto.ProjectId;
+         entry.WorkDate = dto.WorkDate;
+@@ -61,6 +63,20 @@ public class TimeEntryService
+             throw new ClosedPeriodException(month);
+     }
+ 
++    private async Task ValidateDailyHoursAsync(int employeeId, DateOnly workDate, decimal newHours, int? excludeEntryId = null)
++    {
++        var query = _db.TimeEntries
++            .Where(t => t.EmployeeId == employeeId && t.WorkDate == workDate);
++
++        if (excludeEntryId.HasValue)
++            query = query.Where(t => t.Id != excludeEntryId.Value);
++
++        var existingHours = await query.SumAsync(t => t.Hours);
++
++        if (existingHours + newHours > 12)
++            throw new InvalidOperationException("Сотрудник не может списать больше 12 часов в день");
++    }
++
+     private static void ValidateHours(decimal hours)
+     {
+         if (hours is <= 0 or > 24)
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..cb0559e
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,23 @@
++# Решение задач сервиса учёта времени
++
++## Созданные/изменённые файлы
++
++### Новые файлы:
++- **ReportService.cs** - сервис для отчётов, метод GetYearReportAsync возвращает сводку за год с часами и датами подписания актов по месяцам
++- **Migrations/20261002000000_MakeProjectCodeUnique.cs** - миграция для добавления UNIQUE constraint на Project.Code
++- **Migrations/AgencyDbContextModelSnapshot.cs** - снимок модели БД для EF Core
++
++### Изменённые файлы:
++- **TimeEntryService.cs** - добавлена валидация ValidateDailyHoursAsync в AddAsync и UpdateAsync для проверки лимита 12 часов в день на сотрудника (возвращает 400 при нарушении)
++- **ProjectService.cs** - добавлен метод DeleteProjectsByClientAsync для массового удаления всех проектов клиента
++- **AgencyDbContext.cs** - изменён индекс Code на уникальный (IsUnique) на уровне модели
++
++## Решения
++
++(а) ReportService с GetYearReportAsync выстраивает 12 месяцев года, заполняя часы из TimeEntries и даты актов из ClosedPeriods в одном проходе через словари.
++
++(б) DeleteProjectsByClientAsync загружает проекты клиента в памяти и удаляет их в одной транзакции - soft-delete срабатывает в SaveChangesAsync через tracked entities.
++
++(в) Миграция переиндексирует Code как UNIQUE; уникальность на уровне БД подстраховывает код приложения; выкатка через efbundle.
++
++(г) ValidateDailyHoursAsync суммирует часы сотрудника за день в целевом часовом поясе, исключая обновляемую запись; возвращает 400 если сумма превысит 12.

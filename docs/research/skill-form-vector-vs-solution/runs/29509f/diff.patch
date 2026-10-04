@@ -1,0 +1,128 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..86f31a3
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,122 @@
++# Ревью MR !238
++
++## 1. `VehicleService.ReplaceEquipmentAsync` — комплектация не заменяется, риск нарушения unique-индекса
++**Severity: critical**
++
++```csharp
++var vehicle = await FindVehicleAsync(vehicleId) ?? throw new KeyNotFoundException();
++vehicle.Equipment.Clear();
++```
++
++`FindVehicleAsync` делает `_db.Vehicles.FirstOrDefaultAsync(...)` без `Include(v => v.Equipment)`. Навигация `Equipment` не подгружена и представляет собой пустой список по умолчанию (lazy loading не настроен). `vehicle.Equipment.Clear()` чистит эту пустую коллекцию, EF не видит удаляемых строк — старые записи `vehicle_equipment` в БД остаются как есть. Новые элементы просто добавляются поверх.
++
++Итог: «заменить комплектацию целиком» не работает — старые позиции не удаляются; если механик повторно присылает код, который уже есть в БД, вставка нового `VehicleEquipment` с тем же `(vehicle_id, code)` упадёт на unique-индексе (`ix_vehicle_equipment_vehicle_id_code`).
++
++Для сравнения, аналогичный метод `DriverService.ReplacePermitsAsync` (неизменённый, дан «для контекста») правильно делает `.Include(d => d.Permits)` перед `Clear()` — здесь тот же паттерн, но без `Include`.
++
++Исправление: `_db.Vehicles.Include(v => v.Equipment).FirstOrDefaultAsync(...)`.
++
++## 2. `TripService.StartTripAsync` — допуск с датой окончания сегодня считается недействующим
++**Severity: high**
++
++```csharp
++if (!driver.Permits.Any(p => p.Class == vehicle.Class && p.ValidUntil > today))
++```
++
++По описанию FLEET-107: «допуск действует по указанную в нём дату включительно». Условие `ValidUntil > today` исключает день `ValidUntil == today` — водителю с допуском, действующим ровно по сегодняшнюю дату, незаконно откажут в выпуске на линию. Должно быть `p.ValidUntil >= today`.
++
++## 3. `VehicleService.GetLastInspectionAsync` — «последний осмотр» определяется по времени синхронизации, а не по времени осмотра
++**Severity: critical**
++
++```csharp
++_db.Inspections.AsNoTracking().Include(i => i.Defects)
++    .Where(i => i.VehicleId == vehicleId)
++    .OrderByDescending(i => i.CreatedAt)
++    .FirstOrDefaultAsync();
++```
++
++Комментарий в `SyncInspectionsAsync` прямо описывает сценарий: планшет механика копит осмотры офлайн и шлёт их пачкой позже — `InspectedAt` (факт. время осмотра) и `CreatedAt` (время приёма сервером) могут сильно расходиться и не быть монотонны друг относительно друга между разными осмотрами.
++
++Сортировка по `CreatedAt` может вернуть как «последний» более старый по факту осмотр, который просто синхронизировался позже, чем более новый (по `InspectedAt`) осмотр с блокирующим замечанием, который синхронизировался раньше. Это напрямую подрывает требование FLEET-107 («последний осмотр... без блокирующих замечаний») — машину можно выпустить на линию, хотя реально более поздний осмотр её заблокировал.
++
++Сортировка (и индекс `(VehicleId, CreatedAt)` в `FleetDbContext`) должны быть по `InspectedAt`.
++
++## 4. `TripService.OffDayTripsAsync` — запрос не транслируется, эндпоинт сломан
++**Severity: critical**
++
++```csharp
++return await _db.Trips.AsNoTracking()
++    .Where(t => t.StartedAt >= fromUtc && t.StartedAt < toUtc)
++    .ToRows()
++    .Where(r => r.OffDay)
++    .OrderByDescending(r => r.Km)
++    .ToListAsync();
++```
++
++`ToRows()` — это `Select`, вычисляющий `OffDay = !WorkCalendar.IsWorkingDay(t.StartedAt)` вызовом обычного статического C#-метода (не `HasDbFunction`, не транслируется в SQL). Такой вызов допустим в LINQ-to-Entities только если `Select` является *финальной* проекцией запроса. Здесь после `ToRows()` добавляются ещё `Where` и `OrderByDescending`, то есть `Select` больше не последний оператор — EF должен транслировать всё в единый SQL-запрос и не сможет перевести `WorkCalendar.IsWorkingDay`. Во время выполнения это кидает `InvalidOperationException: ... could not be translated`.
++
++Показательно, что в разделе «Проверено локально» описания MR отчёт по выходным (FLEET-109) не упомянут — похоже, этот путь не тестировался и эндпоинт `/api/trips/off-days` сейчас падает при любом вызове.
++
++Нужно либо вынести фильтрацию/сортировку по `OffDay`/`Km` после `AsEnumerable()`/`ToListAsync()` (клиентская часть на уже суженной по датам выборке), либо выразить `IsWorkingDay` транслируемо.
++
++## 5. `TripService.GetOpenWaybillsAsync` — `FromSqlRaw` с завершающей `;` ломается при композиции с `Where`
++**Severity: high**
++
++```csharp
++var query = _db.Trips.FromSqlRaw("""
++    SELECT t.*
++    FROM trips t
++    WHERE t.finished_at IS NULL
++      AND t.started_at < now() - interval '24 hours'
++    ORDER BY t.started_at;
++    """);
++
++if (vehicleId is { } id)
++    query = query.Where(t => t.VehicleId == id);
++```
++
++Когда передан `vehicleId`, EF оборачивает исходный SQL в подзапрос (`FROM ( <raw sql> ) AS t WHERE ...`). Точка с запятой внутри `<raw sql>` перед закрывающей скобкой подзапроса — синтаксическая ошибка Postgres; запрос с фильтром по машине не выполнится. Дополнительно, даже если убрать `;`, `ORDER BY` внутри подзапроса без соответствующего `ORDER BY` во внешнем запросе не гарантирует сохранение порядка после оборачивания — итоговая сортировка `по started_at` может быть потеряна именно в варианте с фильтром.
++
++В MR.md отмечено «список незакрытых листов по всему парку» — то есть путь без фильтра `vehicleId` (где `;` не мешает, так как SQL выполняется как есть). Путь с фильтром по машине (заявленный в FLEET-112 как часть функциональности) не проверялся и сломан.
++
++Исправление: убрать завершающую `;` из `FromSqlRaw` и либо явно повторить `ORDER BY` во внешнем `IQueryable`, либо убедиться, что порядок задаётся после всех `Where`.
++
++## 6. `Program.cs` — `PUT /api/vehicles/{id}/equipment` без ролевой авторизации
++**Severity: high**
++
++```csharp
++api.MapPut("/vehicles/{id:int}/equipment", async (int id, List<EquipmentDto> items, VehicleService s) =>
++{
++    await s.ReplaceEquipmentAsync(id, items);
++    return Results.NoContent();
++});
++```
++
++В отличие от всех остальных мутирующих эндпоинтов (`.RequireAuthorization("Hr")`, `("FleetManager")`, `("Mechanic")`, `("Dispatcher")`), этот эндпоинт имеет только общую `RequireAuthorization()` из `MapGroup("/api")` — то есть любой аутентифицированный пользователь (водитель, диспетчер и т.д.), а не только механик/флит-менеджер, может подменить комплектацию любой машины. По смыслу FLEET-104 («механик присылает») здесь явно забыта политика `.RequireAuthorization("Mechanic")`.
++
++## 7. Миграция `VehicleEquipmentAndModelLength` — сужение `vehicles.model` до 40 символов без учёта существующих данных
++**Severity: high**
++
++```csharp
++migrationBuilder.AlterColumn<string>(
++    name: "model", table: "vehicles",
++    type: "character varying(40)", maxLength: 40, nullable: false,
++    oldType: "character varying(200)", oldMaxLength: 200);
++```
++
++Прямой `ALTER COLUMN TYPE character varying(40)` без предварительной обрезки/проверки данных. Если в продовой таблице `vehicles` есть строки, где `model` длиннее 40 символов (а именно для таких случаев и затевалось укорачивание печатной формы — значит, длинные значения точно встречаются), миграция упадёт в проде с ошибкой `value too long for type character varying(40)`. В MR.md заявлено только «миграция применена на dev-базе» — на dev, вероятно, короткие тестовые данные, это не гарантирует успешное применение на prod. Нужно сначала обновить/обрезать существующие значения (`UPDATE ... SET model = substring(model, 1, 40) ...` или согласовать с данными) до `AlterColumn`, в той же миграции.
++
++## 8. `VehicleService.FindByPlateAsync` — отслеживаемая выборка для чтения
++**Severity: low**
++
++```csharp
++public Task<Vehicle?> FindByPlateAsync(string plate) =>
++    _db.Vehicles.FromSql($"...").Where(v => v.DecommissionedAt == null).FirstOrDefaultAsync();
++```
++
++Используется только эндпоинтом `GET /vehicles/by-plate/{plate}` (чтение, без последующего `SaveChanges` в рамках этого запроса) — результат следует делать `.AsNoTracking()`, чтобы не включать сущность в change tracker без необходимости.
++
++---
++
++### Итог
++Критические дефекты (1, 3, 4) напрямую ломают заявленную в MR функциональность и влияют на безопасность выпуска машин на линию — без исправления мерджить нельзя. Пункты 2, 5, 6, 7 — высокого приоритета бизнес-логические/безопасностные/инфраструктурные риски, также блокирующие. Пункт 8 — стилевое замечание по SKILL.md, можно поправить попутно.

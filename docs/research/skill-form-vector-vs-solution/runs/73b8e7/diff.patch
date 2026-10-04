@@ -1,0 +1,70 @@
+diff --git a/OrderQueries.cs b/OrderQueries.cs
+new file mode 100644
+index 0000000..86fc267
+--- /dev/null
++++ b/OrderQueries.cs
+@@ -0,0 +1,42 @@
++namespace Shop.Data;
++
++public class OrderQueries
++{
++    private readonly ShopDbContext _db;
++
++    public OrderQueries(ShopDbContext db) => _db = db;
++
++    // (а) Карточка одного заказа по Id со всеми позициями и платежами
++    public async Task<Order?> GetOrderCardAsync(Guid orderId) =>
++        await _db.Orders
++            .AsNoTracking()
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            .FirstOrDefaultAsync(o => o.Id == orderId);
++
++    // (б) Выгрузка всех заказов клиента с позициями и платежами
++    public async Task<List<Order>> GetCustomerOrdersAsync(Guid customerId) =>
++        await _db.Orders
++            .AsNoTracking()
++            .Where(o => o.CustomerId == customerId)
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            .AsSplitQuery()
++            .ToListAsync();
++
++    // (в) Продукт по SKU и складу (warehouse может быть null)
++    public async Task<Product?> GetProductBySkuAsync(string sku, string? warehouse) =>
++        await _db.Products
++            .AsNoTracking()
++            .Where(p => p.Sku == sku && (warehouse == null || p.Warehouse == warehouse))
++            .FirstOrDefaultAsync();
++
++    // (г) Дата отгрузки последнего отгруженного заказа клиента (DateTime, не nullable)
++    public async Task<DateTime> GetLastShippedDateAsync(Guid customerId) =>
++        await _db.Orders
++            .AsNoTracking()
++            .Where(o => o.CustomerId == customerId && o.ShippedAt != null)
++            .OrderByDescending(o => o.ShippedAt)
++            .Select(o => o.ShippedAt!.Value)
++            .FirstOrDefaultAsync();
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..1794053
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,16 @@
++# OrderQueries — решение
++
++## Созданные файлы
++- **OrderQueries.cs** — сервис с четырьмя методами
++
++## Решения
++
++1. **(а) GetOrderCardAsync** — Include для одной сущности (Join эффективнее чем AsSplitQuery на small result set). Include(Items) и Include(Payments) для загрузки позиций и платежей без N+1.
++
++2. **(б) GetCustomerOrdersAsync** — AsSplitQuery для множественных Include (избегает cartesian explosion на тысячах заказов: Orders + Items + Payments отдельными запросами вместо JOIN). AsNoTracking защищает от раздувания Change Tracker.
++
++3. **(в) GetProductBySkuAsync** — условный Where: `(warehouse == null || p.Warehouse == warehouse)` в одном запросе. Если warehouse null, ищет по SKU; иначе по SKU + Warehouse. FirstOrDefault для любого сценария.
++
++4. **(г) GetLastShippedDateAsync** — фильтр на сервере (ShippedAt != null), OrderByDescending, Select на DateTime.Value, FirstOrDefault вернёт default(DateTime) если нет отгруженных заказов.
++
++Все методы используют `AsNoTracking()` для read-only, фильтры в Where до Include/Select.

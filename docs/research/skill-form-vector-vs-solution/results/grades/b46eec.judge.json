@@ -1,0 +1,102 @@
+{
+  "id": "b46eec",
+  "case": "V2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.133579,
+    "durationMs": 12977,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 12888,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1502,
+      "output_tokens_details": {
+        "thinking_tokens": 294
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 12888,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1502,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 12888,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 12888
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "V2-coi-organization": {
+      "verdict": "FOUND",
+      "quote": "проверяется только условие `a.ApplicantId == expert.Id`. Сравнения `a.OrganizationInn == expert.OrganizationInn` нет.",
+      "why": "Названо отсутствие сверки ИНН организации эксперта и заявки со ссылкой на п. 4.3 и на AssignAsync/ReassignAsync."
+    },
+    "V2-reassign-draft-carryover": {
+      "verdict": "FOUND",
+      "quote": "`Scores`, `Comment`, `Total` и `Status = Draft` остаются от прежнего эксперта.",
+      "why": "Назван перенос черновых баллов и комментария новому эксперту и предложен сброс до Assigned."
+    },
+    "V2-ranking-expert-access": {
+      "verdict": "FOUND",
+      "quote": "роль `Expert` добавили в `[Authorize]` на уровне всего класса. Из-за этого экспертам открылись и `GET {id}/ranking`, и `GET {id}/ranking.csv`",
+      "why": "Указано, что через атрибут класса эксперты получают доступ к рейтингу и CSV."
+    },
+    "V2-tiebreak-created": {
+      "verdict": "FOUND",
+      "quote": "стоит `.ThenBy(x => x.CreatedAt)`, а это дата создания черновика в личном кабинете",
+      "why": "Указано, что используется CreatedAt вместо SubmittedAt."
+    },
+    "V2-csv-culture": {
+      "verdict": "FOUND",
+      "quote": "Через `UseRequestLocalization` с ru-RU по умолчанию это `85,5` и `150000,00`. Значения не экранируются, а разделитель полей тоже запятая.",
+      "why": "Культура ru-RU связана с десятичной запятой и сдвигом столбцов в CSV."
+    },
+    "V2-deadline-last-day": {
+      "verdict": "FOUND",
+      "quote": "приём оценок закрывается в начале дня дедлайна, а не после него",
+      "why": "Указано, что граница стоит в начале дня дедлайна и последний день исключён."
+    },
+    "V2-parallel-dbcontext": {
+      "verdict": "PASS",
+      "quote": "`ToListAsync` и `CountAsync` запускаются одновременно через `Task.WhenAll` на одном scoped-экземпляре `GrantsDbContext`.",
+      "why": "Назван InvalidOperationException и предложено выполнять запросы последовательно."
+    },
+    "V2-string-equals-comparison": {
+      "verdict": "PASS",
+      "quote": "EF Core 8 / Npgsql не умеют переводить в SQL `a.Region.Equals(r, StringComparison.OrdinalIgnoreCase)`",
+      "why": "Указан отказ трансляции, предложены EF.Functions.ILike и citext/collation."
+    },
+    "V2-h-collection-replace-orphans": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находок о задвоении старых ReviewScore при замене коллекции в SaveAsync нет."
+    },
+    "V2-h-filtered-include": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находка 12 касается загрузки полных сущностей; поддержку filtered include она не оспаривает и не утверждает, что загрузятся все отзывы."
+    },
+    "V2-h-executeupdate-in-transaction": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Не утверждается, что ExecuteUpdate в CloseReview не сохраняется или выпадает из транзакции."
+    }
+  },
+  "stderr": ""
+}

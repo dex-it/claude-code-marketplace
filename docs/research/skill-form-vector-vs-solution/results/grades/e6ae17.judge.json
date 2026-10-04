@@ -1,0 +1,67 @@
+{
+  "id": "e6ae17",
+  "case": "G1",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.087523,
+    "durationMs": 9511,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 8946,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 776,
+      "output_tokens_details": {
+        "thinking_tokens": 244
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8946,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 776,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 8946,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 8946
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G1-debtors-fine": {
+      "verdict": "FAIL",
+      "quote": ".ToLoanRows(LocalToday(branch), _rules)\n            .Where(r => r.Fine > 0)\n            .OrderByDescending(r => r.Fine)\n            .ToListAsync();",
+      "why": "Where и OrderByDescending по Fine применены к IQueryable после ToLoanRows. Fine вычисляется клиентским Fines.Amount, EF это не транслирует, и GET /branches/{id}/debtors упадёт с «could not be translated»; к тому же нет отбора DueDate < today."
+    },
+    "G1-period-offset": {
+      "verdict": "FAIL",
+      "quote": ".Where(l => l.IssuedAt >= from && l.IssuedAt < to)",
+      "why": "DateTimeOffset из тела запроса со смещением +05:00 передаётся в сравнение с timestamptz без приведения к смещению 0. Npgsql такое значение не отправит, и отчёт упадёт."
+    },
+    "G1-h-loanrows": {
+      "verdict": "NO",
+      "quote": "Должники переиспользуют ToLoanRows/LoanRow (тот же формат, что и выдачи читателя на кафедре)",
+      "why": "Исполнитель не называл ToLoanRows или GetActiveLoansAsync дефектом и не менял их."
+    },
+    "G1-h-today-utc": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "CountIssuedTodayAsync в diff не затронут, утверждений о нём нет."
+    }
+  },
+  "stderr": ""
+}

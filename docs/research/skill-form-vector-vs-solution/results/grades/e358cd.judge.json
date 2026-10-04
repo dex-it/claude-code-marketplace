@@ -1,0 +1,87 @@
+{
+  "id": "e358cd",
+  "case": "GN",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.07699500000000001,
+    "durationMs": 8563,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 7355,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 886,
+      "output_tokens_details": {
+        "thinking_tokens": 237
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7355,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 886,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 7355,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 7355
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GN-h-datetime": {
+      "verdict": "NO",
+      "quote": "граница `UtcNow.Date.AddDays(-days)` фактически возвращает N+1 суток",
+      "why": "Находка касается ширины диапазона, а не потери Kind или падения на timestamptz; PlannedLocal не затронут, код не менялся."
+    },
+    "GN-h-card-split": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "AsSplitQuery в GetCardAsync выход не упоминает."
+    },
+    "GN-h-inanalysis-tracking": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Добавить AsNoTracking в GetInAnalysisForBatchAsync выход не предлагает, кода не правит."
+    },
+    "GN-h-fromsql": {
+      "verdict": "NO",
+      "quote": "SQL-инъекций в `FromSql` нет (параметризовано через интерполяцию)",
+      "why": "Выход прямо подтверждает, что запрос параметризован."
+    },
+    "GN-h-retag-clear": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Tags.Clear() в RetagAsync дефектом не назван."
+    },
+    "GN-h-labcode-single": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "SingleOrDefaultAsync в FindByLabCodeAsync дефектом не назван."
+    },
+    "GN-percent-int": {
+      "verdict": "FOUND",
+      "quote": "`return compliant / total * 100;` — `compliant` и `total` имеют тип `int`",
+      "why": "Названы и целочисленное деление, и DivideByZeroException на пустой партии."
+    },
+    "GN-page-offset": {
+      "verdict": "FOUND",
+      "quote": "Должно быть `Skip((page - 1) * pageSize)`.",
+      "why": "Назван off-by-one при нумерации страниц с 1: первая страница пропускается."
+    }
+  },
+  "stderr": ""
+}

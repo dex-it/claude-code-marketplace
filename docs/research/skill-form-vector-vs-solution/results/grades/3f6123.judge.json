@@ -1,0 +1,66 @@
+{
+  "id": "3f6123",
+  "case": "E2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.053439400000000005,
+    "durationMs": 7839,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 4478,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 859,
+      "output_tokens_details": {
+        "thinking_tokens": 315
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4478,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 859,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 4478,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 4478
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "E2-single": {
+      "verdict": "PASS",
+      "quote": "if (found.Count > 1) throw new InvalidOperationException($\"SKU '{sku}' is stocked in several warehouses; warehouse must be specified.\");",
+      "why": "Если склад равен null, метод берёт Take(2) и при нескольких складах бросает явное исключение со своим сообщением, так что склад не выбирается молча."
+    },
+    "E2-h-split": {
+      "verdict": "YES",
+      "quote": "// (а) Один заказ: одна сущность - один round-trip; декартово произведение Items x Payments одного заказа мало.",
+      "why": "Карточка заказа грузит Items и Payments одним запросом через AsSingleQuery, а обоснование в том, что для одной сущности split не нужен."
+    },
+    "E2-m-cart": {
+      "verdict": "NO",
+      "quote": "ToCard(_db.Orders.Where(o => o.CustomerId == customerId).OrderBy(o => o.Id)).AsSplitQuery()",
+      "why": "Выгрузка заказов клиента идёт через проекцию с AsSplitQuery, поэтому декартова произведения двух коллекций нет."
+    },
+    "E2-m-nullagg": {
+      "verdict": "NO",
+      "quote": ".Where(o => o.CustomerId == customerId && o.ShippedAt != null).MaxAsync(o => o.ShippedAt, ct); return last ?? throw",
+      "why": "Фильтр ShippedAt != null стоит до агрегата, а вместо `!` или .Value результат обрабатывается через `??` с явным исключением."
+    }
+  },
+  "stderr": ""
+}

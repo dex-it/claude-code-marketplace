@@ -1,0 +1,72 @@
+{
+  "id": "7b5935",
+  "case": "G5",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.117651,
+    "durationMs": 12773,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 11302,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1340,
+      "output_tokens_details": {
+        "thinking_tokens": 704
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11302,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1340,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 11302,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 11302
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G5-login-email": {
+      "verdict": "PASS",
+      "quote": "var student = await _db.Students.FirstOrDefaultAsync(s => s.Email.ToLower() == normalizedEmail);",
+      "why": "Single/SingleOrDefault не используется, поэтому две карточки, различающиеся регистром e-mail, не вызывают InvalidOperationException; при этом FirstOrDefault без OrderBy формально не гарантирует, что запрос и проверка выберут одну и ту же карточку."
+    },
+    "G5-graduates-school": {
+      "verdict": "PASS",
+      "quote": ".IgnoreQueryFilters()\n            .Where(i => i.SchoolId == _db.SchoolId && instructorIds.Contains(i.Id))",
+      "why": "Студенты выбираются с фильтром запроса по школе, а уволенные инструкторы подгружаются отдельным запросом с IgnoreQueryFilters и явным условием по SchoolId, поэтому их имена попадают в отчёт."
+    },
+    "G5-instructor-list": {
+      "verdict": "PASS",
+      "quote": "s.PassportNo.Length > 4 ? new string('*', s.PassportNo.Length - 4) + s.PassportNo[^4..] : \"****\"",
+      "why": "Маска применяется к полю DTO, а отслеживаемые сущности Student не меняются и MaskForInstructor не вызывается, так что SaveChangesFilter ничего не запишет."
+    },
+    "G5-h-find-exact": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByEmailAsync в diff не изменён, и дефектом он не назван."
+    },
+    "G5-m-notracking": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "NoTracking по умолчанию не включён, а SaveChangesFilter не удалён и навешен на новые группы."
+    }
+  },
+  "stderr": ""
+}

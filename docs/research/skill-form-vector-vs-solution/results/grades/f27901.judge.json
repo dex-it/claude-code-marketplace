@@ -1,0 +1,61 @@
+{
+  "id": "f27901",
+  "case": "L5",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.024951400000000002,
+    "durationMs": 4240,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 2132,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 373,
+      "output_tokens_details": {
+        "thinking_tokens": 103
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 2132,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 373,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 2132,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 2132
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "L5-dedup": {
+      "verdict": "PASS",
+      "quote": "var ids = customerIds.Distinct().ToList();",
+      "why": "Дедуп выполняется один раз по всему входу до разбиения на пачки, поэтому повторённый id получает одно письмо."
+    },
+    "L5-h-chunk": {
+      "verdict": "YES",
+      "quote": "foreach (var batch in ids.Chunk(BatchSize))",
+      "why": "Запрос режется на пачки по 500, и обоснование — размер IN: «а не одним гигантским IN (…)»."
+    },
+    "L5-m-enum": {
+      "verdict": "NO",
+      "quote": "customerIds.Distinct().ToList()",
+      "why": "customerIds перечисляется один раз, дальше код работает с материализованным списком ids."
+    }
+  },
+  "stderr": ""
+}

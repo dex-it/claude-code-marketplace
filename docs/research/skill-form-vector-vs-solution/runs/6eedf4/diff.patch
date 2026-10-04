@@ -1,0 +1,78 @@
+diff --git a/OrderQueries.cs b/OrderQueries.cs
+new file mode 100644
+index 0000000..797ef38
+--- /dev/null
++++ b/OrderQueries.cs
+@@ -0,0 +1,55 @@
++namespace Shop.Data;
++
++public class OrderQueries
++{
++    private readonly ShopDbContext _db;
++    public OrderQueries(ShopDbContext db) => _db = db;
++
++    // (a) Карточка заказа: одна выборка, AsSplitQuery - у заказа две коллекции (Items, Payments),
++    // без него EF даёт декартово произведение строк.
++    public Task<Order?> GetOrderCardAsync(Guid id, CancellationToken ct = default) =>
++        _db.Orders
++            .AsNoTracking()
++            .AsSplitQuery()
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            .FirstOrDefaultAsync(o => o.Id == id, ct);
++
++    // (b) У клиента могут быть тысячи заказов - отдаём поток вместо List<Order>, чтобы не держать
++    // всё в памяти сразу; AsSplitQuery по той же причине, что и выше. ORDER BY обязателен для
++    // split query, иначе части результата могут не соответствовать друг другу между запросами.
++    public IAsyncEnumerable<Order> StreamOrdersByCustomerAsync(Guid customerId, CancellationToken ct = default) =>
++        _db.Orders
++            .AsNoTracking()
++            .AsSplitQuery()
++            .Where(o => o.CustomerId == customerId)
++            .OrderBy(o => o.CreatedAt).ThenBy(o => o.Id)
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            .AsAsyncEnumerable();
++
++    // (c) SKU уникален только в пределах склада. Если warehouse не передан, а один и тот же SKU
++    // лежит на нескольких складах - однозначно выбрать товар нельзя, поэтому SingleOrDefaultAsync
++    // бросит исключение при неоднозначности вместо того, чтобы молча вернуть случайную строку.
++    public Task<Product?> GetProductBySku(string sku, string? warehouse, CancellationToken ct = default)
++    {
++        var query = _db.Products.AsNoTracking().Where(p => p.Sku == sku);
++        if (!string.IsNullOrEmpty(warehouse))
++            query = query.Where(p => p.Warehouse == warehouse);
++
++        return query.SingleOrDefaultAsync(ct);
++    }
++
++    // (г) Возвращаемый тип не nullable по требованию - если у клиента нет отгруженных заказов,
++    // это исключительная ситуация, а не обычное "нет данных".
++    public async Task<DateTime> GetLastShippedAtAsync(Guid customerId, CancellationToken ct = default)
++    {
++        var shippedAt = await _db.Orders
++            .AsNoTracking()
++            .Where(o => o.CustomerId == customerId && o.ShippedAt != null)
++            .MaxAsync(o => (DateTime?)o.ShippedAt, ct);
++
++        return shippedAt ?? throw new InvalidOperationException(
++            $"Customer {customerId} has no shipped orders.");
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..e59a842
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,11 @@
++Создан файл:
++- OrderQueries.cs — новый сервис `OrderQueries` (namespace `Shop.Data`) с методами:
++  - `GetOrderCardAsync(Guid id)` — заказ + Items + Payments, `AsSplitQuery`/`AsNoTracking`.
++  - `StreamOrdersByCustomerAsync(Guid customerId)` — `IAsyncEnumerable<Order>` вместо `List<Order>`, чтобы не грузить тысячи заказов в память сразу; `AsSplitQuery` + явный `OrderBy`, что обязательно для корректности split query.
++  - `GetProductBySku(string sku, string? warehouse)` — если `warehouse` не передан, а SKU встречается на нескольких складах, `SingleOrDefaultAsync` бросит исключение вместо случайного результата (это единственный безопасный вариант при неполных входных данных).
++  - `GetLastShippedAtAsync(Guid customerId)` — `DateTime` (не nullable): при отсутствии отгруженных заказов бросает `InvalidOperationException`, т.к. контракт метода не допускает "нет значения".
++
++Решения:
++1. Для (a)/(б) используется `AsSplitQuery`, т.к. у `Order` две коллекции (`Items`, `Payments`) — без него получим декартово произведение строк; для (б) дополнительно поток (`IAsyncEnumerable`) вместо материализации всего списка, учитывая, что у клиента может быть тысячи заказов.
++2. Для (в) намеренно не подставляется "любой первый попавшийся" склад — при null и неоднозначности бросается исключение, чтобы бизнес-код не получил случайный товар с чужого склада.
++3. Для (г) выбран `MaxAsync` с явным приведением к `DateTime?` и последующей проверкой, а не `.Max()` над пустой последовательностью, чтобы явно контролировать сообщение об ошибке.

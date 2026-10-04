@@ -1,0 +1,102 @@
+{
+  "id": "85fe3b",
+  "case": "V2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.131867,
+    "durationMs": 12790,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 12864,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1426,
+      "output_tokens_details": {
+        "thinking_tokens": 166
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 12864,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1426,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 12864,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 12864
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "V2-coi-organization": {
+      "verdict": "FOUND",
+      "quote": "Проверки `a.OrganizationInn == expert.OrganizationInn` нет, поэтому заявки «своей» организации назначаются без ошибки.",
+      "why": "Названо, что Find не сверяет ИНН организации эксперта и заявки, со ссылкой на п. 4.3 и обещание MR."
+    },
+    "V2-reassign-draft-carryover": {
+      "verdict": "FOUND",
+      "quote": "Назначения в статусе `Draft` передаются как есть: `Scores`, `Comment`, `Total` и статус остаются от прежнего эксперта.",
+      "why": "Назван перенос черновых баллов и комментария к новому эксперту, нарушение слепоты и предложен сброс в Assigned."
+    },
+    "V2-ranking-expert-access": {
+      "verdict": "FOUND",
+      "quote": "Из-за этого `GET {id}/ranking` и `GET {id}/ranking.csv` тоже открылись любому эксперту.",
+      "why": "Указано, что атрибут класса с ролью Expert открывает рейтинг и CSV экспертам."
+    },
+    "V2-tiebreak-created": {
+      "verdict": "FOUND",
+      "quote": "при равных баллах сортировка по `CreatedAt`, а не по `SubmittedAt`",
+      "why": "Назван ровно этот дефект и его последствие на границе фонда."
+    },
+    "V2-csv-culture": {
+      "verdict": "FOUND",
+      "quote": "Интерполяция `{r.Score}` и `{r.RequestedAmount}` пишет запятую как разделитель дробной части (`87,5`, `150000,00`), и значения не берутся в кавычки.",
+      "why": "Культура ru-RU из Program.cs связана с десятичной запятой и разваливанием столбцов CSV."
+    },
+    "V2-deadline-last-day": {
+      "verdict": "FOUND",
+      "quote": "`utcNow < ReviewDeadline.ToDateTime(TimeOnly.MinValue, Utc)` означает «до 00:00 UTC дня дедлайна».",
+      "why": "Указано, что день дедлайна исключён и граница стоит в начале дня, а не в конце."
+    },
+    "V2-parallel-dbcontext": {
+      "verdict": "PASS",
+      "quote": "`ToListAsync` и `CountAsync` запускаются одновременно через `Task.WhenAll` на одном scoped `GrantsDbContext`.",
+      "why": "Названы параллельные операции на одном контексте, InvalidOperationException и последовательное выполнение как исправление."
+    },
+    "V2-string-equals-comparison": {
+      "verdict": "PASS",
+      "quote": "EF Core 8 / Npgsql не переводит `Equals` с `StringComparison` в SQL",
+      "why": "Указан отказ трансляции, предложены ILike, нормализация и citext/collation."
+    },
+    "V2-h-collection-replace-orphans": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находки о задвоении старых ReviewScore или о ручном RemoveRange нет; находка 9 касается конкурентности."
+    },
+    "V2-h-filtered-include": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Filtered include в ApplicationsController.Get дефектом не объявлен."
+    },
+    "V2-h-executeupdate-in-transaction": {
+      "verdict": "NO",
+      "quote": "`ExecuteUpdate` ставит `Expired`, а затем `SaveChanges` из `SaveAsync` перезаписывает статус",
+      "why": "Описана гонка между разными запросами, а не утверждение, что ExecuteUpdate вне транзакции или требует SaveChanges."
+    }
+  },
+  "stderr": ""
+}
