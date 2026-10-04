@@ -371,6 +371,7 @@ MCP конфигурации в каталоге `mcp/`. Подробнее: [mc
 | [SKILL_FRAMEWORK.md](./docs/SKILL_FRAMEWORK.md) | как устроен skill: жанры, поле активации, границы, размер |
 | [COMMAND_FRAMEWORK.md](./docs/COMMAND_FRAMEWORK.md) | как устроена команда-вход и чем она отличается от агента |
 | [MOD_FRAMEWORK.md](./docs/MOD_FRAMEWORK.md) | как устроен мод: function hooks, дерево `mods/`, `userConfig`, контракт типов, инструментарий |
+| [EXTENSION_MECHANISMS.md](./docs/EXTENSION_MECHANISMS.md) | справка: command hook, мод и Agent SDK - возможности рядом, когда что выбирать |
 | [VALIDATOR_RULES.md](./docs/VALIDATOR_RULES.md) | реестр правил валидаторов: что ловит каждое и где живёт его норма |
 | [CORPUS.md](./docs/CORPUS.md) | корпус проекта на диске: носители, уровни артефакта, ключи путей, кто судит |
 | [DEV_PROCESS_COVERAGE.md](./docs/DEV_PROCESS_COVERAGE.md) | карта «слот процесса разработки -> агент, который его закрывает» |
