@@ -12,7 +12,10 @@ stages/                   1 счета+Ledger+FX, ADR-0001..0005; 2 outbox, ADR-
 branches/                 ветки кейсов R1, R0, R2, R3
 ```
 
-Нужны SDK с рантаймом 8.0 и сеть до nuget.org; для звена декомпиляции - `ilspycmd`.
+Нужны SDK с рантаймом 8.0 и сеть до nuget.org; для звена декомпиляции - `ilspycmd`. `nuget.config`
+стадии 1 держит `Acme.*` только на `packages-local` (`packageSourceMapping`), остальное - на
+nuget.org, кэш пакетов - `.nuget/packages` в каталоге прогона: пакет с тем же именем на nuget.org не
+подменит закрытый, правка `vendor/` без смены версии не застрянет в общем кэше.
 
 ## Кейсы
 
