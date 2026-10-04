@@ -1,0 +1,66 @@
+{
+  "id": "637a30",
+  "case": "E2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.04947939999999999,
+    "durationMs": 7384,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 4343,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 715,
+      "output_tokens_details": {
+        "thinking_tokens": 263
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4343,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 715,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 4343,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 4343
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "E2-single": {
+      "verdict": "PASS",
+      "quote": "_ => throw new AmbiguousSkuException(sku),",
+      "why": "При warehouse == null и нескольких складах код через Take(2) распознаёт неоднозначность и бросает собственное исключение с сообщением, а не выбирает склад молча."
+    },
+    "E2-h-split": {
+      "verdict": "YES",
+      "quote": "// (a) One order: items x payments of a single order is small, so one round-trip is cheaper than split query.",
+      "why": "Карточка одного заказа проецирует обе коллекции Items и Payments с явным AsSingleQuery, а отказ от split обоснован тем, что у одного заказа их немного."
+    },
+    "E2-m-cart": {
+      "verdict": "NO",
+      "quote": ".AsSplitQuery()\n            .ToListAsync(ct);",
+      "why": "Выгрузка заказов клиента выполняется через AsSplitQuery, поэтому декартова произведения Items × Payments нет."
+    },
+    "E2-m-nullagg": {
+      "verdict": "NO",
+      "quote": ".Where(o => o.CustomerId == customerId && o.ShippedAt != null)",
+      "why": "Фильтр ShippedAt != null стоит до MaxAsync, а null-результат обрабатывается через ?? throw, без ! и .Value."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# run.sh <узел> <каталог> <кейс:вариант:повтор>...: прогон вариантов узла на кейсах, каждый - своим claude -p в своём репозитории.
+# Вариант - ключ таблицы NODES в <узел>/node.js. Параллельность - AUTO_NODES_JOBS (дефолт 6).
+set -eu
+
+here=$(cd "$(dirname "$0")" && pwd)
+node_name=${1:-}; out=${2:-}
+[ -n "$node_name" ] && [ -n "$out" ] && [ $# -ge 3 ] || { printf 'использование: %s <узел> <каталог> <кейс:вариант:повтор>...\n' "$0" >&2; exit 2; }
+shift 2
+mkdir -p "$out"; out=$(cd "$out" && pwd)
+plugin=$(cd "$here/../../plugins/auto/dex-auto" && pwd)
+to=$(command -v timeout || command -v gtimeout) || { printf 'run.sh: нет timeout (GNU coreutils; на macOS - gtimeout из brew coreutils)\n' >&2; exit 2; }
+tmp="${CLAUDE_CODE_TMPDIR:-${TMPDIR:-${TMP:-${TEMP:-/tmp}}}}/claude-$(id -u)"
+# timeout - из GNU coreutils; в стандартной macOS его нет, там он ставится как gtimeout.
+to=$(command -v timeout || command -v gtimeout) || { printf 'нет timeout (GNU coreutils; на macOS - brew install coreutils)\n' >&2; exit 2; }
+node "$here/build.mjs" "$node_name" "$out/workflow.js" >/dev/null
+
+one() {
+  IFS=: read -r c v n <<< "$1"
+  id="$c-$v-$n"; d="$out/$id"
+  [ -e "$d" ] && { printf '%s: занят, пропуск\n' "$id"; return 0; }
+  mkdir -p "$d"
+  # set -eu в функцию под xargs bash -c не наследуется: пустой repo дал бы `cd ""`, на bash 3.2 это успех в текущем каталоге.
+  repo=$("$here/setup.sh" "$here/$node_name/$c" "$d/repo") || { printf '%s: setup упал\n' "$id"; return 1; }
+  [ -d "$repo" ] || { printf '%s: setup не отдал каталог\n' "$id"; return 1; }
+  args=$(printf '{"case": "%s", "cwd": "%s", "node": "%s", "base": "%s", "head": "%s"}' "$c" "$repo" "$v" "$(git -C "$repo" rev-parse main)" "$(git -C "$repo" rev-parse HEAD)")
+
+  (cd "$repo" && CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0 "$to" 3000 claude -p "Прогон зонда. Вызови Workflow со scriptPath $out/workflow.js и args $args.
+Он идёт в фоне: дождись возврата в этом же ходе циклом until в Bash (sleep 20 между проверками) по файлу вывода задачи <Task ID>.output - ищи find $tmp -name '<Task ID>.output'; готов - файл непуст и разбирается как JSON. Потолок ожидания 45 минут. Затем выведи содержимое файла дословно, без пересказа. Файлов не правь." \
+    --model sonnet --dangerously-skip-permissions --plugin-dir "$plugin" --output-format json > "$d/out.json" 2> "$d/err.log" < /dev/null; echo "exit $?" >> "$d/err.log")
+  printf '%s: %s\n' "$id" "$(tail -1 "$d/err.log")"
+}
+export -f one; export here node_name out plugin tmp to
+printf '%s\n' "$@" | xargs -P "${AUTO_NODES_JOBS:-6}" -I{} bash -c 'one "$@"' _ {}

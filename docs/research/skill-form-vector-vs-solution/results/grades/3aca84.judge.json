@@ -1,0 +1,111 @@
+{
+  "id": "3aca84",
+  "case": "R",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.09599540000000001,
+    "durationMs": 11822,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 8220,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1490,
+      "output_tokens_details": {
+        "thinking_tokens": 275
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8220,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1490,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 8220,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 8220
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "R-D3": {
+      "verdict": "PASS",
+      "quote": "условия ссылаются на `\"Products\".\"Category\"/\"Price\"` вместо алиаса `p`",
+      "why": "Находка прямо называет несовпадение полного имени таблицы и алиаса p в FromSqlRaw."
+    },
+    "R-D1": {
+      "verdict": "FOUND",
+      "quote": "`SingleAsync(p => p.Sku == sku)` без фильтра по складу, а по модели SKU уникален только в рамках склада",
+      "why": "Дефект назван по существу: SingleAsync по SKU, не уникальному между складами."
+    },
+    "R-D2": {
+      "verdict": "FOUND",
+      "quote": "`MaxAsync` вернёт `null`, если у клиента нет отгруженных заказов; `last!.Value` бросит `InvalidOperationException`",
+      "why": "Названы MaxAsync, возвращающий null, и падение на !.Value."
+    },
+    "R-D4": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "По Reprice есть только находка о валидации factor; UpdateRange на отслеживаемых сущностях не упомянут."
+    },
+    "R-D5": {
+      "verdict": "FOUND",
+      "quote": "scoped `ShopDbContext` внедрён напрямую в singleton `BackgroundService` (captive dependency)",
+      "why": "Дефект DbContext в конструкторе BackgroundService назван прямо."
+    },
+    "R-D6": {
+      "verdict": "FOUND",
+      "quote": "`Include(Items).Include(Payments)` без `AsSplitQuery()` (в отличие от `GetCard`), при тысячах заказов на клиента даёт картезианский взрыв",
+      "why": "Названы две коллекции Include без split на тысячах заказов."
+    },
+    "R-D7": {
+      "verdict": "FOUND",
+      "quote": "`FOR UPDATE` выполняется вне явной транзакции, поэтому блокировка строки снимается сразу после SELECT",
+      "why": "Дефект FOR UPDATE без транзакции назван прямо."
+    },
+    "R-D8": {
+      "verdict": "FOUND",
+      "quote": "нет optimistic concurrency (rowversion/`xmin`), хотя в MR явно сказано, что заказ правят несколько операторов одновременно",
+      "why": "Названо отсутствие concurrency token при правке заказа."
+    },
+    "R-D9": {
+      "verdict": "FOUND",
+      "quote": "нет переноса существующих значений `Orders.Category` в `Categories`/`OrderCategories` перед дропом колонки",
+      "why": "Назван DropColumn Category без переноса данных."
+    },
+    "R-K1": {
+      "verdict": "FOUND",
+      "quote": "тянет и трекает всю таблицу `Orders` в память и только потом фильтрует просрочку на клиенте",
+      "why": "Названы GetAllAsync и фильтрация IsOverdue в памяти."
+    },
+    "R-h-B1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Против AsSplitQuery в GetCard исполнитель ничего не заявляет, он ставит GetCard в пример."
+    },
+    "R-h-B2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находок про Kind=Unspecified или чтение как Utc нет."
+    },
+    "R-O1": {
+      "verdict": "FOUND",
+      "quote": "`order.Items.Sum(i => prices[i.ProductId])` игнорирует `Qty`; сумма должна быть `price * qty`",
+      "why": "Дефект суммы заказа без Qty назван прямо."
+    }
+  },
+  "stderr": ""
+}

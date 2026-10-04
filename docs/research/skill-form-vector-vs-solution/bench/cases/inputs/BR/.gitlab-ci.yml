@@ -1,0 +1,37 @@
+stages: [build, package, migrate, deploy]
+
+variables:
+  PROJECT: src/VetClinic.Hospital
+
+build:
+  stage: build
+  image: mcr.microsoft.com/dotnet/sdk:8.0
+  script:
+    - dotnet build $PROJECT -c Release
+    - dotnet test tests/VetClinic.Hospital.Tests -c Release
+
+migrations-sql:
+  stage: package
+  image: mcr.microsoft.com/dotnet/sdk:8.0
+  script:
+    - dotnet tool restore
+    - dotnet ef migrations script --idempotent --project $PROJECT --output artifacts/migrate.sql
+  artifacts:
+    paths: [artifacts/migrate.sql]
+
+# DBA просматривает artifacts/migrate.sql и запускает вручную под ролью vet_migrator.
+db-migrate:
+  stage: migrate
+  image: postgres:16
+  when: manual
+  environment: production
+  script:
+    - psql "$MIGRATOR_CONNECTION_STRING" -v ON_ERROR_STOP=1 --single-transaction -f artifacts/migrate.sql
+
+# Приложение подключается под ролью vet_app (только DML). Rolling update, 3 реплики.
+deploy:
+  stage: deploy
+  needs: [db-migrate]
+  environment: production
+  script:
+    - helm upgrade --install vet-hospital ./deploy/chart --set image.tag=$CI_COMMIT_SHA --set replicaCount=3

@@ -1,0 +1,72 @@
+{
+  "id": "bcf782",
+  "case": "G6",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.091987,
+    "durationMs": 9895,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 8954,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 996,
+      "output_tokens_details": {
+        "thinking_tokens": 393
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8954,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 996,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 8954,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 8954
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G6-sort-alias": {
+      "verdict": "PASS",
+      "quote": "if (s.HouseId is not null || !string.IsNullOrWhiteSpace(s.District) || s.Sort == \"address\")",
+      "why": "JOIN apartments и JOIN houses добавляются ровно один раз по объединённому условию, учитывающему и фильтры, и sort=address; dir приводится к ASC/DESC, а sort сравнивается с фиксированными значениями, остальное уходит в created_at."
+    },
+    "G6-search-columns": {
+      "verdict": "FAIL",
+      "quote": "public string? ContactPhone { get; set; }\n    public string? Comment { get; set; }",
+      "why": "В ServiceRequest добавлены два маппленных свойства, а явный список колонок SELECT в сыром SQL SearchAsync в diff не дополнен, поэтому FromSqlRaw не найдёт contact_phone/comment и реестр упадёт."
+    },
+    "G6-plan-orphans": {
+      "verdict": "FAIL",
+      "quote": "plan.Items.Remove(item);",
+      "why": "Работы убираются только из коллекции без _db.PlanItems.Remove; при DeleteOrphansTiming = Never SaveChanges бросит исключение о разорванной обязательной связи, а ответ ошибочно считает эту настройку гарантией сохранности."
+    },
+    "G6-h-move-items": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "MergePlansAsync не изменён, и выход не утверждает, что метод падает или теряет работы."
+    },
+    "G6-h-limit": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Подстановку LIMIT/OFFSET выход не называет инъекцией и оставляет без изменений."
+    }
+  },
+  "stderr": ""
+}

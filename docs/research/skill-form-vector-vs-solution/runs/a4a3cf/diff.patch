@@ -1,0 +1,55 @@
+diff --git a/CustomerNotifier.cs b/CustomerNotifier.cs
+new file mode 100644
+index 0000000..ef96629
+--- /dev/null
++++ b/CustomerNotifier.cs
+@@ -0,0 +1,35 @@
++using Microsoft.EntityFrameworkCore;
++
++namespace Shop;
++
++public class CustomerNotifier
++{
++    private const string Subject = "Shop";
++
++    private readonly ShopDbContext _db;
++    private readonly IEmailSender _email;
++
++    public CustomerNotifier(ShopDbContext db, IEmailSender email)
++    {
++        _db = db;
++        _email = email;
++    }
++
++    // Список id приходит из маркетинговой системы: возможны дубли и неизвестные id.
++    public async Task NotifyCustomers(IEnumerable<Guid> customerIds, string text, CancellationToken ct = default)
++    {
++        // Один проход по входу; один id - одно письмо.
++        var ids = customerIds.Distinct().ToArray();
++        if (ids.Length == 0) return;
++
++        // Один запрос (Npgsql: Id = ANY(@ids)), только нужные поля.
++        var recipients = await _db.Customers
++            .AsNoTracking()
++            .Where(c => ids.Contains(c.Id))
++            .Select(c => c.Email)
++            .ToListAsync(ct);
++
++        foreach (var email in recipients)
++            await _email.SendAsync(email, Subject, text, ct);
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..132d484
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,8 @@
++Файлы:
++- `CustomerNotifier.cs` — новый класс `CustomerNotifier` с методом `Task NotifyCustomers(IEnumerable<Guid> customerIds, string text, CancellationToken ct = default)`.
++- `_answer.md` — этот ответ.
++
++Решения:
++- Входной список из маркетинговой системы обходится один раз, дубли снимаются через `Distinct()`: на один id уходит одно письмо. Неизвестные id молча пропускаются.
++- Email читается одним запросом `Where(ids.Contains(c.Id)).Select(c => c.Email)` без отслеживания изменений. EF Core 8 и Npgsql передают список одним параметром (`= ANY(@p)`), поэтому нет ни запроса на каждого клиента, ни разбиения на пачки, а полные сущности не загружаются.
++- Тема письма в поручении не задана, поэтому стоит временная константа `"Shop"`. Если отправка одного письма падает с исключением, рассылка останавливается. Сборка и тесты не запускались.

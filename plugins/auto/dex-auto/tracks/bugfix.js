@@ -1,5 +1,5 @@
-// Трек bugfix как Workflow-скрипт (artifacts.md, O12 вариант A). Ядро - debugger на воспроизведении и первопричине,
-// фикс - кодер по стеку (коммит в его контракте, у debugger - нет). Модель находки, узел-обёртка, верификация и саморевью - общие фрагменты tracks-shared.
+// Трек bugfix как Workflow-скрипт (artifacts.md, O12 вариант A). Ядро - узел dex-auto:debugger на воспроизведении и первопричине,
+// фикс - узел dex-auto:coder (коммит в его контракте, у диагноста - нет). Модель находки, узел-обёртка, верификация и саморевью - общие фрагменты tracks-shared.
 // Вход через args: { task, symptom, expected, env, done, boundary, mode, cwd, source, goal_path, resume, trail, open_findings, repro }.
 export const meta = {
   name: 'dex-auto-bugfix',
@@ -7,7 +7,7 @@ export const meta = {
   phases: [
     { title: 'Context', detail: 'подготовка дерева по манифесту стека, команды сборки и тестов' },
     { title: 'Reproduce', detail: 'debugger: красный воспроизводящий тест либо прослеженный путь, первопричина, предложение фикса; продуктовый код не меняет' },
-    { title: 'Fix', detail: 'кодер по стеку принимает диагноз и лечит первопричину x верификация внешним фактом, потолок 3; спор с диагнозом - к оператору, продолжение зовёт диагноста с уликой (фаза Reproduce); при возобновлении - сначала верификация' },
+    { title: 'Fix', detail: 'кодер принимает диагноз и лечит первопричину x верификация внешним фактом, потолок 3; спор с диагнозом - к оператору, продолжение зовёт диагноста с уликой (фаза Reproduce); при возобновлении - сначала верификация' },
     { title: 'Review', detail: 'саморевью, при блокирующих находках одна правка с верификацией и повторное ревью' },
   ],
 }
@@ -23,6 +23,7 @@ const blank = (v) => !String(v || '').trim()
 const fromGoal = (v, absent, section, dflt) => !blank(v) ? v : A.goal_path ? `${absent}, возьми из раздела \`## ${section}\` файла цели ${A.goal_path}` : dflt
 const goalLack = [blank(A.done) && 'критерий «готово» не подан', blank(A.boundary) && 'граница не подана'].filter(Boolean)
   .map(s => `${s} в args: ${A.goal_path ? `узлы отосланы к файлу цели ${A.goal_path}` : 'файла цели нет'}`)
+const ownerSide = 'Пункт критерия «готово» или границы с пометкой «ответ оператора» - сторона, выбранная оператором: расхождение источника с ним противоречием не судится и в conflicts не идёт.'
 // <<< shared: goal-args
 const HEAD = `mode: ${A.mode || 'autonomous'}\nцель (${A.task}): починить баг - симптом: ${A.symptom}\nожидаемое: ${A.expected || 'не задано - реконструируй из тестов и корпуса, назови основание'}\nокружение: ${A.env || 'не задано'}\nкритерий «готово»: ${fromGoal(A.done, 'не подан', 'Критерий «готово»', 'не подан')}\nграница: ${fromGoal(A.boundary, 'не подана', 'Граница', 'не выходить за рабочий каталог')}\nфайл цели: ${A.goal_path || 'нет'}\ndecision-log: n/a (трек журнал решений не ведёт; решения - полем decisions)\n${TREE}`
 // Узел подготовки симптома не получает: прочитав его первой строкой, он чинит баг сам, и хвостовой
@@ -34,12 +35,43 @@ const DONE = resuming ? `\nВозобновление: шаги ниже уже 
 
 // >>> shared: contract
 const STATUS = { type: 'string', enum: ['complete', 'blocked', 'partial'] }
+const VERDICT = { type: 'string', enum: ['APPROVE', 'REQUEST_CHANGES', 'NEEDS_DISCUSSION'] }
 const lack = (v, who) => !v ? `${who} не вернул выход` : v.missing || `${who} вернул blocked без нехватки`
+// Трек виден в списке / и зовётся без args: узлы с правом записи на пустом cwd работали бы в дереве сессии.
+const unfed = (A, fields) => fields.filter(f => !String(A[f] ?? '').trim())
 const why = (e) => String(e && e.message || e).slice(0, 300)
 // <<< shared: contract
+// >>> shared: nodes
+// Цену узла ставит трек, frontmatter узла её не несёт; запись без model и effort - уровень сессии.
+const NODE = {
+  // sonnet - модель пробы в прогонах P76-P86 и P95.
+  'goal-reader': { agentType: 'dex-auto:goal-reader', model: 'sonnet' },
+  // opus - модель контроля dex-self-reviewer: сверка P74 различает норму, а не модель.
+  reviewer: { agentType: 'dex-auto:reviewer', model: 'opus' },
+  // без model - замера модели скептика нет (#289).
+  skeptic: { agentType: 'dex-auto:skeptic' },
+  // sonnet - модель кодеров каталога: сверка P75 различает норму, а не модель.
+  coder: { agentType: 'dex-auto:coder', model: 'sonnet' },
+  // opus - модель контроля dex-debugger: сверка P91 различает норму, а не модель.
+  debugger: { agentType: 'dex-auto:debugger', model: 'opus' },
+  // sonnet - узел исполняет публикацию по каналу хостинга, суждения о коде у него нет.
+  deliverer: { agentType: 'dex-auto:deliverer', model: 'sonnet' },
+}
+// <<< shared: nodes
 // >>> shared: domain
-const SEV = { type: 'string', enum: ['P0', 'P1', 'P2', 'P3'], description: 'уровень словаря node-contract: P0 = CRITICAL, P1 = HIGH, P2 = MEDIUM, P3 = LOW' }
+const SEV = { type: 'string', enum: ['P0', 'P1', 'P2', 'P3'], description: 'P0 = CRITICAL, P1 = HIGH, P2 = MEDIUM, P3 = LOW' }
 const AXIS = { type: 'string', enum: ['security', 'architecture', 'language', 'business', 'regressions', 'performance', 'coverage', 'loose-ends', 'non-code'] }
+const AXIS_OUTCOME = ['findings', 'clean', 'unverifiable', 'n/a']
+const AXES = { type: 'array', items: { type: 'object', properties: { name: AXIS, outcome: { type: 'string', enum: AXIS_OUTCOME }, checked: { type: 'string' } }, required: ['name', 'outcome', 'checked'] } }
+// Трек судит форму набора осей и её согласие с findings, верность исхода судит скептик.
+const axesGap = (axes, findings) => {
+  const a = axes || []
+  const unnamed = AXIS.enum.filter(n => !a.some(x => x.name === n && x.outcome))
+  const count = (n) => (findings || []).filter(f => f.axis === n).length
+  return [unnamed.length ? `оси не названы: ${unnamed.join(', ')}` : '',
+    ...a.filter(x => x.outcome === 'unverifiable').map(x => `ось не проверена: ${x.name} - ${x.checked || 'причина не названа'}`),
+    ...(findings ? a.filter(x => (x.outcome === 'findings') !== count(x.name) > 0).map(x => `исход оси расходится с findings: ${x.name} - ${x.outcome}, находок оси ${count(x.name)}`) : [])].filter(Boolean).join('; ')
+}
 // Форма одна у всех ревьюеров: ledger хранит находку одной записью, и поле, которого нет у одного узла, из реестра выпадает молча.
 const FINDING = { type: 'object', properties: {
   anchor: { type: 'string', description: 'file:line' }, severity: SEV, axis: AXIS,
@@ -57,8 +89,9 @@ const PRIOR = { type: 'object', properties: {
 }, required: ['id', 'anchor', 'severity', 'axis', 'text', 'status', 'evidence'] }
 const isOpen = (f) => OPEN_FINDING.includes(f.status)
 const isBlocking = (f) => f.severity === 'P0' || f.severity === 'P1'
+const isFixable = (f) => isBlocking(f) || f.severity === 'P2'
 const priorLine = (p) => `- ${p.id ? `${p.id} ` : ''}[${p.severity}] ${p.axis ? `${p.axis} ` : ''}${p.anchor}: ${p.text}`
-const findingLine = (f) => `${priorLine(f)} (закрытие: ${f.closure})\n  улика: ${f.evidence}`
+const findingLine = (f) => `${priorLine(f)}${f.closure ? ` (закрытие: ${f.closure})` : ''}${f.evidence ? `\n  улика: ${f.evidence}` : ''}`
 // Опознание - по id (ledger.md R10): строка сдвигается правкой, а на одной строке бывают разные находки. Статус прежней - последний, вынесенный узлом; о которой узел промолчал, та остаётся непроверенной.
 // id записей, которые узел закрыл в своём выходе (статус не из открытых).
 const shutBy = (r) => (r.prior || []).filter(p => p.id && !isOpen(p)).map(p => p.id)
@@ -89,6 +122,7 @@ function registry(unsettled) {
   return {
     seat, take, all: () => list.slice(), open: () => list.filter(isOpen),
     blocking: () => list.filter(isOpen).filter(isBlocking),
+    fixable: () => list.filter(isOpen).filter(isFixable),
     doubt: (p) => seat(p, 'unverified', !p.evidence || p.evidence === unsettled ? unsettled : p.evidence.startsWith(`${unsettled}; `) ? p.evidence : `${unsettled}; ${p.evidence}`),
     // Опознание - только в перечне, поданном узлу; статус из blocked-выхода не принимается, но его новые находки не теряются.
     apply: (r, who, listed = list.slice()) => {
@@ -114,11 +148,15 @@ async function node(role, prompt, opts, type) {
       // Причина обрыва платформой не типизирована: узел мог не существовать, а мог упасть посреди работы. Замена получает причину и сверяет уже сделанное.
       const w = why(e)
       degraded.push(`${role}: ${type} не отработал (${w})`); log(`узел ${type} не отработал, general-purpose`)
-      // Замена - не узел каталога: норм полей выхода у неё нет, а схема их больше не пересказывает.
-      return agent(`Роль: ${role}.\nУзел ${type} на этом шаге оборвался ошибкой: ${w}. Прежде чем действовать, сверь git log и рабочее дерево: сделанное им не повторяй и не коммить второй раз.\nНормы полей выхода (run-status, red-run, fact-check, uncovered, diff-scope, статусы ухода от проверки) у тебя не загружены: вызови Skill dex-skill-node-contract:node-contract до работы и заполняй по ним.\n${prompt}`, { ...opts, agentType: 'general-purpose' })
+      return agent(`Роль: ${role}.\nУзел ${type} на этом шаге оборвался ошибкой: ${w}. Прежде чем действовать, сверь git log и рабочее дерево: сделанное им не повторяй и не коммить второй раз.\n${prompt}`, { ...opts, agentType: 'general-purpose' })
     }
   }
   return agent(`Роль: ${role}.\n${prompt}`, { ...opts, agentType: 'general-purpose' })
+}
+// Узел dex-auto заменой не страхуется: у general-purpose нет его нормы.
+async function own(role, prompt, opts, spec) {
+  try { return await agent(prompt, { ...opts, ...spec }) }
+  catch (e) { degraded.push(`${role}: ${spec.agentType} не отработал (${why(e)})`); log(`узел ${spec.agentType} не отработал`); return null }
 }
 // Поля возобновления ledger.py печатает строкой JSON, а главный поток подаёт их как есть либо разобранными.
 const fromLedger = (v) => { if (typeof v !== 'string') return v; try { return JSON.parse(v) } catch (e) { return null } }
@@ -189,36 +227,37 @@ const baselineNote = (b) => !b ? '' : b.status === 'red'
   : ' До правок трека сборка и тесты были зелёными: любое падение внесено правками трека.'
 // <<< shared: prep
 // >>> shared: self-review
-const CODER = { ts: 'dex-ts-fullstack-coder:ts-fullstack-assistant', dotnet: 'dex-dotnet-coder:dotnet-coder' }
-// Ключи - имена словаря node-contract буквально: трансляция - место тихого расхождения схемы и словаря, а описание поля резолвится только дословным ключом.
+// Ключи - имена полей выдачи из файлов узлов буквально: трансляция - место тихого расхождения схемы и нормы узла.
 const FIX = { type: 'object', properties: {
   status: STATUS,
-  'diff-scope': { type: 'array', items: { type: 'string' } },
+  plan: { type: 'array', items: { type: 'object', properties: { where: { type: 'string' }, change: { type: 'string' }, trace: { type: 'string' } }, required: ['where', 'change', 'trace'] }, description: 'план реализации в итоговой редакции: where - файл или символ, change - суть изменения, у отступления - с причиной, trace - требование, правило проекта с якорем, стандарт или практика' },
+  'diff-scope': { type: 'array', items: { type: 'string' }, description: 'пути изменённых файлов и ветка, не тела' },
   commit: { type: 'string', description: 'sha локального коммита либо пусто' },
-  'run-status': { type: 'string', description: 'зелёность трек судит VERIFY-узлом, не этим полем' },
-  'red-run': { type: 'string' },
+  'run-status': { type: 'string', description: 'свой прогон сборки и тестов: команда и исход; проверка неприменима - n/a с причиной, запуск невозможен - unverifiable с тем, что пробовал, и тогда status partial; зелёность трек судит VERIFY-узлом, не этим полем' },
+  'red-run': { type: 'string', description: 'чем показано, что тест сторожит требование: нарушение (код до правки либо порча целевой ветки), на котором он был красным, и сверенная причина падения - на каждый новый и изменённый тест и на существующий, чью целевую ветку тронула правка (прежняя запись истекает с прежним поведением); подпадающих тестов нет - n/a с причиной; показать не вышло - unverifiable + чем пробовал' },
   // Признак замкнутости - enum: свободную строку модель отдаёт синонимами, а пустое значение неотличимо от невыясненного.
   'uncovered-status': { type: 'string', enum: ['none', 'some', 'unknown'], description: 'осталось ли непокрытое тестами: none - не осталось, some - перечень в uncovered, unknown - покрытие не выяснялось; догадка сюда не пишется' },
   uncovered: { type: 'array', items: { type: 'string' }, description: 'при some - непокрытое перечнем (ветка, случай, граница); иначе пустой' },
   'dependents-status': { type: 'string', enum: ['none', 'some', 'unknown'], description: 'видно ли правку за пределами diff-scope: вызывающий код, контракт на проводе, схема данных, публичный API. none - не видно, some - видно (перечень в dependents), unknown - не разобрался; догадка сюда не пишется' },
   dependents: { type: 'array', items: { type: 'string' }, description: 'при some - потребители перечнем file:line; иначе пустой' },
   'fact-check': { type: 'string', description: 'триггер сверки - сигнатура или поведение стороннего API, взятые по памяти' },
-  decisions: { type: 'array', items: { type: 'string' }, description: 'каждая закрытая узлом развилка: что выбрано, из чего, почему' },
+  decisions: { type: 'array', items: { type: 'string' }, description: 'первой строкой - вызванные скиллы либо почему ни один не подошёл; далее каждая закрытая узлом развилка: что выбрано, из чего, почему' },
   prior: { type: 'array', items: PRIOR, description: 'по каждой находке задания - запись с её id: closed - закрыта правкой, disputed - закрывать не следует; находок в задании нет - пусто' },
   missing: { type: 'string' },
-}, required: ['status', 'diff-scope', 'commit', 'run-status', 'red-run', 'uncovered-status', 'uncovered', 'dependents-status', 'dependents', 'fact-check', 'decisions', 'prior', 'missing'] }
+}, required: ['status', 'plan', 'diff-scope', 'commit', 'run-status', 'red-run', 'uncovered-status', 'uncovered', 'dependents-status', 'dependents', 'fact-check', 'decisions', 'prior', 'missing'] }
 const REVIEW = { type: 'object', properties: {
   status: STATUS,
   findings: { type: 'array', items: FINDING, description: 'только находки, которых нет в перечне прежних' },
+  axes: AXES,
   'run-status': { type: 'string', description: 'прогон свой, не пересказ входа' },
   'red-run': { type: 'string', description: 'вердикт по записям red-run кодера во входе: по каждому тесту дельты запись действует / отсутствует / истекла; записей не было - unverifiable + что искал; тестов в дельте нет - n/a' },
   'fact-check': { type: 'string', description: 'предмет сверки - техутверждения находок' },
   intent: { type: 'string', description: 'сверка с источником намерения входа: соответствует / расхождения «корректно, но не то»; источника нет - n/a' },
   'intent-status': { type: 'string', enum: ['match', 'mismatch', 'n/a'], description: 'mismatch - сделано не то, чего требует источник намерения входа; подробности в intent' },
   prior: { type: 'array', items: PRIOR, description: 'по каждой находке перечня прежних - запись с её id, статус с уликой; перечня нет - пусто' },
-  'review-verdict': { type: 'string', enum: ['APPROVE', 'REQUEST_CHANGES', 'NEEDS_DISCUSSION'], description: 'по правилу поля review-verdict из node-contract; сигнал оператору, порог допуска трека его не читает' },
+  'review-verdict': { ...VERDICT, description: 'сигнал оператору, порог допуска трека его не читает' },
   missing: { type: 'string', description: 'при blocked - чего не хватило для ревью; иначе пусто' },
-}, required: ['status', 'findings', 'run-status', 'red-run', 'fact-check', 'intent', 'intent-status', 'prior', 'review-verdict', 'missing'] }
+}, required: ['status', 'findings', 'axes', 'run-status', 'red-run', 'fact-check', 'intent', 'intent-status', 'prior', 'review-verdict', 'missing'] }
 const UNSETTLED = 'статус саморевью не сверен'
 const LISTED = 'Перечень находок: по каждой - запись в prior с её id, статус с уликой; находка перечня идёт только в prior, в findings - то, чего в перечне нет:'
 // fix перезаписывается каждой попыткой: решения и оспаривание прежней находки без переноса в decisions до выхода не доезжают.
@@ -232,7 +271,7 @@ const closedBy = (f, x) => ((f && f.prior) || []).some(p => p.id === x.id && p.s
 const SKIPPED = 'закрыта правкой, повторное саморевью не куплено - правка покрыта прогоном (uncovered-status: none), наружу не видна (dependents-status: none), верификация зелёная'
 // partial кодера и опровергнутая им сверка - исход автора: зелёная верификация и чистое ревью их не закрывают.
 const authorGap = (f) => !f ? '' : f.status === 'partial' ? `кодер вернул partial: ${f.missing || f['run-status'] || 'нехватка не названа'}` : /^contradicted/.test(f['fact-check'] || '') ? `fact-check кодера: ${f['fact-check']}` : ''
-const reviewGap = (r) => !r || r.status === 'blocked' ? '' : r.status === 'partial' ? `саморевью не завершено: ${r.missing || 'нехватка не названа'}` : r['intent-status'] === 'mismatch' ? `саморевью: реализовано не то: ${r.intent}` : ''
+const reviewGap = (r) => !r || r.status === 'blocked' ? '' : r.status === 'partial' ? `саморевью не завершено: ${r.missing || 'нехватка не названа'}` : r['intent-status'] === 'mismatch' ? `саморевью: реализовано не то: ${r.intent}` : axesGap(r.axes) ? `саморевью: ${axesGap(r.axes)}` : ''
 // Порог допуска: зелёная верификация и ноль открытых P0/P1 реестра прогона; review-verdict - сигнал оператору, порог его не читает.
 const admit = (green, rev, stuck, gaps) => !green ? 'верификация после правки по саморевью не прошла'
   : !rev ? 'саморевьюер не вернул выход'
@@ -247,6 +286,9 @@ const REPRO = { type: 'object', properties: {
   repro_test: { type: 'string', description: 'путь воспроизводящего теста, оставленного в дереве красным; теста нет - пусто' },
   repro_blob: { type: 'string', description: 'вывод git hash-object -w <путь теста> после его записи; теста нет - пусто' },
   'expected-basis': { type: 'string', description: 'откуда взято ожидаемое: вход, тест, корпус, реконструкция' },
+  // Шаг без следа в выходе не наблюдаем: опровержение причины, не названное полем, пропускается молча.
+  falsification: { type: 'array', items: { type: 'object', properties: { prediction: { type: 'string' }, observation: { type: 'string' }, outcome: { type: 'string', enum: ['held', 'refuted'] } }, required: ['prediction', 'observation', 'outcome'] }, description: 'попытки опровергнуть причину: prediction - что обязано наблюдаться, будь причина верна, observation - что видно, с файл:строка или выводом прогона, outcome - held: причина устояла, refuted: снята' },
+  'fact-check': { type: 'string', description: 'предмет сверки - утверждения о стороннем API в основе причины' },
   fix_proposal: { type: 'string', description: 'минимальная правка словами: файл, что меняется' },
   files: { type: 'array', items: { type: 'string' } },
   // Ожидаемое берётся из нескольких источников сразу, и они расходятся: вход цели против критерия
@@ -254,7 +296,7 @@ const REPRO = { type: 'object', properties: {
   'conflict-status': { type: 'string', enum: ['none', 'some'], description: 'противоречие между источниками ожидаемого: none - нет, some - перечень в conflicts' },
   conflicts: { type: 'array', items: { type: 'string' }, description: 'при some - каждое противоречие строкой: якорь обеих сторон и что требует каждая; иначе пустой' },
   missing: { type: 'string', description: 'при blocked - чего не хватает и у кого это есть' },
-}, required: ['status', 'root_cause', 'reproduction', 'repro_test', 'repro_blob', 'expected-basis', 'fix_proposal', 'files', 'conflict-status', 'conflicts', 'missing'] }
+}, required: ['status', 'root_cause', 'reproduction', 'repro_test', 'repro_blob', 'expected-basis', 'falsification', 'fact-check', 'fix_proposal', 'files', 'conflict-status', 'conflicts', 'missing'] }
 // Приёмка диагноза - часть контракта кодера только в этом треке: общая схема правки расширяется, а не копируется.
 const BFIX = { type: 'object', properties: {
   ...FIX.properties,
@@ -272,8 +314,10 @@ const BSNAP = { type: 'object', properties: {
 }, required: [...BVERIFY.required, 'snap_hash'] }
 const loops = { fix: 0, review_fix: 0, review: 0 }
 const trail = [], degraded = [...goalLack]
+const unfedArgs = unfed(A, ['task', 'cwd', 'symptom'])
+if (unfedArgs.length) return outcome('blocked', 'Context', `трек вызван без входа: нет ${unfedArgs.join(', ')}`)
 const LEDGER = resuming ? ledgerList(A.open_findings, 'находки прошлого прогона кодеру не поданы') : []
-const OPEN = LEDGER.length ? `\nНезакрытые находки прошлого прогона (из ledger): по каждой - запись в prior с тем же id: closed с уликой либо disputed с основанием, почему закрывать не следует:\n${LEDGER.map(priorLine).join('\n')}\n` : ''
+const OPEN = LEDGER.length ? `\nНезакрытые находки прошлого прогона (из ledger): по каждой - запись в prior с тем же id: closed с уликой либо disputed с основанием, почему закрывать не следует:\n${LEDGER.map(findingLine).join('\n')}\n` : ''
 let repro = null, fix = null, fix2 = null, ver = null, ver2 = null
 const disputes = []
 // Решения копятся по попыткам: fix перезаписывается каждым кругом, и без накопления в ledger уезжает только последний.
@@ -282,6 +326,9 @@ const dec = () => decisions.slice()
 const bail = (where, missing, extra) => outcome('blocked', where, missing, { decisions: dec(), repro, fix, ...extra })
 const passed = (v) => isGreen(v, repro && repro.test_cmd)
 
+// Вход собирает /auto; workflow, вызванный по имени, приходит без него - узлы без цели и каталога не запускаются (T0).
+const noInput = ['task', 'symptom', 'cwd'].filter(k => !String(A[k] || '').trim())
+if (noInput.length) return outcome('blocked', 'Context', `трек вызван без входа: нет ${noInput.join(', ')}`)
 phase('Context')
 // Подготовка дерева из ledger не берётся ни при каком следе: дерево - это состояние, а не вывод.
 // С диагностом не параллельно: воспроизведение идёт по подготовленному дереву, а два узла, ставящие
@@ -316,9 +363,9 @@ phase('Reproduce')
 // Воспроизведение и первопричина - установленный факт прошлого прогона: при возобновлении правка
 // уже наложена, и повторный прогон диагноста не столько дорог, сколько нечестен - симптома он
 // может уже не увидеть. Нет записи в ledger - узел отрабатывает как в первом прогоне.
-const diagPrompt = (dispute) => `${HEAD}${DONE}${DONE ? `Шаг 1 выполняется заново: ${dispute ? 'прошлый диагноз оспорен, улика ниже' : 'диагноза с причиной в ledger нет'}.\n` : ''}Шаг 1 (воспроизведение): первопричина. Источник: ${A.source || 'формулировка выше'}. Стек: ${prep.stack}. Тесты: ${prep.test_cmd || 'нет'}. Сборка: ${prep.build_cmd || 'нет'}.${treeState} Воспроизведи: красный тест через продуктовый путь, прогнанный и падающий по причине симптома, либо, если тест не ставится, прослеженный путь от входа до места сбоя. ${A.source ? `Критерии приёмки корпуса против ожидаемого во входе и критерия «готово» суди вызовом Skill dex-skill-requirement-quality:requirement-quality, раздел «Противоречие»; найденное - в conflicts.` : `Источника требований нет: conflict-status: none, conflicts пустой.`} Расхождение о техконтексте (файлы, команды сборки и тестов, корпус) сюда не подпадает: техконтекст берётся из дерева. Продуктовый код не меняй; написанный тест оставь незакоммиченным в дереве. Незакоммиченный тест в дереве до твоего старта - след прошлого диагноза этой цели: падает по причине симптома - он и есть воспроизведение, иначе удали; сдаёшь один тест.${dispute ? `\nКодер оспорил твой диагноз ${ledgerRepro && ledgerRepro.accepted ? `после приёмки (diagnosis-check: ${ledgerRepro.accepted}): его правки по диагнозу - в коммитах ветки, улика судится на дереве с ними` : 'до правки'}, улика: ${dispute}\nЭто первое направление фальсификации: исход по улике - первой строкой reproduction (отбита - чем, файл:строка; сняла причину - новый диагноз).` : ''}`
-const diag = reproResumed || await node('диагност первопричины', diagPrompt(priorDispute), { label: 'reproduce', phase: 'Reproduce', schema: REPRO }, 'dex-debugger:debugger')
-trail.push({ step: '1-repro', doer: reproResumed ? 'ledger (воспроизведение прошлого прогона)' : 'debugger', status: diag ? diag.status : 'null' })
+const diagPrompt = (dispute) => `${HEAD}${DONE}${DONE ? `Шаг 1 выполняется заново: ${dispute ? 'прошлый диагноз оспорен, улика ниже' : 'диагноза с причиной в ledger нет'}.\n` : ''}Шаг 1 (воспроизведение): первопричина. Источник: ${A.source || 'формулировка выше'}. Стек: ${prep.stack}. Тесты: ${prep.test_cmd || 'нет'}. Сборка: ${prep.build_cmd || 'нет'}.${treeState} Воспроизведи: красный тест через продуктовый путь, прогнанный и падающий по причине симптома, либо, если тест не ставится, прослеженный путь от входа до места сбоя. ${A.source ? `Критерии приёмки корпуса против ожидаемого во входе и критерия «готово» суди вызовом Skill dex-skill-requirement-quality:requirement-quality, раздел «Противоречие»; найденное - в conflicts. ${ownerSide}` : `Источника требований нет: conflict-status: none, conflicts пустой.`} Расхождение о техконтексте (файлы, команды сборки и тестов, корпус) сюда не подпадает: техконтекст берётся из дерева. Продуктовый код не меняй; написанный тест оставь незакоммиченным в дереве. Незакоммиченный тест в дереве до твоего старта - след прошлого диагноза этой цели: падает по причине симптома - он и есть воспроизведение, иначе удали; сдаёшь один тест.${dispute ? `\nКодер оспорил твой диагноз ${ledgerRepro && ledgerRepro.accepted ? `после приёмки (diagnosis-check: ${ledgerRepro.accepted}): его правки по диагнозу - в коммитах ветки, улика судится на дереве с ними` : 'до правки'}, улика: ${dispute}\nУлика - первая запись falsification: held - чем отбита, файл:строка; refuted - новый диагноз.` : ''}`
+const diag = reproResumed || await own('диагност первопричины', diagPrompt(priorDispute), { label: 'reproduce', phase: 'Reproduce', schema: REPRO }, NODE.debugger)
+trail.push({ step: '1-repro', doer: reproResumed ? 'ledger (воспроизведение прошлого прогона)' : NODE.debugger.agentType, status: diag ? diag.status : 'null' })
 // Техконтекст свежий даже на возобновлении: ledger отдаёт диагноз, команды и состояние дерева - узел
 // этого прогона. Форма repro общая - её же принимает ledger и подаёт обратно в A.repro.
 // accepted - факт приёмки кодером, accepted_blob - ожидаемый хэш теста после неё, accepted_pending - снимок ещё не снят: живут в repro, чтобы пережить ledger;
@@ -371,15 +418,14 @@ const expected = () => repro.accepted_blob || repro.repro_blob
 // Попытка после приёмки идёт по изменённому дереву: повторная приёмка дала бы ложный спор о позеленевшем тесте.
 // Снимок идёт вместе с исходом: сверку перед коммитом исполнитель без него не проведёт. Теста диагноста нет - проба своя.
 const acceptance = () => repro.accepted
-  ? `Диагноз принят прошлой попыткой (diagnosis-check: ${repro.accepted}): приёмку не повторяй, diagnosis-check - ${repro.accepted}; ${repro.repro_test ? `правке нужна другая проверка - тест диагноста не трогай, diagnosis-check - disputed-* с уликой в dispute${expected() ? `; снимок приёмки - ${expected()}, сверяй с ним перед коммитом` : ''}` : 'теста диагноста нет - проба твоя, правь её по red-run'}. Порядок - Skill dex-skill-node-contract:node-contract, материал references/diagnosis-acceptance.md.`
-  : 'До правки прими диагноз: вызови Skill dex-skill-node-contract:node-contract, материал references/diagnosis-acceptance.md; исход - diagnosis-check, улика спора - dispute.'
+  ? `Диагноз принят прошлой попыткой (diagnosis-check: ${repro.accepted}): приёмку не повторяй, diagnosis-check - ${repro.accepted}; ${repro.repro_test ? `правке нужна другая проверка - тест диагноста не трогай, diagnosis-check - disputed-* с уликой в dispute${expected() ? `; снимок приёмки - ${expected()}, сверяй с ним перед коммитом` : ''}` : 'теста диагноста нет - проба твоя, правь её по red-run'}.`
+  : 'До правки прими диагноз: исход - diagnosis-check, улика спора - dispute.'
 // Спор с диагнозом до и после приёмки идёт одним путём: «продолжить» зовёт диагноста с уликой; ожидаемое - за владельцем требований.
 const disputeExit = (dc, f, where, extra) => {
   const clue = f.dispute || 'улика не названа'
   if (dc === 'disputed-expected') return bail(`${where}: спор об ожидаемом`, `кодер оспорил ожидаемое, выбор стороны за владельцем требований: ${clue}${testLeft(repro)}`, { disputes, repro: RESET, ...extra })
   return outcome('partial', `${where}: кодер оспорил диагноз (${dc})`, `решение оператора: «продолжить» вернёт диагноз диагносту с уликой - ${clue}${testLeft(repro)}`, { disputes, repro: { ...repro, dispute: clue }, fix, decisions: dec(), ...extra })
 }
-const coderType = CODER[repro.stack]
 
 phase('Fix')
 // -w: хэш прогона может стать снимком приёмки, а git show и git diff читают лишь записанный объект.
@@ -406,9 +452,9 @@ for (let k = 1; k <= FIX_CEILING && (!passed(ver) || pending); k++) {
   // red-run прошлой попытки - установленный факт: без него следующая попытка показывает тот же тест красным заново, проедая потолок.
   const priorRed = fix && fix['red-run'] && !/^(n\/a|unverifiable)/.test(fix['red-run']) ? `\nКрасный прогон уже показан прошлой попыткой и перепроверке не подлежит: ${fix['red-run']}` : ''
   const prev = ver && !passed(ver) ? `\n${k === 1 ? 'Верификация при возобновлении' : `Попытка ${k - 1}`} не прошла: ${redNote(ver)}.${priorRed}` : ''
-  fix = await node('кодер', `${HEAD}${DONE}${OPEN}Шаг 2, попытка ${k} из ${FIX_CEILING}: лечи первопричину, не симптом; один баг - один фикс, попутного рефакторинга нет.\n${causeText}\nФайлы: ${repro.files.join(', ')}. Тесты: ${repro.test_cmd || 'нет'}. Сборка: ${repro.build_cmd || 'нет'}.${treeState}${prev}\n${acceptance()} Red-run: тест диагноста - твоя проба, в коммит; теста нет - пишешь свой. По завершении: сборка и тесты зелёные, коммит локально (сообщение по симптому).`,
-    { label: `fix:${k}`, phase: 'Fix', schema: BFIX }, coderType)
-  trail.push({ step: 2, attempt: k, doer: coderType || 'general-purpose', status: fix ? fix.status : 'null', 'red-run': fix ? fix['red-run'] : null, 'diagnosis-check': fix ? fix['diagnosis-check'] : null })
+  fix = await own('кодер', `${HEAD}${DONE}${OPEN}Шаг 2, попытка ${k} из ${FIX_CEILING}: лечи первопричину, не симптом; один баг - один фикс, попутного рефакторинга нет.\n${causeText}\nФайлы: ${repro.files.join(', ')}. Тесты: ${repro.test_cmd || 'нет'}. Сборка: ${repro.build_cmd || 'нет'}.${treeState}${prev}\n${acceptance()} Red-run: тест диагноста - твоя проба, в коммит; теста нет - пишешь свой. По завершении: коммит локально (сообщение по симптому).`,
+    { label: `fix:${k}`, phase: 'Fix', schema: BFIX }, NODE.coder)
+  trail.push({ step: 2, attempt: k, doer: NODE.coder.agentType, status: fix ? fix.status : 'null', 'red-run': fix ? fix['red-run'] : null, 'diagnosis-check': fix ? fix['diagnosis-check'] : null })
   if (fix) decisions.push(...said(fix))
   // Спор идёт раньше статуса: при нём кодер отдаёт partial без правки.
   const dc = noteCheck(fix)
@@ -425,34 +471,35 @@ for (let k = 1; k <= FIX_CEILING && (!passed(ver) || pending); k++) {
 }
 if (!passed(ver)) return outcome('partial', `Fix: потолок ${FIX_CEILING} исчерпан`, `дерево не зелёное после ${FIX_CEILING} попыток: ${redNote(ver)}`, { ver, repro, fix, decisions: dec() })
 phase('Review')
-const review = (tag, f, v, priors) => node('саморевьюер', `${HEAD}Шаг 3 (${tag}): pre-push саморевью локальной ветки - коммиты этой цели плюс рабочее дерево.${touchedOrig(v) ? `\nТест диагноста ${repro.repro_test} изменён кодером: исходник - git show ${repro.repro_blob}. Изменена проверка - вход, вызываемый путь или ожидаемое - находка P1.` : ''}${coderInput(f)} Источник намерения:\n${causeText}${priors.length ? `\n${LISTED}\n${priors.map(priorLine).join('\n')}` : ''}\nПрогон build/test реальный, итог - в run-status, не в findings. Код не меняй.`,
-  { label: `self-review:${tag}`, phase: 'Review', schema: REVIEW }, 'dex-self-reviewer:self-reviewer')
+const review = (tag, f, v, priors) => own('саморевьюер', `${HEAD}Шаг 3 (${tag}): pre-push саморевью локальной ветки - коммиты этой цели плюс рабочее дерево.${touchedOrig(v) ? `\nТест диагноста ${repro.repro_test} изменён кодером: исходник - git show ${repro.repro_blob}. Изменена проверка - вход, вызываемый путь или ожидаемое - находка P1.` : ''}${coderInput(f)} Источник намерения:\n${causeText}${priors.length ? `\n${LISTED}\n${priors.map(priorLine).join('\n')}` : ''}\nПрогон build/test реальный, итог - в run-status, не в findings. Код не меняй.`,
+  { label: `self-review:${tag}`, phase: 'Review', schema: REVIEW }, NODE.reviewer)
 let rev = await review('первое', fix, ver, LEDGER); loops.review = 1
-trail.push({ step: 3, doer: 'self-reviewer', status: rev ? rev.status : 'null', findings: rev ? rev.findings.length : -1, verdict: rev ? rev['review-verdict'] : null })
+trail.push({ step: 3, doer: NODE.reviewer.agentType, status: rev ? rev.status : 'null', findings: rev ? rev.findings.length : -1, verdict: rev ? rev['review-verdict'] : null })
 const reg = registry(UNSETTLED)
 LEDGER.forEach(reg.doubt)
 reg.apply(rev, 'саморевьюер')
-if (rev && rev.status !== 'blocked' && reg.blocking().length) {
+if (rev && rev.status !== 'blocked' && reg.fixable().length) {
   loops.review_fix = REVIEW_FIX_CEILING
-  fix2 = await node('кодер', `${HEAD}Шаг 2 (повтор после саморевью, потолок ${REVIEW_FIX_CEILING}): закрой находки:\n${reg.blocking().map(priorLine).join('\n')}\n${causeText}\n${acceptance()}\nПосле правки сборка и тесты зелёные, коммит локально, push не делать. По каждой находке - запись в prior с её id: closed с уликой либо disputed с основанием, почему закрывать не следует.`,
-    { label: 'fix:after-review', phase: 'Review', schema: BFIX }, coderType)
+  fix2 = await own('кодер', `${HEAD}Шаг 2 (повтор после саморевью, потолок ${REVIEW_FIX_CEILING}): закрой находки:\n${reg.fixable().map(findingLine).join('\n')}\n${causeText}\n${acceptance()}\nПосле правки коммит локально, push не делать. По каждой находке - запись в prior с её id: closed с уликой либо disputed с основанием, почему закрывать не следует.`,
+    { label: 'fix:after-review', phase: 'Review', schema: BFIX }, NODE.coder)
   const dc2 = noteCheck(fix2)
   if (fix2) decisions.push(...said(fix2))
   if (/^disputed-/.test(dc2)) {
-    trail.push({ step: '2-after-review', doer: coderType || 'general-purpose', status: fix2.status, 'diagnosis-check': dc2 })
+    trail.push({ step: '2-after-review', doer: NODE.coder.agentType, status: fix2.status, 'diagnosis-check': dc2 })
     disputes.push(`${dc2} (правка по находкам): ${fix2.dispute || 'улика не названа'}`)
     return disputeExit(dc2, fix2, 'Review: правка по находкам', { fix_after_review: fix2, review: rev, prior: reg.all() })
   }
   ver2 = !fix2 || fix2.status === 'blocked' ? null : await verifyOnce('после саморевью', 'Review')
   settle(ver2)
-  trail.push({ step: '2-after-review', doer: coderType || 'general-purpose', status: fix2 ? fix2.status : 'null', passed: passed(ver2), 'red-run': fix2 ? fix2['red-run'] : null })
+  trail.push({ step: '2-after-review', doer: NODE.coder.agentType, status: fix2 ? fix2.status : 'null', passed: passed(ver2), 'red-run': fix2 ? fix2['red-run'] : null })
   const openNow = { review: rev, prior: reg.all() }
   if (!fix2 || fix2.status === 'blocked') return bail('Review: правка по находкам', lack(fix2, 'узел-кодер'), openNow)
   if (noRun(ver2)) return bail('Review: верификация после правки', lack(ver2, 'верификатор'), openNow)
   // Правку теста после harness-fixed гейт отдаёт ревью: сменивший хэш круг повторное ревью не пропускает.
   if (passed(ver2) && sealed(fix2) && hashOf(ver2) === hashOf(ver) && reg.blocking().every(f => closedBy(fix2, f))) {
     // Находка без своей строки решения - шаг не выполнен: снятая правкой идёт в decisions поимённо.
-    const shut = reg.blocking()
+    // P2, не закрытая кодером, порога не держит и круга не покупает - остаётся открытой в реестре.
+    const shut = reg.fixable().filter(f => closedBy(fix2, f))
     shut.forEach(f => {
       decisions.push(`${f.id} ${f.anchor}: ${SKIPPED}${f.closure ? `; критерий закрытия: ${f.closure}` : ''}`)
       reg.seat(f, 'closed', SKIPPED)
@@ -464,7 +511,7 @@ if (rev && rev.status !== 'blocked' && reg.blocking().length) {
     // Повторное без выхода или blocked статусов не выносит: реестр остаётся, каким его оставило первое.
     if (rev && rev.status !== 'blocked') listed.forEach(reg.doubt)
     reg.apply(rev, 'саморевьюер (повторное)', listed)
-    trail.push({ step: '3-repeat', doer: 'self-reviewer', status: rev ? rev.status : 'null', findings: rev ? rev.findings.length : -1, verdict: rev ? rev['review-verdict'] : null })
+    trail.push({ step: '3-repeat', doer: NODE.reviewer.agentType, status: rev ? rev.status : 'null', findings: rev ? rev.findings.length : -1, verdict: rev ? rev['review-verdict'] : null })
   }
 }
 const finalVer = ver2 || ver

@@ -1,0 +1,132 @@
+diff --git a/CatalogMaintenance.cs b/CatalogMaintenance.cs
+new file mode 100644
+index 0000000..4a87988
+--- /dev/null
++++ b/CatalogMaintenance.cs
+@@ -0,0 +1,98 @@
++namespace Shop.Data;
++
++public class CatalogMaintenance
++{
++    private readonly ShopDbContext _db;
++    public CatalogMaintenance(ShopDbContext db) => _db = db;
++
++    // (a) Raise the price of every product in a category by `percent` (default 10%).
++    // Uses ExecuteUpdateAsync so the update runs as a single set-based UPDATE in the
++    // database, without loading products into memory or the change tracker.
++    public Task<int> RaisePricesAsync(string category, decimal percent = 0.10m, CancellationToken ct = default)
++        => _db.Products
++            .Where(p => p.Category == category)
++            .ExecuteUpdateAsync(s => s.SetProperty(p => p.Price, p => p.Price * (1 + percent)), ct);
++
++    // (b) Nightly cleanup of AuditLogs older than `retention` (default 1 year).
++    // The table is huge (~50M rows, ~40M eligible for deletion), so a single
++    // ExecuteDeleteAsync/DELETE would hold a long-running transaction, bloat the
++    // table/WAL and block autovacuum. Instead we delete in small batches, each in
++    // its own transaction, with a short pause between batches to limit I/O/lock
++    // pressure on a live system. `maxDuration` lets the nightly job stop within its
++    // window and resume the next night rather than running unbounded.
++    public async Task<long> CleanupOldAuditLogsAsync(
++        TimeSpan? retention = null,
++        int batchSize = 5_000,
++        TimeSpan? throttleDelay = null,
++        TimeSpan? maxDuration = null,
++        CancellationToken ct = default)
++    {
++        var cutoff = DateTime.UtcNow - (retention ?? TimeSpan.FromDays(365));
++        var delay = throttleDelay ?? TimeSpan.FromMilliseconds(50);
++        var deadline = maxDuration.HasValue ? DateTime.UtcNow + maxDuration.Value : (DateTime?)null;
++        long totalDeleted = 0;
++
++        while (true)
++        {
++            ct.ThrowIfCancellationRequested();
++            if (deadline.HasValue && DateTime.UtcNow >= deadline.Value) break;
++
++            // No ORDER BY: we don't care which eligible rows go first, only that the
++            // index on At is used for a cheap scan+limit instead of sorting the
++            // (potentially tens-of-millions-row) matching set on every batch.
++            var idsBatch = await _db.AuditLogs
++                .Where(a => a.At < cutoff)
++                .Select(a => a.Id)
++                .Take(batchSize)
++                .ToListAsync(ct);
++
++            if (idsBatch.Count == 0) break;
++
++            totalDeleted += await _db.AuditLogs
++                .Where(a => idsBatch.Contains(a.Id))
++                .ExecuteDeleteAsync(ct);
++
++            if (idsBatch.Count < batchSize) break;
++
++            await Task.Delay(delay, ct);
++        }
++
++        return totalDeleted;
++    }
++
++    // (c) Load the given products and increase their Stock, then save.
++    public async Task RestockAsync(IEnumerable<(Guid Id, int Add)> items, CancellationToken ct = default)
++    {
++        var list = items as IReadOnlyCollection<(Guid Id, int Add)> ?? items.ToList();
++        if (list.Count == 0) return;
++
++        var ids = list.Select(i => i.Id).Distinct().ToList();
++        var products = await _db.Products
++            .Where(p => ids.Contains(p.Id))
++            .ToDictionaryAsync(p => p.Id, ct);
++
++        foreach (var (id, add) in list)
++            if (products.TryGetValue(id, out var product))
++                product.Stock += add;
++
++        await _db.SaveChangesAsync(ct);
++    }
++
++    // (d) Create a new product with a fresh Guid.
++    public async Task<Product> CreateProductAsync(
++        string sku, string warehouse, string category, decimal price, int stock = 0, CancellationToken ct = default)
++    {
++        var product = new Product
++        {
++            Id = Guid.NewGuid(),
++            Sku = sku,
++            Warehouse = warehouse,
++            Category = category,
++            Price = price,
++            Stock = stock,
++        };
++        _db.Products.Add(product);
++        await _db.SaveChangesAsync(ct);
++        return product;
++    }
++}
+diff --git a/Model.cs b/Model.cs
+index cc90064..061b3b1 100644
+--- a/Model.cs
++++ b/Model.cs
+@@ -45,6 +45,9 @@ public class ShopDbContext : DbContext
+     {
+         b.Entity<Order>().HasQueryFilter(o => !o.IsDeleted);
+         b.Entity<Order>().Property(o => o.CreatedAt).HasColumnType("timestamp without time zone");
++        // Needed so batched cleanup of old AuditLogs can filter by At via an index scan
++        // instead of a sequential scan of the ~50M row table.
++        b.Entity<AuditLog>().HasIndex(a => a.At);
+     }
+ }
+ // Options: UseNpgsql(cs).UseLazyLoadingProxies()
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..157c5ab
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,8 @@
++Созданные/изменённые файлы:
++- CatalogMaintenance.cs (новый) — сервис CatalogMaintenance с методами RaisePricesAsync, CleanupOldAuditLogsAsync, RestockAsync, CreateProductAsync.
++- Model.cs (изменён) — добавлен HasIndex(a => a.At) для AuditLog, нужен под фильтрацию в ночной очистке (требует отдельной EF Core миграции — не генерировалась, т.к. сборка/тесты запрещены).
++
++Решения:
++- Подъём цен и Restock/CreateProduct сделаны как в задании: ExecuteUpdateAsync (EF Core 8, один SQL UPDATE без трекинга) для массового изменения цен по категории; Restock и CreateProduct — обычный load/track/SaveChangesAsync.
++- Очистка AuditLogs (~40 млн из 50 млн строк) сделана батчами (по умолчанию 5000) без ORDER BY, чтобы Postgres использовал индекс по At для scan+limit, а не сортировал весь подходящий набор; удаление каждого батча — отдельная короткая транзакция через ExecuteDeleteAsync, между батчами пауза (throttleDelay) и опциональный maxDuration, чтобы не держать один долгий DELETE/лок и не раздувать WAL/таблицу за одну ночь.
++- ExecuteDeleteAsync/ExecuteUpdateAsync в EF Core 8 не поддерживают связку с OrderBy/Take, поэтому id для удаления сначала выбираются обычным LINQ-запросом (Where+Take), а затем удаляются по списку id отдельным ExecuteDeleteAsync.

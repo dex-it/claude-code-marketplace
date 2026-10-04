@@ -1,0 +1,91 @@
+{
+  "id": "328026",
+  "exitCode": 0,
+  "started": "2026-09-29T07:43:40.726Z",
+  "finished": "2026-09-29T07:46:01.423Z",
+  "wallMs": 140697,
+  "init": {
+    "model": "claude-sonnet-5",
+    "skills": [],
+    "plugins": [
+      {
+        "name": "agents-md",
+        "path": "builtin",
+        "source": "agents-md@builtin"
+      },
+      {
+        "name": "telemetry",
+        "path": "builtin",
+        "source": "telemetry@builtin"
+      }
+    ],
+    "tools": [
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "WebFetch",
+      "WebSearch",
+      "Write"
+    ],
+    "mcpServers": [],
+    "cwd": "/Users/anonymous/.cache/research/runs/328026/work",
+    "claudeCodeVersion": "2.1.284"
+  },
+  "toolCalls": {
+    "Read": 8,
+    "Glob": 1,
+    "Write": 1
+  },
+  "webCalls": 0,
+  "skillCalls": [],
+  "readPaths": [
+    "/Users/anonymous/.cache/research/runs/328026/rules/SKILL.md",
+    "/Users/anonymous/.cache/research/runs/328026/work/MR.md",
+    "/Users/anonymous/.cache/research/runs/328026/work/Services/OrderCard.cs",
+    "/Users/anonymous/.cache/research/runs/328026/work/Services/CartLookup.cs",
+    "/Users/anonymous/.cache/research/runs/328026/work/Services/CustomerOrders.cs",
+    "/Users/anonymous/.cache/research/runs/328026/work/Workers/AuditWriter.cs",
+    "/Users/anonymous/.cache/research/runs/328026/work/Model.cs",
+    "/Users/anonymous/.cache/research/runs/328026/work/OrderRepository.cs"
+  ],
+  "usage": {
+    "input_tokens": 12,
+    "cache_creation_input_tokens": 20006,
+    "cache_read_input_tokens": 77759,
+    "output_tokens": 15358,
+    "output_tokens_details": {
+      "thinking_tokens": 11476
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 20006,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 670,
+        "cache_read_input_tokens": 15964,
+        "cache_creation_input_tokens": 13902,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 13902
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "costUsd": 0.24917980000000003,
+  "durationMs": 139531,
+  "numTurns": 11,
+  "isError": false,
+  "stderr": "",
+  "resultSubtype": "success"
+}

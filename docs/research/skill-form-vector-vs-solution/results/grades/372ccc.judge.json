@@ -1,0 +1,77 @@
+{
+  "id": "372ccc",
+  "case": "B2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.21263500000000002,
+    "durationMs": 13547,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 23025,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1400,
+      "output_tokens_details": {
+        "thinking_tokens": 611
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 23025,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1400,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 23025,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 23025
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "B2-owner-softdelete": {
+      "verdict": "PASS",
+      "quote": "await db.Visits\n            .Where(v => petIds.Contains(v.PetId))\n            .ExecuteUpdateAsync(s => s\n                .SetProperty(v => v.IsDeleted, true)",
+      "why": "Физического удаления нет: в одной транзакции ExecuteUpdate помечает IsDeleted и DeletedAt у владельца, его питомцев, их визитов и аллергий, в том числе у незагруженных."
+    },
+    "B2-allergies-orphans": {
+      "verdict": "PASS",
+      "quote": "// Не удаляем из коллекции: для обязательной связи EF удалил бы строку физически.\n            allergy.IsDeleted = true;",
+      "why": "Отсутствующие и изменённые аллергии помечаются IsDeleted и DeletedAt и остаются строками, новые добавляются; Clear, Remove и RemoveRange не вызываются."
+    },
+    "B2-deletedat-utc": {
+      "verdict": "PASS",
+      "quote": "var now = DateTime.UtcNow;",
+      "why": "Оба места, где пишется DeletedAt, берут значение из DateTime.UtcNow (Kind=Utc)."
+    },
+    "B2-migration-path": {
+      "verdict": "PASS",
+      "quote": "Выкладка по `.gitlab-ci.yml` делается за один релиз: приложение в это время остановлено, у `vet_app` нет прав на изменение схемы, и миграции при старте приложения не запускаются.",
+      "why": "Миграция лежит в Migrations/ вместе со снапшотом, в Program.cs нет Migrate или EnsureCreated, на прод изменение идёт через существующий pipeline и скрипт migrate.sql."
+    },
+    "B2-h-filters-weakened": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "HasQueryFilter не тронуты, IgnoreQueryFilters не добавлен."
+    },
+    "B2-m-drop-notes": {
+      "verdict": "NO",
+      "quote": "migrationBuilder.RenameColumn(\n                name: \"Notes\",\n                table: \"Visits\",\n                newName: \"Anamnesis\");",
+      "why": "Миграция использует RenameColumn, данные в столбце сохраняются."
+    }
+  },
+  "stderr": ""
+}

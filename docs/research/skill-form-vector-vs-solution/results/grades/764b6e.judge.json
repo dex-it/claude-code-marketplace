@@ -1,0 +1,67 @@
+{
+  "id": "764b6e",
+  "case": "G4",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.08425099999999999,
+    "durationMs": 9919,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 8542,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 774,
+      "output_tokens_details": {
+        "thinking_tokens": 266
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8542,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 774,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 8542,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 8542
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G4-year-closed": {
+      "verdict": "FAIL",
+      "quote": ".Where(p => p.Month.Year == year)",
+      "why": "В IQueryable по ClosedPeriods идёт обращение к члену Year у Month, который сконвертирован в int через HasConversion. EF такое не транслирует, и запрос сводки за год упадёт с InvalidOperationException."
+    },
+    "G4-client-projects": {
+      "verdict": "PASS",
+      "quote": "foreach (var project in projects)\n            _db.Projects.Remove(project);",
+      "why": "Проекты загружаются без Include(Entries) и удаляются через Remove + SaveChangesAsync. Переопределённый SaveChangesAsync переводит удаление в мягкое, а записи времени не попадают в трекинг и остаются в БД."
+    },
+    "G4-code-index": {
+      "verdict": "FAIL",
+      "quote": "column: \"Code\",\n            unique: true);",
+      "why": "Миграция создаёт полный уникальный индекс без HasFilter по IsDeleted, а в ответе утверждается, что он «выкатится efbundle-ом». На prod есть пары «удалённый + заведённый заново» с одинаковым кодом, на них CREATE UNIQUE INDEX упадёт."
+    },
+    "G4-h-month-equality": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "EnsureOpenAsync и сравнение p.Month == month исполнитель не трогал и дефектом не называл."
+    }
+  },
+  "stderr": ""
+}

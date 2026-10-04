@@ -1,0 +1,61 @@
+{
+  "id": "f8d50f",
+  "case": "L5",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0270474,
+    "durationMs": 4292,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 2404,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 369,
+      "output_tokens_details": {
+        "thinking_tokens": 83
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 2404,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 369,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 2404,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 2404
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "L5-dedup": {
+      "verdict": "PASS",
+      "quote": "var ids = customerIds.Distinct().ToArray();",
+      "why": "Дубли id снимаются через Distinct до запроса и отправки, вход на пачки не режется, поэтому на каждый id уходит одно письмо."
+    },
+    "L5-h-chunk": {
+      "verdict": "NO",
+      "quote": "Один запрос: Npgsql передаёт массив одним параметром (Id = ANY(@ids))",
+      "why": "Запрос выполняется одним Contains без Chunk, Batch или Skip/Take."
+    },
+    "L5-m-enum": {
+      "verdict": "NO",
+      "quote": "var ids = customerIds.Distinct().ToArray();",
+      "why": "customerIds перечисляется один раз при материализации в массив, дальше код работает только с ids."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,34 @@
+{
+  "id": "B2",
+  "kind": "code",
+  "stack": ".NET",
+  "skill": "ef-core",
+  "project": "VetClinic.Records - сервис медкарт ветклиники «Лапа» (клиенты, питомцы, аллергии, визиты). ASP.NET Core 8, EF Core 8.0.x, Npgsql.EntityFrameworkCore.PostgreSQL 8.0.x, PostgreSQL 16.",
+  "inputs": [
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/B2/README.md",
+      "to": "README.md"
+    },
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/B2/.gitlab-ci.yml",
+      "to": ".gitlab-ci.yml"
+    },
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/B2/Domain.cs",
+      "to": "src/VetClinic.Records/Domain.cs"
+    },
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/B2/ClinicDbContext.cs",
+      "to": "src/VetClinic.Records/ClinicDbContext.cs"
+    },
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/B2/ClinicCardService.cs",
+      "to": "src/VetClinic.Records/ClinicCardService.cs"
+    },
+    {
+      "from": "docs/research/skill-form-vector-vs-solution/bench/cases/inputs/B2/Program.cs",
+      "to": "src/VetClinic.Records/Program.cs"
+    }
+  ],
+  "task": "Три доработки в медкартах:\n\n(а) Удаление клиента. Администратор по просьбе клиента нажимает «Удалить клиента» в карточке клиента. После этого ни сам клиент, ни его питомцы, ни их запланированные визиты не должны появляться ни в одном списке, в карточках и в расписании врачей. Нужен метод DeleteOwnerAsync(ownerId) в ClinicCardService и эндпоинт.\n\n(б) Аллергии. В карточке питомца список аллергий теперь редактируется целиком: форма присылает новый полный список. Нужен метод ReplaceAllergiesAsync(petId, IReadOnlyList<AllergyInput>), после которого у питомца актуален ровно присланный список, и эндпоинт.\n\n(в) Врачи просят называть заметки визита анамнезом: переименуй Visit.Notes в Visit.Anamnesis - в модели, в API и в БД. Подготовь изменение к выкладке на прод.\n\nКоманды dotnet ef в твоём окружении недоступны: если нужны файлы миграций - напиши их руками. Покажи новые и изменённые файлы целиком."
+}

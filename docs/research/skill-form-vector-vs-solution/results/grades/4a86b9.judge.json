@@ -1,0 +1,61 @@
+{
+  "id": "4a86b9",
+  "case": "L5",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.025107400000000002,
+    "durationMs": 4321,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 2194,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 356,
+      "output_tokens_details": {
+        "thinking_tokens": 84
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 2194,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 356,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 2194,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 2194
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "L5-dedup": {
+      "verdict": "PASS",
+      "quote": "var idSet = new HashSet<Guid>(customerIds);",
+      "why": "Id дедуплицируются через HashSet до запроса, поэтому каждый клиент получает одно письмо; вход на пачки не режется."
+    },
+    "L5-h-chunk": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Запрос выполняется одним Where/Contains без Chunk/Batch/Skip-Take и без обоснования лимитом параметров."
+    },
+    "L5-m-enum": {
+      "verdict": "NO",
+      "quote": "var idSet = new HashSet<Guid>(customerIds);",
+      "why": "customerIds перечисляется ровно один раз при построении HashSet, дальше используется только idSet."
+    }
+  },
+  "stderr": ""
+}

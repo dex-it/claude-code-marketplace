@@ -1,0 +1,9 @@
+Изменённые/созданные файлы:
+- /Users/anonymous/.cache/review/pr280/runs/E5-N2/Model.cs — изменён: у Order добавлено поле `Version` (uint), замаплено на системную колонку Postgres `xmin` как конкуренц-токен (`IsConcurrencyToken`, `ValueGeneratedOnAddOrUpdate`), миграция/новая колонка не нужна.
+- /Users/anonymous/.cache/review/pr280/runs/E5-N2/OrderRepository.cs — изменён: добавлен `UpdateOrderAsync(Order order, ct)` (Attach + Entry.State = Modified, чтобы не задеть навигационные коллекции) и `OrderConcurrencyException`, оборачивающий `DbUpdateConcurrencyException`.
+- /Users/anonymous/.cache/review/pr280/runs/E5-N2/ProductRepository.cs — создан: `ReserveAsync(productId, qty)` и `SearchAsync(category, minPrice)`, плюс `InsufficientStockException`.
+
+Решения:
+1. (a) Concurrency-конфликт при параллельной правке заказа операторами решён оптимистичной блокировкой через `xmin` (без новой колонки): `UpdateOrderAsync` присоединяет заказ с исходным `Version`, EF Core генерирует `UPDATE ... WHERE "Id"=@id AND xmin=@version`; если строка уже была изменена другим оператором, 0 строк — `DbUpdateConcurrencyException` перехвачена и переброшена как `OrderConcurrencyException` для явной обработки на уровне UI ("перечитайте заказ и повторите").
+2. (b) `Reserve` списывает остаток без гонок пессимистичной блокировкой строки: в явной транзакции `SELECT * FROM "Products" WHERE "Id" = {0} FOR UPDATE` через `FromSqlRaw` — конкурентные резервы того же товара сериализуются на этой блокировке, затем проверка `Stock >= qty` и `SaveChangesAsync`/commit; при нехватке — `InsufficientStockException`.
+3. (c) Поиск продуктов собирает условия (категория, мин. цена) в список, каждое условие ссылается на позиционный плейсхолдер `{N}`, который вместе с массивом значений передаётся в `FromSqlRaw(sql, args)` — значения никогда не подставляются в текст SQL напрямую (без инъекций), итоговый SQL строится по шаблону `SELECT * FROM "Products" p WHERE {0}`.

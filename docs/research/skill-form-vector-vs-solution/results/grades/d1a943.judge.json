@@ -1,0 +1,121 @@
+{
+  "id": "d1a943",
+  "case": "CFG",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.11865419999999999,
+    "durationMs": 22226,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 8150,
+      "cache_read_input_tokens": 531,
+      "output_tokens": 2667,
+      "output_tokens_details": {
+        "thinking_tokens": 1166
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8150,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2667,
+          "cache_read_input_tokens": 531,
+          "cache_creation_input_tokens": 8150,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 8150
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "CFG-K9": {
+      "verdict": "PASS",
+      "quote": "`Outbox:MaxInFlight` в Staging = 20, в Production = 5",
+      "why": "Находка №8 прямо называет, что Staging агрессивнее Production по MaxInFlight."
+    },
+    "CFG-K8": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Дублирование MaxRetries 5 в Staging и Production при том же дефолте нигде не упомянуто."
+    },
+    "CFG-h-required": {
+      "verdict": "NO",
+      "quote": "без инициализатора и без `required`, но при этом отсутствует какой-либо `IValidateOptions<SmtpOptions>` и `ValidateOnStart`",
+      "why": "Отсутствие required упомянуто попутно, но выход не утверждает, что required поймает пропуск в конфиге, и в качестве проверки предлагает IValidateOptions/ValidateOnStart, а не required."
+    },
+    "CFG-K1": {
+      "verdict": "FOUND",
+      "quote": "Пароль от БД (`Kx7!pQ2vR9wz`) и пароль от SMTP-релея (`rl_live_9f3a1c77e2b04d6d`) закоммичены в открытом виде",
+      "why": "Находка №6 называет оба секрета в appsettings.Production.json."
+    },
+    "CFG-K2": {
+      "verdict": "FOUND",
+      "quote": "`GetValue<int>` на отсутствующем ключе вернёт `0`, и `60_000 / perMinute` бросит `DivideByZeroException`",
+      "why": "Находка №9 описывает несовпадение ключа и деление на ноль."
+    },
+    "CFG-K3": {
+      "verdict": "FOUND",
+      "quote": "`OutboxOptionsValidator` (и тесты на него) существует, но нигде не подключён",
+      "why": "Находка №4 называет незарегистрированный валидатор и отсутствие ValidateOnStart."
+    },
+    "CFG-K4": {
+      "verdict": "FOUND",
+      "quote": "`IOptions<OutboxOptions>` вычисляется один раз и не обновляется при изменении конфигурации в рантайме",
+      "why": "Находка №3 указывает на IOptions при требовании менять настройки на лету."
+    },
+    "CFG-K5": {
+      "verdict": "FOUND",
+      "quote": "в `appsettings.Production.json` фактически `MinBatchSize: 200 > MaxBatchSize: 100`",
+      "why": "Находка №5 называет по существу тот же дефект: некорректная пара 200/100 в проде ничем не отлавливается; условие if и отключение adaptive batching при этом явно не названы."
+    },
+    "CFG-K6": {
+      "verdict": "FOUND",
+      "quote": "код интерпретирует это как **секунды**, т.е. реальный опрос будет раз в ~8.3 минуты",
+      "why": "Находка №2 описывает, что PollInterval 500 через FromSeconds даёт паузу 500 с."
+    },
+    "CFG-K7": {
+      "verdict": "FOUND",
+      "quote": "`Host` и `FromAddress` объявлены как non-nullable `string` без инициализатора",
+      "why": "Находка №10 называет отсутствие дефолта и проверки для Host/FromAddress."
+    },
+    "CFG-h-P1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Против IOptions<SmtpOptions> в SmtpMailSender находок нет."
+    },
+    "CFG-h-P2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Против LockTimeout как TimeSpan находок нет."
+    },
+    "CFG-O1": {
+      "verdict": "FOUND",
+      "quote": "`SentAt` выставляется всем сообщениям батча ещё до попытки отправки и никогда не откатывается при ошибке",
+      "why": "Находка №1 описывает именно этот дефект и потерю повторов."
+    },
+    "CFG-O2": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Расхождение GetSection(\"Mail\") и секции Smtp не названо; №10 говорит только об отсутствии отдельных ключей."
+    },
+    "CFG-O3": {
+      "verdict": "FOUND",
+      "quote": "Стандартный `IConfiguration`/`ConfigurationBuilder` в .NET не подставляет `${VAR}` внутрь значения",
+      "why": "Находка №7 прямо называет этот дефект."
+    }
+  },
+  "stderr": ""
+}

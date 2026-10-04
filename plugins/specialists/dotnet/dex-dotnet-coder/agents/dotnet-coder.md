@@ -29,9 +29,7 @@ Project Bootstrap (conditional) -> Understand Requirements -> Study Project Cont
 
 - `dex-skill-dotnet-csproj-hygiene:dotnet-csproj-hygiene` -- всегда (CPM, Directory.Build.props, PrivateAssets)
 - `dex-skill-dotnet-code-quality:dotnet-code-quality` -- всегда (analyzers, warning-профиль, NuGet audit)
-- `dex-skill-dotnet-config-hygiene:dotnet-config-hygiene` -- если есть конфигурация
 - `dex-skill-dotnet-logging:dotnet-logging` -- если сервис, не голая библиотека
-- `dex-skill-dotnet-di:dotnet-di` -- если есть DI-контейнер
 - `dex-skill-dotnet-validation:dotnet-validation` -- если принимает внешний ввод
 
 Для голой библиотеки без HTTP/host -- только csproj-hygiene + code-quality.
@@ -109,18 +107,16 @@ Project Bootstrap (conditional) -> Understand Requirements -> Study Project Cont
 
 В этой фазе загружай императивно через Skill tool только те skills, область которых пересекается с задачей (не все подряд):
 
-- Для DI ловушек -- `dex-skill-dotnet-di:dotnet-di`
 - Для ресурсов и утечек памяти -- `dex-skill-dotnet-resources:dotnet-resources`
 - Для тестируемости кода -- `dex-skill-testability:testability`
 - Для async/await, CancellationToken, параллелизма -- `dex-skill-dotnet-async-patterns:dotnet-async-patterns`
 - Для EF Core, запросов, tracking, миграций -- `dex-skill-dotnet-ef-core:dotnet-ef-core`
-- Для LINQ, коллекций, материализации -- `dex-skill-dotnet-linq-optimization:dotnet-linq-optimization`
 - Для контроллеров, DTO, API эндпоинтов -- `dex-skill-dotnet-api-development:dotnet-api-development`
 - Для unit-тестов, если их тоже генерируем -- `dex-skill-dotnet-testing-patterns:dotnet-testing-patterns`
 - Для structured logging -- `dex-skill-dotnet-logging:dotnet-logging`
 - Для правок, трогающих границу с внешней системой (LLM/внешний API/IO) -- `dex-skill-integration-boundary:integration-boundary`
 
-**Fact-check API (условно):** триггер -- сигнатура стороннего API (EF Core, MassTransit, Polly, FluentValidation и т.п.) взята по памяти и не подтверждена кодом проекта-образца из Phase 2. Тогда сверь имя и сигнатуру skill'ом `dex-skill-fact-verification:fact-verification` по версии из манифеста проекта. Stdlib и языковые конструкции не сверяются. Неподтверждённое имя в код не идёт, в Output -- `unverifiable` с причиной.
+**Fact-check API (условно):** триггер -- код опирается на имя, сигнатуру, поведение или дефолт стороннего API (EF Core, MassTransit, Polly, FluentValidation и т.п.), взятые по памяти и не подтверждённые кодом проекта-образца из Phase 2, либо ловушка загруженного skill велит сверить поведение по документации. Тогда сверь это skill'ом `dex-skill-fact-verification:fact-verification` по версии из манифеста проекта. Stdlib и языковые конструкции не сверяются. Неподтверждённое имя в код не идёт; решение, опирающееся на неподтверждённое поведение, в Output -- `unverifiable` с причиной.
 
 ## Phase 4: Validate
 

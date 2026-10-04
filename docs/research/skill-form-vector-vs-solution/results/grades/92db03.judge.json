@@ -1,0 +1,67 @@
+{
+  "id": "92db03",
+  "case": "G1",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.090251,
+    "durationMs": 10152,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 8772,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 982,
+      "output_tokens_details": {
+        "thinking_tokens": 478
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8772,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 982,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 8772,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 8772
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G1-debtors-fine": {
+      "verdict": "PASS",
+      "quote": ".ToListAsync())\n            .Where(r => r.Fine > 0)\n            .OrderByDescending(r => r.Fine)",
+      "why": "В запросе фильтр только по маппленным BranchId и ReturnedAt == null; отбор по Fine, сортировка и Sum идут в памяти после материализации, поэтому список не падает. Отсечения по DueDate в SQL нет: это лишняя выборка, на корректность не влияет."
+    },
+    "G1-period-offset": {
+      "verdict": "FAIL",
+      "quote": ".Where(l => l.IssuedAt >= from && l.IssuedAt < to)",
+      "why": "From/To со смещением +05:00 передаются в сравнение с timestamptz без приведения к UTC, Npgsql отклонит параметр и отчёт упадёт; в ответе это прямо обосновано: «конвертация по филиалам не нужна»."
+    },
+    "G1-h-loanrows": {
+      "verdict": "NO",
+      "quote": "так же безопасно транслируется в SQL, как и исходный `GetActiveLoansAsync`",
+      "why": "ToLoanRows и GetActiveLoansAsync не названы дефектом и не изменены, исполнитель их переиспользует."
+    },
+    "G1-h-today-utc": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "CountIssuedTodayAsync не упоминается и не изменён."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,81 @@
+{
+  "id": "756f0b",
+  "case": "FVB",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0625154,
+    "durationMs": 7641,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 5605,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 862,
+      "output_tokens_details": {
+        "thinking_tokens": 112
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 5605,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 862,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 5605,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 5605
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "FVB-KB1": {
+      "verdict": "PASS",
+      "quote": "В pydantic 1.10 `Optional[Decimal]` без значения по умолчанию — необязательное поле, по умолчанию `None`. Клиент, который не прислал поле, получит не 422, а списание всего баланса.",
+      "why": "Находка прямо опровергает утверждение комментария для pydantic 1.10 и называет последствие: списание всего баланса."
+    },
+    "FVB-KB2": {
+      "verdict": "PASS",
+      "quote": "по умолчанию `extra = Extra.ignore`, лишние поля молча отбрасываются. Опечатка в имени поля (например, `confirmAmount`) тоже приведёт к списанию всего баланса.",
+      "why": "Находка опровергает утверждение про отказ на лишние поля и показывает цепочку от опечатки к списанию всего баланса."
+    },
+    "FVB-h-PB1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Выход не требует заменить req.dict() на model_dump(); замечание к write_audit(req.dict()) касается только содержимого аудита."
+    },
+    "FVB-OB1": {
+      "verdict": "FOUND",
+      "quote": "Два параллельных запроса дадут двойное списание, и результат одного из них потеряется.",
+      "why": "Находка называет чтение и запись без блокировки строки и двойное списание."
+    },
+    "FVB-OB2": {
+      "verdict": "FOUND",
+      "quote": "`Decimal(0.1)` из float равен `0.1000000000000000055…`, а `int()` отбрасывает дробную часть.",
+      "why": "Находка называет неточную стоимость балла из float и её последствия."
+    },
+    "FVB-OB3": {
+      "verdict": "FOUND",
+      "quote": "отрицательный `confirm_amount` проходит проверку `amount > balance` и увеличивает баланс.",
+      "why": "Находка прямо называет начисление баллов при отрицательной сумме."
+    },
+    "FVB-OB4": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Ни ответ, ни _answer.md не упоминают, что member_id берётся из тела запроса без аутентификации (IDOR)."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,121 @@
+{
+  "id": "98c874",
+  "case": "CFG",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0883714,
+    "durationMs": 19404,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 5072,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 2368,
+      "output_tokens_details": {
+        "thinking_tokens": 898
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 5072,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2368,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 5072,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 5072
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "CFG-K9": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Находки о том, что MaxInFlight в Staging (20) выше, чем в Production (5), в выходе нет."
+    },
+    "CFG-K8": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "О дублировании MaxRetries 5 при том же дефолте ничего не сказано; находка 5, наоборот, требует повторять значения в каждом env-файле."
+    },
+    "CFG-h-required": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Модификатор required как проверка конфигурации нигде не предлагается."
+    },
+    "CFG-K1": {
+      "verdict": "FOUND",
+      "quote": "Содержит в открытом виде критические секреты: пароль БД (`Kx7!pQ2vR9wz`), пароль SMTP",
+      "why": "Находка 1 прямо называет пароли БД и SMTP в appsettings.Production.json."
+    },
+    "CFG-K2": {
+      "verdict": "FOUND",
+      "quote": "Ищет \"Throttle:MessagesPerMinute\", но в конфигурационных файлах ключ \"Throttle:PerMinute\"",
+      "why": "Находки 7 и 8 вместе называют несовпадение ключа и деление на ноль при нулевом значении."
+    },
+    "CFG-K3": {
+      "verdict": "FOUND",
+      "quote": "OutboxOptionsValidator создан (Options/OutboxOptionsValidator.cs), но не зарегистрирован в DI контейнере. Валидация конфигурации при старте не происходит",
+      "why": "Находка 3 называет незарегистрированный валидатор и отсутствие проверки при старте."
+    },
+    "CFG-K4": {
+      "verdict": "FOUND",
+      "quote": "Используется IOptions<OutboxOptions> и IOptions<SmtpOptions> вместо IOptionsMonitor",
+      "why": "Находка 6 называет IOptions в OutboxWorker при требовании менять настройки на лету."
+    },
+    "CFG-K5": {
+      "verdict": "FOUND",
+      "quote": "MinBatchSize (200) > MaxBatchSize (100), что является невалидной конфигурацией",
+      "why": "Находка 4 указывает на невалидную пару 200/100, хотя тихое отключение adaptive batching через if прямо не описано."
+    },
+    "CFG-K6": {
+      "verdict": "FOUND",
+      "quote": "`TimeSpan.FromSeconds(o.PollInterval)` интерпретирует PollInterval как секунды, но в конфигурации это миллисекунды (500)",
+      "why": "Находка 2 точно описывает паузу в 500 секунд вместо 500 мс."
+    },
+    "CFG-K7": {
+      "verdict": "FOUND",
+      "quote": "SmtpOptions содержит non-nullable свойства (Host, Port, FromAddress), но нет валидатора",
+      "why": "Находка 11 называет non-nullable Host и FromAddress без проверки."
+    },
+    "CFG-h-P1": {
+      "verdict": "YES",
+      "quote": "Используется IOptions<OutboxOptions> и IOptions<SmtpOptions> вместо IOptionsMonitor",
+      "why": "Находка 6 объявляет дефектом IOptions<SmtpOptions> в SmtpMailSender, хотя менять SMTP на лету не требуется."
+    },
+    "CFG-h-P2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Формат LockTimeout \"00:00:30\" как TimeSpan дефектом не объявлен; упомянуто только отсутствие значения в Staging."
+    },
+    "CFG-O1": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "О том, что SentAt ставится до отправки, ничего не сказано."
+    },
+    "CFG-O2": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Несовпадение GetSection(\"Mail\") с секцией Smtp не выявлено; Mail и Smtp упомянуты вперемешку, без указания на дефект."
+    },
+    "CFG-O3": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "О плейсхолдере ${NOTIFY_DB_PASSWORD}, который конфигурация .NET не подставляет, ничего не сказано."
+    }
+  },
+  "stderr": ""
+}

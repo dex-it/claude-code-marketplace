@@ -1,0 +1,92 @@
+{
+  "id": "d5ab4e",
+  "case": "BN",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.10352700000000001,
+    "durationMs": 12492,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 9989,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1159,
+      "output_tokens_details": {
+        "thinking_tokens": 230
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9989,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1159,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 9989,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 9989
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "BN-h-local-time": {
+      "verdict": "NO",
+      "quote": "`ScheduledLocal` пишется без часового пояса в колонку `timestamp without time zone`",
+      "why": "Исполнитель признал хранение Unspecified в timestamp without time zone корректным и не требовал перевода в UTC."
+    },
+    "BN-h-split-card": {
+      "verdict": "NO",
+      "quote": "`AsNoTracking` и `AsSplitQuery` здесь выбраны правильно, их оставить.",
+      "why": "Split query в GetCardAsync прямо одобрен, удалить его исполнитель не предлагает."
+    },
+    "BN-h-tracking": {
+      "verdict": "NO",
+      "quote": "Достаточно загрузить одну строку по `Id` и `ProcedureId`",
+      "why": "AsNoTracking не предложен ни для проекций, ни для RescheduleAsync или RemoveConsumableAsync."
+    },
+    "BN-h-chip-single": {
+      "verdict": "NO",
+      "quote": "`SingleOrDefault` по номеру чипа опирается на уникальный индекс.",
+      "why": "SingleOrDefault в FindPetByChipAsync признан корректным."
+    },
+    "BN-h-fromsql": {
+      "verdict": "NO",
+      "quote": "Параметризация здесь корректная (`FromSql` с интерполяцией передаёт `{text}` как параметр)",
+      "why": "SQL-инъекция не заявлена: для GetConsumptionAsync признаны белый список и параметры, претензий к алиасам нет."
+    },
+    "BN-h-tolower": {
+      "verdict": "NO",
+      "quote": "Поиск по названию выполняется в SQL.",
+      "why": "Трансляция ToLower().Contains в SQL признана."
+    },
+    "BN-h-consumable-remove": {
+      "verdict": "NO",
+      "quote": "Если процедуру закроют между проверкой и сохранением, строка удалится из закрытого списания.",
+      "why": "Исполнитель указывает на гонку с закрытием и не утверждает, что Remove(line) не удалит строку или оставит сироту."
+    },
+    "BN-pagination": {
+      "verdict": "FOUND",
+      "quote": "По контракту страницы нумеруются с 1, а код делает `Skip(page * PageSize)`. На `page=1` первые 30 процедур дня теряются.",
+      "why": "Сдвиг пагинации на одну страницу назван прямо, исправление предложено."
+    },
+    "BN-dose-grams": {
+      "verdict": "FOUND",
+      "quote": "Код считает `doseMg = weightGrams * drugMgPerKg`, а доза задана в мг/кг. Деления на 1000 нет.",
+      "why": "Тысячекратное завышение дозы из-за граммов найдено как critical."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,63 @@
+run_id,item_id,verdict,note
+0b52b6,K1-key,pass,константы NotificationServiceKeys
+ab72e2,K1-key,fail,"литералы ""email""/""sms"" в регистрации и атрибутах"
+4a86b9,L5-dedup,pass,HashSet
+4a86b9,L5-h-chunk,no,один запрос
+4a86b9,L5-m-enum,no,
+e31103,L5-dedup,pass,Distinct
+e31103,L5-h-chunk,no,один запрос
+e31103,L5-m-enum,no,
+e479a6,L5-dedup,pass,Distinct до Chunk
+e479a6,L5-h-chunk,yes,Chunk(500): «SQL параметры ограничены»
+e479a6,L5-m-enum,no,
+024d56,E2-single,fail,FirstOrDefault при warehouse null
+024d56,E2-h-split,no,карточка с AsSplitQuery
+024d56,E2-m-cart,no,выгрузка AsSplitQuery
+024d56,E2-m-nullagg,no,фильтр != null
+d61bd0,E2-single,fail,"при >1 складе возвращает null - неоднозначность не отличима от «не найдено»"
+d61bd0,E2-h-split,no,карточка без split без довода «одна сущность»
+d61bd0,E2-m-cart,yes,выгрузка двух коллекций одним запросом без split
+d61bd0,E2-m-nullagg,no,! после фильтра != null
+54f8aa,FVB-KB1,fail,утверждение не затронуто
+54f8aa,FVB-KB2,fail,утверждение не затронуто
+54f8aa,FVB-h-PB1,yes,требует model_dump
+54f8aa,FVB-OB1,found,
+54f8aa,FVB-OB2,found,
+54f8aa,FVB-OB3,missed,
+54f8aa,FVB-OB4,missed,
+95e89f,FVB-KB1,fail,утверждение не затронуто
+95e89f,FVB-KB2,fail,утверждение не затронуто
+95e89f,FVB-h-PB1,no,
+95e89f,FVB-OB1,found,
+95e89f,FVB-OB2,found,
+95e89f,FVB-OB3,found,
+95e89f,FVB-OB4,missed,
+a0160b,FVB-KB1,fail,утверждение не затронуто
+a0160b,FVB-KB2,fail,утверждение не затронуто
+a0160b,FVB-h-PB1,no,
+a0160b,FVB-OB1,found,
+a0160b,FVB-OB2,found,
+a0160b,FVB-OB3,found,
+a0160b,FVB-OB4,missed,
+bc2455,FVB-KB1,fail,утверждение не затронуто
+bc2455,FVB-KB2,fail,утверждение не затронуто
+bc2455,FVB-h-PB1,no,
+bc2455,FVB-OB1,missed,
+bc2455,FVB-OB2,found,
+bc2455,FVB-OB3,missed,
+bc2455,FVB-OB4,missed,
+a8606d,CFG-K9,pass,
+a8606d,CFG-K8,pass,MaxRetries 5 везде
+a8606d,CFG-h-required,yes,решение - добавить required: «required ловит отсутствие значения»
+a8606d,CFG-K1,found,
+a8606d,CFG-K2,found,
+a8606d,CFG-K3,found,
+a8606d,CFG-K4,found,
+a8606d,CFG-K5,found,
+a8606d,CFG-K6,found,
+a8606d,CFG-K7,found,
+a8606d,CFG-h-P1,yes,IOptions<SmtpOptions> в SmtpMailSender назван дефектом
+a8606d,CFG-h-P2,no,
+a8606d,CFG-O1,missed,
+a8606d,CFG-O2,missed,
+a8606d,CFG-O3,missed,

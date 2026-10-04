@@ -1,0 +1,66 @@
+{
+  "id": "193633",
+  "case": "E2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0416714,
+    "durationMs": 7625,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 3577,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 631,
+      "output_tokens_details": {
+        "thinking_tokens": 158
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3577,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 631,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 3577,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 3577
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "E2-single": {
+      "verdict": "FAIL",
+      "quote": "return query.FirstOrDefaultAsync();",
+      "why": "При warehouse == null и нескольких продуктах с одним SKU метод молча возвращает первый; в _answer.md это подтверждено: «если warehouse null, вернет первый найденный продукт с этим SKU»."
+    },
+    "E2-h-split": {
+      "verdict": "NO",
+      "quote": ".AsSplitQuery()\n            .Where(o => o.Id == id)",
+      "why": "В карточке заказа AsSplitQuery сохранён, и нигде не утверждается, что для одной сущности split не нужен."
+    },
+    "E2-m-cart": {
+      "verdict": "NO",
+      "quote": "ItemsCount = o.Items.Count,\n                PaymentsCount = o.Payments.Count",
+      "why": "Выгрузка заказов клиента сделана проекцией с агрегатами и AsSplitQuery, без Include двух коллекций в одном JOIN."
+    },
+    "E2-m-nullagg": {
+      "verdict": "NO",
+      "quote": "o.ShippedAt != null)\n            .OrderByDescending(o => o.ShippedAt)",
+      "why": "Nullable-агрегата с `!` или .Value нет: фильтр ShippedAt != null стоит до выборки, а null обрабатывается через `?? DateTime.MinValue`."
+    }
+  },
+  "stderr": ""
+}

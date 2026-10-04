@@ -1,0 +1,34 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - run: dotnet tool restore
+      - run: dotnet publish src/Domovoy.Housing -c Release -o out/app
+      - run: dotnet ef migrations bundle -p src/Domovoy.Housing -c Release --self-contained -r linux-x64 -o out/efbundle
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release
+          path: out/
+
+  deploy-production:
+    needs: build
+    runs-on: [self-hosted, prod]
+    environment: production
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release
+      - name: Apply migrations
+        run: ./efbundle --connection "${{ secrets.PROD_DB }}"
+      - name: Roll out
+        run: ./scripts/rollout.sh app

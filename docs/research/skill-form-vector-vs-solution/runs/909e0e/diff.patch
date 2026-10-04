@@ -1,0 +1,203 @@
+diff --git a/BankStatementService.cs b/BankStatementService.cs
+new file mode 100644
+index 0000000..aa1d080
+--- /dev/null
++++ b/BankStatementService.cs
+@@ -0,0 +1,78 @@
++using Microsoft.EntityFrameworkCore;
++
++namespace Tarif.Billing;
++
++public record ImportResult(int Credited, int Unmatched, int Skipped);
++
++public class BankStatementService
++{
++    private readonly BillingDbContext _db;
++
++    public BankStatementService(BillingDbContext db) => _db = db;
++
++    public async Task<ImportResult> ImportAsync(TextReader reader)
++    {
++        var lines = BankStatement.Parse(reader);
++        var refs = lines.Select(l => l.BankRef).ToList();
++
++        var known = await _db.Payments.Where(p => refs.Contains(p.BankRef))
++            .Select(p => p.BankRef)
++            .Concat(_db.UnmatchedPayments.Where(p => refs.Contains(p.BankRef)).Select(p => p.BankRef))
++            .ToHashSetAsync();
++
++        int credited = 0, unmatched = 0, skipped = 0;
++
++        foreach (var line in lines)
++        {
++            // Уже загружали эту строку раньше (или она повторяется в этом же файле) - пропускаем.
++            if (!known.Add(line.BankRef))
++            {
++                skipped++;
++                continue;
++            }
++
++            var contractNo = PaymentPurpose.ExtractContractNo(line.Purpose);
++            var subscriber = contractNo is null
++                ? null
++                : await _db.Subscribers.SingleOrDefaultAsync(s => s.ContractNo == contractNo);
++
++            if (subscriber is null)
++            {
++                _db.UnmatchedPayments.Add(new UnmatchedPayment
++                {
++                    BankRef = line.BankRef,
++                    PaidOn = line.PaidOn,
++                    Amount = line.Amount,
++                    PayerName = line.PayerName,
++                    Purpose = line.Purpose,
++                    ImportedAt = DateTime.Now,
++                });
++                unmatched++;
++                continue;
++            }
++
++            var creditedAt = DateTime.Now;
++            subscriber.Balance += line.Amount;
++            _db.Payments.Add(new Payment
++            {
++                SubscriberId = subscriber.Id,
++                Amount = line.Amount,
++                BankRef = line.BankRef,
++                PaidOn = line.PaidOn,
++                CreditedAt = creditedAt,
++                Purpose = line.Purpose,
++            });
++
++            if (subscriber.Status == SubscriberStatus.Suspended && subscriber.Balance >= 0)
++            {
++                subscriber.Status = SubscriberStatus.Active;
++                subscriber.ReactivatedAt = creditedAt;
++            }
++
++            credited++;
++        }
++
++        await _db.SaveChangesAsync();
++        return new ImportResult(credited, unmatched, skipped);
++    }
++}
+diff --git a/BillingDbContext.cs b/BillingDbContext.cs
+index a178566..22e6acc 100644
+--- a/BillingDbContext.cs
++++ b/BillingDbContext.cs
+@@ -9,6 +9,7 @@ public class BillingDbContext : DbContext
+     public DbSet<Tariff> Tariffs => Set<Tariff>();
+     public DbSet<Subscriber> Subscribers => Set<Subscriber>();
+     public DbSet<Payment> Payments => Set<Payment>();
++    public DbSet<UnmatchedPayment> UnmatchedPayments => Set<UnmatchedPayment>();
+ 
+     protected override void ConfigureConventions(ModelConfigurationBuilder b)
+     {
+@@ -33,5 +34,11 @@ public class BillingDbContext : DbContext
+             e.HasIndex(p => p.BankRef).IsUnique();
+             e.Property(p => p.BankRef).HasMaxLength(64);
+         });
++
++        b.Entity<UnmatchedPayment>(e =>
++        {
++            e.HasIndex(p => p.BankRef).IsUnique();
++            e.Property(p => p.BankRef).HasMaxLength(64);
++        });
+     }
+ }
+diff --git a/Models.cs b/Models.cs
+index bfb8200..82b3dc4 100644
+--- a/Models.cs
++++ b/Models.cs
+@@ -24,6 +24,8 @@ public class Subscriber
+     public decimal Balance { get; set; }
+     public DateTime CreatedAt { get; set; }
+     public DateTime? ConnectedAt { get; set; }
++    // Момент, когда баланс приостановленного абонента стал неотрицательным и он вернулся в Active.
++    public DateTime? ReactivatedAt { get; set; }
+ 
+     public List<Payment> Payments { get; set; } = new();
+ }
+@@ -39,3 +41,16 @@ public class Payment
+     public DateTime CreditedAt { get; set; }
+     public string Purpose { get; set; } = "";
+ }
++
++// Строка выписки, для которой не удалось определить абонента по договору из назначения платежа.
++// Откладывается бухгалтеру для ручного разбора.
++public class UnmatchedPayment
++{
++    public int Id { get; set; }
++    public string BankRef { get; set; } = "";
++    public DateOnly PaidOn { get; set; }
++    public decimal Amount { get; set; }
++    public string PayerName { get; set; } = "";
++    public string Purpose { get; set; } = "";
++    public DateTime ImportedAt { get; set; }
++}
+diff --git a/Program.cs b/Program.cs
+index 81dd291..fc098df 100644
+--- a/Program.cs
++++ b/Program.cs
+@@ -6,6 +6,7 @@ var builder = WebApplication.CreateBuilder(args);
+ builder.Services.AddDbContext<BillingDbContext>(o =>
+     o.UseNpgsql(builder.Configuration.GetConnectionString("Billing")));
+ builder.Services.AddScoped<SubscriberService>();
++builder.Services.AddScoped<BankStatementService>();
+ 
+ var app = builder.Build();
+ 
+@@ -21,4 +22,13 @@ app.MapPost("/subscribers/{id:int}/contract", async (int id, ContractRequest req
+ app.MapGet("/subscribers/by-contract/{contractNo}", async (string contractNo, SubscriberService s) =>
+     await s.GetByContractAsync(contractNo) is { } dto ? Results.Ok(dto) : Results.NotFound());
+ 
++app.MapGet("/subscribers/search", async (string phone, SubscriberService s) =>
++    Results.Ok(await s.SearchByPhoneAsync(phone)));
++
++app.MapPost("/bank/statements", async (HttpRequest request, BankStatementService svc) =>
++{
++    using var reader = new StreamReader(request.Body);
++    return Results.Ok(await svc.ImportAsync(reader));
++});
++
+ app.Run();
+diff --git a/SubscriberService.cs b/SubscriberService.cs
+index af52716..885c919 100644
+--- a/SubscriberService.cs
++++ b/SubscriberService.cs
+@@ -50,4 +50,15 @@ public class SubscriberService
+             ? null
+             : new SubscriberDto(s.Id, s.FullName, s.Phone, s.Address, s.ContractNo, s.Status, s.Balance);
+     }
++
++    // Поиск для колл-центра по последним цифрам телефона, не больше 20 результатов.
++    public async Task<List<SubscriberDto>> SearchByPhoneAsync(string phone)
++    {
++        return await _db.Subscribers.AsNoTracking()
++            .Where(s => s.Phone.EndsWith(phone))
++            .OrderBy(s => s.Id)
++            .Take(20)
++            .Select(s => new SubscriberDto(s.Id, s.FullName, s.Phone, s.Address, s.ContractNo, s.Status, s.Balance))
++            .ToListAsync();
++    }
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..403d847
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,13 @@
++## Изменённые/созданные файлы
++
++- `Models.cs` — добавлены `Subscriber.ReactivatedAt` (момент возврата в Active) и новая сущность `UnmatchedPayment` (неразобранные строки выписки).
++- `BillingDbContext.cs` — `DbSet<UnmatchedPayment>`, уникальный индекс по `BankRef` для неё же.
++- `BankStatementService.cs` (новый) — импорт выписки: разбор через `BankStatement.Parse`, извлечение номера договора через `PaymentPurpose`, зачисление на баланс абонента, авто-возврат из Suspended в Active при неотрицательном балансе, запись несопоставленных строк в `UnmatchedPayments`.
++- `SubscriberService.cs` — метод `SearchByPhoneAsync` (поиск по окончанию номера телефона, лимит 20).
++- `Program.cs` — регистрация `BankStatementService`, эндпоинты `POST /bank/statements` и `GET /subscribers/search?phone=`.
++
++## Решения
++
++- Идемпотентность загрузки обеспечена уникальным `BankRef` (уже был уникальный индекс у `Payment`, добавлен такой же у `UnmatchedPayment`); при повторном импорте строка с уже встречавшимся `BankRef` (в любой из двух таблиц) просто пропускается, включая дубли внутри одного файла.
++- Разбор файла из тела запроса читается напрямую как `StreamReader` поверх `HttpRequest.Body` (без multipart), так как в условии "файл в теле запроса".
++- Поиск по телефону сделан через `string.EndsWith`, что EF Core транслирует в безопасный параметризованный `LIKE` с экранированием спецсимволов.

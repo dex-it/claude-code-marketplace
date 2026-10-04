@@ -1,0 +1,111 @@
+{
+  "id": "d0ea5d",
+  "case": "R",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0946034,
+    "durationMs": 13596,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 7556,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1686,
+      "output_tokens_details": {
+        "thinking_tokens": 285
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7556,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1686,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 7556,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 7556
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "R-D3": {
+      "verdict": "PASS",
+      "quote": "Шаблон — `SELECT * FROM \"Products\" p WHERE {0}`, таблица получает алиас `p`. Но условия фильтра строятся как `\"Products\".\"Category\"",
+      "why": "Находка #11 называет несовпадение алиаса p и ссылок на \"Products\" в условиях FromSqlRaw."
+    },
+    "R-D1": {
+      "verdict": "FOUND",
+      "quote": "`SingleAsync(p => p.Sku == sku)` бросит исключение `InvalidOperationException: Sequence contains more than one element` для любого SKU, представленного на нескольких складах",
+      "why": "Находка #5 называет SingleAsync по SKU, который не уникален между складами."
+    },
+    "R-D2": {
+      "verdict": "FOUND",
+      "quote": "`MaxAsync(o => o.ShippedAt)` вернёт `null`... `last!.Value` в этом случае упадёт",
+      "why": "Находка #6 называет MaxAsync по ShippedAt и !.Value без проверки на null."
+    },
+    "R-D4": {
+      "verdict": "FOUND",
+      "quote": "`UpdateRange` на уже отслеживаемых сущностях.",
+      "why": "Находка #12 называет UpdateRange на сущностях, которые контекст уже отслеживает."
+    },
+    "R-D5": {
+      "verdict": "FOUND",
+      "quote": "`ShopDbContext` (зарегистрирован через `AddDbContext`, то есть Scoped) внедряется напрямую в конструктор `OverdueNotifier : BackgroundService`",
+      "why": "Находка #13 называет scoped DbContext в конструкторе BackgroundService."
+    },
+    "R-D6": {
+      "verdict": "FOUND",
+      "quote": "Запрос одновременно подключает `Items` и `Payments` через `Include(...).Include(...)` без `AsSplitQuery()`",
+      "why": "Находка #3 называет Include двух коллекций без split query на тысячах заказов."
+    },
+    "R-D7": {
+      "verdict": "FOUND",
+      "quote": "`FOR UPDATE` без явной границы транзакции.",
+      "why": "Находка #10 называет FOR UPDATE вне явной транзакции."
+    },
+    "R-D8": {
+      "verdict": "FOUND",
+      "quote": "сохраняет без токена конкурентности (`RowVersion`/`[ConcurrencyCheck]`)",
+      "why": "Находка #7 называет правку заказа без concurrency token."
+    },
+    "R-D9": {
+      "verdict": "FOUND",
+      "quote": "Существующие значения `Orders.Category` (строка) просто выбрасываются `DropColumn`; переноса значений в `Categories`/`OrderCategories` нет.",
+      "why": "Находка #2 называет DropColumn Category без переноса данных."
+    },
+    "R-K1": {
+      "verdict": "FOUND",
+      "quote": "`_repo.GetAllAsync()` делает `SELECT *` по всем заказам без каких-либо условий, и только потом в памяти (LINQ-to-Objects) вызывается `o.IsOverdue(now)`",
+      "why": "Находка #9 называет GetAllAsync с фильтрацией IsOverdue в памяти."
+    },
+    "R-h-B1": {
+      "verdict": "YES",
+      "quote": "`AsSplitQuery()` применён к точечному запросу одного заказа... (или обычного Include без split, т.к. кардинальность здесь предсказуемо мала)",
+      "why": "Находка #4 объявляет дефектом правильный AsSplitQuery на карточке одного заказа и предлагает убрать split."
+    },
+    "R-h-B2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находок против Kind=Unspecified или чтения timestamp как Utc в выходе нет."
+    },
+    "R-O1": {
+      "verdict": "FOUND",
+      "quote": "`order.Total = order.Items.Sum(i => prices[i.ProductId])` суммирует цену за единицу без умножения на `i.Qty`",
+      "why": "Находка #8 называет подсчёт суммы заказа без учёта Qty."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,101 @@
+diff --git a/Model.cs b/Model.cs
+index cc90064..8e587e0 100644
+--- a/Model.cs
++++ b/Model.cs
+@@ -1,7 +1,7 @@
+ // Shop.Data - EF Core 8, PostgreSQL (Npgsql.EntityFrameworkCore.PostgreSQL 8)
+ namespace Shop.Data;
+ 
+-public class Customer { public Guid Id { get; set; } public string Name { get; set; } = ""; public List<Order> Orders { get; set; } = new(); }
++public class Customer { public Guid Id { get; set; } public string Name { get; set; } = ""; public virtual List<Order> Orders { get; set; } = new(); }
+ 
+ public class Order
+ {
+@@ -11,11 +11,12 @@ public class Order
+     public string Status { get; set; } = "active";
+     public string Category { get; set; } = "";
+     public decimal Total { get; set; }
+-    public DateTime CreatedAt { get; set; }          // column: timestamp without time zone
++    public int Complexity { get; set; } = 1;         // сложность комплектации, 1..5
++    public DateTime CreatedAt { get; set; }          // column: timestamp without time zone, в коде всегда Kind=Utc
+     public DateTime? ShippedAt { get; set; }
+     public bool IsDeleted { get; set; }
+-    public List<OrderItem> Items { get; set; } = new();
+-    public List<Payment> Payments { get; set; } = new();
++    public virtual List<OrderItem> Items { get; set; } = new();
++    public virtual List<Payment> Payments { get; set; } = new();
+     public bool IsOverdue(DateTime now) => ShippedAt == null && CreatedAt.AddDays(3) < now;
+ }
+ 
+@@ -44,7 +45,34 @@ public class ShopDbContext : DbContext
+     protected override void OnModelCreating(ModelBuilder b)
+     {
+         b.Entity<Order>().HasQueryFilter(o => !o.IsDeleted);
+-        b.Entity<Order>().Property(o => o.CreatedAt).HasColumnType("timestamp without time zone");
++
++        b.Entity<Order>().Property(o => o.Complexity).IsRequired();
++        b.Entity<Order>().ToTable(t => t.HasCheckConstraint("CK_Order_Complexity", "\"Complexity\" BETWEEN 1 AND 5"));
++
++        // Колонка остаётся timestamp: пишем UTC-значение с Kind=Unspecified (Kind=Utc в timestamp Npgsql не пустит),
++        // на чтении только помечаем Kind=Utc без сдвига значения.
++        b.Entity<Order>().Property(o => o.CreatedAt)
++            .HasColumnType("timestamp without time zone")
++            .HasConversion(
++                v => DateTime.SpecifyKind(v.Kind == DateTimeKind.Local ? v.ToUniversalTime() : v, DateTimeKind.Unspecified),
++                v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
++
++        // Soft-delete заказа = UPDATE, каскад в БД не нужен: FK без ON DELETE CASCADE.
++        // Items: ClientCascade - позиции удаляются только через EF (orphan removal в ClearItems).
++        b.Entity<Order>()
++            .HasMany(o => o.Items)
++            .WithOne()
++            .HasForeignKey(i => i.OrderId)
++            .IsRequired()
++            .OnDelete(DeleteBehavior.ClientCascade);
++
++        // Payments: Restrict - платежи не удаляются ни БД, ни EF вместе с заказом.
++        b.Entity<Order>()
++            .HasMany(o => o.Payments)
++            .WithOne()
++            .HasForeignKey(p => p.OrderId)
++            .IsRequired()
++            .OnDelete(DeleteBehavior.Restrict);
+     }
+ }
+ // Options: UseNpgsql(cs).UseLazyLoadingProxies()
+diff --git a/OrderRepository.cs b/OrderRepository.cs
+index 72637b8..987845c 100644
+--- a/OrderRepository.cs
++++ b/OrderRepository.cs
+@@ -6,4 +6,16 @@ public class OrderRepository
+     public OrderRepository(ShopDbContext db) => _db = db;
+     public Task<List<Order>> GetAllAsync() => _db.Orders.ToListAsync();
+     public Task<Order?> GetAsync(Guid id) => _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
++
++    // FK OrderItem.OrderId обязательный + ClientCascade: отцепленные позиции EF удаляет (orphan removal).
++    public async Task ClearItemsAsync(Guid orderId)
++    {
++        var order = await _db.Orders
++            .Include(o => o.Items)
++            .FirstOrDefaultAsync(o => o.Id == orderId)
++            ?? throw new InvalidOperationException($"Order {orderId} not found");
++
++        order.Items.Clear();
++        await _db.SaveChangesAsync();
++    }
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..a769efe
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,9 @@
++Изменённые файлы:
++- `Model.cs`: `Order.Complexity`, конвертер `CreatedAt`, связи Items/Payments, навигации сделаны `virtual`.
++- `OrderRepository.cs`: `ClearItemsAsync(Guid orderId)`.
++- `_answer.md`: этот ответ.
++
++Решения:
++- `Complexity` — обычное `int`-свойство заказа (Owned-Type из одного поля не заводил), по умолчанию 1. Диапазон 1..5 проверяет CHECK-ограничение `CK_Order_Complexity`. В миграции у колонки должно быть `defaultValue: 1`, иначе существующие строки получат 0 и не пройдут CHECK. Колонка `CreatedAt` остаётся `timestamp`: при записи значение приводится к UTC с `Kind=Unspecified` (иначе Npgsql бросает исключение), при чтении ему только ставится `Kind=Utc`, без `ToLocalTime`.
++- Связи без каскада в БД, потому что мягкое удаление заказа — это UPDATE. У Items стоит `ClientCascade`: позиции удаляет только EF, и на этом работает `ClearItemsAsync` (`Include`, затем `Items.Clear()`, затем `SaveChangesAsync`; позиции с обязательным FK EF удаляет). У Payments стоит `Restrict`: платежи вместе с заказом не удаляются.
++- Метод назван `ClearItemsAsync`, как остальные async-методы репозитория. `Items`, `Payments` и `Customer.Orders` сделаны `virtual`, потому что `UseLazyLoadingProxies` требует виртуальных навигаций, иначе модель не соберётся. Сборка и тесты не запускались.

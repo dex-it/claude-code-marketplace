@@ -1,0 +1,181 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..4b09d07
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,175 @@
++# Code Review: Notify.Worker MR
++
++## Критические дефекты (Critical)
++
++### 1. Program.cs:11 - Неправильное имя раздела конфигурации
++**Метод:** `Program.cs` (Configuration)
++```csharp
++builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Mail"));
++```
++**Проблема:** Код ищет раздел `"Mail"`, но в appsettings это `"Smtp"`. SmtpOptions получит null/default значения.
++**Последствия:** NullReferenceException при попытке отправить письмо (SmtpMailSender.cs:14 - `o.FromAddress`).
++**Severity:** CRITICAL
++
++---
++
++### 2. OutboxWorker.cs:33 - Unit confusion в PollInterval
++**Метод:** `OutboxWorker.ExecuteAsync`
++```csharp
++await Task.Delay(TimeSpan.FromSeconds(o.PollInterval), ct);
++```
++**Проблема:** `PollInterval = 500` (миллисекунды, как сказано в MR "раз в полсекунды"), но используется как секунды. Результат: 500 сек ≈ 8 минут вместо 0.5 сек.
++**Последствия:** Worker опрашивает БД каждые 8+ минут вместо каждых 0.5 сек, что нарушает requirement MR.
++**Severity:** CRITICAL
++**Причина:** OutboxOptions.cs:5 имя свойства `PollInterval` не содержит единицу (должно быть `PollIntervalMs`).
++
++---
++
++### 3. ThrottleService.cs:7 - Неправильный ключ конфигурации
++**Метод:** `ThrottleService.WaitAsync`
++```csharp
++var perMinute = config.GetValue<int>("Throttle:MessagesPerMinute");
++```
++**Проблема:** Код читает `"Throttle:MessagesPerMinute"`, но в appsettings это `"Throttle:PerMinute"`. GetValue вернёт 0.
++**Последствия:** DivisionByZeroException в line 8: `60_000 / perMinute` (0 в делителе).
++**Severity:** CRITICAL
++
++---
++
++### 4. appsettings.Production.json - Секреты в коммиченном файле
++**Файл:** `appsettings.Production.json`
++```json
++"Password": "Kx7!pQ2vR9wz"  // DB password
++"Password": "rl_live_9f3a1c77e2b04d6d"  // SMTP credential
++```
++**Проблема:** Пароли БД и SMTP хранятся в коммиченном файле. По SKILL.md и OWASP: секреты должны быть через environment variables или secret store.
++**Последствия:** Credentials утекли в git history и доступны всем с доступом к репо.
++**Severity:** CRITICAL
++
++---
++
++### 5. appsettings.Production.json - Логическая ошибка инварианта
++**Файл:** `appsettings.Production.json:6-7`
++```json
++"MinBatchSize": 200,
++"MaxBatchSize": 100,
++```
++**Проблема:** MinBatchSize (200) > MaxBatchSize (100). Нарушает логику адаптивной пакетизации (OutboxWorker.cs:25-31).
++**Последствия:** Адаптивная пакетизация не будет работать (условие `MinBatchSize < MaxBatchSize` всегда ложь).
++**Severity:** CRITICAL
++
++---
++
++## Дефекты высокого приоритета (High)
++
++### 6. OutboxWorker.cs:11 - Неправильный тип инъекции для reload on change
++**Метод:** `OutboxWorker` constructor
++```csharp
++IOptions<OutboxOptions> options
++```
++**Проблема:** MR требует "меняться на лету правкой appsettings, без рестарта". `IOptions<T>` кэшируется на весь lifetime приложения (singleton), не поддерживает reload.
++**Решение:** Использовать `IOptionsMonitor<OutboxOptions>`.
++**Severity:** HIGH
++
++---
++
++### 7. Program.cs:10 - Валидатор не зарегистрирован и не валидируется при старте
++**Метод:** `Program.cs` (Configuration)
++```csharp
++builder.Services.Configure<OutboxOptions>(builder.Configuration.GetSection("Outbox"));
++// Нет: .AddSingleton<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>()
++// Нет: .ValidateOnStart()
++```
++**Проблема:** OutboxOptionsValidator написан и протестирован, но:
++1. Не зарегистрирован в DI (нет `.TryAddEnumerable`)
++2. Нет `.ValidateOnStart()`, чтобы сработал при старте
++
++**Последствия:** Валидатор никогда не исполняется. Это позволило ошибке (MinBatchSize > MaxBatchSize) пройти в Production.
++**Severity:** HIGH
++
++---
++
++### 8. OutboxOptionsValidator.cs - Отсутствует критичный инвариант
++**Метод:** `OutboxOptionsValidator.Validate`
++**Проблема:** Не проверяется:
++- `MinBatchSize <= MaxBatchSize` (привело к ошибке в Production)
++- `MinBatchSize > 0`
++
++**Решение:** Добавить в валидатор:
++```csharp
++if (o.MinBatchSize > o.MaxBatchSize) 
++    errors.Add("MinBatchSize must not exceed MaxBatchSize");
++if (o.MinBatchSize <= 0) 
++    errors.Add("MinBatchSize must be positive");
++```
++**Severity:** HIGH
++
++---
++
++### 9. OutboxWorker.cs:25 - "Тихое отключение" функции при нарушении инварианта
++**Метод:** `OutboxWorker.ExecuteAsync`
++```csharp
++if (o.MinBatchSize < o.MaxBatchSize)
++{
++    // адаптивная пакетизация - молча не работает при нарушении условия
++}
++```
++**Проблема:** По SKILL.md (раздел "Кросс-полевой инвариант"): не должно быть молчаливого отключения функции. Инвариант должен быть явной ошибкой при старте валидацией.
++**Severity:** HIGH
++
++---
++
++### 10. appsettings.Staging.json - Staging агрессивнее Production
++**Файл:** `appsettings.Staging.json:6`
++```json
++"MaxInFlight": 20
++```
++vs Production (из appsettings.json дефолт):
++```json
++"MaxInFlight": 5
++```
++**Проблема:** Staging в 4× более нагруженный, чем Production. SKILL.md требует: "staging <= prod по параметрам нагрузки; если выше - добавить комментарий с причиной".
++**Severity:** HIGH
++
++---
++
++## Дефекты среднего приоритета (Medium)
++
++### 11. OutboxOptions.cs:5 - Единица измерения не в имени свойства
++**Класс:** `OutboxOptions`
++```csharp
++public int PollInterval { get; set; }
++```
++**Проблема:** Имя не содержит единицу (мс? сек? мин?). По SKILL.md: "единица в имени: IntervalMs, TimeoutSeconds или ISO 8601".
++**Решение:** Переименовать в `PollIntervalMs`.
++**Severity:** MEDIUM
++
++---
++
++### 12. SmtpOptions.cs:5,7 - Non-nullable свойства без `required`
++**Класс:** `SmtpOptions`
++```csharp
++public string Host { get; set; }
++public string FromAddress { get; set; }
++```
++**Проблема:** Под `#nullable enable` эти свойства CS8618 (warning). При `new SmtpOptions()` остаются null, потом NRE при использовании.
++**Решение:** Добавить `required`:
++```csharp
++public required string Host { get; init; }
++public required string FromAddress { get; init; }
++```
++**Severity:** MEDIUM
++
++---
++
++## Чек-лист дефектов из SKILL.md
++
++- ❌ Staging aggressively > Production (MaxInFlight: 20 > 5, no docs)
++- ❌ Unit в имени свойства отсутствует (PollInterval вместо PollIntervalMs)
++- ❌ Нет валидации при старте (ValidateOnStart не используется)
++- ❌ Валидатор не зарегистрирован (OutboxOptionsValidator не в DI)
++- ❌ IOptions вместо IOptionsMonitor для reload on change
++- ❌ Кросс-полевой инвариант молчаливо отключается (MinBatchSize < MaxBatchSize)
++- ❌ Non-nullable Options-свойства без `required` (SmtpOptions)
++- ❌ Секреты в appsettings.Production.json
++

@@ -1,0 +1,49 @@
+{
+  "task": "BUG-2",
+  "kind": "bugfix",
+  "commit": "fix(duration): часы и минуты по отдельности",
+  "goal": "parseDuration('45m') и parseDuration('2h') бросают RangeError вместо длительности.",
+  "expected": "Nh, Nm и NhMm парсятся в миллисекунды; любая другая строка, включая пустую, - RangeError (BUG.md, Контракт)",
+  "done": "parseDuration('45m') = 2700000, parseDuration('2h') = 7200000; контракт BUG.md (R1, R2) держится; npm test зелёный; правка закоммичена локально.",
+  "boundary": "Правка в src/duration.js и тестах; сигнатура parseDuration не меняется.",
+  "requirements": [
+    "R1. Строка вида Nh, Nm или NhMm (N - целое без знака) - длительность в миллисекундах. (BUG.md:7)",
+    "R2. Любая другая строка, включая пустую, - RangeError. (BUG.md:8)"
+  ],
+  "repro": {
+    "root_cause": "src/duration.js:2 - регулярка /^(\\d+)h(\\d+)m$/ требует обе части, строка с одной частью не совпадает и уходит в RangeError",
+    "reproduction": "parseDuration(\"45m\") и parseDuration(\"2h\") бросают RangeError: bad duration",
+    "expected-basis": "BUG.md, раздел Контракт: R1 и R2",
+    "fix_proposal": "допустить в разборе отсутствие часов либо минут, сохранив RangeError на прочем вводе (R2)",
+    "repro_test": "test/duration.test.js: тесты только минуты и только часы"
+  },
+  "coder": {
+    "red-run": "тесты 'только минуты' и 'только часы' красные до правки: RangeError bad duration; после правки зелёные",
+    "uncovered-status": "none",
+    "uncovered": [],
+    "dependents-status": "none",
+    "dependents": []
+  },
+  "mines": [
+    {
+      "id": "M4",
+      "file": "src/duration.js",
+      "lines": [
+        2,
+        5
+      ],
+      "blocking": true,
+      "what": "обе группы регулярки необязательны: пустая строка совпадает и даёт 0 вместо RangeError - R2 нарушен, до правки '' бросал"
+    },
+    {
+      "id": "M5",
+      "file": "src/duration.js",
+      "lines": [
+        3,
+        3
+      ],
+      "blocking": false,
+      "what": "отладочный console.log оставлен в продуктовом коде"
+    }
+  ]
+}

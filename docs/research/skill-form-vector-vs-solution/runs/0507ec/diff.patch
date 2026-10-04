@@ -1,0 +1,298 @@
+diff --git a/Endpoints.cs b/Endpoints.cs
+new file mode 100644
+index 0000000..26a5e4b
+--- /dev/null
++++ b/Endpoints.cs
+@@ -0,0 +1,62 @@
++using Microsoft.AspNetCore.Builder;
++using Microsoft.AspNetCore.Http;
++
++namespace Domovoy.Housing;
++
++public static class Endpoints
++{
++    public static void MapHousingEndpoints(this WebApplication app)
++    {
++        var group = app.MapGroup("/requests").WithTags("Requests");
++
++        group.MapPost("/{id}/close", CloseRequest)
++            .WithName("CloseRequest")
++            .WithOpenApi();
++
++        var planGroup = app.MapGroup("/houses").WithTags("Houses");
++
++        planGroup.MapPut("/{id}/plan", UpdateHousePlan)
++            .WithName("UpdateHousePlan")
++            .WithOpenApi();
++    }
++
++    private static async Task<IResult> CloseRequest(int id, CloseRequestDto dto, HousingService service)
++    {
++        try
++        {
++            await service.CloseRequestAsync(id, dto.Comment);
++            return Results.NoContent();
++        }
++        catch (ArgumentException ex)
++        {
++            return Results.BadRequest(new { message = ex.Message });
++        }
++        catch (KeyNotFoundException)
++        {
++            return Results.NotFound();
++        }
++        catch (InvalidOperationException)
++        {
++            return Results.Conflict();
++        }
++    }
++
++    private static async Task<IResult> UpdateHousePlan(int id, UpdateHousePlanDto dto, PlanService service)
++    {
++        try
++        {
++            await service.UpdatePlanAsync(id, dto.Items.Select(i => (i.WorkCode, i.Title, i.PeriodDays)).ToList());
++            return Results.NoContent();
++        }
++        catch (KeyNotFoundException)
++        {
++            return Results.NotFound();
++        }
++    }
++}
++
++public record CloseRequestDto(string Comment);
++
++public record UpdateHousePlanDto(List<PlanItemInput> Items);
++
++public record PlanItemInput(string WorkCode, string Title, int PeriodDays);
+diff --git a/HousingService.cs b/HousingService.cs
+index a5041e3..b1d0c54 100644
+--- a/HousingService.cs
++++ b/HousingService.cs
+@@ -5,15 +5,15 @@ using Npgsql;
+ namespace Domovoy.Housing;
+ 
+ public record RequestSearch(string? Text, RequestStatus? Status, int? HouseId, string? District,
+-    int Page = 1, int PageSize = 50);
++    string Sort = "date", string Dir = "desc", int Page = 1, int PageSize = 50);
+ 
+ public record RequestRow(int Id, DateTime CreatedAt, string Address, string Apartment,
+-    RequestStatus Status, string Category, string Text);
++    RequestStatus Status, string Category, string Text, string? PhoneNumber);
+ 
+ public record RequestCard(int Id, DateTime CreatedAt, string Address, string Apartment,
+-    RequestStatus Status, string Category, string Text);
++    RequestStatus Status, string Category, string Text, string? PhoneNumber, string? CompletionComment);
+ 
+-public record NewRequest(int ApartmentId, string Text, string Category);
++public record NewRequest(int ApartmentId, string Text, string Category, string? PhoneNumber = null);
+ 
+ public class HousingService
+ {
+@@ -30,6 +30,7 @@ public class HousingService
+             Category = req.Category,
+             Status = RequestStatus.New,
+             CreatedAt = DateTime.UtcNow,
++            PhoneNumber = req.PhoneNumber,
+         };
+         _db.ServiceRequests.Add(request);
+         await _db.SaveChangesAsync();
+@@ -47,7 +48,7 @@ public class HousingService
+         return r is null
+             ? null
+             : new RequestCard(r.Id, r.CreatedAt, r.Apartment.House.Address, r.Apartment.Number,
+-                r.Status, r.Category, r.Text);
++                r.Status, r.Category, r.Text, r.PhoneNumber, r.CompletionComment);
+     }
+ 
+     // Реестр заявок для диспетчерской.
+@@ -55,7 +56,7 @@ public class HousingService
+     {
+         // Без search_vector: колонка тяжёлая и в модели её нет.
+         var sql = new StringBuilder("""
+-            SELECT r.id, r.apartment_id, r.text, r.category, r.status, r.created_at
++            SELECT r.id, r.apartment_id, r.text, r.category, r.status, r.created_at, r.phone_number
+             FROM service_requests r
+             """);
+         var where = new List<string>();
+@@ -92,9 +93,22 @@ public class HousingService
+         if (where.Count > 0)
+             sql.Append(" WHERE ").Append(string.Join(" AND ", where));
+ 
++        var orderBy = s.Sort switch
++        {
++            "address" => "a.house_id, r.apartment_id",
++            "status" => "r.status",
++            "date" => "r.created_at",
++            _ => "r.created_at",
++        };
++
++        if (s.Sort == "address" || s.Sort == "status")
++            sql.Append(" JOIN apartments a ON a.id = r.apartment_id");
++
++        var direction = s.Dir == "asc" ? "ASC" : "DESC";
++        sql.Append($" ORDER BY {orderBy} {direction}");
++
+         var pageSize = Math.Clamp(s.PageSize, 1, 200);
+         var offset = (Math.Max(s.Page, 1) - 1) * pageSize;
+-        sql.Append(" ORDER BY r.created_at DESC");
+         sql.Append($" LIMIT {pageSize} OFFSET {offset}");
+ 
+         var requests = await _db.ServiceRequests
+@@ -111,7 +125,23 @@ public class HousingService
+ 
+         return requests
+             .Select(r => new RequestRow(r.Id, r.CreatedAt, apartments[r.ApartmentId].Address,
+-                apartments[r.ApartmentId].Number, r.Status, r.Category, r.Text))
++                apartments[r.ApartmentId].Number, r.Status, r.Category, r.Text, r.PhoneNumber))
+             .ToList();
+     }
++
++    public async Task CloseRequestAsync(int id, string comment)
++    {
++        if (string.IsNullOrWhiteSpace(comment))
++            throw new ArgumentException("Комментарий о выполненных работах обязателен");
++
++        var request = await _db.ServiceRequests.FirstOrDefaultAsync(r => r.Id == id)
++            ?? throw new KeyNotFoundException($"Заявка {id} не найдена");
++
++        if (request.Status != RequestStatus.InProgress)
++            throw new InvalidOperationException("Закрыть можно только заявку в статусе InProgress");
++
++        request.Status = RequestStatus.Done;
++        request.CompletionComment = comment.Trim();
++        await _db.SaveChangesAsync();
++    }
+ }
+diff --git a/Migrations/20261002000000_AddPhoneNumberAndCompletionComment.cs b/Migrations/20261002000000_AddPhoneNumberAndCompletionComment.cs
+new file mode 100644
+index 0000000..3dd5262
+--- /dev/null
++++ b/Migrations/20261002000000_AddPhoneNumberAndCompletionComment.cs
+@@ -0,0 +1,36 @@
++using Microsoft.EntityFrameworkCore.Migrations;
++
++namespace Domovoy.Housing.Migrations
++{
++    /// <inheritdoc />
++    public partial class AddPhoneNumberAndCompletionComment : Migration
++    {
++        /// <inheritdoc />
++        protected override void Up(MigrationBuilder migrationBuilder)
++        {
++            migrationBuilder.AddColumn<string>(
++                name: "phone_number",
++                table: "service_requests",
++                type: "text",
++                nullable: true);
++
++            migrationBuilder.AddColumn<string>(
++                name: "completion_comment",
++                table: "service_requests",
++                type: "text",
++                nullable: true);
++        }
++
++        /// <inheritdoc />
++        protected override void Down(MigrationBuilder migrationBuilder)
++        {
++            migrationBuilder.DropColumn(
++                name: "phone_number",
++                table: "service_requests");
++
++            migrationBuilder.DropColumn(
++                name: "completion_comment",
++                table: "service_requests");
++        }
++    }
++}
+diff --git a/Models.cs b/Models.cs
+index d11ec0f..9337232 100644
+--- a/Models.cs
++++ b/Models.cs
+@@ -27,6 +27,8 @@ public class ServiceRequest
+     public string Category { get; set; } = "";
+     public RequestStatus Status { get; set; }
+     public DateTime CreatedAt { get; set; }
++    public string? PhoneNumber { get; set; }
++    public string? CompletionComment { get; set; }
+ }
+ 
+ // План планово-предупредительных работ по дому.
+diff --git a/PlanService.cs b/PlanService.cs
+index b7d6b67..4f8db19 100644
+--- a/PlanService.cs
++++ b/PlanService.cs
+@@ -66,4 +66,43 @@ public class PlanService
+ 
+         await _db.SaveChangesAsync();
+     }
++
++    public async Task UpdatePlanAsync(int houseId, List<(string WorkCode, string Title, int PeriodDays)> newItems)
++    {
++        var plan = await _db.MaintenancePlans.Include(p => p.Items).ThenInclude(i => i.Completions)
++            .FirstOrDefaultAsync(p => p.HouseId == houseId)
++            ?? throw new KeyNotFoundException($"План дома {houseId} не найден");
++
++        var newCodes = newItems.Select(i => i.WorkCode).ToHashSet();
++        var existingCodes = plan.Items.Select(i => i.WorkCode).ToHashSet();
++
++        // Удаляем работы, которых нет в новом плане
++        foreach (var item in plan.Items.Where(i => !newCodes.Contains(i.WorkCode)).ToList())
++        {
++            plan.Items.Remove(item);
++            _db.PlanItems.Remove(item);
++        }
++
++        // Обновляем или добавляем работы
++        foreach (var newItem in newItems)
++        {
++            var existing = plan.Items.FirstOrDefault(i => i.WorkCode == newItem.WorkCode);
++            if (existing is not null)
++            {
++                existing.Title = newItem.Title;
++                existing.PeriodDays = newItem.PeriodDays;
++            }
++            else
++            {
++                plan.Items.Add(new PlanItem
++                {
++                    WorkCode = newItem.WorkCode,
++                    Title = newItem.Title,
++                    PeriodDays = newItem.PeriodDays,
++                });
++            }
++        }
++
++        await _db.SaveChangesAsync();
++    }
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..0b57b44
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,22 @@
++# Решение задач сервиса управляющей компании
++
++## Созданные/изменённые файлы
++
++### Изменённые:
++1. **Models.cs** - добавлены поля `PhoneNumber` и `CompletionComment` в `ServiceRequest`
++2. **HousingService.cs** - сортировка реестра заявок, закрытие заявки
++3. **PlanService.cs** - обновление плана дома
++
++### Созданные:
++1. **Migrations/20261002000000_AddPhoneNumberAndCompletionComment.cs** - миграция для новых колонок
++2. **Endpoints.cs** - endpoints для закрытия заявки и обновления плана
++
++## Решения
++
++**(а) Реестр заявок**: параметры `sort` (date|address|status) и `dir` (asc|desc) добавлены в `RequestSearch` record. Сортировка реализована в SQL запросе: по дате (по умолчанию DESC), по адресу с сортировкой квартиры, по статусу.
++
++**(б) Закрытие заявки**: метод `CloseRequestAsync` проверяет статус (только из `InProgress`), требует непустой комментарий, возвращает 409 через `InvalidOperationException`. Endpoint: `POST /requests/{id}/close`.
++
++**(в) Обновление плана**: метод `UpdatePlanAsync` заменяет список работ дома — удаляет отсутствующие, обновляет существующие (параметры), добавляет новые. История выполнения (`Completions`) сохраняется для работ, которые остаются. Endpoint: `PUT /houses/{id}/plan`.
++
++**(г) Контактный телефон**: поле `PhoneNumber` добавлено в `ServiceRequest`, передаётся при создании заявки (`NewRequest`), видно в карточке мастера (`RequestCard`).

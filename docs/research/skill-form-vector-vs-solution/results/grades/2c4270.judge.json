@@ -1,0 +1,72 @@
+{
+  "id": "2c4270",
+  "case": "G3",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.12258300000000001,
+    "durationMs": 8312,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 13121,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 859,
+      "output_tokens_details": {
+        "thinking_tokens": 192
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 13121,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 859,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 13121,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 13121
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G3-greenhouse-fk": {
+      "verdict": "PASS",
+      "quote": "Колонка добавляется nullable, заполняется и только потом становится NOT NULL.",
+      "why": "Миграция сначала создаёт greenhouses и вставляет «Теплицу №1», затем добавляет nullable greenhouse_id, заполняет его через UPDATE и только после этого выполняет AlterColumn в NOT NULL и AddForeignKey."
+    },
+    "G3-label-filter": {
+      "verdict": "PASS",
+      "quote": "sql += \"\"\" AND lower(s.label COLLATE \"und-x-icu\") LIKE @label ESCAPE '\\'\"\"\"; parameters.Add(new(\"label\", pattern));",
+      "why": "Фрагмент метки уходит в SQL только параметром @label; в строку по-прежнему вставляются лишь List<int> и enum."
+    },
+    "G3-takenat-fallback": {
+      "verdict": "PASS",
+      "quote": "receivedAt = DateTime.SpecifyKind(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz), DateTimeKind.Unspecified);",
+      "why": "Подставляется местное время площадки с Kind=Unspecified, поэтому запись в timestamp without time zone не падает."
+    },
+    "G3-h-raw-safe-parts": {
+      "verdict": "NO",
+      "quote": "Сортировка задаётся в LINQ: ORDER BY внутри FromSqlRaw не гарантирует порядок после JOIN-ов от Include.",
+      "why": "Перенос сортировки объяснён порядком строк, а не инъекцией; sensorIds, metric и orderBy инъекцией не названы."
+    },
+    "G3-m-timestamptz": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Тип колонки readings.taken_at не меняется, AlterColumn для неё в диффе нет."
+    }
+  },
+  "stderr": ""
+}

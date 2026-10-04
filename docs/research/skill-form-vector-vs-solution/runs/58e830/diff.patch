@@ -1,0 +1,75 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..565a1f6
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,69 @@
++# Ревью MR !4127 (сервисы заказов и каталога для админки)
++
++## Critical
++
++1. **Migrations/20260920_OrderCategories.cs (`Up`)** + **Model.cs (`Order.Category`)** + **Services/OrderAdmin.cs (`UpdateOrder`)**
++   Миграция дропает колонку `Orders.Category`, но сущность `Order` (Model.cs, в MR не менялась) по-прежнему объявляет `public string Category` и маппится на эту колонку; `OrderAdmin.UpdateOrder` продолжает писать `order.Category = edit.Category`. После наката миграции любой SELECT из `Orders` (GetCard, ExportForCustomer, OverdueReport через `_repo.GetAllAsync()`) упадёт с ошибкой Postgres «column "Category" does not exist», т.к. EF всё ещё генерирует эту колонку в запросе. Дополнительно `Up()` не переносит существующие значения `Orders.Category` в новые таблицы `Categories`/`OrderCategories` — это потеря исторических данных о категориях заказов. Миграция не согласована с моделью и не является безопасной для наката на прод.
++   Severity: **critical**
++
++2. **Services/OrderAdmin.cs, `RecalcTotal`**
++   `order.Total = order.Items.Sum(i => prices[i.ProductId]);` суммирует только цену за единицу, без умножения на `i.Qty`. По контексту модели `Product.Price` — цена за единицу, `OrderItem.Qty` — количество. Итог: сумма заказа занижена для любой позиции с Qty > 1. Должно быть `prices[i.ProductId] * i.Qty`.
++   Severity: **critical**
++
++3. **Services/CatalogService.cs, `Reserve`**
++   `SELECT ... FOR UPDATE` выполняется через `FromSqlRaw(...).SingleAsync()` без явной транзакции, охватывающей последующий `SaveChangesAsync()`. Каждый из этих вызовов выполняется в своём autocommit-«батче», поэтому блокировка строки снимается сразу после SELECT, до апдейта Stock. При параллельных вызовах `Reserve` для одного и того же товара оба запроса могут прочитать одинаковый Stock и оба пройти проверку `product.Stock < qty`, что приводит к перепродаже (overselling) — то есть ровно к той гонке, для предотвращения которой и был добавлен `FOR UPDATE`. Нужна явная транзакция (`BeginTransactionAsync`), охватывающая SELECT FOR UPDATE и SaveChanges.
++   Severity: **critical**
++
++4. **Workers/OverdueNotifier.cs** + **Program.cs**
++   `OverdueNotifier` регистрируется как `AddHostedService<OverdueNotifier>()` (singleton), но в конструктор напрямую внедряется `ShopDbContext`, который зарегистрирован как Scoped (`AddDbContext` по умолчанию). Это классическая captive dependency: если валидация scope включена (обычно в Development) — приложение упадёт при старте; если выключена (обычно в Production) — DbContext резолвится один раз и живёт всё время жизни приложения внутри `while`-цикла, который крутится вечно. ChangeTracker этого контекста будет бесконечно накапливать добавляемые `AuditLog`, DbContext не потокобезопасен и не предназначен для такого долгоживущего использования — утечка памяти и риск устаревших/некорректных данных при последующих операциях с этим контекстом. Нужно внедрять `IServiceScopeFactory`/`IServiceProvider` и создавать новый scope на каждой итерации.
++   Severity: **critical**
++
++5. **Services/OrderQueries.cs, `GetProductBySku`**
++   `_db.Products.AsNoTracking().SingleAsync(p => p.Sku == sku)` — по описанию модели один SKU лежит на нескольких складах (уникален только в рамках склада). Для любого SKU, присутствующего более чем на одном складе (штатная ситуация), `SingleAsync` бросит `InvalidOperationException` («sequence contains more than one element»). Метод нужно параметризовать складом или возвращать список.
++   Severity: **critical**
++
++## High
++
++6. **Services/OrderQueries.cs, `ExportForCustomer`**
++   Два `Include` (`Items`, `Payments`) без `AsSplitQuery()` дают декартово произведение строк в одном SQL-запросе. МR явно указывает, что у крупных клиентов тысячи заказов — при большом числе items/payments на заказ объём передаваемых и разворачиваемых в памяти строк растёт мультипликативно, что создаёт риск деградации/OOM именно для «крупных клиентов», которые и являются целевым кейсом метода. Соседний метод `GetCard` для аналогичного набора Include корректно использует `AsSplitQuery()` — здесь она просто забыта.
++   Severity: **high**
++
++7. **Services/OrderQueries.cs, `LastShippedAt`**
++   `MaxAsync(o => o.ShippedAt)` транслируется в SQL `MAX(...)`, который возвращает `NULL`, если у клиента нет отгруженных заказов (или заказов вообще нет). Далее `last!.Value` — null-forgiving оператор скрывает предупреждение компилятора, но в рантайме это `NullReferenceException` для любого клиента без отгрузок (например, новый клиент или клиент с заказами «в пути»). Нужно возвращать `DateTime?` и обрабатывать `null` явно.
++   Severity: **high**
++
++8. **Services/OrderAdmin.cs, `UpdateOrder`**
++   MR явно описывает сценарий: несколько операторов одновременно правят один и тот же заказ. Метод делает `FirstAsync` → мутация обоих полей (`Status`, `Category`) → `SaveChangesAsync` без какого-либо optimistic concurrency контроля (нет RowVersion/ConcurrencyToken, нет проверки, что заказ не был изменён с момента загрузки оператором). `OrderEdit` всегда несёт оба поля, поэтому если один оператор в этот момент менял только `Status`, а второй параллельно только `Category`, более поздний `SaveChangesAsync` затрёт правку первого (lost update), без какого-либо предупреждения пользователю.
++   Severity: **high**
++
++9. **Services/CatalogService.cs, `Reprice`**
++   Продукты загружаются трекающимся запросом (`ToListAsync()` без `AsNoTracking`), после чего меняется только `Price`, но затем явно вызывается `_db.UpdateRange(products)`. `Update`/`UpdateRange` переводит состояние сущности в `Modified`, помечая **все** свойства изменёнными (а не только реально изменённый `Price`), из-за чего в UPDATE попадёт в том числе `Stock` со значением, прочитанным в начале операции. Если между чтением списка и `SaveChangesAsync` конкурентно отработает `Reserve` (уменьшит Stock), Reprice перезапишет Stock устаревшим значением — потеря конкурентного изменения остатка. `UpdateRange` здесь не нужен: change tracker и так отследит изменение `Price`.
++   Severity: **high**
++
++## Medium
++
++10. **Workers/OverdueNotifier.cs, `ExecuteAsync`**
++    В теле `while`-цикла нет try/catch. Любое временное исключение (обрыв соединения с БД, таймаут и т.п.) выйдет из `ExecuteAsync` и полностью остановит `BackgroundService` до перезапуска приложения — фоновый воркер по просроченным заказам просто перестанет работать без какого-либо самовосстановления.
++    Severity: **medium**
++
++11. **Workers/OverdueNotifier.cs, `ExecuteAsync`**
++    Для каждого просроченного заказа при каждом проходе (раз в минуту) добавляется новая запись `AuditLog`, без дедупликации по заказу/дате. Заказ, остающийся просроченным неделями, будет генерировать ~1440 одинаковых по сути записей в сутки — неограниченный рост таблицы AuditLog и «шум» в аудите вместо одного события «стал просроченным».
++    Severity: **medium**
++
++12. **Services/OrderAdmin.cs, `RecalcTotal`**
++    `prices` строится через `Where(p => ids.Contains(p.Id)).ToDictionaryAsync(...)` по фактически существующим продуктам; если для какого-то `OrderItem.ProductId` товар уже удалён из каталога, обращение `prices[i.ProductId]` бросит `KeyNotFoundException` вместо контролируемой обработки.
++    Severity: **medium**
++
++## Low
++
++13. **Services/CatalogService.cs, `Search`**
++    При `category == null && minPrice == null` запрос возвращает весь каталог продуктов без пагинации/лимита — потенциально большой ответ для админского поиска без фильтров.
++    Severity: **low**
++
++14. **Migrations/20260920_OrderCategories.cs**
++    У `Categories.Name` нет уникального индекса (можно создать дубликаты категорий с одинаковым именем); у `OrderCategories` нет отдельного индекса по `CategoryId` (составной PK покрывает только поиск по `OrderId` первым) — обратные выборки «все заказы категории» будут идти без индекса.
++    Severity: **low**
++
++15. **Program.cs**
++    Глобально включён `UseLazyLoadingProxies()`, при этом все новые сервисные методы используют явный `Include` + `AsNoTracking`. Совмещение lazy-loading proxies с no-tracking запросами — нестандартная комбинация: добавляет прокси-обёртки/накладные расходы там, где ленивая подгрузка не используется, и создаёт риск случайных скрытых lazy-load обращений в остальном (не показанном в MR) коде, использующем эти сущности.
++    Severity: **low**

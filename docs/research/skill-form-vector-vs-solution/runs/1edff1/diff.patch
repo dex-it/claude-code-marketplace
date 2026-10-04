@@ -1,0 +1,88 @@
+diff --git a/CustomerNotifier.cs b/CustomerNotifier.cs
+new file mode 100644
+index 0000000..2f91e59
+--- /dev/null
++++ b/CustomerNotifier.cs
+@@ -0,0 +1,69 @@
++using Microsoft.EntityFrameworkCore;
++
++namespace Shop;
++
++public record NotifyResult(int Sent, IReadOnlyList<Guid> NotFound, IReadOnlyList<Guid> Failed);
++
++public class CustomerNotifier
++{
++    // Список id приходит из маркетинговой системы и может быть большим:
++    // грузим email-ы пачками одним запросом на пачку (WHERE id = ANY(@ids)), без N+1.
++    private const int BatchSize = 1000;
++
++    private readonly ShopDbContext _db;
++    private readonly IEmailSender _sender;
++
++    public CustomerNotifier(ShopDbContext db, IEmailSender sender)
++    {
++        _db = db;
++        _sender = sender;
++    }
++
++    public async Task<NotifyResult> NotifyCustomers(
++        IEnumerable<Guid> customerIds,
++        string text,
++        string subject = "Новости магазина",
++        CancellationToken ct = default)
++    {
++        ArgumentNullException.ThrowIfNull(customerIds);
++        ArgumentNullException.ThrowIfNull(text);
++
++        var seen = new HashSet<Guid>();
++        var notFound = new List<Guid>();
++        var failed = new List<Guid>();
++        var sent = 0;
++
++        // Дубликаты во входном списке не должны приводить к повторным письмам.
++        foreach (var batch in customerIds.Where(seen.Add).Chunk(BatchSize))
++        {
++            var recipients = await _db.Customers
++                .AsNoTracking()
++                .Where(c => batch.Contains(c.Id))
++                .Select(c => new { c.Id, c.Email })
++                .ToDictionaryAsync(c => c.Id, c => c.Email, ct);
++
++            foreach (var id in batch)
++            {
++                if (!recipients.TryGetValue(id, out var email) || string.IsNullOrWhiteSpace(email))
++                {
++                    notFound.Add(id);
++                    continue;
++                }
++
++                try
++                {
++                    await _sender.SendAsync(email, subject, text, ct);
++                    sent++;
++                }
++                catch (Exception) when (!ct.IsCancellationRequested)
++                {
++                    // Одна ошибка отправки не должна обрывать рассылку на середине
++                    // (иначе повторный запуск продублирует уже отправленные письма).
++                    failed.Add(id);
++                }
++            }
++        }
++
++        return new NotifyResult(sent, notFound, failed);
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..6721d39
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,7 @@
++Файлы:
++- создан `CustomerNotifier.cs` (класс `CustomerNotifier` + record `NotifyResult`)
++
++Решения:
++- Список из маркетинговой системы может быть большим, поэтому нет N+1: id убираются от дублей (HashSet), делятся на пачки по 1000, и на каждую пачку выполняется один запрос `AsNoTracking` с выборкой только `Id, Email` (`= ANY(@ids)` в Npgsql). В памяти не держится ни весь список, ни сущности целиком.
++- Метод асинхронный (`Task<NotifyResult>`, `CancellationToken`), потому что `IEmailSender.SendAsync` асинхронный. Тема письма — необязательный параметр, в задаче она не указана.
++- Если письмо одному клиенту не отправилось, рассылка продолжается, а его id попадает в `Failed`. Id, которых нет в БД или у которых пустой email, попадают в `NotFound`. Отмена через токен прерывает рассылку. Сборку и тесты не запускал.

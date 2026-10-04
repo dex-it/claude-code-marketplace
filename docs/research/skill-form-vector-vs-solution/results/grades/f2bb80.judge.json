@@ -1,0 +1,77 @@
+{
+  "id": "f2bb80",
+  "case": "G6",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.137987,
+    "durationMs": 11992,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 14299,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1158,
+      "output_tokens_details": {
+        "thinking_tokens": 458
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 14299,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1158,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 14299,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 14299
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G6-sort-column": {
+      "verdict": "PASS",
+      "quote": "var sortExpr = s.Sort is not null && SortColumns.TryGetValue(s.Sort, out var col) ? col : \"r.created_at\";",
+      "why": "Столбец берётся из фиксированного словаря с дефолтом при неизвестном значении, направление сводится к ASC/DESC; пользовательская строка в SQL не попадает."
+    },
+    "G6-total-count": {
+      "verdict": "PASS",
+      "quote": ".SqlQueryRaw<int>($\"SELECT count(*)::int AS \\\"Value\\\" {from}{where}\", Parameters())",
+      "why": "Общее количество считается отдельным COUNT по тем же FROM и WHERE без ORDER BY, LIMIT и OFFSET."
+    },
+    "G6-account-index": {
+      "verdict": "PASS",
+      "quote": "filter: \"NOT account_superseded\"",
+      "why": "До создания индекса миграция помечает старые дубли флагом, а уникальный индекс частичный и на помеченные записи не распространяется, поэтому выкатка не падает и ссылки заявок сохраняются."
+    },
+    "G6-plan-replace": {
+      "verdict": "PASS",
+      "quote": "if (incoming.Remove(item.WorkCode, out var src))",
+      "why": "Работы сопоставляются по WorkCode: совпавшие обновляются на месте, новые добавляются, отсутствующие архивируются без удаления, так что PlanItemCompletion сохраняются."
+    },
+    "G6-h-limit": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Подстановка LIMIT/OFFSET оставлена как есть, инъекцией она не названа."
+    },
+    "G6-m-dedup-delete": {
+      "verdict": "NO",
+      "quote": "поэтому удалять их нельзя, а голый UNIQUE-индекс упадёт при выкатке",
+      "why": "Дубли не удаляются, а помечаются флагом account_superseded, поэтому каскадного удаления заявок нет."
+    }
+  },
+  "stderr": ""
+}

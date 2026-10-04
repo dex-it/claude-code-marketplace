@@ -1,0 +1,72 @@
+{
+  "id": "0507ec",
+  "case": "G6",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.103431,
+    "durationMs": 10092,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 10232,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1057,
+      "output_tokens_details": {
+        "thinking_tokens": 455
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 10232,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1057,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 10232,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 10232
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G6-sort-alias": {
+      "verdict": "FAIL",
+      "quote": "if (s.Sort == \"address\" || s.Sort == \"status\")\n            sql.Append(\" JOIN apartments a ON a.id = r.apartment_id\");",
+      "why": "JOIN дописывается после уже добавленного WHERE и без учёта JOIN из фильтров HouseId/District: с любым фильтром запрос синтаксически ломается, а при фильтре по дому или району алиас a присоединяется второй раз; белый список для sort/dir есть, но не спасает."
+    },
+    "G6-search-columns": {
+      "verdict": "FAIL",
+      "quote": "SELECT r.id, r.apartment_id, r.text, r.category, r.status, r.created_at, r.phone_number",
+      "why": "CompletionComment замаплен в модели и добавлен миграцией, но в явный SELECT не попал: FromSqlRaw не получит все свойства сущности, и реестр падает на каждом запросе."
+    },
+    "G6-plan-orphans": {
+      "verdict": "PASS",
+      "quote": "plan.Items.Remove(item);\n            _db.PlanItems.Remove(item);",
+      "why": "Отсутствующие работы удаляются явно через _db.PlanItems.Remove, остающиеся обновляются на месте, новые добавляются, поэтому история по остающимся работам сохраняется."
+    },
+    "G6-h-move-items": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "MergePlansAsync в выходе не упоминается и не переписывается."
+    },
+    "G6-h-limit": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Подстановку LIMIT/OFFSET выход инъекцией не называет и оставляет без изменений."
+    }
+  },
+  "stderr": ""
+}

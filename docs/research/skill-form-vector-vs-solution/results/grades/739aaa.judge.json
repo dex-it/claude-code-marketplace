@@ -1,0 +1,67 @@
+{
+  "id": "739aaa",
+  "case": "G4",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.107219,
+    "durationMs": 8542,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 11533,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 726,
+      "output_tokens_details": {
+        "thinking_tokens": 169
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11533,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 726,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 11533,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 11533
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G4-year-closed": {
+      "verdict": "FAIL",
+      "quote": ".Where(p => p.Month.Year == year)\n            .ToDictionaryAsync(p => p.Month.Key, p => p.ActSignedOn);",
+      "why": "В IQueryable ClosedPeriods есть обращение к члену Year сконвертированного в int YearMonth: EF не транслирует его, и GET /reports/year/{year} падает с InvalidOperationException."
+    },
+    "G4-client-projects": {
+      "verdict": "PASS",
+      "quote": "var projects = await _db.Projects.Where(p => p.ClientId == clientId).ToListAsync();\n        foreach (var project in projects)\n        {\n            _db.Projects.Remove(project);\n        }\n        await _db.SaveChangesAsync();",
+      "why": "Проекты загружаются без Include(Entries) и удаляются через Remove + SaveChangesAsync, поэтому override переводит их в мягкое удаление, а записи времени остаются в БД."
+    },
+    "G4-code-index": {
+      "verdict": "PASS",
+      "quote": ".IsUnique()\n                .HasFilter(\"\\\"IsDeleted\\\" = false\");",
+      "why": "Уникальный индекс частичный: он охватывает только неудалённые проекты, поэтому не упадёт на парах «удалённый + заведённый заново» и совпадает с фильтром запроса."
+    },
+    "G4-h-month-equality": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Сравнение p.Month == month в EnsureOpenAsync не тронуто и дефектом не названо."
+    }
+  },
+  "stderr": ""
+}

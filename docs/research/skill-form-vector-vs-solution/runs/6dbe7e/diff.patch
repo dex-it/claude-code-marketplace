@@ -1,0 +1,47 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..65ff435
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,41 @@
++# Результаты ревью MR !238
++
++## Найденные дефекты
++
++### 1. Program.cs:53 — Отсутствует авторизация на endpoint
++- **Файл:** Program.cs
++- **Метод:** GET `/vehicles/{id:int}/equipment`
++- **Проблема:** Endpoint для замены комплектации машин не защищен авторизацией (нет `.RequireAuthorization()`), в то время как все остальные endpoints требуют авторизацию. Любой аутентифицированный пользователь может менять комплектацию.
++- **Решение:** Добавить `.RequireAuthorization("Mechanic")` или аналог.
++- **Severity:** CRITICAL
++
++### 2. TripService.cs:111 — Неверное условие проверки действующего допуска
++- **Файл:** TripService.cs
++- **Метод:** `StartTripAsync`
++- **Проблема:** Условие `p.ValidUntil > today` неверное. Согласно MR описанию, "допуск действует по указанную в нём дату включительно". Если ValidUntil = 2026-10-02 и сегодня 2026-10-02, допуск считается действующим, но условие `>` его отклонит (false).
++- **Решение:** Изменить на `p.ValidUntil >= today`.
++- **Severity:** HIGH
++
++### 3. TripService.cs:116 — Проверка должна использовать CreatedAt вместо InspectedAt
++- **Файл:** TripService.cs
++- **Метод:** `StartTripAsync`
++- **Проблема:** Проверка `inspection.InspectedAt < DateTime.UtcNow.AddHours(-12)` использует время осмотра по планшету (может быть офлайн). Согласно комментарию в коде, планшет копит осмотры без сети и отправляет пачкой, поэтому может быть задержка в синхронизации. Требование "12 часов" относится к тому, когда система узнала об осмотре, а не когда он был проведен. Должно быть `inspection.CreatedAt`.
++- **Решение:** Изменить на `inspection.CreatedAt < DateTime.UtcNow.AddHours(-12)`.
++- **Severity:** HIGH
++
++### 4. TripService.cs:82-96 — Неэффективное использование FromSqlRaw с Where
++- **Файл:** TripService.cs
++- **Метод:** `GetOpenWaybillsAsync`
++- **Проблема:** Использование `FromSqlRaw()` с полным SELECT, а затем добавление `.Where()` условия может привести к неоптимальному SQL (подзапрос вместо встроенного условия). 
++- **Решение:** Параметризовать SQL-запрос с условием WHERE или использовать LINQ с параметризацией. Пример:
++  ```csharp
++  var query = _db.Trips.FromSqlRaw("""
++      SELECT t.*
++      FROM trips t
++      WHERE t.finished_at IS NULL
++        AND t.started_at < now() - interval '24 hours'
++        {0}
++      ORDER BY t.started_at;
++      """, vehicleId.HasValue ? $"AND t.vehicle_id = {vehicleId.Value}" : "");
++  ```
++- **Severity:** MEDIUM

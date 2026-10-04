@@ -1,0 +1,111 @@
+{
+  "id": "6330ba",
+  "case": "R",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.08499140000000001,
+    "durationMs": 11840,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 6877,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1477,
+      "output_tokens_details": {
+        "thinking_tokens": 312
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6877,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1477,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 6877,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 6877
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "R-D3": {
+      "verdict": "PASS",
+      "quote": "Таблице в `FROM` присвоен алиас `p`, а в условиях WHERE она упоминается по исходному имени `\"Products\"`",
+      "why": "Находка №5 называет несовпадение алиаса p и ссылок на \"Products\" в условиях FromSqlRaw."
+    },
+    "R-D1": {
+      "verdict": "FOUND",
+      "quote": "`SingleAsync` по `Sku`, который по домену не уникален (один SKU на нескольких складах)",
+      "why": "Находка №8 называет SingleAsync по SKU, который не уникален между складами."
+    },
+    "R-D2": {
+      "verdict": "FOUND",
+      "quote": "`last!.Value` после `MaxAsync` по nullable без проверки на null",
+      "why": "Находка №9 называет MaxAsync по ShippedAt с !.Value без обработки null."
+    },
+    "R-D4": {
+      "verdict": "FOUND",
+      "quote": "`UpdateRange` на уже отслеживаемых сущностях помечает все поля Modified",
+      "why": "Находка №6 называет UpdateRange на tracked-сущностях дефектом."
+    },
+    "R-D5": {
+      "verdict": "FOUND",
+      "quote": "Scoped `ShopDbContext` внедрён напрямую в Singleton `BackgroundService`",
+      "why": "Находка №4 называет DbContext в конструкторе BackgroundService."
+    },
+    "R-D6": {
+      "verdict": "FOUND",
+      "quote": "Include двух коллекций (`Items`+`Payments`) без `AsSplitQuery`, декартово произведение для клиентов «с тысячами заказов»",
+      "why": "Находка №7 называет Include двух коллекций без split на тысячах заказов."
+    },
+    "R-D7": {
+      "verdict": "FOUND",
+      "quote": "`SELECT ... FOR UPDATE` выполняется без явной транзакции",
+      "why": "Находка №3 называет FOR UPDATE без явной транзакции."
+    },
+    "R-D8": {
+      "verdict": "FOUND",
+      "quote": "нет защиты от конкурентной правки (concurrency token/обработка конфликтов)",
+      "why": "Находка №11 называет правку заказа без concurrency token."
+    },
+    "R-D9": {
+      "verdict": "FOUND",
+      "quote": "колонка дропается без переноса существующих значений в `Categories`/`OrderCategories`",
+      "why": "Находка №2 называет DropColumn Category без переноса данных."
+    },
+    "R-K1": {
+      "verdict": "FOUND",
+      "quote": "через репозиторий материализуется вся таблица `Orders` (с трекингом), фильтр по просрочке применяется уже в памяти",
+      "why": "Находка №12 называет GetAllAsync с фильтром IsOverdue в памяти."
+    },
+    "R-h-B1": {
+      "verdict": "NO",
+      "quote": "соседний `GetCard` уже использует split query",
+      "why": "AsSplitQuery в GetCard приведён как правильный образец, а не как дефект."
+    },
+    "R-h-B2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "В выходе нет находок против Kind=Unspecified или чтения timestamp как Utc."
+    },
+    "R-O1": {
+      "verdict": "FOUND",
+      "quote": "сумма считается как `Sum(price)` без умножения на `Qty`",
+      "why": "Находка №10 называет расчёт суммы заказа без учёта Qty."
+    }
+  },
+  "stderr": ""
+}

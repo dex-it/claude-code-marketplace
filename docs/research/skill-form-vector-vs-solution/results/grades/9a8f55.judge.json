@@ -1,0 +1,77 @@
+{
+  "id": "9a8f55",
+  "case": "B2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.252731,
+    "durationMs": 12942,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 28172,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1346,
+      "output_tokens_details": {
+        "thinking_tokens": 521
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 28172,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1346,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 28172,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 28172
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "B2-owner-softdelete": {
+      "verdict": "PASS",
+      "quote": "await db.Pets\n            .IgnoreQueryFilters()\n            .Where(p => p.OwnerId == ownerId && !p.IsDeleted)\n            .ExecuteUpdateAsync(",
+      "why": "Физического удаления нет: владелец, визиты, аллергии и питомцы помечаются через ExecuteUpdate в одной транзакции, включая незагруженных зависимых, а фильтры Pet и Visit дополнительно согласованы через Owner.IsDeleted и Pet.IsDeleted."
+    },
+    "B2-allergies-orphans": {
+      "verdict": "PASS",
+      "quote": "existing.IsDeleted = true;\n            existing.DeletedAt = now;",
+      "why": "Отсутствующие и изменённые аллергии помечаются IsDeleted и остаются строками, новые добавляются; Clear, Remove и RemoveRange по аллергиям не вызываются."
+    },
+    "B2-deletedat-utc": {
+      "verdict": "PASS",
+      "quote": "var now = DateTime.UtcNow;",
+      "why": "DeletedAt в обоих методах пишется значением DateTime.UtcNow с Kind=Utc."
+    },
+    "B2-migration-path": {
+      "verdict": "PASS",
+      "quote": "Выкладка: идемпотентный скрипт из CI в окно обслуживания при остановленном приложении",
+      "why": "Изменение схемы оформлено миграцией в Migrations/ со снапшотом, применяется через существующий pipeline CI/DBA, а Migrate и EnsureCreated в Program.cs не добавлены."
+    },
+    "B2-h-filters-weakened": {
+      "verdict": "NO",
+      "quote": "e.HasQueryFilter(v => !v.IsDeleted && !v.Pet.IsDeleted);",
+      "why": "Фильтры только усилены; IgnoreQueryFilters используется лишь в новом DeleteOwnerAsync, а не в GetPetCardAsync и GetPlannedVisitsAsync."
+    },
+    "B2-m-drop-notes": {
+      "verdict": "NO",
+      "quote": "migrationBuilder.RenameColumn(\n                name: \"Notes\",\n                table: \"Visits\",\n                newName: \"Anamnesis\");",
+      "why": "Переименование сделано через RenameColumn, данные заметок сохраняются."
+    }
+  },
+  "stderr": ""
+}

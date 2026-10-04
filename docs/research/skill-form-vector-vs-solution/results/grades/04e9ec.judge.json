@@ -1,0 +1,72 @@
+{
+  "id": "04e9ec",
+  "case": "G6",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.131523,
+    "durationMs": 9702,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 14096,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 916,
+      "output_tokens_details": {
+        "thinking_tokens": 401
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 14096,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 916,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 14096,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 14096
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G6-sort-alias": {
+      "verdict": "PASS",
+      "quote": "if (s.HouseId is not null || !string.IsNullOrWhiteSpace(s.District) || sortByAddress)",
+      "why": "Условия JOIN apartments a и JOIN houses h учитывают и фильтры, и сортировку, поэтому каждая таблица присоединяется ровно один раз. Поле и направление сортировки берутся из белого списка через switch, на неизвестное значение бросается ArgumentException."
+    },
+    "G6-search-columns": {
+      "verdict": "PASS",
+      "quote": "r.contact_phone, r.close_comment, r.closed_at",
+      "why": "Все три новые маппленные колонки добавлены в явный SELECT в FromSqlRaw."
+    },
+    "G6-plan-orphans": {
+      "verdict": "PASS",
+      "quote": "_db.PlanItems.RemoveRange(removed);",
+      "why": "Существующие работы обновляются на месте, новые добавляются. Отсутствующие в новом плане удаляются явно через RemoveRange, их отметки о выполнении - через ExecuteDelete."
+    },
+    "G6-h-move-items": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "MergePlansAsync не изменён, о нём ничего не утверждается."
+    },
+    "G6-h-limit": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Подстановка LIMIT/OFFSET оставлена без изменений и SQL-инъекцией не названа."
+    }
+  },
+  "stderr": ""
+}

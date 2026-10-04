@@ -1,0 +1,71 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..246d0d6
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,65 @@
++# Ревью MR: Notify.Worker Outbox
++
++## Найденные дефекты
++
++### 1. OutboxWorker.cs, класс OutboxWorker, конструктор и ExecuteAsync
++- **Что не так**: Используется `IOptions<OutboxOptions>` вместо `IOptionsMonitor<OutboxOptions>`
++- **Почему дефект**: Требование MR: "Лимит параллельных отправок и размер пачки должны меняться на лету правкой appsettings, без рестарта". IOptions возвращает статический снимок конфигурации при инициализации. При изменении appsettings без рестарта значения не обновятся. Необходимо использовать IOptionsMonitor для отслеживания изменений конфигурации на лету.
++- **Severity**: CRITICAL
++
++### 2. ThrottleService.cs, метод WaitAsync
++- **Что не так**: Параметр конфигурации имеет неправильное имя: ищет `"Throttle:MessagesPerMinute"`, но в appsettings.json ключ называется `"Throttle:PerMinute"`
++- **Почему дефект**: GetValue вернёт 0 (default для int), что приведёт к DivideByZeroException в следующей строке `60_000 / 0`. Нет обработки ошибок для нулевого значения. Сервис упадёт при каждой попытке отправки.
++- **Severity**: CRITICAL
++
++### 3. appsettings.Production.json, секция Outbox
++- **Что не так**: `MinBatchSize: 200` и `MaxBatchSize: 100` - минимальный размер больше максимального
++- **Почему дефект**: Нарушает инварианты кода (OutboxWorker.cs строки 25-30). MaxBatchSize должен быть >= MinBatchSize. Логика адаптивного батчинга сломается: Math.Max(200, x) и Math.Min(100, x) приведут к некорректному поведению.
++- **Severity**: CRITICAL
++
++### 4. appsettings.Production.json, строки 4-5 и 15-16
++- **Что не так**: Пароли и API ключи в открытом виде в исходном коде:
++  - Пароль БД: `Kx7!pQ2vR9wz`
++  - API ключ mailrelay: `rl_live_9f3a1c77e2b04d6d`
++- **Почему дефект**: Критическая уязвимость безопасности (OWASP A1: Injection). Anyone с доступом к репозиторию получит доступ к production БД и email сервису. Пароли должны храниться в переменных окружения, Azure Key Vault или другом менеджере секретов, НИКОГДА не в исходном коде.
++- **Severity**: CRITICAL
++
++### 5. OutboxWorker.cs, метод ProcessBatchAsync, строки 50-55
++- **Что не так**: Сообщения помечаются как отправленные (`m.SentAt = now`) ДО того, как они фактически отправлены
++- **Почему дефект**: Нарушает outbox паттерн. Последовательность:
++  1. Сообщения получают SentAt = now (БД сохранена, строка 55)
++  2. Сообщения фактически отправляются (строки 58-75, может быть длительная операция)
++  3. Если сервис упадёт между шагами 1 и 2, сообщение потеряется
++  
++  Решение: пометить SentAt ПОСЛЕ успешной отправки, или переместить логику так чтобы отправка происходила перед сохранением статуса.
++- **Severity**: CRITICAL
++
++### 6. Program.cs
++- **Что не так**: OutboxOptionsValidator не зарегистрирован в DI контейнере
++- **Почему дефект**: Валидатор создан, но никогда не добавлен в Services. Нужно добавить:
++  ```csharp
++  builder.Services.AddSingleton<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>();
++  ```
++  Без этого валидация конфигурации не выполняется при запуске. Дефектные конфигурации (как в Production с MinBatchSize > MaxBatchSize) пройдут без проверки.
++- **Severity**: HIGH
++
++### 7. Options/OutboxOptionsValidator.cs, метод Validate
++- **Что не так**: Валидатор не проверяет:
++  - `MinBatchSize <= MaxBatchSize` (позволяет конфигурации Production пройти)
++  - `PollInterval > 0` (нулевой или отрицательный interval вызовет ошибку в Task.Delay)
++- **Почему дефект**: Неполная валидация позволяет невалидным конфигурациям попасть в production. Production конфиг уже содержит MinBatchSize > MaxBatchSize и не будет отловлен.
++- **Severity**: HIGH
++
++---
++
++## Итоговая сводка
++
++| Файл | Метод | Дефект | Severity |
++|------|-------|--------|----------|
++| OutboxWorker.cs | ExecuteAsync | Использование IOptions вместо IOptionsMonitor (требование на лету не работает) | CRITICAL |
++| ThrottleService.cs | WaitAsync | Неправильное имя параметра конфигурации + деление на ноль | CRITICAL |
++| appsettings.Production.json | - | MinBatchSize > MaxBatchSize (невалидная конфигурация) | CRITICAL |
++| appsettings.Production.json | - | Пароли в открытом виде (безопасность) | CRITICAL |
++| OutboxWorker.cs | ProcessBatchAsync | Сообщения помечены как отправленные до фактической отправки (потеря сообщений) | CRITICAL |
++| Program.cs | - | Валидатор не зарегистрирован в DI | HIGH |
++| Options/OutboxOptionsValidator.cs | Validate | Неполная валидация (MinBatchSize, PollInterval) | HIGH |

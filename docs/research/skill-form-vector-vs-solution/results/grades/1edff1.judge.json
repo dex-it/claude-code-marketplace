@@ -1,0 +1,61 @@
+{
+  "id": "1edff1",
+  "case": "L5",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0344274,
+    "durationMs": 5093,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 3034,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 486,
+      "output_tokens_details": {
+        "thinking_tokens": 154
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3034,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 486,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 3034,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 3034
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "L5-dedup": {
+      "verdict": "PASS",
+      "quote": "foreach (var batch in customerIds.Where(seen.Add).Chunk(BatchSize))",
+      "why": "Один общий HashSet на весь вход отсекает дубли до разбиения на пачки, поэтому повторный id получает одно письмо и в пределах пачки, и между пачками."
+    },
+    "L5-h-chunk": {
+      "verdict": "YES",
+      "quote": "Список id приходит из маркетинговой системы и может быть большим: грузим email-ы пачками",
+      "why": "Запрос клиентов режется на пачки по 1000 через Chunk в цикле, и обосновано это размером списка."
+    },
+    "L5-m-enum": {
+      "verdict": "NO",
+      "quote": "customerIds.Where(seen.Add).Chunk(BatchSize)",
+      "why": "customerIds перечисляется ровно один раз в единственном foreach, а ThrowIfNull его не перечисляет."
+    }
+  },
+  "stderr": ""
+}

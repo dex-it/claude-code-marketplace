@@ -1,0 +1,92 @@
+{
+  "id": "f2da3f",
+  "case": "GR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.122055,
+    "durationMs": 20029,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 10010,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 2077,
+      "output_tokens_details": {
+        "thinking_tokens": 989
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 10010,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2077,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 10010,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 10010
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GR-offday-rows": {
+      "verdict": "PASS",
+      "quote": "после `.ToRows()` (это `Select`) идут ещё `.Where(r => r.OffDay)` ... EF Core выбросит `InvalidOperationException` (\"could not be translated\")",
+      "why": "Механизм назван верно: клиентский WorkCalendar.IsWorkingDay в непоследней проекции, отчёт FLEET-109 падает; явного рецепта исправления нет, но условие FAIL «дефект не найден» не выполнено."
+    },
+    "GR-open-semicolon": {
+      "verdict": "PASS",
+      "quote": "Точка с запятой внутри скобок подзапроса — синтаксическая ошибка Postgres",
+      "why": "Названы композиция Where в подзапрос и падение только при vehicleId, а также причина, по которой прошла локальная проверка; явная правка не предложена, но это не стилевое замечание."
+    },
+    "GR-equipment-clear": {
+      "verdict": "PASS",
+      "quote": "`FindVehicleAsync` не делает `.Include(v => v.Equipment)`, поэтому ... `Clear()` работает \"в пустоту\"",
+      "why": "Названы оба последствия: старые позиции остаются, совпадающие коды дают DbUpdateException по уникальному индексу; в качестве исправления указан Include по образцу ReplacePermitsAsync."
+    },
+    "GR-model-length": {
+      "verdict": "PASS",
+      "quote": "Нужен предварительный `UPDATE vehicles SET model = substring(model, 1, 40)`",
+      "why": "Указано, что ALTER упадёт на длинных значениях prod и bundle не применится; предложена обрезка данных до смены типа."
+    },
+    "GR-last-inspection": {
+      "verdict": "DISPUTED",
+      "quote": "получат **одинаковое** значение `now()` ... сортировка по `CreatedAt` даёт неопределённый порядок",
+      "why": "Неуникальность порядка из-за одного SaveChanges и влияние на выпуск названы, но механизм SplitQuery не упомянут, а предложенная сортировка по InspectedAt уникального порядка не гарантирует."
+    },
+    "GR-permit-lastday": {
+      "verdict": "FOUND",
+      "quote": "Условие `ValidUntil > today` исключает последний день действия допуска — off-by-one.",
+      "why": "Дефект назван прямо, со ссылкой на правило «включительно» из MR."
+    },
+    "GR-equipment-auth": {
+      "verdict": "FOUND",
+      "quote": "Любой аутентифицированный пользователь (например, водитель) может перезаписать комплектацию",
+      "why": "Названо отсутствие ролевой политики, предложены Mechanic и FleetManager."
+    },
+    "GR-h-permits-clear": {
+      "verdict": "NO",
+      "quote": "Правильный паттерн уже есть в неизменённом `DriverService.ReplacePermitsAsync`",
+      "why": "ReplacePermitsAsync назван правильным образцом, а не дефектом."
+    },
+    "GR-h-plate-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByPlateAsync в выходе не упоминается."
+    }
+  },
+  "stderr": ""
+}

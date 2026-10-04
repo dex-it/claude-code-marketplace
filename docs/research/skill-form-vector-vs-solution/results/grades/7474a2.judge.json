@@ -1,0 +1,92 @@
+{
+  "id": "7474a2",
+  "case": "BN",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.103147,
+    "durationMs": 14025,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 9074,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1506,
+      "output_tokens_details": {
+        "thinking_tokens": 682
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9074,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1506,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 9074,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 9074
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "BN-h-local-time": {
+      "verdict": "NO",
+      "quote": "Если клиент всё же пришлёт время со смещением или с `Z`... значения с `Kind != Unspecified` отклонять",
+      "why": "Хранить время в UTC не требуется: выход говорит только о смещении от клиента, а такое замечание ключ разрешает."
+    },
+    "BN-h-split-card": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "AsSplitQuery в GetCardAsync выход не упоминает."
+    },
+    "BN-h-tracking": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "AsNoTracking выход нигде не предлагает."
+    },
+    "BN-h-chip-single": {
+      "verdict": "NO",
+      "quote": "Номер чипа нормализуется только при поиске, а при записи нет",
+      "why": "Находка 7 касается нормализации и формата номера, SingleOrDefaultAsync ошибкой не называется."
+    },
+    "BN-h-fromsql": {
+      "verdict": "NO",
+      "quote": "полнотекстовый поиск идёт только по колонке `Procedures.Notes`",
+      "why": "К SearchNotesAsync есть претензии к охвату поиска и к отсутствию индекса, о SQL-инъекции и несовпадении алиасов речи нет."
+    },
+    "BN-h-tolower": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Трансляцию ToLower().Contains выход не оспаривает."
+    },
+    "BN-h-consumable-remove": {
+      "verdict": "NO",
+      "quote": "чтобы удалить одну строку, метод загружает все строки расходников",
+      "why": "Выход говорит о гонке и лишней загрузке строк, но не утверждает, что Remove(line) не удалит строку или оставит сироту."
+    },
+    "BN-pagination": {
+      "verdict": "FOUND",
+      "quote": "по контракту страницы нумеруются с 1, а код делает `Skip(page * PageSize)`",
+      "why": "Дефект назван точно, и предложено исправление (page - 1)."
+    },
+    "BN-dose-grams": {
+      "verdict": "FOUND",
+      "quote": "Вес подставляется в граммах, хотя дозировка задана в мг/кг: `weightGrams * drugMgPerKg`. Объём получается в 1000 раз больше нужного.",
+      "why": "Ошибка в 1000 раз найдена, правка — деление на 1000."
+    }
+  },
+  "stderr": ""
+}

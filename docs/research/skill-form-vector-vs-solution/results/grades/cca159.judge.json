@@ -1,0 +1,86 @@
+{
+  "id": "cca159",
+  "case": "MRA",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.049343399999999996,
+    "durationMs": 8773,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 3456,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1063,
+      "output_tokens_details": {
+        "thinking_tokens": 186
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3456,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1063,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 3456,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 3456
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "MRA-A4": {
+      "verdict": "PASS",
+      "quote": "`await _db.Orders.CountAsync(...) > 0` генерирует `COUNT(*)` по всем заказам клиента вместо `EXISTS`. Заменить на `AnyAsync(o => o.CustomerId == customerId, ct)`.",
+      "why": "Находка 4 называет именно CountAsync() > 0 вместо AnyAsync в HasOrders."
+    },
+    "MRA-A1": {
+      "verdict": "FOUND",
+      "quote": "`_products.GetAllAsync(ct)` тянет ВСЕ продукты целиком",
+      "why": "Находка 1 указывает загрузку всей таблицы Products и фильтр IsActive в C# после загрузки."
+    },
+    "MRA-A2": {
+      "verdict": "FOUND",
+      "quote": "линейный `items.Where(i => i.ProductId == p.Id).ToList()` — это O(products × items) в памяти",
+      "why": "Находка 2 прямо называет O(P*I) поиск по items на каждый продукт."
+    },
+    "MRA-A3": {
+      "verdict": "FOUND",
+      "quote": "обычный `AsNoTracking()` (без identity resolution) материализует отдельный объект `Customer` для каждой строки `Order`",
+      "why": "Находка 3 объясняет дубли клиентов: AsNoTracking без identity resolution плюс Distinct() по ссылке."
+    },
+    "MRA-A5": {
+      "verdict": "FOUND",
+      "quote": "Четыре отдельные ветки `if`, каждая со своим `.Where(...).Select(Card).ToListAsync(ct)`",
+      "why": "Находка 5 называет материализацию в каждой ветке и предлагает один IQueryable с одним ToListAsync."
+    },
+    "MRA-A6": {
+      "verdict": "FOUND",
+      "quote": "на каждую строку CSV — `products.FirstOrDefault(p => p.Id == id)`, линейный поиск O(n)",
+      "why": "Находка 6 называет FirstOrDefault по List на каждую строку и предлагает Dictionary."
+    },
+    "MRA-X1": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Ни одна находка не упоминает, что в выручку попадают неоплаченные или отменённые заказы."
+    },
+    "MRA-X2": {
+      "verdict": "FOUND",
+      "quote": "`int.TryParse` пропускает отрицательные числа (например, `\"-5\"`) как валидные",
+      "why": "Находка 7 указывает, что отрицательное количество проходит без проверки."
+    }
+  },
+  "stderr": ""
+}

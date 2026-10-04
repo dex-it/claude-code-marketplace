@@ -1,0 +1,71 @@
+{
+  "id": "1fe735",
+  "case": "N0",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.044543400000000004,
+    "durationMs": 8378,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 3416,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 839,
+      "output_tokens_details": {
+        "thinking_tokens": 306
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3416,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 839,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 3416,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 3416
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "N0-h-split": {
+      "verdict": "NO",
+      "quote": "корректно использует `AsSplitQuery()` при двух коллекциях (`Items`, `Payments`)",
+      "why": "AsSplitQuery в OrderCard прямо отнесён к «не являются дефектами»."
+    },
+    "N0-h-utc": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находки по AuditWriter касаются только общего DbContext и отсутствия actor, против DateTime.UtcNow ничего не заявлено."
+    },
+    "N0-h-contains": {
+      "verdict": "NO",
+      "quote": "транслируется в `= ANY(@array)`, поэтому массив из нескольких тысяч id не упирается в лимит параметров",
+      "why": "Contains признан корректным; находка 5 говорит только о лимите входного размера против злоупотреблений, а не о лимите параметров, пачках или огромном IN."
+    },
+    "N0-X1": {
+      "verdict": "FOUND",
+      "quote": "при `page = 1` метод пропускает первую страницу целиком (`Skip(pageSize)`)",
+      "why": "Off-by-one в Skip(page * pageSize) назван как critical-дефект."
+    },
+    "N0-X2": {
+      "verdict": "FOUND",
+      "quote": "фильтр `o.Status == \"Active\"` (с большой буквы), а `Order.Status` в `Model.cs:11` по умолчанию инициализируется как `\"active\"`",
+      "why": "Несовпадение регистра, из-за которого список пуст, названо как critical-дефект."
+    }
+  },
+  "stderr": ""
+}

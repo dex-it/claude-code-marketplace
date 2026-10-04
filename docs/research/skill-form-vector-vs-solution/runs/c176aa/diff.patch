@@ -1,0 +1,62 @@
+diff --git a/CustomerNotifier.cs b/CustomerNotifier.cs
+new file mode 100644
+index 0000000..5da03b0
+--- /dev/null
++++ b/CustomerNotifier.cs
+@@ -0,0 +1,42 @@
++using Microsoft.EntityFrameworkCore;
++
++namespace Shop;
++
++public class CustomerNotifier
++{
++    private const string Subject = "Shop";
++    // Список из маркетинговой системы может быть большим - грузим адреса порциями.
++    private const int BatchSize = 5000;
++
++    private readonly ShopDbContext _db;
++    private readonly IEmailSender _email;
++
++    public CustomerNotifier(ShopDbContext db, IEmailSender email)
++    {
++        _db = db;
++        _email = email;
++    }
++
++    public async Task NotifyCustomers(IEnumerable<Guid> customerIds, string text, CancellationToken ct = default)
++    {
++        // Один проход по входной последовательности; дубли id не должны давать повторные письма.
++        var ids = customerIds.ToHashSet();
++        if (ids.Count == 0) return;
++
++        foreach (var batch in ids.Chunk(BatchSize))
++        {
++            // Один запрос на порцию (Npgsql: WHERE "Id" = ANY(@ids)), только нужная колонка.
++            var emails = await _db.Customers
++                .AsNoTracking()
++                .Where(c => batch.Contains(c.Id))
++                .Select(c => c.Email)
++                .ToListAsync(ct);
++
++            foreach (var email in emails)
++            {
++                if (string.IsNullOrWhiteSpace(email)) continue;
++                await _email.SendAsync(email, Subject, text, ct);
++            }
++        }
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..236e6b6
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,8 @@
++Файлы:
++- создан `CustomerNotifier.cs`
++- создан `_answer.md`
++
++Решения:
++- `NotifyCustomers` сделан асинхронным (`Task`, есть `CancellationToken`), потому что `IEmailSender.SendAsync` асинхронный. Входной `IEnumerable` перебирается один раз и сразу собирается в `HashSet`, поэтому дубли id не дают повторных писем.
++- Адреса загружаются не отдельным запросом на каждого клиента, а одним запросом на порцию из 5000 id. Npgsql превращает `Contains` в `= ANY(@ids)`. Из базы берётся только `Email`, без отслеживания изменений (`AsNoTracking`). Клиенты, которых нет в базе, и пустые адреса пропускаются.
++- В сигнатуре нет темы письма, поэтому тема задана константой `"Shop"`. Сборку и тесты не запускал.

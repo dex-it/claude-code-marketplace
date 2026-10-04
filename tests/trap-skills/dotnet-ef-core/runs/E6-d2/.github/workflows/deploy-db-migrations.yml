@@ -1,0 +1,63 @@
+name: Deploy database migrations
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Migrations/**"
+  workflow_dispatch: {}
+
+jobs:
+  build-bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Install dotnet-ef
+        run: dotnet tool install --global dotnet-ef --version 8.*
+
+      # self-contained + explicit target-runtime: the runner that builds the bundle is not
+      # necessarily the same OS/arch as the production host that will execute it
+      - name: Build migration bundle
+        env:
+          ASPNETCORE_ENVIRONMENT: Production
+        run: >
+          dotnet ef migrations bundle
+          --project Shop.Data/Shop.Data.csproj
+          --self-contained
+          --target-runtime linux-x64
+          --output artifacts/efbundle
+          --force
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: efbundle
+          path: artifacts/efbundle
+          retention-days: 7
+
+  deploy-migrations:
+    needs: build-bundle
+    runs-on: ubuntu-latest
+    # environment gate: manual approval + PROD_DB_CONNECTION_STRING scoped only to this job
+    environment:
+      name: production
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: efbundle
+          path: artifacts
+
+      - name: Make bundle executable
+        run: chmod +x artifacts/efbundle
+
+      - name: Apply pending migrations
+        env:
+          ASPNETCORE_ENVIRONMENT: Production
+        run: ./artifacts/efbundle --connection "${{ secrets.PROD_DB_CONNECTION_STRING }}"

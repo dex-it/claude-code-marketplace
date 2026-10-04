@@ -1,0 +1,96 @@
+diff --git a/OrderQueries.cs b/OrderQueries.cs
+new file mode 100644
+index 0000000..fec3979
+--- /dev/null
++++ b/OrderQueries.cs
+@@ -0,0 +1,77 @@
++namespace Shop.Data;
++
++public class OrderQueries
++{
++    private readonly ShopDbContext _db;
++    public OrderQueries(ShopDbContext db) => _db = db;
++
++    // (a) Карточка одного заказа: все позиции и платежи одним запросом (без декартова произведения).
++    public Task<Order?> GetOrderCardAsync(Guid id) =>
++        _db.Orders
++            .AsNoTracking()
++            .AsSplitQuery()
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            .FirstOrDefaultAsync(o => o.Id == id);
++
++    // (b) Все заказы клиента с позициями и платежами. У клиента бывают тысячи заказов,
++    // поэтому используем AsSplitQuery (иначе Items x Payments даёт декартово произведение)
++    // и отдаём результат потоково через IAsyncEnumerable, не материализуя всё в List.
++    public IAsyncEnumerable<Order> GetCustomerOrdersAsync(Guid customerId) =>
++        _db.Orders
++            .AsNoTracking()
++            .AsSplitQuery()
++            .Where(o => o.CustomerId == customerId)
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            .AsAsyncEnumerable();
++
++    // (в) Продукт по SKU на складе. Один и тот же SKU может лежать на разных складах,
++    // но на конкретном складе SKU уникален. Если склад не передан, SKU однозначен только
++    // тогда, когда он существует ровно на одном складе - в противном случае это ошибка
++    // вызывающей стороны, и мы не имеем права молча вернуть "случайный" склад.
++    public async Task<Product?> GetProductBySku(string sku, string? warehouse)
++    {
++        if (!string.IsNullOrEmpty(warehouse))
++        {
++            return await _db.Products
++                .AsNoTracking()
++                .SingleOrDefaultAsync(p => p.Sku == sku && p.Warehouse == warehouse);
++        }
++
++        var candidates = await _db.Products
++            .AsNoTracking()
++            .Where(p => p.Sku == sku)
++            .ToListAsync();
++
++        if (candidates.Count > 1)
++        {
++            throw new InvalidOperationException(
++                $"SKU '{sku}' найден на {candidates.Count} складах ({string.Join(", ", candidates.Select(p => p.Warehouse))}); " +
++                "нужно передать склад явно.");
++        }
++
++        return candidates.SingleOrDefault();
++    }
++
++    // (г) Дата отгрузки последнего отгруженного заказа клиента.
++    // Возврат не-nullable DateTime: если у клиента ещё нет отгруженных заказов,
++    // это ошибка вызывающей стороны (нужно сначала проверить наличие), поэтому кидаем исключение,
++    // а не подменяем отсутствие данных на DateTime.MinValue.
++    public async Task<DateTime> GetLastShippedDateAsync(Guid customerId)
++    {
++        var lastShippedAt = await _db.Orders
++            .AsNoTracking()
++            .Where(o => o.CustomerId == customerId && o.ShippedAt != null)
++            .OrderByDescending(o => o.ShippedAt)
++            .Select(o => o.ShippedAt)
++            .FirstOrDefaultAsync();
++
++        if (lastShippedAt is null)
++        {
++            throw new InvalidOperationException($"У клиента {customerId} нет отгруженных заказов.");
++        }
++
++        return lastShippedAt.Value;
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..39ec9ff
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,7 @@
++Созданные/изменённые файлы:
++- OrderQueries.cs (создан) — новый сервис `OrderQueries` с методами `GetOrderCardAsync`, `GetCustomerOrdersAsync`, `GetProductBySku`, `GetLastShippedDateAsync`.
++
++Решения:
++- Карточка заказа и выгрузка заказов клиента используют `AsSplitQuery()` + `AsNoTracking()`, чтобы избежать декартова произведения Items×Payments при одновременном `Include` двух коллекций; выгрузка по клиенту (тысячи заказов) отдаётся как `IAsyncEnumerable<Order>` — потоково, без материализации всего списка в память.
++- `GetProductBySku(sku, warehouse)`: параметр `warehouse` сделан nullable. Если склад передан — ищем уникальную пару (sku, warehouse) через `SingleOrDefaultAsync`. Если склад не передан (текущее поведение бизнес-кода), а SKU лежит более чем на одном складе — это неоднозначность, и метод бросает `InvalidOperationException` вместо того, чтобы молча вернуть случайный/первый склад; если SKU уникален по всей таблице, возвращается он.
++- `GetLastShippedDateAsync` возвращает не-nullable `DateTime`: если у клиента нет ни одного отгруженного заказа, метод явно бросает `InvalidOperationException`, а не подменяет отсутствие данных на `DateTime.MinValue`.

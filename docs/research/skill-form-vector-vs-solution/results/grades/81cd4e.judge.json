@@ -1,0 +1,111 @@
+{
+  "id": "81cd4e",
+  "case": "R",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.08303540000000001,
+    "durationMs": 11524,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 6680,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1458,
+      "output_tokens_details": {
+        "thinking_tokens": 321
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6680,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1458,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 6680,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 6680
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "R-D3": {
+      "verdict": "PASS",
+      "quote": "условия строятся как `\"Products\".\"Category\" = @p...` ... ссылаются на имя таблицы `Products`, а не на алиас `p`",
+      "why": "Находка №4 называет несовпадение алиаса p и имени \"Products\" в FromSqlRaw."
+    },
+    "R-D1": {
+      "verdict": "FOUND",
+      "quote": "`SingleAsync(p => p.Sku == sku)` бросит `InvalidOperationException` как только у SKU больше одной строки (несколько складов)",
+      "why": "Находка №6 называет тот же дефект."
+    },
+    "R-D2": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Про MaxAsync(ShippedAt) и !.Value без фильтра null в выходе ничего нет."
+    },
+    "R-D4": {
+      "verdict": "FOUND",
+      "quote": "сущности и так уже отслеживаются (загружены без `AsNoTracking`), `UpdateRange` помечает Modified вообще все свойства",
+      "why": "Находка №12 называет проблемой UpdateRange на уже отслеживаемых сущностях."
+    },
+    "R-D5": {
+      "verdict": "FOUND",
+      "quote": "Конструктор `OverdueNotifier(ShopDbContext db)` захватывает scoped-сервис в singleton",
+      "why": "Находка №7 называет тот же дефект."
+    },
+    "R-D6": {
+      "verdict": "FOUND",
+      "quote": "`Include(o => o.Items).Include(o => o.Payments)` без `AsSplitQuery()` даёт декартово произведение",
+      "why": "Находка №9 называет тот же дефект."
+    },
+    "R-D7": {
+      "verdict": "FOUND",
+      "quote": "`FOR UPDATE` без явной транзакции.",
+      "why": "Находка №3 называет тот же дефект."
+    },
+    "R-D8": {
+      "verdict": "FOUND",
+      "quote": "у `Order` нет concurrency token (`xmin`/`RowVersion`)",
+      "why": "Находка №8 называет тот же дефект."
+    },
+    "R-D9": {
+      "verdict": "FOUND",
+      "quote": "Старые значения `Orders.Category` (строка) просто выбрасываются `DropColumn`",
+      "why": "Находка №2 называет отсутствие переноса данных."
+    },
+    "R-K1": {
+      "verdict": "FOUND",
+      "quote": "`await _repo.GetAllAsync()` тянет ВСЕ заказы (без фильтра) в память, и только потом `Where(o => o.IsOverdue(now))`",
+      "why": "Находка №10 называет тот же дефект."
+    },
+    "R-h-B1": {
+      "verdict": "YES",
+      "quote": "`AsSplitQuery()` здесь добавляет лишний round-trip к БД без выгоды",
+      "why": "Находка №15 и часть №9 объявляют дефектом AsSplitQuery на карточке одного заказа с двумя коллекциями."
+    },
+    "R-h-B2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находок про Kind=Unspecified или чтение как Utc в выходе нет."
+    },
+    "R-O1": {
+      "verdict": "FOUND",
+      "quote": "суммирует только цену за единицу, не умножая на `i.Qty`",
+      "why": "Находка №5 называет тот же дефект."
+    }
+  },
+  "stderr": ""
+}

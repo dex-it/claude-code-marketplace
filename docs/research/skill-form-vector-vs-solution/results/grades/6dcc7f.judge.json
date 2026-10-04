@@ -1,0 +1,72 @@
+{
+  "id": "6dcc7f",
+  "case": "G6",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.118743,
+    "durationMs": 10048,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 12286,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1001,
+      "output_tokens_details": {
+        "thinking_tokens": 387
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 12286,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1001,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 12286,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 12286
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G6-sort-alias": {
+      "verdict": "PASS",
+      "quote": "var needApartmentJoin = s.HouseId is not null || !string.IsNullOrWhiteSpace(s.District)\n            || s.Sort == RequestSort.Address;",
+      "why": "JOIN apartments и JOIN houses добавляются ровно по одному разу: общие флаги учитывают и фильтры HouseId/District, и sort=address. Столбец и направление берутся из switch по enum, так что белый список соблюдён."
+    },
+    "G6-search-columns": {
+      "verdict": "PASS",
+      "quote": "SELECT r.id, r.apartment_id, r.text, r.category, r.status, r.created_at,\n                   r.contact_phone, r.closing_comment",
+      "why": "Новые маппленные свойства ContactPhone и ClosingComment добавлены в явный список SELECT сырого SQL в SearchAsync."
+    },
+    "G6-plan-orphans": {
+      "verdict": "PASS",
+      "quote": "_db.PlanItems.RemoveRange(toRemove);",
+      "why": "Работы, которых нет в новом плане, удаляются явно через RemoveRange; оставшиеся обновляются на месте с сохранением истории, новые добавляются."
+    },
+    "G6-h-move-items": {
+      "verdict": "NO",
+      "quote": "т.к. `DeleteOrphansTiming=Never` в проекте специально отключает авто-каскад (нужен для `MergePlansAsync`)",
+      "why": "MergePlansAsync не изменён и не объявлен дефектным, его зависимость от настройки описана верно."
+    },
+    "G6-h-limit": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Подстановка LIMIT/OFFSET оставлена как есть и инъекцией не названа."
+    }
+  },
+  "stderr": ""
+}

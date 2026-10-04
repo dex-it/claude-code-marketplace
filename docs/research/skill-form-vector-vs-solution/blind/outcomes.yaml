@@ -1,0 +1,133 @@
+- id: lazy-n1
+  decision: outcome
+  text: "Связанные данные, нужные в цикле, загружаются заранее одним запросом (Include или проекция), а не отдельным round-trip на каждую итерацию"
+  source: "https://learn.microsoft.com/en-us/ef/core/performance/efficient-querying#beware-of-lazy-loading - «Because lazy loading makes it extremely easy to inadvertently trigger the N+1 problem, it is recommended to avoid it.»"
+
+- id: readonly-tracking
+  decision: outcome
+  text: "Сущности, которые в этой единице работы не изменяются, не попадают в change tracker (no-tracking запрос, no-tracking по умолчанию в контексте или проекция без сущностей)"
+  source: "https://learn.microsoft.com/en-us/ef/core/querying/tracking#no-tracking-queries - «If the entities retrieved from the database don't need to be updated, then a no-tracking query should be used.»"
+
+- id: tolist-projection
+  decision: outcome
+  text: "Для чтения запрос выбирает из БД только нужные столбцы (проекция в DTO/анонимный тип), а не полные сущности со всеми колонками"
+  source: "https://learn.microsoft.com/en-us/ef/core/performance/efficient-querying#project-only-properties-you-need - «querying entity instances can frequently pull back more data than necessary from your database» / «This can be optimized by using Select to tell EF which columns to project out»"
+
+- id: filter-in-memory
+  decision: outcome
+  text: "Бизнес-фильтр выполняется в SQL (WHERE) до материализации: из БД приходят только прошедшие его строки, а не вся таблица для фильтрации в памяти"
+  source: "https://learn.microsoft.com/en-us/ef/core/querying/client-eval#unsupported-client-evaluation - «Because the filter can't be applied in the database, all the data needs to be pulled into memory to apply the filter on the client.»; https://learn.microsoft.com/en-us/ef/core/performance/efficient-querying#buffering-and-streaming - «Avoid using ToList or ToArray if you intend to use another LINQ operator on the result - this will needlessly buffer all results into memory.»"
+
+- id: aggregate-in-memory
+  decision: outcome
+  text: "Группировка и агрегаты (Count/Sum/Max/Any…) вычисляются в SQL (GROUP BY, агрегатные функции): клиент получает ключи и итоги, а не все строки"
+  source: "https://learn.microsoft.com/en-us/ef/core/querying/complex-query-operators#groupby - «When an aggregate operator is applied to each group, which returns a scalar, it can be translated to SQL GROUP BY in relational databases.»"
+
+- id: untranslatable-filter
+  decision: outcome
+  text: "Условие фильтра выражено через маппленные свойства и транслируемые функции и выполняется в SQL; клиентская часть - только явно (AsEnumerable) после серверного сужения выборки"
+  source: "https://learn.microsoft.com/en-us/ef/core/querying/client-eval - «If EF Core detects an expression, in any place other than the top-level projection, which can't be translated to the server, then it throws a runtime exception.» / «you can explicitly opt into client evaluation by calling methods like AsEnumerable or ToList»"
+
+- id: repo-materializes
+  decision: convention
+  text: "IQueryable из репозитория или специализированные read-методы с фильтром/проекцией внутри - архитектурный выбор команды, оба рабочие; обязательная часть (фильтр и проекция в SQL) уже в filter-in-memory и tolist-projection"
+
+- id: null-forgiving-aggregate
+  decision: outcome
+  text: "Значение из nullable-колонки разыменовывается только после исключения null в запросе (IS NOT NULL) или явной проверки в коде; `!` защитой не считается - в runtime он ничего не делает"
+  source: "https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/null-forgiving - «The null-forgiving operator has no effect at run time. It only affects the compiler's static flow analysis»"
+
+- id: single-not-unique
+  decision: outcome
+  text: "Single/SingleOrDefault - только на условии, уникальность которого гарантирует схема (PK/уникальный индекс); при допустимых дубликатах выбор строки детерминирован или обрабатываются все"
+  source: "https://learn.microsoft.com/en-us/dotnet/api/system.linq.queryable.single?view=net-8.0 - «Returns the only element of a sequence that satisfies a specified condition, and throws an exception if more than one such element exists.»"
+
+- id: null-guard-spec
+  decision: convention
+  text: "Что значит Guid.Empty (ошибка у caller'а или публичный контракт «без фильтра») - решение API спецификации, обе трактовки рабочие; паттерн Specification вне документации EF, общий исход не подтверждён"
+
+- id: fromsql-alias
+  decision: outcome
+  text: "Значения в динамическом FromSqlRaw уходят как DbParameter; в текст SQL вставляются только проверенные фрагменты/идентификаторы (белый список), не пользовательский ввод"
+  source: "https://learn.microsoft.com/en-us/ef/core/querying/sql-queries#dynamic-sql-and-parameters - «the column value is sent via a DbParameter, and is therefore safe in the face of SQL injection» / «Be very careful when using FromSqlRaw, and always make sure values are either from a safe origin, or are properly sanitized.»"
+
+- id: add-async
+  decision: outcome
+  text: "Сущность добавляется синхронным Add; AddAsync - только если генератор значений ключа обращается к БД (HiLo/sequence)"
+  source: "https://learn.microsoft.com/en-us/dotnet/api/microsoft.entityframeworkcore.dbset-1.addasync?view=efcore-8.0 - «This method is async only to allow special value generators, such as the one used by ... SequenceHiLo, to access the database asynchronously. For all other cases the non async method should be used.»"
+
+- id: owned-single-field
+  decision: convention
+  text: "Value object из одного поля может нести инвариант/валидацию; owned/complex type, value converter или плоское свойство - выбор дизайна, EF ни один не предписывает"
+
+- id: datetime-column
+  decision: outcome
+  text: "Kind DateTime соответствует колонке: в timestamptz (дефолт для DateTime) пишется только Kind=Utc, в timestamp - только Unspecified/Local; иначе Npgsql бросает при записи"
+  source: "https://www.npgsql.org/efcore/release-notes/6.0.html - «It is no longer possible to write DateTime with Kinds Local or Unspecified to timestamptz properties (which are the default for DateTime)... Similarly, it is no longer possible to write DateTime with Kind UTC to a timestamp column.»; https://www.npgsql.org/doc/types/datetime.html - «trying to send a non-UTC DateTime as timestamptz will throw an exception»"
+
+- id: softdelete-cascade
+  decision: outcome
+  text: "У FK на soft-delete сущность нет ON DELETE CASCADE в БД; при HasQueryFilter у principal и required-связи у зависимых согласованный фильтр или связь optional"
+  source: "https://learn.microsoft.com/en-us/ef/core/saving/cascade-delete#cascade-delete-in-the-database - «Do not configure cascade delete in the database when soft-deleting entities. This may cause entities to be accidentally really deleted instead of soft-deleted.»; https://learn.microsoft.com/en-us/ef/core/querying/filters#query-filters-and-required-navigations - «Using required navigation to access entity which has global query filter defined may lead to unexpected results.»"
+
+- id: required-orphans
+  decision: outcome
+  text: "Код, разрывающий required-связь, рассчитан на один из исходов: зависимые удаляются (Cascade/ClientCascade) или SaveChanges бросает; открепить без удаления - только при optional FK"
+  source: "https://learn.microsoft.com/en-us/ef/core/saving/cascade-delete#required-relationship-with-dependentschildren-loaded - «Using anything other than cascade delete for required relationships will result in an exception when SaveChanges is called.» / «the posts that are no longer associated with any blog are deleted»"
+
+- id: concurrency-token
+  decision: outcome
+  text: "Параллельная правка одной записи не перезаписывается молча: устаревшее сохранение обнаруживается (concurrency token → DbUpdateConcurrencyException или изоляция) и обрабатывается"
+  source: "https://learn.microsoft.com/en-us/ef/core/saving/concurrency - «if a concurrent update occurred, the UPDATE fails to find any matching rows ... EF Core's SaveChanges() throws a DbUpdateConcurrencyException, which the application must catch and handle appropriately»; https://www.npgsql.org/efcore/modeling/concurrency.html - xmin как токен на PostgreSQL"
+
+- id: pessimistic-lock
+  decision: outcome
+  text: "SELECT … FOR UPDATE, изменение и SaveChanges идут в одной явной транзакции на одном соединении; блокировка держится до Commit, без транзакции снимается сразу после SELECT"
+  source: "https://www.postgresql.org/docs/current/explicit-locking.html#LOCKING-ROWS - «Row-level locks are released at transaction end or during savepoint rollback»; https://learn.microsoft.com/en-us/ef/core/saving/transactions#controlling-transactions - «You can use the DbContext.Database API to begin, commit, and rollback transactions.» (EF Core сам pessimistic locking не поддерживает)"
+
+- id: savechanges-loop
+  decision: outcome
+  text: "Изменения набора строк уходят одним SaveChanges после цикла (EF батчит) или одним set-based ExecuteUpdate/ExecuteDelete, а не round-trip на каждую строку"
+  source: "https://learn.microsoft.com/en-us/ef/core/performance/efficient-updating - «EF Core helps minimize roundtrips by automatically batching together all updates in a single roundtrip.» / «This UPDATE performs the entire operation in a single roundtrip»"
+
+- id: bulk-delete
+  decision: none
+  text: "Один ExecuteDelete или батчи - зависит от объёма, требования атомарности и нагрузки; документация EF батчинг не предписывает, Take+ExecuteDelete с паузой - не общее правило"
+
+- id: updaterange-tracked
+  decision: outcome
+  text: "Для уже отслеживаемых сущностей Update/UpdateRange не вызывается: SaveChanges сам находит изменения и пишет только изменённые колонки"
+  source: "https://learn.microsoft.com/en-us/ef/core/change-tracking/explicit-tracking - «The second is only needed by applications that change entities or their relationships while the entities are not being tracked.» / Update «results in updates ... being sent to the database for every property of every tracked entity, even when some property values may not have been changed»"
+
+- id: cartesian
+  decision: outcome
+  text: "Для запроса с ≥2 коллекциями одного уровня режим задан явно (split или single, на запросе или глобально) с учётом декартова роста строк; без этого EF пишет предупреждение"
+  source: "https://learn.microsoft.com/en-us/ef/core/querying/single-split-queries - «EF Core generates a warning whenever ... EF Core detects that the query loads multiple collections» / «To turn off the warning, configure query splitting mode globally or at the query level to an appropriate value.»"
+
+- id: split-single
+  decision: none
+  text: "Для одной сущности с одной коллекцией cartesian нет и split лишь добавляет round-trip, но с несколькими крупными коллекциями split выигрывает и тут; документация: одной стратегии нет"
+
+- id: prod-migration
+  decision: outcome
+  text: "Применяемые на production миграции заранее проверены и протестированы; катятся артефактом (SQL-скрипт или migration bundle), а не `dotnet ef database update` с SDK и исходниками"
+  source: "https://learn.microsoft.com/en-us/ef/core/managing-schemas/migrations/applying - «always inspect the generated migrations and test them before applying to a production database» / command-line tools: «this approach isn't ideal for managing production databases»"
+
+- id: data-and-schema
+  decision: convention
+  text: "Документация EF сама переносит данные через migrationBuilder.Sql внутри схемной миграции (пример FullName), на PostgreSQL DDL и DML атомарны в одной транзакции; разносить ли - выбор команды"
+
+- id: schema-without-data
+  decision: outcome
+  text: "Миграция, меняющая место хранения данных, переносит существующие строки в новую структуру до удаления источника; новый код с первого деплоя видит исторические данные"
+  source: "https://learn.microsoft.com/en-us/ef/core/managing-schemas/migrations/managing#transform-existing-data - «When replacing columns, preserve the source data until the destination has been populated» / «Use Sql when the new values must be calculated from existing database data.»"
+
+- id: dbcontext-singleton
+  decision: outcome
+  text: "Экземпляр DbContext живёт одну единицу работы (в веб - scope запроса), освобождается после неё и никогда не используется параллельно; не singleton и не static"
+  source: "https://learn.microsoft.com/en-us/ef/core/dbcontext-configuration/ - «A DbContext instance is designed to be used for a single unit-of-work. This means that the lifetime of a DbContext instance is usually very short.» / «DbContext is Not thread-safe. Don't share contexts between threads.»"
+
+- id: dbcontext-background
+  decision: outcome
+  text: "BackgroundService не держит DbContext из конструктора: на каждую единицу работы создаётся и освобождается свой экземпляр (scope через IServiceScopeFactory или IDbContextFactory)"
+  source: "https://learn.microsoft.com/en-us/dotnet/core/extensions/scoped-service - «To use scoped services within a BackgroundService, create an async scope ... No scope is created for a hosted service by default.»; https://learn.microsoft.com/en-us/ef/core/dbcontext-configuration/#use-a-dbcontext-factory - «use dependency injection but do not create a service scope that aligns with the desired DbContext lifetime»"

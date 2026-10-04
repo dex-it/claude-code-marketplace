@@ -1,0 +1,72 @@
+{
+  "id": "6ffe6f",
+  "case": "G6",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.107363,
+    "durationMs": 9104,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 11201,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 866,
+      "output_tokens_details": {
+        "thinking_tokens": 275
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11201,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 866,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 11201,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 11201
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G6-sort-alias": {
+      "verdict": "PASS",
+      "quote": "var needApartmentJoin = s.HouseId is not null || !string.IsNullOrWhiteSpace(s.District) || sort == \"address\";",
+      "why": "JOIN apartments и houses добавляются по общим флагам, которые учитывают и фильтры, и сортировку, поэтому каждый алиас присоединяется ровно один раз при любой комбинации; sort и dir проверяются по белому списку ValidSorts/ValidDirs."
+    },
+    "G6-search-columns": {
+      "verdict": "PASS",
+      "quote": "r.contact_phone, r.close_comment",
+      "why": "Новые маппленные свойства ContactPhone и CloseComment добавлены в явный список SELECT сырого SQL в SearchAsync, поэтому FromSqlRaw получает все колонки сущности."
+    },
+    "G6-plan-orphans": {
+      "verdict": "PASS",
+      "quote": "plan.Items.Remove(removed);\n            _db.PlanItems.Remove(removed);",
+      "why": "Существующие позиции обновляются на месте по WorkCode, отсутствующие в новом плане удаляются явным _db.PlanItems.Remove, новые добавляются, поэтому сирот при DeleteOrphansTiming = Never нет."
+    },
+    "G6-h-move-items": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "MergePlansAsync в diff не изменён, и в выходе нет утверждений о его дефекте."
+    },
+    "G6-h-limit": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Подстановка LIMIT/OFFSET оставлена без изменений и SQL-инъекцией не названа."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,84 @@
+diff --git a/OrderQueries.cs b/OrderQueries.cs
+new file mode 100644
+index 0000000..65cd42f
+--- /dev/null
++++ b/OrderQueries.cs
+@@ -0,0 +1,56 @@
++namespace Shop.Data;
++
++public class OrderQueries
++{
++    private readonly ShopDbContext _db;
++
++    public OrderQueries(ShopDbContext db) => _db = db;
++
++    // Карточка одного заказа по Id со всеми позициями и платежами
++    public Task<Order?> GetOrderWithDetailsAsync(Guid id)
++    {
++        return _db.Orders
++            .Where(o => o.Id == id)
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            .AsSplitQuery()
++            .AsNoTracking()
++            .FirstOrDefaultAsync();
++    }
++
++    // Выгрузка всех заказов клиента с позициями и платежами
++    public IAsyncEnumerable<Order> GetCustomerOrdersAsync(Guid customerId)
++    {
++        return _db.Orders
++            .Where(o => o.CustomerId == customerId)
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            .AsSplitQuery()
++            .AsNoTracking()
++            .AsAsyncEnumerable();
++    }
++
++    // Продукт по SKU на складе
++    public Task<Product?> GetProductBySkuAsync(string sku, string? warehouse)
++    {
++        var query = _db.Products.AsNoTracking().Where(p => p.Sku == sku);
++
++        if (warehouse != null)
++            query = query.Where(p => p.Warehouse == warehouse);
++
++        return query.FirstOrDefaultAsync();
++    }
++
++    // Дата отгрузки последнего отгруженного заказа клиента
++    public async Task<DateTime> GetLastShippedDateAsync(Guid customerId)
++    {
++        var date = await _db.Orders
++            .Where(o => o.CustomerId == customerId && o.ShippedAt != null)
++            .OrderByDescending(o => o.ShippedAt)
++            .Select(o => o.ShippedAt)
++            .AsNoTracking()
++            .FirstOrDefaultAsync();
++
++        return date ?? DateTime.MinValue;
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..7fd8340
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,16 @@
++# Решение: Сервис OrderQueries
++
++## Созданные/изменённые файлы
++- **OrderQueries.cs** - новый сервис с четырьмя методами
++
++## Применённые решения
++
++1. **Split Query для множественных Include**: Методы GetOrderWithDetailsAsync и GetCustomerOrdersAsync используют `AsSplitQuery()` для избежания картезианского произведения при загрузке Items и Payments (антипаттерн из чек-листа).
++
++2. **Потоковая обработка заказов**: GetCustomerOrdersAsync возвращает `IAsyncEnumerable<Order>` вместо `List<Order>`, что позволяет эффективно работать с тысячами заказов клиента без загрузки всех в память.
++
++3. **Nullable warehouse параметр**: GetProductBySkuAsync имеет параметр `string? warehouse`, что поддерживает сценарий, когда бизнес передаёт только SKU (warehouse = null), и при этом возвращается первый найденный продукт; если warehouse указан, фильтр работает именно по этому складу.
++
++4. **DateTime.MinValue вместо null**: GetLastShippedDateAsync возвращает `DateTime` (non-nullable) и использует `DateTime.MinValue` для случая, когда клиент не имеет отгруженных заказов.
++
++Все методы используют `AsNoTracking()` для оптимизации выборок только для чтения и правильно фильтруют данные перед материализацией.

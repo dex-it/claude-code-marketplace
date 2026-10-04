@@ -1,0 +1,47 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..494dd74
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,41 @@
++# Ревью MR !231: Процедурный кабинет
++
++## 1. `Services/ProcedureService.cs` → `CalculateDoseMlAsync`: вес в граммах подставлен как килограммы. **critical**
++`doseMg = weightGrams * drugMgPerKg`, но доза задаётся в мг/кг, а `Pet.WeightGrams` хранит граммы. Формула в комментарии верная («вес, кг × мг/кг»), а код не делит на 1000. Объём получается **в 1000 раз больше**: кошка 4 кг, 2.5 мг/кг, 10 мг/мл → 1000 мл вместо 1 мл. Эндпоинт выдаёт объём инфузии для персонала, так что ошибка может навредить животному.
++Исправление: `weightGrams / 1000m * drugMgPerKg`, плюс тест на известное значение.
++
++## 2. `Domain/Pet.cs` (`WeightGrams`) + `CalculateDoseMlAsync`: «не взвешен» неотличимо от 0, доза 0 мл без ошибки. **high**
++`WeightGrams` — это `int`, не nullable. Миграция `AddProcedures` добавит столбец `NOT NULL DEFAULT 0`, и у всех уже заведённых питомцев вес станет 0. У новых питомцев без взвешивания тоже будет 0. `CalculateDoseMlAsync` такой вес не проверяет и спокойно вернёт `0` мл.
++Исправление: сделать `int? WeightGrams`, а в расчёте бросать ошибку, если вес `null` или `<= 0`. Если вес уже где-то хранится, миграция должна перенести его в новый столбец. Сама миграция в MR не показана, её нужно проверить отдельно.
++
++## 3. `Services/ProcedureSheetService.cs` → `GetDaySheetAsync`: страница с 1, а `Skip` считает с 0. **high**
++По контракту `page` начинается с 1, но в коде `Skip(page * PageSize)`. Запрос `page=1` пропускает первые 30 записей дня, поэтому первая страница листа дня в UI не видна никогда. В обычный день, когда процедур меньше 30, лист вообще пустой. Кроме того, при `page <= 0` нет проверки: `page=0` случайно отдаёт настоящую первую страницу, а отрицательное значение уходит в SQL как `OFFSET -30` и роняет запрос.
++Исправление: `if (page < 1) throw ...; .Skip((page - 1) * PageSize)`.
++
++## 4. `Services/ProcedureService.cs` → `RemoveConsumableAsync`: удаление строки может пройти конкурентно с закрытием процедуры. **medium**
++Правило из README: «после `Closed` удалять строки нельзя». Сейчас это проверка вида check-then-act: статус читается, проверяется в памяти, потом `SaveChanges` делает `DELETE` строки. Concurrency token нет, блокировки нет. Если между чтением и сохранением процедуру закроют, строка удалится из уже закрытого списания (пункт 18 чек-листа).
++Исправление: удалять одним запросом с условием на статус:
++`db.ConsumableLines.Where(c => c.Id == lineId && c.ProcedureId == procedureId && c.Procedure.Status != ProcedureStatus.Closed).ExecuteDeleteAsync()` и разбирать результат 0 (не найдено или закрыто). Другие варианты: `SELECT ... FOR UPDATE` по процедуре в явной транзакции, или токен `xmin` на `Procedure`, при условии что закрытие его меняет.
++Побочный плюс: сейчас ради удаления одной строки загружаются и отслеживаются все расходники процедуры, а у инфузий их сотни (см. MR).
++
++## 5. `Services/ProcedureService.cs` → `RescheduleAsync`: параллельные правки затираются молча, статус проверяется вне атомарной операции. **medium**
++На `Procedure` нет concurrency token. Два одновременных переноса: последний молча перезапишет первый. Перенос, который совпал по времени со стартом или отменой процедуры, проверку `Status == Scheduled` уже прошёл и всё равно сохранится (пункт 18 чек-листа).
++Исправление: добавить `xmin` как concurrency token (`UseXminAsConcurrencyToken()` / `IsRowVersion()` на `uint xmin`) и обрабатывать `DbUpdateConcurrencyException`. Другой вариант: `ExecuteUpdateAsync` с `WHERE Id = @id AND Status = Scheduled` и проверкой числа затронутых строк.
++
++## 6. `Data/ClinicDbContext.cs` → `Procedure.Pet`: каскадное удаление процедур и списаний вместе с питомцем. **medium**
++`HasOne(p => p.Pet).WithMany().HasForeignKey(p => p.PetId)` — это required-связь, по умолчанию `ON DELETE CASCADE`. Цепочка `Procedures → ConsumableLines/StaffNotes` тоже каскадная. Удаление карточки питомца сотрёт его процедуры, расход материалов (он входит в месячный отчёт) и заметки персонала, то есть медицинский и складской учёт.
++Исправление: `.OnDelete(DeleteBehavior.Restrict)` на связи `Procedure → Pet`. Если питомцев нужно удалять, то через архивирование, а не физическое удаление.
++
++## 7. `Services/ProcedureService.cs` → `RescheduleAsync`, `RemoveConsumableAsync`, `CalculateDoseMlAsync`: `SingleAsync` на отсутствующем id даёт 500. **low**
++Для несуществующего `id` / `procedureId` метод `SingleAsync` бросает `InvalidOperationException` («Sequence contains no elements»). Это то же исключение, которым сервис сообщает о нарушении бизнес-правил (статус), и клиент вместо 404 получит 500 или неверно сопоставленную ошибку.
++Исправление: `SingleOrDefaultAsync` + `KeyNotFoundException`, как это уже сделано для строки расходника.
++
++## 8. `Services/ProcedureSheetService.cs` → `SearchNotesAsync`: ищется только `Procedure.Notes`, заметки персонала не ищутся, полнотекстового индекса нет. **low**
++В MR сказано «поиск по заметкам», но `StaffNotes` (заметки персонала) в поиск не попадают. Нужно уточнить, входят ли они в требование. Кроме того, `to_tsvector(...)` вычисляется на каждой строке, а GIN-индекса по выражению нет, так что запрос полностью сканирует `Procedures`. Сам `FromSql` с интерполяцией параметризован корректно.
++
++## 9. `Services/ProcedureSheetService.cs` → `GetConsumptionAsync`: `sort = null` даёт 500. **low**
++`Dictionary.TryGetValue(null, ...)` бросает `ArgumentNullException`, а не ожидаемый `ArgumentException`. Нужна проверка на null или пустую строку (либо значение по умолчанию). Подстановка `ORDER BY` по белому списку и параметры `@from/@to/@closed` сделаны корректно (Kind=Unspecified соответствует `timestamp without time zone`).
++
++---
++
++Проверено и проблем не найдено: `DateTime` и типы колонок (`ScheduledLocal` с Unspecified → `timestamp`, `CreatedAt` с UtcNow → `timestamptz`), `Add` вместо `AddAsync`, `AsSplitQuery` в карточке (оправдан из-за сотен строк в двух коллекциях), `SingleOrDefault` по чипу при уникальном индексе, проекции в листе дня и поиске, разрыв required-связи в `RemoveConsumableAsync` (каскад по умолчанию удаляет сироту), белый список в `SqlQueryRaw`.

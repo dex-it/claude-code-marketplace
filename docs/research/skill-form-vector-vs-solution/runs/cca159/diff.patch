@@ -1,0 +1,42 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..56c5e56
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,36 @@
++# Ревью MR (SalesReport.cs, CustomerExport.cs, CatalogSearch.cs, StockImport.cs)
++
++## 1. SalesReport.Build — фильтрация активности в памяти + загрузка лишних колонок
++Файл: `SalesReport.cs`, метод `Build`.
++`_products.GetAllAsync(ct)` тянет ВСЕ продукты целиком (включая `Description`, `Image byte[]`), а `.Where(p => p.IsActive)` применяется уже в C# после загрузки. Нужно фильтровать `IsActive` в SQL и проецировать только `Id`/`Name` (новый метод репозитория с `.Select(...)`), а не гонять по сети байты изображений ради отчёта.
++Severity: **high**
++
++## 2. SalesReport.Build — агрегация продаж в памяти вместо SQL
++Файл: `SalesReport.cs`, метод `Build`.
++Весь `OrderItems` за период грузится целиком, а затем для каждого активного продукта внутри `.Select` делается линейный `items.Where(i => i.ProductId == p.Id).ToList()` — это O(products × items) в памяти. Правильно — агрегировать на стороне БД через `GroupBy(i => i.ProductId).Select(g => new { g.Key, Qty = g.Sum(...), Revenue = g.Sum(...) })` и join с активными продуктами, либо хотя бы построить `ILookup`/`Dictionary` один раз перед циклом.
++Severity: **high**
++
++## 3. CustomerExport.CustomersWithOrders — Distinct() не дедуплицирует клиентов
++Файл: `CustomerExport.cs`, метод `CustomersWithOrders`.
++`.Select(o => o.Customer).Distinct()` — `Customer` не переопределяет `Equals`/`GetHashCode`, а обычный `AsNoTracking()` (без identity resolution) материализует отдельный объект `Customer` для каждой строки `Order`. Если у клиента несколько заказов в периоде, `Distinct()` сравнивает по ссылке и НЕ уберёт дубликаты — в выгрузку для CRM попадут повторяющиеся клиенты. Нужно `.DistinctBy(c => c.Id)`.
++Severity: **high** (баг корректности, ломает саму цель метода)
++
++## 4. CustomerExport.HasOrders — CountAsync() > 0 вместо AnyAsync()
++Файл: `CustomerExport.cs`, метод `HasOrders`.
++`await _db.Orders.CountAsync(...) > 0` генерирует `COUNT(*)` по всем заказам клиента вместо `EXISTS`. Заменить на `AnyAsync(o => o.CustomerId == customerId, ct)`.
++Severity: **medium**
++
++## 5. CatalogSearch.Search — дублирование материализации по веткам условий
++Файл: `CatalogSearch.cs`, метод `Search`.
++Четыре отдельные ветки `if`, каждая со своим `.Where(...).Select(Card).ToListAsync(ct)`. Нужно строить один `IQueryable<Product>` условно (`.Where(p => p.IsActive)`, затем опционально `.Where(category...)`/`.Where(maxPrice...)`) и вызывать `ToListAsync` один раз. Текущий вид — риск рассинхронизации веток при будущих изменениях (например, добавят сортировку/пагинацию в одну ветку и забудут в другую).
++Severity: **medium**
++
++## 6. StockImport.Import — FirstOrDefault в цикле по CSV вместо Dictionary
++Файл: `StockImport.cs`, метод `Import`.
++`_db.Products.ToListAsync(ct)` грузит всю таблицу продуктов целиком (в т.ч. `Image byte[]` — не нужен для обновления `Stock`), а затем на каждую строку CSV — `products.FirstOrDefault(p => p.Id == id)`, линейный поиск O(n) на каждую из до `m` строк файла. При крупном каталоге/файле это O(n×m). Нужно: спроецировать нужные поля (или хотя бы не тянуть `Image`) и построить `Dictionary<Guid, Product>` один раз перед циклом.
++Severity: **high**
++
++## 7. StockImport.Import — нет валидации отрицательного/аномального qty
++Файл: `StockImport.cs`, метод `Import`.
++`int.TryParse` пропускает отрицательные числа (например, `"-5"`) как валидные, и `product.Stock = qty` присвоит отрицательный остаток без проверки. Не относится к LINQ-ловушкам, но стоит добавить проверку `qty >= 0` и считать такие строки `invalid`.
++Severity: **low**

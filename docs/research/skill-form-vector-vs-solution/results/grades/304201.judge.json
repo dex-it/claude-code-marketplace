@@ -1,0 +1,66 @@
+{
+  "id": "304201",
+  "case": "E2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0410434,
+    "durationMs": 7720,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 3176,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 760,
+      "output_tokens_details": {
+        "thinking_tokens": 253
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3176,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 760,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 3176,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 3176
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "E2-single": {
+      "verdict": "PASS",
+      "quote": "_ => throw new InvalidOperationException(\n                $\"SKU '{sku}' найден на {matches.Count} складах, нужно уточнить склад.\")",
+      "why": "Если warehouse == null и найдено больше одного совпадения, код бросает исключение с сообщением о неоднозначности, а не берёт один склад молча и не вызывает голый Single."
+    },
+    "E2-h-split": {
+      "verdict": "YES",
+      "quote": "// Single entity: JOIN via Include is cheaper than AsSplitQuery's extra roundtrip.",
+      "why": "Карточка заказа грузит Items и Payments одним JOIN без AsSplitQuery, и обоснование прямо в том, что для одной сущности split не нужен."
+    },
+    "E2-m-cart": {
+      "verdict": "NO",
+      "quote": ".Include(o => o.Payments)\n            .AsSplitQuery()\n            .ToListAsync();",
+      "why": "Выгрузка заказов клиента с двумя коллекциями в Include использует AsSplitQuery."
+    },
+    "E2-m-nullagg": {
+      "verdict": "NO",
+      "quote": ".Where(o => o.CustomerId == customerId && o.ShippedAt != null)\n            .MaxAsync(o => o.ShippedAt);",
+      "why": "Фильтр ShippedAt != null стоит до агрегата, а null обрабатывается через ?? throw, без ! и .Value."
+    }
+  },
+  "stderr": ""
+}

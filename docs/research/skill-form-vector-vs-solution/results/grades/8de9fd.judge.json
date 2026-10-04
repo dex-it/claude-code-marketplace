@@ -1,0 +1,92 @@
+{
+  "id": "8de9fd",
+  "case": "GR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.122695,
+    "durationMs": 20710,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 9795,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 2195,
+      "output_tokens_details": {
+        "thinking_tokens": 1147
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9795,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2195,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 9795,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 9795
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GR-offday-rows": {
+      "verdict": "DISPUTED",
+      "quote": "EF Core не умеет транслировать это в SQL и не делает client-eval внутри `Select` (начиная с EF Core 3.0)",
+      "why": "Падение OffDayTripsAsync и исправление через материализацию названы верно, но механизм указан неверно: вместо Where по OffDay после проекции винится сам Select, хотя финальная проекция исполняется на клиенте; отсюда ложный вывод о регрессии GetVehicleTripsAsync."
+    },
+    "GR-open-semicolon": {
+      "verdict": "PASS",
+      "quote": "точка с запятой внутри подзапроса синтаксически некорректна для Postgres",
+      "why": "Названы оборачивание в подзапрос при фильтре по vehicleId, падение на ';', причина, по которой локальная проверка его не поймала, и оба варианта исправления."
+    },
+    "GR-equipment-clear": {
+      "verdict": "PASS",
+      "quote": "`FindVehicleAsync` делает `_db.Vehicles.FirstOrDefaultAsync(...)` **без** `.Include(v => v.Equipment)`",
+      "why": "Названы пустой Clear(), старые строки, которые остаются в БД, и нарушение уникального индекса (vehicle_id, code)."
+    },
+    "GR-model-length": {
+      "verdict": "PASS",
+      "quote": "`ALTER TABLE ... TYPE varchar(40)` в Postgres на такой таблице завершится ошибкой",
+      "why": "Отмечено падение миграции на prod с длинными названиями и предложена обрезка данных до AlterColumn."
+    },
+    "GR-last-inspection": {
+      "verdict": "DISPUTED",
+      "quote": "`CreatedAt` у записей одной транзакции `SaveChangesAsync` (default `now()`) в Postgres совпадает",
+      "why": "Неуникальный порядок внутри пачки и риск для выпуска на линию отмечены, но не связаны с SplitQuery, при котором замечания берутся от другого осмотра; предложенная сортировка по InspectedAt уникальности порядка не гарантирует."
+    },
+    "GR-permit-lastday": {
+      "verdict": "FOUND",
+      "quote": "Условие должно быть `p.ValidUntil >= today`",
+      "why": "Найдено, что в последний день допуска водителя не выпускают на линию."
+    },
+    "GR-equipment-auth": {
+      "verdict": "FOUND",
+      "quote": "доступен любому аутентифицированному пользователю независимо от роли",
+      "why": "Отмечено отсутствие ролевой политики на PUT equipment и предложены Mechanic/FleetManager."
+    },
+    "GR-h-permits-clear": {
+      "verdict": "NO",
+      "quote": "делает `.Include(d => d.Permits)` перед `Clear()`, как и положено",
+      "why": "Код ReplacePermitsAsync признан корректным."
+    },
+    "GR-h-plate-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByPlateAsync дефектом не названа."
+    }
+  },
+  "stderr": ""
+}

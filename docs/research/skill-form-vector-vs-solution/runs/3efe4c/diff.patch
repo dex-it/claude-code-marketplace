@@ -1,0 +1,57 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..75aaed0
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,51 @@
++# Ревью MR !238
++
++## Критические
++
++### 1. `TripService.cs` — `TripRows.ToRows()` (и, как следствие, `OffDayTripsAsync`, `GetVehicleTripsAsync`)
++`OffDay = !WorkCalendar.IsWorkingDay(t.StartedAt)` вызывается внутри `Select()` над `IQueryable<Trip>`. `WorkCalendar.IsWorkingDay` — произвольный статический C#-метод (внутри — `TimeZoneInfo.ConvertTimeFromUtc`, `DateOnly.FromDateTime`, `HashSet<DateOnly>.Contains`), у EF Core нет его SQL-трансляции. Начиная с EF Core 3.x такие выражения не вычисляются на клиенте молча, а бросают `InvalidOperationException ("could not be translated")` в момент материализации запроса.
++Это ломает не только новый отчёт FLEET-109 (`OffDayTripsAsync` упадёт на первом же вызове), но и уже работавший эндпоинт `GET /vehicles/{id}/trips` (`GetVehicleTripsAsync`), поскольку оба используют общий `ToRows()`, в который добавили это поле. Явная регрессия существующей функциональности.
++**Severity: critical**
++
++### 2. `VehicleService.cs` — `ReplaceEquipmentAsync`
++`FindVehicleAsync` не делает `.Include(v => v.Equipment)`, поэтому `vehicle.Equipment` — пустой несвязанный список, и `vehicle.Equipment.Clear()` ничего не чистит в БД: старые строки `vehicle_equipment` остаются. При повторной присылке комплектации (а это основной сценарий FLEET-104 — "механик присылает актуальную комплектацию целиком") новые строки с теми же `code` конфликтуют с уже существующими по уникальному индексу `(vehicle_id, code)` → `DbUpdateException`. Если набор кодов отличается (что-то убрали), старые записи остаются в БД навсегда — "замена целиком" не работает вовсе.
++Правильный паттерн уже есть рядом в этом же проекте: `DriverService.ReplacePermitsAsync` делает `.Include(d => d.Permits)` перед `Clear()`.
++**Severity: critical**
++
++## Высокие
++
++### 3. `TripService.cs` — `StartTripAsync`
++Проверка допуска: `driver.Permits.Any(p => p.Class == vehicle.Class && p.ValidUntil > today)`. По описанию задачи допуск действует "по указанную дату включительно", т.е. должно быть `p.ValidUntil >= today`. С текущим кодом водителю с допуском, у которого `ValidUntil == today`, диспетчер не сможет выпустить машину в последний разрешённый день — функциональный баг, расходящийся с явно описанным требованием FLEET-107.
++**Severity: high**
++
++### 4. `VehicleService.cs` — `GetLastInspectionAsync`
++Сортировка идёт по `CreatedAt` (время приёма сервером), а не по `InspectedAt` (фактическое время осмотра на планшете). Планшет копит осмотры offline и шлёт их пачкой при появлении сети — все записи одной пачки вставляются в одной транзакции одним `SaveChangesAsync`, а `CreatedAt` имеет `HasDefaultValueSql("now()")`; `now()` в PostgreSQL возвращает время начала транзакции и будет **одинаковым** для всех строк пачки. В результате порядок "последнего" осмотра внутри пачки не определён, и `StartTripAsync` может принять решение о допуске/блокировке машины на линию по не самому свежему (по факту) осмотру — это напрямую связано с требованием безопасности FLEET-107 ("последний осмотр не старше 12 часов и без блокирующих замечаний"). Сортировать нужно по `InspectedAt`.
++**Severity: high**
++
++### 5. `TripService.cs` — `GetOpenWaybillsAsync`
++Сырой SQL в `FromSqlRaw` оканчивается на `ORDER BY t.started_at;` (с точкой с запятой). Когда передан `vehicleId`, к запросу применяется `.Where(t => t.VehicleId == id)`, и EF оборачивает сырой SQL в подзапрос: `SELECT ... FROM (<raw sql>) AS t WHERE ...`. Точка с запятой внутри скобок — синтаксическая ошибка PostgreSQL, запрос упадёт именно в том сценарии, который явно требует FLEET-112 ("список … с фильтром по машине"). Без фильтра (vehicleId == null) запрос не композируется и отработает нормально, что и объясняет, почему это могло "проверяться локально" и не вскрыться.
++**Severity: high**
++
++### 6. `Migrations/20260924100000_VehicleEquipmentAndModelLength.cs` — `Up`
++`AlterColumn` сразу сужает `vehicles.model` до `varchar(40)` без предварительной обрезки/проверки существующих значений. Сама мотивация FLEET-115 ("длинные названия моделей принтер обрезал на середине") говорит о том, что в проде уже могли накопиться значения длиннее 40 символов. PostgreSQL при `ALTER COLUMN TYPE` c уменьшением длины сам обрежет значения только если явно задано `USING substring(...)`; EF-сгенерированный `ALTER TABLE ... ALTER COLUMN TYPE character varying(40)` без `USING` упадёт с ошибкой `value too long for type character varying(40)`, если хоть одна строка не влезает. В MR сказано лишь "миграция применена на dev-базе" — нет гарантии, что в данных прода нет более длинных значений. Нужно сначала обрезать/проверить данные.
++**Severity: high**
++
++## Средние
++
++### 7. `TripService.cs` — `GetOpenWaybillsAsync`
++Условие `t.started_at < now() - interval '24 hours'` использует серверную `now()` против "наивной" колонки `timestamp without time zone`, в которую приложение везде пишет UTC. Остальные методы этого же файла (`GetVehicleTripsAsync`, `OffDayTripsAsync`) явно считают границы в UTC на стороне C# (`MoscowDayStartUtc`). Сравнение `timestamp` с `now()` (timestamptz) в PostgreSQL зависит от сессионного GUC `TimeZone` на стороне подключения — если он не UTC, результат сместится на величину оффсета. Непоследовательно с остальным кодом и хрупко к конфигурации окружения.
++**Severity: medium**
++
++### 8. `TripService.cs` — `StartTripAsync`
++Нет проверки, что у машины уже нет незакрытого рейса (`FinishedAt == null`), и что водитель уже не находится в другом незакрытом рейсе. Это позволяет диспетчеру "выпустить" одну и ту же машину дважды или одного водителя сразу на двух машинах — нарушение целостности данных по путевым листам (напрямую связано с FLEET-112, где незакрытые листы уже являются проблемой).
++**Severity: medium**
++
++### 9. `Program.cs` — `PUT /api/vehicles/{id}/equipment`
++В отличие от всех остальных изменяющих состояние эндпоинтов (`decommission` → `FleetManager`, `permits` → `Hr`, `inspections/sync` → `Mechanic`, `trips/start` → `Dispatcher`), у эндпоинта замены комплектации нет `.RequireAuthorization("...")` с конкретной политикой — достаточно любой аутентифицированной роли (группа `/api` требует только `RequireAuthorization()` без роли). Похоже на забытое ограничение доступа (ожидалось бы `Mechanic`/`FleetManager`).
++**Severity: medium**
++
++## Низкие
++
++### 10. `VehicleService.cs` / `Models.cs` — `EquipmentDto.Qty`
++Нет валидации `Qty` (может быть 0 или отрицательным) при замене комплектации — такие значения молча сохранятся в БД.
++**Severity: low**

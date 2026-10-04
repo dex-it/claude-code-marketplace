@@ -1,0 +1,97 @@
+{
+  "id": "d2f9fd",
+  "case": "V3",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.131531,
+    "durationMs": 12260,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 12792,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1438,
+      "output_tokens_details": {
+        "thinking_tokens": 241
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 12792,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1438,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 12792,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 12792
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "V3-promo-on-early-price": {
+      "verdict": "FOUND",
+      "quote": "скидка промокода считается от ранней цены и суммируется с ранним тарифом",
+      "why": "Связывает правило PromoCode о полной цене и отсутствии суммирования с расчётом от BasePrice (ранней цены) и называет потерю выручки."
+    },
+    "V3-capacity-group-seats": {
+      "verdict": "FOUND",
+      "quote": "`FreeSeatsAsync` считает только неотменённые `Registrations`. `CreateAsync` проверяет, что `free >= Quantity`, но ничего не резервирует",
+      "why": "Названо, что невписанные места групповых заказов не учитываются во вместимости и зал перепродаётся."
+    },
+    "V3-group-seat-reuse": {
+      "verdict": "FOUND",
+      "quote": "отменённые участники продолжают занимать места заказа",
+      "why": "Указано, что Participants.Count включает Cancelled, поэтому замена получает 409, а List показывает место свободным."
+    },
+    "V3-orgadmin-passport": {
+      "verdict": "FOUND",
+      "quote": "Проекция при этом отдаёт `PassportNumber`/`PassportCountry` любому `Organizer` и любому `OrgAdmin` (по сотрудникам своей организации)",
+      "why": "Связаны выдача списка OrgAdmin и паспортные поля DTO вопреки правилу о визовой группе."
+    },
+    "V3-vat-on-top": {
+      "verdict": "FOUND",
+      "quote": "НДС начисляется сверху на цену, которая уже включает НДС",
+      "why": "Указано, что считается amount*20/100 и Total = amount + vat, хотя цены уже с НДС; предложено amount*20/120."
+    },
+    "V3-invoice-before-idempotency": {
+      "verdict": "FOUND",
+      "quote": "Повтор не находит заказа (первый ещё не закоммичен), ждёт `FOR UPDATE`, затем ключ заново не проверяет и снова вызывает `_billing.CreateInvoiceAsync`",
+      "why": "Связаны выставление внешнего счёта до фиксации ключа и повтор запроса, из-за которого в 1С появляется второй счёт."
+    },
+    "V3-promo-notracking": {
+      "verdict": "PASS",
+      "quote": "`FindPromoAsync` возвращает сущность с `AsNoTracking()`, поэтому `promo.UsedCount++` не отслеживается и `SaveChangesAsync` его не сохраняет",
+      "why": "Назван несохраняемый инкремент и неработающий UsageLimit, предложен атомарный ExecuteUpdate с условием UsedCount < UsageLimit."
+    },
+    "V3-unspecified-timestamptz": {
+      "verdict": "PASS",
+      "quote": "`from.ToDateTime(TimeOnly.MinValue)` даёт `Kind=Unspecified`",
+      "why": "Указано исключение Npgsql при передаче Unspecified в timestamptz, предложены явный DateTimeKind.Utc и осознанный выбор часового пояса границ."
+    },
+    "V3-h-partial-unique-index": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Частичный уникальный индекс в выходе не оспаривается."
+    },
+    "V3-h-unique-violation-catch": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Перехват UniqueViolation в RegisterAsync не объявлен дефектом, и его замена на предварительную проверку не предлагается."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,25 @@
+{
+  "task": "FEAT-1",
+  "kind": "feature",
+  "base": "fixtures/auto-live/cache-feature/repo",
+  "commit": "feat(cache): writeSlugCache",
+  "goal": "В src/cache.js рядом с чтением кэша slug есть запись: результат slugify сохраняется на диск, и повторный вызов берёт готовое значение.",
+  "done": "npm test зелёный, прежние тесты на месте; на каждое требование R1-R4 из FEAT.md в дельте есть тест; правка закоммичена локально, push не делается.",
+  "boundary": "Правка только в src/cache.js и тестах; без новых зависимостей и без смены формата хранения (JSON-файл на ключ).",
+  "requirements": [
+    "R1. writeSlugCache(name, value) записывает значение в кэш; последующий readSlugCache(name) возвращает его же. (FEAT.md:8)",
+    "R2. Каталог кэша создаётся, если его ещё нет. (FEAT.md:10)",
+    "R3. Запись перезаписывает прежнее значение того же ключа. (FEAT.md:11)",
+    "R4. Имя ключа приходит из пользовательского ввода и может быть любым. (FEAT.md:12)"
+  ],
+  "coder": {
+    "red-run": "тесты R1 и R3 красные до правки: writeSlugCache не экспортирован (SyntaxError импорта); после правки зелёные",
+    "uncovered-status": "none", "uncovered": [],
+    "dependents-status": "none", "dependents": []
+  },
+  "mines": [
+    { "id": "M1", "file": "src/cache.js", "lines": [12, 15], "blocking": true, "what": "имя ключа из пользовательского ввода (R4) склеивается в путь без проверки: '../x' или абсолютный путь пишет за пределы CACHE_DIR" },
+    { "id": "M2", "file": "test/cache.test.js", "lines": [9, 12], "blocking": false, "what": "тест R1 проверяет !== undefined: readSlugCache возвращает null на отсутствующем ключе, и тест зелёный без записи" },
+    { "id": "M3", "file": "test/cache.test.js", "lines": [1, 18], "blocking": true, "what": "у R2 и R4 нет теста, а критерий «готово» требует тест на каждое требование; запись кодера uncovered-status: none расходится с кодом" }
+  ]
+}

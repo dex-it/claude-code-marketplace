@@ -1,0 +1,229 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..1a11a42
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,223 @@
++# Ревью MR: Notify.Worker Outbox-воркер
++
++## Критические дефекты (CRITICAL)
++
++### 1. appsettings.Production.json — Секреты в репозитории
++**Файл**: `appsettings.Production.json`, строки 3, 16  
++**Проблема**: Пароли БД и API-ключи SMTP сохранены в открытом виде в репозитории:
++- ConnectionString: `Password=Kx7!pQ2vR9wz`
++- SMTP: `Password=rl_live_9f3a1c77e2b04d6d`
++
++**Почему дефект**: По SKILL.md и OWASP — закоммиченный секрет остаётся в истории git навсегда и утекает со сборкой. Нужно использовать переменные окружения или secret store, в файле — только плейсхолдер.
++
++**Severity**: **CRITICAL**
++
++---
++
++### 2. Program.cs — Неверное имя секции конфигурации
++**Файл**: `Program.cs`, строка 11  
++**Проблема**: 
++```csharp
++builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Mail"));
++```
++Код ищет секцию `"Mail"`, а в конфиге везде `"Smtp"`:
++- appsettings.json строка 13: `"Smtp": { ... }`
++- SmtpMailSender.cs строка 14 использует все поля SmtpOptions
++
++**Почему дефект**: SmtpOptions не будет загружена из конфига, все свойства остаются с дефолтными значениями (Host=null, Port=0). На старте это не видно, но при первом обращении SmtpMailSender упадёт с NullReferenceException или некорректным подключением.
++
++**Severity**: **CRITICAL**
++
++---
++
++### 3. OutboxWorker.cs — Неверная единица измерения интервала
++**Файл**: `OutboxWorker.cs`, строка 33  
++**Проблема**:
++```csharp
++await Task.Delay(TimeSpan.FromSeconds(o.PollInterval), ct);
++```
++В конфиге: `"PollInterval": 500`  
++В MR: требуется "опрос outbox раз в полсекунды"
++
++При текущем коде `TimeSpan.FromSeconds(500)` = 500 секунд (~8 минут), а не 500 миллисекунд как задумано.
++
++**Почему дефект**: Классическая ловушка из SKILL.md — отсутствие единицы в названии настройки. Пауза будет в 1000× длиннее, чем нужна. На staging это незаметно, на prod — заметно пропущенные письма.
++
++**Severity**: **CRITICAL**
++
++---
++
++## Дефекты высокого приоритета (HIGH)
++
++### 4. OutboxOptions.cs — Отсутствие единицы измерения в названии свойства
++**Файл**: `Options/OutboxOptions.cs`, строка 5  
++**Проблема**: `public int PollInterval { get; set; }` — неясна единица измерения
++
++**Почему дефект**: По SKILL.md это провоцирует confusion: каждый интерпретирует число по-своему (ms/s/min). Должно быть `PollIntervalMs` или использовать `TimeSpan LockTimeout` как образец.
++
++**Severity**: **HIGH**
++
++---
++
++### 5. Program.cs — Валидатор опций не зарегистрирован в DI
++**Файл**: `Program.cs`, строка 10  
++**Проблема**: OutboxOptionsValidator существует, но не добавлен в контейнер:
++```csharp
++builder.Services.Configure<OutboxOptions>(builder.Configuration.GetSection("Outbox"));
++// ← нет .AddSingleton<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>()
++```
++
++**Почему дефект**: По SKILL.md — "Валидатор опций написан, но не зарегистрирован - не исполняется никогда". Тесты зеленые, но в runtime валидатор спит, конфиг годами считается проверенным, хотя проверка не работает.
++
++**Severity**: **HIGH**
++
++---
++
++### 6. Program.cs — Отсутствует ValidateOnStart()
++**Файл**: `Program.cs`, строка 10  
++**Проблема**: Даже если регистрировать валидатор, нет:
++```csharp
++builder.Services.Configure<OutboxOptions>(...)
++    .ValidateOnStart();  // ← отсутствует
++```
++
++**Почему дефект**: По SKILL.md — некорректная конфигурация обнаруживается при первом обращении в runtime, а не при старте приложения. ValidateOnStart() бросает исключение при запуске — видно сразу в деплое, а не через час под нагрузкой.
++
++**Severity**: **HIGH**
++
++---
++
++### 7. OutboxWorker.cs — IOptions вместо IOptionsMonitor (нет reload on change)
++**Файл**: `OutboxWorker.cs`, строка 11  
++**Проблема**:
++```csharp
++IOptions<OutboxOptions> options,  // ← singleton, кэшируется на весь lifetime
++```
++По MR: "Лимит параллельных отправок и размер пачки должны меняться на лету правкой appsettings, без рестарта."
++
++Но `IOptions<T>` — это singleton, изменения в appsettings.json не видны. Нужно `IOptionsMonitor<OutboxOptions>`.
++
++**Почему дефект**: По SKILL.md — разработчик ждёт горячей перезагрузки, правит конфиг, но фича не срабатывает, ходит в очко без сигнала о проблеме.
++
++**Severity**: **HIGH**
++
++---
++
++### 8. appsettings.Production.json — MinBatchSize > MaxBatchSize (логическая ошибка)
++**Файл**: `appsettings.Production.json`, строки 6-7  
++**Проблема**:
++```json
++"MinBatchSize": 200,
++"MaxBatchSize": 100
++```
++MinBatchSize (минимум 200) больше MaxBatchSize (максимум 100) — нарушение инварианта.
++
++**Почему дефект**: По SKILL.md — "кросс-полевой инвариант Options проверяется тихим `if`, а не валидацией". OutboxWorker.cs строка 25 имеет `if (o.MinBatchSize < o.MaxBatchSize) { /* адаптивное батчинг */ }`, при нарушении инварианта код молча не выполняется, фича отключается без сигнала. Это должно быть исключением при старте.
++
++**Severity**: **HIGH**
++
++---
++
++## Дефекты среднего приоритета (MEDIUM)
++
++### 9. appsettings.Staging.json — MaxInFlight выше чем Production
++**Файл**: `appsettings.Staging.json`, строка 6  
++**Проблема**:
++- appsettings.json (dev): `"MaxInFlight": 5`
++- appsettings.Staging.json: `"MaxInFlight": 20` ← ВЫШЕ
++- appsettings.Production.json: `"MaxInFlight": 5`
++
++**Почему дефект**: По SKILL.md — "staging <= prod по нагрузочным параметрам". Staging с более высоким параллелизмом не воспроизводит prod-поведение. Ошибки под нагрузкой не обнаруживаются на staging, обнаруживаются на prod.
++
++**Severity**: **MEDIUM**
++
++---
++
++### 10. ThrottleService.cs — Неверный ключ конфигурации и отсутствие Options
++**Файл**: `ThrottleService.cs`, строка 7  
++**Проблема**: 
++```csharp
++var perMinute = config.GetValue<int>("Throttle:MessagesPerMinute");
++```
++Но в конфиге: `"Throttle": { "PerMinute": 600 }` (ключ `PerMinute`, не `MessagesPerMinute`)
++
++Плюс сервис читает конфиг напрямую, не используя Options-паттерн и IOptionsMonitor.
++
++**Почему дефект**: 
++1. GetValue вернёт 0 (не найдёт ключ), потом `60_000 / 0` = DivisionByZero
++2. Нет горячей перезагрузки (нужен IOptionsMonitor для reload on change)
++3. Нарушает pattern; конфиг не валидируется при старте
++
++**Severity**: **MEDIUM**
++
++---
++
++### 11. OutboxOptionsValidator.cs — Неполная валидация инвариантов
++**Файл**: `Options/OutboxOptionsValidator.cs`  
++**Проблема**: Валидатор не проверяет:
++1. `MinBatchSize <= MaxBatchSize` (кросс-полевой инвариант)
++2. `MinBatchSize > 0`
++3. `PollInterval > 0`
++
++**Почему дефект**: Production конфиг (MinBatchSize=200, MaxBatchSize=100) проходит валидацию и падает в runtime. По SKILL.md — инвариант должен проверяться явно при init, не молча.
++
++**Severity**: **MEDIUM**
++
++---
++
++### 12. SmtpOptions.cs — Отсутствуют required-поля
++**Файл**: `Options/SmtpOptions.cs`  
++**Проблема**: 
++```csharp
++public string Host { get; set; }       // должно быть required
++public int Port { get; set; }          // должно быть required
++public string FromAddress { get; set; } // должно быть required
++```
++Проект с `<Nullable>enable</Nullable>`, но обязательные поля не помечены `required`.
++
++**Почему дефект**: По SKILL.md — под Nullable enable это CS8618. Реально `null` доезжает до первого использования (SmtpMailSender.cs строка 14: `o.FromAddress`) и даёт NRE. `required` ловит отсутствие на компиляции.
++
++**Severity**: **MEDIUM**
++
++---
++
++### 13. OutboxOptions.cs — Отсутствие required-полей под Nullable enable
++**Файл**: `Options/OutboxOptions.cs`  
++**Проблема**: Int-свойства не помечены как `required` и могут остаться = 0.
++
++**Почему дефект**: Валидация ловит MaxBatchSize=0, но без `required` это идет через Options-биндинг молча. Менее критично чем SmtpOptions (т.к. есть валидация), но принцип нарушен.
++
++**Severity**: **MEDIUM**
++
++---
++
++## Низкоприоритетные дефекты (LOW)
++
++### 14. appsettings.json — Хардкодированный пароль в dev-конфиге
++**Файл**: `appsettings.json`, строка 3  
++**Проблема**: ConnectionString с паролем: `"Password=notify"`
++
++**Почему дефект**: Хотя это dev-конфиг, лучше использовать user-secrets или плейсхолдер. По SKILL.md — новый проект это типичный момент, когда секрет «временно» прописывают и забывают вынести.
++
++**Severity**: **LOW**
++
++---
++
++### 15. ThrottleService.cs — Риск DivisionByZero без валидации
++**Файл**: `ThrottleService.cs`, строка 8  
++**Проблема**: Если GetValue не найдёт ключ, вернёт 0, потом `60_000 / 0` = Exception
++
++**Почему дефект**: Покрывается пунктом 10 (неверный ключ), но отдельно это тихая ошибка. Должна быть валидация при старте.
++
++**Severity**: **LOW**
++
++---
++
++## Резюме
++
++**CRITICAL**: 3 дефекта (секреты, неверная секция, неверная единица измерения)  
++**HIGH**: 5 дефектов (отсутствие единицы, не зарегистрирован валидатор, нет ValidateOnStart, не поддерживается reload, логическая ошибка в конфиге)  
++**MEDIUM**: 5 дефектов (staging > prod, ThrottleService, неполная валидация, обязательные поля)  
++**LOW**: 2 дефекта (dev-секреты, риск DivisionByZero)
++
++Рекомендация: Исправить все CRITICAL перед мержем. HIGH и MEDIUM должны быть исправлены в рамках доработки задачи, т.к. они нарушают заявленные требования MR (reload on change) и best practices конфигурации .NET.

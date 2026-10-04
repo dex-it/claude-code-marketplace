@@ -1,0 +1,82 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..68d2baa
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,76 @@
++# Ревью MR: Outbox-воркер рассылки уведомлений
++
++## Критичные дефекты
++
++### 1. `Program.cs` — привязка `SmtpOptions` к несуществующей секции
++`builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Mail"))`, но во всех appsettings-файлах секция называется `"Smtp"`, а не `"Mail"`. В результате `SmtpOptions` всегда биндится к пустой секции: `Host`/`FromAddress` (non-nullable `string`) останутся `null`, `Port` = 0. Ошибка проявится только в рантайме при первой попытке отправки письма (`SmtpMailSender.SendAsync` упадёт на `client.ConnectAsync(null, 0, ...)` / `MailboxAddress.Parse(null)`), а не на старте.
++**Severity: critical**
++
++### 2. `Options/OutboxOptions.cs` + `OutboxWorker.ExecuteAsync` — `PollInterval` без единицы измерения интерпретируется неверно
++В appsettings `"PollInterval": 500` задумано как «раз в полсекунды» (см. описание MR), но в коде `await Task.Delay(TimeSpan.FromSeconds(o.PollInterval), ct)` трактует это значение как **секунды**. В итоге опрос outbox идёт раз в ~500 секунд (~8.3 минуты) вместо раз в 0.5 секунды — грубое нарушение требования MR. Имя поля не содержит единицы измерения (`PollInterval` вместо, например, `PollIntervalMs`), что и позволило рассинхронизировать конфиг и код.
++**Severity: critical**
++
++### 3. `ThrottleService.WaitAsync` — обращение к несуществующему ключу конфигурации
++Метод читает `config.GetValue<int>("Throttle:MessagesPerMinute")`, а во всех appsettings-файлах ключ называется `Throttle:PerMinute`. `GetValue<int>` для отсутствующего ключа вернёт `0`, после чего `60_000 / perMinute` кинет `DivideByZeroException` на первом же вызове `WaitAsync` — воркер будет падать при отправке первого письма в батче.
++**Severity: critical**
++
++### 4. `Options/OutboxOptionsValidator.cs` не зарегистрирован — валидация не работает
++`OutboxOptionsValidator` реализует `IValidateOptions<OutboxOptions>` и покрыт тестами, но нигде не зарегистрирован в DI (`Program.cs` не содержит `services.AddSingleton<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>()`), и не вызван `.ValidateOnStart()`. Валидатор фактически мёртвый код: при старте сервиса некорректная конфигурация (см. пункт 5) не отклоняется, приложение просто стартует с "битыми" значениями.
++**Severity: critical**
++
++### 5. `Options/OutboxOptionsValidator.cs` — отсутствует кросс-полевая проверка `MinBatchSize <= MaxBatchSize`
++Валидатор проверяет `MaxBatchSize`, `MaxInFlight`, `MaxRetries`, `LockTimeout` по отдельности, но не сравнивает `MinBatchSize` и `MaxBatchSize` между собой. Это не абстрактный риск: `appsettings.Production.json` уже содержит `MinBatchSize: 200 > MaxBatchSize: 100` — невалидную комбинацию, которая (даже если бы валидатор был зарегистрирован, см. п.4) сейчас прошла бы валидацию. В `OutboxWorker.ExecuteAsync` это тихо отключает адаптивное изменение размера батча (`if (o.MinBatchSize < o.MaxBatchSize)`), маскируя ошибку конфигурации вместо явного отказа при старте.
++**Severity: high**
++
++### 6. `OutboxWorker` — используется `IOptions<OutboxOptions>` вместо `IOptionsMonitor<OutboxOptions>`
++По условию MR: «Лимит параллельных отправок и размер пачки должны меняться на лету правкой appsettings, без рестарта». `IOptions<T>.Value` — это снэпшот, зафиксированный один раз при первом разрешении зависимости, и **не обновляется** при изменении appsettings.json, в отличие от `IOptionsMonitor<T>.CurrentValue`. Конструктор `OutboxWorker(..., IOptions<OutboxOptions> options, ...)` и обращения `options.Value` в цикле `ExecuteAsync`/`ProcessBatchAsync` гарантированно не подхватят изменение `MaxInFlight`/`MaxBatchSize`/`MinBatchSize` без перезапуска процесса — требование MR не выполнено.
++**Severity: critical**
++
++### 7. `OutboxWorker.ProcessBatchAsync` — `SentAt` проставляется до фактической отправки, ретраи не работают
++```csharp
++foreach (var m in batch)
++{
++    m.LockedUntil = now + o.LockTimeout;
++    m.SentAt = now;               // <-- выставляется сразу для всего батча
++}
++await db.SaveChangesAsync(ct);
++...
++catch (Exception ex)
++{
++    m.Attempts++;                 // SentAt уже не null, сообщение всё равно "отправлено"
++    ...
++}
++```
++Выборка сообщений на следующей итерации фильтруется по `m.SentAt == null`. Поскольку `SentAt` проставляется всем сообщениям батча ещё до вызова `sender.SendAsync`, при неудачной отправке (пойманное исключение) сообщение навсегда помечено как отправленное и никогда не попадёт в повторную выборку — несмотря на инкремент `Attempts` и наличие `MaxRetries`. Логика ретраев полностью не работает, письма при сбое SMTP теряются молча.
++**Severity: critical**
++
++## Высокая severity
++
++### 8. `appsettings.Production.json` — секреты в открытом виде в репозитории
++```json
++"Password": "Kx7!pQ2vR9wz"                 // пароль БД
++"Password": "rl_live_9f3a1c77e2b04d6d"     // пароль/ключ SMTP-релея
++```
++Пароль от продакшен-БД и живой ключ SMTP-релея закоммичены прямо в конфиг в репозитории — классическая утечка секрета, требует немедленной ротации после исправления и выноса в secret-manager/переменные окружения (как это частично сделано для Staging).
++**Severity: critical**
++
++### 9. `appsettings.Staging.json` — `${NOTIFY_DB_PASSWORD}` не подставляется .NET-конфигурацией
++```json
++"Notify": "Host=pg-stage.internal;...;Password=${NOTIFY_DB_PASSWORD}"
++```
++Стандартный JSON configuration provider .NET не делает подстановку переменных окружения внутри строковых значений (в отличие от Docker Compose/shell). Никакого кастомного провайдера для этого в `Program.cs` не подключено, значит строка `${NOTIFY_DB_PASSWORD}` уедет в connection string буквально, и подключение к Staging БД будет падать с ошибкой аутентификации.
++**Severity: high**
++
++### 10. `appsettings.Staging.json` vs `appsettings.Production.json` — Staging агрессивнее Production
++`Outbox:MaxInFlight` в Staging = 20, в Production = 5. Staging сконфигурирован с бОльшим параллелизмом отправок, чем прод — подозрительно похоже на перепутанные значения (обычно ожидается обратное соотношение, либо явное объяснение, почему стейджинг нагружает SMTP сильнее продакшена). Стоит перепроверить перед мерджем.
++**Severity: medium**
++
++## Средняя/низкая severity
++
++### 11. `Options/SmtpOptions.cs` — non-nullable `Host`/`FromAddress` без валидатора
++`Host` и `FromAddress` объявлены как non-nullable `string` без инициализатора и без своего `IValidateOptions<SmtpOptions>`/`ValidateOnStart`. Даже если бы секция биндилась правильно (см. п.1), отсутствие обязательного значения обнаружится только в рантайме при первой отправке, а не при старте сервиса.
++**Severity: medium**
++
++### 12. `Options/OutboxOptions.cs` — `PollInterval` без суффикса единицы измерения
++Помимо конкретного бага из п.2, само имя `PollInterval` (int) не указывает единицу (мс/сек), в отличие от `LockTimeout` (уже `TimeSpan`). Стоит либо сделать `PollInterval` типом `TimeSpan` со строковым форматом в конфиге (как `LockTimeout`), либо переименовать в `PollIntervalMs`/`PollIntervalSeconds`.
++**Severity: low**

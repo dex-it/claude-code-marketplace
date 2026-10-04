@@ -1,0 +1,81 @@
+diff --git a/Model.cs b/Model.cs
+index cc90064..d699709 100644
+--- a/Model.cs
++++ b/Model.cs
+@@ -11,7 +11,8 @@ public class Order
+     public string Status { get; set; } = "active";
+     public string Category { get; set; } = "";
+     public decimal Total { get; set; }
+-    public DateTime CreatedAt { get; set; }          // column: timestamp without time zone
++    public int Complexity { get; set; }              // 1..5, business "сложность комплектации"
++    public DateTime CreatedAt { get; set; }          // column: timestamp without time zone, always stored/read as UTC
+     public DateTime? ShippedAt { get; set; }
+     public bool IsDeleted { get; set; }
+     public List<OrderItem> Items { get; set; } = new();
+@@ -44,7 +45,33 @@ public class ShopDbContext : DbContext
+     protected override void OnModelCreating(ModelBuilder b)
+     {
+         b.Entity<Order>().HasQueryFilter(o => !o.IsDeleted);
+-        b.Entity<Order>().Property(o => o.CreatedAt).HasColumnType("timestamp without time zone");
++
++        b.Entity<Order>()
++            .Property(o => o.Complexity)
++            .IsRequired();
++        b.Entity<Order>()
++            .ToTable(t => t.HasCheckConstraint("CK_Order_Complexity_Range", "\"Complexity\" BETWEEN 1 AND 5"));
++
++        // Column stays "timestamp without time zone" for the DBA reports; conversion guarantees
++        // the in-memory value is always UTC regardless of what gets written or what Npgsql returns (Kind=Unspecified).
++        b.Entity<Order>()
++            .Property(o => o.CreatedAt)
++            .HasColumnType("timestamp without time zone")
++            .HasConversion(
++                v => v.Kind == DateTimeKind.Utc ? v : v.ToUniversalTime(),
++                v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
++
++        b.Entity<Order>()
++            .HasMany(o => o.Items)
++            .WithOne()
++            .HasForeignKey(i => i.OrderId)
++            .OnDelete(DeleteBehavior.Cascade);
++
++        b.Entity<Order>()
++            .HasMany(o => o.Payments)
++            .WithOne()
++            .HasForeignKey(p => p.OrderId)
++            .OnDelete(DeleteBehavior.Cascade);
+     }
+ }
+ // Options: UseNpgsql(cs).UseLazyLoadingProxies()
+diff --git a/OrderRepository.cs b/OrderRepository.cs
+index 72637b8..bf4d306 100644
+--- a/OrderRepository.cs
++++ b/OrderRepository.cs
+@@ -6,4 +6,13 @@ public class OrderRepository
+     public OrderRepository(ShopDbContext db) => _db = db;
+     public Task<List<Order>> GetAllAsync() => _db.Orders.ToListAsync();
+     public Task<Order?> GetAsync(Guid id) => _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
++
++    public async Task ClearItemsAsync(Guid orderId)
++    {
++        var order = await _db.Orders.Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == orderId);
++        if (order is null) return;
++
++        order.Items.Clear();
++        await _db.SaveChangesAsync();
++    }
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..ed28c6d
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,8 @@
++Изменённые файлы:
++- Model.cs — добавлено поле `Order.Complexity` (int) с обязательным маппингом и CHECK-констрейнтом 1..5; для `CreatedAt` добавлен `HasConversion`, который на запись всегда приводит значение к UTC (`ToUniversalTime()`, если Kind не Utc), а на чтение помечает значение из Npgsql (Kind=Unspecified) как `DateTimeKind.Utc` — тип колонки `timestamp without time zone` не менялся; в `OnModelCreating` явно настроены `HasMany(Items)`/`HasMany(Payments)` через `HasForeignKey(OrderId)` с `DeleteBehavior.Cascade`.
++- OrderRepository.cs — добавлен метод `ClearItemsAsync(Guid orderId)`: подгружает заказ с `Include(Items)`, очищает коллекцию и вызывает `SaveChangesAsync()`; EF удаляет осиротевшие `OrderItem` благодаря обязательному FK.
++
++Решения:
++- Complexity ограничен через `CHECK` на уровне таблицы, а не только через атрибут в C#, чтобы бизнес-правило соблюдалось и при прямых INSERT/UPDATE в БД.
++- Для CreatedAt использован `ValueConverter`, а не `DateTime.SpecifyKind` в коде вызова — так гарантия UTC работает для всех путей записи/чтения через `ShopDbContext`, а колонка и отчёты DBA не затронуты.
++- Метод назван `ClearItemsAsync` (по аналогии с существующими `GetAllAsync`/`GetAsync`), реализован через навигационное свойство вместо прямого DELETE, чтобы не заводить отдельный `DbSet<OrderItem>`.

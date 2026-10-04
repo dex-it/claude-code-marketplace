@@ -1,0 +1,61 @@
+{
+  "id": "b8be7d",
+  "case": "L5",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0259514,
+    "durationMs": 4621,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 2247,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 377,
+      "output_tokens_details": {
+        "thinking_tokens": 80
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 2247,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 377,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 2247,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 2247
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "L5-dedup": {
+      "verdict": "PASS",
+      "quote": "var distinctIds = customerIds.Distinct().ToArray();",
+      "why": "Дубли id убираются через Distinct до нарезки на пачки, поэтому повторённый id получает одно письмо."
+    },
+    "L5-h-chunk": {
+      "verdict": "YES",
+      "quote": "foreach (var batch in distinctIds.Chunk(BatchSize))",
+      "why": "Запрос клиентов режется на пачки по 500 с обоснованием «Ограничиваем размер IN(...) на запрос… может быть очень большим»."
+    },
+    "L5-m-enum": {
+      "verdict": "NO",
+      "quote": "var distinctIds = customerIds.Distinct().ToArray();",
+      "why": "customerIds перечисляется один раз и сразу материализуется в массив, дальше используется только массив."
+    }
+  },
+  "stderr": ""
+}

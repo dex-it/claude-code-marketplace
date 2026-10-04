@@ -1,0 +1,74 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..2ef3a9c
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,68 @@
++# Ревью MR !342 — найденные дефекты
++
++## Critical
++
++1. **Services/RegistrationService.cs — `CancelAsync`: администратор организации может отменить чужую регистрацию (IDOR)**
++   Проверка `reg.UserId != userId && !isOrgAdmin` пропускает любого пользователя с ролью `OrgAdmin`. Совпадение `reg.OrganizationId` с `org_id` администратора не проверяется. В итоге администратор любой организации отменяет регистрацию любого участника по перебору `id`. По MR администратор отвечает только за сотрудников своей организации. Нужно передавать `org_id` администратора и требовать `reg.OrganizationId != null && reg.OrganizationId == adminOrgId`.
++   Severity: **critical**.
++
++2. **Services/RegistrationService.cs — `CancelAsync`: возврат считается от полной цены типа билета, а не от суммы, которую заплатил участник**
++   `reg.TicketType.PriceKopecks * sharePercent / 100` берёт полную цену. По MR возврат считается от уплаченной суммы, то есть от `reg.PriceKopecks` (с учётом раннего тарифа и промокода). Пример: участник с ранней ценой и промокодом заплатил 10 000 ₽, а при отмене за 30+ дней получит 18 000 ₽. Бухгалтерия проводит возвраты по выгрузке `RefundedKopecks`, так что это прямые денежные потери.
++   Severity: **critical**.
++
++## High
++
++3. **Services/RegistrationService.cs — `RegisterAsync` + `PricingService.FindPromoAsync`: счётчик использований промокода никогда не растёт, лимит не работает**
++   `FindPromoAsync` загружает промокод через `AsNoTracking()`, поэтому `promo.UsedCount++` меняет отсоединённый объект и `SaveChangesAsync` ничего в БД не пишет. `UsedCount` всегда 0, и промокод с лимитом применяется без ограничений. Но даже с трекингом схема read-modify-write без concurrency token или атомарного `UPDATE ... SET "UsedCount" = "UsedCount" + 1 WHERE "UsedCount" < "UsageLimit"` при параллельных запросах (а реплик две) превысит лимит.
++   Severity: **high**.
++
++4. **Services/RegistrationService.cs — `RegisterAsync`: недействительный промокод молча игнорируется, а участнику оформляется билет по полной цене**
++   Если промокод не найден, истёк или исчерпан, код ставит `promo = null` и продолжает регистрацию. По MR в этом случае регистрацию оформлять нельзя: нужно вернуть 422 с причиной. Сейчас участник с опечаткой в коде молча получает счёт без скидки. В `RegisterError` нет нужных вариантов (`PromoNotFound/PromoExpired/PromoExhausted`), а в контроллере нет маппинга на 422.
++   Severity: **high**.
++
++5. **Services/PricingService.cs — `ApplyPromo`: фиксированная скидка может сделать цену отрицательной**
++   `price - promo.Value` ничем не ограничено снизу. Пример: партнёрский промокод на 5 000 ₽ к студенческому билету за 3 500 ₽ даёт цену −1 500 ₽. Нужно `Math.Max(0, price - promo.Value)`, а возможно, и запретить применять промокод к билету дешевле скидки.
++   Severity: **high**.
++
++6. **Services/RegistrationService.cs — `RegisterAsync`: паспортные данные попадают в логи**
++   `_logger.LogInformation("... {@Request}", ..., req)` деструктурирует весь `RegisterRequest` вместе с `PassportNumber`, `PassportCountry`, `FullName` и `Email`. Паспортные данные — это ПДн, доступ к ним по MR есть только у оргкомитета, а логи доступны гораздо более широкому кругу (разработчики, системы сбора логов). Это нарушение требований 152-ФЗ. Логировать стоит только Id регистрации.
++   Severity: **high**.
++
++7. **Services/PricingService.cs — `BasePrice`: ранний тариф не действует в последний день**
++   `today < ticket.EarlyBirdUntil`, хотя по MR ранняя цена действует по `EarlyBirdUntil` **включительно**, а в модели это поле описано как «последний день действия». 15 ноября участники и организации (метод используется и в `GroupOrdersController.Create`) платят полную цену. Нужно `<=`.
++   Severity: **high** (влияет на деньги в самый массовый день регистрации).
++
++8. **Controllers/GroupOrdersController.cs — `Create`: идемпотентность построена на `IMemoryCache` и не работает**
++   - API работает в двух репликах за балансировщиком. Повтор запроса после таймаута может попасть на другую реплику, у которой свой локальный кэш, и создаст второй заказ (второй счёт).
++   - Даже внутри одной реплики проверка устроена как check-then-act: при двойном клике оба запроса проходят `TryGetValue` до `Set`, и создаются два заказа.
++   - Кэш пропадает при рестарте или деплое, а также может быть вытеснен.
++   Нужно хранить `IdempotencyKey` в `GroupOrder` с уникальным индексом `(OrganizationId, IdempotencyKey)` в БД. При unique violation надо читать и возвращать существующий заказ. Кроме того, повтор с тем же ключом, но другим телом сейчас возвращает чужой ответ без проверки.
++   Severity: **high**.
++
++9. **Controllers/GroupOrdersController.cs — `Create`: переполнение `int` при расчёте суммы счёта**
++   `unitPrice * req.Quantity` — это умножение `int * int`, результат получает тип `int` и только потом приводится к `long`. Партнёрский пакет стоит 60 000 ₽ = 6 000 000 коп.; при 500 штуках получается 3 000 000 000 > `int.MaxValue`. Без `checked` результат молча станет отрицательным, и в БД уйдёт счёт на отрицательную сумму. Нужно `(long)unitPrice * req.Quantity`.
++   Severity: **high**.
++
++10. **Controllers/ReportsController.cs — `Registrations`: отчёт падает на `DateTime` с `Kind=Unspecified`**
++    `from.ToDateTime(TimeOnly.MinValue)` возвращает `DateTime` с `Kind = Unspecified`. `Registration.CreatedAt` (`DateTime`) в Npgsql 8 маппится на `timestamp with time zone`, и при передаче Unspecified-параметра Npgsql бросает `InvalidCastException` («Cannot write DateTime with Kind=Unspecified to PostgreSQL type 'timestamp with time zone'»). Эндпоинт всегда отдаёт 500. Нужно `DateTime.SpecifyKind(..., DateTimeKind.Utc)` или `ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)`. Вдобавок стоит решить, в каком поясе оргкомитет понимает «дату» (см. п. 13).
++    Severity: **high**.
++
++## Medium
++
++11. **Controllers/GroupOrdersController.cs — `Create`: нет проверки наличия claim `org_id`**
++    `User.FindFirstValue("org_id")!` подавляет null. Если у пользователя с ролью OrgAdmin нет `org_id`, то ключ кэша получится `group-order::key` (общий для всех таких пользователей), а при сохранении `OrganizationId = null` будет нарушен NOT NULL, и запрос завершится 500. Нужен явный 403 или 400.
++    Severity: **medium**.
++
++12. **Services/RegistrationService.cs — `CancelAsync`: гонка при параллельной отмене**
++    Два одновременных запроса на отмену оба видят статус не `Cancelled`, оба проходят и оба возвращают 200 с суммой возврата. Если запросы пришли от разных субъектов (участник и администратор), возможна двойная обработка. Нужен concurrency token (`xmin`) или условный `UPDATE ... WHERE "Status" <> 2`.
++    Severity: **medium**.
++
++## Low
++
++13. **Services/PricingService.cs, Services/RegistrationService.cs, Controllers/ReportsController.cs: «сегодня» считается по UTC**
++    `DateOnly.FromDateTime(DateTime.UtcNow)`: для российской конференции (MSK, UTC+3) с 00:00 до 03:00 по Москве дата получается вчерашней. Ранний тариф и промокоды действуют на 3 часа дольше, пороги возврата 30/7 дней смещаются, а в отчёте регистрации ночью попадают в предыдущий день. Нужно явно использовать часовой пояс конференции.
++    Severity: **low**.
++
++14. **Controllers/ReportsController.cs — `Registrations`: группировка по `TicketType.Name`**
++    Два типа билетов с одинаковым названием сольются в одну строку. Надёжнее группировать по `TicketTypeId` и выводить `Name`.
++    Severity: **low**.

@@ -1,0 +1,89 @@
+diff --git a/Model.cs b/Model.cs
+index cc90064..0b1967b 100644
+--- a/Model.cs
++++ b/Model.cs
+@@ -11,7 +11,8 @@ public class Order
+     public string Status { get; set; } = "active";
+     public string Category { get; set; } = "";
+     public decimal Total { get; set; }
+-    public DateTime CreatedAt { get; set; }          // column: timestamp without time zone
++    public int Complexity { get; set; }              // 1..5, "сложность комплектации"
++    public DateTime CreatedAt { get; set; }          // column: timestamp without time zone, always UTC in code
+     public DateTime? ShippedAt { get; set; }
+     public bool IsDeleted { get; set; }
+     public List<OrderItem> Items { get; set; } = new();
+@@ -44,7 +45,39 @@ public class ShopDbContext : DbContext
+     protected override void OnModelCreating(ModelBuilder b)
+     {
+         b.Entity<Order>().HasQueryFilter(o => !o.IsDeleted);
+-        b.Entity<Order>().Property(o => o.CreatedAt).HasColumnType("timestamp without time zone");
++
++        b.Entity<Order>()
++            .Property(o => o.Complexity)
++            .IsRequired();
++        b.Entity<Order>()
++            .ToTable(t => t.HasCheckConstraint("CK_Order_Complexity_Range", "\"Complexity\" BETWEEN 1 AND 5"));
++
++        // Column stays "timestamp without time zone" (DBA reports depend on it). Npgsql refuses to
++        // write Kind=Utc into that column type, so we round-trip via Unspecified on write and
++        // re-tag as Utc on read, keeping the in-memory value always UTC.
++        b.Entity<Order>()
++            .Property(o => o.CreatedAt)
++            .HasColumnType("timestamp without time zone")
++            .HasConversion(
++                toDb => DateTime.SpecifyKind(toDb.ToUniversalTime(), DateTimeKind.Unspecified),
++                fromDb => DateTime.SpecifyKind(fromDb, DateTimeKind.Utc));
++
++        // Order is soft-deleted (IsDeleted flag), so the DB-level FK must NOT cascade
++        // physically: a raw "DELETE FROM orders" (e.g. DBA script) would otherwise wipe
++        // out Items/Payments too. ClientCascade keeps app-driven deletes working (EF
++        // still removes children when they're taken out of the collection, e.g.
++        // ClearItems below) while the database constraint itself is NO ACTION.
++        b.Entity<Order>()
++            .HasMany(o => o.Items)
++            .WithOne()
++            .HasForeignKey(i => i.OrderId)
++            .OnDelete(DeleteBehavior.ClientCascade);
++
++        b.Entity<Order>()
++            .HasMany(o => o.Payments)
++            .WithOne()
++            .HasForeignKey(p => p.OrderId)
++            .OnDelete(DeleteBehavior.ClientCascade);
+     }
+ }
+ // Options: UseNpgsql(cs).UseLazyLoadingProxies()
+diff --git a/OrderRepository.cs b/OrderRepository.cs
+index 72637b8..4a076f5 100644
+--- a/OrderRepository.cs
++++ b/OrderRepository.cs
+@@ -6,4 +6,12 @@ public class OrderRepository
+     public OrderRepository(ShopDbContext db) => _db = db;
+     public Task<List<Order>> GetAllAsync() => _db.Orders.ToListAsync();
+     public Task<Order?> GetAsync(Guid id) => _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
++
++    public async Task ClearItems(Guid orderId)
++    {
++        var order = await _db.Orders.Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == orderId);
++        if (order is null) return;
++        order.Items.Clear();
++        await _db.SaveChangesAsync();
++    }
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..b29a0e3
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,11 @@
++## Изменённые файлы
++
++- `Model.cs` — добавлено поле `Order.Complexity` (int), конфигурация `OnModelCreating` для Complexity/CreatedAt/связей Items и Payments.
++- `OrderRepository.cs` — добавлен метод `ClearItems(Guid orderId)`.
++
++## Решения
++
++- **Complexity**: простое `int`-свойство (не owned type — единственное значимое поле, инварианта для Value Object нет) + `HasCheckConstraint("CK_Order_Complexity_Range", "\"Complexity\" BETWEEN 1 AND 5")`, чтобы диапазон 1..5 гарантировался на уровне БД, а не только в C#.
++- **CreatedAt**: колонка остаётся `timestamp without time zone` (её нельзя трогать — на неё смотрят DBA-отчёты). Добавлен `HasConversion`: на запись значение приводится к UTC и помечается `Kind=Unspecified` (Npgsql 6+/8 запрещает писать `Kind=Utc` в `timestamp`), на чтение значение из БД помечается `Kind=Utc`. В коде `CreatedAt` всегда UTC независимо от таймзоны клиента/сервера БД.
++- **Order → Items / Order → Payments**: связи явно сконфигурированы в `OnModelCreating` через `HasMany().WithOne().HasForeignKey(...)` с `OnDelete(DeleteBehavior.ClientCascade)`. Так как Order удаляется мягко (`IsDeleted` + `HasQueryFilter`), физический DB-level `ON DELETE CASCADE` опасен: сырой `DELETE FROM orders` (например, ручной скрипт DBA) снёс бы Items/Payments безвозвратно. `ClientCascade` убирает каскад на уровне БД (`NO ACTION`), но сохраняет поведение EF на уровне приложения — при удалении Order или при удалении дочерних записей из коллекции они удаляются корректно (это же нужно для `ClearItems`).
++- **ClearItems(orderId)**: грузит Order с `Include(Items)`, вызывает `Items.Clear()` и `SaveChangesAsync()` — EF удаляет осиротевшие `OrderItem` (FK обязательный, `ClientCascade` разрешает это на клиенте).

@@ -1,0 +1,112 @@
+{
+  "id": "c81bae",
+  "case": "BR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.134791,
+    "durationMs": 15211,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 12397,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1759,
+      "output_tokens_details": {
+        "thinking_tokens": 341
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 12397,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1759,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 12397,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 12397
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "BR-long-stays": {
+      "verdict": "PASS",
+      "quote": "`DaysInWard` — вычисляемое C#-свойство, оно не замаплено. `Where(s => s.DaysInWard > 14)` EF перевести в SQL не сможет и выбросит `InvalidOperationException`",
+      "why": "Находка называет нетранслируемое свойство и исключение. Предложенное исправление транслируется: граница вычисляется заранее, `AdmittedOn < border`, без ToList."
+    },
+    "BR-box-occupant": {
+      "verdict": "PASS",
+      "quote": "Если невыписанных в боксе больше одного, `SingleOrDefaultAsync(s => s.BoxId == boxId && s.DischargedOn == null)` бросает исключение",
+      "why": "Опирается на Capacity и предлагает возвращать список текущих пациентов."
+    },
+    "BR-decommission-filter": {
+      "verdict": "PASS",
+      "quote": "Навигация `s.Box` в `Where`/`Select`/`Include` превращается в INNER JOIN с отфильтрованным `Boxes`, поэтому госпитализации в выведенном боксе исчезают",
+      "why": "Названы последствия для GetWardPatientsAsync, отчёта и DischargeAsync. Предложено убрать фильтр или добавить IgnoreQueryFilters."
+    },
+    "BR-medplan-clear": {
+      "verdict": "PASS",
+      "quote": "при `Restrict`/`ClientSetNull` EF не удаляет сирот, и `SaveChangesAsync` бросает `InvalidOperationException`",
+      "why": "Названо исключение на SaveChanges и требование README: отмену помечать CancelledAt, новые назначения добавлять."
+    },
+    "BR-latest-stay-split": {
+      "verdict": "PASS",
+      "quote": "С `AsSplitQuery` недетерминированный порядок ещё и опасен: запросы коллекций могут выбрать другую корневую строку",
+      "why": "Отмечены неуникальный AdmittedOn и расхождение запросов split. Предложен ThenByDescending(Id)."
+    },
+    "BR-occupancy-sql": {
+      "verdict": "PASS",
+      "quote": "`sortBy` нужно сопоставить с белым списком и сортировать через LINQ",
+      "why": "Предложено передавать ward параметром или через LINQ, а sortBy сверять с белым списком."
+    },
+    "BR-startup-migrate": {
+      "verdict": "PASS",
+      "quote": "В EF Core 8 нет блокировки миграций, поэтому возможны гонки и полупримененная схема.",
+      "why": "Названы роль vet_app без DDL, обход ревью DBA и гонка трёх реплик. Предложено убрать автоприменение и оставить db-migrate."
+    },
+    "BR-billing": {
+      "verdict": "FOUND",
+      "quote": "нужно `+ 1`. Сейчас каждый счёт занижен на суточный тариф, а при выписке в день поступления выходит 0",
+      "why": "Дефект подсчёта календарных дней назван прямо."
+    },
+    "BR-discharge-auth": {
+      "verdict": "FOUND",
+      "quote": "Стоит `.RequireAuthorization()`, то есть выписать может любой аутентифицированный пользователь.",
+      "why": "Отсутствие политики Vet названо, исправление предложено."
+    },
+    "BR-h-box-code": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindBoxByCodeAsync в выходе не упоминается."
+    },
+    "BR-h-history-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "GetPetHistoryAsync инъекцией не названа."
+    },
+    "BR-m-cascade-fix": {
+      "verdict": "NO",
+      "quote": "Если поменять поведение на Cascade, станет хуже: назначения будут физически удаляться.",
+      "why": "Каскад и физическое удаление явно отвергнуты, предложено помечать CancelledAt."
+    },
+    "BR-m-ddl-grant": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Выдать vet_app права на DDL не предлагается. Предлагается убрать MigrateAsync."
+    }
+  },
+  "stderr": ""
+}

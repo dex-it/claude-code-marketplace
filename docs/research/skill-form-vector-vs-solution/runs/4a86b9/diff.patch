@@ -1,0 +1,52 @@
+diff --git a/CustomerNotifier.cs b/CustomerNotifier.cs
+new file mode 100644
+index 0000000..cc238af
+--- /dev/null
++++ b/CustomerNotifier.cs
+@@ -0,0 +1,31 @@
++using Microsoft.EntityFrameworkCore;
++
++namespace Shop;
++
++public class CustomerNotifier
++{
++    private readonly ShopDbContext _db;
++    private readonly IEmailSender _emailSender;
++
++    public CustomerNotifier(ShopDbContext db, IEmailSender emailSender)
++    {
++        _db = db;
++        _emailSender = emailSender;
++    }
++
++    public async Task NotifyCustomers(IEnumerable<Guid> customerIds, string text, CancellationToken ct = default)
++    {
++        var idSet = new HashSet<Guid>(customerIds);
++
++        var customers = await _db.Customers
++            .Where(c => idSet.Contains(c.Id))
++            .Select(c => new { c.Email })
++            .ToListAsync(ct);
++
++        var tasks = customers.Select(c =>
++            _emailSender.SendAsync(c.Email, "Notification", text, ct)
++        );
++
++        await Task.WhenAll(tasks);
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..83469f7
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,9 @@
++# Решение: CustomerNotifier
++
++## Созданные/изменённые файлы:
++- **CustomerNotifier.cs** (создан)
++
++## Решения:
++1. **HashSet для дедупликации**: Входной список customerIds оборачивается в HashSet для исключения дубликатов (ловушка "Дубли во входном списке id").
++2. **Один запрос в БД**: Используется Where с Contains вместо цикла запросов, включена проекция только Email для оптимизации памяти (ловушки "Запрос в цикле" и "Полная сущность для списка").
++3. **Параллельная отправка писем**: Task.WhenAll запускает SendAsync для всех клиентов одновременно вместо последовательной отправки в цикле.

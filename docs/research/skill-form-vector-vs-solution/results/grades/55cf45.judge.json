@@ -1,0 +1,82 @@
+{
+  "id": "55cf45",
+  "case": "B3",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.160935,
+    "durationMs": 15595,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 16025,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1615,
+      "output_tokens_details": {
+        "thinking_tokens": 698
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 16025,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1615,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 16025,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 16025
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "B3-scope-sql": {
+      "verdict": "PASS",
+      "quote": "case \"diagnosis\": scope = SearchScope.Diagnosis; return true;",
+      "why": "Scope разбирается в enum по белому списку, на неизвестное значение эндпоинт отвечает 400; запрос строится LINQ-выражением на каждый scope; текст уходит параметром через EF.Functions.PlainToTsQuery, конкатенации в SQL нет."
+    },
+    "B3-drug-resultset": {
+      "verdict": "PASS",
+      "quote": "v.Prescriptions.Any(p =>",
+      "why": "Поиск по препарату написан на LINQ как EXISTS по Prescriptions поверх db.Visits, поэтому каждый визит возвращается один раз, без колонок назначений и без дублей."
+    },
+    "B3-lastvisit-split": {
+      "verdict": "PASS",
+      "quote": "var lastSlot = await held.MaxAsync(v => (DateTime?)v.SlotStart);",
+      "why": "Сначала определяется последний слот, затем возвращаются все визиты этого слота с уникальной сортировкой OrderBy(v => v.Id), так что split-запросы коллекций однозначно привязаны к своему визиту."
+    },
+    "B3-export-notracking": {
+      "verdict": "PASS",
+      "quote": "PrescriptionCount = v.Prescriptions.Count()",
+      "why": "Выгрузка проецируется в анонимный тип и читается через AsAsyncEnumerable, отслеживаемые сущности не создаются."
+    },
+    "B3-export-range-utc": {
+      "verdict": "PASS",
+      "quote": "TimeZoneInfo.ConvertTimeToUtc(date.ToDateTime(TimeOnly.MinValue, DateTimeKind.Unspecified), Zone)",
+      "why": "Границы переводятся из пояса Asia/Yekaterinburg в UTC (Kind=Utc) полуинтервалом до to+1, время в CSV выводится через ClinicTime.ToLocal."
+    },
+    "B3-h-existing-search": {
+      "verdict": "NO",
+      "quote": "Вместо `FromSqlRaw` поиск теперь на LINQ",
+      "why": "Исходный FromSqlRaw заменён без утверждения, что он уязвим к SQL-инъекции."
+    },
+    "B3-m-fts-lost": {
+      "verdict": "NO",
+      "quote": "EF.Functions.ToTsVector(\"russian\", v.Diagnosis ?? \"\")",
+      "why": "Поиск остался полнотекстовым: to_tsvector('russian', ...) с coalesce для диагноза повторяет выражения индексов, LIKE/Contains не используется."
+    }
+  },
+  "stderr": ""
+}

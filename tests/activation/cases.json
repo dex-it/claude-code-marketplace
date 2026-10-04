@@ -15,7 +15,7 @@
     "id": "ef-core-in",
     "mode": "in-scope",
     "expect": "dex-skill-dotnet-ef-core:dotnet-ef-core",
-    "prompt": "В C#-сервисе выборка заказов с позициями делает по запросу на каждую строку. Как это лечится в EF Core?"
+    "prompt": "В сервисе на EF Core с PostgreSQL заказы удаляются мягко, флагом IsDeleted. Настрой в OnModelCreating связи Order -> Items и Order -> Payments."
   },
   {
     "id": "ts-vitest-in",
@@ -216,28 +216,10 @@
     "prompt": "Билд .NET проекта сыпет предупреждениями, их все игнорируют. Как включить контроль и не утонуть в подавлениях?"
   },
   {
-    "id": "dotnet-config-in",
-    "mode": "in-scope",
-    "expect": "dex-skill-dotnet-config-hygiene:dotnet-config-hygiene",
-    "prompt": "Настройки .NET сервиса разъезжаются между стендами, на проде поймали пустую строку подключения. Как это организовать правильно?"
-  },
-  {
     "id": "dotnet-csproj-in",
     "mode": "in-scope",
     "expect": "dex-skill-dotnet-csproj-hygiene:dotnet-csproj-hygiene",
     "prompt": "В решении на C# у каждого проекта своя версия одного пакета, и транзитивные зависимости тянутся куда попало. Как это причесать?"
-  },
-  {
-    "id": "dotnet-di-in",
-    "mode": "in-scope",
-    "expect": "dex-skill-dotnet-di:dotnet-di",
-    "prompt": "В .NET приложении singleton держит ссылку на scoped-сервис и после первого запроса всё ломается. Как правильно регистрировать?"
-  },
-  {
-    "id": "dotnet-linq-in",
-    "mode": "in-scope",
-    "expect": "dex-skill-dotnet-linq-optimization:dotnet-linq-optimization",
-    "prompt": "Метод на C# перебирает список в цикле и внутри ещё раз ищет по нему же, на десяти тысячах записей стало медленно. Как переписать?"
   },
   {
     "id": "dotnet-logging-in",

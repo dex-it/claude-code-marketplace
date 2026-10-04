@@ -1,0 +1,67 @@
+{
+  "id": "8e83e5",
+  "case": "G3",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.105383,
+    "durationMs": 8169,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 11386,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 693,
+      "output_tokens_details": {
+        "thinking_tokens": 280
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11386,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 693,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 11386,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 11386
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G3-contract-null": {
+      "verdict": "PASS",
+      "quote": "if (contractNo != null && subscriberIds.TryGetValue(contractNo, out var subscriberId))",
+      "why": "Номера договоров собираются только непустые, запрос фильтрует s.ContractNo != null, а строка без номера уходит в UnmatchedPayments и в Single* по null не попадает."
+    },
+    "G3-credit-time": {
+      "verdict": "PASS",
+      "quote": "var now = DateTime.Now;",
+      "why": "CreditedAt, LoadedAt и ReactivatedAt (в том числе в ExecuteUpdate) получают DateTime.Now с Kind=Local, как существующие CreatedAt/ConnectedAt; значения с Kind=Utc новый код не пишет."
+    },
+    "G3-h-bycontract": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "GetByContractAsync не тронут, и дефектом он нигде не назван."
+    },
+    "G3-m-utcnow": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "CreateLeadAsync и SignContractAsync в diff не менялись, DateTime.Now на UtcNow не заменён."
+    }
+  },
+  "stderr": ""
+}

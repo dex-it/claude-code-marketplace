@@ -1,0 +1,71 @@
+{
+  "id": "b2153f",
+  "case": "N0",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0470314,
+    "durationMs": 5836,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 4417,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 563,
+      "output_tokens_details": {
+        "thinking_tokens": 0
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4417,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 563,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 4417,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 4417
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "N0-h-split": {
+      "verdict": "NO",
+      "quote": "корректный `AsSplitQuery` для двух коллекций одного уровня — здесь всё сделано правильно",
+      "why": "Split query в OrderCard.GetAsync явно признан правильным, находки против него нет."
+    },
+    "N0-h-utc": {
+      "verdict": "NO",
+      "quote": "`DateTime.UtcNow` (Kind=Utc) пишется в колонку без явного `HasColumnType`, то есть по умолчанию `timestamptz` — соответствует конвенции команды",
+      "why": "UtcNow в AuditWriter признан корректным; находка №3 касается времени жизни DbContext, а не времени."
+    },
+    "N0-h-contains": {
+      "verdict": "NO",
+      "quote": "транслируется Npgsql в `= ANY(@p)` одним параметром-массивом, безопасно и для \"нескольких тысяч id\"",
+      "why": "Contains в CartLookup признан безопасным, дробления на пачки не требуется."
+    },
+    "N0-X1": {
+      "verdict": "FOUND",
+      "quote": "При `page == 1` (первая страница) `Skip(1 * pageSize)` пропускает ровно `pageSize` записей",
+      "why": "Off-by-one в пагинации назван как critical-дефект, предложено исправление Skip((page - 1) * pageSize)."
+    },
+    "N0-X2": {
+      "verdict": "FOUND",
+      "quote": "метод будет молча возвращать пустой список для таких заказов",
+      "why": "Несовпадение \"Active\" и \"active\" с регистрозависимым сравнением в Postgres названо дефектом severity high."
+    }
+  },
+  "stderr": ""
+}

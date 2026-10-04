@@ -1,0 +1,17 @@
+{
+  "task": "FEAT-5",
+  "kind": "feature",
+  "commit": "add archive",
+  "goal": "Есть функция archive(name), которая упаковывает каталог name в name.tgz; name вводит пользователь.",
+  "done": "правка закоммичена локально.",
+  "boundary": "не задана",
+  "requirements": [],
+  "coder": {
+    "red-run": "n/a: тестов в проекте нет",
+    "uncovered-status": "unknown", "uncovered": [],
+    "dependents-status": "none", "dependents": []
+  },
+  "mines": [
+    { "id": "M10", "file": "src/archive.js", "lines": [4, 4], "blocking": true, "what": "имя из пользовательского ввода подставлено в строку shell-команды: `x; rm -rf ~` исполняется; требований и правил в проекте нет, эталон - практика стека" }
+  ]
+}

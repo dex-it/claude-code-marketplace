@@ -1,0 +1,97 @@
+{
+  "id": "1c3b02",
+  "case": "V3",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.151179,
+    "durationMs": 12277,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 15123,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1488,
+      "output_tokens_details": {
+        "thinking_tokens": 212
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 15123,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1488,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 15123,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 15123
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "V3-promo-on-early-price": {
+      "verdict": "FOUND",
+      "quote": "скидка считается от `BasePrice(...)`, которая в ранний период равна `EarlyPriceKopecks`. В `PromoCode` записано: «скидка считается от полной цены билета, с ранним тарифом промокод не суммируется»",
+      "why": "Находка 5 связывает правило из PromoCode с расчётом скидки от ранней цены и называет потерю денег."
+    },
+    "V3-capacity-group-seats": {
+      "verdict": "FOUND",
+      "quote": "Пока администратор не вписал людей, места заказа (`Quantity`) считаются свободными. Их можно продать физлицам или отдать под другой групповой заказ.",
+      "why": "Находка 1 называет неучёт невписанных мест групповых заказов в FreeSeatsAsync и продажу сверх вместимости."
+    },
+    "V3-group-seat-reuse": {
+      "verdict": "FOUND",
+      "quote": "`order.Participants.Count >= order.Quantity` учитывает и регистрации со статусом `Cancelled`.",
+      "why": "Находка 7 указывает, что отменённые участники занимают место и замена получает 409."
+    },
+    "V3-orgadmin-passport": {
+      "verdict": "FOUND",
+      "quote": "в проекции есть `PassportNumber`/`PassportCountry`, а эндпоинт доступен ролям `Organizer` и `OrgAdmin`",
+      "why": "Находка 6 связывает выдачу OrgAdmin с паспортными полями ParticipantDto.Projection вопреки правилу MR."
+    },
+    "V3-vat-on-top": {
+      "verdict": "FOUND",
+      "quote": "`vat = amount * 20 / 100`, `Total = amount + vat`. При этом в `TicketType.PriceKopecks` записано: «Все цены на сайте указаны с НДС»",
+      "why": "Находка 3 называет начисление НДС сверху на цену, уже включающую НДС, и предлагает выделение из суммы."
+    },
+    "V3-invoice-before-idempotency": {
+      "verdict": "FOUND",
+      "quote": "После коммита первого он берёт блокировку и снова вызывает 1С. Там появляется второй счёт.",
+      "why": "Находка 2 связывает выставление внешнего счёта до фиксации ключа с повтором по таймауту и дублем счёта в 1С."
+    },
+    "V3-promo-notracking": {
+      "verdict": "PASS",
+      "quote": "`FindPromoAsync` загружает промокод через `AsNoTracking()`. Change tracker не знает о `promo.UsedCount++`, и `SaveChanges` ничего не пишет.",
+      "why": "Назван механизм несохранения счётчика и предложен атомарный ExecuteUpdate с условием UsedCount < UsageLimit."
+    },
+    "V3-unspecified-timestamptz": {
+      "verdict": "PASS",
+      "quote": "`from.ToDateTime(TimeOnly.MinValue)` возвращает `DateTime` с `Kind=Unspecified`. Его сравнивают с `CreatedAt`, а это `timestamptz` по умолчанию в Npgsql 6+.",
+      "why": "Указано падение запроса из-за Kind=Unspecified и предложен Kind=Utc с осознанным выбором московских границ."
+    },
+    "V3-h-partial-unique-index": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Частичный уникальный индекс в выходе не оспаривается."
+    },
+    "V3-h-unique-violation-catch": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Выход не требует заменить перехват UniqueViolation в RegisterAsync предварительной проверкой и не называет его дефектом."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,213 @@
+diff --git a/HousingService.cs b/HousingService.cs
+index a5041e3..8c3337b 100644
+--- a/HousingService.cs
++++ b/HousingService.cs
+@@ -5,15 +5,15 @@ using Npgsql;
+ namespace Domovoy.Housing;
+ 
+ public record RequestSearch(string? Text, RequestStatus? Status, int? HouseId, string? District,
+-    int Page = 1, int PageSize = 50);
++    string Sort = "date", string Dir = "desc", int Page = 1, int PageSize = 50);
+ 
+ public record RequestRow(int Id, DateTime CreatedAt, string Address, string Apartment,
+     RequestStatus Status, string Category, string Text);
+ 
+ public record RequestCard(int Id, DateTime CreatedAt, string Address, string Apartment,
+-    RequestStatus Status, string Category, string Text);
++    RequestStatus Status, string Category, string Text, string? ContactPhone);
+ 
+-public record NewRequest(int ApartmentId, string Text, string Category);
++public record NewRequest(int ApartmentId, string Text, string Category, string? ContactPhone = null);
+ 
+ public class HousingService
+ {
+@@ -30,6 +30,7 @@ public class HousingService
+             Category = req.Category,
+             Status = RequestStatus.New,
+             CreatedAt = DateTime.UtcNow,
++            ContactPhone = req.ContactPhone,
+         };
+         _db.ServiceRequests.Add(request);
+         await _db.SaveChangesAsync();
+@@ -47,7 +48,21 @@ public class HousingService
+         return r is null
+             ? null
+             : new RequestCard(r.Id, r.CreatedAt, r.Apartment.House.Address, r.Apartment.Number,
+-                r.Status, r.Category, r.Text);
++                r.Status, r.Category, r.Text, r.ContactPhone);
++    }
++
++    // Закрыть заявку с комментарием о выполненных работах.
++    public async Task CloseRequestAsync(int id, string comment)
++    {
++        var request = await _db.ServiceRequests.FirstOrDefaultAsync(r => r.Id == id)
++            ?? throw new KeyNotFoundException($"Заявка {id} не найдена");
++
++        if (request.Status != RequestStatus.InProgress)
++            throw new InvalidOperationException($"Закрыть можно только заявку в статусе InProgress");
++
++        request.Status = RequestStatus.Done;
++        request.Comment = comment;
++        await _db.SaveChangesAsync();
+     }
+ 
+     // Реестр заявок для диспетчерской.
+@@ -60,9 +75,20 @@ public class HousingService
+             """);
+         var where = new List<string>();
+         var parameters = new List<NpgsqlParameter>();
++        bool needsApartments = false;
++        bool needsHouses = false;
+ 
+-        if (s.HouseId is not null || !string.IsNullOrWhiteSpace(s.District))
++        if (s.HouseId is not null || !string.IsNullOrWhiteSpace(s.District) || s.Sort == "address")
++        {
+             sql.Append(" JOIN apartments a ON a.id = r.apartment_id");
++            needsApartments = true;
++        }
++
++        if (!string.IsNullOrWhiteSpace(s.District) || s.Sort == "address")
++        {
++            sql.Append(" JOIN houses h ON h.id = a.house_id");
++            needsHouses = true;
++        }
+ 
+         if (s.HouseId is { } houseId)
+         {
+@@ -72,7 +98,6 @@ public class HousingService
+ 
+         if (!string.IsNullOrWhiteSpace(s.District))
+         {
+-            sql.Append(" JOIN houses h ON h.id = a.house_id");
+             where.Add("h.district = @district");
+             parameters.Add(new NpgsqlParameter("district", s.District));
+         }
+@@ -92,9 +117,23 @@ public class HousingService
+         if (where.Count > 0)
+             sql.Append(" WHERE ").Append(string.Join(" AND ", where));
+ 
++        var dir = s.Dir.Equals("asc", StringComparison.OrdinalIgnoreCase) ? "ASC" : "DESC";
++        sql.Append(" ORDER BY ");
++        if (s.Sort == "address")
++        {
++            sql.Append($"h.address {dir}, a.number {dir}");
++        }
++        else if (s.Sort == "status")
++        {
++            sql.Append($"r.status {dir}");
++        }
++        else
++        {
++            sql.Append($"r.created_at {dir}");
++        }
++
+         var pageSize = Math.Clamp(s.PageSize, 1, 200);
+         var offset = (Math.Max(s.Page, 1) - 1) * pageSize;
+-        sql.Append(" ORDER BY r.created_at DESC");
+         sql.Append($" LIMIT {pageSize} OFFSET {offset}");
+ 
+         var requests = await _db.ServiceRequests
+diff --git a/Models.cs b/Models.cs
+index d11ec0f..a6e9523 100644
+--- a/Models.cs
++++ b/Models.cs
+@@ -27,6 +27,8 @@ public class ServiceRequest
+     public string Category { get; set; } = "";
+     public RequestStatus Status { get; set; }
+     public DateTime CreatedAt { get; set; }
++    public string? ContactPhone { get; set; }
++    public string? Comment { get; set; }
+ }
+ 
+ // План планово-предупредительных работ по дому.
+diff --git a/PlanService.cs b/PlanService.cs
+index b7d6b67..c7c69ba 100644
+--- a/PlanService.cs
++++ b/PlanService.cs
+@@ -4,6 +4,8 @@ namespace Domovoy.Housing;
+ 
+ public record PlanItemDto(string WorkCode, string Title, int PeriodDays, DateOnly? LastDoneOn, DateOnly? NextDueOn);
+ 
++public record PlanItemUpdateDto(string WorkCode, string Title, int PeriodDays);
++
+ public class PlanService
+ {
+     private readonly HousingDbContext _db;
+@@ -46,6 +48,44 @@ public class PlanService
+         await _db.SaveChangesAsync();
+     }
+ 
++    // Обновить план дома: заменить список работ на новый, сохраняя историю выполнения.
++    public async Task UpdatePlanAsync(int houseId, List<PlanItemUpdateDto> items)
++    {
++        var plan = await _db.MaintenancePlans.Include(p => p.Items)
++            .SingleAsync(p => p.HouseId == houseId);
++
++        var newWorkCodes = items.Select(i => i.WorkCode).ToHashSet();
++        var oldItems = plan.Items.ToList();
++
++        // Удалить работы, которых нет в новом плане
++        foreach (var item in oldItems.Where(i => !newWorkCodes.Contains(i.WorkCode)).ToList())
++        {
++            plan.Items.Remove(item);
++        }
++
++        // Добавить или обновить работы из нового плана
++        foreach (var newItem in items)
++        {
++            var existing = plan.Items.FirstOrDefault(i => i.WorkCode == newItem.WorkCode);
++            if (existing is not null)
++            {
++                existing.Title = newItem.Title;
++                existing.PeriodDays = newItem.PeriodDays;
++            }
++            else
++            {
++                plan.Items.Add(new PlanItem
++                {
++                    WorkCode = newItem.WorkCode,
++                    Title = newItem.Title,
++                    PeriodDays = newItem.PeriodDays,
++                });
++            }
++        }
++
++        await _db.SaveChangesAsync();
++    }
++
+     // Дома объединены в один комплекс: работы плана fromHouse, которых нет в плане toHouse,
+     // переходят в план toHouse со своей историей выполнения.
+     public async Task MergePlansAsync(int fromHouseId, int toHouseId)
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..69759da
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,27 @@
++# Решение задач по Domovoy.Housing
++
++## Изменённые файлы
++
++### 1. Models.cs
++- Добавлены поля `ContactPhone` и `Comment` в `ServiceRequest`
++
++### 2. HousingService.cs
++- Обновлена `RequestSearch`: добавлены параметры `Sort` (date|address|status) и `Dir` (asc|desc)
++- Обновлена `RequestCard`: добавлено поле `ContactPhone` для отображения мастером
++- Обновлена `NewRequest`: добавлен опциональный параметр `ContactPhone`
++- `CreateRequestAsync`: сохраняет `ContactPhone` при создании заявки
++- `GetRequestAsync`: возвращает `ContactPhone` в карточке заявки
++- `SearchAsync`: реализована сортировка по дате (новые сверху), адресу (дом, затем квартира), статусу
++- Добавлен `CloseRequestAsync(id, comment)`: закрывает заявку только в статусе InProgress, иначе исключение; обязательно сохраняет комментарий о выполненных работах
++
++### 3. PlanService.cs
++- Добавлена DTO `PlanItemUpdateDto` для приёма обновлённого плана (WorkCode, Title, PeriodDays)
++- Добавлен `UpdatePlanAsync`: полностью заменяет список работ плана дома, сохраняя историю выполнения для работ, которые остаются
++
++## Решения
++
++**Сортировка реестра**: SQL-условие ORDER BY строится динамически по параметрам sort и dir; для адреса используется двухуровневая сортировка (house.address, apartment.number).
++
++**Закрытие заявки**: Проверка статуса InProgress перед изменением статуса на Done обеспечивает идемпотентность и валидацию состояния.
++
++**Обновление плана**: Логика удаления старых работ и добавления/обновления новых через коллекцию Items сохраняет историю завершённых работ по WorkCode благодаря настройке каскада в DbContext (DeleteOrphansTiming = Never).

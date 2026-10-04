@@ -247,7 +247,7 @@ claude plugins uninstall dex-dotnet-coder
 | **Ревью и дисциплина изменений** | `git-workflow`, `merge-conflict-resolution`, `review-evidence`, `review-step-by-step`, `review-threads`, `defect-classification`, `no-loose-ends`, `performance-review`, `post-merge-remediation`, `ci-gates`, `project-baseline`, `codebase-conventions`, `karpathy-guidelines`, `optimize-for-llm`, `norm-writing`, `output-hygiene`, `artifact-review` |
 | **QA и тестирование** | `test-design`, `api-testing`, `test-coverage`, `testability`, `integration-boundary`, `exploratory-testing`, `bug-reproduction`, `contract-drift`, `deep-audit`, `tech-audit`, `playwright`, `stand-verification` |
 | **Инциденты и RCA** | `problem-specification`, `root-cause-analysis`, `change-correlation`, `shared-stand-safety`, `core-dumps`, `managed-debug`, `native-debug`, `perf-profiling`, `syscall-tracing`, `binary-inspection` |
-| **.NET** | `dotnet-api-development`, `dotnet-async-patterns`, `dotnet-caching`, `dotnet-code-quality`, `dotnet-config-hygiene`, `dotnet-csproj-hygiene`, `dotnet-di`, `dotnet-ef-core`, `dotnet-linq-optimization`, `dotnet-logging`, `dotnet-resilience`, `dotnet-resources`, `dotnet-testing-patterns`, `dotnet-validation`, `api-documentation` |
+| **.NET** | `dotnet-api-development`, `dotnet-async-patterns`, `dotnet-caching`, `dotnet-code-quality`, `dotnet-csproj-hygiene`, `dotnet-ef-core`, `dotnet-logging`, `dotnet-resilience`, `dotnet-resources`, `dotnet-testing-patterns`, `dotnet-validation`, `api-documentation` |
 | **Frontend и TypeScript** | `react`, `ts-patterns`, `ts-nodejs-api`, `ts-vitest-jest` |
 | **Инфраструктура** | `docker`, `kubernetes`, `rabbitmq`, `kafka`, `elasticsearch`, `redis`, `mongodb`, `gitlab-ci`, `github-actions`, `jenkins`, `teamcity`, `observability` |
 | **ML и Python** | `python-pytorch`, `python-tensorflow`, `python-classical-ml`, `python-nlp-transformers`, `python-computer-vision`, `python-ml-optimization`, `python-project-hygiene` |
@@ -371,6 +371,7 @@ MCP конфигурации в каталоге `mcp/`. Подробнее: [mc
 | [SKILL_FRAMEWORK.md](./docs/SKILL_FRAMEWORK.md) | как устроен skill: жанры, поле активации, границы, размер |
 | [COMMAND_FRAMEWORK.md](./docs/COMMAND_FRAMEWORK.md) | как устроена команда-вход и чем она отличается от агента |
 | [MOD_FRAMEWORK.md](./docs/MOD_FRAMEWORK.md) | как устроен мод: function hooks, дерево `mods/`, `userConfig`, контракт типов, инструментарий |
+| [EXTENSION_MECHANISMS.md](./docs/EXTENSION_MECHANISMS.md) | справка: command hook, мод и Agent SDK - возможности рядом, когда что выбирать |
 | [VALIDATOR_RULES.md](./docs/VALIDATOR_RULES.md) | реестр правил валидаторов: что ловит каждое и где живёт его норма |
 | [CORPUS.md](./docs/CORPUS.md) | корпус проекта на диске: носители, уровни артефакта, ключи путей, кто судит |
 | [DEV_PROCESS_COVERAGE.md](./docs/DEV_PROCESS_COVERAGE.md) | карта «слот процесса разработки -> агент, который его закрывает» |
@@ -476,4 +477,4 @@ GPL v3.0 - см. [LICENSE](./LICENSE)
 
 ---
 
-**DEX Team** - Version 6.6.0
+**DEX Team** - Version 6.7.0

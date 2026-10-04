@@ -1,0 +1,72 @@
+{
+  "id": "45f950",
+  "case": "G6",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.104091,
+    "durationMs": 15836,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 9062,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1558,
+      "output_tokens_details": {
+        "thinking_tokens": 898
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9062,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1558,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 9062,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 9062
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G6-sort-alias": {
+      "verdict": "DISPUTED",
+      "quote": "var needApartments = s.HouseId is not null || !string.IsNullOrWhiteSpace(s.District) ||\n            s.Sort == \"address\";",
+      "why": "JOIN добавляются один раз (флаги плюс проверка Contains(\" JOIN houses h\")), dir и sort идут через белый список, но флаг сравнивает Sort с учётом регистра, а switch берёт s.Sort?.ToLower(): при Sort=\"Address\" без фильтров ORDER BY h.address попадёт в запрос без JOIN, и PostgreSQL упадёт."
+    },
+    "G6-search-columns": {
+      "verdict": "FAIL",
+      "quote": "public string? PhoneNumber { get; set; }\n    public string? CompletionNote { get; set; }",
+      "why": "В ServiceRequest добавлены два маппленных свойства, а явный список колонок SELECT в SearchAsync в diff не тронут, поэтому FromSqlRaw не вернёт все свойства сущности и реестр будет падать."
+    },
+    "G6-plan-orphans": {
+      "verdict": "PASS",
+      "quote": "foreach (var item in itemsToRemove)\n            _db.PlanItems.Remove(item);",
+      "why": "Остающиеся работы обновляются на месте, отсутствующие удаляются явно через _db.PlanItems.Remove, новые добавляются; объяснение в ответе про CascadeTiming.Never неверно, но код корректен."
+    },
+    "G6-h-move-items": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "MergePlansAsync в выходе не упоминается и не изменяется."
+    },
+    "G6-h-limit": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Подстановку LIMIT/OFFSET выход не называет инъекцией и не меняет, строка только перенесена."
+    }
+  },
+  "stderr": ""
+}

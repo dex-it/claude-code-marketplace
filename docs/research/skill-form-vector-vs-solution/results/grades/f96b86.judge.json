@@ -1,0 +1,97 @@
+{
+  "id": "f96b86",
+  "case": "V1",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.11097900000000001,
+    "durationMs": 9229,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 11173,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1058,
+      "output_tokens_details": {
+        "thinking_tokens": 0
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11173,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1058,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 11173,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 11173
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "V1-hold-late-payment": {
+      "verdict": "FOUND",
+      "quote": "Ссылка на оплату живёт 24 часа, а место держится 30 минут. Если оплата пришла после того, как место занял другой, вебхук всё равно подтверждает бронь без проверки пересечений",
+      "why": "Находка связывает 30-минутное удержание и 24-часовую ссылку с безусловным подтверждением в вебхуке, итог — две подтверждённые брони."
+    },
+    "V1-kopecks-cast": {
+      "verdict": "FOUND",
+      "quote": "`(long)rubles * 100` отбрасывает копейки ещё до умножения",
+      "why": "Названо, что приведение срабатывает до умножения, и указаны последствия: депозит, неподтверждённая бронь, урезанный возврат."
+    },
+    "V1-extend-long-stay": {
+      "verdict": "FOUND",
+      "quote": "Если было 2 ночи и добавили 5, скидка за неделю не даётся",
+      "why": "Указано, что продление считается отдельно и скидка за длительность не распространяется на всю стоянку."
+    },
+    "V1-beam-not-checked": {
+      "verdict": "FOUND",
+      "quote": "ширина (`BeamM` против `MaxBeamM`) — нет",
+      "why": "Названо отсутствие проверки ширины судна относительно ширины места."
+    },
+    "V1-calendar-vessel-pii": {
+      "verdict": "FOUND",
+      "quote": "Анонимный публичный метод отдаёт полный `VesselDto`: ФИО и телефон шкипера, бортовой номер, номер страхового полиса",
+      "why": "Анонимный календарь связан с персональными полями VesselDto."
+    },
+    "V1-tariff-singleton-state": {
+      "verdict": "FOUND",
+      "quote": "Калькулятор зарегистрирован как singleton, а буфер `_nights` в нём изменяемый",
+      "why": "Изменяемое поле связано с singleton-регистрацией и параллельными запросами."
+    },
+    "V1-seasonal-rates-not-loaded": {
+      "verdict": "PASS",
+      "quote": "Место загружается через `FromSql ... FOR UPDATE` без `SeasonalRates`, поэтому бронь всегда считается по базовой ставке",
+      "why": "Названы незагруженные ставки, откат на базовую ставку, расхождение с калькулятором и способ исправления — догрузка коллекции."
+    },
+    "V1-h-fromsql-interpolated": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Интерполяцию в FromSql исполнитель не называет SQL-инъекцией и не требует её заменить."
+    },
+    "V1-h-xmin-timestamp": {
+      "verdict": "NO",
+      "quote": "Токен `xmin` добавлен, но конфликт нигде не перехватывается",
+      "why": "Сам механизм xmin исполнитель считает корректным, претензия только к обработке конфликта."
+    },
+    "V1-h-dateonly-mapping": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Конвертер для DateOnly и замена на DateTime не требуются."
+    }
+  },
+  "stderr": ""
+}

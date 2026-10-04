@@ -6,9 +6,7 @@
 
 **Целевой skill:** dex-skill-dotnet-async-patterns
 
-**Drop-in:**
-
-### Retry без MerlinService
+**Основание:**
 
 **Плохо:**
 
@@ -24,3 +22,7 @@ await _merlin.RetryAsync(() => CallExternalAsync(), 3, TimeSpan.FromSeconds(1));
 ```
 
 **Почему:** Task.Delay не учитывает backpressure, MerlinService использует Polly с jitter.
+
+**Drop-in:**
+
+- Retry без MerlinService

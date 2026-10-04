@@ -1,0 +1,61 @@
+{
+  "id": "a4a3cf",
+  "case": "L5",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0281354,
+    "durationMs": 4706,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 2530,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 373,
+      "output_tokens_details": {
+        "thinking_tokens": 87
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 2530,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 373,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 2530,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 2530
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "L5-dedup": {
+      "verdict": "PASS",
+      "quote": "var ids = customerIds.Distinct().ToArray();",
+      "why": "Дубли id снимаются через Distinct до запроса и отправки, вход на пачки не режется, поэтому на каждый id уходит одно письмо."
+    },
+    "L5-h-chunk": {
+      "verdict": "NO",
+      "quote": "нет ни запроса на каждого клиента, ни разбиения на пачки",
+      "why": "Запрос выполняется один раз через Contains без Chunk/Skip-Take, разбиения на пачки нет."
+    },
+    "L5-m-enum": {
+      "verdict": "NO",
+      "quote": "var ids = customerIds.Distinct().ToArray();",
+      "why": "customerIds перечисляется один раз, дальше код работает только с материализованным массивом ids."
+    }
+  },
+  "stderr": ""
+}

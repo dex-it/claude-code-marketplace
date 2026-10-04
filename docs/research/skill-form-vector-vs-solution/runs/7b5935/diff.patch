@@ -1,0 +1,346 @@
+diff --git a/AuthService.cs b/AuthService.cs
+new file mode 100644
+index 0000000..b961412
+--- /dev/null
++++ b/AuthService.cs
+@@ -0,0 +1,63 @@
++using Microsoft.EntityFrameworkCore;
++
++namespace AutoSchool.Cloud;
++
++public record LoginRequestDto(string Email);
++public record LoginConfirmDto(string Email, string Code);
++
++public class AuthService
++{
++    private readonly SchoolDbContext _db;
++    private readonly IEmailSender _emailSender;
++
++    public AuthService(SchoolDbContext db, IEmailSender emailSender)
++    {
++        _db = db;
++        _emailSender = emailSender;
++    }
++
++    public async Task RequestLoginCodeAsync(string email)
++    {
++        var normalizedEmail = email.Trim().ToLower();
++
++        var student = await _db.Students.FirstOrDefaultAsync(s => s.Email.ToLower() == normalizedEmail);
++        if (student is null)
++            throw new KeyNotFoundException("Ученик не найден");
++
++        var code = Random.Shared.Next(100000, 999999).ToString();
++        var expiresAt = DateTime.UtcNow.AddMinutes(10);
++
++        var loginCode = new LoginCode
++        {
++            Email = normalizedEmail,
++            Code = code,
++            ExpiresAt = expiresAt,
++            Used = false
++        };
++
++        _db.LoginCodes.Add(loginCode);
++        await _emailSender.SendAsync(student.Email, "Код входа в AutoSchool", $"Ваш код входа: {code}\nКод действует 10 минут.");
++    }
++
++    public async Task<StudentDto?> ConfirmLoginCodeAsync(string email, string code)
++    {
++        var normalizedEmail = email.Trim().ToLower();
++
++        var loginCode = await _db.LoginCodes
++            .Where(l => l.Email == normalizedEmail && l.Code == code && !l.Used)
++            .OrderByDescending(l => l.ExpiresAt)
++            .FirstOrDefaultAsync();
++
++        if (loginCode is null || loginCode.ExpiresAt < DateTime.UtcNow)
++            throw new InvalidOperationException("Неверный или истёкший код");
++
++        loginCode.Used = true;
++
++        var student = await _db.Students
++            .AsNoTracking()
++            .Include(x => x.Instructor)
++            .FirstOrDefaultAsync(s => s.Email.ToLower() == normalizedEmail);
++
++        return student is null ? null : StudentService.ToDto(student);
++    }
++}
+diff --git a/InstructorService.cs b/InstructorService.cs
+new file mode 100644
+index 0000000..d004235
+--- /dev/null
++++ b/InstructorService.cs
+@@ -0,0 +1,43 @@
++using Microsoft.EntityFrameworkCore;
++
++namespace AutoSchool.Cloud;
++
++public record StudentWithLessonDto(
++    int Id,
++    string FullName,
++    string Phone,
++    StudentStatus Status,
++    string PassportNo,
++    DateTime? NextLessonAt);
++
++public class InstructorService
++{
++    private readonly SchoolDbContext _db;
++
++    public InstructorService(SchoolDbContext db) => _db = db;
++
++    public async Task<List<StudentWithLessonDto>> GetStudentsAsync(int instructorId)
++    {
++        var students = await _db.Students
++            .Where(s => s.InstructorId == instructorId && s.Status == StudentStatus.Learning)
++            .OrderBy(s => s.FullName)
++            .ToListAsync();
++
++        var studentIds = students.Select(s => s.Id).ToList();
++
++        var nextLessons = await _db.Lessons
++            .Where(l => studentIds.Contains(l.StudentId) && l.StartsAt > DateTime.UtcNow)
++            .GroupBy(l => l.StudentId)
++            .Select(g => new { StudentId = g.Key, NextLesson = g.OrderBy(l => l.StartsAt).First().StartsAt })
++            .ToDictionaryAsync(x => x.StudentId, x => x.NextLesson);
++
++        return students.Select(s => new StudentWithLessonDto(
++            s.Id,
++            s.FullName,
++            s.Phone,
++            s.Status,
++            s.PassportNo.Length > 4 ? new string('*', s.PassportNo.Length - 4) + s.PassportNo[^4..] : "****",
++            nextLessons.TryGetValue(s.Id, out var nextLesson) ? nextLesson : null
++        )).ToList();
++    }
++}
+diff --git a/Models.cs b/Models.cs
+index 0a77ffb..e102ff5 100644
+--- a/Models.cs
++++ b/Models.cs
+@@ -62,3 +62,13 @@ public class DrivingLesson : ISchoolOwned
+     public int Minutes { get; set; }
+     public bool Done { get; set; }
+ }
++
++public class LoginCode : ISchoolOwned
++{
++    public int Id { get; set; }
++    public int SchoolId { get; set; }
++    public string Email { get; set; } = "";
++    public string Code { get; set; } = "";
++    public DateTime ExpiresAt { get; set; }     // UTC
++    public bool Used { get; set; }
++}
+diff --git a/Program.cs b/Program.cs
+index 67b5848..2c7bd68 100644
+--- a/Program.cs
++++ b/Program.cs
+@@ -7,6 +7,10 @@ builder.Services.AddScoped<CurrentSchool>();
+ builder.Services.AddDbContext<SchoolDbContext>(o =>
+     o.UseNpgsql(builder.Configuration.GetConnectionString("Schools")));
+ builder.Services.AddScoped<StudentService>();
++builder.Services.AddScoped<AuthService>();
++builder.Services.AddScoped<ReportsService>();
++builder.Services.AddScoped<InstructorService>();
++builder.Services.AddScoped<ProgressService>();
+ builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
+ 
+ var app = builder.Build();
+@@ -43,6 +47,40 @@ api.MapPost("/students/{id:int}/graduate", async (int id, GraduateRequest req, S
+ app.MapGet("/exports/instructors/{id:int}/students.csv", async (int id, StudentService s) =>
+     Results.Text(await s.ExportForInstructorCsvAsync(id), "text/csv"));
+ 
++// (а) Вход по одноразовому коду
++var appApi = app.MapGroup("/api/app").AddEndpointFilter<SaveChangesFilter>();
++
++appApi.MapPost("/login/request", async (LoginRequestDto req, AuthService auth) =>
++{
++    await auth.RequestLoginCodeAsync(req.Email);
++    return Results.NoContent();
++});
++
++appApi.MapPost("/login/confirm", async (LoginConfirmDto req, AuthService auth) =>
++{
++    var result = await auth.ConfirmLoginCodeAsync(req.Email, req.Code);
++    return result is null ? Results.NotFound() : Results.Ok(result);
++});
++
++// (г) Прогресс ученика
++appApi.MapGet("/progress", async (int studentId, ProgressService progress) =>
++    Results.Ok(await progress.GetStudentProgressAsync(studentId)));
++
++// (б) Отчёт по выпускникам
++var reportsApi = app.MapGroup("/api/reports").AddEndpointFilter<SaveChangesFilter>();
++
++reportsApi.MapGet("/graduates", async (int year, ReportsService reports) =>
++    Results.Ok(await reports.GetGraduatesByYearAsync(year)));
++
++// (в) Список учеников инструктора
++var instructorApi = app.MapGroup("/api/instructor").AddEndpointFilter<SaveChangesFilter>();
++
++instructorApi.MapGet("/students", async (HttpContext ctx, InstructorService instructor) =>
++{
++    var instructorId = int.Parse(ctx.Request.Headers["X-Instructor-Id"].ToString());
++    return Results.Ok(await instructor.GetStudentsAsync(instructorId));
++});
++
+ app.Run();
+ 
+ public record GraduateRequest(DateOnly GraduatedOn);
+diff --git a/ProgressService.cs b/ProgressService.cs
+new file mode 100644
+index 0000000..396c85a
+--- /dev/null
++++ b/ProgressService.cs
+@@ -0,0 +1,26 @@
++using Microsoft.EntityFrameworkCore;
++
++namespace AutoSchool.Cloud;
++
++public record ProgressDto(int CompletedMinutes, int TotalMinutes);
++
++public class ProgressService
++{
++    private readonly SchoolDbContext _db;
++    private const int TotalRequiredMinutes = 56 * 60; // 56 часов в минутах
++
++    public ProgressService(SchoolDbContext db) => _db = db;
++
++    public async Task<ProgressDto> GetStudentProgressAsync(int studentId)
++    {
++        var student = await _db.Students.FirstOrDefaultAsync(s => s.Id == studentId);
++        if (student is null)
++            throw new KeyNotFoundException("Ученик не найден");
++
++        var completedMinutes = await _db.Lessons
++            .Where(l => l.StudentId == studentId && l.Done)
++            .SumAsync(l => l.Minutes);
++
++        return new ProgressDto(completedMinutes, TotalRequiredMinutes);
++    }
++}
+diff --git a/QueryFilters.cs b/QueryFilters.cs
+index 4740797..88fc3ec 100644
+--- a/QueryFilters.cs
++++ b/QueryFilters.cs
+@@ -9,5 +9,6 @@ public static class QueryFilters
+         b.Entity<Instructor>().HasQueryFilter(i => i.SchoolId == db.SchoolId && !i.IsDeleted);
+         b.Entity<Student>().HasQueryFilter(s => s.SchoolId == db.SchoolId);
+         b.Entity<DrivingLesson>().HasQueryFilter(l => l.SchoolId == db.SchoolId);
++        b.Entity<LoginCode>().HasQueryFilter(l => l.SchoolId == db.SchoolId);
+     }
+ }
+diff --git a/ReportsService.cs b/ReportsService.cs
+new file mode 100644
+index 0000000..ccb54a9
+--- /dev/null
++++ b/ReportsService.cs
+@@ -0,0 +1,42 @@
++using Microsoft.EntityFrameworkCore;
++
++namespace AutoSchool.Cloud;
++
++public record GraduateCountDto(string InstructorName, int Count);
++
++public class ReportsService
++{
++    private readonly SchoolDbContext _db;
++
++    public ReportsService(SchoolDbContext db) => _db = db;
++
++    public async Task<List<GraduateCountDto>> GetGraduatesByYearAsync(int year)
++    {
++        var startDate = new DateOnly(year, 1, 1);
++        var endDate = new DateOnly(year, 12, 31);
++
++        var graduates = await _db.Students
++            .Where(s => s.GraduatedOn >= startDate && s.GraduatedOn <= endDate)
++            .GroupBy(s => s.InstructorId)
++            .Select(g => new
++            {
++                InstructorId = g.Key,
++                Count = g.Count()
++            })
++            .ToListAsync();
++
++        var instructorIds = graduates.Select(g => g.InstructorId).ToList();
++
++        var instructors = await _db.Instructors
++            .IgnoreQueryFilters()
++            .Where(i => i.SchoolId == _db.SchoolId && instructorIds.Contains(i.Id))
++            .ToDictionaryAsync(i => i.Id, i => i.FullName);
++
++        return graduates
++            .Select(g => new GraduateCountDto(
++                instructors.TryGetValue(g.InstructorId ?? 0, out var name) ? name : "Без инструктора",
++                g.Count))
++            .OrderByDescending(x => x.Count)
++            .ToList();
++    }
++}
+diff --git a/SchoolDbContext.cs b/SchoolDbContext.cs
+index 2ee03f7..a456406 100644
+--- a/SchoolDbContext.cs
++++ b/SchoolDbContext.cs
+@@ -21,6 +21,7 @@ public class SchoolDbContext : DbContext
+     public DbSet<Instructor> Instructors => Set<Instructor>();
+     public DbSet<Student> Students => Set<Student>();
+     public DbSet<DrivingLesson> Lessons => Set<DrivingLesson>();
++    public DbSet<LoginCode> LoginCodes => Set<LoginCode>();
+ 
+     protected override void OnModelCreating(ModelBuilder b)
+     {
+@@ -40,6 +41,13 @@ public class SchoolDbContext : DbContext
+             e.HasOne(l => l.Instructor).WithMany().OnDelete(DeleteBehavior.Restrict);
+         });
+ 
++        b.Entity<LoginCode>(e =>
++        {
++            e.HasIndex(l => new { l.SchoolId, l.Email });
++            e.Property(l => l.Email).HasMaxLength(200);
++            e.Property(l => l.Code).HasMaxLength(6);
++        });
++
+         b.ApplyQueryFilters(this);
+     }
+ 
+diff --git a/StudentService.cs b/StudentService.cs
+index 8e68954..f8f0a1e 100644
+--- a/StudentService.cs
++++ b/StudentService.cs
+@@ -78,6 +78,6 @@ public class StudentService
+         return csv.ToString();
+     }
+ 
+-    private static StudentDto ToDto(Student s) =>
++    public static StudentDto ToDto(Student s) =>
+         new(s.Id, s.FullName, s.Email, s.Phone, s.Status, s.Instructor?.FullName);
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..7bc0df3
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,19 @@
++# Решение задач AutoSchool.Cloud
++
++## Созданные/изменённые файлы
++
++1. **Models.cs** - добавлена модель `LoginCode` для хранения кодов входа
++2. **SchoolDbContext.cs** - добавлены DbSet и конфигурация для `LoginCode`
++3. **QueryFilters.cs** - добавлен фильтр для `LoginCode`
++4. **AuthService.cs** (новый) - сервис входа: генерация 6-значного кода, отправка на почту, проверка
++5. **ReportsService.cs** (новый) - отчёт по выпускникам за год по инструкторам (включая уволенных через IgnoreQueryFilters)
++6. **InstructorService.cs** (новый) - список учеников инструктора с маскировкой паспорта и ближайшим занятием
++7. **ProgressService.cs** (новый) - прогресс ученика в часах (считает только Done-занятия)
++8. **StudentService.cs** - сделан `ToDto` публичным для использования в AuthService
++9. **Program.cs** - добавлены сервисы и 4 группы endpoints: `/api/app/login/`, `/api/app/progress`, `/api/reports/graduates`, `/api/instructor/students`
++
++## Ключевые решения
++
++- **Коды входа**: хранятся в БД с 10-минутным TTL, отправляются через `IEmailSender`, нормализуется email по ToLower для case-insensitive поиска
++- **Отчёт**: использует `IgnoreQueryFilters()` чтобы включить уволенных инструкторов, группирует по InstructorId и считает выпускников по дате
++- **Занятия ученика**: маскирует паспорт аналогично методу `MaskForInstructor()`, загружает ближайшее будущее занятие по `StartsAt > UtcNow`
