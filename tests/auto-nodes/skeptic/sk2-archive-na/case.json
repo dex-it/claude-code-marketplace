@@ -1,0 +1,72 @@
+{
+  "task": "FEAT-5",
+  "base": "auto-nodes/reviewer/rv5-archive-bare/base",
+  "change": "auto-nodes/reviewer/rv5-archive-bare/change",
+  "commit": "add archive",
+  "requirements": [],
+  "files": [
+    "src/archive.js"
+  ],
+  "findings": [],
+  "axes": [
+    {
+      "name": "security",
+      "outcome": "n/a",
+      "checked": "правка не трогает сеть, авторизацию и данные пользователя - локальная упаковка каталога"
+    },
+    {
+      "name": "architecture",
+      "outcome": "n/a",
+      "checked": "правка эту ось не задевает"
+    },
+    {
+      "name": "language",
+      "outcome": "clean",
+      "checked": "ESM, execSync из node:child_process"
+    },
+    {
+      "name": "business",
+      "outcome": "n/a",
+      "checked": "правка эту ось не задевает"
+    },
+    {
+      "name": "regressions",
+      "outcome": "n/a",
+      "checked": "правка эту ось не задевает"
+    },
+    {
+      "name": "performance",
+      "outcome": "n/a",
+      "checked": "правка эту ось не задевает"
+    },
+    {
+      "name": "coverage",
+      "outcome": "n/a",
+      "checked": "тестов в проекте нет"
+    },
+    {
+      "name": "loose-ends",
+      "outcome": "n/a",
+      "checked": "правка эту ось не задевает"
+    },
+    {
+      "name": "non-code",
+      "outcome": "n/a",
+      "checked": "правка эту ось не задевает"
+    }
+  ],
+  "expect": {
+    "confirm": [
+      {
+        "id": "M10",
+        "file": "src/archive.js",
+        "lines": [
+          4,
+          4
+        ],
+        "blocking": true
+      }
+    ],
+    "drop": []
+  }
+}

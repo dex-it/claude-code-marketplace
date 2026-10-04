@@ -7,6 +7,7 @@
 | dex-skill-fixture | Фикстурный trap-skill для песочницы валидатора |
 | dex-fixture-specialist | Фикстурный специалист для песочницы валидатора |
 | dex-fixture-engine | Фикстурный движок песочницы |
+| dex-fixture-auto | Фикстурный движок треков |
 | dex-bundle-fixture | Фикстурный бандл для песочницы валидатора |
 
 ---

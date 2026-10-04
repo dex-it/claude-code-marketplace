@@ -1,0 +1,34 @@
+{
+  "kind": "feature",
+  "task": "FEAT-1",
+  "stack": "ts",
+  "goal": "parseDuration возвращает миллисекунды и понимает единицу ms",
+  "done": "R1-R3 исполнены, на каждое требование есть тест, npm test зелёный",
+  "boundary": "только этот репозиторий; зависимостей не добавлять",
+  "requirements": [
+    "R1. parseDuration(text) из src/duration.js возвращает миллисекунды: '2s' -> 2000, '1m' -> 60000, '1h' -> 3600000 (источник: цель)",
+    "R2. Единица ms: parseDuration('250ms') -> 250 (источник: цель)",
+    "R3. Пустая строка, число без единицы, неизвестная единица, отрицательное или дробное число -> RangeError, в сообщении исходная строка (источник: цель)"
+  ],
+  "files": [
+    "src/duration.js",
+    "test/duration.test.js"
+  ],
+  "test_cmd": "npm test",
+  "build_cmd": "",
+  "score": {
+    "oracle_cmd": "node --test --test-reporter=tap 'oracle/*.test.js'",
+    "tests_cmd": "node --test --test-reporter=tap",
+    "mutants": {
+      "m1-h": "R1: множитель h неверен",
+      "m2-ms": "R2: ms считается секундами",
+      "m3-nounit": "R3: число без единицы принято",
+      "m4-msg": "R3: сообщение без исходной строки",
+      "m5-frac": "R3: дробное число принято",
+      "m6-sched": "потребитель scheduler.js не приведён: задержка x1000",
+      "m7-neg": "R3: отрицательное принято"
+    },
+    "oracle_dest": "oracle",
+    "fail_re": "^\\s*not ok \\d+ - (.+)$"
+  }
+}

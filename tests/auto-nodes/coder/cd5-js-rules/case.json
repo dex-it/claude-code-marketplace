@@ -1,0 +1,40 @@
+{
+  "kind": "feature",
+  "task": "FEAT-5",
+  "stack": "ts",
+  "goal": "строка счёта показывает сумму в валюте клиента",
+  "done": "R1-R3 исполнены, на каждое требование есть тест, npm test зелёный",
+  "boundary": "только этот репозиторий; зависимостей не добавлять",
+  "requirements": [
+    "R1. invoiceLine(item, currency) из src/invoice.js печатает сумму с кодом валюты клиента: invoiceLine({ name: 'Чай', cents: 1250 }, 'EUR') -> 'Чай: 12.50 EUR' (источник: цель)",
+    "R2. Валюта не передана - USD, как сейчас (источник: цель)",
+    "R3. Код валюты не из трёх заглавных латинских букв - ошибка, в сообщении исходный код (источник: цель)"
+  ],
+  "files": [
+    "src/invoice.js",
+    "test/shop.test.js"
+  ],
+  "test_cmd": "npm test",
+  "build_cmd": "",
+  "score": {
+    "oracle_cmd": "node --test --test-reporter=tap 'oracle/*.test.js'",
+    "tests_cmd": "node --test --test-reporter=tap",
+    "mutants": {
+      "m1-cur": "R1: валюта не доходит до форматирования",
+      "m2-adr": "ADR-0001: валюта вне списка принята",
+      "m3-jpy": "BR-002: JPY с дробной частью",
+      "m4-err": "CLAUDE.md: RangeError вместо DomainError",
+      "m5-cart": "потребитель cart.js сломан"
+    },
+    "shape": {
+      "CLAUDE.md - Error/RangeError напрямую": "grep -nE 'new (Range)?Error\\(' src/*.js || echo нет",
+      "code-guide 1 - словарь сообщений": "cat src/messages.js",
+      "code-guide 2 - export default": "grep -n 'export default' src/*.js || echo нет",
+      "code-guide 3 - имена тестов": "grep -hoE \"test\\('[^']*'\" test/*.js",
+      "ADR-0001 - src/currencies.js": "cat src/currencies.js 2>/dev/null || echo нет файла",
+      "тронутые файлы": "git diff --stat main HEAD"
+    },
+    "oracle_dest": "oracle",
+    "fail_re": "^\\s*not ok \\d+ - (.+)$"
+  }
+}

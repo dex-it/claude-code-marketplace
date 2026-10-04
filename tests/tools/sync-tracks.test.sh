@@ -58,6 +58,22 @@ check "$t" 1 "CR в треке" "CRLF в треке -> отказ"
 t=$(base status); edit "$t/$H/dexauto.py" "s.replace('\"unverified\"', '\"unchecked\"', 1)"
 check "$t" 1 "OPEN_FINDING" "словарь статусов dexauto.py разошёлся с domain.js -> отказ"
 
+A=plugins/auto/dex-auto/agents
+t=$(base md-block); edit "$t/$A/coder.md" "s.replace('<!-- >>> shared: fact-check -->\n', '<!-- >>> shared: fact-check -->\nручная правка\n', 1)"
+check "$t" 1 'coder.md: блок "fact-check" расходится' "правка блока в файле узла -> расхождение"
+
+t=$(base md-source); edit "$t/$S/review-verdict.md" "s + 'правка словаря\n'"
+check "$t" 1 'reviewer.md: блок "review-verdict" расходится' "правка md-источника без пересборки -> расходится блок узла"
+
+t=$(base md-indent); edit "$t/$A/reviewer.md" "s.replace('<!-- >>> shared: status -->', ' <!-- >>> shared: status -->', 1)"
+check "$t" 1 "маркер не по форме" "md-маркер с отступом -> отказ"
+
+t=$(base md-unused); printf -- '- заметка\n' > "$t/$S/orphan.md"
+check "$t" 1 'ни один трек и узел не вставляет блок "orphan"' "md-источник без потребителя -> отказ"
+
+t=$(base enum); edit "$t/$S/contract.js" "s.replace(\"'NEEDS_DISCUSSION'] }\", \"'NEEDS_DISCUSSION', 'REJECT'] }\", 1)"
+check "$t" 1 "значения VERDICT не названы - REJECT" "значение enum схемы без строки словаря стыка -> отказ"
+
 t=$(base repair); edit "$t/$T/bugfix.js" "s.replace('// >>> shared: verify\n', '// >>> shared: verify\n// ручная правка\n', 1)"
 MARKETPLACE_ROOT="$t" node "$root/tools/sync-tracks.js" >/dev/null 2>&1
 check "$t" 0 "синхронно" "sync пересобирает блок из источника -> check снова 0"
