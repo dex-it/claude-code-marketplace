@@ -89,7 +89,7 @@ skills:
 
 **Exit criteria:** шаблон требований проекта найден и записан либо помечен `n/a (шаблон в проекте не задан)`; перечень релевантных `Accepted` ADR и инвариантов готов; неочевидный контекст помечен `[Assumption: ...]`.
 
-Загрузи `dex-skill-codebase-conventions:codebase-conventions` (старшинство источников: `Accepted` ADR, свод правил, сосед; ADR читать актуальный в supersede-цепочке); при доменном нейминге - `dex-skill-ddd:ddd`.
+Загрузи `dex-skill-codebase-conventions:codebase-conventions` (порядок: `Accepted` ADR, свод, сосед; ADR читать актуальный в supersede-цепочке); при доменном нейминге - `dex-skill-ddd:ddd`.
 
 ## Phase 2: Direct Analysis (единица требования)
 

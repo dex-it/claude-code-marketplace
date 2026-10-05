@@ -24,7 +24,7 @@
 | Набор | Скилл | Заход | Итог |
 |---|---|---|---|
 | [fact-verification](fact-verification/README.md) | `dex-skill-fact-verification` 1.3.0, 2.0.0, 2.1.0 | ревью кода и ADR; звенья каскада; факт в коде проекта | 7 ловушек -> чек-лист из 5 пунктов; 2.1.0 - отрицательный факт с исходом |
-| [codebase-conventions](codebase-conventions/README.md) | `dex-skill-codebase-conventions` 1.10.0 | ревью, фича | 19 ловушек и граница -> чек-лист: 5 названий, 1 с исходом |
+| [codebase-conventions](codebase-conventions/README.md) | `dex-skill-codebase-conventions` 1.10.0 | ревью, фича | 17 ловушек, граница и гейт -> чек-лист из 9 названий |
 | [review-evidence](review-evidence/README.md) | `dex-skill-review-evidence` 1.9.1 | ревью | 15 ловушек -> process-skill: «Намерение» и «Порог уверенности» |
 | [review-threads](review-threads/README.md) | `dex-skill-review-threads` 1.1.0 | доставка ревью в MR (заглушка хостинга) | 13 единиц -> process-skill 2.0.0: форма, жизненный цикл, запись; glab - ступень 2 |
 | [review-step-by-step](review-step-by-step/README.md) | `dex-skill-review-step-by-step` 1.4.2 | разбор замечаний с оператором по ходам | 21 единица -> process-skill 2.0.0: порядок, гейты, финал |

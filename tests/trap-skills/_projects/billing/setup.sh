@@ -16,7 +16,7 @@ dotnet pack "$pack/src" -c Release -o "$pack/out" -p:RepositoryUrl= >/dev/null
 cd "$dest"
 git init -q -b main
 git config user.name "Billing Team"; git config user.email "billing@example.com"
-printf 'bin/\nobj/\n' > .gitignore
+printf 'bin/\nobj/\n.nuget/\n' > .gitignore
 mkdir -p packages-local && cp "$pack/out/"*.nupkg packages-local/
 rm -rf "$pack"
 apply() { # $1 - каталог стадии
