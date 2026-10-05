@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Разворачивает мини-проект Billing с историей в <dest>: стадии stages/* - коммиты main,
-# branches/* - ветки MR от main. Пакет Acme.Ledger.Client собирается из vendor/ и кладётся в
-# packages-local/ первым коммитом; исходник пакета в <dest> не попадает.
+# branches/* - ветки MR от main (или от другой ветки, см. BASE и ONTO ниже). Пакет
+# Acme.Ledger.Client собирается из vendor/ и кладётся в packages-local/ первым коммитом;
+# исходник пакета в <dest> не попадает.
 # Использование: setup.sh <dest> [ветка для checkout]
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -26,11 +27,18 @@ apply() { # $1 - каталог стадии
   GIT_AUTHOR_DATE="$(cat "$1/DATE")" GIT_COMMITTER_DATE="$(cat "$1/DATE")" git commit -q -F "$1/COMMIT"
 }
 for s in "$here"/stages/*/; do apply "$s"; done
-for b in "$here"/branches/*/; do
-  [ -d "$b" ] || continue
-  name="$(basename "$b")"
-  git checkout -q -b "feature/$name" main
-  for c in "$b"*/; do apply "$c"; done
+# Ветка с файлом BASE растёт от feature/<BASE>, а не от main; с файлом ONTO её коммиты сперва
+# переносятся rebase-ом на feature/<ONTO> - так строится история правок автора после ревью.
+# Ветки с BASE строятся вторым проходом, когда их основы уже есть.
+branch() { # $1 - каталог ветки
+  local b="$1" name base
+  name="$(basename "$b")"; base=main
+  [ -f "$b/BASE" ] && base="feature/$(cat "$b/BASE")"
+  git checkout -q -b "feature/$name" "$base"
+  [ -f "$b/ONTO" ] && git rebase -q --committer-date-is-author-date "feature/$(cat "$b/ONTO")"
+  for c in "$b"*/; do [ -d "$c" ] && apply "$c"; done
   git checkout -q main
-done
+}
+for b in "$here"/branches/*/; do [ -d "$b" ] && [ ! -f "$b/BASE" ] && branch "$b"; done
+for b in "$here"/branches/*/; do [ -f "$b/BASE" ] && branch "$b"; done
 git checkout -q "$checkout"
