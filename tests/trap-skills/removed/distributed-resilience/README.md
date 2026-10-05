@@ -63,7 +63,8 @@ jitter `true`; сверено 2026-10-05). Фоновое доигрывание
 - Дубль с `dex-skill-dotnet-resilience` (circuit breaker, retry с jitter) - группа 2.2 (#297); здесь
   не трогался. Kubernetes-пробы и observability - вне группы.
 - `architect` и `architect-dotnet` грузили скилл «всегда» в Phase 4; загрузка снята целиком, как
-  `owasp-security` в группе 1.1. Вопрос владельцу.
+  `owasp-security` в группе 1.1. Решение владельца (05.10.2026): принято - снятый скилл не
+  грузится; resilience .NET остаётся у `dotnet-resilience` (#297).
 
 ## Бюджет правки
 
