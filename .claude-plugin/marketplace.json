@@ -149,7 +149,7 @@
       "name": "dex-bug-fixer",
       "source": "./plugins/specialists/delivery/dex-bug-fixer",
       "description": "Пакетная ремедиация найденных тестировщиком багов после мерджа: интейк находок, триаж и приоритет, подтверждение причины по одному, фикс на источнике через follow-up MR, верификация red->green на стенде, регрессия соседей; финиш на локальных коммитах без push.",
-      "version": "1.10.0",
+      "version": "1.11.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -330,7 +330,7 @@
       "name": "dex-bundle-qa-engineer",
       "source": "./plugins/bundles/dex-bundle-qa-engineer",
       "description": "Бандл для QA-инженера: тест-анализ, автоматизация (включая E2E на Playwright), активный поиск багов, баг-репорты.",
-      "version": "1.20.0",
+      "version": "1.21.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -1549,7 +1549,7 @@
       "name": "dex-skill-change-correlation",
       "source": "./plugins/skills/dex-skill-change-correlation",
       "description": "Корреляция симптома с изменениями: окно вокруг момента начала, образ стенда против коммита, тайминг, изоляция нескольких изменений, git bisect first-parent.",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -1992,21 +1992,6 @@
       ]
     },
     {
-      "name": "dex-skill-git-workflow",
-      "source": "./plugins/skills/dex-skill-git-workflow",
-      "description": "Git workflow: стратегия ветвления, конвенции коммитов, code review, merge request, разрешение конфликтов.",
-      "version": "1.2.1",
-      "category": "skill",
-      "keywords": [
-        "skill",
-        "git",
-        "branching",
-        "commits",
-        "code-review",
-        "merge-request"
-      ]
-    },
-    {
       "name": "dex-skill-github-actions",
       "source": "./plugins/skills/dex-skill-github-actions",
       "description": "GitHub Actions: ловушки workflow, безопасность токенов и pull_request_target, кэширование, matrix-сборки, self-hosted раннеры.",
@@ -2189,7 +2174,7 @@
       "name": "dex-skill-merge-conflict-resolution",
       "source": "./plugins/skills/dex-skill-merge-conflict-resolution",
       "description": "Протокол подтягивания базовой ветки и разрешения конфликтов merge/rebase без тихой потери стороны: якоря и точка отката, превью без записи, семантические конфликты без маркеров, ours/theirs в rebase, переезды, генерируемое, верификация обеих дельт. Команда /resolve-conflicts.",
-      "version": "2.0.0",
+      "version": "2.0.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2689,8 +2674,8 @@
     {
       "name": "dex-skill-review-step-by-step",
       "source": "./plugins/skills/dex-skill-review-step-by-step",
-      "description": "Code review - пошаговое ревью с разбором каждого пункта через апрув.",
-      "version": "1.4.2",
+      "description": "Разбор замечаний ревью по одному пункту с решением оператора: суть и вердикт до решения, правка, коммит и push только по команде, соседние использования механизма - оператору.",
+      "version": "2.0.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2708,8 +2693,8 @@
     {
       "name": "dex-skill-review-threads",
       "source": "./plugins/skills/dex-skill-review-threads",
-      "description": "Инлайн-доставка ревью: один тред на находку, привязка к строке через нативный API gh/glab, severity в первой строке, overview без дублирования тредов, протокол resolve, чужие треды не трогать.",
-      "version": "1.1.0",
+      "description": "Доставка ревью в MR/PR: тред на нарушение у его строки, severity первой строкой, overview без пересказа находок, ответ по прежней находке в её тред, resolve после ответа, только свои треды, запись по разрешению.",
+      "version": "2.0.0",
       "category": "skill",
       "keywords": [
         "skill",

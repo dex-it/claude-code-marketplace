@@ -45,8 +45,6 @@ skills:
 
 **Exit criteria:** три SHA зафиксированы, range-diff и дельта сохранены, scope дельты перечислен; при rebase/squash источник правды - range-diff, что отмечено в сводке.
 
-Загрузи `dex-skill-git-workflow:git-workflow`.
-
 ## Phase 1: Prior Findings Status
 
 **Goal:** Для каждой прошлой находки определить статус по новому коду.

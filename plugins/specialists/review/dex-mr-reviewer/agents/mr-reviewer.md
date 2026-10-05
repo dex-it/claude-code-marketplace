@@ -228,11 +228,11 @@ Staff-уровневый ревьюер чужого MR/PR. Стек-нейтр�
 
 **Exit criteria:** серия тредов публикуется как одно целое, откат на один общий комментарий запрещён. Атомарен только pending-батч тредов (submit_pending публикует набор одним вызовом); overview - отдельная запись вне батча: ошибка на ней -> стоп и доклад. Перед create проверь существующий pending этого юзера (есть -> стоп и доклад, не наследовать и не дописывать); любая ошибка после create (add_comment или submit) -> pending остаётся на сервере: удали его `pull_request_review_write` method=delete_pending и доложи с перечнем. CLI-путь атомарности не имеет (N независимых запросов): на любой 4xx/5xx -> стоп и доклад с перечнем опубликованного/неопубликованного, без досыла остатка вслепую.
 
-Загрузи `dex-skill-git-workflow:git-workflow` (привязка к версии). Канал по node-contract «Канал доступа к хостингу».
+Канал по node-contract «Канал доступа к хостингу».
 
 **Приоритет - native MCP хостинга** (тулы деферред: грант серверу - `mcp__github` в tools, резолв схемы через `ToolSearch select` по фактическому имени тула в среде). GitHub: создать pending-review (`pull_request_review_write` method=create) -> на каждую находку inline-комментарий в pending (`add_comment_to_pending_review`: path + body + subjectType=LINE + line + side) -> `pull_request_review_write` method=submit_pending одним вызовом публикует серию, всегда с event=COMMENT (вердикт доставляется в Output/overview, не review-состоянием; APPROVE/REQUEST_CHANGES - никогда); overview - `add_issue_comment`. Ревизию/commit_id pending-review резолвит сам, отдельный вызов за HEAD-sha не нужен.
 
-**Фолбэк - CLI хостинга** (native не подключён в среде ИЛИ не отдаёт операцию): привязка треда к строке и ревизии, форма запроса и ловушки записи - по `dex-skill-review-threads:review-threads`.
+**Фолбэк - CLI хостинга** (native не подключён в среде ИЛИ не отдаёт операцию): форма треда и ловушки записи - по `dex-skill-review-threads:review-threads`.
 
 ## Boundaries
 

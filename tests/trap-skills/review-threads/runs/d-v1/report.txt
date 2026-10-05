@@ -1,0 +1,45 @@
+# d-v1 case=D skill=<repo>/tests/trap-skills/review-threads/inputs/SKILL-2.0.0.md model=claude-sonnet-5-5/medium cost=$0.159 turns=1
+hosting: calls=13 writes=7 errors=0
+  thread src/Billing.Api/Application/Handlers/Invoices/SendDueRemindersHandler.cs:24/- head=Y base=M start=M anchorText="var fee = invoice.Amount with { Minor = invoice.Amount.Minor * daysLate / 1000 };"
+    | **Severity: blocker**
+    | 
+    | Пеня считается как `invoice.Amount.Minor * daysLate / 1000` и проводится каждый день заново: за 10 дней просрочки клиент заплатит 1+2+...+10 = 55 промилле вместо 10.
+    | 
+    | Исправление: начислять пеню за один день (`Minor / 1000`) или от последней начисленной.
+  thread src/Billing.Api/Application/Handlers/Invoices/SendDueRemindersHandler.cs:25/- head=Y base=M start=M anchorText="await ledger.PostAsync(new LedgerPosting($\"fee-{invoice.Id}-{command.Today:yyyyMMdd}\", 
+    | **Severity: blocker**
+    | 
+    | Проводка пени идёт прямым `ledger.PostAsync(...)` мимо outbox, а ADR-0006 запрещает новый код через `ILedgerGateway`.
+    | 
+    | Исправление: `LedgerPostingRequested` через `IOutbox`, как в `CancelInvoiceHandler`.
+  thread src/Billing.Api/Infrastructure/Ledger/LedgerOutboxDispatcher.cs:52/- head=Y base=M start=M anchorText="// Таймаут HttpClient повторяем сразу: Acme.Ledger.Client 2.3.1 ставит Idempotency-Key = 
+    | **Severity: blocker**
+    | 
+    | Комментарий утверждает, что `Acme.Ledger.Client` 2.3.1 ставит `Idempotency-Key = entry.ExternalId`. Это не так: клиент генерирует ключ `Guid.NewGuid()` на каждый вызов `PostEntryAsync` (проверено декомпиляцией пакета). Повтор после таймаута, когда первый запрос дошёл до Ledger, создаёт вторую проводку.
+    | 
+    | Исправление: таймаут не повторять внутри тика - сообщение останется в outbox и уйдёт на следующем тике; комментарий убрать.
+  thread src/Billing.Api/Application/Handlers/Invoices/SendDueRemindersHandler.cs:29/- head=Y base=M start=M anchorText="await NotifyAsync(invoice.Id.Value, invoice.CustomerId.Value, dueRub, ct);"
+    | **Severity: blocker**
+    | 
+    | Сигнатура `NotifyAsync(Guid customerId, Guid invoiceId, ...)` (строка 36), а вызов передаёт `invoice.Id.Value, invoice.CustomerId.Value`: письмо уходит на id счёта как на клиента. Сырые `Guid` при typed-id в проекте позволили перепутать порядок без ошибки компиляции.
+    | 
+    | Исправление: параметры `CustomerId` и `InvoiceId` в сигнатуре.
+  thread src/Billing.Api/Modules/NotificationsModule.cs:23/- head=Y base=M start=M anchorText="services.AddSingleton<SendDueRemindersHandler>();"
+    | **Severity: major**
+    | 
+    | `AddSingleton<SendDueRemindersHandler>()` захватывает scoped `IInvoiceRepository` и `ILedgerGateway` на всё время жизни приложения (captive dependency). Ссылка на `LedgerOutboxDispatcher` не подходит: тот зависит только от синглтонов.
+    | 
+    | Исправление: `AddScoped`, а `InvoiceReminderWorker` создаёт scope на каждый тик.
+  thread src/Billing.Api/Application/Handlers/Invoices/CancelInvoiceHandler.cs:-/16 head=Y base=M start=M anchorText="if (invoice.Status is not (InvoiceStatus.Issued or InvoiceStatus.Paid))"
+    | **Severity: major**
+    | 
+    | Удалена проверка статуса перед отменой (удалённые строки 16-17): отмена черновика теперь проходит, а повторная отмена оплаченного счёта ставит в outbox второе сторно на полную сумму.
+    | 
+    | Исправление: вернуть проверку `Status is not (Issued or Paid)`.
+  general-note 
+    | Ревью ревизии 7eeaaa9, актуальность проверена на 30e0340. Открыто тредов: 6 - blocker: 4, major: 2. Подробности и исправления - в тредах у строк. Вердикт: нужны правки до мерджа.
+turn 1: exit=0 cost=0.159 tools={"Read":2,"Bash":9} outside=0 realGh=0
+snap 0: HEAD feature/invoice-reminders X; status: clean
+  origin: feature/invoice-reminders=Y main=M
+snap 1: HEAD feature/invoice-reminders X; status: clean
+  origin: feature/invoice-reminders=Y main=M
