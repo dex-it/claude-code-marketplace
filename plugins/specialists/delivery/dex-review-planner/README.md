@@ -16,7 +16,7 @@
 
 ## Skills
 
-`dex-skill-review-step-by-step` (процесс разбора через апрув), `dex-skill-review-evidence` и `dex-skill-fact-verification` (верификация по коду и техфактов ревьюера), `dex-skill-review-threads` и `dex-skill-output-hygiene` (черновики ответов).
+`dex-skill-review-step-by-step` (процесс разбора через апрув), `dex-skill-review-evidence` (источник намерения, порог уверенности) и `dex-skill-fact-verification` (техфакты ревьюера), `dex-skill-review-threads` (черновики ответов).
 
 ## Связанные плагины
 

@@ -30,7 +30,7 @@ description: ASP.NET Core Web API - ловушки контроллеров, DTO
 ### DTO ответа несёт поля, которые потребитель не читает
 Плохо: `OrderDto` тянет `InternalNotes`, `CostPrice`, `RowVersion` «на всякий случай» - клиент читает 4 поля, остальное висит в контракте
 Правильно: в DTO ровно потребляемые поля; перед добавлением поля в response-DTO найди читателя - нет читателя, нет поля
-Почему: DTO вместо Entity ещё не least exposure - корректный DTO с лишними полями всё равно раскрывает внутреннее и фиксирует контракт, который версионируется и тихо не убирается. См. `dex-skill-owasp-security`
+Почему: DTO вместо Entity ещё не least exposure - корректный DTO с лишними полями всё равно раскрывает внутреннее и фиксирует контракт, который версионируется и тихо не убирается
 
 ### Merge пользовательских ключей в словарь под `[JsonExtensionData]` без фильтра reserved-имён
 Плохо: `foreach (var kv in ex.Extensions) problem.Extensions[kv.Key] = kv.Value;` - `Extensions` помечен `[JsonExtensionData]`

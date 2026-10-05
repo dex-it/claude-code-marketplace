@@ -27,7 +27,7 @@
 
 Агент работает в два прохода (Two-Pass): сначала **Direct Analysis** - анализ знаниями Claude без единого skill (первичный взгляд не сужен чек-листом), затем **Skill-Based Scan** - углубление skill'ами поверх первого прохода с дедупликацией. Между проходами hard gate: skill не загружается, пока первичный анализ не дал готовый список. Так skill расширяет находки, а не заменяет свежий взгляд.
 
-Чек-листы топиков - это карта «топик -> какие skills грузить», а не зашитые в агента списки. Агент `discover-reviewer` во втором проходе императивно загружает существующие skills маркетплейса по детектированному стеку (`dex-skill-owasp-security`, `dex-skill-dotnet-ef-core`, `dex-skill-react`, `dex-skill-observability` и т.д.).
+Чек-листы топиков - это карта «топик -> какие skills грузить», а не зашитые в агента списки. Агент `discover-reviewer` во втором проходе императивно загружает существующие skills маркетплейса по детектированному стеку (`dex-skill-dotnet-ef-core`, `dex-skill-react`, `dex-skill-observability` и т.д.).
 
 **Graceful degradation:** если под топик/стек нет skill (например Mobile - Flutter/Android) или skill не установлен - агент работает знаниями Claude и помечает в выводе `skills: none (Claude knowledge)`. Это не ошибка.
 

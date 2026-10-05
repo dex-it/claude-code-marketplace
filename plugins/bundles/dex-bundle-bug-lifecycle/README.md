@@ -17,7 +17,7 @@
 
 Skills методологии: `dex-skill-problem-specification`, `dex-skill-root-cause-analysis`, `dex-skill-change-correlation`, `dex-skill-shared-stand-safety`, `dex-skill-exploratory-testing`, `dex-skill-bug-reproduction`, `dex-skill-contract-drift`.
 
-Переиспользуемые skills: `dex-skill-owasp-security`, `dex-skill-testability`, `dex-skill-test-design`, `dex-skill-observability`, `dex-skill-codebase-conventions`, `dex-skill-no-loose-ends`.
+Переиспользуемые skills: `dex-skill-testability`, `dex-skill-test-design`, `dex-skill-observability`, `dex-skill-codebase-conventions`.
 
 CLI для чтения стенда: `dex-kubectl-cli`, `dex-gitlab-cli`, `dex-github-cli`, `dex-teamcity-cli`, `dex-jira-cli`.
 

@@ -97,7 +97,7 @@ Blast radius правки, затрагивающей контракт / тип 
 
 **Exit criteria:** для каждого треда, требующего ответа, есть черновик; тон нейтральный, без эмодзи, мета-фраз и пересказа комментария ревьюера.
 
-Загрузи `dex-skill-output-hygiene:output-hygiene` и `dex-skill-review-threads:review-threads`.
+Загрузи `dex-skill-review-threads:review-threads`.
 
 ## Phase 5: Present and Loop
 

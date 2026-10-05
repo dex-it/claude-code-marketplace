@@ -118,7 +118,6 @@ Read/Grep; полный обзор репо ведёт вызывающая ст
 - Для модулярной структуры, слоёв - `dex-skill-clean-architecture:clean-architecture`
 - Для bounded contexts, aggregates - `dex-skill-ddd:ddd`
 - Для распределённых решений (saga, outbox, distributed monolith) - `dex-skill-microservices:microservices`
-- Для security-критичных альтернатив (public API, multi-tenant, payment) - `dex-skill-owasp-security:owasp-security`
 - Для соответствия конвенциям существующего проекта - `dex-skill-codebase-conventions:codebase-conventions`
 
 **Fact-check библиотек (условно, действует на Phase 2 и Phase 4):** триггер - конкретная
@@ -242,7 +241,6 @@ implementation-план вызывающей стороны не на чем с�
 - Для гигиены качества (Roslyn analyzers, warning-профиль, NuGet audit) - `dex-skill-dotnet-code-quality:dotnet-code-quality`
 - Если план предполагает создание нового проекта / сервиса - `dex-skill-project-baseline:project-baseline` (новый solution -> baseline по дефолту; проект в существующем solution -> наследовать его правила, недостающий гейт назвать и предложить, а завести после согласия владельца)
 - Для соответствия конвенциям проекта - `dex-skill-codebase-conventions:codebase-conventions`
-- Если данные чувствительные / есть multi-tenant / public API - `dex-skill-owasp-security:owasp-security`
 - Если рассматриваемое решение использует распределённые pattern'ы - `dex-skill-microservices:microservices`
 - Если значимая внутренняя структура / слои - `dex-skill-clean-architecture:clean-architecture`
 - Если доменная сложность требует aggregates / bounded contexts - `dex-skill-ddd:ddd`

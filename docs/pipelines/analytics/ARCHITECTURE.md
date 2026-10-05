@@ -66,7 +66,7 @@
 | `requirements-analyst` | `functional-requirements`, `nfr` | `system-requirements-29148` (pre-load) | `legacy-reconstruction` | `requirement-quality` |
 | `user-story-analyst` | `user-stories` | - | `test-design` - техники подбора примеров | `requirement-quality` |
 | команда `/feature` (как судья) | `use-cases`, `functional-requirements`, `nfr`, `user-stories` | `business-analysis-29148` (Phase 2), `use-cases-cockburn` (Phase 3), `system-requirements-29148` (Phase 4) | - | `requirement-quality`, `requirement-set-quality`, `use-case-quality` |
-| `requirements-reviewer` | все четыре класс-скилла | `business-analysis-29148`, `use-cases-cockburn`, `system-requirements-29148` - по предмету ревью | `fact-verification`, `review-evidence`, `output-hygiene`, `codebase-conventions`, `ddd` | `requirement-quality`, `requirement-set-quality`; на наборе сценариев - `use-case-quality` **вместо** оракула набора |
+| `requirements-reviewer` | все четыре класс-скилла | `business-analysis-29148`, `use-cases-cockburn`, `system-requirements-29148` - по предмету ревью | `fact-verification`, `review-evidence`, `codebase-conventions`, `ddd` | `requirement-quality`, `requirement-set-quality`; на наборе сценариев - `use-case-quality` **вместо** оракула набора |
 
 Прочерк в любой колонке читается одинаково - артефакта этого рода у узла нет, и закрывается это
 записью `unverifiable` с названной причиной, а не подстановкой соседнего: ни норматив соседней фазы,

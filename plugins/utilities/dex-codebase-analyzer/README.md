@@ -73,7 +73,7 @@ dotnet --version                          # проверить установк�
 
 ## Что плагин НЕ делает
 
-- Не делает security-сканирование (для этого `dex-skill-owasp-security` + `dex-architect`)
+- Не делает security-сканирование (для этого `dex-security-reviewer`)
 - Не делает performance-профилирование (для этого `dex-dotnet-performance`)
 - Не пишет ADR / документы (для этого `dex-adr-writer`)
 - Не оценивает качество кода (для этого `dex-self-reviewer` / `dex-mr-reviewer` и аналоги)

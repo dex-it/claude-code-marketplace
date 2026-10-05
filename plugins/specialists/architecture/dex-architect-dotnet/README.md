@@ -20,7 +20,6 @@ capacity, implementation-план и документацию ведёт выз�
 | `dex-skill-clean-architecture` | Phase 2, 4 (conditional) | Layers, dependencies |
 | `dex-skill-ddd` | Phase 2, 4 (conditional) | Aggregates, bounded contexts |
 | `dex-skill-microservices` | Phase 2, 4 (conditional) | Saga, outbox, distributed monolith |
-| `dex-skill-owasp-security` | Phase 2, 4 (conditional) | OWASP Top 10 |
 | `dex-skill-cap-consistency` | Phase 3 | CAP/PACELC + cheatsheet |
 | `dex-skill-tech-evaluation` | Phase 3 | Vendor lock-in, license, hidden cost |
 | `dex-skill-capacity-planning` | Phase 4 | Capacity, read:write ratio, hot path |
