@@ -1,0 +1,23 @@
+Ревью записано в `REVIEW.md`, всего 20 находок: **blocker 4, major 11, minor 5**. Код не правился, сборку и `dotnet` не запускал.
+
+**Blocker**
+- SQL-инъекция через `FromSqlRaw` с интерполяцией (`OrderExportController.cs:15`).
+- `ToListAsync()` по всем 3 млн заказов ради подсчёта по одному клиенту (`CustomerReportsController.cs:25`).
+- `lock` с синхронным HTTP-вызовом внутри singleton `CurrencyConverter` (`CurrencyConverter.cs:15-17`): все конвертации идут по одной, возможна thread-pool starvation.
+- Интерполированный `LogDebug` с `JsonSerializer.Serialize(orders)` (`CustomerReportsController.cs:28`): с lazy proxies это циклы и скрытые запросы, а в логи попадают данные заказов.
+
+**Major** (подробности в файле)
+- N+1 через lazy loading и обрезание суммы до `int` в сводке по клиенту.
+- В счёте: `.Result` на запросе курса, запрос к БД выполняется дважды (`IEnumerable` поверх незавершённого запроса), `EnumerateFiles` падает на отсутствующем каталоге.
+- `Checksum`: P/Invoke по одному байту, зависимость от `libz`.
+- Копия массива через `Array.Copy` вместо среза и лишний `Task.Run`.
+- Выгрузка заказов целиком в память без пагинации и стриминга.
+- `CountAsync(...) > 0` вместо `AnyAsync` в `HasOrders`.
+- Список рассылки грузит сущности целиком, включая `Photo`, и не ограничивает `pageSize`.
+- Параметр `currency` не валидируется, курс может быть нулевым или `null`.
+
+**Minor**
+- Экранирование CSV и формат чисел в выгрузке.
+- Проекции и `AsNoTracking`, `DateTime.Kind` у `since`.
+- Нет таймаута и resilience у `HttpClient`, нет авторизации на эндпоинтах с ПДн.
+- Для моделей нет индексов по `CustomerId`, `Status`, `OrderId`: их отсутствие в коде не подтверждено, но и наличие не видно.
