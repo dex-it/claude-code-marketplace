@@ -1,0 +1,26 @@
+[
+ {
+  "path": "src/Billing.Api/Application/Installments/MoneySplit.cs",
+  "line": 12,
+  "at": "2026-10-16T13:00:00Z",
+  "body": "blocker\n\nОстаток от деления уходит в последний платёж, а BILL-25 требует в первый. Тест `Split_RemainderGoesToOnePayment` закрепляет именно это (333, 333, 334), поэтому зелёный сьют ошибку не ловит.\n\nИсправление: остаток в первый платёж, тест на 334, 333, 333."
+ },
+ {
+  "path": "src/Billing.Api/Application/Installments/InstallmentScheduleBuilder.cs",
+  "line": 10,
+  "at": "2026-10-16T13:04:00Z",
+  "body": "major\n\nДата разбиения берётся в зоне сервера (`TimeZoneInfo.Local`). Серверы в UTC, а BILL-25 требует дату по Москве: разбиение в 01:30 МСК даст график от вчерашнего дня. Тест `Build_MonthEnd_ClampsToLastDayAndSkipsWeekend` проходит только на машине в МСК.\n\nИсправление: дата по зоне Europe/Moscow."
+ },
+ {
+  "path": "src/Billing.Api/Application/Handlers/Invoices/ScheduleInstallmentsValidator.cs",
+  "line": 11,
+  "at": "2026-10-16T13:07:00Z",
+  "body": "major\n\nНет нижней границы числа платежей: `count = 0` пройдёт валидацию, и `MoneySplit.Split` поделит на ноль.\n\nИсправление: `GreaterThanOrEqualTo(2)`."
+ },
+ {
+  "path": "src/Billing.Api/Application/Installments/MoneySplit.cs",
+  "line": 9,
+  "at": "2026-10-16T13:09:00Z",
+  "body": "minor\n\nnit: `share` -> `baseShare`, так читается лучше."
+ }
+]

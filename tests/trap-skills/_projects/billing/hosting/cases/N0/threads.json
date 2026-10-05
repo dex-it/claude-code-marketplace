@@ -1,0 +1,35 @@
+[
+ {
+  "path": "src/Billing.Api/Application/Handlers/Invoices/SendDueRemindersHandler.cs",
+  "new_line": 24,
+  "body": "blocker\n\nПеня `invoice.Amount.Minor * daysLate / 1000` проводится каждый день заново: за 10 дней просрочки клиент заплатит 1+2+...+10 = 55 промилле вместо 10.\n\nИсправление: пеня за один день (`Minor / 1000`) или от последней начисленной."
+ },
+ {
+  "path": "src/Billing.Api/Application/Handlers/Invoices/SendDueRemindersHandler.cs",
+  "new_line": 25,
+  "body": "blocker\n\nПроводка пени идёт прямым `ledger.PostAsync(...)` мимо outbox, а ADR-0006 запрещает новый код через `ILedgerGateway`.\n\nИсправление: `LedgerPostingRequested` через `IOutbox`, как в `CancelInvoiceHandler`."
+ },
+ {
+  "path": "src/Billing.Api/Infrastructure/Ledger/LedgerOutboxDispatcher.cs",
+  "new_line": 52,
+  "body": "blocker\n\nКомментарий утверждает, что `Acme.Ledger.Client` 2.3.1 ставит `Idempotency-Key = entry.ExternalId`. Клиент генерирует ключ `Guid.NewGuid()` на каждый вызов `PostEntryAsync` (проверено декомпиляцией пакета): повтор после таймаута, когда первый запрос дошёл до Ledger, создаёт вторую проводку.\n\nИсправление: таймаут не повторять внутри тика - сообщение уйдёт на следующем тике; комментарий убрать."
+ },
+ {
+  "path": "src/Billing.Api/Modules/NotificationsModule.cs",
+  "new_line": 23,
+  "body": "major\n\n`AddSingleton<SendDueRemindersHandler>()` захватывает scoped `IInvoiceRepository` и `ILedgerGateway` на всё время жизни приложения (captive dependency). Ссылка на `LedgerOutboxDispatcher` не подходит: тот зависит только от синглтонов.\n\nИсправление: `AddScoped`, а `InvoiceReminderWorker` создаёт scope на каждый тик."
+ },
+ {
+  "path": "src/Billing.Api/Application/Handlers/Invoices/SendDueRemindersHandler.cs",
+  "new_line": 29,
+  "body": "blocker\n\nСигнатура `NotifyAsync(Guid customerId, Guid invoiceId, ...)` (строка 36), а вызов передаёт `invoice.Id.Value, invoice.CustomerId.Value`: письмо уходит на id счёта как на клиента. Сырые `Guid` при typed-id в проекте позволили перепутать порядок без ошибки компиляции.\n\nИсправление: параметры `CustomerId` и `InvoiceId` в сигнатуре."
+ },
+ {
+  "path": "src/Billing.Api/Application/Handlers/Invoices/CancelInvoiceHandler.cs",
+  "old_line": 16,
+  "body": "major\n\nУдалена проверка статуса перед отменой: отмена черновика проходит, а повторная отмена оплаченного счёта ставит в outbox второе сторно на полную сумму.\n\nИсправление: вернуть проверку `Status is not (Issued or Paid)`."
+ },
+ {
+  "body": "Ревью: 4 blocker, 2 major - в тредах к строкам. Пункт про паузу между повторами снят: в последней ревизии `await Task.Delay`."
+ }
+]
