@@ -179,7 +179,7 @@ Skills называют известные грабли - используй и�
 - **API contract:** ключевые endpoints / событийные контракты; версионирование; идемпотентность критичных операций (формат ключей)
 - **Caching strategy:** что кешируем, TTL, invalidation strategy (write-through / write-behind / TTL-based / explicit), целевой hit-ratio
 - **Sharding / replication:** если capacity-цифры требуют - как шардируем (key, rebalancing strategy), сколько реплик, sync vs async replication
-- **Failure modes:** что падает первым при росте 10×, как degrade gracefully (read-only mode, default values, queue back-pressure, circuit breaker, bulkhead)
+- **Failure modes:** что падает первым при росте 10×, как degrade gracefully (read-only mode, default values, queue back-pressure, circuit breaker, bulkhead); фоновые повторы пачки к соседу после его простоя без разброса задержки
 - **Security controls:** где TLS / mTLS / encryption at rest / secrets management (Vault / KMS) / audit log реализуется в архитектуре; tenant isolation в storage и cache; OWASP-релевантные mitigations (IDOR, SSRF, broken auth)
 - **Observability hooks:** какие metrics / logs / traces для критичных путей, какие SLO задаём, разделение liveness vs readiness checks
 

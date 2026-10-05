@@ -206,7 +206,8 @@ implementation-план вызывающей стороны не на чем с�
 - **Sharding / replication:** если QPS требует - multi-tenant via PostgreSQL schemas, read replicas
   via connection routing
 - **Failure modes:** что падает первым при росте 10×, как degrade gracefully (read-only mode, queue
-  back-pressure через MassTransit prefetch, circuit breaker на downstream)
+  back-pressure через MassTransit prefetch, circuit breaker на downstream); фоновые повторы пачки к
+  соседу после его простоя без разброса задержки
 - **Security controls:** где TLS / mTLS / encryption at rest (Azure SQL TDE, EF Core column
   encryption) / secrets (Key Vault через `Azure.Extensions.AspNetCore.Configuration.Secrets`) /
   audit log реализуется; tenant isolation в storage (RLS / schema-per-tenant) и cache (key prefix);
