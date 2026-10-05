@@ -123,8 +123,8 @@ function glCase({ iid, title, description, source, author, me, versions, discuss
     versions, initial: { discussions, seq: 9000 } };
 }
 
-const limits = (c) => `Ограничения: не вызывай Skill tool; не читай и не пиши файлы вне ${c.ws}${c.skill ? `, кроме ${c.skill}` : ''}; веба нет.`;
-const skillLine = (c) => (c.skill ? `Перед работой прочитай ${c.skill} - правила, принятые в команде.\n` : '');
+const limits = (c) => `Ограничения: не вызывай Skill tool; не читай и не пиши файлы вне ${c.ws}${c.skill ? `, кроме ${c.skill.join(', ')}` : ''}; веба нет.`;
+const skillLine = (c) => (c.skill ? `Перед работой прочитай ${c.skill.join(' и ')} - правила, принятые в команде.\n` : '');
 function promptD(c) {
   return `Ты ревьюер в команде Billing. Репозиторий сервиса - ${c.ws}/billing, хостинг - GitLab ${GL_HOST}, проект billing/billing; \`glab\` в PATH авторизован под твоей учёткой.
 Ревью MR !31 закончено, находки - в ${c.ws}/REVIEW.md. Опубликуй их в MR: публикация разрешена.
@@ -165,7 +165,7 @@ function runClaude(c, prompt, sid, n) {
   const settings = { sandbox: { enabled: true, allowUnsandboxedCommands: false, failIfUnavailable: true, network: { allowedDomains: [], strictAllowlist: true }, filesystem: { allowWrite: [c.host] } } };
   const a = ['-p', prompt, '--output-format', 'stream-json', '--verbose', '--model', MODEL, '--effort', EFFORT, '--max-turns', '150',
     '--restricted', '--strict-mcp-config', '--disable-slash-commands', '--permission-mode', 'acceptEdits', '--settings', JSON.stringify(settings),
-    '--tools', TOOLS.join(','), '--allowed-tools', TOOLS.join(','), ...(c.skill ? ['--add-dir', dirname(c.skill)] : []), ...(sid ? ['--resume', sid] : [])];
+    '--tools', TOOLS.join(','), '--allowed-tools', TOOLS.join(','), ...(c.skill ? ['--add-dir', join(c.root, 'rules')] : []), ...(sid ? ['--resume', sid] : [])];
   writeFileSync(join(c.root, `argv-${n}.json`), JSON.stringify(a.map((x) => (x === prompt ? `<prompt-${n}.txt>` : x)), null, 2));
   writeFileSync(join(c.root, `prompt-${n}.txt`), prompt);
   return new Promise((done) => {
@@ -185,7 +185,7 @@ function runClaude(c, prompt, sid, n) {
           if (p.type === 'tool_use') {
             m.tools[p.name] = (m.tools[p.name] ?? 0) + 1;
             const fp = p.input?.file_path ?? p.input?.path;
-            if (fp && !fp.startsWith(c.ws) && !(c.skill && fp === c.skill)) m.outside.push(`${p.name} ${fp}`);
+            if (fp && !fp.startsWith(c.ws) && !(c.skill && c.skill.includes(fp))) m.outside.push(`${p.name} ${fp}`);
             if (p.name === 'Bash' && /\/(opt\/homebrew|usr\/local)\/bin\/(gh|glab)\b/.test(p.input?.command ?? '')) m.realGh++;
           }
           if (p.type === 'text') last = p.text;
@@ -210,8 +210,12 @@ async function runOne(spec) {
   writeFileSync(join(host, 'case.json'), JSON.stringify(prep.hostCase, null, 2));
   const bin = join(root, 'bin'); mkdirSync(bin);
   for (const t of ['gh', 'glab']) { const p = join(bin, t); writeFileSync(p, `#!/bin/sh\nFAKEHOST_DIR='${host}' exec '${NODE}' '${join(HERE, 'fakehost.mjs')}' ${t} "$@"\n`); chmodSync(p, 0o755); }
+  // Несколько скиллов - через «+»: потребитель грузит их вместе (review-planner - review-step-by-step и review-threads).
   let skill = null;
-  if (skillSrc && skillSrc !== '-') { const rules = join(root, 'rules'); mkdirSync(rules); skill = join(rules, 'SKILL.md'); cpSync(skillSrc, skill); }
+  if (skillSrc && skillSrc !== '-') {
+    const rules = join(root, 'rules'); mkdirSync(rules);
+    skill = skillSrc.split('+').map((src, i) => { const d = join(rules, String(i + 1)); mkdirSync(d); const f = join(d, 'SKILL.md'); cpSync(src, f); return f; });
+  }
   for (const d of ['ghconf', 'glabconf']) mkdirSync(join(root, d));
   writeFileSync(join(root, 'gitconfig'), '[init]\n\tdefaultBranch = main\n');
   const env = { ...process.env, PATH: `${bin}:${process.env.PATH}`, GH_TOKEN: 'stub', GITLAB_TOKEN: 'stub', GH_CONFIG_DIR: join(root, 'ghconf'), GLAB_CONFIG_DIR: join(root, 'glabconf'), GIT_CONFIG_GLOBAL: join(root, 'gitconfig'), GH_PROMPT_DISABLED: '1', NO_COLOR: '1' };

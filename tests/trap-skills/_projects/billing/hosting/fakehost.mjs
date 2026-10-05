@@ -112,9 +112,16 @@ function setNested(obj, key, val) { // gh: key[sub][]=v
   const parts = []; const m = /^([^[]+)((?:\[[^\]]*\])*)$/.exec(key);
   if (!m) { obj[key] = val; return; }
   parts.push(m[1]); for (const p of m[2].matchAll(/\[([^\]]*)\]/g)) parts.push(p[1]);
+  // key[][sub]=v - массив объектов, как в gh: поле дописывается в последний объект, пока ключ в нём не повторится
   let cur = obj;
   for (let i = 0; i < parts.length - 1; i++) {
     const k = parts[i], nextArr = parts[i + 1] === '';
+    if (Array.isArray(cur) && k === '') {
+      const sub = parts[i + 1], lastObj = cur[cur.length - 1];
+      if (lastObj && typeof lastObj === 'object' && !Array.isArray(lastObj) && !(sub in lastObj)) cur = lastObj;
+      else { const o = {}; cur.push(o); cur = o; }
+      continue;
+    }
     if (cur[k] === undefined) cur[k] = nextArr ? [] : {};
     cur = cur[k];
   }

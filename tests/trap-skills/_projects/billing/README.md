@@ -5,7 +5,7 @@
 [codebase-conventions](../../codebase-conventions/README.md) (группа 0),
 [review-evidence](../../review-evidence/README.md), [owasp-security](../../removed/owasp-security/README.md)
 и остальных скиллов группы 1.1, [review-threads](../../review-threads/README.md),
-[git-workflow](../../git-workflow/README.md) и [review-step-by-step](../../review-step-by-step/README.md)
+[git-workflow](../../removed/git-workflow/README.md) и [review-step-by-step](../../review-step-by-step/README.md)
 (группа 1.3). Файл - ключ для судьи, исполнителю не подаётся: `setup.sh` его в каталог прогона не
 копирует.
 
@@ -212,7 +212,7 @@ ADR-0005 - P для conventions. Законная находка вне скил
 ## Группа 1.3: хостинг, оператор, ключ
 
 Записано до первого прогона. Кейсы - вход наборов [review-threads](../../review-threads/README.md),
-[git-workflow](../../git-workflow/README.md) и [review-step-by-step](../../review-step-by-step/README.md).
+[git-workflow](../../removed/git-workflow/README.md) и [review-step-by-step](../../review-step-by-step/README.md).
 
 **Хостинг имитируется заглушками.** `hosting/run.mjs` кладёт в каталог прогона обёртки `bin/gh` и
 `bin/glab` первыми в `PATH` исполнителя; обе зовут `hosting/fakehost.mjs`, который пишет каждый вызов в

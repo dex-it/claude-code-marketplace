@@ -287,7 +287,7 @@ Skill не знает, какой агент его загрузит, не сс�
 - **Framework skill** - ловушки инструмента (EF Core, PyTorch, React, Docker). Категории: основные API + неочевидное поведение, lifecycle/scoping, performance traps, версионные отличия, интеграция с экосистемой.
 - **Pattern skill** - ловушки паттерна без привязки к инструменту (async/await, LINQ, logging, observability). Категории: типичные неправильные применения, пересечение с другими паттернами, performance/correctness trade-off'ы.
 - **Security skill** - категория уязвимостей. Категории: классы уязвимостей с примерами атак, как код становится уязвимым, trade-off безопасность<->удобство.
-- **Workflow skill** - процессные грабли (git-workflow, code review, release). Категории: этапы и их нарушения, coordination/handoff проблемы, что легко пропустить или сделать не в том порядке.
+- **Workflow skill** - процессные грабли (git, code review, release). Категории: этапы и их нарушения, coordination/handoff проблемы, что легко пропустить или сделать не в том порядке.
 
 ## Анти-паттерны
 

@@ -56,7 +56,6 @@ Bundle для полного цикла работы с кодом, языко-�
 - `dex-skill-solid` - нарушения SOLID
 - `dex-skill-testability` - тестируемость: внешний мир без шва для подмены в тесте
 - `dex-skill-clean-architecture` - слои, зависимости, транзакции
-- `dex-skill-git-workflow` - gitflow, conventional commits, code review
 - `dex-skill-codebase-conventions` - конвенции и словарь проекта
 - `dex-skill-ddd` - aggregate, value object, bounded context
 - `dex-skill-issue-tracking` - синхрон трекера задач с ходом работы: право двигать статус, решётка «взял/готово/влито», агрегат зонтика
