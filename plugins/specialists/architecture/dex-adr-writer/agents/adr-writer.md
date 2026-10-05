@@ -62,7 +62,6 @@ Understand Requirements -> [Context?] -> Generate -> Validate. Context -- опц
 
 - Для ловушек написания ADR (норма vs состояние кода, императив, замкнутость, источник требования, работа с файлом) -- `dex-skill-adr-quality:adr-quality`
 - Для проверки формата и стандартов документации -- `dex-skill-doc-standards:doc-standards`
-- Для валидации архитектурных паттернов в решении -- `dex-skill-clean-architecture:clean-architecture`
 
 ## Phase 3: Generate
 

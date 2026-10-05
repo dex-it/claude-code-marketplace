@@ -55,7 +55,6 @@ Bundle для полного цикла работы с кодом, языко-�
 - `dex-skill-review-step-by-step` - пошаговый разбор замечаний через апрув
 - `dex-skill-solid` - ответственность класса, мёртвые контракты, лишние абстракции
 - `dex-skill-testability` - тестируемость: внешний мир без шва для подмены в тесте
-- `dex-skill-clean-architecture` - структура solution и проектов слоёв
 - `dex-skill-git-workflow` - gitflow, conventional commits, code review
 - `dex-skill-codebase-conventions` - конвенции и словарь проекта
 - `dex-skill-ddd` - агрегат, имена контракта, bounded context

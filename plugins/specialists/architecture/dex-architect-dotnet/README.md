@@ -17,7 +17,6 @@ capacity, implementation-план и документацию ведёт выз�
 
 | Skill | Используется в фазах | Зачем |
 |-------|---------------------|-------|
-| `dex-skill-clean-architecture` | Phase 2, 4 (conditional) | Solution structure: feature slice, project cycles, Shared |
 | `dex-skill-ddd` | Phase 2, 4 (conditional) | Aggregates, naming, bounded contexts |
 | `dex-skill-cap-consistency` | Phase 3 | CAP/PACELC + cheatsheet |
 | `dex-skill-tech-evaluation` | Phase 3 | Vendor lock-in, license, hidden cost |

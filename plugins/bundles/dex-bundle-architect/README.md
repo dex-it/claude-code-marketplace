@@ -40,7 +40,6 @@ Bundle for Software Architects: architecture design, ADR, diagrams, API design, 
 - `dex-api-designer` - REST/GraphQL/gRPC API design
 
 ### Skills
-- `dex-skill-clean-architecture` - Clean Architecture patterns
 - `dex-skill-ddd` - Domain-Driven Design
 - `dex-skill-dotnet-api-development` - API development
 - `dex-skill-api-documentation` - API documentation

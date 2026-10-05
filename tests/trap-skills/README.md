@@ -37,6 +37,6 @@
 | [removed/output-hygiene](removed/output-hygiene/README.md) | `dex-skill-output-hygiene` 1.2.0 | текст для человека: ревью (H1), ответ в тред (H2) | снят; длинное тире вне набора и «ответ не с результата» - открыто |
 | [solid](solid/README.md) | `dex-skill-solid` 1.6.1 | ревью (A0, A1, A4); общий заход группы 1.2 | 16 ловушек и чек-лист -> 4 пункта: 1 признак, 3 названия |
 | [ddd](ddd/README.md) | `dex-skill-ddd` 1.6.2 | ревью (A1, A2, A3) | 27 ловушек и чек-лист -> 10 названий |
-| [clean-architecture](clean-architecture/README.md) | `dex-skill-clean-architecture` 1.4.1 | ревью (A2) | 20 ловушек и чек-лист -> 5 названий без кейса |
+| [removed/clean-architecture](removed/clean-architecture/README.md) | `dex-skill-clean-architecture` 1.4.1 | ревью (A2) | снят |
 | [removed/microservices](removed/microservices/README.md) | `dex-skill-microservices` 1.2.1 | ревью (A3), проектирование (D1, D2, D3) | снят |
 | [removed/distributed-resilience](removed/distributed-resilience/README.md) | `dex-skill-distributed-resilience` 1.0.1 | ревью (A3), проектирование (D2) | снят; R-f - названием в Phase 4 `architect`, `architect-dotnet` |

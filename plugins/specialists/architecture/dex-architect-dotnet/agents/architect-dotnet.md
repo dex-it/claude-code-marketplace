@@ -115,7 +115,6 @@ Read/Grep; полный обзор репо ведёт вызывающая ст
 
 В этой фазе загружай императивно через Skill tool:
 
-- Для модулярной структуры, слоёв - `dex-skill-clean-architecture:clean-architecture`
 - Для bounded contexts, aggregates - `dex-skill-ddd:ddd`
 - Для соответствия конвенциям существующего проекта - `dex-skill-codebase-conventions:codebase-conventions`
 
@@ -240,7 +239,6 @@ implementation-план вызывающей стороны не на чем с�
 - Для гигиены качества (Roslyn analyzers, warning-профиль, NuGet audit) - `dex-skill-dotnet-code-quality:dotnet-code-quality`
 - Если план предполагает создание нового проекта / сервиса - `dex-skill-project-baseline:project-baseline` (новый solution -> baseline по дефолту; проект в существующем solution -> наследовать его правила, недостающий гейт назвать и предложить, а завести после согласия владельца)
 - Для соответствия конвенциям проекта - `dex-skill-codebase-conventions:codebase-conventions`
-- Если значимая внутренняя структура / слои - `dex-skill-clean-architecture:clean-architecture`
 - Если доменная сложность требует aggregates / bounded contexts - `dex-skill-ddd:ddd`
 
 **Output (handoff):** поля словаря `node-contract`, первым - `status`; смысл и терминалы каждого поля -

@@ -33,7 +33,7 @@
 
 Pre-load: `dex-skill-node-contract` (рантайм-контракт узла, входная приёмка по метке).
 
-Императивно в Phase 2: `dex-skill-design-quality` - безусловно, когда документ дизайн (решение фичи целиком: драйверы, альтернативы, deep dive, план), в том числе когда ADR и спека лежат в нём разделами; на голом ADR, диаграмме или спеке контракта не грузится. По аспектам документа - `dex-skill-nfr`, `dex-skill-requirement-quality`, `dex-skill-adr-quality`, `dex-skill-doc-standards`; по стилю проекта - `dex-skill-cap-consistency`, `dex-skill-clean-architecture`, `dex-skill-ddd`. Контекст и дисциплина: `dex-skill-codebase-conventions`, `dex-skill-fact-verification`, `dex-skill-review-evidence`.
+Императивно в Phase 2: `dex-skill-design-quality` - безусловно, когда документ дизайн (решение фичи целиком: драйверы, альтернативы, deep dive, план), в том числе когда ADR и спека лежат в нём разделами; на голом ADR, диаграмме или спеке контракта не грузится. По аспектам документа - `dex-skill-nfr`, `dex-skill-requirement-quality`, `dex-skill-adr-quality`, `dex-skill-doc-standards`; по стилю проекта - `dex-skill-cap-consistency`, `dex-skill-ddd`. Контекст и дисциплина: `dex-skill-codebase-conventions`, `dex-skill-fact-verification`, `dex-skill-review-evidence`.
 
 ## Связанные плагины
 

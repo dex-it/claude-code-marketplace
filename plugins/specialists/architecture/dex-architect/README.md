@@ -19,7 +19,6 @@ security controls / observability. Требования, capacity, implementatio
 
 | Skill | Используется в фазах | Зачем |
 |-------|---------------------|-------|
-| `dex-skill-clean-architecture` | Phase 2, 4 (conditional) | Solution structure: feature slice, project cycles, Shared |
 | `dex-skill-ddd` | Phase 2, 4 (conditional) | Aggregates, naming, bounded contexts |
 | `dex-skill-cap-consistency` | Phase 3 | CAP/PACELC trade-offs, quorum, split-brain, clock skew, saga compensation + PACELC defaults cheatsheet |
 | `dex-skill-tech-evaluation` | Phase 3 | Hype-driven adoption, vendor lock-in, license, hidden cost, team expertise |

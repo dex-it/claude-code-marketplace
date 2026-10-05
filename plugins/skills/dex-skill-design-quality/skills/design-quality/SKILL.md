@@ -70,6 +70,5 @@ description: Дизайн-документ как артефакт - покры�
 > откат - `dex-skill-plan-quality`. Форма записи одного решения (drivers, considered options,
 > consequences, статус, supersede) - `dex-skill-adr-quality`. Контракт операции, коды ошибок, версионирование - оракул API-спеки.
 > Качество отдельного требования - `dex-skill-requirement-quality`, полнота набора против
-> источника - `dex-skill-requirement-set-quality`. Слои и зависимости, доменные границы,
-> распределённая консистентность - `dex-skill-clean-architecture`, `dex-skill-ddd`,
-> `dex-skill-cap-consistency`.
+> источника - `dex-skill-requirement-set-quality`. Доменные границы, распределённая
+> консистентность - `dex-skill-ddd`, `dex-skill-cap-consistency`.

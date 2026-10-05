@@ -85,7 +85,7 @@ skills:
 
 Skills грузи **по активным осям**: ось активна - грузится её skill, ось характером дельты не задета - ни фокуса, ни его skills; безусловная загрузка платит контекстом каждой ревизии. Ключ строки ниже - активная ось. Тематические (по теме оси, не по стеку):
 
-- `architecture` - дизайн классов и зависимостей: `dex-skill-solid:solid`; архитектура дельты: `dex-skill-clean-architecture:clean-architecture`, `dex-skill-ddd:ddd`, `dex-skill-nfr:nfr`
+- `architecture` - дизайн классов и зависимостей: `dex-skill-solid:solid`; архитектура дельты: `dex-skill-ddd:ddd`, `dex-skill-nfr:nfr`
 - `performance` - данные и запросы, работа в цикле, конкурентность, ресурсы горячего пути: `dex-skill-performance-review:performance-review`
 - `regressions` - тестируемость правленого кода (обращение к внешнему миру без шва для подмены в тесте): `dex-skill-testability:testability`
 

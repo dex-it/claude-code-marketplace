@@ -46,7 +46,7 @@ feature/<ветка>; задача - docs/tasks/<задача>. Подготов
 <DIR>/DESIGN.md. Код не пиши.» - с теми же ограничениями.
 
 **Наборы.** `c` - контроль без скилла; `n1` - названия ([solid](inputs/SKILL-n1.md),
-[ddd](../ddd/inputs/SKILL-n1.md), [clean-architecture](../clean-architecture/inputs/SKILL-n1.md))
+[ddd](../ddd/inputs/SKILL-n1.md), [clean-architecture](../removed/clean-architecture/inputs/SKILL-n1.md))
 поданы вместе, как ось `architecture` ревьюеров; `n2` - итоговая редакция: на ревью solid + ddd +
 clean-architecture, на проектировании ddd + clean-architecture (загрузка `architect`). По 2 прогона на
 кейс; третий контрольный (`a1-c3`, `a4-c3`, `d2-c3`) - добор на спорных единицах. `n3` - n2 без

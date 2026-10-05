@@ -94,7 +94,7 @@ Staff-уровневый ревьюер чужого MR/PR. Стек-нейтр�
 
 Загружай skills императивно через Skill tool **по активным осям**: ось активна - грузится её skill, ось карта Phase 2 не подняла - ни фокуса, ни его skills. Какая ось задета, решает характер diff, а не список «всегда»: безусловная загрузка платит контекстом каждого прогона. Ключ строки ниже - активная ось.
 
-- `architecture` - дизайн классов, ответственности и зависимостей: `dex-skill-solid:solid`; слоистая или CQRS-архитектура: `dex-skill-clean-architecture:clean-architecture`; доменный нейминг и агрегаты: `dex-skill-ddd:ddd`; затронутые NFR (лимиты, SLA, доступ): `dex-skill-nfr:nfr`
+- `architecture` - дизайн классов, ответственности и зависимостей: `dex-skill-solid:solid`; доменный нейминг и агрегаты: `dex-skill-ddd:ddd`; затронутые NFR (лимиты, SLA, доступ): `dex-skill-nfr:nfr`
 - `performance` - данные и запросы, работа в цикле, конкурентность, ресурсы горячего пути: `dex-skill-performance-review:performance-review`
 - `regressions` - тестируемость правленого кода (обращение к внешнему миру без шва для подмены в тесте): `dex-skill-testability:testability`
 
