@@ -1,6 +1,6 @@
 ---
 name: performance-review
-description: "Производительность при ревью diff - проверка наличия через счёт, запись или внешний вызов в цикле вместо пакета, копия буфера вместо среза. Активируется при performance review, slow query review, Count vs Any, CountAsync > 0, query in loop, запрос в цикле, вызов API в цикле, executemany, batch insert, пакетная запись, копия массива, Array.Copy, Span, срез буфера"
+description: "Производительность при ревью diff - проверка наличия через счёт, запись или внешний вызов в цикле вместо пакета, копия буфера вместо среза, синхронное ожидание внутри async. Активируется при performance review, slow query review, Count vs Any, CountAsync > 0, query in loop, запрос в цикле, вызов API в цикле, executemany, batch insert, пакетная запись, копия массива, Array.Copy, Span, срез буфера, sync over async, .Result, .Wait(), блокирующий вызов в async"
 ---
 
 # Производительность - ревью diff
@@ -8,3 +8,4 @@ description: "Производительность при ревью diff - пр
 - Наличие через `Count() > 0` вместо `Any()`, в том числе после `ToList()`
 - Запись или внешний вызов в цикле вместо пакета
 - Копия крупного массива или буфера вместо среза
+- Синхронный блокирующий вызов внутри async-метода

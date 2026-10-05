@@ -42,7 +42,9 @@ Skill tool в фазе: `mr-reviewer`, `mr-check-reviewer`, `self-reviewer` (о�
 
 Коды в `runs/`: `m-S1-c1`..`m-S1-c4`, `m-S2-c1`..`m-S2-c4` - контроль без скилла (вердикт);
 `m-S1-n1`..`m-S1-n4`, `m-S2-n1`, `m-S2-n2`, `m-E0-n1` - контроль с названиями ситуаций в осях агента
-([`inputs/AXES-named.md`](inputs/AXES-named.md), раздел «Возврат названиями»); `s1-c*`, `s2-c*` - первый
+([`inputs/AXES-named.md`](inputs/AXES-named.md), раздел «Возврат названиями»); `m-S1-d1`..`d4`, `m-S2-d1`,
+`d2` - строки осей `mr-reviewer` из `origin/develop` без названий ([`inputs/AXES-develop.md`](inputs/AXES-develop.md),
+CLI 2.1.289); `s1-c*`, `s2-c*` - первый
 заход, справочно.
 
 ## Перепрогон по ревью PR #314 (2026-10-05)
@@ -102,8 +104,21 @@ Bash, Read, Write, Edit, Grep, Glob. Каталог прогона - копия 
 | S2 | n1, n2 | - | все K S2, O1, O2 |
 | E0 | n1 | - | 3 minor, PA - minor (не blocker), ложных blocker/major нет |
 
-Название поднимает KT с 2/4 до 4/4 (строго - с 1/4 до 3/4). Дом - оси агентов ревью (решение 2026-10-05, тред PR #314): так же автор решил для R-f в PR #316 -
-название в агенте, без восстановления скилла ради одной ситуации.
+Название поднимает KT с 2/4 до 4/4 (строго - с 1/4 до 3/4).
+
+Вклад названия против вклада строк осей - те же промпты со строками осей `mr-reviewer` из
+`origin/develop` без названий (`d`): KT 3/4 по признаку, строго 3/4 (d2 - ни компании, ни BILL-30).
+Строго - столько же, сколько с названием: на четырёх прогонах вклад названия в KT от осей не
+отличается; по признаку - 3/4 против 4/4. Файлы различаются и строками Security, Performance, поэтому
+`d` против `n` мерит названия вместе с переписанными строками ветки. Прочие K S1, S2, O1, O2 - все,
+приманки чисты. «Нет тестов» вопреки RUL-0002 (BILL-21 тестов не требует) - `d3`, `d4` и `n2`-`n4`,
+в контроле 0/4: ложное приносит подача осей, а не названия. Название оставлено: решение владельца
+эпика (05.10.2026) - дом в агентах.
+
+Дом у прочих потребителей: `bug-finder` - название в зоне риска «безопасность»;
+`discover-reviewer` - `dex-skill-nfr` («Multi-tenant без tenant_id в schema»), который топик
+«Безопасность» грузит при multi-tenancy; `stand-reviewer` - нет, оси безопасности у приёмки на
+стенде нет. Названия у них прогонами не мерены.
 
 ## Бюджет правки
 
@@ -112,9 +127,9 @@ Bash, Read, Write, Edit, Grep, Glob. Каталог прогона - копия 
 | Носитель | До | После | Взамен |
 |---|---|---|---|
 | `owasp-security/SKILL.md` | 7344 симв., 122 строки | снят | 17 ловушек и чек-лист сняты, KT - названием в агентах |
-| `mr-reviewer.md` | 25160, 252 | 24427, 248 | строка загрузки снята; в Security +32 символа названия |
-| `self-reviewer.md` | 16462, 151 | 15952, 147 | то же, +32 |
-| `mr-check-reviewer.md` | 18254, 177 | 17803, 173 | то же, +54 |
+| `mr-reviewer.md` | 25160, 252 | 24427, 248 | строка загрузки снята; строка Security переписана, 203 -> 104 символа: сняты ownership по ID, injection, SSRF, path traversal, экранирование, логи без PII - контроль ловил их 4/4 (S1 KO, KL; S2 KQ, KC, KX); название - 32 символа из 104 |
+| `self-reviewer.md` | 16462, 151 | 15952, 147 | то же, Security 123 -> 104: сняты OWASP под стек, AuthN против AuthZ, crypto, экранирование, injection, SSRF, логи без PII - те же 4/4, crypto - S1 KH |
+| `mr-check-reviewer.md` | 18254, 177 | 17803, 173 | строка загрузки снята; в Output +54: «Security: в том числе мультиарендность задним числом» |
 | `security-reviewer.md` | 10418, 134 | 10311, 133 | строка «Всегда - owasp-security» |
 | прочие агенты, README, бандлы, `stack-registry`, `dotnet-api-development` | - | меньше | строки загрузки и ссылки на снятый скилл, числа - в таблице ниже |
 
@@ -126,15 +141,16 @@ README.
 ## Бюджет синхронизаций группы 1.1
 
 Все тронутые группой носители, кроме самих шести скиллов (их строки - в протоколах): символы и
-строки, `origin/develop` -> ветка. Рост - только у `completeness-mapping` (+8: ссылка на снятый
-`no-loose-ends` заменена исходом «дома нет, проверяй сам», остальная разница файла - замена длинного
-тире на ASCII без изменения длины). Строки осей агентов ревью возвращены к тексту develop, кроме
+строки, `origin/develop` -> ветка. Рост - только у `completeness-mapping` (+8: стрелки и `!=` в ASCII
+дают +9, ссылка на снятый `no-loose-ends` заменена исходом «дома нет, проверяй сам» - -1; длинное
+тире в ASCII длины не меняет). Строки осей агентов ревью возвращены к тексту develop, кроме
 Security, Performance и строки загрузки `regressions` (их предмет мерили S1, S2, A-D); названия,
 возвращённые по провалам контроля, - внутри этих чисел.
 
 | Носитель | До | После |
 |---|---|---|
 | `CLAUDE.md` | 29520, 147 | 29437, 147 |
+| `README.md` | 28646, 480 | 28571, 479 |
 | `docs/AGENT_FRAMEWORK.md` | 79242, 1017 | 79239, 1017 |
 | `docs/SKILL_FRAMEWORK.md` | 40645, 384 | 40612, 384 |
 | `docs/migration/claude5-context-inventory.md` | 7221, 74 | 7203, 74 |
@@ -167,7 +183,7 @@ Security, Performance и строки загрузки `regressions` (их пр�
 | `plugins/specialists/delivery/dex-review-planner/agents/review-planner.md` | 11956, 126 | 11912, 126 |
 | `plugins/specialists/delivery/dex-security-reviewer/agents/security-reviewer.md` | 10418, 134 | 10311, 133 |
 | `plugins/specialists/qa/dex-bug-finder/README.md` | 1487, 33 | 1459, 33 |
-| `plugins/specialists/qa/dex-bug-finder/agents/bug-finder.md` | 8365, 113 | 8281, 113 |
+| `plugins/specialists/qa/dex-bug-finder/agents/bug-finder.md` | 8365, 113 | 8314, 113 |
 | `plugins/specialists/review/dex-mr-check-reviewer/README.md` | 1479, 22 | 1451, 22 |
 | `plugins/specialists/review/dex-mr-check-reviewer/agents/mr-check-reviewer.md` | 18254, 177 | 17803, 173 |
 | `plugins/specialists/review/dex-mr-reviewer/README.md` | 2376, 27 | 2229, 27 |
@@ -177,5 +193,5 @@ Security, Performance и строки загрузки `regressions` (их пр�
 | `plugins/specialists/review/dex-self-reviewer/README.md` | 2108, 24 | 1962, 24 |
 | `plugins/specialists/review/dex-self-reviewer/agents/self-reviewer.md` | 16462, 151 | 15952, 147 |
 | `plugins/specialists/review/dex-stand-reviewer/README.md` | 1980, 32 | 1896, 32 |
-| `plugins/specialists/review/dex-stand-reviewer/agents/stand-reviewer.md` | 18806, 161 | 18586, 161 |
+| `plugins/specialists/review/dex-stand-reviewer/agents/stand-reviewer.md` | 18806, 161 | 18635, 161 |
 | `plugins/utilities/dex-codebase-analyzer/README.md` | 4554, 81 | 4533, 81 |
