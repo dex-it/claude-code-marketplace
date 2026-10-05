@@ -16,7 +16,7 @@
 
 ## Skills
 
-Тематические skills грузятся по активным осям (solid, performance-review, testability, clean-architecture, ddd, microservices, nfr и др.): ось не задета diff'ом - её skill не грузится. Профильные по стеку - через реестр `dex-skill-stack-registry` (единый способ для всех языко-агностичных агентов). Дисциплина фаз: `dex-skill-review-evidence`.
+Тематические skills грузятся по активным осям (solid, performance-review, testability, clean-architecture, ddd, nfr и др.): ось не задета diff'ом - её skill не грузится. Профильные по стеку - через реестр `dex-skill-stack-registry` (единый способ для всех языко-агностичных агентов). Дисциплина фаз: `dex-skill-review-evidence`.
 
 ## Связанные плагины
 

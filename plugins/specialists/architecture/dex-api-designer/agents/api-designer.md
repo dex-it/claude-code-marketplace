@@ -65,7 +65,6 @@ Analyze Constraints -> Propose Alternatives -> Decide -> [Document?]. Decide -- 
 В этой фазе загружай skills через Skill tool:
 
 - Для паттернов и ловушек API дизайна -- `dex-skill-api-specification:api-specification`
-- Для межсервисного взаимодействия, saga, async contracts -- `dex-skill-microservices:microservices`
 
 ## Phase 3: Decide
 

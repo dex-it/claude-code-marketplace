@@ -1,0 +1,140 @@
+---
+name: clean-architecture
+description: Clean Architecture — ловушки слоёв, зависимостей, транзакций. Активируется при clean architecture, onion, hexagonal, dependency rule, IQueryable, Domain layer, Application layer, MediatR, IUnitOfWork, IRepository, Feature Slice, God DbContext
+---
+
+# Clean Architecture — ловушки и anti-patterns
+
+## Нарушение Dependency Rule
+
+### Domain зависит от Infrastructure
+Плохо: `Domain.csproj` содержит `PackageReference` на `EntityFrameworkCore`
+Правильно: Domain проект без внешних зависимостей, только .NET BCL
+Почему: Domain становится привязан к ORM, невозможно заменить persistence без изменения бизнес-логики
+
+### Application → DbContext напрямую
+Плохо: `handler` инжектит `AppDbContext` и вызывает `context.Users.Where(...)`
+Правильно: инжектить `IUserRepository` / `IUnitOfWork`, реализация в Infrastructure
+Почему: Application знает про EF — при смене ORM/хранилища меняется Application слой вместо одного Infrastructure
+
+### Circular dependency между слоями
+Плохо: Infrastructure вызывает методы из Application (не через интерфейсы)
+Правильно: Infrastructure реализует интерфейсы, определённые в Application
+Почему: Circular reference между проектами → невозможно собрать, или скрытая связность через DI
+
+## Утечки абстракций
+
+### IRepository возвращает IQueryable
+Плохо: `IOrderRepository { IQueryable<Order> GetAll(); }`
+Правильно: `IOrderRepository { Task<List<Order>> GetByCustomerAsync(int customerId); }`
+Почему: клиент строит SQL через LINQ → привязка к конкретному провайдеру, невозможно заменить на API/файл/кэш. Тесты не могут мокать поведение IQueryable корректно
+
+### Domain entity выставляет persistence-детали
+Плохо: `public virtual ICollection<OrderItem> Items { get; set; }` — навигация EF в Domain
+Правильно: `private readonly List<OrderItem> _items; public IReadOnlyCollection<OrderItem> Items => _items.AsReadOnly();`
+Почему: `virtual` + setter = EF lazy loading протекает в Domain, бизнес-логика зависит от прокси
+
+### DTO используется как Domain model
+Плохо: один класс `UserDto` передаётся от Controller до Repository
+Правильно: отдельные модели на каждый слой: `CreateUserRequest` → `CreateUserCommand` → `User` entity → `UserResponse`
+Почему: изменение API контракта ломает Domain, изменение Domain ломает API. Связность между слоями через общую модель
+
+### Entity в параметрах Command / Query
+Плохо: `record UpdateOrderCommand(Order Order) : IRequest<Result>` — handler получает Aggregate целиком
+Правильно: `record UpdateOrderCommand(Guid OrderId, string ShippingAddress, string CustomerNote) : IRequest<Result>` — примитивы / специализированный record с 3-5 полями
+Почему: передача Entity тянет навигации (скрытый Include без запроса handler'а, N+1), привязывает контракт Command к схеме Entity (добавили navigation — сломали всех подписчиков MediatR pipeline), ломает attach/detach состояния между scope'ами EF (`InvalidOperationException` при обработке в другом scope), делает unit-тест handler'а невозможным без полного билдинга Aggregate. Command/Query — это контракт намерения, не контейнер для Entity
+
+### Repository возвращает Entity вместо проекции для read-моделей
+Плохо: `Task<List<Order>> GetOrdersForDashboardAsync()` → handler проецирует в DTO в памяти
+Правильно: `Task<List<OrderSummaryDto>> GetDashboardSummariesAsync()` — проекция на уровне Repository через `Select` в SQL
+Почему: read-сценарий (dashboard / отчёт / grid) требует 3-5 полей из 20+. Возврат Entity тянет всё + тянет Change Tracker (overhead). В CQRS read-сторона оптимизируется отдельно от write, и возврат Entity из read-методов ломает эту возможность
+
+### Специализированный метод репозитория при наличии specification-базового
+
+Плохо: в интерфейс репозитория добавляется ещё один узкий `GetBySomethingFilteredPagedAsync(...)`, хотя базовый уже принимает спецификацию (`ListAsync(ISpecification<T>)`), закрывающую тот же сценарий
+
+```csharp
+// Раздувает контракт — реализация нужна во всех mock-дублях:
+Task<List<OrderDto>> GetByCustomerFilteredPagedAsync(Guid customerId, int page);
+// Хорошо — выразить сценарий спецификацией над существующим методом:
+await repo.ListAsync(new OrdersByCustomerSpec(customerId, page));
+```
+
+Правильно: перед добавлением метода проверить, есть ли в базовом интерфейсе specification-параметр (`ISpecification<T>`), покрывающий сценарий; новый метод добавлять только если базовый его не выражает. `Expression`-предикат прямо в сигнатуре репозитория не протаскивать — это утечка деталей доступа к данным (см. ловушку про IQueryable выше)
+
+Почему: каждый новый метод интерфейса расширяет контракт, который обязаны реализовывать все mock-репозитории; specification инкапсулирует критерий как объект, переиспользуется и тестируется отдельно. Простые `GetByIdAsync` / `GetByCustomerAsync` остаются нормальными read-методами — ловушка про лишний узкий метод, дублирующий specification-базовый
+
+## Бизнес-логика не на своём месте
+
+### Логика в Controller
+Плохо: Controller проверяет баланс, рассчитывает скидку, сохраняет заказ
+Правильно: Controller → `Send(new CreateOrderCommand(...))` → Handler содержит логику
+Почему: логика дублируется между контроллерами, невозможно переиспользовать из другого entry point (gRPC, CLI, message handler)
+
+### Валидация в Domain вместо Application
+Плохо: `Order.Create()` проверяет что CustomerId существует в базе (делает запрос)
+Правильно: Handler проверяет существование через `ICustomerRepository`, затем вызывает `Order.Create()`
+Почему: Domain не должен зависеть от I/O. Domain валидирует инварианты (Amount > 0), Application — бизнес-правила с I/O
+
+### Логика в Infrastructure
+Плохо: `OrderRepository.CreateOrder()` содержит бизнес-расчёты и валидацию
+Правильно: Repository только CRUD, бизнес-логика в Domain/Application
+Почему: при смене хранилища теряется бизнес-логика. Тесты Infrastructure = тесты бизнеса
+
+### Расчёт, размазанный по нескольким вызовам в handler
+Плохо: `var raw = GetMetrics(id); var result = Calculate(raw);` — handler знает порядок шагов
+Правильно: `var result = CalculateFor(id);` — шаги инкапсулированы в одной операции
+Почему: handler, знающий порядок шагов расчёта, — утечка доменного алгоритма. При изменении формулы нужно найти все точки сборки, а не один метод
+
+## Транзакционные ловушки
+
+### Несколько SaveChangesAsync в Handler
+Плохо: `await _unitOfWork.SaveChangesAsync()` вызывается 2-3 раза в одном Handler
+Правильно: один `SaveChangesAsync()` в конце Handler (или через pipeline behavior)
+Почему: partial commit — при ошибке на втором save первый уже в БД, нет атомарности. Rollback невозможен
+
+### MediatR Handler вызывает другой Handler
+Плохо: `CreateOrderHandler` внутри вызывает `_mediator.Send(new UpdateInventoryCommand(...))`
+Правильно: один Handler = одна транзакция. Связь между операциями через Domain Events или Outbox
+Почему: вложенные Handler'ы — скрытые зависимости, неопределённый порядок выполнения, проблемы с транзакциями
+
+## Тестирование
+
+### Тестирование через HTTP вместо Unit
+Плохо: все тесты бизнес-логики через `WebApplicationFactory` + HTTP client
+Правильно: Unit тесты Domain (чистые), Unit тесты Handler'ов (мок репозитория), Integration через HTTP — только API контракт
+Почему: HTTP тесты медленные, хрупкие (ломаются при смене роутинга), не покрывают edge cases бизнес-логики
+
+### Mock всего дерева зависимостей
+Плохо: мокается 10 интерфейсов чтобы протестировать один Handler
+Правильно: Handler зависит от 1-3 интерфейсов. Если больше — нарушен SRP, нужен рефакторинг
+Почему: тест с 10 моками — сигнал что Handler делает слишком много. Тест хрупкий и нечитаемый
+
+## Структурные ошибки
+
+### Папка-на-слой вместо Feature Slice
+Плохо: `Application/Commands/`, `Application/Queries/`, `Application/Validators/` — 50 файлов в каждой папке
+Правильно: `Application/Orders/Create/`, `Application/Orders/Cancel/` — command + handler + validator рядом
+Почему: при 100+ use cases навигация по типу файла невозможна. Feature slice = всё для одной фичи в одной папке
+
+### God DbContext
+Плохо: один `AppDbContext` с 50+ DbSet — все Aggregate Root в одном контексте
+Правильно: bounded context = свой DbContext (`OrderDbContext`, `IdentityDbContext`)
+Почему: один контекст = одна огромная миграция, конфликты между командами, медленный startup (EF компилирует все модели)
+
+### Общий проект Shared/Common
+Плохо: проект `Shared` с утилитами, на который ссылаются все слои
+Правильно: каждый слой содержит свои вспомогательные классы, общие только абстракции (Domain.Primitives)
+Почему: Shared становится свалкой, любое изменение в нём пересобирает всё решение, нарушает принцип минимальных зависимостей
+
+## Чек-лист
+
+- Domain.csproj не имеет PackageReference (кроме Nullable, Annotations)
+- Application зависит только от Domain
+- Infrastructure реализует интерфейсы из Application
+- Controller только маршрутизирует (3-5 строк на action)
+- Один Handler = одна транзакция = один SaveChanges
+- IRepository НЕ возвращает IQueryable
+- Feature Slice структура (не папка-на-тип)
+- Параметры Command / Query — примитивы или специализированный record, не Entity
+- Read-сценарии возвращают проекционные DTO из Repository, не полные Entity

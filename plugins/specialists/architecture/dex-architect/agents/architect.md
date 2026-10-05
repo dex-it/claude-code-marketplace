@@ -125,9 +125,8 @@ constraints (команда, compliance, стек), `mode`, `quality-checks`. **
 
 - Для модулярной внутренней структуры, слоёв, зависимостей - `dex-skill-clean-architecture:clean-architecture`
 - Для доменной декомпозиции, aggregates, bounded contexts - `dex-skill-ddd:ddd`
-- Для распределённых систем, saga, outbox, service communication - `dex-skill-microservices:microservices`
 
-Skills знают anti-patterns (God aggregate, anemic domain, distributed monolith) - используй их для проверки предлагаемых вариантов на уже известные грабли.
+Skills называют известные грабли - используй их для проверки предлагаемых вариантов.
 
 ## Phase 3: Decide
 
@@ -194,10 +193,8 @@ Skills знают anti-patterns (God aggregate, anemic domain, distributed monol
 
 - Всегда `dex-skill-capacity-planning:capacity-planning` - read:write ratio, hot path, cache cost asymmetry
 - Всегда `dex-skill-scalability:scalability` - sharding key (hot partition, hash mod N, multi-tenant), stateless, cross-shard queries
-- Всегда `dex-skill-distributed-resilience:distributed-resilience` - concurrency (CAS, optimistic locking) и reliability (timeout, retry, idempotency, circuit breaker, bulkheads, health checks)
 - Всегда `dex-skill-api-specification:api-specification` - pagination, idempotency, versioning, ProblemDetails
 - Если рассматриваемое решение в области feed / chat / payment / search / notifications / rate-limiter - `dex-skill-reference-architectures:reference-architectures`
-- Если рассматриваемое решение использует распределённые pattern'ы - `dex-skill-microservices:microservices` (saga, outbox, circuit breaker, distributed monolith)
 - Если значимая внутренняя структура / слои - `dex-skill-clean-architecture:clean-architecture`
 - Если доменная сложность требует aggregates / bounded contexts - `dex-skill-ddd:ddd`
 

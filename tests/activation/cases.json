@@ -141,7 +141,7 @@
     "id": "clean-architecture-in",
     "mode": "in-scope",
     "expect": "dex-skill-clean-architecture:clean-architecture",
-    "prompt": "В доменном слое всплыл IQueryable и вызовы репозитория из контроллера. Как разложить по слоям и где держать транзакцию?"
+    "prompt": "Solution разросся: на все фичи общие папки Controllers, Services, Repositories, а проект Common тянут все слои, и он уже ссылается обратно на Application. Как перестроить структуру проектов?"
   },
   {
     "id": "contract-drift-in",
@@ -172,12 +172,6 @@
     "mode": "in-scope",
     "expect": "dex-skill-design-quality:design-quality",
     "prompt": "Вот дизайн-документ на новую подсистему. Оцени, годится ли он: покрывает ли требования и что в нём не решено."
-  },
-  {
-    "id": "distributed-resilience-in",
-    "mode": "in-scope",
-    "expect": "dex-skill-distributed-resilience:distributed-resilience",
-    "prompt": "Два инстанса одновременно списывают остаток и получается минус. Плюс сервис падает лавиной, когда сосед тормозит. Что делать?"
   },
   {
     "id": "doc-standards-in",
@@ -340,12 +334,6 @@
     "mode": "near-miss",
     "expect": "dex-skill-merge-conflict-resolution:merge-conflict-resolution",
     "prompt": "Перед сдачей хочу причесать свою ветку: сквошнуть пять коммитов в один, переписать сообщения по конвенции и запушить. Как сделать это безопасно?"
-  },
-  {
-    "id": "microservices-in",
-    "mode": "in-scope",
-    "expect": "dex-skill-microservices:microservices",
-    "prompt": "Дробим монолит на отдельные сервисы. Как провести границы, чем им ходить друг к другу и что делать с общей базой?"
   },
   {
     "id": "mongodb-in",

@@ -65,7 +65,7 @@ skill видны агенту **до** загрузки (тело SKILL.md - н�
 Часть skills не привязана к языку backend и грузится **по теме**, в дополнение к
 стековым, независимо от детектированного стека:
 
-- архитектура/принципы - `dex-skill-solid`, `dex-skill-clean-architecture`, `dex-skill-testability`, `dex-skill-nfr`, `dex-skill-microservices`, `dex-skill-distributed-resilience`;
+- архитектура/принципы - `dex-skill-solid`, `dex-skill-clean-architecture`, `dex-skill-testability`, `dex-skill-nfr`;
 - инфраструктура - `dex-skill-docker`, `dex-skill-kubernetes`, `dex-skill-observability`;
 - CI - `dex-skill-ci-gates` (минимум гейтов, платформо-агностично) плюс skill своей платформы (`dex-skill-github-actions`, `dex-skill-gitlab-ci`, `dex-skill-jenkins`, `dex-skill-teamcity`);
 - frontend/E2E - `dex-skill-react`, `dex-skill-playwright` (по теме «фронт/SPA/E2E», не по backend-стеку).
