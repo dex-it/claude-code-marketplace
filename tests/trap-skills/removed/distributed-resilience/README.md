@@ -85,9 +85,10 @@ Skill tool в фазе: `architect` и `architect-dotnet` (Phase 4, «всегд
 ## Открыто
 
 - «Ping без проверки зависимостей» кейсом не создан.
-- Дом названия R-f - агенты `architect`, `architect-dotnet` по образцу группы 1.1 (названия в осях
-  агентов); альтернатива - `dex-skill-dotnet-resilience` (#297), который `architect-dotnet` грузит
-  в Phase 4 «всегда». Вопрос в треде ревью PR #316.
+- Дом названия R-f - агенты `architect`, `architect-dotnet` (Failure modes Phase 4), решение ревьюера
+  в треде PR #316: в `dotnet-resilience` (#297) не переносится - там повторы HTTP-клиента, а фоновое
+  доигрывание пачки после простоя соседа - другая ситуация; ситуация стек-нейтральна, а
+  `dotnet-resilience` грузит только `architect-dotnet`.
 - Дубль с `dex-skill-dotnet-resilience` (circuit breaker, retry с jitter) - группа 2.2 (#297); здесь
   не трогался. Kubernetes-пробы и observability - вне группы.
 - `architect` и `architect-dotnet` грузили скилл «всегда» в Phase 4; загрузка снята целиком, как
