@@ -200,3 +200,189 @@ ADR-0005 - P для conventions. Законная находка вне скил
 | PS | P | `MoneySplit.Split` | статическая чистая функция - тестируема как есть |
 | PT | P | `InstallmentScheduleBuilder` | `TimeProvider` внедрён и подменяется в тесте |
 | O1 | O | `MoneySplit.Split`, тест `Split_...` | остаток - в последний платёж, задача требует в первый; тест закрепляет ошибку |
+
+## Группа 1.2: архитектура в диффе
+
+Кейсы скиллов `solid`, `clean-architecture`, `ddd`, `microservices`, `distributed-resilience`
+(эпик #291, #294). Ключ записан до первого прогона. Ветки - `branches/<имя>`, стадии `main` не
+тронуты.
+
+| Кейс | Ветка | Поручение |
+|---|---|---|
+| A0 | `feature/invoice-discount` | ревью MR: скидка на счёт (BILL-35); верный исход - ни одной находки в предмете скиллов группы |
+| A1 | `feature/subscriptions` | ревью MR: подписки (BILL-31) - доменная модель |
+| A2 | `feature/credit-notes` | ревью MR: кредит-ноты (BILL-33) - слои, EF Core + SQLite |
+| A3 | `feature/payment-webhooks` | ревью MR: оплата через PayGate (BILL-37) - межсервисная граница |
+| A4 | `feature/invoice-documents` | ревью MR: документы счёта (BILL-38), оплата через outbox |
+| D1 | `feature/collections-design` | проектирование: взыскание (BILL-40) |
+| D2 | `feature/wallet-payments-design` | проектирование: оплата с баланса Wallet (BILL-41) |
+
+**Межсервисная граница.** Billing - один сервис; A3 задаёт соседей (Notifications, CRM,
+Analytics, провайдер PayGate, общий Redis) и второй проект `Billing.Contracts`, D1 и D2 - соседей
+и их поведение текстом задачи. Ловушкам, которым нужен второй сервис, этого достаточно: ситуация
+(общая БД, синхронная цепочка, событие наружу, повтор вызова соседа) возникает на границе Billing
+с соседом.
+
+**Засчитывание.** K засчитан, если находка (ревью) или решение (проектирование) стоит в месте
+ключа и её исход снимает дефект или его симптом; слово ловушки не требуется, severity не важна.
+Порог-эвристика скилла («3+ зависимостей», «8+ методов», «50+ строк») судится по исходу:
+осознанное неприменение порога с причиной - не провал. P - провал, если находка требует правки
+с severity blocker или major. O - дефект вне скиллов группы, по нему видно сужение охвата. В
+проектировании K засчитан, если в DESIGN.md есть решение из перечня допустимых или ловушка явно
+отвергнута с причиной; молчание при ситуации из задачи - провал.
+
+Коды K - по скиллу-дому: S - `solid`, C - `clean-architecture`, D - `ddd`, M - `microservices`,
+R - `distributed-resilience`. Дубли шага 0 (#294) стоят у дома: анемичная модель, God DbContext -
+`ddd`; идемпотентность обработчика, событие несёт весь объект - `microservices`; circuit breaker,
+liveness - `distributed-resilience`; репозиторий с бизнес-логикой, бизнес-логика на конкретной
+инфраструктуре - `clean-architecture`; много зависимостей конструктора - `solid`.
+
+**A0.** Скидка: `Invoice.ApplyDiscount` проверяет инварианты в агрегате и возвращает `BillingError`
+(ADR-0002), хендлер по RUL-0003, `AmountDue` вычисляется, котировка берёт `AmountDue`.
+
+| Код | Класс | Место | Суть |
+|---|---|---|---|
+| PA | P | `ApplyDiscountRequest`, `InvoiceDiscountResult` | DTO на границе без поведения - не анемичная модель |
+| PH | P | `ApplyDiscountHandler` | тонкий хендлер по RUL-0003 - не лишняя обёртка |
+| PV | P | `ApplyDiscountValidator` только `> 0` | остальное - инварианты агрегата, разделение верно |
+| PQ | P | `QuoteInvoiceHandler` -> `FxRatesClient` | Application зависит от инфраструктуры - вне диффа, было в `main` |
+| O1 | O | `PayInvoiceHandler`, `CancelInvoiceHandler` | проводят `Amount`, а не `AmountDue`: оплата счёта со скидкой проводит полную сумму |
+
+**A1.** Подписки.
+
+| Код | Класс | Место | Суть | Допустимые решения |
+|---|---|---|---|---|
+| D-a | K ddd | `Subscription.LastInvoice`, `SuspendSubscriptionHandler` | подписка держит агрегат `Invoice` и отменяет его сама: мимо `CancelInvoiceHandler`, оплаченный счёт отменён без сторно | ссылка по id; отмена через хендлер счёта / событие; только `Issued` |
+| D-b | K ddd | `AddSubscriptionItemHandler`: `subscription.Items.Add` | мимо `AddItem`: лимит 20 позиций и `ItemsTotalMinor` обходятся | через метод корня; коллекция только для чтения |
+| D-h | K ddd | `Subscription.Status { get; set; }`, `ResumeSubscriptionHandler` | отменённая подписка возобновляется | переход методом агрегата с проверкой; проверка в хендлере |
+| D-e | K ddd | `SubscriptionItem.Owner`, `RecordUsage` -> `Owner.Suspend` | дочерняя сущность переводит корень: `Suspend` без проверки статуса, отменённая подписка становится приостановленной (и возобновляемой) | переход через корень с проверкой |
+| D-r | K ddd | `ISubscriptionItemRepository`, `RecordUsageHandler` | репозиторий для не-корня, изменение позиции мимо подписки | загрузка через `ISubscriptionRepository` |
+| D-d | K ddd | `Subscription.UsageHistory` | история использования растёт без границы внутри агрегата | отдельный агрегат / хранилище событий использования |
+| D-m | K ddd | `Price { get; set; }`, `PlanCatalog.Prices`, `ChangeItemPriceHandler` | мутабельный VO разделён по ссылке: смена цены одной подписки меняет каталог и все подписки | неизменяемый VO; копия при оформлении |
+| D-n | K ddd | `new BillingPeriod(command.EffectiveFrom, ...)`, `ChangeItemPriceValidator` | `EffectiveFrom` вне текущего периода не отвергается: доплата за прошлый период или отрицательная | проверка в конструкторе VO; проверка в валидаторе / хендлере |
+| D-l | K ddd | `PriceChangedAt = clock`, `SubscriptionView.PriceEffectiveFrom` | дата ввода показана как дата действия цены; `EffectiveFrom` не хранится | хранить дату действия отдельно |
+| D-j | K ddd | `UpdatedAt`: `AddItem`, `PriceChanged` ставят, `Suspend`, `Resume` - нет | отчёт «без изменений 90 дней» врёт для приостановленных и возобновлённых | все переходы ставят; один централизованный механизм |
+| D-k | K ddd | `RenewalRunStatus.CompletedWithErrors`, `RenewalJob` | ошибки продления не дают лог Error: алерт не поднимается | статус - исход, ошибки отдельно; Error-лог при `Errors > 0` |
+| D-f | K ddd | `ItemsTotalMinor`, `LastRenewalAttemptAt` | хранимое производное поле и поле без читателя | вычислять в проекции; удалить |
+| D-x | K ddd | `SubscriptionView.UsesLegacyPriceTable` | имя по реализации вместо значения («цена зафиксирована») | доменное имя |
+| D-u | K ddd | `ChangePriceRequest(Guid Id, Guid ItemId, long Value, DateOnly Date)` | generic-имена в контракте API | имена с доменным смыслом |
+| D-w | K ddd | `Application.Subscriptions.Invoice` | второй `Invoice` в контексте: черновик продления занял имя агрегата, в коде `Domain.Invoice` | другое имя |
+| D-z | K ddd | `ProrationService` singleton с полями `_period`, `_deltaPerPeriodMinor` | состояние доменного сервиса делится между запросами: гонка | без состояния; параметры в метод |
+| S-o | K solid | `Subscription.Renew(today)` в `GetDueSubscriptionsHandler` | имя-команда с bool в предикате превью сдвигает период: продление пропускает счёт | запрос отдельно от команды; имя-вопрос |
+| S-p | K solid | `ISubscriptionClock`, `SystemSubscriptionClock` | обёртка над `TimeProvider` в одну строку при уже внедрённом `TimeProvider` | убрать, брать `TimeProvider` |
+| S-d | K solid | `CreateSubscriptionRequest.MonthlyTotalMinor` | производное значение принимается снаружи: первый счёт на сумму клиента | вычислять из позиций |
+| PA | P | `SubscriptionView`, `CreateSubscriptionRequest` | DTO на границе | - |
+| PH | P | `GetSubscriptionHandler` | тонкий хендлер по RUL-0003 | - |
+| PB | P | `BillingPeriod` | неизменяемый `record` - находка «мутабельный VO» ложная (валидация - D-n) | - |
+| PE | P | `AddItem` возвращает `BillingError` | ADR-0002 | - |
+| O1 | O | `ProrationService.Calculate` | дни без последнего: `End - Start` против включительного `Days` | - |
+| O2 | O | `ProrationService.Calculate` | деление до умножения: доплата усекается, малая - до нуля | - |
+
+**A2.** Кредит-ноты.
+
+| Код | Класс | Место | Суть | Допустимые решения |
+|---|---|---|---|---|
+| C-a | K clean | `Domain/CreditNote.cs`: `[Table]`, `[Index]` из EF | домен привязан к ORM | маппинг Fluent API в Infrastructure |
+| C-e | K clean | `virtual ICollection<CreditNoteLine> Lines { get; set; }`, `ReplaceCreditNoteLinesHandler` | замена коллекции мимо корня: `TotalMinor` устаревает, выпуск проводит старую сумму | коллекция только для чтения, метод корня пересчитывает |
+| C-b | K clean | `IssueCreditNoteHandler`, `ReplaceCreditNoteLinesHandler` -> `BillingDbContext` | Application зависит от EF напрямую (сосед ходит через репозиторий) | через абстракцию репозитория / UoW |
+| C-d | K clean | `ICreditNoteRepository.Query()` -> `IQueryable`, `CustomerCreditNotesHandler` | запрос строится в Application, синхронный `ToList` | метод репозитория под сценарий |
+| C-h | K clean | `CreditNotesDashboardHandler` <- `ListIssuedAsync` | все ноты со строками в память ради сводки | проекция / агрегация в запросе |
+| C-g | K clean | `IssueCreditNoteCommand(Guid, Invoice)`, эндпоинт выпуска | сущность в команде: эндпоинт грузит счёт и передаёт `invoice!` - нет счёта -> 500 вместо 404 | id в команде, загрузка в хендлере |
+| C-f | K clean | `ReplaceCreditNoteLinesRequest(List<CreditNoteLine>)` | доменная сущность - тело запроса: клиент задаёт `Id`, `CreditNoteId` | DTO запроса |
+| C-j | K clean | эндпоинт выпуска: проверка суммы против счёта | правило в эндпоинте; импорт зовёт хендлер - лимит обходится | правило в хендлере / домене |
+| C-k | K clean | `CreditNote.CreateAsync(..., ICreditNoteRepository)` | домен делает I/O и зависит от Application | проверка лимита в хендлере |
+| C-l | K clean | `EfCreditNoteRepository.AddAsync`: правило одобрения | бизнес-правило в репозитории: правка строк черновика его не проходит, нота > 5000 выпускается без одобрения | правило в домене / хендлере выпуска |
+| C-m | K clean | шаги `Gross`/`Vat`/`RoundToMinor` в хендлере, `PreviewCreditNoteHandler` | порядок расчёта знает хендлер; превью усекает и расходится с выпуском на минорную единицу | одна операция расчёта |
+| C-n | K clean | `IssueCreditNoteHandler`: два `SaveChangesAsync` | частичная фиксация: нота выпущена без номера | одна единица работы |
+| C-o | K clean | `IssueCreditNoteHandler` -> `CancelInvoiceHandler` | вложенный хендлер, результат игнорирован; по оплаченному счёту сторно дважды (нота и отмена) | доменное событие / явный сценарий без двойной проводки |
+| D-o | K ddd | `events.PublishAsync` до `SaveChangesAsync` | подписчик не находит ноту: документ не формируется | публикация после фиксации / outbox |
+| PQ | P | `QuoteInvoiceHandler` -> `FxRatesClient` | вне диффа | - |
+| PD | P | `BillingDbContext` с тремя `DbSet` | не God DbContext | - |
+| PL | P | `CreditNoteListItem`, `CreditNotePreview` | DTO на границе | - |
+| O1 | O | `IssueCreditNoteHandler`: проверка только `Draft` | нота по отменённому счёту проходит | - |
+| O2 | O | `CreditNotesDashboardHandler`: `Month == query.Month` | год не учитывается | - |
+
+**A3.** PayGate.
+
+| Код | Класс | Место | Суть | Допустимые решения |
+|---|---|---|---|---|
+| M-f | K micro | `PaymentWebhookHandler`: повтор вебхука | нет дедупликации по `pspReference`: повтор зачисляет всю сумму на баланс | дедупликация по `pspReference`; идемпотентная обработка |
+| M-a | K micro | `CrmCustomerDirectory`: SQL к `sales.customers` | Billing читает БД CRM напрямую | API CRM / локальная копия по событиям |
+| M-g | K micro | `AnalyticsClient.PushInvoicePaidAsync(Invoice)` | наружу уходит доменный объект целиком, контракт `InvoicePaidV1` не использован | событие-контракт с нужными полями |
+| M-d | K micro | `Billing.Contracts.RetryReceiptCommand` | внутренняя команда в публичном пакете | внутрь сервиса |
+| M-j | K micro | `InvoicePaidV1` в outbox | ни один диспетчер его не публикует | публикатор outbox |
+| M-b | K micro, R-h | `PayFromBalanceHandler` -> `analytics.PushInvoicePaidAsync` синхронно | оплата зависит от Analytics; сбой после списания баланса -> 500 при изменённом состоянии | асинхронно / outbox; отказ Analytics не валит оплату |
+| M-l | K micro | `ReceiptRequested`, `LedgerPostingRequested`, логи диспетчеров | `pspReference` и контекст трассировки не идут через outbox и вызовы: цепочку по `pspReference` не найти | корреляционный id / traceparent в сообщениях и вызовах |
+| D-i | K ddd | `Receipt.Status = Sent` при постановке, `ReceiptOutboxDispatcher` пропускает `Sent` | квитанции не отправляются никогда, статус врёт | `Pending` при постановке |
+| D-v | K ddd | `Invoice.PspReference`, `PaymentEventCode` | имена провайдера в домене | имя локального словаря на границе |
+| R-j | K resilience | `/health/live`: проверки Ledger и Redis | сбой Ledger или Redis рестартит все поды | зависимости только в readiness |
+| R-d | K resilience | `NotificationsClient` POST + `AddStandardResilienceHandler` | стандартный обработчик повторяет POST (learn.microsoft.com, «retries for all HTTP methods»); `Idempotency-Key` не передан - дубли писем | `Idempotency-Key`; `DisableForUnsafeHttpMethods` |
+| R-a | K resilience | `RedisCustomerBalance.CreditAsync`: GET + SET | потерянное обновление между репликами | атомарная операция (`INCRBY`, Lua, транзакция с условием) |
+| R-c | K resilience | `TryDebitAsync`: `LockTake` на каждое списание | лок не защищает: `CreditAsync` и задача пишут без него; занятый лок отвечает «недостаточно средств» | атомарная операция с условием вместо лока |
+| R-b | K resilience | `ExpiredBalanceJob`: проверка `balance-topup`, затем `SET 0` | пополнение между проверкой и записью обнуляется | условная запись (CAS) |
+| PF | P | синхронный FX в вебхуке | ADR-0005: «кэш / локальная копия курса» ложно | - |
+| PO | P | проводка через outbox | ADR-0006 | - |
+| PR | P | `AddStandardResilienceHandler` у клиентов | ADR-0007 (находка про идемпотентность - R-d, не P) | - |
+| PC | P | `InvoicePaidV1` | плоский контракт верен | - |
+| O1 | O | `/webhooks/paygate` | подпись `X-PayGate-Signature` не проверяется | - |
+| O2 | O | `PaymentWebhookHandler` | неполный платёж оплачивает счёт | - |
+
+**A4.** Документы счёта, оплата через outbox.
+
+| Код | Класс | Место | Суть | Допустимые решения |
+|---|---|---|---|---|
+| S-f | K solid | `EuVatInvoiceRenderer.RenderHtml` -> `NotSupportedException` | HTML для стран ЕС - 500, задача требует оба формата | реализовать; разделить контракт |
+| S-g | K solid | `KzDocumentPolicy.Validate` | наследник ужесточает предусловие: выгрузка за день падает на счёте KZ с тиынами | не ужесточать; правило - вне политики документа |
+| S-k | K solid | `IDocumentTemplate.TemplateCode` (DIM), `EuVatInvoiceRenderer.TemplateCode` | через интерфейс берётся `default`: архив пишет неверный шаблон | обычный член интерфейса, `virtual`/`override`; ре-имплементация интерфейса |
+| S-l | K solid | `ILedgerGateway`, `LedgerPosting`, `AcmeLedgerGateway`, регистрация в `LedgerModule` | после перевода оплаты на outbox у них 0 потребителей | удалить в этом MR |
+| S-h | K solid | `IDocumentService`: 9 членов, потребителям нужны 1-2 | толстый интерфейс | узкие интерфейсы по потребителю |
+| S-a | K solid | `DocumentService`: рендер, архив, статистика, выгрузка, пеня | несколько причин изменения | разделить по ответственности |
+| S-c | K solid | `DocumentService.CalculateLateFeeMinor(Invoice, ...)` | расчёт по данным счёта живёт в сервисе документов | метод счёта / доменный расчёт |
+| S-b | K solid | `DocumentService.RenderAsync` | длинный метод со смешанными шагами | декомпозиция |
+| S-e | K solid | `InvoiceRenderers.For`, `DocumentLocales.For` | два `switch` по стране; BY добавлен в один - локаль BY по умолчанию | одна точка выбора по стране; добавить BY |
+| PO | P | `PayInvoiceHandler` через outbox | ADR-0006 | - |
+| PI | P | `IPdfConverter` с одним методом | узкий интерфейс | - |
+| PL | P | `IInvoiceRepository.ListByStatusAsync` | без потребителей уже в `main`, MR не трогает: blocker этого MR - провал | - |
+| O1 | O | `InMemoryDocumentArchive` по `InvoiceId` | HTML и PDF перезаписывают друг друга | - |
+| O2 | O | `RenderAsync`: отказ только `Cancelled` | документ по черновику выдаётся | - |
+
+**D1.** Проектирование взыскания.
+
+| Код | Класс | Ситуация в задаче | Распознано, если |
+|---|---|---|---|
+| M-t | K micro | продакт просит микросервис; 3 разработчика, нет DevOps, MVP за 6 недель, правила не устоялись | решение называет цену выделения при этой команде и сроке и выбирает модуль в Billing / откладывает выделение, либо выделяет с явным принятием этой цены |
+| M-c | K micro | предложение трёх сервисов: напоминания, пени, коллекторы | дробление отвергнуто с причиной |
+| M-a | K micro | «read-only пользователь к БД Billing» | доступ к чужой БД отвергнут: API / события / своя копия |
+| M-b | K micro | пеня в Ledger и в счёт Billing, письма, коллекторы | нет синхронной цепочки сервисов на пути одной операции; асинхронно или с изоляцией отказа |
+| M-h | K micro | оплата останавливает взыскание, пеня - в двух системах | названы компенсации или порядок шагов, при котором частичный сбой не оставляет расхождения |
+| M-f | K micro | Notifications - at-least-once | идемпотентность получателей / ключ дедупликации |
+| M-g | K micro | события между Billing и Collections | события несут идентификаторы и нужные поля, не сущность |
+| M-l | K micro | история взыскания по номеру счёта; трассировки нет | корреляционный id через события и вызовы |
+
+**D2.** Проектирование оплаты с баланса Wallet.
+
+| Код | Класс | Ситуация в задаче | Распознано, если |
+|---|---|---|---|
+| M-h | K micro | списание в Wallet, затем статус и проводка в Billing | компенсация (зачисление обратно) при сбое после списания или при уже оплаченном счёте |
+| M-i | K micro | две БД (Wallet, Billing) | распределённая транзакция отвергнута или не используется; согласованность сагой / outbox |
+| M-j | K micro | проводка и чек через outbox | у новых сообщений есть публикатор |
+| R-d | K resilience | Wallet принимает `Idempotency-Key` | ключ задан и стабилен между повторами одной оплаты |
+| R-e | K resilience | Wallet до 30-40 с | явный таймаут вызова Wallet и что при его истечении (состояние «неизвестно» -> сверка по ключу) |
+| R-f | K resilience | Wallet лежит минутами, пик ночью | повтор с нарастающей задержкой и разбросом; ночная пачка не долбит Wallet синхронно |
+| R-g | K resilience | инциденты Wallet до получаса | размыкатель цепи или эквивалент: быстрый отказ, пока Wallet лежит |
+| R-i | K resilience | котировки FX критичны, Wallet медленный | ресурсы вызовов Wallet изолированы от котировок (отдельный пул / лимит / вынос ночной пачки) |
+| R-h | K resilience | чек некритичен | сбой Notifications не валит оплату |
+| R-a | K resilience | ручная оплата и автосписание в одну минуту | условный переход статуса (версия / `WHERE status`) или ключ идемпотентности на счёт; не «проверил - записал» |
+| R-c | K resilience | задание на каждой реплике | одно исполнение: лок с арендой на задание, либо идемпотентность по счёту; не лок на каждое списание вместо условной записи |
+
+**Не мерены кейсом (`unverifiable`):** ситуации, которым нужен масштаб, которого в мини-проекте нет -
+папка-на-слой против feature slice (100+ сценариев), God DbContext (50+ `DbSet`), проект Shared/Common,
+циклическая ссылка проектов, тестирование только через HTTP и мок всего дерева (тестов задача не
+требует, RUL-0002), specification-база репозитория (в Billing её нет), несколько агрегатов в одной
+транзакции (вред - блокировки под нагрузкой). Вердикт по ним - «открыто».
+
+**Единицы без своей строки.** Анемичная модель (`ddd`, дом дубля) мерится строками D-h (A1: переход
+статуса в хендлере через публичный сеттер) и S-c (A4: расчёт по данным счёта в сервисе) - засчитана
+находка, переносящая переход или расчёт в сущность. Коллизия доменного термина (`ddd`) - строка D-w.
+«Запрос данных другого сервиса в реальном времени» (`microservices`) мерится только приманкой PF
+(A3): ситуации, где локальная копия верна, в кейсах нет - «открыто».
