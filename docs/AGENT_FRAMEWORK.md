@@ -860,7 +860,7 @@ Validate - mandatory, закрывается прогоном + сверкой �
 
 Имена фаз **нормативные**: стек-специфичные кодеры на одной канве, расходится только тело (идиомы языка). Имена и назначение совпадают дословно - страховка от пропуска при кросс-правке (правка одной оси применяется ко всем кодерам единообразно).
 
-**Study Project Context** грузит `dex-skill-codebase-conventions` (как читать конвенции соседей + ось ADR). Профильные по стеку skills - по реестру `dex-skill-stack-registry` в Generate, без зашитого списка.
+**Study Project Context** грузит `dex-skill-codebase-conventions` (гейт обоснования + ADR старше соседа). Профильные по стеку skills - по реестру `dex-skill-stack-registry` в Generate, без зашитого списка.
 
 **Референс:** `dex-dotnet-coder` и `dex-ts-fullstack-coder` - оба с Phase 0 Bootstrap (conditional): канва у стек-специфичных кодеров общая, включая стартовую фазу. Не Creator-рецепт: `dex-ef-specialist` (Operator под данные).
 
