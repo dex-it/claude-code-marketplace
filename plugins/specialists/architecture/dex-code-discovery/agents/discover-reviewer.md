@@ -76,8 +76,7 @@ Phase 1 и Phase 2 - это два прохода (Two-Pass): сначала Cla
 
 **Ось темы (язык-нейтральные skills, по топику).** Карта «топик -> skills» - грузить по релевантности топика, независимо от стека:
 
-- **Архитектура и слои** - `dex-skill-clean-architecture:clean-architecture`, `dex-skill-ddd:ddd`, `dex-skill-solid:solid`; если микросервисы - `dex-skill-microservices:microservices`
-- **Надёжность и устойчивость** - если распределённая система - `dex-skill-distributed-resilience:distributed-resilience`
+- **Архитектура и слои** - `dex-skill-ddd:ddd`, `dex-skill-solid:solid`
 - **Безопасность** - если есть NFR/multi-tenancy - `dex-skill-nfr:nfr`
 - **Данные и доступ** - если Mongo - `dex-skill-mongodb:mongodb` `[справочно]`; если Redis - `dex-skill-redis:redis` `[справочно]`; если Elasticsearch - `dex-skill-elasticsearch:elasticsearch` `[справочно]`
 - **Интеграции и контракты** - `dex-skill-api-specification:api-specification`; если OpenAPI/Swagger - `dex-skill-api-documentation:api-documentation`; если RabbitMQ - `dex-skill-rabbitmq:rabbitmq` `[справочно]`; если Kafka - `dex-skill-kafka:kafka` `[справочно]`
@@ -85,7 +84,7 @@ Phase 1 и Phase 2 - это два прохода (Two-Pass): сначала Cla
 - **Наблюдаемость** - `dex-skill-observability:observability`
 - **Производительность** - если про масштабирование - `dex-skill-scalability:scalability`, `dex-skill-capacity-planning:capacity-planning`
 - **Качество кода и тестируемость** - `dex-skill-testability:testability`, `dex-skill-solid:solid`, `dex-skill-codebase-conventions:codebase-conventions`; если про дизайн тестов - `dex-skill-test-design:test-design`
-- **Ключевая бизнес-логика** - `dex-skill-ddd:ddd`, `dex-skill-clean-architecture:clean-architecture`
+- **Ключевая бизнес-логика** - `dex-skill-ddd:ddd`
 
 **Ось стека (профильные skills, по реестру - без зашитого списка).** Сначала загрузи `dex-skill-stack-registry:stack-registry` (реестр стек->префикс и правило «стек × тема»). Определи стек проекта по манифестам, возьми из реестра префикс `dex-skill-<стек>-*`, отфильтруй по нему видимый список available-skills и сузь по назначенному топику. Грузи подмножество профильных skills под топик (например для .NET-проекта: надёжность -> `dotnet-async-patterns`/`dotnet-resilience`/`dotnet-resources`; данные -> `dotnet-ef-core`; конфигурация -> `dotnet-csproj-hygiene`/`dotnet-code-quality`; логирование -> `dotnet-logging`; тесты -> `dotnet-testing-patterns`; для фронта - `dex-skill-react:react` `[справочно]`, для Node - `dex-skill-ts-nodejs-api:ts-nodejs-api` `[справочно]`). Новый стек проекта = новые `dex-skill-<стек>-*` + строка реестра; этот агент при этом не правится.
 

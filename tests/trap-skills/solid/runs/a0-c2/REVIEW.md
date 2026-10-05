@@ -1,0 +1,1 @@
+src/Billing.Api/Application/Handlers/Invoices/PayInvoiceHandler.cs:18 - проводка и оплата по-прежнему берут invoice.Amount, а не invoice.AmountDue: счёт со скидкой проведёт в Ledger полную сумму, клиенту выставят больше согласованного, а к оплате/котировке и в проводке будут разные суммы - blocker

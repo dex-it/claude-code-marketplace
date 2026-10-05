@@ -115,9 +115,7 @@ Read/Grep; полный обзор репо ведёт вызывающая ст
 
 В этой фазе загружай императивно через Skill tool:
 
-- Для модулярной структуры, слоёв - `dex-skill-clean-architecture:clean-architecture`
 - Для bounded contexts, aggregates - `dex-skill-ddd:ddd`
-- Для распределённых решений (saga, outbox, distributed monolith) - `dex-skill-microservices:microservices`
 - Для соответствия конвенциям существующего проекта - `dex-skill-codebase-conventions:codebase-conventions`
 
 **Fact-check библиотек (условно, действует на Phase 2 и Phase 4):** триггер - конкретная
@@ -207,7 +205,8 @@ implementation-план вызывающей стороны не на чем с�
 - **Sharding / replication:** если QPS требует - multi-tenant via PostgreSQL schemas, read replicas
   via connection routing
 - **Failure modes:** что падает первым при росте 10×, как degrade gracefully (read-only mode, queue
-  back-pressure через MassTransit prefetch, circuit breaker на downstream)
+  back-pressure через MassTransit prefetch, circuit breaker на downstream); фоновые повторы пачки к
+  соседу после его простоя без разброса задержки
 - **Security controls:** где TLS / mTLS / encryption at rest (Azure SQL TDE, EF Core column
   encryption) / secrets (Key Vault через `Azure.Extensions.AspNetCore.Configuration.Secrets`) /
   audit log реализуется; tenant isolation в storage (RLS / schema-per-tenant) и cache (key prefix);
@@ -229,7 +228,6 @@ implementation-план вызывающей стороны не на чем с�
 
 - Всегда `dex-skill-capacity-planning:capacity-planning` - read:write ratio, hot path, cache cost asymmetry
 - Всегда `dex-skill-scalability:scalability` - sharding key, stateless, cross-shard queries
-- Всегда `dex-skill-distributed-resilience:distributed-resilience` - concurrency (CAS), reliability (timeout, retry, idempotency, circuit breaker, bulkheads, health checks)
 - Всегда `dex-skill-api-specification:api-specification` - pagination, idempotency, versioning, ProblemDetails
 - Всегда `dex-skill-dotnet-api-development:dotnet-api-development` - controllers, DTO, pagination, FluentValidation
 - Всегда `dex-skill-dotnet-resilience:dotnet-resilience` - Polly, retry с idempotency / jitter, circuit breaker, timeout
@@ -241,8 +239,6 @@ implementation-план вызывающей стороны не на чем с�
 - Для гигиены качества (Roslyn analyzers, warning-профиль, NuGet audit) - `dex-skill-dotnet-code-quality:dotnet-code-quality`
 - Если план предполагает создание нового проекта / сервиса - `dex-skill-project-baseline:project-baseline` (новый solution -> baseline по дефолту; проект в существующем solution -> наследовать его правила, недостающий гейт назвать и предложить, а завести после согласия владельца)
 - Для соответствия конвенциям проекта - `dex-skill-codebase-conventions:codebase-conventions`
-- Если рассматриваемое решение использует распределённые pattern'ы - `dex-skill-microservices:microservices`
-- Если значимая внутренняя структура / слои - `dex-skill-clean-architecture:clean-architecture`
 - Если доменная сложность требует aggregates / bounded contexts - `dex-skill-ddd:ddd`
 
 **Output (handoff):** поля словаря `node-contract`, первым - `status`; смысл и терминалы каждого поля -

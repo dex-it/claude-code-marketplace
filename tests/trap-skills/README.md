@@ -37,4 +37,9 @@
 | [removed/owasp-security](removed/owasp-security/README.md) | `dex-skill-owasp-security` 1.3.2 | ревью (S1, S2) | снят; multi-tenancy задним числом - названием в оси Security агентов ревью |
 | [removed/no-loose-ends](removed/no-loose-ends/README.md) | `dex-skill-no-loose-ends` 1.0.0 | ревью (S1, S2, S3), автор (F1) | снят; TODO без тикета, отключённый тест, debug-вывод - названиями в осях агентов ревью |
 | [removed/output-hygiene](removed/output-hygiene/README.md) | `dex-skill-output-hygiene` 1.2.0 | текст для человека: ревью (H1), ответ в тред (H2) | снят; длинное тире вне набора и «ответ не с результата» - открыто |
+| [solid](solid/README.md) | `dex-skill-solid` 1.6.1 | ревью (A0, A1, A4); общий заход группы 1.2 | 16 ловушек и чек-лист -> 4 пункта: 1 признак, 3 названия |
+| [ddd](ddd/README.md) | `dex-skill-ddd` 1.6.2 | ревью (A1, A2, A3) | 27 ловушек и чек-лист -> 10 названий |
+| [removed/clean-architecture](removed/clean-architecture/README.md) | `dex-skill-clean-architecture` 1.4.1 | ревью (A2) | снят |
+| [removed/microservices](removed/microservices/README.md) | `dex-skill-microservices` 1.2.1 | ревью (A3), проектирование (D1, D2, D3) | снят |
+| [removed/distributed-resilience](removed/distributed-resilience/README.md) | `dex-skill-distributed-resilience` 1.0.1 | ревью (A3), проектирование (D2) | снят; R-f - названием в Phase 4 `architect`, `architect-dotnet` |
 | [removed/git-workflow](removed/git-workflow/README.md) | `dex-skill-git-workflow` 1.2.1 | автор: коммит и push (W); повторное ревью (C, CB) | снят; конвенции - в свод правил проекта |

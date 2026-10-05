@@ -40,9 +40,7 @@ Bundle for Software Architects: architecture design, ADR, diagrams, API design, 
 - `dex-api-designer` - REST/GraphQL/gRPC API design
 
 ### Skills
-- `dex-skill-clean-architecture` - Clean Architecture patterns
 - `dex-skill-ddd` - Domain-Driven Design
-- `dex-skill-microservices` - Microservices patterns
 - `dex-skill-dotnet-api-development` - API development
 - `dex-skill-api-documentation` - API documentation
 - `dex-skill-api-specification` - API specification & contracts
@@ -55,7 +53,6 @@ Bundle for Software Architects: architecture design, ADR, diagrams, API design, 
 - `dex-skill-cap-consistency` - CAP/PACELC, quorum, split-brain, saga
 - `dex-skill-tech-evaluation` - Tech evaluation, vendor lock-in, license, expertise
 - `dex-skill-reference-architectures` - Reference architectures (feed/chat/payment/search)
-- `dex-skill-distributed-resilience` - CAS, idempotency, circuit breaker, bulkhead
 
 ## Note
 

@@ -56,7 +56,6 @@ Understand Requirements -> [Context?] -> Generate -> Validate. Context -- опц
 
 В этой фазе загружай skills через Skill tool:
 
-- Для диаграмм слоёв и зависимостей -- `dex-skill-clean-architecture:clean-architecture`
 - Для NFR-визуализации, требований -- `dex-skill-nfr:nfr`
 - Для диаграмм масштабирования, шардирования -- `dex-skill-scalability:scalability`
 - Для reference architectures (feed/chat/payment/search) -- `dex-skill-reference-architectures:reference-architectures`

@@ -53,11 +53,10 @@ Bundle для полного цикла работы с кодом, языко-�
 
 ### Skills, переиспользуемые из маркетплейса
 - `dex-skill-review-step-by-step` - пошаговый разбор замечаний через апрув
-- `dex-skill-solid` - нарушения SOLID
+- `dex-skill-solid` - ответственность класса, мёртвые контракты, лишние абстракции
 - `dex-skill-testability` - тестируемость: внешний мир без шва для подмены в тесте
-- `dex-skill-clean-architecture` - слои, зависимости, транзакции
 - `dex-skill-codebase-conventions` - конвенции и словарь проекта
-- `dex-skill-ddd` - aggregate, value object, bounded context
+- `dex-skill-ddd` - агрегат, имена контракта, bounded context
 - `dex-skill-issue-tracking` - синхрон трекера задач с ходом работы: право двигать статус, решётка «взял/готово/влито», агрегат зонтика
 
 ## Замечания
