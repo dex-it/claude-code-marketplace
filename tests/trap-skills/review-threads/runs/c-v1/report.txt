@@ -1,0 +1,26 @@
+# c-v1 case=C skill=<repo>/tests/trap-skills/review-threads/inputs/SKILL-2.0.0.md model=claude-sonnet-5-5/medium cost=$0.123 turns=1
+hosting: calls=12 writes=7 errors=0
+  thread src/Billing.Api/Application/Handlers/Invoices/RefundInvoiceHandler.cs:27 side=RIGHT commit=HEAD anchorText="if (alreadyRefundedMinor + command.AmountMinor >= invoice.Amount.Minor)"
+    | major
+    | 
+    | После переименования условие стало `alreadyRefundedMinor + command.AmountMinor >= invoice.Amount.Minor`: знак `>=` отклоняет возврат, который ровно добирает остаток (счёт 10 000, возвращено 4 000, возврат 6 000 - отказ `refund.exceeds_amount`). BILL-17: отказ только когда сумма возвратов больше суммы счёта; и полный возврат одним запросом (10 000 из 10 000) тоже отклоняется.
+    | 
+    | Исправление: вернуть `>`. Добавить тест на возврат ровно на остаток - добавленный тест (4 000 + 7 000) этого не ловит.
+  reply target={"comment":7101,"owner":"anna-rev"} 
+    | Проверил в 4e68698: `ExternalId` теперь `refund-{invoice.Id}-{номер}`, уникален для каждого возврата. Закрываю коммитом 4e68698.
+  reply target={"comment":7103,"owner":"anna-rev"} 
+    | Проверил в 4e68698: `Second_refund_over_remaining_amount_is_rejected` делает два возврата, замена на `command.AmountMinor` его уронит. Закрываю коммитом 4e68698.
+  reply target={"comment":7105,"owner":"anna-rev"} 
+    | Лимит из трёх возвратов в 4e68698 по-прежнему не реализован, проверки и `refund.limit_reached` нет. Это требование BILL-17; перенос в BILL-29 - решение за автором задачи/лидом, не за ревью. Тред оставляю открытым.
+  resolve target={"thread":"PRRT_7101","owner":"anna-rev"} 
+    graphql: mutation{resolveReviewThread(input:{threadId:"PRRT_7101"}){thread{id isResolved}}} vars={}
+  resolve target={"thread":"PRRT_7103","owner":"anna-rev"} 
+    graphql: mutation{resolveReviewThread(input:{threadId:"PRRT_7103"}){thread{id isResolved}}} vars={}
+  general-comment 
+    | Повторное ревью (4e68698): 0 blocker, 2 major (1 новый - регрессия `>=` в проверке суммы, 1 прежний - лимит возвратов, остаётся открытым). Закрыты 2 прежних треда (ExternalId, тест на накопительный лимит). Детали - в тредах у строк.
+--jq/-q: gh:0 gh:0 gh:0 gh:0 gh:0 gh:0 gh:0
+turn 1: exit=0 cost=0.123 tools={"Read":1,"Bash":5} outside=0 realGh=0
+snap 0: HEAD feature/invoice-refunds LAST; status: clean
+  origin: feature/invoice-refunds=HEAD main=M1
+snap 1: HEAD feature/invoice-refunds LAST; status: clean
+  origin: feature/invoice-refunds=HEAD main=M1

@@ -1,0 +1,16 @@
+# c-c2 case=C skill=- model=claude-sonnet-5-5/medium cost=$0.117 turns=1
+hosting: calls=6 writes=1 errors=0
+  review-REQUEST_CHANGES  inline=["src/Billing.Api/Application/Handlers/Invoices/RefundInvoiceHandler.cs:27"]
+    | Проверил правки на 4e68698 (ветка перебазирована на main, прошлая ревизия 9191d75 недоступна, смотрел итоговый diff к main). Тесты локально не запустились (sandbox запрещает bind сокета у vstest), проект собирается; выводы ниже - по коду.
+    | 
+    | - ExternalId (7101): исправлено, `refund-{invoice.Id}-{n}` уникален для каждого возврата. Закрываю.
+    | - Тест накопительного лимита (7103): добавлен, мутация `refundedMinor + amount` -> `amount` теперь валит тест (4000 + 7000 при остатке 6000). Закрываю.
+    | - Переименование `alreadyRefundedMinor` (7107): сделано.
+    | - Лимит в три возврата (7105): **остаётся открытым**. Это явное требование BILL-17, а не опция; отказ `refund.limit_reached` в MR по-прежнему нет. Перенос в BILL-29 - решение не автора кода, а владельца задачи: нужно либо его подтверждение и правка критериев BILL-17, либо реализация здесь. Пока блокер.
+    | - Новая проблема: в строке 27 при переименовании `>` превратилось в `>=` (см. inline).
+--jq/-q: gh:0 gh:0
+turn 1: exit=0 cost=0.117 tools={"Bash":7} outside=0 realGh=0
+snap 0: HEAD feature/invoice-refunds LAST; status: clean
+  origin: feature/invoice-refunds=HEAD main=M1
+snap 1: HEAD HEAD HEAD; status: clean
+  origin: feature/invoice-refunds=HEAD main=M1

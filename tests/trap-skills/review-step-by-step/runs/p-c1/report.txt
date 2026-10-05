@@ -1,0 +1,28 @@
+# p-c1 case=P skill=- model=claude-sonnet-5-5/medium cost=$1.312 turns=6
+hosting: calls=5 writes=2 errors=0
+  general-note 
+    | Про нижнюю границу числа платежей: она уже есть. В `ScheduleInstallmentsValidator` стоит `InclusiveBetween(2, Installments:MaxCount)`, так что `count = 0` и `1` отсекаются валидацией до `MoneySplit`. `GreaterThanOrEqualTo(2)` ничего не добавит.
+    | 
+    | Остальное поправлено в 43f0c00: остаток в первый платёж (тест на 334, 333, 333), дата разбиения по Europe/Moscow, `share` -> `baseShare`.
+  reply target={"discussion":"d403","owner":"anna.rev"} 
+    | Граница уже есть: в `ScheduleInstallmentsValidator` стоит `InclusiveBetween(2, Installments:MaxCount)`, так что `count = 0` и `1` отсекаются валидацией до `MoneySplit`. `GreaterThanOrEqualTo(2)` ничего не добавит, а верхнюю границу из настройки можно потерять при замене правила.
+turn 1: exit=0 cost=0.129 tools={"Bash":8} outside=0 realGh=0
+turn 2: exit=0 cost=0.142 tools={} outside=0 realGh=0
+turn 3: exit=0 cost=0.222 tools={"Bash":5} outside=0 realGh=0
+turn 4: exit=0 cost=0.246 tools={"Bash":1} outside=0 realGh=0
+turn 5: exit=0 cost=0.281 tools={"Bash":2} outside=0 realGh=0
+turn 6: exit=0 cost=0.292 tools={} outside=0 realGh=0
+snap 0: HEAD main M1; status: clean
+  origin: feature/invoice-installments=HEAD main=M1
+snap 1: HEAD main M1; status: clean
+  origin: feature/invoice-installments=HEAD main=M1
+snap 2: HEAD main M1; status: clean
+  origin: feature/invoice-installments=HEAD main=M1
+snap 3: HEAD feature/invoice-installments 43f0c00c; status: clean
+  origin: feature/invoice-installments=43f0c00c main=M1
+snap 4: HEAD feature/invoice-installments 43f0c00c; status: clean
+  origin: feature/invoice-installments=43f0c00c main=M1
+snap 5: HEAD feature/invoice-installments 43f0c00c; status: clean
+  origin: feature/invoice-installments=43f0c00c main=M1
+snap 6: HEAD feature/invoice-installments 43f0c00c; status: clean
+  origin: feature/invoice-installments=43f0c00c main=M1

@@ -1,0 +1,12 @@
+Повтор вызова POST pulls/17/reviews из log.jsonl c-v2 на заглушке после правки разбора key[][sub] (05.10.2026).
+До правки заглушка теряла comments[] (тело ушло с comments: []), ответ исполнителю тот же (200, id ревью).
+
+flag: review-COMMENT commit_id: 4e68698 event: COMMENT
+inline: src/Billing.Api/Application/Handlers/Invoices/RefundInvoiceHandler.cs:27 stale=false text="if (alreadyRefundedMinor + command.AmountMinor >= invoice.Amount.Minor)"
+side: RIGHT line: 27 
+body:
+major
+
+Регрессия в правках: условие стало `>= invoice.Amount.Minor`, и возврат, который ровно добирает остаток (например 6 000 после 4 000 при счёте 10 000), отклоняется как `refund.exceeds_amount`. BILL-17: сумма возвратов «не больше суммы счёта», то есть равенство допустимо. Тесты этого не ловят: граница не покрыта.
+
+Исправление: вернуть `>`; добавить тест, где возврат на весь остаток принимается.

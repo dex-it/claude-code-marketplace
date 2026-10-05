@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "6.9.0",
+  "version": "6.10.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -149,7 +149,7 @@
       "name": "dex-bug-fixer",
       "source": "./plugins/specialists/delivery/dex-bug-fixer",
       "description": "Пакетная ремедиация найденных тестировщиком багов после мерджа: интейк находок, триаж и приоритет, подтверждение причины по одному, фикс на источнике через follow-up MR, верификация red->green на стенде, регрессия соседей; финиш на локальных коммитах без push.",
-      "version": "1.10.0",
+      "version": "1.11.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -179,7 +179,7 @@
       "name": "dex-bundle-architect",
       "source": "./plugins/bundles/dex-bundle-architect",
       "description": "Бандл для архитектора: интерактивный system design, ADR, диаграммы, проектирование API, анализ кодовой базы, безопасность, наблюдаемость.",
-      "version": "1.26.0",
+      "version": "1.27.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -194,7 +194,7 @@
       "name": "dex-bundle-bug-lifecycle",
       "source": "./plugins/bundles/dex-bundle-bug-lifecycle",
       "description": "Bundle жизненного цикла бага: активный поиск, оформление, расследование корневой причины на общем стенде и фикс на источнике, плюс skills методологии RCA и поиска багов и CLI для чтения стенда и трекера.",
-      "version": "1.28.0",
+      "version": "1.29.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -223,7 +223,7 @@
       "name": "dex-bundle-code-review",
       "source": "./plugins/bundles/dex-bundle-code-review",
       "description": "Бандл жизненного цикла кода: языко-агностичное ревью MR/PR, повторное ревью после правок, план правок, реализация фичи, подтягивание базовой ветки с разрешением конфликтов, саморевью перед push, приёмка слитой фичи на стенде с ремедиацией, расследование инцидента, плюс скиллы дисциплины ревью.",
-      "version": "1.40.0",
+      "version": "1.41.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -251,7 +251,7 @@
       "name": "dex-bundle-dotnet-developer",
       "source": "./plugins/bundles/dex-bundle-dotnet-developer",
       "description": "Бандл для .NET-разработчика: написание кода, отладка, тесты, code review, EF Core, производительность, интерактивный дизайн .NET-архитектуры.",
-      "version": "2.35.0",
+      "version": "2.36.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -263,7 +263,7 @@
       "name": "dex-bundle-dotnet-fullstack",
       "source": "./plugins/bundles/dex-bundle-dotnet-fullstack",
       "description": "Полный бандл для .NET fullstack: разработка, базы данных, брокеры сообщений, контейнеры, CI/CD, мониторинг, интерактивный дизайн архитектуры.",
-      "version": "2.36.0",
+      "version": "2.37.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -330,7 +330,7 @@
       "name": "dex-bundle-qa-engineer",
       "source": "./plugins/bundles/dex-bundle-qa-engineer",
       "description": "Бандл для QA-инженера: тест-анализ, автоматизация (включая E2E на Playwright), активный поиск багов, баг-репорты.",
-      "version": "1.20.0",
+      "version": "1.21.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -373,7 +373,7 @@
       "name": "dex-bundle-ts-fullstack",
       "source": "./plugins/bundles/dex-bundle-ts-fullstack",
       "description": "Бандл для TypeScript fullstack: бэкенд на Node.js/Bun и фронтенд на React, безопасность, Docker, E2E на Playwright.",
-      "version": "1.33.0",
+      "version": "1.34.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -1006,7 +1006,7 @@
       "name": "dex-mr-check-reviewer",
       "source": "./plugins/specialists/review/dex-mr-check-reviewer",
       "description": "Узел ре-ревью дельты MR/PR после правок автора: range-diff дельты, статус прежних находок, новые находки только в дельте, обновление существующих тредов и публикация новых, по поручению - разметка новых находок типом. Вызывается на повторных ревизиях командой /mr-review (плагин dex-mr-reviewer), своего командного входа не имеет.",
-      "version": "3.2.0",
+      "version": "3.3.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1023,7 +1023,7 @@
       "name": "dex-mr-reviewer",
       "source": "./plugins/specialists/review/dex-mr-reviewer",
       "description": "Языко-агностичный узел первичного ревью чужого MR/PR: карта изменений, параллельные фокусы, фальсификация находок, severity/confidence/scope, доставка инлайн-тредами через gh/glab. По поручению входа - разметка находок типом в первой строке треда. Точка входа - команда /mr-review, едет в этом же плагине.",
-      "version": "3.3.0",
+      "version": "3.4.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1549,7 +1549,7 @@
       "name": "dex-skill-change-correlation",
       "source": "./plugins/skills/dex-skill-change-correlation",
       "description": "Корреляция симптома с изменениями: окно вокруг момента начала, образ стенда против коммита, тайминг, изоляция нескольких изменений, git bisect first-parent.",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -1992,21 +1992,6 @@
       ]
     },
     {
-      "name": "dex-skill-git-workflow",
-      "source": "./plugins/skills/dex-skill-git-workflow",
-      "description": "Git workflow: стратегия ветвления, конвенции коммитов, code review, merge request, разрешение конфликтов.",
-      "version": "1.2.1",
-      "category": "skill",
-      "keywords": [
-        "skill",
-        "git",
-        "branching",
-        "commits",
-        "code-review",
-        "merge-request"
-      ]
-    },
-    {
       "name": "dex-skill-github-actions",
       "source": "./plugins/skills/dex-skill-github-actions",
       "description": "GitHub Actions: ловушки workflow, безопасность токенов и pull_request_target, кэширование, matrix-сборки, self-hosted раннеры.",
@@ -2189,7 +2174,7 @@
       "name": "dex-skill-merge-conflict-resolution",
       "source": "./plugins/skills/dex-skill-merge-conflict-resolution",
       "description": "Протокол подтягивания базовой ветки и разрешения конфликтов merge/rebase без тихой потери стороны: якоря и точка отката, превью без записи, семантические конфликты без маркеров, ours/theirs в rebase, переезды, генерируемое, верификация обеих дельт. Команда /resolve-conflicts.",
-      "version": "2.0.0",
+      "version": "2.0.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2689,8 +2674,8 @@
     {
       "name": "dex-skill-review-step-by-step",
       "source": "./plugins/skills/dex-skill-review-step-by-step",
-      "description": "Code review - пошаговое ревью с разбором каждого пункта через апрув.",
-      "version": "1.4.2",
+      "description": "Разбор замечаний ревью по одному пункту с решением оператора: суть и вердикт до решения, правка, коммит и push только по команде, соседние использования механизма - оператору.",
+      "version": "2.0.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2708,8 +2693,8 @@
     {
       "name": "dex-skill-review-threads",
       "source": "./plugins/skills/dex-skill-review-threads",
-      "description": "Инлайн-доставка ревью: один тред на находку, привязка к строке через нативный API gh/glab, severity в первой строке, overview без дублирования тредов, протокол resolve, чужие треды не трогать.",
-      "version": "1.1.0",
+      "description": "Доставка ревью в MR/PR: тред на нарушение у его строки, severity первой строкой, overview без пересказа находок, ответ по прежней находке в её тред, resolve после ответа, только свои треды, запись по разрешению.",
+      "version": "2.0.0",
       "category": "skill",
       "keywords": [
         "skill",

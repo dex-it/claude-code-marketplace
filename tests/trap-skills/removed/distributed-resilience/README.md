@@ -88,7 +88,7 @@ Skill tool в фазе: `architect` и `architect-dotnet` (Phase 4, «всегд
 - Дом названия R-f - агенты `architect`, `architect-dotnet` (Failure modes Phase 4), решение ревьюера
   в треде PR #316: в `dotnet-resilience` (#297) не переносится - там повторы HTTP-клиента, а фоновое
   доигрывание пачки после простоя соседа - другая ситуация; ситуация стек-нейтральна, а
-  `dotnet-resilience` грузит только `architect-dotnet`.
+  из двух архитекторов `dotnet-resilience` грузит только `architect-dotnet`.
 - Дубль с `dex-skill-dotnet-resilience` (circuit breaker, retry с jitter) - группа 2.2 (#297); здесь
   не трогался. Kubernetes-пробы и observability - вне группы.
 - `architect` и `architect-dotnet` грузили скилл «всегда» в Phase 4; загрузка снята целиком, как
