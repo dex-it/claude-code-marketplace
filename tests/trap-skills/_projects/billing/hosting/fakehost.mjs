@@ -67,8 +67,9 @@ const fileAt = (sha, path) => { try { return git('show', `${sha}:${path}`).split
 
 // ---------- разбор аргументов api ----------
 function parseApi(args, flavor) {
-  const r = { method: null, fields: [], raw: [], headers: [], input: null, jq: null, paginate: false, include: false, silent: false, endpoint: null, output: 'json', hostname: null };
-  const takes = new Set(['-X', '--method', '-f', '--raw-field', '-F', '--field', '-H', '--header', '--input', '--hostname', '--output', '--form']);
+  const r = { method: null, fields: [], raw: [], form: [], headers: [], input: null, jq: null, paginate: false, include: false, silent: false, endpoint: null, output: 'json', hostname: null };
+  const takes = new Set(['-X', '--method', '-f', '--raw-field', '-F', '--field', '-H', '--header', '--input', '--hostname', '--output']);
+  if (flavor === 'glab') takes.add('--form');
   if (flavor === 'gh') ['-q', '--jq', '-t', '--template', '--cache', '-p', '--preview'].forEach((x) => takes.add(x));
   const known = new Set([...takes, '--paginate', '-i', '--include', '--silent', '-h', '--help', '--verbose', '--slurp']);
   for (let i = 0; i < args.length; i++) {
@@ -84,6 +85,7 @@ function parseApi(args, flavor) {
         case '-F': case '--field': r.fields.push(v); break;
         case '-H': case '--header': r.headers.push(v); break;
         case '--input': r.input = v; break;
+        case '--form': r.form.push(v); break;
         case '-q': case '--jq': r.jq = v; break;
         case '--paginate': r.paginate = true; break;
         case '-i': case '--include': r.include = true; break;
@@ -136,6 +138,7 @@ function buildParams(r, flavor) {
     v = v.startsWith('@') ? readAt(v) : typed(v, flavor);
     flavor === 'gh' ? setNested(params, k, v) : (params[k] = v);
   }
+  for (const f of r.form) { const i = f.indexOf('='); const k = i < 0 ? f : f.slice(0, i); const v = i < 0 ? '' : f.slice(i + 1); setNested(params, k, v.startsWith('@') ? readAt(v) : v); }
   return params;
 }
 
@@ -191,9 +194,9 @@ function glApi(r) {
   let body = {};
   if (r.input) body = JSON.parse(r.input === '-' ? readStdin() : readFileSync(r.input, 'utf8'));
   const params = buildParams(r, 'glab');
-  const hasBody = r.fields.length + r.raw.length > 0 || r.input;
+  const hasBody = r.fields.length + r.raw.length + r.form.length > 0 || r.input;
   const method = r.method ?? (hasBody ? 'POST' : 'GET');
-  if (method === 'GET') Object.assign(query, params); else Object.assign(body, r.input ? query : {}, params);
+  if (method === 'GET' || r.input) Object.assign(query, params); else Object.assign(body, params);
   entry.req = { method, path, query, body };
   const pid = String(CASE.project.id), iid = String(CASE.mr.iid);
   const seg = path.split('/').filter(Boolean);
@@ -341,7 +344,7 @@ function ghApi(r) {
   const query = Object.fromEntries(new URLSearchParams(qs ?? ''));
   const hasFields = r.fields.length + r.raw.length > 0;
   const method = r.method ?? (hasFields || r.input ? 'POST' : 'GET');
-  if (method === 'GET') Object.assign(query, params); else Object.assign(body, params);
+  if (method === 'GET' || r.input) Object.assign(query, params); else Object.assign(body, params);
   entry.req = { method, path, query, body };
   const send = (status, obj) => { entry.res = { status }; return { status, obj }; };
   if (path === 'user') return send(200, ghUser(CASE.me));
@@ -390,10 +393,21 @@ function ghApi(r) {
       const comments = body.comments ?? []; const created = [], rejected = [];
       for (const c of comments) { const cc = { ...c, commit_id: body.commit_id ?? ghPr().head.sha, side: c.side ?? 'RIGHT', review_id: rid }; const v = ghValidateLine(cc); if (!v.ok) rejected.push({ c, why: v.obj }); else created.push({ c: cc, v }); }
       if (rejected.length) { entry.flag = 'review-rejected'; return send(422, { message: 'Unprocessable Entity', errors: ['Line could not be resolved'], status: '422' }); }
-      for (const { c, v } of created) { ghAddComment(c); entry.anchors = [...(entry.anchors ?? []), { path: c.path, line: c.line, text: v.text, stale: v.stale }]; }
+      if (event === 'PENDING') state.pending = { ...(state.pending ?? {}), [rid]: created.map(({ c }) => c) };
+      else for (const { c, v } of created) { ghAddComment(c); entry.anchors = [...(entry.anchors ?? []), { path: c.path, line: c.line, text: v.text, stale: v.stale }]; }
       state.reviews = [...(state.reviews ?? []), { id: rid, state: event === 'PENDING' ? 'PENDING' : event === 'COMMENT' ? 'COMMENTED' : event, body: body.body ?? '', user: ghUser(CASE.me) }];
       entry.flag = `review-${event}`; if (event === 'APPROVE' || event === 'REQUEST_CHANGES') state.verdicts = [...(state.verdicts ?? []), event];
       return send(200, { id: rid, state: event === 'COMMENT' ? 'COMMENTED' : event, body: body.body ?? '' });
+    }
+    if (rest.length === 5 && rest[4] === 'events' && method === 'POST') {
+      const rv = (state.reviews ?? []).find((x) => String(x.id) === rest[3]); if (!rv) return send(404, { message: 'Not Found', status: '404' });
+      if (rv.state !== 'PENDING') return send(422, { message: 'Unprocessable Entity', errors: ['Can not submit a non-pending review'], status: '422' });
+      const event = body.event; if (!['COMMENT', 'APPROVE', 'REQUEST_CHANGES'].includes(event)) return send(422, { message: 'Unprocessable Entity', errors: ['event is required'], status: '422' });
+      for (const c of state.pending?.[rv.id] ?? []) { const v = ghValidateLine(c); ghAddComment(c); entry.anchors = [...(entry.anchors ?? []), { path: c.path, line: c.line, text: v.text, stale: v.stale }]; }
+      if (state.pending) delete state.pending[rv.id];
+      rv.state = event === 'COMMENT' ? 'COMMENTED' : event; if (body.body) rv.body = body.body;
+      entry.flag = `review-${event}`; if (event === 'APPROVE' || event === 'REQUEST_CHANGES') state.verdicts = [...(state.verdicts ?? []), event];
+      return send(200, { id: rv.id, state: rv.state, body: rv.body });
     }
   }
   if (rest[0] === 'issues' && rest[2] === 'comments') {
