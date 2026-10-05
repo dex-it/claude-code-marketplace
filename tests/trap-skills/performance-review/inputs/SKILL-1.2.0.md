@@ -1,10 +1,10 @@
 ---
 name: performance-review
-description: "Производительность при ревью diff - проверка наличия через счёт, объект, не зависящий от итерации, в цикле, копия буфера вместо среза. Активируется при performance review, slow query review, Count vs Any, CountAsync > 0, allocation in loop, аллокации в цикле, JsonSerializerOptions в цикле, new Regex в цикле, копия массива, Array.Copy, Span, срез буфера, hot path allocation"
+description: "Производительность при ревью diff - проверка наличия через счёт, запись или внешний вызов в цикле вместо пакета, копия буфера вместо среза. Активируется при performance review, slow query review, Count vs Any, CountAsync > 0, query in loop, запрос в цикле, вызов API в цикле, executemany, batch insert, пакетная запись, копия массива, Array.Copy, Span, срез буфера"
 ---
 
 # Производительность - ревью diff
 
 - Наличие через `Count() > 0` вместо `Any()`, в том числе после `ToList()`
-- Объект, не зависящий от итерации (сериализатор, regex, культура), создаётся в цикле
+- Запись или внешний вызов в цикле вместо пакета
 - Копия крупного массива или буфера вместо среза

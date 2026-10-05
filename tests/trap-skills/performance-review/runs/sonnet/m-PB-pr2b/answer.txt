@@ -1,0 +1,24 @@
+Ревью записано в `/Users/anonymous/.cache/review/pr314/runs/m-PB-pr2b/repo/REVIEW.md`. Всего 19 находок:
+
+- **blocker: 4**
+  - подписка на singleton-событие без отписки, из-за чего падает воркер;
+  - 200 тыс. HTTP-запросов к поставщику подряд в цикле;
+  - нет обработки исключений, и один сбой останавливает хост;
+  - ReDoS в `DescriptionPattern`.
+- **major: 6**
+  - `SaveChanges` на каждую строку импорта;
+  - `List.Contains` по 200 тыс. SKU;
+  - нет защиты от кривых строк CSV;
+  - статический `PriceCache` без ограничения и с ключом по минуте;
+  - `new HttpClient` на каждый запрос;
+  - `ExecuteUpdate` на каждое изменение цены.
+- **minor: 9**
+  - `Regex`, `JsonSerializerOptions` и `CultureInfo` создаются на каждой строке;
+  - `skipped +=` и `ReadAllText` с `Split`;
+  - `DateTime.Now` в планировщике;
+  - существующие товары не обновляются;
+  - цена от поставщика применяется без валидации;
+  - счётчик `_changed` и список `_applied`;
+  - нетипизированный `ILogger`.
+
+Код не менял, сборку и `dotnet` не запускал.
