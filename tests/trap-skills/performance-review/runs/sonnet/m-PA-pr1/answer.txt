@@ -1,0 +1,27 @@
+Ревью записано в `REVIEW.md`, всего 20 находок. Код я не менял, сборку и `dotnet` не запускал.
+
+- **blocker: 5**
+  - SQL-инъекция в `FromSqlRaw($"...")` (`OrderExportController.cs:15`).
+  - Загрузка всех 3 млн заказов в память (`CustomerReportsController.cs:25`).
+  - N+1 из-за lazy loading на `order.Lines` (`CustomerReportsController.cs:19-22`).
+  - CRC считается вызовом P/Invoke на каждый байт, а `libz` и сигнатура `crc32` непереносимы (`Checksum.cs`).
+  - `lock` вокруг синхронного HTTP-вызова в singleton (`CurrencyConverter.cs`).
+- **major: 8**
+  - `.Result` на `GetRateAsync` и отсутствие кэша курса.
+  - Отложенный запрос по строкам счёта выполняется дважды.
+  - `Directory.EnumerateFiles` падает, если каталога вложений нет.
+  - Копия тела PDF вместо среза.
+  - Выгрузка заказов без лимита и стриминга.
+  - `MailingList` грузит целые сущности вместе с `Photo` и не ограничивает `pageSize`.
+  - `LogDebug` с интерполяцией и сериализацией прокси.
+  - `currency` не валидируется и подставляется в путь запроса.
+- **minor: 7**
+  - `CountAsync > 0` вместо `AnyAsync`.
+  - `(int)` усекает сумму.
+  - Лишние колонки в `FirstOrDefaultAsync` по клиенту.
+  - CSV без экранирования и без `InvariantCulture`.
+  - Scope на каждую конвертацию и смесь `lock` с `Interlocked`.
+  - «PDF» не является валидным PDF.
+  - Нет индексов и `[Authorize]`.
+
+Дисциплину из `SKILL.md` учёл: `Count() > 0`, `ToList().Count > 0` и копия массива вместо среза попали в находки.
