@@ -3,7 +3,7 @@
 Сервис доставки посылок интернет-магазина на Node.js 24 (ESM, `node:test`, без зависимостей): тариф,
 жизненный цикл заказа, срок доставки, перевозчики, HTTP API и веб-клиент. Вход наборов
 [test-design](../../removed/test-design/README.md), [integration-boundary](../../integration-boundary/README.md),
-[bug-reproduction](../../bug-reproduction/README.md) и [contract-drift](../../contract-drift/README.md)
+[bug-reproduction](../../bug-reproduction/README.md) и [contract-drift](../../removed/contract-drift/README.md)
 (эпик #291, #299, часть 1 из 2). Файл - ключ для судьи, исполнителю не подаётся: `setup.sh` его в
 каталог прогона не копирует, как и `judge/` и `run.mjs`.
 

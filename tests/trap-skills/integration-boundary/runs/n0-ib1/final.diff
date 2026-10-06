@@ -1,0 +1,32 @@
+diff --git a/src/notify/sms.js b/src/notify/sms.js
+index 6e62c77..eb70350 100644
+--- a/src/notify/sms.js
++++ b/src/notify/sms.js
+@@ -1,7 +1,7 @@
+ import { formatEtaForSms } from '../eta.js';
+ 
+ export function shipmentSms(order) {
+-  return `Ваш заказ ${order.id} отправлен. Трек: ${order.trackingNumber}`;
++  return `Parcel: заказ ${order.id} передан в доставку, трек ${order.trackingNumber}`;
+ }
+ 
+ export function etaSms(order) {
+diff --git a/test/sms.test.js b/test/sms.test.js
+index 9753d66..c2f8c73 100644
+--- a/test/sms.test.js
++++ b/test/sms.test.js
+@@ -5,12 +5,12 @@ import { createSmsSender, shipmentSms } from '../src/notify/sms.js';
+ const order = { id: 1042, trackingNumber: 'CS-104273', customer: { name: 'Мария Белова', phone: '+79213456703' } };
+ 
+ test('текст SMS об отправке', () => {
+-  assert.equal(shipmentSms(order), 'Ваш заказ 1042 отправлен. Трек: CS-104273');
++  assert.equal(shipmentSms(order), 'Parcel: заказ 1042 передан в доставку, трек CS-104273');
+ });
+ 
+ test('SMS уходит на телефон клиента через шлюз', async () => {
+   const sent = [];
+   const gateway = { send: async (phone, text) => sent.push({ phone, text }) };
+   await createSmsSender({ gateway }).send(order, 'shipment');
+-  assert.deepEqual(sent, [{ phone: '+79213456703', text: 'Ваш заказ 1042 отправлен. Трек: CS-104273' }]);
++  assert.deepEqual(sent, [{ phone: '+79213456703', text: 'Parcel: заказ 1042 передан в доставку, трек CS-104273' }]);
+ });

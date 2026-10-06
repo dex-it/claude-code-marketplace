@@ -1,0 +1,271 @@
+diff --git a/README.md b/README.md
+index acf51a6..2764f47 100644
+--- a/README.md
++++ b/README.md
+@@ -23,8 +23,9 @@ npm run api               # API на http://127.0.0.1:3000 (порт - PORT), б
+ 
+ Заказы хранятся в SQLite (`node:sqlite`, `src/db/sqlite-store.js`), файл базы - переменная `DB_PATH`;
+ без неё база создаётся в памяти процесса и заполняется из `data/orders-sample.json`. Тесты сервиса
+-работают на хранилище в памяти `src/store.js` с тем же интерфейсом (`get`, `put`, `all`, `byCustomer`).
++работают на хранилище в памяти `src/store.js` с тем же интерфейсом (`get`, `put`, `all`, `byCustomer`, `searchByName`).
+ Заказы клиента - `GET /api/my/orders` с заголовком `x-customer-id`.
++Поиск заказов для поддержки по имени получателя - `GET /api/support/orders?q=...` (`docs/requirements/support-search.md`).
+ 
+ ## Перевозчики и песочницы
+ 
+diff --git a/src/db/sqlite-store.js b/src/db/sqlite-store.js
+index bd1f5ee..92743e5 100644
+--- a/src/db/sqlite-store.js
++++ b/src/db/sqlite-store.js
+@@ -1,7 +1,7 @@
+ import { DatabaseSync } from 'node:sqlite';
+ 
+ // Хранилище заказов в SQLite. Документ заказа - JSON в столбце doc, поля для выборок - отдельными столбцами.
+-// Интерфейс тот же, что у хранилища в памяти (src/store.js): get, put, all, byCustomer.
++// Интерфейс тот же, что у хранилища в памяти (src/store.js): get, put, all, byCustomer, searchByName.
+ export function createSqliteStore({ path = ':memory:', seed = [] } = {}) {
+   const db = new DatabaseSync(path);
+   db.exec(`
+@@ -15,11 +15,22 @@ export function createSqliteStore({ path = ':memory:', seed = [] } = {}) {
+     );
+     CREATE INDEX IF NOT EXISTS orders_customer ON orders (customer_id, created_at);
+   `);
++  // Имя в нижнем регистре для поиска: LOWER() и LIKE в SQLite понимают регистр только у ASCII, кириллицу - нет.
++  // Столбец заполняет JS, поэтому в уже существующей базе его нужно добавить и дозаполнить.
++  if (!db.prepare('PRAGMA table_info(orders)').all().some((c) => c.name === 'customer_name_lower')) {
++    db.exec("ALTER TABLE orders ADD COLUMN customer_name_lower TEXT NOT NULL DEFAULT ''");
++    const rows = db.prepare('SELECT id, customer_name FROM orders').iterate();
++    const fill = db.prepare('UPDATE orders SET customer_name_lower = ? WHERE id = ?');
++    db.exec('BEGIN');
++    for (const row of rows) fill.run(row.customer_name.toLowerCase(), row.id);
++    db.exec('COMMIT');
++  }
+   const upsert = db.prepare(`
+-    INSERT INTO orders (id, customer_id, customer_name, status, created_at, doc)
+-    VALUES (:id, :customerId, :customerName, :status, :createdAt, :doc)
++    INSERT INTO orders (id, customer_id, customer_name, customer_name_lower, status, created_at, doc)
++    VALUES (:id, :customerId, :customerName, :customerNameLower, :status, :createdAt, :doc)
+     ON CONFLICT (id) DO UPDATE SET
+       customer_id = excluded.customer_id, customer_name = excluded.customer_name,
++      customer_name_lower = excluded.customer_name_lower,
+       status = excluded.status, created_at = excluded.created_at, doc = excluded.doc
+   `);
+   const byId = db.prepare('SELECT doc FROM orders WHERE id = ?');
+@@ -35,6 +46,7 @@ export function createSqliteStore({ path = ':memory:', seed = [] } = {}) {
+         id: Number(order.id),
+         customerId: order.customerId,
+         customerName: order.customer?.name ?? '',
++        customerNameLower: (order.customer?.name ?? '').toLowerCase(),
+         status: order.status,
+         createdAt: order.createdAt,
+         doc: JSON.stringify(order),
+@@ -51,6 +63,14 @@ export function createSqliteStore({ path = ':memory:', seed = [] } = {}) {
+         .all()
+         .map(parse);
+     },
++    // заказы, у которых имя получателя содержит строку без учёта регистра; новые сверху, не больше limit.
++    // Фильтр, сортировка и лимит - в базе; instr вместо LIKE, чтобы % и _ в строке не были шаблонами
++    searchByName(query, limit = 50) {
++      return db
++        .prepare('SELECT doc FROM orders WHERE instr(customer_name_lower, ?) > 0 ORDER BY created_at DESC, id DESC LIMIT ?')
++        .all(query.toLowerCase(), limit)
++        .map(parse);
++    },
+     close() {
+       db.close();
+     },
+diff --git a/src/http/orders-api.js b/src/http/orders-api.js
+index b5741ff..931e6bf 100644
+--- a/src/http/orders-api.js
++++ b/src/http/orders-api.js
+@@ -64,3 +64,12 @@ export function requestReturn({ store, id, customerId, payments, now = new Date(
+   store.put(order);
+   return { status: 204 };
+ }
++
++const MIN_QUERY_LENGTH = 2;
++const SEARCH_LIMIT = 50;
++
++export function searchOrders({ store, q }) {
++  const query = (q ?? '').trim();
++  if (query.length < MIN_QUERY_LENGTH) return { status: 400, body: { type: 'query-too-short' } };
++  return { status: 200, body: store.searchByName(query, SEARCH_LIMIT).map(toOrderResource) };
++}
+diff --git a/src/http/server.js b/src/http/server.js
+index 455dc9c..ec5526a 100644
+--- a/src/http/server.js
++++ b/src/http/server.js
+@@ -1,5 +1,5 @@
+ import http from 'node:http';
+-import { cancelOrder, getOrder, requestReturn, toOrderResource } from './orders-api.js';
++import { cancelOrder, getOrder, requestReturn, searchOrders, toOrderResource } from './orders-api.js';
+ import { handlePaymentWebhook } from './webhooks.js';
+ 
+ function send(res, status, body) {
+@@ -22,12 +22,16 @@ async function readJson(req) {
+ export function createServer({ store, archive, payments, stock, carrier }) {
+   return http.createServer(async (req, res) => {
+     try {
+-      const { pathname } = new URL(req.url, 'http://localhost');
++      const { pathname, searchParams } = new URL(req.url, 'http://localhost');
+       const customerId = req.headers['x-customer-id'];
+       let match;
+       if (req.method === 'GET' && pathname === '/api/my/orders') {
+         return send(res, 200, store.byCustomer(customerId).map(toOrderResource));
+       }
++      if (req.method === 'GET' && pathname === '/api/support/orders') {
++        const result = searchOrders({ store, q: searchParams.get('q') });
++        return send(res, result.status, result.body);
++      }
+       if (req.method === 'GET' && (match = pathname.match(/^\/api\/orders\/([^/]+)$/))) {
+         const result = getOrder({ store, archive, id: match[1] });
+         return send(res, result.status, result.body);
+diff --git a/src/store.js b/src/store.js
+index 7f55de7..81e2dc0 100644
+--- a/src/store.js
++++ b/src/store.js
+@@ -19,5 +19,13 @@ export function createStore(initial = []) {
+         .filter((o) => o.customerId === customerId)
+         .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+     },
++    // заказы, у которых имя получателя содержит строку без учёта регистра; новые сверху, не больше limit
++    searchByName(query, limit = 50) {
++      const needle = query.toLowerCase();
++      return [...orders.values()]
++        .filter((o) => (o.customer?.name ?? '').toLowerCase().includes(needle))
++        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
++        .slice(0, limit);
++    },
+   };
+ }
+diff --git a/test/orders-api.test.js b/test/orders-api.test.js
+index 8acc883..96c42b9 100644
+--- a/test/orders-api.test.js
++++ b/test/orders-api.test.js
+@@ -49,7 +49,7 @@ describe('API заказов 2.4.0', () => {
+ 
+   before(async () => {
+     server = createServer({
+-      store: { get: (id) => store.get(id), put: (order) => store.put(order), all: () => store.all() },
++      store: { get: (id) => store.get(id), put: (order) => store.put(order), all: () => store.all(), searchByName: (q, n) => store.searchByName(q, n) },
+       archive: createArchive(archived),
+       payments: { refund: (id, kopecks) => refunds.push({ id, kopecks }) },
+       stock: { release: (items) => released.push(...items) },
+@@ -139,4 +139,47 @@ describe('API заказов 2.4.0', () => {
+     assert.deepEqual(refunds, [{ id: 2004, kopecks: 24000 }]);
+     assert.equal((await (await get(2004, 'c-2')).json()).status, 'returned');
+   });
++
++  describe('поиск для поддержки', () => {
++    const search = (q) => fetch(`${url}/api/support/orders?q=${encodeURIComponent(q)}`);
++
++    beforeEach(() => {
++      store.put({ ...base, id: 3001, customerId: 'c-5', customer: { name: 'Анна Котова' }, status: 'paid', totalKopecks: 100, createdAt: '2026-09-01T10:00:00.000Z' });
++      store.put({ ...base, id: 3002, customerId: 'c-6', customer: { name: 'Пётр Котов' }, status: 'paid', totalKopecks: 100, createdAt: '2026-09-05T10:00:00.000Z' });
++    });
++
++    it('находит без учёта регистра, новые сверху, в виде ресурса заказа', async () => {
++      for (const q of ['котова', 'Котова', 'КОТОВА']) {
++        const res = await search(q);
++        assert.equal(res.status, 200);
++        assert.deepEqual((await res.json()).map((o) => o.id), [3001]);
++      }
++      const body = await (await search('котов')).json();
++      assert.deepEqual(body.map((o) => o.id), [3002, 3001]);
++      assert.deepEqual(body[0], (await (await get(3002)).json()));
++    });
++
++    it('нет совпадений - пустой массив', async () => {
++      assert.deepEqual(await (await search('Иванов')).json(), []);
++    });
++
++    it('короче 2 символов или без q - 400 query-too-short', async () => {
++      for (const q of ['', 'к', ' к ']) {
++        const res = await search(q);
++        assert.equal(res.status, 400);
++        assert.deepEqual(await res.json(), { type: 'query-too-short' });
++      }
++      const res = await fetch(`${url}/api/support/orders`);
++      assert.equal(res.status, 400);
++    });
++
++    it('не больше 50 заказов', async () => {
++      for (let i = 0; i < 60; i++) {
++        store.put({ ...base, id: 4000 + i, customerId: 'c-7', customer: { name: 'Олег Массовый' }, status: 'paid', totalKopecks: 1, createdAt: new Date(Date.UTC(2026, 8, 1, 0, i)).toISOString() });
++      }
++      const body = await (await search('массовый')).json();
++      assert.equal(body.length, 50);
++      assert.equal(body[0].id, 4059);
++    });
++  });
+ });
+diff --git a/test/sqlite-store.test.js b/test/sqlite-store.test.js
+new file mode 100644
+index 0000000..05d9ae3
+--- /dev/null
++++ b/test/sqlite-store.test.js
+@@ -0,0 +1,64 @@
++import { test } from 'node:test';
++import assert from 'node:assert/strict';
++import { mkdtempSync } from 'node:fs';
++import { tmpdir } from 'node:os';
++import { join } from 'node:path';
++import { DatabaseSync } from 'node:sqlite';
++import { createSqliteStore } from '../src/db/sqlite-store.js';
++import { createStore } from '../src/store.js';
++
++const order = (id, name, createdAt = '2026-09-01T10:00:00.000Z') => ({
++  id,
++  customerId: 'c-1',
++  customer: { name },
++  status: 'paid',
++  createdAt,
++});
++
++const orders = [
++  order(1, 'Анна Котова', '2026-09-01T10:00:00.000Z'),
++  order(2, 'Пётр Котов', '2026-09-03T10:00:00.000Z'),
++  order(3, 'Ivan Petrov', '2026-09-02T10:00:00.000Z'),
++  order(4, '100% скидка_'),
++];
++
++for (const [title, make] of [
++  ['память', () => createStore(orders)],
++  ['sqlite', () => createSqliteStore({ seed: orders })],
++]) {
++  test(`searchByName (${title}): кириллица без учёта регистра, новые сверху`, () => {
++    const store = make();
++    assert.deepEqual(store.searchByName('КОТОВА').map((o) => o.id), [1]);
++    assert.deepEqual(store.searchByName('котов').map((o) => o.id), [2, 1]);
++    assert.deepEqual(store.searchByName('PETROV').map((o) => o.id), [3]);
++    assert.deepEqual(store.searchByName('нет такого'), []);
++  });
++
++  test(`searchByName (${title}): % и _ - обычные символы, limit работает`, () => {
++    const store = make();
++    assert.deepEqual(store.searchByName('%').map((o) => o.id), [4]);
++    assert.deepEqual(store.searchByName('а_').map((o) => o.id), [4]);
++    assert.equal(store.searchByName('ко', 1).length, 1);
++    assert.equal(store.searchByName('ко', 1)[0].id, 2);
++  });
++}
++
++test('sqlite: put обновляет имя для поиска', () => {
++  const store = createSqliteStore({ seed: orders });
++  store.put(order(1, 'Анна Смирнова'));
++  assert.deepEqual(store.searchByName('котова'), []);
++  assert.deepEqual(store.searchByName('смирнова').map((o) => o.id), [1]);
++});
++
++test('sqlite: существующая база без столбца для поиска мигрирует и ищет', () => {
++  const path = join(mkdtempSync(join(tmpdir(), 'parcel-')), 'old.db');
++  const old = new DatabaseSync(path);
++  old.exec(`CREATE TABLE orders (id INTEGER PRIMARY KEY, customer_id TEXT NOT NULL, customer_name TEXT NOT NULL,
++    status TEXT NOT NULL, created_at TEXT NOT NULL, doc TEXT NOT NULL)`);
++  const o = order(1, 'Анна Котова');
++  old.prepare('INSERT INTO orders VALUES (?, ?, ?, ?, ?, ?)').run(1, o.customerId, 'Анна Котова', o.status, o.createdAt, JSON.stringify(o));
++  old.close();
++  const store = createSqliteStore({ path });
++  assert.deepEqual(store.searchByName('КОТОВА').map((x) => x.id), [1]);
++  store.close();
++});
