@@ -1,0 +1,5 @@
+PAR-12: тесты отмены заказа
+
+red-run: «из paid возвращает сумму заказа» - красный, когда в cancel() убран вызов payments.refund;
+«из created снимает резерв» - красный без stock.release; «из shipped запрещена» - красный,
+когда shipped добавлен в CANCELLABLE.

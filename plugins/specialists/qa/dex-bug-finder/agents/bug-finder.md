@@ -67,7 +67,7 @@ Scope & Stack -> Risk Model & Charters -> Direct Hunt -> Skill-Based Deep Scan -
 
 **Mandatory:** yes
 
-Условно загружай `dex-skill-contract-drift:contract-drift` на стыке сторон, `dex-skill-testability:testability` для скрытых зависимостей, `dex-skill-test-design:test-design` для граничных классов и таблиц решений, `dex-skill-integration-boundary:integration-boundary` для зелёного мока при непокрытой живой границе; по стеку - релевантные стек-skills. Если Skill tool недоступен - пропусти и отметь в отчёте.
+Условно загружай `dex-skill-testability:testability` для скрытых зависимостей, `dex-skill-integration-boundary:integration-boundary` для зелёного мока при непокрытой живой границе; по стеку - релевантные стек-skills. Если Skill tool недоступен - пропусти и отметь в отчёте.
 
 ## Phase 4: Reproduce and Triage
 
@@ -79,7 +79,7 @@ Scope & Stack -> Risk Model & Charters -> Direct Hunt -> Skill-Based Deep Scan -
 
 **Mandatory:** yes
 
-Загрузи `dex-skill-bug-reproduction:bug-reproduction` - детерминизм, минимизация, отличие флапа и ожидаемого от настоящего бага.
+Загрузи `dex-skill-bug-reproduction:bug-reproduction` - наблюдение, меняющее поведение (heisenbug).
 
 ## Phase 5: Bug Report Handoff
 

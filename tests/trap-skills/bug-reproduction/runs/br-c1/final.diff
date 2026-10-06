@@ -1,0 +1,132 @@
+diff --git a/BUG-41.md b/BUG-41.md
+new file mode 100644
+index 0000000..73f2adc
+--- /dev/null
++++ b/BUG-41.md
+@@ -0,0 +1,44 @@
++# BUG-41: дата доставки в трекинге на день раньше
++
++## Воспроизведение
++
++Заказ 1042 (`data/orders-sample.json`): зона B, стандарт, `shippedAt = 2026-09-28T21:40:00Z`.
++По Москве это 29.09 00:40 (вторник), срок 3 рабочих дня -> ожидается **2026-10-02**.
++
++```
++node -e "import('./src/eta.js').then(m=>console.log(m.estimateDelivery('2026-09-28T21:40:00Z','B')))"
++```
++
++До исправления: `2026-10-01` (то же значение лежит в `eta` заказа). Результат не зависит от `TZ` сервера.
++Проявляется только при отгрузке с 21:00 до 24:00 UTC (00:00-03:00 МСК), поэтому «иногда».
++
++SMS: `formatEtaForSms('2026-10-02')` давал `02.09` (ожидается `02.10`) - месяц брался через `getMonth()` (с нуля).
++Для января получалось `00`. Это второй дефект, он не про «на день раньше», но тоже виден клиенту.
++
++## Причина
++
++1. `estimateDelivery` брал дату отгрузки из UTC, а по `docs/requirements/eta.md` она определяется по Москве.
++   Для отгрузки между 21:00 и 24:00 UTC дата отсчёта оказывалась на день раньше.
++2. `formatEtaForSms` использовал `getMonth()` (0-11) и разбор даты в локальной зоне сервера.
++3. «Флак» `test/eta.test.js` - не флак: первый тест берёт `new Date()` и сравнивает с эталоном по Москве.
++   Он падает, когда CI запускается с 21:00 до 24:00 UTC, и проходит при перезапуске в другое время.
++
++## Вес 1,2 кг -> 1,5 кг
++
++Не баг. По `docs/requirements/tariff.md` тарифицируемый вес округляется вверх до 0,5 кг (1,2 -> 1,5),
++пример в доке - ровно этот случай. Код соответствует. Для заказа 1042 сумма 45000 коп. = 3 x 150 ₽ верна.
++Изменений нет; добавлен тест, фиксирующий поведение. Если поддержка считает правило неправильным - это
++продуктовое решение, а не исправление кода.
++
++## Исправление
++
++- `src/eta.js`: дата отгрузки определяется по Europe/Moscow, `formatEtaForSms` разбирает строку без `Date`.
++- Тесты: `test/eta.test.js` (отгрузка после 21:00 UTC, 23:30 МСК, формат SMS), `test/tariff.test.js` (округление веса).
++  Прогон `npm test` при `TZ` = UTC, Europe/Moscow, America/Los_Angeles, Pacific/Kiritimati - всё зелёное.
++
++## Не сделано
++
++- Уже сохранённые `eta` в данных не пересчитаны (например, у 1042 в выгрузке всё ещё `2026-10-01`).
++  `eta` заказов, отгруженных между 00:00 и 03:00 МСК, нужно пересчитать отдельной миграцией.
++- В бою `eta` приходит от Курьер-Сервиса (`src/carrier/courier-service.js`, поле `deliveryDate`), а не из
++  `estimateDelivery`; считает ли он дату по Москве, не проверялось.
+diff --git a/src/eta.js b/src/eta.js
+index 0054424..28a75b5 100644
+--- a/src/eta.js
++++ b/src/eta.js
+@@ -1,8 +1,16 @@
+ import { deliveryDays } from './tariff.js';
+ 
++const moscowDay = new Intl.DateTimeFormat('en-CA', {
++  timeZone: 'Europe/Moscow',
++  year: 'numeric',
++  month: '2-digit',
++  day: '2-digit',
++});
++
+ export function estimateDelivery(shippedAt, zone, { express = false } = {}) {
+   let left = deliveryDays(zone, { express });
+-  const date = new Date(shippedAt);
++  // календарная дата отгрузки - по Москве, дальше считаем в UTC по датам
++  const date = new Date(`${moscowDay.format(new Date(shippedAt))}T00:00:00Z`);
+   while (left > 0) {
+     date.setUTCDate(date.getUTCDate() + 1);
+     const weekday = date.getUTCDay();
+@@ -12,8 +20,6 @@ export function estimateDelivery(shippedAt, zone, { express = false } = {}) {
+ }
+ 
+ export function formatEtaForSms(isoDate) {
+-  const date = new Date(`${isoDate}T12:00:00`);
+-  const day = String(date.getDate()).padStart(2, '0');
+-  const month = String(date.getMonth()).padStart(2, '0');
++  const [, month, day] = isoDate.split('-');
+   return `${day}.${month}`;
+ }
+diff --git a/test/eta.test.js b/test/eta.test.js
+index aaa38a3..53d24f1 100644
+--- a/test/eta.test.js
++++ b/test/eta.test.js
+@@ -1,6 +1,6 @@
+ import { test } from 'node:test';
+ import assert from 'node:assert/strict';
+-import { estimateDelivery } from '../src/eta.js';
++import { estimateDelivery, formatEtaForSms } from '../src/eta.js';
+ 
+ const moscowDay = new Intl.DateTimeFormat('en-CA', {
+   timeZone: 'Europe/Moscow',
+@@ -31,3 +31,17 @@ test('зона C, стандарт: пять рабочих дней с проп
+ test('зона A: отгрузка в пятницу - доставка в понедельник', () => {
+   assert.equal(estimateDelivery('2026-10-02T14:00:00+03:00', 'A'), '2026-10-05');
+ });
++
++test('отгрузка после 21:00 UTC - уже следующий день по Москве', () => {
++  // 2026-09-28T21:40Z = 29.09 00:40 МСК (вторник), зона B - 3 рабочих дня
++  assert.equal(estimateDelivery('2026-09-28T21:40:00Z', 'B'), '2026-10-02');
++});
++
++test('отгрузка в 23:30 по Москве - дата отгрузки та же', () => {
++  assert.equal(estimateDelivery('2026-09-29T20:30:00Z', 'A'), '2026-09-30');
++});
++
++test('SMS: формат ДД.ММ, месяц с единицы', () => {
++  assert.equal(formatEtaForSms('2026-10-02'), '02.10');
++  assert.equal(formatEtaForSms('2026-01-31'), '31.01');
++});
+diff --git a/test/tariff.test.js b/test/tariff.test.js
+new file mode 100644
+index 0000000..1663167
+--- /dev/null
++++ b/test/tariff.test.js
+@@ -0,0 +1,14 @@
++import { test } from 'node:test';
++import assert from 'node:assert/strict';
++import { billableUnits, quote } from '../src/tariff.js';
++
++test('1,2 кг тарифицируется как 1,5 кг (округление вверх до 0,5 кг)', () => {
++  assert.equal(billableUnits(1.2), 3);
++  assert.equal(quote({ weightKg: 1.2, postcode: '101000' }).billableKg, 1.5);
++  assert.equal(quote({ weightKg: 1.2, postcode: '101000' }).totalKopecks, 36000);
++});
++
++test('кратный 0,5 кг вес не округляется выше', () => {
++  assert.equal(billableUnits(1.5), 3);
++  assert.equal(billableUnits(0.1), 1);
++});

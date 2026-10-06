@@ -1,0 +1,70 @@
+{
+  "id": "ibf-s1",
+  "case": "IBF",
+  "skill": "<repo>/tests/trap-skills/integration-boundary/inputs/SKILL-1.1.0.md",
+  "requestedModel": "claude-sonnet-5-5",
+  "effort": "medium",
+  "branch": "main@order-search",
+  "shas": {
+    "head": "2360332563ad4d008fc40fb68b08568489868149",
+    "main": "2360332563ad4d008fc40fb68b08568489868149"
+  },
+  "model": "claude-sonnet-5-5",
+  "cliVersion": "2.1.291",
+  "mcp": [],
+  "toolsAvailable": [
+    "Bash",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Read",
+    "Write"
+  ],
+  "tools": {
+    "Read": 2,
+    "Bash": 5
+  },
+  "outside": [],
+  "cost": 0.164606,
+  "turns": 8,
+  "exit": 0,
+  "subtype": "success",
+  "isError": false,
+  "usage": {
+    "input_tokens": 14,
+    "cache_creation_input_tokens": 19444,
+    "cache_read_input_tokens": 98760,
+    "output_tokens": 6705,
+    "output_tokens_details": {
+      "thinking_tokens": 502
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 19444,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 1071,
+        "cache_read_input_tokens": 24759,
+        "cache_creation_input_tokens": 669,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 669
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "seconds": 50,
+  "stderr": "",
+  "judged": true
+}
