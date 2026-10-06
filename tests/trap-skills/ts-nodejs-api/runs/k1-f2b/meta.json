@@ -1,0 +1,44 @@
+{
+  "id": "k1-f2b",
+  "case": "K1",
+  "edition": "final2",
+  "skills": [
+    "ts-nodejs-api"
+  ],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 12,
+  "cost": 0.22398679999999999,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 2,
+    "Bash": 9
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "cd <run>; git ls-files api | grep -v node_modules; cat docs/payments-api.md api/src/payments/gateway.ts api/src/server.ts; ls api/src/*",
+    "cd <run>/api; cat src/app.ts src/config.ts src/errors.ts src/domain/order.ts src/notifications/notifier.ts src/analytics/analytics.ts s",
+    "cd <run>/api; grep -rn \"config\" src --include=*.ts -l; cat src/logger.ts; sed -n 80,200p test/orders.test.ts; cat ../.env.example 2>/de",
+    "cd <run>/api\npython3 - <<'E'\nimport re\np='src/domain/order.ts'\ns=open(p).read()\ns=s.replace(\"  status: OrderStatus;\\n  createdAt\",\"  st",
+    "cd <run>/api\npython3 - <<'E'\np='src/app.ts'\ns=open(p).read()\ns=s.replace(\"import type { PaymentGateway } from './payments/gateway.js';\\",
+    "cd <run>/api; npx tsc --noEmit 2>&1 | head; npx vitest run 2>&1 | grep -B2 -A12 \"FAIL\\|Error\" | head -50",
+    "cd <run>/api\npython3 - <<'E'\np='src/app.ts'\ns=open(p).read()\ns=s.replace(\"orders.post('/:id/pay', async (req, res) => {\\n\",\"const payOr",
+    "cd <run>/api; grep -n \"payOrder\" src/app.ts",
+    "cd <run>\npython3 - <<'E'\np='api/src/app.ts'\ns=open(p).read()\ns=s.replace(\"const payOrder: express.RequestHandler = async (req, res) => "
+  ]
+}

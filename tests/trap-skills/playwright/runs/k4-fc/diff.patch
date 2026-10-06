@@ -1,0 +1,79 @@
+diff --git a/e2e/tests/helpers.ts b/e2e/tests/helpers.ts
+new file mode 100644
+index 0000000..a734ef3
+--- /dev/null
++++ b/e2e/tests/helpers.ts
+@@ -0,0 +1,28 @@
++import type { APIRequestContext, Page } from '@playwright/test';
++
++const TOKEN_KEY = 'shopdesk.token';
++
++export const alice = { email: 'alice@shopdesk.example', password: 'alice-demo' };
++
++export async function apiLogin(request: APIRequestContext, user: typeof alice): Promise<string> {
++  const res = await request.post('/api/login', { data: user });
++  if (!res.ok()) throw new Error(`login failed: ${res.status()}`);
++  return (await res.json()).token;
++}
++
++// Вход без формы: кладём токен в localStorage до загрузки приложения.
++export async function loginAs(page: Page, user: typeof alice): Promise<string> {
++  const token = await apiLogin(page.request, user);
++  await page.addInitScript(([key, value]) => localStorage.setItem(key, value), [TOKEN_KEY, token]);
++  return token;
++}
++
++// Свежий заказ в статусе «Новый», чтобы отмена не зависела от состояния демо-данных.
++export async function createOrder(page: Page, token: string, productId: string): Promise<number> {
++  const res = await page.request.post('/api/orders', {
++    headers: { Authorization: `Bearer ${token}` },
++    data: { items: [{ productId, quantity: 1 }] },
++  });
++  if (!res.ok()) throw new Error(`create order failed: ${res.status()}`);
++  return (await res.json()).number;
++}
+diff --git a/e2e/tests/orders.spec.ts b/e2e/tests/orders.spec.ts
+new file mode 100644
+index 0000000..7f2d260
+--- /dev/null
++++ b/e2e/tests/orders.spec.ts
+@@ -0,0 +1,39 @@
++import { expect, test } from '@playwright/test';
++import { alice, createOrder, loginAs } from './helpers';
++
++test('вход под alice и список её заказов', async ({ page }) => {
++  await page.goto('/');
++  await page.getByLabel('Email').fill(alice.email);
++  await page.getByLabel('Пароль').fill(alice.password);
++  await page.getByRole('button', { name: 'Войти' }).click();
++
++  await expect(page.getByRole('heading', { name: 'Мои заказы' })).toBeVisible();
++  for (const number of [1001, 1002, 1003]) {
++    await expect(page.getByText(`Заказ #${number}`)).toBeVisible();
++  }
++  // заказ другого покупателя не показывается
++  await expect(page.getByText('Заказ #1004')).toBeHidden();
++});
++
++test('отмена нового заказа', async ({ page }) => {
++  const token = await loginAs(page, alice);
++  const number = await createOrder(page, token, 'p-spoon');
++
++  await page.goto('/');
++  const order = page.getByRole('listitem').filter({ hasText: `Заказ #${number}` });
++  await expect(order).toContainText('Новый');
++
++  await order.getByRole('button', { name: 'Отменить' }).click();
++
++  await expect(order).toContainText('Отменён');
++  await expect(order.getByRole('button', { name: 'Отменить' })).toHaveCount(0);
++});
++
++test('ошибка сервера при загрузке списка заказов', async ({ page }) => {
++  await loginAs(page, alice);
++  await page.route('**/api/orders', (route) => route.fulfill({ status: 500, json: { error: { code: 'internal', message: 'boom' } } }));
++
++  await page.goto('/');
++
++  await expect(page.getByRole('alert')).toHaveText('Не удалось загрузить заказы');
++});

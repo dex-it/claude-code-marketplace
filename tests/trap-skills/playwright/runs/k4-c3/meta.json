@@ -1,0 +1,38 @@
+{
+  "id": "k4-c3",
+  "case": "K4",
+  "edition": "c",
+  "skills": [],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 8,
+  "cost": 0.0978994,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 2,
+    "Bash": 5
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "git ls-files | grep -v node_modules | head -100 && cat e2e/*.ts e2e/**/*.ts playwright.config.ts 2>/dev/null | head -150",
+    "cat api/src/seed.ts web/src/components/LoginForm.tsx web/src/components/OrdersPage.tsx web/src/api.ts web/src/App.tsx web/vite.config.ts; cat e2e/package.json",
+    "grep -n \"app\\.\\(get\\|post\\|put\\|delete\\)\\|router\\.\" api/src/app.ts; cat web/src/lib/money.ts",
+    "grep -n \"orders\" api/src/app.ts | head -20",
+    "cd <run>/e2e && cat > tests/orders.spec.ts <<'EOF'\nimport { expect, test, type Page } from '@playwright/test';\n\nconst alice = { email: '"
+  ]
+}

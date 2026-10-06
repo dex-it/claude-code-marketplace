@@ -1,0 +1,38 @@
+{
+  "id": "k4-fb",
+  "case": "K4",
+  "edition": "final",
+  "skills": [
+    "playwright"
+  ],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 6,
+  "cost": 0.08757000000000001,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 2,
+    "Bash": 3
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "cd e2e && ls -a . tests; cat playwright.config.ts tests/*; cat ../api/src/seed.ts; ls ../web/src ../web/src/*; cat package.json",
+    "cd ../web/src && cat App.tsx api.ts components/LoginForm.tsx components/OrdersPage.tsx; cat ../vite.config.ts; grep -n \"orders\\|login\" ../../api/src/*.ts ../../api/src/routes/* 2>/dev/null | head -30",
+    "cd <run> && cat .gitignore; cat e2e/tsconfig.json\npython3 - <<'E'\np='e2e/playwright.config.ts'\ns=open(p).read()\ns=s.replace(\"\"\"    {\n   "
+  ]
+}

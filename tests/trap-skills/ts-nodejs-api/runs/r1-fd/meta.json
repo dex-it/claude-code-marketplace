@@ -1,0 +1,41 @@
+{
+  "id": "r1-fd",
+  "case": "R1",
+  "edition": "final",
+  "skills": [
+    "ts-nodejs-api"
+  ],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 8,
+  "cost": 0.1576598,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 1,
+    "Bash": 6
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "git diff main...feature/admin-refunds --stat && cat docs/tasks/SD-16-admin-refunds.md",
+    "cd <run>/api && for f in src/app.ts src/audit.ts src/clients/refunds-provider.ts src/domain/refund.ts src/errors.ts src/refunds/refund-s",
+    "cat -n deploy/k8s.yaml; ls api/src api/src/*",
+    "cd <run> && cat -n deploy/k8s.yaml; cat -n api/src/config.ts api/src/auth.ts; cat -n api/test/admin-refunds.test.ts; grep -n \"orders\" ap",
+    "grep -rn healthz api/src | head -3; grep -n '\"express\"\\|\"zod\"' api/package.json; npm run typecheck 2>&1 | tail -8; npm test 2>&1 | tail -12; grep -n \"ord-1003\" -A3 api/src/seed.ts | head",
+    "cat > REVIEW.md <<'EOF'\napi/src/routes/admin-refunds.ts:88 - PATCH /refunds/:id без requireAdmin: любой, в том числе неавторизованный, меняет статус возврата (на деле `authenticate` не вызывается, `re"
+  ]
+}

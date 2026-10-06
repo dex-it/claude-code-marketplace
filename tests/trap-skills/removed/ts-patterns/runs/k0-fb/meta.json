@@ -1,0 +1,41 @@
+{
+  "id": "k0-fb",
+  "case": "K0",
+  "edition": "final",
+  "skills": [
+    "ts-nodejs-api",
+    "react"
+  ],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 9,
+  "cost": 0.0901024,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 3,
+    "Bash": 5
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "git ls-files | grep -v node_modules | head -80; grep -rniE \"₽|price|formatPrice\" --include=*.ts --include=*.tsx -l . --exclude-dir=node_modules",
+    "cat api/src/domain/product.ts web/src/lib/money.ts web/src/types.ts web/src/components/ProductsPage.tsx; grep -n \"price\\|Product\" api/src/seed.ts api/src/app.ts api/src/store.ts web/src/components/Ord",
+    "sed -n 1,40p api/test/orders.test.ts; sed -n 1,30p web/src/components/__tests__/OrdersPage.test.tsx; sed -n 1,12p api/src/seed.ts",
+    "python3 - <<'E'\nimport re\np='api/src/domain/product.ts'\ns=open(p).read().replace(\"  priceKopecks: number;\\n\",\"  priceKopecks: number;\\n  /** Код валюты ISO 4217. */\\n  currency: string;\\n\")\nopen(p,'w'",
+    "grep -rn \"₽\" e2e/tests README.md docs 2>/dev/null | head; git status --short"
+  ]
+}

@@ -1,0 +1,99 @@
+diff --git a/api/test/reservation.test.ts b/api/test/reservation.test.ts
+new file mode 100644
+index 0000000..75a9af1
+--- /dev/null
++++ b/api/test/reservation.test.ts
+@@ -0,0 +1,93 @@
++import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
++import { TemporaryInventoryError } from '../src/clients/inventory.js';
++import type { OrderItem } from '../src/domain/order.js';
++
++vi.mock('../src/clients/inventory.js', async (importOriginal) => {
++  const actual = await importOriginal<typeof import('../src/clients/inventory.js')>();
++  return { ...actual, inventory: { reserve: vi.fn() } };
++});
++vi.mock('../src/logger.js', () => ({ logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn() } }));
++
++const { inventory } = await import('../src/clients/inventory.js');
++const { ReservationFailedError, holdUntil, isHoldExpired, reserveWithRetry } = await import(
++  '../src/services/reservation.js'
++);
++
++const reserve = vi.mocked(inventory.reserve);
++const items: OrderItem[] = [{ productId: 'p1', title: 'Item', quantity: 2, priceKopecks: 100 }];
++
++describe('reserveWithRetry', () => {
++  beforeEach(() => {
++    vi.useFakeTimers();
++    reserve.mockReset();
++  });
++  afterEach(() => {
++    vi.useRealTimers();
++  });
++
++  it('резервирует с первой попытки без пауз', async () => {
++    reserve.mockResolvedValueOnce({ reservationId: 'r1' });
++    await expect(reserveWithRetry('o1', items)).resolves.toEqual({ reservationId: 'r1', attempts: 1 });
++    expect(reserve).toHaveBeenCalledTimes(1);
++    expect(reserve).toHaveBeenCalledWith('o1', items);
++    expect(vi.getTimerCount()).toBe(0);
++  });
++
++  it('повторяет после временного сбоя и возвращает успех', async () => {
++    reserve
++      .mockRejectedValueOnce(new TemporaryInventoryError('down'))
++      .mockRejectedValueOnce(new TemporaryInventoryError('down'))
++      .mockResolvedValueOnce({ reservationId: 'r2' });
++    const promise = reserveWithRetry('o2', items);
++    await vi.advanceTimersByTimeAsync(1000);
++    expect(reserve).toHaveBeenCalledTimes(2);
++    await vi.advanceTimersByTimeAsync(2000);
++    await expect(promise).resolves.toEqual({ reservationId: 'r2', attempts: 3 });
++    expect(reserve).toHaveBeenCalledTimes(3);
++  });
++
++  it('после исчерпания попыток бросает ReservationFailedError', async () => {
++    reserve.mockRejectedValue(new TemporaryInventoryError('down'));
++    const promise = reserveWithRetry('o3', items);
++    const assertion = expect(promise).rejects.toMatchObject({
++      name: 'ReservationFailedError',
++      orderId: 'o3',
++      attempts: 3,
++    });
++    await vi.advanceTimersByTimeAsync(3000);
++    await assertion;
++    await expect(promise).rejects.toBeInstanceOf(ReservationFailedError);
++    expect(reserve).toHaveBeenCalledTimes(3);
++  });
++
++  it('не повторяет при нетемпоральной ошибке склада', async () => {
++    const err = new Error('inventory responded with 400');
++    reserve.mockRejectedValue(err);
++    await expect(reserveWithRetry('o4', items)).rejects.toBe(err);
++    expect(reserve).toHaveBeenCalledTimes(1);
++    expect(vi.getTimerCount()).toBe(0);
++  });
++});
++
++describe('isHoldExpired', () => {
++  it('не истёк до и в момент границы, истёк после', () => {
++    expect(isHoldExpired(1000, 999)).toBe(false);
++    expect(isHoldExpired(1000, 1000)).toBe(false);
++    expect(isHoldExpired(1000, 1001)).toBe(true);
++  });
++
++  it('по умолчанию использует текущее время', () => {
++    vi.useFakeTimers();
++    vi.setSystemTime(5000);
++    expect(isHoldExpired(4999)).toBe(true);
++    expect(isHoldExpired(5000)).toBe(false);
++    vi.useRealTimers();
++  });
++
++  it('согласован с holdUntil', () => {
++    const until = holdUntil(0);
++    expect(until).toBe(15 * 60 * 1000);
++    expect(isHoldExpired(until, until - 1)).toBe(false);
++    expect(isHoldExpired(until, until + 1)).toBe(true);
++  });
++});

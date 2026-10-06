@@ -1,0 +1,42 @@
+{
+  "id": "k1-da",
+  "case": "K1",
+  "edition": "d",
+  "skills": [
+    "ts-nodejs-api",
+    "ts-fullstack-assistant"
+  ],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 10,
+  "cost": 0.22362999999999997,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 3,
+    "Bash": 6
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "git ls-files | grep -v '^web/' | head -80; cat docs/payments-api.md api/src/payments/gateway.ts api/src/server.ts",
+    "cd <run>/api && cat src/app.ts src/config.ts src/domain/order.ts src/errors.ts src/clients/inventory.ts src/services/reservation.ts src/",
+    "sed -n 80,200p test/orders.test.ts; cat src/logger.ts src/seed.ts | head -60; grep -rn \"config\" src --include=*.ts -l; cat ../README.md | head -40",
+    "cd <run> && cat e2e/playwright.config.ts; grep -n \"env\\|run\" .github/workflows/ci.yml; cat api/package.json | grep -n '\"' | head -20",
+    "cd <run>/api && cat > src/config.ts <<'EOF'\nfunction requireEnv(name: string): string {\n  const value = process.env[name]?.trim();\n  if ",
+    "python3 - <<'EOF'\np='src/errors.ts'\ns=open(p).read()\ns=s.replace(\"import type { ErrorRequestHandler } from 'express';\",\"import type { ErrorRequestHandler, NextFunction, Request, RequestHandler, Respon"
+  ]
+}

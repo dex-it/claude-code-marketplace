@@ -1,0 +1,45 @@
+{
+  "id": "k1-na",
+  "case": "K1",
+  "edition": "n",
+  "skills": [
+    "ts-nodejs-api",
+    "ts-fullstack-assistant"
+  ],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 13,
+  "cost": 0.2278154,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 3,
+    "Bash": 8,
+    "Edit": 1
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "cd <run>; git ls-files | grep -v node_modules | head -80; cat docs/payments-api.md api/src/payments/gateway.ts api/src/server.ts",
+    "cd <run>/api; cat src/app.ts src/config.ts src/domain/order.ts src/errors.ts src/clients/inventory.ts src/services/reservation.ts src/no",
+    "cd <run>/api; cat src/validation.ts src/logger.ts package.json; cat ../.github/workflows/ci.yml | head -30; grep -n \"PAYMENT\\|NOTIFIER\" ",
+    "cd <run>/api\ncat > src/config.ts <<'EOF'\nfunction requireEnv(name: string): string {\n  const value = process.env[name]?.trim();\n  if (!v",
+    "cd <run>/api\npython3 - <<'EOF'\np='src/app.ts'\ns=open(p).read()\ns=s.replace(\"orders.post('/:id/pay', async (req, res) => {\",\"orders.post(",
+    "cd <run>\ncat > api/test/http-gateway.test.ts <<'EOF'\nimport { afterEach, describe, expect, it, vi } from 'vitest';\nimport { HttpPaymentG",
+    "cd <run>; sed -n 27,29p README.md",
+    "cd <run>; sed -i '28s|$| `PAYMENT_URL` и `PAYMENT_API_KEY` - платёжный шлюз, обязательны (без них API не стартует).|' README.md; sed -n "
+  ]
+}

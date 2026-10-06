@@ -1,0 +1,39 @@
+{
+  "id": "k2-fb",
+  "case": "K2",
+  "edition": "final",
+  "skills": [
+    "react"
+  ],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 7,
+  "cost": 0.0859018,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 2,
+    "Bash": 4
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "cd web && git ls-files . | grep -v node_modules; cat src/api.ts; cat src/pages/*Orders* 2>/dev/null; cat package.json",
+    "cd web && cat src/components/OrdersPage.tsx src/components/__tests__/OrdersPage.test.tsx; cat src/test/setup.ts; grep -n \"orders\\|search\\|\\.order\" src/styles.css | head",
+    "cat src/components/OrdersPage.tsx src/components/__tests__/OrdersPage.test.tsx",
+    "python3 - <<'E'\np='src/components/OrdersPage.tsx'\ns=open(p).read()\ns=s.replace(\"\"\"  const [expandedId, setExpandedId] = useState<string | null>(null);\n\n  useEffect(() => {\n    getOrders().then(setOrde"
+  ]
+}

@@ -1,0 +1,86 @@
+diff --git a/e2e/tests/fixtures.ts b/e2e/tests/fixtures.ts
+new file mode 100644
+index 0000000..17f64f0
+--- /dev/null
++++ b/e2e/tests/fixtures.ts
+@@ -0,0 +1,37 @@
++import { test as base, expect, type APIRequestContext } from '@playwright/test';
++
++export const alice = { email: 'alice@shopdesk.example', password: 'alice-demo' };
++
++const TOKEN_KEY = 'shopdesk.token';
++
++interface Session {
++  token: string;
++  api: APIRequestContext;
++}
++
++async function apiLogin(request: APIRequestContext, user: typeof alice): Promise<string> {
++  const res = await request.post('/api/login', { data: user });
++  expect(res.ok()).toBeTruthy();
++  return (await res.json()).token;
++}
++
++// Вход без формы: токен получаем через API и кладём в localStorage до загрузки страницы.
++export const test = base.extend<{ aliceSession: Session }>({
++  aliceSession: async ({ page, request }, use) => {
++    const token = await apiLogin(request, alice);
++    await page.addInitScript(([key, value]) => localStorage.setItem(key, value), [TOKEN_KEY, token]);
++    await use({ token, api: request });
++  },
++});
++
++export { expect };
++
++// Новый заказ создаём через API, чтобы тест отмены не зависел от состояния демо-данных и повторных запусков.
++export async function createOrder(session: Session): Promise<{ id: string; number: number }> {
++  const res = await session.api.post('/api/orders', {
++    data: { items: [{ productId: 'p-spoon', quantity: 1 }] },
++    headers: { Authorization: `Bearer ${session.token}` },
++  });
++  expect(res.status()).toBe(201);
++  return res.json();
++}
+diff --git a/e2e/tests/orders.spec.ts b/e2e/tests/orders.spec.ts
+new file mode 100644
+index 0000000..f7ae297
+--- /dev/null
++++ b/e2e/tests/orders.spec.ts
+@@ -0,0 +1,37 @@
++import { alice, createOrder, expect, test } from './fixtures';
++
++test('alice входит и видит свои заказы', async ({ page }) => {
++  await page.goto('/');
++  await page.getByLabel('Email').fill(alice.email);
++  await page.getByLabel('Пароль').fill(alice.password);
++  await page.getByRole('button', { name: 'Войти' }).click();
++
++  await expect(page.getByRole('heading', { name: 'Мои заказы' })).toBeVisible();
++  await expect(page.getByRole('listitem').filter({ hasText: 'Заказ #1001' })).toContainText('Новый');
++  await expect(page.getByRole('listitem').filter({ hasText: 'Заказ #1002' })).toContainText('Новый');
++  await expect(page.getByRole('listitem').filter({ hasText: 'Заказ #1003' })).toContainText('Оплачен');
++  // заказ bob не показывается
++  await expect(page.getByText('Заказ #1004')).toHaveCount(0);
++});
++
++test('отмена нового заказа', async ({ page, aliceSession }) => {
++  const { number } = await createOrder(aliceSession);
++
++  await page.goto('/');
++  const order = page.getByRole('listitem').filter({ hasText: `Заказ #${number}` });
++  await expect(order).toContainText('Новый');
++  await order.getByRole('button', { name: 'Отменить' }).click();
++
++  await expect(order).toContainText('Отменён');
++  await expect(order.getByRole('button', { name: 'Отменить' })).toHaveCount(0);
++});
++
++test('ошибка сервера при загрузке заказов', async ({ page, aliceSession }) => {
++  void aliceSession;
++  await page.route('**/api/orders', (route) =>
++    route.fulfill({ status: 500, json: { error: { code: 'internal', message: 'Internal error' } } }),
++  );
++
++  await page.goto('/');
++  await expect(page.getByRole('alert')).toHaveText('Не удалось загрузить заказы');
++});

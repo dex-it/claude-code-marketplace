@@ -1,0 +1,34 @@
+---
+name: ts-vitest-jest
+description: Vitest/Jest unit-тесты - фабрика мока и hoisting, мок модуля против spy, общий стейт между тестами, проверка вызовов мока вместо результата. Активируется при vitest, jest, vi.mock, jest.mock, vi.hoisted, mock, spy, spyOn, unit test, тест зависит от порядка, тест падает при рефакторинге, toHaveBeenCalledWith
+---
+
+# Vitest / Jest - ловушки unit-тестирования
+
+### Переменная в factory мока — недоступна из-за hoisting
+Плохо: `const fn = vi.fn(); vi.mock('./api', () => ({ get: fn }))` → `ReferenceError: Cannot access 'fn' before initialization`
+Правильно: `const { fn } = vi.hoisted(() => ({ fn: vi.fn() })); vi.mock('./api', () => ({ get: fn }))`
+Почему: `vi.mock`/`jest.mock` всплывают в начало файла до объявлений. Factory выполняется раньше, чем создана переменная. `vi.hoisted` поднимает её вместе с моком
+
+### Мок реализации вместо spy на реальном
+Плохо: `vi.mock('./logger')` целиком, когда нужно лишь проверить факт вызова одного метода
+Правильно: `vi.spyOn(logger, 'warn')` — реальная реализация работает, вызов отслеживается
+Почему: полный мок модуля убирает настоящее поведение → тест проходит, а интеграция сломана. spy наблюдает, не подменяя
+
+
+### Общий mutable-стейт между тестами
+Плохо: `const cache = new Map()` на уровне файла, тесты пишут в него → зависят от порядка
+Правильно: создавай стейт в `beforeEach`, не на уровне модуля
+Почему: модульный стейт переживает тесты. Запуск по одному зелёный, всем suite — красный (или наоборот). Классический flaky
+
+### Тест проверяет реализацию мока, а не поведение
+Плохо: `expect(repoMock.save).toHaveBeenCalledWith(exactDto)` — ломается при любом рефакторинге сигнатуры
+Правильно: проверяй наблюдаемый результат: `expect(result.id).toBe(created.id)`
+Почему: assertion на детали вызова мока = тест связан с реализацией, не контрактом. Переименовал поле → красный без смены поведения
+
+- `vi.hoisted` для переменных в factory мока
+- `restoreMocks`/`clearMocks` между тестами (конфиг или afterEach)
+- `vi.useRealTimers()` в afterEach после fake timers
+- `await` перед `expect(...).resolves/.rejects`
+- Стейт в `beforeEach`, не на уровне модуля
+- Assert по результату, не по `toHaveBeenCalledWith` деталям

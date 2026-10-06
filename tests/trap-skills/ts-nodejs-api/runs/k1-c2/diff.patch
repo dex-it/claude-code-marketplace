@@ -1,0 +1,393 @@
+diff --git a/README.md b/README.md
+index 88c80c5..a6f0571 100644
+--- a/README.md
++++ b/README.md
+@@ -25,7 +25,8 @@ npm run dev -w web                                                      # каб
+ Демо-учётки - в `api/src/seed.ts` (загружаются только при `SEED_DEMO=1`).
+ 
+ Переменные окружения API: `PORT` (3000), `NOTIFIER_URL`, `ANALYTICS_URL` - адреса сервиса писем и
+-аналитики (по умолчанию локальные заглушки), `INVENTORY_URL` - склад.
++аналитики (по умолчанию локальные заглушки), `INVENTORY_URL` - склад,
++`PAYMENT_URL` и `PAYMENT_API_KEY` - платёжный шлюз (`docs/payments-api.md`).
+ 
+ ## Проверки
+ 
+diff --git a/api/src/app.ts b/api/src/app.ts
+index f72fe6f..143dcd6 100644
+--- a/api/src/app.ts
++++ b/api/src/app.ts
+@@ -5,6 +5,8 @@ import { OrderStatus, type Order, type OrderItem } from './domain/order.js';
+ import { HttpError, errorHandler } from './errors.js';
+ import type { Notifier } from './notifications/notifier.js';
+ import type { PaymentGateway } from './payments/gateway.js';
++import { PaymentUnavailableError } from './payments/http-gateway.js';
++import { logger } from './logger.js';
+ import type { Store } from './store.js';
+ import { createOrderSchema, loginSchema, parseBody } from './validation.js';
+ 
+@@ -29,7 +31,8 @@ function matchesQuery(order: Order, q: string): boolean {
+ }
+ 
+ export function createApp(deps: AppDeps): express.Express {
+-  const { store } = deps;
++  const { store, payments, notifier, analytics } = deps;
++  const paying = new Set<string>();
+   const app = express();
+   app.disable('x-powered-by');
+   app.use(express.json());
+@@ -87,6 +90,50 @@ export function createApp(deps: AppDeps): express.Express {
+     res.json(store.saveOrder({ ...order, status: OrderStatus.Cancelled }));
+   });
+ 
++  orders.post('/:id/pay', async (req, res, next) => {
++    try {
++      const order = findOwnOrder(store, currentUser(req), req.params.id);
++      if (order.status !== OrderStatus.New) {
++        throw new HttpError(409, 'order_not_payable', `Order ${order.number} is ${order.status}`);
++      }
++      // Защита от параллельной оплаты одного заказа (двойной клик, два запроса)
++      if (paying.has(order.id)) {
++        throw new HttpError(409, 'payment_in_progress', `Payment for order ${order.number} is in progress`);
++      }
++      paying.add(order.id);
++      let paid: Order;
++      try {
++        let result;
++        try {
++          result = await payments.charge({ orderId: order.id, amountKopecks: order.totalKopecks, currency: 'RUB' });
++        } catch (err) {
++          if (err instanceof PaymentUnavailableError) {
++            throw new HttpError(502, 'payment_unavailable', 'Payment gateway is unavailable, try again later');
++          }
++          throw err;
++        }
++        if (result.status === 'declined') {
++          throw new HttpError(402, 'payment_declined', result.reason);
++        }
++        paid = store.saveOrder({ ...order, status: OrderStatus.Paid, transactionId: result.transactionId });
++      } finally {
++        paying.delete(order.id);
++      }
++      // Деньги уже списаны: сбой письма или аналитики не должен ломать ответ
++      await Promise.allSettled([
++        notifier.orderPaid(paid),
++        analytics.track('order_paid', { orderNumber: paid.number, amountKopecks: paid.totalKopecks }),
++      ]).then((results) => {
++        for (const r of results) {
++          if (r.status === 'rejected') logger.warn(`post-payment side effect failed for order ${paid.number}`, r.reason);
++        }
++      });
++      res.json(paid);
++    } catch (err) {
++      next(err);
++    }
++  });
++
+   app.use('/api/orders', orders);
+   app.use(errorHandler);
+   return app;
+diff --git a/api/src/config.ts b/api/src/config.ts
+index 8c2d45e..bb37d21 100644
+--- a/api/src/config.ts
++++ b/api/src/config.ts
+@@ -2,4 +2,6 @@ export const config = {
+   port: Number(process.env.PORT ?? 3000),
+   notifierUrl: process.env.NOTIFIER_URL ?? 'http://localhost:4010',
+   analyticsUrl: process.env.ANALYTICS_URL ?? 'http://localhost:4020',
++  paymentUrl: process.env.PAYMENT_URL ?? 'http://localhost:4040',
++  paymentApiKey: process.env.PAYMENT_API_KEY ?? '',
+ };
+diff --git a/api/src/domain/order.ts b/api/src/domain/order.ts
+index 2f76b51..e77b4ad 100644
+--- a/api/src/domain/order.ts
++++ b/api/src/domain/order.ts
+@@ -18,6 +18,7 @@ export interface Order {
+   items: OrderItem[];
+   totalKopecks: number;
+   status: OrderStatus;
++  transactionId?: string;
+   createdAt: string;
+ }
+ 
+diff --git a/api/src/payments/http-gateway.ts b/api/src/payments/http-gateway.ts
+new file mode 100644
+index 0000000..4d5b338
+--- /dev/null
++++ b/api/src/payments/http-gateway.ts
+@@ -0,0 +1,82 @@
++import { logger } from '../logger.js';
++import type { ChargeRequest, ChargeResult, PaymentGateway } from './gateway.js';
++
++export class PaymentUnavailableError extends Error {
++  constructor(message: string, options?: ErrorOptions) {
++    super(message, options);
++    this.name = 'PaymentUnavailableError';
++  }
++}
++
++export interface HttpPaymentGatewayOptions {
++  baseUrl: string;
++  apiKey: string;
++  maxAttempts?: number;
++  retryDelaysMs?: number[];
++  timeoutMs?: number;
++}
++
++function pause(ms: number): Promise<void> {
++  return new Promise((resolve) => setTimeout(resolve, ms));
++}
++
++// Сбой, после которого результат списания неизвестен или шлюз просит повторить: сеть, таймаут, 409, 5xx.
++// Повтор с тем же order_id безопасен - шлюз возвращает результат первого списания.
++class RetryableError extends Error {}
++
++export class HttpPaymentGateway implements PaymentGateway {
++  private readonly maxAttempts: number;
++  private readonly retryDelaysMs: number[];
++  private readonly timeoutMs: number;
++
++  constructor(private readonly options: HttpPaymentGatewayOptions) {
++    this.maxAttempts = options.maxAttempts ?? 3;
++    this.retryDelaysMs = options.retryDelaysMs ?? [500, 1500];
++    this.timeoutMs = options.timeoutMs ?? 10_000;
++  }
++
++  async charge(req: ChargeRequest): Promise<ChargeResult> {
++    let lastError: unknown;
++    for (let attempt = 1; attempt <= this.maxAttempts; attempt += 1) {
++      try {
++        return await this.send(req);
++      } catch (err) {
++        if (!(err instanceof RetryableError)) throw err;
++        lastError = err;
++        logger.warn(`payment gateway failed for order ${req.orderId} (attempt ${attempt} of ${this.maxAttempts}): ${err.message}`);
++        if (attempt < this.maxAttempts) await pause(this.retryDelaysMs[attempt - 1] ?? 0);
++      }
++    }
++    throw new PaymentUnavailableError(`Payment gateway is unavailable for order ${req.orderId}`, { cause: lastError });
++  }
++
++  private async send(req: ChargeRequest): Promise<ChargeResult> {
++    let res: Response;
++    try {
++      res = await fetch(new URL('/v1/charges', this.options.baseUrl), {
++        method: 'POST',
++        headers: { 'Content-Type': 'application/json', 'X-Api-Key': this.options.apiKey },
++        body: JSON.stringify({ order_id: req.orderId, amount: req.amountKopecks, currency: req.currency }),
++        signal: AbortSignal.timeout(this.timeoutMs),
++      });
++    } catch (err) {
++      throw new RetryableError(err instanceof Error ? err.message : 'network error');
++    }
++    if (res.status === 409 || res.status >= 500) throw new RetryableError(`gateway responded with ${res.status}`);
++    if (!res.ok) throw new Error(`payment gateway responded with ${res.status}`);
++
++    let body: { status?: string; transaction_id?: string; decline_reason?: string };
++    try {
++      body = (await res.json()) as typeof body;
++    } catch {
++      throw new RetryableError('gateway returned an unreadable body');
++    }
++    if (body.status === 'approved' && body.transaction_id) {
++      return { status: 'approved', transactionId: body.transaction_id };
++    }
++    if (body.status === 'declined') {
++      return { status: 'declined', reason: body.decline_reason ?? 'declined' };
++    }
++    throw new Error('payment gateway returned an unexpected response');
++  }
++}
+diff --git a/api/src/server.ts b/api/src/server.ts
+index 0ddc0b1..da48f6e 100644
+--- a/api/src/server.ts
++++ b/api/src/server.ts
+@@ -3,7 +3,7 @@ import { createApp } from './app.js';
+ import { config } from './config.js';
+ import { logger } from './logger.js';
+ import { HttpNotifier } from './notifications/notifier.js';
+-import type { PaymentGateway } from './payments/gateway.js';
++import { HttpPaymentGateway } from './payments/http-gateway.js';
+ import { seedDemo } from './seed.js';
+ import { Store } from './store.js';
+ 
+@@ -13,11 +13,7 @@ if (process.env.SEED_DEMO === '1') {
+   logger.info('demo data loaded');
+ }
+ 
+-const payments: PaymentGateway = {
+-  async charge() {
+-    throw new Error('payments are not configured');
+-  },
+-};
++const payments = new HttpPaymentGateway({ baseUrl: config.paymentUrl, apiKey: config.paymentApiKey });
+ 
+ const app = createApp({
+   store,
+diff --git a/api/test/payment.test.ts b/api/test/payment.test.ts
+new file mode 100644
+index 0000000..25a9e22
+--- /dev/null
++++ b/api/test/payment.test.ts
+@@ -0,0 +1,162 @@
++import request from 'supertest';
++import { afterEach, describe, expect, it, vi } from 'vitest';
++import type { Analytics } from '../src/analytics/analytics.js';
++import { createApp } from '../src/app.js';
++import type { Notifier } from '../src/notifications/notifier.js';
++import type { ChargeResult, PaymentGateway } from '../src/payments/gateway.js';
++import { HttpPaymentGateway, PaymentUnavailableError } from '../src/payments/http-gateway.js';
++import { demoUsers, seedDemo } from '../src/seed.js';
++import { Store } from '../src/store.js';
++
++function setup(charge: PaymentGateway['charge']) {
++  const store = new Store();
++  seedDemo(store);
++  const payments = { charge: vi.fn(charge) };
++  const notifier = { orderPaid: vi.fn(async () => {}) } satisfies Notifier;
++  const analytics = { track: vi.fn(async () => {}) } satisfies Analytics;
++  const app = createApp({ store, payments, notifier, analytics });
++  return { store, app, payments, notifier, analytics };
++}
++
++async function login(app: ReturnType<typeof setup>['app'], who: keyof typeof demoUsers) {
++  const { email, password } = demoUsers[who];
++  const res = await request(app).post('/api/login').send({ email, password }).expect(200);
++  return `Bearer ${res.body.token}`;
++}
++
++const approve = async (): Promise<ChargeResult> => ({ status: 'approved', transactionId: 'tx_1' });
++
++describe('POST /api/orders/:id/pay', () => {
++  it('pays a new order, stores transactionId, notifies and tracks', async () => {
++    const ctx = setup(approve);
++    const auth = await login(ctx.app, 'alice');
++    const res = await request(ctx.app).post('/api/orders/ord-1001/pay').set('Authorization', auth);
++    expect(res.status).toBe(200);
++    expect(res.body).toMatchObject({ id: 'ord-1001', status: 'paid', transactionId: 'tx_1' });
++    expect(ctx.store.getOrder('ord-1001')).toMatchObject({ status: 'paid', transactionId: 'tx_1' });
++    expect(ctx.payments.charge).toHaveBeenCalledWith({
++      orderId: 'ord-1001',
++      amountKopecks: res.body.totalKopecks,
++      currency: 'RUB',
++    });
++    expect(ctx.notifier.orderPaid).toHaveBeenCalledTimes(1);
++    expect(ctx.analytics.track).toHaveBeenCalledWith('order_paid', {
++      orderNumber: 1001,
++      amountKopecks: res.body.totalKopecks,
++    });
++  });
++
++  it('answers 402 and keeps the order new when the bank declines', async () => {
++    const ctx = setup(async () => ({ status: 'declined', reason: 'insufficient_funds' }));
++    const auth = await login(ctx.app, 'alice');
++    const res = await request(ctx.app).post('/api/orders/ord-1001/pay').set('Authorization', auth);
++    expect(res.status).toBe(402);
++    expect(res.body).toEqual({ error: { code: 'payment_declined', message: 'insufficient_funds' } });
++    expect(ctx.store.getOrder('ord-1001')?.status).toBe('new');
++    expect(ctx.notifier.orderPaid).not.toHaveBeenCalled();
++    expect(ctx.analytics.track).not.toHaveBeenCalled();
++  });
++
++  it('answers 404 for a foreign or missing order without charging', async () => {
++    const ctx = setup(approve);
++    const auth = await login(ctx.app, 'alice');
++    expect((await request(ctx.app).post('/api/orders/ord-1004/pay').set('Authorization', auth)).status).toBe(404);
++    expect((await request(ctx.app).post('/api/orders/nope/pay').set('Authorization', auth)).status).toBe(404);
++    expect(ctx.payments.charge).not.toHaveBeenCalled();
++    expect(ctx.store.getOrder('ord-1004')?.status).toBe('new');
++  });
++
++  it('answers 409 for an already paid order without charging again', async () => {
++    const ctx = setup(approve);
++    const auth = await login(ctx.app, 'alice');
++    const res = await request(ctx.app).post('/api/orders/ord-1003/pay').set('Authorization', auth);
++    expect(res.status).toBe(409);
++    await request(ctx.app).post('/api/orders/ord-1001/pay').set('Authorization', auth).expect(200);
++    await request(ctx.app).post('/api/orders/ord-1001/pay').set('Authorization', auth).expect(409);
++    expect(ctx.payments.charge).toHaveBeenCalledTimes(1);
++  });
++
++  it('does not charge twice for concurrent requests', async () => {
++    let release!: () => void;
++    const gate = new Promise<void>((resolve) => (release = resolve));
++    const ctx = setup(async () => {
++      await gate;
++      return { status: 'approved', transactionId: 'tx_1' };
++    });
++    const auth = await login(ctx.app, 'alice');
++    const first = request(ctx.app).post('/api/orders/ord-1001/pay').set('Authorization', auth).then((r) => r);
++    await vi.waitFor(() => expect(ctx.payments.charge).toHaveBeenCalledTimes(1));
++    const second = await request(ctx.app).post('/api/orders/ord-1001/pay').set('Authorization', auth);
++    expect(second.status).toBe(409);
++    release();
++    expect((await first).status).toBe(200);
++    expect(ctx.payments.charge).toHaveBeenCalledTimes(1);
++  });
++
++  it('answers 502 and keeps the order new when the gateway is unavailable', async () => {
++    const ctx = setup(async () => {
++      throw new PaymentUnavailableError('down');
++    });
++    const auth = await login(ctx.app, 'alice');
++    const res = await request(ctx.app).post('/api/orders/ord-1001/pay').set('Authorization', auth);
++    expect(res.status).toBe(502);
++    expect(ctx.store.getOrder('ord-1001')?.status).toBe('new');
++  });
++
++  it('still answers 200 when the notifier fails after payment', async () => {
++    const ctx = setup(approve);
++    ctx.notifier.orderPaid.mockRejectedValue(new Error('smtp down'));
++    const auth = await login(ctx.app, 'alice');
++    await request(ctx.app).post('/api/orders/ord-1001/pay').set('Authorization', auth).expect(200);
++    expect(ctx.store.getOrder('ord-1001')?.status).toBe('paid');
++  });
++});
++
++describe('HttpPaymentGateway', () => {
++  afterEach(() => vi.unstubAllGlobals());
++
++  const req = { orderId: 'ord-1', amountKopecks: 129000, currency: 'RUB' } as const;
++  const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status });
++  const make = () =>
++    new HttpPaymentGateway({ baseUrl: 'https://pay.test', apiKey: 'k', retryDelaysMs: [0, 0] });
++
++  it('sends the charge in the documented format and maps approval', async () => {
++    const fetchMock = vi.fn(async () => json(200, { status: 'approved', transaction_id: 'tx_9' }));
++    vi.stubGlobal('fetch', fetchMock);
++    await expect(make().charge(req)).resolves.toEqual({ status: 'approved', transactionId: 'tx_9' });
++    const [url, init] = fetchMock.mock.calls[0] as unknown as [URL, RequestInit];
++    expect(String(url)).toBe('https://pay.test/v1/charges');
++    expect((init.headers as Record<string, string>)['X-Api-Key']).toBe('k');
++    expect(JSON.parse(init.body as string)).toEqual({ order_id: 'ord-1', amount: 129000, currency: 'RUB' });
++  });
++
++  it('maps a decline to its reason', async () => {
++    vi.stubGlobal('fetch', vi.fn(async () => json(200, { status: 'declined', decline_reason: 'card_expired' })));
++    await expect(make().charge(req)).resolves.toEqual({ status: 'declined', reason: 'card_expired' });
++  });
++
++  it('retries network failures, 409 and 5xx with the same order_id', async () => {
++    const fetchMock = vi
++      .fn()
++      .mockRejectedValueOnce(new TypeError('fetch failed'))
++      .mockResolvedValueOnce(json(409, { error: 'busy' }))
++      .mockResolvedValueOnce(json(200, { status: 'approved', transaction_id: 'tx_2' }));
++    vi.stubGlobal('fetch', fetchMock);
++    await expect(make().charge(req)).resolves.toMatchObject({ status: 'approved' });
++    expect(fetchMock).toHaveBeenCalledTimes(3);
++  });
++
++  it('gives up with PaymentUnavailableError after the last attempt', async () => {
++    const fetchMock = vi.fn(async () => json(503, { error: 'x' }));
++    vi.stubGlobal('fetch', fetchMock);
++    await expect(make().charge(req)).rejects.toBeInstanceOf(PaymentUnavailableError);
++    expect(fetchMock).toHaveBeenCalledTimes(3);
++  });
++
++  it('does not retry client errors', async () => {
++    const fetchMock = vi.fn(async () => json(401, { error: 'bad key' }));
++    vi.stubGlobal('fetch', fetchMock);
++    await expect(make().charge(req)).rejects.toThrow('401');
++    expect(fetchMock).toHaveBeenCalledTimes(1);
++  });
++});

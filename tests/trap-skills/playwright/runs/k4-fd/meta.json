@@ -1,0 +1,39 @@
+{
+  "id": "k4-fd",
+  "case": "K4",
+  "edition": "final",
+  "skills": [
+    "playwright"
+  ],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 7,
+  "cost": 0.1003212,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 2,
+    "Bash": 4
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "git ls-files | grep -v node_modules | head -100",
+    "cat e2e/playwright.config.ts e2e/tests/smoke.spec.ts e2e/package.json api/src/seed.ts web/src/components/OrdersPage.tsx web/src/components/LoginForm.tsx web/src/App.tsx web/src/api.ts; grep -n \"orders",
+    "sed -n 30,100p api/src/app.ts; cat web/vite.config.ts api/src/validation.ts; cat e2e/tsconfig.json; cat api/src/config.ts",
+    "cd <run>/e2e/tests && cat > fixtures.ts <<'EOF'\nimport { test as base, expect, type APIRequestContext } from '@playwright/test';\n\nexport"
+  ]
+}

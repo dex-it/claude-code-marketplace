@@ -1,0 +1,61 @@
+diff --git a/e2e/tests/orders.spec.ts b/e2e/tests/orders.spec.ts
+new file mode 100644
+index 0000000..2ff44a3
+--- /dev/null
++++ b/e2e/tests/orders.spec.ts
+@@ -0,0 +1,55 @@
++import { expect, test, type Page } from '@playwright/test';
++
++const alice = { email: 'alice@shopdesk.example', password: 'alice-demo' };
++
++async function loginViaUi(page: Page) {
++  await page.goto('/');
++  await page.getByLabel('Email').fill(alice.email);
++  await page.getByLabel('Пароль').fill(alice.password);
++  await page.getByRole('button', { name: 'Войти' }).click();
++  await expect(page.getByRole('heading', { name: 'Мои заказы' })).toBeVisible();
++}
++
++test('alice входит и видит список своих заказов', async ({ page }) => {
++  await loginViaUi(page);
++
++  await expect(page.getByText('Заказ #1001')).toBeVisible();
++  await expect(page.getByText('Заказ #1002')).toBeVisible();
++  await expect(page.getByText('Заказ #1003')).toBeVisible();
++  // заказ bob не должен попадать в список alice
++  await expect(page.getByText('Заказ #1004')).toHaveCount(0);
++});
++
++test('отмена нового заказа меняет статус и убирает кнопку', async ({ page, request }) => {
++  // свой заказ на каждый прогон: сидовые данные не меняются, тест можно запускать повторно
++  const loginRes = await request.post('/api/login', { data: alice });
++  expect(loginRes.ok()).toBeTruthy();
++  const { token } = await loginRes.json();
++  const createRes = await request.post('/api/orders', {
++    headers: { Authorization: `Bearer ${token}` },
++    data: { items: [{ productId: 'p-spoon', quantity: 1 }] },
++  });
++  expect(createRes.status()).toBe(201);
++  const { number } = await createRes.json();
++
++  await loginViaUi(page);
++
++  const order = page.getByRole('listitem').filter({ hasText: `Заказ #${number}` });
++  await expect(order.getByText('Новый')).toBeVisible();
++  await order.getByRole('button', { name: 'Отменить' }).click();
++
++  await expect(order.getByText('Отменён')).toBeVisible();
++  await expect(order.getByRole('button', { name: 'Отменить' })).toHaveCount(0);
++});
++
++test('при ошибке сервера показывается сообщение о незагруженных заказах', async ({ page }) => {
++  await loginViaUi(page);
++  await page.route('**/api/orders', (route) =>
++    route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":{"code":"internal","message":"boom"}}' }),
++  );
++
++  await page.getByRole('button', { name: 'Каталог' }).click();
++  await page.getByRole('button', { name: 'Заказы' }).click();
++
++  await expect(page.getByText('Не удалось загрузить заказы')).toBeVisible();
++});
