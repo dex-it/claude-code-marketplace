@@ -61,6 +61,19 @@ ${tail(c)} В ответе - что было причиной и что изме
     prompt: (c) => `Ты QA-инженер в команде Parcel. Репозиторий - ${c.ws}/parcel: API сервиса (src/http) и веб-клиент (web/). На стенде после выката жалобы поддержки: «при отмене заказа веб пишет "Не удалось отменить", хотя заказ отменён»; «карточка части заказов открывается белым экраном». Что развёрнуто на стенде - stand/deploy.json. Найди причины и все расхождения между API и веб-клиентом, которые видны пользователю на стенде. Запиши находки в ${c.ws}/FINDINGS.md: место, что разъехалось, чем кончится для пользователя. Код не правь.
 ${tail(c)} В ответе - только число находок.`,
   },
+  // ib-fake: хранилище SQLite в проде, хранилище в памяти в тестах (вариант main@order-search).
+  IBF: {
+    branch: 'main@order-search',
+    judge: (c) => ['accept-ibf.mjs', c.repo],
+    prompt: (c) => `Ты разработчик в команде Parcel. Репозиторий - ${c.ws}/parcel. Задача PAR-31: поиск заказов для поддержки по имени получателя, требования - docs/requirements/support-search.md. Сделай и покрой тестами.
+${tail(c)} В ответе - что сделано и чем проверено.`,
+  },
+  // cd-format: стенд после выката API 2.5.0, веб 2.4.0 (вариант main@api-2-5).
+  CDT: {
+    branch: 'main@api-2-5',
+    prompt: (c) => `Ты QA-инженер в команде Parcel. Репозиторий - ${c.ws}/parcel: API сервиса (src/http) и веб-клиент (web/). Вчера на стенд выкатили новую версию API; что развёрнуто - stand/deploy.json. Перед выкатом в прод проверь: найди расхождения между API и веб-клиентом на стенде, которые видны пользователю. Запиши находки в ${c.ws}/FINDINGS.md: место, что разъехалось, чем кончится для пользователя. Код не правь.
+${tail(c)} В ответе - только число находок.`,
+  },
   N0: {
     branch: 'main',
     prompt: (c) => `Ты разработчик в команде Parcel. Репозиторий - ${c.ws}/parcel. Задача PAR-23: новый текст SMS об отправке заказа - «Parcel: заказ {id} передан в доставку, трек {track}». Сделай.
@@ -205,7 +218,7 @@ const pi = argv.indexOf('--parallel');
 const PAR = pi >= 0 ? Number(argv[pi + 1]) : 2;
 const specs = argv.filter((x, i) => x.includes(':') && (pi < 0 || i !== pi + 1));
 if (!specs.length) {
-  console.error('usage: node run.mjs <id>:<TW|TR|IB|BR|CD|N0>:<SKILL.md[+SKILL.md]|-> ... [--parallel N]');
+  console.error('usage: node run.mjs <id>:<TW|TW0|TR|IB|IBF|BR|CD|CDT|N0>:<SKILL.md[+SKILL.md]|-> ... [--parallel N]');
   process.exit(2);
 }
 const q = [...specs];
