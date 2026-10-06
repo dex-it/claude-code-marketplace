@@ -16,7 +16,7 @@
 
 `<набор>/sources.md` - основания пунктов, пришедших из `/mr-apply`: MR, триада, самооценка анализатора. По ним строится кейс, когда пункт идёт в заход сжатия.
 
-`_projects/` - общие мини-проекты нескольких наборов: `setup.sh` разворачивает git-репозиторий прогона, README проекта - ключ для судьи, исполнителю не подаётся.
+`_projects/` - общие мини-проекты нескольких наборов (`billing` - группы 0-1, `shipping` - группа 2.4b и имитация стенда): `setup.sh` разворачивает git-репозиторий прогона, README проекта - ключ для судьи, исполнителю не подаётся.
 
 `removed/` - наборы снятых скиллов: скилла в каталоге нет, набор хранит свидетельство снятия и не
 перезапускается.
@@ -43,3 +43,6 @@
 | [removed/microservices](removed/microservices/README.md) | `dex-skill-microservices` 1.2.1 | ревью (A3), проектирование (D1, D2, D3) | снят |
 | [removed/distributed-resilience](removed/distributed-resilience/README.md) | `dex-skill-distributed-resilience` 1.0.1 | ревью (A3), проектирование (D2) | снят; R-f - названием в Phase 4 `architect`, `architect-dotnet` |
 | [removed/git-workflow](removed/git-workflow/README.md) | `dex-skill-git-workflow` 1.2.1 | автор: коммит и push (W); повторное ревью (C, CB) | снят; конвенции - в свод правил проекта |
+| [root-cause-analysis](root-cause-analysis/README.md) | `dex-skill-root-cause-analysis` 1.0.0 | причина 500 и исправление (K1), ничего не менять (K0), инцидент и баги QA (K2, K4); общий заход группы 2.4b | 8 ловушек и чек-лист -> process-skill 2.0.0: порядок из трёх шагов |
+| [change-correlation](change-correlation/README.md) | `dex-skill-change-correlation` 1.0.1 | инцидент на общем стенде (K2), регрессия между релизом и develop (K3) | 8 ловушек и чек-лист -> process-skill 2.0.0: порядок; образ на стенде - фраза по провалу n1 |
+| [post-merge-remediation](post-merge-remediation/README.md) | `dex-skill-post-merge-remediation` 1.0.1 | баги QA после мерджа, общий стенд, оператор по ходам (K4) | 6 ловушек -> process-skill 2.0.0: порядок и гейты; гейт выката по свидетельству |
