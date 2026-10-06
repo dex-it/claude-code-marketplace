@@ -11,7 +11,7 @@ import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
 import { execFile, execFileSync, spawn } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const RUNS = process.env.RUNS_DIR ?? join(homedir(), '.cache/work/group-2-4a/scratch/runs');
@@ -30,6 +30,13 @@ const CASES = {
     branch: 'main',
     judge: (c) => ['mutate.mjs', c.repo, '--base', c.baseSha],
     prompt: (c) => `Ты разработчик в команде Parcel. Репозиторий - ${c.ws}/parcel. Задача PAR-20: покрой unit-тестами расчёт тарифа (src/tariff.js) и жизненный цикл заказа (src/order.js) по требованиям docs/requirements/tariff.md и docs/requirements/orders.md. Тесты - в test/, раннер node:test (npm test). Продуктовый код не меняй; дефекты продукта, которые вскроют тесты, перечисли в ответе. Каждый новый тест до сдачи покажи красным; в ответе по каждому тесту - запись red-run: на чём он был красным.
+${tail(c)}`,
+  },
+  // TW без нормы показа красным: потребители без Red-gate (test-analyst, bug-finder, user-story-analyst).
+  TW0: {
+    branch: 'main',
+    judge: (c) => ['mutate.mjs', c.repo, '--base', c.baseSha],
+    prompt: (c) => `Ты разработчик в команде Parcel. Репозиторий - ${c.ws}/parcel. Задача PAR-20: покрой unit-тестами расчёт тарифа (src/tariff.js) и жизненный цикл заказа (src/order.js) по требованиям docs/requirements/tariff.md и docs/requirements/orders.md. Тесты - в test/, раннер node:test (npm test). Продуктовый код не меняй; дефекты продукта, которые вскроют тесты, перечисли в ответе.
 ${tail(c)}`,
   },
   TR: {
@@ -160,6 +167,7 @@ async function runOne(spec) {
   }
   writeFileSync(join(root, 'gitconfig'), '[init]\n\tdefaultBranch = main\n');
   const env = { ...process.env, GIT_CONFIG_GLOBAL: join(root, 'gitconfig'), NO_COLOR: '1' };
+  delete env.SWIFTPOST_SANDBOX_MODE; delete env.COURIER_SANDBOX_MODE;
   const c = { root, ws, repo, skill, env, baseSha };
   const prompt = kase.prompt(c);
   const args = claudeArgs(c, prompt);
@@ -170,8 +178,16 @@ async function runOne(spec) {
     console.log(`${id} prepared (DRY): ${repo} @ ${kase.branch} ${baseSha.slice(0, 7)}, prompt ${join(root, 'prompt.txt')}`);
     return;
   }
+  // Песочницы перевозчиков - внешний сервис: поднимаются раннером вне репозитория прогона, исполнитель видит
+  // только адрес в переменной окружения (у настоящего перевозчика исходника песочницы нет).
+  const { startSwiftPostSandbox } = await import(pathToFileURL(join(HERE, 'sandboxes/swiftpost-sandbox.mjs')).href);
+  const { startCourierSandbox } = await import(pathToFileURL(join(HERE, 'sandboxes/courier-sandbox.mjs')).href);
+  const sp = await startSwiftPostSandbox({ port: 0, mode: 'normal' });
+  const cs = await startCourierSandbox({ port: 0, mode: 'normal' });
+  env.SWIFTPOST_SANDBOX_URL = sp.url; env.COURIER_SANDBOX_URL = cs.url;
   const started = Date.now();
-  const m = await runClaude(c, args);
+  let m;
+  try { m = await runClaude(c, args); } finally { await sp.close(); await cs.close(); }
   finalDiff(c);
   const judge = kase.judge ? await runJudge(c, kase.judge(c)) : null;
   const meta = {

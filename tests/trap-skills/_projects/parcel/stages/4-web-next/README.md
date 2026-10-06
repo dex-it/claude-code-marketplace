@@ -9,8 +9,6 @@ Node.js 24, ES-модули, без внешних зависимостей.
 ```
 npm test                  # все тесты (node:test): test/ и web/test/
 npm run api               # API на http://127.0.0.1:3000 (порт - PORT), данные - data/
-npm run courier:sandbox   # песочница Курьер-Сервиса
-npm run carrier:sandbox   # песочница SwiftPost
 ```
 
 Пример запроса: `curl -H 'x-customer-id: c-301' http://127.0.0.1:3000/api/orders/1042`, отмена -
@@ -23,29 +21,22 @@ npm run carrier:sandbox   # песочница SwiftPost
 
 ## Перевозчики и песочницы
 
-Песочницы - локальные HTTP-серверы, повторяют поведение API перевозчика. Порт `0` - любой свободный,
-адрес печатается при запуске. Из тестов песочницы поднимаются импортом: `startCourierSandbox({ port: 0 })`
-из `tools/courier-sandbox.mjs`, `startSwiftPostSandbox({ port: 0 })` из `tools/swiftpost-sandbox.mjs`;
-оба возвращают `{ url, port, setMode(mode), close() }`.
+Песочницы перевозчиков - их тестовые контуры, доступны с машины разработчика и из CI. Адреса - в
+переменных окружения `COURIER_SANDBOX_URL` и `SWIFTPOST_SANDBOX_URL` (заданы на машине разработчика).
+Режим недоступности (ответ 503) включается запросом `POST <адрес>/__sandbox/mode` с телом
+`{"mode":"unavailable"}`, обратно - `{"mode":"normal"}`; режим общий для всех, кто работает с песочницей,
+после проверки его нужно вернуть.
 
 ### Курьер-Сервис
 
 Документация API - `docs/integrations/courier-service.md`. Настройки - переменные окружения:
-`COURIER_URL` (по умолчанию `http://127.0.0.1:4020`) и `COURIER_TOKEN` (ключ `X-Api-Key`).
-
-Песочница: `npm run courier:sandbox` - `http://127.0.0.1:4020` (порт - `--port` или
-`COURIER_SANDBOX_PORT`). Тестовый ключ - любой вида `cs_*`, например `cs_dev`. Режим недоступности
-(ответ 503): `COURIER_SANDBOX_MODE=unavailable` при запуске или `POST /__sandbox/mode` с телом
-`{"mode":"unavailable"}` (обратно - `{"mode":"normal"}`).
+`COURIER_URL` и `COURIER_TOKEN` (ключ `X-Api-Key`). Тестовый ключ песочницы - любой вида `cs_*`,
+например `cs_dev`.
 
 ### SwiftPost
 
 Новый перевозчик (подключение - PAR-17). Документация API - `docs/integrations/swiftpost-api.md`.
-
-Песочница: `npm run carrier:sandbox` - `http://127.0.0.1:4010` (порт - `--port` или
-`SWIFTPOST_SANDBOX_PORT`). Тестовый токен - `sbx_parcel_dev` (принимается любой вида `sbx_*`),
-заголовок `Authorization: Bearer <токен>`. Режим недоступности (ответ 503): `SWIFTPOST_SANDBOX_MODE=unavailable`
-при запуске или `POST /__sandbox/mode` с телом `{"mode":"unavailable"}` (обратно - `{"mode":"normal"}`).
+Тестовый токен песочницы - `sbx_parcel_dev`, заголовок `Authorization: Bearer <токен>`.
 
 ## Структура
 
@@ -62,7 +53,6 @@ src/store.js         хранилище заказов в памяти
 src/archive.js       архив заказов старше года
 src/config.js        настройки из переменных окружения
 src/http/            HTTP API заказов и вебхук оплаты (node:http)
-tools/               песочницы перевозчиков
 web/                 веб-клиент: карточка заказа (web/src), тесты (web/test)
 data/                выгрузка заказов со стенда для локального запуска
 stand/deploy.json    что развёрнуто на стенде

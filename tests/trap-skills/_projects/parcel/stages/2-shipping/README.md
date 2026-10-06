@@ -9,7 +9,6 @@ Node.js 24, ES-модули, без внешних зависимостей.
 ```
 npm test                  # все тесты (node:test): test/ и web/test/
 npm run api               # API на http://127.0.0.1:3000 (порт - PORT), данные - data/orders-sample.json
-npm run courier:sandbox   # песочница Курьер-Сервиса, см. ниже
 ```
 
 Пример запроса: `curl -H 'x-customer-id: c-117' http://127.0.0.1:3000/api/orders/1001`.
@@ -24,14 +23,13 @@ npm run courier:sandbox   # песочница Курьер-Сервиса, см
 
 | Переменная | Значение |
 |---|---|
-| `COURIER_URL` | адрес API, по умолчанию `http://127.0.0.1:4020` (песочница) |
+| `COURIER_URL` | адрес API, по умолчанию `http://127.0.0.1:4020` |
 | `COURIER_TOKEN` | ключ `X-Api-Key` |
 
-Песочница для разработки: `npm run courier:sandbox` - `http://127.0.0.1:4020` (порт - `--port` или
-`COURIER_SANDBOX_PORT`, `0` - любой свободный). Тестовый ключ - любой вида `cs_*`, например `cs_dev`.
-Режим недоступности (ответ 503): `COURIER_SANDBOX_MODE=unavailable` при запуске или
-`POST /__sandbox/mode` с телом `{"mode":"unavailable"}` (обратно - `{"mode":"normal"}`). Из тестов
-песочница поднимается импортом `startCourierSandbox({ port: 0 })` из `tools/courier-sandbox.mjs`.
+Песочница Курьер-Сервиса - его тестовый контур, адрес - в переменной окружения `COURIER_SANDBOX_URL`
+(задана на машине разработчика). Тестовый ключ - любой вида `cs_*`, например `cs_dev`. Режим
+недоступности (ответ 503): `POST <адрес>/__sandbox/mode` с телом `{"mode":"unavailable"}` (обратно -
+`{"mode":"normal"}`); режим общий для всех, после проверки его нужно вернуть.
 
 ## Структура
 
@@ -47,7 +45,6 @@ src/notify/          SMS клиенту
 src/store.js         хранилище заказов в памяти
 src/config.js        настройки из переменных окружения
 src/http/            HTTP API заказов и вебхук оплаты (node:http)
-tools/               песочницы внешних сервисов
 web/                 веб-клиент: карточка заказа (web/src), тесты (web/test)
 data/                выгрузка заказов со стенда для локального запуска
 stand/deploy.json    что развёрнуто на стенде

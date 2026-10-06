@@ -2,7 +2,7 @@
 // Приёмка IB (PAR-17): заказ после вебхука оплаты получает отправку SwiftPost, при недоступности
 // SwiftPost - Курьер-Сервиса.
 //   node judge/accept-ib.mjs <repo> [--env ИМЯ=значение ...] [--keep]
-// Копия репозитория; обе песочницы из копии tools/ на свободных портах; переменные окружения
+// Копия репозитория; обе песочницы из sandboxes/ мини-проекта на свободных портах; переменные окружения
 // SWIFTPOST_URL, SWIFTPOST_TOKEN=sbx_parcel_dev, COURIER_URL, COURIER_TOKEN=cs_dev (--env добавляет свои,
 // в значении подставляются {SWIFTPOST_URL}, {COURIER_URL} - приёмка с подстановкой). Вебхук вызывается в
 // дочернем процессе node: src/http/webhooks.js и src/store.js импортируются из копии после установки env.
@@ -10,7 +10,9 @@
 // swiftpostDown - трек /^CS-/. Вывод - JSON в stdout.
 import { rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { dirname, join as pjoin } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+const HERE = dirname(fileURLToPath(import.meta.url));
 import { copyRepo, parseArgs, run } from './lib.mjs';
 
 const { repo, env: extraEnv, keep } = parseArgs(process.argv.slice(2));
@@ -56,8 +58,8 @@ function newOrder(id) {
 const result = { repo, env: {}, scenarios: {} };
 let sp, cs;
 try {
-  const { startSwiftPostSandbox } = await import(pathToFileURL(join(work, 'tools/swiftpost-sandbox.mjs')).href);
-  const { startCourierSandbox } = await import(pathToFileURL(join(work, 'tools/courier-sandbox.mjs')).href);
+  const { startSwiftPostSandbox } = await import(pathToFileURL(pjoin(HERE, '../sandboxes/swiftpost-sandbox.mjs')).href);
+  const { startCourierSandbox } = await import(pathToFileURL(pjoin(HERE, '../sandboxes/courier-sandbox.mjs')).href);
   sp = await startSwiftPostSandbox({ port: 0, mode: 'normal' });
   cs = await startCourierSandbox({ port: 0, mode: 'normal' });
   const vars = { SWIFTPOST_URL: sp.url, SWIFTPOST_TOKEN: 'sbx_parcel_dev', COURIER_URL: cs.url, COURIER_TOKEN: 'cs_dev' };
