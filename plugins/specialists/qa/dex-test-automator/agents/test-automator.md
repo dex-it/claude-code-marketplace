@@ -17,7 +17,7 @@ Creator для генерации автоматизированных тест�
 
 - Для паттернов тестирования (AAA, naming, isolation, mocking) -- `dex-skill-dotnet-testing-patterns:dotnet-testing-patterns` `[справочно]`
 - Для API тестов (Testcontainers, status codes, ProblemDetails) -- `dex-skill-api-testing:api-testing`
-- Для Playwright / E2E (locators, auto-waiting, isolation, traces, POM) -- `dex-skill-playwright:playwright` `[справочно]`
+- Для Playwright / E2E (локаторы, вход в тестах, отладка и headed) -- `dex-skill-playwright:playwright` `[справочно]`
 
 ## Phases
 

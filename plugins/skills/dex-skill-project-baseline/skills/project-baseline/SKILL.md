@@ -46,7 +46,7 @@ description: Гейты качества проекта - проверка на�
 платформа CI.
 
 Настроенный, но неверный гейт - предмет стековых skills (`dex-skill-dotnet-code-quality`,
-`dex-skill-ts-patterns`, `dex-skill-python-project-hygiene`) и, для оси CI,
+`dex-skill-python-project-hygiene`) и, для оси CI,
 `dex-skill-ci-gates` плюс skill своей платформы, не этого.
 
 Стека нет в таблице - оси те же: чем ловятся типы, стиль, регрессии и чем это гоняется

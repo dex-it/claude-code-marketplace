@@ -49,7 +49,6 @@ Bundle для TypeScript fullstack: разработка Node/React, тесты,
 - `dex-skill-merge-conflict-resolution` - подтягивание базовой ветки и разбор конфликтов (`/resolve-conflicts`)
 
 ### Skills
-- `dex-skill-ts-patterns` - идиомы TypeScript
 - `dex-skill-ts-nodejs-api` - Node.js API
 - `dex-skill-ts-vitest-jest` - тестирование на Vitest/Jest
 - `dex-skill-react` - React
