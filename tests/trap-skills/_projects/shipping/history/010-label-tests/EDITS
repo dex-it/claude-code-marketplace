@@ -1,0 +1,16 @@
+<<<<<<< test/label.test.js
+  assert.match(t, /Индекс 20095/);
+=======
+  assert.match(t, /Индекс 20095, зона B/);
+>>>>>>>
+<<<<<<< test/label.test.js
+  assert.match(t, /ЭКСПРЕСС/);
+});
+=======
+  assert.match(t, /ЭКСПРЕСС/);
+});
+
+test('без экспресса - строки ЭКСПРЕСС нет', () => {
+  assert.doesNotMatch(processJob({ ...msg, express: false }), /ЭКСПРЕСС/);
+});
+>>>>>>>

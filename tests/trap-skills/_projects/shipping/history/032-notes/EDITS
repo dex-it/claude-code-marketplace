@@ -1,0 +1,54 @@
+<<<<<<< src/request.js
+    currency: body.currency ?? 'EUR',
+  };
+}
+=======
+    currency: body.currency ?? 'EUR',
+    note: parseNote(body.note),
+  };
+}
+
+function parseNote(note) {
+  if (note === undefined) return undefined;
+  if (typeof note !== 'string' || note.length > 200) throw new HttpError(400, 'комментарий: строка до 200 символов');
+  return note;
+}
+>>>>>>>
+<<<<<<< src/shipments.js
+    express: parcel.express,
+    price,
+=======
+    express: parcel.express,
+    note: parcel.note,
+    price,
+>>>>>>>
+<<<<<<< src/shipments.js
+    express: parcel.express,
+  });
+=======
+    express: parcel.express,
+    note: parcel.note,
+  });
+>>>>>>>
+<<<<<<< docs/api.md
+- `currency` - валюта цены: `EUR` (по умолчанию), `CHF`, `PLN`.
+=======
+- `currency` - валюта цены: `EUR` (по умолчанию), `CHF`, `PLN`.
+- `note` - комментарий отправителя для этикетки, строка до 200 символов (только `/shipments`).
+>>>>>>>
+<<<<<<< docs/messages.md
+| `express` | bool | экспресс-доставка |
+=======
+| `express` | bool | экспресс-доставка |
+| `note` | строка | комментарий отправителя; нет комментария - поля нет |
+>>>>>>>
+<<<<<<< test/app.test.js
+test('нет маршрута - 404', async () => {
+=======
+test('комментарий длиннее 200 символов - 400', async () => {
+  const r = await post('/shipments', { weight: 1, postcode: '10115', note: 'x'.repeat(201) });
+  assert.equal(r.status, 400);
+});
+
+test('нет маршрута - 404', async () => {
+>>>>>>>

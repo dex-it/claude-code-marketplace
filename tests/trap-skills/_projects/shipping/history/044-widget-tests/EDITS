@@ -1,0 +1,21 @@
+<<<<<<< test/parcel.test.js
+test('расчётный вес - вверх до 0,5 кг', () => {
+=======
+test('вес строкой без единицы - килограммы (виджет партнёра)', () => {
+  assert.equal(parseWeight('1.5'), 1500);
+  assert.equal(parseWeight('2'), 2000);
+});
+
+test('расчётный вес - вверх до 0,5 кг', () => {
+>>>>>>>
+<<<<<<< test/app.test.js
+test('вес неизвестного формата - 400', async () => {
+=======
+test('виджет партнёра: вес строкой - 201', async () => {
+  const r = await post('/shipments', { weight: '0.8', postcode: '10115' });
+  assert.equal(r.status, 201);
+  assert.equal(r.body.weightGrams, 800);
+});
+
+test('вес неизвестного формата - 400', async () => {
+>>>>>>>
