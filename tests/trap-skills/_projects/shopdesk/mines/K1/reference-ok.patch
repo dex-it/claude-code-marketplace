@@ -1,0 +1,222 @@
+diff --git a/api/src/app.ts b/api/src/app.ts
+index f72fe6f..965b776 100644
+--- a/api/src/app.ts
++++ b/api/src/app.ts
+@@ -1,8 +1,9 @@
+-import express from 'express';
++import express, { type NextFunction, type Request, type Response } from 'express';
+ import type { Analytics } from './analytics/analytics.js';
+ import { createSession, currentUser, requireUser, type SessionUser } from './auth.js';
+ import { OrderStatus, type Order, type OrderItem } from './domain/order.js';
+ import { HttpError, errorHandler } from './errors.js';
++import { logger } from './logger.js';
+ import type { Notifier } from './notifications/notifier.js';
+ import type { PaymentGateway } from './payments/gateway.js';
+ import type { Store } from './store.js';
+@@ -87,6 +88,37 @@ export function createApp(deps: AppDeps): express.Express {
+     res.json(store.saveOrder({ ...order, status: OrderStatus.Cancelled }));
+   });
+ 
++  orders.post('/:id/pay', async (req: Request, res: Response, next: NextFunction) => {
++    try {
++      const order = findOwnOrder(store, currentUser(req), req.params.id);
++      if (order.status !== OrderStatus.New) {
++        throw new HttpError(409, 'order_not_payable', `Order ${order.number} is ${order.status}`);
++      }
++      let result;
++      try {
++        result = await deps.payments.charge({ orderId: order.id, amountKopecks: order.totalKopecks, currency: 'RUB' });
++      } catch (err) {
++        logger.error(`charge for order ${order.number} failed`, err);
++        throw new HttpError(502, 'payment_unavailable', 'Payment gateway is unavailable, try again later');
++      }
++      if (result.status === 'declined') {
++        throw new HttpError(402, 'payment_declined', result.reason);
++      }
++      const paid = store.saveOrder({ ...order, status: OrderStatus.Paid, transactionId: result.transactionId });
++      res.json(paid);
++
++      const followUps = await Promise.allSettled([
++        deps.notifier.orderPaid(paid),
++        deps.analytics.track('order_paid', { orderNumber: paid.number, amountKopecks: paid.totalKopecks }),
++      ]);
++      for (const outcome of followUps) {
++        if (outcome.status === 'rejected') logger.warn(`order ${paid.number} paid, follow-up failed`, outcome.reason);
++      }
++    } catch (err) {
++      next(err);
++    }
++  });
++
+   app.use('/api/orders', orders);
+   app.use(errorHandler);
+   return app;
+diff --git a/api/src/config.ts b/api/src/config.ts
+index 8c2d45e..acfc670 100644
+--- a/api/src/config.ts
++++ b/api/src/config.ts
+@@ -1,5 +1,15 @@
++function required(name: string): string {
++  const value = process.env[name];
++  if (!value) throw new Error(`${name} is not set`);
++  return value;
++}
++
+ export const config = {
+   port: Number(process.env.PORT ?? 3000),
+   notifierUrl: process.env.NOTIFIER_URL ?? 'http://localhost:4010',
+   analyticsUrl: process.env.ANALYTICS_URL ?? 'http://localhost:4020',
++  payments: {
++    url: required('PAYMENT_URL'),
++    apiKey: required('PAYMENT_API_KEY'),
++  },
+ };
+diff --git a/api/src/domain/order.ts b/api/src/domain/order.ts
+index 2f76b51..6d61088 100644
+--- a/api/src/domain/order.ts
++++ b/api/src/domain/order.ts
+@@ -19,6 +19,7 @@ export interface Order {
+   totalKopecks: number;
+   status: OrderStatus;
+   createdAt: string;
++  transactionId?: string;
+ }
+ 
+ export function orderTotal(items: OrderItem[]): number {
+diff --git a/api/src/payments/http-gateway.ts b/api/src/payments/http-gateway.ts
+new file mode 100644
+index 0000000..f7de6c7
+--- /dev/null
++++ b/api/src/payments/http-gateway.ts
+@@ -0,0 +1,46 @@
++import { z } from 'zod';
++import type { ChargeRequest, ChargeResult, PaymentGateway } from './gateway.js';
++
++const chargeResponseSchema = z.discriminatedUnion('status', [
++  z.object({ status: z.literal('approved'), transaction_id: z.string().min(1) }),
++  z.object({ status: z.literal('declined'), decline_reason: z.string() }),
++]);
++
++export class PaymentUnavailableError extends Error {
++  constructor(message: string, options?: ErrorOptions) {
++    super(message, options);
++    this.name = 'PaymentUnavailableError';
++  }
++}
++
++export class HttpPaymentGateway implements PaymentGateway {
++  constructor(
++    private readonly baseUrl: string,
++    private readonly apiKey: string,
++    private readonly timeoutMs = 10_000,
++  ) {}
++
++  async charge(req: ChargeRequest): Promise<ChargeResult> {
++    let res: Response;
++    try {
++      res = await fetch(new URL('/v1/charges', this.baseUrl), {
++        method: 'POST',
++        headers: { 'Content-Type': 'application/json', 'X-Api-Key': this.apiKey },
++        body: JSON.stringify({ order_id: req.orderId, amount: req.amountKopecks, currency: req.currency }),
++        signal: AbortSignal.timeout(this.timeoutMs),
++      });
++    } catch (err) {
++      throw new PaymentUnavailableError('payment gateway is unreachable', { cause: err });
++    }
++    if (!res.ok) {
++      throw new PaymentUnavailableError(`payment gateway responded with ${res.status}`);
++    }
++    const parsed = chargeResponseSchema.safeParse(await res.json());
++    if (!parsed.success) {
++      throw new PaymentUnavailableError('unexpected payment gateway response');
++    }
++    return parsed.data.status === 'approved'
++      ? { status: 'approved', transactionId: parsed.data.transaction_id }
++      : { status: 'declined', reason: parsed.data.decline_reason };
++  }
++}
+diff --git a/api/src/server.ts b/api/src/server.ts
+index 0ddc0b1..9d808ef 100644
+--- a/api/src/server.ts
++++ b/api/src/server.ts
+@@ -3,7 +3,7 @@ import { createApp } from './app.js';
+ import { config } from './config.js';
+ import { logger } from './logger.js';
+ import { HttpNotifier } from './notifications/notifier.js';
+-import type { PaymentGateway } from './payments/gateway.js';
++import { HttpPaymentGateway } from './payments/http-gateway.js';
+ import { seedDemo } from './seed.js';
+ import { Store } from './store.js';
+ 
+@@ -13,11 +13,7 @@ if (process.env.SEED_DEMO === '1') {
+   logger.info('demo data loaded');
+ }
+ 
+-const payments: PaymentGateway = {
+-  async charge() {
+-    throw new Error('payments are not configured');
+-  },
+-};
++const payments = new HttpPaymentGateway(config.payments.url, config.payments.apiKey);
+ 
+ const app = createApp({
+   store,
+diff --git a/api/test/payments.test.ts b/api/test/payments.test.ts
+new file mode 100644
+index 0000000..ebbb0b3
+--- /dev/null
++++ b/api/test/payments.test.ts
+@@ -0,0 +1,53 @@
++import request from 'supertest';
++import { describe, expect, it, vi } from 'vitest';
++import { createApp } from '../src/app.js';
++import type { PaymentGateway } from '../src/payments/gateway.js';
++import { demoUsers, seedDemo } from '../src/seed.js';
++import { Store } from '../src/store.js';
++
++function setup(charge: PaymentGateway['charge']) {
++  const store = new Store();
++  seedDemo(store);
++  const notifier = { orderPaid: vi.fn(async () => {}) };
++  const analytics = { track: vi.fn(async () => {}) };
++  const app = createApp({ store, payments: { charge: vi.fn(charge) }, notifier, analytics });
++  return { store, app, notifier, analytics };
++}
++
++async function auth(app: ReturnType<typeof createApp>) {
++  const res = await request(app).post('/api/login').send(demoUsers.alice).expect(200);
++  return `Bearer ${res.body.token}`;
++}
++
++describe('POST /api/orders/:id/pay', () => {
++  it('marks the order paid', async () => {
++    const ctx = setup(async () => ({ status: 'approved', transactionId: 'tx-1' }));
++    const res = await request(ctx.app).post('/api/orders/ord-1001/pay').set('Authorization', await auth(ctx.app)).expect(200);
++    expect(res.body).toMatchObject({ status: 'paid', transactionId: 'tx-1' });
++    await vi.waitFor(() => expect(ctx.analytics.track).toHaveBeenCalledWith('order_paid', expect.any(Object)));
++    expect(ctx.notifier.orderPaid).toHaveBeenCalledTimes(1);
++  });
++
++  it('returns 402 when declined', async () => {
++    const ctx = setup(async () => ({ status: 'declined', reason: 'insufficient_funds' }));
++    const res = await request(ctx.app).post('/api/orders/ord-1001/pay').set('Authorization', await auth(ctx.app));
++    expect(res.status).toBe(402);
++    expect(res.body.error).toEqual({ code: 'payment_declined', message: 'insufficient_funds' });
++    expect(ctx.store.getOrder('ord-1001')?.status).toBe('new');
++  });
++
++  it('returns 502 when the gateway fails', async () => {
++    const ctx = setup(async () => {
++      throw new Error('ECONNRESET');
++    });
++    const res = await request(ctx.app).post('/api/orders/ord-1001/pay').set('Authorization', await auth(ctx.app));
++    expect(res.status).toBe(502);
++  });
++
++  it('rejects foreign and already paid orders', async () => {
++    const ctx = setup(async () => ({ status: 'approved', transactionId: 'tx-1' }));
++    const token = await auth(ctx.app);
++    expect((await request(ctx.app).post('/api/orders/ord-1004/pay').set('Authorization', token)).status).toBe(404);
++    expect((await request(ctx.app).post('/api/orders/ord-1003/pay').set('Authorization', token)).status).toBe(409);
++  });
++});

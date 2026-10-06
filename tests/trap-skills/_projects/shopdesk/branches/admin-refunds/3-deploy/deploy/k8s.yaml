@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shopdesk-api
+  labels:
+    app: shopdesk-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: shopdesk-api
+  template:
+    metadata:
+      labels:
+        app: shopdesk-api
+    spec:
+      containers:
+        - name: api
+          image: registry.shopdesk.example/shopdesk-api:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: PORT
+              value: "3000"
+            - name: NOTIFIER_URL
+              value: http://notifier.shopdesk.svc.cluster.local
+            - name: ANALYTICS_URL
+              value: http://analytics.shopdesk.svc.cluster.local
+            - name: AUDIT_LOG
+              value: /var/log/shopdesk/audit.log
+            - name: REFUNDS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: shopdesk-api
+                  key: refunds-url
+            - name: REFUNDS_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: shopdesk-api
+                  key: refunds-api-key
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 3000
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 256Mi
+          volumeMounts:
+            - name: audit
+              mountPath: /var/log/shopdesk
+      volumes:
+        - name: audit
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: shopdesk-api
+spec:
+  selector:
+    app: shopdesk-api
+  ports:
+    - port: 80
+      targetPort: 3000
