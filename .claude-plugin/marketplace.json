@@ -1548,8 +1548,8 @@
     {
       "name": "dex-skill-change-correlation",
       "source": "./plugins/skills/dex-skill-change-correlation",
-      "description": "Корреляция симптома с изменениями: окно вокруг момента начала, образ стенда против коммита, тайминг, изоляция нескольких изменений, git bisect first-parent.",
-      "version": "1.0.1",
+      "description": "Корреляция симптома с изменениями: окно вокруг момента начала, код по sha на стенде, отсев кандидатов по таймингу и зоне симптома, подтверждение виновника на пути исполнения, git bisect first-parent.",
+      "version": "2.0.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2378,8 +2378,8 @@
     {
       "name": "dex-skill-post-merge-remediation",
       "source": "./plugins/skills/dex-skill-post-merge-remediation",
-      "description": "Дисциплина ремедиации найденных багов после мерджа на общей ветке и стенде: follow-up MR вместо правки общей ветки, фикс на источнике по одному, верификация red->green на стенде, регрессия соседей, согласованная мутация общего стенда.",
-      "version": "1.0.1",
+      "description": "Доставка фикса багов после мерджа на общей ветке и стенде: follow-up ветка вместо правки общей ветки, по багу на коммит корневым первым, порядок выката и откат, выкат по команде оператора, верификация red->green на стенде, регрессия соседей.",
+      "version": "2.0.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2712,8 +2712,8 @@
     {
       "name": "dex-skill-root-cause-analysis",
       "source": "./plugins/skills/dex-skill-root-cause-analysis",
-      "description": "Корневая причина против симптома: доказанные звенья цепочки, fundamental vs auxiliary, каскад, объяснение IS-NOT, фикс на источнике и его фальсификация.",
-      "version": "1.0.0",
+      "description": "Корневая причина против симптома: цепочка от симптома до места, где плохое значение возникает впервые, с уликой на каждое звено; причина объясняет затронутое и незатронутое; проба red->green до и после фикса.",
+      "version": "2.0.0",
       "category": "skill",
       "keywords": [
         "skill",
