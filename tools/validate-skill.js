@@ -196,6 +196,8 @@ const PROCESS_SKILLS = new Set([
   'review-evidence',
   'review-threads',
   'review-step-by-step',
+  'orchestration-planner',
+  'orchestration-executor',
 ]);
 
 // Имена, существующие только в фикстурах `tools/__fixtures__`. В продовые перечни не
@@ -212,10 +214,11 @@ function isProcessSkill(parsed) {
 
 // SKILL_FRAMEWORK.md "оркестрация - у главного потока, исполнение - в агенте": обычному
 // process-skill спавнить агентов не положено. Ручной allowlist, как PROCESS_SKILLS.
-// Реального скилла-оркестратора в каталоге после демонтажа движка не осталось, поэтому
-// перечень пуст: гасящая ветка проверяется фикстурой, чьё имя подмешивается только на
-// дереве фикстур (см. FIXTURE_ONLY_SKILLS выше).
-const ORCHESTRATOR_SKILLS = new Set();
+// Скилл-оркестратор каталога - исполнитель плана оркестрации (спавн исполнителей по пакету).
+// Планировщик пакета исполнителей не запускает и в перечне не нужен. Гасящая ветка
+// дополнительно проверяется фикстурой, чьё имя подмешивается только на дереве фикстур
+// (см. FIXTURE_ONLY_SKILLS выше).
+const ORCHESTRATOR_SKILLS = new Set(['orchestration-executor']);
 if (FIXTURE_TREE) for (const n of FIXTURE_ONLY_SKILLS) ORCHESTRATOR_SKILLS.add(n);
 
 // Эвристика best-effort: глагол делегирования рядом с бэктик-ссылкой на агента/Agent

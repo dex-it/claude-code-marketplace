@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "6.10.0",
+  "version": "6.11.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -2308,6 +2308,40 @@
         "agent-prompt",
         "conciseness",
         "unambiguous",
+        "process-skill"
+      ]
+    },
+    {
+      "name": "dex-skill-orchestration-executor",
+      "source": "./plugins/skills/dex-skill-orchestration-executor",
+      "description": "Экспериментальный скилл. Исполнитель плана оркестрации: главный поток принимает пакет плана, запускает исполнителей Haiku, Sonnet и Opus семейства 5.5 с заданным effort, проверяет результаты, эскалирует по сигналу провала, маршрутизирует новые задачи, ведёт журнал и отчитывается по свидетельствам, а не по заявлениям исполнителей. Пара к планировщику оркестрации.",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "orchestration",
+        "executor",
+        "subagents",
+        "escalation",
+        "ledger",
+        "experimental",
+        "process-skill"
+      ]
+    },
+    {
+      "name": "dex-skill-orchestration-planner",
+      "source": "./plugins/skills/dex-skill-orchestration-planner",
+      "description": "Экспериментальный скилл. Планировщик оркестрации для старшей модели: по любому промту или скиллу и задаче пользователя решает, оркестрировать ли вообще, разбивает работу на задачи, назначает каждой модель семейства 5.5 (Haiku, Sonnet, Opus) и effort, пишет брифы исполнителей, правила эскалации и переплана и расчёт расхода против запуска одной моделью. Результат - пакет файлов для скилла-исполнителя.",
+      "version": "1.0.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "orchestration",
+        "planner",
+        "subagents",
+        "model-routing",
+        "effort",
+        "experimental",
         "process-skill"
       ]
     },
