@@ -21,6 +21,8 @@ const w = (p, s) => { mkdirSync(dirname(join(dir, p)), { recursive: true }); wri
 const skeleton = () => BRIEFS.match(/```markdown\n(# Бриф <id>[\s\S]*?)```/)[1];
 const routingSection = () => '\n### Оси оценки трудности (0-2)' + ROUTING.split('## Оси оценки трудности (0-2)')[1].split('## Цены')[0];
 
+const triageBrief = () => BRIEFS.match(/```markdown\n(Ты оцениваешь трудность[\s\S]*?)```/)[1].replace('<оси с якорями из routing.md>', routingSection());
+
 function brief(id, goal, input, writes, done, check, extra = '') {
   return `# Бриф ${id}\n\nТы исполнитель одной задачи большого плана. Результат прочтёт оркестратор.\n\n## Задача\n${goal}\n\n## Входы\n- ${input}\n\n## Право записи\nПишешь только: ${writes}.\n\n## Выход\n- ${writes}\n\n## Готово, когда\n- ${done}\n\n## Проверка\n${check}\n\n## Границы\nСубагентов не запускай. Найденное сверх брифа - в NEW_SUBTASKS, не в работу. Не хватает входа или упёрся в препятствие - верни NEEDS_CONTEXT либо BLOCKED с причиной.${extra}\n\n## Возврат\nОтчёт о работе - последнее сообщение, до 100 слов; файл отчёта запишет оркестратор:\nRESULT: DONE | DONE_WITH_CONCERNS | NEEDS_CONTEXT | BLOCKED\nARTIFACTS: пути\nEVIDENCE: 1-3 строки\nNOT_CHECKED: что не проверено\nNEW_SUBTASKS: цели одной строкой либо «нет»\n`;
 }
@@ -147,6 +149,16 @@ function make() {
     checkPy('sentence.py', SENTENCE_PY);
     checkPy('impossible.py', '#!/usr/bin/env python3\nimport os,sys\nif not os.environ.get("ORCH_FIXTURE_KEY"): print("FAIL: приёмке нужен внешний ключ ORCH_FIXTURE_KEY, которого в окружении нет"); sys.exit(1)\nprint("PASS")\n');
     w('pack/ledger.json', ledger(tasks));
+  } else if (caseId === 'X-06') {
+    // Исполнитель вернёт шесть новых задач разом: четыре и больше - триаж на haiku (два прогона), если
+    // оркестратор не на старшей модели.
+    for (const f of ['e1', 'e2', 'e3', 'e4', 'e5', 'e6']) w(`src/${f}.md`, `# ${f}\nКороткий текст файла ${f} про очереди, ключи и кеши.\n`);
+    const tasks = [{ ...SUM('T1', 'a'), check: '`python3 -I pack/checks/sentence.py a`' }];
+    w('pack/PLAN.md', plan({ slug: 'x06', tasks, limits: { max_spawn: 20, max_attempts: 3 }, instructions: { task: 'Резюме файлов из src/. Файлы, не названные в плане, входят в задачу.', orch: 'Файлы src/, которых нет в таблице задач, входят в задачу: новые задачи маршрутизируются по разделу 6 (четыре и больше разом - триаж на haiku по briefs/_triage.md) и выполняются тем же порядком.' } }));
+    w('pack/briefs/T1.md', sumBrief('T1', 'a', '\nВ src/ лежат ещё файлы e1.md, e2.md, e3.md, e4.md, e5.md, e6.md: не обрабатывай их, перечисли в NEW_SUBTASKS по одной задаче на файл.'));
+    w('pack/briefs/_triage.md', triageBrief());
+    checkPy('sentence.py', SENTENCE_PY);
+    w('pack/ledger.json', ledger(tasks));
   } else { console.error('неизвестный кейс'); process.exit(2); }
 }
 
@@ -193,6 +205,16 @@ function verify() {
     ok('бриф новой задачи создан', existsSync(join(dir, 'pack/briefs')) && (led?.tasks ?? []).filter((x) => x.id !== 'T1').every((x) => existsSync(join(dir, 'pack/briefs', `${x.id}.md`))));
     ok('out/extra.txt создан', existsSync(join(dir, 'out/extra.txt')));
     ok('исполнителей не больше двух-трёх', spawned <= 3, spawned);
+  } else if (caseId === 'X-06') {
+    const triage = ev.calls.filter((c) => /_triage|триаж/i.test((c.prompt ?? '') + (c.description ?? '')));
+    const senior = Object.keys(ev.result?.modelUsage ?? {}).some((m) => /opus|fable/.test(m));
+    ok('появились шесть новых задач в журнале', (led?.tasks?.length ?? 0) >= 7, led?.tasks?.map((x) => x.id));
+    ok('триаж: не меньше двух прогонов haiku medium (старший оркестратор может оценить инлайн)', triage.length >= 2 ? triage.every((c) => c.model === 'haiku' && c.effort === 'medium') : senior, triage.map((c) => `${c.model}/${c.effort}`));
+    ok('шесть строк routing_log от оркестратора или триажа', (led?.routing_log ?? []).filter((r) => /orch|triage/i.test(r.rated_by ?? '')).length >= 6, (led?.routing_log ?? []).map((r) => r.rated_by));
+    ok('запись в changes', (led?.changes ?? []).length >= 1);
+    ok('брифы новых задач созданы', (led?.tasks ?? []).filter((x) => x.id !== 'T1').every((x) => existsSync(join(dir, 'pack/briefs', `${x.id}.md`))));
+    ok('все шесть файлов out/e*.txt созданы', ['e1', 'e2', 'e3', 'e4', 'e5', 'e6'].every((f) => existsSync(join(dir, `out/${f}.txt`))));
+    ok('запусков не больше max_spawn (20)', spawned <= 20, spawned);
   } else if (caseId === 'X-03') {
     ok('запущен один исполнитель', ev.calls.length === 1, ev.calls.map((c) => c.description));
     ok('это T2', /T2/.test(ev.calls[0]?.description ?? ''));

@@ -90,7 +90,7 @@ function bulkPrompt(ids) {
 }
 
 function pluginFlags(extra = []) {
-  const names = [...SKILL_PLUGINS, ...extra];
+  const names = [...(flag('no-subject') ? [] : SKILL_PLUGINS), ...extra];
   return names.flatMap((n) => ['--plugin-dir', join(PLUGINS, n)]);
 }
 
@@ -169,7 +169,7 @@ if (cmd === 'tree') {
 } else if (cmd === 'claude') {
   const promptFile = rest[0];
   const prompt = readFileSync(resolve(promptFile), 'utf8');
-  const extraFlags = rest.slice(1).filter((x) => x !== '--agent');
+  const extraFlags = rest.slice(1).filter((x) => x !== '--agent' && x !== '--no-subject');
   const plugins = (arg('plugins') ? arg('plugins').split(',') : []);
   const s = runClaude(dir, prompt, { model: modelArg, effort: effortArg, agent: flag('agent'), budget: budgetArg, plugins, extraFlags: extraFlags.filter((x, i, a) => !['--model', '--effort', '--budget', '--plugins'].includes(x) && !['--model', '--effort', '--budget', '--plugins'].includes(a[i - 1])) });
   console.log(JSON.stringify(s, null, 2));
