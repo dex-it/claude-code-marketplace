@@ -266,6 +266,9 @@ trap-skills/         испытания trap-skill живым прогоном, 
   removed/<скилл>/   то же для снятого скилла - свидетельство снятия
 optimize-for-llm/    прогон скилла, не маршрута: метод и кейсы в README,
   inputs/            входы дословно - копируются в рабочее дерево вне репо
+orchestration/       прогон пары скиллов оркестрации (план и исполнение): метод и кейсы
+                     в README, harness.mjs гоняет сессии и снимает цену, lint-pack.mjs
+                     судит пакет плана, x-cases.mjs и g-cases.mjs строят фикстуры
 tracks/              исполняемая матрица сценариев треков dex-auto: run.mjs
                      гоняет tracks/*.js на подменённых узлах (npm run test:tracks)
 fixtures/auto-live/  заготовки под живой headless-прогон dex-auto: репозиторий
