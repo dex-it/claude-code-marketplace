@@ -185,7 +185,7 @@ if (cmd === 'tree') {
   // Планировщик на предмете optimize-for-llm и тринадцати кейсах. --force: оркестрировать вопреки признакам.
   const ids = Object.keys(CASES);
   tree(dir, ids);
-  const force = flag('force') ? ' Оркестрировать вопреки признакам: это проверка исполнения пакета, вердикт orchestrate.' : '';
+  const force = flag('force') ? ' Оркестрировать вопреки признакам: это проверка исполнения пакета, схема orchestrate.' : '';
   const prompt = `Используй скилл orchestration-planner. Предмет: скилл \`${SKILL}\`. Задача пользователя:\n\n${bulkPrompt(ids)}\n\nПакет плана положи в ./pack. Лимит параллельных исполнителей 2.${force}`;
   const s = runClaude(dir, prompt, { model: modelArg ?? 'opus', effort: effortArg ?? 'xhigh', agent: false, budget: budgetArg, plugins: ['dex-skill-orchestration-planner', 'dex-skill-orchestration-executor'] });
   console.log(JSON.stringify(s, null, 2));
