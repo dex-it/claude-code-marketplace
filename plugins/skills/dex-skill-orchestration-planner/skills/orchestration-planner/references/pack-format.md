@@ -15,7 +15,7 @@
   briefs/_template.md   каркас брифа с добавками по ролям: из него оркестратор пишет брифы новых задач
   briefs/_triage.md     бриф триажа на haiku, если план допускает триаж
   ledger.json      состояние: пишет оркестратор
-  reports/         сюда исполнители кладут отчёты и выходы без собственного пути
+  reports/         отчёты исполнителей: записывает оркестратор из возвращённого текста
   checks/          скрипты машинных проверок, если проверки нет, а скриптом она пишется
 ```
 
@@ -27,7 +27,7 @@
 format: orchestration-pack/1
 scheme: orchestrate        # или solo
 slug: <латиница-через-дефис>
-planner: <модель, effort>
+planner: <модель>
 orchestrator: {model: opus, effort: medium}   # рекомендация хосту исполнения
 subject: {kind: skill, ref: <путь или plugin:skill>}   # kind: skill | prompt | both
 limits: {max_parallel: 2, max_spawn: 24, depth: 1, max_attempts: 3, budget_usd: null}

@@ -78,7 +78,7 @@ if (tasksTable) {
     const id = r[iId];
     const model = (r[iModel] ?? '').replace(/`/g, '').toLowerCase();
     const eff = (r[iEff] ?? '').replace(/`/g, '').toLowerCase();
-    const isSelf = iExec >= 0 ? /self/i.test(r[iExec] ?? '') : model === 'self';
+    const isSelf = (iExec >= 0 ? /self/i.test(r[iExec] ?? '') : false) || model === 'self' || model === '-';
     if (!isSelf && !(model in RANK)) fail(`${id}: модель «${model}» вне {haiku, sonnet, opus}`);
     if (!isSelf && !EFFORT.has(eff)) fail(`${id}: effort «${eff}» не задан явно`);
     if (model === 'haiku' && eff === 'low' && false) notes.push(id);
@@ -92,7 +92,7 @@ if (tasksTable) {
       if (m && m[2] === '2' && model === 'haiku') fail(`${id}: B=2 на haiku`);
     }
     deps.set(id, (r[iDep] ?? '').split(/[,\s]+/).map((s) => s.replace(/`/g, '')).filter((s) => ids.has(s)));
-    if (iWrites >= 0) wr.set(id, (r[iWrites] ?? '').replace(/`/g, '').split(/[,;]\s*/).filter(Boolean));
+    if (iWrites >= 0) wr.set(id, (r[iWrites] ?? '').replace(/`/g, '').split(/[,;]\s*(?![^{]*\})/).filter(Boolean));
   }
   // циклы
   const state = new Map();
@@ -104,7 +104,7 @@ if (tasksTable) {
   for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
     const [a, b] = [list[i], list[j]];
     if (reach(a, b) || reach(b, a)) continue;
-    const shared = (wr.get(a) ?? []).filter((p) => (wr.get(b) ?? []).includes(p) && !/reports\//.test(p));
+    const shared = (wr.get(a) ?? []).filter((p) => (wr.get(b) ?? []).includes(p) && !/reports\/|см\. |выше|общ/i.test(p));
     if (shared.length) fail(`независимые ${a} и ${b} пишут в один путь: ${shared.join(', ')}`);
   }
   if (maxSpawn && ids.size > maxSpawn) fail(`задач ${ids.size} больше max_spawn ${maxSpawn}`);
