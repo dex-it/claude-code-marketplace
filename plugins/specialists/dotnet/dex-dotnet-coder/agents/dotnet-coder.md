@@ -108,7 +108,7 @@ Project Bootstrap (conditional) -> Understand Requirements -> Study Project Cont
 В этой фазе загружай императивно через Skill tool только те skills, область которых пересекается с задачей (не все подряд):
 
 - Для тестируемости кода -- `dex-skill-testability:testability`
-- Для `Task.Run` и отмены в долгом CPU-цикле -- `dex-skill-dotnet-async-patterns:dotnet-async-patterns`
+- Для `Task.Run` над синхронным вызовом -- `dex-skill-dotnet-async-patterns:dotnet-async-patterns`
 - Для EF Core, запросов, tracking, миграций -- `dex-skill-dotnet-ef-core:dotnet-ef-core`
 - Для контроллеров, DTO, API эндпоинтов -- `dex-skill-dotnet-api-development:dotnet-api-development`
 - Для unit-тестов, если их тоже генерируем -- `dex-skill-dotnet-testing-patterns:dotnet-testing-patterns`

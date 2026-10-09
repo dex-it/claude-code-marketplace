@@ -1,6 +1,6 @@
 ---
 name: dotnet-async-patterns
-description: .NET async/await в изменении - фальшивый async над синхронным вызовом, отмена в долгом CPU-цикле. Активируется при async, await, Task, Task.Run, CancellationToken, отмена, долгий цикл, thread pool, ThrowIfCancellationRequested, фальшивый async
+description: .NET async/await в изменении - фальшивый async через Task.Run над синхронным вызовом, у которого есть асинхронный API. Активируется при async, await, Task, Task.Run, фальшивый async, async над синхронным, ReadAllLines, ReadAllLinesAsync, thread pool, блокирующий I/O
 ---
 
 # Async Patterns - чек-лист
@@ -8,4 +8,3 @@ description: .NET async/await в изменении - фальшивый async �
 Пункт называет ситуацию, которую изменение проверяет.
 
 - `Task.Run` над синхронным вызовом, у которого есть асинхронный API
-- Долгий CPU-цикл под токеном отмены без проверки отмены

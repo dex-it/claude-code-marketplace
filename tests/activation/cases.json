@@ -183,7 +183,7 @@
     "id": "dotnet-async-in",
     "mode": "in-scope",
     "expect": "dex-skill-dotnet-async-patterns:dotnet-async-patterns",
-    "prompt": "В C# сервисе метод помечен async, но внутри Task.Run оборачивает синхронное чтение файла, а долгий расчёт по 200 тысячам строк не реагирует на отмену запроса. Как переписать?"
+    "prompt": "В C# сервисе метод помечен async, но внутри Task.Run оборачивает синхронное чтение файла, хотя у этого API есть асинхронная версия. Как переписать?"
   },
   {
     "id": "dotnet-caching-in",
@@ -225,7 +225,7 @@
     "id": "dotnet-validation-in",
     "mode": "in-scope",
     "expect": "dex-skill-dotnet-validation:dotnet-validation",
-    "prompt": "В .NET API у входного DTO строки без ограничения длины и список правил без предела размера, лимиты раскиданы литералами по валидаторам. Как навести порядок в FluentValidation?"
+    "prompt": "В .NET API у входного DTO строки без ограничения длины, а список правил принимается любого размера и без проверки самих правил. Как навести порядок в FluentValidation?"
   },
   {
     "id": "elasticsearch-in",

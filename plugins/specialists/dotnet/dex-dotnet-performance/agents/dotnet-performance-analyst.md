@@ -46,7 +46,7 @@ Root cause -- сформулируй гипотезу: где именно уз�
 
 Выполняй всегда после Phase 1. Не спрашивай, продолжать ли. Загружай только skills, релевантные стеку и типу проблемы.
 
-- **Всегда** -- вызови Skill tool `dex-skill-dotnet-async-patterns:dotnet-async-patterns` -- `Task.Run` над синхронным вызовом, отмена в долгом CPU-цикле
+- **Всегда** -- вызови Skill tool `dex-skill-dotnet-async-patterns:dotnet-async-patterns` -- `Task.Run` над синхронным вызовом
 - **Если EF Core или БД в стеке** -- вызови Skill tool `dex-skill-dotnet-ef-core:dotnet-ef-core` -- нетранслируемый фильтр, трекинг read-only выборки
 - **Если Redis в стеке** -- вызови Skill tool `dex-skill-redis:redis` `[справочно]` -- TTL, invalidation, serialization, distributed cache
 - **Если MongoDB в стеке** -- вызови Skill tool `dex-skill-mongodb:mongodb` `[справочно]` -- индексы, aggregation pipeline, projection

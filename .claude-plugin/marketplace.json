@@ -1772,14 +1772,14 @@
     {
       "name": "dex-skill-dotnet-async-patterns",
       "source": "./plugins/skills/dex-skill-dotnet-async-patterns",
-      "description": "Чек-лист async/await в .NET-изменении: фальшивый async через Task.Run над синхронным вызовом, отмена в долгом CPU-цикле.",
+      "description": "Чек-лист async/await в .NET-изменении: фальшивый async через Task.Run над синхронным вызовом, у которого есть асинхронный API.",
       "version": "2.3.0",
       "category": "skill",
       "keywords": [
         "skill",
         "async",
         "await",
-        "cancellation",
+        "task-run",
         "dotnet"
       ]
     },
@@ -1885,7 +1885,7 @@
     {
       "name": "dex-skill-dotnet-validation",
       "source": "./plugins/skills/dex-skill-dotnet-validation",
-      "description": "Чек-лист серверной валидации входных DTO: верхняя граница строк, пределы длины общими константами, размер и элементы коллекций, подтипы через SetInheritanceValidator.",
+      "description": "Чек-лист серверной валидации входных DTO: верхняя граница строк, размер и элементы коллекций, подтипы через SetInheritanceValidator.",
       "version": "1.3.0",
       "category": "skill",
       "keywords": [
