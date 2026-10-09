@@ -1,0 +1,42 @@
+{
+  "id": "k0-na",
+  "case": "K0",
+  "edition": "n",
+  "skills": [
+    "ts-nodejs-api",
+    "react",
+    "ts-fullstack-assistant"
+  ],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 10,
+  "cost": 0.1009384,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 4,
+    "Bash": 5
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "git ls-files | grep -v node_modules | head -100 && grep -rniE \"price|₽|currency\" --include=*.ts --include=*.tsx . --exclude-dir=node_modules -l",
+    "cat api/src/domain/product.ts web/src/lib/money.ts web/src/types.ts web/src/components/ProductsPage.tsx; grep -n -iE \"product|price\" api/src/seed.ts api/src/app.ts api/src/store.ts api/test/*.ts web/s",
+    "python3 - <<'E'\nimport re\np='api/src/domain/product.ts'; s=open(p).read()\ns=s.replace(\"  priceKopecks: number;\\n\",\"  priceKopecks: number;\\n  /** ISO 4217 */\\n  currency: string;\\n\"); open(p,'w').writ",
+    "sed -n 30,50p api/test/orders.test.ts; cat web/src/components/__tests__/OrdersPage.test.tsx | head -40",
+    "python3 - <<'E'\np='api/test/orders.test.ts'; s=open(p).read()\ns=s.replace(\"\"\"  it('lists only orders of the current customer'\"\"\",\"\"\"  it('returns currency for every product', async () => {\n    const l"
+  ]
+}

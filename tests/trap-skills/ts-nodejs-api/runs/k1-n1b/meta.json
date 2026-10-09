@@ -1,0 +1,42 @@
+{
+  "id": "k1-n1b",
+  "case": "K1",
+  "edition": "n1",
+  "skills": [
+    "ts-nodejs-api"
+  ],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 10,
+  "cost": 0.2072882,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 2,
+    "Bash": 7
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "cd <run>; cat docs/payments-api.md; git ls-files api | grep -v node_modules; cat api/src/payments/gateway.ts api/src/server.ts",
+    "cd <run>/api; cat src/app.ts src/config.ts src/domain/order.ts src/errors.ts src/store.ts src/clients/inventory.ts src/services/reserva",
+    "cd <run>/api; sed -n 80,200p test/orders.test.ts; cat src/logger.ts; grep -n \"ord-\" src/seed.ts | head",
+    "cd <run>/api; \ncat > src/config.ts <<'EOF'\nfunction required(name: string): string {\n  const value = process.env[name];\n  if (!value) t",
+    "cd <run>; sed -i '' \"s/import { beforeEach, describe, expect, it } from 'vitest';/import { beforeEach, describe, expect, it, vi } from ",
+    "cd <run>/api; python3 - <<'EOF'\np='src/app.ts'\ns=open(p).read()\ns=s.replace(\"orders.post('/:id/pay', async (req, res) => {\\n    const o",
+    "cd <run>/api; python3 - <<'EOF'\np='src/app.ts'\nL=open(p).read().split('\\n')\na=next(i for i,l in enumerate(L) if \"orders.post('/:id/pay'"
+  ]
+}

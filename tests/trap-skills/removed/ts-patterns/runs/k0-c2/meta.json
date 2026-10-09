@@ -1,0 +1,41 @@
+{
+  "id": "k0-c2",
+  "case": "K0",
+  "edition": "c",
+  "skills": [],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 11,
+  "cost": 0.1159228,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 1,
+    "Bash": 7,
+    "Edit": 2
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "git ls-files | grep -v node_modules | head -100; grep -rniE \"price|₽|formatPrice\" --include=*.ts --include=*.tsx -l . --exclude-dir=node_modules",
+    "cat api/src/domain/product.ts web/src/lib/money.ts web/src/components/ProductsPage.tsx web/src/types.ts; grep -n -i \"product\\|price\" api/src/seed.ts api/src/app.ts api/src/store.ts | head -50; grep -r",
+    "\nsed -i 's/  priceKopecks: number;\\n}//' api/src/domain/product.ts &&\npython3 - <<'E'\nimport re\nfor f in ['api/src/domain/product.ts','web/src/types.ts']:\n    s=open(f).read()\n    s=re.sub(r\"(export i",
+    "\npython3 - <<'E'\nimport re\nfor f in ['api/src/domain/product.ts','web/src/types.ts']:\n    s=open(f).read()\n    s=re.sub(r\"(export interface Product \\{\\n  id: string;\\n  title: string;\\n  priceKopecks:",
+    "git diff api/src/seed.ts",
+    "sed -n 1,50p api/test/orders.test.ts; cat web/src/components/__tests__/OrdersPage.test.tsx | sed -n 1,60p; grep -n \"getProducts\" -A4 web/src/api.ts",
+    "cat > api/test/products.test.ts <<'E'\nimport request from 'supertest';\nimport { describe, expect, it } from 'vitest';\nimport type { Analytics } from '../src/analytics/analytics.js';\nimport { createApp"
+  ]
+}

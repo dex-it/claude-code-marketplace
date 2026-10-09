@@ -1,0 +1,39 @@
+{
+  "id": "k1-c1",
+  "case": "K1",
+  "edition": "c",
+  "skills": [],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 8,
+  "cost": 0.18707900000000002,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 1,
+    "Bash": 6
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "git ls-files | grep -v node_modules | head -100",
+    "cd <run>/api && cat ../docs/payments-api.md src/payments/gateway.ts src/app.ts src/server.ts src/config.ts src/domain/order.ts src/error",
+    "cat src/seed.ts src/services/reservation.ts src/logger.ts; sed -n 80,200p test/orders.test.ts",
+    "cat > src/payments/http-gateway.ts <<'EOF'\nimport { logger } from '../logger.js';\nimport type { ChargeRequest, ChargeResult, PaymentGateway } from './gateway.js';\n\nexport class PaymentUnavailableError",
+    "cd <run>/api && npx vitest run 2>&1 | grep -v \"^$\" | head -40",
+    "python3 - <<'EOF'\np='src/app.ts'; s=open(p).read()\ns=s.replace(\"orders.post('/:id/pay', async (req, res) => {\\n\",\"orders.post('/:id/pay', async (req, res, next) => {\\n  try {\\n\")\ns=s.replace(\"\"\"      "
+  ]
+}

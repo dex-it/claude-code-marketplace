@@ -1,0 +1,44 @@
+{
+  "id": "k1-fa",
+  "case": "K1",
+  "edition": "final",
+  "skills": [
+    "ts-nodejs-api"
+  ],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 12,
+  "cost": 0.22045160000000003,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 2,
+    "Bash": 8,
+    "Edit": 1
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "cd <run>; git ls-files api | grep -v node_modules; cat docs/payments-api.md api/src/payments/*.ts api/src/server.ts; ls api",
+    "cd <run>/api/src; cat app.ts config.ts domain/order.ts errors.ts clients/inventory.ts services/reservation.ts notifications/notifier.ts ",
+    "cd <run>/api/src; cat logger.ts; grep -rn \"config\" --include=*.ts . ../test | grep import; cat ../../.env* 2>/dev/null | head; grep -rn ",
+    "cd <run>/api/src\ncat > config.ts <<'EOF'\nfunction requireEnv(name: string): string {\n  const value = process.env[name]?.trim();\n  if (!v",
+    "cd <run>/api\ncat > test/payment.test.ts <<'EOF'\nimport request from 'supertest';\nimport { afterEach, describe, expect, it, vi } from 'vi",
+    "cd <run>/api\npython3 - <<'EOF'\np='src/app.ts'\ns=open(p).read()\ns=s.replace(\"orders.post('/:id/pay', async (req, res) => {\\n\",\"orders.pos",
+    "cd <run>/api\nsed -i 's/      body = await res.json();/      body = (await res.json()) as typeof body;/; s/    } catch (err) {\\n      thr",
+    "cd <run>; npm run typecheck 2>&1 | grep \"error TS\"; npm test 2>&1 | grep -E \"Tests|failed\""
+  ]
+}

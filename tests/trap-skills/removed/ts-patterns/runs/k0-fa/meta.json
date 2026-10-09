@@ -1,0 +1,40 @@
+{
+  "id": "k0-fa",
+  "case": "K0",
+  "edition": "final",
+  "skills": [
+    "ts-nodejs-api",
+    "react"
+  ],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 8,
+  "cost": 0.08794660000000001,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 3,
+    "Bash": 4
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "git ls-files | grep -v node_modules | head -80; grep -rniE \"price|₽|RUB\" --include=*.ts --include=*.tsx . --exclude-dir=node_modules -l",
+    "cat api/src/domain/product.ts web/src/lib/money.ts web/src/types.ts web/src/components/ProductsPage.tsx; grep -n \"price\\|Product\\|formatPrice\\|money\" -r api/src/seed.ts api/src/app.ts api/src/store.ts",
+    "sed -n 1,64p api/test/orders.test.ts; cat web/src/components/__tests__/OrdersPage.test.tsx | head -50",
+    "python3 - <<'E'\nimport re\ndef sub(p,a,b,c=1):\n    s=open(p).read(); assert a in s; open(p,'w').write(s.replace(a,b))\nsub('api/src/domain/product.ts','  priceKopecks: number;\\n','  priceKopecks: number"
+  ]
+}

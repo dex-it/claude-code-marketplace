@@ -66,7 +66,7 @@ skills:
   - auth / rate limit / multi-tenant -- `dex-skill-nfr:nfr`
 - **Профильные по стеку** -- из набора `dex-skill-<стек>-*`, отобранные по поверхности атаки. Примеры (не исчерпывающий список):
   - *.NET:* API/контроллеры - `dex-skill-dotnet-api-development`
-  - *TypeScript/JS:* `dex-skill-ts-nodejs-api` (валидация ввода, секреты в env, порядок auth-middleware)
+  - *TypeScript/JS:* `dex-skill-ts-nodejs-api` (env проверяется при старте)
   - имена вызывай в полной форме `{plugin}:{skill}`
 
 **Fallback:** Стек без security-skills (`dex-skill-<стек>-*` не установлены) -- работай на Phase 1-2 и OWASP-категориях, пометь «частных security-skills под стек нет». Skill tool недоступен -- пропусти, зафиксируй.

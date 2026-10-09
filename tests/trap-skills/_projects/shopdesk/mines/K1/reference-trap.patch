@@ -1,0 +1,96 @@
+diff --git a/api/src/app.ts b/api/src/app.ts
+index f72fe6f..32dc55d 100644
+--- a/api/src/app.ts
++++ b/api/src/app.ts
+@@ -87,6 +87,28 @@ export function createApp(deps: AppDeps): express.Express {
+     res.json(store.saveOrder({ ...order, status: OrderStatus.Cancelled }));
+   });
+ 
++  orders.post('/:id/pay', async (req, res) => {
++    const user = currentUser(req);
++    const order = store.getOrder(req.params.id);
++    if (!order || order.customerId !== user.id) {
++      res.status(404).json({ error: { code: 'order_not_found', message: 'Order not found' } });
++      return;
++    }
++    if (order.status !== OrderStatus.New) {
++      res.status(409).json({ error: { code: 'order_not_payable', message: `Order is ${order.status}` } });
++      return;
++    }
++    const result = await deps.payments.charge({ orderId: order.id, amountKopecks: order.totalKopecks, currency: 'RUB' });
++    if (result.status === 'declined') {
++      res.status(402).json({ error: { code: 'payment_declined', message: result.reason } });
++      return;
++    }
++    const paid = store.saveOrder({ ...order, status: OrderStatus.Paid, transactionId: result.transactionId });
++    await deps.notifier.orderPaid(paid);
++    await deps.analytics.track('order_paid', { orderNumber: paid.number, amountKopecks: paid.totalKopecks });
++    res.json(paid);
++  });
++
+   app.use('/api/orders', orders);
+   app.use(errorHandler);
+   return app;
+diff --git a/api/src/domain/order.ts b/api/src/domain/order.ts
+index 2f76b51..6d61088 100644
+--- a/api/src/domain/order.ts
++++ b/api/src/domain/order.ts
+@@ -19,6 +19,7 @@ export interface Order {
+   totalKopecks: number;
+   status: OrderStatus;
+   createdAt: string;
++  transactionId?: string;
+ }
+ 
+ export function orderTotal(items: OrderItem[]): number {
+diff --git a/api/src/payments/http-gateway.ts b/api/src/payments/http-gateway.ts
+new file mode 100644
+index 0000000..a03caa4
+--- /dev/null
++++ b/api/src/payments/http-gateway.ts
+@@ -0,0 +1,19 @@
++import type { ChargeRequest, ChargeResult, PaymentGateway } from './gateway.js';
++
++export class HttpPaymentGateway implements PaymentGateway {
++  constructor(
++    private readonly baseUrl: string,
++    private readonly apiKey: string,
++  ) {}
++
++  async charge(req: ChargeRequest): Promise<ChargeResult> {
++    const res = await fetch(`${this.baseUrl}/v1/charges`, {
++      method: 'POST',
++      headers: { 'Content-Type': 'application/json', 'X-Api-Key': this.apiKey },
++      body: JSON.stringify({ order_id: req.orderId, amount: req.amountKopecks, currency: req.currency }),
++    });
++    const data = (await res.json()) as any;
++    if (data.status === 'approved') return { status: 'approved', transactionId: data.transaction_id };
++    return { status: 'declined', reason: data.decline_reason };
++  }
++}
+diff --git a/api/src/server.ts b/api/src/server.ts
+index 0ddc0b1..0755bea 100644
+--- a/api/src/server.ts
++++ b/api/src/server.ts
+@@ -3,7 +3,7 @@ import { createApp } from './app.js';
+ import { config } from './config.js';
+ import { logger } from './logger.js';
+ import { HttpNotifier } from './notifications/notifier.js';
+-import type { PaymentGateway } from './payments/gateway.js';
++import { HttpPaymentGateway } from './payments/http-gateway.js';
+ import { seedDemo } from './seed.js';
+ import { Store } from './store.js';
+ 
+@@ -13,11 +13,7 @@ if (process.env.SEED_DEMO === '1') {
+   logger.info('demo data loaded');
+ }
+ 
+-const payments: PaymentGateway = {
+-  async charge() {
+-    throw new Error('payments are not configured');
+-  },
+-};
++const payments = new HttpPaymentGateway(process.env.PAYMENT_URL!, process.env.PAYMENT_API_KEY!);
+ 
+ const app = createApp({
+   store,

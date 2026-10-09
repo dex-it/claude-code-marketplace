@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "6.12.0",
+  "version": "6.13.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -330,7 +330,7 @@
       "name": "dex-bundle-qa-engineer",
       "source": "./plugins/bundles/dex-bundle-qa-engineer",
       "description": "Бандл для QA-инженера: тест-анализ, автоматизация (включая E2E на Playwright), активный поиск багов, баг-репорты.",
-      "version": "1.22.0",
+      "version": "1.22.1",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -373,7 +373,7 @@
       "name": "dex-bundle-ts-fullstack",
       "source": "./plugins/bundles/dex-bundle-ts-fullstack",
       "description": "Бандл для TypeScript fullstack: бэкенд на Node.js/Bun и фронтенд на React, безопасность, Docker, E2E на Playwright.",
-      "version": "1.35.0",
+      "version": "1.36.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -498,7 +498,7 @@
       "name": "dex-debugger",
       "source": "./plugins/specialists/delivery/dex-debugger",
       "description": "Языко-агностичный узел root-cause debugger: воспроизведение, изоляция, первопричина, фальсификация гипотез. Продуктовый код не правит: воспроизводит красным тестом, отдаёт найденные проблемы списком. Частные skills грузятся условно по стеку. Точка входа - команда /root-cause, едет в этом же плагине.",
-      "version": "4.4.0",
+      "version": "4.5.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1023,7 +1023,7 @@
       "name": "dex-mr-reviewer",
       "source": "./plugins/specialists/review/dex-mr-reviewer",
       "description": "Языко-агностичный узел первичного ревью чужого MR/PR: карта изменений, параллельные фокусы, фальсификация находок, severity/confidence/scope, доставка инлайн-тредами через gh/glab. По поручению входа - разметка находок типом в первой строке треда. Точка входа - команда /mr-review, едет в этом же плагине.",
-      "version": "3.4.0",
+      "version": "3.4.1",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1056,7 +1056,7 @@
       "name": "dex-playwright-cli",
       "source": "./plugins/utilities/dex-playwright-cli",
       "description": "CLI Playwright: прогон тестов, HTML-отчёт, запись сценария через codegen, просмотр трейсов, установка браузеров через npx playwright.",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "category": "utility",
       "keywords": [
         "utility",
@@ -1257,7 +1257,7 @@
       "name": "dex-security-reviewer",
       "source": "./plugins/specialists/delivery/dex-security-reviewer",
       "description": "Языко-агностичный агент глубокого анализа безопасности: threat model (акторы/границы доверия/активы), attack paths по OWASP, цепочки эксплойтов, severity по эксплуатируемости цепочки. Частные skills грузятся условно по стеку.",
-      "version": "2.2.1",
+      "version": "2.3.1",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2331,8 +2331,8 @@
     {
       "name": "dex-skill-playwright",
       "source": "./plugins/skills/dex-skill-playwright",
-      "description": "E2E на Playwright: локаторы, авто-ожидание, изоляция тестов, мокирование сети, трейсы, фикстуры.",
-      "version": "1.0.1",
+      "description": "E2E на Playwright: локаторы по роли и подписи вместо CSS, вход без формы в каждом тесте, отладка через Inspector, headed в WSL.",
+      "version": "1.1.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2405,7 +2405,7 @@
       "name": "dex-skill-project-baseline",
       "source": "./plugins/skills/dex-skill-project-baseline",
       "description": "Гейты качества проекта: проверка наличия при первом погружении в контекст, рекомендация завести до правок, фиксация отказа решением проекта.",
-      "version": "2.2.0",
+      "version": "2.3.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2540,8 +2540,8 @@
     {
       "name": "dex-skill-react",
       "source": "./plugins/skills/dex-skill-react",
-      "description": "React: хуки, компоненты, управление состоянием, производительность, типизация TypeScript.",
-      "version": "1.1.1",
+      "description": "React: запрос к серверу на каждое нажатие клавиши, memo-компонент с новой функцией или объектом в props.",
+      "version": "1.2.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2879,8 +2879,8 @@
     {
       "name": "dex-skill-ts-nodejs-api",
       "source": "./plugins/skills/dex-skill-ts-nodejs-api",
-      "description": "API на Node.js: Express/Fastify/Hono, middleware, обработка ошибок, валидация.",
-      "version": "2.0.1",
+      "description": "API на Node.js: переменные окружения сервиса проверяются при старте.",
+      "version": "2.1.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2892,24 +2892,10 @@
       ]
     },
     {
-      "name": "dex-skill-ts-patterns",
-      "source": "./plugins/skills/dex-skill-ts-patterns",
-      "description": "TypeScript: типизация, async/await, расхождение runtime и compile-time.",
-      "version": "2.0.1",
-      "category": "skill",
-      "keywords": [
-        "skill",
-        "typescript",
-        "types",
-        "async",
-        "patterns"
-      ]
-    },
-    {
       "name": "dex-skill-ts-vitest-jest",
       "source": "./plugins/skills/dex-skill-ts-vitest-jest",
-      "description": "Unit-тесты на Vitest/Jest: подъём моков, поддельные таймеры, async-проверки, изоляция.",
-      "version": "2.0.1",
+      "description": "Unit-тесты на Vitest/Jest: фабрика мока и hoisting, мок модуля против spy, общий стейт между тестами, проверка вызовов мока вместо результата.",
+      "version": "2.1.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -3092,7 +3078,7 @@
       "name": "dex-test-automator",
       "source": "./plugins/specialists/qa/dex-test-automator",
       "description": "Автоматизатор тестов: UI, API, интеграционные и unit-тесты, Selenium и Playwright, фреймворки автоматизации.",
-      "version": "2.3.0",
+      "version": "2.4.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -3105,7 +3091,7 @@
       "name": "dex-ts-fullstack-coder",
       "source": "./plugins/specialists/fullstack/dex-ts-fullstack-coder",
       "description": "Fullstack-кодер TypeScript: бэкенд на Node.js/Bun и фронтенд на React, типизация, валидация схем.",
-      "version": "3.1.1",
+      "version": "3.2.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -3119,7 +3105,7 @@
       "name": "dex-ts-tester",
       "source": "./plugins/specialists/fullstack/dex-ts-tester",
       "description": "Test writer node for TypeScript/JavaScript: Vitest/Jest, mocks, fake timers, isolation. Вызывается как исполнитель стека командой /test (плагин dex-test), стек определяется по манифесту репозитория.",
-      "version": "3.8.0",
+      "version": "3.9.0",
       "category": "specialist",
       "keywords": [
         "specialist",

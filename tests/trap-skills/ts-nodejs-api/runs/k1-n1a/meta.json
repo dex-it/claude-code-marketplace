@@ -1,0 +1,42 @@
+{
+  "id": "k1-n1a",
+  "case": "K1",
+  "edition": "n1",
+  "skills": [
+    "ts-nodejs-api"
+  ],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 10,
+  "cost": 0.20448300000000003,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 2,
+    "Bash": 6,
+    "Edit": 1
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "cd <run>; cat docs/payments-api.md; git ls-files api | grep -v node_modules; cat api/src/payments/gateway.ts api/src/server.ts",
+    "cd <run>/api; cat src/app.ts src/config.ts src/domain/order.ts src/errors.ts src/clients/inventory.ts src/services/reservation.ts src/n",
+    "cd <run>/api; cat src/logger.ts; sed -n 80,200p test/orders.test.ts; grep -n \"ord-\" src/seed.ts | head; grep -rn \"config\" src --include",
+    "cd <run>/api; \ncat > src/payments/http-gateway.ts <<'EOF'\nimport { logger } from '../logger.js';\nimport type { ChargeRequest, ChargeRes",
+    "cd <run>/api; \npython3 - <<'EOF'\np='src/app.ts'\ns=open(p).read()\ns=s.replace(\"function findOwnOrder\",'''// Express 4 не передаёт отклон",
+    "cd <run>; grep -n \"NOTIFIER_URL\" -B3 -A3 README.md"
+  ]
+}

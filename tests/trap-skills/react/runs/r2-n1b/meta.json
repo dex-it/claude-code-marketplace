@@ -1,0 +1,41 @@
+{
+  "id": "r2-n1b",
+  "case": "R2",
+  "edition": "n1",
+  "skills": [
+    "react"
+  ],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 8,
+  "cost": 0.1719614,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 1,
+    "Bash": 6
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "git diff main...HEAD --stat && cat docs/tasks/SD-17-order-dashboard.md",
+    "git diff main...HEAD -- api/src web/src/App.tsx web/src/api.ts web/src/lib web/src/types.ts web/tsconfig.json web/src/components/OrdersPage.tsx | cat -n | head -0; for f in api/src/domain/order.ts api",
+    "cd <run>/web/src/components && for f in dashboard/*.tsx dashboard/*.ts; do echo \"=== $f\"; cat -n $f; done",
+    "cd <run> && git diff main...HEAD -- web/tsconfig.json web/src/components/OrdersPage.tsx api/src/app.ts web/src/components/__tests__; ca",
+    "cat > REVIEW.md <<'EOF'\nweb/src/components/dashboard/OrderDashboard.tsx:22 - `filters` — новый объект на каждый рендер, а он в deps эффекта на :34-36: каждый рендер (в т.ч. раз в секунду от часов) зап",
+    "grep -v -e 'OrderDashboard.tsx:114' -e 'OrderDashboard.tsx:20 ' -e 'admin-orders.ts:27' REVIEW.md > $TMPDIR/r && cp $TMPDIR/r REVIEW.md && for s in blocker major minor; do echo $s $(grep -c \" - $s\\$\" "
+  ]
+}

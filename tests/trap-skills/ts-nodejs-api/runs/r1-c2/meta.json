@@ -1,0 +1,41 @@
+{
+  "id": "r1-c2",
+  "case": "R1",
+  "edition": "c",
+  "skills": [],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 10,
+  "cost": 0.1775946,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Bash": 8,
+    "Write": 1
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "git diff main...HEAD --stat && cat docs/tasks/SD-16-admin-refunds.md",
+    "git diff main...HEAD -- api deploy | grep -v '^index' | cat -n | head -700",
+    "cd <run>/api && grep -rn \"healthz\\|notifierUrl\\|requireAdmin\\|export function currentUser\" src | grep -v admin-refunds; sed -n 1,60p src",
+    "grep -n \"\" api/src/routes/admin-refunds.ts | sed -n '173,262p' | grep -n \"notifyCustomer\\|express.json\\|audit.record\\|orders.get\\|amountKopecks >\\|r.items\\|refundsProvider.refund\\|router.patch\\|refund",
+    "cd <run>/api/src && grep -n \"notifyCustomer\\|express.json\\|audit.record\\|orders.get\\|amountKopecks >\\|r.items\\|refundsProvider.refund\\|r",
+    "cd <run> && grep '\"version\"' node_modules/express/package.json; grep -n \"details\\|listen\\|SIGTERM\\|exit\" api/src/errors.ts api/src/serve",
+    "grep -rn \"async-errors\\|asyncHandler\\|wrap(\" api/src package.json api/package.json | head",
+    "sed -n 30,90p api/src/app.ts | grep -n \"async\\|try\\|next\" | head"
+  ]
+}
