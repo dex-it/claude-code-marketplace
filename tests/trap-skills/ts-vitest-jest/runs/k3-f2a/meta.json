@@ -1,0 +1,43 @@
+{
+  "id": "k3-f2a",
+  "case": "K3",
+  "edition": "final2",
+  "skills": [
+    "ts-vitest-jest"
+  ],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 12,
+  "cost": 0.1035756,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 2,
+    "Bash": 6,
+    "Write": 1,
+    "Edit": 2
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "cd api && cat src/services/reservation.ts; ls src src/services; ls src/**/*.test.ts test 2>/dev/null; cat package.json | head -30; grep -rn \"warehouse\" src --include=*.ts -il",
+    "cd api && cat src/clients/inventory.ts src/logger.ts; find . -name \"*.test.ts\" -not -path \"./node_modules/*\"; cat vitest.config.* 2>/dev/null; grep -n \"OrderItem\" -A6 src/domain/order.ts | head -15",
+    "cd api && npm run typecheck 2>&1 | tail -15; npm test 2>&1 | tail -20",
+    "npm run typecheck 2>&1 | tail -15",
+    "sed -i \"s/^import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';/import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';/; s/let reserve: Retur",
+    "npm run typecheck 2>&1 | tail -8; npm test 2>&1 | grep -E \"Tests|fail\"; git status --short"
+  ]
+}

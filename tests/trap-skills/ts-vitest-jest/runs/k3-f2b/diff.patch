@@ -1,0 +1,98 @@
+diff --git a/api/test/reservation.test.ts b/api/test/reservation.test.ts
+new file mode 100644
+index 0000000..766acb3
+--- /dev/null
++++ b/api/test/reservation.test.ts
+@@ -0,0 +1,92 @@
++import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
++import { inventory, TemporaryInventoryError } from '../src/clients/inventory.js';
++import type { OrderItem } from '../src/domain/order.js';
++import { logger } from '../src/logger.js';
++import {
++  holdUntil,
++  isHoldExpired,
++  reserveWithRetry,
++  ReservationFailedError,
++} from '../src/services/reservation.js';
++
++const items: OrderItem[] = [{ productId: 'p-1', title: 'Кружка', quantity: 2, priceKopecks: 50000 }];
++
++describe('reserveWithRetry', () => {
++  let reserve: MockInstance<typeof inventory.reserve>;
++
++  beforeEach(() => {
++    vi.useFakeTimers();
++    reserve = vi.spyOn(inventory, 'reserve');
++    vi.spyOn(logger, 'warn').mockImplementation(() => {});
++  });
++
++  afterEach(() => {
++    vi.useRealTimers();
++    vi.restoreAllMocks();
++  });
++
++  it('резервирует с первой попытки', async () => {
++    reserve.mockResolvedValueOnce({ reservationId: 'r-1' });
++
++    const result = await reserveWithRetry('o-1', items);
++
++    expect(result).toEqual({ reservationId: 'r-1', attempts: 1 });
++  });
++
++  it('повторяет после временного сбоя склада и завершается успехом', async () => {
++    reserve
++      .mockRejectedValueOnce(new TemporaryInventoryError('503'))
++      .mockRejectedValueOnce(new TemporaryInventoryError('503'))
++      .mockResolvedValueOnce({ reservationId: 'r-2' });
++
++    const promise = reserveWithRetry('o-2', items);
++    await vi.runAllTimersAsync();
++
++    await expect(promise).resolves.toEqual({ reservationId: 'r-2', attempts: 3 });
++  });
++
++  it('выбрасывает ReservationFailedError, когда попытки исчерпаны', async () => {
++    reserve.mockRejectedValue(new TemporaryInventoryError('503'));
++
++    const promise = reserveWithRetry('o-3', items);
++    const assertion = expect(promise).rejects.toMatchObject({
++      name: 'ReservationFailedError',
++      orderId: 'o-3',
++      attempts: 3,
++    });
++    await vi.runAllTimersAsync();
++
++    await assertion;
++    await expect(promise).rejects.toBeInstanceOf(ReservationFailedError);
++  });
++
++  it('не повторяет при ошибке склада, не являющейся временной', async () => {
++    const failure = new Error('inventory responded with 400');
++    reserve.mockRejectedValue(failure);
++
++    await expect(reserveWithRetry('o-4', items)).rejects.toBe(failure);
++    expect(reserve).toHaveBeenCalledTimes(1);
++  });
++});
++
++describe('isHoldExpired', () => {
++  it('не истёк до границы и в момент границы', () => {
++    expect(isHoldExpired(1000, 999)).toBe(false);
++    expect(isHoldExpired(1000, 1000)).toBe(false);
++  });
++
++  it('истёк после границы', () => {
++    expect(isHoldExpired(1000, 1001)).toBe(true);
++  });
++
++  it('по умолчанию сравнивает с текущим временем', () => {
++    expect(isHoldExpired(Date.now() - 1000)).toBe(true);
++    expect(isHoldExpired(Date.now() + 60_000)).toBe(false);
++  });
++
++  it('резерв, выданный holdUntil, не истекает сразу и истекает позже', () => {
++    const until = holdUntil(0);
++    expect(isHoldExpired(until, 1)).toBe(false);
++    expect(isHoldExpired(until, until + 1)).toBe(true);
++  });
++});

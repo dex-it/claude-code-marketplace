@@ -43,6 +43,11 @@
 | [removed/microservices](removed/microservices/README.md) | `dex-skill-microservices` 1.2.1 | ревью (A3), проектирование (D1, D2, D3) | снят |
 | [removed/distributed-resilience](removed/distributed-resilience/README.md) | `dex-skill-distributed-resilience` 1.0.1 | ревью (A3), проектирование (D2) | снят; R-f - названием в Phase 4 `architect`, `architect-dotnet` |
 | [removed/git-workflow](removed/git-workflow/README.md) | `dex-skill-git-workflow` 1.2.1 | автор: коммит и push (W); повторное ревью (C, CB) | снят; конвенции - в свод правил проекта |
+| [ts-nodejs-api](ts-nodejs-api/README.md) | `dex-skill-ts-nodejs-api` 2.0.1 | поручение на код (K1), ревью (R1); общий заход группы 2.3 | 15 ловушек и чек-лист -> 1 пункт-название (env при старте) |
+| [react](react/README.md) | `dex-skill-react` 1.1.1 | поручение на код (K2), ревью (R2) | 16 ловушек и чек-лист -> 2 пункта-названия |
+| [playwright](playwright/README.md) | `dex-skill-playwright` 1.0.1 | e2e по коду и конфигу (K4, K5) | 17 ловушек и чек-лист -> 2 пункта-названия и 2 H3 как написаны (W12, W13) |
+| [ts-vitest-jest](ts-vitest-jest/README.md) | `dex-skill-ts-vitest-jest` 2.0.1 | unit-тесты (K3) | 10 ловушек и чек-лист -> 4 H3 как написаны (V1, граница #299) |
+| [removed/ts-patterns](removed/ts-patterns/README.md) | `dex-skill-ts-patterns` 2.0.1 | кейсы соседей (K0-K3, R1, R2) | снят; внешние данные через `as` без проверки - закрыты строкой Boundaries `ts-fullstack-assistant` («`unknown` + type guard») |
 | [removed/test-design](removed/test-design/README.md) | `dex-skill-test-design` 1.6.0 | тестописатель с нормой показа красным и без (TW, TW0), ревью записей red-run (TR), баг (BR); мини-проект `parcel` | снят; порог «Negative >= 50%» - шаг 0 |
 | [integration-boundary](integration-boundary/README.md) | `dex-skill-integration-boundary` 1.0.0 | автор: подключение перевозчика (IB), поиск на SQLite (IBF) | 7 ловушек и чек-лист -> 3 названия; слой сборки - открыто |
 | [bug-reproduction](bug-reproduction/README.md) | `dex-skill-bug-reproduction` 1.0.0 | воспроизведение и фикс (BR) | 8 ловушек и чек-лист -> 1 название (heisenbug, открыто) |

@@ -1,0 +1,27 @@
+api/src/app.ts:94 - админский роутер смонтирован после `app.use(errorHandler)`, ошибки из него не доходят до общего обработчика (Express отдаёт HTML со стеком, формат ошибок API ломается) - major
+api/src/routes/admin-refunds.ts:36 - async-обработчики в Express 4.22 не передают reject в error middleware: любой `throw HttpError` (404 возврата, 409 не оплачен, 422, дубликат, ошибка zod) даёт unhandled rejection - запрос висит до таймаута, а процесс Node по умолчанию падает - blocker
+api/src/routes/admin-refunds.ts:27 - аудит пишется до requireAdmin и без actor: логируются анонимные и 403-запросы, а в записи нет пользователя, тела и результата; синхронный appendFileSync на каждый запрос блокирует event loop - major
+api/src/routes/admin-refunds.ts:45 - `deps.store.orders.get(body.orderId)!`: несуществующий заказ даёт TypeError на `order.status` (вместо 404), при текущем async-обработчике - падение процесса - blocker
+api/src/routes/admin-refunds.ts:50 - `body.amountKopecks` опционален, но по ТЗ без суммы заказ возвращается целиком: сейчас при undefined проверка пропускается, в провайдера уходит возврат без суммы, а `orderBalanceKopecks` = NaN; полная сумма не подставляется - blocker
+api/src/routes/admin-refunds.ts:50 - не учитываются прежние возвраты по заказу: можно оформить сколько угодно возвратов по полной сумме, критерий «сумма возвратов не превышает сумму заказа» не выполнен (деньги уйдут клиенту многократно) - blocker
+api/src/routes/admin-refunds.ts:55 - `r.items === body.items` сравнивает ссылки на массивы, всегда false: защита от дубликатов не работает, повторный POST снова уходит провайдеру (критерий приёмки нарушен); нет идемпотентного ключа провайдеру, а проверка и create не атомарны (гонка при двойном клике) - blocker
+api/src/routes/admin-refunds.ts:55 - позиции `items` не проверяются на принадлежность заказу, и сумма не связана с ними - можно вернуть произвольные «позиции» - minor
+api/src/routes/admin-refunds.ts:66 - вызов провайдера без try/catch и статуса Failed: при сбое провайдера возврат навсегда остаётся pending, оператор получает 500, повторный POST упрётся в дубликат (когда он заработает) - major
+api/src/routes/admin-refunds.ts:70 - сразу ставится Completed, хотя провайдер отвечает лишь `accepted`; реальное завершение не отслеживается, статус врёт - major
+api/src/routes/admin-refunds.ts:80 - `notifyCustomer(completed)` без await: try/catch бесполезен, при отказе нотификатора unhandled rejection роняет процесс уже после списания денег; к тому же в обход интерфейса Notifier/deps, поэтому невозможно подменить в тестах - blocker
+api/src/routes/admin-refunds.ts:88 - PATCH без requireAdmin: любой, включая неавторизованного, меняет статус возврата (доступ только у admin по ТЗ) - blocker
+api/src/routes/admin-refunds.ts:88 - `req.body.status` не валидируется (любая строка, undefined), нет проверки допустимых переходов (completed -> pending), объект мутируется прямо в хранилище; действие не попадает в аудит - major
+api/src/routes/admin-refunds.ts:95 - error-middleware объявлен с 3 аргументами, Express его не считает обработчиком ошибок - код мёртвый; код ответа `admin_error` скрывает реальный code ошибки - minor
+api/src/errors.ts:24 - в ответ 500 клиенту отдаётся `err.stack`: утечка внутренних путей и деталей реализации наружу - major
+api/src/server.ts:30 - SIGTERM теперь `process.exit(0)` без `server.close`: при выкатке обрываются запросы в полёте (в том числе между вызовом провайдера и сохранением возврата) - major
+api/src/clients/refunds-provider.ts:52 - REFUNDS_URL/REFUNDS_API_KEY читаются при импорте, вне config.ts; без URL `new URL` бросает TypeError на каждом запросе, пустой ключ молча подставляется - minor
+api/src/clients/refunds-provider.ts:73 - не проверяется `res.ok`: на 4xx/5xx `{error}` приводится к ответу успешного формата, `providerRefundId` = undefined, возврат помечается Completed; нет таймаута и повторов - blocker
+api/src/validation.ts:43 - интерфейс CreateRefund объявляет `amountKopecks: number`, а схема даёт optional; приведение `as CreateRefund` в роуте скрывает undefined от typecheck - major
+api/src/audit.ts:37 - дескриптор открывается один раз и кэшируется: смена AUDIT_LOG после первой записи игнорируется (тесты делят один файл); ошибка открытия/записи пробрасывается из middleware и валит каждый admin-запрос - minor
+api/src/refunds/refund-store.ts:154 - глобальный синглтон в памяти вне `deps`/Store: возвраты теряются при рестарте, расходятся между 2 репликами, тесты делят состояние - major
+api/test/admin-refunds.test.ts:354 - fetch замокан на 202, поэтому падение/отказ нотификатора не проверяется; нет тестов на PATCH (в т.ч. 403), дубликат, превышение суммы, возврат без суммы, неизвестный заказ, неоплаченный заказ, сбой провайдера - major
+deploy/k8s.yaml:19 - образ `:latest` без фиксированной версии: недетерминированные выкаты и откаты - minor
+deploy/k8s.yaml:41 - пробы ходят на /healthz, которого в api нет (404): под никогда не станет ready, liveness будет его перезапускать - blocker
+deploy/k8s.yaml:63 - журнал аудита в emptyDir на 2 репликах: теряется при пересоздании пода, у каждой реплики свой файл - аудит ненадёжен - major
+deploy/k8s.yaml:8 - 2 реплики при хранении заказов и возвратов в памяти процесса: данные и дедупликация возвратов расходятся между подами - major
+deploy/k8s.yaml:36 - ConfigMap/Secret `shopdesk-api` (refunds-url, refunds-api-key) не определены в манифесте, без них под не стартует (CreateContainerConfigError); нет securityContext - minor

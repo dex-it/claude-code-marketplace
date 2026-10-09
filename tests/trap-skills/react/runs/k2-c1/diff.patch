@@ -1,0 +1,101 @@
+diff --git a/web/src/components/OrdersPage.tsx b/web/src/components/OrdersPage.tsx
+index 7b2aa7f..89ce942 100644
+--- a/web/src/components/OrdersPage.tsx
++++ b/web/src/components/OrdersPage.tsx
+@@ -9,15 +9,38 @@ const statusLabels: Record<OrderStatus, string> = {
+   cancelled: 'Отменён',
+ };
+ 
++const SEARCH_DEBOUNCE_MS = 300;
++
+ export function OrdersPage() {
+   const [orders, setOrders] = useState<Order[] | null>(null);
+   const [loadFailed, setLoadFailed] = useState(false);
+   const [actionError, setActionError] = useState<string | null>(null);
+   const [expandedId, setExpandedId] = useState<string | null>(null);
+ 
++  const [query, setQuery] = useState('');
++  const [activeQuery, setActiveQuery] = useState('');
++
+   useEffect(() => {
+-    getOrders().then(setOrders, () => setLoadFailed(true));
+-  }, []);
++    const timer = setTimeout(() => setActiveQuery(query.trim()), SEARCH_DEBOUNCE_MS);
++    return () => clearTimeout(timer);
++  }, [query]);
++
++  useEffect(() => {
++    let stale = false;
++    getOrders(activeQuery || undefined).then(
++      (result) => {
++        if (stale) return;
++        setLoadFailed(false);
++        setOrders(result);
++      },
++      () => {
++        if (!stale) setLoadFailed(true);
++      },
++    );
++    return () => {
++      stale = true;
++    };
++  }, [activeQuery]);
+ 
+   async function handleCancel(id: string) {
+     setActionError(null);
+@@ -32,10 +55,16 @@ export function OrdersPage() {
+   return (
+     <section>
+       <h1>Мои заказы</h1>
++      <label>
++        Поиск заказов
++        <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} />
++      </label>
+       {loadFailed && <p role="alert">Не удалось загрузить заказы</p>}
+       {actionError && <p role="alert">{actionError}</p>}
+       {orders === null && !loadFailed && <p>Загрузка...</p>}
+-      {orders !== null && orders.length === 0 && <p>У вас пока нет заказов</p>}
++      {orders !== null && orders.length === 0 && (
++        <p>{activeQuery ? 'Ничего не найдено' : 'У вас пока нет заказов'}</p>
++      )}
+       {orders !== null && orders.length > 0 && (
+         <ul className="orders">
+           {orders.map((order) => (
+diff --git a/web/src/components/__tests__/OrdersPage.test.tsx b/web/src/components/__tests__/OrdersPage.test.tsx
+index c74b0b5..d0c5801 100644
+--- a/web/src/components/__tests__/OrdersPage.test.tsx
++++ b/web/src/components/__tests__/OrdersPage.test.tsx
+@@ -1,4 +1,4 @@
+-import { render, screen } from '@testing-library/react';
++import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+ import type { Order } from '../../types';
+ import { OrdersPage } from '../OrdersPage';
+@@ -58,4 +58,27 @@ describe('OrdersPage', () => {
+ 
+     expect(await screen.findByText('Не удалось загрузить заказы')).toBeInTheDocument();
+   });
++
++  it('searches orders on the server as the user types', async () => {
++    const fetchMock = vi.fn(async (url: string) =>
++      jsonResponse(url.includes('q=%D0%A7%D0%B0%D0%B9%D0%BD') ? [orders[1]] : url.includes('q=zzz') ? [] : orders),
++    );
++    vi.stubGlobal('fetch', fetchMock);
++
++    render(<OrdersPage />);
++    expect(await screen.findByText('Заказ #1002')).toBeInTheDocument();
++
++    const input = screen.getByLabelText('Поиск заказов');
++    fireEvent.change(input, { target: { value: 'Чайн' } });
++    await waitFor(() => expect(screen.queryByText('Заказ #1002')).not.toBeInTheDocument());
++    expect(screen.getByText('Заказ #1003')).toBeInTheDocument();
++    expect(fetchMock).toHaveBeenLastCalledWith('/api/orders?q=%D0%A7%D0%B0%D0%B9%D0%BD', expect.anything());
++
++    fireEvent.change(input, { target: { value: 'zzz' } });
++    expect(await screen.findByText('Ничего не найдено')).toBeInTheDocument();
++
++    fireEvent.change(input, { target: { value: '' } });
++    expect(await screen.findByText('Заказ #1002')).toBeInTheDocument();
++    expect(fetchMock).toHaveBeenLastCalledWith('/api/orders', expect.anything());
++  });
+ });

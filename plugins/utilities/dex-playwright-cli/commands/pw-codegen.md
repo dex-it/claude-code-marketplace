@@ -27,6 +27,6 @@ argument-hint: "<url> [--target playwright-test|javascript|python|python-pytest|
 **Constraints:**
 
 - Интерактивная команда. Открывает реальный браузер (headed) -- нужен GUI. В WSL без X-сервера / WSLg не запустится; на удалённом сервере проброс X11 / VNC обязателен.
-- Codegen приоритизирует role-based locators (`getByRole`/`getByText`/`getByTestId`), но не вставляет web-first assertions -- их нужно добавить руками после записи. См. `dex-skill-playwright` про устойчивые локаторы и assertions.
+- Codegen приоритизирует role-based locators (`getByRole`/`getByText`/`getByTestId`), но не вставляет web-first assertions -- их нужно добавить руками после записи. См. `dex-skill-playwright` про устойчивые локаторы.
 - Запись открывает реальную сессию в URL: cookies, OAuth callback, формы -- всё уходит на сервер. Использовать staging-домены, не прод с реальными пользовательскими данными.
 - `--save-storage` сохраняет cookies + localStorage -- этот файл содержит auth-токены, не коммитить, права 600.

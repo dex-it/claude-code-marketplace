@@ -1,0 +1,40 @@
+{
+  "id": "r1-n1a",
+  "case": "R1",
+  "edition": "n1",
+  "skills": [
+    "ts-nodejs-api"
+  ],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 7,
+  "cost": 0.149507,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 1,
+    "Bash": 5
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "git diff main...HEAD --stat && cat docs/tasks/SD-16-admin-refunds.md",
+    "git diff main...HEAD -- api/src deploy | cat -n | head -600; ls api/src api/src/*",
+    "cd <run>/api && cat src/auth.ts src/config.ts src/errors.ts; cat -n test/admin-refunds.test.ts | head -100; sed -n 1,30p src/server.ts;",
+    "grep -n '\"express\"' package.json; grep -n \"adminRefundsRouter\\|errorHandler\\|express.json\\|get('/\" src/app.ts; grep -n \"ord-1003\" -A6 src/seed.ts | head -20; grep -n \"orders\" src/store.ts | head",
+    "cd <run> && cat > REVIEW.md <<'EOF'\napi/src/routes/admin-refunds.ts:46 - `deps.store.orders.get(body.orderId)!` без проверки: несуществ"
+  ]
+}

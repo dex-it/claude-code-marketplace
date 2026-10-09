@@ -47,7 +47,7 @@ Bundle for QA Engineers: test analysis, test automation, bug reporting.
 ### Skills
 - `dex-skill-api-testing` - API testing
 - `dex-skill-dotnet-testing-patterns` - Testing patterns
-- `dex-skill-playwright` - Playwright E2E traps: locators, auto-waiting, isolation, traces
+- `dex-skill-playwright` - Playwright E2E: локаторы по роли, вход в тестах, отладка
 - `dex-skill-bdd-gherkin` - Gherkin и Example Mapping: граница «пример против теста»
 
 ## Note

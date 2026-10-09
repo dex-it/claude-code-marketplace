@@ -30,7 +30,7 @@ Project Bootstrap (conditional) -> Understand Requirements -> Study Project Cont
 - ESLint + Prettier config -- линт и формат активны до первого бизнес-кода
 - Структура monorepo (workspaces) и граница shared types, если проект fullstack
 
-`strict: true` -- норма каталога, дом `dex-skill-ts-patterns:ts-patterns`. Package manager, lockfile, Prettier и граница workspaces своего skill не имеют: выбор идёт допущением и в выход пунктом «принятые решения/допущения», не молчаливым дефолтом.
+`strict: true` -- норма каталога. Package manager, lockfile, Prettier и граница workspaces своего skill не имеют: выбор идёт допущением и в выход пунктом «принятые решения/допущения», не молчаливым дефолтом.
 
 **Output:** скелет проекта (структура + конфигурация, не бизнес-код) с заложенным baseline.
 
@@ -111,9 +111,8 @@ Deep Dive за оракул не засчитывается ни в одном �
 
 Грузи через Skill tool только те skills, чья область пересекается с задачей (backend-only задача react не требует):
 
-- TypeScript type guards, strict mode, discriminated unions -- `dex-skill-ts-patterns:ts-patterns`
-- Node.js API, middleware, Zod, error handling -- `dex-skill-ts-nodejs-api:ts-nodejs-api`
-- React hooks, state, SSR -- `dex-skill-react:react`
+- Node.js API: переменные окружения и конфигурация сервиса -- `dex-skill-ts-nodejs-api:ts-nodejs-api`
+- React: запросы по мере ввода, memo-компоненты и их props -- `dex-skill-react:react`
 - Граница с внешней системой (LLM/внешний API/IO) -- `dex-skill-integration-boundary:integration-boundary`
 
 **Fact-check API (условно):** триггер -- сигнатура стороннего API (Zod, Drizzle, Prisma, Hono, NestJS, React Query и т.п.) взята по памяти и не подтверждена кодом проекта-образца из Phase 2. Тогда сверь имя и сигнатуру skill'ом `dex-skill-fact-verification:fact-verification` по версии из манифеста проекта -- TS-экосистема ломает API между мажорами (Zod 3->4), а `tsc` ловит лишь часть. Stdlib и языковые конструкции не сверяются. Неподтверждённое имя в код не идёт, в Output -- `unverifiable` с причиной.

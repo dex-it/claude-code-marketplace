@@ -1,0 +1,40 @@
+{
+  "id": "r2-fb",
+  "case": "R2",
+  "edition": "final",
+  "skills": [
+    "react"
+  ],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 7,
+  "cost": 0.16320259999999998,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 1,
+    "Bash": 5
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "git diff main...feature/order-dashboard --stat && cat docs/tasks/SD-17-order-dashboard.md",
+    "git diff main...feature/order-dashboard -- api/src web/src/App.tsx web/src/api.ts web/src/components/OrdersPage.tsx web/src/lib web/src/types.ts web/tsconfig.json web/src/components/dashboard | grep -",
+    "grep -n \"requireAdmin\" -A8 api/src/auth.ts | head -20; cat web/src/lib/money.ts; cat -n web/src/components/dashboard/OrderDashboard.tsx | sed -n 14,60p; grep -n \"\" web/src/components/dashboard/Address",
+    "npm test 2>&1 | tail -25; grep -n \"Сортировать\\|revenueKopecks.toLocale\\|onSelect=\\|value={{\" web/src/components/dashboard/OrderDashboard.tsx; grep -n \"createdAt >=\\|createdAt <\\|list.sort\" web/src/li",
+    "cat > REVIEW.md <<'EOF'\nweb/src/components/dashboard/OrderDashboard.tsx:22 - `filters` — новый объект на каждый рендер, а он в зависимостях эффекта на :34-36; каждый ответ getAdminOrders вызывает setO"
+  ]
+}

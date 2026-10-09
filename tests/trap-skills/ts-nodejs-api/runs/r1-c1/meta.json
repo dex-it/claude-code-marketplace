@@ -1,0 +1,39 @@
+{
+  "id": "r1-c1",
+  "case": "R1",
+  "edition": "c",
+  "skills": [],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 8,
+  "cost": 0.15587220000000002,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Bash": 6,
+    "Write": 1
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "git diff main...HEAD --stat && cat docs/tasks/SD-16-admin-refunds.md",
+    "git diff main...HEAD -- api/src deploy | cat -n | head -600",
+    "cd <run>/api && cat src/auth.ts src/config.ts | head -90; grep -n healthz -r src; cat test/admin-refunds.test.ts | head -90; grep -n \"\" ",
+    "grep -rn \"health\" api/src | head; grep -n \"\" api/src/routes/admin-refunds.ts | sed -n '190,262p' | head -0; grep -n \"notifyCustomer(completed)\\|router.patch\\|router.use\\|existing.some\\|amountKopecks >",
+    "grep -n '\"express\"' api/package.json; sed -n 30,40p api/src/app.ts; grep -n \"ord-1003\" -A8 api/src/seed.ts | head -20",
+    "for s in blocker major minor; do echo $s $(grep -c \" - $s$\" REVIEW.md); done"
+  ]
+}

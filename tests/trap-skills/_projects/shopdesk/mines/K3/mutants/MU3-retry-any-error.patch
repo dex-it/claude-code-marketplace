@@ -1,0 +1,10 @@
+--- a/api/src/services/reservation.ts	2026-10-06 08:19:25
++++ b/api/src/services/reservation.ts	2026-10-06 08:19:25
+@@ -31,7 +31,6 @@
+       const { reservationId } = await inventory.reserve(orderId, items);
+       return { reservationId, attempts };
+     } catch (err) {
+-      if (!(err instanceof TemporaryInventoryError)) throw err;
+       logger.warn(`inventory is unavailable for order ${orderId} (attempt ${attempts} of ${MAX_ATTEMPTS})`);
+       if (attempts < MAX_ATTEMPTS) await pause(RETRY_DELAYS_MS[attempts - 1]);
+     }

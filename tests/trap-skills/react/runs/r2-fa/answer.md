@@ -1,0 +1,1 @@
+Находок 13: blocker — 3, major — 9, minor — 2 (в REVIEW.md).

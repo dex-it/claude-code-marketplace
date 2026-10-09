@@ -1,0 +1,38 @@
+{
+  "id": "k2-n1a",
+  "case": "K2",
+  "edition": "n1",
+  "skills": [
+    "react"
+  ],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 6,
+  "cost": 0.0763876,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 2,
+    "Bash": 3
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "cd web && git ls-files . | grep -v node_modules; cat src/api.ts; cat src/pages/*Orders* 2>/dev/null",
+    "cd web/src/components && cat OrdersPage.tsx __tests__/OrdersPage.test.tsx; grep -n \"q\\b\" ../../../api/src/**/*orders* 2>/dev/null | head",
+    "cd <run> && python3 - <<'E'\np='web/src/components/OrdersPage.tsx'\ns=open(p).read()\ns=s.replace(\"\"\"export function OrdersPage() {\n\"\"\",\"\""
+  ]
+}

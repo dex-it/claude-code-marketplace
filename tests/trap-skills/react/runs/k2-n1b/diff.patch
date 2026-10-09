@@ -1,0 +1,136 @@
+diff --git a/web/src/components/OrdersPage.tsx b/web/src/components/OrdersPage.tsx
+index 7b2aa7f..f450f63 100644
+--- a/web/src/components/OrdersPage.tsx
++++ b/web/src/components/OrdersPage.tsx
+@@ -9,15 +9,38 @@ const statusLabels: Record<OrderStatus, string> = {
+   cancelled: 'Отменён',
+ };
+ 
++const SEARCH_DEBOUNCE_MS = 300;
++
+ export function OrdersPage() {
+   const [orders, setOrders] = useState<Order[] | null>(null);
+   const [loadFailed, setLoadFailed] = useState(false);
+   const [actionError, setActionError] = useState<string | null>(null);
+   const [expandedId, setExpandedId] = useState<string | null>(null);
+ 
++  const [query, setQuery] = useState('');
++  const [debouncedQuery, setDebouncedQuery] = useState('');
++
+   useEffect(() => {
+-    getOrders().then(setOrders, () => setLoadFailed(true));
+-  }, []);
++    const timer = setTimeout(() => setDebouncedQuery(query.trim()), SEARCH_DEBOUNCE_MS);
++    return () => clearTimeout(timer);
++  }, [query]);
++
++  useEffect(() => {
++    let stale = false;
++    getOrders(debouncedQuery).then(
++      (result) => {
++        if (stale) return;
++        setLoadFailed(false);
++        setOrders(result);
++      },
++      () => {
++        if (!stale) setLoadFailed(true);
++      },
++    );
++    return () => {
++      stale = true;
++    };
++  }, [debouncedQuery]);
+ 
+   async function handleCancel(id: string) {
+     setActionError(null);
+@@ -32,10 +55,16 @@ export function OrdersPage() {
+   return (
+     <section>
+       <h1>Мои заказы</h1>
++      <label>
++        Поиск заказов
++        <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} />
++      </label>
+       {loadFailed && <p role="alert">Не удалось загрузить заказы</p>}
+       {actionError && <p role="alert">{actionError}</p>}
+       {orders === null && !loadFailed && <p>Загрузка...</p>}
+-      {orders !== null && orders.length === 0 && <p>У вас пока нет заказов</p>}
++      {orders !== null && orders.length === 0 && (
++        <p>{debouncedQuery ? 'Ничего не найдено' : 'У вас пока нет заказов'}</p>
++      )}
+       {orders !== null && orders.length > 0 && (
+         <ul className="orders">
+           {orders.map((order) => (
+diff --git a/web/src/components/__tests__/OrdersPage.test.tsx b/web/src/components/__tests__/OrdersPage.test.tsx
+index c74b0b5..5279682 100644
+--- a/web/src/components/__tests__/OrdersPage.test.tsx
++++ b/web/src/components/__tests__/OrdersPage.test.tsx
+@@ -1,4 +1,4 @@
+-import { render, screen } from '@testing-library/react';
++import { act, fireEvent, render, screen } from '@testing-library/react';
+ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+ import type { Order } from '../../types';
+ import { OrdersPage } from '../OrdersPage';
+@@ -58,4 +58,62 @@ describe('OrdersPage', () => {
+ 
+     expect(await screen.findByText('Не удалось загрузить заказы')).toBeInTheDocument();
+   });
++
++  describe('search', () => {
++    afterEach(() => {
++      vi.useRealTimers();
++    });
++
++    it('searches on the server after typing stops, without a request per keystroke', async () => {
++      vi.useFakeTimers();
++      const fetchMock = vi.fn(async (url: string) =>
++        jsonResponse(url.includes('q=') ? [orders[1]] : orders),
++      );
++      vi.stubGlobal('fetch', fetchMock);
++
++      render(<OrdersPage />);
++      await act(async () => {
++        await vi.advanceTimersByTimeAsync(400);
++      });
++      expect(fetchMock).toHaveBeenCalledTimes(1);
++
++      const input = screen.getByLabelText('Поиск заказов');
++      for (const value of ['ч', 'чa', 'чайн']) fireEvent.change(input, { target: { value } });
++      await act(async () => {
++        await vi.advanceTimersByTimeAsync(400);
++      });
++
++      expect(fetchMock).toHaveBeenCalledTimes(2);
++      expect(fetchMock.mock.calls[1][0]).toBe(`/api/orders?q=${encodeURIComponent('чайн')}`);
++      expect(screen.queryByText('Заказ #1002')).not.toBeInTheDocument();
++      expect(screen.getByText('Заказ #1003')).toBeInTheDocument();
++    });
++
++    it('shows a message when nothing is found and full list for empty query', async () => {
++      vi.useFakeTimers();
++      vi.stubGlobal(
++        'fetch',
++        vi.fn(async (url: string) => jsonResponse(url.includes('q=') ? [] : orders)),
++      );
++
++      render(<OrdersPage />);
++      await act(async () => {
++        await vi.advanceTimersByTimeAsync(400);
++      });
++      const input = screen.getByLabelText('Поиск заказов');
++
++      fireEvent.change(input, { target: { value: 'zzz' } });
++      await act(async () => {
++        await vi.advanceTimersByTimeAsync(400);
++      });
++      expect(screen.getByText('Ничего не найдено')).toBeInTheDocument();
++
++      fireEvent.change(input, { target: { value: '' } });
++      await act(async () => {
++        await vi.advanceTimersByTimeAsync(400);
++      });
++      expect(screen.queryByText('Ничего не найдено')).not.toBeInTheDocument();
++      expect(screen.getByText('Заказ #1002')).toBeInTheDocument();
++    });
++  });
+ });

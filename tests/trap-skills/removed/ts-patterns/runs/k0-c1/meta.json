@@ -1,0 +1,42 @@
+{
+  "id": "k0-c1",
+  "case": "K0",
+  "edition": "c",
+  "skills": [],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 11,
+  "cost": 0.11926720000000002,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 1,
+    "Bash": 8,
+    "Edit": 1
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "git ls-files | grep -v package-lock | head -100 && grep -rniE \"price|₽|RUB\" --include=*.ts --include=*.tsx -l . --exclude-dir=node_modules",
+    "cat api/src/domain/product.ts web/src/lib/money.ts web/src/components/ProductsPage.tsx web/src/types.ts api/src/seed.ts; grep -n \"money\\|formatPrice\\|product\" -i web/src/components/OrdersPage.tsx api/",
+    "grep -rn \"priceKopecks\\|₽\\|u00a0\\|products\" api/test web/src/components/__tests__ e2e/tests | head -20",
+    "cat web/src/api.ts | head -30; sed -n 1,30p web/src/components/__tests__/OrdersPage.test.tsx",
+    "python3 - <<'E'\nimport re\ndef sub(p,a,b,c=1):\n    s=open(p).read(); assert a in s; open(p,'w').write(s.replace(a,b))\nsub('api/src/domain/product.ts','  priceKopecks: number;\\n','  priceKopecks: number",
+    "grep -n \"auth\" api/src/app.ts | head -5; tail -5 api/test/orders.test.ts\ncat > api/test/products.test.ts <<'E'\nimport request from 'supertest';\nimport { describe, expect, it } from 'vitest';\nimport { ",
+    "sed -i 's#/^1\\\\s290,00\\\\s RUB$|^1\\\\s290,00\\\\sRUB$/#/^1\\\\s290,00\\\\sRUB$/#' web/src/components/__tests__/ProductsPage.test.tsx && grep -n findByText web/src/components/__tests__/ProductsPage.test.tsx &&",
+    "npm test -w web 2>&1 | grep -E \"Tests|fail\"; npm run typecheck 2>&1 | grep -i error"
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "id": "r2-n1a",
+  "case": "R2",
+  "edition": "n1",
+  "skills": [
+    "react"
+  ],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 9,
+  "cost": 0.17533200000000002,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 1,
+    "Bash": 6,
+    "Write": 1
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "git diff main...HEAD --stat && cat docs/tasks/SD-17-order-dashboard.md",
+    "git diff main...HEAD -- api/src web/src/App.tsx web/src/api.ts web/src/components/OrdersPage.tsx web/src/lib web/src/types.ts web/tsconfig.json web/src/components/dashboard | cat -n | head -1200",
+    "for f in api/src/routes/admin-orders.ts api/src/validation.ts api/src/store.ts; do echo \"=== $f\"; cat -n $f; done; git diff main...HEAD -- api/src/seed.ts web/tsconfig.json",
+    "cd <run>/web/src && for f in lib/dashboard.ts lib/status.ts api.ts components/dashboard/*; do echo \"=== $f\"; cat -n $f; done",
+    "cd <run> && git diff main...HEAD -- web/src/App.tsx web/src/components/OrdersPage.tsx web/src/types.ts api/test | cat; cat api/src/auth",
+    "npm test 2>&1 | tail -25; cat -n web/src/lib/__tests__/dashboard.test.ts | head -50"
+  ]
+}

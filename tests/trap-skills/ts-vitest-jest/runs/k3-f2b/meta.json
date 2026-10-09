@@ -1,0 +1,39 @@
+{
+  "id": "k3-f2b",
+  "case": "K3",
+  "edition": "final2",
+  "skills": [
+    "ts-vitest-jest"
+  ],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 7,
+  "cost": 0.0813988,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 2,
+    "Bash": 4
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "cd api && cat src/services/reservation.ts; ls src/services src/**/*.test.ts test 2>/dev/null; cat src/services/warehouse*.ts | head -60; cat package.json ../package.json | grep -n test",
+    "cd api; find . -name \"*.test.ts\" -not -path \"*/node_modules/*\"; cat src/clients/inventory.ts | head -40; cat src/logger.ts; cat vitest.config.* 2>/dev/null; grep -n \"interface OrderItem\" -A6 src/domai",
+    "cat > test/reservation.test.ts <<'EOF'\nimport { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';\nimport { inventory, TemporaryInventoryError } from '../src/clients/inventory.js';\nimpor",
+    "python3 - <<'EOF'\np='test/reservation.test.ts'\ns=open(p).read()\ns=s.replace(\"  let reserve: ReturnType<typeof vi.spyOn<typeof inventory, 'reserve'>>;\\n\",\"  let reserve: MockInstance<typeof inventory.r"
+  ]
+}

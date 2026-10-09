@@ -1,0 +1,38 @@
+{
+  "id": "k2-fa",
+  "case": "K2",
+  "edition": "final",
+  "skills": [
+    "react"
+  ],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 6,
+  "cost": 0.08332139999999999,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 2,
+    "Bash": 3
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "cd web && git ls-files . | grep -v node_modules; cat src/api.ts; cat src/pages/*Orders*.tsx 2>/dev/null; cat package.json",
+    "cat src/components/OrdersPage.tsx src/components/__tests__/OrdersPage.test.tsx src/types.ts",
+    "python3 - <<'E'\np='src/components/OrdersPage.tsx'\ns=open(p).read()\ns=s.replace(\"\"\"export function OrdersPage() {\"\"\",\"\"\"const SEARCH_DEBOUNCE_MS = 300;\n\nexport function OrdersPage() {\n  const [query, s"
+  ]
+}
