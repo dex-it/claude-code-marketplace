@@ -1,0 +1,21 @@
+<<<<<<< src/shipments.js
+    note: parcel.note,
+  });
+=======
+    note: parcel.note,
+    ...(insured ? { insured: true, insuredAmount: insuredAmount(parcel.declaredValue) } : {}),
+  });
+>>>>>>>
+<<<<<<< worker/label.js
+  if (msg.note) lines.push(`Комментарий: ${msg.note}`);
+=======
+  if (msg.note) lines.push(`Комментарий: ${msg.note}`);
+  if (msg.insured) lines.push(`Страховка: ${msg.insurance} EUR`);
+>>>>>>>
+<<<<<<< docs/messages.md
+| `note` | строка | комментарий отправителя; нет комментария - поля нет |
+=======
+| `note` | строка | комментарий отправителя; нет комментария - поля нет |
+| `insured` | bool | отправление застраховано; без страховки - поля нет |
+| `insuredAmount` | число | страховая сумма, EUR; только при `insured` |
+>>>>>>>

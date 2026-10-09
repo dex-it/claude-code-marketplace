@@ -1,0 +1,25 @@
+# Факты прогона k0-c2: кейс K0, скилл -
+исходная голова develop (K0_HEAD): edf35e22be74
+стоимость: 0.059 USD; ходов: 1; модель: claude-sonnet-5-5; CLI: 2.1.291
+  ход 1: exit 0, cost 0.059, turns 8, инструменты {"Read":5,"Bash":2}, standctl 0, вне ws 0
+
+## Тесты проекта (node --test на копии финального ws/shipping)
+exit 0; pass 31, fail 0
+
+## Скрытые тесты K0: pass 3, fail 0
+  ok     K0 parseWeight(2.1) - 2100 г
+  ok     K0 2.1 кг в зону B: расчётный 2.5 кг, цена полосы до 3 кг
+  ok     K0 0.3 кг - расчётный 0.5 кг; 2.5 кг - 2.5 кг
+
+## Ветки и коммиты (локально)
+- develop edf35e22be74: 0 новых коммитов, develop не изменён
+HEAD: develop
+незакоммичено: нет
+
+## origin
+- refs/heads/develop edf35e22be74 - не изменён
+- refs/heads/main 95dad015f227
+- refs/tags/v1.3.0 342f697d8441
+- refs/tags/v1.4.0 2302f899110b
+
+## Дифф относительно K0_HEAD (src, worker, config): пуст

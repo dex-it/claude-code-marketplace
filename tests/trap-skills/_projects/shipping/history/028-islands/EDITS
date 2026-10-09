@@ -1,0 +1,29 @@
+<<<<<<< config/zones.json
+{
+  "regions": {
+=======
+{
+  "exact": {
+    "18565": "D", "25938": "D", "25980": "D", "26548": "D", "26571": "D", "27498": "D"
+  },
+  "regions": {
+>>>>>>>
+<<<<<<< src/zones.js
+// Зона доставки по индексу получателя: регион - две первые цифры, таблица config/zones.json.
+=======
+// Зона доставки по индексу получателя: сначала точные индексы (острова, зона D), затем регион - две
+// первые цифры; таблица config/zones.json.
+>>>>>>>
+<<<<<<< src/zones.js
+  return zones.regions[String(postcode).slice(0, 2)];
+=======
+  const pc = String(postcode);
+  return zones.exact[pc] ?? zones.regions[pc.slice(0, 2)];
+>>>>>>>
+<<<<<<< test/zones.test.js
+  ['99084', 'B'],
+=======
+  ['99084', 'B'],
+  ['25980', 'D'],
+  ['18565', 'D'],
+>>>>>>>

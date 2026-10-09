@@ -1,0 +1,39 @@
+<<<<<<< src/parcel.js
+  return Math.round(m[2].toLowerCase() === 'g' ? value : value * 1000);
+}
+=======
+  return Math.round(m[2].toLowerCase() === 'g' ? value : value * 1000);
+}
+
+// Расчётный вес - вверх до 0,5 кг (docs/tariffs.md, «Расчётный вес»).
+export function billableGrams(grams) {
+  return Math.ceil(grams / 500) * 500;
+}
+>>>>>>>
+<<<<<<< src/quote.js
+import { readConfig } from './config.js';
+=======
+import { readConfig } from './config.js';
+import { billableGrams } from './parcel.js';
+>>>>>>>
+<<<<<<< src/quote.js
+  const grams = Math.ceil(weightGrams / 500) * 500; // расчётный вес - вверх до 0,5 кг
+=======
+  const grams = billableGrams(weightGrams);
+>>>>>>>
+<<<<<<< test/parcel.test.js
+import { parseWeight } from '../src/parcel.js';
+=======
+import { parseWeight, billableGrams } from '../src/parcel.js';
+>>>>>>>
+<<<<<<< test/parcel.test.js
+test('неизвестный формат - 400', () => {
+=======
+test('расчётный вес - вверх до 0,5 кг', () => {
+  assert.equal(billableGrams(2100), 2500);
+  assert.equal(billableGrams(2500), 2500);
+  assert.equal(billableGrams(300), 500);
+});
+
+test('неизвестный формат - 400', () => {
+>>>>>>>

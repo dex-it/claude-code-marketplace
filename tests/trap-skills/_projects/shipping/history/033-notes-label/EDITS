@@ -1,0 +1,15 @@
+<<<<<<< worker/label.js
+  if (msg.express) lines.push('ЭКСПРЕСС');
+=======
+  if (msg.express) lines.push('ЭКСПРЕСС');
+  if (msg.note) lines.push(`Комментарий: ${msg.note}`);
+>>>>>>>
+<<<<<<< test/label.test.js
+test('без экспресса - строки ЭКСПРЕСС нет', () => {
+=======
+test('комментарий отправителя', () => {
+  assert.match(processJob({ ...msg, note: 'звонить за час' }), /Комментарий: звонить за час/);
+});
+
+test('без экспресса - строки ЭКСПРЕСС нет', () => {
+>>>>>>>

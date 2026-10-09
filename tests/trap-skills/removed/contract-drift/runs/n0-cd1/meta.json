@@ -1,0 +1,72 @@
+{
+  "id": "n0-cd1",
+  "case": "N0",
+  "skill": "<repo>/tests/trap-skills/contract-drift/inputs/SKILL-1.2.0.md",
+  "requestedModel": "claude-sonnet-5-5",
+  "effort": "medium",
+  "branch": "main",
+  "shas": {
+    "head": "009870eb10d53814805c2aa636b3abe5bd888eb1",
+    "main": "009870eb10d53814805c2aa636b3abe5bd888eb1"
+  },
+  "model": "claude-sonnet-5-5",
+  "cliVersion": "2.1.291",
+  "mcp": [],
+  "toolsAvailable": [
+    "Bash",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Read",
+    "Write"
+  ],
+  "tools": {
+    "Read": 3,
+    "Grep": 2,
+    "Edit": 3,
+    "Bash": 1
+  },
+  "outside": [],
+  "cost": 0.0591444,
+  "turns": 10,
+  "exit": 0,
+  "subtype": "success",
+  "isError": false,
+  "usage": {
+    "input_tokens": 12,
+    "cache_creation_input_tokens": 7459,
+    "cache_read_input_tokens": 62722,
+    "output_tokens": 1674,
+    "output_tokens_details": {
+      "thinking_tokens": 63
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 7459,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 283,
+        "cache_read_input_tokens": 13045,
+        "cache_creation_input_tokens": 398,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 398
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "seconds": 17,
+  "stderr": "",
+  "judged": false
+}

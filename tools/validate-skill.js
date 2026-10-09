@@ -196,6 +196,9 @@ const PROCESS_SKILLS = new Set([
   'review-evidence',
   'review-threads',
   'review-step-by-step',
+  'root-cause-analysis',
+  'change-correlation',
+  'post-merge-remediation',
 ]);
 
 // Имена, существующие только в фикстурах `tools/__fixtures__`. В продовые перечни не

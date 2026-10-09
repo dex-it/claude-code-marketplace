@@ -1,0 +1,171 @@
+[
+  {
+    "id": 1040,
+    "customerId": "c-117",
+    "customer": { "name": "Анна Котова", "phone": "+79161234501" },
+    "address": { "postcode": "125009", "line": "Москва, Тверская ул., 7, кв. 12" },
+    "items": [{ "sku": "MUG-SET-4", "qty": 1 }],
+    "weightKg": 1.2,
+    "zone": "A",
+    "express": false,
+    "fragile": false,
+    "totalKopecks": 36000,
+    "status": "created",
+    "createdAt": "2026-09-29T08:02:11.000Z",
+    "history": []
+  },
+  {
+    "id": 1041,
+    "customerId": "c-205",
+    "customer": { "name": "Ильдар Сафин", "phone": "+79172345602" },
+    "address": { "postcode": "420111", "line": "Казань, ул. Баумана, 19" },
+    "items": [
+      { "sku": "BLENDER-X", "qty": 1 },
+      { "sku": "FILTER-10", "qty": 2 }
+    ],
+    "weightKg": 3,
+    "zone": "C",
+    "express": false,
+    "fragile": false,
+    "totalKopecks": 126000,
+    "status": "paid",
+    "createdAt": "2026-09-28T16:40:00.000Z",
+    "history": [
+      { "status": "paid", "at": "2026-09-28T16:41:30.000Z" }
+    ]
+  },
+  {
+    "id": 1042,
+    "customerId": "c-301",
+    "customer": { "name": "Мария Белова", "phone": "+79213456703" },
+    "address": { "postcode": "190121", "line": "Санкт-Петербург, наб. Крюкова канала, 4, кв. 9" },
+    "items": [{ "sku": "KETTLE-2", "qty": 1 }],
+    "weightKg": 1.2,
+    "zone": "B",
+    "express": false,
+    "fragile": false,
+    "totalKopecks": 45000,
+    "status": "shipped",
+    "createdAt": "2026-09-27T10:15:00.000Z",
+    "history": [
+      { "status": "paid", "at": "2026-09-27T10:16:02.000Z" },
+      { "status": "packed", "at": "2026-09-28T14:05:00.000Z" },
+      { "status": "shipped", "at": "2026-09-28T21:40:00.000Z" }
+    ],
+    "trackingNumber": "CS-104273",
+    "carrier": "courier-service",
+    "courierName": "Сергей Лаптев",
+    "courierPhone": "+79110001122",
+    "shippedAt": "2026-09-28T21:40:00Z",
+    "eta": "2026-10-01"
+  },
+  {
+    "id": 1043,
+    "customerId": "c-301",
+    "customer": { "name": "Мария Белова", "phone": "+79213456703" },
+    "address": { "postcode": "101000", "line": "Москва, Мясницкая ул., 20, офис 3" },
+    "items": [{ "sku": "CABLE-USB-C", "qty": 2 }],
+    "weightKg": 0.4,
+    "zone": "A",
+    "express": true,
+    "fragile": false,
+    "totalKopecks": 18000,
+    "status": "delivered",
+    "createdAt": "2026-09-20T09:00:00.000Z",
+    "history": [
+      { "status": "paid", "at": "2026-09-20T09:01:00.000Z" },
+      { "status": "packed", "at": "2026-09-20T15:30:00.000Z" },
+      { "status": "shipped", "at": "2026-09-21T07:00:00.000Z" },
+      { "status": "delivered", "at": "2026-09-22T15:10:00.000Z" }
+    ],
+    "trackingNumber": "CS-103977",
+    "carrier": "courier-service",
+    "courierName": "Олег Кравец",
+    "courierPhone": "+79160002233",
+    "shippedAt": "2026-09-21T07:00:00.000Z",
+    "eta": "2026-09-22",
+    "deliveredAt": "2026-09-22T15:10:00.000Z"
+  },
+  {
+    "id": 1044,
+    "customerId": "c-117",
+    "customer": { "name": "Анна Котова", "phone": "+79161234501" },
+    "address": { "postcode": "620014", "line": "Екатеринбург, ул. Малышева, 31, кв. 40" },
+    "items": [{ "sku": "VASE-GLASS", "qty": 2 }],
+    "weightKg": 5,
+    "zone": "C",
+    "express": false,
+    "fragile": true,
+    "totalKopecks": 240000,
+    "status": "cancelled",
+    "createdAt": "2026-09-25T12:30:00.000Z",
+    "history": [
+      { "status": "paid", "at": "2026-09-25T12:31:00.000Z" },
+      { "status": "cancelled", "at": "2026-09-25T18:00:00.000Z" }
+    ]
+  },
+  {
+    "id": 1045,
+    "customerId": "c-412",
+    "customer": { "name": "Пётр Гусев", "phone": "+79264567804" },
+    "address": { "postcode": "142100", "line": "Подольск, ул. Кирова, 15, кв. 3" },
+    "items": [{ "sku": "LAMP-DESK", "qty": 1 }],
+    "weightKg": 2,
+    "zone": "A",
+    "express": false,
+    "fragile": true,
+    "totalKopecks": 78000,
+    "status": "packed",
+    "createdAt": "2026-09-29T11:20:00.000Z",
+    "history": [
+      { "status": "paid", "at": "2026-09-29T11:21:00.000Z" },
+      { "status": "packed", "at": "2026-09-29T17:45:00.000Z" }
+    ]
+  },
+  {
+    "id": 1046,
+    "customerId": "c-412",
+    "customer": { "name": "Пётр Гусев", "phone": "+79264567804" },
+    "address": { "postcode": "109012", "line": "Москва, ул. Ильинка, 4, кв. 18" },
+    "items": [{ "sku": "HEADPHONES-BT", "qty": 1 }],
+    "weightKg": 1,
+    "zone": "A",
+    "express": false,
+    "fragile": false,
+    "totalKopecks": 24000,
+    "status": "returned",
+    "createdAt": "2026-09-16T10:00:00.000Z",
+    "history": [
+      { "status": "paid", "at": "2026-09-16T10:01:00.000Z" },
+      { "status": "packed", "at": "2026-09-16T15:20:00.000Z" },
+      { "status": "shipped", "at": "2026-09-17T06:40:00.000Z" },
+      { "status": "delivered", "at": "2026-09-18T13:15:00.000Z" },
+      { "status": "returned", "at": "2026-09-26T09:30:00.000Z" }
+    ],
+    "trackingNumber": "CS-103512",
+    "carrier": "courier-service",
+    "courierName": "Олег Кравец",
+    "courierPhone": "+79160002233",
+    "shippedAt": "2026-09-17T06:40:00.000Z",
+    "eta": "2026-09-18",
+    "deliveredAt": "2026-09-18T13:15:00.000Z"
+  },
+  {
+    "id": 1047,
+    "customerId": "c-117",
+    "customer": { "name": "Анна Котова", "phone": "+79161234501" },
+    "address": { "postcode": "603000", "line": "Нижний Новгород, ул. Большая Покровская, 12, кв. 5" },
+    "items": [{ "sku": "CANDLE-SET", "qty": 2 }],
+    "weightKg": 0.6,
+    "zone": "C",
+    "express": false,
+    "fragile": false,
+    "totalKopecks": 42000,
+    "status": "paid",
+    "createdAt": "2026-09-30T09:40:00.000Z",
+    "history": [
+      { "status": "paid", "at": "2026-09-30T09:41:00.000Z" }
+    ],
+    "giftMessage": "С днём рождения, Лена!"
+  }
+]

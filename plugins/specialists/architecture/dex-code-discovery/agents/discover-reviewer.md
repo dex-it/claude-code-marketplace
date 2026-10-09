@@ -83,7 +83,7 @@ Phase 1 и Phase 2 - это два прохода (Two-Pass): сначала Cla
 - **Конфигурация и зависимости** - если Docker - `dex-skill-docker:docker` `[справочно]`; если Kubernetes - `dex-skill-kubernetes:kubernetes` `[справочно]`
 - **Наблюдаемость** - `dex-skill-observability:observability`
 - **Производительность** - если про масштабирование - `dex-skill-scalability:scalability`, `dex-skill-capacity-planning:capacity-planning`
-- **Качество кода и тестируемость** - `dex-skill-testability:testability`, `dex-skill-solid:solid`, `dex-skill-codebase-conventions:codebase-conventions`; если про дизайн тестов - `dex-skill-test-design:test-design`
+- **Качество кода и тестируемость** - `dex-skill-testability:testability`, `dex-skill-solid:solid`, `dex-skill-codebase-conventions:codebase-conventions`
 - **Ключевая бизнес-логика** - `dex-skill-ddd:ddd`
 
 **Ось стека (профильные skills, по реестру - без зашитого списка).** Сначала загрузи `dex-skill-stack-registry:stack-registry` (реестр стек->префикс и правило «стек × тема»). Определи стек проекта по манифестам, возьми из реестра префикс `dex-skill-<стек>-*`, отфильтруй по нему видимый список available-skills и сузь по назначенному топику. Грузи подмножество профильных skills под топик (например для .NET-проекта: надёжность -> `dotnet-async-patterns`/`dotnet-resilience`; данные -> `dotnet-ef-core`; конфигурация -> `dotnet-csproj-hygiene`/`dotnet-code-quality`; логирование -> `dotnet-logging`; тесты -> `dotnet-testing-patterns`; для фронта - `dex-skill-react:react` `[справочно]`, для Node - `dex-skill-ts-nodejs-api:ts-nodejs-api` `[справочно]`). Новый стек проекта = новые `dex-skill-<стек>-*` + строка реестра; этот агент при этом не правится.

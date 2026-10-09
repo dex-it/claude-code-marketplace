@@ -1,0 +1,85 @@
+{
+ "id": "k4-n1a",
+ "case": "K4",
+ "skill": "<skills>/SKILL-root-cause-analysis-n1.md+<skills>/SKILL-post-merge-remediation-n1.md",
+ "model": "claude-sonnet-5-5",
+ "effort": "medium",
+ "initModel": "claude-sonnet-5-5",
+ "cliVersion": "2.1.291",
+ "tools": [
+  "Bash",
+  "Edit",
+  "Glob",
+  "Grep",
+  "Read",
+  "Write"
+ ],
+ "mcp": [],
+ "cost": 1.0322230000000001,
+ "turns": [
+  {
+   "n": 1,
+   "exit": 0,
+   "cost": 0.225769,
+   "turns": 15,
+   "tools": {
+    "Read": 3,
+    "Bash": 11
+   },
+   "standctl": 6,
+   "outside": []
+  },
+  {
+   "n": 2,
+   "exit": 0,
+   "cost": 0.2427696,
+   "turns": 1,
+   "tools": {},
+   "standctl": 0,
+   "outside": []
+  },
+  {
+   "n": 3,
+   "exit": 0,
+   "cost": 0.2739746,
+   "turns": 2,
+   "tools": {
+    "Bash": 1
+   },
+   "standctl": 1,
+   "outside": []
+  },
+  {
+   "n": 4,
+   "exit": 0,
+   "cost": 0.2897098,
+   "turns": 1,
+   "tools": {},
+   "standctl": 0,
+   "outside": []
+  }
+ ],
+ "operator": [
+  {
+   "turn": 3,
+   "picked": {
+    "branch": "fix/SHIP-53-insurance-units",
+    "sha": "f6c4c8d2262cbf876a9db8597e12d4507d7b92c1"
+   },
+   "rollouts": [
+    {
+     "svc": "shipping-api",
+     "exit": 0,
+     "out": "shipping-api: выкачен registry.shipping.example/shipping-api:f6c4c8d2262c (f6c4c8d2262cbf876a9db8597e12d4507d7b92c1) в 2026-10-06T11:33:00Z",
+     "err": ""
+    },
+    {
+     "svc": "label-worker",
+     "exit": 0,
+     "out": "label-worker: выкачен registry.shipping.example/label-worker:f6c4c8d2262c (f6c4c8d2262cbf876a9db8597e12d4507d7b92c1) в 2026-10-06T11:34:00Z",
+     "err": ""
+    }
+   ]
+  }
+ ]
+}

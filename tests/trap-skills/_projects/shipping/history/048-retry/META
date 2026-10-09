@@ -1,0 +1,9 @@
+op: commit
+branch: feature/carrier-retry
+author: dmitry
+date: 2026-10-03T11:00:00Z
+
+SHIP-50: повтор запроса к перевозчику при таймауте
+
+Перевозчик изредка не отвечает за CARRIER_TIMEOUT_MS. Повторяем до трёх раз,
+только при таймауте.

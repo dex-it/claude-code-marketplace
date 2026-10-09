@@ -75,7 +75,7 @@ skills:
 
 **Mandatory:** yes
 
-Загрузи `dex-skill-post-merge-remediation:post-merge-remediation`; при правках на стыке сторон - `dex-skill-contract-drift:contract-drift`. Профильные по стеку skills для корректности фикса грузи по реестру: загрузи `dex-skill-stack-registry:stack-registry`, определи стек по манифесту, отфильтруй available-skills по префиксу `dex-skill-<стек>-*` и сузь по характеру фикса (данные, конкуррентность, ошибки, API).
+Загрузи `dex-skill-post-merge-remediation:post-merge-remediation`. Профильные по стеку skills для корректности фикса грузи по реестру: загрузи `dex-skill-stack-registry:stack-registry`, определи стек по манифесту, отфильтруй available-skills по префиксу `dex-skill-<стек>-*` и сузь по характеру фикса (данные, конкуррентность, ошибки, API).
 
 ## Phase 4: Falsify Plan
 

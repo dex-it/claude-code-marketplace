@@ -1,0 +1,20 @@
+[
+  { "id": "w-max", "file": "src/tariff.js", "find": "weightKg > MAX_WEIGHT_KG", "replace": "weightKg >= MAX_WEIGHT_KG" },
+  { "id": "w-min", "file": "src/tariff.js", "find": "weightKg < MIN_WEIGHT_KG", "replace": "weightKg <= MIN_WEIGHT_KG" },
+  { "id": "ret-14", "file": "src/order.js", "find": "return days <= RETURN_WINDOW_DAYS;", "replace": "return days < RETURN_WINDOW_DAYS;" },
+  { "id": "w-nan", "file": "src/tariff.js", "find": "if (typeof weightKg !== 'number' || Number.isNaN(weightKg)) {", "replace": "if (typeof weightKg !== 'number') {" },
+  { "id": "w-str", "file": "src/tariff.js", "find": "if (typeof weightKg !== 'number' || Number.isNaN(weightKg)) {", "replace": "if (Number.isNaN(Number(weightKg))) {" },
+  { "id": "pc-5", "file": "src/tariff.js", "find": "!/^\\d{6}$/.test(postcode)", "replace": "!/^\\d{5,6}$/.test(postcode)" },
+  { "id": "zone-x", "file": "src/tariff.js", "find": "if (!Object.hasOwn(table, zone)) throw new TariffError('ZONE', `Неизвестная зона: ${zone}`);", "replace": "if (!Object.hasOwn(table, zone)) return table.C;" },
+  { "id": "skip-pack", "file": "src/order.js", "find": "move(order, ['packed'], 'shipped', at);", "replace": "move(order, ['paid', 'packed'], 'shipped', at);" },
+  { "id": "cancel-shipped", "file": "src/order.js", "find": "const CANCELLABLE = ['created', 'paid', 'packed'];", "replace": "const CANCELLABLE = ['created', 'paid', 'packed', 'shipped'];" },
+  { "id": "ret-shipped", "file": "src/order.js", "find": "if (order.status !== 'delivered' || !withinReturnWindow(order, now)) {", "replace": "if (order.status === 'delivered' && !withinReturnWindow(order, now)) {" },
+  { "id": "no-refund-packed", "file": "src/order.js", "find": "if (order.status !== 'created') payments.refund(order.id, order.totalKopecks);", "replace": "if (order.status === 'paid') payments.refund(order.id, order.totalKopecks);" },
+  { "id": "no-release-created", "file": "src/order.js", "find": "  stock.release(order.items);", "replace": "  if (order.status !== 'created') stock.release(order.items);" },
+  { "id": "ef", "file": "src/tariff.js", "find": "if (fragile) amount += express ? FRAGILE_KOPECKS * 2 : FRAGILE_KOPECKS;", "replace": "if (fragile) amount += FRAGILE_KOPECKS;" },
+  { "id": "el", "file": "src/tariff.js", "find": "if (loyalty && !express) amount", "replace": "if (loyalty) amount" },
+  { "id": "fl", "file": "src/tariff.js", "find": "if (loyalty && !express) amount", "replace": "if (loyalty && !express && !fragile) amount" },
+  { "id": "efl", "file": "src/tariff.js", "find": "if (fragile) amount += express ? FRAGILE_KOPECKS * 2 : FRAGILE_KOPECKS;", "replace": "if (fragile) amount += express && !loyalty ? FRAGILE_KOPECKS * 2 : FRAGILE_KOPECKS;" },
+  { "id": "none", "file": "src/tariff.js", "find": "let amount = units * unitRateKopecks(zone);", "replace": "let amount = (express || fragile || loyalty ? units : Math.floor(weightKg * 2)) * unitRateKopecks(zone);" },
+  { "id": "exp-ignored", "file": "src/tariff.js", "find": "const table = express ? EXPRESS_DAYS : STANDARD_DAYS;", "replace": "const table = STANDARD_DAYS;" }
+]
