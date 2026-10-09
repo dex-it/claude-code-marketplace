@@ -43,8 +43,8 @@
 | [removed/microservices](removed/microservices/README.md) | `dex-skill-microservices` 1.2.1 | ревью (A3), проектирование (D1, D2, D3) | снят |
 | [removed/distributed-resilience](removed/distributed-resilience/README.md) | `dex-skill-distributed-resilience` 1.0.1 | ревью (A3), проектирование (D2) | снят; R-f - названием в Phase 4 `architect`, `architect-dotnet` |
 | [removed/git-workflow](removed/git-workflow/README.md) | `dex-skill-git-workflow` 1.2.1 | автор: коммит и push (W); повторное ревью (C, CB) | снят; конвенции - в свод правил проекта |
-| [dotnet-async-patterns](dotnet-async-patterns/README.md) | `dex-skill-dotnet-async-patterns` 2.2.1 | код (G0, G1, G2), ревью (RV-A); общий заход группы 2.1 | 18 ловушек и чек-лист -> 2 названия; A5 удалена |
-| [dotnet-validation](dotnet-validation/README.md) | `dex-skill-dotnet-validation` 1.2.1 | код (G3), ревью (RV-V, RV0) | 19 ловушек и чек-лист -> 4 названия; V14 снята |
+| [dotnet-async-patterns](dotnet-async-patterns/README.md) | `dex-skill-dotnet-async-patterns` 2.2.1 | код (G0, G1, G2), ревью (RV-A); общий заход группы 2.1 | 18 ловушек и чек-лист -> 1 название; A5 удалена |
+| [dotnet-validation](dotnet-validation/README.md) | `dex-skill-dotnet-validation` 1.2.1 | код (G3), ревью (RV-V, RV0) | 19 ловушек и чек-лист -> 3 названия; V14 снята |
 | [dotnet-logging](dotnet-logging/README.md) | `dex-skill-dotnet-logging` 2.4.1 | ревью (RV-L1, RV-L2) | 20 ловушек и чек-лист -> 4 названия |
 | [removed/dotnet-resources](removed/dotnet-resources/README.md) | `dex-skill-dotnet-resources` 1.0.1 | ревью (RV-R) | снят |
 | [dotnet-code-quality](dotnet-code-quality/README.md) | `dex-skill-dotnet-code-quality` 1.1.1 | код (G4), ревью (RV-Q) | 15 ловушек и чек-лист -> 5 названий |

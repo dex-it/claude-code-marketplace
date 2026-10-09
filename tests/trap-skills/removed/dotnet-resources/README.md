@@ -22,7 +22,7 @@ Skill tool в фазе: `dotnet-coder`, `dotnet-performance-analyst` (безус
 | R2 MemoryStream без Dispose | RV-R (`RecyclableMemoryStream`) | 2/2 | снята |
 | R3 StreamReader закрывает поток | RV-R | 2/2; в `c2` minor с оговоркой «зависит от реализации потока» | снята |
 | R4 подписка без отписки | RV-R | 2/2 | снята |
-| R5 `new HttpClient` | дом - `performance-review` «Клиент на вызов» | - | дубль, снята |
+| R5 `new HttpClient` | дом - `performance-review`, снят там («Клиент на вызов», K7, KD3 2/2) | - | дубль, снята |
 | R6 конкатенация в цикле | дом - `performance-review`, снят там | - | дубль, снята |
 | R7 LOH | RV-R | 2/2 | снята |
 | R8 `ArrayPool` без `Return` в `finally` | RV-R | 2/2 | снята |
@@ -48,5 +48,30 @@ client) не подняты blocker/major; O1 - 2/2.
 
 | Носитель | До | После | Взамен |
 |---|---|---|---|
-| `dotnet-resources/SKILL.md` | 5582 байт, 82 строки | снят | 11 ловушек |
+| `dotnet-resources/SKILL.md` | 4129 символов, 82 строки | снят | 11 ловушек |
 | загрузки у потребителей | 6 агентов, сноска `managed-debug`, строки README бандла, витрины и `AGENT_FRAMEWORK` | сняты | скилл снят |
+
+## Бюджет синхронизаций группы 2.1
+
+Носители, тронутые синхронизациями пяти скиллов группы, символы и строки, develop (`53273b68`) -> ветка.
+Вырос один: `stack-registry` (+3) - пример маршрута «дедлок async» заменён предметом оставшегося пункта
+«фальшивый async», взамен снят прежний пример.
+
+| Носитель | develop | ветка | Разница |
+|---|---|---|---|
+| `README.md` | 28491, 479 | 28471, 479 | -20 |
+| `docs/AGENT_FRAMEWORK.md` | 79239, 1017 | 79180, 1016 | -59 |
+| `dex-bundle-runtime-diagnostics/README.md` | 3930, 72 | 3772, 70 | -158 |
+| `completeness-mapping/SKILL.md` | 8707, 115 | 8658, 115 | -49 |
+| `managed-debug/SKILL.md` | 7303, 104 | 6991, 101 | -312 |
+| `stack-registry/SKILL.md` | 5622, 88 | 5625, 88 | +3 |
+| `dex-architect-dotnet/README.md` | 3921, 62 | 3918, 62 | -3 |
+| `architect-dotnet.md` | 17470, 274 | 17377, 273 | -93 |
+| `discover-reviewer.md` | 10503, 129 | 10484, 129 | -19 |
+| `debugger.md` | 17447, 178 | 17367, 178 | -80 |
+| `security-reviewer.md` | 10101, 131 | 10035, 131 | -66 |
+| `dotnet-coder.md` | 13540, 148 | 13462, 147 | -78 |
+| `dotnet-performance-analyst.md` | 8646, 139 | 8500, 138 | -146 |
+| `dotnet-runtime-diagnostician.md` | 10265, 138 | 10057, 137 | -208 |
+| `dotnet-ef-specialist.md` | 6606, 87 | 6593, 87 | -13 |
+| `seq-logging-specialist.md` | 8147, 87 | 8146, 87 | -1 |
