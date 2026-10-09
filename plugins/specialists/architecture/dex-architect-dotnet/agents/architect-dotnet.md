@@ -236,7 +236,7 @@ implementation-план вызывающей стороны не на чем с�
 - Если присутствует async-код - `dex-skill-dotnet-async-patterns:dotnet-async-patterns`
 - Если значимое логирование - `dex-skill-dotnet-logging:dotnet-logging`
 - Для project structure / `.csproj` / Directory.Build.props - `dex-skill-dotnet-csproj-hygiene:dotnet-csproj-hygiene`
-- Для гигиены качества (Roslyn analyzers, warning-профиль, NuGet audit) - `dex-skill-dotnet-code-quality:dotnet-code-quality`
+- Для гигиены качества (AnalysisMode, NuGet audit) - `dex-skill-dotnet-code-quality:dotnet-code-quality`
 - Если план предполагает создание нового проекта / сервиса - `dex-skill-project-baseline:project-baseline` (новый solution -> baseline по дефолту; проект в существующем solution -> наследовать его правила, недостающий гейт назвать и предложить, а завести после согласия владельца)
 - Для соответствия конвенциям проекта - `dex-skill-codebase-conventions:codebase-conventions`
 - Если доменная сложность требует aggregates / bounded contexts - `dex-skill-ddd:ddd`

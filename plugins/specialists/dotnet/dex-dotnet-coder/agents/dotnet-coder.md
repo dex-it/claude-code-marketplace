@@ -28,7 +28,7 @@ Project Bootstrap (conditional) -> Understand Requirements -> Study Project Cont
 Затем -- дочерние skills под состав baseline, только релевантное типу проекта:
 
 - `dex-skill-dotnet-csproj-hygiene:dotnet-csproj-hygiene` -- всегда (CPM, Directory.Build.props, PrivateAssets)
-- `dex-skill-dotnet-code-quality:dotnet-code-quality` -- всегда (analyzers, warning-профиль, NuGet audit)
+- `dex-skill-dotnet-code-quality:dotnet-code-quality` -- всегда (AnalysisMode, NuGet audit)
 - `dex-skill-dotnet-logging:dotnet-logging` -- если сервис, не голая библиотека
 - `dex-skill-dotnet-validation:dotnet-validation` -- если принимает внешний ввод
 

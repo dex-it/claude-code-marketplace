@@ -1,0 +1,467 @@
+diff --git a/src/Billing.Api/Api/PricePlanEndpoints.cs b/src/Billing.Api/Api/PricePlanEndpoints.cs
+new file mode 100644
+index 0000000..2a746a3
+--- /dev/null
++++ b/src/Billing.Api/Api/PricePlanEndpoints.cs
+@@ -0,0 +1,68 @@
++using System.Text.Json.Serialization;
++using Billing.Api.Application.Handlers.PricePlans;
++using Billing.Api.Domain;
++
++namespace Billing.Api.Api;
++
++[JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
++[JsonDerivedType(typeof(FlatRuleRequest), "flat")]
++[JsonDerivedType(typeof(TieredRuleRequest), "tiered")]
++[JsonDerivedType(typeof(UsageRuleRequest), "usage")]
++public abstract record PricingRuleRequest;
++
++public sealed record FlatRuleRequest(long AmountMinor) : PricingRuleRequest;
++
++public sealed record TierRequest(long UpTo, long PriceMinor);
++
++public sealed record TieredRuleRequest(List<TierRequest?>? Tiers) : PricingRuleRequest;
++
++public sealed record UsageRuleRequest(string? Meter, long UnitPriceMinor) : PricingRuleRequest;
++
++public sealed record PricePlanRequest(
++    string? Name,
++    string? Description,
++    string? ExternalCode,
++    Guid OwnerTeamId,
++    PricePlanKind? Kind,
++    List<NotificationChannel>? Channels,
++    long MonthlyFeeMinor,
++    string? Currency,
++    int? TrialDays,
++    DateTimeOffset? ValidFrom,
++    DateTimeOffset? ValidTo,
++    decimal? DiscountRatio,
++    string? WebhookUrl,
++    List<PricingRuleRequest?>? Rules)
++{
++    public PricePlanDraft ToDraft() => new(
++        Name, Description, ExternalCode, OwnerTeamId, Kind, Channels, MonthlyFeeMinor, Currency, TrialDays,
++        ValidFrom, ValidTo, DiscountRatio, WebhookUrl, Rules?.Select(ToInput).ToList());
++
++    private static PricingRuleInput? ToInput(PricingRuleRequest? rule) => rule switch
++    {
++        null => null,
++        FlatRuleRequest f => new FlatRuleInput(f.AmountMinor),
++        TieredRuleRequest t => new TieredRuleInput(
++            t.Tiers?.Select(x => x is null ? null : new TierInput(x.UpTo, x.PriceMinor)).ToList()),
++        UsageRuleRequest u => new UsageRuleInput(u.Meter, u.UnitPriceMinor),
++        _ => throw new InvalidOperationException($"Unknown rule {rule.GetType().Name}"),
++    };
++}
++
++public static class PricePlanEndpoints
++{
++    public static IEndpointRouteBuilder MapPricePlanEndpoints(this IEndpointRouteBuilder app)
++    {
++        var plans = app.MapGroup("/price-plans");
++
++        plans.MapPost("/", async (PricePlanRequest body, CreatePricePlanHandler handler, CancellationToken ct) =>
++            (await handler.HandleAsync(new CreatePricePlanCommand(body.ToDraft()), ct))
++            .ToHttp(id => Results.Created($"/price-plans/{id}", new { id = id.Value })));
++
++        plans.MapPut("/{id:guid}", async (Guid id, PricePlanRequest body, UpdatePricePlanHandler handler, CancellationToken ct) =>
++            (await handler.HandleAsync(new UpdatePricePlanCommand(new PricePlanId(id), body.ToDraft()), ct))
++            .ToHttp(planId => Results.Ok(new { id = planId.Value })));
++
++        return plans;
++    }
++}
+diff --git a/src/Billing.Api/Application/Abstractions/IPricePlanRepository.cs b/src/Billing.Api/Application/Abstractions/IPricePlanRepository.cs
+new file mode 100644
+index 0000000..45dc91a
+--- /dev/null
++++ b/src/Billing.Api/Application/Abstractions/IPricePlanRepository.cs
+@@ -0,0 +1,10 @@
++using Billing.Api.Domain;
++
++namespace Billing.Api.Application.Abstractions;
++
++public interface IPricePlanRepository
++{
++    Task<PricePlan?> FindAsync(PricePlanId id, CancellationToken ct);
++    Task AddAsync(PricePlan plan, CancellationToken ct);
++    Task SaveAsync(PricePlan plan, CancellationToken ct);
++}
+diff --git a/src/Billing.Api/Application/Handlers/PricePlans/CreatePricePlanHandler.cs b/src/Billing.Api/Application/Handlers/PricePlans/CreatePricePlanHandler.cs
+new file mode 100644
+index 0000000..a531935
+--- /dev/null
++++ b/src/Billing.Api/Application/Handlers/PricePlans/CreatePricePlanHandler.cs
+@@ -0,0 +1,22 @@
++using Billing.Api.Application.Abstractions;
++using Billing.Api.Domain;
++
++namespace Billing.Api.Application.Handlers.PricePlans;
++
++public sealed record CreatePricePlanCommand(PricePlanDraft Draft);
++
++public sealed class CreatePricePlanHandler(
++    IPricePlanRepository plans,
++    PricePlanDraftValidator validator,
++    TimeProvider clock)
++{
++    public async Task<Result<PricePlanId>> HandleAsync(CreatePricePlanCommand command, CancellationToken ct)
++    {
++        if (validator.Check(command.Draft) is { } error)
++            return error;
++
++        var plan = PricePlanMapper.Create(PricePlanId.New(), clock.GetUtcNow(), command.Draft);
++        await plans.AddAsync(plan, ct);
++        return plan.Id;
++    }
++}
+diff --git a/src/Billing.Api/Application/Handlers/PricePlans/PricePlanDraft.cs b/src/Billing.Api/Application/Handlers/PricePlans/PricePlanDraft.cs
+new file mode 100644
+index 0000000..a65d29d
+--- /dev/null
++++ b/src/Billing.Api/Application/Handlers/PricePlans/PricePlanDraft.cs
+@@ -0,0 +1,29 @@
++using Billing.Api.Domain;
++
++namespace Billing.Api.Application.Handlers.PricePlans;
++
++public abstract record PricingRuleInput;
++
++public sealed record FlatRuleInput(long AmountMinor) : PricingRuleInput;
++
++public sealed record TierInput(long UpTo, long PriceMinor);
++
++public sealed record TieredRuleInput(IReadOnlyList<TierInput?>? Tiers) : PricingRuleInput;
++
++public sealed record UsageRuleInput(string? Meter, long UnitPriceMinor) : PricingRuleInput;
++
++public sealed record PricePlanDraft(
++    string? Name,
++    string? Description,
++    string? ExternalCode,
++    Guid OwnerTeamId,
++    PricePlanKind? Kind,
++    IReadOnlyList<NotificationChannel>? Channels,
++    long MonthlyFeeMinor,
++    string? Currency,
++    int? TrialDays,
++    DateTimeOffset? ValidFrom,
++    DateTimeOffset? ValidTo,
++    decimal? DiscountRatio,
++    string? WebhookUrl,
++    IReadOnlyList<PricingRuleInput?>? Rules);
+diff --git a/src/Billing.Api/Application/Handlers/PricePlans/PricePlanDraftValidator.cs b/src/Billing.Api/Application/Handlers/PricePlans/PricePlanDraftValidator.cs
+new file mode 100644
+index 0000000..4026edd
+--- /dev/null
++++ b/src/Billing.Api/Application/Handlers/PricePlans/PricePlanDraftValidator.cs
+@@ -0,0 +1,79 @@
++using Billing.Api.Application.Validation;
++using FluentValidation;
++
++namespace Billing.Api.Application.Handlers.PricePlans;
++
++public sealed class PricePlanDraftValidator : BillingValidator<PricePlanDraft>
++{
++    private const int MaxChannels = 3;
++    private const int MaxRules = 50;
++
++    public PricePlanDraftValidator()
++    {
++        RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
++        RuleFor(x => x.Description).MaximumLength(2000);
++        RuleFor(x => x.ExternalCode).NotEmpty().MaximumLength(100);
++        RuleFor(x => x.OwnerTeamId).NotEmpty();
++        RuleFor(x => x.Kind).NotNull().IsInEnum();
++
++        RuleFor(x => x.Channels).NotEmpty()
++            .Must(c => c!.Count <= MaxChannels && c.Distinct().Count() == c.Count)
++            .WithMessage("must contain each channel at most once");
++        RuleForEach(x => x.Channels).IsInEnum();
++
++        RuleFor(x => x.MonthlyFeeMinor).GreaterThanOrEqualTo(0);
++        RuleFor(x => x.Currency).NotEmpty().Length(3);
++        RuleFor(x => x.TrialDays).NotNull().GreaterThanOrEqualTo(0);
++        RuleFor(x => x.ValidFrom).NotNull();
++        RuleFor(x => x.ValidTo).GreaterThan(x => x.ValidFrom)
++            .When(x => x.ValidTo is not null && x.ValidFrom is not null);
++        RuleFor(x => x.DiscountRatio).InclusiveBetween(0m, 1m).When(x => x.DiscountRatio is not null);
++        RuleFor(x => x.WebhookUrl).MaximumLength(2000)
++            .Must(u => Uri.TryCreate(u, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps)
++            .WithMessage("must be an absolute https URL")
++            .When(x => x.WebhookUrl is not null);
++
++        RuleFor(x => x.Rules).NotNull()
++            .Must(r => r!.Count <= MaxRules).WithMessage($"must contain at most {MaxRules} rules");
++        RuleForEach(x => x.Rules).NotNull().SetInheritanceValidator(v =>
++        {
++            v.Add<FlatRuleInput>(new FlatRuleValidator());
++            v.Add<TieredRuleInput>(new TieredRuleValidator());
++            v.Add<UsageRuleInput>(new UsageRuleValidator());
++        });
++    }
++}
++
++public sealed class FlatRuleValidator : AbstractValidator<FlatRuleInput>
++{
++    public FlatRuleValidator() => RuleFor(x => x.AmountMinor).GreaterThanOrEqualTo(0);
++}
++
++public sealed class TieredRuleValidator : AbstractValidator<TieredRuleInput>
++{
++    private const int MaxTiers = 100;
++
++    public TieredRuleValidator()
++    {
++        RuleFor(x => x.Tiers).NotEmpty()
++            .Must(t => t!.Count <= MaxTiers).WithMessage($"must contain at most {MaxTiers} tiers");
++        RuleForEach(x => x.Tiers).NotNull().ChildRules(t =>
++        {
++            t.RuleFor(x => x!.UpTo).GreaterThan(0);
++            t.RuleFor(x => x!.PriceMinor).GreaterThanOrEqualTo(0);
++        });
++        RuleFor(x => x.Tiers)
++            .Must(t => t!.Zip(t!.Skip(1)).All(p => p.First!.UpTo < p.Second!.UpTo))
++            .WithMessage("upTo must be strictly ascending")
++            .When(x => x.Tiers is { Count: > 0 and <= MaxTiers } && x.Tiers.All(t => t is not null));
++    }
++}
++
++public sealed class UsageRuleValidator : AbstractValidator<UsageRuleInput>
++{
++    public UsageRuleValidator()
++    {
++        RuleFor(x => x.Meter).NotEmpty().MaximumLength(100);
++        RuleFor(x => x.UnitPriceMinor).GreaterThanOrEqualTo(0);
++    }
++}
+diff --git a/src/Billing.Api/Application/Handlers/PricePlans/PricePlanMapper.cs b/src/Billing.Api/Application/Handlers/PricePlans/PricePlanMapper.cs
+new file mode 100644
+index 0000000..cd25a65
+--- /dev/null
++++ b/src/Billing.Api/Application/Handlers/PricePlans/PricePlanMapper.cs
+@@ -0,0 +1,51 @@
++using Billing.Api.Domain;
++
++namespace Billing.Api.Application.Handlers.PricePlans;
++
++// Вызывается только после успешной валидации черновика.
++internal static class PricePlanMapper
++{
++    public static PricePlan Create(PricePlanId id, DateTimeOffset createdAt, PricePlanDraft d) => new()
++    {
++        Id = id,
++        CreatedAt = createdAt,
++        Name = d.Name!,
++        Description = d.Description,
++        ExternalCode = d.ExternalCode!,
++        OwnerTeamId = d.OwnerTeamId,
++        Kind = d.Kind!.Value,
++        Channels = d.Channels!.ToList(),
++        MonthlyFee = new Money(d.MonthlyFeeMinor, d.Currency!),
++        TrialDays = d.TrialDays!.Value,
++        ValidFrom = d.ValidFrom!.Value,
++        ValidTo = d.ValidTo,
++        DiscountRatio = d.DiscountRatio,
++        WebhookUrl = d.WebhookUrl is null ? null : new Uri(d.WebhookUrl),
++        Rules = d.Rules!.Select(ToRule).ToList(),
++    };
++
++    public static void Apply(PricePlan plan, PricePlanDraft d)
++    {
++        plan.Name = d.Name!;
++        plan.Description = d.Description;
++        plan.ExternalCode = d.ExternalCode!;
++        plan.OwnerTeamId = d.OwnerTeamId;
++        plan.Kind = d.Kind!.Value;
++        plan.Channels = d.Channels!.ToList();
++        plan.MonthlyFee = new Money(d.MonthlyFeeMinor, d.Currency!);
++        plan.TrialDays = d.TrialDays!.Value;
++        plan.ValidFrom = d.ValidFrom!.Value;
++        plan.ValidTo = d.ValidTo;
++        plan.DiscountRatio = d.DiscountRatio;
++        plan.WebhookUrl = d.WebhookUrl is null ? null : new Uri(d.WebhookUrl);
++        plan.Rules = d.Rules!.Select(ToRule).ToList();
++    }
++
++    private static PricingRule ToRule(PricingRuleInput? input) => input switch
++    {
++        FlatRuleInput f => new FlatRule(f.AmountMinor),
++        TieredRuleInput t => new TieredRule(t.Tiers!.Select(x => new Tier(x!.UpTo, x.PriceMinor)).ToList()),
++        UsageRuleInput u => new UsageRule(u.Meter!, u.UnitPriceMinor),
++        _ => throw new InvalidOperationException($"Unknown rule input {input?.GetType().Name}"),
++    };
++}
+diff --git a/src/Billing.Api/Application/Handlers/PricePlans/UpdatePricePlanHandler.cs b/src/Billing.Api/Application/Handlers/PricePlans/UpdatePricePlanHandler.cs
+new file mode 100644
+index 0000000..7ce394c
+--- /dev/null
++++ b/src/Billing.Api/Application/Handlers/PricePlans/UpdatePricePlanHandler.cs
+@@ -0,0 +1,22 @@
++using Billing.Api.Application.Abstractions;
++using Billing.Api.Domain;
++
++namespace Billing.Api.Application.Handlers.PricePlans;
++
++public sealed record UpdatePricePlanCommand(PricePlanId Id, PricePlanDraft Draft);
++
++public sealed class UpdatePricePlanHandler(IPricePlanRepository plans, PricePlanDraftValidator validator)
++{
++    public async Task<Result<PricePlanId>> HandleAsync(UpdatePricePlanCommand command, CancellationToken ct)
++    {
++        var plan = await plans.FindAsync(command.Id, ct);
++        if (plan is null)
++            return new PricePlanNotFoundError(command.Id);
++        if (validator.Check(command.Draft) is { } error)
++            return error;
++
++        PricePlanMapper.Apply(plan, command.Draft);
++        await plans.SaveAsync(plan, ct);
++        return plan.Id;
++    }
++}
+diff --git a/src/Billing.Api/Domain/Errors.cs b/src/Billing.Api/Domain/Errors.cs
+index 54e83b4..cb9257b 100644
+--- a/src/Billing.Api/Domain/Errors.cs
++++ b/src/Billing.Api/Domain/Errors.cs
+@@ -7,6 +7,9 @@ public abstract record NotFoundError(string Code, string Message) : BillingError
+ public sealed record InvoiceNotFoundError(InvoiceId Id)
+     : NotFoundError("invoice.not_found", $"Invoice {Id} not found");
+ 
++public sealed record PricePlanNotFoundError(PricePlanId Id)
++    : NotFoundError("price_plan.not_found", $"Price plan {Id} not found");
++
+ public sealed record InvoiceInvalidStateError(InvoiceId Id, InvoiceStatus Status, string Operation)
+     : BillingError("invoice.invalid_state", $"Invoice {Id} is {Status}, cannot {Operation}");
+ 
+diff --git a/src/Billing.Api/Domain/Ids.cs b/src/Billing.Api/Domain/Ids.cs
+index 43e90bb..f21a61a 100644
+--- a/src/Billing.Api/Domain/Ids.cs
++++ b/src/Billing.Api/Domain/Ids.cs
+@@ -6,6 +6,12 @@ public readonly record struct InvoiceId(Guid Value)
+     public override string ToString() => Value.ToString();
+ }
+ 
++public readonly record struct PricePlanId(Guid Value)
++{
++    public static PricePlanId New() => new(Guid.NewGuid());
++    public override string ToString() => Value.ToString();
++}
++
+ public readonly record struct CustomerId(Guid Value)
+ {
+     public override string ToString() => Value.ToString();
+diff --git a/src/Billing.Api/Domain/PricePlan.cs b/src/Billing.Api/Domain/PricePlan.cs
+new file mode 100644
+index 0000000..1a250f9
+--- /dev/null
++++ b/src/Billing.Api/Domain/PricePlan.cs
+@@ -0,0 +1,34 @@
++namespace Billing.Api.Domain;
++
++public enum PricePlanKind { Standard, Promo, Internal }
++
++public enum NotificationChannel { Email, Sms, Push }
++
++public abstract record PricingRule;
++
++public sealed record FlatRule(long AmountMinor) : PricingRule;
++
++public sealed record Tier(long UpTo, long PriceMinor);
++
++public sealed record TieredRule(IReadOnlyList<Tier> Tiers) : PricingRule;
++
++public sealed record UsageRule(string Meter, long UnitPriceMinor) : PricingRule;
++
++public sealed class PricePlan
++{
++    public required PricePlanId Id { get; init; }
++    public required DateTimeOffset CreatedAt { get; init; }
++    public required string Name { get; set; }
++    public string? Description { get; set; }
++    public required string ExternalCode { get; set; }
++    public required Guid OwnerTeamId { get; set; }
++    public required PricePlanKind Kind { get; set; }
++    public required IReadOnlyList<NotificationChannel> Channels { get; set; }
++    public required Money MonthlyFee { get; set; }
++    public required int TrialDays { get; set; }
++    public required DateTimeOffset ValidFrom { get; set; }
++    public DateTimeOffset? ValidTo { get; set; }
++    public decimal? DiscountRatio { get; set; }
++    public Uri? WebhookUrl { get; set; }
++    public required IReadOnlyList<PricingRule> Rules { get; set; }
++}
+diff --git a/src/Billing.Api/Infrastructure/Persistence/InMemoryPricePlanRepository.cs b/src/Billing.Api/Infrastructure/Persistence/InMemoryPricePlanRepository.cs
+new file mode 100644
+index 0000000..71a8a2e
+--- /dev/null
++++ b/src/Billing.Api/Infrastructure/Persistence/InMemoryPricePlanRepository.cs
+@@ -0,0 +1,18 @@
++using Billing.Api.Application.Abstractions;
++using Billing.Api.Domain;
++
++namespace Billing.Api.Infrastructure.Persistence;
++
++public sealed class InMemoryPricePlanRepository(InMemoryStore store) : IPricePlanRepository
++{
++    public Task<PricePlan?> FindAsync(PricePlanId id, CancellationToken ct) =>
++        Task.FromResult(store.PricePlans.GetValueOrDefault(id));
++
++    public Task AddAsync(PricePlan plan, CancellationToken ct)
++    {
++        store.PricePlans[plan.Id] = plan;
++        return Task.CompletedTask;
++    }
++
++    public Task SaveAsync(PricePlan plan, CancellationToken ct) => AddAsync(plan, ct);
++}
+diff --git a/src/Billing.Api/Infrastructure/Persistence/InMemoryStore.cs b/src/Billing.Api/Infrastructure/Persistence/InMemoryStore.cs
+index 0c455a1..32df017 100644
+--- a/src/Billing.Api/Infrastructure/Persistence/InMemoryStore.cs
++++ b/src/Billing.Api/Infrastructure/Persistence/InMemoryStore.cs
+@@ -6,6 +6,7 @@ namespace Billing.Api.Infrastructure.Persistence;
+ public sealed class InMemoryStore
+ {
+     public ConcurrentDictionary<InvoiceId, Invoice> Invoices { get; } = new();
++    public ConcurrentDictionary<PricePlanId, PricePlan> PricePlans { get; } = new();
+     public ConcurrentQueue<OutboxMessage> Outbox { get; } = new();
+ }
+ 
+diff --git a/src/Billing.Api/Modules/PricePlansModule.cs b/src/Billing.Api/Modules/PricePlansModule.cs
+new file mode 100644
+index 0000000..e2521a9
+--- /dev/null
++++ b/src/Billing.Api/Modules/PricePlansModule.cs
+@@ -0,0 +1,17 @@
++using Billing.Api.Application.Abstractions;
++using Billing.Api.Application.Handlers.PricePlans;
++using Billing.Api.Infrastructure.Persistence;
++
++namespace Billing.Api.Modules;
++
++public static class PricePlansModule
++{
++    public static IServiceCollection AddPricePlansModule(this IServiceCollection services)
++    {
++        services.AddScoped<IPricePlanRepository, InMemoryPricePlanRepository>();
++        services.AddScoped<PricePlanDraftValidator>();
++        services.AddScoped<CreatePricePlanHandler>();
++        services.AddScoped<UpdatePricePlanHandler>();
++        return services;
++    }
++}
+diff --git a/src/Billing.Api/Program.cs b/src/Billing.Api/Program.cs
+index bba7ed2..af04f4a 100644
+--- a/src/Billing.Api/Program.cs
++++ b/src/Billing.Api/Program.cs
+@@ -10,7 +10,9 @@ builder.Services.AddLedger();
+ builder.Services.AddFx();
+ builder.Services.AddApi();
+ builder.Services.AddInvoicesModule();
++builder.Services.AddPricePlansModule();
+ 
+ var app = builder.Build();
+ app.MapInvoiceEndpoints();
++app.MapPricePlanEndpoints();
+ app.Run();

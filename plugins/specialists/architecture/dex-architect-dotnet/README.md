@@ -35,7 +35,7 @@ capacity, implementation-план и документацию ведёт выз�
 | `dex-skill-dotnet-async-patterns` | Phase 4 (conditional) | `Task.Run` над синхронным вызовом |
 | `dex-skill-dotnet-logging` | Phase 4 (conditional) | Уровень записи, контекст через scope |
 | `dex-skill-dotnet-csproj-hygiene` | Phase 4 (conditional) | CPM, ProjectReference, Directory.Build.props |
-| `dex-skill-dotnet-code-quality` | Phase 4 (conditional) | Roslyn analyzers, warning-профиль, NuGet audit |
+| `dex-skill-dotnet-code-quality` | Phase 4 (conditional) | AnalysisMode, NuGet audit |
 | `dex-skill-project-baseline` | Phase 4 (conditional) | Baseline нового проекта: наследовать solution / закладка с нуля |
 | `dex-skill-codebase-conventions` | Phase 2, 4 (conditional) | Соответствие конвенциям существующего проекта |
 | `dex-skill-fact-verification` | Phase 2, 4 (conditional) | Fact-check имени пакета / API против манифеста проекта |

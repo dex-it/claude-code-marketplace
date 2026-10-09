@@ -611,6 +611,8 @@ cherry-pick; `--force-with-lease`, после которого коммит QA �
 `docs/tasks/`; у веток ревью вторая стадия - код MR. Все ветки собираются (`dotnet build`; `partner-import` и
 `build-hardening` - `dotnet test` зелёный, `build-hardening` - `dotnet format --verify-no-changes` чист); сверка 06.10.2026.
 
+Промпты кода и ревью - дословно в [`run-group-2-1.sh`](run-group-2-1.sh) (записан после прогона, по ревью PR #320).
+
 | Кейс | Ветка | Поручение |
 |---|---|---|
 | G0 | `feature/money-allocate` | код: `Money.Allocate` (BILL-53); верный исход - чистое синхронное доменное решение без единиц группы |
