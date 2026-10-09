@@ -1,0 +1,308 @@
+diff --git a/test/order.test.js b/test/order.test.js
+new file mode 100644
+index 0000000..f450d72
+--- /dev/null
++++ b/test/order.test.js
+@@ -0,0 +1,195 @@
++import { test, describe } from 'node:test';
++import assert from 'node:assert/strict';
++import { createOrder, pay, pack, ship, deliver, cancel, returnOrder, OrderStateError } from '../src/order.js';
++
++const DAY = 24 * 60 * 60 * 1000;
++const code = (c) => (e) => e instanceof OrderStateError && e.code === c;
++
++const data = (o = {}) => ({
++  customerId: 7,
++  customer: { name: 'Иван', phone: '+70000000000' },
++  address: { postcode: '125000', line: 'Москва' },
++  items: [{ sku: 'A1', qty: 2, extra: 'x' }],
++  weightKg: 1.2,
++  ...o,
++});
++
++function fakes() {
++  const calls = { refund: [], release: [] };
++  return {
++    calls,
++    payments: { refund: (id, k) => calls.refund.push([id, k]) },
++    stock: { release: (items) => calls.release.push(items) },
++  };
++}
++
++const orderIn = (status) => {
++  const o = createOrder(data({ id: 1 }));
++  const chain = ['created', 'paid', 'packed', 'shipped', 'delivered'];
++  const steps = [pay, pack, (x) => ship(x, { trackingNumber: 'T1' }), (x) => deliver(x, { at: new Date('2025-01-01T00:00:00Z') })];
++  for (let i = 0; i < chain.indexOf(status); i++) steps[i](o);
++  return o;
++};
++
++describe('createOrder', () => {
++  test('новый заказ: статус, сумма и зона по тарифу', () => {
++    const o = createOrder(data({ id: 5 }));
++    assert.equal(o.id, 5);
++    assert.equal(o.status, 'created');
++    assert.equal(o.zone, 'A');
++    assert.equal(o.totalKopecks, 36000);
++    assert.deepEqual(o.history, []);
++    assert.deepEqual(o.items, [{ sku: 'A1', qty: 2 }]);
++  });
++  test('опции влияют на сумму', () => {
++    const o = createOrder(data({ express: true, fragile: true }));
++    assert.equal(o.totalKopecks, 54000 + 60000);
++    assert.equal(createOrder(data({ loyalty: true })).totalKopecks, 32400);
++  });
++  test('id генерируются разные', () => {
++    assert.notEqual(createOrder(data()).id, createOrder(data()).id);
++  });
++  test('ошибки тарифа пробрасываются', () => {
++    assert.throws(() => createOrder(data({ weightKg: 99 })), { code: 'WEIGHT_RANGE' });
++  });
++});
++
++describe('переходы', () => {
++  test('полная цепочка пишет историю', () => {
++    const o = createOrder(data({ id: 1 }));
++    assert.equal(pay(o), o);
++    pack(o);
++    ship(o, { trackingNumber: 'TRK' });
++    deliver(o, { at: new Date('2025-03-01T10:00:00Z') });
++    assert.equal(o.status, 'delivered');
++    assert.deepEqual(o.history.map((h) => h.status), ['paid', 'packed', 'shipped', 'delivered']);
++    assert.ok(o.history.every((h) => typeof h.at === 'string' && !Number.isNaN(Date.parse(h.at))));
++    assert.equal(o.trackingNumber, 'TRK');
++    assert.equal(o.deliveredAt, '2025-03-01T10:00:00.000Z');
++    assert.equal(o.history[3].at, '2025-03-01T10:00:00.000Z');
++  });
++
++  const chain = ['created', 'paid', 'packed', 'shipped', 'delivered'];
++  const fns = {
++    paid: pay, packed: pack,
++    shipped: (o) => ship(o, { trackingNumber: 'T' }),
++    delivered: (o) => deliver(o, { at: new Date() }),
++  };
++  for (const target of ['paid', 'packed', 'shipped', 'delivered']) {
++    for (const from of [...chain, 'cancelled', 'returned']) {
++      if (chain.indexOf(from) === chain.indexOf(target) - 1) continue;
++      test(`${from} -> ${target} запрещён (TRANSITION), заказ не меняется`, () => {
++        const o = from === 'cancelled' || from === 'returned' ? { ...orderIn('created'), status: from } : orderIn(from);
++        const before = structuredClone(o);
++        assert.throws(() => fns[target](o), code('TRANSITION'));
++        assert.deepEqual(o, before);
++      });
++    }
++  }
++});
++
++describe('cancel', () => {
++  test('created: только снимает резерв, без возврата денег', () => {
++    const f = fakes();
++    const o = orderIn('created');
++    cancel(o, f);
++    assert.equal(o.status, 'cancelled');
++    assert.deepEqual(f.calls.refund, []);
++    assert.deepEqual(f.calls.release, [o.items]);
++    assert.equal(o.history.at(-1).status, 'cancelled');
++  });
++  for (const st of ['paid', 'packed']) {
++    test(`${st}: возврат суммы заказа и снятие резерва`, () => {
++      const f = fakes();
++      const o = orderIn(st);
++      cancel(o, f);
++      assert.equal(o.status, 'cancelled');
++      assert.deepEqual(f.calls.refund, [[1, 36000]]);
++      assert.deepEqual(f.calls.release, [o.items]);
++    });
++  }
++  for (const st of ['shipped', 'delivered', 'cancelled', 'returned']) {
++    test(`${st}: CANCEL_FORBIDDEN, ничего не трогается`, () => {
++      const f = fakes();
++      const o = ['cancelled', 'returned'].includes(st) ? { ...orderIn('created'), status: st } : orderIn(st);
++      const before = structuredClone(o);
++      assert.throws(() => cancel(o, f), code('CANCEL_FORBIDDEN'));
++      assert.deepEqual(o, before);
++      assert.deepEqual(f.calls, { refund: [], release: [] });
++    });
++  }
++  test('повторная отмена запрещена', () => {
++    const f = fakes();
++    const o = orderIn('paid');
++    cancel(o, f);
++    assert.throws(() => cancel(o, f), code('CANCEL_FORBIDDEN'));
++    assert.equal(f.calls.refund.length, 1);
++    assert.equal(f.calls.release.length, 1);
++  });
++});
++
++describe('returnOrder', () => {
++  const delivered = () => orderIn('delivered'); // deliveredAt = 2025-01-01T00:00:00Z
++  const at = (ms) => new Date(Date.parse('2025-01-01T00:00:00Z') + ms);
++
++  test('успешный возврат: деньги, статус, история', () => {
++    const f = fakes();
++    const o = delivered();
++    const now = at(3 * DAY);
++    assert.equal(returnOrder(o, { now, payments: f.payments }), o);
++    assert.equal(o.status, 'returned');
++    assert.deepEqual(f.calls.refund, [[1, 36000]]);
++    assert.deepEqual(o.history.at(-1), { status: 'returned', at: now.toISOString() });
++  });
++  test('в день доставки', () => {
++    const f = fakes();
++    returnOrder(delivered(), { now: at(1000), payments: f.payments });
++    assert.equal(f.calls.refund.length, 1);
++  });
++  test('ровно 14 суток - принимается', () => {
++    const f = fakes();
++    const o = delivered();
++    returnOrder(o, { now: at(14 * DAY), payments: f.payments });
++    assert.equal(o.status, 'returned');
++  });
++  test('14 суток без секунды (на 14-е сутки) - принимается', () => {
++    const o = delivered();
++    returnOrder(o, { now: at(14 * DAY - 1000), payments: fakes().payments });
++    assert.equal(o.status, 'returned');
++  });
++  test('14 суток 23 ч 59 мин - принимается (полных суток 14)', () => {
++    const o = delivered();
++    returnOrder(o, { now: at(15 * DAY - 60000), payments: fakes().payments });
++    assert.equal(o.status, 'returned');
++  });
++  test('15 суток - отказ', () => {
++    const f = fakes();
++    const o = delivered();
++    const before = structuredClone(o);
++    assert.throws(() => returnOrder(o, { now: at(15 * DAY), payments: f.payments }), code('RETURN_FORBIDDEN'));
++    assert.deepEqual(o, before);
++    assert.deepEqual(f.calls.refund, []);
++  });
++  test('намного позже окна - отказ', () => {
++    assert.throws(() => returnOrder(delivered(), { now: at(60 * DAY), payments: fakes().payments }), code('RETURN_FORBIDDEN'));
++  });
++  for (const st of ['created', 'paid', 'packed', 'shipped', 'cancelled', 'returned']) {
++    test(`из ${st} - RETURN_FORBIDDEN`, () => {
++      const f = fakes();
++      const o = ['cancelled', 'returned'].includes(st)
++        ? { ...delivered(), status: st }
++        : orderIn(st);
++      const before = structuredClone(o);
++      assert.throws(() => returnOrder(o, { now: at(DAY), payments: f.payments }), code('RETURN_FORBIDDEN'));
++      assert.deepEqual(o, before);
++      assert.deepEqual(f.calls.refund, []);
++    });
++  }
++  test('повторный возврат запрещён', () => {
++    const f = fakes();
++    const o = delivered();
++    returnOrder(o, { now: at(DAY), payments: f.payments });
++    assert.throws(() => returnOrder(o, { now: at(DAY), payments: f.payments }), code('RETURN_FORBIDDEN'));
++    assert.equal(f.calls.refund.length, 1);
++  });
++});
+diff --git a/test/tariff.test.js b/test/tariff.test.js
+new file mode 100644
+index 0000000..0f9fd84
+--- /dev/null
++++ b/test/tariff.test.js
+@@ -0,0 +1,101 @@
++import { test, describe } from 'node:test';
++import assert from 'node:assert/strict';
++import { zoneForPostcode, billableUnits, quote, deliveryDays, TariffError } from '../src/tariff.js';
++
++const code = (c) => (e) => e instanceof TariffError && e.code === c;
++
++describe('zoneForPostcode', () => {
++  for (const [pc, zone] of [
++    ['100000', 'A'], ['127055', 'A'], ['149999', 'A'],
++    ['150000', 'C'], ['180000', 'C'], ['189999', 'C'],
++    ['190000', 'B'], ['199999', 'B'],
++    ['200000', 'C'], ['630099', 'C'], ['000001', 'C'],
++  ]) {
++    test(`${pc} -> ${zone}`, () => assert.equal(zoneForPostcode(pc), zone));
++  }
++  for (const pc of ['12345', '1234567', '12345a', '', ' 100000', null, undefined, 100000]) {
++    test(`невалидный индекс ${JSON.stringify(pc)} -> POSTCODE`, () => {
++      assert.throws(() => zoneForPostcode(pc), code('POSTCODE'));
++    });
++  }
++});
++
++describe('billableUnits', () => {
++  for (const [w, u] of [[0.1, 1], [0.5, 1], [0.51, 2], [1, 2], [1.2, 3], [1.5, 3], [29.9, 60], [30, 60]]) {
++    test(`${w} кг -> ${u} ед.`, () => assert.equal(billableUnits(w), u));
++  }
++  for (const w of [0.09, 0, -1, 30.01, 100, Infinity]) {
++    test(`${w} -> WEIGHT_RANGE`, () => assert.throws(() => billableUnits(w), code('WEIGHT_RANGE')));
++  }
++  for (const w of ['1', NaN, null, undefined, {}, [], true]) {
++    test(`${String(w)} (${typeof w}) -> WEIGHT_TYPE`, () => assert.throws(() => billableUnits(w), code('WEIGHT_TYPE')));
++  }
++});
++
++describe('quote', () => {
++  const base = { weightKg: 1.2, postcode: '125000' };
++  const total = (o) => quote({ ...base, ...o }).totalKopecks;
++
++  test('пример из требований: 1,2 кг, зона A -> 360 ₽', () => {
++    assert.deepEqual(quote(base), { zone: 'A', billableKg: 1.5, totalKopecks: 36000 });
++  });
++  test('ставки зон за 0,5 кг', () => {
++    assert.equal(total({ weightKg: 0.5, postcode: '125000' }), 12000);
++    assert.equal(total({ weightKg: 0.5, postcode: '195000' }), 15000);
++    assert.equal(total({ weightKg: 0.5, postcode: '630000' }), 21000);
++  });
++  test('минимальный вес тарифицируется как 0,5 кг', () => {
++    assert.deepEqual(quote({ weightKg: 0.1, postcode: '125000' }), { zone: 'A', billableKg: 0.5, totalKopecks: 12000 });
++  });
++  test('максимальный вес 30 кг', () => {
++    assert.equal(total({ weightKg: 30 }), 60 * 12000);
++  });
++  test('экспресс +50%', () => assert.equal(total({ express: true }), 54000));
++  test('хрупкое +300 ₽', () => assert.equal(total({ fragile: true }), 66000));
++  test('хрупкое + экспресс: надбавка 600 ₽', () => assert.equal(total({ fragile: true, express: true }), 54000 + 60000));
++  test('лояльность -10%', () => assert.equal(total({ loyalty: true }), 32400));
++  test('лояльность считается после надбавки за хрупкость', () => {
++    assert.equal(total({ loyalty: true, fragile: true }), 59400);
++  });
++  test('лояльность не действует при экспрессе', () => {
++    assert.equal(total({ loyalty: true, express: true }), total({ express: true }));
++    assert.equal(total({ loyalty: true, express: true, fragile: true }), total({ express: true, fragile: true }));
++  });
++  test('лояльность на целых рублях: 0,5 кг зона B -> 135 ₽', () => {
++    assert.equal(total({ weightKg: 0.5, postcode: '195000', loyalty: true }), 13500);
++  });
++  test('экспресс на нечётной ставке: 0,5 кг зона B -> 225 ₽', () => {
++    assert.equal(total({ weightKg: 0.5, postcode: '195000', express: true }), 22500);
++  });
++  test('сумма - целое число копеек, кратное рублю', () => {
++    for (const w of [0.1, 0.7, 1.2, 4.4, 29.5]) {
++      for (const postcode of ['125000', '195000', '630000']) {
++        for (const o of [{}, { express: true }, { fragile: true }, { loyalty: true }, { express: true, fragile: true }]) {
++          const t = total({ weightKg: w, postcode, ...o });
++          assert.ok(Number.isInteger(t) && t % 100 === 0, `${w} ${postcode} ${JSON.stringify(o)} -> ${t}`);
++        }
++      }
++    }
++  });
++  test('ошибки пробрасываются', () => {
++    assert.throws(() => quote({ weightKg: '1', postcode: '125000' }), code('WEIGHT_TYPE'));
++    assert.throws(() => quote({ weightKg: 31, postcode: '125000' }), code('WEIGHT_RANGE'));
++    assert.throws(() => quote({ weightKg: 1, postcode: '12' }), code('POSTCODE'));
++  });
++});
++
++describe('deliveryDays', () => {
++  for (const [z, std, exp] of [['A', 1, 1], ['B', 3, 2], ['C', 5, 3]]) {
++    test(`зона ${z}`, () => {
++      assert.equal(deliveryDays(z), std);
++      assert.equal(deliveryDays(z, { express: false }), std);
++      assert.equal(deliveryDays(z, { express: true }), exp);
++    });
++  }
++  for (const z of ['D', undefined, null, '', 'a', 'toString', '__proto__']) {
++    test(`неизвестная зона ${String(z)} -> ZONE`, () => {
++      assert.throws(() => deliveryDays(z), code('ZONE'));
++      assert.throws(() => deliveryDays(z, { express: true }), code('ZONE'));
++    });
++  }
++});

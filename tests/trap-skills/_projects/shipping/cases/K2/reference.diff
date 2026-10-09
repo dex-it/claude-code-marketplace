@@ -1,0 +1,14 @@
+diff --git a/src/cache.js b/src/cache.js
+index 812fad3..3db1a48 100644
+--- a/src/cache.js
++++ b/src/cache.js
+@@ -5,7 +5,8 @@ const cache = new Map();
+ 
+ export function cachedQuote(body, ctx, compute) {
+   if (!ctx.flags?.quote_cache) return compute();
+-  const key = JSON.stringify([body.weight, body.postcode, ctx.requestId]);
++  // Ключ - всё, от чего зависит цена; x-request-id уникален на запрос и в ключ не входит.
++  const key = JSON.stringify([body.weight, body.postcode, body.express === true, body.currency ?? 'EUR']);
+   if (!cache.has(key)) {
+     cache.set(key, compute());
+     if (cache.size > MAX_ENTRIES) cache.delete(cache.keys().next().value); // самая старая запись

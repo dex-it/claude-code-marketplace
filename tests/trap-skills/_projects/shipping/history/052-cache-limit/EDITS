@@ -1,0 +1,31 @@
+<<<<<<< src/cache.js
+const cache = new Map();
+=======
+const MAX_ENTRIES = 1000;
+const cache = new Map();
+>>>>>>>
+<<<<<<< src/cache.js
+  if (!cache.has(key)) cache.set(key, compute());
+=======
+  if (!cache.has(key)) {
+    cache.set(key, compute());
+    if (cache.size > MAX_ENTRIES) cache.delete(cache.keys().next().value); // самая старая запись
+  }
+>>>>>>>
+<<<<<<< test/cache.test.js
+import { cachedQuote } from '../src/cache.js';
+=======
+import { cachedQuote, cacheSize } from '../src/cache.js';
+>>>>>>>
+<<<<<<< test/cache.test.js
+test('разные запросы не делят запись', () => {
+=======
+test('не больше 1000 записей', () => {
+  for (let i = 0; i < 1500; i++) {
+    cachedQuote({ weight: 1, postcode: '10115' }, { flags: { quote_cache: true }, requestId: `r${i}` }, () => i);
+  }
+  assert.ok(cacheSize() <= 1000);
+});
+
+test('разные запросы не делят запись', () => {
+>>>>>>>

@@ -45,7 +45,6 @@ Bundle for QA Engineers: test analysis, test automation, bug reporting.
 - `dex-playwright-cli` - Playwright CLI: run tests, show report, codegen, trace viewer, browser install
 
 ### Skills
-- `dex-skill-test-design` - Test design techniques
 - `dex-skill-api-testing` - API testing
 - `dex-skill-dotnet-testing-patterns` - Testing patterns
 - `dex-skill-playwright` - Playwright E2E: локаторы по роли, вход в тестах, отладка

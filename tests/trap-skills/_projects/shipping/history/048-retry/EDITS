@@ -1,0 +1,20 @@
+<<<<<<< src/carrier.js
+export async function registerAtCarrier(shipment, ctx) {
+  const ms = Number(ctx.config.CARRIER_TIMEOUT_MS ?? 2000);
+=======
+const ATTEMPTS = 3;
+
+export async function registerAtCarrier(shipment, ctx) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await registerOnce(shipment, ctx);
+    } catch (e) {
+      if (!(e instanceof CarrierTimeout) || attempt === ATTEMPTS) throw e;
+      ctx.log.warn('carrier timeout, retry', { id: shipment.id, attempt });
+    }
+  }
+}
+
+async function registerOnce(shipment, ctx) {
+  const ms = Number(ctx.config.CARRIER_TIMEOUT_MS ?? 2000);
+>>>>>>>

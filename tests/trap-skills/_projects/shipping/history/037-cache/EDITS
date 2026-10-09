@@ -1,0 +1,28 @@
+<<<<<<< src/app.js
+import { deliveryDays } from './delivery.js';
+=======
+import { deliveryDays } from './delivery.js';
+import { cachedQuote } from './cache.js';
+>>>>>>>
+<<<<<<< src/app.js
+function postQuote(req, ctx) {
+  const parcel = parseParcel(req.body);
+  const body = { ...quote(parcel), deliveryDays: deliveryDays(parcel.zone) };
+=======
+function postQuote(req, ctx) {
+  const body = cachedQuote(req.body ?? {}, ctx, () => {
+    const parcel = parseParcel(req.body);
+    return { ...quote(parcel), deliveryDays: deliveryDays(parcel.zone) };
+  });
+>>>>>>>
+<<<<<<< README.md
+## Ветки и стенд
+=======
+## Флаги
+
+Флаги приходят в `ctx.flags`; на стенде их переключают в конфигурации флагов стенда.
+
+- `quote_cache` - кэш котировок (`src/cache.js`), по умолчанию выключен.
+
+## Ветки и стенд
+>>>>>>>

@@ -16,7 +16,7 @@
 
 `<набор>/sources.md` - основания пунктов, пришедших из `/mr-apply`: MR, триада, самооценка анализатора. По ним строится кейс, когда пункт идёт в заход сжатия.
 
-`_projects/` - общие мини-проекты нескольких наборов: `setup.sh` разворачивает git-репозиторий прогона, README проекта - ключ для судьи, исполнителю не подаётся.
+`_projects/` - общие мини-проекты нескольких наборов (`billing` - группы 0-1, `parcel` - группа 2.4, часть «тесты», `shipping` - группа 2.4b и имитация стенда): `setup.sh` разворачивает git-репозиторий прогона, README проекта - ключ для судьи, исполнителю не подаётся.
 
 `removed/` - наборы снятых скиллов: скилла в каталоге нет, набор хранит свидетельство снятия и не
 перезапускается.
@@ -48,3 +48,10 @@
 | [playwright](playwright/README.md) | `dex-skill-playwright` 1.0.1 | e2e по коду и конфигу (K4, K5) | 17 ловушек и чек-лист -> 2 пункта-названия и 2 H3 как написаны (W12, W13) |
 | [ts-vitest-jest](ts-vitest-jest/README.md) | `dex-skill-ts-vitest-jest` 2.0.1 | unit-тесты (K3) | 10 ловушек и чек-лист -> 4 H3 как написаны (V1, граница #299) |
 | [removed/ts-patterns](removed/ts-patterns/README.md) | `dex-skill-ts-patterns` 2.0.1 | кейсы соседей (K0-K3, R1, R2) | снят; внешние данные через `as` без проверки - названием в Boundaries `ts-fullstack-assistant` |
+| [removed/test-design](removed/test-design/README.md) | `dex-skill-test-design` 1.6.0 | тестописатель с нормой показа красным и без (TW, TW0), ревью записей red-run (TR), баг (BR); мини-проект `parcel` | снят; порог «Negative >= 50%» - шаг 0 |
+| [integration-boundary](integration-boundary/README.md) | `dex-skill-integration-boundary` 1.0.0 | автор: подключение перевозчика (IB), поиск на SQLite (IBF) | 7 ловушек и чек-лист -> 3 названия; слой сборки - открыто |
+| [bug-reproduction](bug-reproduction/README.md) | `dex-skill-bug-reproduction` 1.0.0 | воспроизведение и фикс (BR) | 8 ловушек и чек-лист -> 1 название (heisenbug, открыто) |
+| [removed/contract-drift](removed/contract-drift/README.md) | `dex-skill-contract-drift` 1.1.0 | QA на стенде (CD, CDT) | снят; cd-schema - открыто, #303 |
+| [root-cause-analysis](root-cause-analysis/README.md) | `dex-skill-root-cause-analysis` 1.0.0 | причина 500 и исправление (K1), ничего не менять (K0), инцидент и баги QA (K2, K4); общий заход группы 2.4b | 8 ловушек и чек-лист -> process-skill 2.0.0: порядок из трёх шагов |
+| [change-correlation](change-correlation/README.md) | `dex-skill-change-correlation` 1.0.1 | инцидент на общем стенде (K2), регрессия между релизом и develop (K3) | 8 ловушек и чек-лист -> process-skill 2.0.0: порядок; образ на стенде - фраза по провалу n1 |
+| [post-merge-remediation](post-merge-remediation/README.md) | `dex-skill-post-merge-remediation` 1.0.1 | баги QA после мерджа, общий стенд, оператор по ходам (K4) | 6 ловушек -> process-skill 2.0.0: порядок и гейты; гейт выката по свидетельству |

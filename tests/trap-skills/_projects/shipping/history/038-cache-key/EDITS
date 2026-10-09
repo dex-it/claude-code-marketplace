@@ -1,0 +1,26 @@
+<<<<<<< src/cache.js
+  const key = JSON.stringify([body.weight, body.postcode]);
+=======
+  const key = JSON.stringify([body.weight, body.postcode, ctx.requestId]);
+>>>>>>>
+<<<<<<< test/cache.test.js
+  const ctx = { flags: { quote_cache: true } };
+=======
+  const ctx = { flags: { quote_cache: true }, requestId: 'r1' };
+>>>>>>>
+<<<<<<< test/cache.test.js
+  cachedQuote({ weight: 7, postcode: '10115' }, ctx, () => ++n);
+  assert.equal(n, 1);
+});
+=======
+  cachedQuote({ weight: 7, postcode: '10115' }, ctx, () => ++n);
+  assert.equal(n, 1);
+});
+
+test('разные запросы не делят запись', () => {
+  let n = 0;
+  cachedQuote({ weight: 8, postcode: '10115' }, { flags: { quote_cache: true }, requestId: 'a' }, () => ++n);
+  cachedQuote({ weight: 8, postcode: '10115', express: true }, { flags: { quote_cache: true }, requestId: 'b' }, () => ++n);
+  assert.equal(n, 2);
+});
+>>>>>>>
