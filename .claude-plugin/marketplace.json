@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "6.10.0",
+  "version": "6.11.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -134,7 +134,7 @@
       "name": "dex-bug-finder",
       "source": "./plugins/specialists/qa/dex-bug-finder",
       "description": "Узел активного поиска багов в фиче или ветке, языко-агностично: модель рисков и чартеры, адверсариальная охота, skill-чеклисты, воспроизведение и квалификация, handoff в расследование. Точка входа - команда /find-bugs, едет в этом же плагине.",
-      "version": "2.5.0",
+      "version": "2.6.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -149,7 +149,7 @@
       "name": "dex-bug-fixer",
       "source": "./plugins/specialists/delivery/dex-bug-fixer",
       "description": "Пакетная ремедиация найденных тестировщиком багов после мерджа: интейк находок, триаж и приоритет, подтверждение причины по одному, фикс на источнике через follow-up MR, верификация red->green на стенде, регрессия соседей; финиш на локальных коммитах без push.",
-      "version": "1.11.0",
+      "version": "1.12.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -179,7 +179,7 @@
       "name": "dex-bundle-architect",
       "source": "./plugins/bundles/dex-bundle-architect",
       "description": "Бандл для архитектора: интерактивный system design, ADR, диаграммы, проектирование API, анализ кодовой базы, безопасность, наблюдаемость.",
-      "version": "1.27.0",
+      "version": "1.28.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -194,7 +194,7 @@
       "name": "dex-bundle-bug-lifecycle",
       "source": "./plugins/bundles/dex-bundle-bug-lifecycle",
       "description": "Bundle жизненного цикла бага: активный поиск, оформление, расследование корневой причины на общем стенде и фикс на источнике, плюс skills методологии RCA и поиска багов и CLI для чтения стенда и трекера.",
-      "version": "1.29.0",
+      "version": "1.30.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -223,7 +223,7 @@
       "name": "dex-bundle-code-review",
       "source": "./plugins/bundles/dex-bundle-code-review",
       "description": "Бандл жизненного цикла кода: языко-агностичное ревью MR/PR, повторное ревью после правок, план правок, реализация фичи, подтягивание базовой ветки с разрешением конфликтов, саморевью перед push, приёмка слитой фичи на стенде с ремедиацией, расследование инцидента, плюс скиллы дисциплины ревью.",
-      "version": "1.41.0",
+      "version": "1.42.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -251,7 +251,7 @@
       "name": "dex-bundle-dotnet-developer",
       "source": "./plugins/bundles/dex-bundle-dotnet-developer",
       "description": "Бандл для .NET-разработчика: написание кода, отладка, тесты, code review, EF Core, производительность, интерактивный дизайн .NET-архитектуры.",
-      "version": "2.36.0",
+      "version": "2.37.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -263,7 +263,7 @@
       "name": "dex-bundle-dotnet-fullstack",
       "source": "./plugins/bundles/dex-bundle-dotnet-fullstack",
       "description": "Полный бандл для .NET fullstack: разработка, базы данных, брокеры сообщений, контейнеры, CI/CD, мониторинг, интерактивный дизайн архитектуры.",
-      "version": "2.37.0",
+      "version": "2.38.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -317,7 +317,7 @@
       "name": "dex-bundle-product-manager",
       "source": "./plugins/bundles/dex-bundle-product-manager",
       "description": "Бандл для продакт-менеджера: бизнес-требования, roadmap, бэклог, анализ метрик.",
-      "version": "1.24.0",
+      "version": "1.25.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -330,7 +330,7 @@
       "name": "dex-bundle-qa-engineer",
       "source": "./plugins/bundles/dex-bundle-qa-engineer",
       "description": "Бандл для QA-инженера: тест-анализ, автоматизация (включая E2E на Playwright), активный поиск багов, баг-репорты.",
-      "version": "1.21.0",
+      "version": "1.22.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -359,7 +359,7 @@
       "name": "dex-bundle-system-analyst",
       "source": "./plugins/bundles/dex-bundle-system-analyst",
       "description": "Бандл для системного аналитика: требования, user stories, BPMN, спецификации API, документация, оценка реализуемости.",
-      "version": "1.24.0",
+      "version": "1.25.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -373,7 +373,7 @@
       "name": "dex-bundle-ts-fullstack",
       "source": "./plugins/bundles/dex-bundle-ts-fullstack",
       "description": "Бандл для TypeScript fullstack: бэкенд на Node.js/Bun и фронтенд на React, безопасность, Docker, E2E на Playwright.",
-      "version": "1.34.0",
+      "version": "1.35.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -454,7 +454,7 @@
       "name": "dex-code-discovery",
       "source": "./plugins/specialists/architecture/dex-code-discovery",
       "description": "Обзорное ревью существующего кода вширь: инвентаризация проблем по топикам, severity с калибровкой под масштаб, результат в docs/discover/. Точка входа - команда /discover, едет в этом же плагине.",
-      "version": "2.6.0",
+      "version": "2.7.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -653,7 +653,7 @@
       "name": "dex-dotnet-tester",
       "source": "./plugins/specialists/dotnet/dex-dotnet-tester",
       "description": "Test writer node for .NET: unit tests, xUnit, Moq, Arrange-Act-Assert, test patterns. Вызывается как исполнитель стека командой /test (плагин dex-test), стек определяется по манифесту репозитория.",
-      "version": "4.8.0",
+      "version": "4.9.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -783,7 +783,7 @@
       "name": "dex-incident-investigator",
       "source": "./plugins/specialists/delivery/dex-incident-investigator",
       "description": "Узел расследования инцидента и поиска корневой причины на общем стенде до фикса на источнике: спецификация IS/IS-NOT, параллельный сбор улик, причинно-следственная цепочка, фальсификация причины, фикс под gate. Делегирует сбор со стенда инфра-плагинам. Точка входа - команда /investigate, едет в этом же плагине.",
-      "version": "2.5.0",
+      "version": "2.6.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1478,8 +1478,8 @@
     {
       "name": "dex-skill-bug-reproduction",
       "source": "./plugins/skills/dex-skill-bug-reproduction",
-      "description": "Воспроизведение бага: минимальный детерминированный повтор, изоляция недетерминизма, red до фикса, отличие настоящего бага от флапа и ожидаемого поведения, переживающий handoff.",
-      "version": "1.0.0",
+      "description": "Воспроизведение бага, которое ломает само наблюдение: лог, дебаггер или sleep прячут гонку, и баг перестаёт повторяться.",
+      "version": "1.1.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -1548,8 +1548,8 @@
     {
       "name": "dex-skill-change-correlation",
       "source": "./plugins/skills/dex-skill-change-correlation",
-      "description": "Корреляция симптома с изменениями: окно вокруг момента начала, образ стенда против коммита, тайминг, изоляция нескольких изменений, git bisect first-parent.",
-      "version": "1.0.1",
+      "description": "Корреляция симптома с изменениями: окно вокруг момента начала, код по sha на стенде, отсев кандидатов по таймингу и зоне симптома, подтверждение виновника на пути исполнения, git bisect first-parent.",
+      "version": "2.0.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -1593,7 +1593,7 @@
       "name": "dex-skill-completeness-mapping",
       "source": "./plugins/skills/dex-skill-completeness-mapping",
       "description": "Completeness-gate карты потребителей при сквозной правке - найти всех читателей/писателей данных и всех вызывающих/ветки до «сторона готова»",
-      "version": "1.0.5",
+      "version": "1.0.6",
       "category": "skill",
       "keywords": [
         "skill",
@@ -1603,21 +1603,6 @@
         "blast-radius",
         "data-flow",
         "control-flow"
-      ]
-    },
-    {
-      "name": "dex-skill-contract-drift",
-      "source": "./plugins/skills/dex-skill-contract-drift",
-      "description": "Разъехавшиеся контракты между сервисами и клиентами: имя/формат поля, статус-коды, nullability, версии API, расширение enum, фиксация контракта общей схемой.",
-      "version": "1.1.0",
-      "category": "skill",
-      "keywords": [
-        "skill",
-        "contract-drift",
-        "api-contract",
-        "version-skew",
-        "breaking-change",
-        "integration"
       ]
     },
     {
@@ -1941,7 +1926,7 @@
       "name": "dex-skill-exploratory-testing",
       "source": "./plugins/skills/dex-skill-exploratory-testing",
       "description": "Исследовательское тестирование для поиска багов: чартеры и сессии, оракулы, туры-эвристики, атака на риск и неявные предположения, а не happy path.",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2034,8 +2019,8 @@
     {
       "name": "dex-skill-integration-boundary",
       "source": "./plugins/skills/dex-skill-integration-boundary",
-      "description": "Где проходит граница доверия к тесту: мок внешней границы против контракта, зелёный unit при непокрытой интеграции, точка входа до теста, развилки путей, слой сборки/контракта, семантика фейковой среды.",
-      "version": "1.0.0",
+      "description": "Где проходит граница доверия к тесту: мок внешней границы против контракта, зелёный unit при непокрытой интеграции, слой сборки между unit и E2E.",
+      "version": "1.1.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2378,8 +2363,8 @@
     {
       "name": "dex-skill-post-merge-remediation",
       "source": "./plugins/skills/dex-skill-post-merge-remediation",
-      "description": "Дисциплина ремедиации найденных багов после мерджа на общей ветке и стенде: follow-up MR вместо правки общей ветки, фикс на источнике по одному, верификация red->green на стенде, регрессия соседей, согласованная мутация общего стенда.",
-      "version": "1.0.1",
+      "description": "Доставка фикса багов после мерджа на общей ветке и стенде: follow-up ветка вместо правки общей ветки, по багу на коммит корневым первым, порядок выката и откат, выкат по команде оператора, верификация red->green на стенде, регрессия соседей.",
+      "version": "2.0.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2712,8 +2697,8 @@
     {
       "name": "dex-skill-root-cause-analysis",
       "source": "./plugins/skills/dex-skill-root-cause-analysis",
-      "description": "Корневая причина против симптома: доказанные звенья цепочки, fundamental vs auxiliary, каскад, объяснение IS-NOT, фикс на источнике и его фальсификация.",
-      "version": "1.0.0",
+      "description": "Корневая причина против симптома: цепочка от симптома до места, где плохое значение возникает впервые, с уликой на каждое звено; причина объясняет затронутое и незатронутое; проба red->green до и после фикса.",
+      "version": "2.0.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2885,7 +2870,7 @@
       "name": "dex-skill-test-coverage",
       "source": "./plugins/skills/dex-skill-test-coverage",
       "description": "Контракт покрытия для тест-агентов и агентов, пишущих тесты инлайн - branch coverage по diff-scope, порог >= 75%, деградация метрики и недостижимость явным статусом наверх",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2893,19 +2878,6 @@
         "branch-coverage",
         "coverage-threshold",
         "qa"
-      ]
-    },
-    {
-      "name": "dex-skill-test-design",
-      "source": "./plugins/skills/dex-skill-test-design",
-      "description": "Техники тест-дизайна: классы эквивалентности, граничные значения, таблицы решений, попарное тестирование.",
-      "version": "1.6.0",
-      "category": "skill",
-      "keywords": [
-        "skill",
-        "test-design",
-        "qa",
-        "test-cases"
       ]
     },
     {
@@ -3037,7 +3009,7 @@
       "name": "dex-skill-user-stories",
       "source": "./plugins/skills/dex-skill-user-stories",
       "description": "User story writing: format, INVEST, acceptance criteria, Given-When-Then; место истории в конвейере требований - критерии рождаются при нарезке, метка правила у каждого критерия, полнота с двух сторон, мера NFR ссылкой на ID.",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -3049,7 +3021,7 @@
       "name": "dex-skill-verification-planning-29119",
       "source": "./plugins/skills/dex-skill-verification-planning-29119",
       "description": "Норматив этапа планирования верификации (ISO/IEC/IEEE 29119-3, элемент Verification plan 15289 10.72) - состав плана, тестовые условия из требований, критерии полноты и остановки, целевая стадия, вход и выход",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -3065,7 +3037,7 @@
       "name": "dex-stand-reviewer",
       "source": "./plugins/specialists/review/dex-stand-reviewer",
       "description": "Узел приёмки слитой фичи на развёрнутом стенде против ТЗ, read-only: привязка образа к merge-коммиту, карта требование -> проба на стенде, параллельные суб-агенты улик, фальсификация находок и утверждений 'выполнено', severity/confidence/scope, отчёт. Точка входа - команда /review-stand, едет в этом же плагине.",
-      "version": "2.5.0",
+      "version": "2.6.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -3124,7 +3096,7 @@
       "name": "dex-test-analyst",
       "source": "./plugins/specialists/qa/dex-test-analyst",
       "description": "Тест-аналитик: разбор требований, тест-дизайн, тест-кейсы и сценарии, анализ покрытия.",
-      "version": "1.6.1",
+      "version": "1.7.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -3137,7 +3109,7 @@
       "name": "dex-test-automator",
       "source": "./plugins/specialists/qa/dex-test-automator",
       "description": "Автоматизатор тестов: UI, API, интеграционные и unit-тесты, Selenium и Playwright, фреймворки автоматизации.",
-      "version": "2.2.0",
+      "version": "2.3.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -3164,7 +3136,7 @@
       "name": "dex-ts-tester",
       "source": "./plugins/specialists/fullstack/dex-ts-tester",
       "description": "Test writer node for TypeScript/JavaScript: Vitest/Jest, mocks, fake timers, isolation. Вызывается как исполнитель стека командой /test (плагин dex-test), стек определяется по манифесту репозитория.",
-      "version": "3.7.1",
+      "version": "3.8.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -3206,7 +3178,7 @@
       "name": "dex-user-story-analyst",
       "source": "./plugins/specialists/product/dex-user-story-analyst",
       "description": "Аналитик user stories: нарезка сценариев на истории и написание критериев приёмки в форме Given-When-Then.",
-      "version": "5.2.1",
+      "version": "5.3.0",
       "category": "specialist",
       "keywords": [
         "specialist",

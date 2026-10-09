@@ -64,7 +64,6 @@ Bundle for Product Managers: business requirements, roadmap, backlog, metrics an
 - `dex-skill-unit-identity` - Requirement unit identity (same unit vs new, numbering)
 - `dex-skill-artifact-naming` - Requirements artifact naming convention and its boundaries
 - `dex-skill-docs-layout` - Documentation corpus layout normative (tree, identifiers)
-- `dex-skill-test-design` - Test design technique traps
 - `dex-skill-codebase-conventions` - Project conventions: decision source, ADR over neighbour code
 - `dex-skill-ddd` - DDD traps
 - `dex-skill-fact-verification` - Technical fact verification against source of truth

@@ -1,0 +1,22 @@
+<<<<<<< src/app.js
+import { HttpError } from './errors.js';
+=======
+import { readFileSync } from 'node:fs';
+import { HttpError } from './errors.js';
+>>>>>>>
+<<<<<<< src/app.js
+const silent = { info() {}, warn() {}, error() {} };
+=======
+const { version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+const silent = { info() {}, warn() {}, error() {} };
+>>>>>>>
+<<<<<<< src/app.js
+  ['GET', /^\/health$/, () => ({ status: 200, body: { status: 'ok' } })],
+=======
+  ['GET', /^\/health$/, () => ({ status: 200, body: { status: 'ok', version } })],
+>>>>>>>
+<<<<<<< docs/api.md
+`{status: "ok"}`.
+=======
+`{status: "ok", version}` - версия из `package.json`.
+>>>>>>>

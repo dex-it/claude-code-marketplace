@@ -1,0 +1,11 @@
+<<<<<<< test/app.test.js
+test('нет маршрута - 404', async () => {
+=======
+test('GET /health - версия', async () => {
+  const r = await handle({ method: 'GET', path: '/health', headers: {} }, makeCtx());
+  assert.equal(r.status, 200);
+  assert.match(r.body.version, /^\d+\.\d+\.\d+$/);
+});
+
+test('нет маршрута - 404', async () => {
+>>>>>>>

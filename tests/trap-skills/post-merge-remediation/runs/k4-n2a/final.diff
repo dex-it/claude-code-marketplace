@@ -1,0 +1,85 @@
+diff --git a/src/insurance.js b/src/insurance.js
+index 27d266c..629aba2 100644
+--- a/src/insurance.js
++++ b/src/insurance.js
+@@ -4,11 +4,11 @@ import { HttpError } from './errors.js';
+ 
+ const RATE = 0.01; // 1 % страховой суммы
+ 
+-// Страховая сумма, EUR.
++// Страховая сумма, EUR: declaredValue - целые центы EUR (docs/api.md).
+ export function insuredAmount(declaredValue) {
+   const value = Number(declaredValue);
+   if (!Number.isInteger(value) || value <= 0) throw new HttpError(400, 'declaredValue: ожидается целое больше нуля');
+-  return value;
++  return value / 100;
+ }
+ 
+ export function insuranceFee(declaredValue, zone) {
+diff --git a/test/insurance.test.js b/test/insurance.test.js
+index c57adc5..e14b602 100644
+--- a/test/insurance.test.js
++++ b/test/insurance.test.js
+@@ -8,16 +8,28 @@ import { makeCtx } from './ctx.js';
+ const post = (path, body, ctx = makeCtx()) => handle({ method: 'POST', path, body, headers: {} }, ctx);
+ 
+ test('надбавка - 1 % страховой суммы', () => {
+-  assert.equal(insuranceFee(200, 'B'), 2);
+-  assert.equal(insuranceFee(50, 'A'), 0.5);
++  assert.equal(insuranceFee(20000, 'B'), 2);
++  assert.equal(insuranceFee(5000, 'A'), 0.5);
++});
++
++test('QA B1: 20000 центов - надбавка 2.00, цена 6.50', async () => {
++  const r = await post('/quote', { weight: 1, postcode: '10115', declaredValue: 20000 });
++  assert.equal(r.body.insurance, 2);
++  assert.equal(r.body.price, 6.5);
++});
++
++test('QA B2: 35000 центов (350 EUR) оформляется, 100000 - граница лимита, 100001 - 422', async () => {
++  assert.equal((await post('/shipments', { weight: 2, postcode: '20095', declaredValue: 35000 })).status, 201);
++  assert.equal((await post('/shipments', { weight: 1, postcode: '20095', declaredValue: 100000 })).status, 201);
++  assert.equal((await post('/shipments', { weight: 1, postcode: '20095', declaredValue: 100001 })).status, 422);
+ });
+ 
+ test('зона D не страхуется - 422', () => {
+-  assert.throws(() => insuranceFee(200, 'D'), { status: 422 });
++  assert.throws(() => insuranceFee(20000, 'D'), { status: 422 });
+ });
+ 
+ test('котировка со страховкой', async () => {
+-  const r = await post('/quote', { weight: 1, postcode: '10115', declaredValue: 300 });
++  const r = await post('/quote', { weight: 1, postcode: '10115', declaredValue: 30000 });
+   assert.equal(r.status, 200);
+   assert.equal(r.body.insurance, 3);
+   assert.equal(r.body.price, 7.5);
+@@ -25,12 +37,13 @@ test('котировка со страховкой', async () => {
+ 
+ test('отправление со страховкой - 201, страховка в сообщении', async () => {
+   const ctx = makeCtx();
+-  const r = await post('/shipments', { weight: 1, postcode: '10115', declaredValue: 500 }, ctx);
++  const r = await post('/shipments', { weight: 1, postcode: '10115', declaredValue: 50000 }, ctx);
+   assert.equal(r.status, 201);
+   assert.equal(ctx.queue.messages[0].msg.insured, true);
++  assert.equal(ctx.queue.messages[0].msg.insuredAmount, 500);
+ });
+ 
+ test('этикетка застрахованного отправления', () => {
+-  const t = processJob({ id: 'S000001', tracking: 'T', postcode: '10115', zone: 'A', weightGrams: 1000, insured: true, insurance: 5 });
+-  assert.match(t, /Страховка: 5 EUR/);
++  const t = processJob({ id: 'S000001', tracking: 'T', postcode: '10115', zone: 'A', weightGrams: 1000, insured: true, insuredAmount: 9 });
++  assert.match(t, /Страховка: 9\.00 EUR/);
+ });
+diff --git a/worker/label.js b/worker/label.js
+index 5675f6e..e5837e2 100644
+--- a/worker/label.js
++++ b/worker/label.js
+@@ -7,7 +7,7 @@ export function processJob(msg, ctx = {}) {
+   ];
+   if (msg.express) lines.push('ЭКСПРЕСС');
+   if (msg.note) lines.push(`Комментарий: ${msg.note}`);
+-  if (msg.insured) lines.push(`Страховка: ${msg.insurance} EUR`);
++  if (msg.insured) lines.push(`Страховка: ${Number(msg.insuredAmount).toFixed(2)} EUR`);
+   ctx.log?.info('label printed', { id: msg.id });
+   return lines.join('\n');
+ }

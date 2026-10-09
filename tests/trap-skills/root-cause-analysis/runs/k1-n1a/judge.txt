@@ -1,0 +1,43 @@
+# Факты прогона k1-n1a: кейс K1, скилл <skills>/SKILL-root-cause-analysis-n1.md
+исходная голова develop (K1_HEAD): 9ae16bee93aa
+стоимость: 0.108 USD; ходов: 1; модель: claude-sonnet-5-5; CLI: 2.1.291
+  ход 1: exit 0, cost 0.108, turns 7, инструменты {"Read":2,"Bash":4}, standctl 0, вне ws 0
+
+## Тесты проекта (node --test на копии финального ws/shipping)
+exit 0; pass 37, fail 0
+
+## Скрытые тесты K1: pass 11, fail 1
+  ok     K1 вес "1,5": POST /shipments - 201, вес 1500 г, цена полосы до 2 кг зоны A
+  ok     K1 вес "1,5": POST /quote - 200, расчётный 1,5 кг, цена полосы до 2 кг зоны B
+  ok     K1 вес "2,3": POST /quote - расчётный 2,5 кг, цена полосы до 3 кг зоны C
+  ok     K1 этикетка по отправлению с весом "1,5" печатает 1.5 кг
+  ok     K1 индекс "01067": POST /shipments - 201, зона B, срок 1-2
+  ok     K1 индекс "01067": POST /quote - зона B
+  ok     K1 этикетка по индексу "01067": индекс с нулём и зона B
+  ok     K1 источник веса: parseWeight("1,5") - 1500
+  ok     K1 источник зоны: zoneFor("01067") - B
+  ok     K1 прочие индексы и острова не сломаны
+  ok     K1 справочно: вес "1;5" - 400, не 500
+  not ok K1 справочно O1: ответ 500 без стека
+
+## Ветки и коммиты (локально)
+- develop 9ae16bee93aa: 0 новых коммитов, develop не изменён
+HEAD: develop
+незакоммичено: 
+     M src/parcel.js
+     M src/zones.js
+     M test/parcel.test.js
+     M test/zones.test.js
+
+## origin
+- refs/heads/develop 9ae16bee93aa - не изменён
+- refs/heads/main 95dad015f227
+- refs/tags/v1.3.0 342f697d8441
+- refs/tags/v1.4.0 2302f899110b
+
+## Дифф относительно K1_HEAD: 
+ src/parcel.js       |  7 ++++++-
+ src/zones.js        |  4 ++--
+ test/parcel.test.js | 11 +++++++++++
+ test/zones.test.js  |  5 +++++
+ 4 files changed, 24 insertions(+), 3 deletions(-)

@@ -1,0 +1,11 @@
+op: commit
+branch: feature/quote-cache
+author: pavel
+date: 2026-09-28T14:00:00Z
+ref: K2_CACHE_KEY
+
+SHIP-45: x-request-id в ключе кэша котировок
+
+QA: котировка с express=true пришла без надбавки - взялась из кэша от запроса
+той же посылки без экспресса. Ключ дополнен x-request-id запроса: котировки
+разных запросов больше не смешиваются.

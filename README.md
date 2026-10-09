@@ -244,7 +244,7 @@ claude plugins uninstall dex-dotnet-coder
 | **Оракулы качества артефактов** | `requirement-quality`, `requirement-set-quality`, `use-case-quality`, `adr-quality`, `design-quality`, `plan-quality`, `api-spec-quality`, `completeness-mapping`, `fact-verification`, `legacy-reconstruction`, `verification-planning-29119`, `bdd-gherkin` |
 | **Архитектура и дизайн** | `ddd`, `solid`, `scalability`, `cap-consistency`, `capacity-planning`, `reference-architectures`, `tech-evaluation`, `api-specification`, `architecture-definition-42010`, `interface-definition-openapi` |
 | **Ревью и дисциплина изменений** | `merge-conflict-resolution`, `review-evidence`, `review-step-by-step`, `review-threads`, `defect-classification`, `performance-review`, `post-merge-remediation`, `ci-gates`, `project-baseline`, `codebase-conventions`, `karpathy-guidelines`, `optimize-for-llm`, `norm-writing`, `artifact-review` |
-| **QA и тестирование** | `test-design`, `api-testing`, `test-coverage`, `testability`, `integration-boundary`, `exploratory-testing`, `bug-reproduction`, `contract-drift`, `deep-audit`, `tech-audit`, `playwright`, `stand-verification` |
+| **QA и тестирование** | `api-testing`, `test-coverage`, `testability`, `integration-boundary`, `exploratory-testing`, `bug-reproduction`, `deep-audit`, `tech-audit`, `playwright`, `stand-verification` |
 | **Инциденты и RCA** | `problem-specification`, `root-cause-analysis`, `change-correlation`, `shared-stand-safety`, `core-dumps`, `managed-debug`, `native-debug`, `perf-profiling`, `syscall-tracing`, `binary-inspection` |
 | **.NET** | `dotnet-api-development`, `dotnet-async-patterns`, `dotnet-caching`, `dotnet-code-quality`, `dotnet-csproj-hygiene`, `dotnet-ef-core`, `dotnet-logging`, `dotnet-resilience`, `dotnet-resources`, `dotnet-testing-patterns`, `dotnet-validation`, `api-documentation` |
 | **Frontend и TypeScript** | `react`, `ts-patterns`, `ts-nodejs-api`, `ts-vitest-jest` |
@@ -476,4 +476,4 @@ GPL v3.0 - см. [LICENSE](./LICENSE)
 
 ---
 
-**DEX Team** - Version 6.10.0
+**DEX Team** - Version 6.11.0
