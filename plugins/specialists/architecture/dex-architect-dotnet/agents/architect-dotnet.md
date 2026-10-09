@@ -233,10 +233,10 @@ implementation-план вызывающей стороны не на чем с�
 - Всегда `dex-skill-dotnet-resilience:dotnet-resilience` - Polly, retry с idempotency / jitter, circuit breaker, timeout
 - Если в области feed / chat / payment / search / notifications / rate-limiter - `dex-skill-reference-architectures:reference-architectures`
 - Если выбрано EF Core / SQL - `dex-skill-dotnet-ef-core:dotnet-ef-core`
-- Если присутствует concurrency / async - `dex-skill-dotnet-async-patterns:dotnet-async-patterns`
+- Если присутствует async-код - `dex-skill-dotnet-async-patterns:dotnet-async-patterns`
 - Если значимое логирование - `dex-skill-dotnet-logging:dotnet-logging`
 - Для project structure / `.csproj` / Directory.Build.props - `dex-skill-dotnet-csproj-hygiene:dotnet-csproj-hygiene`
-- Для гигиены качества (Roslyn analyzers, warning-профиль, NuGet audit) - `dex-skill-dotnet-code-quality:dotnet-code-quality`
+- Для гигиены качества (AnalysisMode, NuGet audit) - `dex-skill-dotnet-code-quality:dotnet-code-quality`
 - Если план предполагает создание нового проекта / сервиса - `dex-skill-project-baseline:project-baseline` (новый solution -> baseline по дефолту; проект в существующем solution -> наследовать его правила, недостающий гейт назвать и предложить, а завести после согласия владельца)
 - Для соответствия конвенциям проекта - `dex-skill-codebase-conventions:codebase-conventions`
 - Если доменная сложность требует aggregates / bounded contexts - `dex-skill-ddd:ddd`
@@ -262,8 +262,7 @@ Phase 3 отдельным перечнем. Implementation-план,
   документацию вызывающей стороны).
 - **.NET-specific:**
   - Не предлагать Service Locator / Singleton DbContext / async void / `.Result` - это
-    .NET-anti-patterns, для них есть `dex-skill-dotnet-async-patterns` /
-    `dex-skill-dotnet-resources`
+    .NET-anti-patterns
   - Не выбирать ORM, отличный от EF Core, без явного обоснования через capacity-цифры входа
     (Dapper для read-heavy hot paths оправдан, NHibernate в greenfield - нет)
   - Не предлагать .NET Framework 4.x для greenfield - только .NET 8 LTS или новее

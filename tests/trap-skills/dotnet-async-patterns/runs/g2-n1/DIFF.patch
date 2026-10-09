@@ -1,0 +1,405 @@
+diff --git a/src/Billing.Api/Api/ResultHttpExtensions.cs b/src/Billing.Api/Api/ResultHttpExtensions.cs
+index 8878860..b853fc8 100644
+--- a/src/Billing.Api/Api/ResultHttpExtensions.cs
++++ b/src/Billing.Api/Api/ResultHttpExtensions.cs
+@@ -13,6 +13,7 @@ public static class ResultHttpExtensions
+         {
+             NotFoundError => StatusCodes.Status404NotFound,
+             ValidationError => StatusCodes.Status400BadRequest,
++            StatementImportTimeoutError => StatusCodes.Status504GatewayTimeout,
+             _ => StatusCodes.Status409Conflict,
+         },
+         extensions: new Dictionary<string, object?> { ["code"] = error.Code });
+diff --git a/src/Billing.Api/Api/StatementEndpoints.cs b/src/Billing.Api/Api/StatementEndpoints.cs
+new file mode 100644
+index 0000000..83770ef
+--- /dev/null
++++ b/src/Billing.Api/Api/StatementEndpoints.cs
+@@ -0,0 +1,25 @@
++using Billing.Api.Application.Handlers.Statements;
++using Microsoft.AspNetCore.Http.Features;
++
++namespace Billing.Api.Api;
++
++public static class StatementEndpoints
++{
++    private const int BufferThreshold = 1024 * 1024;
++
++    public static IEndpointRouteBuilder MapStatementEndpoints(this IEndpointRouteBuilder app)
++    {
++        app.MapPost("/statements", async (HttpRequest request, ImportStatementHandler handler, CancellationToken ct) =>
++        {
++            var sizeLimit = request.HttpContext.Features.Get<IHttpMaxRequestBodySizeFeature>();
++            if (sizeLimit is { IsReadOnly: false })
++                sizeLimit.MaxRequestBodySize = StatementLimits.MaxBytes;
++            request.EnableBuffering(BufferThreshold, StatementLimits.MaxBytes);
++
++            return (await handler.HandleAsync(new ImportStatementCommand(request.Body, request.ContentType), ct))
++                .ToHttp(s => Results.Ok(new { rows = s.Rows, matched = s.Matched, paid = s.Paid, unmatched = s.Unmatched }));
++        });
++
++        return app;
++    }
++}
+diff --git a/src/Billing.Api/Application/Abstractions/IBankStatusGateway.cs b/src/Billing.Api/Application/Abstractions/IBankStatusGateway.cs
+new file mode 100644
+index 0000000..9ebff26
+--- /dev/null
++++ b/src/Billing.Api/Application/Abstractions/IBankStatusGateway.cs
+@@ -0,0 +1,6 @@
++namespace Billing.Api.Application.Abstractions;
++
++public interface IBankStatusGateway
++{
++    Task<bool> IsSettledAsync(string paymentRef, CancellationToken ct);
++}
+diff --git a/src/Billing.Api/Application/Handlers/Statements/ImportStatementHandler.cs b/src/Billing.Api/Application/Handlers/Statements/ImportStatementHandler.cs
+new file mode 100644
+index 0000000..aff333a
+--- /dev/null
++++ b/src/Billing.Api/Application/Handlers/Statements/ImportStatementHandler.cs
+@@ -0,0 +1,108 @@
++using System.Collections.Concurrent;
++using Billing.Api.Application.Abstractions;
++using Billing.Api.Application.Handlers.Invoices;
++using Billing.Api.Domain;
++using Microsoft.Extensions.Logging;
++
++namespace Billing.Api.Application.Handlers.Statements;
++
++public sealed record ImportStatementCommand(Stream Content, string? ContentType);
++
++public sealed record StatementSummary(int Rows, int Matched, int Paid, int Unmatched);
++
++public sealed record MatchedPayment(string PaymentRef, Invoice Invoice);
++
++public sealed class ImportStatementHandler(
++    ImportStatementValidator validator,
++    IStatementArchive archive,
++    IInvoiceRepository invoices,
++    IBankStatusGateway bank,
++    PayInvoiceHandler payInvoice,
++    TimeProvider clock,
++    ILogger<ImportStatementHandler> logger)
++{
++    public async Task<Result<StatementSummary>> HandleAsync(ImportStatementCommand command, CancellationToken ct)
++    {
++        if (validator.Check(command) is { } error)
++            return error;
++
++        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
++        timeout.CancelAfter(StatementLimits.ImportTimeout);
++        try
++        {
++            return await ImportAsync(command.Content, timeout.Token);
++        }
++        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
++        {
++            logger.LogWarning("Statement import exceeded {Timeout} and was aborted", StatementLimits.ImportTimeout);
++            return new StatementImportTimeoutError(StatementLimits.ImportTimeout);
++        }
++    }
++
++    private async Task<Result<StatementSummary>> ImportAsync(Stream content, CancellationToken ct)
++    {
++        var fileName = $"statement-{clock.GetUtcNow():yyyyMMdd}-{Guid.NewGuid():N}.csv";
++        await archive.SaveAsync(fileName, content, ct);
++        content.Position = 0;
++
++        var issued = await invoices.ListByStatusAsync(InvoiceStatus.Issued, ct);
++        var matcher = new InvoiceMatcher(issued);
++
++        var matched = new List<MatchedPayment>();
++        var rows = await ParseAndMatchAsync(content, matcher, matched, ct);
++        if (rows is null)
++            return new ValidationError("rows", $"Statement has more than {StatementLimits.MaxRows} rows");
++
++        var settled = new ConcurrentBag<MatchedPayment>();
++        var options = new ParallelOptions
++        {
++            MaxDegreeOfParallelism = StatementLimits.StatusCheckParallelism,
++            CancellationToken = ct,
++        };
++        await Parallel.ForEachAsync(matched, options, async (payment, token) =>
++        {
++            if (await bank.IsSettledAsync(payment.PaymentRef, token))
++                settled.Add(payment);
++        });
++
++        var paid = 0;
++        foreach (var payment in settled)
++        {
++            var result = await payInvoice.HandleAsync(new PayInvoiceCommand(payment.Invoice.Id), ct);
++            if (result.IsSuccess)
++                paid++;
++        }
++
++        var summary = new StatementSummary(rows.Value, matched.Count, paid, rows.Value - matched.Count);
++        logger.LogInformation(
++            "Statement {FileName} imported: {Rows} rows, {Matched} matched, {Paid} paid, {Unmatched} unmatched",
++            fileName, summary.Rows, summary.Matched, summary.Paid, summary.Unmatched);
++        return summary;
++    }
++
++    private static async Task<int?> ParseAndMatchAsync(
++        Stream content, InvoiceMatcher matcher, List<MatchedPayment> matched, CancellationToken ct)
++    {
++        var taken = new HashSet<InvoiceId>();
++        var rows = 0;
++
++        using var reader = new StreamReader(content, leaveOpen: true);
++        await reader.ReadLineAsync(ct);
++        while (await reader.ReadLineAsync(ct) is { } line)
++        {
++            if (line.Length == 0)
++                continue;
++            if (++rows > StatementLimits.MaxRows)
++                return null;
++
++            if (rows % StatementLimits.CancellationCheckEvery == 0)
++                ct.ThrowIfCancellationRequested();
++
++            if (StatementRow.TryParse(line) is not { } row)
++                continue;
++            if (matcher.Match(row) is { } invoice && taken.Add(invoice.Id))
++                matched.Add(new MatchedPayment(row.PaymentRef, invoice));
++        }
++        return rows;
++    }
++}
+diff --git a/src/Billing.Api/Application/Handlers/Statements/ImportStatementValidator.cs b/src/Billing.Api/Application/Handlers/Statements/ImportStatementValidator.cs
+new file mode 100644
+index 0000000..0beb5c8
+--- /dev/null
++++ b/src/Billing.Api/Application/Handlers/Statements/ImportStatementValidator.cs
+@@ -0,0 +1,17 @@
++using Billing.Api.Application.Validation;
++using FluentValidation;
++
++namespace Billing.Api.Application.Handlers.Statements;
++
++public sealed class ImportStatementValidator : BillingValidator<ImportStatementCommand>
++{
++    public ImportStatementValidator()
++    {
++        RuleFor(x => x.ContentType)
++            .NotEmpty()
++            .MaximumLength(StatementLimits.MaxContentTypeLength)
++            .Must(t => t!.StartsWith("text/csv", StringComparison.OrdinalIgnoreCase))
++            .WithMessage("Content-Type must be text/csv");
++        RuleFor(x => x.Content).Must(s => s.CanSeek).WithMessage("Content must be seekable");
++    }
++}
+diff --git a/src/Billing.Api/Application/Handlers/Statements/InvoiceMatcher.cs b/src/Billing.Api/Application/Handlers/Statements/InvoiceMatcher.cs
+new file mode 100644
+index 0000000..0eeaa1e
+--- /dev/null
++++ b/src/Billing.Api/Application/Handlers/Statements/InvoiceMatcher.cs
+@@ -0,0 +1,86 @@
++using System.Text.RegularExpressions;
++using Billing.Api.Domain;
++
++namespace Billing.Api.Application.Handlers.Statements;
++
++public sealed class InvoiceMatcher
++{
++    private static readonly Regex TokenSeparator = new(@"[^\p{L}\p{N}-]+", RegexOptions.Compiled);
++
++    private readonly Dictionary<(long Minor, string Currency), List<(Invoice Invoice, string Text)>> _byAmount = new();
++
++    public InvoiceMatcher(IEnumerable<Invoice> issued)
++    {
++        foreach (var invoice in issued)
++        {
++            var key = (invoice.Amount.Minor, invoice.Amount.Currency.ToUpperInvariant());
++            if (!_byAmount.TryGetValue(key, out var list))
++                _byAmount[key] = list = [];
++            list.Add((invoice, invoice.Id.ToString().ToLowerInvariant()));
++        }
++    }
++
++    public Invoice? Match(StatementRow row)
++    {
++        if (!_byAmount.TryGetValue((row.AmountMinor, row.Currency), out var candidates))
++            return null;
++
++        var tokens = TokenSeparator.Split(row.Purpose.ToLowerInvariant())
++            .Where(static t => t.Length > 0)
++            .ToArray();
++        if (tokens.Length == 0)
++            return null;
++
++        Invoice? best = null;
++        var bestDistance = int.MaxValue;
++        var ambiguous = false;
++        foreach (var (invoice, text) in candidates)
++        {
++            var distance = tokens.Min(t => Levenshtein.Bounded(t, text, StatementLimits.MaxLevenshteinDistance));
++            if (distance > StatementLimits.MaxLevenshteinDistance)
++                continue;
++            if (distance < bestDistance)
++            {
++                best = invoice;
++                bestDistance = distance;
++                ambiguous = false;
++            }
++            else if (distance == bestDistance)
++            {
++                ambiguous = true;
++            }
++        }
++        return ambiguous ? null : best;
++    }
++}
++
++public static class Levenshtein
++{
++    /// <summary>Расстояние Левенштейна; если оно больше max, возвращает max + 1.</summary>
++    public static int Bounded(string a, string b, int max)
++    {
++        if (Math.Abs(a.Length - b.Length) > max)
++            return max + 1;
++
++        var prev = new int[b.Length + 1];
++        var curr = new int[b.Length + 1];
++        for (var j = 0; j <= b.Length; j++)
++            prev[j] = j;
++
++        for (var i = 1; i <= a.Length; i++)
++        {
++            curr[0] = i;
++            var rowMin = curr[0];
++            for (var j = 1; j <= b.Length; j++)
++            {
++                var cost = a[i - 1] == b[j - 1] ? 0 : 1;
++                curr[j] = Math.Min(Math.Min(prev[j] + 1, curr[j - 1] + 1), prev[j - 1] + cost);
++                rowMin = Math.Min(rowMin, curr[j]);
++            }
++            if (rowMin > max)
++                return max + 1;
++            (prev, curr) = (curr, prev);
++        }
++        return Math.Min(prev[b.Length], max + 1);
++    }
++}
+diff --git a/src/Billing.Api/Application/Handlers/Statements/StatementLimits.cs b/src/Billing.Api/Application/Handlers/Statements/StatementLimits.cs
+new file mode 100644
+index 0000000..74f2b85
+--- /dev/null
++++ b/src/Billing.Api/Application/Handlers/Statements/StatementLimits.cs
+@@ -0,0 +1,14 @@
++namespace Billing.Api.Application.Handlers.Statements;
++
++public static class StatementLimits
++{
++    public const long MaxBytes = 50L * 1024 * 1024;
++    public const int MaxRows = 200_000;
++    public const int MaxLineLength = 1_000;
++    public const int MaxPaymentRefLength = 64;
++    public const int MaxContentTypeLength = 100;
++    public const int MaxLevenshteinDistance = 2;
++    public const int StatusCheckParallelism = 100;
++    public const int CancellationCheckEvery = 256;
++    public static readonly TimeSpan ImportTimeout = TimeSpan.FromMinutes(2);
++}
+diff --git a/src/Billing.Api/Application/Handlers/Statements/StatementRow.cs b/src/Billing.Api/Application/Handlers/Statements/StatementRow.cs
+new file mode 100644
+index 0000000..0de416d
+--- /dev/null
++++ b/src/Billing.Api/Application/Handlers/Statements/StatementRow.cs
+@@ -0,0 +1,24 @@
++using System.Globalization;
++
++namespace Billing.Api.Application.Handlers.Statements;
++
++public sealed record StatementRow(DateOnly Date, long AmountMinor, string Currency, string PaymentRef, string Purpose)
++{
++    public static StatementRow? TryParse(string line)
++    {
++        if (line.Length > StatementLimits.MaxLineLength)
++            return null;
++        var parts = line.Split(';', 5);
++        if (parts.Length != 5)
++            return null;
++        if (!DateOnly.TryParse(parts[0], CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
++            return null;
++        if (!long.TryParse(parts[1], NumberStyles.None, CultureInfo.InvariantCulture, out var amount) || amount <= 0)
++            return null;
++        var currency = parts[2].Trim();
++        var paymentRef = parts[3].Trim();
++        if (currency.Length != 3 || paymentRef.Length is 0 or > StatementLimits.MaxPaymentRefLength)
++            return null;
++        return new StatementRow(date, amount, currency.ToUpperInvariant(), paymentRef, parts[4]);
++    }
++}
+diff --git a/src/Billing.Api/Domain/Errors.cs b/src/Billing.Api/Domain/Errors.cs
+index 54e83b4..18940de 100644
+--- a/src/Billing.Api/Domain/Errors.cs
++++ b/src/Billing.Api/Domain/Errors.cs
+@@ -12,3 +12,6 @@ public sealed record InvoiceInvalidStateError(InvoiceId Id, InvoiceStatus Status
+ 
+ public sealed record ValidationError(string Field, string Message)
+     : BillingError("validation", $"{Field}: {Message}");
++
++public sealed record StatementImportTimeoutError(TimeSpan Timeout)
++    : BillingError("statement.timeout", $"Statement import did not finish in {Timeout}");
+diff --git a/src/Billing.Api/Infrastructure/Bank/BankStatusGateway.cs b/src/Billing.Api/Infrastructure/Bank/BankStatusGateway.cs
+new file mode 100644
+index 0000000..4a205d2
+--- /dev/null
++++ b/src/Billing.Api/Infrastructure/Bank/BankStatusGateway.cs
+@@ -0,0 +1,9 @@
++using Billing.Api.Application.Abstractions;
++
++namespace Billing.Api.Infrastructure.Bank;
++
++public sealed class BankStatusGateway(BankClient bank) : IBankStatusGateway
++{
++    public async Task<bool> IsSettledAsync(string paymentRef, CancellationToken ct) =>
++        await bank.GetPaymentStatusAsync(paymentRef, ct) == BankPaymentStatus.Settled;
++}
+diff --git a/src/Billing.Api/Modules/BankModule.cs b/src/Billing.Api/Modules/BankModule.cs
+index 0420ff4..64ed803 100644
+--- a/src/Billing.Api/Modules/BankModule.cs
++++ b/src/Billing.Api/Modules/BankModule.cs
+@@ -13,6 +13,7 @@ public static class BankModule
+         services.AddHttpClient<BankClient>((sp, http) =>
+                 http.BaseAddress = new Uri(sp.GetRequiredService<IOptions<BankOptions>>().Value.BaseUrl))
+             .AddStandardResilienceHandler();
++        services.AddScoped<IBankStatusGateway, BankStatusGateway>();
+         services.AddSingleton<IStatementArchive, FileStatementArchive>();
+         return services;
+     }
+diff --git a/src/Billing.Api/Modules/StatementsModule.cs b/src/Billing.Api/Modules/StatementsModule.cs
+new file mode 100644
+index 0000000..ce59c28
+--- /dev/null
++++ b/src/Billing.Api/Modules/StatementsModule.cs
+@@ -0,0 +1,13 @@
++using Billing.Api.Application.Handlers.Statements;
++
++namespace Billing.Api.Modules;
++
++public static class StatementsModule
++{
++    public static IServiceCollection AddStatementsModule(this IServiceCollection services)
++    {
++        services.AddScoped<ImportStatementValidator>();
++        services.AddScoped<ImportStatementHandler>();
++        return services;
++    }
++}
+diff --git a/src/Billing.Api/Program.cs b/src/Billing.Api/Program.cs
+index 324b4a4..a962ed3 100644
+--- a/src/Billing.Api/Program.cs
++++ b/src/Billing.Api/Program.cs
+@@ -11,7 +11,9 @@ builder.Services.AddFx();
+ builder.Services.AddBank();
+ builder.Services.AddApi();
+ builder.Services.AddInvoicesModule();
++builder.Services.AddStatementsModule();
+ 
+ var app = builder.Build();
+ app.MapInvoiceEndpoints();
++app.MapStatementEndpoints();
+ app.Run();

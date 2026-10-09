@@ -171,7 +171,7 @@
     "id": "dotnet-async-in",
     "mode": "in-scope",
     "expect": "dex-skill-dotnet-async-patterns:dotnet-async-patterns",
-    "prompt": "В C# сервисе висит запрос: внутри синхронно ждём результат асинхронного метода. Как правильно переписать и как отменять по таймауту?"
+    "prompt": "В C# сервисе метод помечен async, но внутри Task.Run оборачивает синхронное чтение файла, хотя у этого API есть асинхронная версия. Как переписать?"
   },
   {
     "id": "dotnet-caching-in",
@@ -183,7 +183,7 @@
     "id": "dotnet-code-quality-in",
     "mode": "in-scope",
     "expect": "dex-skill-dotnet-code-quality:dotnet-code-quality",
-    "prompt": "Билд .NET проекта сыпет предупреждениями, их все игнорируют. Как включить контроль и не утонуть в подавлениях?"
+    "prompt": "В .NET решении включили категории анализаторов в .editorconfig, а правила безопасности так и не стали ошибками сборки; NuGet-аудит молчит про транзитивные уязвимости. Что не так с настройкой?"
   },
   {
     "id": "dotnet-csproj-in",
@@ -204,12 +204,6 @@
     "prompt": "Наш HttpClient в C# валится, когда соседний сервис моргает. Хочу повторы и защиту, но боюсь задублировать платежи."
   },
   {
-    "id": "dotnet-resources-in",
-    "mode": "in-scope",
-    "expect": "dex-skill-dotnet-resources:dotnet-resources",
-    "prompt": "В .NET сервисе память растёт весь день и не отдаётся после сборки мусора, а исходящие HTTP-запросы со временем начинают падать. Что не освобождается?"
-  },
-  {
     "id": "dotnet-testing-in",
     "mode": "in-scope",
     "expect": "dex-skill-dotnet-testing-patterns:dotnet-testing-patterns",
@@ -219,7 +213,7 @@
     "id": "dotnet-validation-in",
     "mode": "in-scope",
     "expect": "dex-skill-dotnet-validation:dotnet-validation",
-    "prompt": "В .NET API прилетает DTO с пустыми полями и отрицательной суммой, падает уже в базе. Где и как проверять вход, и что отдавать клиенту?"
+    "prompt": "В .NET API у входного DTO строки без ограничения длины, а список правил принимается любого размера и без проверки самих правил. Как навести порядок в FluentValidation?"
   },
   {
     "id": "elasticsearch-in",

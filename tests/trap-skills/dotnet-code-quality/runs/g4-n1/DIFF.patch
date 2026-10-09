@@ -1,0 +1,251 @@
+diff --git a/.github/workflows/notifications.yml b/.github/workflows/notifications.yml
+new file mode 100644
+index 0000000..ee14cb1
+--- /dev/null
++++ b/.github/workflows/notifications.yml
+@@ -0,0 +1,24 @@
++name: notifications
++
++on:
++  push:
++    paths:
++      - 'services/notifications/**'
++  pull_request:
++    paths:
++      - 'services/notifications/**'
++
++jobs:
++  build-test:
++    runs-on: ubuntu-latest
++    defaults:
++      run:
++        working-directory: services/notifications
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-dotnet@v4
++        with:
++          dotnet-version: 8.0.x
++      - run: dotnet restore Billing.Notifications.sln
++      - run: dotnet build Billing.Notifications.sln --no-restore -c Release
++      - run: dotnet test Billing.Notifications.sln --no-build -c Release
+diff --git a/services/notifications/.editorconfig b/services/notifications/.editorconfig
+new file mode 100644
+index 0000000..4d7f415
+--- /dev/null
++++ b/services/notifications/.editorconfig
+@@ -0,0 +1,7 @@
++root = true
++
++[*.cs]
++dotnet_analyzer_diagnostic.category-Design.severity = warning
++dotnet_analyzer_diagnostic.category-Reliability.severity = warning
++dotnet_analyzer_diagnostic.category-Security.severity = warning
++dotnet_analyzer_diagnostic.category-Performance.severity = warning
+diff --git a/services/notifications/Billing.Notifications.sln b/services/notifications/Billing.Notifications.sln
+new file mode 100644
+index 0000000..b6d0bba
+--- /dev/null
++++ b/services/notifications/Billing.Notifications.sln
+@@ -0,0 +1,76 @@
++﻿
++Microsoft Visual Studio Solution File, Format Version 12.00
++# Visual Studio Version 17
++VisualStudioVersion = 17.0.31903.59
++MinimumVisualStudioVersion = 10.0.40219.1
++Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Notifications.Api", "Notifications.Api\Notifications.Api.csproj", "{2C5EAEC8-CB3C-43A2-8BE8-638C093D4385}"
++EndProject
++Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Notifications.Domain", "Notifications.Domain\Notifications.Domain.csproj", "{7887EAEA-7069-42F4-91CF-F4860A2EA863}"
++EndProject
++Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Notifications.Infrastructure", "Notifications.Infrastructure\Notifications.Infrastructure.csproj", "{C562D30E-5695-4A87-A183-A6C40ED92FB4}"
++EndProject
++Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Notifications.Tests", "Notifications.Tests\Notifications.Tests.csproj", "{E6C4A24D-A0CF-4F48-B736-87CD485F956C}"
++EndProject
++Global
++	GlobalSection(SolutionConfigurationPlatforms) = preSolution
++		Debug|Any CPU = Debug|Any CPU
++		Debug|x64 = Debug|x64
++		Debug|x86 = Debug|x86
++		Release|Any CPU = Release|Any CPU
++		Release|x64 = Release|x64
++		Release|x86 = Release|x86
++	EndGlobalSection
++	GlobalSection(ProjectConfigurationPlatforms) = postSolution
++		{2C5EAEC8-CB3C-43A2-8BE8-638C093D4385}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
++		{2C5EAEC8-CB3C-43A2-8BE8-638C093D4385}.Debug|Any CPU.Build.0 = Debug|Any CPU
++		{2C5EAEC8-CB3C-43A2-8BE8-638C093D4385}.Debug|x64.ActiveCfg = Debug|Any CPU
++		{2C5EAEC8-CB3C-43A2-8BE8-638C093D4385}.Debug|x64.Build.0 = Debug|Any CPU
++		{2C5EAEC8-CB3C-43A2-8BE8-638C093D4385}.Debug|x86.ActiveCfg = Debug|Any CPU
++		{2C5EAEC8-CB3C-43A2-8BE8-638C093D4385}.Debug|x86.Build.0 = Debug|Any CPU
++		{2C5EAEC8-CB3C-43A2-8BE8-638C093D4385}.Release|Any CPU.ActiveCfg = Release|Any CPU
++		{2C5EAEC8-CB3C-43A2-8BE8-638C093D4385}.Release|Any CPU.Build.0 = Release|Any CPU
++		{2C5EAEC8-CB3C-43A2-8BE8-638C093D4385}.Release|x64.ActiveCfg = Release|Any CPU
++		{2C5EAEC8-CB3C-43A2-8BE8-638C093D4385}.Release|x64.Build.0 = Release|Any CPU
++		{2C5EAEC8-CB3C-43A2-8BE8-638C093D4385}.Release|x86.ActiveCfg = Release|Any CPU
++		{2C5EAEC8-CB3C-43A2-8BE8-638C093D4385}.Release|x86.Build.0 = Release|Any CPU
++		{7887EAEA-7069-42F4-91CF-F4860A2EA863}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
++		{7887EAEA-7069-42F4-91CF-F4860A2EA863}.Debug|Any CPU.Build.0 = Debug|Any CPU
++		{7887EAEA-7069-42F4-91CF-F4860A2EA863}.Debug|x64.ActiveCfg = Debug|Any CPU
++		{7887EAEA-7069-42F4-91CF-F4860A2EA863}.Debug|x64.Build.0 = Debug|Any CPU
++		{7887EAEA-7069-42F4-91CF-F4860A2EA863}.Debug|x86.ActiveCfg = Debug|Any CPU
++		{7887EAEA-7069-42F4-91CF-F4860A2EA863}.Debug|x86.Build.0 = Debug|Any CPU
++		{7887EAEA-7069-42F4-91CF-F4860A2EA863}.Release|Any CPU.ActiveCfg = Release|Any CPU
++		{7887EAEA-7069-42F4-91CF-F4860A2EA863}.Release|Any CPU.Build.0 = Release|Any CPU
++		{7887EAEA-7069-42F4-91CF-F4860A2EA863}.Release|x64.ActiveCfg = Release|Any CPU
++		{7887EAEA-7069-42F4-91CF-F4860A2EA863}.Release|x64.Build.0 = Release|Any CPU
++		{7887EAEA-7069-42F4-91CF-F4860A2EA863}.Release|x86.ActiveCfg = Release|Any CPU
++		{7887EAEA-7069-42F4-91CF-F4860A2EA863}.Release|x86.Build.0 = Release|Any CPU
++		{C562D30E-5695-4A87-A183-A6C40ED92FB4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
++		{C562D30E-5695-4A87-A183-A6C40ED92FB4}.Debug|Any CPU.Build.0 = Debug|Any CPU
++		{C562D30E-5695-4A87-A183-A6C40ED92FB4}.Debug|x64.ActiveCfg = Debug|Any CPU
++		{C562D30E-5695-4A87-A183-A6C40ED92FB4}.Debug|x64.Build.0 = Debug|Any CPU
++		{C562D30E-5695-4A87-A183-A6C40ED92FB4}.Debug|x86.ActiveCfg = Debug|Any CPU
++		{C562D30E-5695-4A87-A183-A6C40ED92FB4}.Debug|x86.Build.0 = Debug|Any CPU
++		{C562D30E-5695-4A87-A183-A6C40ED92FB4}.Release|Any CPU.ActiveCfg = Release|Any CPU
++		{C562D30E-5695-4A87-A183-A6C40ED92FB4}.Release|Any CPU.Build.0 = Release|Any CPU
++		{C562D30E-5695-4A87-A183-A6C40ED92FB4}.Release|x64.ActiveCfg = Release|Any CPU
++		{C562D30E-5695-4A87-A183-A6C40ED92FB4}.Release|x64.Build.0 = Release|Any CPU
++		{C562D30E-5695-4A87-A183-A6C40ED92FB4}.Release|x86.ActiveCfg = Release|Any CPU
++		{C562D30E-5695-4A87-A183-A6C40ED92FB4}.Release|x86.Build.0 = Release|Any CPU
++		{E6C4A24D-A0CF-4F48-B736-87CD485F956C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
++		{E6C4A24D-A0CF-4F48-B736-87CD485F956C}.Debug|Any CPU.Build.0 = Debug|Any CPU
++		{E6C4A24D-A0CF-4F48-B736-87CD485F956C}.Debug|x64.ActiveCfg = Debug|Any CPU
++		{E6C4A24D-A0CF-4F48-B736-87CD485F956C}.Debug|x64.Build.0 = Debug|Any CPU
++		{E6C4A24D-A0CF-4F48-B736-87CD485F956C}.Debug|x86.ActiveCfg = Debug|Any CPU
++		{E6C4A24D-A0CF-4F48-B736-87CD485F956C}.Debug|x86.Build.0 = Debug|Any CPU
++		{E6C4A24D-A0CF-4F48-B736-87CD485F956C}.Release|Any CPU.ActiveCfg = Release|Any CPU
++		{E6C4A24D-A0CF-4F48-B736-87CD485F956C}.Release|Any CPU.Build.0 = Release|Any CPU
++		{E6C4A24D-A0CF-4F48-B736-87CD485F956C}.Release|x64.ActiveCfg = Release|Any CPU
++		{E6C4A24D-A0CF-4F48-B736-87CD485F956C}.Release|x64.Build.0 = Release|Any CPU
++		{E6C4A24D-A0CF-4F48-B736-87CD485F956C}.Release|x86.ActiveCfg = Release|Any CPU
++		{E6C4A24D-A0CF-4F48-B736-87CD485F956C}.Release|x86.Build.0 = Release|Any CPU
++	EndGlobalSection
++	GlobalSection(SolutionProperties) = preSolution
++		HideSolutionNode = FALSE
++	EndGlobalSection
++EndGlobal
+diff --git a/services/notifications/Directory.Build.props b/services/notifications/Directory.Build.props
+new file mode 100644
+index 0000000..6a920c2
+--- /dev/null
++++ b/services/notifications/Directory.Build.props
+@@ -0,0 +1,12 @@
++<Project>
++  <PropertyGroup>
++    <TargetFramework>net8.0</TargetFramework>
++    <Nullable>enable</Nullable>
++    <ImplicitUsings>enable</ImplicitUsings>
++    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
++    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
++    <NuGetAudit>true</NuGetAudit>
++    <NuGetAuditMode>all</NuGetAuditMode>
++    <NuGetAuditLevel>low</NuGetAuditLevel>
++  </PropertyGroup>
++</Project>
+diff --git a/services/notifications/Notifications.Api/Notifications.Api.csproj b/services/notifications/Notifications.Api/Notifications.Api.csproj
+new file mode 100644
+index 0000000..8177bf8
+--- /dev/null
++++ b/services/notifications/Notifications.Api/Notifications.Api.csproj
+@@ -0,0 +1,6 @@
++<Project Sdk="Microsoft.NET.Sdk.Web">
++  <ItemGroup>
++    <ProjectReference Include="..\Notifications.Domain\Notifications.Domain.csproj" />
++    <ProjectReference Include="..\Notifications.Infrastructure\Notifications.Infrastructure.csproj" />
++  </ItemGroup>
++</Project>
+diff --git a/services/notifications/Notifications.Api/Program.cs b/services/notifications/Notifications.Api/Program.cs
+new file mode 100644
+index 0000000..234f254
+--- /dev/null
++++ b/services/notifications/Notifications.Api/Program.cs
+@@ -0,0 +1,7 @@
++var builder = WebApplication.CreateBuilder(args);
++
++var app = builder.Build();
++app.MapGet("/health", () => Results.Ok(new { status = "Healthy" }));
++app.Run();
++
++public partial class Program;
+diff --git a/services/notifications/Notifications.Domain/AssemblyMarker.cs b/services/notifications/Notifications.Domain/AssemblyMarker.cs
+new file mode 100644
+index 0000000..f377169
+--- /dev/null
++++ b/services/notifications/Notifications.Domain/AssemblyMarker.cs
+@@ -0,0 +1,3 @@
++namespace Notifications.Domain;
++
++public static class AssemblyMarker;
+diff --git a/services/notifications/Notifications.Domain/Notifications.Domain.csproj b/services/notifications/Notifications.Domain/Notifications.Domain.csproj
+new file mode 100644
+index 0000000..35e3d84
+--- /dev/null
++++ b/services/notifications/Notifications.Domain/Notifications.Domain.csproj
+@@ -0,0 +1,2 @@
++<Project Sdk="Microsoft.NET.Sdk">
++</Project>
+diff --git a/services/notifications/Notifications.Infrastructure/AssemblyMarker.cs b/services/notifications/Notifications.Infrastructure/AssemblyMarker.cs
+new file mode 100644
+index 0000000..5cccaa3
+--- /dev/null
++++ b/services/notifications/Notifications.Infrastructure/AssemblyMarker.cs
+@@ -0,0 +1,3 @@
++namespace Notifications.Infrastructure;
++
++public static class AssemblyMarker;
+diff --git a/services/notifications/Notifications.Infrastructure/Notifications.Infrastructure.csproj b/services/notifications/Notifications.Infrastructure/Notifications.Infrastructure.csproj
+new file mode 100644
+index 0000000..e51f538
+--- /dev/null
++++ b/services/notifications/Notifications.Infrastructure/Notifications.Infrastructure.csproj
+@@ -0,0 +1,5 @@
++<Project Sdk="Microsoft.NET.Sdk">
++  <ItemGroup>
++    <ProjectReference Include="..\Notifications.Domain\Notifications.Domain.csproj" />
++  </ItemGroup>
++</Project>
+diff --git a/services/notifications/Notifications.Tests/HealthEndpointTests.cs b/services/notifications/Notifications.Tests/HealthEndpointTests.cs
+new file mode 100644
+index 0000000..2960336
+--- /dev/null
++++ b/services/notifications/Notifications.Tests/HealthEndpointTests.cs
+@@ -0,0 +1,17 @@
++using System.Net;
++using Microsoft.AspNetCore.Mvc.Testing;
++
++namespace Notifications.Tests;
++
++public class HealthEndpointTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
++{
++    [Fact]
++    public async Task Health_ReturnsOk()
++    {
++        using var client = factory.CreateClient();
++
++        var response = await client.GetAsync("/health");
++
++        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
++    }
++}
+diff --git a/services/notifications/Notifications.Tests/Notifications.Tests.csproj b/services/notifications/Notifications.Tests/Notifications.Tests.csproj
+new file mode 100644
+index 0000000..6d76e2a
+--- /dev/null
++++ b/services/notifications/Notifications.Tests/Notifications.Tests.csproj
+@@ -0,0 +1,17 @@
++<Project Sdk="Microsoft.NET.Sdk">
++  <PropertyGroup>
++    <IsPackable>false</IsPackable>
++  </PropertyGroup>
++  <ItemGroup>
++    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.11" />
++    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
++    <PackageReference Include="xunit" Version="2.9.2" />
++    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
++  </ItemGroup>
++  <ItemGroup>
++    <ProjectReference Include="..\Notifications.Api\Notifications.Api.csproj" />
++  </ItemGroup>
++  <ItemGroup>
++    <Using Include="Xunit" />
++  </ItemGroup>
++</Project>

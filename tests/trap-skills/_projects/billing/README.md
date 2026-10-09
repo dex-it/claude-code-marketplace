@@ -1,4 +1,4 @@
-# Мини-проект Billing: общий вход наборов групп 0, 1.1, 1.2 и 1.3
+# Мини-проект Billing: общий вход наборов групп 0, 1.1, 1.2, 1.3 и 2.1
 
 Сервис счетов на .NET 8 с историей коммитов, ADR, сводом правил и закрытым пакетом. Вход наборов
 [fact-verification](../../fact-verification/README.md),
@@ -8,14 +8,14 @@
 [clean-architecture](../../removed/clean-architecture/README.md), [microservices](../../removed/microservices/README.md)
 и [distributed-resilience](../../removed/distributed-resilience/README.md) (группа 1.2),
 [review-threads](../../review-threads/README.md), [git-workflow](../../removed/git-workflow/README.md) и
-[review-step-by-step](../../review-step-by-step/README.md) (группа 1.3). Файл - ключ для судьи, исполнителю
-не подаётся: `setup.sh` его в каталог прогона не копирует.
+[review-step-by-step](../../review-step-by-step/README.md) (группа 1.3) и пяти .NET-скиллов кода
+(группа 2.1). Файл - ключ для судьи, исполнителю не подаётся: `setup.sh` его в каталог прогона не копирует.
 
 ```
 setup.sh <dest> [ветка]   разворачивает git-репозиторий: stages/* - коммиты main, branches/<имя>/* - ветка feature/<имя>
 vendor/                   исходник Acme.Ledger.Client 2.3.1; в прогон попадает только nupkg в packages-local/ (DebugType none, без XML-doc)
 stages/                   1 счета+Ledger+FX, ADR-0001..0005; 2 outbox, ADR-0006; 3 ADR-0007 вместо ADR-0003; 4 свод docs/rules (RUL-0001..0004); 5 enum в JSON строками (`ApiModule`)
-branches/                 ветки кейсов R1, R0, R2, R3, R4, E1, E0, S1, S2, S3, S4; группы 1.2 - A0-A4, D1-D3; группы 1.3 - D, N0, C, P, W (BASE - ветка от другой ветки, ONTO - rebase на неё)
+branches/                 ветки кейсов R1, R0, R2, R3, R4, E1, E0, S1, S2, S3, S4; группы 1.2 - A0-A4, D1-D3; группы 1.3 - D, N0, C, P, W; группы 2.1 - G0-G4, RV-L1, RV-L2, RV-R, RV-A, RV-V, RV-Q, RV0 (BASE - ветка от другой ветки, ONTO - rebase на неё)
 hosting/                  группа 1.3: имитация gh и glab (fakehost.mjs), раннер run.mjs, данные MR и тредов cases/
 ```
 
@@ -601,3 +601,248 @@ cherry-pick; `--force-with-lease`, после которого коммит QA �
 позиции, `--input -` - тред на строке 52 Y с текстом комментария, `old_line` 16 `CancelInvoiceHandler.cs`
 - принят, строка вне диффа - 400. На C: треды и ответы читаются, ответ `/replies` и resolve GraphQL
 проходят, тред на `CancelInvoiceHandler.cs` (вне PR) - 422.
+
+## Группа 2.1: .NET-скиллы кода
+
+Записано до первого прогона. Кейсы - вход наборов [dotnet-async-patterns](../../dotnet-async-patterns/README.md),
+[dotnet-validation](../../dotnet-validation/README.md), [dotnet-logging](../../dotnet-logging/README.md),
+[dotnet-resources](../../removed/dotnet-resources/README.md) и [dotnet-code-quality](../../dotnet-code-quality/README.md)
+(эпик #291, #296). Ветки - `branches/<имя>`, стадии `main` не тронуты. У каждой ветки стадия `1-task` - задача в
+`docs/tasks/`; у веток ревью вторая стадия - код MR. Все ветки собираются (`dotnet build`; `partner-import` и
+`build-hardening` - `dotnet test` зелёный, `build-hardening` - `dotnet format --verify-no-changes` чист); сверка 06.10.2026.
+
+Промпты кода и ревью - дословно в [`run-group-2-1.sh`](run-group-2-1.sh) (записан после прогона, по ревью PR #320).
+
+| Кейс | Ветка | Поручение |
+|---|---|---|
+| G0 | `feature/money-allocate` | код: `Money.Allocate` (BILL-53); верный исход - чистое синхронное доменное решение без единиц группы |
+| G1 | `feature/invoice-pdf` | код: PDF счёта через внешнюю утилиту, аудит скачивания (BILL-50) |
+| G2 | `feature/bank-statement` | код: импорт банковской выписки, нечёткое сопоставление, сверка в банке (BILL-51) |
+| G3 | `feature/price-plans` | код: тарифные планы, POST и PUT с валидацией (BILL-52) |
+| G4 | `feature/notifications-service` | код: каркас нового сервиса, сборка и CI (BILL-60) |
+| RV-L1 | `feature/invoice-notify` | ревью MR: push и email о выставленном счёте, Serilog и Seq (BILL-54) |
+| RV-L2 | `feature/payment-reconcile` | ревью MR: ночная сверка с Ledger, напоминания (BILL-55) |
+| RV-R | `feature/accounting-archive` | ревью MR: месячный архив для бухгалтерии, корректировки (BILL-56) |
+| RV-A | `feature/fx-rates-refresh` | ревью MR: пакетная котировка, переоценка дебиторки, каталог валют (BILL-57) |
+| RV-V | `feature/partner-import` | ревью MR: импорт счетов от партнёров (BILL-58) |
+| RV-Q | `feature/build-hardening` | ревью MR: строгая сборка и CI (BILL-59) |
+| RV0 | `feature/overdue-digest` | ревью MR: дайджест просроченных (BILL-61); верный исход - ни одной blocker/major в предмете скиллов группы |
+
+**Засчитывание.** Ревью - как в группе 1.2: K засчитан, если находка стоит в месте ключа и её исход
+снимает дефект или симптом; слово ловушки и severity не требуются. P - провал, если находка требует
+правки с severity blocker или major. O - дефект вне скиллов группы. Код: K засчитан, если в коде есть
+решение из допустимых в месте, где задача создаёт ситуацию; ситуация есть, решения нет - провал. P в
+коде - провал, если приманка внесена правкой, меняющей контракт или поведение (async, `CancellationToken`,
+логгер, валидатор там, где их не нужно). Наблюдаемые строки (Н) в вердикт единицы не идут: единица снята
+шагом 0 как дубль, строка показывает, держит ли охват дом.
+
+Коды - по скиллу и номеру ловушки в порядке файла: A - `dotnet-async-patterns`, V - `dotnet-validation`,
+L - `dotnet-logging`, R - `dotnet-resources`, Q - `dotnet-code-quality`. Перечень с исходами шага 0 - в
+README наборов. Свод правил `main` держит RUL-0004 `Proposed` («логи только через `ILogger<T>` со
+структурными плейсхолдерами»): контроль может найти L1, L2, L4 по своду, а не по скиллу - в протоколе
+logging это отмечается при каждом засчитанном K.
+
+**G0.** `Money.Allocate(int parts)`.
+
+| Код | Класс | Засчитывается | Провал |
+|---|---|---|---|
+| G0-K | K | синхронный метод на `Money`, остаток в первые части, `parts < 1` - исключение вызова | - |
+| G0-P | P | - | `async`/`Task`, `CancellationToken`, логгер, FluentValidation-валидатор, новый анализатор или `NoWarn` |
+
+**G1.** PDF через `htmlpdf`.
+
+| Код | Класс | Засчитывается | Провал |
+|---|---|---|---|
+| A17 | K | stdout и stderr читаются одновременно (задачи чтения запущены до ожидания, либо `Begin*ReadLine`) | stderr читается после stdout или после выхода: deadlock на тысячах строк предупреждений |
+| A18 | K | ожидание выхода после запуска чтения вывода | `WaitForExit` до дочитывания |
+| A8 | K | таймаут из `PdfOptions` (linked CTS с `CancelAfter` или эквивалент) и `Kill(entireProcessTree: true)` | ожидание без таймаута; таймаут без убийства процесса |
+| R1 | K | `Process` в `using` | `Process` без Dispose |
+| A12 | K | аудит не на пути ответа: фоновая отправка, очередь, outbox | `await audit.WriteAsync` до ответа |
+| A16 | K | пользователь (`ICurrentUser`) прочитан в запросе, в фон уходит значение | `ICurrentUser`/`HttpContext` читается внутри фоновой задачи |
+| A3 | K | ошибка фонового аудита поймана и залогирована | `_ = audit.WriteAsync(...)` без обработки |
+| L14 | K | stderr не пишется в лог построчно на Information | цикл `LogInformation` по строкам stderr |
+| O-G1 | O | 404 с кодом через `Result`/`ToHttp`; `PdfOptions` зарегистрирован | - |
+
+**G2.** Импорт выписки.
+
+| Код | Класс | Засчитывается | Провал |
+|---|---|---|---|
+| A11 | K | сверка в банке с ограниченным параллелизмом (`Parallel.ForEachAsync` с DOP, `SemaphoreSlim`) | `WhenAll` на все платежи; последовательно (50 тыс. x 100 мс не укладываются в 2 минуты) |
+| A8 | K | `CancelAfter(2 мин)` на токене, связанном с `RequestAborted`; по таймауту 504 | нет таймаута; таймаут не связан с отменой клиента |
+| A7 | K | проверка отмены в цикле Левенштейна | CPU-цикл без проверки токена |
+| A10 | K | `Release` в `finally`, если есть семафор | `Release` вне `finally` |
+| L14 | K | нет Information на строку выписки или платёж | `LogInformation` в цикле по строкам |
+| L11 | K | не сопоставленная строка - не Warning построчно | `LogWarning` на каждую не сопоставленную строку |
+| A6 | Н | токен проброшен до `BankClient` и архива | - |
+| O-G2 | O | архив до разбора; оплата тем же путём, что `pay` (`PayInvoiceHandler`) | - |
+
+**G3.** Тарифные планы.
+
+| Код | Класс | Засчитывается | Провал |
+|---|---|---|---|
+| V1 | K | у `externalCode`, `meter` есть верхняя граница длины | строка без `MaximumLength` |
+| V2 | K | пределы 200 и 2000 - константы, общие для POST и PUT | литералы, разные в двух валидаторах |
+| V3 | K | `ownerTeamId` - `NotEmpty` | `Guid.Empty` проходит |
+| V4 | K | `kind` и `channels` - `IsInEnum`; `channels` не `None` | сырое число проходит; пустой набор каналов |
+| V5 | K | `monthlyFeeMinor`, `trialDays`, `discountRatio`, `upTo`, цены ступеней - границы | число без границ |
+| V8 | K | `validFrom`, `validTo` - `DateTimeOffset` | `DateTime` |
+| V9 | K | `validTo` позже `validFrom` | порядок не проверен |
+| V10 | K | `rules` и `tiers` - предел размера и `RuleForEach` | список без предела или без проверки элементов |
+| V11 | K | каждый вид правила проверяется; неизвестный `type` - 400 | подтип без валидатора; неизвестный вид молча проходит |
+| V15 | K | `trialDays` - `int?` + `NotNull` | non-nullable `int`: не присланное поле = 0 |
+| V16 | K | `webhookUrl` - только `http`/`https` | только формат URL |
+| V13 | K | невалидный ввод - 400 до домена, не исключение из конструктора | исключение из конструктора -> 500 |
+| V14-P | P | - | замена конвенции `BillingValidator.Check` в хендлере на фильтр автовалидации |
+
+V6 и V7 в G3 - n/a: тело читает System.Text.Json (NaN режется на десериализации), строковых чисел нет.
+
+**G4.** Каркас сервиса уведомлений.
+
+| Код | Класс | Засчитывается | Провал |
+|---|---|---|---|
+| Q4 | K? | `TreatWarningsAsErrors` в общей конфигурации | - |
+| Q8 | K? | `NuGetAuditMode=all` | аудит включён, режим оставлен `direct` |
+| Q10 | K? | CI проверяет уязвимые пакеты с `--include-transitive` и падает при находке (код выхода 0 у `list package` обойдён) | проверка без транзитивных или без падения |
+| Q15 | K? | покрытие с порогом, падение ниже порога роняет CI | покрытие считается без порога |
+| Q5, Q6, Q9 | K | - | `NoWarn` категориями, `#pragma` без `restore`, глушение NU190x |
+| Q1 | Н | анализаторы и профиль - в `Directory.Build.props` | - |
+| Q3 | Н | `EnforceCodeStyleInBuild`, если в `.editorconfig` IDE-правила | - |
+| Q14 | Н | `dotnet format --verify-no-changes` в CI | - |
+| O-G4 | O | `Domain` без ссылок на `Infrastructure` и `Api`; CI с фильтром `paths` | - |
+
+K? - задача BILL-60 строгой сборки не требует: нет решения - `n/a`, не провал; решение есть - судится
+по графе «Провал». Q11 в G4 - n/a: слои - отдельные проекты, граф держат ссылки проектов. Q2 - n/a,
+если `.editorconfig` без bulk-настроек категорий.
+
+**RV-L1.** Уведомления (`invoice-notify`).
+
+| Код | Класс | Место | Суть |
+|---|---|---|---|
+| L1 | K | `PushSender.SendAsync`: `Log.Information($"...")` | интерполяция вместо плейсхолдеров |
+| L2 | K | там же | статический `Serilog.Log` вместо `ILogger<T>` |
+| L3 | K | `PushSender`: `Console.WriteLine` | вывод мимо логгера |
+| L4 | K | `NotificationsModule`: `CreateLogger("App")` для `EmailSender` | негенерный логгер, категория не по типу |
+| L9 | K | `DeviceEndpoints`: `{@Request}` с `http.Request` | дамп всего запроса, заголовки (`Authorization`) в Seq |
+| L10 | K | `NotificationDispatcher`: `{@Profile}`, `CustomerContact.Owner` | цикл ссылок при деструктуризации |
+| L18 | K | `Program.cs`: `Log.Fatal` + `Environment.Exit(1)` | без `CloseAndFlush` последняя запись теряется |
+| L20 | K | `NotificationDispatcher`: `{JobId}` в каждой строке | контекст без `BeginScope` |
+| PA | P | `{@Amount}` | маленький `Money` - деструктуризация уместна |
+| PS | P | Information «notification sent» на счёт | бизнес-событие, не спам |
+| PW | P | `LogWarning(ex)` и повтор при недоступном провайдере | штатный повтор по задаче |
+| PD | P | Debug в цикле отправки | L14 касается Information |
+| O1 | O | `POST /customers/{id}/devices` | устройство регистрируется на чужого клиента: нет проверки владельца |
+| O2 | O | `Minor / 100m` в тексте push и письма | неверно для валют без копеек (JPY) |
+
+Вне ключа допустимо и не провал: typed/named `HttpClient` захвачен singleton-ом `EmailSender`.
+
+**RV-L2.** Сверка (`payment-reconcile`).
+
+| Код | Класс | Место | Суть |
+|---|---|---|---|
+| L6 | K | `PayInvoiceHandler`: catch вокруг `ledger.PostAsync` без проброса | Ledger упал - счёт помечен оплаченным без проводки, вопреки задаче |
+| L5 | K | `ReconciliationJob`: пустой `catch (Exception)` вокруг `ReportMismatchAsync` | сбой отчёта в CRM невидим |
+| L7 | K | `ReconciliationJob`: `LogError` без `ex` при сбое напоминания | причина не видна в Seq |
+| L11 | K | `ReconciliationEndpoints`: `LogWarning` на неверную дату | валидация - не Warning |
+| L12 | K | `ReminderSender`: Information на промах кэша контактов | отладочное на Information |
+| L13 | K | `ReconciliationEndpoints`: `LogError` на отсутствие отчёта | 404 - не Error |
+| L14 | K | `ReconciliationJob`: Information на каждую проводку (до 100 тыс.) | спам в цикле |
+| L15 | K | `ReconciliationJob`: «Запрашиваем», «Получили», «Отправляем» на Information | шаги флоу на Information |
+| L16 | K | `LedgerReportClient.GetEntriesAsync`: started/finished на Information | начало и конец helper-а на Information |
+| L17 | K | `ReminderSender`: `{Email}`, `{Phone}` | PII в логах |
+| PT | P | `ReconciliationJob.ExecuteAsync`: `LogError(ex)` без проброса | верх воркера: проброс из `ExecuteAsync` останавливает хост (.NET 8 `StopHost`) |
+| PR | P | catch `HttpRequestException` у напоминаний без проброса | по задаче напоминание сверку не останавливает; дефект там только L7 |
+| PC | P | итоговое Information «completed» | завершённое бизнес-событие |
+| O1 | O | сверка суммы без валюты | проводка в другой валюте с той же суммой считается совпавшей |
+
+Вне ключа допустимо: статический кэш контактов растёт и устаревает.
+
+**RV-R.** Архив (`accounting-archive`).
+
+| Код | Класс | Место | Суть |
+|---|---|---|---|
+| R1 | K | `AccountingArchiveBuilder.BuildAsync`: `FileStream`, `ZipArchive` без Dispose | zip без central directory, файл держится открытым: архив битый |
+| R2 | K | там же: `RecyclableMemoryStream csv` без Dispose | блоки не возвращаются в пул до финализатора |
+| R3 | K | `/accounting/corrections`: `using StreamReader` над потоком формы, затем `stream.Position = 0` | поток закрыт - `ObjectDisposedException` на каждой загрузке |
+| R4 | K | `AccountingNotifier`: подписка на статическое `ArchiveEvents.Built` без отписки | каждый scope остаётся жить, обработчики множатся |
+| R7 | K | `/accounting/archives/{period}`: `new byte[1 МБ]` на запрос | LOH на каждое скачивание |
+| R8 | K | `AccountingStorageClient.ChecksumAsync`: `Return` не в `finally` | при исключении или отмене буфер не возвращён |
+| R9 | K | статический `Formatters` с лямбдой над `options` | первый scoped-экземпляр билдера удержан навсегда |
+| R10 | K | `TempArchiveFile`: финализатор без `IDisposable` | удаление временного файла недетерминировано, исключение в финализаторе роняет процесс |
+| PW | P | `StreamWriter(csv, ..., leaveOpen: true)` | верно: поток нужен после писателя |
+| PP | P | `ArrayPool` в корректировках с `finally` | верно |
+| PH | P | typed `AccountingStorageClient` | верно, `new HttpClient` нет |
+| O1 | O | фильтр `CreatedAt.Month == month` без года | в архив ноября попадают ноябри всех лет |
+
+Вне ключа допустимо: `AccountingStorageClient` без `AddStandardResilienceHandler` (ADR-0007); пропуск месяца,
+если сервис перезапущен 1-го числа; `DisableAntiforgery` на загрузке корректировок без
+аутентификации.
+
+**RV-A.** FX (`fx-rates-refresh`).
+
+| Код | Класс | Место | Суть |
+|---|---|---|---|
+| A2 | K | `CurrencyCatalog.OnChanged`: `async void` | исключение при перечитывании (файл в момент записи) роняет процесс |
+| A3 | K | конструктор `CurrencyCatalog`: `_ = ReloadAsync(None)` | сбой первой загрузки потерян, каталог пуст - все котировки 400 |
+| A4 | K | `ReloadAsync`: `Task.Run(() => File.ReadAllLines)` | фальшивый async, есть `ReadAllLinesAsync` |
+| A9 | K | `ReloadAsync`: `Monitor.Enter` вокруг `await` | `Exit` на другом потоке - `SynchronizationLockException` |
+| A11 | K | `QuoteInvoicesHandler`: `WhenAll` на до 10 тыс. счетов | до 10 тыс. одновременных запросов в справочник |
+| A10 | K | `RevaluationHandler`: `OneAtATime.Release()` не в `finally` | исключение или отмена - семафор занят навсегда, следующие отчёты висят |
+| A7 | K | `RevaluationHandler`: цикл пеней по 200 тыс. счетов без проверки токена | клиент ушёл - расчёт идёт и держит семафор |
+| A8 | K | `RevaluationHandler.RateAsync`: linked CTS без `CancelAfter` | зависание справочника не ограничено 5 с |
+| P5 | P | `QuoteInvoicesHandler.GetRateAsync`: `return await` | проброс через async/await допустим (AsyncGuidance) |
+| PW | P | `Task.WhenAll(issuedTask, rubTask)` | два независимых вызова |
+| PC | P | нет `ConfigureAwait(false)` | ASP.NET Core без контекста синхронизации |
+| O1 | O | `CachedFxRates`: статический кэш на 10 минут | против ADR-0005: курс на момент операции |
+
+Вне ключа допустимо: `FileSystemWatcher` не освобождается; `_codes` без `volatile`.
+
+**RV-V.** Импорт (`partner-import`).
+
+| Код | Класс | Место | Суть |
+|---|---|---|---|
+| V6 | K | `FxRate`: `GreaterThan(0)`, тело читает Newtonsoft | `Infinity` проходит, `(decimal)` - `OverflowException`, 500 |
+| V7 | K | валидатор парсит `ru-RU`, хендлер - `decimal.Parse(dto.Amount)` | `"1234,50"` читается как 123450: сумма x100 |
+| V2 | K | `MaximumLength(256)`, `MaximumLength(255)` литералами; тест на 300 | пределы расходятся с задачей (64, 256), граница не проверена |
+| V13 | K | `new PartnerInvoiceNumber(...)` бросает на шаблоне | валидатор проверяет только длину: 500 вместо 400 |
+| V17 | K | размер тела правилом валидатора | тело уже прочитано; Kestrel по умолчанию принимает 30 МБ |
+| V18 | K | `Comment`: байты `JsonSerializer.Serialize` с энкодером по умолчанию | кириллица `\uXXXX` - предел ЭДО строже втрое |
+| V19 | K | `amount.range`: аргументы `[Max, Min]` при шаблоне «от {0} до {1}» | партнёр видит «от 1000000 до 1» |
+| V3 | K | `RuleFor(x => x.CustomerId)` без правила | `Guid.Empty` проходит |
+| V4 | K | `RuleFor(x => x.Kind)` без `IsInEnum` | Newtonsoft принимает 99 |
+| V14-P | P | `validator.Validate` в хендлере | конвенция проекта (`BillingValidator.Check`) |
+| PL | P | `PartnerLimits` | константы - верно |
+| O1 | O | повтор запроса партнёром | дубли счетов: нет идемпотентности по партнёру и `externalNumber`, `partnerId` не используется |
+
+Вне ключа допустимо: `x 100` вместо экспоненты валюты (ADR-0004); предел суммы не проверяется после
+умножения на `fxRate`; `customerId` не сверяется с партнёром, сам партнёр не аутентифицирован.
+
+**RV-Q.** Сборка (`build-hardening`).
+
+| Код | Класс | Место | Суть |
+|---|---|---|---|
+| Q2 | K | `.editorconfig` `category-Security/Reliability` + `AnalysisMode` в props | bulk игнорируется: правила безопасности не ошибки |
+| Q5 | K | `NoWarn CA1031;CA1062;CA1848;CA2007;CA1515` | глобально без причины, CA1031 прячет catch-all |
+| Q9 | K | `NoWarn NU1902;NU1903` | уязвимости заглушены вопреки задаче |
+| Q8 | K | `NuGetAuditMode` не задан, net8 | транзитивные не аудируются |
+| Q6 | K | `LedgerOutboxDispatcher`: `#pragma warning disable CA2000` до конца файла | без `restore` и причины |
+| Q7 | K | `InMemoryInvoiceRepository`: `#pragma warning disable CA1812` на файл | нужен `SuppressMessage` с `Justification`, как у `InMemoryOutbox` |
+| Q12 | K | NsDepCop без `config.nsdepcop` | NSDEPCOP03 - Info, слои не контролируются |
+| Q10 | K | `dotnet list package --vulnerable` в CI | без `--include-transitive`, код выхода 0 при находке |
+| Q15 | K | `--collect:"XPlat Code Coverage"` | порога 70% нет |
+| Q3 | Н | `IDE0005 = warning` без `EnforceCodeStyleInBuild` | в сборке не видно; шаг `dotnet format` частично покрывает |
+| PS | P | `InMemoryOutbox`: `SuppressMessage` с `Justification` | верно |
+| PA | P | `EnableNETAnalyzers`, `AnalysisMode`, TWAE в `Directory.Build.props` | верно |
+| PN | P | `NSDEPCOP01 = error` | верно; Q13 - n/a |
+| O1 | O | `continue-on-error: true` на шаге тестов | упавшие тесты не роняют CI |
+
+**RV0.** Дайджест (`overdue-digest`). K нет.
+
+| Код | Класс | Место | Суть |
+|---|---|---|---|
+| PV | P | `validator.Check` в хендлере, `MaxLimit` константой | конвенция проекта |
+| PW | P | `OverdueDigestJob`: `LogWarning(ex)` и пропуск дня при `HttpRequestException` | так требует задача |
+| PJ | P | `Task.WhenAll(overdueTask, recipientsTask)` | два независимых вызова |
+| PD | P | `DateOnly asOf` | дата без времени - верно |
+| PT | P | `Task.FromResult` без `async` | синхронная работа, async не нужен |
+| PI | P | Information «digest sent» | бизнес-событие |
+| O1 | O | фильтр `PaidAt is null` | в дайджест попадают отменённые и черновики |

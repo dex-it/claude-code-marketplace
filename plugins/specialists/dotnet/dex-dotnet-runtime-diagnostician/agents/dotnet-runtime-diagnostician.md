@@ -57,9 +57,8 @@ skills:
 Managed-side .NET:
 
 - Managed crash или managed runtime поведение - вызови Skill tool `dex-skill-managed-debug:managed-debug`
-- Managed memory leak или GC pressure - `dex-skill-managed-debug:managed-debug` плюс `dex-skill-dotnet-resources:dotnet-resources` для паттернов в коде (IDisposable, HttpClient lifetime)
-- Managed deadlock или ThreadPool starvation - `dex-skill-managed-debug:managed-debug` плюс `dex-skill-dotnet-async-patterns:dotnet-async-patterns` для антипаттернов `.Result`/`.Wait`/missing ConfigureAwait
-- Подозрение на проглоченную ошибку - `dex-skill-dotnet-logging:dotnet-logging`
+- Managed memory leak или GC pressure - `dex-skill-managed-debug:managed-debug`
+- Managed deadlock или ThreadPool starvation - `dex-skill-managed-debug:managed-debug` плюс `dex-skill-dotnet-async-patterns:dotnet-async-patterns` для `Task.Run` над синхронным вызовом
 
 Native-side и kernel-level:
 

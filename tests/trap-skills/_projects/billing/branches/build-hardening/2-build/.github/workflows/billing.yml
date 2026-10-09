@@ -1,0 +1,20 @@
+name: billing
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - run: dotnet restore Billing.sln
+      - run: dotnet format Billing.sln --verify-no-changes --no-restore
+      - run: dotnet build Billing.sln --no-restore -c Release
+      - run: dotnet test Billing.sln --no-build -c Release --collect:"XPlat Code Coverage"
+        continue-on-error: true
+      - run: dotnet list Billing.sln package --vulnerable

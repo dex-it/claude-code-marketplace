@@ -1,0 +1,12 @@
+Directory.Build.props:6 - NU1902;NU1903 в NoWarn глушат предупреждения аудита уязвимых пакетов (moderate/high), при TreatWarningsAsErrors сборка не падает на известных уязвимостях, требование BILL-59 не выполнено - blocker
+.github/workflows/billing.yml:20 - `dotnet list package --vulnerable` всегда завершается с кодом 0 (и без --include-transitive не смотрит транзитивные), шаг не остановит CI при уязвимостях - blocker
+.github/workflows/billing.yml:19 - `continue-on-error: true` на dotnet test: упавшие тесты не валят CI и MR смержится с красными тестами - blocker
+.github/workflows/billing.yml:19 - порог покрытия 70% строк не проверяется (collector только собирает отчёт, gate нет), покрытие может упасть без реакции - major
+Directory.Build.props:9 - у NsDepCop нет конфига (config.nsdepcop в репозитории отсутствует), правило слоёв «Domain ни от чего не зависит» не задано и ничего не проверяет, NSDEPCOP01=error в .editorconfig пустой - major
+Directory.Build.props:8 - условие IsTestProject вычисляется до объявления свойства в csproj (props импортируется раньше), поэтому NsDepCop подключается и в тестовый проект; условие не работает - minor
+src/Billing.Api/Infrastructure/Ledger/LedgerOutboxDispatcher.cs:6 - `#pragma warning disable CA2000` без restore на весь файл глушит правило надёжности (category-Reliability=error) для всего кода класса, будущие утечки IDisposable не будут пойманы - major
+src/Billing.Api/Infrastructure/Persistence/InMemoryInvoiceRepository.cs:1 - файловый `#pragma warning disable CA1812` без restore и без обоснования, в соседнем InMemoryOutbox то же сделано через SuppressMessage с Justification - непоследовательно, лишнее глушение - minor
+Directory.Build.props:5 - глобальный NoWarn CA1031;CA1062;CA1848;CA2007;CA1515 отключает правила Recommended на весь решение (в т.ч. Reliability CA2007/CA1031), строгость из BILL-59 частично сведена на нет без обоснования - minor
+.github/workflows/billing.yml:3 - триггеры push и pull_request без ограничений: на каждый коммит в ветке с PR сборка идёт дважды, впустую тратятся минуты CI - minor
+.github/workflows/billing.yml:1 - нет блока permissions, GITHUB_TOKEN получает права по умолчанию (возможно write), для сборки достаточно contents: read - minor
+tests/Billing.Api.Tests/MoneyTests.cs:1 - два теста на Money при требовании покрытия 70% строк: покрытие сервиса (handlers, endpoints) близко к нулю, а gate нет; тест-проект с TreatWarningsAsErrors может упасть на CA1707/CA1515-подобных правилах без проверки сборкой - minor

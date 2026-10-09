@@ -1,0 +1,303 @@
+diff --git a/src/Billing.Api/Api/StatementEndpoints.cs b/src/Billing.Api/Api/StatementEndpoints.cs
+new file mode 100644
+index 0000000..bba158a
+--- /dev/null
++++ b/src/Billing.Api/Api/StatementEndpoints.cs
+@@ -0,0 +1,37 @@
++using Billing.Api.Application.Handlers.Statements;
++using Microsoft.AspNetCore.Http.Features;
++
++namespace Billing.Api.Api;
++
++public static class StatementEndpoints
++{
++    private const long MaxBodyBytes = 50L * 1024 * 1024;
++    private static readonly TimeSpan ImportTimeout = TimeSpan.FromMinutes(2);
++
++    public static IEndpointRouteBuilder MapStatementEndpoints(this IEndpointRouteBuilder app)
++    {
++        app.MapPost("/statements", async (HttpRequest request, ImportStatementHandler handler, TimeProvider clock, CancellationToken ct) =>
++        {
++            if (!string.Equals(request.ContentType?.Split(';')[0].Trim(), "text/csv", StringComparison.OrdinalIgnoreCase))
++                return Results.Problem("Content-Type must be text/csv", statusCode: StatusCodes.Status415UnsupportedMediaType);
++
++            request.HttpContext.Features.Get<IHttpMaxRequestBodySizeFeature>()!.MaxRequestBodySize = MaxBodyBytes;
++            request.EnableBuffering(bufferThreshold: 64 * 1024, bufferLimit: MaxBodyBytes);
++
++            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
++            timeout.CancelAfter(ImportTimeout);
++            var fileName = $"statement-{clock.GetUtcNow():yyyyMMdd}-{Guid.NewGuid():N}.csv";
++            try
++            {
++                return (await handler.HandleAsync(new ImportStatementCommand(fileName, request.Body), timeout.Token))
++                    .ToHttp(s => Results.Ok(new { lines = s.Lines, matched = s.Matched, paid = s.Paid, unmatched = s.Unmatched }));
++            }
++            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
++            {
++                return Results.Problem("Statement import timed out", statusCode: StatusCodes.Status504GatewayTimeout);
++            }
++        });
++
++        return app;
++    }
++}
+diff --git a/src/Billing.Api/Application/Handlers/Statements/ImportStatementHandler.cs b/src/Billing.Api/Application/Handlers/Statements/ImportStatementHandler.cs
+new file mode 100644
+index 0000000..33d2884
+--- /dev/null
++++ b/src/Billing.Api/Application/Handlers/Statements/ImportStatementHandler.cs
+@@ -0,0 +1,145 @@
++using System.Globalization;
++using Billing.Api.Application.Abstractions;
++using Billing.Api.Application.Handlers.Invoices;
++using Billing.Api.Domain;
++using Billing.Api.Infrastructure.Bank;
++
++namespace Billing.Api.Application.Handlers.Statements;
++
++// Content должен быть перематываемым: сначала он уходит в архив, затем читается заново.
++public sealed record ImportStatementCommand(string FileName, Stream Content);
++
++public sealed class ImportStatementHandler(
++    IStatementArchive archive,
++    IInvoiceRepository invoices,
++    BankClient bank,
++    PayInvoiceHandler payInvoice,
++    ImportStatementValidator validator,
++    ILogger<ImportStatementHandler> logger)
++{
++    private const int MaxTypos = 2;
++    private const int BankParallelism = 100;
++    private const string Header = "дата;сумма_в_копейках;валюта;референс_платежа;назначение";
++
++    public async Task<Result<StatementImportSummary>> HandleAsync(ImportStatementCommand command, CancellationToken ct)
++    {
++        using var scope = logger.BeginScope("Statement {FileName}", command.FileName);
++
++        await archive.SaveAsync(command.FileName, command.Content, ct);
++        command.Content.Position = 0;
++
++        var parsed = await ParseAsync(command.Content, ct);
++        if (parsed is null)
++            return new ValidationError("header", $"Expected first line: {Header}");
++        if (validator.Check(parsed) is { } error)
++            return error;
++
++        var matches = await MatchAsync(parsed.Rows, ct);
++        var paid = 0;
++        var bankFailures = 0;
++        await Parallel.ForEachAsync(matches, new ParallelOptions
++        {
++            MaxDegreeOfParallelism = BankParallelism,
++            CancellationToken = ct,
++        }, async (match, token) =>
++        {
++            try
++            {
++                if (await bank.GetPaymentStatusAsync(match.PaymentRef, token) != BankPaymentStatus.Settled)
++                    return;
++            }
++            catch (Exception ex) when (ex is not OperationCanceledException)
++            {
++                Interlocked.Increment(ref bankFailures);
++                return;
++            }
++
++            if ((await payInvoice.HandleAsync(new PayInvoiceCommand(match.InvoiceId), token)).IsSuccess)
++                Interlocked.Increment(ref paid);
++        });
++
++        var lines = parsed.Rows.Count + parsed.MalformedLines;
++        var summary = new StatementImportSummary(lines, matches.Count, paid, lines - matches.Count);
++        if (bankFailures > 0)
++            logger.LogWarning("Bank status check failed for {BankFailures} payments", bankFailures);
++        logger.LogInformation("Statement imported: {Lines} lines, {Matched} matched, {Paid} paid",
++            summary.Lines, summary.Matched, summary.Paid);
++        return summary;
++    }
++
++    private static async Task<ParsedStatement?> ParseAsync(Stream content, CancellationToken ct)
++    {
++        using var reader = new StreamReader(content, leaveOpen: true);
++        if (await reader.ReadLineAsync(ct) is not { } header || header.Trim().TrimStart('﻿') != Header)
++            return null;
++
++        var rows = new List<StatementRow>();
++        var malformed = 0;
++        while (await reader.ReadLineAsync(ct) is { } line)
++        {
++            if (string.IsNullOrWhiteSpace(line))
++                continue;
++            var parts = line.Split(';', 5);
++            if (parts.Length == 5
++                && DateOnly.TryParse(parts[0], CultureInfo.InvariantCulture, out var date)
++                && long.TryParse(parts[1], NumberStyles.None, CultureInfo.InvariantCulture, out var amount))
++                rows.Add(new StatementRow(date, amount, parts[2], parts[3], parts[4]));
++            else
++                malformed++;
++        }
++
++        return new ParsedStatement(rows, malformed);
++    }
++
++    private async Task<List<MatchedPayment>> MatchAsync(IReadOnlyList<StatementRow> rows, CancellationToken ct)
++    {
++        var issued = await invoices.ListByStatusAsync(InvoiceStatus.Issued, ct);
++        var byAmount = issued
++            .GroupBy(i => (i.Amount.Minor, i.Amount.Currency))
++            .ToDictionary(g => g.Key, g => g.Select(i => (Invoice: i, Key: i.Id.ToString().ToLowerInvariant())).ToList());
++
++        var claimed = new HashSet<InvoiceId>();
++        var matches = new List<MatchedPayment>();
++        foreach (var row in rows)
++        {
++            ct.ThrowIfCancellationRequested();
++            if (!byAmount.TryGetValue((row.AmountMinor, row.Currency), out var candidates))
++                continue;
++            if (FindInvoice(row.Purpose, candidates) is { } invoice && claimed.Add(invoice.Id))
++                matches.Add(new MatchedPayment(invoice.Id, row.PaymentRef));
++        }
++
++        return matches;
++    }
++
++    // Счёт с наименьшим расстоянием до слова назначения; при равенстве у разных счетов - не сопоставлен.
++    private static Invoice? FindInvoice(string purpose, List<(Invoice Invoice, string Key)> candidates)
++    {
++        var idLength = candidates[0].Key.Length;
++        Invoice? best = null;
++        var bestDistance = MaxTypos + 1;
++        var tie = false;
++        foreach (var token in purpose.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
++        {
++            var word = token.Trim(',', '.', ':', ';', '"', '(', ')').ToLowerInvariant();
++            if (Math.Abs(word.Length - idLength) > MaxTypos)
++                continue;
++            foreach (var (invoice, key) in candidates)
++            {
++                var distance = Levenshtein.Distance(word, key, MaxTypos);
++                if (distance < bestDistance)
++                {
++                    (best, bestDistance, tie) = (invoice, distance, false);
++                }
++                else if (distance == bestDistance && best is not null && best.Id != invoice.Id)
++                {
++                    tie = true;
++                }
++            }
++        }
++
++        return tie ? null : best;
++    }
++
++    private sealed record MatchedPayment(InvoiceId InvoiceId, string PaymentRef);
++}
+diff --git a/src/Billing.Api/Application/Handlers/Statements/ImportStatementValidator.cs b/src/Billing.Api/Application/Handlers/Statements/ImportStatementValidator.cs
+new file mode 100644
+index 0000000..55f90aa
+--- /dev/null
++++ b/src/Billing.Api/Application/Handlers/Statements/ImportStatementValidator.cs
+@@ -0,0 +1,20 @@
++using Billing.Api.Application.Validation;
++using FluentValidation;
++
++namespace Billing.Api.Application.Handlers.Statements;
++
++public sealed class ImportStatementValidator : BillingValidator<ParsedStatement>
++{
++    public const int MaxRows = 200_000;
++
++    public ImportStatementValidator()
++    {
++        RuleFor(x => x.Rows.Count).LessThanOrEqualTo(MaxRows).WithName("Rows");
++        RuleForEach(x => x.Rows).ChildRules(row =>
++        {
++            row.RuleFor(r => r.Currency).Length(3);
++            row.RuleFor(r => r.PaymentRef).MaximumLength(100);
++            row.RuleFor(r => r.Purpose).MaximumLength(1000);
++        });
++    }
++}
+diff --git a/src/Billing.Api/Application/Handlers/Statements/Levenshtein.cs b/src/Billing.Api/Application/Handlers/Statements/Levenshtein.cs
+new file mode 100644
+index 0000000..6542acc
+--- /dev/null
++++ b/src/Billing.Api/Application/Handlers/Statements/Levenshtein.cs
+@@ -0,0 +1,34 @@
++namespace Billing.Api.Application.Handlers.Statements;
++
++public static class Levenshtein
++{
++    // Возвращает расстояние либо max + 1, если оно больше max.
++    public static int Distance(string a, string b, int max)
++    {
++        if (Math.Abs(a.Length - b.Length) > max)
++            return max + 1;
++
++        var previous = new int[b.Length + 1];
++        var current = new int[b.Length + 1];
++        for (var j = 0; j <= b.Length; j++)
++            previous[j] = j;
++
++        for (var i = 1; i <= a.Length; i++)
++        {
++            current[0] = i;
++            var rowMin = current[0];
++            for (var j = 1; j <= b.Length; j++)
++            {
++                var cost = a[i - 1] == b[j - 1] ? 0 : 1;
++                current[j] = Math.Min(Math.Min(current[j - 1] + 1, previous[j] + 1), previous[j - 1] + cost);
++                rowMin = Math.Min(rowMin, current[j]);
++            }
++
++            if (rowMin > max)
++                return max + 1;
++            (previous, current) = (current, previous);
++        }
++
++        return Math.Min(previous[b.Length], max + 1);
++    }
++}
+diff --git a/src/Billing.Api/Application/Handlers/Statements/StatementRow.cs b/src/Billing.Api/Application/Handlers/Statements/StatementRow.cs
+new file mode 100644
+index 0000000..920fdb5
+--- /dev/null
++++ b/src/Billing.Api/Application/Handlers/Statements/StatementRow.cs
+@@ -0,0 +1,7 @@
++namespace Billing.Api.Application.Handlers.Statements;
++
++public sealed record StatementRow(DateOnly Date, long AmountMinor, string Currency, string PaymentRef, string Purpose);
++
++public sealed record ParsedStatement(IReadOnlyList<StatementRow> Rows, int MalformedLines);
++
++public sealed record StatementImportSummary(int Lines, int Matched, int Paid, int Unmatched);
+diff --git a/src/Billing.Api/Modules/InvoicesModule.cs b/src/Billing.Api/Modules/InvoicesModule.cs
+index ccb1877..924c8f2 100644
+--- a/src/Billing.Api/Modules/InvoicesModule.cs
++++ b/src/Billing.Api/Modules/InvoicesModule.cs
+@@ -1,5 +1,6 @@
+ using Billing.Api.Application.Abstractions;
+ using Billing.Api.Application.Handlers.Invoices;
++using Billing.Api.Application.Handlers.Statements;
+ using Billing.Api.Infrastructure.Persistence;
+ 
+ namespace Billing.Api.Modules;
+@@ -14,6 +15,8 @@ public static class InvoicesModule
+         services.AddScoped<PayInvoiceHandler>();
+         services.AddScoped<CancelInvoiceHandler>();
+         services.AddScoped<QuoteInvoiceHandler>();
++        services.AddScoped<ImportStatementValidator>();
++        services.AddScoped<ImportStatementHandler>();
+         return services;
+     }
+ }
+diff --git a/src/Billing.Api/Program.cs b/src/Billing.Api/Program.cs
+index 324b4a4..ce05b95 100644
+--- a/src/Billing.Api/Program.cs
++++ b/src/Billing.Api/Program.cs
+@@ -14,4 +14,5 @@ builder.Services.AddInvoicesModule();
+ 
+ var app = builder.Build();
+ app.MapInvoiceEndpoints();
++app.MapStatementEndpoints();
+ app.Run();
