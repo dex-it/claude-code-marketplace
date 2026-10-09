@@ -47,7 +47,7 @@
 | [dotnet-validation](dotnet-validation/README.md) | `dex-skill-dotnet-validation` 1.2.1 | код (G3), ревью (RV-V, RV0) | 19 ловушек и чек-лист -> 3 названия; V14 снята |
 | [dotnet-logging](dotnet-logging/README.md) | `dex-skill-dotnet-logging` 2.4.1 | ревью (RV-L1, RV-L2) | 20 ловушек и чек-лист -> 4 названия |
 | [removed/dotnet-resources](removed/dotnet-resources/README.md) | `dex-skill-dotnet-resources` 1.0.1 | ревью (RV-R) | снят |
-| [dotnet-code-quality](dotnet-code-quality/README.md) | `dex-skill-dotnet-code-quality` 1.1.1 | код (G4), ревью (RV-Q) | 15 ловушек и чек-лист -> 5 названий |
+| [dotnet-code-quality](dotnet-code-quality/README.md) | `dex-skill-dotnet-code-quality` 1.1.1 | код (G4), ревью (RV-Q) | 15 ловушек и чек-лист -> 2 названия; Q4, Q11, Q13 сняты по вреду |
 | [ts-nodejs-api](ts-nodejs-api/README.md) | `dex-skill-ts-nodejs-api` 2.0.1 | поручение на код (K1), ревью (R1); общий заход группы 2.3 | 15 ловушек и чек-лист -> 1 пункт-название (env при старте) |
 | [react](react/README.md) | `dex-skill-react` 1.1.1 | поручение на код (K2), ревью (R2) | 16 ловушек и чек-лист -> 2 пункта-названия |
 | [playwright](playwright/README.md) | `dex-skill-playwright` 1.0.1 | e2e по коду и конфигу (K4, K5) | 17 ловушек и чек-лист -> 2 пункта-названия и 2 H3 как написаны (W12, W13) |
