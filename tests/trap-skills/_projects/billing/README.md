@@ -606,7 +606,7 @@ cherry-pick; `--force-with-lease`, после которого коммит QA �
 
 Записано до первого прогона. Кейсы - вход наборов [dotnet-async-patterns](../../dotnet-async-patterns/README.md),
 [dotnet-validation](../../dotnet-validation/README.md), [dotnet-logging](../../dotnet-logging/README.md),
-[dotnet-resources](../../dotnet-resources/README.md) и [dotnet-code-quality](../../dotnet-code-quality/README.md)
+[dotnet-resources](../../removed/dotnet-resources/README.md) и [dotnet-code-quality](../../dotnet-code-quality/README.md)
 (эпик #291, #296). Ветки - `branches/<имя>`, стадии `main` не тронуты. У каждой ветки стадия `1-task` - задача в
 `docs/tasks/`; у веток ревью вторая стадия - код MR. Все ветки собираются (`dotnet build`; `partner-import` и
 `build-hardening` - `dotnet test` зелёный, `build-hardening` - `dotnet format --verify-no-changes` чист); сверка 06.10.2026.

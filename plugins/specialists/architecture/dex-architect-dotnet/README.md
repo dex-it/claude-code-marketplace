@@ -32,8 +32,8 @@ capacity, implementation-план и документацию ведёт выз�
 | `dex-skill-dotnet-api-development` | Phase 4 | ASP.NET Core controllers, DTO, FluentValidation, pagination |
 | `dex-skill-dotnet-resilience` | Phase 4 | Polly: retry с idempotency / jitter, circuit breaker, timeout |
 | `dex-skill-dotnet-ef-core` | Phase 4 (conditional) | EF Core: queries, tracking, migrations, owned-types |
-| `dex-skill-dotnet-async-patterns` | Phase 4 (conditional) | Async/await, cancellation, ValueTask |
-| `dex-skill-dotnet-logging` | Phase 4 (conditional) | Serilog, ILogger, structured logging |
+| `dex-skill-dotnet-async-patterns` | Phase 4 (conditional) | `Task.Run` над синхронным вызовом, отмена в CPU-цикле |
+| `dex-skill-dotnet-logging` | Phase 4 (conditional) | Уровень записи, контекст через scope |
 | `dex-skill-dotnet-csproj-hygiene` | Phase 4 (conditional) | CPM, ProjectReference, Directory.Build.props |
 | `dex-skill-dotnet-code-quality` | Phase 4 (conditional) | Roslyn analyzers, warning-профиль, NuGet audit |
 | `dex-skill-project-baseline` | Phase 4 (conditional) | Baseline нового проекта: наследовать solution / закладка с нуля |

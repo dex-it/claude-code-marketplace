@@ -46,13 +46,12 @@ Root cause -- сформулируй гипотезу: где именно уз�
 
 Выполняй всегда после Phase 1. Не спрашивай, продолжать ли. Загружай только skills, релевантные стеку и типу проблемы.
 
-- **Всегда** -- вызови Skill tool `dex-skill-dotnet-async-patterns:dotnet-async-patterns` -- thread pool starvation, unbounded parallelism, SemaphoreSlim
-- **Всегда** -- вызови Skill tool `dex-skill-dotnet-resources:dotnet-resources` -- memory leak, GC pressure, socket exhaustion, LOH
+- **Всегда** -- вызови Skill tool `dex-skill-dotnet-async-patterns:dotnet-async-patterns` -- `Task.Run` над синхронным вызовом, отмена в долгом CPU-цикле
 - **Если EF Core или БД в стеке** -- вызови Skill tool `dex-skill-dotnet-ef-core:dotnet-ef-core` -- нетранслируемый фильтр, трекинг read-only выборки
 - **Если Redis в стеке** -- вызови Skill tool `dex-skill-redis:redis` `[справочно]` -- TTL, invalidation, serialization, distributed cache
 - **Если MongoDB в стеке** -- вызови Skill tool `dex-skill-mongodb:mongodb` `[справочно]` -- индексы, aggregation pipeline, projection
 - **Если OpenTelemetry/distributed tracing** -- вызови Skill tool `dex-skill-observability:observability` -- span coverage, correlation, sampling
-- **Если логирование на hot path** -- вызови Skill tool `dex-skill-dotnet-logging:dotnet-logging` -- structured logging, уровни, overhead
+- **Если логирование на hot path** -- вызови Skill tool `dex-skill-dotnet-logging:dotnet-logging` -- отладочные подробности и шаги флоу на Information
 - Дедупликация с Phase 1 -- сообщай только новые находки
 
 Пометь секцию **"Pass 2: Deep Pattern Scan"**.

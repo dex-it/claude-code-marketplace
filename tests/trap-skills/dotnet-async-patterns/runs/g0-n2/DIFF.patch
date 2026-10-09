@@ -1,0 +1,29 @@
+diff --git a/src/Billing.Api/Domain/Money.cs b/src/Billing.Api/Domain/Money.cs
+index 1cc7ec0..6496306 100644
+--- a/src/Billing.Api/Domain/Money.cs
++++ b/src/Billing.Api/Domain/Money.cs
+@@ -6,6 +6,24 @@ public readonly record struct Money(long Minor, string Currency)
+ 
+     public Money Subtract(Money other) => this with { Minor = Minor - Same(other).Minor };
+ 
++    public Money[] Allocate(int parts)
++    {
++        ArgumentOutOfRangeException.ThrowIfLessThan(parts, 1);
++
++        var share = Minor / parts;
++        var remainder = Minor % parts;
++        var step = Math.Sign(remainder);
++        var extra = Math.Abs(remainder);
++
++        var result = new Money[parts];
++        for (var i = 0; i < parts; i++)
++        {
++            result[i] = this with { Minor = share + (i < extra ? step : 0) };
++        }
++
++        return result;
++    }
++
+     private Money Same(Money other) => other.Currency == Currency
+         ? other
+         : throw new InvalidOperationException($"Currency mismatch: {Currency} vs {other.Currency}");

@@ -1,0 +1,216 @@
+diff --git a/.github/workflows/notifications.yml b/.github/workflows/notifications.yml
+new file mode 100644
+index 0000000..99a287e
+--- /dev/null
++++ b/.github/workflows/notifications.yml
+@@ -0,0 +1,26 @@
++name: notifications
++
++on:
++  push:
++    paths:
++      - 'services/notifications/**'
++      - '.github/workflows/notifications.yml'
++  pull_request:
++    paths:
++      - 'services/notifications/**'
++      - '.github/workflows/notifications.yml'
++
++jobs:
++  build:
++    runs-on: ubuntu-latest
++    defaults:
++      run:
++        working-directory: services/notifications
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-dotnet@v4
++        with:
++          dotnet-version: 8.0.x
++      - run: dotnet restore Billing.Notifications.sln
++      - run: dotnet build Billing.Notifications.sln --no-restore -c Release
++      - run: dotnet test Billing.Notifications.sln --no-build -c Release
+diff --git a/services/notifications/Billing.Notifications.sln b/services/notifications/Billing.Notifications.sln
+new file mode 100644
+index 0000000..cf31430
+--- /dev/null
++++ b/services/notifications/Billing.Notifications.sln
+@@ -0,0 +1,76 @@
++﻿
++Microsoft Visual Studio Solution File, Format Version 12.00
++# Visual Studio Version 17
++VisualStudioVersion = 17.0.31903.59
++MinimumVisualStudioVersion = 10.0.40219.1
++Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Notifications.Api", "Notifications.Api\Notifications.Api.csproj", "{6995C13F-D5ED-47DF-97F4-A0896BA12230}"
++EndProject
++Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Notifications.Domain", "Notifications.Domain\Notifications.Domain.csproj", "{693B5D37-5F6C-49E7-80FD-E801D30BF2C9}"
++EndProject
++Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Notifications.Infrastructure", "Notifications.Infrastructure\Notifications.Infrastructure.csproj", "{3B7EF89A-7144-49FD-AE37-CB8E79EEDBC9}"
++EndProject
++Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Notifications.Tests", "Notifications.Tests\Notifications.Tests.csproj", "{91F5B936-0F65-49E9-859D-C2A7DFDD599F}"
++EndProject
++Global
++	GlobalSection(SolutionConfigurationPlatforms) = preSolution
++		Debug|Any CPU = Debug|Any CPU
++		Debug|x64 = Debug|x64
++		Debug|x86 = Debug|x86
++		Release|Any CPU = Release|Any CPU
++		Release|x64 = Release|x64
++		Release|x86 = Release|x86
++	EndGlobalSection
++	GlobalSection(ProjectConfigurationPlatforms) = postSolution
++		{6995C13F-D5ED-47DF-97F4-A0896BA12230}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
++		{6995C13F-D5ED-47DF-97F4-A0896BA12230}.Debug|Any CPU.Build.0 = Debug|Any CPU
++		{6995C13F-D5ED-47DF-97F4-A0896BA12230}.Debug|x64.ActiveCfg = Debug|Any CPU
++		{6995C13F-D5ED-47DF-97F4-A0896BA12230}.Debug|x64.Build.0 = Debug|Any CPU
++		{6995C13F-D5ED-47DF-97F4-A0896BA12230}.Debug|x86.ActiveCfg = Debug|Any CPU
++		{6995C13F-D5ED-47DF-97F4-A0896BA12230}.Debug|x86.Build.0 = Debug|Any CPU
++		{6995C13F-D5ED-47DF-97F4-A0896BA12230}.Release|Any CPU.ActiveCfg = Release|Any CPU
++		{6995C13F-D5ED-47DF-97F4-A0896BA12230}.Release|Any CPU.Build.0 = Release|Any CPU
++		{6995C13F-D5ED-47DF-97F4-A0896BA12230}.Release|x64.ActiveCfg = Release|Any CPU
++		{6995C13F-D5ED-47DF-97F4-A0896BA12230}.Release|x64.Build.0 = Release|Any CPU
++		{6995C13F-D5ED-47DF-97F4-A0896BA12230}.Release|x86.ActiveCfg = Release|Any CPU
++		{6995C13F-D5ED-47DF-97F4-A0896BA12230}.Release|x86.Build.0 = Release|Any CPU
++		{693B5D37-5F6C-49E7-80FD-E801D30BF2C9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
++		{693B5D37-5F6C-49E7-80FD-E801D30BF2C9}.Debug|Any CPU.Build.0 = Debug|Any CPU
++		{693B5D37-5F6C-49E7-80FD-E801D30BF2C9}.Debug|x64.ActiveCfg = Debug|Any CPU
++		{693B5D37-5F6C-49E7-80FD-E801D30BF2C9}.Debug|x64.Build.0 = Debug|Any CPU
++		{693B5D37-5F6C-49E7-80FD-E801D30BF2C9}.Debug|x86.ActiveCfg = Debug|Any CPU
++		{693B5D37-5F6C-49E7-80FD-E801D30BF2C9}.Debug|x86.Build.0 = Debug|Any CPU
++		{693B5D37-5F6C-49E7-80FD-E801D30BF2C9}.Release|Any CPU.ActiveCfg = Release|Any CPU
++		{693B5D37-5F6C-49E7-80FD-E801D30BF2C9}.Release|Any CPU.Build.0 = Release|Any CPU
++		{693B5D37-5F6C-49E7-80FD-E801D30BF2C9}.Release|x64.ActiveCfg = Release|Any CPU
++		{693B5D37-5F6C-49E7-80FD-E801D30BF2C9}.Release|x64.Build.0 = Release|Any CPU
++		{693B5D37-5F6C-49E7-80FD-E801D30BF2C9}.Release|x86.ActiveCfg = Release|Any CPU
++		{693B5D37-5F6C-49E7-80FD-E801D30BF2C9}.Release|x86.Build.0 = Release|Any CPU
++		{3B7EF89A-7144-49FD-AE37-CB8E79EEDBC9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
++		{3B7EF89A-7144-49FD-AE37-CB8E79EEDBC9}.Debug|Any CPU.Build.0 = Debug|Any CPU
++		{3B7EF89A-7144-49FD-AE37-CB8E79EEDBC9}.Debug|x64.ActiveCfg = Debug|Any CPU
++		{3B7EF89A-7144-49FD-AE37-CB8E79EEDBC9}.Debug|x64.Build.0 = Debug|Any CPU
++		{3B7EF89A-7144-49FD-AE37-CB8E79EEDBC9}.Debug|x86.ActiveCfg = Debug|Any CPU
++		{3B7EF89A-7144-49FD-AE37-CB8E79EEDBC9}.Debug|x86.Build.0 = Debug|Any CPU
++		{3B7EF89A-7144-49FD-AE37-CB8E79EEDBC9}.Release|Any CPU.ActiveCfg = Release|Any CPU
++		{3B7EF89A-7144-49FD-AE37-CB8E79EEDBC9}.Release|Any CPU.Build.0 = Release|Any CPU
++		{3B7EF89A-7144-49FD-AE37-CB8E79EEDBC9}.Release|x64.ActiveCfg = Release|Any CPU
++		{3B7EF89A-7144-49FD-AE37-CB8E79EEDBC9}.Release|x64.Build.0 = Release|Any CPU
++		{3B7EF89A-7144-49FD-AE37-CB8E79EEDBC9}.Release|x86.ActiveCfg = Release|Any CPU
++		{3B7EF89A-7144-49FD-AE37-CB8E79EEDBC9}.Release|x86.Build.0 = Release|Any CPU
++		{91F5B936-0F65-49E9-859D-C2A7DFDD599F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
++		{91F5B936-0F65-49E9-859D-C2A7DFDD599F}.Debug|Any CPU.Build.0 = Debug|Any CPU
++		{91F5B936-0F65-49E9-859D-C2A7DFDD599F}.Debug|x64.ActiveCfg = Debug|Any CPU
++		{91F5B936-0F65-49E9-859D-C2A7DFDD599F}.Debug|x64.Build.0 = Debug|Any CPU
++		{91F5B936-0F65-49E9-859D-C2A7DFDD599F}.Debug|x86.ActiveCfg = Debug|Any CPU
++		{91F5B936-0F65-49E9-859D-C2A7DFDD599F}.Debug|x86.Build.0 = Debug|Any CPU
++		{91F5B936-0F65-49E9-859D-C2A7DFDD599F}.Release|Any CPU.ActiveCfg = Release|Any CPU
++		{91F5B936-0F65-49E9-859D-C2A7DFDD599F}.Release|Any CPU.Build.0 = Release|Any CPU
++		{91F5B936-0F65-49E9-859D-C2A7DFDD599F}.Release|x64.ActiveCfg = Release|Any CPU
++		{91F5B936-0F65-49E9-859D-C2A7DFDD599F}.Release|x64.Build.0 = Release|Any CPU
++		{91F5B936-0F65-49E9-859D-C2A7DFDD599F}.Release|x86.ActiveCfg = Release|Any CPU
++		{91F5B936-0F65-49E9-859D-C2A7DFDD599F}.Release|x86.Build.0 = Release|Any CPU
++	EndGlobalSection
++	GlobalSection(SolutionProperties) = preSolution
++		HideSolutionNode = FALSE
++	EndGlobalSection
++EndGlobal
+diff --git a/services/notifications/Directory.Build.props b/services/notifications/Directory.Build.props
+new file mode 100644
+index 0000000..c662701
+--- /dev/null
++++ b/services/notifications/Directory.Build.props
+@@ -0,0 +1,8 @@
++<Project>
++  <PropertyGroup>
++    <TargetFramework>net8.0</TargetFramework>
++    <Nullable>enable</Nullable>
++    <ImplicitUsings>enable</ImplicitUsings>
++    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
++  </PropertyGroup>
++</Project>
+diff --git a/services/notifications/Notifications.Api/Notifications.Api.csproj b/services/notifications/Notifications.Api/Notifications.Api.csproj
+new file mode 100644
+index 0000000..8177bf8
+--- /dev/null
++++ b/services/notifications/Notifications.Api/Notifications.Api.csproj
+@@ -0,0 +1,6 @@
++<Project Sdk="Microsoft.NET.Sdk.Web">
++  <ItemGroup>
++    <ProjectReference Include="..\Notifications.Domain\Notifications.Domain.csproj" />
++    <ProjectReference Include="..\Notifications.Infrastructure\Notifications.Infrastructure.csproj" />
++  </ItemGroup>
++</Project>
+diff --git a/services/notifications/Notifications.Api/Program.cs b/services/notifications/Notifications.Api/Program.cs
+new file mode 100644
+index 0000000..8416826
+--- /dev/null
++++ b/services/notifications/Notifications.Api/Program.cs
+@@ -0,0 +1,7 @@
++var builder = WebApplication.CreateBuilder(args);
++
++var app = builder.Build();
++app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
++app.Run();
++
++public partial class Program;
+diff --git a/services/notifications/Notifications.Domain/Notifications.Domain.csproj b/services/notifications/Notifications.Domain/Notifications.Domain.csproj
+new file mode 100644
+index 0000000..35e3d84
+--- /dev/null
++++ b/services/notifications/Notifications.Domain/Notifications.Domain.csproj
+@@ -0,0 +1,2 @@
++<Project Sdk="Microsoft.NET.Sdk">
++</Project>
+diff --git a/services/notifications/Notifications.Infrastructure/Notifications.Infrastructure.csproj b/services/notifications/Notifications.Infrastructure/Notifications.Infrastructure.csproj
+new file mode 100644
+index 0000000..e51f538
+--- /dev/null
++++ b/services/notifications/Notifications.Infrastructure/Notifications.Infrastructure.csproj
+@@ -0,0 +1,5 @@
++<Project Sdk="Microsoft.NET.Sdk">
++  <ItemGroup>
++    <ProjectReference Include="..\Notifications.Domain\Notifications.Domain.csproj" />
++  </ItemGroup>
++</Project>
+diff --git a/services/notifications/Notifications.Tests/HealthTests.cs b/services/notifications/Notifications.Tests/HealthTests.cs
+new file mode 100644
+index 0000000..afed441
+--- /dev/null
++++ b/services/notifications/Notifications.Tests/HealthTests.cs
+@@ -0,0 +1,17 @@
++using System.Net;
++using Microsoft.AspNetCore.Mvc.Testing;
++
++namespace Notifications.Tests;
++
++public class HealthTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
++{
++    [Fact]
++    public async Task Health_returns_ok()
++    {
++        var client = factory.CreateClient();
++
++        var response = await client.GetAsync("/health");
++
++        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
++    }
++}
+diff --git a/services/notifications/Notifications.Tests/Notifications.Tests.csproj b/services/notifications/Notifications.Tests/Notifications.Tests.csproj
+new file mode 100644
+index 0000000..97f980d
+--- /dev/null
++++ b/services/notifications/Notifications.Tests/Notifications.Tests.csproj
+@@ -0,0 +1,15 @@
++<Project Sdk="Microsoft.NET.Sdk">
++  <PropertyGroup>
++    <IsPackable>false</IsPackable>
++  </PropertyGroup>
++  <ItemGroup>
++    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.11" />
++    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
++    <PackageReference Include="xunit" Version="2.9.2" />
++    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
++  </ItemGroup>
++  <ItemGroup>
++    <Using Include="Xunit" />
++    <ProjectReference Include="..\Notifications.Api\Notifications.Api.csproj" />
++  </ItemGroup>
++</Project>

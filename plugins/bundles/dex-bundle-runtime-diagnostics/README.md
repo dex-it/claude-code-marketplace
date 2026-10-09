@@ -53,9 +53,7 @@ Bundle для runtime-диагностики .NET-сервисов и натив
 - `dex-netcoredbg-cli` - slash-команды-обёртки над Samsung netcoredbg (`/ncdbg-attach`, `/ncdbg-launch`, `/ncdbg-exec`, `/ncdbg-dump-stacks`)
 
 ### Skills, переиспользуемые из маркетплейса
-- `dex-skill-dotnet-async-patterns` - антипаттерны `.Result`/`.Wait` для managed deadlock
-- `dex-skill-dotnet-resources` - IDisposable, HttpClient lifetime, socket exhaustion
-- `dex-skill-dotnet-logging` - structured logging как первая линия диагностики
+- `dex-skill-dotnet-async-patterns` - `Task.Run` над синхронным вызовом, занимающий потоки пула
 - `dex-skill-deep-audit` - статический аудит компонента вокруг root cause
 - `dex-skill-observability` - OpenTelemetry, метрики, traces
 

@@ -45,7 +45,7 @@ Diagnose -> Branch -> Execute -> Verify. Diagnose и Verify обязательн
 
 **Exit criteria:** Сценарий выбран; обоснование называет конкретное наблюдение из снимка Phase 1 (значение поля, строка вывода, метрика). Без ссылки на наблюдение снимка фаза не закрыта.
 
-В этой фазе загрузить `dex-skill-dotnet-logging:dotnet-logging` через Skill tool и применить его ловушки к выбранному сценарию.
+В этой фазе загрузить `dex-skill-dotnet-logging:dotnet-logging` через Skill tool и применить его пункты к выбранному сценарию.
 
 ## Phase 3: Execute
 
