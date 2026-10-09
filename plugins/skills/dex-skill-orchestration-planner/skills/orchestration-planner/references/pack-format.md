@@ -71,7 +71,9 @@ limits: {max_parallel: 2, max_spawn: 24, depth: 1, max_attempts: 3, budget_usd: 
 Ключи латиницей: `jq` не разбирает кириллические ключи через точку. Запись задачи: `id`,
 `status` (`pending` | `running` | `done` | `failed` | `blocked` | `dropped`; `failed` -
 проверка не пройдена, задача ждёт следующей попытки), `category`, `model`, `effort`, `attempt`,
-`depends`, `report`, `evidence`, `reason` (для `blocked` и `dropped`), `tokens`, `duration_ms`.
+`depends`, `report`, `evidence`, `reason` (для `blocked` и `dropped`), `tokens`, `duration_ms`,
+`mode` (`self` | `agent` | `fork`) и `mode_reason` (способ работы и причина выбора: заполняет
+оркестратор).
 Запись `routing_log`: `task`, `axes` (`A`, `B`, `N`, `V`), `category`, `rated_by` (`planner` |
 `orchestrator` | `triage`), `outcome` (заполняет оркестратор по результату). Запись `changes`:
 `what` и `why`. Начальное состояние: все задачи `pending`, `spawned` равен нулю, у каждой задачи
