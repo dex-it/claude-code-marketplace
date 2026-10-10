@@ -292,17 +292,26 @@ const admit = (green, rev, stuck, gaps) => !green ? 'верификация по
   : !rev ? 'саморевьюер не вернул выход'
   : rev.status === 'blocked' ? `саморевью не выполнено: ${lack(rev, 'саморевьюер')}`
   : stuck.length ? `открытые P0/P1: ${stuck.map(p => `${p.id} ${p.status} - ${awaitsProbe(p) ? `нужна проба оператора: ${p.premise}` : p.evidence}`).join('; ')}` : gaps
-// Находка с пробой кодеру не подана: её P2-P3 порога не держит, но вопрос оператору не теряется.
+// Находка с пробой кодеру не подана: её P2 порога не держит, но вопрос оператору не теряется.
 const probeAsks = (r) => r.probes().filter(f => !isBlocking(f)).map(f => `${f.id} [${f.severity}] ${f.anchor}: нужна проба оператора - ${f.premise}`)
 const shaOf = (v) => String(v && v.head || '').trim().split(/\s/)[0]
 const isSha = (x) => /^[0-9a-f]{7,40}$/i.test(String(x || ''))
 // Ветку до head ревью complete уже прочли: повторное чтение всего диффа ветки - главная статья прогона дочистки.
-const priorBase = (trail) => (steps(trail).filter(e => (e.step === 3 || e.step === '3-repeat') && e.status === 'complete' && isSha(e.head)).pop() || {}).head || ''
+// Диагноз либо разведка, выведенные узлом, а не взятые из ledger, - новое намерение: ревью до них судили прежнее.
+const INTENT_STEPS = ['1-repro', '1-req']
+const priorBase = (trail) => {
+  const all = steps(trail), from = all.reduce((k, e, i) => INTENT_STEPS.includes(e.step) && !/^ledger/.test(e.doer || '') ? i : k, -1)
+  return (all.slice(from + 1).filter(e => (e.step === 3 || e.step === '3-repeat') && e.status === 'complete' && isSha(e.head)).pop() || {}).head || ''
+}
 const scope = (base) => base ? `дельта от ${base} - коммиты после него плюс рабочее дерево. Новые находки ищи в дельте, вне её - только сломанное правкой дельты; статус прежних находок перечня суди на текущем коде. ${base} не предок HEAD - ревью по всем коммитам цели.` : 'коммиты этой цели плюс рабочее дерево.'
 // Пара «новая - прежняя» - факт поля узла: какой механизм тот же, судит ревьюер, трек лишь сверяет id с поданным перечнем.
-const pairsOf = (reg, r, listed, degraded) => (r && r.status !== 'blocked' ? r.findings : []).filter(f => isFixable(f) && String(f.continues || '').trim()).map(f => {
-  const of = String(f.continues).trim(), at = reg.all().find(q => q.anchor === f.anchor && q.text === f.text)
-  if (!listed.some(q => q.id === of)) { degraded.push(`саморевьюер: находка ${f.anchor} продолжает ${of} - id вне поданного перечня, пара не принята`); return null }
+// Находка с пробой с любой стороны пары кодеру не подаётся - размотать её ему нечем (I10).
+// Запись, склеенная take по якорю и оси, хранит прежний текст: id ищется по тем же критериям, что у take.
+const pairsOf = (reg, r, listed, degraded) => (r && r.status !== 'blocked' ? r.findings : []).filter(f => isFixable(f) && !awaitsProbe(f) && String(f.continues || '').trim()).map(f => {
+  const of = String(f.continues).trim(), earlier = listed.find(q => q.id === of), shut = shutBy(r)
+  const at = reg.all().find(q => q.anchor === f.anchor && q.text === f.text) || listed.find(q => q.anchor === f.anchor && q.axis && q.axis === f.axis && !shut.includes(q.id))
+  if (!earlier) { degraded.push(`саморевьюер: находка ${f.anchor} продолжает ${of} - id вне поданного перечня, пара не принята`); return null }
+  if (awaitsProbe(earlier)) return null
   return { id: at ? at.id : f.anchor, of }
 }).filter(Boolean)
 const unwindOf = (chain, listed) => chain.length ? `\nНовый путь прежнего механизма: ${chain.map(p => `${p.id} продолжает ${p.of}`).join('; ')}. Прежние:\n${listed.filter(q => chain.some(p => p.of === q.id)).map(findingLine).join('\n')}\nРазмотай решение по всем входам и состояниям, где оно ошибается, и закрой разом; пути - в evidence записи prior.` : ''
@@ -504,11 +513,12 @@ for (let k = 1; k <= FIX_CEILING && (!passed(ver) || pending); k++) {
 }
 if (!passed(ver)) return outcome('partial', `Fix: потолок ${FIX_CEILING} исчерпан`, `дерево не зелёное после ${FIX_CEILING} попыток: ${redNote(ver)}`, { ver, repro, fix, decisions: dec() })
 phase('Review')
-const firstBase = priorBase(resuming ? A.trail : null)
+// Диагноз этого прогона - другое намерение: коммиты до прежней базы судились против опровергнутой причины.
+const firstBase = priorBase(reproResumed ? A.trail : null)
 const review = (tag, f, v, priors, base) => own('саморевьюер', `${HEAD}Шаг 3 (${tag}): pre-push саморевью локальной ветки - ${scope(base)}${touchedOrig(v) ? `\nТест диагноста ${repro.repro_test} изменён кодером: исходник - git show ${repro.repro_blob}. Изменена проверка - вход, вызываемый путь или ожидаемое - находка P1.` : ''}${coderInput(f)} Источник намерения:\n${causeText}${priors.length ? `\n${LISTED}\n${priors.map(priorLine).join('\n')}` : ''}\nПрогон build/test реальный, итог - в run-status, не в findings. Код не меняй.`,
   { label: `self-review:${tag}`, phase: 'Review', schema: REVIEW }, NODE.reviewer)
 let rev = await review('первое', fix, ver, LEDGER, firstBase); loops.review = 1
-trail.push({ step: 3, doer: NODE.reviewer.agentType, status: rev ? rev.status : 'null', findings: rev ? rev.findings.length : -1, verdict: rev ? rev['review-verdict'] : null, head: shaOf(ver) })
+trail.push({ step: 3, doer: NODE.reviewer.agentType, status: rev ? rev.status : 'null', findings: rev ? rev.findings.length : -1, verdict: rev ? rev['review-verdict'] : null, head: shaOf(ver), base: firstBase })
 const reg = registry(UNSETTLED)
 LEDGER.forEach(reg.doubt)
 reg.apply(rev, 'саморевьюер')
@@ -545,12 +555,13 @@ if (rev && rev.status !== 'blocked' && reg.fixable().length) {
   } else {
     const listed = reg.open()
     const firstDone = rev && rev.status === 'complete'
-    rev = await review('повторное', fix2, ver2, listed, firstDone ? shaOf(ver) : firstBase); loops.review = 2
+    const repeatBase = firstDone ? shaOf(ver) : firstBase
+    rev = await review('повторное', fix2, ver2, listed, repeatBase); loops.review = 2
     // Повторное без выхода или blocked статусов не выносит: реестр остаётся, каким его оставило первое.
     if (rev && rev.status !== 'blocked') listed.forEach(reg.doubt)
     reg.apply(rev, 'саморевьюер (повторное)', listed)
     decisions.push(...pairsOf(reg, rev, listed, degraded).map(pairLeft))
-    trail.push({ step: '3-repeat', doer: NODE.reviewer.agentType, status: rev ? rev.status : 'null', findings: rev ? rev.findings.length : -1, verdict: rev ? rev['review-verdict'] : null, head: shaOf(ver2) })
+    trail.push({ step: '3-repeat', doer: NODE.reviewer.agentType, status: rev ? rev.status : 'null', findings: rev ? rev.findings.length : -1, verdict: rev ? rev['review-verdict'] : null, head: shaOf(ver2), base: repeatBase })
   }
 }
 const finalVer = ver2 || ver

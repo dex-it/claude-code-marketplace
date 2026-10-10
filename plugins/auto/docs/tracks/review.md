@@ -69,10 +69,11 @@ stateDiagram-v2
 | Узел | Агент | Модель / effort | Выход |
 |---|---|---|---|
 | предмет ревью | `general-purpose` | сессии / low | платформа, `base_sha`, `head_sha`, файлы, `intent`; дерево трека переключено на `head_sha` |
-| ревьюер | `dex-auto:reviewer`, первичный и дельта | таблица узлов `tracks-shared/nodes.js` | находки P0-P3 с осью и уликой, `axes` - исход по каждой оси перечня, `fact-check`, `review-verdict`, `prior` - запись `{id, anchor, severity, text, status, evidence}` на каждую находку перечня ledger, `threads` - находки тредов MR вне перечня той же формы без `id`, `questions` |
+| ревьюер | `dex-auto:reviewer`, первичный и дельта | таблица узлов `tracks-shared/nodes.js` | находки P0-P3 с осью, уликой и `premise` - посылкой, которую не доказали код и прогон, с пробой (доказана - пусто), `axes` - исход по каждой оси перечня, `fact-check`, `review-verdict`, `prior` - запись `{id, anchor, severity, text, status, evidence, premise}` на каждую находку перечня ledger, `threads` - находки тредов MR вне перечня той же формы без `id`, `questions` |
 | скептик | `dex-auto:skeptic` | таблица узлов `tracks-shared/nodes.js` | `confirmed`, `dropped` с причиной, `coverage`, `review-verdict`, `prior` той же формы со сверенным статусом из словаря стыка `tracks-shared/prior-status.md` |
 | публикатор | `general-purpose` | сессии / low | `published` с `axis`, url и `note`, `unpublished` с `axis` и причиной |
 
+Трек `premise` не судит: находка с ним идёт скептику и в ledger, как любая; проба - в строке находки, которую трек подаёт узлу (`проба: ...`).
 Ревьюер и скептик - узлы плагина: заменой не страхуются, упал ошибкой платформы - T5 либо T7 и строка `degraded` с причиной (R10, R62).
 Ось безопасности - одна из осей ревьюера (P93). Ревьюер и скептик до суждения сверяют перечень доступных скиллов с предметом
 правки (стек и работа вне стека) и вызывают `Skill` на каждый задетый, на `Unknown skill` повторяют именем из перечня (R60); предмет ревью и публикатор скиллов не грузят.
