@@ -55,6 +55,11 @@ check "$("$L" trail PR-7 review | grep -c '')" "2" "trail: исполнител�
 check "$(open_ids PR-7 review)" "F5:partial" "findings: статус по id обновляет запись реестра, новой не заводит"
 check "$(grep -c '^- F2 closed \[P1\] src/b.ts:3: проверка добавлена$' "$f")" "1" "finish: обновление по id несёт поля первой записи"
 
+"$L" open P-1 >/dev/null
+"$F" P-1 bugfix partial <<< '{"status":"partial","trail":[{"step":3}],"prior":[{"id":"N1","severity":"P1","anchor":"src/s.ts:4","text":"кадр не проброшен","status":"open","evidence":"e","premise":"проба на песочнице"}]}' >/dev/null
+"$F" P-1 bugfix partial <<< '{"status":"partial","trail":[{"step":3}],"prior":[{"id":"F1","status":"open","evidence":"оператор: кадр проброшен","premise":"","text":""}]}' >/dev/null
+check "$("$L" findings P-1 bugfix | python3 -c 'import json,sys; r=json.load(sys.stdin)[0]; print(repr(r["premise"])+"|"+r["text"])')" "''|кадр не проброшен" "реестр: пустой premise снимает пометку пробы, прочие пустые поля запись не перезаписывают"
+
 "$L" open F-2 >/dev/null
 "$F" F-2 feature partial <<< '{"status":"partial","trail":[{"step":1}],"open_findings":[{"severity":"P1","anchor":"src/a.ts:10","text":"находка прогона 1"}]}' >/dev/null
 "$F" F-2 feature partial <<< '{"status":"partial","trail":[{"step":2}],"open_findings":[{"severity":"P1","anchor":"src/b.ts:20","text":"находка прогона 2"}]}' >/dev/null
