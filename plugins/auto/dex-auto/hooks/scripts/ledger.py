@@ -46,6 +46,7 @@ def main(argv):
         if not os.path.isfile(path):
             with open(path, "w", encoding="utf-8") as fh:
                 fh.write(GOAL_TEMPLATE % (task, mode))
+        dx.claim(task)
         print(path)
     elif cmd == "find":
         for task, directory in dx.find_open():
@@ -54,6 +55,7 @@ def main(argv):
         print(dx.get_key(need_goal(args[0]), args[1]))
     elif cmd == "set":
         dx.set_key(need_goal(args[0]), args[1], args[2])
+        dx.claim(args[0])
     elif cmd == "close":
         # Дефолта у исхода нет намеренно: подсказка «закрой цель» без него писала недоведённой цели complete (issue #250).
         path = need_goal(args[0])
@@ -62,6 +64,7 @@ def main(argv):
             die("ledger.py close: нужен исход - complete|partial|blocked")
         dx.set_key(path, "Исход", outcome)
         dx.set_key(path, "Статус", "закрыт")
+        dx.claim(args[0])
     elif cmd == "open-tracks":
         for name in dx.open_tracks(args[0]):
             print(name)
