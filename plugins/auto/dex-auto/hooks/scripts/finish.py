@@ -176,6 +176,7 @@ def main(argv):
     else:
         dx.set_key(goal, "Исход", "blocked")
         dx.set_key(goal, "Нехватка", lack_of(data, lack))
+    dx.claim(task)
     print(path)
 
 
