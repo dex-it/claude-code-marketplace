@@ -61,7 +61,8 @@ def register(path, state, evs, run):
         fid = ev.get("id").strip() if isinstance(ev.get("id"), str) else ""
         if fid in state:
             rec = dict(state[fid])
-            rec.update({k: v for k, v in ev.items() if v not in ("", None)})
+            # Пустой premise - суждение ревью «посылка доказана», а не молчание узла (ledger.md R9).
+            rec.update({k: v for k, v in ev.items() if v not in ("", None) or k == "premise"})
         else:
             # id не из реестра статус чужой записи не меняет (ledger.md R9): находка новая, поданный id - ссылкой.
             rec = dict(ev, ref=fid) if fid else dict(ev)

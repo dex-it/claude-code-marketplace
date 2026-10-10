@@ -20,16 +20,22 @@ const PREP_STEPS = `1. Правки трека: git status --porcelain и ${AHEA
 3. Подготовка: дереву до сборки нужны зависимости, которых сборка сама не ставит, либо шаг подготовки, названный проектом, - назови команду и выполни её в дереве; не нужны - prepare_cmd пуст, prepare-status: not-needed. Строки git status --porcelain, которых до команды не было, верни: ?? - удали путь, прочие - git checkout -- путь. prepare-status: done - команда вернула 0, иначе failed.
 4. База: правки трека есть, prepare-status failed либо нет ни сборки, ни тестов - baseline-status: n/a с причиной. Иначе выполни сборку и тесты названными командами: всё прошло - green, что-то упало - red, упавшее в baseline_log.
 Код не правь и упавшее не чини: база - замер до правок, чинят следующие узлы.`
+const steps = (t) => (Array.isArray(t) ? t : String(t || '').split('\n')).map(s => typeof s === 'string' ? fromLedger(s.replace(/^- /, '')) : s).filter(e => e && typeof e === 'object')
 // Первый замер green либо red из trail старше свежего: на возобновлении дерево несёт правки трека, а их опознание узлом не гарантия.
 function baselineOf(p, trail) {
-  const steps = Array.isArray(trail) ? trail : String(trail || '').split('\n')
-  for (const s of steps) {
-    const e = typeof s === 'string' ? fromLedger(s.replace(/^- /, '')) : s
-    if (e && e.step === '1-tree' && ['green', 'red'].includes(e.baseline)) return { status: e.baseline, log: e.baseline_log || '', fresh: false }
-  }
+  const e = steps(trail).find(x => x.step === '1-tree' && ['green', 'red'].includes(x.baseline))
+  if (e) return { status: e.baseline, log: e.baseline_log || '', fresh: false }
   if (p && ['green', 'red'].includes(p['baseline-status'])) return { status: p['baseline-status'], log: p.baseline_log || '', fresh: true }
   return null
 }
 const baselineNote = (b) => !b ? '' : b.status === 'red'
   ? ` До правок трека сборка и тесты уже падали (${b.log || 'что упало, не названо'}): эти падения унаследованы, прочие внесены правками трека.`
   : ' До правок трека сборка и тесты были зелёными: любое падение внесено правками трека.'
+// Узел подготовки на возобновлении повторял установленное (T1a); опора - последний настоящий замер, пропуск ею не служит.
+function priorPrep(tc, trail) {
+  const last = steps(trail).filter(e => e.step === '1-tree' && e.status !== 'skipped').pop()
+  const fits = !!tc && typeof tc.stack === 'string' && !!tc.stack && !!(tc.build_cmd || tc.test_cmd)
+    && !!last && ['complete', 'partial'].includes(last.status) && last.prepare !== 'failed'
+  return fits ? { status: 'complete', stack: tc.stack, build_cmd: tc.build_cmd || '', test_cmd: tc.test_cmd || '', prepare_cmd: tc.prepare_cmd || '', 'prepare-status': 'skipped' } : null
+}
+const TREE_SKIPPED = { step: '1-tree', doer: 'ledger (техконтекст прошлого прогона)', status: 'skipped' }

@@ -59,7 +59,8 @@ const axesGap = (axes, findings) => {
 const FINDING = { type: 'object', properties: {
   anchor: { type: 'string', description: 'file:line' }, severity: SEV, axis: AXIS,
   text: { type: 'string' }, closure: { type: 'string', description: 'критерий закрытия' }, evidence: { type: 'string' },
-}, required: ['anchor', 'severity', 'axis', 'text', 'closure', 'evidence'] }
+  premise: { type: 'string', description: 'посылка, которую не доказали ни код, ни прогон, и проба, которая её проверит; посылка доказана - пусто' },
+}, required: ['anchor', 'severity', 'axis', 'text', 'closure', 'evidence', 'premise'] }
 // Узел выносит статус из PRIOR_STATUS; unverified и dropped ставит только трек. Перечень реестра держат и dexauto.py с finish.py - сверяет sync-tracks --check.
 const PRIOR_STATUS = ['closed', 'partial', 'open', 'disputed', 'no-longer-applicable']
 const OPEN_FINDING = ['open', 'partial', 'unverified']
@@ -69,11 +70,14 @@ const PRIOR = { type: 'object', properties: {
   id: { type: 'string', description: 'id находки из перечня; находки в перечне нет - её место в findings, не здесь' },
   anchor: FINDING.properties.anchor, severity: SEV, axis: { type: 'string', description: 'ось из перечня; не названа - пусто' }, text: { type: 'string' },
   status: { type: 'string', enum: PRIOR_STATUS }, evidence: { type: 'string' },
-}, required: ['id', 'anchor', 'severity', 'axis', 'text', 'status', 'evidence'] }
+  premise: { type: 'string', description: 'посылка находки, всё ещё не доказанная, с пробой; доказана кодом, прогоном либо ответом оператора в цели - пусто' },
+}, required: ['id', 'anchor', 'severity', 'axis', 'text', 'status', 'evidence', 'premise'] }
 const isOpen = (f) => OPEN_FINDING.includes(f.status)
 const isBlocking = (f) => f.severity === 'P0' || f.severity === 'P1'
 const isFixable = (f) => isBlocking(f) || f.severity === 'P2'
-const priorLine = (p) => `- ${p.id ? `${p.id} ` : ''}[${p.severity}] ${p.axis ? `${p.axis} ` : ''}${p.anchor}: ${p.text}`
+// Исход такой находки решает проба оператора, а не правка: кодер по ней покупал круг за кругом на недостижимом пути.
+const awaitsProbe = (f) => !!String(f.premise || '').trim()
+const priorLine = (p) => `- ${p.id ? `${p.id} ` : ''}[${p.severity}] ${p.axis ? `${p.axis} ` : ''}${p.anchor}: ${p.text}${awaitsProbe(p) ? ` (проба: ${p.premise})` : ''}`
 const findingLine = (f) => `${priorLine(f)}${f.closure ? ` (закрытие: ${f.closure})` : ''}${f.evidence ? `\n  улика: ${f.evidence}` : ''}`
 // Опознание - по id (ledger.md R10): строка сдвигается правкой, а на одной строке бывают разные находки. Статус прежней - последний, вынесенный узлом; о которой узел промолчал, та остаётся непроверенной.
 // id записей, которые узел закрыл в своём выходе (статус не из открытых).
@@ -85,8 +89,8 @@ function registry(unsettled) {
   const seat = (p, status, evidence) => {
     const i = at(p.id)
     // Важность записи только растёт: повторное ревью, поднявшее P2 до P1, должно держать порог допуска.
-    const base = i < 0 ? { id: p.id || `N${++minted}`, anchor: p.anchor || '', severity: p.severity || '', axis: p.axis || '', text: p.text || '', closure: p.closure || '' }
-      : { ...list[i], severity: p.severity && (!list[i].severity || p.severity < list[i].severity) ? p.severity : list[i].severity }
+    const base = i < 0 ? { id: p.id || `N${++minted}`, anchor: p.anchor || '', severity: p.severity || '', axis: p.axis || '', text: p.text || '', closure: p.closure || '', premise: p.premise || '' }
+      : { ...list[i], severity: p.severity && (!list[i].severity || p.severity < list[i].severity) ? p.severity : list[i].severity, premise: 'premise' in p ? p.premise || '' : list[i].premise || '' }
     const rec = { ...base, status: FINDING_STATUS.includes(status) ? status : 'unverified', evidence: FINDING_STATUS.includes(status) ? evidence : `статус вне словаря реестра (${status}): ${evidence}` }
     if (i < 0) list.push(rec); else list[i] = rec
     return rec.id
@@ -105,7 +109,8 @@ function registry(unsettled) {
   return {
     seat, take, all: () => list.slice(), open: () => list.filter(isOpen),
     blocking: () => list.filter(isOpen).filter(isBlocking),
-    fixable: () => list.filter(isOpen).filter(isFixable),
+    fixable: () => list.filter(isOpen).filter(isFixable).filter(f => !awaitsProbe(f)),
+    probes: () => list.filter(isOpen).filter(isFixable).filter(awaitsProbe),
     doubt: (p) => seat(p, 'unverified', !p.evidence || p.evidence === unsettled ? unsettled : p.evidence.startsWith(`${unsettled}; `) ? p.evidence : `${unsettled}; ${p.evidence}`),
     // Опознание - только в перечне, поданном узлу; статус из blocked-выхода не принимается, но его новые находки не теряются.
     apply: (r, who, listed = list.slice()) => {

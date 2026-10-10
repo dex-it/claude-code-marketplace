@@ -69,6 +69,8 @@ const revP3 = { ...revP2, findings: [{ ...revP2.findings[0], severity: 'P3' }] }
 const revRecheck = { ...revClean, prior: [closedA8] }
 const ledgerA88 = { id: 'F2', anchor: 'src/A.cs:88', severity: 'P1', text: 'ретрай', closure: 'ретрай различает случаи', status: 'open', run: 1 }
 const revF2closed = { ...revClean, prior: [{ ...ledgerA88, status: 'closed', evidence: 'тест T3' }] }
+const probeP1 = { severity: 'P1', axis: 'business', anchor: 'src/A.cs:8', text: 'кадр субагента не доходит', closure: 'кадр обработан', evidence: 'e', premise: 'прогнать SDK на песочнице, смотреть кадр в потоке родителя' }
+const probeF2 = { ...ledgerA88, premise: probeP1.premise }
 const verBlocked = { status: 'blocked', exit_code: -1, pass_count: 0, fail_count: 0, failing: [], build_ok: false, head: '', dirty: false, ahead: 0, repro_test_hash: '', missing: 'нет прав на запуск dotnet test' }
 const ctxMr = { status: 'complete', platform: 'github', base_sha: 'aaa', head_sha: 'bbb', files: ['api/user.ts'], at_head: true, intent: 'issue #12', missing: '' }
 const mrFinding = { anchor: 'api/user.ts:41', severity: 'P1', axis: 'security', text: 'токен в логе', closure: 'убрать поле', evidence: 'logger.info(ctx)' }
@@ -80,6 +82,10 @@ const oldThread = (({ id, ...t }) => t)(oldP1)
 const ledgerF3 = { id: 'F3', anchor: 'api/old.ts:3', severity: 'P1', text: 'проверка владельца', closure: 'owner сверяется', status: 'open', run: 1 }
 const falOk = { status: 'complete', confirmed: [mrFinding], dropped: [{ anchor: 'api/db.ts:7', reason: 'закрыто соседним коммитом' }], coverage: 'ветка X непокрыта', 'review-verdict': 'REQUEST_CHANGES', prior: [], missing: '' }
 
+// Диагноз ledger в форме, какую пишет трек: с техконтекстом подготовки (T1a).
+const reproCtx = { ...reproOk, stack: 'ts', build_cmd: 'tsc', test_cmd: 'npm test', prepare_cmd: 'npm ci', accepted: 'accepted', dispute: '' }
+const ctxTech = { ...ctxOk, stack: 'ts', build_cmd: 'tsc', test_cmd: 'npm test', prepare_cmd: 'npm ci' }
+const treeTrail = (e) => '- ' + JSON.stringify({ step: '1-tree', doer: 'подготовка дерева', status: 'complete', baseline: 'green', baseline_log: 'тестов 9 прошло', ...e })
 const featureArgs = { task: 'F-1', goal: 'цель', done: 'npm test -> 0', boundary: 'не трогать схему', mode: 'autonomous', cwd: '/repo-F-1' }
 const bugfixArgs = { task: 'B-1', symptom: 'дубль платежа', expected: 'один платёж', env: 'staging', done: 'npm test -> 0', boundary: 'не трогать схему', mode: 'autonomous', cwd: '/repo-B-1' }
 const reviewArgs = { task: 'gh-1', mr: 'owner/repo#7', intent: 'issue #12', mode: 'autonomous', cwd: '/repo-gh-1' }
@@ -342,7 +348,7 @@ const SCENARIOS = [
       ['узел разведки не вызван', !labelsOf(calls).includes('ctx:R-I')],
       ['команда тестов в промпте верификации - от узла подготовки', /dotnet test/.test(promptOf(calls, 'verify:возобновление'))],
       ['источник разведки назван в trail', /ledger/.test(stepOf(result.trail, '1-req'))],
-      ['подготовка дерева куплена и на возобновлении: дерево - состояние, а не вывод', labelsOf(calls).includes('ctx:tree')],
+      ['подготовка дерева куплена: в ctx нет техконтекста, в trail - замера подготовки', labelsOf(calls).includes('ctx:tree')],
     ] },
   { name: 'F11b возобновление без записи разведки: узел отрабатывает как в первом прогоне', track: 'feature',
     args: { ...featureArgs, resume: true, trail: '- {"step":1}' },
@@ -2778,6 +2784,89 @@ const SCENARIOS = [
     ] },
   { name: 'R64 пустое обязательное поле -> blocked, поле названо', track: 'review', args: { ...reviewArgs, cwd: ' ' }, responses: {},
     expect: ({ result, calls }) => [['blocked по cwd', calls.length === 0 && result.missing === 'трек вызван без входа: нет cwd']] },
+  { name: 'F110 находка ревью с premise -> правки по находкам нет, порог держит P1 с пробой в where (I9)', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': { ...revClean, findings: [probeP1] } },
+    expect: ({ result, calls }) => [
+      ['правки по находкам нет', !labelsOf(calls).includes('fix:after-review')],
+      ['P1 - проба в where', result.status === 'partial' && /N1 open - нужна проба оператора: прогнать SDK на песочнице/.test(result.where)],
+    ] },
+  { name: 'F111 возобновление: ledger с premise и без -> кодеру только вторая; ревью снимает пометку -> правка по находкам её получает', track: 'feature',
+    args: { ...featureArgs, resume: true, trail: '- {"step":1}', open_findings: [probeF2, { ...ledgerA88, id: 'F3', anchor: 'src/B.cs:5' }] },
+    responses: { 'ctx:R-I': ctxOk, 'verify:возобновление': green, 'fix:1': fixOk, 'verify:после попытки 1': green,
+      'self-review:первое': { ...revClean, prior: [{ ...probeF2, status: 'open', evidence: 'оператор: кадр проброшен', premise: '' }, { ...ledgerA88, id: 'F3', anchor: 'src/B.cs:5', status: 'closed', evidence: 'тест' }] },
+      'fix:after-review': fixOk, 'verify:после саморевью': green, 'self-review:повторное': revF2closed },
+    expect: ({ calls }) => [
+      ['кодеру - F3 без F2', /F3 \[P1\] src\/B\.cs:5/.test(promptOf(calls, 'fix:1')) && !/src\/A\.cs:88/.test(promptOf(calls, 'fix:1'))],
+      ['снятая пометка - к кодеру', /F2 \[P1\] src\/A\.cs:88/.test(promptOf(calls, 'fix:after-review'))],
+    ] },
+  { name: 'F112 возобновление, ctx из ledger с техконтекстом, подготовка прошлого прогона в trail -> узел подготовки не куплен (T1a)', track: 'feature',
+    args: { ...featureArgs, resume: true, trail: treeTrail({ prepare: 'not-needed' }), ctx: JSON.stringify(ctxTech), open_findings: JSON.stringify([ledgerA88]) },
+    responses: { 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revF2closed },
+    expect: ({ result, calls }) => [
+      ['узлы контекста не вызваны', !labelsOf(calls).includes('ctx:tree') && !labelsOf(calls).includes('ctx:R-I')],
+      ['шаг 1-tree в trail - skipped', /"status":"skipped"/.test(stepOf(result.trail, '1-tree'))],
+      ['команды кодеру - из ledger', promptOf(calls, 'fix:1').includes('Тесты: npm test') && promptOf(calls, 'fix:1').includes('подготовка не повторялась')],
+      ['кодеру база из trail', promptOf(calls, 'fix:1').includes('До правок трека сборка и тесты были зелёными')],
+      ['техконтекст в ctx выхода', result.ctx.test_cmd === 'npm test' && result.ctx.stack === 'ts'],
+    ] },
+  { name: 'F113 возобновление, последняя подготовка в trail failed либо в ctx нет команд -> узел подготовки куплен', track: 'feature',
+    args: { ...featureArgs, resume: true, trail: [treeTrail({ prepare: 'done' }), treeTrail({ prepare: 'failed' })].join('\n'), ctx: JSON.stringify(ctxTech), open_findings: JSON.stringify([ledgerA88]) },
+    responses: { 'ctx:tree': prepTs, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revF2closed },
+    expect: async ({ calls }) => {
+      const bare = await runTrack('feature', { ...featureArgs, resume: true, trail: treeTrail({ prepare: 'done' }), ctx: JSON.stringify({ ...ctxTech, test_cmd: '', build_cmd: '' }), open_findings: JSON.stringify([ledgerA88]) },
+        { 'ctx:tree': prepTs, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revF2closed })
+      return [
+        ['prepare failed в последнем замере -> подготовка куплена', labelsOf(calls).includes('ctx:tree')],
+        ['в ctx нет команд -> подготовка куплена', labelsOf(bare.calls).includes('ctx:tree')],
+      ]
+    } },
+  { name: 'F114 возобновление с находками ledger -> верификация возобновления не куплена, кодер вызван (T7a)', track: 'feature',
+    args: { ...featureArgs, resume: true, trail: '- {"step":1}', ctx: JSON.stringify(ctxOk), open_findings: JSON.stringify([ledgerA88]) },
+    responses: { 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revF2closed },
+    expect: ({ result, calls }) => [
+      ['верификация возобновления не вызвана', !labelsOf(calls).includes('verify:возобновление')],
+      ['шаг resume в trail - skipped', /"status":"skipped"/.test(stepOf(result.trail, 'resume'))],
+      ['кодер вызван', labelsOf(calls).includes('fix:1')],
+      ['прошлой верификации кодеру не названо', !promptOf(calls, 'fix:1').includes('Верификация при возобновлении')],
+      ['статус complete', result.status === 'complete'],
+    ] },
+  { name: 'F115 возобновление, в trail ревью complete с head -> первое ревью по дельте от него, свой head в trail', track: 'feature',
+    args: { ...featureArgs, resume: true, trail: ['- {"step":3,"status":"partial","head":"1111111"}', '- {"step":"3-repeat","status":"complete","head":"2222222"}', '- {"step":3,"status":"blocked","head":"3333333"}'].join('\n'), ctx: JSON.stringify(ctxOk), open_findings: JSON.stringify([ledgerA88]) },
+    responses: { 'fix:1': fixOk, 'verify:после попытки 1': { ...green, head: '4444444 fix' }, 'self-review:первое': revF2closed },
+    expect: ({ result, calls }) => [
+      ['база - последнее ревью complete', promptOf(calls, 'self-review:первое').includes('дельта от 2222222')],
+      ['head ревью в trail', /"head":"4444444"/.test(stepOf(result.trail, 3))],
+    ] },
+  { name: 'F116 первый прогон -> первое ревью по всем коммитам цели, повторное - по дельте от первого', track: 'feature', args: featureArgs,
+    responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': { ...green, head: '5555555 fix' }, 'self-review:первое': revP1ax,
+      'fix:after-review': fixOk, 'verify:после саморевью': { ...green, head: '6666666 fix' }, 'self-review:повторное': revRecheck },
+    expect: ({ result, calls }) => [
+      ['первое - все коммиты цели', promptOf(calls, 'self-review:первое').includes('коммиты этой цели плюс рабочее дерево') && !promptOf(calls, 'self-review:первое').includes('дельта от')],
+      ['повторное - дельта от head первого', promptOf(calls, 'self-review:повторное').includes('дельта от 5555555')],
+      ['head повторного в trail', /"head":"6666666"/.test(stepOf(result.trail, '3-repeat'))],
+    ] },
+  { name: 'F117 новая находка продолжает находку ledger -> кодеру задано размотать решение, повторное ревью куплено и при замкнутой правке (T12a)', track: 'feature',
+    args: { ...featureArgs, resume: true, trail: '- {"step":1}', ctx: JSON.stringify(ctxOk), open_findings: JSON.stringify([ledgerA88]) },
+    responses: { 'fix:1': fixOk, 'verify:после попытки 1': green,
+      'self-review:первое': { ...revF2closed, findings: [{ ...revP1ax.findings[0], evidence: 'e', continues: 'F2' }] },
+      'fix:after-review': fixSealed, 'verify:после саморевью': green, 'self-review:повторное': revRecheck },
+    expect: ({ result, calls }) => [
+      ['кодеру - пара и прежняя находка', /N1 продолжает F2/.test(promptOf(calls, 'fix:after-review')) && /F2 \[P1\] src\/A\.cs:88/.test(promptOf(calls, 'fix:after-review'))],
+      ['кодеру - размотать решение', /размотай решение по всем входам/i.test(promptOf(calls, 'fix:after-review'))],
+      ['повторное ревью куплено', labelsOf(calls).includes('self-review:повторное')],
+      ['пара в decisions', result.decisions.some(d => /N1 продолжает F2/.test(d))],
+    ] },
+  { name: 'F118 continues вне перечня -> degraded, пары нет; повторное ревью продолжает -> «механизм не размотан»', track: 'feature',
+    args: { ...featureArgs, resume: true, trail: '- {"step":1}', ctx: JSON.stringify(ctxOk), open_findings: JSON.stringify([ledgerA88]) },
+    responses: { 'fix:1': fixOk, 'verify:после попытки 1': green,
+      'self-review:первое': { ...revF2closed, findings: [{ ...revP1ax.findings[0], evidence: 'e', continues: 'F9' }] },
+      'fix:after-review': fixOk, 'verify:после саморевью': green,
+      'self-review:повторное': { ...revRecheck, findings: [{ severity: 'P2', axis: 'regressions', anchor: 'src/A.cs:12', text: 'ещё путь', closure: 'c', evidence: 'e', continues: 'N1' }] } },
+    expect: ({ result, calls }) => [
+      ['id вне перечня - в degraded', result.degraded.some(d => /продолжает F9 - id вне поданного перечня/.test(d))],
+      ['пары у кодера нет', !promptOf(calls, 'fix:after-review').includes('Новый путь прежнего механизма')],
+      ['повторное: механизм не размотан', result.decisions.some(d => /продолжает N1: механизм не размотан/.test(d))],
+    ] },
   { name: 'F109 кодер без node-contract получает правила red-run, run-status и diff-scope в схеме FIX', track: 'feature', args: featureArgs,
     responses: { 'ctx:R-I': ctxOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
     expect: ({ calls }) => {
@@ -2793,6 +2882,110 @@ const SCENARIOS = [
     expect: ({ calls }) => [
       ['кодеру и ревьюеру - вызов Skill на каждый скилл, чей предмет правка задевает', ['coder', 'reviewer'].every(n => /Вызов вернул `Unknown skill` - повтори его именем,\s+как оно стоит в\s+перечне/.test(agentBody(n)) && /вне стека\s+\(тесты,/.test(agentBody(n)) && /сверь\s+перечень доступных тебе скиллов с предметом правки/.test(agentBody(n)) && /вызови `Skill` полным именем \(`плагин:скилл`\)\s+на каждый,\s+чей предмет правка задевает/.test(agentBody(n)))],
       ['разведке, подготовке и верификатору - нет', !/перечень доступных тебе скиллов|перечня доступных тебе/.test(promptOf(calls, 'ctx:R-I') + promptOf(calls, 'ctx:tree') + promptOf(calls, 'verify:после попытки 1'))],
+    ] },
+  { name: 'B168 возобновление, диагноз из ledger с техконтекстом, подготовка прошлого прогона в trail -> узел подготовки не куплен (T1a)', track: 'bugfix',
+    args: { ...bugfixArgs, resume: true, trail: treeTrail({ prepare: 'not-needed' }), repro: JSON.stringify(reproCtx), open_findings: JSON.stringify([ledgerA88]) },
+    responses: { 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revF2closed },
+    expect: ({ result, calls }) => [
+      ['узел подготовки не вызван', !labelsOf(calls).includes('ctx:tree')],
+      ['шаг 1-tree в trail - skipped', /"status":"skipped"/.test(stepOf(result.trail, '1-tree'))],
+      ['команды кодеру - из ledger', promptOf(calls, 'fix:1').includes('Тесты: npm test') && promptOf(calls, 'fix:1').includes('подготовка не повторялась')],
+      ['кодеру база из trail', promptOf(calls, 'fix:1').includes('До правок трека сборка и тесты были зелёными')],
+      ['техконтекст в repro выхода', result.repro.test_cmd === 'npm test' && result.repro.stack === 'ts'],
+    ] },
+  { name: 'B169 возобновление, последняя подготовка в trail failed либо в repro нет команд -> узел подготовки куплен', track: 'bugfix',
+    args: { ...bugfixArgs, resume: true, trail: [treeTrail({ prepare: 'done' }), treeTrail({ prepare: 'failed' })].join('\n'), repro: JSON.stringify(reproCtx), open_findings: JSON.stringify([ledgerA88]) },
+    responses: { 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revF2closed },
+    expect: async ({ calls }) => {
+      const bare = await runTrack('bugfix', { ...bugfixArgs, resume: true, trail: treeTrail({ prepare: 'done' }), repro: JSON.stringify({ ...reproCtx, test_cmd: '', build_cmd: '' }), open_findings: JSON.stringify([ledgerA88]) },
+        { 'ctx:tree': prepTs, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revF2closed })
+      return [
+        ['prepare failed в последнем замере -> подготовка куплена', labelsOf(calls).includes('ctx:tree')],
+        ['в repro нет команд -> подготовка куплена', labelsOf(bare.calls).includes('ctx:tree')],
+      ]
+    } },
+  { name: 'B170 возобновление с находками ledger -> верификация возобновления не куплена, кодер вызван (T7a)', track: 'bugfix',
+    args: { ...bugfixArgs, resume: true, trail: '- {"step":1}', repro: JSON.stringify(reproOk), open_findings: JSON.stringify([ledgerA88]) },
+    responses: { 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revF2closed },
+    expect: ({ result, calls }) => [
+      ['верификация возобновления не вызвана', !labelsOf(calls).includes('verify:возобновление')],
+      ['шаг resume в trail - skipped', /"status":"skipped"/.test(stepOf(result.trail, 'resume'))],
+      ['кодер вызван', labelsOf(calls).includes('fix:1')],
+      ['прошлой верификации кодеру не названо', !promptOf(calls, 'fix:1').includes('Верификация при возобновлении')],
+      ['статус complete', result.status === 'complete'],
+    ] },
+  { name: 'B171 возобновление с находками ledger, снимок приёмки ждёт верификации -> верификация возобновления куплена', track: 'bugfix',
+    args: { ...bugfixArgs, resume: true, trail: '- {"step":1}', open_findings: JSON.stringify([ledgerA88]), repro: JSON.stringify({ ...reproTest, accepted: 'harness-fixed', accepted_blob: '', accepted_pending: true, dispute: '' }) },
+    responses: { 'verify:возобновление': { ...greenTest, repro_test_hash: 'b2' }, 'fix:1': fixOk, 'verify:после попытки 1': { ...greenTest, repro_test_hash: 'b2' }, 'self-review:первое': revF2closed },
+    expect: ({ result, calls }) => [
+      ['верификация возобновления вызвана', labelsOf(calls).includes('verify:возобновление')],
+      ['снимок приёмки - с неё', result.repro.accepted_blob === 'b2'],
+    ] },
+  { name: 'B172 возобновление, в trail ревью complete с head -> первое ревью по дельте от него, свой head в trail', track: 'bugfix',
+    args: { ...bugfixArgs, resume: true, trail: ['- {"step":3,"status":"partial","head":"1111111"}', '- {"step":"3-repeat","status":"complete","head":"2222222"}', '- {"step":3,"status":"blocked","head":"3333333"}'].join('\n'), repro: JSON.stringify(reproOk), open_findings: JSON.stringify([ledgerA88]) },
+    responses: { 'fix:1': fixOk, 'verify:после попытки 1': { ...green, head: '4444444 fix' }, 'self-review:первое': revF2closed },
+    expect: ({ result, calls }) => [
+      ['база - последнее ревью complete', promptOf(calls, 'self-review:первое').includes('дельта от 2222222')],
+      ['head ревью в trail', /"head":"4444444"/.test(stepOf(result.trail, 3))],
+    ] },
+  { name: 'B173 первый прогон -> первое ревью по всем коммитам цели, повторное - по дельте от первого', track: 'bugfix', args: bugfixArgs,
+    responses: { reproduce: reproOk, 'fix:1': fixOk, 'verify:после попытки 1': { ...green, head: '5555555 fix' }, 'self-review:первое': revP1ax,
+      'fix:after-review': fixOk, 'verify:после саморевью': { ...green, head: '6666666 fix' }, 'self-review:повторное': revRecheck },
+    expect: ({ result, calls }) => [
+      ['первое - все коммиты цели', promptOf(calls, 'self-review:первое').includes('коммиты этой цели плюс рабочее дерево') && !promptOf(calls, 'self-review:первое').includes('дельта от')],
+      ['повторное - дельта от head первого', promptOf(calls, 'self-review:повторное').includes('дельта от 5555555')],
+      ['head повторного в trail', /"head":"6666666"/.test(stepOf(result.trail, '3-repeat'))],
+    ] },
+  { name: 'B174 новая находка продолжает находку ledger -> кодеру задано размотать решение, повторное ревью куплено и при замкнутой правке (T16a)', track: 'bugfix',
+    args: { ...bugfixArgs, resume: true, trail: '- {"step":1}', repro: JSON.stringify(reproOk), open_findings: JSON.stringify([ledgerA88]) },
+    responses: { 'fix:1': fixOk, 'verify:после попытки 1': green,
+      'self-review:первое': { ...revF2closed, findings: [{ ...revP1ax.findings[0], evidence: 'e', continues: 'F2' }] },
+      'fix:after-review': fixSealed, 'verify:после саморевью': green, 'self-review:повторное': revRecheck },
+    expect: ({ result, calls }) => [
+      ['кодеру - пара и прежняя находка', /N1 продолжает F2/.test(promptOf(calls, 'fix:after-review')) && /F2 \[P1\] src\/A\.cs:88/.test(promptOf(calls, 'fix:after-review'))],
+      ['кодеру - размотать решение', /размотай решение по всем входам/i.test(promptOf(calls, 'fix:after-review'))],
+      ['повторное ревью куплено', labelsOf(calls).includes('self-review:повторное')],
+      ['пара в decisions', result.decisions.some(d => /N1 продолжает F2/.test(d))],
+    ] },
+  { name: 'B175 continues вне перечня -> degraded, пары нет; повторное ревью продолжает -> «механизм не размотан»', track: 'bugfix',
+    args: { ...bugfixArgs, resume: true, trail: '- {"step":1}', repro: JSON.stringify(reproOk), open_findings: JSON.stringify([ledgerA88]) },
+    responses: { 'fix:1': fixOk, 'verify:после попытки 1': green,
+      'self-review:первое': { ...revF2closed, findings: [{ ...revP1ax.findings[0], evidence: 'e', continues: 'F9' }] },
+      'fix:after-review': fixOk, 'verify:после саморевью': green,
+      'self-review:повторное': { ...revRecheck, findings: [{ severity: 'P2', axis: 'regressions', anchor: 'src/A.cs:12', text: 'ещё путь', closure: 'c', evidence: 'e', continues: 'N1' }] } },
+    expect: ({ result, calls }) => [
+      ['id вне перечня - в degraded', result.degraded.some(d => /продолжает F9 - id вне поданного перечня/.test(d))],
+      ['пары у кодера нет', !promptOf(calls, 'fix:after-review').includes('Новый путь прежнего механизма')],
+      ['повторное: механизм не размотан', result.decisions.some(d => /продолжает N1: механизм не размотан/.test(d))],
+    ] },
+  { name: 'B176 находки ревью с premise -> правки по находкам нет, P1 держит порог с пробой в where, P2 - вопрос в decisions (I10)', track: 'bugfix', args: bugfixArgs,
+    responses: { reproduce: reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green,
+      'self-review:первое': { ...revClean, findings: [{ ...probeP1 }, { severity: 'P2', axis: 'regressions', anchor: 'src/A.cs:9', text: 't', closure: 'c', evidence: 'e', premise: 'проба 2' }] } },
+    expect: ({ result, calls }) => [
+      ['правки по находкам нет', !labelsOf(calls).includes('fix:after-review')],
+      ['P1 - проба в where', result.status === 'partial' && /N1 open - нужна проба оператора: прогнать SDK на песочнице/.test(result.where)],
+      ['P2 - вопрос в decisions', result.decisions.some(d => /N2 \[P2\] src\/A\.cs:9: нужна проба оператора - проба 2/.test(d))],
+      ['пометка в выходе реестра', result.prior.some(f => f.id === 'N1' && f.premise === probeP1.premise)],
+    ] },
+  { name: 'B177 возобновление, в ledger только находка с premise -> кодер её не получает; ревью снимает пометку -> правка по находкам', track: 'bugfix',
+    args: { ...bugfixArgs, resume: true, trail: '- {"step":1}', repro: JSON.stringify(reproOk), open_findings: JSON.stringify([probeF2]) },
+    responses: { 'verify:возобновление': green, 'self-review:первое': { ...revClean, prior: [{ ...probeF2, status: 'open', evidence: 'оператор: кадр проброшен', premise: '' }] },
+      'fix:after-review': fixOk, 'verify:после саморевью': green, 'self-review:повторное': revF2closed },
+    expect: ({ calls }) => [
+      ['цикла правки нет', !labelsOf(calls).includes('fix:1')],
+      ['ревью - проба прежней', /проба: прогнать SDK на песочнице/.test(promptOf(calls, 'self-review:первое'))],
+      ['снятая пометка - к кодеру', /F2 \[P1\] src\/A\.cs:88/.test(promptOf(calls, 'fix:after-review'))],
+    ] },
+  { name: 'B178 ledger с premise и без -> кодеру только вторая; T20 не ждёт закрытия находки с пробой', track: 'bugfix',
+    args: { ...bugfixArgs, resume: true, trail: '- {"step":1}', repro: JSON.stringify(reproOk), open_findings: JSON.stringify([probeF2, { ...ledgerA88, id: 'F3', anchor: 'src/B.cs:5' }]) },
+    responses: { 'fix:1': fixOk, 'verify:после попытки 1': green,
+      'self-review:первое': { ...revP1ax, prior: [{ ...probeF2, status: 'open', evidence: 'e' }, { ...ledgerA88, id: 'F3', anchor: 'src/B.cs:5', status: 'closed', evidence: 'тест' }] },
+      'fix:after-review': fixSealed, 'verify:после саморевью': green },
+    expect: ({ result, calls }) => [
+      ['кодеру - F3 без F2', /F3 \[P1\] src\/B\.cs:5/.test(promptOf(calls, 'fix:1')) && !/src\/A\.cs:88/.test(promptOf(calls, 'fix:1'))],
+      ['правке по находкам - без F2', !/src\/A\.cs:88/.test(promptOf(calls, 'fix:after-review'))],
+      ['повторное ревью не куплено', !labelsOf(calls).includes('self-review:повторное')],
+      ['F2 держит порог с пробой', result.status === 'partial' && /F2 open - нужна проба оператора/.test(result.where)],
     ] },
   { name: 'B167 диагност сверяет перечень скиллов с предметом сбоя; подготовке и верификатору это не предписано', track: 'bugfix', args: bugfixArgs,
     responses: { reproduce: reproOk, 'fix:1': fixOk, 'verify:после попытки 1': green, 'self-review:первое': revClean },
