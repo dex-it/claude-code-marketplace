@@ -5,6 +5,8 @@ H="$(cd "$(dirname "$0")/../.." && pwd)/plugins/auto/dex-auto/hooks/scripts"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 # Хук берёт каталог запуска из CLAUDE_PROJECT_DIR (P35): унаследованная от окружения увела бы ledger в чужой проект.
 unset CLAUDE_PROJECT_DIR
+# Владельца цели пишет скрипт из CLAUDE_CODE_SESSION_ID (T4): унаследованная от сессии, гоняющей тест, сделала бы её владельцем.
+unset CLAUDE_CODE_SESSION_ID
 export CLAUDE_CONFIG_DIR="$T/cfg"; export DEX_AUTO_CWD="/home/u/Work my.proj"
 fail=0; n=0
 check() { n=$((n+1)); if [ "$1" = "$2" ]; then echo "ok $n - $3"; else echo "FAIL $n - $3: ожидалось [$2], получено [$1]"; fail=1; fi; }
@@ -29,12 +31,30 @@ check "$(printf '%s' "$out" | grep -c 'файлы трека 01-feature.md')" "1
 check "$(printf '%s' "$out" | grep -c '/dex-auto:auto PROJ-1 продолжить')" "1" "session-start: при открытом треке советуется «продолжить»"
 rm "$(dirname "$f")/01-feature.md"
 "$L" set PROJ-1 Режим autonomous
-SIN='{"cwd":"/home/u/Work my.proj","stop_hook_active":false}'
+# Владелец цели (T4 ledger.md): сессия последней записи ledger, Stop держит только его.
+stop() { printf '{"session_id":"%s","cwd":"/home/u/Work my.proj","stop_hook_active":false}' "$1" | "$H/stop-guard.py" >/dev/null 2>&1; echo $?; }
+check "$(stop S1)" "0" "owner: цель без владельца остановку не держит"
+check "$(printf '%s' '{"cwd":"/home/u/Work my.proj","stop_hook_active":false}' | "$H/stop-guard.py" >/dev/null 2>&1; echo $?)" "0" "owner: цель без владельца и событие без session_id не держат"
+CLAUDE_CODE_SESSION_ID=S1 "$L" get PROJ-1 Режим >/dev/null; check "$(stop S1)" "0" "owner: чтение владельцем не делает"
+TASK=PROJ-1; CLAUDE_CODE_SESSION_ID=S1 "$L" set $TASK Режим autonomous
+check "$(stop S1)" "2" "owner: set делает сессию владельцем при любой форме команды"
+check "$(stop S2)" "0" "owner: чужая открытая цель остановку соседней сессии не держит"
+printf '{"loops":{"coder":1}}' | CLAUDE_CODE_SESSION_ID=S2 "$H/finish.sh" PROJ-1 feature partial >/dev/null
+check "$(stop S2)" "2" "owner: finish.sh другой сессии перехватывает цель"; check "$(stop S1)" "0" "owner: перехват снимает прежнего владельца"
+"$L" set PROJ-1 Режим autonomous 2>"$T/err"; check "$(stop S2)" "2" "owner: запись без CLAUDE_CODE_SESSION_ID владельца не меняет"
+check "$(grep -c "владелец цели PROJ-1 не записан" "$T/err")" "1" "owner: запись без CLAUDE_CODE_SESSION_ID названа в stderr"
+"$L" dir NOPE-9 >/dev/null; CLAUDE_CODE_SESSION_ID=S1 "$L" set NOPE-9 Исход blocked 2>/dev/null
+check "$([ -e "$("$L" root)/NOPE-9/owner" ] && echo есть || echo нет)" "нет" "owner: каталог без 00-goal.md владельца не получает"
+rm -f "$(dirname "$f")/01-feature.md" "$(dirname "$f")/01-feature.findings.jsonl"; rm -rf "$("$L" root)/NOPE-9"
+CLAUDE_CODE_SESSION_ID=S3 "$L" open OWN-1 >/dev/null; check "$(cat "$("$L" root)/OWN-1/owner")" "S3" "owner: open делает сессию владельцем"
+CLAUDE_CODE_SESSION_ID=S4 "$L" close OWN-1 blocked; check "$(cat "$("$L" root)/OWN-1/owner")" "S4" "owner: close делает сессию владельцем"
+export CLAUDE_CODE_SESSION_ID=S1; "$L" set PROJ-1 Исход ""
+SIN='{"session_id":"S1","cwd":"/home/u/Work my.proj","stop_hook_active":false}'
 err="$(printf '%s' "$SIN" | "$H/stop-guard.py" 2>&1 >/dev/null)"; rc=$?
 check "$rc" "2" "stop-guard: открытая цель -> код 2"; check "$(printf '%s' "$err" | grep -c 'цель PROJ-1 открыта')" "1" "stop-guard: причина в stderr"
 # Главный поток вошёл в дерево трека: cwd события - дерево, ledger ищется по каталогу запуска сессии (P35).
 check "$(printf '%s' '{"cwd":"/home/u/Work my.proj-PROJ-1","source":"startup"}' | CLAUDE_PROJECT_DIR="/home/u/Work my.proj" "$H/session-start.py" | grep -c 'открытая цель PROJ-1')" "1" "session-start: в дереве трека цель найдена по каталогу запуска"
-check "$(printf '%s' '{"cwd":"/home/u/Work my.proj-PROJ-1","stop_hook_active":false}' | CLAUDE_PROJECT_DIR="/home/u/Work my.proj" "$H/stop-guard.py" >/dev/null 2>&1; echo $?)" "2" "stop-guard: в дереве трека открытая цель найдена по каталогу запуска"
+check "$(printf '%s' '{"session_id":"S1","cwd":"/home/u/Work my.proj-PROJ-1","stop_hook_active":false}' | CLAUDE_PROJECT_DIR="/home/u/Work my.proj" "$H/stop-guard.py" >/dev/null 2>&1; echo $?)" "2" "stop-guard: в дереве трека открытая цель найдена по каталогу запуска"
 for _ in 1 2 3 4; do printf '%s' "$SIN" | "$H/stop-guard.py" >/dev/null 2>&1; rc=$?; done
 check "$rc" "2" "stop-guard: своего потолка нет - повторные блоки снимает платформа"; check "$(grep -c '^stop-блоков\|^Stop-потолок' "$f")" "0" "stop-guard: счётчика в 00-goal.md нет"
 "$L" set PROJ-1 Исход blocked

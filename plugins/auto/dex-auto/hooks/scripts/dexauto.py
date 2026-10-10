@@ -73,6 +73,28 @@ def goal_file(task):
     return os.path.join(task_dir(task), "00-goal.md")
 
 
+def owner_file(task):
+    return os.path.join(task_dir(task), "owner")
+
+
+def owner(task):
+    try:
+        return lines_of(owner_file(task))[0].strip()
+    except OSError:
+        return ""
+
+
+def claim(task):
+    # Владелец - сессия процесса записи (ledger.md T4); переменная не задокументирована, зонд P100.
+    session = os.environ.get("CLAUDE_CODE_SESSION_ID", "")
+    try:
+        if not session:
+            raise OSError("CLAUDE_CODE_SESSION_ID нет в окружении")
+        write_lines(owner_file(task), [session])
+    except OSError as err:
+        sys.stderr.write("dex-auto: владелец цели %s не записан, сторож Stop держит прежнего либо никого - %s\n" % (task, err))
+
+
 def track_file(task, track):
     base = track[:-len("-delta")] if track.endswith("-delta") else track
     return os.path.join(task_dir(task), "01-%s.md" % base)

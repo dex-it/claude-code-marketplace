@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Stop: терминал цели (компоненты 6, 8; N3). Своего потолка нет - повторные блоки одного хода снимает платформа.
+# Stop: терминал цели этой сессии (компоненты 6, 8; N3; ledger.md T4). Своего потолка нет - повторные блоки одного хода снимает платформа.
 import os
 import sys
 
@@ -21,7 +21,10 @@ def main():
         return 0
 
     dx.bind_session(data)
+    session = dx.field(data, "session_id")
     for task, directory in dx.find_open():
+        if not session or dx.owner(task) != session:
+            continue
         goal = os.path.join(directory, "00-goal.md")
         if dx.get_key(goal, "Исход") == "blocked" and dx.get_key(goal, "Нехватка"):
             continue
