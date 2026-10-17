@@ -17,13 +17,17 @@ const FIX_CEILING = 3, REVIEW_FIX_CEILING = 2, REVIEW_CEILING = 3
 // Каталог, стоп-линии и отсутствие оператора одинаковы для любого узла трека; симптом и критерий
 // несёт только тот, кто их исполняет.
 const TREE = `Рабочий каталог - ${A.cwd} на текущей ветке, процесс уже в нём; всё незакоммиченное в нём - от этой работы. Ветку не переключай. Стоп-линия: push, деплой, миграции данных, удаление вне рабочего каталога. Оператора нет: невыводимое не додумывай - status: blocked, нехватка в missing.\n`
+// >>> shared: blank
+const blank = (v) => !String(v || '').trim()
+// <<< shared: blank
+// >>> shared: owner-side
+const ownerSide = 'Пункт критерия «готово» или границы с пометкой «ответ оператора» - сторона, выбранная оператором: расхождение источника с ним противоречием не судится и в conflicts не идёт.'
+// <<< shared: owner-side
 // >>> shared: goal-args
 // Главный поток может не подать done и boundary: узел берёт их из файла цели, пропуск - в degraded
-const blank = (v) => !String(v || '').trim()
 const fromGoal = (v, absent, section, dflt) => !blank(v) ? v : A.goal_path ? `${absent}, возьми из раздела \`## ${section}\` файла цели ${A.goal_path}` : dflt
 const goalLack = [blank(A.done) && 'критерий «готово» не подан', blank(A.boundary) && 'граница не подана'].filter(Boolean)
   .map(s => `${s} в args: ${A.goal_path ? `узлы отосланы к файлу цели ${A.goal_path}` : 'файла цели нет'}`)
-const ownerSide = 'Пункт критерия «готово» или границы с пометкой «ответ оператора» - сторона, выбранная оператором: расхождение источника с ним противоречием не судится и в conflicts не идёт.'
 // <<< shared: goal-args
 const HEAD = `mode: ${A.mode || 'autonomous'}\nцель (${A.task}): починить баг - симптом: ${A.symptom}\nожидаемое: ${A.expected || 'не задано - реконструируй из тестов и корпуса, назови основание'}\nокружение: ${A.env || 'не задано'}\nкритерий «готово»: ${fromGoal(A.done, 'не подан', 'Критерий «готово»', 'не подан')}\nграница: ${fromGoal(A.boundary, 'не подана', 'Граница', 'не выходить за рабочий каталог')}\nфайл цели: ${A.goal_path || 'нет'}\ndecision-log: n/a (трек журнал решений не ведёт; решения - полем decisions)\n${TREE}`
 // Узел подготовки симптома не получает: прочитав его первой строкой, он чинит баг сам, и хвостовой
@@ -56,6 +60,12 @@ const NODE = {
   skeptic: { agentType: 'dex-auto:skeptic' },
   // opus - устройство по цене судится до кода, его реализует кодер на sonnet (P114).
   designer: { agentType: 'dex-auto:designer', model: 'opus' },
+  // без model - замера модели фиксатора нет.
+  recorder: { agentType: 'dex-auto:recorder' },
+  // без model - замера модели сверщика нет.
+  'corpus-checker': { agentType: 'dex-auto:corpus-checker' },
+  // без model - замера модели составителя входа нет.
+  onboarder: { agentType: 'dex-auto:onboarder' },
   // sonnet - модель кодеров каталога: сверка P75 различает норму, а не модель.
   coder: { agentType: 'dex-auto:coder', model: 'sonnet' },
   // opus - модель контроля dex-debugger: сверка P91 различает норму, а не модель.
@@ -388,6 +398,9 @@ function priorPrep(tc, trail) {
 }
 const TREE_SKIPPED = { step: '1-tree', doer: 'ledger (техконтекст прошлого прогона)', status: 'skipped' }
 // <<< shared: prep
+// >>> shared: own-commits
+const OWN_COMMITS = 'git rev-list HEAD --not --exclude="$(git branch --show-current)" --branches'
+// <<< shared: own-commits
 // >>> shared: self-review
 // Исход по тесту - enum: показанный красным трек передаёт следующей попытке как факт, а не ищет слово в прозе.
 const RED_STATUS = ['shown', 'unverifiable']
@@ -486,7 +499,6 @@ const HUNKS = { type: 'object', properties: {
   conventions: CONVENTIONS.conventions, 'conventions-searched': CONVENTIONS['conventions-searched'],
   missing: { type: 'string' },
 }, required: ['status', 'hunks', 'conventions', 'conventions-searched', 'missing'] }
-const OWN_COMMITS = 'git rev-list HEAD --not --exclude="$(git branch --show-current)" --branches'
 // Места правки считает скрипт: арифметику заголовков @@ модель путает на единицу; узлу остаётся отсев файлов тестов.
 // Сомнение, относится ли документ к правке, снимок выражал статусом partial - и тот покупал повторное ревью.
 const HUNKS_STATUS = 'Документ, о котором неясно, относится ли он к правке, включи в conventions. status - complete, когда места сняты; partial - только когда места сняты не целиком.'

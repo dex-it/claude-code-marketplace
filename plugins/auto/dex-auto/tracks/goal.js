@@ -29,6 +29,12 @@ const NODE = {
   skeptic: { agentType: 'dex-auto:skeptic' },
   // opus - устройство по цене судится до кода, его реализует кодер на sonnet (P114).
   designer: { agentType: 'dex-auto:designer', model: 'opus' },
+  // без model - замера модели фиксатора нет.
+  recorder: { agentType: 'dex-auto:recorder' },
+  // без model - замера модели сверщика нет.
+  'corpus-checker': { agentType: 'dex-auto:corpus-checker' },
+  // без model - замера модели составителя входа нет.
+  onboarder: { agentType: 'dex-auto:onboarder' },
   // sonnet - модель кодеров каталога: сверка P75 различает норму, а не модель.
   coder: { agentType: 'dex-auto:coder', model: 'sonnet' },
   // opus - модель контроля dex-debugger: сверка P91 различает норму, а не модель.

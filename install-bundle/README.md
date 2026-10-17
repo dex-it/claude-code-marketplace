@@ -194,6 +194,7 @@ here reads as a promise. `./install-bundle.sh --list` prints the live count next
 | Bundle | Description |
 |--------|-------------|
 | `architect` | Software Architect: system design, ADR, diagrams, API design, codebase analysis, security, observability |
+| `auto` | Agentic development on dex-auto: project onboarding, goal, autonomous feature, bugfix and review tracks, truth fixation |
 | `bug-lifecycle` | Bug lifecycle: active hunting, reporting, root-cause investigation on a shared stand, fix at the source |
 | `cli-tools` | CLI wrappers for diagnostics (gh, glab, jira, kubectl, jenkins, teamcity, psql, redis-cli, kaf, rabbitmqadmin, aws-s3, playwright) |
 | `code-review` | Code lifecycle, language-agnostic: MR/PR review, delta re-review, fix plan, feature implementation, conflict resolution, pre-push self-review, stand acceptance |

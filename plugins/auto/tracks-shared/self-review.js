@@ -95,7 +95,6 @@ const HUNKS = { type: 'object', properties: {
   conventions: CONVENTIONS.conventions, 'conventions-searched': CONVENTIONS['conventions-searched'],
   missing: { type: 'string' },
 }, required: ['status', 'hunks', 'conventions', 'conventions-searched', 'missing'] }
-const OWN_COMMITS = 'git rev-list HEAD --not --exclude="$(git branch --show-current)" --branches'
 // Места правки считает скрипт: арифметику заголовков @@ модель путает на единицу; узлу остаётся отсев файлов тестов.
 // Сомнение, относится ли документ к правке, снимок выражал статусом partial - и тот покупал повторное ревью.
 const HUNKS_STATUS = 'Документ, о котором неясно, относится ли он к правке, включи в conventions. status - complete, когда места сняты; partial - только когда места сняты не целиком.'

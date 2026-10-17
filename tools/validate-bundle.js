@@ -210,9 +210,10 @@ function pluginCalls(body) {
 
 // --- Specialist -> loaded skills map -------------------------------------
 
-// Map: specialist plugin dir name -> Set of catalogue plugins its agent(s) name by the
-// `{plugin}:{artifact}` address - skills it loads imperatively and specialists it hands work off to.
-// Built once by walking plugins/specialists/**/agents/*.md (same regex as validate-agent.js).
+// Map: plugin dir name -> Set of catalogue plugins its agent(s) name by the `{plugin}:{artifact}`
+// address - skills it loads imperatively and specialists it hands work off to. Carriers: agents/*.md
+// and tracks/*.js (Workflow script of a track: its node prompts call Skill like an agent body does).
+// Plugin root outside plugins/specialists/ counts only with its own .claude-plugin/plugin.json.
 function buildAgentSkillMap(allPluginsInRepo) {
   const map = new Map();
 
@@ -221,23 +222,26 @@ function buildAgentSkillMap(allPluginsInRepo) {
     for (const entry of readdirSync(dir)) {
       const full = join(dir, entry);
       const stat = statPlain(full);
-      if (stat.isDirectory()) walk(full);
-      else if (entry.endsWith('.md') && full.includes('/agents/')) {
-        // plugins/specialists/<group>/<plugin>/agents/<agent>.md
-        const m = full.match(/plugins\/specialists\/[^/]+\/([^/]+)\/agents\//);
-        if (!m) continue;
-        const plugin = m[1];
-        const body = readFileSync(full, 'utf8');
-        const set = map.get(plugin) || new Set();
-        for (const skill of pluginCalls(body)) {
-          if (!allPluginsInRepo.has(skill) || skill === plugin) continue;
-          set.add(skill);
-        }
-        map.set(plugin, set);
+      if (stat.isDirectory()) {
+        walk(full);
+        continue;
       }
+      const carrier = basename(dirname(full));
+      if (!(carrier === 'agents' && entry.endsWith('.md')) && !(carrier === 'tracks' && entry.endsWith('.js'))) continue;
+      const root = dirname(dirname(full));
+      const inSpecialists = dirname(dirname(root)) === SPECIALISTS_DIR;
+      if (!inSpecialists && !existsSync(join(root, '.claude-plugin', 'plugin.json'))) continue;
+      const plugin = basename(root);
+      const body = readFileSync(full, 'utf8');
+      const set = map.get(plugin) || new Set();
+      for (const skill of pluginCalls(body)) {
+        if (!allPluginsInRepo.has(skill) || skill === plugin) continue;
+        set.add(skill);
+      }
+      map.set(plugin, set);
     }
   }
-  walk(SPECIALISTS_DIR);
+  walk(join(REPO_ROOT, 'plugins'));
   return map;
 }
 

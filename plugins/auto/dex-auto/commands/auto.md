@@ -1,5 +1,5 @@
 ---
-description: Автономный трек под открытую цель - feature, bugfix или ревью чужого MR; ledger вне рабочего дерева, Workflow-скрипт трека, сдача исхода скриптом finish.sh, по --pr - PR/MR своей ветки
+description: Автономный трек под открытую цель - feature, bugfix или ревью чужого MR; ledger вне рабочего дерева, Workflow-скрипт трека, сдача исхода скриптом finish.sh, фиксация истины в корпус проекта после complete, по --pr - PR/MR своей ветки
 allowed-tools: Workflow, Skill, ToolSearch, Bash, Read, Write, Edit, Glob, Grep
 argument-hint: "[bugfix|feature TASK цель... | TASK | review MR] [продолжить] [--interactive] [--pr [--draft] [--base BRANCH]] [--post] [--delta SHA]"
 ---
@@ -14,7 +14,7 @@ argument-hint: "[bugfix|feature TASK цель... | TASK | review MR] [продо
 **Вход.** Трек - по первому слову: `review` - ревью; `bugfix` / `feature` - далее `TASK` и цель (цели в аргументе нет
 - берётся из открытого `00-goal.md`, подготовленного `/dex-auto:goal`); `TASK` без слова трека - трек по строке `Вид:` этой
   цели. Цели нет - `blocked` «цель не подготовлена»; `Вид:` нет, расходится со словом трека или цель дана без слова трека -
-  `blocked` «вид не задан»; цель закрыта - её исход в выход без прогона (`complete` с `--pr` без `PR:` с адресом - ещё сдача кода).
+  `blocked` «вид не задан»; цель закрыта - её исход в выход без прогона (`complete` feature или bugfix без `Фиксация:`, а с `продолжить` - при `Фиксация:` на `blocked`, `partial` либо `не состоялась` без ответа оператора, - ещё фиксация истины, с `--pr` без `PR:` с адресом - ещё сдача кода).
 - feature / bugfix: `TASK`, цель фразой (bugfix - симптом), критерий «готово» в проверяемой форме, граница «чего не делаем»,
   источник, если назван; из подготовленной цели - ещё `Источник:`. `--pr` - санкция на push текущей ветки и PR/MR
   после `complete`, без неё push нет; общая либо чужая ветка текущей не ставится; `--draft` - черновиком, `--base BRANCH` - целевая ветка (без него - по умолчанию у remote).
@@ -29,7 +29,7 @@ argument-hint: "[bugfix|feature TASK цель... | TASK | review MR] [продо
 `set`: `finish.sh` без возврата узла не вызывается. Разделы файла трека `01-<трек>.md` пишет `finish.sh` по возврату, находки - реестром `01-<трек>.findings.jsonl` с `id` на каждую (`### Открытые
 находки` - разность реестра на конец прогона, `### Снято в прогоне` - снятые этим прогоном); главный поток дописывает в `### Решения` по строке на
 находку, первым словом её `id`. `open TASK [MODE]` заводит `00-goal.md` (путь - `args.goal_path`); под `set` - `Исход:`,
-`Нехватка:`, `Ожидает:`, `PR:` (сдача кода); разделы `## Цель` (первая строка `Вид: bugfix|feature`, вторая `Источник:`), `## Критерий «готово»`, `##
+`Нехватка:`, `Ожидает:`, `Фиксация:` (фиксация истины), `PR:` (сдача кода); разделы `## Цель` (первая строка `Вид: bugfix|feature`, вторая `Источник:`), `## Критерий «готово»`, `##
 Граница` заполняются прозой по входу до запуска трека. Открытую цель `open` не трогает, но до запуска всегда `set TASK Режим
 autonomous` (`--interactive` - `interactive`) и `set TASK Ожидает ""`: под оставленными `/goal` `interactive` / `оператор` сторож
 Stop ход не держит. TRACK - `feature` | `bugfix` | `review` | `review-delta` (при `--delta`). `open-tracks TASK` вернул файл другого
@@ -41,11 +41,9 @@ Stop ход не держит. TRACK - `feature` | `bugfix` | `review` | `review
 (не `продолжить`) - только при пустом `git status --porcelain` и нуле от `git rev-list --count HEAD --not
 --exclude="$(git branch --show-current)" --branches`: дельту и коммиты трек считает своими. Иначе до прогона `set TASK Исход
 blocked` и `set TASK Нехватка «каталог не подготовлен под цель: <незакоммиченные файлы либо N коммитов ветки вне локальных
-веток; целевой ветки нет локально - заведи её>»`. `продолжить` при ветке `auto/<TASK>` (символы TASK вне `A-Za-z0-9-` - `-`), которая есть локально и не текущая, - цель начата до 9.0.0 в дереве рядом: `set TASK Исход blocked`, `set TASK Нехватка «цель начата до 9.0.0 в дереве <путь из git worktree list>: git worktree remove дерева, git switch auto/<TASK> в каталоге запуска, повторить»`. Ревью - HEAD на head SHA MR; не на нём - трек вернёт `partial`. После сдачи `complete` при `--pr` - сдача кода:
-`Workflow` `dex-auto:dex-auto-deliver`, `args` `{task, track, branch, base, default_branch, draft, goal_path, cwd}` (`branch` - `git branch
---show-current`; `base` без `--base` не подаётся; `default_branch` - `git symbolic-ref --short refs/remotes/origin/HEAD`
-без `origin/`, пусто при ошибке) -> `set TASK PR <url>` при `pr: opened`, иначе
-`set TASK PR "не открыт - <reason либо отказ Workflow>"`; исход цели остаётся `complete`.
+веток; целевой ветки нет локально - заведи её>»`. `продолжить` при ветке `auto/<TASK>` (символы TASK вне `A-Za-z0-9-` - `-`), которая есть локально и не текущая, - цель начата до 9.0.0 в дереве рядом: `set TASK Исход blocked`, `set TASK Нехватка «цель начата до 9.0.0 в дереве <путь из git worktree list>: git worktree remove дерева, git switch auto/<TASK> в каталоге запуска, повторить»`. Ревью - HEAD на head SHA MR; не на нём - трек вернёт `partial`.
+
+**Фиксация истины.** После сдачи `complete` feature или bugfix, до сдачи кода: `Workflow` `dex-auto:dex-auto-record`, `args` `{task, goal_path, source, base, cwd}` (`source` - `Источник:` цели, `base` без `--base` не подаётся), возврат ждёшь, как прогон трека. Строка фиксации - `status` возврата, затем через `; ` непустые из `na`, `derived: <id>`, `unrecorded: <what>`, `где: <where>`; отказ `Workflow` - `не состоялась - <отказ>`. `autonomous` либо возврат без `units` и `commit` - `set TASK Фиксация <строка>`. Иначе, в `interactive`, - `set TASK Ожидает оператор` и вопрос: единицы дельты, `derived`, `unrecorded`, вердикты сверщика - принять | отклонить; принять - `set TASK Фиксация "<строка>; принята оператором"`; отклонить - `git revert` коммитов мест правки с трейлером `Dex-Auto-Record: yes` и `set TASK Фиксация "отклонена оператором: <причина>"`; по ответу `set TASK Ожидает ""`. Исход цели остаётся `complete`. Затем при `--pr` - сдача кода: `Workflow` `dex-auto:dex-auto-deliver`, `args` `{task, track, branch, base, default_branch, draft, goal_path, cwd}` (`branch` - `git branch --show-current`; `base` без `--base` не подаётся; `default_branch` - `git symbolic-ref --short refs/remotes/origin/HEAD` без `origin/`, пусто при ошибке) -> `set TASK PR <url>` при `pr: opened`, иначе `set TASK PR "не открыт - <reason либо отказ Workflow>"`; исход цели остаётся `complete`.
 
 **Прогон.** `Workflow` с `name` `dex-auto:dex-auto-<трек>`, трек - `feature`, `bugfix` либо `review` (и при `--delta`); `args`: feature - `{task, goal, done, boundary,
 mode, cwd, source, goal_path, scripts, resume, trail, open_findings, ctx, findings_top}`, `scripts` - `${CLAUDE_PLUGIN_ROOT}/hooks/scripts`; bugfix - то же, но вместо `goal` - `symptom, expected,
@@ -72,7 +70,7 @@ env`, и вместо `ctx` - `repro` (симптом - фраза цели, о�
 
 **Output:** `Исход:` цели первой строкой (`complete` | `blocked` | `partial`), затем `TASK`, путь ledger, ветка,
 исход сверки требований оракулом (`расхождений нет` либо перечень сторон), для feature / bugfix `goal_check` возврата (сборка, тесты и унаследованные от базы падения, коммит, `head`),
-`review-verdict` саморевью и `prior` с `id`, при `--pr` - строка `PR:` цели, для bugfix ещё `repro.root_cause`; для ревью `review-verdict` скептика и рядом `reviewer_verdict` ревьюера,
+`review-verdict` саморевью и `prior` с `id`, строка `Фиксация:` цели, при `--pr` - строка `PR:`, для bugfix ещё `repro.root_cause`; для ревью `review-verdict` скептика и рядом `reviewer_verdict` ревьюера,
 подтверждённые и снятые находки, `prior` дельты, покрытие, треды; счётчики петель, строки `degraded`, решения по открытым находкам, стоп-линии, на которые прогон
 вышел (push без `--pr`, деплой, миграция данных, необратимое удаление, запись в чужой MR без `--post`) - к оператору поимённо.
 
