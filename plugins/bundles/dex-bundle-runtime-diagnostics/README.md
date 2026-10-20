@@ -54,6 +54,7 @@ Bundle для runtime-диагностики .NET-сервисов и натив
 
 ### Skills, переиспользуемые из маркетплейса
 - `dex-skill-dotnet-async-patterns` - `Task.Run` над синхронным вызовом, занимающий потоки пула
+- `dex-skill-deep-audit` - время приложения против `now()` БД при аудите компонента
 - `dex-skill-observability` - OpenTelemetry, метрики, traces
 
 ## Платформенная совместимость

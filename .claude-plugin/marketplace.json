@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "6.23.0",
+  "version": "6.24.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -357,7 +357,7 @@
       "name": "dex-bundle-runtime-diagnostics",
       "source": "./plugins/bundles/dex-bundle-runtime-diagnostics",
       "description": "Bundle для runtime-диагностики .NET-сервисов и native-границы: специалист-диагностик, skills managed/native/perf/tracing/dumps/binary, netcoredbg CLI.",
-      "version": "1.6.0",
+      "version": "1.7.0",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -650,7 +650,7 @@
       "name": "dex-dotnet-runtime-diagnostician",
       "source": "./plugins/specialists/dotnet/dex-dotnet-runtime-diagnostician",
       "description": "Runtime-диагностика .NET и native-симптомов: hang, crash, leak, slowdown, post-mortem через netcoredbg, gdb/lldb, perf, bpftrace, dotnet-dump",
-      "version": "2.6.0",
+      "version": "2.7.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1589,6 +1589,18 @@
         "revision",
         "delta-run",
         "audit-trail"
+      ]
+    },
+    {
+      "name": "dex-skill-deep-audit",
+      "source": "./plugins/skills/dex-skill-deep-audit",
+      "description": "Аудит компонента по коду: время приложения, записанное в БД и сравниваемое с now() БД.",
+      "version": "1.1.0",
+      "category": "skill",
+      "keywords": [
+        "skill",
+        "audit",
+        "deep-audit"
       ]
     },
     {
