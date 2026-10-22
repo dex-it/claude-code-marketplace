@@ -200,7 +200,7 @@ claude plugins uninstall dex-dotnet-coder
 | Плагин | Агент | Команда | Описание |
 |--------|-------|---------|----------|
 | dex-implementer-reader | implementer-reader | - | Проба готовности набора требований к разработке |
-| dex-mr-check-reviewer | mr-check-reviewer | второй раунд `/mr-review`, не своя команда | Ре-ревью дельты с прошлого раунда (range-diff) |
+| dex-mr-check-reviewer | mr-check-reviewer | вторая ревизия `/mr-review`, не своя команда | Ре-ревью дельты с прошлой ревизии (range-diff) |
 | dex-mr-reviewer | mr-reviewer | `/mr-review` | Первичное ревью чужого MR/PR, инлайн-треды через gh/glab |
 | dex-requirements-reviewer | requirements-reviewer | `/review-requirements` | Приёмка чужого набора требований (`/review-requirements`) |
 | dex-rulebook-miner | rulebook-orchestrator, rule-collector | `/rulebook` | Свод правил проекта из истории ревью: что в репозитории принято; норматив жанра, ловушки добычи и оракул приёмки едут скиллами этого же плагина |

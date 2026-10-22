@@ -13,21 +13,25 @@ const REPO_ROOT = process.env.MARKETPLACE_ROOT
 
 const COLORS = { reset: '\x1b[0m', red: '\x1b[31m', yellow: '\x1b[33m', gray: '\x1b[90m', bold: '\x1b[1m' };
 
-// Уровень правила. Норма (CLAUDE.md, «Имя сущности корпуса берётся из словаря») называет имя `к вытеснению` дефектом;
-// warning держится, пока на дереве есть вхождение, которое нельзя снять мелкой правкой (см. VALIDATOR_RULES.md).
-const LEVEL = 'warning';
+// Уровень правила. Норма (CLAUDE.md, «Имя сущности корпуса берётся из словаря») называет имя `к вытеснению` дефектом,
+// поэтому находка - ошибка и останавливает `npm run validate`: новое имя к вытеснению не проходит в PR молча.
+// Колонка «Синонимы источника» из-под правила выведена (см. blankSourceSynonyms), так что дерево чисто.
+const LEVEL = 'error';
 
 // Закрытый перечень - блок «Имена `к вытеснению`» сгенерированного индекса, а не второй список в коде: индекс
 // строится из словаря, и его синхронность с ним держит `sync-terminology.js --check`.
 const INDEX_FILE = join(REPO_ROOT, '.claude', 'rules', 'terminology.md');
 const INDEX_MARKER = '**Имена `к вытеснению`**';
 
-// Область: тексты каталога. Вне её - записи, где старое имя стоит на своём месте: словарь и индекс (имя там предмет
-// определения), планы и ADR (снимок решения), записи замеров (имя, как оно называлось на момент замера; переписать
-// значит подделать запись), research (слово «раунд» там - раунд эксперимента, не ревизия).
-const ROOTS = ['plugins', 'docs'];
-const SKIP_DIRS = ['docs/superpowers', 'docs/adr', 'docs/research', 'plugins/auto/docs/notes'];
-const SKIP_FILES = ['docs/domain/domain-model.md'];
+// Область: тексты каталога - `.md` под `plugins/`, `docs/` и `.claude/rules/`, корневые `README.md` и `CLAUDE.md`.
+// Вне её - записи, где старое имя стоит на своём месте: словарь и индекс (имя там предмет определения), ADR
+// (снимок решения), записи замеров (имя, как оно называлось на момент замера; переписать значит подделать запись),
+// research (слово «раунд» там - раунд эксперимента, не ревизия).
+const ROOTS = ['plugins', 'docs', '.claude/rules'];
+const ROOT_FILES = ['README.md', 'CLAUDE.md'];
+const SKIP_DIRS = ['docs/adr', 'docs/research', 'plugins/auto/docs/notes'];
+const SKIP_FILES = ['docs/domain/domain-model.md', '.claude/rules/terminology.md'];
+const SOURCE_SYNONYMS_COLUMN = 'Синонимы источника';
 
 // Обход не проходит по symlink и спецфайлам: цикл ссылок ронял бы прогон стектрейсом, а ссылка наружу судила бы
 // чужой файл как свой. Такой узел - отказ с кодом 1, а не тихий пропуск.
@@ -84,11 +88,43 @@ function buildMatcher(name) {
   return new RegExp(`(?<![\\p{L}\\p{N}_-])${body}(?![\\p{L}\\p{N}_]|-\\p{L})`, 'giu');
 }
 
-// Frontmatter скилла и агента из-под правила выведен: там живут активаторы, и синоним в них законен как ключ поиска
-// (ось «Терминология» в `artifact-review`). Затирается пробелами, номера строк остаются прежними.
+// Frontmatter затирается у любого `.md`, не только у скилла и агента: там живут активаторы, и синоним в них законен
+// как ключ поиска (ось «Терминология» в `artifact-review`). Затирается пробелами, номера строк остаются прежними.
 function blankFrontmatter(text) {
   const m = text.match(/^---\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n|$)/);
   return m ? m[0].replace(/[^\n]/g, ' ') + text.slice(m[0].length) : text;
+}
+
+// Колонка «Синонимы источника» - имена, которые приёмник узнаёт в источнике; класс тот же, что у словаря и активаторов,
+// и вытесняемое имя там законно. Колонка находится по шапке таблицы, и затирается ячейка в шапке и во всех строках
+// этой таблицы; соседние колонки той же таблицы судятся как обычно. Номера строк остаются прежними.
+function blankSourceSynonyms(text) {
+  const cellSpans = (line) => {
+    const spans = [];
+    let start = null;
+    for (let i = 0; i < line.length; i++) {
+      if (line[i] !== '|' || line[i - 1] === '\\') continue;
+      if (start !== null) spans.push([start, i]);
+      start = i + 1;
+    }
+    return spans;
+  };
+  const isSeparator = (line) => line && line.startsWith('|') && cellSpans(line).every(([a, b]) => /^\s*:?-+:?\s*$/.test(line.slice(a, b)));
+  const lines = text.split('\n');
+  for (let i = 0; i < lines.length - 1; i++) {
+    if (!lines[i].startsWith('|') || !isSeparator(lines[i + 1])) continue;
+    const column = cellSpans(lines[i]).findIndex(([a, b]) => lines[i].slice(a, b).includes(SOURCE_SYNONYMS_COLUMN));
+    let end = i;
+    while (end < lines.length && lines[end].startsWith('|')) end++;
+    if (column >= 0) {
+      for (let j = i; j < end; j++) {
+        const span = cellSpans(lines[j])[column];
+        if (span) lines[j] = lines[j].slice(0, span[0]) + lines[j].slice(span[0], span[1]).replace(/[^\r]/g, ' ') + lines[j].slice(span[1]);
+      }
+    }
+    i = end - 1;
+  }
+  return lines.join('\n');
 }
 
 function lineLocator(text) {
@@ -122,11 +158,15 @@ function findFiles() {
     }
   }
   for (const root of ROOTS) walk(join(REPO_ROOT, root));
+  for (const file of ROOT_FILES) {
+    const full = join(REPO_ROOT, file);
+    if (existsSync(full) && statPlain(full).isFile()) files.push(full);
+  }
   return files;
 }
 
 function validateFile(filepath, matchers) {
-  const text = blankFrontmatter(readFileSync(filepath, 'utf8'));
+  const text = blankSourceSynonyms(blankFrontmatter(readFileSync(filepath, 'utf8')));
   const lineAt = lineLocator(text);
   const findings = [];
   for (const { name, re } of matchers) {
