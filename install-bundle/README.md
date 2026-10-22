@@ -129,6 +129,35 @@ Current entries:
 | `dex-skill-agile` | - | removed by control runs: the model holds the subject without the skill |
 | `dex-skill-bpmn` | - | removed by control runs: the model holds the subject without the skill |
 | `dex-skill-karpathy-guidelines` | - | removed by control runs: the model holds the subject without the skill |
+| `dex-skill-api-specification` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/api-specification/README.md`) |
+| `dex-skill-cap-consistency` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/cap-consistency/README.md`) |
+| `dex-skill-capacity-planning` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/capacity-planning/README.md`) |
+| `dex-skill-clean-architecture` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/clean-architecture/README.md`) |
+| `dex-skill-contract-drift` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/contract-drift/README.md`) |
+| `dex-skill-deep-audit` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/deep-audit/README.md`) |
+| `dex-skill-distributed-resilience` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/distributed-resilience/README.md`) |
+| `dex-skill-docker` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/docker/README.md`) |
+| `dex-skill-dotnet-caching` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/dotnet-caching/README.md`) |
+| `dex-skill-dotnet-config-hygiene` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/dotnet-config-hygiene/README.md`) |
+| `dex-skill-dotnet-di` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/dotnet-di/README.md`) |
+| `dex-skill-dotnet-linq-optimization` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/dotnet-linq-optimization/README.md`) |
+| `dex-skill-dotnet-resources` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/dotnet-resources/README.md`) |
+| `dex-skill-exploratory-testing` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/exploratory-testing/README.md`) |
+| `dex-skill-git-workflow` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/git-workflow/README.md`) |
+| `dex-skill-microservices` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/microservices/README.md`) |
+| `dex-skill-no-loose-ends` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/no-loose-ends/README.md`) |
+| `dex-skill-output-hygiene` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/output-hygiene/README.md`) |
+| `dex-skill-owasp-security` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/owasp-security/README.md`) |
+| `dex-skill-problem-specification` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/problem-specification/README.md`) |
+| `dex-skill-python-classical-ml` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/python-classical-ml/README.md`) |
+| `dex-skill-reference-architectures` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/reference-architectures/README.md`) |
+| `dex-skill-tech-audit` | - | removed: no consumers in the catalogue (protocol `tests/trap-skills/removed/tech-audit/README.md`) |
+| `dex-skill-tech-evaluation` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/tech-evaluation/README.md`) |
+| `dex-skill-test-design` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/test-design/README.md`) |
+| `dex-skill-ts-patterns` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/ts-patterns/README.md`) |
+| `dex-skill-use-cases` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/use-cases/README.md`) |
+| `dex-dotnet-debugger` | `dex-debugger` | duplicate of the stack-neutral agent; .NET depth comes from by-stack skills |
+| `dex-dotnet-reviewer` | `dex-self-reviewer`, `dex-mr-reviewer` | duplicate: own branch -> self-reviewer, someone else's PR/MR -> mr-reviewer |
 
 ### Catalogue 6.0.0: the SDLC engine is gone
 
