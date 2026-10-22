@@ -16,7 +16,7 @@
 
 `<набор>/sources.md` - основания пунктов, пришедших из `/mr-apply`: MR, триада, самооценка анализатора. По ним строится кейс, когда пункт идёт в заход сжатия.
 
-`_projects/` - общие мини-проекты нескольких наборов (`billing` - группы 0-1, `parcel` - группа 2.4, часть «тесты», `shipping` - группа 2.4b и имитация стенда (кейсы K6-K8 группы 4.7), `ordering` - группа 4.7 (observability, merge-conflict-resolution, exploratory-testing, deep-audit, tech-audit), `loyalty` - группа 3.2, корпус требований, `rooms` - группа 3.1, требования фичи, `bookings` - группа 4.2, ASP.NET Core и контракт OpenAPI, `classmate` - группа 4.8, `diag` - группа 4.6, Docker-лаборатория диагностики, продуктовые документы и история ревью, `shelfwatch` - группа 4.5, Python ML): `setup.sh` разворачивает git-репозиторий прогона, README проекта - ключ для судьи, исполнителю не подаётся.
+`_projects/` - общие мини-проекты нескольких наборов (`billing` - группы 0-1, `meridian` - заход «большой репозиторий» набора codebase-conventions (#311; генератор, результат в репозиторий не входит), `parcel` - группа 2.4, часть «тесты», `shipping` - группа 2.4b и имитация стенда (кейсы K6-K8 группы 4.7), `ordering` - группа 4.7 (observability, merge-conflict-resolution, exploratory-testing, deep-audit, tech-audit), `loyalty` - группа 3.2, корпус требований, `rooms` - группа 3.1, требования фичи, `bookings` - группа 4.2, ASP.NET Core и контракт OpenAPI, `classmate` - группа 4.8, `diag` - группа 4.6, Docker-лаборатория диагностики, продуктовые документы и история ревью, `shelfwatch` - группа 4.5, Python ML): `setup.sh` разворачивает git-репозиторий прогона, README проекта - ключ для судьи, исполнителю не подаётся.
 
 `removed/` - наборы снятых скиллов: скилла в каталоге нет, набор хранит свидетельство снятия и не
 перезапускается.
@@ -24,7 +24,7 @@
 | Набор | Скилл | Заход | Итог |
 |---|---|---|---|
 | [fact-verification](fact-verification/README.md) | `dex-skill-fact-verification` 1.3.0, 2.0.0, 2.1.0 | ревью кода и ADR; звенья каскада; факт в коде проекта | 7 ловушек -> чек-лист из 5 пунктов; 2.1.0 - отрицательный факт с исходом |
-| [codebase-conventions](codebase-conventions/README.md) | `dex-skill-codebase-conventions` 1.10.0 | ревью, фича | 17 ловушек, граница и гейт -> чек-лист из 9 названий |
+| [codebase-conventions](codebase-conventions/README.md) | `dex-skill-codebase-conventions` 1.10.0, 1.12.0 | ревью, фича; большой репозиторий (Meridian) | 17 ловушек, граница и гейт -> чек-лист из 9 названий (1.11.0); ось 6 ADR и гейт сняты контролем на большом репозитории -> 1.13.0, 6 пунктов; пункт про свод остаётся названием |
 | [review-evidence](review-evidence/README.md) | `dex-skill-review-evidence` 1.9.1 | ревью | 15 ловушек -> process-skill: «Намерение» и «Порог уверенности» |
 | [testability](testability/README.md) | `dex-skill-testability` 1.1.2 | ревью (S2, S4) | 11 ловушек и чек-лист -> пункт-признак и `Guid.NewGuid()` (открыто до кейса) |
 | [performance-review](performance-review/README.md) | `dex-skill-performance-review` 1.0.1 | ревью | 24 ловушки и чек-лист -> чек-лист; 1.2.0 - четыре пункта (контроль на sonnet medium) |
