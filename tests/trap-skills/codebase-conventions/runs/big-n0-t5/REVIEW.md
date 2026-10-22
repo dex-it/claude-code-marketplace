@@ -1,0 +1,1 @@
+services/catalog/src/Meridian.Catalog/Infrastructure/Pricing/CachedTariffSource.cs:28 - пустой список от Pricing кэшируется на полный TTL как валидный результат (проверки fresh.Length нет), так что при сбое/пустом ответе Pricing каталог до 5 минут отдаёт пустой список тарифов даже после восстановления источника - minor
