@@ -23,5 +23,5 @@ argument-hint: "\"SELECT ...\" [--db name] [--json]"
 
 - Требует `psql` в PATH; если не найден -- показать инструкцию установки.
 - Параметры подключения берутся из env (`PGHOST`/`PGPORT`/`PGUSER`/`PGPASSWORD`/`PGDATABASE`) или `~/.pgpass`. Пароль не печатать в выводе.
-- Допустимы только `SELECT` / `EXPLAIN` / `SHOW` / `WITH ... SELECT`. Любой `INSERT`/`UPDATE`/`DELETE`/`DROP`/`TRUNCATE`/`ALTER`/`CREATE`/`GRANT` отвергается -- предложить `dex-postgresql-specialist` или явный psql вызов вне команды.
+- Допустимы только `SELECT` / `EXPLAIN` / `SHOW` / `WITH ... SELECT`. Любой `INSERT`/`UPDATE`/`DELETE`/`DROP`/`TRUNCATE`/`ALTER`/`CREATE`/`GRANT` отвергается -- предложить специалиста по PostgreSQL или явный psql вызов вне команды.
 - Длинные запросы выполнять с `psql -c` без `EXPLAIN ANALYZE` (для планов есть `/psql-explain`).
