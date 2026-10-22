@@ -45,8 +45,8 @@ async function reviewLoop(t) {
     offeredOnly = !must
     trail.push({ step: '2-after-review', attempt: k, doer: NODE.coder.agentType, status: fix2 ? fix2.status : 'null', passed: passed(ver2), 'red-run': fix2 ? fix2['red-run'] : null })
     const openNow = { review: rev, falsify: fal, prior: reg.all(), dropped }
-    if (!fix2 || fix2.status === 'blocked') return state(bail('Review: правка по находкам', lack(fix2, 'узел-кодер'), openNow))
-    if (noRun(ver2)) return state(bail('Review: верификация после правки', lack(ver2, 'верификатор'), openNow))
+    if (!fix2 || fix2.status === 'blocked') return state(nodeBail('Review: правка по находкам', lack(fix2, 'узел-кодер'), openNow))
+    if (noRun(ver2)) return state(nodeBail('Review: верификация после правки', lack(ver2, 'верификатор'), openNow))
     // Правка одних offered сверку не покупает: их исход итога не держит (domain.md §4); сменивший тест диагноста круг пропуска не получает (t.moved).
     if (!must && passed(ver2) && !(t.moved && t.moved(prevVer, ver2))) {
       const shut = (fix2.prior || []).filter(p => p.status === 'closed' && may.some(f => f.id === p.id))

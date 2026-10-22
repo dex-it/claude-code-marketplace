@@ -191,8 +191,9 @@ def main(argv):
     else:
         dx.set_key(goal, "Исход", "blocked")
         dx.set_key(goal, "Нехватка", lack_of(data, lack))
-        # Нехватку с аргументом (таймаут Workflow, null узла) прогон трека не называл: поле трека она не пишет и не снимает.
-        if not lack:
+        # Нехватку с аргументом (таймаут Workflow, null узла) и сбой узла внутри трека (node_failure) прогон трека не называл:
+        # поле трека они не пишут и не снимают, иначе «продолжить» запустит кодера на зелёном дереве.
+        if not lack and data.get("node_failure") is not True:
             dx.set_key(goal, TRACK_LACK, lack_of(data, ""))
     dx.claim(task)
     print(path)

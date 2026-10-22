@@ -572,8 +572,8 @@ async function reviewLoop(t) {
     offeredOnly = !must
     trail.push({ step: '2-after-review', attempt: k, doer: NODE.coder.agentType, status: fix2 ? fix2.status : 'null', passed: passed(ver2), 'red-run': fix2 ? fix2['red-run'] : null })
     const openNow = { review: rev, falsify: fal, prior: reg.all(), dropped }
-    if (!fix2 || fix2.status === 'blocked') return state(bail('Review: правка по находкам', lack(fix2, 'узел-кодер'), openNow))
-    if (noRun(ver2)) return state(bail('Review: верификация после правки', lack(ver2, 'верификатор'), openNow))
+    if (!fix2 || fix2.status === 'blocked') return state(nodeBail('Review: правка по находкам', lack(fix2, 'узел-кодер'), openNow))
+    if (noRun(ver2)) return state(nodeBail('Review: верификация после правки', lack(ver2, 'верификатор'), openNow))
     // Правка одних offered сверку не покупает: их исход итога не держит (domain.md §4); сменивший тест диагноста круг пропуска не получает (t.moved).
     if (!must && passed(ver2) && !(t.moved && t.moved(prevVer, ver2))) {
       const shut = (fix2.prior || []).filter(p => p.status === 'closed' && may.some(f => f.id === p.id))
@@ -624,6 +624,8 @@ let ctx = null, fix = null, fix2 = null, ver = null, ver2 = null, cmds0 = null
 const decisions = []
 const dec = () => decisions.slice()
 const bail = (where, missing, extra) => outcome('blocked', where, missing, { decisions: dec(), ctx, fix, ...extra })
+// Сбой узла (нет выхода, blocked узла): finish.sh не пишет его в «Нехватку трека», иначе возобновление запустит кодера на зелёном дереве (ledger.md R11).
+const nodeBail = (where, missing, extra) => bail(where, missing, { ...extra, node_failure: true })
 // Падения базы до правок: правке не вменяются (T10).
 let known = []
 const passed = (v) => isGreen(v, ctx && ctx.test_cmd, known)
@@ -672,8 +674,8 @@ const [tree, req] = await parallel([
 const prep = tree.p
 trail.push(priorTree ? TREE_SKIPPED : { step: '1-tree', doer: 'подготовка дерева', status: prep ? prep.status : 'null', prepare: prep ? prep['prepare-status'] : null, baseline: tree.base.status, baseline_log: tree.base.log, baseline_failing: tree.base.failing })
 trail.push({ step: '1-req', doer: ctxResumed ? 'ledger (разведка прошлого прогона)' : 'Explore', status: req ? req.status : 'null' })
-if (!prep || prep.status === 'blocked') return bail('Context: подготовка дерева', lack(prep, 'узел подготовки дерева'))
-if (!req || req.status === 'blocked') return bail('Context', lack(req, 'узел контекста'))
+if (!prep || prep.status === 'blocked') return nodeBail('Context: подготовка дерева', lack(prep, 'узел подготовки дерева'))
+if (!req || req.status === 'blocked') return nodeBail('Context', lack(req, 'узел контекста'))
 if (!req.requirements.length) return bail('Context', 'разведка не вывела ни одной единицы R/I - реализовывать нечего')
 if (prep.status === 'partial') degraded.push(`подготовка дерева partial: ${prep.missing || 'нехватка не названа'}`)
 // Форма ctx общая - её же принимает ledger и подаёт обратно в A.ctx.
@@ -715,7 +717,7 @@ if (A.resume && !resuming) {
 if (resuming) {
   ver = await verifyOnce('возобновление')
   trail.push({ step: 'resume', doer: 'general-purpose', passed: passed(ver) })
-  if (noRun(ver)) return bail('Implement: верификация при возобновлении', lack(ver, 'верификатор'))
+  if (noRun(ver)) return nodeBail('Implement: верификация при возобновлении', lack(ver, 'верификатор'))
 }
 // Без коммитов трека прошлый прогон встал до правки: зелёные базовые тесты работу не подтверждают.
 const ahead = !!(ver && ver.ahead)
@@ -727,7 +729,7 @@ if (!ahead && (!passed(ver) || pending)) {
   design = await own('проектировщик', `${HEAD}${DONE}Шаг 2а: решение по требованиям до кода.\nТребования:\n${reqText}\nФайлы: ${ctx.files.join(', ')}. Тесты: ${ctx.test_cmd || 'нет'}. Сборка: ${ctx.build_cmd || 'нет'}.${baseline}`,
     { label: 'design', phase: 'Implement', schema: DESIGN }, NODE.designer)
   trail.push({ step: '2-design', doer: NODE.designer.agentType, status: design ? design.status : 'null' })
-  if (design && design.status === 'blocked') return bail('Design', lack(design, 'проектировщик'))
+  if (design && design.status === 'blocked') return nodeBail('Design', lack(design, 'проектировщик'))
   if (!design) degraded.push('проектировщик без выхода - кодер проектирует сам')
   else {
     if (design.status === 'partial') degraded.push(`решение проектировщика неполно: ${design.missing || 'нехватка не названа'}`)
@@ -747,12 +749,12 @@ for (let k = 1; k <= FIX_CEILING && (!passed(ver) || pending); k++) {
     { label: `fix:${k}`, phase: 'Implement', schema: FIX }, NODE.coder)
   trail.push({ step: 2, attempt: k, doer: NODE.coder.agentType, status: fix ? fix.status : 'null', 'red-run': fix ? fix['red-run'] : null })
   if (fix) decisions.push(...said(fix))
-  if (!fix || fix.status === 'blocked') return bail(`Implement#${k}`, lack(fix, 'узел-кодер'))
+  if (!fix || fix.status === 'blocked') return nodeBail(`Implement#${k}`, lack(fix, 'узел-кодер'))
   cmds0 = cmds0 || cmdsOf(ctx)
   ctx = withCommands(ctx, fix)
   ver = await verifyOnce(`после попытки ${k}`)
   trail.push({ step: '2-exit', attempt: k, doer: 'general-purpose', passed: passed(ver) })
-  if (noRun(ver)) return bail(`Implement#${k}: верификация`, lack(ver, 'верификатор'))
+  if (noRun(ver)) return nodeBail(`Implement#${k}: верификация`, lack(ver, 'верификатор'))
   if (!passed(ver)) log(`попытка ${k}: exit=${ver && ver.exit_code}, build_ok=${ver && ver.build_ok}, fail=${ver && ver.fail_count}, dirty=${ver && ver.dirty}`)
 }
 if (!passed(ver)) return outcome('partial', `Implement: потолок ${FIX_CEILING} исчерпан`, `дерево не зелёное после ${FIX_CEILING} попыток: ${redNote(ver, known)}`, { ver, ctx, fix, decisions: dec() })
