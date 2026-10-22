@@ -11,7 +11,7 @@
     "R3. POST /webhook: неверная подпись (заголовок x-signature) - 401; неверный JSON - 400; иначе 200 с телом «принят <сумма>», сумма - amountCents события в рублях с двумя знаками (1250 -> 12.50). (FEAT.md:5)"
   ],
   "coder": {
-    "red-run": "тестовый файл на коде до правки не загружается: нет src/webhook.js (ERR_MODULE_NOT_FOUND) - красные все тесты файла, R1-R3 в их числе; после правки зелёные",
+    "red-run": [{ "test": "test/webhook.test.js", "status": "shown", "evidence": "тестовый файл на коде до правки не загружается: нет src/webhook.js (ERR_MODULE_NOT_FOUND) - красные все тесты файла, R1-R3 в их числе; после правки зелёные" }],
     "uncovered-status": "none", "uncovered": [],
     "dependents-status": "none", "dependents": []
   },
