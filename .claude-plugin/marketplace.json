@@ -331,7 +331,7 @@
       "name": "dex-bundle-product-manager",
       "source": "./plugins/bundles/dex-bundle-product-manager",
       "description": "Бандл для продакт-менеджера: бизнес-требования, roadmap, бэклог, анализ метрик.",
-      "version": "1.27.1",
+      "version": "1.27.2",
       "category": "bundle",
       "keywords": [
         "bundle",
@@ -526,7 +526,7 @@
       "name": "dex-design-reviewer",
       "source": "./plugins/specialists/architecture/dex-design-reviewer",
       "description": "Ревью и согласование чужого дизайн-документа (спека, ADR, диаграммы) до написания кода: полнота NFR, дефекты требований, качество ADR-решений, консистентность и слои, полнота и непротиворечивость набора артефактов работы, фальсификация находок, severity. Не архитектура реализованного кода - её ревьюит /review-arch.",
-      "version": "2.13.3",
+      "version": "2.13.4",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -610,7 +610,7 @@
       "name": "dex-dotnet-coder",
       "source": "./plugins/specialists/dotnet/dex-dotnet-coder",
       "description": "Кодер .NET: пишет код и реализует фичи по требованиям, следует конвенциям проекта, отдаёт статус build/test.",
-      "version": "4.3.2",
+      "version": "4.3.3",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -680,7 +680,7 @@
       "name": "dex-ef-specialist",
       "source": "./plugins/specialists/dotnet/dex-ef-specialist",
       "description": "Специалист по Entity Framework Core: миграции, запросы, DbContext, конфигурация маппинга, оптимизация.",
-      "version": "2.5.2",
+      "version": "2.5.3",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1020,7 +1020,7 @@
       "name": "dex-mr-check-reviewer",
       "source": "./plugins/specialists/review/dex-mr-check-reviewer",
       "description": "Узел ре-ревью дельты MR/PR после правок автора: range-diff дельты, статус прежних находок, новые находки только в дельте, обновление существующих тредов и публикация новых, по поручению - разметка новых находок типом. Вызывается на повторных ревизиях командой /mr-review (плагин dex-mr-reviewer), своего командного входа не имеет.",
-      "version": "3.3.2",
+      "version": "3.3.3",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1037,7 +1037,7 @@
       "name": "dex-mr-reviewer",
       "source": "./plugins/specialists/review/dex-mr-reviewer",
       "description": "Языко-агностичный узел первичного ревью чужого MR/PR: карта изменений, параллельные фокусы, фальсификация находок, severity/confidence/scope, доставка инлайн-тредами через gh/glab. По поручению входа - разметка находок типом в первой строке треда. Точка входа - команда /mr-review, едет в этом же плагине.",
-      "version": "3.4.3",
+      "version": "3.4.4",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1209,7 +1209,7 @@
       "name": "dex-requirements-reviewer",
       "source": "./plugins/specialists/review/dex-requirements-reviewer",
       "description": "Ревью и согласование чужого готового набора требований (BRD/stories) как документа: дефекты единицы и дефекты набора против источника, фальсификация находок, severity, правки автору без мутации документа.",
-      "version": "2.1.2",
+      "version": "2.1.3",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1287,7 +1287,7 @@
       "name": "dex-self-reviewer",
       "source": "./plugins/specialists/review/dex-self-reviewer",
       "description": "Pre-push саморевью своей локальной ветки: committed+staged+worktree diff, скан по осям diff'а (security, architecture, language, business, regressions, performance, loose-ends, non-code) с реальным прогоном build/test, фальсификация, чеклист правок до push, по поручению - разметка находок типом.",
-      "version": "3.2.2",
+      "version": "3.2.3",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1515,8 +1515,8 @@
     {
       "name": "dex-skill-codebase-conventions",
       "source": "./plugins/skills/dex-skill-codebase-conventions",
-      "description": "Конвенции проекта: инструкции и гайды, свод правил, создание значений, имена пар типов, throw или Result, async без ввода-вывода.",
-      "version": "1.13.0",
+      "description": "Конвенции проекта: свод правил, создание значений, имена пар типов, throw или Result, async без ввода-вывода.",
+      "version": "1.14.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2886,7 +2886,7 @@
       "name": "dex-ts-fullstack-coder",
       "source": "./plugins/specialists/fullstack/dex-ts-fullstack-coder",
       "description": "Fullstack-кодер TypeScript: бэкенд на Node.js/Bun и фронтенд на React, типизация, валидация схем.",
-      "version": "3.2.1",
+      "version": "3.2.2",
       "category": "specialist",
       "keywords": [
         "specialist",

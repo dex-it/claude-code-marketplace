@@ -69,7 +69,7 @@ skills:
 
 **Exit criteria:** перечислены домен-элементы и релевантные `Accepted` ADR, затронутые дельтой, либо явная пометка «дельта домена не касается».
 
-Загрузи `dex-skill-codebase-conventions:codebase-conventions` (инструкции и гайды проекта, свод правил).
+Загрузи `dex-skill-codebase-conventions:codebase-conventions` (свод правил).
 
 ## Phase 3: New Findings Hunt
 
