@@ -329,7 +329,9 @@ const withCommands = (t, f) => {
   if (!t || (!build && !test)) return t
   return { ...t, ...(build ? { build_cmd: build } : {}), ...(test && test !== t.test_cmd ? { test_cmd: test, report_cmd: String(c.report_cmd || '').trim() } : {}) }
 }
-const cmdsOf = (t) => ({ build_cmd: String((t && t.build_cmd) || '').trim(), test_cmd: String((t && t.test_cmd) || '').trim() })
+// test_cmd строки - действующая команда тестов, та, что гоняет verifySpec: report_cmd, иначе test_cmd. Одна test_cmd при заведённом report_cmd
+// показала бы в «стало» не тот прогон, который верификация гоняла.
+const cmdsOf = (t) => ({ build_cmd: String((t && t.build_cmd) || '').trim(), test_cmd: String((t && t.report_cmd) || '').trim() || String((t && t.test_cmd) || '').trim() })
 // Созданная кодером на пустом месте команда строки не даёт: судить замену не с чем.
 const swapText = (was, t) => {
   const now = cmdsOf(t), s = was ? ['build_cmd', 'test_cmd'].filter(k => was[k] && now[k] !== was[k]).map(k => `${k}: было «${was[k]}», стало «${now[k]}»`) : []

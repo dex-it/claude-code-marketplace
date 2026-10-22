@@ -132,6 +132,24 @@ check "$("$L" get T-3 Исход)" "blocked" "finish: blocked -> Исход bloc
 check "$("$L" get T-3 Нехватка)" "нет доступа; Статус: закрыт" "finish: перевод строки нехватки сведён к '; ' (ledger.md T5)"
 check "$("$L" get T-3 Статус)" "открыт" "finish: строка нехватки не стала полем шапки"
 
+"$L" open G-1 >/dev/null
+"$L" set G-1 Исход blocked >/dev/null; "$L" set G-1 Нехватка "открыт трек 01-bugfix.md: продолжить его либо сдать исход" >/dev/null
+check "$("$L" get G-1 "Нехватка трека")" "" "нехватка гейта auto.md (set) не попадает в «Нехватка трека»: prior_missing её не подаёт"
+"$F" G-1 feature blocked <<< '{"status":"blocked","where":"Fix#1","missing":"R3 не реализовано"}' >/dev/null
+check "$("$L" get G-1 "Нехватка трека")" "R3 не реализовано" "finish: blocked из возврата трека -> «Нехватка трека»"
+check "$("$L" get G-1 Нехватка)" "R3 не реализовано" "finish: blocked из возврата трека -> и Нехватка (сторож Stop читает её)"
+"$L" set G-1 Нехватка "цель начата до 9.0.0 в дереве /w: повторить" >/dev/null
+check "$("$L" get G-1 "Нехватка трека")" "R3 не реализовано" "гейт после прогона трека «Нехватку трека» не трогает"
+"$F" G-1 feature blocked "возврат Workflow не получен: 15 минут без записи прогона" <<< '{}' >/dev/null
+check "$("$L" get G-1 "Нехватка трека")" "R3 не реализовано" "finish: blocked с аргументом нехватки (таймаут, null узла) «Нехватку трека» не пишет и не снимает"
+check "$("$L" get G-1 Нехватка)" "возврат Workflow не получен: 15 минут без записи прогона" "finish: blocked с аргументом -> Нехватка по-прежнему его"
+"$F" G-1 feature partial <<< '{"status":"partial","trail":[{"step":3}]}' >/dev/null
+check "$("$L" get G-1 "Нехватка трека")" "" "finish: partial снимает «Нехватку трека»"
+"$F" G-1 feature blocked <<< '{"where":"Fix#2"}' >/dev/null
+check "$("$L" get G-1 "Нехватка трека")" "узел не вернул выход, шаг Fix#2" "finish: blocked возвратом без missing -> «Нехватка трека» - шаг where"
+"$F" G-1 feature complete <<< '{"status":"complete","trail":[{"step":3}]}' >/dev/null
+check "$("$L" get G-1 "Нехватка трека")" "" "finish: complete снимает «Нехватку трека»"
+
 "$L" open C-5 >/dev/null
 "$F" C-5 feature partial <<< '{"loops":{"fix":1},"ctx":{"stack":"ts","test_cmd":"npm test","requirements":["R1 поле"]}}' >/dev/null
 check "$("$L" ctx C-5 feature)" '{"stack":"ts","test_cmd":"npm test","requirements":["R1 поле"]}' "ctx: продукт разведки пишется и читается строкой JSON"
