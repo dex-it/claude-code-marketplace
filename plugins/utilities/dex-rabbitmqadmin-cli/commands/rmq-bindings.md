@@ -23,4 +23,4 @@ argument-hint: "[--source exchange] [--destination queue] [--vhost name]"
 **Constraints:**
 
 - Требует `rabbitmqadmin` в PATH; если не найден -- показать инструкцию установки.
-- Read-only. Создание/удаление bindings -- только вручную или через `dex-rabbitmq-specialist`.
+- Read-only. Создание/удаление bindings -- только вручную или через специалиста по RabbitMQ.
