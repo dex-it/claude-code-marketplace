@@ -10,7 +10,7 @@ react и playwright (группа 2.3, #298). Файл - ключ для суд�
 ```
 setup.sh <dest> [ветка]   git-репозиторий в <dest>: stages/* - коммиты main, branches/<имя>/* - ветка feature/<имя> от main;
                           в конце npm ci --offline --ignore-scripts (PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1)
-stages/                   1 api + корень монорепо + package-lock.json; 2 web; 3 e2e (смоук); 4 клиент склада, резерв
+stages/                   1 api + корень монорепо + package-lock.json (закоммичен: исключение в корневом .gitignore); 2 web; 3 e2e (смоук); 4 клиент склада, резерв
                           с повторами (модуль SD-13), docs/payments-api.md; 5 задачи docs/tasks/SD-10..SD-15
 branches/admin-refunds    feature/admin-refunds, 3 коммита, задача SD-16 в ветке - кейс R1
 branches/order-dashboard  feature/order-dashboard, 3 коммита, задача SD-17 в ветке - кейс R2
@@ -224,7 +224,7 @@ K - дефект под ловушку скилла (единица - в пос�
 | K3D-V9 | ts-vitest-jest: общий mutable-стейт | SHUFFLE seed 1-5 PASS и по коду нет двух тестов с одним `customerId`, где итог зависит от порядка; нет файлового `let`/`const` с `Map`, массивом, объектом, который тесты изменяют | уникальный `customerId` на тест, `vi.resetModules` + динамический импорт, стейт в `beforeEach`, один тест на всю последовательность попыток | любой seed FAIL по состоянию, либо одинаковый `customerId` в нескольких тестах с зависящим от порядка утверждением |
 | K3D-V10 | ts-vitest-jest: проверка вызовов мока вместо результата | MR1, MR2, MR3, MR4 KILLED; сценарий задачи, у которого утверждение о результате отсутствует, а есть только `toHaveBeenCalled*`, - провал | утверждение о результате вместе с проверкой вызова внешнего клиента (аргументы `delivery.quote` - часть контракта) | MR* SURVIVED при наличии теста сценария, который проверяет только вызовы моков |
 | K3D-B1 | приманка: сетевой клиент | REAL-FETCH 0; тесты не ходят в настоящую доставку | подмена `delivery`, `vi.stubGlobal('fetch')` | REAL-FETCH больше 0 (ушла за "spy без подмены") |
-| K3D-O1 | вне скилла | typecheck и test зелёные; `src` не изменён; MP2, MO1, MO2, MO3 KILLED | - | справочно, охват |
+| K3D-O1 | вне скилла | typecheck и test зелёные; `src` не изменён; MO1, MO2, MO3 KILLED; MP2 справочный (выжил 4/4, вне счёта) | - | справочно, охват |
 
 Мутанты (патчи к ветке): MP1 `percent: 10` -> 15; MP2 порог `<` -> `<=`; MJ1 `applyPromo(code, items.length)` вместо суммы;
 MR1 итог без доставки; MR2 тариф при недоступности 0; MR3 признак оценки не выставляется; MR4 скидка не вычитается;

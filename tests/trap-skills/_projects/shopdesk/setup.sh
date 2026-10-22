@@ -30,6 +30,5 @@ branch() { # $1 - каталог ветки
 }
 for b in "$here"/branches/*/; do [ -d "$b" ] && branch "$b"; done
 git checkout -q "$checkout"
-# package-lock.json в репозиторий не попадает (.gitignore каталога): без него ставим по закреплённым версиям из package.json, тоже из кэша.
-if [ -f package-lock.json ]; then install=ci; else install=install; fi
-PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm "$install" --offline --ignore-scripts --no-audit --no-fund
+# package-lock.json лежит в stages/1-api (исключение в корневом .gitignore): транзитивные версии не зависят от локального кэша npm.
+PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm ci --offline --ignore-scripts --no-audit --no-fund
