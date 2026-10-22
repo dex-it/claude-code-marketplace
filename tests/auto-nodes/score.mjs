@@ -149,6 +149,13 @@ function debuggerNode(id, c, r, repo, logs) {
   cpSync(join(caseDir, 'ref'), base + 'ref', { recursive: true })
   const onRef = sh(k.score.tests_cmd, base + 'ref', k.score.fail_re)
   console.log(`  тест ${r.repro_test || '-'}: дерево узла exit=${onTree.code} упали: ${onTree.failed.join(', ') || '-'}; под эталоном exit=${onRef.code}${onRef.code ? ' упали: ' + (onRef.failed.join(', ') || onRef.tail) : ''}`)
+  // Кейс с ложным следом в коде держит правку-приманку в decoy/: тест диагноста, зелёный под ней, закрыт ложной причиной (проверка ключа - check/ кейса).
+  if (existsSync(join(caseDir, 'decoy'))) {
+    snapshot(repo, base + 'decoy', false)
+    cpSync(join(caseDir, 'decoy'), base + 'decoy', { recursive: true })
+    const onDecoy = sh(k.score.tests_cmd, base + 'decoy', k.score.fail_re)
+    console.log(`  под ложной правкой (decoy/) exit=${onDecoy.code}${onDecoy.code ? ' упали: ' + (onDecoy.failed.join(', ') || onDecoy.tail) : ' - тест диагноста её не отличает'}`)
+  }
 }
 
 // Находка ревьюера засчитана подтверждённой, если в confirmed есть якорь в её строках, отброшенной - если якорь в dropped; покрытие - по названным требованиям.
