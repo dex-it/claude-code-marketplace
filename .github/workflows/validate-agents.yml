@@ -126,7 +126,7 @@ jobs:
         run: npm run test:tracks
 
       # Моды - TypeScript внутри процесса Claude Code: типы держит контракт
-      # `mods/types/claude-code.d.ts` (пишет /plugin-types), и разъезд ловится
+      # `mods/types/claude-code.d.ts` (пишет движок), и разъезд ловится
       # только компилятором - валидаторы каталога в .ts не заходят.
       - name: Typecheck mods
         run: npm run typecheck:mods

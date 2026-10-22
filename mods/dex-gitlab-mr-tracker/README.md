@@ -174,7 +174,7 @@ npm run test:mods                          # прогон чистой поло�
 claude plugin validate mods/dex-gitlab-mr-tracker   # манифест, перечень хуков и вызовов $
 ```
 
-Контракт типов - `mods/types/claude-code.d.ts`, пишется командой `/plugin-types` и руками не правится. Устройство класса, инструментарий и self-check - [MOD_FRAMEWORK.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/MOD_FRAMEWORK.md).
+Контракт типов - `mods/types/claude-code.d.ts`, пишет движок (как получить свежий - в MOD_FRAMEWORK.md) и руками не правится. Устройство класса, инструментарий и self-check - [MOD_FRAMEWORK.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/MOD_FRAMEWORK.md).
 
 Правки подхватываются горячей перезагрузкой запущенной сессии; если перезагрузка сорвалась на середине, транскрипт скажет об этом - помогает перезапуск сессии.
 
