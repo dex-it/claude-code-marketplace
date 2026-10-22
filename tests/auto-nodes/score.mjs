@@ -175,8 +175,11 @@ for (const id of readdirSync(out).filter(d => existsSync(join(out, d, 'repo'))).
   const c = id.replace(/-(old|new)-\d+$/, '')
   const repo = join(out, id, 'repo')
   const dir = join(projects, slug(repo))
+  // Каталог проекта в ~/.claude/projects один на путь репозитория: прогон, перезапущенный под тем же именем (упавший скрипт, мусорный заход),
+  // оставляет в нём прежние workflows - берётся самый свежий.
   let wf = null
-  for (const f of walk(dir, p => /\/workflows\/[^/]+\.json$/.test(p) && !p.includes('/subagents/'))) wf = JSON.parse(readFileSync(f, 'utf8'))
+  const wfFiles = walk(dir, p => /\/workflows\/[^/]+\.json$/.test(p) && !p.includes('/subagents/')).sort((a, b) => statSync(a).mtimeMs - statSync(b).mtimeMs)
+  if (wfFiles.length) wf = JSON.parse(readFileSync(wfFiles[wfFiles.length - 1], 'utf8'))
   let head = {}
   try { head = JSON.parse(readFileSync(join(out, id, 'out.json'), 'utf8')) } catch {}
   const r = wf && wf.result
