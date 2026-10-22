@@ -57,7 +57,15 @@ node score.mjs <каталог>
 | `rv4-session-rules` | feature | M8 `Date.now()` вопреки ADR-0001; M9 `Error` вместо `ValidationError` по CLAUDE.md; тесты зелёные | M8, M9 находками с якорем правила |
 | `rv5-archive-bare` | feature | M10* имя от пользователя в строке shell-команды; в проекте нет требований, правил и тестов | M10 блокирующей |
 | `rv6-orders-idor` | feature | M11* `cancelOrder` ищет заказ без владельца - чужой заказ отменяется; требования о владельце молчат, соседние функции фильтруют по нему | M11 блокирующей |
+| `rv7-webhook-env` | feature | M12 секрет `WEBHOOK_SECRET` читается и проверяется при первом вебхуке, а не при старте: нарушение правила скилла `ts-nodejs-api` (переменные окружения проверяются при старте), которого в проекте нет; M13 копия `formatAmount` в обработчике - техдолг, дефекта нет (на всех входах исход тот же); тесты зелёные | M12, M13 находками, ожидаемо `P2` (`P1` у M12 не ошибка, если названо последствие: каждый вебхук - 500 при живом `/health`); любая другая `P0`/`P1` - ложная; приманка - `timingSafeEqual` за проверкой длины, верно |
 | `rv0-clamp-clean` | feature | нет | ни одной `P0`/`P1`, `APPROVE` |
+
+`rv7-webhook-env` прогоняется с плагинами скилла и контроля, иначе стековый скилл узлу недоступен, а контроль не найден
+(профиль запуска их не несёт): `AUTO_NODES_PLUGINS="plugins/skills/dex-skill-ts-nodejs-api plugins/skills/dex-skill-stack-registry plugins/skills/dex-skill-node-contract
+plugins/specialists/review/dex-self-reviewer"`, пути от корня репозитория. Скилл и реестр стеков подаются обоим вариантам: контроль
+подбирает стековые скиллы по реестру (`stack-registry`), у нового узла реестра в норме нет. Кейс спроектирован под различие узлов: у `dex-auto:reviewer` техдолг
+и практика стека - вид находки по определению (`agents/reviewer.md`), у контроля - нет. Исход прогонов - в разделе
+«Прогоны кейсов #284» ниже.
 
 Меры: мина найдена (блокирующая - с severity `P0`/`P1`), ложные `P0`/`P1` на чистом кейсе. `score.mjs`
 кладёт находку рядом с миной по файлу и строкам; засчитывает мину судья по тексту находки.
@@ -104,6 +112,17 @@ node score.mjs <каталог>
 |---|---|---|---|
 | `db1-js-discount` | ts (JS, `node --test`) | `applyDiscount` меняет цены позиций входа на месте | `checkout.js`: второй расчёт по той же корзине |
 | `db2-py-duration` | python (pytest) | разбор длительности берёт первую часть строки | `retry.py`: задержка повтора |
+| `db3-js-ledger` | ts (JS, `node --test`) | `parseAmount` (`src/bank/import.js`) берёт `Math.trunc(x * 100)`: 4,35 разбирается как 434, копейка теряется при разборе выписки, до `ledger` | `ledger.js:statusOf` (`rest === 0`: счёт на 4,35 с платежом 4,35 - `partial`, остаток 0,01), `report.js`, `summary.js` |
+
+`db3-js-ledger` - кейс на ложный след: в `docs/known-issues.md` лежит правдоподобная правка (допуск в 1 копейку в
+`statusOf`, «предположительно округление банка»). Она снимает статус `partial` на примере входа, но не остаток в
+`statusLine` и не занижение `summary().paid` - другой путь к тому же симптому. Верный исход: причина в `import.js:2-4`, а не
+в `statusOf`; допуск назван в `falsification` как `refuted` (остаток 0,01 и `summary().paid` остаются); тест диагноста
+через продуктовый путь красный на дереве и зелёный под `ref/`; продукт не тронут. Свой узел обязан опровергать причину
+попыткой (`agents/debugger.md`: «достижимость места причины», «другой путь к тому же симптому»), контроль - по рецепту
+`dex-debugger` Falsify; ожидание кейса - контроль принимает документированную правку за причину. Прогон: контролю и
+`requirement-quality` из промпта шага нужны плагины -
+`AUTO_NODES_PLUGINS="plugins/specialists/delivery/dex-debugger plugins/skills/dex-skill-node-contract plugins/skills/dex-skill-stack-registry plugins/skills/dex-skill-requirement-quality"`.
 
 ## Кейсы skeptic
 
