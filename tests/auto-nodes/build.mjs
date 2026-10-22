@@ -1,4 +1,4 @@
-// build.mjs <узел> <out.js>: скрипт Workflow прогона узла - источники tracks-shared (модели узлов - NODE из nodes.js, как в треке), кейсы узла без полей судьи (mines, score, cause, decoys, expect), тело <узел>/node.js.
+// build.mjs <узел> <out.js>: скрипт Workflow прогона узла - источники tracks-shared, own-commits.js нужен hunksAsk из self-review.js (модели узлов - NODE из nodes.js, как в треке), кейсы узла без полей судьи (mines, score, cause, decoys, expect), тело <узел>/node.js.
 
 import { readFileSync, readdirSync, writeFileSync, existsSync } from 'node:fs'
 import { join, dirname } from 'node:path'
@@ -28,6 +28,6 @@ if (nodeName === 'coder') {
   if (!track || track !== bench) { console.error(`промпт кодера стенда разошёлся с feature.js: ${bench} против ${track}`); process.exit(1) }
 }
 
-writeFileSync(out, meta + src('contract.js') + src('nodes.js') + src('domain.js') + src('falsify.js') + src('self-review.js') + repro
+writeFileSync(out, meta + src('contract.js') + src('nodes.js') + src('domain.js') + src('falsify.js') + src('own-commits.js') + src('self-review.js') + repro
   + `const CASES = ${JSON.stringify(cases, null, 2)}\n` + readFileSync(join(here, nodeName, 'node.js'), 'utf8'))
 console.log(out)
