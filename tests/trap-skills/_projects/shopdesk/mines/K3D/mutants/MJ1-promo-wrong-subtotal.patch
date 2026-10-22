@@ -1,0 +1,13 @@
+diff --git a/api/src/services/checkout.ts b/api/src/services/checkout.ts
+index 08fb345..d983377 100644
+--- a/api/src/services/checkout.ts
++++ b/api/src/services/checkout.ts
+@@ -21,7 +21,7 @@ export async function quoteOrder(
+   options: { city: string; promoCode?: string },
+ ): Promise<OrderQuote> {
+   const subtotalKopecks = orderTotal(items);
+-  const promo = applyPromo(options.promoCode, subtotalKopecks);
++  const promo = applyPromo(options.promoCode, items.length);
+   if (options.promoCode && !promo.applied) {
+     logger.warn(`promo code ${options.promoCode} was not applied`);
+   }
