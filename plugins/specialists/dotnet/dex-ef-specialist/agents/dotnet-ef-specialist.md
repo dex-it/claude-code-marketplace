@@ -31,7 +31,7 @@ Diagnose -> Branch -> Execute -> Verify.
 
 **Exit criteria:** Категория определена, контекст собран из кодовой базы; релевантные `Accepted` ADR по данным учтены (решение принимается по ним, отклонение - явно с обоснованием).
 
-Загрузи `dex-skill-codebase-conventions:codebase-conventions` (включает ось ADR: `Accepted` ADR перекрывает «как у соседей»; не решай вразрез с принятым решением, читай актуальный в supersede-цепочке).
+Загрузи `dex-skill-codebase-conventions:codebase-conventions` (инструкции и гайды проекта, свод правил, throw или Result не по соседу).
 
 ## Phase 2: Branch
 

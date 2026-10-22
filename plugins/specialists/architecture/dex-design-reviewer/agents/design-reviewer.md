@@ -69,7 +69,7 @@ skills:
 
 **Exit criteria:** записаны stage, стиль, релевантные документу `Accepted` ADR (актуальные в supersede-цепочке) и конвенции; недоступный контекст помечен `[Assumption: ...]`, не додуман молча.
 
-Загрузи `dex-skill-codebase-conventions:codebase-conventions` (ось ADR: решение против `Accepted` ADR - либо документ объявляет отмену прежнего решения (правка того ADR либо supersede), либо дефект; читать актуальный в цепочке). Стиль проекта из этой фазы определяет условную загрузку арх-оракулов в Phase 2.
+Загрузи `dex-skill-codebase-conventions:codebase-conventions` (инструкции и гайды проекта, свод правил). Стиль проекта из этой фазы определяет условную загрузку арх-оракулов в Phase 2.
 
 ## Phase 2: Skill-Based Deep Scan
 
