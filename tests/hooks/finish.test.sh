@@ -34,6 +34,8 @@ check "$("$L" trail BUG-1 feature | grep -c '')" "2" "trail: строки исп
 check "$("$L" trail BUG-1 review)" "" "trail: файла трека нет -> пусто"
 check "$("$L" decisions BUG-1 feature | grep -c '^- R3: выбран split по дефису$')" "1" "decisions: строки Решений файла трека"
 check "$("$L" decisions BUG-1 review)" "" "decisions: файла трека нет -> пусто"
+check "$("$L" decisions BUG-1 feature | grep -c 'degraded')" "0" "decisions: строки degraded не выдаются как решения (#352)"
+check "$(grep -c '^- degraded: верификатор' "$f")" "1" "decisions: degraded остаётся в файле трека (#352)"
 
 "$L" open PR-7 >/dev/null
 # без кавычек намеренно: это та форма, которую читает модель в usage и в auto.md
