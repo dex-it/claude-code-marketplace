@@ -419,7 +419,7 @@ def main_():
     commit(dest, "Частичный возврат платежа: POST /v1/payments/{id}/refunds", "2026-06-02T10:00:00+00:00")
     run(["git", "checkout", "-q", "-b", "feature/tariff-cache", "main"], dest)
     write(dest, H.catalog_cache_branch(code))
-    commit(dest, "Кэш тарифов в процессе: TTL до 5 минут", "2026-06-03T10:00:00+00:00")
+    commit(dest, "Кэш тарифов", "2026-06-03T10:00:00+00:00")
     run(["git", "checkout", "-q", checkout], dest)
 
 

@@ -1,0 +1,1 @@
+services/catalog/src/Meridian.Catalog/Infrastructure/Pricing/CachedTariffSource.cs:21 - при промахе (старт, истечение TTL) все параллельные запросы одновременно идут в медленный Pricing: нет единого вызова на ключ (блокировка или общая задача), так что кэш не защищает Pricing именно в момент пика - minor

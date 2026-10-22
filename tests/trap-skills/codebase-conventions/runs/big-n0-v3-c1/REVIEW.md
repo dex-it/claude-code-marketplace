@@ -1,0 +1,1 @@
+services/catalog/src/Meridian.Catalog/Infrastructure/Pricing/CachedTariffSource.cs:19 - TryGetValue/Set без single-flight: при холодном старте и после истечения TTL все параллельные запросы одновременно идут в медленный Pricing (каждый ещё и с ретраями resilience-handler), что даёт всплеск нагрузки и рост латентности ровно в момент промаха - minor
