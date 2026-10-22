@@ -2,9 +2,10 @@ name: Docs site
 
 # Сайт документации (site/, страницы docs/guide/) на GitHub Pages.
 #   pull_request     - собрать сайт и проверить ссылки, ничего не публикуя;
-#   push в main      - собрать и опубликовать;
-#   workflow_dispatch - то же вручную (запускать с ветки main: окружение github-pages
-#                       принимает деплой только с ветки по умолчанию).
+#   push в develop и main - собрать и опубликовать;
+#   workflow_dispatch     - то же вручную.
+# Деплой принимает только ветка, разрешённая в окружении github-pages
+# (Settings - Environments - github-pages - Deployment branches): develop и main.
 #
 # Чек НЕ должен быть required: у pull_request ниже фильтр путей, а required-чек,
 # который не запустился, вешает PR в BLOCKED (см. комментарий в validate-agents.yml).
@@ -29,6 +30,7 @@ on:
       - '.github/workflows/docs-site.yml'
   push:
     branches:
+      - develop
       - main
   workflow_dispatch:
 
