@@ -143,8 +143,11 @@ function snapshot(c) {
   };
 }
 
-// Без песочницы `Bash(git *)` пускает исполнение произвольной команды через git (-c, --config-env, алиас через git config).
-const GIT_DENY = ['Bash(git -c *)', 'Bash(git * -c *)', 'Bash(git --config-env*)', 'Bash(git * --config-env*)', 'Bash(git config*)', 'Bash(git * config*)'];
+// Слой defense-in-depth, не граница: отсекает прямые неэкранированные формы исполнения через git (-c, --config-env, git config,
+// --exec-path, --git-dir, plumbing); закавыченный флаг и абсолютный путь правила на аргументы Bash обходят - см. `_sandbox.sh`.
+const GIT_DENY = ['Bash(git -c *)', 'Bash(git * -c *)', 'Bash(git --config-env*)', 'Bash(git * --config-env*)', 'Bash(git config*)', 'Bash(git * config*)',
+  'Bash(git --exec-path*)', 'Bash(git * --exec-path*)', 'Bash(git --git-dir*)', 'Bash(git * --git-dir*)',
+  'Bash(git hash-object*)', 'Bash(git update-index*)', 'Bash(git checkout-index*)'];
 
 function runClaude(c, prompt, sid, n) {
   const settings = { sandbox: { enabled: true, allowUnsandboxedCommands: false, failIfUnavailable: true, network: { allowedDomains: [], strictAllowlist: true }, filesystem: { allowWrite: [c.host] } } };
