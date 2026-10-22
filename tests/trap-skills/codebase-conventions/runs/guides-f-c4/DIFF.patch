@@ -1,0 +1,182 @@
+diff --git a/src/Billing.Api/Api/InvoiceEndpoints.cs b/src/Billing.Api/Api/InvoiceEndpoints.cs
+index f9eb308..6f3963c 100644
+--- a/src/Billing.Api/Api/InvoiceEndpoints.cs
++++ b/src/Billing.Api/Api/InvoiceEndpoints.cs
+@@ -28,6 +28,24 @@ public static class InvoiceEndpoints
+             (await handler.HandleAsync(new QuoteInvoiceQuery(new InvoiceId(id), currency), ct))
+             .ToHttp(money => Results.Ok(new { amountMinor = money.Minor, currency = money.Currency })));
+ 
++        invoices.MapGet("/", async (Guid customerId, int? limit, string? cursor, ListCustomerInvoicesHandler handler, CancellationToken ct) =>
++            (await handler.HandleAsync(new ListCustomerInvoicesQuery(new CustomerId(customerId), limit, cursor), ct))
++            .ToHttp(page => Results.Ok(new
++            {
++                items = page.Items.Select(i => new
++                {
++                    id = i.Id.Value,
++                    customerId = i.CustomerId.Value,
++                    amountMinor = i.Amount.Minor,
++                    currency = i.Amount.Currency,
++                    dueDate = i.DueDate,
++                    createdAt = i.CreatedAt,
++                    status = i.Status,
++                    paidAt = i.PaidAt,
++                }),
++                nextCursor = page.NextCursor,
++            })));
++
+         return app;
+     }
+ }
+diff --git a/src/Billing.Api/Application/Abstractions/IInvoiceRepository.cs b/src/Billing.Api/Application/Abstractions/IInvoiceRepository.cs
+index 23c70e7..ea1b2f2 100644
+--- a/src/Billing.Api/Application/Abstractions/IInvoiceRepository.cs
++++ b/src/Billing.Api/Application/Abstractions/IInvoiceRepository.cs
+@@ -1,3 +1,4 @@
++using Billing.Api.Application.Handlers.Invoices;
+ using Billing.Api.Domain;
+ 
+ namespace Billing.Api.Application.Abstractions;
+@@ -6,6 +7,7 @@ public interface IInvoiceRepository
+ {
+     Task<Invoice?> FindAsync(InvoiceId id, CancellationToken ct);
+     Task<IReadOnlyList<Invoice>> ListByStatusAsync(InvoiceStatus status, CancellationToken ct);
++    Task<IReadOnlyList<Invoice>> ListByCustomerAsync(CustomerId customerId, InvoiceCursor? after, int take, CancellationToken ct);
+     Task AddAsync(Invoice invoice, CancellationToken ct);
+     Task SaveAsync(Invoice invoice, CancellationToken ct);
+ }
+diff --git a/src/Billing.Api/Application/Handlers/Invoices/ListCustomerInvoicesHandler.cs b/src/Billing.Api/Application/Handlers/Invoices/ListCustomerInvoicesHandler.cs
+new file mode 100644
+index 0000000..36703ee
+--- /dev/null
++++ b/src/Billing.Api/Application/Handlers/Invoices/ListCustomerInvoicesHandler.cs
+@@ -0,0 +1,66 @@
++using System.Buffers.Text;
++using System.Globalization;
++using System.Text;
++using Billing.Api.Application.Abstractions;
++using Billing.Api.Domain;
++
++namespace Billing.Api.Application.Handlers.Invoices;
++
++public sealed record ListCustomerInvoicesQuery(CustomerId CustomerId, int? Limit, string? Cursor);
++
++public sealed record InvoicePage(IReadOnlyList<Invoice> Items, string? NextCursor);
++
++public sealed class ListCustomerInvoicesHandler(
++    IInvoiceRepository invoices,
++    ListCustomerInvoicesValidator validator)
++{
++    public const int DefaultLimit = 20;
++
++    public async Task<Result<InvoicePage>> HandleAsync(ListCustomerInvoicesQuery query, CancellationToken ct)
++    {
++        if (validator.Check(query) is { } error)
++            return error;
++
++        InvoiceCursor? after = null;
++        if (query.Cursor is not null)
++        {
++            after = InvoiceCursor.Parse(query.Cursor);
++            if (after is null)
++                return new ValidationError("cursor", "Invalid cursor");
++        }
++
++        var limit = query.Limit ?? DefaultLimit;
++        var found = await invoices.ListByCustomerAsync(query.CustomerId, after, limit + 1, ct);
++
++        if (found.Count <= limit)
++            return new InvoicePage(found, null);
++
++        var items = found.Take(limit).ToList();
++        return new InvoicePage(items, InvoiceCursor.From(items[^1]).Encode());
++    }
++}
++
++public sealed record InvoiceCursor(DateTimeOffset CreatedAt, InvoiceId Id)
++{
++    public static InvoiceCursor From(Invoice invoice) => new(invoice.CreatedAt, invoice.Id);
++
++    public string Encode() =>
++        Base64Url.EncodeToString(Encoding.UTF8.GetBytes($"{CreatedAt:O}|{Id}"));
++
++    public static InvoiceCursor? Parse(string cursor)
++    {
++        try
++        {
++            var parts = Encoding.UTF8.GetString(Base64Url.DecodeFromChars(cursor)).Split('|');
++            if (parts.Length == 2
++                && DateTimeOffset.TryParseExact(parts[0], "O", CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var createdAt)
++                && Guid.TryParse(parts[1], out var id))
++                return new InvoiceCursor(createdAt, new InvoiceId(id));
++        }
++        catch (Exception e) when (e is FormatException or ArgumentException)
++        {
++        }
++
++        return null;
++    }
++}
+diff --git a/src/Billing.Api/Application/Handlers/Invoices/ListCustomerInvoicesValidator.cs b/src/Billing.Api/Application/Handlers/Invoices/ListCustomerInvoicesValidator.cs
+new file mode 100644
+index 0000000..5ddc48d
+--- /dev/null
++++ b/src/Billing.Api/Application/Handlers/Invoices/ListCustomerInvoicesValidator.cs
+@@ -0,0 +1,12 @@
++using Billing.Api.Application.Validation;
++using FluentValidation;
++
++namespace Billing.Api.Application.Handlers.Invoices;
++
++public sealed class ListCustomerInvoicesValidator : BillingValidator<ListCustomerInvoicesQuery>
++{
++    public ListCustomerInvoicesValidator()
++    {
++        RuleFor(x => x.Limit).InclusiveBetween(1, 100).OverridePropertyName("limit");
++    }
++}
+diff --git a/src/Billing.Api/Infrastructure/Persistence/InMemoryInvoiceRepository.cs b/src/Billing.Api/Infrastructure/Persistence/InMemoryInvoiceRepository.cs
+index 73697c6..93cfb0b 100644
+--- a/src/Billing.Api/Infrastructure/Persistence/InMemoryInvoiceRepository.cs
++++ b/src/Billing.Api/Infrastructure/Persistence/InMemoryInvoiceRepository.cs
+@@ -1,4 +1,5 @@
+ using Billing.Api.Application.Abstractions;
++using Billing.Api.Application.Handlers.Invoices;
+ using Billing.Api.Domain;
+ 
+ namespace Billing.Api.Infrastructure.Persistence;
+@@ -11,6 +12,22 @@ public sealed class InMemoryInvoiceRepository(InMemoryStore store) : IInvoiceRep
+     public Task<IReadOnlyList<Invoice>> ListByStatusAsync(InvoiceStatus status, CancellationToken ct) =>
+         Task.FromResult<IReadOnlyList<Invoice>>(store.Invoices.Values.Where(i => i.Status == status).ToList());
+ 
++    public Task<IReadOnlyList<Invoice>> ListByCustomerAsync(
++        CustomerId customerId, InvoiceCursor? after, int take, CancellationToken ct)
++    {
++        var query = store.Invoices.Values.Where(i => i.CustomerId == customerId);
++        if (after is not null)
++            query = query.Where(i =>
++                i.CreatedAt < after.CreatedAt
++                || (i.CreatedAt == after.CreatedAt && i.Id.Value.CompareTo(after.Id.Value) < 0));
++
++        return Task.FromResult<IReadOnlyList<Invoice>>(query
++            .OrderByDescending(i => i.CreatedAt)
++            .ThenByDescending(i => i.Id.Value)
++            .Take(take)
++            .ToList());
++    }
++
+     public Task AddAsync(Invoice invoice, CancellationToken ct)
+     {
+         store.Invoices[invoice.Id] = invoice;
+diff --git a/src/Billing.Api/Modules/InvoicesModule.cs b/src/Billing.Api/Modules/InvoicesModule.cs
+index ccb1877..3dfba3b 100644
+--- a/src/Billing.Api/Modules/InvoicesModule.cs
++++ b/src/Billing.Api/Modules/InvoicesModule.cs
+@@ -14,6 +14,8 @@ public static class InvoicesModule
+         services.AddScoped<PayInvoiceHandler>();
+         services.AddScoped<CancelInvoiceHandler>();
+         services.AddScoped<QuoteInvoiceHandler>();
++        services.AddScoped<ListCustomerInvoicesValidator>();
++        services.AddScoped<ListCustomerInvoicesHandler>();
+         return services;
+     }
+ }
