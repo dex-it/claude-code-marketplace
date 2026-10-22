@@ -29,8 +29,21 @@
  * pre-load `skills:` у самого агента - в `init.skills` скилл виден потому, что его
  * плагин установлен, а не потому, что агент его связал.
  *
+ * Среда прогона - тоже ось результата. По умолчанию прогон ИЗОЛИРОВАН от пользовательских
+ * настроек оператора: `--setting-sources project` не грузит `~/.claude/settings.json` (включённые
+ * плагины, хуки, CLAUDE.md), а плагин кейса остаётся, потому что подключён флагом `--plugin-dir`,
+ * не настройкой. Иначе исход кейса зависит от установки того, кто запускает: сторонний плагин
+ * на том же предмете даёт молчание (замер #350: 143 скилла в листинге и 0/3 против 20 и 3/3), и
+ * счётчик перехвата его не видит - перехвата нет, есть только молчание. Изоляция отвечает на
+ * вопрос «годно ли поле само по себе». Вопрос «выживает ли оно рядом с установленным у оператора
+ * соседом» меряется флагом `--operator-env`: изоляции нет, прогон идёт в среде оператора. Режим и
+ * сторонние плагины листинга печатаются в итоге и пишутся в `--json` (`env`, `foreignPlugins`):
+ * «7/7 в изоляции» и «7/7 в среде оператора» - разные утверждения, и задним числом они
+ * различимы только по этой записи. Сверено на CLI 2.1.308.
+ *
  * Usage:
- *   node tools/run-activation.js                       # все кейсы, sonnet, 1 прогон
+ *   node tools/run-activation.js                       # все кейсы, sonnet, 1 прогон, в изоляции
+ *   node tools/run-activation.js --operator-env        # без изоляции: среда оператора
  *   node tools/run-activation.js --agents --model haiku # видимость всех агентов дерева
  *   node tools/run-activation.js --agents --list-cases   # перечень кейсов, без сети
  *   node tools/run-activation.js --model opus --runs 3
@@ -77,10 +90,22 @@ const JSON_OUT = arg('json', null);
 const TIMEOUT_MS = Number(arg('timeout', '300')) * 1000;
 const AGENTS_MODE = process.argv.includes('--agents');
 const LIST_ONLY = process.argv.includes('--list-cases');
+const OPERATOR_ENV = process.argv.includes('--operator-env');
+const ENV_MODE = OPERATOR_ENV ? 'operator' : 'isolated';
+const ENV_LABEL = OPERATOR_ENV
+  ? 'среда оператора (без изоляции: включённые плагины, хуки и CLAUDE.md пользователя грузятся)'
+  : 'изоляция (--setting-sources project: пользовательские плагины, хуки и CLAUDE.md не грузятся)';
 
 // Инструменты действия в прогоне активации не нужны и стоят денег: предмет пробы -
 // какой Skill выбран, а не что агент сделает дальше.
 const DISALLOWED = 'Bash,Write,Edit,WebFetch,WebSearch,Agent,Task';
+
+// Изоляция: `--setting-sources project` убирает источники `user` и `local`, а с ними включённые
+// у оператора плагины. Плагин кейса при этом остаётся - он подключён `--plugin-dir`, а не
+// настройкой. Проба на CLI 2.1.308: листинг 31 -> 20 скиллов, плагин кейса на месте, сторонних
+// плагинов 0. Пустой список источников (`""`) даёт тот же листинг, но `project` явнее. `--bare`
+// не годится: он отрезает OAuth, прогон без ключа API не авторизуется.
+const ISOLATION_ARGS = OPERATOR_ENV ? [] : ['--setting-sources', 'project'];
 
 // Плагин кейса грузится из рабочего дерева (`--plugin-dir`), а не из установки оператора:
 // иначе прогон судит чужой снапшот - непоставленный плагин дал бы ложный провал, а
@@ -137,6 +162,7 @@ function runCase(kase) {
       '--model', MODEL,
       '--disallowed-tools', kase.kind === 'agent' ? `${DISALLOWED},Read,Glob,Grep,Skill` : DISALLOWED,
       ...dirs.flatMap((d) => ['--plugin-dir', d]),
+      ...ISOLATION_ARGS,
     ];
     const child = spawn('claude', args, { cwd: sandbox, stdio: ['ignore', 'pipe', 'pipe'] });
     let out = '';
@@ -152,6 +178,7 @@ function runCase(kase) {
       let cost = 0;
       let listed = null;
       let agents = null;
+      let cli = null;
       for (const line of out.split('\n')) {
         if (!line.trim()) continue;
         let e;
@@ -159,6 +186,7 @@ function runCase(kase) {
         if (e.type === 'system' && e.subtype === 'init') {
           if (Array.isArray(e.skills)) listed = e.skills;
           if (Array.isArray(e.agents)) agents = e.agents;
+          if (e.claude_code_version) cli = e.claude_code_version;
         }
         if (e.type === 'assistant') {
           for (const part of e.message?.content ?? []) {
@@ -167,7 +195,7 @@ function runCase(kase) {
         }
         if (e.type === 'result') cost = e.total_cost_usd ?? 0;
       }
-      resolvePromise({ skills, cost, listed, agents, missing });
+      resolvePromise({ skills, cost, listed, agents, missing, cli });
     });
   });
 }
@@ -268,7 +296,8 @@ if (LIST_ONLY) {
 const jobs = [];
 for (const kase of cases) for (let r = 0; r < RUNS; r++) jobs.push({ kase, run: r });
 
-console.log(`Прогон активации: ${cases.length} кейс(ов) x ${RUNS} = ${jobs.length} запуск(ов), модель ${MODEL}, параллельно ${CONCURRENCY}\n`);
+console.log(`Прогон активации: ${cases.length} кейс(ов) x ${RUNS} = ${jobs.length} запуск(ов), модель ${MODEL}, параллельно ${CONCURRENCY}`);
+console.log(`Среда: ${ENV_LABEL}\n`);
 
 const started = Date.now();
 const outcomes = await pool(jobs, async ({ kase, run }) => {
@@ -301,7 +330,7 @@ const outcomes = await pool(jobs, async ({ kase, run }) => {
       : near.length ? `плагин поднялся, но агент назван иначе: ${near.join(', ')}`
       : 'плагина нет в листинге агентов сессии';
     console.log(`${mark} ${kase.id}${RUNS > 1 ? `#${run + 1}` : ''} [видимость] -> ${c('gray', detail)}`);
-    return { id: kase.id, run, kind: 'agent', mode: kase.mode, expect: kase.expect, fired: listedAgents ?? [], pass: seen && !unchecked, bare: false, absent: Boolean(unchecked), unmet: [], foreign: [], contestedWon: null, missing: res.missing ?? [], error: res.error ?? null, cost: res.cost ?? 0 };
+    return { id: kase.id, run, kind: 'agent', mode: kase.mode, expect: kase.expect, fired: listedAgents ?? [], pass: seen && !unchecked, bare: false, absent: Boolean(unchecked), unmet: [], foreign: [], listedCount: null, cli: res.cli ?? null, contestedWon: null, missing: res.missing ?? [], error: res.error ?? null, cost: res.cost ?? 0 };
   }
   // Кейс может требовать присутствия конкурента: он меряет не «работает ли поле», а величину
   // перехвата, и прогон без конкурента даёт зелёный, который ничего не измеряет. Условие держится
@@ -339,9 +368,11 @@ const outcomes = await pool(jobs, async ({ kase, run }) => {
     : fired.length ? fired.join(', ') : 'ни одного Skill';
   console.log(`${mark} ${kase.id}${RUNS > 1 ? `#${run + 1}` : ''} [${kase.mode}] -> ${c('gray', detail)}`);
   // Сторонние скиллы листинга - это и есть среда конкуренции, в которой получен исход. Без записи
-  // «7/7 при живом конкуренте» и «7/7 при выключенном» неразличимы задним числом.
+  // «7/7 при живом конкуренте» и «7/7 при выключенном» неразличимы задним числом. Режим среды
+  // (`env`) пишется рядом, в корне `--json`: иначе «7/7 в изоляции» и «7/7 в среде оператора»
+  // различимы только по составу `foreign`, а он зависит от машины.
   const foreign = (res.listed ?? []).filter((n) => !n.startsWith('dex-'));
-  return { id: kase.id, run, mode: kase.mode, expect: kase.expect, fired, pass, bare, absent, unmet, foreign, contestedWon: contested ? hit : null, missing: res.missing ?? [], error: res.error ?? null, cost: res.cost ?? 0 };
+  return { id: kase.id, run, mode: kase.mode, expect: kase.expect, fired, pass, bare, absent, unmet, foreign, listedCount: Array.isArray(res.listed) ? res.listed.length : null, cli: res.cli ?? null, contestedWon: contested ? hit : null, missing: res.missing ?? [], error: res.error ?? null, cost: res.cost ?? 0 };
 }, CONCURRENCY);
 
 const absent = outcomes.filter((o) => o.absent);
@@ -350,8 +381,30 @@ const bareHits = outcomes.filter((o) => o.bare);
 const cost = outcomes.reduce((s, o) => s + o.cost, 0);
 const secs = Math.round((Date.now() - started) / 1000);
 
+// Сторонние (не `dex-`) скиллы листинга по плагинам. Скилл без префикса `плагин:` - встроенный
+// скилл CLI либо личный скилл оператора (`~/.claude/skills`); отдельно от плагинов он считается,
+// потому что в изоляции остаётся и составляет базовую линию листинга.
+const foreignByPlugin = new Map();
+const foreignBare = new Set();
+for (const o of outcomes) {
+  for (const n of o.foreign ?? []) {
+    const i = n.indexOf(':');
+    if (i === -1) { foreignBare.add(n); continue; }
+    const plugin = n.slice(0, i);
+    if (!foreignByPlugin.has(plugin)) foreignByPlugin.set(plugin, new Set());
+    foreignByPlugin.get(plugin).add(n);
+  }
+}
+const foreignPlugins = [...foreignByPlugin].map(([plugin, names]) => ({ plugin, skills: names.size }));
+const listedCounts = outcomes.map((o) => o.listedCount).filter((n) => n != null);
+const clis = [...new Set(outcomes.map((o) => o.cli).filter(Boolean))];
+
 const checked = outcomes.length - absent.length;
 console.log(`\n${COLORS.bold}Итог:${COLORS.reset} ${checked} проверено из ${outcomes.length}, ${c('green', `${checked - failed.length} прошло`)}, ${failed.length ? c('red', `${failed.length} провал`) : '0 провалов'}, $${cost.toFixed(3)}, ${secs}s, модель ${MODEL}`);
+console.log(`Среда: ${ENV_LABEL}${clis.length ? `, CLI ${clis.join('/')}` : ''}`);
+if (listedCounts.length) console.log(`Листинг скиллов: ${Math.min(...listedCounts)}${Math.max(...listedCounts) !== Math.min(...listedCounts) ? `..${Math.max(...listedCounts)}` : ''}; сторонних плагинов: ${foreignPlugins.length ? foreignPlugins.map((p) => `${p.plugin} (${p.skills})`).join(', ') : 'нет'}; без префикса плагина (встроенные CLI и личные скиллы): ${foreignBare.size}`);
+if (!OPERATOR_ENV && foreignPlugins.length) console.log(c('yellow', `Изоляция не отработала: в листинге сторонние плагины (${foreignPlugins.map((p) => p.plugin).join(', ')}). Исход не считать изолированным.`));
+if (OPERATOR_ENV && foreignPlugins.length) console.log(c('gray', `Исход получен рядом с перечисленными плагинами: это «выживает ли поле рядом с соседом», а не «годно ли поле само по себе».`));
 if (absent.length && AGENTS_MODE) console.log(c('gray', `Не проверено - листинг агентов не получен либо плагин не найден: ${absent.length}. Это не вердикт о видимости, а несостоявшийся прогон.`));
 if (absent.length && !AGENTS_MODE) console.log(c('gray', `Не проверено - скилла нет в листинге сессии: ${absent.length} (${[...new Set(absent.map((o) => o.expect))].join(', ')}). Поле этих скиллов не проверено ничем. Причину называют строки ниже - нет плагина в `+'`plugins/`'+` либо не выполнено требование кейса; ни одной такой строки нет - значит плагин в дереве есть и имя верно, а в листинг сессии скилл не попал.`));
 const contests = outcomes.filter((o) => o.contestedWon !== null && !o.absent);
@@ -363,7 +416,7 @@ if (incompletes.length) console.log(c('gray', `Не проверено - пла�
 if (bareHits.length) console.log(c('yellow', `Голым именем плагина (вызов не резолвится, попадание засчитано): ${bareHits.length} - ${bareHits.map((o) => o.id).join(', ')}`));
 
 if (JSON_OUT) {
-  writeFileSync(JSON_OUT, JSON.stringify({ model: MODEL, runs: RUNS, outcomes }, null, 2) + '\n');
+  writeFileSync(JSON_OUT, JSON.stringify({ model: MODEL, runs: RUNS, env: ENV_MODE, cli: clis, foreignPlugins, outcomes }, null, 2) + '\n');
   console.log(`JSON: ${JSON_OUT}`);
 }
 
