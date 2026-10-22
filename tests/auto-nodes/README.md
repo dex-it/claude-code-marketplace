@@ -25,6 +25,12 @@
 node score.mjs <каталог>
 ```
 
+Повтор - число либо диапазон: `rv1-cache-write:new:1..3` раскрывается в три прогона `...-new-1`, `...-new-2`,
+`...-new-3`; поштучная запись работает как прежде. `AUTO_NODES_DRY_RUN=1 ./run.sh ...` печатает раскрытые прогоны
+и выходит, не требуя `claude` и `timeout` (проверка - `tests/tools/auto-nodes-run.test.sh`, `npm run test:tools`).
+Каталоги плагинов, которых нет в профиле запуска (контроль каталога `dex-debugger` либо `dex-self-reviewer`, стековый
+скилл кейса), подаются `AUTO_NODES_PLUGINS="<каталог> <каталог>"` - каждый уходит в `claude` как `--plugin-dir`.
+
 Нужен `timeout` из GNU coreutils (на macOS - `brew install coreutils`, годится и `gtimeout`); без него
 `run.sh` отказывает до первого прогона. Кейс, который `setup.sh` не собрал, прогона не получает.
 
