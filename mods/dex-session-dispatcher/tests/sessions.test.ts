@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
-import { ordered, parseAgents, phaseOf, pickForDanger, pickSession, tallyLine, tallyOf } from '../hooks/sessions.ts'
+import { ordered, parseAgents, phaseOf, pickForAction, pickSession, tallyLine, tallyOf } from '../hooks/sessions.ts'
 import type { SessionRow } from '../hooks/sessions.ts'
 
 const SAMPLE = JSON.stringify([
@@ -61,11 +61,11 @@ describe('parseAgents', () => {
     )
 
     for (const name of [long, secretLike]) {
-      const picked = pickForDanger(name, rows, rows)
+      const picked = pickForAction(name, rows, rows)
 
       assert.ok('row' in picked, name)
       assert.equal(picked.row.name, name)
-      assert.equal(picked.isNamed, true)
+      assert.equal(picked.isConfirmed, false)
     }
 
     assert.equal(rows[2]?.name, '88888888')
@@ -139,9 +139,10 @@ describe('pickSession', () => {
   })
 })
 
-describe('pickForDanger: stop и remove по номеру не исполняются', () => {
+describe('pickForAction: stop, remove и say исполняются только по id', () => {
   // Список переставляется каждые десять секунд, поэтому номер, набранный по старому
-  // списку, может указывать на другую сессию: действие допустимо только по имени или id.
+  // списку, может указывать на другую сессию, а имена фоновых сессий повторяются:
+  // действие допустимо только по id, полному или короткому.
   const before = ordered(parseAgents(SAMPLE))
   const first = before[0]
   const second = before[1]
@@ -150,57 +151,84 @@ describe('pickForDanger: stop и remove по номеру не исполняю�
   if (!first || !second || !third) throw new Error('в образце мало сессий')
 
   it('номер только называет сессию, но не подтверждает действие', () => {
-    const picked = pickForDanger('2', before, before)
+    const picked = pickForAction('2', before, before)
 
     assert.ok('row' in picked)
     assert.equal(picked.row, second)
-    assert.equal(picked.isNamed, false)
+    assert.equal(picked.isConfirmed, false)
   })
 
-  it('полное имя, короткий id и полный id подтверждают действие', () => {
-    for (const query of [second.name, second.name.toUpperCase(), second.shortId, second.sessionId]) {
-      const picked = pickForDanger(query, before, before)
+  it('короткий id и полный id подтверждают действие, в любом регистре и с решёткой', () => {
+    for (const query of [second.shortId, second.sessionId, second.shortId.toUpperCase(), `#${second.shortId}`]) {
+      const picked = pickForAction(query, before, before)
 
       assert.ok('row' in picked, query)
       assert.equal(picked.row, second)
-      assert.equal(picked.isNamed, true, query)
+      assert.equal(picked.isConfirmed, true, query)
     }
   })
 
-  it('начало имени или id - только эхо: префикс мог выбрать не ту', () => {
-    const picked = pickForDanger('fix', before, before)
+  it('имя целиком называет сессию, но не подтверждает действие: имена повторяются', () => {
+    for (const query of [second.name, second.name.toUpperCase()]) {
+      const picked = pickForAction(query, before, before)
 
-    assert.ok('row' in picked)
-    assert.equal(picked.isNamed, false)
+      assert.ok('row' in picked, query)
+      assert.equal(picked.row, second)
+      assert.equal(picked.isConfirmed, false, query)
+    }
   })
 
-  it('список поменялся: номер 2 теперь другая сессия, а имя прежнее', () => {
+  it('вчерашней одноимённой сессии в списке нет: имя находит сегодняшнюю, но не исполняет', () => {
+    // Человек набрал имя, имея в виду вчерашнюю `fix-tests`; в списке осталась только сегодняшняя.
+    const today = { ...third, name: 'fix-tests', shortId: 'aa11bb22', sessionId: 'aa11bb22-9' }
+    const list = [second, today]
+    const byName = pickForAction('fix-tests', list, list)
+
+    assert.ok('row' in byName)
+    assert.equal(byName.row, today)
+    assert.equal(byName.isConfirmed, false)
+
+    // Её id называет ровно её.
+    const byId = pickForAction('aa11bb22', list, list)
+
+    assert.ok('row' in byId)
+    assert.equal(byId.isConfirmed, true)
+  })
+
+  it('начало имени или id - только эхо: префикс мог выбрать не ту', () => {
+    const picked = pickForAction('fix', before, before)
+
+    assert.ok('row' in picked)
+    assert.equal(picked.isConfirmed, false)
+  })
+
+  it('список поменялся: номер 2 теперь другая сессия, а id прежний', () => {
     // `first` закончилась и выпала из показанного списка; прежний «2» (вторая) стал «1»,
     // а прежний «3» стал «2».
     const after = before.filter(row => row !== first)
-    const byNumber = pickForDanger('2', after, before)
+    const byNumber = pickForAction('2', after, before)
 
     assert.ok('row' in byNumber)
     assert.equal(byNumber.row, third)
-    assert.equal(byNumber.isNamed, false)
+    assert.equal(byNumber.isConfirmed, false)
 
-    const byName = pickForDanger(second.name, after, before)
+    const byId = pickForAction(second.shortId, after, before)
 
-    assert.ok('row' in byName)
-    assert.equal(byName.row, second)
-    assert.equal(byName.isNamed, true)
+    assert.ok('row' in byId)
+    assert.equal(byId.row, second)
+    assert.equal(byId.isConfirmed, true)
   })
 
   it('одинаковое имя у двух сессий - ошибка с перечнем, а не первая', () => {
     const twin = [first, { ...second, name: first.name }]
-    const picked = pickForDanger(first.name, twin, twin)
+    const picked = pickForAction(first.name, twin, twin)
 
     assert.ok('error' in picked)
     assert.match(picked.error, /нескольким/)
   })
 
   it('не найдено - ошибка как у pickSession', () => {
-    assert.ok('error' in pickForDanger('нет такой', before, before))
+    assert.ok('error' in pickForAction('нет такой', before, before))
   })
 
   it('короткий id из одних цифр подтверждает действие, а не читается номером', () => {
@@ -208,11 +236,11 @@ describe('pickForDanger: stop и remove по номеру не исполняю�
     for (const shortId of ['12345678', '00000002']) {
       const digits: SessionRow = { ...third, shortId }
       const list = [first, second, digits]
-      const picked = pickForDanger(shortId, list, list)
+      const picked = pickForAction(shortId, list, list)
 
       assert.ok('row' in picked, shortId)
       assert.equal(picked.row, digits)
-      assert.equal(picked.isNamed, true, shortId)
+      assert.equal(picked.isConfirmed, true, shortId)
 
       const shown = pickSession(shortId, list, list)
 
@@ -221,13 +249,13 @@ describe('pickForDanger: stop и remove по номеру не исполняю�
     }
   })
 
-  it('имя из одних цифр не подтверждает действие: это номер', () => {
+  it('имя из одних цифр читается номером и не подтверждает действие', () => {
     const numeric = { ...third, name: '1' }
     const list = [first, second, numeric]
-    const picked = pickForDanger('1', list, list)
+    const picked = pickForAction('1', list, list)
 
     assert.ok('row' in picked)
     assert.equal(picked.row, first)
-    assert.equal(picked.isNamed, false)
+    assert.equal(picked.isConfirmed, false)
   })
 })

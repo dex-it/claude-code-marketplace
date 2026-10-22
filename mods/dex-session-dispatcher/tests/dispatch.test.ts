@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
-import { cleanName, dangerEcho, failureOf, launchDir, mayMutate, messageFor, nameFromTask, dirChoices, presetsOf, recentDirs, settled, startArgv, startedMessage, startedOf } from '../hooks/dispatch.ts'
+import { cleanName, dangerEcho, sayEcho, failureOf, launchDir, mayMutate, messageFor, nameFromTask, dirChoices, presetsOf, recentDirs, settled, startArgv, startedMessage, startedOf } from '../hooks/dispatch.ts'
 import type { SessionRow } from '../hooks/sessions.ts'
 
 describe('имена', () => {
@@ -55,7 +55,7 @@ describe('вывод CLI', () => {
   })
 
   it('сообщение соседу называет отправителя', () => {
-    assert.equal(messageFor('5d8e1b88', ' привет '), '[от диспетчера сессий, отправитель: 5d8e1b88] привет')
+    assert.equal(messageFor('5d8e1b88', ' привет '), '[через диспетчер сессий; отправитель указан без проверки: 5d8e1b88] привет')
   })
 })
 
@@ -142,6 +142,31 @@ describe('dangerEcho: номер не исполняется, эхо назыв�
 
     assert.match(text, /Остановить «fix-tests» \(0de41c8d\)/)
     assert.ok(text.includes('/sessions stop 0de41c8d'))
+  })
+})
+
+describe('sayEcho: номер и имя не отправляют, эхо называет сессию и id', () => {
+  it('имя, короткий id и точная команда повтора с id', () => {
+    const text = sayEcho(sample)
+
+    assert.match(text, /Отправить «fix-tests» \(0de41c8d\)\?/)
+    assert.ok(text.includes('/sessions say 0de41c8d текст'))
+  })
+})
+
+describe('messageFor: метка называет отправителя, но не подтверждает его', () => {
+  it('отправитель и текст на месте, текст обрезан по краям', () => {
+    const text = messageFor('0de41c8d', '  почини тесты \n')
+
+    assert.ok(text.includes('0de41c8d'))
+    assert.ok(text.endsWith('] почини тесты'))
+  })
+
+  it('метка не обещает подлинности: говорит, что отправитель не проверен', () => {
+    const text = messageFor('0de41c8d', 'x')
+
+    assert.match(text, /без проверки/)
+    assert.ok(!/от диспетчера сессий/.test(text))
   })
 })
 

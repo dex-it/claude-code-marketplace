@@ -19,11 +19,11 @@
 import type { Hook, PluginOptions, Register, RenderElement, Timer } from 'claude-code'
 
 import { parseArgs } from './args.ts'
-import { dangerEcho, delivery, dirChoices, failureOf, launchDir, mayMutate, recentDirs, messageFor, presetsOf, settled, startArgv, startedMessage, startedOf } from './dispatch.ts'
+import { dangerEcho, delivery, dirChoices, failureOf, launchDir, mayMutate, recentDirs, messageFor, presetsOf, sayEcho, settled, startArgv, startedMessage, startedOf } from './dispatch.ts'
 import type { DirChoice, Preset, RunResult, WithSend } from './dispatch.ts'
 import { isInside, needsScan, projectsRoot, transcriptPath } from './paths.ts'
 import type { Miss } from './paths.ts'
-import { isFinished, ordered, parseAgents, pickForDanger, pickSession } from './sessions.ts'
+import { isFinished, ordered, parseAgents, pickForAction, pickSession } from './sessions.ts'
 import type { SessionRow } from './sessions.ts'
 import { HELP_TEXT as HELP, detailText, framedLog, listText, openText, quote } from './text.ts'
 import type { Entry } from './text.ts'
@@ -752,9 +752,12 @@ export const register: Register = (on, pluginOptions) => {
         return { text: await start(action.task, action.name, action.dir, false) }
 
       case 'say': {
-        const found = pick(action.query)
+        const found = pickForAction(action.query, shownRows(), ordered(rows))
 
         if ('error' in found) return { text: found.error }
+
+        // Номер, имя и начало id лишь указывают сессию: поручение уходит только по id.
+        if (!found.isConfirmed) return { text: say(sayEcho(found.row)) }
 
         return { text: await sendTo(found.row, action.text) }
       }
@@ -777,7 +780,7 @@ export const register: Register = (on, pluginOptions) => {
 
       case 'stop':
       case 'remove': {
-        const found = pickForDanger(action.query, shownRows(), ordered(rows))
+        const found = pickForAction(action.query, shownRows(), ordered(rows))
 
         if ('error' in found) return { text: found.error }
 
@@ -785,12 +788,12 @@ export const register: Register = (on, pluginOptions) => {
 
         if (blocked !== null) return { text: say(blocked) }
 
-        // Номер и начало имени лишь указывают сессию: список переставляется каждые
-        // десять секунд, и номер, набранный по старому списку, попадает в другую.
-        // Исполняется только точное имя или id; иначе - эхо с командой повтора.
-        if (!found.isNamed) return { text: say(dangerEcho(action.kind, found.row)) }
+        // Номер и имя лишь указывают сессию: список переставляется каждые десять
+        // секунд, а имена фоновых сессий повторяются. Исполняется только id (полный
+        // или короткий); иначе - эхо с командой повтора.
+        if (!found.isConfirmed) return { text: say(dangerEcho(action.kind, found.row)) }
 
-        // Точное имя или id набрал человек: сам набор команды и есть подтверждение.
+        // Id набрал человек: сам набор команды и есть подтверждение.
         confirm = { kind: action.kind, sessionId: found.row.sessionId }
 
         return { text: await guarded(action.kind, found.row) }

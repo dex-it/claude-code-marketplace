@@ -81,9 +81,14 @@ export function failureOf(stderr: string, stdout: string): string {
   return line ? line.trim().slice(0, 200) : 'команда завершилась без объяснения'
 }
 
-/** Поручение для сообщения другой сессии: от кого оно, чтобы ответить адресно. */
+/**
+ * Поручение для сообщения другой сессии: от кого оно, чтобы ответить адресно. Метка -
+ * обычный текст: любая сессия, канал или человек может написать такую же с любым
+ * отправителем, поэтому она сама называет себя непроверенной, и получатель не вправе
+ * считать её доказательством происхождения.
+ */
 export function messageFor(from: string, text: string): string {
-  return `[от диспетчера сессий, отправитель: ${from}] ${text.trim()}`
+  return `[через диспетчер сессий; отправитель указан без проверки: ${from}] ${text.trim()}`
 }
 
 export type Preset = { label: string; task: string }
@@ -176,13 +181,22 @@ export function recentDirs(text: string, limit = 30): string[] {
   return found
 }
 
-/** Нужно ли подтверждение: вместо исполнения вернуть название сессии и точную команду повтора. */
+/** Эхо вместо исполнения: названа сессия и дана точная команда повтора с её id. */
 export function dangerEcho(kind: 'stop' | 'remove', row: SessionRow): string {
   const label = `${quote(row.name)} (${row.shortId})`
 
   return kind === 'stop'
     ? `Остановить ${label}? Разговор сохранится. Чтобы подтвердить, повторите: /sessions stop ${row.shortId}`
     : `Удалить ${label} вместе с рабочей копией, без возврата? Чтобы подтвердить, повторите: /sessions remove ${row.shortId}`
+}
+
+/**
+ * Эхо для `say`, названной не по id: поручение уходит сессии, у которой может быть право
+ * правки, и номер из пересчитанного списка мог указать на соседнюю. Текст не повторяется:
+ * он остаётся тем, что человек набрал сам.
+ */
+export function sayEcho(row: SessionRow): string {
+  return `Отправить ${quote(row.name)} (${row.shortId})? Повторите: /sessions say ${row.shortId} текст`
 }
 
 /**

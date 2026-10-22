@@ -214,32 +214,31 @@ export function pickSession(
   return { error: `«${q}» подходит нескольким сессиям: ${names}. Назовите имя целиком, начало id или номер из списка.` }
 }
 
-export type DangerPick = { row: SessionRow; isNamed: boolean } | { error: string }
+export type ActionPick = { row: SessionRow; isConfirmed: boolean } | { error: string }
 
 /**
- * Сессия для остановки или удаления. Список переставляется каждые десять секунд,
- * поэтому номер, набранный по увиденному раньше списку, может указывать на другую
- * сессию, а удаление необратимо. `isNamed` - сессия названа точно (имя целиком,
- * короткий или полный id): только такое называние подтверждает действие. Номер и
- * начало имени лишь указывают сессию, и действие просит повторить с её id.
+ * Сессия для действия, которое нельзя отозвать: остановка, удаление, отправка
+ * поручения. Список переставляется каждые десять секунд, поэтому номер, набранный
+ * по увиденному раньше списку, может указывать на другую сессию; имя тоже не
+ * опора: имя фоновой сессии выводится из первых слов задачи (`nameFromTask`) и
+ * повторяется между днями, а старой одноимённой в списке уже нет. `isConfirmed` -
+ * сессия названа своим id, коротким или полным: только это подтверждает действие.
+ * Номер, имя (хоть целиком) и начало имени или id лишь указывают сессию, и действие
+ * просит повторить с её id.
  */
-export function pickForDanger(
+export function pickForAction(
   query: string,
   shown: readonly SessionRow[],
   all: readonly SessionRow[] = shown,
-): DangerPick {
+): ActionPick {
   const q = query.trim().replace(/^#/, '').toLowerCase()
 
-  // Имя из одних цифр читается как номер, id - нет: id из цифр должен подтверждать действие.
-  const isNumber = /^\d+$/.test(q)
-  const exact = all.filter(
-    row =>
-      row.shortId.toLowerCase() === q || row.sessionId.toLowerCase() === q || (!isNumber && row.name.toLowerCase() === q),
-  )
+  // id из одних цифр читается как id, а не как номер: короткий id (8 знаков) в номера не попадает.
+  const byId = all.filter(row => row.shortId.toLowerCase() === q || row.sessionId.toLowerCase() === q)
 
-  if (q !== '' && exact.length === 1 && exact[0]) return { row: exact[0], isNamed: true }
+  if (q !== '' && byId.length === 1 && byId[0]) return { row: byId[0], isConfirmed: true }
 
   const picked = pickSession(query, shown, all)
 
-  return 'error' in picked ? picked : { row: picked.row, isNamed: false }
+  return 'error' in picked ? picked : { row: picked.row, isConfirmed: false }
 }
