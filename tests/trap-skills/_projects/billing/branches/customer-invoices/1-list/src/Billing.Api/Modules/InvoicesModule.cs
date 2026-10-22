@@ -14,6 +14,7 @@ public static class InvoicesModule
         services.AddScoped<PayInvoiceHandler>();
         services.AddScoped<CancelInvoiceHandler>();
         services.AddScoped<QuoteInvoiceHandler>();
+        services.AddScoped<ListCustomerInvoicesValidator>();
         services.AddScoped<ListCustomerInvoicesHandler>();
         return services;
     }

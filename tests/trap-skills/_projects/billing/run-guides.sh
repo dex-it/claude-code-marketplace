@@ -3,6 +3,7 @@
 # codebase-conventions/runs/guides-<кейс>-<набор><N>/.
 # run-guides.sh <case> <set> <idx> [skill-file]   case: f (CG-F, фича), r (CG-R, ревью MR), n (CG-0, ревью, ничего не менять)
 # set: c - контроль без скилла; s - со скиллом (копия SKILL.md подаётся путём). idx - номер прогона.
+# GUIDES_VER=v2 - версия кейса в id прогона (guides-n-v2-c1): прогоны после правки кейса не затирают прежние.
 # Рабочий каталог прогона - $GUIDES_WORK (вне репозитория: на его пути не должно быть CLAUDE.md).
 # CLAUDE.md кейса лежит внутри мини-проекта (ветка guides-base) - это часть входа, в каталог прогона
 # попадает вместе с репозиторием; проверка пути ниже смотрит только на предков $GUIDES_WORK.
@@ -14,7 +15,7 @@ REPO="$(git -C "$T" rev-parse --show-toplevel)"
 case "$SP/" in "$REPO"/*) echo "GUIDES_WORK внутри репозитория"; exit 1;; esac
 d="$SP"; while [[ $d != / ]]; do [[ -e $d/CLAUDE.md ]] && { echo "CLAUDE.md на пути: $d"; exit 1; }; d=$(dirname "$d"); done
 case_="$1"; set_="$2"; idx="$3"; skill="${4:-}"
-id="guides-$case_-$set_$idx"
+id="guides-$case_${GUIDES_VER:+-$GUIDES_VER}-$set_$idx"
 W=$SP/w/$id; rm -rf "$W"; mkdir -p "$SP/w" "$SP/log"
 DIR=$W/billing
 declare -A BR=([f]=guides-base [r]=overdue-list [n]=customer-invoices)

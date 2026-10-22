@@ -15,24 +15,17 @@ public sealed record CustomerInvoiceItem(
 
 public sealed record CustomerInvoicePage(IReadOnlyList<CustomerInvoiceItem> Items, string? NextCursor);
 
-public sealed class ListCustomerInvoicesHandler(IInvoiceRepository invoices)
+public sealed class ListCustomerInvoicesHandler(IInvoiceRepository invoices, ListCustomerInvoicesValidator validator)
 {
     private const int DefaultLimit = 20;
-    private const int MaxLimit = 100;
 
     public async Task<Result<CustomerInvoicePage>> HandleAsync(ListCustomerInvoicesQuery query, CancellationToken ct)
     {
-        var limit = query.Limit ?? DefaultLimit;
-        if (limit is < 1 or > MaxLimit)
-            return new ValidationError("limit", $"must be between 1 and {MaxLimit}");
+        if (validator.Check(query) is { } error)
+            return error;
 
-        InvoiceCursor? after = null;
-        if (query.Cursor is not null)
-        {
-            after = InvoiceCursor.TryParse(query.Cursor);
-            if (after is null)
-                return new ValidationError("cursor", "invalid cursor");
-        }
+        var limit = query.Limit ?? DefaultLimit;
+        var after = query.Cursor is null ? null : InvoiceCursor.TryParse(query.Cursor);
 
         var found = await invoices.ListByCustomerAsync(query.CustomerId, after, limit + 1, ct);
         var pageItems = found.Take(limit).ToList();
