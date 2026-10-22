@@ -34,3 +34,7 @@ skills:
 
 Расследованием одного инцидента ведает `dex-nowhere-specialist`; здесь - пачка уже найденных.
 Подробнее про базу песочницы - `dex-fixture-specialist`, префикс-шаблон `dex-skill-` именем не считается.
+
+Загрузка через плагин, которого нет: `dex-nowhere-loaded:fixture`; через плагин песочницы: `dex-fixture-specialist:fixture-oracle`.
+
+Скилл-плагин, которого нет: `dex-skill-nowhere-loaded:fixture` - его судит `skill-reference-unknown`, здесь правило молчит.

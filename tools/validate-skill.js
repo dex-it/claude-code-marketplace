@@ -84,9 +84,9 @@ function loadMarketplacePlugins() {
 // оно не является (загрузка пишется полной формой `plugin:skill`), поэтому обязательства поставки не
 // даёт и в замыкание бандла не входит. Но указатель обязан вести в существующее место: имя, которого
 // в каталоге нет, читателя никуда не приводит и сгнить успевает молча, а голую форму до сих пор не
-// сторожил никто. Полную форму в теле скилла не сторожит ничто: `skill-reference-unknown` в этом
-// валидаторе не заведён, а замыкание бандла фильтрует цели по плагинам репозитория и имя, которого
-// нет, из графа теряет - проверено подстановкой на живом дереве, остаток вынесен в issue #220.
+// сторожил никто. Полную форму `plugin:skill` половиной «плагин» судит это же правило: `skill-reference-unknown`
+// в этом валидаторе не заведён, а замыкание бандла фильтрует цели по плагинам репозитория и имя, которого
+// нет, из графа теряет.
 let catalogPluginsCache = null;
 function catalogPlugins() {
   if (!catalogPluginsCache) catalogPluginsCache = loadMarketplacePlugins();
@@ -105,7 +105,20 @@ function validatePluginNameMentions(text, findings, where = '') {
     findings.push({
       level: ERROR,
       rule: 'plugin-name-unknown',
-      message: `${where}names "${name}" - no such plugin in the catalogue. A bare name is a pointer, not a load, so it carries no delivery obligation - but a pointer must lead somewhere, and a name that leads nowhere rots silently; this rule is the guard of the bare form`,
+      message: `${where}names "${name}" - no such plugin in the catalogue. A bare name is a pointer, not a load, so it carries no delivery obligation - but a pointer must lead somewhere, and a name that leads nowhere rots silently; this rule is the guard of the bare form, and the plugin half of the full form plugin:skill is judged by the same rule`,
+    });
+  }
+  // Полная форма `plugin:skill`: половина «плагин» судится тем же правилом. Загрузка с именем плагина,
+  // которого нет в каталоге, никуда не ведёт, а `skill-reference-unknown` в этом валидаторе
+  // не заведён вовсе.
+  for (const match of text.matchAll(/`(dex-[a-z0-9-]+):([a-z][a-z0-9-]*)`/g)) {
+    const [, plugin, skill] = match;
+    if (known.has(plugin) || seen.has(`${plugin}:`)) continue;
+    seen.add(`${plugin}:`);
+    findings.push({
+      level: ERROR,
+      rule: 'plugin-name-unknown',
+      message: `${where}names "${plugin}:${skill}" - plugin "${plugin}" is not in the catalogue. A full form is a load, and a load through a plugin that does not exist fails at run time; this rule is the guard of the plugin half of the full form`,
     });
   }
 }

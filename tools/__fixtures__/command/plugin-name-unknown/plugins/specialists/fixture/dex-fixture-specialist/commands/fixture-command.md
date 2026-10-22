@@ -12,3 +12,5 @@ description: Прогнать фикстуру песочницы и верну�
 
 Расследованием одного инцидента ведает `dex-nowhere-specialist`; здесь - пачка уже найденных.
 Подробнее про базу песочницы - `dex-fixture-specialist`, префикс-шаблон `dex-skill-` именем не считается.
+
+Загрузка через плагин, которого нет: `dex-nowhere-loaded:fixture`; скилл-плагин, которого нет: `dex-skill-nowhere-loaded:fixture`; через плагин песочницы: `dex-fixture-specialist:fixture-oracle`.
