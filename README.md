@@ -60,7 +60,7 @@ claude
 ```
 
 ```
-/self-review
+/dex-self-reviewer:self-review
 ```
 
 Что вы увидите: Claude сравнит вашу ветку с базовой (с учётом незакоммиченного), реально прогонит сборку и тесты и выдаст чеклист правок до push: блокеры, важное, замечания. Файлы он не меняет, пока вы не скажете «делай».
@@ -100,15 +100,15 @@ claude plugin uninstall dex-dotnet-coder                  # удалить од�
 
 | Хочу | Ставлю бандл | Запускаю |
 |------|--------------|----------|
-| Проверить свою ветку перед push | `code-review` | `/self-review` |
-| Отревьюить чужой MR или PR с комментариями в тредах | `code-review` | `/mr-review` |
-| Найти причину бага по коду, поискать баги в фиче | `bug-lifecycle` | `/root-cause`, `/find-bugs` |
-| Разобрать инцидент на общем стенде | `bug-lifecycle` | `/investigate` |
-| Собрать требования к фиче и проверить, что по ним можно начинать разработку | `system-analyst` | `/feature`, `/feature-check` |
-| Спроектировать решение с альтернативами | `architect` | `/design` |
-| Реализовать фичу и добрать тесты на .NET или TypeScript | `dotnet-developer`, `ts-fullstack` | `/implement`, `/test` |
-| Отдать задачу целиком: от цели до PR | `auto` | `/onboard`, `/goal`, `/auto` |
-| Смотреть кластер, БД и очереди прямо из чата | `cli-tools` | `/kube-pods`, `/psql-query`, `/rmq-queues` |
+| Проверить свою ветку перед push | `code-review` | `/dex-self-reviewer:self-review` |
+| Отревьюить чужой MR или PR с комментариями в тредах | `code-review` | `/dex-mr-reviewer:mr-review` |
+| Найти причину бага по коду, поискать баги в фиче | `bug-lifecycle` | `/dex-debugger:root-cause`, `/dex-bug-finder:find-bugs` |
+| Разобрать инцидент на общем стенде | `bug-lifecycle` | `/dex-incident-investigator:investigate` |
+| Собрать требования к фиче и проверить, что по ним можно начинать разработку | `system-analyst` | `/dex-business-analyst:feature`, `/dex-requirements-reviewer:feature-check` |
+| Спроектировать решение с альтернативами | `architect` | `/dex-architect:design` |
+| Реализовать фичу и добрать тесты на .NET или TypeScript | `dotnet-developer`, `ts-fullstack` | `/dex-implement:implement`, `/dex-test:test` |
+| Отдать задачу целиком: от цели до PR | `auto` | `/dex-auto:onboard`, `/dex-auto:goal`, `/dex-auto:auto` |
+| Смотреть кластер, БД и очереди прямо из чата | `cli-tools` | `/dex-kubectl-cli:kube-pods`, `/dex-psql-cli:psql-query`, `/dex-rabbitmqadmin-cli:rmq-queues` |
 
 Польза есть и без команд: skills активируются сами, когда в контексте появляется их тема (Entity Framework, Kafka, Kubernetes и так далее).
 
@@ -123,7 +123,7 @@ claude plugin uninstall dex-dotnet-coder                  # удалить од�
 |-----|----------|--------|
 | **Skills** | Короткие памятки по теме или стеку: на что не наступать и как делать правильно. Claude подхватывает их сам, когда тема появляется в работе | `dotnet-ef-core`, `kafka`, `solid` |
 | **Специалисты** | Агенты с узкой ролью и понятным порядком работы: ревьюер, дебаггер, архитектор, DevOps | `dex-mr-reviewer`, `dex-debugger` |
-| **Команды** | Слэш-команды, с которых начинается работа: ведут порядок шагов через специалистов и skills | `/mr-review`, `/design` |
+| **Команды** | Слэш-команды, с которых начинается работа: ведут порядок шагов через специалистов и skills | `/dex-mr-reviewer:mr-review`, `/dex-architect:design` |
 | **Утилиты** | Обёртки над CLI (`gh`, `kubectl`, `psql` и другие), уведомления, анализ репозитория | `dex-kubectl-cli`, `dex-telegram-notifier` |
 | **Бандлы** | Готовые наборы плагинов под роль, одной командой | `dotnet-developer`, `devops` |
 | **Моды** | Меняют сам Claude Code: панели, строки над вводом, слежение за PR и сессиями | `dex-github-pr-tracker` |
@@ -154,6 +154,9 @@ claude plugin uninstall dex-dotnet-coder                  # удалить од�
 ## Полный каталог
 
 Всё, что есть в каталоге. Разделы раскрываются. Единственный источник истины о составе - `.claude-plugin/marketplace.json`.
+
+> [!NOTE]
+> В таблицах ниже команды записаны коротким именем. В Claude Code команда плагина вызывается полной формой `/имя-плагина:команда`, например `/dex-self-reviewer:self-review`.
 
 <details>
 <summary><b>Команды</b> - точки входа в работу и плагины, в которых они лежат</summary>
