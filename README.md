@@ -20,6 +20,7 @@
 </p>
 
 <p align="center">
+  <a href="https://dex-it.github.io/claude-code-marketplace/"><b>Сайт документации</b></a> |
   <a href="#быстрый-старт">Быстрый старт</a> |
   <a href="#что-вы-получите">Что вы получите</a> |
   <a href="#что-внутри">Что внутри</a> |
@@ -570,6 +571,8 @@ claude-code-marketplace/
 ## Участие
 
 Хотите добавить плагин или поправить существующий? Начните с [CLAUDE.md](./CLAUDE.md): там правила разработки каталога.
+
+Пользовательская документация с примерами и каталогом плагинов - [сайт](https://dex-it.github.io/claude-code-marketplace/); его страницы лежат в [docs/guide/](./docs/guide/), проект сайта - в [site/](./site/).
 
 1. Форкните репозиторий и создайте ветку от `develop`.
 2. Прочитайте устройство артефакта, который правите ([Agent](./docs/AGENT_FRAMEWORK.md), [Skill](./docs/SKILL_FRAMEWORK.md), [Command](./docs/COMMAND_FRAMEWORK.md), [Mod](./docs/MOD_FRAMEWORK.md)).
