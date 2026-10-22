@@ -15,12 +15,44 @@ CYAN='\033[0;36m'
 GRAY='\033[0;90m'
 NC='\033[0m' # No Color
 
-# Секрет из менеджера паролей: значение ровно вида $(pass show <путь>) заменяется выводом pass.
-# Любое другое значение, в том числе с иным $(...), берётся литералом и не исполняется.
+# Значение из .env: срезаем пробелы с обеих сторон, затем обрамляющие кавычки. Хвост важен отдельно:
+# [[:space:]] покрывает CR, иначе .env с CRLF уносит ^M в URL и в заголовок Authorization.
+trim_env_value() {
+    local v="$1"
+    v="${v#"${v%%[![:space:]]*}"}"
+    v="${v%"${v##*[![:space:]]}"}"
+    case "$v" in
+        \"*\") v="${v#\"}"; v="${v%\"}" ;;
+        \'*\') v="${v#\'}"; v="${v%\'}" ;;
+    esac
+    printf '%s' "$v"
+}
+
+# Имя переменной из .env: только [A-Za-z_][A-Za-z0-9_]*, и не из тех, что меняют поведение процессов.
+# Имя тоже исполняет код: BASH_ENV=$(...) раскрывается при старте любого bash-скрипта (в том числе pass),
+# GIT_CONFIG_*, LD_PRELOAD, NODE_OPTIONS, PATH делают то же для git, node и любой команды.
+# Отброшенное имя не экспортируется; код возврата 1, предупреждение в stderr.
+env_key_allowed() {
+    local key="$1"
+    if [[ ! "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+        echo "ПРЕДУПРЕЖДЕНИЕ: $key: недопустимое имя переменной, строка пропущена" >&2
+        return 1
+    fi
+    case "$key" in
+        BASH_ENV|ENV|PS4|PROMPT_COMMAND|SHELLOPTS|BASHOPTS|PATH|NODE_OPTIONS|LD_*|DYLD_*|GIT_CONFIG_*|GIT_SSH*|GIT_*PAGER|GIT_EXTERNAL_DIFF|GIT_ASKPASS|GIT_EDITOR)
+            echo "ПРЕДУПРЕЖДЕНИЕ: $key: имя меняет поведение запускаемых процессов, переменная не экспортирована" >&2
+            return 1 ;;
+    esac
+    return 0
+}
+
+# Секрет из менеджера паролей: значение ровно вида $(pass show <путь>) заменяется первой строкой записи
+# (по соглашению pass там пароль, дальше login: и прочие поля). Вызов pass идёт напрямую, без eval:
+# любое другое значение, в том числе с иным $(...), берётся литералом и не исполняется.
 resolve_env_secret() {
     local key="$1" value="$2" re='^\$\(pass show ([A-Za-z0-9_./][A-Za-z0-9_./-]*)\)$'
     if [[ "$value" =~ $re ]]; then
-        pass show "${BASH_REMATCH[1]}" || true
+        pass show "${BASH_REMATCH[1]}" | head -n1 || true
         return 0
     fi
     if [[ "$value" == *'$('* ]]; then
@@ -101,12 +133,15 @@ while IFS= read -r line || [ -n "$line" ]; do
         key="${BASH_REMATCH[1]}"
         value="${BASH_REMATCH[2]}"
 
-        # Убираем пробелы
-        key=$(echo "$key" | xargs)
-        value=$(echo "$value" | xargs)
+        # Те же срезы, что у register-http-mcp.sh: пробелы по краям и обрамляющие кавычки
+        key="$(printf '%s' "$key" | tr -d '[:space:]')"
+        value="$(trim_env_value "$value")"
 
         # Пропускаем, если ключ пустой
         [[ -z "$key" ]] && continue
+
+        # Имя, меняющее поведение процессов (BASH_ENV, PATH, GIT_CONFIG_* ...), отбрасываем до вызова pass
+        env_key_allowed "$key" || continue
 
         # Секреты тянем из pass, а не храним в открытом виде (например:
         # ES_API_KEY=$(pass show mdm/elastic-mcp-api-key)); поддержана только эта форма
