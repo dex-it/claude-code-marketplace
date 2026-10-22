@@ -113,8 +113,8 @@ function validatePluginNameMentions(text, findings, where = '') {
   // не заведён вовсе.
   for (const match of text.matchAll(/`(dex-[a-z0-9-]+):([a-z][a-z0-9-]*)`/g)) {
     const [, plugin, skill] = match;
-    if (known.has(plugin) || seen.has(`${plugin}:`)) continue;
-    seen.add(`${plugin}:`);
+    if (known.has(plugin) || seen.has(plugin)) continue;
+    seen.add(plugin);
     findings.push({
       level: ERROR,
       rule: 'plugin-name-unknown',

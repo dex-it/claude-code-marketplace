@@ -81,17 +81,20 @@ function loadMarketplacePlugins() {
 // даёт и в замыкание бандла не входит. Но указатель обязан вести в существующее место: имя, которого
 // в каталоге нет, читателя никуда не приводит и сгнить успевает молча, а голую форму до сих пор не
 // сторожил никто. Полную форму `plugin:skill` половиной «плагин» судит это же правило; имена с префиксом
-// `dex-skill-` оставлены `skill-reference-unknown` (его регулярка судит ровно их), чтобы не дублировать находку.
+// `dex-skill-` в теле агента с провалидированными фазами оставлены `skill-reference-unknown`, чтобы не дублировать находку; во frontmatter
+// и в теле без валидированных фаз их судит это правило.
 let catalogPluginsCache = null;
 function catalogPlugins() {
   if (!catalogPluginsCache) catalogPluginsCache = loadMarketplacePlugins();
   return catalogPluginsCache;
 }
 
-function validatePluginNameMentions(text, findings, where = '') {
+// `skipSkillPrefix` - пропускать полную форму `dex-skill-*:`: её судит `skill-reference-unknown`, но он запускается только
+// на теле агента с провалидированными фазами; во frontmatter и в теле без валидированных фаз этот пропуск был бы дырой.
+// `seen` общий для вызовов по одному файлу и для голой и полной формы: одна находка на неизвестный плагин.
+function validatePluginNameMentions(text, findings, where = '', { skipSkillPrefix = false, seen = new Set() } = {}) {
   const known = catalogPlugins();
   if (known.size === 0) return; // каталога нет - имя не «неизвестно», а непроверяемо: сверять не с чем
-  const seen = new Set();
   for (const match of text.matchAll(/`(dex-[a-z0-9-]+)`/g)) {
     const name = match[1];
     if (name.endsWith('-')) continue; // не имя, а префикс-шаблон: `dex-skill-`
@@ -108,9 +111,9 @@ function validatePluginNameMentions(text, findings, where = '') {
   // для имён с префиксом `dex-skill-` - их ниже пропускаем, чтобы не дублировать находку.
   for (const match of text.matchAll(/`(dex-[a-z0-9-]+):([a-z][a-z0-9-]*)`/g)) {
     const [, plugin, skill] = match;
-    if (plugin.startsWith('dex-skill-')) continue; // этот префикс судит `skill-reference-unknown`
-    if (known.has(plugin) || seen.has(`${plugin}:`)) continue;
-    seen.add(`${plugin}:`);
+    if (skipSkillPrefix && plugin.startsWith('dex-skill-')) continue; // этот префикс судит `skill-reference-unknown`
+    if (known.has(plugin) || seen.has(plugin)) continue;
+    seen.add(plugin);
     findings.push({
       level: ERROR,
       rule: 'plugin-name-unknown',
@@ -1019,7 +1022,13 @@ function validateFile(filepath, marketplacePlugins) {
   validateAttributeBlocks(parsed.content, findings, bodyOffset);
   validateCatalogDocsLink(raw, filepath, findings);
   validateLinkEscapesPlugin(raw, filepath, findings);
-  validatePluginNameMentions(raw, findings);
+  {
+    // Тело судит `skill-reference-unknown` при провалидированных фазах; во frontmatter он не заходит вовсе.
+    const seen = new Set();
+    const head = raw.endsWith(parsed.content) ? raw.slice(0, raw.length - parsed.content.length) : '';
+    if (head) validatePluginNameMentions(head, findings, '', { seen });
+    validatePluginNameMentions(head ? parsed.content : raw, findings, '', { seen, skipSkillPrefix: Boolean(phaseResult.validated) });
+  }
 
   if (phaseResult.validated) {
     validateSkillReferences(parsed.content, marketplacePlugins, findings);

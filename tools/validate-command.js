@@ -159,7 +159,8 @@ function validateSkillReferences(markdownBody, findings) {
 // даёт и в замыкание бандла не входит. Но указатель обязан вести в существующее место: имя, которого
 // в каталоге нет, читателя никуда не приводит и сгнить успевает молча, а голую форму до сих пор не
 // сторожил никто. Полную форму `plugin:skill` половиной «плагин» судит это же правило: `skill-reference-unknown`
-// здесь делает `continue` на неизвестном плагине, судя только «плагин есть, скилла в нём нет».
+// здесь делает `continue` на плагине, который не поставляет ни одного скилла (его нет в карте скиллов), и судит только
+// «плагин поставляет скиллы, нужного среди них нет»; плагин без скиллов (специалист, утилита) эта проверка не судит.
 let catalogPluginsCache = null;
 function catalogPlugins() {
   if (catalogPluginsCache) return catalogPluginsCache;
@@ -192,8 +193,8 @@ function validatePluginNameMentions(text, findings, where = '') {
   // плагине молчит (`continue`).
   for (const match of text.matchAll(/`(dex-[a-z0-9-]+):([a-z][a-z0-9-]*)`/g)) {
     const [, plugin, skill] = match;
-    if (known.has(plugin) || seen.has(`${plugin}:`)) continue;
-    seen.add(`${plugin}:`);
+    if (known.has(plugin) || seen.has(plugin)) continue;
+    seen.add(plugin);
     findings.push({
       level: ERROR,
       rule: 'plugin-name-unknown',
