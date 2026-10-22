@@ -8,10 +8,11 @@
 
 ## Секреты - из менеджера, не в открытом виде
 
-- В `.env` секрет задаётся подвыражением `$(...)`, которое скрипт раскрывает **только** для значений вида `$(`...`)`; обычные `КЛЮЧ=значение` идут как есть.
-  - Linux/macOS (`run-claude.sh`): `SOME_API_KEY=$(pass show <path>)` - раскрытие через `eval`.
-  - Windows (`run-claude.ps1`): `SOME_API_KEY=$(Get-Secret -Name <name> -AsPlainText)` - раскрытие через `Invoke-Expression` (PowerShell `SecretManagement` + `SecretStore`).
-- `.env` - доверенный локальный файл (права `600` / per-user), untracked и свой под каждую ОС: его значения исполняются, поэтому чужой `.env` не подкладываем.
+- В `.env` секрет задаётся значением ровно одной из двух форм; обычные `КЛЮЧ=значение` идут как есть, любое иное `$(...)` берётся литералом с предупреждением и не исполняется.
+  - Linux/macOS (`run-claude.sh`, `register-http-mcp.sh`): `SOME_API_KEY=$(pass show <path>)` - разбор регуляркой, вызов `pass show` напрямую без `eval`.
+  - Windows (`run-claude.ps1`, `register-http-mcp.ps1`): `SOME_API_KEY=$(Get-Secret -Name <name> -AsPlainText)` - разбор регуляркой, вызов `Get-Secret` напрямую без `Invoke-Expression` (PowerShell `SecretManagement` + `SecretStore`).
+  - `<path>` / `<name>` - `[A-Za-z0-9_./-]`, не с дефиса. Разбор в лаунчере и регистраторе один и тот же; правя одну пару, правь обе (на sh это держит `tests/tools/run-claude-secret.test.sh`).
+- `.env` - локальный untracked файл (права `600` / per-user), свой под каждую ОС. Подвыражения он больше не исполняет, но подставленное значение берётся из менеджера, поэтому чужой `.env` не подкладываем.
 - `.mcp.json` ссылается на окружение через `${VAR}` - хардкода секретов нет. Claude Code поддерживает `${VAR}` и `${VAR:-default}`.
 
 Новый секрет -> клади в менеджер, в `.env` пиши `VAR=$(<вызов менеджера>)`, в `.mcp.json` ссылайся `${VAR}`. Хардкод секретов запрещён.

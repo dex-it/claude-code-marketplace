@@ -11,6 +11,19 @@ function Write-ErrorColor { Write-Host $args -ForegroundColor Red }
 function Write-Header { Write-Host $args -ForegroundColor Magenta }
 function Write-Variable { Write-Host $args -ForegroundColor DarkGray }
 
+# Секрет из менеджера: значение ровно вида $(Get-Secret -Name <имя> -AsPlainText) заменяется
+# выводом Get-Secret. Любое другое значение, в том числе с иным $(...), берётся литералом
+# и не исполняется.
+function Resolve-EnvSecret([string]$Key, [string]$Value) {
+    if ($Value -match '^\$\(Get-Secret\s+-Name\s+([A-Za-z0-9_./][A-Za-z0-9_./-]*)\s+-AsPlainText\)$') {
+        return (& Get-Secret -Name $Matches[1] -AsPlainText)
+    }
+    if ($Value.Contains('$(')) {
+        Write-Warning "ПРЕДУПРЕЖДЕНИЕ: ${Key}: подвыражение `$(...) не в поддержанной форме `$(Get-Secret -Name <имя> -AsPlainText), значение взято как есть"
+    }
+    return $Value
+}
+
 # Показать help
 if ($args -contains "--help" -or $args -contains "-h") {
     Write-Host ""
@@ -74,11 +87,9 @@ Get-Content ".env" -Encoding UTF8 | ForEach-Object {
         $key = $matches[1].Trim()
         $value = $matches[2].Trim()
 
-        # Раскрываем подвыражение $(...) — секреты тянем из менеджера (SecretManagement),
-        # а не храним в открытом виде (например: API_KEY=$(Get-Secret -Name my-key -AsPlainText))
-        if ($value -match '^\$\(.*\)$') {
-            $value = Invoke-Expression $value
-        }
+        # Секреты тянем из менеджера (SecretManagement), а не храним в открытом виде
+        # (например: API_KEY=$(Get-Secret -Name my-key -AsPlainText)); поддержана только эта форма
+        $value = Resolve-EnvSecret $key $value
 
         Set-Item -Path "env:$key" -Value $value
 

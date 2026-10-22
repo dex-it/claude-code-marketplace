@@ -17,6 +17,19 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# Секрет из менеджера: значение ровно вида $(Get-Secret -Name <имя> -AsPlainText) заменяется
+# выводом Get-Secret. Любое другое значение, в том числе с иным $(...), берётся литералом
+# и не исполняется.
+function Resolve-EnvSecret([string]$Key, [string]$Value) {
+    if ($Value -match '^\$\(Get-Secret\s+-Name\s+([A-Za-z0-9_./][A-Za-z0-9_./-]*)\s+-AsPlainText\)$') {
+        return (& Get-Secret -Name $Matches[1] -AsPlainText)
+    }
+    if ($Value.Contains('$(')) {
+        Write-Warning "ПРЕДУПРЕЖДЕНИЕ: ${Key}: подвыражение `$(...) не в поддержанной форме `$(Get-Secret -Name <имя> -AsPlainText), значение взято как есть"
+    }
+    return $Value
+}
+
 # Write-Error при $ErrorActionPreference = 'Stop' терминирующий: следующий за ним exit N
 # не выполняется, и наружу всегда уходит 1. Пишем в stderr сами, чтобы коды не терялись.
 function Write-Err([string]$Message) {
@@ -94,9 +107,9 @@ if ($EnvFile) {
                 $value = $value.Substring(1, $value.Length - 2)
             }
         }
-        # Секрет из менеджера: SOME_TOKEN=$(Get-Secret -Name <имя> -AsPlainText). Тот же способ
-        # и та же граница доверия, что у лаунчера - .env локальный, untracked, с правами пользователя.
-        if ($value -match '^\$\(.*\)$') { $value = Invoke-Expression $value }
+        # Секрет из менеджера: SOME_TOKEN=$(Get-Secret -Name <имя> -AsPlainText). Та же поддержанная
+        # форма и тот же разбор, что у лаунчера: иное $(...) берётся литералом.
+        $value = Resolve-EnvSecret $key $value
         # Пустое значение пропускаем: оно затёрло бы переменную, заданную в окружении.
         if (-not $key -or -not $value) { continue }
         Set-Item -Path "env:$key" -Value $value

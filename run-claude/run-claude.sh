@@ -15,6 +15,20 @@ CYAN='\033[0;36m'
 GRAY='\033[0;90m'
 NC='\033[0m' # No Color
 
+# Секрет из менеджера паролей: значение ровно вида $(pass show <путь>) заменяется выводом pass.
+# Любое другое значение, в том числе с иным $(...), берётся литералом и не исполняется.
+resolve_env_secret() {
+    local key="$1" value="$2" re='^\$\(pass show ([A-Za-z0-9_./][A-Za-z0-9_./-]*)\)$'
+    if [[ "$value" =~ $re ]]; then
+        pass show "${BASH_REMATCH[1]}" || true
+        return 0
+    fi
+    if [[ "$value" == *'$('* ]]; then
+        echo "ПРЕДУПРЕЖДЕНИЕ: $key: подвыражение \$(...) не в поддержанной форме \$(pass show <путь>), значение взято как есть" >&2
+    fi
+    printf '%s' "$value"
+}
+
 # Функции для цветного вывода
 print_error() { echo -e "${RED}$@${NC}"; }
 print_success() { echo -e "${GREEN}$@${NC}"; }
@@ -94,11 +108,9 @@ while IFS= read -r line || [ -n "$line" ]; do
         # Пропускаем, если ключ пустой
         [[ -z "$key" ]] && continue
 
-        # Раскрываем command substitution в значениях вида $(...) — секреты тянем из pass,
-        # а не храним в открытом виде (например: ES_API_KEY=$(pass show mdm/elastic-mcp-api-key))
-        if [[ "$value" == *'$('*')'* ]]; then
-            value=$(eval "printf '%s' \"$value\"")
-        fi
+        # Секреты тянем из pass, а не храним в открытом виде (например:
+        # ES_API_KEY=$(pass show mdm/elastic-mcp-api-key)); поддержана только эта форма
+        value=$(resolve_env_secret "$key" "$value")
 
         # Экспортируем переменную только если есть ключ
         export "$key=$value"
