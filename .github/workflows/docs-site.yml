@@ -1,0 +1,102 @@
+name: Docs site
+
+# Сайт документации (site/, страницы docs/guide/) на GitHub Pages.
+#   pull_request     - собрать сайт и проверить ссылки, ничего не публикуя;
+#   push в main      - собрать и опубликовать;
+#   workflow_dispatch - то же вручную (запускать с ветки main: окружение github-pages
+#                       принимает деплой только с ветки по умолчанию).
+#
+# Чек НЕ должен быть required: у pull_request ниже фильтр путей, а required-чек,
+# который не запустился, вешает PR в BLOCKED (см. комментарий в validate-agents.yml).
+# Фильтр держит каталог страниц в узнаваемых границах: сайт собирается из
+# docs/guide, site, баннеров и метаданных плагинов (marketplace.json, plugin.json,
+# bundle.json, тексты агентов, команд и skills, таблица skills в README).
+on:
+  pull_request:
+    paths:
+      - 'docs/guide/**'
+      - 'site/**'
+      - 'assets/**'
+      - '.claude-plugin/**'
+      - 'plugins/**/.claude-plugin/plugin.json'
+      - 'plugins/**/bundle.json'
+      - 'plugins/**/agents/*.md'
+      - 'plugins/**/commands/*.md'
+      - 'plugins/**/skills/*/SKILL.md'
+      - 'mods/*/.claude-plugin/plugin.json'
+      - 'README.md'
+      - 'tools/command-skills.js'
+      - '.github/workflows/docs-site.yml'
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    name: Build site and check links
+    runs-on: ubuntu-latest
+    # Сборки одного PR не копятся: новая отменяет прежнюю. Деплой имеет свою очередь ниже.
+    concurrency:
+      group: docs-site-build-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: site/.nvmrc
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: Install dependencies
+        working-directory: site
+        run: npm ci
+
+      # Типы страниц и конфига; заодно генерирует каталог плагинов.
+      - name: Astro check
+        working-directory: site
+        run: npm run check
+
+      - name: Build
+        working-directory: site
+        run: npm run build
+
+      # Ссылки и ассеты под базовым путём, canonical, полнота каталога по marketplace.json,
+      # индекс Pagefind. Внешние ссылки не проверяются: проверка не ходит в сеть.
+      - name: Verify build output
+        working-directory: site
+        run: npm run verify
+
+      - name: Configure Pages
+        if: github.event_name != 'pull_request'
+        uses: actions/configure-pages@v6.0.0
+
+      - name: Upload Pages artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v5.0.0
+        with:
+          path: site/dist
+
+  deploy:
+    name: Deploy to GitHub Pages
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v5.0.1
