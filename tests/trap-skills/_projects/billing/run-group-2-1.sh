@@ -3,6 +3,7 @@
 # run-group-2-1.sh <case> <set> <idx> [skill-file...]   case: g0..g4, rv-l1, rv-l2, rv-r, rv-a, rv-v, rv-q, rv0
 # Рабочий каталог прогона - $G21_WORK (вне репозитория: на пути не должно быть CLAUDE.md).
 set -uo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/../_sandbox.sh"
 T="$(cd "$(dirname "$0")/../.." && pwd)"
 SP="${G21_WORK:?G21_WORK - каталог прогонов вне репозитория}"
 REPO="$(git -C "$T" rev-parse --show-toplevel)"
@@ -38,7 +39,7 @@ ${sline}Сделай ревью MR: ветка feature/$b против main. О�
   tools=('Bash(git *)'); out=REVIEW.md
 fi
 cd "$DIR"
-claude -p "$P" --model claude-sonnet-5-5 --effort medium --restricted --strict-mcp-config \
+env "${GIT_SANDBOX_ENV[@]}" claude -p "$P" --disallowedTools "${GIT_DENY[@]}" --model claude-sonnet-5-5 --effort medium --restricted --strict-mcp-config \
   --no-session-persistence --disable-slash-commands --permission-mode acceptEdits --max-budget-usd 3 \
   --tools Read Write Edit Glob Grep Bash --allowedTools "${tools[@]}" "${add[@]}" \
   --output-format stream-json --verbose > $SP/log/$id.jsonl 2>$SP/log/$id.err

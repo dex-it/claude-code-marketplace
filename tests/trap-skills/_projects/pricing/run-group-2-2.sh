@@ -5,6 +5,7 @@
 # dotnet-ef-core/inputs/prompt-plain.md, поручение дословно из протокола.
 # Рабочий каталог прогона - $G22_WORK (вне репозитория: на пути не должно быть CLAUDE.md).
 set -uo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/../_sandbox.sh"
 # Воркеры MSBuild (/nodeReuse) и VBCSCompiler отсоединяются от прогона и копятся по 6 на сборку.
 export MSBUILDDISABLENODEREUSE=1 DOTNET_CLI_USE_MSBUILD_SERVER=0 UseSharedCompilation=false
 T="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -58,7 +59,7 @@ ${sline}Сделай ревью MR: ветка feature/$b против main. О�
   tools=('Bash(git *)'); out=REVIEW.md
 fi
 cd "$DIR"
-claude -p "$P" --model claude-sonnet-5-5 --effort medium --restricted --strict-mcp-config \
+env "${GIT_SANDBOX_ENV[@]}" claude -p "$P" --disallowedTools "${GIT_DENY[@]}" --model claude-sonnet-5-5 --effort medium --restricted --strict-mcp-config \
   --no-session-persistence --disable-slash-commands --permission-mode acceptEdits --max-budget-usd 3 \
   --tools Read Write Edit Glob Grep Bash --allowedTools "${tools[@]}" "${add[@]}" \
   --output-format stream-json --verbose > $SP/log/$id.jsonl 2>$SP/log/$id.err

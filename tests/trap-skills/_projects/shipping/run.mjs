@@ -143,13 +143,16 @@ function snapshot(c) {
   };
 }
 
+// Без песочницы `Bash(git *)` пускает исполнение произвольной команды через git (-c, --config-env, алиас через git config).
+const GIT_DENY = ['Bash(git -c *)', 'Bash(git * -c *)', 'Bash(git --config-env*)', 'Bash(git * --config-env*)', 'Bash(git config*)', 'Bash(git * config*)'];
+
 function runClaude(c, prompt, sid, n) {
   const settings = { sandbox: { enabled: true, allowUnsandboxedCommands: false, failIfUnavailable: true, network: { allowedDomains: [], strictAllowlist: true }, filesystem: { allowWrite: [c.host] } } };
   // NO_SANDBOX=1 - хост без непривилегированных user namespace (bwrap падает): песочницу заменяет allowlist Bash.
   const allowed = process.env.NO_SANDBOX ? [...TOOLS.filter((t) => t !== 'Bash'), 'Bash(standctl *)', 'Bash(git *)'] : TOOLS;
   const a = ['-p', prompt, '--output-format', 'stream-json', '--verbose', '--model', MODEL, '--effort', EFFORT, '--max-turns', '150',
     '--restricted', '--strict-mcp-config', '--disable-slash-commands', '--permission-mode', 'acceptEdits', ...(process.env.NO_SANDBOX ? [] : ['--settings', JSON.stringify(settings)]),
-    '--tools', TOOLS.join(','), '--allowed-tools', allowed.join(','), ...(c.skill ? ['--add-dir', join(c.root, 'rules')] : []), ...(sid ? ['--resume', sid] : [])];
+    '--tools', TOOLS.join(','), '--allowed-tools', allowed.join(','), ...(process.env.NO_SANDBOX ? ['--disallowed-tools', GIT_DENY.join(',')] : []), ...(c.skill ? ['--add-dir', join(c.root, 'rules')] : []), ...(sid ? ['--resume', sid] : [])];
   writeFileSync(join(c.root, `argv-${n}.json`), JSON.stringify(a.map((x) => (x === prompt ? `<prompt-${n}.txt>` : x)), null, 2));
   writeFileSync(join(c.root, `prompt-${n}.txt`), prompt);
   return new Promise((done) => {
@@ -205,7 +208,7 @@ export async function prepare(id, caseName, skillSrc) {
     skill = skillSrc.split('+').map((src, i) => { const d = join(rules, String(i + 1)); mkdirSync(d); const f = join(d, 'SKILL.md'); cpSync(src, f); return f; });
   }
   writeFileSync(join(root, 'gitconfig'), '[init]\n\tdefaultBranch = main\n');
-  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}`, GIT_CONFIG_GLOBAL: join(root, 'gitconfig'), NO_COLOR: '1', STAND_ACTOR: 'executor', STAND_TURN: '0' };
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}`, GIT_CONFIG_GLOBAL: join(root, 'gitconfig'), NO_COLOR: '1', GIT_CONFIG_NOSYSTEM: '1', GIT_PAGER: 'cat', STAND_ACTOR: 'executor', STAND_TURN: '0' };
   delete env.STAND_DIR; delete env.STAND_REPO;
   if (kase.stand) {
     const which = execFileSync('bash', ['-c', 'command -v standctl'], { env, encoding: 'utf8' }).trim();

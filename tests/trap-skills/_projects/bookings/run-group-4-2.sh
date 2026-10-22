@@ -3,6 +3,7 @@
 # run-group-4-2.sh <case> <set> <idx> [skill-file...]   skill-file - tests/trap-skills/<скилл>/inputs/SKILL-*.md   case: g-s, rv-q, n-q, n-q2, n-q3, g-t, n-t, g-d, n0
 # Каталог прогонов - $G42_WORK (вне репозитория: на пути не должно быть CLAUDE.md).
 set -uo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/../_sandbox.sh"
 T="$(cd "$(dirname "$0")/../.." && pwd)"
 SP="${G42_WORK:?G42_WORK - каталог прогонов вне репозитория}"
 REPO="$(git -C "$T" rev-parse --show-toplevel)"
@@ -50,7 +51,7 @@ $lim Из команд доступны git и dotnet; внешней сети �
  *) echo "unknown case $case_"; exit 1;;
 esac
 cd "$DIR"
-claude -p "$P" --model claude-sonnet-5-5 --effort medium --restricted --strict-mcp-config \
+env "${GIT_SANDBOX_ENV[@]}" claude -p "$P" --disallowedTools "${GIT_DENY[@]}" --model claude-sonnet-5-5 --effort medium --restricted --strict-mcp-config \
   --no-session-persistence --disable-slash-commands --permission-mode acceptEdits --max-budget-usd 3 \
   --tools Read Write Edit Glob Grep Bash --allowedTools "${tools[@]}" "${add[@]}" \
   --output-format stream-json --verbose > "$SP/log/$id.jsonl" 2>"$SP/log/$id.err"

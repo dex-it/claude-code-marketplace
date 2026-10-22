@@ -3,6 +3,7 @@
 # run-group-3-1.sh <case> <set> <idx> [skill-file...]   case: w1 w2 w2n w3 w4 r1 r2 r3 r4 r5 c0 g1
 # Рабочий каталог прогона - $G31_WORK (вне репозитория: на пути не должно быть CLAUDE.md).
 set -uo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/../_sandbox.sh"
 H="$(cd "$(dirname "$0")" && pwd)"
 SP="${G31_WORK:?G31_WORK - каталог прогонов вне репозитория}"
 REPO="$(git -C "$H" rev-parse --show-toplevel)"
@@ -38,7 +39,7 @@ ${sline}Поручение: ${task}
 Работай в рабочем дереве, не коммить. Владельца продукта спросить сейчас нельзя.
 Ограничения: не вызывай Skill tool; не читай и не пиши вне каталога репозитория${skills:+, кроме файлов дисциплины выше}. Из команд доступен только git. В ответе - изменённые файлы и всё, что требует решения владельца продукта."
 cd "$DIR"
-claude -p "$P" --model claude-sonnet-5-5 --effort medium --restricted --strict-mcp-config \
+env "${GIT_SANDBOX_ENV[@]}" claude -p "$P" --disallowedTools "${GIT_DENY[@]}" --model claude-sonnet-5-5 --effort medium --restricted --strict-mcp-config \
   --no-session-persistence --disable-slash-commands --permission-mode acceptEdits --max-budget-usd 3 \
   --tools Read Write Edit Glob Grep Bash --allowedTools 'Bash(git *)' "${add[@]}" \
   --output-format stream-json --verbose > $SP/log/$id.jsonl 2>$SP/log/$id.err
