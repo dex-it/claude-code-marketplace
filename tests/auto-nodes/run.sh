@@ -32,14 +32,13 @@ if [ -n "${AUTO_NODES_DRY_RUN:-}" ]; then printf '%s\n' "${specs[@]}"; exit 0; f
 mkdir -p "$out"; out=$(cd "$out" && pwd)
 plugin=$(cd "$here/../../plugins/auto/dex-auto" && pwd)
 to=$(command -v timeout || command -v gtimeout) || { printf 'run.sh: нет timeout (GNU coreutils; на macOS - gtimeout из brew coreutils)\n' >&2; exit 2; }
+# Список каталогов - строка с переводом строки между путями (массив в export -f не передать): абсолютный путь с пробелом остаётся одним аргументом.
 extra=
 for p in ${AUTO_NODES_PLUGINS:-}; do
   [ -d "$p" ] || { printf 'run.sh: нет каталога плагина: %s\n' "$p" >&2; exit 2; }
-  extra="$extra $(cd "$p" && pwd)"
+  extra="${extra:+$extra$'\n'}$(cd "$p" && pwd)"
 done
 tmp="${CLAUDE_CODE_TMPDIR:-${TMPDIR:-${TMP:-${TEMP:-/tmp}}}}/claude-$(id -u)"
-# timeout - из GNU coreutils; в стандартной macOS его нет, там он ставится как gtimeout.
-to=$(command -v timeout || command -v gtimeout) || { printf 'нет timeout (GNU coreutils; на macOS - brew install coreutils)\n' >&2; exit 2; }
 node "$here/build.mjs" "$node_name" "$out/workflow.js" >/dev/null
 
 one() {
@@ -50,7 +49,7 @@ one() {
   # set -eu в функцию под xargs bash -c не наследуется: пустой repo дал бы `cd ""`, на bash 3.2 это успех в текущем каталоге.
   repo=$("$here/setup.sh" "$here/$node_name/$c" "$d/repo") || { printf '%s: setup упал\n' "$id"; return 1; }
   [ -d "$repo" ] || { printf '%s: setup не отдал каталог\n' "$id"; return 1; }
-  pd=(); for p in $extra; do pd+=(--plugin-dir "$p"); done
+  pd=(); if [ -n "$extra" ]; then while IFS= read -r p; do pd+=(--plugin-dir "$p"); done <<< "$extra"; fi
   args=$(printf '{"case": "%s", "cwd": "%s", "node": "%s", "base": "%s", "head": "%s"}' "$c" "$repo" "$v" "$(git -C "$repo" rev-parse main)" "$(git -C "$repo" rev-parse HEAD)")
 
   (cd "$repo" && CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0 "$to" 3000 claude -p "Прогон зонда. Вызови Workflow со scriptPath $out/workflow.js и args $args.
