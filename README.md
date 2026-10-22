@@ -1,9 +1,6 @@
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/dexagentic-banner-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="assets/dexagentic-banner-light.svg">
-    <img alt="DexAgentic" src="assets/dexagentic-banner-light.svg" width="600">
-  </picture>
+  <img alt="DexAgentic" src="assets/dexagentic-banner-light.svg#gh-light-mode-only" width="600">
+  <img alt="DexAgentic" src="assets/dexagentic-banner-dark.svg#gh-dark-mode-only" width="600">
 </p>
 
 <h1 align="center">Claude Code Marketplace</h1>
