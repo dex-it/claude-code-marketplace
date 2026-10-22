@@ -743,9 +743,10 @@ public sealed class PricingTariffSource(HttpClient http) : ITariffSource
 {
     public async Task<IReadOnlyList<Tariff>> GetAllAsync(CancellationToken ct)
     {
-        var tariffs = await http.GetFromJsonAsync<List<Tariff>>("tariffs", ct)
-            ?? throw new InvalidOperationException("Pricing returned an empty body");
-        return tariffs;
+        var tariffs = await http.GetFromJsonAsync<List<Tariff>>("tariffs", ct);
+        return tariffs is { Count: > 0 }
+            ? tariffs
+            : throw new InvalidOperationException("Pricing returned no tariffs");
     }
 }
 """
@@ -811,29 +812,17 @@ public sealed class CachedTariffSource(
     ILogger<CachedTariffSource> logger) : ITariffSource
 {
     private const string Key = "tariffs:all";
-    private static readonly SemaphoreSlim Gate = new(1, 1);
 
     public async Task<IReadOnlyList<Tariff>> GetAllAsync(CancellationToken ct)
     {
         if (cache.TryGetValue(Key, out IReadOnlyList<Tariff>? cached) && cached is not null)
             return cached;
 
-        await Gate.WaitAsync(ct);
-        try
-        {
-            if (cache.TryGetValue(Key, out cached) && cached is not null)
-                return cached;
-
-            var fresh = (await inner.GetAllAsync(ct)).ToArray();
-            cache.Set(Key, (IReadOnlyList<Tariff>)fresh,
-                new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = options.Value.Ttl });
-            logger.LogInformation("Tariffs cached: {Count} items, ttl {Ttl}", fresh.Length, options.Value.Ttl);
-            return fresh;
-        }
-        finally
-        {
-            Gate.Release();
-        }
+        var fresh = (await inner.GetAllAsync(ct)).ToArray();
+        cache.Set(Key, (IReadOnlyList<Tariff>)fresh,
+            new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = options.Value.Ttl });
+        logger.LogInformation("Tariffs cached: {Count} items, ttl {Ttl}", fresh.Length, options.Value.Ttl);
+        return fresh;
     }
 }
 """
