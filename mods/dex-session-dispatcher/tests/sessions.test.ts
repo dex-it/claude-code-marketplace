@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
-import { ordered, parseAgents, phaseOf, pickForAction, pickSession, tallyLine, tallyOf } from '../hooks/sessions.ts'
+import { confirmId, ordered, parseAgents, phaseOf, pickForAction, pickSession, tallyLine, tallyOf } from '../hooks/sessions.ts'
 import type { SessionRow } from '../hooks/sessions.ts'
 
 const SAMPLE = JSON.stringify([
@@ -257,5 +257,116 @@ describe('pickForAction: stop, remove и say исполняются только
     assert.ok('row' in picked)
     assert.equal(picked.row, first)
     assert.equal(picked.isConfirmed, false)
+  })
+})
+
+describe('pickForAction: строка, что id одной сессии и имя другой, не исполняется', () => {
+  const A: SessionRow = {
+    sessionId: '0de41c8d-1111-4222-8333-444444444444',
+    shortId: '0de41c8d',
+    name: 'fix-tests',
+    cwd: '/p',
+    kind: 'background',
+    phase: 'working',
+    waitingFor: '',
+    startedAt: 2,
+    pid: null,
+  }
+  const B: SessionRow = { ...A, sessionId: 'bb22cc33-5555-4666-8777-888888888888', shortId: 'bb22cc33', name: '0de41c8d', startedAt: 1 }
+
+  it('имя B равно короткому id A: эхо с целью A, исполнения нет, повтор по полному id', () => {
+    const picked = pickForAction('0de41c8d', [A, B], [A, B])
+
+    assert.ok('row' in picked)
+    assert.equal(picked.row, A)
+    assert.equal(picked.isConfirmed, false)
+    assert.ok(!picked.isConfirmed)
+    assert.deepEqual(picked.shadowed, [B])
+    assert.equal(picked.repeatWith, A.sessionId)
+  })
+
+  it('регистр не спасает: имя 0DE41C8D и набранное 0De41C8d', () => {
+    const upper = { ...B, name: '0DE41C8D' }
+
+    for (const query of ['0de41c8d', '0DE41C8D', '#0De41C8d']) {
+      const picked = pickForAction(query, [A, upper], [A, upper])
+
+      assert.ok('row' in picked, query)
+      assert.equal(picked.isConfirmed, false, query)
+    }
+  })
+
+  it('имя B равно полному UUID A: короткий id остаётся подтверждением', () => {
+    const named = { ...B, name: A.sessionId.toUpperCase() }
+    const picked = pickForAction(A.sessionId, [A, named], [A, named])
+
+    assert.ok('row' in picked)
+    assert.equal(picked.row, A)
+    assert.equal(picked.isConfirmed, false)
+    assert.ok(!picked.isConfirmed)
+    assert.deepEqual(picked.shadowed, [named])
+    assert.equal(picked.repeatWith, A.shortId)
+  })
+
+  it('id, предложенный в эхо, сам подтверждает именно A', () => {
+    const picked = pickForAction('0de41c8d', [A, B], [A, B])
+
+    assert.ok('row' in picked && !picked.isConfirmed)
+
+    const again = pickForAction(picked.repeatWith, [A, B], [A, B])
+
+    assert.ok('row' in again)
+    assert.equal(again.row, A)
+    assert.equal(again.isConfirmed, true)
+  })
+
+  it('B по своему id подтверждается: имя A на её id не похоже', () => {
+    const picked = pickForAction(B.shortId, [A, B], [A, B])
+
+    assert.ok('row' in picked)
+    assert.equal(picked.row, B)
+    assert.equal(picked.isConfirmed, true)
+  })
+
+  it('имя самой сессии, равное её id (имени нет, взят id), подтверждению не мешает', () => {
+    const bare = { ...A, name: A.shortId }
+    const picked = pickForAction(A.shortId, [bare, B], [bare, B])
+
+    assert.ok('row' in picked)
+    assert.equal(picked.row, bare)
+    // B названа именем 0de41c8d тоже, поэтому здесь это именно коллизия, а у одиночки её нет.
+    assert.equal(picked.isConfirmed, false)
+
+    const alone = pickForAction(A.shortId, [bare], [bare])
+
+    assert.ok('row' in alone)
+    assert.equal(alone.isConfirmed, true)
+  })
+
+  it('и короткий, и полный id A заняты чужими именами: ошибка, а не молчаливое исполнение', () => {
+    const second = { ...B, name: A.sessionId }
+    const third = { ...B, sessionId: 'cc33dd44-0000-4000-8000-000000000000', shortId: 'cc33dd44', name: A.shortId }
+    const picked = pickForAction('0de41c8d', [A, second, third], [A, second, third])
+
+    assert.ok('error' in picked)
+    assert.match(picked.error, /нельзя подтвердить id/)
+    assert.equal(confirmId(A, [A, second, third]), null)
+  })
+
+  it('без совпадений с чужими именами повтор идёт по короткому id, shadowed пуст', () => {
+    const calm = { ...B, name: 'другая' }
+    const byName = pickForAction('fix-tests', [A, calm], [A, calm])
+
+    assert.ok('row' in byName && !byName.isConfirmed)
+    assert.equal(byName.repeatWith, A.shortId)
+    assert.deepEqual(byName.shadowed, [])
+  })
+
+  it('номер, указавший на A, тоже не повторяется id, который занят чужим именем', () => {
+    const picked = pickForAction('1', [A, B], [A, B])
+
+    assert.ok('row' in picked && !picked.isConfirmed)
+    assert.equal(picked.row, A)
+    assert.equal(picked.repeatWith, A.sessionId)
   })
 })

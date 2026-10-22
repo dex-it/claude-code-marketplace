@@ -19,13 +19,13 @@
 import type { Hook, PluginOptions, Register, RenderElement, Timer } from 'claude-code'
 
 import { parseArgs } from './args.ts'
-import { dangerEcho, delivery, dirChoices, failureOf, launchDir, mayMutate, recentDirs, messageFor, presetsOf, sayEcho, settled, startArgv, startedMessage, startedOf } from './dispatch.ts'
+import { SAY_EMPTY, SAY_SELF, dangerEcho, delivery, dirChoices, failureOf, launchDir, mayMutate, recentDirs, messageFor, presetsOf, sayOutcome, settled, startArgv, startedMessage, startedOf } from './dispatch.ts'
 import type { DirChoice, Preset, RunResult, WithSend } from './dispatch.ts'
 import { isInside, needsScan, projectsRoot, transcriptPath } from './paths.ts'
 import type { Miss } from './paths.ts'
 import { isFinished, ordered, parseAgents, pickForAction, pickSession } from './sessions.ts'
 import type { SessionRow } from './sessions.ts'
-import { HELP_TEXT as HELP, detailText, framedLog, listText, openText, quote } from './text.ts'
+import { ARGUMENT_HINT, HELP_TEXT as HELP, detailText, framedLog, listText, openText, quote } from './text.ts'
 import type { Entry } from './text.ts'
 import { absorbChunk, emptyStats } from './transcript.ts'
 import type { Stats } from './transcript.ts'
@@ -389,11 +389,11 @@ export const register: Register = (on, pluginOptions) => {
   async function sendTo(row: SessionRow, text: string): Promise<string> {
     if (!bound) return 'мод ещё не готов'
 
-    if (row.sessionId === selfId) return say('Это текущая сессия: напишите сообщение прямо в поле ввода.')
+    if (row.sessionId === selfId) return say(SAY_SELF)
 
     const body = text.trim()
 
-    if (body === '') return say('Сообщение пустое.')
+    if (body === '') return say(SAY_EMPTY)
 
     const sent = await bound.send(row.sessionId, messageFor(selfId.slice(0, 8), body))
 
@@ -615,7 +615,7 @@ export const register: Register = (on, pluginOptions) => {
       .register({
         name: COMMAND,
         description: 'Все сессии Claude Code: список, запуск новых, сообщения, остановка.',
-        argumentHint: '[new задача | 2 | say 2 текст | log 2 | open 2 | stop имя | remove имя | help]',
+        argumentHint: ARGUMENT_HINT,
       })
       .catch((error: unknown) => {
         $.ui.log(`sessions: команда /${COMMAND} не занята мной: ${messageOf(error)}`)
@@ -752,14 +752,16 @@ export const register: Register = (on, pluginOptions) => {
         return { text: await start(action.task, action.name, action.dir, false) }
 
       case 'say': {
-        const found = pickForAction(action.query, shownRows(), ordered(rows))
+        // Решение (отказ, эхо или отправка) принимает чистая `sayOutcome`: здесь оно только исполняется.
+        const outcome = sayOutcome({
+          pick: pickForAction(action.query, shownRows(), ordered(rows)),
+          text: action.text,
+          selfId,
+        })
 
-        if ('error' in found) return { text: found.error }
+        if (outcome.kind === 'send') return { text: await sendTo(outcome.row, outcome.text) }
 
-        // Номер, имя и начало id лишь указывают сессию: поручение уходит только по id.
-        if (!found.isConfirmed) return { text: say(sayEcho(found.row)) }
-
-        return { text: await sendTo(found.row, action.text) }
+        return { text: outcome.kind === 'refuse-pick' ? outcome.text : say(outcome.text) }
       }
 
       case 'log': {
@@ -791,7 +793,7 @@ export const register: Register = (on, pluginOptions) => {
         // Номер и имя лишь указывают сессию: список переставляется каждые десять
         // секунд, а имена фоновых сессий повторяются. Исполняется только id (полный
         // или короткий); иначе - эхо с командой повтора.
-        if (!found.isConfirmed) return { text: say(dangerEcho(action.kind, found.row)) }
+        if (!found.isConfirmed) return { text: say(dangerEcho(action.kind, found.row, found.repeatWith, found.shadowed)) }
 
         // Id набрал человек: сам набор команды и есть подтверждение.
         confirm = { kind: action.kind, sessionId: found.row.sessionId }

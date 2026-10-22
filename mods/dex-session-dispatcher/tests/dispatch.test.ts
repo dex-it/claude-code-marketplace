@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
-import { cleanName, dangerEcho, sayEcho, failureOf, launchDir, mayMutate, messageFor, nameFromTask, dirChoices, presetsOf, recentDirs, settled, startArgv, startedMessage, startedOf } from '../hooks/dispatch.ts'
+import { ECHO_TEXT_MAX, SAY_EMPTY, SAY_SELF, cleanName, dangerEcho, sayEcho, sayOutcome, failureOf, launchDir, mayMutate, messageFor, nameFromTask, dirChoices, presetsOf, recentDirs, settled, startArgv, startedMessage, startedOf } from '../hooks/dispatch.ts'
+import { pickForAction } from '../hooks/sessions.ts'
 import type { SessionRow } from '../hooks/sessions.ts'
 
 describe('имена', () => {
@@ -55,7 +56,7 @@ describe('вывод CLI', () => {
   })
 
   it('сообщение соседу называет отправителя', () => {
-    assert.equal(messageFor('5d8e1b88', ' привет '), '[через диспетчер сессий; отправитель указан без проверки: 5d8e1b88] привет')
+    assert.equal(messageFor('5d8e1b88', ' привет '), '[метка диспетчера сессий, не проверяется: отправитель 5d8e1b88] привет')
   })
 })
 
@@ -145,12 +146,151 @@ describe('dangerEcho: номер не исполняется, эхо назыв�
   })
 })
 
-describe('sayEcho: номер и имя не отправляют, эхо называет сессию и id', () => {
+describe('sayEcho: номер и имя не отправляют, эхо называет сессию, id и поручение', () => {
   it('имя, короткий id и точная команда повтора с id', () => {
     const text = sayEcho(sample)
 
     assert.match(text, /Отправить «fix-tests» \(0de41c8d\)\?/)
     assert.ok(text.includes('/sessions say 0de41c8d текст'))
+  })
+
+  it('однострочный текст не длиннее лимита подставлен в команду целиком', () => {
+    const task = 'почини тест оплаты и не трогай миграции'
+    const text = sayEcho(sample, `  ${task} \n`)
+
+    assert.ok(text.endsWith(`/sessions say 0de41c8d ${task}`))
+    assert.ok(!text.includes('текст'))
+
+    const edge = 'x'.repeat(ECHO_TEXT_MAX)
+
+    assert.ok(sayEcho(sample, edge).endsWith(`/sessions say 0de41c8d ${edge}`))
+  })
+
+  it('секрет в тексте не маскируется: это ввод самого оператора', () => {
+    const secret = 'токен ghp_abcdefghijklmnopqrstuvwxyz0123456789 лежит в .env'
+
+    assert.ok(sayEcho(sample, secret).includes(secret))
+  })
+
+  it('длиннее лимита - литерал «текст», сам текст в эхо не попадает', () => {
+    const long = 'y'.repeat(ECHO_TEXT_MAX + 1)
+    const text = sayEcho(sample, long)
+
+    assert.ok(text.endsWith('/sessions say 0de41c8d текст'))
+    assert.ok(!text.includes(long))
+  })
+
+  it('многострочный текст - литерал «текст», остальные строки в эхо не попадают', () => {
+    for (const body of ['первая\nвторая ВТОРАЯ-СТРОКА', 'первая\r\nвторая', 'первая\u2028вторая']) {
+      const text = sayEcho(sample, body)
+
+      assert.ok(text.endsWith('/sessions say 0de41c8d текст'), body)
+      assert.ok(!text.includes('вторая'), body)
+      assert.ok(!text.includes('ВТОРАЯ'), body)
+    }
+  })
+
+  it('пустой текст - литерал «текст»', () => {
+    assert.ok(sayEcho(sample, '   ').endsWith('/sessions say 0de41c8d текст'))
+  })
+})
+
+describe('эхо: строка, что id одной сессии и имя другой', () => {
+  const other: SessionRow = { ...sample, sessionId: 'bb22cc33-0000-4000-8000-000000000000', shortId: 'bb22cc33', name: '0de41c8d' }
+
+  it('stop и remove: перечислены «имя (id)» второй, повтор по переданному id', () => {
+    for (const kind of ['stop', 'remove'] as const) {
+      const text = dangerEcho(kind, sample, sample.sessionId, [other])
+
+      assert.match(text, /имя другой: «0de41c8d» \(bb22cc33\)/, kind)
+      assert.match(text, /«fix-tests» \(0de41c8d\)/, kind)
+      assert.ok(text.endsWith(`/sessions ${kind} ${sample.sessionId}`), kind)
+    }
+  })
+
+  it('say: то же, текст подставлен', () => {
+    const text = sayEcho(sample, 'привет', sample.sessionId, [other])
+
+    assert.match(text, /имя другой: «0de41c8d» \(bb22cc33\)/)
+    assert.ok(text.endsWith(`/sessions say ${sample.sessionId} привет`))
+  })
+
+  it('без совпадения примечания нет', () => {
+    assert.ok(!/имя другой/.test(dangerEcho('stop', sample)))
+    assert.ok(!/имя другой/.test(sayEcho(sample, 'привет')))
+  })
+})
+
+describe('sayOutcome: исход `say` и порядок проверок', () => {
+  const me = 'aaaaaaaa-9999-4999-8999-999999999999'
+  const mine: SessionRow = { ...sample, sessionId: me, shortId: 'aaaaaaaa', name: 'моя' }
+  const twin: SessionRow = { ...sample, sessionId: 'bb22cc33-0000-4000-8000-000000000000', shortId: 'bb22cc33', name: '0de41c8d' }
+  const all = [sample, mine, twin]
+  const outcome = (query: string, text: string, selfId = me) =>
+    sayOutcome({ pick: pickForAction(query, all, all), text, selfId })
+
+  it('по id: отправка, текст без пробелов по краям', () => {
+    const result = outcome('bb22cc33', '  привет \n')
+
+    assert.equal(result.kind, 'send')
+    assert.ok(result.kind === 'send' && result.row === twin && result.text === 'привет')
+  })
+
+  it('по полному id: отправка', () => {
+    assert.equal(outcome(sample.sessionId, 'привет').kind, 'send')
+  })
+
+  it('по имени и номеру: эхо с id и текстом, не отправка', () => {
+    for (const query of ['fix-tests', '1', 'fix']) {
+      const result = outcome(query, 'привет')
+
+      assert.equal(result.kind, 'echo', query)
+      assert.ok(result.text.endsWith('привет'), query)
+    }
+  })
+
+  it('строка - id одной и имя другой: эхо, не отправка', () => {
+    const result = outcome('0de41c8d', 'привет')
+
+    assert.equal(result.kind, 'echo')
+    assert.match(result.text, /имя другой: «0de41c8d» \(bb22cc33\)/)
+  })
+
+  it('текущая сессия: отказ, и по имени тоже - эхо с подсказкой, которую потом откажут, не выдаётся', () => {
+    for (const query of ['aaaaaaaa', me, 'моя', '2', 'мо']) {
+      const result = outcome(query, 'привет')
+
+      assert.equal(result.kind, 'refuse-self', query)
+      assert.equal(result.text, SAY_SELF, query)
+      assert.ok(!result.text.includes('/sessions say'), query)
+    }
+  })
+
+  it('пустой текст: отказ, и по имени тоже - до эха', () => {
+    for (const query of ['bb22cc33', 'fix-tests', '1']) {
+      for (const text of ['', '  \n ']) {
+        const result = outcome(query, text)
+
+        assert.equal(result.kind, 'refuse-empty', query)
+        assert.equal(result.text, SAY_EMPTY, query)
+      }
+    }
+  })
+
+  it('текущая сессия и пустой текст сразу: сначала «это вы»', () => {
+    assert.equal(outcome('моя', '').kind, 'refuse-self')
+  })
+
+  it('сессия не найдена или неоднозначна: отказ с причиной выбора', () => {
+    const result = outcome('нет-такой', 'привет')
+
+    assert.equal(result.kind, 'refuse-pick')
+    assert.match(result.text, /Не нашёл/)
+    assert.equal(outcome('', 'привет').kind, 'refuse-pick')
+  })
+
+  it('отправка текущей сессии не доходит до send даже по id', () => {
+    assert.notEqual(outcome(me, 'привет').kind, 'send')
   })
 })
 
@@ -160,13 +300,15 @@ describe('messageFor: метка называет отправителя, но �
 
     assert.ok(text.includes('0de41c8d'))
     assert.ok(text.endsWith('] почини тесты'))
+    assert.equal(text, '[метка диспетчера сессий, не проверяется: отправитель 0de41c8d] почини тесты')
   })
 
   it('метка не обещает подлинности: говорит, что отправитель не проверен', () => {
     const text = messageFor('0de41c8d', 'x')
 
-    assert.match(text, /без проверки/)
-    assert.ok(!/от диспетчера сессий/.test(text))
+    assert.match(text, /^\[метка диспетчера сессий, не проверяется: отправитель 0de41c8d\] x$/)
+    assert.ok(!/через диспетчер/.test(text))
+    assert.ok(!/без проверки/.test(text))
   })
 })
 

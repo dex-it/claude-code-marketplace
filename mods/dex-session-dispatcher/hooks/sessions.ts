@@ -214,7 +214,36 @@ export function pickSession(
   return { error: `«${q}» подходит нескольким сессиям: ${names}. Назовите имя целиком, начало id или номер из списка.` }
 }
 
-export type ActionPick = { row: SessionRow; isConfirmed: boolean } | { error: string }
+/**
+ * Исход выбора для действия. `isConfirmed: true` - можно исполнять. Иначе сессия лишь названа:
+ * `repeatWith` - id, с которым команду нужно повторить (он сам подтверждает именно эту сессию),
+ * `shadowed` - другие сессии, чьё имя совпало с набранным (непусто, когда набранное - id одной
+ * сессии и имя другой).
+ */
+export type ActionPick =
+  | { row: SessionRow; isConfirmed: true }
+  | { row: SessionRow; isConfirmed: false; repeatWith: string; shadowed: SessionRow[] }
+  | { error: string }
+
+/** Сессии, чьё имя без учёта регистра равно строке; цель не в счёт. */
+const namedAs = (lower: string, target: SessionRow, all: readonly SessionRow[]): SessionRow[] =>
+  all.filter(row => row !== target && row.name.toLowerCase() === lower)
+
+/**
+ * Подтверждает ли строка именно эту сессию: она однозначно её id (короткий или полный) и не
+ * является именем другой сессии. Имя задаётся свободно (`claude -n`, `--name`), поэтому имя
+ * одной сессии может равняться id другой, и тогда по строке нельзя понять, о какой речь.
+ */
+function confirms(lower: string, target: SessionRow, all: readonly SessionRow[]): boolean {
+  const byId = all.filter(row => row.shortId.toLowerCase() === lower || row.sessionId.toLowerCase() === lower)
+
+  return byId.length === 1 && byId[0] === target && namedAs(lower, target, all).length === 0
+}
+
+/** Id, которым сессию можно подтвердить в повторной команде: короткий, иначе полный; `null` - никаким. */
+export function confirmId(target: SessionRow, all: readonly SessionRow[]): string | null {
+  return [target.shortId, target.sessionId].find(id => confirms(id.toLowerCase(), target, all)) ?? null
+}
 
 /**
  * Сессия для действия, которое нельзя отозвать: остановка, удаление, отправка
@@ -222,9 +251,11 @@ export type ActionPick = { row: SessionRow; isConfirmed: boolean } | { error: st
  * по увиденному раньше списку, может указывать на другую сессию; имя тоже не
  * опора: имя фоновой сессии выводится из первых слов задачи (`nameFromTask`) и
  * повторяется между днями, а старой одноимённой в списке уже нет. `isConfirmed` -
- * сессия названа своим id, коротким или полным: только это подтверждает действие.
- * Номер, имя (хоть целиком) и начало имени или id лишь указывают сессию, и действие
- * просит повторить с её id.
+ * сессия названа своим id, коротким или полным, и эта строка не совпадает с именем
+ * другой сессии: только это подтверждает действие. Номер, имя (хоть целиком) и начало
+ * имени или id лишь указывают сессию, и действие просит повторить с её id. Строка, что
+ * одновременно id одной сессии и имя другой (`0de41c8d`), тоже не исполняется: человек мог
+ * иметь в виду вторую, а список показывает имена.
  */
 export function pickForAction(
   query: string,
@@ -235,10 +266,21 @@ export function pickForAction(
 
   // id из одних цифр читается как id, а не как номер: короткий id (8 знаков) в номера не попадает.
   const byId = all.filter(row => row.shortId.toLowerCase() === q || row.sessionId.toLowerCase() === q)
+  const exact = q !== '' && byId.length === 1 ? byId[0] : undefined
 
-  if (q !== '' && byId.length === 1 && byId[0]) return { row: byId[0], isConfirmed: true }
+  if (exact && confirms(q, exact, all)) return { row: exact, isConfirmed: true }
 
-  const picked = pickSession(query, shown, all)
+  const picked = exact ? { row: exact } : pickSession(query, shown, all)
 
-  return 'error' in picked ? picked : { row: picked.row, isConfirmed: false }
+  if ('error' in picked) return picked
+
+  const repeatWith = confirmId(picked.row, all)
+
+  if (repeatWith === null) {
+    return {
+      error: `${quote(picked.row.name)} (${picked.row.sessionId}) нельзя подтвердить id: и короткий, и полный id совпадают с чужими именами или id. Переименуйте эти сессии.`,
+    }
+  }
+
+  return { row: picked.row, isConfirmed: false, repeatWith, shadowed: exact ? namedAs(q, exact, all) : [] }
 }

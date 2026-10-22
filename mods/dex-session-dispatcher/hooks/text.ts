@@ -7,10 +7,13 @@ import type { SessionRow } from './sessions.ts'
 import { maskSecrets, percentOf, quote, snippet, todoProgress, tokensWord, topOf, windowOf } from './transcript.ts'
 import type { Stats } from './transcript.ts'
 
+/** Подсказка аргументов команды: действия над сессией (`say`, `stop`, `remove`) называют её по id. */
+export const ARGUMENT_HINT = '[new задача | 2 | say id текст | log 2 | open 2 | stop id | remove id | help]'
+
 export const HELP_TEXT = [
   '`/sessions` - открыть или закрыть панель со всеми сессиями Claude Code на этой машине.',
   '`/sessions new [--name имя] [--dir каталог] задача` - начать новую сессию в фоне. Она работает сама, пока вы заняты другим.',
-  '`/sessions 2` - показать сессию подробно (номер из списка, имя или начало id).',
+  '`/sessions 2` - показать сессию подробно (номер из списка, имя или начало id). Короткий id стоит в списке рядом с именем.',
   '`/sessions say id текст` - отправить сообщение сессии: задание, вопрос, уточнение. Номер или имя (`say 2 текст`) только покажут, какую сессию они называют, и подскажут команду с id: список меняется, номер мог устареть, а имена повторяются.',
   '`/sessions log 2` - вывести то, что сессия напечатала последним.',
   '`/sessions open 2` - как открыть сессию в этом терминале.',
@@ -89,9 +92,6 @@ export const FOREIGN_NOTE =
 
 export { quote }
 
-/** Имя адресатом в подсказке команды: с пробелом - в кавычках, иначе разберётся первым словом. */
-export const commandName = (name: string): string => (/\s/.test(name) ? `"${name}"` : name)
-
 export type Entry = {
   index: number
   row: SessionRow
@@ -107,7 +107,7 @@ export function entryLine(entry: Entry, windowSetting: number, now: number, home
   const kind = row.kind === 'background' ? 'фоновая' : 'в окне терминала'
   const age = ageWord(row.startedAt, now)
 
-  return `${index}. ${quote(row.name)}${mark} - ${PHASE_WORD[row.phase]}${waiting}; ${kind}; ${quote(shortPath(snippet(row.cwd, 200), home))}${age !== '' ? `; запущена ${age}` : ''}; ${usageLine(stats, windowSetting)}`
+  return `${index}. ${quote(row.name)} (${row.shortId})${mark} - ${PHASE_WORD[row.phase]}${waiting}; ${kind}; ${quote(shortPath(snippet(row.cwd, 200), home))}${age !== '' ? `; запущена ${age}` : ''}; ${usageLine(stats, windowSetting)}`
 }
 
 export function listText(
@@ -201,5 +201,5 @@ export function openText(row: SessionRow, isSelf: boolean): string {
     return `Чтобы открыть ${quote(row.name)}, выполните в другом окне терминала: claude attach ${row.shortId}\nВернуться к списку: стрелка влево, выйти в оболочку: Ctrl+Z. Сессия продолжает работать в любом случае.`
   }
 
-  return `${quote(row.name)} открыта в другом окне терминала${row.pid !== null ? ` (процесс ${row.pid})` : ''}. Переключитесь на то окно. Отсюда ей можно отправить сообщение: /sessions say ${commandName(row.name)} текст`
+  return `${quote(row.name)} открыта в другом окне терминала${row.pid !== null ? ` (процесс ${row.pid})` : ''}. Переключитесь на то окно. Отсюда ей можно отправить сообщение: /sessions say ${row.shortId} текст`
 }
