@@ -329,7 +329,9 @@ const withCommands = (t, f) => {
   if (!t || (!build && !test)) return t
   return { ...t, ...(build ? { build_cmd: build } : {}), ...(test && test !== t.test_cmd ? { test_cmd: test, report_cmd: String(c.report_cmd || '').trim() } : {}) }
 }
-const cmdsOf = (t) => ({ build_cmd: String((t && t.build_cmd) || '').trim(), test_cmd: String((t && t.test_cmd) || '').trim() })
+// test_cmd строки - действующая команда тестов, та, что гоняет verifySpec: report_cmd, иначе test_cmd. Одна test_cmd при заведённом report_cmd
+// показала бы в «стало» не тот прогон, который верификация гоняла.
+const cmdsOf = (t) => ({ build_cmd: String((t && t.build_cmd) || '').trim(), test_cmd: String((t && t.report_cmd) || '').trim() || String((t && t.test_cmd) || '').trim() })
 // Созданная кодером на пустом месте команда строки не даёт: судить замену не с чем.
 const swapText = (was, t) => {
   const now = cmdsOf(t), s = was ? ['build_cmd', 'test_cmd'].filter(k => was[k] && now[k] !== was[k]).map(k => `${k}: было «${was[k]}», стало «${now[k]}»`) : []
@@ -570,8 +572,8 @@ async function reviewLoop(t) {
     offeredOnly = !must
     trail.push({ step: '2-after-review', attempt: k, doer: NODE.coder.agentType, status: fix2 ? fix2.status : 'null', passed: passed(ver2), 'red-run': fix2 ? fix2['red-run'] : null })
     const openNow = { review: rev, falsify: fal, prior: reg.all(), dropped }
-    if (!fix2 || fix2.status === 'blocked') return state(bail('Review: правка по находкам', lack(fix2, 'узел-кодер'), openNow))
-    if (noRun(ver2)) return state(bail('Review: верификация после правки', lack(ver2, 'верификатор'), openNow))
+    if (!fix2 || fix2.status === 'blocked') return state(nodeBail('Review: правка по находкам', lack(fix2, 'узел-кодер'), openNow))
+    if (noRun(ver2)) return state(nodeBail('Review: верификация после правки', lack(ver2, 'верификатор'), openNow))
     // Правка одних offered сверку не покупает: их исход итога не держит (domain.md §4); сменивший тест диагноста круг пропуска не получает (t.moved).
     if (!must && passed(ver2) && !(t.moved && t.moved(prevVer, ver2))) {
       const shut = (fix2.prior || []).filter(p => p.status === 'closed' && may.some(f => f.id === p.id))
@@ -644,6 +646,8 @@ const disputes = []
 const decisions = []
 const dec = () => decisions.slice()
 const bail = (where, missing, extra) => outcome('blocked', where, missing, { decisions: dec(), repro, fix, ...extra })
+// Сбой узла (нет выхода, blocked узла): finish.sh не пишет его в «Нехватку трека», иначе возобновление запустит кодера на зелёном дереве (ledger.md R11).
+const nodeBail = (where, missing, extra) => bail(where, missing, { ...extra, node_failure: true })
 // Падения базы до правок: правке не вменяются.
 let known = []
 const passed = (v) => isGreen(v, repro && repro.test_cmd, known)
@@ -684,7 +688,7 @@ const base = skip ? { status: 'n/a', log: skip, failing: [] }
   : baseFrom(await verifyNode(BASE_HEAD, 'база', 'Context', VERIFY, `. ${A.scripts ? verifyRun(A.scripts, verifySpec(prep, [])) : `${legacyRun(prep)}. Числа - из вывода раннера как есть.`}`))
 trail.push(priorTree ? TREE_SKIPPED
   : { step: '1-tree', doer: 'подготовка дерева', status: prep ? prep.status : 'null', prepare: prep ? prep['prepare-status'] : null, baseline: base.status, baseline_log: base.log, baseline_failing: base.failing })
-if (!prep || prep.status === 'blocked') return bail('Context: подготовка дерева', lack(prep, 'узел подготовки дерева'))
+if (!prep || prep.status === 'blocked') return nodeBail('Context: подготовка дерева', lack(prep, 'узел подготовки дерева'))
 if (prep.status === 'partial') degraded.push(`подготовка дерева partial: ${prep.missing || 'нехватка не названа'}`)
 // Провал подготовки - не стоп: дерево лечит следующий узел, но знать о провале он обязан, иначе
 // примет падение установки за падение продукта и назовёт первопричиной его.
@@ -715,7 +719,7 @@ const listOf = (d) => Array.isArray(d.conflicts) ? d.conflicts : []
 const conflictsOf = (d) => d['conflict-status'] === 'some' || listOf(d).length ? `противоречие источников ожидаемого, выбор стороны не за исполнителем: ${listOf(d).join('; ') || 'перечень не назван при conflict-status: some'}` : ''
 // Правящему идёт только диагноз с установленной причиной (diagnosis-acceptance.md, «Вызывающий»).
 const noCause = (d, where) => outcome('partial', where, (d.missing || 'диагност не назвал, чего не хватило') + testLeft(d), { repro: { ...withCtx(d), ...(priorDispute ? { dispute: ledgerRepro.dispute, accepted: ledgerRepro.accepted || '', accepted_blob: ledgerRepro.accepted_blob || '', accepted_pending: !!ledgerRepro.accepted_pending } : {}) }, disputes, decisions: dec() })
-if (!diag || diag.status === 'blocked') return bail('Reproduce', lack(diag, 'диагност') + testLeft(diag))
+if (!diag || diag.status === 'blocked') return nodeBail('Reproduce', lack(diag, 'диагност') + testLeft(diag))
 // Противоречие проверяется до причины: без причины оно осталось бы и в следующем прогоне.
 // Воспроизведение этот исход не переживает (repro - форма сброса RESET): решение владельца меняет источник ожидаемого,
 // и поданное из ledger оно встало бы на том же противоречии по уже исправленным документам. Пустой Контекст
@@ -779,7 +783,7 @@ if (coderAnyway) trail.push({ step: 'resume', doer: 'не куплено: код
 else if (resuming) {
   ver = await verifyOnce('возобновление')
   trail.push({ step: 'resume', doer: 'general-purpose', passed: passed(ver) })
-  if (noRun(ver)) return bail('Fix: верификация при возобновлении', lack(ver, 'верификатор'))
+  if (noRun(ver)) return nodeBail('Fix: верификация при возобновлении', lack(ver, 'верификатор'))
   settle(ver)
 }
 // Диагноз этого прогона ещё никто не правил; без коммитов трека прошлый прогон встал до правки, и зелёные базовые тесты работу не подтверждают.
@@ -801,13 +805,13 @@ for (let k = 1; k <= FIX_CEILING && (!passed(ver) || pending); k++) {
     disputes.push(`${dc} (попытка ${k}): ${fix.dispute || 'улика не названа'}`)
     return disputeExit(dc, fix, `Fix#${k}`)
   }
-  if (!fix || fix.status === 'blocked') return bail(`Fix#${k}`, lack(fix, 'узел-кодер'))
+  if (!fix || fix.status === 'blocked') return nodeBail(`Fix#${k}`, lack(fix, 'узел-кодер'))
   cmds0 = cmds0 || cmdsOf(repro)
   repro = withCommands(repro, fix)
   ver = await verifyOnce(`после попытки ${k}`)
   settle(ver)
   trail.push({ step: '2-exit', attempt: k, doer: 'general-purpose', passed: passed(ver) })
-  if (noRun(ver)) return bail(`Fix#${k}: верификация`, lack(ver, 'верификатор'))
+  if (noRun(ver)) return nodeBail(`Fix#${k}: верификация`, lack(ver, 'верификатор'))
   if (!passed(ver)) log(`попытка ${k}: exit=${ver && ver.exit_code}, build_ok=${ver && ver.build_ok}, fail=${ver && ver.fail_count}, dirty=${ver && ver.dirty}`)
 }
 if (!passed(ver)) return outcome('partial', `Fix: потолок ${FIX_CEILING} исчерпан`, `дерево не зелёное после ${FIX_CEILING} попыток: ${redNote(ver, known)}`, { ver, repro, fix, decisions: dec() })
@@ -844,7 +848,7 @@ const sha = shaOf(finalVer)
 // --soft: коммит верификатора, если он был, уходит в индекс и виден в git status, а не теряется.
 const restore = (A.cwd ? `cd ${A.cwd} && ` : '') + (sha ? `git reset --soft ${sha} && git checkout ${sha} -- ${repro.repro_test}` : `git show ${hashOf(finalVer)} > ${repro.repro_test}`)
 if (wantSnap) trail.push({ step: 'snapshot', doer: 'general-purpose', status: snap ? snap.status : 'null', placed, passed: passed(snap), returned: back })
-if (wantSnap && noRun(snap)) return bail('Review: прогон снимка', `${lack(snap, 'верификатор')}; ${repro.repro_test} мог остаться снимком, вернуть: ${restore}`, { fix_after_review: fix2, review: rev, prior: reg.all(), decisions: [...dec(), ...askLines(reg)] })
+if (wantSnap && noRun(snap)) return nodeBail('Review: прогон снимка', `${lack(snap, 'верификатор')}; ${repro.repro_test} мог остаться снимком, вернуть: ${restore}`, { fix_after_review: fix2, review: rev, prior: reg.all(), decisions: [...dec(), ...askLines(reg)] })
 const snapNote = !repro.test_cmd ? '; снимок не прогнан: команды тестов нет' : !wantSnap ? ''
   : (!placed ? `; снимок ${expected()} не поставлен: snap_hash ${snap.snap_hash || 'пусто'}` : !passed(snap) ? `; снимок ${expected()} на итоговом коде не зелёный: ${redNote(snap, known)}` : '')
     + (!back ? `; файл теста после прогона снимка ${expected()} не возвращён: repro_test_hash ${hashOf(snap) || 'пусто'} при итоговом ${hashOf(finalVer)}, ahead ${snap.ahead} при итоговом ${finalVer.ahead}, dirty=${snap.dirty}, вернуть: ${restore}` : '')

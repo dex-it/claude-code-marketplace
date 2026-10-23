@@ -1,0 +1,17 @@
+case=d0
+typecheck=0
+test=0
+files: test/price-format.test.ts 
+TESTS PASS (Tests  16 passed (16))
+REAL-FETCH 0
+SHUFFLE seed=1 PASS
+SHUFFLE seed=2 PASS
+SHUFFLE seed=3 PASS
+SHUFFLE seed=4 PASS
+SHUFFLE seed=5 PASS
+MF1 KILLED  (MF1-no-kopeck-pad)
+MF2 KILLED  (MF2-remainder-off-by-one)
+MF3 KILLED  (MF3-negative-zero)
+MF4 KILLED  (MF4-parts-zero)
+MF5 KILLED  (MF5-thousands)
+STATIC vi.mock=0 vi.spyOn=0 vi.fn=0 toHaveBeenCalled*=0 expect=15

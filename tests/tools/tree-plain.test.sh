@@ -29,7 +29,7 @@ check() {
 # Цикл ссылок внутри плагина специалиста: под обход попадают все валидаторы, идущие по plugins/.
 t=$(base loop)
 ln -s ../.. "$t/plugins/specialists/fixture/dex-fixture-specialist/loop"
-for v in validate-agent.js validate-skill.js validate-command.js validate-bundle.js validate-node-contract.js; do
+for v in validate-agent.js validate-skill.js validate-command.js validate-bundle.js validate-node-contract.js validate-terminology.js; do
   check "$v" "$t" "цикл symlink -> отказ"
 done
 
@@ -42,6 +42,8 @@ check validate-readme.js "$t" "symlink в skills/ -> отказ"
 t=$(base fifo)
 mkfifo "$t/plugins/specialists/fixture/dex-fixture-specialist/agents/pipe.md"
 check validate-node-contract.js "$t" "FIFO -> отказ без зависания"
+mkfifo "$t/docs/pipe.md"
+check validate-terminology.js "$t" "FIFO в docs/ -> отказ без зависания"
 
 [ "$fail" -eq 0 ] && echo "tree-plain.test.sh: все проверки прошли" || echo "tree-plain.test.sh: есть провалы"
 exit "$fail"

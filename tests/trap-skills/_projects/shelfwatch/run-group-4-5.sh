@@ -4,6 +4,7 @@
 # case: rv-pt, rv-ddp, rv-tf, rv-ml, rv-cv, rv-nlp, rv-opt, rv-hyg, n0 (ревью); k-hyg, k-nlp, k-ml, n0k (код)
 # Каталог прогонов - $G45_WORK (вне репозитория: на пути не должно быть CLAUDE.md).
 set -uo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/../_sandbox.sh"
 T="$(cd "$(dirname "$0")/../.." && pwd)"
 SP="${G45_WORK:?G45_WORK - каталог прогонов вне репозитория}"
 REPO="$(git -C "$T" rev-parse --show-toplevel)"
@@ -43,7 +44,7 @@ $lim В ответе - список изменённых файлов и опи�
  *) echo "unknown case $case_"; exit 1;;
 esac
 cd "$DIR"
-claude -p "$P" --model claude-sonnet-5-5 --effort medium --restricted --strict-mcp-config \
+env "${GIT_SANDBOX_ENV[@]}" claude -p "$P" --disallowedTools "${GIT_DENY[@]}" --model claude-sonnet-5-5 --effort medium --restricted --strict-mcp-config \
   --no-session-persistence --disable-slash-commands --permission-mode acceptEdits --max-budget-usd 3 \
   --tools Read Write Edit Glob Grep Bash --allowedTools 'Bash(git *)' "${add[@]}" \
   --output-format stream-json --verbose > "$SP/log/$id.jsonl" 2>"$SP/log/$id.err"

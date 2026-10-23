@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # run-group-4-8.sh <case> <set> <idx> [edition-dir] - вызов, кейсы и база плеч в README мини-проекта.
 set -uo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/../_sandbox.sh"
 T="$(cd "$(dirname "$0")/../.." && pwd)"
 SP="${G48_WORK:?G48_WORK - каталог прогонов вне репозитория}"
 REPO="$(git -C "$T" rev-parse --show-toplevel)"
@@ -86,7 +87,7 @@ ${sline}Выполни задачу в рабочем дереве репози�
   out=DIFF.patch;;
 esac
 cd "$DIR"
-claude -p "$P" --model claude-sonnet-5-5 --effort medium --restricted --strict-mcp-config \
+env "${GIT_SANDBOX_ENV[@]}" claude -p "$P" --disallowedTools "${GIT_DENY[@]}" --model claude-sonnet-5-5 --effort medium --restricted --strict-mcp-config \
   --no-session-persistence --disable-slash-commands --permission-mode acceptEdits --max-budget-usd 3 \
   --tools "${tools[@]}" --allowedTools "${allow[@]}" "${add[@]}" "${sys[@]}" \
   --output-format stream-json --verbose > $SP/log/$id.jsonl 2>$SP/log/$id.err

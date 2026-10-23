@@ -4,6 +4,7 @@
 # case: код - g-k g-b g-c g-m g-e n-g; ревью - rv-k rv-b rv-c rv-m rv-e n-rv
 # Каталог прогонов - $G43_WORK (вне репозитория: на пути не должно быть CLAUDE.md).
 set -uo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/../_sandbox.sh"
 T="$(cd "$(dirname "$0")/../.." && pwd)"
 SP="${G43_WORK:?G43_WORK - каталог прогонов вне репозитория}"
 REPO="$(git -C "$T" rev-parse --show-toplevel)"
@@ -40,7 +41,7 @@ $lim Сборки нет: из команд доступен только git. �
 fi
 tools=('Bash(git *)')
 cd "$DIR"
-claude -p "$P" --model claude-sonnet-5-5 --effort medium --restricted --strict-mcp-config \
+env "${GIT_SANDBOX_ENV[@]}" claude -p "$P" --disallowedTools "${GIT_DENY[@]}" --model claude-sonnet-5-5 --effort medium --restricted --strict-mcp-config \
   --no-session-persistence --disable-slash-commands --permission-mode acceptEdits --max-budget-usd 2.5 \
   --tools Read Write Edit Glob Grep Bash --allowedTools "${tools[@]}" "${add[@]}" \
   --output-format stream-json --verbose > "$SP/log/$id.jsonl" 2>"$SP/log/$id.err"

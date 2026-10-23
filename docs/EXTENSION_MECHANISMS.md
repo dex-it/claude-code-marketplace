@@ -4,7 +4,7 @@
 
 Источники (сверено 04.10.2026, Claude Code 2.1.289):
 
-- мод - контракт типов `mods/types/claude-code.d.ts` (записан `/plugin-types` на 2.1.272) и источники из [MOD_FRAMEWORK.md](MOD_FRAMEWORK.md);
+- мод - контракт типов `mods/types/claude-code.d.ts` (записан движком на 2.1.272) и источники из [MOD_FRAMEWORK.md](MOD_FRAMEWORK.md);
 - Agent SDK - справочник [TypeScript SDK](https://code.claude.com/docs/en/agent-sdk/typescript.md) (опции `Options`, методы `Query`), [hooks](https://code.claude.com/docs/en/agent-sdk/hooks.md), [custom tools](https://code.claude.com/docs/en/agent-sdk/custom-tools.md), [sessions](https://code.claude.com/docs/en/agent-sdk/sessions.md).
 
 API модов в раннем доступе и меняется между релизами без предупреждения: перед опорой на строку таблицы сверить её с текущим `claude-code.d.ts`.

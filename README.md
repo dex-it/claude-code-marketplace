@@ -533,7 +533,7 @@ claude-code-marketplace/
 │       ├── dex-bundle-dotnet-developer/
 │       └── ...
 ├── mods/                          # Моды: function hooks на TypeScript
-│   ├── types/claude-code.d.ts     # контракт API (пишет /plugin-types)
+│   ├── types/claude-code.d.ts     # контракт API (пишет движок)
 │   ├── tsconfig.json              # типы хуков; tsconfig.tests.json - типы прогонов
 │   ├── dex-github-pr-tracker/
 │   ├── dex-gitlab-mr-tracker/

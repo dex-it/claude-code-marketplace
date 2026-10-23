@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Разворачивает репозиторий мини-проекта Rooms: этапы stages/* варианта - коммиты main по порядку.
-# Использование: setup.sh <dest> <brief|brd|uc|srs|badunit|badset|baduc|badst|ready|ticket>
+# Использование: setup.sh <dest> <brief|brd|uc|srs|badunit|badset|baduc|badst|ready|ticket|baddesign|badinvest|goodinvest|ring3|ambig>
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 dest="$1"; variant="$2"
@@ -9,7 +9,10 @@ declare -A V=(
  [srs]="1-base 2-brief 3-brd 4-uc 5-srs"
  [badunit]="1-base 2-brief 3-brd 4-uc x-badunit" [badset]="1-base 2-brief 3-brd 4-uc x-badset"
  [baduc]="1-base 2-brief 3-brd 4-uc 5-srs x-baduc" [badst]="1-base 2-brief 3-brd 4-uc 5-srs x-badst"
- [ready]="1-base 2-brief 3-brd 4-uc 5-srs x-ready" [ticket]="1-base 2-brief 3-brd 4-uc 5-srs x-ticket")
+ [ready]="1-base 2-brief 3-brd 4-uc 5-srs x-ready" [ticket]="1-base 2-brief 3-brd 4-uc 5-srs x-ticket"
+ [baddesign]="1-base 2-brief 3-brd 4-uc 5-srs x-baddesign" [badinvest]="1-base 2-brief 3-brd 4-uc 5-srs x-badinvest"
+ [goodinvest]="1-base 2-brief 3-brd 4-uc 5-srs x-goodinvest" [ring3]="1-base 2-brief 3-brd 4-uc 5-srs x-ring3"
+ [ambig]="1-base 2-brief 3-brd 4-uc 5-srs x-ambig")
 stages="${V[$variant]:?неизвестный вариант $variant}"
 [ -e "$dest" ] && { echo "exists: $dest" >&2; exit 1; }
 mkdir -p "$dest"; dest="$(cd "$dest" && pwd)"

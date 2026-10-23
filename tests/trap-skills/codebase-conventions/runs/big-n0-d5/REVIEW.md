@@ -1,0 +1,4 @@
+services/catalog/src/Meridian.Catalog/Infrastructure/Pricing/CachedTariffSource.cs:29 - пустой список от Pricing кэшируется на полный TTL (до 5 мин), и все запросы получают пустые тарифы, хотя Pricing мог ответить пустотой по сбою - minor
+services/catalog/src/Meridian.Catalog/Infrastructure/Pricing/CachedTariffSource.cs:30 - в кэш кладётся массив под видом IReadOnlyList<Tariff>; любой потребитель может привести его к Tariff[] и изменить общий для всех запросов кэш - minor
+services/catalog/src/Meridian.Catalog/Infrastructure/Pricing/CachedTariffSource.cs:22 - при недоступности Pricing кэш пуст, и ожидающие на общем Gate запросы идут к Pricing строго по очереди, каждый со своим полным циклом ретраев resilience-handler; хвост запросов ждёт N×таймаут до ct - minor
+services/catalog/src/Meridian.Catalog/Infrastructure/Pricing/CachedTariffSource.cs:1 - для нового кэша нет тестов (попадание, истечение TTL, конкурентный промах, ошибка источника) - minor

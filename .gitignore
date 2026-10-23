@@ -2,6 +2,7 @@
 node_modules
 npm-debug.log
 package-lock.json
+!tests/trap-skills/_projects/shopdesk/stages/1-api/package-lock.json
 yarn.lock
 .pnpm-store/
 
@@ -63,6 +64,9 @@ docs/autonomous/
 
 # Байткод питоновских хуков движка: пишется рядом со скриптом при каждом вызове
 __pycache__/
+
+# Выход движка при загрузке мода из папки: декларации API, не исходник (docs/MOD_FRAMEWORK.md, «Контракт типов»)
+mods/*/.claude-plugin/types/
 
 # Сайт документации (site/): зависимости, сборка, кэш Astro и сгенерированный каталог.
 # Лок-файл сайта хранится в git, в отличие от корневого.
