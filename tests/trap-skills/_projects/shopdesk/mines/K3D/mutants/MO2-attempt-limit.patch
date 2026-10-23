@@ -1,0 +1,13 @@
+diff --git a/api/src/services/checkout.ts b/api/src/services/checkout.ts
+index 08fb345..5788494 100644
+--- a/api/src/services/checkout.ts
++++ b/api/src/services/checkout.ts
+@@ -53,7 +53,7 @@ export function registerAttempt(customerId: string): { allowed: boolean; remaini
+   const used = (attempts.get(customerId) ?? 0) + 1;
+   attempts.set(customerId, used);
+   return {
+-    allowed: used <= MAX_ATTEMPTS_PER_CUSTOMER,
++    allowed: used < MAX_ATTEMPTS_PER_CUSTOMER,
+     remaining: Math.max(0, MAX_ATTEMPTS_PER_CUSTOMER - used),
+   };
+ }

@@ -1,0 +1,22 @@
+case=d1
+typecheck=0
+test=0
+files: test/checkout.test.ts 
+TESTS PASS (Tests  8 passed (8))
+REAL-FETCH 0
+SHUFFLE seed=1 PASS
+SHUFFLE seed=2 PASS
+SHUFFLE seed=3 PASS
+SHUFFLE seed=4 PASS
+SHUFFLE seed=5 PASS
+MJ1 KILLED  (MJ1-promo-wrong-subtotal)
+MO1 KILLED  (MO1-swallow-delivery-error)
+MO2 KILLED  (MO2-attempt-limit)
+MO3 KILLED  (MO3-promo-no-warn)
+MP1 KILLED  (MP1-promo-percent)
+MP2 SURVIVED (MP2-promo-threshold)
+MR1 KILLED  (MR1-total-without-delivery)
+MR2 KILLED  (MR2-flat-rate-zero)
+MR3 KILLED  (MR3-estimated-flag)
+MR4 KILLED  (MR4-discount-not-subtracted)
+STATIC vi.mock=0 vi.spyOn=2 vi.fn=0 toHaveBeenCalled*=6 expect=25

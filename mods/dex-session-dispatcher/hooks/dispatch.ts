@@ -1,6 +1,6 @@
 // Запуск новой сессии: имя, команда и поручение. Чистое, без `$`.
 
-import type { SessionRow } from './sessions.ts'
+import type { ActionPick, SessionRow } from './sessions.ts'
 import { quote, shortPath } from './text.ts'
 
 export const NAME_LIMIT = 40
@@ -81,9 +81,14 @@ export function failureOf(stderr: string, stdout: string): string {
   return line ? line.trim().slice(0, 200) : 'команда завершилась без объяснения'
 }
 
-/** Поручение для сообщения другой сессии: от кого оно, чтобы ответить адресно. */
+/**
+ * Поручение для сообщения другой сессии: от кого оно, чтобы ответить адресно. Метка -
+ * обычный текст: любая сессия, канал или человек может написать такую же с любым
+ * отправителем, поэтому она сама называет себя непроверенной, и получатель не вправе
+ * считать её доказательством происхождения.
+ */
 export function messageFor(from: string, text: string): string {
-  return `[от диспетчера сессий, отправитель: ${from}] ${text.trim()}`
+  return `[метка диспетчера сессий, не проверяется: отправитель ${from}] ${text.trim()}`
 }
 
 export type Preset = { label: string; task: string }
@@ -176,13 +181,81 @@ export function recentDirs(text: string, limit = 30): string[] {
   return found
 }
 
-/** Нужно ли подтверждение: вместо исполнения вернуть название сессии и точную команду повтора. */
-export function dangerEcho(kind: 'stop' | 'remove', row: SessionRow): string {
+/** Строка совпала не только с id цели, но и с именем другой сессии: об этом эхо говорит первым. */
+const shadowNote = (shadowed: readonly SessionRow[]): string =>
+  shadowed.length === 0
+    ? ''
+    : `Набранное - это id этой сессии и одновременно имя другой: ${shadowed.map(row => `${quote(row.name)} (${row.shortId})`).join(', ')}. Проверьте, о какой речь. `
+
+/**
+ * Эхо вместо исполнения: названа сессия и дана точная команда повтора с её id. `repeat` - id,
+ * который подтверждает именно эту сессию (`pickForAction`); `shadowed` - чьим именем оказалась строка.
+ */
+export function dangerEcho(
+  kind: 'stop' | 'remove',
+  row: SessionRow,
+  repeat: string = row.shortId,
+  shadowed: readonly SessionRow[] = [],
+): string {
   const label = `${quote(row.name)} (${row.shortId})`
 
-  return kind === 'stop'
-    ? `Остановить ${label}? Разговор сохранится. Чтобы подтвердить, повторите: /sessions stop ${row.shortId}`
-    : `Удалить ${label} вместе с рабочей копией, без возврата? Чтобы подтвердить, повторите: /sessions remove ${row.shortId}`
+  return `${shadowNote(shadowed)}${
+    kind === 'stop'
+      ? `Остановить ${label}? Разговор сохранится. Чтобы подтвердить, повторите: /sessions stop ${repeat}`
+      : `Удалить ${label} вместе с рабочей копией, без возврата? Чтобы подтвердить, повторите: /sessions remove ${repeat}`
+  }`
+}
+
+/** Самый длинный текст поручения, который эхо подставляет в подсказку целиком. */
+export const ECHO_TEXT_MAX = 120
+
+/**
+ * Эхо для `say`, названной не по id: поручение уходит сессии, у которой может быть право
+ * правки, и номер из пересчитанного списка мог указать на соседнюю. Однострочный текст не
+ * длиннее `ECHO_TEXT_MAX` подставляется в подсказку: человеку остаётся скопировать команду.
+ * Это ввод самого оператора, поэтому он не маскируется; многострочный и длинный текст в эхо
+ * не попадает (вместо него «текст»).
+ */
+export function sayEcho(
+  row: SessionRow,
+  text = '',
+  repeat: string = row.shortId,
+  shadowed: readonly SessionRow[] = [],
+): string {
+  const body = text.trim()
+  const inline = body !== '' && body.length <= ECHO_TEXT_MAX && !/[\r\n\u2028\u2029]/.test(body)
+
+  return `${shadowNote(shadowed)}Отправить ${quote(row.name)} (${row.shortId})? Повторите: /sessions say ${repeat} ${inline ? body : 'текст'}`
+}
+
+export const SAY_SELF = 'Это текущая сессия: напишите сообщение прямо в поле ввода.'
+export const SAY_EMPTY = 'Сообщение пустое.'
+
+/** Что делать с `/sessions say`: отправить, показать эхо или отказать. */
+export type SayOutcome =
+  | { kind: 'send'; row: SessionRow; text: string }
+  | { kind: 'echo' | 'refuse-self' | 'refuse-empty' | 'refuse-pick'; text: string }
+
+/**
+ * Решение по `say` одной чистой функцией: `register.tsx` его только исполняет. Порядок
+ * проверок: сессия не найдена или неоднозначна; это текущая сессия; текст пуст; сессия названа
+ * не по id - эхо; иначе отправка. Себя и пустой текст отказывают раньше эхо: подсказка, которую
+ * потом отклонят, человека только запутала бы.
+ */
+export function sayOutcome(input: { pick: ActionPick; text: string; selfId: string }): SayOutcome {
+  const { pick, text, selfId } = input
+
+  if ('error' in pick) return { kind: 'refuse-pick', text: pick.error }
+
+  if (pick.row.sessionId === selfId) return { kind: 'refuse-self', text: SAY_SELF }
+
+  const body = text.trim()
+
+  if (body === '') return { kind: 'refuse-empty', text: SAY_EMPTY }
+
+  if (!pick.isConfirmed) return { kind: 'echo', text: sayEcho(pick.row, body, pick.repeatWith, pick.shadowed) }
+
+  return { kind: 'send', row: pick.row, text: body }
 }
 
 /**
