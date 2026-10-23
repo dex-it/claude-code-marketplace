@@ -31,6 +31,13 @@ description: Команды над kubectl, psql, rabbitmqadmin, kaf и друг
 
 Рядом лежат команды для GitHub и GitLab (`gh-runs`, `gl-pipelines`), Jenkins и TeamCity, Redis, Kafka, S3, Jira и Playwright: полный список с описаниями - в разделе [Утилиты](/catalog/utilities/).
 
+## Ограничения и частые ошибки
+
+- **Программы нет в `PATH`.** Команда над CLI сообщит об этом, но сама не поставит: `./install-bundle/install-cli-tools.sh --check`, затем `--all` либо точечно.
+- **Доступ - ваш.** Команды используют уже настроенный вход (`kubectl` с вашим контекстом, `psql` с вашими `PG*` или `~/.pgpass`), новых прав они не добавляют.
+- **База только на чтение.** `psql-query` отвергает меняющие запросы; правка данных делается вне команды.
+- **Ожидание «умной» диагностики.** Это тонкие обёртки: показать состояние они могут, выводы делает специалист из других сценариев, например [расследование инцидента](/scenarios/incident/).
+
 ## Дальше
 
 - Руководство по установке бинарей, настройке и сравнению CLI с MCP: [CLI_UTILITIES.md на GitHub](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/CLI_UTILITIES.md).
