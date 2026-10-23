@@ -339,7 +339,20 @@ function validatePreloadSkillForm(raw, findings) {
   }
 
   const [plugin, skill] = entry.split(':');
-  if (!PLUGIN_SKILLS.has(plugin)) return; // not a repo plugin - out of scope
+  // Плагин, которого нет ни в каталоге, ни в дереве, - загрузка в никуда. `normalizePreloadSkillName` берёт часть после
+  // последнего `:`, поэтому опечатка в половине «плагин» иначе проходила молча там, где вторая половина допустима к pre-load
+  // (`node-contract` у узла трека, норматив этапа у агента-владельца). Каталога нет - сверять не с чем. Точную запись
+  // контракта стыка судит `frontmatter-skills-missing` и от дерева она не зависит (в песочнице фикстур плагина контракта нет).
+  const catalog = catalogPlugins();
+  if (entry !== NODE_CONTRACT_REF && catalog.size > 0 && !catalog.has(plugin) && !PLUGIN_SKILLS.has(plugin)) {
+    findings.push({
+      level: ERROR,
+      rule: 'plugin-name-unknown',
+      message: `\`skills:\` entry "${entry}" - plugin "${plugin}" is not in the catalogue. A pre-load through a plugin that does not exist is skipped silently at run time; this rule is the guard of the plugin half of the full form plugin:skill`,
+    });
+    return;
+  }
+  if (!PLUGIN_SKILLS.has(plugin)) return; // plugin is known but ships no skills - nothing to check the second half against
   if (!PLUGIN_SKILLS.get(plugin).has(skill)) {
     findings.push({
       level: ERROR,
