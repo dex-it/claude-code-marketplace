@@ -1,0 +1,1 @@
+services/catalog/src/Meridian.Catalog/Infrastructure/Pricing/CachedTariffSource.cs:19 - промах кэша не сериализован (нет single-flight): при старте и после истечения TTL все параллельные запросы одновременно идут в медленный Pricing и каждый перезаписывает запись, то есть пик нагрузки на Pricing, ради снятия которого сделан кэш, повторяется раз в TTL - minor

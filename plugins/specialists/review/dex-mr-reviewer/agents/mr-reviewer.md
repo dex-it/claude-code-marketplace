@@ -61,7 +61,7 @@ Staff-уровневый ревьюер чужого MR/PR. Стек-нейтр�
 
 **Exit criteria:** записаны stage, стек с версиями, конвенции и перечень `Accepted` ADR, релевантных diff; неочевидный контекст помечен как `[Assumption: ...]`.
 
-Загрузи `dex-skill-codebase-conventions:codebase-conventions` (включает ось ADR: находка против `Accepted` ADR - осознанный trade-off, не дефект; читать актуальный в supersede-цепочке); при доменном нейминге `dex-skill-ddd:ddd`.
+Загрузи `dex-skill-codebase-conventions:codebase-conventions` (свод правил); при доменном нейминге `dex-skill-ddd:ddd`.
 
 ## Phase 2: Change Map
 

@@ -1,0 +1,1 @@
+src/Billing.Api/Api/InvoiceEndpoints.cs:19 - customerId обязательный Guid-параметр: при отсутствии или неверном формате минимальный API сам отдаёт 400 без поля code, в отличие от остальных отказов (ValidationError по ADR-0002); клиент не различит ошибку по code - minor

@@ -1,0 +1,106 @@
+diff --git a/api/test/checkout.test.ts b/api/test/checkout.test.ts
+new file mode 100644
+index 0000000..1adc215
+--- /dev/null
++++ b/api/test/checkout.test.ts
+@@ -0,0 +1,100 @@
++import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
++import { delivery, DeliveryUnavailableError } from '../src/clients/delivery.js';
++import type { OrderItem } from '../src/domain/order.js';
++import { logger } from '../src/logger.js';
++import { MAX_ATTEMPTS_PER_CUSTOMER, quoteOrder, registerAttempt } from '../src/services/checkout.js';
++
++function item(priceKopecks: number, quantity: number): OrderItem {
++  return { productId: 'p', title: 'item', priceKopecks, quantity };
++}
++
++describe('quoteOrder', () => {
++  let quote: ReturnType<typeof vi.spyOn>;
++  let warn: ReturnType<typeof vi.spyOn>;
++
++  beforeEach(() => {
++    quote = vi.spyOn(delivery, 'quote').mockResolvedValue({ priceKopecks: 40_000, days: 2 });
++    warn = vi.spyOn(logger, 'warn').mockImplementation(() => {});
++  });
++
++  afterEach(() => {
++    vi.restoreAllMocks();
++  });
++
++  it('sums items and adds delivery without a promo code', async () => {
++    const result = await quoteOrder([item(100_000, 2), item(50_000, 1)], { city: 'Москва' });
++
++    expect(result).toEqual({
++      subtotalKopecks: 250_000,
++      discountKopecks: 0,
++      deliveryKopecks: 40_000,
++      totalKopecks: 290_000,
++      promoApplied: false,
++      deliveryEstimated: false,
++    });
++    expect(quote).toHaveBeenCalledWith('Москва', 1500);
++    expect(warn).not.toHaveBeenCalled();
++  });
++
++  it('subtracts the promo discount from the items sum', async () => {
++    const result = await quoteOrder([item(100_000, 2)], { city: 'Москва', promoCode: 'welcome10' });
++
++    expect(result.promoApplied).toBe(true);
++    expect(result.discountKopecks).toBe(20_000);
++    expect(result.totalKopecks).toBe(200_000 - 20_000 + 40_000);
++    expect(warn).not.toHaveBeenCalled();
++  });
++
++  it('gives no discount and warns for an unknown promo code', async () => {
++    const result = await quoteOrder([item(100_000, 2)], { city: 'Москва', promoCode: 'NOPE' });
++
++    expect(result.promoApplied).toBe(false);
++    expect(result.discountKopecks).toBe(0);
++    expect(result.totalKopecks).toBe(240_000);
++    expect(warn).toHaveBeenCalledTimes(1);
++    expect(warn.mock.calls[0]![0]).toContain('NOPE');
++  });
++
++  it('gives no discount and warns when the subtotal is below the promo minimum', async () => {
++    const result = await quoteOrder([item(50_000, 1)], { city: 'Москва', promoCode: 'WELCOME10' });
++
++    expect(result.promoApplied).toBe(false);
++    expect(result.discountKopecks).toBe(0);
++    expect(result.totalKopecks).toBe(90_000);
++    expect(warn).toHaveBeenCalledTimes(1);
++  });
++
++  it('falls back to the flat rate and marks the quote as estimated when delivery is unavailable', async () => {
++    quote.mockRejectedValue(new DeliveryUnavailableError('down'));
++
++    const result = await quoteOrder([item(100_000, 1)], { city: 'Казань' });
++
++    expect(result.deliveryKopecks).toBe(29_900);
++    expect(result.deliveryEstimated).toBe(true);
++    expect(result.totalKopecks).toBe(129_900);
++    expect(warn).toHaveBeenCalledTimes(1);
++  });
++
++  it('rethrows other delivery errors as is', async () => {
++    const error = new Error('delivery responded with 500');
++    quote.mockRejectedValue(error);
++
++    await expect(quoteOrder([item(100_000, 1)], { city: 'Казань' })).rejects.toBe(error);
++  });
++});
++
++describe('registerAttempt', () => {
++  it('allows three attempts and refuses the fourth', () => {
++    const results = Array.from({ length: MAX_ATTEMPTS_PER_CUSTOMER + 1 }, () => registerAttempt('cust-limit'));
++
++    expect(results.map((r) => r.allowed)).toEqual([true, true, true, false]);
++    expect(results.map((r) => r.remaining)).toEqual([2, 1, 0, 0]);
++  });
++
++  it('counts customers independently', () => {
++    for (let i = 0; i < 4; i++) registerAttempt('cust-a');
++
++    expect(registerAttempt('cust-a').allowed).toBe(false);
++    expect(registerAttempt('cust-b')).toEqual({ allowed: true, remaining: 2 });
++  });
++});
