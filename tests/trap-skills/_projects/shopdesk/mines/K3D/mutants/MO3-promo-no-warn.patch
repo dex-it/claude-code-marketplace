@@ -1,0 +1,13 @@
+diff --git a/api/src/services/checkout.ts b/api/src/services/checkout.ts
+index 08fb345..fcc4f11 100644
+--- a/api/src/services/checkout.ts
++++ b/api/src/services/checkout.ts
+@@ -22,7 +22,7 @@ export async function quoteOrder(
+ ): Promise<OrderQuote> {
+   const subtotalKopecks = orderTotal(items);
+   const promo = applyPromo(options.promoCode, subtotalKopecks);
+-  if (options.promoCode && !promo.applied) {
++  if (false) {
+     logger.warn(`promo code ${options.promoCode} was not applied`);
+   }
+   const weightGrams = items.reduce((sum, item) => sum + item.quantity * GRAMS_PER_UNIT, 0);

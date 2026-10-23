@@ -52,7 +52,7 @@ Workflow: **Context Gathering -> Direct Analysis -> Skill-Based Scan -> Report**
 
 ## Phase 2: Skill-Based Scan
 
-**Goal:** Сверить факт с чек-листом и ловушками skill - найти недонастроенное и анти-паттерны (например, `NoWarn` целой категорией, `NuGetAuditMode=direct` на .NET 8/9, NSDepCop без `config.nsdepcop`, AnalysisMode перебивает bulk-editorconfig).
+**Goal:** Сверить факт с чек-листом skill и найти недонастроенное; анти-паттерны сверх чек-листа выводятся из факта Phase 1 (например, `NoWarn` целой категорией, `NuGetAuditMode=direct` на .NET 8/9, NSDepCop без `config.nsdepcop`).
 
 **Output:** Для каждой недостающей / неверной настройки - что не так, почему важно, конкретное MSBuild-свойство / строка `.editorconfig` / CI-шаг для исправления.
 
@@ -60,7 +60,7 @@ Workflow: **Context Gathering -> Direct Analysis -> Skill-Based Scan -> Report**
 
 Загрузи skill императивно через Skill tool: `dex-skill-dotnet-code-quality:dotnet-code-quality`. Находка задевает структуру `.csproj` (`Directory.Build.props`, `LangVersion`, `TargetFramework`, `ProjectReference`) - дополнительно `dex-skill-dotnet-csproj-hygiene:dotnet-csproj-hygiene`; не задевает - скилл не грузится.
 
-**Fact-check дефолта, зависящего от версии SDK:** если находка держится на дефолте, который меняется между версиями SDK (например `NuGetAuditMode`, дефолт `AnalysisMode`, поведение анализатора в новой версии), сверь сам дефолт под TFM проекта из Phase 0 через `dex-skill-fact-verification:fact-verification` (загрузи skill). Дефолт сверяется всегда, в том числе названный skill. Неподтверждённый дефолт помечается `[Assumption: ...]` и не выдаётся как факт.
+**Fact-check дефолта:** если находка держится на дефолте SDK или анализатора (например `NuGetAuditMode`, дефолт `AnalysisMode`, поведение анализатора в новой версии), сверь сам дефолт под TFM проекта из Phase 0 через `dex-skill-fact-verification:fact-verification` (загрузи skill). Дефолт сверяется всегда, в том числе названный skill. Неподтверждённый дефолт помечается `[Assumption: ...]` и не выдаётся как факт.
 
 **Exit criteria:** Каждая находка сопровождена готовой настройкой, дедуплицирована с Phase 1.
 

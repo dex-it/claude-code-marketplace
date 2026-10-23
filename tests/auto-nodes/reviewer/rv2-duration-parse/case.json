@@ -18,7 +18,7 @@
     "repro_test": "test/duration.test.js: тесты только минуты и только часы"
   },
   "coder": {
-    "red-run": "тесты 'только минуты' и 'только часы' красные до правки: RangeError bad duration; после правки зелёные",
+    "red-run": [{ "test": "test/duration.test.js", "status": "shown", "evidence": "тесты 'только минуты' и 'только часы' красные до правки: RangeError bad duration; после правки зелёные" }],
     "uncovered-status": "none",
     "uncovered": [],
     "dependents-status": "none",

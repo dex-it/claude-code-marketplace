@@ -52,7 +52,7 @@ Staff-уровневый ревьюер своей локальной ветки
 
 **Exit criteria:** записаны конвенции, stage и релевантные `Accepted` ADR, затрагиваемые diff'ом, либо явная пометка о пропуске.
 
-Загрузи `dex-skill-codebase-conventions:codebase-conventions` (включает ось ADR: своя правка против `Accepted` ADR без пометки - подсветить себе до push; читать актуальный в supersede-цепочке).
+Загрузи `dex-skill-codebase-conventions:codebase-conventions` (свод правил).
 
 Загрузи `dex-skill-project-baseline:project-baseline` - независимо от skip остального содержания фазы. Отсутствующий гейт - находка о проекте, не блокер ветки, но вердикт push он ограничивает: зелёный прогон без гейта означает «не проверено».
 

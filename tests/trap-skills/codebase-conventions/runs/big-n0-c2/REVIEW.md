@@ -1,0 +1,2 @@
+services/catalog/src/Meridian.Catalog/Infrastructure/Pricing/CachedTariffSource.cs:29 - пустой список от Pricing кэшируется на полный TTL (null отсекается в PricingTariffSource, пустой массив нет): при кратковременном сбое Pricing список тарифов будет пустым до 5 минут - minor
+services/catalog/src/Meridian.Catalog/Infrastructure/Pricing/CachedTariffSource.cs:30 - в кэше лежит общий массив под видом IReadOnlyList<Tariff>; потребитель, приведший его к Tariff[], изменит данные для всех запросов процесса - minor

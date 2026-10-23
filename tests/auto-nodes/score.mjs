@@ -52,16 +52,20 @@ const usageOf = (logs) => {
 }
 
 const toolTally = (logs) => {
-  const skills = [], tools = {}
+  const calls = [], failedIds = new Set(), tools = {}
   for (const f of logs) for (const line of readFileSync(f, 'utf8').split('\n')) {
     let e; try { e = JSON.parse(line) } catch { continue }
     for (const b of (e.message && Array.isArray(e.message.content) ? e.message.content : [])) {
+      if (b.type === 'tool_result' && b.is_error) failedIds.add(b.tool_use_id)
       if (b.type !== 'tool_use') continue
       tools[b.name] = (tools[b.name] || 0) + 1
-      if (b.name === 'Skill') skills.push(b.input && b.input.skill)
+      if (b.name === 'Skill') calls.push({ id: b.id, skill: b.input && b.input.skill })
     }
   }
-  console.log(`  Skill: ${skills.join(', ') || 'нет'}`)
+  // Неудачный вызов Skill (скилла нет в профиле запуска) в tool_use неотличим от удачного: отличает ответ с is_error.
+  const ok = calls.filter(c => !failedIds.has(c.id)).map(c => c.skill)
+  const bad = calls.filter(c => failedIds.has(c.id)).map(c => c.skill)
+  console.log(`  Skill: ${ok.join(', ') || 'нет'}${bad.length ? ` (не загрузились: ${bad.join(', ')})` : ''}`)
   console.log(`  tools: ${Object.entries(tools).map(([k, v]) => `${k}=${v}`).join(' ')}`)
 }
 
@@ -71,7 +75,7 @@ function reviewer(c, r) {
   console.log(`  run-status: ${cut(r['run-status'], 160)}`)
   console.log(`  red-run: ${cut(r['red-run'], 160)}`)
   for (const m of mines) {
-    const hits = r.findings.filter(f => near(f, m))
+    const hits = r.findings.filter(f => nearBy(f, m, m.slack ?? 2))
     console.log(`  ${m.id}${m.blocking ? '*' : ''} ${m.file}:${m.lines.join('-')} -> ${hits.map(f => f.severity).join(',') || '-'}`)
   }
   r.findings.forEach((f, i) => console.log(`  [${i}] ${f.severity} ${f.axis} ${f.anchor}: ${cut(f.text, 220)}`))
@@ -149,6 +153,13 @@ function debuggerNode(id, c, r, repo, logs) {
   cpSync(join(caseDir, 'ref'), base + 'ref', { recursive: true })
   const onRef = sh(k.score.tests_cmd, base + 'ref', k.score.fail_re)
   console.log(`  тест ${r.repro_test || '-'}: дерево узла exit=${onTree.code} упали: ${onTree.failed.join(', ') || '-'}; под эталоном exit=${onRef.code}${onRef.code ? ' упали: ' + (onRef.failed.join(', ') || onRef.tail) : ''}`)
+  // Кейс с ложным следом в коде держит правку-приманку в decoy/: тест диагноста, зелёный под ней, закрыт ложной причиной (проверка ключа - check/ кейса).
+  if (existsSync(join(caseDir, 'decoy'))) {
+    snapshot(repo, base + 'decoy', false)
+    cpSync(join(caseDir, 'decoy'), base + 'decoy', { recursive: true })
+    const onDecoy = sh(k.score.tests_cmd, base + 'decoy', k.score.fail_re)
+    console.log(`  под ложной правкой (decoy/) exit=${onDecoy.code}${onDecoy.code ? ' упали: ' + (onDecoy.failed.join(', ') || onDecoy.tail) : ' - тест диагноста её не отличает'}`)
+  }
 }
 
 // Находка ревьюера засчитана подтверждённой, если в confirmed есть якорь в её строках, отброшенной - если якорь в dropped; покрытие - по названным требованиям.
@@ -175,8 +186,11 @@ for (const id of readdirSync(out).filter(d => existsSync(join(out, d, 'repo'))).
   const c = id.replace(/-(old|new)-\d+$/, '')
   const repo = join(out, id, 'repo')
   const dir = join(projects, slug(repo))
+  // Каталог проекта в ~/.claude/projects один на путь репозитория: прогон, перезапущенный под тем же именем (упавший скрипт, мусорный заход),
+  // оставляет в нём прежние workflows - берётся самый свежий.
   let wf = null
-  for (const f of walk(dir, p => /\/workflows\/[^/]+\.json$/.test(p) && !p.includes('/subagents/'))) wf = JSON.parse(readFileSync(f, 'utf8'))
+  const wfFiles = walk(dir, p => /\/workflows\/[^/]+\.json$/.test(p) && !p.includes('/subagents/')).sort((a, b) => statSync(a).mtimeMs - statSync(b).mtimeMs)
+  if (wfFiles.length) wf = JSON.parse(readFileSync(wfFiles[wfFiles.length - 1], 'utf8'))
   let head = {}
   try { head = JSON.parse(readFileSync(join(out, id, 'out.json'), 'utf8')) } catch {}
   const r = wf && wf.result

@@ -71,6 +71,9 @@ $0.86) и отброшены до суждения - в `runs/` их нет.
   r2 и c0 по 2; не принято;
 - `k` - различающий: `requirement-set-quality` `f`, `requirement-quality` `g`, r2 по 2;
 - `l` - `requirement-set-quality` `j`, `requirement-quality` `f`: r2 и c0 по 2.
+- `m` - `functional-requirements` 2.1.0 с исключением для несценарной единицы
+  ([`../functional-requirements/inputs/SKILL-2.1.0.md`](../functional-requirements/inputs/SKILL-2.1.0.md)), `nfr` и
+  `requirement-quality` как в `f`: w2 и r1 по 2 (#209, ревью PR #392); протокол - [functional-requirements](../functional-requirements/README.md).
 
 Суждение - слепым судьёй (opus) в чистом контексте, прогоны под метками x/y, раскрытие меток - в файле
 вердикта: [`JUDGE-control.md`](JUDGE-control.md) (контроль r1-r4), [`JUDGE-control-w.md`](JUDGE-control-w.md)
