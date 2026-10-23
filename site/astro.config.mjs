@@ -80,6 +80,20 @@ export default defineConfig({
           items: ['start', 'start/requirements', 'start/install', 'start/first-run', 'start/update-remove'],
         },
         {
+          label: 'Основы',
+          collapsed: true,
+          items: [
+            { slug: 'basics', label: 'Обзор' },
+            'basics/skills',
+            'basics/subagents',
+            'basics/commands',
+            'basics/plugins',
+            'basics/hooks-mods',
+            'basics/context',
+            'basics/learn',
+          ],
+        },
+        {
           label: 'Сценарии',
           collapsed: true,
           items: [
