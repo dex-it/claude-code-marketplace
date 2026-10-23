@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "6.26.0",
+  "version": "6.27.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -401,7 +401,7 @@
       "name": "dex-business-analyst",
       "source": "./plugins/specialists/product/dex-business-analyst",
       "description": "Бизнес-аналитик: формализует идею в BRD - цели сторон с мерой успеха, стейкхолдеры, риски, эпики.",
-      "version": "5.18.2",
+      "version": "5.18.3",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -512,7 +512,7 @@
       "name": "dex-debugger",
       "source": "./plugins/specialists/delivery/dex-debugger",
       "description": "Языко-агностичный узел root-cause debugger: воспроизведение, изоляция, первопричина, фальсификация гипотез. Продуктовый код не правит: воспроизводит красным тестом, отдаёт найденные проблемы списком. Частные skills грузятся условно по стеку. Точка входа - команда /root-cause, едет в этом же плагине.",
-      "version": "4.5.0",
+      "version": "4.6.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -597,7 +597,7 @@
       "name": "dex-domain-analyst",
       "source": "./plugins/specialists/product/dex-domain-analyst",
       "description": "Доменный аналитик: ведёт словарь продукта (ubiquitous language) и конституцию проекта - инварианты и сквозные меры с методом проверки.",
-      "version": "1.3.1",
+      "version": "1.3.2",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -636,7 +636,7 @@
       "name": "dex-dotnet-quality-auditor",
       "source": "./plugins/specialists/dotnet/dex-dotnet-quality-auditor",
       "description": "Аудит гигиены качества .NET-проекта: анализаторы, warning-профиль, NuGet security audit, NSDepCop, CI-gates. Отчёт «есть / нет / настроить».",
-      "version": "2.4.2",
+      "version": "2.5.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -770,7 +770,7 @@
       "name": "dex-implement",
       "source": "./plugins/specialists/delivery/dex-implement",
       "description": "Команда /implement: реализация фичи полным циклом - требования, план правок, код, тесты, саморевью. Стек определяется по манифесту репозитория, написание делегируется кодеру и тестописателю своего стека.",
-      "version": "1.4.0",
+      "version": "1.5.0",
       "category": "utility",
       "keywords": [
         "command",
@@ -841,6 +841,25 @@
       ]
     },
     {
+      "name": "dex-jira-tracker",
+      "source": "./mods/dex-jira-tracker",
+      "description": "Мод на function hooks: мониторинг Jira через jira-cli. Строка над вводом и панель /jira несут задачи проекта по группам - в работе, открытые, мои, закрытые за сутки; смена статуса, исполнителя, новая задача и новый комментарий приходят тостом и строкой в транскрипт, а то, что случилось, пока сессия была закрыта, - одной сводкой при старте. Команда /jira comments отдаёт комментарии модели текстом. От задачи работа идёт по кнопкам: постановка (команда каталога /feature либо встроенный шаблон; в Jira пишется только по «оформляй»), взять в работу (назначить, перевести, завести ветку, реализовать командой /implement либо встроенным поручением), сдать (push, PR/MR на GitHub или GitLab, ссылка в задачу), после чего PR/MR ведёт трекер хостинга, если он установлен. /jira tools показывает, какие инструменты каталога подхвачены и чем заменены остальные, /jira install ставит jira-cli.",
+      "version": "1.0.0",
+      "category": "mod",
+      "keywords": [
+        "utility",
+        "mod",
+        "function-hooks",
+        "jira",
+        "jira-cli",
+        "tracker",
+        "issues",
+        "comments",
+        "notifications",
+        "workflow"
+      ]
+    },
+    {
       "name": "dex-kaf-cli",
       "source": "./plugins/utilities/dex-kaf-cli",
       "description": "CLI Kafka: топики, consumer group, чтение хвоста сообщений, тестовая публикация через kaf.",
@@ -872,7 +891,7 @@
       "name": "dex-knowledge-extractor",
       "source": "./plugins/utilities/dex-knowledge-extractor",
       "description": "Авторский плагин: работает в клоне репозитория маркетплейса. Pipeline извлечения уроков из чужих MR/PR в маркетплейс: /mr-collect собирает review-комментарии, /mr-analyze обобщает в предложения для skills/agents, /mr-apply применяет с self-review и валидацией.",
-      "version": "3.7.3",
+      "version": "3.8.0",
       "category": "utility",
       "keywords": [
         "utility",
@@ -1113,7 +1132,7 @@
       "name": "dex-process-modeler",
       "source": "./plugins/specialists/product/dex-process-modeler",
       "description": "Моделировщик процессов: BPMN 2.0, диаграммы AS-IS и TO-BE, дорожки, поиск точек автоматизации.",
-      "version": "1.5.1",
+      "version": "1.5.3",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1196,7 +1215,7 @@
       "name": "dex-requirements-analyst",
       "source": "./plugins/specialists/product/dex-requirements-analyst",
       "description": "Аналитик требований: выводит FR из шагов и расширений сценариев, NFR из бизнес-требований и ограничений среды, у каждой единицы метод проверки.",
-      "version": "4.14.1",
+      "version": "4.15.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1209,7 +1228,7 @@
       "name": "dex-requirements-reviewer",
       "source": "./plugins/specialists/review/dex-requirements-reviewer",
       "description": "Ревью и согласование чужого готового набора требований (BRD/stories) как документа: дефекты единицы и дефекты набора против источника, фальсификация находок, severity, правки автору без мутации документа.",
-      "version": "2.1.3",
+      "version": "2.2.2",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1256,7 +1275,7 @@
       "name": "dex-rulebook-miner",
       "source": "./plugins/specialists/review/dex-rulebook-miner",
       "description": "Добыча свода правил проекта из истории ревью: оркестратор ведёт окно и запись, read-only сборщики разбирают источники, каждое правило стоит на дословной цитате и якоре. Норматив жанра, ловушки добычи и оракул приёмки свода едут скиллами этого же плагина. Точка входа - команда /rulebook.",
-      "version": "3.0.0",
+      "version": "3.0.1",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -1466,7 +1485,7 @@
       "name": "dex-skill-business-analysis-29148",
       "source": "./plugins/skills/dex-skill-business-analysis-29148",
       "description": "Норматив этапа бизнес-анализа (ISO/IEC/IEEE 29148 §6.2): состав Business requirements specification, разделы BRD, атрибуты бизнес-требования, мера успеха MOE, режим сбора interactive/autonomous, поиск конфликта целей, стадии готовности артефакта, вход и выход этапа",
-      "version": "4.4.2",
+      "version": "4.5.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -1576,7 +1595,7 @@
       "name": "dex-skill-decision-log",
       "source": "./plugins/skills/dex-skill-decision-log",
       "description": "decision-log конвейера требований: что в него попадает, как требование ссылается на запись, чем он отличается от меток проверок и служебного состояния прогона, что делать при утрате. Общая механика - node-contract, раздел «Журнал решений»; здесь специфика требований: кто ведёт журнал, связь записи с единицей, открытые пункты, поднятие оснований заново при утрате.",
-      "version": "2.0.1",
+      "version": "2.1.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -1827,7 +1846,7 @@
       "name": "dex-skill-functional-requirements",
       "source": "./plugins/skills/dex-skill-functional-requirements",
       "description": "Чек-лист правила FR: правило выводится из разобранного сценария, а не напрямую из BR.",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2068,7 +2087,7 @@
       "name": "dex-skill-node-contract",
       "source": "./plugins/skills/dex-skill-node-contract",
       "description": "Рантайм-контракт агента-узла - режим interactive/autonomous, реакция на неполный вход (blocking/default-ok), возврат наверх, словарь полей handoff, метка quality-checks и её носитель, транспорт артефакта, выбор канала хостинга (native/CLI), graceful degradation при недоступности skill",
-      "version": "9.4.3",
+      "version": "9.4.4",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2637,7 +2656,7 @@
       "name": "dex-skill-system-requirements-29148",
       "source": "./plugins/skills/dex-skill-system-requirements-29148",
       "description": "Норматив этапа системных требований (ISO/IEC/IEEE 29148 §6.4) - состав SRS по §9.6, атрибуты FR и NFR, метод верификации и MOP, охват фичи, целевая стадия, вход и выход",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2708,8 +2727,8 @@
     {
       "name": "dex-skill-ts-vitest-jest",
       "source": "./plugins/skills/dex-skill-ts-vitest-jest",
-      "description": "Unit-тесты на Vitest/Jest: фабрика мока и hoisting, мок модуля против spy, общий стейт между тестами, проверка вызовов мока вместо результата.",
-      "version": "2.1.0",
+      "description": "Unit-тесты на Vitest/Jest: фабрика мока и hoisting, мок модуля против spy, проверка вызовов мока вместо результата.",
+      "version": "2.2.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2723,7 +2742,7 @@
       "name": "dex-skill-unit-identity",
       "source": "./plugins/skills/dex-skill-unit-identity",
       "description": "Тождество единицы требований: чем ключ отличается от формулировки, как выдаются номера (старший разряд из номера фичи, младший по корпусу), когда пришедшее - правка принятой единицы, а когда новая, что делать с дублем и снятием.",
-      "version": "3.0.0",
+      "version": "3.0.1",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2900,7 +2919,7 @@
       "name": "dex-ts-tester",
       "source": "./plugins/specialists/fullstack/dex-ts-tester",
       "description": "Test writer node for TypeScript/JavaScript: Vitest/Jest, mocks, fake timers, isolation. Вызывается как исполнитель стека командой /test (плагин dex-test), стек определяется по манифесту репозитория.",
-      "version": "3.9.0",
+      "version": "3.10.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2954,7 +2973,7 @@
       "name": "dex-session-dispatcher",
       "source": "./mods/dex-session-dispatcher",
       "description": "Мод: одно окно для всех сессий Claude Code на машине. Панель /sessions показывает, какие сессии работают, какие ждут вашего ответа и какие закончили, с расходом токенов и заполнением контекста, планом, вызванными навыками и субагентами. Новую сессию можно запустить в фоне фразой-задачей, отправить любой сессии сообщение, прочитать её вывод, остановить или удалить; опасные кнопки спрашивают второй раз. Строка над вводом сообщает, что сессии ждут вас. Каждое действие есть и командой: /sessions new, say, log, open, stop, remove. Написан для новичка: слова вместо статусов, подсказка к каждому состоянию и три шага на пустом месте.",
-      "version": "1.0.0",
+      "version": "2.0.0",
       "category": "mod",
       "keywords": [
         "utility",

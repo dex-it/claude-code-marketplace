@@ -1,0 +1,87 @@
+---
+title: Установка
+description: Как поставить набор плагинов бандлом или один плагин, как посмотреть состав заранее и что выбрать.
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+
+Плагины каталога ставит Claude Code. Скрипты `install-bundle` лишь перебирают список плагинов бандла и для каждого вызывают `claude plugin install имя@dex-claude-marketplace`. Поэтому каталог нужно подключить до установки.
+
+## 1. Подключите каталог
+
+Один раз на машину:
+
+```bash
+claude plugin marketplace add dex-it/claude-code-marketplace
+```
+
+Каталог регистрируется под именем `dex-claude-marketplace`: оно нужно в командах установки. Изнутри Claude Code то же делает `/plugin marketplace add dex-it/claude-code-marketplace`.
+
+## 2. Выберите: бандл или один плагин
+
+| Нужно | Берите | Почему |
+|---|---|---|
+| Рабочий набор под роль или задачу | **Бандл** | Ставит специалистов вместе со skills, на которые они опираются |
+| Одна памятка по стеку | **Плагин** `dex-skill-<имя>` | Один плагин, ничего лишнего |
+| Одна CLI-обёртка или мод | **Плагин** | Они в бандлы ролей не входят или самодостаточны |
+
+Установка плоская: «специалист плюс его памятки» сами не подтягиваются. Специалист без нужных ему skills запустится, но будет работать без них. Поэтому для специалистов берите бандл.
+
+## Бандл
+
+Бандл ставит скрипт из клона репозитория: он читает состав из `bundle.json`.
+
+<Tabs syncKey="os">
+  <TabItem label="Linux, macOS, WSL">
+    ```bash
+    git clone https://github.com/dex-it/claude-code-marketplace.git
+    cd claude-code-marketplace
+
+    ./install-bundle/install-bundle.sh --list                    # все бандлы
+    ./install-bundle/install-bundle.sh code-review --dry-run     # что поставится
+    ./install-bundle/install-bundle.sh code-review               # поставить
+    ```
+  </TabItem>
+  <TabItem label="Windows (PowerShell)">
+    ```powershell
+    git clone https://github.com/dex-it/claude-code-marketplace.git
+    cd claude-code-marketplace
+
+    .\install-bundle\install-bundle.ps1 -List                    # все бандлы
+    .\install-bundle\install-bundle.ps1 code-review -DryRun     # что поставится
+    .\install-bundle\install-bundle.ps1 code-review             # поставить
+    ```
+  </TabItem>
+</Tabs>
+
+Имя бандла - аргумент скрипта без префикса `dex-bundle-`. Состав каждого бандла и описание - в [каталоге бандлов](/catalog/bundles/).
+
+Скрипт ничего не переустанавливает: уже поставленные плагины он помечает как установленные и пропускает. Установка идёт в пользовательскую область (user scope): плагины доступны во всех проектах на этой машине.
+
+## Один плагин
+
+Плагины ставятся по формату `имя@dex-claude-marketplace`:
+
+```bash
+claude plugin install dex-dotnet-coder@dex-claude-marketplace            # специалист
+claude plugin install dex-skill-dotnet-ef-core@dex-claude-marketplace    # памятка по стеку
+claude plugin install dex-telegram-notifier@dex-claude-marketplace       # утилита
+```
+
+Точная команда для каждого плагина есть на его странице в [каталоге](/catalog/).
+
+<Aside type="note" title="Каталог ещё не подключён?">
+Подключить каталог и поставить плагин можно одной командой: `claude plugin install имя --marketplace dex-it/claude-code-marketplace`. Эта форма требует Claude Code 2.1.292 или новее; на более старой версии подключайте каталог отдельной командой выше.
+</Aside>
+
+## Область установки
+
+По умолчанию плагин ставится для вас во всех проектах (user scope). Команда `claude plugin install` принимает `--scope project` или `--scope local`: проектная область записывает плагин в `.claude/settings.json` репозитория, локальная - только для вас в этом репозитории. Скрипты `install-bundle` область не меняют.
+
+## Как узнать, что поставилось
+
+```bash
+claude plugin list                 # установленные плагины
+```
+
+Если окно Claude Code уже было открыто, запустите новую сессию или выполните в ней `/reload-plugins`. Что делать дальше - в разделе [Первый запуск](/start/first-run/).

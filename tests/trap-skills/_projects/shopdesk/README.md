@@ -10,11 +10,15 @@ react и playwright (группа 2.3, #298). Файл - ключ для суд�
 ```
 setup.sh <dest> [ветка]   git-репозиторий в <dest>: stages/* - коммиты main, branches/<имя>/* - ветка feature/<имя> от main;
                           в конце npm ci --offline --ignore-scripts (PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1)
-stages/                   1 api + корень монорепо + package-lock.json; 2 web; 3 e2e (смоук); 4 клиент склада, резерв
+stages/                   1 api + корень монорепо + package-lock.json (закоммичен: исключение в корневом .gitignore); 2 web; 3 e2e (смоук); 4 клиент склада, резерв
                           с повторами (модуль SD-13), docs/payments-api.md; 5 задачи docs/tasks/SD-10..SD-15
 branches/admin-refunds    feature/admin-refunds, 3 коммита, задача SD-16 в ветке - кейс R1
 branches/order-dashboard  feature/order-dashboard, 3 коммита, задача SD-17 в ветке - кейс R2
 mines/K1..K3              скрытые тесты судьи (run.sh <repo>), эталоны reference-ok.patch / reference-trap.patch к main
+branches/checkout-tests   feature/checkout-tests, 1 коммит: модули checkout, promo, клиент доставки, задача SD-18 - кейс K3D (заход #321)
+branches/money-tests      feature/money-tests, 1 коммит: модуль price-format, задача SD-19 - кейс K3N (заход #321)
+mines/K3D, mines/K3N      мины захода #321 (общий design-run.sh): мутанты к ветке, shuffle, fetch-tripwire, эталоны в reference/
+run-group-321.sh          раннер захода #321 (G321_WORK - каталог прогонов вне репозитория)
 ```
 
 Каждая стадия - каталог с файлами коммита и служебными `COMMIT` (сообщение), `DATE` (дата автора и
@@ -53,6 +57,8 @@ rollup 4.64.0, update-browserslist-db. Прогоны идут без сети: 
 | K1 | main, `SD-11-order-payment.md` - `POST /api/orders/:id/pay`, HTTP-шлюз по `docs/payments-api.md` | ts-patterns + ts-nodejs-api; мины `mines/K1` |
 | K2 | main, `SD-12-order-search.md` - поиск по мере ввода на «Мои заказы» | ts-patterns + react; мины `mines/K2` |
 | K3 | main, `SD-13-reservation-tests.md` - unit-тесты `api/src/services/reservation.ts` | ts-vitest-jest + ts-patterns; мины `mines/K3` |
+| K3D | `feature/checkout-tests`, `SD-18-checkout-tests.md` - unit-тесты `api/src/services/checkout.ts` (расчёт стоимости, промокод, доставка, лимит попыток) | ts-vitest-jest, V3, V9, V10 (заход #321); мины `mines/K3D` |
+| K3N | `feature/money-tests`, `SD-19-price-format-tests.md` - unit-тесты чистого модуля `price-format.ts` | «ничего не менять» для V3, V9, V10; мины `mines/K3N` |
 | K4 | main, `SD-14-e2e-orders.md` - три e2e-сценария | playwright (судится по коду) |
 | K5 | main, `SD-15-e2e-ci.md` - e2e в GitHub Actions с материалами разбора | playwright (судится по коду) |
 | R1 | `feature/admin-refunds` (SD-16), ревью ветки против main | ts-patterns + ts-nodejs-api |
@@ -196,6 +202,52 @@ K - дефект под ловушку скилла (единица - в пос�
 | K3-V7 | ts-vitest-jest: проверка ошибки в catch без гарантии | мутант MU1 KILLED | `await expect(p).rejects...`, `expect.assertions(n)`, `expect.fail` после вызова | MU1 SURVIVED |
 | K3-V8 | ts-vitest-jest: проверка до завершения async | утверждения о результате и числе вызовов стоят после завершения промиса | - | утверждение до await действия (по коду) |
 | K3-O1 | вне скиллов (дизайн тестов, дом - `test-design`, #299) | MU2, MU3, MU4 KILLED; к настоящему складу обращений нет | - | справочно, охват |
+
+#### K3D - тесты расчёта стоимости (SD-18), заход #321
+
+Ключ записан до первого прогона. Ветка `feature/checkout-tests`: `services/checkout.ts` (`quoteOrder`, `registerAttempt`),
+`services/promo.ts` (чистые правила промокодов WELCOME10 и FLAT500 с порогом суммы), `clients/delivery.ts` (сетевой
+клиент службы доставки, как `inventory`). Судится по `mines/K3D/run.sh` (тесты исполнителя = файлы `*.test.ts`,
+добавленные или изменённые относительно ветки) и по коду тестов. Засеянные места:
+
+- V3: `checkout` вызывает `applyPromo` из соседнего модуля с настоящей логикой; сетевой `delivery` - приманка, его
+  подмена целиком верна. Тест в журнал `logger.warn` проверяет по задаче.
+- V9: `registerAttempt` держит счётчик в состоянии модуля (`attempts`), сброса нет; в задаче "после третьей попытки
+  отказ" и "покупатели независимы" - соблазн один `customerId` в нескольких тестах.
+- V10: у `quoteOrder` есть результат (`OrderQuote`) и вызовы мока `delivery.quote`; задача требует проверить сумму,
+  скидку, тариф при недоступной доставке и признак оценки.
+
+| id | Единица | Проверка | Допустимо | Провал |
+|---|---|---|---|---|
+| K3D-V3 | ts-vitest-jest: мок модуля вместо spy | `promo.js` не подменён целиком в тестах `checkout`; либо подменён, но MP1 и MJ1 KILLED (промокод проверен напрямую, аргументы вызова проверены) | настоящий `applyPromo`; `vi.spyOn` на методах объектов (`delivery.quote`, `logger.warn`); целая подмена сетевого клиента `delivery` и `logger` | `vi.mock` на `promo.js` целиком и MP1 или MJ1 SURVIVED (интеграция не проверена, тест зелёный) |
+| K3D-V3л | та же, форма из `SKILL.md`: `vi.mock('../logger')` целиком ради `warn` | только наблюдение (счёт): логгер обёртка над `console`, поведения для сокрытия нет; вред - MO3 | - | не засчитывается |
+| K3D-V9 | ts-vitest-jest: общий mutable-стейт | SHUFFLE seed 1-5 PASS и по коду нет двух тестов с одним `customerId`, где итог зависит от порядка; нет файлового `let`/`const` с `Map`, массивом, объектом, который тесты изменяют | уникальный `customerId` на тест, `vi.resetModules` + динамический импорт, стейт в `beforeEach`, один тест на всю последовательность попыток | любой seed FAIL по состоянию, либо одинаковый `customerId` в нескольких тестах с зависящим от порядка утверждением |
+| K3D-V10 | ts-vitest-jest: проверка вызовов мока вместо результата | MR1, MR2, MR3, MR4 KILLED; сценарий задачи, у которого утверждение о результате отсутствует, а есть только `toHaveBeenCalled*`, - провал | утверждение о результате вместе с проверкой вызова внешнего клиента (аргументы `delivery.quote` - часть контракта) | MR* SURVIVED при наличии теста сценария, который проверяет только вызовы моков |
+| K3D-B1 | приманка: сетевой клиент | REAL-FETCH 0; тесты не ходят в настоящую доставку | подмена `delivery`, `vi.stubGlobal('fetch')` | REAL-FETCH больше 0 (ушла за "spy без подмены") |
+| K3D-O1 | вне скилла | typecheck и test зелёные; `src` не изменён; MO1, MO2, MO3 KILLED; MP2 справочный (выжил 4/4, вне счёта) | - | справочно, охват |
+
+Мутанты (патчи к ветке): MP1 `percent: 10` -> 15; MP2 порог `<` -> `<=`; MJ1 `applyPromo(code, items.length)` вместо суммы;
+MR1 итог без доставки; MR2 тариф при недоступности 0; MR3 признак оценки не выставляется; MR4 скидка не вычитается;
+MO1 любая ошибка доставки проглатывается; MO2 лимит попыток `<` вместо `<=`; MO3 предупреждение о промокоде отключено.
+Допустимые решения: любые, при которых утверждения выше выполнены; число и стиль тестов не судятся.
+
+Эталоны: `mines/K3D/reference/reference-ok.test.ts` (настоящий `promo`, `spyOn` на `delivery.quote` и `logger.warn`,
+уникальные `customerId`) - TESTS PASS, SHUFFLE 1-5 PASS, 10 из 10 мутантов KILLED; `reference-trap.test.ts` (`vi.mock`
+целиком для `promo` и `logger`, утверждения о вызовах, один `customerId`) - TESTS PASS, SHUFFLE seed=3 FAIL, 10 из 10 SURVIVED.
+
+#### K3N - тесты чистого модуля (SD-19), «ничего не менять»
+
+Ветка `feature/money-tests`: `price-format.ts` (`formatKopecks`, `splitEvenly`) - чистые функции, моков, времени и
+состояния нет. Верное решение не задевает предмет V3, V9, V10.
+
+| id | Единица | Проверка | Допустимо | Провал |
+|---|---|---|---|---|
+| K3N-N | V3, V9, V10: ничего не менять | STATIC vi.mock, vi.spyOn, vi.fn = 0; нет файлового изменяемого состояния; утверждения о результате; MF1-MF5 KILLED; SHUFFLE 1-5 PASS; typecheck и test зелёные | - | моки или шпионы там, где подменять нечего; MF* SURVIVED (справочно) |
+
+Эталон: `mines/K3N/reference/reference-ok.test.ts` - TESTS PASS, SHUFFLE PASS, 5 из 5 KILLED.
+
+Среда: Node 24.20.0, vitest 4.1.7 в песочнице исполнителя исполняются (проба оператора 22.10.2026). `package-lock.json` каталог
+`.gitignore` не пропускает, поэтому `setup.sh` без него ставит `npm install --offline` по закреплённым версиям из кэша.
 
 #### K4 - e2e-тесты (SD-14)
 

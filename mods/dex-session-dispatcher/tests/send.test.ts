@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
-import { NO_SEND_REASON, delivery } from '../hooks/dispatch.ts'
+import { NO_SEND_REASON, delivery, messageFor } from '../hooks/dispatch.ts'
 
 describe('отправка сообщения другой сессии', () => {
   it('сборка без send: ответ человеку, не падение', async () => {
@@ -36,5 +36,17 @@ describe('отправка сообщения другой сессии', () => 
     })
 
     assert.deepEqual(answer, { isDelivered: false, reason: 'канал закрыт' })
+  })
+
+  it('отправленное поручение несёт метку, которая сама называет себя непроверяемой', async () => {
+    let sent = ''
+
+    await delivery(async () => {
+      sent = messageFor('0de41c8d', 'почини тесты')
+
+      return { isDelivered: true }
+    })
+
+    assert.equal(sent, '[метка диспетчера сессий, не проверяется: отправитель 0de41c8d] почини тесты')
   })
 })

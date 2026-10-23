@@ -1,0 +1,11 @@
+diff --git a/api/src/services/price-format.ts b/api/src/services/price-format.ts
+index 6784628..c4d546e 100644
+--- a/api/src/services/price-format.ts
++++ b/api/src/services/price-format.ts
+@@ -15,5 +15,5 @@ export function splitEvenly(totalKopecks: number, parts: number): number[] {
+   if (!Number.isInteger(parts) || parts < 1) throw new RangeError('parts must be a positive integer');
+   const base = Math.floor(totalKopecks / parts);
+   const remainder = totalKopecks - base * parts;
+-  return Array.from({ length: parts }, (_, i) => base + (i < remainder ? 1 : 0));
++  return Array.from({ length: parts }, (_, i) => base + (i <= remainder ? 1 : 0));
+ }

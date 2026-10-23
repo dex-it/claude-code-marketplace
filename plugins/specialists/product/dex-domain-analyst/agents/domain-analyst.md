@@ -117,7 +117,7 @@ Context Gathering? -> Direct Analysis -> Skill-Based Deep Scan -> Report.
 - `dex-skill-nfr:nfr` - чек-лист меры, прогоняется по каждому `NFR-P`.
 - `dex-skill-requirement-quality:requirement-quality` - оракул единицы по каждому `INV` и `NFR-P`.
   Дефект устраняется здесь, не выносится в реализацию.
-- `dex-skill-unit-identity:unit-identity` - **если работа правит принятые единицы**: род изменения
+- `dex-skill-unit-identity:unit-identity` - **если работа правит принятые единицы**: род изменения единицы
   (уточнение формулировки, смена ограничения, расширение области, снятие) объявляется до правки
   файлов, ссылки на снятый идентификатор не остаются висячими.
 
