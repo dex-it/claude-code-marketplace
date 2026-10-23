@@ -10,7 +10,7 @@ argument-hint: <title> (название решения)
 
 ## Goal
 
-Создать файл `docs/adr/ADR-{NUM}-{slug}.md` в формате MADR. Автоматически определить следующий номер по существующим файлам.
+Создать файл `{ключ adr}/ADR-{NUM}-{slug}.md` в формате MADR (каталог разрешает `adr-writer` через `dex-skill-project-docs-map:project-docs-map`). Автоматически определить следующий номер по существующим файлам.
 
 ## Input
 
