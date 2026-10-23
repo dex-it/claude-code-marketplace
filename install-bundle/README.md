@@ -109,6 +109,8 @@ Installation is flat - there is no specialist->skill cascade. An agent loads ski
 ./sync-plugins.sh --verbose
 ```
 
+Windows (PowerShell 5.1+, no `jq` needed) has the same script with the same report: `.\sync-plugins.ps1`, `.\sync-plugins.ps1 -Fix`, `.\sync-plugins.ps1 -Verbose`. Keep the two in step - `tests/tools/sync-plugins.test.sh` runs one set of scenarios against both.
+
 It **never installs new agents** - "something new appeared in the market" is a manual decision. It also lists installed plugins that the catalogue no longer declares (removed or renamed upstream) with their uninstall command, and never removes them itself - see [Renamed and removed plugins](#renamed-and-removed-plugins-manual-step). It does **not** touch versions (updating is a separate manual op via the marketplace). by-stack profile skills (`dex-skill-{dotnet,ts,python,...}-*`) are exempt - they are loaded conditionally per project stack. Run from a clone of the marketplace repo.
 
 ## Renamed and removed plugins (manual step)
@@ -122,6 +124,8 @@ Uninstall such plugins by hand:
 ```bash
 claude plugins uninstall <old-plugin-name>
 ```
+
+`npm run validate` (`tools/validate-readme.js`) checks that no name in the first column is declared in `marketplace.json` now (`removed-plugin-live`) and that this section still has a table (`removed-table-unreadable`). Completeness - that every removed name has a row - is not checked: it needs git history, and CI may run on a shallow clone.
 
 Current entries - every plugin name that was ever declared in `marketplace.json` and is not declared now (a name that never reached the catalogue could not be installed and is not listed). A plugin that was renamed and later removed has one row naming both names:
 
@@ -436,6 +440,7 @@ install-bundle/
 ├── install-cli-tools.sh      # Bash installer for underlying CLI binaries (gh, kubectl, psql, ...)
 ├── install-cli-tools.ps1     # PowerShell mirror for Windows
 ├── sync-plugins.sh           # Sync installed agents with the skills they load (anti-degradation)
+├── sync-plugins.ps1          # PowerShell mirror for Windows
 └── README.md                 # This file
 ```
 

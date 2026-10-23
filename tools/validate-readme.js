@@ -23,6 +23,13 @@
  *   readme-version-drift   - версия в подвале README не равна версии
  *                            витрины (включая случай «строка подвала не
  *                            найдена»).
+ *   removed-plugin-live    - имя из первой колонки таблицы `Renamed and removed
+ *                            plugins` (`install-bundle/README.md`) объявлено в
+ *                            витрине: «снятый» плагин жив.
+ *   removed-table-unreadable - раздела с таблицей нет, в нём нет строк либо в
+ *                            первой колонке строки нет имени: без этого
+ *                            правило выше молчало бы на переименованном
+ *                            заголовке.
  *
  * Обе стороны сверки читают один перечень имён - тот, что README ставит в
  * позицию имени плагина, и берут его из текста без код-блоков: строка
@@ -51,6 +58,14 @@
  * `dex-skill-<скилл>`. Имя всё равно резолвится через владельца скилла, а
  * владельцы читаются с дерева при каждом прогоне: конвенция - не гарантия
  * формата, и зашитый список исключений протухал бы молча.
+ *
+ * Таблица `Renamed and removed plugins` - второй предмет файла. Установщики
+ * снятые плагины не удаляют, и таблица - единственное место, где поставивший
+ * находит замену. Полноту (каждое снятое имя названо) валидатор не судит:
+ * нужна история git, а CI может идти на мелком клоне. Дёшево проверяется
+ * обратная сторона - имя из первой колонки не живое в витрине: строка о
+ * «снятом» плагине, который есть в каталоге, отправила бы пользователя
+ * снимать рабочий плагин (случай повторного заведения имени после снятия).
  *
  * Чего НЕ судится: содержание строки. Устаревшее описание правило не ловит -
  * его ловит ревью. Предмет здесь один: состав, а не текст.
@@ -85,12 +100,15 @@ const ERROR = 'error';
 
 const MARKETPLACE_JSON = join(REPO_ROOT, '.claude-plugin', 'marketplace.json');
 const README_MD = join(REPO_ROOT, 'README.md');
+const INSTALL_README_MD = join(REPO_ROOT, 'install-bundle', 'README.md');
 
 let catalog;
 let readme;
+let installReadme;
 try {
   catalog = JSON.parse(readFileSync(MARKETPLACE_JSON, 'utf8'));
   readme = readFileSync(README_MD, 'utf8');
+  installReadme = readFileSync(INSTALL_README_MD, 'utf8');
 } catch (e) {
   console.error(`Не прочитано: ${e.message}`);
   process.exit(2);
@@ -261,6 +279,56 @@ if (footerVersion !== catalog.version) {
   });
 }
 
+// removed-plugin-live / removed-table-unreadable: таблица снятых плагинов
+// установщика. Раздел берётся по заголовку `## Renamed and removed plugins`
+// (хвост заголовка в скобках допустим) до следующего заголовка второго уровня;
+// первая ячейка строки - имена в code-span через запятую (строка о
+// переименованном и позже снятом плагине называет оба имени).
+const REMOVED_SECTION_RE = /^##[ \t]+Renamed and removed plugins\b[^\n]*\n([\s\S]*?)(?=^##[ \t]|(?![\s\S]))/m;
+const removedSection = REMOVED_SECTION_RE.exec(withoutFences(installReadme));
+const removedFile = relative(REPO_ROOT, INSTALL_README_MD);
+const removedRows = [];
+if (removedSection != null) {
+  const isSeparator = (l) => /^\|[\s:|-]+$/.test(l);
+  // Таблиц в разделе несколько (подраздел о снятии движка ведёт свою): шапка - строка перед разделителем.
+  const lines = removedSection[1].split('\n').map((l) => l.trim());
+  for (let i = 0; i < lines.length; i++) {
+    if (!lines[i].startsWith('|') || isSeparator(lines[i])) continue;
+    if (isSeparator(lines[i + 1] ?? '')) continue;
+    removedRows.push(lines[i]);
+  }
+}
+if (removedRows.length === 0) {
+  findings.push({
+    level: ERROR,
+    rule: 'removed-table-unreadable',
+    file: removedFile,
+    message: 'раздела `## Renamed and removed plugins` с таблицей и хотя бы одной строкой в файле нет: проверка «снятое имя не живое» без него молчала бы',
+  });
+}
+for (const row of removedRows) {
+  const cell = row.split('|')[1] ?? '';
+  const names = [...cell.matchAll(/`([^`]+)`/g)].map((m) => m[1].trim());
+  if (names.length === 0) {
+    findings.push({
+      level: ERROR,
+      rule: 'removed-table-unreadable',
+      file: removedFile,
+      message: `в первой колонке строки таблицы снятых плагинов нет имени в code-span: «${row.slice(0, 80)}»`,
+    });
+    continue;
+  }
+  for (const name of names) {
+    if (!named.has(name)) continue;
+    findings.push({
+      level: ERROR,
+      rule: 'removed-plugin-live',
+      file: removedFile,
+      message: `«${name}» назван снятым в таблице \`Renamed and removed plugins\`, но объявлен в витрине каталога: пользователя отправят снимать рабочий плагин. Убери строку либо имя из строки`,
+    });
+  }
+}
+
 // --- Reporting ------------------------------------------------------------
 
 function formatFinding(f) {
@@ -268,9 +336,15 @@ function formatFinding(f) {
 }
 
 function report() {
-  if (findings.length > 0) {
-    console.log(`\n${COLORS.bold}${relative(REPO_ROOT, README_MD)}${COLORS.reset}`);
-    for (const f of findings) console.log(formatFinding(f));
+  const byFile = new Map();
+  for (const f of findings) {
+    const file = f.file ?? relative(REPO_ROOT, README_MD);
+    if (!byFile.has(file)) byFile.set(file, []);
+    byFile.get(file).push(f);
+  }
+  for (const [file, list] of byFile) {
+    console.log(`\n${COLORS.bold}${file}${COLORS.reset}`);
+    for (const f of list) console.log(formatFinding(f));
   }
   console.log('');
   console.log(

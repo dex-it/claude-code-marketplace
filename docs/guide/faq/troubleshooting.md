@@ -47,7 +47,7 @@ claude plugin marketplace add dex-it/claude-code-marketplace
 
 ## Старые или переименованные плагины продолжают загружаться
 
-Установщики снятые плагины не удаляют. `./install-bundle/sync-plugins.sh` называет поставленные плагины, которых в каталоге клона больше нет, и команду снятия (сам он ничего не снимает). Замену ищите по имени в таблице «Renamed and removed plugins» файла [install-bundle/README.md](https://github.com/dex-it/claude-code-marketplace/blob/main/install-bundle/README.md) и удалите вручную: `claude plugin uninstall <имя>`.
+Установщики снятые плагины не удаляют. `./install-bundle/sync-plugins.sh` (в PowerShell - `sync-plugins.ps1`) называет поставленные плагины, которых в каталоге клона больше нет, и команду снятия (сам он ничего не снимает). Замену ищите по имени в таблице «Renamed and removed plugins» файла [install-bundle/README.md](https://github.com/dex-it/claude-code-marketplace/blob/main/install-bundle/README.md) и удалите вручную: `claude plugin uninstall <имя>`.
 
 ## После удаления бандла пропали плагины другого бандла
 

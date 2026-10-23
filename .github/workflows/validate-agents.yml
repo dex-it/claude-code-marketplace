@@ -117,8 +117,12 @@ jobs:
       # Код выхода и CLI-ветки validate-node-contract.js (пустой набор, режим одного файла, словарь
       # с CRLF и без файла) test-rules.js не видит - он судит только строки находок.
       # Обход дерева: symlink и спецфайл под plugins/ - отказ всех валидаторов, а не ELOOP, зависание или чужой файл.
-      - name: Test tool CLI contracts (agent visibility, node contract, tree walk)
+      # sync-plugins.ps1 гоняется теми же сценариями, что .sh, но только при `pwsh` в PATH: на ubuntu-latest он есть,
+      # REQUIRE_PWSH=1 делает его отсутствие провалом, а не тихим пропуском.
+      - name: Test tool CLI contracts (agent visibility, node contract, tree walk, sync-plugins)
         run: npm run test:tools
+        env:
+          REQUIRE_PWSH: '1'
 
       # Ledger и сторожа dex-auto: адрес, буквальный контракт статуса, коды выхода
       # хуков на временном CLAUDE_CONFIG_DIR (ловец адреса по ADR-0001).

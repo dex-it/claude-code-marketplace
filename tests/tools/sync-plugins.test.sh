@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# sync-plugins.sh: ребро "поставлен, а в каталоге его больше нет" (остаток #198), и что три прежних
+# sync-plugins.sh и его PowerShell-зеркало sync-plugins.ps1: ребро "поставлен, а в каталоге его больше нет" (остаток #198), и что три прежних
 # ребра (недостающий skill, недостающий исполнитель, --fix) не поплыли после перевода накопителей с
 # ассоциативных массивов на строки (стоковый bash 3.2 macOS их не знает). Скрипт идёт в копии дерева
 # с фикстурным каталогом; `claude` подменён заглушкой, она отдаёт список из $STUB_LIST и пишет вызовы.
+# Сценарии одни на оба скрипта: тексты вывода у .ps1 те же, что у .sh. Без `pwsh` вариант .ps1 не идёт и об этом
+# сказано строкой `skip`; REQUIRE_PWSH=1 (CI) превращает отсутствие `pwsh` в провал, а не в тихий пропуск.
 set -uo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -16,7 +18,7 @@ bad() { echo "FAIL $1"; echo "$2" | sed 's/^/     | /'; fail=1; }
 # dex-skill-known (в каталоге) и зовёт исполнителя dex-runner (в каталоге)
 tree="$tmp/clone"
 mkdir -p "$tree/install-bundle" "$tree/.claude-plugin" "$tree/plugins/specialists/grp/dex-coder/agents"
-cp "$root/install-bundle/sync-plugins.sh" "$tree/install-bundle/"
+cp "$root/install-bundle/sync-plugins.sh" "$root/install-bundle/sync-plugins.ps1" "$tree/install-bundle/"
 cat > "$tree/.claude-plugin/marketplace.json" <<'JSON'
 {"name":"dex-claude-marketplace","plugins":[
   {"name":"dex-coder"},{"name":"dex-runner"},{"name":"dex-skill-known"},{"name":"dex-skill-new-name"}]}
@@ -45,17 +47,36 @@ list() {
   echo "$f"
 }
 
-# run <интерпретатор> <список> [аргументы] -> вывод без цветов; код в $rc, вызовы claude в $STUB_LOG
+# run <интерпретатор> <список> [аргументы] -> вывод без цветов; код в $rc, вызовы claude в $STUB_LOG.
+# Интерпретатор `pwsh` запускает .ps1, аргумент --fix переводится в -Fix.
 run() {
   local sh="$1" lst="$2"; shift 2
   : > "$tmp/calls.log"
-  out=$(PATH="$tmp/bin:$PATH" STUB_LIST="$lst" STUB_LOG="$tmp/calls.log" "$sh" "$tree/install-bundle/sync-plugins.sh" "$@" 2>&1 \
-    | sed $'s/\x1b\\[[0-9;]*m//g'); rc=$?
+  if [ "$sh" = pwsh ]; then
+    local args=() a
+    for a in "$@"; do [ "$a" = --fix ] && args+=(-Fix) || args+=("$a"); done
+    out=$(PATH="$tmp/bin:$PATH" STUB_LIST="$lst" STUB_LOG="$tmp/calls.log" pwsh -NoProfile -NonInteractive -File "$tree/install-bundle/sync-plugins.ps1" ${args[@]+"${args[@]}"} 2>&1 \
+      | sed $'s/\x1b\\[[0-9;]*m//g'); rc=$?
+  else
+    out=$(PATH="$tmp/bin:$PATH" STUB_LIST="$lst" STUB_LOG="$tmp/calls.log" "$sh" "$tree/install-bundle/sync-plugins.sh" "$@" 2>&1 \
+      | sed $'s/\x1b\\[[0-9;]*m//g'); rc=$?
+  fi
 }
 has()  { printf '%s' "$out" | grep -qF -- "$1"; }
 
 shells="bash"
 [ -x /bin/bash ] && [ "$(command -v bash)" != /bin/bash ] && shells="bash /bin/bash"
+if command -v pwsh >/dev/null 2>&1; then shells="$shells pwsh"
+elif [ "${REQUIRE_PWSH:-}" = 1 ]; then bad "[pwsh] pwsh нужен (REQUIRE_PWSH=1), а его нет" "команда pwsh не найдена в PATH"
+else echo "skip [pwsh] pwsh не найден - вариант sync-plugins.ps1 не прогнан (REQUIRE_PWSH=1 делает это провалом)"; fi
+
+# Перечень by-stack префиксов у .ps1 тот же, что у .sh: расхождение молча меняет, какие skills считаются недостающими.
+# Проверка статическая, pwsh не нужен.
+sh_stack=$(sed -n 's/^BY_STACK_PREFIXES="\(.*\)"$/\1/p' "$root/install-bundle/sync-plugins.sh")
+ps_stack=$(sed -n 's/^\$ByStackPrefixes = "\(.*\)"\.Split(" ")$/\1/p' "$root/install-bundle/sync-plugins.ps1")
+if [ -n "$sh_stack" ] && [ "$sh_stack" = "$ps_stack" ]; then ok "by-stack префиксы .ps1 равны .sh"
+else bad "by-stack префиксы .ps1 равны .sh" "sh: [$sh_stack]
+ps1: [$ps_stack]"; fi
 
 for sh in $shells; do
   tag="[$sh]"

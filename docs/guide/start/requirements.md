@@ -11,7 +11,7 @@ description: Версия Claude Code, git, jq, платформы и что т�
 |---|---|
 | **Claude Code** | Каталог - набор плагинов для него. Нужна актуальная версия; команды на этом сайте сверены с Claude Code 2.1.308 |
 | **git** | Клон репозитория: из него запускается скрипт установки бандла |
-| **jq** | Нужен скриптам установки на Linux и macOS (`install-bundle.sh`, `uninstall-bundle.sh`, `sync-plugins.sh`) |
+| **jq** | Нужен скриптам установки на Linux и macOS (`install-bundle.sh`, `uninstall-bundle.sh`, `sync-plugins.sh`); PowerShell-версии (`*.ps1`, в том числе `sync-plugins.ps1`) его не требуют |
 
 Установить `jq`: `brew install jq` (macOS), `sudo apt install jq` (Ubuntu и Debian), `sudo pacman -S jq` (Arch).
 
