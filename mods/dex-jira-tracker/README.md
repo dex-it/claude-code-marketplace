@@ -235,7 +235,7 @@ claude -p "/jira list" --plugin-dir mods/dex-jira-tracker
 
 Формы вывода jira-cli сняты с jira-cli 1.7.0 на Jira Server 9.2. `issue list --raw` - собственная плоская структура jira-cli (`issueType`, `assignee.displayName` и ничего больше о человеке, `comment.total` всегда 0), `issue view --raw` - тело REST. Если у вашей версии формы иные, разбор в `hooks/jira.ts` и фикстуры в `tests/jira.test.ts` - то, что надо править.
 
-Относительные импорты внутри мода идут **с расширением `.ts`**, решения живут в `.ts` без `$`, а `.tsx` держит только отрисовку и точку входа. Контракт типов - `mods/types/claude-code.d.ts`, пишется командой `/plugin-types` и руками не правится. Устройство класса, инструментарий и self-check - [MOD_FRAMEWORK.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/MOD_FRAMEWORK.md).
+Относительные импорты внутри мода идут **с расширением `.ts`**, решения живут в `.ts` без `$`, а `.tsx` держит только отрисовку и точку входа. Контракт типов - `mods/types/claude-code.d.ts`, пишет движок (как получить свежий - в MOD_FRAMEWORK.md) и руками не правится. Устройство класса, инструментарий и self-check - [MOD_FRAMEWORK.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/MOD_FRAMEWORK.md).
 
 ## Лицензия
 
