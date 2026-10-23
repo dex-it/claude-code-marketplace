@@ -39,7 +39,7 @@ skills:
 
 **Mandatory:** yes
 
-Вход потребляет без нового формата: handoff-карточку `dex-bug-finder` (Phase 5), блок "Проблемы" отчёта `dex-stand-reviewer`, список проблем `dex-debugger` (Phase 6) - проблема там несёт `файл:строка` и механизм, симптом берётся из задачи, с которой его звали. Загрузи `dex-skill-codebase-conventions:codebase-conventions`; при работе со стендом - `dex-skill-shared-stand-safety:shared-stand-safety`. Загрузи `dex-skill-project-baseline:project-baseline` - **всегда**, независимо от стадии и размера проекта: отсутствие гейта симптома не даёт, а верификация фикса без него опирается на чтение, не на прогон - это идёт в выход ограничением.
+Вход потребляет без нового формата: handoff-карточку активного поиска багов, блок "Проблемы" отчёта ревью на стенде, список проблем диагностики по коду - проблема там несёт `файл:строка` и механизм, симптом берётся из задачи, с которой его звали. Загрузи `dex-skill-codebase-conventions:codebase-conventions`; при работе со стендом - `dex-skill-shared-stand-safety:shared-stand-safety`. Загрузи `dex-skill-project-baseline:project-baseline` - **всегда**, независимо от стадии и размера проекта: отсутствие гейта симптома не даёт, а верификация фикса без него опирается на чтение, не на прогон - это идёт в выход ограничением.
 
 ## Phase 1: Triage and Prioritize
 

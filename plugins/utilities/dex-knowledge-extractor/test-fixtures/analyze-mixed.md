@@ -5,7 +5,7 @@
 ### dex-skill-dotnet-async-patterns: ConfigureAwait(false) в библиотечном коде
 
 **Целевой skill:** dex-skill-dotnet-async-patterns
-**H2-секция:** ConfigureAwait и SynchronizationContext
+**H2-секция:** список чек-листа (skill без H2)
 
 **Critical assessment:**
 - Generalization confidence: high -- правило про ConfigureAwait в библиотечном коде не зависит от конкретного проекта
@@ -14,7 +14,7 @@
 - FP counter-examples: код приложения ASP.NET Core (нет SyncContext -- ConfigureAwait не нужен) -- правило адресует именно библиотечный/NuGet код, не приложение; ложного осуждения нет
 - Already covered elsewhere: no
 - Non-obviousness: high -- «ASP.NET Core не имеет SyncContext, поэтому в Web API разницы нет» -- неочевидное следствие, отделяющее ловушку от лозунга «всегда ConfigureAwait(false)»
-- Axis fit: dex-skill-dotnet-async-patterns (ConfigureAwait и SynchronizationContext) -- ложится в существующий H2
+- Axis fit: dex-skill-dotnet-async-patterns (список чек-листа) | new-skill -- захват контекста в библиотечном коде не ложится на пункт чек-листа (`Task.Run` над синхронным вызовом); в фикстуре оставлена в этом skill намеренно, сценарий проверяет механику применения, не Axis fit. Промах оси рекомендацию не понижает (адрес, не качество)
 - Label correctness: n/a -- концептуального ярлыка нет
 - Fact check: verified (websearch) -- отсутствие SynchronizationContext в ASP.NET Core и поведение захвата контекста сверены
 
@@ -60,7 +60,7 @@ public async Task<Result> ProcessAsync()
 - FP counter-examples: малые выборки, где `ToListAsync` нужен для повторного перебора / Count -- правило адресует «миллионы строк, построчная обработка», не любой `ToListAsync`; формулировка сужена кейсом
 - Already covered elsewhere: no
 - Non-obviousness: high -- что `AsAsyncEnumerable` стримит через DataReader при константной памяти, а `ToListAsync` грузит всё -- неочевидно начинающему
-- Axis fit: dex-skill-dotnet-ef-core (Запросы) -- ложится в существующий H2
+- Axis fit: dex-skill-dotnet-ef-core (пункт «Трекинг выборки только для чтения») -- тема пункта - стоимость чтения выборки, большая выборка её продолжает; ось совпадает
 - Label correctness: n/a
 - Fact check: verified (context7:EFCore) -- поведение `AsAsyncEnumerable` (стриминг через DataReader) и материализация `ToListAsync` сверены по доке EF Core
 

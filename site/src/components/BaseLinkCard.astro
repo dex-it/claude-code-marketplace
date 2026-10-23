@@ -1,0 +1,17 @@
+---
+// LinkCard из Starlight не добавляет базовый путь сайта к href. Страницы пишут
+// `href="/catalog/skills/"`, обёртка дописывает base.
+import { LinkCard } from '@astrojs/starlight/components';
+
+interface Props {
+  title: string;
+  description?: string;
+  href: string;
+}
+
+const { href, ...rest } = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const full = href.startsWith('/') && !href.startsWith('//') ? `${base}${href}` : href;
+---
+
+<LinkCard {...rest} href={full} />
