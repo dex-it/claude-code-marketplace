@@ -4,6 +4,11 @@
 # run-big-repo.sh <case> <set> <idx> [skill-file]   case: f1 (фича), r1 (ревью), n0 (ревью, ничего не менять)
 # set: c - контроль без скилла; s - со скиллом (копия SKILL.md подаётся путём); d, t - то же с описанием MR v2.
 # v3-c, v3-t - то же, что d, t (описание MR v2), на кейсе N0 после правки 2 (ревью #399: пустой список - исключение, без Gate).
+# #432 (подготовлено, не запускалось): наборы v4-c (контроль), v4-a (скилл 1.14.0, пункт названием), v4-s (кандидат шага 3,
+#   inputs/SKILL-step3.md), v4-t (только действие, inputs/SKILL-step3a.md) для n0 и r1 - описание MR v2; кейсы документов dda, dd0, ddu (дизайн-документ, design-reviewer),
+#   rda, rd0 (набор требований, requirements-reviewer) с наборами c (без текста агента), p (inputs/*-p.md: Phase 1 и шкала
+#   severity агента без нормы), n (inputs/*-n.md: то же плюс норма). Ключ и правило числа прогонов - meridian/README.md,
+#   раздел «Документы против Accepted ADR (#432)» и codebase-conventions/README.md, раздел «План замера».
 # idx - номер прогона.
 # Рабочий каталог прогона - $BIG_WORK (вне репозитория: на пути не должно быть CLAUDE.md).
 # BIG_DRY=1 - собрать репозиторий и промпт, claude не вызывать.
@@ -17,20 +22,31 @@ case_="$1"; set_="$2"; idx="$3"; skill="${4:-}"
 id="big-$case_-$set_$idx"
 W=$SP/w/$id; rm -rf "$W"; mkdir -p "$SP/w" "$SP/log"
 DIR=$W/meridian
-declare -A BR=([f1]=main [r1]=feature/partial-refunds [n0]=feature/tariff-cache)
+declare -A BR=([f1]=main [r1]=feature/partial-refunds [n0]=feature/tariff-cache
+ [dda]=design/shipment-quote [dd0]=design/shipment-quote-v2 [ddu]=design/shipment-quote-v3
+ [rda]=requirements/notification-channels [rd0]=requirements/notification-channels-v2)
+declare -A DOC=([dda]=docs/design/shipment-quote.md [dd0]=docs/design/shipment-quote.md [ddu]=docs/design/shipment-quote.md
+ [rda]=docs/requirements/notification-channels.md [rd0]=docs/requirements/notification-channels.md)
 declare -A DESC=(
  [r1]="Частичный возврат платежа: POST /v1/payments/{id}/refunds с суммой и причиной. Возврат проводится у PSP синхронно, сервис Orders узнаёт о нём событием."
  [n0]="Кэш тарифов в процессе: тарифы от Pricing кэшируются на 5 минут, чтобы не ходить в Pricing на каждый запрос списка.")
 # наборы d и t - описание MR v2: без оговорок, которые заранее оправдывают приманки (v1: наборы c и s)
-if [[ $set_ == [dt] || $set_ == v3-[ct] ]]; then
+if [[ $set_ == [dt] || $set_ == v3-[ct] || $set_ == v4-[cast] ]]; then
   DESC[r1]="Частичный возврат платежа: POST /v1/payments/{id}/refunds с суммой и причиной; сервис Orders узнаёт о возврате."
   DESC[n0]="Кэш тарифов: список тарифов от Pricing больше не запрашивается на каждый запрос."
 fi
 bash "$T/_projects/meridian/setup.sh" "$DIR" "${BR[$case_]}" >/dev/null 2>&1 || { echo "setup failed $id"; exit 1; }
+# документ-кейс: других веток в репозитории прогона нет (по именам и по git diff между ними мутацию не видно)
+if [[ $case_ == dd* || $case_ == rd* ]]; then
+  git -C "$DIR" for-each-ref --format='%(refname:short)' refs/heads | grep -vx -e main -e "${BR[$case_]}" | xargs -r -n1 git -C "$DIR" branch -q -D >/dev/null 2>&1
+fi
 sline=""; add=()
 if [[ -n $skill ]]; then
-  mkdir -p "$W/discipline"; cp "$skill" "$W/discipline/codebase-conventions.md"
-  add=(--add-dir "$W/discipline"); sline="Перед работой прочитай $W/discipline/codebase-conventions.md - дисциплина, принятая в команде.
+  dname=codebase-conventions.md; [[ $case_ == dd* || $case_ == rd* ]] && dname=$(basename "$skill")
+  mkdir -p "$W/discipline"; cp "$skill" "$W/discipline/$dname"
+  add=(--add-dir "$W/discipline"); sline="Перед работой прочитай $W/discipline/$dname - дисциплина, принятая в команде.
+"
+  [[ $case_ == dd* || $case_ == rd* ]] && sline="Перед работой прочитай $W/discipline/$dname - дисциплина ревьюера, принятая в команде. Шкала severity дисциплины (CRITICAL / HIGH / MEDIUM / LOW) в находках записывается как blocker / major / minor: CRITICAL - blocker, HIGH - major, MEDIUM и LOW - minor.
 "
 fi
 if [[ $case_ == f1 ]]; then
@@ -38,6 +54,16 @@ if [[ $case_ == f1 ]]; then
 ${sline}Поручение: «Расчёт стоимости доставки в сервисе Shipping: POST /v1/shipments/{id}/quote. Стоимость и срок запрашиваются у API перевозчика (внешний API, описание - docs/specs/carrier-api.md), результат сохраняется в отправлении, о нём узнаёт сервис Orders. Котировка доступна, пока отправление не передано перевозчику; повторный запрос заменяет прежнюю. Котировка действует 24 часа.»
 Код пиши в репозиторий, не коммить. Результат работы - ещё и файл PR.md в корне репозитория (не коммить): список изменённых файлов и описание изменения для ревью; по каждому нетривиальному техническому решению - что выбрано и почему.
 Ограничения: не вызывай Skill tool; не читай и не пиши вне каталога репозитория${skill:+, кроме файла дисциплины выше}. Сборки нет: из команд доступен только git. В ответе - только список изменённых файлов."
+  tools=('Bash(git *)')
+elif [[ $case_ == dd* ]]; then
+  P="Ты ревьюер дизайна в команде платформы Meridian. Git-репозиторий лежит в каталоге $DIR ; текущая ветка - ${BR[$case_]}.
+${sline}Оцени документ ${DOC[$case_]}: можно ли его принимать к разработке. Запиши находки в $DIR/REVIEW.md, по строке на находку: место в документе - что не так и чем кончится - severity (blocker/major/minor). Без вступлений и резюме. Документ не правь.
+Ограничения: не вызывай Skill tool; не меняй файлы репозитория, кроме REVIEW.md; не читай и не пиши вне каталога репозитория${skill:+, кроме файла дисциплины выше}. Из команд доступен только git. В ответе - только число находок по severity."
+  tools=('Bash(git *)')
+elif [[ $case_ == rd* ]]; then
+  P="Ты ревьюер требований в команде платформы Meridian. Git-репозиторий лежит в каталоге $DIR ; текущая ветка - ${BR[$case_]}.
+${sline}Оцени документ ${DOC[$case_]}: можно ли принимать этот набор требований как основу для разработки. Запиши находки в $DIR/REVIEW.md, по строке на находку: место в документе - что не так и чем кончится - severity (blocker/major/minor). Без вступлений и резюме. Документ не правь.
+Ограничения: не вызывай Skill tool; не меняй файлы репозитория, кроме REVIEW.md; не читай и не пиши вне каталога репозитория${skill:+, кроме файла дисциплины выше}. Из команд доступен только git. В ответе - только число находок по severity."
   tools=('Bash(git *)')
 else
   P="Ты .NET-ревьюер в команде. Git-репозиторий платформы Meridian лежит в каталоге $DIR .
