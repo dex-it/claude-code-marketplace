@@ -1,0 +1,23 @@
+{
+  "task": "FEAT-7",
+  "kind": "feature",
+  "commit": "feat(webhook): проверка подписи и приём вебхука оплаты",
+  "goal": "В src/webhook.js есть verifySignature и handleWebhook, маршрут POST /webhook подключён в src/server.js, по требованиям FEAT.md.",
+  "done": "Требования FEAT.md R1-R3 исполнены, на каждое есть тест; npm test зелёный; правка закоммичена локально.",
+  "boundary": "Правка в src/webhook.js, src/server.js и test/; новых зависимостей нет.",
+  "requirements": [
+    "R1. verifySignature(body, signature) - true, если signature равна HMAC-SHA256 от body с секретом, в hex; иначе false. (FEAT.md:3)",
+    "R2. Секрет подписи берётся из переменной окружения WEBHOOK_SECRET. (FEAT.md:4)",
+    "R3. POST /webhook: неверная подпись (заголовок x-signature) - 401; неверный JSON - 400; иначе 200 с телом «принят <сумма>», сумма - amountCents события в рублях с двумя знаками (1250 -> 12.50). (FEAT.md:5)"
+  ],
+  "coder": {
+    "red-run": [{ "test": "test/webhook.test.js", "status": "shown", "evidence": "тестовый файл на коде до правки не загружается: нет src/webhook.js (ERR_MODULE_NOT_FOUND) - красные все тесты файла, R1-R3 в их числе; после правки зелёные" }],
+    "uncovered-status": "none", "uncovered": [],
+    "dependents-status": "none", "dependents": []
+  },
+  "mines": [
+    { "id": "M12", "file": "src/webhook.js", "lines": [4, 5], "blocking": false,
+      "slack": 0, "what": "WEBHOOK_SECRET читается и проверяется при первом вебхуке, а не при старте сервиса: без переменной сервис стартует, /health отвечает ok, каждый вебхук получает 500 из общего catch. Требования называют источник секрета (R2) и молчат о моменте чтения; правило о проверке переменных окружения при старте - в скилле ts-nodejs-api, в проекте его нет. Ожидаемо P2 (практика стека нарушена)" },
+    { "id": "M13", "file": "src/webhook.js", "lines": [20, 20], "blocking": false, "what": "формат суммы (копейки в рубли с двумя знаками) переписан в обработчике копией выражения из src/money.js:formatAmount, которым уже пользуется src/receipt.js; поведение на всех входах совпадает с formatAmount, дефекта нет. Следующая правка формата (валюта, разделитель, отрицательные суммы) потребует двух мест. Техдолг, ожидаемо P2" }
+  ]
+}

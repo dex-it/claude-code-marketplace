@@ -1,0 +1,13 @@
+diff --git a/api/src/services/checkout.ts b/api/src/services/checkout.ts
+index 08fb345..85db81b 100644
+--- a/api/src/services/checkout.ts
++++ b/api/src/services/checkout.ts
+@@ -34,7 +34,7 @@ export async function quoteOrder(
+     if (!(err instanceof DeliveryUnavailableError)) throw err;
+     logger.warn(`delivery quote is unavailable for ${options.city}, flat rate is used`);
+     deliveryKopecks = FLAT_DELIVERY_KOPECKS;
+-    deliveryEstimated = true;
++    deliveryEstimated = false;
+   }
+   return {
+     subtotalKopecks,

@@ -1,0 +1,3 @@
+services/catalog/src/Meridian.Catalog/Infrastructure/Pricing/CachedTariffSource.cs:19 - нет single-flight: при пустом/истёкшем кэше все параллельные запросы одновременно идут в медленный Pricing (cache stampede), каждый раз при истечении TTL возможен всплеск нагрузки и таймауты - minor
+services/catalog/src/Meridian.Catalog/Infrastructure/Pricing/CachedTariffSource.cs:22 - общий кэшированный массив отдаётся как IReadOnlyList<Tariff> и приводится обратно к Tariff[]; любой потребитель может изменить элементы списка и испортить данные для всех запросов процесса - minor
+services/catalog/tests/Meridian.Catalog.Tests:1 - для CachedTariffSource тестов нет (попадание в кэш, истечение TTL, непопадание в кэш при ошибке Pricing); регрессии в поведении кэша не будут замечены - minor

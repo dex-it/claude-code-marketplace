@@ -17,7 +17,7 @@ import type {
 import type { DirChoice, Preset } from './dispatch.ts'
 import { PHASE_HINT, PHASE_WORD, isFinished, tallyLine, tallyOf } from './sessions.ts'
 import type { Phase, SessionRow } from './sessions.ts'
-import { EMPTY_LIST, START_STEPS, ageWord, commandName, planLine, selectedIndex, shortPath, usageLine } from './text.ts'
+import { EMPTY_LIST, START_STEPS, ageWord, planLine, selectedIndex, shortPath, usageLine } from './text.ts'
 import type { Entry } from './text.ts'
 import { percentOf, topOf, windowOf } from './transcript.ts'
 
@@ -152,6 +152,7 @@ function entryRow(ui: Ui, actions: Actions, model: PaneModel, entry: Entry): Ren
           label={`${row.name}${entry.isSelf ? ' (вы здесь)' : ''}`}
           onPress={() => actions.select(row.sessionId)}
         />
+        <Text dimColor>{row.shortId}</Text>
         <Text color={PHASE_COLOR[row.phase]} wrap="truncate-end">
           {PHASE_WORD[row.phase]}
           {waiting}
@@ -362,6 +363,7 @@ function detailsView(ui: Ui, actions: Actions, model: PaneModel): RenderElement 
         {row.waitingFor !== '' ? ` - ${row.waitingFor}` : ''}. {PHASE_HINT[row.phase]}
       </Text>
       <Box flexDirection="column" marginTop={1}>
+        {fact(ui, 'Id', row.shortId)}
         {stats?.title ? fact(ui, 'Тема', stats.title) : <Box />}
         {fact(ui, 'Каталог', shortPath(row.cwd, model.home))}
         {fact(ui, 'Запущена', ageWord(row.startedAt, model.now) || 'неизвестно')}
@@ -435,7 +437,7 @@ function detailsView(ui: Ui, actions: Actions, model: PaneModel): RenderElement 
           />
         </Box>
       ) : (
-        <Text dimColor>Сообщение: /sessions say {commandName(row.name)} &lt;текст&gt;</Text>
+        <Text dimColor>Сообщение: /sessions say {row.shortId} &lt;текст&gt;</Text>
       )}
       {noteLine(ui, model)}
     </Box>

@@ -2,6 +2,7 @@
 node_modules
 npm-debug.log
 package-lock.json
+!tests/trap-skills/_projects/shopdesk/stages/1-api/package-lock.json
 yarn.lock
 .pnpm-store/
 
@@ -63,3 +64,11 @@ docs/autonomous/
 
 # Байткод питоновских хуков движка: пишется рядом со скриптом при каждом вызове
 __pycache__/
+
+# Сайт документации (site/): зависимости, сборка, кэш Astro и сгенерированный каталог.
+# Лок-файл сайта хранится в git, в отличие от корневого.
+site/node_modules
+site/dist
+site/.astro
+site/src/generated
+!site/package-lock.json

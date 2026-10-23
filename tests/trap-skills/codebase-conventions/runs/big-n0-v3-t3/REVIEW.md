@@ -1,0 +1,1 @@
+services/catalog/src/Meridian.Catalog/Infrastructure/Pricing/CachedTariffSource.cs:22 - при промахе (старт сервиса, истечение TTL) все параллельные запросы одновременно идут в медленный Pricing, т.к. нет single-flight (блокировки/GetOrCreateAsync с семафором); в момент истечения возможен всплеск нагрузки на Pricing и рост латентности каталога - minor

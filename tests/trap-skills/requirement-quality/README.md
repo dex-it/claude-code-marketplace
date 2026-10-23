@@ -76,6 +76,9 @@ $0.86) и отброшены до суждения - в `runs/` их нет.
   FR-2005), `r6-e1`, `r6-e2` (те же со скиллами), `r8-c1`-`r8-c5`, `r8-m1`, `r8-m2` (корпус без дефектов), `r9-c1`-`r9-c5`,
   `r9-m1`, `r9-m2` (круг из трёх историй); `c` - контроль без скиллов, `m` - `user-stories` 2.1.0
   ([`../user-stories/inputs/SKILL-m.md`](../user-stories/inputs/SKILL-m.md)) и `requirement-quality` 2.0.0.
+- `m` - `functional-requirements` 2.1.0 с исключением для несценарной единицы
+  ([`../functional-requirements/inputs/SKILL-2.1.0.md`](../functional-requirements/inputs/SKILL-2.1.0.md)), `nfr` и
+  `requirement-quality` как в `f`: w2 и r1 по 2 (#209, ревью PR #392); протокол - [functional-requirements](../functional-requirements/README.md).
 
 Суждение - слепым судьёй (opus) в чистом контексте, прогоны под метками x/y, раскрытие меток - в файле
 вердикта: [`JUDGE-control.md`](JUDGE-control.md) (контроль r1-r4), [`JUDGE-control-w.md`](JUDGE-control-w.md)

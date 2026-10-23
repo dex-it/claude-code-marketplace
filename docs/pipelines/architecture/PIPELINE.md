@@ -88,7 +88,7 @@ Design Acceptance отдаёт пакет решения (Phase 3/5) `design-rev
 
 Путь файла плана (Phase 4, `quality-checks: plan-quality passed`) + одобренный design-документ
 (`quality-checks: design-quality passed`) + путь к журналу решений + `quality-checks` сквозным
-полем. Маршрут решает вызывающая сторона.
+полем. Принимает `Input` команды `/implement`. Маршрут решает вызывающая сторона.
 
 ## Journal и границы
 

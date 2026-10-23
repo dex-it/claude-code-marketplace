@@ -452,6 +452,30 @@ node tools/validate-readme.js all
 
 ---
 
+## validate-terminology.js
+
+Имена `к вытеснению` в текстах каталога. Закрытый перечень - блок «Имена `к вытеснению`» в `.claude/rules/terminology.md` (генерируется из словаря). Область, допуск на падежные окончания и граница слова - в [VALIDATOR_RULES.md](../docs/VALIDATOR_RULES.md#toolsvalidate-terminologyjs); здесь не дублируются.
+
+**Этот валидатор входит в CI** шагом `Validate ousted names`; фильтра путей на `pull_request` нет (основание - в шапке workflow).
+
+### Что проверяет
+
+- **ousted-name** (warning) - имя, помеченное в словаре `к вытеснению`, стоит в `.md` под `plugins/` и `docs/` вне исключённых каталогов. Матч фразой целиком: расширение до слова срабатывает на идиомах.
+
+### Запуск
+
+```bash
+node tools/validate-terminology.js all
+npm run validate:terminology
+```
+
+### Коды возврата
+
+- `0` - находок уровня error нет (warning код не меняют)
+- `1` - есть error; либо индекс имён не читается; либо в дереве symlink или спецфайл
+
+---
+
 ## run-telemetry.js
 
 ### Зачем

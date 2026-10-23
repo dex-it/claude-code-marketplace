@@ -16,7 +16,7 @@
 
 `<набор>/sources.md` - основания пунктов, пришедших из `/mr-apply`: MR, триада, самооценка анализатора. По ним строится кейс, когда пункт идёт в заход сжатия.
 
-`_projects/` - общие мини-проекты нескольких наборов (`billing` - группы 0-1, `parcel` - группа 2.4, часть «тесты», `shipping` - группа 2.4b и имитация стенда (кейсы K6-K8 группы 4.7), `ordering` - группа 4.7 (observability, merge-conflict-resolution, exploratory-testing, deep-audit, tech-audit), `loyalty` - группа 3.2, корпус требований, `rooms` - группа 3.1, требования фичи, `bookings` - группа 4.2, ASP.NET Core и контракт OpenAPI, `classmate` - группа 4.8, `diag` - группа 4.6, Docker-лаборатория диагностики, продуктовые документы и история ревью, `shelfwatch` - группа 4.5, Python ML): `setup.sh` разворачивает git-репозиторий прогона, README проекта - ключ для судьи, исполнителю не подаётся.
+`_projects/` - общие мини-проекты нескольких наборов (`billing` - группы 0-1 и заход «инструкции и гайды проекта» набора codebase-conventions (#341; ветки `guides-base`, `overdue-list`, `customer-invoices`), `meridian` - заход «большой репозиторий» набора codebase-conventions (#311; генератор, результат в репозиторий не входит), `parcel` - группа 2.4, часть «тесты», `shipping` - группа 2.4b и имитация стенда (кейсы K6-K8 группы 4.7), `ordering` - группа 4.7 (observability, merge-conflict-resolution, exploratory-testing, deep-audit, tech-audit), `loyalty` - группа 3.2, корпус требований, `rooms` - группа 3.1, требования фичи, `bookings` - группа 4.2, ASP.NET Core и контракт OpenAPI, `classmate` - группа 4.8, `diag` - группа 4.6, Docker-лаборатория диагностики, продуктовые документы и история ревью, `shelfwatch` - группа 4.5, Python ML): `setup.sh` разворачивает git-репозиторий прогона, README проекта - ключ для судьи, исполнителю не подаётся.
 
 `removed/` - наборы снятых скиллов: скилла в каталоге нет, набор хранит свидетельство снятия и не
 перезапускается.
@@ -24,7 +24,7 @@
 | Набор | Скилл | Заход | Итог |
 |---|---|---|---|
 | [fact-verification](fact-verification/README.md) | `dex-skill-fact-verification` 1.3.0, 2.0.0, 2.1.0 | ревью кода и ADR; звенья каскада; факт в коде проекта | 7 ловушек -> чек-лист из 5 пунктов; 2.1.0 - отрицательный факт с исходом |
-| [codebase-conventions](codebase-conventions/README.md) | `dex-skill-codebase-conventions` 1.10.0 | ревью, фича | 17 ловушек, граница и гейт -> чек-лист из 9 названий |
+| [codebase-conventions](codebase-conventions/README.md) | `dex-skill-codebase-conventions` 1.10.0, 1.12.0, 1.13.0 | ревью, фича; большой репозиторий (Meridian); инструкции и гайды (Billing) | 17 ловушек, граница и гейт -> чек-лист из 9 названий (1.11.0); ось 6 ADR и гейт сняты контролем на большом репозитории -> 1.13.0, 6 пунктов; пункт про свод остаётся названием; пункт об инструкциях и гайдах проекта снят контролем 15/15 -> 1.14.0, 5 пунктов |
 | [review-evidence](review-evidence/README.md) | `dex-skill-review-evidence` 1.9.1 | ревью | 15 ловушек -> process-skill: «Намерение» и «Порог уверенности» |
 | [testability](testability/README.md) | `dex-skill-testability` 1.1.2 | ревью (S2, S4) | 11 ловушек и чек-лист -> пункт-признак и `Guid.NewGuid()` (открыто до кейса) |
 | [performance-review](performance-review/README.md) | `dex-skill-performance-review` 1.0.1 | ревью | 24 ловушки и чек-лист -> чек-лист; 1.2.0 - четыре пункта (контроль на sonnet medium) |
@@ -56,7 +56,7 @@
 | [ts-nodejs-api](ts-nodejs-api/README.md) | `dex-skill-ts-nodejs-api` 2.0.1 | поручение на код (K1), ревью (R1); общий заход группы 2.3 | 15 ловушек и чек-лист -> 1 пункт-название (env при старте) |
 | [react](react/README.md) | `dex-skill-react` 1.1.1 | поручение на код (K2), ревью (R2) | 16 ловушек и чек-лист -> 2 пункта-названия |
 | [playwright](playwright/README.md) | `dex-skill-playwright` 1.0.1 | e2e по коду и конфигу (K4, K5) | 17 ловушек и чек-лист -> 2 пункта-названия и 2 H3 как написаны (W12, W13) |
-| [ts-vitest-jest](ts-vitest-jest/README.md) | `dex-skill-ts-vitest-jest` 2.0.1 | unit-тесты (K3) | 10 ловушек и чек-лист -> 4 H3 как написаны (V1, граница #299) |
+| [ts-vitest-jest](ts-vitest-jest/README.md) | `dex-skill-ts-vitest-jest` 2.0.1, 2.1.0, 2.2.0 | unit-тесты (K3), расчёт стоимости (K3D, #321), «ничего не менять» (K3N, не прогонялся) | 10 ловушек и чек-лист -> 4 H3 как написаны -> 1 H3 (V1); V3, V9, V10 сняты контролем K3D 4/4 (#321) |
 | [removed/ts-patterns](removed/ts-patterns/README.md) | `dex-skill-ts-patterns` 2.0.1 | кейсы соседей (K0-K3, R1, R2) | снят; внешние данные через `as` без проверки - закрыты строкой Boundaries `ts-fullstack-assistant` («`unknown` + type guard») |
 | [removed/test-design](removed/test-design/README.md) | `dex-skill-test-design` 1.6.0 | тестописатель с нормой показа красным и без (TW, TW0), ревью записей red-run (TR), баг (BR); мини-проект `parcel` | снят; порог «Negative >= 50%» - шаг 0 |
 | [integration-boundary](integration-boundary/README.md) | `dex-skill-integration-boundary` 1.0.0 | автор: подключение перевозчика (IB), поиск на SQLite (IBF) | 7 ловушек и чек-лист -> 3 названия; слой сборки - открыто |

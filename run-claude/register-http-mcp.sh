@@ -15,6 +15,52 @@ ONE_NAME=""
 ONE_URL=""
 ONE_TOKEN=""
 
+# Значение из .env: срезаем пробелы с обеих сторон, затем обрамляющие кавычки. Хвост важен отдельно:
+# [[:space:]] покрывает CR, иначе .env с CRLF уносит ^M в URL и в заголовок Authorization.
+trim_env_value() {
+    local v="$1"
+    v="${v#"${v%%[![:space:]]*}"}"
+    v="${v%"${v##*[![:space:]]}"}"
+    case "$v" in
+        \"*\") v="${v#\"}"; v="${v%\"}" ;;
+        \'*\') v="${v#\'}"; v="${v%\'}" ;;
+    esac
+    printf '%s' "$v"
+}
+
+# Имя переменной из .env: только [A-Za-z_][A-Za-z0-9_]*, и не из тех, что меняют поведение процессов.
+# Имя тоже исполняет код: BASH_ENV=$(...) раскрывается при старте любого bash-скрипта (в том числе pass),
+# GIT_CONFIG_*, LD_PRELOAD, NODE_OPTIONS, PATH делают то же для git, node и любой команды.
+# Отброшенное имя не экспортируется; код возврата 1, предупреждение в stderr.
+env_key_allowed() {
+    local key="$1"
+    if [[ ! "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+        echo "ПРЕДУПРЕЖДЕНИЕ: $key: недопустимое имя переменной, строка пропущена" >&2
+        return 1
+    fi
+    case "$key" in
+        BASH_ENV|ENV|PS4|PROMPT_COMMAND|SHELLOPTS|BASHOPTS|PATH|NODE_OPTIONS|LD_*|DYLD_*|GIT_CONFIG_*|GIT_SSH*|GIT_*PAGER|GIT_EXTERNAL_DIFF|GIT_ASKPASS|GIT_EDITOR)
+            echo "ПРЕДУПРЕЖДЕНИЕ: $key: имя меняет поведение запускаемых процессов, переменная не экспортирована" >&2
+            return 1 ;;
+    esac
+    return 0
+}
+
+# Секрет из менеджера паролей: значение ровно вида $(pass show <путь>) заменяется первой строкой записи
+# (по соглашению pass там пароль, дальше login: и прочие поля). Вызов pass идёт напрямую, без eval:
+# любое другое значение, в том числе с иным $(...), берётся литералом и не исполняется.
+resolve_env_secret() {
+    local key="$1" value="$2" re='^\$\(pass show ([A-Za-z0-9_./][A-Za-z0-9_./-]*)\)$'
+    if [[ "$value" =~ $re ]]; then
+        pass show "${BASH_REMATCH[1]}" | head -n1 || true
+        return 0
+    fi
+    if [[ "$value" == *'$('* ]]; then
+        echo "ПРЕДУПРЕЖДЕНИЕ: $key: подвыражение \$(...) не в поддержанной форме \$(pass show <путь>), значение взято как есть" >&2
+    fi
+    printf '%s' "$value"
+}
+
 usage() {
     cat <<'EOF'
 Использование: ./register-http-mcp.sh [опции]
@@ -92,29 +138,23 @@ if [ -n "$ENV_FILE" ]; then
         exit 1
     fi
     echo "Переменные из: $ENV_FILE"
-    # Разбор совпадает с лаунчером (run-claude.sh): срезаем пробелы с обеих сторон,
-    # снимаем обрамляющие кавычки, раскрываем подвыражение $(...). Хвост важен отдельно:
-    # [[:space:]] покрывает CR, иначе .env с CRLF уносит ^M в URL и в заголовок Authorization.
+    # Разбор строки тот же, что у лаунчера (run-claude.sh): trim_env_value, env_key_allowed и
+    # resolve_env_secret - одинаковые функции, сверяются тестом tests/tools/run-claude-secret.test.sh.
     while IFS= read -r line || [ -n "$line" ]; do
         line="${line#"${line%%[![:space:]]*}"}"
         line="${line%"${line##*[![:space:]]}"}"
         case "$line" in ''|\#*) continue ;; esac
         case "$line" in *=*) ;; *) continue ;; esac
         key="$(printf '%s' "${line%%=*}" | tr -d '[:space:]')"
-        value="${line#*=}"
-        value="${value#"${value%%[![:space:]]*}"}"
-        value="${value%"${value##*[![:space:]]}"}"
-        case "$value" in
-            \"*\") value="${value#\"}"; value="${value%\"}" ;;
-            \'*\') value="${value#\'}"; value="${value%\'}" ;;
-        esac
-        # Секрет из менеджера паролей: SOME_TOKEN=$(pass show <путь>). Тот же способ и та же
-        # граница доверия, что у лаунчера - .env локальный, untracked, с правами пользователя.
-        case "$value" in
-            *'$('*')'*) value="$(eval "printf '%s' \"$value\"")" ;;
-        esac
+        value="$(trim_env_value "${line#*=}")"
+        [ -n "$key" ] || continue
+        # Имя, меняющее поведение процессов (BASH_ENV, PATH, GIT_CONFIG_* ...), отбрасываем до вызова pass
+        env_key_allowed "$key" || continue
+        # Секрет из менеджера паролей: SOME_TOKEN=$(pass show <путь>). Та же поддержанная форма
+        # и тот же разбор, что у лаунчера: иное $(...) берётся литералом.
+        value="$(resolve_env_secret "$key" "$value")"
         # Пустое значение пропускаем: оно затёрло бы переменную, заданную в окружении.
-        if [ -z "$key" ] || [ -z "$value" ]; then
+        if [ -z "$value" ]; then
             continue
         fi
         export "$key=$value"
