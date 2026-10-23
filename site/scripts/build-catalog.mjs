@@ -255,6 +255,19 @@ function write(slugPath, content) {
   written.push(slugPath);
 }
 
+// Примеры в текстах разделов называют реальные плагины; исчез плагин - сборка падает, а не врёт.
+function demo(name) {
+  const p = byName.get(name);
+  if (!p) fail(`пример в тексте раздела называет плагин, которого нет в marketplace.json: ${name}`);
+  return p;
+}
+
+function demoCmd(plugin, name) {
+  const c = demo(plugin).commands.find((x) => x.name === name);
+  if (!c) fail(`пример в тексте раздела называет команду, которой нет: ${plugin}:${name}`);
+  return c;
+}
+
 const installNote = `Один плагин ставится командой \`claude plugin install <имя>@${MARKET}\`; точная команда есть на странице каждого плагина. Бандлы ставит скрипт из клона репозитория: [как это сделать](/start/install/).`;
 
 // ---------- страницы плагинов ----------
@@ -337,6 +350,20 @@ function pluginPage(p) {
     }
   }
 
+  if (p.category === 'skill') {
+    b.push('', '## Как проверить', '');
+    b.push('```bash', 'claude plugin list', '```', '');
+    b.push(`В списке должен быть \`${p.name}@${MARKET}\`. Вызывать skill вручную не нужно: назовите тему из описания выше в запросе, и Claude подгрузит памятку.`);
+  } else if (p.commands.length) {
+    const c = p.commands[0];
+    b.push('', '## Пример запуска', '');
+    b.push('```text', c.hint ? `${c.full} ${c.hint.replace(/^"|"$/g, '')}` : c.full, '```', '');
+    b.push(c.hint ? 'Аргументы взяты из подсказки команды, в квадратных скобках - необязательные.' : 'Команда без аргументов.');
+  } else if (p.category === 'mod') {
+    b.push('', '## Как проверить', '');
+    b.push('После установки откройте новую сессию или выполните `/reload-plugins`, затем `/plugin`: в строке под вкладками будет перечень активных модов. Подробности и требования - в README мода на GitHub.');
+  }
+
   const owners = bundlesOf.get(p.name);
   if (owners.length) {
     b.push('', '## Входит в бандлы', '');
@@ -358,6 +385,7 @@ function bundlesPage() {
   b.push('Для первого раза возьмите `code-review`: он работает с любым языком. Задачи и подходящие бандлы собраны в [сценариях](/scenarios/).');
   b.push(':::', '');
   b.push('Установка из клона репозитория:', '', '```bash', './install-bundle/install-bundle.sh <имя>', '```', '');
+  b.push('Посмотреть состав без установки: `./install-bundle/install-bundle.sh <имя> --dry-run`. Уже поставленные плагины скрипт пропускает, версии не обновляет. Удаление бандла снимает и те плагины, которые входят в другой ваш бандл: [как этого избежать](/start/update-remove/).', '');
   for (const p of list) {
     const short_ = p.name.replace(/^dex-bundle-/, '');
     b.push(`## ${short_}`, '');
@@ -388,6 +416,8 @@ function specialistsPages() {
   idx.push(':::note');
   idx.push('Специалист без нужных ему skills запустится, но будет работать без них. Бандл ставит специалиста вместе со skills, поэтому для начала берите бандл, а не плагин поштучно.');
   idx.push(':::', '');
+  const rev = demo('dex-mr-reviewer');
+  idx.push(`Пример: плагин ${link(rev.name)} несёт специалиста \`${rev.agents[0].name}\` и команду \`${demoCmd('dex-mr-reviewer', 'mr-review').full}\`. Вы вызываете команду, она запускает специалиста в отдельном контексте и возвращает отчёт со статусом \`complete\`, \`blocked\` или \`partial\`.`, '');
   idx.push('Разделы повторяют каталоги на диске.', '');
   idx.push('| Раздел | О чём | Плагинов |', '|---|---|---|');
   keys.forEach((k, i) => {
@@ -416,6 +446,8 @@ function skillsPage() {
   const b = [];
   b.push('Skill - короткая памятка по теме или стеку: на что не наступать и как делать правильно. Подгружается сама, когда тема появляется в разговоре, либо её загружает агент. Плагин называется `dex-skill-<имя>`.', '');
   b.push(installNote, '');
+  const kafka = demo('dex-skill-kafka');
+  b.push(`Пример: ${link(kafka.name)}. Спросите Claude про consumer group или ребаланс, и памятка подгрузится сама; команду вызывать не нужно. Если skill не срабатывает, назовите технологию в запросе прямо и проверьте, что плагин поставлен (\`claude plugin list\`).`, '');
   const section = (title, names, note) => {
     const rows = names.map((n) => byName.get(n)).filter(Boolean);
     if (!rows.length) return;
@@ -446,6 +478,7 @@ function commandsPage() {
   b.push(':::note[Короткое имя]');
   b.push('В сценариях и на страницах каталога команды записаны полным именем: оно работает всегда. Короткое имя без префикса плагина платформа даёт только skills, и каталог на него не рассчитывает.');
   b.push(':::', '');
+  b.push(`Пример: \`${demoCmd('dex-self-reviewer', 'self-review').full}\` проверяет вашу ветку перед push, а \`${demoCmd('dex-mr-reviewer', 'mr-review').full} owner/repo#42\` разбирает чужой MR. Командам \`${demoCmd('dex-implement', 'implement').full}\` и \`${demoCmd('dex-test', 'test').full}\` нужен специалист вашего стека - без него команда остановится и назовёт недостающий плагин.`, '');
   b.push('Название команды ведёт на страницу плагина, в котором она лежит.', '');
   b.push('| Команда | Что делает |', '|---|---|');
   for (const { p, c } of rows) b.push(`| [\`${c.full}\`](${pluginUrl(p.name)}) | ${cell(c.description)} |`);
@@ -459,6 +492,7 @@ function utilitiesPage() {
   b.push('Утилита - плагин без агентов и skills: обёртки над CLI (`gh`, `kubectl`, `psql` и другие), уведомления, анализ репозитория. Плагины ставят только команды: сами программы должны быть на машине.', '');
   b.push('Все CLI-плагины одной командой: `./install-bundle/install-bundle.sh cli-tools`. Установка самих программ, настройка и сравнение с MCP - в [руководстве по CLI-утилитам на GitHub](' + GITHUB + '/blob/main/docs/CLI_UTILITIES.md).', '');
   b.push(installNote, '');
+  b.push(`Пример: \`${demoCmd('dex-kubectl-cli', 'kube-pods').full}\` показывает поды через \`kubectl\`. Если программы нет в \`PATH\`, команда скажет об этом; проверить и доставить: \`./install-bundle/install-cli-tools.sh --check\`, затем \`--all\`.`, '');
   b.push('| Плагин | Команды | Для чего |', '|---|---|---|');
   for (const p of rows) {
     const cmds = p.commands.map((c) => `\`${c.full}\``).join(', ') || '-';
@@ -471,7 +505,7 @@ function modsPage() {
   const rows = plugins.filter((p) => p.category === 'mod').sort((a, c) => a.name.localeCompare(c.name));
   const b = [];
   b.push('Мод меняет сам Claude Code: панели, строки над вводом, слежение за PR и сессиями. Это TypeScript-модуль, который работает внутри процесса клиента. Моды ставятся адресно, в бандлы не входят и требуют Claude Code 2.1.287 или новее. API модов в раннем доступе и может меняться между релизами.', '');
-  b.push('Устройство мода: [MOD_FRAMEWORK.md на GitHub](' + GITHUB + '/blob/main/docs/MOD_FRAMEWORK.md).', '');
+  b.push('Устройство мода: [MOD_FRAMEWORK.md на GitHub](' + GITHUB + '/blob/main/docs/MOD_FRAMEWORK.md). Мод работает с вашими правами и не изолирован, поэтому читайте его README перед установкой; чем мод отличается от хука и утилиты - [в основах](/basics/hooks-mods/).', '');
   b.push('| Мод | Для чего |', '|---|---|');
   for (const p of rows) b.push(`| ${link(p.name)} | ${cell(p.description)} |`);
   b.push('', '```bash');
