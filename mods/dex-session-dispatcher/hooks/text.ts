@@ -7,15 +7,18 @@ import type { SessionRow } from './sessions.ts'
 import { maskSecrets, percentOf, quote, snippet, todoProgress, tokensWord, topOf, windowOf } from './transcript.ts'
 import type { Stats } from './transcript.ts'
 
+/** Подсказка аргументов команды: действия над сессией (`say`, `stop`, `remove`) называют её по id. */
+export const ARGUMENT_HINT = '[new задача | 2 | say id текст | log 2 | open 2 | stop id | remove id | help]'
+
 export const HELP_TEXT = [
   '`/sessions` - открыть или закрыть панель со всеми сессиями Claude Code на этой машине.',
   '`/sessions new [--name имя] [--dir каталог] задача` - начать новую сессию в фоне. Она работает сама, пока вы заняты другим.',
-  '`/sessions 2` - показать сессию подробно (номер из списка, имя или начало id).',
-  '`/sessions say 2 текст` - отправить сообщение сессии: задание, вопрос, уточнение.',
+  '`/sessions 2` - показать сессию подробно (номер из списка, имя или начало id). Короткий id стоит в списке рядом с именем.',
+  '`/sessions say id текст` - отправить сообщение сессии: задание, вопрос, уточнение. Номер или имя (`say 2 текст`) только покажут, какую сессию они называют, и подскажут команду с id: список меняется, номер мог устареть, а имена повторяются.',
   '`/sessions log 2` - вывести то, что сессия напечатала последним.',
   '`/sessions open 2` - как открыть сессию в этом терминале.',
-  '`/sessions stop имя` - остановить; разговор сохраняется, к нему можно вернуться. Номер (`stop 2`) только покажет, какую сессию он называет, и подскажет команду с id: список меняется, и номер мог устареть.',
-  '`/sessions remove имя` - удалить сессию и её рабочую копию без возврата. Как и `stop`, исполняется по имени целиком или id, не по номеру.',
+  '`/sessions stop id` - остановить; разговор сохраняется, к нему можно вернуться. Номер или имя (`stop 2`) только покажут, какую сессию они называют, и подскажут команду с id.',
+  '`/sessions remove id` - удалить сессию и её рабочую копию без возврата. Как и `stop`, исполняется по id (полному или короткому), не по номеру и не по имени.',
   '`/sessions next`, `/sessions prev` - соседняя сессия в списке.',
   '`/sessions finished` - показать или спрятать законченные сессии; `/sessions here` - только этого проекта.',
   '`/sessions status` - выписать состояние всех сессий текстом (его читает модель).',
@@ -89,9 +92,6 @@ export const FOREIGN_NOTE =
 
 export { quote }
 
-/** Имя адресатом в подсказке команды: с пробелом - в кавычках, иначе разберётся первым словом. */
-export const commandName = (name: string): string => (/\s/.test(name) ? `"${name}"` : name)
-
 export type Entry = {
   index: number
   row: SessionRow
@@ -107,7 +107,7 @@ export function entryLine(entry: Entry, windowSetting: number, now: number, home
   const kind = row.kind === 'background' ? 'фоновая' : 'в окне терминала'
   const age = ageWord(row.startedAt, now)
 
-  return `${index}. ${quote(row.name)}${mark} - ${PHASE_WORD[row.phase]}${waiting}; ${kind}; ${quote(shortPath(snippet(row.cwd, 200), home))}${age !== '' ? `; запущена ${age}` : ''}; ${usageLine(stats, windowSetting)}`
+  return `${index}. ${quote(row.name)} (${row.shortId})${mark} - ${PHASE_WORD[row.phase]}${waiting}; ${kind}; ${quote(shortPath(snippet(row.cwd, 200), home))}${age !== '' ? `; запущена ${age}` : ''}; ${usageLine(stats, windowSetting)}`
 }
 
 export function listText(
@@ -201,5 +201,5 @@ export function openText(row: SessionRow, isSelf: boolean): string {
     return `Чтобы открыть ${quote(row.name)}, выполните в другом окне терминала: claude attach ${row.shortId}\nВернуться к списку: стрелка влево, выйти в оболочку: Ctrl+Z. Сессия продолжает работать в любом случае.`
   }
 
-  return `${quote(row.name)} открыта в другом окне терминала${row.pid !== null ? ` (процесс ${row.pid})` : ''}. Переключитесь на то окно. Отсюда ей можно отправить сообщение: /sessions say ${commandName(row.name)} текст`
+  return `${quote(row.name)} открыта в другом окне терминала${row.pid !== null ? ` (процесс ${row.pid})` : ''}. Переключитесь на то окно. Отсюда ей можно отправить сообщение: /sessions say ${row.shortId} текст`
 }

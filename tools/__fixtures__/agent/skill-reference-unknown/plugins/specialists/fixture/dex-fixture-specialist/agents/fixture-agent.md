@@ -15,7 +15,13 @@ skills:
 
 ## Phase 1: Intake
 
-В фазе грузится `dex-skill-nosuch:nosuch`.
+В фазе грузится `dex-skill-nosuch:nosuch` - плагина нет в каталоге.
+
+Вторая половина адреса: `dex-skill-fixture:ghost-skill` - плагин скилл поставляет, такого скилла в нём нет;
+`dex-fixture-auto:ghost-node` - плагин скиллов не поставляет вовсе, адрес тоже ведёт в никуда.
+Живые адреса молчат: `dex-skill-fixture:fixture`, `dex-fixture-specialist:fixture-oracle`,
+`dex-fixture-specialist:fixture-command`, `dex-fixture-auto:fixture-node`, `dex-fixture-auto:dex-fixture-auto-track`;
+неизвестный плагин вне `dex-skill-` (`dex-nowhere:nosuch`) не судится.
 
 **Goal:** Принять вход песочницы и назвать, чего в нём нет.
 

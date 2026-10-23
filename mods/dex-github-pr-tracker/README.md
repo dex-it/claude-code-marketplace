@@ -200,7 +200,7 @@ claude -p "/pr status" --plugin-dir mods/dex-github-pr-tracker
 
 Относительные импорты внутри мода идут **с расширением `.ts`**: без него `node --test` не резолвит цепочку, и прогоном закрывались бы только модули без импортов. Форма проверена живым прогоном на 2.1.282.
 
-Контракт типов - `mods/types/claude-code.d.ts`, пишется командой `/plugin-types` и руками не правится. Устройство класса, инструментарий и self-check - [MOD_FRAMEWORK.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/MOD_FRAMEWORK.md).
+Контракт типов - `mods/types/claude-code.d.ts`, пишет движок (как получить свежий - в MOD_FRAMEWORK.md) и руками не правится. Устройство класса, инструментарий и self-check - [MOD_FRAMEWORK.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/MOD_FRAMEWORK.md).
 
 Правки подхватываются горячей перезагрузкой запущенной сессии; если перезагрузка сорвалась на середине, транскрипт скажет об этом - помогает перезапуск сессии.
 

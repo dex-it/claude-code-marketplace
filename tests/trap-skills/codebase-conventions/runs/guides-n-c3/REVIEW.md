@@ -1,0 +1,1 @@
+src/Billing.Api/Application/Handlers/Invoices/ListCustomerInvoicesHandler.cs:26 - проверка limit и cursor написана прямо в хендлере, отдельного валидатора рядом (как CreateInvoiceValidator) нет, это нарушает RUL-0003; правила валидации разойдутся с остальными хендлерами - minor

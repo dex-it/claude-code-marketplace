@@ -1,0 +1,1 @@
+services/catalog/src/Meridian.Catalog/Infrastructure/Pricing/CachedTariffSource.cs:19 - при пустом кэше (старт, истечение TTL) параллельные запросы все уходят в медленный Pricing, так как нет single-flight (например, GetOrCreateAsync с блокировкой), и в момент истечения Pricing получает всплеск одинаковых вызовов - minor

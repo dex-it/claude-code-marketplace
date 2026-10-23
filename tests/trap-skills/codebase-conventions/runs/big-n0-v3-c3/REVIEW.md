@@ -1,0 +1,1 @@
+services/catalog/src/Meridian.Catalog/Infrastructure/Pricing/CachedTariffSource.cs:18 - при пустом кэше (старт, истечение TTL) параллельные запросы все промахиваются и одновременно идут в медленный Pricing без single-flight (SemaphoreSlim/GetOrCreateAsync с блокировкой), давая всплеск нагрузки на Pricing раз в TTL - minor

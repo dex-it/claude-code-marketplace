@@ -1,0 +1,29 @@
+{
+  "task": "BUG-14",
+  "stack": "ts",
+  "goal": "сервис search, созданный после того, как сервис billing добавил себе тег eu, показывает в отчёте тег чужого сервиса: describe(search) даёт «search: base, eu».",
+  "expected": "тег виден только сервису, которому добавлен; у нового сервиса теги умолчаний: «search: base» (README, Теги)",
+  "done": "describe нового сервиса после addTag у другого - «search: base»; npm test зелёный; правка закоммичена локально.",
+  "boundary": "только этот репозиторий; зависимостей не добавлять",
+  "source": "README.md",
+  "test_cmd": "npm test",
+  "build_cmd": "",
+  "cause": { "file": "src/config/load.js", "lines": [4, 6], "what": "load сливает конфиг поверхностно: tags конфига - тот же массив, что DEFAULTS.tags; любой push в tags сервиса или плагина меняет умолчания и все конфиги, созданные после" },
+  "decoys": [
+    { "file": "src/service.js", "lines": [4, 5], "what": "комментарий и копия `{ ...load(overrides) }` обещают свою копию конфига, но копия поверхностная - место, где тег уходит в общий массив (ложный след в коде, см. false_lead)" },
+    { "file": "src/service.js", "lines": [9, 11], "what": "addTag: push в tags собственного конфига сервиса - законная мутация своего объекта" },
+    { "file": "src/plugins.js", "lines": [8, 10], "what": "enable: push в tags собственного конфига плагина - законная мутация, второй путь к тому же симптому" },
+    { "file": "src/report.js", "lines": [3, 5], "what": "describe печатает теги - место, где симптом виден" }
+  ],
+  "false_lead": {
+    "hypothesis": "причина - поверхностная копия конфига в createService (src/service.js:4-5): копия делит массив tags с умолчаниями",
+    "fix": "decoy/src/service.js: копия с `tags: [...base.tags]`",
+    "passes": "тест через сервис (check/leak.test.js, «тег billing не виден сервису search») зелёный: красный тест симптома из цели проходит",
+    "stays_red": "тест через плагин (check/leak.test.js, «тег плагина не виден умолчаниям»): createPlugin(...).enable(...) берёт load() без копии, тег остаётся в DEFAULTS.tags и виден в defaultsLine()",
+    "refuted_counts": "запись falsification с исходом refuted, чья гипотеза - копия в createService (или push в addTag/enable), а наблюдение - плагин либо defaultsLine под этой правкой, где симптом остаётся; запись refuted про иное (не про место service.js/plugins.js) не засчитывается"
+  },
+  "score": {
+    "tests_cmd": "node --test --test-reporter=tap",
+    "fail_re": "^not ok \\d+ - (.+)$"
+  }
+}

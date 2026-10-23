@@ -326,7 +326,7 @@ const SUBJECT_ASK = LOCAL
 const ctx = await node('сбор предмета ревью', `${HEAD}Шаг 1: предмет ревью. ${SUBJECT_ASK}`,
   { label: 'ctx:subject', phase: 'Context', effort: 'low', schema: CTX })
 trail.push({ step: 1, doer: 'general-purpose', status: ctx ? ctx.status : 'null' })
-if (!ctx || ctx.status === 'blocked') return outcome('blocked', 'Context', lack(ctx, 'узел контекста'))
+if (!ctx || ctx.status === 'blocked') return outcome('blocked', 'Context', lack(ctx, 'узел контекста'), { node_failure: true })
 
 phase('Review')
 // Где читать код правки, знают оба узла суждения: скептик, читающий диск не на head_sha, сбросил бы находки о правке.
@@ -337,7 +337,7 @@ const rev = await own(DELTA ? 'ре-ревьюер дельты' : LOCAL ? 'ре
   { label: DELTA ? 'review:delta' : 'review:first', phase: 'Review', schema: { type: 'object', properties: { ...REVIEW.properties, 'conventions-read': conventionsRead(ctx) }, required: [...REVIEW.required] } }, NODE.reviewer)
 loops.review = 1
 trail.push({ step: 2, doer: NODE.reviewer.agentType, status: rev ? rev.status : 'null', findings: rev ? rev.findings.length : -1 })
-if (!rev || rev.status === 'blocked') return outcome('blocked', 'Review', lack(rev, 'узел ревью'), { ctx })
+if (!rev || rev.status === 'blocked') return outcome('blocked', 'Review', lack(rev, 'узел ревью'), { ctx, node_failure: true })
 if (LOCAL && rev.threads.length) { degraded.push(`ревьюер: threads при local не засчитаны - тредов MR нет (${rev.threads.length})`); rev.threads = [] }
 const claims = rev.findings
 const axes = rev.axes || []
@@ -357,7 +357,7 @@ loops.falsify = 1
 const fal = await own('скептик', `${HEAD}Шаг 3: фальсификация находок, исходов осей и решений ревьюера, вердикт по покрытию. ${common}\nНаходки:\n${fmt(claims) || '- находок нет: только вердикт по покрытию'}${priorIn.length ? `\nПрежние находки - статус ре-ревьюера:\n${priorIn.map(p => `${priorLine(p)} - ре-ревьюер: ${p.claim ? `${p.claim.status} - ${p.claim.evidence}` : 'статус не назван'}`).join('\n')}` : ''}\nОси ревьюера:\n${axesText(axes)}\nРешения ревьюера:\n${rootsText(rev.roots)}${rev.questions.length ? `\nВопросы автору от ревьюера:\n${rev.questions.map(q => `- ${q}`).join('\n')}` : ''}`,
   { label: 'falsify+coverage', phase: 'Falsify', schema: FALSIFY }, NODE.skeptic)
 trail.push({ step: 3, doer: NODE.skeptic.agentType, status: fal ? fal.status : 'null', confirmed: fal ? fal.confirmed.length : -1, dropped: fal ? fal.dropped.length : -1 })
-if (!fal || fal.status === 'blocked') return outcome('blocked', 'Falsify', lack(fal, 'скептик'), { ctx, review: rev, claims, prior: reg.all() })
+if (!fal || fal.status === 'blocked') return outcome('blocked', 'Falsify', lack(fal, 'скептик'), { ctx, review: rev, claims, prior: reg.all(), node_failure: true })
 reg.apply(fal, 'скептик')
 const confirmed = []
 for (const { f, id } of reg.take(fal.confirmed, 'скептик', undefined, shutBy(fal))) if (id) reg.seat({ ...f, id }, 'open', f.evidence); else confirmed.push({ ...f, id: reg.mint() })
