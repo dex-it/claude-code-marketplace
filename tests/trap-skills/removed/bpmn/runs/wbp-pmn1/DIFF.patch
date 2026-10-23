@@ -1,0 +1,381 @@
+diff --git a/docs/process/booking.bpmn b/docs/process/booking.bpmn
+new file mode 100644
+index 0000000..6de761c
+--- /dev/null
++++ b/docs/process/booking.bpmn
+@@ -0,0 +1,253 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<!-- CM-40. TO-BE: бронирование урока. Источник: docs/process/booking-notes.md. Описание: docs/process/booking.md -->
++<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
++             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
++             targetNamespace="https://classmate.example/bpmn/booking"
++             id="Definitions_Booking">
++
++  <message id="Msg_Book" name="Запрос на бронирование слота"/>
++  <message id="Msg_PayRequest" name="Запрос оплаты"/>
++  <message id="Msg_PayRequestResult" name="Результат приёма запроса оплаты (успех / ошибка)"/>
++  <message id="Msg_PayConfirmed" name="Подтверждение оплаты"/>
++  <message id="Msg_TutorHold" name="Слот на удержании"/>
++  <message id="Msg_StudentTimeout" name="Время на оплату вышло"/>
++  <message id="Msg_StudentPayFailed" name="Оплата не прошла, попробуйте ещё раз"/>
++  <message id="Msg_BookingConfirmedStudent" name="Бронь подтверждена (ученику)"/>
++  <message id="Msg_BookingConfirmedTutor" name="Бронь подтверждена (репетитору)"/>
++  <message id="Msg_Newbie" name="Памятка новичка"/>
++  <error id="Err_PaymentRejected" name="PaymentRequestFailed" errorCode="PAYMENT_REQUEST_FAILED"/>
++
++  <collaboration id="Collab_Booking">
++    <participant id="P_Student" name="Ученик"/>
++    <participant id="P_Classmate" name="Платформа Classmate" processRef="Process_Booking"/>
++    <participant id="P_PayFlow" name="Платёжный провайдер PayFlow"/>
++    <participant id="P_Tutor" name="Репетитор (уведомления)"/>
++
++    <messageFlow id="MF_Book" name="Нажал «Забронировать»" sourceRef="P_Student" targetRef="Start_Book" messageRef="Msg_Book"/>
++    <messageFlow id="MF_PayRequest" sourceRef="Task_RequestPayment" targetRef="P_PayFlow" messageRef="Msg_PayRequest"/>
++    <messageFlow id="MF_PayRequestResult" sourceRef="P_PayFlow" targetRef="Task_ReceiveRequestResult" messageRef="Msg_PayRequestResult"/>
++    <messageFlow id="MF_PayConfirmed" sourceRef="P_PayFlow" targetRef="Task_ReceivePayConfirmed" messageRef="Msg_PayConfirmed"/>
++    <messageFlow id="MF_TutorHold" sourceRef="Task_NotifyTutorHold" targetRef="P_Tutor" messageRef="Msg_TutorHold"/>
++    <messageFlow id="MF_StudentTimeout" sourceRef="Task_NotifyTimeout" targetRef="P_Student" messageRef="Msg_StudentTimeout"/>
++    <messageFlow id="MF_StudentPayFailed" sourceRef="Task_NotifyPayFailed" targetRef="P_Student" messageRef="Msg_StudentPayFailed"/>
++    <messageFlow id="MF_ConfirmedStudent" sourceRef="Task_SendConfirmations" targetRef="P_Student" messageRef="Msg_BookingConfirmedStudent"/>
++    <messageFlow id="MF_ConfirmedTutor" sourceRef="Task_SendConfirmations" targetRef="P_Tutor" messageRef="Msg_BookingConfirmedTutor"/>
++    <messageFlow id="MF_Newbie" sourceRef="Task_SendNewbieGuide" targetRef="P_Student" messageRef="Msg_Newbie"/>
++  </collaboration>
++
++  <process id="Process_Booking" name="Бронирование урока (TO-BE)" isExecutable="false">
++    <laneSet id="LaneSet_Booking">
++      <lane id="Lane_Platform" name="Платформа">
++        <flowNodeRef>Start_Book</flowNodeRef>
++        <flowNodeRef>Sub_HoldAndPay</flowNodeRef>
++        <flowNodeRef>Boundary_HoldTimeout</flowNodeRef>
++        <flowNodeRef>Boundary_PaymentError</flowNodeRef>
++        <flowNodeRef>Task_ReleaseHoldTimeout</flowNodeRef>
++        <flowNodeRef>Task_NotifyTimeout</flowNodeRef>
++        <flowNodeRef>End_Timeout</flowNodeRef>
++        <flowNodeRef>Task_ReleaseHoldError</flowNodeRef>
++        <flowNodeRef>Task_NotifyPayFailed</flowNodeRef>
++        <flowNodeRef>End_PayFailed</flowNodeRef>
++        <flowNodeRef>GW_NeedTutorApproval</flowNodeRef>
++        <flowNodeRef>GW_ApprovalMerge</flowNodeRef>
++        <flowNodeRef>Task_ConfirmBooking</flowNodeRef>
++        <flowNodeRef>Task_SendConfirmations</flowNodeRef>
++        <flowNodeRef>GW_PostSplit</flowNodeRef>
++        <flowNodeRef>Task_SendNewbieGuide</flowNodeRef>
++        <flowNodeRef>Task_RedeemPromo</flowNodeRef>
++        <flowNodeRef>GW_PostJoin</flowNodeRef>
++        <flowNodeRef>End_Confirmed</flowNodeRef>
++      </lane>
++      <lane id="Lane_TutorCabinet" name="Кабинет репетитора (роль: репетитор)">
++        <flowNodeRef>Task_TutorApprove</flowNodeRef>
++      </lane>
++    </laneSet>
++
++    <startEvent id="Start_Book" name="Ученик запросил бронь слота">
++      <outgoing>F_01</outgoing>
++      <messageEventDefinition messageRef="Msg_Book"/>
++    </startEvent>
++
++    <!-- Скоуп холда: таймер 15 мин отсчитывается от входа в подпроцесс (т.е. от постановки холда) -->
++    <subProcess id="Sub_HoldAndPay" name="Удержать слот и получить оплату">
++      <incoming>F_01</incoming>
++      <outgoing>F_02</outgoing>
++
++      <startEvent id="SStart" name="Начало удержания">
++        <outgoing>S_01</outgoing>
++      </startEvent>
++      <serviceTask id="Task_PlaceHold" name="Поставить холд на слот (15 мин)">
++        <incoming>S_01</incoming>
++        <outgoing>S_02</outgoing>
++      </serviceTask>
++      <parallelGateway id="GW_ParSplit" name="Параллельно: оплата и уведомление">
++        <incoming>S_02</incoming>
++        <outgoing>S_03</outgoing>
++        <outgoing>S_10</outgoing>
++      </parallelGateway>
++
++      <sendTask id="Task_RequestPayment" name="Запросить оплату у PayFlow">
++        <incoming>S_03</incoming>
++        <outgoing>S_04</outgoing>
++      </sendTask>
++      <receiveTask id="Task_ReceiveRequestResult" name="Получить результат запроса оплаты" messageRef="Msg_PayRequestResult">
++        <incoming>S_04</incoming>
++        <outgoing>S_05</outgoing>
++      </receiveTask>
++      <exclusiveGateway id="GW_RequestOk" name="Запрос оплаты принят?" default="S_06">
++        <incoming>S_05</incoming>
++        <outgoing>S_06</outgoing>
++        <outgoing>S_07</outgoing>
++      </exclusiveGateway>
++      <endEvent id="SEnd_Error" name="Ошибка запроса оплаты">
++        <incoming>S_07</incoming>
++        <errorEventDefinition errorRef="Err_PaymentRejected"/>
++      </endEvent>
++
++      <sendTask id="Task_NotifyTutorHold" name="Уведомить репетитора: слот на удержании">
++        <incoming>S_10</incoming>
++        <outgoing>S_11</outgoing>
++      </sendTask>
++
++      <parallelGateway id="GW_ParJoin" name="Оба действия выполнены">
++        <incoming>S_06</incoming>
++        <incoming>S_11</incoming>
++        <outgoing>S_12</outgoing>
++      </parallelGateway>
++      <receiveTask id="Task_ReceivePayConfirmed" name="Получить подтверждение оплаты" messageRef="Msg_PayConfirmed">
++        <incoming>S_12</incoming>
++        <outgoing>S_13</outgoing>
++      </receiveTask>
++      <endEvent id="SEnd_Paid" name="Оплата подтверждена">
++        <incoming>S_13</incoming>
++      </endEvent>
++
++      <sequenceFlow id="S_01" sourceRef="SStart" targetRef="Task_PlaceHold"/>
++      <sequenceFlow id="S_02" sourceRef="Task_PlaceHold" targetRef="GW_ParSplit"/>
++      <sequenceFlow id="S_03" sourceRef="GW_ParSplit" targetRef="Task_RequestPayment"/>
++      <sequenceFlow id="S_04" sourceRef="Task_RequestPayment" targetRef="Task_ReceiveRequestResult"/>
++      <sequenceFlow id="S_05" sourceRef="Task_ReceiveRequestResult" targetRef="GW_RequestOk"/>
++      <sequenceFlow id="S_06" name="PayFlow принял запрос" sourceRef="GW_RequestOk" targetRef="GW_ParJoin"/>
++      <sequenceFlow id="S_07" name="PayFlow вернул ошибку" sourceRef="GW_RequestOk" targetRef="SEnd_Error">
++        <conditionExpression xsi:type="tFormalExpression">payflow.response.status == 'ERROR'</conditionExpression>
++      </sequenceFlow>
++      <sequenceFlow id="S_10" sourceRef="GW_ParSplit" targetRef="Task_NotifyTutorHold"/>
++      <sequenceFlow id="S_11" sourceRef="Task_NotifyTutorHold" targetRef="GW_ParJoin"/>
++      <sequenceFlow id="S_12" sourceRef="GW_ParJoin" targetRef="Task_ReceivePayConfirmed"/>
++      <sequenceFlow id="S_13" sourceRef="Task_ReceivePayConfirmed" targetRef="SEnd_Paid"/>
++    </subProcess>
++
++    <boundaryEvent id="Boundary_HoldTimeout" name="Прошло 15 минут" attachedToRef="Sub_HoldAndPay" cancelActivity="true">
++      <outgoing>F_10</outgoing>
++      <timerEventDefinition>
++        <timeDuration xsi:type="tFormalExpression">PT15M</timeDuration>
++      </timerEventDefinition>
++    </boundaryEvent>
++    <boundaryEvent id="Boundary_PaymentError" name="Ошибка запроса оплаты" attachedToRef="Sub_HoldAndPay" cancelActivity="true">
++      <outgoing>F_20</outgoing>
++      <errorEventDefinition errorRef="Err_PaymentRejected"/>
++    </boundaryEvent>
++
++    <!-- Ветка тайм-аута -->
++    <serviceTask id="Task_ReleaseHoldTimeout" name="Снять холд, освободить слот">
++      <incoming>F_10</incoming>
++      <outgoing>F_11</outgoing>
++    </serviceTask>
++    <sendTask id="Task_NotifyTimeout" name="Сообщить ученику: время на оплату вышло">
++      <incoming>F_11</incoming>
++      <outgoing>F_12</outgoing>
++    </sendTask>
++    <endEvent id="End_Timeout" name="Холд снят по тайм-ауту">
++      <incoming>F_12</incoming>
++    </endEvent>
++
++    <!-- Ветка ошибки оплаты -->
++    <serviceTask id="Task_ReleaseHoldError" name="Снять холд, освободить слот">
++      <incoming>F_20</incoming>
++      <outgoing>F_21</outgoing>
++    </serviceTask>
++    <sendTask id="Task_NotifyPayFailed" name="Сообщить ученику: оплата не прошла">
++      <incoming>F_21</incoming>
++      <outgoing>F_22</outgoing>
++    </sendTask>
++    <endEvent id="End_PayFailed" name="Оплата не прошла">
++      <incoming>F_22</incoming>
++    </endEvent>
++
++    <!-- Подтверждение -->
++    <exclusiveGateway id="GW_NeedTutorApproval" name="Урок дороже 3 000 ₽?" default="F_03">
++      <incoming>F_02</incoming>
++      <outgoing>F_03</outgoing>
++      <outgoing>F_04</outgoing>
++    </exclusiveGateway>
++    <userTask id="Task_TutorApprove" name="Подтвердить бронь в кабинете">
++      <incoming>F_04</incoming>
++      <outgoing>F_05</outgoing>
++    </userTask>
++    <exclusiveGateway id="GW_ApprovalMerge">
++      <incoming>F_03</incoming>
++      <incoming>F_05</incoming>
++      <outgoing>F_06</outgoing>
++    </exclusiveGateway>
++    <serviceTask id="Task_ConfirmBooking" name="Подтвердить бронь">
++      <incoming>F_06</incoming>
++      <outgoing>F_07</outgoing>
++    </serviceTask>
++    <sendTask id="Task_SendConfirmations" name="Отправить письмо о брони ученику и репетитору">
++      <incoming>F_07</incoming>
++      <outgoing>F_08</outgoing>
++    </sendTask>
++
++    <inclusiveGateway id="GW_PostSplit" name="Какие действия нужны?" default="F_33">
++      <incoming>F_08</incoming>
++      <outgoing>F_30</outgoing>
++      <outgoing>F_31</outgoing>
++      <outgoing>F_33</outgoing>
++    </inclusiveGateway>
++    <sendTask id="Task_SendNewbieGuide" name="Отправить памятку новичка">
++      <incoming>F_30</incoming>
++      <outgoing>F_32</outgoing>
++    </sendTask>
++    <serviceTask id="Task_RedeemPromo" name="Погасить промокод">
++      <incoming>F_31</incoming>
++      <outgoing>F_34</outgoing>
++    </serviceTask>
++    <inclusiveGateway id="GW_PostJoin">
++      <incoming>F_32</incoming>
++      <incoming>F_34</incoming>
++      <incoming>F_33</incoming>
++      <outgoing>F_09</outgoing>
++    </inclusiveGateway>
++    <endEvent id="End_Confirmed" name="Бронь подтверждена">
++      <incoming>F_09</incoming>
++    </endEvent>
++
++    <sequenceFlow id="F_01" sourceRef="Start_Book" targetRef="Sub_HoldAndPay"/>
++    <sequenceFlow id="F_02" sourceRef="Sub_HoldAndPay" targetRef="GW_NeedTutorApproval"/>
++    <sequenceFlow id="F_03" name="цена ≤ 3 000 ₽" sourceRef="GW_NeedTutorApproval" targetRef="GW_ApprovalMerge"/>
++    <sequenceFlow id="F_04" name="цена &gt; 3 000 ₽" sourceRef="GW_NeedTutorApproval" targetRef="Task_TutorApprove">
++      <conditionExpression xsi:type="tFormalExpression">lesson.price &gt; 3000</conditionExpression>
++    </sequenceFlow>
++    <sequenceFlow id="F_05" sourceRef="Task_TutorApprove" targetRef="GW_ApprovalMerge"/>
++    <sequenceFlow id="F_06" sourceRef="GW_ApprovalMerge" targetRef="Task_ConfirmBooking"/>
++    <sequenceFlow id="F_07" sourceRef="Task_ConfirmBooking" targetRef="Task_SendConfirmations"/>
++    <sequenceFlow id="F_08" sourceRef="Task_SendConfirmations" targetRef="GW_PostSplit"/>
++    <sequenceFlow id="F_30" name="первый урок ученика" sourceRef="GW_PostSplit" targetRef="Task_SendNewbieGuide">
++      <conditionExpression xsi:type="tFormalExpression">student.isFirstLesson</conditionExpression>
++    </sequenceFlow>
++    <sequenceFlow id="F_31" name="в брони есть промокод" sourceRef="GW_PostSplit" targetRef="Task_RedeemPromo">
++      <conditionExpression xsi:type="tFormalExpression">booking.promoCode != null</conditionExpression>
++    </sequenceFlow>
++    <sequenceFlow id="F_33" name="ни то, ни другое" sourceRef="GW_PostSplit" targetRef="GW_PostJoin"/>
++    <sequenceFlow id="F_32" sourceRef="Task_SendNewbieGuide" targetRef="GW_PostJoin"/>
++    <sequenceFlow id="F_34" sourceRef="Task_RedeemPromo" targetRef="GW_PostJoin"/>
++    <sequenceFlow id="F_09" sourceRef="GW_PostJoin" targetRef="End_Confirmed"/>
++
++    <sequenceFlow id="F_10" sourceRef="Boundary_HoldTimeout" targetRef="Task_ReleaseHoldTimeout"/>
++    <sequenceFlow id="F_11" sourceRef="Task_ReleaseHoldTimeout" targetRef="Task_NotifyTimeout"/>
++    <sequenceFlow id="F_12" sourceRef="Task_NotifyTimeout" targetRef="End_Timeout"/>
++    <sequenceFlow id="F_20" sourceRef="Boundary_PaymentError" targetRef="Task_ReleaseHoldError"/>
++    <sequenceFlow id="F_21" sourceRef="Task_ReleaseHoldError" targetRef="Task_NotifyPayFailed"/>
++    <sequenceFlow id="F_22" sourceRef="Task_NotifyPayFailed" targetRef="End_PayFailed"/>
++  </process>
++</definitions>
+diff --git a/docs/process/booking.md b/docs/process/booking.md
+new file mode 100644
+index 0000000..cd07e13
+--- /dev/null
++++ b/docs/process/booking.md
+@@ -0,0 +1,116 @@
++# Бронирование урока (TO-BE)
++
++Задача: CM-40. Модель: [`booking.bpmn`](booking.bpmn) (BPMN 2.0 XML, без DI). Источник: `booking-notes.md` (обсуждение 2026-10-11).
++Это целевая модель (TO-BE); текущая реализация не описывается и с ней не сверялась.
++
++## Overview
++
++- **Цель:** закрепить за учеником слот репетитора на урок с оплатой.
++- **Trigger:** ученик выбрал слот и нажал «Забронировать» (message start event).
++- **Исходы (три конца):** бронь подтверждена; холд снят по тайм-ауту; оплата не прошла.
++- **Частота, SLA:** в источнике не указаны (см. «Открытые вопросы»). Единственное временное требование: холд живёт 15 минут.
++
++## Участники
++
++| Участник | Роль в модели |
++|---|---|
++| Ученик | Инициирует бронь; получает сообщения о тайм-ауте, ошибке оплаты, подтверждении, памятку новичка. Свёрнутый pool. |
++| Платформа Classmate | Основной процесс (pool, lane «Платформа»): холд, запрос оплаты, подтверждение, уведомления, погашение промокода. |
++| Репетитор | Получает уведомления (свёрнутый pool). Ручное подтверждение брони делает в кабинете - user task в lane «Кабинет репетитора» внутри pool платформы. |
++| PayFlow | Платёжный провайдер (свёрнутый pool): принимает запрос оплаты, присылает результат запроса и подтверждение оплаты. |
++
++## Ход процесса (happy path)
++
++1. Ученик жмёт «Забронировать» - процесс стартует.
++2. Начинается подпроцесс «Удержать слот и получить оплату», на нём висит таймер 15 минут (отсчёт от входа в подпроцесс, то есть от постановки холда).
++3. Платформа ставит холд на слот.
++4. Параллельно (AND):
++   - а) запрос оплаты у PayFlow и получение результата запроса;
++   - б) уведомление репетитору «слот на удержании».
++   Ветки друг друга не ждут, но дальше процесс идёт, только когда выполнены обе (AND-join).
++5. Платформа ждёт подтверждение оплаты от PayFlow (receive task). Подтверждение пришло - подпроцесс завершён, таймер снят.
++6. Если урок дороже 3 000 ₽ - репетитор подтверждает бронь вручную в кабинете; иначе шаг пропускается.
++7. Платформа подтверждает бронь.
++8. Ученику и репетитору уходит письмо о подтверждённой брони.
++9. Постдействия (OR-gateway, выполняются независимо): памятка новичка, если это первый урок ученика; погашение промокода, если он есть в брони; ни одного, если условий нет.
++10. Конец: «Бронь подтверждена».
++
++## Условия на ветках
++
++| Gateway / элемент | Ветка | Условие |
++|---|---|---|
++| Запрос оплаты принят? (XOR, внутри подпроцесса) | принят (default) | PayFlow принял запрос |
++| | ошибка | PayFlow ответил ошибкой на запрос оплаты -> error end event, перехватывается на границе подпроцесса |
++| Урок дороже 3 000 ₽? (XOR) | ручное подтверждение | `lesson.price > 3000` |
++| | default | цена ≤ 3 000 ₽ (ровно 3 000 ₽ - без ручного подтверждения, т.к. «дороже») |
++| Какие действия нужны? (OR) | памятка новичка | первый урок ученика |
++| | погасить промокод | в брони есть промокод |
++| | default | ни то, ни другое - сразу к OR-join |
++| Boundary timer (interrupting) | тайм-аут | прошло 15 минут (`PT15M`) с постановки холда, подтверждение оплаты не получено |
++| Boundary error (interrupting) | ошибка оплаты | PayFlow вернул ошибку на запрос оплаты |
++
++Условия - в терминах предметной области; имена полей (`lesson.price`, `student.isFirstLesson`, `booking.promoCode`) - условные, реализация их уточнит.
++
++## Исключения
++
++- **Тайм-аут (15 минут без подтверждения оплаты).** Прерывающий таймер отменяет подпроцесс (включая ещё не завершённые ветки) -> холд снимается, слот снова свободен -> ученику «время на оплату вышло» -> конец «Холд снят по тайм-ауту».
++- **Ошибка PayFlow на запрос оплаты.** Холд снимается сразу (не дожидаясь 15 минут), параллельная ветка уведомления отменяется -> ученику «оплата не прошла, попробуйте ещё раз» -> конец «Оплата не прошла».
++
++## Что видит ученик
++
++- Нажал «Забронировать» - слот закреплён за ним на 15 минут (холд).
++- Оплата не прошла - сразу сообщение «оплата не прошла, попробуйте ещё раз»; слот свободен.
++- Не оплатил за 15 минут - «время на оплату вышло»; слот свободен.
++- Оплатил, урок дороже 3 000 ₽ - ждёт подтверждения репетитора; в источнике не сказано, что ученик видит в это время (см. вопросы).
++- Бронь подтверждена - письмо; первому уроку - ещё памятка новичка.
++
++## Бизнес-правила
++
++- Холд слота - 15 минут.
++- Бронь подтверждается только после того, как выполнены запрос оплаты и уведомление репетитора, и получено подтверждение оплаты.
++- Ручное подтверждение репетитором - только для уроков дороже 3 000 ₽.
++- Памятка новичка и погашение промокода независимы и не блокируют друг друга.
++
++## Допущения, принятые при моделировании
++
++- Таймер 15 минут отсчитывается от постановки холда, а не от запроса оплаты (заметки: «истекут 15 минут холда»); разница - доли секунды.
++- Ответ PayFlow на запрос оплаты (принят / ошибка) и последующее подтверждение оплаты - два отдельных сообщения; ошибка приходит как ответ на запрос.
++- Ручное подтверждение ждёт репетитора без собственного таймера и без ветки «отказ»: в источнике их нет. Таймер холда на этот шаг не действует, так как подпроцесс к этому моменту завершён.
++- Письмо о подтверждении - одна задача с двумя адресатами.
++- Холд после подтверждения оплаты переходит в подтверждённую бронь (отдельного шага снятия холда нет).
++
++## Открытые вопросы (источник молчит; ответ нужен владельцу продукта)
++
++1. Репетитор не подтвердил бронь (урок > 3 000 ₽) или отказал: есть ли тайм-аут и ветка отказа? Что тогда с уже полученной оплатой (возврат) и что видит ученик? Сейчас шаг может ждать бесконечно.
++2. Подтверждение оплаты пришло после снятия холда по тайм-ауту (или после ошибки): возвращать деньги автоматически? Сейчас модель такое сообщение не обрабатывает.
++3. Что делать, если слот к моменту подтверждения оплаты недоступен по иной причине (репетитор закрыл расписание)?
++4. Требования к производительности и частоте процесса не заданы.
++5. Что делать, если промокод не удалось погасить или письмо не отправилось (ретраи, компенсация)?
++
++## Валидация
++
++**Структурная (счётом по модели).** Всего 32 узла (21 во внешнем процессе + 11 в подпроцессе), меньше порога 50 - декомпозиция подпроцессом уже есть.
++
++Пути от start до end:
++- Внутри подпроцесса: 1) Start -> холд -> AND-split -> запрос -> результат -> XOR(принят) -> AND-join (и ветка уведомления) -> ожидание подтверждения -> End «Оплата подтверждена»; 2) то же до XOR(ошибка) -> error end.
++- Внешний процесс:
++  1. Start -> подпроцесс -> цена ≤ 3 000 -> подтверждение -> письма -> OR (ни то, ни другое) -> End «Бронь подтверждена»;
++  2-4. то же, с памяткой / с промокодом / с обоими;
++  5-8. то же через ручное подтверждение (цена > 3 000) -> те же четыре варианта OR. Эти 8 вариантов приходят в единственный End «Бронь подтверждена».
++  9. Start -> подпроцесс -> boundary timer -> снять холд -> сообщение -> End «Холд снят по тайм-ауту».
++  10. Start -> подпроцесс -> boundary error -> снять холд -> сообщение -> End «Оплата не прошла».
++  Итого 10 путей, все достигают end event; тупиков нет.
++
++Баланс gateway:
++- AND-split (`GW_ParSplit`, 2 исходящих) - AND-join (`GW_ParJoin`, 2 входящих): сбалансирован. Ветка ошибки уходит из XOR до join, но завершает весь подпроцесс error end event, поэтому застрявших токенов нет.
++- XOR `GW_RequestOk` (2 исходящих): одна ветка идёт в join, вторая - в error end; слияния нет, обе ветки завершаются (в первом случае - в конце подпроцесса).
++- XOR `GW_NeedTutorApproval` - XOR `GW_ApprovalMerge`: сбалансирован, у split есть default.
++- OR `GW_PostSplit` (3 исходящих, есть default) - OR `GW_PostJoin` (3 входящих): сбалансирован.
++
++Элементы без входящей или исходящей связи: **пусто** (кроме start без входящих и end без исходящих; boundary events имеют исходящие и привязаны к подпроцессу).
++
++**Полнота.** Исключения: тайм-аут и ошибка PayFlow покрыты; пробелы (отказ/неответ репетитора, поздняя оплата) вынесены в открытые вопросы, а не достроены догадкой. Бизнес-правила: 15 минут - `Boundary_HoldTimeout`; порог 3 000 ₽ - `GW_NeedTutorApproval`; оба действия перед подтверждением - `GW_ParSplit`/`GW_ParJoin`; памятка и промокод - `GW_PostSplit`.
++
++**Ясность.** Задачи названы глагол + существительное; все условные ветки подписаны (см. таблицу условий).
++
++**Реализуемость.** Service/send task - вызов API или сообщение в очередь уведомлений (ADR-0002); send/receive с PayFlow - запрос и вебхук/ответ провайдера (ADR-0001); user task - экран подтверждения в кабинете репетитора; boundary timer - планировщик на 15 минут.
