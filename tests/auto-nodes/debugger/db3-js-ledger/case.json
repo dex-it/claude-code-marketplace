@@ -1,0 +1,21 @@
+{
+  "task": "BUG-13",
+  "stack": "ts",
+  "goal": "счёт inv-7 на 4,35 оплачен платежом из выписки `inv-7;2026-03-04;4,35`, а statusOf даёт partial и остаток 0,01: statusLine - «inv-7: partial, остаток 0,01».",
+  "expected": "оплаченный счёт: остаток 0, статус paid; сумма платежей совпадает с выпиской до копейки (README, Оплата и Сверка с банком)",
+  "done": "счёт на 4,35 с платежом 4,35 из выписки - paid, остаток 0,00; npm test зелёный; правка закоммичена локально.",
+  "boundary": "только этот репозиторий; зависимостей не добавлять",
+  "source": "README.md",
+  "test_cmd": "npm test",
+  "build_cmd": "",
+  "cause": { "file": "src/bank/import.js", "lines": [2, 4], "what": "parseAmount отбрасывает дробную часть копейки через Math.trunc(x * 100): 4.35 * 100 = 434.99999999999994, платёж записывается как 434 - копейка теряется при разборе выписки, ещё до ledger" },
+  "decoys": [
+    { "file": "src/ledger.js", "lines": [21, 25], "what": "statusOf со строгим rest === 0 - место, где симптом виден; допуск в 1 копейку из docs/known-issues.md скрывает status, но не остаток и не сверку с банком" },
+    { "file": "src/report.js", "lines": [4, 6], "what": "statusLine печатает остаток 0,01 - место вывода симптома" },
+    { "file": "src/summary.js", "lines": [4, 11], "what": "summary().paid занижена на ту же копейку - второй путь симптома, допуск в statusOf его не чинит" }
+  ],
+  "score": {
+    "tests_cmd": "node --test --test-reporter=tap",
+    "fail_re": "^not ok \\d+ - (.+)$"
+  }
+}

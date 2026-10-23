@@ -69,7 +69,7 @@ skills:
 
 **Exit criteria:** перечислены домен-элементы и релевантные `Accepted` ADR, затронутые дельтой, либо явная пометка «дельта домена не касается».
 
-Загрузи `dex-skill-codebase-conventions:codebase-conventions` (включает ось ADR: находка в дельте против `Accepted` ADR - осознанный trade-off, не дефект; читать актуальный в supersede-цепочке).
+Загрузи `dex-skill-codebase-conventions:codebase-conventions` (свод правил).
 
 ## Phase 3: New Findings Hunt
 

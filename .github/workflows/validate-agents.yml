@@ -93,6 +93,12 @@ jobs:
       - name: Test validator rules
         run: node tools/test-rules.js all
 
+      # Имя `к вытеснению` в тексте каталога: ось «Терминология» ревью ловит его
+      # на LLM-проходе, а ручной добив остатка за один PR пропускал своё дважды.
+      # Перечень читается из индекса, поэтому шаг стоит рядом с проверкой его синхронности.
+      - name: Validate ousted names
+        run: node tools/validate-terminology.js all
+
       # Стартовый индекс имён генерируется из словаря: правка словаря без
       # перегенерации даёт индекс, который расходится с домом молча.
       - name: Check terminology index in sync

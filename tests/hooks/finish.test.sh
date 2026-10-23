@@ -34,6 +34,8 @@ check "$("$L" trail BUG-1 feature | grep -c '')" "2" "trail: строки исп
 check "$("$L" trail BUG-1 review)" "" "trail: файла трека нет -> пусто"
 check "$("$L" decisions BUG-1 feature | grep -c '^- R3: выбран split по дефису$')" "1" "decisions: строки Решений файла трека"
 check "$("$L" decisions BUG-1 review)" "" "decisions: файла трека нет -> пусто"
+check "$("$L" decisions BUG-1 feature | grep -c 'degraded')" "0" "decisions: строки degraded не выдаются как решения (#352)"
+check "$(grep -c '^- degraded: верификатор' "$f")" "1" "decisions: degraded остаётся в файле трека (#352)"
 
 "$L" open PR-7 >/dev/null
 # без кавычек намеренно: это та форма, которую читает модель в usage и в auto.md
@@ -43,6 +45,8 @@ check "$(grep -c '^track=review-delta$' "$f")" "1" "finish: review-delta -> фа
 check "$(grep -c '^Статус: открыт$' "$f")" "1" "finish: partial -> трек открыт"
 check "$(grep -c '^- F7 dropped src/a.ts:10: закрыто коммитом abc$' "$f")" "1" "finish: снятая скептиком находка заведена в реестр со статусом dropped"
 check "$(grep -c '^- вопрос автору: зачем retry 5?$' "$f")" "1" "finish: questions в Решения"
+check "$("$L" decisions PR-7 review | grep -c 'вопрос автору')" "0" "decisions: строка «вопрос автору» не выдаётся как решение (#352)"
+check "$(grep -c '^- вопрос автору: зачем retry 5?$' "$f")" "1" "decisions: вопрос автору остаётся в файле трека (#352)"
 check "$(grep -c '^- F2 open \[P1\] src/b.ts:3: нет проверки$' "$f")" "1" "finish: незакрытая прежняя в Открытые находки с id реестра"
 check "$(grep -c '^- F1 unverified \[P0\] src/d.ts:1: IDOR$' "$f")" "1" "finish: непроверенные claims в Открытые находки"
 check "$(grep -c '^- F3 closed \[P2\] src/c.ts:5: поле убрано$' "$f")" "1" "finish: закрытая прежняя - в Снято в прогоне"
@@ -131,6 +135,30 @@ check "$("$L" get T-3 Исход)" "blocked" "finish: blocked -> Исход bloc
 "$F" T-3 bugfix blocked <<< '{"missing":"нет доступа\r\nСтатус: закрыт"}' >/dev/null
 check "$("$L" get T-3 Нехватка)" "нет доступа; Статус: закрыт" "finish: перевод строки нехватки сведён к '; ' (ledger.md T5)"
 check "$("$L" get T-3 Статус)" "открыт" "finish: строка нехватки не стала полем шапки"
+
+"$L" open G-1 >/dev/null
+"$L" set G-1 Исход blocked >/dev/null; "$L" set G-1 Нехватка "открыт трек 01-bugfix.md: продолжить его либо сдать исход" >/dev/null
+check "$("$L" get G-1 "Нехватка трека")" "" "нехватка гейта auto.md (set) не попадает в «Нехватка трека»: prior_missing её не подаёт"
+"$F" G-1 feature blocked <<< '{"status":"blocked","where":"Fix#1","missing":"R3 не реализовано"}' >/dev/null
+check "$("$L" get G-1 "Нехватка трека")" "R3 не реализовано" "finish: blocked из возврата трека -> «Нехватка трека»"
+check "$("$L" get G-1 Нехватка)" "R3 не реализовано" "finish: blocked из возврата трека -> и Нехватка (сторож Stop читает её)"
+"$L" set G-1 Нехватка "цель начата до 9.0.0 в дереве /w: повторить" >/dev/null
+check "$("$L" get G-1 "Нехватка трека")" "R3 не реализовано" "гейт после прогона трека «Нехватку трека» не трогает"
+"$F" G-1 feature blocked "возврат Workflow не получен: 15 минут без записи прогона" <<< '{}' >/dev/null
+check "$("$L" get G-1 "Нехватка трека")" "R3 не реализовано" "finish: blocked с аргументом нехватки (таймаут, null узла) «Нехватку трека» не пишет и не снимает"
+check "$("$L" get G-1 Нехватка)" "возврат Workflow не получен: 15 минут без записи прогона" "finish: blocked с аргументом -> Нехватка по-прежнему его"
+# Сбой узла внутри трека (lack(v, who): верификатор не вернул выход): трек помечает его node_failure, и это не нехватка трека.
+"$F" G-1 feature blocked <<< '{"status":"blocked","where":"Implement#1: верификация","missing":"верификатор не вернул выход","node_failure":true}' >/dev/null
+check "$("$L" get G-1 "Нехватка трека")" "R3 не реализовано" "finish: blocked с node_failure «Нехватку трека» не пишет и не снимает"
+check "$("$L" get G-1 Нехватка)" "верификатор не вернул выход" "finish: blocked с node_failure -> Нехватка (сторож Stop) его"
+"$F" G-1 feature partial <<< '{"status":"partial","trail":[{"step":3}]}' >/dev/null
+check "$("$L" get G-1 "Нехватка трека")" "" "finish: partial снимает «Нехватку трека»"
+"$F" G-1 feature blocked <<< '{"status":"blocked","where":"Implement#1","missing":"узел-кодер не вернул выход","node_failure":true}' >/dev/null
+check "$("$L" get G-1 "Нехватка трека")" "" "finish: сбой узла при пустой «Нехватке трека» её не заводит (продолжить не запустит кодера)"
+"$F" G-1 feature blocked <<< '{"where":"Fix#2"}' >/dev/null
+check "$("$L" get G-1 "Нехватка трека")" "узел не вернул выход, шаг Fix#2" "finish: blocked возвратом без missing -> «Нехватка трека» - шаг where"
+"$F" G-1 feature complete <<< '{"status":"complete","trail":[{"step":3}]}' >/dev/null
+check "$("$L" get G-1 "Нехватка трека")" "" "finish: complete снимает «Нехватку трека»"
 
 "$L" open C-5 >/dev/null
 "$F" C-5 feature partial <<< '{"loops":{"fix":1},"ctx":{"stack":"ts","test_cmd":"npm test","requirements":["R1 поле"]}}' >/dev/null

@@ -1,0 +1,2 @@
+services/catalog/src/Meridian.Catalog/Infrastructure/Pricing/CachedTariffSource.cs:29 - ответ Pricing кэшируется без проверки на пустоту: пустой список тарифов (Pricing отдал `[]`) закрепится на весь TTL до 5 минут, и каталог будет без тарифов, хотя следующий запрос мог бы получить нормальный ответ - minor
+services/catalog/src/Meridian.Catalog/Infrastructure/Pricing/CachedTariffSource.cs:30 - в общем кэше лежит изменяемый массив под видом IReadOnlyList<Tariff>; любой потребитель, приведший его к Tariff[], изменит данные для всех запросов процесса до истечения TTL - minor

@@ -75,8 +75,11 @@ def main(argv):
         for line in dx.section(dx.track_file(args[0], args[1]), "### Исполнители"):
             print(line)
     elif cmd == "decisions":
+        # В разделе «Решения» лежат ещё сведения прогона (degraded) и вопросы автору: решениями они не являются, и под заголовком
+        # «Решения по цели» открытый вопрос читался бы как принятый ответ; в файле трека они остаются.
         for line in dx.section(dx.track_file(args[0], args[1]), "### Решения"):
-            print(line)
+            if not line.startswith(("- degraded:", "- вопрос автору:")):
+                print(line)
     elif cmd == "findings":
         try:
             found = dx.open_findings(dx.findings_file(args[0], args[1]), dx.track_file(args[0], args[1]))

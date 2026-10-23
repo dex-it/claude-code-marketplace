@@ -1,0 +1,1 @@
+services/catalog/src/Meridian.Catalog/Infrastructure/Pricing/CachedTariffSource.cs:20 - при истечении TTL (и на холодном старте) все параллельные запросы одновременно промахиваются мимо кэша и идут в медленный Pricing, так как нет single-flight (SemaphoreSlim/GetOrCreateAsync с блокировкой); пик нагрузки на Pricing возвращается ровно в момент протухания - minor

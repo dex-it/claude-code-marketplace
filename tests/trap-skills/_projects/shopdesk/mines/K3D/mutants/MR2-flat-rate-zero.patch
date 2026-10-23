@@ -1,0 +1,13 @@
+diff --git a/api/src/services/checkout.ts b/api/src/services/checkout.ts
+index 08fb345..6a6b780 100644
+--- a/api/src/services/checkout.ts
++++ b/api/src/services/checkout.ts
+@@ -4,7 +4,7 @@ import { logger } from '../logger.js';
+ import { applyPromo } from './promo.js';
+ 
+ const GRAMS_PER_UNIT = 500;
+-const FLAT_DELIVERY_KOPECKS = 29_900;
++const FLAT_DELIVERY_KOPECKS = 0;
+ export const MAX_ATTEMPTS_PER_CUSTOMER = 3;
+ 
+ export interface OrderQuote {

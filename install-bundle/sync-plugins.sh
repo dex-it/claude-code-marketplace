@@ -19,7 +19,15 @@
 # "something new appeared" is a manual decision. It does NOT touch versions
 # (update is a separate manual op via the marketplace).
 #
+# Third edge, report only: an INSTALLED plugin of this marketplace that the
+# catalogue (.claude-plugin/marketplace.json of this clone) no longer lists was
+# removed or renamed upstream. Installers never remove anything, so it keeps
+# loading by name, with no error. Listed with the uninstall command; never
+# removed by --fix (removal is a manual decision, the replacement is in the
+# "Renamed and removed plugins" table of install-bundle/README.md).
+#
 # Requires: jq, claude CLI. Run from a clone of the marketplace repo.
+# Runs on the stock macOS /bin/bash 3.2: no associative arrays, no mapfile.
 #
 # Usage:
 #   ./sync-plugins.sh            # report drift only
@@ -83,6 +91,7 @@ check_dependencies() {
   command -v jq >/dev/null 2>&1     || { print_error "jq not found"; exit 1; }
   command -v claude >/dev/null 2>&1 || { print_error "claude CLI not found"; exit 1; }
   [ -d "$SPECIALISTS_DIR" ]         || { print_error "Not in a marketplace clone: $SPECIALISTS_DIR missing"; exit 1; }
+  [ -f "$MARKETPLACE_JSON" ]        || { print_error "Not in a marketplace clone: $MARKETPLACE_JSON missing"; exit 1; }
 }
 
 is_by_stack() {
@@ -104,6 +113,21 @@ installed_plugins() {
     | jq -r --arg m "@$MARKETPLACE_NAME" \
         '.[] | select((.id|endswith($m)) and (.enabled != false)) | .id | sub("@.*";"")' \
     | sort -u
+}
+
+# Installed plugin names ($1, one per line) that the catalogue of this clone no
+# longer declares, one per line. Both sides sorted in the C locale so comm(1)
+# sees a consistent order.
+orphaned_plugins() {
+  local installed="$1"
+  LC_ALL=C comm -23 \
+    <(printf '%s\n' "$installed" | LC_ALL=C sort -u) \
+    <(jq -r '.plugins[].name' "$MARKETPLACE_JSON" | LC_ALL=C sort -u)
+}
+
+# Number of non-empty lines in $1.
+count_lines() {
+  printf '%s\n' "$1" | awk 'NF{n++} END{print n+0}'
 }
 
 # Path to a specialist plugin's agents/ dir in the repo, or empty.
@@ -150,13 +174,13 @@ main() {
   print_header "  Plugin Sync - protecting installed agents/commands from skill degradation"
   echo ""
 
-  local installed missing_total=0 plugins_checked=0
+  local installed missing_total=0 plugins_checked=0 orphans orphan_total=0
   installed=$(installed_plugins)
   [ -z "$installed" ] && { print_warning "No installed plugins from $MARKETPLACE_NAME found."; exit 0; }
 
-  # collect all unique missing skills across installed agents/commands
-  local -A MISSING=()      # skill -> "plugin1 plugin2"
-  local -A MISSING_EXEC=() # specialist -> "plugin1 plugin2"
+  # collect all missing skills / executors across installed agents/commands as
+  # "<missing> <needing plugin>" lines (no associative arrays: bash 3.2)
+  local MISSING="" MISSING_EXEC=""
   local installed_set=" $(echo "$installed" | tr '\n' ' ') "
 
   while read -r plugin; do
@@ -173,14 +197,14 @@ main() {
       is_by_stack "$skill" && continue
       case "$installed_set" in *" $skill "*) continue ;; esac   # already installed
       plugin_missing="$plugin_missing $skill"
-      MISSING["$skill"]="${MISSING[$skill]:-}$plugin "
+      MISSING="${MISSING}${skill} ${plugin}"$'\n'
     done < <( { [ -n "$agents_dir" ] && skills_loaded_by "$agents_dir"; [ -n "$commands_dir" ] && skills_loaded_by "$commands_dir"; } | sort -u )
 
     while read -r exec_plugin; do
       [ -z "$exec_plugin" ] && continue
       [ "$exec_plugin" = "$plugin" ] && continue
       case "$installed_set" in *" $exec_plugin "*) continue ;; esac
-      MISSING_EXEC["$exec_plugin"]="${MISSING_EXEC[$exec_plugin]:-}$plugin "
+      MISSING_EXEC="${MISSING_EXEC}${exec_plugin} ${plugin}"$'\n'
     done < <( { [ -n "$agents_dir" ] && specialists_named_by "$agents_dir"; [ -n "$commands_dir" ] && specialists_named_by "$commands_dir"; } | sort -u )
 
     if [ "$VERBOSE" = true ] && [ -n "$plugin_missing" ]; then
@@ -191,36 +215,58 @@ main() {
 
   # Executor edge is reported, never auto-installed: pulling in a new agent is a
   # deliberate decision, and --fix must stay a skill-only operation.
-  local execs=("${!MISSING_EXEC[@]}")
-  if [ "${#execs[@]}" -gt 0 ]; then
+  local execs exec_total e
+  execs=$(printf '%s' "$MISSING_EXEC" | awk 'NF{print $1}' | sort -u)
+  exec_total=$(count_lines "$execs")
+  if [ "$exec_total" -gt 0 ]; then
     echo ""
-    print_warning "  Missing executors (named by installed agents/commands, not installed): ${#execs[@]}"
-    for e in $(printf '%s\n' "${execs[@]}" | sort); do
+    print_warning "  Missing executors (named by installed agents/commands, not installed): $exec_total"
+    for e in $execs; do
       print_info "    $e"
-      print_dim  "        named by: $(echo "${MISSING_EXEC[$e]}" | tr ' ' '\n' | sort -u | tr '\n' ' ')"
+      print_dim  "        named by: $(printf '%s' "$MISSING_EXEC" | awk -v n="$e" '$1==n{print $2}' | sort -u | tr '\n' ' ')"
       print_dim  "        install:  claude plugins install ${e}@${MARKETPLACE_NAME}"
     done
     print_dim "  Not installed by --fix: adding an agent is a manual decision."
   fi
 
-  local skills=("${!MISSING[@]}")
-  missing_total=${#skills[@]}
+  # Orphan edge, report only: installed here, no longer declared by the catalogue.
+  orphans=$(orphaned_plugins "$installed")
+  orphan_total=$(count_lines "$orphans")
+  if [ "$orphan_total" -gt 0 ]; then
+    echo ""
+    print_warning "  Installed but no longer in the catalogue (removed or renamed upstream): $orphan_total"
+    for e in $orphans; do
+      print_info "    $e"
+      print_dim  "        remove:  claude plugins uninstall ${e}@${MARKETPLACE_NAME}"
+    done
+    print_dim "  Not removed by --fix: look the name up in \"Renamed and removed plugins\" in install-bundle/README.md"
+    print_dim "  for the replacement. If this clone is behind the marketplace, git pull first - a plugin"
+    print_dim "  added after your clone's last update would be listed here as well."
+  fi
+
+  local skills skill
+  skills=$(printf '%s' "$MISSING" | awk 'NF{print $1}' | sort -u)
+  missing_total=$(count_lines "$skills")
 
   echo ""
   print_dim "  Installed agents/commands checked: $plugins_checked"
   if [ "$missing_total" -eq 0 ]; then
-    if [ "${#execs[@]}" -eq 0 ]; then
-      print_success "  All installed agents/commands are closed over their skills and executors - no drift."
+    if [ "$exec_total" -eq 0 ] && [ "$orphan_total" -eq 0 ]; then
+      print_success "  All installed agents/commands are closed over their skills and executors, and every installed plugin is still in the catalogue - no drift."
       exit 0
     fi
-    print_success "  All installed agents/commands are closed over their skills; executors above are not."
+    if [ "$exec_total" -eq 0 ]; then
+      print_success "  All installed agents/commands are closed over their skills and executors; orphaned plugins above are not."
+    else
+      print_success "  All installed agents/commands are closed over their skills; executors above are not."
+    fi
     exit 0
   fi
 
   print_warning "  Missing skills (loaded by installed agents/commands, not installed): $missing_total"
-  for skill in $(printf '%s\n' "${skills[@]}" | sort); do
+  for skill in $skills; do
     print_info "    $skill"
-    print_dim  "        needed by: $(echo "${MISSING[$skill]}" | tr ' ' '\n' | sort -u | tr '\n' ' ')"
+    print_dim  "        needed by: $(printf '%s' "$MISSING" | awk -v n="$skill" '$1==n{print $2}' | sort -u | tr '\n' ' ')"
   done
   echo ""
 
@@ -231,7 +277,7 @@ main() {
 
   print_header "  Installing missing skills..."
   local ok=0 fail=0
-  for skill in $(printf '%s\n' "${skills[@]}" | sort); do
+  for skill in $skills; do
     # only install if declared in marketplace.json (else CLI errors)
     if ! jq -e --arg n "$skill" '.plugins[]|select(.name==$n)' "$MARKETPLACE_JSON" >/dev/null 2>&1; then
       print_error "    ✗ $skill - not declared in marketplace.json, skipping"

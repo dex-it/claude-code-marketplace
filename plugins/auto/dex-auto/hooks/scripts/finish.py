@@ -13,6 +13,7 @@ USAGE = ("usage: finish.sh TASK feature|bugfix|review|review-delta complete|part
          "[НЕХВАТКА] < return.json")
 TRACKS = ("feature", "bugfix", "review", "review-delta")
 OUTCOMES = ("complete", "partial", "blocked")
+TRACK_LACK = "Нехватка трека"
 
 
 def die(message, code):
@@ -176,16 +177,24 @@ def main(argv):
         fh.write("\n## Прогон %s (%s, исход %s)\n\n" % (number, stamp, outcome))
         fh.write("\n".join(run_section(data, state, changed)) + "\n")
 
+    # «Нехватка» - последняя остановка цели, её пишут и гейты auto.md (set). «Нехватка трека» - только то, чего не довёл прогон
+    # трека: её и подаёт «продолжить» как prior_missing, а непустая она запускает попытку кодера даже на зелёном дереве.
     if outcome == "complete":
         dx.set_key(goal, "Исход", "complete")
         dx.set_key(goal, "Статус", "закрыт")
+        dx.set_key(goal, TRACK_LACK, "")
     elif outcome == "partial":
         dx.set_key(goal, "Исход", "partial")
         # Нехватка прошлого blocked-прогона закрыта этим: иначе «продолжить» вечно подавало бы её как prior_missing.
         dx.set_key(goal, "Нехватка", "")
+        dx.set_key(goal, TRACK_LACK, "")
     else:
         dx.set_key(goal, "Исход", "blocked")
         dx.set_key(goal, "Нехватка", lack_of(data, lack))
+        # Нехватку с аргументом (таймаут Workflow, null узла) и сбой узла внутри трека (node_failure) прогон трека не называл:
+        # поле трека они не пишут и не снимают, иначе «продолжить» запустит кодера на зелёном дереве.
+        if not lack and data.get("node_failure") is not True:
+            dx.set_key(goal, TRACK_LACK, lack_of(data, ""))
     dx.claim(task)
     print(path)
 

@@ -1,0 +1,313 @@
+diff --git a/PR.md b/PR.md
+new file mode 100644
+index 0000000..9e00cd7
+--- /dev/null
++++ b/PR.md
+@@ -0,0 +1,50 @@
++# Shipping: расчёт стоимости доставки (`POST /v1/shipments/{id}/quote`)
++
++Стоимость и срок запрашиваются у API перевозчика (`GET /rates`, `docs/specs/carrier-api.md`), котировка сохраняется в отправлении, сервис Orders узнаёт о ней из интеграционного события. Котировка доступна, пока отправление в статусе `Created` (не передано перевозчику); повторный запрос заменяет прежнюю; действует 24 часа.
++
++Сборки и тестов не было (из инструментов только git), код не компилировался.
++
++## Изменённые файлы
++
++Новые:
++- `libs/Meridian.Contracts/ShipmentQuotedIntegrationEvent.cs`
++- `services/shipping/src/Meridian.Shipping/Domain/ShipmentId.cs`
++- `services/shipping/src/Meridian.Shipping/Domain/ShipmentQuote.cs`
++- `services/shipping/src/Meridian.Shipping/Domain/Errors.cs`
++- `services/shipping/src/Meridian.Shipping/Infrastructure/Carriers/CarrierRatesClient.cs`
++- `services/shipping/src/Meridian.Shipping/Application/Shipments/QuoteShipmentHandler.cs`
++
++Изменённые:
++- `services/shipping/src/Meridian.Shipping/Domain/Shipment.cs` - `Quote`, `QuoteValidity`, `ApplyQuote`
++- `services/shipping/src/Meridian.Shipping/Infrastructure/Persistence/ShippingDbContext.cs` - owned-тип `Quote`
++- `services/shipping/src/Meridian.Shipping/Api/ShipmentEndpoints.cs` - эндпоинт и перевод ошибки в ProblemDetails
++- `services/shipping/src/Meridian.Shipping/Modules/ShippingModule.cs` - клиент, хендлер, `TimeProvider`
++- `services/shipping/src/Meridian.Shipping/Meridian.Shipping.csproj` - пакет `Microsoft.Extensions.Http.Resilience`
++
++## Поведение
++
++- Нет отправления: 404, `code = shipment.not_found`.
++- Статус не `Created`: 409, `code = shipment.not_quotable`.
++- Успех: 200, `{ priceMinor, currency, etaDays, expiresAt }`.
++- Сбой перевозчика (не 2xx, пустой или некорректный ответ): исключение, 500.
++
++## Технические решения
++
++1. **Новый хендлер возвращает `Result<T>`, ошибки - наследники `ShippingError`.** Источник: SHP-ADR-002 (Accepted): новый код отказ исключением не выражает. Соседи `Create/Cancel/TrackShipmentHandler` бросают исключения - это названный в ADR долг, их не копировал и не переводил (вне задачи). Тип ошибки переводится в статус в эндпоинте (404 / 409); `code` формата `<область>.<причина>` (ADR-0020, RUL-0003). Сбой перевозчика - сбой инфраструктуры, по тому же ADR остаётся исключением.
++2. **Событие `ShipmentQuotedIntegrationEvent` через `IOutbox.EnqueueAsync` и `IUnitOfWork.CommitAsync`, без `IBus`.** ADR-0021 (Accepted, заменил ADR-0009 и REC-07): запись и событие в одной единице работы. Существующие `bus.PublishAsync` в соседях - легаси, не копировал. Отдельного `SaveChangesAsync` нет: иначе изменение и событие не атомарны. Имя по RUL-0011 (суффикс `IntegrationEvent`, тип в `Meridian.Contracts`). Событие несёт идентификаторы и факты (RUL-0013): `ShipmentId`, `OrderId`, цена, срок, `ExpiresAt`.
++3. **Деньги: `long` в минорных единицах + валюта.** RUL-0009 для события и хранилища; в коде - `Money`. Десятичная цена внешнего API переводится в минорные единицы на границе, в `CarrierRatesClient`, округление `AwayFromZero`. Число знаков валюты: 0 / 3 для небольшого набора ISO 4217, иначе 2 - упрощение, при расширении списка валют вынести в общий справочник.
++4. **Время: `TimeProvider`, `DateTimeOffset`.** ADR-0012 и RUL-0007. `DateTime.UtcNow` из соседей не копировал. `TimeProvider.System` регистрируется через `TryAddSingleton`.
++5. **Исходящий HTTP: `AddHttpClient<CarrierRatesClient>().AddStandardResilienceHandler()`, цикла повторов нет.** ADR-0026 (Accepted); соседний `CarrierTrackingClient` (цикл, REC-04) и Payments (Polly, ADR-0011) - заменённые решения, им не следовал. В csproj добавлен пакет `Microsoft.Extensions.Http.Resilience` 8.10.0 (на .NET 8, ADR-0003); версию стоит сверить с принятой в команде. Пределы из `Resilience:<Клиент>` не настраивал - значения по умолчанию.
++6. **Отдельный типизированный клиент, без общего интерфейса.** SHP-ADR-001: интерфейс не вводим, пока перевозчиков меньше трёх. Клиент тракинга не расширял: другой ресурс и другой набор ответов. Базовый адрес и `CarrierOptions` общие (RUL-0021 уже соблюдён).
++7. **`ShipmentId` - `readonly record struct` в домене, `Guid.CreateVersion7()` не нужен.** ADR-0006: в новом коде нет сырого `Guid` в сигнатурах доменного слоя. Идентификатор создаётся уже существующей записью, новых id нет. `Shipment.Id` остаётся `Guid` (легаси, перевод - отдельная задача); на границе хендлер берёт `.Value`. В событии `Guid`, как в `OrderPlacedIntegrationEvent`.
++8. **Котировка - owned-запись `ShipmentQuote` внутри `Shipment`, а не отдельная таблица.** Одна актуальная котировка на отправление, повторный запрос заменяет прежнюю, история не требуется. Колонки добавляются в таблицу отправлений (nullable). Миграции только вперёд (RUL-0008); миграций в репозитории нет, не создавал.
++9. **24 часа - константа `Shipment.QuoteValidity`, а не настройка.** Это бизнес-правило из поручения, а не параметр окружения. Срок считается от `now` на момент ответа перевозчика. Проверку срока при передаче перевозчику не добавлял: `HandOver` вне поручения.
++10. **Отправление не в `Created` (в т.ч. `Cancelled`) - отказ.** Поручение: «пока не передано перевозчику»; для отменённого котировка бессмысленна. Проверка есть и в хендлере (бизнес-отказ значением), и в `ApplyQuote` (исключение для ошибки программиста, как `HandOver`).
++11. **Формат `from`/`to` для перевозчика - почтовый индекс.** Спека (`carrier-api.md`) формат не определяет; это допущение, изолированное в одном месте (`CarrierRatesClient.GetRateAsync`). Нужно подтвердить у владельцев интеграции.
++12. **Тесты не добавлял.** RUL-0016: задача их не требует.
++
++## Что не сделано / на заметку
++
++- `Program.cs` сервиса не вызывает `AddShipping()` и `MapShipments()`, нет и регистрации `ShippingDbContext`, `IUnitOfWork`, `IOutbox` - так во всех сервисах репозитория; не трогал. До их подключения эндпоинт не доступен.
++- Потребителя события в Orders нет: в Orders нет инфраструктуры потребителей. Контракт события готов; потребитель должен быть идемпотентным (RUL-0012, `EventId`).
++- Гонка с передачей перевозчику между чтением статуса и коммитом (токена конкурентности у `Shipment` нет) - не закрывал.
+diff --git a/libs/Meridian.Contracts/ShipmentQuotedIntegrationEvent.cs b/libs/Meridian.Contracts/ShipmentQuotedIntegrationEvent.cs
+new file mode 100644
+index 0000000..7a2c36a
+--- /dev/null
++++ b/libs/Meridian.Contracts/ShipmentQuotedIntegrationEvent.cs
+@@ -0,0 +1,7 @@
++using Meridian.Common.Messaging;
++
++namespace Meridian.Contracts;
++
++public sealed record ShipmentQuotedIntegrationEvent(
++    Guid ShipmentId, Guid OrderId, long PriceMinor, string Currency, int EtaDays, DateTimeOffset ExpiresAt)
++    : IntegrationEvent;
+diff --git a/services/shipping/src/Meridian.Shipping/Api/ShipmentEndpoints.cs b/services/shipping/src/Meridian.Shipping/Api/ShipmentEndpoints.cs
+index 1a40a43..b7423ed 100644
+--- a/services/shipping/src/Meridian.Shipping/Api/ShipmentEndpoints.cs
++++ b/services/shipping/src/Meridian.Shipping/Api/ShipmentEndpoints.cs
+@@ -1,4 +1,6 @@
++using Meridian.Common;
+ using Meridian.Shipping.Application.Shipments;
++using Meridian.Shipping.Domain;
+ 
+ namespace Meridian.Shipping.Api;
+ 
+@@ -26,6 +28,24 @@ public static class ShipmentEndpoints
+             return info is null ? Results.NotFound() : Results.Ok(info);
+         });
+ 
++        group.MapPost("/{id:guid}/quote", async (Guid id, QuoteShipmentHandler handler, CancellationToken ct) =>
++        {
++            var result = await handler.HandleAsync(new QuoteShipmentCommand(new ShipmentId(id)), ct);
++            return result.IsSuccess ? Results.Ok(result.Value) : ToProblem(result.Error!);
++        });
++
+         return app;
+     }
++
++    private static IResult ToProblem(MeridianError error)
++    {
++        var status = error switch
++        {
++            ShipmentNotFoundError => StatusCodes.Status404NotFound,
++            ShipmentNotQuotableError => StatusCodes.Status409Conflict,
++            _ => StatusCodes.Status400BadRequest,
++        };
++        return Results.Problem(detail: error.Message, statusCode: status,
++            extensions: new Dictionary<string, object?> { ["code"] = error.Code });
++    }
+ }
+diff --git a/services/shipping/src/Meridian.Shipping/Application/Shipments/QuoteShipmentHandler.cs b/services/shipping/src/Meridian.Shipping/Application/Shipments/QuoteShipmentHandler.cs
+new file mode 100644
+index 0000000..b6aefef
+--- /dev/null
++++ b/services/shipping/src/Meridian.Shipping/Application/Shipments/QuoteShipmentHandler.cs
+@@ -0,0 +1,35 @@
++using Meridian.Common;
++using Meridian.Common.Messaging;
++using Meridian.Common.Persistence;
++using Meridian.Contracts;
++using Meridian.Shipping.Application.Abstractions;
++using Meridian.Shipping.Domain;
++using Meridian.Shipping.Infrastructure.Carriers;
++
++namespace Meridian.Shipping.Application.Shipments;
++
++public sealed record QuoteShipmentCommand(ShipmentId ShipmentId);
++
++public sealed record QuoteShipmentResponse(long PriceMinor, string Currency, int EtaDays, DateTimeOffset ExpiresAt);
++
++public sealed class QuoteShipmentHandler(
++    IShipmentRepository shipments, CarrierRatesClient carrier, IOutbox outbox, IUnitOfWork uow, TimeProvider clock)
++{
++    public async Task<Result<QuoteShipmentResponse>> HandleAsync(QuoteShipmentCommand command, CancellationToken ct)
++    {
++        var shipment = await shipments.FindAsync(command.ShipmentId.Value, ct);
++        if (shipment is null)
++            return new ShipmentNotFoundError(command.ShipmentId);
++        if (shipment.Status != ShipmentStatus.Created)
++            return new ShipmentNotQuotableError(command.ShipmentId, shipment.Status);
++
++        var rate = await carrier.GetRateAsync(shipment.From, shipment.To, shipment.WeightGrams, ct);
++
++        var quote = shipment.ApplyQuote(rate.Price, rate.EtaDays, clock.GetUtcNow());
++        await outbox.EnqueueAsync(new ShipmentQuotedIntegrationEvent(shipment.Id, shipment.OrderId,
++            quote.PriceMinor, quote.Currency, quote.EtaDays, quote.ExpiresAt) { OccurredAt = quote.QuotedAt }, ct);
++        await uow.CommitAsync(ct);
++
++        return new QuoteShipmentResponse(quote.PriceMinor, quote.Currency, quote.EtaDays, quote.ExpiresAt);
++    }
++}
+diff --git a/services/shipping/src/Meridian.Shipping/Domain/Errors.cs b/services/shipping/src/Meridian.Shipping/Domain/Errors.cs
+new file mode 100644
+index 0000000..c10729d
+--- /dev/null
++++ b/services/shipping/src/Meridian.Shipping/Domain/Errors.cs
+@@ -0,0 +1,11 @@
++using Meridian.Common;
++
++namespace Meridian.Shipping.Domain;
++
++public abstract record ShippingError(string Code, string Message) : MeridianError(Code, Message);
++
++public sealed record ShipmentNotFoundError(ShipmentId Id)
++    : ShippingError("shipment.not_found", $"Shipment {Id.Value} not found");
++
++public sealed record ShipmentNotQuotableError(ShipmentId Id, ShipmentStatus Status)
++    : ShippingError("shipment.not_quotable", $"Shipment {Id.Value} is {Status}, quote is available only before hand-over");
+diff --git a/services/shipping/src/Meridian.Shipping/Domain/Shipment.cs b/services/shipping/src/Meridian.Shipping/Domain/Shipment.cs
+index e1d60e7..03c0b85 100644
+--- a/services/shipping/src/Meridian.Shipping/Domain/Shipment.cs
++++ b/services/shipping/src/Meridian.Shipping/Domain/Shipment.cs
+@@ -1,3 +1,5 @@
++using Meridian.Common;
++
+ namespace Meridian.Shipping.Domain;
+ 
+ public enum ShipmentStatus { Created, HandedOver, InTransit, Delivered, Cancelled }
+@@ -33,6 +35,19 @@ public sealed class Shipment
+         };
+     }
+ 
++    public static readonly TimeSpan QuoteValidity = TimeSpan.FromHours(24);
++
++    public ShipmentQuote? Quote { get; private set; }
++
++    // Повторная котировка заменяет прежнюю.
++    public ShipmentQuote ApplyQuote(Money price, int etaDays, DateTimeOffset now)
++    {
++        if (Status != ShipmentStatus.Created)
++            throw new InvalidOperationException($"Shipment {Id} is {Status}, cannot quote");
++        Quote = new ShipmentQuote(price.AmountMinor, price.Currency, etaDays, now, now + QuoteValidity);
++        return Quote;
++    }
++
+     public void HandOver(string trackingNumber)
+     {
+         if (Status != ShipmentStatus.Created)
+diff --git a/services/shipping/src/Meridian.Shipping/Domain/ShipmentId.cs b/services/shipping/src/Meridian.Shipping/Domain/ShipmentId.cs
+new file mode 100644
+index 0000000..1650ec8
+--- /dev/null
++++ b/services/shipping/src/Meridian.Shipping/Domain/ShipmentId.cs
+@@ -0,0 +1,3 @@
++namespace Meridian.Shipping.Domain;
++
++public readonly record struct ShipmentId(Guid Value);
+diff --git a/services/shipping/src/Meridian.Shipping/Domain/ShipmentQuote.cs b/services/shipping/src/Meridian.Shipping/Domain/ShipmentQuote.cs
+new file mode 100644
+index 0000000..bff0f38
+--- /dev/null
++++ b/services/shipping/src/Meridian.Shipping/Domain/ShipmentQuote.cs
+@@ -0,0 +1,8 @@
++using Meridian.Common;
++
++namespace Meridian.Shipping.Domain;
++
++public sealed record ShipmentQuote(long PriceMinor, string Currency, int EtaDays, DateTimeOffset QuotedAt, DateTimeOffset ExpiresAt)
++{
++    public Money Price => new(PriceMinor, Currency);
++}
+diff --git a/services/shipping/src/Meridian.Shipping/Infrastructure/Carriers/CarrierRatesClient.cs b/services/shipping/src/Meridian.Shipping/Infrastructure/Carriers/CarrierRatesClient.cs
+new file mode 100644
+index 0000000..6357132
+--- /dev/null
++++ b/services/shipping/src/Meridian.Shipping/Infrastructure/Carriers/CarrierRatesClient.cs
+@@ -0,0 +1,39 @@
++using System.Net.Http.Json;
++using Meridian.Common;
++using Meridian.Shipping.Domain;
++
++namespace Meridian.Shipping.Infrastructure.Carriers;
++
++public sealed record CarrierRate(Money Price, int EtaDays);
++
++// Повторы и таймауты - стандартным обработчиком при регистрации (ADR-0026), цикла здесь нет.
++public sealed class CarrierRatesClient(HttpClient http)
++{
++    public async Task<CarrierRate> GetRateAsync(Address from, Address to, int weightGrams, CancellationToken ct)
++    {
++        var url = $"rates?from={Uri.EscapeDataString(from.PostalCode)}&to={Uri.EscapeDataString(to.PostalCode)}&weightGrams={weightGrams}";
++        using var response = await http.GetAsync(url, ct);
++        response.EnsureSuccessStatusCode();
++
++        var body = await response.Content.ReadFromJsonAsync<RatesResponse>(cancellationToken: ct)
++            ?? throw new InvalidOperationException("Carrier returned an empty rates response");
++        if (body.Price < 0 || body.EtaDays < 0 || string.IsNullOrWhiteSpace(body.Currency))
++            throw new InvalidOperationException("Carrier returned an invalid rates response");
++
++        return new CarrierRate(new Money(ToMinor(body.Price, body.Currency), body.Currency), body.EtaDays);
++    }
++
++    // Внешний API отдаёт цену десятичной; в минорные единицы переводим на границе (RUL-0009).
++    private static long ToMinor(decimal price, string currency)
++    {
++        var digits = currency switch
++        {
++            "JPY" or "KRW" or "VND" or "CLP" or "ISK" => 0,
++            "BHD" or "KWD" or "OMR" or "JOD" or "TND" => 3,
++            _ => 2,
++        };
++        return (long)Math.Round(price * (decimal)Math.Pow(10, digits), MidpointRounding.AwayFromZero);
++    }
++
++    private sealed record RatesResponse(decimal Price, string Currency, int EtaDays);
++}
+diff --git a/services/shipping/src/Meridian.Shipping/Infrastructure/Persistence/ShippingDbContext.cs b/services/shipping/src/Meridian.Shipping/Infrastructure/Persistence/ShippingDbContext.cs
+index f1ba4cb..743af0c 100644
+--- a/services/shipping/src/Meridian.Shipping/Infrastructure/Persistence/ShippingDbContext.cs
++++ b/services/shipping/src/Meridian.Shipping/Infrastructure/Persistence/ShippingDbContext.cs
+@@ -15,6 +15,7 @@ public sealed class ShippingDbContext(DbContextOptions<ShippingDbContext> option
+             b.OwnsOne(s => s.From);
+             b.OwnsOne(s => s.To);
+             b.Property(s => s.DeclaredValue).HasPrecision(18, 2);
++            b.OwnsOne(s => s.Quote, q => q.Ignore(x => x.Price));
+         });
+     }
+ }
+diff --git a/services/shipping/src/Meridian.Shipping/Meridian.Shipping.csproj b/services/shipping/src/Meridian.Shipping/Meridian.Shipping.csproj
+index 9ca1a1a..029167b 100644
+--- a/services/shipping/src/Meridian.Shipping/Meridian.Shipping.csproj
++++ b/services/shipping/src/Meridian.Shipping/Meridian.Shipping.csproj
+@@ -4,6 +4,9 @@
+     <Nullable>enable</Nullable>
+     <ImplicitUsings>enable</ImplicitUsings>
+   </PropertyGroup>
++  <ItemGroup>
++    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="8.10.0" />
++  </ItemGroup>
+   <ItemGroup>
+     <ProjectReference Include="../../../../libs/Meridian.Common/Meridian.Common.csproj" />
+     <ProjectReference Include="../../../../libs/Meridian.Contracts/Meridian.Contracts.csproj" />
+diff --git a/services/shipping/src/Meridian.Shipping/Modules/ShippingModule.cs b/services/shipping/src/Meridian.Shipping/Modules/ShippingModule.cs
+index 5742fb8..2b3f410 100644
+--- a/services/shipping/src/Meridian.Shipping/Modules/ShippingModule.cs
++++ b/services/shipping/src/Meridian.Shipping/Modules/ShippingModule.cs
+@@ -2,6 +2,7 @@ using Meridian.Shipping.Application.Abstractions;
+ using Meridian.Shipping.Application.Shipments;
+ using Meridian.Shipping.Infrastructure.Carriers;
+ using Meridian.Shipping.Infrastructure.Persistence;
++using Microsoft.Extensions.DependencyInjection.Extensions;
+ using Microsoft.Extensions.Options;
+ 
+ namespace Meridian.Shipping.Modules;
+@@ -14,7 +15,13 @@ public static class ShippingModule
+         services.AddHttpClient<CarrierTrackingClient>((sp, http) =>
+             http.BaseAddress = new Uri(sp.GetRequiredService<IOptions<CarrierOptions>>().Value.BaseUrl));
+ 
++        services.AddHttpClient<CarrierRatesClient>((sp, http) =>
++                http.BaseAddress = new Uri(sp.GetRequiredService<IOptions<CarrierOptions>>().Value.BaseUrl))
++            .AddStandardResilienceHandler();
++        services.TryAddSingleton(TimeProvider.System);
++
+         services.AddScoped<IShipmentRepository, ShipmentRepository>();
++        services.AddScoped<QuoteShipmentHandler>();
+         services.AddScoped<CreateShipmentHandler>();
+         services.AddScoped<CancelShipmentHandler>();
+         services.AddScoped<TrackShipmentHandler>();
