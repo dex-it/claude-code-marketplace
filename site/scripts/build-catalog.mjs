@@ -15,11 +15,11 @@ import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, write
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml } from 'yaml';
+import { REPO as GITHUB } from '../site.config.mjs';
 
 const SITE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const REPO_ROOT = resolve(SITE_ROOT, '..');
 const OUT = join(SITE_ROOT, 'src', 'generated');
-const GITHUB = 'https://github.com/dex-it/claude-code-marketplace';
 
 const KIND_LABEL = {
   bundle: 'Бандл',

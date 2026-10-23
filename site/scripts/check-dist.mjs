@@ -16,8 +16,7 @@ import { fileURLToPath } from 'node:url';
 const SITE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const REPO_ROOT = resolve(SITE_ROOT, '..');
 const DIST = join(SITE_ROOT, 'dist');
-const ORIGIN = 'https://dex-it.github.io';
-const BASE = '/claude-code-marketplace';
+import { ORIGIN, BASE } from '../site.config.mjs';
 
 const errors = [];
 const err = (msg) => errors.push(msg);
