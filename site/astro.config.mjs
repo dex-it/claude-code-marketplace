@@ -56,9 +56,9 @@ export default defineConfig({
       defaultLocale: 'root',
       locales: { root: { label: 'Русский', lang: 'ru' } },
       logo: {
-        light: './src/generated/brand/dexagentic-banner-light.svg',
-        dark: './src/generated/brand/dexagentic-banner-dark.svg',
-        alt: 'DexAgentic',
+        light: './src/generated/brand/dexaikit-banner-light.svg',
+        dark: './src/generated/brand/dexaikit-banner-dark.svg',
+        alt: 'DEX AI KIT',
         replacesTitle: false,
       },
       favicon: '/favicon.svg',
@@ -71,7 +71,7 @@ export default defineConfig({
       markdown: { processedDirs: ['../docs/guide', './src/generated'] },
       head: [
         { tag: 'meta', attrs: { property: 'og:image', content: ogImage } },
-        { tag: 'meta', attrs: { property: 'og:image:alt', content: 'DexAgentic: Claude Code Marketplace' } },
+        { tag: 'meta', attrs: { property: 'og:image:alt', content: 'DEX AI KIT: Claude Code Marketplace' } },
         { tag: 'meta', attrs: { property: 'og:locale', content: 'ru_RU' } },
         { tag: 'meta', attrs: { name: 'twitter:image', content: ogImage } },
         { tag: 'meta', attrs: { name: 'theme-color', content: '#16151D' } },

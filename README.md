@@ -1,6 +1,6 @@
 <p align="center">
-  <img alt="DexAgentic" src="assets/dexagentic-banner-light.svg#gh-light-mode-only" width="600">
-  <img alt="DexAgentic" src="assets/dexagentic-banner-dark.svg#gh-dark-mode-only" width="600">
+  <img alt="DEX AI KIT" src="assets/dexaikit-banner-light.svg#gh-light-mode-only" width="420">
+  <img alt="DEX AI KIT" src="assets/dexaikit-banner-dark.svg#gh-dark-mode-only" width="420">
 </p>
 
 <h1 align="center">Claude Code Marketplace</h1>

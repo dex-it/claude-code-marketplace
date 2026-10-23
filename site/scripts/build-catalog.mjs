@@ -521,7 +521,7 @@ modsPage();
 // Баннеры бренда: конфиг Starlight читает логотип из проекта, а источник лежит в assets/ репозитория.
 const brand = join(OUT, 'brand');
 mkdirSync(brand, { recursive: true });
-for (const f of ['dexagentic-banner-light.svg', 'dexagentic-banner-dark.svg']) {
+for (const f of ['dexaikit-banner-light.svg', 'dexaikit-banner-dark.svg']) {
   const src = join(REPO_ROOT, 'assets', f);
   if (!exists(src)) fail(`нет баннера: assets/${f}`);
   cpSync(src, join(brand, f));
