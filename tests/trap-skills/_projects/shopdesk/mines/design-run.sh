@@ -4,11 +4,13 @@
 # (3) мутанты mutants/*.patch (к ветке feature/<имя>): KILLED - тесты упали, SURVIVED - прошли,
 #     ERROR - src изменён исполнителем и патч не лёг; (4) статика: vi.mock / vi.spyOn / vi.fn и проверки вызовов.
 # Использование: design-run.sh <repo> <каталог мин K3D|K3N> [-v]
+# DESIGN_BASE (по умолчанию HEAD) - с чем сравнивать при поиске файлов тестов: для кейсов ревью (K3R) тесты закоммичены в ветке,
+# база - feature/checkout-tests; мутанты и tripwire берутся из <каталога мин> (K3R берёт K3D).
 set -uo pipefail
 repo="$(cd "$1" && pwd)"; mines="$(cd "$2" && pwd)"; verbose="${3:-}"
 cd "$repo"
 git add -A -N . 2>/dev/null
-files="$(git diff --name-only HEAD -- api | grep -E '\.(test|spec)\.ts$' | sed 's#^api/##' | sort | tr '\n' ' ')"
+files="$(git diff --name-only "${DESIGN_BASE:-HEAD}" -- api | grep -E '\.(test|spec)\.ts$' | sed 's#^api/##' | sort | tr '\n' ' ')"
 if [ -z "$files" ]; then echo "NO TESTS"; exit 1; fi
 echo "files: $files"
 if [ -n "$(git diff --name-only HEAD -- api/src)" ]; then echo "SRC CHANGED: $(git diff --name-only HEAD -- api/src | tr '\n' ' ')"; fi

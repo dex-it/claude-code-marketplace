@@ -24,11 +24,14 @@ for s in "$here"/stages/*/; do apply "$s"; done
 branch() { # $1 - каталог ветки
   local b="$1" name
   name="$(basename "$b")"
-  git checkout -q -b "feature/$name" main
+  local base=main
+  [ -f "$b/BASE" ] && base="feature/$(cat "$b/BASE")" # BASE - ветка поверх другой ветки (кейсы ревью)
+  git checkout -q -b "feature/$name" "$base"
   for c in "$b"*/; do [ -d "$c" ] && apply "$c"; done
   git checkout -q main
 }
-for b in "$here"/branches/*/; do [ -d "$b" ] && branch "$b"; done
+for b in "$here"/branches/*/; do [ -d "$b" ] && [ ! -f "$b/BASE" ] && branch "$b"; done
+for b in "$here"/branches/*/; do [ -d "$b" ] && [ -f "$b/BASE" ] && branch "$b"; done # родители уже созданы
 git checkout -q "$checkout"
 # package-lock.json лежит в stages/1-api (исключение в корневом .gitignore): транзитивные версии не зависят от локального кэша npm.
 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm ci --offline --ignore-scripts --no-audit --no-fund
