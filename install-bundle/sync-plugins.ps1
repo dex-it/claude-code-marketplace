@@ -67,7 +67,7 @@ $ByStackPrefixes = "dotnet ts python react rabbitmq kafka redis mongodb elastics
 
 # A call marked with this word right after it names one option out of a set
 # (a stack menu) and carries no delivery obligation (Cyrillic, built from escapes).
-$ReferenceOnlyWord = [regex]::Unescape('справочно')
+$ReferenceOnlyWord = [regex]::Unescape('\u0441\u043f\u0440\u0430\u0432\u043e\u0447\u043d\u043e')
 
 function Show-Help {
     Write-Host "Usage: .\sync-plugins.ps1 [OPTIONS]"

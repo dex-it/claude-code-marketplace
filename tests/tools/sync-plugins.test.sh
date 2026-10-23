@@ -78,6 +78,10 @@ if [ -n "$sh_stack" ] && [ "$sh_stack" = "$ps_stack" ]; then ok "by-stack пре
 else bad "by-stack префиксы .ps1 равны .sh" "sh: [$sh_stack]
 ps1: [$ps_stack]"; fi
 
+# .ps1 остаётся чистым ASCII: Windows PowerShell 5.1 читает скрипт без BOM как ANSI, и литерал кириллицы в нём ломается молча.
+if LC_ALL=C grep -q '[^ -~[:space:]]' "$root/install-bundle/sync-plugins.ps1"; then bad "sync-plugins.ps1 - чистый ASCII" "$(LC_ALL=C grep -n '[^ -~[:space:]]' "$root/install-bundle/sync-plugins.ps1")"
+else ok "sync-plugins.ps1 - чистый ASCII"; fi
+
 for sh in $shells; do
   tag="[$sh]"
 
