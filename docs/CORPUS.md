@@ -22,7 +22,7 @@
 |---|---|---|---|---|
 | корпус проекта | по ключам `.docs_layout` (`root`, `usecases`, `strategy`, `verification`, `product`, `domain`, `adr`, `specs`, `plans`, `rulebook`, `counter`) | да | принятое: требования, ADR, дизайн, планы, уровень 0 | `dex-skill-project-docs-map:project-docs-map` |
 | документация задачи | `docs/<TASK>/` | да, едет с MR | рабочие документы одной задачи | тот же |
-| auto-ledger | `<config>/projects/<slug>/ledger/<TASK>/` в каталоге конфигурации Claude Code, вне рабочего дерева | нет | журнал состояния цели `/auto` (файл цели, файлы треков, реестр находок), пишут только скрипты ledger | `plugins/auto/docs/ledger.md` |
+| ledger (`auto-ledger`) | `<config>/projects/<slug>/ledger/<TASK>/` в каталоге конфигурации Claude Code, вне рабочего дерева | нет | журнал состояния цели `/auto` (файл цели, файлы треков, реестр находок), пишут только скрипты ledger | `plugins/auto/docs/ledger.md` |
 
 Запись не по назначению даёт либо утечку служебного состояния в MR, либо потерю документации задачи
 вместе со средой.

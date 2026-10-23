@@ -31,7 +31,7 @@ argument-hint: "<путь к файлу от /mr-analyze> [--marketplace-root <p
 
 ### Proposed skill additions
 
-Целевой файл - `plugins/skills/<dex-skill-name>/skills/*/SKILL.md`. Drop-in блок вставляется в указанную H2-секцию (если её нет - создаётся в конце файла). После вставки обязательно: bump minor в `plugin.json` плагина + синхронный bump в `.claude-plugin/marketplace.json`.
+Целевой файл - `plugins/skills/<dex-skill-name>/skills/*/SKILL.md`. Drop-in встаёт в H2 из поля `H2-секция`. У skill без H2 («список чек-листа») - в список, H2 не создаётся; у skill с H2-разделами отсутствующая H2 создаётся в конце файла.
 
 **Что копируем в SKILL.md:** только drop-in - строку пункта чек-листа. В H2-секции она встаёт перед первой H3: после H3 строка читается частью той ловушки. Основание (триада) и метаданные предложения из `/mr-analyze` -- **весь блок `Critical assessment` целиком (все поля самооценки as-is + строка Recommendation for reviewer)** -- остаются в `apply-report.md` для ревьювера PR, **в SKILL.md не попадают**. То же основание дописывается разделом в `tests/trap-skills/<skill>/sources.md` (`<skill>` - имя skill без `dex-skill-`; файла нет - создаётся с H1 `# Основания пунктов <skill>`): подзаголовок - строка пункта, под ним источник (MR и задача из analyze), триада и блок `Critical assessment` дословно. Файл версионируется вместе с правкой: по нему следующий заход сжатия строит кейс, а ревьювер PR поднимает форму пункта выше названия. Конкретный состав полей определяет `/mr-analyze` (см. там «Critical assessment per proposal»); `/mr-apply` копирует блок дословно, не выбирая поля.
 
