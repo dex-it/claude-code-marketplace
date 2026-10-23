@@ -1,0 +1,13 @@
+diff --git a/api/src/services/checkout.ts b/api/src/services/checkout.ts
+index 08fb345..1d62a47 100644
+--- a/api/src/services/checkout.ts
++++ b/api/src/services/checkout.ts
+@@ -40,7 +40,7 @@ export async function quoteOrder(
+     subtotalKopecks,
+     discountKopecks: promo.discountKopecks,
+     deliveryKopecks,
+-    totalKopecks: subtotalKopecks - promo.discountKopecks + deliveryKopecks,
++    totalKopecks: subtotalKopecks + deliveryKopecks,
+     promoApplied: promo.applied,
+     deliveryEstimated,
+   };

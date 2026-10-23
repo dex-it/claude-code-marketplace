@@ -11,6 +11,47 @@ function Write-ErrorColor { Write-Host $args -ForegroundColor Red }
 function Write-Header { Write-Host $args -ForegroundColor Magenta }
 function Write-Variable { Write-Host $args -ForegroundColor DarkGray }
 
+# Значение из .env: срезаем пробелы с обеих сторон, затем обрамляющие кавычки.
+function Format-EnvValue([string]$Value) {
+    $Value = $Value.Trim()
+    if ($Value.Length -ge 2) {
+        if (($Value[0] -eq '"' -and $Value[-1] -eq '"') -or ($Value[0] -eq "'" -and $Value[-1] -eq "'")) {
+            $Value = $Value.Substring(1, $Value.Length - 2)
+        }
+    }
+    return $Value
+}
+
+# Имя переменной из .env: только [A-Za-z_][A-Za-z0-9_]*, и не из тех, что меняют поведение процессов
+# (BASH_ENV, PATH, PSModulePath, LD_*, DYLD_*, GIT_CONFIG_*, GIT_SSH*, GIT_*PAGER, NODE_OPTIONS ...).
+# Отброшенное имя не устанавливается; возвращает $false и пишет предупреждение.
+function Test-EnvKey([string]$Key) {
+    if ($Key -notmatch '^[A-Za-z_][A-Za-z0-9_]*$') {
+        Write-Warning "${Key}: недопустимое имя переменной, строка пропущена"
+        return $false
+    }
+    if ($Key -match '^(BASH_ENV|ENV|PS4|PROMPT_COMMAND|SHELLOPTS|BASHOPTS|PATH|PSModulePath|NODE_OPTIONS|GIT_EXTERNAL_DIFF|GIT_ASKPASS|GIT_EDITOR)$' -or
+        $Key -match '^(LD_|DYLD_|GIT_CONFIG_|GIT_SSH)' -or
+        $Key -match '^GIT_.*PAGER$') {
+        Write-Warning "${Key}: имя меняет поведение запускаемых процессов, переменная не установлена"
+        return $false
+    }
+    return $true
+}
+
+# Секрет из менеджера: значение ровно вида $(Get-Secret -Name <имя> -AsPlainText) заменяется
+# выводом Get-Secret (строкой целиком). Любое другое значение, в том числе с иным $(...),
+# берётся литералом и не исполняется.
+function Resolve-EnvSecret([string]$Key, [string]$Value) {
+    if ($Value -match '^\$\(Get-Secret\s+-Name\s+([A-Za-z0-9_./][A-Za-z0-9_./-]*)\s+-AsPlainText\)$') {
+        return (& Get-Secret -Name $Matches[1] -AsPlainText)
+    }
+    if ($Value.Contains('$(')) {
+        Write-Warning "${Key}: подвыражение `$(...) не в поддержанной форме `$(Get-Secret -Name <имя> -AsPlainText), значение взято как есть"
+    }
+    return $Value
+}
+
 # Показать help
 if ($args -contains "--help" -or $args -contains "-h") {
     Write-Host ""
@@ -72,13 +113,16 @@ Get-Content ".env" -Encoding UTF8 | ForEach-Object {
 
     if ($line -match '^([^=]+)=(.*)$') {
         $key = $matches[1].Trim()
-        $value = $matches[2].Trim()
+        $value = Format-EnvValue ($matches[2])
 
-        # Раскрываем подвыражение $(...) — секреты тянем из менеджера (SecretManagement),
-        # а не храним в открытом виде (например: API_KEY=$(Get-Secret -Name my-key -AsPlainText))
-        if ($value -match '^\$\(.*\)$') {
-            $value = Invoke-Expression $value
-        }
+        if (-not $key) { return }
+
+        # Имя, меняющее поведение процессов (BASH_ENV, PATH, GIT_CONFIG_* ...), отбрасываем до вызова Get-Secret
+        if (-not (Test-EnvKey $key)) { return }
+
+        # Секреты тянем из менеджера (SecretManagement), а не храним в открытом виде
+        # (например: API_KEY=$(Get-Secret -Name my-key -AsPlainText)); поддержана только эта форма
+        $value = Resolve-EnvSecret $key $value
 
         Set-Item -Path "env:$key" -Value $value
 

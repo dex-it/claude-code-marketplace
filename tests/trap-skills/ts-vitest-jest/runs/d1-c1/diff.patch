@@ -1,0 +1,109 @@
+diff --git a/api/test/checkout.test.ts b/api/test/checkout.test.ts
+new file mode 100644
+index 0000000..801944b
+--- /dev/null
++++ b/api/test/checkout.test.ts
+@@ -0,0 +1,103 @@
++import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
++import { delivery, DeliveryUnavailableError } from '../src/clients/delivery.js';
++import type { OrderItem } from '../src/domain/order.js';
++import { logger } from '../src/logger.js';
++import { MAX_ATTEMPTS_PER_CUSTOMER, quoteOrder, registerAttempt } from '../src/services/checkout.js';
++
++const FLAT_DELIVERY_KOPECKS = 29_900;
++
++function item(priceKopecks: number, quantity: number): OrderItem {
++  return { productId: 'p-1', title: 'Товар', priceKopecks, quantity } as OrderItem;
++}
++
++describe('quoteOrder', () => {
++  let quote: ReturnType<typeof vi.spyOn>;
++  let warn: ReturnType<typeof vi.spyOn>;
++
++  beforeEach(() => {
++    quote = vi.spyOn(delivery, 'quote').mockResolvedValue({ priceKopecks: 15_000, days: 2 });
++    warn = vi.spyOn(logger, 'warn').mockImplementation(() => {});
++  });
++
++  afterEach(() => {
++    vi.restoreAllMocks();
++  });
++
++  it('суммирует позиции и доставку без промокода', async () => {
++    const result = await quoteOrder([item(100_000, 2), item(50_000, 1)], { city: 'Казань' });
++
++    expect(result).toEqual({
++      subtotalKopecks: 250_000,
++      discountKopecks: 0,
++      deliveryKopecks: 15_000,
++      totalKopecks: 265_000,
++      promoApplied: false,
++      deliveryEstimated: false,
++    });
++    expect(quote).toHaveBeenCalledWith('Казань', 1500);
++    expect(warn).not.toHaveBeenCalled();
++  });
++
++  it('вычитает скидку промокода из суммы позиций', async () => {
++    const result = await quoteOrder([item(100_000, 2)], { city: 'Казань', promoCode: 'welcome10' });
++
++    expect(result.promoApplied).toBe(true);
++    expect(result.discountKopecks).toBe(20_000);
++    expect(result.totalKopecks).toBe(200_000 - 20_000 + 15_000);
++    expect(warn).not.toHaveBeenCalled();
++  });
++
++  it('не даёт скидку по неизвестному промокоду и пишет предупреждение', async () => {
++    const result = await quoteOrder([item(100_000, 2)], { city: 'Казань', promoCode: 'NOPE' });
++
++    expect(result.promoApplied).toBe(false);
++    expect(result.discountKopecks).toBe(0);
++    expect(result.totalKopecks).toBe(215_000);
++    expect(warn).toHaveBeenCalledTimes(1);
++    expect(warn.mock.calls[0][0]).toContain('NOPE');
++  });
++
++  it('не даёт скидку, если не хватает суммы, и пишет предупреждение', async () => {
++    const result = await quoteOrder([item(50_000, 1)], { city: 'Казань', promoCode: 'FLAT500' });
++
++    expect(result.promoApplied).toBe(false);
++    expect(result.discountKopecks).toBe(0);
++    expect(result.totalKopecks).toBe(50_000 + 15_000);
++    expect(warn).toHaveBeenCalledTimes(1);
++    expect(warn.mock.calls[0][0]).toContain('FLAT500');
++  });
++
++  it('при недоступной службе доставки берёт фиксированный тариф и помечает ответ оценочным', async () => {
++    quote.mockRejectedValue(new DeliveryUnavailableError('down'));
++
++    const result = await quoteOrder([item(100_000, 1)], { city: 'Казань' });
++
++    expect(result.deliveryKopecks).toBe(FLAT_DELIVERY_KOPECKS);
++    expect(result.deliveryEstimated).toBe(true);
++    expect(result.totalKopecks).toBe(100_000 + FLAT_DELIVERY_KOPECKS);
++    expect(warn).toHaveBeenCalledTimes(1);
++  });
++
++  it('пробрасывает остальные ошибки службы доставки без подмены', async () => {
++    const failure = new Error('delivery responded with 500');
++    quote.mockRejectedValue(failure);
++
++    await expect(quoteOrder([item(100_000, 1)], { city: 'Казань' })).rejects.toBe(failure);
++  });
++});
++
++describe('registerAttempt', () => {
++  it('разрешает три попытки и отказывает на четвёртой', () => {
++    const id = 'customer-limit';
++    const results = Array.from({ length: MAX_ATTEMPTS_PER_CUSTOMER + 1 }, () => registerAttempt(id));
++
++    expect(results.map((r) => r.allowed)).toEqual([true, true, true, false]);
++    expect(results.map((r) => r.remaining)).toEqual([2, 1, 0, 0]);
++  });
++
++  it('считает попытки покупателей независимо', () => {
++    for (let i = 0; i < MAX_ATTEMPTS_PER_CUSTOMER + 1; i++) registerAttempt('customer-a');
++
++    expect(registerAttempt('customer-b')).toEqual({ allowed: true, remaining: 2 });
++  });
++});
