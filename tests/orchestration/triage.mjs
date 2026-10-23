@@ -62,7 +62,7 @@ if (cmd === 'describe') {
     const prompt = brief(describe(id));
     result[id] = { runs: [], cost: 0 };
     for (let r = 0; r < runs; r++) {
-      const p = spawnSync('claude', ['-p', prompt, '--model', model, '--effort', effort, '--output-format', 'json', '--no-session-persistence', '--disallowedTools', 'Agent,Bash,Read,Write,Edit,Glob,Grep,WebFetch,WebSearch', '--max-budget-usd', '0.5'], { cwd: out, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+      const p = spawnSync('claude', ['-p', prompt, '--model', model, '--effort', effort, '--output-format', 'json', '--no-session-persistence', '--disallowedTools', 'Agent,Bash,Read,Write,Edit,Glob,Grep,WebFetch,WebSearch', '--restricted', '--strict-mcp-config', '--max-budget-usd', '0.5'], { cwd: out, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
       let j = null, parsed = null;
       try { j = JSON.parse(p.stdout); const m = String(j.result).match(/\{[\s\S]*\}/); parsed = m ? JSON.parse(m[0]) : null; } catch { /* оставляем null */ }
       result[id].cost += j?.total_cost_usd ?? 0;

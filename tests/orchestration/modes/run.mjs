@@ -16,6 +16,11 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '../../..');
 const arg = (n, d) => { const i = process.argv.indexOf(`--${n}`); return i >= 0 ? process.argv[i + 1] : d; };
 
+// Среда прогона изолирована от оператора (правило tests/README.md, «Среда прогона раннеров `claude -p`»): `--restricted`
+// раннеру не подходит - ему нужны Bash и `bypassPermissions`, - поэтому источники настроек сужены до проекта, а MCP
+// пользователя отрезаны. Плагины и скиллы подаются `--plugin-dir`. `OPERATOR_ENV=1` снимает изоляцию.
+const ISOLATION = process.env.OPERATOR_ENV ? [] : ['--setting-sources', 'project', '--strict-mcp-config'];
+
 const dir = resolve(process.argv[2] ?? '');
 const set = arg('set', 'exam');
 const model = arg('model', 'sonnet');
@@ -32,7 +37,7 @@ const prompt = `Используй скилл orchestration-executor: выпол
 const args = ['-p', prompt, '--output-format', 'stream-json', '--verbose', '--no-session-persistence',
   '--permission-mode', 'bypassPermissions', '--max-budget-usd', budget,
   '--plugin-dir', join(REPO, 'tests/orchestration/subject/dex-skill-orchestration-executor'),
-  '--model', model, '--effort', effort];
+  '--model', model, '--effort', effort, ...ISOLATION];
 const r = spawnSync('claude', args, {
   cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 1 << 28, timeout: 40 * 60 * 1000,
   env: { ...process.env, CLAUDE_CODE_FORK_SUBAGENT: fork },

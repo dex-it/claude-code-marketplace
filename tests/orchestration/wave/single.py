@@ -10,6 +10,11 @@
 """
 import argparse, json, os, subprocess, time
 
+# Среда прогона изолирована от оператора (tests/README.md, «Среда прогона раннеров `claude -p`»): `--restricted` раннеру не
+# подходит - ему нужны Bash и `--dangerously-skip-permissions`, - поэтому источники настроек сужены до проекта, а MCP
+# пользователя отрезаны. Плагины подаются `--plugin-dir`. `OPERATOR_ENV=1` снимает изоляцию.
+ISOLATION = [] if os.environ.get('OPERATOR_ENV') else ['--setting-sources', 'project', '--strict-mcp-config']
+
 ap = argparse.ArgumentParser()
 ap.add_argument('repo'); ap.add_argument('--out', required=True)
 ap.add_argument('--model', default='opus'); ap.add_argument('--budget', type=float, default=12)
@@ -23,7 +28,7 @@ lead = 'Используй скилл dex-skill-subagent-dispatch:subagent-dispa
 prompt = ('/dex-skill-subagent-dispatch:do ' if a.do else lead) + a.prompt
 fmt = ['--output-format', 'stream-json', '--verbose'] if a.stream else ['--output-format', 'json']
 args = ['claude', '-p', '--model', a.model, '--dangerously-skip-permissions', *fmt,
-        '--max-budget-usd', str(a.budget)]
+        '--max-budget-usd', str(a.budget), *ISOLATION]
 if a.effort:
     args += ['--effort', a.effort]
 if a.skill or a.do:

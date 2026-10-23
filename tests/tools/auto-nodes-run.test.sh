@@ -59,6 +59,13 @@ if command -v timeout >/dev/null 2>&1 || command -v gtimeout >/dev/null 2>&1; th
       && ok "[$sh] живой путь: прогоны new-1, new-2, old-3 раздельно" || bad "[$sh] живой путь: каталоги «${dirs}», лог $(tail -3 "$tmp/live.log")"
     grep -qx -- "--plugin-dir" "$o/rv0-clamp-clean-new-2/out.json" && grep -qx "$tmp/plug" "$o/rv0-clamp-clean-new-2/out.json" \
       && ok "[$sh] AUTO_NODES_PLUGINS доходит до claude как --plugin-dir" || bad "[$sh] --plugin-dir каталога плагина не передан"
+    # Изоляция среды по умолчанию: источники настроек сужены до проекта, MCP оператора отрезан; OPERATOR_ENV=1 снимает.
+    j="$o/rv0-clamp-clean-new-2/out.json"
+    { grep -qx -- "--setting-sources" "$j" && grep -qx "project" "$j" && grep -qx -- "--strict-mcp-config" "$j"; } \
+      && ok "[$sh] изоляция по умолчанию: --setting-sources project --strict-mcp-config" || bad "[$sh] изоляции по умолчанию нет в аргументах claude"
+    PATH="$tmp/bin:$PATH" AUTO_NODES_JOBS=1 OPERATOR_ENV=1 "$sh" "$run" reviewer "$tmp/live-op-$(basename "$sh")" rv0-clamp-clean:new:1 >"$tmp/live-op.log" 2>&1
+    grep -q -e "--setting-sources" -e "--strict-mcp-config" "$tmp/live-op-$(basename "$sh")/rv0-clamp-clean-new-1/out.json" \
+      && bad "[$sh] OPERATOR_ENV=1 не снял изоляцию" || ok "[$sh] OPERATOR_ENV=1 снимает изоляцию"
     # Относительный путь плагина, который раскрывается в путь с пробелом (клон в «~/My Work/...»), остаётся одним аргументом --plugin-dir.
     mkdir -p "$tmp/my work/plug"
     (cd "$tmp/my work" && PATH="$tmp/bin:$PATH" AUTO_NODES_JOBS=1 AUTO_NODES_PLUGINS="plug" "$sh" "$run" reviewer "$tmp/live-space-$(basename "$sh")" rv0-clamp-clean:new:1 >"$tmp/live-space.log" 2>&1)

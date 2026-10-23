@@ -21,6 +21,11 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '../../..');
 const arg = (n, d) => { const i = process.argv.indexOf(`--${n}`); return i >= 0 ? process.argv[i + 1] : d; };
 
+// Среда прогона изолирована от оператора (правило tests/README.md, «Среда прогона раннеров `claude -p`»): `--restricted`
+// раннеру не подходит - ему нужны Bash и `bypassPermissions`, - поэтому источники настроек сужены до проекта, а MCP
+// пользователя отрезаны. Плагины и скиллы подаются `--plugin-dir`. `OPERATOR_ENV=1` снимает изоляцию.
+const ISOLATION = process.env.OPERATOR_ENV ? [] : ['--setting-sources', 'project', '--strict-mcp-config'];
+
 const dir = resolve(process.argv[2] ?? '');
 const role = arg('role', 'exec');
 const set = arg('set', 'pick');
@@ -73,7 +78,7 @@ if (role === 'exec') {
 const args = ['-p', prompt, '--output-format', 'stream-json', '--verbose', '--no-session-persistence',
   '--permission-mode', 'bypassPermissions', '--max-budget-usd', budget,
   ...plugins.flatMap((p) => ['--plugin-dir', join(PLUGINS, p)]), ...fx, ...extra,
-  '--model', model, '--effort', effort];
+  '--model', model, '--effort', effort, ...ISOLATION];
 const r = spawnSync('claude', args, {
   cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 1 << 28, timeout: 20 * 60 * 1000,
   env: { ...process.env, CLAUDE_CODE_FORK_SUBAGENT: fork },

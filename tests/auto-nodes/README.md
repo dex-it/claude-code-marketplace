@@ -31,6 +31,11 @@ node score.mjs <каталог>
 Каталоги плагинов, которых нет в профиле запуска (контроль каталога `dex-debugger` либо `dex-self-reviewer`, стековый
 скилл кейса), подаются `AUTO_NODES_PLUGINS="<каталог> <каталог>"` - каждый уходит в `claude` как `--plugin-dir`.
 
+Среда оператора в прогон не идёт: `run.sh` добавляет `--setting-sources project --strict-mcp-config`
+(`--restricted` узлу не подходит - нужны Bash и `--dangerously-skip-permissions`), поэтому плагины, которых нет в
+`--plugin-dir` рабочего дерева `dex-auto`, подаются только через `AUTO_NODES_PLUGINS`. `OPERATOR_ENV=1` снимает
+изоляцию; основание и оговорка о прежних замерах - [tests/README.md](../README.md#среда-прогона-раннеров-claude--p).
+
 Нужен `timeout` из GNU coreutils (на macOS - `brew install coreutils`, годится и `gtimeout`); без него
 `run.sh` отказывает до первого прогона. Кейс, который `setup.sh` не собрал, прогона не получает.
 

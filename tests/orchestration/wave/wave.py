@@ -21,6 +21,10 @@ DEX_AUTO = os.environ.get('DEX_AUTO_DIR') or os.path.join(REPO_ROOT, 'plugins/au
 SKILL_DIRS = [os.path.join(REPO_ROOT, 'plugins/skills', n) for n in ('dex-skill-stack-registry', 'dex-skill-requirement-quality')]
 HOOKS = os.path.join(DEX_AUTO, 'hooks/scripts')
 SLUG_BAD = re.compile(r'[^A-Za-z0-9-]')
+# Среда прогона изолирована от оператора (tests/README.md, «Среда прогона раннеров `claude -p`»): `--restricted` раннеру не
+# подходит - ему нужны Bash и `--dangerously-skip-permissions`, - поэтому источники настроек сужены до проекта, а MCP
+# пользователя отрезаны. Плагины подаются `--plugin-dir`. `OPERATOR_ENV=1` снимает изоляцию.
+ISOLATION = [] if os.environ.get('OPERATOR_ENV') else ['--setting-sources', 'project', '--strict-mcp-config']
 
 PLAN_SCHEMA = {
     'type': 'object', 'required': ['tasks'],
@@ -60,7 +64,7 @@ def sh(cmd, cwd=None, env=None, check=True, timeout=None):
 
 def claude(args, cwd, budget, model, timeout=60 * 60):
     cmd = ['claude', '-p', '--model', model, '--dangerously-skip-permissions', '--output-format', 'json',
-           '--max-budget-usd', str(budget)] + args
+           '--max-budget-usd', str(budget)] + ISOLATION + args
     t0 = time.time()
     r = subprocess.run(cmd, cwd=cwd, text=True, capture_output=True, timeout=timeout,
                        env={k: v for k, v in os.environ.items() if k != 'CLAUDECODE'})

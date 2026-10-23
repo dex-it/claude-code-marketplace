@@ -5,6 +5,9 @@
 # AUTO_NODES_DRY_RUN=1 печатает раскрытые прогоны и выходит, ничего не создавая и не запуская (claude и timeout не нужны).
 # AUTO_NODES_PLUGINS - каталоги плагинов через пробел, каждый уходит в claude как --plugin-dir: контроль каталога и
 # стековые скиллы, которых нет в профиле запуска (на чистой машине узел-контроль и скилл иначе недоступны).
+# Среда прогона изолирована от оператора (tests/README.md, «Среда прогона раннеров `claude -p`»): `--restricted` узлу не
+# подходит (нужны Bash и --dangerously-skip-permissions), поэтому `--setting-sources project --strict-mcp-config`:
+# ни ~/.claude/CLAUDE.md, ни плагины и MCP оператора в прогон не идут. OPERATOR_ENV=1 снимает изоляцию.
 set -eu
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -38,6 +41,7 @@ for p in ${AUTO_NODES_PLUGINS:-}; do
   [ -d "$p" ] || { printf 'run.sh: нет каталога плагина: %s\n' "$p" >&2; exit 2; }
   extra="${extra:+$extra$'\n'}$(cd "$p" && pwd)"
 done
+iso="--setting-sources project --strict-mcp-config"; [ -z "${OPERATOR_ENV:-}" ] || iso=
 tmp="${CLAUDE_CODE_TMPDIR:-${TMPDIR:-${TMP:-${TEMP:-/tmp}}}}/claude-$(id -u)"
 node "$here/build.mjs" "$node_name" "$out/workflow.js" >/dev/null
 
@@ -54,8 +58,8 @@ one() {
 
   (cd "$repo" && CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0 "$to" 3000 claude -p "Прогон зонда. Вызови Workflow со scriptPath $out/workflow.js и args $args.
 Он идёт в фоне: дождись возврата в этом же ходе циклом until в Bash (sleep 20 между проверками) по файлу вывода задачи <Task ID>.output - ищи find $tmp -name '<Task ID>.output'; готов - файл непуст и разбирается как JSON. Потолок ожидания 45 минут. Затем выведи содержимое файла дословно, без пересказа. Файлов не правь." \
-    --model sonnet --dangerously-skip-permissions --plugin-dir "$plugin" ${pd[@]+"${pd[@]}"} --output-format json > "$d/out.json" 2> "$d/err.log" < /dev/null; echo "exit $?" >> "$d/err.log")
+    --model sonnet --dangerously-skip-permissions --plugin-dir "$plugin" ${pd[@]+"${pd[@]}"} $iso --output-format json > "$d/out.json" 2> "$d/err.log" < /dev/null; echo "exit $?" >> "$d/err.log")
   printf '%s: %s\n' "$id" "$(tail -1 "$d/err.log")"
 }
-export -f one; export here node_name out plugin tmp to extra
+export -f one; export here node_name out plugin tmp to extra iso
 printf '%s\n' "${specs[@]}" | xargs -P "${AUTO_NODES_JOBS:-6}" -I{} bash -c 'one "$@"' _ {}

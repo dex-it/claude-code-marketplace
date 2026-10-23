@@ -25,6 +25,11 @@ const GRADE = join(REPO, 'tests/optimize-for-llm/grade.mjs');
 const PLUGINS = join(REPO, 'plugins/skills');
 const SUBJECT = join(REPO, 'tests/orchestration/subject');
 
+// Среда прогона изолирована от оператора (правило tests/README.md, «Среда прогона раннеров `claude -p`»): `--restricted`
+// раннеру не подходит - ему нужны Bash и `bypassPermissions`, - поэтому источники настроек сужены до проекта, а MCP
+// пользователя отрезаны. Плагины и скиллы подаются `--plugin-dir`. `OPERATOR_ENV=1` снимает изоляцию.
+const ISOLATION = process.env.OPERATOR_ENV ? [] : ['--setting-sources', 'project', '--strict-mcp-config'];
+
 // id -> [файл правки, вход]; список снят с CASES в tests/optimize-for-llm/grade.mjs.
 const CASES = {
   'O-01': ['c01/redis-cache-keys.md', 'in-01-trap-skill.md'],
@@ -98,7 +103,7 @@ function pluginFlags(extra = []) {
 function runClaude(dir, prompt, { model, effort, agent, budget = 6, extraFlags = [], plugins = [], stream = false }) {
   mkdirSync(dir, { recursive: true });
   const args = ['-p', prompt, '--output-format', stream ? 'stream-json' : 'json', ...(stream ? ['--verbose'] : []), '--no-session-persistence',
-    '--permission-mode', 'bypassPermissions', '--max-budget-usd', String(budget), ...pluginFlags(plugins)];
+    '--permission-mode', 'bypassPermissions', '--max-budget-usd', String(budget), ...pluginFlags(plugins), ...ISOLATION];
   if (model) args.push('--model', model);
   if (effort) args.push('--effort', effort);
   if (!agent) args.push('--disallowedTools', 'Agent');
