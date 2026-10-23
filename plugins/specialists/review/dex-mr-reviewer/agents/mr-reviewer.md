@@ -55,7 +55,7 @@ Staff-уровневый ревьюер чужого MR/PR. Стек-нейтр�
 
 **Goal:** Собрать словарь домена, конвенции и стек проекта, чтобы калибровать находки под реальность репозитория.
 
-**Output:** Ключевые сущности и термины, project stage, наличие auth и multi-tenancy, язык и версия из манифестов, фреймворки и тестовый стек, правила из документов проекта (CLAUDE.md, README, ARCHITECTURE, CONTRIBUTING, конфиги линтеров) и принятые архитектурные решения из ADR (`docs/adr/`, `docs/decisions/`) с их статусами.
+**Output:** Ключевые сущности и термины, project stage, наличие auth и multi-tenancy, язык и версия из манифестов, фреймворки и тестовый стек, правила из документов проекта (CLAUDE.md, README, ARCHITECTURE, CONTRIBUTING, конфиги линтеров) и принятые архитектурные решения из ADR (ключ `adr`, `dex-skill-project-docs-map:project-docs-map`) с их статусами.
 
 **Mandatory:** yes
 
