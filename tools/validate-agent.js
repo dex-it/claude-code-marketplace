@@ -22,6 +22,7 @@ import matter from 'gray-matter';
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
 import { visit } from 'unist-util-visit';
+import { buildPluginArtifactMap, danglingSkillHalves, skillHalfMessage } from './plugin-artifacts.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -80,9 +81,9 @@ function loadMarketplacePlugins() {
 // оно не является (загрузка пишется полной формой `plugin:skill`), поэтому обязательства поставки не
 // даёт и в замыкание бандла не входит. Но указатель обязан вести в существующее место: имя, которого
 // в каталоге нет, читателя никуда не приводит и сгнить успевает молча, а голую форму до сих пор не
-// сторожил никто. Полная форма закрыта не целиком: `skill-reference-unknown` здесь судит только
-// имена с префиксом `dex-skill-`, у команды пропускает неизвестный плагин, у скилла его нет вовсе -
-// проверено подстановкой несуществующего имени на живом дереве, остаток вынесен в issue #220.
+// сторожил никто. Полная форма: вторую половину адреса `skill-reference-unknown` судит у любого
+// известного плагина (`validateSkillHalves`), а опечатку в самом имени плагина - только при префиксе
+// `dex-skill-` (`validateSkillReferences`); остаток #220.
 let catalogPluginsCache = null;
 function catalogPlugins() {
   if (!catalogPluginsCache) catalogPluginsCache = loadMarketplacePlugins();
@@ -891,6 +892,16 @@ function validateStageNormativeReaders(parsed, findings) {
   }
 }
 
+// Половина «скилл» полной формы `{plugin}:{skill}`: плагин известен, а такого артефакта в нём нет.
+// Судится у любого плагина каталога и без условия на разбор фаз - опечатка в адресе не зависит от
+// того, сошёлся ли файл с контрактом фаз (tools/plugin-artifacts.js, #423).
+const PLUGIN_ARTIFACTS = buildPluginArtifactMap(join(REPO_ROOT, 'plugins'), statPlain);
+function validateSkillHalves(markdownBody, marketplacePlugins, findings) {
+  for (const d of danglingSkillHalves(markdownBody, PLUGIN_ARTIFACTS, marketplacePlugins)) {
+    findings.push({ level: ERROR, rule: 'skill-reference-unknown', message: skillHalfMessage(d) });
+  }
+}
+
 function validateSkillReferences(markdownBody, marketplacePlugins, findings) {
   const re = /`(dex-skill-[a-z0-9-]+):[a-z0-9-]+`/gi;
   const referenced = new Set();
@@ -1007,6 +1018,8 @@ function validateFile(filepath, marketplacePlugins) {
   validateCatalogDocsLink(raw, filepath, findings);
   validateLinkEscapesPlugin(raw, filepath, findings);
   validatePluginNameMentions(raw, findings);
+
+  validateSkillHalves(parsed.content, marketplacePlugins, findings);
 
   if (phaseResult.validated) {
     validateSkillReferences(parsed.content, marketplacePlugins, findings);
