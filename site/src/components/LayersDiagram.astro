@@ -1,0 +1,117 @@
+---
+// Схема уровней каталога: команда -> специалисты -> skills, бандл вокруг, мод сбоку от стека.
+// Цвета берутся из переменных Starlight, поэтому схема следует за темой сайта.
+---
+
+<figure class="layers">
+  <svg viewBox="0 0 520 492" role="img" aria-labelledby="layers-title layers-desc" xmlns="http://www.w3.org/2000/svg">
+    <title id="layers-title">Уровни каталога</title>
+    <desc id="layers-desc">
+      Вы вызываете команду. Команда вызывает специалистов. Специалисты опираются на skills.
+      Команда, специалисты и skills ставятся вместе бандлом. Мод стоит отдельно: он меняет сам Claude Code.
+    </desc>
+    <defs>
+      <marker id="layers-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0L10 5L0 10z" class="arrow-head"></path>
+      </marker>
+    </defs>
+
+    <rect class="bundle" x="8" y="62" width="504" height="352" rx="14"></rect>
+    <text class="bundle-label" x="260" y="402" text-anchor="middle">Бандл: набор плагинов под роль, ставится целиком</text>
+
+    <rect class="user" x="190" y="6" width="140" height="36" rx="18"></rect>
+    <text class="box-title" x="260" y="30" text-anchor="middle">Вы</text>
+    <line class="arrow" x1="260" y1="42" x2="260" y2="94" marker-end="url(#layers-arrow)"></line>
+    <text class="edge" x="272" y="88">/плагин:команда</text>
+
+    <rect class="box accent" x="40" y="94" width="440" height="62" rx="10"></rect>
+    <text class="box-title" x="60" y="120">Команда</text>
+    <text class="box-sub" x="60" y="142">Точка входа: ведёт шаги и спрашивает вас на развилках</text>
+
+    <line class="arrow" x1="260" y1="156" x2="260" y2="196" marker-end="url(#layers-arrow)"></line>
+    <text class="edge" x="272" y="182">вызывает</text>
+
+    <rect class="box" x="40" y="196" width="440" height="62" rx="10"></rect>
+    <text class="box-title" x="60" y="222">Специалисты</text>
+    <text class="box-sub" x="60" y="244">Агенты с узкой ролью: делают шаги и возвращают результат</text>
+
+    <line class="arrow" x1="260" y1="258" x2="260" y2="298" marker-end="url(#layers-arrow)"></line>
+    <text class="edge" x="272" y="284">опираются на</text>
+
+    <rect class="box" x="40" y="298" width="440" height="62" rx="10"></rect>
+    <text class="box-title" x="60" y="324">Skills</text>
+    <text class="box-sub" x="60" y="346">Памятки по темам и стекам: подгружаются, когда тема в работе</text>
+
+    <rect class="mod" x="40" y="436" width="440" height="52" rx="10"></rect>
+    <text class="box-title" x="60" y="458">Мод</text>
+    <text class="box-sub" x="60" y="477">Стоит сбоку: меняет сам клиент, а не то, что читает модель</text>
+  </svg>
+  <figcaption>Работа идёт сверху вниз. Бандл задаёт набор, мод ставится отдельно.</figcaption>
+</figure>
+
+<style>
+  .layers {
+    margin: 1.5rem 0;
+    max-width: 34rem;
+  }
+  .layers svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    font-family: var(--sl-font-system);
+  }
+  .layers figcaption {
+    margin-top: 0.5rem;
+    color: var(--sl-color-gray-3);
+    font-size: var(--sl-text-sm);
+  }
+  .box {
+    fill: var(--sl-color-bg-nav);
+    stroke: var(--sl-color-gray-4);
+    stroke-width: 1.5;
+  }
+  .box.accent {
+    stroke: var(--sl-color-accent);
+    stroke-width: 2;
+  }
+  .user {
+    fill: var(--sl-color-accent-low);
+    stroke: var(--sl-color-accent);
+    stroke-width: 1.5;
+  }
+  .bundle {
+    fill: none;
+    stroke: var(--sl-color-gray-4);
+    stroke-width: 1.5;
+    stroke-dasharray: 6 5;
+  }
+  .mod {
+    fill: none;
+    stroke: var(--sl-color-gray-4);
+    stroke-width: 1.5;
+  }
+  .arrow {
+    stroke: var(--sl-color-gray-3);
+    stroke-width: 1.8;
+  }
+  .arrow-head {
+    fill: var(--sl-color-gray-3);
+  }
+  .box-title {
+    fill: var(--sl-color-white);
+    font-size: 16px;
+    font-weight: 600;
+  }
+  .box-sub {
+    fill: var(--sl-color-gray-2);
+    font-size: 13px;
+  }
+  .edge {
+    fill: var(--sl-color-gray-2);
+    font-size: 12.5px;
+  }
+  .bundle-label {
+    fill: var(--sl-color-gray-2);
+    font-size: 13px;
+  }
+</style>

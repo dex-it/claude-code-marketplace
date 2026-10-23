@@ -109,11 +109,13 @@ Installation is flat - there is no specialist->skill cascade. An agent loads ski
 ./sync-plugins.sh --verbose
 ```
 
-It **never installs new agents** - "something new appeared in the market" is a manual decision. It does **not** touch versions (updating is a separate manual op via the marketplace). by-stack profile skills (`dex-skill-{dotnet,ts,python,...}-*`) are exempt - they are loaded conditionally per project stack. Run from a clone of the marketplace repo.
+It **never installs new agents** - "something new appeared in the market" is a manual decision. It also lists installed plugins that the catalogue no longer declares (removed or renamed upstream) with their uninstall command, and never removes them itself - see [Renamed and removed plugins](#renamed-and-removed-plugins-manual-step). It does **not** touch versions (updating is a separate manual op via the marketplace). by-stack profile skills (`dex-skill-{dotnet,ts,python,...}-*`) are exempt - they are loaded conditionally per project stack. Run from a clone of the marketplace repo.
 
 ## Renamed and removed plugins (manual step)
 
 Neither `install-bundle.sh` nor `sync-plugins.sh` removes anything: sync only adds missing skills, and the uninstaller walks the bundle's current component lists (`includes[]` + `dependencies[]`). A plugin dropped from the marketplace therefore stays installed and keeps being loaded by name - no error is raised, because the file is still on disk.
+
+`./sync-plugins.sh` names such plugins: every installed plugin of this marketplace that `.claude-plugin/marketplace.json` of your clone no longer declares is listed with its uninstall command. It only reports - `--fix` never removes. Look the name up in the table below for the replacement; if your clone is behind the marketplace, `git pull` first, otherwise a plugin added after your last update is listed as well.
 
 Uninstall such plugins by hand:
 
@@ -121,7 +123,7 @@ Uninstall such plugins by hand:
 claude plugins uninstall <old-plugin-name>
 ```
 
-Current entries:
+Current entries - every plugin name that was ever declared in `marketplace.json` and is not declared now (a name that never reached the catalogue could not be installed and is not listed). A plugin that was renamed and later removed has one row naming both names:
 
 | Removed | Replacement | Notes |
 |---|---|---|
@@ -140,7 +142,7 @@ Current entries:
 | `dex-skill-dotnet-caching` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/dotnet-caching/README.md`) |
 | `dex-skill-dotnet-config-hygiene` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/dotnet-config-hygiene/README.md`) |
 | `dex-skill-dotnet-di` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/dotnet-di/README.md`) |
-| `dex-skill-dotnet-linq-optimization` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/dotnet-linq-optimization/README.md`) |
+| `dex-skill-linq-optimization`, `dex-skill-dotnet-linq-optimization` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/dotnet-linq-optimization/README.md`); installed before the rename (a53848df, 2026-04-09) as `dex-skill-linq-optimization` - same plugin, same fate |
 | `dex-skill-dotnet-resources` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/dotnet-resources/README.md`) |
 | `dex-skill-exploratory-testing` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/exploratory-testing/README.md`) |
 | `dex-skill-git-workflow` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/git-workflow/README.md`) |
@@ -149,19 +151,47 @@ Current entries:
 | `dex-skill-output-hygiene` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/output-hygiene/README.md`) |
 | `dex-skill-owasp-security` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/owasp-security/README.md`) |
 | `dex-skill-problem-specification` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/problem-specification/README.md`) |
-| `dex-skill-python-classical-ml` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/python-classical-ml/README.md`) |
+| `dex-skill-classical-ml`, `dex-skill-python-classical-ml` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/python-classical-ml/README.md`); installed before the rename (ee3670e3, 2026-06-07) as `dex-skill-classical-ml` - same plugin, same fate |
 | `dex-skill-reference-architectures` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/reference-architectures/README.md`) |
 | `dex-skill-tech-audit` | - | removed: no consumers in the catalogue (protocol `tests/trap-skills/removed/tech-audit/README.md`) |
 | `dex-skill-tech-evaluation` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/tech-evaluation/README.md`) |
 | `dex-skill-test-design` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/test-design/README.md`) |
-| `dex-skill-ts-patterns` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/ts-patterns/README.md`) |
+| `dex-skill-typescript-patterns`, `dex-skill-ts-patterns` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/ts-patterns/README.md`); installed before the rename (ee3670e3, 2026-06-07) as `dex-skill-typescript-patterns` - same plugin, same fate |
 | `dex-skill-use-cases` | - | removed by control runs: the model holds the subject without the skill (protocol `tests/trap-skills/removed/use-cases/README.md`) |
+| `dex-skill-api-development` | `dex-skill-dotnet-api-development` | renamed with the `dotnet-` prefix (`a53848df`, 2026-04-09) |
+| `dex-skill-async-patterns` | `dex-skill-dotnet-async-patterns` | renamed with the `dotnet-` prefix (`a53848df`, 2026-04-09) |
+| `dex-skill-ef-core` | `dex-skill-dotnet-ef-core` | renamed with the `dotnet-` prefix (`a53848df`, 2026-04-09) |
+| `dex-skill-logging` | `dex-skill-dotnet-logging` | renamed with the `dotnet-` prefix (`a53848df`, 2026-04-09) |
+| `dex-skill-testing-patterns` | `dex-skill-dotnet-testing-patterns` | renamed with the `dotnet-` prefix (`a53848df`, 2026-04-09) |
+| `dex-skill-dotnet-patterns` | `dex-skill-solid`, `dex-skill-testability` | split into four narrow skills (`a53848df`, 2026-04-09); the other two, `dex-skill-dotnet-di` and `dex-skill-dotnet-resources`, are removed above |
+| `dex-skill-computer-vision` | `dex-skill-python-computer-vision` | renamed with the stack prefix (`ee3670e3`, 2026-06-07) |
+| `dex-skill-ml-optimization` | `dex-skill-python-ml-optimization` | renamed with the stack prefix (`ee3670e3`, 2026-06-07) |
+| `dex-skill-nlp-transformers` | `dex-skill-python-nlp-transformers` | renamed with the stack prefix (`ee3670e3`, 2026-06-07) |
+| `dex-skill-pytorch` | `dex-skill-python-pytorch` | renamed with the stack prefix (`ee3670e3`, 2026-06-07) |
+| `dex-skill-tensorflow` | `dex-skill-python-tensorflow` | renamed with the stack prefix (`ee3670e3`, 2026-06-07) |
+| `dex-skill-nodejs-api` | `dex-skill-ts-nodejs-api` | renamed with the stack prefix (`ee3670e3`, 2026-06-07) |
+| `dex-skill-vitest-jest` | `dex-skill-ts-vitest-jest` | renamed with the stack prefix (`ee3670e3`, 2026-06-07) |
+| `dex-skill-system-design` | `dex-skill-nfr`, `dex-skill-scalability` | split into seven narrow skills (`82b6f0e6`, 2026-05-03); the other five (`dex-skill-capacity-planning`, `dex-skill-cap-consistency`, `dex-skill-tech-evaluation`, `dex-skill-reference-architectures`, `dex-skill-distributed-resilience`) are removed above |
+| `dex-skill-adr-authoring` | `dex-skill-adr-quality` | renamed (`d97b3503`, 2026-07-21) |
+| `dex-skill-business-analysis` | `dex-skill-business-analysis-29148` | renamed with the standard suffix (`148d10e8`, 2026-08-11) |
+| `dex-skill-scenario-quality` | `dex-skill-bdd-gherkin` | the oracle was dropped with the `scenario` type; its traps live in the `bdd-gherkin` genre norm (`2499bef8`, 2026-08-11) |
+| `dex-skill-review-breakdown` | - | dropped with writing the review breakdown to a file; typing a finding is done by `dex-skill-defect-classification` in the review agents (`8b2c0dc2`, 2026-09-15) |
+| `dex-skill-project-rulebook`, `dex-skill-rule-mining`, `dex-skill-rulebook-quality` | `dex-rulebook-miner` | the three skills moved inside the miner plugin (`4b26d6f5`, 2026-09-16); install the plugin, not the skills |
+| `dex-skill-orchestration-executor`, `dex-skill-orchestration-planner` | - | experimental pair taken out of the catalogue and kept as the subject of `tests/orchestration/` (`27399310`, 2026-10-13); the `/do` command went with the planner |
 | `dex-dotnet-debugger` | `dex-debugger` | duplicate of the stack-neutral agent; .NET depth comes from by-stack skills |
 | `dex-dotnet-reviewer` | `dex-self-reviewer`, `dex-mr-reviewer` | duplicate: own branch -> self-reviewer, someone else's PR/MR -> mr-reviewer |
+| `dex-user-story-writer` | `dex-user-story-analyst` | renamed and rewritten as a node of the requirements pipeline (`7e8cf09d`, 2026-08-16) |
+| `dex-dotnet-developer` | bundle `dotnet-developer` | monolithic v4 plugin split into atomic plugins (`0c89e799`, 2026-01-16); install the closest bundle instead |
+| `dex-dotnet-architect` | bundle `architect` | monolithic v4 plugin split into atomic plugins (`0c89e799`, 2026-01-16); install the closest bundle instead |
+| `dex-devops` | bundle `devops` | monolithic v4 plugin split into atomic plugins (`0c89e799`, 2026-01-16); install the closest bundle instead |
+| `dex-product-manager` | bundle `product-manager` | monolithic v4 plugin split into atomic plugins (`0c89e799`, 2026-01-16); install the closest bundle instead |
+| `dex-system-analyst` | bundle `system-analyst` | monolithic v4 plugin split into atomic plugins (`0c89e799`, 2026-01-16); install the closest bundle instead |
+| `dex-quality-assurance` | bundle `qa-engineer` | monolithic v4 plugin split into atomic plugins (`0c89e799`, 2026-01-16); install the closest bundle instead |
+| `dex-python-ml-developer` | bundle `ml-engineer` | monolithic v4 plugin split into atomic plugins (`0c89e799`, 2026-01-16); install the closest bundle instead |
 
 ### Catalogue 6.0.0: the SDLC engine is gone
 
-`6.0.0` drops the engine, its zone-command plugins and its track skills - 27 entries. The commands
+`6.0.0` drops the engine, its zone-command plugins, its track skills and the earlier names of the same parts. The commands
 survive under the same slash names inside the plugin of the specialist they delegate to, so **an
 installed old plugin keeps shipping a same-named command whose body still calls the deleted engine**
 (`dex-sdlc:engine`). Which of the two wins is not defined. Uninstall the old plugins **before**
@@ -175,7 +205,9 @@ for p in dex-bundle-sdlc dex-sdlc dex-sdlc-acceptance dex-sdlc-delivery dex-sdlc
          dex-skill-architecture-track dex-skill-bugfix-track dex-skill-development-track \
          dex-skill-diagnostics-track dex-skill-discover-track dex-skill-documentation-track \
          dex-skill-followup-track dex-skill-mr-review-track dex-skill-product-track \
-         dex-skill-test-track; do
+         dex-skill-test-track dex-skill-catalog-track dex-skill-zone-registry \
+         dex-skill-autonomous-task dex-autonomous-task-resume dex-feature-implementer \
+         dex-requirements-orchestrator; do
   claude plugins uninstall "$p"
 done
 ```
@@ -217,6 +249,12 @@ nothing reads or cleans them, and the directory can be deleted.
 | `dex-skill-mr-review-track` | none | zone order absorbed by `/mr-review` |
 | `dex-skill-product-track` | none | zone order absorbed by `/product` |
 | `dex-skill-test-track` | none | zone order absorbed by `/test` |
+| `dex-skill-catalog-track` | none | zone of editing catalogue artefacts; the track went with the engine |
+| `dex-skill-zone-registry` | none | maps a request to a zone and its track; went with the engine |
+| `dex-skill-autonomous-task` | none | replaced by the engine `dex-sdlc` (`5ac6cfba`, 2026-08-29), which this release removes |
+| `dex-autonomous-task-resume` | none | earlier name of the `dex-sdlc-resume` hook |
+| `dex-feature-implementer` | `dex-implement` | earlier name of `dex-sdlc-delivery`; carried `/implement` |
+| `dex-requirements-orchestrator` | `dex-business-analyst`, `dex-requirements-reviewer` | earlier name of `dex-sdlc-requirements`; carried `/feature` and `/feature-check` |
 
 ## Available Bundles
 

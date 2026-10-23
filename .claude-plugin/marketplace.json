@@ -1,6 +1,6 @@
 {
   "name": "dex-claude-marketplace",
-  "version": "6.26.0",
+  "version": "6.27.0",
   "description": "Маркетплейс AI-агентов для разработчиков. Атомарные плагины с узкой специализацией: Skills (знания), Specialists (агенты), Bundles (наборы).",
   "owner": {
     "name": "Dex Team",
@@ -610,7 +610,7 @@
       "name": "dex-dotnet-coder",
       "source": "./plugins/specialists/dotnet/dex-dotnet-coder",
       "description": "Кодер .NET: пишет код и реализует фичи по требованиям, следует конвенциям проекта, отдаёт статус build/test.",
-      "version": "4.3.1",
+      "version": "4.3.2",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -636,7 +636,7 @@
       "name": "dex-dotnet-quality-auditor",
       "source": "./plugins/specialists/dotnet/dex-dotnet-quality-auditor",
       "description": "Аудит гигиены качества .NET-проекта: анализаторы, warning-профиль, NuGet security audit, NSDepCop, CI-gates. Отчёт «есть / нет / настроить».",
-      "version": "2.4.2",
+      "version": "2.5.0",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -770,7 +770,7 @@
       "name": "dex-implement",
       "source": "./plugins/specialists/delivery/dex-implement",
       "description": "Команда /implement: реализация фичи полным циклом - требования, план правок, код, тесты, саморевью. Стек определяется по манифесту репозитория, написание делегируется кодеру и тестописателю своего стека.",
-      "version": "1.4.0",
+      "version": "1.5.0",
       "category": "utility",
       "keywords": [
         "command",
@@ -841,6 +841,25 @@
       ]
     },
     {
+      "name": "dex-jira-tracker",
+      "source": "./mods/dex-jira-tracker",
+      "description": "Мод на function hooks: мониторинг Jira через jira-cli. Строка над вводом и панель /jira несут задачи проекта по группам - в работе, открытые, мои, закрытые за сутки; смена статуса, исполнителя, новая задача и новый комментарий приходят тостом и строкой в транскрипт, а то, что случилось, пока сессия была закрыта, - одной сводкой при старте. Команда /jira comments отдаёт комментарии модели текстом. От задачи работа идёт по кнопкам: постановка (команда каталога /feature либо встроенный шаблон; в Jira пишется только по «оформляй»), взять в работу (назначить, перевести, завести ветку, реализовать командой /implement либо встроенным поручением), сдать (push, PR/MR на GitHub или GitLab, ссылка в задачу), после чего PR/MR ведёт трекер хостинга, если он установлен. /jira tools показывает, какие инструменты каталога подхвачены и чем заменены остальные, /jira install ставит jira-cli.",
+      "version": "1.0.0",
+      "category": "mod",
+      "keywords": [
+        "utility",
+        "mod",
+        "function-hooks",
+        "jira",
+        "jira-cli",
+        "tracker",
+        "issues",
+        "comments",
+        "notifications",
+        "workflow"
+      ]
+    },
+    {
       "name": "dex-kaf-cli",
       "source": "./plugins/utilities/dex-kaf-cli",
       "description": "CLI Kafka: топики, consumer group, чтение хвоста сообщений, тестовая публикация через kaf.",
@@ -872,7 +891,7 @@
       "name": "dex-knowledge-extractor",
       "source": "./plugins/utilities/dex-knowledge-extractor",
       "description": "Авторский плагин: работает в клоне репозитория маркетплейса. Pipeline извлечения уроков из чужих MR/PR в маркетплейс: /mr-collect собирает review-комментарии, /mr-analyze обобщает в предложения для skills/agents, /mr-apply применяет с self-review и валидацией.",
-      "version": "3.7.3",
+      "version": "3.8.0",
       "category": "utility",
       "keywords": [
         "utility",
@@ -1466,7 +1485,7 @@
       "name": "dex-skill-business-analysis-29148",
       "source": "./plugins/skills/dex-skill-business-analysis-29148",
       "description": "Норматив этапа бизнес-анализа (ISO/IEC/IEEE 29148 §6.2): состав Business requirements specification, разделы BRD, атрибуты бизнес-требования, мера успеха MOE, режим сбора interactive/autonomous, поиск конфликта целей, стадии готовности артефакта, вход и выход этапа",
-      "version": "4.4.2",
+      "version": "4.5.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -1576,7 +1595,7 @@
       "name": "dex-skill-decision-log",
       "source": "./plugins/skills/dex-skill-decision-log",
       "description": "decision-log конвейера требований: что в него попадает, как требование ссылается на запись, чем он отличается от меток проверок и служебного состояния прогона, что делать при утрате. Общая механика - node-contract, раздел «Журнал решений»; здесь специфика требований: кто ведёт журнал, связь записи с единицей, открытые пункты, поднятие оснований заново при утрате.",
-      "version": "2.0.1",
+      "version": "2.1.0",
       "category": "skill",
       "keywords": [
         "skill",
@@ -2886,7 +2905,7 @@
       "name": "dex-ts-fullstack-coder",
       "source": "./plugins/specialists/fullstack/dex-ts-fullstack-coder",
       "description": "Fullstack-кодер TypeScript: бэкенд на Node.js/Bun и фронтенд на React, типизация, валидация схем.",
-      "version": "3.2.0",
+      "version": "3.2.1",
       "category": "specialist",
       "keywords": [
         "specialist",
@@ -2954,7 +2973,7 @@
       "name": "dex-session-dispatcher",
       "source": "./mods/dex-session-dispatcher",
       "description": "Мод: одно окно для всех сессий Claude Code на машине. Панель /sessions показывает, какие сессии работают, какие ждут вашего ответа и какие закончили, с расходом токенов и заполнением контекста, планом, вызванными навыками и субагентами. Новую сессию можно запустить в фоне фразой-задачей, отправить любой сессии сообщение, прочитать её вывод, остановить или удалить; опасные кнопки спрашивают второй раз. Строка над вводом сообщает, что сессии ждут вас. Каждое действие есть и командой: /sessions new, say, log, open, stop, remove. Написан для новичка: слова вместо статусов, подсказка к каждому состоянию и три шага на пустом месте.",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "category": "mod",
       "keywords": [
         "utility",
