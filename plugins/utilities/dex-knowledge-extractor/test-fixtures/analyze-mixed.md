@@ -114,9 +114,9 @@ Recommendation for reviewer: apply as-is
 
 ## Skipped (already covered)
 
-### dex-skill-dotnet-async-patterns: CancellationToken во всех async API
+### dex-skill-dotnet-async-patterns: Task.Run над File.ReadAllLines вместо ReadAllLinesAsync
 
-Уже описано в текущем skill, секция "CancellationToken propagation".
+Уже описано в текущем skill: пункт чек-листа «`Task.Run` над синхронным вызовом, у которого есть асинхронный API».
 
 ## Dropped (not actionable)
 
