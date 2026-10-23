@@ -22,7 +22,7 @@ Workflow: **Context Gathering -> Direct Analysis -> Skill-Based Scan -> Report**
 ```
 0. Context Gathering    -> найти manifests: .csproj, Directory.Build.props, .editorconfig, config.nsdepcop, CI
 1. Direct Analysis      -> что настроено по факту чтения файлов
-2. Skill-Based Scan     -> сверка с чек-листом dotnet-code-quality, что недонастроено
+2. Skill-Based Scan     -> сверка с чек-листом skill, что недонастроено
 3. Report               -> таблица «есть / нет / настроить» + приоритет
 ```
 
