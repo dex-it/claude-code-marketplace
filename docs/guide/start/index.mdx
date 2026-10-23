@@ -1,0 +1,70 @@
+---
+title: Быстрый старт
+description: Подключите каталог, поставьте бандл code-review и проверьте свою ветку перед push - за несколько минут.
+---
+
+import { Steps, Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+
+Поставим набор для работы с кодом и проверим свою ветку перед push. Нужны Claude Code, `git` и `jq`; подробности - в разделе [Что нужно](/start/requirements/).
+
+<Steps>
+
+1. **Подключите каталог** (один раз)
+
+   ```bash
+   claude plugin marketplace add dex-it/claude-code-marketplace
+   ```
+
+   То же изнутри Claude Code: `/plugin marketplace add dex-it/claude-code-marketplace`.
+
+2. **Поставьте бандл `code-review`**
+
+   Бандл ставит скрипт из клона репозитория.
+
+   <Tabs syncKey="os">
+     <TabItem label="Linux, macOS, WSL">
+       ```bash
+       git clone https://github.com/dex-it/claude-code-marketplace.git
+       cd claude-code-marketplace
+       ./install-bundle/install-bundle.sh code-review
+       ```
+     </TabItem>
+     <TabItem label="Windows (PowerShell)">
+       ```powershell
+       git clone https://github.com/dex-it/claude-code-marketplace.git
+       cd claude-code-marketplace
+       .\install-bundle\install-bundle.ps1 code-review
+       ```
+     </TabItem>
+   </Tabs>
+
+3. **Запустите в своём проекте**
+
+   Откройте новую сессию Claude Code в репозитории, где есть ветка с изменениями:
+
+   ```bash
+   cd путь/к/вашему/проекту
+   claude
+   ```
+
+   И вызовите команду:
+
+   ```text
+   /dex-self-reviewer:self-review
+   ```
+
+</Steps>
+
+## Что вы увидите
+
+Claude сравнит вашу ветку с базовой, учитывая и незакоммиченное, реально прогонит сборку и тесты и выдаст чеклист правок до push: блокеры, важное, замечания. Файлы он не меняет, пока вы не скажете «делай».
+
+<Aside type="tip" title="Сначала посмотреть, что поставится">
+Добавьте `--dry-run` (в PowerShell - `-DryRun`): скрипт покажет состав и ничего не установит. Список всех бандлов: `./install-bundle/install-bundle.sh --list`.
+</Aside>
+
+## Дальше
+
+- [Установка](/start/install/): бандл или один плагин, платформы, что выбрать.
+- [Сценарии](/scenarios/): «хочу ... - ставлю ... - запускаю ...» для типичных задач.
+- [Каталог](/catalog/): всё, что можно поставить.

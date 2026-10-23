@@ -66,3 +66,11 @@ __pycache__/
 
 # Выход движка при загрузке мода из папки: декларации API, не исходник (docs/MOD_FRAMEWORK.md, «Контракт типов»)
 mods/*/.claude-plugin/types/
+
+# Сайт документации (site/): зависимости, сборка, кэш Astro и сгенерированный каталог.
+# Лок-файл сайта хранится в git, в отличие от корневого.
+site/node_modules
+site/dist
+site/.astro
+site/src/generated
+!site/package-lock.json
