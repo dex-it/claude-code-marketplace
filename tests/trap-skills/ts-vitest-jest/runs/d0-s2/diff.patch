@@ -1,0 +1,63 @@
+diff --git a/api/test/price-format.test.ts b/api/test/price-format.test.ts
+new file mode 100644
+index 0000000..9389c79
+--- /dev/null
++++ b/api/test/price-format.test.ts
+@@ -0,0 +1,57 @@
++import { describe, expect, it } from 'vitest';
++import { formatKopecks, splitEvenly } from '../src/services/price-format.js';
++
++const NBSP = ' ';
++
++describe('formatKopecks', () => {
++  it('форматирует целые рубли с нулевыми копейками', () => {
++    expect(formatKopecks(500)).toBe(`5,00${NBSP}₽`);
++  });
++
++  it('дополняет копейки нулём слева', () => {
++    expect(formatKopecks(5)).toBe(`0,05${NBSP}₽`);
++    expect(formatKopecks(12345)).toBe(`123,45${NBSP}₽`);
++  });
++
++  it('разделяет тысячи неразрывным пробелом', () => {
++    expect(formatKopecks(123456789)).toBe(`1${NBSP}234${NBSP}567,89${NBSP}₽`);
++    expect(formatKopecks(100000)).toBe(`1${NBSP}000,00${NBSP}₽`);
++  });
++
++  it('форматирует ноль', () => {
++    expect(formatKopecks(0)).toBe(`0,00${NBSP}₽`);
++  });
++
++  it('ставит минус перед отрицательной суммой', () => {
++    expect(formatKopecks(-150)).toBe(`-1,50${NBSP}₽`);
++    expect(formatKopecks(-123456)).toBe(`-1${NBSP}234,56${NBSP}₽`);
++  });
++});
++
++describe('splitEvenly', () => {
++  it('делит ровно, когда остатка нет', () => {
++    expect(splitEvenly(900, 3)).toEqual([300, 300, 300]);
++  });
++
++  it('отдаёт остаток по копейке первым частям', () => {
++    expect(splitEvenly(1000, 3)).toEqual([334, 333, 333]);
++    expect(splitEvenly(1001, 3)).toEqual([334, 334, 333]);
++  });
++
++  it('сумма частей равна исходной сумме', () => {
++    const parts = splitEvenly(10007, 6);
++    expect(parts.reduce((a, b) => a + b, 0)).toBe(10007);
++  });
++
++  it('при одной части возвращает всю сумму', () => {
++    expect(splitEvenly(12345, 1)).toEqual([12345]);
++  });
++
++  it('даёт копейки только первым частям, если сумма меньше числа частей', () => {
++    expect(splitEvenly(2, 4)).toEqual([1, 1, 0, 0]);
++  });
++
++  it.each([0, -1, 1.5, NaN, Infinity])('бросает RangeError при недопустимом числе частей %s', (parts) => {
++    expect(() => splitEvenly(1000, parts)).toThrow(RangeError);
++  });
++});

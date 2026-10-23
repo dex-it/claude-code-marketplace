@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import { parseAgents } from '../hooks/sessions.ts'
-import { ageWord, detailText, entryLine, FOREIGN_NOTE, framedLog, listText, openText, planLine, selectedIndex, shortPath, usageLine } from '../hooks/text.ts'
+import { ARGUMENT_HINT, HELP_TEXT, ageWord, detailText, entryLine, FOREIGN_NOTE, framedLog, listText, openText, planLine, selectedIndex, shortPath, usageLine } from '../hooks/text.ts'
 import { absorbChunk, emptyStats } from '../hooks/transcript.ts'
 
 const [row] = parseAgents(
@@ -43,7 +43,20 @@ describe('text', () => {
   it('строка списка несёт причину ожидания и тип сессии', () => {
     const text = entryLine({ index: 1, row, stats, isSelf: false }, 0, 1000 + 60_000, '/Users/me')
 
-    assert.match(text, /^1\. «fix» - ждёт вас: «разрешение»; фоновая; «~\/proj»/)
+    assert.match(text, /^1\. «fix» \(c1\) - ждёт вас: «разрешение»; фоновая; «~\/proj»/)
+  })
+
+  it('короткий id стоит в строке списка рядом с именем, у текущей сессии - перед пометкой', () => {
+    const self = entryLine({ index: 2, row, stats, isSelf: true }, 0, 0, '')
+
+    assert.match(self, /^2\. «fix» \(c1\) \(эта сессия\) - /)
+    assert.ok(listText([{ index: 1, row, stats, isSelf: false }], 0, 0, '').includes('1. «fix» (c1) - '))
+  })
+
+  it('подсказка аргументов учит id, а не номеру и имени', () => {
+    assert.equal(ARGUMENT_HINT, '[new задача | 2 | say id текст | log 2 | open 2 | stop id | remove id | help]')
+    assert.ok(!/stop имя|remove имя|say 2/.test(ARGUMENT_HINT))
+    assert.ok(HELP_TEXT.includes('`/sessions stop id`') && HELP_TEXT.includes('`/sessions say id текст`'))
   })
 
   it('пустой список учит начинать', () => {
@@ -58,6 +71,7 @@ describe('text', () => {
     assert.match(openText(row, false), /claude attach c1/)
     assert.match(openText({ ...row, kind: 'interactive', pid: 7 }, false), /другом окне терминала \(процесс 7\)/)
     assert.match(openText(row, true), /текущая сессия/)
+    assert.ok(openText({ ...row, kind: 'interactive', name: 'два слова', shortId: 'ab12cd34' }, false).endsWith('/sessions say ab12cd34 текст'))
   })
 })
 
@@ -112,7 +126,7 @@ describe('text: чужие данные обрамлены как данные',
     const list = listText([{ index: 1, row, stats: undefined, isSelf: false }], 0, 0, '')
 
     assert.ok(list.includes(FOREIGN_NOTE))
-    assert.match(list, /1\. «fix» - ждёт вас: «разрешение»;/)
+    assert.match(list, /1\. «fix» \(c1\) - ждёт вас: «разрешение»;/)
   })
 
   it('вывод чужой сессии: оговорка, строки с чертой, секрет скрыт', () => {

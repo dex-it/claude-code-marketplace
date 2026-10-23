@@ -1,0 +1,13 @@
+diff --git a/api/src/services/promo.ts b/api/src/services/promo.ts
+index 3cff3e3..dfa00d5 100644
+--- a/api/src/services/promo.ts
++++ b/api/src/services/promo.ts
+@@ -10,7 +10,7 @@ interface PromoRule {
+ }
+ 
+ const RULES: Record<string, PromoRule> = {
+-  WELCOME10: { percent: 10, minSubtotalKopecks: 100_000 },
++  WELCOME10: { percent: 15, minSubtotalKopecks: 100_000 },
+   FLAT500: { fixedKopecks: 50_000, minSubtotalKopecks: 300_000 },
+ };
+ 

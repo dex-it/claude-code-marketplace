@@ -54,7 +54,7 @@ description: >-
 
 ### Спавн агента без регистрации
 
-**Плохо:** trap-skill делегирует находку `dex-bug-fixer:bug-fixer`, в `ORCHESTRATOR_SKILLS` не внесён.
+**Плохо:** trap-skill делегирует находку `dex-fixture-specialist:fixture-agent`, в `ORCHESTRATOR_SKILLS` не внесён.
 
 **Правильно:** оркестрация живёт в скилле реестра, исполнение - в агенте.
 

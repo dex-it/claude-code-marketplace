@@ -280,3 +280,8 @@ ed73f2c1f77522fbe6d3716c67f84bb0cffdc946784e3f3278041930807ac60c  git ls-tree -r
 0ee1db398e5cc94bc5a18bc450aa43e48ffe6252467a04a22ed3cc3d3ac2b2cf  epic-planning/inputs/SKILL-s9.md
 c2cb071495c2ad088de71871ffd5647c4765f0c5da4e2c5f3d94de212807de76  rule-mining/inputs/SKILL-s11.md
 da189fbe964e12dab1b4418d4c8af90902f919fa2c4fd946545c9a6d26846233  prioritization/inputs/SKILL-s12.md
+
+## Редакции тела `process-modeler`, наборы pmo и pmn - 2026-10-22
+Прогоны W-BP и R-BP на теле агента вместо скилла (#363, PR #404). Команда: `sha256sum <файл>` из `tests/trap-skills/`. `pmo` - `process-modeler` 1.5.1 (порог «15-20 элементов»), `pmn` - 1.5.2 (порог «больше 50 элементов»); обе редакции взяты из git (`b21d0dd8^` и `b21d0dd8`), файл агента целиком. Редакция 1.5.3 (уточнение единицы счёта после ревью) на этих кейсах не прогонялась.
+da6660e735d2cfa743b29dc40889138ae3f1469fd0daf67d43bc1c949217060a  removed/bpmn/inputs/process-modeler-1.5.1.md
+f2cfaea92d22438cd44066dc143ec6c7f8740c7832b22ee911b1b6071f3ad2b4  removed/bpmn/inputs/process-modeler-1.5.2.md
