@@ -6,7 +6,11 @@
 
 Детерминирован: фиксированные даты и тексты, одинаковые входы дают одинаковое дерево. Код не
 собирается (пакетов нет) - прогон судится по диффу. Ключ - README.md рядом, в <dest> не попадает.
-Ветки: main (кейс F1), feature/partial-refunds (R1), feature/tariff-cache (N0).
+Ветки: main (кейс F1), feature/partial-refunds (R1), feature/tariff-cache (N0); документы-кейсы #432 -
+design/shipment-quote (DD-A), design/shipment-quote-v2 (DD-0), design/shipment-quote-v3 (DD-U),
+requirements/notification-channels (RD-A), requirements/notification-channels-v2 (RD-0) (doc_cases.py; имена нейтральны:
+исполнитель видит список веток; создаются
+после прежних веток от main, хэши прежних не меняются).
 """
 import os
 import subprocess
@@ -14,6 +18,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import docs_data as D  # noqa: E402
+import doc_cases as DC  # noqa: E402
 import hot_code as H  # noqa: E402
 
 PLURAL = {"Delivery": "Deliveries", "Category": "Categories"}
@@ -420,6 +425,10 @@ def main_():
     run(["git", "checkout", "-q", "-b", "feature/tariff-cache", "main"], dest)
     write(dest, H.catalog_cache_branch(code))
     commit(dest, "Кэш тарифов", "2026-06-03T10:00:00+00:00")
+    for branch, (path, text, message, date) in DC.BRANCHES.items():
+        run(["git", "checkout", "-q", "-b", branch, "main"], dest)
+        write(dest, {path: text()})
+        commit(dest, message, date)
     run(["git", "checkout", "-q", checkout], dest)
 
 
