@@ -24,6 +24,7 @@ import { unified } from 'unified';
 import remarkParse from 'remark-parse';
 import remarkGfm from 'remark-gfm';
 import { visit } from 'unist-util-visit';
+import { buildPluginArtifactMap, danglingSkillHalves, skillHalfMessage } from './plugin-artifacts.js';
 import { isCommandSkillFile } from './command-skills.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -84,13 +85,24 @@ function loadMarketplacePlugins() {
 // оно не является (загрузка пишется полной формой `plugin:skill`), поэтому обязательства поставки не
 // даёт и в замыкание бандла не входит. Но указатель обязан вести в существующее место: имя, которого
 // в каталоге нет, читателя никуда не приводит и сгнить успевает молча, а голую форму до сих пор не
-// сторожил никто. Полную форму `plugin:skill` половиной «плагин» судит это же правило: `skill-reference-unknown`
-// в этом валидаторе не заведён, а замыкание бандла фильтрует цели по плагинам репозитория и имя, которого
-// нет, из графа теряет.
+// сторожил никто. Полную форму `plugin:skill` половиной «плагин» судит это же правило; вторую половину адреса
+// судит `skill-reference-unknown` ниже, но только при известном плагине. Замыкание бандла фильтрует цели
+// по плагинам репозитория и имя, которого нет, из графа теряет.
 let catalogPluginsCache = null;
 function catalogPlugins() {
   if (!catalogPluginsCache) catalogPluginsCache = loadMarketplacePlugins();
   return catalogPluginsCache;
+}
+
+// Половина «скилл» полной формы `{plugin}:{skill}`: плагин известен, а такого артефакта в нём нет -
+// адрес ведёт в никуда так же, как неизвестный плагин. Перечень и суд общие для трёх валидаторов
+// (tools/plugin-artifacts.js, #423).
+let pluginArtifactsCache = null;
+function validateSkillReferences(text, findings, where = '') {
+  if (!pluginArtifactsCache) pluginArtifactsCache = buildPluginArtifactMap(SKILLS_DIR, statPlain);
+  for (const d of danglingSkillHalves(text, pluginArtifactsCache, catalogPlugins())) {
+    findings.push({ level: ERROR, rule: 'skill-reference-unknown', message: skillHalfMessage(d, where) });
+  }
 }
 
 function validatePluginNameMentions(text, findings, where = '') {
@@ -109,8 +121,8 @@ function validatePluginNameMentions(text, findings, where = '') {
     });
   }
   // Полная форма `plugin:skill`: половина «плагин» судится тем же правилом. Загрузка с именем плагина,
-  // которого нет в каталоге, никуда не ведёт, а `skill-reference-unknown` в этом валидаторе
-  // не заведён вовсе.
+  // которого нет в каталоге, никуда не ведёт, а `skill-reference-unknown` неизвестный плагин
+  // пропускает (судит вторую половину адреса только у известного).
   for (const match of text.matchAll(/`(dex-[a-z0-9-]+):([a-z][a-z0-9-]*)`/g)) {
     const [, plugin, skill] = match;
     if (known.has(plugin) || seen.has(plugin)) continue;
@@ -424,6 +436,7 @@ function validateReferenceSize(skillFilePath, findings) {
     const body = readFileSync(full, 'utf8');
     validateCatalogDocsLink(body, full, findings, `references/${entry} `);
     validatePluginNameMentions(body, findings, `references/${entry} `);
+    validateSkillReferences(body, findings, `references/${entry}: `);
     validateLinkEscapesPlugin(body, full, findings, `references/${entry} `);
     const charCount = body.length;
     dirChars += charCount;
@@ -838,6 +851,7 @@ function validateFile(filepath) {
   validateSize(raw, findings, isProcess);
   validateCatalogDocsLink(raw, filepath, findings);
   validatePluginNameMentions(raw, findings);
+  validateSkillReferences(raw, findings);
   validateLinkEscapesPlugin(raw, filepath, findings);
   validateReferenceSize(filepath, findings);
   validateTraps(parsed.content, findings, isProcess);

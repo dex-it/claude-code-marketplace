@@ -1,0 +1,84 @@
+---
+title: Claude Code Marketplace
+description: Плагины для Claude Code, которые знают грабли вашего стека и ведут работу по порядку - памятки, специалисты, команды и бандлы под роль.
+template: splash
+hero:
+  tagline: Плагины для Claude Code, которые знают грабли вашего стека и ведут работу по порядку.
+  image:
+    light: ../../site/src/generated/brand/dexaikit-banner-light.svg
+    dark: ../../site/src/generated/brand/dexaikit-banner-dark.svg
+    alt: DEX AI KIT
+  actions:
+    - text: Быстрый старт
+      link: start/
+      icon: right-arrow
+    - text: Каталог
+      link: catalog/
+      variant: secondary
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+import LinkCard from '@site/components/BaseLinkCard.astro';
+
+Памятки по стекам, агенты-специалисты и готовые команды: ревью, поиск причины бага, фича от требований до кода. Ставите только нужное: набором под роль или по одному плагину.
+
+## С чего начать
+
+Выберите задачу. Для каждой есть бандл (набор плагинов) и команда, с которой начинается работа.
+
+<CardGrid>
+  <Card title="Проверить ветку перед push" icon="approve-check">
+    Бандл `code-review`, команда `/dex-self-reviewer:self-review`. Claude реально прогонит сборку и тесты и выдаст чеклист правок.
+
+    [Как это работает](/scenarios/review-before-push/)
+  </Card>
+  <Card title="Отревьюить чужой MR или PR" icon="pencil">
+    Бандл `code-review`, команда `/dex-mr-reviewer:mr-review`. Находки приходят инлайн-тредами в MR или PR.
+
+    [Как это работает](/scenarios/review-others/)
+  </Card>
+  <Card title="Найти причину бага" icon="magnifier">
+    Бандл `bug-lifecycle`, команда `/dex-debugger:root-cause`. Красный тест, изоляция, проверка гипотезы.
+
+    [Как это работает](/scenarios/find-bug/)
+  </Card>
+  <Card title="Отдать задачу целиком" icon="rocket">
+    Бандл `auto`, команды `/dex-auto:goal` и `/dex-auto:auto`: от цели до коммитов и PR.
+
+    [Как это работает](/scenarios/auto/)
+  </Card>
+</CardGrid>
+
+Все сценарии: [Сценарии](/scenarios/).
+
+## Что в каталоге
+
+Каталог состоит из плагинов нескольких видов. Плагин делает одно дело, поэтому наборы собираются как конструктор.
+
+<CardGrid>
+  <LinkCard title="Skills" description="Короткие памятки по теме или стеку. Подключаются сами, когда тема появляется в работе." href="/catalog/skills/" />
+  <LinkCard title="Специалисты" description="Агенты с узкой ролью: ревьюер, дебаггер, архитектор, DevOps." href="/catalog/specialists/" />
+  <LinkCard title="Команды" description="Слэш-команды, с которых начинается работа и которые ведут порядок шагов." href="/catalog/commands/" />
+  <LinkCard title="Бандлы" description="Готовые наборы плагинов под роль, одной командой." href="/catalog/bundles/" />
+  <LinkCard title="Утилиты" description="Обёртки над gh, kubectl, psql и другими CLI, уведомления." href="/catalog/utilities/" />
+  <LinkCard title="Моды" description="Меняют сам Claude Code: панели, строки над вводом, слежение за PR." href="/catalog/mods/" />
+</CardGrid>
+
+## Как выглядит работа
+
+Подключить каталог и поставить набор:
+
+```bash
+claude plugin marketplace add dex-it/claude-code-marketplace
+git clone https://github.com/dex-it/claude-code-marketplace.git
+cd claude-code-marketplace
+./install-bundle/install-bundle.sh code-review
+```
+
+Запустить в своём проекте:
+
+```text
+/dex-self-reviewer:self-review
+```
+
+Подробный разбор шагов - в [быстром старте](/start/). Устройство каталога и взаимодействие уровней - в разделе [Как это устроено](/concepts/).

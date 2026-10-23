@@ -22,6 +22,7 @@ import matter from 'gray-matter';
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
 import { visit } from 'unist-util-visit';
+import { buildPluginArtifactMap, danglingSkillHalves, skillHalfMessage } from './plugin-artifacts.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -80,9 +81,10 @@ function loadMarketplacePlugins() {
 // оно не является (загрузка пишется полной формой `plugin:skill`), поэтому обязательства поставки не
 // даёт и в замыкание бандла не входит. Но указатель обязан вести в существующее место: имя, которого
 // в каталоге нет, читателя никуда не приводит и сгнить успевает молча, а голую форму до сих пор не
-// сторожил никто. Полную форму `plugin:skill` половиной «плагин» судит это же правило; имена с префиксом
-// `dex-skill-` в теле агента с провалидированными фазами оставлены `skill-reference-unknown`, чтобы не дублировать находку; во frontmatter
-// и в теле без валидированных фаз их судит это правило.
+// сторожил никто. Полную форму `plugin:skill` половиной «плагин» судит это же правило, вторую половину адреса
+// `skill-reference-unknown` судит у любого известного плагина (`validateSkillHalves`). Имена с префиксом `dex-skill-`
+// в теле агента с провалидированными фазами оставлены `skill-reference-unknown` (`validateSkillReferences`), чтобы не
+// дублировать находку; во frontmatter и в теле без валидированных фаз их судит это правило.
 let catalogPluginsCache = null;
 function catalogPlugins() {
   if (!catalogPluginsCache) catalogPluginsCache = loadMarketplacePlugins();
@@ -107,7 +109,7 @@ function validatePluginNameMentions(text, findings, where = '', { skipSkillPrefi
     });
   }
   // Полная форма `plugin:skill`: половина «плагин» судится тем же правилом. Загрузка с именем плагина,
-  // которого нет в каталоге, никуда не ведёт, а `skill-reference-unknown` её судит только
+  // которого нет в каталоге, никуда не ведёт, а `skill-reference-unknown` неизвестный плагин судит только
   // для имён с префиксом `dex-skill-` - их ниже пропускаем, чтобы не дублировать находку.
   for (const match of text.matchAll(/`(dex-[a-z0-9-]+):([a-z][a-z0-9-]*)`/g)) {
     const [, plugin, skill] = match;
@@ -907,6 +909,16 @@ function validateStageNormativeReaders(parsed, findings) {
   }
 }
 
+// Половина «скилл» полной формы `{plugin}:{skill}`: плагин известен, а такого артефакта в нём нет.
+// Судится у любого плагина каталога и без условия на разбор фаз - опечатка в адресе не зависит от
+// того, сошёлся ли файл с контрактом фаз (tools/plugin-artifacts.js, #423).
+const PLUGIN_ARTIFACTS = buildPluginArtifactMap(join(REPO_ROOT, 'plugins'), statPlain);
+function validateSkillHalves(markdownBody, marketplacePlugins, findings) {
+  for (const d of danglingSkillHalves(markdownBody, PLUGIN_ARTIFACTS, marketplacePlugins)) {
+    findings.push({ level: ERROR, rule: 'skill-reference-unknown', message: skillHalfMessage(d) });
+  }
+}
+
 function validateSkillReferences(markdownBody, marketplacePlugins, findings) {
   const re = /`(dex-skill-[a-z0-9-]+):[a-z0-9-]+`/gi;
   const referenced = new Set();
@@ -1029,6 +1041,8 @@ function validateFile(filepath, marketplacePlugins) {
     if (head) validatePluginNameMentions(head, findings, '', { seen });
     validatePluginNameMentions(head ? parsed.content : raw, findings, '', { seen, skipSkillPrefix: Boolean(phaseResult.validated) });
   }
+
+  validateSkillHalves(parsed.content, marketplacePlugins, findings);
 
   if (phaseResult.validated) {
     validateSkillReferences(parsed.content, marketplacePlugins, findings);

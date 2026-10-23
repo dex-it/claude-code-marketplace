@@ -23,6 +23,7 @@ import { unified } from 'unified';
 import remarkParse from 'remark-parse';
 import { visit } from 'unist-util-visit';
 import { isCommandSkillFile, commandName } from './command-skills.js';
+import { buildPluginArtifactMap, danglingSkillHalves, skillHalfMessage } from './plugin-artifacts.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -62,95 +63,13 @@ function parseArgs(argv) {
 
 // --- Skill reference validation ------------------------------------------
 
-// Mirrors buildPluginSkillMap in validate-agent.js - same {plugin}:{skill} namespace.
-function buildPluginSkillMap() {
-  const map = new Map();
-  function walk(dir) {
-    if (!existsSync(dir)) return;
-    for (const entry of readdirSync(dir)) {
-      const full = join(dir, entry);
-      if (statPlain(full).isDirectory()) {
-        walk(full);
-      } else if (entry === 'SKILL.md') {
-        const pj = join(dirname(dirname(dirname(full))), '.claude-plugin', 'plugin.json');
-        if (!existsSync(pj)) continue;
-        try {
-          const plugin = JSON.parse(readFileSync(pj, 'utf8')).name;
-          const skill = matter(readFileSync(full, 'utf8')).data?.name;
-          if (!plugin || !skill) continue;
-          if (!map.has(plugin)) map.set(plugin, new Set());
-          map.get(plugin).add(String(skill));
-        } catch {
-          // unreadable manifest or frontmatter - skipped
-        }
-      }
-    }
-  }
-  walk(PLUGINS_DIR);
-  return map;
-}
+// Скилл, агент и команда одного плагина делят пространство имён `{plugin}:{artifact}` - вызов своего агента или команды формой не отличим от вызова скилла. Перечень и суд половины «скилл» общие для трёх валидаторов (tools/plugin-artifacts.js, #423).
+const PLUGIN_ARTIFACTS = buildPluginArtifactMap(PLUGINS_DIR, statPlain);
 
-const PLUGIN_SKILLS = buildPluginSkillMap();
-
-// Скилл, агент и команда одного плагина делят пространство имён `{plugin}:{artifact}` - вызов своего агента или команды формой не отличим от вызова скилла.
-function buildPluginAgentMap() {
-  const map = new Map();
-  function walk(dir) {
-    if (!existsSync(dir)) return;
-    for (const entry of readdirSync(dir)) {
-      const full = join(dir, entry);
-      if (statPlain(full).isDirectory()) {
-        walk(full);
-      } else if (entry.endsWith('.md') && basename(dirname(full)) === 'commands') {
-        const pj = join(dirname(dirname(full)), '.claude-plugin', 'plugin.json');
-        if (!existsSync(pj)) continue;
-        try {
-          const plugin = JSON.parse(readFileSync(pj, 'utf8')).name;
-          if (!plugin) continue;
-          if (!map.has(plugin)) map.set(plugin, new Set());
-          map.get(plugin).add(basename(full, '.md'));
-        } catch {
-          // unreadable manifest - skipped
-        }
-      } else if (entry.endsWith('.md') && basename(dirname(full)) === 'agents') {
-        const pj = join(dirname(dirname(full)), '.claude-plugin', 'plugin.json');
-        if (!existsSync(pj)) continue;
-        try {
-          const plugin = JSON.parse(readFileSync(pj, 'utf8')).name;
-          const agent = matter(readFileSync(full, 'utf8')).data?.name;
-          if (!plugin || !agent) continue;
-          if (!map.has(plugin)) map.set(plugin, new Set());
-          map.get(plugin).add(String(agent));
-        } catch {
-          // unreadable manifest or frontmatter - skipped
-        }
-      }
-    }
-  }
-  walk(PLUGINS_DIR);
-  return map;
-}
-
-const PLUGIN_AGENTS = buildPluginAgentMap();
-
-// Plugin half not skill-shipping (agent spawn refs, `file:line`) - out of scope, not a Skill call.
+// Плагин, которого нет ни в дереве, ни в каталоге (агентский спавн вне каталога, `file:line`), - не вызов скилла, не судится.
 function validateSkillReferences(markdownBody, findings) {
-  const re = /`([a-z][a-z0-9-]*):([a-z][a-z0-9-]*)`/g;
-  const referenced = new Map();
-  for (const match of markdownBody.matchAll(re)) {
-    referenced.set(`${match[1]}:${match[2]}`, [match[1], match[2]]);
-  }
-
-  for (const [ref, [plugin, skill]] of referenced) {
-    if (!PLUGIN_SKILLS.has(plugin)) continue;
-    if (PLUGIN_AGENTS.get(plugin)?.has(skill)) continue;
-    if (!PLUGIN_SKILLS.get(plugin).has(skill)) {
-      findings.push({
-        level: ERROR,
-        rule: 'skill-reference-unknown',
-        message: `Referenced skill "${ref}" - plugin "${plugin}" ships no skill named "${skill}" (has: ${[...PLUGIN_SKILLS.get(plugin)].join(', ')})`,
-      });
-    }
+  for (const d of danglingSkillHalves(markdownBody, PLUGIN_ARTIFACTS, catalogPlugins())) {
+    findings.push({ level: ERROR, rule: 'skill-reference-unknown', message: skillHalfMessage(d) });
   }
 }
 
@@ -159,8 +78,8 @@ function validateSkillReferences(markdownBody, findings) {
 // даёт и в замыкание бандла не входит. Но указатель обязан вести в существующее место: имя, которого
 // в каталоге нет, читателя никуда не приводит и сгнить успевает молча, а голую форму до сих пор не
 // сторожил никто. Полную форму `plugin:skill` половиной «плагин» судит это же правило: `skill-reference-unknown`
-// здесь делает `continue` на плагине, который не поставляет ни одного скилла (его нет в карте скиллов), и судит только
-// «плагин поставляет скиллы, нужного среди них нет»; плагин без скиллов (специалист, утилита) эта проверка не судит.
+// здесь судит вторую половину адреса только при известном плагине (неизвестный пропускается), поэтому
+// опечатка в имени плагина мимо него проходит.
 let catalogPluginsCache = null;
 function catalogPlugins() {
   if (catalogPluginsCache) return catalogPluginsCache;
@@ -190,7 +109,7 @@ function validatePluginNameMentions(text, findings, where = '') {
   }
   // Полная форма `plugin:skill`: половина «плагин» судится тем же правилом. Загрузка с именем плагина,
   // которого нет в каталоге, никуда не ведёт, а `skill-reference-unknown` на неизвестном
-  // плагине молчит (`continue`).
+  // плагине молчит (неизвестный пропускается).
   for (const match of text.matchAll(/`(dex-[a-z0-9-]+):([a-z][a-z0-9-]*)`/g)) {
     const [, plugin, skill] = match;
     if (known.has(plugin) || seen.has(plugin)) continue;
