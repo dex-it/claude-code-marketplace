@@ -836,7 +836,8 @@ export const register: Register = (on, pluginOptions) => {
     return result
   })
 
-  on('session.receive', { origin: { kind: ['peer', 'peer-send-message'] } }, async ($, e, next) => {
+  // Варианты origin - по объекту на вид: `kind: [...]` внутри одного объекта контракт 2.1.307+ не принимает.
+  on('session.receive', { origin: [{ kind: 'peer' }, { kind: 'peer-send-message' }] }, async ($, e, next) => {
     note = `Сообщение от другой сессии: ${e.text.replace(/\s+/g, ' ').slice(0, 160)}`
     bound?.invalidate()
     void refresh()
