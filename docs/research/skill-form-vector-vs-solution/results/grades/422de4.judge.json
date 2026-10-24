@@ -1,0 +1,121 @@
+{
+  "id": "422de4",
+  "case": "CFG",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0917394,
+    "durationMs": 19258,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 5788,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 2250,
+      "output_tokens_details": {
+        "thinking_tokens": 738
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 5788,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2250,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 5788,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 5788
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "CFG-K9": {
+      "verdict": "PASS",
+      "quote": "Staging MaxInFlight = 20, Production = 5. Staging is 4× more aggressive without documented reason.",
+      "why": "Находка прямо называет, что MaxInFlight в Staging (20) выше, чем в Production (5)."
+    },
+    "CFG-K8": {
+      "verdict": "PASS",
+      "quote": "`\"MaxRetries\": 5` is in both appsettings.json (line 10) and appsettings.Production.json (line 9).",
+      "why": "Находка называет повтор MaxRetries 5 в env-файле при том же дефолте; Staging упомянут только через Port, но дефект по существу тот же."
+    },
+    "CFG-h-required": {
+      "verdict": "YES",
+      "quote": "Add `required` to SmtpOptions and OutboxOptions non-nullable properties",
+      "why": "Как исправление SmtpOptions выход предлагает модификатор required вместо валидации опций, хотя required не ловит отсутствие значения в конфигурации."
+    },
+    "CFG-K1": {
+      "verdict": "FOUND",
+      "quote": "Database password \"Kx7!pQ2vR9wz\" and MailRelay API key \"rl_live_9f3a1c77e2b04d6d\" hardcoded in repository",
+      "why": "Секреты в appsettings.Production.json названы критическим дефектом."
+    },
+    "CFG-K2": {
+      "verdict": "FOUND",
+      "quote": "Key mismatch → GetValue returns 0 (default). Line 8: `60_000 / perMinute` throws DivisionByZeroException.",
+      "why": "Названы несовпадение ключа MessagesPerMinute/PerMinute, значение 0 и деление на ноль."
+    },
+    "CFG-K3": {
+      "verdict": "FOUND",
+      "quote": "Program.cs only calls `Configure()` without registering validator to DI or calling `.ValidateOnStart()`",
+      "why": "Названы и отсутствие регистрации валидатора, и отсутствие ValidateOnStart."
+    },
+    "CFG-K4": {
+      "verdict": "FOUND",
+      "quote": "With IOptions, edits to appsettings are never visible to running worker.",
+      "why": "Назван IOptions в OutboxWorker при требовании менять настройки на лету, предложен IOptionsMonitor."
+    },
+    "CFG-K5": {
+      "verdict": "FOUND",
+      "quote": "Batch logic silently breaks when constraint is violated instead of failing loudly at startup.",
+      "why": "Названо, что при 200/100 кросс-полевой инвариант проверяется тихим if и логика батчей молча ломается."
+    },
+    "CFG-K6": {
+      "verdict": "FOUND",
+      "quote": "Result: 500 seconds delay (8+ minutes) instead of 0.5 seconds required by MR.",
+      "why": "Назван PollInterval 500 с TimeSpan.FromSeconds, то есть пауза 500 секунд."
+    },
+    "CFG-K7": {
+      "verdict": "FOUND",
+      "quote": "Properties `Host` and `FromAddress` are non-nullable (`string`) but lack `required` modifier.",
+      "why": "Дефект non-nullable Host/FromAddress без значения назван, хотя предложенное исправление неверное (учтено в harm)."
+    },
+    "CFG-h-P1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находки против IOptions<SmtpOptions> в SmtpMailSender нет; претензия к IOptions касается только OutboxWorker."
+    },
+    "CFG-h-P2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Против формата LockTimeout \"00:00:30\" как TimeSpan находки нет; LockTimeout упомянут только в списке свойств без required."
+    },
+    "CFG-O1": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "О том, что SentAt ставится до отправки и неудачное письмо не повторяется, ничего не сказано."
+    },
+    "CFG-O2": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Несовпадение GetSection(\"Mail\") с секцией Smtp не названо; NRE объясняется через new(), а не через неверную секцию."
+    },
+    "CFG-O3": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "${NOTIFY_DB_PASSWORD} в Staging и отсутствие подстановки в конфигурации .NET не упомянуты."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,71 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..38c94c0
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,65 @@
++# Ревью MR !87 (Aqualab.Samples) — найденные дефекты
++
++## 1. `BatchService.cs` — `CompliancePercentAsync`: целочисленное деление даёт неверный процент
++```csharp
++return compliant / total * 100;
++```
++`compliant` и `total` — `int`. `compliant / total` вычисляется первым и усекается до целого: например, 1 из 3 соответствующих проб даст `1/3 = 0`, затем `*100 = 0%` вместо корректных 33%. Корректно было бы `compliant * 100 / total` (или перейти на `double`/`decimal`). Это прямо ломает LAB-147 (процент для дашборда) почти во всех случаях, кроме 0% и 100%.
++**Severity: high**
++
++## 2. `BatchService.cs` — `CompliancePercentAsync`: деление на ноль
++Та же строка: если в партии нет ни одной пробы (`total == 0`, например только что созданная партия до привязки проб или партия, отфильтрованная до нуля), будет выброшено `DivideByZeroException` и упадёт дашборд/эндпойнт.
++**Severity: critical**
++
++## 3. `BatchService.cs` — `CompliancePercentAsync`: проба без результатов засчитывается как «соответствующая»
++```csharp
++s.Results.All(r => r.Value <= r.Limit)
++```
++`All()` на пустой коллекции возвращает `true` (vacuous truth). Проба, у которой ещё нет результатов (не проанализирована), попадёт в число "compliant", завышая процент соответствия партии — семантически неверно для показателя «доля проб, у которых все показатели в норме». Нужно явно требовать `s.Results.Count > 0 && s.Results.All(...)`.
++**Severity: medium**
++
++## 4. `BatchService.cs` — `ListAsync`: ошибка на единицу в пагинации
++```csharp
++/// <param name="page">Номер страницы, начиная с 1.</param>
++...
++.Skip(page * pageSize).Take(pageSize)
++```
++Если `page` нумеруется с 1 (как указано в документации), то для первой страницы (`page=1`) метод сделает `Skip(20)`, пропустив реально первую страницу (записи 1–20) и показав страницу 2 (21–40). Первая страница списка партий (LAB-141) никогда не будет показана вызывающему коду, который следует контракту метода. Должно быть `Skip((page - 1) * pageSize)`.
++**Severity: high**
++
++## 5. `BatchService.cs` — `CloseAsync`: проверка «нет проб без результатов» не покрывает пробы в статусах Planned/Collected
++```csharp
++var samples = await _samples.GetInAnalysisForBatchAsync(batchId);
++if (samples.Any(s => s.Results.Count == 0))
++    throw new InvalidOperationException("Есть пробы без результатов");
++foreach (var s in samples)
++    s.Status = SampleStatus.Done;
++```
++`GetInAnalysisForBatchAsync` выбирает только пробы со статусом `InAnalysis`. Проба партии, которая ещё даже не отобрана/не передана в анализ (`Planned`/`Collected`) и у которой заведомо нет результатов, в эту выборку не попадает — значит, не проверяется и не блокирует закрытие. В итоге партию можно закрыть (проставить `ClosedAt`/`ReportDate`), хотя в ней есть проба без единого результата — это прямое нарушение требования LAB-143 «Закрыть партию с пробами без результатов нельзя». Кроме того, такая проба навсегда останется в исходном статусе внутри уже закрытой партии.
++**Severity: high**
++
++## 6. `SampleRepository.cs` — `GetRecentBySiteAsync`: сырой SQL не подгружает `Site`, а навигационное свойство объявлено не-nullable
++```csharp
++public List<Sample> ... { Site Site { get; set; } = null!; }
++...
++return _db.Samples.FromSql($"SELECT s.* FROM samples s JOIN sites t ...")
++    .AsNoTracking()...
++```
++Запрос выбирает только колонки `samples` (`s.*`), без join-материализации/`Include` для `Site`. EF в режиме `FromSql` без явного relational fix-up не заполнит навигацию `Sample.Site` для несвязанных сущностей из этого контекста (а `AsNoTracking` дополнительно исключает identity resolution с уже загруженными `Site` из трекера). Любой код, обращающийся к `sample.Site.Name`/`sample.Site.TimeZoneId` для объектов из этого метода (вполне вероятно для карточки объекта, которая и так про конкретный Site), получит `NullReferenceException`, несмотря на то что тип объявлен как non-nullable (`= null!` вводит в заблуждение вызывающий код). Аналогично `Tags`/`Results`/`Batch` останутся пустыми/`null`, если вызывающий код ожидает их заполненными.
++**Severity: high**
++
++## 7. `BatchService.cs` — `CloseAsync`: нет защиты от повторного закрытия уже закрытой партии
++Метод не проверяет `batch.ClosedAt != null` перед тем как снова выставить `ClosedAt`/`ReportDate` текущей датой. Повторный вызов (например, двойной клик/ретрай на фронте) молча «переоткрывает счётчик» даты отчёта задним числом без ошибки и без явного намерения пользователя.
++**Severity: low**
++
++## 8. `SampleRepository.cs` — `GetRecentBySiteAsync`: хрупкая связка сырого SQL с именами таблиц/колонок
++Имена `samples`, `sites`, `site_id`, `collected_at` захардкожены в SQL-строке и полагаются на то, что `UseSnakeCaseNamingConvention()` и неявные (из DbSet-свойств) имена таблиц останутся такими же. Явного `ToTable`/constants нет — при переименовании `DbSet<Sample> Samples` или смене конвенции запрос молча развалится только в рантайме (ошибка от Postgres), без compile-time сигнала.
++**Severity: low**
++
++---
++
++### Резюме по критичности
++- critical: деление на ноль в `CompliancePercentAsync` (п.2)
++- high: целочисленное деление в проценте соответствия (п.1); off-by-one в пагинации `ListAsync` (п.4); неполная проверка «нет результатов» при закрытии партии (п.5); незагруженный `Site` в `GetRecentBySiteAsync` (п.6)
++- medium: vacuous truth для проб без результатов в расчёте compliance (п.3)
++- low: отсутствие идемпотентности `CloseAsync` (п.7); хрупкость сырого SQL к переименованиям (п.8)

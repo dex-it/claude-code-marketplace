@@ -1,0 +1,9 @@
+Изменённые файлы:
+- /Users/anonymous/.cache/review/pr280/runs/E4-W1/Model.cs
+- /Users/anonymous/.cache/review/pr280/runs/E4-W1/OrderRepository.cs
+
+Решения:
+- Complexity (int, 1..5) добавлен на Order + CHECK-constraint `CK_Order_Complexity_Range` через `ToTable(t => t.HasCheckConstraint(...))`, т.к. диапазон 1..5 - бизнес-инвариант, который стоит защитить на уровне БД, а не только в коде.
+- CreatedAt: колонка "timestamp without time zone" не меняется; добавлен `ValueConverter<DateTime,DateTime>`, который на запись приводит значение к UTC (`ToUniversalTime()`, если Kind не Utc), а на чтение выставляет `Kind=Utc` через `SpecifyKind` - т.к. Npgsql для этого типа колонки отдаёт `Kind=Unspecified`, и без конвертера код бы получал "голый" DateTime без гарантии зоны.
+- Order -> Items / Order -> Payments сконфигурированы явно (`HasMany().WithOne().HasForeignKey()`), добавлены навигации `OrderItem.Order` / `Payment.Order`. Взято `OnDelete(DeleteBehavior.Restrict)` вместо конвенционного Cascade, т.к. у Order удаление мягкое (IsDeleted) и физическая строка Order не должна удаляться приложением - Restrict не даст молча каскадно снести позиции/платежи, если это всё же произойдёт. Также добавлены `HasQueryFilter` на OrderItem/Payment (`!x.Order.IsDeleted`) по образцу из документации EF Core о cascading query filters через навигацию - иначе позиции/платежи мягко удалённого заказа "утекали" бы в прямые выборки по OrderItem/Payment.
+- `OrderRepository.ClearItemsAsync(Guid orderId)`: грузит Order с Include(Items), делает `order.Items.Clear()` и `SaveChangesAsync()`; т.к. FK OrderId обязателен (не nullable), удалённые из коллекции OrderItem будут физически удалены EF (orphan delete), что и требуется для "убрать все позиции". Метод назван с суффиксом Async по конвенции остального репозитория (GetAllAsync/GetAsync).

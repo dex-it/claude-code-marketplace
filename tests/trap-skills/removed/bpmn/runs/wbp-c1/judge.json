@@ -1,0 +1,63 @@
+{
+ "total_cost_usd": 0.1178216,
+ "model": "claude-opus-5-5",
+ "verdict": {
+  "cells": [
+   {
+    "code": "BP1",
+    "score": "1",
+    "quote": "<parallelGateway id=\"Gw_Split\" name=\"Одновременно\"> ... <parallelGateway id=\"Gw_Join\" name=\"Сделано и то и другое\"> <incoming>F6</incoming> <incoming>F14</incoming> -> Task_Confirm"
+   },
+   {
+    "code": "BP2",
+    "score": "1",
+    "quote": "<eventBasedGateway id=\"Gw_Wait\" name=\"Что наступит раньше?\"> -> Evt_PaymentConfirmed (messageEventDefinition), Evt_HoldTimer <timeDuration>PT15M</timeDuration>"
+   },
+   {
+    "code": "BP3",
+    "score": "1",
+    "quote": "<exclusiveGateway id=\"Gw_Price\" name=\"Стоимость урока больше 3 000 ₽?\" default=\"F_PriceLow\"> ... lessonPrice &gt; 3000"
+   },
+   {
+    "code": "BP4",
+    "score": "1",
+    "quote": "<inclusiveGateway id=\"Gw_Extras\" name=\"Что ещё нужно сделать?\" default=\"F_ExtraNone\"> ... F_ExtraNone name=\"Ни то, ни другое\""
+   },
+   {
+    "code": "BP5",
+    "score": "1",
+    "quote": "Evt_PaymentError -> Task_ReleaseHoldError «Снять холд сразу, освободить слот» -> Task_NotifyPaymentFailed -> End_PaymentFailed «Оплата не прошла»"
+   },
+   {
+    "code": "BP6",
+    "score": "1",
+    "quote": "Evt_HoldTimer -> Task_ReleaseHoldTimeout «Снять холд, освободить слот» -> Task_NotifyTimeout «время на оплату вышло» -> End_Timeout"
+   },
+   {
+    "code": "BP7",
+    "score": "1",
+    "quote": "<participant id=\"P_PayFlow\" name=\"Платёжный провайдер PayFlow\"/> (без processRef); MF_PayRequest, MF_PayOk, MF_PayError - messageFlow"
+   },
+   {
+    "code": "BP8",
+    "score": "1",
+    "quote": "«Поставить холд на слот (15 минут)», «Запросить оплату у PayFlow», «Погасить промокод», «Снять холд, освободить слот», «Отправить письма ученику и репетитору»"
+   },
+   {
+    "code": "BP9",
+    "score": "1",
+    "quote": "End_Confirmed «Бронь подтверждена», End_Timeout «Холд снят по тайм-ауту», End_PaymentFailed «Оплата не прошла»"
+   },
+   {
+    "code": "BP10",
+    "score": "1",
+    "quote": "<endEvent id=\"End_Timeout\" ...><terminateEventDefinition/>; End_PaymentFailed <terminateEventDefinition/>; «процесс завершается целиком ... если репетитор уже уведомлён»"
+   },
+   {
+    "code": "O1",
+    "score": "1",
+    "quote": "нужно уточнить у владельца процесса: Репетитор не может отклонить бронь, и срока на подтверждение нет. Что происходит с холдом и оплатой, если репетитор не подтверждает, — не описано."
+   }
+  ]
+ }
+}

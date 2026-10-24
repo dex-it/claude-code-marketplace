@@ -1,0 +1,23 @@
+@Library('depot-pipeline-lib@v1.4.0') _
+pipeline {
+  agent { label 'dotnet-linux' }
+  options { timeout(time: 30, unit: 'MINUTES') }
+  stages {
+    stage('Test') {
+      steps { sh 'dotnet test -c Release --logger trx' }
+    }
+    stage('Deploy prod') {
+      when { beforeAgent true; branch 'main' }
+      steps {
+        timeout(time: 24, unit: 'HOURS') { input message: 'Deploy to prod?' }
+        withCredentials([string(credentialsId: 'deploy-token', variable: 'TOKEN')]) {
+          sh './deploy.sh --token $TOKEN --env prod'
+        }
+      }
+    }
+  }
+  post {
+    always { cleanWs() }
+    cleanup { sh 'docker logout registry.example.com || true' }
+  }
+}

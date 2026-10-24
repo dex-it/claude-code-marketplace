@@ -1,0 +1,61 @@
+docker exec <ctr> sh -c 'ls -la /work /work/src /work/app; ps aux | head -20; which perf strace dotnet-trace dotnet-counters ltrace'
+docker exec <ctr> sh -c 'ls /work/logs; tail -5 /work/logs/*; top -H -b -n1 -p 11 | head -20; export DOTNET_PerfMapEnabled=1; perf record -F 199 -g -p 11 -o /tmp/p.data -- sleep 8 2>&1 | tail -2; perf report -i /tmp/p.data --no-children --sort sym 2>/dev/null | head -40'
+docker exec <ctr> sh -c 'head -5 /work/logs/worker.log; pkill -f OrdersWorker.dll; sleep 1; cd /work && export DOTNET_PerfMapEnabled=1; nohup dotnet app/OrdersWorker.dll slow >/work/logs/worker2.log 2>&1 &
+sleep 5; P=$(pgrep -f OrdersWorker.dll|head -1); perf record -F 499 -g -p $P -o /tmp/p2.data -- sleep 8 2>&1|tail -1; perf report -i /tmp/p2.data --no-children --sort dso,sym -g none 2>/dev/null | grep -v "^#" | head -30'
+docker exec <ctr> sh -c 'pgrep -a dotnet'; docker exec <ctr> sh -c 'cd /work && DOTNET_PerfMapEnabled=1 nohup dotnet app/OrdersWorker.dll slow >/work/logs/worker2.log 2>&1 &' ; sleep 1; docker exec <ctr> pgrep -a dotnet
+docker exec <ctr> sh -c 'sleep 4; perf record -F 499 -g -p 66 -o /tmp/p2.data -- sleep 8 2>&1|tail -1; perf report -i /tmp/p2.data --no-children --sort sym -g none 2>/dev/null | grep -v "^#" | grep -v "^$" | head -25; tail -2 /work/logs/worker2.log'
+docker exec <ctr> sh -c 'ls /tmp/perf-*.map; perf report -i /tmp/p2.data --no-children --sort dso -g none 2>/dev/null | grep -v "^#" | grep -v "^$" | head -12'
+docker exec <ctr> sh -c 'kill 66; sleep 1; cd /work && DOTNET_PerfMapEnabled=1 DOTNET_EnableWriteXorExecute=0 nohup dotnet app/OrdersWorker.dll slow >/work/logs/worker3.log 2>&1 &' ; sleep 2; docker exec <ctr> sh -c 'P=$(pgrep -f "dotnet app/OrdersWorker"|head -1); echo $P; sleep 3; perf record -F 499 -g -p $P -o /tmp/p3.data -- sleep 8 2>&1|tail -1; perf report -i /tmp/p3.data --no-children --sort sym -g none 2>/dev/null | grep -v "^#" | grep -v "^$" | head -20; perf report -i /tmp/p3.data --children --sort sym -g none 2>/dev/null | grep -v "^#" | grep -v "^$" | head -20'
+docker exec <ctr> sh -c 'grep -n -i "regex\|Slugify" /work/src/Program.cs; cat /work/src/OrdersWorker.csproj | grep -i -E "tiered|server|gc"; cat /work/app/OrdersWorker.runtimeconfig.json'; docker exec <ctr> sh -c 'pkill -x dotnet; sleep 1; cd /work && nohup dotnet app/OrdersWorker.dll slow >/work/logs/worker.log 2>&1 &'; sleep 1
+sed -n 155,175p <lab>/src/Program.cs
+docker exec <ctr> pgrep -a dotnet
+cat > <lab>/REPORT.md <<'EOF'
+# REPORT: orders-worker, рост p50 с 0.2 до 3 мс
+
+## Симптом
+После релиза обработчик orders-worker (`dotnet app/OrdersWorker.dll slow`) стал медленнее: p50 вырос с 0.2 до 3 мс.
+Процесс постоянно занят CPU: в `top -H` два рабочих потока по ~100% каждый (суммарно ~193%).
+Пауз, ожидания и роста памяти нет (rss ≈ 68 MB, inflight=0). Значит, время уходит на вычисления, а не на блокировки.
+
+## Причина
+`/work/src/Program.cs:162`, метод `TextUtils.Slugify`, вызывается из `Program.cs:98`.
+На каждый вызов создаётся новый `Regex`:
+`var rx = new Regex(@"[^\p{L}\p{Nd}]+(?:[\s\p{P}]*)");`
+Каждый раз заново разбирается шаблон, строится дерево и интерпретатор. Кэша и статического экземпляра нет.
+Режимы `Compiled` и `RegexOptions` не заданы, поэтому работает интерпретатор.
+Дополнительно сам матчинг по юникодным классам `\p{L}`, `\p{Nd}`, `\p{P}` недешёвый.
+
+## Улики
+1. Загрузка по потокам:
+   `docker exec <ctr> sh -c 'top -H -b -n1 -p 11'`
+   `PID 19 ... 99.9 %CPU`, `PID 20 ... 99.9 %CPU`. Два потока заняты на 100%.
+
+2. Профиль CPU. Запуск: `DOTNET_PerfMapEnabled=1 DOTNET_EnableWriteXorExecute=0 dotnet app/OrdersWorker.dll slow`.
+   Замер: `perf record -F 499 -g -p <pid> -- sleep 8`, затем `perf report --children --sort sym`.
+   Без `EnableWriteXorExecute=0` JIT-код попадал в `memfd:doublemapper` и не получал имён.
+   ```
+   99.72%  Modes+<>c::<Slow>b__6_1()
+   96.75%  TextUtils::Slugify(string)
+   44.22%  RegexReplacement::ReplaceSimpleText(...)
+   41.66%  Regex::RunAllMatchesWithCallback(...)
+   35.35%  Regex::.ctor(string, CultureInfo)
+   35.24%  RegexInterpreter::Scan(...)
+   28.16%  RegexParser::Parse(...)
+   ```
+   Self-время: `RegexInterpreter::TryMatchAtCurrentPosition` 7.4%, `RegexCharClass::CharInCategoryGroup` 6.5%,
+   `CharInClassRecursive` 4.4%, `RegexParser::ScanReplacement/ScanCharClass/ScanRegex` вместе ~4.5%.
+
+3. `Slugify` занимает 96.75% времени рабочего потока. Из них ~35% приходится на конструктор `Regex` (разбор шаблона на каждый вызов).
+   Ещё ~42% уходит на сам матчинг и замену в интерпретаторе.
+
+4. Лог `/work/logs/worker.log` показывает ~1 млн обработанных элементов за 2 с, то есть работа идёт непрерывно и упирается в CPU.
+
+## Что предлагаю
+1. Вынести `Regex` в `static readonly` поле и не создавать его на каждый вызов.
+   Это убирает ~35% времени (разбор шаблона и построение дерева).
+2. Добавить `RegexOptions.Compiled` или использовать `[GeneratedRegex]` (.NET 8), чтобы уменьшить стоимость самого матчинга.
+   Лучше проверить, нужны ли здесь юникодные классы. Если нет, упрощение шаблона до ASCII ускорит матчинг ещё сильнее.
+3. После правки повторить `perf` и сравнить p50 до и после. Правку я не вносил: по условию код не менялся.
+
+Примечание: при диагностике сервис перезапускался несколько раз (в том числе с `DOTNET_PerfMapEnabled`). Сейчас он запущен штатной командой `slow`.
+EOF

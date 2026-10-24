@@ -15,17 +15,34 @@
  *   1 - at least one error found
  */
 
-import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, lstatSync, existsSync } from 'node:fs';
 import { basename, join, relative, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import matter from 'gray-matter';
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
 import { visit } from 'unist-util-visit';
+import { isCommandSkillFile, commandName } from './command-skills.js';
+import { buildPluginArtifactMap, danglingSkillHalves, skillHalfMessage } from './plugin-artifacts.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const REPO_ROOT = resolve(__dirname, '..');
+// MARKETPLACE_ROOT переносит валидатор на дерево-песочницу: tools/test-rules.js
+// прогоняет правило на фикстуре, а не на живом каталоге.
+const REPO_ROOT = process.env.MARKETPLACE_ROOT
+  ? resolve(process.env.MARKETPLACE_ROOT)
+  : resolve(__dirname, '..');
+
+// Обход дерева не проходит по symlink и спецфайлам: цикл ссылок ронял прогон стектрейсом ELOOP, FIFO вешал
+// чтение, а ссылка наружу судила чужой файл как свой. Такой узел - отказ с кодом 1, а не тихий пропуск.
+function statPlain(full) {
+  const stat = lstatSync(full);
+  if (stat.isSymbolicLink() || !(stat.isFile() || stat.isDirectory())) {
+    console.error(`Not a regular file or directory (symlinks and special files are not followed): ${relative(REPO_ROOT, full)}`);
+    process.exit(1);
+  }
+  return stat;
+}
 const PLUGINS_DIR = join(REPO_ROOT, 'plugins');
 
 const COLORS = {
@@ -44,6 +61,67 @@ function parseArgs(argv) {
   return { target: positional[0] || 'all' };
 }
 
+// --- Skill reference validation ------------------------------------------
+
+// Скилл, агент и команда одного плагина делят пространство имён `{plugin}:{artifact}` - вызов своего агента или команды формой не отличим от вызова скилла. Перечень и суд половины «скилл» общие для трёх валидаторов (tools/plugin-artifacts.js, #423).
+const PLUGIN_ARTIFACTS = buildPluginArtifactMap(PLUGINS_DIR, statPlain);
+
+// Плагин, которого нет ни в дереве, ни в каталоге (агентский спавн вне каталога, `file:line`), - не вызов скилла, не судится.
+function validateSkillReferences(markdownBody, findings) {
+  for (const d of danglingSkillHalves(markdownBody, PLUGIN_ARTIFACTS, catalogPlugins())) {
+    findings.push({ level: ERROR, rule: 'skill-reference-unknown', message: skillHalfMessage(d) });
+  }
+}
+
+// Голое имя плагина в теле - указатель на соседа: «этим ведает вон тот», «подробнее там». Загрузкой
+// оно не является (загрузка пишется полной формой `plugin:skill`), поэтому обязательства поставки не
+// даёт и в замыкание бандла не входит. Но указатель обязан вести в существующее место: имя, которого
+// в каталоге нет, читателя никуда не приводит и сгнить успевает молча, а голую форму до сих пор не
+// сторожил никто. Полную форму `plugin:skill` половиной «плагин» судит это же правило: `skill-reference-unknown`
+// здесь судит вторую половину адреса только при известном плагине (неизвестный пропускается), поэтому
+// опечатка в имени плагина мимо него проходит.
+let catalogPluginsCache = null;
+function catalogPlugins() {
+  if (catalogPluginsCache) return catalogPluginsCache;
+  const file = join(REPO_ROOT, '.claude-plugin', 'marketplace.json');
+  try {
+    catalogPluginsCache = new Set((JSON.parse(readFileSync(file, 'utf8')).plugins || []).map((p) => p.name));
+  } catch {
+    catalogPluginsCache = new Set();
+  }
+  return catalogPluginsCache;
+}
+
+function validatePluginNameMentions(text, findings, where = '') {
+  const known = catalogPlugins();
+  if (known.size === 0) return; // каталога нет - имя не «неизвестно», а непроверяемо: сверять не с чем
+  const seen = new Set();
+  for (const match of text.matchAll(/`(dex-[a-z0-9-]+)`/g)) {
+    const name = match[1];
+    if (name.endsWith('-')) continue; // не имя, а префикс-шаблон: `dex-skill-`
+    if (known.has(name) || seen.has(name)) continue;
+    seen.add(name);
+    findings.push({
+      level: ERROR,
+      rule: 'plugin-name-unknown',
+      message: `${where}names "${name}" - no such plugin in the catalogue. A bare name is a pointer, not a load, so it carries no delivery obligation - but a pointer must lead somewhere, and a name that leads nowhere rots silently; this rule is the guard of the bare form, and the plugin half of the full form plugin:skill is judged by the same rule`,
+    });
+  }
+  // Полная форма `plugin:skill`: половина «плагин» судится тем же правилом. Загрузка с именем плагина,
+  // которого нет в каталоге, никуда не ведёт, а `skill-reference-unknown` на неизвестном
+  // плагине молчит (неизвестный пропускается).
+  for (const match of text.matchAll(/`(dex-[a-z0-9-]+):([a-z][a-z0-9-]*)`/g)) {
+    const [, plugin, skill] = match;
+    if (known.has(plugin) || seen.has(plugin)) continue;
+    seen.add(plugin);
+    findings.push({
+      level: ERROR,
+      rule: 'plugin-name-unknown',
+      message: `${where}names "${plugin}:${skill}" - plugin "${plugin}" is not in the catalogue. A full form is a load, and a load through a plugin that does not exist fails at run time; this rule is the guard of the plugin half of the full form`,
+    });
+  }
+}
+
 // --- File discovery -----------------------------------------------------
 
 function findAllCommandFiles() {
@@ -52,9 +130,11 @@ function findAllCommandFiles() {
     if (!existsSync(dir)) return;
     for (const entry of readdirSync(dir)) {
       const full = join(dir, entry);
-      const stat = statSync(full);
+      const stat = statPlain(full);
       if (stat.isDirectory()) walk(full);
       else if (entry.endsWith('.md') && full.includes('/commands/')) {
+        result.push(full);
+      } else if (entry === 'SKILL.md' && isCommandSkillFile(full)) {
         result.push(full);
       }
     }
@@ -212,6 +292,176 @@ function validateNoDocumentationTitles(markdownBody, findings) {
   });
 }
 
+// --- link escapes the plugin ---------------------------------------------
+
+// Соседний плагин у пользователя ставится сам по себе: `../<плагин>/...` из тела
+// артефакта не резолвится ровно так же, как `docs/` каталога. Внутриплагинный
+// подъём (`../<соседний скилл>/`) законен и правилом не трогается - решает не
+// число `../`, а то, вышел ли разрешённый путь за корень плагина.
+const ESCAPING_LINK_RE = /\]\((\.\.\/[^)\s]+)\)/g;
+
+function pluginRootOf(filepath) {
+  let dir = dirname(resolve(filepath));
+  for (let i = 0; i < 8; i += 1) {
+    if (existsSync(join(dir, '.claude-plugin'))) return dir;
+    const up = dirname(dir);
+    if (up === dir) return null;
+    dir = up;
+  }
+  return null;
+}
+
+function validateLinkEscapesPlugin(text, filepath, findings, where = '') {
+  const pluginRoot = pluginRootOf(filepath);
+  if (!pluginRoot) return;
+  const baseDir = dirname(resolve(filepath));
+  const hits = [];
+  ESCAPING_LINK_RE.lastIndex = 0;
+  for (const m of text.matchAll(ESCAPING_LINK_RE)) {
+    if (relative(pluginRoot, resolve(baseDir, m[1])).startsWith('..')) hits.push(m[1]);
+  }
+  if (hits.length === 0) return;
+  const shown = hits.slice(0, 3).join(', ');
+  findings.push({
+    level: ERROR,
+    rule: 'link-escapes-plugin',
+    message: `${where}link leaves the plugin directory (${shown}${hits.length > 3 ? `, +${hits.length - 3} more` : ''}) - a neighbouring plugin is installed on its own, so the path does not resolve at runtime. Name the neighbour instead: {plugin}:{skill}`,
+  });
+}
+
+// --- catalog docs link ---------------------------------------------------
+
+// `docs/` каталога - дизайн-тайм: он нормирует авторство артефактов и в установленный плагин не
+// входит. Адрес такого документа в теле хуже отсутствия адреса: он выглядит валидным, а исполнитель
+// либо молча его не открывает, либо сочиняет содержимое. Норма, нужная в рантайме, живёт в самом
+// артефакте либо в скилле, который у пользователя установлен.
+
+// Ключ у правила один - адресат: документ, который РЕАЛЬНО существует в `docs/` каталога. Форма
+// записи ключом не служит - код-спан и проза уводят исполнителя туда же, куда markdown-ссылка.
+// Шаблоны формы работают на текст сообщения: назвать место в тексте и то, что относительная ссылка
+// не разрешается даже в клоне. Обратная сторона того же ключа: путь, которого в `docs/` каталога нет
+// (`docs/discover/README.md` как выход агента в проекте пользователя), не покрыт ни в одной форме -
+// он адресует чужой корпус.
+const CATALOG_DOCS_LINK_FORMS = [
+  /https?:\/\/github\.com\/dex-it\/claude-code-marketplace\/\S*?\/docs\/[^\s)\]]+/g,
+  /\]\((?:\.{1,2}\/)*docs\/[^)\s]+\)/g,
+];
+
+// Каталоги, которые каталог сам раздаёт пользователю: `project-docs-map` несёт дефолты
+// `product: docs/product/` и `domain: docs/domain/` как адрес корпуса уровня 0 ЕГО проекта. Путь под
+// ними в теле артефакта именует чужой документ, а не наш, - из-под правила выведен.
+const USER_CORPUS_DIRS = new Set(['product', 'domain']);
+
+let catalogDocTargetsCache = null;
+function catalogDocTargets() {
+  if (catalogDocTargetsCache) return catalogDocTargetsCache;
+  const paths = new Set();
+  const names = new Set();
+  const walk = (dir, rel) => {
+    if (!existsSync(dir)) return;
+    for (const entry of readdirSync(dir).sort()) {
+      const full = join(dir, entry);
+      const relPath = rel ? `${rel}/${entry}` : entry;
+      if (statPlain(full).isDirectory()) {
+        if (!rel && USER_CORPUS_DIRS.has(entry)) continue;
+        walk(full, relPath);
+        continue;
+      }
+      if (!entry.endsWith('.md')) continue;
+      paths.add(`docs/${relPath}`);
+      // Голым именем адресуются доки-фреймворки каталога, а они лежат на верхнем уровне `docs/`.
+      // Ниже - внутренние дизайн-доки (`ARCHITECTURE.md`, `PIPELINE.md`), и такое имя носит документ
+      // пользователя не реже нашего: на нём правило ловило бы чужой файл.
+      if (!rel && /^[A-Z][A-Z0-9_]*\.md$/.test(entry) && entry !== 'README.md') names.add(entry);
+    }
+  };
+  walk(join(REPO_ROOT, 'docs'), '');
+  catalogDocTargetsCache = { paths: [...paths], names: [...names] };
+  return catalogDocTargetsCache;
+}
+
+// Матч по границе, а не подстрокой: `MY_PIPELINE.md` не адресует `PIPELINE.md`. Слева у пути `/`
+// допустим (адрес внутри URL), у голого имени - нет: там `/` значит, что имя уже часть пути и
+// посчитано путём.
+function mentionsTarget(text, target, slashBefore) {
+  const before = slashBefore ? '(?<![\\w.-])' : '(?<![\\w./-])';
+  const escaped = target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`${before}${escaped}(?![\\w])`).test(text);
+}
+
+// Авторские плагины: их артефакты исполняются в клоне каталога, где `docs/` лежит рядом, поэтому
+// адрес у них разрешается и правило к ним не применяется. Читается `authorOnly[]`, а не весь состав
+// бандла автора (`includes[]` плюс `dependencies[]`): в составе стоят и плагины, которые едут
+// пользователю бандлами ролей, где `docs/` каталога нет, - исключение даёт только запись в
+// `authorOnly[]`, а не место записи в одном из двух списков. Разъезд `authorOnly[]` с составами
+// бандлов ловит `validate-bundle.js` (`author-only-*`).
+const AUTHOR_BUNDLE_JSON = 'plugins/bundles/dex-bundle-market-editor/bundle.json';
+let authorPluginsCache = null;
+function authorPlugins() {
+  if (authorPluginsCache) return authorPluginsCache;
+  authorPluginsCache = new Set();
+  try {
+    const json = JSON.parse(readFileSync(join(REPO_ROOT, AUTHOR_BUNDLE_JSON), 'utf8'));
+    for (const name of json.authorOnly || []) authorPluginsCache.add(name);
+  } catch {
+    // бандла нет (песочница фикстур, урезанное дерево) - исключений нет
+  }
+  return authorPluginsCache;
+}
+
+// Имя плагина, которому принадлежит файл: ближайший вверх каталог с `.claude-plugin/plugin.json`.
+function pluginNameOf(filepath) {
+  let dir = dirname(resolve(filepath));
+  while (dir !== dirname(dir)) {
+    const manifest = join(dir, '.claude-plugin', 'plugin.json');
+    if (existsSync(manifest)) {
+      try {
+        return JSON.parse(readFileSync(manifest, 'utf8')).name || basename(dir);
+      } catch {
+        return basename(dir);
+      }
+    }
+    dir = dirname(dir);
+  }
+  return null;
+}
+
+function validateCatalogDocsLink(text, filepath, findings, where = '') {
+  if (authorPlugins().has(pluginNameOf(filepath))) return;
+
+  const { paths, names } = catalogDocTargets();
+  const named = [];
+  for (const target of paths) {
+    if (mentionsTarget(text, target, true)) named.push(target);
+  }
+  for (const target of names) {
+    if (!mentionsTarget(text, target, false)) continue;
+    if (named.some((t) => t.endsWith(`/${target}`))) continue;
+    named.push(target);
+  }
+  if (named.length === 0) return;
+
+  const forms = [];
+  for (const re of CATALOG_DOCS_LINK_FORMS) {
+    re.lastIndex = 0;
+    for (const m of text.matchAll(re)) {
+      // Хвостовая пунктуация предложения в адрес не входит.
+      const form = m[0].replace(/[.,;:]+$/, '');
+      if (named.some((t) => form.includes(t))) forms.push(form);
+    }
+  }
+  const shown = named.slice(0, 3).join(', ');
+  const asLink =
+    forms.length > 0
+      ? ` Here it is written as a link (${forms.slice(0, 2).join(', ')}), which misses even in a clone - a relative link resolves from the artifact's own directory.`
+      : '';
+  findings.push({
+    level: ERROR,
+    rule: 'catalog-docs-link',
+    message: `${where}names a catalog docs/ document (${shown}${named.length > 3 ? `, +${named.length - 3} more` : ''}) - naming it in any form (code span, prose, link) sends the executor to a file the plugin does not ship.${asLink} Carry the norm in the artifact itself or in a skill the user has installed; author-only artifacts belong in dex-bundle-market-editor`,
+  });
+}
+
 // --- File validation orchestration --------------------------------------
 
 function validateFile(filepath) {
@@ -232,11 +482,15 @@ function validateFile(filepath) {
   }
 
   validateFrontmatter(parsed, findings);
-  validateSize(raw, findings, PIPELINE_COMMANDS.has(basename(filepath, '.md')));
+  validateSize(raw, findings, PIPELINE_COMMANDS.has(commandName(filepath)));
   validateNoProcedural(parsed.content, findings);
   validateCodeFences(parsed.content, findings);
   validateNoBashScripts(parsed.content, findings);
   validateNoDocumentationTitles(parsed.content, findings);
+  validateSkillReferences(parsed.content, findings);
+  validateCatalogDocsLink(raw, filepath, findings);
+  validatePluginNameMentions(raw, findings);
+  validateLinkEscapesPlugin(raw, filepath, findings);
 
   return { filepath, findings };
 }

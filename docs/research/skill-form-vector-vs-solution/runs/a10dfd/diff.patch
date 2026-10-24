@@ -1,0 +1,103 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..081d181
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,97 @@
++# Ревью MR !4127: сервисы заказов и каталога для админки
++
++## Critical
++
++### 1. Migrations/20260920_OrderCategories.cs (`Up`) — миграция несовместима с текущей моделью, данные категорий теряются
++Миграция удаляет колонку `Orders.Category` (`DropColumn("Category", "Orders")`) и заводит вместо неё `Categories`/`OrderCategories`, но:
++- `Model.cs` (не входит в изменённые файлы MR) по-прежнему маппит `Order.Category` как обычное поле на несуществующую после миграции колонку — навигации на `Categories`/`OrderCategories` в модели нет. Любой запрос к `Orders` (включая `FirstAsync` в `OrderAdmin.UpdateOrder`, `SaveChangesAsync`) начнёт падать с ошибкой Npgsql "column «Category» of relation «Orders» does not exist", т.к. EF по умолчанию проецирует все замапленные колонки.
++- Существующие значения `Orders.Category` нигде не переносятся в `Categories`/`OrderCategories` перед дропом колонки — это безвозвратная потеря исторических данных (чек-лист: «Схемная миграция и исторические данные»).
++- `Down()` тоже не восстанавливает реальные значения категорий, а проставляет пустую строку по умолчанию.
++До мерджа нужно либо обновить `Model.cs`/сервисы под новую схему (маппинг many-to-many через `Categories`/`OrderCategories`), либо добавить шаг переноса данных в самой миграции (или в отдельной data-миграции) до дропа колонки.
++
++### 2. Services/CatalogService.cs — `Reserve`: `FOR UPDATE` без границы транзакции
++```csharp
++var product = await _db.Products.FromSqlRaw("... FOR UPDATE", productId).SingleAsync();
++if (product.Stock < qty) return false;
++product.Stock -= qty;
++await _db.SaveChangesAsync();
++```
++Без явной транзакции, охватывающей `SELECT ... FOR UPDATE` и последующий `SaveChangesAsync`, каждая команда выполняется в своей автономной транзакции — блокировка строки снимается сразу после `SELECT`, до записи нового `Stock`. Это полностью убирает эффект пессимистичной блокировки: два параллельных `Reserve` могут оба прочитать одинаковый `Stock`, оба пройти проверку и увести остаток в минус (oversell). Нужна явная `BeginTransactionAsync`, оборачивающая `SELECT ... FOR UPDATE` и `SaveChangesAsync`.
++
++### 3. Services/CatalogService.cs — `Search`: условия ссылаются не на алиас шаблона, запрос сломан
++```csharp
++const string template = "SELECT * FROM \"Products\" p WHERE {0}";
++...
++conditions.Add($"\"Products\".\"Category\" = @p{args.Count}");
++```
++Таблица в шаблоне алиасится как `p`, но условия фильтра ссылаются на `"Products"."Category"`/`"Products"."Price"` вместо `p."Category"`/`p."Price"`. В PostgreSQL после присвоения алиаса ссылаться на исходное имя таблицы в том же запросе нельзя — при любом непустом `category` или `minPrice` запрос упадёт с ошибкой вида «missing FROM-clause entry for table "Products"». Метод `Search` фактически неработоспособен всякий раз, когда передан хотя бы один фильтр.
++
++### 4. Workers/OverdueNotifier.cs — `ShopDbContext` внедрён напрямую в `BackgroundService`
++`OverdueNotifier` — `BackgroundService`, живущий как singleton, а `ShopDbContext` зарегистрирован как scoped (`AddDbContext`) и внедряется через конструктор напрямую. Это классическая captive dependency: один и тот же экземпляр контекста живёт вечно и используется во всех итерациях бесконечного цикла раз в минуту. Помимо риска падения при валидации scope в DI, `ChangeTracker` копит добавленные `AuditLog` без ограничения (контекст никогда не диспоузится/не создаётся заново), что ведёт к неограниченному росту памяти и деградации со временем. Нужно создавать `IServiceScope` на каждую итерацию (через `IServiceScopeFactory`) и резолвить `ShopDbContext` внутри него.
++
++## High
++
++### 5. Services/OrderQueries.cs — `ExportForCustomer`: две коллекции в одном `Include`-запросе без `AsSplitQuery`
++```csharp
++_db.Orders.Where(o => o.CustomerId == customerId)
++    .Include(o => o.Items).Include(o => o.Payments)
++    .AsNoTracking().ToListAsync();
++```
++Одновременный `Include` двух коллекций (`Items`, `Payments`) без `AsSplitQuery` даёт декартово произведение строк в single query. Учитывая, что в MR явно указано «у крупных клиентов тысячи заказов», результат будет многократно раздут (Items × Payments на каждый заказ), что означает огромный трафик и память при выгрузке. `GetCard` рядом в этом же файле сделан правильно (`AsSplitQuery`), а `ExportForCustomer` — нет.
++
++### 6. Services/OrderQueries.cs — `GetProductBySku`: `SingleAsync` на неуникальном в домене условии
++```csharp
++_db.Products.AsNoTracking().SingleAsync(p => p.Sku == sku);
++```
++Согласно контексту MR, «один SKU лежит на нескольких складах, на одном складе уникален» — то есть `Sku` не уникален глобально. `SingleAsync` бросит `InvalidOperationException` при наличии того же SKU на нескольких складах — легитимный и, судя по описанию, частый сценарий. Нужно либо явно фильтровать по складу, либо возвращать список/явно сигнализировать неоднозначность, а не падать с общим исключением.
++
++### 7. Services/OrderQueries.cs — `LastShippedAt`: `!` на nullable без проверки на null
++```csharp
++var last = await _db.Orders.Where(...).MaxAsync(o => o.ShippedAt);
++return last!.Value;
++```
++`ShippedAt` — `DateTime?`; `MaxAsync` по пустой последовательности или когда у всех заказов клиента `ShippedAt == null` (клиент без отгрузок, либо все заказы ещё не отгружены) вернёт `null`. `null!.Value` бросит `InvalidOperationException` в рантайме. Нужна явная обработка отсутствия отгрузок (например, `DateTime?` в возвращаемом типе или явное исключение с понятным сообщением).
++
++### 8. Services/OrderAdmin.cs — `UpdateOrder`: нет контроля параллельной правки
++```csharp
++var order = await _db.Orders.FirstAsync(o => o.Id == edit.Id);
++order.Status = edit.Status;
++order.Category = edit.Category;
++await _db.SaveChangesAsync();
++```
++MR прямо описывает, что «в админке несколько операторов правят заказы одновременно». Метод читает-меняет-сохраняет без concurrency token (rowversion/xmin), т.е. классический lost update: правка одного оператора молча затирается правкой другого без какого-либо конфликта или уведомления.
++
++### 9. Services/OrderAdmin.cs — `RecalcTotal`: сумма считается без учёта количества
++```csharp
++order.Total = order.Items.Sum(i => prices[i.ProductId]);
++```
++По контексту модели `Product.Price` — цена за единицу, `OrderItem.Qty` — количество. Должно быть `i.Qty * prices[i.ProductId]`. Текущий код игнорирует `Qty`, что даёт неверную сумму заказа для любого `OrderItem` с `Qty != 1` — финансовый баг.
++
++### 10. Services/OrderAdmin.cs — `OverdueReport`: репозиторий материализует всю таблицу, фильтр после материализации
++```csharp
++var all = await _repo.GetAllAsync();               // OrderRepository.GetAllAsync() = _db.Orders.ToListAsync()
++return all.Where(o => o.IsOverdue(now)).Select(o => o.Id).ToList();
++```
++`OrderRepository.GetAllAsync` без фильтра тянет в память все заказы (включая soft-deleted-исключённые, но не ограниченные по объёму), после чего фильтрация по `IsOverdue` (метод на C#, не транслируется в SQL) идёт уже в памяти. Для отчёта по «крупным клиентам с тысячами заказов» это не масштабируется. Условие `ShippedAt == null && CreatedAt.AddDays(3) < now` полностью транслируемо в SQL (как и сделано корректно в `OverdueNotifier`) — стоит фильтровать на уровне `IQueryable`, а не после `ToListAsync`.
++
++## Medium
++
++### 11. Services/CatalogService.cs — `Reprice`: `UpdateRange` на уже отслеживаемых сущностях
++```csharp
++var products = await _db.Products.Where(p => p.Category == category).ToListAsync(); // tracked, без AsNoTracking
++foreach (var p in products) p.Price *= factor;
++_db.UpdateRange(products);
++await _db.SaveChangesAsync();
++```
++`products` загружены без `AsNoTracking`, то есть уже отслеживаются, а изменение `p.Price` само по себе помечает нужное свойство как Modified. Явный `UpdateRange` на отслеживаемых сущностях помечает Modified **все** свойства, а не только `Price`, что порождает полный UPDATE по всем колонкам и риск затереть значение `Stock`, изменённое конкурентно (например, параллельным `Reserve`) — т.к. в UPDATE попадёт устаревшее значение `Stock`, загруженное в начале `Reprice`. Строку `_db.UpdateRange(products)` нужно убрать.
++
++### 12. Migrations/20260920_OrderCategories.cs — каскадный FK у зависимой таблицы при soft-delete родителя
++```csharp
++t.ForeignKey("FK_OrderCategories_Orders", x => x.OrderId, "Orders", "Id", onDelete: ReferentialAction.Cascade);
++```
++`Order` использует soft-delete (`HasQueryFilter(o => !o.IsDeleted)` в `Model.cs`), т.е. штатный путь удаления — не физический DELETE. `ReferentialAction.Cascade` в БД для зависимой `OrderCategories` означает, что любой случайный физический DELETE строки `Orders` (миграция данных, ручная админская операция, багфикс-скрипт) молча и каскадно снесёт связи категорий без прохождения через доменную логику. Для сущностей с soft-delete команда обычно держит FK зависимых без каскада (Restrict/NoAction), чтобы физическое удаление было либо невозможно, либо явно контролировалось.
++
++## Low
++
++### 13. Migrations/20260920_OrderCategories.cs — индекс по `CategoryId` отсутствует
++Композитный PK `OrderCategories(OrderId, CategoryId)` даёт эффективный индекс только для поиска по `OrderId` (и по обеим колонкам). Поиск/джойн по `CategoryId` (например, «список заказов категории» — логичный кейс для переоценки категории или отчётов) не будет использовать этот индекс. Стоит рассмотреть отдельный индекс по `CategoryId`, если такие запросы предполагаются.

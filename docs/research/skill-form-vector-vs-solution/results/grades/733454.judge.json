@@ -1,0 +1,92 @@
+{
+  "id": "733454",
+  "case": "V4",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.13075499999999998,
+    "durationMs": 12929,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 12575,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1486,
+      "output_tokens_details": {
+        "thinking_tokens": 398
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 12575,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1486,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 12575,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 12575
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "V4-container-count": {
+      "verdict": "FOUND",
+      "quote": "`net = gross - TareKg` не учитывает `ContainerCount`",
+      "why": "Находка 3 называет вычитание тары одной фляги вместо TareKg * ContainerCount и переплату пчеловоду за тару."
+    },
+    "V4-honeytype-moisture": {
+      "verdict": "FOUND",
+      "quote": "Нормы влажности конкретного вида мёда (`HoneyType.MaxMoistureGradeA/B`) не используются",
+      "why": "Находка 4 указывает, что сорт считается по общим константам, а не по нормам из HoneyType, и приводит пример с вересковым мёдом."
+    },
+    "V4-correction-after-payout": {
+      "verdict": "FOUND",
+      "quote": "`IntakeService.CorrectAsync`: нет проверки, что партия уже в выплате или оплачена",
+      "why": "Находка 5 называет исправление партии в статусе InPayout/Paid без пересчёта выплаты и со сменой пчеловода."
+    },
+    "V4-delete-draft-advance": {
+      "verdict": "FOUND",
+      "quote": "`PayoutService.DeleteDraftAsync`: удержанный аванс не возвращается на баланс",
+      "why": "Удаление черновика связано с невосстановленным AdvanceBalance; последствие описано наоборот («удерживается второй раз» вместо «удержание = 0»), но правило ключа засчитывает саму связь."
+    },
+    "V4-adjust-four-eyes": {
+      "verdict": "FOUND",
+      "quote": "Бухгалтер B может поставить премию в чужом черновике и сам его утвердить. Проверяется только совпадение с `CreatedBy`",
+      "why": "Находка 11 связывает ручную корректировку с тем, что при утверждении проверяется только CreatedBy."
+    },
+    "V4-registry-upload-swallowed": {
+      "verdict": "FOUND",
+      "quote": "`ExportedAt` и `RegistryFile` сохраняются до загрузки на SFTP. `BankGatewayException` только пишется в лог, а клиент получает 200",
+      "why": "Находка 1 связывает пометку до отправки, проглоченную ошибку, ответ 200 и выпадение выплат из следующего реестра."
+    },
+    "V4-temp-key-fk": {
+      "verdict": "PASS",
+      "quote": "в журнал записывается `PriceListEntryId = entry.Id`, который до `SaveChanges` равен 0",
+      "why": "Находка 6 называет нулевой ключ до SaveChanges и падение на FK, а в исправлении предлагает навигацию."
+    },
+    "V4-h-decimal-numeric": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находок об усечении decimal или об обязательном HasPrecision в выходе нет."
+    },
+    "V4-h-executeupdate-in-transaction": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "ApproveAsync упоминается только в гонке с Adjust/Delete из-за отсутствия concurrency token; ни «ExecuteUpdate вне транзакции», ни «статусы не сохранятся без SaveChanges» в выходе не утверждается."
+    }
+  },
+  "stderr": ""
+}

@@ -15,10 +15,9 @@ Creator для обучения ML моделей. Анализирует зад
 
 В Phase 2 загружай skills через Skill tool в зависимости от фреймворка и задачи:
 
-- Если PyTorch -- `dex-skill-python-pytorch:python-pytorch`
-- Если TensorFlow/Keras -- `dex-skill-python-tensorflow:python-tensorflow`
-- Если sklearn/XGBoost -- `dex-skill-python-classical-ml:python-classical-ml`
-- Для оптимизации training (mixed precision, gradient accumulation, Optuna) -- `dex-skill-python-ml-optimization:python-ml-optimization`
+- Если PyTorch -- `dex-skill-python-pytorch:python-pytorch` `[справочно]`
+- Если TensorFlow/Keras -- `dex-skill-python-tensorflow:python-tensorflow` `[справочно]`
+- Для пространства поиска гиперпараметров Optuna -- `dex-skill-python-ml-optimization:python-ml-optimization` `[справочно]`
 
 ## Phases
 
@@ -28,7 +27,7 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 
 **Goal:** Определить задачу, данные, фреймворк, ограничения по ресурсам.
 
-**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` задача обучения и данные под неё; `[default-ok]` фреймворк, ограничения по ресурсам и времени, baseline, `mode` - канал к пользователю, поля нет -> `autonomous`. Задачи или данных нет -> halt плюс возврат оркестратору со `status: blocked`.
+**Input (handoff):** контракт стыка - в pre-loaded `node-contract` (словарь полей, правило стыка). Принимаемые поля: `[blocking]` задача обучения и данные под неё; `[default-ok]` фреймворк, ограничения по ресурсам и времени, baseline, `mode` - оператор в петле, поля нет -> `autonomous`. Задачи или данных нет -> halt плюс возврат оркестратору со `status: blocked`.
 
 **Output:** Training spec:
 - Задача: classification / regression / NLP / CV / time-series
@@ -39,7 +38,7 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 
 **Exit criteria:** Задача, данные и фреймворк определены. Если pretrained модель -- определить base model.
 
-**Mandatory:** yes -- training pipeline без понимания задачи и ресурсов бесполезен.
+**Mandatory:** yes
 
 При анализе:
 - Проверить существующий код в проекте (есть ли уже training script)
@@ -57,7 +56,7 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 
 **Exit criteria:** Скрипт создан, все компоненты на месте, конфигурация параметров вынесена. Сработавший fact-check-триггер закрыт статусом `verified` / `unverifiable` / `contradicted`.
 
-**Mandatory:**
+**Обязательное в цикле обучения:**
 - Validation после каждой эпохи -- train loss без val loss бесполезен
 - Early stopping -- предотвращает overfitting и экономит ресурсы
 - Checkpointing лучшей модели по val metric -- не терять лучший результат
@@ -77,9 +76,9 @@ Understand Requirements -> Generate -> Validate. Все три фазы обяз
 - Воспроизводимость - два прогона с одним seed дают совпадающий loss первой эпохи; расхождение = незафиксированный источник случайности
 - Каждый пункт ниже подтверждается grep по созданному файлу с указанием `file:line`; пункт без совпадения фиксируется как отсутствующий, не как соблюдённый: `model.eval()` перед validation; `torch.no_grad()` вокруг validation loop; состав checkpoint (`model_state_dict`, `optimizer_state_dict`, `epoch`, `best_metric`); early stopping; раздельное логирование train/val; fitting нормализации и augmentation только на train; установленный seed
 
-**Exit criteria:** smoke-run зелёный и его вывод приложен; по каждому пункту сверки указан `file:line` либо запись об отсутствии; прогон невозможен в среде (нет GPU/датасета) -> `run-status: skipped` + причина, отдавать непрогнанный pipeline без этого статуса нельзя.
+**Exit criteria:** smoke-run зелёный и его вывод приложен; по каждому пункту сверки указан `file:line` либо запись об отсутствии; прогон невозможен в среде (нет GPU/датасета) -> `run-status: unverifiable` + причина и `status: partial`, отдавать непрогнанный pipeline без этого статуса нельзя.
 
-**Output (handoff):** по контракту `node-contract` отдай первым полем `status` исхода узла (`complete`/`blocked`/`partial` - см. правило стыка A; `blocked`/`partial` не маскировать под `complete`), затем: конфигурация обучения и путь к артефактам, метрики на train и validation, сравнение с baseline, `run-status` прогона и допущения, принятые узлом самостоятельно там, где вход молчал, и статус fact-check API (`verified`/`unverifiable`/`contradicted`; триггер не сработал - `n/a`). Длительный прогон, который узел не запускал, остаётся предложением под `status: partial` с оценкой стоимости, а не отчётом об обучении.
+**Output (handoff):** поля словаря `node-contract`, первым - `status` (исход узла); смысл и терминалы каждого поля - там же, здесь только что отдаёт этот узел: конфигурация обучения и путь к артефактам, метрики на train и validation, сравнение с baseline, `run-status` прогона и допущения, принятые узлом самостоятельно там, где вход молчал, и статус fact-check API (`verified`/`unverifiable`/`contradicted`; триггер не сработал - `n/a`). Длительный прогон, который узел не запускал, остаётся предложением под `status: partial` с оценкой стоимости, а не отчётом об обучении.
 
 ## Boundaries
 

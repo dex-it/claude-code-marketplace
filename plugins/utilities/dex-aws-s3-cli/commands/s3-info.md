@@ -20,7 +20,7 @@ argument-hint: "bucket-name [--profile name]"
 
 **Constraints:**
 
-- Требует `aws` CLI в PATH; если не найден -- показать инструкцию установки и ссылку на [docs/CLI_UTILITIES.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/CLI_UTILITIES.md).
+- Требует `aws` CLI в PATH; если не найден -- показать инструкцию установки.
 - Использует `aws s3api get-bucket-*` (read-only).
 - Часть API-вызовов может вернуть `404 NoSuchConfiguration` -- это **нормально** (значит фича не настроена); не считать это ошибкой.
 - Размер бакета и число объектов через `s3api` напрямую недоступны -- вывести предупреждение и предложить CloudWatch metric `BucketSizeBytes` или `s3 ls --recursive --summarize` (но дорого).

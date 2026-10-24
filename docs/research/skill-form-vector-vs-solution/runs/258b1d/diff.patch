@@ -1,0 +1,175 @@
+diff --git a/Models.cs b/Models.cs
+index 0111c7f..6cc7786 100644
+--- a/Models.cs
++++ b/Models.cs
+@@ -22,6 +22,7 @@ public class Member
+     public string CardNumber { get; set; } = "";
+     public string FullName { get; set; } = "";
+     public string Phone { get; set; } = "";
++    public DateTime? FrozenUntil { get; set; }
+ }
+ 
+ public class Course
+diff --git a/Program.cs b/Program.cs
+index ad8e6b2..60ad917 100644
+--- a/Program.cs
++++ b/Program.cs
+@@ -23,7 +23,17 @@ app.MapPost("/courses/{id:int}/publish", async (int id, ScheduleService s) =>
+ });
+ 
+ app.MapPost("/sessions/{id:int}/enroll", async (int id, EnrollRequest req, ScheduleService s) =>
+-    Results.Ok(await s.EnrollAsync(req.CardNumber, id)));
++{
++    try
++    {
++        var enrollmentId = await s.EnrollAsync(req.CardNumber, id);
++        return Results.Ok(new { id = enrollmentId });
++    }
++    catch (InvalidOperationException ex) when (ex.Message == "Абонемент заморожен")
++    {
++        return Results.Conflict(new { error = ex.Message });
++    }
++});
+ 
+ app.MapDelete("/enrollments/{id:int}", async (int id, ScheduleService s) =>
+ {
+@@ -31,6 +41,22 @@ app.MapDelete("/enrollments/{id:int}", async (int id, ScheduleService s) =>
+     return Results.NoContent();
+ });
+ 
++app.MapPost("/members/{id:int}/freeze", async (int id, FreezeRequest req, ScheduleService s) =>
++{
++    await s.FreezeMemberAsync(id, req.Days);
++    return Results.NoContent();
++});
++
++app.MapDelete("/members/{id:int}/freeze", async (int id, ScheduleService s) =>
++{
++    await s.UnfreezeMemberAsync(id);
++    return Results.NoContent();
++});
++
++app.MapGet("/quality/random-session", async (ScheduleService s) =>
++    await s.GetRandomSessionAsync() is { } session ? Results.Ok(session) : Results.NotFound());
++
+ app.Run();
+ 
+ public record EnrollRequest(string CardNumber);
++public record FreezeRequest(int Days);
+diff --git a/ScheduleService.cs b/ScheduleService.cs
+index bd9f0ab..676ca50 100644
+--- a/ScheduleService.cs
++++ b/ScheduleService.cs
+@@ -7,6 +7,9 @@ public record CourseDto(int Id, string Title, string Trainer, CourseStatus Statu
+ 
+ public record SessionDto(int Id, DateTime StartsAt, int DurationMinutes, string Hall, int Booked);
+ 
++public record RandomSessionDto(int Id, string Course, string Trainer, string Hall, DateTime StartsAt,
++    IReadOnlyList<string> EnrolledMembers);
++
+ public class ScheduleService
+ {
+     private readonly StudioDbContext _db;
+@@ -58,6 +61,9 @@ public class ScheduleService
+         if (session.Course.Status != CourseStatus.Published)
+             throw new InvalidOperationException("Запись на курс не открыта");
+ 
++        if (IsMemberFrozen(member, session.StartsAt))
++            throw new InvalidOperationException("Абонемент заморожен");
++
+         var booked = await _db.Enrollments.CountAsync(e =>
+             e.SessionId == sessionId && e.Status != EnrollmentStatus.Cancelled);
+         if (booked >= session.Hall.Capacity)
+@@ -81,4 +87,56 @@ public class ScheduleService
+         enrollment.Status = EnrollmentStatus.Cancelled;
+         await _db.SaveChangesAsync();
+     }
++
++    public async Task FreezeMemberAsync(int memberId, int days)
++    {
++        var member = await _db.Members.FindAsync(memberId)
++            ?? throw new KeyNotFoundException("Клиент не найден");
++        member.FrozenUntil = DateTime.UtcNow.AddDays(days);
++        await _db.SaveChangesAsync();
++    }
++
++    public async Task UnfreezeMemberAsync(int memberId)
++    {
++        var member = await _db.Members.FindAsync(memberId)
++            ?? throw new KeyNotFoundException("Клиент не найден");
++        member.FrozenUntil = null;
++        await _db.SaveChangesAsync();
++    }
++
++    public async Task<RandomSessionDto?> GetRandomSessionAsync()
++    {
++        var now = DateTime.UtcNow;
++        var weekLater = now.AddDays(7);
++
++        var session = await _db.Sessions
++            .AsNoTracking()
++            .Include(s => s.Course).ThenInclude(c => c.Trainer)
++            .Include(s => s.Hall)
++            .Include(s => s.Enrollments).ThenInclude(e => e.Member)
++            .Where(s => s.StartsAt >= now && s.StartsAt <= weekLater)
++            .OrderBy(s => EF.Functions.Random())
++            .FirstOrDefaultAsync();
++
++        if (session is null)
++            return null;
++
++        var enrolledMembers = session.Enrollments
++            .Where(e => e.Status != EnrollmentStatus.Cancelled)
++            .Select(e => e.Member.FullName)
++            .ToList();
++
++        return new RandomSessionDto(
++            session.Id,
++            session.Course.Title,
++            session.Course.Trainer.FullName,
++            session.Hall.Name,
++            session.StartsAt,
++            enrolledMembers);
++    }
++
++    private bool IsMemberFrozen(Member member, DateTime sessionStartsAt)
++    {
++        return member.FrozenUntil.HasValue && member.FrozenUntil.Value > sessionStartsAt;
++    }
+ }
+diff --git a/TurnstileWorker.cs b/TurnstileWorker.cs
+index 3e8cb17..aaaf269 100644
+--- a/TurnstileWorker.cs
++++ b/TurnstileWorker.cs
+@@ -49,6 +49,10 @@ public class TurnstileWorker : BackgroundService
+             {
+                 pass.Note = "карта не найдена";
+             }
++            else if (member.FrozenUntil.HasValue && member.FrozenUntil.Value > pass.PassedAt)
++            {
++                pass.Note = "абонемент заморожен";
++            }
+             else
+             {
+                 // Проход засчитывается за занятие, начавшееся не раньше чем за 1,5 часа
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..5068ee3
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,15 @@
++# Решение задач по сервису студии
++
++## Созданные/изменённые файлы:
++- **Models.cs** — добавлено поле `FrozenUntil` в класс `Member`
++- **ScheduleService.cs** — добавлены методы `FreezeMemberAsync()`, `UnfreezeMemberAsync()`, `GetRandomSessionAsync()`, новый DTO `RandomSessionDto`, проверка заморозки в `EnrollAsync()`
++- **Program.cs** — добавлены endpoints POST/DELETE `/members/{id}/freeze`, GET `/quality/random-session`, обработка 409 при заморозке
++- **TurnstileWorker.cs** — добавлена проверка заморозки при обработке проходов, запись пометки «абонемент заморожен»
++
++## Реализованные решения:
++
++**Заморозка абонемента:** Добавлено поле `FrozenUntil` (UTC) для хранения срока окончания заморозки. Endpoints позволяют администратору установить заморозку на N дней и снять её досрочно.
++
++**Блокировка проходов и записей:** При обработке проходов турникета проверяется статус заморозки — занятие не засчитывается, запись остаётся в статусе Booked с пометкой в журнале. При попытке записи на занятие во время заморозки возвращается 409 Conflict.
++
++**Тайный гость:** Endpoint возвращает случайное занятие из ближайших 7 дней с информацией о курсе, тренере, зале и списком записавшихся (исключая отменённые записи), используя `EF.Functions.Random()` для случайной выборки.

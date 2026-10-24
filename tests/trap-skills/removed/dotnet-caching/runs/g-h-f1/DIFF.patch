@@ -1,0 +1,388 @@
+diff --git a/src/Pricing.Api/Contracts/SupplierPriceContracts.cs b/src/Pricing.Api/Contracts/SupplierPriceContracts.cs
+new file mode 100644
+index 0000000..8412a6d
+--- /dev/null
++++ b/src/Pricing.Api/Contracts/SupplierPriceContracts.cs
+@@ -0,0 +1,9 @@
++using System.ComponentModel.DataAnnotations;
++
++namespace Pricing.Api.Contracts;
++
++/// <param name="SupplierId">Поставщик, изменивший цены.</param>
++/// <param name="Skus">Изменённые SKU; <c>null</c> - поставщик перезалил весь прайс.</param>
++public sealed record SupplierPricesChangedRequest(
++    [property: StringLength(100, MinimumLength = 1)] string SupplierId,
++    IReadOnlyList<string>? Skus);
+diff --git a/src/Pricing.Api/Controllers/SupplierPriceCacheController.cs b/src/Pricing.Api/Controllers/SupplierPriceCacheController.cs
+new file mode 100644
+index 0000000..959c045
+--- /dev/null
++++ b/src/Pricing.Api/Controllers/SupplierPriceCacheController.cs
+@@ -0,0 +1,21 @@
++using Microsoft.AspNetCore.Mvc;
++using Pricing.Api.Security;
++using Pricing.Application.Abstractions;
++
++namespace Pricing.Api.Controllers;
++
++[ApiController]
++[Route("api/suppliers/{supplierId}/price-cache")]
++[SharedSecret("X-Admin-Key", "Admin:ApiKey")]
++public sealed class SupplierPriceCacheController(ISupplierPriceCache cache) : ControllerBase
++{
++    /// <summary>Сбрасывает кэш цен поставщика целиком.</summary>
++    [HttpDelete]
++    [ProducesResponseType(StatusCodes.Status204NoContent)]
++    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
++    public IActionResult Reset(string supplierId)
++    {
++        cache.Invalidate(supplierId, null);
++        return NoContent();
++    }
++}
+diff --git a/src/Pricing.Api/Controllers/WebhooksController.cs b/src/Pricing.Api/Controllers/WebhooksController.cs
+new file mode 100644
+index 0000000..1a5da11
+--- /dev/null
++++ b/src/Pricing.Api/Controllers/WebhooksController.cs
+@@ -0,0 +1,21 @@
++using Microsoft.AspNetCore.Mvc;
++using Pricing.Api.Contracts;
++using Pricing.Api.Security;
++using Pricing.Application.Abstractions;
++
++namespace Pricing.Api.Controllers;
++
++[ApiController]
++[Route("api/webhooks")]
++[SharedSecret("X-Webhook-Secret", "Webhooks:Secret")]
++public sealed class WebhooksController(ISupplierPriceCache cache) : ControllerBase
++{
++    [HttpPost("supplier-prices")]
++    [ProducesResponseType(StatusCodes.Status204NoContent)]
++    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
++    public IActionResult SupplierPricesChanged(SupplierPricesChangedRequest request)
++    {
++        cache.Invalidate(request.SupplierId, request.Skus);
++        return NoContent();
++    }
++}
+diff --git a/src/Pricing.Api/Security/SharedSecretAttribute.cs b/src/Pricing.Api/Security/SharedSecretAttribute.cs
+new file mode 100644
+index 0000000..0d0ec74
+--- /dev/null
++++ b/src/Pricing.Api/Security/SharedSecretAttribute.cs
+@@ -0,0 +1,24 @@
++using System.Security.Cryptography;
++using System.Text;
++using Microsoft.AspNetCore.Mvc;
++using Microsoft.AspNetCore.Mvc.Filters;
++
++namespace Pricing.Api.Security;
++
++/// <summary>Служебный вызов: заголовок должен совпасть с секретом из конфигурации; без настроенного секрета доступ закрыт.</summary>
++[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
++public sealed class SharedSecretAttribute(string header, string configKey) : Attribute, IAsyncActionFilter
++{
++    public Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
++    {
++        var expected = context.HttpContext.RequestServices.GetRequiredService<IConfiguration>()[configKey];
++        var actual = context.HttpContext.Request.Headers[header].ToString();
++        if (string.IsNullOrEmpty(expected) || !CryptographicOperations.FixedTimeEquals(
++                SHA256.HashData(Encoding.UTF8.GetBytes(actual)), SHA256.HashData(Encoding.UTF8.GetBytes(expected))))
++        {
++            context.Result = new UnauthorizedResult();
++            return Task.CompletedTask;
++        }
++        return next();
++    }
++}
+diff --git a/src/Pricing.Application/Abstractions/ISupplierPriceCache.cs b/src/Pricing.Application/Abstractions/ISupplierPriceCache.cs
+new file mode 100644
+index 0000000..dee2361
+--- /dev/null
++++ b/src/Pricing.Application/Abstractions/ISupplierPriceCache.cs
+@@ -0,0 +1,7 @@
++namespace Pricing.Application.Abstractions;
++
++public interface ISupplierPriceCache
++{
++    /// <summary>Сбрасывает кэшированные цены поставщика: перечисленные SKU, а при <c>skus == null</c> - весь прайс.</summary>
++    void Invalidate(string supplierId, IReadOnlyCollection<string>? skus);
++}
+diff --git a/src/Pricing.Infrastructure/InfrastructureModule.cs b/src/Pricing.Infrastructure/InfrastructureModule.cs
+index b906c7f..9e1a56f 100644
+--- a/src/Pricing.Infrastructure/InfrastructureModule.cs
++++ b/src/Pricing.Infrastructure/InfrastructureModule.cs
+@@ -1,5 +1,6 @@
+ using Microsoft.Extensions.Configuration;
+ using Microsoft.Extensions.DependencyInjection;
++using Microsoft.Extensions.DependencyInjection.Extensions;
+ using Microsoft.Extensions.Options;
+ using Pricing.Application.Abstractions;
+ using Pricing.Infrastructure.Persistence;
+@@ -16,13 +17,22 @@ public static class InfrastructureModule
+         services.AddScoped<IPromotionRepository, InMemoryPromotionRepository>();
+ 
+         services.Configure<SupplierOptions>(config.GetSection(SupplierOptions.Section));
+-        services.AddHttpClient<ISupplierCatalog, SupplierApiClient>((sp, http) =>
++        services.AddHttpClient<SupplierApiClient>((sp, http) =>
+             {
+                 var o = sp.GetRequiredService<IOptions<SupplierOptions>>().Value;
+                 http.BaseAddress = o.BaseUrl;
+                 http.DefaultRequestHeaders.Add("X-Api-Key", o.ApiKey);
+             })
+-            .AddStandardResilienceHandler();
++            .AddStandardResilienceHandler(o =>
++            {
++                // Витрина ждёт ответ не дольше 3 с: общий срок вызова не больше, попытка - короче.
++                o.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(3);
++                o.AttemptTimeout.Timeout = TimeSpan.FromSeconds(1);
++            });
++        services.TryAddSingleton(TimeProvider.System);
++        services.AddSingleton<CachingSupplierCatalog>();
++        services.AddSingleton<ISupplierCatalog>(sp => sp.GetRequiredService<CachingSupplierCatalog>());
++        services.AddSingleton<ISupplierPriceCache>(sp => sp.GetRequiredService<CachingSupplierCatalog>());
+         return services;
+     }
+ }
+diff --git a/src/Pricing.Infrastructure/Suppliers/CachingSupplierCatalog.cs b/src/Pricing.Infrastructure/Suppliers/CachingSupplierCatalog.cs
+new file mode 100644
+index 0000000..97f82d6
+--- /dev/null
++++ b/src/Pricing.Infrastructure/Suppliers/CachingSupplierCatalog.cs
+@@ -0,0 +1,86 @@
++using System.Collections.Concurrent;
++using Microsoft.Extensions.DependencyInjection;
++using Microsoft.Extensions.Logging;
++using Microsoft.Extensions.Options;
++using Pricing.Application.Abstractions;
++
++namespace Pricing.Infrastructure.Suppliers;
++
++/// <summary>
++/// Кэш цен поставщика над <see cref="SupplierApiClient"/>. Конкурентные промахи по одному SKU делят один
++/// вызов в Supplier API; ошибки не кэшируются. Вызов к поставщику не зависит от токена первого
++/// вызывающего (его ждут и остальные) - его срок ограничивает resilience-handler клиента.
++/// </summary>
++public sealed class CachingSupplierCatalog(
++    IServiceScopeFactory scopes,
++    IOptions<SupplierOptions> options,
++    TimeProvider time,
++    ILogger<CachingSupplierCatalog> logger) : ISupplierCatalog, ISupplierPriceCache
++{
++    private sealed class Entry
++    {
++        public TaskCompletionSource<SupplierPrice?> Source { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
++        public long CompletedAt { get; set; }
++    }
++
++    private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, Entry>> _suppliers = new();
++
++    public async Task<SupplierPrice?> GetPriceAsync(string supplierId, string sku, CancellationToken ct)
++    {
++        var bucket = _suppliers.GetOrAdd(supplierId, _ => new());
++        while (true)
++        {
++            var created = new Entry();
++            var entry = bucket.GetOrAdd(sku, created);
++            if (!ReferenceEquals(entry, created))
++            {
++                if (IsExpired(entry))
++                {
++                    bucket.TryRemove(new KeyValuePair<string, Entry>(sku, entry));
++                    continue;
++                }
++                return await entry.Source.Task.WaitAsync(ct);
++            }
++
++            _ = LoadAsync(bucket, supplierId, sku, entry);
++            return await entry.Source.Task.WaitAsync(ct);
++        }
++    }
++
++    public void Invalidate(string supplierId, IReadOnlyCollection<string>? skus)
++    {
++        if (!_suppliers.TryGetValue(supplierId, out var bucket)) return;
++        if (skus is null)
++        {
++            bucket.Clear();
++        }
++        else
++        {
++            foreach (var sku in skus) bucket.TryRemove(sku, out _);
++        }
++        logger.LogInformation("Кэш цен поставщика {SupplierId} сброшен: {Scope}", supplierId,
++            skus is null ? "весь прайс" : $"{skus.Count} SKU");
++    }
++
++    private bool IsExpired(Entry entry) =>
++        entry.Source.Task.IsCompletedSuccessfully
++        && time.GetElapsedTime(entry.CompletedAt) >= options.Value.PriceCacheTtl;
++
++    private async Task LoadAsync(ConcurrentDictionary<string, Entry> bucket, string supplierId, string sku, Entry entry)
++    {
++        try
++        {
++            using var scope = scopes.CreateScope();
++            var client = scope.ServiceProvider.GetRequiredService<SupplierApiClient>();
++            var price = await client.GetPriceAsync(supplierId, sku, CancellationToken.None);
++            entry.CompletedAt = time.GetTimestamp();
++            entry.Source.SetResult(price);
++        }
++        catch (Exception ex)
++        {
++            bucket.TryRemove(new KeyValuePair<string, Entry>(sku, entry));
++            logger.LogWarning(ex, "Не удалось получить цену {Sku} у поставщика {SupplierId}", sku, supplierId);
++            entry.Source.SetException(ex);
++        }
++    }
++}
+diff --git a/src/Pricing.Infrastructure/Suppliers/SupplierOptions.cs b/src/Pricing.Infrastructure/Suppliers/SupplierOptions.cs
+index 3620c82..8120526 100644
+--- a/src/Pricing.Infrastructure/Suppliers/SupplierOptions.cs
++++ b/src/Pricing.Infrastructure/Suppliers/SupplierOptions.cs
+@@ -5,4 +5,5 @@ public sealed class SupplierOptions
+     public const string Section = "Suppliers";
+     public Uri BaseUrl { get; set; } = new("http://localhost:5100/");
+     public string ApiKey { get; set; } = "";
++    public TimeSpan PriceCacheTtl { get; set; } = TimeSpan.FromMinutes(10);
+ }
+diff --git a/tests/Pricing.Tests/CachingSupplierCatalogTests.cs b/tests/Pricing.Tests/CachingSupplierCatalogTests.cs
+new file mode 100644
+index 0000000..a596024
+--- /dev/null
++++ b/tests/Pricing.Tests/CachingSupplierCatalogTests.cs
+@@ -0,0 +1,121 @@
++using System.Net;
++using System.Net.Http.Json;
++using Microsoft.Extensions.DependencyInjection;
++using Microsoft.Extensions.Logging.Abstractions;
++using Microsoft.Extensions.Options;
++using Pricing.Infrastructure.Suppliers;
++
++namespace Pricing.Tests;
++
++public sealed class CachingSupplierCatalogTests
++{
++    private sealed class FakeSupplierHandler : HttpMessageHandler
++    {
++        private int _calls;
++        public int Calls => _calls;
++        public bool Fail { get; set; }
++        public TaskCompletionSource? Gate { get; set; }
++        public decimal Price { get; set; } = 100m;
++
++        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
++        {
++            Interlocked.Increment(ref _calls);
++            if (Gate is not null) await Gate.Task;
++            if (Fail) return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable);
++            var sku = request.RequestUri!.Segments[^1];
++            return new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(new { sku, price = Price, currency = "RUB" }) };
++        }
++    }
++
++    private sealed class ManualTime : TimeProvider
++    {
++        private long _ticks;
++        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
++        public override long GetTimestamp() => _ticks;
++        public void Advance(TimeSpan by) => _ticks += by.Ticks;
++    }
++
++    private readonly FakeSupplierHandler _handler = new();
++    private readonly ManualTime _time = new();
++    private readonly CachingSupplierCatalog _catalog;
++
++    public CachingSupplierCatalogTests()
++    {
++        var services = new ServiceCollection();
++        services.AddHttpClient<SupplierApiClient>(h => h.BaseAddress = new Uri("http://supplier/"))
++            .ConfigurePrimaryHttpMessageHandler(() => _handler);
++        var scopes = services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
++        _catalog = new CachingSupplierCatalog(scopes, Options.Create(new SupplierOptions()), _time, NullLogger<CachingSupplierCatalog>.Instance);
++    }
++
++    [Fact]
++    public async Task Repeated_quotes_use_cached_price()
++    {
++        await _catalog.GetPriceAsync("sup-1", "SKU-1", default);
++        var price = await _catalog.GetPriceAsync("sup-1", "SKU-1", default);
++
++        Assert.Equal(100m, price!.Price);
++        Assert.Equal(1, _handler.Calls);
++    }
++
++    [Fact]
++    public async Task Concurrent_misses_share_one_supplier_call()
++    {
++        _handler.Gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
++        var tasks = Enumerable.Range(0, 50).Select(_ => _catalog.GetPriceAsync("sup-1", "SKU-1", default)).ToArray();
++        _handler.Gate.SetResult();
++        await Task.WhenAll(tasks);
++
++        Assert.Equal(1, _handler.Calls);
++    }
++
++    [Fact]
++    public async Task Price_is_refetched_after_ttl()
++    {
++        await _catalog.GetPriceAsync("sup-1", "SKU-1", default);
++        _handler.Price = 120m;
++        _time.Advance(TimeSpan.FromMinutes(10));
++
++        var price = await _catalog.GetPriceAsync("sup-1", "SKU-1", default);
++
++        Assert.Equal(120m, price!.Price);
++    }
++
++    [Fact]
++    public async Task Invalidate_listed_skus_keeps_others()
++    {
++        await _catalog.GetPriceAsync("sup-1", "SKU-1", default);
++        await _catalog.GetPriceAsync("sup-1", "SKU-2", default);
++        _handler.Price = 120m;
++
++        _catalog.Invalidate("sup-1", ["SKU-1"]);
++
++        Assert.Equal(120m, (await _catalog.GetPriceAsync("sup-1", "SKU-1", default))!.Price);
++        Assert.Equal(100m, (await _catalog.GetPriceAsync("sup-1", "SKU-2", default))!.Price);
++    }
++
++    [Fact]
++    public async Task Invalidate_without_skus_drops_whole_supplier_only()
++    {
++        await _catalog.GetPriceAsync("sup-1", "SKU-1", default);
++        await _catalog.GetPriceAsync("sup-2", "SKU-1", default);
++        _handler.Price = 120m;
++
++        _catalog.Invalidate("sup-1", null);
++
++        Assert.Equal(120m, (await _catalog.GetPriceAsync("sup-1", "SKU-1", default))!.Price);
++        Assert.Equal(100m, (await _catalog.GetPriceAsync("sup-2", "SKU-1", default))!.Price);
++    }
++
++    [Fact]
++    public async Task Failure_is_not_cached()
++    {
++        _handler.Fail = true;
++        await Assert.ThrowsAsync<HttpRequestException>(() => _catalog.GetPriceAsync("sup-1", "SKU-1", default));
++        _handler.Fail = false;
++
++        var price = await _catalog.GetPriceAsync("sup-1", "SKU-1", default);
++
++        Assert.Equal(100m, price!.Price);
++    }
++}
+diff --git a/tests/Pricing.Tests/Pricing.Tests.csproj b/tests/Pricing.Tests/Pricing.Tests.csproj
+index 476155a..6d1b917 100644
+--- a/tests/Pricing.Tests/Pricing.Tests.csproj
++++ b/tests/Pricing.Tests/Pricing.Tests.csproj
+@@ -13,5 +13,6 @@
+   </ItemGroup>
+   <ItemGroup>
+     <ProjectReference Include="..\..\src\Pricing.Application\Pricing.Application.csproj" />
++    <ProjectReference Include="..\..\src\Pricing.Infrastructure\Pricing.Infrastructure.csproj" />
+   </ItemGroup>
+ </Project>

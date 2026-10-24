@@ -1,0 +1,87 @@
+diff --git a/src/Depot.Api/Program.cs b/src/Depot.Api/Program.cs
+index f597612..9669442 100644
+--- a/src/Depot.Api/Program.cs
++++ b/src/Depot.Api/Program.cs
+@@ -39,6 +39,10 @@ app.MapGet("/health", async (NpgsqlDataSource db) =>
+     return Results.Ok();
+ });
+ 
++app.MapGet("/version", () => Results.Json(new VersionDto(
++    typeof(Program).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
++    ?? typeof(Program).Assembly.GetName().Version?.ToString() ?? "unknown")));
++
+ app.MapGet("/stock/{sku}", async (string sku, NpgsqlDataSource db) =>
+ {
+     await using var cmd = db.CreateCommand("select warehouse, quantity from stock where sku = $1");
+diff --git a/src/Depot.Contracts/StockDto.cs b/src/Depot.Contracts/StockDto.cs
+index eae0939..b259789 100644
+--- a/src/Depot.Contracts/StockDto.cs
++++ b/src/Depot.Contracts/StockDto.cs
+@@ -3,3 +3,5 @@ namespace Depot.Contracts;
+ public sealed record StockDto(string Sku, string Warehouse, int Quantity);
+ 
+ public sealed record ReceiveRequest(string Warehouse, int Quantity);
++
++public sealed record VersionDto(string Version);
+diff --git a/tests/Depot.Api.Tests/StockTests.cs b/tests/Depot.Api.Tests/StockTests.cs
+index dc675fe..2500f58 100644
+--- a/tests/Depot.Api.Tests/StockTests.cs
++++ b/tests/Depot.Api.Tests/StockTests.cs
+@@ -1,5 +1,9 @@
+ using System.Net;
++using System.Net.Http.Json;
++using System.Reflection;
+ using Depot.Contracts;
++using Microsoft.AspNetCore.Mvc.Testing;
++using Testcontainers.PostgreSql;
+ using Xunit;
+ 
+ namespace Depot.Api.Tests;
+@@ -24,3 +28,47 @@ public class StockEndpointTests : IAsyncLifetime
+     public Task InitializeAsync() => Task.CompletedTask;
+     public Task DisposeAsync() => Task.CompletedTask;
+ }
++
++public class VersionEndpointTests : IAsyncLifetime
++{
++    private const string ApiKey = "test-key";
++    private readonly PostgreSqlContainer _db = new PostgreSqlBuilder().Build();
++    private WebApplicationFactory<Program> _factory = null!;
++
++    public async Task InitializeAsync()
++    {
++        await _db.StartAsync();
++        // Program читает конфигурацию при построении хоста, поэтому задаём её через переменные окружения.
++        Environment.SetEnvironmentVariable("ConnectionStrings__Default", _db.GetConnectionString());
++        Environment.SetEnvironmentVariable("Auth__ApiKey", ApiKey);
++        _factory = new WebApplicationFactory<Program>();
++    }
++
++    public async Task DisposeAsync()
++    {
++        await _factory.DisposeAsync();
++        await _db.DisposeAsync();
++    }
++
++    [Fact, Trait("Category", "Integration")]
++    public async Task Version_returns_assembly_informational_version()
++    {
++        var client = _factory.CreateClient();
++        client.DefaultRequestHeaders.Add("X-Api-Key", ApiKey);
++
++        var response = await client.GetAsync("/version");
++
++        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
++        var dto = await response.Content.ReadFromJsonAsync<VersionDto>();
++        var expected = typeof(Program).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()!.InformationalVersion;
++        Assert.Equal(expected, dto!.Version);
++    }
++
++    [Fact, Trait("Category", "Integration")]
++    public async Task Version_without_api_key_is_unauthorized()
++    {
++        var response = await _factory.CreateClient().GetAsync("/version");
++
++        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
++    }
++}

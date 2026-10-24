@@ -1,0 +1,82 @@
+name: DB migrate production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+env:
+  DOTNET_VERSION: "8.0.x"
+  # Data-layer project holding the DbContext/migrations, and the app that wires it up for design-time.
+  DATA_PROJECT: src/Shop.Data/Shop.Data.csproj
+  STARTUP_PROJECT: src/Shop.Api/Shop.Api.csproj
+
+jobs:
+  generate-migration-script:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - run: dotnet restore
+      - run: dotnet tool install --global dotnet-ef --version 8.*
+
+      # Fails the run if the model and the checked-in migrations disagree (dotnet/efcore docs,
+      # "Applying Migrations" - has-pending-model-changes), instead of shipping a silent drift.
+      - name: Check model matches migrations
+        env:
+          ASPNETCORE_ENVIRONMENT: Production
+        run: >
+          dotnet ef migrations has-pending-model-changes
+          --project ${{ env.DATA_PROJECT }}
+          --startup-project ${{ env.STARTUP_PROJECT }}
+
+      # Idempotent SQL script, not a migration bundle: a bundle applies without letting anyone
+      # read the SQL first: a script is the artifact that ends up in front of a reviewer below.
+      - name: Generate idempotent migration script
+        env:
+          ASPNETCORE_ENVIRONMENT: Production
+        run: >
+          dotnet ef migrations script --idempotent
+          --project ${{ env.DATA_PROJECT }}
+          --startup-project ${{ env.STARTUP_PROJECT }}
+          --output artifacts/migrations.sql
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: migrations-sql
+          path: artifacts/migrations.sql
+          retention-days: 90
+
+  apply-migration:
+    needs: generate-migration-script
+    runs-on: ubuntu-latest
+    # The "production" environment must carry required reviewers (repo Settings > Environments):
+    # that reviewer opens the migrations-sql artifact from the job above before approving this one.
+    environment: production
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: migrations-sql
+          path: artifacts
+
+      - name: Apply migration
+        env:
+          PGPASSWORD: ${{ secrets.PROD_MIGRATION_DB_PASSWORD }}
+        # PROD_MIGRATION_* is a schema-change identity, separate from the app's runtime
+        # connection string (EF Core docs: least-privilege deploy vs. app identity).
+        run: >
+          psql
+          --host="${{ secrets.PROD_MIGRATION_DB_HOST }}"
+          --dbname="${{ secrets.PROD_MIGRATION_DB_NAME }}"
+          --username="${{ secrets.PROD_MIGRATION_DB_USER }}"
+          --set ON_ERROR_STOP=1
+          --file artifacts/migrations.sql
+
+  # deploy-app:
+  #   needs: apply-migration
+  #   Existing production deploy job goes here, gated on the migration above so the new
+  #   Categories/OrderCategories tables exist before app code that reads them ships.

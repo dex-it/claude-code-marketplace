@@ -1,0 +1,112 @@
+{
+  "id": "68a440",
+  "case": "BR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.132875,
+    "durationMs": 15756,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 11865,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1876,
+      "output_tokens_details": {
+        "thinking_tokens": 482
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11865,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1876,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 11865,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 11865
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "BR-long-stays": {
+      "verdict": "PASS",
+      "quote": "Нужно условие на маппированном столбце, например `s.AdmittedOn < today.AddDays(-14)`",
+      "why": "Находка называет нетранслируемое вычисляемое свойство и InvalidOperationException и предлагает транслируемое условие по AdmittedOn с границей, вычисленной до запроса."
+    },
+    "BR-box-occupant": {
+      "verdict": "PASS",
+      "quote": "Если в боксе больше одного пациента, `SingleOrDefaultAsync` бросает `InvalidOperationException`",
+      "why": "Находка опирается на Capacity из README и требует, чтобы карточка возвращала список пациентов."
+    },
+    "BR-decommission-filter": {
+      "verdict": "PASS",
+      "quote": "в `DischargeAsync` `Include(s => s.Box)` + `SingleAsync` бросает исключение, так что такого пациента нельзя выписать",
+      "why": "Находка называет INNER JOIN с отфильтрованным Box и потерю пациентов в списке и отчёте вопреки README, показывает падение выписки и предлагает убрать фильтр или вызвать IgnoreQueryFilters."
+    },
+    "BR-medplan-clear": {
+      "verdict": "PASS",
+      "quote": "Правильно — проставлять `CancelledAt = UtcNow` активным назначениям и добавлять новые.",
+      "why": "Находка называет разрыв обязательной связи с Restrict и исключение на SaveChanges и предлагает правку по README."
+    },
+    "BR-latest-stay-split": {
+      "verdict": "PASS",
+      "quote": "Нужно добавить `.ThenByDescending(s => s.Id)`",
+      "why": "Находка описывает неуникальный AdmittedOn и то, что split-запросы выбирают разные госпитализации, и предлагает уникальный порядок."
+    },
+    "BR-occupancy-sql": {
+      "verdict": "PASS",
+      "quote": "нужен белый список столбцов, который сопоставляется с LINQ-выражениями `OrderBy`",
+      "why": "Для ward предложен параметр, для sortBy — белый список и сортировка в LINQ."
+    },
+    "BR-startup-migrate": {
+      "verdict": "PASS",
+      "quote": "В EF Core 8 нет блокировки миграций (она появилась только в EF 9)",
+      "why": "Названы права vet_app, обход ревью DBA и параллельная миграция трёх реплик; предложено убрать автомиграцию и оставить db-migrate."
+    },
+    "BR-billing": {
+      "verdict": "FOUND",
+      "quote": "по README оплачиваются календарные дни, включая день поступления и день выписки, то есть нужно `+ 1`",
+      "why": "Недосчёт на один день назван прямо."
+    },
+    "BR-discharge-auth": {
+      "verdict": "FOUND",
+      "quote": "Стоит `.RequireAuthorization()` без политики, поэтому выписать (и сформировать счёт) может любой аутентифицированный пользователь",
+      "why": "Отсутствие политики Vet на выписке названо дефектом."
+    },
+    "BR-h-box-code": {
+      "verdict": "NO",
+      "quote": "`FindBoxByCodeAsync` не находит выведенный бокс",
+      "why": "Находка 13 говорит о фильтре и уникальном индексе, а SingleOrDefaultAsync ошибкой не называет."
+    },
+    "BR-h-history-fromsql": {
+      "verdict": "NO",
+      "quote": "как это уже сделано в `GetPetHistoryAsync`",
+      "why": "GetPetHistoryAsync упомянут только как положительный пример, инъекцией он не назван."
+    },
+    "BR-m-cascade-fix": {
+      "verdict": "NO",
+      "quote": "Если «починить» это через Cascade, назначения будут физически удаляться, а README требует, чтобы они не удалялись",
+      "why": "Каскад прямо отвергнут как неверное исправление."
+    },
+    "BR-m-ddl-grant": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Выдать vet_app права на DDL выход не предлагает."
+    }
+  },
+  "stderr": ""
+}

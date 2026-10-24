@@ -1,0 +1,38 @@
+{
+  "id": "k4-c6",
+  "case": "K4",
+  "edition": "c",
+  "skills": [],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 7,
+  "cost": 0.09270160000000001,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 1,
+    "Bash": 5
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "git ls-files | grep -v node_modules | head -100 && cat e2e/*.ts e2e/package.json 2>/dev/null | head -80",
+    "cat e2e/tests/smoke.spec.ts api/src/seed.ts web/src/components/OrdersPage.tsx web/src/components/LoginForm.tsx web/src/api.ts; grep -n \"orders\\|cancel\" api/src/app.ts | head -30",
+    "cat web/src/App.tsx web/vite.config.ts; cat package.json | grep -n typecheck",
+    "sed -n 40,100p api/src/app.ts; cat api/src/validation.ts | head -40; cat e2e/tsconfig.json",
+    "cat > e2e/tests/orders.spec.ts <<'EOF'\nimport { expect, test, type APIRequestContext, type Page } from '@playwright/test';\n\n// Учётка из api/src/seed.ts (демо-стенд, SEED_DEMO=1).\nconst alice = { emai"
+  ]
+}

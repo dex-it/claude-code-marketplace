@@ -1,0 +1,107 @@
+{
+  "id": "1659f1",
+  "case": "V3",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.119635,
+    "durationMs": 12884,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 11410,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1396,
+      "output_tokens_details": {
+        "thinking_tokens": 73
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11410,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1396,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 11410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 11410
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "V3-idempotency-memory-cache": {
+      "verdict": "FOUND",
+      "quote": "Повтор запроса после таймаута может попасть на другую реплику, у которой свой локальный кэш, и создаст второй заказ (второй счёт).",
+      "why": "Названы разные реплики со своими кэшами, check-then-act и потеря кэша при рестарте."
+    },
+    "V3-early-bird-last-day": {
+      "verdict": "FOUND",
+      "quote": "`today < ticket.EarlyBirdUntil`, хотя по MR ранняя цена действует по `EarlyBirdUntil` **включительно**",
+      "why": "Найдена строгая граница в последний день, предложено `<=`, отмечены групповые заказы."
+    },
+    "V3-fixed-promo-negative": {
+      "verdict": "FOUND",
+      "quote": "партнёрский промокод на 5 000 ₽ к студенческому билету за 3 500 ₽ даёт цену −1 500 ₽",
+      "why": "Указано отсутствие ограничения снизу у фиксированной скидки и показан пример с отрицательной ценой."
+    },
+    "V3-group-int-overflow": {
+      "verdict": "FOUND",
+      "quote": "`unitPrice * req.Quantity` — это умножение `int * int`, результат получает тип `int` и только потом приводится к `long`.",
+      "why": "Описано переполнение int до расширения и предложено `(long)unitPrice * req.Quantity`."
+    },
+    "V3-orgadmin-any-registration": {
+      "verdict": "FOUND",
+      "quote": "Совпадение `reg.OrganizationId` с `org_id` администратора не проверяется.",
+      "why": "Указано, что любой OrgAdmin может отменить любую регистрацию без сверки организации."
+    },
+    "V3-refund-list-price": {
+      "verdict": "FOUND",
+      "quote": "`reg.TicketType.PriceKopecks * sharePercent / 100` берёт полную цену. По MR возврат считается от уплаченной суммы",
+      "why": "Указано, что возврат считается от полной цены типа билета, а не от `reg.PriceKopecks`."
+    },
+    "V3-passport-in-log": {
+      "verdict": "FOUND",
+      "quote": "деструктурирует весь `RegisterRequest` вместе с `PassportNumber`, `PassportCountry`, `FullName` и `Email`",
+      "why": "{@Request} прямо связан с паспортными полями DTO."
+    },
+    "V3-invalid-promo-silent": {
+      "verdict": "FOUND",
+      "quote": "По MR в этом случае регистрацию оформлять нельзя: нужно вернуть 422 с причиной.",
+      "why": "Указано, что недействительный промокод молча отбрасывается и регистрация идёт по полной цене."
+    },
+    "V3-promo-notracking": {
+      "verdict": "PASS",
+      "quote": "`FindPromoAsync` загружает промокод через `AsNoTracking()`, поэтому `promo.UsedCount++` меняет отсоединённый объект",
+      "why": "Названы несохраняемый инкремент, неработающий лимит и исправление атомарным UPDATE с условием."
+    },
+    "V3-unspecified-timestamptz": {
+      "verdict": "PASS",
+      "quote": "при передаче Unspecified-параметра Npgsql бросает `InvalidCastException`",
+      "why": "Указаны Kind=Unspecified при сравнении с timestamptz, исправление через `DateTimeKind.Utc` и выбор часового пояса."
+    },
+    "V3-h-partial-unique-index": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Частичный уникальный индекс не объявлен дефектом, и код не менялся."
+    },
+    "V3-h-unique-violation-catch": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Перехват UniqueViolation с ответом 409 не критикуется, и замена на AnyAsync не предлагается."
+    }
+  },
+  "stderr": ""
+}

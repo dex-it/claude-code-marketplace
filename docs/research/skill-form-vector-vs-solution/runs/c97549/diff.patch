@@ -1,0 +1,57 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..ac26f83
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,51 @@
++# Ревью MR !4127 (сервисы заказов и каталога для админки)
++
++## Critical
++
++**1. Migrations/20260920_OrderCategories.cs (`Up`) + Model.cs (`Order.Category`) — рассинхрон схемы и модели**
++`Up()` делает `mb.DropColumn("Category", "Orders")`, но `Model.cs` (по описанию MR не менялся) по-прежнему объявляет `Order.Category` как скалярное свойство, без `DbSet<Category>`/навигации на `OrderCategories`. По конвенции EF это свойство продолжит маппиться на колонку `Category`, которой после миграции не существует. В результате **любой** запрос/апдейт, материализующий `Order` целиком, упадёт с ошибкой Postgres «column … does not exist»: `Services/OrderQueries.GetCard`, `ExportForCustomer`, `OrderRepository.GetAllAsync/GetAsync`, `Services/OrderAdmin.UpdateOrder`, `RecalcTotal`, `OverdueReport` (через repo). MR нельзя мержить без обновления модели (замена `Order.Category` на связь с `Categories`/`OrderCategories`) — иначе приложение не работает вообще.
++
++**2. Migrations/20260920_OrderCategories.cs (`Up`) — потеря данных**
++Колонка `Category` дропается без переноса существующих значений в новые таблицы `Categories`/`OrderCategories` (нет ни одного INSERT/backfill). Категории всех уже существующих заказов теряются безвозвратно.
++
++**3. Services/OrderAdmin.cs — `RecalcTotal`**
++`order.Total = order.Items.Sum(i => prices[i.ProductId])` — суммируются только цены товаров, `Qty` не учитывается вообще. По модели `Product.Price` — цена за единицу, `OrderItem.Qty` — количество, значит корректная формула — `Sum(i => prices[i.ProductId] * i.Qty)`. Сейчас сумма заказа занижается для любой позиции с `Qty > 1` — финансовая ошибка.
++
++**4. Services/CatalogService.cs — `Reserve`**
++`FromSqlRaw("... FOR UPDATE", productId).SingleAsync()` выполняется без явной транзакции. Без `BeginTransaction` каждая отдельная команда в Postgres автокоммитится сразу после выполнения — блокировка строки, взятая `FOR UPDATE`, снимается сразу после SELECT, ещё до того, как выполнится проверка `Stock < qty` и последующий `SaveChangesAsync()` (который открывает уже свою, отдельную транзакцию на UPDATE). Это полностью обесценивает `FOR UPDATE`: два параллельных вызова `Reserve` для одного товара могут оба прочитать одинаковый `Stock`, оба пройти проверку и уменьшить остаток — overselling/lost update в критичной для денег операции резерва остатка.
++
++**5. Workers/OverdueNotifier.cs — `DbContext` в `BackgroundService`**
++`ShopDbContext` (зарегистрирован через `AddDbContext` → Scoped, `Program.cs:6-7`) внедряется напрямую в конструктор `OverdueNotifier`, который регистрируется как `AddHostedService` (де-факто singleton, `Program.cs:12`). Это captive dependency: при включённой валидации scope'ов приложение упадёт на старте («Cannot resolve scoped service from root provider»); если валидация выключена — один и тот же `DbContext` будет жить и использоваться всё время работы процесса в бесконечном цикле (не потокобезопасен, неограниченно растущий change tracker, риск «протухшего» соединения при долгой работе). Нужно резолвить `ShopDbContext` на каждой итерации через `IServiceScopeFactory`.
++
++## High
++
++**6. Services/OrderQueries.cs — `GetProductBySku`**
++`_db.Products.AsNoTracking().SingleAsync(p => p.Sku == sku)` — по контексту модели один SKU лежит на нескольких складах и уникален только в пределах склада, т.е. глобально по `Sku` может быть несколько строк `Product`. Для любого SKU, лежащего более чем на одном складе, `SingleAsync` бросит `InvalidOperationException`. Нужен доп. фильтр по складу либо возврат списка.
++
++**7. Services/OrderQueries.cs — `ExportForCustomer`**
++`Include(o => o.Items).Include(o => o.Payments)` без `AsSplitQuery()` (в отличие от корректно написанного `GetCard` рядом). Для клиента с «тысячами заказов» (см. MR.md) один SQL-запрос с двумя `Include`-коллекциями даёт декартово произведение Orders × Items × Payments — раздутие результата и памяти/трафика на выгрузке.
++
++**8. Services/OrderQueries.cs — `LastShippedAt`**
++`MaxAsync(o => o.ShippedAt)` вернёт `null`, если у клиента нет ни одного отгруженного заказа (например, все заказы ещё активны). `last!.Value` в этом случае бросит `NullReferenceException` вместо осмысленной обработки отсутствия отгрузок.
++
++**9. Services/OrderAdmin.cs — `UpdateOrder`**
++MR.md прямо описывает сценарий «в админке несколько операторов правят заказы одновременно», но метод делает read-modify-write без оптимистической блокировки (нет concurrency token/RowVersion, нет проверки конфликтов). Правки двух одновременно работающих операторов друг друга молча перезатирают (lost update) без какой-либо ошибки/предупреждения.
++
++**10. Services/OrderAdmin.cs — `OverdueReport`**
++Использует `_repo.GetAllAsync()`, который тянет в память **всю** таблицу `Orders` (без фильтра, без `AsNoTracking`), и только потом фильтрует в C# через `IsOverdue`. Для админского отчёта по просроченным заказам это неограниченная полная выгрузка таблицы при каждом вызове; фильтрацию нужно делать на стороне БД (условие `ShippedAt == null && CreatedAt < cutoff` транслируется, как это уже сделано в `OverdueNotifier`).
++
++## Medium
++
++**11. Services/CatalogService.cs — `Reprice`**
++Продукты загружаются как отслеживаемые (`ToListAsync()` без `AsNoTracking`), меняются in-place, а затем ещё раз явно вызывается `_db.UpdateRange(products)`. Это избыточно (EF и так задетектит изменение `Price` через change tracker) и помечает **все** свойства каждой сущности как Modified, что раздувает UPDATE и повышает риск затирания параллельно изменённых, но не задействованных здесь полей.
++
++**12. Services/OrderAdmin.cs — `RecalcTotal`**
++`prices[i.ProductId]` — обращение по индексатору к словарю, построенному через `ToDictionaryAsync`. Если товар из позиции заказа был удалён из `Products`, словарь не будет содержать такой ключ, и метод упадёт с `KeyNotFoundException` вместо контролируемой обработки.
++
++**13. Workers/OverdueNotifier.cs — `ExecuteAsync`**
++Цикл `while (!ct.IsCancellationRequested)` не обёрнут в try/catch. Любое транзиентное исключение (обрыв соединения, таймаут БД) на `ToListAsync`/`SaveChangesAsync` вылетит из `ExecuteAsync` и навсегда остановит фоновый воркер (уведомления по просрочке перестанут писаться до перезапуска приложения), без логирования причины.
++
++## Low
++
++**14. Migrations/20260920_OrderCategories.cs — индекс на `OrderCategories.CategoryId`**
++PK составной `(OrderId, CategoryId)`, отдельного индекса по `CategoryId` нет. Выборки «заказы по категории» не смогут эффективно использовать индекс (CategoryId — не ведущая колонка составного PK).

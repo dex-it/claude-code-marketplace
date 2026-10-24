@@ -1,0 +1,86 @@
+diff --git a/Model.cs b/Model.cs
+index cc90064..93f4ab0 100644
+--- a/Model.cs
++++ b/Model.cs
+@@ -1,4 +1,6 @@
+ // Shop.Data - EF Core 8, PostgreSQL (Npgsql.EntityFrameworkCore.PostgreSQL 8)
++using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
++
+ namespace Shop.Data;
+ 
+ public class Customer { public Guid Id { get; set; } public string Name { get; set; } = ""; public List<Order> Orders { get; set; } = new(); }
+@@ -11,6 +13,7 @@ public class Order
+     public string Status { get; set; } = "active";
+     public string Category { get; set; } = "";
+     public decimal Total { get; set; }
++    public int Complexity { get; set; }               // сложность комплектации, 1..5
+     public DateTime CreatedAt { get; set; }          // column: timestamp without time zone
+     public DateTime? ShippedAt { get; set; }
+     public bool IsDeleted { get; set; }
+@@ -44,7 +47,31 @@ public class ShopDbContext : DbContext
+     protected override void OnModelCreating(ModelBuilder b)
+     {
+         b.Entity<Order>().HasQueryFilter(o => !o.IsDeleted);
+-        b.Entity<Order>().Property(o => o.CreatedAt).HasColumnType("timestamp without time zone");
++
++        // Колонка остаётся timestamp without time zone (её смотрят отчёты DBA);
++        // конвертер снимает Kind при записи и помечает Utc при чтении, чтобы в коде всегда был UTC.
++        b.Entity<Order>().Property(o => o.CreatedAt)
++            .HasColumnType("timestamp without time zone")
++            .HasConversion(new ValueConverter<DateTime, DateTime>(
++                v => DateTime.SpecifyKind(v, DateTimeKind.Unspecified),
++                v => DateTime.SpecifyKind(v, DateTimeKind.Utc)));
++
++        b.Entity<Order>().ToTable(t => t.HasCheckConstraint(
++            "CK_Order_Complexity_Range", "\"Complexity\" BETWEEN 1 AND 5"));
++
++        // FK без каскада в БД: Order помечается IsDeleted, а не удаляется,
++        // поэтому дочерние строки удаляет только код (см. ClearItems).
++        b.Entity<Order>()
++            .HasMany(o => o.Items)
++            .WithOne()
++            .HasForeignKey(i => i.OrderId)
++            .OnDelete(DeleteBehavior.Restrict);
++
++        b.Entity<Order>()
++            .HasMany(o => o.Payments)
++            .WithOne()
++            .HasForeignKey(p => p.OrderId)
++            .OnDelete(DeleteBehavior.Restrict);
+     }
+ }
+ // Options: UseNpgsql(cs).UseLazyLoadingProxies()
+diff --git a/OrderRepository.cs b/OrderRepository.cs
+index 72637b8..d9b5bc6 100644
+--- a/OrderRepository.cs
++++ b/OrderRepository.cs
+@@ -6,4 +6,15 @@ public class OrderRepository
+     public OrderRepository(ShopDbContext db) => _db = db;
+     public Task<List<Order>> GetAllAsync() => _db.Orders.ToListAsync();
+     public Task<Order?> GetAsync(Guid id) => _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
++
++    public async Task ClearItems(Guid orderId)
++    {
++        var order = await _db.Orders.Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == orderId);
++        if (order is null) return;
++
++        // Restrict + необязательная FK: позиции удаляются явно, а не через Items.Clear(),
++        // иначе EF попробует обнулить OrderId и SaveChanges бросит InvalidOperationException.
++        _db.RemoveRange(order.Items);
++        await _db.SaveChangesAsync();
++    }
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..16ef20e
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,8 @@
++Изменённые файлы:
++- Model.cs — добавлено свойство `Order.Complexity` (int) с проверочным ограничением БД `CK_Order_Complexity_Range` (1..5); для `CreatedAt` добавлен `HasConversion` (Unspecified при записи / Utc при чтении) при сохранении `HasColumnType("timestamp without time zone")`, колонка не менялась; в `OnModelCreating` явно настроены `Order.Items` и `Order.Payments` через `HasMany().WithOne().HasForeignKey(...).OnDelete(DeleteBehavior.Restrict)`.
++- OrderRepository.cs — добавлен метод `ClearItems(Guid orderId)`.
++
++Решения:
++- `Complexity` ограничен на уровне БД check-constraint'ом, а не только валидацией в коде — диапазон 1..5 гарантирован независимо от источника записи.
++- `CreatedAt` хранится как раньше (timestamp without time zone, отчёты DBA не затронуты), но value converter гарантирует `Kind=Utc` при чтении и корректно "снимает" Kind при записи, не меняя числовое значение — клиенты в разных таймзонах видят единый UTC в коде.
++- Для Items/Payments выбран `DeleteBehavior.Restrict`, потому что Order помечается `IsDeleted`, а не удаляется физически: каскад на уровне БД не нужен и опасен (при случайном hard delete молча снёс бы историю). `ClearItems` удаляет позиции через `RemoveRange`, а не через `Items.Clear()`, чтобы не наткнуться на `InvalidOperationException` при разрыве required-связи с необнуляемым `OrderId`.

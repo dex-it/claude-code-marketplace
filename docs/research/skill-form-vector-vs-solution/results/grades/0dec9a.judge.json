@@ -1,0 +1,92 @@
+{
+  "id": "0dec9a",
+  "case": "GR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.094527,
+    "durationMs": 15284,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 7899,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1545,
+      "output_tokens_details": {
+        "thinking_tokens": 678
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7899,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1545,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 7899,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 7899
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GR-offday-rows": {
+      "verdict": "PASS",
+      "quote": "EF Core не может перевести `WorkCalendar.IsWorkingDay()` в SQL и выбросит исключение при выполнении",
+      "why": "Назван нетранслируемый клиентский вызов в ToRows(), по которому затем фильтрует Where, и падение запроса; исправление названо расплывчато («условие в IQueryable до материализации»), но дефект определён верно."
+    },
+    "GR-open-semicolon": {
+      "verdict": "DISPUTED",
+      "quote": "WHERE условие добавляется после `ORDER BY` исходного шаблона",
+      "why": "Отмечен сбой при компоновке Where поверх FromSqlRaw и предложено внести условие в SQL параметром, но механизм назван неверно: о точке с запятой и оборачивании в подзапрос не сказано."
+    },
+    "GR-equipment-clear": {
+      "verdict": "FAIL",
+      "quote": "[скрыто] #20 рекомендует явно удалять зависимые записи в коде перед разрывом required-связи",
+      "why": "Отсутствие Include(Equipment) и нарушение уникального индекса не найдены; замечание сводится к стилю удаления связи, что ключ прямо относит к FAIL."
+    },
+    "GR-model-length": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Миграция AlterColumn vehicles.model в ревью не упомянута."
+    },
+    "GR-last-inspection": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Неуникальный порядок в GetLastInspectionAsync при SplitQuery не найден."
+    },
+    "GR-permit-lastday": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Сравнение ValidUntil > today в последний день допуска не упомянуто."
+    },
+    "GR-equipment-auth": {
+      "verdict": "FOUND",
+      "quote": "Endpoint не имеет `.RequireAuthorization()`",
+      "why": "Отмечено, что PUT /vehicles/{id}/equipment доступен любому авторизованному пользователю без ограничения ролями Mechanic/FleetManager."
+    },
+    "GR-h-permits-clear": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "ReplacePermitsAsync и driver.Permits.Clear() в выходе не упомянуты."
+    },
+    "GR-h-plate-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByPlateAsync дефектом не назван."
+    }
+  },
+  "stderr": ""
+}

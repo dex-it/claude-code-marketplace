@@ -1,0 +1,62 @@
+docker exec <ctr> sh -c 'ls -la /work /work/src /work/app; ps aux | grep -i dotnet | head; which strace perf dotnet-trace dotnet-counters dotnet-stack ltrace gdb'
+docker exec <ctr> sh -c 'ls /work/logs; tail -5 /work/logs/*; cat /work/app/OrdersWorker.runtimeconfig.json; top -H -b -n1 -p 11 | head -20; timeout 5 strace -f -c -p 11 2>&1 | head -25'
+docker exec <ctr> sh -c 'pkill -f OrdersWorker.dll; sleep 1; cd /work && DOTNET_PerfMapEnabled=1 nohup dotnet app/OrdersWorker.dll slow >/tmp/out.log 2>&1 &
+sleep 8; P=$(pgrep -f OrdersWorker.dll|head -1); echo pid $P; cd /tmp; perf record -F 499 -g -p $P -o /tmp/perf.data -- sleep 6 2>&1 | tail -2; perf report -i /tmp/perf.data --no-children --sort symbol --stdio 2>/dev/null | grep -v "^$" | head -50'
+docker exec <ctr> sh -c 'pgrep -a dotnet; ls /work/logs'
+docker exec -d -e DOTNET_PerfMapEnabled=1 -w /work <ctr> dotnet app/OrdersWorker.dll slow; sleep 8; docker exec <ctr> sh -c 'P=$(pgrep -x dotnet|head -1); echo pid $P; cd /tmp; perf record -F 499 -g -p $P -o /tmp/perf.data -- sleep 6 2>&1 | tail -2; perf report -i /tmp/perf.data --no-children --sort symbol --stdio -g none 2>&1 | grep -v "^$" | head -40; tail -3 /work/logs/worker.log'
+docker exec <ctr> sh -c 'cd /work && DOTNET_PerfMapEnabled=1 setsid nohup dotnet app/OrdersWorker.dll slow >/tmp/out.log 2>&1 </dev/null & sleep 8; P=$(pgrep -x dotnet|head -1); echo pid $P; cd /tmp; perf record -F 499 -g -p $P -o /tmp/perf.data -- sleep 6 2>&1 | tail -2; perf report -i /tmp/perf.data --no-children --sort symbol --stdio -g none 2>&1 | grep -v "^$" | head -40; tail -3 /work/logs/worker.log'
+docker exec <ctr> sh -c 'pgrep -a dotnet; ls /tmp; cat /proc/sys/kernel/perf_event_paranoid'
+docker exec <ctr> sh -c 'cd /tmp; perf record -F 499 -g -p 68 -o /tmp/perf.data -- sleep 6 2>&1 | tail -2; perf report -i /tmp/perf.data --no-children --sort symbol --stdio -g none 2>&1 | grep -v "^$" | head -40'
+docker exec <ctr> sh -c 'cd /tmp; perf report -i perf.data --no-children --sort dso --stdio -g none 2>&1 | grep -v "^#" | grep -v "^$" | head; perf report -i perf.data --no-children --sort comm --stdio -g none 2>&1 | grep -v "^#" | grep -v "^$"|head; timeout 8 dotnet-counters collect -p 68 --counters System.Runtime --format csv -o /tmp/c.csv --refresh-interval 2 2>&1 | tail -2; grep -E "GC Count|Allocation Rate|GC Heap Size|CPU Usage|Time in GC|Gen 2 Size|LOH" /tmp/c.csv | tail -12'
+docker exec <ctr> cat /work/src/Program.cs
+docker exec <ctr> sh -c 'cd /tmp; timeout 60 dotnet-trace collect -p 68 --profile dotnet-sampled-thread-time --duration 00:00:06 -o /tmp/t.nettrace --format speedscope 2>&1 | tail -4; ls -la /tmp/*.speedscope.json /tmp/t.nettrace 2>&1'
+docker exec <ctr> sh -c 'which python3 jq' ; cp /dev/null /dev/null; docker cp <ctr>:/tmp/t.speedscope.json <lab>/t.speedscope.json && cat > <lab>/agg.py <<'E'
+import json,sys,collections
+d=json.load(open(sys.argv[1]));F=[f['name'] for f in d['shared']['frames']]
+inc=collections.Counter();tot=0
+for p in d['profiles']:
+    for s,w in zip(p['samples'],p['weights']):
+        tot+=w
+        for n in set(F[i] for i in s): inc[n]+=w
+        
+print(tot)
+for n,w in inc.most_common(25): print(round(100*w/tot,1),n[:110])
+E
+python3 -I <lab>/agg.py <lab>/t.speedscope.json
+ls; python3 -I agg.py t.speedscope.json
+ls <lab>
+docker exec <ctr> sh -c 'which python3 jq; cd /tmp; grep -o "\"name\":\"[^\"]*\"" t.speedscope.json | sort | uniq -c | sort -rn | head -40'
+docker exec <ctr> python3 -I -c '
+import json,collections
+d=json.load(open("/tmp/t.speedscope.json"));F=[f["name"] for f in d["shared"]["frames"]]
+inc=collections.Counter();tot=0
+for p in d["profiles"]:
+    for s,w in zip(p["samples"],p["weights"]):
+        tot+=w
+        for n in set(F[i] for i in s): inc[n]+=w
+print(tot)
+for n,w in inc.most_common(22): print(round(100*w/tot,1),n[:120])
+'
+docker exec <ctr> python3 -I -c '
+import json,collections
+d=json.load(open("/tmp/t.speedscope.json"));F=[f["name"] for f in d["shared"]["frames"]]
+inc=collections.Counter();tot=0
+for p in d["profiles"]:
+    if "events" not in p: continue
+    st=[];last=p["startValue"]
+    if not p["name"].startswith("Thread"): pass
+    for e in p["events"]:
+        dt=e["at"]-last;last=e["at"]
+        for f in set(st): inc[F[f]]+=dt
+        if e["type"]=="O": st.append(e["frame"])
+        else: st.pop()
+    tot+=p["endValue"]-p["startValue"]
+    print(p["name"],round(p["endValue"]-p["startValue"]))
+print(tot)
+for n,w in inc.most_common(22): print(round(100*w/tot,1),n[:120])
+'
+grep -n "new System.Text.RegularExpressions.Regex\|Slugify" <lab>/src/Program.cs
+[Write] <lab>/REPORT.md
+sed -i 's|~0.5 млн операций/с на поток, при этом всё время уходит на пересборку регулярки.|~0.5 млн операций/с суммарно по двум потокам (~1 млн за 2 с).|; s| Остальное приходится на сам `Replace` и аллокации.| Остаток приходится на прочий код внутри `Slugify`; я его отдельно не разбирал.|' REPORT.md && grep -n "млн\|Остаток" REPORT.md
+[Edit] <lab>/REPORT.md
+[Edit] <lab>/REPORT.md

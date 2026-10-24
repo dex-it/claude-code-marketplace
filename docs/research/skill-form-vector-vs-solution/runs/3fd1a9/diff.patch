@@ -1,0 +1,60 @@
+diff --git a/CustomerNotifier.cs b/CustomerNotifier.cs
+new file mode 100644
+index 0000000..eac8f5a
+--- /dev/null
++++ b/CustomerNotifier.cs
+@@ -0,0 +1,36 @@
++using Microsoft.EntityFrameworkCore;
++
++namespace Shop;
++
++public class CustomerNotifier
++{
++    private readonly IEmailSender _emailSender;
++    private readonly ShopDbContext _db;
++
++    public CustomerNotifier(IEmailSender emailSender, ShopDbContext db)
++    {
++        _emailSender = emailSender;
++        _db = db;
++    }
++
++    public async Task NotifyCustomers(IEnumerable<Guid> customerIds, string text, CancellationToken ct = default)
++    {
++        var uniqueIds = new HashSet<Guid>(customerIds);
++        if (uniqueIds.Count == 0)
++            return;
++
++        // Batching для больших списков (SKILL: Contains ограничен ~2100 параметров)
++        foreach (var batch in uniqueIds.Chunk(500))
++        {
++            var customers = await _db.Customers
++                .Where(c => batch.Contains(c.Id))
++                .Select(c => new { c.Email, c.Name })
++                .ToListAsync(ct);
++
++            foreach (var customer in customers)
++            {
++                await _emailSender.SendAsync(customer.Email, "Notification", text, ct);
++            }
++        }
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..bc05492
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,12 @@
++# Решение: CustomerNotifier.NotifyCustomers
++
++## Созданные/изменённые файлы
++- `CustomerNotifier.cs` (новый файл)
++
++## Решение
++Добавлен класс `CustomerNotifier` с методом `NotifyCustomers(IEnumerable<Guid> customerIds, string text)`. Реализация соблюдает правила LINQ из SKILL.md:
++
++1. **Дедупликация входных ID** (`new HashSet<Guid>`) — избегаем повторной обработки одного клиента и соответствующих N запросов к БД
++2. **Batching по 500** — защита от деградации плана запроса PostgreSQL на тысячах параметров IN
++3. **Проекция перед ToListAsync()** — загружаем только `Email` и `Name`, не всю entity; избегаем раздувания Change Tracker
++4. **Один запрос на batch** — Where + Contains в SQL, не N запросов в цикле. Цикл отправки писем через EmailSender — это не DB-запросы

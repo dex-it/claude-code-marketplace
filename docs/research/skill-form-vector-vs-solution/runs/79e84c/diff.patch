@@ -1,0 +1,75 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..8a9a1ce
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,69 @@
++# Ревью MR !87 (Aqualab.Samples) - найденные дефекты
++
++## 1. `BatchService.cs` → `CompliancePercentAsync` — неверная арифметика процента + деление на ноль
++```csharp
++return compliant / total * 100;
++```
++`compliant` и `total` - `int`, поэтому `compliant / total` выполняется как целочисленное деление **до** умножения на 100. При любом `compliant < total` результат деления равен 0, и метод всегда вернёт **0%**, кроме случаев 100% или 0 проб. Кроме того, если у партии 0 проб (`total == 0`, например только что созданная партия без проб), целочисленное деление `compliant / total` бросит `DivideByZeroException` и упадёт весь дашборд (LAB-147).
++Нужно: `total == 0 ? 0 : compliant * 100 / total` (или через `decimal`/`double`).
++**Severity: critical**
++
++## 2. `BatchService.cs` → `CompliancePercentAsync` (и косвенно `GetCardAsync`) — проба без результатов считается «соответствующей норме»
++```csharp
++var compliant = await _db.Samples
++    .CountAsync(s => s.BatchId == batchId && s.Results.All(r => r.Value <= r.Limit));
++```
++`Enumerable/Queryable.All` на пустой коллекции возвращает `true` (vacuous truth). Проба, у которой ещё нет ни одного результата (например, статус `Planned`/`Collected`), попадает в число «compliant», хотя по ней ничего не проверено. Это искажает процент соответствия для партии, которая ещё не полностью проанализирована (LAB-147). Та же логика (`AnyExceeded = Results.Any(...)`) в `GetCardAsync` для таких проб покажет «нет превышения», что усиливает проблему некорректного впечатления «всё в норме» для непроверенных проб.
++Нужно: исключать из знаменателя/не засчитывать в «compliant» пробы без результатов (например `s.Results.Count > 0 && s.Results.All(...)`), либо явно определить бизнес-правило.
++**Severity: high**
++
++## 3. `BatchService.cs` → `ListAsync` — ошибка на единицу в пагинации
++```csharp
++/// <param name="page">Номер страницы, начиная с 1.</param>
++public async Task<List<BatchListItem>> ListAsync(int page, int pageSize = 20)
++{
++    ...
++    .Skip(page * pageSize)
++    .Take(pageSize)
++```
++Комментарий говорит, что `page` начинается с 1, но `Skip(page * pageSize)` для `page = 1` пропускает первые `pageSize` записей — то есть самые новые партии (первая «страница» по смыслу UI) никогда не попадут в выдачу, а пользователь увидит сразу вторую страницу. Нужно `Skip((page - 1) * pageSize)`.
++**Severity: high**
++
++## 4. `BatchService.cs` → `CloseAsync` — проверка «пробы без результатов» покрывает не все пробы партии
++```csharp
++var samples = await _samples.GetInAnalysisForBatchAsync(batchId); // только Status == InAnalysis
++if (samples.Any(s => s.Results.Count == 0))
++    throw new InvalidOperationException("Есть пробы без результатов");
++
++foreach (var s in samples)
++    s.Status = SampleStatus.Done;
++
++batch.ClosedAt = DateTime.UtcNow;
++batch.ReportDate = DateTime.UtcNow.Date;
++```
++Правило LAB-143 звучит как «Закрыть партию с пробами без результатов нельзя», но проверка берёт только пробы со статусом `InAnalysis`. Если в партии есть пробы в статусе `Planned` или `Collected` (у них результатов нет по определению), они полностью игнорируются: не блокируют закрытие и не переводятся в `Done`. В итоге партия помечается закрытой (`ClosedAt`/`ReportDate` выставлены), хотя часть проб даже не дошла до анализа — нарушение заявленного бизнес-правила.
++**Severity: high**
++
++## 5. `BatchService.cs` → `CloseAsync` — нет проверки на повторное закрытие
++Метод не проверяет `batch.ClosedAt != null` перед обработкой. При повторном вызове (например, повторный клик/повтор запроса) `ClosedAt` и `ReportDate` будут молча перезаписаны текущим моментом, затирая исходную дату отчёта без какой-либо ошибки или предупреждения.
++Нужно: бросать `InvalidOperationException`/возвращать ошибку, если партия уже закрыта.
++**Severity: medium**
++
++## 6. `BatchService.cs` → `GetCardAsync` — недетерминированный порядок проб/приборов в карточке
++```csharp
++.Include(b => b.Instruments)
++.Include(b => b.Samples).ThenInclude(s => s.Results)
++...
++batch.Samples.Select(...).ToList()
++```
++Для коллекций `Instruments` и `Samples` не задан `OrderBy`. При `AsSplitQuery()` порядок строк, возвращаемых БД, не гарантирован между вызовами, из-за чего список проб/приборов в карточке партии может отображаться в произвольном и меняющемся порядке — неприятно для UI карточки на 120 проб (упомянутой в MR как протестированной).
++**Severity: low**
++
++## 7. `LabDbContext.cs` → конфигурация `SampleTag` — нет уникального ограничения на (SampleId, Tag)
++`RetagAsync` защищает от дублей через `.Distinct()` в коде приложения, но на уровне БД нет `HasIndex(t => new { t.SampleId, t.Tag }).IsUnique()`. Любой другой путь записи (параллельный вызов, будущий код, ручная правка данных) может создать дублирующиеся теги для одной пробы.
++**Severity: low**
++
++---
++
++### Итог
++Перед мерджем обязательно нужно исправить пункты **1-4** (критичные и высокие): они напрямую ломают заявленный функционал MR — процент соответствия (LAB-147) считается неверно и может крашнуть дашборд, список партий (LAB-141) теряет первую страницу, а закрытие партии (LAB-143) не соблюдает заявленное правило про пробы без результатов. Пункты 5-7 желательно исправить, но они не блокируют мердж критически.

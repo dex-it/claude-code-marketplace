@@ -1,0 +1,42 @@
+{
+  "id": "k1-nb",
+  "case": "K1",
+  "edition": "n",
+  "skills": [
+    "ts-nodejs-api",
+    "ts-fullstack-assistant"
+  ],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 10,
+  "cost": 0.21081079999999996,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 3,
+    "Bash": 6
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "cd <run>; git ls-files api | grep -v node_modules; cat docs/payments-api.md api/src/payments/gateway.ts api/src/server.ts",
+    "cd <run>/api; cat src/app.ts src/config.ts src/domain/order.ts src/errors.ts src/store.ts src/clients/inventory.ts src/services/reservat",
+    "cd <run>/api; cat src/validation.ts src/logger.ts; grep -rn \"config\" src --include=*.ts -l; sed -n 80,200p test/orders.test.ts; cat src/",
+    "cd <run>/api\ncat > src/config.ts <<'EOF'\n// Обязательные переменные проверяются при импорте, т.е. при старте сервиса, а не при первом за",
+    "cd <run>/api\npython3 - <<'EOF'\np='src/app.ts'\ns=open(p).read()\na=s.index(\"  orders.post('/:id/pay'\")\nb=s.index(\"  app.use('/api/orders'\"",
+    "cd <run>/api && python3 - <<'EOF'\np='src/app.ts'\ns=open(p).read()\ns=s.replace(\"Promise<void> {\\n\\n    const order\",\"Promise<void> {\\n   "
+  ]
+}

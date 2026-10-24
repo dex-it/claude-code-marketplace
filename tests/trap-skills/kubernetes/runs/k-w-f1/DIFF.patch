@@ -1,0 +1,288 @@
+diff --git a/deploy/k8s/00-namespace.yaml b/deploy/k8s/00-namespace.yaml
+new file mode 100644
+index 0000000..e73613b
+--- /dev/null
++++ b/deploy/k8s/00-namespace.yaml
+@@ -0,0 +1,4 @@
++apiVersion: v1
++kind: Namespace
++metadata:
++  name: depot
+diff --git a/deploy/k8s/README.md b/deploy/k8s/README.md
+new file mode 100644
+index 0000000..63835a0
+--- /dev/null
++++ b/deploy/k8s/README.md
+@@ -0,0 +1,14 @@
++# Манифесты Kubernetes для Depot
++
++Применение: `kubectl apply -f deploy/k8s/`
++
++Значения секретов в репозитории не хранятся. Перед применением в namespace `depot` нужен Secret `depot-env`
++с ключами `ConnectionStrings__Default` и `Auth__ApiKey`; без него поды не стартуют (`CreateContainerConfigError`):
++
++    kubectl apply -f deploy/k8s/00-namespace.yaml
++    kubectl -n depot create secret generic depot-env \
++      --from-literal=ConnectionStrings__Default='<строка подключения>' \
++      --from-literal=Auth__ApiKey='<ключ API>'
++    kubectl apply -f deploy/k8s/
++
++Значения для stage - в `docs/stage-values.md`. Уже должны существовать в namespace: `regcred`, `depot-tls`.
+diff --git a/deploy/k8s/api-deployment.yaml b/deploy/k8s/api-deployment.yaml
+new file mode 100644
+index 0000000..2498ad3
+--- /dev/null
++++ b/deploy/k8s/api-deployment.yaml
+@@ -0,0 +1,105 @@
++apiVersion: apps/v1
++kind: Deployment
++metadata:
++  name: depot-api
++  namespace: depot
++  labels:
++    app.kubernetes.io/name: depot-api
++    app.kubernetes.io/part-of: depot
++spec:
++  replicas: 3
++  revisionHistoryLimit: 5
++  strategy:
++    type: RollingUpdate
++    rollingUpdate:
++      maxUnavailable: 0
++      maxSurge: 1
++  selector:
++    matchLabels:
++      app.kubernetes.io/name: depot-api
++  template:
++    metadata:
++      labels:
++        app.kubernetes.io/name: depot-api
++        app.kubernetes.io/part-of: depot
++    spec:
++      imagePullSecrets:
++        - name: regcred
++      automountServiceAccountToken: false
++      terminationGracePeriodSeconds: 30
++      securityContext:
++        runAsNonRoot: true
++        runAsUser: 1654
++        seccompProfile:
++          type: RuntimeDefault
++      topologySpreadConstraints:
++        - maxSkew: 1
++          topologyKey: kubernetes.io/hostname
++          whenUnsatisfiable: ScheduleAnyway
++          labelSelector:
++            matchLabels:
++              app.kubernetes.io/name: depot-api
++      containers:
++        - name: api
++          image: registry.example.com/depot/api:1.4.0
++          ports:
++            - name: http
++              containerPort: 8080
++          env:
++            - name: ASPNETCORE_URLS
++              value: http://+:8080
++            - name: ConnectionStrings__Default
++              valueFrom:
++                secretKeyRef:
++                  name: depot-env
++                  key: ConnectionStrings__Default
++            - name: Auth__ApiKey
++              valueFrom:
++                secretKeyRef:
++                  name: depot-env
++                  key: Auth__ApiKey
++          resources:
++            requests:
++              cpu: 100m
++              memory: 384Mi
++            limits:
++              cpu: 500m
++              memory: 512Mi
++          # Миграции идут до открытия порта: холодный старт до 35 с (p95).
++          # Окно старта - 120 с; пока startupProbe не прошла, остальные пробы не работают.
++          startupProbe:
++            tcpSocket:
++              port: http
++            periodSeconds: 5
++            failureThreshold: 24
++          # Liveness не ходит в БД: недоступная БД не должна перезапускать поды.
++          livenessProbe:
++            tcpSocket:
++              port: http
++            periodSeconds: 10
++            timeoutSeconds: 2
++            failureThreshold: 3
++          # Readiness - /health (select 1): без БД под выводится из Service.
++          readinessProbe:
++            httpGet:
++              path: /health
++              port: http
++            periodSeconds: 5
++            timeoutSeconds: 3
++            failureThreshold: 3
++          lifecycle:
++            preStop:
++              exec:
++                command: ["sleep", "5"]
++          securityContext:
++            allowPrivilegeEscalation: false
++            readOnlyRootFilesystem: true
++            capabilities:
++              drop: ["ALL"]
++          volumeMounts:
++            - name: tmp
++              mountPath: /tmp
++      volumes:
++        - name: tmp
++          emptyDir:
++            sizeLimit: 256Mi
+diff --git a/deploy/k8s/api-ingress.yaml b/deploy/k8s/api-ingress.yaml
+new file mode 100644
+index 0000000..0dc1167
+--- /dev/null
++++ b/deploy/k8s/api-ingress.yaml
+@@ -0,0 +1,25 @@
++apiVersion: networking.k8s.io/v1
++kind: Ingress
++metadata:
++  name: depot-api
++  namespace: depot
++  labels:
++    app.kubernetes.io/name: depot-api
++    app.kubernetes.io/part-of: depot
++spec:
++  ingressClassName: nginx
++  tls:
++    - hosts:
++        - depot.example.com
++      secretName: depot-tls
++  rules:
++    - host: depot.example.com
++      http:
++        paths:
++          - path: /
++            pathType: Prefix
++            backend:
++              service:
++                name: depot-api
++                port:
++                  name: http
+diff --git a/deploy/k8s/api-pdb.yaml b/deploy/k8s/api-pdb.yaml
+new file mode 100644
+index 0000000..d9045aa
+--- /dev/null
++++ b/deploy/k8s/api-pdb.yaml
+@@ -0,0 +1,14 @@
++apiVersion: policy/v1
++kind: PodDisruptionBudget
++metadata:
++  name: depot-api
++  namespace: depot
++  labels:
++    app.kubernetes.io/name: depot-api
++    app.kubernetes.io/part-of: depot
++spec:
++  # Еженедельный drain нод не должен оставлять меньше двух из трёх реплик.
++  minAvailable: 2
++  selector:
++    matchLabels:
++      app.kubernetes.io/name: depot-api
+diff --git a/deploy/k8s/api-service.yaml b/deploy/k8s/api-service.yaml
+new file mode 100644
+index 0000000..c6211a3
+--- /dev/null
++++ b/deploy/k8s/api-service.yaml
+@@ -0,0 +1,16 @@
++apiVersion: v1
++kind: Service
++metadata:
++  name: depot-api
++  namespace: depot
++  labels:
++    app.kubernetes.io/name: depot-api
++    app.kubernetes.io/part-of: depot
++spec:
++  type: ClusterIP
++  selector:
++    app.kubernetes.io/name: depot-api
++  ports:
++    - name: http
++      port: 80
++      targetPort: http
+diff --git a/deploy/k8s/worker-deployment.yaml b/deploy/k8s/worker-deployment.yaml
+new file mode 100644
+index 0000000..92ef1a8
+--- /dev/null
++++ b/deploy/k8s/worker-deployment.yaml
+@@ -0,0 +1,68 @@
++apiVersion: apps/v1
++kind: Deployment
++metadata:
++  name: depot-worker
++  namespace: depot
++  labels:
++    app.kubernetes.io/name: depot-worker
++    app.kubernetes.io/part-of: depot
++spec:
++  # Ровно один экземпляр: два обработают очередь дважды.
++  replicas: 1
++  revisionHistoryLimit: 5
++  # Recreate: старый под останавливается до старта нового, двух воркеров одновременно не бывает.
++  strategy:
++    type: Recreate
++  selector:
++    matchLabels:
++      app.kubernetes.io/name: depot-worker
++  template:
++    metadata:
++      labels:
++        app.kubernetes.io/name: depot-worker
++        app.kubernetes.io/part-of: depot
++    spec:
++      imagePullSecrets:
++        - name: regcred
++      automountServiceAccountToken: false
++      terminationGracePeriodSeconds: 30
++      securityContext:
++        runAsNonRoot: true
++        runAsUser: 1654
++        seccompProfile:
++          type: RuntimeDefault
++      containers:
++        - name: worker
++          image: registry.example.com/depot/api:1.4.0
++          # ENTRYPOINT образа - dotnet Depot.Api.dll, args дописываются к нему.
++          args: ["--worker"]
++          env:
++            - name: ConnectionStrings__Default
++              valueFrom:
++                secretKeyRef:
++                  name: depot-env
++                  key: ConnectionStrings__Default
++            - name: Auth__ApiKey
++              valueFrom:
++                secretKeyRef:
++                  name: depot-env
++                  key: Auth__ApiKey
++          resources:
++            requests:
++              cpu: 100m
++              memory: 384Mi
++            limits:
++              cpu: 500m
++              memory: 512Mi
++          securityContext:
++            allowPrivilegeEscalation: false
++            readOnlyRootFilesystem: true
++            capabilities:
++              drop: ["ALL"]
++          volumeMounts:
++            - name: tmp
++              mountPath: /tmp
++      volumes:
++        - name: tmp
++          emptyDir:
++            sizeLimit: 256Mi

@@ -1,0 +1,92 @@
+{
+  "id": "8470ba",
+  "case": "GR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.120775,
+    "durationMs": 21474,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 9425,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 2247,
+      "output_tokens_details": {
+        "thinking_tokens": 1266
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9425,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2247,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 9425,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 9425
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GR-offday-rows": {
+      "verdict": "PASS",
+      "quote": "в `OffDayTripsAsync` (строки 72-78) после `.ToRows()` идут ещё `.Where(r => r.OffDay)`",
+      "why": "Найдено, что фильтр по клиентскому OffDay стоит после проекции: EF его не транслирует, и FLEET-109 падает при каждом вызове; предложен AsEnumerable после серверного сужения."
+    },
+    "GR-open-semicolon": {
+      "verdict": "PASS",
+      "quote": "точка с запятой внутри скобок подзапроса делает SQL синтаксически невалидным",
+      "why": "Названы падение при композиции Where с vehicleId и причина, по которой проверка без фильтра прошла; предложено убрать ';'."
+    },
+    "GR-equipment-clear": {
+      "verdict": "FAIL",
+      "quote": "EF Core не гарантирует, что DELETE старых строк выполнится раньше INSERT новых",
+      "why": "Не замечено, что Equipment не загружен Include и Clear() ничего не удаляет; механизм назван неверно, а предложенные фиксы (два SaveChanges, diff) без загрузки коллекции дефект не устраняют."
+    },
+    "GR-model-length": {
+      "verdict": "PASS",
+      "quote": "Postgres выбросит `ERROR: value too long for type character varying(40)`, и деплой (bundle на prod) оборвётся",
+      "why": "Отмечено, что сужение упадёт на существующих длинных данных; предложено обрезать данные до AlterColumn."
+    },
+    "GR-last-inspection": {
+      "verdict": "PASS",
+      "quote": "все строки одной пачки получат одинаковый `CreatedAt`... сортировка не детерминирована",
+      "why": "Найдены неуникальный порядок из-за одинакового now() в пачке и последствие для выпуска на линию, упомянут tie-breaker по Id; механизм SplitQuery (замечания от другого осмотра) не назван, но дефект тот же по существу."
+    },
+    "GR-permit-lastday": {
+      "verdict": "FOUND",
+      "quote": "Строгое `>` отбрасывает допуск ровно в последний день его действия",
+      "why": "Дефект назван, предложено `>=`."
+    },
+    "GR-equipment-auth": {
+      "verdict": "FOUND",
+      "quote": "Любой аутентифицированный пользователь (водитель, диспетчер и т.п.)... может полностью перезаписать комплектацию",
+      "why": "Названо отсутствие политики на PUT equipment."
+    },
+    "GR-h-permits-clear": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "ReplacePermitsAsync дефектом не объявлен."
+    },
+    "GR-h-plate-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByPlateAsync дефектом не объявлен."
+    }
+  },
+  "stderr": ""
+}

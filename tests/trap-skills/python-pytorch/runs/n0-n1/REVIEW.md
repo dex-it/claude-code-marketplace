@@ -1,0 +1,1 @@
+tests/test_clean_train.py:5 - тест проверяет только загрузчик (и константу N_FEATURES == 40, которая ничего не доказывает); train_epoch (шаг планировщика по батчам), evaluate, save_checkpoint и churn_baseline_score не покрыты, регрессия в них пройдёт незамеченной - minor

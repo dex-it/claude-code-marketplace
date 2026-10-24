@@ -1,0 +1,387 @@
+diff --git a/src/Fulfil/Domain/Order.cs b/src/Fulfil/Domain/Order.cs
+index 00325b0..5ebd655 100644
+--- a/src/Fulfil/Domain/Order.cs
++++ b/src/Fulfil/Domain/Order.cs
+@@ -4,12 +4,25 @@ public enum OrderStatus { Placed, Paid, Shipped, Cancelled }
+ 
+ public sealed record OrderLine(string Sku, int Quantity, decimal UnitPrice);
+ 
++// Адрес доставки фиксируется при размещении заказа и не меняется.
++public sealed record DeliveryAddress(string Country, string City, string Street, string PostalCode);
++
+ public sealed record Order(
+     Guid Id,
+     Guid CustomerId,
+     OrderStatus Status,
+     IReadOnlyList<OrderLine> Lines,
+-    DateTimeOffset PlacedAt)
++    DateTimeOffset PlacedAt,
++    DeliveryAddress DeliveryAddress)
+ {
+     public decimal Total => Lines.Sum(l => l.Quantity * l.UnitPrice);
+ }
++
++// Строка страницы «мои заказы»: только номер и статус.
++public sealed record OrderSummary(Guid Id, OrderStatus Status);
++
++// Событие ленты заказа: смена статуса или комментарий менеджера.
++public sealed record OrderEvent(Guid OrderId, DateTimeOffset At, string Kind, string Text);
++
++// Курсор страницы: последний заказ предыдущей страницы.
++public sealed record OrderCursor(DateTimeOffset PlacedAt, Guid Id);
+diff --git a/src/Fulfil/Ports/Ports.cs b/src/Fulfil/Ports/Ports.cs
+index 877025b..c18fa26 100644
+--- a/src/Fulfil/Ports/Ports.cs
++++ b/src/Fulfil/Ports/Ports.cs
+@@ -18,3 +18,9 @@ public interface ICatalogSource
+ {
+     IAsyncEnumerable<Domain.Product> ReadAllAsync(CancellationToken ct);
+ }
++
++// Письмо клиенту; имя и email адресат берёт из актуальной записи клиента по заказу.
++public interface IMailer
++{
++    Task SendShippedAsync(Guid orderId);
++}
+diff --git a/src/Fulfil/Program.cs b/src/Fulfil/Program.cs
+index 0c9a3bd..9a8e946 100644
+--- a/src/Fulfil/Program.cs
++++ b/src/Fulfil/Program.cs
+@@ -1,7 +1,12 @@
+ using Fulfil.Options;
++using Fulfil.Storage;
+ 
+ var builder = WebApplication.CreateBuilder(args);
+ builder.Services.Configure<FulfilOptions>(builder.Configuration.GetSection("Fulfil"));
++builder.Services.AddSingleton<MongoContext>();
++builder.Services.AddHostedService<MongoIndexInitializer>();
++builder.Services.AddSingleton<OrderStore>();
++builder.Services.AddSingleton<StockTransfer>();
+ 
+ var app = builder.Build();
+ app.MapGet("/health", () => Results.Ok());
+diff --git a/src/Fulfil/Storage/Documents.cs b/src/Fulfil/Storage/Documents.cs
+new file mode 100644
+index 0000000..d3e0667
+--- /dev/null
++++ b/src/Fulfil/Storage/Documents.cs
+@@ -0,0 +1,84 @@
++using MongoDB.Bson;
++using MongoDB.Bson.Serialization.Attributes;
++
++namespace Fulfil.Storage;
++
++// Документы в базе старше классов: у старых документов нет новых полей, а в них могут быть
++// элементы, которых в классе уже нет, - лишнее при десериализации игнорируется.
++
++[BsonIgnoreExtraElements]
++public sealed class OrderDocument
++{
++    public Guid Id { get; set; }
++    public Guid CustomerId { get; set; }
++    [BsonRepresentation(BsonType.String)] public Domain.OrderStatus Status { get; set; }
++    public List<OrderLineDocument> Lines { get; set; } = [];
++    [BsonDateTimeOptions(Kind = DateTimeKind.Utc)] public DateTime PlacedAt { get; set; }
++    // Адрес читается вместе с заказом и неизменен - встроен в документ.
++    public DeliveryAddressDocument? DeliveryAddress { get; set; }
++}
++
++[BsonIgnoreExtraElements]
++public sealed class OrderLineDocument
++{
++    public string Sku { get; set; } = "";
++    public int Quantity { get; set; }
++    [BsonRepresentation(BsonType.Decimal128)] public decimal UnitPrice { get; set; }
++}
++
++[BsonIgnoreExtraElements]
++public sealed class DeliveryAddressDocument
++{
++    public string Country { get; set; } = "";
++    public string City { get; set; } = "";
++    public string Street { get; set; } = "";
++    public string PostalCode { get; set; } = "";
++}
++
++// Проекция списка: читаются только _id и Status.
++[BsonIgnoreExtraElements]
++public sealed class OrderSummaryDocument
++{
++    public Guid Id { get; set; }
++    [BsonRepresentation(BsonType.String)] public Domain.OrderStatus Status { get; set; }
++}
++
++// Лента событий - отдельная коллекция: у B2B-заказов их тысячи, массив в заказе рос бы без границы.
++[BsonIgnoreExtraElements]
++public sealed class OrderEventDocument
++{
++    public ObjectId Id { get; set; }
++    public Guid OrderId { get; set; }
++    [BsonDateTimeOptions(Kind = DateTimeKind.Utc)] public DateTime At { get; set; }
++    public string Kind { get; set; } = "";
++    public string Text { get; set; } = "";
++}
++
++// Имя и email клиента хранятся в одном месте; заказы ссылаются на клиента по CustomerId,
++// копии в заказах пришлось бы обновлять у десятков тысяч документов при смене email.
++[BsonIgnoreExtraElements]
++public sealed class CustomerDocument
++{
++    public Guid Id { get; set; }
++    public string Name { get; set; } = "";
++    public string Email { get; set; } = "";
++}
++
++[BsonIgnoreExtraElements]
++public sealed class CartDraftDocument
++{
++    public Guid Id { get; set; }
++    public Guid CustomerId { get; set; }
++    public List<OrderLineDocument> Lines { get; set; } = [];
++    // Время последнего изменения: по нему TTL-индекс удаляет черновик.
++    [BsonDateTimeOptions(Kind = DateTimeKind.Utc)] public DateTime UpdatedAt { get; set; }
++}
++
++[BsonIgnoreExtraElements]
++public sealed class WarehouseStockDocument
++{
++    public ObjectId Id { get; set; }
++    public string WarehouseId { get; set; } = "";
++    public string Sku { get; set; } = "";
++    public int Stock { get; set; }
++}
+diff --git a/src/Fulfil/Storage/MongoContext.cs b/src/Fulfil/Storage/MongoContext.cs
+new file mode 100644
+index 0000000..54d22a4
+--- /dev/null
++++ b/src/Fulfil/Storage/MongoContext.cs
+@@ -0,0 +1,65 @@
++using Fulfil.Options;
++using Microsoft.Extensions.Options;
++using MongoDB.Bson;
++using MongoDB.Bson.Serialization;
++using MongoDB.Bson.Serialization.Serializers;
++using MongoDB.Driver;
++
++namespace Fulfil.Storage;
++
++public sealed class MongoContext
++{
++    static MongoContext()
++    {
++        BsonSerializer.RegisterSerializer(new GuidSerializer(GuidRepresentation.Standard));
++    }
++
++    public MongoContext(IOptions<FulfilOptions> options)
++    {
++        var o = options.Value;
++        Database = new MongoClient(o.MongoConnectionString).GetDatabase(o.MongoDatabase);
++    }
++
++    public IMongoDatabase Database { get; }
++    public IMongoCollection<OrderDocument> Orders => Database.GetCollection<OrderDocument>("orders");
++    public IMongoCollection<OrderEventDocument> OrderEvents => Database.GetCollection<OrderEventDocument>("order_events");
++    public IMongoCollection<CustomerDocument> Customers => Database.GetCollection<CustomerDocument>("customers");
++    public IMongoCollection<CartDraftDocument> CartDrafts => Database.GetCollection<CartDraftDocument>("cart_drafts");
++    public IMongoCollection<WarehouseStockDocument> WarehouseStock => Database.GetCollection<WarehouseStockDocument>("warehouse_stock");
++
++    public async Task EnsureIndexesAsync(CancellationToken ct)
++    {
++        // «Заказы клиента в статусе за период, сначала новые»: равенство, равенство, сортировка/диапазон.
++        // _id в конце даёт устойчивый порядок для курсорной пагинации.
++        await Orders.Indexes.CreateOneAsync(new CreateIndexModel<OrderDocument>(
++            Builders<OrderDocument>.IndexKeys
++                .Ascending(x => x.CustomerId).Ascending(x => x.Status)
++                .Descending(x => x.PlacedAt).Descending(x => x.Id),
++            new CreateIndexOptions { Name = "customer_status_placed" }), cancellationToken: ct);
++
++        // Список «мои заказы» без фильтра по статусу.
++        await Orders.Indexes.CreateOneAsync(new CreateIndexModel<OrderDocument>(
++            Builders<OrderDocument>.IndexKeys
++                .Ascending(x => x.CustomerId).Descending(x => x.PlacedAt).Descending(x => x.Id),
++            new CreateIndexOptions { Name = "customer_placed" }), cancellationToken: ct);
++
++        await OrderEvents.Indexes.CreateOneAsync(new CreateIndexModel<OrderEventDocument>(
++            Builders<OrderEventDocument>.IndexKeys
++                .Ascending(x => x.OrderId).Ascending(x => x.At).Ascending(x => x.Id),
++            new CreateIndexOptions { Name = "order_at" }), cancellationToken: ct);
++
++        await CartDrafts.Indexes.CreateOneAsync(new CreateIndexModel<CartDraftDocument>(
++            Builders<CartDraftDocument>.IndexKeys.Ascending(x => x.UpdatedAt),
++            new CreateIndexOptions { Name = "ttl_updated", ExpireAfter = TimeSpan.FromDays(30) }), cancellationToken: ct);
++
++        await WarehouseStock.Indexes.CreateOneAsync(new CreateIndexModel<WarehouseStockDocument>(
++            Builders<WarehouseStockDocument>.IndexKeys.Ascending(x => x.WarehouseId).Ascending(x => x.Sku),
++            new CreateIndexOptions { Name = "warehouse_sku", Unique = true }), cancellationToken: ct);
++    }
++}
++
++public sealed class MongoIndexInitializer(MongoContext mongo) : IHostedService
++{
++    public Task StartAsync(CancellationToken ct) => mongo.EnsureIndexesAsync(ct);
++    public Task StopAsync(CancellationToken ct) => Task.CompletedTask;
++}
+diff --git a/src/Fulfil/Storage/OrderStore.cs b/src/Fulfil/Storage/OrderStore.cs
+new file mode 100644
+index 0000000..04fb00f
+--- /dev/null
++++ b/src/Fulfil/Storage/OrderStore.cs
+@@ -0,0 +1,113 @@
++using Fulfil.Domain;
++using Fulfil.Ports;
++using MongoDB.Driver;
++
++namespace Fulfil.Storage;
++
++public sealed class OrderStore(MongoContext mongo, IMailer mailer)
++{
++    public const int PageSize = 50;
++
++    public Task AddAsync(Order order, CancellationToken ct) =>
++        mongo.Orders.InsertOneAsync(ToDocument(order), cancellationToken: ct);
++
++    // Заказы клиента в статусе за период [from, to), сначала новые. Страница - по курсору, а не skip:
++    // при 50 млн документов skip на глубоких страницах перебирает все пропущенные записи.
++    public async Task<IReadOnlyList<Order>> FindByCustomerAsync(
++        Guid customerId, OrderStatus status, DateTimeOffset from, DateTimeOffset to,
++        OrderCursor? after, CancellationToken ct)
++    {
++        var f = Builders<OrderDocument>.Filter;
++        var filter = f.Eq(x => x.CustomerId, customerId) & f.Eq(x => x.Status, status)
++                     & f.Gte(x => x.PlacedAt, from.UtcDateTime) & f.Lt(x => x.PlacedAt, to.UtcDateTime);
++        if (after is not null) filter &= AfterCursor(after);
++
++        var docs = await mongo.Orders.Find(filter)
++            .SortByDescending(x => x.PlacedAt).ThenByDescending(x => x.Id)
++            .Limit(PageSize).ToListAsync(ct);
++        return docs.Select(ToDomain).ToList();
++    }
++
++    // «Мои заказы»: проекция только номера и статуса, остальные поля с сервера не читаются.
++    public async Task<IReadOnlyList<OrderSummary>> ListSummariesAsync(
++        Guid customerId, OrderCursor? after, CancellationToken ct)
++    {
++        var f = Builders<OrderDocument>.Filter;
++        var filter = f.Eq(x => x.CustomerId, customerId);
++        if (after is not null) filter &= AfterCursor(after);
++
++        var docs = await mongo.Orders.Find(filter)
++            .SortByDescending(x => x.PlacedAt).ThenByDescending(x => x.Id)
++            .Project<OrderSummaryDocument>(Builders<OrderDocument>.Projection
++                .Include(x => x.Id).Include(x => x.Status))
++            .Limit(PageSize).ToListAsync(ct);
++        return docs.Select(d => new OrderSummary(d.Id, d.Status)).ToList();
++    }
++
++    public async Task<IReadOnlyList<OrderEvent>> GetEventsAsync(Guid orderId, int skip, int take, CancellationToken ct)
++    {
++        var docs = await mongo.OrderEvents.Find(x => x.OrderId == orderId)
++            .SortBy(x => x.At).ThenBy(x => x.Id)
++            .Skip(skip).Limit(take).ToListAsync(ct);
++        return docs.Select(d => new OrderEvent(d.OrderId, new DateTimeOffset(d.At, TimeSpan.Zero), d.Kind, d.Text)).ToList();
++    }
++
++    public Task AddCommentAsync(Guid orderId, string text, DateTimeOffset at, CancellationToken ct) =>
++        AppendEventAsync(orderId, "Comment", text, at, ct);
++
++    // Смена статуса и реакция на неё - в одном месте. Переход выполняется условным атомарным
++    // обновлением, поэтому при трёх репликах письмо о Shipped отправит только та, чья запись сработала.
++    // Change streams не используются: на одиночном mongod без replica set они недоступны.
++    public async Task<bool> ChangeStatusAsync(Guid orderId, OrderStatus status, DateTimeOffset at, CancellationToken ct)
++    {
++        var f = Builders<OrderDocument>.Filter;
++        var changed = await mongo.Orders.FindOneAndUpdateAsync(
++            f.Eq(x => x.Id, orderId) & f.Ne(x => x.Status, status),
++            Builders<OrderDocument>.Update.Set(x => x.Status, status),
++            cancellationToken: ct);
++        if (changed is null) return false;
++
++        await AppendEventAsync(orderId, "StatusChanged", status.ToString(), at, ct);
++        if (status == OrderStatus.Shipped)
++            await mailer.SendShippedAsync(orderId);
++        return true;
++    }
++
++    private Task AppendEventAsync(Guid orderId, string kind, string text, DateTimeOffset at, CancellationToken ct) =>
++        mongo.OrderEvents.InsertOneAsync(
++            new OrderEventDocument { OrderId = orderId, At = at.UtcDateTime, Kind = kind, Text = text },
++            cancellationToken: ct);
++
++    private static FilterDefinition<OrderDocument> AfterCursor(OrderCursor c)
++    {
++        var f = Builders<OrderDocument>.Filter;
++        var t = c.PlacedAt.UtcDateTime;
++        return f.Lt(x => x.PlacedAt, t) | (f.Eq(x => x.PlacedAt, t) & f.Lt(x => x.Id, c.Id));
++    }
++
++    private static OrderDocument ToDocument(Order o) => new()
++    {
++        Id = o.Id,
++        CustomerId = o.CustomerId,
++        Status = o.Status,
++        PlacedAt = o.PlacedAt.UtcDateTime,
++        Lines = o.Lines.Select(l => new OrderLineDocument { Sku = l.Sku, Quantity = l.Quantity, UnitPrice = l.UnitPrice }).ToList(),
++        DeliveryAddress = new DeliveryAddressDocument
++        {
++            Country = o.DeliveryAddress.Country,
++            City = o.DeliveryAddress.City,
++            Street = o.DeliveryAddress.Street,
++            PostalCode = o.DeliveryAddress.PostalCode,
++        },
++    };
++
++    private static Order ToDomain(OrderDocument d)
++    {
++        var a = d.DeliveryAddress ?? new DeliveryAddressDocument();
++        return new Order(
++            d.Id, d.CustomerId, d.Status,
++            d.Lines.Select(l => new OrderLine(l.Sku, l.Quantity, l.UnitPrice)).ToList(),
++            new DateTimeOffset(d.PlacedAt, TimeSpan.Zero),
++            new DeliveryAddress(a.Country, a.City, a.Street, a.PostalCode));
++    }
++}
+diff --git a/src/Fulfil/Storage/StockTransfer.cs b/src/Fulfil/Storage/StockTransfer.cs
+new file mode 100644
+index 0000000..2ea0c3b
+--- /dev/null
++++ b/src/Fulfil/Storage/StockTransfer.cs
+@@ -0,0 +1,39 @@
++using MongoDB.Driver;
++
++namespace Fulfil.Storage;
++
++public sealed class StockTransfer(MongoContext mongo)
++{
++    // MongoDB здесь - одиночный mongod без replica set, многодокументные транзакции недоступны.
++    // Вместо них: условное атомарное списание (не уйдёт в минус), затем зачисление; если зачисление
++    // не удалось - списание компенсируется возвратом. Каждая отдельная запись атомарна.
++    // Остаточный риск: падение процесса между списанием и зачислением оставит остаток списанным.
++    public async Task<bool> TransferAsync(string sku, string fromWarehouse, string toWarehouse, int quantity, CancellationToken ct)
++    {
++        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(quantity);
++        var f = Builders<WarehouseStockDocument>.Filter;
++        var u = Builders<WarehouseStockDocument>.Update;
++
++        var debited = await mongo.WarehouseStock.UpdateOneAsync(
++            f.Eq(x => x.WarehouseId, fromWarehouse) & f.Eq(x => x.Sku, sku) & f.Gte(x => x.Stock, quantity),
++            u.Inc(x => x.Stock, -quantity), cancellationToken: ct);
++        if (debited.ModifiedCount == 0) return false;
++
++        try
++        {
++            var credited = await mongo.WarehouseStock.UpdateOneAsync(
++                f.Eq(x => x.WarehouseId, toWarehouse) & f.Eq(x => x.Sku, sku),
++                u.Inc(x => x.Stock, quantity), new UpdateOptions { IsUpsert = true }, ct);
++            if (credited.MatchedCount == 0 && credited.UpsertedId is null)
++                throw new InvalidOperationException("Зачисление на склад-приёмник не выполнено");
++            return true;
++        }
++        catch
++        {
++            await mongo.WarehouseStock.UpdateOneAsync(
++                f.Eq(x => x.WarehouseId, fromWarehouse) & f.Eq(x => x.Sku, sku),
++                u.Inc(x => x.Stock, quantity), cancellationToken: CancellationToken.None);
++            throw;
++        }
++    }
++}

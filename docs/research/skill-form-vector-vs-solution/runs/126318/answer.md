@@ -1,0 +1,5 @@
+Изменённые файлы:
+- **Model.cs** — добавлено `Order.Complexity` (int, check-constraint 1..5); `ValueConverter` для `CreatedAt`, сохраняющий тип колонки `timestamp without time zone`, но гарантирующий `Kind=Utc` в коде и в параметрах запросов; в `OnModelCreating` явно настроены связи `Order -> Items` (`Cascade`) и `Order -> Payments` (`Restrict`).
+- **OrderRepository.cs** — добавлен `ClearItemsAsync(Guid orderId)`: `Include(Items)` → `Items.Clear()` → `SaveChangesAsync()`.
+
+Решения: конвертер снимает `Kind=Utc` перед записью и восстанавливает его при чтении, потому что Npgsql 6+ не разрешает писать `Kind=Utc` в `timestamp without time zone`, а менять колонку нельзя. `Cascade` для `Items` нужен, чтобы `Items.Clear()` в `ClearItemsAsync` реально удалял осиротевшие строки, а не падал с `InvalidOperationException` (как было бы при `Restrict`). `Payments` оставлены на `Restrict`, так как заказы удаляются мягко и физическое удаление платежей через каскад нежелательно. Тот же текст записан в `_answer.md`.

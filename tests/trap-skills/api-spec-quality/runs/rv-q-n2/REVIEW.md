@@ -1,0 +1,16 @@
+verdict: failed
+api/openapi.yaml:599 - participantsCount добавлен в required запроса CreateBookingRequest, а CHANGELOG.md:3 и MR называют изменение совместимым: все существующие клиенты createBooking начнут получать 400, перечня потребителей, плана миграции и срока нет - blocker
+api/openapi.yaml:373 - $ref на несуществующую схему ExtendRequst (схема называется ExtendBookingRequest, строка 649): спека не резолвится, генерация клиентов и валидация падают - blocker
+api/openapi.yaml:365 - extendBooking с `security: []` снимает ключ доступа, хотя FR-12 требует ключ для любого запроса: продлевать чужие брони сможет кто угодно без аутентификации - blocker
+api/openapi.yaml:359 - у extendBooking нет x-traced-from и в docs/requirements/FR.md нет требования на продление (и на pending, participantsCount, поиск, externalRef): операция не прослеживается, реализация пойдёт без приёмочной основы - major
+api/openapi.yaml:388 - у extendBooking из ошибок только `default` без content и примера: нет 400/401/403/404/409 (пересечение с следующей бронью, отменённая, pending), клиент не знает кодов и обрабатывает всё как 500 - major
+api/openapi.yaml:359 - POST extend неидемпотентен и не описывает повтор: после потерянного ответа повтор продлит бронь второй раз и спишет price дважды; нет Idempotency-Key, нет version как в PATCH (:284) - major
+api/openapi.yaml:209 - новая операция searchBookings сразу помечена `deprecated: true` без замены и срока поддержки: клиенты получают устаревший метод в день появления, генераторы ставят предупреждения - major
+api/openapi.yaml:331 - 422 у переноса: инлайн-схема `{message}` вместо problem+json/Problem с `code`, без примера и перечня правил: клиент не отличит причины, нарушает общий формат ошибок - major
+api/openapi.yaml:535 - в BookingStatus добавлено pending и удалена фраза «Клиент игнорирует неизвестные значения»: клиентам со строгим enum новый статус в ответах ломает разбор; не описано, как pending становится active и занимает ли комнату по FR-09 (операции подтверждения нет) - major
+api/openapi.yaml:174 - пример запроса createBooking не содержит обязательного participantsCount: пример невалиден против собственной схемы, клиент по примеру получит 400 - major
+api/openapi.yaml:653 - ExtendBookingRequest.minutes без minimum/maximum/multipleOf и note без maxLength, ограничения FR-08 (15..240, кратно 15) не отражены: сервер и клиенты разойдутся в допустимых значениях - minor
+api/openapi.yaml:659 - ExtendResult без required, extendedUntil без format date-time, price без единиц и валюты и без требования на цену: клиенты сгенерируют всё необязательным, смысл price неизвестен - minor
+api/openapi.yaml:623 - participantsCount есть только в запросе, в Booking его нет, и ошибка превышения вместимости комнаты (FR-01) не описана кодом: клиент не увидит значение и не узнает причину 400 - minor
+api/CHANGELOG.md:3 - в записи 1.3.0 есть поиск, externalRef, phonebooth и 422, которых нет в описании MR, а несовместимое изменение (:599) названо совместимым: состав релиза не согласован, потребители не предупреждены - minor
+api/openapi.yaml:4 - контракт 1.3.0 опубликован раньше кода (info.description: «контракт меняется вместе с кодом»), серверу эти операции неизвестны: сгенерированные клиенты получат 404 до реализации - minor

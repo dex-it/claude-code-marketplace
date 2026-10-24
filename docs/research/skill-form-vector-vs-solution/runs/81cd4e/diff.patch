@@ -1,0 +1,63 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..5950ca3
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,57 @@
++# Ревью MR !4127: сервисы заказов и каталога для админки
++
++## Критично (critical)
++
++1. **Migrations/20260920_OrderCategories.cs (`Up`) + Services/OrderAdmin.cs (`UpdateOrder`)**
++   Миграция делает `mb.DropColumn("Category", "Orders")`, но `Model.cs` (не менялся в MR) по-прежнему объявляет `Order.Category` как обычное свойство, и `OrderAdmin.UpdateOrder` продолжает писать `order.Category = edit.Category`. После применения миграции EF-модель ссылается на колонку `Orders."Category"`, которой в БД больше нет — упадёт практически любой запрос к `Orders` (SELECT/INSERT/UPDATE), включая `GetCard`, `ExportForCustomer`, `UpdateOrder`, `RecalcTotal`, `OverdueReport`, `OverdueNotifier`. MR добавляет только схемную часть переноса категорий, но не обновляет модель/сервисы под новую схему (`Categories`/`OrderCategories`, навигация в `Order`). Это ломает всё приложение сразу после деплоя миграции.
++
++2. **Migrations/20260920_OrderCategories.cs (`Up`)** — отсутствует перенос данных.
++   Старые значения `Orders.Category` (строка) просто выбрасываются `DropColumn`, ничего не вставляется в новые таблицы `Categories`/`OrderCategories`. Это безвозвратная потеря исторических данных о категориях заказов (см. паттерн «схемная миграция без data migration для исторических данных»). Нужна отдельная data-миграция: заполнить `Categories` уникальными значениями, вставить связи в `OrderCategories` — и только потом дропать колонку.
++
++3. **Services/CatalogService.cs (`Reserve`)** — `FOR UPDATE` без явной транзакции.
++   `FromSqlRaw("... FOR UPDATE", productId).SingleAsync()` выполняется как отдельный неявный транзакционный statement и блокировка снимается сразу после SELECT, до последующего `product.Stock -= qty; SaveChangesAsync()`. Между этими двумя шагами другой параллельный вызов `Reserve` может прочитать тот же (ещё не уменьшенный) `Stock` и тоже пройти проверку — резерв остатка перестаёт быть атомарным, возможен overselling. Нужно оборачивать SELECT FOR UPDATE и запись в явную транзакцию (`BeginTransactionAsync` … `CommitAsync`).
++
++4. **Services/CatalogService.cs (`Search`)** — несовпадение алиаса таблицы в динамическом SQL.
++   Шаблон: `SELECT * FROM "Products" p WHERE {0}`, таблица заалиасена как `p`. Но условия строятся как `"Products"."Category" = @p...` и `"Products"."Price" >= @p...`, то есть ссылаются на имя таблицы `Products`, а не на алиас `p`. Postgres выдаст ошибку `missing FROM-clause entry for table "Products"` при любом непустом фильтре (`category != null` или `minPrice != null`) — то есть ровно тогда, когда фильтрация реально нужна. Метод "поиск с динамическим фильтром" фактически неработоспособен при любом заданном фильтре.
++
++5. **Services/OrderAdmin.cs (`RecalcTotal`)** — пересчёт суммы заказа игнорирует количество.
++   `order.Total = order.Items.Sum(i => prices[i.ProductId])` суммирует только цену за единицу, не умножая на `i.Qty`. Согласно контексту модели, `Product.Price` — цена за единицу, а `OrderItem.Qty` — количество; для любой позиции с `Qty > 1` сумма заказа будет занижена. Должно быть `prices[i.ProductId] * i.Qty`. Это прямая финансовая ошибка в основной бизнес-функции.
++
++6. **Services/OrderQueries.cs (`GetProductBySku`)** — `SingleAsync` на неуникальном условии.
++   По контексту модели один SKU лежит на нескольких складах и уникален только в рамках склада, то есть `Products.Sku` заведомо не уникален в таблице. `SingleAsync(p => p.Sku == sku)` бросит `InvalidOperationException` как только у SKU больше одной строки (несколько складов) — а это нормальный, ожидаемый случай, а не edge case. Нужно либо добавлять склад в условие, либо возвращать коллекцию/использовать `FirstOrDefault` с явной семантикой "какой склад".
++
++7. **Workers/OverdueNotifier.cs (конструктор) + Program.cs** — `ShopDbContext` внедрён напрямую в `BackgroundService`.
++   `ShopDbContext` регистрируется через `AddDbContext` (Scoped), а `OverdueNotifier` добавлен как `AddHostedService` (Singleton). Конструктор `OverdueNotifier(ShopDbContext db)` захватывает scoped-сервис в singleton: при включённой валидации scope'ов (`ValidateScopes`, обычно true в Development) приложение упадёт при старте; если проверка выключена — один и тот же `DbContext` живёт всё время работы приложения, растёт Change Tracker и он не thread-safe. Нужно внедрять `IServiceScopeFactory` и создавать scope на каждой итерации `ExecuteAsync`.
++
++## Высокая (high)
++
++8. **Services/OrderAdmin.cs (`UpdateOrder`)** — нет concurrency-контроля при параллельном редактировании.
++   MR явно указывает, что заказы правят несколько операторов одновременно, но у `Order` нет concurrency token (`xmin`/`RowVersion`), и `OnModelCreating` его не настраивает. Классический last-write-wins: второй оператор молча затирает правки первого без ошибки. Нужен `UseXminAsConcurrencyToken()` (Npgsql) или явная проверка версии перед сохранением. Тот же риск касается и `RecalcTotal`, которая тоже пишет `Total` без проверки конкурентного изменения.
++
++9. **Services/OrderQueries.cs (`ExportForCustomer`)** — нет `AsSplitQuery()` при двойном `Include`.
++   Метод явно предназначен для клиентов с тысячами заказов, но `Include(o => o.Items).Include(o => o.Payments)` без `AsSplitQuery()` даёт декартово произведение (order × items × payments) в одном JOIN-запросе — при тысячах заказов с несколькими позициями/платежами объём передаваемых данных взрывается. Интересно, что `AsSplitQuery()` вместо этого стоит на `GetCard` — методе, который тянет ровно один заказ, где выгода от split query минимальна (лишний round-trip). Стоит поменять местами: split query — в `ExportForCustomer`, а не в `GetCard`.
++
++10. **Services/OrderAdmin.cs (`OverdueReport`)** — фильтрация просроченных заказов в памяти.
++    `await _repo.GetAllAsync()` тянет ВСЕ заказы (без фильтра) в память, и только потом `Where(o => o.IsOverdue(now))` фильтрует на клиенте — при большом количестве заказов (см. контекст про тысячи заказов у клиентов) это лишний трафик, память и время, а бизнес-условие не транслируется в SQL. Нужно выразить условие `ShippedAt == null && CreatedAt < now.AddDays(-3)` прямо в LINQ-запросе к `_db.Orders`.
++
++11. **Workers/OverdueNotifier.cs (`ExecuteAsync`)** — нет дедупликации записей в AuditLog.
++    Каждую минуту воркер заново выбирает ВСЕ текущие просроченные заказы и добавляет по ним новую запись в `AuditLog`, без проверки, что заказ уже был залогирован ранее. Для заказа, просроченного неделю, это ~10 000 одинаковых по смыслу записей. Таблица `AuditLog` растёт неограниченно и бесполезно шумит. Нужна логика "залогировать переход в просрочку один раз" (например, проверка на уже существующую запись/флаг, а не полный повтор при каждом тике).
++
++## Средняя (medium)
++
++12. **Services/CatalogService.cs (`Reprice`)** — переоценка категории через цикл вместо bulk-обновления.
++    `Where(...).ToListAsync()` тянет все продукты категории в Change Tracker, дальше `foreach` меняет `Price` в памяти, а затем ещё и `_db.UpdateRange(products)` — при том, что сущности и так уже отслеживаются (загружены без `AsNoTracking`), `UpdateRange` помечает Modified вообще все свойства и генерирует полновесный UPDATE по каждой колонке, а не только по `Price`. Для «переоценки категории», которая может затрагивать много товаров, стоит использовать `ExecuteUpdateAsync(s => s.SetProperty(p => p.Price, p => p.Price * factor))` и убрать лишний `UpdateRange`.
++
++13. **Workers/OverdueNotifier.cs (`ExecuteAsync`)** — нет обработки ошибок внутри цикла.
++    Если `SaveChangesAsync` (или запрос) бросит исключение (транзиентная ошибка БД, конфликт и т.п.), исключение вылетит из `ExecuteAsync` и фоновая служба молча остановится (или уронит хост) без логирования и без повторных попыток — просрочки перестанут фиксироваться без какого-либо сигнала. Стоит обернуть тело итерации в try/catch с логированием и продолжением цикла.
++
++14. **Services/OrderAdmin.cs (`RecalcTotal`)** — возможен `KeyNotFoundException`.
++    `prices[i.ProductId]` через индексатор словаря упадёт, если для какого-то `OrderItem.ProductId` товар уже удалён из `Products` (словарь строится только по существующим товарам, а `ids` — по всем позициям заказа). Стоит использовать `TryGetValue` с понятной обработкой отсутствующего товара.
++
++## Низкая (low)
++
++15. **Services/OrderQueries.cs (`GetCard`)** — `AsSplitQuery()` для одиночной сущности.
++    Метод загружает ровно один заказ по `Id`; `AsSplitQuery()` здесь добавляет лишний round-trip к БД без выгоды от устранения декартова произведения (для одной записи JOIN обычно эффективнее). См. также находку №9 — правильнее перенести `AsSplitQuery()` в `ExportForCustomer`.
++
++16. **Migrations/20260920_OrderCategories.cs** — cascade delete от `OrderCategories` на `Orders` при модели с soft-delete.
++    `Orders` использует soft-delete (`IsDeleted` + global query filter), то есть обычный путь EF никогда физически не удаляет строки `Orders`. Настроенный `onDelete: ReferentialAction.Cascade` на FK к `Orders` имеет смысл только если где-то в системе выполняется реальный `DELETE FROM "Orders"` (вручную/через админ-тулинг) — в этом случае связи `OrderCategories` будут молча удалены каскадом. Стоит явно решить, допустим ли физический DELETE заказов, и при необходимости поставить `Restrict`.

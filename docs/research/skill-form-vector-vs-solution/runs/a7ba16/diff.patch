@@ -1,0 +1,60 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..7868d1e
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,54 @@
++# Code review: Notify.Worker MR
++
++## Критичные дефекты (critical)
++
++1. **`OutboxWorker.ProcessBatchAsync`** — `m.SentAt = now` выставляется всей пачке *до* попытки отправки (строки с `foreach (var m in batch) { ... m.SentAt = now; }`), и никогда не сбрасывается при неудаче — в `catch` только `m.Attempts++`. Запрос выборки фильтрует `m.SentAt == null`, поэтому:
++   - сообщение, для которого `SendAsync` бросил исключение, навсегда помечается как "отправленное" и больше никогда не будет выбрано на повтор — `MaxRetries`/`Attempts` теряют смысл;
++   - если процесс упадёт между первым `SaveChangesAsync` (клеймом) и реальной отправкой, сообщение будет считаться отправленным, хотя письмо никогда не ушло.
++   Это ломает саму гарантию outbox-паттерна (at-least-once доставка). Поле `LockedUntil` из-за этого тоже становится мёртвым — фильтр по `SentAt` всё равно исключает такие строки.
++   **Severity: critical**
++
++2. **`ThrottleService.WaitAsync`** — читает ключ `"Throttle:MessagesPerMinute"`, а во всех appsettings (`appsettings.json`, `appsettings.Production.json`) секция называется `Throttle:PerMinute`. `GetValue<int>` на отсутствующий ключ возвращает `0`, из-за чего `60_000 / perMinute` кидает `DivideByZeroException` при **каждой** отправке. Это исключение перехватывается в `OutboxWorker` (`catch (Exception ex)`), поэтому ошибка тихо логируется как "Send failed", а в сочетании с дефектом №1 сообщение всё равно помечается отправленным. Итог: в текущем виде воркер не отправит ни одного письма ни в одном окружении, при этом будет считать, что всё разослано.
++   **Severity: critical**
++
++3. **`Program.cs`** — `builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Mail"))`, но во всех appsettings SMTP-настройки лежат в секции `"Smtp"`, а не `"Mail"`. В результате `SmtpOptions` никогда не забиндится (Host/FromAddress останутся `null`), и `SmtpMailSender.SendAsync` будет падать на `MailboxAddress.Parse(null)` / подключении к пустому хосту — во всех окружениях.
++   **Severity: critical**
++
++4. **`OutboxWorker.ExecuteAsync`** — `Task.Delay(TimeSpan.FromSeconds(o.PollInterval), ct)` интерпретирует `PollInterval` как секунды, а в `appsettings.json` задано `"PollInterval": 500`, что явно задумано как миллисекунды (в описании MR — "опрос раз в полсекунды"). Получается интервал опроса ~500 секунд (≈8.3 минуты) вместо 0.5 секунды — прямое нарушение требования MR.
++   **Severity: critical**
++
++5. **Сборка проекта в текущем виде не пройдёт.** `tests/OutboxOptionsValidatorTests.cs` использует `Xunit`, но в репозитории нет ни отдельного тестового `.csproj` с пакетами `xunit`/`Microsoft.NET.Test.Sdk`, ни `.sln`. Единственный `Notify.Worker.csproj` — обычный SDK-style проект (`Microsoft.NET.Sdk.Worker`), который по умолчанию инклюдит все `**/*.cs` в каталоге, включая `tests/OutboxOptionsValidatorTests.cs`. Без ссылки на `Xunit` это не скомпилируется ("The type or namespace name 'Xunit' could not be found").
++   **Severity: critical**
++
++6. **Нарушение явного требования MR о "горячем" изменении настроек.** `Program.cs` регистрирует опции через `Configure<OutboxOptions>` / `IOptions<OutboxOptions>`, и `OutboxWorker` (singleton `BackgroundService`) получает `IOptions<OutboxOptions> options` в конструкторе. `IOptions<T>.Value` вычисляется один раз и кэшируется на весь срок жизни синглтона — изменения `appsettings.json` в рантайме не подхватываются. Раз в MR явно указано "Лимит параллельных отправок и размер пачки должны меняться на лету правкой appsettings, без рестарта" — нужен `IOptionsMonitor<OutboxOptions>` (читать `.CurrentValue` на каждой итерации), а не `IOptions<T>`. Сейчас `MaxInFlight`, `MaxBatchSize`, `PollInterval`, `LockTimeout` и т.д. заморожены на старте процесса.
++   **Severity: critical**
++
++## Высокая серьёзность (high)
++
++7. **Утечка секретов в `appsettings.Production.json`.** В открытом виде закоммичены боевые (судя по виду) пароль от БД (`Kx7!pQ2vR9wz`) и ключ SMTP-релея (`rl_live_9f3a1c77e2b04d6d`), при этом `appsettings.Staging.json` правильно выносит пароль в переменную окружения (`${NOTIFY_DB_PASSWORD}`). Если значения настоящие — их нужно немедленно ротировать и убрать из репозитория/истории git, переведя на секрет-хранилище или env-переменные.
++   **Severity: high**
++
++8. **Нет атомарного захвата строк outbox.** `ProcessBatchAsync` делает `SELECT` (`ToListAsync`), а затем отдельным `SaveChangesAsync` "клеймит" строки (`LockedUntil`) — без транзакции, `FOR UPDATE SKIP LOCKED` или optimistic concurrency token. При двух работающих инстансах воркера (обычная ситуация для background-сервиса при масштабировании или во время rolling deploy) два инстанса могут выбрать одну и ту же пачку и отправить дубликаты уведомлений. Наличие поля `LockedUntil` говорит о том, что блокировка задумывалась, но фактически на уровне БД не обеспечена.
++   **Severity: high**
++
++9. **Общий `DbContext` в параллельных задачах.** `Task.WhenAll(tasks)` запускает до `MaxInFlight` параллельных задач, каждая из которых мутирует свойство (`m.Attempts++`) сущности, отслеживаемой одним и тем же `db` (`NotifyDbContext`). Microsoft явно документирует, что экземпляр `DbContext` не потокобезопасен для конкурентного использования. Сейчас это может "случайно" работать, но является неподдерживаемым паттерном и хрупко по отношению к будущим изменениям (например, добавление конкурентного обращения к БД внутри цикла).
++   **Severity: high**
++
++## Средняя серьёзность (medium)
++
++10. **`ThrottleService` — не настоящий rate limiter.** Каждая из параллельных задач (до `MaxInFlight`) вызывает `throttle.WaitAsync` независимо и просто делает свой `Task.Delay`, вместо сериализации через общее состояние (token bucket/семафор с фиксированным интервалом). При `MaxInFlight = 5` фактическая скорость отправки может быть в 5 раз выше настроенного `PerMinute`, что сводит на нет цель троттлинга (например, для соблюдения лимитов почтового провайдера).
++    **Severity: medium**
++
++11. **`OutboxOptionsValidator` нигде не зарегистрирован.** В `Program.cs` нет `services.AddSingleton<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>()` и нет `.ValidateOnStart()` — валидатор, покрытый тестами, фактически мёртвый код: некорректная конфигурация (`MaxBatchSize=0`, отрицательный `MaxRetries` и т.п.) не будет отловлена при старте приложения.
++    **Severity: medium**
++
++12. **`appsettings.Production.json`: `MinBatchSize: 200 > MaxBatchSize: 100`.** Это либо опечатка (скорее всего имелось в виду 20, как в базовом `appsettings.json`), либо забытая настройка. Даже если бы валидатор был подключён, он не проверяет соотношение Min/Max. Побочный эффект — условие `o.MinBatchSize < o.MaxBatchSize` в `OutboxWorker` становится ложным, и адаптивное изменение размера пачки в проде полностью отключается.
++    **Severity: medium**
++
++## Низкая серьёзность (low)
++
++13. **`SmtpOptions.Host` / `FromAddress`** объявлены как non-nullable `string` без значения по умолчанию и без `required`. При включённом `Nullable` это даёт предупреждение компилятора, а при незабинженной секции (см. дефект №3) реально становятся `null`, что приводит к трудноотлаживаемым `NullReferenceException`/`ArgumentNullException` внутри MailKit вместо явной ошибки конфигурации на старте.
++    **Severity: low**
++
++14. **`ThrottleService.WaitAsync`** читает `IConfiguration` напрямую через `GetValue<int>` вместо строго типизированных/валидируемых опций — отсутствующее или нулевое значение приводит к рантайм-исключению (см. №2) вместо явного fail-fast при старте с понятным сообщением.
++    **Severity: low**

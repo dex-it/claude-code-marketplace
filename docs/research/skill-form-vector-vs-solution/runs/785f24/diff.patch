@@ -1,0 +1,61 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..0b391d5
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,55 @@
++# Ревью MR !238: Результаты
++
++## Найденные дефекты
++
++### 1. TripService.cs:76 (OffDayTripsAsync) - Фильтр после материализации
++
++**Метод:** `TripService.OffDayTripsAsync`
++
++**Проблема:** Нарушение SKILL.md пункт 8 «Фильтр после материализации»
++
++```csharp
++return await _db.Trips
++    .AsNoTracking()
++    .Where(t => t.StartedAt >= fromUtc && t.StartedAt < toUtc)
++    .ToRows()  // селект с нетранслируемым методом WorkCalendar.IsWorkingDay()
++    .Where(r => r.OffDay)  // фильтр в памяти после материализации
++    .OrderByDescending(r => r.Km)
++    .ToListAsync();
++```
++
++Метод `WorkCalendar.IsWorkingDay()` не транслируется в SQL (проверяет день недели и ищет дату в HashSet). Результат:
++- Все рейсы месяца грузятся из БД целиком
++- Проекция вычисляется на клиенте для каждой строки
++- Фильтр `.Where(r => r.OffDay)` применяется в памяти к полным данным
++
++Должно быть: рейсы, приходящие из БД, уже отфильтрованы до материализации. Бизнес-фильтр выполняется в SQL (WHERE) до материализации, а не в памяти после.
++
++**Severity:** HIGH
++
++---
++
++### 2. TripService.cs:111 (StartTripAsync) - Неправильная проверка срока допуска
++
++**Метод:** `TripService.StartTripAsync`
++
++**Проблема:** Нарушение требования МР и логическая ошибка
++
++```csharp
++var today = WorkCalendar.MoscowDate(DateTime.UtcNow);
++if (!driver.Permits.Any(p => p.Class == vehicle.Class && p.ValidUntil > today))
++    throw new TripDeniedException("Нет действующего допуска к классу машины");
++```
++
++По спецификации МР (FLEET-107): **"допуск действует по указанную в нём дату включительно"**.
++
++Код использует `p.ValidUntil > today`, что требует допуск на день **после** сегодня. При совпадении сегодня = ValidUntil допуск все еще должен быть действителен, но код его отвергнет.
++
++Правильно:
++```csharp
++p.ValidUntil >= today
++```
++
++**Severity:** CRITICAL
++
++Баг блокирует выпуск на линию водителей на последний день действия их допуска, что нарушает бизнес-процесс.

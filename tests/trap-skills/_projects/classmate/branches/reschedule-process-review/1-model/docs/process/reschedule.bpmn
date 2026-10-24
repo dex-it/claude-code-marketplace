@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             id="reschedule" targetNamespace="https://classmate.example/bpmn">
+
+  <message id="msg_request" name="Запрос переноса"/>
+  <message id="msg_confirm_req" name="Запрос подтверждения переноса"/>
+  <message id="msg_tutor_ok" name="Перенос подтверждён"/>
+  <message id="msg_tutor_no" name="Перенос отклонён"/>
+
+  <collaboration id="collab">
+    <participant id="p_student" name="Ученик"/>
+    <participant id="p_platform" name="Платформа Classmate" processRef="proc_platform"/>
+    <participant id="p_tutor" name="Репетитор"/>
+    <messageFlow id="mf_request" sourceRef="p_student" targetRef="start_request"/>
+    <messageFlow id="mf_ask_tutor" sourceRef="t_ask_tutor" targetRef="p_tutor"/>
+    <messageFlow id="mf_tutor_ok" sourceRef="p_tutor" targetRef="ev_tutor_ok"/>
+    <messageFlow id="mf_tutor_no" sourceRef="p_tutor" targetRef="ev_tutor_no"/>
+    <messageFlow id="mf_sent" sourceRef="t_tell_sent" targetRef="p_student"/>
+    <messageFlow id="mf_busy" sourceRef="t_tell_busy" targetRef="p_student"/>
+    <messageFlow id="mf_done" sourceRef="t_confirm_student" targetRef="p_student"/>
+    <messageFlow id="mf_kept" sourceRef="t_tell_kept" targetRef="p_student"/>
+  </collaboration>
+
+  <process id="proc_platform" isExecutable="false">
+    <startEvent id="start_request" name="Запрос переноса получен">
+      <messageEventDefinition messageRef="msg_request"/>
+    </startEvent>
+    <serviceTask id="t_hold_new" name="Поставить холд на новый слот"/>
+    <exclusiveGateway id="g_slot_free" name="Холд поставлен?" default="sf_busy"/>
+    <sendTask id="t_tell_busy" name="Сообщить ученику, что слот занят"/>
+    <endEvent id="end_busy" name="Перенос не начат"/>
+    <parallelGateway id="g_fork" name="Отметка урока и сообщение ученику"/>
+    <serviceTask id="t_mark_pending" name="Отметить урок как ожидающий переноса"/>
+    <sendTask id="t_tell_sent" name="Сообщить ученику, что запрос ушёл репетитору"/>
+    <parallelGateway id="g_join" name="Отметка и сообщение готовы"/>
+    <sendTask id="t_ask_tutor" name="Запросить подтверждение у репетитора" messageRef="msg_confirm_req"/>
+    <eventBasedGateway id="g_wait" name="Ответ репетитора?"/>
+    <intermediateCatchEvent id="ev_tutor_ok" name="Перенос подтверждён">
+      <messageEventDefinition messageRef="msg_tutor_ok"/>
+    </intermediateCatchEvent>
+    <intermediateCatchEvent id="ev_tutor_no" name="Перенос отклонён">
+      <messageEventDefinition messageRef="msg_tutor_no"/>
+    </intermediateCatchEvent>
+    <intermediateCatchEvent id="ev_24h" name="Прошло 24 часа">
+      <timerEventDefinition>
+        <timeDuration xsi:type="tFormalExpression">PT24H</timeDuration>
+      </timerEventDefinition>
+    </intermediateCatchEvent>
+    <serviceTask id="t_move" name="Перенести урок на новый слот и освободить старый"/>
+    <sendTask id="t_confirm_student" name="Отправить ученику подтверждение переноса"/>
+    <endEvent id="end_moved" name="Урок перенесён"/>
+    <exclusiveGateway id="g_not_moved" name="Перенос не подтверждён"/>
+    <serviceTask id="t_release_new" name="Снять холд с нового слота и отметку переноса"/>
+    <sendTask id="t_tell_kept" name="Сообщить ученику, что урок остался в старом слоте"/>
+    <endEvent id="end_kept" name="Урок остался в старом слоте"/>
+
+    <sequenceFlow id="sf1" sourceRef="start_request" targetRef="t_hold_new"/>
+    <sequenceFlow id="sf2" sourceRef="t_hold_new" targetRef="g_slot_free"/>
+    <sequenceFlow id="sf_busy" name="занят" sourceRef="g_slot_free" targetRef="t_tell_busy"/>
+    <sequenceFlow id="sf_free" name="свободен" sourceRef="g_slot_free" targetRef="g_fork">
+      <conditionExpression xsi:type="tFormalExpression">holdPlaced</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="sf3" sourceRef="t_tell_busy" targetRef="end_busy"/>
+    <sequenceFlow id="sf4" sourceRef="g_fork" targetRef="t_tell_sent"/>
+    <sequenceFlow id="sf5" sourceRef="g_fork" targetRef="t_mark_pending"/>
+    <sequenceFlow id="sf6" sourceRef="t_tell_sent" targetRef="g_join"/>
+    <sequenceFlow id="sf7" sourceRef="t_mark_pending" targetRef="g_join"/>
+    <sequenceFlow id="sf8" sourceRef="g_join" targetRef="t_ask_tutor"/>
+    <sequenceFlow id="sf8a" sourceRef="t_ask_tutor" targetRef="g_wait"/>
+    <sequenceFlow id="sf9" sourceRef="g_wait" targetRef="ev_tutor_ok"/>
+    <sequenceFlow id="sf10" sourceRef="g_wait" targetRef="ev_tutor_no"/>
+    <sequenceFlow id="sf11" sourceRef="g_wait" targetRef="ev_24h"/>
+    <sequenceFlow id="sf12" sourceRef="ev_tutor_ok" targetRef="t_move"/>
+    <sequenceFlow id="sf13" sourceRef="t_move" targetRef="t_confirm_student"/>
+    <sequenceFlow id="sf14" sourceRef="t_confirm_student" targetRef="end_moved"/>
+    <sequenceFlow id="sf15" sourceRef="ev_tutor_no" targetRef="g_not_moved"/>
+    <sequenceFlow id="sf16" sourceRef="ev_24h" targetRef="g_not_moved"/>
+    <sequenceFlow id="sf17" sourceRef="g_not_moved" targetRef="t_release_new"/>
+    <sequenceFlow id="sf18" sourceRef="t_release_new" targetRef="t_tell_kept"/>
+    <sequenceFlow id="sf19" sourceRef="t_tell_kept" targetRef="end_kept"/>
+  </process>
+</definitions>

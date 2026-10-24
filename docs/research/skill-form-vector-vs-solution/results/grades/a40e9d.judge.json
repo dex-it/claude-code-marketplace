@@ -1,0 +1,111 @@
+{
+  "id": "a40e9d",
+  "case": "R",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0831114,
+    "durationMs": 11557,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 6917,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1367,
+      "output_tokens_details": {
+        "thinking_tokens": 288
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6917,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1367,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 6917,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 6917
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "R-D3": {
+      "verdict": "PASS",
+      "quote": "Таблица в шаблоне заалиашена как `p`, а условия ссылаются на `\"Products\"`",
+      "why": "Находка #6 называет несовпадение алиаса p и \"Products\" в FromSqlRaw."
+    },
+    "R-D1": {
+      "verdict": "FOUND",
+      "quote": "`GetProductBySku`: `SingleAsync` на не-уникальном условии",
+      "why": "Находка #3 указывает, что SKU уникален только в рамках склада."
+    },
+    "R-D2": {
+      "verdict": "FOUND",
+      "quote": "`ShippedAt` — nullable, фильтра `ShippedAt != null` нет",
+      "why": "Находка #9 описывает MaxAsync с !.Value без фильтра null."
+    },
+    "R-D4": {
+      "verdict": "FOUND",
+      "quote": "`Reprice`: `UpdateRange` для уже отслеживаемых сущностей",
+      "why": "Находка #13 называет лишний UpdateRange на tracked-сущностях."
+    },
+    "R-D5": {
+      "verdict": "FOUND",
+      "quote": "`ShopDbContext` инжектирован напрямую в `BackgroundService`",
+      "why": "Находка #7 описывает захват scoped DbContext синглтоном."
+    },
+    "R-D6": {
+      "verdict": "FOUND",
+      "quote": "`ExportForCustomer`: множественный `Include` без `AsSplitQuery`",
+      "why": "Находка #10 указывает на cartesian explosion при тысячах заказов."
+    },
+    "R-D7": {
+      "verdict": "FOUND",
+      "quote": "`Reserve`: `FOR UPDATE` без явной транзакции",
+      "why": "Находка #11 называет отсутствие транзакции вокруг FOR UPDATE."
+    },
+    "R-D8": {
+      "verdict": "FOUND",
+      "quote": "`UpdateOrder`: нет concurrency token при конкурентной правке",
+      "why": "Находка #8 описывает last-write-wins без токена конкурентности."
+    },
+    "R-D9": {
+      "verdict": "FOUND",
+      "quote": "нет data migration для исторических категорий",
+      "why": "Находка #2 указывает, что DropColumn Category теряет данные без переноса."
+    },
+    "R-K1": {
+      "verdict": "FOUND",
+      "quote": "`OverdueReport`: фильтр в памяти после материализации всей таблицы",
+      "why": "Находка #5 называет GetAllAsync с фильтром IsOverdue в памяти."
+    },
+    "R-h-B1": {
+      "verdict": "YES",
+      "quote": "`GetCard`: `AsSplitQuery` для одной сущности",
+      "why": "Находка #12 объявляет дефектом корректный AsSplitQuery на карточке одного заказа."
+    },
+    "R-h-B2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Выход не содержит находок про Kind=Unspecified или чтение timestamp как Utc."
+    },
+    "R-O1": {
+      "verdict": "FOUND",
+      "quote": "`RecalcTotal`: сумма считается без учёта количества",
+      "why": "Находка #4 указывает, что Qty не используется при расчёте суммы."
+    }
+  },
+  "stderr": ""
+}

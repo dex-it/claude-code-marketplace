@@ -1,0 +1,120 @@
+diff --git a/Model.cs b/Model.cs
+index cc90064..7a8a573 100644
+--- a/Model.cs
++++ b/Model.cs
+@@ -1,7 +1,7 @@
+ // Shop.Data - EF Core 8, PostgreSQL (Npgsql.EntityFrameworkCore.PostgreSQL 8)
+ namespace Shop.Data;
+ 
+-public class Customer { public Guid Id { get; set; } public string Name { get; set; } = ""; public List<Order> Orders { get; set; } = new(); }
++public class Customer { public Guid Id { get; set; } public string Name { get; set; } = ""; public virtual List<Order> Orders { get; set; } = new(); }
+ 
+ public class Order
+ {
+@@ -11,16 +11,27 @@ public class Order
+     public string Status { get; set; } = "active";
+     public string Category { get; set; } = "";
+     public decimal Total { get; set; }
+-    public DateTime CreatedAt { get; set; }          // column: timestamp without time zone
++    public DateTime CreatedAt { get; set; }          // column: timestamp without time zone; in code always Kind=Utc (see converter)
+     public DateTime? ShippedAt { get; set; }
+     public bool IsDeleted { get; set; }
+-    public List<OrderItem> Items { get; set; } = new();
+-    public List<Payment> Payments { get; set; } = new();
++
++    // Complexity (сложность комплектации), 1..5. EF writes/reads the backing field directly.
++    private int _complexity = 1;
++    public int Complexity
++    {
++        get => _complexity;
++        set => _complexity = value is >= 1 and <= 5
++            ? value
++            : throw new ArgumentOutOfRangeException(nameof(Complexity), value, "Complexity must be between 1 and 5.");
++    }
++
++    public virtual List<OrderItem> Items { get; set; } = new();
++    public virtual List<Payment> Payments { get; set; } = new();
+     public bool IsOverdue(DateTime now) => ShippedAt == null && CreatedAt.AddDays(3) < now;
+ }
+ 
+-public class OrderItem { public int Id { get; set; } public Guid OrderId { get; set; } public Guid ProductId { get; set; } public int Qty { get; set; } }
+-public class Payment { public int Id { get; set; } public Guid OrderId { get; set; } public decimal Amount { get; set; } }
++public class OrderItem { public int Id { get; set; } public Guid OrderId { get; set; } public virtual Order Order { get; set; } = null!; public Guid ProductId { get; set; } public int Qty { get; set; } }
++public class Payment { public int Id { get; set; } public Guid OrderId { get; set; } public virtual Order Order { get; set; } = null!; public decimal Amount { get; set; } }
+ 
+ public class Product
+ {
+@@ -44,7 +55,36 @@ public class ShopDbContext : DbContext
+     protected override void OnModelCreating(ModelBuilder b)
+     {
+         b.Entity<Order>().HasQueryFilter(o => !o.IsDeleted);
+-        b.Entity<Order>().Property(o => o.CreatedAt).HasColumnType("timestamp without time zone");
++
++        // Column stays "timestamp without time zone" and holds UTC wall-clock time.
++        // Npgsql 6+ refuses Kind=Utc for this type, so strip Kind on write and restore Utc on read.
++        b.Entity<Order>().Property(o => o.CreatedAt)
++            .HasColumnType("timestamp without time zone")
++            .HasConversion(
++                v => DateTime.SpecifyKind(v.Kind == DateTimeKind.Local ? v.ToUniversalTime() : v, DateTimeKind.Unspecified),
++                v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
++
++        b.Entity<Order>().Property(o => o.Complexity).HasDefaultValue(1); // default for existing rows in migration
++        b.Entity<Order>().ToTable(t => t.HasCheckConstraint("CK_Orders_Complexity", "\"Complexity\" BETWEEN 1 AND 5"));
++
++        // Items are part of the order: removing an item from Order.Items deletes the row (orphan delete).
++        b.Entity<Order>()
++            .HasMany(o => o.Items)
++            .WithOne(i => i.Order)
++            .HasForeignKey(i => i.OrderId)
++            .OnDelete(DeleteBehavior.Cascade);
++
++        // Payments are financial records: never cascade-delete them with an order.
++        b.Entity<Order>()
++            .HasMany(o => o.Payments)
++            .WithOne(p => p.Order)
++            .HasForeignKey(p => p.OrderId)
++            .OnDelete(DeleteBehavior.Restrict);
++
++        // Matching filters for the dependents of soft-deleted orders (otherwise EF warns 10622
++        // and direct queries return items/payments of deleted orders). Use IgnoreQueryFilters() in reports.
++        b.Entity<OrderItem>().HasQueryFilter(i => !i.Order.IsDeleted);
++        b.Entity<Payment>().HasQueryFilter(p => !p.Order.IsDeleted);
+     }
+ }
+ // Options: UseNpgsql(cs).UseLazyLoadingProxies()
+diff --git a/OrderRepository.cs b/OrderRepository.cs
+index 72637b8..207f590 100644
+--- a/OrderRepository.cs
++++ b/OrderRepository.cs
+@@ -6,4 +6,15 @@ public class OrderRepository
+     public OrderRepository(ShopDbContext db) => _db = db;
+     public Task<List<Order>> GetAllAsync() => _db.Orders.ToListAsync();
+     public Task<Order?> GetAsync(Guid id) => _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
++
++    public async Task ClearItems(Guid orderId)
++    {
++        // Soft-deleted orders are excluded by the query filter.
++        var order = await _db.Orders.Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == orderId)
++            ?? throw new KeyNotFoundException($"Order {orderId} not found.");
++
++        // Required FK + cascade: orphaned items are deleted on SaveChanges.
++        order.Items.Clear();
++        await _db.SaveChangesAsync();
++    }
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..6c652f1
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,10 @@
++Изменённые файлы:
++- `Model.cs`: `Order.Complexity`, конвертер для `CreatedAt`, связи Items/Payments, виртуальные навигации, фильтры запросов
++- `OrderRepository.cs`: `ClearItems(Guid orderId)`
++- `_answer.md`: этот ответ
++
++Решения:
++- **Complexity.** Сеттер проверяет диапазон 1..5, в базе есть `CHECK "Complexity" BETWEEN 1 AND 5`. В базе задан `DEFAULT 1`, чтобы при миграции существующие заказы не нарушили ограничение.
++- **CreatedAt.** Колонка осталась `timestamp without time zone`. Npgsql 6+ не даёт записать в такую колонку `Kind=Utc`, поэтому конвертер при записи переводит Local в UTC и сбрасывает Kind в Unspecified, а при чтении ставит `Kind=Utc`. Legacy-режим Npgsql не включал.
++- **Связи.** Items удаляются каскадно, так что `ClearItems` удаляет позиции через `Items.Clear()` и `SaveChanges`. Для Payments стоит Restrict: платежи — финансовые записи, каскадом их не удалить. Навигации сделал `virtual`, без этого `UseLazyLoadingProxies` не строит модель. Items и Payments удалённых заказов скрыты фильтром запросов, как и сами заказы; отчётам по ним нужен `IgnoreQueryFilters()`.
++- **Открытые вопросы.** `ClearItems` не пересчитывает `Total` и не запрещает очистку отгруженного заказа — это нужно решить с бизнесом. Для изменений в модели нужна новая миграция.

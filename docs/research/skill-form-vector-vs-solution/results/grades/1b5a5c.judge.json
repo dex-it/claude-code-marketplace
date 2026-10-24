@@ -1,0 +1,67 @@
+{
+  "id": "1b5a5c",
+  "case": "G1",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0999742,
+    "durationMs": 6082,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 11040,
+      "cache_read_input_tokens": 531,
+      "output_tokens": 577,
+      "output_tokens_details": {
+        "thinking_tokens": 149
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11040,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 577,
+          "cache_read_input_tokens": 531,
+          "cache_creation_input_tokens": 11040,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 11040
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G1-debtors-fine": {
+      "verdict": "PASS",
+      "quote": ".Where(l => l.BranchId == branchId && l.ReturnedAt == null && l.DueDate < today)\n            .ToLoanRows(today, _rules)\n            .ToListAsync();",
+      "why": "Просрочка отбирается по маппленным колонкам до ToLoanRows, а сортировка по Fine/DaysOverdue и сумма считаются по уже загруженному списку."
+    },
+    "G1-period-offset": {
+      "verdict": "PASS",
+      "quote": "var fromUtc = from.ToUniversalTime();",
+      "why": "Границы переводятся в смещение 0 с сохранением момента времени до сравнения с IssuedAt."
+    },
+    "G1-h-loanrows": {
+      "verdict": "NO",
+      "quote": "Штраф считается на клиенте в финальной проекции (как в списке на кафедре)",
+      "why": "ToLoanRows и GetActiveLoansAsync не объявлены дефектом и не изменены, исполнитель использует их как образец."
+    },
+    "G1-h-today-utc": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "CountIssuedTodayAsync не затронут ни в diff, ни в ответе."
+    }
+  },
+  "stderr": ""
+}

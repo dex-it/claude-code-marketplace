@@ -1,0 +1,15 @@
+[Read] <run>/discipline/SKILL-binary-inspection-1.1.0.md
+[Read] <run>/discipline/SKILL-core-dumps-1.1.0.md
+[Read] <run>/discipline/SKILL-managed-debug-1.2.0.md
+[Read] <run>/discipline/SKILL-native-debug-1.1.0.md
+[Read] <run>/discipline/SKILL-perf-profiling-1.1.0.md
+[Read] <run>/discipline/SKILL-syscall-tracing-1.1.0.md
+docker exec <ctr> sh -c 'tail -n 15 /work/logs/worker.log; pgrep -a dotnet; for p in $(pgrep dotnet); do grep -E "State|Threads" /proc/$p/status; ls /proc/$p/task | wc -l; done; which dotnet-stack dotnet-dump dotnet-counters strace gdb'
+docker exec <ctr> sh -c 'export PATH=$PATH:/root/.dotnet/tools; timeout 20 dotnet-counters collect -p 11 --counters System.Runtime --format json -o /work/counters --refresh-interval 2 >/dev/null 2>&1 & sleep 9; kill -INT %1 2>/dev/null; wait; ls /work; for t in /proc/11/task/*; do echo $(basename $t) $(cat $t/comm) $(cut -d" " -f3 $t/stat) $(cat $t/wchan); done'
+docker exec <ctr> sh -c 'export PATH=$PATH:/root/.dotnet/tools; grep -o "\"Name\": *\"[^\"]*\(Queue\|Thread\|Lock\)[^\"]*\"[^}]*" /work/counters.json | tail -8; dotnet-dump collect -p 11 -o /work/d.dmp 2>&1 | tail -2; dotnet-dump analyze /work/d.dmp -c "clrthreads" -c "syncblk" -c "threadpool" -c "clrstack -all" -c exit 2>&1 | head -120'
+docker exec <ctr> sh -c 'cat /work/orders-worker.env; cat /work/app/*.runtimeconfig.json; tr "\0" "\n" </proc/11/environ | grep -i -E "DOTNET|THREAD|MODE"; sed -n 40,70p /work/src/orders-worker/Program.cs; grep -n "" /work/src/orders-worker/Program.cs | sed -n 1,12p'
+docker exec <ctr> sh -c 'cat /work/orders-worker.env; cat /work/app/*.runtimeconfig.json; sed -n 40,70p /work/src/orders-worker/Program.cs'
+docker exec <ctr> sh -c 'find /work/src -name Program.cs | xargs grep -n -i -E "MAX_WORKERS|SetMaxThreads|Wait\(|Result|Sleep" '; ls /work/app | head; docker 2>/dev/null; true
+docker exec <ctr> sh -c 'find /work/src -name Program.cs | xargs grep -n -i -E "MAX_WORKERS|SetMaxThreads|Wait\(|Result|Sleep"'
+docker exec <ctr> sh -c 'find /work/src -name Program.cs; sed -n 108,125p $(find /work/src -name Program.cs); sed -n 34,40p $(find /work/src -name Program.cs)'
+[Write] <lab>/REPORT.md

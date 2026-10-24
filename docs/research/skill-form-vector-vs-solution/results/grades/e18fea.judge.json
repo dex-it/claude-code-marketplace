@@ -1,0 +1,121 @@
+{
+  "id": "e18fea",
+  "case": "CFG",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.1034034,
+    "durationMs": 16121,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 7796,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 2030,
+      "output_tokens_details": {
+        "thinking_tokens": 580
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7796,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2030,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 7796,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 7796
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "CFG-K9": {
+      "verdict": "PASS",
+      "quote": "`MaxInFlight: 20` при prod `5`, и никаких объяснений",
+      "why": "Находка 13 прямо называет превышение MaxInFlight в Staging над Production."
+    },
+    "CFG-K8": {
+      "verdict": "PASS",
+      "quote": "`MaxInFlight: 5` и `MaxRetries: 5` в prod и `MaxRetries: 5` в staging повторяют значения из appsettings.json",
+      "why": "Находка 16 называет повтор MaxRetries 5 в обоих env-файлах при том же дефолте."
+    },
+    "CFG-h-required": {
+      "verdict": "YES",
+      "quote": "Нужно сделать их `required` или добавить `[Required]` + `ValidateDataAnnotations().ValidateOnStart()`",
+      "why": "Модификатор required предложен как самостоятельная альтернатива валидации опций, хотя биндер конфигурации его не проверяет."
+    },
+    "CFG-K1": {
+      "verdict": "FOUND",
+      "quote": "лежат реальные пароль БД (`Password=Kx7!pQ2vR9wz`) и пароль SMTP-релея",
+      "why": "Находка 1 называет оба пароля в appsettings.Production.json."
+    },
+    "CFG-K2": {
+      "verdict": "FOUND",
+      "quote": "`GetValue<int>` возвращает 0, и `60_000 / 0` бросает `DivideByZeroException`",
+      "why": "Находка 3 описывает несовпадение ключа и деление на ноль."
+    },
+    "CFG-K3": {
+      "verdict": "FOUND",
+      "quote": "OutboxOptionsValidator не зарегистрирован в DI, ValidateOnStart нет.",
+      "why": "Находка 7 называет именно этот дефект."
+    },
+    "CFG-K4": {
+      "verdict": "FOUND",
+      "quote": "`IOptions<OutboxOptions>` в singleton-сервисе (BackgroundService), хотя MR требует менять настройки на лету",
+      "why": "Находка 6 описывает этот дефект и предлагает IOptionsMonitor."
+    },
+    "CFG-K5": {
+      "verdict": "FOUND",
+      "quote": "тихим `if (o.MinBatchSize < o.MaxBatchSize)`, а в appsettings.Production.json стоит `MinBatchSize: 200`, `MaxBatchSize: 100`",
+      "why": "Находка 8 описывает тихое отключение adaptive batching."
+    },
+    "CFG-K6": {
+      "verdict": "FOUND",
+      "quote": "`PollInterval: 500` читается как секунды (`TimeSpan.FromSeconds(o.PollInterval)`)",
+      "why": "Находка 5 называет паузу 500 секунд."
+    },
+    "CFG-K7": {
+      "verdict": "FOUND",
+      "quote": "`Host` и `FromAddress` объявлены non-nullable `string`, без `required` и без дефолта",
+      "why": "Находка 15 называет отсутствие дефолта и проверки у Host и FromAddress."
+    },
+    "CFG-h-P1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находки против IOptions<SmtpOptions> в SmtpMailSender нет; перевод на IOptionsMonitor предложен только для воркера и ThrottleService."
+    },
+    "CFG-h-P2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "LockTimeout как TimeSpan нигде не оспаривается."
+    },
+    "CFG-O1": {
+      "verdict": "FOUND",
+      "quote": "`SentAt = now` ставится и сохраняется ДО отправки",
+      "why": "Находка 4 описывает потерю ретраев из-за раннего SentAt."
+    },
+    "CFG-O2": {
+      "verdict": "FOUND",
+      "quote": "`Configure<SmtpOptions>(GetSection(\"Mail\"))`, а секция в конфиге называется `\"Smtp\"`",
+      "why": "Находка 2 называет пустые SmtpOptions из-за неверной секции."
+    },
+    "CFG-O3": {
+      "verdict": "FOUND",
+      "quote": "Конфигурация .NET не подставляет `${...}`",
+      "why": "Находка 10 описывает отсутствие подстановки в Staging."
+    }
+  },
+  "stderr": ""
+}

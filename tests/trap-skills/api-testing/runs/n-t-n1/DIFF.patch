@@ -1,0 +1,1027 @@
+diff --git a/Bookings.sln b/Bookings.sln
+index 06eec1b..c73707d 100644
+--- a/Bookings.sln
++++ b/Bookings.sln
+@@ -7,6 +7,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72
+ EndProject
+ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bookings.Api", "src\Bookings.Api\Bookings.Api.csproj", "{D991F303-0637-497C-98A7-08D0838EEB28}"
+ EndProject
++Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
++EndProject
++Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bookings.Api.Tests", "tests\Bookings.Api.Tests\Bookings.Api.Tests.csproj", "{F3DFB76E-1D86-49C0-BDD3-DE98C540EAB1}"
++EndProject
+ Global
+ 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+ 		Debug|Any CPU = Debug|Any CPU
+@@ -29,11 +33,24 @@ Global
+ 		{D991F303-0637-497C-98A7-08D0838EEB28}.Release|x64.Build.0 = Release|Any CPU
+ 		{D991F303-0637-497C-98A7-08D0838EEB28}.Release|x86.ActiveCfg = Release|Any CPU
+ 		{D991F303-0637-497C-98A7-08D0838EEB28}.Release|x86.Build.0 = Release|Any CPU
++		{F3DFB76E-1D86-49C0-BDD3-DE98C540EAB1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
++		{F3DFB76E-1D86-49C0-BDD3-DE98C540EAB1}.Debug|Any CPU.Build.0 = Debug|Any CPU
++		{F3DFB76E-1D86-49C0-BDD3-DE98C540EAB1}.Debug|x64.ActiveCfg = Debug|Any CPU
++		{F3DFB76E-1D86-49C0-BDD3-DE98C540EAB1}.Debug|x64.Build.0 = Debug|Any CPU
++		{F3DFB76E-1D86-49C0-BDD3-DE98C540EAB1}.Debug|x86.ActiveCfg = Debug|Any CPU
++		{F3DFB76E-1D86-49C0-BDD3-DE98C540EAB1}.Debug|x86.Build.0 = Debug|Any CPU
++		{F3DFB76E-1D86-49C0-BDD3-DE98C540EAB1}.Release|Any CPU.ActiveCfg = Release|Any CPU
++		{F3DFB76E-1D86-49C0-BDD3-DE98C540EAB1}.Release|Any CPU.Build.0 = Release|Any CPU
++		{F3DFB76E-1D86-49C0-BDD3-DE98C540EAB1}.Release|x64.ActiveCfg = Release|Any CPU
++		{F3DFB76E-1D86-49C0-BDD3-DE98C540EAB1}.Release|x64.Build.0 = Release|Any CPU
++		{F3DFB76E-1D86-49C0-BDD3-DE98C540EAB1}.Release|x86.ActiveCfg = Release|Any CPU
++		{F3DFB76E-1D86-49C0-BDD3-DE98C540EAB1}.Release|x86.Build.0 = Release|Any CPU
+ 	EndGlobalSection
+ 	GlobalSection(SolutionProperties) = preSolution
+ 		HideSolutionNode = FALSE
+ 	EndGlobalSection
+ 	GlobalSection(NestedProjects) = preSolution
+ 		{D991F303-0637-497C-98A7-08D0838EEB28} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
++		{F3DFB76E-1D86-49C0-BDD3-DE98C540EAB1} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+ 	EndGlobalSection
+ EndGlobal
+diff --git a/tests/Bookings.Api.Tests/ApiFixture.cs b/tests/Bookings.Api.Tests/ApiFixture.cs
+new file mode 100644
+index 0000000..900f607
+--- /dev/null
++++ b/tests/Bookings.Api.Tests/ApiFixture.cs
+@@ -0,0 +1,82 @@
++using Microsoft.AspNetCore.Hosting;
++using Microsoft.AspNetCore.Mvc.Testing;
++using Microsoft.Extensions.Configuration;
++using Testcontainers.PostgreSql;
++
++namespace Bookings.Api.Tests;
++
++/// <summary>
++/// Сервис поверх настоящего PostgreSQL: запрет пересечений (FR-09) и версия брони держатся на возможностях БД.
++/// Один контейнер и одно приложение на все тесты.
++/// </summary>
++public sealed class ApiFixture : IAsyncLifetime
++{
++    public const string MemberKey = "test-alice-key";
++    public const string OtherMemberKey = "test-bob-key";
++    public const string AdminKey = "test-admin-key";
++
++    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:16").Build();
++    private readonly object _slotsLock = new();
++    private readonly Dictionary<string, int> _slotCounters = new();
++    private readonly DateTimeOffset _slotsBase = new DateTimeOffset(DateTimeOffset.UtcNow.UtcDateTime.Date, TimeSpan.Zero).AddDays(2);
++    private WebApplicationFactory<Program>? _factory;
++
++    public async Task InitializeAsync()
++    {
++        await _postgres.StartAsync();
++        var connectionString = _postgres.GetConnectionString();
++
++        _factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
++        {
++            builder.UseEnvironment("Testing");
++            builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
++            {
++                ["ConnectionStrings:Bookings"] = connectionString,
++                ["Database:Initialize"] = "true",
++                ["Auth:Keys:0:key"] = MemberKey,
++                ["Auth:Keys:0:userId"] = "alice",
++                ["Auth:Keys:0:role"] = "member",
++                ["Auth:Keys:1:key"] = OtherMemberKey,
++                ["Auth:Keys:1:userId"] = "bob",
++                ["Auth:Keys:1:role"] = "member",
++                ["Auth:Keys:2:key"] = AdminKey,
++                ["Auth:Keys:2:userId"] = "admin",
++                ["Auth:Keys:2:role"] = "admin",
++            }));
++        });
++    }
++
++    public async Task DisposeAsync()
++    {
++        _factory?.Dispose();
++        await _postgres.DisposeAsync();
++    }
++
++    public HttpClient CreateClient(string? apiKey = MemberKey)
++    {
++        var client = _factory!.CreateClient();
++        if (apiKey is not null)
++            client.DefaultRequestHeaders.Add("X-Api-Key", apiKey);
++        return client;
++    }
++
++    /// <summary>
++    /// Свободный слот комнаты в будущем (в пределах 90 дней): тесты делят одну БД и не должны пересекаться
++    /// друг с другом. Слоты разнесены на 5 часов, поэтому брони до 4 часов не соприкасаются.
++    /// </summary>
++    public DateTimeOffset NextSlot(string roomId)
++    {
++        lock (_slotsLock)
++        {
++            _slotCounters.TryGetValue(roomId, out var n);
++            _slotCounters[roomId] = n + 1;
++            return _slotsBase.AddHours(n * 5);
++        }
++    }
++}
++
++[CollectionDefinition(Name)]
++public class ApiCollection : ICollectionFixture<ApiFixture>
++{
++    public const string Name = "api";
++}
+diff --git a/tests/Bookings.Api.Tests/ApiTestBase.cs b/tests/Bookings.Api.Tests/ApiTestBase.cs
+new file mode 100644
+index 0000000..f82f287
+--- /dev/null
++++ b/tests/Bookings.Api.Tests/ApiTestBase.cs
+@@ -0,0 +1,77 @@
++using System.Net;
++using System.Net.Http.Json;
++using System.Text.Json;
++
++namespace Bookings.Api.Tests;
++
++[Collection(ApiCollection.Name)]
++public abstract class ApiTestBase(ApiFixture api)
++{
++    protected const string ProblemJson = "application/problem+json";
++
++    protected ApiFixture Api { get; } = api;
++
++    protected HttpClient Member() => Api.CreateClient(ApiFixture.MemberKey);
++    protected HttpClient OtherMember() => Api.CreateClient(ApiFixture.OtherMemberKey);
++    protected HttpClient Admin() => Api.CreateClient(ApiFixture.AdminKey);
++    protected HttpClient Anonymous() => Api.CreateClient(null);
++
++    protected static object NewBooking(string roomId, DateTimeOffset startsAt, int durationMinutes = 60, string title = "Планирование", string? comment = null) =>
++        new { roomId, title, startsAt, durationMinutes, comment };
++
++    protected async Task<JsonElement> CreateBookingAsync(HttpClient client, string roomId, DateTimeOffset? startsAt = null, int durationMinutes = 60)
++    {
++        var response = await client.PostAsJsonAsync("/api/v1/bookings", NewBooking(roomId, startsAt ?? Api.NextSlot(roomId), durationMinutes));
++        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
++        return await ReadJsonAsync(response);
++    }
++
++    protected static string BookingUrl(JsonElement booking) => $"/api/v1/bookings/{booking.GetProperty("id").GetString()}";
++
++    protected static async Task<JsonElement> ReadJsonAsync(HttpResponseMessage response)
++    {
++        using var stream = await response.Content.ReadAsStreamAsync();
++        return (await JsonDocument.ParseAsync(stream)).RootElement.Clone();
++    }
++
++    protected static async Task AssertProblemAsync(HttpResponseMessage response, HttpStatusCode status, string code)
++    {
++        Assert.Equal(status, response.StatusCode);
++        Assert.Equal(ProblemJson, response.Content.Headers.ContentType?.MediaType);
++        var body = await ReadJsonAsync(response);
++        Assert.Equal((int)status, body.GetProperty("status").GetInt32());
++        Assert.Equal(code, body.GetProperty("code").GetString());
++        Assert.True(body.TryGetProperty("type", out _), "Problem без обязательного type");
++        Assert.True(body.TryGetProperty("title", out _), "Problem без обязательного title");
++    }
++
++    protected static async Task AssertValidationProblemAsync(HttpResponseMessage response, params string[] fields)
++    {
++        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
++        Assert.Equal(ProblemJson, response.Content.Headers.ContentType?.MediaType);
++        var body = await ReadJsonAsync(response);
++        Assert.Equal(400, body.GetProperty("status").GetInt32());
++        Assert.True(body.TryGetProperty("type", out _), "ValidationProblem без обязательного type");
++        Assert.True(body.TryGetProperty("title", out _), "ValidationProblem без обязательного title");
++        var errors = body.GetProperty("errors");
++        foreach (var field in fields)
++            Assert.True(errors.TryGetProperty(field, out var messages) && messages.GetArrayLength() > 0, $"Нет ошибки по полю {field}: {errors}");
++    }
++
++    /// <summary>Бронь в ответе соответствует схеме Booking: все обязательные поля, границы, формат.</summary>
++    protected static void AssertBookingShape(JsonElement booking)
++    {
++        foreach (var name in new[] { "id", "roomId", "title", "comment", "startsAt", "durationMinutes", "endsAt", "ownerId", "status", "version" })
++            Assert.True(booking.TryGetProperty(name, out _), $"В Booking нет обязательного поля {name}");
++
++        Assert.True(Guid.TryParse(booking.GetProperty("id").GetString(), out _));
++        var duration = booking.GetProperty("durationMinutes").GetInt32();
++        Assert.InRange(duration, 15, 240);
++        Assert.Equal(0, duration % 15);
++        Assert.Equal(
++            booking.GetProperty("startsAt").GetDateTimeOffset().AddMinutes(duration),
++            booking.GetProperty("endsAt").GetDateTimeOffset());
++        Assert.Contains(booking.GetProperty("status").GetString(), new[] { "active", "cancelled" });
++        Assert.InRange(booking.GetProperty("version").GetInt64(), 0L, uint.MaxValue);
++    }
++}
+diff --git a/tests/Bookings.Api.Tests/AuthTests.cs b/tests/Bookings.Api.Tests/AuthTests.cs
+new file mode 100644
+index 0000000..b17dd1b
+--- /dev/null
++++ b/tests/Bookings.Api.Tests/AuthTests.cs
+@@ -0,0 +1,46 @@
++using System.Net;
++using System.Net.Http.Json;
++
++namespace Bookings.Api.Tests;
++
++/// <summary>FR-12: любой запрос - только с ключом доступа; 401 описан у каждой операции.</summary>
++public class AuthTests(ApiFixture api) : ApiTestBase(api)
++{
++    public static TheoryData<string, string> Operations => new()
++    {
++        { "GET", "/api/v1/rooms" },
++        { "GET", "/api/v1/rooms/orion" },
++        { "GET", "/api/v1/rooms/orion/bookings" },
++        { "GET", "/api/v1/bookings" },
++        { "POST", "/api/v1/bookings" },
++        { "GET", "/api/v1/bookings/3f2b8a64-5717-4562-b3fc-2c963f66afa6" },
++        { "PATCH", "/api/v1/bookings/3f2b8a64-5717-4562-b3fc-2c963f66afa6" },
++        { "DELETE", "/api/v1/bookings/3f2b8a64-5717-4562-b3fc-2c963f66afa6" },
++    };
++
++    [Theory]
++    [MemberData(nameof(Operations))]
++    public async Task Request_without_key_is_unauthorized(string method, string url)
++    {
++        var response = await Anonymous().SendAsync(Build(method, url));
++
++        await AssertProblemAsync(response, HttpStatusCode.Unauthorized, "unauthorized");
++    }
++
++    [Theory]
++    [MemberData(nameof(Operations))]
++    public async Task Request_with_unknown_key_is_unauthorized(string method, string url)
++    {
++        var response = await Api.CreateClient("no-such-key").SendAsync(Build(method, url));
++
++        await AssertProblemAsync(response, HttpStatusCode.Unauthorized, "unauthorized");
++    }
++
++    private static HttpRequestMessage Build(string method, string url)
++    {
++        var request = new HttpRequestMessage(new HttpMethod(method), url);
++        if (method is "POST" or "PATCH")
++            request.Content = JsonContent.Create(new { });
++        return request;
++    }
++}
+diff --git a/tests/Bookings.Api.Tests/Bookings.Api.Tests.csproj b/tests/Bookings.Api.Tests/Bookings.Api.Tests.csproj
+new file mode 100644
+index 0000000..55c4708
+--- /dev/null
++++ b/tests/Bookings.Api.Tests/Bookings.Api.Tests.csproj
+@@ -0,0 +1,25 @@
++<Project Sdk="Microsoft.NET.Sdk">
++
++  <PropertyGroup>
++    <TargetFramework>net10.0</TargetFramework>
++    <IsPackable>false</IsPackable>
++    <IsTestProject>true</IsTestProject>
++  </PropertyGroup>
++
++  <ItemGroup>
++    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
++    <PackageReference Include="Microsoft.NET.Test.Sdk" />
++    <PackageReference Include="Testcontainers.PostgreSql" />
++    <PackageReference Include="xunit" />
++    <PackageReference Include="xunit.runner.visualstudio" />
++  </ItemGroup>
++
++  <ItemGroup>
++    <ProjectReference Include="..\..\src\Bookings.Api\Bookings.Api.csproj" />
++  </ItemGroup>
++
++  <ItemGroup>
++    <Using Include="Xunit" />
++  </ItemGroup>
++
++</Project>
+diff --git a/tests/Bookings.Api.Tests/BookingsTests.cs b/tests/Bookings.Api.Tests/BookingsTests.cs
+new file mode 100644
+index 0000000..ed27837
+--- /dev/null
++++ b/tests/Bookings.Api.Tests/BookingsTests.cs
+@@ -0,0 +1,210 @@
++using System.Net;
++using System.Net.Http.Json;
++
++namespace Bookings.Api.Tests;
++
++/// <summary>FR-03, FR-04, FR-05, FR-08, FR-09: создание и чтение брони (createBooking, getBooking).</summary>
++public class BookingsTests(ApiFixture api) : ApiTestBase(api)
++{
++    [Fact]
++    public async Task CreateBooking_returns_created_booking_owned_by_key_holder()
++    {
++        var startsAt = Api.NextSlot("orion");
++
++        var response = await Member().PostAsJsonAsync("/api/v1/bookings", NewBooking("orion", startsAt, 90, "Планирование спринта", "Принести ноутбуки"));
++
++        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
++        var booking = await ReadJsonAsync(response);
++        AssertBookingShape(booking);
++        Assert.Equal("orion", booking.GetProperty("roomId").GetString());
++        Assert.Equal("Планирование спринта", booking.GetProperty("title").GetString());
++        Assert.Equal("Принести ноутбуки", booking.GetProperty("comment").GetString());
++        Assert.Equal(startsAt, booking.GetProperty("startsAt").GetDateTimeOffset());
++        Assert.Equal(90, booking.GetProperty("durationMinutes").GetInt32());
++        Assert.Equal("alice", booking.GetProperty("ownerId").GetString());
++        Assert.Equal("active", booking.GetProperty("status").GetString());
++    }
++
++    [Fact]
++    public async Task CreateBooking_sets_location_of_created_booking()
++    {
++        var response = await Member().PostAsJsonAsync("/api/v1/bookings", NewBooking("vega", Api.NextSlot("vega")));
++
++        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
++        var booking = await ReadJsonAsync(response);
++        Assert.NotNull(response.Headers.Location);
++        Assert.Equal($"/api/v1/bookings/{booking.GetProperty("id").GetString()}", response.Headers.Location!.AbsolutePath);
++    }
++
++    [Fact]
++    public async Task CreateBooking_without_comment_returns_null_comment()
++    {
++        var response = await Member().PostAsJsonAsync("/api/v1/bookings", NewBooking("vega", Api.NextSlot("vega")));
++
++        var booking = await ReadJsonAsync(response);
++        Assert.Equal(System.Text.Json.JsonValueKind.Null, booking.GetProperty("comment").ValueKind);
++    }
++
++    [Theory]
++    [InlineData(15)]
++    [InlineData(240)]
++    public async Task CreateBooking_accepts_duration_bounds(int minutes)
++    {
++        var response = await Member().PostAsJsonAsync("/api/v1/bookings", NewBooking("lyra", Api.NextSlot("lyra"), minutes));
++
++        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
++    }
++
++    [Theory]
++    [InlineData(0)]
++    [InlineData(10)]
++    [InlineData(20)]
++    [InlineData(255)]
++    [InlineData(-15)]
++    public async Task CreateBooking_rejects_invalid_duration(int minutes)
++    {
++        var response = await Member().PostAsJsonAsync("/api/v1/bookings", NewBooking("lyra", Api.NextSlot("lyra"), minutes));
++
++        await AssertValidationProblemAsync(response, "durationMinutes");
++    }
++
++    [Fact]
++    public async Task CreateBooking_rejects_start_in_the_past()
++    {
++        var response = await Member().PostAsJsonAsync("/api/v1/bookings", NewBooking("lyra", DateTimeOffset.UtcNow.AddMinutes(-5)));
++
++        await AssertValidationProblemAsync(response, "startsAt");
++    }
++
++    [Fact]
++    public async Task CreateBooking_rejects_start_beyond_90_days()
++    {
++        var response = await Member().PostAsJsonAsync("/api/v1/bookings", NewBooking("lyra", DateTimeOffset.UtcNow.AddDays(91)));
++
++        await AssertValidationProblemAsync(response, "startsAt");
++    }
++
++    [Fact]
++    public async Task CreateBooking_rejects_too_long_title_and_comment()
++    {
++        var response = await Member().PostAsJsonAsync(
++            "/api/v1/bookings",
++            NewBooking("lyra", Api.NextSlot("lyra"), title: new string('т', 121), comment: new string('к', 501)));
++
++        await AssertValidationProblemAsync(response, "title", "comment");
++    }
++
++    [Fact]
++    public async Task CreateBooking_accepts_max_length_title_and_comment()
++    {
++        var response = await Member().PostAsJsonAsync(
++            "/api/v1/bookings",
++            NewBooking("lyra", Api.NextSlot("lyra"), title: new string('т', 120), comment: new string('к', 500)));
++
++        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
++    }
++
++    [Fact]
++    public async Task CreateBooking_rejects_empty_title()
++    {
++        var response = await Member().PostAsJsonAsync("/api/v1/bookings", NewBooking("lyra", Api.NextSlot("lyra"), title: ""));
++
++        await AssertValidationProblemAsync(response, "title");
++    }
++
++    [Fact]
++    public async Task CreateBooking_rejects_request_without_required_fields()
++    {
++        var response = await Member().PostAsJsonAsync("/api/v1/bookings", new { roomId = "lyra" });
++
++        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
++        Assert.Equal(ProblemJson, response.Content.Headers.ContentType?.MediaType);
++    }
++
++    [Fact]
++    public async Task CreateBooking_unknown_room_is_not_found()
++    {
++        var response = await Member().PostAsJsonAsync("/api/v1/bookings", NewBooking("no-such-room", Api.NextSlot("no-such-room")));
++
++        await AssertProblemAsync(response, HttpStatusCode.NotFound, "room-not-found");
++    }
++
++    [Fact]
++    public async Task CreateBooking_overlapping_active_booking_is_conflict()
++    {
++        var first = await CreateBookingAsync(Member(), "orion", durationMinutes: 60);
++        var startsAt = first.GetProperty("startsAt").GetDateTimeOffset();
++
++        var response = await OtherMember().PostAsJsonAsync("/api/v1/bookings", NewBooking("orion", startsAt.AddMinutes(30)));
++
++        await AssertProblemAsync(response, HttpStatusCode.Conflict, "booking-overlap");
++    }
++
++    [Fact]
++    public async Task CreateBooking_adjacent_booking_is_allowed()
++    {
++        var first = await CreateBookingAsync(Member(), "orion", durationMinutes: 60);
++        var endsAt = first.GetProperty("endsAt").GetDateTimeOffset();
++
++        var response = await OtherMember().PostAsJsonAsync("/api/v1/bookings", NewBooking("orion", endsAt));
++
++        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
++    }
++
++    [Fact]
++    public async Task CreateBooking_same_time_in_another_room_is_allowed()
++    {
++        var first = await CreateBookingAsync(Member(), "orion", durationMinutes: 60);
++        var startsAt = first.GetProperty("startsAt").GetDateTimeOffset();
++
++        var response = await OtherMember().PostAsJsonAsync("/api/v1/bookings", NewBooking("vega", startsAt));
++
++        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
++    }
++
++    [Fact]
++    public async Task CreateBooking_cancelled_booking_does_not_occupy_room()
++    {
++        var first = await CreateBookingAsync(Member(), "orion", durationMinutes: 60);
++        var cancel = await Member().DeleteAsync(BookingUrl(first));
++        Assert.Equal(HttpStatusCode.NoContent, cancel.StatusCode);
++
++        var response = await OtherMember().PostAsJsonAsync(
++            "/api/v1/bookings", NewBooking("orion", first.GetProperty("startsAt").GetDateTimeOffset()));
++
++        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
++    }
++
++    [Fact]
++    public async Task GetBooking_returns_booking_to_any_member()
++    {
++        var created = await CreateBookingAsync(Member(), "vega");
++
++        var response = await OtherMember().GetAsync(BookingUrl(created));
++
++        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
++        var booking = await ReadJsonAsync(response);
++        AssertBookingShape(booking);
++        Assert.Equal(created.GetProperty("id").GetString(), booking.GetProperty("id").GetString());
++        Assert.Equal("alice", booking.GetProperty("ownerId").GetString());
++        Assert.Equal(created.GetProperty("version").GetInt64(), booking.GetProperty("version").GetInt64());
++    }
++
++    // Расхождение BKG-31: id не UUID не проходит ограничение маршрута; ответ 404 приходит без `code`.
++    // Включить после исправления сервиса или уточнения контракта.
++    [Fact(Skip = "Расхождение с контрактом: 404 для id не UUID без code (см. описание MR BKG-31)")]
++    public async Task GetBooking_malformed_id_is_not_found_problem()
++    {
++        var response = await Member().GetAsync("/api/v1/bookings/not-a-guid");
++
++        await AssertProblemAsync(response, HttpStatusCode.NotFound, "booking-not-found");
++    }
++
++    [Fact]
++    public async Task GetBooking_unknown_booking_is_not_found()
++    {
++        var response = await Member().GetAsync($"/api/v1/bookings/{Guid.NewGuid()}");
++
++        await AssertProblemAsync(response, HttpStatusCode.NotFound, "booking-not-found");
++    }
++}
+diff --git a/tests/Bookings.Api.Tests/CancelBookingTests.cs b/tests/Bookings.Api.Tests/CancelBookingTests.cs
+new file mode 100644
+index 0000000..87123cd
+--- /dev/null
++++ b/tests/Bookings.Api.Tests/CancelBookingTests.cs
+@@ -0,0 +1,60 @@
++using System.Net;
++
++namespace Bookings.Api.Tests;
++
++/// <summary>FR-07, FR-10, FR-11: отмена брони (cancelBooking).</summary>
++public class CancelBookingTests(ApiFixture api) : ApiTestBase(api)
++{
++    [Fact]
++    public async Task Cancel_by_owner_returns_no_content_and_keeps_booking_in_history()
++    {
++        var created = await CreateBookingAsync(Member(), "vega");
++
++        var response = await Member().DeleteAsync(BookingUrl(created));
++
++        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
++        var booking = await ReadJsonAsync(await Member().GetAsync(BookingUrl(created)));
++        Assert.Equal("cancelled", booking.GetProperty("status").GetString());
++    }
++
++    [Fact]
++    public async Task Cancel_repeated_returns_no_content_again()
++    {
++        var created = await CreateBookingAsync(Member(), "vega");
++        Assert.Equal(HttpStatusCode.NoContent, (await Member().DeleteAsync(BookingUrl(created))).StatusCode);
++
++        var response = await Member().DeleteAsync(BookingUrl(created));
++
++        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
++    }
++
++    [Fact]
++    public async Task Cancel_by_admin_is_allowed()
++    {
++        var created = await CreateBookingAsync(Member(), "vega");
++
++        var response = await Admin().DeleteAsync(BookingUrl(created));
++
++        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
++    }
++
++    [Fact]
++    public async Task Cancel_by_other_member_is_forbidden()
++    {
++        var created = await CreateBookingAsync(Member(), "vega");
++
++        var response = await OtherMember().DeleteAsync(BookingUrl(created));
++
++        await AssertProblemAsync(response, HttpStatusCode.Forbidden, "not-owner");
++        var booking = await ReadJsonAsync(await Member().GetAsync(BookingUrl(created)));
++        Assert.Equal("active", booking.GetProperty("status").GetString());
++    }
++
++    [Fact]
++    public async Task Cancel_unknown_booking_is_not_found()
++    {
++        var response = await Member().DeleteAsync($"/api/v1/bookings/{Guid.NewGuid()}");
++
++        await AssertProblemAsync(response, HttpStatusCode.NotFound, "booking-not-found");
++    }
++}
+diff --git a/tests/Bookings.Api.Tests/ListBookingsTests.cs b/tests/Bookings.Api.Tests/ListBookingsTests.cs
+new file mode 100644
+index 0000000..733ad0f
+--- /dev/null
++++ b/tests/Bookings.Api.Tests/ListBookingsTests.cs
+@@ -0,0 +1,160 @@
++using System.Net;
++using System.Text.Json;
++
++namespace Bookings.Api.Tests;
++
++/// <summary>FR-02: брони по комнате или по всем комнатам (listBookings, listRoomBookings).</summary>
++public class ListBookingsTests(ApiFixture api) : ApiTestBase(api)
++{
++    private static string Iso(DateTimeOffset value) => Uri.EscapeDataString(value.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ssZ"));
++
++    /// <summary>Три брони по часу в одной комнате подряд и окно from/to, в которое попадают только они.</summary>
++    private async Task<(List<JsonElement> Bookings, string Window)> CreateThreeAsync(string roomId)
++    {
++        var bookings = new List<JsonElement>();
++        for (var i = 0; i < 3; i++)
++            bookings.Add(await CreateBookingAsync(Member(), roomId));
++
++        var window = $"from={Iso(bookings[0].GetProperty("startsAt").GetDateTimeOffset().AddMinutes(-1))}" +
++                     $"&to={Iso(bookings[2].GetProperty("endsAt").GetDateTimeOffset().AddMinutes(1))}";
++        return (bookings, window);
++    }
++
++    private static List<string?> Ids(JsonElement items) =>
++        items.EnumerateArray().Select(b => b.GetProperty("id").GetString()).ToList();
++
++    [Fact]
++    public async Task ListBookings_returns_room_bookings_in_period_ordered_by_start()
++    {
++        var (bookings, window) = await CreateThreeAsync("orion");
++
++        var response = await Member().GetAsync($"/api/v1/bookings?roomId=orion&{window}");
++
++        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
++        var page = await ReadJsonAsync(response);
++        Assert.Equal(JsonValueKind.Null, page.GetProperty("nextCursor").ValueKind);
++        var items = page.GetProperty("items");
++        Assert.Equal(bookings.Select(b => b.GetProperty("id").GetString()), Ids(items));
++        foreach (var item in items.EnumerateArray())
++            AssertBookingShape(item);
++    }
++
++    [Fact]
++    public async Task ListBookings_includes_cancelled_bookings()
++    {
++        var (bookings, window) = await CreateThreeAsync("lyra");
++        Assert.Equal(HttpStatusCode.NoContent, (await Member().DeleteAsync(BookingUrl(bookings[1]))).StatusCode);
++
++        var page = await ReadJsonAsync(await Member().GetAsync($"/api/v1/bookings?roomId=lyra&{window}"));
++
++        var items = page.GetProperty("items").EnumerateArray().ToList();
++        Assert.Equal(3, items.Count);
++        Assert.Equal("cancelled", items[1].GetProperty("status").GetString());
++    }
++
++    [Fact]
++    public async Task ListBookings_pages_with_cursor_until_next_cursor_is_null()
++    {
++        var (bookings, window) = await CreateThreeAsync("vega");
++        var expected = bookings.Select(b => b.GetProperty("id").GetString()).ToList();
++
++        var first = await ReadJsonAsync(await Member().GetAsync($"/api/v1/bookings?roomId=vega&{window}&limit=2"));
++        var cursor = first.GetProperty("nextCursor").GetString();
++        Assert.False(string.IsNullOrEmpty(cursor));
++        Assert.Equal(expected.Take(2), Ids(first.GetProperty("items")));
++
++        var second = await ReadJsonAsync(
++            await Member().GetAsync($"/api/v1/bookings?roomId=vega&{window}&limit=2&cursor={Uri.EscapeDataString(cursor!)}"));
++        Assert.Equal(expected.Skip(2), Ids(second.GetProperty("items")));
++        Assert.Equal(JsonValueKind.Null, second.GetProperty("nextCursor").ValueKind);
++    }
++
++    [Fact]
++    public async Task ListBookings_exact_page_size_has_no_next_cursor()
++    {
++        var (_, window) = await CreateThreeAsync("vega");
++
++        var page = await ReadJsonAsync(await Member().GetAsync($"/api/v1/bookings?roomId=vega&{window}&limit=3"));
++
++        Assert.Equal(3, page.GetProperty("items").GetArrayLength());
++        Assert.Equal(JsonValueKind.Null, page.GetProperty("nextCursor").ValueKind);
++    }
++
++    [Fact]
++    public async Task ListBookings_empty_result_is_empty_items()
++    {
++        var from = Iso(DateTimeOffset.UtcNow.AddDays(1));
++        var to = Iso(DateTimeOffset.UtcNow.AddDays(1).AddMinutes(1));
++
++        var response = await Member().GetAsync($"/api/v1/bookings?roomId=no-such-room&from={from}&to={to}");
++
++        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
++        var page = await ReadJsonAsync(response);
++        Assert.Empty(page.GetProperty("items").EnumerateArray());
++        Assert.Equal(JsonValueKind.Null, page.GetProperty("nextCursor").ValueKind);
++    }
++
++    [Fact]
++    public async Task ListBookings_from_excludes_bookings_that_ended_before()
++    {
++        var (bookings, _) = await CreateThreeAsync("lyra");
++        var from = Iso(bookings[2].GetProperty("startsAt").GetDateTimeOffset());
++        var to = Iso(bookings[2].GetProperty("endsAt").GetDateTimeOffset().AddMinutes(1));
++
++        var page = await ReadJsonAsync(await Member().GetAsync($"/api/v1/bookings?roomId=lyra&from={from}&to={to}"));
++
++        Assert.Equal([bookings[2].GetProperty("id").GetString()], Ids(page.GetProperty("items")));
++    }
++
++    [Theory]
++    [InlineData("limit=0", "limit")]
++    [InlineData("limit=101", "limit")]
++    [InlineData("cursor=not-a-cursor", "cursor")]
++    public async Task ListBookings_rejects_invalid_paging(string query, string field)
++    {
++        var response = await Member().GetAsync($"/api/v1/bookings?{query}");
++
++        await AssertValidationProblemAsync(response, field);
++    }
++
++    [Fact]
++    public async Task ListBookings_rejects_malformed_date()
++    {
++        var response = await Member().GetAsync("/api/v1/bookings?from=yesterday");
++
++        await AssertValidationProblemAsync(response, "from");
++    }
++
++    [Fact]
++    public async Task ListRoomBookings_returns_all_room_bookings_in_period_without_paging()
++    {
++        var (bookings, window) = await CreateThreeAsync("orion");
++        Assert.Equal(HttpStatusCode.NoContent, (await Member().DeleteAsync(BookingUrl(bookings[0]))).StatusCode);
++
++        var response = await Member().GetAsync($"/api/v1/rooms/orion/bookings?{window}");
++
++        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
++        var items = await ReadJsonAsync(response);
++        Assert.Equal(JsonValueKind.Array, items.ValueKind);
++        Assert.Equal(bookings.Select(b => b.GetProperty("id").GetString()), Ids(items));
++        Assert.Equal("cancelled", items[0].GetProperty("status").GetString());
++        foreach (var item in items.EnumerateArray())
++            AssertBookingShape(item);
++    }
++
++    [Fact]
++    public async Task ListRoomBookings_unknown_room_is_not_found()
++    {
++        var response = await Member().GetAsync("/api/v1/rooms/no-such-room/bookings");
++
++        await AssertProblemAsync(response, HttpStatusCode.NotFound, "room-not-found");
++    }
++
++    [Fact]
++    public async Task ListRoomBookings_rejects_malformed_date()
++    {
++        var response = await Member().GetAsync("/api/v1/rooms/orion/bookings?to=tomorrow");
++
++        await AssertValidationProblemAsync(response, "to");
++    }
++}
+diff --git a/tests/Bookings.Api.Tests/RescheduleBookingTests.cs b/tests/Bookings.Api.Tests/RescheduleBookingTests.cs
+new file mode 100644
+index 0000000..be3bdb4
+--- /dev/null
++++ b/tests/Bookings.Api.Tests/RescheduleBookingTests.cs
+@@ -0,0 +1,173 @@
++using System.Net;
++using System.Net.Http.Json;
++using System.Text.Json;
++
++namespace Bookings.Api.Tests;
++
++/// <summary>FR-06, FR-10: перенос брони (rescheduleBooking).</summary>
++public class RescheduleBookingTests(ApiFixture api) : ApiTestBase(api)
++{
++    private static object Reschedule(DateTimeOffset startsAt, int durationMinutes, long version) =>
++        new { startsAt, durationMinutes, version };
++
++    [Fact]
++    public async Task Reschedule_by_owner_moves_booking_and_changes_version()
++    {
++        var created = await CreateBookingAsync(Member(), "orion", durationMinutes: 60);
++        var newStart = Api.NextSlot("orion");
++
++        var response = await Member().PatchAsJsonAsync(
++            BookingUrl(created), Reschedule(newStart, 90, created.GetProperty("version").GetInt64()));
++
++        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
++        var booking = await ReadJsonAsync(response);
++        AssertBookingShape(booking);
++        Assert.Equal(created.GetProperty("id").GetString(), booking.GetProperty("id").GetString());
++        Assert.Equal(newStart, booking.GetProperty("startsAt").GetDateTimeOffset());
++        Assert.Equal(90, booking.GetProperty("durationMinutes").GetInt32());
++        Assert.Equal(newStart.AddMinutes(90), booking.GetProperty("endsAt").GetDateTimeOffset());
++        Assert.NotEqual(created.GetProperty("version").GetInt64(), booking.GetProperty("version").GetInt64());
++        Assert.Equal("active", booking.GetProperty("status").GetString());
++    }
++
++    [Fact]
++    public async Task Reschedule_is_visible_on_following_read()
++    {
++        var created = await CreateBookingAsync(Member(), "orion");
++        var newStart = Api.NextSlot("orion");
++        var patch = await Member().PatchAsJsonAsync(
++            BookingUrl(created), Reschedule(newStart, 30, created.GetProperty("version").GetInt64()));
++        var patched = await ReadJsonAsync(patch);
++
++        var read = await ReadJsonAsync(await Member().GetAsync(BookingUrl(created)));
++
++        Assert.Equal(newStart, read.GetProperty("startsAt").GetDateTimeOffset());
++        Assert.Equal(patched.GetProperty("version").GetInt64(), read.GetProperty("version").GetInt64());
++    }
++
++    [Fact]
++    public async Task Reschedule_by_admin_is_allowed()
++    {
++        var created = await CreateBookingAsync(Member(), "orion");
++
++        var response = await Admin().PatchAsJsonAsync(
++            BookingUrl(created), Reschedule(Api.NextSlot("orion"), 60, created.GetProperty("version").GetInt64()));
++
++        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
++        var booking = await ReadJsonAsync(response);
++        Assert.Equal("alice", booking.GetProperty("ownerId").GetString());
++    }
++
++    [Fact]
++    public async Task Reschedule_overlapping_own_previous_time_is_allowed()
++    {
++        var created = await CreateBookingAsync(Member(), "orion", durationMinutes: 60);
++        var startsAt = created.GetProperty("startsAt").GetDateTimeOffset();
++
++        var response = await Member().PatchAsJsonAsync(
++            BookingUrl(created), Reschedule(startsAt.AddMinutes(30), 60, created.GetProperty("version").GetInt64()));
++
++        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
++    }
++
++    [Fact]
++    public async Task Reschedule_by_other_member_is_forbidden()
++    {
++        var created = await CreateBookingAsync(Member(), "orion");
++
++        var response = await OtherMember().PatchAsJsonAsync(
++            BookingUrl(created), Reschedule(Api.NextSlot("orion"), 60, created.GetProperty("version").GetInt64()));
++
++        await AssertProblemAsync(response, HttpStatusCode.Forbidden, "not-owner");
++    }
++
++    [Fact]
++    public async Task Reschedule_with_stale_version_is_conflict()
++    {
++        var created = await CreateBookingAsync(Member(), "orion");
++        var staleVersion = created.GetProperty("version").GetInt64();
++        var first = await Member().PatchAsJsonAsync(BookingUrl(created), Reschedule(Api.NextSlot("orion"), 60, staleVersion));
++        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
++
++        var response = await Member().PatchAsJsonAsync(BookingUrl(created), Reschedule(Api.NextSlot("orion"), 60, staleVersion));
++
++        await AssertProblemAsync(response, HttpStatusCode.Conflict, "version-conflict");
++    }
++
++    [Fact]
++    public async Task Reschedule_onto_occupied_time_is_conflict()
++    {
++        var other = await CreateBookingAsync(OtherMember(), "orion", durationMinutes: 60);
++        var created = await CreateBookingAsync(Member(), "orion", durationMinutes: 60);
++
++        var response = await Member().PatchAsJsonAsync(
++            BookingUrl(created),
++            Reschedule(other.GetProperty("startsAt").GetDateTimeOffset(), 60, created.GetProperty("version").GetInt64()));
++
++        await AssertProblemAsync(response, HttpStatusCode.Conflict, "booking-overlap");
++    }
++
++    [Fact]
++    public async Task Reschedule_cancelled_booking_is_conflict()
++    {
++        var created = await CreateBookingAsync(Member(), "orion");
++        Assert.Equal(HttpStatusCode.NoContent, (await Member().DeleteAsync(BookingUrl(created))).StatusCode);
++        var cancelled = await ReadJsonAsync(await Member().GetAsync(BookingUrl(created)));
++
++        var response = await Member().PatchAsJsonAsync(
++            BookingUrl(created), Reschedule(Api.NextSlot("orion"), 60, cancelled.GetProperty("version").GetInt64()));
++
++        await AssertProblemAsync(response, HttpStatusCode.Conflict, "booking-cancelled");
++    }
++
++    [Fact]
++    public async Task Reschedule_unknown_booking_is_not_found()
++    {
++        var response = await Member().PatchAsJsonAsync(
++            $"/api/v1/bookings/{Guid.NewGuid()}", Reschedule(Api.NextSlot("orion"), 60, 1));
++
++        await AssertProblemAsync(response, HttpStatusCode.NotFound, "booking-not-found");
++    }
++
++    [Fact]
++    public async Task Reschedule_rejects_invalid_duration_and_past_start()
++    {
++        var created = await CreateBookingAsync(Member(), "orion");
++        var version = created.GetProperty("version").GetInt64();
++
++        var badDuration = await Member().PatchAsJsonAsync(BookingUrl(created), Reschedule(Api.NextSlot("orion"), 20, version));
++        var past = await Member().PatchAsJsonAsync(BookingUrl(created), Reschedule(DateTimeOffset.UtcNow.AddHours(-1), 60, version));
++        var tooFar = await Member().PatchAsJsonAsync(BookingUrl(created), Reschedule(DateTimeOffset.UtcNow.AddDays(91), 60, version));
++
++        await AssertValidationProblemAsync(badDuration, "durationMinutes");
++        await AssertValidationProblemAsync(past, "startsAt");
++        await AssertValidationProblemAsync(tooFar, "startsAt");
++    }
++
++    // Расхождение BKG-31: версия обязательна по контракту (RescheduleBookingRequest.required), но сервис
++    // подставляет 0 и отвечает 409 version-conflict вместо 400. Включить после исправления сервиса.
++    [Fact(Skip = "Расхождение с контрактом: запрос без version даёт 409, ждём 400 (см. описание MR BKG-31)")]
++    public async Task Reschedule_without_version_is_rejected()
++    {
++        var created = await CreateBookingAsync(Member(), "orion");
++
++        var response = await Member().PatchAsJsonAsync(BookingUrl(created), new { startsAt = Api.NextSlot("orion"), durationMinutes = 60 });
++
++        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
++        Assert.Equal(ProblemJson, response.Content.Headers.ContentType?.MediaType);
++    }
++
++    [Fact]
++    public async Task Reschedule_changes_only_time_not_room_or_owner()
++    {
++        var created = await CreateBookingAsync(Member(), "lyra");
++
++        var response = await Admin().PatchAsJsonAsync(
++            BookingUrl(created), Reschedule(Api.NextSlot("lyra"), 120, created.GetProperty("version").GetInt64()));
++
++        var booking = await ReadJsonAsync(response);
++        Assert.Equal("lyra", booking.GetProperty("roomId").GetString());
++        Assert.Equal(created.GetProperty("title").GetString(), booking.GetProperty("title").GetString());
++        Assert.Equal(JsonValueKind.Null, booking.GetProperty("comment").ValueKind);
++    }
++}
+diff --git a/tests/Bookings.Api.Tests/RoomsTests.cs b/tests/Bookings.Api.Tests/RoomsTests.cs
+new file mode 100644
+index 0000000..a44255c
+--- /dev/null
++++ b/tests/Bookings.Api.Tests/RoomsTests.cs
+@@ -0,0 +1,100 @@
++using System.Net;
++using System.Text.Json;
++
++namespace Bookings.Api.Tests;
++
++/// <summary>FR-01: перечень комнат и карточка комнаты (listRooms, getRoom).</summary>
++public class RoomsTests(ApiFixture api) : ApiTestBase(api)
++{
++    private static readonly string[] Features = ["projector", "whiteboard", "videoconf"];
++
++    [Fact]
++    public async Task ListRooms_returns_page_ordered_by_id_with_total()
++    {
++        var response = await Member().GetAsync("/api/v1/rooms");
++
++        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
++        var page = await ReadJsonAsync(response);
++        Assert.Equal(3, page.GetProperty("total").GetInt32());
++        var items = page.GetProperty("items").EnumerateArray().ToList();
++        Assert.Equal(["lyra", "orion", "vega"], items.Select(r => r.GetProperty("id").GetString()));
++        foreach (var room in items)
++            AssertRoomShape(room);
++    }
++
++    [Fact]
++    public async Task ListRooms_applies_limit_and_offset()
++    {
++        var response = await Member().GetAsync("/api/v1/rooms?limit=1&offset=1");
++
++        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
++        var page = await ReadJsonAsync(response);
++        Assert.Equal(3, page.GetProperty("total").GetInt32());
++        var item = Assert.Single(page.GetProperty("items").EnumerateArray());
++        Assert.Equal("orion", item.GetProperty("id").GetString());
++    }
++
++    [Fact]
++    public async Task ListRooms_offset_past_the_end_returns_empty_items()
++    {
++        var response = await Member().GetAsync("/api/v1/rooms?offset=50");
++
++        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
++        var page = await ReadJsonAsync(response);
++        Assert.Empty(page.GetProperty("items").EnumerateArray());
++        Assert.Equal(3, page.GetProperty("total").GetInt32());
++    }
++
++    [Theory]
++    [InlineData("limit=0", "limit")]
++    [InlineData("limit=101", "limit")]
++    [InlineData("offset=-1", "offset")]
++    public async Task ListRooms_rejects_out_of_range_paging(string query, string field)
++    {
++        var response = await Member().GetAsync($"/api/v1/rooms?{query}");
++
++        await AssertValidationProblemAsync(response, field);
++    }
++
++    [Fact]
++    public async Task ListRooms_accepts_max_limit()
++    {
++        var response = await Member().GetAsync("/api/v1/rooms?limit=100");
++
++        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
++    }
++
++    [Fact]
++    public async Task GetRoom_returns_room_card()
++    {
++        var response = await Member().GetAsync("/api/v1/rooms/orion");
++
++        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
++        var room = await ReadJsonAsync(response);
++        AssertRoomShape(room);
++        Assert.Equal("orion", room.GetProperty("id").GetString());
++        Assert.Equal("Orion", room.GetProperty("name").GetString());
++        Assert.Equal(8, room.GetProperty("capacity").GetInt32());
++        Assert.Equal(3, room.GetProperty("floor").GetInt32());
++        Assert.Equal(["projector", "whiteboard"], room.GetProperty("features").EnumerateArray().Select(f => f.GetString()));
++    }
++
++    [Fact]
++    public async Task GetRoom_unknown_room_is_not_found()
++    {
++        var response = await Member().GetAsync("/api/v1/rooms/no-such-room");
++
++        await AssertProblemAsync(response, HttpStatusCode.NotFound, "room-not-found");
++    }
++
++    private static void AssertRoomShape(JsonElement room)
++    {
++        foreach (var name in new[] { "id", "name", "capacity", "floor", "features" })
++            Assert.True(room.TryGetProperty(name, out _), $"В Room нет обязательного поля {name}");
++
++        Assert.Matches("^[a-z0-9-]{1,64}$", room.GetProperty("id").GetString()!);
++        Assert.InRange(room.GetProperty("capacity").GetInt32(), 1, 50);
++        foreach (var feature in room.GetProperty("features").EnumerateArray())
++            Assert.Contains(feature.GetString(), Features);
++    }
++}

@@ -1,0 +1,43 @@
+diff --git a/.dockerignore b/.dockerignore
+new file mode 100644
+index 0000000..c993776
+--- /dev/null
++++ b/.dockerignore
+@@ -0,0 +1,11 @@
++**/bin/
++**/obj/
++.nuget/
++TestResults/
++.git/
++.gitignore
++.dockerignore
++Dockerfile
++tests/
++docs/
++*.md
+diff --git a/Dockerfile b/Dockerfile
+new file mode 100644
+index 0000000..f1c1e7d
+--- /dev/null
++++ b/Dockerfile
+@@ -0,0 +1,20 @@
++FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
++WORKDIR /src
++
++# Сначала только файлы, влияющие на restore: слой с пакетами кэшируется, пока они не менялись.
++COPY global.json Directory.Build.props Directory.Packages.props ./
++COPY src/Depot.Api/Depot.Api.csproj src/Depot.Api/
++COPY src/Depot.Contracts/Depot.Contracts.csproj src/Depot.Contracts/
++RUN dotnet restore src/Depot.Api/Depot.Api.csproj
++
++COPY src/ src/
++RUN dotnet publish src/Depot.Api/Depot.Api.csproj \
++    -c Release --no-restore -o /app --property:UseAppHost=false
++
++# Chiseled: без shell, пакетного менеджера и root; пользователь app (UID 1654), порт 8080 по умолчанию.
++FROM mcr.microsoft.com/dotnet/aspnet:8.0-jammy-chiseled AS final
++WORKDIR /app
++COPY --from=build /app .
++USER $APP_UID
++EXPOSE 8080
++ENTRYPOINT ["dotnet", "Depot.Api.dll"]

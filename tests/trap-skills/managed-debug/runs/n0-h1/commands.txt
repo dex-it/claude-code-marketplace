@@ -1,0 +1,9 @@
+[Read] <run>/discipline/SKILL-binary-inspection-1.1.1.md
+[Read] <run>/discipline/SKILL-core-dumps-1.1.1.md
+[Read] <run>/discipline/SKILL-managed-debug-1.2.1.md
+[Read] <run>/discipline/SKILL-native-debug-1.1.1.md
+[Read] <run>/discipline/SKILL-perf-profiling-1.1.1.md
+[Read] <run>/discipline/SKILL-syscall-tracing-1.1.0.md
+docker exec <ctr> sh -c 'cd /work/notifier; ls -la . logs; echo ---; cat -n notifier.sh; echo ---; cat -n notifier.env; echo ---; tail -n 40 logs/notifier.log'
+docker exec <ctr> sh -c 'grep -rn SMTP /work 2>/dev/null; echo ---; env | grep -c SMTP'
+[Write] <lab>/REPORT.md

@@ -1,0 +1,129 @@
+diff --git a/.gitlab-ci.yml b/.gitlab-ci.yml
+new file mode 100644
+index 0000000..6206789
+--- /dev/null
++++ b/.gitlab-ci.yml
+@@ -0,0 +1,123 @@
++stages:
++  - build
++  - test
++  - image
++  - deploy
++
++# Пайплайн MR и пайплайны веток main/develop; дублей (ветка + MR) нет.
++workflow:
++  rules:
++    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
++    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "develop"
++
++variables:
++  DOTNET_IMAGE: mcr.microsoft.com/dotnet/sdk:8.0.404 # как в Dockerfile
++  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
++  DOTNET_NOLOGO: "1"
++  NUGET_PACKAGES: $CI_PROJECT_DIR/.nuget
++  REPORTGENERATOR_VERSION: "5.3.11"
++  IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
++
++default:
++  cache:
++    key:
++      files:
++        - Directory.Packages.props
++    paths:
++      - .nuget/
++
++build:
++  stage: build
++  image: $DOTNET_IMAGE
++  script:
++    - dotnet restore Depot.sln
++    - dotnet build Depot.sln -c Release --no-restore
++  artifacts:
++    expire_in: 1 day
++    paths:
++      - src/*/bin/
++      - src/*/obj/
++      - tests/*/bin/
++      - tests/*/obj/
++
++test:
++  stage: test
++  image: $DOTNET_IMAGE
++  needs: [build]
++  services:
++    - name: postgres:16
++      alias: postgres
++  variables:
++    POSTGRES_DB: depot
++    POSTGRES_USER: depot
++    POSTGRES_PASSWORD: depot-ci-only # одноразовая БД service-контейнера
++    ConnectionStrings__Default: Host=postgres;Database=depot;Username=depot;Password=depot-ci-only
++  script:
++    - dotnet test Depot.sln -c Release --no-build --collect:"XPlat Code Coverage" --results-directory TestResults
++    - dotnet tool install --tool-path /tmp/tools dotnet-reportgenerator-globaltool --version "$REPORTGENERATOR_VERSION"
++    - /tmp/tools/reportgenerator "-reports:TestResults/**/coverage.cobertura.xml" "-targetdir:coverage" "-reporttypes:TextSummary;Cobertura"
++    - cat coverage/Summary.txt # строка "Line coverage: NN.N%"
++  coverage: '/Line coverage: (\d+(?:\.\d+)?)%/'
++  artifacts:
++    when: always
++    expire_in: 1 week
++    paths:
++      - coverage/
++    reports:
++      coverage_report:
++        coverage_format: cobertura
++        path: coverage/Cobertura.xml
++
++# Образ: только main (в MR из форков секреты и push в реестр не нужны).
++image:
++  stage: image
++  image: docker:27
++  services:
++    - name: docker:27-dind
++      alias: docker
++  variables:
++    DOCKER_HOST: tcp://docker:2376
++    DOCKER_TLS_CERTDIR: /certs
++    DOCKER_TLS_VERIFY: "1"
++    DOCKER_CERT_PATH: /certs/client
++  rules:
++    - if: $CI_COMMIT_BRANCH == "main"
++  script:
++    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
++    - docker build -t "$IMAGE_TAG" .
++    - docker push "$IMAGE_TAG"
++
++.deploy:
++  image:
++    name: bitnami/kubectl:1.30
++    entrypoint: [""]
++  tags: [depot-deploy]
++  rules:
++    - if: $CI_COMMIT_BRANCH == "main"
++  script:
++    # Параметры деплоя - в лог; секреты (KUBECONFIG_B64, DB_MIGRATION_PASSWORD) не печатаем, set -x не включаем.
++    - echo "Деплой образа $IMAGE_TAG в namespace $NAMESPACE (deployment/depot-api, commit $CI_COMMIT_SHORT_SHA)"
++    - export KUBECONFIG="$(mktemp)"
++    - echo "$KUBECONFIG_B64" | base64 -d > "$KUBECONFIG"
++    - kubectl set image deployment/depot-api api="$IMAGE_TAG" -n "$NAMESPACE"
++    - kubectl rollout status deployment/depot-api -n "$NAMESPACE" --timeout=180s
++
++deploy-stage:
++  extends: .deploy
++  stage: deploy
++  variables:
++    NAMESPACE: depot-stage
++  environment:
++    name: stage
++
++deploy-prod:
++  extends: .deploy
++  stage: deploy
++  needs: [deploy-stage]
++  variables:
++    NAMESPACE: depot
++  environment:
++    name: production
++  rules:
++    - if: $CI_COMMIT_BRANCH == "main"
++      when: manual

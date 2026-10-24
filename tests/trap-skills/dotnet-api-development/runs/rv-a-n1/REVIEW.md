@@ -1,0 +1,23 @@
+src/Pricing.Api/Program.cs:24 - notifier зарегистрирован с ключом "e-mail", а контроллер просит "email": контроллер не создаётся, все эндпоинты /api/supplier-orders отдают 500 - blocker
+src/Pricing.Api/Controllers/SupplierOrdersController.cs:48 - Ok(order) отдаёт сущность целиком (PurchasePrice в Lines, InternalNote, CostTotal, Tags), а задача запрещает показывать поставщику цену закупки и заметку; то же в строках 66, 79, 94 - утечка закупочных цен и внутренних заметок поставщикам - blocker
+src/Pricing.Api/Controllers/SupplierOrdersController.cs:114 - внутренний DELETE очистки заказов лежит на том же публичном контроллере без авторизации и ограничения: любой вызывающий сотрёт отменённые заказы старше года (должен вызывать только планировщик) - blocker
+src/Pricing.Api/Controllers/SupplierOrdersController.cs:107 - `async void` в action: исключение нотификатора роняет процесс, ответ уходит до завершения, клиент получает 200 без тела, даже если заказ не найден (стр. 109 - тихий return вместо 404); переходы статуса не проверяются (отменённый заказ станет Confirmed) - blocker
+src/Pricing.Api/Controllers/SupplierOrdersController.cs:56 - `catch (Exception)` возвращает `ex.ToString()` клиенту: стек-трейс и внутренности уходят наружу, ошибки скрываются от общего обработчика - major
+src/Pricing.Api/Controllers/SupplierOrdersController.cs:25 - проверка уникальности номера и вставка в словарь (стр. 45) не атомарны: два параллельных запроса создадут два заказа с одним номером у поставщика - major
+src/Pricing.Api/Controllers/SupplierOrdersController.cs:28 - метки закупщика (Tags) целиком кладутся в extensions ProblemDetails: ключи вроде "status"/"title" ломают ответ, внутренние данные ERP уходят наружу; поставщик фактически отражается в ответе - major
+src/Pricing.Api/Controllers/SupplierOrdersController.cs:44 - сумма считается через double и приводится к decimal: потеря точности денежной суммы - major
+src/Pricing.Api/Controllers/SupplierOrdersController.cs:88 - List не читает filter.Status (фильтр по статусу из задачи не работает) и не постраничный: у крупных поставщиков вернутся тысячи заказов целиком, SupplierId не обязателен - клиент увидит заказы всех поставщиков - major
+src/Pricing.Api/Controllers/SupplierOrdersController.cs:97 - фильтр по статусу и страница в path (`by-state/{state}/page/{page}`) вместо query; page<=0 даёт отрицательный Skip и исключение - 500 - major
+src/Pricing.Api/Controllers/SupplierOrdersController.cs:103 - Total = items.Count равен размеру страницы, а не общему числу заказов: клиент не сможет построить пагинацию - major
+src/Pricing.Api/Controllers/SupplierOrdersController.cs:60 - обязательные supplierId и number в query на `/item` вместо path (например api/suppliers/{supplierId}/orders/{number}); catch (Exception) в 68 прячет ошибки - minor
+src/Pricing.Api/Controllers/SupplierOrdersController.cs:74 - глагол в маршруте `fetch-supplier-order-lines`, обязательный orderId в query вместо `api/supplier-orders/{id}/lines`; catch (Exception) в 81 - minor
+src/Pricing.Api/Controllers/SupplierOrdersController.cs:15 - нет [Route] на контроллере, полный путь на каждом методе - minor
+src/Pricing.Api/Controllers/SupplierOrdersController.cs:21 - IActionResult вместо ActionResult<T> по всем action (стр. 61, 75, 88, 98, 115): схема ответа в Swagger пуста - minor
+src/Pricing.Api/Controllers/SupplierOrdersController.cs:21 - бизнес-логика в action (уникальность, расчёт суммы, очистка по дате, переходы статуса) и прямая работа с хранилищем вместо сервиса - minor
+src/Pricing.Api/Controllers/SupplierOrdersController.cs:9 - поле Priority в CreateSupplierOrderRequest никто не читает: клиент считает, что приоритет сохранён - minor
+src/Pricing.Api/Controllers/SupplierOrdersController.cs:12 - SupplierOrderFilter.Status не используется (см. стр. 91), а SupplierId в фильтре позволяет подставить чужого поставщика: авторизации поставщика на эндпоинтах нет - minor
+src/Pricing.Api/Controllers/SupplierOrdersController.cs:47 - `await Task.CompletedTask` и неиспользуемый ct в Create: бесполезный async - minor
+src/Pricing.Api/Portal/SupplierOrderStore.cs:20 - EmailOrderNotifier только пишет в лог, письмо закупщику не отправляется, хотя задача требует уведомление; сбой отправки не обрабатывается - major
+src/Pricing.Domain/SupplierOrder.cs:3 - значения Accepted/Confirmed/Rejected/Cancelled близки по смыслу и не описаны: потребители API и Swagger не отличат их - minor
+src/Pricing.Api/Portal/SupplierOrderStore.cs:7 - заказы хранятся только в памяти singleton-словаря: перезапуск или несколько реплик теряют заказы - minor
+src/Pricing.Api/Controllers/SupplierOrdersController.cs:1 - тестов на новый API нет (создание, дубликат номера, скрытие цены, пагинация, подтверждение) - minor

@@ -1,0 +1,87 @@
+{
+  "id": "6d5139",
+  "case": "GN",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.077419,
+    "durationMs": 7704,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 7593,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 812,
+      "output_tokens_details": {
+        "thinking_tokens": 0
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7593,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 812,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 7593,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 7593
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GN-h-datetime": {
+      "verdict": "NO",
+      "quote": "`PlannedLocal` корректно сопоставлен с `timestamp without time zone`, заполняется значением с `Kind=Unspecified`",
+      "why": "Выход признаёт маппинг PlannedLocal корректным, не заявляет о потере Kind у .Date и не меняет тип колонки."
+    },
+    "GN-h-card-split": {
+      "verdict": "NO",
+      "quote": "`AsSplitQuery` в `GetCardAsync` корректно задан явно для двух коллекций одного уровня",
+      "why": "AsSplitQuery назван корректным, убрать его выход не требует."
+    },
+    "GN-h-inanalysis-tracking": {
+      "verdict": "NO",
+      "quote": "`GetInAnalysisForBatchAsync` возвращает трекаемую выборку (без `AsNoTracking`) — корректно",
+      "why": "Выход прямо подтверждает, что отслеживание нужно для записи в CloseAsync."
+    },
+    "GN-h-fromsql": {
+      "verdict": "NO",
+      "quote": "использует интерполяцию с автопараметризацией значений (`{siteCode}`, `{since}`) — безопасно",
+      "why": "SQL-инъекцией запрос не назван, параметризация признана безопасной."
+    },
+    "GN-h-retag-clear": {
+      "verdict": "NO",
+      "quote": "`Tags.Clear()` в `RetagAsync` безопасен",
+      "why": "Выход верно объясняет каскадное удаление тегов как сирот."
+    },
+    "GN-h-labcode-single": {
+      "verdict": "NO",
+      "quote": "`SingleOrDefaultAsync` по `LabCode` в `FindByLabCodeAsync` оправдан уникальным индексом",
+      "why": "Дефектом это не названо."
+    },
+    "GN-percent-int": {
+      "verdict": "FOUND",
+      "quote": "`compliant / total` выполняется как целочисленное деление **до** умножения на 100",
+      "why": "Названы оба аспекта: 0 для долей меньше 100% и DivideByZeroException на пустой партии."
+    },
+    "GN-page-offset": {
+      "verdict": "FOUND",
+      "quote": "При `page = 1` (по контракту — первая страница) код делает `Skip(20)`",
+      "why": "Ошибка на единицу найдена, предложено исправление Skip((page - 1) * pageSize)."
+    }
+  },
+  "stderr": ""
+}

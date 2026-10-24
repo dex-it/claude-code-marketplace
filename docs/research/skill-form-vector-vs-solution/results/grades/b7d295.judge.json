@@ -1,0 +1,92 @@
+{
+  "id": "b7d295",
+  "case": "GR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.119039,
+    "durationMs": 18659,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 9763,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 2025,
+      "output_tokens_details": {
+        "thinking_tokens": 910
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9763,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2025,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 9763,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 9763
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GR-offday-rows": {
+      "verdict": "DISPUTED",
+      "quote": "клиентское вычисление до материализации невозможно — EF бросит `InvalidOperationException` (\"could not be translated\") при любом вызове",
+      "why": "Исполнитель видит нетранслируемость OffDay и падение отчёта FLEET-109, но причиной считает саму проекцию, а не Where по OffDay после ToRows(). Отсюда ложный вывод о поломке GetVehicleTripsAsync: клиентская оценка в финальной проекции допустима. Фильтрацию после материализации или в SQL исполнитель не предлагает."
+    },
+    "GR-open-semicolon": {
+      "verdict": "PASS",
+      "quote": "`;` внутри такой обёртки даёт синтаксическую ошибку PostgreSQL в runtime. Путь без фильтра (протестированный в MR...) отработает",
+      "why": "Названы оборачивание в подзапрос при фильтре по vehicleId, синтаксическая ошибка, причина успешной локальной проверки и исправление: убрать ';'."
+    },
+    "GR-equipment-clear": {
+      "verdict": "PASS",
+      "quote": "`vehicle.Equipment.Clear()` работает по пустой коллекции (no-op)... либо `SaveChangesAsync` падает с нарушением уникального индекса `(vehicle_id, code)`",
+      "why": "Названы отсутствие Include, Clear без эффекта, оба исхода (накопление старых позиций и падение на индексе) и исправление: загрузить оснащение."
+    },
+    "GR-model-length": {
+      "verdict": "PASS",
+      "quote": "`ALTER COLUMN ... TYPE varchar(40)` в PostgreSQL ревалидирует данные и бросит `value too long`",
+      "why": "Отмечено падение миграции на prod из-за длинных значений и предложено укоротить данные в миграции до смены типа."
+    },
+    "GR-last-inspection": {
+      "verdict": "PASS",
+      "quote": "все осмотры батча получают одинаковый `created_at`. При равенстве сортировки нет tie-break",
+      "why": "Указаны неуникальный порядок из-за now() в одной транзакции и риск пропустить блокирующее замечание, предложен tie-break по Id. SplitQuery не упомянут, но дефект по существу тот же."
+    },
+    "GR-permit-lastday": {
+      "verdict": "FOUND",
+      "quote": "проверка допуска строгим `>` вместо `>=`",
+      "why": "Дефект с последним днём допуска назван прямо."
+    },
+    "GR-equipment-auth": {
+      "verdict": "FOUND",
+      "quote": "`PUT /api/vehicles/{id}/equipment` без ограничения по роли",
+      "why": "Отмечено отсутствие политики: комплектацию может менять любая аутентифицированная роль."
+    },
+    "GR-h-permits-clear": {
+      "verdict": "NO",
+      "quote": "`DriverService.ReplacePermitsAsync` делает это правильно",
+      "why": "ReplacePermitsAsync исполнитель признаёт корректным и приводит как образец."
+    },
+    "GR-h-plate-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByPlateAsync в выходе не упоминается."
+    }
+  },
+  "stderr": ""
+}

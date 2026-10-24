@@ -1,0 +1,67 @@
+{
+  "id": "c04e4b",
+  "case": "G4",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.075879,
+    "durationMs": 5036,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 8363,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 427,
+      "output_tokens_details": {
+        "thinking_tokens": 0
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8363,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 427,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 8363,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 8363
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G4-year-closed": {
+      "verdict": "FAIL",
+      "quote": ".Where(p => p.Month.Year == year)",
+      "why": "Внутри IQueryable ClosedPeriods идёт обращение к члену Year сконвертированного через HasConversion YearMonth; EF это не транслирует, и запрос упадёт с InvalidOperationException."
+    },
+    "G4-client-projects": {
+      "verdict": "FAIL",
+      "quote": ".Where(p => p.ClientId == clientId)\n            .ExecuteDeleteAsync();",
+      "why": "ExecuteDeleteAsync обходит мягкое удаление: проекты стираются физически, а каскад уносит их записи времени."
+    },
+    "G4-code-index": {
+      "verdict": "PASS",
+      "quote": ".HasFilter(\"\\\"IsDeleted\\\" = false\");",
+      "why": "Уникальный индекс частичный и покрывает только неудалённые строки, поэтому пары «удалённый + заведённый заново» на prod не мешают его созданию."
+    },
+    "G4-h-month-equality": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Сравнение p.Month == month в EnsureOpenAsync не тронуто и дефектом не названо."
+    }
+  },
+  "stderr": ""
+}

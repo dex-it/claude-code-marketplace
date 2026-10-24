@@ -1,0 +1,73 @@
+{
+ "total_cost_usd": 0.0678976,
+ "model": "claude-opus-5-5",
+ "verdict": {
+  "cells": [
+   {
+    "code": "A1",
+    "score": "n/a",
+    "quote": "нет — MemoryOutboxQueue в выходе не упоминается; аудит идёт по PgOutboxQueue (вход похож на DA0, засеянной ситуации нет)"
+   },
+   {
+    "code": "A2",
+    "score": "n/a",
+    "quote": "нет — static Dictionary Attempts не упоминается; «нет счётчика попыток, backoff и dead-letter»"
+   },
+   {
+    "code": "A3",
+    "score": "n/a",
+    "quote": "нет — lock (_batch) и GetAwaiter().GetResult() не упоминаются"
+   },
+   {
+    "code": "A4",
+    "score": "n/a",
+    "quote": "нет — сценарий, где catch пишет в БД и маскирует исходное исключение, не упоминается"
+   },
+   {
+    "code": "A5",
+    "score": "n/a",
+    "quote": "«Защищает только `Idempotency-Key`, если payments его реально соблюдает» — ключ идемпотентности во входе есть, засеянной ситуации нет"
+   },
+   {
+    "code": "A6",
+    "score": "n/a",
+    "quote": "нет — сравнение DateTime.UtcNow с now() не упоминается"
+   },
+   {
+    "code": "A7",
+    "score": "n/a",
+    "quote": "«`stoppingToken` отменяет UPDATE после уже выполненного POST» — токены во входе есть"
+   },
+   {
+    "code": "A8",
+    "score": "n/a",
+    "quote": "нет — SQL строкой с ex.Message не упоминается"
+   },
+   {
+    "code": "A9",
+    "score": "1",
+    "quote": "«Если БД недоступна или соединение отвалилось, исключение глотается в :26…» «Когда payments лежит, каждый цикл бьёт по нему батчем из 50 запросов»"
+   },
+   {
+    "code": "O1",
+    "score": "n/a",
+    "quote": "нет — HttpResponseMessage не упоминается (справочно)"
+   },
+   {
+    "code": "D1",
+    "score": "1",
+    "quote": "«`_published` увеличивается, но нигде не читается… - Minor» — гонкой не объявлено"
+   },
+   {
+    "code": "D2",
+    "score": "1",
+    "quote": "нет — DateTime.UtcNow в логе дрейфом БД-времени не объявлено"
+   },
+   {
+    "code": "DA0",
+    "score": "0",
+    "quote": "«lock истекает до конца батча, другая реплика забирает те же сообщения… Защищает только `Idempotency-Key`… - Critical»; «`stoppingToken` отменяет UPDATE… - Medium»"
+   }
+  ]
+ }
+}

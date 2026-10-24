@@ -1,0 +1,67 @@
+{
+  "id": "eeca13",
+  "case": "G2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.088511,
+    "durationMs": 8487,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 9062,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 779,
+      "output_tokens_details": {
+        "thinking_tokens": 302
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9062,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 779,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 9062,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 9062
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G2-freeze-fresh": {
+      "verdict": "PASS",
+      "quote": "var member = await db.Members.AsNoTracking()\n                .FirstOrDefaultAsync(m => m.CardNumber == pass.CardNumber, ct);",
+      "why": "Клиент читается неотслеживаемым запросом, поэтому FreezeUntil на каждом проходе берётся из БД, а заморозка и её снятие действуют без перезапуска."
+    },
+    "G2-random-session": {
+      "verdict": "PASS",
+      "quote": ".OrderBy(s => s.Id)\n            .Skip(skip)",
+      "why": "Индекс выбирается в памяти один раз, Skip идёт по уникальному порядку Id, поэтому split-запрос коллекции записавшихся детерминированно попадает на то же занятие."
+    },
+    "G2-h-course-split": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "GetCourseAsync не изменён и дефектом не назван."
+    },
+    "G2-m-passes-notracking": {
+      "verdict": "NO",
+      "quote": "запрос `Member` переведён на `AsNoTracking`, т.к. сущность не меняется",
+      "why": "AsNoTracking стоит только на запросе Members; запросы TurnstilePasses и Enrollment остаются отслеживаемыми, поэтому ProcessedAt, Note и Attended сохраняются."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,67 @@
+{
+  "id": "19f94e",
+  "case": "G1",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.082819,
+    "durationMs": 7831,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 8593,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 682,
+      "output_tokens_details": {
+        "thinking_tokens": 223
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8593,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 682,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 8593,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 8593
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G1-debtors-fine": {
+      "verdict": "PASS",
+      "quote": "var sorted = debtors.OrderByDescending(d => d.Fine).ToList();\n        var totalFines = sorted.Sum(d => d.Fine);",
+      "why": "В запросе отбор идёт только по маппленным колонкам (ReturnedAt == null, DueDate < today), Fines.* вызываются в конечной проекции, а сортировка и сумма считаются в памяти после ToListAsync."
+    },
+    "G1-period-offset": {
+      "verdict": "FAIL",
+      "quote": ".Where(l => l.IssuedAt >= from && l.IssuedAt < to)",
+      "why": "DateTimeOffset из тела запроса со смещением +05:00 сравнивается с IssuedAt как есть, без ToUniversalTime/ToOffset(TimeSpan.Zero), поэтому Npgsql отклонит параметр и отчёт упадёт."
+    },
+    "G1-h-loanrows": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "ToLoanRows и GetActiveLoansAsync не названы дефектом и не изменены."
+    },
+    "G1-h-today-utc": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "CountIssuedTodayAsync не затронут и не объявлен ошибочным."
+    }
+  },
+  "stderr": ""
+}

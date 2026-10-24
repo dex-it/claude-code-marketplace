@@ -1,0 +1,113 @@
+diff --git a/deploy/k8s/deployment.yaml b/deploy/k8s/deployment.yaml
+index 6250202..5263d26 100644
+--- a/deploy/k8s/deployment.yaml
++++ b/deploy/k8s/deployment.yaml
+@@ -5,6 +5,11 @@ metadata:
+   namespace: depot
+ spec:
+   replicas: 3
++  strategy:
++    type: RollingUpdate
++    rollingUpdate:
++      maxUnavailable: 0
++      maxSurge: 1
+   selector:
+     matchLabels:
+       app.kubernetes.io/name: depot-api
+@@ -15,20 +20,59 @@ spec:
+     spec:
+       imagePullSecrets:
+         - name: regcred
++      terminationGracePeriodSeconds: 30
++      securityContext:
++        runAsNonRoot: true
++        runAsUser: 1654
++        seccompProfile:
++          type: RuntimeDefault
++      topologySpreadConstraints:
++        - maxSkew: 1
++          topologyKey: kubernetes.io/hostname
++          whenUnsatisfiable: ScheduleAnyway
++          labelSelector:
++            matchLabels:
++              app.kubernetes.io/name: depot-api
+       containers:
+         - name: api
+           image: registry.example.com/depot/api:1.4.0
+           ports:
+-            - containerPort: 8080
++            - name: http
++              containerPort: 8080
+           envFrom:
+             - secretRef:
+                 name: depot-secrets
+-          securityContext: {}
++          resources:
++            requests: { cpu: 100m, memory: 384Mi }
++            limits: { cpu: 500m, memory: 512Mi }
++          securityContext:
++            allowPrivilegeEscalation: false
++            readOnlyRootFilesystem: true
++            capabilities: { drop: ["ALL"] }
++          volumeMounts:
++            - name: tmp
++              mountPath: /tmp
++          lifecycle:
++            preStop:
++              exec:
++                command: ["sleep", "5"]
++          # Холодный старт до 35 с (p95) с миграциями: даём до 120 с.
++          startupProbe:
++            httpGet: { path: /health, port: http }
++            periodSeconds: 5
++            failureThreshold: 24
++          # /health зависит от БД, поэтому liveness - только проверка порта:
++          # недоступность БД не должна рестартовать все поды разом.
+           livenessProbe:
+-            httpGet: { path: /health, port: 8080 }
+-            initialDelaySeconds: 0
+-            periodSeconds: 1
+-            failureThreshold: 1
++            tcpSocket: { port: http }
++            periodSeconds: 10
++            timeoutSeconds: 2
++            failureThreshold: 3
+           readinessProbe:
+-            httpGet: { path: /health, port: 8080 }
++            httpGet: { path: /health, port: http }
+             periodSeconds: 5
++            timeoutSeconds: 3
++            failureThreshold: 3
++      volumes:
++        - name: tmp
++          emptyDir: {}
+diff --git a/deploy/k8s/pdb.yaml b/deploy/k8s/pdb.yaml
+new file mode 100644
+index 0000000..cf44906
+--- /dev/null
++++ b/deploy/k8s/pdb.yaml
+@@ -0,0 +1,10 @@
++apiVersion: policy/v1
++kind: PodDisruptionBudget
++metadata:
++  name: depot-api
++  namespace: depot
++spec:
++  minAvailable: 2
++  selector:
++    matchLabels:
++      app.kubernetes.io/name: depot-api
+diff --git a/deploy/k8s/service.yaml b/deploy/k8s/service.yaml
+index 35b8637..8728727 100644
+--- a/deploy/k8s/service.yaml
++++ b/deploy/k8s/service.yaml
+@@ -5,7 +5,7 @@ metadata:
+   namespace: depot
+ spec:
+   selector:
+-    app: depot-api
++    app.kubernetes.io/name: depot-api
+   ports:
+     - port: 80
+-      targetPort: 80
++      targetPort: 8080

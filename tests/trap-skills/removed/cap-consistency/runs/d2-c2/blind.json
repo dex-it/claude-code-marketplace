@@ -1,0 +1,68 @@
+{
+ "total_cost_usd": 0.1084388,
+ "model": "claude-opus-5-5",
+ "verdict": {
+  "cells": [
+   {
+    "code": "CC3",
+    "score": "1",
+    "quote": "Проводки ... и баланс (`author_balances`, `CHECK >= 0`) - в PostgreSQL primary. Событие для notifications и analytics пишется в `outbox` ...; публикация в RabbitMQ at-least-once"
+   },
+   {
+    "code": "CC1",
+    "score": "1",
+    "quote": "**Отклонено.** Transactional outbox ... Распределённая транзакция PostgreSQL + RabbitMQ/notifications невозможна без XA, который в стеке не эксплуатируется, и связывает доступность"
+   },
+   {
+    "code": "RA3b",
+    "score": "1",
+    "quote": "Клиент генерирует `Idempotency-Key` ... вызывается PayCore `POST /payments` с `Idempotency-Key = donation_id`"
+   },
+   {
+    "code": "RA3c",
+    "score": "1",
+    "quote": "Событие для notifications и analytics пишется в `outbox` той же транзакцией; публикация в RabbitMQ at-least-once, потребители дедуплицируют по `event_id`."
+   },
+   {
+    "code": "CC8",
+    "score": "1",
+    "quote": "**сначала фиксируем намерение и списываем, потом отправляем** ... `rejected` - проводка `payout_reversal` возвращает сумму на баланс"
+   },
+   {
+    "code": "CC5",
+    "score": "1",
+    "quote": "**Отклонено.** ... при `LOCAL_QUORUM` два ДЦ могут одновременно списать один и тот же остаток."
+   },
+   {
+    "code": "CC7",
+    "score": "1",
+    "quote": "Выплата идёт 20-40 мин, замок живёт 60 с: через минуту его берёт другой под ... Корректность - на уникальном ключе в PostgreSQL"
+   },
+   {
+    "code": "CC2",
+    "score": "1",
+    "quote": "запись идёт на primary, из ДЦ без primary это +11 мс на запись - в бюджет NFR-4 укладывается"
+   },
+   {
+    "code": "DQ6",
+    "score": "1",
+    "quote": "Все записи payments идут на primary; из ДЦ без primary +11 мс на запись."
+   },
+   {
+    "code": "DQ8",
+    "score": "1",
+    "quote": "Ошибки PayCore наружу - `502`/`503` `dependency-unavailable` ... Недоставленный вебхук покрывается сверкой, задержка в этом случае - до ~11 минут."
+   },
+   {
+    "code": "P1",
+    "score": "1",
+    "quote": "Фоновый публикатор outbox шлёт событие в RabbitMQ ... Потребители: **notifications** ... и **analytics**"
+   },
+   {
+    "code": "O1",
+    "score": "1",
+    "quote": "Обработчик вебхука проверяет HMAC по **сырому** телу (константное сравнение) ... Неверная подпись - `401`, тело не обрабатывается."
+   }
+  ]
+ }
+}

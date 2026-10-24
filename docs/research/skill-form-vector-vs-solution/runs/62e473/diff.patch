@@ -1,0 +1,78 @@
+diff --git a/OrderQueries.cs b/OrderQueries.cs
+new file mode 100644
+index 0000000..9096460
+--- /dev/null
++++ b/OrderQueries.cs
+@@ -0,0 +1,60 @@
++namespace Shop.Data;
++
++public class OrderQueries
++{
++    private readonly ShopDbContext _db;
++    public OrderQueries(ShopDbContext db) => _db = db;
++
++    // Карточка заказа: коллекции Items и Payments в одном Include дают cartesian product,
++    // поэтому используем AsSplitQuery, чтобы не перемножать строки.
++    public Task<Order?> GetOrderCardAsync(Guid orderId) =>
++        _db.Orders
++            .AsNoTracking()
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            .AsSplitQuery()
++            .SingleOrDefaultAsync(o => o.Id == orderId);
++
++    // У клиента могут быть тысячи заказов с items/payments - split query обязателен,
++    // иначе один Include с двумя коллекциями даст многократно перемноженный результат.
++    public Task<List<Order>> GetCustomerOrdersAsync(Guid customerId) =>
++        _db.Orders
++            .AsNoTracking()
++            .Where(o => o.CustomerId == customerId)
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            .AsSplitQuery()
++            .ToListAsync();
++
++    // SKU уникален только в паре с warehouse. Если warehouse не передан, а SKU
++    // встречается на нескольких складах - это не ошибка данных, а ожидаемая
++    // неоднозначность запроса, поэтому не используем Single() вслепую.
++    public async Task<Product?> GetProductBySkuAsync(string sku, string? warehouse)
++    {
++        var query = _db.Products.AsNoTracking().Where(p => p.Sku == sku);
++
++        if (warehouse != null)
++            return await query.SingleOrDefaultAsync(p => p.Warehouse == warehouse);
++
++        var matches = await query.Take(2).ToListAsync();
++        if (matches.Count > 1)
++            throw new InvalidOperationException(
++                $"SKU '{sku}' найден на нескольких складах, укажите warehouse.");
++
++        return matches.SingleOrDefault();
++    }
++
++    // Агрегат считается в БД (MAX), без выгрузки всех заказов клиента в память.
++    // Если отгруженных заказов нет, честный non-nullable результат невозможен - кидаем исключение.
++    public async Task<DateTime> GetLastShippedDateAsync(Guid customerId)
++    {
++        var lastShipped = await _db.Orders
++            .Where(o => o.CustomerId == customerId && o.ShippedAt != null)
++            .MaxAsync(o => (DateTime?)o.ShippedAt);
++
++        if (lastShipped is null)
++            throw new InvalidOperationException($"У клиента {customerId} нет отгруженных заказов.");
++
++        return lastShipped.Value;
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..9dce9be
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,6 @@
++Создан файл: OrderQueries.cs (новый сервис `OrderQueries` в namespace `Shop.Data`).
++
++Решения:
++- Карточка заказа и выгрузка заказов клиента используют `AsNoTracking()` (чтение) и `AsSplitQuery()` — две коллекции (Items + Payments) в одном `Include` дают перемножение строк, критично при тысячах заказов клиента.
++- `GetProductBySkuAsync(sku, warehouse)`: SKU уникален только вместе со складом. Если warehouse передан — `SingleOrDefaultAsync` безопасен (уникальная пара). Если warehouse == null — SKU может относиться к нескольким продуктам на разных складах, поэтому вместо слепого `Single()` берём `Take(2)` и явно бросаем исключение с понятным сообщением при неоднозначности вместо падения с generic "Sequence contains more than one element".
++- `GetLastShippedDateAsync`: агрегат `MaxAsync` считается на стороне БД (не в памяти), метод объявлен как non-nullable `DateTime`, поэтому при отсутствии отгруженных заказов у клиента явно бросается исключение, а не `!`-приведение null-значения.

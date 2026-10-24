@@ -1,0 +1,73 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..0e6551c
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,67 @@
++# Ревью MR !87: Партии проб
++
++## Критичные / высокие дефекты
++
++### 1. `BatchService.CompliancePercentAsync` — неверная формула процента
++**Файл/метод:** `BatchService.cs`, `CompliancePercentAsync`
++```csharp
++return compliant / total * 100;
++```
++Из-за порядка операций и целочисленного деления `compliant / total` почти всегда даёт `0` (округление вниз) ещё до умножения на 100 — реальный процент теряется. Пример: 5 из 10 проб в норме → `5/10=0`, `0*100=0` вместо 50. Корректно: `compliant * 100 / total`.
++Это ядро фичи LAB-147 (виджет дашборда), в текущем виде показывает 0% почти всегда — фича фактически не работает.
++**Severity: critical**
++
++### 2. `BatchService.CompliancePercentAsync` — деление на ноль
++**Файл/метод:** `BatchService.cs`, `CompliancePercentAsync`
++`total` может быть 0 (партия без проб или ещё не привязанных проб), тогда `compliant / total * 100` бросает `DivideByZeroException` — запрос к дашборду падает.
++**Severity: high**
++
++### 3. `BatchService.ListAsync` — ошибка пагинации на единицу (off-by-one)
++**Файл/метод:** `BatchService.cs`, `ListAsync`
++```csharp
++/// <param name="page">Номер страницы, начиная с 1.</param>
++...
++.Skip(page * pageSize)
++```
++Если нумерация страниц с 1 (как указано в документации метода), `page=1` даёт `Skip(20)` — пропускает первые 20 записей, то есть первая "страница" по факту возвращает вторую порцию данных, а настоящие первые 20 партий (LAB-141, самые новые) никогда не попадают в выдачу через публичный контракт метода. Нужно `Skip((page - 1) * pageSize)`.
++**Severity: high**
++
++## Средние дефекты
++
++### 4. `BatchService.CompliancePercentAsync` — пробы без результатов считаются «соответствующими»
++**Файл/метод:** `BatchService.cs`, `CompliancePercentAsync`
++```csharp
++s.Results.All(r => r.Value <= r.Limit)
++```
++`Enumerable.All`/транслируемый `All` в SQL для пустой коллекции возвращает `true` (ложно-истинно). Проба без единого результата (ещё не проанализирована, статус не Done) попадёт в `compliant`, завышая процент соответствия партии. Нужно явно исключать пробы без результатов (`s.Results.Any() && s.Results.All(...)`), если по смыслу LAB-147 "показатели в норме" подразумевает наличие хотя бы одного измерения.
++**Severity: medium**
++
++### 5. `BatchService.CloseAsync` — нет контроля параллельного/повторного закрытия
++**Файл/метод:** `BatchService.cs`, `CloseAsync`
++Метод не проверяет, что партия уже закрыта (`batch.ClosedAt != null`), и в модели/конфигурации нет concurrency-токена (`xmin`/`RowVersion`) ни у `Batch`, ни у `Sample`. Два параллельных вызова `CloseAsync` для одной партии (двойной клик, повторный запрос) молча перезапишут `ClosedAt`/`ReportDate` новыми значениями без обнаружения конфликта — ровно тот сценарий, который в чек-листе команды («Параллельная правка одной записи») требует явного обнаружения через concurrency token.
++**Severity: medium**
++
++## Низкие дефекты / замечания
++
++### 6. `BatchService.CloseAsync` — `ReportDate` считается по UTC, а не по локальной дате
++**Файл/метод:** `BatchService.cs`, `CloseAsync`
++```csharp
++batch.ReportDate = DateTime.UtcNow.Date;
++```
++Проект явно учитывает локальное время объектов (`Site.TimeZoneId`, `Sample.PlannedLocal`), но дата отчёта берётся из `UtcNow.Date`. Закрытие партии поздним вечером по местному времени лаборатории может записать "вчерашнюю" или "завтрашнюю" календарную дату относительно фактической даты закрытия. Стоит явно определить, в каком часовом поясе должна фиксироваться `ReportDate`.
++**Severity: low**
++
++### 7. `SampleRepository.GetRecentBySiteAsync` — выборка без `Site`, хотя `Sample.Site` не nullable
++**Файл/метод:** `SampleRepository.cs`, `GetRecentBySiteAsync`
++Запрос через `FromSql` возвращает только колонки `samples`; навигация `Site` не подгружается и не инициализируется (а свойство объявлено как `= null!`, то есть формально ненулевое). Любой код, читающий `sample.Site.*` у результата этого метода, получит `NullReferenceException`. Если вызывающему коду (карточка объекта) не нужен `Site` — это не баг, но стоит либо задокументировать, что `Site` не заполнен, либо спроецировать в DTO без ссылки на `Sample.Site`.
++**Severity: low**
++
++---
++
++## Проверено и не является дефектом (для контекста)
++- `RetagAsync` (`Clear()` + добавление тегов) — связь `SampleTag.SampleId` обязательная (FK non-nullable), поведение по умолчанию `Cascade`: старые теги удаляются, новые вставляются при `SaveChanges`. Соответствует правилу про разрыв required-связи.
++- `FindByLabCodeAsync`/`GetInAnalysisForBatchAsync` — трекинг обоснован (сущности изменяются далее), `SingleOrDefaultAsync` используется на поле с уникальным индексом (`LabCode`).
++- `GetCardAsync` — две коллекции одного уровня (`Instruments`, `Samples→Results`), явно задан `AsSplitQuery()`; `AsNoTracking()` корректен, т.к. используется только на чтение.
++- `GetRecentBySiteAsync` — параметры `siteCode`/`since` уходят через `FromSql`-интерполяцию как `DbParameter`, текст SQL не собирается из пользовательского ввода — SQL-инъекции нет.
++- `PlannedLocal`/`ClosedAt`/`ReportDate` — `Kind` создаваемых `DateTime` (`Unspecified` для `timestamp`-колонки `PlannedLocal`, `Utc` для `timestamptz`-колонок `ClosedAt`/`ReportDate`) соответствует типам колонок, Npgsql не должен бросать при записи.
++- `PlanSampleAsync` — используется синхронный `Add`, не `AddAsync` (PK, вероятно, generated identity/serial, обращение к БД за ключом не требуется).

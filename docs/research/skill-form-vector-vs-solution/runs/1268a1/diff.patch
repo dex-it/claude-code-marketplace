@@ -1,0 +1,104 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..fdf3cdb
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,98 @@
++# Ревью MR !238
++
++## 1. VehicleService.cs — `ReplaceEquipmentAsync` — **critical**
++
++`FindVehicleAsync` (используется здесь) не делает `.Include(v => v.Equipment)`:
++
++```csharp
++public Task<Vehicle?> FindVehicleAsync(int id) =>
++    _db.Vehicles.FirstOrDefaultAsync(v => v.Id == id);
++```
++
++Поэтому в `ReplaceEquipmentAsync` коллекция `vehicle.Equipment` — это не данные из БД, а пустой список из инициализатора свойства (`= new()`). `vehicle.Equipment.Clear()` чистит уже пустую коллекцию (no-op), после чего в неё добавляются новые позиции и зовётся `SaveChangesAsync()`. В результате:
++
++- старые строки `vehicle_equipment` в БД никто не трогает — они остаются;
++- при повторной синхронизации с тем же набором кодов (а коды вроде «аптечка», «огнетушитель» как раз повторяющиеся) вставка новых строк упадёт на уникальном индексе `(vehicle_id, code)`;
++- если коды отличаются — в таблице копится устаревшее оснащение, которого по факту на машине уже нет, т.е. требование FLEET-104 «заменяем на присланную целиком» не выполняется вовсе.
++
++Для сравнения, `DriverService.ReplacePermitsAsync` (контекстный, немодифицированный файл) делает `.Include(d => d.Permits)` перед `Clear()` — корректный паттерн, которому в этом MR не последовали. Нужно грузить `Vehicle` с `.Include(v => v.Equipment)` (или отдельный метод/запрос) перед `Clear()`.
++
++## 2. Migrations/20260924100000_VehicleEquipmentAndModelLength.cs — `Up()` — **critical**
++
++```csharp
++migrationBuilder.AlterColumn<string>(
++    name: "model", table: "vehicles",
++    type: "character varying(40)", maxLength: 40, nullable: false,
++    oldType: "character varying(200)", oldMaxLength: 200);
++```
++
++Сужение `varchar(200)` → `varchar(40)` без переноса/обрезки существующих данных. В описании MR прямо сказано, что длинные названия моделей уже встречаются и ранее обрезались только принтером — то есть в БД почти наверняка есть строки длиннее 40 символов. `ALTER TABLE ... ALTER COLUMN TYPE varchar(40)` в PostgreSQL в этом случае упадёт с `value too long for type character varying(40)`, и миграция на prod (которая по описанию накатывается одним шагом bundle) просто не применится. Нужен явный `Sql`/`UPDATE ... SET model = left(model, 40)` до `AlterColumn`, и/или согласованная политика обрезки. Проверка «на dev-базе» не показательна, если там нет таких длинных значений.
++
++## 3. TripService.cs — `OffDayTripsAsync` / `TripRows.ToRows` — **critical**
++
++```csharp
++OffDay = !WorkCalendar.IsWorkingDay(t.StartedAt),
++```
++```csharp
++return await _db.Trips.AsNoTracking()
++    .Where(...)
++    .ToRows()                 // Select с нетранслируемым WorkCalendar.IsWorkingDay
++    .Where(r => r.OffDay)     // применяется ПОСЛЕ Select
++    .OrderByDescending(r => r.Km)
++    .ToListAsync();
++```
++
++`WorkCalendar.IsWorkingDay` — обычный C#-метод (TimeZoneInfo + HashSet), SQL-перевода не имеет и не зарегистрирован как `HasDbFunction`. EF Core допускает клиентское вычисление только в финальной (самой внешней) проекции запроса. В `GetVehicleTripsAsync` `ToRows()` действительно последний оператор — там это сработает. А в `OffDayTripsAsync` поверх `ToRows()` навешаны `Where` и `OrderByDescending`, то есть Select перестаёт быть терминальным — EF не сможет транслировать `r.OffDay`/`r.Km` и бросит `InvalidOperationException` в рантайме. Эндпоинт отчёта FLEET-109 («поездки в выходные») будет падать при каждом вызове. Нужно либо явно перейти на клиентскую обработку (`AsEnumerable()` на суженной выборке перед Where/OrderBy), либо сделать проверку выходного дня транслируемой (развернуть условие/использовать HasDbFunction).
++
++## 4. TripService.cs — `StartTripAsync` — **high**
++
++```csharp
++if (!driver.Permits.Any(p => p.Class == vehicle.Class && p.ValidUntil > today))
++    throw new TripDeniedException("Нет действующего допуска к классу машины");
++```
++
++По описанию MR «допуск действует по указанную в нём дату **включительно**». Условие `ValidUntil > today` исключает именно последний действующий день: в день истечения допуска водителю откажут в выпуске, хотя по требованию он ещё должен быть допущен. Нужно `ValidUntil >= today`.
++
++## 5. VehicleService.cs — `GetLastInspectionAsync` — **high**
++
++```csharp
++.OrderByDescending(i => i.CreatedAt)
++.FirstOrDefaultAsync();
++```
++
++«Последний» осмотр выбирается по времени приёма сервером (`CreatedAt`), а не по времени самого осмотра (`InspectedAt`). Комментарий к `SyncInspectionsAsync` явно описывает сценарий, где планшет копит осмотры офлайн и шлёт их пачкой с опозданием — то есть более ранний по факту осмотр может синхронизироваться позже и получить более свежий `CreatedAt`, перекрыв собой реально более поздний осмотр. `StartTripAsync` (FLEET-107) после этого проверяет давность (`InspectedAt < now-12h`) и блокирующие замечания именно у выбранной (возможно, не той) записи — можно пропустить машину с просроченным/заблокированным осмотром или наоборот необоснованно отказать. Сортировать нужно по `InspectedAt`.
++
++## 6. Program.cs — `PUT /api/vehicles/{id:int}/equipment` — **high**
++
++```csharp
++api.MapPut("/vehicles/{id:int}/equipment", async (int id, List<EquipmentDto> items, VehicleService s) =>
++{
++    await s.ReplaceEquipmentAsync(id, items);
++    return Results.NoContent();
++});
++```
++
++В отличие от всех остальных мутирующих эндпоинтов (`Hr`, `FleetManager`, `Mechanic`, `Dispatcher`), здесь нет `.RequireAuthorization("...")` с конкретной политикой — действует только общая аутентификация группы `api`. Любой аутентифицированный пользователь (вне зависимости от роли) может перезаписать комплектацию безопасности машины. Похоже на забытую политику (логично — `Mechanic` или `FleetManager`).
++
++## 7. TripService.cs — `GetOpenWaybillsAsync` — **medium**
++
++```csharp
++var query = _db.Trips.FromSqlRaw("""
++    SELECT t.* FROM trips t
++    WHERE t.finished_at IS NULL AND t.started_at < now() - interval '24 hours'
++    ORDER BY t.started_at;
++    """);
++
++if (vehicleId is { } id)
++    query = query.Where(t => t.VehicleId == id);
++```
++
++Когда передан `vehicleId`, поверх `FromSqlRaw` с уже встроенным `ORDER BY` навешивается `.Where(...)` — EF оборачивает сырой SQL в подзапрос и добавляет внешний `WHERE`, при этом никакого `ORDER BY` на внешнем уровне не выставляется. Порядок строк внутри подзапроса без `LIMIT`/внешнего `ORDER BY` не гарантирован стандартом (на Postgres на практике часто «случайно» сохраняется, но полагаться на это нельзя). Список путевых листов по конкретной машине может прийти не отсортированным по `started_at`, хотя без фильтра по машине результат формально отсортирован.
++
++## 8. VehicleService.cs — `ReplaceEquipmentAsync` (`DistinctBy`) — **low**
++
++```csharp
++foreach (var item in items.DistinctBy(i => i.Code))
++```
++
++Если механик по ошибке прислал один код дважды (с разным `Qty`), метод молча оставит первое вхождение и отбросит остальные — без ошибки и какого-либо сигнала о некорректном вводе. Для «целиком заменяемой» комплектации стоит либо явно требовать уникальность кодов на входе (ошибка 400), либо хотя бы предсказуемо выбирать «последнее» значение, а не произвольно «первое из DistinctBy».

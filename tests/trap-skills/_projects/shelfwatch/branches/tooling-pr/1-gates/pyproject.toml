@@ -1,0 +1,61 @@
+[project]
+name = "shelfwatch"
+version = "0.4.0"
+description = "Аналитика полок розничной сети: фото полок, отзывы, отток магазинов"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "numpy==2.5.4",
+    "pandas==3.0.6",
+    "scikit-learn==1.9.1",
+    "imbalanced-learn==0.14.2",
+    "xgboost==3.4.1",
+    "optuna==5.0.0",
+    "torch==2.14.1",
+    "torchvision==0.29.1",
+    "tensorflow==2.21.0",
+    "keras==3.15.1",
+    "albumentations==2.0.8",
+    "opencv-python-headless==5.0.0.93",
+    "transformers==5.20.1",
+    "peft==0.21.2",
+    "bitsandbytes==0.50.2",
+    "accelerate==1.15.0",
+]
+
+[dependency-groups]
+dev = [
+    "ruff==0.17.1",
+    "mypy==2.4.0",
+    "pytest==9.1.1",
+    "pytest-cov==7.1.0",
+    "pip-audit==2.10.1",
+]
+
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "Q", "D"]
+ignore = ["D100", "D104"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "tab"
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src", "tests"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=shelfwatch --cov-report=term-missing"
+markers = ["slow: долгие тесты"]

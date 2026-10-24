@@ -1,0 +1,246 @@
+diff --git a/src/Pricing.Api/Contracts/SupplierPriceContracts.cs b/src/Pricing.Api/Contracts/SupplierPriceContracts.cs
+new file mode 100644
+index 0000000..91c5652
+--- /dev/null
++++ b/src/Pricing.Api/Contracts/SupplierPriceContracts.cs
+@@ -0,0 +1,5 @@
++namespace Pricing.Api.Contracts;
++
++/// <param name="SupplierId">Идентификатор поставщика.</param>
++/// <param name="Skus">Изменённые SKU; null - поставщик перезалил весь прайс.</param>
++public sealed record SupplierPricesChangedRequest(string SupplierId, IReadOnlyList<string>? Skus);
+diff --git a/src/Pricing.Api/Controllers/SupplierPricesController.cs b/src/Pricing.Api/Controllers/SupplierPricesController.cs
+new file mode 100644
+index 0000000..1175a6e
+--- /dev/null
++++ b/src/Pricing.Api/Controllers/SupplierPricesController.cs
+@@ -0,0 +1,28 @@
++using Microsoft.AspNetCore.Mvc;
++using Pricing.Api.Contracts;
++using Pricing.Application.Abstractions;
++
++namespace Pricing.Api.Controllers;
++
++[ApiController]
++[Route("api")]
++public sealed class SupplierPricesController(ISupplierPriceCache cache) : ControllerBase
++{
++    /// <summary>Вебхук поставщика: сбрасывает цены перечисленных SKU; skus = null - весь прайс.</summary>
++    [HttpPost("webhooks/supplier-prices")]
++    [ProducesResponseType(StatusCodes.Status204NoContent)]
++    public NoContentResult SupplierPricesChanged(SupplierPricesChangedRequest request)
++    {
++        cache.Invalidate(request.SupplierId, request.Skus);
++        return NoContent();
++    }
++
++    /// <summary>Служебный сброс кэша цен поставщика (для поддержки).</summary>
++    [HttpDelete("suppliers/{supplierId}/price-cache")]
++    [ProducesResponseType(StatusCodes.Status204NoContent)]
++    public NoContentResult ResetPriceCache(string supplierId)
++    {
++        cache.Invalidate(supplierId, null);
++        return NoContent();
++    }
++}
+diff --git a/src/Pricing.Application/Abstractions/ISupplierPriceCache.cs b/src/Pricing.Application/Abstractions/ISupplierPriceCache.cs
+new file mode 100644
+index 0000000..41fde78
+--- /dev/null
++++ b/src/Pricing.Application/Abstractions/ISupplierPriceCache.cs
+@@ -0,0 +1,7 @@
++namespace Pricing.Application.Abstractions;
++
++public interface ISupplierPriceCache
++{
++    /// <summary>Сбрасывает кэш цен поставщика: перечисленные SKU, а при <paramref name="skus"/> = null - весь прайс.</summary>
++    void Invalidate(string supplierId, IReadOnlyCollection<string>? skus);
++}
+diff --git a/src/Pricing.Infrastructure/InfrastructureModule.cs b/src/Pricing.Infrastructure/InfrastructureModule.cs
+index b906c7f..cccba20 100644
+--- a/src/Pricing.Infrastructure/InfrastructureModule.cs
++++ b/src/Pricing.Infrastructure/InfrastructureModule.cs
+@@ -16,13 +16,17 @@ public static class InfrastructureModule
+         services.AddScoped<IPromotionRepository, InMemoryPromotionRepository>();
+ 
+         services.Configure<SupplierOptions>(config.GetSection(SupplierOptions.Section));
+-        services.AddHttpClient<ISupplierCatalog, SupplierApiClient>((sp, http) =>
++        services.AddHttpClient<SupplierApiClient>((sp, http) =>
+             {
+                 var o = sp.GetRequiredService<IOptions<SupplierOptions>>().Value;
+                 http.BaseAddress = o.BaseUrl;
+                 http.DefaultRequestHeaders.Add("X-Api-Key", o.ApiKey);
+             })
+             .AddStandardResilienceHandler();
++        services.AddMemoryCache();
++        services.AddSingleton<CachedSupplierCatalog>();
++        services.AddSingleton<ISupplierCatalog>(sp => sp.GetRequiredService<CachedSupplierCatalog>());
++        services.AddSingleton<ISupplierPriceCache>(sp => sp.GetRequiredService<CachedSupplierCatalog>());
+         return services;
+     }
+ }
+diff --git a/src/Pricing.Infrastructure/Suppliers/CachedSupplierCatalog.cs b/src/Pricing.Infrastructure/Suppliers/CachedSupplierCatalog.cs
+new file mode 100644
+index 0000000..ea46a3b
+--- /dev/null
++++ b/src/Pricing.Infrastructure/Suppliers/CachedSupplierCatalog.cs
+@@ -0,0 +1,56 @@
++using System.Collections.Concurrent;
++using Microsoft.Extensions.Caching.Memory;
++using Microsoft.Extensions.Options;
++using Microsoft.Extensions.Primitives;
++using Pricing.Application.Abstractions;
++
++namespace Pricing.Infrastructure.Suppliers;
++
++/// <summary>Кэш цен поставщика поверх Supplier API; параллельные промахи одного ключа делят один вызов.</summary>
++public sealed class CachedSupplierCatalog(
++    SupplierApiClient inner, IMemoryCache cache, IOptions<SupplierOptions> options) : ISupplierCatalog, ISupplierPriceCache
++{
++    private readonly ConcurrentDictionary<string, CancellationTokenSource> _supplierResets = new();
++
++    public async Task<SupplierPrice?> GetPriceAsync(string supplierId, string sku, CancellationToken ct)
++    {
++        var key = Key(supplierId, sku);
++        var lazy = cache.GetOrCreate(key, entry =>
++        {
++            entry.AbsoluteExpirationRelativeToNow = options.Value.PriceCacheTtl;
++            entry.ExpirationTokens.Add(new CancellationChangeToken(ResetSource(supplierId).Token));
++            // Вызов делится между ожидающими, поэтому он не привязан к токену первого вызывающего.
++            return new Lazy<Task<SupplierPrice?>>(() => inner.GetPriceAsync(supplierId, sku, CancellationToken.None));
++        })!;
++
++        try
++        {
++            return await lazy.Value.WaitAsync(ct);
++        }
++        catch (Exception) when (lazy.Value.IsFaulted)
++        {
++            // Сбой не кэшируем.
++            cache.Remove(key);
++            throw;
++        }
++    }
++
++    public void Invalidate(string supplierId, IReadOnlyCollection<string>? skus)
++    {
++        if (skus is null)
++        {
++            if (_supplierResets.TryRemove(supplierId, out var cts))
++            {
++                cts.Cancel();
++                cts.Dispose();
++            }
++            return;
++        }
++        foreach (var sku in skus) cache.Remove(Key(supplierId, sku));
++    }
++
++    private CancellationTokenSource ResetSource(string supplierId) =>
++        _supplierResets.GetOrAdd(supplierId, _ => new CancellationTokenSource());
++
++    private static string Key(string supplierId, string sku) => $"supplier-price:{supplierId}:{sku}";
++}
+diff --git a/src/Pricing.Infrastructure/Suppliers/SupplierOptions.cs b/src/Pricing.Infrastructure/Suppliers/SupplierOptions.cs
+index 3620c82..8120526 100644
+--- a/src/Pricing.Infrastructure/Suppliers/SupplierOptions.cs
++++ b/src/Pricing.Infrastructure/Suppliers/SupplierOptions.cs
+@@ -5,4 +5,5 @@ public sealed class SupplierOptions
+     public const string Section = "Suppliers";
+     public Uri BaseUrl { get; set; } = new("http://localhost:5100/");
+     public string ApiKey { get; set; } = "";
++    public TimeSpan PriceCacheTtl { get; set; } = TimeSpan.FromMinutes(10);
+ }
+diff --git a/tests/Pricing.Tests/CachedSupplierCatalogTests.cs b/tests/Pricing.Tests/CachedSupplierCatalogTests.cs
+new file mode 100644
+index 0000000..72ae326
+--- /dev/null
++++ b/tests/Pricing.Tests/CachedSupplierCatalogTests.cs
+@@ -0,0 +1,76 @@
++using System.Net;
++using System.Text;
++using Microsoft.Extensions.Caching.Memory;
++using Microsoft.Extensions.Options;
++using Pricing.Infrastructure.Suppliers;
++
++namespace Pricing.Tests;
++
++public sealed class CachedSupplierCatalogTests
++{
++    private const string PriceJson = "{\"sku\":\"SKU-1\",\"price\":10,\"currency\":\"RUB\"}";
++
++    private sealed class CountingHandler : HttpMessageHandler
++    {
++        public int Calls;
++
++        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
++        {
++            Interlocked.Increment(ref Calls);
++            await Task.Delay(20, CancellationToken.None);
++            return new HttpResponseMessage(HttpStatusCode.OK)
++            {
++                Content = new StringContent(PriceJson, Encoding.UTF8, "application/json")
++            };
++        }
++    }
++
++    private static (CachedSupplierCatalog Catalog, CountingHandler Handler) Create()
++    {
++        var handler = new CountingHandler();
++        var client = new SupplierApiClient(new HttpClient(handler) { BaseAddress = new Uri("http://x/") });
++        var catalog = new CachedSupplierCatalog(client, new MemoryCache(new MemoryCacheOptions()), Options.Create(new SupplierOptions()));
++        return (catalog, handler);
++    }
++
++    [Fact]
++    public async Task Concurrent_misses_make_single_supplier_call()
++    {
++        var (catalog, handler) = Create();
++
++        var prices = await Task.WhenAll(Enumerable.Range(0, 50).Select(_ => catalog.GetPriceAsync("sup-1", "SKU-1", default)));
++
++        Assert.All(prices, p => Assert.Equal(10m, p!.Price));
++        Assert.Equal(1, handler.Calls);
++    }
++
++    [Fact]
++    public async Task Invalidate_sku_forces_reload_of_that_sku_only()
++    {
++        var (catalog, handler) = Create();
++        await catalog.GetPriceAsync("sup-1", "SKU-1", default);
++        await catalog.GetPriceAsync("sup-1", "SKU-2", default);
++
++        catalog.Invalidate("sup-1", ["SKU-1"]);
++        await catalog.GetPriceAsync("sup-1", "SKU-1", default);
++        await catalog.GetPriceAsync("sup-1", "SKU-2", default);
++
++        Assert.Equal(3, handler.Calls);
++    }
++
++    [Fact]
++    public async Task Invalidate_whole_supplier_reloads_all_and_keeps_other_suppliers()
++    {
++        var (catalog, handler) = Create();
++        await catalog.GetPriceAsync("sup-1", "SKU-1", default);
++        await catalog.GetPriceAsync("sup-1", "SKU-2", default);
++        await catalog.GetPriceAsync("sup-2", "SKU-1", default);
++
++        catalog.Invalidate("sup-1", null);
++        await catalog.GetPriceAsync("sup-1", "SKU-1", default);
++        await catalog.GetPriceAsync("sup-1", "SKU-2", default);
++        await catalog.GetPriceAsync("sup-2", "SKU-1", default);
++
++        Assert.Equal(5, handler.Calls);
++    }
++}
+diff --git a/tests/Pricing.Tests/Pricing.Tests.csproj b/tests/Pricing.Tests/Pricing.Tests.csproj
+index 476155a..6d1b917 100644
+--- a/tests/Pricing.Tests/Pricing.Tests.csproj
++++ b/tests/Pricing.Tests/Pricing.Tests.csproj
+@@ -13,5 +13,6 @@
+   </ItemGroup>
+   <ItemGroup>
+     <ProjectReference Include="..\..\src\Pricing.Application\Pricing.Application.csproj" />
++    <ProjectReference Include="..\..\src\Pricing.Infrastructure\Pricing.Infrastructure.csproj" />
+   </ItemGroup>
+ </Project>

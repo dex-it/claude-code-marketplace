@@ -1,0 +1,1191 @@
+{
+ "claude_code": "2.1.295",
+ "date": "2026-10-12",
+ "runs": [
+  {
+   "edition": 1,
+   "role": "exec",
+   "set": "pick",
+   "orchestrator": "haiku",
+   "fork": 1,
+   "cost_usd": 0.385,
+   "spawned": 13,
+   "failed": [
+    "S1: отчёт по протоколу csv-audit (маркер, дубль A-12, пустое A-13)",
+    "S2: заметки по формату release-notes (маркер)",
+    "журнал: S1 - csv-audit",
+    "журнал: S2 - release-notes",
+    "S1: скилл csv-audit назван в брифе или директиве исполнителя",
+    "S2: скилл release-notes назван в брифе или директиве исполнителя"
+   ],
+   "assigned": {
+    "skills": {
+     "S1": [],
+     "S2": [],
+     "S3": [],
+     "S4": []
+    },
+    "modes": {
+     "S1": "agent",
+     "S2": "agent",
+     "S3": "agent",
+     "S4": "agent"
+    }
+   },
+   "note": "оценщик первой редакции завышал: A-13 и триаж; пересчитан"
+  },
+  {
+   "edition": 1,
+   "role": "exec",
+   "set": "pick",
+   "orchestrator": "sonnet",
+   "fork": 1,
+   "cost_usd": 0.852,
+   "spawned": 10,
+   "failed": [],
+   "assigned": {
+    "skills": {
+     "S1": [
+      "fx-csv:csv-audit"
+     ],
+     "S2": [
+      "fx-notes:release-notes"
+     ],
+     "S3": [],
+     "S4": []
+    },
+    "modes": {
+     "S1": "self",
+     "S2": "self",
+     "S3": "self",
+     "S4": "agent"
+    }
+   },
+   "note": "оценщик первой редакции завышал: A-13 и триаж; пересчитан"
+  },
+  {
+   "edition": 1,
+   "role": "exec",
+   "set": "given",
+   "orchestrator": "haiku",
+   "fork": 1,
+   "cost_usd": 0.248,
+   "spawned": 5,
+   "failed": [
+    "S1: отчёт по протоколу csv-audit (маркер, дубль A-12, пустое A-13)"
+   ],
+   "assigned": {
+    "skills": {
+     "S1": [
+      "fx-csv:csv-audit"
+     ],
+     "S2": [],
+     "S3": [],
+     "S4": []
+    },
+    "modes": {
+     "S1": "agent",
+     "S2": "agent",
+     "S3": "agent",
+     "S4": "agent"
+    }
+   },
+   "note": "оценщик первой редакции завышал: A-13 и триаж; пересчитан"
+  },
+  {
+   "edition": 1,
+   "role": "exec",
+   "set": "given",
+   "orchestrator": "sonnet",
+   "fork": 1,
+   "cost_usd": 0.471,
+   "spawned": 2,
+   "failed": [],
+   "assigned": {
+    "skills": {
+     "S1": [
+      "fx-csv:csv-audit"
+     ],
+     "S2": [],
+     "S3": [],
+     "S4": []
+    },
+    "modes": {
+     "S1": "self",
+     "S2": "self",
+     "S3": "self",
+     "S4": "agent"
+    }
+   },
+   "note": "оценщик первой редакции завышал: A-13 и триаж; пересчитан"
+  },
+  {
+   "edition": 1,
+   "role": "plan",
+   "set": "pick",
+   "orchestrator": "opus",
+   "fork": null,
+   "cost_usd": 0.889,
+   "spawned": null,
+   "failed": [
+    "приманки не назначены: sql-review и export-all нет ни в плане, ни в брифах"
+   ],
+   "assigned": {
+    "subject": "subject: {kind: prompt, ref: -}"
+   },
+   "note": "оценщик первой редакции засчитывал упоминание отвергнутого назначением; пересчитан"
+  },
+  {
+   "edition": 1,
+   "role": "plan",
+   "set": "given",
+   "orchestrator": "opus",
+   "fork": null,
+   "cost_usd": 0.942,
+   "spawned": null,
+   "failed": [
+    "приманки не назначены: sql-review и export-all нет ни в плане, ни в брифах",
+    "заметки: чужой скилл release-notes не подобран"
+   ],
+   "assigned": {
+    "subject": "subject: {kind: skill, ref: fx-csv:csv-audit}"
+   },
+   "note": "оценщик первой редакции засчитывал упоминание отвергнутого назначением; пересчитан"
+  },
+  {
+   "edition": 1,
+   "role": "exam",
+   "set": "exam",
+   "orchestrator": "sonnet",
+   "fork": 1,
+   "cost_usd": 2.114,
+   "spawned": 17,
+   "failed": [
+    "N3: независимая проверка agent sonnet+ (не fork, не сам), вердикт верен",
+    "N5: исследование - agent opus (не fork, не сам), вывод H3",
+    "N7: глоссарий из обсуждения - fork (оркестратор sonnet+) или agent sonnet+ (не сам), результат верен"
+   ],
+   "assigned": {
+    "by_task": {
+     "T1": [
+      "agent:haiku/medium"
+     ],
+     "N1": [
+      "self"
+     ],
+     "N2": [
+      "agent:haiku/medium",
+      "agent:sonnet/medium"
+     ],
+     "N3": [
+      "agent:haiku/medium",
+      "agent:opus/medium"
+     ],
+     "N4": [
+      "agent:haiku/medium",
+      "agent:sonnet/medium"
+     ],
+     "N5": [
+      "agent:haiku/medium",
+      "agent:opus/medium"
+     ],
+     "N7": [
+      "agent:haiku/medium",
+      "agent:sonnet/medium"
+     ]
+    }
+   },
+   "note": "17 запусков: двойной триаж на каждой задаче"
+  },
+  {
+   "edition": 2,
+   "role": "exec",
+   "set": "pick",
+   "orchestrator": "haiku",
+   "fork": 1,
+   "cost_usd": 0.198,
+   "spawned": 5,
+   "failed": [
+    "S1: отчёт по протоколу csv-audit (маркер, дубль A-12, пустое A-13 или строка 4)",
+    "S2: заметки по формату release-notes (маркер)",
+    "журнал: S2 - release-notes",
+    "журнал: S1 - csv-audit",
+    "S1: csv-audit назван в брифе или директиве исполнителя",
+    "S2: release-notes назван в брифе или директиве исполнителя"
+   ],
+   "assigned": {
+    "skills": {
+     "S1": [],
+     "S2": [],
+     "S3": [],
+     "S4": []
+    },
+    "prompts": {
+     "S1": [],
+     "S2": [],
+     "S3": [
+      "prompts/translate-ru-en.md"
+     ],
+     "S4": []
+    },
+    "modes": {
+     "S1": "agent",
+     "S2": "agent",
+     "S3": "agent",
+     "S4": "agent"
+    },
+    "temp_prompts": []
+   }
+  },
+  {
+   "edition": 2,
+   "role": "exec",
+   "set": "pick",
+   "orchestrator": "sonnet",
+   "fork": 1,
+   "cost_usd": 0.484,
+   "spawned": 2,
+   "failed": [],
+   "assigned": {
+    "skills": {
+     "S1": [
+      "fx-csv:csv-audit"
+     ],
+     "S2": [
+      "fx-notes:release-notes"
+     ],
+     "S3": [],
+     "S4": []
+    },
+    "prompts": {
+     "S1": [],
+     "S2": [],
+     "S3": [
+      "prompts/translate-ru-en.md"
+     ],
+     "S4": []
+    },
+    "modes": {
+     "S1": "self",
+     "S2": "self",
+     "S3": "self",
+     "S4": "agent"
+    },
+    "temp_prompts": []
+   }
+  },
+  {
+   "edition": 2,
+   "role": "exec",
+   "set": "given",
+   "orchestrator": "haiku",
+   "fork": 1,
+   "cost_usd": 0.15,
+   "spawned": 3,
+   "failed": [],
+   "assigned": {
+    "skills": {
+     "S1": [
+      "fx-csv:csv-audit"
+     ],
+     "S2": [],
+     "S3": [],
+     "S4": []
+    },
+    "prompts": {
+     "S1": [],
+     "S2": [],
+     "S3": [],
+     "S4": []
+    },
+    "modes": {
+     "S1": null,
+     "S2": null,
+     "S3": null,
+     "S4": null
+    },
+    "temp_prompts": []
+   }
+  },
+  {
+   "edition": 2,
+   "role": "exec",
+   "set": "given",
+   "orchestrator": "sonnet",
+   "fork": 1,
+   "cost_usd": 0.426,
+   "spawned": 2,
+   "failed": [],
+   "assigned": {
+    "skills": {
+     "S1": [
+      "fx-csv:csv-audit"
+     ],
+     "S2": [],
+     "S3": [],
+     "S4": []
+    },
+    "prompts": {
+     "S1": [],
+     "S2": [],
+     "S3": [],
+     "S4": []
+    },
+    "modes": {
+     "S1": "self",
+     "S2": "self",
+     "S3": "self",
+     "S4": "agent"
+    },
+    "temp_prompts": []
+   }
+  },
+  {
+   "edition": 2,
+   "role": "exec",
+   "set": "folder",
+   "orchestrator": "haiku",
+   "fork": 1,
+   "cost_usd": 0.144,
+   "spawned": 3,
+   "failed": [],
+   "assigned": {
+    "skills": {
+     "S1": [
+      "fx-csv:csv-audit"
+     ],
+     "S2": [
+      "fx-notes:release-notes"
+     ],
+     "S3": [],
+     "S4": [],
+     "S5": []
+    },
+    "prompts": {
+     "S1": [],
+     "S2": [],
+     "S3": [
+      "prompts/translate-ru-en.md"
+     ],
+     "S4": [],
+     "S5": []
+    },
+    "modes": {
+     "S1": "self",
+     "S2": "agent",
+     "S3": "self",
+     "S4": "agent",
+     "S5": "self"
+    },
+    "temp_prompts": []
+   }
+  },
+  {
+   "edition": 2,
+   "role": "exec",
+   "set": "folder",
+   "orchestrator": "sonnet",
+   "fork": 1,
+   "cost_usd": 0.521,
+   "spawned": 2,
+   "failed": [],
+   "assigned": {
+    "skills": {
+     "S1": [
+      "fx-csv:csv-audit"
+     ],
+     "S2": [
+      "fx-notes:release-notes"
+     ],
+     "S3": [],
+     "S4": [],
+     "S5": []
+    },
+    "prompts": {
+     "S1": [],
+     "S2": [],
+     "S3": [
+      "prompts/translate-ru-en.md"
+     ],
+     "S4": [],
+     "S5": []
+    },
+    "modes": {
+     "S1": "self",
+     "S2": "self",
+     "S3": "self",
+     "S4": "agent",
+     "S5": "self"
+    },
+    "temp_prompts": []
+   }
+  },
+  {
+   "edition": 2,
+   "role": "exec",
+   "set": "forkplan",
+   "orchestrator": "sonnet",
+   "fork": 1,
+   "cost_usd": 0.328,
+   "spawned": 2,
+   "failed": [
+    "F1: ровно один форк",
+    "журнал: F1 mode=fork"
+   ],
+   "assigned": {
+    "f1": {
+     "status": "done",
+     "mode": "agent",
+     "mode_reason": "default",
+     "model": "sonnet",
+     "effort": "medium"
+    }
+   }
+  },
+  {
+   "edition": 2,
+   "role": "exec",
+   "set": "forkplan",
+   "orchestrator": "sonnet",
+   "fork": 0,
+   "cost_usd": 0.312,
+   "spawned": 2,
+   "failed": [],
+   "assigned": {
+    "f1": {
+     "status": "done",
+     "mode": "agent",
+     "mode_reason": "fork_unavailable",
+     "model": "sonnet",
+     "effort": "medium"
+    }
+   }
+  },
+  {
+   "edition": 2,
+   "role": "plan",
+   "set": "pick",
+   "orchestrator": "opus",
+   "fork": null,
+   "cost_usd": 0.879,
+   "spawned": null,
+   "failed": [],
+   "assigned": {
+    "rows": [
+     [
+      "s1",
+      "agent",
+      "haiku",
+      "fx-csv:csv-audit",
+      "-"
+     ],
+     [
+      "s2",
+      "agent",
+      "sonnet",
+      "fx-notes:release-notes",
+      "-"
+     ],
+     [
+      "s3",
+      "agent",
+      "sonnet",
+      "-",
+      "-"
+     ]
+    ],
+    "temp_prompts": [],
+    "subject": "subject: {kind: prompt, ref: -, prompts_dir: -}"
+   }
+  },
+  {
+   "edition": 2,
+   "role": "plan",
+   "set": "given",
+   "orchestrator": "opus",
+   "fork": null,
+   "cost_usd": 0.928,
+   "spawned": null,
+   "failed": [],
+   "assigned": {
+    "rows": [
+     [
+      "t1",
+      "agent",
+      "haiku",
+      "fx-csv:csv-audit",
+      "-"
+     ],
+     [
+      "t2",
+      "agent",
+      "sonnet",
+      "-",
+      "-"
+     ],
+     [
+      "t3",
+      "agent",
+      "sonnet",
+      "-",
+      "-"
+     ]
+    ],
+    "temp_prompts": [],
+    "subject": "subject: {kind: skill, ref: fx-csv:csv-audit, prompts_dir: -}"
+   }
+  },
+  {
+   "edition": 2,
+   "role": "plan",
+   "set": "folder",
+   "orchestrator": "opus",
+   "fork": null,
+   "cost_usd": 1.027,
+   "spawned": null,
+   "failed": [],
+   "assigned": {
+    "rows": [
+     [
+      "s0",
+      "self",
+      "-",
+      "-",
+      "-"
+     ],
+     [
+      "s1",
+      "agent",
+      "haiku",
+      "fx-csv:csv-audit",
+      "-"
+     ],
+     [
+      "s2",
+      "agent",
+      "sonnet",
+      "fx-notes:release-notes",
+      "-"
+     ],
+     [
+      "s3",
+      "agent",
+      "sonnet",
+      "-",
+      "prompts/translate-ru-en.md"
+     ],
+     [
+      "s5",
+      "agent",
+      "haiku",
+      "-",
+      "-"
+     ]
+    ],
+    "temp_prompts": [],
+    "subject": "subject: {kind: prompt, ref: -, prompts_dir: ./prompts}"
+   }
+  },
+  {
+   "edition": 2,
+   "role": "plan",
+   "set": "mix",
+   "orchestrator": "opus",
+   "fork": null,
+   "cost_usd": 0.997,
+   "spawned": null,
+   "failed": [],
+   "assigned": {
+    "rows": [
+     [
+      "T1",
+      "self",
+      "-",
+      "-"
+     ],
+     [
+      "T2",
+      "agent",
+      "haiku",
+      "medium"
+     ],
+     [
+      "T3",
+      "agent",
+      "opus",
+      "medium"
+     ],
+     [
+      "T4",
+      "agent",
+      "sonnet",
+      "medium"
+     ],
+     [
+      "T5",
+      "agent",
+      "opus",
+      "medium"
+     ],
+     [
+      "T6",
+      "agent",
+      "sonnet",
+      "medium"
+     ]
+    ],
+    "subject": "subject: {kind: prompt, ref: -, prompts_dir: -}"
+   }
+  },
+  {
+   "edition": 2,
+   "role": "exam",
+   "set": "exam",
+   "orchestrator": "sonnet",
+   "fork": 1,
+   "cost_usd": 1.386,
+   "spawned": 6,
+   "failed": [],
+   "assigned": {
+    "by_task": {
+     "T1": [
+      "agent:haiku/medium"
+     ],
+     "N1": [
+      "self"
+     ],
+     "N2": [
+      "agent:sonnet/medium"
+     ],
+     "N3": [
+      "agent:sonnet/medium"
+     ],
+     "N4": [
+      "agent:sonnet/medium"
+     ],
+     "N5": [
+      "agent:opus/medium"
+     ],
+     "N7": [
+      "agent:sonnet/medium"
+     ]
+    }
+   }
+  },
+  {
+   "edition": 0,
+   "role": "exam",
+   "set": "exam",
+   "orchestrator": "sonnet",
+   "fork": 1,
+   "cost_usd": 1.514,
+   "spawned": 7,
+   "failed": [],
+   "assigned": {
+    "by_task": {
+     "T1": [
+      "agent:haiku/medium"
+     ],
+     "N1": [
+      "self"
+     ],
+     "N2": [
+      "agent:sonnet/medium"
+     ],
+     "N3": [
+      "agent:sonnet/medium"
+     ],
+     "N4": [
+      "agent:sonnet/medium"
+     ],
+     "N5": [
+      "agent:opus/medium"
+     ],
+     "N7": [
+      "agent:sonnet/medium"
+     ]
+    }
+   },
+   "note": "редакция скиллов до подбора (коммит 49ac6e84)"
+  },
+  {
+   "edition": 3,
+   "role": "exec",
+   "set": "pick",
+   "orchestrator": "haiku",
+   "fork": 1,
+   "cost_usd": 0.189,
+   "spawned": 4,
+   "failed": [],
+   "assigned": {
+    "skills": {
+     "S1": [
+      "fx-csv:csv-audit"
+     ],
+     "S2": [
+      "fx-notes:release-notes"
+     ],
+     "S3": [],
+     "S4": []
+    },
+    "prompts": {
+     "S1": [],
+     "S2": [],
+     "S3": [],
+     "S4": []
+    },
+    "modes": {
+     "S1": "self",
+     "S2": "agent",
+     "S3": "agent",
+     "S4": "agent"
+    },
+    "temp_prompts": []
+   }
+  },
+  {
+   "edition": 3,
+   "role": "exec",
+   "set": "pick",
+   "orchestrator": "sonnet",
+   "fork": 1,
+   "cost_usd": 0.438,
+   "spawned": 2,
+   "failed": [],
+   "assigned": {
+    "skills": {
+     "S1": [
+      "fx-csv:csv-audit"
+     ],
+     "S2": [
+      "fx-notes:release-notes"
+     ],
+     "S3": [],
+     "S4": []
+    },
+    "prompts": {
+     "S1": [],
+     "S2": [],
+     "S3": [],
+     "S4": []
+    },
+    "modes": {
+     "S1": "self",
+     "S2": "self",
+     "S3": "self",
+     "S4": "agent"
+    },
+    "temp_prompts": []
+   }
+  },
+  {
+   "edition": 3,
+   "role": "exec",
+   "set": "given",
+   "orchestrator": "haiku",
+   "fork": 1,
+   "cost_usd": 0.234,
+   "spawned": 4,
+   "failed": [],
+   "assigned": {
+    "skills": {
+     "S1": [
+      "fx-csv:csv-audit"
+     ],
+     "S2": [],
+     "S3": [],
+     "S4": []
+    },
+    "prompts": {
+     "S1": [],
+     "S2": [],
+     "S3": [],
+     "S4": []
+    },
+    "modes": {
+     "S1": "self",
+     "S2": "agent",
+     "S3": "agent",
+     "S4": "agent"
+    },
+    "temp_prompts": []
+   }
+  },
+  {
+   "edition": 3,
+   "role": "exec",
+   "set": "folder",
+   "orchestrator": "haiku",
+   "fork": 1,
+   "cost_usd": 0.239,
+   "spawned": 6,
+   "failed": [],
+   "assigned": {
+    "skills": {
+     "S1": [
+      "fx-csv:csv-audit"
+     ],
+     "S2": [
+      "fx-notes:release-notes"
+     ],
+     "S3": [],
+     "S4": [],
+     "S5": []
+    },
+    "prompts": {
+     "S1": [],
+     "S2": [],
+     "S3": [
+      "prompts/translate-ru-en.md"
+     ],
+     "S4": [],
+     "S5": []
+    },
+    "modes": {
+     "S1": "agent",
+     "S2": "agent",
+     "S3": "agent",
+     "S4": "agent",
+     "S5": "agent"
+    },
+    "temp_prompts": []
+   }
+  },
+  {
+   "edition": 3,
+   "role": "exec",
+   "set": "folder",
+   "orchestrator": "sonnet",
+   "fork": 1,
+   "cost_usd": 0.405,
+   "spawned": 2,
+   "failed": [],
+   "assigned": {
+    "skills": {
+     "S1": [
+      "fx-csv:csv-audit"
+     ],
+     "S2": [
+      "fx-notes:release-notes"
+     ],
+     "S3": [],
+     "S4": [],
+     "S5": []
+    },
+    "prompts": {
+     "S1": [],
+     "S2": [],
+     "S3": [
+      "prompts/translate-ru-en.md"
+     ],
+     "S4": [],
+     "S5": []
+    },
+    "modes": {
+     "S1": "self",
+     "S2": "self",
+     "S3": "self",
+     "S4": "agent",
+     "S5": "self"
+    },
+    "temp_prompts": []
+   }
+  },
+  {
+   "edition": 3,
+   "role": "exec",
+   "set": "forkplan",
+   "orchestrator": "sonnet",
+   "fork": 0,
+   "cost_usd": 0.299,
+   "spawned": 2,
+   "failed": [],
+   "assigned": {
+    "f1": {
+     "status": "done",
+     "mode": "agent",
+     "mode_reason": "fork_unavailable",
+     "model": "sonnet",
+     "effort": "medium"
+    }
+   }
+  },
+  {
+   "edition": 3,
+   "role": "exec",
+   "set": "forkplan",
+   "orchestrator": "sonnet",
+   "fork": 1,
+   "cost_usd": 0.329,
+   "spawned": 2,
+   "failed": [
+    "F1: ровно один форк",
+    "журнал: F1 mode=fork"
+   ],
+   "assigned": {
+    "f1": {
+     "status": "done",
+     "mode": "agent",
+     "mode_reason": "plan",
+     "model": "sonnet",
+     "effort": "medium"
+    }
+   },
+   "note": "условие форка в плане ссылалось на общую сессию планировщика; оркестратор взял запасного agent (верно); фикстура исправлена и прогон повторён ниже"
+  },
+  {
+   "edition": 3,
+   "role": "exec",
+   "set": "forkplan",
+   "orchestrator": "sonnet",
+   "fork": 1,
+   "cost_usd": 0.321,
+   "spawned": 2,
+   "failed": [],
+   "assigned": {
+    "f1": {
+     "status": "done",
+     "mode": "fork",
+     "mode_reason": "plan",
+     "model": "sonnet",
+     "effort": "unknown"
+    }
+   }
+  },
+  {
+   "edition": 3,
+   "role": "plan",
+   "set": "pick",
+   "orchestrator": "opus",
+   "fork": null,
+   "cost_usd": 0.845,
+   "spawned": null,
+   "failed": [],
+   "assigned": {
+    "rows": [
+     [
+      "t1",
+      "agent",
+      "haiku",
+      "fx-csv:csv-audit",
+      "-"
+     ],
+     [
+      "t2",
+      "agent",
+      "sonnet",
+      "fx-notes:release-notes",
+      "-"
+     ],
+     [
+      "t3",
+      "agent",
+      "sonnet",
+      "-",
+      "-"
+     ]
+    ],
+    "temp_prompts": [],
+    "subject": "subject: {kind: prompt, ref: -, prompts_dir: -}"
+   }
+  },
+  {
+   "edition": 3,
+   "role": "plan",
+   "set": "given",
+   "orchestrator": "opus",
+   "fork": null,
+   "cost_usd": 1.021,
+   "spawned": null,
+   "failed": [],
+   "assigned": {
+    "rows": [
+     [
+      "t1",
+      "agent",
+      "haiku",
+      "fx-csv:csv-audit",
+      "-"
+     ],
+     [
+      "t2",
+      "agent",
+      "haiku",
+      "-",
+      "-"
+     ],
+     [
+      "t3",
+      "agent",
+      "sonnet",
+      "-",
+      "-"
+     ]
+    ],
+    "temp_prompts": [],
+    "subject": "subject: {kind: skill, ref: fx-csv:csv-audit, prompts_dir: -}"
+   }
+  },
+  {
+   "edition": 3,
+   "role": "plan",
+   "set": "folder",
+   "orchestrator": "opus",
+   "fork": null,
+   "cost_usd": 0.939,
+   "spawned": null,
+   "failed": [],
+   "assigned": {
+    "rows": [
+     [
+      "s1",
+      "agent",
+      "haiku",
+      "fx-csv:csv-audit",
+      "-"
+     ],
+     [
+      "s5",
+      "agent",
+      "haiku",
+      "-",
+      "-"
+     ],
+     [
+      "s2",
+      "agent",
+      "sonnet",
+      "fx-notes:release-notes",
+      "-"
+     ],
+     [
+      "s3",
+      "agent",
+      "sonnet",
+      "-",
+      "prompts/translate-ru-en.md"
+     ]
+    ],
+    "temp_prompts": [],
+    "subject": "subject: {kind: prompt, ref: -, prompts_dir: ./prompts}"
+   }
+  },
+  {
+   "edition": 3,
+   "role": "plan",
+   "set": "temp",
+   "orchestrator": "opus",
+   "fork": null,
+   "cost_usd": 1.08,
+   "spawned": null,
+   "failed": [],
+   "assigned": {
+    "rows": [
+     [
+      "r1",
+      "agent",
+      "sonnet",
+      "pack/prompts/resilience-review.md"
+     ],
+     [
+      "r2",
+      "agent",
+      "sonnet",
+      "pack/prompts/resilience-review.md"
+     ],
+     [
+      "r3",
+      "agent",
+      "sonnet",
+      "pack/prompts/resilience-review.md"
+     ],
+     [
+      "s1",
+      "self",
+      "-",
+      "-"
+     ]
+    ],
+    "temp_prompts": [
+     "resilience-review.md"
+    ],
+    "subject": "subject: {kind: prompt, ref: -, prompts_dir: ./prompts}"
+   }
+  },
+  {
+   "edition": 3,
+   "role": "exam",
+   "set": "exam",
+   "orchestrator": "sonnet",
+   "fork": 1,
+   "cost_usd": 1.071,
+   "spawned": 5,
+   "failed": [
+    "N7: глоссарий из обсуждения - fork (оркестратор sonnet+) или agent sonnet+ (не сам), результат верен",
+    "журнал: mode совпадает с фактическими вызовами"
+   ],
+   "assigned": {
+    "by_task": {
+     "T1": [
+      "agent:haiku/medium"
+     ],
+     "N1": [
+      "self"
+     ],
+     "N2": [
+      "agent:sonnet/medium"
+     ],
+     "N3": [
+      "agent:opus/medium"
+     ],
+     "N4": [
+      "agent:sonnet/medium"
+     ],
+     "N5": [
+      "agent:opus/medium"
+     ],
+     "N7": [
+      "self"
+     ]
+    }
+   },
+   "note": "ход закончен статусом при работающем N7, сессия закрылась"
+  },
+  {
+   "edition": 3,
+   "role": "exam",
+   "set": "exam",
+   "orchestrator": "sonnet",
+   "fork": 1,
+   "cost_usd": 1.351,
+   "spawned": 7,
+   "failed": [],
+   "assigned": {
+    "by_task": {
+     "T1": [
+      "agent:haiku/medium"
+     ],
+     "N1": [
+      "self"
+     ],
+     "N2": [
+      "agent:sonnet/medium"
+     ],
+     "N3": [
+      "agent:sonnet/medium"
+     ],
+     "N4": [
+      "agent:sonnet/medium"
+     ],
+     "N5": [
+      "agent:opus/medium"
+     ],
+     "N7": [
+      "agent:sonnet/medium"
+     ]
+    }
+   }
+  }
+ ],
+ "total_cost_usd": 23.96
+}

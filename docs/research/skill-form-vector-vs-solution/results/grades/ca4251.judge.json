@@ -1,0 +1,66 @@
+{
+  "id": "ca4251",
+  "case": "E2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0509714,
+    "durationMs": 6795,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 4382,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 774,
+      "output_tokens_details": {
+        "thinking_tokens": 242
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4382,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 774,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 4382,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 4382
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "E2-single": {
+      "verdict": "PASS",
+      "quote": "if (found.Count > 1)\n            throw new InvalidOperationException(\n                $\"SKU '{sku}' есть на нескольких складах",
+      "why": "Без склада код берёт Take(2) и при нескольких кандидатах бросает явное исключение с сообщением о неоднозначности, склад молча не выбирается."
+    },
+    "E2-h-split": {
+      "verdict": "YES",
+      "quote": "// (а) Одна запись: один запрос с JOIN - декартово произведение Items x Payments одного заказа мало,\n    // лишние round-trip'ы split query здесь не нужны.",
+      "why": "Карточка заказа грузит Items и Payments одним JOIN-запросом (AsSingleQuery), и это обосновано тем, что для одной сущности split не нужен."
+    },
+    "E2-m-cart": {
+      "verdict": "NO",
+      "quote": ".Select(ToDto)\n            .AsSplitQuery()",
+      "why": "Выгрузка заказов клиента идёт через проекцию с AsSplitQuery, поэтому одного запроса с двумя коллекциями нет."
+    },
+    "E2-m-nullagg": {
+      "verdict": "NO",
+      "quote": ".Where(o => o.CustomerId == customerId && o.ShippedAt != null)\n            .MaxAsync(o => o.ShippedAt, ct);",
+      "why": "Фильтр ShippedAt != null стоит до агрегата, а null обрабатывается через ?? с исключением, без ! и без .Value."
+    }
+  },
+  "stderr": ""
+}

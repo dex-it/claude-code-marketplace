@@ -1,0 +1,41 @@
+{
+  "id": "k3-fb",
+  "case": "K3",
+  "edition": "final",
+  "skills": [
+    "ts-vitest-jest"
+  ],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 9,
+  "cost": 0.0987262,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 2,
+    "Bash": 5,
+    "Write": 1
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "cd <run>/api; cat src/services/reservation.ts; ls src/services src/clients 2>/dev/null; find . -name \"*.test.ts\" -not -path \"*/node_modu",
+    "cd <run>/api; cat src/clients/inventory.ts; head -30 test/orders.test.ts; cat package.json; ls; cat vitest.config.* ../vitest.config.* 2",
+    "cd <run>/api; cat vitest.config.ts",
+    "cd <run>/api; npm run typecheck 2>&1 | tail -15; npm test 2>&1 | tail -20",
+    "cd <run>/api; python3 - <<'E'\np='test/reservation.test.ts'\ns=open(p).read()\ns=s.replace(\"let reserve: ReturnType<typeof vi.spyOn<typeof "
+  ]
+}

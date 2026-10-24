@@ -1,0 +1,250 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..b303089
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,14 @@
++## Созданные и изменённые файлы
++
++- `src/VetClinic.Records/Domain.cs` — изменён: `Visit.Notes` → `Visit.Anamnesis`.
++- `src/VetClinic.Records/ClinicCardService.cs` — изменён: `DeleteOwnerAsync`, `ReplaceAllergiesAsync`, `UpdateVisitAnamnesisAsync`; поле `VisitDto.Anamnesis`.
++- `src/VetClinic.Records/Program.cs` — изменён: `DELETE /owners/{id}`, `PUT /pets/{id}/allergies`, `PUT /visits/{id}/anamnesis` (вместо `/notes`).
++- `src/VetClinic.Records/Migrations/20261002120000_RenameVisitNotesToAnamnesis.cs` — создан, миграция написана вручную.
++
++## Решения
++
++- **Удаление клиента** только мягкое, как требует README: физически ничего не удаляется. Клиент, его питомцы, их аллергии и визиты получают `IsDeleted` и один общий `DeletedAt`. Поэтому глобальные фильтры скрывают их везде, в том числе в расписании врачей, а поддержка может по этой метке восстановить ровно то, что удалила эта операция.
++- **Замена аллергий** сделана через сравнение старого и нового списка, а не через `Clear()` + `Add`. `Clear()` для обязательной связи физически удалил бы строки (DeleteOrphans), а это нарушает требование хранить историю 5 лет. Аллергии, которых нет в новом списке, помечаются удалёнными. Если у аллергии изменилась реакция или тяжесть, старая запись помечается удалённой и создаётся новая. Пустые аллергены, аллергены длиннее 200 символов и дубли во входном списке отклоняются с ответом 400.
++- **Переименование** сделано через `RenameColumn` (`ALTER TABLE "Visits" RENAME COLUMN`), а не через drop + add, поэтому данные сохраняются. Старая версия приложения с новой схемой работать не будет, поэтому выкладывать только по обычной схеме: окно обслуживания → `db-migrate` → `deploy`. Также меняется API: поле в JSON теперь `anamnesis`, эндпоинт — `/visits/{id}/anamnesis`. Фронтенд нужно выкатить одновременно.
++
++**Важно:** в репозитории нет папки `Migrations`, снапшота модели (`ClinicDbContextModelSnapshot.cs`) и csproj, хотя README на них ссылается. Миграция находится по атрибутам `[DbContext]` и `[Migration]`. Но в существующем снапшоте нужно вручную заменить `Notes` на `Anamnesis` у `Visit`, иначе следующая `dotnet ef migrations add` снова сгенерирует переименование. Сборку и тесты я не запускал.
+diff --git a/src/VetClinic.Records/ClinicCardService.cs b/src/VetClinic.Records/ClinicCardService.cs
+index 0c4baf2..ee13671 100644
+--- a/src/VetClinic.Records/ClinicCardService.cs
++++ b/src/VetClinic.Records/ClinicCardService.cs
+@@ -6,7 +6,7 @@ namespace VetClinic.Records.Services;
+ 
+ public record AllergyInput(string Allergen, string? Reaction, AllergySeverity Severity);
+ public record AllergyDto(int Id, string Allergen, string? Reaction, AllergySeverity Severity);
+-public record VisitDto(int Id, DateTime ScheduledAt, string VetName, VisitStatus Status, string? Notes);
++public record VisitDto(int Id, DateTime ScheduledAt, string VetName, VisitStatus Status, string? Anamnesis);
+ public record PetCardDto(int Id, string Name, string Species, string OwnerName,
+     List<AllergyDto> Allergies, List<VisitDto> Visits);
+ 
+@@ -22,7 +22,7 @@ public class ClinicCardService(ClinicDbContext db)
+                     .ToList(),
+                 p.Visits
+                     .OrderByDescending(v => v.ScheduledAt)
+-                    .Select(v => new VisitDto(v.Id, v.ScheduledAt, v.VetName, v.Status, v.Notes))
++                    .Select(v => new VisitDto(v.Id, v.ScheduledAt, v.VetName, v.Status, v.Anamnesis))
+                     .ToList()))
+             .SingleOrDefaultAsync();
+ 
+@@ -31,7 +31,7 @@ public class ClinicCardService(ClinicDbContext db)
+         await db.Visits
+             .Where(v => v.VetName == vetName && v.Status == VisitStatus.Planned)
+             .OrderBy(v => v.ScheduledAt)
+-            .Select(v => new VisitDto(v.Id, v.ScheduledAt, v.VetName, v.Status, v.Notes))
++            .Select(v => new VisitDto(v.Id, v.ScheduledAt, v.VetName, v.Status, v.Anamnesis))
+             .ToListAsync();
+ 
+     public async Task AddAllergyAsync(int petId, AllergyInput input)
+@@ -46,10 +46,103 @@ public class ClinicCardService(ClinicDbContext db)
+         await db.SaveChangesAsync();
+     }
+ 
+-    public async Task UpdateVisitNotesAsync(int visitId, string? notes)
++    // Удаление клиента — только мягкое (см. README): помечаем клиента и всю его медкарту
++    // (питомцы, аллергии, визиты) одной меткой DeletedAt, чтобы поддержка могла восстановить
++    // ровно то, что удалено этой операцией. Глобальные фильтры скрывают записи отовсюду,
++    // в т.ч. запланированные визиты из расписания врачей.
++    public async Task<bool> DeleteOwnerAsync(int ownerId)
++    {
++        var owner = await db.Owners
++            .Include(o => o.Pets).ThenInclude(p => p.Allergies)
++            .Include(o => o.Pets).ThenInclude(p => p.Visits)
++            .AsSplitQuery()
++            .SingleOrDefaultAsync(o => o.Id == ownerId);
++        if (owner is null)
++            return false;
++
++        var now = DateTime.UtcNow;
++        MarkDeleted(owner, now);
++        foreach (var pet in owner.Pets)
++        {
++            MarkDeleted(pet, now);
++            foreach (var allergy in pet.Allergies)
++                MarkDeleted(allergy, now);
++            foreach (var visit in pet.Visits)
++                MarkDeleted(visit, now);
++        }
++
++        await db.SaveChangesAsync();
++        return true;
++    }
++
++    // Замена списка аллергий целиком. Физически ничего не удаляем: аллергии, которых нет
++    // в новом списке или у которых изменились реакция/тяжесть, помечаются удалёнными,
++    // изменённые и новые добавляются отдельными записями — история медкарты сохраняется.
++    public async Task<bool> ReplaceAllergiesAsync(int petId, IReadOnlyList<AllergyInput> allergies)
++    {
++        var normalized = allergies
++            .Select(a => new AllergyInput(
++                a.Allergen?.Trim() ?? "",
++                string.IsNullOrWhiteSpace(a.Reaction) ? null : a.Reaction.Trim(),
++                a.Severity))
++            .ToList();
++
++        if (normalized.Any(a => a.Allergen.Length == 0))
++            throw new ArgumentException("Аллерген не может быть пустым.");
++        if (normalized.Any(a => a.Allergen.Length > 200))
++            throw new ArgumentException("Название аллергена длиннее 200 символов.");
++        if (normalized.Any(a => !Enum.IsDefined(a.Severity)))
++            throw new ArgumentException("Неизвестная тяжесть аллергии.");
++        if (normalized.GroupBy(a => a.Allergen, StringComparer.OrdinalIgnoreCase).Any(g => g.Count() > 1))
++            throw new ArgumentException("Аллерген указан в списке несколько раз.");
++
++        var pet = await db.Pets
++            .Include(p => p.Allergies)
++            .SingleOrDefaultAsync(p => p.Id == petId);
++        if (pet is null)
++            return false;
++
++        var now = DateTime.UtcNow;
++        var kept = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
++
++        foreach (var existing in pet.Allergies.ToList())
++        {
++            var unchanged = normalized.Any(n =>
++                string.Equals(n.Allergen, existing.Allergen, StringComparison.OrdinalIgnoreCase)
++                && n.Reaction == existing.Reaction
++                && n.Severity == existing.Severity);
++            // kept.Add == false — дубль уже сохранённой аллергии, его тоже убираем
++            if (!unchanged || !kept.Add(existing.Allergen))
++                MarkDeleted(existing, now);
++        }
++
++        foreach (var input in normalized)
++        {
++            if (!kept.Contains(input.Allergen))
++            {
++                pet.Allergies.Add(new Allergy
++                {
++                    Allergen = input.Allergen,
++                    Reaction = input.Reaction,
++                    Severity = input.Severity
++                });
++            }
++        }
++
++        await db.SaveChangesAsync();
++        return true;
++    }
++
++    public async Task UpdateVisitAnamnesisAsync(int visitId, string? anamnesis)
+     {
+         var visit = await db.Visits.SingleAsync(v => v.Id == visitId);
+-        visit.Notes = notes;
++        visit.Anamnesis = anamnesis;
+         await db.SaveChangesAsync();
+     }
++
++    private static void MarkDeleted(ISoftDeletable entity, DateTime now)
++    {
++        entity.IsDeleted = true;
++        entity.DeletedAt = now;
++    }
+ }
+diff --git a/src/VetClinic.Records/Domain.cs b/src/VetClinic.Records/Domain.cs
+index dba95f4..c042ab8 100644
+--- a/src/VetClinic.Records/Domain.cs
++++ b/src/VetClinic.Records/Domain.cs
+@@ -72,7 +72,7 @@ public class Visit : ISoftDeletable
+     public string VetName { get; set; } = "";
+     public DateTime ScheduledAt { get; set; }
+     public VisitStatus Status { get; set; }
+-    public string? Notes { get; set; }
++    public string? Anamnesis { get; set; }
+ 
+     public bool IsDeleted { get; set; }
+     public DateTime? DeletedAt { get; set; }
+diff --git a/src/VetClinic.Records/Migrations/20261002120000_RenameVisitNotesToAnamnesis.cs b/src/VetClinic.Records/Migrations/20261002120000_RenameVisitNotesToAnamnesis.cs
+new file mode 100644
+index 0000000..9cc9918
+--- /dev/null
++++ b/src/VetClinic.Records/Migrations/20261002120000_RenameVisitNotesToAnamnesis.cs
+@@ -0,0 +1,37 @@
++using Microsoft.EntityFrameworkCore.Infrastructure;
++using Microsoft.EntityFrameworkCore.Migrations;
++using VetClinic.Records.Data;
++
++#nullable disable
++
++namespace VetClinic.Records.Migrations
++{
++    /// <summary>
++    /// Visit.Notes → Visit.Anamnesis. Именно переименование столбца (ALTER TABLE ... RENAME COLUMN),
++    /// а не drop + add: данные заметок сохраняются, операция мгновенная (только каталог PostgreSQL).
++    /// Изменение несовместимо со старой версией приложения (она читает "Notes"), поэтому
++    /// выкатывается только в окно обслуживания: приложение остановлено → db-migrate → deploy.
++    /// </summary>
++    [DbContext(typeof(ClinicDbContext))]
++    [Migration("20261002120000_RenameVisitNotesToAnamnesis")]
++    public partial class RenameVisitNotesToAnamnesis : Migration
++    {
++        /// <inheritdoc />
++        protected override void Up(MigrationBuilder migrationBuilder)
++        {
++            migrationBuilder.RenameColumn(
++                name: "Notes",
++                table: "Visits",
++                newName: "Anamnesis");
++        }
++
++        /// <inheritdoc />
++        protected override void Down(MigrationBuilder migrationBuilder)
++        {
++            migrationBuilder.RenameColumn(
++                name: "Anamnesis",
++                table: "Visits",
++                newName: "Notes");
++        }
++    }
++}
+diff --git a/src/VetClinic.Records/Program.cs b/src/VetClinic.Records/Program.cs
+index 589f4a8..d2bc053 100644
+--- a/src/VetClinic.Records/Program.cs
++++ b/src/VetClinic.Records/Program.cs
+@@ -17,15 +17,30 @@ app.MapGet("/pets/{id:int}", async (int id, ClinicCardService s) =>
+ app.MapGet("/vets/{vetName}/planned", (string vetName, ClinicCardService s) =>
+     s.GetPlannedVisitsAsync(vetName));
+ 
++app.MapDelete("/owners/{id:int}", async (int id, ClinicCardService s) =>
++    await s.DeleteOwnerAsync(id) ? Results.NoContent() : Results.NotFound());
++
+ app.MapPost("/pets/{id:int}/allergies", async (int id, AllergyInput input, ClinicCardService s) =>
+ {
+     await s.AddAllergyAsync(id, input);
+     return Results.NoContent();
+ });
+ 
+-app.MapPut("/visits/{id:int}/notes", async (int id, string? notes, ClinicCardService s) =>
++app.MapPut("/pets/{id:int}/allergies", async (int id, List<AllergyInput> allergies, ClinicCardService s) =>
++{
++    try
++    {
++        return await s.ReplaceAllergiesAsync(id, allergies) ? Results.NoContent() : Results.NotFound();
++    }
++    catch (ArgumentException ex)
++    {
++        return Results.BadRequest(ex.Message);
++    }
++});
++
++app.MapPut("/visits/{id:int}/anamnesis", async (int id, string? anamnesis, ClinicCardService s) =>
+ {
+-    await s.UpdateVisitNotesAsync(id, notes);
++    await s.UpdateVisitAnamnesisAsync(id, anamnesis);
+     return Results.NoContent();
+ });
+ 

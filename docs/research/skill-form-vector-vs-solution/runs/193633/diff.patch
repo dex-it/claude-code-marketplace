@@ -1,0 +1,135 @@
+diff --git a/OrderQueries.cs b/OrderQueries.cs
+new file mode 100644
+index 0000000..27be5ce
+--- /dev/null
++++ b/OrderQueries.cs
+@@ -0,0 +1,109 @@
++namespace Shop.Data;
++
++public class OrderQueries
++{
++    private readonly ShopDbContext _db;
++
++    public OrderQueries(ShopDbContext db) => _db = db;
++
++    public async Task<OrderCardDto?> GetOrderCardAsync(Guid id)
++    {
++        return await _db.Orders
++            .AsNoTracking()
++            .AsSplitQuery()
++            .Where(o => o.Id == id)
++            .Select(o => new OrderCardDto
++            {
++                Id = o.Id,
++                CustomerId = o.CustomerId,
++                Status = o.Status,
++                Total = o.Total,
++                CreatedAt = o.CreatedAt,
++                ShippedAt = o.ShippedAt,
++                Items = o.Items.Select(i => new OrderItemDto { Id = i.Id, ProductId = i.ProductId, Qty = i.Qty }).ToList(),
++                Payments = o.Payments.Select(p => new PaymentDto { Id = p.Id, Amount = p.Amount }).ToList()
++            })
++            .FirstOrDefaultAsync();
++    }
++
++    public async Task<List<CustomerOrderDto>> GetCustomerOrdersAsync(Guid customerId)
++    {
++        return await _db.Orders
++            .AsNoTracking()
++            .AsSplitQuery()
++            .Where(o => o.CustomerId == customerId)
++            .Select(o => new CustomerOrderDto
++            {
++                Id = o.Id,
++                Status = o.Status,
++                Total = o.Total,
++                CreatedAt = o.CreatedAt,
++                ShippedAt = o.ShippedAt,
++                ItemsCount = o.Items.Count,
++                PaymentsCount = o.Payments.Count
++            })
++            .ToListAsync();
++    }
++
++    public Task<Product?> GetProductBySkuAsync(string sku, string? warehouse = null)
++    {
++        IQueryable<Product> query = _db.Products.AsNoTracking();
++
++        query = query.Where(p => p.Sku == sku);
++
++        if (!string.IsNullOrEmpty(warehouse))
++        {
++            query = query.Where(p => p.Warehouse == warehouse);
++        }
++
++        return query.FirstOrDefaultAsync();
++    }
++
++    public async Task<DateTime> GetLastShippedDateAsync(Guid customerId)
++    {
++        var result = await _db.Orders
++            .AsNoTracking()
++            .Where(o => o.CustomerId == customerId && o.ShippedAt != null)
++            .OrderByDescending(o => o.ShippedAt)
++            .Select(o => o.ShippedAt)
++            .FirstOrDefaultAsync();
++
++        return result ?? DateTime.MinValue;
++    }
++}
++
++public class OrderCardDto
++{
++    public Guid Id { get; set; }
++    public Guid CustomerId { get; set; }
++    public string Status { get; set; } = "";
++    public decimal Total { get; set; }
++    public DateTime CreatedAt { get; set; }
++    public DateTime? ShippedAt { get; set; }
++    public List<OrderItemDto> Items { get; set; } = new();
++    public List<PaymentDto> Payments { get; set; } = new();
++}
++
++public class OrderItemDto
++{
++    public int Id { get; set; }
++    public Guid ProductId { get; set; }
++    public int Qty { get; set; }
++}
++
++public class PaymentDto
++{
++    public int Id { get; set; }
++    public decimal Amount { get; set; }
++}
++
++public class CustomerOrderDto
++{
++    public Guid Id { get; set; }
++    public string Status { get; set; } = "";
++    public decimal Total { get; set; }
++    public DateTime CreatedAt { get; set; }
++    public DateTime? ShippedAt { get; set; }
++    public int ItemsCount { get; set; }
++    public int PaymentsCount { get; set; }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..a454259
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,14 @@
++# OrderQueries Service
++
++## Созданные файлы
++- `OrderQueries.cs` — новый сервис со всеми четырьмя методами
++
++## Решения
++
++1. **AsSplitQuery()** для карточки и списка заказов — избегает Cartesian product при множественных Include (Items + Payments), которые иначе создали бы 100+ строк вместо 10 заказов.
++
++2. **Select с проекцией** для GetCustomerOrdersAsync — вместо загрузки полных Order entities грузим только нужные поля (Id, Status, Total, CreatedAt, ShippedAt, count-ы), что важно для тысяч заказов в памяти и трафика.
++
++3. **GetProductBySku** с условной фильтрацией по warehouse — если warehouse null, вернет первый найденный продукт с этим SKU; если передан — ищет на конкретном складе.
++
++4. **GetLastShippedDateAsync** возвращает DateTime.MinValue если нет отгруженных заказов (вместо null) — non-nullable как требуется.

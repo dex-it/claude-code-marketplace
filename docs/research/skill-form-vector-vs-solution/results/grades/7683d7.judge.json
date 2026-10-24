@@ -1,0 +1,107 @@
+{
+  "id": "7683d7",
+  "case": "V1",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.12757100000000002,
+    "durationMs": 13291,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 12092,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1520,
+      "output_tokens_details": {
+        "thinking_tokens": 257
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 12092,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1520,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 12092,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 12092
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "V1-vessel-filter-idor": {
+      "verdict": "FOUND",
+      "quote": "если передан `vesselId`, фильтр `OwnerId == userId` не применяется (ветка `else if`)",
+      "why": "Назван обход фильтра владения через vesselId в List с утечкой чужих броней и ContactPhone."
+    },
+    "V1-started-meter": {
+      "verdict": "FOUND",
+      "quote": "«каждый начатый метр» — это `Math.Ceiling`, а в коде `Math.Round(..., AwayFromZero)`",
+      "why": "Прямо указано, что вместо Round нужен Ceiling по правилу начатого метра."
+    },
+    "V1-turnover-day": {
+      "verdict": "FOUND",
+      "quote": "проверка пересечения включительная (`<=` / `>=`). Заезд в день выезда предыдущей яхты считается конфликтом",
+      "why": "Назван дефект закрытых границ и предложены строгие сравнения, как в Calendar."
+    },
+    "V1-cancel-timezone": {
+      "verdict": "FOUND",
+      "quote": "14:00 по местному времени марины сравнивается с `DateTime.UtcNow`",
+      "why": "Указано смешение местного времени заезда и UTC с переводом через Marina.TimeZoneId."
+    },
+    "V1-webhook-duplicate": {
+      "verdict": "FOUND",
+      "quote": "`ProviderEventId` нигде не проверяется. В `MarinaDbContext` на это поле нет уникального индекса",
+      "why": "Названы повторное начисление PaidAmount и повторный возврат при дублях событий."
+    },
+    "V1-webhook-kopecks": {
+      "verdict": "FOUND",
+      "quote": "провайдер присылает `evt.Amount` в копейках. Сумма без деления на 100 попадает в `Payment.Amount` и в `PaidAmount`",
+      "why": "Описаны завышение в 100 раз, подтверждение при 1/100 депозита и стократный возврат."
+    },
+    "V1-calendar-pii": {
+      "verdict": "FOUND",
+      "quote": "публичный календарь без авторизации возвращает полный `BookingDto`: `VesselName`, `ContactPhone`, `Total`",
+      "why": "Названа утечка телефонов и сумм анонимным пользователям, предложено отдавать только интервалы."
+    },
+    "V1-refund-swallowed": {
+      "verdict": "FOUND",
+      "quote": "при `PaymentGatewayException` ошибка только логируется, а бронь всё равно становится `Cancelled` с `RefundedAmount = refund`",
+      "why": "Назван проглоченный сбой возврата с ложной записью о проведённом возврате."
+    },
+    "V1-seasonal-rates-not-loaded": {
+      "verdict": "PASS",
+      "quote": "место читается через `FromSql(... FOR UPDATE)` без `.Include(b => b.SeasonalRates)`, поэтому список сезонных ставок всегда пуст",
+      "why": "Указана незагруженная навигация и расчёт всегда по базовой ставке, предложены Include или отдельный запрос."
+    },
+    "V1-h-fromsql-interpolated": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FromSql не назван SQL-инъекцией, замена на FromSqlRaw не требуется."
+    },
+    "V1-h-xmin-timestamp": {
+      "verdict": "NO",
+      "quote": "`xmin` изменил параллельный вебхук",
+      "why": "xmin упомянут как рабочий concurrency token, механизм не объявлен дефектным."
+    },
+    "V1-h-dateonly-mapping": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Конвертер DateOnly или замена на DateTime не требуются."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,63 @@
+{
+ "total_cost_usd": 0.06293760000000001,
+ "model": "claude-opus-5-5",
+ "verdict": {
+  "cells": [
+   {
+    "code": "BPR1",
+    "score": "1",
+    "quote": "g_actions и g_actions_join (exclusive) - п.6 md требует три обязательных параллельных действия, а exclusive без условий выполнит одно (или неопределённо)… нужны parallel split и join"
+   },
+   {
+    "code": "BPR2",
+    "score": "1",
+    "quote": "g_amount (parallelGateway) с условными sf9/sf10 - параллельный шлюз игнорирует условия, сработают обе ветки… нужен exclusive (split и join)"
+   },
+   {
+    "code": "BPR3",
+    "score": "1",
+    "quote": "g_restore (exclusive)… бывает и пакет, и промокод сразу, а exclusive выберет одну ветку, вторая восстановка потеряется; нужен inclusive split и inclusive join"
+   },
+   {
+    "code": "BPR4",
+    "score": "1",
+    "quote": "g_answer (exclusive) перед ev_refund_ok / ev_3days - exclusive не ждёт события… для «что пришло первым» нужен event-based gateway"
+   },
+   {
+    "code": "BPR5",
+    "score": "1",
+    "quote": "g_finish_join (parallel)… приходит ровно один токен (ветки взаимоисключающие), parallel join ждёт второй вечно… нужен exclusive join или отдельные концы"
+   },
+   {
+    "code": "BPR6",
+    "score": "1",
+    "quote": "pf_sf3 (sequenceFlow pf_refund -> ev_refund_ok) - sequence flow через границу пулов недопустим… нужен messageFlow в collaboration"
+   },
+   {
+    "code": "BPR7",
+    "score": "1",
+    "quote": "t_package - нет исходящего sequenceFlow… процесс не дойдёт до g_actions, отмена урока из пакета не завершится"
+   },
+   {
+    "code": "BPR8",
+    "score": "1",
+    "quote": "отказа PayFlow нет ни как сообщения, ни как ветки, хотя п.7 md описывает «подтверждение или отказ»: отказ обработается только через 3 дня таймера"
+   },
+   {
+    "code": "BPR9",
+    "score": "1",
+    "quote": "t_support «Сделать действия» - непонятное название, не сказано что делать (провести возврат вручную)"
+   },
+   {
+    "code": "BPR10",
+    "score": "0",
+    "quote": "нет"
+   },
+   {
+    "code": "P1",
+    "score": "1",
+    "quote": "аудит идёт в параллельной ветке с отдельным end_audit, при ошибке записи в журнал процесс не узнает о сбое… - minor (join не требуется, потеря токена не заявлена)"
+   }
+  ]
+ }
+}

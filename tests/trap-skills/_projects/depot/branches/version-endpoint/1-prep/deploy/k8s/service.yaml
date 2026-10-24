@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: depot-api
+  namespace: depot
+spec:
+  selector:
+    app.kubernetes.io/name: depot-api
+  ports:
+    - port: 80
+      targetPort: 8080
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: depot-api
+  namespace: depot
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: depot-api
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: depot-secrets
+  namespace: depot
+spec:
+  secretStoreRef: { name: vault, kind: ClusterSecretStore }
+  target: { name: depot-secrets }
+  dataFrom:
+    - extract: { key: depot/prod }

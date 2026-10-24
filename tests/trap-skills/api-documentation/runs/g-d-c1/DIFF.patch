@@ -1,0 +1,436 @@
+diff --git a/src/Bookings.Api/Bookings.Api.csproj b/src/Bookings.Api/Bookings.Api.csproj
+index 0ea17f4..90002d5 100644
+--- a/src/Bookings.Api/Bookings.Api.csproj
++++ b/src/Bookings.Api/Bookings.Api.csproj
+@@ -2,6 +2,8 @@
+ 
+   <PropertyGroup>
+     <TargetFramework>net10.0</TargetFramework>
++    <GenerateDocumentationFile>true</GenerateDocumentationFile>
++    <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
+   </PropertyGroup>
+ 
+   <ItemGroup>
+diff --git a/src/Bookings.Api/Contracts/BookingDto.cs b/src/Bookings.Api/Contracts/BookingDto.cs
+index 7dda05c..a5991e7 100644
+--- a/src/Bookings.Api/Contracts/BookingDto.cs
++++ b/src/Bookings.Api/Contracts/BookingDto.cs
+@@ -2,6 +2,17 @@ using Bookings.Api.Domain;
+ 
+ namespace Bookings.Api.Contracts;
+ 
++/// <summary>Бронь комнаты.</summary>
++/// <param name="Id">Идентификатор брони.</param>
++/// <param name="RoomId">Идентификатор забронированной комнаты.</param>
++/// <param name="Title">Название встречи (до 120 символов).</param>
++/// <param name="Comment">Комментарий (до 500 символов); null, если не задан.</param>
++/// <param name="StartsAt">Начало брони, UTC.</param>
++/// <param name="DurationMinutes">Длительность в минутах: от 15 до 240, кратно 15.</param>
++/// <param name="EndsAt">Окончание брони, UTC (StartsAt + DurationMinutes).</param>
++/// <param name="OwnerId">Идентификатор участника, создавшего бронь.</param>
++/// <param name="Status">Статус брони. Отменённая бронь остаётся в истории и не занимает комнату.</param>
++/// <param name="Version">Версия брони; меняется при каждом изменении. Передаётся при переносе (PATCH) для защиты от устаревших данных.</param>
+ public record BookingDto(
+     Guid Id,
+     string RoomId,
+diff --git a/src/Bookings.Api/Contracts/CreateBookingRequest.cs b/src/Bookings.Api/Contracts/CreateBookingRequest.cs
+index 03b2ab7..3f59410 100644
+--- a/src/Bookings.Api/Contracts/CreateBookingRequest.cs
++++ b/src/Bookings.Api/Contracts/CreateBookingRequest.cs
+@@ -1,3 +1,9 @@
+ namespace Bookings.Api.Contracts;
+ 
++/// <summary>Запрос на создание брони.</summary>
++/// <param name="RoomId">Идентификатор комнаты.</param>
++/// <param name="Title">Название встречи, 1-120 символов.</param>
++/// <param name="StartsAt">Начало брони. Должно быть в будущем, не дальше 90 дней от текущего момента. Время приводится к UTC.</param>
++/// <param name="DurationMinutes">Длительность в минутах: от 15 до 240, кратно 15.</param>
++/// <param name="Comment">Необязательный комментарий, до 500 символов.</param>
+ public record CreateBookingRequest(string RoomId, string Title, DateTimeOffset StartsAt, int DurationMinutes, string? Comment);
+diff --git a/src/Bookings.Api/Contracts/CursorPageDto.cs b/src/Bookings.Api/Contracts/CursorPageDto.cs
+index e3546bd..fc85e8a 100644
+--- a/src/Bookings.Api/Contracts/CursorPageDto.cs
++++ b/src/Bookings.Api/Contracts/CursorPageDto.cs
+@@ -1,3 +1,6 @@
+ namespace Bookings.Api.Contracts;
+ 
++/// <summary>Страница результатов с курсорной навигацией.</summary>
++/// <param name="Items">Элементы страницы.</param>
++/// <param name="NextCursor">Курсор следующей страницы; null, если страница последняя.</param>
+ public record CursorPageDto<T>(IReadOnlyList<T> Items, string? NextCursor);
+diff --git a/src/Bookings.Api/Contracts/PageDto.cs b/src/Bookings.Api/Contracts/PageDto.cs
+index ca5c395..92791d4 100644
+--- a/src/Bookings.Api/Contracts/PageDto.cs
++++ b/src/Bookings.Api/Contracts/PageDto.cs
+@@ -1,3 +1,6 @@
+ namespace Bookings.Api.Contracts;
+ 
++/// <summary>Страница результатов с навигацией limit/offset.</summary>
++/// <param name="Items">Элементы страницы.</param>
++/// <param name="Total">Общее число элементов.</param>
+ public record PageDto<T>(IReadOnlyList<T> Items, int Total);
+diff --git a/src/Bookings.Api/Contracts/RescheduleBookingRequest.cs b/src/Bookings.Api/Contracts/RescheduleBookingRequest.cs
+index a6598f1..2805c13 100644
+--- a/src/Bookings.Api/Contracts/RescheduleBookingRequest.cs
++++ b/src/Bookings.Api/Contracts/RescheduleBookingRequest.cs
+@@ -1,3 +1,7 @@
+ namespace Bookings.Api.Contracts;
+ 
++/// <summary>Запрос на перенос брони.</summary>
++/// <param name="StartsAt">Новое начало. Должно быть в будущем, не дальше 90 дней от текущего момента. Время приводится к UTC.</param>
++/// <param name="DurationMinutes">Новая длительность в минутах: от 15 до 240, кратно 15.</param>
++/// <param name="Version">Версия брони, полученная при последнем чтении. Если бронь изменилась, перенос отклоняется (409 version-conflict).</param>
+ public record RescheduleBookingRequest(DateTimeOffset StartsAt, int DurationMinutes, uint Version);
+diff --git a/src/Bookings.Api/Contracts/RoomDto.cs b/src/Bookings.Api/Contracts/RoomDto.cs
+index e8d4f81..e5a72a3 100644
+--- a/src/Bookings.Api/Contracts/RoomDto.cs
++++ b/src/Bookings.Api/Contracts/RoomDto.cs
+@@ -2,6 +2,12 @@ using Bookings.Api.Domain;
+ 
+ namespace Bookings.Api.Contracts;
+ 
++/// <summary>Переговорная комната.</summary>
++/// <param name="Id">Идентификатор комнаты.</param>
++/// <param name="Name">Название комнаты.</param>
++/// <param name="Capacity">Вместимость, человек (1-50).</param>
++/// <param name="Floor">Этаж.</param>
++/// <param name="Features">Оснащение комнаты.</param>
+ public record RoomDto(string Id, string Name, int Capacity, int Floor, IReadOnlyList<RoomFeature> Features)
+ {
+     public static RoomDto From(Room room) => new(room.Id, room.Name, room.Capacity, room.Floor, room.Features);
+diff --git a/src/Bookings.Api/Controllers/BookingsController.cs b/src/Bookings.Api/Controllers/BookingsController.cs
+index 5b8a1d0..ca3cf6e 100644
+--- a/src/Bookings.Api/Controllers/BookingsController.cs
++++ b/src/Bookings.Api/Controllers/BookingsController.cs
+@@ -13,12 +13,30 @@ namespace Bookings.Api.Controllers;
+ 
+ [ApiController]
+ [Route("api/v1/bookings")]
++[Tags("Bookings")]
++[Produces("application/json")]
++[ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized, "application/problem+json")]
+ public class BookingsController(BookingsDbContext db, TimeProvider clock) : ControllerBase
+ {
+     private const int DefaultLimit = 20;
+     private const int MaxLimit = 100;
+ 
++    /// <summary>Лента броней.</summary>
++    /// <remarks>
++    /// Брони всех участников, по возрастанию начала. Включает отменённые (поле <c>status</c>).
++    /// Для следующей страницы передайте <c>nextCursor</c> из ответа в параметр <c>cursor</c>,
++    /// остальные параметры оставьте прежними. Когда <c>nextCursor</c> равен null - страница последняя.
++    /// </remarks>
++    /// <param name="roomId">Только брони этой комнаты.</param>
++    /// <param name="from">Начало периода: брони, оканчивающиеся позже этого момента.</param>
++    /// <param name="to">Конец периода: брони, начинающиеся раньше этого момента.</param>
++    /// <param name="limit">Размер страницы, от 1 до 100.</param>
++    /// <param name="cursor">Курсор из <c>nextCursor</c> предыдущей страницы; непрозрачная строка.</param>
++    /// <response code="200">Страница броней.</response>
++    /// <response code="400">Неверные <c>limit</c> или <c>cursor</c>.</response>
+     [HttpGet]
++    [ProducesResponseType<CursorPageDto<BookingDto>>(StatusCodes.Status200OK)]
++    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+     public async Task<ActionResult<CursorPageDto<BookingDto>>> List(
+         string? roomId, DateTimeOffset? from, DateTimeOffset? to, int limit = DefaultLimit, string? cursor = null,
+         CancellationToken cancellationToken = default)
+@@ -64,7 +82,17 @@ public class BookingsController(BookingsDbContext db, TimeProvider clock) : Cont
+         return new CursorPageDto<BookingDto>(page.Select(BookingDto.From).ToList(), nextCursor);
+     }
+ 
++    /// <summary>Создать бронь.</summary>
++    /// <remarks>Владельцем брони становится участник, чей ключ доступа использован в запросе.</remarks>
++    /// <response code="201">Бронь создана; адрес - в заголовке <c>Location</c>.</response>
++    /// <response code="400">Данные не прошли проверку (название, комментарий, начало, длительность).</response>
++    /// <response code="404">Комната не найдена (код <c>room-not-found</c>).</response>
++    /// <response code="409">Комната на это время занята (код <c>booking-overlap</c>).</response>
+     [HttpPost]
++    [ProducesResponseType<BookingDto>(StatusCodes.Status201Created)]
++    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
++    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
++    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
+     public async Task<ActionResult<BookingDto>> Create(CreateBookingRequest request, CancellationToken cancellationToken)
+     {
+         var errors = BookingRules.Validate(request, clock.GetUtcNow());
+@@ -89,7 +117,14 @@ public class BookingsController(BookingsDbContext db, TimeProvider clock) : Cont
+         return CreatedAtAction(nameof(Get), new { id = booking.Id }, BookingDto.From(booking));
+     }
+ 
++    /// <summary>Получить бронь.</summary>
++    /// <remarks>Брони других участников доступны для чтения всем.</remarks>
++    /// <param name="id">Идентификатор брони.</param>
++    /// <response code="200">Бронь.</response>
++    /// <response code="404">Бронь не найдена (код <c>booking-not-found</c>).</response>
+     [HttpGet("{id:guid}")]
++    [ProducesResponseType<BookingDto>(StatusCodes.Status200OK)]
++    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+     public async Task<ActionResult<BookingDto>> Get(Guid id, CancellationToken cancellationToken)
+     {
+         var booking = await db.Bookings.AsNoTracking().FirstOrDefaultAsync(b => b.Id == id, cancellationToken);
+@@ -99,7 +134,23 @@ public class BookingsController(BookingsDbContext db, TimeProvider clock) : Cont
+         return BookingDto.From(booking);
+     }
+ 
++    /// <summary>Перенести бронь.</summary>
++    /// <remarks>
++    /// Переносить может владелец брони или администратор. В запросе нужна версия брони, полученная
++    /// при последнем чтении: если бронь изменилась, перенос отклоняется.
++    /// </remarks>
++    /// <param name="id">Идентификатор брони.</param>
++    /// <response code="200">Бронь перенесена; в ответе - обновлённая бронь с новой версией.</response>
++    /// <response code="400">Данные не прошли проверку (начало, длительность).</response>
++    /// <response code="403">Не владелец и не администратор (код <c>not-owner</c>).</response>
++    /// <response code="404">Бронь не найдена (код <c>booking-not-found</c>).</response>
++    /// <response code="409">Версия устарела (<c>version-conflict</c>), бронь отменена (<c>booking-cancelled</c>) или комната занята (<c>booking-overlap</c>).</response>
+     [HttpPatch("{id:guid}")]
++    [ProducesResponseType<BookingDto>(StatusCodes.Status200OK)]
++    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
++    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
++    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
++    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
+     public async Task<ActionResult<BookingDto>> Reschedule(Guid id, RescheduleBookingRequest request, CancellationToken cancellationToken)
+     {
+         var errors = BookingRules.Validate(request, clock.GetUtcNow());
+@@ -137,7 +188,19 @@ public class BookingsController(BookingsDbContext db, TimeProvider clock) : Cont
+         return BookingDto.From(booking);
+     }
+ 
++    /// <summary>Отменить бронь.</summary>
++    /// <remarks>
++    /// Отменять может владелец брони или администратор. Бронь остаётся в истории со статусом
++    /// <c>cancelled</c>. Повторная отмена безвредна: результат тот же, что у первой.
++    /// </remarks>
++    /// <param name="id">Идентификатор брони.</param>
++    /// <response code="204">Бронь отменена.</response>
++    /// <response code="403">Не владелец и не администратор (код <c>not-owner</c>).</response>
++    /// <response code="404">Бронь не найдена (код <c>booking-not-found</c>).</response>
+     [HttpDelete("{id:guid}")]
++    [ProducesResponseType(StatusCodes.Status204NoContent)]
++    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
++    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+     public async Task<IActionResult> Cancel(Guid id, CancellationToken cancellationToken)
+     {
+         var booking = await db.Bookings.FirstOrDefaultAsync(b => b.Id == id, cancellationToken);
+diff --git a/src/Bookings.Api/Controllers/RoomsController.cs b/src/Bookings.Api/Controllers/RoomsController.cs
+index 80ffe11..3b38f39 100644
+--- a/src/Bookings.Api/Controllers/RoomsController.cs
++++ b/src/Bookings.Api/Controllers/RoomsController.cs
+@@ -9,12 +9,23 @@ namespace Bookings.Api.Controllers;
+ 
+ [ApiController]
+ [Route("api/v1/rooms")]
++[Tags("Rooms")]
++[Produces("application/json")]
++[ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized, "application/problem+json")]
+ public class RoomsController(BookingsDbContext db, ILogger<RoomsController> logger) : ControllerBase
+ {
+     private const int DefaultLimit = 20;
+     private const int MaxLimit = 100;
+ 
++    /// <summary>Список комнат.</summary>
++    /// <remarks>Комнаты упорядочены по идентификатору.</remarks>
++    /// <param name="limit">Размер страницы, от 1 до 100.</param>
++    /// <param name="offset">Сколько комнат пропустить, не меньше 0.</param>
++    /// <response code="200">Страница комнат.</response>
++    /// <response code="400">Неверные параметры постраничной выдачи.</response>
+     [HttpGet]
++    [ProducesResponseType<PageDto<RoomDto>>(StatusCodes.Status200OK)]
++    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+     public async Task<ActionResult<PageDto<RoomDto>>> List(int limit = DefaultLimit, int offset = 0, CancellationToken cancellationToken = default)
+     {
+         var errors = new Dictionary<string, string[]>();
+@@ -36,7 +47,13 @@ public class RoomsController(BookingsDbContext db, ILogger<RoomsController> logg
+         return new PageDto<RoomDto>(rooms.Select(RoomDto.From).ToList(), total);
+     }
+ 
++    /// <summary>Карточка комнаты.</summary>
++    /// <param name="roomId">Идентификатор комнаты.</param>
++    /// <response code="200">Комната.</response>
++    /// <response code="404">Комната не найдена (код <c>room-not-found</c>).</response>
+     [HttpGet("{roomId}")]
++    [ProducesResponseType<RoomDto>(StatusCodes.Status200OK)]
++    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+     public async Task<ActionResult<RoomDto>> Get(string roomId, CancellationToken cancellationToken)
+     {
+         var room = await db.Rooms.AsNoTracking().FirstOrDefaultAsync(r => r.Id == roomId, cancellationToken);
+@@ -46,8 +63,20 @@ public class RoomsController(BookingsDbContext db, ILogger<RoomsController> logg
+         return RoomDto.From(room);
+     }
+ 
+-    // Устарело с 1.2.0: замена - GET /api/v1/bookings?roomId=, удаление после 2027-03-01
++    /// <summary>Брони комнаты (устарело).</summary>
++    /// <remarks>
++    /// Устарело с 1.2.0, удаление после 2027-03-01. Замена - <c>GET /api/v1/bookings?roomId=</c>.
++    /// Возвращает все брони комнаты за период без постраничной выдачи, по возрастанию начала.
++    /// </remarks>
++    /// <param name="roomId">Идентификатор комнаты.</param>
++    /// <param name="from">Начало периода: вернутся брони, оканчивающиеся позже этого момента.</param>
++    /// <param name="to">Конец периода: вернутся брони, начинающиеся раньше этого момента.</param>
++    /// <response code="200">Брони комнаты.</response>
++    /// <response code="404">Комната не найдена (код <c>room-not-found</c>).</response>
++    [Obsolete("Используйте GET /api/v1/bookings?roomId=. Удаление после 2027-03-01.")]
+     [HttpGet("{roomId}/bookings")]
++    [ProducesResponseType<IReadOnlyList<BookingDto>>(StatusCodes.Status200OK)]
++    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+     public async Task<ActionResult<IReadOnlyList<BookingDto>>> ListRoomBookings(
+         string roomId, DateTimeOffset? from, DateTimeOffset? to, CancellationToken cancellationToken)
+     {
+@@ -64,6 +93,7 @@ public class RoomsController(BookingsDbContext db, ILogger<RoomsController> logg
+         return bookings.Select(BookingDto.From).ToList();
+     }
+ 
++    [ApiExplorerSettings(IgnoreApi = true)]
+     [HttpPost("/api/v1/internal/rooms/reindex")]
+     [Authorize(Roles = Roles.Admin)]
+     public IActionResult Reindex()
+diff --git a/src/Bookings.Api/Domain/BookingStatus.cs b/src/Bookings.Api/Domain/BookingStatus.cs
+index 82d9b81..4526018 100644
+--- a/src/Bookings.Api/Domain/BookingStatus.cs
++++ b/src/Bookings.Api/Domain/BookingStatus.cs
+@@ -1,7 +1,11 @@
+ namespace Bookings.Api.Domain;
+ 
++/// <summary>Статус брони.</summary>
+ public enum BookingStatus
+ {
++    /// <summary>Бронь действует и занимает комнату.</summary>
+     Active,
++
++    /// <summary>Бронь отменена, комнату не занимает.</summary>
+     Cancelled
+ }
+diff --git a/src/Bookings.Api/Domain/RoomFeature.cs b/src/Bookings.Api/Domain/RoomFeature.cs
+index d19d526..fb5bc2c 100644
+--- a/src/Bookings.Api/Domain/RoomFeature.cs
++++ b/src/Bookings.Api/Domain/RoomFeature.cs
+@@ -1,8 +1,14 @@
+ namespace Bookings.Api.Domain;
+ 
++/// <summary>Оснащение комнаты.</summary>
+ public enum RoomFeature
+ {
++    /// <summary>Проектор.</summary>
+     Projector,
++
++    /// <summary>Доска.</summary>
+     Whiteboard,
++
++    /// <summary>Оборудование для видеоконференций.</summary>
+     Videoconf
+ }
+diff --git a/src/Bookings.Api/Program.cs b/src/Bookings.Api/Program.cs
+index 754375d..7087bb7 100644
+--- a/src/Bookings.Api/Program.cs
++++ b/src/Bookings.Api/Program.cs
+@@ -21,7 +21,7 @@ builder.Services.AddAuthorization(o =>
+     o.DefaultPolicy = new AuthorizationPolicyBuilder(ApiKeyAuthenticationHandler.SchemeName).RequireAuthenticatedUser().Build());
+ 
+ builder.Services.AddEndpointsApiExplorer();
+-builder.Services.AddSwaggerGen();
++builder.Services.AddSwaggerGen(Bookings.Api.Swagger.SwaggerConfiguration.Configure);
+ 
+ builder.Services.AddDbContext<BookingsDbContext>((services, options) =>
+     options.UseNpgsql(services.GetRequiredService<IConfiguration>().GetConnectionString("Bookings")));
+diff --git a/src/Bookings.Api/Swagger/SwaggerConfiguration.cs b/src/Bookings.Api/Swagger/SwaggerConfiguration.cs
+new file mode 100644
+index 0000000..273c5de
+--- /dev/null
++++ b/src/Bookings.Api/Swagger/SwaggerConfiguration.cs
+@@ -0,0 +1,98 @@
++using Bookings.Api.Auth;
++using Microsoft.AspNetCore.Mvc;
++using Microsoft.OpenApi.Any;
++using Microsoft.OpenApi.Models;
++using Swashbuckle.AspNetCore.SwaggerGen;
++
++namespace Bookings.Api.Swagger;
++
++public static class SwaggerConfiguration
++{
++    public const string Version = "1.2.0";
++
++    public static void Configure(SwaggerGenOptions options)
++    {
++        options.SwaggerDoc("v1", new OpenApiInfo
++        {
++            Title = "Bookings API",
++            Version = Version,
++            Description =
++                "Сервис бронирования переговорных: комнаты, брони, перенос и отмена.\n\n" +
++                "**Доступ.** Каждый запрос выполняется с ключом доступа в заголовке `X-Api-Key`. " +
++                "Без ключа или с неизвестным ключом сервис отвечает 401.\n\n" +
++                "**Время.** Все моменты времени - UTC, формат ISO 8601.\n\n" +
++                "**Ошибки.** Ошибки возвращаются как `application/problem+json`. В поле `code` - стабильный " +
++                "машиночитаемый код (`room-not-found`, `booking-not-found`, `booking-overlap`, `version-conflict`, " +
++                "`booking-cancelled`, `not-owner`, `unauthorized`, `forbidden`); клиенту следует опираться на него, а не на `title`. " +
++                "Ошибки проверки данных (400) содержат `errors` - сообщения по полям запроса.",
++        });
++
++        options.SupportNonNullableReferenceTypes();
++        options.UseAllOfToExtendReferenceSchemas();
++        options.MapType<uint>(() => new OpenApiSchema { Type = "integer", Format = "int64", Minimum = 0 });
++        options.CustomOperationIds(api =>
++            api.ActionDescriptor.RouteValues.TryGetValue("controller", out var controller)
++            && api.ActionDescriptor.RouteValues.TryGetValue("action", out var action)
++                ? $"{controller}_{action}"
++                : null);
++
++        options.AddSecurityDefinition(ApiKeyAuthenticationHandler.SchemeName, new OpenApiSecurityScheme
++        {
++            Type = SecuritySchemeType.ApiKey,
++            In = ParameterLocation.Header,
++            Name = ApiKeyAuthenticationHandler.HeaderName,
++            Description = "Ключ доступа участника или администратора.",
++        });
++        options.AddSecurityRequirement(new OpenApiSecurityRequirement
++        {
++            [new OpenApiSecurityScheme
++            {
++                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = ApiKeyAuthenticationHandler.SchemeName },
++            }] = [],
++        });
++
++        var xml = Path.Combine(AppContext.BaseDirectory, $"{typeof(SwaggerConfiguration).Assembly.GetName().Name}.xml");
++        if (File.Exists(xml))
++            options.IncludeXmlComments(xml);
++
++        options.SchemaFilter<RequiredNonNullableSchemaFilter>();
++        options.SchemaFilter<ProblemCodeSchemaFilter>();
++    }
++
++    /// <summary>Свойства без nullable в C# попадают в required: клиент получает неnullable-поля.</summary>
++    private sealed class RequiredNonNullableSchemaFilter : ISchemaFilter
++    {
++        public void Apply(OpenApiSchema schema, SchemaFilterContext context)
++        {
++            if (schema.Properties is not { Count: > 0 } || context.Type.IsEnum)
++                return;
++
++            // Только контракты сервиса; ProblemDetails из фреймворка полностью необязателен.
++            if (context.Type.Assembly != typeof(SwaggerConfiguration).Assembly)
++                return;
++
++            foreach (var (name, property) in schema.Properties)
++            {
++                if (!property.Nullable)
++                    schema.Required.Add(name);
++            }
++        }
++    }
++
++    /// <summary>Добавляет в ProblemDetails поле <c>code</c>, которое сервис кладёт в extensions.</summary>
++    private sealed class ProblemCodeSchemaFilter : ISchemaFilter
++    {
++        public void Apply(OpenApiSchema schema, SchemaFilterContext context)
++        {
++            if (context.Type != typeof(ProblemDetails) || schema.Properties is null)
++                return;
++
++            schema.Properties["code"] = new OpenApiSchema
++            {
++                Type = "string",
++                Nullable = true,
++                Description = "Стабильный машиночитаемый код ошибки, например `booking-overlap`.",
++            };
++        }
++    }
++}

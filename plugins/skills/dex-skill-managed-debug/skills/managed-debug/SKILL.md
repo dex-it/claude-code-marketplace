@@ -7,15 +7,10 @@ description: Runtime .NET debug - netcoredbg, dotnet diagnostic tools, SOS, mana
 
 ## Attach и launch
 
-### Attach без CAP_SYS_PTRACE в контейнере
-Плохо: `docker exec -it ... netcoredbg --interpreter=mi --attach <PID>` без `--cap-add=SYS_PTRACE`
-Правильно: контейнер запускается с `--cap-add=SYS_PTRACE --security-opt seccomp=unconfined`, либо `--privileged` для тестового окружения
-Почему: ядро Linux требует CAP_SYS_PTRACE для cross-process attach. Docker по умолчанию её не даёт - silent fail или `ptrace: Operation not permitted`
-
 ### Just-my-code маскирует framework-кадры
-Плохо: `netcoredbg ... -ex "set just-my-code on"` при разборе hang в чужом async-коде
-Правильно: `set just-my-code off` пока root cause не локализован
-Почему: при `on` стек обрезается на первом не-user кадре, теряется ContinueWith / TaskScheduler.UnobservedTaskException - именно там часто живёт hang
+Плохо: Just My Code включён при разборе hang в чужом async-коде
+Правильно: `set just-my-code 0` в CLI netcoredbg (3.1.0, `help set`) пока root cause не локализован
+Почему: Just My Code шагает мимо кода framework и не-user кода, а hang часто живёт в ContinueWith / TaskScheduler
 
 ### Интерактивный режим вместо MI2 для скриптинга
 Плохо: запускать `netcoredbg` без `--interpreter=mi`, пытаясь скриптовать REPL
@@ -38,20 +33,15 @@ description: Runtime .NET debug - netcoredbg, dotnet diagnostic tools, SOS, mana
 
 ### ThreadPool метрика без understanding
 Плохо: смотрим `threadpool-thread-count` и решаем «много thread'ов - всё ок»
-Правильно: одновременно `threadpool-queue-length` (растёт = starvation), `working-threads` (упёрся в `MaxThreads` = starvation), `monitor-lock-contention-count`
-Почему: ThreadPool starvation проявляется как «queue растёт, working-threads = MaxThreads, latency деградирует». ThreadCount без queue не диагностичен
+Правильно: одновременно `threadpool-queue-length` (растёт = starvation), `threadpool-completed-items-count` (не растёт вслед за очередью = starvation), `monitor-lock-contention-count`. На .NET 9+ dotnet-counters показывает Meter: `dotnet.thread_pool.queue.length`, `dotnet.thread_pool.work_item.count`, `dotnet.monitor.lock_contentions` - накопительные, прирост за интервал в колонке `Last Delta` с `--showDeltas`; на .NET <= 8 EventCounter сразу выводится темпом `Count / 1 sec`
+Почему: ThreadPool starvation проявляется как «queue растёт, completed-items стоит, latency деградирует». ThreadCount без queue не диагностичен
 
 ### Counter-only без allocation rate
-Плохо: фиксируем «gen0-gc-count высокий» как root cause GC pressure
-Правильно: одновременно `alloc-rate` (байт/сек), `gen2-gc-count` (gen2 дорог), `% time in gc`
+Плохо: фиксируем «gen-0-gc-count высокий» как root cause GC pressure
+Правильно: одновременно `alloc-rate` (байт/сек), `gen-2-gc-count` (gen2 дорог), `time-in-gc` (доля времени в GC)
 Почему: gen0 GC дёшев, gen2 дорог. Высокий gen0 без alloc-rate не значит pressure - может быть просто busy app
 
 ## dotnet-dump и dotnet-gcdump
-
-### Mini-тип на Linux в надежде анализировать в WinDbg
-Плохо: `dotnet-dump collect --type Mini` на Linux потом попытка `windbg core.dump`
-Правильно: на Linux всегда `--type Full`, анализ только через `dotnet-dump analyze`
-Почему: Mini на Linux - не Windows minidump формат. WinDbg на Linux core не работает. Full включает managed metadata, читается только `dotnet-dump`
 
 ### gcdump блокирует процесс на multi-GB heap
 Плохо: `dotnet-gcdump collect -p <PID>` на prod-сервисе с heap 8GB во время инцидента
@@ -67,7 +57,7 @@ description: Runtime .NET debug - netcoredbg, dotnet diagnostic tools, SOS, mana
 
 ### clrstack -a без локалей символов
 Плохо: `dotnet-dump analyze core.dump` -> `clrstack -a`, ожидание увидеть параметры методов
-Правильно: сперва `setsymbolserver -ms` или `dotnet-symbol --symbols --reference-symbols <dump>`, потом `clrstack -a`
+Правильно: сперва `setsymbolserver -ms` или `dotnet-symbol --symbols <dump>`, потом `clrstack -a`
 Почему: `-a` (locals и parameters) требует public PDB символов. Без них видны только имена методов, аргументы как `<no data>`
 
 ### dumpasync скрывает completed continuations
@@ -75,18 +65,7 @@ description: Runtime .NET debug - netcoredbg, dotnet diagnostic tools, SOS, mana
 Правильно: `!dumpasync -completed` дополнительно, плюс `!syncblk` для managed monitors, `!clrthreads -live` для активных threads
 Почему: `dumpasync` по умолчанию фильтрует завершённые. Cause hang может быть в continuation, которая уже вернула Task но висит на нижестоящем .Wait()
 
-## ThreadPool starvation и async hang
-
-### Lock на async-методе с .Result внутри
-Плохо: считать «hang в async-методе - это deadlock на SynchronizationContext»
-Правильно: проверить через `dumpasync` нет ли цепочки `.Result` / `.Wait()` / `GetAwaiter().GetResult()` в hot-path; одновременно `dotnet-counters` `threadpool-queue-length`
-Почему: ASP.NET Core нет SynchronizationContext capture, классический deadlock редок. Чаще starvation от `.Result` блокирующего worker thread
-
-> Антипаттерны `.Result` / `.Wait()` / missing ConfigureAwait в библиотеках - см. dex-skill-dotnet-async-patterns.
-> IDisposable / HttpClient lifetime / socket exhaustion как причины managed leak - см. dex-skill-dotnet-resources.
-> Structured logging как первая линия диагностики - см. dex-skill-dotnet-logging.
-
-## Mismatched symbols и SourceLink
+## Символы и исходники
 
 ### PDB не подгружены - стеки в IL-смещениях
 Плохо: managed stack показывает `MyApp.Service.Process+IL_0042` вместо `Service.cs:123`
@@ -95,7 +74,7 @@ description: Runtime .NET debug - netcoredbg, dotnet diagnostic tools, SOS, mana
 
 ### SourceLink требует git-доступ к origin
 Плохо: при анализе дампа netcoredbg выдаёт `Source not available` для своего же кода
-Правильно: проверить что PDB содержит SourceLink JSON (`pwsh -c "& dotnet-symbol --packages <pdb> -o ."`), доступ к git-origin из debug-машины
+Правильно: проверить что PDB содержит SourceLink JSON и доступ к git-origin из debug-машины
 Почему: SourceLink резолвит `https://raw.githubusercontent.com/...` по коммит-хэшу. Без auth или offline-машины ссылка не открывается, source не подгружается
 
 ### netcoredbg ABI mismatch с runtime

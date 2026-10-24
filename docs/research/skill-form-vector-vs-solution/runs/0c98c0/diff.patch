@@ -1,0 +1,636 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..3beb2a0
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,16 @@
++# Изменения
++
++## Изменённые файлы
++- `src/VetClinic.Records/Domain.cs` — `Visit.Notes` → `Visit.Anamnesis`.
++- `src/VetClinic.Records/ClinicCardService.cs` — добавлены `DeleteOwnerAsync(ownerId)` (каскадный soft-delete владельца → питомцы → аллергии/визиты) и `ReplaceAllergiesAsync(petId, IReadOnlyList<AllergyInput>)` (soft-delete текущих аллергий + добавление присланного списка целиком); `UpdateVisitNotesAsync` переименован в `UpdateVisitAnamnesisAsync`; `VisitDto.Notes` → `VisitDto.Anamnesis`.
++- `src/VetClinic.Records/Program.cs` — добавлены `DELETE /owners/{id}` и `PUT /pets/{id}/allergies` (полная замена списка); эндпоинт `PUT /visits/{id}/notes` переименован в `PUT /visits/{id}/anamnesis`.
++
++## Новые файлы
++- `src/VetClinic.Records/Migrations/20261002090000_RenameVisitNotesToAnamnesis.cs` — `RenameColumn("Notes" → "Anamnesis")` на `Visits` (и обратно в `Down`).
++- `src/VetClinic.Records/Migrations/20261002090000_RenameVisitNotesToAnamnesis.Designer.cs` — целевая модель миграции.
++- `src/VetClinic.Records/Migrations/ClinicDbContextModelSnapshot.cs` — актуальный снапшот модели с `Anamnesis`.
++
++## Решения
++- (а) и (б) не делают физического удаления — используют существующий паттерн `IsDeleted/DeletedAt` и глобальные query-фильтры, поэтому удалённый владелец/питомцы/визиты и старые аллергии автоматически пропадают из всех выборок (`GetPetCardAsync`, `GetPlannedVisitsAsync`) без изменения самих запросов.
++- (в) `ALTER TABLE ... RENAME COLUMN` — чисто метаданная операция в PostgreSQL (без переписывания таблицы и блокировки надолго), поэтому вписывается в текущий регламент выкладки: приложение останавливают на окно обслуживания, DBA прогоняет идемпотентный SQL, затем выкатываются новые реплики — многошаговый expand/contract не нужен.
++- В репозитории не было папки `Migrations` вообще (и baseline-миграций, создавших текущую схему), поэтому снапшот модели восстановлен вручную из `Domain.cs`/`ClinicDbContext.cs` в их конечном виде; при первой возможности стоит прогнать `dotnet ef migrations add`/`dotnet ef migrations script` и сверить с этим файлом, чтобы исключить расхождения в аннотациях с реальной историей миграций в проде.
+diff --git a/src/VetClinic.Records/ClinicCardService.cs b/src/VetClinic.Records/ClinicCardService.cs
+index 0c4baf2..0f1dbe3 100644
+--- a/src/VetClinic.Records/ClinicCardService.cs
++++ b/src/VetClinic.Records/ClinicCardService.cs
+@@ -6,7 +6,7 @@ namespace VetClinic.Records.Services;
+ 
+ public record AllergyInput(string Allergen, string? Reaction, AllergySeverity Severity);
+ public record AllergyDto(int Id, string Allergen, string? Reaction, AllergySeverity Severity);
+-public record VisitDto(int Id, DateTime ScheduledAt, string VetName, VisitStatus Status, string? Notes);
++public record VisitDto(int Id, DateTime ScheduledAt, string VetName, VisitStatus Status, string? Anamnesis);
+ public record PetCardDto(int Id, string Name, string Species, string OwnerName,
+     List<AllergyDto> Allergies, List<VisitDto> Visits);
+ 
+@@ -22,7 +22,7 @@ public class ClinicCardService(ClinicDbContext db)
+                     .ToList(),
+                 p.Visits
+                     .OrderByDescending(v => v.ScheduledAt)
+-                    .Select(v => new VisitDto(v.Id, v.ScheduledAt, v.VetName, v.Status, v.Notes))
++                    .Select(v => new VisitDto(v.Id, v.ScheduledAt, v.VetName, v.Status, v.Anamnesis))
+                     .ToList()))
+             .SingleOrDefaultAsync();
+ 
+@@ -31,7 +31,7 @@ public class ClinicCardService(ClinicDbContext db)
+         await db.Visits
+             .Where(v => v.VetName == vetName && v.Status == VisitStatus.Planned)
+             .OrderBy(v => v.ScheduledAt)
+-            .Select(v => new VisitDto(v.Id, v.ScheduledAt, v.VetName, v.Status, v.Notes))
++            .Select(v => new VisitDto(v.Id, v.ScheduledAt, v.VetName, v.Status, v.Anamnesis))
+             .ToListAsync();
+ 
+     public async Task AddAllergyAsync(int petId, AllergyInput input)
+@@ -46,10 +46,70 @@ public class ClinicCardService(ClinicDbContext db)
+         await db.SaveChangesAsync();
+     }
+ 
+-    public async Task UpdateVisitNotesAsync(int visitId, string? notes)
++    // Форма присылает полный список аллергий питомца: текущий набор заменяется целиком.
++    public async Task ReplaceAllergiesAsync(int petId, IReadOnlyList<AllergyInput> allergies)
++    {
++        var pet = await db.Pets.Include(p => p.Allergies).SingleAsync(p => p.Id == petId);
++        var now = DateTime.UtcNow;
++
++        foreach (var existing in pet.Allergies)
++        {
++            existing.IsDeleted = true;
++            existing.DeletedAt = now;
++        }
++
++        foreach (var input in allergies)
++        {
++            pet.Allergies.Add(new Allergy
++            {
++                Allergen = input.Allergen.Trim(),
++                Reaction = input.Reaction,
++                Severity = input.Severity
++            });
++        }
++
++        await db.SaveChangesAsync();
++    }
++
++    public async Task UpdateVisitAnamnesisAsync(int visitId, string? anamnesis)
+     {
+         var visit = await db.Visits.SingleAsync(v => v.Id == visitId);
+-        visit.Notes = notes;
++        visit.Anamnesis = anamnesis;
++        await db.SaveChangesAsync();
++    }
++
++    // Удаление клиента по просьбе: клиент, его питомцы и их визиты перестают
++    // появляться где-либо (списки, карточки, расписание врачей) — soft delete каскадом.
++    public async Task DeleteOwnerAsync(int ownerId)
++    {
++        var owner = await db.Owners
++            .Include(o => o.Pets).ThenInclude(p => p.Allergies)
++            .Include(o => o.Pets).ThenInclude(p => p.Visits)
++            .SingleAsync(o => o.Id == ownerId);
++
++        var now = DateTime.UtcNow;
++
++        owner.IsDeleted = true;
++        owner.DeletedAt = now;
++
++        foreach (var pet in owner.Pets)
++        {
++            pet.IsDeleted = true;
++            pet.DeletedAt = now;
++
++            foreach (var allergy in pet.Allergies)
++            {
++                allergy.IsDeleted = true;
++                allergy.DeletedAt = now;
++            }
++
++            foreach (var visit in pet.Visits)
++            {
++                visit.IsDeleted = true;
++                visit.DeletedAt = now;
++            }
++        }
++
+         await db.SaveChangesAsync();
+     }
+ }
+diff --git a/src/VetClinic.Records/Domain.cs b/src/VetClinic.Records/Domain.cs
+index dba95f4..c042ab8 100644
+--- a/src/VetClinic.Records/Domain.cs
++++ b/src/VetClinic.Records/Domain.cs
+@@ -72,7 +72,7 @@ public class Visit : ISoftDeletable
+     public string VetName { get; set; } = "";
+     public DateTime ScheduledAt { get; set; }
+     public VisitStatus Status { get; set; }
+-    public string? Notes { get; set; }
++    public string? Anamnesis { get; set; }
+ 
+     public bool IsDeleted { get; set; }
+     public DateTime? DeletedAt { get; set; }
+diff --git a/src/VetClinic.Records/Migrations/20261002090000_RenameVisitNotesToAnamnesis.Designer.cs b/src/VetClinic.Records/Migrations/20261002090000_RenameVisitNotesToAnamnesis.Designer.cs
+new file mode 100644
+index 0000000..2c84567
+--- /dev/null
++++ b/src/VetClinic.Records/Migrations/20261002090000_RenameVisitNotesToAnamnesis.Designer.cs
+@@ -0,0 +1,213 @@
++// <auto-generated />
++using System;
++using Microsoft.EntityFrameworkCore;
++using Microsoft.EntityFrameworkCore.Infrastructure;
++using Microsoft.EntityFrameworkCore.Migrations;
++using VetClinic.Records.Data;
++
++#nullable disable
++
++namespace VetClinic.Records.Migrations
++{
++    [DbContext(typeof(ClinicDbContext))]
++    [Migration("20261002090000_RenameVisitNotesToAnamnesis")]
++    partial class RenameVisitNotesToAnamnesis
++    {
++        /// <inheritdoc />
++        protected override void BuildTargetModel(ModelBuilder modelBuilder)
++        {
++#pragma warning disable 612, 618
++            modelBuilder
++                .HasAnnotation("ProductVersion", "8.0.10")
++                .HasAnnotation("Relational:MaxIdentifierLength", 63);
++
++            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
++
++            modelBuilder.Entity("VetClinic.Records.Domain.Allergy", b =>
++            {
++                b.Property<int>("Id")
++                    .ValueGeneratedOnAdd()
++                    .HasColumnType("integer");
++
++                NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++                b.Property<string>("Allergen")
++                    .IsRequired()
++                    .HasMaxLength(200)
++                    .HasColumnType("character varying(200)");
++
++                b.Property<DateTime?>("DeletedAt")
++                    .HasColumnType("timestamp with time zone");
++
++                b.Property<bool>("IsDeleted")
++                    .HasColumnType("boolean");
++
++                b.Property<int>("PetId")
++                    .HasColumnType("integer");
++
++                b.Property<string>("Reaction")
++                    .HasColumnType("text");
++
++                b.Property<int>("Severity")
++                    .HasColumnType("integer");
++
++                b.HasKey("Id");
++
++                b.HasIndex("PetId");
++
++                b.ToTable("Allergies");
++            });
++
++            modelBuilder.Entity("VetClinic.Records.Domain.Owner", b =>
++            {
++                b.Property<int>("Id")
++                    .ValueGeneratedOnAdd()
++                    .HasColumnType("integer");
++
++                NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++                b.Property<DateTime?>("DeletedAt")
++                    .HasColumnType("timestamp with time zone");
++
++                b.Property<string>("FullName")
++                    .IsRequired()
++                    .HasMaxLength(200)
++                    .HasColumnType("character varying(200)");
++
++                b.Property<bool>("IsDeleted")
++                    .HasColumnType("boolean");
++
++                b.Property<string>("Phone")
++                    .IsRequired()
++                    .HasMaxLength(11)
++                    .HasColumnType("character varying(11)");
++
++                b.HasKey("Id");
++
++                b.ToTable("Owners");
++            });
++
++            modelBuilder.Entity("VetClinic.Records.Domain.Pet", b =>
++            {
++                b.Property<int>("Id")
++                    .ValueGeneratedOnAdd()
++                    .HasColumnType("integer");
++
++                NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++                b.Property<DateOnly>("BirthDate")
++                    .HasColumnType("date");
++
++                b.Property<DateTime?>("DeletedAt")
++                    .HasColumnType("timestamp with time zone");
++
++                b.Property<bool>("IsDeleted")
++                    .HasColumnType("boolean");
++
++                b.Property<string>("Name")
++                    .IsRequired()
++                    .HasMaxLength(100)
++                    .HasColumnType("character varying(100)");
++
++                b.Property<int>("OwnerId")
++                    .HasColumnType("integer");
++
++                b.Property<string>("Species")
++                    .IsRequired()
++                    .HasColumnType("text");
++
++                b.HasKey("Id");
++
++                b.HasIndex("OwnerId");
++
++                b.ToTable("Pets");
++            });
++
++            modelBuilder.Entity("VetClinic.Records.Domain.Visit", b =>
++            {
++                b.Property<int>("Id")
++                    .ValueGeneratedOnAdd()
++                    .HasColumnType("integer");
++
++                NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++                b.Property<string>("Anamnesis")
++                    .HasColumnType("text");
++
++                b.Property<DateTime?>("DeletedAt")
++                    .HasColumnType("timestamp with time zone");
++
++                b.Property<bool>("IsDeleted")
++                    .HasColumnType("boolean");
++
++                b.Property<int>("PetId")
++                    .HasColumnType("integer");
++
++                b.Property<DateTime>("ScheduledAt")
++                    .HasColumnType("timestamp with time zone");
++
++                b.Property<int>("Status")
++                    .HasColumnType("integer");
++
++                b.Property<string>("VetName")
++                    .IsRequired()
++                    .HasMaxLength(200)
++                    .HasColumnType("character varying(200)");
++
++                b.HasKey("Id");
++
++                b.HasIndex("PetId");
++
++                b.HasIndex("VetName", "Status", "ScheduledAt");
++
++                b.ToTable("Visits");
++            });
++
++            modelBuilder.Entity("VetClinic.Records.Domain.Allergy", b =>
++            {
++                b.HasOne("VetClinic.Records.Domain.Pet", "Pet")
++                    .WithMany("Allergies")
++                    .HasForeignKey("PetId")
++                    .OnDelete(DeleteBehavior.Cascade)
++                    .IsRequired();
++
++                b.Navigation("Pet");
++            });
++
++            modelBuilder.Entity("VetClinic.Records.Domain.Pet", b =>
++            {
++                b.HasOne("VetClinic.Records.Domain.Owner", "Owner")
++                    .WithMany("Pets")
++                    .HasForeignKey("OwnerId")
++                    .OnDelete(DeleteBehavior.Cascade)
++                    .IsRequired();
++
++                b.Navigation("Owner");
++            });
++
++            modelBuilder.Entity("VetClinic.Records.Domain.Visit", b =>
++            {
++                b.HasOne("VetClinic.Records.Domain.Pet", "Pet")
++                    .WithMany("Visits")
++                    .HasForeignKey("PetId")
++                    .OnDelete(DeleteBehavior.Cascade)
++                    .IsRequired();
++
++                b.Navigation("Pet");
++            });
++
++            modelBuilder.Entity("VetClinic.Records.Domain.Owner", b =>
++            {
++                b.Navigation("Pets");
++            });
++
++            modelBuilder.Entity("VetClinic.Records.Domain.Pet", b =>
++            {
++                b.Navigation("Allergies");
++
++                b.Navigation("Visits");
++            });
++#pragma warning restore 612, 618
++        }
++    }
++}
+diff --git a/src/VetClinic.Records/Migrations/20261002090000_RenameVisitNotesToAnamnesis.cs b/src/VetClinic.Records/Migrations/20261002090000_RenameVisitNotesToAnamnesis.cs
+new file mode 100644
+index 0000000..f8d79fb
+--- /dev/null
++++ b/src/VetClinic.Records/Migrations/20261002090000_RenameVisitNotesToAnamnesis.cs
+@@ -0,0 +1,28 @@
++using Microsoft.EntityFrameworkCore.Migrations;
++
++#nullable disable
++
++namespace VetClinic.Records.Migrations
++{
++    /// <inheritdoc />
++    public partial class RenameVisitNotesToAnamnesis : Migration
++    {
++        /// <inheritdoc />
++        protected override void Up(MigrationBuilder migrationBuilder)
++        {
++            migrationBuilder.RenameColumn(
++                name: "Notes",
++                table: "Visits",
++                newName: "Anamnesis");
++        }
++
++        /// <inheritdoc />
++        protected override void Down(MigrationBuilder migrationBuilder)
++        {
++            migrationBuilder.RenameColumn(
++                name: "Anamnesis",
++                table: "Visits",
++                newName: "Notes");
++        }
++    }
++}
+diff --git a/src/VetClinic.Records/Migrations/ClinicDbContextModelSnapshot.cs b/src/VetClinic.Records/Migrations/ClinicDbContextModelSnapshot.cs
+new file mode 100644
+index 0000000..31dafd1
+--- /dev/null
++++ b/src/VetClinic.Records/Migrations/ClinicDbContextModelSnapshot.cs
+@@ -0,0 +1,210 @@
++// <auto-generated />
++using System;
++using Microsoft.EntityFrameworkCore;
++using Microsoft.EntityFrameworkCore.Infrastructure;
++using VetClinic.Records.Data;
++
++#nullable disable
++
++namespace VetClinic.Records.Migrations
++{
++    [DbContext(typeof(ClinicDbContext))]
++    partial class ClinicDbContextModelSnapshot : ModelSnapshot
++    {
++        protected override void BuildModel(ModelBuilder modelBuilder)
++        {
++#pragma warning disable 612, 618
++            modelBuilder
++                .HasAnnotation("ProductVersion", "8.0.10")
++                .HasAnnotation("Relational:MaxIdentifierLength", 63);
++
++            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
++
++            modelBuilder.Entity("VetClinic.Records.Domain.Allergy", b =>
++            {
++                b.Property<int>("Id")
++                    .ValueGeneratedOnAdd()
++                    .HasColumnType("integer");
++
++                NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++                b.Property<string>("Allergen")
++                    .IsRequired()
++                    .HasMaxLength(200)
++                    .HasColumnType("character varying(200)");
++
++                b.Property<DateTime?>("DeletedAt")
++                    .HasColumnType("timestamp with time zone");
++
++                b.Property<bool>("IsDeleted")
++                    .HasColumnType("boolean");
++
++                b.Property<int>("PetId")
++                    .HasColumnType("integer");
++
++                b.Property<string>("Reaction")
++                    .HasColumnType("text");
++
++                b.Property<int>("Severity")
++                    .HasColumnType("integer");
++
++                b.HasKey("Id");
++
++                b.HasIndex("PetId");
++
++                b.ToTable("Allergies");
++            });
++
++            modelBuilder.Entity("VetClinic.Records.Domain.Owner", b =>
++            {
++                b.Property<int>("Id")
++                    .ValueGeneratedOnAdd()
++                    .HasColumnType("integer");
++
++                NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++                b.Property<DateTime?>("DeletedAt")
++                    .HasColumnType("timestamp with time zone");
++
++                b.Property<string>("FullName")
++                    .IsRequired()
++                    .HasMaxLength(200)
++                    .HasColumnType("character varying(200)");
++
++                b.Property<bool>("IsDeleted")
++                    .HasColumnType("boolean");
++
++                b.Property<string>("Phone")
++                    .IsRequired()
++                    .HasMaxLength(11)
++                    .HasColumnType("character varying(11)");
++
++                b.HasKey("Id");
++
++                b.ToTable("Owners");
++            });
++
++            modelBuilder.Entity("VetClinic.Records.Domain.Pet", b =>
++            {
++                b.Property<int>("Id")
++                    .ValueGeneratedOnAdd()
++                    .HasColumnType("integer");
++
++                NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++                b.Property<DateOnly>("BirthDate")
++                    .HasColumnType("date");
++
++                b.Property<DateTime?>("DeletedAt")
++                    .HasColumnType("timestamp with time zone");
++
++                b.Property<bool>("IsDeleted")
++                    .HasColumnType("boolean");
++
++                b.Property<string>("Name")
++                    .IsRequired()
++                    .HasMaxLength(100)
++                    .HasColumnType("character varying(100)");
++
++                b.Property<int>("OwnerId")
++                    .HasColumnType("integer");
++
++                b.Property<string>("Species")
++                    .IsRequired()
++                    .HasColumnType("text");
++
++                b.HasKey("Id");
++
++                b.HasIndex("OwnerId");
++
++                b.ToTable("Pets");
++            });
++
++            modelBuilder.Entity("VetClinic.Records.Domain.Visit", b =>
++            {
++                b.Property<int>("Id")
++                    .ValueGeneratedOnAdd()
++                    .HasColumnType("integer");
++
++                NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++                b.Property<string>("Anamnesis")
++                    .HasColumnType("text");
++
++                b.Property<DateTime?>("DeletedAt")
++                    .HasColumnType("timestamp with time zone");
++
++                b.Property<bool>("IsDeleted")
++                    .HasColumnType("boolean");
++
++                b.Property<int>("PetId")
++                    .HasColumnType("integer");
++
++                b.Property<DateTime>("ScheduledAt")
++                    .HasColumnType("timestamp with time zone");
++
++                b.Property<int>("Status")
++                    .HasColumnType("integer");
++
++                b.Property<string>("VetName")
++                    .IsRequired()
++                    .HasMaxLength(200)
++                    .HasColumnType("character varying(200)");
++
++                b.HasKey("Id");
++
++                b.HasIndex("PetId");
++
++                b.HasIndex("VetName", "Status", "ScheduledAt");
++
++                b.ToTable("Visits");
++            });
++
++            modelBuilder.Entity("VetClinic.Records.Domain.Allergy", b =>
++            {
++                b.HasOne("VetClinic.Records.Domain.Pet", "Pet")
++                    .WithMany("Allergies")
++                    .HasForeignKey("PetId")
++                    .OnDelete(DeleteBehavior.Cascade)
++                    .IsRequired();
++
++                b.Navigation("Pet");
++            });
++
++            modelBuilder.Entity("VetClinic.Records.Domain.Pet", b =>
++            {
++                b.HasOne("VetClinic.Records.Domain.Owner", "Owner")
++                    .WithMany("Pets")
++                    .HasForeignKey("OwnerId")
++                    .OnDelete(DeleteBehavior.Cascade)
++                    .IsRequired();
++
++                b.Navigation("Owner");
++            });
++
++            modelBuilder.Entity("VetClinic.Records.Domain.Visit", b =>
++            {
++                b.HasOne("VetClinic.Records.Domain.Pet", "Pet")
++                    .WithMany("Visits")
++                    .HasForeignKey("PetId")
++                    .OnDelete(DeleteBehavior.Cascade)
++                    .IsRequired();
++
++                b.Navigation("Pet");
++            });
++
++            modelBuilder.Entity("VetClinic.Records.Domain.Owner", b =>
++            {
++                b.Navigation("Pets");
++            });
++
++            modelBuilder.Entity("VetClinic.Records.Domain.Pet", b =>
++            {
++                b.Navigation("Allergies");
++
++                b.Navigation("Visits");
++            });
++#pragma warning restore 612, 618
++        }
++    }
++}
+diff --git a/src/VetClinic.Records/Program.cs b/src/VetClinic.Records/Program.cs
+index 589f4a8..6d0c3b9 100644
+--- a/src/VetClinic.Records/Program.cs
++++ b/src/VetClinic.Records/Program.cs
+@@ -23,9 +23,21 @@ app.MapPost("/pets/{id:int}/allergies", async (int id, AllergyInput input, Clini
+     return Results.NoContent();
+ });
+ 
+-app.MapPut("/visits/{id:int}/notes", async (int id, string? notes, ClinicCardService s) =>
++app.MapPut("/pets/{id:int}/allergies", async (int id, List<AllergyInput> allergies, ClinicCardService s) =>
+ {
+-    await s.UpdateVisitNotesAsync(id, notes);
++    await s.ReplaceAllergiesAsync(id, allergies);
++    return Results.NoContent();
++});
++
++app.MapPut("/visits/{id:int}/anamnesis", async (int id, string? anamnesis, ClinicCardService s) =>
++{
++    await s.UpdateVisitAnamnesisAsync(id, anamnesis);
++    return Results.NoContent();
++});
++
++app.MapDelete("/owners/{id:int}", async (int id, ClinicCardService s) =>
++{
++    await s.DeleteOwnerAsync(id);
+     return Results.NoContent();
+ });
+ 

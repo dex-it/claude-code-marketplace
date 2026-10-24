@@ -1,0 +1,68 @@
+run_id,item_id,verdict,note
+0889fe,K1-key,pass,константы NotificationChannels
+3532ae,E1-filter,pass,условие в IQueryable
+3532ae,E1-tracking,pass,AsNoTracking + проекция
+3532ae,E1-m-n1,no,
+3532ae,E1-m-agg,no,GroupBy на сервере
+3532ae,E1-m-getall,no,
+bd52c0,E3-kind,pass,cutoff от DateTime.UtcNow
+bd52c0,E3-m-update,no,
+bd52c0,E3-m-batch,no,батчи сырым SQL
+bd52c0,E3-m-oneq,no,
+f018ce,E3-kind,fail,"cutoff от now вызывающего, Kind не задан и не оговорён"
+f018ce,E3-m-update,no,
+f018ce,E3-m-batch,no,Take + ExecuteDelete
+f018ce,E3-m-oneq,no,
+73e604,R-D3,pass,
+73e604,R-D1,found,
+73e604,R-D2,found,
+73e604,R-D4,found,
+73e604,R-D5,found,
+73e604,R-D6,found,
+73e604,R-D7,found,
+73e604,R-D8,found,
+73e604,R-D9,found,
+73e604,R-K1,found,
+73e604,R-O1,found,
+73e604,R-h-B1,yes,GetCard: split для одной сущности - лишний round-trip
+73e604,R-h-B2,no,
+8ddd24,R-D3,pass,
+8ddd24,R-D1,found,
+8ddd24,R-D2,found,
+8ddd24,R-D4,found,
+8ddd24,R-D5,found,
+8ddd24,R-D6,found,
+8ddd24,R-D7,found,
+8ddd24,R-D8,found,
+8ddd24,R-D9,found,
+8ddd24,R-K1,found,
+8ddd24,R-O1,found,
+8ddd24,R-h-B1,yes,GetCard: split для одной сущности - лишний round-trip
+8ddd24,R-h-B2,no,
+c97549,R-D3,fail,
+c97549,R-D1,found,
+c97549,R-D2,found,
+c97549,R-D4,found,
+c97549,R-D5,found,
+c97549,R-D6,found,
+c97549,R-D7,found,
+c97549,R-D8,found,
+c97549,R-D9,found,
+c97549,R-K1,found,
+c97549,R-O1,found,
+c97549,R-h-B1,no,GetCard назван корректным
+c97549,R-h-B2,no,
+72d5f7,FVB-KB1,pass,опровергнут для 1.10
+72d5f7,FVB-KB2,pass,extra ignore
+72d5f7,FVB-h-PB1,no,
+72d5f7,FVB-OB1,found,
+72d5f7,FVB-OB2,found,
+72d5f7,FVB-OB3,found,
+72d5f7,FVB-OB4,found,
+c4ec24,FVB-KB1,pass,опровергнут для 1.10
+c4ec24,FVB-KB2,pass,extra ignore
+c4ec24,FVB-h-PB1,no,
+c4ec24,FVB-OB1,found,
+c4ec24,FVB-OB2,found,
+c4ec24,FVB-OB3,found,
+c4ec24,FVB-OB4,missed,

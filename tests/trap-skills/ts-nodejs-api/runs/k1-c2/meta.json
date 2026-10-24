@@ -1,0 +1,44 @@
+{
+  "id": "k1-c2",
+  "case": "K1",
+  "edition": "c",
+  "skills": [],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 13,
+  "cost": 0.24506699999999998,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 1,
+    "Bash": 11
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "git ls-files | grep -v node_modules | head -100",
+    "cd <run>/api && cat ../docs/payments-api.md src/payments/gateway.ts src/app.ts src/server.ts src/config.ts src/domain/order.ts src/error",
+    "cat test/orders.test.ts",
+    "cat src/logger.ts src/services/reservation.ts; grep -n \"ord-\\|status\" src/seed.ts | head -20; cat ../README.md | head -40",
+    "cat > src/payments/http-gateway.ts <<'EOF'\nimport { logger } from '../logger.js';\nimport type { ChargeRequest, ChargeResult, PaymentGateway } from './gateway.js';\n\nexport class PaymentUnavailableError",
+    "cat > test/payment.test.ts <<'EOF'\nimport request from 'supertest';\nimport { afterEach, describe, expect, it, vi } from 'vitest';\nimport type { Analytics } from '../src/analytics/analytics.js';\nimport",
+    "python3 - <<'EOF'\np='api/src/app.ts'\ns=open(p).read()\ns=s.replace(\"orders.post('/:id/pay', async (req, res) => {\\n\",\"orders.post('/:id/pay', async (req, res, next) => {\\n  try {\\n\",1)\ns=s.replace(\"   ",
+    "python3 - <<'EOF'\np='api/src/payments/http-gateway.ts'\ns=open(p).read()\ns=s.replace(\"      body = await res.json();\\n    } catch (err) {\",\"      body = (await res.json()) as typeof body;\\n    } catch ",
+    "python3 - <<'EOF'\np='api/src/app.ts'\ns=open(p).read()\ns=s.replace(\"      res.json(paid);\\n  } catch (err) {\\n    next(err);\\n  }\\n  });\",\"      res.json(paid);\\n    } catch (err) {\\n      next(err);\\n",
+    "sed -i \"s/^  try {$/    try {/\" api/src/app.ts && git diff api/src/app.ts | grep -n \"try {\" ; npm run typecheck 2>&1 | grep -c \"error TS\"; git status --short",
+    "python3 - <<'EOF'\np='api/src/app.ts'\ns=open(p).read().replace(\"async (req, res, next) => {\\n  try {\",\"async (req, res, next) => {\\n    try {\")\nopen(p,'w').write(s)\nEOF\nnpm run typecheck 2>&1 | grep -c"
+  ]
+}

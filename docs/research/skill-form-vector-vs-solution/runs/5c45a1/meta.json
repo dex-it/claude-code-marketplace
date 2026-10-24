@@ -1,0 +1,100 @@
+{
+  "id": "5c45a1",
+  "exitCode": 0,
+  "started": "2026-09-29T08:24:40.508Z",
+  "finished": "2026-09-29T08:27:18.997Z",
+  "wallMs": 158489,
+  "init": {
+    "model": "claude-sonnet-5",
+    "skills": [],
+    "plugins": [
+      {
+        "name": "agents-md",
+        "path": "builtin",
+        "source": "agents-md@builtin"
+      },
+      {
+        "name": "telemetry",
+        "path": "builtin",
+        "source": "telemetry@builtin"
+      }
+    ],
+    "tools": [
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "WebFetch",
+      "WebSearch",
+      "Write"
+    ],
+    "mcpServers": [],
+    "cwd": "/Users/anonymous/.cache/research/runs/5c45a1/work",
+    "claudeCodeVersion": "2.1.284"
+  },
+  "toolCalls": {
+    "Read": 16,
+    "Glob": 1,
+    "Grep": 1,
+    "Write": 1
+  },
+  "webCalls": 0,
+  "skillCalls": [],
+  "readPaths": [
+    "/Users/anonymous/.cache/research/runs/5c45a1/rules/SKILL.md",
+    "/Users/anonymous/.cache/research/runs/5c45a1/work/MR.md",
+    "/Users/anonymous/.cache/research/runs/5c45a1/work/Options/OutboxOptions.cs",
+    "/Users/anonymous/.cache/research/runs/5c45a1/work/Options/OutboxOptionsValidator.cs",
+    "/Users/anonymous/.cache/research/runs/5c45a1/work/Options/SmtpOptions.cs",
+    "/Users/anonymous/.cache/research/runs/5c45a1/work/Program.cs",
+    "/Users/anonymous/.cache/research/runs/5c45a1/work/OutboxWorker.cs",
+    "/Users/anonymous/.cache/research/runs/5c45a1/work/ThrottleService.cs",
+    "/Users/anonymous/.cache/research/runs/5c45a1/work/SmtpMailSender.cs",
+    "/Users/anonymous/.cache/research/runs/5c45a1/work/NotifyDbContext.cs",
+    "/Users/anonymous/.cache/research/runs/5c45a1/work/IMailSender.cs",
+    "/Users/anonymous/.cache/research/runs/5c45a1/work/appsettings.json",
+    "/Users/anonymous/.cache/research/runs/5c45a1/work/appsettings.Staging.json",
+    "/Users/anonymous/.cache/research/runs/5c45a1/work/appsettings.Production.json",
+    "/Users/anonymous/.cache/research/runs/5c45a1/work/Notify.Worker.csproj",
+    "/Users/anonymous/.cache/research/runs/5c45a1/work/tests/OutboxOptionsValidatorTests.cs"
+  ],
+  "usage": {
+    "input_tokens": 12,
+    "cache_creation_input_tokens": 24892,
+    "cache_read_input_tokens": 90467,
+    "output_tokens": 17904,
+    "output_tokens_details": {
+      "thinking_tokens": 12538
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 24892,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 1059,
+        "cache_read_input_tokens": 26263,
+        "cache_creation_input_tokens": 8489,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 8489
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "costUsd": 0.29672540000000003,
+  "durationMs": 157278,
+  "numTurns": 20,
+  "isError": false,
+  "stderr": "",
+  "resultSubtype": "success"
+}

@@ -1,0 +1,280 @@
+diff --git a/Models.cs b/Models.cs
+index 0a77ffb..845b53e 100644
+--- a/Models.cs
++++ b/Models.cs
+@@ -62,3 +62,13 @@ public class DrivingLesson : ISchoolOwned
+     public int Minutes { get; set; }
+     public bool Done { get; set; }
+ }
++
++public class LoginCode : ISchoolOwned
++{
++    public int Id { get; set; }
++    public int SchoolId { get; set; }
++    public int StudentId { get; set; }
++    public string Code { get; set; } = "";
++    public DateTime ExpiresAt { get; set; }     // UTC
++    public bool IsUsed { get; set; }
++}
+diff --git a/Program.cs b/Program.cs
+index 67b5848..7b44bd8 100644
+--- a/Program.cs
++++ b/Program.cs
+@@ -39,10 +39,65 @@ api.MapPost("/students/{id:int}/graduate", async (int id, GraduateRequest req, S
+     return Results.NoContent();
+ });
+ 
++// (а) Вход по одноразовому коду
++var appApi = api.MapGroup("/app");
++appApi.MapPost("/login/request", async (LoginCodeRequest req, StudentService s) =>
++{
++    try
++    {
++        await s.RequestLoginCodeAsync(req.Email);
++        return Results.Ok();
++    }
++    catch (KeyNotFoundException)
++    {
++        return Results.NotFound();
++    }
++});
++
++appApi.MapPost("/login/confirm", async (LoginConfirmRequest req, StudentService s) =>
++{
++    try
++    {
++        var studentId = await s.ConfirmLoginCodeAsync(req.Email, req.Code);
++        return Results.Ok(new { studentId });
++    }
++    catch
++    {
++        return Results.BadRequest();
++    }
++});
++
++// (г) Прогресс ученика
++appApi.MapGet("/progress", async (int studentId, StudentService s) =>
++{
++    var progress = await s.GetProgressAsync(studentId);
++    return Results.Ok(progress);
++});
++
+ // Файлы для печати отдаются отдельно от API.
+ app.MapGet("/exports/instructors/{id:int}/students.csv", async (int id, StudentService s) =>
+     Results.Text(await s.ExportForInstructorCsvAsync(id), "text/csv"));
+ 
++// (б) Отчёт по выпускникам
++var reports = api.MapGroup("/reports");
++reports.MapGet("/graduates", async (int year, StudentService s) =>
++{
++    var graduates = await s.GetGraduatesByYearAsync(year);
++    return Results.Ok(graduates);
++});
++
++// (в) Список учеников инструктора
++var instructor = api.MapGroup("/instructor");
++instructor.MapGet("/students", async (HttpContext ctx, StudentService s) =>
++{
++    var instructorIdHeader = ctx.Request.Headers["X-Instructor-Id"].ToString();
++    if (!int.TryParse(instructorIdHeader, out var instructorId))
++        return Results.BadRequest("Отсутствует заголовок X-Instructor-Id");
++
++    var students = await s.GetInstructorStudentsAsync(instructorId);
++    return Results.Ok(students);
++});
++
+ app.Run();
+ 
+ public record GraduateRequest(DateOnly GraduatedOn);
+diff --git a/QueryFilters.cs b/QueryFilters.cs
+index 4740797..4ad401f 100644
+--- a/QueryFilters.cs
++++ b/QueryFilters.cs
+@@ -9,5 +9,6 @@ public static class QueryFilters
+         b.Entity<Instructor>().HasQueryFilter(i => i.SchoolId == db.SchoolId && !i.IsDeleted);
+         b.Entity<Student>().HasQueryFilter(s => s.SchoolId == db.SchoolId);
+         b.Entity<DrivingLesson>().HasQueryFilter(l => l.SchoolId == db.SchoolId);
++        b.Entity<LoginCode>().HasQueryFilter(c => c.SchoolId == db.SchoolId);
+     }
+ }
+diff --git a/SchoolDbContext.cs b/SchoolDbContext.cs
+index 2ee03f7..53eb9b3 100644
+--- a/SchoolDbContext.cs
++++ b/SchoolDbContext.cs
+@@ -21,6 +21,7 @@ public class SchoolDbContext : DbContext
+     public DbSet<Instructor> Instructors => Set<Instructor>();
+     public DbSet<Student> Students => Set<Student>();
+     public DbSet<DrivingLesson> Lessons => Set<DrivingLesson>();
++    public DbSet<LoginCode> LoginCodes => Set<LoginCode>();
+ 
+     protected override void OnModelCreating(ModelBuilder b)
+     {
+diff --git a/StudentService.cs b/StudentService.cs
+index 8e68954..c43d2e6 100644
+--- a/StudentService.cs
++++ b/StudentService.cs
+@@ -11,12 +11,22 @@ public interface IEmailSender
+ public record RegisterRequest(string FullName, string Email, string Phone, string PassportNo, int? InstructorId);
+ public record ContactsRequest(string Email, string Phone);
+ public record StudentDto(int Id, string FullName, string Email, string Phone, StudentStatus Status, string? Instructor);
++public record LoginCodeRequest(string Email);
++public record LoginConfirmRequest(string Email, string Code);
++public record InstructorStudentDto(int Id, string FullName, string Phone, string Email, string PassportNo, DateTime? NextLessonAt);
++public record GraduateReportDto(string InstructorName, int Count);
++public record ProgressDto(int CompletedHours, int TotalHours);
+ 
+ public class StudentService
+ {
+     private readonly SchoolDbContext _db;
++    private readonly IEmailSender _emailSender;
+ 
+-    public StudentService(SchoolDbContext db) => _db = db;
++    public StudentService(SchoolDbContext db, IEmailSender emailSender)
++    {
++        _db = db;
++        _emailSender = emailSender;
++    }
+ 
+     public async Task<int> RegisterAsync(RegisterRequest req)
+     {
+@@ -78,6 +88,116 @@ public class StudentService
+         return csv.ToString();
+     }
+ 
++    // (а) Запрос кода подтверждения для входа
++    public async Task RequestLoginCodeAsync(string email)
++    {
++        var normalizedEmail = email.ToLower().Trim();
++        var student = await _db.Students
++            .FirstOrDefaultAsync(s => s.Email.ToLower() == normalizedEmail);
++
++        if (student is null)
++            throw new KeyNotFoundException();
++
++        var code = GenerateCode();
++        var loginCode = new LoginCode
++        {
++            StudentId = student.Id,
++            Code = code,
++            ExpiresAt = DateTime.UtcNow.AddMinutes(10),
++            IsUsed = false
++        };
++        _db.LoginCodes.Add(loginCode);
++        await _emailSender.SendAsync(student.Email, "Ваш код входа", $"Ваш код входа: {code}");
++    }
++
++    // (а) Подтверждение кода и вход
++    public async Task<int> ConfirmLoginCodeAsync(string email, string code)
++    {
++        var normalizedEmail = email.ToLower().Trim();
++        var student = await _db.Students
++            .FirstOrDefaultAsync(s => s.Email.ToLower() == normalizedEmail);
++
++        if (student is null)
++            throw new KeyNotFoundException();
++
++        var loginCode = await _db.LoginCodes
++            .FirstOrDefaultAsync(c => c.StudentId == student.Id && c.Code == code && !c.IsUsed);
++
++        if (loginCode is null || loginCode.ExpiresAt < DateTime.UtcNow)
++            throw new InvalidOperationException("Неверный или истёкший код");
++
++        loginCode.IsUsed = true;
++        return student.Id;
++    }
++
++    // (б) Отчёт по выпускникам за год
++    public async Task<List<GraduateReportDto>> GetGraduatesByYearAsync(int year)
++    {
++        var startDate = new DateOnly(year, 1, 1);
++        var endDate = new DateOnly(year, 12, 31);
++
++        var report = await _db.Students
++            .IgnoreQueryFilters()
++            .Where(s => s.SchoolId == _db.SchoolId && s.Status == StudentStatus.Graduated && s.GraduatedOn >= startDate && s.GraduatedOn <= endDate)
++            .Include(s => s.Instructor)
++            .AsNoTracking()
++            .ToListAsync();
++
++        return report
++            .GroupBy(s => s.Instructor)
++            .Select(g => new GraduateReportDto(g.Key?.FullName ?? "Без инструктора", g.Count()))
++            .OrderBy(x => x.InstructorName)
++            .ToList();
++    }
++
++    // (в) Список учеников инструктора с ближайшим занятием
++    public async Task<List<InstructorStudentDto>> GetInstructorStudentsAsync(int instructorId)
++    {
++        var now = DateTime.UtcNow;
++
++        var students = await _db.Students
++            .Where(s => s.InstructorId == instructorId && s.Status == StudentStatus.Learning)
++            .OrderBy(s => s.FullName)
++            .AsNoTracking()
++            .ToListAsync();
++
++        var result = new List<InstructorStudentDto>();
++        foreach (var s in students)
++        {
++            var nextLesson = await _db.Lessons
++                .Where(l => l.StudentId == s.Id && l.StartsAt > now)
++                .OrderBy(l => l.StartsAt)
++                .FirstOrDefaultAsync();
++
++            var masked = new Student { PassportNo = s.PassportNo, Email = s.Email }.MaskForInstructor();
++            result.Add(new InstructorStudentDto(
++                s.Id,
++                s.FullName,
++                s.Phone,
++                masked.Email,
++                masked.PassportNo,
++                nextLesson?.StartsAt
++            ));
++        }
++
++        return result;
++    }
++
++    // (г) Прогресс ученика: часы вождения
++    public async Task<ProgressDto> GetProgressAsync(int studentId)
++    {
++        var completedMinutes = await _db.Lessons
++            .Where(l => l.StudentId == studentId && l.Done)
++            .SumAsync(l => l.Minutes);
++
++        var completedHours = completedMinutes / 60;
++        const int totalHours = 56;
++
++        return new ProgressDto(completedHours, totalHours);
++    }
++
++    private static string GenerateCode() => Random.Shared.Next(100000, 999999).ToString();
++
+     private static StudentDto ToDto(Student s) =>
+         new(s.Id, s.FullName, s.Email, s.Phone, s.Status, s.Instructor?.FullName);
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..8cbeee4
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,18 @@
++# Решения для AutoSchool.Cloud
++
++## Изменённые/созданные файлы:
++- `Models.cs` - добавлена модель `LoginCode` для хранения кодов подтверждения (действуют 10 минут)
++- `SchoolDbContext.cs` - добавлен `DbSet<LoginCode>` и конфигурация
++- `QueryFilters.cs` - добавлен query filter для `LoginCode` с фильтром по `SchoolId`
++- `StudentService.cs` - добавлены методы: `RequestLoginCodeAsync`, `ConfirmLoginCodeAsync`, `GetGraduatesByYearAsync`, `GetInstructorStudentsAsync`, `GetProgressAsync`
++- `Program.cs` - добавлены endpoints: POST `/api/app/login/request`, POST `/api/app/login/confirm`, GET `/api/app/progress`, GET `/api/reports/graduates`, GET `/api/instructor/students`
++
++## Описание решений:
++
++**(а) Вход по одноразовому коду:** При запросе на `/api/app/login/request` генерируется 6-значный случайный код (используется `Random.Shared`), сохраняется в БД с временем истечения 10 минут, отправляется на почту ученика. На `/api/app/login/confirm` проверяется код, валидируется по времени истечения и отмечается как использованный; возвращается `studentId`.
++
++**(б) Отчёт выпускников:** GET `/api/reports/graduates?year=2025` выбирает студентов со статусом `Graduated` за указанный год, включает инструкторов (даже уволенных через `IgnoreQueryFilters()`), группирует по инструктору и возвращает список с их именами и количеством выпускников.
++
++**(в) Список учеников инструктора:** GET `/api/instructor/students` читает инструктора из заголовка `X-Instructor-Id`, возвращает учеников со статусом `Learning`, маскирует паспорт и почту (как в CSV), и добавляет дату ближайшего занятия (запрос в цикле для каждого ученика).
++
++**(г) Прогресс ученика:** GET `/api/app/progress?studentId=123` суммирует минуты всех завершённых занятий (`Done=true`), преобразует в часы и возвращает как `{ completedHours, totalHours: 56 }`.

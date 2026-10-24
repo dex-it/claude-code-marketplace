@@ -1,0 +1,14 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 29e5b86..4703e3d 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -13,4 +13,9 @@ jobs:
+       - uses: actions/setup-dotnet@v4
+         with:
+           dotnet-version: 8.0.x
++      - uses: actions/cache@v4
++        with:
++          path: ~/.nuget/packages
++          key: nuget-${{ runner.os }}-${{ hashFiles('global.json', 'Directory.Packages.props', 'Directory.Build.props', '**/*.csproj') }}
++          restore-keys: nuget-${{ runner.os }}-
+       - run: dotnet test -c Release

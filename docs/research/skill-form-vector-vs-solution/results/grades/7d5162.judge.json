@@ -1,0 +1,81 @@
+{
+  "id": "7d5162",
+  "case": "FVB",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.048923400000000006,
+    "durationMs": 7964,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 3886,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 870,
+      "output_tokens_details": {
+        "thinking_tokens": 211
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3886,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 870,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 3886,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 3886
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "FVB-KB1": {
+      "verdict": "PASS",
+      "quote": "В Pydantic v1 `Optional[X]` без явного дефолта получает неявный дефолт `None` и НЕ является обязательным",
+      "why": "Находка 4 опровергает утверждение комментария для pydantic 1.10.13 и называет следствие: старый клиент тихо спишет весь баланс."
+    },
+    "FVB-KB2": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Утверждение, что pydantic по умолчанию отвергает лишние поля (extra=ignore, опечатка confirm_ammount), в выходе не затронуто."
+    },
+    "FVB-h-PB1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Требования заменить req.dict() на model_dump() нет; req.dict() упомянут только как источник данных аудита."
+    },
+    "FVB-OB1": {
+      "verdict": "FOUND",
+      "quote": "Race condition при списании (lost update) — critical",
+      "why": "Находка 1 называет чтение баланса и UPDATE без SELECT ... FOR UPDATE и параллельное двойное списание."
+    },
+    "FVB-OB2": {
+      "verdict": "FOUND",
+      "quote": "POINT_VALUE объявлен как float, что даёт неточный Decimal — high",
+      "why": "Находка 5 указывает, что Decimal(0.1) строится из float-приближения, и предлагает Decimal(\"0.1\")."
+    },
+    "FVB-OB3": {
+      "verdict": "FOUND",
+      "quote": "Отрицательный confirm_amount увеличивает баланс — critical",
+      "why": "Находка 3 описывает начисление баллов при отрицательном confirm_amount."
+    },
+    "FVB-OB4": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Отсутствие аутентификации и IDOR через member_id из тела запроса в выходе не названы."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,45 @@
+{
+  "id": "k1-f2a",
+  "case": "K1",
+  "edition": "final2",
+  "skills": [
+    "ts-nodejs-api"
+  ],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 13,
+  "cost": 0.22759359999999998,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 2,
+    "Bash": 10
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "cd <run>; git ls-files api | grep -v node_modules; cat docs/payments-api.md api/src/payments/gateway.ts api/src/server.ts",
+    "cd <run>/api/src; cat app.ts config.ts domain/order.ts errors.ts store.ts clients/inventory.ts services/reservation.ts notifications/no",
+    "cd <run>; cat api/src/logger.ts; grep -rn \"config\" --include=*.ts api/src api/test | grep -v \"^api/src/config.ts\"; grep -n \"ord-100\" ap",
+    "cd <run>; grep -rn \"NOTIFIER_URL\\|SEED_DEMO\" --exclude-dir=node_modules . | grep -v \"^./api/src\"; cat package.json api/package.json | g",
+    "cd <run>; cat e2e/playwright.config.ts; sed -n 18,32p README.md",
+    "cd <run>\ncat > api/src/config.ts <<'EOF'\nfunction requireEnv(name: string): string {\n  const value = process.env[name]?.trim();\n  if (!",
+    "cd <run>\ncat > api/test/pay.test.ts <<'EOF'\nimport request from 'supertest';\nimport { describe, expect, it, vi } from 'vitest';\nimport ",
+    "cd <run>/api; npx tsc --noEmit | head; npx vitest run test/pay.test.ts 2>&1 | grep -E \"Error|✓|×|FAIL\" | head -20",
+    "cd <run>/api\npython3 - <<'EOF'\np='src/app.ts'\ns=open(p).read()\ns=s.replace(\"orders.post('/:id/pay', async (req, res) => {\\n\",\"orders.po",
+    "cd <run>; npm run typecheck 2>&1 | grep -i error; npm test 2>&1 | grep -E \"Tests|failed\"; git status --short"
+  ]
+}

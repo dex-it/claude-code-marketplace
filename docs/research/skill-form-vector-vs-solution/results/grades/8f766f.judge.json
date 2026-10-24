@@ -1,0 +1,87 @@
+{
+  "id": "8f766f",
+  "case": "GN",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.08487900000000001,
+    "durationMs": 11308,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 7953,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1041,
+      "output_tokens_details": {
+        "thinking_tokens": 257
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7953,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1041,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 7953,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 7953
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GN-h-datetime": {
+      "verdict": "NO",
+      "quote": "новая колонка `Sample.PlannedLocal` с явным `timestamp without time zone`",
+      "why": "PlannedLocal упомянут только в связи с наличием миграции; про потерю Kind или падение при записи выход не говорит, а Kind и тип колонки не меняет."
+    },
+    "GN-h-card-split": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "AsSplitQuery в GetCardAsync не упоминается; находка 8 касается только отсутствия ReportDate в DTO."
+    },
+    "GN-h-inanalysis-tracking": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Добавить AsNoTracking в GetInAnalysisForBatchAsync выход не предлагает, кода этого метода не меняет; находка 5 говорит о фильтре по статусу, а не об отслеживании."
+    },
+    "GN-h-fromsql": {
+      "verdict": "NO",
+      "quote": "тянется полная сущность (`SELECT s.*`)",
+      "why": "GetRecentBySiteAsync критикуется только за избыточную выборку, о SQL-инъекции речи нет."
+    },
+    "GN-h-retag-clear": {
+      "verdict": "NO",
+      "quote": "`sample.Tags.Clear()` + добавление нового набора + `SaveChangesAsync()` без проверки версии",
+      "why": "Претензия к RetagAsync касается конкурентности, а не падения или сирот после Clear()."
+    },
+    "GN-h-labcode-single": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByLabCodeAsync и SingleOrDefaultAsync в выходе не упоминаются."
+    },
+    "GN-percent-int": {
+      "verdict": "FOUND",
+      "quote": "`compliant / total` — целочисленное деление, выполняется **до** умножения на 100, поэтому результат почти всегда 0",
+      "why": "Названы и целочисленное деление, дающее 0, и DivideByZeroException для пустой партии."
+    },
+    "GN-page-offset": {
+      "verdict": "FOUND",
+      "quote": "Должно быть `Skip((page - 1) * pageSize)`.",
+      "why": "Дефект пропуска первой страницы назван точно, исправление предложено верное."
+    }
+  },
+  "stderr": ""
+}

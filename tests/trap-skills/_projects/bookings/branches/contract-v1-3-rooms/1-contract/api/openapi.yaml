@@ -1,0 +1,703 @@
+openapi: 3.0.3
+info:
+  title: Bookings API
+  version: 1.3.0
+  description: |
+    Бронирование переговорных. Контракт меняется вместе с кодом (см. api/CHANGELOG.md).
+    Все моменты времени - в UTC. Ошибки - application/problem+json (RFC 9457) с расширением `code`.
+servers:
+  - url: http://localhost:5080
+security:
+  - apiKey: []
+tags:
+  - name: rooms
+  - name: bookings
+paths:
+  /api/v1/rooms:
+    get:
+      tags: [rooms]
+      operationId: listRooms
+      x-traced-from: FR-01
+      summary: Список комнат
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: Страница комнат, упорядочена по id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomPage'
+              example:
+                items:
+                  - id: orion
+                    name: Orion
+                    capacity: 8
+                    floor: 3
+                    features: [projector, whiteboard]
+                total: 3
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/v1/rooms/{roomId}:
+    get:
+      tags: [rooms]
+      operationId: getRoom
+      x-traced-from: FR-01
+      summary: Карточка комнаты
+      parameters:
+        - $ref: '#/components/parameters/RoomId'
+      responses:
+        '200':
+          description: Комната
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+              example:
+                id: orion
+                name: Orion
+                capacity: 8
+                floor: 3
+                features: [projector, whiteboard]
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/rooms/{roomId}/availability:
+    get:
+      tags: [rooms]
+      operationId: getRoomAvailability
+      x-traced-from: FR-13
+      summary: Свободное время комнаты на дату
+      description: |
+        Свободные интервалы комнаты за сутки `date` в часовом поясе комнаты (Room.timeZone), с 00:00
+        до 24:00 местного времени, по возрастанию startsAt. Интервалы, занятые активными бронями,
+        исключены; отменённые брони время не занимают.
+      parameters:
+        - $ref: '#/components/parameters/RoomId'
+        - name: date
+          in: query
+          required: true
+          description: |
+            Дата в часовом поясе комнаты (не UTC), YYYY-MM-DD; не раньше текущей даты комнаты и не
+            дальше 90 дней от неё (FR-05).
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Свободные интервалы
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomAvailability'
+              example:
+                roomId: orion
+                date: '2026-10-20'
+                timeZone: Europe/Moscow
+                slots:
+                  - startsAt: '2026-10-19T21:00:00Z'
+                    endsAt: '2026-10-20T07:00:00Z'
+                  - startsAt: '2026-10-20T08:30:00Z'
+                    endsAt: '2026-10-20T21:00:00Z'
+        '400':
+          description: Дата не указана, не разбирается или вне допустимого окна
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ValidationProblem'
+              example:
+                type: https://tools.ietf.org/html/rfc9110#section-15.5.1
+                title: One or more validation errors occurred.
+                status: 400
+                errors:
+                  date: [Дата - не раньше сегодняшней и не дальше 90 дней.]
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Комната не найдена (code - room-not-found)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                type: https://tools.ietf.org/html/rfc9110#section-15.5.5
+                title: Комната не найдена.
+                status: 404
+                code: room-not-found
+  /api/v1/rooms/{roomId}/bookings:
+    get:
+      tags: [rooms]
+      operationId: listRoomBookings
+      x-traced-from: FR-02
+      deprecated: true
+      summary: Брони комнаты (устарело)
+      description: |
+        Устарело с 1.2.0, замена GET /api/v1/bookings?roomId=, удаление после 2027-03-01.
+        Отдаёт все брони комнаты (активные и отменённые) в периоде без постраничного вывода,
+        по возрастанию startsAt.
+      parameters:
+        - $ref: '#/components/parameters/RoomId'
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+      responses:
+        '200':
+          description: Брони комнаты
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Booking'
+              example:
+                - id: 3f2b8a64-5717-4562-b3fc-2c963f66afa6
+                  roomId: orion
+                  title: Планирование спринта
+                  comment: null
+                  startsAt: '2026-10-20T07:00:00Z'
+                  durationMinutes: 90
+                  endsAt: '2026-10-20T08:30:00Z'
+                  ownerId: alice
+                  status: active
+                  version: 812
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/bookings:
+    get:
+      tags: [bookings]
+      operationId: listBookings
+      x-traced-from: FR-02
+      summary: Лента броней
+      description: |
+        Брони (активные и отменённые) по возрастанию (startsAt, id). Постраничный вывод курсором:
+        следующая страница - тот же запрос с `cursor` = `nextCursor` предыдущего ответа;
+        `nextCursor: null` - страниц больше нет. Пустой результат - `items: []`.
+      parameters:
+        - name: roomId
+          in: query
+          required: false
+          description: Только брони этой комнаты
+          schema:
+            type: string
+            maxLength: 64
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Страница броней
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingPage'
+              example:
+                items:
+                  - id: 3f2b8a64-5717-4562-b3fc-2c963f66afa6
+                    roomId: orion
+                    title: Планирование спринта
+                    comment: null
+                    startsAt: '2026-10-20T07:00:00Z'
+                    durationMinutes: 90
+                    endsAt: '2026-10-20T08:30:00Z'
+                    ownerId: alice
+                    status: active
+                    version: 812
+                nextCursor: NjM5MjgyNDU2MDAwMDAwMDAwOmZjNWQ3ZjQ2MTkxNTRkMzI5ZDA1MzExMDI4OTQ3N2U3
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [bookings]
+      operationId: createBooking
+      x-traced-from: FR-03
+      summary: Создать бронь
+      description: |
+        Бронь владельца ключа. Ограничения - FR-05 (начало в будущем, не дальше 90 дней),
+        FR-08 (15..240 минут кратно 15), FR-09 (пересечение с активной бронью комнаты запрещено).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBookingRequest'
+            example:
+              roomId: orion
+              title: Планирование спринта
+              startsAt: '2026-10-20T07:00:00Z'
+              durationMinutes: 90
+              comment: null
+      responses:
+        '201':
+          description: Бронь создана
+          headers:
+            Location:
+              description: URL созданной брони, /api/v1/bookings/{bookingId}
+              required: true
+              schema:
+                type: string
+                format: uri-reference
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+              example:
+                id: 3f2b8a64-5717-4562-b3fc-2c963f66afa6
+                roomId: orion
+                title: Планирование спринта
+                comment: null
+                startsAt: '2026-10-20T07:00:00Z'
+                durationMinutes: 90
+                endsAt: '2026-10-20T08:30:00Z'
+                ownerId: alice
+                status: active
+                version: 812
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/bookings/{bookingId}:
+    get:
+      tags: [bookings]
+      operationId: getBooking
+      x-traced-from: FR-04
+      summary: Бронь
+      description: Брони видны всем участникам, не только владельцу.
+      parameters:
+        - $ref: '#/components/parameters/BookingId'
+      responses:
+        '200':
+          description: Бронь
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+              example:
+                id: 3f2b8a64-5717-4562-b3fc-2c963f66afa6
+                roomId: orion
+                title: Планирование спринта
+                comment: null
+                startsAt: '2026-10-20T07:00:00Z'
+                durationMinutes: 90
+                endsAt: '2026-10-20T08:30:00Z'
+                ownerId: alice
+                status: active
+                version: 812
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [bookings]
+      operationId: rescheduleBooking
+      x-traced-from: FR-06
+      summary: Перенести бронь
+      description: |
+        Новое время целиком (startsAt и durationMinutes) с версией, полученной при чтении брони.
+        Переносит владелец или администратор (FR-10). Ограничения - как при создании.
+        Версия не совпала - 409 `version-conflict`: перечитайте бронь и повторите.
+      parameters:
+        - $ref: '#/components/parameters/BookingId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RescheduleBookingRequest'
+            example:
+              startsAt: '2026-10-20T09:00:00Z'
+              durationMinutes: 60
+              version: 812
+      responses:
+        '200':
+          description: Бронь перенесена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+              example:
+                id: 3f2b8a64-5717-4562-b3fc-2c963f66afa6
+                roomId: orion
+                title: Планирование спринта
+                comment: null
+                startsAt: '2026-10-20T09:00:00Z'
+                durationMinutes: 60
+                endsAt: '2026-10-20T10:00:00Z'
+                ownerId: alice
+                status: active
+                version: 815
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    delete:
+      tags: [bookings]
+      operationId: cancelBooking
+      x-traced-from: FR-07
+      summary: Отменить бронь
+      description: |
+        Отменяет владелец или администратор (FR-10). Повторная отмена уже отменённой брони -
+        тоже 204 (FR-11).
+      parameters:
+        - $ref: '#/components/parameters/BookingId'
+      responses:
+        '204':
+          description: Бронь отменена (или уже была отменена)
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+      description: Ключ доступа участника или администратора (FR-12)
+  parameters:
+    RoomId:
+      name: roomId
+      in: path
+      required: true
+      description: Slug комнаты, например orion
+      schema:
+        type: string
+        pattern: '^[a-z0-9-]{1,64}$'
+    BookingId:
+      name: bookingId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Размер страницы
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        maximum: 100
+        default: 20
+    Offset:
+      name: offset
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int32
+        minimum: 0
+        default: 0
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: Непрозрачный курсор из nextCursor предыдущей страницы; клиент его не разбирает
+      schema:
+        type: string
+        maxLength: 256
+    From:
+      name: from
+      in: query
+      required: false
+      description: Брони, заканчивающиеся позже этого момента (UTC)
+      schema:
+        type: string
+        format: date-time
+    To:
+      name: to
+      in: query
+      required: false
+      description: Брони, начинающиеся раньше этого момента (UTC)
+      schema:
+        type: string
+        format: date-time
+  responses:
+    ValidationError:
+      description: Запрос не прошёл проверку
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ValidationProblem'
+    Unauthorized:
+      description: Нет ключа доступа или ключ неизвестен (code - unauthorized)
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Forbidden:
+      description: Не владелец брони и не администратор (code - not-owner)
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    NotFound:
+      description: Комната или бронь не найдены (code - room-not-found или booking-not-found)
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Conflict:
+      description: |
+        Конфликт (code): booking-overlap - время занято активной бронью этой комнаты;
+        version-conflict - бронь изменилась после чтения; booking-cancelled - бронь отменена.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  schemas:
+    RoomFeature:
+      type: string
+      enum: [projector, whiteboard, videoconf]
+      description: Оснащение комнаты. Клиент игнорирует неизвестные значения.
+    Room:
+      type: object
+      required: [id, name, capacity, floor, features]
+      properties:
+        id:
+          type: string
+          pattern: '^[a-z0-9-]{1,64}$'
+          description: Slug комнаты
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        capacity:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 50
+        floor:
+          type: integer
+          format: int32
+        features:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoomFeature'
+        timeZone:
+          type: string
+          maxLength: 64
+          description: Часовой пояс комнаты, идентификатор IANA (например Europe/Moscow)
+    TimeSlot:
+      type: object
+      required: [startsAt, endsAt]
+      properties:
+        startsAt:
+          type: string
+          format: date-time
+          description: Начало свободного интервала, UTC
+        endsAt:
+          type: string
+          format: date-time
+          description: Конец свободного интервала, UTC
+    RoomAvailability:
+      type: object
+      required: [roomId, date, timeZone, slots]
+      properties:
+        roomId:
+          type: string
+          pattern: '^[a-z0-9-]{1,64}$'
+        date:
+          type: string
+          format: date
+          description: Запрошенная дата в часовом поясе комнаты
+        timeZone:
+          type: string
+          maxLength: 64
+          description: Часовой пояс комнаты, идентификатор IANA
+        slots:
+          type: array
+          maxItems: 96
+          items:
+            $ref: '#/components/schemas/TimeSlot'
+    RoomPage:
+      type: object
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/Room'
+        total:
+          type: integer
+          format: int32
+          minimum: 0
+          description: Всего комнат (в офисе до 200)
+    BookingStatus:
+      type: string
+      enum: [active, cancelled]
+      description: Статус брони. Клиент игнорирует неизвестные значения.
+    Booking:
+      type: object
+      required: [id, roomId, title, comment, startsAt, durationMinutes, endsAt, ownerId, status, version]
+      properties:
+        id:
+          type: string
+          format: uuid
+        roomId:
+          type: string
+          maxLength: 64
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+        comment:
+          type: string
+          maxLength: 500
+          nullable: true
+        startsAt:
+          type: string
+          format: date-time
+          description: Начало, UTC
+        durationMinutes:
+          type: integer
+          format: int32
+          minimum: 15
+          maximum: 240
+          multipleOf: 15
+        endsAt:
+          type: string
+          format: date-time
+          description: Конец, UTC; startsAt + durationMinutes
+        ownerId:
+          type: string
+          maxLength: 64
+        status:
+          $ref: '#/components/schemas/BookingStatus'
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: Версия брони для переноса (PATCH); меняется при каждом изменении
+    BookingPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/Booking'
+        nextCursor:
+          type: string
+          nullable: true
+          description: Курсор следующей страницы; null - страниц больше нет
+    CreateBookingRequest:
+      type: object
+      required: [roomId, title, startsAt, durationMinutes]
+      properties:
+        roomId:
+          type: string
+          minLength: 1
+          maxLength: 64
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+        startsAt:
+          type: string
+          format: date-time
+          description: Начало, UTC; в будущем и не дальше 90 дней от текущего момента
+        durationMinutes:
+          type: integer
+          format: int32
+          minimum: 15
+          maximum: 240
+          multipleOf: 15
+        comment:
+          type: string
+          maxLength: 500
+          nullable: true
+    RescheduleBookingRequest:
+      type: object
+      required: [startsAt, durationMinutes, version]
+      properties:
+        startsAt:
+          type: string
+          format: date-time
+          description: Новое начало, UTC; в будущем и не дальше 90 дней от текущего момента
+        durationMinutes:
+          type: integer
+          format: int32
+          minimum: 15
+          maximum: 240
+          multipleOf: 15
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: Версия брони, полученная при чтении
+    Problem:
+      type: object
+      required: [type, title, status, code]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+        title:
+          type: string
+        status:
+          type: integer
+          format: int32
+        detail:
+          type: string
+        instance:
+          type: string
+        traceId:
+          type: string
+        code:
+          type: string
+          enum:
+            - unauthorized
+            - room-not-found
+            - booking-not-found
+            - not-owner
+            - booking-overlap
+            - version-conflict
+            - booking-cancelled
+    ValidationProblem:
+      type: object
+      required: [type, title, status, errors]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+        title:
+          type: string
+        status:
+          type: integer
+          format: int32
+        traceId:
+          type: string
+        errors:
+          type: object
+          description: Поле запроса (camelCase) - сообщения об ошибках
+          additionalProperties:
+            type: array
+            items:
+              type: string

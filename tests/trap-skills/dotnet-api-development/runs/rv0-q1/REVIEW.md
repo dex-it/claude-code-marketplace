@@ -1,0 +1,5 @@
+src/Pricing.Infrastructure/Suppliers/SupplierApiClient.cs:25 - фоллбэк на базовую цену без метрики: в часы выгрузки (503/таймауты) число котировок по базовой цене и срабатывания breaker не видны, только warning на каждый SKU (дублируется ещё одним в QuoteService.cs:49) - minor
+src/Pricing.Infrastructure/InfrastructureModule.cs:31 - 2.5 с продублированы в QuoteService.SupplierBudget (QuoteService.cs:16) и в TotalRequestTimeout без общей константы/опции: изменение одного молча сломает срок витрины 3 с - minor
+src/Pricing.Infrastructure/InfrastructureModule.cs:16 - дефолт "Europe/Moscow" дублирует appsettings.json; опечатка в Store:TimeZone роняет старт с TimeZoneNotFoundException без внятного сообщения - minor
+src/Pricing.Api/Controllers/PromotionsController.cs:15 - category вне enum (например ?category=99) принимается и отдаёт скидку 0 вместо 400, витрина покажет «акции нет»; 400 не описан в ProducesResponseType - minor
+Directory.Packages.props:13 - Logging.Abstractions 10.0.12 при остальных Microsoft.Extensions.* 10.10.0: разнобой версий одной линейки пакетов - minor

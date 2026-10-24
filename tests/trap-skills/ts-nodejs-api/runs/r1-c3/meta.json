@@ -1,0 +1,37 @@
+{
+  "id": "r1-c3",
+  "case": "R1",
+  "edition": "c",
+  "skills": [],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 6,
+  "cost": 0.149093,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Bash": 4,
+    "Write": 1
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "git diff main...feature/admin-refunds --stat && cat docs/tasks/SD-16-admin-refunds.md",
+    "git diff main...feature/admin-refunds -- api deploy | grep -v '^index' | cat -n | head -700",
+    "cd <run>/api/src && cat auth.ts config.ts | head -80; grep -n healthz *.ts; sed -n 1,30p errors.ts; grep -n \"ord-1003\" -A3 seed.ts | hea",
+    "cd <run> && grep '\"express\"' api/package.json; grep -n \"admin\\|errorHandler\" api/src/app.ts; grep -n \"orders\" api/src/store.ts | head -3"
+  ]
+}

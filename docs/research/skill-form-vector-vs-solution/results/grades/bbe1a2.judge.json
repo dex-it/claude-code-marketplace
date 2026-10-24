@@ -1,0 +1,121 @@
+{
+  "id": "bbe1a2",
+  "case": "CFG",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0910474,
+    "durationMs": 15343,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 6384,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1977,
+      "output_tokens_details": {
+        "thinking_tokens": 459
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6384,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1977,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 6384,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 6384
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "CFG-K9": {
+      "verdict": "PASS",
+      "quote": "appsettings.Staging.json — `MaxInFlight: 20` выше прода (`MaxInFlight: 5`) без объяснения",
+      "why": "Находка прямо называет, что MaxInFlight в Staging выше, чем в Production."
+    },
+    "CFG-K8": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Дублирование дефолта найдено только для MaxBatchSize 100; повтор MaxRetries 5 в Staging и Production не назван."
+    },
+    "CFG-h-required": {
+      "verdict": "YES",
+      "quote": "Нужно `required string Host { get; set; }` и т.д., чтобы поймать отсутствие значения на этапе биндинга/компиляции",
+      "why": "Выход утверждает, что модификатор required поймает отсутствие значения при биндинге, и предлагает его вместо валидации опций."
+    },
+    "CFG-K1": {
+      "verdict": "FOUND",
+      "quote": "`\"Password\": \"Kx7!pQ2vR9wz\"` (Postgres) и `\"Password\": \"rl_live_9f3a1c77e2b04d6d\"` (SMTP relay)",
+      "why": "Названы оба пароля в appsettings.Production.json."
+    },
+    "CFG-K2": {
+      "verdict": "FOUND",
+      "quote": "`config.GetValue<int>(\"Throttle:MessagesPerMinute\")` вернёт `0`",
+      "why": "Назван неверный ключ, значение 0 и последующее деление на ноль."
+    },
+    "CFG-K3": {
+      "verdict": "FOUND",
+      "quote": "нет ни `services.AddSingleton<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>()`, ни `.ValidateOnStart()`",
+      "why": "Указано, что валидатор не зарегистрирован и ValidateOnStart отсутствует."
+    },
+    "CFG-K4": {
+      "verdict": "FOUND",
+      "quote": "`IOptions<OutboxOptions>` не поддерживает hot-reload, хотя MR явно требует «меняться на лету без рестарта»",
+      "why": "Назван IOptions в singleton-воркере при требовании менять настройки на лету."
+    },
+    "CFG-K5": {
+      "verdict": "FOUND",
+      "quote": "в проде условие `200 < 100` ложно, поэтому блок адаптивного батчинга просто не выполняется",
+      "why": "Назван тихий if, который выключает adaptive batching при значениях 200/100."
+    },
+    "CFG-K6": {
+      "verdict": "FOUND",
+      "quote": "`Task.Delay(TimeSpan.FromSeconds(o.PollInterval), ct)` — трактует 500 как секунды",
+      "why": "Назван PollInterval 500 с FromSeconds, дающий паузу 500 с."
+    },
+    "CFG-K7": {
+      "verdict": "FOUND",
+      "quote": "non-nullable `Host`/`FromAddress` без `required` и без дефолта",
+      "why": "Дефект назван как проблема; предложенное исправление неверно, но это учтено в CFG-h-required."
+    },
+    "CFG-h-P1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Против IOptions<SmtpOptions> в SmtpMailSender находки нет."
+    },
+    "CFG-h-P2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Против LockTimeout как TimeSpan находки нет."
+    },
+    "CFG-O1": {
+      "verdict": "FOUND",
+      "quote": "сообщение помечается как отправленное (`SentAt = now`) до фактической отправки, и не откатывается при ошибке",
+      "why": "Назван SentAt до отправки и отсутствие повтора для неудачного письма."
+    },
+    "CFG-O2": {
+      "verdict": "FOUND",
+      "quote": "`Configure<SmtpOptions>` биндится на секцию `\"Mail\"`, а в appsettings секция называется `\"Smtp\"`",
+      "why": "Назван биндинг на Mail при секции Smtp, из-за чего SmtpOptions пустые."
+    },
+    "CFG-O3": {
+      "verdict": "MISSED",
+      "quote": "Staging для сравнения делает это правильно (`${NOTIFY_DB_PASSWORD}` через env-переменную)",
+      "why": "Выход считает плейсхолдер правильным и не видит, что конфигурация .NET подстановку не делает."
+    }
+  },
+  "stderr": ""
+}

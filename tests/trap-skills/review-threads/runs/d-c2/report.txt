@@ -1,0 +1,40 @@
+# d-c2 case=D skill=- model=claude-sonnet-5-5/medium cost=$0.176 turns=1
+hosting: calls=11 writes=6 errors=0
+  thread-without-position:bracket-keys  bracketKeys=position[position_type],position[base_sha],position[start_sha],position[head_sha],position[new_path],position[new_line]
+    | **Blocker.** Пеня считается как `Minor * daysLate / 1000` и проводится каждый день заново: за 10 дней просрочки клиент заплатит 1+2+...+10 = 55 промилле вместо 10. Плюс проводка идёт прямым `ledger.PostAsync(...)` мимо outbox, а ADR-0006 запрещает новый код через `ILedgerGateway`.
+    | 
+    | Исправление: начислять пеню за один день (`Minor / 1000`) или от последней начисленной; проводку - `LedgerPostingRequested` через `IOutbox`, как в `CancelInvoiceHandler`.
+  thread-without-position:bracket-keys  bracketKeys=position[position_type],position[base_sha],position[start_sha],position[head_sha],position[new_path],position[new_line]
+    | **Blocker.** Сигнатура `NotifyAsync(Guid customerId, Guid invoiceId, ...)`, а вызов передаёт `invoice.Id.Value, invoice.CustomerId.Value`: письмо уходит на id счёта как на клиента. Сырые `Guid` при typed-id в проекте позволили перепутать порядок без ошибки компиляции.
+    | 
+    | Исправление: параметры `CustomerId` и `InvoiceId` в сигнатуре `NotifyAsync` (строка 36).
+  thread-without-position:bracket-keys  bracketKeys=position[position_type],position[base_sha],position[start_sha],position[head_sha],position[new_path],position[new_line]
+    | **Blocker.** Комментарий неверен: `Acme.Ledger.Client` 2.3.1 не ставит `Idempotency-Key = entry.ExternalId`, а генерирует `Guid.NewGuid()` на каждый вызов `PostEntryAsync` (проверено декомпиляцией пакета). Повтор после таймаута, когда первый запрос дошёл до Ledger, создаёт вторую проводку.
+    | 
+    | Исправление: таймаут не повторять внутри тика - сообщение останется в outbox и уйдёт на следующем тике; комментарий убрать.
+  thread-without-position:bracket-keys  bracketKeys=position[position_type],position[base_sha],position[start_sha],position[head_sha],position[new_path],position[new_line]
+    | **Major.** `AddSingleton<SendDueRemindersHandler>()` захватывает scoped `IInvoiceRepository` и `ILedgerGateway` на всё время жизни приложения (captive dependency). Ссылка на `LedgerOutboxDispatcher` не подходит: тот зависит только от синглтонов.
+    | 
+    | Исправление: `AddScoped`, а `InvoiceReminderWorker` создаёт scope на каждый тик.
+  thread-without-position:bracket-keys  bracketKeys=position[position_type],position[base_sha],position[start_sha],position[head_sha],position[new_path],position[old_line],position[old_path]
+    | **Major.** Удалена проверка статуса перед отменой: отмена черновика теперь проходит, а повторная отмена оплаченного счёта ставит в outbox второе сторно на полную сумму.
+    | 
+    | Исправление: вернуть проверку `Status is not (Issued or Paid)`.
+  general-note 
+    | Ревью проведено на 7eeaaa9; комментарии привязаны к актуальному head 30e0340.
+    | 
+    | Вердикт: нужны правки до мерджа.
+    | 
+    | Блокеры (5 inline-комментариев выше):
+    | - SendDueRemindersHandler: пеня считается кумулятивно и проводится мимо outbox (ADR-0006);
+    | - SendDueRemindersHandler: в NotifyAsync перепутаны id клиента и счёта;
+    | - LedgerOutboxDispatcher: комментарий про Idempotency-Key неверен, повтор после таймаута дублирует проводку.
+    | 
+    | Major: AddSingleton для SendDueRemindersHandler (captive dependency) и удалённая проверка статуса в CancelInvoiceHandler.
+    | 
+    | Пауза между повторами (`Task.Delay` без await) уже исправлена в 30e0340 - отдельного комментария нет.
+turn 1: exit=0 cost=0.176 tools={"Read":1,"Bash":8} outside=0 realGh=0
+snap 0: HEAD feature/invoice-reminders X; status: clean
+  origin: feature/invoice-reminders=Y main=M
+snap 1: HEAD feature/invoice-reminders X; status: clean
+  origin: feature/invoice-reminders=Y main=M

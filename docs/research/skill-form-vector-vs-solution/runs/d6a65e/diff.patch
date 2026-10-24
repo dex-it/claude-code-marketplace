@@ -1,0 +1,55 @@
+diff --git a/CustomerNotifier.cs b/CustomerNotifier.cs
+new file mode 100644
+index 0000000..f8aa8e3
+--- /dev/null
++++ b/CustomerNotifier.cs
+@@ -0,0 +1,35 @@
++using Microsoft.EntityFrameworkCore;
++
++namespace Shop;
++
++public class CustomerNotifier
++{
++    private const string Subject = "Shop";
++
++    private readonly ShopDbContext _db;
++    private readonly IEmailSender _email;
++
++    public CustomerNotifier(ShopDbContext db, IEmailSender email)
++    {
++        _db = db;
++        _email = email;
++    }
++
++    // customerIds приходит из маркетинговой системы: может содержать дубли и быть большим.
++    public async Task NotifyCustomers(IEnumerable<Guid> customerIds, string text, CancellationToken ct = default)
++    {
++        // Один обход входа, дубли снимаются до обработки: один id - одно письмо.
++        var ids = customerIds.Distinct().ToList();
++        if (ids.Count == 0) return;
++
++        // Один запрос, список уходит одним параметром (Npgsql: Id = ANY(@ids)); берём только email.
++        var emails = await _db.Customers
++            .AsNoTracking()
++            .Where(c => ids.Contains(c.Id))
++            .Select(c => c.Email)
++            .ToListAsync(ct);
++
++        foreach (var email in emails)
++            await _email.SendAsync(email, Subject, text, ct);
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..3df86dd
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,8 @@
++Файлы:
++- создан `CustomerNotifier.cs`
++- создан `_answer.md`
++
++Решения:
++- Входной `IEnumerable<Guid>` обходится один раз, дубли убираются через `Distinct()` до обработки: на один id уходит одно письмо. Если список пустой, метод сразу выходит.
++- Email загружаются одним запросом без трекинга: `Where(ids.Contains(c.Id)).Select(c => c.Email)`. EF Core 8 + Npgsql передают список одним параметром (`Id = ANY(@p)`), поэтому на пачки он не режется. В цикле нет запросов к БД, сущности целиком не грузятся.
++- Метод асинхронный (`Task`, необязательный `CancellationToken`), потому что `IEmailSender.SendAsync` асинхронный. Тема письма задана константой `"Shop"`, так как в поручении её нет. Письма отправляются по очереди; если одна отправка упадёт, исключение прервёт рассылку.

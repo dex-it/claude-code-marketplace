@@ -1,0 +1,92 @@
+{
+  "id": "231f4c",
+  "case": "BN",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.12319419999999999,
+    "durationMs": 11181,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 12495,
+      "cache_read_input_tokens": 531,
+      "output_tokens": 1156,
+      "output_tokens_details": {
+        "thinking_tokens": 269
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 12495,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1156,
+          "cache_read_input_tokens": 531,
+          "cache_creation_input_tokens": 12495,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 12495
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "BN-h-local-time": {
+      "verdict": "NO",
+      "quote": "Расписание хранится как `timestamp without time zone` с `Kind=Unspecified`... сравниваются корректно",
+      "why": "Выход признаёт хранение Unspecified в timestamp without time zone верным и не требует переводить его в UTC."
+    },
+    "BN-h-split-card": {
+      "verdict": "NO",
+      "quote": "Раздельный запрос (`AsSplitQuery`) при двух коллекциях здесь уместен",
+      "why": "Split в GetCardAsync явно признан уместным, находка 8 касается только объёма загружаемых колонок."
+    },
+    "BN-h-tracking": {
+      "verdict": "NO",
+      "quote": "у выборок только для чтения есть `AsNoTracking`",
+      "why": "Выход не требует добавлять AsNoTracking ни в проекции, ни в методы, которые меняют сущности."
+    },
+    "BN-h-chip-single": {
+      "verdict": "NO",
+      "quote": "`SingleOrDefault` по номеру чипа подкреплён уникальным индексом",
+      "why": "SingleOrDefault в FindPetByChipAsync признан корректным."
+    },
+    "BN-h-fromsql": {
+      "verdict": "NO",
+      "quote": "Подстановка текста параметризована, SQL-инъекции нет",
+      "why": "Инъекций ни в SearchNotesAsync, ни в GetConsumptionAsync не заявлено, сортировка признана whitelist-ом."
+    },
+    "BN-h-tolower": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByTitleAsync и трансляция ToLower/Contains в выходе не упоминаются."
+    },
+    "BN-h-consumable-remove": {
+      "verdict": "NO",
+      "quote": "Сам `Remove` корректен: связь обязательная, каскад по умолчанию, оторванная строка удаляется",
+      "why": "Remove признан корректным; находка 4 говорит о гонке и объёме загрузки, а не о том, что строка не удалится."
+    },
+    "BN-pagination": {
+      "verdict": "FOUND",
+      "quote": "код делает `Skip(page * PageSize)`. Поэтому `page=1` пропускает первые 30 процедур дня",
+      "why": "Дефект смещения страницы при нумерации с 1 назван прямо, с исправлением."
+    },
+    "BN-dose-grams": {
+      "verdict": "FOUND",
+      "quote": "Перевода в кг нет, поэтому объём получается **в 1000 раз больше**",
+      "why": "Найдено умножение граммов на мг/кг без деления на 1000, дано исправление."
+    }
+  },
+  "stderr": ""
+}

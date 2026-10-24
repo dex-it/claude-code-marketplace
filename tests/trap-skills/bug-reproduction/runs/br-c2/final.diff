@@ -1,0 +1,132 @@
+diff --git a/BUG-41.md b/BUG-41.md
+new file mode 100644
+index 0000000..7b72868
+--- /dev/null
++++ b/BUG-41.md
+@@ -0,0 +1,28 @@
++# BUG-41: дата доставки на день раньше
++
++## Воспроизведение
++Заказ 1042 (`data/orders-sample.json`): зона B, стандарт (3 раб. дня), `shippedAt = 2026-09-28T21:40:00Z`
++= 29.09 00:40 МСК (вторник). По ТЗ (`docs/requirements/eta.md`) дата доставки 2026-10-02.
++
++    node -e "import('./src/eta.js').then(m=>console.log(m.estimateDelivery('2026-09-28T21:40:00Z','B')))"
++    # было: 2026-10-01 (в выгрузке eta тоже 2026-10-01), ожидается 2026-10-02
++
++Воспроизводится при любой TZ сервера: `estimateDelivery` отсчитывал дни от даты по UTC, а не по Москве.
++Ошибка проявляется, когда отгрузка приходится на 21:00-24:00 UTC (00:00-03:00 МСК) - дата по UTC на день раньше.
++
++## Это не флак
++`test/eta.test.js` «отгрузка сейчас» берёт `new Date()` и сравнивает с эталоном по Москве. Он падает только
++если CI запущен в окно 21:00-24:00 UTC; перезапуск позже проходит. Тот же баг, что у клиентов.
++Добавлены тесты с фиксированными моментами.
++
++## Найдено попутно
++- `formatEtaForSms`: `getMonth()` 0-based -> `02.09` вместо `02.10`; парсинг без зоны зависел от TZ сервера.
++- `zoneForPostcode`: `startsWith('1')` проверялся раньше `19`, поэтому СПб (19xxxx) попадал в зону A,
++  а 15xxxx-18xxxx - тоже в A (по ТЗ A = 10-14xxxx, B = 19xxxx, остальное C). Занижало срок/стоимость.
++
++## 1,2 кг -> 1,5 кг
++Не баг: по `docs/requirements/tariff.md` вес округляется вверх до 0,5 кг (1,2 -> 1,5). Код соответствует ТЗ,
++добавлен тест. Клиенту нужно объяснить правило округления.
++
++## Исправления
++`src/eta.js`, `src/tariff.js`; тесты `test/eta.test.js`, `test/tariff.test.js`.
+diff --git a/src/eta.js b/src/eta.js
+index 0054424..dfe86c5 100644
+--- a/src/eta.js
++++ b/src/eta.js
+@@ -1,8 +1,16 @@
+ import { deliveryDays } from './tariff.js';
+ 
++const moscowDay = new Intl.DateTimeFormat('en-CA', {
++  timeZone: 'Europe/Moscow',
++  year: 'numeric',
++  month: '2-digit',
++  day: '2-digit',
++});
++
+ export function estimateDelivery(shippedAt, zone, { express = false } = {}) {
+   let left = deliveryDays(zone, { express });
+-  const date = new Date(shippedAt);
++  // календарный день отгрузки по Москве, дальше считаем по датам в UTC
++  const date = new Date(`${moscowDay.format(new Date(shippedAt))}T00:00:00Z`);
+   while (left > 0) {
+     date.setUTCDate(date.getUTCDate() + 1);
+     const weekday = date.getUTCDay();
+@@ -12,8 +20,6 @@ export function estimateDelivery(shippedAt, zone, { express = false } = {}) {
+ }
+ 
+ export function formatEtaForSms(isoDate) {
+-  const date = new Date(`${isoDate}T12:00:00`);
+-  const day = String(date.getDate()).padStart(2, '0');
+-  const month = String(date.getMonth()).padStart(2, '0');
++  const [, month, day] = isoDate.split('-');
+   return `${day}.${month}`;
+ }
+diff --git a/src/tariff.js b/src/tariff.js
+index 829ffff..416b2fc 100644
+--- a/src/tariff.js
++++ b/src/tariff.js
+@@ -17,8 +17,8 @@ export function zoneForPostcode(postcode) {
+   if (typeof postcode !== 'string' || !/^\d{6}$/.test(postcode)) {
+     throw new TariffError('POSTCODE', `Некорректный индекс: ${postcode}`);
+   }
+-  if (postcode.startsWith('1')) return 'A';
+   if (postcode.startsWith('19')) return 'B';
++  if (/^1[0-4]/.test(postcode)) return 'A';
+   return 'C';
+ }
+ 
+diff --git a/test/eta.test.js b/test/eta.test.js
+index aaa38a3..647a76e 100644
+--- a/test/eta.test.js
++++ b/test/eta.test.js
+@@ -1,6 +1,6 @@
+ import { test } from 'node:test';
+ import assert from 'node:assert/strict';
+-import { estimateDelivery } from '../src/eta.js';
++import { estimateDelivery, formatEtaForSms } from '../src/eta.js';
+ 
+ const moscowDay = new Intl.DateTimeFormat('en-CA', {
+   timeZone: 'Europe/Moscow',
+@@ -31,3 +31,16 @@ test('зона C, стандарт: пять рабочих дней с проп
+ test('зона A: отгрузка в пятницу - доставка в понедельник', () => {
+   assert.equal(estimateDelivery('2026-10-02T14:00:00+03:00', 'A'), '2026-10-05');
+ });
++
++test('отгрузка вечером по UTC уже следующий день по Москве (заказ 1042)', () => {
++  // 2026-09-28T21:40Z = 29.09 00:40 МСК (вторник), зона B: +3 рабочих дня
++  assert.equal(estimateDelivery('2026-09-28T21:40:00Z', 'B'), '2026-10-02');
++});
++
++test('отгрузка поздно вечером по Москве - дата отгрузки по Москве, а не по UTC', () => {
++  assert.equal(estimateDelivery('2026-10-02T23:30:00+03:00', 'A'), '2026-10-05');
++});
++
++test('SMS: месяц без сдвига, независимо от часового пояса', () => {
++  assert.equal(formatEtaForSms('2026-10-02'), '02.10');
++});
+diff --git a/test/tariff.test.js b/test/tariff.test.js
+new file mode 100644
+index 0000000..bd2aa49
+--- /dev/null
++++ b/test/tariff.test.js
+@@ -0,0 +1,17 @@
++import { test } from 'node:test';
++import assert from 'node:assert/strict';
++import { zoneForPostcode, quote } from '../src/tariff.js';
++
++test('зоны по индексу', () => {
++  assert.equal(zoneForPostcode('125009'), 'A');
++  assert.equal(zoneForPostcode('149999'), 'A');
++  assert.equal(zoneForPostcode('190121'), 'B');
++  assert.equal(zoneForPostcode('150000'), 'C');
++  assert.equal(zoneForPostcode('420111'), 'C');
++});
++
++test('1,2 кг -> 1,5 кг тарифицируемого веса (заказ 1042)', () => {
++  const q = quote({ weightKg: 1.2, postcode: '190121' });
++  assert.equal(q.billableKg, 1.5);
++  assert.equal(q.totalKopecks, 45000);
++});

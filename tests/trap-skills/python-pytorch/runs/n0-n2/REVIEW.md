@@ -1,0 +1,1 @@
+tests/test_clean_train.py:6 - тест называется «shuffles only when asked», но проверяет только shuffle=False и форму батча (плюс посторонний assert на N_FEATURES); поломку shuffle=True или порядка при shuffle=False он не поймает, а train_epoch, evaluate, save_checkpoint и churn_baseline_score не покрыты вовсе - minor

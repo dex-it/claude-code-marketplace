@@ -1,0 +1,64 @@
+diff --git a/OrderReportService.cs b/OrderReportService.cs
+new file mode 100644
+index 0000000..e6f76fa
+--- /dev/null
++++ b/OrderReportService.cs
+@@ -0,0 +1,31 @@
++namespace Shop.Data;
++
++public record ActiveOrderReportItem(Guid Id, string CustomerName, decimal Total, int ItemsCount);
++public record OverdueOrderReportItem(Guid Id, string CustomerName, decimal Total, DateTime CreatedAt);
++
++public class OrderReportService
++{
++    private readonly OrderRepository _orders;
++    public OrderReportService(OrderRepository orders) => _orders = orders;
++
++    public Task<List<ActiveOrderReportItem>> GetActiveOrdersAsync(CancellationToken ct = default) =>
++        _orders.Active()
++            .Select(o => new ActiveOrderReportItem(o.Id, o.Customer.Name, o.Total, o.Items.Count))
++            .ToListAsync(ct);
++
++    public Task<Dictionary<string, int>> GetActiveOrderCountByCategoryAsync(CancellationToken ct = default) =>
++        _orders.Active()
++            .GroupBy(o => o.Category)
++            .Select(g => new { Category = g.Key, Count = g.Count() })
++            .ToDictionaryAsync(x => x.Category, x => x.Count, ct);
++
++    // now должен иметь DateTimeKind.Unspecified - колонка CreatedAt смаплена как
++    // "timestamp without time zone", и Npgsql бросит исключение на параметре с Kind=Utc.
++    // Условие продублировано из Order.IsOverdue: сам метод - экземплярный вызов
++    // на CLR-объекте и не транслируется в SQL.
++    public Task<List<OverdueOrderReportItem>> GetOverdueOrdersAsync(DateTime now, CancellationToken ct = default) =>
++        _orders.Query()
++            .Where(o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < now)
++            .Select(o => new OverdueOrderReportItem(o.Id, o.Customer.Name, o.Total, o.CreatedAt))
++            .ToListAsync(ct);
++}
+diff --git a/OrderRepository.cs b/OrderRepository.cs
+index 72637b8..9fb02ed 100644
+--- a/OrderRepository.cs
++++ b/OrderRepository.cs
+@@ -6,4 +6,9 @@ public class OrderRepository
+     public OrderRepository(ShopDbContext db) => _db = db;
+     public Task<List<Order>> GetAllAsync() => _db.Orders.ToListAsync();
+     public Task<Order?> GetAsync(Guid id) => _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
++
++    // Возвращает незавершённый запрос (без AsNoTracking-материализации), чтобы вызывающий
++    // код мог добавить Select/Where/GroupBy до выполнения и не тянуть лишние данные/трекинг.
++    public IQueryable<Order> Query() => _db.Orders.AsNoTracking();
++    public IQueryable<Order> Active() => Query().Where(o => o.Status == "active");
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..5dd19ad
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,7 @@
++Изменённые/созданные файлы:
++- OrderRepository.cs — добавлены `Query()` и `Active()`, возвращающие `IQueryable<Order>` с `AsNoTracking()` (репозиторий больше не материализует выборку для отчётов).
++- OrderReportService.cs (новый) — сервис с тремя read-only методами: `GetActiveOrdersAsync`, `GetActiveOrderCountByCategoryAsync`, `GetOverdueOrdersAsync`.
++
++Решения:
++- Все три метода проецируют только нужные поля через `Select` (в т.ч. `o.Items.Count` как агрегат) и группируют/агрегируют на стороне БД, не материализуя лишние сущности и коллекции.
++- `Order.IsOverdue` — экземплярный CLR-метод и не транслируется в SQL, поэтому в `GetOverdueOrdersAsync` его условие продублировано как выражение (`ShippedAt == null && CreatedAt.AddDays(3) < now`); передаваемый `now` должен быть `DateTimeKind.Unspecified` из-за маппинга `CreatedAt` на `timestamp without time zone`.

@@ -1,0 +1,86 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..8317636
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,80 @@
++# Code review: MR !238
++
++## 1. [critical] `TripService.cs` — `TripRows.ToRows()` (используется `GetVehicleTripsAsync` и новым `OffDayTripsAsync`)
++
++`OffDay = !WorkCalendar.IsWorkingDay(t.StartedAt)` вызывается внутри LINQ-проекции над `IQueryable<Trip>`, которая транслируется EF Core в SQL. `WorkCalendar.IsWorkingDay` использует `TimeZoneInfo.ConvertTimeFromUtc` и `HashSet<DateOnly>.Contains` — EF Core не умеет транслировать это в SQL и не делает client-eval внутри `Select` (начиная с EF Core 3.0). Запрос упадёт в рантайме с `InvalidOperationException` ("could not be translated").
++
++Это не только ломает новый `OffDayTripsAsync` (FLEET-109), но и **регрессия** в уже работавшем `GetVehicleTripsAsync` — он теперь использует тот же `ToRows()` с добавленным полем `OffDay`. Судя по MR, локально проверяли выпуск на линию и список незакрытых листов, но не поездки/отчёт по выходным — поэтому баг не пойман.
++
++Фикс: считать `OffDay` после материализации (`AsEnumerable()`/`ToList()`, затем проекция в `TripRow` на клиенте), а не внутри EF-запроса.
++
++## 2. [critical] `VehicleService.cs` — `ReplaceEquipmentAsync`
++
++```csharp
++var vehicle = await FindVehicleAsync(vehicleId) ?? ...
++vehicle.Equipment.Clear();
++```
++
++`FindVehicleAsync` делает `_db.Vehicles.FirstOrDefaultAsync(...)` **без** `.Include(v => v.Equipment)`. Навигация `Equipment` не загружена и lazy loading не настроен (нет `UseLazyLoadingProxies` в `Program.cs`), поэтому `vehicle.Equipment` — всегда пустой список по умолчанию (`= new()`). `Clear()` ничего не чистит в БД, а добавленные элементы просто инсертятся.
++
++Итог: старые строки `vehicle_equipment` никогда не удаляются (нарушение требования FLEET-104 "заменяем на присланную целиком"), а при повторной синхронизации той же комплектации (тот же `Code`) вставка упадёт с нарушением уникального индекса `(vehicle_id, code)`.
++
++Для сравнения — `DriverService.ReplacePermitsAsync` (не менялся в MR) делает `.Include(d => d.Permits)` перед `Clear()`, как и положено. В `ReplaceEquipmentAsync` этот `Include` отсутствует.
++
++## 3. [critical] `TripService.cs` — `GetOpenWaybillsAsync`
++
++```csharp
++var query = _db.Trips.FromSqlRaw("""
++    SELECT t.* FROM trips t
++    WHERE t.finished_at IS NULL AND t.started_at < now() - interval '24 hours'
++    ORDER BY t.started_at;
++    """);
++if (vehicleId is { } id)
++    query = query.Where(t => t.VehicleId == id);
++```
++
++Когда передан `vehicleId`, EF Core оборачивает `FromSqlRaw` в подзапрос, чтобы добавить `WHERE`. Внутри сырого SQL есть `ORDER BY` и завершающая `;` — при оборачивании в `(... ) AS t` точка с запятой внутри подзапроса синтаксически некорректна для Postgres, запрос упадёт с ошибкой SQL. Без фильтра (`vehicleId == null`) запрос выполняется как есть и работает — именно этот случай и описан в MR как протестированный ("список незакрытых листов по всему парку"), а фильтрация по машине (явно заявленная в FLEET-112: "список... с фильтром по машине") не проверялась и не работает.
++
++Фикс: убрать `ORDER BY`/`;` из сырого SQL и сортировать уже через LINQ (`.OrderBy(t => t.StartedAt)`), либо фильтровать по `vehicleId` внутри самого `FromSqlRaw` через параметр.
++
++## 4. [critical] `Migrations/20260924100000_VehicleEquipmentAndModelLength.cs` — `Up`
++
++`AlterColumn` сужает `vehicles.model` с `varchar(200)` до `varchar(40)` без предварительного обновления/обрезки существующих данных. Сама мотивация задачи (FLEET-115) прямо говорит, что длинные названия моделей существуют и обрезались принтером на печати — то есть в проде наверняка есть строки длиннее 40 символов. `ALTER TABLE ... TYPE varchar(40)` в Postgres на такой таблице завершится ошибкой `value too long for type character varying(40)`, и миграция (а с ней и релиз) просто не применится. В MR указано "проверено... миграция применена на dev-базе" — на dev, судя по всему, таких длинных значений нет, поэтому проблема не обнаружена.
++
++Нужно добавить `UPDATE vehicles SET model = substring(model, 1, 40) WHERE length(model) > 40;` (или аналог) до `AlterColumn`.
++
++## 5. [high] `VehicleService.cs` — `GetLastInspectionAsync`
++
++```csharp
++.OrderByDescending(i => i.CreatedAt).FirstOrDefaultAsync();
++```
++
++"Последний осмотр" для допуска на линию (FLEET-107) определяется по `CreatedAt` (время приёма сервером), а не по `InspectedAt` (фактическое время осмотра на планшете). Комментарий в `SyncInspectionsAsync` явно описывает, что планшет копит осмотры offline и шлёт их пачкой — т.е. `InspectedAt` разных записей в пачке может не совпадать с порядком их обработки сервером, а `CreatedAt` у записей одной транзакции `SaveChangesAsync` (default `now()`) в Postgres совпадает (now() фиксируется на начало транзакции), так что `OrderByDescending(CreatedAt)` даёт неопределённый порядок внутри пачки. В результате при допуске машины на линию можно выбрать не самый свежий осмотр — например, пропустить более новую запись с блокирующим замечанием или наоборот необоснованно отказать из-за устаревшей записи. Для safety-проверки сортировать нужно по `InspectedAt`.
++
++## 6. [high] `TripService.cs` — `StartTripAsync`, проверка допуска
++
++```csharp
++if (!driver.Permits.Any(p => p.Class == vehicle.Class && p.ValidUntil > today))
++```
++
++В описании MR (FLEET-107): "допуск действует по указанную в нём дату включительно". Условие должно быть `p.ValidUntil >= today`. Текущая реализация с `>` считает допуск истёкшим в последний день его действия, необоснованно блокируя выпуск машины на линию в этот день.
++
++## 7. [medium] `Program.cs` — `PUT /api/vehicles/{id}/equipment`
++
++```csharp
++api.MapPut("/vehicles/{id:int}/equipment", async (int id, List<EquipmentDto> items, VehicleService s) => {...});
++```
++
++В отличие от всех остальных мутирующих эндпоинтов (`/drivers/.../name`, `/permits` → "Hr"; `/vehicles/.../decommission` → "FleetManager"; `/inspections/sync` → "Mechanic"; `/trips/start` → "Dispatcher"), у этого эндпоинта нет `.RequireAuthorization("...")` с конкретной ролью — он наследует только базовую `RequireAuthorization()` группы `/api`, то есть доступен любому аутентифицированному пользователю независимо от роли. Комплектация (аптечка/огнетушитель/трос) — безопасность на линии, править её должен как минимум "Mechanic"/"FleetManager".
++
++## 8. [medium] `TripService.cs` — `StartTripAsync`
++
++Нет проверки, что у машины (или у водителя) уже есть незакрытая поездка. Ничто не мешает выпустить одну и ту же машину на линию дважды подряд, создав два одновременных открытых путевых листа на одно авто (или одного водителя сразу на двух машинах). Стоит добавить проверку на существующий открытый `Trip` для `VehicleId`/`DriverId` перед созданием нового.
++
++## 9. [low] `Infrastructure/WorkCalendar.cs` (используется новым `OffDayTripsAsync`)
++
++`Holidays` содержит даты только за 2026 год. Для любого другого года/месяца, переданного в `OffDayTripsAsync(year, month)`, праздники не будут учтены — попадут в отчёт только выходные (сб/вс), без праздничных дней, что ухудшает корректность отчёта службы безопасности (FLEET-109) за прошлые/будущие периоды.
++
++## 10. [low] `TripService.cs` — `OffDayTripsAsync` / сортировка по `Km`
++
++Для незакрытых поездок (`EndOdometerKm == null`) `Km` в `ToRows()` считается равным 0, и при `OrderByDescending(r => r.Km)` такие поездки — в т.ч. длинные, но ещё не закрытые на момент построения отчёта — опускаются вниз списка "самые длинные сверху", хотя по факту могут быть самыми значимыми для службы безопасности.

@@ -1,0 +1,67 @@
+{
+  "id": "0e6f2c",
+  "case": "G3",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.075755,
+    "durationMs": 5570,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 8160,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 502,
+      "output_tokens_details": {
+        "thinking_tokens": 107
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8160,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 502,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 8160,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 8160
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G3-contract-null": {
+      "verdict": "PASS",
+      "quote": "var subscriber = contractNo is not null ? await _db.Subscribers.FirstOrDefaultAsync(s => s.ContractNo == contractNo) : null;",
+      "why": "При contractNo == null поиск по ContractNo не выполняется, и строка уходит в UnresolvedPayments."
+    },
+    "G3-credit-time": {
+      "verdict": "FAIL",
+      "quote": "var now = DateTime.UtcNow;",
+      "why": "Значение с Kind=Utc пишется в CreditedAt, CreatedAt и ReactivatedAt, которые замаплены на timestamp without time zone, поэтому SaveChangesAsync загрузки выписки упадёт."
+    },
+    "G3-h-bycontract": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "GetByContractAsync в diff не тронут и дефектом не назван."
+    },
+    "G3-m-utcnow": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Существующие CreateLeadAsync и SignContractAsync не изменены, DateTime.Now в них не заменён."
+    }
+  },
+  "stderr": ""
+}

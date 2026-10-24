@@ -1,0 +1,87 @@
+{
+  "id": "7bf0c8",
+  "case": "GN",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.078855,
+    "durationMs": 10885,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 6985,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1127,
+      "output_tokens_details": {
+        "thinking_tokens": 504
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6985,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1127,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 6985,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 6985
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GN-h-datetime": {
+      "verdict": "YES",
+      "quote": "При чтении из БД значение будет неправильно интерпретировано как Utc. Нужна явная конфигурация через ValueConverter",
+      "why": "Правильно замапленный PlannedLocal (timestamp without time zone, читается как Unspecified) объявлен дефектом, предложено менять Kind конвертером."
+    },
+    "GN-h-card-split": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "AsSplitQuery в GetCardAsync в выходе не упоминается."
+    },
+    "GN-h-inanalysis-tracking": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "AsNoTracking для GetInAnalysisForBatchAsync не предлагается."
+    },
+    "GN-h-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "SQL-инъекция в GetRecentBySiteAsync не заявляется."
+    },
+    "GN-h-retag-clear": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Tags.Clear() в RetagAsync не упоминается."
+    },
+    "GN-h-labcode-single": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "SingleOrDefaultAsync в FindByLabCodeAsync дефектом не назван."
+    },
+    "GN-percent-int": {
+      "verdict": "FOUND",
+      "quote": "`compliant / total * 100` вернёт 0 для любого значения < 100%",
+      "why": "Названы и целочисленное деление, и необработанный total = 0."
+    },
+    "GN-page-offset": {
+      "verdict": "FOUND",
+      "quote": "Используется `Skip(page * pageSize)` вместо `Skip((page - 1) * pageSize)`",
+      "why": "Дефект смещения первой страницы назван точно."
+    }
+  },
+  "stderr": ""
+}

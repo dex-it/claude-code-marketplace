@@ -1,0 +1,62 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..39012ea
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,56 @@
++# Результаты code-review MR !238
++
++## Дефекты
++
++### 1. Отсутствие авторизации на endpoint обновления комплектации
++
++**Файл**: Program.cs  
++**Метод/Строки**: MapPut для `/vehicles/{id:int}/equipment` (строки 53-57)
++
++**Что не так**:  
++Endpoint позволяет обновлять комплектацию машины без проверки авторизации. Согласно MR, "Механик присылает актуальную комплектацию машины целиком", то есть только механик должен иметь доступ к этому endpoint'у.
++
++```csharp
++api.MapPut("/vehicles/{id:int}/equipment", async (int id, List<EquipmentDto> items, VehicleService s) =>
++{
++    await s.ReplaceEquipmentAsync(id, items);
++    return Results.NoContent();
++});  // <- отсутствует .RequireAuthorization("Mechanic")
++```
++
++Все остальные service endpoints имеют авторизацию, этот - единственный без неё.
++
++**Severity**: CRITICAL
++
++---
++
++### 2. Неправильная логика проверки срока действия допуска
++
++**Файл**: TripService.cs  
++**Метод**: StartTripAsync (строка 111)
++
++**Что не так**:  
++Условие проверки срока действия допуска использует `>` вместо `>=`:
++
++```csharp
++if (!driver.Permits.Any(p => p.Class == vehicle.Class && p.ValidUntil > today))
++    throw new TripDeniedException("Нет действующего допуска к классу машины");
++```
++
++В MR чётко указано: "допуск действует по указанную в нём дату включительно". Текущее условие `ValidUntil > today` исключает сам день истечения допуска.
++
++**Пример ошибки**:
++- ValidUntil = 31 декабря 2026
++- Сегодня = 31 декабря 2026
++- `ValidUntil > today` => false
++- Допуск считается недействительным, хотя должен действовать включительно до 31 декабря
++
++**Severity**: HIGH
++
++---
++
++## Итого
++
++- **CRITICAL**: 1 (безопасность)
++- **HIGH**: 1 (логическая ошибка в бизнес-правиле)
++- Остальной код review'а в порядке

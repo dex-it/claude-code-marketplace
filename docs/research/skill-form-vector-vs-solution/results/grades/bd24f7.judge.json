@@ -1,0 +1,92 @@
+{
+  "id": "bd24f7",
+  "case": "BN",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.097855,
+    "durationMs": 12907,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 9210,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1187,
+      "output_tokens_details": {
+        "thinking_tokens": 232
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9210,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1187,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 9210,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 9210
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "BN-h-local-time": {
+      "verdict": "NO",
+      "quote": "`ScheduledLocal` как `timestamp without time zone` с `Kind=Unspecified` при записи и в параметрах `GetConsumptionAsync`",
+      "why": "Хранение локального времени в Unspecified признано корректным, перевода в UTC выход не требует."
+    },
+    "BN-h-split-card": {
+      "verdict": "NO",
+      "quote": "Split query здесь законен: у процедуры две коллекции одного уровня, их сотни строк",
+      "why": "AsSplitQuery признан уместным, и предлагаемая проекция его сохраняет."
+    },
+    "BN-h-tracking": {
+      "verdict": "NO",
+      "quote": "`FindByTitleAsync` и `GetDaySheetAsync` используют проекции, фильтр выполняется в БД",
+      "why": "AsNoTracking нигде не предлагается: ни для проекций, ни для изменяющих методов."
+    },
+    "BN-h-chip-single": {
+      "verdict": "NO",
+      "quote": "`SingleOrDefault` по `ChipNumber` опирается на уникальный индекс",
+      "why": "SingleOrDefault признан корректным."
+    },
+    "BN-h-fromsql": {
+      "verdict": "NO",
+      "quote": "Сам SQL безопасен: `FromSql` с интерполяцией параметризует `{text}`",
+      "why": "Инъекций нет ни в SearchNotesAsync, ни в ORDER BY GetConsumptionAsync, расхождение алиасов тоже не заявлено."
+    },
+    "BN-h-tolower": {
+      "verdict": "NO",
+      "quote": "`FindByTitleAsync` и `GetDaySheetAsync` используют проекции, фильтр выполняется в БД",
+      "why": "Выход прямо утверждает, что фильтр выполняется на сервере."
+    },
+    "BN-h-consumable-remove": {
+      "verdict": "NO",
+      "quote": "Сам разрыв связи через `Consumables.Remove(line)` корректен: связь required, каскад по умолчанию, поэтому сирота помечается `Deleted`",
+      "why": "Механика удаления признана верной, замечание касается только гонки и объёма загрузки."
+    },
+    "BN-pagination": {
+      "verdict": "FOUND",
+      "quote": "По контракту API страницы нумеруются с 1, а в коде `Skip(page * PageSize)`. При `page=1` пропускаются первые 30 процедур дня",
+      "why": "Дефект назван точно, исправление `Skip((page - 1) * PageSize)`."
+    },
+    "BN-dose-grams": {
+      "verdict": "FOUND",
+      "quote": "Деления на 1000 нет, поэтому объём препарата получается в 1000 раз больше нужного",
+      "why": "Дефект назван точно, с severity critical и верным исправлением."
+    }
+  },
+  "stderr": ""
+}

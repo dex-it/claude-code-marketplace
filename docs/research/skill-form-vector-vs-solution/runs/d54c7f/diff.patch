@@ -1,0 +1,115 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..0dcdbb8
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,109 @@
++# Code Review: MR !87
++
++## Найденные дефекты
++
++### 1. BatchService.cs, ListAsync (строка 49) — Ошибка в пагинации
++**Severity: high**
++
++**Проблема:** Метод получает параметр `page` (начиная с 1), но вычисляет `Skip(page * pageSize)`. 
++Это пропускает first N элементов для любой страницы > 1:
++- page=1: Skip(20) — пропускает первые 20 элементов вместо 0
++- page=2: Skip(40) — неправильно
++
++**Текущий код:**
++```csharp
++.Skip(page * pageSize)
++```
++
++**Должно быть:**
++```csharp
++.Skip((page - 1) * pageSize)
++```
++
++---
++
++### 2. BatchService.cs, CompliancePercentAsync (строка 107) — Целочисленное деление
++**Severity: high**
++
++**Проблема:** Выражение `compliant / total * 100` выполняет целочисленное деление.
++Результат:
++- compliant=1, total=3: (1 / 3) * 100 = 0 * 100 = 0%, вместо 33%
++- compliant=2, total=3: (2 / 3) * 100 = 0 * 100 = 0%, вместо 66%
++
++**Текущий код:**
++```csharp
++return compliant / total * 100;
++```
++
++**Должно быть:**
++```csharp
++return (int)(compliant * 100 / total);
++```
++или
++```csharp
++return compliant == 0 ? 0 : (int)(compliant * 100m / total);
++```
++
++---
++
++### 3. SampleRepository.cs, GetRecentBySiteAsync (строки 27–31) — Raw SQL вместо LINQ
++**Severity: medium**
++
++**Проблема:** Использование `FromSql` с интерполяцией строк вместо LINQ:
++- Снижает читаемость и поддерживаемость
++- Хуже тестируется
++- Можно переписать чистым LINQ с Include
++
++**Текущий код:**
++```csharp
++.FromSql($"""
++    SELECT s.* FROM samples s
++    JOIN sites t ON t.id = s.site_id
++    WHERE t.code = {siteCode} AND s.collected_at >= {since}
++    """)
++```
++
++**Должно быть:**
++```csharp
++.Include(s => s.Site)
++.Where(s => s.Site.Code == siteCode && s.CollectedAt >= since)
++```
++
++---
++
++### 4. Models.cs + LabDbContext.cs — PlannedLocal: локальное время без timezone
++**Severity: medium**
++
++**Проблема:**
++- `Sample.PlannedLocal` — это `DateTime` (без указания Kind)
++- LabDbContext конфигурирует его как `timestamp without time zone` в БД
++- `Site.TimeZoneId` определён, но не используется при сохранении/загрузке PlannedLocal
++- Пробоотборщик вводит локальное время объекта (по его TimeZoneId), но оно сохраняется и загружается без информации о зоне
++- Риск ошибок при преобразовании времени, особенно при переходе на летнее/зимнее время
++
++**Рекомендация:**
++- Либо сохранять PlannedLocal как UTC в БД (тип `timestamp with time zone`) и явно конвертировать при загрузке
++- Либо явно использовать TimeZoneId при преобразовании
++
++---
++
++### 5. LabDbContext.cs — SampleTag отсутствует в DbSet
++**Severity: low**
++
++**Проблема:** Класс `SampleTag` конфигурируется в `OnModelCreating`, но отсутствует DbSet:
++```csharp
++public DbSet<SampleTag> SampleTags => Set<SampleTag>();
++```
++
++Это может привести к проблемам при:
++- Генерации миграций
++- Явной работе с тегами в контексте
++- Сканировании EF Core конфигурации
++
++---
++
++## Итого
++- **Critical:** 0
++- **High:** 2 (пагинация, целочисленное деление)
++- **Medium:** 2 (raw SQL, timezone handling)
++- **Low:** 1 (отсутствие DbSet)

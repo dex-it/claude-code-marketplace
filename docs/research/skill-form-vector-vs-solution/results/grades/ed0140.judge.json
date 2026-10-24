@@ -1,0 +1,61 @@
+{
+  "id": "ed0140",
+  "case": "E6",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.1494274,
+    "durationMs": 5203,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 17564,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 424,
+      "output_tokens_details": {
+        "thinking_tokens": 99
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 17564,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 424,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 17564,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 17564
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "E6-prod": {
+      "verdict": "PASS",
+      "quote": "dotnet ef migrations script --idempotent \\",
+      "why": "Production-job применяет через psql идемпотентный SQL-артефакт после ручного approve в Environment production; в diff нет ни dotnet ef database update, ни Database.Migrate()."
+    },
+    "E6-m-data": {
+      "verdict": "NO",
+      "quote": "INSERT INTO \"\"OrderCategories\"\" (\"\"OrderId\"\", \"\"CategoryId\"\")",
+      "why": "Отдельная data-миграция BackfillOrderCategories переносит значения Orders.Category в Categories и OrderCategories."
+    },
+    "E6-m-drop": {
+      "verdict": "NO",
+      "quote": "Orders.Category пока не трогаем и не удаляем.",
+      "why": "Ни одна миграция не удаляет колонку, Order.Category в модели и снапшоте остаётся."
+    }
+  },
+  "stderr": ""
+}

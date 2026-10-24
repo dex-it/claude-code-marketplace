@@ -1,0 +1,77 @@
+{
+  "id": "a21dbe",
+  "case": "G6",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.151755,
+    "durationMs": 12731,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 15885,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1212,
+      "output_tokens_details": {
+        "thinking_tokens": 426
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 15885,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1212,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 15885,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 15885
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G6-sort-column": {
+      "verdict": "PASS",
+      "quote": "if (!SortColumns.TryGetValue(sortKey, out var sortExpr))\n            throw new ArgumentException",
+      "why": "Столбец сортировки берётся из словаря с фиксированными SQL-фрагментами, а направление из switch только с ASC/DESC. На неизвестное значение бросается ArgumentException, эндпоинт отвечает 400."
+    },
+    "G6-total-count": {
+      "verdict": "PASS",
+      "quote": "SqlQueryRaw<int>($\"SELECT COUNT(*)::int AS \\\"Value\\\" {from}{where}\", Parameters())",
+      "why": "Total считается отдельным COUNT(*) с теми же FROM и WHERE, без ORDER BY и LIMIT/OFFSET."
+    },
+    "G6-account-index": {
+      "verdict": "PASS",
+      "quote": "SET is_legacy_duplicate = TRUE ... filter: \"account_number <> '' AND NOT is_legacy_duplicate\"",
+      "why": "До создания индекса миграция помечает старые копии дублей и исключает их из частичного уникального индекса, строки и ссылки заявок сохраняются, поэтому CREATE UNIQUE INDEX на существующих дублях не падает."
+    },
+    "G6-plan-replace": {
+      "verdict": "PASS",
+      "quote": "if (existing.TryGetValue(src.WorkCode, out var item))\n            {\n                item.Title = src.Title;",
+      "why": "Работы сопоставляются по WorkCode: существующие PlanItem обновляются на месте, новые добавляются, отсутствующие архивируются, а не удаляются. Отметки выполнения сохраняются, конфликта на уникальном индексе нет."
+    },
+    "G6-h-limit": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Подстановку LIMIT/OFFSET исполнитель инъекцией не называет и оставляет вычисленными int."
+    },
+    "G6-m-dedup-delete": {
+      "verdict": "NO",
+      "quote": "Миграция ничего не удаляет: на старые записи ссылаются заявки.",
+      "why": "Дубли помечаются флагом, строки apartments не удаляются, поэтому каскадного удаления заявок нет."
+    }
+  },
+  "stderr": ""
+}

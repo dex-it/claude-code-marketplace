@@ -1,0 +1,121 @@
+{
+  "id": "c065dd",
+  "case": "CFG",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.08789140000000001,
+    "durationMs": 13797,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 6322,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1844,
+      "output_tokens_details": {
+        "thinking_tokens": 341
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6322,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1844,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 6322,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 6322
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "CFG-K9": {
+      "verdict": "PASS",
+      "quote": "`Outbox:MaxInFlight` в Staging = 20, в Production = 5. Staging сконфигурирован с бОльшим параллелизмом отправок, чем прод",
+      "why": "Находка №10 прямо называет, что MaxInFlight в Staging выше, чем в Production."
+    },
+    "CFG-K8": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Нигде не сказано, что MaxRetries 5 избыточно повторён в Staging и Production при том же дефолте."
+    },
+    "CFG-h-required": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Модификатор required не упоминается; для SmtpOptions предложены IValidateOptions/ValidateOnStart."
+    },
+    "CFG-K1": {
+      "verdict": "FOUND",
+      "quote": "Пароль от продакшен-БД и живой ключ SMTP-релея закоммичены прямо в конфиг в репозитории",
+      "why": "Находка №8 называет оба секрета в appsettings.Production.json."
+    },
+    "CFG-K2": {
+      "verdict": "FOUND",
+      "quote": "`GetValue<int>` для отсутствующего ключа вернёт `0`, после чего `60_000 / perMinute` кинет `DivideByZeroException`",
+      "why": "Находка №3 описывает несовпадение ключа, 0 и деление на ноль."
+    },
+    "CFG-K3": {
+      "verdict": "FOUND",
+      "quote": "нигде не зарегистрирован в DI (`Program.cs` не содержит `services.AddSingleton<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>()`), и не вызван `.ValidateOnStart()`",
+      "why": "Находка №4 называет обе части дефекта."
+    },
+    "CFG-K4": {
+      "verdict": "FOUND",
+      "quote": "`OutboxWorker` — используется `IOptions<OutboxOptions>` вместо `IOptionsMonitor<OutboxOptions>`",
+      "why": "Находка №6 связывает IOptions в воркере с требованием менять параметры на лету."
+    },
+    "CFG-K5": {
+      "verdict": "FOUND",
+      "quote": "это тихо отключает адаптивное изменение размера батча (`if (o.MinBatchSize < o.MaxBatchSize)`)",
+      "why": "Находка №5 называет тихое выключение adaptive batching при 200/100."
+    },
+    "CFG-K6": {
+      "verdict": "FOUND",
+      "quote": "опрос outbox идёт раз в ~500 секунд (~8.3 минуты) вместо раз в 0.5 секунды",
+      "why": "Находка №2 описывает TimeSpan.FromSeconds(500)."
+    },
+    "CFG-K7": {
+      "verdict": "FOUND",
+      "quote": "`Host` и `FromAddress` объявлены как non-nullable `string` без инициализатора и без своего `IValidateOptions<SmtpOptions>`",
+      "why": "Находка №11 называет non-nullable поля без дефолта и проверки."
+    },
+    "CFG-h-P1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Против IOptions<SmtpOptions> в SmtpMailSender находок нет; замечание про IOptions касается только OutboxWorker."
+    },
+    "CFG-h-P2": {
+      "verdict": "NO",
+      "quote": "в отличие от `LockTimeout` (уже `TimeSpan`)",
+      "why": "LockTimeout приведён как правильный образец, а не как дефект."
+    },
+    "CFG-O1": {
+      "verdict": "FOUND",
+      "quote": "`SentAt` проставляется до фактической отправки, ретраи не работают",
+      "why": "Находка №7 описывает дефект точно."
+    },
+    "CFG-O2": {
+      "verdict": "FOUND",
+      "quote": "`builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection(\"Mail\"))`, но во всех appsettings-файлах секция называется `\"Smtp\"`",
+      "why": "Находка №1 называет привязку к несуществующей секции и пустые SmtpOptions."
+    },
+    "CFG-O3": {
+      "verdict": "FOUND",
+      "quote": "Стандартный JSON configuration provider .NET не делает подстановку переменных окружения внутри строковых значений",
+      "why": "Находка №9 описывает дефект точно."
+    }
+  },
+  "stderr": ""
+}

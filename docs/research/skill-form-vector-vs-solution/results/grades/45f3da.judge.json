@@ -1,0 +1,72 @@
+{
+  "id": "45f3da",
+  "case": "G2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.126579,
+    "durationMs": 11674,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 13078,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1076,
+      "output_tokens_details": {
+        "thinking_tokens": 511
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 13078,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1076,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 13078,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 13078
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G2-checkin-phone": {
+      "verdict": "PASS",
+      "quote": "if (enrollments.Count > 1)\n            return new CheckinResult(null, false, enrollments.Select(ToCandidate).ToList());",
+      "why": "Клиент ищется через Where по Phone без Single или First. Выборка сужается до записей на идущие и ближайшие занятия, а если записей несколько, возвращается список для выбора по enrollmentId."
+    },
+    "G2-replace-sessions": {
+      "verdict": "PASS",
+      "quote": "_db.Sessions.RemoveRange(old);\n        _db.Sessions.AddRange(",
+      "why": "Прежние Session удаляются явно через RemoveRange, новые добавляются, а конфигурация связи Course->Session не меняется."
+    },
+    "G2-screen-next": {
+      "verdict": "PASS",
+      "quote": ".Select(s => (DateTime?)s.StartsAt)\n            .FirstOrDefaultAsync();",
+      "why": "Сначала отдельным скалярным запросом без коллекций выбирается время ближайшего занятия. Затем без First и Take грузятся все занятия на это время вместе с записавшимися, поэтому split-запросы не могут выбрать разные занятия."
+    },
+    "G2-h-course-split": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Исполнитель не трогает GetCourseAsync и не называет его дефектом."
+    },
+    "G2-m-cascade": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "OnDelete связи Course->Session не меняется: старые занятия удаляются явно, а при наличии записей возвращается 409."
+    }
+  },
+  "stderr": ""
+}

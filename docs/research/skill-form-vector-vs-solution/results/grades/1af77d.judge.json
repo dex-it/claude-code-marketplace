@@ -1,0 +1,71 @@
+{
+  "id": "1af77d",
+  "case": "E1",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.042651400000000006,
+    "durationMs": 6981,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 3347,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 772,
+      "output_tokens_details": {
+        "thinking_tokens": 202
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3347,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 772,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 3347,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 3347
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "E1-filter": {
+      "verdict": "PASS",
+      "quote": "_db.Orders.AsNoTracking().Where(o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < now)",
+      "why": "Условие просрочки целиком записано в Where над IQueryable и транслируется в SQL до ToListAsync; Order.IsOverdue не вызывается."
+    },
+    "E1-tracking": {
+      "verdict": "PASS",
+      "quote": "_db.Orders.AsNoTracking().Where(o => o.Status == \"active\")",
+      "why": "Все три метода строятся на QueryActive/QueryOverdue с AsNoTracking и проецируют в record или анонимный тип, так что отслеживаемые сущности не материализуются."
+    },
+    "E1-m-n1": {
+      "verdict": "NO",
+      "quote": ".Select(o => new ActiveOrderReportRow(o.Id, o.Customer.Name, o.Total, o.Items.Count))",
+      "why": "Customer.Name и Items.Count берутся в серверной проекции до материализации, поэтому ленивой загрузки по строкам нет."
+    },
+    "E1-m-agg": {
+      "verdict": "NO",
+      "quote": ".GroupBy(o => o.Category)\n            .Select(g => new { Category = g.Key, Count = g.Count() })",
+      "why": "Группировка и подсчёт выполняются на сервере, ToDictionaryAsync только собирает готовый результат."
+    },
+    "E1-m-getall": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "OrderReportService не вызывает GetAllAsync, он использует только QueryActive и QueryOverdue."
+    }
+  },
+  "stderr": ""
+}

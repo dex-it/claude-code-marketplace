@@ -1,0 +1,72 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..96e2b79
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,66 @@
++# Ревью MR !87: находки
++
++## Critical
++
++1. **`Services/ReviewService.cs`, `SaveAsync`: нет проверки, что оценка принадлежит текущему эксперту.**
++   Review загружается по `reviewId`, а `expertId` сравнивается только с `Application.ApplicantId`. Проверки `review.ExpertId == expertId` нет. Любой эксперт может перебрать `id` и переписать или отправить чужую оценку, в том числе подставить свои баллы за коллегу. Это IDOR, и он ломает всю экспертизу.
++   Как исправить: добавить `r.ExpertId == expertId` в условие выборки и отвечать `NotFound`.
++
++2. **`Controllers/ApplicationsController.cs`, `Get`: слепая экспертиза не соблюдается.**
++   Для эксперта код проверяет только, что заявка ему назначена, а потом отдаёт `Reviews` со всеми отправленными оценками: `ExpertName`, `Total`, `Comment`. По описанию MR эксперт не должен видеть оценки и комментарии коллег, а здесь видит их вместе с именами. Утечка данных, нарушение регламента конкурса.
++   Как исправить: для не-координатора возвращать пустой список или только его собственную оценку.
++
++3. **`Services/RankingService.cs`, `BuildAsync`: два запроса параллельно идут через один `DbContext` (`Task.WhenAll(contestTask, rowsTask)`).**
++   `DbContext` не потокобезопасен, и EF Core выбрасывает `InvalidOperationException: A second operation was started on this context instance...`. Рейтинг стабильно или периодически падает с 500.
++   Как исправить: выполнять запросы последовательно через `await`.
++
++4. **`Services/RankingService.cs`, `BuildAsync`: средний балл считается по всем экспертизам, а не только по отправленным.**
++   В `a.Reviews.Average(r => (decimal?)r.Total)` нет фильтра по статусу. Туда попадают `Assigned` и `Expired` с `Total = 0`, а также `Draft` с частичным итогом. Рейтинг считается неправильно, заявкам с неотправленными назначениями балл занижается, и гранты получают не те участники.
++   Как исправить: `a.Reviews.Where(r => r.Status == ReviewStatus.Submitted).Average(...)`.
++
++## High
++
++5. **`Services/RankingService.cs`, `BuildAsync`: условие `SubmittedReviews > MinReviews` записано как «строго больше 3».**
++   По описанию нужно «не меньше трёх», то есть `>=`. Заявки ровно с тремя отправленными экспертизами (обычный случай) выпадают из рейтинга и не получают грант.
++
++6. **`Services/RankingService.cs`, `BuildAsync`: остаток фонда не переходит к следующим заявкам.**
++   После первой заявки, на которую не хватило денег, ставится `budgetExhausted = true`, и все следующие заявки остаются без гранта, даже если их сумма помещается в остаток. По описанию нужно наоборот: остаток идёт следующим по списку, чтобы распределить бюджет полностью.
++   Как исправить: убрать `budgetExhausted` и проверять только `x.RequestedAmount <= remaining`.
++
++7. **`Services/ReviewService.cs`, `ScoreItem` / `SaveAsync`: балл не проверяется против `Criterion.MaxScore`.**
++   Валидация задана как `[Range(0, 10)]` для всех критериев. По критерию с максимумом 5 можно поставить 10. Тогда вклад критерия будет 200% от его веса, а `Total` может превысить 100. Эксперт, по ошибке или намеренно, искажает рейтинг.
++   Как исправить: проверять `0 <= s.Value <= criteria[s.CriterionId].MaxScore` и возвращать `Invalid`.
++
++8. **`Controllers/ReviewsController.cs`, `Save`: результат `SaveReviewResult.Invalid` превращается в `204 No Content`.**
++   В `switch` нет ветки для `Invalid`, и он попадает в `_ => NoContent()`. Если отправить оценку без части критериев, с чужим или повторяющимся критерием, клиент получит «успех», но ничего не сохранится. Эксперт будет считать, что оценка отправлена, а она останется в `Assigned`/`Draft` и после закрытия экспертизы станет `Expired`.
++   Как исправить: `Invalid => UnprocessableEntity/BadRequest`, `Saved => NoContent`, а для неизвестного значения выбрасывать исключение.
++
++9. **`Controllers/ApplicationsController.cs`, `Search`: `a.Region.Equals(r, StringComparison.OrdinalIgnoreCase)` не транслируется в SQL провайдером Npgsql.**
++   EF Core выбросит `InvalidOperationException: The LINQ expression ... could not be translated`, и поиск по региону всегда будет падать с 500.
++   Как исправить: `EF.Functions.ILike(a.Region, r)` (с экранированием `%`/`_`) или сравнение через `ToLower()`. Ещё вариант: колонка `citext` или недетерминированная collation.
++
++## Medium
++
++10. **`Services/ReviewService.cs`, `SaveAsync` вместе с `ContestsController.CloseReview`: гонки без контроля конкурентности.**
++    Статус и `ReviewClosed` проверяются в памяти, а сохранение идёт без concurrency token: нет `xmin`/`[ConcurrencyCheck]` и нет условного UPDATE.
++    - Закрытие экспертизы, выполненное между чтением и `SaveChanges`, затирается: `UPDATE` выставит `Status = Submitted` поверх `Expired`, и оценка будет принята после закрытия.
++    - Два одновременных submit или draft+submit: второй запрос перепишет баллы и `Total` уже отправленной оценки, хотя отправленную оценку менять нельзя.
++
++    Как исправить: добавить concurrency token на `Review` (например, `xmin` через `UseXminAsConcurrencyToken`/`IsRowVersion`) или делать условный `UPDATE ... WHERE Status IN (Assigned, Draft)`. Ещё вариант: блокировка `SELECT ... FOR UPDATE` на конкурсе или назначении.
++
++11. **`Services/ReviewService.cs`, `CalculateTotal`: возможно деление на ноль.**
++    Если `MaxScore = 0` или сумма весов равна 0 (критерии не заведены или веса нулевые), будет `DivideByZeroException` и 500. Модель такие значения не запрещает. Нужна валидация критериев или защитная проверка.
++
++## Low
++
++12. **`Controllers/ContestsController.cs`, `Assign`: назначать можно и после закрытия экспертизы, существование конкурса не проверяется.**
++    Появятся «висячие» `Assigned`, которые уже никогда не отправить. Кроме того, два параллельных `Assign` для одного эксперта упадут на уникальном индексе `(ApplicationId, ExpertId)` с 500 вместо понятного ответа.
++
++13. **`Services/ReviewService.cs`, `SaveAsync`: можно оценивать отозванную заявку (`Withdrawn`).**
++    Статус заявки не проверяется. На рейтинг это не влияет, но эксперт тратит работу впустую. Стоит возвращать `ReviewClosed`/`Invalid`.
++
++14. **`Services/RankingService.cs`, `BuildAsync`: сортировка идёт по неокруглённому среднему, а наружу отдаётся округлённое.**
++    Две заявки с одинаковым выведенным баллом могут стоять «не по дате подачи», что сбивает с толку при разборе апелляций. Лучше сортировать по тому же округлённому значению, которое видит пользователь.
++
++15. **Миграции: в MR нет миграции EF Core, хотя схема меняется.**
++    Изменились `Contest.ReviewClosed`, `Criterion`, `Review`, `ReviewScore` и индексы. Если проект использует миграции, база после деплоя не будет соответствовать модели.

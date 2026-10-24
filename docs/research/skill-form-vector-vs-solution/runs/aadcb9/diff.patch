@@ -1,0 +1,62 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..9ba59b4
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,56 @@
++# Code review MR (SalesReport.cs, CustomerExport.cs, CatalogSearch.cs, StockImport.cs)
++
++## 1. CustomerExport.cs — `CustomersWithOrders`
++**Severity: high**
++Запрос делает `AsNoTracking()` + `Include(o => o.Customer)`, а затем `.Select(o => o.Customer).Distinct()`.
++`AsNoTracking()` по умолчанию **не** выполняет identity resolution — для каждого `Order` создаётся отдельный объект `Customer`, даже если у клиента несколько заказов в периоде. `Customer` не переопределяет `Equals`/`GetHashCode`, поэтому `.Distinct()` сравнивает по ссылкам и не дедуплицирует. В итоге выгрузка для CRM будет содержать одного и того же клиента столько раз, сколько у него заказов в периоде (дубли email → повторные рассылки).
++Исправление: группировать по `o.CustomerId` до выборки клиентов, либо использовать `AsNoTrackingWithIdentityResolution()`, либо `Select(o => o.CustomerId).Distinct()` + отдельный запрос к `Customers`.
++
++## 2. SalesReport.cs — `Build`
++**Severity: high**
++Запрос `_db.OrderItems.Where(i => i.Order.CreatedAt >= from && i.Order.CreatedAt < to)` не фильтрует по `Order.Status`. В модели заказ может быть `New`, `Accepted`, `Rejected`, `Confirmed`, `Paid` (см. `Model.cs`, `OrderIntake.cs`). Позиции отклонённых (`Rejected`) и ещё не оплаченных заказов попадают в `SoldQty`/`Revenue` наравне с оплаченными — отчёт о продажах завышает фактические продажи и выручку. Это финансовая отчётность, ошибка напрямую влияет на бизнес-решения.
++Исправление: явно ограничить выборку нужными статусами (как минимум исключить `Rejected`, вероятно — оставить только `Paid`).
++
++## 3. SalesReport.cs — `Build`
++**Severity: medium**
++Продукты берутся через `_products.GetAllAsync(ct)` — это грузит **всю** таблицу `Products`, включая `byte[] Image` (потенциально тяжёлые блобы) и неактивные товары, а фильтрация `IsActive` делается уже в памяти. Дополнительно сопоставление продаж с товарами реализовано как `items.Where(i => i.ProductId == p.Id)` внутри `Select` — O(products × items) вместо группировки. При росте каталога/числа заказов это будет деградировать по памяти и CPU.
++Исправление: агрегировать продажи в БД (`GroupBy(i => i.ProductId)`), выбирать только нужные поля товара (`Id, Name, IsActive`) без `Image`.
++
++## 4. SalesReport.cs — `Build`
++**Severity: low**
++Запрос к `_db.OrderItems` не использует `AsNoTracking()`, хотя это чисто читающий отчёт и остальные читающие методы в этом же MR (`CustomerExport`, `CatalogSearch`) используют `AsNoTracking()`. Несогласованность + лишний оверхед трекинга изменений.
++
++## 5. StockImport.cs — `Import`
++**Severity: medium**
++`File.ReadLines(csvPath)` — синхронное блокирующее чтение файла внутри async-метода. Для больших файлов от поставщика это блокирует поток из пула потоков и не уважает `ct` во время чтения строк.
++Исправление: асинхронное построчное чтение (`StreamReader.ReadLineAsync`) с проверкой `ct`.
++
++## 6. StockImport.cs — `Import`
++**Severity: medium**
++Нет валидации знака количества: `int.TryParse(parts[1], out var qty)` пропускает отрицательные числа как валидные, и `product.Stock = qty` запишет отрицательный остаток без пометки строки как `invalid`. Это может испортить остатки и повлиять на связанные проверки (`ShippingPlanner` использует `s.Qty >= qty`).
++Исправление: дополнительно проверять `qty >= 0`, иначе — в `invalid`.
++
++## 7. StockImport.cs — `Import`
++**Severity: medium**
++Поиск товара — `products.FirstOrDefault(p => p.Id == id)` внутри цикла по строкам CSV: полный `List<Product>` (вся таблица) сканируется линейно на каждую строку файла — O(N×M). При большом каталоге и большом файле остатков это заметно дороже, чем `Dictionary<Guid, Product>`, построенный один раз.
++
++## 8. StockImport.cs — `Import`
++**Severity: medium**
++Нет обработки ошибок доступа к файлу: если `csvPath` не существует или заблокирован, `File.ReadLines` бросит необработанное исключение (`FileNotFoundException`/`IOException`), и весь импорт упадёт без возврата частичного `ImportResult` и без внятной диагностики для вызывающего job'а.
++
++## 9. CatalogSearch.cs — `Search`
++**Severity: low**
++Четыре почти идентичные ветки запроса (`category && maxPrice`, `category`, `maxPrice`, ни одного) вместо одного запроса с условным предикатом (`(category == null || p.Category == category) && (maxPrice == null || p.Price <= maxPrice)`, который EF Core корректно транслирует в SQL). Дублирование логики — риск, что при будущем изменении фильтра поправят не все ветки.
++
++## 10. CatalogSearch.cs — `Search`
++**Severity: low**
++Нет пагинации/лимита на результат — при широких фильтрах (например, без `category`/`maxPrice`) может быть возвращён весь активный каталог целиком.
++
++## 11. CustomerExport.cs — `HasOrders`
++**Severity: low**
++`await _db.Orders.CountAsync(...) > 0` считает все совпадения вместо `AnyAsync(...)`, который транслируется в `EXISTS` и не требует полного подсчёта совпадений.
++
++---
++
++### Приоритет к исправлению перед мерджем
++Критично устранить до мерджа: **№1** (дубли клиентов в CRM-выгрузке) и **№2** (неверные цифры в отчёте о продажах из-за отсутствия фильтра по статусу заказа) — оба искажают бизнес-данные, отдаваемые наружу. Остальные — производительность/устойчивость, желательно поправить, но не блокеры первой необходимости.

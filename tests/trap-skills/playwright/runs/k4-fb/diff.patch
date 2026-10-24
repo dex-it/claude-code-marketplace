@@ -1,0 +1,81 @@
+diff --git a/e2e/.gitignore b/e2e/.gitignore
+new file mode 100644
+index 0000000..6b06ed8
+--- /dev/null
++++ b/e2e/.gitignore
+@@ -0,0 +1 @@
++playwright/.auth
+diff --git a/e2e/playwright.config.ts b/e2e/playwright.config.ts
+index 7610c1b..888869b 100644
+--- a/e2e/playwright.config.ts
++++ b/e2e/playwright.config.ts
+@@ -20,9 +20,14 @@ export default defineConfig({
+     },
+   ],
+   projects: [
++    {
++      name: 'setup',
++      testMatch: /auth\.setup\.ts/,
++    },
+     {
+       name: 'chromium',
+-      use: { ...devices['Desktop Chrome'] },
++      dependencies: ['setup'],
++      use: { ...devices['Desktop Chrome'], storageState: 'playwright/.auth/alice.json' },
+     },
+   ],
+ });
+diff --git a/e2e/tests/auth.setup.ts b/e2e/tests/auth.setup.ts
+new file mode 100644
+index 0000000..7ab8dbb
+--- /dev/null
++++ b/e2e/tests/auth.setup.ts
+@@ -0,0 +1,11 @@
++import { expect, test as setup } from '@playwright/test';
++
++// Единственный вход через форму: токен сохраняется в storageState и переиспользуется остальными тестами.
++setup('вход под alice', async ({ page }) => {
++  await page.goto('/');
++  await page.getByLabel('Email').fill('alice@shopdesk.example');
++  await page.getByLabel('Пароль').fill('alice-demo');
++  await page.getByRole('button', { name: 'Войти' }).click();
++  await expect(page.getByRole('heading', { name: 'Мои заказы' })).toBeVisible();
++  await page.context().storageState({ path: 'playwright/.auth/alice.json' });
++});
+diff --git a/e2e/tests/orders.spec.ts b/e2e/tests/orders.spec.ts
+new file mode 100644
+index 0000000..26090ec
+--- /dev/null
++++ b/e2e/tests/orders.spec.ts
+@@ -0,0 +1,31 @@
++import { expect, test } from '@playwright/test';
++
++// Заказ ищем по номеру, а не по позиции: тесты не зависят от порядка в списке.
++function orderRow(page: import('@playwright/test').Page, number: number) {
++  return page.getByRole('listitem').filter({ hasText: `Заказ #${number}` });
++}
++
++test('alice видит список своих заказов', async ({ page }) => {
++  await page.goto('/');
++  await expect(page.getByRole('heading', { name: 'Мои заказы' })).toBeVisible();
++  await expect(orderRow(page, 1001)).toBeVisible();
++  await expect(orderRow(page, 1002)).toBeVisible();
++  await expect(orderRow(page, 1003)).toContainText('Оплачен');
++  await expect(page.getByText('Заказ #1004')).toHaveCount(0);
++});
++
++test('отмена нового заказа', async ({ page }) => {
++  await page.goto('/');
++  const row = orderRow(page, 1001);
++  await row.getByRole('button', { name: 'Отменить' }).click();
++  await expect(row).toContainText('Отменён');
++  await expect(row.getByRole('button', { name: 'Отменить' })).toHaveCount(0);
++});
++
++test('ошибка сервера при загрузке заказов', async ({ page }) => {
++  await page.route('**/api/orders', (route) =>
++    route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: { code: 'internal', message: 'boom' } }) }),
++  );
++  await page.goto('/');
++  await expect(page.getByRole('alert')).toHaveText('Не удалось загрузить заказы');
++});

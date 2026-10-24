@@ -10,12 +10,7 @@ description: Linux syscall и event tracing - strace, bpftrace JSON output, bcc 
 ### strace на race-condition коде
 Плохо: `strace -p <PID>` на сервисе с подозрением на race, race «исчезает»
 Правильно: для race использовать bpftrace (kernel-side, минимальный overhead) или helgrind; strace - только для логики поведения, не для timing-bug
-Почему: strace тормозит процесс в 10-100x через ptrace stops. Race-conditions с узким окном перестают воспроизводиться - observer effect
-
-### Без -f теряются child процессы
-Плохо: `strace ./my-script.sh` и удивление что не видно поведения дочерних
-Правильно: `strace -f` для child-процессов; `-ff -o trace.log` для отдельных файлов на каждый child
-Почему: по умолчанию strace следит только за PID-target. fork() порождает невидимого ребёнка
+Почему: strace тормозит процесс через ptrace stops. Race-conditions с узким окном перестают воспроизводиться - observer effect
 
 ### Truncated strings
 Плохо: `strace ... write(...)` показывает обрезанные строки, agent делает выводы по куску

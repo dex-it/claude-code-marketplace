@@ -1,0 +1,71 @@
+{
+  "id": "f8b004",
+  "case": "E1",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0431474,
+    "durationMs": 7707,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 3214,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 850,
+      "output_tokens_details": {
+        "thinking_tokens": 258
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3214,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 850,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 3214,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 3214
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "E1-filter": {
+      "verdict": "PASS",
+      "quote": ".Where(o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < now)\n            .ToListAsync();",
+      "why": "Условие IsOverdue целиком выражено в IQueryable до ToListAsync и транслируется в SQL, без вызова Order.IsOverdue."
+    },
+    "E1-tracking": {
+      "verdict": "FAIL",
+      "quote": "_db.Orders\n            .Include(o => o.Customer)\n            .Where(o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < now)\n            .ToListAsync();",
+      "why": "Метод просроченных заказов материализует отслеживаемые сущности Order без AsNoTracking и без проекции в не-сущность."
+    },
+    "E1-m-n1": {
+      "verdict": "NO",
+      "quote": ".Select(o => new ActiveOrderReportLine(o.Id, o.Customer.Name, o.Total, o.Items.Count))",
+      "why": "Customer.Name и Items.Count берутся в серверной проекции, а в просроченных заказах Customer подгружается через Include, поэтому ленивой навигации после материализации нет."
+    },
+    "E1-m-agg": {
+      "verdict": "NO",
+      "quote": ".GroupBy(o => o.Category)\n            .Select(g => new { Category = g.Key, Count = g.Count() })",
+      "why": "Группировка и подсчёт выполняются на сервере до ToDictionaryAsync."
+    },
+    "E1-m-getall": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "В новых методах GetAllAsync не вызывается, все запросы строятся от _db.Orders."
+    }
+  },
+  "stderr": ""
+}

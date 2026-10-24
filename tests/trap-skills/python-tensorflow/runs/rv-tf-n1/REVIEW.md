@@ -1,0 +1,13 @@
+src/shelfwatch/keras_train.py:103 - EarlyStopping следит за val_loss, но в fit нет validation_data (val_df в датасет не превращён): метрики val_loss нет, ранняя остановка не сработает, обучение идёт все 100 эпох с переобучением; без restore_best_weights сохранятся не лучшие веса - blocker
+src/shelfwatch/keras_train.py:37 - выход Dense уже с softmax, а loss на 81 и 98 с from_logits=True: софтмакс применяется дважды, градиенты искажены, обучение хуже и калибровка вероятностей неверна - blocker
+src/shelfwatch/keras_train.py:107 - model.save в .h5 для сабклассной модели SkuNet/ResidualBlock без get_config: сохранение падает или модель не загрузится в сервисе - blocker
+src/shelfwatch/keras_train.py:95 - модель создаётся и компилируется (стр. 94) вне strategy.scope(), внутри scope компилируется только повторно: переменные не зеркалируются, MirroredStrategy ничего не распараллеливает, GPU простаивают - major
+src/shelfwatch/keras_train.py:55 - ds.batch(batch).shuffle(64) перемешивает целые батчи, а не строки: состав батчей фиксирован между эпохами, обучение хуже; для train нет prefetch, GPU ждёт данных - major
+src/shelfwatch/keras_train.py:90 - map(augment) без num_parallel_calls (и без prefetch после него): аугментация идёт в один поток и тормозит вход GPU - major
+src/shelfwatch/keras_train.py:17 - set_global_policy("mixed_float16") при импорте модуля меняет политику для всего процесса (в т.ч. тестов и сервиса); выход softmax при этом float16 — вероятности и loss считаются в половинной точности, нужен отдельный float32-выход - major
+src/shelfwatch/keras_train.py:15 - абсолютный путь /home/dmitry/... к данным: на любой другой машине и в CI чтение падает; в paths.py уже есть DATA_DIR - major
+src/shelfwatch/keras_train.py:72 - в @tf.function ветка if len(x) > 1000 молча обрезает батч до 1000 строк (потеря данных), а print срабатывает только при трассировке и вводит в заблуждение - major
+src/shelfwatch/keras_train.py:62 - shuffle(buffer_size=16) перед take(n) даёт не случайную выборку, а почти первые n строк: пробы смещены и не отражают данные - minor
+src/shelfwatch/keras_train.py:105 - качество оценивается на первых 512 строках val и только долей уверенных предсказаний, accuracy на валидации не считается: регрессию не заметят - minor
+src/shelfwatch/keras_train.py:46 - проверка пропусков через assert отключается под python -O, диапазон category (0..9) не проверяется: при плохих данных обучение пойдёт молча или упадёт с невнятной ошибкой на loss - minor
+tests/test_keras_train.py:6 - есть только проверка формы forward; нет тестов make_dataset, train, сохранения/загрузки модели: ошибки выше пройдут CI - minor

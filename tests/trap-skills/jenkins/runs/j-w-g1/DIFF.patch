@@ -1,0 +1,189 @@
+diff --git a/Directory.Build.props b/Directory.Build.props
+index 16cc93e..a58840e 100644
+--- a/Directory.Build.props
++++ b/Directory.Build.props
+@@ -5,5 +5,6 @@
+     <ImplicitUsings>enable</ImplicitUsings>
+     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+     <Version>1.4.0</Version>
++    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+   </PropertyGroup>
+ </Project>
+diff --git a/Jenkinsfile b/Jenkinsfile
+new file mode 100644
+index 0000000..a66e391
+--- /dev/null
++++ b/Jenkinsfile
+@@ -0,0 +1,172 @@
++// Версия библиотеки зафиксирована релизной меткой: не ветка main и не rc.
++@Library('depot-pipeline-lib@v1.4.0') _
++
++pipeline {
++    // Агент задаётся на стадиях: пока ждём подтверждение прод-деплоя, executor не занимаем.
++    agent none
++
++    options {
++        buildDiscarder(logRotator(numToKeepStr: '30'))
++        timestamps()
++    }
++
++    environment {
++        IMAGE_REPO = 'registry.example.com/depot/api'
++        DOTNET_CLI_TELEMETRY_OPTOUT = '1'
++        DOTNET_NOLOGO = '1'
++    }
++
++    stages {
++        stage('CI') {
++            // Сборка, тесты и образ идут на одной ноде: bin/obj и образ нужны следующим стадиям.
++            agent { label 'dotnet-linux' }
++            options { timeout(time: 60, unit: 'MINUTES') }
++            stages {
++                stage('Версия образа') {
++                    steps {
++                        script {
++                            // Берём только релизные vX.Y.Z (rc отбрасываем), сортировка по semver, не по алфавиту.
++                            sh 'git fetch --tags --force'
++                            def ver = sh(returnStdout: true, script: '''
++                                git tag --list 'v*' | grep -E '^v[0-9]+\\.[0-9]+\\.[0-9]+$' | sort -V | tail -n 1
++                            ''').trim()
++                            if (!ver) {
++                                error 'В репозитории нет семвер-тегов vX.Y.Z'
++                            }
++                            env.IMAGE_TAG = "${ver.substring(1)}-${env.BUILD_NUMBER}"
++                            echo "Тег образа: ${env.IMAGE_TAG}"
++                        }
++                    }
++                }
++
++                stage('Сборка') {
++                    steps {
++                        // Пакеты строго по лок-файлам; дальше restore и build не повторяем.
++                        sh 'dotnet restore Depot.sln --locked-mode'
++                        sh 'dotnet build Depot.sln -c Release --no-restore'
++                    }
++                }
++
++                stage('Статический анализ и аудит') {
++                    steps {
++                        sh 'dotnet format Depot.sln --no-restore --verify-no-changes'
++                        // list package всегда выходит с 0, поэтому уязвимости ловим по выводу.
++                        sh '''
++                            dotnet list Depot.sln package --vulnerable --include-transitive | tee vulnerable.txt
++                            if grep -q "has the following vulnerable packages" vulnerable.txt; then
++                                echo "Найдены уязвимые зависимости"
++                                exit 1
++                            fi
++                        '''
++                    }
++                }
++
++                stage('Тесты') {
++                    failFast true
++                    parallel {
++                        stage('Unit') {
++                            steps {
++                                sh '''
++                                    dotnet test Depot.sln -c Release --no-build \
++                                        --filter "Category!=Integration" \
++                                        --logger "trx;LogFileName=unit.trx" \
++                                        --results-directory TestResults/unit
++                                '''
++                            }
++                            post {
++                                always {
++                                    mstest testResultsFile: 'TestResults/unit/*.trx', failOnError: true, keepLongStdio: true
++                                }
++                            }
++                        }
++                        stage('Integration') {
++                            steps {
++                                // Postgres поднимает сам тест через Testcontainers (Docker на ноде).
++                                sh '''
++                                    dotnet test Depot.sln -c Release --no-build \
++                                        --filter "Category=Integration" \
++                                        --logger "trx;LogFileName=integration.trx" \
++                                        --results-directory TestResults/integration
++                                '''
++                            }
++                            post {
++                                always {
++                                    mstest testResultsFile: 'TestResults/integration/*.trx', failOnError: true, keepLongStdio: true
++                                }
++                            }
++                        }
++                    }
++                }
++
++                stage('Образ') {
++                    steps {
++                        sh 'docker build -t "$IMAGE_REPO:$IMAGE_TAG" .'
++                    }
++                }
++
++                // Учётки и деплой только для main: PR (в том числе из форков) секретов не получают.
++                stage('Push') {
++                    when { allOf { branch 'main'; not { changeRequest() } } }
++                    steps {
++                        withCredentials([usernamePassword(credentialsId: 'registry-creds',
++                                usernameVariable: 'REGISTRY_USER', passwordVariable: 'REGISTRY_PASSWORD')]) {
++                            sh '''
++                                echo "$REGISTRY_PASSWORD" | docker login registry.example.com -u "$REGISTRY_USER" --password-stdin
++                                docker push "$IMAGE_REPO:$IMAGE_TAG"
++                                docker logout registry.example.com
++                            '''
++                        }
++                    }
++                }
++
++                stage('Деплой на stage') {
++                    when { allOf { branch 'main'; not { changeRequest() } } }
++                    steps {
++                        // Токен берём из переменной окружения внутри shell, не интерполируем в Groovy.
++                        withCredentials([string(credentialsId: 'deploy-token', variable: 'DEPLOY_TOKEN')]) {
++                            sh './deploy.sh --token "$DEPLOY_TOKEN" --env stage'
++                        }
++                    }
++                }
++            }
++            post {
++                always {
++                    // Workspace на постоянной ноде сохраняется: чистим сами и убираем образ.
++                    sh 'docker rmi "$IMAGE_REPO:$IMAGE_TAG" || true'
++                    cleanWs(deleteDirs: true, notFailBuild: true)
++                }
++            }
++        }
++
++        stage('Подтверждение прод-деплоя') {
++            when { beforeInput true; allOf { branch 'main'; not { changeRequest() } } }
++            agent none
++            // Лид может ответить на следующий день.
++            options { timeout(time: 3, unit: 'DAYS') }
++            steps {
++                input message: "Выкатить ${env.IMAGE_TAG} на prod?", ok: 'Деплой'
++            }
++        }
++
++        stage('Деплой на prod') {
++            when { beforeAgent true; allOf { branch 'main'; not { changeRequest() } } }
++            agent { label 'dotnet-linux' }
++            options { timeout(time: 15, unit: 'MINUTES') }
++            steps {
++                checkout scm
++                withCredentials([string(credentialsId: 'deploy-token', variable: 'DEPLOY_TOKEN')]) {
++                    sh './deploy.sh --token "$DEPLOY_TOKEN" --env prod'
++                }
++            }
++            post {
++                always { cleanWs(deleteDirs: true, notFailBuild: true) }
++            }
++        }
++    }
++
++    post {
++        always {
++            notifySlack(currentBuild.currentResult)
++        }
++    }
++}

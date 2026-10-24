@@ -1,0 +1,46 @@
+diff --git a/CustomerNotifier.cs b/CustomerNotifier.cs
+new file mode 100644
+index 0000000..0f4f359
+--- /dev/null
++++ b/CustomerNotifier.cs
+@@ -0,0 +1,27 @@
++using Microsoft.EntityFrameworkCore;
++
++namespace Shop;
++
++public class CustomerNotifier
++{
++    private readonly ShopDbContext _db;
++    private readonly IEmailSender _emailSender;
++
++    public CustomerNotifier(ShopDbContext db, IEmailSender emailSender)
++    {
++        _db = db;
++        _emailSender = emailSender;
++    }
++
++    public async Task NotifyCustomers(IEnumerable<Guid> customerIds, string text, CancellationToken ct = default)
++    {
++        var customers = await _db.Customers
++            .Where(c => customerIds.Contains(c.Id))
++            .ToListAsync(ct);
++
++        foreach (var customer in customers)
++        {
++            await _emailSender.SendAsync(customer.Email, "Notification", text, ct);
++        }
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..d1c0cc6
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,7 @@
++# Решение: CustomerNotifier
++
++## Созданные/изменённые файлы
++- `CustomerNotifier.cs` (новый файл)
++
++## Описание решения
++Создан класс `CustomerNotifier` с методом `NotifyCustomers(IEnumerable<Guid> customerIds, string text)`, который получает список ID клиентов из маркетинговой системы, находит их в БД по EF Core, и отправляет письмо каждому через `IEmailSender`. Класс принимает зависимости `ShopDbContext` и `IEmailSender` в конструктор для инъекции зависимостей.

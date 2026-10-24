@@ -1,0 +1,111 @@
+{
+  "id": "bc7482",
+  "case": "R",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0811834,
+    "durationMs": 12445,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 6366,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1491,
+      "output_tokens_details": {
+        "thinking_tokens": 262
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6366,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1491,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 6366,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 6366
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "R-D3": {
+      "verdict": "PASS",
+      "quote": "Условия строятся как `\"\\\"Products\\\".\\\"Category\\\" = @p...\"` / `\"\\\"Products\\\".\\\"Price\\\" >= @p...\"` — ссылаются на имя таблицы `Products`, а не на алиас `p`",
+      "why": "Находка №5 прямо называет несовпадение алиаса p с условиями через \"Products\" в FromSqlRaw."
+    },
+    "R-D1": {
+      "verdict": "FOUND",
+      "quote": "`GetProductBySku`: `SingleAsync` на не-уникальном условии",
+      "why": "Находка №8 указывает, что SKU не уникален между складами и SingleAsync бросит исключение."
+    },
+    "R-D2": {
+      "verdict": "FOUND",
+      "quote": "`!.Value` в этом случае бросит `NullReferenceException`. Нужно либо фильтровать `ShippedAt != null` перед агрегацией",
+      "why": "Находка №9 называет MaxAsync по nullable ShippedAt с !.Value без фильтра null."
+    },
+    "R-D4": {
+      "verdict": "FOUND",
+      "quote": "`Reprice`: избыточный `UpdateRange` на уже отслеживаемых сущностях",
+      "why": "Находка №12 прямо называет UpdateRange на tracked-сущностях."
+    },
+    "R-D5": {
+      "verdict": "FOUND",
+      "quote": "Scoped `ShopDbContext` внутри Singleton `BackgroundService`",
+      "why": "Находка №7 указывает на DbContext в конструкторе BackgroundService и предлагает IServiceScopeFactory."
+    },
+    "R-D6": {
+      "verdict": "FOUND",
+      "quote": "Два `Include` без `AsSplitQuery()` на потенциально тысячах заказов клиента",
+      "why": "Находка №10 описывает cartesian explosion в ExportForCustomer."
+    },
+    "R-D7": {
+      "verdict": "FOUND",
+      "quote": "`Reserve`: `FOR UPDATE` без транзакции",
+      "why": "Находка №4 прямо называет пессимистичную блокировку без явной транзакции."
+    },
+    "R-D8": {
+      "verdict": "FOUND",
+      "quote": "`UpdateOrder`: нет проверки конкурентности",
+      "why": "Находка №11 указывает на отсутствие concurrency token при конкурентной правке заказа."
+    },
+    "R-D9": {
+      "verdict": "FOUND",
+      "quote": "нет data migration для существующих категорий",
+      "why": "Находка №2 называет DropColumn Category без переноса данных."
+    },
+    "R-K1": {
+      "verdict": "FOUND",
+      "quote": "`OverdueReport`: полная выгрузка таблицы и фильтр в памяти",
+      "why": "Находка №6 называет GetAllAsync с фильтрацией IsOverdue в памяти."
+    },
+    "R-h-B1": {
+      "verdict": "YES",
+      "quote": "`GetCard`: `AsSplitQuery` для одной сущности",
+      "why": "Находка №13 объявляет AsSplitQuery на карточке одного заказа с двумя коллекциями лишним и предлагает его убрать."
+    },
+    "R-h-B2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находок против Kind=Unspecified или чтения timestamp without time zone как Utc в выходе нет."
+    },
+    "R-O1": {
+      "verdict": "FOUND",
+      "quote": "`RecalcTotal`: сумма считается без учёта количества",
+      "why": "Находка №3 указывает, что сумма считается без умножения на Qty."
+    }
+  },
+  "stderr": ""
+}

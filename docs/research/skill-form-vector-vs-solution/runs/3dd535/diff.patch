@@ -1,0 +1,311 @@
+diff --git a/.github/workflows/deploy-production.yml b/.github/workflows/deploy-production.yml
+new file mode 100644
+index 0000000..8a99147
+--- /dev/null
++++ b/.github/workflows/deploy-production.yml
+@@ -0,0 +1,68 @@
++name: Deploy production database migration
++
++on:
++  workflow_dispatch:
++  push:
++    branches: [main]
++    paths:
++      - 'Migrations/**'
++      - 'Model.cs'
++
++jobs:
++  generate-migration-script:
++    name: Generate idempotent SQL script
++    runs-on: ubuntu-latest
++    steps:
++      - uses: actions/checkout@v4
++
++      - uses: actions/setup-dotnet@v4
++        with:
++          dotnet-version: '8.0.x'
++
++      - name: Restore dependencies
++        run: dotnet restore
++
++      - name: Install dotnet-ef
++        run: dotnet tool install --global dotnet-ef --version 8.*
++
++      # SKILL.md: "dotnet ef database update на production" is forbidden.
++      # Only an idempotent SQL script is produced here; nothing is applied yet.
++      - name: Generate idempotent migration script
++        run: >
++          dotnet ef migrations script --idempotent
++          --project Shop.Data/Shop.Data.csproj
++          --context ShopDbContext
++          --output migration.sql
++
++      - name: Upload script for review
++        uses: actions/upload-artifact@v4
++        with:
++          name: production-migration-script
++          path: migration.sql
++          retention-days: 30
++
++  apply-migration:
++    name: Apply reviewed script to production
++    needs: generate-migration-script
++    runs-on: ubuntu-latest
++    # "production" environment must have required reviewers configured in
++    # repo settings — this job waits for manual approval, giving a human
++    # the chance to open the uploaded script and review it before it runs.
++    environment:
++      name: production
++    steps:
++      - name: Download reviewed script
++        uses: actions/download-artifact@v4
++        with:
++          name: production-migration-script
++
++      - name: Apply migration script
++        env:
++          PGPASSWORD: ${{ secrets.PRODUCTION_DB_PASSWORD }}
++        run: |
++          psql \
++            --host="${{ secrets.PRODUCTION_DB_HOST }}" \
++            --username="${{ secrets.PRODUCTION_DB_USER }}" \
++            --dbname="${{ secrets.PRODUCTION_DB_NAME }}" \
++            --set=ON_ERROR_STOP=1 \
++            --file=migration.sql
+diff --git a/Migrations/20260929120000_AddCategoriesAndOrderCategories.cs b/Migrations/20260929120000_AddCategoriesAndOrderCategories.cs
+new file mode 100644
+index 0000000..64cd1ee
+--- /dev/null
++++ b/Migrations/20260929120000_AddCategoriesAndOrderCategories.cs
+@@ -0,0 +1,73 @@
++using Microsoft.EntityFrameworkCore;
++using Microsoft.EntityFrameworkCore.Infrastructure;
++using Microsoft.EntityFrameworkCore.Migrations;
++using Shop.Data;
++
++#nullable disable
++
++namespace Shop.Data.Migrations
++{
++    // Schema only: creates Categories and the OrderCategories link table.
++    // Order.Category stays untouched here — backfilled by the next migration,
++    // dropped later once callers no longer read it.
++    [DbContext(typeof(ShopDbContext))]
++    [Migration("20260929120000_AddCategoriesAndOrderCategories")]
++    public partial class AddCategoriesAndOrderCategories : Migration
++    {
++        protected override void Up(MigrationBuilder migrationBuilder)
++        {
++            migrationBuilder.CreateTable(
++                name: "Categories",
++                columns: table => new
++                {
++                    Id = table.Column<Guid>(type: "uuid", nullable: false),
++                    Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false)
++                },
++                constraints: table =>
++                {
++                    table.PrimaryKey("PK_Categories", x => x.Id);
++                });
++
++            migrationBuilder.CreateIndex(
++                name: "IX_Categories_Name",
++                table: "Categories",
++                column: "Name",
++                unique: true);
++
++            migrationBuilder.CreateTable(
++                name: "OrderCategories",
++                columns: table => new
++                {
++                    OrderId = table.Column<Guid>(type: "uuid", nullable: false),
++                    CategoryId = table.Column<Guid>(type: "uuid", nullable: false)
++                },
++                constraints: table =>
++                {
++                    table.PrimaryKey("PK_OrderCategories", x => new { x.OrderId, x.CategoryId });
++                    table.ForeignKey(
++                        name: "FK_OrderCategories_Orders_OrderId",
++                        column: x => x.OrderId,
++                        principalTable: "Orders",
++                        principalColumn: "Id",
++                        onDelete: ReferentialAction.Cascade);
++                    table.ForeignKey(
++                        name: "FK_OrderCategories_Categories_CategoryId",
++                        column: x => x.CategoryId,
++                        principalTable: "Categories",
++                        principalColumn: "Id",
++                        onDelete: ReferentialAction.Restrict);
++                });
++
++            migrationBuilder.CreateIndex(
++                name: "IX_OrderCategories_CategoryId",
++                table: "OrderCategories",
++                column: "CategoryId");
++        }
++
++        protected override void Down(MigrationBuilder migrationBuilder)
++        {
++            migrationBuilder.DropTable(name: "OrderCategories");
++            migrationBuilder.DropTable(name: "Categories");
++        }
++    }
++}
+diff --git a/Migrations/20260929120100_BackfillOrderCategories.cs b/Migrations/20260929120100_BackfillOrderCategories.cs
+new file mode 100644
+index 0000000..64e6457
+--- /dev/null
++++ b/Migrations/20260929120100_BackfillOrderCategories.cs
+@@ -0,0 +1,71 @@
++using Microsoft.EntityFrameworkCore.Infrastructure;
++using Microsoft.EntityFrameworkCore.Migrations;
++using Shop.Data;
++
++#nullable disable
++
++namespace Shop.Data.Migrations
++{
++    // Data-only migration, kept separate from the schema migration above.
++    // Converts historical Order.Category strings into Categories + OrderCategories rows.
++    // Order.Category itself is left in place — it is dropped in a later migration
++    // once no code path still reads it.
++    [DbContext(typeof(ShopDbContext))]
++    [Migration("20260929120100_BackfillOrderCategories")]
++    public partial class BackfillOrderCategories : Migration
++    {
++        protected override void Up(MigrationBuilder migrationBuilder)
++        {
++            // Distinct category names are inherently few — a single statement is enough,
++            // no batching needed here.
++            migrationBuilder.Sql(@"
++                INSERT INTO ""Categories"" (""Id"", ""Name"")
++                SELECT gen_random_uuid(), src.name
++                FROM (
++                    SELECT DISTINCT o.""Category"" AS name
++                    FROM ""Orders"" o
++                    WHERE o.""Category"" IS NOT NULL AND o.""Category"" <> ''
++                ) src
++                ON CONFLICT (""Name"") DO NOTHING;
++            ");
++
++            // OrderCategories rows scale with the Orders table, which can be large.
++            // Batched, self-committing loop instead of one INSERT...SELECT over the
++            // whole table, so we don't hold one long transaction / blow up the WAL
++            // (see SKILL.md: "Массовое удаление одной транзакцией", same principle
++            // applies to large single-transaction inserts).
++            migrationBuilder.Sql(@"
++                DO $$
++                DECLARE
++                    batch_size CONSTANT integer := 5000;
++                    affected integer;
++                BEGIN
++                    LOOP
++                        INSERT INTO ""OrderCategories"" (""OrderId"", ""CategoryId"")
++                        SELECT o.""Id"", cat.""Id""
++                        FROM ""Orders"" o
++                        JOIN ""Categories"" cat ON cat.""Name"" = o.""Category""
++                        WHERE o.""Category"" IS NOT NULL AND o.""Category"" <> ''
++                          AND NOT EXISTS (
++                              SELECT 1 FROM ""OrderCategories"" oc
++                              WHERE oc.""OrderId"" = o.""Id"" AND oc.""CategoryId"" = cat.""Id""
++                          )
++                        LIMIT batch_size;
++
++                        GET DIAGNOSTICS affected = ROW_COUNT;
++                        EXIT WHEN affected = 0;
++                        COMMIT;
++                    END LOOP;
++                END $$;
++            ", suppressTransaction: true);
++        }
++
++        protected override void Down(MigrationBuilder migrationBuilder)
++        {
++            // Best-effort revert: safe only if nothing else has written to these tables
++            // since this migration ran (true right after this deploy, on a rollback).
++            migrationBuilder.Sql(@"TRUNCATE TABLE ""OrderCategories"";");
++            migrationBuilder.Sql(@"DELETE FROM ""Categories"";");
++        }
++    }
++}
+diff --git a/Model.cs b/Model.cs
+index cc90064..1effb77 100644
+--- a/Model.cs
++++ b/Model.cs
+@@ -9,16 +9,30 @@ public class Order
+     public Guid CustomerId { get; set; }
+     public virtual Customer Customer { get; set; } = null!;
+     public string Status { get; set; } = "active";
+-    public string Category { get; set; } = "";
++    public string Category { get; set; } = ""; // legacy, replaced by Categories; column dropped in a later migration
+     public decimal Total { get; set; }
+     public DateTime CreatedAt { get; set; }          // column: timestamp without time zone
+     public DateTime? ShippedAt { get; set; }
+     public bool IsDeleted { get; set; }
+     public List<OrderItem> Items { get; set; } = new();
+     public List<Payment> Payments { get; set; } = new();
++    public List<Category> Categories { get; set; } = new();
+     public bool IsOverdue(DateTime now) => ShippedAt == null && CreatedAt.AddDays(3) < now;
+ }
+ 
++public class Category
++{
++    public Guid Id { get; set; }
++    public string Name { get; set; } = "";
++    public List<Order> Orders { get; set; } = new();
++}
++
++public class OrderCategory
++{
++    public Guid OrderId { get; set; }
++    public Guid CategoryId { get; set; }
++}
++
+ public class OrderItem { public int Id { get; set; } public Guid OrderId { get; set; } public Guid ProductId { get; set; } public int Qty { get; set; } }
+ public class Payment { public int Id { get; set; } public Guid OrderId { get; set; } public decimal Amount { get; set; } }
+ 
+@@ -41,10 +55,26 @@ public class ShopDbContext : DbContext
+     public DbSet<Order> Orders => Set<Order>();
+     public DbSet<Product> Products => Set<Product>();
+     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
++    public DbSet<Category> Categories => Set<Category>();
+     protected override void OnModelCreating(ModelBuilder b)
+     {
+         b.Entity<Order>().HasQueryFilter(o => !o.IsDeleted);
+         b.Entity<Order>().Property(o => o.CreatedAt).HasColumnType("timestamp without time zone");
++
++        b.Entity<Category>().Property(c => c.Name).HasMaxLength(200).IsRequired();
++        b.Entity<Category>().HasIndex(c => c.Name).IsUnique();
++
++        b.Entity<Order>()
++            .HasMany(o => o.Categories)
++            .WithMany(c => c.Orders)
++            .UsingEntity<OrderCategory>(
++                j => j.HasOne<Category>().WithMany().HasForeignKey(oc => oc.CategoryId).OnDelete(DeleteBehavior.Restrict),
++                j => j.HasOne<Order>().WithMany().HasForeignKey(oc => oc.OrderId).OnDelete(DeleteBehavior.Cascade),
++                j =>
++                {
++                    j.ToTable("OrderCategories");
++                    j.HasKey(oc => new { oc.OrderId, oc.CategoryId });
++                });
+     }
+ }
+ // Options: UseNpgsql(cs).UseLazyLoadingProxies()
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..405db61
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,12 @@
++## Созданные/изменённые файлы
++
++- `Model.cs` — изменён: добавлены `Category`, `OrderCategory`, навигация `Order.Categories`, `DbSet<Category>`, конфигурация many-to-many через явный join-entity `OrderCategory` → таблица `OrderCategories`; `Order.Category` (string) оставлен как есть — удалим отдельной миграцией позже.
++- `Migrations/20260929120000_AddCategoriesAndOrderCategories.cs` — новая: схемная миграция, создаёт `Categories` (уникальный индекс по `Name`) и `OrderCategories` (composite PK, FK на `Orders` с Cascade, FK на `Categories` с Restrict).
++- `Migrations/20260929120100_BackfillOrderCategories.cs` — новая: отдельная data-миграция, переносит исторические `Order.Category` в `Categories`/`OrderCategories`; вставка в `OrderCategories` — батчами по 5000 с промежуточными `COMMIT` (`suppressTransaction: true`), чтобы не держать одну длинную транзакцию на всей таблице `Orders`.
++- `.github/workflows/deploy-production.yml` — новая: job `generate-migration-script` (`dotnet ef migrations script --idempotent` → артефакт), затем job `apply-migration` с `environment: production` (ручное approval-гейт в настройках репозитория даёт человеку проревьюить SQL-артефакт перед применением) — применяет скрипт через `psql`.
++
++## Решения
++
++- Схема и данные разнесены по двум миграциям (правило SKILL.md «данные и схема в одной миграции» / «схемная миграция без data migration»); удаление `Order.Category` сознательно не включено — по условию задачи это отдельный будущий шаг.
++- Связь Order↔Category сделана через `UsingEntity<OrderCategory>` (skip navigation) с явным именем таблицы `OrderCategories`, а не через `List<OrderCategory>` вручную — тот же результат в схеме, но проще API для вызывающего кода.
++- Деплой в CI не делает `dotnet ef database update`: генерируется idempotent-скрипт, кладётся артефактом, и только после ручного approval окружения `production` применяется `psql`-ом — по правилу SKILL.md про миграции на production.

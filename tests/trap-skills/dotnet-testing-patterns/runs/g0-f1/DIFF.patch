@@ -1,0 +1,74 @@
+diff --git a/src/Pricing.Application/Quotes/QuoteService.cs b/src/Pricing.Application/Quotes/QuoteService.cs
+index 8860f76..0476be3 100644
+--- a/src/Pricing.Application/Quotes/QuoteService.cs
++++ b/src/Pricing.Application/Quotes/QuoteService.cs
+@@ -23,6 +23,7 @@ public sealed class QuoteService(IProductRepository products, ISupplierCatalog s
+             var unit = Math.Max(product.BasePrice, supplier?.Price ?? 0m);
+             var discount = await promotions.CurrentDiscountAsync(product.Category, ct);
+             unit = Math.Round(unit * (1 - discount / 100m), 2);
++            unit = VolumeDiscount.Apply(unit, line.Quantity);
+             quoted.Add(new QuotedLine(line.Sku, line.Quantity, unit, unit * line.Quantity));
+         }
+         return new Quote(quoted, quoted.Sum(l => l.Total), "RUB");
+diff --git a/src/Pricing.Domain/VolumeDiscount.cs b/src/Pricing.Domain/VolumeDiscount.cs
+new file mode 100644
+index 0000000..49e91b8
+--- /dev/null
++++ b/src/Pricing.Domain/VolumeDiscount.cs
+@@ -0,0 +1,16 @@
++namespace Pricing.Domain;
++
++/// <summary>Скидка за объём: процент зависит от количества единиц в строке.</summary>
++public static class VolumeDiscount
++{
++    public static decimal PercentFor(int quantity) => quantity switch
++    {
++        >= 50 => 5m,
++        >= 10 => 3m,
++        _ => 0m,
++    };
++
++    /// <summary>Цена единицы после скидки за объём, округлённая до копеек.</summary>
++    public static decimal Apply(decimal unitPrice, int quantity) =>
++        Math.Round(unitPrice * (1 - PercentFor(quantity) / 100m), 2);
++}
+diff --git a/tests/Pricing.Tests/VolumeDiscountTests.cs b/tests/Pricing.Tests/VolumeDiscountTests.cs
+new file mode 100644
+index 0000000..8d945c1
+--- /dev/null
++++ b/tests/Pricing.Tests/VolumeDiscountTests.cs
+@@ -0,0 +1,34 @@
++using Pricing.Domain;
++
++namespace Pricing.Tests;
++
++public sealed class VolumeDiscountTests
++{
++    [Theory]
++    [InlineData(1, 0)]
++    [InlineData(9, 0)]
++    [InlineData(10, 3)]
++    [InlineData(49, 3)]
++    [InlineData(50, 5)]
++    [InlineData(500, 5)]
++    public void Percent_depends_on_quantity_bracket(int quantity, decimal expected)
++    {
++        Assert.Equal(expected, VolumeDiscount.PercentFor(quantity));
++    }
++
++    [Theory]
++    [InlineData(100, 9, 100)]
++    [InlineData(100, 10, 97)]
++    [InlineData(100, 50, 95)]
++    public void Apply_reduces_unit_price_by_bracket(decimal price, int quantity, decimal expected)
++    {
++        Assert.Equal(expected, VolumeDiscount.Apply(price, quantity));
++    }
++
++    [Fact]
++    public void Apply_rounds_unit_price_to_kopecks()
++    {
++        // 89.99 * 0.97 = 87.2903
++        Assert.Equal(87.29m, VolumeDiscount.Apply(89.99m, 10));
++    }
++}

@@ -1,0 +1,16 @@
+src/Fulfil/Archive/OrderDoc.cs:23 - CustomerName/CustomerEmail копируются в каждый заказ; при смене имени или почты клиента старые заказы хранят устаревшие данные, и письмо при отгрузке уйдёт на старый адрес - major
+src/Fulfil/Archive/MongoConventions.cs:16 - в пакет конвенций не добавлен IgnoreExtraElements (и нет [BsonIgnoreExtraElements] на OrderDoc/AddressDoc/CartDraft/StockRow/TransferLog); документы в базе, старше класса или с лишними полями, дадут FormatException при десериализации, и чтение заказов упадёт - major
+src/Fulfil/Archive/OrderStore.cs:18 - новый MongoClient создаётся на каждый вызов Collection<T>; каждый клиент поднимает свой пул и мониторинг, соединения и потоки утекают, под нагрузкой сервис исчерпает соединения - blocker
+src/Fulfil/Archive/OrderStore.cs:63 - ListMineAsync читает заказы целиком (строки, события, теги), а нужны только Id и Status; нет Project, трафик и память растут вместе с размером заказов - major
+src/Fulfil/Archive/OrderStore.cs:64 - на orders нет индекса по (CustomerId, PlacedAt) (ArchiveInitializer создаёт только partial по Status); ListMine и SearchAsync идут полным сканом коллекции - major
+src/Fulfil/Archive/OrderStore.cs:31 - Total считается в double из decimal-цен; деньги теряют точность, суммы расходятся с доменом (при этом в конвенциях зарегистрирован Decimal128) - major
+src/Fulfil/Archive/OrderStore.cs:57 - SearchAsync берёт page с нуля (page * PageSize), ListMineAsync с единицы ((page - 1) * PageSize); при одинаковой передаче страницы Search пропустит первую страницу, а ListMine с page=0 упадёт на отрицательном Skip - minor
+src/Fulfil/Archive/OrderStore.cs:73 - ExportAsync без лимита и проекции грузит в память все заказы за период целиком; на большом периоде получим OOM - major
+src/Fulfil/Archive/OrderStore.cs:38 - заказ и адрес пишутся в две коллекции двумя неатомарными вызовами, а GetAsync делает два запроса; сбой между записями оставит заказ без адреса - minor
+src/Fulfil/Archive/OrderEvents.cs:14 - события пушатся в массив Events внутри заказа без ограничения; документ растёт до лимита 16 МБ, апдейты тяжелеют - major
+src/Fulfil/Archive/OrderEvents.cs:19 - ListAsync вытаскивает весь массив событий и режет страницу в памяти (Skip/Take на клиенте); пагинация не экономит ничего - minor
+src/Fulfil/Archive/ShippedWatcher.cs:27 - Shipped отслеживается опросом коллекции каждые 5 с вместо change stream; постоянная нагрузка на базу и задержка письма до 5 с - major
+src/Fulfil/Archive/ShippedWatcher.cs:41 - Task.Delay(…, ct) при остановке хоста бросает OperationCanceledException из ExecuteAsync; завершение сервиса логируется как ошибка - minor
+src/Fulfil/Archive/ShippedWatcher.cs:47 - Mailed выставляется в true до отправки; если процесс упадёт между claim и SendShippedAsync, откат не выполнится и письмо не уйдёт никогда - major
+src/Fulfil/Archive/ArchiveInitializer.cs:18 - индекс TransferLog (At desc, ToWarehouse, Sku) не подходит запросу HistoryAsync (равенство Sku и ToWarehouse, диапазон и сортировка по At); индекс не используется эффективно, история — скан - major
+src/Fulfil/Archive/CartDraftCleaner.cs:9 - черновики чистятся таймером раз в час через DeleteMany по UpdatedAt без индекса (полный скан), вместо TTL-индекса; к тому же исключение из DeleteManyAsync выйдет из ExecuteAsync и уронит хост - major

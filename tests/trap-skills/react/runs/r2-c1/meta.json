@@ -1,0 +1,39 @@
+{
+  "id": "r2-c1",
+  "case": "R2",
+  "edition": "c",
+  "skills": [],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 8,
+  "cost": 0.1817472,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Bash": 6,
+    "Write": 1
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "git diff main...HEAD --stat && cat docs/tasks/SD-17-order-dashboard.md",
+    "git diff main...HEAD -- api/src web/src web/tsconfig.json ':!web/src/styles.css' ':!web/src/components/__tests__' | cat -n | head -1200",
+    "cat -n api/src/routes/admin-orders.ts; git diff main...HEAD -- api/src/seed.ts api/src/store.ts api/src/validation.ts web/tsconfig.json; sed -n 1,100p api/src/app.ts",
+    "cd <run>/web/src && for f in lib/dashboard.ts components/dashboard/*; do echo \"=== $f\"; cat -n $f; done; git diff main...HEAD -- api.ts ",
+    "cd <run> && cat api/src/auth.ts | head -60; cat web/src/lib/money.ts; grep -rn \"discount\\|createdAt\" api/src --include=*.ts | grep -v \"r",
+    "grep -n \"it(\\|test(\" api/test/admin-orders.test.ts web/src/lib/__tests__/dashboard.test.ts; git diff main...HEAD -- web/src/components/__tests__"
+  ]
+}

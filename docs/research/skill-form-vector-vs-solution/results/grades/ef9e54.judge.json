@@ -1,0 +1,67 @@
+{
+  "id": "ef9e54",
+  "case": "G3",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0890302,
+    "durationMs": 6416,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 9757,
+      "cache_read_input_tokens": 531,
+      "output_tokens": 543,
+      "output_tokens_details": {
+        "thinking_tokens": 151
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9757,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 543,
+          "cache_read_input_tokens": 531,
+          "cache_creation_input_tokens": 9757,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 9757
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G3-contract-null": {
+      "verdict": "PASS",
+      "quote": "if (contractNo is null) { ... _db.UnreconciledPayments.Add(unrec); continue; }",
+      "why": "При нераспознанном номере строка уходит в неразобранные до поиска абонента, поэтому SingleOrDefaultAsync по ContractNo выполняется только с непустым номером."
+    },
+    "G3-credit-time": {
+      "verdict": "PASS",
+      "quote": "var now = DateTime.Now;",
+      "why": "CreditedAt, CreatedAt неразобранной строки и RestoredAt берут значение DateTime.Now, то есть Kind=Local, как существующие поля; UtcNow в коде не используется."
+    },
+    "G3-h-bycontract": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "GetByContractAsync в diff не изменён и дефектом в ответе не назван."
+    },
+    "G3-m-utcnow": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Существующие CreateLeadAsync и SignContractAsync не тронуты, замены DateTime.Now на UtcNow нет."
+    }
+  },
+  "stderr": ""
+}

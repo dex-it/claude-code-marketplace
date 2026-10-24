@@ -1,0 +1,79 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..4de17ea
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,73 @@
++# Ревью MR !214 — найденные дефекты
++
++## Critical
++
++### 1. `Migrations/20260915120000_DriverDisplayNameAndTripRoute.cs` — `Up` / `Down`: при переименовании теряются ФИО всех водителей
++`Up` удаляет столбец `drivers.full_name` (`DropColumn`), а потом создаёт `display_name` с `defaultValue: ""`. Когда bundle прогонит миграцию на prod, ФИО всех водителей заменятся пустыми строками без возможности восстановления, так как данные удаляются, а не переносятся. `Down` тоже удаляет данные: удаляет `display_name` и снова создаёт пустой `full_name`. Для переименования свойства EF генерирует drop+add и предупреждает: «An operation was scaffolded that may result in the loss of data». Это предупреждение пропустили.
++**Исправление:** заменить на `migrationBuilder.RenameColumn("full_name", "drivers", "display_name")`, а в `Down` сделать обратный `RenameColumn`. Если меняется ещё и тип или длина, добавить `AlterColumn`.
++
++### 2. `TripService.SearchAsync` — SQL-инъекция через `route`
++Значение `route` вставляется в строку для `FromSqlRaw` интерполяцией: `ILIKE '{SqlText.LikeContains(route)}'`. `SqlText.LikeContains` экранирует только `\`, `%` и `_`, а одинарную кавычку не трогает. Запрос `?route=x' OR 1=1; --` или `x' UNION SELECT ...` выполняет произвольный SQL от имени пользователя приложения: можно читать любые таблицы, а через `;` выполнить и `DELETE`/`UPDATE`. Экранирование LIKE не защищает от SQL-инъекции.
++**Исправление:** не собирать SQL строкой. Подойдёт LINQ: `_db.Trips.Where(t => EF.Functions.ILike(t.Route, SqlText.LikeContains(route), "\\"))`, а `vehicleId` фильтровать обычным `Where`. Другой вариант — `FromSql`/`FromSqlInterpolated` с параметрами.
++
++## High
++
++### 3. `Program.cs` — `PUT /api/drivers/{id}/permits`: нет политики `Hr`
++У этого endpoint нет `.RequireAuthorization("Hr")`, работает только групповой `RequireAuthorization()` («любой аутентифицированный»). Значит, любой сотрудник, в том числе сам водитель, может выдать себе допуск, например к `Truck` с `ValidUntil = 2099-12-31`, или удалить чужие допуски. Допуски выдаются после инструктажа и медкомиссии, так что это обходит контроль безопасности. Соседний `PUT /drivers/{id}/name` политикой `Hr` закрыт.
++**Исправление:** добавить `.RequireAuthorization("Hr")`.
++
++### 4. `DriverService.ReplacePermitsAsync` — `Permits.Clear()` с `DeleteBehavior.NoAction` падает
++В `FleetDbContext` для связи Driver → Permits указано `OnDelete(DeleteBehavior.NoAction)`, внешний ключ `DriverId` обязательный (non-nullable `int`). После `driver.Permits.Clear()` загруженные допуски становятся сиротами обязательной связи. При `NoAction` EF не удаляет сирот, а бросает `InvalidOperationException` («The association between entities 'Driver' and 'DriverPermit' ... has been severed, but the relationship is either marked as required or is implicitly required...»). В итоге метод работает только для водителя без допусков, а у любого водителя с допусками получается 500, и FLEET-97 фактически не работает.
++**Исправление:** явно удалить старые допуски: `_db.DriverPermits.RemoveRange(driver.Permits)` (или `ExecuteDeleteAsync` в транзакции), затем добавить новые.
++
++### 5. `TripService.MileageAsync` — `WorkCalendar.IsWorkingDay` внутри `IQueryable.Where` не транслируется в SQL
++`trips.Where(t => !WorkCalendar.IsWorkingDay(t.StartedAt))` — это вызов пользовательского C#-метода в предикате серверного запроса. EF Core 8 бросит `InvalidOperationException: The LINQ expression ... could not be translated`, то есть отчёт падает при любом запросе. Слова «проверено локально» с кодом не сходятся.
++**Исправление:** загрузить нужные поля (`StartedAt`, `Start/EndOdometerKm`) в память и считать пробег в выходные на клиенте. Другой вариант — передать в SQL список нерабочих дат периода.
++
++### 6. `TripService.ImportWaybillsAsync` — московское время сохраняется без перевода в UTC
++`DateTime.ParseExact` возвращает `Kind=Unspecified`. Свойство `DateTime` в Npgsql 6+ по умолчанию отображается на `timestamp with time zone`. Запись `Unspecified` в такой столбец бросает `ArgumentException` («Cannot write DateTime with Kind=Unspecified to PostgreSQL type 'timestamp with time zone'»), и тогда импорт не работает совсем. Если же включён legacy-режим или столбец `timestamp without time zone`, московское время ляжет как UTC со сдвигом +3 ч. Тогда поездки смешаются с данными в UTC (`MileageAsync` строит границы периода в UTC), а поездки около полуночи попадут не в те сутки и не в тот день недели.
++**Исправление:** `TimeZoneInfo.ConvertTimeToUtc(parsed, TimeZoneInfo.FindSystemTimeZoneById("Europe/Moscow"))` и сохранять с `Kind=Utc`.
++
++### 7. `TripService.ImportWaybillsAsync` — повторная загрузка дублирует поездки
++Импорт ничего не проверяет на дубли: нет ни естественного ключа (машина + время выезда, номер путевого листа), ни уникального индекса. Если диспетчер повторит загрузку после 500 или таймаута, или перезагрузит исправленный файл (а файл грузится каждый день), все поездки задвоятся. Пробег в отчёте FLEET-95 удвоится и даст ложные срабатывания «личного использования».
++**Исправление:** уникальный индекс, например `(vehicle_id, started_at)`, и пропуск или upsert уже существующих строк.
++
++## Medium
++
++### 8. `TripService.GetVehicleByPlateAsync` — `SingleAsync` без фильтра по `DecommissionedAt`
++Уникальный индекс по госномеру частичный (`decommissioned_at IS NULL`), то есть госномер может повторяться у списанной и действующей машины (номера переходят). Тогда `SingleAsync` бросает `InvalidOperationException` («Sequence contains more than one element») и весь импорт падает. Если машина не найдена, тоже исключение и 500 без указания строки. К тому же входной номер нормализуется (`Trim().ToUpperInvariant()`), а столбец в БД — нет, и он сравнивается как есть. Ещё один запрос к БД на каждую строку CSV даёт N+1.
++**Исправление:** фильтр `DecommissionedAt == null` (или машина, действовавшая на дату поездки), `FirstOrDefault` с понятной ошибкой, кэш словаря машин, как сделано для водителей.
++
++### 9. `TripService.ImportWaybillsAsync` — разбор CSV хрупкий, одна плохая строка роняет весь файл
++- `Split(';')` без учёта кавычек: `;` внутри адреса или цели поездки сдвигает поля.
++- Пустая строка, например завершающий перевод строки, даёт `c[1]` → `IndexOutOfRangeException`. Неизвестный табельный номер даёт `drivers[c[1]]` → `KeyNotFoundException` (к тому же поле не тримится). Незакрытая поездка с пустыми возвратом и одометром даёт `FormatException`. `Route` длиннее 500 символов — `DbUpdateException` на `SaveChanges`.
++- Кодировка: `StreamReader` по умолчанию читает UTF-8, а выгрузки 1С обычно в Windows-1251. Тогда кириллица в маршруте превращается в мусор, и госномера с кириллическими буквами не находятся.
++- Любая ошибка — это 500 без номера строки и без отчёта, что не загрузилось. Нет проверки `EndOdometerKm >= StartOdometerKm` и `FinishedAt >= StartedAt`.
++
++**Исправление:** CSV-парсер (CsvHelper) с явной кодировкой, валидация построчно со списком ошибок в ответе.
++
++### 10. `TripService.MileageAsync` — деление на ноль и неверные границы суток
++- Если за период нет поездок, `totalKm / count` даёт `DivideByZeroException` → 500.
++- Границы `from`/`to` и день недели в `IsWorkingDay` считаются по дате UTC, а календарь и рабочие дни московские. Поездка в субботу в 01:30 МСК (пятница 22:30 UTC) будет учтена как рабочая, а поездка в понедельник 00:30 МСК — как выходная. Это прямо искажает контроль личного использования.
++- Нет проверки `from <= to`.
++
++### 11. `Infrastructure/WorkCalendar.cs` — календарь только на 2026 год и, похоже, неполный
++Праздники заданы жёстко, только на 2026 год. Для периодов в 2025 и 2027 годах праздничные дни будут считаться рабочими, без всякой ошибки или предупреждения. Рабочие субботы при переносах не учитываются вообще. Даже 2026 год, судя по всему, неполный: по постановлению о переносах 2026 года нерабочие также 9 января и 31 декабря (перенос с 3 и 4 января). Это нужно сверить с производственным календарём.
++**Исправление:** хранить календарь в БД или конфигурации по годам и учитывать рабочие дни-переносы. Если год не заполнен, выдавать явную ошибку.
++
++### 12. `Migrations/...DriverDisplayNameAndTripRoute` — нет `.Designer.cs` и обновлённого `FleetDbContextModelSnapshot`
++В MR есть только файл `Up`/`Down`, без атрибутов `[DbContext]`/`[Migration("20260915120000_...")]`, которые лежат в `.Designer.cs`. Без них EF не обнаружит миграцию: bundle на prod её не применит, а приложение будет обращаться к несуществующим `display_name`/`route`. Без обновлённого snapshot следующая `migrations add` заново сгенерирует эти изменения. Нужно проверить, что файлы действительно попали в MR.
++
++### 13. `DriverService.RenameAsync` / `Program.cs` — нет валидации, ошибки превращаются в 500
++`req.DisplayName == null` (поле отсутствует в JSON) даёт `NullReferenceException` на `Trim()`. Пустое имя или имя из пробелов сохраняется. Длина больше 200 даёт `DbUpdateException`. `KeyNotFoundException` (здесь и в `ReplacePermitsAsync`) никак не обрабатывается и возвращается как 500 вместо 404 или 400.
++
++### 14. `DriverService.GetAsync` / `DriverDto` — несовместимое изменение контракта API
++В JSON поле `fullName` заменено на `displayName` без версионирования и без переходного периода. Клиенты, которые читают `fullName` (фронт, интеграции), сломаются в момент выкатки. Нужно согласовать или временно отдавать оба поля.
++
++## Low
++
++### 15. `DriverService.ReplacePermitsAsync` — `DistinctBy(p => p.Class)` молча отбрасывает дубли
++Если допуск на один класс пришёл дважды с разными `ValidUntil`, остаётся первый по порядку, не обязательно актуальный, и об этом никто не узнаёт. Лучше вернуть 400 или явно брать максимальный срок. Срок действия `ValidUntil` тоже не проверяется (допуск может быть уже просроченным).
++
++### 16. `TripService.SearchAsync` / `FleetDbContext` — `ILIKE '%...%'` без индекса
++Для `trips.route` нет индекса, и поиск по подстроке делает полный проход по `trips`, причём таблица постоянно растёт. Стоит добавить GIN-индекс `pg_trgm` (`gin_trgm_ops`) на `route`.

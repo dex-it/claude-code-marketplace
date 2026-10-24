@@ -1,0 +1,61 @@
+{
+  "id": "ad1447",
+  "case": "L5",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0328754,
+    "durationMs": 5068,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 2895,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 464,
+      "output_tokens_details": {
+        "thinking_tokens": 203
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 2895,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 464,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 2895,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 2895
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "L5-dedup": {
+      "verdict": "PASS",
+      "quote": "var ids = customerIds.Distinct().ToArray();",
+      "why": "Дубли убираются один раз до разбиения на пачки, поэтому повторённый id получает одно письмо."
+    },
+    "L5-h-chunk": {
+      "verdict": "YES",
+      "quote": "Список из маркетинговой системы может быть большим - читаем клиентов пачками",
+      "why": "Запрос режется через ids.Chunk(BatchSize) с обоснованием большим размером входного списка."
+    },
+    "L5-m-enum": {
+      "verdict": "NO",
+      "quote": "customerIds.Distinct().ToArray()",
+      "why": "customerIds материализуется в массив за один обход, дальше используется только массив."
+    }
+  },
+  "stderr": ""
+}

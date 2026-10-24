@@ -1,0 +1,57 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..527c53c
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,51 @@
++# Результаты ревью MR !4127
++
++## Критичные (critical)
++
++### 1. Migrations/20260920_OrderCategories.cs (Up)
++Схемная миграция без переноса исторических данных и без обновления модели.
++`Up()` создаёт `Categories`/`OrderCategories` и сразу `DropColumn("Category", "Orders")`, но:
++- нет ни одного `INSERT INTO Categories ... / INSERT INTO OrderCategories ...` из существующих значений `Orders.Category` — все исторические категории заказов теряются безвозвратно;
++- `Model.cs` (не изменён в MR) по-прежнему объявляет `Order.Category` (конвенционно маппится на столбец `Category`) и не содержит навигаций к `Categories`/`OrderCategories`. После применения миграции любой запрос к `Orders` (в т.ч. новые `OrderQueries`/`OrderAdmin`) начнёт падать с ошибкой БД "column Orders.Category does not exist", а `OrderAdmin.UpdateOrder`/`OrderEdit.Category` физически не смогут работать. Новые таблицы при этом остаются не подключены к модели и недоступны из кода.
++
++Это случай "схемная миграция и исторические данные" — миграцию нельзя мержить в текущем виде.
++
++### 2. Workers/OverdueNotifier.cs (конструктор / ExecuteAsync)
++`DbContext` в `BackgroundService`.
++`ShopDbContext` регистрируется как `Scoped` (`Program.cs:6-7`, `AddDbContext`), а `OverdueNotifier` — `Singleton` по своей природе (`AddHostedService`, `Program.cs:12`). Внедрение scoped-сервиса напрямую в singleton либо упадёт при старте (если включена валидация scope), либо создаст один и тот же `DbContext`, живущий всё время работы приложения: он не потокобезопасен, а change tracker бесконечно копит добавленные `AuditLog` между итерациями цикла `while`. Нужно резолвить контекст через `IServiceScopeFactory.CreateScope()` на каждой итерации.
++
++### 3. Services/CatalogService.cs -> Reserve
++`FOR UPDATE` без явной границы транзакции.
++`FromSqlRaw("... FOR UPDATE", productId).SingleAsync()` выполняется как отдельная неявная транзакция (autocommit), лок снимается сразу после SELECT. Последующий `SaveChangesAsync()` (UPDATE `Stock`) идёт уже вне лока — при двух одновременных вызовах `Reserve` оба могут прочитать одинаковый `Stock`, оба пройти проверку `Stock < qty` и оба списать остаток, уводя `Stock` в минус (oversell). Нужна явная транзакция (`BeginTransactionAsync`), охватывающая и `SELECT ... FOR UPDATE`, и `SaveChangesAsync`.
++
++## Высокие (high)
++
++### 4. Services/OrderQueries.cs -> GetProductBySku
++`SingleAsync(p => p.Sku == sku)` при условии, не уникальном в домене.
++По описанию MR один SKU лежит на нескольких складах и уникален только в пределах склада. Метод не фильтрует по складу, поэтому для любого SKU, присутствующего на 2+ складах (это нормальный кейс, а не край), вызов упадёт с `InvalidOperationException` ("Sequence contains more than one element").
++
++### 5. Services/OrderQueries.cs -> ExportForCustomer
++Несколько коллекций в одном `Include`-запросе без `AsSplitQuery`.
++`Include(Items).Include(Payments)` без разбиения на отдельные запросы даёт декартово произведение строк (Items x Payments) на каждый заказ. MR явно указывает, что у крупных клиентов тысячи заказов — при экспорте это даст огромный объём дублирующихся строк и рост памяти/времени ответа. Рядом же, в `GetCard`, для того же паттерна корректно применён `AsSplitQuery()` — здесь его забыли.
++
++### 6. Services/OrderAdmin.cs -> RecalcTotal
++Сумма заказа считается без учёта количества.
++`order.Total = order.Items.Sum(i => prices[i.ProductId])` суммирует только цены за единицу, игнорируя `OrderItem.Qty`. Согласно модели (`Product.Price` — цена за единицу, `OrderItem.Qty` — количество), должно быть `i.Qty * prices[i.ProductId]`. Это прямая финансовая ошибка — сумма заказа будет занижена для любого товара с `Qty > 1`.
++
++### 7. Services/OrderAdmin.cs -> UpdateOrder
++Нет контроля параллельного редактирования.
++MR прямо описывает сценарий, что несколько операторов одновременно правят один и тот же заказ. Метод читает сущность, правит поля и сохраняет без concurrency-токена (`RowVersion`/`xmin` и т.п.) и без проверки, что заказ не изменился между чтением и записью. Результат — классический lost update: правки одного оператора молча затираются другим.
++
++### 8. Services/OrderQueries.cs -> LastShippedAt
++`!` на nullable без проверки на null.
++`MaxAsync(o => o.ShippedAt)` вернёт `null`, если у клиента вообще нет заказов или ни один заказ ещё не отгружен (обычный случай для нового клиента). `last!.Value` в этом случае бросит исключение вместо осмысленной обработки отсутствия значения.
++
++### 9. Services/OrderAdmin.cs -> OverdueReport
++Фильтрация после материализации всей таблицы.
++`_repo.GetAllAsync()` делает `_db.Orders.ToListAsync()` без каких-либо условий — загружает в память вообще все заказы (репозиторий материализует всю выборку), и только затем фильтрует по `IsOverdue` на клиенте. При росте таблицы заказов (а MR отдельно подчёркивает большие объёмы у клиентов) это дорогая по памяти и времени операция; отбор просроченных заказов нужно делать условием на уровне SQL (аналогично тому, как сделано в `OverdueNotifier`).
++
++## Средние (medium)
++
++### 10. Services/CatalogService.cs -> Reprice
++`UpdateRange` на уже отслеживаемых сущностях.
++`products` получены обычным `ToListAsync()` (без `AsNoTracking`), то есть уже трекаются контекстом и после `p.Price *= factor` уже помечены как изменённые. Явный вызов `_db.UpdateRange(products)` избыточен и переводит все свойства сущностей в состояние `Modified` целиком (а не только `Price`), что приводит к ненужному обновлению всех столбцов в UPDATE-е и риску затереть значения других полей, изменённых параллельно другой транзакцией между чтением и сохранением.

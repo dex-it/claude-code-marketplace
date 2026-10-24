@@ -8,25 +8,41 @@
  *
  * Usage:
  *   node tools/validate-agent.js <path>                 # single file
- *   node tools/validate-agent.js all                    # all agents in plugins/specialists
+ *   node tools/validate-agent.js all                    # every agent in the catalogue
  *
  * Exit codes:
  *   0 - clean
  *   1 - at least one error found
  */
 
-import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
-import { join, relative, resolve, dirname, basename } from 'node:path';
+import { readFileSync, readdirSync, lstatSync, existsSync } from 'node:fs';
+import { join, relative, resolve, dirname, basename, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import matter from 'gray-matter';
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
 import { visit } from 'unist-util-visit';
+import { buildPluginArtifactMap, danglingSkillHalves, skillHalfMessage } from './plugin-artifacts.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const REPO_ROOT = resolve(__dirname, '..');
-const SPECIALISTS_DIR = join(REPO_ROOT, 'plugins', 'specialists');
+// MARKETPLACE_ROOT переносит валидатор на дерево-песочницу: tools/test-rules.js
+// прогоняет правило на фикстуре, а не на живом каталоге.
+const REPO_ROOT = process.env.MARKETPLACE_ROOT
+  ? resolve(process.env.MARKETPLACE_ROOT)
+  : resolve(__dirname, '..');
+
+// Обход дерева не проходит по symlink и спецфайлам: цикл ссылок ронял прогон стектрейсом ELOOP, FIFO вешал
+// чтение, а ссылка наружу судила чужой файл как свой. Такой узел - отказ с кодом 1, а не тихий пропуск.
+function statPlain(full) {
+  const stat = lstatSync(full);
+  if (stat.isSymbolicLink() || !(stat.isFile() || stat.isDirectory())) {
+    console.error(`Not a regular file or directory (symlinks and special files are not followed): ${relative(REPO_ROOT, full)}`);
+    process.exit(1);
+  }
+  return stat;
+}
+const PLUGINS_DIR = join(REPO_ROOT, 'plugins');
 const MARKETPLACE_JSON = join(REPO_ROOT, '.claude-plugin', 'marketplace.json');
 
 const COLORS = {
@@ -61,22 +77,78 @@ function loadMarketplacePlugins() {
   }
 }
 
+// Голое имя плагина в теле - указатель на соседа: «этим ведает вон тот», «подробнее там». Загрузкой
+// оно не является (загрузка пишется полной формой `plugin:skill`), поэтому обязательства поставки не
+// даёт и в замыкание бандла не входит. Но указатель обязан вести в существующее место: имя, которого
+// в каталоге нет, читателя никуда не приводит и сгнить успевает молча, а голую форму до сих пор не
+// сторожил никто. Полную форму `plugin:skill` половиной «плагин» судит это же правило, вторую половину адреса
+// `skill-reference-unknown` судит у любого известного плагина (`validateSkillHalves`). Имена с префиксом `dex-skill-`
+// в теле агента с провалидированными фазами оставлены `skill-reference-unknown` (`validateSkillReferences`), чтобы не
+// дублировать находку; во frontmatter и в теле без валидированных фаз их судит это правило.
+let catalogPluginsCache = null;
+function catalogPlugins() {
+  if (!catalogPluginsCache) catalogPluginsCache = loadMarketplacePlugins();
+  return catalogPluginsCache;
+}
+
+// `skipSkillPrefix` - пропускать полную форму `dex-skill-*:`: её судит `skill-reference-unknown`, но он запускается только
+// на теле агента с провалидированными фазами; во frontmatter и в теле без валидированных фаз этот пропуск был бы дырой.
+// `seen` общий для вызовов по одному файлу и для голой и полной формы: одна находка на неизвестный плагин.
+function validatePluginNameMentions(text, findings, where = '', { skipSkillPrefix = false, seen = new Set() } = {}) {
+  const known = catalogPlugins();
+  if (known.size === 0) return; // каталога нет - имя не «неизвестно», а непроверяемо: сверять не с чем
+  for (const match of text.matchAll(/`(dex-[a-z0-9-]+)`/g)) {
+    const name = match[1];
+    if (name.endsWith('-')) continue; // не имя, а префикс-шаблон: `dex-skill-`
+    if (known.has(name) || seen.has(name)) continue;
+    seen.add(name);
+    findings.push({
+      level: ERROR,
+      rule: 'plugin-name-unknown',
+      message: `${where}names "${name}" - no such plugin in the catalogue. A bare name is a pointer, not a load, so it carries no delivery obligation - but a pointer must lead somewhere, and a name that leads nowhere rots silently; this rule is the guard of the bare form, and the plugin half of the full form plugin:skill is judged by the same rule`,
+    });
+  }
+  // Полная форма `plugin:skill`: половина «плагин» судится тем же правилом. Загрузка с именем плагина,
+  // которого нет в каталоге, никуда не ведёт, а `skill-reference-unknown` неизвестный плагин судит только
+  // для имён с префиксом `dex-skill-` - их ниже пропускаем, чтобы не дублировать находку.
+  for (const match of text.matchAll(/`(dex-[a-z0-9-]+):([a-z][a-z0-9-]*)`/g)) {
+    const [, plugin, skill] = match;
+    if (skipSkillPrefix && plugin.startsWith('dex-skill-')) continue; // этот префикс судит `skill-reference-unknown`
+    if (known.has(plugin) || seen.has(plugin)) continue;
+    seen.add(plugin);
+    findings.push({
+      level: ERROR,
+      rule: 'plugin-name-unknown',
+      message: `${where}names "${plugin}:${skill}" - plugin "${plugin}" is not in the catalogue. A full form is a load, and a load through a plugin that does not exist fails at run time; this rule is the guard of the plugin half of the full form`,
+    });
+  }
+}
+
 // --- File discovery -----------------------------------------------------
 
+// Обход берёт `plugins/` целиком, а не только `plugins/specialists/`: обещание
+// правил - «каждый агент каталога», и корень поставки в него не входит. Агент,
+// положенный в другую ветку дерева, при обходе по одной ветке не судится ничем и
+// молчит на всех гейтах сразу - тот же класс, что подкаталог `agents/`.
+// Разделитель приводится к `/` перед сравнением: `join` на Windows отдаёт `\`, и
+// проверка подстроки `/agents/` там не совпала бы ни разу, то есть валидатор
+// нашёл бы ноль файлов и вышел бы зелёным. Свидетеля у этой половины нет и на
+// Linux быть не может - `sep` там `/`, и мутация обратно оставляет прогон зелёным.
+// Ловится только прогоном на Windows, как и остальная портируемость shell-скриптов.
 function findAllAgentFiles() {
   const result = [];
   function walk(dir) {
     if (!existsSync(dir)) return;
     for (const entry of readdirSync(dir)) {
       const full = join(dir, entry);
-      const stat = statSync(full);
+      const stat = statPlain(full);
       if (stat.isDirectory()) walk(full);
-      else if (entry.endsWith('.md') && full.includes('/agents/')) {
+      else if (entry.endsWith('.md') && full.split(sep).join('/').includes('/agents/')) {
         result.push(full);
       }
     }
   }
-  walk(SPECIALISTS_DIR);
+  walk(PLUGINS_DIR);
   return result.sort();
 }
 
@@ -128,8 +200,62 @@ const FORBIDDEN_FRONTMATTER_FIELDS = ['allowed-tools'];
  * so pre-loading them wastes context on runs that don't need them.
  * Names are matched stack-agnostically by the skill's short name (last `:`-segment
  * and stripped `dex-skill-` prefix) so all listing formats resolve.
+ *
+ * Value = which agents may pre-load it. `null` - any agent (the handoff contract
+ * is unconditional for every node). A Set - a stage normative: unconditional for
+ * the agent OWNING that stage and conditional for everyone else, so an open
+ * allowlist would let any agent pre-load a stage normative it never runs.
  */
-const ALLOWED_PRELOAD_SKILLS = new Set(['node-contract']);
+const NODE_CONTRACT_REF = 'dex-skill-node-contract:node-contract';
+
+const ALLOWED_PRELOAD_SKILLS = new Map([
+  ['node-contract', null],
+  ['business-analysis-29148', new Set(['business-requirements-analyst'])],
+  ['system-requirements-29148', new Set(['requirements-analyst'])],
+  ['architecture-definition-42010', new Set(['architect', 'architect-dotnet'])],
+  ['interface-definition-openapi', new Set(['api-designer'])],
+  ['use-cases-cockburn', new Set(['usecase-analyst', 'use-case-writer'])],
+  ['bdd-gherkin', new Set(['bdd-author'])],
+  ['project-rulebook', new Set(['rulebook-orchestrator'])],
+]);
+
+/**
+ * Реестр ЧИТАТЕЛЕЙ норматива этапа: агенты, которые норматив не pre-load'ят
+ * (для них он условен), но обязаны загружать его ИМПЕРАТИВНО в фазе, потому что
+ * судят артефакт этого этапа. Без загрузки судья проверяет полноту состава по
+ * памяти, а состав живёт в нормативе - расхождение автора и судьи, ради снятия
+ * которого норматив и заведён (docs/pipelines/analytics/NORMS.md, раздел 7).
+ *
+ * Ключ - полная форма ссылки `{plugin}:{skill}` (ровно то, что ищется в теле).
+ * Значение - имена агентов (`name` во frontmatter). Rename агента - повод
+ * править и эту карту, и ALLOWED_PRELOAD_SKILLS выше.
+ *
+ * Наличие оракула типа от записи не освобождает: оракул судит содержание при
+ * заполненных разделах, состав держит норматив (шапки `use-case-quality`,
+ * `api-spec-quality`). Норматив без судьи в маршруте строки не получает.
+ */
+const STAGE_NORMATIVE_READERS = new Map([
+  [
+    'dex-skill-business-analysis-29148:business-analysis-29148',
+    new Set(['requirements-reviewer']),
+  ],
+  [
+    'dex-skill-system-requirements-29148:system-requirements-29148',
+    new Set(['requirements-reviewer']),
+  ],
+  [
+    'dex-skill-architecture-definition-42010:architecture-definition-42010',
+    new Set(['design-reviewer']),
+  ],
+  [
+    'dex-skill-use-cases-cockburn:use-cases-cockburn',
+    new Set(['requirements-reviewer']),
+  ],
+  [
+    'dex-skill-interface-definition-openapi:interface-definition-openapi',
+    new Set(['design-reviewer']),
+  ],
+]);
 
 /**
  * Normalize a `skills:` entry to its short skill name for allowlist matching.
@@ -158,7 +284,7 @@ function buildPluginSkillMap() {
     if (!existsSync(dir)) return;
     for (const entry of readdirSync(dir)) {
       const full = join(dir, entry);
-      if (statSync(full).isDirectory()) {
+      if (statPlain(full).isDirectory()) {
         walk(full);
       } else if (entry === 'SKILL.md') {
         // <plugin>/skills/<skill>/SKILL.md -> <plugin>/.claude-plugin/plugin.json
@@ -192,7 +318,7 @@ const PLUGIN_SKILLS = buildPluginSkillMap();
  *
  * Verified empirically: the bare form also slips past `bundle-not-closed`
  * (validate-bundle matches `{plugin}:{skill}` only), so the skill can vanish from
- * a bundle's includes[] with zero errors. Hence this check.
+ * a bundle's component lists with zero errors. Hence this check.
  */
 function validatePreloadSkillForm(raw, findings) {
   const entry = String(raw).trim();
@@ -213,7 +339,20 @@ function validatePreloadSkillForm(raw, findings) {
   }
 
   const [plugin, skill] = entry.split(':');
-  if (!PLUGIN_SKILLS.has(plugin)) return; // not a repo plugin - out of scope
+  // Плагин, которого нет ни в каталоге, ни в дереве, - загрузка в никуда. `normalizePreloadSkillName` берёт часть после
+  // последнего `:`, поэтому опечатка в половине «плагин» иначе проходила молча там, где вторая половина допустима к pre-load
+  // (`node-contract` у узла трека, норматив этапа у агента-владельца). Каталога нет - сверять не с чем. Точную запись
+  // контракта стыка судит `frontmatter-skills-missing` и от дерева она не зависит (в песочнице фикстур плагина контракта нет).
+  const catalog = catalogPlugins();
+  if (entry !== NODE_CONTRACT_REF && catalog.size > 0 && !catalog.has(plugin) && !PLUGIN_SKILLS.has(plugin)) {
+    findings.push({
+      level: ERROR,
+      rule: 'plugin-name-unknown',
+      message: `\`skills:\` entry "${entry}" - plugin "${plugin}" is not in the catalogue. A pre-load through a plugin that does not exist is skipped silently at run time; this rule is the guard of the plugin half of the full form plugin:skill`,
+    });
+    return;
+  }
+  if (!PLUGIN_SKILLS.has(plugin)) return; // plugin is known but ships no skills - nothing to check the second half against
   if (!PLUGIN_SKILLS.get(plugin).has(skill)) {
     findings.push({
       level: ERROR,
@@ -249,7 +388,7 @@ const EFFORT_LEVELS = ['low', 'medium', 'high', 'xhigh', 'max'];
  */
 const EFFORTLESS_MODEL_RE = /^(haiku|claude-haiku)/;
 
-function validateFrontmatter(parsed, findings) {
+function validateFrontmatter(parsed, findings, trackNode = false) {
   const fm = parsed.data || {};
 
   for (const field of REQUIRED_FRONTMATTER_FIELDS) {
@@ -291,9 +430,50 @@ function validateFrontmatter(parsed, findings) {
         findings.push({
           level: ERROR,
           rule: 'frontmatter-skills-not-preloadable',
-          message: `\`skills:\` entry "${String(raw).trim()}" is not an unconditional process-skill - pre-load only [${[...ALLOWED_PRELOAD_SKILLS].join(', ')}]; conditional skills load imperatively via Skill tool in phases`,
+          message: `\`skills:\` entry "${String(raw).trim()}" is not an unconditional process-skill - pre-load only [${[...ALLOWED_PRELOAD_SKILLS.keys()].join(', ')}]; conditional skills load imperatively via Skill tool in phases`,
+        });
+        continue;
+      }
+      const owners = ALLOWED_PRELOAD_SKILLS.get(short);
+      if (owners != null && !owners.has(String(fm.name ?? '').trim())) {
+        findings.push({
+          level: ERROR,
+          rule: 'frontmatter-skills-not-own-stage',
+          message: `\`skills:\` entry "${String(raw).trim()}" is a stage normative - pre-loadable only by the agent owning that stage [${[...owners].join(', ')}]; for others it is conditional and loads via Skill tool in a phase`,
         });
       }
+    }
+  }
+
+  // Присутствие pre-load, а не только его форма. Соседние правила
+  // (`frontmatter-skills-not-preloadable`, `-bare-plugin-name`, `-unknown-skill`)
+  // судят уже написанное значение и на отсутствие поля молчат: замер мутацией
+  // 01.09.2026 - у агента снят весь блок `skills:`, валидатор дал 0 ошибок.
+  // Именно этим механизмом и накапливался остаток, закрытый в #110: норма
+  // «контракт стыка исполняет сам агент» держалась ручной сверкой.
+  // Исключение одно - узел трека: это класс, не позиция вызова, и его контракт -
+  // файл узла (AGENT_FRAMEWORK.md, глоссарий, «Узел трека»).
+  if (!trackNode) {
+    const raw = 'skills' in fm && fm.skills != null ? fm.skills : [];
+    const entries = Array.isArray(raw) ? raw : String(raw).split(',');
+    // Сверяется полная форма, а не имя скилла: голое `dex-skill-node-contract`
+    // рантаймом не резолвится (плагин молча пропускается), а голое
+    // `node-contract` не называет плагин. Ловушку голого имени держит и
+    // `frontmatter-skills-bare-plugin-name`, но там она видна только когда
+    // плагин есть в проверяемом дереве - здесь проверка от дерева не зависит.
+    const preloaded = entries.map((e) => String(e).trim()).filter((e) => e !== '');
+    if (!preloaded.includes(NODE_CONTRACT_REF)) {
+      // Две ветки - «записи нет вовсе» и «запись есть, форма не резолвится» -
+      // различаются текстом сообщения, а не именем правила: имя одно на обе, и
+      // смерть одной видна только по тексту (`messages` фикстуры, tools/test-rules.js).
+      const nearMiss = preloaded.find((e) => normalizePreloadSkillName(e) === 'node-contract');
+      findings.push({
+        level: ERROR,
+        rule: 'frontmatter-skills-missing',
+        message: nearMiss
+          ? `\`skills:\` entry "${nearMiss}" names the node handoff contract in a form that does not resolve - pre-load the full form "${NODE_CONTRACT_REF}". A bare plugin name is skipped silently, a bare skill name does not say which plugin ships it: either way the agent starts without the contract`
+          : `Frontmatter does not pre-load the node handoff contract - add \`skills:\` with "${NODE_CONTRACT_REF}". Every agent executes the handoff contract itself, so the pre-load is unconditional; without it the agent starts without the contract and nothing reports it`,
+      });
     }
   }
 
@@ -301,7 +481,7 @@ function validateFrontmatter(parsed, findings) {
   // Default `inherit` runs cheap work on the session model - on an Opus
   // session even trivial agents would run on Opus. See AGENT_FRAMEWORK.md.
   if (fm.model == null || fm.model === '') {
-    findings.push({
+    if (!trackNode) findings.push({
       level: ERROR,
       rule: 'frontmatter-model-missing',
       message: `Missing required frontmatter field: model - set explicit \`opus\` / \`sonnet\` / \`haiku\` by judgment type (not \`inherit\`)`,
@@ -373,6 +553,7 @@ function validateFrontmatter(parsed, findings) {
   }
 
   if (
+    !trackNode &&
     typeof fm.description === 'string' &&
     !/триггер|активируется|trigger/i.test(fm.description)
   ) {
@@ -383,13 +564,43 @@ function validateFrontmatter(parsed, findings) {
     });
   }
 
-  if (typeof fm.tools === 'string' && !/\bSkill\b/.test(fm.tools)) {
+  if (!trackNode && typeof fm.tools === 'string' && !/\bSkill\b/.test(fm.tools)) {
     findings.push({
       level: ERROR,
       rule: 'frontmatter-no-skill-tool',
       message: `Agent does not declare "Skill" in tools - will not be able to load skills imperatively in phases`,
     });
   }
+}
+
+/**
+ * Файл агента лежит прямо в `<плагин>/agents/`, без подкаталогов.
+ *
+ * Замер 01.09.2026 на живом рантайме (`claude -p --plugin-dir`, событие `system/init`):
+ * агент из `agents/nested/test-analyst.md` поставляется под именем
+ * `dex-test-analyst:nested:test-analyst` - три сегмента вместо двух. Такое имя не
+ * резолвится ни одной ссылкой вида `{plugin}:{name}`, а `agent-file-name-mismatch`
+ * молчит: имя файла с `name` совпадает. Класс тот же, что у голого имени плагина в
+ * `skills:` - форма выглядит верной и тихо не срабатывает.
+ */
+function validateAgentFileIsFlat(filepath, findings) {
+  // Якорь - корень плагина, а не вхождение подстроки `/agents/` в путь. Путь
+  // абсолютный, и обе стороны поиска подстроки ошибаются: первое вхождение ловит
+  // каталог `agents` выше по дереву (каталог прогона, категория плагинов) и даёт
+  // ложное срабатывание на плоском файле, последнее - слепнет на `agents/agents/`,
+  // который поставляется трёхсегментным именем и правилом ловиться обязан.
+  // Корень плагина обе формы разводит: имя поставки считается от него.
+  const pluginRoot = pluginRootOf(filepath);
+  if (!pluginRoot) return;
+  const fromRoot = relative(pluginRoot, resolve(filepath)).split(sep).join('/');
+  if (!fromRoot.startsWith('agents/')) return;
+  const rel = fromRoot.slice('agents/'.length);
+  if (!rel.includes('/')) return;
+  findings.push({
+    level: ERROR,
+    rule: 'agent-file-nested',
+    message: `Agent file sits in a subdirectory of agents/ (${rel}) - the runtime then ships it as "{plugin}:{dir}:{name}", a three-segment name no {plugin}:{name} reference resolves. Move the file directly into agents/`,
+  });
 }
 
 /**
@@ -526,16 +737,18 @@ function validatePhases(markdownBody, findings, bodyOffset = 0) {
       }
     }
 
-    const mandatoryMatch = body.match(/mandatory:\s*yes([^\n]*)/i);
-    if (mandatoryMatch) {
-      const afterYes = (mandatoryMatch[1] || '').trim();
-      if (afterYes.length < 10) {
-        findings.push({
-          level: ERROR,
-          rule: 'phase-mandatory-no-justification',
-          message: `Phase "${phase.title}" (line ${phase.startLine}) declares **Mandatory:** yes without justification - framework requires explaining "why mandatory"`,
-        });
-      }
+    // AGENT_FRAMEWORK "Gate": пометка обязательности ставится голой - «зачем» несут Goal и
+    // Exit criteria фазы. Обратное правило (`phase-mandatory-no-justification`) снято вместе с
+    // 174 хвостами по каталогу; без парного гейта норма разъезжается молча, что и случилось -
+    // после среза шесть хвостов уцелели. Судится только `yes`: у `no` причина уместна, у
+    // `optional` хвост несёт `skip_if` и обязателен.
+    const mandatoryYes = phaseBodyText(phase).match(/mandatory:\s*yes([^\n]*)/i);
+    if (mandatoryYes && mandatoryYes[1].trim().length > 0) {
+      findings.push({
+        level: ERROR,
+        rule: 'phase-mandatory-tail',
+        message: `Phase "${phase.title}" (line ${phase.startLine}) declares **Mandatory:** yes with a tail - the marker is bare, "why" belongs to Goal and Exit criteria; a condition of skipping belongs to \`optional - skip_if ...\``,
+      });
     }
 
     let maxListLen = 0;
@@ -591,6 +804,131 @@ function validateFactcheckCascade(parsed, findings) {
       rule: 'factcheck-cascade-incomplete',
       message: `Agent invokes fact-verification skill but tools is missing cascade link(s): ${missing.join(', ')} - fact-check silently degrades to latest-doc (see CLAUDE.md "Каскад tools под fact-check")`,
     });
+  }
+}
+
+/**
+ * Судья артефакта обязан нести инструмент записи: метка `quality-checks` живёт в
+ * файле рядом с судимым артефактом (`node-contract`, «Носитель метки»), и без
+ * `Write`/`Edit` вердикт остаётся в тексте ответа и не переживает узла - артефакт
+ * числится непроверенным при состоявшемся суде.
+ *
+ * Триггер - форма записи метки в теле (`{artifact ... verdict}`): её пишет тот, кто
+ * метку ставит. Упоминание `quality-checks` в прозе триггером не служит - читатель
+ * метки инструмента записи не требует.
+ */
+function validateJudgeCarriesWriter(parsed, findings) {
+  const body = parsed.content || '';
+  if (!/\{artifact[^}]*verdict/.test(body)) return;
+
+  const fm = parsed.data || {};
+  const tools = Array.isArray(fm.tools)
+    ? fm.tools.join(',')
+    : typeof fm.tools === 'string'
+      ? fm.tools
+      : '';
+
+  if (!/\b(Write|Edit)\b/.test(tools)) {
+    findings.push({
+      level: ERROR,
+      rule: 'judge-without-write',
+      message:
+        'Agent writes a quality-checks record but tools has neither Write nor Edit - the verdict cannot reach its carrier file next to the judged artefact (see node-contract "Носитель метки")',
+    });
+  }
+}
+
+/**
+ * Объявленная сигнатура стыка: `**Input (handoff)` и `**Output (handoff)` в теле.
+ *
+ * Принцип 2 фреймворка требует стандартный I/O от КАЖДОГО агента, не только от узла
+ * цепочки: вызывающий обязан знать, что подать и что получит, до спавна
+ * (`docs/AGENT_FRAMEWORK.md`, «у агента стандартизованный вход и выход»). Без
+ * объявленной половины вход не с чем сверить, а выход вызывающему нечем разобрать -
+ * агент молча домысливает недостающее вместо возврата нехватки наверх.
+ *
+ * Проверяется присутствие атрибута в теле, а не его фаза: канонично Input стоит в
+ * фазе входа, но у агента с общим для всех фаз входом он законно живёт в обзорном
+ * разделе `## Phases` (так написаны `architect` и `architect-dotnet`), и привязка к
+ * `## Phase N` дала бы ложное срабатывание на верной форме.
+ */
+const HANDOFF_INPUT_RE = /\*\*\s*Input\s*\(handoff/i;
+const HANDOFF_OUTPUT_RE = /\*\*\s*Output\s*\(handoff/i;
+// Свидетель сигнатуры засчитывается только из тела. Тот же атрибут внутри
+// ```-фенса - образец в документации, а не объявление: вызывающий по нему
+// ничего не заполнит. Без вырезания фенсов правило удовлетворялось бы примером,
+// то есть краснело бы ровно там, где автор ничего не написал вовсе.
+const FENCED_BLOCK_RE = /^[ \t]*(`{3,}|~{3,})[^\n]*\n[\s\S]*?^[ \t]*\1[ \t]*$/gm;
+const withoutFences = (text) => text.replace(FENCED_BLOCK_RE, '');
+
+function validateHandoffSignature(parsed, findings) {
+  const body = withoutFences(parsed.content || '');
+
+  if (!HANDOFF_INPUT_RE.test(body)) {
+    findings.push({
+      level: ERROR,
+      rule: 'handoff-input-missing',
+      message:
+        'Agent declares no **Input (handoff):** - the caller has nothing to fill in and the agent has nothing to check the incoming payload against (Agent Framework, principle 2)',
+    });
+  }
+
+  if (!HANDOFF_OUTPUT_RE.test(body)) {
+    findings.push({
+      level: ERROR,
+      rule: 'handoff-output-missing',
+      message:
+        'Agent declares no **Output (handoff):** - the caller cannot parse the result and decisions taken by the agent stay unannounced (Agent Framework, principle 2)',
+    });
+  }
+}
+
+/**
+ * Читатель норматива этапа обязан грузить его императивно в фазе. Проверяется
+ * наличие полной формы `{plugin}:{skill}` в теле и `Skill` в `tools`: без tool'а
+ * запись в теле неисполнима, и проверка состава молча выпадает.
+ */
+function validateStageNormativeReaders(parsed, findings) {
+  const name = String(parsed.data?.name ?? '').trim();
+  if (!name) return;
+
+  const body = parsed.content || '';
+  const fm = parsed.data || {};
+  const tools = Array.isArray(fm.tools)
+    ? fm.tools.join(',')
+    : typeof fm.tools === 'string'
+      ? fm.tools
+      : '';
+
+  for (const [ref, readers] of STAGE_NORMATIVE_READERS) {
+    if (!readers.has(name)) continue;
+
+    if (!body.includes(ref)) {
+      findings.push({
+        level: ERROR,
+        rule: 'stage-normative-reader-missing',
+        message: `Agent "${name}" judges artifacts of the stage normed by "${ref}" but never loads it - add an imperative Skill call in the judging phase (pre-load is reserved for the stage owner)`,
+      });
+      continue;
+    }
+
+    if (!/\bSkill\b/.test(tools)) {
+      findings.push({
+        level: ERROR,
+        rule: 'stage-normative-reader-missing',
+        message: `Agent "${name}" references stage normative "${ref}" in a phase but tools is missing \`Skill\` - the imperative load cannot run`,
+      });
+    }
+  }
+}
+
+// Половина «скилл» полной формы `{plugin}:{skill}`: плагин известен, а такого артефакта в нём нет.
+// Судится у любого плагина каталога и без условия на разбор фаз - опечатка в адресе не зависит от
+// того, сошёлся ли файл с контрактом фаз (tools/plugin-artifacts.js, #423).
+const PLUGIN_ARTIFACTS = buildPluginArtifactMap(join(REPO_ROOT, 'plugins'), statPlain);
+function validateSkillHalves(markdownBody, marketplacePlugins, findings) {
+  for (const d of danglingSkillHalves(markdownBody, PLUGIN_ARTIFACTS, marketplacePlugins)) {
+    findings.push({ level: ERROR, rule: 'skill-reference-unknown', message: skillHalfMessage(d) });
   }
 }
 
@@ -650,13 +988,40 @@ function validateAttributeBlocks(markdownBody, findings, bodyOffset = 0) {
 
 // --- File validation orchestration --------------------------------------
 
+// Узел трека - агент, которого вызывает по `agentType` скрипт из каталога `workflows` своего плагина.
+// Делегации по description у него нет, модель и схему выхода задаёт скрипт, контракт узла - его файл:
+// фазы, handoff, pre-load контракта стыка, `model`, триггеры и `Skill` в `tools` к нему не применяются.
+const trackNodeRefs = new Map();
+
+function isTrackNode(filepath, parsed) {
+  const root = pluginRootOf(filepath);
+  const name = String(parsed.data?.name ?? '').trim();
+  if (!root || !name) return false;
+  if (!trackNodeRefs.has(root)) {
+    let refs = '';
+    try {
+      const manifest = JSON.parse(readFileSync(join(root, '.claude-plugin', 'plugin.json'), 'utf8'));
+      const dir = typeof manifest.workflows === 'string' ? resolve(root, manifest.workflows) : null;
+      if (dir && existsSync(dir)) {
+        refs = readdirSync(dir).filter((f) => f.endsWith('.js')).map((f) => readFileSync(join(dir, f), 'utf8')).join('\n');
+      }
+      trackNodeRefs.set(root, { plugin: manifest.name, refs });
+    } catch {
+      trackNodeRefs.set(root, { plugin: null, refs: '' });
+    }
+  }
+  const { plugin, refs } = trackNodeRefs.get(root);
+  return Boolean(plugin) && new RegExp(`agentType:\\s*['"]${plugin}:${name}['"]`).test(refs);
+}
+
 function validateFile(filepath, marketplacePlugins) {
   const findings = [];
   let parsed;
+  let raw;
   let bodyOffset = 0;
 
   try {
-    const raw = readFileSync(filepath, 'utf8');
+    raw = readFileSync(filepath, 'utf8');
     parsed = matter(raw);
     // Позиции из AST считаются по телу без frontmatter; в сообщениях нужен номер
     // строки файла, иначе он не совпадает с тем, что видит открывший файл.
@@ -670,17 +1035,203 @@ function validateFile(filepath, marketplacePlugins) {
     };
   }
 
-  const phaseResult = validatePhases(parsed.content, findings, bodyOffset);
-  validateFrontmatter(parsed, findings);
+  const trackNode = isTrackNode(filepath, parsed);
+  const phaseResult = trackNode ? { validated: true } : validatePhases(parsed.content, findings, bodyOffset);
+  validateFrontmatter(parsed, findings, trackNode);
   validateFileNameMatchesName(filepath, parsed, findings);
+  validateAgentFileIsFlat(filepath, findings);
   validateFactcheckCascade(parsed, findings);
+  validateJudgeCarriesWriter(parsed, findings);
+  validateStageNormativeReaders(parsed, findings);
+  if (!trackNode) validateHandoffSignature(parsed, findings);
   validateAttributeBlocks(parsed.content, findings, bodyOffset);
+  validateCatalogDocsLink(raw, filepath, findings);
+  validateLinkEscapesPlugin(raw, filepath, findings);
+  {
+    // Тело судит `skill-reference-unknown` при провалидированных фазах; во frontmatter он не заходит вовсе.
+    const seen = new Set();
+    const head = raw.endsWith(parsed.content) ? raw.slice(0, raw.length - parsed.content.length) : '';
+    if (head) validatePluginNameMentions(head, findings, '', { seen });
+    validatePluginNameMentions(head ? parsed.content : raw, findings, '', { seen, skipSkillPrefix: Boolean(phaseResult.validated) });
+  }
+
+  validateSkillHalves(parsed.content, marketplacePlugins, findings);
 
   if (phaseResult.validated) {
     validateSkillReferences(parsed.content, marketplacePlugins, findings);
   }
 
   return { filepath, findings };
+}
+
+// --- link escapes the plugin ---------------------------------------------
+
+// Соседний плагин у пользователя ставится сам по себе: `../<плагин>/...` из тела
+// артефакта не резолвится ровно так же, как `docs/` каталога. Внутриплагинный
+// подъём (`../<соседний скилл>/`) законен и правилом не трогается - решает не
+// число `../`, а то, вышел ли разрешённый путь за корень плагина.
+const ESCAPING_LINK_RE = /\]\((\.\.\/[^)\s]+)\)/g;
+
+function pluginRootOf(filepath) {
+  let dir = dirname(resolve(filepath));
+  for (let i = 0; i < 8; i += 1) {
+    if (existsSync(join(dir, '.claude-plugin'))) return dir;
+    const up = dirname(dir);
+    if (up === dir) return null;
+    dir = up;
+  }
+  return null;
+}
+
+function validateLinkEscapesPlugin(text, filepath, findings, where = '') {
+  const pluginRoot = pluginRootOf(filepath);
+  if (!pluginRoot) return;
+  const baseDir = dirname(resolve(filepath));
+  const hits = [];
+  ESCAPING_LINK_RE.lastIndex = 0;
+  for (const m of text.matchAll(ESCAPING_LINK_RE)) {
+    if (relative(pluginRoot, resolve(baseDir, m[1])).startsWith('..')) hits.push(m[1]);
+  }
+  if (hits.length === 0) return;
+  const shown = hits.slice(0, 3).join(', ');
+  findings.push({
+    level: ERROR,
+    rule: 'link-escapes-plugin',
+    message: `${where}link leaves the plugin directory (${shown}${hits.length > 3 ? `, +${hits.length - 3} more` : ''}) - a neighbouring plugin is installed on its own, so the path does not resolve at runtime. Name the neighbour instead: {plugin}:{skill}`,
+  });
+}
+
+// --- catalog docs link ---------------------------------------------------
+
+// `docs/` каталога - дизайн-тайм: он нормирует авторство артефактов и в установленный плагин не
+// входит. Адрес такого документа в теле хуже отсутствия адреса: он выглядит валидным, а исполнитель
+// либо молча его не открывает, либо сочиняет содержимое. Норма, нужная в рантайме, живёт в самом
+// артефакте либо в скилле, который у пользователя установлен.
+
+// Ключ у правила один - адресат: документ, который РЕАЛЬНО существует в `docs/` каталога. Форма
+// записи ключом не служит - код-спан и проза уводят исполнителя туда же, куда markdown-ссылка.
+// Шаблоны формы работают на текст сообщения: назвать место в тексте и то, что относительная ссылка
+// не разрешается даже в клоне. Обратная сторона того же ключа: путь, которого в `docs/` каталога нет
+// (`docs/discover/README.md` как выход агента в проекте пользователя), не покрыт ни в одной форме -
+// он адресует чужой корпус.
+const CATALOG_DOCS_LINK_FORMS = [
+  /https?:\/\/github\.com\/dex-it\/claude-code-marketplace\/\S*?\/docs\/[^\s)\]]+/g,
+  /\]\((?:\.{1,2}\/)*docs\/[^)\s]+\)/g,
+];
+
+// Каталоги, которые каталог сам раздаёт пользователю: `project-docs-map` несёт дефолты
+// `product: docs/product/` и `domain: docs/domain/` как адрес корпуса уровня 0 ЕГО проекта. Путь под
+// ними в теле артефакта именует чужой документ, а не наш, - из-под правила выведен.
+const USER_CORPUS_DIRS = new Set(['product', 'domain']);
+
+let catalogDocTargetsCache = null;
+function catalogDocTargets() {
+  if (catalogDocTargetsCache) return catalogDocTargetsCache;
+  const paths = new Set();
+  const names = new Set();
+  const walk = (dir, rel) => {
+    if (!existsSync(dir)) return;
+    for (const entry of readdirSync(dir).sort()) {
+      const full = join(dir, entry);
+      const relPath = rel ? `${rel}/${entry}` : entry;
+      if (statPlain(full).isDirectory()) {
+        if (!rel && USER_CORPUS_DIRS.has(entry)) continue;
+        walk(full, relPath);
+        continue;
+      }
+      if (!entry.endsWith('.md')) continue;
+      paths.add(`docs/${relPath}`);
+      // Голым именем адресуются доки-фреймворки каталога, а они лежат на верхнем уровне `docs/`.
+      // Ниже - внутренние дизайн-доки (`ARCHITECTURE.md`, `PIPELINE.md`), и такое имя носит документ
+      // пользователя не реже нашего: на нём правило ловило бы чужой файл.
+      if (!rel && /^[A-Z][A-Z0-9_]*\.md$/.test(entry) && entry !== 'README.md') names.add(entry);
+    }
+  };
+  walk(join(REPO_ROOT, 'docs'), '');
+  catalogDocTargetsCache = { paths: [...paths], names: [...names] };
+  return catalogDocTargetsCache;
+}
+
+// Матч по границе, а не подстрокой: `MY_PIPELINE.md` не адресует `PIPELINE.md`. Слева у пути `/`
+// допустим (адрес внутри URL), у голого имени - нет: там `/` значит, что имя уже часть пути и
+// посчитано путём.
+function mentionsTarget(text, target, slashBefore) {
+  const before = slashBefore ? '(?<![\\w.-])' : '(?<![\\w./-])';
+  const escaped = target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`${before}${escaped}(?![\\w])`).test(text);
+}
+
+// Авторские плагины: их артефакты исполняются в клоне каталога, где `docs/` лежит рядом, поэтому
+// адрес у них разрешается и правило к ним не применяется. Читается `authorOnly[]`, а не весь состав
+// бандла автора (`includes[]` плюс `dependencies[]`): в составе стоят и плагины, которые едут
+// пользователю бандлами ролей, где `docs/` каталога нет, - исключение даёт только запись в
+// `authorOnly[]`, а не место записи в одном из двух списков. Разъезд `authorOnly[]` с составами
+// бандлов ловит `validate-bundle.js` (`author-only-*`).
+const AUTHOR_BUNDLE_JSON = 'plugins/bundles/dex-bundle-market-editor/bundle.json';
+let authorPluginsCache = null;
+function authorPlugins() {
+  if (authorPluginsCache) return authorPluginsCache;
+  authorPluginsCache = new Set();
+  try {
+    const json = JSON.parse(readFileSync(join(REPO_ROOT, AUTHOR_BUNDLE_JSON), 'utf8'));
+    for (const name of json.authorOnly || []) authorPluginsCache.add(name);
+  } catch {
+    // бандла нет (песочница фикстур, урезанное дерево) - исключений нет
+  }
+  return authorPluginsCache;
+}
+
+// Имя плагина, которому принадлежит файл: ближайший вверх каталог с `.claude-plugin/plugin.json`.
+function pluginNameOf(filepath) {
+  let dir = dirname(resolve(filepath));
+  while (dir !== dirname(dir)) {
+    const manifest = join(dir, '.claude-plugin', 'plugin.json');
+    if (existsSync(manifest)) {
+      try {
+        return JSON.parse(readFileSync(manifest, 'utf8')).name || basename(dir);
+      } catch {
+        return basename(dir);
+      }
+    }
+    dir = dirname(dir);
+  }
+  return null;
+}
+
+function validateCatalogDocsLink(text, filepath, findings, where = '') {
+  if (authorPlugins().has(pluginNameOf(filepath))) return;
+
+  const { paths, names } = catalogDocTargets();
+  const named = [];
+  for (const target of paths) {
+    if (mentionsTarget(text, target, true)) named.push(target);
+  }
+  for (const target of names) {
+    if (!mentionsTarget(text, target, false)) continue;
+    if (named.some((t) => t.endsWith(`/${target}`))) continue;
+    named.push(target);
+  }
+  if (named.length === 0) return;
+
+  const forms = [];
+  for (const re of CATALOG_DOCS_LINK_FORMS) {
+    re.lastIndex = 0;
+    for (const m of text.matchAll(re)) {
+      // Хвостовая пунктуация предложения в адрес не входит.
+      const form = m[0].replace(/[.,;:]+$/, '');
+      if (named.some((t) => form.includes(t))) forms.push(form);
+    }
+  }
+  const shown = named.slice(0, 3).join(', ');
+  const asLink =
+    forms.length > 0
+      ? ` Here it is written as a link (${forms.slice(0, 2).join(', ')}), which misses even in a clone - a relative link resolves from the artifact's own directory.`
+      : '';
+  findings.push({
+    level: ERROR,
+    rule: 'catalog-docs-link',
+    message: `${where}names a catalog docs/ document (${shown}${named.length > 3 ? `, +${named.length - 3} more` : ''}) - naming it in any form (code span, prose, link) sends the executor to a file the plugin does not ship.${asLink} Carry the norm in the artifact itself or in a skill the user has installed; author-only artifacts belong in dex-bundle-market-editor`,
+  });
 }
 
 // --- Reporting ----------------------------------------------------------
@@ -731,7 +1282,7 @@ function main() {
   if (target === 'all') {
     files = findAllAgentFiles();
     if (files.length === 0) {
-      console.error(`No agent files found under ${relative(REPO_ROOT, SPECIALISTS_DIR)}`);
+      console.error(`No agent files found under ${relative(REPO_ROOT, PLUGINS_DIR)}`);
       process.exit(1);
     }
   } else {

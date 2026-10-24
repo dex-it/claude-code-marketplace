@@ -1,0 +1,59 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..34aab13
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,53 @@
++# Ревью MR (SalesReport.cs, CustomerExport.cs, CatalogSearch.cs, StockImport.cs)
++
++## 1. CustomerExport.cs — `CustomersWithOrders`
++**Дефект:** `orders.Select(o => o.Customer).Distinct()` — `Distinct()` вызывается на entity-объектах `Customer`, а запрос выполнен с `AsNoTracking()`. Без tracking (и без `AsNoTrackingWithIdentityResolution()`) EF Core **не делает identity resolution**: если у одного клиента несколько заказов в периоде, для каждого `Order` материализуется **отдельный экземпляр** `Customer` с одинаковыми данными, но разными ссылками. `Distinct()` по умолчанию сравнивает по `ReferenceEquals` (Customer не переопределяет Equals/GetHashCode) → дедупликации не происходит.
++**Почему это дефект:** метод должен возвращать уникальный список клиентов для выгрузки в CRM, а фактически вернёт по одной строке на каждый заказ — те же клиенты с несколькими заказами появятся в выгрузке многократно. Тихий баг, не бросает исключение, ломает контракт "клиенты" молча.
++**Исправление:** `.DistinctBy(o => o.Customer.Id).Select(o => o.Customer)` до/после сортировки, либо лучше — проецировать `.Select(o => o.Customer).Distinct()` прямо в IQueryable до `ToListAsync`, чтобы DISTINCT считался в SQL.
++**Severity: high**
++
++## 2. CustomerExport.cs — `HasOrders`
++**Дефект:** `await _db.Orders.CountAsync(o => o.CustomerId == customerId, ct) > 0`.
++**Почему это дефект:** `CountAsync` транслируется в `COUNT(*) WHERE ...` и сканирует все совпадающие строки, тогда как нужен только факт существования. Классическая ловушка "Count() > 0 вместо Any()" — при большом количестве заказов у клиента (или в целом по таблице) это лишняя работа БД без выигрыша в корректности.
++**Исправление:** `await _db.Orders.AnyAsync(o => o.CustomerId == customerId, ct)`.
++**Severity: medium**
++
++## 3. SalesReport.cs — `Build`
++**Дефект A:** `_products.GetAllAsync(ct)` загружает **все** продукты (включая неактивные) со всеми колонками, в том числе `byte[] Image`, и только потом фильтрует `.Where(p => p.IsActive)` в памяти.
++**Почему это дефект:** ровно ловушка "ToList() в начале цепочки — фильтрация в памяти" + "загружает всю entity для списка вместо проекции". Для отчёта нужны только `Id, Name` активных товаров, а тянется весь каталог с блобами изображений — существенная лишняя нагрузка на БД/сеть/память и раздутие Change Tracker (запрос не `AsNoTracking`).
++**Исправление:** отдельный запрос/метод с `.Where(p => p.IsActive).Select(p => new { p.Id, p.Name }).AsNoTracking().ToListAsync(ct)`.
++**Severity: high**
++
++**Дефект B:** внутри `.Select(p => ...)` на каждый продукт вызывается `items.Where(i => i.ProductId == p.Id).ToList()` — вложенный проход по всему списку `items` для каждого продукта, то есть O(P × I) операций в памяти вместо одной группировки.
++**Почему это дефект:** при заметном количестве заказов/товаров за период (тысячи позиций) это квадратичная сложность в C#. Нужно один раз сгруппировать `items` по `ProductId` (например, `items.GroupBy(i => i.ProductId).ToDictionary(...)` или `ToLookup`) и брать агрегаты за O(1), либо агрегировать сразу в SQL через `GroupBy(i => i.ProductId).Select(g => new { g.Key, Qty = g.Sum(...), Revenue = g.Sum(...) })`.
++**Severity: high**
++
++## 4. CatalogSearch.cs — `Search`
++**Дефект:** четыре независимые ветки `if/if/if/else`, в каждой — свой `.Select(Card).ToListAsync(ct)`.
++**Почему это дефект:** ровно ловушка "ToListAsync() в каждой ветке условия" — дублирование материализации и логики построения запроса. Сейчас поведение веток идентично (кроме фильтра), но любое будущее изменение (пагинация, сортировка, доп. проекция) рискует быть внесено не во все 4 места и незаметно разойдётся между ветками.
++**Исправление:** строить `IQueryable<Product>` условно (`var q = _db.Products.AsNoTracking().Where(p => p.IsActive); if (category != null) q = q.Where(...); if (maxPrice != null) q = q.Where(...);`), один `.Select(Card).ToListAsync(ct)` в конце.
++**Severity: medium**
++
++## 5. StockImport.cs — `Import`
++**Дефект A:** `var products = await _db.Products.ToListAsync(ct);` — загружается **вся** таблица `Products` целиком (все колонки, включая `byte[] Image`) вместо только тех товаров, что встречаются в CSV.
++**Почему это дефект:** классическая ловушка "загружает всю entity для списка" в ещё более тяжёлой форме — тянутся товары, которых вообще нет в файле поставщика, вместе с потенциально большими блобами изображений. При росте каталога импорт будет деградировать линейно с размером всей таблицы, а не с размером файла.
++**Исправление:** сначала распарсить файл и собрать множество `id` (с батчингом через `Chunk`, если id может быть много — см. ловушку про `Contains` с большим списком), затем `_db.Products.Where(p => ids.Contains(p.Id)).ToListAsync(ct)`.
++**Severity: high**
++
++**Дефект B:** `products.FirstOrDefault(p => p.Id == id)` вызывается внутри `foreach` по строкам CSV — линейный поиск O(n) на каждую строку файла.
++**Почему это дефект:** ровно ловушка "FirstOrDefault вместо Dictionary". При файле в тысячи строк и каталоге в тысячи товаров это O(n×m) сравнений вместо O(n).
++**Исправление:** `var byId = products.ToDictionary(p => p.Id);` перед циклом, затем `byId.TryGetValue(id, out var product)`.
++**Severity: high**
++
++**Дефект C (минорный):** нет дедупликации id внутри файла — если поставщик прислал две строки с одним и тем же `productId` (разными qty), обе строки увеличат счётчик `Updated`, хотя реально применится только последнее значение (silent last-write-wins). Не ломает конечное состояние `Stock`, но искажает отчётную статистику `ImportResult.Updated`.
++**Severity: low**
++
++**Дефект D (минорный):** если в файле есть завершающая пустая строка (частый артефакт при экспорте CSV), она попадёт в `Skip(1)`-цикл, `parts.Length != 2` → засчитается как `Invalid`, хотя по сути это не ошибка данных, а формат файла.
++**Severity: low**
++
++---
++
++### Сводка по критичности
++- **High:** CustomerExport.CustomersWithOrders (Distinct не работает — дубликаты в выгрузке), SalesReport.Build (полная загрузка каталога + фильтрация в памяти), SalesReport.Build (O(P×I) агрегация в Select), StockImport.Import (полная загрузка Products вместо нужных id), StockImport.Import (FirstOrDefault в цикле вместо Dictionary).
++- **Medium:** CustomerExport.HasOrders (Count()>0 вместо Any()), CatalogSearch.Search (дублирующиеся ToListAsync по веткам).
++- **Low:** StockImport.Import (дубликаты id инфлируют счётчик Updated; пустая строка в конце файла считается Invalid).

@@ -1,0 +1,54 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..922f5e7
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,48 @@
++# Ревью MR: Outbox-воркер рассылки уведомлений
++
++## Critical
++
++1. **OutboxWorker.ProcessBatchAsync** — сообщение помечается отправленным до попытки отправки.
++   `m.SentAt = now;` проставляется в цикле `foreach` и коммитится первым `SaveChangesAsync` **до** того, как письмо реально ушло через `sender.SendAsync`. Если отправка падает (catch-блок), инкрементируется только `Attempts`, а `SentAt` уже сохранён в БД. Поскольку выборка сообщений фильтрует `m.SentAt == null`, упавшие письма никогда не попадут в повторную обработку — `MaxRetries` фактически не работает, письма молча теряются при любой ошибке SMTP/сети. Это ломает саму суть outbox-паттерна (at-least-once доставка).
++
++2. **Options/OutboxOptions.PollInterval + OutboxWorker.ExecuteAsync** — имя настройки без единицы измерения привело к рассинхрону смысла и использования.
++   MR: «опрос outbox раз в полсекунды». В `appsettings.json` `"PollInterval": 500` (задумано как миллисекунды), но код делает `Task.Delay(TimeSpan.FromSeconds(o.PollInterval), ct)` — то есть реальный интервал опроса получится **500 секунд** (~8.3 минуты) вместо 0.5 секунды. Прямое нарушение требования MR, классическая ловушка «имя настройки без единицы».
++
++3. **Program.cs** — несовпадение имени секции конфигурации для SMTP.
++   `builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Mail"))`, но во всех appsettings-файлах секция называется `"Smtp"`, а не `"Mail"`. В результате `SmtpOptions` никогда не забиндится из реального конфига: `Host`/`FromAddress` останутся `null` (non-nullable string без `required`, никакой валидации). Первый же вызов `SmtpMailSender.SendAsync` упадёт на `MailboxAddress.Parse(o.FromAddress)`/`ConnectAsync(null, 0, ...)`.
++
++4. **ThrottleService.WaitAsync** — несовпадение ключа конфигурации.
++   Читается `config.GetValue<int>("Throttle:MessagesPerMinute")`, но во всех appsettings ключ — `Throttle:PerMinute`. `GetValue<int>` для отсутствующего ключа вернёт `0`, и `60_000 / perMinute` даст `DivideByZeroException` на первой же попытке отправить письмо — воркер упадёт.
++
++5. **OutboxWorker (конструктор)** — используется `IOptions<OutboxOptions>` вместо `IOptionsMonitor<OutboxOptions>`.
++   MR прямо требует: «Лимит параллельных отправок и размер пачки должны меняться на лету правкой appsettings, без рестарта». `OutboxWorker` — `BackgroundService` (фактически singleton), а `IOptions<T>.Value` вычисляется один раз и не отражает последующий reload конфигурации. Правка `MaxInFlight`/`MaxBatchSize` в appsettings во время работы сервиса не подхватится — нужен `IOptionsMonitor<OutboxOptions>` и `.CurrentValue` на каждой итерации. Это прямое нарушение ключевого требования MR.
++
++6. **tests/OutboxOptionsValidatorTests.cs vs Notify.Worker.csproj** — тестовый файл ломает сборку основного проекта.
++   Решения (.sln) и отдельного тестового `.csproj` нет; `tests/OutboxOptionsValidatorTests.cs` лежит внутри каталога `Notify.Worker.csproj` (SDK-style проект, неявный glob `**/*.cs`), значит компилируется как часть основного worker-проекта. Файл использует `using Xunit;`, а пакет `xunit` в `Notify.Worker.csproj` не подключён — сборка не пройдёт (`CS0246`).
++
++7. **appsettings.Production.json / ConnectionStrings, Smtp:Password** — секреты закоммичены в открытом виде.
++   В отличие от `appsettings.Staging.json`, где пароль БД вынесен как `${NOTIFY_DB_PASSWORD}`, в `appsettings.Production.json` пароль БД (`Kx7!pQ2vR9wz`) и SMTP-пароль (`rl_live_9f3a1c77e2b04d6d`) — реальные значения прямо в репозитории.
++
++## High
++
++8. **Program.cs** — `OutboxOptionsValidator` написан и покрыт тестами, но нигде не зарегистрирован.
++   Нет `services.AddSingleton<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>()` и нет `.ValidateOnStart()` (ни через `AddOptions<OutboxOptions>().ValidateOnStart()`, ни иначе). Валидатор — мёртвый код: ошибки конфигурации (см. п.9 ниже) не остановят сервис при старте, а проявятся как runtime-баги в проде.
++
++9. **Options/OutboxOptionsValidator.Validate** — отсутствует кросс-полевой инвариант `MinBatchSize <= MaxBatchSize` (и проверка `MinBatchSize >= 0`).
++   В `appsettings.Production.json` `MinBatchSize: 200 > MaxBatchSize: 100` — даже если валидатор зарегистрировать (п.8), он это не поймает. Само это значение делает условие `o.MinBatchSize < o.MaxBatchSize` в `OutboxWorker.ExecuteAsync` всегда `false`, то есть адаптивное изменение размера пачки в проде тихо отключено — конфигурация некорректна и никем не проверяется.
++
++10. **Options/SmtpOptions** — `Host` и `FromAddress` объявлены non-nullable `string` без `required` и без какого-либо `IValidateOptions<SmtpOptions>`.
++    Ничего не остановит сервис при отсутствии/несовпадении секции конфигурации (см. п.3) — ошибка проявится только в момент первой отправки письма (NullReferenceException/ArgumentNullException), а не при старте.
++
++## Medium
++
++11. **appsettings.Staging.json vs appsettings.Production.json (Outbox:MaxInFlight)** — Staging агрессивнее Production без объяснения.
++    Staging: `MaxInFlight = 20`, Production: `MaxInFlight = 5`. Нигде не зафиксирована причина, почему тестовое окружение параллелит отправку в 4 раза сильнее боевого — похоже на случайную/тестовую настройку, забытую перед мерджем, либо на ошибку копипасты между окружениями.
++
++12. **OutboxWorker.ProcessBatchAsync** — отсутствует атомарный захват строк outbox при нескольких репликах воркера.
++    Между `SELECT` (`ToListAsync`) и записью `LockedUntil`/`SentAt` нет `FOR UPDATE SKIP LOCKED` / optimistic concurrency токена. При горизонтальном масштабировании (>1 инстанс воркера) два инстанса могут выбрать одни и те же незалоченные строки в одном окне поллинга и отправить письмо дважды.
++
++## Low
++
++13. **appsettings.Staging.json / appsettings.Production.json** — значения, дублирующие дефолт из базового `appsettings.json`.
++    Например, `MaxRetries: 5` в обоих файлах и `MaxInFlight: 5` в Production совпадают со значением по умолчанию. Не баг сам по себе, но лишний шум, который может незаметно разойтись с дефолтом при будущих правках базового файла.

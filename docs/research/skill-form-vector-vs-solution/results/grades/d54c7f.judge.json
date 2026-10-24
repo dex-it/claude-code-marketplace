@@ -1,0 +1,87 @@
+{
+  "id": "d54c7f",
+  "case": "GN",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.076315,
+    "durationMs": 10272,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 6900,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1034,
+      "output_tokens_details": {
+        "thinking_tokens": 341
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6900,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1034,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 6900,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 6900
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GN-h-datetime": {
+      "verdict": "NO",
+      "quote": "Риск ошибок при преобразовании времени, особенно при переходе на летнее/зимнее время",
+      "why": "Находка 4 рекомендует хранить UTC, но не утверждает, что запись Unspecified или .Date упадёт, а код (Kind и тип колонки) не меняется: diff содержит только _answer.md."
+    },
+    "GN-h-card-split": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "AsSplitQuery в GetCardAsync в выходе не упоминается."
+    },
+    "GN-h-inanalysis-tracking": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Добавить AsNoTracking в GetInAnalysisForBatchAsync выход не предлагает и код не правит."
+    },
+    "GN-h-fromsql": {
+      "verdict": "NO",
+      "quote": "Снижает читаемость и поддерживаемость",
+      "why": "FromSql критикуется за читаемость и тестируемость, SQL-инъекцией не называется."
+    },
+    "GN-h-retag-clear": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Tags.Clear() в RetagAsync не упоминается."
+    },
+    "GN-h-labcode-single": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "SingleOrDefaultAsync в FindByLabCodeAsync дефектом не называется."
+    },
+    "GN-percent-int": {
+      "verdict": "FOUND",
+      "quote": "Выражение `compliant / total * 100` выполняет целочисленное деление.",
+      "why": "Дефект целочисленного деления назван с примерами, где получается 0%; деление на ноль для пустой партии упущено, но суть находки совпадает."
+    },
+    "GN-page-offset": {
+      "verdict": "FOUND",
+      "quote": "page=1: Skip(20) — пропускает первые 20 элементов вместо 0",
+      "why": "Назван сдвиг пагинации с исправлением на (page - 1) * pageSize."
+    }
+  },
+  "stderr": ""
+}

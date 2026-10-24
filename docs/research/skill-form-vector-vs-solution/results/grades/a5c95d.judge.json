@@ -1,0 +1,66 @@
+{
+  "id": "a5c95d",
+  "case": "E2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.045959400000000004,
+    "durationMs": 6674,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 4113,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 631,
+      "output_tokens_details": {
+        "thinking_tokens": 197
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4113,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 631,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 4113,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 4113
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "E2-single": {
+      "verdict": "FAIL",
+      "quote": "? query.OrderBy(p => p.Warehouse).FirstOrDefaultAsync(ct)",
+      "why": "При warehouse == null и нескольких продуктах с этим SKU код молча берёт первый склад по алфавиту и не сообщает о неоднозначности."
+    },
+    "E2-h-split": {
+      "verdict": "YES",
+      "quote": "Одна сущность: JOIN в одном запросе дешевле лишнего roundtrip, поэтому без AsSplitQuery.",
+      "why": "Карточка заказа грузит две коллекции, Items и Payments, одним JOIN без split, и это обосновано тем, что сущность одна."
+    },
+    "E2-m-cart": {
+      "verdict": "NO",
+      "quote": ".Select(ToCard())\n            .AsSplitQuery()",
+      "why": "Выгрузка заказов клиента использует AsSplitQuery, поэтому декартова произведения нет."
+    },
+    "E2-m-nullagg": {
+      "verdict": "NO",
+      "quote": ".Where(o => o.CustomerId == customerId && o.ShippedAt != null)",
+      "why": "Null отфильтрован до Max, а результат обработан через ?? с исключением, без ! и .Value."
+    }
+  },
+  "stderr": ""
+}

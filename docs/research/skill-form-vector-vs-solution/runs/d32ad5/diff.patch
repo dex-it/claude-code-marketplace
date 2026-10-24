@@ -1,0 +1,116 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..7f00744
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,110 @@
++# Ревью MR: Notify.Worker (outbox-воркер рассылки)
++
++## 1. `OutboxWorker.ProcessBatchAsync` — сообщение помечается как отправленное до реальной отправки
++**Файл/метод:** `OutboxWorker.cs`, `ProcessBatchAsync`
++
++```csharp
++foreach (var m in batch)
++{
++    m.LockedUntil = now + o.LockTimeout;
++    m.SentAt = now;     // выставляется ДО SendAsync
++}
++await db.SaveChangesAsync(ct);
++...
++catch (Exception ex) { m.Attempts++; ... }  // SentAt не сбрасывается
++```
++`SentAt` проставляется всем сообщениям пачки сразу после выборки, ещё до вызова `sender.SendAsync`. Если отправка падает, в `catch` инкрементируется только `Attempts`, а `SentAt` остаётся ненулевым. Следующая выборка фильтрует `SentAt == null`, поэтому провалившееся сообщение никогда больше не попадёт в обработку — `MaxRetries`/`Attempts` фактически мёртвый код, письма молча теряются при любой ошибке отправки (включая транзиентные).
++**Severity: critical**
++
++## 2. Несовпадение имени секции конфигурации для SMTP
++**Файл/метод:** `Program.cs` (регистрация `SmtpOptions`) vs `appsettings.json`
++
++```csharp
++builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Mail"));
++```
++В appsettings секция называется `"Smtp"`, а не `"Mail"`. В результате `SmtpOptions` никогда не заполняется реальными значениями (`Host`, `FromAddress` остаются `null`), что приведёт к `NullReferenceException`/ошибке подключения в `SmtpMailSender.SendAsync`.
++**Severity: critical**
++
++## 3. Несовпадение ключа конфигурации Throttle → деление на ноль
++**Файл/метод:** `ThrottleService.WaitAsync` vs `appsettings.json`
++
++```csharp
++var perMinute = config.GetValue<int>("Throttle:MessagesPerMinute");
++return Task.Delay(60_000 / perMinute, ct);
++```
++В конфиге ключ `Throttle:PerMinute`, а не `Throttle:MessagesPerMinute`. `GetValue<int>` на отсутствующем ключе вернёт `0` → `60_000 / 0` бросает `DivideByZeroException` на каждой отправке (маскируется catch-блоком в `OutboxWorker`, что в связке с дефектом №1 приводит к тихой потере всех писем).
++**Severity: critical**
++
++## 4. `PollInterval` — имя без единицы измерения и неверная интерпретация
++**Файл/метод:** `Options/OutboxOptions.cs` (`PollInterval`), `OutboxWorker.ExecuteAsync`
++
++```csharp
++await Task.Delay(TimeSpan.FromSeconds(o.PollInterval), ct);
++```
++Согласно описанию MR («опрос раз в полсекунды»), а также значению в `appsettings.json` (`"PollInterval": 500`), значение явно задумано в миллисекундах, но в коде трактуется как секунды. Реальный интервал опроса — 500 секунд (~8,3 минуты) вместо требуемых 0,5 секунды. Имя настройки не содержит единицы измерения, что и привело к рассинхрону.
++**Severity: critical**
++
++## 5. `IOptions<OutboxOptions>` не даёт менять параметры на лету
++**Файл/метод:** `OutboxWorker` (конструктор, поле `options`)
++
++MR явно требует: лимит параллельных отправок и размер пачки должны меняться правкой appsettings без рестарта. `OutboxWorker` — singleton-hosted-service, использующий `IOptions<OutboxOptions>`; значение `.Value` кэшируется один раз при первом обращении и не обновляется при изменении файла конфигурации. Нужен `IOptionsMonitor<OutboxOptions>` (`.CurrentValue`), а не `IOptions<T>`.
++**Severity: critical**
++
++## 6. `OutboxOptionsValidator` нигде не зарегистрирован
++**Файл/метод:** `Program.cs` (отсутствует регистрация), `Options/OutboxOptionsValidator.cs`
++
++В `Program.cs` нет `services.AddSingleton<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>()` и нет `.ValidateOnStart()` после `Configure<OutboxOptions>`. Валидатор и тесты к нему существуют, но фактически мёртвый код — некорректная конфигурация (например, `MaxBatchSize <= 0`) не остановит запуск сервиса.
++**Severity: high**
++
++## 7. Нет валидации кросс-полевого инварианта `MinBatchSize` / `MaxBatchSize`
++**Файл/метод:** `Options/OutboxOptionsValidator.cs`, `appsettings.Production.json`
++
++Валидатор не проверяет `MinBatchSize <= MaxBatchSize` (и не проверяет `MinBatchSize > 0`, `PollInterval > 0`). Это не абстрактный риск: в `appsettings.Production.json` `MinBatchSize: 200` при `MaxBatchSize: 100` — инвертированный диапазон. В коде (`OutboxWorker.ExecuteAsync`) условие `if (o.MinBatchSize < o.MaxBatchSize)` просто окажется `false`, адаптивный батчинг молча отключится вместо явной ошибки при старте.
++**Severity: high**
++
++## 8. Секреты в `appsettings.Production.json`, закоммиченные в репозиторий
++**Файл/метод:** `appsettings.Production.json`
++
++Пароль БД (`Kx7!pQ2vR9wz`) и пароль SMTP-релея (`rl_live_9f3a1c77e2b04d6d`) хранятся открытым текстом прямо в репозитории.
++**Severity: critical**
++
++## 9. `${NOTIFY_DB_PASSWORD}` в Staging не подставляется .NET-конфигурацией
++**Файл/метод:** `appsettings.Staging.json` (`ConnectionStrings:Notify`)
++
++Стандартный провайдер конфигурации .NET (JSON-файл + env vars) не выполняет интерполяцию `${VAR}` внутри строковых значений — такая подстановка работает, например, в Docker Compose, но не «из коробки» в `IConfiguration`. Provider переменных окружения переопределяет только целиком совпадающие ключи (`ConnectionStrings__Notify`), а не плейсхолдеры внутри значения. Как следствие, в Staging в connection string попадёт буквальная строка `${NOTIFY_DB_PASSWORD}`, и подключение к БД будет падать, если в проекте нет отдельного провайдера, выполняющего такую подстановку (в `Program.cs` его нет).
++**Severity: critical**
++
++## 10. Staging агрессивнее Production по `MaxInFlight` без объяснения
++**Файл/метод:** `appsettings.Staging.json` vs `appsettings.Production.json` (`Outbox:MaxInFlight`)
++
++Staging: `MaxInFlight: 20`, Production: `MaxInFlight: 5` — в Staging в 4 раза больше параллельных отправок, чем в проде, без комментария/обоснования. Согласно принятому в команде чек-листу, такие расхождения должны быть либо устранены, либо явно задокументированы.
++**Severity: medium**
++
++## 11. Избыточные оверрайды, совпадающие со значением по умолчанию
++**Файл/метод:** `appsettings.Staging.json` (`Outbox:MaxRetries: 5`), `appsettings.Production.json` (`Outbox:MaxRetries: 5`, `Outbox:MaxInFlight: 5`)
++
++Эти значения идентичны дефолту из `appsettings.json`. Похоже на забытое изменение или copy-paste — стоит либо убрать оверрайд, либо убедиться, что значение осознанно совпадает с дефолтом.
++**Severity: low**
++
++## 12. `SmtpOptions` — non-nullable свойства без валидации и без `required`
++**Файл/метод:** `Options/SmtpOptions.cs` (`Host`, `FromAddress`)
++
++Свойства объявлены как non-nullable `string` без инициализатора и без `IValidateOptions<SmtpOptions>`. В связке с дефектом №2 (секция `Mail` вместо `Smtp`) ничего не остановит сервис при старте с пустым/некорректным SMTP-конфигом — ошибка проявится только в рантайме как `NullReferenceException`/ошибка соединения при попытке отправки письма.
++**Severity: high**
++
++## 13. Тестовый файл не выделен в отдельный тестовый проект — сборка сломана
++**Файл/метод:** `tests/OutboxOptionsValidatorTests.cs`, `Notify.Worker.csproj`
++
++В репозитории только один `.csproj` — `Notify.Worker.csproj` c SDK `Microsoft.NET.Sdk.Worker`, без ссылки на `xunit`/`Microsoft.NET.Test.Sdk` и без исключения папки `tests/` из компиляции. SDK-style проекты по умолчанию включают в сборку все `.cs`-файлы рекурсивно, поэтому `tests/OutboxOptionsValidatorTests.cs` с `using Xunit;` попадёт в сборку worker-приложения и не скомпилируется — проект не соберётся.
++**Severity: critical**
++
++## 14. Нет атомарного «захвата» строк outbox при нескольких инстансах воркера
++**Файл/метод:** `OutboxWorker.ProcessBatchAsync`
++
++Выборка (`SELECT ... WHERE SentAt IS NULL ...`) и последующая «блокировка»/апдейт выполняются как два раздельных шага в одном `DbContext`, без транзакции и без `FOR UPDATE SKIP LOCKED`. При горизонтальном масштабировании воркера (обычная практика для background-сервисов) два инстанса могут выбрать и обработать одни и те же строки одновременно — дублирование отправки уведомлений.
++**Severity: medium**
++
++---
++
++### Итог
++Блокеры для мерджа: пункты 1–9 и 13 (некорректная бизнес-логика ретраев/отправки, несовпадающие ключи конфигурации, live-reload не работает, отсутствует регистрация валидатора и кросс-полевая проверка, секреты в репозитории, нерабочая подстановка пароля в Staging, сборка ломается из-за тестового файла). Пункты 10–12, 14 стоит исправить как часть этого MR или сразу за ним.

@@ -1,0 +1,15 @@
+src/Fulfil/Archive/OrderDoc.cs:23 - CustomerName/CustomerEmail копируются в каждый заказ и не обновляются при смене данных клиента: письмо об отгрузке и архив будут с устаревшим именем/адресом почты - major
+src/Fulfil/Archive/OrderStore.cs:70 - ListMineAsync читает заказы целиком (Lines, Events, Tags) ради Id и Status; на клиентах с историей раздувает трафик и память, нужна проекция в OrderSummary - major
+src/Fulfil/Archive/ShippedWatcher.cs:31 - опрос коллекции каждые 5 с вместо change stream: постоянная нагрузка на базу, письмо с задержкой до 5 с; реагировать надо на смену статуса - major
+src/Fulfil/Archive/MongoConventions.cs:18 - в пакет конвенций не добавлен IgnoreExtraElementsConvention: документы, записанные старой версией класса с лишними полями, падают с FormatException при десериализации (GetAsync, списки, watcher) - major
+src/Fulfil/Archive/OrderStore.cs:18 - на каждый вызов создаётся новый MongoClient (свой пул соединений и мониторинг): утечка сокетов/потоков и деградация под нагрузкой; нужно использовать singleton IMongoDatabase - blocker
+src/Fulfil/Archive/OrderStore.cs:57 - Skip(page * PageSize) при нумерации страниц с 1 (как в ListMineAsync) пропускает первую страницу результатов поиска - major
+src/Fulfil/Archive/ArchiveInitializer.cs:12 - нет индекса по CustomerId (+PlacedAt/Status): SearchAsync и ListMineAsync делают полный скан orders, на росте архива запросы клиента деградируют; единственный индекс частичный по Status и этим запросам не помогает - major
+src/Fulfil/Archive/OrderStore.cs:31 - Total считается и хранится как double из decimal: ошибки округления в денежной сумме, расхождение с суммой строк заказа - major
+src/Fulfil/Archive/OrderStore.cs:73 - ExportAsync без лимита грузит все заказы периода в память целиком (с Lines и Events): OOM на большом периоде - major
+src/Fulfil/Archive/OrderEvents.cs:17 - Events хранятся массивом внутри заказа и растут без границ; ListAsync читает весь массив и пагинирует в памяти, документ может упереться в 16 МБ, каждое Push переписывает растущий документ - major
+src/Fulfil/Archive/CartDraftCleaner.cs:13 - необработанное исключение DeleteMany (обрыв связи) завершает BackgroundService и по умолчанию останавливает весь хост; плюс нет индекса по UpdatedAt - полный скан раз в час. Лучше TTL-индекс вместо таймера - major
+src/Fulfil/Archive/ArchiveInitializer.cs:18 - порядок ключей индекса At, ToWarehouse, Sku не соответствует запросу HistoryAsync (равенство по Sku и ToWarehouse, диапазон по At): индекс используется неэффективно, сканирует все переносы за период - minor
+src/Fulfil/Archive/ShippedWatcher.cs:47 - Mailed выставляется до отправки: при падении процесса между claim и SendShippedAsync письмо теряется навсегда (откат в catch не выполнится) - minor
+src/Fulfil/Archive/OrderStore.cs:33 - Tags молча обрезаются до 5 штук: остальные теги теряются без ошибки и лога - minor
+src/Fulfil/Archive/OrderStore.cs:35 - заказ и адрес пишутся двумя независимыми операциями без транзакции: при сбое между ними остаётся заказ без адреса (GetAsync вернёт Address = null) - minor

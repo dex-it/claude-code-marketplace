@@ -1,0 +1,5 @@
+docker exec <ctr> sh -c 'cd /work/vendor && ls -la && file * && nm -D --defined-only -C libcalc.so; readelf -d libcalc.so | grep NEEDED; readelf -h vendor-tool | grep -E "Machine|Class"'
+docker exec <ctr> sh -c 'cd /work/vendor && strings -n 4 vendor-tool | head -40; echo ---; which monodis ikdasm ilspycmd objdump gdb; strings -n 4 -e l Legacy.Pricing.dll; strings -n 4 Legacy.Pricing.dll | head -60; readelf -d libcalc.so | grep -E "NEEDED|RPATH|RUNPATH"'
+docker exec <ctr> sh -c 'mkdir -p /tmp/o && /root/.dotnet/tools/ilspycmd /work/vendor/Legacy.Pricing.dll 2>&1 | head -50; echo ---; objdump -D -b binary -m i386:x86-64 --start-address=0 /work/vendor/vendor-tool >/dev/null 2>&1; readelf -hl /work/vendor/vendor-tool | grep -E "Entry|LOAD"; readelf -x .rodata /work/vendor/vendor-tool'
+docker exec <ctr> sh -c 'objdump -d /work/vendor/vendor-tool --start-address=0x401000 --stop-address=0x401040'
+[Write] <lab>/REPORT.md

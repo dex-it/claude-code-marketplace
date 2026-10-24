@@ -1,0 +1,99 @@
+{
+  "id": "d32ad5",
+  "exitCode": 0,
+  "started": "2026-09-29T07:55:49.576Z",
+  "finished": "2026-09-29T07:58:11.680Z",
+  "wallMs": 142104,
+  "init": {
+    "model": "claude-sonnet-5",
+    "skills": [],
+    "plugins": [
+      {
+        "name": "agents-md",
+        "path": "builtin",
+        "source": "agents-md@builtin"
+      },
+      {
+        "name": "telemetry",
+        "path": "builtin",
+        "source": "telemetry@builtin"
+      }
+    ],
+    "tools": [
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "WebFetch",
+      "WebSearch",
+      "Write"
+    ],
+    "mcpServers": [],
+    "cwd": "/Users/anonymous/.cache/research/runs/d32ad5/work",
+    "claudeCodeVersion": "2.1.284"
+  },
+  "toolCalls": {
+    "Read": 16,
+    "Glob": 5,
+    "Write": 1
+  },
+  "webCalls": 0,
+  "skillCalls": [],
+  "readPaths": [
+    "/Users/anonymous/.cache/research/runs/d32ad5/rules/SKILL.md",
+    "/Users/anonymous/.cache/research/runs/d32ad5/work/MR.md",
+    "/Users/anonymous/.cache/research/runs/d32ad5/work/Options/OutboxOptions.cs",
+    "/Users/anonymous/.cache/research/runs/d32ad5/work/Options/OutboxOptionsValidator.cs",
+    "/Users/anonymous/.cache/research/runs/d32ad5/work/Options/SmtpOptions.cs",
+    "/Users/anonymous/.cache/research/runs/d32ad5/work/Program.cs",
+    "/Users/anonymous/.cache/research/runs/d32ad5/work/OutboxWorker.cs",
+    "/Users/anonymous/.cache/research/runs/d32ad5/work/ThrottleService.cs",
+    "/Users/anonymous/.cache/research/runs/d32ad5/work/SmtpMailSender.cs",
+    "/Users/anonymous/.cache/research/runs/d32ad5/work/NotifyDbContext.cs",
+    "/Users/anonymous/.cache/research/runs/d32ad5/work/IMailSender.cs",
+    "/Users/anonymous/.cache/research/runs/d32ad5/work/tests/OutboxOptionsValidatorTests.cs",
+    "/Users/anonymous/.cache/research/runs/d32ad5/work/appsettings.json",
+    "/Users/anonymous/.cache/research/runs/d32ad5/work/appsettings.Staging.json",
+    "/Users/anonymous/.cache/research/runs/d32ad5/work/appsettings.Production.json",
+    "/Users/anonymous/.cache/research/runs/d32ad5/work/Notify.Worker.csproj"
+  ],
+  "usage": {
+    "input_tokens": 14,
+    "cache_creation_input_tokens": 22022,
+    "cache_read_input_tokens": 103530,
+    "output_tokens": 16475,
+    "output_tokens_details": {
+      "thinking_tokens": 9389
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 22022,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 1507,
+        "cache_read_input_tokens": 24306,
+        "cache_creation_input_tokens": 7576,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 7576
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "costUsd": 0.273572,
+  "durationMs": 141066,
+  "numTurns": 23,
+  "isError": false,
+  "stderr": "",
+  "resultSubtype": "success"
+}

@@ -1,0 +1,39 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..abd4ffa
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,33 @@
++# Ревью MR (SalesReport.cs, CustomerExport.cs, CatalogSearch.cs, StockImport.cs)
++
++## 1. `CustomerExport.cs` — `CustomersWithOrders` — **critical**
++`Distinct()` применяется к списку `Customer` (reference type, `Equals`/`GetHashCode` не переопределены), полученному через `AsNoTracking().Include(o => o.Customer)`. Без `AsNoTrackingWithIdentityResolution()` EF Core не делает identity resolution для no-tracking запросов — для каждого `Order` создаётся **новый** объект `Customer`, даже если `CustomerId` совпадает. `Distinct()` сравнивает по ссылке и ничего не удаляет.
++Результат: клиент с несколькими заказами в периоде попадёт в CRM-выгрузку несколько раз — прямое нарушение цели метода ("клиенты" — должно быть уникально).
++Фикс: `.Select(o => o.Customer).DistinctBy(c => c.Id)` или заменить весь метод на прямой запрос `_db.Customers.Where(c => c.Orders.Any(o => o.CreatedAt >= from && o.CreatedAt < to))`.
++
++## 2. `CustomerExport.cs` — `HasOrders` — **medium**
++`await _db.Orders.CountAsync(o => o.CustomerId == customerId, ct) > 0` — классическая ловушка Count()>0 вместо Any(). COUNT сканирует все заказы клиента, вместо остановки на первом совпадении (EXISTS).
++Фикс: `await _db.Orders.AnyAsync(o => o.CustomerId == customerId, ct)`.
++
++## 3. `SalesReport.cs` — `Build` — **high**
++Внутри `Select` для каждого активного продукта выполняется `items.Where(i => i.ProductId == p.Id).ToList()` — линейный проход по всему списку `items` для каждого продукта, т.е. O(products × items). При большом каталоге и большом числе позиций заказов за период это квадратичная сложность в горячем отчётном пути.
++Фикс: построить `var byProduct = items.ToLookup(i => i.ProductId);` один раз и обращаться `byProduct[p.Id]`.
++
++## 4. `SalesReport.cs` — `Build` — **medium/high**
++`_products.GetAllAsync()` тянет из БД **все** товары со всеми колонками (включая `Image byte[]`, `Description`, `Sku` и т.д.), причём без фильтра по `IsActive` — фильтрация `.Where(p => p.IsActive)` происходит уже в памяти, после полной загрузки. Для отчёта нужны только `Id` и `Name` активных товаров.
++Фикс: не использовать `ProductRepository.GetAllAsync`, а сделать прямой проекционный запрос: `_db.Products.Where(p => p.IsActive).Select(p => new { p.Id, p.Name }).ToListAsync(ct)`.
++
++## 5. `CatalogSearch.cs` — `Search` — **medium**
++Метод построен как 4 независимые ветки, каждая со своим `Where(...).Select(Card).ToListAsync(ct)`. Это ровно паттерн "ToListAsync() в каждой ветке условия" из командных правил: дублирование материализации, риск рассинхронизации веток при будущих изменениях (добавление пагинации/сортировки/ещё одного фильтра — легко забыть обновить одну из веток).
++Фикс: строить `IQueryable<Product>` условно (`var q = _db.Products.AsNoTracking().Where(p => p.IsActive); if (category != null) q = q.Where(...); if (maxPrice != null) q = q.Where(...);`) и вызвать `Select(Card).ToListAsync(ct)` один раз.
++
++## 6. `StockImport.cs` — `Import` — **high**
++`products.FirstOrDefault(p => p.Id == id)` вызывается внутри цикла по строкам CSV — O(n) поиск на каждой строке файла. Для крупного файла остатков от поставщика и/или большого каталога — O(n×m), заметная деградация производительности импорта.
++Фикс: `var byId = products.ToDictionary(p => p.Id);` перед циклом, затем `byId.TryGetValue(id, out var product)`.
++
++## 7. `StockImport.cs` — `Import` — **low/medium**
++Нет дедупликации строк CSV по `productId`. Если в файле встречаются дублирующиеся строки для одного товара, счётчик `updated` увеличивается на каждую строку, хотя реально изменяется один и тот же продукт (побеждает последняя строка). В `ImportResult.Updated` может попасть завышенное число, не соответствующее фактическому количеству изменённых товаров — вводит в заблуждение потребителей отчёта об импорте.
++Фикс: либо дедуплицировать строки по productId перед обработкой (оставляя последнюю), либо считать `updated` по числу уникальных id.
++
++## 8. `StockImport.cs` — `Import` — **low**
++`_db.Products.ToListAsync(ct)` загружает полные сущности `Product`, включая `Image byte[]` и `Description`, хотя изменяется только `Stock`. Для большого каталога с бинарными изображениями это ощутимая нагрузка на память/трафик БД в рамках одной транзакции импорта. Не блокирующий дефект, но стоит рассмотреть точечное обновление (`ExecuteUpdateAsync` по батчам id) вместо полной загрузки таблицы.

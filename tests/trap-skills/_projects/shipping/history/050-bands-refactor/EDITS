@@ -1,0 +1,31 @@
+<<<<<<< src/quote.js
+const round2 = (x) => Math.round(x * 100) / 100;
+=======
+const round2 = (x) => Math.round(x * 100) / 100;
+
+// Полоса тарифа по расчётному весу: первая, в которую вес помещается.
+export function bandFor(tariff, grams) {
+  return tariff.bands.find((b) => grams <= b.maxGrams);
+}
+>>>>>>>
+<<<<<<< src/quote.js
+  let price = tariff.bands.find((b) => grams <= b.maxGrams).price;
+=======
+  const band = bandFor(tariff, grams);
+  let price = band.price;
+>>>>>>>
+<<<<<<< test/quote.test.js
+import { quote } from '../src/quote.js';
+=======
+import { quote, bandFor } from '../src/quote.js';
+>>>>>>>
+<<<<<<< test/quote.test.js
+test('расчётный вес - вверх до 0,5 кг', () => {
+=======
+test('полоса - первая, куда вес помещается', () => {
+  assert.equal(bandFor(T.zones.X, 1000).price, 4);
+  assert.equal(bandFor(T.zones.X, 5001), undefined);
+});
+
+test('расчётный вес - вверх до 0,5 кг', () => {
+>>>>>>>

@@ -1,0 +1,77 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..ae7c286
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,71 @@
++# Ревью MR !4127: сервисы заказов и каталога для админки
++
++## 1. Migrations/20260920_OrderCategories.cs (`Up`) + модель `Order.Category` / `Services/OrderAdmin.cs: UpdateOrder`
++**Что не так:** Миграция дропает колонку `Category` у `Orders` и переносит категории в `Categories`/`OrderCategories`, но:
++- `Model.cs` (`Order.Category`, `ShopDbContext.OnModelCreating`) не обновлён — маппинг на новую схему (DbSet<Category>, связь many-to-many) отсутствует;
++- `OrderAdmin.UpdateOrder` продолжает писать `order.Category = edit.Category`, то есть в старую колонку, которой после миграции не существует;
++- нет ни строчки кода, переносящей существующие значения `Orders.Category` в `Categories`/`OrderCategories` — исторические данные о категориях заказов теряются безвозвратно.
++**Почему дефект:** после наката миграции приложение в текущем виде не сможет работать с заказами вообще (EF будет пытаться читать/писать несуществующую колонку `Category`), а у всех существующих заказов теряется категория. Миграция схемы и код должны выезжать вместе и с переносом данных.
++**Severity: critical**
++
++## 2. Services/CatalogService.cs: `Search`
++**Что не так:** SQL строится как `SELECT * FROM "Products" p WHERE ...`, но условия ссылаются на `"Products"."Category"` / `"Products"."Price"` вместо алиаса `p`. В PostgreSQL после присвоения алиасу `p` обращение к исходному имени таблицы в этом же запросе запрещено (`invalid reference to FROM-clause entry for table "Products"`).
++**Почему дефект:** любой вызов `Search` с непустым `category` или `minPrice` упадёт с ошибкой БД — то есть ровно тот сценарий, ради которого метод писался ("поиск с динамическим фильтром"), не работает вовсе.
++**Severity: high**
++
++## 3. Services/CatalogService.cs: `Reserve`
++**Что не так:** `SELECT ... FOR UPDATE` выполняется через `FromSqlRaw` без явной транзакции (`BeginTransactionAsync`). Без окружающей транзакции блокировка снимается сразу после выполнения `SELECT`, до последующего `SaveChangesAsync()` с `UPDATE`.
++**Почему дефект:** `FOR UPDATE` не защищает от гонки: два параллельных вызова `Reserve` могут оба прочитать одинаковый `Stock`, оба пройти проверку `product.Stock < qty` и оба списать остаток — это оверселл (продажа несуществующего товара), то есть блокировка строки, ради которой всё писалось, фактически не работает.
++**Severity: critical**
++
++## 4. Services/CatalogService.cs: `Reprice`
++**Что не так:** `products` загружены с трекингом (без `AsNoTracking`), после чего к ним же применяется `_db.UpdateRange(products)`.
++**Почему дефект:** `UpdateRange` помечает **все** свойства уже отслеживаемых сущностей как `Modified`, а не только изменённый `Price`. При `SaveChangesAsync` в UPDATE попадут и остальные колонки со значениями, прочитанными в момент запроса, включая `Stock`. Если между чтением и записью кто-то параллельно вызвал `Reserve` и уменьшил `Stock`, `Reprice` затрёт это изменение устаревшим значением — потеря данных (lost update). Достаточно просто не вызывать `UpdateRange` — EF и так отследит изменение `Price`.
++**Severity: high**
++
++## 5. Services/OrderQueries.cs: `GetProductBySku`
++**Что не так:** `_db.Products.AsNoTracking().SingleAsync(p => p.Sku == sku)` — но по описанию модели один SKU лежит на нескольких складах и уникален только в рамках склада, т.е. `Sku` не уникален в таблице `Products`.
++**Почему дефект:** для любого SKU, присутствующего на 2+ складах (штатный случай по бизнес-модели), `SingleAsync` бросит исключение — метод не может выполнить свою заявленную задачу ("продукт по SKU") для обычных данных.
++**Severity: high**
++
++## 6. Services/OrderQueries.cs: `LastShippedAt`
++**Что не так:** `MaxAsync(o => o.ShippedAt)` возвращает `DateTime?` и может вернуть `null` (нет заказов клиента или ни один ещё не отгружен). Далее `last!.Value` — null-forgiving без проверки.
++**Почему дефект:** для клиента без отгруженных заказов метод упадёт с исключением при обращении к `.Value` вместо корректной обработки (например, `null`/`DateTime?` в сигнатуре или явного бизнес-исключения).
++**Severity: high**
++
++## 7. Services/OrderQueries.cs: `ExportForCustomer`
++**Что не так:** в отличие от `GetCard`, здесь два `Include` (`Items`, `Payments`) выполняются **без** `AsSplitQuery()` — один JOIN-запрос с декартовым произведением.
++**Почему дефект:** сам MR отмечает, что у крупных клиентов "тысячи заказов"; при N items и M payments на заказ из БД придёт N×M строк на заказ, что при выгрузке по такому клиенту даёт кратный рост объёма трафика/памяти и время выполнения запроса. Нужно так же использовать `AsSplitQuery()`, как в соседнем `GetCard`.
++**Severity: high**
++
++## 8. Services/OrderAdmin.cs: `UpdateOrder`
++**Что не так:** заказ читается и правится без какого-либо контроля версии/конкурентности (нет concurrency token, нет проверки `xmin`/`RowVersion`, нет `try/catch DbUpdateConcurrencyException`).
++**Почему дефект:** MR прямо указывает, что "несколько операторов правят заказы одновременно" — при параллельной правке одного заказа побеждает тот, кто сохранил последним, изменения другого оператора молча теряются (lost update) без какого-либо предупреждения.
++**Severity: high**
++
++## 9. Services/OrderAdmin.cs: `RecalcTotal`
++**Что не так:** `order.Total = order.Items.Sum(i => prices[i.ProductId])` — суммируются только цены за единицу товара, без умножения на `i.Qty`.
++**Почему дефект:** по описанию модели `Product.Price` — цена за единицу, `OrderItem.Qty` — количество, то есть корректная формула — `prices[i.ProductId] * i.Qty`. Текущая реализация занижает сумму заказа для любой позиции с `Qty != 1` — прямая финансовая ошибка. (Дополнительно: `prices[i.ProductId]` без `TryGetValue` упадёт `KeyNotFoundException`, если товар из позиции заказа отсутствует в `Products` — как минимум стоит обработать явно.)
++**Severity: critical**
++
++## 10. Services/OrderAdmin.cs: `OverdueReport` (через `OrderRepository.GetAllAsync`)
++**Что не так:** метод грузит **все** заказы (`_db.Orders.ToListAsync()`, без фильтра и без `AsNoTracking`) целиком в память и только потом фильтрует `IsOverdue` в LINQ-to-Objects.
++**Почему дефект:** фильтрация должна выполняться в БД (`Where(o => o.ShippedAt == null && o.CreatedAt < border)`, как в `OverdueNotifier`); при реальном объёме таблицы `Orders` (у MR отдельно подчёркивается, что заказов много) это сотни тысяч отслеживаемых сущностей в памяти ради отчёта по просрочке — тяжёлый и ненужный расход памяти/времени.
++**Severity: high**
++
++## 11. Workers/OverdueNotifier.cs: конструктор / `ExecuteAsync`
++**Что не так:** `ShopDbContext` (регистрируется через `AddDbContext` со scoped-временем жизни) внедряется напрямую в конструктор `OverdueNotifier`, который регистрируется как `AddHostedService` (singleton).
++**Почему дефект:** это нарушение времени жизни DI (captive dependency) — при включённой валидации скоупов (по умолчанию в Development) приложение упадёт на старте с `InvalidOperationException: Cannot consume scoped service 'ShopDbContext' from singleton`; даже если валидация выключена, один и тот же `DbContext` будет жить вечно и использоваться во всех итерациях цикла раз в минуту, накапливая отслеживаемые сущности (`AuditLog`) в памяти — утечка. Правильный паттерн — внедрять `IServiceScopeFactory` и создавать `DbContext` на каждую итерацию через `CreateScope()`.
++**Severity: critical**
++
++## 12. Workers/OverdueNotifier.cs: `ExecuteAsync`
++**Что не так:** на каждой минуте воркер заново выбирает **все** сейчас просроченные заказы и добавляет по ним новую запись в `AuditLog`, никак не отмечая уже залогированные заказы.
++**Почему дефект:** один и тот же просроченный заказ, пока он не отгружен, будет порождать новую запись в `AuditLog` каждую минуту бесконечно — неограниченный рост таблицы аудита и дублирующиеся уведомления вместо одной записи о факте просрочки.
++**Severity: medium**
++
++---
++
++### Сводка по severity
++- **Critical:** #1 (миграция/модель рассинхронизированы, потеря данных категорий), #3 (`Reserve` — гонка при резервировании остатка), #9 (`RecalcTotal` — сумма без учёта Qty), #11 (`ShopDbContext` в singleton-воркере)
++- **High:** #2 (`Search` — неверный алиас таблицы), #4 (`Reprice` + `UpdateRange` — потеря конкурентных изменений `Stock`), #5 (`GetProductBySku` — `Single` на неуникальном SKU), #6 (`LastShippedAt` — `!.Value` на возможном `null`), #7 (`ExportForCustomer` — декартово произведение без `AsSplitQuery`), #8 (`UpdateOrder` — нет контроля конкурентности), #10 (`OverdueReport` — фильтр после материализации всей таблицы)
++- **Medium:** #12 (`OverdueNotifier` — дублирующиеся записи `AuditLog`)

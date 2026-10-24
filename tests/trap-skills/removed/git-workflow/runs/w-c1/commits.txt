@@ -1,0 +1,22 @@
+commit d3d719b
+BILL-33: валюта счёта должна быть ISO 4217 в верхнем регистре
+
+Валидатор проверял только длину, поэтому код в нижнем регистре проходил.
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+
+
+ src/Billing.Api/Application/Handlers/Invoices/CreateInvoiceValidator.cs | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+diff --git a/src/Billing.Api/Application/Handlers/Invoices/CreateInvoiceValidator.cs b/src/Billing.Api/Application/Handlers/Invoices/CreateInvoiceValidator.cs
+index b4d58f4..7d89006 100644
+--- a/src/Billing.Api/Application/Handlers/Invoices/CreateInvoiceValidator.cs
++++ b/src/Billing.Api/Application/Handlers/Invoices/CreateInvoiceValidator.cs
+@@ -8,6 +8,6 @@ public sealed class CreateInvoiceValidator : BillingValidator<CreateInvoiceComma
+     public CreateInvoiceValidator()
+     {
+         RuleFor(x => x.AmountMinor).GreaterThan(0);
+-        RuleFor(x => x.Currency).Length(3);
++        RuleFor(x => x.Currency).Matches("^[A-Z]{3}$").WithMessage("ISO 4217 code in upper case");
+     }
+ }

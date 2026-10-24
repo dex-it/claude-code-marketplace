@@ -1,0 +1,92 @@
+{
+  "id": "929d6e",
+  "case": "GR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.120283,
+    "durationMs": 20953,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 9231,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 2300,
+      "output_tokens_details": {
+        "thinking_tokens": 1084
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9231,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2300,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 9231,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 9231
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GR-offday-rows": {
+      "verdict": "DISPUTED",
+      "quote": "Ломает не только новый `OffDayTripsAsync` (FLEET-109), но и ранее рабочий `GetVehicleTripsAsync` — регрессия.",
+      "why": "Исполнитель верно указал, что OffDayTripsAsync падает из-за клиентского WorkCalendar.IsWorkingDay, и предложил материализацию, но механизм назван неверно: виновата не проекция в Select (EF допускает клиентскую оценку в финальной проекции), а Where по OffDay; отсюда и ложное утверждение о регрессии GetVehicleTripsAsync."
+    },
+    "GR-open-semicolon": {
+      "verdict": "PASS",
+      "quote": "Сырой SQL в `FromSqlRaw` заканчивается `;`. Когда передан `vehicleId`, к результату добавляется `.Where(t => t.VehicleId == id)` — EF Core оборачивает исходный SQL в подзапрос",
+      "why": "Названы механизм отказа, путь, прошедший проверку без фильтра, и исправление — убрать ';'."
+    },
+    "GR-equipment-clear": {
+      "verdict": "PASS",
+      "quote": "`vehicle.Equipment.Clear()` — no-op, старые записи в таблице `vehicle_equipment` не удаляются. Добавление новых элементов с теми же `Code` упадёт на уникальном индексе `(vehicle_id, code)`",
+      "why": "Описаны отсутствие Include, DbUpdateException на совпадающих кодах и дописывание к старым позициям при несовпадающих."
+    },
+    "GR-model-length": {
+      "verdict": "PASS",
+      "quote": "`ALTER COLUMN TYPE character varying(40)` в PostgreSQL упадёт с ошибкой при наличии таких строк.",
+      "why": "Связано с длинными названиями на prod из MR.md, предложено усечь данные до AlterColumn."
+    },
+    "GR-last-inspection": {
+      "verdict": "FAIL",
+      "quote": "Сортировка идёт по `CreatedAt` (время приёма сервером), а не по `InspectedAt`",
+      "why": "Не отмечены ни неуникальность порядка при глобальном SplitQuery, ни то, что запрос замечаний может взять другой осмотр; вместо этого предложена смена поля сортировки, которая дефект не устраняет."
+    },
+    "GR-permit-lastday": {
+      "verdict": "FOUND",
+      "quote": "Проверка допуска: `p.ValidUntil > today`. По описанию FLEET-107 допуск \"действует по указанную в нём дату включительно\"",
+      "why": "Дефект назван, предложено `>=`."
+    },
+    "GR-equipment-auth": {
+      "verdict": "FOUND",
+      "quote": "у эндпоинта замены оснащения нет `.RequireAuthorization(\"...\")` с конкретной ролью",
+      "why": "Отмечено, что любой аутентифицированный пользователь может заменить комплектацию."
+    },
+    "GR-h-permits-clear": {
+      "verdict": "NO",
+      "quote": "аналогичный метод `DriverService.ReplacePermitsAsync` (эталон, не менялся в MR) правильно делает `.Include(d => d.Permits)` перед `Clear()`",
+      "why": "ReplacePermitsAsync назван корректным, а не дефектным."
+    },
+    "GR-h-plate-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByPlateAsync в выходе не упоминается."
+    }
+  },
+  "stderr": ""
+}

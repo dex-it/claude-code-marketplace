@@ -1,0 +1,106 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 2fab355..047240c 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -3,9 +3,9 @@ on:
+   push:
+     branches: [main]
+   pull_request:
+-    paths:
+-      - 'src/**'
+-      - 'tests/**'
++concurrency:
++  group: ci-${{ github.ref }}
++  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+ jobs:
+   ci:
+     runs-on: ubuntu-latest
+@@ -16,22 +16,28 @@ jobs:
+       - uses: actions/setup-dotnet@v4
+         with:
+           dotnet-version: 8.0.x
+-      - run: dotnet restore
+-      - name: build
+-        run: dotnet build -c Release --no-restore 2>&1 | tee build.log
++      - run: dotnet restore --locked-mode
++      - name: build and analyzers
++        run: dotnet build -c Release --no-restore -warnaserror -p:RunAnalyzers=true
+       - name: format
+-        run: dotnet format --no-restore
+-      - name: analyzers
+-        run: dotnet build -c Release --no-restore -warnaserror -p:RunAnalyzers=true || true
++        run: dotnet format --verify-no-changes --no-restore
+       - name: tests
+-        run: dotnet test -c Debug --no-build --filter "Category=Unit" --logger trx
+-        continue-on-error: true
+-      - name: lint changed files
+-        run: git diff --name-only origin/main...HEAD -- '*.cs' | xargs -r dotnet format --no-restore --include
+-      - name: coverage comment
+-        uses: dex/coverage-comment@v1
+-        continue-on-error: true  # комментарий в PR с покрытием: удобство, не проверка
++        run: dotnet test -c Release --no-build
++  audit:
++    runs-on: ubuntu-latest
++    permissions:
++      contents: read
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-dotnet@v4
+         with:
+-          file: coverage/summary.txt
+-      - name: cleanup
+-        run: rm -rf build.log || true
++          dotnet-version: 8.0.x
++      - run: dotnet restore --locked-mode
++      - name: audit
++        run: |
++          set -o pipefail
++          dotnet list package --vulnerable --include-transitive | tee audit.log
++          if grep -q "has the following vulnerable packages" audit.log; then
++            echo "::error::найдены уязвимые зависимости"
++            exit 1
++          fi
+diff --git a/Directory.Build.props b/Directory.Build.props
+index 16cc93e..a58840e 100644
+--- a/Directory.Build.props
++++ b/Directory.Build.props
+@@ -5,5 +5,6 @@
+     <ImplicitUsings>enable</ImplicitUsings>
+     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+     <Version>1.4.0</Version>
++    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+   </PropertyGroup>
+ </Project>
+diff --git a/Dockerfile b/Dockerfile
+index 223bf86..0686ba5 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -1,9 +1,9 @@
+ FROM mcr.microsoft.com/dotnet/sdk:8.0.404 AS build
+ WORKDIR /src
+ COPY global.json Directory.Build.props Directory.Packages.props ./
+-COPY src/Depot.Contracts/Depot.Contracts.csproj src/Depot.Contracts/
+-COPY src/Depot.Api/Depot.Api.csproj src/Depot.Api/
+-RUN dotnet restore src/Depot.Api/Depot.Api.csproj
++COPY src/Depot.Contracts/Depot.Contracts.csproj src/Depot.Contracts/packages.lock.json src/Depot.Contracts/
++COPY src/Depot.Api/Depot.Api.csproj src/Depot.Api/packages.lock.json src/Depot.Api/
++RUN dotnet restore --locked-mode src/Depot.Api/Depot.Api.csproj
+ COPY src/ src/
+ RUN dotnet publish src/Depot.Api/Depot.Api.csproj -c Release -o /app --no-restore
+ 
+diff --git a/docs/hosting/branch-protection.json b/docs/hosting/branch-protection.json
+index bc5d0b7..b95f7c2 100644
+--- a/docs/hosting/branch-protection.json
++++ b/docs/hosting/branch-protection.json
+@@ -2,9 +2,9 @@
+   "_comment": "Экспорт защиты ветки main (GitHub REST: GET /repos/dex/depot/branches/main/protection). Применяет администратор организации из этого файла.",
+   "required_status_checks": {
+     "strict": true,
+-    "contexts": ["ci"]
++    "contexts": ["ci", "audit"]
+   },
+-  "enforce_admins": false,
++  "enforce_admins": true,
+   "required_pull_request_reviews": { "required_approving_review_count": 1 },
+   "restrictions": null,
+   "allow_force_pushes": false,

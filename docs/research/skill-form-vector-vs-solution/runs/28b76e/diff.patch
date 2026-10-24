@@ -1,0 +1,170 @@
+diff --git a/BillingDbContext.cs b/BillingDbContext.cs
+index a178566..f06a097 100644
+--- a/BillingDbContext.cs
++++ b/BillingDbContext.cs
+@@ -9,6 +9,7 @@ public class BillingDbContext : DbContext
+     public DbSet<Tariff> Tariffs => Set<Tariff>();
+     public DbSet<Subscriber> Subscribers => Set<Subscriber>();
+     public DbSet<Payment> Payments => Set<Payment>();
++    public DbSet<UnreconciledPayment> UnreconciledPayments => Set<UnreconciledPayment>();
+ 
+     protected override void ConfigureConventions(ModelConfigurationBuilder b)
+     {
+@@ -33,5 +34,11 @@ public class BillingDbContext : DbContext
+             e.HasIndex(p => p.BankRef).IsUnique();
+             e.Property(p => p.BankRef).HasMaxLength(64);
+         });
++
++        b.Entity<UnreconciledPayment>(e =>
++        {
++            e.HasIndex(p => p.BankRef).IsUnique();
++            e.Property(p => p.BankRef).HasMaxLength(64);
++        });
+     }
+ }
+diff --git a/Models.cs b/Models.cs
+index bfb8200..2edb21d 100644
+--- a/Models.cs
++++ b/Models.cs
+@@ -24,6 +24,7 @@ public class Subscriber
+     public decimal Balance { get; set; }
+     public DateTime CreatedAt { get; set; }
+     public DateTime? ConnectedAt { get; set; }
++    public DateTime? ResumedAt { get; set; }
+ 
+     public List<Payment> Payments { get; set; } = new();
+ }
+@@ -39,3 +40,14 @@ public class Payment
+     public DateTime CreditedAt { get; set; }
+     public string Purpose { get; set; } = "";
+ }
++
++public class UnreconciledPayment
++{
++    public int Id { get; set; }
++    public decimal Amount { get; set; }
++    public string BankRef { get; set; } = "";
++    public DateOnly PaidOn { get; set; }
++    public DateTime CreatedAt { get; set; }
++    public string PayerName { get; set; } = "";
++    public string Purpose { get; set; } = "";
++}
+diff --git a/Program.cs b/Program.cs
+index 81dd291..a8304dc 100644
+--- a/Program.cs
++++ b/Program.cs
+@@ -21,4 +21,14 @@ app.MapPost("/subscribers/{id:int}/contract", async (int id, ContractRequest req
+ app.MapGet("/subscribers/by-contract/{contractNo}", async (string contractNo, SubscriberService s) =>
+     await s.GetByContractAsync(contractNo) is { } dto ? Results.Ok(dto) : Results.NotFound());
+ 
++app.MapPost("/bank/statements", async (IFormFile file, SubscriberService s) =>
++{
++    using var reader = new StreamReader(file.OpenReadStream());
++    await s.ProcessStatementAsync(reader);
++    return Results.NoContent();
++});
++
++app.MapGet("/subscribers/search", async (string phone, SubscriberService s) =>
++    Results.Ok(await s.SearchByPhoneAsync(phone)));
++
+ app.Run();
+diff --git a/SubscriberService.cs b/SubscriberService.cs
+index af52716..1bef81d 100644
+--- a/SubscriberService.cs
++++ b/SubscriberService.cs
+@@ -50,4 +50,69 @@ public class SubscriberService
+             ? null
+             : new SubscriberDto(s.Id, s.FullName, s.Phone, s.Address, s.ContractNo, s.Status, s.Balance);
+     }
++
++    public async Task ProcessStatementAsync(TextReader csvReader)
++    {
++        var lines = BankStatement.Parse(csvReader);
++
++        foreach (var line in lines)
++        {
++            var alreadyProcessed = await _db.Payments.AnyAsync(p => p.BankRef == line.BankRef) ||
++                                   await _db.UnreconciledPayments.AnyAsync(p => p.BankRef == line.BankRef);
++
++            if (alreadyProcessed)
++                continue;
++
++            var contractNo = PaymentPurpose.ExtractContractNo(line.Purpose);
++            var subscriber = contractNo != null
++                ? await _db.Subscribers.FirstOrDefaultAsync(s => s.ContractNo == contractNo)
++                : null;
++
++            if (subscriber != null)
++            {
++                subscriber.Balance += line.Amount;
++
++                if (subscriber.Status == SubscriberStatus.Suspended && subscriber.Balance >= 0)
++                {
++                    subscriber.Status = SubscriberStatus.Active;
++                    subscriber.ResumedAt = DateTime.Now;
++                }
++
++                var payment = new Payment
++                {
++                    SubscriberId = subscriber.Id,
++                    Amount = line.Amount,
++                    BankRef = line.BankRef,
++                    PaidOn = line.PaidOn,
++                    CreditedAt = DateTime.Now,
++                    Purpose = line.Purpose
++                };
++                _db.Payments.Add(payment);
++            }
++            else
++            {
++                var unreconciled = new UnreconciledPayment
++                {
++                    Amount = line.Amount,
++                    BankRef = line.BankRef,
++                    PaidOn = line.PaidOn,
++                    CreatedAt = DateTime.Now,
++                    PayerName = line.PayerName,
++                    Purpose = line.Purpose
++                };
++                _db.UnreconciledPayments.Add(unreconciled);
++            }
++        }
++
++        await _db.SaveChangesAsync();
++    }
++
++    public async Task<List<SubscriberDto>> SearchByPhoneAsync(string phoneSuffix)
++    {
++        return await _db.Subscribers.AsNoTracking()
++            .Where(s => s.Phone.EndsWith(phoneSuffix))
++            .Take(20)
++            .Select(s => new SubscriberDto(s.Id, s.FullName, s.Phone, s.Address, s.ContractNo, s.Status, s.Balance))
++            .ToListAsync();
++    }
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..2582d4f
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,20 @@
++# Решение задач по биллингу
++
++## Созданные/изменённые файлы
++
++1. **Models.cs** - добавлена модель `UnreconciledPayment` для неразобранных платежей и поле `ResumedAt` в Subscriber для отслеживания восстановления
++2. **BillingDbContext.cs** - добавлен DbSet для UnreconciledPayment и конфигурация уникального индекса BankRef
++3. **SubscriberService.cs** - реализованы методы:
++   - `ProcessStatementAsync()` - обработка банковской выписки, зачисление платежей, восстановление из Suspended
++   - `SearchByPhoneAsync()` - поиск абонентов по последним цифрам телефона с лимитом 20
++4. **Program.cs** - добавлены endpoints:
++   - `POST /bank/statements` - загрузка CSV выписки
++   - `GET /subscribers/search?phone=` - поиск абонентов
++
++## Решение
++
++**(a) Загрузка выписки:** На основе уже существующих парсеров BankStatement и PaymentPurpose обработка CSV-файла происходит построчно. Каждый платеж проверяется по BankRef на предмет дублирования. По номеру договора в назначении платежа ищется абонент и ему зачисляется сумма; если абонент не найден, платёж сохраняется в отдельную таблицу UnreconciledPayment.
++
++**(б) Восстановление из Suspended:** После зачисления платежа проверяется статус абонента и баланс — если был Suspended и баланс стал >= 0, абонент переводится в Active с отметкой RestartedAt.
++
++**(в) Поиск по телефону:** Простой LIKE-запрос EndsWith для последних цифр номера с LIMIT 20, результат как список SubscriberDto с основной информацией.

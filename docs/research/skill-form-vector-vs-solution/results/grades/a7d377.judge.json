@@ -1,0 +1,81 @@
+{
+  "id": "a7d377",
+  "case": "FVB",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.07715140000000001,
+    "durationMs": 8640,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 7272,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 927,
+      "output_tokens_details": {
+        "thinking_tokens": 149
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7272,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 927,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 7272,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 7272
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "FVB-KB1": {
+      "verdict": "PASS",
+      "quote": "Для pydantic 1.10 это неверно. В `ModelField._type_analysis` (pydantic v1.10.13, `pydantic/fields.py`), когда в `Union` есть `NoneType`, выполняется `if self.required is Undefined: self.required = False; self.allow_none = True`",
+      "why": "Утверждение комментария опровергнуто для версии проекта: поле необязательно, дефолт None, старый клиент теряет весь баланс."
+    },
+    "FVB-KB2": {
+      "verdict": "PASS",
+      "quote": "В pydantic 1.10 по умолчанию `extra` равно `Extra.ignore`",
+      "why": "Утверждение опровергнуто, показано, что опечатка `confirm_ammount` приводит к None и списанию всего баланса."
+    },
+    "FVB-h-PB1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Выход не требует заменить req.dict() на model_dump(). Находка 7 касается содержимого аудита, а не API pydantic."
+    },
+    "FVB-OB1": {
+      "verdict": "FOUND",
+      "quote": "Два параллельных запроса читают один и тот же баланс, оба проходят проверку `amount > balance`",
+      "why": "Находка 5 описывает гонку без FOR UPDATE и двойное списание."
+    },
+    "FVB-OB2": {
+      "verdict": "FOUND",
+      "quote": "`Decimal(0.1)` даёт точное двоичное значение `0.1000000000000000055511151231257827021181583404541015625`, а не 0,1",
+      "why": "Находка 4 называет неточную стоимость балла из-за Decimal от float."
+    },
+    "FVB-OB3": {
+      "verdict": "FOUND",
+      "quote": "При `confirm_amount = -1000` проверка проходит, `int(amount / 0.1)` получается отрицательным, и `member.points -= <отрицательное>` увеличивает баланс",
+      "why": "Находка 3 прямо называет начисление баллов при отрицательной сумме."
+    },
+    "FVB-OB4": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Ни одна находка не говорит, что member_id берётся из тела запроса без аутентификации (IDOR)."
+    }
+  },
+  "stderr": ""
+}

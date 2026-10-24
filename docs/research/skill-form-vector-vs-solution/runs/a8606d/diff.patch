@@ -1,0 +1,212 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..07ff225
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,206 @@
++# Code Review - Notify.Worker MR
++
++## Дефекты
++
++### 1. Program.cs, строки 10-11
++**Проблема**: Используется `Configure<T>()`, возвращающая `IOptions<T>` (singleton с кэшированием), вместо конфигурации для динамического перелоада.
++
++**Почему это дефект**: MR требует "Лимит параллельных отправок и размер пачки должны меняться на лету правкой appsettings, без рестарта". `IOptions<T>` кэшируется на весь lifetime приложения и не поддерживает reload. Новые значения из appsettings не будут видны без перезагрузки.
++
++**Severity**: **CRITICAL**
++
++**Решение**: Использовать `AddOptions<T>().BindConfiguration()` с переходом на `IOptionsSnapshot<T>` или `IOptionsMonitor<T>` в зависимых сервисах (OutboxWorker, SmtpMailSender).
++
++---
++
++### 2. Program.cs, строка 10
++**Проблема**: Валидатор `OutboxOptionsValidator` не зарегистрирован в DI.
++
++**Почему это дефект**: Согласно SKILL.md: "Валидатор опций написан, но не зарегистрирован - не исполняется никогда". Валидатор есть, тесты зелёные, но в DI он не зарегистрирован. `ValidateOnStart()` не сработает без регистрации валидатора. Так, невалидный конфиг (например, MaxBatchSize = 0) обнаружится в runtime, а не при старте.
++
++**Severity**: **CRITICAL**
++
++**Решение**: Зарегистрировать валидатор:
++```csharp
++builder.Services.TryAddEnumerable(
++    ServiceDescriptor.Singleton<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>());
++builder.Services.AddOptions<OutboxOptions>()
++    .BindConfiguration("Outbox")
++    .ValidateDataAnnotations()
++    .ValidateOnStart();
++```
++
++---
++
++### 3. OutboxWorker.cs, строка 33
++**Проблема**: `Task.Delay(TimeSpan.FromSeconds(o.PollInterval), ct)` - свойство `PollInterval` имеет значение 500 в конфиге, но трактуется как секунды, дающие задержку в 500 секунд (~8 минут).
++
++**Почему это дефект**: MR требует "опрос outbox раз в полсекунды". Имя свойства без единицы (`PollInterval` вместо `PollIntervalMs`) провоцирует unit confusion (SKILL.md: "Имя настройки без единицы провоцирует unit confusion"). Каждый разработчик трактует число по-своему, особенно на разных средах. Результат - процесс опрашивает БД раз в 8 минут вместо 0.5 сек, рассылка становится 1000× медленнее.
++
++**Severity**: **CRITICAL**
++
++**Решение**: Переименовать в `PollIntervalMs` и исправить код: `Task.Delay(o.PollIntervalMs, ct)` или `TimeSpan.FromMilliseconds(o.PollInterval)`.
++
++---
++
++### 4. appsettings.Production.json, строки 6-7
++**Проблема**: `"MinBatchSize": 200, "MaxBatchSize": 100` - MinBatchSize > MaxBatchSize, нарушен инвариант.
++
++**Почему это дефект**: Кросс-полевой инвариант нарушен. В OutboxWorker.cs строка 29 код пытается вычислить `Math.Max(o.MinBatchSize, _batchSize / 2)`, но MinBatchSize = 200, MaxBatchSize = 100, так что результат будет неверным. Кроме того, валидатор не проверяет этот инвариант (см. #5).
++
++**Severity**: **CRITICAL**
++
++**Решение**: Исправить Production конфиг - либо исправить опечатку (MinBatchSize должен быть <= MaxBatchSize), либо добавить валидацию инварианта в OutboxOptionsValidator.
++
++---
++
++### 5. ThrottleService.cs, строка 7
++**Проблема**: Используется ключ конфигурации `"Throttle:MessagesPerMinute"`, а в appsettings используется `"Throttle:PerMinute"`.
++
++**Почему это дефект**: `config.GetValue<int>("Throttle:MessagesPerMinute")` вернёт 0 (дефолт для int, ключ не найден). Затем `Task.Delay(60_000 / 0, ct)` даст `DivisionByZeroException`. Согласно SKILL.md: "некорректная конфигурация обнаруживается при первом использовании под нагрузкой, а не при старте".
++
++**Severity**: **CRITICAL**
++
++**Решение**: Исправить ключ в коде на `"Throttle:PerMinute"`.
++
++---
++
++### 6. appsettings.Production.json, строка 3
++**Проблема**: Пароль БД хранится в файле репозитория: `"Password": "Kx7!pQ2vR9wz"`.
++
++**Почему это дефект**: Закоммиченный секрет остаётся в истории git навсегда, даже после удаления из HEAD. Утекает вместе с клоном репозитория. Новый проект - типичный момент, когда секрет прописывают "временно" и забывают вынести (SKILL.md: "Секреты в appsettings.json в репозитории").
++
++**Severity**: **CRITICAL**
++
++**Решение**: Использовать переменные окружения или secret store. В appsettings.Production.json оставить плейсхолдер, реальные значения подставлять через `AddEnvironmentVariables()`.
++
++---
++
++### 7. appsettings.Production.json, строка 16
++**Проблема**: API-ключ для mail relay хранится в файле репозитория: `"Password": "rl_live_9f3a1c77e2b04d6d"`.
++
++**Почему это дефект**: Тот же риск, что в #6 - секрет в истории git.
++
++**Severity**: **CRITICAL**
++
++**Решение**: Использовать переменные окружения для хранения API-ключей.
++
++---
++
++### 8. OutboxWorker.cs, строка 11
++**Проблема**: Использует `IOptions<OutboxOptions>`, что не поддерживает reload on change.
++
++**Почему это дефект**: MR требует reload конфига без рестарта. `IOptions<T>` - singleton, биндится один раз. Пересчитанные опции не будут видны. Нужно `IOptionsSnapshot<T>`.
++
++**Severity**: **HIGH**
++
++**Решение**: Изменить на `IOptionsSnapshot<OutboxOptions>`.
++
++---
++
++### 9. OutboxOptions.cs, строка 5
++**Проблема**: Свойство `PollInterval` не имеет единицы измерения в имени.
++
++**Почему это дефект**: SKILL.md: "Единица в имени - { "IntervalMs": 500 }; код биндит свойство `IntervalMs` и не угадывает порядок величины". Без единицы - confusion между ms/s/min. Уже привело к ошибке (см. #3).
++
++**Severity**: **HIGH**
++
++**Решение**: Переименовать в `PollIntervalMs`.
++
++---
++
++### 10. OutboxOptionsValidator.cs
++**Проблема**: Не проверяет кросс-полевой инвариант `MinBatchSize <= MaxBatchSize`.
++
++**Почему это дефект**: SKILL.md: "Кросс-полевой инвариант Options проверяется тихим `if`, а не валидацией". Невалидный конфиг (MinBatchSize > MaxBatchSize) проходит валидацию и приводит к логической ошибке в runtime (см. #4).
++
++**Severity**: **HIGH**
++
++**Решение**: Добавить проверку в `Validate()`:
++```csharp
++if (o.MinBatchSize > o.MaxBatchSize) 
++    errors.Add("MinBatchSize must be <= MaxBatchSize");
++```
++
++---
++
++### 11. SmtpMailSender.cs, строка 8
++**Проблема**: Использует `IOptions<SmtpOptions>`, что не поддерживает reload on change.
++
++**Почему это дефект**: MR требует reload конфига без рестарта. Хотя для SmtpOptions менее критично (не меняется часто), но требование MR распространяется на все параметры.
++
++**Severity**: **HIGH**
++
++**Решение**: Изменить на `IOptionsSnapshot<SmtpOptions>`.
++
++---
++
++### 12. appsettings.Staging.json vs appsettings.Production.json
++**Проблема**: Staging `"MaxInFlight": 20`, Production `"MaxInFlight": 5`. Staging более агрессивный без документации.
++
++**Почему это дефект**: SKILL.md: "Staging агрессивнее Production без объяснения" - плохо. Staging не воспроизводит prod-поведение. Ошибки под нагрузкой не обнаруживаются в staging.
++
++**Severity**: **HIGH**
++
++**Решение**: Либо выровнять значения (staging <= prod), либо добавить комментарий в README/appsettings с причиной, почему staging намеренно отличается.
++
++---
++
++### 13. SmtpOptions.cs, строки 5, 7
++**Проблема**: Свойства `Host` и `FromAddress` - non-nullable строки без `required` и без дефолтов. Под `Nullable enable` это CS8618.
++
++**Почему это дефект**: SKILL.md: "Non-nullable Options-проп без `required` - CS8618 и NRE при `new()`". При создании `new SmtpOptions()` свойства останутся `null`, первое обращение даст NRE. `required` ловит отсутствие значения на компиляции, а не в runtime.
++
++**Severity**: **MEDIUM**
++
++**Решение**: Добавить `required`:
++```csharp
++public required string Host { get; set; }
++public required string FromAddress { get; set; }
++```
++
++---
++
++### 14. OutboxOptions.cs
++**Проблема**: Свойства non-nullable без `required` и без явных дефолтов. Под `Nullable enable` это CS8618.
++
++**Почему это дефект**: При создании `new OutboxOptions()` (напр., в тестах) свойства останутся со значениями по умолчанию (0 для int). Хотя в этом проекте опции создаются через binding, это потенциальный источник ошибок.
++
++**Severity**: **MEDIUM**
++
++**Решение**: Добавить `required` или явные дефолты для критичных свойств.
++
++---
++
++### 15. appsettings.Staging.json и appsettings.Production.json
++**Проблема**: Дублируют дефолтные значения из appsettings.json (напр., `"MaxRetries": 5` везде).
++
++**Почему это дефект**: SKILL.md: "Дублирование скрывает реальные отклонения между средами. При изменении дефолта - не все env-файлы обновляются -> расхождения".
++
++**Severity**: **MEDIUM**
++
++**Решение**: В env-файлы включать только отклонения от дефолта:
++- appsettings.Staging.json: оставить только `MaxInFlight: 20` (отклонение)
++- appsettings.Production.json: оставить только измененные значения
++
++---
++
++## Итоговая таблица
++
++| № | Файл | Метод/Строка | Проблема | Severity |
++|---|------|-------------|----------|----------|
++| 1 | Program.cs | 10-11 | IOptions<T> вместо reload support | CRITICAL |
++| 2 | Program.cs | 10 | Валидатор не зарегистрирован | CRITICAL |
++| 3 | OutboxWorker.cs | 33 | Unit confusion: PollInterval (500s вместо 500ms) | CRITICAL |
++| 4 | appsettings.Production.json | 6-7 | MinBatchSize (200) > MaxBatchSize (100) | CRITICAL |
++| 5 | ThrottleService.cs | 7 | Ключ конфига не совпадает (MessagesPerMinute vs PerMinute) | CRITICAL |
++| 6 | appsettings.Production.json | 3 | Пароль БД в репозитории | CRITICAL |
++| 7 | appsettings.Production.json | 16 | API-ключ в репозитории | CRITICAL |
++| 8 | OutboxWorker.cs | 11 | IOptions вместо IOptionsSnapshot | HIGH |
++| 9 | OutboxOptions.cs | 5 | Нет единицы в имени (PollInterval) | HIGH |
++| 10 | OutboxOptionsValidator.cs | — | Не проверяет MinBatchSize <= MaxBatchSize | HIGH |
++| 11 | SmtpMailSender.cs | 8 | IOptions вместо IOptionsSnapshot | HIGH |
++| 12 | appsettings.Staging.json | — | Staging MaxInFlight (20) > Production (5) без документации | HIGH |
++| 13 | SmtpOptions.cs | 5, 7 | Non-nullable без required | MEDIUM |
++| 14 | OutboxOptions.cs | — | Non-nullable без required | MEDIUM |
++| 15 | appsettings.*.json | — | Дублирование дефолтных значений | MEDIUM |

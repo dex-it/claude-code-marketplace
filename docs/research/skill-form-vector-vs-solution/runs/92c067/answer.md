@@ -1,0 +1,1 @@
+Готово. Создан один файл: `CatalogMaintenance.cs` (плюс `_answer.md` с тем же ответом).

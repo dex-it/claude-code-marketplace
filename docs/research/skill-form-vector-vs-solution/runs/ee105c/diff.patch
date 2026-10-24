@@ -1,0 +1,50 @@
+diff --git a/CustomerNotifier.cs b/CustomerNotifier.cs
+new file mode 100644
+index 0000000..8a46532
+--- /dev/null
++++ b/CustomerNotifier.cs
+@@ -0,0 +1,31 @@
++using Microsoft.EntityFrameworkCore;
++
++namespace Shop;
++
++public class CustomerNotifier
++{
++    private readonly ShopDbContext _context;
++    private readonly IEmailSender _emailSender;
++
++    public CustomerNotifier(ShopDbContext context, IEmailSender emailSender)
++    {
++        _context = context;
++        _emailSender = emailSender;
++    }
++
++    public async Task NotifyCustomers(IEnumerable<Guid> customerIds, string text)
++    {
++        var idsList = customerIds.ToList();
++
++        var customers = await _context.Customers
++            .Where(c => idsList.Contains(c.Id))
++            .Select(c => new { c.Email })
++            .ToListAsync();
++
++        var tasks = customers.Select(c =>
++            _emailSender.SendAsync(c.Email, "Notification", text)
++        );
++
++        await Task.WhenAll(tasks);
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..10d4557
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,7 @@
++# Решение: добавлен CustomerNotifier
++
++## Созданные файлы
++- `CustomerNotifier.cs` - новый класс с методом NotifyCustomers
++
++## Решение
++Метод получает список ID клиентов от маркетинговой системы, материализует его сразу (`.ToList()`) чтобы избежать повторного обхода и дублей. Затем выполняет один запрос к БД с `Contains` для получения email адресов, проецируя только нужное поле. Письма отправляются параллельно через `Task.WhenAll`, что избегает запросов в цикле и обеспечивает эффективность при работе с `IEmailSender`.

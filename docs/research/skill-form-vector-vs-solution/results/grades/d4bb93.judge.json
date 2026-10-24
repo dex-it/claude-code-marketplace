@@ -1,0 +1,72 @@
+{
+  "id": "d4bb93",
+  "case": "G6",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.103991,
+    "durationMs": 18786,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 8447,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1799,
+      "output_tokens_details": {
+        "thinking_tokens": 1138
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8447,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1799,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 8447,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 8447
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G6-sort-alias": {
+      "verdict": "DISPUTED",
+      "quote": "s.Sort == \"address\" || s.Sort == \"status\"; ... s.Sort.ToLower() switch",
+      "why": "Основной сценарий закрыт: JOIN apartments a добавляется один раз через общий флаг с фильтрами HouseId/District, сортировка идёт по a.house_id без алиаса h, а столбец и направление берутся из белого списка. Но флаг сравнивает Sort с учётом регистра, а switch — без него, поэтому sort=Address без фильтров даёт ORDER BY a.house_id без JOIN, и PostgreSQL падает."
+    },
+    "G6-search-columns": {
+      "verdict": "FAIL",
+      "quote": "+    public string? ContactPhone { get; set; }\n+    public string? CompletionNotes { get; set; }",
+      "why": "В ServiceRequest добавлены два маппленных свойства, а явный список колонок SELECT в сыром SQL SearchAsync в diff не дополнен, поэтому FromSqlRaw не получит все свойства сущности и реестр упадёт."
+    },
+    "G6-plan-orphans": {
+      "verdict": "PASS",
+      "quote": "if (!newCodes.Contains(item.WorkCode))\n                _db.PlanItems.Remove(item);",
+      "why": "Остающиеся работы обновляются на месте вместе с историей, исчезнувшие удаляются явно через _db.PlanItems.Remove, новые добавляются; Clear и удаление только из коллекции не используются."
+    },
+    "G6-h-move-items": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "MergePlansAsync в выходе не упоминается и не меняется."
+    },
+    "G6-h-limit": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Подстановка LIMIT/OFFSET оставлена как есть, инъекцией не названа."
+    }
+  },
+  "stderr": ""
+}

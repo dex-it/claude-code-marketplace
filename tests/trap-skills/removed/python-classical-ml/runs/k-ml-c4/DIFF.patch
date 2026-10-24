@@ -1,0 +1,327 @@
+diff --git a/src/shelfwatch/churn_model.py b/src/shelfwatch/churn_model.py
+new file mode 100644
+index 0000000..5d4f307
+--- /dev/null
++++ b/src/shelfwatch/churn_model.py
+@@ -0,0 +1,214 @@
++"""Модель оттока магазинов: случайный лес против XGBoost (SW-262).
++
++Допущение о данных (docs/data.md): `churned` в строке среза - факт оттока магазина в месяце
++после этого среза. Поэтому и валидация, и прогноз устроены по времени, а не случайным
++разбиением: по магазину много срезов, случайный сплит подмешал бы будущее и соседние
++срезы того же магазина в обучение.
++
++Качество для отчёта - average precision (PR-AUC) выбранной модели на последних месяцах,
++которые не участвовали ни в обучении, ни в выборе модели. При доле оттока 5% accuracy
++бесполезна (константа даёт 0.95), поэтому рядом всегда печатается доля оттока в тесте:
++случайная модель даёт AP, равную этой доле.
++"""
++
++from __future__ import annotations
++
++from dataclasses import dataclass
++
++import numpy as np
++import pandas as pd
++from sklearn.ensemble import RandomForestClassifier
++from sklearn.metrics import average_precision_score
++from xgboost import XGBClassifier
++
++from shelfwatch.paths import DATA_DIR
++
++TARGET = "churned"
++STORE = "store_id"
++MODEL_NAMES = ("random_forest", "xgboost")
++
++
++def load() -> pd.DataFrame:
++    return pd.read_parquet(DATA_DIR / "accounts.parquet")
++
++
++def _month(df: pd.DataFrame) -> pd.Series:
++    """Месяц среза как целое (год * 12 + месяц) - удобно считать разрывы и границы сплита."""
++    period = pd.to_datetime(df["snapshot"]).dt.to_period("M")
++    return period.dt.year * 12 + period.dt.month
++
++
++def build_features(df: pd.DataFrame, plans: list[str] | None = None) -> pd.DataFrame:
++    """Признаки по строкам среза; индекс совпадает с индексом `df`.
++
++    Лаги берутся только из прошлых срезов того же магазина. Пустой `n_tickets` - магазин ни
++    разу не обращался в поддержку, это 0 обращений, а не пропуск (отдельный флаг оставляем).
++    `store_id` как признак не используется: ~1 200 значений при 30 000 строк - это
++    запоминание магазинов, на новых оно не работает; вместо него история магазина.
++    """
++    work = pd.DataFrame(
++        {
++            STORE: df[STORE],
++            "month": _month(df),
++            "tenure_months": df["tenure_months"].astype(float),
++            "revenue": df["revenue"].astype(float),
++            "no_tickets": df["n_tickets"].isna().astype(float),
++            "n_tickets": df["n_tickets"].fillna(0).astype(float),
++        },
++        index=df.index,
++    )
++    ordered = work.sort_values([STORE, "month"], kind="stable")
++    prev = ordered.groupby(STORE, sort=False)
++    ordered["prev_revenue"] = prev["revenue"].shift(1)
++    ordered["prev_tickets"] = prev["n_tickets"].shift(1)
++    ordered["months_since_prev"] = ordered["month"] - prev["month"].shift(1)
++    ordered["revenue_change"] = ordered["revenue"] / ordered["prev_revenue"].where(
++        ordered["prev_revenue"] > 0
++    ) - 1
++    ordered["tickets_change"] = ordered["n_tickets"] - ordered["prev_tickets"]
++    ordered["n_snapshots"] = prev.cumcount()
++    feats = ordered.drop(columns=[STORE, "month"]).reindex(df.index)
++
++    plans = plans if plans is not None else sorted(df["plan"].dropna().unique())
++    for plan in plans:
++        feats[f"plan_{plan}"] = (df["plan"] == plan).astype(float)
++    # Пропуски в лагах (первый срез магазина) оставляем NaN: их умеют и лес, и XGBoost.
++    return feats.replace([np.inf, -np.inf], np.nan)
++
++
++def _make(name: str, y: pd.Series, seed: int):
++    if name == "random_forest":
++        return RandomForestClassifier(
++            n_estimators=300,
++            min_samples_leaf=5,
++            class_weight="balanced_subsample",
++            n_jobs=-1,
++            random_state=seed,
++        )
++    if name == "xgboost":
++        pos = max(float(y.sum()), 1.0)
++        return XGBClassifier(
++            n_estimators=300,
++            max_depth=4,
++            learning_rate=0.05,
++            subsample=0.8,
++            colsample_bytree=0.8,
++            scale_pos_weight=(len(y) - pos) / pos,
++            eval_metric="aucpr",
++            n_jobs=-1,
++            random_state=seed,
++        )
++    raise ValueError(f"unknown model: {name}")
++
++
++@dataclass
++class ChurnModel:
++    name: str
++    estimator: object
++    plans: list[str]
++    columns: list[str]
++
++    def predict_proba(self, df: pd.DataFrame, index: pd.Index | None = None) -> pd.Series:
++        """Вероятности для строк `index` (по умолчанию все); лаги считаются по всему `df`."""
++        X = build_features(df, self.plans)[self.columns]
++        if index is not None:
++            X = X.loc[index]
++        return pd.Series(self.estimator.predict_proba(X)[:, 1], index=X.index, name="churn_proba")
++
++
++def fit_model(
++    df: pd.DataFrame, name: str, index: pd.Index | None = None, seed: int = 0
++) -> ChurnModel:
++    """Обучение на строках `index` (по умолчанию все) с известной меткой.
++
++    Признаки считаются по всему `df`, чтобы лаги не обрезались границей выборки.
++    """
++    labeled = df.loc[df.index if index is None else index]
++    labeled = labeled[labeled[TARGET].notna()]
++    if labeled[TARGET].nunique() < 2:
++        raise ValueError("в обучающей выборке должны быть оба класса: отток и не отток")
++    plans = sorted(labeled["plan"].dropna().unique())
++    X = build_features(df, plans).loc[labeled.index]
++    y = labeled[TARGET].astype(int)
++    est = _make(name, y, seed).fit(X, y)
++    return ChurnModel(name, est, plans, list(X.columns))
++
++
++def temporal_split(
++    df: pd.DataFrame, val_months: int = 3, test_months: int = 3
++) -> tuple[pd.Index, pd.Index, pd.Index]:
++    """Индексы train / val / test по месяцам среза с зазором в один месяц перед val и test.
++
++    Метка среза за месяц t известна только в t+1, поэтому срез t-1 перед границей выкидываем:
++    иначе в обучении оказался бы срез, чей исход пересекается с периодом оценки.
++    """
++    months = _month(df)
++    uniq = np.sort(months[df[TARGET].notna()].unique())
++    if len(uniq) < val_months + test_months + 4:
++        raise ValueError("слишком мало месяцев срезов для временного разбиения")
++    test_start = uniq[-test_months]
++    val_start = uniq[-(test_months + val_months)]
++    labeled = df[TARGET].notna()
++    test = df.index[labeled & (months >= test_start)]
++    val = df.index[labeled & (months >= val_start) & (months < test_start - 1)]
++    train = df.index[labeled & (months < val_start - 1)]
++    return train, val, test
++
++
++def _ap(y: pd.Series, proba: pd.Series) -> float:
++    return float(average_precision_score(y.astype(int), proba))
++
++
++def evaluate(df: pd.DataFrame, seed: int = 0) -> dict:
++    """Выбор лучшей модели по val, оценка на test.
++
++    1. Обе модели обучаются на train и сравниваются по AP на val.
++    2. Победитель переобучается на train + val (с тем же зазором до test) и один раз
++       оценивается на test - эта цифра и идёт в отчёт (`test_average_precision`).
++    """
++    train, val, test = temporal_split(df)
++    val_scores = {}
++    for name in MODEL_NAMES:
++        model = fit_model(df, name, train, seed)
++        val_scores[name] = _ap(df.loc[val, TARGET], model.predict_proba(df, val))
++    best = max(val_scores, key=val_scores.get)
++
++    test_start = _month(df.loc[test]).min()
++    months = _month(df)
++    refit = df.index[df[TARGET].notna() & (months < test_start - 1)]
++    final = fit_model(df, best, refit, seed)
++    y_test = df.loc[test, TARGET]
++    return {
++        "best_model": best,
++        "val_average_precision": val_scores,
++        "test_average_precision": _ap(y_test, final.predict_proba(df, test)),
++        "test_churn_rate": float(y_test.mean()),
++        "n_train": len(refit),
++        "n_test": len(test),
++    }
++
++
++def predict_next_month(df: pd.DataFrame, model: ChurnModel | None = None) -> pd.Series:
++    """Вероятность оттока в месяце после последнего среза; индекс - `store_id`.
++
++    Прогноз строится для магазинов, присутствующих в последнем срезе `df`. Без `model`
++    лучшая из двух моделей выбирается как в `evaluate` и обучается на всех размеченных строках.
++    """
++    month = _month(df)
++    last = df[month == month.max()]
++    if last[STORE].duplicated().any():
++        raise ValueError("в последнем срезе несколько строк на один магазин")
++    if model is None:
++        best = evaluate(df)["best_model"]
++        model = fit_model(df, best)
++    # Признаки считаем по всей истории, чтобы лаги последнего среза были на месте.
++    X = build_features(df, model.plans).loc[last.index, model.columns]
++    proba = model.estimator.predict_proba(X)[:, 1]
++    return pd.Series(proba, index=pd.Index(last[STORE].to_numpy(), name=STORE), name="churn_proba")
++
++
++if __name__ == "__main__":
++    result = evaluate(load())
++    print(result)
++    print(f"Качество (average precision, тест): {result['test_average_precision']:.3f} "
++          f"при доле оттока {result['test_churn_rate']:.3f}")
+diff --git a/tests/test_churn_model.py b/tests/test_churn_model.py
+new file mode 100644
+index 0000000..3a8d591
+--- /dev/null
++++ b/tests/test_churn_model.py
+@@ -0,0 +1,101 @@
++import numpy as np
++import pandas as pd
++import pytest
++
++from shelfwatch import churn_model as cm
++
++
++def make_accounts(n_stores: int = 400, n_months: int = 14, seed: int = 0) -> pd.DataFrame:
++    """Синтетика в формате docs/data.md; отток зависит от падения выручки и числа обращений."""
++    rng = np.random.default_rng(seed)
++    months = pd.period_range("2025-01", periods=n_months, freq="M").to_timestamp()
++    rows = []
++    for store in range(n_stores):
++        base = rng.lognormal(10, 0.5)
++        plan = rng.choice(["basic", "pro", "max"])
++        for i, month in enumerate(months):
++            revenue = base * rng.uniform(0.4, 1.2)
++            tickets = np.nan if rng.random() < 0.18 else float(rng.poisson(3))
++            risk = 0.02 + 0.3 * (revenue < 0.6 * base) + 0.03 * np.nan_to_num(tickets)
++            rows.append(
++                {
++                    "account_id": store,
++                    "snapshot": month,
++                    "tenure_months": i + 5,
++                    "plan": plan,
++                    "store_id": store,
++                    "n_tickets": tickets,
++                    "revenue": revenue,
++                    "churned": int(rng.random() < risk),
++                }
++            )
++    return pd.DataFrame(rows)
++
++
++def test_features_use_only_past_and_keep_index() -> None:
++    df = make_accounts(5, 4).sample(frac=1, random_state=1)
++    feats = cm.build_features(df)
++    assert feats.index.equals(df.index)
++    first = df[df["snapshot"] == df["snapshot"].min()].index
++    assert feats.loc[first, "prev_revenue"].isna().all()
++    one = df[(df["store_id"] == 0)].sort_values("snapshot")
++    f0 = feats.loc[one.index]
++    assert f0["prev_revenue"].iloc[1:].tolist() == one["revenue"].iloc[:-1].tolist()
++
++
++def test_missing_tickets_become_zero_with_flag() -> None:
++    df = make_accounts(20, 3)
++    feats = cm.build_features(df)
++    miss = df["n_tickets"].isna()
++    assert miss.any()
++    assert (feats.loc[miss, "n_tickets"] == 0).all()
++    assert (feats.loc[miss, "no_tickets"] == 1).all()
++    assert not feats.isin([np.inf, -np.inf]).any().any()
++
++
++def test_temporal_split_is_ordered_with_gap() -> None:
++    df = make_accounts(30, 14)
++    train, val, test = cm.temporal_split(df)
++    month = cm._month(df)
++    assert month[train].max() + 1 < month[val].min()
++    assert month[val].max() + 1 < month[test].min()
++    assert not set(train) & set(val) and not set(val) & set(test)
++
++
++def test_temporal_split_too_short() -> None:
++    with pytest.raises(ValueError):
++        cm.temporal_split(make_accounts(10, 6))
++
++
++def test_evaluate_picks_best_and_beats_base_rate() -> None:
++    res = cm.evaluate(make_accounts())
++    assert res["best_model"] in cm.MODEL_NAMES
++    assert set(res["val_average_precision"]) == set(cm.MODEL_NAMES)
++    assert res["best_model"] == max(res["val_average_precision"], key=res["val_average_precision"].get)
++    assert res["test_average_precision"] > res["test_churn_rate"]
++
++
++def test_predict_next_month_last_snapshot_stores() -> None:
++    df = make_accounts(150, 10)
++    last = df["snapshot"].max()
++    df = df[~((df["store_id"] < 10) & (df["snapshot"] == last))].copy()  # эти магазины в последнем срезе не видны
++    df.loc[df["snapshot"] == df["snapshot"].max(), "churned"] = np.nan  # исход ещё неизвестен
++    model = cm.fit_model(df, "xgboost")
++    pred = cm.predict_next_month(df, model)
++    assert pred.index.name == "store_id"
++    assert set(pred.index) == set(df.loc[df["snapshot"] == df["snapshot"].max(), "store_id"])
++    assert pred.between(0, 1).all()
++    assert pred.notna().all()
++
++
++def test_predict_next_month_without_model_selects_one() -> None:
++    pred = cm.predict_next_month(make_accounts(200, 12))
++    assert len(pred) == 200
++    assert pred.between(0, 1).all()
++
++
++def test_fit_model_needs_both_classes() -> None:
++    df = make_accounts(20, 4)
++    df["churned"] = 0
++    with pytest.raises(ValueError):
++        cm.fit_model(df, "random_forest")

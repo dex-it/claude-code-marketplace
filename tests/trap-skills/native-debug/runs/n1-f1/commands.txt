@@ -1,0 +1,15 @@
+[Read] <run>/discipline/SKILL-binary-inspection-1.1.0.md
+[Read] <run>/discipline/SKILL-core-dumps-1.1.0.md
+[Read] <run>/discipline/SKILL-managed-debug-1.2.0.md
+[Read] <run>/discipline/SKILL-native-debug-1.1.0.md
+[Read] <run>/discipline/SKILL-perf-profiling-1.1.0.md
+[Read] <run>/discipline/SKILL-syscall-tracing-1.1.0.md
+docker exec <ctr> sh -c 'cd /work; ls -laR cores prod symbols src; file cores/core; readelf -n prod/crashme | grep -i build; for f in $(find symbols -type f); do echo $f; readelf -n $f | grep -i build; done'
+cd /work; cat src/crashme.c; gdb -q -batch -ex 'bt' -ex 'info registers' -ex 'x/6i $pc-8' prod/crashme cores/core 2>&1 | head -60; echo ---; gdb -q -batch -ex 'add-symbol-file symbols/build-0419.debug 0' prod/crashme 2>&1 | tail -3
+docker exec <ctr> sh -c 'cd /work; cat -n src/crashme.c; gdb -q -batch -ex "bt" -ex "info registers" -ex "x/6i \$pc-8" prod/crashme cores/core 2>&1 | head -60'
+docker exec <ctr> sh -c 'cd /work; for s in 0419 0412; do echo == $s; addr2line -e symbols/build-$s.debug -f -C 0x9c4 0xa2c 0x7c0; done; readelf -lW cores/core | grep -m3 LOAD; gdb -q -batch -ex "frame 1" -ex "x/4gx \$sp" -ex "info symbol 0xaaaae5310920" -ex "p/x \$_siginfo._sifields._sigfault.si_addr" prod/crashme cores/core 2>&1 | tail -8; gdb -q -batch -ex "x/s *(char**)(\$x21)" prod/crashme cores/core 2>&1|tail -2'
+docker exec <ctr> sh -c 'cd /work; gdb -q -batch -ex "frame 1" -ex "info registers x0 x1 x19 x20 x21" -ex "x/24gx \$sp-0x60" -ex "x/s 0xaaaae5310a40" prod/crashme cores/core 2>&1 | tail -22; readelf -SW prod/crashme | grep -E "rodata|data"'
+docker exec <ctr> sh -c 'cd /work; gdb -q -batch -ex "x/15gx 0xffffc2f713c0" -ex "x/s 0xaaaae5310a68" -ex "x/s 0xaaaae5310a70" -ex "x/s 0xaaaae5310a78" -ex "x/s 0xaaaae5310a80" prod/crashme cores/core 2>&1 | tail -14'
+docker exec <ctr> sh -c 'cd /work; gdb -q -batch -ex "find /b 0xaaaae5310000, +0x1000, \"platinum\"" -ex "x/s 0xaaaae5310a88" -ex "find /w 0xffffc2f71000, 0xffffc2f72000, 4" -ex "x/18gx 0xffffc2f71360" prod/crashme cores/core 2>&1 | tail -16'
+docker exec <ctr> sh -c 'cd /work; gdb -q -batch -ex "x/s 0xaaaae5310a90" -ex "x/3gx 0xffffc2f713a0" -ex "x/2i 0xaaaae53109c0" -ex "p \$_siginfo.si_signo" prod/crashme cores/core 2>&1 | tail -6; ls -la /work/symbols; id; true'
+[Write] <lab>/REPORT.md

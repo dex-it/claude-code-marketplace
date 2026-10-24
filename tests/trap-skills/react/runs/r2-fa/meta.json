@@ -1,0 +1,39 @@
+{
+  "id": "r2-fa",
+  "case": "R2",
+  "edition": "final",
+  "skills": [
+    "react"
+  ],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 6,
+  "cost": 0.14686359999999998,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 1,
+    "Bash": 4
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "git diff main...feature/order-dashboard --stat && cat docs/tasks/SD-17-order-dashboard.md",
+    "git diff main...feature/order-dashboard -- api/src web/src/App.tsx web/src/api.ts web/src/components/OrdersPage.tsx web/src/lib web/src/types.ts web/tsconfig.json ':!api/test' | cat; for f in web/src/",
+    "cat -n api/src/auth.ts | head -50; cat web/src/lib/money.ts; npm run typecheck 2>&1 | tail -15; git diff main...feature/order-dashboard -- web/src/components/__tests__ | cat",
+    "cat > REVIEW.md <<'EOF'\nweb/src/components/dashboard/OrderDashboard.tsx:34 - `filters` на :22 создаётся заново на каждый рендер и стоит в зависимостях эффекта: после каждого рендера уходит GET /api/ad"
+  ]
+}

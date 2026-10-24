@@ -1,0 +1,87 @@
+diff --git a/CustomerNotifier.cs b/CustomerNotifier.cs
+new file mode 100644
+index 0000000..332e2c8
+--- /dev/null
++++ b/CustomerNotifier.cs
+@@ -0,0 +1,67 @@
++using Microsoft.EntityFrameworkCore;
++
++namespace Shop;
++
++public record NotifyResult(int Sent, IReadOnlyList<Guid> NotFound, IReadOnlyList<Guid> Failed);
++
++public class CustomerNotifier
++{
++    // Список из маркетинговой системы может быть большим: читаем его потоково и грузим клиентов пачками.
++    private const int BatchSize = 1000;
++    private const string Subject = "Shop";
++
++    private readonly ShopDbContext _db;
++    private readonly IEmailSender _email;
++
++    public CustomerNotifier(ShopDbContext db, IEmailSender email)
++    {
++        _db = db;
++        _email = email;
++    }
++
++    public async Task<NotifyResult> NotifyCustomers(IEnumerable<Guid> customerIds, string text, CancellationToken ct = default)
++    {
++        ArgumentNullException.ThrowIfNull(customerIds);
++        ArgumentNullException.ThrowIfNull(text);
++
++        var seenIds = new HashSet<Guid>();
++        var seenEmails = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
++        var notFound = new List<Guid>();
++        var failed = new List<Guid>();
++        var sent = 0;
++
++        foreach (var batch in customerIds.Where(seenIds.Add).Chunk(BatchSize))
++        {
++            // Один запрос на пачку (WHERE id = ANY(@ids)), только нужные колонки, без трекинга.
++            var recipients = await _db.Customers
++                .AsNoTracking()
++                .Where(c => batch.Contains(c.Id))
++                .Select(c => new { c.Id, c.Email })
++                .ToDictionaryAsync(c => c.Id, c => c.Email, ct);
++
++            foreach (var id in batch)
++            {
++                if (!recipients.TryGetValue(id, out var email) || string.IsNullOrWhiteSpace(email))
++                {
++                    notFound.Add(id);
++                    continue;
++                }
++                if (!seenEmails.Add(email.Trim()))
++                    continue;
++
++                try
++                {
++                    await _email.SendAsync(email, Subject, text, ct);
++                    sent++;
++                }
++                catch (Exception) when (!ct.IsCancellationRequested)
++                {
++                    // Ошибка одного адреса не должна срывать всю рассылку.
++                    failed.Add(id);
++                }
++            }
++        }
++
++        return new NotifyResult(sent, notFound, failed);
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..ff37999
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,8 @@
++Файлы:
++- `CustomerNotifier.cs` (новый) — `CustomerNotifier.NotifyCustomers(IEnumerable<Guid> customerIds, string text, CancellationToken ct = default)` → `Task<NotifyResult>`
++- `_answer.md` (новый)
++
++Решения:
++- Внешний список может быть большим и с повторами. Поэтому он читается потоково, id и email дедуплицируются, а клиенты загружаются пачками по 1000 одним запросом `Id = ANY(@ids)`. Из БД берутся только `Id`/`Email`, с `AsNoTracking`, без N+1.
++- Неизвестные id и пустые email пропускаются. Если отправка на один адрес падает, рассылка не прерывается. Такие случаи собираются в `NotifyResult` (`Sent`/`NotFound`/`Failed`); отмена через `ct` пробрасывается.
++- Метод асинхронный, потому что `IEmailSender` асинхронный. Тему письма сигнатура не задаёт, поэтому это константа `Subject`. Сборку и тесты не запускал.

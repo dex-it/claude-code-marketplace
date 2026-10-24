@@ -1,0 +1,90 @@
+{
+  "id": "8b062d",
+  "exitCode": 0,
+  "started": "2026-10-02T12:08:17.104Z",
+  "finished": "2026-10-02T12:18:48.304Z",
+  "wallMs": 631200,
+  "init": {
+    "model": "claude-sonnet-5",
+    "skills": [],
+    "plugins": [
+      {
+        "name": "cc-plugin-agents-md",
+        "path": "builtin",
+        "source": "cc-plugin-agents-md@builtin"
+      },
+      {
+        "name": "cc-plugin-telemetry",
+        "path": "builtin",
+        "source": "cc-plugin-telemetry@builtin"
+      }
+    ],
+    "tools": [
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "WebFetch",
+      "WebSearch",
+      "Write"
+    ],
+    "mcpServers": [],
+    "cwd": "/home/mmx/.cache/research/runs/8b062d/work",
+    "claudeCodeVersion": "2.1.287"
+  },
+  "toolCalls": {
+    "Glob": 4,
+    "Read": 4,
+    "Grep": 1,
+    "Edit": 6,
+    "Write": 5
+  },
+  "webCalls": 0,
+  "skillCalls": [],
+  "readPaths": [
+    "/home/mmx/.cache/research/runs/8b062d/work/Models.cs",
+    "/home/mmx/.cache/research/runs/8b062d/work/AgencyDbContext.cs",
+    "/home/mmx/.cache/research/runs/8b062d/work/ProjectService.cs",
+    "/home/mmx/.cache/research/runs/8b062d/work/TimeEntryService.cs"
+  ],
+  "usage": {
+    "input_tokens": 32,
+    "cache_creation_input_tokens": 37821,
+    "cache_read_input_tokens": 405122,
+    "output_tokens": 21125,
+    "output_tokens_details": {
+      "thinking_tokens": 13589
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 37821,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 763,
+        "cache_read_input_tokens": 36620,
+        "cache_creation_input_tokens": 1201,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1201
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "costUsd": 0.4436224,
+  "durationMs": 629762,
+  "numTurns": 21,
+  "isError": false,
+  "stderr": "",
+  "resultSubtype": "success"
+}

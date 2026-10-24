@@ -1,0 +1,145 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..3ffdfb8
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,139 @@
++# Ревью MR !238
++
++## 1. `TripService.GetOpenWaybillsAsync` — критическая ошибка композиции `FromSqlRaw`
++**Severity: critical**
++
++```csharp
++var query = _db.Trips.FromSqlRaw("""
++    SELECT t.*
++    FROM trips t
++    WHERE t.finished_at IS NULL
++      AND t.started_at < now() - interval '24 hours'
++    ORDER BY t.started_at;
++    """);
++
++if (vehicleId is { } id)
++    query = query.Where(t => t.VehicleId == id);
++```
++
++Сырой SQL заканчивается точкой с запятой. Когда задан `vehicleId` (а это как раз и есть сценарий FLEET-112
++«с фильтром по машине»), EF оборачивает `FromSqlRaw` в подзапрос: `SELECT ... FROM (<raw sql>) AS t WHERE vehicle_id = ...`.
++Точка с запятой внутри скобок — синтаксическая ошибка Postgres, запрос упадёт в рантайме. В MR отмечено, что вручную
++проверяли «список незакрытых листов по всему парку» (без фильтра) — именно поэтому баг не поймали: без фильтра
++обёртки в подзапрос не происходит, и точка с запятой безобидна. Нужно убрать `;` и ORDER BY из сырого SQL (или
++вынести фильтрацию по машине в WHERE исходного запроса), иначе фильтр по машине сломан.
++
++## 2. `TripRows.ToRows` / `TripService.OffDayTripsAsync` — нетранслируемое условие в `Select`
++**Severity: critical**
++
++```csharp
++OffDay = !WorkCalendar.IsWorkingDay(t.StartedAt),
++```
++используется в проекции, которая не является последней операцией запроса:
++```csharp
++.ToRows()
++.Where(r => r.OffDay)
++.OrderByDescending(r => r.Km)
++```
++`WorkCalendar.IsWorkingDay` — обычный C#-метод, не замаплен как `HasDbFunction` и не транслируется в SQL. Пока
++`Select` — последняя операция перед материализацией (как в `GetVehicleTripsAsync`), EF допускает клиентское
++вычисление. Но в `OffDayTripsAsync` после проекции идут ещё `Where` и `OrderByDescending`, а это запрещённый
++паттерн — EF Core не может транслировать `Where` по нетранслируемому полю и выбросит `InvalidOperationException` в
++рантайме. Это основной отчёт FLEET-109, и он просто не заработает. Нужно либо вычислять `OffDay`/фильтровать после
++`AsEnumerable()` на уже суженной выборке, либо явно развернуть условие в транслируемое выражение (день недели/список
++праздников через `HasDbFunction` или параметризованный список дат).
++
++## 3. `VehicleService.GetLastInspectionAsync` — "последний осмотр" определяется по времени синхронизации, а не по времени осмотра
++**Severity: high**
++
++```csharp
++_db.Inspections
++    .AsNoTracking()
++    .Include(i => i.Defects)
++    .Where(i => i.VehicleId == vehicleId)
++    .OrderByDescending(i => i.CreatedAt)   // время приёма сервером
++    .FirstOrDefaultAsync();
++```
++Комментарий к `SyncInspectionsAsync` прямо говорит: планшет копит осмотры офлайн и шлёт их пачкой, когда появится
++сеть, то есть `CreatedAt` (момент приёма сервером) и `InspectedAt` (момент фактического осмотра) могут идти в разном
++порядке. `StartTripAsync` использует `GetLastInspectionAsync`, чтобы проверить «осмотр не старше 12 часов и без
++блокирующих замечаний» — для этой проверки важен момент реального осмотра, а не момент, когда запись доехала до
++сервера. Если более старый (по факту) осмотр синхронизировался позже, чем более новый, выборка по `CreatedAt`
++вернёт не тот осмотр — можно как ошибочно отказать в выпуске (актуальный осмотр "скрыт" старым по CreatedAt), так и
++пропустить машину с блокирующим замечанием из недавнего неучтённого осмотра. Сортировать нужно по `InspectedAt`.
++
++## 4. `TripService.StartTripAsync` — допуск считается истёкшим на дату окончания действия
++**Severity: high**
++
++```csharp
++if (!driver.Permits.Any(p => p.Class == vehicle.Class && p.ValidUntil > today))
++    throw new TripDeniedException("Нет действующего допуска к классу машины");
++```
++По описанию FLEET-107 допуск «действует по указанную в нём дату включительно». Условие `ValidUntil > today`
++отбрасывает именно последний действующий день — водителю с допуском, истекающим сегодня, незаконно откажут в
++выпуске на линию. Должно быть `ValidUntil >= today`.
++
++## 5. Миграция `VehicleEquipmentAndModelLength` — сужение `model` до 40 символов без учёта существующих данных
++**Severity: critical**
++
++```csharp
++migrationBuilder.AlterColumn<string>(
++    name: "model",
++    table: "vehicles",
++    type: "character varying(40)",
++    ...
++    oldType: "character varying(200)", ...);
++```
++Postgres при `ALTER COLUMN ... TYPE varchar(40)` проверяет текущие данные и падает с ошибкой
++`value too long for type character varying(40)`, если есть хотя бы одна строка с более длинным значением — без
++автоматического усечения. Сама мотивация задачи (принтер обрезал длинные названия моделей на печати) говорит о том,
++что такие значения в проде уже существуют. Миграция, выкатываемая обычным pipeline на prod, с высокой вероятностью
++упадёт посреди деплоя. Нужен предварительный шаг (например, `UPDATE vehicles SET model = left(model, 40)` до
++`AlterColumn`, либо `USING substring(...)`), и то, что миграция "применена на dev-базе", этот сценарий не
++подтверждает — там таких длинных значений могло не быть.
++
++## 6. `Program.cs` — эндпоинт замены комплектации машины без проверки роли
++**Severity: high**
++
++```csharp
++api.MapPut("/vehicles/{id:int}/equipment", async (int id, List<EquipmentDto> items, VehicleService s) =>
++{
++    await s.ReplaceEquipmentAsync(id, items);
++    return Results.NoContent();
++});
++```
++В отличие от всех остальных мутирующих эндпоинтов (`/inspections/sync` → `Mechanic`, `/vehicles/{id}/decommission` →
++`FleetManager`, `/drivers/.../permits` → `Hr`), здесь нет `.RequireAuthorization("...")` с ролевой политикой — только
++общая `RequireAuthorization()` группы `/api`, то есть "любой аутентифицированный пользователь". Любой сотрудник с
++любой ролью (диспетчер, HR и т.д.) сможет полностью заменить список оснащения машины (аптечка, огнетушитель и т.д.).
++Похоже на забытую политику авторизации (вероятно, должна быть `Mechanic`/`FleetManager`, как для похожих операций).
++
++## 7. `TripService.StartTripAsync` — лишний трекинг сущностей, используемых только для чтения
++**Severity: low**
++
++```csharp
++var vehicle = await _db.Vehicles
++    .FirstOrDefaultAsync(v => v.Id == req.VehicleId && v.DecommissionedAt == null) ...
++var driver = await _db.Drivers
++    .Include(d => d.Permits)
++    .FirstOrDefaultAsync(d => d.Id == req.DriverId) ...
++```
++`vehicle` и `driver` в этом методе только читаются (для валидации допуска/класса) и не изменяются — по принятому в
++команде правилу такую выборку стоит делать `AsNoTracking()`. Не критично (сущности малы и не сохраняются), но
++нарушает конвенцию и даёт ненужную нагрузку на change tracker.
++
++## 8. `TripService.StartTripAsync` — нет защиты от гонки при двойном выпуске одной машины
++**Severity: medium**
++
++Проверки допуска/осмотра и создание `Trip` выполняются как read-then-write без блокировки и без учёта уже открытого
++путевого листа на эту машину. Два параллельных запроса диспетчера на одну машину пройдут обе проверки независимо и
++создадут два одновременных рейса на одной машине. Если это не покрыто бизнес-проверкой "нет открытого путевого
++листа на машину" где-то выше по стеку — стоит либо добавить такую проверку, либо сериализовать запуск рейса
++(транзакция + блокировка по `vehicle_id`).
++
++---
++
++### Итог
++Блокеры для мерджа: пп. 1, 2, 5, 6 (ломают заявленную функциональность MR или открывают дыру в авторизации),
++п. 3 и 4 — функциональные баги в ключевой бизнес-логике (допуск к выпуску на линию), стоит исправить до мерджа.
++Пп. 7–8 — не блокеры, но желательно исправить/обсудить.

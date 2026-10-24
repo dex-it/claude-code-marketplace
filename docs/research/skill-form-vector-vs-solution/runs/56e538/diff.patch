@@ -1,0 +1,115 @@
+diff --git a/OrderQueries.cs b/OrderQueries.cs
+new file mode 100644
+index 0000000..853d24f
+--- /dev/null
++++ b/OrderQueries.cs
+@@ -0,0 +1,93 @@
++using System.Runtime.CompilerServices;
++
++namespace Shop.Data;
++
++public class OrderQueries
++{
++    private const int DefaultBatchSize = 500;
++
++    private readonly ShopDbContext _db;
++    public OrderQueries(ShopDbContext db) => _db = db;
++
++    // (а) Карточка заказа. Две коллекции в Include -> AsSplitQuery, чтобы не получить декартово произведение Items x Payments.
++    public Task<Order?> GetOrderCardAsync(Guid orderId, CancellationToken ct = default) =>
++        _db.Orders
++            .AsNoTracking()
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            .AsSplitQuery()
++            .FirstOrDefaultAsync(o => o.Id == orderId, ct);
++
++    // (б) Выгрузка всех заказов клиента. Заказов могут быть тысячи, поэтому не грузим всё одним запросом в память:
++    // сначала берём лёгкий список Id (стабильный порядок), затем догружаем заказы пачками с позициями и платежами.
++    public async IAsyncEnumerable<Order> StreamCustomerOrdersAsync(
++        Guid customerId,
++        int batchSize = DefaultBatchSize,
++        [EnumeratorCancellation] CancellationToken ct = default)
++    {
++        if (batchSize <= 0) throw new ArgumentOutOfRangeException(nameof(batchSize));
++
++        var ids = await _db.Orders
++            .AsNoTracking()
++            .Where(o => o.CustomerId == customerId)
++            .OrderBy(o => o.CreatedAt).ThenBy(o => o.Id)
++            .Select(o => o.Id)
++            .ToListAsync(ct);
++
++        foreach (var chunk in ids.Chunk(batchSize))
++        {
++            var batch = await _db.Orders
++                .AsNoTracking()
++                .Where(o => chunk.Contains(o.Id))
++                .Include(o => o.Items)
++                .Include(o => o.Payments)
++                .AsSplitQuery()
++                .ToDictionaryAsync(o => o.Id, ct);
++
++            foreach (var id in chunk)
++                if (batch.TryGetValue(id, out var order)) // заказ могли удалить между запросами
++                    yield return order;
++        }
++    }
++
++    // (в) Продукт по SKU. На складе SKU уникален, но между складами повторяется.
++    // Если склад не передан и SKU есть на нескольких складах - это неоднозначность, молча первый попавшийся не возвращаем.
++    public async Task<Product?> GetProductBySku(string sku, string? warehouse, CancellationToken ct = default)
++    {
++        ArgumentException.ThrowIfNullOrEmpty(sku);
++
++        var query = _db.Products.AsNoTracking().Where(p => p.Sku == sku);
++        if (warehouse != null)
++            query = query.Where(p => p.Warehouse == warehouse);
++
++        var found = await query.OrderBy(p => p.Warehouse).Take(2).ToListAsync(ct);
++        if (found.Count > 1)
++            throw new AmbiguousSkuException(sku);
++        return found.SingleOrDefault();
++    }
++
++    // (г) Дата отгрузки последнего отгруженного заказа клиента. Тип результата не nullable,
++    // поэтому отсутствие отгрузок - явное исключение, а не default(DateTime) = 0001-01-01.
++    public async Task<DateTime> GetLastShippedAtAsync(Guid customerId, CancellationToken ct = default)
++    {
++        var last = await _db.Orders
++            .Where(o => o.CustomerId == customerId && o.ShippedAt != null)
++            .MaxAsync(o => o.ShippedAt, ct);
++
++        return last ?? throw new NoShippedOrdersException(customerId);
++    }
++}
++
++public class AmbiguousSkuException : InvalidOperationException
++{
++    public string Sku { get; }
++    public AmbiguousSkuException(string sku)
++        : base($"SKU '{sku}' exists in several warehouses; specify a warehouse.") => Sku = sku;
++}
++
++public class NoShippedOrdersException : InvalidOperationException
++{
++    public Guid CustomerId { get; }
++    public NoShippedOrdersException(Guid customerId)
++        : base($"Customer {customerId} has no shipped orders.") => CustomerId = customerId;
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..fbbdc48
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,10 @@
++Файлы:
++- создан `OrderQueries.cs` (сервис `OrderQueries` + исключения `AmbiguousSkuException`, `NoShippedOrdersException`)
++- создан `_answer.md`
++- `Model.cs` и `OrderRepository.cs` не изменялись
++
++Решения:
++- (а)/(б) Используются `Include(Items)` + `Include(Payments)` с `AsSplitQuery` и `AsNoTracking`, чтобы не было декартова взрыва Items×Payments. Выгрузка (б) отдаётся как `IAsyncEnumerable`: сначала берутся Id заказов в порядке (CreatedAt, Id), затем заказы догружаются пачками по 500 через `= ANY(@ids)`, так что тысячи заказов не материализуются одним запросом.
++- (в) Параметр `warehouse` сделан `string?`. Если склад не передан, а SKU есть на нескольких складах, бросается `AmbiguousSkuException` вместо случайного `First`. Если продукт не найден, возвращается `null`.
++- (г) Используется `MaxAsync` по `DateTime?`. Если у клиента нет отгрузок, бросается `NoShippedOrdersException`, а не молчаливое `0001-01-01` и не голое исключение `Max` на пустой выборке. Фильтр `IsDeleted` учитывается во всех запросах.
++- Замечание: в `Model.cs` включён `UseLazyLoadingProxies`, но навигации `Items`, `Payments` и `Orders` не `virtual`, поэтому EF упадёт при построении модели. Модель я не трогал — это нужно решить отдельно.

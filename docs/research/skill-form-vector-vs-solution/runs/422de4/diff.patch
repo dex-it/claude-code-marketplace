@@ -1,0 +1,117 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..a595866
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,111 @@
++# Code Review Findings
++
++## Critical Issues
++
++### 1. Secrets in appsettings.Production.json
++**File:** `appsettings.Production.json`, lines 3-4, 15-16  
++**Issue:** Database password "Kx7!pQ2vR9wz" and MailRelay API key "rl_live_9f3a1c77e2b04d6d" hardcoded in repository  
++**Why it's a defect:** Violates SKILL.md rule "Секреты в appsettings.json в репозитории". Secrets committed to git are exposed forever in history, leaked with repository clones, and pose security risk.  
++**Severity:** CRITICAL
++
++---
++
++### 2. PollInterval unit confusion breaks polling requirement
++**File:** `OutboxWorker.cs`, line 33 + `appsettings.json`, line 6  
++**Issue:** appsettings.json declares `"PollInterval": 500` (millis implied), but code interprets as seconds: `Task.Delay(TimeSpan.FromSeconds(o.PollInterval), ct)`. Result: 500 seconds delay (8+ minutes) instead of 0.5 seconds required by MR.  
++**Why it's a defect:** Violates SKILL.md rule "Имя настройки без единицы провоцирует unit confusion". Completely breaks MR requirement "Опрос outbox раз в полсекунды". Property name lacks unit → developer and code disagree on order of magnitude.  
++**Severity:** CRITICAL
++
++---
++
++### 3. IOptions caches config—reload on change never works
++**File:** `OutboxWorker.cs`, line 11 + `Program.cs`, line 10  
++**Issue:** Constructor injects `IOptions<OutboxOptions>` (singleton, cached at first access). MR requirement: "Лимит параллельных отправок и размер пачки должны меняться на лету правкой appsettings, без рестарта." With IOptions, edits to appsettings are never visible to running worker.  
++**Why it's a defect:** Violates SKILL.md rule "IOptions для конфигурации с reload on change". Feature is dead—changes to MaxInFlight and batch sizes in appsettings are silently ignored. Should use `IOptionsMonitor<T>` for live reload.  
++**Severity:** CRITICAL
++
++---
++
++### 4. Validator is written but never registered/executed
++**File:** `Program.cs`, lines 10-11 + `Options/OutboxOptionsValidator.cs`  
++**Issue:** OutboxOptionsValidator exists, but Program.cs only calls `Configure()` without registering validator to DI or calling `.ValidateOnStart()`. Validator never runs; invalid config is discovered at runtime, not startup.  
++**Why it's a defect:** Violates SKILL.md rule "Валидатор опций написан, но не зарегистрирован - не исполняется никегда" and "Нет валидации конфигурации при старте". Bad config crashes service hours into production instead of at deploy.  
++**Severity:** CRITICAL
++
++---
++
++### 5. MinBatchSize > MaxBatchSize in Production
++**File:** `appsettings.Production.json`, lines 6-7  
++**Issue:** `"MinBatchSize": 200, "MaxBatchSize": 100` — minimum is larger than maximum. This is a logical constraint violation.  
++**Why it's a defect:** Violates SKILL.md rule "Кросс-полевой инвариант Options проверяется тихим if". Config is nonsensical; batch size logic breaks silently. Validator doesn't check MinBatchSize ≤ MaxBatchSize.  
++**Severity:** CRITICAL
++
++---
++
++## High Severity Issues
++
++### 6. ThrottleService reads wrong config key, crashes with DivisionByZero
++**File:** `ThrottleService.cs`, line 7 + `appsettings.json`, line 21  
++**Issue:** Code reads `config.GetValue<int>("Throttle:MessagesPerMinute")`, but config defines `"Throttle": { "PerMinute": 600 }`. Key mismatch → GetValue returns 0 (default). Line 8: `60_000 / perMinute` throws DivisionByZeroException.  
++**Why it's a defect:** Runtime crash on first throttle attempt. Config key mismatch is silent until used. Violates "Имя настройки без единицы провоцирует unit confusion"—key name says one thing, implementation reads another.  
++**Severity:** HIGH
++
++---
++
++### 7. Staging MaxInFlight is more aggressive than Production (undocumented)
++**File:** `appsettings.Staging.json`, line 6 + `appsettings.Production.json`, line 8  
++**Issue:** Staging MaxInFlight = 20, Production = 5. Staging is 4× more aggressive without documented reason.  
++**Why it's a defect:** Violates SKILL.md rule "Staging агрессивнее Production без объяснения". Staging does not reproduce prod behavior. Concurrency bugs appear in staging but disappear in prod due to lower parallelism—prevents catching real issues.  
++**Severity:** HIGH
++
++---
++
++### 8. Validator missing cross-field check: MinBatchSize ≤ MaxBatchSize
++**File:** `Options/OutboxOptionsValidator.cs`, lines 7-15  
++**Issue:** Validator checks individual fields but not invariant MinBatchSize ≤ MaxBatchSize. Production config violates this (issue #5), but validator allows it.  
++**Why it's a defect:** Violates SKILL.md rule "Кросс-полевой инвариант Options проверяется тихим if". Batch logic silently breaks when constraint is violated instead of failing loudly at startup.  
++**Severity:** HIGH
++
++---
++
++## Medium Severity Issues
++
++### 9. SmtpOptions properties lack `required` modifier—possible NRE at runtime
++**File:** `Options/SmtpOptions.cs`, lines 5, 7  
++**Issue:** Properties `Host` and `FromAddress` are non-nullable (`string`) but lack `required` modifier. Under `#nullable enable`, `new SmtpOptions()` leaves them null → NullReferenceException on first use in SmtpMailSender.cs:14.  
++**Why it's a defect:** Violates SKILL.md rule "Non-nullable Options-проп без `required` - CS8618 и NRE при `new()`". Compiler doesn't enforce initialization; null reaches runtime.  
++**Severity:** MEDIUM
++
++---
++
++### 10. OutboxOptions lacks `required` modifier—CS8618 suppressed
++**File:** `Options/OutboxOptions.cs`, lines 5-10  
++**Issue:** Non-nullable properties (MinBatchSize, MaxBatchSize, MaxInFlight, MaxRetries, LockTimeout) lack `required` modifier. Violation of nullable reference types contract.  
++**Why it's a defect:** Violates SKILL.md rule "Non-nullable Options-проп без `required`". Compiler warning ignored; null possible at construction.  
++**Severity:** MEDIUM
++
++---
++
++### 11. appsettings: redundant values repeated in Staging/Production overrides
++**File:** `appsettings.json` + `appsettings.Production.json`  
++**Issue:** `"MaxRetries": 5` is in both appsettings.json (line 10) and appsettings.Production.json (line 9). Same for `"Port": 587` in Staging.  
++**Why it's a defect:** Violates SKILL.md rule "Значение по умолчанию явно повторяется в каждом env-файле". Redundancy obscures real differences. If default changes, env-specific files silently retain old value.  
++**Severity:** MEDIUM
++
++---
++
++## Summary
++
++**Total findings:** 11 (4 CRITICAL, 4 HIGH, 3 MEDIUM)
++
++**Must fix before merge:**
++- Remove secrets from Production appsettings (use env vars / secret store)
++- Fix PollInterval unit confusion (rename to PollIntervalMs, fix TimeSpan.FromSeconds)
++- Switch IOptions to IOptionsMonitor for live reload
++- Register validator and add ValidateOnStart()
++- Fix MinBatchSize ≤ MaxBatchSize constraint in Production config
++- Fix ThrottleService config key (MessagesPerMinute → PerMinute)
++- Add MinBatchSize ≤ MaxBatchSize check to validator
++- Adjust Staging/Production parallelism (staging ≤ prod) or document reason
++- Add `required` to SmtpOptions and OutboxOptions non-nullable properties
++- Remove redundant config values from env-specific files

@@ -1,0 +1,124 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..e4c2ea4
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,118 @@
++# Результаты code review MR: Notify.Worker
++
++## Дефекты
++
++### 1. OutboxWorker.cs:33 - Неправильная единица времени PollInterval
++**Проблема:** `Task.Delay(TimeSpan.FromSeconds(o.PollInterval), ct)`
++
++`PollInterval` в конфигурации — это 500 (миллисекунды), но `FromSeconds` преобразует его в 500 секунд вместо 0.5 секунд. Требование MR: "опрос outbox раз в полсекунды" не будет выполнено — опрос будет раз в 500 секунд (~8 минут).
++
++**Почему это дефект:** Нарушение пункта 12 SKILL.md (единица измерения в имени настройки). Код игнорирует фактическую семантику значения.
++
++**Severity:** CRITICAL
++
++---
++
++### 2. Program.cs - OutboxOptionsValidator не зарегистрирован
++**Проблема:** В Program.cs отсутствует регистрация `OutboxOptionsValidator`:
++```csharp
++builder.Services.AddSingleton<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>();
++```
++
++Валидатор реализован, но никогда не будет вызван при запуске. Невалидные конфигурации не будут обнаружены.
++
++**Почему это дефект:** Нарушение пункта 8 SKILL.md (валидатор опций и его регистрация).
++
++**Severity:** CRITICAL
++
++---
++
++### 3. appsettings.Production.json:6-7 - Кросс-полевой инвариант нарушен
++**Проблема:**
++```json
++"MinBatchSize": 200,
++"MaxBatchSize": 100,
++```
++
++MinBatchSize > MaxBatchSize. Логика в OutboxWorker.cs:25 проверяет `if (o.MinBatchSize < o.MaxBatchSize)`, но в Production это условие никогда не будет истинно. Адаптивное батчинг не будет работать.
++
++**Почему это дефект:** Нарушение пункта 10 SKILL.md (кросс-полевой инвариант опций).
++
++**Severity:** CRITICAL
++
++---
++
++### 4. ThrottleService.cs:7 - Несоответствие имена ключа конфигурации
++**Проблема:** 
++```csharp
++var perMinute = config.GetValue<int>("Throttle:MessagesPerMinute");
++```
++
++В конфигурации используется ключ `"Throttle:PerMinute"` (appsettings.json, Production, Staging), но код ищет `"Throttle:MessagesPerMinute"`. `GetValue<int>()` вернёт 0 (значение по умолчанию), что приведёт к `60_000 / 0` — **делению на ноль** при первом вызове `WaitAsync()`.
++
++**Почему это дефект:** 
++- Нарушение пункта 6 SKILL.md (имя настройки без единицы) — ключ не соответствует коду
++- Runtime crash при попытке отправить письмо
++
++**Severity:** CRITICAL
++
++---
++
++### 5. appsettings.Staging.json - Отсутствуют обязательные значения SmtpOptions
++**Проблема:**
++```json
++"Smtp": {
++  "Host": "smtp-stage.internal",
++  "Port": 587
++}
++```
++
++Отсутствуют `FromAddress` и `UserName`. SmtpOptions имеет non-nullable строковые свойства, которые будут привязаны к null. При попытке отправить письмо в SmtpMailSender.cs:14 `MailboxAddress.Parse(o.FromAddress)` выбросит исключение.
++
++**Почему это дефект:** Нарушение пункта 13 SKILL.md (значение по умолчанию в каждом env-файле) и пункта 11 (non-nullable свойство опций без значения из конфигурации).
++
++**Severity:** HIGH
++
++---
++
++### 6. OutboxOptionsValidator.cs - Неполная валидация
++**Проблема:** Валидатор не проверяет:
++1. `PollInterval` — может быть отрицательным или нулевым
++2. `MinBatchSize` — может быть отрицательным или нулевым
++3. Кросс-полевой инвариант: `MinBatchSize <= MaxBatchSize`
++
++Тест в OutboxOptionsValidatorTests.cs:9-11 не устанавливает `MinBatchSize`, и валидатор его не проверяет.
++
++**Почему это дефект:** Нарушение пункта 8 SKILL.md (полнота валидации) и пункта 10 (кросс-полевой инвариант).
++
++**Severity:** HIGH
++
++---
++
++### 7. ThrottleService.cs - Отсутствует IOptions вместо IConfiguration
++**Проблема:** ThrottleService использует `IConfiguration` напрямую:
++```csharp
++public class ThrottleService(IConfiguration config)
++```
++
++Согласно пункту 9 SKILL.md: "`IOptions` при требовании менять значение на лету" — в MR указано, что лимит параллельных отправок и размер пачки должны меняться на лету. Для ThrottleService нет отдельного класса опций и регистрации через `Configure<>()`.
++
++**Почему это дефект:** Нарушение пункта 9 SKILL.md (использование IOptions для runtime-changing конфигурации).
++
++**Severity:** HIGH (логическое нарушение требования)
++
++---
++
++## Резюме
++
++| Severity | Количество |
++|----------|-----------|
++| CRITICAL | 4         |
++| HIGH     | 3         |
++| MEDIUM   | 0         |
++| LOW      | 0         |
++
++Все найденные дефекты блокируют мерж:
++- 3 критических runtime-ошибки (делению на 0, неправильная задержка, невалидная конфигурация)
++- 1 критическое нарушение инварианта конфигурации
++- 3 высокоприоритетных нарушения процесса конфигурации

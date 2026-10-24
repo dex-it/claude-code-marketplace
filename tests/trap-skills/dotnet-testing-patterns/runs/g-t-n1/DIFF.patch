@@ -1,0 +1,293 @@
+diff --git a/src/Pricing.Application/Products/PriceChangeWorker.cs b/src/Pricing.Application/Products/PriceChangeWorker.cs
+index fd9d445..b66c809 100644
+--- a/src/Pricing.Application/Products/PriceChangeWorker.cs
++++ b/src/Pricing.Application/Products/PriceChangeWorker.cs
+@@ -10,6 +10,7 @@ public sealed class PriceChangeQueue
+ {
+     private readonly Channel<PriceChange> _channel = Channel.CreateUnbounded<PriceChange>();
+     public ValueTask EnqueueAsync(PriceChange change, CancellationToken ct) => _channel.Writer.WriteAsync(change, ct);
++    public void Complete() => _channel.Writer.Complete();
+     public IAsyncEnumerable<PriceChange> ReadAllAsync(CancellationToken ct) => _channel.Reader.ReadAllAsync(ct);
+ }
+ 
+diff --git a/src/Pricing.Application/Promotions/PromotionService.cs b/src/Pricing.Application/Promotions/PromotionService.cs
+index 41569d3..2b2344c 100644
+--- a/src/Pricing.Application/Promotions/PromotionService.cs
++++ b/src/Pricing.Application/Promotions/PromotionService.cs
+@@ -3,12 +3,12 @@ using Pricing.Domain;
+ 
+ namespace Pricing.Application.Promotions;
+ 
+-public sealed class PromotionService(IPromotionRepository promotions)
++public sealed class PromotionService(IPromotionRepository promotions, TimeProvider? clock = null)
+ {
+     /// <summary>Наибольшая скидка категории, действующая сейчас; 0 - акции нет.</summary>
+     public async Task<decimal> CurrentDiscountAsync(Category category, CancellationToken ct)
+     {
+-        var now = TimeOnly.FromDateTime(DateTime.Now);
++        var now = TimeOnly.FromDateTime((clock ?? TimeProvider.System).GetLocalNow().DateTime);
+         var all = await promotions.ListAsync(ct);
+         return all
+             .Where(p => p.Category == category && IsActive(p, now))
+diff --git a/tests/Pricing.Tests/PriceChangeWorkerTests.cs b/tests/Pricing.Tests/PriceChangeWorkerTests.cs
+new file mode 100644
+index 0000000..311bc90
+--- /dev/null
++++ b/tests/Pricing.Tests/PriceChangeWorkerTests.cs
+@@ -0,0 +1,54 @@
++using Moq;
++using Pricing.Application.Abstractions;
++using Pricing.Application.Products;
++using Pricing.Domain;
++
++namespace Pricing.Tests;
++
++public sealed class PriceChangeWorkerTests
++{
++    private readonly Mock<IProductRepository> _products = new();
++    private readonly PriceChangeQueue _queue = new();
++
++    private Product GivenProduct(decimal price)
++    {
++        var product = new Product(Guid.NewGuid(), "SKU-1", "Молоко", Category.Grocery, price, "sup-1");
++        _products.Setup(r => r.GetAsync(product.Id, It.IsAny<CancellationToken>())).ReturnsAsync(product);
++        return product;
++    }
++
++    private async Task<List<(PriceChange Change, Exception Error)>> RunAsync(params PriceChange[] changes)
++    {
++        var worker = new PriceChangeWorker(_queue, _products.Object);
++        var failures = new List<(PriceChange, Exception)>();
++        worker.Failed += (c, e) => failures.Add((c, e));
++        foreach (var change in changes) await _queue.EnqueueAsync(change, default);
++        _queue.Complete();
++        await worker.RunAsync(default);
++        return failures;
++    }
++
++    [Fact]
++    public async Task Change_is_applied_to_product()
++    {
++        var product = GivenProduct(100m);
++
++        var failures = await RunAsync(new PriceChange(product.Id, 150m));
++
++        Assert.Equal(150m, product.BasePrice);
++        Assert.Empty(failures);
++    }
++
++    [Fact]
++    public async Task Unknown_product_does_not_stop_next_changes()
++    {
++        var product = GivenProduct(100m);
++        var unknown = new PriceChange(Guid.NewGuid(), 10m);
++
++        var failures = await RunAsync(unknown, new PriceChange(product.Id, 120m));
++
++        Assert.Equal(120m, product.BasePrice);
++        var failure = Assert.Single(failures);
++        Assert.Equal(unknown, failure.Change);
++    }
++}
+diff --git a/tests/Pricing.Tests/PromotionServiceTests.cs b/tests/Pricing.Tests/PromotionServiceTests.cs
+new file mode 100644
+index 0000000..5801f38
+--- /dev/null
++++ b/tests/Pricing.Tests/PromotionServiceTests.cs
+@@ -0,0 +1,94 @@
++using Moq;
++using Pricing.Application.Abstractions;
++using Pricing.Application.Promotions;
++using Pricing.Domain;
++
++namespace Pricing.Tests;
++
++public sealed class PromotionServiceTests
++{
++    private readonly Mock<IPromotionRepository> _promotions = new();
++
++    private PromotionService CreateService(Promotion[] items, int hour, int minute = 0)
++    {
++        _promotions.Setup(r => r.ListAsync(It.IsAny<CancellationToken>())).ReturnsAsync(items);
++        return new PromotionService(_promotions.Object, new FixedTimeProvider(new DateTime(2026, 1, 1, hour, minute, 0, DateTimeKind.Utc)));
++    }
++
++    private static Promotion Promo(Category category, decimal percent, int fromHour, int toHour) =>
++        new(Guid.NewGuid(), category, percent, new TimeOnly(fromHour, 0), new TimeOnly(toHour, 0));
++
++    [Fact]
++    public async Task Discount_applies_inside_window()
++    {
++        var service = CreateService([Promo(Category.Grocery, 10, 9, 18)], hour: 12);
++
++        Assert.Equal(10m, await service.CurrentDiscountAsync(Category.Grocery, default));
++    }
++
++    [Theory]
++    [InlineData(8, 59)]
++    [InlineData(18, 0)]
++    public async Task Discount_is_zero_outside_window(int hour, int minute)
++    {
++        var service = CreateService([Promo(Category.Grocery, 10, 9, 18)], hour, minute);
++
++        Assert.Equal(0m, await service.CurrentDiscountAsync(Category.Grocery, default));
++    }
++
++    [Fact]
++    public async Task Window_start_is_inclusive()
++    {
++        var service = CreateService([Promo(Category.Grocery, 10, 9, 18)], hour: 9);
++
++        Assert.Equal(10m, await service.CurrentDiscountAsync(Category.Grocery, default));
++    }
++
++    [Theory]
++    [InlineData(22, true)]
++    [InlineData(23, true)]
++    [InlineData(1, true)]
++    [InlineData(2, false)]
++    [InlineData(12, false)]
++    public async Task Window_across_midnight(int hour, bool active)
++    {
++        var service = CreateService([Promo(Category.Grocery, 15, 22, 2)], hour);
++
++        Assert.Equal(active ? 15m : 0m, await service.CurrentDiscountAsync(Category.Grocery, default));
++    }
++
++    [Fact]
++    public async Task Picks_largest_discount_among_active()
++    {
++        var service = CreateService(
++        [
++            Promo(Category.Grocery, 5, 9, 18),
++            Promo(Category.Grocery, 20, 10, 14),
++            Promo(Category.Grocery, 50, 15, 18),
++        ], hour: 12);
++
++        Assert.Equal(20m, await service.CurrentDiscountAsync(Category.Grocery, default));
++    }
++
++    [Fact]
++    public async Task Ignores_other_categories()
++    {
++        var service = CreateService([Promo(Category.Electronics, 30, 0, 23)], hour: 12);
++
++        Assert.Equal(0m, await service.CurrentDiscountAsync(Category.Grocery, default));
++    }
++
++    [Fact]
++    public async Task Category_without_promotions_has_zero_discount()
++    {
++        var service = CreateService([], hour: 12);
++
++        Assert.Equal(0m, await service.CurrentDiscountAsync(Category.Household, default));
++    }
++}
++
++internal sealed class FixedTimeProvider(DateTime utc) : TimeProvider
++{
++    public override DateTimeOffset GetUtcNow() => new(DateTime.SpecifyKind(utc, DateTimeKind.Utc));
++    public override TimeZoneInfo LocalTimeZone => TimeZoneInfo.Utc;
++}
+diff --git a/tests/Pricing.Tests/QuoteServiceTests.cs b/tests/Pricing.Tests/QuoteServiceTests.cs
+new file mode 100644
+index 0000000..d6c9e66
+--- /dev/null
++++ b/tests/Pricing.Tests/QuoteServiceTests.cs
+@@ -0,0 +1,96 @@
++using Moq;
++using Pricing.Application.Abstractions;
++using Pricing.Application.Promotions;
++using Pricing.Application.Quotes;
++using Pricing.Domain;
++
++namespace Pricing.Tests;
++
++public sealed class QuoteServiceTests
++{
++    private readonly Mock<IProductRepository> _products = new();
++    private readonly Mock<ISupplierCatalog> _suppliers = new();
++    private readonly Mock<IPromotionRepository> _promotions = new();
++
++    private QuoteService CreateService(params Promotion[] active)
++    {
++        _promotions.Setup(r => r.ListAsync(It.IsAny<CancellationToken>())).ReturnsAsync(active);
++        var clock = new FixedTimeProvider(new DateTime(2026, 1, 1, 12, 0, 0, DateTimeKind.Utc));
++        return new QuoteService(_products.Object, _suppliers.Object, new PromotionService(_promotions.Object, clock));
++    }
++
++    private void GivenProduct(string sku, decimal basePrice, Category category = Category.Grocery) =>
++        _products.Setup(r => r.GetBySkuAsync(sku, It.IsAny<CancellationToken>()))
++            .ReturnsAsync(new Product(Guid.NewGuid(), sku, "Товар", category, basePrice, "sup-1"));
++
++    private void GivenSupplierPrice(string sku, decimal? price) =>
++        _suppliers.Setup(s => s.GetPriceAsync("sup-1", sku, It.IsAny<CancellationToken>()))
++            .ReturnsAsync(price is null ? null : new SupplierPrice(sku, price.Value, "RUB"));
++
++    [Theory]
++    [InlineData(100, 120, 120)]
++    [InlineData(100, 80, 100)]
++    public async Task Unit_price_is_max_of_base_and_supplier(decimal basePrice, decimal supplierPrice, decimal expected)
++    {
++        GivenProduct("SKU-1", basePrice);
++        GivenSupplierPrice("SKU-1", supplierPrice);
++
++        var quote = await CreateService().QuoteAsync([new QuoteLine("SKU-1", 3)], default);
++
++        var line = Assert.Single(quote.Lines);
++        Assert.Equal(expected, line.UnitPrice);
++        Assert.Equal(expected * 3, line.Total);
++        Assert.Equal(expected * 3, quote.Total);
++        Assert.Equal("RUB", quote.Currency);
++    }
++
++    [Fact]
++    public async Task Sku_unknown_to_supplier_uses_base_price()
++    {
++        GivenProduct("SKU-1", 100m);
++        GivenSupplierPrice("SKU-1", null);
++
++        var quote = await CreateService().QuoteAsync([new QuoteLine("SKU-1", 1)], default);
++
++        Assert.Equal(100m, Assert.Single(quote.Lines).UnitPrice);
++    }
++
++    [Fact]
++    public async Task Promo_discount_is_applied_to_unit_price()
++    {
++        GivenProduct("SKU-1", 99.99m);
++        GivenSupplierPrice("SKU-1", null);
++        var promo = new Promotion(Guid.NewGuid(), Category.Grocery, 10m, new TimeOnly(9, 0), new TimeOnly(18, 0));
++
++        var quote = await CreateService(promo).QuoteAsync([new QuoteLine("SKU-1", 2)], default);
++
++        var line = Assert.Single(quote.Lines);
++        Assert.Equal(89.99m, line.UnitPrice); // 89.991 -> 89.99
++        Assert.Equal(179.98m, quote.Total);
++    }
++
++    [Fact]
++    public async Task Unknown_sku_throws_not_found()
++    {
++        _products.Setup(r => r.GetBySkuAsync("NOPE", It.IsAny<CancellationToken>())).ReturnsAsync((Product?)null);
++
++        var ex = await Assert.ThrowsAsync<NotFoundException>(() =>
++            CreateService().QuoteAsync([new QuoteLine("NOPE", 1)], default));
++
++        Assert.Equal("product.not_found", ex.Code);
++    }
++
++    [Fact]
++    public async Task Total_sums_all_lines()
++    {
++        GivenProduct("A", 10m);
++        GivenSupplierPrice("A", null);
++        GivenProduct("B", 25m);
++        GivenSupplierPrice("B", null);
++
++        var quote = await CreateService().QuoteAsync([new QuoteLine("A", 2), new QuoteLine("B", 1)], default);
++
++        Assert.Equal(2, quote.Lines.Count);
++        Assert.Equal(45m, quote.Total);
++    }
++}

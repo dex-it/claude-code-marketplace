@@ -1,0 +1,61 @@
+{
+  "id": "45307a",
+  "case": "L5",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.027203400000000003,
+    "durationMs": 4485,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 2401,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 378,
+      "output_tokens_details": {
+        "thinking_tokens": 107
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 2401,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 378,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 2401,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 2401
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "L5-dedup": {
+      "verdict": "PASS",
+      "quote": "var ids = customerIds.Distinct().ToList();",
+      "why": "Id дедуплицируются до нарезки на пачки, поэтому повторный id даёт одно письмо даже при нескольких пачках."
+    },
+    "L5-h-chunk": {
+      "verdict": "YES",
+      "quote": "private const int BatchSize = 500; // ограничение размера IN(...) для Npgsql",
+      "why": "Запрос по id режется через Chunk, и это обосновано лимитом размера IN(...)."
+    },
+    "L5-m-enum": {
+      "verdict": "NO",
+      "quote": "customerIds.Distinct().ToList()",
+      "why": "customerIds перечисляется один раз и материализуется в список, дальше используется только ids."
+    }
+  },
+  "stderr": ""
+}

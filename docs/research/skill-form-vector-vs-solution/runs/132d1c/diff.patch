@@ -1,0 +1,84 @@
+diff --git a/Model.cs b/Model.cs
+index cc90064..4c01de0 100644
+--- a/Model.cs
++++ b/Model.cs
+@@ -1,4 +1,6 @@
+ // Shop.Data - EF Core 8, PostgreSQL (Npgsql.EntityFrameworkCore.PostgreSQL 8)
++using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
++
+ namespace Shop.Data;
+ 
+ public class Customer { public Guid Id { get; set; } public string Name { get; set; } = ""; public List<Order> Orders { get; set; } = new(); }
+@@ -14,6 +16,7 @@ public class Order
+     public DateTime CreatedAt { get; set; }          // column: timestamp without time zone
+     public DateTime? ShippedAt { get; set; }
+     public bool IsDeleted { get; set; }
++    public int Complexity { get; set; }              // 1..5, business-defined fulfillment complexity
+     public List<OrderItem> Items { get; set; } = new();
+     public List<Payment> Payments { get; set; } = new();
+     public bool IsOverdue(DateTime now) => ShippedAt == null && CreatedAt.AddDays(3) < now;
+@@ -44,7 +47,31 @@ public class ShopDbContext : DbContext
+     protected override void OnModelCreating(ModelBuilder b)
+     {
+         b.Entity<Order>().HasQueryFilter(o => !o.IsDeleted);
+-        b.Entity<Order>().Property(o => o.CreatedAt).HasColumnType("timestamp without time zone");
++
++        // Column stays "timestamp without time zone" (DBA reports depend on it); the converter
++        // guarantees CreatedAt is always UTC on the C# side regardless of caller's local time.
++        var utcConverter = new ValueConverter<DateTime, DateTime>(
++            v => v.Kind == DateTimeKind.Utc ? v : v.ToUniversalTime(),
++            v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
++
++        b.Entity<Order>()
++            .Property(o => o.CreatedAt)
++            .HasColumnType("timestamp without time zone")
++            .HasConversion(utcConverter);
++
++        b.Entity<Order>().ToTable(t => t.HasCheckConstraint("CK_Order_Complexity_Range", "\"Complexity\" BETWEEN 1 AND 5"));
++
++        b.Entity<Order>()
++            .HasMany(o => o.Items)
++            .WithOne()
++            .HasForeignKey(i => i.OrderId)
++            .OnDelete(DeleteBehavior.Cascade);
++
++        b.Entity<Order>()
++            .HasMany(o => o.Payments)
++            .WithOne()
++            .HasForeignKey(p => p.OrderId)
++            .OnDelete(DeleteBehavior.Cascade);
+     }
+ }
+ // Options: UseNpgsql(cs).UseLazyLoadingProxies()
+diff --git a/OrderRepository.cs b/OrderRepository.cs
+index 72637b8..08da571 100644
+--- a/OrderRepository.cs
++++ b/OrderRepository.cs
+@@ -6,4 +6,12 @@ public class OrderRepository
+     public OrderRepository(ShopDbContext db) => _db = db;
+     public Task<List<Order>> GetAllAsync() => _db.Orders.ToListAsync();
+     public Task<Order?> GetAsync(Guid id) => _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
++
++    public async Task ClearItems(Guid orderId)
++    {
++        var order = await _db.Orders.Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == orderId);
++        if (order == null) return;
++        order.Items.Clear();
++        await _db.SaveChangesAsync();
++    }
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..df376cd
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,9 @@
++## Изменённые файлы
++- `Model.cs`
++- `OrderRepository.cs`
++
++## Решения
++- **Complexity**: добавлено поле `int Complexity` в `Order`; в `OnModelCreating` навешен CHECK-констрейнт `CK_Order_Complexity_Range` (`Complexity BETWEEN 1 AND 5`) через `ToTable(...).HasCheckConstraint`, чтобы диапазон 1..5 проверялся на уровне БД, а не только в коде.
++- **CreatedAt / UTC**: колонка осталась `timestamp without time zone` (как требуют отчёты DBA), но добавлен `ValueConverter<DateTime, DateTime>` через `HasConversion`: при записи любое значение приводится к UTC (`ToUniversalTime()`, если `Kind != Utc`), при чтении к сырому значению из БД принудительно проставляется `DateTimeKind.Utc` (`SpecifyKind`). Так код всегда получает и отправляет `DateTime` с `Kind = Utc`, независимо от таймзоны клиента, без изменения типа столбца.
++- **Мягкое удаление и связи**: `HasQueryFilter(!IsDeleted)` на `Order` оставлен как есть; связи `Order -> Items` и `Order -> Payments` явно объявлены в `OnModelCreating` через `HasMany(...).WithOne().HasForeignKey(...)` с `OnDelete(DeleteBehavior.Cascade)` — раньше они полагались только на конвенции по имени `OrderId`.
++- **ClearItems**: `OrderRepository.ClearItems(Guid orderId)` подгружает заказ с `Include(o => o.Items)`, очищает коллекцию (`order.Items.Clear()`) и сохраняет через `SaveChangesAsync()`. Так как `OrderItem.OrderId` — обязательный (не nullable) внешний ключ, EF Core трактует удаление из коллекции как удаление строк (orphan deletion), а не просто отвязывание.

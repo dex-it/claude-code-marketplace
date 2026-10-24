@@ -1,0 +1,61 @@
+{
+  "id": "c176aa",
+  "case": "L5",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.028675399999999997,
+    "durationMs": 4914,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 2470,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 424,
+      "output_tokens_details": {
+        "thinking_tokens": 137
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 2470,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 424,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 2470,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 2470
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "L5-dedup": {
+      "verdict": "PASS",
+      "quote": "var ids = customerIds.ToHashSet();",
+      "why": "Дедупликация id выполняется через HashSet до разбиения на пачки и до отправки, поэтому повторённый id даёт одно письмо даже между пачками."
+    },
+    "L5-h-chunk": {
+      "verdict": "YES",
+      "quote": "// Список из маркетинговой системы может быть большим - грузим адреса порциями.",
+      "why": "Запрос клиентов режется через ids.Chunk(BatchSize) с обоснованием большим размером входного списка."
+    },
+    "L5-m-enum": {
+      "verdict": "NO",
+      "quote": "var ids = customerIds.ToHashSet();",
+      "why": "customerIds перечисляется ровно один раз; дальше используется материализованный HashSet."
+    }
+  },
+  "stderr": ""
+}

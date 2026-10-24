@@ -1,0 +1,61 @@
+{
+  "id": "ee105c",
+  "case": "L5",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.030547400000000002,
+    "durationMs": 8108,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 2024,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 696,
+      "output_tokens_details": {
+        "thinking_tokens": 412
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 2024,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 696,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 2024,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 2024
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "L5-dedup": {
+      "verdict": "PASS",
+      "quote": ".Where(c => idsList.Contains(c.Id))",
+      "why": "Запрос WHERE IN по Contains возвращает каждого клиента один раз, даже если id повторяется во входе, поэтому письмо уходит одно; явного Distinct нет, а заявление, что дубли убирает ToList, неверно, но по поведению кода дублей писем нет."
+    },
+    "L5-h-chunk": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Запрос выполняется одним Contains без разбиения на пачки."
+    },
+    "L5-m-enum": {
+      "verdict": "NO",
+      "quote": "var idsList = customerIds.ToList();",
+      "why": "customerIds перечисляется один раз при материализации, дальше используется только idsList."
+    }
+  },
+  "stderr": ""
+}

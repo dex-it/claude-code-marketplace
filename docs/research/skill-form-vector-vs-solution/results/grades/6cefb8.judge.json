@@ -1,0 +1,72 @@
+{
+  "id": "6cefb8",
+  "case": "G6",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.10992700000000001,
+    "durationMs": 10970,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 10854,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1133,
+      "output_tokens_details": {
+        "thinking_tokens": 606
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 10854,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1133,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 10854,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 10854
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G6-sort-alias": {
+      "verdict": "PASS",
+      "quote": "var needHouseJoin = !string.IsNullOrWhiteSpace(s.District) || s.Sort == RequestSort.Address;",
+      "why": "JOIN apartments и houses добавляются по одному разу через общие флаги, которые учитывают и фильтры, и сортировку; столбец и направление выбираются switch по enum."
+    },
+    "G6-search-columns": {
+      "verdict": "FAIL",
+      "quote": "public string? Phone { get; set; }",
+      "why": "В ServiceRequest добавлены маппленные Phone, CloseComment и ClosedAt, но явный список колонок SELECT в SearchAsync в diff не изменён, поэтому FromSqlRaw не вернёт все свойства сущности и реестр упадёт."
+    },
+    "G6-plan-orphans": {
+      "verdict": "PASS",
+      "quote": "_db.PlanItems.RemoveRange(removed);",
+      "why": "Существующие работы обновляются на месте, выпавшие удаляются явным RemoveRange, новые добавляются, поэтому сирот при DeleteOrphansTiming.Never не остаётся."
+    },
+    "G6-h-move-items": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "MergePlansAsync не изменён и дефектным не объявлен."
+    },
+    "G6-h-limit": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Подстановка LIMIT/OFFSET оставлена как есть и инъекцией не названа."
+    }
+  },
+  "stderr": ""
+}

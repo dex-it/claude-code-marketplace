@@ -1,0 +1,31 @@
+diff --git a/docs/requirements/.req_counter/02.FR b/docs/requirements/.req_counter/02.FR
+index 9eeb3ef..2ba61ff 100644
+--- a/docs/requirements/.req_counter/02.FR
++++ b/docs/requirements/.req_counter/02.FR
+@@ -1 +1 @@
+-2004
++2005
+diff --git a/docs/requirements/02-points-redemption/decision-log.md b/docs/requirements/02-points-redemption/decision-log.md
+index ae8b818..50e3bd6 100644
+--- a/docs/requirements/02-points-redemption/decision-log.md
++++ b/docs/requirements/02-points-redemption/decision-log.md
+@@ -6,3 +6,7 @@
+ | D-2 | Минимальное списание - 100 баллов | владелец продукта, финансы | без минимума | мелкие остатки не тратятся | FR-2003 |
+ 
+ --- набор допущен, ревизия 1 (01.09.2026) ---
++
++| № | Что решено | Кто принял | Отклонено | Цена | Где норматив |
++|---|---|---|---|---|---|
++| D-3 | **Открыто.** Оплата баллами ограничена долей суммы заказа (требование финансов); значение доли и база расчёта (с доставкой или без) не названы | не принято; ответ - финансы, ожидается на следующей неделе | - | до ответа ограничение нельзя проверить и реализовать | FR-2005 |
+diff --git a/docs/requirements/02-points-redemption/srs.md b/docs/requirements/02-points-redemption/srs.md
+index cc031bf..f5e1ef5 100644
+--- a/docs/requirements/02-points-redemption/srs.md
++++ b/docs/requirements/02-points-redemption/srs.md
+@@ -6,6 +6,7 @@
+ - **FR-2002** Оплата баллами недоступна для заказа, который оплачивается подарочным сертификатом. Основание: BR-2002.
+ - **FR-2003** Минимальное списание - 100 баллов. Основание: D-2.
+ - **FR-2004** Баллы списываются в момент подтверждения оплаты; при отмене оплаты возвращаются на счёт. Основание: BR-2001.
++- **FR-2005** Баллами можно покрыть не больше определённой доли суммы заказа; значение доли не определено, ожидается от финансов. Основание: D-3 (открыто).
+ 
+ ## Нефункциональные требования
+ 

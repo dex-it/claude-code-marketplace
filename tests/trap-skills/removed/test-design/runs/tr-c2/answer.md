@@ -1,0 +1,1 @@
+Находок: 12. Blocker — 2, major — 6, minor — 4.

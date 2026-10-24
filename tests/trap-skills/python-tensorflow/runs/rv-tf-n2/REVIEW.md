@@ -1,0 +1,14 @@
+src/shelfwatch/keras_train.py:37 - выходной слой уже softmax, а потеря на строках 81 и 98 с from_logits=True: softmax применяется дважды, градиенты искажены, модель учится хуже и вероятности сплющены - blocker
+src/shelfwatch/keras_train.py:103 - EarlyStopping следит за val_loss, но в fit нет validation_data (val_df на строке 91 не используется): коллбэк ни разу не сработает, всегда 100 эпох, переобучение, лучшие веса не восстанавливаются (нет restore_best_weights) - blocker
+src/shelfwatch/keras_train.py:107 - сохранение подклассовой модели в .h5 с кастомными SkuNet/ResidualBlock без get_config: save/load упадёт или сервис не загрузит модель - blocker
+src/shelfwatch/keras_train.py:94 - модель создаётся и компилируется (строка 79) вне strategy.scope(), затем повторно компилируется внутри: переменные не зеркалируются, несколько GPU фактически не используются, дублирование compile - major
+src/shelfwatch/keras_train.py:17 - mixed_float16 выставляется глобально при импорте (побочный эффект для тестов и сервиса), а выходной softmax остаётся в float16: потеря точности вероятностей, нестабильность потери; последний слой нужен с dtype="float32" - major
+src/shelfwatch/keras_train.py:55 - batch() до shuffle(64): перемешиваются целые батчи, а не строки, состав батчей фиксирован между эпохами - хуже обобщение; в обучающей ветке нет prefetch, GPU простаивает на входе - major
+src/shelfwatch/keras_train.py:90 - map(augment) без num_parallel_calls (и без prefetch после него): аугментация идёт последовательно и тормозит входной конвейер - major
+src/shelfwatch/keras_train.py:15 - абсолютный путь /home/dmitry/... вшит в код, хотя есть DATA_DIR в paths.py: на любой другой машине и в CI чтение данных упадёт - major
+src/shelfwatch/keras_train.py:88 - случайное разбиение без стратификации и без фиксации seed в TF/numpy (задан только random_state для pandas): метрики невоспроизводимы, возможен перекос классов в val - minor
+src/shelfwatch/keras_train.py:105 - оценка только на первых 512 строках val и без accuracy/метрик: печатается доля уверенных предсказаний, а не качество, о качестве модели ничего не известно - minor
+src/shelfwatch/keras_train.py:46 - проверка пропусков через assert отключается при python -O, и нет проверки диапазона category (0..9): мусор в данных дойдёт до обучения - minor
+src/shelfwatch/keras_train.py:62 - shuffle с buffer_size=16 не даёт случайной выборки (почти исходный порядок), take(n) берёт первые ~n строк: проба нерепрезентативна - minor
+src/shelfwatch/keras_train.py:72 - в @tf.function print срабатывает только при трассировке, len(x) тензора и срезание до 1000 строк молча отбрасывают данные, разные формы вызывают ретрейсинг; функция нигде не используется - minor
+tests/test_keras_train.py:6 - тест только проверяет форму прямого прохода: обучение, сохранение/загрузка и конвейер данных не покрыты, ошибки выше пройдут незамеченными - minor

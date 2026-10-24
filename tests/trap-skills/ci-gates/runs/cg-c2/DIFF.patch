@@ -1,0 +1,85 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 2fab355..2ec42e2 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -3,14 +3,14 @@ on:
+   push:
+     branches: [main]
+   pull_request:
+-    paths:
+-      - 'src/**'
+-      - 'tests/**'
+ jobs:
+   ci:
+     runs-on: ubuntu-latest
+     permissions:
+       contents: read
++    defaults:
++      run:
++        shell: bash
+     steps:
+       - uses: actions/checkout@v4
+       - uses: actions/setup-dotnet@v4
+@@ -20,18 +20,15 @@ jobs:
+       - name: build
+         run: dotnet build -c Release --no-restore 2>&1 | tee build.log
+       - name: format
+-        run: dotnet format --no-restore
++        run: dotnet format --no-restore --verify-no-changes
+       - name: analyzers
+-        run: dotnet build -c Release --no-restore -warnaserror -p:RunAnalyzers=true || true
++        run: dotnet build -c Release --no-restore -warnaserror -p:RunAnalyzers=true
+       - name: tests
+-        run: dotnet test -c Debug --no-build --filter "Category=Unit" --logger trx
+-        continue-on-error: true
+-      - name: lint changed files
+-        run: git diff --name-only origin/main...HEAD -- '*.cs' | xargs -r dotnet format --no-restore --include
++        run: dotnet test -c Release --no-build --logger trx
+       - name: coverage comment
+         uses: dex/coverage-comment@v1
+         continue-on-error: true  # комментарий в PR с покрытием: удобство, не проверка
+         with:
+           file: coverage/summary.txt
+       - name: cleanup
+-        run: rm -rf build.log || true
++        run: rm -f build.log
+diff --git a/.github/workflows/security.yml b/.github/workflows/security.yml
+index fc4a804..a2f6973 100644
+--- a/.github/workflows/security.yml
++++ b/.github/workflows/security.yml
+@@ -2,14 +2,21 @@ name: security
+ on:
+   push:
+     branches: [main]
++  pull_request:
+ jobs:
+   audit:
+     runs-on: ubuntu-latest
+     permissions:
+       contents: read
++    defaults:
++      run:
++        shell: bash
+     steps:
+       - uses: actions/checkout@v4
+       - uses: actions/setup-dotnet@v4
+         with:
+           dotnet-version: 8.0.x
+-      - run: dotnet list package --vulnerable --include-transitive
++      - name: vulnerable packages
++        run: |
++          dotnet list package --vulnerable --include-transitive 2>&1 | tee audit.log
++          if grep -q "has the following vulnerable packages" audit.log; then exit 1; fi
+diff --git a/docs/hosting/branch-protection.json b/docs/hosting/branch-protection.json
+index bc5d0b7..d07683c 100644
+--- a/docs/hosting/branch-protection.json
++++ b/docs/hosting/branch-protection.json
+@@ -4,7 +4,7 @@
+     "strict": true,
+     "contexts": ["ci"]
+   },
+-  "enforce_admins": false,
++  "enforce_admins": true,
+   "required_pull_request_reviews": { "required_approving_review_count": 1 },
+   "restrictions": null,
+   "allow_force_pushes": false,

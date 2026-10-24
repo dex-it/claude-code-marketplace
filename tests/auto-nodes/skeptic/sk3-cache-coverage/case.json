@@ -1,0 +1,91 @@
+{
+  "task": "FEAT-1",
+  "base": "fixtures/auto-live/cache-feature/repo",
+  "change": "auto-nodes/reviewer/rv1-cache-write/change",
+  "commit": "feat(cache): writeSlugCache",
+  "requirements": [
+    "R1. writeSlugCache(name, value) записывает значение в кэш; последующий readSlugCache(name) возвращает его же. (FEAT.md:8)",
+    "R2. Каталог кэша создаётся, если его ещё нет. (FEAT.md:10)",
+    "R3. Запись перезаписывает прежнее значение того же ключа. (FEAT.md:11)",
+    "R4. Имя ключа приходит из пользовательского ввода и может быть любым. (FEAT.md:12)"
+  ],
+  "files": [
+    "src/cache.js",
+    "test/cache.test.js"
+  ],
+  "findings": [
+    {
+      "anchor": "src/cache.js:14",
+      "severity": "P0",
+      "axis": "security",
+      "text": "имя ключа из пользовательского ввода (R4) склеивается в путь без проверки: ../x пишет за пределы CACHE_DIR",
+      "closure": "отклонять имя с разделителем пути либо проверять, что путь внутри CACHE_DIR",
+      "evidence": "join(CACHE_DIR, name + \".json\") в строке 14"
+    }
+  ],
+  "axes": [
+    {
+      "name": "security",
+      "outcome": "findings",
+      "checked": "путь записи из имени ключа"
+    },
+    {
+      "name": "architecture",
+      "outcome": "n/a",
+      "checked": "правка эту ось не задевает"
+    },
+    {
+      "name": "language",
+      "outcome": "clean",
+      "checked": "ESM, node:fs синхронно"
+    },
+    {
+      "name": "business",
+      "outcome": "clean",
+      "checked": "R1-R4 против writeSlugCache"
+    },
+    {
+      "name": "regressions",
+      "outcome": "clean",
+      "checked": "readSlugCache не тронут"
+    },
+    {
+      "name": "performance",
+      "outcome": "n/a",
+      "checked": "правка эту ось не задевает"
+    },
+    {
+      "name": "coverage",
+      "outcome": "clean",
+      "checked": "на каждое требование R1-R4 есть тест в test/cache.test.js"
+    },
+    {
+      "name": "loose-ends",
+      "outcome": "n/a",
+      "checked": "правка эту ось не задевает"
+    },
+    {
+      "name": "non-code",
+      "outcome": "n/a",
+      "checked": "правка эту ось не задевает"
+    }
+  ],
+  "expect": {
+    "confirm": [
+      {
+        "id": "M1",
+        "file": "src/cache.js",
+        "lines": [
+          12,
+          15
+        ],
+        "blocking": true
+      }
+    ],
+    "drop": [],
+    "coverage": [
+      "R2",
+      "R4"
+    ]
+  }
+}

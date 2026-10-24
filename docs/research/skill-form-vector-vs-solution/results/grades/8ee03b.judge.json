@@ -1,0 +1,72 @@
+{
+  "id": "8ee03b",
+  "case": "G6",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.109787,
+    "durationMs": 8668,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 11429,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 896,
+      "output_tokens_details": {
+        "thinking_tokens": 361
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11429,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 896,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 11429,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 11429
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G6-sort-alias": {
+      "verdict": "PASS",
+      "quote": "var needsApartmentJoin = s.HouseId is not null || !string.IsNullOrWhiteSpace(s.District)\n            || s.Sort == RequestSort.Address;",
+      "why": "Флаги JOIN учитывают и фильтры, и сортировку; каждый JOIN добавляется ровно один раз, старый JOIN houses в ветке District удалён, а столбец и направление берутся из enum через switch."
+    },
+    "G6-search-columns": {
+      "verdict": "PASS",
+      "quote": "r.contact_phone, r.closing_comment",
+      "why": "Обе новые маппленные колонки добавлены в явный список SELECT сырого SQL в SearchAsync."
+    },
+    "G6-plan-orphans": {
+      "verdict": "PASS",
+      "quote": "plan.Items.Remove(obsolete);\n            _db.PlanItems.Remove(obsolete);",
+      "why": "Совпавшие по WorkCode пункты обновляются на месте, отсутствующие удаляются явно через _db.PlanItems.Remove, новые добавляются; план не пересоздаётся целиком."
+    },
+    "G6-h-move-items": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "MergePlansAsync не изменён, и выход не утверждает, что в нём есть дефект."
+    },
+    "G6-h-limit": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Подстановка LIMIT/OFFSET не тронута и SQL-инъекцией не названа."
+    }
+  },
+  "stderr": ""
+}

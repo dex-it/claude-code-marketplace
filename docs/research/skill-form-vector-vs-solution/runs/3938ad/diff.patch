@@ -1,0 +1,109 @@
+diff --git a/CatalogMaintenance.cs b/CatalogMaintenance.cs
+new file mode 100644
+index 0000000..03a3d9d
+--- /dev/null
++++ b/CatalogMaintenance.cs
+@@ -0,0 +1,90 @@
++namespace Shop.Data;
++
++public class CatalogMaintenance
++{
++    private readonly ShopDbContext _db;
++
++    public CatalogMaintenance(ShopDbContext db) => _db = db;
++
++    // (a) Raise prices for a whole category in one set-based UPDATE (no row materialization).
++    public Task<int> RaisePricesAsync(string category, CancellationToken ct = default) =>
++        _db.Products
++            .Where(p => p.Category == category)
++            .ExecuteUpdateAsync(s => s.SetProperty(p => p.Price, p => p.Price * 1.1m), ct);
++
++    // (b) Nightly purge of AuditLogs older than the retention period.
++    // ~40M of ~50M rows qualify for deletion, so a single DELETE/ExecuteDelete would hold a huge
++    // lock, blow up WAL/bloat and risk a long-running transaction. Instead we delete in small
++    // batches (Id-ordered, via a subquery since Postgres has no DELETE ... LIMIT), pausing briefly
++    // between batches so autovacuum, replication and concurrent queries aren't starved.
++    public async Task<long> PurgeOldAuditLogsAsync(
++        TimeSpan? retention = null,
++        int batchSize = 5000,
++        TimeSpan? delayBetweenBatches = null,
++        CancellationToken ct = default)
++    {
++        var cutoff = DateTime.UtcNow - (retention ?? TimeSpan.FromDays(365));
++        var pause = delayBetweenBatches ?? TimeSpan.FromMilliseconds(200);
++
++        long totalDeleted = 0;
++        int deletedInBatch;
++        do
++        {
++            ct.ThrowIfCancellationRequested();
++
++            deletedInBatch = await _db.Database.ExecuteSqlInterpolatedAsync(
++                $"DELETE FROM \"AuditLogs\" WHERE \"Id\" IN (SELECT \"Id\" FROM \"AuditLogs\" WHERE \"At\" < {cutoff} ORDER BY \"Id\" LIMIT {batchSize})",
++                ct);
++
++            totalDeleted += deletedInBatch;
++
++            if (deletedInBatch > 0 && pause > TimeSpan.Zero)
++                await Task.Delay(pause, ct);
++        } while (deletedInBatch > 0);
++
++        return totalDeleted;
++    }
++
++    // (c) Load requested products, bump Stock, save once.
++    public async Task Restock(IEnumerable<(Guid id, int add)> deltas, CancellationToken ct = default)
++    {
++        var totalsById = new Dictionary<Guid, int>();
++        foreach (var (id, add) in deltas)
++            totalsById[id] = totalsById.GetValueOrDefault(id) + add;
++
++        if (totalsById.Count == 0)
++            return;
++
++        var ids = totalsById.Keys.ToList();
++        var products = await _db.Products.Where(p => ids.Contains(p.Id)).ToListAsync(ct);
++
++        foreach (var product in products)
++            product.Stock += totalsById[product.Id];
++
++        await _db.SaveChangesAsync(ct);
++    }
++
++    // (d) Create a new product with a fresh Id.
++    public async Task<Product> CreateProduct(
++        string sku,
++        string category,
++        string warehouse,
++        decimal price,
++        int stock = 0,
++        CancellationToken ct = default)
++    {
++        var product = new Product
++        {
++            Id = Guid.NewGuid(),
++            Sku = sku,
++            Category = category,
++            Warehouse = warehouse,
++            Price = price,
++            Stock = stock,
++        };
++
++        _db.Products.Add(product);
++        await _db.SaveChangesAsync(ct);
++        return product;
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..b9d8516
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,7 @@
++## Изменённые/созданные файлы
++- Создан: `CatalogMaintenance.cs` (namespace `Shop.Data`, класс `CatalogMaintenance`)
++
++## Решения
++- (а) Поднятие цен — через `ExecuteUpdateAsync` (EF Core 8), одна SQL-команда `UPDATE` без загрузки строк в память.
++- (б) Очистка `AuditLogs` — не единый `ExecuteDelete`/`DELETE`: при ~40 млн строк на удаление это дало бы гигантскую блокировку, распухание WAL/bloat и риск долгой транзакции. Вместо этого удаление батчами по `Id` через подзапрос с `LIMIT` (в Postgres нет `DELETE ... LIMIT` напрямую) с паузой между батчами, пока не удалит всё; параметры (retention, batchSize, задержка) настраиваемые.
++- (в)/(г) `Restock` агрегирует дубли id перед загрузкой, обновляет `Stock` и делает один `SaveChangesAsync`; `CreateProduct` создаёт `Product` с `Guid.NewGuid()` и сохраняет.

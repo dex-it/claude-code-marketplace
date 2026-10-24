@@ -1,0 +1,80 @@
+diff --git a/OrderReportService.cs b/OrderReportService.cs
+new file mode 100644
+index 0000000..6e5ac08
+--- /dev/null
++++ b/OrderReportService.cs
+@@ -0,0 +1,36 @@
++namespace Shop.Data;
++
++public record ActiveOrderReportItem(Guid Id, string CustomerName, decimal Total, int ItemsCount);
++public record OverdueOrderReportItem(Guid Id, string CustomerName, DateTime CreatedAt, decimal Total);
++
++// Read-only queries backing the orders report page.
++public class OrderReportService
++{
++    private readonly OrderRepository _orders;
++    public OrderReportService(OrderRepository orders) => _orders = orders;
++
++    public async Task<List<ActiveOrderReportItem>> GetActiveOrdersAsync()
++    {
++        var orders = await _orders.GetActiveAsync();
++        return orders
++            .Select(o => new ActiveOrderReportItem(o.Id, o.Customer.Name, o.Total, o.Items.Count))
++            .ToList();
++    }
++
++    public async Task<Dictionary<string, int>> GetActiveOrderCountsByCategoryAsync()
++    {
++        var orders = await _orders.GetActiveAsync();
++        return orders
++            .GroupBy(o => o.Category)
++            .ToDictionary(g => g.Key, g => g.Count());
++    }
++
++    public async Task<List<OverdueOrderReportItem>> GetOverdueOrdersAsync(DateTime now)
++    {
++        var orders = await _orders.GetOverdueAsync(now);
++        return orders
++            .Where(o => o.IsOverdue(now))
++            .Select(o => new OverdueOrderReportItem(o.Id, o.Customer.Name, o.CreatedAt, o.Total))
++            .ToList();
++    }
++}
+diff --git a/OrderRepository.cs b/OrderRepository.cs
+index 72637b8..dd07e9d 100644
+--- a/OrderRepository.cs
++++ b/OrderRepository.cs
+@@ -6,4 +6,19 @@ public class OrderRepository
+     public OrderRepository(ShopDbContext db) => _db = db;
+     public Task<List<Order>> GetAllAsync() => _db.Orders.ToListAsync();
+     public Task<Order?> GetAsync(Guid id) => _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
++
++    public Task<List<Order>> GetActiveAsync() =>
++        _db.Orders
++            .Where(o => o.Status == "active")
++            .Include(o => o.Customer)
++            .Include(o => o.Items)
++            .ToListAsync();
++
++    // Coarse DB-side filter mirroring Order.IsOverdue; callers should re-check
++    // the exact rule in memory since AddDays(3) < now can't be kept in sync automatically.
++    public Task<List<Order>> GetOverdueAsync(DateTime now) =>
++        _db.Orders
++            .Where(o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < now)
++            .Include(o => o.Customer)
++            .ToListAsync();
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..08d574c
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,8 @@
++Изменённые/созданные файлы:
++- OrderRepository.cs — добавлены методы `GetActiveAsync()` (заказы Status == "active" c подгрузкой Customer и Items) и `GetOverdueAsync(now)` (грубый DB-фильтр по правилу `ShippedAt == null && CreatedAt.AddDays(3) < now`).
++- OrderReportService.cs (новый) — сервис с тремя read-only методами: `GetActiveOrdersAsync()` (Id, имя клиента, Total, число позиций), `GetActiveOrderCountsByCategoryAsync()` (Dictionary<категория, число>), `GetOverdueOrdersAsync(now)` (просроченные заказы).
++
++Решения:
++- `Order.IsOverdue` — инстанс-метод, EF Core его в SQL не транслирует, поэтому в репозитории продублировано эквивалентное условие для фильтрации на стороне БД, а сервис дополнительно перепроверяет точным вызовом `o.IsOverdue(now)` в памяти как источник истины.
++- Категория берётся из `Order.Category` (у заказа есть собственное поле категории, товарная категория не нужна для группировки активных заказов).
++- Данные для отчёта возвращаются в виде простых DTO-record'ов (`ActiveOrderReportItem`, `OverdueOrderReportItem`), а не сущностей EF, чтобы не тащить лишние навигационные свойства на страницу отчётов.

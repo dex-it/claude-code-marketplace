@@ -1,0 +1,16 @@
+src/Fulfil/Archive/OrderStore.cs:17-18 - на каждое обращение создаётся новый MongoClient (свой пул соединений и мониторинг), singleton IMongoDatabase из DI не используется; под нагрузкой исчерпаются сокеты/потоки, соединения не освобождаются - blocker
+src/Fulfil/Archive/OrderStore.cs:27-28 - в каждый заказ копируются имя и email клиента (изменяемые данные другой сущности); после смены email клиента письмо об отгрузке и архив останутся со старым адресом, письмо уйдёт не тому - major
+src/Fulfil/Archive/MongoConventions.cs:18-20 - нет IgnoreExtraElementsConvention: документы в базе старше класса (или новее после отката) с лишними полями падают FormatException при десериализации, заказы не читаются - major
+src/Fulfil/Archive/OrderStore.cs:61-69 - «мои заказы» читает документы целиком (Lines, Events, Tags, email), а нужны только Id и Status; лишний трафик и память, растёт с историей событий - добавить Project - major
+src/Fulfil/Archive/ShippedWatcher.cs:31-41 - опрос коллекции каждые 5 с вместо реакции на изменение (change streams по replace/update Status=Shipped); постоянная нагрузка на базу и задержка письма до 5 с - major
+src/Fulfil/Archive/ArchiveInitializer.cs:10-19 - нет индекса под CustomerId+PlacedAt (ListMineAsync, SearchAsync) и PlacedAt (ExportAsync); эти запросы с сортировкой идут по полному скану коллекции orders - major
+src/Fulfil/Archive/OrderStore.cs:52-59 - SearchAsync возвращает OrderDoc целиком без проекции (с Events и Lines) - major
+src/Fulfil/Archive/OrderStore.cs:57 - Skip(page * PageSize) при нумерации страниц с 1 в ListMineAsync/OrderEvents ((page - 1)): первая страница пропускается, пользователь не видит 50 свежих заказов - major
+src/Fulfil/Archive/OrderStore.cs:72-73 - ExportAsync грузит в память все заказы за период целыми документами без лимита и курсора; на большом периоде OOM - major
+src/Fulfil/Archive/OrderStore.cs:31 - Total считается как double из decimal-цен (при том что в конвенциях decimal хранится как Decimal128); ошибки округления в денежной сумме, а сумма ещё и дублирует Lines - major
+src/Fulfil/Archive/OrderDoc.cs:27 - денежное поле Total типа double, не decimal: расхождение копеек с учётной системой - minor
+src/Fulfil/Archive/OrderEvents.cs:11-21 - события растут неограниченно массивом внутри документа заказа (лимит 16 МБ, документ раздувается и читается целиком); ListAsync тянет весь массив и режет страницу в памяти вместо $slice в проекции - major
+src/Fulfil/Archive/ArchiveInitializer.cs:18 - индекс (At, ToWarehouse, Sku) в неправильном порядке для запроса HistoryAsync (равенство Sku, ToWarehouse, затем диапазон/сортировка по At); индекс почти не отсекает документы - major
+src/Fulfil/Archive/ShippedWatcher.cs:57-61 - при сбое IMailer флаг сбрасывается и исключение прерывает цикл по ids: остальные заказы пачки не обрабатываются, постоянно падающий заказ блокирует остальных и повторяется каждые 5 с; падение процесса между claim и отправкой теряет письмо - minor
+src/Fulfil/Archive/CartDraftCleaner.cs:9-16 - чистка по таймеру DeleteMany без индекса по UpdatedAt (скан коллекции раз в час); штатное решение - TTL-индекс по UpdatedAt - minor
+src/Fulfil/Archive/StockTransfer.cs:12 - ключ склада "{sku}|{warehouse}" без экранирования: sku или склад с '|' дадут коллизию ключей и перенос остатка не на тот склад - minor

@@ -1,0 +1,51 @@
+{
+  "id": "edf231",
+  "case": "K1",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0350994,
+    "durationMs": 3129,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 3853,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 192,
+      "output_tokens_details": {
+        "thinking_tokens": 62
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3853,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 192,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 3853,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 3853
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "K1-key": {
+      "verdict": "PASS",
+      "quote": "public const string Email = \"email\";",
+      "why": "Ключи объявлены один раз константами в NotificationChannels и используются в AddKeyedSingleton (Program.cs) и в [FromKeyedServices] (ReportsController, OrderService); строк-литералов ключей вне констант нет."
+    }
+  },
+  "stderr": ""
+}

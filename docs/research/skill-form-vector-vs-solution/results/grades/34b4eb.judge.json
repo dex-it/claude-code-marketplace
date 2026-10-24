@@ -1,0 +1,71 @@
+{
+  "id": "34b4eb",
+  "case": "N0",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0424034,
+    "durationMs": 5872,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 3936,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 524,
+      "output_tokens_details": {
+        "thinking_tokens": 0
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3936,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 524,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 3936,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 3936
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "N0-h-split": {
+      "verdict": "YES",
+      "quote": "`AsSplitQuery()` на выборке одной записи — **medium**",
+      "why": "Выход объявляет AsSplitQuery в OrderCard.GetAsync дефектом и рекомендует его убрать."
+    },
+    "N0-h-utc": {
+      "verdict": "YES",
+      "quote": "привести к `DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified)`",
+      "why": "Выход объявляет At = DateTime.UtcNow критическим дефектом и требует SpecifyKind/Unspecified или смену типа колонки на timestamptz."
+    },
+    "N0-h-contains": {
+      "verdict": "NO",
+      "quote": "проблем с планом/лимитом параметров не будет (в отличие от SQL Server) — замечаний нет",
+      "why": "Выход явно признаёт ids.Contains корректным и находки против него не делает."
+    },
+    "N0-X1": {
+      "verdict": "FOUND",
+      "quote": "`Skip(page * pageSize)` при `page = 1` пропускает первые `pageSize` строк",
+      "why": "Выход называет off-by-one, из-за которого пропускается первая страница."
+    },
+    "N0-X2": {
+      "verdict": "FOUND",
+      "quote": "фильтр `o.Status == \"Active\"` не совпадёт ни с одной записью, созданной с дефолтным статусом",
+      "why": "Выход указывает на расхождение регистра с \"active\" в модели и на пустой результат."
+    }
+  },
+  "stderr": ""
+}

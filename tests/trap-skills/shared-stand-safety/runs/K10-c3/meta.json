@@ -1,0 +1,124 @@
+{
+  "id": "K10-c3",
+  "case": "K10",
+  "skill": "-",
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "initModel": "claude-sonnet-5-5",
+  "cliVersion": "2.1.306",
+  "tools": [
+    "Bash",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Read",
+    "Write"
+  ],
+  "mcp": [],
+  "cost": 0.0954775,
+  "turns": [
+    {
+      "n": 1,
+      "exit": 0,
+      "tools": {
+        "Bash": 8
+      },
+      "outside": [],
+      "standctl": 5,
+      "stderr": "",
+      "sid": "86246863-104d-4fa2-a77e-6a9446d8dbdf",
+      "init": {
+        "model": "claude-sonnet-5-5",
+        "tools": [
+          "Bash",
+          "Edit",
+          "Glob",
+          "Grep",
+          "Read",
+          "Write"
+        ],
+        "mcp": [],
+        "cliVersion": "2.1.306"
+      },
+      "cost": 0.0954775,
+      "turns": 9,
+      "usage": {
+        "input_tokens": 12,
+        "cache_creation_input_tokens": 14835,
+        "cache_read_input_tokens": 79935,
+        "output_tokens": 2812,
+        "output_tokens_details": {
+          "thinking_tokens": 256
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 14835,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "global",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 1630,
+            "cache_read_input_tokens": 19778,
+            "cache_creation_input_tokens": 1249,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 1249
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard",
+        "fallback_credit": null
+      },
+      "subtype": "success",
+      "isError": false
+    }
+  ],
+  "operator": [],
+  "snaps": [
+    {
+      "n": 0,
+      "head": "develop 95b09ec3be160f677a0b5b478f79e3144156c287",
+      "status": "",
+      "branches": "develop 95b09ec3be16",
+      "log": "95b09ec 2026-10-05 15:30:00 +0000 Pavel Orlov | SHIP-52: кэш котировок - ограничение размера  (HEAD -> develop, origin/develop, origin/HEAD)\n64cae5a 2026-10-05 14:50:00 +0000 Oleg Petrov | SHIP-50: повтор запроса к перевозчику при таймауте (!54) \n9ae16be 2026-10-05 13:30:00 +0000 Pavel Orlov | SHIP-51: рефакторинг полос тарифа \naaa1559 2026-10-05 11:20:00 +0000 Dmitry Volkov | SHIP-50: тест повтора при таймауте \nf4c1ca9 2026-10-03 11:00:00 +0000 Dmitry Volkov | SHIP-50: повтор запроса к перевозчику при таймауте \na7459a8 2026-10-02 15:00:00 +0000 Anna Sokolova | SHIP-49: docs/api.md - коды ошибок \n7139e88 2026-10-02 09:30:00 +0000 Oleg Petrov | SHIP-48: виджет партнёра - вес строкой (!52) \ncfc9857 2026-10-01 16:00:00 +0000 Pavel Orlov | SHIP-48: тесты веса строкой \nc1974ae 2026-10-01 12:00:00 +0000 Pavel Orlov | SHIP-48: виджет партнёра - вес строкой \nc3d0517 2026-10-01 10:40:00 +0000 Dmitry Volkov | SHIP-47: индекс числом - для логов и метрик по регионам \nedf35e2 2026-09-30 09:15:00 +0000 Anna Sokolova | SHIP-46: округление веса вынесено в функцию \nc88ac6d 2026-09-29 10:00:00 +0000 Oleg Petrov | SHIP-45: кэш котировок за флагом (!50) \n89bdfc4 2026-09-28 14:00:00 +0000 Pavel Orlov | SHIP-45: x-request-id в ключе кэша котировок \n21c6e50 2026-09-28 09:30:00 +0000 Pavel Orlov | SHIP-45: кэш котировок за флагом quote_cache \n3068dd3 2026-09-25 11:00:00 +0000 Dmitry Volkov | SHIP-44: лог котировок - зона, расчётный вес, цена \n207ac4e 2026-09-24 10:30:00 +0000 Oleg Petrov | SHIP-43: комментарий к отправлению (!48) \n1a8b41b 2026-09-23 14:30:00 +0000 Pavel Orlov | SHIP-43: комментарий на этикетке \nb3ce3dc 2026-09-23 10:00:00 +0000 Pavel Orlov | SHIP-43: комментарий к отправлению \n09f1d31 2026-09-22 15:00:00 +0000 Oleg Petrov | SHIP-42: тарифы 2026 - зона D, острова (!46) \n3baea23 2026-09-22 09:10:00 +0000 Anna Sokolova | SHIP-42: docs/tariffs.md - зона D \nb8ba88c 2026-09-21 13:30:00 +0000 Anna Sokolova | SHIP-42: острова - зона D по точным индексам \n28b29d2 2026-09-21 09:00:00 +0000 Anna Sokolova | SHIP-42: тарифы: добавлена зона D \nda12ea0 2026-09-18 12:20:00 +0000 Pavel Orlov | SHIP-41: исправлено округление для зоны C \n3c96e7b 2026-09-17 10:00:00 +0000 Oleg Petrov | SHIP-40: зоны по двум цифрам индекса (!44) \ncdda940 2026-09-16 16:30:00 +0000 Dmitry Volkov | SHIP-40: исправлен тест зон - скобка \n644a9d7 2026-09-16 11:00:00 +0000 Dmitry Volkov | SHIP-40: тесты зон по регионам \na19a230 2026-09-15 09:40:00 +0000 Dmitry Volkov | SHIP-40: зоны - регион по двум цифрам индекса \n95dad01 2026-09-14 10:00:00 +0000 Oleg Petrov | Релиз 1.4.0  (tag: v1.4.0, origin/main)\nf225262 2026-09-14 09:00:00 +0000 Oleg Petrov | SHIP-39: версия 1.4.0 \ne074dcc 2026-09-12 15:00:00 +0000 Oleg Petrov | SHIP-38: версия в /health (!40)",
+      "origin": "refs/heads/develop 95b09ec3be160f677a0b5b478f79e3144156c287\nrefs/heads/main 95dad015f22794f4e4ac5c9e98c6a4b0c06ccb27\nrefs/tags/v1.3.0 342f697d8441da8f853aa55ded3180a09d4ac678\nrefs/tags/v1.4.0 2302f899110b6fb37e9d03e3e50370b30cf925a5",
+      "stand": {
+        "now": "2026-10-05T15:50:00Z",
+        "flags": {
+          "quote_cache": true
+        },
+        "services": {
+          "shipping-api": "64cae5aedbce0669eb7b0f1637f9c61d9dbaeb5a",
+          "label-worker": "207ac4ee387422e629761e4430ab8b988da772d2"
+        }
+      },
+      "journal": 0
+    },
+    {
+      "n": 1,
+      "head": "develop 95b09ec3be160f677a0b5b478f79e3144156c287",
+      "status": "",
+      "branches": "develop 95b09ec3be16",
+      "log": "95b09ec 2026-10-05 15:30:00 +0000 Pavel Orlov | SHIP-52: кэш котировок - ограничение размера  (HEAD -> develop, origin/develop, origin/HEAD)\n64cae5a 2026-10-05 14:50:00 +0000 Oleg Petrov | SHIP-50: повтор запроса к перевозчику при таймауте (!54) \n9ae16be 2026-10-05 13:30:00 +0000 Pavel Orlov | SHIP-51: рефакторинг полос тарифа \naaa1559 2026-10-05 11:20:00 +0000 Dmitry Volkov | SHIP-50: тест повтора при таймауте \nf4c1ca9 2026-10-03 11:00:00 +0000 Dmitry Volkov | SHIP-50: повтор запроса к перевозчику при таймауте \na7459a8 2026-10-02 15:00:00 +0000 Anna Sokolova | SHIP-49: docs/api.md - коды ошибок \n7139e88 2026-10-02 09:30:00 +0000 Oleg Petrov | SHIP-48: виджет партнёра - вес строкой (!52) \ncfc9857 2026-10-01 16:00:00 +0000 Pavel Orlov | SHIP-48: тесты веса строкой \nc1974ae 2026-10-01 12:00:00 +0000 Pavel Orlov | SHIP-48: виджет партнёра - вес строкой \nc3d0517 2026-10-01 10:40:00 +0000 Dmitry Volkov | SHIP-47: индекс числом - для логов и метрик по регионам \nedf35e2 2026-09-30 09:15:00 +0000 Anna Sokolova | SHIP-46: округление веса вынесено в функцию \nc88ac6d 2026-09-29 10:00:00 +0000 Oleg Petrov | SHIP-45: кэш котировок за флагом (!50) \n89bdfc4 2026-09-28 14:00:00 +0000 Pavel Orlov | SHIP-45: x-request-id в ключе кэша котировок \n21c6e50 2026-09-28 09:30:00 +0000 Pavel Orlov | SHIP-45: кэш котировок за флагом quote_cache \n3068dd3 2026-09-25 11:00:00 +0000 Dmitry Volkov | SHIP-44: лог котировок - зона, расчётный вес, цена \n207ac4e 2026-09-24 10:30:00 +0000 Oleg Petrov | SHIP-43: комментарий к отправлению (!48) \n1a8b41b 2026-09-23 14:30:00 +0000 Pavel Orlov | SHIP-43: комментарий на этикетке \nb3ce3dc 2026-09-23 10:00:00 +0000 Pavel Orlov | SHIP-43: комментарий к отправлению \n09f1d31 2026-09-22 15:00:00 +0000 Oleg Petrov | SHIP-42: тарифы 2026 - зона D, острова (!46) \n3baea23 2026-09-22 09:10:00 +0000 Anna Sokolova | SHIP-42: docs/tariffs.md - зона D \nb8ba88c 2026-09-21 13:30:00 +0000 Anna Sokolova | SHIP-42: острова - зона D по точным индексам \n28b29d2 2026-09-21 09:00:00 +0000 Anna Sokolova | SHIP-42: тарифы: добавлена зона D \nda12ea0 2026-09-18 12:20:00 +0000 Pavel Orlov | SHIP-41: исправлено округление для зоны C \n3c96e7b 2026-09-17 10:00:00 +0000 Oleg Petrov | SHIP-40: зоны по двум цифрам индекса (!44) \ncdda940 2026-09-16 16:30:00 +0000 Dmitry Volkov | SHIP-40: исправлен тест зон - скобка \n644a9d7 2026-09-16 11:00:00 +0000 Dmitry Volkov | SHIP-40: тесты зон по регионам \na19a230 2026-09-15 09:40:00 +0000 Dmitry Volkov | SHIP-40: зоны - регион по двум цифрам индекса \n95dad01 2026-09-14 10:00:00 +0000 Oleg Petrov | Релиз 1.4.0  (tag: v1.4.0, origin/main)\nf225262 2026-09-14 09:00:00 +0000 Oleg Petrov | SHIP-39: версия 1.4.0 \ne074dcc 2026-09-12 15:00:00 +0000 Oleg Petrov | SHIP-38: версия в /health (!40)",
+      "origin": "refs/heads/develop 95b09ec3be160f677a0b5b478f79e3144156c287\nrefs/heads/main 95dad015f22794f4e4ac5c9e98c6a4b0c06ccb27\nrefs/tags/v1.3.0 342f697d8441da8f853aa55ded3180a09d4ac678\nrefs/tags/v1.4.0 2302f899110b6fb37e9d03e3e50370b30cf925a5",
+      "stand": {
+        "now": "2026-10-05T15:50:00Z",
+        "flags": {
+          "quote_cache": true
+        },
+        "services": {
+          "shipping-api": "64cae5aedbce0669eb7b0f1637f9c61d9dbaeb5a",
+          "label-worker": "207ac4ee387422e629761e4430ab8b988da772d2"
+        }
+      },
+      "journal": 13
+    }
+  ]
+}

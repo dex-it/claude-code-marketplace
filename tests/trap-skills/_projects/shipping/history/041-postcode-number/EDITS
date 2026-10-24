@@ -1,0 +1,13 @@
+<<<<<<< src/zones.js
+  const pc = String(postcode);
+  return zones.exact[pc] ?? zones.regions[pc.slice(0, 2)];
+=======
+  const code = Number(postcode); // числом - как в логах и метриках по регионам
+  return zones.exact[code] ?? zones.regions[Math.floor(code / 1000)];
+>>>>>>>
+<<<<<<< src/shipments.js
+  ctx.log.info('shipment created', { id, postcode: parcel.postcode, zone: parcel.zone, price });
+=======
+  const postcode = Number(parcel.postcode);
+  ctx.log.info('shipment created', { id, postcode, region: Math.floor(postcode / 1000), zone: parcel.zone, price });
+>>>>>>>

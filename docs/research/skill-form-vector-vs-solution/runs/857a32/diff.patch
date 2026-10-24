@@ -1,0 +1,51 @@
+diff --git a/CustomerNotifier.cs b/CustomerNotifier.cs
+new file mode 100644
+index 0000000..452c521
+--- /dev/null
++++ b/CustomerNotifier.cs
+@@ -0,0 +1,33 @@
++using Microsoft.EntityFrameworkCore;
++
++namespace Shop;
++
++public class CustomerNotifier
++{
++    private const int BatchSize = 500;
++
++    private readonly ShopDbContext _db;
++    private readonly IEmailSender _emailSender;
++
++    public CustomerNotifier(ShopDbContext db, IEmailSender emailSender)
++    {
++        _db = db;
++        _emailSender = emailSender;
++    }
++
++    // customerIds приходят из маркетинговой системы: могут содержать дубликаты
++    // и id, отсутствующие в базе, поэтому реальные адреса берутся из БД, а не из входа напрямую.
++    public async Task NotifyCustomers(IEnumerable<Guid> customerIds, string text, CancellationToken ct = default)
++    {
++        foreach (var batch in customerIds.Distinct().Chunk(BatchSize))
++        {
++            var emails = await _db.Customers
++                .Where(c => batch.Contains(c.Id))
++                .Select(c => c.Email)
++                .ToListAsync(ct);
++
++            foreach (var email in emails)
++                await _emailSender.SendAsync(email, "Уведомление", text, ct);
++        }
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..70eaa4c
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,6 @@
++Созданные файлы:
++- CustomerNotifier.cs — новый класс `CustomerNotifier` с методом `NotifyCustomers(IEnumerable<Guid> customerIds, string text, CancellationToken ct = default)`.
++
++Решения:
++- Id из маркетинговой системы не считаются доверенными: список дедуплицируется и разбивается на батчи по 500 (`Enumerable.Chunk`), реальные email берутся запросом к `ShopDbContext.Customers` по существующим id — несуществующие/лишние id просто не дадут писем, без ошибок.
++- Письма отправляются через `IEmailSender.SendAsync(email, "Уведомление", text, ct)` для каждого найденного клиента; зависимости (`ShopDbContext`, `IEmailSender`) внедряются через конструктор по образцу `ProductRepository`.

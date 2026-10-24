@@ -5,7 +5,7 @@
 ### dex-skill-dotnet-async-patterns: ConfigureAwait(false) в библиотечном коде
 
 **Целевой skill:** dex-skill-dotnet-async-patterns
-**H2-секция:** ConfigureAwait и SynchronizationContext
+**H2-секция:** список чек-листа (skill без H2)
 
 **Critical assessment:**
 - Generalization confidence: high -- правило про ConfigureAwait в библиотечном коде не зависит от конкретного проекта
@@ -14,15 +14,13 @@
 - FP counter-examples: код приложения ASP.NET Core (нет SyncContext -- ConfigureAwait не нужен) -- правило адресует именно библиотечный/NuGet код, не приложение; ложного осуждения нет
 - Already covered elsewhere: no
 - Non-obviousness: high -- «ASP.NET Core не имеет SyncContext, поэтому в Web API разницы нет» -- неочевидное следствие, отделяющее ловушку от лозунга «всегда ConfigureAwait(false)»
-- Axis fit: dex-skill-dotnet-async-patterns (ConfigureAwait и SynchronizationContext) -- ложится в существующий H2
+- Axis fit: dex-skill-dotnet-async-patterns (список чек-листа) | new-skill -- захват контекста в библиотечном коде не ложится на пункт чек-листа (`Task.Run` над синхронным вызовом); в фикстуре оставлена в этом skill намеренно, сценарий проверяет механику применения, не Axis fit. Промах оси рекомендацию не понижает (адрес, не качество)
 - Label correctness: n/a -- концептуального ярлыка нет
 - Fact check: verified (websearch) -- отсутствие SynchronizationContext в ASP.NET Core и поведение захвата контекста сверены
 
 Recommendation for reviewer: apply as-is
 
-**Drop-in:**
-
-### ConfigureAwait(false) в библиотечном коде
+**Основание:**
 
 **Плохо:**
 
@@ -44,12 +42,16 @@ public async Task<Result> ProcessAsync()
 }
 ```
 
-**Почему:** В библиотечном коде, не зависящем от UI/SynchronizationContext, отсутствие ConfigureAwait(false) приводит к захвату контекста и потенциальным дедлокам в callers с UI-контекстом. Для Web API (ASP.NET Core) — без разницы (нет SyncContext), но привычка полезна для NuGet-библиотек.
+**Почему:** В библиотечном коде, не зависящем от UI/SynchronizationContext, отсутствие ConfigureAwait(false) приводит к захвату контекста и потенциальным дедлокам в callers с UI-контекстом. Для Web API (ASP.NET Core) - без разницы (нет SyncContext), но привычка полезна для NuGet-библиотек.
+
+**Drop-in:**
+
+- ConfigureAwait(false) в библиотечном коде
 
 ### dex-skill-dotnet-ef-core: AsAsyncEnumerable для streaming больших выборок
 
 **Целевой skill:** dex-skill-dotnet-ef-core
-**H2-секция:** Запросы
+**H2-секция:** список чек-листа (skill без H2)
 
 **Critical assessment:**
 - Generalization confidence: high -- streaming vs материализация больших выборок -- общая граблина EF Core, не проектная
@@ -58,15 +60,13 @@ public async Task<Result> ProcessAsync()
 - FP counter-examples: малые выборки, где `ToListAsync` нужен для повторного перебора / Count -- правило адресует «миллионы строк, построчная обработка», не любой `ToListAsync`; формулировка сужена кейсом
 - Already covered elsewhere: no
 - Non-obviousness: high -- что `AsAsyncEnumerable` стримит через DataReader при константной памяти, а `ToListAsync` грузит всё -- неочевидно начинающему
-- Axis fit: dex-skill-dotnet-ef-core (Запросы) -- ложится в существующий H2
+- Axis fit: dex-skill-dotnet-ef-core (пункт «Трекинг выборки только для чтения») -- тема пункта - стоимость чтения выборки, большая выборка её продолжает; ось совпадает
 - Label correctness: n/a
 - Fact check: verified (context7:EFCore) -- поведение `AsAsyncEnumerable` (стриминг через DataReader) и материализация `ToListAsync` сверены по доке EF Core
 
 Recommendation for reviewer: apply as-is
 
-**Drop-in:**
-
-### AsAsyncEnumerable для streaming больших выборок
+**Основание:**
 
 **Плохо:**
 
@@ -82,7 +82,11 @@ await foreach (var item in _ctx.Logs.Where(l => l.Date > since).AsAsyncEnumerabl
     await _processor.HandleAsync(item);
 ```
 
-**Почему:** `ToListAsync` материализует всю выборку в память (миллионы строк → OOM). `AsAsyncEnumerable` стримит по строкам через DataReader — память константна. Подходит, когда обработка построчная и не нужно держать всё сразу.
+**Почему:** `ToListAsync` материализует всю выборку в память (миллионы строк -> OOM). `AsAsyncEnumerable` стримит по строкам через DataReader - память константна. Подходит, когда обработка построчная и не нужно держать всё сразу.
+
+**Drop-in:**
+
+- AsAsyncEnumerable для streaming больших выборок
 
 ## Proposed agent changes
 
@@ -104,15 +108,15 @@ await foreach (var item in _ctx.Logs.Where(l => l.Date > since).AsAsyncEnumerabl
 
 Recommendation for reviewer: apply as-is
 
-**Изменение:** в чек-лист фазы Content-Level Pass (Phase 5) добавить пункт «для каждого изменённого/удалённого поля в публичных DTO / API response / контрактах — пометить как breaking change, требующий versioning или миграционного плана. Сюда же — изменение поля required/optional, типа поля, default value».
+**Изменение:** в чек-лист фазы Content-Level Pass (Phase 5) добавить пункт «для каждого изменённого/удалённого поля в публичных DTO / API response / контрактах - пометить как breaking change, требующий versioning или миграционного плана. Сюда же - изменение поля required/optional, типа поля, default value».
 
-**Почему:** ревьюер пропускает контрактные ломки между сервисами (`UserDto.Email` стал nullable → потребитель упал на десериализации). Структурные правки видны в diff, но без специальной проверки воспринимаются как «обычная правка модели».
+**Почему:** ревьюер пропускает контрактные ломки между сервисами (`UserDto.Email` стал nullable -> потребитель упал на десериализации). Структурные правки видны в diff, но без специальной проверки воспринимаются как «обычная правка модели».
 
 ## Skipped (already covered)
 
-### dex-skill-dotnet-async-patterns: CancellationToken во всех async API
+### dex-skill-dotnet-async-patterns: Task.Run над File.ReadAllLines вместо ReadAllLinesAsync
 
-Уже описано в текущем skill, секция "CancellationToken propagation".
+Уже описано в текущем skill: пункт чек-листа «`Task.Run` над синхронным вызовом, у которого есть асинхронный API».
 
 ## Dropped (not actionable)
 

@@ -1,0 +1,14 @@
+diff --git a/Dockerfile b/Dockerfile
+index 223bf86..fafda4f 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -8,6 +8,9 @@ COPY src/ src/
+ RUN dotnet publish src/Depot.Api/Depot.Api.csproj -c Release -o /app --no-restore
+ 
+ FROM mcr.microsoft.com/dotnet/aspnet:8.0.11
++RUN apt-get update \
++    && apt-get install -y --no-install-recommends libfontconfig1 fonts-dejavu-core \
++    && rm -rf /var/lib/apt/lists/*
+ WORKDIR /app
+ COPY --from=build /app .
+ USER 1654

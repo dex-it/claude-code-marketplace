@@ -1,0 +1,98 @@
+diff --git a/e2e/tests/fixtures.ts b/e2e/tests/fixtures.ts
+new file mode 100644
+index 0000000..12eb7ba
+--- /dev/null
++++ b/e2e/tests/fixtures.ts
+@@ -0,0 +1,46 @@
++import { expect, test as base, type APIRequestContext } from '@playwright/test';
++
++const TOKEN_KEY = 'shopdesk.token';
++
++// Учётка из api/src/seed.ts
++const alice = { email: 'alice@shopdesk.example', password: 'alice-demo' };
++
++interface ApiOrder {
++  id: string;
++  number: number;
++}
++
++interface Fixtures {
++  token: string;
++  /** Новый заказ alice, созданный через API: тест не зависит от состояния демо-данных и повторных запусков. */
++  newOrder: ApiOrder;
++}
++
++async function loginApi(request: APIRequestContext): Promise<string> {
++  const res = await request.post('/api/login', { data: alice });
++  expect(res.ok()).toBeTruthy();
++  return (await res.json()).token;
++}
++
++export const test = base.extend<Fixtures>({
++  token: async ({ request }, use) => {
++    await use(await loginApi(request));
++  },
++
++  // Страница открывается уже авторизованной: токен кладём в localStorage, а не входим через UI.
++  page: async ({ page, token }, use) => {
++    await page.addInitScript(([key, value]) => localStorage.setItem(key, value), [TOKEN_KEY, token]);
++    await use(page);
++  },
++
++  newOrder: async ({ request, token }, use) => {
++    const res = await request.post('/api/orders', {
++      headers: { Authorization: `Bearer ${token}` },
++      data: { items: [{ productId: 'p-spoon', quantity: 1 }] },
++    });
++    expect(res.status()).toBe(201);
++    await use(await res.json());
++  },
++});
++
++export { expect };
+diff --git a/e2e/tests/orders.spec.ts b/e2e/tests/orders.spec.ts
+new file mode 100644
+index 0000000..04c3445
+--- /dev/null
++++ b/e2e/tests/orders.spec.ts
+@@ -0,0 +1,40 @@
++import { expect, test } from './fixtures';
++
++test.describe('заказы', () => {
++  test('вход под alice и список её заказов', async ({ browser, baseURL }) => {
++    // Единственный тест, который проходит форму входа через UI.
++    const page = await (await browser.newContext({ baseURL })).newPage();
++    await page.goto('/');
++    await page.getByLabel('Email').fill('alice@shopdesk.example');
++    await page.getByLabel('Пароль').fill('alice-demo');
++    await page.getByRole('button', { name: 'Войти' }).click();
++
++    await expect(page.getByRole('heading', { name: 'Мои заказы' })).toBeVisible();
++    await expect(page.getByText('Заказ #1001')).toBeVisible();
++    await expect(page.getByText('Заказ #1002')).toBeVisible();
++    await expect(page.getByText('Заказ #1003')).toBeVisible();
++    // Заказ bob в список не попадает
++    await expect(page.getByText('Заказ #1004')).toHaveCount(0);
++    await page.context().close();
++  });
++
++  test('отмена нового заказа', async ({ page, newOrder }) => {
++    await page.goto('/');
++    const order = page.getByRole('listitem').filter({ hasText: `Заказ #${newOrder.number}` });
++    await expect(order).toBeVisible();
++
++    await order.getByRole('button', { name: 'Отменить' }).click();
++
++    await expect(order.getByText('Отменён')).toBeVisible();
++    await expect(order.getByRole('button', { name: 'Отменить' })).toHaveCount(0);
++  });
++
++  test('ошибка сервера при загрузке списка заказов', async ({ page }) => {
++    await page.route('**/api/orders', (route) =>
++      route.fulfill({ status: 500, json: { error: { code: 'internal', message: 'boom' } } }),
++    );
++    await page.goto('/');
++
++    await expect(page.getByRole('alert')).toHaveText('Не удалось загрузить заказы');
++  });
++});

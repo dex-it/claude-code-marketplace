@@ -15,6 +15,52 @@ CYAN='\033[0;36m'
 GRAY='\033[0;90m'
 NC='\033[0m' # No Color
 
+# Значение из .env: срезаем пробелы с обеих сторон, затем обрамляющие кавычки. Хвост важен отдельно:
+# [[:space:]] покрывает CR, иначе .env с CRLF уносит ^M в URL и в заголовок Authorization.
+trim_env_value() {
+    local v="$1"
+    v="${v#"${v%%[![:space:]]*}"}"
+    v="${v%"${v##*[![:space:]]}"}"
+    case "$v" in
+        \"*\") v="${v#\"}"; v="${v%\"}" ;;
+        \'*\') v="${v#\'}"; v="${v%\'}" ;;
+    esac
+    printf '%s' "$v"
+}
+
+# Имя переменной из .env: только [A-Za-z_][A-Za-z0-9_]*, и не из тех, что меняют поведение процессов.
+# Имя тоже исполняет код: BASH_ENV=$(...) раскрывается при старте любого bash-скрипта (в том числе pass),
+# GIT_CONFIG_*, LD_PRELOAD, NODE_OPTIONS, PATH делают то же для git, node и любой команды.
+# Отброшенное имя не экспортируется; код возврата 1, предупреждение в stderr.
+env_key_allowed() {
+    local key="$1"
+    if [[ ! "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+        echo "ПРЕДУПРЕЖДЕНИЕ: $key: недопустимое имя переменной, строка пропущена" >&2
+        return 1
+    fi
+    case "$key" in
+        BASH_ENV|ENV|PS4|PROMPT_COMMAND|SHELLOPTS|BASHOPTS|PATH|NODE_OPTIONS|LD_*|DYLD_*|GIT_CONFIG_*|GIT_SSH*|GIT_*PAGER|GIT_EXTERNAL_DIFF|GIT_ASKPASS|GIT_EDITOR)
+            echo "ПРЕДУПРЕЖДЕНИЕ: $key: имя меняет поведение запускаемых процессов, переменная не экспортирована" >&2
+            return 1 ;;
+    esac
+    return 0
+}
+
+# Секрет из менеджера паролей: значение ровно вида $(pass show <путь>) заменяется первой строкой записи
+# (по соглашению pass там пароль, дальше login: и прочие поля). Вызов pass идёт напрямую, без eval:
+# любое другое значение, в том числе с иным $(...), берётся литералом и не исполняется.
+resolve_env_secret() {
+    local key="$1" value="$2" re='^\$\(pass show ([A-Za-z0-9_./][A-Za-z0-9_./-]*)\)$'
+    if [[ "$value" =~ $re ]]; then
+        pass show "${BASH_REMATCH[1]}" | head -n1 || true
+        return 0
+    fi
+    if [[ "$value" == *'$('* ]]; then
+        echo "ПРЕДУПРЕЖДЕНИЕ: $key: подвыражение \$(...) не в поддержанной форме \$(pass show <путь>), значение взято как есть" >&2
+    fi
+    printf '%s' "$value"
+}
+
 # Функции для цветного вывода
 print_error() { echo -e "${RED}$@${NC}"; }
 print_success() { echo -e "${GREEN}$@${NC}"; }
@@ -35,16 +81,13 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
     echo "Скрипт выполняет:"
     echo "  1. Загружает переменные из .env файла"
     echo "  2. Загружает системный промпт из system-prompt.md"
-    echo "  3. Регистрирует MCP серверы (Confluence, Jira)"
-    echo "  4. Запускает Claude Code с заданными параметрами"
+    echo "  3. Запускает Claude Code с заданными параметрами"
     echo ""
     echo "Переменные окружения (.env):"
     echo "  LOAD_SYSTEM_PROMPT       - загружать системный промпт (true/false, по умолчанию: true)"
     echo "  CLAUDE_ARGS              - дефолтные аргументы для Claude"
-    echo "  CONFLUENCE_MCP_URL       - URL Confluence MCP сервера"
-    echo "  CONFLUENCE_MCP_TOKEN     - токен для Confluence MCP"
-    echo "  JIRA_MCP_URL             - URL Jira MCP сервера"
-    echo "  JIRA_MCP_TOKEN           - токен для Jira MCP"
+    echo ""
+    echo "MCP-серверы регистрируются отдельно и разово: ./register-http-mcp.sh (HTTP) или .mcp.json (stdio)"
     echo ""
     echo "Примеры:"
     echo "  ./run-claude.sh"
@@ -90,18 +133,19 @@ while IFS= read -r line || [ -n "$line" ]; do
         key="${BASH_REMATCH[1]}"
         value="${BASH_REMATCH[2]}"
 
-        # Убираем пробелы
-        key=$(echo "$key" | xargs)
-        value=$(echo "$value" | xargs)
+        # Те же срезы, что у register-http-mcp.sh: пробелы по краям и обрамляющие кавычки
+        key="$(printf '%s' "$key" | tr -d '[:space:]')"
+        value="$(trim_env_value "$value")"
 
         # Пропускаем, если ключ пустой
         [[ -z "$key" ]] && continue
 
-        # Раскрываем command substitution в значениях вида $(...) — секреты тянем из pass,
-        # а не храним в открытом виде (например: ES_API_KEY=$(pass show mdm/elastic-mcp-api-key))
-        if [[ "$value" == *'$('*')'* ]]; then
-            value=$(eval "printf '%s' \"$value\"")
-        fi
+        # Имя, меняющее поведение процессов (BASH_ENV, PATH, GIT_CONFIG_* ...), отбрасываем до вызова pass
+        env_key_allowed "$key" || continue
+
+        # Секреты тянем из pass, а не храним в открытом виде (например:
+        # ES_API_KEY=$(pass show mdm/elastic-mcp-api-key)); поддержана только эта форма
+        value=$(resolve_env_secret "$key" "$value")
 
         # Экспортируем переменную только если есть ключ
         export "$key=$value"
@@ -138,34 +182,6 @@ if [ "${LOAD_SYSTEM_PROMPT:-true}" = "true" ]; then
     fi
 else
     print_warning "  ⏭️  Загрузка системного промпта отключена (LOAD_SYSTEM_PROMPT=false)"
-fi
-
-print_header ""
-print_header "======================================"
-print_header "🔌 Регистрация MCP серверов"
-print_header "======================================"
-print_header ""
-
-# Confluence MCP
-if [ -n "$CONFLUENCE_MCP_URL" ] && [ -n "$CONFLUENCE_MCP_TOKEN" ]; then
-    print_info "  → Регистрируем Confluence MCP..."
-    claude mcp add --transport http conflu --scope project "$CONFLUENCE_MCP_URL" --header "Authorization: Token $CONFLUENCE_MCP_TOKEN"
-    print_success "  ✅ Confluence MCP зарегистрирован: $CONFLUENCE_MCP_URL"
-elif [ -z "$CONFLUENCE_MCP_URL" ]; then
-    print_warning "  ⏭️  Confluence MCP пропущен: URL не задан (CONFLUENCE_MCP_URL)"
-else
-    print_warning "  ⏭️  Confluence MCP пропущен: токен не задан (CONFLUENCE_MCP_TOKEN)"
-fi
-
-# Jira MCP
-if [ -n "$JIRA_MCP_URL" ] && [ -n "$JIRA_MCP_TOKEN" ]; then
-    print_info "  → Регистрируем Jira MCP..."
-    claude mcp add --transport http jira --scope project "$JIRA_MCP_URL" --header "Authorization: Token $JIRA_MCP_TOKEN"
-    print_success "  ✅ Jira MCP зарегистрирован: $JIRA_MCP_URL"
-elif [ -z "$JIRA_MCP_URL" ]; then
-    print_warning "  ⏭️  Jira MCP пропущен: URL не задан (JIRA_MCP_URL)"
-else
-    print_warning "  ⏭️  Jira MCP пропущен: токен не задан (JIRA_MCP_TOKEN)"
 fi
 
 print_header ""

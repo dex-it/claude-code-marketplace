@@ -5,11 +5,9 @@
 ### dex-skill-dotnet-ef-core: DbContext Pooling и захват состояния
 
 **Целевой skill:** dex-skill-dotnet-ef-core
-**H2-секция:** DbContext lifetime
+**H2-секция:** список чек-листа (skill без H2)
 
-**Drop-in:**
-
-### Pooling + поля экземпляра DbContext
+**Основание:**
 
 **Плохо:**
 
@@ -22,9 +20,13 @@ public class AppDbContext : DbContext
 services.AddDbContextPool<AppDbContext>(...);
 ```
 
-**Правильно:** не хранить мутируемое состояние в полях DbContext; tenant/user-context передавать через scoped accessor (`ITenantProvider`), который инжектится в `OnConfiguring` / query filters. Если состояние действительно нужно — отказаться от `AddDbContextPool` в пользу `AddDbContext`.
+**Правильно:** не хранить мутируемое состояние в полях DbContext; tenant/user-context передавать через scoped accessor (`ITenantProvider`), который инжектится в `OnConfiguring` / query filters. Если состояние действительно нужно - отказаться от `AddDbContextPool` в пользу `AddDbContext`.
 
-**Почему:** `AddDbContextPool` переиспользует экземпляры DbContext между запросами. Любое поле, заполненное в одном запросе, утечёт в следующий — race condition с непредсказуемым tenant/user-фильтром. Pool принципиально несовместим с per-request состоянием в самом контексте.
+**Почему:** `AddDbContextPool` переиспользует экземпляры DbContext между запросами. Любое поле, заполненное в одном запросе, утечёт в следующий - race condition с непредсказуемым tenant/user-фильтром. Pool принципиально несовместим с per-request состоянием в самом контексте.
+
+**Drop-in:**
+
+- Pooling + поля экземпляра DbContext
 
 ## Skipped (already covered)
 

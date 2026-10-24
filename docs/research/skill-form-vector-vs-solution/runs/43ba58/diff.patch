@@ -1,0 +1,70 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..ac49b9b
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,64 @@
++# Ревью MR !87 — экспертиза заявок, рейтинг и выгрузка для совета
++
++## Critical
++
++### 1. `Controllers/ContestsController.cs` — `Ranking`, `RankingCsv` (атрибут `[Authorize]` на классе)
++Чтобы эксперты могли открыть `GET /api/contests/{id}`, роль `Expert` добавили в `[Authorize]` на уровне **класса**. Из-за этого эксперту стали доступны и `GET {id}/ranking`, и `GET {id}/ranking.csv`. Там лежат итоговые баллы всех заявок, число экспертиз и решения о грантах, причём пока экспертиза ещё идёт. Слепая экспертиза ломается: эксперт видит, как оценили его заявки коллеги, и может подстроить свою оценку. В MR открыть для экспертов предлагалось только карточку конкурса. `CloseReview` по-прежнему закрыт собственным атрибутом, а рейтинг — нет.
++**Исправление:** на классе оставить `Coordinator`, а `[Authorize(Roles = "Coordinator,Expert")]` повесить только на `Get`. Либо повесить `[Authorize(Roles = Coordinator)]` на `Ranking` и `RankingCsv`.
++
++### 2. `Services/ConflictOfInterest.cs` — `Find`
++Проверяется только `a.ApplicantId == expert.Id`, то есть заявка, поданная экспертом лично. Вторую половину п. 4.3 положения не проверяют: заявки от организации, где работает эксперт (`a.OrganizationInn == expert.OrganizationInn`). Для этого в модели уже есть `Expert.OrganizationInn` и `GrantApplication.OrganizationInn`. В итоге и `AssignAsync`, и `ReassignAsync` спокойно назначают эксперту заявки его же работодателя. MR обещает, что «конфликт интересов система проверяет сама», а значит, координатор перестанет проверять это вручную.
++**Исправление:** добавить условие `|| (expert.OrganizationInn != "" && a.OrganizationInn == expert.OrganizationInn)`. ИНН лучше нормализовать (trim).
++
++## High
++
++### 3. `Models/Contest.cs` — `AcceptsReviews`
++`utcNow < ReviewDeadline.ToDateTime(TimeOnly.MinValue, Utc)` закрывает приём в 00:00 UTC **в начале** дня дедлайна. По MR приём должен закрыться **после** этого дня, ведь эксперты традиционно досылают оценки в последний вечер. Сейчас в последний день все сохранения и отправки получают 409 «Приём оценок закрыт». Это ровно тот сценарий, ради которого координатор закрывает экспертизу только на следующее утро.
++**Исправление:** сравнивать с началом следующего дня, `ReviewDeadline.AddDays(1)`. Конец дня нужно считать в часовом поясе фонда (например, Europe/Moscow) и переводить в UTC, а не брать полночь UTC.
++
++### 4. `Services/RankingService.cs` — `BuildAsync`, сортировка `.ThenBy(x => x.CreatedAt)`
++По положению при равном балле выше стоит заявка, **поданная** раньше. `CreatedAt` — это время создания черновика в личном кабинете, а время подачи хранится в `SubmittedAt`. Заявка, черновик которой завели раньше, а подали позже, обойдёт конкурента. На границе фонда это решает, кто получит грант.
++**Исправление:** `.ThenBy(x => x.SubmittedAt).ThenBy(x => x.Id)`. Все заявки в выборке имеют статус Submitted, а `Id` в конце даёт детерминированный порядок. Сопутствующее (low): сортировка идёт по неокруглённому среднему, а в отчёт попадает `Math.Round(..., 2)`. Две заявки с одинаковым баллом в отчёте могут встать не по дате подачи. Ранжировать лучше по тому же значению, которое публикуется.
++
++### 5. `Services/RankingCsvWriter.cs` — `Write`, форматирование чисел
++В интерполяции `{r.Score}` и `{r.RequestedAmount}` используется текущая культура. `Program.cs` через `UseRequestLocalization` выставляет `ru-RU`, поэтому числа выходят как `85,33` и `150000,50`. Запятая совпадает с разделителем CSV, а значение не экранируется. В строке появляется лишняя колонка, «Балл», «Экспертиз», «Запрошено» и «Грант» сдвигаются. Google Sheets показывает ерунду, скрипт фонда разбирает неверные данные.
++**Исправление:** форматировать через `CultureInfo.InvariantCulture`, например `r.Score.ToString(CultureInfo.InvariantCulture)` или `string.Create(CultureInfo.InvariantCulture, $"...")`.
++
++### 6. `Controllers/ReviewsController.cs` — `Mine`
++`ToListAsync` и `CountAsync` запускаются параллельно на одном `GrantsDbContext` (`Task.WhenAll`). DbContext не потокобезопасен, параллельные операции запрещены. Получаем `InvalidOperationException: A second operation was started on this context instance…`, и эндпоинт «мои назначения» стабильно отдаёт 500 (правило «Время жизни DbContext»).
++**Исправление:** выполнять запросы последовательно через `await`. Счётчик Submitted можно посчитать по уже загруженному `items`.
++
++### 7. `Controllers/ApplicationsController.cs` — `Search`
++`a.Region.Equals(r, StringComparison.OrdinalIgnoreCase)`: перегрузка `string.Equals` со `StringComparison` в EF Core / Npgsql не транслируется. Как только задан `region`, запрос падает с `InvalidOperationException: could not be translated`, и обещанный в MR поиск по региону не работает вообще (правило «Нетранслируемое условие фильтра»).
++**Исправление:** `EF.Functions.ILike(a.Region, r)` (спецсимволы `%`/`_` экранировать), или `a.Region.ToLower() == r.ToLower()`, или колонка `citext` / недетерминированная collation.
++
++### 8. `Services/AssignmentService.cs` — `ReassignAsync`
++Новому эксперту передаются назначения в статусе `Draft` вместе с черновиком прежнего: `Scores`, `Comment`, `Total` и `Status = Draft`. Через `GetMineAsync` новый эксперт видит чужие баллы и комментарий, то есть слепая экспертиза нарушена. К тому же он может отправить чужую оценку под своим именем, лишь чуть поправив её.
++**Исправление:** при передаче сбрасывать `Scores.Clear()` (связь required с каскадом, строки удалятся), `Comment = null`, `Total = 0`, `Status = Assigned`. Для этого нужен `Include(r => r.Scores)`.
++
++### 9. `Services/ReviewService.cs` — `SaveAsync` (а также `ReassignAsync` и `ContestsController.CloseReview`): гонка при правке одного `Review`
++У `Review` нет concurrency token, а проверка «не отправлено и приём открыт» выполняется на прочитанной копии. Отсюда молчаливые перезаписи:
++- эксперт отправил оценку, а параллельный автосейв черновика, прочитанный до отправки, пишет `Status = Draft` и затирает отправленную оценку. Запрет «отправку изменить уже нельзя» обходится;
++- `CloseReview` через `ExecuteUpdate` поставил `Expired`, а `SaveAsync`, прочитавший запись до закрытия, пишет `Draft` или `Submitted` поверх: оценка принята после закрытия;
++- `ReassignAsync` переписывает `ExpertId` у записи, которую прежний эксперт в этот момент отправляет, и отправленная оценка уходит другому эксперту.
++
++Нарушено правило «Параллельная правка одной записи».
++**Исправление:** сделать `Status` (или `xmin` через `IsRowVersion()` в Npgsql) concurrency token и обрабатывать `DbUpdateConcurrencyException` (409). Другой вариант — условный `ExecuteUpdate ... WHERE Status IN (Assigned, Draft)` либо `SELECT … FOR UPDATE` в явной транзакции.
++
++## Medium
++
++### 10. `Services/RankingCsvWriter.cs` — `Escape`: CSV/formula injection
++`Title` и `ApplicantName` вводит заявитель, и в CSV они попадают как есть. CSV открывают в Google Sheets, поэтому значение вида `=IMPORTXML(...)`, `=HYPERLINK(...)`, `+...`, `-...`, `@...` исполнится как формула у членов экспертного совета. Это позволяет вытащить данные или подменить отображаемое значение.
++**Исправление:** значения, начинающиеся с `= + - @ \t \r`, предварять `'` (и брать в кавычки).
++
++## Low
++
++### 11. `Services/AssignmentService.cs` — `AssignAsync`
++- Не проверяется, что экспертиза конкурса открыта (`ReviewClosed` / дедлайн): можно назначить заявки в уже закрытом конкурсе, и назначения повиснут в `Assigned`.
++- Между проверкой `alreadyAssigned` и `SaveChanges` два параллельных назначения одной заявки упрутся в уникальный индекс `(ApplicationId, ExpertId)`. Необработанный `DbUpdateException` превращается в 500 вместо 409.
++
++### 12. `Services/ReviewService.cs` — `SaveAsync`, запрос с двумя коллекциями
++Один запрос с tracking загружает две коллекции, `Scores` и `Application.Contest.Criteria`, без явно заданного режима (`AsSplitQuery`/`AsSingleQuery`). EF пишет предупреждение `MultipleCollectionIncludeWarning`, строки перемножаются декартово. Кроме того, `Application`, `Contest` и `Criteria` попадают в change tracker, хотя не изменяются. Критерии лучше загрузить отдельным no-tracking запросом или проекцией (правила «Несколько коллекций в одном Include» и «Трекинг выборки только для чтения»).
++
++### 13. `Controllers/ApplicationsController.cs` — `Get`
++Материализуется полная сущность `GrantApplication` со всеми колонками, включая `OrganizationInn`, `ApplicantId` и `Reviews` с комментариями, даже когда запрос делает эксперт, которому отзывы не отдаются. Нужна проекция в DTO, а отзывы стоит выбирать только для координатора (правило «Полная сущность там, где нужна часть полей»).

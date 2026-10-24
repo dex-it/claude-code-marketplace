@@ -1,0 +1,459 @@
+diff --git a/src/Fulfil/Options/FulfilOptions.cs b/src/Fulfil/Options/FulfilOptions.cs
+index fb25fdf..c8abb97 100644
+--- a/src/Fulfil/Options/FulfilOptions.cs
++++ b/src/Fulfil/Options/FulfilOptions.cs
+@@ -8,4 +8,5 @@ public sealed class FulfilOptions
+     public string MongoConnectionString { get; set; } = "mongodb://localhost:27017";
+     public string MongoDatabase { get; set; } = "fulfil";
+     public string ElasticUri { get; set; } = "http://localhost:9200";
++    public int IndexRebuildHourUtc { get; set; } = 1;
+ }
+diff --git a/src/Fulfil/Program.cs b/src/Fulfil/Program.cs
+index 0c9a3bd..ebada60 100644
+--- a/src/Fulfil/Program.cs
++++ b/src/Fulfil/Program.cs
+@@ -1,8 +1,49 @@
++using System.Text;
++using Elastic.Clients.Elasticsearch;
+ using Fulfil.Options;
++using Fulfil.Search;
++using Microsoft.Extensions.Options;
+ 
+ var builder = WebApplication.CreateBuilder(args);
+ builder.Services.Configure<FulfilOptions>(builder.Configuration.GetSection("Fulfil"));
++builder.Services.AddSingleton(sp =>
++    new ElasticsearchClient(new Uri(sp.GetRequiredService<IOptions<FulfilOptions>>().Value.ElasticUri)));
++builder.Services.AddSingleton<EsHttp>();
++builder.Services.AddSingleton<CatalogIndexer>();
++builder.Services.AddSingleton<ProductSearch>();
++builder.Services.AddHostedService<CatalogIndexWorker>();
+ 
+ var app = builder.Build();
+ app.MapGet("/health", () => Results.Ok());
++
++app.MapGet("/search", async (string? q, string? category, decimal? minPrice, decimal? maxPrice,
++    string? sort, int? page, ProductSearch search, HttpContext http) =>
++{
++    using var result = await search.SearchAsync(
++        new SearchRequest(q, category, minPrice, maxPrice, sort, page ?? 1), http.RequestAborted);
++    // Ответ Elasticsearch сводится к выдаче и списку категорий.
++    var root = result.RootElement;
++    var hits = root.GetProperty("hits");
++    var items = hits.GetProperty("hits").EnumerateArray().Select(h => h.GetProperty("_source").Clone()).ToList();
++    var categories = root.GetProperty("aggregations").GetProperty("categories").GetProperty("buckets")
++        .EnumerateArray()
++        .Select(b => new { category = b.GetProperty("key").GetString(), count = b.GetProperty("doc_count").GetInt64() })
++        .ToList();
++    return Results.Ok(new
++    {
++        total = hits.GetProperty("total").GetProperty("value").GetInt64(),
++        page = Math.Max(1, page ?? 1),
++        pageSize = ProductSearch.PageSize,
++        items,
++        categories,
++    });
++});
++
++app.MapGet("/search/export", async (string? q, ProductSearch search, HttpContext http) =>
++{
++    http.Response.ContentType = "application/x-ndjson";
++    await foreach (var line in search.ExportAsync(q, http.RequestAborted))
++        await http.Response.BodyWriter.WriteAsync(Encoding.UTF8.GetBytes(line + "\n"), http.RequestAborted);
++});
++
+ app.Run();
+diff --git a/src/Fulfil/Search/CatalogIndexer.cs b/src/Fulfil/Search/CatalogIndexer.cs
+new file mode 100644
+index 0000000..0cbbb65
+--- /dev/null
++++ b/src/Fulfil/Search/CatalogIndexer.cs
+@@ -0,0 +1,209 @@
++using System.Text;
++using System.Text.Json;
++using System.Threading.Channels;
++using Fulfil.Options;
++using Fulfil.Ports;
++using Microsoft.Extensions.Options;
++
++namespace Fulfil.Search;
++
++// Пересборка индекса каталога. Каждая сборка пишет в новый индекс products-yyyyMMddHH, поиск идёт через
++// алиас и переключается атомарно, поэтому смена схемы и ночная перезагрузка не останавливают витрину.
++public sealed class CatalogIndexer(EsHttp es, IServiceProvider services, ILogger<CatalogIndexer> log)
++{
++    public const string Alias = "products";
++    const int BatchSize = 5000;
++    const int Workers = 4;
++
++    // Русский и английский текст: каждое текстовое поле разобрано анализаторами обоих языков (с морфологией).
++    // Один шард и 0 реплик: узел один; на время загрузки обновление отключено, затем возвращается 1s.
++    const string IndexDefinition = """
++    {
++      "settings": {
++        "number_of_shards": 1,
++        "number_of_replicas": 0,
++        "refresh_interval": "-1",
++        "analysis": { "normalizer": { "lc": { "type": "custom", "filter": ["lowercase"] } } }
++      },
++      "mappings": {
++        "dynamic": "strict",
++        "properties": {
++          "sku": { "type": "keyword" },
++          "name": {
++            "type": "text", "analyzer": "russian",
++            "fields": {
++              "en": { "type": "text", "analyzer": "english" },
++              "raw": { "type": "keyword", "normalizer": "lc", "ignore_above": 256 }
++            }
++          },
++          "description": {
++            "type": "text", "analyzer": "russian",
++            "fields": { "en": { "type": "text", "analyzer": "english" } }
++          },
++          "category": { "type": "keyword" },
++          "price": { "type": "scaled_float", "scaling_factor": 100 },
++          "stock": { "type": "integer" }
++        }
++      }
++    }
++    """;
++
++    public async Task<bool> AliasExistsAsync(CancellationToken ct) =>
++        (await es.SendAsync(Verb.Head, $"/_alias/{Alias}", null, ct)).Status == 200;
++
++    public async Task RebuildAsync(CancellationToken ct)
++    {
++        var source = services.GetService<ICatalogSource>();
++        if (source is null)
++        {
++            log.LogWarning("ICatalogSource не зарегистрирован, пересборка индекса пропущена");
++            return;
++        }
++
++        // Реплики сервиса равноправны: имя индекса детерминировано по часу, вторая создать его уже не сможет.
++        var index = $"{Alias}-{DateTime.UtcNow:yyyyMMddHH}";
++        var (status, text) = await es.SendAsync(Verb.Put, $"/{index}", IndexDefinition, ct);
++        if (status == 400 && text.Contains("resource_already_exists_exception"))
++        {
++            log.LogInformation("Индекс {Index} уже собирает другая реплика", index);
++            return;
++        }
++        if (status is < 200 or >= 300)
++            throw new InvalidOperationException($"Создание индекса {index}: {status} {text}");
++
++        try
++        {
++            var total = await LoadAsync(index, source, ct);
++
++            using (await es.SendOkAsync(Verb.Put, $"/{index}/_settings",
++                       "{\"index\":{\"refresh_interval\":\"1s\"}}", ct)) { }
++            using (await es.SendOkAsync(Verb.Post, $"/{index}/_refresh", null, ct)) { }
++
++            await SwitchAliasAsync(index, ct);
++            log.LogInformation("Индекс {Index} собран, товаров: {Count}", index, total);
++        }
++        catch
++        {
++            await es.SendAsync(Verb.Delete, $"/{index}", null, CancellationToken.None);
++            throw;
++        }
++    }
++
++    // Каталог читается одним потоком, а в Elasticsearch пишут несколько параллельных _bulk.
++    async Task<long> LoadAsync(string index, ICatalogSource source, CancellationToken ct)
++    {
++        var channel = Channel.CreateBounded<string>(Workers * 2);
++        long total = 0;
++
++        var writers = Enumerable.Range(0, Workers).Select(_ => Task.Run(async () =>
++        {
++            await foreach (var body in channel.Reader.ReadAllAsync(ct))
++                await BulkAsync(body, ct);
++        }, ct)).ToArray();
++
++        try
++        {
++            var sb = new StringBuilder();
++            var inBatch = 0;
++            var indexJson = JsonSerializer.Serialize(index);
++            await foreach (var p in source.ReadAllAsync(ct))
++            {
++                sb.Append("{\"index\":{\"_index\":").Append(indexJson)
++                    .Append(",\"_id\":").Append(JsonSerializer.Serialize(p.Sku)).Append("}}\n")
++                    .Append(JsonSerializer.Serialize(p, EsHttp.Json)).Append('\n');
++                total++;
++                if (++inBatch < BatchSize) continue;
++                await channel.Writer.WriteAsync(sb.ToString(), ct);
++                sb.Clear();
++                inBatch = 0;
++            }
++            if (inBatch > 0) await channel.Writer.WriteAsync(sb.ToString(), ct);
++            channel.Writer.Complete();
++        }
++        catch (Exception e)
++        {
++            channel.Writer.TryComplete(e);
++            throw;
++        }
++
++        await Task.WhenAll(writers);
++        return total;
++    }
++
++    async Task BulkAsync(string body, CancellationToken ct)
++    {
++        for (var attempt = 1; ; attempt++)
++        {
++            var (status, text) = await es.SendAsync(Verb.Post, "/_bulk", body, ct);
++            if (status == 429 && attempt < 5)
++            {
++                await Task.Delay(TimeSpan.FromSeconds(attempt * 2), ct);
++                continue;
++            }
++            if (status is < 200 or >= 300)
++                throw new InvalidOperationException($"_bulk: {status} {text[..Math.Min(text.Length, 500)]}");
++            using var doc = JsonDocument.Parse(text);
++            if (doc.RootElement.GetProperty("errors").GetBoolean())
++                throw new InvalidOperationException($"_bulk: ошибки в документах: {text[..Math.Min(text.Length, 500)]}");
++            return;
++        }
++    }
++
++    // Атомарно: алиас смотрит на новый индекс. Предыдущий индекс остаётся (на него могут опираться открытые
++    // выгрузки через PIT), удаляются более старые.
++    async Task SwitchAliasAsync(string index, CancellationToken ct)
++    {
++        var current = new List<string>();
++        var (status, text) = await es.SendAsync(Verb.Get, $"/_alias/{Alias}", null, ct);
++        if (status == 200)
++        {
++            using var doc = JsonDocument.Parse(text);
++            current.AddRange(doc.RootElement.EnumerateObject().Select(x => x.Name));
++        }
++
++        var actions = current.Select(old => (object)new { remove = new { index = old, alias = Alias } })
++            .Append(new { add = new { index, alias = Alias } });
++        using (await es.SendOkAsync(Verb.Post, "/_aliases",
++                   JsonSerializer.Serialize(new { actions }), ct)) { }
++
++        using var all = await es.SendOkAsync(Verb.Get, $"/{Alias}-*", null, ct);
++        var stale = all.RootElement.EnumerateObject().Select(x => x.Name)
++            .Where(n => n != index && !current.Contains(n)).ToList();
++        foreach (var name in stale)
++            await es.SendAsync(Verb.Delete, $"/{name}", null, ct);
++    }
++}
++
++// Ночная пересборка (час UTC из настроек); если алиаса ещё нет, индекс строится сразу при старте.
++public sealed class CatalogIndexWorker(
++    CatalogIndexer indexer, IOptions<FulfilOptions> options, ILogger<CatalogIndexWorker> log) : BackgroundService
++{
++    protected override async Task ExecuteAsync(CancellationToken ct)
++    {
++        try
++        {
++            if (!await indexer.AliasExistsAsync(ct)) await indexer.RebuildAsync(ct);
++        }
++        catch (Exception e) when (e is not OperationCanceledException)
++        {
++            log.LogError(e, "Первичная сборка индекса каталога не удалась");
++        }
++
++        while (!ct.IsCancellationRequested)
++        {
++            var now = DateTime.UtcNow;
++            var next = now.Date.AddHours(options.Value.IndexRebuildHourUtc);
++            if (next <= now) next = next.AddDays(1);
++            try
++            {
++                await Task.Delay(next - now, ct);
++                await indexer.RebuildAsync(ct);
++            }
++            catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
++            catch (Exception e)
++            {
++                log.LogError(e, "Ночная пересборка индекса каталога не удалась");
++            }
++        }
++    }
++}
+diff --git a/src/Fulfil/Search/EsHttp.cs b/src/Fulfil/Search/EsHttp.cs
+new file mode 100644
+index 0000000..f0d04c5
+--- /dev/null
++++ b/src/Fulfil/Search/EsHttp.cs
+@@ -0,0 +1,36 @@
++using System.Text.Json;
++using Elastic.Clients.Elasticsearch;
++using Elastic.Transport;
++
++namespace Fulfil.Search;
++
++public enum Verb { Get, Head, Post, Put, Delete }
++
++// Тонкая обёртка над транспортом клиента Elastic.Clients.Elasticsearch: JSON-тела запросов пишутся как есть.
++public sealed class EsHttp(ElasticsearchClient client)
++{
++    public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
++
++    public async Task<(int Status, string Body)> SendAsync(Verb verb, string path, string? body, CancellationToken ct)
++    {
++        var method = verb switch
++        {
++            Verb.Get => Elastic.Transport.HttpMethod.GET,
++            Verb.Head => Elastic.Transport.HttpMethod.HEAD,
++            Verb.Post => Elastic.Transport.HttpMethod.POST,
++            Verb.Put => Elastic.Transport.HttpMethod.PUT,
++            _ => Elastic.Transport.HttpMethod.DELETE,
++        };
++        var response = await client.Transport.RequestAsync<StringResponse>(
++            method, path, body is null ? null : PostData.String(body), cancellationToken: ct);
++        return (response.ApiCallDetails.HttpStatusCode ?? 0, response.Body ?? "");
++    }
++
++    public async Task<JsonDocument> SendOkAsync(Verb verb, string path, string? body, CancellationToken ct)
++    {
++        var (status, text) = await SendAsync(verb, path, body, ct);
++        if (status is < 200 or >= 300)
++            throw new InvalidOperationException($"Elasticsearch {verb} {path} -> {status}: {text}");
++        return JsonDocument.Parse(text);
++    }
++}
+diff --git a/src/Fulfil/Search/ProductSearch.cs b/src/Fulfil/Search/ProductSearch.cs
+new file mode 100644
+index 0000000..274fd80
+--- /dev/null
++++ b/src/Fulfil/Search/ProductSearch.cs
+@@ -0,0 +1,118 @@
++using System.Runtime.CompilerServices;
++using System.Text.Json;
++
++namespace Fulfil.Search;
++
++public sealed record SearchRequest(
++    string? Q, string? Category, decimal? MinPrice, decimal? MaxPrice, string? Sort, int Page);
++
++public sealed class ProductSearch(EsHttp es)
++{
++    public const int PageSize = 20;
++    const int MaxWindow = 10_000; // index.max_result_window; глубже - только выгрузка
++    const int ExportLimit = 200_000;
++    const int ExportChunk = 1000;
++
++    static object[] SortClause(string? sort) => sort switch
++    {
++        "price" or "price_asc" => [new { price = "asc" }, new { sku = "asc" }],
++        "price_desc" => [new { price = "desc" }, new { sku = "asc" }],
++        "name" => [new Dictionary<string, string> { ["name.raw"] = "asc" }, new { sku = "asc" }],
++        _ => [new { _score = "desc" }, new { sku = "asc" }],
++    };
++
++    static object TextQuery(string? q, List<object> filters)
++    {
++        object must = string.IsNullOrWhiteSpace(q)
++            ? new { match_all = new { } }
++            : new
++            {
++                multi_match = new
++                {
++                    query = q,
++                    type = "most_fields",
++                    fields = new[] { "name^3", "name.en^3", "description", "description.en" },
++                },
++            };
++        return new { @bool = new { must = new[] { must }, filter = filters } };
++    }
++
++    static List<object> PriceFilter(decimal? min, decimal? max)
++    {
++        var filters = new List<object>();
++        if (min is not null || max is not null)
++        {
++            var range = new Dictionary<string, decimal>();
++            if (min is not null) range["gte"] = min.Value;
++            if (max is not null) range["lte"] = max.Value;
++            filters.Add(new { range = new { price = range } });
++        }
++        return filters;
++    }
++
++    public async Task<JsonDocument> SearchAsync(SearchRequest r, CancellationToken ct)
++    {
++        var from = (Math.Max(1, r.Page) - 1) * PageSize;
++        if (from + PageSize > MaxWindow)
++            throw new ArgumentOutOfRangeException(nameof(r), "Страница вне допустимого окна");
++
++        // Категория - в post_filter: выдача сужена, а список категорий считается по запросу без неё.
++        var body = new Dictionary<string, object>
++        {
++            ["query"] = TextQuery(r.Q, PriceFilter(r.MinPrice, r.MaxPrice)),
++            ["from"] = from,
++            ["size"] = PageSize,
++            ["track_total_hits"] = true,
++            ["sort"] = SortClause(r.Sort),
++            ["aggs"] = new { categories = new { terms = new { field = "category", size = 100 } } },
++        };
++        if (!string.IsNullOrEmpty(r.Category))
++            body["post_filter"] = new { term = new { category = r.Category } };
++
++        return await es.SendOkAsync(Verb.Post, $"/{CatalogIndexer.Alias}/_search",
++            JsonSerializer.Serialize(body, EsHttp.Json), ct);
++    }
++
++    // Выгрузка до 200 тысяч: PIT + search_after, без глубокой пагинации from/size. Отдаёт _source документов.
++    public async IAsyncEnumerable<string> ExportAsync(string? q, [EnumeratorCancellation] CancellationToken ct)
++    {
++        string pitId;
++        using (var pit = await es.SendOkAsync(Verb.Post, $"/{CatalogIndexer.Alias}/_pit?keep_alive=1m", null, ct))
++            pitId = pit.RootElement.GetProperty("id").GetString()!;
++
++        try
++        {
++            JsonElement? after = null;
++            var sent = 0;
++            while (sent < ExportLimit)
++            {
++                var body = new Dictionary<string, object>
++                {
++                    ["query"] = TextQuery(q, []),
++                    ["size"] = Math.Min(ExportChunk, ExportLimit - sent),
++                    ["pit"] = new { id = pitId, keep_alive = "1m" },
++                    ["sort"] = SortClause(null),
++                    ["track_total_hits"] = false,
++                };
++                if (after is not null) body["search_after"] = after.Value;
++
++                using var doc = await es.SendOkAsync(Verb.Post, "/_search",
++                    JsonSerializer.Serialize(body, EsHttp.Json), ct);
++                if (doc.RootElement.TryGetProperty("pit_id", out var newPit)) pitId = newPit.GetString()!;
++
++                var hits = doc.RootElement.GetProperty("hits").GetProperty("hits");
++                var count = hits.GetArrayLength();
++                if (count == 0) yield break;
++                foreach (var hit in hits.EnumerateArray())
++                    yield return hit.GetProperty("_source").GetRawText();
++                sent += count;
++                after = hits[count - 1].GetProperty("sort").Clone();
++            }
++        }
++        finally
++        {
++            await es.SendAsync(Verb.Delete, "/_pit",
++                JsonSerializer.Serialize(new { id = pitId }), CancellationToken.None);
++        }
++    }
++}
+diff --git a/src/Fulfil/appsettings.json b/src/Fulfil/appsettings.json
+index 56eb014..952b911 100644
+--- a/src/Fulfil/appsettings.json
++++ b/src/Fulfil/appsettings.json
+@@ -5,7 +5,8 @@
+     "RedisConfiguration": "localhost:6379",
+     "MongoConnectionString": "mongodb://localhost:27017",
+     "MongoDatabase": "fulfil",
+-    "ElasticUri": "http://localhost:9200"
++    "ElasticUri": "http://localhost:9200",
++    "IndexRebuildHourUtc": 1
+   },
+   "Logging": { "LogLevel": { "Default": "Information" } }
+ }

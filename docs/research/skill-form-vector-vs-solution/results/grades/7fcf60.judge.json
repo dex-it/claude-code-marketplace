@@ -1,0 +1,121 @@
+{
+  "id": "7fcf60",
+  "case": "CFG",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.1077554,
+    "durationMs": 18296,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 7875,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 2216,
+      "output_tokens_details": {
+        "thinking_tokens": 877
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7875,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2216,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 7875,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 7875
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "CFG-K9": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Находки о том, что MaxInFlight в Staging (20) выше, чем в Production (5), нет; значение 5 упомянуто только в расчёте скорости троттлинга."
+    },
+    "CFG-K8": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Находки о дублировании MaxRetries 5 в Staging и Production при том же дефолте нет."
+    },
+    "CFG-h-required": {
+      "verdict": "DISPUTED",
+      "quote": "Нужны `required` или значения по умолчанию плюс валидация.",
+      "why": "Required предложен как средство от того, что отсутствие значения обнаруживается только в рантайме, но рядом упомянута валидация, поэтому неясно, предлагается ли required вместо валидации опций."
+    },
+    "CFG-K1": {
+      "verdict": "FOUND",
+      "quote": "в репозиторий закоммичены секреты",
+      "why": "Названы пароль к prod-БД и пароль SMTP в appsettings.Production.json."
+    },
+    "CFG-K2": {
+      "verdict": "FOUND",
+      "quote": "Код читает `Throttle:MessagesPerMinute`, а в appsettings ключ называется `Throttle:PerMinute`. `GetValue<int>` возвращает 0",
+      "why": "Названы неверный ключ, значение 0 и DivideByZeroException."
+    },
+    "CFG-K3": {
+      "verdict": "FOUND",
+      "quote": "Нет `AddSingleton<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>()` и нет `.ValidateOnStart()`",
+      "why": "Дефект назван прямо."
+    },
+    "CFG-K4": {
+      "verdict": "FOUND",
+      "quote": "`IOptions<OutboxOptions>` вместо `IOptionsMonitor`, не выполнено требование MR о смене настроек на лету",
+      "why": "Дефект назван прямо."
+    },
+    "CFG-K5": {
+      "verdict": "FOUND",
+      "quote": "Условие `o.MinBatchSize < o.MaxBatchSize` в ExecuteAsync молча отключает адаптивный батчинг в prod",
+      "why": "Названо тихое отключение адаптивного батчинга при 200/100."
+    },
+    "CFG-K6": {
+      "verdict": "FOUND",
+      "quote": "`TimeSpan.FromSeconds(o.PollInterval)` при значении `500` даёт опрос раз в 500 секунд",
+      "why": "Дефект назван прямо."
+    },
+    "CFG-K7": {
+      "verdict": "FOUND",
+      "quote": "SmtpOptions: не-nullable `string Host` / `FromAddress` без инициализации.",
+      "why": "Названы поля без дефолта, отсутствие которых обнаружится только в рантайме."
+    },
+    "CFG-h-P1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находки против IOptions<SmtpOptions> в SmtpMailSender нет; п.16 касается переподключения SMTP, а не опций."
+    },
+    "CFG-h-P2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "LockTimeout как TimeSpan не упоминается."
+    },
+    "CFG-O1": {
+      "verdict": "FOUND",
+      "quote": "`SentAt = now` ставится и сохраняется ДО отправки",
+      "why": "Названа потеря упавших писем без повторных попыток."
+    },
+    "CFG-O2": {
+      "verdict": "FOUND",
+      "quote": "`Configure<SmtpOptions>` привязан к секции `\"Mail\"`, а в конфигах секция называется `\"Smtp\"`",
+      "why": "Дефект назван прямо."
+    },
+    "CFG-O3": {
+      "verdict": "FOUND",
+      "quote": "Конфигурация .NET не подставляет переменные окружения в значения.",
+      "why": "Дефект назван прямо для Staging."
+    }
+  },
+  "stderr": ""
+}

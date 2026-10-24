@@ -1,0 +1,72 @@
+name: Database migration - production
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "Migrations/**"
+
+jobs:
+  script:
+    name: Generate idempotent SQL script
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Install dotnet-ef
+        run: dotnet tool install --global dotnet-ef --version 8.*
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Generate idempotent migration script
+        run: >
+          dotnet ef migrations script --idempotent --output migration.sql
+          --project Shop.Data --context ShopDbContext
+
+      - name: Put SQL into job summary for reviewers
+        run: |
+          {
+            echo '### SQL, которое применится к production'
+            echo '```sql'
+            cat migration.sql
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: migration-script
+          path: migration.sql
+          retention-days: 90
+
+  apply:
+    name: Apply reviewed script to production
+    needs: script
+    runs-on: ubuntu-latest
+    # Environment с required reviewers - апрув читает job summary/артефакт предыдущего job перед запуском.
+    environment: production-db
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: migration-script
+
+      - name: Apply script via psql
+        env:
+          PGPASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
+        run: |
+          psql "host=${{ secrets.PROD_DB_HOST }} port=5432 dbname=${{ secrets.PROD_DB_NAME }} user=${{ secrets.PROD_DB_USER }} sslmode=require" \
+            -v ON_ERROR_STOP=1 \
+            -f migration.sql
+
+  deploy-app:
+    name: Deploy application
+    needs: apply
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy
+        run: echo "деплой кода приложения - только после подтверждённого применения схемы"

@@ -1,0 +1,18 @@
+diff --git a/docs/adr/ADR-0002-api-errors.md b/docs/adr/ADR-0002-api-errors.md
+index 6b159ee..17cb0cb 100644
+--- a/docs/adr/ADR-0002-api-errors.md
++++ b/docs/adr/ADR-0002-api-errors.md
+@@ -10,10 +10,11 @@
+ 
+ 1. Ошибки API отдаются телом `application/problem+json` (RFC 9457): `type`, `title`, `status`, `detail`.
+ 2. `type` - URI вида `https://postline.example/errors/<код>`, список кодов - в спецификации API.
+-3. Ошибки валидации несут поле `errors` - объект «поле -> список сообщений».
++3. Ошибки валидации несут поле `errors` - объект «поле -> список объектов `{code, message}`»; `code` - машинный код правила.
+ 4. Текст исключения и стек в тело не попадают.
+ 5. Ошибка зависимости (PayCore, PushGate, база) отдаётся как `502` или `503` с `type` `dependency-unavailable`; имя хоста, адрес и сообщение зависимости в `detail` не попадают.
++6. Поле `instance` несёт идентификатор трассы запроса (`trace_id` OpenTelemetry).
+ 
+ ## Проверка
+ 
+-Контрактные тесты api проверяют `Content-Type` и поля на каждый код ошибки из спецификации.
++Контрактные тесты api проверяют `Content-Type` и поля на каждый код ошибки из спецификации; для ошибок валидации - форму `errors` (`code` и `message` у каждого элемента), для любой ошибки - что `instance` равен `trace_id` запроса.

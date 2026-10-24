@@ -1,0 +1,53 @@
+diff --git a/CustomerNotifier.cs b/CustomerNotifier.cs
+new file mode 100644
+index 0000000..d5498de
+--- /dev/null
++++ b/CustomerNotifier.cs
+@@ -0,0 +1,34 @@
++using Microsoft.EntityFrameworkCore;
++
++namespace Shop;
++
++public class CustomerNotifier
++{
++    private const string Subject = "Shop";
++
++    private readonly ShopDbContext _db;
++    private readonly IEmailSender _email;
++
++    public CustomerNotifier(ShopDbContext db, IEmailSender email)
++    {
++        _db = db;
++        _email = email;
++    }
++
++    // Список id приходит из маркетинговой системы: может быть большим и содержать дубли.
++    public async Task NotifyCustomers(IEnumerable<Guid> customerIds, string text, CancellationToken ct = default)
++    {
++        // Один обход входа, дубли снимаются: один id - одно письмо.
++        var ids = customerIds.Distinct().ToArray();
++        if (ids.Length == 0) return;
++
++        // Один запрос: Npgsql передаёт массив одним параметром (Id = ANY(@ids)); берём только Email.
++        var emails = await _db.Customers
++            .Where(c => ids.Contains(c.Id))
++            .Select(c => c.Email)
++            .ToListAsync(ct);
++
++        foreach (var email in emails)
++            await _email.SendAsync(email, Subject, text, ct);
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..f1f57ad
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,7 @@
++Файлы:
++- `CustomerNotifier.cs` (создан)
++
++Решения:
++- Входной `IEnumerable<Guid>` обходится один раз. Дубли снимаются через `Distinct()` до обработки, чтобы на один id уходило одно письмо. Для пустого списка метод сразу выходит.
++- Email-адреса загружаются одним запросом `ids.Contains(c.Id)` без разбиения на пачки: в EF Core 8 + Npgsql список уходит одним параметром (`Id = ANY(@p)`). Запрос возвращает только `Email`, а не сущность целиком; запросов в цикле нет.
++- Метод возвращает `Task`, потому что `IEmailSender` асинхронный. Письма отправляются последовательно, тема письма задана константой. Id, которых нет в БД, молча пропускаются.

@@ -1,0 +1,377 @@
+diff --git a/Domain.cs b/Domain.cs
+index 9d9362b..c1fca73 100644
+--- a/Domain.cs
++++ b/Domain.cs
+@@ -54,13 +54,17 @@ public class Pet
+ 
+     // Правило клиники: с какого возраста питомец считается возрастным
+     // (для возрастных действует своя программа напоминаний).
+-    public bool IsSenior => Species switch
++    public bool IsSenior => SeniorAgeYears(Species) is int seniorAge && AgeYears >= seniorAge;
++
++    // Порог возраста по виду; null - для вида программа не действует.
++    // Используется и в IsSenior, и в SQL-фильтре отчёта (ReminderReportService), чтобы правило было в одном месте.
++    public static int? SeniorAgeYears(Species species) => species switch
+     {
+-        Species.Dog => AgeYears >= 8,
+-        Species.Cat => AgeYears >= 10,
+-        Species.Ferret => AgeYears >= 5,
+-        Species.Rabbit => AgeYears >= 6,
+-        _ => false
++        Species.Dog => 8,
++        Species.Cat => 10,
++        Species.Ferret => 5,
++        Species.Rabbit => 6,
++        _ => null
+     };
+ }
+ 
+diff --git a/OwnerService.cs b/OwnerService.cs
+index 763c160..92a937e 100644
+--- a/OwnerService.cs
++++ b/OwnerService.cs
+@@ -14,6 +14,31 @@ public class OwnerService(ClinicDbContext db)
+             .SingleOrDefaultAsync(o => o.Email == normalized);
+     }
+ 
++    // Телефон не уникален (семья на одном номере), поэтому возвращается список владельцев.
++    // Возраст питомца - Pet.AgeYears. Некорректный номер -> ArgumentException из PhoneFormat.Normalize.
++    public async Task<List<Owner>> FindByPhoneAsync(string phone)
++    {
++        var normalized = PhoneFormat.Normalize(phone);
++        return await db.Owners
++            .AsNoTracking()
++            .Include(o => o.Pets.OrderBy(p => p.Name))
++            .Where(o => o.Phone == normalized)
++            .OrderBy(o => o.FullName)
++            .ToListAsync();
++    }
++
++    // Отказ от SMS. Если согласие уже снято, момент изменения не перезаписывается.
++    public async Task RevokeSmsConsentAsync(int ownerId)
++    {
++        var owner = await db.Owners.SingleAsync(o => o.Id == ownerId);
++        if (!owner.SmsConsent)
++            return;
++
++        owner.SmsConsent = false;
++        owner.SmsConsentChangedAt = DateTime.UtcNow;   // timestamptz: Npgsql требует Kind=Utc
++        await db.SaveChangesAsync();
++    }
++
+     public async Task<Owner> CreateAsync(string fullName, string phone, string? email, bool smsConsent)
+     {
+         var owner = new Owner
+diff --git a/ReminderReportService.cs b/ReminderReportService.cs
+new file mode 100644
+index 0000000..b9fa09b
+--- /dev/null
++++ b/ReminderReportService.cs
+@@ -0,0 +1,56 @@
++using System.Linq.Expressions;
++using Microsoft.EntityFrameworkCore;
++using VetClinic.Reception.Data;
++using VetClinic.Reception.Domain;
++
++namespace VetClinic.Reception.Services;
++
++public record SeniorRabiesReminderRow(string PetName, Species Species, string OwnerFullName, string OwnerPhone);
++
++public class ReminderReportService(ClinicDbContext db)
++{
++    // Ночной отчёт для SMS-программы возрастных питомцев: возрастной питомец,
++    // прививки от бешенства не было или последняя старше 12 месяцев, владелец согласен на SMS.
++    public async Task<List<SeniorRabiesReminderRow>> GetSeniorRabiesRemindersAsync(CancellationToken ct = default)
++    {
++        // Pet.IsSenior вычисляется в памяти и в SQL не транслируется; тянуть 250 тыс. питомцев
++        // с прививками на клиент нельзя, поэтому правило переводится в пороги по дате рождения.
++        var today = DateOnly.FromDateTime(DateTime.Today);
++        // AdministeredAt хранится как timestamptz - Npgsql требует DateTime с Kind=Utc.
++        var rabiesCutoff = DateTime.UtcNow.AddMonths(-12);
++
++        return await db.Pets
++            .AsNoTracking()
++            .Where(SeniorPredicate(today))
++            .Where(p => p.Owner.SmsConsent)
++            .Where(p => !p.Vaccinations.Any(v =>
++                v.VaccineCode == VaccineCodes.Rabies && v.AdministeredAt > rabiesCutoff))
++            .OrderBy(p => p.OwnerId).ThenBy(p => p.Name)
++            .Select(p => new SeniorRabiesReminderRow(p.Name, p.Species, p.Owner.FullName, p.Owner.Phone))
++            .ToListAsync(ct);
++    }
++
++    // AgeYears >= N  <=>  BirthDate <= today.AddYears(-N) (та же формула, что в Pet.AgeYears, включая 29 февраля).
++    // Строит (Species == Dog && BirthDate <= c1) || (Species == Cat && BirthDate <= c2) || ...
++    // по всем видам, для которых Pet.SeniorAgeYears задаёт порог.
++    private static Expression<Func<Pet, bool>> SeniorPredicate(DateOnly today)
++    {
++        var pet = Expression.Parameter(typeof(Pet), "p");
++        Expression? body = null;
++
++        foreach (var species in Enum.GetValues<Species>())
++        {
++            if (Pet.SeniorAgeYears(species) is not int seniorAge)
++                continue;
++
++            var birthCutoff = today.AddYears(-seniorAge);
++            var clause = Expression.AndAlso(
++                Expression.Equal(Expression.Property(pet, nameof(Pet.Species)), Expression.Constant(species)),
++                Expression.LessThanOrEqual(Expression.Property(pet, nameof(Pet.BirthDate)), Expression.Constant(birthCutoff)));
++
++            body = body is null ? clause : Expression.OrElse(body, clause);
++        }
++
++        return Expression.Lambda<Func<Pet, bool>>(body ?? Expression.Constant(false), pet);
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..8a58d2f
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,245 @@
++# Ответ
++
++## Файлы
++- **Создан:** `ReminderReportService.cs` — `GetSeniorRabiesRemindersAsync()` → `List<SeniorRabiesReminderRow>` (кличка, вид, ФИО владельца, телефон владельца).
++- **Изменён:** `OwnerService.cs` — добавлены `FindByPhoneAsync(string phone)` и `RevokeSmsConsentAsync(int ownerId)`.
++- **Изменён:** `Domain.cs` — пороги возраста вынесены в `Pet.SeniorAgeYears(Species)`; `IsSenior` теперь использует их, поведение не изменилось.
++
++## Решения
++- **Отчёт считается целиком в базе.** `Pet.IsSenior` — вычисляемое свойство, и EF не может перевести его в SQL. Поэтому из того же правила (`SeniorAgeYears`) строится фильтр по дате рождения для каждого вида: `AgeYears >= N` ⇔ `BirthDate <= today.AddYears(-N)`. К нему добавлены `NOT EXISTS` по прививке от бешенства за последние 12 месяцев (этот подзапрос использует индекс `(PetId, VaccineCode, AdministeredAt)`), `SmsConsent`, `AsNoTracking` и выборка только четырёх нужных полей. Без этого пришлось бы загружать в память 250 тыс. питомцев с их прививками.
++- **Поиск по телефону возвращает список владельцев.** Номер не уникален: на один телефон записаны несколько членов семьи, поэтому `SingleOrDefault`, как в поиске по email, здесь не подходит. Номер приводится к единому виду через `PhoneFormat.Normalize`. Если номер некорректный, выбрасывается `ArgumentException`, как и в `CreateAsync`. Возраст питомца берётся из `Pet.AgeYears`.
++- **Время для полей `timestamptz` передаётся в UTC.** Npgsql 6+ принимает для них только `DateTime` с `Kind=Utc`, поэтому используется `DateTime.UtcNow`. Если согласие на SMS уже было снято, повторный отказ ничего не меняет и не перезаписывает `SmsConsentChangedAt`.
++
++Сборку и тесты не запускал.
++
++## ReminderReportService.cs (новый)
++```csharp
++using System.Linq.Expressions;
++using Microsoft.EntityFrameworkCore;
++using VetClinic.Reception.Data;
++using VetClinic.Reception.Domain;
++
++namespace VetClinic.Reception.Services;
++
++public record SeniorRabiesReminderRow(string PetName, Species Species, string OwnerFullName, string OwnerPhone);
++
++public class ReminderReportService(ClinicDbContext db)
++{
++    // Ночной отчёт для SMS-программы возрастных питомцев: возрастной питомец,
++    // прививки от бешенства не было или последняя старше 12 месяцев, владелец согласен на SMS.
++    public async Task<List<SeniorRabiesReminderRow>> GetSeniorRabiesRemindersAsync(CancellationToken ct = default)
++    {
++        // Pet.IsSenior вычисляется в памяти и в SQL не транслируется; тянуть 250 тыс. питомцев
++        // с прививками на клиент нельзя, поэтому правило переводится в пороги по дате рождения.
++        var today = DateOnly.FromDateTime(DateTime.Today);
++        // AdministeredAt хранится как timestamptz - Npgsql требует DateTime с Kind=Utc.
++        var rabiesCutoff = DateTime.UtcNow.AddMonths(-12);
++
++        return await db.Pets
++            .AsNoTracking()
++            .Where(SeniorPredicate(today))
++            .Where(p => p.Owner.SmsConsent)
++            .Where(p => !p.Vaccinations.Any(v =>
++                v.VaccineCode == VaccineCodes.Rabies && v.AdministeredAt > rabiesCutoff))
++            .OrderBy(p => p.OwnerId).ThenBy(p => p.Name)
++            .Select(p => new SeniorRabiesReminderRow(p.Name, p.Species, p.Owner.FullName, p.Owner.Phone))
++            .ToListAsync(ct);
++    }
++
++    // AgeYears >= N  <=>  BirthDate <= today.AddYears(-N) (та же формула, что в Pet.AgeYears, включая 29 февраля).
++    // Строит (Species == Dog && BirthDate <= c1) || (Species == Cat && BirthDate <= c2) || ...
++    // по всем видам, для которых Pet.SeniorAgeYears задаёт порог.
++    private static Expression<Func<Pet, bool>> SeniorPredicate(DateOnly today)
++    {
++        var pet = Expression.Parameter(typeof(Pet), "p");
++        Expression? body = null;
++
++        foreach (var species in Enum.GetValues<Species>())
++        {
++            if (Pet.SeniorAgeYears(species) is not int seniorAge)
++                continue;
++
++            var birthCutoff = today.AddYears(-seniorAge);
++            var clause = Expression.AndAlso(
++                Expression.Equal(Expression.Property(pet, nameof(Pet.Species)), Expression.Constant(species)),
++                Expression.LessThanOrEqual(Expression.Property(pet, nameof(Pet.BirthDate)), Expression.Constant(birthCutoff)));
++
++            body = body is null ? clause : Expression.OrElse(body, clause);
++        }
++
++        return Expression.Lambda<Func<Pet, bool>>(body ?? Expression.Constant(false), pet);
++    }
++}
++```
++
++## OwnerService.cs (изменён)
++```csharp
++using Microsoft.EntityFrameworkCore;
++using VetClinic.Reception.Data;
++using VetClinic.Reception.Domain;
++
++namespace VetClinic.Reception.Services;
++
++public class OwnerService(ClinicDbContext db)
++{
++    public async Task<Owner?> FindByEmailAsync(string email)
++    {
++        var normalized = email.Trim().ToLowerInvariant();
++        return await db.Owners
++            .Include(o => o.Pets)
++            .SingleOrDefaultAsync(o => o.Email == normalized);
++    }
++
++    // Телефон не уникален (семья на одном номере), поэтому возвращается список владельцев.
++    // Возраст питомца - Pet.AgeYears. Некорректный номер -> ArgumentException из PhoneFormat.Normalize.
++    public async Task<List<Owner>> FindByPhoneAsync(string phone)
++    {
++        var normalized = PhoneFormat.Normalize(phone);
++        return await db.Owners
++            .AsNoTracking()
++            .Include(o => o.Pets.OrderBy(p => p.Name))
++            .Where(o => o.Phone == normalized)
++            .OrderBy(o => o.FullName)
++            .ToListAsync();
++    }
++
++    // Отказ от SMS. Если согласие уже снято, момент изменения не перезаписывается.
++    public async Task RevokeSmsConsentAsync(int ownerId)
++    {
++        var owner = await db.Owners.SingleAsync(o => o.Id == ownerId);
++        if (!owner.SmsConsent)
++            return;
++
++        owner.SmsConsent = false;
++        owner.SmsConsentChangedAt = DateTime.UtcNow;   // timestamptz: Npgsql требует Kind=Utc
++        await db.SaveChangesAsync();
++    }
++
++    public async Task<Owner> CreateAsync(string fullName, string phone, string? email, bool smsConsent)
++    {
++        var owner = new Owner
++        {
++            FullName = fullName.Trim(),
++            Phone = PhoneFormat.Normalize(phone),
++            Email = email?.Trim().ToLowerInvariant(),
++            SmsConsent = smsConsent
++        };
++        db.Owners.Add(owner);
++        await db.SaveChangesAsync();
++        return owner;
++    }
++
++    public async Task UpdateContactsAsync(int ownerId, string phone, string? email)
++    {
++        var owner = await db.Owners.SingleAsync(o => o.Id == ownerId);
++        owner.Phone = PhoneFormat.Normalize(phone);
++        owner.Email = email?.Trim().ToLowerInvariant();
++        await db.SaveChangesAsync();
++    }
++}
++
++public static class PhoneFormat
++{
++    // "+7 (912) 345-67-89", "8 912 345 67 89", "9123456789" -> "79123456789"
++    public static string Normalize(string raw)
++    {
++        var digits = new string(raw.Where(char.IsDigit).ToArray());
++        if (digits.Length == 10)
++            digits = "7" + digits;
++        if (digits.Length == 11 && digits[0] == '8')
++            digits = "7" + digits[1..];
++        if (digits.Length != 11 || digits[0] != '7')
++            throw new ArgumentException($"Некорректный номер телефона: {raw}", nameof(raw));
++        return digits;
++    }
++}
++```
++
++## Domain.cs (изменён)
++```csharp
++namespace VetClinic.Reception.Domain;
++
++public enum Species
++{
++    Dog = 1,
++    Cat = 2,
++    Ferret = 3,
++    Rabbit = 4,
++    Other = 99
++}
++
++public class Owner
++{
++    public int Id { get; set; }
++    public string FullName { get; set; } = "";
++
++    // Только цифры, 11 знаков, начинается с 7 - приводится PhoneFormat.Normalize при сохранении.
++    // Номер не уникален: на один телефон часто записаны несколько членов семьи.
++    public string Phone { get; set; } = "";
++
++    public string? Email { get; set; }
++
++    public bool SmsConsent { get; set; }
++    public DateTime? SmsConsentChangedAt { get; set; }
++
++    public DateTime CreatedAt { get; set; }
++
++    public List<Pet> Pets { get; set; } = new();
++}
++
++public class Pet
++{
++    public int Id { get; set; }
++    public int OwnerId { get; set; }
++    public Owner Owner { get; set; } = null!;
++
++    public string Name { get; set; } = "";
++    public Species Species { get; set; }
++    public DateOnly BirthDate { get; set; }
++
++    public List<Vaccination> Vaccinations { get; set; } = new();
++
++    public int AgeYears
++    {
++        get
++        {
++            var today = DateOnly.FromDateTime(DateTime.Today);
++            var age = today.Year - BirthDate.Year;
++            if (BirthDate > today.AddYears(-age))
++                age--;
++            return age;
++        }
++    }
++
++    // Правило клиники: с какого возраста питомец считается возрастным
++    // (для возрастных действует своя программа напоминаний).
++    public bool IsSenior => SeniorAgeYears(Species) is int seniorAge && AgeYears >= seniorAge;
++
++    // Порог возраста по виду; null - для вида программа не действует.
++    // Используется и в IsSenior, и в SQL-фильтре отчёта (ReminderReportService), чтобы правило было в одном месте.
++    public static int? SeniorAgeYears(Species species) => species switch
++    {
++        Species.Dog => 8,
++        Species.Cat => 10,
++        Species.Ferret => 5,
++        Species.Rabbit => 6,
++        _ => null
++    };
++}
++
++public class Vaccination
++{
++    public int Id { get; set; }
++    public int PetId { get; set; }
++    public Pet Pet { get; set; } = null!;
++
++    public string VaccineCode { get; set; } = "";   // см. VaccineCodes
++    public DateTime AdministeredAt { get; set; }
++}
++
++public static class VaccineCodes
++{
++    public const string Rabies = "RABIES";
++    public const string Complex = "COMPLEX";
++}
++```

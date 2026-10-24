@@ -1,0 +1,38 @@
+{
+  "id": "r2-c2",
+  "case": "R2",
+  "edition": "c",
+  "skills": [],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 7,
+  "cost": 0.18076119999999998,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Bash": 6
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "git diff main...HEAD --stat && cat docs/tasks/SD-17-order-dashboard.md",
+    "git diff main...HEAD -- api/src web/src/api.ts web/src/App.tsx web/src/lib web/src/types.ts web/tsconfig.json web/src/components/OrdersPage.tsx | cat -n | head -800",
+    "cd <run>/web/src/components/dashboard && for f in *; do echo \"=== $f\"; cat -n $f; done",
+    "cd <run> && cat api/src/auth.ts | head -50; grep -n \"totalKopecks\\|orderTotal\" -r api/src web/src --include=*.ts --include=*.tsx | grep ",
+    "cat web/vite.config.ts; cat package.json | head -30; npm test 2>&1 | grep -n \"Test Files\\|Tests\\|FAIL\\|✓\\|passed\"; grep -n \"cancel\" -A12 api/src/app.ts | head -40; cat web/src/lib/money.ts; ls e2e e2e",
+    "cat > REVIEW.md <<'EOF'\nweb/src/components/dashboard/OrderDashboard.tsx:34-36 - `filters` — новый объект на каждый рендер, он в deps эффекта; каждая загрузка вызывает setOrders → рендер → новая загруз"
+  ]
+}

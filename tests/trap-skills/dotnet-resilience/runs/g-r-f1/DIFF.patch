@@ -1,0 +1,530 @@
+diff --git a/src/Pricing.Api/Contracts/ReservationContracts.cs b/src/Pricing.Api/Contracts/ReservationContracts.cs
+new file mode 100644
+index 0000000..2a2241e
+--- /dev/null
++++ b/src/Pricing.Api/Contracts/ReservationContracts.cs
+@@ -0,0 +1,9 @@
++namespace Pricing.Api.Contracts;
++
++public sealed record ReserveLineDto(string Sku, int Quantity);
++
++public sealed record ReserveRequest(IReadOnlyList<ReserveLineDto> Lines);
++
++public sealed record ReservationLineDto(string Sku, string ReservationId);
++
++public sealed record ReservationResponse(string OrderId, IReadOnlyList<ReservationLineDto> Lines);
+diff --git a/src/Pricing.Api/Controllers/ReservationsController.cs b/src/Pricing.Api/Controllers/ReservationsController.cs
+new file mode 100644
+index 0000000..1633b3a
+--- /dev/null
++++ b/src/Pricing.Api/Controllers/ReservationsController.cs
+@@ -0,0 +1,24 @@
++using Microsoft.AspNetCore.Mvc;
++using Pricing.Api.Contracts;
++using Pricing.Application.Reservations;
++
++namespace Pricing.Api.Controllers;
++
++[ApiController]
++[Route("api/orders/{orderId}/reservations")]
++public sealed class ReservationsController(ReservationService reservations) : ControllerBase
++{
++    [HttpPost]
++    [ProducesResponseType<ReservationResponse>(StatusCodes.Status201Created)]
++    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
++    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
++    [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable)]
++    public async Task<ActionResult<ReservationResponse>> Create(
++        string orderId, ReserveRequest request, CancellationToken ct)
++    {
++        var result = await reservations.ReserveAsync(
++            orderId, request.Lines.Select(l => new ReserveLine(l.Sku, l.Quantity)).ToList(), ct);
++        var response = new ReservationResponse(orderId, result.Select(r => new ReservationLineDto(r.Sku, r.ReservationId)).ToList());
++        return Created($"api/orders/{Uri.EscapeDataString(orderId)}/reservations", response);
++    }
++}
+diff --git a/src/Pricing.Api/Errors/DomainExceptionHandler.cs b/src/Pricing.Api/Errors/DomainExceptionHandler.cs
+index 4028192..1246914 100644
+--- a/src/Pricing.Api/Errors/DomainExceptionHandler.cs
++++ b/src/Pricing.Api/Errors/DomainExceptionHandler.cs
+@@ -10,7 +10,12 @@ public sealed class DomainExceptionHandler(IProblemDetailsService problems) : IE
+     public async ValueTask<bool> TryHandleAsync(HttpContext http, Exception exception, CancellationToken ct)
+     {
+         if (exception is not DomainException domain) return false;
+-        http.Response.StatusCode = domain is NotFoundException ? StatusCodes.Status404NotFound : StatusCodes.Status409Conflict;
++        http.Response.StatusCode = domain switch
++        {
++            NotFoundException => StatusCodes.Status404NotFound,
++            SupplierUnavailableException => StatusCodes.Status503ServiceUnavailable,
++            _ => StatusCodes.Status409Conflict,
++        };
+         var problem = new ProblemDetails { Status = http.Response.StatusCode, Title = domain.Message };
+         problem.Extensions["code"] = domain.Code;
+         return await problems.TryWriteAsync(new ProblemDetailsContext { HttpContext = http, ProblemDetails = problem, Exception = exception });
+diff --git a/src/Pricing.Api/Program.cs b/src/Pricing.Api/Program.cs
+index 6598ba2..c1d1e44 100644
+--- a/src/Pricing.Api/Program.cs
++++ b/src/Pricing.Api/Program.cs
+@@ -3,6 +3,7 @@ using Pricing.Api.Errors;
+ using Pricing.Application.Products;
+ using Pricing.Application.Promotions;
+ using Pricing.Application.Quotes;
++using Pricing.Application.Reservations;
+ using Pricing.Infrastructure;
+ 
+ var builder = WebApplication.CreateBuilder(args);
+@@ -18,6 +19,7 @@ builder.Services.AddInfrastructure(builder.Configuration);
+ builder.Services.AddScoped<ProductService>();
+ builder.Services.AddScoped<PromotionService>();
+ builder.Services.AddScoped<QuoteService>();
++builder.Services.AddScoped<ReservationService>();
+ 
+ var app = builder.Build();
+ 
+diff --git a/src/Pricing.Application/Abstractions/ISupplierReservations.cs b/src/Pricing.Application/Abstractions/ISupplierReservations.cs
+new file mode 100644
+index 0000000..105f0d9
+--- /dev/null
++++ b/src/Pricing.Application/Abstractions/ISupplierReservations.cs
+@@ -0,0 +1,10 @@
++namespace Pricing.Application.Abstractions;
++
++public interface ISupplierReservations
++{
++    /// <summary>
++    /// Резервирует количество у поставщика. Повтор с тем же <paramref name="idempotencyKey"/>
++    /// возвращает уже созданный резерв. Если поставщик недоступен - <c>SupplierUnavailableException</c>.
++    /// </summary>
++    Task<string> ReserveAsync(string supplierId, string orderId, string sku, int quantity, string idempotencyKey, CancellationToken ct);
++}
+diff --git a/src/Pricing.Application/Abstractions/ISupplierStock.cs b/src/Pricing.Application/Abstractions/ISupplierStock.cs
+new file mode 100644
+index 0000000..94dcd37
+--- /dev/null
++++ b/src/Pricing.Application/Abstractions/ISupplierStock.cs
+@@ -0,0 +1,7 @@
++namespace Pricing.Application.Abstractions;
++
++public interface ISupplierStock
++{
++    /// <summary>Сколько единиц есть у поставщика; null - узнать не удалось или поставщик SKU не знает.</summary>
++    Task<int?> GetAvailableAsync(string supplierId, string sku, CancellationToken ct);
++}
+diff --git a/src/Pricing.Application/Quotes/QuoteService.cs b/src/Pricing.Application/Quotes/QuoteService.cs
+index 8860f76..a4f586a 100644
+--- a/src/Pricing.Application/Quotes/QuoteService.cs
++++ b/src/Pricing.Application/Quotes/QuoteService.cs
+@@ -6,15 +6,21 @@ namespace Pricing.Application.Quotes;
+ 
+ public sealed record QuoteLine(string Sku, int Quantity);
+ 
+-public sealed record QuotedLine(string Sku, int Quantity, decimal UnitPrice, decimal Total);
++public sealed record QuotedLine(string Sku, int Quantity, decimal UnitPrice, decimal Total, int? Available = null);
+ 
+ public sealed record Quote(IReadOnlyList<QuotedLine> Lines, decimal Total, string Currency);
+ 
+-public sealed class QuoteService(IProductRepository products, ISupplierCatalog suppliers, PromotionService promotions)
++public sealed class QuoteService(
++    IProductRepository products, ISupplierCatalog suppliers, ISupplierStock stock, PromotionService promotions)
+ {
++    // Витрина ждёт ответ не дольше 3 с: наличие необязательно, ему отводится общий срок на всю котировку.
++    private static readonly TimeSpan StockDeadline = TimeSpan.FromSeconds(2);
++    // У Supplier API лимит 20 запросов в секунду на ключ.
++    private const int StockParallelism = 4;
++
+     public async Task<Quote> QuoteAsync(IReadOnlyList<QuoteLine> lines, CancellationToken ct)
+     {
+-        var quoted = new List<QuotedLine>();
++        var priced = new List<(Product Product, QuoteLine Line, decimal Unit)>();
+         foreach (var line in lines)
+         {
+             var product = await products.GetBySkuAsync(line.Sku, ct)
+@@ -23,8 +29,38 @@ public sealed class QuoteService(IProductRepository products, ISupplierCatalog s
+             var unit = Math.Max(product.BasePrice, supplier?.Price ?? 0m);
+             var discount = await promotions.CurrentDiscountAsync(product.Category, ct);
+             unit = Math.Round(unit * (1 - discount / 100m), 2);
+-            quoted.Add(new QuotedLine(line.Sku, line.Quantity, unit, unit * line.Quantity));
++            priced.Add((product, line, unit));
+         }
++
++        var available = await GetAvailabilityAsync(priced.Select(p => p.Product), ct);
++        var quoted = priced
++            .Select(p => new QuotedLine(p.Line.Sku, p.Line.Quantity, p.Unit, p.Unit * p.Line.Quantity,
++                available.GetValueOrDefault((p.Product.SupplierId, p.Product.Sku))))
++            .ToList();
+         return new Quote(quoted, quoted.Sum(l => l.Total), "RUB");
+     }
++
++    private async Task<Dictionary<(string SupplierId, string Sku), int?>> GetAvailabilityAsync(
++        IEnumerable<Product> items, CancellationToken ct)
++    {
++        var result = new Dictionary<(string SupplierId, string Sku), int?>();
++        var distinct = items.DistinctBy(p => (p.SupplierId, p.Sku)).ToList();
++        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
++        deadline.CancelAfter(StockDeadline);
++        try
++        {
++            await Parallel.ForEachAsync(distinct,
++                new ParallelOptions { MaxDegreeOfParallelism = StockParallelism, CancellationToken = deadline.Token },
++                async (p, token) =>
++                {
++                    var value = await stock.GetAvailableAsync(p.SupplierId, p.Sku, token);
++                    lock (result) result[(p.SupplierId, p.Sku)] = value;
++                });
++        }
++        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
++        {
++            // Срок вышел: у строк без ответа available = null.
++        }
++        lock (result) return new Dictionary<(string SupplierId, string Sku), int?>(result);
++    }
+ }
+diff --git a/src/Pricing.Application/Reservations/ReservationService.cs b/src/Pricing.Application/Reservations/ReservationService.cs
+new file mode 100644
+index 0000000..3d5abde
+--- /dev/null
++++ b/src/Pricing.Application/Reservations/ReservationService.cs
+@@ -0,0 +1,40 @@
++using Pricing.Application.Abstractions;
++using Pricing.Domain;
++
++namespace Pricing.Application.Reservations;
++
++public sealed record ReserveLine(string Sku, int Quantity);
++
++public sealed record LineReservation(string Sku, string ReservationId);
++
++public sealed class ReservationService(IProductRepository products, ISupplierReservations reservations)
++{
++    public async Task<IReadOnlyList<LineReservation>> ReserveAsync(
++        string orderId, IReadOnlyList<ReserveLine> lines, CancellationToken ct)
++    {
++        if (string.IsNullOrWhiteSpace(orderId)) throw new DomainException("reservation.order_required", "orderId обязателен");
++        if (lines.Count == 0) throw new DomainException("reservation.lines_required", "Нужна хотя бы одна строка");
++        if (lines.Any(l => l.Quantity <= 0)) throw new DomainException("reservation.quantity_positive", "Количество должно быть больше нуля");
++
++        // Сначала все товары: неизвестный SKU не должен оставить частичный резерв.
++        var resolved = new List<(Product Product, ReserveLine Line)>();
++        foreach (var line in lines)
++        {
++            var product = await products.GetBySkuAsync(line.Sku, ct)
++                ?? throw new NotFoundException("product.not_found", $"SKU {line.Sku} не найден");
++            resolved.Add((product, line));
++        }
++
++        // Ключ стабилен для (заказ, позиция): повтор вызова сервисом заказов или повтор HTTP-клиента
++        // после таймаута получает тот же резерв, а не создаёт второй.
++        var result = new List<LineReservation>();
++        for (var i = 0; i < resolved.Count; i++)
++        {
++            var (product, line) = resolved[i];
++            var id = await reservations.ReserveAsync(
++                product.SupplierId, orderId, line.Sku, line.Quantity, $"{orderId}:{i}:{line.Sku}", ct);
++            result.Add(new LineReservation(line.Sku, id));
++        }
++        return result;
++    }
++}
+diff --git a/src/Pricing.Contracts/Pricing.Contracts.csproj b/src/Pricing.Contracts/Pricing.Contracts.csproj
+index 8250925..75a76c3 100644
+--- a/src/Pricing.Contracts/Pricing.Contracts.csproj
++++ b/src/Pricing.Contracts/Pricing.Contracts.csproj
+@@ -2,7 +2,7 @@
+   <PropertyGroup>
+     <IsPackable>true</IsPackable>
+     <PackageId>Pricing.Contracts</PackageId>
+-    <Version>1.3.0</Version>
++    <Version>1.4.0</Version>
+     <Description>Контракт котировки сервиса цен для витрины и B2B-шлюза.</Description>
+   </PropertyGroup>
+ </Project>
+diff --git a/src/Pricing.Contracts/QuoteContracts.cs b/src/Pricing.Contracts/QuoteContracts.cs
+index 94b67f1..1eb49b9 100644
+--- a/src/Pricing.Contracts/QuoteContracts.cs
++++ b/src/Pricing.Contracts/QuoteContracts.cs
+@@ -4,7 +4,7 @@ public sealed record QuoteLineRequest(string Sku, int Quantity);
+ 
+ public sealed record QuoteRequest(IReadOnlyList<QuoteLineRequest> Lines, string? Currency = null);
+ 
+-public sealed record QuoteLineResponse(string Sku, int Quantity, decimal UnitPrice, decimal Total);
++public sealed record QuoteLineResponse(string Sku, int Quantity, decimal UnitPrice, decimal Total, int? Available = null);
+ 
+ public sealed record QuoteResponse(IReadOnlyList<QuoteLineResponse> Lines, decimal Total, string Currency)
+ {
+diff --git a/src/Pricing.Domain/DomainException.cs b/src/Pricing.Domain/DomainException.cs
+index 7463156..12366ad 100644
+--- a/src/Pricing.Domain/DomainException.cs
++++ b/src/Pricing.Domain/DomainException.cs
+@@ -6,3 +6,5 @@ public class DomainException(string code, string message) : Exception(message)
+ }
+ 
+ public sealed class NotFoundException(string code, string message) : DomainException(code, message);
++
++public sealed class SupplierUnavailableException(string message) : DomainException("supplier.unavailable", message);
+diff --git a/src/Pricing.Infrastructure/InfrastructureModule.cs b/src/Pricing.Infrastructure/InfrastructureModule.cs
+index b906c7f..8a36eb1 100644
+--- a/src/Pricing.Infrastructure/InfrastructureModule.cs
++++ b/src/Pricing.Infrastructure/InfrastructureModule.cs
+@@ -16,13 +16,36 @@ public static class InfrastructureModule
+         services.AddScoped<IPromotionRepository, InMemoryPromotionRepository>();
+ 
+         services.Configure<SupplierOptions>(config.GetSection(SupplierOptions.Section));
+-        services.AddHttpClient<ISupplierCatalog, SupplierApiClient>((sp, http) =>
+-            {
+-                var o = sp.GetRequiredService<IOptions<SupplierOptions>>().Value;
+-                http.BaseAddress = o.BaseUrl;
+-                http.DefaultRequestHeaders.Add("X-Api-Key", o.ApiKey);
+-            })
++        services.AddHttpClient<ISupplierCatalog, SupplierApiClient>(ConfigureSupplier)
+             .AddStandardResilienceHandler();
++
++        // Наличие идёт в котировку, а витрина ждёт 3 с: срок вызова короче, чем у остальных.
++        services.AddHttpClient<ISupplierStock, SupplierStockClient>(ConfigureSupplier)
++            .AddStandardResilienceHandler(o =>
++            {
++                o.AttemptTimeout.Timeout = TimeSpan.FromMilliseconds(800);
++                o.Retry.MaxRetryAttempts = 1;
++                o.TotalRequestTimeout.Timeout = TimeSpan.FromMilliseconds(1800);
++                o.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(30);
++            });
++
++        // POST безопасно повторять: каждый запрос несёт Idempotency-Key. Выгрузка поставщика
++        // отвечает до 15 с, поэтому попытка длиннее.
++        services.AddHttpClient<ISupplierReservations, SupplierReservationClient>(ConfigureSupplier)
++            .AddStandardResilienceHandler(o =>
++            {
++                o.AttemptTimeout.Timeout = TimeSpan.FromSeconds(16);
++                o.Retry.MaxRetryAttempts = 1;
++                o.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(40);
++                o.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(60);
++            });
+         return services;
+     }
++
++    private static void ConfigureSupplier(IServiceProvider sp, HttpClient http)
++    {
++        var o = sp.GetRequiredService<IOptions<SupplierOptions>>().Value;
++        http.BaseAddress = o.BaseUrl;
++        http.DefaultRequestHeaders.Add("X-Api-Key", o.ApiKey);
++    }
+ }
+diff --git a/src/Pricing.Infrastructure/Suppliers/SupplierReservationClient.cs b/src/Pricing.Infrastructure/Suppliers/SupplierReservationClient.cs
+new file mode 100644
+index 0000000..41c58b2
+--- /dev/null
++++ b/src/Pricing.Infrastructure/Suppliers/SupplierReservationClient.cs
+@@ -0,0 +1,39 @@
++using System.Net.Http.Json;
++using System.Text.Json;
++using Polly.CircuitBreaker;
++using Polly.Timeout;
++using Pricing.Application.Abstractions;
++using Pricing.Domain;
++
++namespace Pricing.Infrastructure.Suppliers;
++
++public sealed class SupplierReservationClient(HttpClient http) : ISupplierReservations
++{
++    private sealed record ReservationRequest(string OrderId, string Sku, int Quantity);
++
++    private sealed record ReservationResponse(string ReservationId);
++
++    public async Task<string> ReserveAsync(
++        string supplierId, string orderId, string sku, int quantity, string idempotencyKey, CancellationToken ct)
++    {
++        using var request = new HttpRequestMessage(HttpMethod.Post, $"v1/suppliers/{Uri.EscapeDataString(supplierId)}/reservations")
++        {
++            Content = JsonContent.Create(new ReservationRequest(orderId, sku, quantity)),
++        };
++        // Без ключа каждый повтор (наш или клиента resilience) создал бы ещё один резерв.
++        request.Headers.Add("Idempotency-Key", idempotencyKey);
++        try
++        {
++            using var response = await http.SendAsync(request, ct);
++            response.EnsureSuccessStatusCode();
++            var body = await response.Content.ReadFromJsonAsync<ReservationResponse>(ct);
++            return body?.ReservationId ?? throw new SupplierUnavailableException("Пустой ответ Supplier API");
++        }
++        catch (Exception ex) when (ex is HttpRequestException or TimeoutRejectedException
++                                       or BrokenCircuitException or JsonException
++                                       or OperationCanceledException && !ct.IsCancellationRequested)
++        {
++            throw new SupplierUnavailableException($"Поставщик {supplierId} не принял резерв: {ex.Message}");
++        }
++    }
++}
+diff --git a/src/Pricing.Infrastructure/Suppliers/SupplierStockClient.cs b/src/Pricing.Infrastructure/Suppliers/SupplierStockClient.cs
+new file mode 100644
+index 0000000..e5854f6
+--- /dev/null
++++ b/src/Pricing.Infrastructure/Suppliers/SupplierStockClient.cs
+@@ -0,0 +1,50 @@
++using System.Diagnostics.Metrics;
++using System.Net;
++using System.Net.Http.Json;
++using System.Text.Json;
++using Microsoft.Extensions.Logging;
++using Polly.CircuitBreaker;
++using Polly.Timeout;
++using Pricing.Application.Abstractions;
++
++namespace Pricing.Infrastructure.Suppliers;
++
++public sealed class SupplierStockClient : ISupplierStock
++{
++    public const string MeterName = "Pricing.Suppliers";
++
++    private sealed record StockResponse(string Sku, int Available);
++
++    private readonly HttpClient _http;
++    private readonly ILogger<SupplierStockClient> _logger;
++    private readonly Counter<long> _fallbacks;
++
++    public SupplierStockClient(HttpClient http, ILogger<SupplierStockClient> logger, IMeterFactory meters)
++    {
++        _http = http;
++        _logger = logger;
++        _fallbacks = meters.Create(MeterName).CreateCounter<long>("pricing.supplier.stock.fallbacks");
++    }
++
++    public async Task<int?> GetAvailableAsync(string supplierId, string sku, CancellationToken ct)
++    {
++        try
++        {
++            using var response = await _http.GetAsync(
++                $"v1/suppliers/{Uri.EscapeDataString(supplierId)}/stock/{Uri.EscapeDataString(sku)}", ct);
++            if (response.StatusCode == HttpStatusCode.NotFound) return null;
++            response.EnsureSuccessStatusCode();
++            var body = await response.Content.ReadFromJsonAsync<StockResponse>(ct);
++            return body?.Available;
++        }
++        catch (Exception ex) when (ex is HttpRequestException or TimeoutRejectedException
++                                       or BrokenCircuitException or JsonException
++                                       or OperationCanceledException && !ct.IsCancellationRequested)
++        {
++            // Наличие необязательно для котировки: отдаём null, но сбой виден в логе и метрике.
++            _fallbacks.Add(1, new KeyValuePair<string, object?>("reason", ex.GetType().Name));
++            _logger.LogWarning(ex, "Наличие {Sku} у поставщика {SupplierId} не получено, available = null", sku, supplierId);
++            return null;
++        }
++    }
++}
+diff --git a/tests/Pricing.Tests/QuoteAndReservationTests.cs b/tests/Pricing.Tests/QuoteAndReservationTests.cs
+new file mode 100644
+index 0000000..c480d99
+--- /dev/null
++++ b/tests/Pricing.Tests/QuoteAndReservationTests.cs
+@@ -0,0 +1,113 @@
++using Moq;
++using Pricing.Application.Abstractions;
++using Pricing.Application.Promotions;
++using Pricing.Application.Quotes;
++using Pricing.Application.Reservations;
++using Pricing.Domain;
++
++namespace Pricing.Tests;
++
++public sealed class QuoteAndReservationTests
++{
++    private readonly Mock<IProductRepository> _products = new();
++    private static readonly Product Milk = new(Guid.NewGuid(), "SKU-1", "Молоко", Category.Grocery, 90m, "sup-1");
++
++    private sealed class FakeStock(Func<string, int?> answer) : ISupplierStock
++    {
++        public Task<int?> GetAvailableAsync(string supplierId, string sku, CancellationToken ct) =>
++            Task.FromResult(answer(sku));
++    }
++
++    private sealed class HangingStock : ISupplierStock
++    {
++        public async Task<int?> GetAvailableAsync(string supplierId, string sku, CancellationToken ct)
++        {
++            await Task.Delay(Timeout.Infinite, ct);
++            return null;
++        }
++    }
++
++    private sealed class FakeReservations : ISupplierReservations
++    {
++        public List<string> Keys { get; } = [];
++
++        public Task<string> ReserveAsync(string supplierId, string orderId, string sku, int quantity, string idempotencyKey, CancellationToken ct)
++        {
++            Keys.Add(idempotencyKey);
++            return Task.FromResult($"res-{idempotencyKey}");
++        }
++    }
++
++    private sealed class NoPromotions : IPromotionRepository
++    {
++        public Task<IReadOnlyList<Promotion>> ListAsync(CancellationToken ct) =>
++            Task.FromResult<IReadOnlyList<Promotion>>([]);
++    }
++
++    private sealed class NoSupplierPrice : ISupplierCatalog
++    {
++        public Task<SupplierPrice?> GetPriceAsync(string supplierId, string sku, CancellationToken ct) =>
++            Task.FromResult<SupplierPrice?>(null);
++    }
++
++    private QuoteService Quotes(ISupplierStock stock)
++    {
++        _products.Setup(r => r.GetBySkuAsync("SKU-1", It.IsAny<CancellationToken>())).ReturnsAsync(Milk);
++        return new QuoteService(_products.Object, new NoSupplierPrice(), stock, new PromotionService(new NoPromotions()));
++    }
++
++    [Fact]
++    public async Task Quote_line_shows_supplier_availability()
++    {
++        var quote = await Quotes(new FakeStock(_ => 12)).QuoteAsync([new QuoteLine("SKU-1", 2)], default);
++
++        Assert.Equal(12, quote.Lines[0].Available);
++    }
++
++    [Fact]
++    public async Task Quote_is_returned_with_null_availability_when_stock_unknown()
++    {
++        var quote = await Quotes(new FakeStock(_ => null)).QuoteAsync([new QuoteLine("SKU-1", 2)], default);
++
++        Assert.Null(quote.Lines[0].Available);
++        Assert.Equal(180m, quote.Total);
++    }
++
++    [Fact]
++    public async Task Quote_is_returned_when_stock_does_not_answer_in_time()
++    {
++        var quote = await Quotes(new HangingStock()).QuoteAsync([new QuoteLine("SKU-1", 1)], default);
++
++        Assert.Null(quote.Lines[0].Available);
++        Assert.Equal(90m, quote.Total);
++    }
++
++    [Fact]
++    public async Task Reserve_returns_reservation_per_line_with_stable_idempotency_keys()
++    {
++        _products.Setup(r => r.GetBySkuAsync("SKU-1", It.IsAny<CancellationToken>())).ReturnsAsync(Milk);
++        var supplier = new FakeReservations();
++        var service = new ReservationService(_products.Object, supplier);
++        var lines = new[] { new ReserveLine("SKU-1", 3), new ReserveLine("SKU-1", 1) };
++
++        var first = await service.ReserveAsync("ord-1", lines, default);
++        var second = await service.ReserveAsync("ord-1", lines, default);
++
++        Assert.Equal(2, first.Count);
++        Assert.NotEqual(first[0].ReservationId, first[1].ReservationId);
++        Assert.Equal(first, second);
++    }
++
++    [Fact]
++    public async Task Reserve_unknown_sku_reserves_nothing()
++    {
++        _products.Setup(r => r.GetBySkuAsync("SKU-1", It.IsAny<CancellationToken>())).ReturnsAsync(Milk);
++        var supplier = new FakeReservations();
++        var service = new ReservationService(_products.Object, supplier);
++
++        await Assert.ThrowsAsync<NotFoundException>(() =>
++            service.ReserveAsync("ord-1", [new ReserveLine("SKU-1", 1), new ReserveLine("NOPE", 1)], default));
++
++        Assert.Empty(supplier.Keys);
++    }
++}

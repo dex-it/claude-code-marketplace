@@ -1,0 +1,92 @@
+{
+  "id": "8c98e2",
+  "case": "BN",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.094095,
+    "durationMs": 9995,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 9120,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1035,
+      "output_tokens_details": {
+        "thinking_tokens": 263
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9120,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1035,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 9120,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 9120
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "BN-h-local-time": {
+      "verdict": "NO",
+      "quote": "Если клиент всё-таки пришлёт время со смещением (`+03:00`)",
+      "why": "Выход не требует хранить время в UTC и не утверждает, что Unspecified упадёт в Npgsql; замечание о смещении ключом допущено."
+    },
+    "BN-h-split-card": {
+      "verdict": "NO",
+      "quote": "В split query порядок строк из PostgreSQL не гарантирован",
+      "why": "Split query не назван ошибкой, убрать его не требуется, подмешивание чужих данных не заявлено; предлагается только OrderBy."
+    },
+    "BN-h-tracking": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "AsNoTracking нигде не предлагается."
+    },
+    "BN-h-chip-single": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindPetByChipAsync и SingleOrDefault не упоминаются."
+    },
+    "BN-h-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "SQL-инъекция и несовпадение алиасов не заявлены; находка по SearchNotesAsync касается охвата StaffNotes и индекса."
+    },
+    "BN-h-tolower": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Трансляция ToLower/Contains не оспаривается."
+    },
+    "BN-h-consumable-remove": {
+      "verdict": "NO",
+      "quote": "Если процедуру закроют между чтением и `SaveChanges`, строка удалится уже из закрытого списания",
+      "why": "Выход исходит из того, что строка удаляется; про сироту или падение на FK не утверждается, замечание касается гонки и объёма загрузки."
+    },
+    "BN-pagination": {
+      "verdict": "FOUND",
+      "quote": "В коде `Skip(page * PageSize)`, поэтому `page=1` пропускает первые 30 процедур дня",
+      "why": "Дефект назван точно, исправление Skip((page - 1) * PageSize) предложено."
+    },
+    "BN-dose-grams": {
+      "verdict": "FOUND",
+      "quote": "Объём получается завышенным в 1000 раз",
+      "why": "Названо умножение граммов на мг/кг без деления на 1000."
+    }
+  },
+  "stderr": ""
+}

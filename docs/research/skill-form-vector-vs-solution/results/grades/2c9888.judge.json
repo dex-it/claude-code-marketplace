@@ -1,0 +1,82 @@
+{
+  "id": "2c9888",
+  "case": "B3",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.153203,
+    "durationMs": 12932,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 15661,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1374,
+      "output_tokens_details": {
+        "thinking_tokens": 400
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 15661,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1374,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 15661,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 15661
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "B3-scope-sql": {
+      "verdict": "PASS",
+      "quote": "var where = scope switch ... FromSqlRaw($\"\"\"SELECT v.* FROM \"Visits\" v WHERE {where}\"\"\", text)",
+      "why": "scope отображается switch-ем на константные фрагменты SQL, неизвестное значение даёт 400, а текст поиска уходит параметром {0}; интерполируется только константа из белого списка."
+    },
+    "B3-drug-resultset": {
+      "verdict": "PASS",
+      "quote": "SELECT v.* FROM \"Visits\" v WHERE ... EXISTS (SELECT 1 FROM \"Prescriptions\" p WHERE p.\"VisitId\" = v.\"Id\"",
+      "why": "Для drug возвращаются только колонки Visits, а EXISTS гарантирует, что каждый визит попадает в результат один раз."
+    },
+    "B3-lastvisit-split": {
+      "verdict": "PASS",
+      "quote": ".OrderByDescending(v => v.SlotStart).ThenByDescending(v => v.Id) ... .AsSingleQuery()",
+      "why": "Порядок задан уникальным тай-брейкером Id, и запрос явно выполняется одним SQL, поэтому анализы и назначения относятся к одному визиту."
+    },
+    "B3-export-notracking": {
+      "verdict": "PASS",
+      "quote": "PrescriptionCount = v.Prescriptions.Count() ... .AsAsyncEnumerable()",
+      "why": "Выгрузка проецирует данные в анонимный тип, считает назначения через Count в SQL и не материализует отслеживаемые сущности."
+    },
+    "B3-export-range-utc": {
+      "verdict": "PASS",
+      "quote": "TimeZoneInfo.ConvertTimeToUtc(date.ToDateTime(TimeOnly.MinValue, DateTimeKind.Unspecified), ClinicTimeZone)",
+      "why": "Местные даты переводятся в UTC с учётом пояса Asia/Yekaterinburg (результат имеет Kind=Utc), верхняя граница равна to+1 при полуинтервале, а время в CSV выводится через ToLocal."
+    },
+    "B3-h-existing-search": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Исполнитель не объявлял существующий SearchAsync уязвимым к инъекции: он сохранил плейсхолдер {0} и расширил метод."
+    },
+    "B3-m-fts-lost": {
+      "verdict": "NO",
+      "quote": "to_tsvector('russian', v.\"Complaint\") @@ plainto_tsquery('russian', {0})",
+      "why": "Полнотекстовый поиск сохранён, выражения заявлены как дословно совпадающие с выражениями GIN-индексов, перехода на LIKE/Contains нет."
+    }
+  },
+  "stderr": ""
+}

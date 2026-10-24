@@ -1,0 +1,92 @@
+{
+  "id": "1c8dab",
+  "case": "GR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.098455,
+    "durationMs": 16642,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 7730,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1809,
+      "output_tokens_details": {
+        "thinking_tokens": 937
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7730,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1809,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 7730,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 7730
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GR-offday-rows": {
+      "verdict": "PASS",
+      "quote": "`OffDayTripsAsync` (line 75): `.ToRows().Where(r => r.OffDay).OrderByDescending(r => r.Km).ToListAsync()`",
+      "why": "Указано, что OffDayTripsAsync падает из-за клиентского WorkCalendar.IsWorkingDay, и предложена материализация до ToRows; механизм назван неточно: отказ приписан самому Select, а не Where по OffDay, отсюда ложное утверждение, что падает и GetVehicleTripsAsync."
+    },
+    "GR-open-semicolon": {
+      "verdict": "FAIL",
+      "quote": "SQL запрос загружает ВСЕ незакрытые путевые листы из БД, а потом фильтрует их в памяти приложения",
+      "why": "Падение из-за ';' при композиции Where не найдено; фильтр ошибочно объявлен клиентским и сведён к производительности."
+    },
+    "GR-equipment-clear": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Clear() на незагруженной коллекции Equipment в ReplaceEquipmentAsync не упомянут."
+    },
+    "GR-model-length": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Миграция AlterColumn vehicles.model до varchar(40) не рассмотрена."
+    },
+    "GR-last-inspection": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Неуникальный порядок по CreatedAt при SplitQuery в GetLastInspectionAsync не найден."
+    },
+    "GR-permit-lastday": {
+      "verdict": "FOUND",
+      "quote": "Текущая проверка использует `>` вместо `>=`, что отклоняет допуск в его последний день действия.",
+      "why": "Дефект назван точно, со ссылкой на MR."
+    },
+    "GR-equipment-auth": {
+      "verdict": "FOUND",
+      "quote": "Endpoint не имеет `.RequireAuthorization()`.",
+      "why": "Отсутствие политики на PUT equipment названо; утверждение про неавторизованных пользователей преувеличено, но суть дефекта та же."
+    },
+    "GR-h-permits-clear": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "ReplacePermitsAsync и Permits.Clear() дефектом не названы."
+    },
+    "GR-h-plate-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByPlateAsync в выходе не упоминается."
+    }
+  },
+  "stderr": ""
+}

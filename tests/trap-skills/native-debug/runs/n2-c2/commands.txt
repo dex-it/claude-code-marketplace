@@ -1,0 +1,45 @@
+docker exec <ctr> sh -c 'pgrep -a stockd; tail -n 20 /work/logs/stockd.log; ls /work /work/src; which gdb eu-stack pstack strace'
+docker exec <ctr> sh -c 'cat -n /work/src/deadlock.c; ls /proc/11/task; for t in /proc/11/task/*; do echo $t $(cat $t/comm) $(cat $t/wchan) $(grep State $t/status); done; gdb -p 11 -batch -ex "thread apply all bt" 2>&1 | tail -40'
+docker exec <ctr> sh -c 'for t in 11 12 13; do echo T$t; cat /proc/11/task/$t/syscall; cat /proc/11/task/$t/stack 2>&1|head -3; done; strace -f -p 11 -o /dev/stdout 2>&1 | head -5 & sleep 3; tail -n1 /work/logs/stockd.log; ls -l /work/bin; tr "\0" " " </proc/11/cmdline'
+docker exec <ctr> sh -c 'id; grep -i cap /proc/self/status; cat /proc/sys/kernel/yama/ptrace_scope; for t in 11 12 13; do grep -E "State|ctxt" /proc/11/task/$t/status; cut -d" " -f14,15 /proc/11/task/$t/stat; done; cat /proc/11/wchan; ls -l /proc/11/task/*/exe | head -2; which gcore eu-stack pstack perf ltrace'
+docker exec <ctr> sh -c 'su app -s /bin/sh -c "gdb -p 11 -batch -ex \"thread apply all bt\" 2>&1" | tail -30' ; docker exec <ctr> sh -c 'which setpriv runuser'
+cat > <lab>/REPORT.md <<'EOF'
+# Отчёт: stockd перестал обновлять счётчики
+
+## Симптом
+Процесс stockd (PID 11) жив, CPU 0%, в /work/logs/stockd.log повторяется `stock=100 ledger=0`. Счётчики не меняются. Все три потока в состоянии S (sleeping).
+
+## Причина
+Взаимная блокировка (deadlock) из-за разного порядка захвата двух мьютексов в /work/src/deadlock.c:
+- `reserve` (строки 14 и 16): сначала `inventory_lock`, затем `ledger_lock`.
+- `audit` (строки 28 и 30): сначала `ledger_lock`, затем `inventory_lock`.
+
+`usleep(1000)` между захватами (строки 15 и 29) почти гарантирует, что каждый поток успеет взять первый замок до того, как другой возьмёт второй. Поток `reserve` держит `inventory_lock` и ждёт `ledger_lock`. Поток `audit` держит `ledger_lock` и ждёт `inventory_lock`.
+
+## Улики
+1. Команда: `docker exec <ctr> sh -c 'su app -s /bin/sh -c "gdb -p 11 -batch -ex \"thread apply all bt\" 2>&1"'`
+   (от root ptrace запрещён: `gdb -p 11` даёт "ptrace: Operation not permitted", в CapEff нет CAP_SYS_PTRACE. Под пользователем app, владельцем процесса, подключение работает.)
+
+   Фрагмент вывода:
+   ```
+   Thread 3 (LWP 13): #0 futex_wait (... futex_word=0xaaaabd810080 <inventory_lock>)
+     #4 audit (arg=0x0) at /tmp/src/native/deadlock.c:30
+   Thread 2 (LWP 12): #0 futex_wait (... futex_word=0xaaaabd8100b0 <ledger_lock>)
+     #4 reserve (arg=0x0) at /tmp/src/native/deadlock.c:16
+   Thread 1 (LWP 11): ... __sleep ... main () at deadlock.c:43
+   ```
+   Поток audit ждёт inventory_lock на строке 30. Поток reserve ждёт ledger_lock на строке 16. Главный поток только спит в `sleep(2)` и печатает устаревшие значения.
+   Пути в бэктрейсе (/tmp/src/native/deadlock.c) относятся к сборке, номера строк совпадают с /work/src/deadlock.c.
+
+2. Команда: `for t in 11 12 13; do grep -E "State|ctxt" /proc/11/task/$t/status; done`
+   Вывод: у всех потоков `State: S (sleeping)`. У потоков 12 и 13 `voluntary_ctxt_switches: 2`, `nonvoluntary_ctxt_switches: 0`. Они не работают и не переключаются.
+
+3. Команда: `tail -n 5 /work/logs/stockd.log`
+   Вывод: `stock=100 ledger=0` (повторяется). Ни одной операции резервирования не завершено.
+
+## Что предлагаю
+- Срочно: перезапустить stockd. Блокировка сама не снимется. Данные не портятся: stock=100, ledger=0, а инвариант stock+ledger=100 соблюдается.
+- Исправление в коде: ввести единый порядок захвата, например всегда `inventory_lock`, затем `ledger_lock`. Для этого поменять порядок в `audit` (строки 28 и 30). Либо использовать один общий мьютекс.
+- Не держать замок во время `usleep` (строки 15 и 29).
+- Профилактика: прогонять сборку с ThreadSanitizer или helgrind, чтобы ловить инверсию порядка замков. Добавить watchdog, который следит за ростом счётчиков.
+EOF

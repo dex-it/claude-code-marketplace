@@ -1,0 +1,68 @@
+{
+ "total_cost_usd": 0.07218179999999999,
+ "model": "claude-opus-5-5",
+ "verdict": {
+  "cells": [
+   {
+    "code": "A1",
+    "score": "1",
+    "quote": "MemoryOutboxQueue.cs:5-20 - очередь только в памяти, а `IOutboxQueue.EnqueueAsync` обещает сохранность (IOutboxQueue.cs:7). Рестарт или падение пода теряет всё, что не отправлено... - Critical"
+   },
+   {
+    "code": "A2",
+    "score": "1",
+    "quote": "OutboxDispatcher.cs:7,34 - `static Dictionary<Guid,int> Attempts` не потокобезопасен и никогда не чистится... возможна порча словаря и зацикливание"
+   },
+   {
+    "code": "A3",
+    "score": "1",
+    "quote": "OutboxDispatcher.cs:17-22 - `lock` + `.GetAwaiter().GetResult()` блокирует поток пула на весь батч: 50 сообщений x 3 попытки x 2 с = до 5 минут без прогресса"
+   },
+   {
+    "code": "A4",
+    "score": "1",
+    "quote": "OutboxDispatcher.cs:44-46 - запись в `outbox_errors` в catch не защищена. Если БД недоступна (вероятно в том же сбое), исключение вылетает из `PublishWithRetryAsync`..."
+   },
+   {
+    "code": "A5",
+    "score": "1",
+    "quote": "в запросе нет ключа идемпотентности... ретрай создаст дубль платежа - Critical; `MarkSentAsync`... Если пометка упала (БД), catch... повторит POST: дубль платежа - Critical"
+   },
+   {
+    "code": "A6",
+    "score": "1",
+    "quote": "`locked_until`/`sent_at` приходят от клиентских часов, а `now()` от БД: при расхождении часов поведение блокировок непредсказуемо - Minor"
+   },
+   {
+    "code": "A7",
+    "score": "1",
+    "quote": "`Task.Delay(1000)` без `stoppingToken`...; завершение хоста не прерывает цикл, потому что токен в отправку не передан"
+   },
+   {
+    "code": "A8",
+    "score": "1",
+    "quote": "OutboxDispatcher.cs:46 - SQL собран конкатенацией, в него подставляется `ex.Message`... `sentAt` форматируется в строку и подставляется в SQL, а не параметром"
+   },
+   {
+    "code": "A9",
+    "score": "1",
+    "quote": "Если БД недоступна (вероятно в том же сбое)...; Недоступность payments дольше ~6 с = потеря платежей - Critical"
+   },
+   {
+    "code": "O1",
+    "score": "n/a",
+    "quote": "нет"
+   },
+   {
+    "code": "D1",
+    "score": "1",
+    "quote": "счётчик `_published` статический, под lock, но нигде не читается и не экспортируется (нет метрик)... - Minor"
+   },
+   {
+    "code": "D2",
+    "score": "1",
+    "quote": "в лог не попадает исключение (`ex` не передан)... Время `At` дублирует метку лога - Minor"
+   }
+  ]
+ }
+}

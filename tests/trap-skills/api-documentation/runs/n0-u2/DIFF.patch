@@ -1,0 +1,105 @@
+diff --git a/Bookings.sln b/Bookings.sln
+index 06eec1b..79a3e9b 100644
+--- a/Bookings.sln
++++ b/Bookings.sln
+@@ -7,6 +7,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72
+ EndProject
+ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bookings.Api", "src\Bookings.Api\Bookings.Api.csproj", "{D991F303-0637-497C-98A7-08D0838EEB28}"
+ EndProject
++Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
++EndProject
++Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bookings.Api.Tests", "tests\Bookings.Api.Tests\Bookings.Api.Tests.csproj", "{DFADF019-9658-433B-93FF-901589C1D7D8}"
++EndProject
+ Global
+ 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+ 		Debug|Any CPU = Debug|Any CPU
+@@ -29,11 +33,24 @@ Global
+ 		{D991F303-0637-497C-98A7-08D0838EEB28}.Release|x64.Build.0 = Release|Any CPU
+ 		{D991F303-0637-497C-98A7-08D0838EEB28}.Release|x86.ActiveCfg = Release|Any CPU
+ 		{D991F303-0637-497C-98A7-08D0838EEB28}.Release|x86.Build.0 = Release|Any CPU
++		{DFADF019-9658-433B-93FF-901589C1D7D8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
++		{DFADF019-9658-433B-93FF-901589C1D7D8}.Debug|Any CPU.Build.0 = Debug|Any CPU
++		{DFADF019-9658-433B-93FF-901589C1D7D8}.Debug|x64.ActiveCfg = Debug|Any CPU
++		{DFADF019-9658-433B-93FF-901589C1D7D8}.Debug|x64.Build.0 = Debug|Any CPU
++		{DFADF019-9658-433B-93FF-901589C1D7D8}.Debug|x86.ActiveCfg = Debug|Any CPU
++		{DFADF019-9658-433B-93FF-901589C1D7D8}.Debug|x86.Build.0 = Debug|Any CPU
++		{DFADF019-9658-433B-93FF-901589C1D7D8}.Release|Any CPU.ActiveCfg = Release|Any CPU
++		{DFADF019-9658-433B-93FF-901589C1D7D8}.Release|Any CPU.Build.0 = Release|Any CPU
++		{DFADF019-9658-433B-93FF-901589C1D7D8}.Release|x64.ActiveCfg = Release|Any CPU
++		{DFADF019-9658-433B-93FF-901589C1D7D8}.Release|x64.Build.0 = Release|Any CPU
++		{DFADF019-9658-433B-93FF-901589C1D7D8}.Release|x86.ActiveCfg = Release|Any CPU
++		{DFADF019-9658-433B-93FF-901589C1D7D8}.Release|x86.Build.0 = Release|Any CPU
+ 	EndGlobalSection
+ 	GlobalSection(SolutionProperties) = preSolution
+ 		HideSolutionNode = FALSE
+ 	EndGlobalSection
+ 	GlobalSection(NestedProjects) = preSolution
+ 		{D991F303-0637-497C-98A7-08D0838EEB28} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
++		{DFADF019-9658-433B-93FF-901589C1D7D8} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+ 	EndGlobalSection
+ EndGlobal
+diff --git a/src/Bookings.Api/Validation/BookingRules.cs b/src/Bookings.Api/Validation/BookingRules.cs
+index 1e84c1e..8e0293d 100644
+--- a/src/Bookings.Api/Validation/BookingRules.cs
++++ b/src/Bookings.Api/Validation/BookingRules.cs
+@@ -43,7 +43,7 @@ public static class BookingRules
+ 
+     public static bool IsValidDuration(int durationMinutes) =>
+         durationMinutes >= MinDurationMinutes
+-        && durationMinutes < MaxDurationMinutes
++        && durationMinutes <= MaxDurationMinutes
+         && durationMinutes % DurationStep == 0;
+ 
+     public static bool IsInBookingWindow(DateTimeOffset startsAt, DateTimeOffset now) =>
+diff --git a/tests/Bookings.Api.Tests/BookingRulesDurationTests.cs b/tests/Bookings.Api.Tests/BookingRulesDurationTests.cs
+new file mode 100644
+index 0000000..539915d
+--- /dev/null
++++ b/tests/Bookings.Api.Tests/BookingRulesDurationTests.cs
+@@ -0,0 +1,22 @@
++using Bookings.Api.Validation;
++using Xunit;
++
++namespace Bookings.Api.Tests;
++
++public class BookingRulesDurationTests
++{
++    [Theory]
++    [InlineData(15)]
++    [InlineData(225)]
++    [InlineData(240)]
++    public void Duration_within_FR08_is_valid(int minutes) =>
++        Assert.True(BookingRules.IsValidDuration(minutes));
++
++    [Theory]
++    [InlineData(0)]
++    [InlineData(10)]
++    [InlineData(250)]
++    [InlineData(255)]
++    public void Duration_outside_FR08_or_not_multiple_of_step_is_invalid(int minutes) =>
++        Assert.False(BookingRules.IsValidDuration(minutes));
++}
+diff --git a/tests/Bookings.Api.Tests/Bookings.Api.Tests.csproj b/tests/Bookings.Api.Tests/Bookings.Api.Tests.csproj
+new file mode 100644
+index 0000000..815f193
+--- /dev/null
++++ b/tests/Bookings.Api.Tests/Bookings.Api.Tests.csproj
+@@ -0,0 +1,18 @@
++<Project Sdk="Microsoft.NET.Sdk">
++
++  <PropertyGroup>
++    <TargetFramework>net10.0</TargetFramework>
++    <IsPackable>false</IsPackable>
++  </PropertyGroup>
++
++  <ItemGroup>
++    <PackageReference Include="Microsoft.NET.Test.Sdk" />
++    <PackageReference Include="xunit" />
++    <PackageReference Include="xunit.runner.visualstudio" />
++  </ItemGroup>
++
++  <ItemGroup>
++    <ProjectReference Include="..\..\src\Bookings.Api\Bookings.Api.csproj" />
++  </ItemGroup>
++
++</Project>

@@ -1,0 +1,1 @@
+services/catalog/src/Meridian.Catalog/Infrastructure/Pricing/CachedTariffSource.cs:19 - проверка кэша и запрос к Pricing не синхронизированы: при истечении TTL (и на холодном старте) все параллельные запросы уходят в медленный Pricing одновременно, каждый перезаписывает запись; нагрузка на Pricing и задержки скачут раз в TTL, а при сбое все они получают ошибку - minor

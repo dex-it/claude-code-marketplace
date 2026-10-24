@@ -1,0 +1,35 @@
+{
+  "kind": "feature",
+  "task": "FEAT-1",
+  "stack": "python",
+  "goal": "slugify даёт URL-безопасный slug из любого заголовка и умеет ограничивать длину",
+  "done": "R1-R4 исполнены, на каждое требование есть тест, pytest зелёный",
+  "boundary": "только этот репозиторий; зависимостей не добавлять",
+  "requirements": [
+    "R1. slugify(title) из slug/core.py переводит буквы с диакритикой в латиницу без знаков: 'Crème Brûlée' -> 'creme-brulee' (источник: цель)",
+    "R2. Любая последовательность символов, кроме латинских букв и цифр, даёт один дефис; дефисов в начале и в конце нет: '  Hello,   World!  ' -> 'hello-world' (источник: цель)",
+    "R3. Необязательный параметр max_len: slug не длиннее max_len и обрезается по границе слова: slugify('alpha beta gamma', max_len=12) -> 'alpha-beta'; первое слово длиннее max_len обрезается до max_len символов; без max_len длина не ограничена (источник: цель)",
+    "R4. Пустой результат -> ValueError, в сообщении исходная строка (источник: цель)"
+  ],
+  "files": [
+    "slug/core.py",
+    "tests/test_core.py"
+  ],
+  "test_cmd": "python3 -m pytest -q",
+  "build_cmd": "",
+  "score": {
+    "oracle_dest": "tests",
+    "oracle_cmd": "python3 -m pytest -q -p no:cacheprovider tests/test_oracle.py",
+    "tests_cmd": "python3 -m pytest -q -p no:cacheprovider",
+    "fail_re": "^FAILED (.+?)(?: - .*)?$",
+    "mutants": {
+      "m1-drop": "R1: буквы с диакритикой выброшены",
+      "m2-multi": "R2: повтор дефисов и дефисы по краям",
+      "m3-midword": "R3: рез посреди слова",
+      "m4-empty": "R4: пустая строка вместо исключения",
+      "m5-msg": "R4: сообщение без исходной строки",
+      "m6-longword": "R3: длинное первое слово даёт пусто",
+      "m7-offbyone": "R3: слово, влезающее ровно в max_len, отброшено"
+    }
+  }
+}

@@ -1,0 +1,36 @@
+# Ровно один экземпляр: два обработают очередь поступлений дважды (docs/runbook.md).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: depot-worker
+  namespace: depot
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: depot-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: depot-worker
+    spec:
+      imagePullSecrets:
+        - name: regcred
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1654
+      containers:
+        - name: worker
+          image: registry.example.com/depot/api:1.4.0
+          args: ["--worker"]
+          envFrom:
+            - secretRef:
+                name: depot-secrets
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }

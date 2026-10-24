@@ -1,0 +1,82 @@
+diff --git a/Model.cs b/Model.cs
+index cc90064..2e379ba 100644
+--- a/Model.cs
++++ b/Model.cs
+@@ -11,7 +11,13 @@ public class Order
+     public string Status { get; set; } = "active";
+     public string Category { get; set; } = "";
+     public decimal Total { get; set; }
+-    public DateTime CreatedAt { get; set; }          // column: timestamp without time zone
++    private int _complexity = 1;
++    public int Complexity                             // сложность комплектации 1..5; EF пишет/читает через поле
++    {
++        get => _complexity;
++        set => _complexity = value is >= 1 and <= 5 ? value : throw new ArgumentOutOfRangeException(nameof(Complexity), value, "Complexity must be 1..5");
++    }
++    public DateTime CreatedAt { get; set; }          // column: timestamp without time zone, хранится UTC
+     public DateTime? ShippedAt { get; set; }
+     public bool IsDeleted { get; set; }
+     public List<OrderItem> Items { get; set; } = new();
+@@ -44,7 +50,30 @@ public class ShopDbContext : DbContext
+     protected override void OnModelCreating(ModelBuilder b)
+     {
+         b.Entity<Order>().HasQueryFilter(o => !o.IsDeleted);
+-        b.Entity<Order>().Property(o => o.CreatedAt).HasColumnType("timestamp without time zone");
++
++        // Колонка остаётся timestamp without time zone; значение в ней - UTC.
++        // Npgsql 6+ не пишет DateTime с Kind=Utc в timestamp - снимаем Kind при записи, при чтении помечаем как Utc.
++        b.Entity<Order>().Property(o => o.CreatedAt)
++            .HasColumnType("timestamp without time zone")
++            .HasConversion(
++                v => DateTime.SpecifyKind(v.Kind == DateTimeKind.Local ? v.ToUniversalTime() : v, DateTimeKind.Unspecified),
++                v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
++
++        // Default 1 - для уже существующих строк при добавлении колонки; из кода 0 не придёт (сеттер валидирует).
++        b.Entity<Order>().Property(o => o.Complexity).HasDefaultValue(1);
++        b.Entity<Order>().ToTable(t => t.HasCheckConstraint("CK_Orders_Complexity", "\"Complexity\" BETWEEN 1 AND 5"));
++
++        // Soft-delete Order не каскадирует: позиции и платежи остаются, но без DbSet доступны только через (отфильтрованный) Order.
++        // Жёсткое удаление Order: позиции - часть заказа (Cascade, и удаление сирот при Items.Clear()),
++        // платежи - финансовые записи, молча не удаляются (Restrict).
++        b.Entity<Order>()
++            .HasMany(o => o.Items).WithOne()
++            .HasForeignKey(i => i.OrderId).IsRequired()
++            .OnDelete(DeleteBehavior.Cascade);
++        b.Entity<Order>()
++            .HasMany(o => o.Payments).WithOne()
++            .HasForeignKey(p => p.OrderId).IsRequired()
++            .OnDelete(DeleteBehavior.Restrict);
+     }
+ }
+ // Options: UseNpgsql(cs).UseLazyLoadingProxies()
+diff --git a/OrderRepository.cs b/OrderRepository.cs
+index 72637b8..a325d12 100644
+--- a/OrderRepository.cs
++++ b/OrderRepository.cs
+@@ -6,4 +6,15 @@ public class OrderRepository
+     public OrderRepository(ShopDbContext db) => _db = db;
+     public Task<List<Order>> GetAllAsync() => _db.Orders.ToListAsync();
+     public Task<Order?> GetAsync(Guid id) => _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
++
++    // Items не virtual - lazy loading их не подгрузит, нужен Include. Связь required + Cascade,
++    // поэтому после Clear() EF удаляет позиции-сироты (DELETE), а не пытается обнулить OrderId.
++    // Мягко удалённый заказ отсекается query filter'ом.
++    public async Task ClearItems(Guid orderId)
++    {
++        var order = await _db.Orders.Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == orderId)
++            ?? throw new InvalidOperationException($"Order {orderId} not found");
++        order.Items.Clear();
++        await _db.SaveChangesAsync();
++    }
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..2d2fa62
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,5 @@
++Изменённые файлы: `Model.cs`, `OrderRepository.cs`; создан `_answer.md`.
++
++- Complexity — обычный `int` (без owned-типа ради одного поля). Диапазон 1..5 проверяют сеттер и CHECK-ограничение `CK_Orders_Complexity`. `HasDefaultValue(1)` нужен, чтобы при добавлении колонки миграцией существующие строки прошли CHECK: без него EF подставит 0.
++- CreatedAt: колонка осталась `timestamp without time zone`. Npgsql 8 не записывает в такую колонку `DateTime` с `Kind=Utc`, поэтому добавлен конвертер: при записи Local переводится в UTC и Kind снимается, при чтении ставится `Kind=Utc`. В базе лежит UTC-время, отчёты DBA не затронуты.
++- Мягкое удаление заказа каскадом не распространяется. Для жёсткого удаления: Items — Cascade, Payments — Restrict, потому что финансовые записи не должны исчезать молча. `ClearItems` загружает заказ с `Include(Items)`, вызывает `Clear()` и сохраняет. Связь required + Cascade, поэтому EF удаляет оторванные позиции. Удалённый заказ не находится из-за query filter, и метод бросает исключение.

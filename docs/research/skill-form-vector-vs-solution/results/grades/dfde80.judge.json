@@ -1,0 +1,67 @@
+{
+  "id": "dfde80",
+  "case": "G4",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.11527899999999999,
+    "durationMs": 7149,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 12558,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 719,
+      "output_tokens_details": {
+        "thinking_tokens": 203
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 12558,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 719,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 12558,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 12558
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G4-year-closed": {
+      "verdict": "PASS",
+      "quote": "var closed = (await _db.ClosedPeriods.AsNoTracking().ToListAsync())\n            .Where(p => p.Month.Year == year)",
+      "why": "Закрытые периоды загружаются целиком и фильтруются по году в памяти, поэтому обращения к членам YearMonth внутри IQueryable нет."
+    },
+    "G4-client-projects": {
+      "verdict": "PASS",
+      "quote": ".ExecuteUpdateAsync(s => s\n                .SetProperty(p => p.IsDeleted, true)\n                .SetProperty(p => p.DeletedAt, now))",
+      "why": "Проекты удаляются мягко одним ExecuteUpdate с явной установкой IsDeleted и DeletedAt, а записи времени остаются в БД."
+    },
+    "G4-code-index": {
+      "verdict": "PASS",
+      "quote": "e.HasIndex(p => p.Code).IsUnique().HasFilter(\"\\\"IsDeleted\\\" = false\");",
+      "why": "Уникальный индекс частичный по неудалённым проектам, и миграция создаёт его с тем же фильтром, поэтому пары «удалённый + заведённый заново» не мешают."
+    },
+    "G4-h-month-equality": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "EnsureOpenAsync и сравнение p.Month == month в диффе не тронуты, а в ответе они не названы дефектом."
+    }
+  },
+  "stderr": ""
+}

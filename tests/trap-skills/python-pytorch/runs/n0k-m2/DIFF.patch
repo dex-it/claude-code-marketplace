@@ -1,0 +1,124 @@
+diff --git a/src/shelfwatch/metrics.py b/src/shelfwatch/metrics.py
+index a8520ec..a606081 100644
+--- a/src/shelfwatch/metrics.py
++++ b/src/shelfwatch/metrics.py
+@@ -13,3 +13,44 @@ def macro_f1(y_true: Sequence[int], y_pred: Sequence[int]) -> float:
+         denom = 2 * tp + fp + fn
+         scores.append(2 * tp / denom if denom else 0.0)
+     return sum(scores) / len(scores)
++
++
++def weighted_f1(y_true: Sequence[int], y_pred: Sequence[int]) -> float:
++    """F1 по классам, взвешенный числом объектов класса в `y_true`.
++
++    Классы, которых нет в `y_true`, получают нулевой вес.
++    """
++    if len(y_true) != len(y_pred):
++        raise ValueError("y_true и y_pred должны быть одной длины")
++    if not y_true:
++        raise ValueError("y_true пуст")
++    total = 0.0
++    for label in set(y_true):
++        tp = sum(1 for t, p in zip(y_true, y_pred) if t == label and p == label)
++        fp = sum(1 for t, p in zip(y_true, y_pred) if t != label and p == label)
++        fn = sum(1 for t, p in zip(y_true, y_pred) if t == label and p != label)
++        denom = 2 * tp + fp + fn
++        support = tp + fn
++        total += support * (2 * tp / denom if denom else 0.0)
++    return total / len(y_true)
++
++
++def top_k_accuracy(
++    y_true: Sequence[int], scores: Sequence[Sequence[float]], k: int
++) -> float:
++    """Доля объектов, у которых истинный класс входит в `k` лучших по оценке.
++
++    Класс - индекс столбца в строке `scores`. При равных оценках раньше идёт
++    класс с меньшим индексом.
++    """
++    if len(y_true) != len(scores):
++        raise ValueError("y_true и scores должны быть одной длины")
++    if not y_true:
++        raise ValueError("y_true пуст")
++    if k < 1:
++        raise ValueError("k должно быть не меньше 1")
++    hits = 0
++    for t, row in zip(y_true, scores):
++        top = sorted(range(len(row)), key=lambda i: (-row[i], i))[:k]
++        hits += t in top
++    return hits / len(y_true)
+diff --git a/tests/test_metrics.py b/tests/test_metrics.py
+index 2be18a8..d008691 100644
+--- a/tests/test_metrics.py
++++ b/tests/test_metrics.py
+@@ -1,4 +1,6 @@
+-from shelfwatch.metrics import macro_f1
++import pytest
++
++from shelfwatch.metrics import macro_f1, top_k_accuracy, weighted_f1
+ 
+ 
+ def test_macro_f1_perfect() -> None:
+@@ -7,3 +9,62 @@ def test_macro_f1_perfect() -> None:
+ 
+ def test_macro_f1_all_wrong() -> None:
+     assert macro_f1([0, 0, 1], [1, 1, 0]) == 0.0
++
++
++def test_weighted_f1_perfect() -> None:
++    assert weighted_f1([0, 1, 2], [0, 1, 2]) == 1.0
++
++
++def test_weighted_f1_all_wrong() -> None:
++    assert weighted_f1([0, 0, 1], [1, 1, 0]) == 0.0
++
++
++def test_weighted_f1_weights_by_support() -> None:
++    # класс 0: tp=2, fp=1, fn=0 -> F1=0.8, вес 2; класс 1: tp=0, fn=1 -> F1=0, вес 1
++    assert weighted_f1([0, 0, 1], [0, 0, 0]) == pytest.approx(2 * 0.8 / 3)
++
++
++def test_weighted_f1_ignores_class_absent_from_y_true() -> None:
++    # класс 2 есть только в y_pred и вес 0 не вносит: (1 * 1.0 + 1 * 0.0) / 2
++    assert weighted_f1([0, 1], [0, 2]) == pytest.approx(0.5)
++
++
++def test_weighted_f1_differs_from_macro_on_imbalance() -> None:
++    y_true = [0, 0, 0, 0, 1]
++    y_pred = [0, 0, 0, 0, 0]
++    assert weighted_f1(y_true, y_pred) > macro_f1(y_true, y_pred)
++
++
++def test_weighted_f1_rejects_bad_input() -> None:
++    with pytest.raises(ValueError):
++        weighted_f1([], [])
++    with pytest.raises(ValueError):
++        weighted_f1([0, 1], [0])
++
++
++def test_top_k_accuracy_k1_is_argmax() -> None:
++    scores = [[0.1, 0.9], [0.8, 0.2], [0.3, 0.7]]
++    assert top_k_accuracy([1, 1, 1], scores, 1) == pytest.approx(2 / 3)
++
++
++def test_top_k_accuracy_k2() -> None:
++    scores = [[0.5, 0.3, 0.2], [0.1, 0.3, 0.6]]
++    assert top_k_accuracy([1, 0], scores, 2) == 0.5
++
++
++def test_top_k_accuracy_k_covers_all_classes() -> None:
++    assert top_k_accuracy([2, 0], [[0.1, 0.2, 0.7], [0.9, 0.0, 0.1]], 5) == 1.0
++
++
++def test_top_k_accuracy_ties_prefer_lower_index() -> None:
++    assert top_k_accuracy([1], [[0.5, 0.5]], 1) == 0.0
++    assert top_k_accuracy([0], [[0.5, 0.5]], 1) == 1.0
++
++
++def test_top_k_accuracy_rejects_bad_input() -> None:
++    with pytest.raises(ValueError):
++        top_k_accuracy([0], [[1.0]], 0)
++    with pytest.raises(ValueError):
++        top_k_accuracy([], [], 1)
++    with pytest.raises(ValueError):
++        top_k_accuracy([0, 1], [[1.0]], 1)

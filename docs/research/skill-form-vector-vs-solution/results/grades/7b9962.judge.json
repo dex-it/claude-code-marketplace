@@ -1,0 +1,102 @@
+{
+  "id": "7b9962",
+  "case": "V2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.114483,
+    "durationMs": 11637,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 10931,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1330,
+      "output_tokens_details": {
+        "thinking_tokens": 155
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 10931,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1330,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 10931,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 10931
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "V2-coi-organization": {
+      "verdict": "FOUND",
+      "quote": "Сравнения `a.OrganizationInn == expert.OrganizationInn` нет.",
+      "why": "Выход прямо указывает, что ИНН организации эксперта не сверяется с ИНН заявки, и ссылается на п. 4.3."
+    },
+    "V2-reassign-draft-carryover": {
+      "verdict": "FOUND",
+      "quote": "`Scores`, `Comment`, `Total` и `Status = Draft` остаются от прежнего эксперта. Новый эксперт открывает форму с чужими оценками",
+      "why": "Выход называет перенос черновых баллов и комментария прежнего эксперта и предлагает сбросить их и вернуть статус Assigned."
+    },
+    "V2-ranking-expert-access": {
+      "verdict": "FOUND",
+      "quote": "Поэтому экспертам открылись и `GET {id}/ranking`, и `GET {id}/ranking.csv`.",
+      "why": "Выход связывает атрибут класса с тем, что эксперты получают доступ к рейтингу и CSV."
+    },
+    "V2-tiebreak-created": {
+      "verdict": "FOUND",
+      "quote": "`.ThenBy(x => x.CreatedAt)` — это дата создания черновика в личном кабинете.",
+      "why": "Выход указывает, что сортировка идёт по CreatedAt, а нужен SubmittedAt."
+    },
+    "V2-csv-culture": {
+      "verdict": "FOUND",
+      "quote": "Интерполяция `{r.Score}` и `{r.RequestedAmount}` форматирует числа по текущей культуре и даёт `85,33`",
+      "why": "Выход связывает культуру ru-RU, десятичную запятую и разделитель-запятую, из-за чего столбцы съезжают."
+    },
+    "V2-deadline-last-day": {
+      "verdict": "FOUND",
+      "quote": "это граница 00:00 UTC в сам день дедлайна. Эксперт теряет весь последний день",
+      "why": "Выход указывает, что граница стоит в начале дня дедлайна и этот день исключён."
+    },
+    "V2-parallel-dbcontext": {
+      "verdict": "PASS",
+      "quote": "`ToListAsync` и `CountAsync` запускаются на одном и том же `GrantsDbContext` одновременно (`Task.WhenAll`).",
+      "why": "Выход называет InvalidOperationException и предлагает выполнять запросы последовательно."
+    },
+    "V2-string-equals-comparison": {
+      "verdict": "PASS",
+      "quote": "EF Core (Npgsql) не транслирует `a.Region.Equals(r, StringComparison.OrdinalIgnoreCase)` в SQL.",
+      "why": "Выход указывает на ошибку трансляции и предлагает ILike, citext или регистронезависимую collation."
+    },
+    "V2-h-collection-replace-orphans": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Выход не объявляет дефектом замену коллекции Scores в SaveAsync."
+    },
+    "V2-h-filtered-include": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Выход не объявляет дефектом filtered include в ApplicationsController.Get."
+    },
+    "V2-h-executeupdate-in-transaction": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Выход не ставит под сомнение ExecuteUpdateAsync и транзакцию в CloseReview."
+    }
+  },
+  "stderr": ""
+}

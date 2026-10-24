@@ -1,0 +1,1 @@
+tests/test_clean_train.py:6 - тест называется "shuffles only when asked", но проверяет только shuffle=False и форму батча (не порядок, ветку shuffle=True не трогает); поломка флага shuffle пройдёт незамеченной - minor

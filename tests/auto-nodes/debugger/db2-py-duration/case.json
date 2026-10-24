@@ -1,0 +1,19 @@
+{
+  "task": "BUG-12",
+  "stack": "python",
+  "goal": "при retry_base: 1m30s первый повтор задачи идёт через 60 с, а не через 90: next_delay(0, {'retry_base': '1m30s'}) = 60.",
+  "expected": "длительность конфига - сумма частей: 1m30s = 90 с (README, Длительности в конфиге)",
+  "done": "next_delay(0, {'retry_base': '1m30s'}) = 90; python3 -m pytest -q зелёный; правка закоммичена локально.",
+  "boundary": "только этот репозиторий; зависимостей не добавлять",
+  "source": "README.md",
+  "test_cmd": "python3 -m pytest -q",
+  "build_cmd": "",
+  "cause": { "file": "jobs/durations.py", "lines": [3, 11], "what": "_PART.search берёт первую часть строки, остальные части отброшены" },
+  "decoys": [
+    { "file": "jobs/retry.py", "lines": [4, 6], "what": "место, где симптом виден" }
+  ],
+  "score": {
+    "tests_cmd": "python3 -m pytest -q -p no:cacheprovider -rf",
+    "fail_re": "^FAILED (\\S+)"
+  }
+}

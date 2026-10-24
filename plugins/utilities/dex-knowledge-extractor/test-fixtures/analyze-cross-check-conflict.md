@@ -7,10 +7,10 @@
 
 ## Proposed skill additions
 
-### dex-skill-dotnet-linq-optimization: Материализация после фильтра
+### dex-skill-dotnet-ef-core: Материализация после фильтра
 
-**Целевой skill:** dex-skill-dotnet-linq-optimization
-**H2-секция:** Материализация
+**Целевой skill:** dex-skill-dotnet-ef-core
+**H2-секция:** список чек-листа (skill без H2)
 
 **Critical assessment:**
 - Generalization confidence: high -- правило про двойную материализацию не зависит от домена
@@ -19,15 +19,13 @@
 - FP counter-examples: `Where(...).Count()` без промежуточной материализации, когда коллекция нужна один раз -- правило адресует ПОВТОРНЫЙ проход того же источника, единичный перебор не осуждает
 - Already covered elsewhere: no
 - Non-obviousness: medium -- для `IQueryable` повторный `Where` = второй round-trip в БД (неочевидно), для in-memory -- лишь повторный проход
-- Axis fit: dex-skill-dotnet-linq-optimization (Материализация) -- ложится в существующий H2
+- Axis fit: dex-skill-dotnet-ef-core (список чек-листа) | new-skill -- повторное выполнение выборки не ложится ни на один пункт чек-листа EF Core; в фикстуре оставлена в этом skill намеренно, как и вторая ловушка
 - Label correctness: n/a
 - Fact check: verified (websearch) -- повторное выполнение запроса при повторном `Where` для `IQueryable` сверено
 
 Recommendation for reviewer: apply as-is
 
-**Drop-in:**
-
-### Двойная материализация одной выборки
+**Основание:**
 
 **Плохо:**
 
@@ -40,10 +38,14 @@ var count = items.Where(x => x.IsActive).Count();
 
 **Почему:** повторный `Where(...)` заново проходит источник; для `IQueryable` это второй round-trip в БД.
 
-### dex-skill-dotnet-linq-optimization: Индексация без guard
+**Drop-in:**
 
-**Целевой skill:** dex-skill-dotnet-linq-optimization
-**H2-секция:** Материализация
+- Двойная материализация одной выборки
+
+### dex-skill-dotnet-ef-core: Индексация без guard
+
+**Целевой skill:** dex-skill-dotnet-ef-core
+**H2-секция:** список чек-листа (skill без H2)
 
 **Critical assessment:**
 - Generalization confidence: high -- правило про пустую коллекцию универсально
@@ -52,15 +54,13 @@ var count = items.Where(x => x.IsActive).Count();
 - FP counter-examples: `Single()` там, где элемент гарантирован инвариантом (PK-lookup) -- правило адресует выборку ПОСЛЕ фильтра, где пустота возможна; гарантированный случай не задевает
 - Already covered elsewhere: no
 - Non-obviousness: medium
-- Axis fit: dex-skill-dotnet-linq-optimization (Материализация) | reassign -> dex-skill-dotnet-linq-optimization -- по строгому правилу Axis fit это корректность (`First()` на пустой), а не perf; в реальном прогоне ушла бы на reassign в skill с осью корректности. В фикстуре оставлена в том же skill намеренно -- сценарий демонстрирует **cross-check** (конфликт примеров), не Axis fit; чтобы две ловушки были соседями одного skill и могли конфликтовать. Сам reassign рекомендацию не понижает (адрес, не качество)
+- Axis fit: dex-skill-dotnet-ef-core (список чек-листа) | new-skill -- `First()` на пустой выборке - корректность LINQ: ни один пункт чек-листа EF Core её не вмещает, skill с такой осью в каталоге нет. В фикстуре оставлена в том же skill намеренно -- сценарий демонстрирует **cross-check** (конфликт примеров), не Axis fit; чтобы две ловушки были соседями одного skill и могли конфликтовать. Промах оси рекомендацию не понижает (адрес, не качество)
 - Label correctness: n/a
 - Fact check: verified (websearch) -- `First()` бросает `InvalidOperationException` на пустой последовательности сверено
 
 Recommendation for reviewer: apply as-is
 
-**Drop-in:**
-
-### Индексация результата без проверки на пустоту
+**Основание:**
 
 **Плохо:**
 
@@ -71,6 +71,10 @@ var first = items.Where(x => x.IsActive).First();
 **Правильно:** после фильтра коллекция может быть пуста -- `FirstOrDefault()` + проверка на `null`.
 
 **Почему:** `First()` / `[0]` на пустой выборке бросает исключение; фильтр не гарантирует наличие элементов.
+
+**Drop-in:**
+
+- Индексация результата без проверки на пустоту
 
 ## Skipped (already covered)
 

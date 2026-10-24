@@ -1,0 +1,58 @@
+diff --git a/.github/workflows/e2e.yml b/.github/workflows/e2e.yml
+new file mode 100644
+index 0000000..3df6d12
+--- /dev/null
++++ b/.github/workflows/e2e.yml
+@@ -0,0 +1,34 @@
++name: E2E
++
++on:
++  push:
++    branches: [main]
++  pull_request:
++
++jobs:
++  e2e:
++    runs-on: ubuntu-latest
++    timeout-minutes: 20
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-node@v4
++        with:
++          node-version: 24
++          cache: npm
++      - run: npm ci
++      - run: npx playwright install --with-deps chromium
++      - run: npm test -w e2e
++      - uses: actions/upload-artifact@v4
++        if: ${{ !cancelled() }}
++        with:
++          name: playwright-report
++          path: e2e/playwright-report/
++          retention-days: 14
++          if-no-files-found: ignore
++      - uses: actions/upload-artifact@v4
++        if: failure()
++        with:
++          name: playwright-traces
++          path: e2e/test-results/
++          retention-days: 14
++          if-no-files-found: ignore
+diff --git a/e2e/playwright.config.ts b/e2e/playwright.config.ts
+index 7610c1b..28b8d16 100644
+--- a/e2e/playwright.config.ts
++++ b/e2e/playwright.config.ts
+@@ -2,8 +2,13 @@ import { defineConfig, devices } from '@playwright/test';
+ 
+ export default defineConfig({
+   testDir: './tests',
++  forbidOnly: !!process.env.CI,
++  retries: process.env.CI ? 1 : 0,
++  reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
+   use: {
+     baseURL: 'http://localhost:5173',
++    // трассировка: шаги, снимки DOM, сеть и консоль; сохраняется только для упавших тестов
++    trace: 'retain-on-failure',
+   },
+   webServer: [
+     {

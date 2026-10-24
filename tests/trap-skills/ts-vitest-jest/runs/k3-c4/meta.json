@@ -1,0 +1,38 @@
+{
+  "id": "k3-c4",
+  "case": "K3",
+  "edition": "c",
+  "skills": [],
+  "model": "claude-sonnet-5-5",
+  "effort": "medium",
+  "exit": 0,
+  "turns": 7,
+  "cost": 0.08323640000000002,
+  "skill": 0,
+  "readsOutside": [],
+  "toolCalls": {
+    "Read": 1,
+    "Bash": 4,
+    "Edit": 1
+  },
+  "init": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Write"
+    ],
+    "mcp": [],
+    "skills": [],
+    "v": "2.1.291"
+  },
+  "bash": [
+    "cd api && cat src/services/reservation.ts; ls src/services src/**/ | head -50; find . -name \"*.test.ts\" -not -path \"./node_modules/*\"; cat ../package.json | head -30",
+    "cd <run>/api; cat src/clients/inventory.ts; head -25 test/orders.test.ts; cat package.json; ls; cat src/domain/order.ts | head -20",
+    "cd <run>/api; cat > test/reservation.test.ts <<'EOF'\nimport { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';\nimport { ",
+    "cd <run>; npm test -w api 2>&1 | tail -12; git status --short"
+  ]
+}

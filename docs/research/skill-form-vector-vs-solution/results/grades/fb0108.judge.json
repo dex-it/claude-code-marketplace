@@ -1,0 +1,92 @@
+{
+  "id": "fb0108",
+  "case": "GR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.106319,
+    "durationMs": 13501,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 9498,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1495,
+      "output_tokens_details": {
+        "thinking_tokens": 452
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9498,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1495,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 9498,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 9498
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GR-offday-rows": {
+      "verdict": "PASS",
+      "quote": "EF Core не умеет скомпоновать такой `Where`/`OrderBy` поверх непереводимого вызова и бросит `InvalidOperationException` (\"could not be translated\") при каждом обращении к отчёту FLEET-109",
+      "why": "Назван клиентский WorkCalendar.IsWorkingDay в проекции и Where по OffDay после неё; предложены материализация до фильтра или условие в SQL."
+    },
+    "GR-open-semicolon": {
+      "verdict": "PASS",
+      "quote": "Точка с запятой внутри скобок подзапроса — синтаксическая ошибка SQL, запрос с фильтром упадёт",
+      "why": "Описан механизм оборачивания в подзапрос при vehicleId и объяснено, почему локальная проверка прошла; предложено убрать ';' и сортировать в LINQ."
+    },
+    "GR-equipment-clear": {
+      "verdict": "PASS",
+      "quote": "`vehicle.Equipment.Clear()` ничего не удаляет (EF не знает про существующие строки)",
+      "why": "Названы отсутствие Include, сохранение старых строк и DbUpdateException по уникальному индексу (vehicle_id, code); предложено загрузить Equipment."
+    },
+    "GR-model-length": {
+      "verdict": "PASS",
+      "quote": "PostgreSQL откажет в выполнении `ALTER COLUMN ... TYPE varchar(40)` с ошибкой \"value too long for type character varying(40)\"",
+      "why": "Указано падение миграции на prod из-за длинных значений; предложено укоротить данные до AlterColumn."
+    },
+    "GR-last-inspection": {
+      "verdict": "FAIL",
+      "quote": "сортирует по `CreatedAt`, а не по `InspectedAt`",
+      "why": "Описан другой механизм (расхождение времени приёма и осмотра); неуникальность CreatedAt внутри пачки и разъезд SplitQuery-запросов не названы, ThenBy(Id)/AsSingleQuery не предложены."
+    },
+    "GR-permit-lastday": {
+      "verdict": "FOUND",
+      "quote": "`p.ValidUntil > today` вместо `>=`",
+      "why": "Назван отказ в выпуске в последний день действия допуска."
+    },
+    "GR-equipment-auth": {
+      "verdict": "FOUND",
+      "quote": "нет `.RequireAuthorization(...)` — любой аутентифицированный пользователь может переписать комплектацию",
+      "why": "Указано отсутствие политики на PUT equipment."
+    },
+    "GR-h-permits-clear": {
+      "verdict": "NO",
+      "quote": "`DriverService.ReplacePermitsAsync` делает это правильно (`.Include(d => d.Permits)`)",
+      "why": "ReplacePermitsAsync приведён как правильный образец, а не как дефект."
+    },
+    "GR-h-plate-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByPlateAsync в выходе не упоминается."
+    }
+  },
+  "stderr": ""
+}

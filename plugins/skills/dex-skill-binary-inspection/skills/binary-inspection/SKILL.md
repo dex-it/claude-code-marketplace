@@ -1,28 +1,11 @@
 ---
 name: binary-inspection
-description: Бинарный анализ - binutils (readelf, nm, objdump, addr2line, strings, ldd, c++filt), Rizin JSON output, LIEF Python API, ilspycmd .NET decompiler, build-id и SourceLink. Активируется при readelf, objdump, nm, ldd, strings, addr2line, c++filt, rizin, rz-pipe, ilspycmd, lief, build-id, dynamic symbols, dwarf info, ELF, PE, Mach-O
+description: Бинарный анализ - binutils (objdump, addr2line, c++filt), дизассемблирование и cross-arch (objdump --target), Rizin JSON output, LIEF Python API, ilspycmd .NET decompiler, debuginfod. Активируется при objdump --target, cross-arch disassembly, objdump, addr2line, c++filt, rizin, rz-pipe, ilspycmd, lief, debuginfod, dwarf info, ELF, PE, Mach-O
 ---
 
 # Binary inspection - ловушки статического анализа бинарей
 
 ## binutils-основы
-
-### ldd на untrusted бинаре
-Плохо: `ldd unknown_binary` для проверки зависимостей
-Правильно: `readelf -d unknown_binary | grep NEEDED` для безопасной проверки
-Почему: ldd работает через `LD_TRACE_LOADED_OBJECTS=1` плюс exec бинаря; вредоносный binary может выполнить код через preloaded interpreter. readelf - чистое чтение ELF
-
-### nm без -D на stripped binary
-Плохо: `nm binary` на stripped .so - пустой вывод, agent делает вывод «нет символов»
-Правильно: `nm -D binary` для динамических символов; на полностью stripped - `objdump -T` для exports
-Почему: nm без -D читает только static-symbols, которые strip удалил. Dynamic symbols (exports) сохраняются всегда - они нужны для linker resolve
-
-### file vs readelf для типа
-Плохо: верить `file` для архитектуры бинаря
-Правильно: `readelf -h binary` - точный header с Machine, Class, Endianness
-Почему: file делает best-effort detection по магическим числам; для cross-compiled или embedded может вводить в заблуждение
-
-## addr2line и символизация
 
 ### addr2line без `-e` и `-f`
 Плохо: `addr2line 0x7fff1234abcd` ожидать file:line - error «no file»
@@ -65,11 +48,6 @@ description: Бинарный анализ - binutils (readelf, nm, objdump, add
 
 ## ilspycmd для .NET
 
-### ILSpy GUI vs ilspycmd
-Плохо: рекомендовать «открой в ILSpy» когда нет GUI
-Правильно: `dotnet tool install --global ilspycmd`; `ilspycmd -d Assembly.dll` для full decompile или `-il Assembly.dll` для IL
-Почему: ilspycmd - CLI wrapper над ICSharpCode.Decompiler; agent-friendly; работает Linux/macOS/Windows
-
 ### Obfuscated assemblies
 Плохо: ожидать читаемого вывода ilspycmd на obfuscated коде
 Правильно: для obfuscated сначала de4dot или dnSpyEx для deobfuscation (Windows), потом ilspycmd; либо принять что имена нечитаемые
@@ -77,22 +55,12 @@ description: Бинарный анализ - binutils (readelf, nm, objdump, add
 
 ## Build-id и matching
 
-### debug-info без проверки build-id
-Плохо: подкинули `app.debug` для analyze дампа без проверки соответствия
-Правильно: `readelf -n binary | grep -A1 'Build ID'` и `readelf -n binary.debug | grep -A1 'Build ID'` - должны совпадать
-Почему: mismatch build-id даёт «правдоподобный» backtrace с неверными строками. GDB не предупреждает явно
-
 ### debuginfod fallback
 Плохо: вручную выкачивать `.debug` файлы для каждого binary
 Правильно: `export DEBUGINFOD_URLS="https://debuginfod.ubuntu.com"`; addr2line, gdb, eu-stack автоматически тянут по build-id
 Почему: debuginfod - распределённый кэш debug-info, поддерживается binutils 2.34+, gdb 10.1+; экономит ручную работу
 
-## strings и cross-arch
-
-### strings без -e на Windows-бинаре
-Плохо: `strings windows.exe` показывает мусор для UTF-16 строк
-Правильно: `strings -e l windows.exe` (little-endian 16-bit); `-e b` для big-endian; `-a` для всего файла
-Почему: дефолтный strings ищет ASCII 7-bit. Windows строки часто UTF-16; без `-e l` они не видны
+## objdump и cross-arch
 
 ### objdump для cross-arch без --target
 Плохо: `objdump -d arm64-binary.so` на x86_64 машине - неверный disassembly

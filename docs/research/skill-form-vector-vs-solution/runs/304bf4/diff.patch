@@ -1,0 +1,82 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..3a68559
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,76 @@
++# Ревью MR !87 — Партии проб
++
++## Критичные / высокие дефекты
++
++### 1. `BatchService.cs` — `CompliancePercentAsync` — **critical**
++```csharp
++return compliant / total * 100;
++```
++Два дефекта в одной строке:
++- **Деление на ноль.** `compliant` и `total` — `int`, если в партии нет проб (`total == 0`), выражение бросает `DivideByZeroException` — необработанное исключение уронит запрос дашборда (LAB-147).
++- **Порядок целочисленного деления.** `compliant / total` выполняется раньше умножения на 100 и обнуляет дробную часть: например, 1 из 3 (должно быть 33%) даст `1/3=0`, `0*100=0`. Нужно `compliant * 100 / total` (и явно решить, что возвращать при `total == 0`).
++
++### 2. `BatchService.cs` — `CompliancePercentAsync` — **high**
++```csharp
++s.Results.All(r => r.Value <= r.Limit)
++```
++`All()` на пустой коллекции истинно по умолчанию (vacuous truth). Пробы, у которых ещё нет результатов (не проанализированы, статус `Planned`/`Collected`/`InAnalysis` без результатов), засчитываются как «соответствующие норме». Партия, где ещё никто не измерил ни одного показателя, покажет 100% соответствия на дашборде — вводит в заблуждение. Нужно либо явно исключать пробы без результатов из знаменателя, либо учитывать `Results.Any() && Results.All(...)`.
++
++### 3. `BatchService.cs` — `ListAsync` — **high**
++```csharp
++/// <param name="page">Номер страницы, начиная с 1.</param>
++public async Task<List<BatchListItem>> ListAsync(int page, int pageSize = 20)
++{
++    ...
++    .Skip(page * pageSize)
++    ...
++}
++```
++Контракт — страница с 1, но `Skip(page * pageSize)` при `page=1` пропускает первые 20 записей, то есть "страница 1" отдаёт записи 21–40, а самые новые партии (с которых, по LAB-141, должен начинаться список) вообще никогда не попадают в выдачу. Нужно `Skip((page - 1) * pageSize)`.
++
++### 4. `BatchService.cs` — `CloseAsync` — **high**
++```csharp
++var samples = await _samples.GetInAnalysisForBatchAsync(batchId); // фильтр Status == InAnalysis
++if (samples.Any(s => s.Results.Count == 0))
++    throw new InvalidOperationException("Есть пробы без результатов");
++
++foreach (var s in samples)
++    s.Status = SampleStatus.Done;
++
++batch.ClosedAt = DateTime.UtcNow;
++batch.ReportDate = DateTime.UtcNow.Date;
++```
++Требование LAB-143 — «закрыть партию с пробами без результатов нельзя» — проверяется только для проб в статусе `InAnalysis`. Пробы партии, застрявшие в `Planned`/`Collected` (например, ещё не отобраны/не сданы в анализ) и не имеющие результатов, в выборку `GetInAnalysisForBatchAsync` не попадают вовсе — ни в проверку, ни в перевод статуса. В итоге партия закрывается (`ClosedAt`/`ReportDate` проставляются), хотя часть её проб фактически без результатов и не доведена до готовности — прямое нарушение бизнес-правила из описания MR.
++
++## Средние дефекты
++
++### 5. `BatchService.cs` — `GetCardAsync` — **medium**
++```csharp
++await _db.Batches.AsNoTracking().AsSplitQuery()
++    .Include(b => b.Instruments)
++    .Include(b => b.Samples).ThenInclude(s => s.Results)
++    .SingleOrDefaultAsync(b => b.Id == batchId);
++...
++batch.Samples.Select(s => new BatchSampleLine(s.LabCode, s.Status, s.Results.Count,
++    s.Results.Any(r => r.Value > r.Limit)))
++```
++Для карточки нужны только число результатов и признак превышения по каждой пробе, но через `Include/ThenInclude` вытягиваются полные строки `Result` (все колонки, по каждому показателю каждой пробы), а `Count`/`Any` считаются уже в памяти, после материализации — хотя оба агрегата спокойно транслируются в SQL прямой проекцией (`Select` внутри `IQueryable`, без `Include` вовсе). При 120 пробах с результатами на стенде это терпимо, но практика — полная сущность там, где нужна часть полей, плюс агрегаты после материализации.
++
++### 6. `SampleRepository.cs` — `GetInAnalysisForBatchAsync` — **medium**
++```csharp
++_db.Samples.Include(s => s.Results)
++    .Where(s => s.BatchId == batchId && s.Status == SampleStatus.InAnalysis)
++    .ToListAsync();
++```
++Используется в `CloseAsync` только для проверки `Results.Count == 0` и смены статуса пробы — но ради проверки «есть ли хоть один результат» подгружаются целиком все строки `Result`. Статус пробы менять нужно, значит без трекинга не обойтись, но коллекцию `Results` можно было не инклюдить и проверять наличие результатов отдельным скалярным запросом (`EXISTS`/`Count`), не перетаскивая все колонки результатов в память.
++
++### 7. `BatchService.cs` — `CloseAsync` — **medium**
++Нет оптимистичной блокировки (`rowversion`/`xmin`) ни на `Batch`, ни на `Sample`. Два параллельных вызова `CloseAsync` для одной партии оба пройдут проверку «нет проб без результатов» и оба выполнят `SaveChangesAsync` — гонка без обнаружения конфликта (просто «последний записавший победил», `ClosedAt`/`ReportDate` перезапишутся вторым вызовом без ошибки). Для операции "закрытие", которая одноразовая по смыслу, стоит добавить concurrency token или идемпотентную проверку (`ClosedAt == null` в условии обновления).
++
++## Низкие замечания
++
++### 8. `SampleRepository.cs` — `GetRecentBySiteAsync` — **low**
++Запрос «пробы объекта за последние N дней» не ограничен `Take`/пагинацией — для активного объекта с большим количеством проб в сутки список может быть неограниченно большим. Стоит добавить лимит или пагинацию для карточки объекта.
++
++### 9. `BatchService.cs` — `RetagAsync` — **low**
++Теги не проверяются на длину перед добавлением, хотя `SampleTag.Tag` ограничен `HasMaxLength(40)`. Превышение лимита приведёт к необработанному исключению БД при `SaveChangesAsync` вместо понятной доменной ошибки.

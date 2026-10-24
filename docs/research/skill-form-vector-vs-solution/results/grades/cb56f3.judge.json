@@ -1,0 +1,92 @@
+{
+  "id": "cb56f3",
+  "case": "GR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.087951,
+    "durationMs": 13776,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 7302,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1455,
+      "output_tokens_details": {
+        "thinking_tokens": 476
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7302,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1455,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 7302,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 7302
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GR-offday-rows": {
+      "verdict": "PASS",
+      "quote": "После `.ToRows()` LINQ пытается перевести фильтр `.Where(r => r.OffDay)` в SQL. Но свойство `OffDay` вычисляется через `WorkCalendar.IsWorkingDay(t.StartedAt)`, которую EF Core не может транслировать в SQL.",
+      "why": "Механизм и последствие (падение FLEET-109 при каждом вызове) названы верно; способ исправления явно не предложен, но условие FAIL — только «дефект не найден»."
+    },
+    "GR-open-semicolon": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Точка с запятой в SQL GetOpenWaybillsAsync и ошибка композиции с Where при заданном vehicleId не упомянуты."
+    },
+    "GR-equipment-clear": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Clear() на незагруженной коллекции Equipment в ReplaceEquipmentAsync и нарушение уникального индекса не упомянуты."
+    },
+    "GR-model-length": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Миграция AlterColumn vehicles.model до varchar(40) в ревью не рассмотрена, то есть пропущена как корректная."
+    },
+    "GR-last-inspection": {
+      "verdict": "FAIL",
+      "quote": "Функция сортирует осмотры по `CreatedAt` (когда синхронизировано с сервера), но требование FLEET-107 проверяет `InspectedAt`",
+      "why": "Исполнитель называет другой дефект — выбор поля сортировки CreatedAt вместо InspectedAt. Неуникальность порядка при одинаковом CreatedAt в пачке и рассинхрон двух запросов SplitQuery не названы."
+    },
+    "GR-permit-lastday": {
+      "verdict": "FOUND",
+      "quote": "Текущий код отклоняет допуск если ValidUntil равна сегодня (потому что 10 > 10 = false).",
+      "why": "Названа отсечка последнего дня допуска из-за сравнения `>` вместо `>=`."
+    },
+    "GR-equipment-auth": {
+      "verdict": "FOUND",
+      "quote": "Без авторизации любой аутентифицированный пользователь может менять комплектацию машин.",
+      "why": "Отсутствие ролевой политики на PUT /vehicles/{id}/equipment названо дефектом."
+    },
+    "GR-h-permits-clear": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Вызов driver.Permits.Clear() в ReplacePermitsAsync дефектом не назван."
+    },
+    "GR-h-plate-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Метод FindByPlateAsync в выходе не упомянут."
+    }
+  },
+  "stderr": ""
+}

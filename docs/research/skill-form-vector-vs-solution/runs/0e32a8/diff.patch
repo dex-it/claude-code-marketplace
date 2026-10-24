@@ -1,0 +1,104 @@
+diff --git a/Model.cs b/Model.cs
+index cc90064..60bfaa2 100644
+--- a/Model.cs
++++ b/Model.cs
+@@ -1,7 +1,7 @@
+ // Shop.Data - EF Core 8, PostgreSQL (Npgsql.EntityFrameworkCore.PostgreSQL 8)
+ namespace Shop.Data;
+ 
+-public class Customer { public Guid Id { get; set; } public string Name { get; set; } = ""; public List<Order> Orders { get; set; } = new(); }
++public class Customer { public Guid Id { get; set; } public string Name { get; set; } = ""; public virtual List<Order> Orders { get; set; } = new(); }
+ 
+ public class Order
+ {
+@@ -11,16 +11,17 @@ public class Order
+     public string Status { get; set; } = "active";
+     public string Category { get; set; } = "";
+     public decimal Total { get; set; }
+-    public DateTime CreatedAt { get; set; }          // column: timestamp without time zone
++    public int Complexity { get; set; }              // сложность комплектации, 1..5 (check constraint)
++    public DateTime CreatedAt { get; set; }          // column: timestamp without time zone; в коде всегда Kind=Utc
+     public DateTime? ShippedAt { get; set; }
+     public bool IsDeleted { get; set; }
+-    public List<OrderItem> Items { get; set; } = new();
+-    public List<Payment> Payments { get; set; } = new();
++    public virtual List<OrderItem> Items { get; set; } = new();
++    public virtual List<Payment> Payments { get; set; } = new();
+     public bool IsOverdue(DateTime now) => ShippedAt == null && CreatedAt.AddDays(3) < now;
+ }
+ 
+-public class OrderItem { public int Id { get; set; } public Guid OrderId { get; set; } public Guid ProductId { get; set; } public int Qty { get; set; } }
+-public class Payment { public int Id { get; set; } public Guid OrderId { get; set; } public decimal Amount { get; set; } }
++public class OrderItem { public int Id { get; set; } public Guid OrderId { get; set; } public virtual Order Order { get; set; } = null!; public Guid ProductId { get; set; } public int Qty { get; set; } }
++public class Payment { public int Id { get; set; } public Guid OrderId { get; set; } public virtual Order Order { get; set; } = null!; public decimal Amount { get; set; } }
+ 
+ public class Product
+ {
+@@ -44,7 +45,36 @@ public class ShopDbContext : DbContext
+     protected override void OnModelCreating(ModelBuilder b)
+     {
+         b.Entity<Order>().HasQueryFilter(o => !o.IsDeleted);
+-        b.Entity<Order>().Property(o => o.CreatedAt).HasColumnType("timestamp without time zone");
++
++        // Колонка остаётся timestamp without time zone (в ней UTC-время).
++        // Npgsql 8 не пишет DateTime с Kind=Utc в timestamp и читает оттуда Kind=Unspecified,
++        // поэтому на границе с БД снимаем/проставляем Kind; Local на всякий случай переводим в UTC.
++        b.Entity<Order>().Property(o => o.CreatedAt)
++            .HasColumnType("timestamp without time zone")
++            .HasConversion(
++                v => DateTime.SpecifyKind(v.Kind == DateTimeKind.Local ? v.ToUniversalTime() : v, DateTimeKind.Unspecified),
++                v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
++
++        // Одно число - обычное свойство, не owned-тип; диапазон держит БД.
++        b.Entity<Order>().ToTable(t => t.HasCheckConstraint("CK_Order_Complexity", "\"Complexity\" BETWEEN 1 AND 5"));
++
++        // Позиции - часть заказа: при физическом удалении заказа уходят вместе с ним,
++        // при разрыве связи (Items.Clear()) удаляются как сироты.
++        b.Entity<Order>()
++            .HasMany(o => o.Items).WithOne(i => i.Order)
++            .HasForeignKey(i => i.OrderId).IsRequired()
++            .OnDelete(DeleteBehavior.Cascade);
++
++        // Платежи - финансовые записи: физическое удаление заказа с платежами запрещено.
++        b.Entity<Order>()
++            .HasMany(o => o.Payments).WithOne(p => p.Order)
++            .HasForeignKey(p => p.OrderId).IsRequired()
++            .OnDelete(DeleteBehavior.Restrict);
++
++        // Required-зависимые мягко удалённого заказа скрываем тем же фильтром (иначе EF 10622 и
++        // Include/выборки зависимых возвращают строки, чей заказ отфильтрован).
++        b.Entity<OrderItem>().HasQueryFilter(i => !i.Order.IsDeleted);
++        b.Entity<Payment>().HasQueryFilter(p => !p.Order.IsDeleted);
+     }
+ }
+ // Options: UseNpgsql(cs).UseLazyLoadingProxies()
+diff --git a/OrderRepository.cs b/OrderRepository.cs
+index 72637b8..b9349b5 100644
+--- a/OrderRepository.cs
++++ b/OrderRepository.cs
+@@ -6,4 +6,9 @@ public class OrderRepository
+     public OrderRepository(ShopDbContext db) => _db = db;
+     public Task<List<Order>> GetAllAsync() => _db.Orders.ToListAsync();
+     public Task<Order?> GetAsync(Guid id) => _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
++
++    // Один DELETE в БД без загрузки позиций; фильтр OrderItem не даёт трогать мягко удалённый заказ.
++    // Изменение применяется сразу (SaveChanges не нужен); уже загруженные в этот контекст Items не обновляются.
++    public Task<int> ClearItems(Guid orderId) =>
++        _db.Set<OrderItem>().Where(i => i.OrderId == orderId).ExecuteDeleteAsync();
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..8185dc2
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,10 @@
++Изменённые файлы:
++- `Model.cs`: `Order.Complexity` и check-констрейнт 1..5; конвертер для `CreatedAt`; связи Items/Payments и query-фильтры для зависимых; навигации `Order` в `OrderItem`/`Payment`; коллекции-навигации стали `virtual` (этого требует `UseLazyLoadingProxies`).
++- `OrderRepository.cs`: добавлен `ClearItems(Guid orderId)`.
++- `_answer.md`: этот ответ.
++
++Решения:
++- **Complexity.** Обычный `int` с check-констрейнтом `BETWEEN 1 AND 5`. Owned-тип для одного поля не нужен. **CreatedAt.** Колонка остаётся `timestamp without time zone`, в ней хранится UTC. Конвертер при записи снимает `Kind` (Npgsql 8 не пишет `Kind=Utc` в timestamp), а при чтении ставит `Kind=Utc`.
++- **Связи.** Items: required, `Cascade`, поэтому `Clear()` удаляет позиции-сироты. Payments: required, `Restrict`, поэтому физически удалить заказ с платежами нельзя. На OrderItem/Payment стоит тот же фильтр `!Order.IsDeleted`, чтобы при мягком удалении заказа его зависимые тоже скрывались (предупреждение EF 10622).
++- **ClearItems.** Один `ExecuteDeleteAsync`: применяется сразу, позиции не загружает и мягко удалённый заказ не трогает. Ограничение: уже загруженные в этот контекст Items не обновятся.
++- **Не сделано.** Миграцию я не создавал, сборку не запускал. В миграции для `Complexity` нужно задать `defaultValue` для исторических строк (например, 1), иначе check-констрейнт не пройдёт. Код, который создаёт заказы, должен сам задавать `Complexity`.

@@ -1,0 +1,183 @@
+diff --git a/Fines.cs b/Fines.cs
+index d754d5d..17ce80f 100644
+--- a/Fines.cs
++++ b/Fines.cs
+@@ -1,8 +1,19 @@
+ namespace BookQuarter.Library;
+ 
+-public record FineRules(decimal PerDay, int GraceDays, decimal Max)
++public record FineRules(decimal PerDay, int GraceDays, decimal Max);
++
++// Секция "Fines" в appsettings. Значения по умолчанию - действующие по Положению, п. 6.3.
++public sealed class FinesOptions
+ {
+-    public static readonly FineRules Default = new(10m, 3, 500m);
++    public const string Section = "Fines";
++
++    public decimal PerDay { get; set; } = 10m;
++    public int GraceDays { get; set; } = 3;
++    public decimal Max { get; set; } = 500m;
++
++    public bool IsValid() => PerDay >= 0 && GraceDays >= 0 && Max >= 0;
++
++    public FineRules ToRules() => new(PerDay, GraceDays, Max);
+ }
+ 
+ // Правила начисления штрафа (Положение о пользовании библиотекой, п. 6.3).
+@@ -49,3 +60,7 @@ public static class LoanRows
+             Fine = Fines.Amount(l.DueDate, today, l.Reader.Category, rules),
+         });
+ }
++
++public sealed record DebtorsReport(int BranchId, DateOnly AsOf, IReadOnlyList<LoanRow> Rows, decimal TotalFine);
++
++public sealed record LoansByBranchRow(int BranchId, string Branch, int Loans);
+diff --git a/LoanService.cs b/LoanService.cs
+index 81e9e1e..e09e4fc 100644
+--- a/LoanService.cs
++++ b/LoanService.cs
+@@ -7,9 +7,13 @@ public class LoanService
+     private const int LoanDays = 21;
+ 
+     private readonly LibraryDbContext _db;
+-    private readonly FineRules _rules = FineRules.Default;
++    private readonly FineRules _rules;
+ 
+-    public LoanService(LibraryDbContext db) => _db = db;
++    public LoanService(LibraryDbContext db, FineRules rules)
++    {
++        _db = db;
++        _rules = rules;
++    }
+ 
+     public async Task<int> IssueAsync(string cardNumber, int bookId, int branchId)
+     {
+@@ -75,6 +79,56 @@ public class LoanService
+             l.BranchId == branchId && l.IssuedAt >= dayStart && l.IssuedAt < dayEnd);
+     }
+ 
++    // Должники филиала для обзвона: невозвращённые книги этого филиала с истёкшим сроком.
++    public async Task<DebtorsReport> GetDebtorsAsync(int branchId)
++    {
++        var branch = await _db.Branches.FindAsync(branchId)
++            ?? throw new InvalidOperationException("Филиал не найден");
++
++        var today = LocalToday(branch);
++
++        // Штраф считается на клиенте в финальной проекции (как в списке на кафедре),
++        // поэтому в SQL только фильтр по сроку, а сортировка по штрафу - после загрузки.
++        var rows = await _db.Loans
++            .Where(l => l.BranchId == branchId && l.ReturnedAt == null && l.DueDate < today)
++            .ToLoanRows(today, _rules)
++            .ToListAsync();
++
++        var ordered = rows
++            .OrderByDescending(r => r.Fine)
++            .ThenByDescending(r => r.DaysOverdue)
++            .ThenBy(r => r.Reader)
++            .ToList();
++
++        return new DebtorsReport(branchId, today, ordered, ordered.Sum(r => r.Fine));
++    }
++
++    // Число выдач по филиалам за полуинтервал [from, to) - абсолютные моменты времени.
++    public async Task<List<LoansByBranchRow>> CountLoansByBranchAsync(DateTimeOffset from, DateTimeOffset to)
++    {
++        if (from >= to)
++            throw new ArgumentException("Начало периода должно быть раньше конца");
++
++        // Npgsql пишет в timestamptz только DateTimeOffset с нулевым смещением.
++        var fromUtc = from.ToUniversalTime();
++        var toUtc = to.ToUniversalTime();
++
++        var counts = await _db.Loans
++            .Where(l => l.IssuedAt >= fromUtc && l.IssuedAt < toUtc)
++            .GroupBy(l => l.BranchId)
++            .Select(g => new { BranchId = g.Key, Count = g.Count() })
++            .ToDictionaryAsync(x => x.BranchId, x => x.Count);
++
++        var branches = await _db.Branches
++            .OrderBy(b => b.Name)
++            .Select(b => new { b.Id, b.Name })
++            .ToListAsync();
++
++        return branches
++            .Select(b => new LoansByBranchRow(b.Id, b.Name, counts.GetValueOrDefault(b.Id)))
++            .ToList();
++    }
++
+     private static DateOnly LocalToday(Branch branch)
+     {
+         var tz = TimeZoneInfo.FindSystemTimeZoneById(branch.TimeZoneId);
+diff --git a/Program.cs b/Program.cs
+index 51a69f7..3a440d2 100644
+--- a/Program.cs
++++ b/Program.cs
+@@ -1,10 +1,16 @@
+ using BookQuarter.Library;
+ using Microsoft.EntityFrameworkCore;
++using Microsoft.Extensions.Options;
+ 
+ var builder = WebApplication.CreateBuilder(args);
+ 
+ builder.Services.AddDbContext<LibraryDbContext>(o =>
+     o.UseNpgsql(builder.Configuration.GetConnectionString("Library")));
++builder.Services.AddOptions<FinesOptions>()
++    .Bind(builder.Configuration.GetSection(FinesOptions.Section))
++    .Validate(o => o.IsValid(), "Fines: PerDay, GraceDays и Max не могут быть отрицательными")
++    .ValidateOnStart();
++builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<FinesOptions>>().Value.ToRules());
+ builder.Services.AddScoped<LoanService>();
+ 
+ var app = builder.Build();
+@@ -24,6 +30,19 @@ app.MapGet("/branches/{branchId:int}/readers/{card}/loans", async (int branchId,
+ app.MapGet("/branches/{branchId:int}/issued-today", async (int branchId, LoanService s) =>
+     Results.Ok(await s.CountIssuedTodayAsync(branchId)));
+ 
++app.MapGet("/branches/{id:int}/debtors", async (int id, LoanService s) =>
++    Results.Ok(await s.GetDebtorsAsync(id)));
++
++app.MapPost("/reports/loans-by-branch", async (PeriodRequest req, LoanService s) =>
++{
++    if (req.From >= req.To)
++        return Results.BadRequest("Начало периода должно быть раньше конца");
++    return Results.Ok(await s.CountLoansByBranchAsync(req.From, req.To));
++});
++
+ app.Run();
+ 
+ public record IssueRequest(string CardNumber, int BookId, int BranchId);
++
++// DateTimeOffset, а не DateTime: смещение пользователя из ISO 8601 сохраняется при разборе.
++public record PeriodRequest(DateTimeOffset From, DateTimeOffset To);
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..25f7204
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,12 @@
++**Изменённые и созданные файлы**
++- `Fines.cs` (изменён): добавлен `FinesOptions` (секция `Fines`), убран захардкоженный `FineRules.Default`, добавлены DTO `DebtorsReport` и `LoansByBranchRow`.
++- `LoanService.cs` (изменён): `FineRules` теперь приходит через DI; добавлены методы `GetDebtorsAsync` и `CountLoansByBranchAsync`.
++- `Program.cs` (изменён): `FinesOptions` привязывается к конфигурации и проверяется при старте; добавлены `GET /branches/{id}/debtors` и `POST /reports/loans-by-branch` (тело — `PeriodRequest`).
++- `appsettings.json` (создан): секция `Fines` с текущими значениями 10 / 3 / 500.
++
++**Решения**
++- Должники собираются через тот же `ToLoanRows`, что и список на кафедре, и считаются на «сегодня» по часовому поясу филиала. Должник — это невозвращённая книга этого филиала (`Loan.BranchId`), у которой срок возврата прошёл. Строки с нулевым штрафом (детский билет, льготный период) тоже попадают в список. Штраф считается в C#, а не в SQL, поэтому сортировка (штраф ↓, дни просрочки ↓) и итог по филиалу делаются после загрузки.
++- Отчёт: `from`/`to` принимаются как `DateTimeOffset`, так смещение пользователя не теряется. Перед запросом они переводятся в UTC: Npgsql записывает в `timestamptz` только значения со смещением 0. Период — полуинтервал [from, to). Если `from >= to`, возвращается 400. В ответе есть все филиалы, включая те, где выдач было 0.
++- Значения в секции `Fines` проверяются при старте (`ValidateOnStart`). Если секции нет, действуют значения из Положения, п. 6.3.
++
++Сборку и тесты я не запускал. Строки подключения в новом `appsettings.json` нет, она по-прежнему должна приходить из окружения.
+diff --git a/appsettings.json b/appsettings.json
+new file mode 100644
+index 0000000..c9c51a8
+--- /dev/null
++++ b/appsettings.json
+@@ -0,0 +1,7 @@
++{
++  "Fines": {
++    "PerDay": 10,
++    "GraceDays": 3,
++    "Max": 500
++  }
++}

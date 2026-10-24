@@ -1,0 +1,341 @@
+diff --git a/Directory.Packages.props b/Directory.Packages.props
+index 4c6a643..abf56a4 100644
+--- a/Directory.Packages.props
++++ b/Directory.Packages.props
+@@ -5,6 +5,7 @@
+   <ItemGroup>
+     <PackageVersion Include="Swashbuckle.AspNetCore" Version="10.3.0" />
+     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.10.0" />
++    <PackageVersion Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="3.3.4" />
+     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+     <PackageVersion Include="xunit" Version="2.9.3" />
+     <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.1" />
+diff --git a/Pricing.sln b/Pricing.sln
+index 3993a23..4e20af9 100644
+--- a/Pricing.sln
++++ b/Pricing.sln
+@@ -19,6 +19,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pricing.Tests", "tests\Pric
+ EndProject
+ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pricing.Contracts", "src\Pricing.Contracts\Pricing.Contracts.csproj", "{E4E54E37-DF81-47A7-A148-9BE58E3DDF63}"
+ EndProject
++Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pricing.Suppliers", "src\Pricing.Suppliers\Pricing.Suppliers.csproj", "{9638F3AC-8930-423E-86AF-581B8AFB635C}"
++EndProject
+ Global
+ 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+ 		Debug|Any CPU = Debug|Any CPU
+@@ -101,6 +103,18 @@ Global
+ 		{E4E54E37-DF81-47A7-A148-9BE58E3DDF63}.Release|x64.Build.0 = Release|Any CPU
+ 		{E4E54E37-DF81-47A7-A148-9BE58E3DDF63}.Release|x86.ActiveCfg = Release|Any CPU
+ 		{E4E54E37-DF81-47A7-A148-9BE58E3DDF63}.Release|x86.Build.0 = Release|Any CPU
++		{9638F3AC-8930-423E-86AF-581B8AFB635C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
++		{9638F3AC-8930-423E-86AF-581B8AFB635C}.Debug|Any CPU.Build.0 = Debug|Any CPU
++		{9638F3AC-8930-423E-86AF-581B8AFB635C}.Debug|x64.ActiveCfg = Debug|Any CPU
++		{9638F3AC-8930-423E-86AF-581B8AFB635C}.Debug|x64.Build.0 = Debug|Any CPU
++		{9638F3AC-8930-423E-86AF-581B8AFB635C}.Debug|x86.ActiveCfg = Debug|Any CPU
++		{9638F3AC-8930-423E-86AF-581B8AFB635C}.Debug|x86.Build.0 = Debug|Any CPU
++		{9638F3AC-8930-423E-86AF-581B8AFB635C}.Release|Any CPU.ActiveCfg = Release|Any CPU
++		{9638F3AC-8930-423E-86AF-581B8AFB635C}.Release|Any CPU.Build.0 = Release|Any CPU
++		{9638F3AC-8930-423E-86AF-581B8AFB635C}.Release|x64.ActiveCfg = Release|Any CPU
++		{9638F3AC-8930-423E-86AF-581B8AFB635C}.Release|x64.Build.0 = Release|Any CPU
++		{9638F3AC-8930-423E-86AF-581B8AFB635C}.Release|x86.ActiveCfg = Release|Any CPU
++		{9638F3AC-8930-423E-86AF-581B8AFB635C}.Release|x86.Build.0 = Release|Any CPU
+ 	EndGlobalSection
+ 	GlobalSection(SolutionProperties) = preSolution
+ 		HideSolutionNode = FALSE
+@@ -112,5 +126,6 @@ Global
+ 		{22222222-0000-0000-0000-000000000004} = {11111111-0000-0000-0000-000000000001}
+ 		{22222222-0000-0000-0000-000000000005} = {11111111-0000-0000-0000-000000000002}
+ 		{E4E54E37-DF81-47A7-A148-9BE58E3DDF63} = {11111111-0000-0000-0000-000000000001}
++		{9638F3AC-8930-423E-86AF-581B8AFB635C} = {11111111-0000-0000-0000-000000000001}
+ 	EndGlobalSection
+ EndGlobal
+diff --git a/src/Pricing.Application/Pricing.Application.csproj b/src/Pricing.Application/Pricing.Application.csproj
+index 05b9655..8df7daf 100644
+--- a/src/Pricing.Application/Pricing.Application.csproj
++++ b/src/Pricing.Application/Pricing.Application.csproj
+@@ -1,5 +1,6 @@
+ <Project Sdk="Microsoft.NET.Sdk">
+   <ItemGroup>
+     <ProjectReference Include="..\Pricing.Domain\Pricing.Domain.csproj" />
++    <ProjectReference Include="..\Pricing.Suppliers\Pricing.Suppliers.csproj" />
+   </ItemGroup>
+ </Project>
+diff --git a/src/Pricing.Application/Quotes/QuoteService.cs b/src/Pricing.Application/Quotes/QuoteService.cs
+index 8860f76..488cd5b 100644
+--- a/src/Pricing.Application/Quotes/QuoteService.cs
++++ b/src/Pricing.Application/Quotes/QuoteService.cs
+@@ -1,6 +1,7 @@
+ using Pricing.Application.Abstractions;
+ using Pricing.Application.Promotions;
+ using Pricing.Domain;
++using Pricing.Suppliers;
+ 
+ namespace Pricing.Application.Quotes;
+ 
+diff --git a/src/Pricing.Infrastructure/InfrastructureModule.cs b/src/Pricing.Infrastructure/InfrastructureModule.cs
+index b906c7f..e86d0a8 100644
+--- a/src/Pricing.Infrastructure/InfrastructureModule.cs
++++ b/src/Pricing.Infrastructure/InfrastructureModule.cs
+@@ -1,9 +1,8 @@
+ using Microsoft.Extensions.Configuration;
+ using Microsoft.Extensions.DependencyInjection;
+-using Microsoft.Extensions.Options;
+ using Pricing.Application.Abstractions;
+ using Pricing.Infrastructure.Persistence;
+-using Pricing.Infrastructure.Suppliers;
++using Pricing.Suppliers;
+ 
+ namespace Pricing.Infrastructure;
+ 
+@@ -15,14 +14,7 @@ public static class InfrastructureModule
+         services.AddScoped<IProductRepository, InMemoryProductRepository>();
+         services.AddScoped<IPromotionRepository, InMemoryPromotionRepository>();
+ 
+-        services.Configure<SupplierOptions>(config.GetSection(SupplierOptions.Section));
+-        services.AddHttpClient<ISupplierCatalog, SupplierApiClient>((sp, http) =>
+-            {
+-                var o = sp.GetRequiredService<IOptions<SupplierOptions>>().Value;
+-                http.BaseAddress = o.BaseUrl;
+-                http.DefaultRequestHeaders.Add("X-Api-Key", o.ApiKey);
+-            })
+-            .AddStandardResilienceHandler();
++        services.AddSupplierClient(o => config.GetSection(SupplierOptions.Section).Bind(o));
+         return services;
+     }
+ }
+diff --git a/src/Pricing.Infrastructure/Pricing.Infrastructure.csproj b/src/Pricing.Infrastructure/Pricing.Infrastructure.csproj
+index 2b3dd57..469a2e6 100644
+--- a/src/Pricing.Infrastructure/Pricing.Infrastructure.csproj
++++ b/src/Pricing.Infrastructure/Pricing.Infrastructure.csproj
+@@ -1,9 +1,9 @@
+ <Project Sdk="Microsoft.NET.Sdk">
+   <ItemGroup>
+     <FrameworkReference Include="Microsoft.AspNetCore.App" />
+-    <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
+   </ItemGroup>
+   <ItemGroup>
+     <ProjectReference Include="..\Pricing.Application\Pricing.Application.csproj" />
++    <ProjectReference Include="..\Pricing.Suppliers\Pricing.Suppliers.csproj" />
+   </ItemGroup>
+ </Project>
+diff --git a/src/Pricing.Suppliers/ISupplierCatalog.cs b/src/Pricing.Suppliers/ISupplierCatalog.cs
+index a29e588..aa06714 100644
+--- a/src/Pricing.Suppliers/ISupplierCatalog.cs
++++ b/src/Pricing.Suppliers/ISupplierCatalog.cs
+@@ -1,4 +1,4 @@
+-namespace Pricing.Application.Abstractions;
++namespace Pricing.Suppliers;
+ 
+ public sealed record SupplierPrice(string Sku, decimal Price, string Currency);
+ 
+diff --git a/src/Pricing.Suppliers/Pricing.Suppliers.csproj b/src/Pricing.Suppliers/Pricing.Suppliers.csproj
+new file mode 100644
+index 0000000..fa9e1aa
+--- /dev/null
++++ b/src/Pricing.Suppliers/Pricing.Suppliers.csproj
+@@ -0,0 +1,17 @@
++<Project Sdk="Microsoft.NET.Sdk">
++  <PropertyGroup>
++    <TargetFramework>net8.0</TargetFramework>
++    <IsPackable>true</IsPackable>
++    <PackageId>Pricing.Suppliers</PackageId>
++    <Version>1.0.0</Version>
++    <Description>Клиент Supplier API: цены поставщиков с политикой устойчивости.</Description>
++  </PropertyGroup>
++  <ItemGroup>
++    <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
++    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" PrivateAssets="all" />
++  </ItemGroup>
++  <ItemGroup>
++    <AdditionalFiles Include="PublicAPI.Shipped.txt" />
++    <AdditionalFiles Include="PublicAPI.Unshipped.txt" />
++  </ItemGroup>
++</Project>
+diff --git a/src/Pricing.Suppliers/PublicAPI.Shipped.txt b/src/Pricing.Suppliers/PublicAPI.Shipped.txt
+new file mode 100644
+index 0000000..7dc5c58
+--- /dev/null
++++ b/src/Pricing.Suppliers/PublicAPI.Shipped.txt
+@@ -0,0 +1 @@
++#nullable enable
+diff --git a/src/Pricing.Suppliers/PublicAPI.Unshipped.txt b/src/Pricing.Suppliers/PublicAPI.Unshipped.txt
+new file mode 100644
+index 0000000..5039af3
+--- /dev/null
++++ b/src/Pricing.Suppliers/PublicAPI.Unshipped.txt
+@@ -0,0 +1,27 @@
++#nullable enable
++Pricing.Suppliers.ISupplierCatalog
++Pricing.Suppliers.ISupplierCatalog.GetPriceAsync(string! supplierId, string! sku, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Pricing.Suppliers.SupplierPrice?>!
++Pricing.Suppliers.SupplierApiClient
++Pricing.Suppliers.SupplierApiClient.GetPriceAsync(string! supplierId, string! sku, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Pricing.Suppliers.SupplierPrice?>!
++Pricing.Suppliers.SupplierApiClient.SupplierApiClient(System.Net.Http.HttpClient! http) -> void
++Pricing.Suppliers.SupplierClientExtensions
++Pricing.Suppliers.SupplierOptions
++Pricing.Suppliers.SupplierOptions.ApiKey.get -> string!
++Pricing.Suppliers.SupplierOptions.ApiKey.set -> void
++Pricing.Suppliers.SupplierOptions.AttemptTimeout.get -> System.TimeSpan
++Pricing.Suppliers.SupplierOptions.AttemptTimeout.set -> void
++Pricing.Suppliers.SupplierOptions.BaseUrl.get -> System.Uri!
++Pricing.Suppliers.SupplierOptions.BaseUrl.set -> void
++Pricing.Suppliers.SupplierOptions.SupplierOptions() -> void
++Pricing.Suppliers.SupplierOptions.TotalTimeout.get -> System.TimeSpan
++Pricing.Suppliers.SupplierOptions.TotalTimeout.set -> void
++Pricing.Suppliers.SupplierPrice
++Pricing.Suppliers.SupplierPrice.Currency.get -> string!
++Pricing.Suppliers.SupplierPrice.Currency.init -> void
++Pricing.Suppliers.SupplierPrice.Price.get -> decimal
++Pricing.Suppliers.SupplierPrice.Price.init -> void
++Pricing.Suppliers.SupplierPrice.Sku.get -> string!
++Pricing.Suppliers.SupplierPrice.Sku.init -> void
++Pricing.Suppliers.SupplierPrice.SupplierPrice(string! Sku, decimal Price, string! Currency) -> void
++const Pricing.Suppliers.SupplierOptions.Section = "Suppliers" -> string!
++static Pricing.Suppliers.SupplierClientExtensions.AddSupplierClient(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<Pricing.Suppliers.SupplierOptions!>? configure = null) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+diff --git a/src/Pricing.Suppliers/SupplierApiClient.cs b/src/Pricing.Suppliers/SupplierApiClient.cs
+index a005c71..c95a93f 100644
+--- a/src/Pricing.Suppliers/SupplierApiClient.cs
++++ b/src/Pricing.Suppliers/SupplierApiClient.cs
+@@ -1,8 +1,7 @@
+ using System.Net;
+ using System.Net.Http.Json;
+-using Pricing.Application.Abstractions;
+ 
+-namespace Pricing.Infrastructure.Suppliers;
++namespace Pricing.Suppliers;
+ 
+ public sealed class SupplierApiClient(HttpClient http) : ISupplierCatalog
+ {
+@@ -10,7 +9,8 @@ public sealed class SupplierApiClient(HttpClient http) : ISupplierCatalog
+ 
+     public async Task<SupplierPrice?> GetPriceAsync(string supplierId, string sku, CancellationToken ct)
+     {
+-        using var response = await http.GetAsync($"v1/suppliers/{supplierId}/prices/{Uri.EscapeDataString(sku)}", ct);
++        using var response = await http.GetAsync(
++            $"v1/suppliers/{Uri.EscapeDataString(supplierId)}/prices/{Uri.EscapeDataString(sku)}", ct);
+         if (response.StatusCode == HttpStatusCode.NotFound) return null;
+         response.EnsureSuccessStatusCode();
+         var body = await response.Content.ReadFromJsonAsync<PriceResponse>(ct)
+diff --git a/src/Pricing.Suppliers/SupplierClientExtensions.cs b/src/Pricing.Suppliers/SupplierClientExtensions.cs
+new file mode 100644
+index 0000000..988f1dc
+--- /dev/null
++++ b/src/Pricing.Suppliers/SupplierClientExtensions.cs
+@@ -0,0 +1,30 @@
++using Microsoft.Extensions.DependencyInjection;
++
++namespace Pricing.Suppliers;
++
++public static class SupplierClientExtensions
++{
++    /// <summary>
++    /// Регистрирует <see cref="ISupplierCatalog"/> с политикой устойчивости клиента:
++    /// повторы, circuit breaker, timeout попытки и общий timeout вызова.
++    /// </summary>
++    public static IServiceCollection AddSupplierClient(
++        this IServiceCollection services, Action<SupplierOptions>? configure = null)
++    {
++        var options = new SupplierOptions();
++        configure?.Invoke(options);
++
++        services.AddHttpClient<ISupplierCatalog, SupplierApiClient>(http =>
++            {
++                http.BaseAddress = options.BaseUrl;
++                http.DefaultRequestHeaders.Add("X-Api-Key", options.ApiKey);
++            })
++            .AddStandardResilienceHandler(o =>
++            {
++                o.AttemptTimeout.Timeout = options.AttemptTimeout;
++                o.TotalRequestTimeout.Timeout = options.TotalTimeout;
++                o.CircuitBreaker.SamplingDuration = options.AttemptTimeout * 2;
++            });
++        return services;
++    }
++}
+diff --git a/src/Pricing.Suppliers/SupplierOptions.cs b/src/Pricing.Suppliers/SupplierOptions.cs
+index 3620c82..f999b43 100644
+--- a/src/Pricing.Suppliers/SupplierOptions.cs
++++ b/src/Pricing.Suppliers/SupplierOptions.cs
+@@ -1,8 +1,14 @@
+-namespace Pricing.Infrastructure.Suppliers;
++namespace Pricing.Suppliers;
+ 
+ public sealed class SupplierOptions
+ {
+     public const string Section = "Suppliers";
+     public Uri BaseUrl { get; set; } = new("http://localhost:5100/");
+     public string ApiKey { get; set; } = "";
++
++    /// <summary>Срок одной попытки запроса.</summary>
++    public TimeSpan AttemptTimeout { get; set; } = TimeSpan.FromSeconds(2);
++
++    /// <summary>Общий срок вызова с учётом повторов; вызывающий не ждёт дольше.</summary>
++    public TimeSpan TotalTimeout { get; set; } = TimeSpan.FromSeconds(5);
+ }
+diff --git a/tests/Pricing.Tests/Pricing.Tests.csproj b/tests/Pricing.Tests/Pricing.Tests.csproj
+index 476155a..d7e5693 100644
+--- a/tests/Pricing.Tests/Pricing.Tests.csproj
++++ b/tests/Pricing.Tests/Pricing.Tests.csproj
+@@ -13,5 +13,6 @@
+   </ItemGroup>
+   <ItemGroup>
+     <ProjectReference Include="..\..\src\Pricing.Application\Pricing.Application.csproj" />
++    <ProjectReference Include="..\..\src\Pricing.Suppliers\Pricing.Suppliers.csproj" />
+   </ItemGroup>
+ </Project>
+diff --git a/tests/Pricing.Tests/SupplierApiClientTests.cs b/tests/Pricing.Tests/SupplierApiClientTests.cs
+new file mode 100644
+index 0000000..9d42d50
+--- /dev/null
++++ b/tests/Pricing.Tests/SupplierApiClientTests.cs
+@@ -0,0 +1,51 @@
++using System.Net;
++using System.Text;
++using Pricing.Suppliers;
++
++namespace Pricing.Tests;
++
++public class SupplierApiClientTests
++{
++    private sealed class StubHandler(HttpStatusCode status, string body = "") : HttpMessageHandler
++    {
++        public Uri? LastUri { get; private set; }
++
++        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
++        {
++            LastUri = request.RequestUri;
++            return Task.FromResult(new HttpResponseMessage(status)
++            {
++                Content = new StringContent(body, Encoding.UTF8, "application/json")
++            });
++        }
++    }
++
++    private static SupplierApiClient Create(StubHandler handler) =>
++        new(new HttpClient(handler) { BaseAddress = new Uri("http://supplier.test/") });
++
++    [Fact]
++    public async Task GetPrice_ReturnsPrice()
++    {
++        var handler = new StubHandler(HttpStatusCode.OK, """{"sku":"A 1","price":12.5,"currency":"USD"}""");
++
++        var price = await Create(handler).GetPriceAsync("sup-1", "A 1", CancellationToken.None);
++
++        Assert.Equal(new SupplierPrice("A 1", 12.5m, "USD"), price);
++        Assert.Equal("/v1/suppliers/sup-1/prices/A%201", handler.LastUri!.AbsolutePath);
++    }
++
++    [Fact]
++    public async Task GetPrice_NotFound_ReturnsNull()
++    {
++        var price = await Create(new StubHandler(HttpStatusCode.NotFound)).GetPriceAsync("sup-1", "x", CancellationToken.None);
++
++        Assert.Null(price);
++    }
++
++    [Fact]
++    public async Task GetPrice_ServerError_Throws()
++    {
++        await Assert.ThrowsAsync<HttpRequestException>(() =>
++            Create(new StubHandler(HttpStatusCode.InternalServerError)).GetPriceAsync("sup-1", "x", CancellationToken.None));
++    }
++}

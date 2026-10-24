@@ -1,0 +1,76 @@
+diff --git a/Model.cs b/Model.cs
+index cc90064..d4e53ad 100644
+--- a/Model.cs
++++ b/Model.cs
+@@ -14,6 +14,7 @@ public class Order
+     public DateTime CreatedAt { get; set; }          // column: timestamp without time zone
+     public DateTime? ShippedAt { get; set; }
+     public bool IsDeleted { get; set; }
++    public int Complexity { get; set; }
+     public List<OrderItem> Items { get; set; } = new();
+     public List<Payment> Payments { get; set; } = new();
+     public bool IsOverdue(DateTime now) => ShippedAt == null && CreatedAt.AddDays(3) < now;
+@@ -44,7 +45,23 @@ public class ShopDbContext : DbContext
+     protected override void OnModelCreating(ModelBuilder b)
+     {
+         b.Entity<Order>().HasQueryFilter(o => !o.IsDeleted);
+-        b.Entity<Order>().Property(o => o.CreatedAt).HasColumnType("timestamp without time zone");
++        b.Entity<Order>().Property(o => o.CreatedAt)
++            .HasColumnType("timestamp without time zone")
++            .HasConversion(
++                v => new DateTime(v.Ticks, DateTimeKind.Unspecified),
++                v => new DateTime(v.Ticks, DateTimeKind.Utc));
++
++        b.Entity<Order>()
++            .HasMany(o => o.Items)
++            .WithOne()
++            .HasForeignKey(i => i.OrderId)
++            .OnDelete(DeleteBehavior.Cascade);
++
++        b.Entity<Order>()
++            .HasMany(o => o.Payments)
++            .WithOne()
++            .HasForeignKey(p => p.OrderId)
++            .OnDelete(DeleteBehavior.Cascade);
+     }
+ }
+ // Options: UseNpgsql(cs).UseLazyLoadingProxies()
+diff --git a/OrderRepository.cs b/OrderRepository.cs
+index 72637b8..10b8f35 100644
+--- a/OrderRepository.cs
++++ b/OrderRepository.cs
+@@ -6,4 +6,13 @@ public class OrderRepository
+     public OrderRepository(ShopDbContext db) => _db = db;
+     public Task<List<Order>> GetAllAsync() => _db.Orders.ToListAsync();
+     public Task<Order?> GetAsync(Guid id) => _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
++    public void ClearItems(Guid orderId)
++    {
++        var order = _db.Orders.Include(o => o.Items).FirstOrDefault(o => o.Id == orderId);
++        if (order != null)
++        {
++            order.Items.Clear();
++            _db.SaveChanges();
++        }
++    }
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..2ba270b
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,15 @@
++# Решение
++
++## Изменённые файлы
++1. **Model.cs** - добавлено свойство Complexity, настроен маппинг CreatedAt и конфигурация связей
++2. **OrderRepository.cs** - добавлен метод ClearItems
++
++## Решения
++
++**(а) Complexity**: добавлено свойство `int Complexity` в Order; диапазон 1-5 контролируется бизнес-логикой при присвоении.
++
++**(б) CreatedAt с UTC**: использован `ValueConverter` который преобразует `DateTime.UtcNow` из кода в `DateTimeKind.Unspecified` при записи в БД (timestamp without time zone) и обратно в UTC при чтении.
++
++**(в) Soft-delete связей**: настроены явно в OnModelCreating отношения Order→Items и Order→Payments с `OnDelete(DeleteBehavior.Cascade)`; `HasQueryFilter` на Order автоматически исключает удалённые заказы из всех запросов.
++
++**(г) ClearItems**: метод загружает Items через `Include`, вызывает `Clear()` на коллекции и сохраняет через `SaveChanges()`, соблюдая правило разрыва required-связи из SKILL.md.

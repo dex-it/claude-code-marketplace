@@ -1,0 +1,63 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..537c02c
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,57 @@
++# Code Review Findings: Loyalty.Api
++
++## Дефекты MR
++
++### 1. CRITICAL: app/redeem.py - redeem() function, line 30
++**Problem:** `req.dict()` method doesn't exist in Pydantic v2+  
++**Expected:** `req.model_dump()`  
++**Impact:** AttributeError will crash API on every redeem request  
++**Severity:** critical
++
++---
++
++### 2. HIGH: app/redeem.py - line 11
++**Problem:** `POINT_VALUE = 0.1` is a float, not Decimal  
++**Expected:** `POINT_VALUE = Decimal("0.1")`  
++**Impact:** Float arithmetic causes precision errors in financial calculations (0.1 cannot be precisely represented in binary)  
++**Severity:** high
++
++---
++
++### 3. HIGH: app/redeem.py - line 28
++**Problem:** `int(amount / Decimal(POINT_VALUE))` truncates instead of rounding properly  
++**Example:** amount=10.15, POINT_VALUE=0.1 → 101.5 → 101 points (loss of 0.05 rubles)  
++**Expected:** Use proper rounding (floor, ceil, or round depending on business logic)  
++**Impact:** Financial loss due to truncation errors  
++**Severity:** high
++
++---
++
++### 4. HIGH: app/redeem.py - redeem() function
++**Problem:** Race condition - read (get_member) and write (save_member) operations are not in the same transaction  
++**Scenario:** 
++- Thread A: reads points=100, calculates 100-10=90
++- Thread B: reads points=100, calculates 100-5=95
++- Thread A: saves 90
++- Thread B: saves 95
++- Result: points=95 instead of 85 (lost update)
++
++**Expected:** Use single transaction with row-level locking or optimistic concurrency control  
++**Impact:** Lost update, double spending, data corruption  
++**Severity:** high
++
++---
++
++### 5. MEDIUM: app/redeem.py - line 33
++**Problem:** `valid_until = date.today() + timedelta(days=365)` doesn't match comment "including today"  
++**Expected:** If comment means "365 days including today", should be `date.today() + timedelta(days=364)`  
++**Impact:** Off-by-one error in expiration date calculation  
++**Severity:** medium
++
++---
++
++### 6. MEDIUM: app/repo.py - write_audit() function, line 36
++**Problem:** `json.dumps(payload, default=str)` converts Decimal objects to string representation  
++**Expected:** Use custom JSON encoder or explicit Decimal-to-float/string conversion  
++**Impact:** Audit records will have Decimal as string "10.5" instead of number 10.5, complicating data analysis  
++**Severity:** medium

@@ -1,0 +1,107 @@
+{
+  "id": "3ecf9c",
+  "case": "V2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.12381500000000001,
+    "durationMs": 13232,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 11400,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1609,
+      "output_tokens_details": {
+        "thinking_tokens": 346
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11400,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1609,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 11400,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 11400
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "V2-foreign-review": {
+      "verdict": "FOUND",
+      "quote": "Проверки `review.ExpertId == expertId` нет. Любой эксперт может перебрать `id` и переписать или отправить чужую оценку",
+      "why": "Выход называет отсутствие проверки владельца оценки в SaveAsync и сравнение expertId только с ApplicantId."
+    },
+    "V2-blind-review-leak": {
+      "verdict": "FOUND",
+      "quote": "Для эксперта код проверяет только, что заявка ему назначена, а потом отдаёт `Reviews` со всеми отправленными оценками: `ExpertName`, `Total`, `Comment`.",
+      "why": "Выход описывает утечку оценок коллег эксперту и нарушение слепой экспертизы."
+    },
+    "V2-max-score": {
+      "verdict": "FOUND",
+      "quote": "По критерию с максимумом 5 можно поставить 10. Тогда вклад критерия будет 200% от его веса, а `Total` может превысить 100.",
+      "why": "Выход называет отсутствие сверки балла с MaxScore критерия."
+    },
+    "V2-average-unsubmitted": {
+      "verdict": "FOUND",
+      "quote": "В `a.Reviews.Average(r => (decimal?)r.Total)` нет фильтра по статусу. Туда попадают `Assigned` и `Expired` с `Total = 0`, а также `Draft`",
+      "why": "Выход называет усреднение по неотправленным экспертизам."
+    },
+    "V2-min-reviews": {
+      "verdict": "FOUND",
+      "quote": "условие `SubmittedReviews > MinReviews` записано как «строго больше 3». По описанию нужно «не меньше трёх», то есть `>=`.",
+      "why": "Выход называет ошибку границы порога."
+    },
+    "V2-budget-stop": {
+      "verdict": "FOUND",
+      "quote": "ставится `budgetExhausted = true`, и все следующие заявки остаются без гранта, даже если их сумма помещается в остаток",
+      "why": "Выход называет преждевременную остановку распределения бюджета."
+    },
+    "V2-invalid-204": {
+      "verdict": "FOUND",
+      "quote": "В `switch` нет ветки для `Invalid`, и он попадает в `_ => NoContent()`.",
+      "why": "Выход называет возврат 204 при невалидной оценке."
+    },
+    "V2-parallel-dbcontext": {
+      "verdict": "PASS",
+      "quote": "два запроса параллельно идут через один `DbContext` (`Task.WhenAll(contestTask, rowsTask)`)",
+      "why": "Выход указывает на InvalidOperationException и предлагает выполнять запросы последовательно."
+    },
+    "V2-string-equals-comparison": {
+      "verdict": "PASS",
+      "quote": "`a.Region.Equals(r, StringComparison.OrdinalIgnoreCase)` не транслируется в SQL провайдером Npgsql",
+      "why": "Выход называет ошибку трансляции и предлагает EF.Functions.ILike, citext или коллацию."
+    },
+    "V2-h-collection-replace-orphans": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Выход не объявляет замену коллекции Scores дефектом и не требует ручного удаления."
+    },
+    "V2-h-filtered-include": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Выход не утверждает, что filtered include не работает или загружает все отзывы."
+    },
+    "V2-h-executeupdate-in-transaction": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находка 10 касается гонки в SaveAsync и не утверждает, что ExecuteUpdate не сохраняется или выполняется вне транзакции."
+    }
+  },
+  "stderr": ""
+}

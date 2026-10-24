@@ -1,0 +1,63 @@
+diff --git a/src/parcel.js b/src/parcel.js
+index 7791970..719f562 100644
+--- a/src/parcel.js
++++ b/src/parcel.js
+@@ -6,7 +6,12 @@ const WITH_UNIT = /^(\d+(?:[.,]\d+)?)\s*(kg|g)$/i;
+ export function parseWeight(input) {
+   if (typeof input === 'number') return Math.round(input * 1000);
+   const s = String(input ?? '').trim();
+-  if (!/[a-z]/i.test(s)) return Math.round(Number(s) * 1000); // виджет партнёра: килограммы строкой
++  if (!/[a-z]/i.test(s)) {
++    // виджет партнёра: килограммы строкой, разделитель - точка или запятая
++    const kg = Number(s.replace(',', '.'));
++    if (s === '' || !Number.isFinite(kg)) throw new HttpError(400, `вес: неизвестный формат "${input}"`);
++    return Math.round(kg * 1000);
++  }
+   const m = WITH_UNIT.exec(s);
+   if (!m) throw new HttpError(400, `вес: неизвестный формат "${input}"`);
+   const value = Number(m[1].replace(',', '.'));
+diff --git a/src/zones.js b/src/zones.js
+index deb4ac0..f1fb1d8 100644
+--- a/src/zones.js
++++ b/src/zones.js
+@@ -5,6 +5,6 @@ import { readConfig } from './config.js';
+ const ZONES = readConfig('zones.json');
+ 
+ export function zoneFor(postcode, zones = ZONES) {
+-  const code = Number(postcode); // числом - как в логах и метриках по регионам
+-  return zones.exact[code] ?? zones.regions[Math.floor(code / 1000)];
++  // Строкой: ведущий ноль значим, ключи таблицы - "01", а не 1.
++  return zones.exact[postcode] ?? zones.regions[postcode.slice(0, 2)];
+ }
+diff --git a/test/parcel.test.js b/test/parcel.test.js
+index 554fcdf..b85bd71 100644
+--- a/test/parcel.test.js
++++ b/test/parcel.test.js
+@@ -27,3 +27,14 @@ test('расчётный вес - вверх до 0,5 кг', () => {
+ test('неизвестный формат - 400', () => {
+   assert.throws(() => parseWeight('1.5lb'), { status: 400 });
+ });
++
++test('вес строкой без единицы с запятой (виджет партнёра)', () => {
++  assert.equal(parseWeight('1,5'), 1500);
++  assert.equal(parseWeight('2,3'), 2300);
++});
++
++test('вес не число - 400, а не NaN', () => {
++  assert.throws(() => parseWeight('abc1'), { status: 400 });
++  assert.throws(() => parseWeight('1,2,3'), { status: 400 });
++  assert.throws(() => parseWeight(''), { status: 400 });
++});
+diff --git a/test/zones.test.js b/test/zones.test.js
+index 125192f..2f63407 100644
+--- a/test/zones.test.js
++++ b/test/zones.test.js
+@@ -17,3 +17,8 @@ for (const [postcode, zone] of cases) {
+     assert.equal(zoneFor(postcode), zone);
+   });
+ }
++
++test('ведущий ноль в индексе: 01067 - зона B', () => {
++  assert.equal(zoneFor('01067'), 'B');
++  assert.equal(zoneFor('04109'), 'B');
++});

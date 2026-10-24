@@ -1,0 +1,92 @@
+{
+  "id": "68197d",
+  "case": "GR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.066387,
+    "durationMs": 6601,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 6524,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 688,
+      "output_tokens_details": {
+        "thinking_tokens": 0
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6524,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 688,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 6524,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 6524
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GR-offday-rows": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Фильтрация по клиентскому OffDay после ToRows() в OffDayTripsAsync не упомянута."
+    },
+    "GR-open-semicolon": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Точка с запятой в SQL GetOpenWaybillsAsync и падение при композиции Where не отмечены."
+    },
+    "GR-equipment-clear": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Clear() на незагруженной коллекции Equipment в ReplaceEquipmentAsync не найден."
+    },
+    "GR-model-length": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Миграция vehicles.model до varchar(40) не рассмотрена; итог гласит «Остальной код review'а в порядке»."
+    },
+    "GR-last-inspection": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Неуникальный порядок по CreatedAt при SplitQuery в GetLastInspectionAsync не отмечен."
+    },
+    "GR-permit-lastday": {
+      "verdict": "FOUND",
+      "quote": "Текущее условие `ValidUntil > today` исключает сам день истечения допуска.",
+      "why": "Дефект назван по существу: в последний день допуск считается недействительным."
+    },
+    "GR-equipment-auth": {
+      "verdict": "FOUND",
+      "quote": "Endpoint позволяет обновлять комплектацию машины без проверки авторизации.",
+      "why": "Отсутствие политики на PUT equipment названо дефектом."
+    },
+    "GR-h-permits-clear": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "driver.Permits.Clear() дефектом не объявлен."
+    },
+    "GR-h-plate-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByPlateAsync не назван ни инъекцией, ни ошибкой композиции."
+    }
+  },
+  "stderr": ""
+}

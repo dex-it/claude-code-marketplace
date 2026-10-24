@@ -1,0 +1,145 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..5332545
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,139 @@
++# Ревью MR !4127: сервисы заказов и каталога для админки
++
++## Критично
++
++### 1. Migrations/20260920_OrderCategories.cs — `Up()`
++Колонка `Orders.Category` удаляется (`DropColumn`), но данные из неё не переносятся в новые таблицы `Categories`/`OrderCategories` — нет ни одного `InsertData`/`Sql`-шага для заполнения справочника категорий и связки заказ↔категория по существующим значениям `Category`.
++**Почему дефект:** чисто схемная миграция поверх исторических данных — вся информация о категориях действующих заказов необратимо теряется при выкатке. Соответствует пункту чек-листа "Схемная миграция и исторические данные" / "Данные и схема в одной миграции".
++**Severity: critical**
++
++### 2. Model.cs (не менялся) vs Migrations/20260920_OrderCategories.cs + Services/OrderAdmin.cs — `UpdateOrder`
++Миграция дропает колонку `Orders.Category`, но `Model.cs` по-прежнему объявляет `Order.Category` как обычное string-свойство (маппится на колонку `Category` по конвенции), никаких `Categories`/`OrderCategories`/навигаций в модель не добавлено. `OrderAdmin.UpdateOrder` продолжает писать `order.Category = edit.Category`.
++**Почему дефект:** после применения миграции код модели и реальная схема расходятся — EF будет пытаться читать/писать несуществующую колонку `Category` в таблице `Orders`. `UpdateOrder` упадёт в рантайме (Npgsql: column "Category" does not exist), а до этого весь код, читающий `Order.Category`, будет получать мусор/ошибку модели. MR добавляет миграцию, но не обновляет модель, которая по описанию "не менялась" — это разрыв, а не нормальный статус.
++**Severity: critical**
++
++### 3. Services/OrderAdmin.cs — `RecalcTotal`
++```csharp
++order.Total = order.Items.Sum(i => prices[i.ProductId]);
++```
++Суммируются только цены за единицу, `OrderItem.Qty` игнорируется полностью.
++**Почему дефект:** по контексту модели `Product.Price` — цена за единицу, `OrderItem.Qty` — количество; итог должен быть `Sum(i => prices[i.ProductId] * i.Qty)`. Текущий код занижает сумму заказа для любой позиции с `Qty > 1` — прямая денежная ошибка.
++**Severity: critical**
++
++### 4. Services/OrderQueries.cs — `GetProductBySku`
++```csharp
++_db.Products.AsNoTracking().SingleAsync(p => p.Sku == sku);
++```
++**Почему дефект:** по контексту домена один SKU лежит на нескольких складах (уникален только в пределах склада), т.е. `Sku` не уникален в таблице `Products`. `SingleAsync` бросит исключение, как только по SKU найдётся товар больше чем на одном складе — а это нормальный, ожидаемый случай, а не ошибка. Соответствует пункту чек-листа "`Single` на условии, которое в домене не уникально".
++**Severity: critical**
++
++### 5. Services/CatalogService.cs — `Reserve`
++```csharp
++var product = await _db.Products
++    .FromSqlRaw("... FOR UPDATE", productId)
++    .SingleAsync();
++...
++await _db.SaveChangesAsync();
++```
++Явной транзакции, охватывающей и `SELECT ... FOR UPDATE`, и последующий `SaveChangesAsync`, нет.
++**Почему дефект:** без обёртки в явную транзакцию `SELECT ... FOR UPDATE` выполняется и коммитится (implicit-транзакция) как отдельная операция; блокировка строки снимается сразу после выполнения запроса, ещё до чтения `product.Stock` в C# и до `SaveChangesAsync`. Проверка `Stock < qty` и последующее уменьшение остатка не защищены от гонки — два параллельных резерва могут оба пройти проверку и увести остаток в минус. Точное совпадение с пунктом чек-листа "`FOR UPDATE` и граница транзакции".
++**Severity: critical**
++
++### 6. Workers/OverdueNotifier.cs — конструктор / `ExecuteAsync`
++```csharp
++public OverdueNotifier(ShopDbContext db) => _db = db;
++```
++`OverdueNotifier` регистрируется как `AddHostedService` (singleton), а `ShopDbContext` — через `AddDbContext` (scoped по умолчанию), и внедряется напрямую в конструктор, без `IServiceScopeFactory`.
++**Почему дефект:** classic captive dependency — scoped-сервис захватывается синглтоном. В Development-режиме с включённой валидацией скоупов приложение упадёт уже при старте ("Cannot consume scoped service ... from singleton ..."). Без валидации получаем один и тот же экземпляр `DbContext`, живущий (и никогда не освобождаемый) всё время жизни приложения — растущий change tracker, риски при повторном использовании соединения/транзакций между итерациями. Точное совпадение с пунктами чек-листа "`DbContext` в `BackgroundService`" и "Время жизни `DbContext`". Нужно создавать скоуп (`IServiceScopeFactory.CreateScope()`) на каждую итерацию цикла.
++**Severity: critical**
++
++### 7. Workers/OverdueNotifier.cs — `ExecuteAsync`
++```csharp
++var now = DateTime.UtcNow;               // Kind = Utc
++...
++_db.AuditLogs.Add(new AuditLog { At = now, ... });
++```
++Для `border` разработчик корректно привёл `Kind` к `Unspecified` (`DateTime.SpecifyKind(now.AddDays(-3), DateTimeKind.Unspecified)`), т.к. `Order.CreatedAt` явно замаплен на `timestamp without time zone`. Но `AuditLog.At` не имеет явного `HasColumnType`, поэтому Npgsql по конвенции также мапит `DateTime` на `timestamp without time zone` — а туда пишется `now` с `Kind=Utc` без приведения.
++**Почему дефект:** Npgsql 8 бросает исключение при записи `DateTime` с `Kind=Utc`/`Local` в колонку `timestamp without time zone` ("Cannot write DateTime with Kind=Utc to PostgreSQL type..."). То есть `SaveChangesAsync` упадёт каждый раз, когда найдётся хотя бы один просроченный заказ — а это единственный сценарий, ради которого воркер вообще существует. Цикл `while` не обёрнут в try/catch, поэтому необработанное исключение либо уронит `BackgroundService` целиком, либо (в зависимости от хоста) остановит его дальнейшую работу — вся фича MR ("раз в минуту пишет AuditLog по просроченным заказам") фактически неработоспособна. Соответствует пункту чек-листа "`DateTime` и тип колонки в Npgsql".
++**Severity: critical**
++
++## High
++
++### 8. Services/OrderQueries.cs — `ExportForCustomer`
++```csharp
++_db.Orders.Where(o => o.CustomerId == customerId)
++    .Include(o => o.Items).Include(o => o.Payments)
++    .AsNoTracking().ToListAsync();
++```
++Два коллекционных `Include` (Items и Payments) в одном single query, без `AsSplitQuery()` — при этом сам MR явно указывает, что у крупных клиентов тысячи заказов.
++**Почему дефект:** single query с двумя коллекциями даёт декартово произведение строк (Items × Payments) на каждый заказ; при тысячах заказов результат взрывается по объёму передаваемых по сети данных и времени материализации. В `GetCard` рядом уже правильно применён `AsSplitQuery()` для того же паттерна — здесь его забыли. Соответствует пункту чек-листа "Несколько коллекций в одном `Include`-запросе".
++**Severity: high**
++
++### 9. Services/OrderQueries.cs — `LastShippedAt`
++```csharp
++var last = await _db.Orders.Where(...).MaxAsync(o => o.ShippedAt);
++return last!.Value;
++```
++**Почему дефект:** `MaxAsync` над nullable-полем возвращает `null`, если у клиента нет ни одного заказа с проставленным `ShippedAt` (включая случай, когда у клиента вообще нет заказов). `!.Value` в этом случае даст `NullReferenceException` без какого-либо содержательного сообщения о причине. Ситуация "у клиента ещё нет отгрузок" — не исключение, а нормальный кейс. Соответствует пункту чек-листа "`!` на nullable-значении без фильтра по null".
++**Severity: high**
++
++### 10. Services/OrderAdmin.cs — `UpdateOrder`
++```csharp
++var order = await _db.Orders.FirstAsync(o => o.Id == edit.Id);
++order.Status = edit.Status;
++order.Category = edit.Category;
++await _db.SaveChangesAsync();
++```
++Нет проверки конкурентности (нет concurrency token / `RowVersion`, нет сверки, что запись не изменилась с момента чтения формы).
++**Почему дефект:** MR прямо говорит, что "в админке несколько операторов правят заказы одновременно". Текущая реализация — классический lost update: правки одного оператора молча затираются другим, без конфликта и без уведомления. Соответствует пункту чек-листа "Параллельная правка одной записи". Тот же паттерн (fetch-mutate-save без concurrency-контроля) повторяется и в `RecalcTotal`.
++**Severity: high**
++
++### 11. Services/OrderAdmin.cs — `OverdueReport`
++```csharp
++var all = await _repo.GetAllAsync();               // SELECT * FROM Orders, tracked, без фильтра
++return all.Where(o => o.IsOverdue(now)).Select(...).ToList();
++```
++`OrderRepository.GetAllAsync()` тянет в память **все** заказы (полные сущности, с трекингом), фильтрация по `IsOverdue` происходит уже после материализации на клиенте.
++**Почему дефект:** это ровно два пункта чек-листа сразу — "Репозиторий материализует выборку" и "Фильтр после материализации" (плюс "Трекинг выборки только для чтения", т.к. отчёт read-only). При реальном объёме заказов (тем более с учётом "тысяч заказов у крупных клиентов" из этого же MR) это полное сканирование таблицы в память при каждом вызове отчёта. Фильтр `o.ShippedAt == null && o.CreatedAt < border`, использованный в `OverdueNotifier`, тут можно и нужно было применить на уровне SQL.
++**Severity: high**
++
++### 12. Services/CatalogService.cs — `Reprice`
++```csharp
++var products = await _db.Products.Where(p => p.Category == category).ToListAsync(); // tracked
++foreach (var p in products) p.Price *= factor;
++_db.UpdateRange(products);
++await _db.SaveChangesAsync();
++```
++`products` уже отслеживаются контекстом (запрос без `AsNoTracking`), change tracker и так видит изменение `Price`. Дополнительный вызов `UpdateRange` на уже трекаемых сущностях переводит **все** свойства каждой сущности в `Modified`, а не только изменённые.
++**Почему дефект:** сгенерированный `UPDATE` затронет все колонки (`Sku`, `Warehouse`, `Category`, `Stock` и т.д.), а не только `Price`. Помимо лишней нагрузки это создаёт риск затереть конкурентные изменения других полей (например, `Stock`, который в это же время может меняться через `Reserve`) значениями, прочитанными в устаревшем снапшоте. `UpdateRange` тут просто лишний — `SaveChangesAsync()` без него сделал бы точечный `UPDATE ... SET "Price" = ...`. Соответствует пункту чек-листа "`UpdateRange` на отслеживаемых сущностях".
++**Severity: high**
++
++## Medium
++
++### 13. Services/OrderAdmin.cs — `RecalcTotal`
++```csharp
++var prices = await _db.Products.Where(p => ids.Contains(p.Id))
++    .ToDictionaryAsync(p => p.Id, p => p.Price);
++```
++`ToDictionaryAsync` без предварительного `.Select()` материализует полные сущности `Product` (все колонки), хотя нужны только `Id` и `Price`; сущности к тому же читаются с трекингом, хотя тут же отбрасываются.
++**Почему дефект:** лишний трафик и память на каждый пересчёт суммы заказа, лишний трекинг read-only данных. Соответствует пунктам чек-листа "Полная сущность там, где нужна часть полей" и "Трекинг выборки только для чтения". Достаточно `Select(p => new { p.Id, p.Price })` перед `ToDictionaryAsync` (и `AsNoTracking()`).
++**Severity: medium**
++
++### 14. Services/CatalogService.cs — `Search`
++```csharp
++const string template = "SELECT * FROM \"Products\" p WHERE {0}";
++...
++var sql = string.Format(template, string.Join(" AND ", conditions));
++return _db.Products.FromSqlRaw(sql, args.ToArray())...
++```
++Значения (`category`, `minPrice`) передаются как `NpgsqlParameter`, поэтому прямой SQL-инъекции сейчас нет. Но сам текст запроса динамически собирается через `string.Format`/конкатенацию условий.
++**Почему дефект:** это ровно паттерн из чек-листа "Динамически собираемый `FromSqlRaw`" — хрупкая конструкция, в которую легко случайно подставить непараметризованное значение при следующей правке (например, добавление ещё одного фильтра "в лоб"), и которая не даёт никакого выигрыша: те же условия прекрасно транслируются обычным LINQ (`Where` с опциональными предикатами), без raw SQL, с гарантированной параметризацией со стороны EF. Стоит переписать на LINQ.
++**Severity: medium**
++
++### 15. Services/OrderQueries.cs — `GetCard`, `ExportForCustomer`
++Оба метода возвращают `Order` через `AsNoTracking()`, при этом в `Program.cs` глобально включён `UseLazyLoadingProxies()`, а навигация `Order.Customer` (`virtual`) не включена через `Include`.
++**Почему дефект:** EF Core не поддерживает ленивую подгрузку навигаций у no-tracking сущностей — попытка обратиться к `order.Customer` у результата этих методов приведёт к исключению в рантайме (а не к неявному SQL-запросу, как ожидал бы автор кода, привыкший к lazy loading). Для метода `GetCard` ("карточка заказа") это особенно вероятный сценарий — карточке заказа обычно нужно имя клиента.
++**Severity: medium**
++
++## Итог
++Наиболее срочные блокеры для мерджа: потеря данных категорий в миграции (#1), рассинхрон модели/схемы, ломающий `UpdateOrder` (#2), неверный расчёт суммы заказа без учёта `Qty` (#3), `SingleAsync` по неуникальному SKU (#4), бесполезный `FOR UPDATE` без транзакции в `Reserve` (#5), и два дефекта в `OverdueNotifier`, из-за которых воркер либо не стартует, либо падает при первом же найденном просроченном заказе (#6, #7).

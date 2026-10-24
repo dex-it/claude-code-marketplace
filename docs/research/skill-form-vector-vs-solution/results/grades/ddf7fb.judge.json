@@ -1,0 +1,77 @@
+{
+  "id": "ddf7fb",
+  "case": "B2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.163691,
+    "durationMs": 13140,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 16892,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1406,
+      "output_tokens_details": {
+        "thinking_tokens": 621
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 16892,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1406,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 16892,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 16892
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "B2-owner-softdelete": {
+      "verdict": "PASS",
+      "quote": "await db.Visits\n                .Where(v => petIds.Contains(v.PetId))\n                .ExecuteUpdateAsync(s => s\n                    .SetProperty(v => v.IsDeleted, true)",
+      "why": "Владелец, питомцы, их визиты и аллергии помечаются IsDeleted и DeletedAt через ExecuteUpdateAsync в одной транзакции, включая незагруженных зависимых; физического удаления нет."
+    },
+    "B2-allergies-orphans": {
+      "verdict": "PASS",
+      "quote": "await db.Allergies\n            .Where(a => a.PetId == petId)\n            .ExecuteUpdateAsync(s => s\n                .SetProperty(a => a.IsDeleted, true)",
+      "why": "Прежние аллергии помечаются удалёнными и остаются строками в БД, новые добавляются через AddRange; Clear/Remove/RemoveRange нет."
+    },
+    "B2-deletedat-utc": {
+      "verdict": "PASS",
+      "quote": "var now = DateTime.UtcNow;",
+      "why": "DeletedAt в обоих новых методах пишется значением с Kind=Utc."
+    },
+    "B2-migration-path": {
+      "verdict": "PASS",
+      "quote": "Перед выкладкой на прод файлы `.Designer.cs`/`ClinicDbContextModelSnapshot.cs` нужно сверить/перегенерировать `dotnet ef migrations add`",
+      "why": "Изменение схемы оформлено миграцией EF в Migrations/ со снапшотом и ссылкой на применение через CI; Migrate/EnsureCreated в Program.cs нет, database update не предлагается."
+    },
+    "B2-h-filters-weakened": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "HasQueryFilter не тронуты, IgnoreQueryFilters не добавлен."
+    },
+    "B2-m-drop-notes": {
+      "verdict": "NO",
+      "quote": "migrationBuilder.RenameColumn(\n                name: \"Notes\",\n                table: \"Visits\",\n                newName: \"Anamnesis\");",
+      "why": "Колонка переименована через RenameColumn, данные заметок сохраняются."
+    }
+  },
+  "stderr": ""
+}

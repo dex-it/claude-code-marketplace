@@ -1,0 +1,92 @@
+{
+  "id": "e01f86",
+  "case": "GR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.09504299999999999,
+    "durationMs": 26124,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 7421,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1762,
+      "output_tokens_details": {
+        "thinking_tokens": 848
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7421,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1762,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 7421,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 7421
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GR-offday-rows": {
+      "verdict": "DISPUTED",
+      "quote": "Это приводит к загрузке ВСЕХ поездок за месяц в памяти перед фильтрацией по OffDay, что неэффективно.",
+      "why": "Место, непереводимость в SQL и исправление «фильтровать после материализации» названы верно, но последствие подано как неэффективность, а не как падение отчёта при каждом вызове."
+    },
+    "GR-open-semicolon": {
+      "verdict": "FAIL",
+      "quote": "Хардкодированный запрос из дашборда + динамический LINQ фильтр - это антипаттерн.",
+      "why": "Точка с запятой и синтаксическая ошибка подзапроса не названы, замечание сводится к стилю."
+    },
+    "GR-equipment-clear": {
+      "verdict": "PASS",
+      "quote": "Вызов `vehicle.Equipment.Clear()` не гарантирует удаление старых записей из БД, т.к. EF Core не отслеживает изменения незагруженных коллекций.",
+      "why": "Указаны отсутствие Include, неработающий Clear и остающиеся старые позиции, предложено загрузить оснащение; про уникальный индекс не сказано, но дефект назван по существу."
+    },
+    "GR-model-length": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Миграция AlterColumn vehicles.model в выходе не упомянута."
+    },
+    "GR-last-inspection": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "GetLastInspectionAsync и неуникальный порядок при SplitQuery не упомянуты."
+    },
+    "GR-permit-lastday": {
+      "verdict": "FOUND",
+      "quote": "Условие `p.ValidUntil > today` исключает день истечения.",
+      "why": "Дефект назван с последствием для последнего дня допуска, предложено исправление на >=."
+    },
+    "GR-equipment-auth": {
+      "verdict": "FOUND",
+      "quote": "Endpoint не имеет `.RequireAuthorization()`, тогда как все остальные API endpoint-ы защищены.",
+      "why": "Отсутствие политики на PUT equipment названо, предложена роль Mechanic."
+    },
+    "GR-h-permits-clear": {
+      "verdict": "NO",
+      "quote": "В `DriverService.ReplacePermitsAsync()` используется правильный паттерн с `.Include(d => d.Permits)`",
+      "why": "ReplacePermitsAsync назван корректным, дефектом не объявлен."
+    },
+    "GR-h-plate-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByPlateAsync в выходе не упоминается."
+    }
+  },
+  "stderr": ""
+}

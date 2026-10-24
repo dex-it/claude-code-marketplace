@@ -1,0 +1,90 @@
+diff --git a/OrderQueries.cs b/OrderQueries.cs
+new file mode 100644
+index 0000000..479a2f0
+--- /dev/null
++++ b/OrderQueries.cs
+@@ -0,0 +1,71 @@
++namespace Shop.Data;
++
++public class OrderQueries
++{
++    private readonly ShopDbContext _db;
++    public OrderQueries(ShopDbContext db) => _db = db;
++
++    // (а) Карточка заказа: сам заказ + все позиции и все платежи.
++    public Task<Order?> GetOrderCardAsync(Guid orderId) =>
++        _db.Orders
++            .AsNoTracking()
++            .AsSplitQuery()
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            .FirstOrDefaultAsync(o => o.Id == orderId);
++
++    // (б) Все заказы клиента с позициями и платежами. У клиента могут быть тысячи
++    // заказов, поэтому отдаём поток (IAsyncEnumerable), а не List, чтобы не держать
++    // всё в памяти сразу; AsSplitQuery нужен, чтобы Items и Payments не давали
++    // перекрёстное произведение строк в одном JOIN-запросе.
++    public IAsyncEnumerable<Order> GetCustomerOrdersAsync(Guid customerId) =>
++        _db.Orders
++            .AsNoTracking()
++            .AsSplitQuery()
++            .Where(o => o.CustomerId == customerId)
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            .OrderBy(o => o.CreatedAt)
++            .AsAsyncEnumerable();
++
++    // (в) Продукт по SKU. На одном складе SKU уникален, но один и тот же SKU может
++    // лежать на нескольких складах. Если склад не передан (null), пытаемся найти
++    // товар только по SKU: если он есть ровно на одном складе - возвращаем его,
++    // если на нескольких - явно кидаем исключение, а не угадываем склад молча.
++    public async Task<Product?> GetProductBySku(string sku, string? warehouse)
++    {
++        if (warehouse is not null)
++        {
++            return await _db.Products
++                .AsNoTracking()
++                .SingleOrDefaultAsync(p => p.Sku == sku && p.Warehouse == warehouse);
++        }
++
++        var candidates = await _db.Products
++            .AsNoTracking()
++            .Where(p => p.Sku == sku)
++            .ToListAsync();
++
++        if (candidates.Count > 1)
++            throw new InvalidOperationException(
++                $"SKU '{sku}' найден на нескольких складах ({string.Join(", ", candidates.Select(p => p.Warehouse))}); нужно указать склад явно.");
++
++        return candidates.SingleOrDefault();
++    }
++
++    // (г) Дата отгрузки последнего отгруженного заказа клиента. Тип возврата не
++    // nullable, поэтому если у клиента вообще нет отгруженных заказов - это
++    // исключительная ситуация, а не "нет данных".
++    public async Task<DateTime> GetLastShippedAtAsync(Guid customerId)
++    {
++        var shippedAt = await _db.Orders
++            .AsNoTracking()
++            .Where(o => o.CustomerId == customerId && o.ShippedAt != null)
++            .MaxAsync(o => (DateTime?)o.ShippedAt);
++
++        if (shippedAt is null)
++            throw new InvalidOperationException($"У клиента {customerId} нет отгруженных заказов.");
++
++        return shippedAt.Value;
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..0c3d1e2
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,7 @@
++Создан файл: OrderQueries.cs (новый класс `OrderQueries` в namespace `Shop.Data`).
++
++Решения:
++- (б) метод отдаёт `IAsyncEnumerable<Order>` вместо `List<Order>`, плюс `AsSplitQuery()` — у клиента могут быть тысячи заказов, и без раздельных запросов Items×Payments дали бы декартово произведение строк в одном JOIN.
++- (в) `GetProductBySku` при `warehouse == null` ищет только по SKU: если найден один товар — возвращает его, если несколько (SKU есть на разных складах) — бросает `InvalidOperationException`, не угадывая склад молча; при заданном warehouse используется `SingleOrDefaultAsync` по паре (Sku, Warehouse), которая по бизнес-правилу уникальна.
++- (г) `GetLastShippedAtAsync` берёт `MAX(ShippedAt)` среди отгруженных заказов клиента; так как возврат не nullable, отсутствие отгруженных заказов — исключение, а не null.
++- Везде добавлен `AsNoTracking()`, так как это read-only выгрузки.

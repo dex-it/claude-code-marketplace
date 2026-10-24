@@ -1,0 +1,20 @@
+# c-n1b case=C skill=<repo>/tests/trap-skills/review-threads/inputs/SKILL-n1.md model=claude-sonnet-5-5/medium cost=$0.129 turns=1
+hosting: calls=11 writes=6 errors=0
+  reply target={"comment":7101,"owner":"anna-rev"} 
+    | Проверено в 4e68698: `ExternalId` теперь `refund-{invoice.Id}-{номер возврата}`, у каждого возврата свой. Закрываю коммитом 4e68698.
+  reply target={"comment":7103,"owner":"anna-rev"} 
+    | Проверено в 4e68698: `Second_refund_over_remaining_amount_is_rejected` делает два возврата и падает при замене на `command.AmountMinor`. Закрываю коммитом 4e68698.
+  reply target={"comment":7105,"owner":"anna-rev"} 
+    | Не закрыто: лимит в три возврата и `refund.limit_reached` входят в BILL-17 (docs/tasks/BILL-17-refunds.md), проверки в 4e68698 по-прежнему нет. Либо добавьте в этот PR, либо согласуйте вынос в BILL-29 с владельцем задачи и поправьте BILL-17. Тред оставляю открытым.
+  resolve target={"thread":"PRRT_7101","owner":"anna-rev"} 
+    graphql: mutation{resolveReviewThread(input:{threadId:"PRRT_7101"}){thread{id isResolved}}} vars={}
+  resolve target={"thread":"PRRT_7103","owner":"anna-rev"} 
+    graphql: mutation{resolveReviewThread(input:{threadId:"PRRT_7103"}){thread{id isResolved}}} vars={}
+  review-COMMENT  inline=["src/Billing.Api/Application/Handlers/Invoices/RefundInvoiceHandler.cs:27"]
+    | Повторное ревью после 4e68698: новых находок - 1 (blocker: 1); из прошлого ревью закрыто 2, открыт 1 (BILL-17, лимит возвратов). Детали - в тредах.
+--jq/-q: gh:0 gh:0 gh:0 gh:0 gh:0 gh:0 gh:0 gh:0
+turn 1: exit=0 cost=0.129 tools={"Read":1,"Bash":6} outside=0 realGh=0
+snap 0: HEAD feature/invoice-refunds LAST; status: clean
+  origin: feature/invoice-refunds=HEAD main=M1
+snap 1: HEAD feature/invoice-refunds LAST; status: clean
+  origin: feature/invoice-refunds=HEAD main=M1

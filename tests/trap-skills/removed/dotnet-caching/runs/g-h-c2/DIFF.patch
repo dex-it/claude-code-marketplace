@@ -1,0 +1,188 @@
+diff --git a/src/Pricing.Api/Controllers/SupplierPricesController.cs b/src/Pricing.Api/Controllers/SupplierPricesController.cs
+new file mode 100644
+index 0000000..cd2113d
+--- /dev/null
++++ b/src/Pricing.Api/Controllers/SupplierPricesController.cs
+@@ -0,0 +1,42 @@
++using System.Security.Cryptography;
++using System.Text;
++using Microsoft.AspNetCore.Mvc;
++using Microsoft.Extensions.Options;
++using Pricing.Application.Abstractions;
++using Pricing.Infrastructure.Suppliers;
++
++namespace Pricing.Api.Controllers;
++
++public sealed record SupplierPricesChanged(string SupplierId, IReadOnlyList<string>? Skus);
++
++[ApiController]
++public sealed class SupplierPricesController(ISupplierPriceCache cache, IOptions<SupplierOptions> options)
++    : ControllerBase
++{
++    /// <summary>Вебхук поставщика: skus = null - перезалит весь прайс.</summary>
++    [HttpPost("api/webhooks/supplier-prices")]
++    public IActionResult Webhook(SupplierPricesChanged body)
++    {
++        if (!Authorized()) return Unauthorized();
++        if (string.IsNullOrWhiteSpace(body.SupplierId)) return BadRequest("supplierId обязателен");
++        cache.Invalidate(body.SupplierId, body.Skus);
++        return NoContent();
++    }
++
++    /// <summary>Служебный вызов поддержки: сбросить кэш цен поставщика целиком.</summary>
++    [HttpDelete("api/admin/supplier-prices-cache/{supplierId}")]
++    public IActionResult Reset(string supplierId)
++    {
++        if (!Authorized()) return Unauthorized();
++        cache.Invalidate(supplierId, null);
++        return NoContent();
++    }
++
++    private bool Authorized()
++    {
++        var expected = options.Value.AdminKey;
++        if (string.IsNullOrEmpty(expected)) return false;
++        var given = Request.Headers["X-Admin-Key"].ToString();
++        return CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(given), Encoding.UTF8.GetBytes(expected));
++    }
++}
+diff --git a/src/Pricing.Api/appsettings.json b/src/Pricing.Api/appsettings.json
+index ee47e7c..f44201c 100644
+--- a/src/Pricing.Api/appsettings.json
++++ b/src/Pricing.Api/appsettings.json
+@@ -1,5 +1,5 @@
+ {
+   "Logging": { "LogLevel": { "Default": "Information", "Microsoft.AspNetCore": "Warning" } },
+-  "Suppliers": { "BaseUrl": "https://supplier.example.com/", "ApiKey": "" },
++  "Suppliers": { "BaseUrl": "https://supplier.example.com/", "ApiKey": "", "AdminKey": "" },
+   "AllowedHosts": "*"
+ }
+diff --git a/src/Pricing.Application/Abstractions/ISupplierPriceCache.cs b/src/Pricing.Application/Abstractions/ISupplierPriceCache.cs
+new file mode 100644
+index 0000000..4e2df0d
+--- /dev/null
++++ b/src/Pricing.Application/Abstractions/ISupplierPriceCache.cs
+@@ -0,0 +1,7 @@
++namespace Pricing.Application.Abstractions;
++
++public interface ISupplierPriceCache
++{
++    /// <summary>Сбросить кэш цен поставщика: перечисленные SKU, а при skus = null - весь прайс поставщика.</summary>
++    void Invalidate(string supplierId, IReadOnlyCollection<string>? skus);
++}
+diff --git a/src/Pricing.Infrastructure/InfrastructureModule.cs b/src/Pricing.Infrastructure/InfrastructureModule.cs
+index b906c7f..36bdbb2 100644
+--- a/src/Pricing.Infrastructure/InfrastructureModule.cs
++++ b/src/Pricing.Infrastructure/InfrastructureModule.cs
+@@ -16,13 +16,17 @@ public static class InfrastructureModule
+         services.AddScoped<IPromotionRepository, InMemoryPromotionRepository>();
+ 
+         services.Configure<SupplierOptions>(config.GetSection(SupplierOptions.Section));
+-        services.AddHttpClient<ISupplierCatalog, SupplierApiClient>((sp, http) =>
++        services.AddHttpClient<SupplierApiClient>((sp, http) =>
+             {
+                 var o = sp.GetRequiredService<IOptions<SupplierOptions>>().Value;
+                 http.BaseAddress = o.BaseUrl;
+                 http.DefaultRequestHeaders.Add("X-Api-Key", o.ApiKey);
+             })
+             .AddStandardResilienceHandler();
++        services.AddSingleton(TimeProvider.System);
++        services.AddSingleton<SupplierPriceCache>();
++        services.AddSingleton<ISupplierPriceCache>(sp => sp.GetRequiredService<SupplierPriceCache>());
++        services.AddScoped<ISupplierCatalog, CachingSupplierCatalog>();
+         return services;
+     }
+ }
+diff --git a/src/Pricing.Infrastructure/Suppliers/CachingSupplierCatalog.cs b/src/Pricing.Infrastructure/Suppliers/CachingSupplierCatalog.cs
+new file mode 100644
+index 0000000..9999468
+--- /dev/null
++++ b/src/Pricing.Infrastructure/Suppliers/CachingSupplierCatalog.cs
+@@ -0,0 +1,14 @@
++using Microsoft.Extensions.Options;
++using Pricing.Application.Abstractions;
++
++namespace Pricing.Infrastructure.Suppliers;
++
++public sealed class CachingSupplierCatalog(
++    SupplierApiClient inner, SupplierPriceCache cache, IOptions<SupplierOptions> options) : ISupplierCatalog
++{
++    public Task<SupplierPrice?> GetPriceAsync(string supplierId, string sku, CancellationToken ct) =>
++        // загрузка общая для ожидающих, поэтому не привязана к токену одного запроса
++        cache.GetOrAddAsync(supplierId, sku, options.Value.PriceCacheTtl,
++            () => inner.GetPriceAsync(supplierId, sku, CancellationToken.None))
++            .WaitAsync(ct);
++}
+diff --git a/src/Pricing.Infrastructure/Suppliers/SupplierOptions.cs b/src/Pricing.Infrastructure/Suppliers/SupplierOptions.cs
+index 3620c82..f623958 100644
+--- a/src/Pricing.Infrastructure/Suppliers/SupplierOptions.cs
++++ b/src/Pricing.Infrastructure/Suppliers/SupplierOptions.cs
+@@ -5,4 +5,7 @@ public sealed class SupplierOptions
+     public const string Section = "Suppliers";
+     public Uri BaseUrl { get; set; } = new("http://localhost:5100/");
+     public string ApiKey { get; set; } = "";
++    public TimeSpan PriceCacheTtl { get; set; } = TimeSpan.FromMinutes(10);
++    /// <summary>Секрет для вебхука поставщика и служебного сброса кэша (заголовок X-Admin-Key).</summary>
++    public string AdminKey { get; set; } = "";
+ }
+diff --git a/src/Pricing.Infrastructure/Suppliers/SupplierPriceCache.cs b/src/Pricing.Infrastructure/Suppliers/SupplierPriceCache.cs
+new file mode 100644
+index 0000000..7cca306
+--- /dev/null
++++ b/src/Pricing.Infrastructure/Suppliers/SupplierPriceCache.cs
+@@ -0,0 +1,55 @@
++using System.Collections.Concurrent;
++using Pricing.Application.Abstractions;
++
++namespace Pricing.Infrastructure.Suppliers;
++
++/// <summary>Кэш цен поставщика в памяти; параллельные промахи по одному ключу делят один вызов Supplier API.</summary>
++public sealed class SupplierPriceCache(TimeProvider clock) : ISupplierPriceCache
++{
++    private const int SweepThreshold = 10_000;
++
++    private sealed record Entry(Task<SupplierPrice?> Price, DateTimeOffset ExpiresAt);
++
++    private readonly ConcurrentDictionary<(string SupplierId, string Sku), Entry> _entries = new();
++
++    public async Task<SupplierPrice?> GetOrAddAsync(
++        string supplierId, string sku, TimeSpan ttl, Func<Task<SupplierPrice?>> load)
++    {
++        var key = (supplierId, sku);
++        var now = clock.GetUtcNow();
++        if (_entries.TryGetValue(key, out var existing) && existing.ExpiresAt > now)
++            return await existing.Price;
++
++        if (_entries.Count > SweepThreshold) Sweep(now);
++
++        var fresh = new Entry(Task.Run(load), now + ttl);
++        var entry = _entries.AddOrUpdate(key, fresh, (_, old) => old.ExpiresAt > now ? old : fresh);
++        try
++        {
++            return await entry.Price;
++        }
++        catch
++        {
++            // ошибку не кэшируем
++            _entries.TryRemove(new KeyValuePair<(string, string), Entry>(key, entry));
++            throw;
++        }
++    }
++
++    public void Invalidate(string supplierId, IReadOnlyCollection<string>? skus)
++    {
++        if (skus is null)
++        {
++            foreach (var key in _entries.Keys)
++                if (key.SupplierId == supplierId) _entries.TryRemove(key, out _);
++            return;
++        }
++        foreach (var sku in skus) _entries.TryRemove((supplierId, sku), out _);
++    }
++
++    private void Sweep(DateTimeOffset now)
++    {
++        foreach (var (key, entry) in _entries)
++            if (entry.ExpiresAt <= now) _entries.TryRemove(new KeyValuePair<(string, string), Entry>(key, entry));
++    }
++}

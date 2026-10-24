@@ -1,0 +1,47 @@
+<<<<<<< src/app.js
+import { quote } from './quote.js';
+=======
+import { quote } from './quote.js';
+import { deliveryDays } from './delivery.js';
+>>>>>>>
+<<<<<<< src/app.js
+function postQuote(req) {
+  return { status: 200, body: quote(parseParcel(req.body)) };
+}
+=======
+function postQuote(req) {
+  const parcel = parseParcel(req.body);
+  return { status: 200, body: { ...quote(parcel), deliveryDays: deliveryDays(parcel.zone) } };
+}
+>>>>>>>
+<<<<<<< src/shipments.js
+import { registerAtCarrier } from './carrier.js';
+=======
+import { registerAtCarrier } from './carrier.js';
+import { deliveryDays } from './delivery.js';
+>>>>>>>
+<<<<<<< src/shipments.js
+    currency: parcel.currency,
+=======
+    currency: parcel.currency,
+    deliveryDays: deliveryDays(parcel.zone),
+>>>>>>>
+<<<<<<< docs/api.md
+Ответ 200: `{zone, billableKg, price, currency}`; `billableKg` - расчётный вес (docs/tariffs.md).
+=======
+Ответ 200: `{zone, billableKg, price, currency, deliveryDays}`; `billableKg` - расчётный вес
+(docs/tariffs.md), `deliveryDays` - срок в рабочих днях, `"1"` или `"2-3"`.
+>>>>>>>
+<<<<<<< docs/api.md
+`{id, tracking, status, postcode, zone, weightGrams, billableKg, express, price, currency, createdAt}`.
+=======
+`{id, tracking, status, postcode, zone, weightGrams, billableKg, express, price, currency, deliveryDays, createdAt}`.
+>>>>>>>
+<<<<<<< test/app.test.js
+  assert.equal(r.body.price, 4.5);
+});
+=======
+  assert.equal(r.body.price, 4.5);
+  assert.equal(r.body.deliveryDays, '1');
+});
+>>>>>>>

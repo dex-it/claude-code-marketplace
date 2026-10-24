@@ -1,0 +1,274 @@
+diff --git a/README.md b/README.md
+index cf0804c..04e6ddc 100644
+--- a/README.md
++++ b/README.md
+@@ -9,6 +9,7 @@
+ | `shelfwatch.detect` | детекция товаров на полке | те же снимки + разметка YOLO в `data/shelf/labels/` |
+ | `shelfwatch.keras_train` | классификатор категории SKU (Keras, MLP), 10 классов | `data/sku.parquet`, 120 000 строк |
+ | `shelfwatch.baseline` | бейзлайн оттока магазинов (sklearn, XGBoost) | `data/accounts.parquet`, 30 000 строк, отток 5%, срез по месяцам 2024-01..2026-09 |
++| `shelfwatch.churn_model` | выбор между RandomForest и XGBoost для оттока, `predict_next_month` (SW-262) | `data/accounts.parquet` |
+ | `shelfwatch.finetune` | тональность отзывов (HF, дообучение BERT) | `data/reviews.parquet`, 8 000 отзывов |
+ | `shelfwatch.tune` | подбор гиперпараметров (Optuna) | как у модуля, который тюнится |
+ 
+diff --git a/src/shelfwatch/churn_model.py b/src/shelfwatch/churn_model.py
+new file mode 100644
+index 0000000..e5b5825
+--- /dev/null
++++ b/src/shelfwatch/churn_model.py
+@@ -0,0 +1,171 @@
++"""Модель оттока магазинов (SW-262): случайный лес против XGBoost.
++
++Допущение: `churned = 1` в строке среза означает, что магазин ушёл в следующем после среза месяце.
++Отток редкий (около 5%), поэтому обе модели обучаются с весами классов, а качество меряется
++PR-AUC (average precision), а не accuracy: константный прогноз «не уйдёт» даёт accuracy 95%.
++Базовый уровень PR-AUC для случайного ответа равен доле оттока (около 0.05).
++"""
++
++from typing import Any
++
++import joblib
++import numpy as np
++import pandas as pd
++from sklearn.compose import ColumnTransformer
++from sklearn.ensemble import RandomForestClassifier
++from sklearn.impute import SimpleImputer
++from sklearn.metrics import average_precision_score
++from sklearn.pipeline import Pipeline
++from sklearn.preprocessing import OneHotEncoder
++from xgboost import XGBClassifier
++
++from shelfwatch.paths import DATA_DIR, artifact
++
++SEED = 0
++TARGET = "target"
++NUMERIC = ["tenure_months", "revenue"]
++# Пропуск n_tickets означает «обращений не было»: заполняем нулём и добавляем флаг пропуска.
++TICKETS = ["n_tickets"]
++CATEGORICAL = ["plan"]
++FEATURES = NUMERIC + TICKETS + CATEGORICAL
++# account_id и store_id - идентификаторы (около 1 200 значений), признаками не берём.
++MODEL_FILE = "churn_model.joblib"
++
++
++def _preprocessor() -> ColumnTransformer:
++    return ColumnTransformer(
++        [
++            ("num", "passthrough", NUMERIC),
++            (
++                "tickets",
++                SimpleImputer(strategy="constant", fill_value=0, add_indicator=True),
++                TICKETS,
++            ),
++            ("cat", OneHotEncoder(handle_unknown="ignore", sparse_output=False), CATEGORICAL),
++        ]
++    )
++
++
++def make_models(y_train: pd.Series) -> dict[str, Pipeline]:
++    """Обе модели с компенсацией дисбаланса классов."""
++    n_pos = int(y_train.sum())
++    n_neg = len(y_train) - n_pos
++    if n_pos == 0 or n_neg == 0:
++        raise ValueError("в обучающей выборке должны быть оба класса")
++    forest = RandomForestClassifier(
++        n_estimators=300,
++        min_samples_leaf=5,
++        class_weight="balanced_subsample",
++        n_jobs=-1,
++        random_state=SEED,
++    )
++    boosting = XGBClassifier(
++        n_estimators=300,
++        learning_rate=0.05,
++        max_depth=4,
++        scale_pos_weight=n_neg / n_pos,
++        eval_metric="aucpr",
++        random_state=SEED,
++    )
++    return {
++        "random_forest": Pipeline([("prep", _preprocessor()), ("model", forest)]),
++        "xgboost": Pipeline([("prep", _preprocessor()), ("model", boosting)]),
++    }
++
++
++def split_by_time(
++    df: pd.DataFrame, valid_share: float = 0.2, test_share: float = 0.2
++) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
++    """Train / valid / test по месяцам среза: будущее не попадает в обучение.
++
++    По одному магазину много срезов, случайное разбиение строк подмешало бы соседние месяцы
++    одного магазина в обе части и завысило бы качество.
++    """
++    months = np.sort(df["snapshot"].unique())
++    if len(months) < 3:
++        raise ValueError("нужно минимум 3 месяца срезов")
++    n_test = max(1, round(len(months) * test_share))
++    n_valid = max(1, round(len(months) * valid_share))
++    valid_start = months[-(n_test + n_valid)]
++    test_start = months[-n_test]
++    train = df[df["snapshot"] < valid_start]
++    valid = df[(df["snapshot"] >= valid_start) & (df["snapshot"] < test_start)]
++    test = df[df["snapshot"] >= test_start]
++    if train.empty:
++        raise ValueError("слишком мало месяцев для обучающей выборки")
++    return train, valid, test
++
++
++def _prepare(df: pd.DataFrame) -> pd.DataFrame:
++    out = df.copy()
++    out["snapshot"] = pd.to_datetime(out["snapshot"])
++    return out
++
++
++def _pr_auc(model: Pipeline, df: pd.DataFrame) -> float:
++    y = df["churned"]
++    if y.nunique() < 2:
++        raise ValueError("в выборке для оценки должны быть оба класса")
++    return float(average_precision_score(y, model.predict_proba(df[FEATURES])[:, 1]))
++
++
++def train_and_evaluate(df: pd.DataFrame) -> dict[str, Any]:
++    """Выбирает лучшую модель по valid, меряет её на test, дообучает на всех данных.
++
++    Возвращает {"best": имя, "model": Pipeline, "valid_pr_auc": {...}, "test_pr_auc": float,
++    "test_base_rate": float}. `test_pr_auc` - цифра для отчёта; сравнивать её нужно
++    с `test_base_rate` (PR-AUC случайной модели).
++    """
++    df = _prepare(df)
++    train, valid, test = split_by_time(df)
++
++    valid_scores: dict[str, float] = {}
++    for name, model in make_models(train["churned"]).items():
++        model.fit(train[FEATURES], train["churned"])
++        valid_scores[name] = _pr_auc(model, valid)
++    best = max(valid_scores, key=lambda name: valid_scores[name])
++
++    # Тест трогаем один раз, только для выбранной модели.
++    trainval = pd.concat([train, valid])
++    tested = make_models(trainval["churned"])[best].fit(trainval[FEATURES], trainval["churned"])
++    test_score = _pr_auc(tested, test)
++
++    # Финальная модель учится на всех срезах, включая тестовые месяцы.
++    final = make_models(df["churned"])[best].fit(df[FEATURES], df["churned"])
++    return {
++        "best": best,
++        "model": final,
++        "valid_pr_auc": valid_scores,
++        "test_pr_auc": test_score,
++        "test_base_rate": float(test["churned"].mean()),
++    }
++
++
++def predict_next_month(df: pd.DataFrame, model: Pipeline | None = None) -> pd.Series:
++    """Вероятность оттока каждого магазина в месяце после его последнего среза.
++
++    Индекс результата - `store_id`. Если модель не передана, берётся сохранённая `train`.
++    """
++    if model is None:
++        model = joblib.load(artifact(MODEL_FILE))
++    df = _prepare(df)
++    last = df.sort_values("snapshot").groupby("store_id").tail(1)
++    proba = model.predict_proba(last[FEATURES])[:, 1]
++    return pd.Series(proba, index=last["store_id"].to_numpy(), name="churn_proba")
++
++
++def train(path: str | None = None) -> dict[str, Any]:
++    """Читает accounts.parquet, обучает, сохраняет модель и печатает метрику для отчёта."""
++    df = pd.read_parquet(path or DATA_DIR / "accounts.parquet")
++    result = train_and_evaluate(df)
++    joblib.dump(result["model"], artifact(MODEL_FILE))
++    print(
++        f"лучшая модель: {result['best']}; "
++        f"PR-AUC на тесте: {result['test_pr_auc']:.3f} "
++        f"(случайная модель: {result['test_base_rate']:.3f})"
++    )
++    return result
++
++
++if __name__ == "__main__":
++    train()
+diff --git a/tests/test_churn_model.py b/tests/test_churn_model.py
+new file mode 100644
+index 0000000..7b1c7f7
+--- /dev/null
++++ b/tests/test_churn_model.py
+@@ -0,0 +1,79 @@
++import numpy as np
++import pandas as pd
++import pytest
++
++from shelfwatch.churn_model import (
++    FEATURES,
++    make_models,
++    predict_next_month,
++    split_by_time,
++    train_and_evaluate,
++)
++
++
++def make_accounts(n_stores: int = 300, n_months: int = 10, seed: int = 0) -> pd.DataFrame:
++    rng = np.random.default_rng(seed)
++    months = pd.date_range("2024-01-01", periods=n_months, freq="MS")
++    rows = []
++    for store in range(n_stores):
++        risky = rng.random() < 0.1
++        for month in months:
++            tickets = rng.poisson(6 if risky else 1)
++            rows.append(
++                {
++                    "account_id": store * 10,
++                    "snapshot": month,
++                    "tenure_months": int(rng.integers(1, 60)),
++                    "plan": rng.choice(["basic", "pro", "max"]),
++                    "store_id": store,
++                    "n_tickets": np.nan if tickets == 0 and rng.random() < 0.5 else tickets,
++                    "revenue": float(rng.normal(100 if risky else 300, 20)),
++                    "churned": int(risky and rng.random() < 0.5),
++                }
++            )
++    return pd.DataFrame(rows)
++
++
++def test_split_by_time_has_no_overlap() -> None:
++    df = make_accounts(n_stores=20)
++    train, valid, test = split_by_time(df)
++    assert train["snapshot"].max() < valid["snapshot"].min()
++    assert valid["snapshot"].max() < test["snapshot"].min()
++    assert len(train) + len(valid) + len(test) == len(df)
++
++
++def test_models_compensate_imbalance() -> None:
++    y = pd.Series([0] * 95 + [1] * 5)
++    models = make_models(y)
++    assert models["random_forest"].named_steps["model"].class_weight == "balanced_subsample"
++    assert models["xgboost"].named_steps["model"].scale_pos_weight == pytest.approx(19.0)
++
++
++def test_models_need_both_classes() -> None:
++    with pytest.raises(ValueError):
++        make_models(pd.Series([0, 0, 0]))
++
++
++def test_train_and_evaluate_beats_base_rate() -> None:
++    result = train_and_evaluate(make_accounts())
++    assert result["best"] in {"random_forest", "xgboost"}
++    assert set(result["valid_pr_auc"]) == {"random_forest", "xgboost"}
++    assert result["test_pr_auc"] > 2 * result["test_base_rate"]
++
++
++def test_predict_next_month_one_probability_per_store() -> None:
++    df = make_accounts(n_stores=100)
++    model = train_and_evaluate(df)["model"]
++    proba = predict_next_month(df, model)
++    assert proba.index.is_unique
++    assert set(proba.index) == set(df["store_id"])
++    assert proba.between(0, 1).all()
++
++
++def test_predict_next_month_uses_last_snapshot() -> None:
++    df = make_accounts(n_stores=100)
++    model = train_and_evaluate(df)["model"]
++    last = df[df["snapshot"] == df["snapshot"].max()]
++    expected = model.predict_proba(last[FEATURES])[:, 1]
++    proba = predict_next_month(df.sample(frac=1, random_state=1), model)
++    np.testing.assert_allclose(proba.loc[last["store_id"]].to_numpy(), expected)

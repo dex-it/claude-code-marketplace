@@ -1,0 +1,107 @@
+{
+  "id": "38bbae",
+  "case": "V3",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.130515,
+    "durationMs": 17781,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 12735,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1410,
+      "output_tokens_details": {
+        "thinking_tokens": 152
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 12735,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1410,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 12735,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 12735
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "V3-idempotency-memory-cache": {
+      "verdict": "FOUND",
+      "quote": "Схема «проверить, потом действовать» без блокировки: двойной клик или повтор при таймауте приходит, пока первый запрос ещё не дошёл до `_cache.Set`",
+      "why": "Названы все три сценария из ключа: гонка check-then-act, отдельный кэш у каждой реплики и потеря кэша при рестарте."
+    },
+    "V3-early-bird-last-day": {
+      "verdict": "FOUND",
+      "quote": "условие `today < ticket.EarlyBirdUntil`, а по MR ранний тариф действует по `EarlyBirdUntil` включительно (15 ноября)",
+      "why": "Дефект строгого сравнения назван, исправление `<=` предложено."
+    },
+    "V3-fixed-promo-negative": {
+      "verdict": "FOUND",
+      "quote": "Партнёрский промокод на 5 000 ₽ к студенческому билету за 3 500 ₽ даёт −1 500 ₽.",
+      "why": "Указано отсутствие ограничения снизу и последствия для отчёта и возврата."
+    },
+    "V3-group-int-overflow": {
+      "verdict": "FOUND",
+      "quote": "Переполнение (тихое, без `checked`) начинается уже с 358 мест",
+      "why": "Назван расчёт в int до расширения в long, предложено `(long)unitPrice * req.Quantity`."
+    },
+    "V3-orgadmin-any-registration": {
+      "verdict": "FOUND",
+      "quote": "Совпадает ли `reg.OrganizationId` с `org_id` администратора, не проверяется.",
+      "why": "Дефект проверки доступа назван точно, включая индивидуальные регистрации."
+    },
+    "V3-refund-list-price": {
+      "verdict": "FOUND",
+      "quote": "Это полная цена типа билета, а надо брать `reg.PriceKopecks`",
+      "why": "Указано, что возврат считается от цены по прейскуранту, а не от уплаченной суммы."
+    },
+    "V3-passport-in-log": {
+      "verdict": "FOUND",
+      "quote": "`{@Request}` деструктурирует весь `RegisterRequest`, включая `PassportNumber`, `PassportCountry`",
+      "why": "`{@Request}` прямо связан с паспортными полями DTO."
+    },
+    "V3-invalid-promo-silent": {
+      "verdict": "FOUND",
+      "quote": "код просто ставит `promo = null` и оформляет регистрацию по полной цене",
+      "why": "Указано расхождение с требованием MR отвечать 422."
+    },
+    "V3-promo-notracking": {
+      "verdict": "PASS",
+      "quote": "промокод загружается с `AsNoTracking()`, поэтому `promo.UsedCount++` меняет неотслеживаемый объект",
+      "why": "Механизм назван, предложен атомарный ExecuteUpdate с условием UsedCount < UsageLimit."
+    },
+    "V3-unspecified-timestamptz": {
+      "verdict": "PASS",
+      "quote": "Npgsql 6+ при передаче такого параметра для `timestamptz` бросает `ArgumentException`",
+      "why": "Назван Kind=Unspecified против timestamptz, предложены UTC и осознанный выбор часового пояса границ."
+    },
+    "V3-h-partial-unique-index": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Частичный уникальный индекс в выходе не упоминается и не критикуется."
+    },
+    "V3-h-unique-violation-catch": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Перехват UniqueViolation не назван дефектом; в находке 3 этот же подход рекомендуется для идемпотентности."
+    }
+  },
+  "stderr": ""
+}

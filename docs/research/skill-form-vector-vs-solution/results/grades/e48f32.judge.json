@@ -1,0 +1,111 @@
+{
+  "id": "e48f32",
+  "case": "R",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0747314,
+    "durationMs": 9996,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 6182,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1242,
+      "output_tokens_details": {
+        "thinking_tokens": 139
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6182,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1242,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 6182,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 6182
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "R-D3": {
+      "verdict": "PASS",
+      "quote": "условия `FromSqlRaw` ссылаются на `\"Products\".Col`, а таблице в запросе присвоен алиас `p`",
+      "why": "Несовпадение алиаса в условиях FromSqlRaw названо как critical-находка."
+    },
+    "R-D1": {
+      "verdict": "FOUND",
+      "quote": "`SingleAsync` по `Sku`, хотя SKU уникален только в пределах склада",
+      "why": "Назван SingleAsync по неуникальному между складами SKU."
+    },
+    "R-D2": {
+      "verdict": "FOUND",
+      "quote": "`last!.Value` без проверки на null при `MaxAsync` по nullable-полю",
+      "why": "Назван MaxAsync(ShippedAt) с !.Value без обработки null."
+    },
+    "R-D4": {
+      "verdict": "FOUND",
+      "quote": "лишний `UpdateRange` на уже отслеживаемых сущностях помечает все поля Modified",
+      "why": "Назван UpdateRange на tracked-сущностях."
+    },
+    "R-D5": {
+      "verdict": "FOUND",
+      "quote": "scoped `ShopDbContext` инжектится в конструктор singleton-`BackgroundService`",
+      "why": "Назван DbContext в конструкторе BackgroundService."
+    },
+    "R-D6": {
+      "verdict": "FOUND",
+      "quote": "два `Include` коллекций без `AsSplitQuery()` → декартово произведение, критично при тысячах заказов у клиента",
+      "why": "Назван cartesian explosion от двух коллекций на тысячах заказов."
+    },
+    "R-D7": {
+      "verdict": "FOUND",
+      "quote": "`FOR UPDATE` и последующий `SaveChangesAsync` не в одной явной транзакции",
+      "why": "Назван FOR UPDATE без явной транзакции."
+    },
+    "R-D8": {
+      "verdict": "FOUND",
+      "quote": "нет optimistic concurrency при параллельной правке заказа несколькими операторами",
+      "why": "Названо отсутствие concurrency token при правке заказа."
+    },
+    "R-D9": {
+      "verdict": "FOUND",
+      "quote": "`DropColumn(\"Category\", \"Orders\")` без переноса существующих значений",
+      "why": "Назван DropColumn Category без переноса данных."
+    },
+    "R-K1": {
+      "verdict": "FOUND",
+      "quote": "грузит всю таблицу Orders в память и фильтрует в LINQ-to-Objects после материализации",
+      "why": "Назван GetAllAsync с фильтрацией IsOverdue в памяти."
+    },
+    "R-h-B1": {
+      "verdict": "NO",
+      "quote": "`GetCard` в этом же файле сделан правильно (`AsSplitQuery()` при двух Include)",
+      "why": "AsSplitQuery на карточке заказа признан правильным, находки против него нет."
+    },
+    "R-h-B2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Про Kind=Unspecified и timestamp without time zone находок нет."
+    },
+    "R-O1": {
+      "verdict": "FOUND",
+      "quote": "сумма считается как `Sum(price)` без учёта `Qty`",
+      "why": "Назван расчёт суммы заказа без Qty."
+    }
+  },
+  "stderr": ""
+}

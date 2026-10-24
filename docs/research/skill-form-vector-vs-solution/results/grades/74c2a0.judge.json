@@ -1,0 +1,92 @@
+{
+  "id": "74c2a0",
+  "case": "GR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.086835,
+    "durationMs": 12488,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 7470,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1332,
+      "output_tokens_details": {
+        "thinking_tokens": 431
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7470,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1332,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 7470,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 7470
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GR-offday-rows": {
+      "verdict": "PASS",
+      "quote": "Вызов `.ToRows()` выполняет Select с неразрешимым для SQL условием `!WorkCalendar.IsWorkingDay(t.StartedAt)`... EF Core 8 выбросит InvalidOperationException",
+      "why": "Названы клиентский IsWorkingDay в проекции ToRows, падение запроса при трансляции и исправление: условие после AsEnumerable с серверным сужением."
+    },
+    "GR-open-semicolon": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "GetOpenWaybillsAsync, ';' в FromSqlRaw и композиция с Where в выходе не упомянуты."
+    },
+    "GR-equipment-clear": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "ReplaceEquipmentAsync, Clear() на незагруженной коллекции и уникальный индекс в выходе не упомянуты."
+    },
+    "GR-model-length": {
+      "verdict": "PASS",
+      "quote": "Если в production есть модели автомобилей длиннее 40 символов, миграция упадёт с ошибкой при применении.",
+      "why": "Сказано, что миграция упадёт на prod из-за длинных значений; предложено учесть исторические данные в миграции."
+    },
+    "GR-last-inspection": {
+      "verdict": "FAIL",
+      "quote": "CreatedAt используется в GetLastInspectionAsync для сортировки, но если сущность используется после сохранения",
+      "why": "Неуникальный порядок по CreatedAt при SplitQuery не назван; находка №4 про другое — значение CreatedAt в памяти после SaveChanges."
+    },
+    "GR-permit-lastday": {
+      "verdict": "FOUND",
+      "quote": "Используется `p.ValidUntil > today`, но по MR допуск \"действует по указанную дату включительно\". Должно быть `>=`.",
+      "why": "Дефект назван точно, с последствием для последнего дня допуска."
+    },
+    "GR-equipment-auth": {
+      "verdict": "FOUND",
+      "quote": "Endpoint `/vehicles/{id:int}/equipment` доступен без проверки прав",
+      "why": "Отмечено, что операция доступна любому аутентифицированному пользователю."
+    },
+    "GR-h-permits-clear": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "ReplacePermitsAsync и Permits.Clear() дефектом не названы."
+    },
+    "GR-h-plate-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByPlateAsync в выходе не упоминается."
+    }
+  },
+  "stderr": ""
+}

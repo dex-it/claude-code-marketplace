@@ -1,0 +1,67 @@
+{
+  "id": "01e726",
+  "case": "G2",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.086711,
+    "durationMs": 7868,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 8922,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 745,
+      "output_tokens_details": {
+        "thinking_tokens": 292
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8922,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 745,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 8922,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 8922
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G2-freeze-fresh": {
+      "verdict": "FAIL",
+      "quote": "else if (member.IsFrozenAt(pass.PassedAt))",
+      "why": "Признак заморозки берётся из Member, загруженного существующим отслеживающим запросом в долгоживущем контексте воркера. Нет ни AsNoTracking, ни проекции, ни нового scope, ни ChangeTracker.Clear/Reload, поэтому для уже загруженного клиента заморозка и её снятие не видны до перезапуска сервиса."
+    },
+    "G2-random-session": {
+      "verdict": "PASS",
+      "quote": "var chosenId = sessionIds[Random.Shared.Next(sessionIds.Count)];",
+      "why": "Id занятия выбирается случайно в памяти после отдельного запроса, затем занятие с записями грузится по Id, так что split-запросы однозначны."
+    },
+    "G2-h-course-split": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "GetCourseAsync не тронут и дефектом не назван."
+    },
+    "G2-m-passes-notracking": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Запросы проходов и записей в TurnstileWorker остались отслеживаемыми; AsNoTracking добавлен только в запрос для тайного гостя."
+    }
+  },
+  "stderr": ""
+}

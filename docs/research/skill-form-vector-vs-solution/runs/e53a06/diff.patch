@@ -1,0 +1,35 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..86bcea7
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,29 @@
++# Результаты ревью MR !87
++
++## Найденные дефекты
++
++### 1. BatchService.cs, ListAsync (строка 49) — HIGH
++- **Метод:** `ListAsync(int page, int pageSize = 20)`
++- **Проблема:** Ошибка в формуле постраничной выборки
++- **Описание:** Используется `Skip(page * pageSize)`, но комментарий указывает что page начинается с 1. Это приводит к тому, что первая страница (page=1) пропускает 20 записей вместо 0. Формула дает вторую страницу вместо первой. Должно быть `Skip((page - 1) * pageSize)`
++- **Severity:** HIGH
++
++### 2. BatchService.cs, CompliancePercentAsync (строка 107) — HIGH
++- **Метод:** `CompliancePercentAsync(int batchId)`
++- **Проблема:** Целочисленное деление
++- **Описание:** Выражение `compliant / total * 100` выполняет целочисленное деление (int/int=int). Результат всегда неправильный, например 1/3*100=0 вместо 33. Нужно либо переставить операции `compliant * 100 / total`, либо явно привести к decimal
++- **Severity:** HIGH
++
++### 3. BatchService.cs, CompliancePercentAsync (строка 105) — MEDIUM
++- **Метод:** `CompliancePercentAsync(int batchId)`
++- **Проблема:** Потенциально нетранслируемое условие в фильтре
++- **Описание:** Условие `s.Results.All(r => r.Value <= r.Limit)` в `CountAsync` может не быть транслировано в SQL и привести к ClientEval — загрузке всех проб партии в память вместо вычисления агрегата в БД. По SKILL.md пункт "Нетранслируемое условие фильтра" — все фильтры должны выполняться в SQL
++- **Severity:** MEDIUM
++
++## Проверено успешно
++- ✓ AsSplitQuery() используется для нескольких коллекций в одном запросе
++- ✓ Include заранее загружает связанные данные (нет lazy-loading в циклах)
++- ✓ AsNoTracking() применяется для read-only запросов
++- ✓ SaveChanges вызывается один раз, а не в цикле
++- ✓ FromSql параметризован через DbParameter
++- ✓ DateTime конфигурирован правильно (PlannedLocal как timestamp без timezone)

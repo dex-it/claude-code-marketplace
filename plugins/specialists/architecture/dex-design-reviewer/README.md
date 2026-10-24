@@ -2,7 +2,7 @@
 
 Ревьюер чужого **дизайн-документа** (спека, ADR, диаграммы, дизайн-раздел RFC) по рецепту **Reviewer**. Предмет - текст решения **до** того, как по нему начали кодить: полнота и измеримость NFR, дефекты требований внутри документа, обоснованность ADR-решений, консистентность выбранной модели, слои и доменные границы.
 
-Симметричный слот зоны 2: `/design` порождает дизайн, `/review-design` принимает чужой. Разные роли и разные агенты - создатель предвзят к своему решению, как кодер к своему коду.
+Симметричный слот зоны дизайна: `/design` порождает дизайн, `/review-design` принимает чужой. Разные роли и разные агенты - создатель предвзят к своему решению, как кодер к своему коду.
 
 ## Команда
 
@@ -23,7 +23,7 @@
 
 ## Архитектура
 
-Команда `/review-design` тонкая (без `Agent` в `allowed-tools`) и делегирует агенту `design-reviewer` с явным `mode: interactive`. Фазы агента: Context (входная приёмка по метке `quality-checks`) -> Domain Priming -> Skill-Based Deep Scan -> Fact Verification -> Cross-Linking -> Severity Calibration -> Deferred Decision Triage -> Output Labeling -> Report.
+Команда `/review-design` тонкая: делегирует агенту `design-reviewer`, а проводку оператора по находкам и выбор канала доставки ведёт сама. Режим передаётся агенту тем же значением, но `interactive` даёт ему планку, а не канал - канала к оператору у него нет физически (`node-contract`, D.11). Фазы агента: Context (входная приёмка по метке `quality-checks`) -> Domain Priming -> Skill-Based Deep Scan -> Fact Verification -> Cross-Linking -> Severity Calibration -> Deferred Decision Triage -> Output Labeling -> Report.
 
 Агент **не мутирует чужой документ**: `Write`/`Edit` отсутствуют намеренно. Находки предъявляются оператору, правки формулируются автору, канал доставки (задача в трекер либо правка в документ) выбирает оператор в диалоге. Это отделяет «судить» от «чинить», как в код-ревью.
 
@@ -33,12 +33,10 @@
 
 Pre-load: `dex-skill-node-contract` (рантайм-контракт узла, входная приёмка по метке).
 
-Императивно по аспектам документа в Phase 2: `dex-skill-nfr`, `dex-skill-requirement-quality`, `dex-skill-adr-quality`, `dex-skill-doc-standards`; по стилю проекта - `dex-skill-cap-consistency`, `dex-skill-clean-architecture`, `dex-skill-ddd`. Контекст и дисциплина: `dex-skill-codebase-conventions`, `dex-skill-fact-verification`, `dex-skill-review-evidence`, `dex-skill-output-hygiene`.
-
-Новый оракул `design-quality` не создаётся - дефекты дизайн-документа покрыты существующими скиллами.
+Императивно в Phase 2: `dex-skill-design-quality` - безусловно, когда документ дизайн (решение фичи целиком: драйверы, альтернативы, deep dive, план), в том числе когда ADR и спека лежат в нём разделами; на голом ADR, диаграмме или спеке контракта не грузится. По аспектам документа - `dex-skill-nfr`, `dex-skill-requirement-quality`, `dex-skill-adr-quality`, `dex-skill-doc-standards`; по стилю проекта - `dex-skill-ddd`. Контекст и дисциплина: `dex-skill-codebase-conventions`, `dex-skill-fact-verification`, `dex-skill-review-evidence`.
 
 ## Связанные плагины
 
-- `dex-architect` - `/design` (порождение дизайна) и `/review-arch` (архитектура кода).
-- `dex-requirements-reviewer` - симметричная приёмка чужих требований (зона 1).
+- `dex-architect` - порождение дизайн-документа (`/design`) и ревью архитектуры кода (`/review-arch`).
+- `dex-requirements-reviewer` - симметричная приёмка чужих требований (зона требований).
 - `dex-adr-writer` - фиксация согласованного решения в ADR.

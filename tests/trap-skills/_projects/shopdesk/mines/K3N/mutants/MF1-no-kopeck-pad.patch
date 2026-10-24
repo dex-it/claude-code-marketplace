@@ -1,0 +1,13 @@
+diff --git a/api/src/services/price-format.ts b/api/src/services/price-format.ts
+index 6784628..ef445d2 100644
+--- a/api/src/services/price-format.ts
++++ b/api/src/services/price-format.ts
+@@ -6,7 +6,7 @@ export function formatKopecks(kopecks: number): string {
+   const rubles = Math.floor(abs / 100)
+     .toString()
+     .replace(/\B(?=(\d{3})+(?!\d))/g, NBSP);
+-  const rest = (abs % 100).toString().padStart(2, '0');
++  const rest = (abs % 100).toString();
+   return `${sign}${rubles},${rest}${NBSP}₽`;
+ }
+ 

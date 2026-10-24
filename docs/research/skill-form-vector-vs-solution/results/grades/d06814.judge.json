@@ -1,0 +1,121 @@
+{
+  "id": "d06814",
+  "case": "CFG",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0770594,
+    "durationMs": 16292,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 4778,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1920,
+      "output_tokens_details": {
+        "thinking_tokens": 723
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4778,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1920,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 4778,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 4778
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "CFG-K9": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Находки о том, что MaxInFlight в Staging (20) выше Production (5), в выходе нет."
+    },
+    "CFG-K8": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Повтор MaxRetries 5 в Staging и Production при том же дефолте не упомянут."
+    },
+    "CFG-h-required": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Модификатор required как проверка SmtpOptions нигде не предлагается."
+    },
+    "CFG-K1": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Пароли БД и SMTP в appsettings.Production.json не названы проблемой."
+    },
+    "CFG-K2": {
+      "verdict": "FOUND",
+      "quote": "`GetValue<int>()` вернёт 0 (значение по умолчанию), что приведёт к `60_000 / 0` — **делению на ноль**",
+      "why": "Несовпадение ключа MessagesPerMinute/PerMinute и деление на ноль названы прямо."
+    },
+    "CFG-K3": {
+      "verdict": "FOUND",
+      "quote": "OutboxOptionsValidator не зарегистрирован в DI, валидация конфигурации не работает",
+      "why": "Отсутствие регистрации валидатора названо как дефект; про ValidateOnStart не сказано, но суть та же."
+    },
+    "CFG-K4": {
+      "verdict": "MISSED",
+      "quote": "ThrottleService.cs — должен использовать IOptions<ThrottleOptions> вместо IConfiguration",
+      "why": "IOptions в singleton OutboxWorker не назван; исполнитель, наоборот, предлагает IOptions для значений, меняемых на лету."
+    },
+    "CFG-K5": {
+      "verdict": "FOUND",
+      "quote": "проверяет `if (o.MinBatchSize < o.MaxBatchSize)`, но в Production это условие никогда не будет истинно. Адаптивное батчинг не будет работать.",
+      "why": "Названо тихое отключение adaptive batching при 200/100."
+    },
+    "CFG-K6": {
+      "verdict": "FOUND",
+      "quote": "Опрос будет раз в 500 сек вместо 0.5 сек",
+      "why": "Названа ошибка FromSeconds при PollInterval 500."
+    },
+    "CFG-K7": {
+      "verdict": "FOUND",
+      "quote": "SmtpOptions имеет non-nullable строковые свойства, которые будут привязаны к null",
+      "why": "Названы non-nullable свойства без значения и без проверки, ведущие к исключению при отправке."
+    },
+    "CFG-h-P1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находки против IOptions<SmtpOptions> в SmtpMailSender нет."
+    },
+    "CFG-h-P2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "LockTimeout не упоминается."
+    },
+    "CFG-O1": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Установка SentAt до отправки не упомянута."
+    },
+    "CFG-O2": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Несовпадение GetSection(\"Mail\") с секцией Smtp не найдено."
+    },
+    "CFG-O3": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Подстановка ${NOTIFY_DB_PASSWORD} в Staging не упомянута."
+    }
+  },
+  "stderr": ""
+}

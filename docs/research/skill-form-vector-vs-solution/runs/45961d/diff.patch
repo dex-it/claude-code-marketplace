@@ -1,0 +1,81 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..7c5e1b7
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,75 @@
++# Ревью MR !231 «Процедурный кабинет»
++
++## 1. `Services/ProcedureService.cs` — `CalculateDoseMlAsync`: доза завышена в 1000 раз — **critical**
++`doseMg = weightGrams * drugMgPerKg`. Вес берётся в граммах (`Pet.WeightGrams`), а доза задана в мг/**кг**; в комментарии
++явно написано «вес, кг × мг/кг», но перевода г→кг нет. Кот весом 4000 г при 2,5 мг/кг и 10 мг/мл получит 1000 мл вместо 1 мл.
++Это прямой вред пациенту: на основе результата персонал набирает препарат для инфузии.
++Исправление: `weightGrams / 1000m * drugMgPerKg`, и покрыть метод тестом на известных значениях.
++
++## 2. `Domain/Pet.cs` (`WeightGrams`) + `CalculateDoseMlAsync`: «нет веса» превращается в дозу 0 — **high**
++`WeightGrams` — ненулевой `int`. Миграция `AddProcedures` добавит колонку `NOT NULL DEFAULT 0`, значит у всех
++существующих питомцев вес = 0, и у новых без взвешивания тоже. `CalculateDoseMlAsync` молча вернёт 0 мл, и ни тот, кто
++вызвал метод, ни врач не узнают, что веса нет. Отсутствие значения неотличимо от реального нуля.
++Исправление: `int? WeightGrams`; в расчёте при `null` или `<= 0` бросать явную ошибку («питомец не взвешен»).
++Желательно также хранить дату взвешивания.
++
++## 3. `Services/ProcedureSheetService.cs` — `GetDaySheetAsync`: первая страница теряется — **high**
++По контракту страницы нумеруются с 1, а код делает `Skip(page * PageSize)`. При `page=1` пропускаются первые 30 процедур дня,
++и в обычный день (меньше 30 записей) лист дня пустой. Корректность `page` (`< 1`) тоже не проверяется.
++Исправление: `Skip((page - 1) * PageSize)` и проверка `page >= 1`.
++
++## 4. `Services/ProcedureService.cs` — `RemoveConsumableAsync`: гонка с закрытием процедуры и загрузка всей коллекции — **medium**
++- Статус проверяется в памяти, а удаление происходит позже, в `SaveChanges`. У `Procedure` нет токена конкурентности, а
++  `UPDATE`/блокировки по процедуре нет. Если процедуру параллельно закрыли (`Closed`), строку всё равно удалят из уже
++  закрытого списания, хотя README это запрещает (раздел «Параллельная правка одной записи»).
++- `Include(p => p.Consumables)` поднимает в память все строки расходников, чтобы удалить одну. У инфузий их сотни
++  (это сказано в MR). Здесь загружается полная сущность, хотя нужны два поля.
++
++Исправление: одним атомарным запросом
++`db.ConsumableLines.Where(c => c.Id == lineId && c.ProcedureId == procedureId && c.Procedure.Status != ProcedureStatus.Closed).ExecuteDeleteAsync()`.
++Если удалено 0 строк, отдельно отличить «не найдено» от «закрыта».
++Другой вариант — токен конкурентности (`xmin`) на `Procedure` плюс проверка статуса.
++(Сам `Consumables.Remove` при required-FK с каскадом по умолчанию корректно удаляет сироту, исключения тут нет.)
++
++## 5. `Data/ClinicDbContext.cs` / `Services/ProcedureService.cs` — `RescheduleAsync`: нет контроля параллельной правки — **medium**
++На `Procedure` нет токена конкурентности. `RescheduleAsync` проверяет `Status == Scheduled` и записывает новое время. Если
++между чтением и `SaveChanges` процедуру начали (`InProgress`), закрыли или отменили, перенос всё равно применится. Два
++параллельных переноса тоже молча перетрут друг друга (last-writer-wins).
++Исправление: concurrency token на `xmin` (`[Timestamp] public uint Version` для Npgsql 8) и обработка
++`DbUpdateConcurrencyException`. Другой вариант — условный `ExecuteUpdate` с `Status == Scheduled` в `WHERE`.
++
++## 6. `Data/ClinicDbContext.cs` — `OnModelCreating`, связь `Procedure → Pet`: каскадное удаление медицинской истории — **medium**
++`HasOne(p => p.Pet).WithMany().HasForeignKey(p => p.PetId)` — это required-связь, и EF создаёт FK с `ON DELETE CASCADE`.
++Удаление карточки питомца тихо удалит все его процедуры, а через них (тоже каскад) все строки списания расходников и заметки
++персонала, в том числе по закрытым процедурам. В результате ломаются отчёт по расходу за прошлые месяцы и журнал кабинета.
++Исправление: `.OnDelete(DeleteBehavior.Restrict)` для `Procedure → Pet`.
++
++## 7. `Services/ProcedureSheetService.cs` — `SearchNotesAsync`: ищет не там и без индекса — **low**
++- В MR заявлен «поиск по заметкам», а заметки персонала живут в `StaffNotes`. Метод ищет только по полю `Procedures."Notes"`,
++  поэтому `StaffNote.Text` в поиск не попадает. Нужно уточнить требование; скорее всего, надо искать и по `StaffNotes`.
++- `to_tsvector('russian', coalesce("Notes",''))` считается на лету без GIN-индекса по выражению, что даёт полный скан таблицы.
++  Нужен индекс (или сгенерированная колонка `tsvector` + GIN в миграции).
++- Значение передано параметром через интерполированный `FromSql`, SQL-инъекции нет.
++
++## 8. `Services/ProcedureService.cs` — `GetCardAsync`: недетерминированный порядок расходников и лишние поля — **low**
++- `Consumables` выводятся без сортировки. Порядок строк из split-запроса не гарантирован, и в карточке строки будут «прыгать».
++  Нужен `OrderBy(c => c.Id)` (можно filtered include).
++- `Include(x => x.Pet)` грузит всю сущность `Pet` ради `Name`. Проекция в `ProcedureCardDto` прямо в запросе дала бы
++  только нужные колонки.
++- `AsSplitQuery` для двух коллекций одного уровня здесь оправдан, `AsNoTracking` есть.
++
++## 9. `Services/ProcedureService.cs` — `RescheduleAsync`, `RemoveConsumableAsync`, `CalculateDoseMlAsync`: «не найдено» → 500 — **low**
++`SingleAsync` по несуществующему `id` бросает `InvalidOperationException`, и наружу уйдёт 500 вместо 404.
++Лучше `SingleOrDefaultAsync` + `KeyNotFoundException` (как уже сделано для строки расходника).
++
++---
++
++### Проверено, дефектов нет
++- `ScheduledLocal`: колонка `timestamp without time zone`, запись с `Kind=Unspecified` (`SpecifyKind`) — так и должно быть
++  по README («настенные часы, ни в какой пояс не пересчитывается»). Прочитанное значение Npgsql отдаёт как `Unspecified`.
++  Помечать его `Utc` **не нужно**: это противоречит README и смысл времени исказило бы.
++  `CreatedAt = DateTime.UtcNow` → `timestamptz`, это верно.
++- Границы дня/месяца (`DateOnly.ToDateTime`, `new DateTime(y, m, 1)`) имеют `Kind=Unspecified` и корректно сравниваются с `timestamp`.
++- `GetConsumptionAsync`: `ORDER BY` берётся из белого списка, значения передаются параметрами, группировка выполняется в SQL.
++- `FindPetByChipAsync`: `SingleOrDefault` опирается на уникальный индекс по `ChipNumber`, условие в домене уникально.
++- `FindByTitleAsync`: фильтр целиком транслируется в SQL, результат — проекция.

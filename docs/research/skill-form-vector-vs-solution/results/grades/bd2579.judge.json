@@ -1,0 +1,111 @@
+{
+  "id": "bd2579",
+  "case": "R",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0853154,
+    "durationMs": 11833,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 6935,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1470,
+      "output_tokens_details": {
+        "thinking_tokens": 276
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6935,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1470,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 6935,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 6935
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "R-D3": {
+      "verdict": "PASS",
+      "quote": "Таблице в `FROM` присвоен алиас `p`, а условия обращаются к ней по исходному имени `\"Products\"`",
+      "why": "Находка №3 прямо называет несовпадение алиаса p и имени \"Products\" в условиях Search."
+    },
+    "R-D1": {
+      "verdict": "FOUND",
+      "quote": "`SingleAsync` по одному `Sku` бросит `InvalidOperationException: Sequence contains more than one element`",
+      "why": "Находка №6 называет SingleAsync по SKU, неуникальному между складами."
+    },
+    "R-D2": {
+      "verdict": "FOUND",
+      "quote": "`last!.Value` форсированно разыменовывает без проверки",
+      "why": "Находка №7 называет MaxAsync по nullable ShippedAt с принудительным .Value без обработки null; тип исключения указан неточно (NRE), но дефект тот же."
+    },
+    "R-D4": {
+      "verdict": "FOUND",
+      "quote": "`UpdateRange` здесь избыточен и, что важнее, принудительно помечает **все** свойства",
+      "why": "Находка №11 называет UpdateRange на уже отслеживаемых сущностях."
+    },
+    "R-D5": {
+      "verdict": "FOUND",
+      "quote": "в конструктор напрямую внедряется `ShopDbContext`",
+      "why": "Находка №5 называет Scoped DbContext в конструкторе singleton BackgroundService."
+    },
+    "R-D6": {
+      "verdict": "FOUND",
+      "quote": "Два `Include` на коллекции (`Items` и `Payments`) без `AsSplitQuery()`",
+      "why": "Находка №8 называет декартов взрыв на тысячах заказов в ExportForCustomer."
+    },
+    "R-D7": {
+      "verdict": "FOUND",
+      "quote": "`SELECT ... FOR UPDATE` и последующий `SaveChangesAsync()` не обёрнуты в явную транзакцию",
+      "why": "Находка №4 называет FOR UPDATE без явной транзакции."
+    },
+    "R-D8": {
+      "verdict": "FOUND",
+      "quote": "без concurrency-токена (`[Timestamp]`/`RowVersion`)",
+      "why": "Находка №9 называет lost update в UpdateOrder без concurrency token."
+    },
+    "R-D9": {
+      "verdict": "FOUND",
+      "quote": "Нет шага переноса данных: старые строковые значения `Orders.Category` нигде не переносятся",
+      "why": "Находка №1 называет DropColumn Category без переноса данных."
+    },
+    "R-K1": {
+      "verdict": "FOUND",
+      "quote": "Фильтрация по просрочке происходит после полной материализации всей таблицы `Orders` в память",
+      "why": "Находка №10 называет GetAllAsync с фильтром IsOverdue в памяти."
+    },
+    "R-h-B1": {
+      "verdict": "NO",
+      "quote": "в отличие от `GetCard`, где `AsSplitQuery` есть",
+      "why": "AsSplitQuery в GetCard упомянут как правильный образец, находки против него нет."
+    },
+    "R-h-B2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находок про Kind=Unspecified или чтение как Utc нет."
+    },
+    "R-O1": {
+      "verdict": "FOUND",
+      "quote": "Сумма считается только по цене продукта, без учёта `OrderItem.Qty`",
+      "why": "Находка №2 называет расчёт суммы без умножения на Qty."
+    }
+  },
+  "stderr": ""
+}

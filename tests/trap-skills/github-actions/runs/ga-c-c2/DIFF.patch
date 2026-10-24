@@ -1,0 +1,13 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 29e5b86..aefb6e7 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -13,4 +13,8 @@ jobs:
+       - uses: actions/setup-dotnet@v4
+         with:
+           dotnet-version: 8.0.x
++          cache: true
++          cache-dependency-path: |
++            Directory.Packages.props
++            **/*.csproj
+       - run: dotnet test -c Release

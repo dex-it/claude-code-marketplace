@@ -1,0 +1,121 @@
+{
+  "id": "d32ad5",
+  "case": "CFG",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.10096740000000001,
+    "durationMs": 15920,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 7589,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1991,
+      "output_tokens_details": {
+        "thinking_tokens": 483
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7589,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1991,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 7589,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 7589
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "CFG-K9": {
+      "verdict": "PASS",
+      "quote": "Staging: `MaxInFlight: 20`, Production: `MaxInFlight: 5`",
+      "why": "Находка №10 фиксирует, что MaxInFlight в Staging выше, чем в Production."
+    },
+    "CFG-K8": {
+      "verdict": "PASS",
+      "quote": "`appsettings.Staging.json` (`Outbox:MaxRetries: 5`), `appsettings.Production.json` (`Outbox:MaxRetries: 5`",
+      "why": "Находка №11 называет повтор MaxRetries 5 в Staging и Production при таком же дефолте."
+    },
+    "CFG-h-required": {
+      "verdict": "NO",
+      "quote": "non-nullable `string` без инициализатора и без `IValidateOptions<SmtpOptions>`",
+      "why": "required упомянут только рядом с валидатором; выход не утверждает, что required поймает отсутствие значения, и не предлагает его вместо валидации опций."
+    },
+    "CFG-K1": {
+      "verdict": "FOUND",
+      "quote": "Пароль БД (`Kx7!pQ2vR9wz`) и пароль SMTP-релея (`rl_live_9f3a1c77e2b04d6d`) хранятся открытым текстом",
+      "why": "Находка №8 называет секреты в appsettings.Production.json."
+    },
+    "CFG-K2": {
+      "verdict": "FOUND",
+      "quote": "`GetValue<int>` на отсутствующем ключе вернёт `0` → `60_000 / 0` бросает `DivideByZeroException`",
+      "why": "Находка №3 описывает несовпадение ключа и деление на ноль."
+    },
+    "CFG-K3": {
+      "verdict": "FOUND",
+      "quote": "нет `.ValidateOnStart()` после `Configure<OutboxOptions>`",
+      "why": "Находка №6 называет отсутствие регистрации валидатора и ValidateOnStart."
+    },
+    "CFG-K4": {
+      "verdict": "FOUND",
+      "quote": "Нужен `IOptionsMonitor<OutboxOptions>` (`.CurrentValue`), а не `IOptions<T>`",
+      "why": "Находка №5 связывает IOptions в singleton с требованием менять настройки на лету."
+    },
+    "CFG-K5": {
+      "verdict": "FOUND",
+      "quote": "условие `if (o.MinBatchSize < o.MaxBatchSize)` просто окажется `false`, адаптивный батчинг молча отключится",
+      "why": "Находка №7 описывает тихое выключение adaptive batching при 200/100."
+    },
+    "CFG-K6": {
+      "verdict": "FOUND",
+      "quote": "Реальный интервал опроса — 500 секунд (~8,3 минуты) вместо требуемых 0,5 секунды",
+      "why": "Находка №4 описывает PollInterval 500 с TimeSpan.FromSeconds."
+    },
+    "CFG-K7": {
+      "verdict": "FOUND",
+      "quote": "Свойства объявлены как non-nullable `string` без инициализатора и без `IValidateOptions<SmtpOptions>`",
+      "why": "Находка №12 называет Host и FromAddress non-nullable без дефолта и без проверки."
+    },
+    "CFG-h-P1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находки против IOptions<SmtpOptions> в SmtpMailSender нет."
+    },
+    "CFG-h-P2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "LockTimeout как TimeSpan дефектом не объявлен."
+    },
+    "CFG-O1": {
+      "verdict": "FOUND",
+      "quote": "`SentAt` проставляется всем сообщениям пачки сразу после выборки, ещё до вызова `sender.SendAsync`",
+      "why": "Находка №1 описывает, что неудачное письмо не повторяется."
+    },
+    "CFG-O2": {
+      "verdict": "FOUND",
+      "quote": "В appsettings секция называется `\"Smtp\"`, а не `\"Mail\"`",
+      "why": "Находка №2 называет пустые SmtpOptions из-за неверного имени секции."
+    },
+    "CFG-O3": {
+      "verdict": "FOUND",
+      "quote": "не выполняет интерполяцию `${VAR}` внутри строковых значений",
+      "why": "Находка №9 называет отсутствие подстановки ${NOTIFY_DB_PASSWORD} в Staging."
+    }
+  },
+  "stderr": ""
+}

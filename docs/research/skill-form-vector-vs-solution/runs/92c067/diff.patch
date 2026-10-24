@@ -1,0 +1,103 @@
+diff --git a/CatalogMaintenance.cs b/CatalogMaintenance.cs
+new file mode 100644
+index 0000000..7586234
+--- /dev/null
++++ b/CatalogMaintenance.cs
+@@ -0,0 +1,85 @@
++namespace Shop.Data;
++
++// Scoped service (см. ShopDbContext) — если вызывается из BackgroundService/scheduler,
++// резолвить через IServiceScopeFactory.CreateScope() на каждый запуск, не инжектить напрямую.
++public class CatalogMaintenance
++{
++    private readonly ShopDbContext _db;
++    public CatalogMaintenance(ShopDbContext db) => _db = db;
++
++    // (а) +10% к цене всем продуктам категории — один SQL UPDATE, без загрузки entities
++    public Task<int> RaisePricesAsync(string category, CancellationToken ct = default) =>
++        _db.Products
++            .Where(p => p.Category == category)
++            .ExecuteUpdateAsync(s => s.SetProperty(p => p.Price, p => p.Price * 1.1m), ct);
++
++    // (б) ночная очистка AuditLogs старше года — батчами, с паузой между батчами,
++    // чтобы не держать одну транзакцию на ~40 млн строк и не забить WAL/лочить таблицу
++    public async Task<long> PurgeOldAuditLogsAsync(
++        int batchSize = 1000,
++        TimeSpan? delayBetweenBatches = null,
++        CancellationToken ct = default)
++    {
++        var delay = delayBetweenBatches ?? TimeSpan.FromMilliseconds(200);
++        var threshold = DateTime.UtcNow.AddYears(-1);
++
++        long totalDeleted = 0;
++        int deletedInBatch;
++        do
++        {
++            deletedInBatch = await _db.AuditLogs
++                .Where(a => a.At < threshold)
++                .Take(batchSize)
++                .ExecuteDeleteAsync(ct);
++
++            totalDeleted += deletedInBatch;
++
++            if (deletedInBatch == batchSize)
++                await Task.Delay(delay, ct);
++        } while (deletedInBatch == batchSize);
++
++        return totalDeleted;
++    }
++
++    // (в) Restock: одна загрузка продуктов по списку id (без N+1), инкремент Stock, один SaveChanges
++    public async Task RestockAsync(IEnumerable<(Guid Id, int Add)> items, CancellationToken ct = default)
++    {
++        var deltas = items.ToDictionary(x => x.Id, x => x.Add);
++        if (deltas.Count == 0)
++            return;
++
++        var ids = deltas.Keys.ToList();
++        var products = await _db.Products
++            .Where(p => ids.Contains(p.Id))
++            .ToListAsync(ct);
++
++        foreach (var product in products)
++            product.Stock += deltas[product.Id];
++
++        await _db.SaveChangesAsync(ct);
++    }
++
++    // (г) CreateProduct: client-generated Guid → Add() (не AddAsync, без HiLo)
++    public async Task<Product> CreateProductAsync(
++        string sku,
++        string warehouse,
++        string category,
++        decimal price,
++        int stock,
++        CancellationToken ct = default)
++    {
++        var product = new Product
++        {
++            Id = Guid.NewGuid(),
++            Sku = sku,
++            Warehouse = warehouse,
++            Category = category,
++            Price = price,
++            Stock = stock
++        };
++
++        _db.Products.Add(product);
++        await _db.SaveChangesAsync(ct);
++        return product;
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..cee2e58
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,6 @@
++Создан файл `CatalogMaintenance.cs` в рабочем каталоге.
++
++Решения:
++- Повышение цен и очистка `AuditLogs` — через `ExecuteUpdate`/`ExecuteDelete`, без загрузки entities в Change Tracker; удаление батчами по 1000 с паузой между итерациями (~40 млн строк одной транзакцией убило бы WAL и заблокировало таблицу).
++- `Restock` грузит продукты одним запросом (`Contains(ids)`, без N+1), правит `Stock` в памяти и делает один `SaveChangesAsync`.
++- `CreateProduct` использует `Add()` (не `AddAsync`), т.к. `Id` — client-generated `Guid`, HiLo не используется.

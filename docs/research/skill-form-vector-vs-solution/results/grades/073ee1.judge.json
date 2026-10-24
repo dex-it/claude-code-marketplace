@@ -1,0 +1,121 @@
+{
+  "id": "073ee1",
+  "case": "CFG",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.09510740000000001,
+    "durationMs": 21228,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 5404,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 2572,
+      "output_tokens_details": {
+        "thinking_tokens": 1087
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 5404,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2572,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 5404,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 5404
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "CFG-K9": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Находки о том, что MaxInFlight в Staging (20) выше, чем в Production (5), в выходе нет."
+    },
+    "CFG-K8": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Находки о повторе MaxRetries 5 в Staging и Production при том же дефолте нет."
+    },
+    "CFG-h-required": {
+      "verdict": "DISPUTED",
+      "quote": "объявлены как non-nullable `string` без инициализатора/ `required`. При баге из п. 1 это приводит к `NullReferenceException`/ `ArgumentNullException` в рантайме вместо понятной ошибки на старте",
+      "why": "Отсутствие required подано как часть дефекта, что неявно предлагает его как защиту вместо валидации опций; но прямого утверждения или предложения добавить required нет."
+    },
+    "CFG-K1": {
+      "verdict": "FOUND",
+      "quote": "Пароль БД `Kx7!pQ2vR9wz` и пароль SMTP-релея `rl_live_9f3a1c77e2b04d6d` закоммичены в открытом виде",
+      "why": "Пароли БД и SMTP в appsettings.Production.json названы проблемой."
+    },
+    "CFG-K2": {
+      "verdict": "FOUND",
+      "quote": "`perMinute` всегда равен 0 → `60_000 / perMinute` кидает `DivideByZeroException`",
+      "why": "Несовпадение ключа MessagesPerMinute/PerMinute и деление на ноль названы явно."
+    },
+    "CFG-K3": {
+      "verdict": "FOUND",
+      "quote": "Нет `services.AddSingleton<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>()` / `.ValidateOnStart()`",
+      "why": "Указано, что валидатор не зарегистрирован и ValidateOnStart отсутствует."
+    },
+    "CFG-K4": {
+      "verdict": "FOUND",
+      "quote": "кэшируется на весь жизненный цикл singleton `BackgroundService`",
+      "why": "IOptions в singleton-воркере противопоставлен требованию менять конфиг на лету."
+    },
+    "CFG-K5": {
+      "verdict": "FOUND",
+      "quote": "`if (o.MinBatchSize < o.MaxBatchSize)` просто отключает адаптивный батчинг",
+      "why": "Тихое отключение adaptive batching при 200/100 названо; прод-конфиг признан некорректным, хотя влияние преуменьшено."
+    },
+    "CFG-K6": {
+      "verdict": "FOUND",
+      "quote": "`FromSeconds(500)` = ~8м20с вместо 0.5с",
+      "why": "Пауза в 500 секунд вместо 0.5 с названа прямо."
+    },
+    "CFG-K7": {
+      "verdict": "FOUND",
+      "quote": "`Host`, `FromAddress` объявлены как non-nullable `string` без инициализатора",
+      "why": "Non-nullable свойства без дефолта и без проверки названы проблемой."
+    },
+    "CFG-h-P1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находки против IOptions<SmtpOptions> в SmtpMailSender нет."
+    },
+    "CFG-h-P2": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находки против LockTimeout \"00:00:30\" как TimeSpan нет."
+    },
+    "CFG-O1": {
+      "verdict": "FOUND",
+      "quote": "сообщение помечается «отправленным» до фактической отправки",
+      "why": "Указано, что при установке SentAt до отправки неудачное письмо больше не повторяется."
+    },
+    "CFG-O2": {
+      "verdict": "FOUND",
+      "quote": "`GetSection(\"Mail\")`, но во всех `appsettings*.json` секция называется `Smtp`",
+      "why": "Несовпадение секции Mail/Smtp и пустые SmtpOptions названы явно."
+    },
+    "CFG-O3": {
+      "verdict": "FOUND",
+      "quote": "встроенный JSON-провайдер конфигурации .NET не делает shell-style подстановку `${VAR}`",
+      "why": "Указано, что в Staging плейсхолдер ${NOTIFY_DB_PASSWORD} не подставляется конфигурацией .NET."
+    }
+  },
+  "stderr": ""
+}

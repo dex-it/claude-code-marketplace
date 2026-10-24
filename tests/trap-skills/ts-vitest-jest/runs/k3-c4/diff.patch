@@ -1,0 +1,115 @@
+diff --git a/api/test/reservation.test.ts b/api/test/reservation.test.ts
+new file mode 100644
+index 0000000..6cf6085
+--- /dev/null
++++ b/api/test/reservation.test.ts
+@@ -0,0 +1,109 @@
++import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
++import { TemporaryInventoryError } from '../src/clients/inventory.js';
++import type { OrderItem } from '../src/domain/order.js';
++import { holdUntil, isHoldExpired, reserveWithRetry, ReservationFailedError } from '../src/services/reservation.js';
++
++const { reserve } = vi.hoisted(() => ({ reserve: vi.fn() }));
++
++vi.mock('../src/clients/inventory.js', async (importOriginal) => ({
++  ...(await importOriginal<typeof import('../src/clients/inventory.js')>()),
++  inventory: { reserve },
++}));
++vi.mock('../src/logger.js', () => ({ logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn() } }));
++
++const items: OrderItem[] = [{ productId: 'p1', title: 'Товар', quantity: 2, priceKopecks: 1000 }];
++
++describe('reserveWithRetry', () => {
++  beforeEach(() => {
++    vi.useFakeTimers();
++    reserve.mockReset();
++  });
++  afterEach(() => {
++    vi.useRealTimers();
++  });
++
++  it('резервирует с первой попытки', async () => {
++    reserve.mockResolvedValueOnce({ reservationId: 'r1' });
++
++    await expect(reserveWithRetry('o1', items)).resolves.toEqual({ reservationId: 'r1', attempts: 1 });
++    expect(reserve).toHaveBeenCalledTimes(1);
++    expect(reserve).toHaveBeenCalledWith('o1', items);
++  });
++
++  it('повторяет после временного сбоя и успешно резервирует', async () => {
++    reserve
++      .mockRejectedValueOnce(new TemporaryInventoryError('down'))
++      .mockRejectedValueOnce(new TemporaryInventoryError('down'))
++      .mockResolvedValueOnce({ reservationId: 'r2' });
++
++    const promise = reserveWithRetry('o1', items);
++    await vi.advanceTimersByTimeAsync(1000);
++    expect(reserve).toHaveBeenCalledTimes(2);
++    await vi.advanceTimersByTimeAsync(2000);
++
++    await expect(promise).resolves.toEqual({ reservationId: 'r2', attempts: 3 });
++    expect(reserve).toHaveBeenCalledTimes(3);
++  });
++
++  it('не повторяет раньше задержки', async () => {
++    reserve.mockRejectedValueOnce(new TemporaryInventoryError('down')).mockResolvedValueOnce({ reservationId: 'r3' });
++
++    const promise = reserveWithRetry('o1', items);
++    await vi.advanceTimersByTimeAsync(999);
++    expect(reserve).toHaveBeenCalledTimes(1);
++    await vi.advanceTimersByTimeAsync(1);
++    await expect(promise).resolves.toEqual({ reservationId: 'r3', attempts: 2 });
++  });
++
++  it('бросает ReservationFailedError, когда попытки исчерпаны', async () => {
++    reserve.mockRejectedValue(new TemporaryInventoryError('down'));
++
++    const promise = reserveWithRetry('o1', items);
++    const assertion = expect(promise).rejects.toMatchObject({
++      name: 'ReservationFailedError',
++      orderId: 'o1',
++      attempts: 3,
++    });
++    await vi.advanceTimersByTimeAsync(3000);
++
++    await assertion;
++    await expect(promise).rejects.toBeInstanceOf(ReservationFailedError);
++    expect(reserve).toHaveBeenCalledTimes(3);
++  });
++
++  it('не повторяет при невременной ошибке склада', async () => {
++    const error = new Error('inventory responded with 400');
++    reserve.mockRejectedValue(error);
++
++    await expect(reserveWithRetry('o1', items)).rejects.toBe(error);
++    expect(reserve).toHaveBeenCalledTimes(1);
++  });
++});
++
++describe('isHoldExpired', () => {
++  it('false до окончания удержания и ровно в момент окончания', () => {
++    expect(isHoldExpired(1000, 999)).toBe(false);
++    expect(isHoldExpired(1000, 1000)).toBe(false);
++  });
++
++  it('true после окончания удержания', () => {
++    expect(isHoldExpired(1000, 1001)).toBe(true);
++  });
++
++  it('по умолчанию использует текущее время', () => {
++    vi.useFakeTimers();
++    vi.setSystemTime(5000);
++    try {
++      expect(isHoldExpired(4999)).toBe(true);
++      expect(isHoldExpired(5000)).toBe(false);
++    } finally {
++      vi.useRealTimers();
++    }
++  });
++
++  it('согласуется с holdUntil (15 минут)', () => {
++    const until = holdUntil(0);
++    expect(until).toBe(15 * 60 * 1000);
++    expect(isHoldExpired(until, until + 1)).toBe(true);
++  });
++});

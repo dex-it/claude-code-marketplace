@@ -1,0 +1,87 @@
+{
+  "id": "a52089",
+  "case": "GN",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.074327,
+    "durationMs": 9571,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 6704,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1013,
+      "output_tokens_details": {
+        "thinking_tokens": 331
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6704,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1013,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 6704,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 6704
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GN-h-datetime": {
+      "verdict": "NO",
+      "quote": "`DateTime.UtcNow.Date` это полночь в UTC",
+      "why": "Выход говорит о бизнес-смысле границы суток по часовому поясу объекта; потерю Kind, падение при записи или сравнении с timestamptz он не утверждает и Kind/тип PlannedLocal не меняет."
+    },
+    "GN-h-card-split": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "GetCardAsync и AsSplitQuery в выходе не упоминаются."
+    },
+    "GN-h-inanalysis-tracking": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "AsNoTracking для GetInAnalysisForBatchAsync не предлагается, код не правился."
+    },
+    "GN-h-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Код GetRecentBySiteAsync процитирован, но SQL-инъекцией не назван."
+    },
+    "GN-h-retag-clear": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "RetagAsync и Tags.Clear() в выходе не упоминаются."
+    },
+    "GN-h-labcode-single": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "SingleOrDefaultAsync в FindByLabCodeAsync дефектом не назван; претензия к First/Single относится к CloseAsync."
+    },
+    "GN-percent-int": {
+      "verdict": "MISSED",
+      "quote": "`.All()` на коллекции не транслируется в SQL",
+      "why": "Находка по CompliancePercentAsync касается трансляции .All(); целочисленное деление и DivideByZeroException не названы."
+    },
+    "GN-page-offset": {
+      "verdict": "FOUND",
+      "quote": "Должно быть `(page - 1) * pageSize`, так как параметр документирован как \"Номер страницы, начиная с 1\"",
+      "why": "Дефект смещения страницы назван по существу."
+    }
+  },
+  "stderr": ""
+}

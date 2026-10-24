@@ -1,0 +1,10 @@
+[Read] <run>/discipline/SKILL-binary-inspection-1.1.0.md
+[Read] <run>/discipline/SKILL-core-dumps-1.1.0.md
+[Read] <run>/discipline/SKILL-managed-debug-1.2.0.md
+[Read] <run>/discipline/SKILL-native-debug-1.1.0.md
+[Read] <run>/discipline/SKILL-perf-profiling-1.1.0.md
+[Read] <run>/discipline/SKILL-syscall-tracing-1.1.0.md
+docker exec <ctr> sh -c 'ls -la /work /work/dumps /work/src; which dotnet-dump gdb lldb; ls ~/.dotnet/tools 2>/dev/null; dotnet --list-runtimes'
+cd <lab>; cat -n src/Program.cs src/OrdersWorker.csproj; ls logs app; docker exec <ctr> sh -c 'cd /tmp; /root/.dotnet/tools/dotnet-dump analyze /work/dumps/orders-worker.dmp -c "pe -lines" -c "clrthreads" -c "clrstack" -c "exit" 2>&1 | head -80'
+docker exec <ctr> sh -c 'cd /tmp; /root/.dotnet/tools/dotnet-dump analyze /work/dumps/orders-worker.dmp -c "setthread 5" -c "pe -lines" -c "clrstack" -c "dumpheap -type NativeSlab" -c "exit" 2>&1 | head -60'
+[Write] <lab>/REPORT.md

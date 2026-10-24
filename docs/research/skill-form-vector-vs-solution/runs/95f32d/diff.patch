@@ -1,0 +1,64 @@
+diff --git a/CustomerNotifier.cs b/CustomerNotifier.cs
+new file mode 100644
+index 0000000..eafdb57
+--- /dev/null
++++ b/CustomerNotifier.cs
+@@ -0,0 +1,44 @@
++using Microsoft.EntityFrameworkCore;
++
++namespace Shop;
++
++public class CustomerNotifier
++{
++    private const int BatchSize = 500;
++    private const string Subject = "Shop";
++
++    private readonly ShopDbContext _db;
++    private readonly IEmailSender _emailSender;
++
++    public CustomerNotifier(ShopDbContext db, IEmailSender emailSender)
++    {
++        _db = db;
++        _emailSender = emailSender;
++    }
++
++    // customerIds приходят из маркетинговой системы: могут быть дубликаты, неизвестные id и тысячи элементов.
++    public async Task NotifyCustomers(IEnumerable<Guid> customerIds, string text, CancellationToken ct = default)
++    {
++        ArgumentNullException.ThrowIfNull(customerIds);
++        ArgumentNullException.ThrowIfNull(text);
++
++        // Один клиент — одно письмо; источник итерируем ровно один раз.
++        var uniqueIds = customerIds.ToHashSet();
++        if (uniqueIds.Count == 0) return;
++
++        foreach (var batch in uniqueIds.Chunk(BatchSize))
++        {
++            // Один запрос на батч, только нужная колонка; неизвестные id просто не найдутся.
++            var emails = await _db.Customers
++                .Where(c => batch.Contains(c.Id))
++                .Select(c => c.Email)
++                .ToListAsync(ct);
++
++            foreach (var email in emails)
++            {
++                if (string.IsNullOrWhiteSpace(email)) continue;
++                await _emailSender.SendAsync(email, Subject, text, ct);
++            }
++        }
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..2ec27ee
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,8 @@
++Файлы:
++- `CustomerNotifier.cs` — создан
++- `_answer.md` — создан
++
++Решения:
++- Входной список из маркетинговой системы один раз материализуется в `HashSet<Guid>`. Это убирает дубликаты (каждый клиент получает одно письмо) и не даёт повторно перебирать ленивый `IEnumerable`.
++- Email читаются из БД одним запросом `WHERE Id IN (...)` на пачку из 500 id через `Chunk(500)`. Запросов в цикле нет, выбирается только колонка `Email`. Неизвестные id и пустые адреса пропускаются.
++- Метод асинхронный (`Task NotifyCustomers(..., CancellationToken ct = default)`), потому что `IEmailSender.SendAsync` асинхронный. Тема письма — константа, так как в задаче она не задана. Сборку и тесты не запускал.

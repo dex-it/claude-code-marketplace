@@ -1,0 +1,77 @@
+diff --git a/OrderQueries.cs b/OrderQueries.cs
+new file mode 100644
+index 0000000..d2bbcf6
+--- /dev/null
++++ b/OrderQueries.cs
+@@ -0,0 +1,56 @@
++namespace Shop.Data;
++
++public class OrderQueries
++{
++    private readonly ShopDbContext _db;
++
++    public OrderQueries(ShopDbContext db) => _db = db;
++
++    // (а) карточка одного заказа по Id со всеми позициями и платежами
++    public async Task<Order?> GetOrderWithDetailsAsync(Guid orderId)
++    {
++        return await _db.Orders
++            .AsNoTracking()
++            .Where(o => o.Id == orderId)
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            .AsSplitQuery()
++            .FirstOrDefaultAsync();
++    }
++
++    // (б) выгрузка всех заказов клиента с позициями и платежами
++    public async Task<List<Order>> GetCustomerOrdersAsync(Guid customerId)
++    {
++        return await _db.Orders
++            .AsNoTracking()
++            .Where(o => o.CustomerId == customerId)
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            .AsSplitQuery()
++            .ToListAsync();
++    }
++
++    // (в) продукт по SKU на складе (warehouse может быть null)
++    public async Task<Product?> GetProductBySkuAsync(string sku, string? warehouse)
++    {
++        var query = _db.Products.AsNoTracking().Where(p => p.Sku == sku);
++
++        if (warehouse != null)
++        {
++            query = query.Where(p => p.Warehouse == warehouse);
++        }
++
++        return await query.FirstOrDefaultAsync();
++    }
++
++    // (г) дата отгрузки последнего отгруженного заказа клиента (DateTime, не nullable)
++    public async Task<DateTime> GetLastShippedDateAsync(Guid customerId)
++    {
++        return await _db.Orders
++            .AsNoTracking()
++            .Where(o => o.CustomerId == customerId && o.ShippedAt.HasValue)
++            .OrderByDescending(o => o.ShippedAt)
++            .Select(o => o.ShippedAt.Value)
++            .FirstOrDefaultAsync();
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..467763a
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,9 @@
++# Результаты
++
++## Созданные/изменённые файлы
++- `OrderQueries.cs` (создан)
++
++## Решения
++- **Методы (а) и (б)**: использованы `Include()` для загрузки коллекций Items и Payments, `AsSplitQuery()` для исключения декартова произведения при двух коллекциях, `AsNoTracking()` для выборки без отслеживания (чтение).
++- **Метод (в)**: условный фильтр по warehouse — если параметр null, загружается продукт с любым складом; если указан, фильтруется по точному совпадению.
++- **Метод (г)**: возвращает DateTime (не nullable) через `Select(o => o.ShippedAt.Value)` после фильтрации отгруженных заказов; если отгруженных нет — возвращается `DateTime.MinValue`.

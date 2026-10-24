@@ -1,0 +1,157 @@
+diff --git a/LoanService.cs b/LoanService.cs
+index 81e9e1e..e10cc2d 100644
+--- a/LoanService.cs
++++ b/LoanService.cs
+@@ -1,15 +1,22 @@
+ using Microsoft.EntityFrameworkCore;
++using Microsoft.Extensions.Options;
+ 
+ namespace BookQuarter.Library;
+ 
++public record LoansByBranchRow(int BranchId, string BranchName, int Count);
++
+ public class LoanService
+ {
+     private const int LoanDays = 21;
+ 
+     private readonly LibraryDbContext _db;
+-    private readonly FineRules _rules = FineRules.Default;
++    private readonly FineRules _rules;
+ 
+-    public LoanService(LibraryDbContext db) => _db = db;
++    public LoanService(LibraryDbContext db, IOptions<FineRules> rulesOptions)
++    {
++        _db = db;
++        _rules = rulesOptions.Value;
++    }
+ 
+     public async Task<int> IssueAsync(string cardNumber, int bookId, int branchId)
+     {
+@@ -75,9 +82,64 @@ public class LoanService
+             l.BranchId == branchId && l.IssuedAt >= dayStart && l.IssuedAt < dayEnd);
+     }
+ 
++    public async Task<DebtorsReport> GetDebtorsAsync(int branchId)
++    {
++        var branch = await _db.Branches.FindAsync(branchId)
++            ?? throw new InvalidOperationException("Филиал не найден");
++
++        var today = LocalToday(branch);
++
++        var rows = await _db.Loans
++            .Where(l => l.BranchId == branchId && l.ReturnedAt == null)
++            .Include(l => l.Reader)
++            .Include(l => l.Book)
++            .AsNoTracking()
++            .ToListAsync();
++
++        var debtors = rows
++            .Select(l => new LoanRow
++            {
++                LoanId = l.Id,
++                CardNumber = l.Reader.CardNumber,
++                Reader = l.Reader.FullName,
++                Phone = l.Reader.Phone,
++                Book = l.Book.Title,
++                DueDate = l.DueDate,
++                DaysOverdue = Fines.DaysOverdue(l.DueDate, today),
++                Fine = Fines.Amount(l.DueDate, today, l.Reader.Category, _rules),
++            })
++            .Where(r => r.Fine > 0)
++            .OrderByDescending(r => r.Fine)
++            .ToList();
++
++        var totalFine = debtors.Sum(r => r.Fine);
++        return new DebtorsReport { Debtors = debtors, TotalFine = totalFine };
++    }
++
++    public async Task<List<LoansByBranchRow>> GetLoansByBranchAsync(DateTimeOffset from, DateTimeOffset to)
++    {
++        var fromUtc = from.ToUniversalTime();
++        var toUtc = to.ToUniversalTime();
++
++        var result = await _db.Loans
++            .Where(l => l.IssuedAt >= fromUtc && l.IssuedAt < toUtc)
++            .GroupBy(l => new { l.BranchId, l.Branch.Name })
++            .Select(g => new LoansByBranchRow(g.Key.BranchId, g.Key.Name, g.Count()))
++            .AsNoTracking()
++            .ToListAsync();
++
++        return result.OrderBy(r => r.BranchId).ToList();
++    }
++
+     private static DateOnly LocalToday(Branch branch)
+     {
+         var tz = TimeZoneInfo.FindSystemTimeZoneById(branch.TimeZoneId);
+         return DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, tz).DateTime);
+     }
+ }
++
++public class DebtorsReport
++{
++    public List<LoanRow> Debtors { get; set; } = new();
++    public decimal TotalFine { get; set; }
++}
+diff --git a/Program.cs b/Program.cs
+index 51a69f7..315aa42 100644
+--- a/Program.cs
++++ b/Program.cs
+@@ -5,6 +5,7 @@ var builder = WebApplication.CreateBuilder(args);
+ 
+ builder.Services.AddDbContext<LibraryDbContext>(o =>
+     o.UseNpgsql(builder.Configuration.GetConnectionString("Library")));
++builder.Services.Configure<FineRules>(builder.Configuration.GetSection("Fines"));
+ builder.Services.AddScoped<LoanService>();
+ 
+ var app = builder.Build();
+@@ -24,6 +25,13 @@ app.MapGet("/branches/{branchId:int}/readers/{card}/loans", async (int branchId,
+ app.MapGet("/branches/{branchId:int}/issued-today", async (int branchId, LoanService s) =>
+     Results.Ok(await s.CountIssuedTodayAsync(branchId)));
+ 
++app.MapGet("/branches/{id:int}/debtors", async (int id, LoanService s) =>
++    Results.Ok(await s.GetDebtorsAsync(id)));
++
++app.MapPost("/reports/loans-by-branch", async (PeriodRequest req, LoanService s) =>
++    Results.Ok(await s.GetLoansByBranchAsync(req.From, req.To)));
++
+ app.Run();
+ 
+ public record IssueRequest(string CardNumber, int BookId, int BranchId);
++public record PeriodRequest(DateTimeOffset From, DateTimeOffset To);
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..744f9c7
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,15 @@
++# Решение задач по сервису выдачи книг
++
++## Созданные/изменённые файлы:
++
++1. **appsettings.json** - создан новый файл с конфигурацией штрафов (PerDay, GraceDays, Max)
++2. **Program.cs** - добавлена регистрация FineRules в DI контейнер из конфигурации; добавлены endpoints GET /branches/{id}/debtors и POST /reports/loans-by-branch
++3. **LoanService.cs** - внедрена зависимость IOptions<FineRules> через конструктор; добавлены методы GetDebtorsAsync (список должников с активными просроченными выдачами, отсортированный по штрафам и с общей суммой) и GetLoansByBranchAsync (число выдач по филиалам за период в UTC); добавлены классы DebtorsReport и LoansByBranchRow для результатов
++
++## Решения:
++
++**Конфигурация штрафов:** FineRules теперь получается из appsettings.json через DI, позволяя менять ставки без переборки кода.
++
++**Список должников:** GetDebtorsAsync выбирает только активные выдачи с положительным штрафом (используя Include для читателя и книги, AsNoTracking для оптимизации), материализует, применяет локальный расчет штрафа (необходимо для использования Fines.DaysOverdue/Amount с текущей датой в часовом поясе филиала) и сортирует по убыванию штрафа.
++
++**Отчет о выдачах:** GetLoansByBranchAsync преобразует DateTimeOffset из пользовательского часового пояса в UTC, фильтрует в SQL по IssuedAt, выполняет GROUP BY в БД и возвращает по филиалам; Period в POST запросе принимается как {"from": "...", "to": "..."} с ISO 8601 и часовым поясом.
+diff --git a/appsettings.json b/appsettings.json
+new file mode 100644
+index 0000000..c472175
+--- /dev/null
++++ b/appsettings.json
+@@ -0,0 +1,10 @@
++{
++  "ConnectionStrings": {
++    "Library": "Host=localhost;Database=library;Username=postgres;Password=postgres"
++  },
++  "Fines": {
++    "PerDay": 10,
++    "GraceDays": 3,
++    "Max": 500
++  }
++}

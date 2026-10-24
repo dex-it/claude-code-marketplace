@@ -1,0 +1,70 @@
+diff --git a/OrderQueries.cs b/OrderQueries.cs
+new file mode 100644
+index 0000000..c7562f4
+--- /dev/null
++++ b/OrderQueries.cs
+@@ -0,0 +1,46 @@
++namespace Shop.Data;
++
++public class OrderQueries
++{
++    private readonly ShopDbContext _db;
++    public OrderQueries(ShopDbContext db) => _db = db;
++
++    // (а) Карточка одного заказа по Id со всеми позициями и платежами
++    public Task<Order?> GetOrderAsync(Guid orderId) =>
++        _db.Orders
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            .FirstOrDefaultAsync(o => o.Id == orderId);
++
++    // (б) Выгрузка всех заказов клиента с позициями и платежами
++    public Task<List<Order>> GetCustomerOrdersAsync(Guid customerId) =>
++        _db.Orders
++            .Where(o => o.CustomerId == customerId)
++            .Include(o => o.Items)
++            .Include(o => o.Payments)
++            .ToListAsync();
++
++    // (в) Продукт по SKU на складе
++    public async Task<Product?> GetProductBySku(string sku, string? warehouse)
++    {
++        var query = _db.Products.Where(p => p.Sku == sku);
++
++        if (!string.IsNullOrEmpty(warehouse))
++        {
++            return await query.Where(p => p.Warehouse == warehouse).FirstOrDefaultAsync();
++        }
++        else
++        {
++            var results = await query.ToListAsync();
++            return results.Count == 1 ? results[0] : null;
++        }
++    }
++
++    // (г) Дата отгрузки последнего отгруженного заказа клиента
++    public Task<DateTime> GetLastShippedAtAsync(Guid customerId) =>
++        _db.Orders
++            .Where(o => o.CustomerId == customerId && o.ShippedAt != null)
++            .OrderByDescending(o => o.ShippedAt)
++            .Select(o => o.ShippedAt!)
++            .FirstAsync();
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..33e507d
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,12 @@
++# Решение: OrderQueries
++
++## Созданные/изменённые файлы
++- `OrderQueries.cs` (создан)
++
++## Решения
++
++**GetOrderAsync** и **GetCustomerOrdersAsync**: используют `Include()` для загрузки связанных Items и Payments одним запросом, что более эффективно для больших объёмов данных чем N+1 queries.
++
++**GetProductBySku**: если warehouse указан — точный поиск по (sku, warehouse); если null — возвращает товар только если по SKU найден ровно один результат, иначе null (для обработки неоднозначности на уровне приложения).
++
++**GetLastShippedAtAsync**: использует FirstAsync() с фильтром ShippedAt != null и сортировкой DESC, выбросит исключение если у клиента нет отгруженных заказов (что правильно, так как возвращаемое значение не nullable).

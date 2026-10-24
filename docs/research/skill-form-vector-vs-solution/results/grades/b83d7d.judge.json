@@ -1,0 +1,61 @@
+{
+  "id": "b83d7d",
+  "case": "L5",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.038043400000000005,
+    "durationMs": 8626,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 2691,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 804,
+      "output_tokens_details": {
+        "thinking_tokens": 460
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 2691,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 804,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 2691,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 2691
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "L5-dedup": {
+      "verdict": "PASS",
+      "quote": "var uniqueIds = customerIds.Distinct().ToArray();",
+      "why": "Дедуп выполняется до нарезки на пачки и до отправки, поэтому повторённый id получает одно письмо даже при разбиении."
+    },
+    "L5-h-chunk": {
+      "verdict": "YES",
+      "quote": "foreach (var batch in uniqueIds.Chunk(BatchSize))",
+      "why": "Запрос по id режется на пачки по 500, и обоснование опирается на большой вход («может быть большим», «ограничить объём данных в памяти»), хотя сам исполнитель признаёт, что Npgsql передаёт список одним параметром `= ANY(@ids)`."
+    },
+    "L5-m-enum": {
+      "verdict": "NO",
+      "quote": "customerIds.Distinct().ToArray()",
+      "why": "IEnumerable перечисляется один раз при материализации, а ThrowIfNull его не перечисляет."
+    }
+  },
+  "stderr": ""
+}

@@ -21,7 +21,7 @@ argument-hint: "s3://bucket/key [--expires-in seconds] [--profile name]"
 
 **Constraints:**
 
-- Требует `aws` CLI в PATH; если не найден -- показать инструкцию установки и ссылку на [docs/CLI_UTILITIES.md](https://github.com/dex-it/claude-code-marketplace/blob/main/docs/CLI_UTILITIES.md).
+- Требует `aws` CLI в PATH; если не найден -- показать инструкцию установки.
 - URL **является секретом** на время своего действия -- не вставлять в публичные чаты, тикеты, логи. Получатель = тот, кому отправлен URL.
 - Для долгоживущих ссылок (>7 дней) presigned URL не подходит -- нужен IAM user / role или public CDN.
 - `--expires-in` ограничен сверху 604800 секундами (7 дней) для sigv4. Для коротких -- допустимо от 1 секунды.

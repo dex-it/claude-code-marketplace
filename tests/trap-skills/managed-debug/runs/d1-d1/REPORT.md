@@ -1,0 +1,41 @@
+# REPORT: orders-worker перестал обрабатывать заказы
+
+## Симптом
+- Процесс `dotnet app/OrdersWorker.dll hang` (PID 11) жив, но `processed` застрял на 40, а `inflight` растёт линейно (~+48 за 2 с), RSS почти не меняется.
+- CPU 0%.
+
+## Причина
+Голодание пула потоков (thread pool starvation, sync-over-async). Максимум потоков пула задан `ORDERS_MAX_WORKERS=8` (`/work/orders-worker.env`), он применяется через `ThreadPool.SetMaxThreads(max, max)` (`Program.cs:37-39`). Все 8 рабочих потоков заняты обработчиками заказов (`Program.cs:46-52`), которые блокируются в `Task.Wait` внутри `prices.GetPrice(...)` (`Program.cs:48`). Продолжения, которые должны их разбудить, стоят в очереди пула, а свободных потоков нет и новых пул создать не может (потолок 8). Это взаимная блокировка: заказы не завершаются, `inflight` растёт.
+
+## Улики
+1. Лог:
+   `docker exec diag46-d1-d1 tail /work/logs/worker.log`
+   ```
+   2s processed=40 inflight=103 ...
+   10s processed=40 inflight=294 ...
+   18s processed=40 inflight=485 rss=30MB
+   ```
+2. Конфигурация:
+   `docker exec diag46-d1-d1 cat /work/orders-worker.env` → `ORDERS_MAX_WORKERS=8`
+3. Потоки процесса (`/proc/11/task/*`): все 8 `.NET TP Worker` в `futex_wait`, CPU не расходуют.
+4. Дамп живого процесса (`dotnet-dump collect -p 11`, затем `dotnet-dump analyze -c threadpool -c "clrstack -all"`):
+   ```
+   Workers Total: 8  Workers Running: 8  Workers Idle: 0
+   Worker Min Limit: 4  Worker Max Limit: 8
+   ```
+   Стек каждого из 8 потоков пула одинаков:
+   ```
+   System.Threading.Monitor.ObjWait
+   System.Threading.Tasks.Task.SpinThenBlockingWait
+   System.Threading.Tasks.Task.InternalWaitCore
+   Modes+<>c__DisplayClass3_1.<Hang>b__0()
+   System.Threading.Tasks.Task`1[[System.Decimal]].InnerInvoke()
+   ```
+   Главный поток в `Modes.Hang()` на `Thread.Sleep` (`Program.cs:53`) продолжает ставить задачи в очередь.
+
+## Что предлагаю
+- Срочно: перезапустить сервис. Заказы в `inflight` потеряются, если их нигде не сохраняют, поэтому сначала уточнить у владельцев, есть ли повторная доставка.
+- Исправление в коде: сделать цепочку `GetPrice` асинхронной (`await` вместо `.Wait()`/`.Result`) и не блокировать потоки пула.
+- Конфигурация: поднять `ORDERS_MAX_WORKERS` можно только как временную меру. Это лишь отодвигает порог, потому что входной поток (~25 заказов/с) всё равно быстро исчерпает любой потолок.
+- Мониторинг: алерт на рост `inflight` при неизменном `processed`.
+- Код и конфигурацию я не менял.

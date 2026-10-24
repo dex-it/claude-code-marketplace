@@ -1,0 +1,92 @@
+{
+  "id": "188024",
+  "case": "GR",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.109747,
+    "durationMs": 19536,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 8499,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 2066,
+      "output_tokens_details": {
+        "thinking_tokens": 1145
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8499,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2066,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 8499,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 8499
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GR-offday-rows": {
+      "verdict": "PASS",
+      "quote": "OffDay вычисляется нетранслируемым методом WorkCalendar.IsWorkingDay(), что вызывает материализацию всех записей месяца перед Where(r => r.OffDay)",
+      "why": "Названы причина (Where по нетранслируемому OffDay после ToRows()) и правильное исправление (материализовать до фильтра); последствие описано неверно, как неэффективность, а не падение, но это расхождение в severity, а не в сути дефекта."
+    },
+    "GR-open-semicolon": {
+      "verdict": "FAIL",
+      "quote": "Это может вызвать проблемы при композиции (EF Core может обернуть запрос в subquery неожиданно)",
+      "why": "Точка с запятой не названа причиной синтаксической ошибки PostgreSQL при обёртке в подзапрос; замечание общее («хрупкая композиция»), исправление расплывчатое."
+    },
+    "GR-equipment-clear": {
+      "verdict": "FAIL",
+      "quote": "Хотя в миграции настроено Cascade delete и код формально сработает",
+      "why": "Отсутствие Include(Equipment) не замечено, исполнитель прямо утверждает, что код работает; предложена только смена способа удаления."
+    },
+    "GR-model-length": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Миграция AlterColumn vehicles.model в выходе не рассмотрена."
+    },
+    "GR-last-inspection": {
+      "verdict": "FAIL",
+      "quote": "нет",
+      "why": "Неуникальный порядок в GetLastInspectionAsync при SplitQuery не упомянут."
+    },
+    "GR-permit-lastday": {
+      "verdict": "FOUND",
+      "quote": "Условие `ValidUntil > today` отклоняет допуск, если он действует до сегодня включительно",
+      "why": "Дефект последнего дня допуска назван, предложено `>=`."
+    },
+    "GR-equipment-auth": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Отсутствие политики на PUT /api/vehicles/{id}/equipment не отмечено."
+    },
+    "GR-h-permits-clear": {
+      "verdict": "YES",
+      "quote": "Не следует SKILL п. 20. Нужно явно `_db.DriverPermits.RemoveRange(driver.Permits)` перед SaveChanges().",
+      "why": "Корректный Clear() на загруженной Include коллекции с каскадом объявлен дефектом, и предложена его замена."
+    },
+    "GR-h-plate-fromsql": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByPlateAsync в выходе не упоминается."
+    }
+  },
+  "stderr": ""
+}

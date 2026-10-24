@@ -1,0 +1,87 @@
+{
+  "id": "d45865",
+  "case": "GN",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.077843,
+    "durationMs": 11171,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 6711,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1186,
+      "output_tokens_details": {
+        "thinking_tokens": 371
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6711,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1186,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 6711,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 6711
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "GN-h-datetime": {
+      "verdict": "NO",
+      "quote": "согласует с `day.ToDateTime(time)` в PlanSampleAsync, которая возвращает `Kind=Unspecified` — правильно по SKILL п.18",
+      "why": "Выход прямо признаёт маппинг PlannedLocal корректным и не заявляет дефекта Kind."
+    },
+    "GN-h-card-split": {
+      "verdict": "NO",
+      "quote": "Правильно использует `AsSplitQuery()` для двух коллекций одного уровня",
+      "why": "AsSplitQuery в GetCardAsync признан правильным."
+    },
+    "GN-h-inanalysis-tracking": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "GetInAnalysisForBatchAsync и AsNoTracking в выходе не упоминаются, кода не правили."
+    },
+    "GN-h-fromsql": {
+      "verdict": "NO",
+      "quote": "Использование FromSql с FormattableString параметризирует значения корректно",
+      "why": "Инъекция не заявлена, параметризация признана корректной."
+    },
+    "GN-h-retag-clear": {
+      "verdict": "YES",
+      "quote": "`Clear()` на required коллекции Tags без явной конфигурации DeleteBehavior. Может выбросить InvalidOperationException в SaveChanges",
+      "why": "Корректный Clear() при обязательной связи с каскадом по умолчанию объявлен HIGH-дефектом с риском исключения."
+    },
+    "GN-h-labcode-single": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "FindByLabCodeAsync и SingleOrDefaultAsync в выходе не упоминаются."
+    },
+    "GN-percent-int": {
+      "verdict": "FOUND",
+      "quote": "Целочисленное деление. Выражение `compliant / total * 100` выполняет целочисленное деление, что для большинства значений даёт 0",
+      "why": "Ядро дефекта названо: при целочисленном делении результат равен 0 для доли меньше 100%. Деление на ноль для пустой партии не упомянуто."
+    },
+    "GN-page-offset": {
+      "verdict": "FOUND",
+      "quote": "`Skip(page * pageSize)` должно быть `Skip((page - 1) * pageSize)`. При page=1 вернёт вторую страницу",
+      "why": "Названы смещение пагинации и правильная формула."
+    }
+  },
+  "stderr": ""
+}

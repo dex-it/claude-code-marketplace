@@ -1,0 +1,86 @@
+{
+  "id": "bec50a",
+  "case": "MRA",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0751154,
+    "durationMs": 14202,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 5320,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1606,
+      "output_tokens_details": {
+        "thinking_tokens": 655
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 5320,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1606,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 5320,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 5320
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "MRA-A4": {
+      "verdict": "PASS",
+      "quote": "`await _db.Orders.CountAsync(o => o.CustomerId == customerId, ct) > 0` вместо `AnyAsync(...)`",
+      "why": "Находка #6 называет CountAsync() > 0 вместо AnyAsync в HasOrders и предлагает замену на AnyAsync."
+    },
+    "MRA-A1": {
+      "verdict": "FOUND",
+      "quote": "`_products.GetAllAsync(ct)`, который тянет **все** продукты ... и только потом фильтруется по `IsActive` через LINQ-to-Objects",
+      "why": "Находка #8 называет загрузку всей таблицы Products и фильтр IsActive в памяти."
+    },
+    "MRA-A2": {
+      "verdict": "FOUND",
+      "quote": "сопоставление с продажами (`items.Where(i => i.ProductId == p.Id)`) также делается в памяти для каждого продукта — O(n·m)",
+      "why": "Находка #8 прямо называет квадратичное сопоставление items по ProductId на каждый продукт."
+    },
+    "MRA-A3": {
+      "verdict": "FOUND",
+      "quote": "Без `AsNoTrackingWithIdentityResolution()` EF Core при no-tracking запросах **не** выполняет identity resolution",
+      "why": "Находка #1 описывает дубли клиентов из-за отсутствия identity resolution и Distinct по ссылке."
+    },
+    "MRA-A5": {
+      "verdict": "FOUND",
+      "quote": "четыре почти идентичные ветки запроса ... вместо одного запроса, собираемого через последовательные условные `.Where(...)`",
+      "why": "Находка #7 называет четыре раздельно материализуемые ветки и предлагает один композиционный запрос с одной материализацией. Слово «материализация» в находке не звучит, но дефект и исправление совпадают."
+    },
+    "MRA-A6": {
+      "verdict": "FOUND",
+      "quote": "для каждой строки CSV выполняется линейный поиск `products.FirstOrDefault(p => p.Id == id)`",
+      "why": "Находка #4 называет FirstOrDefault по List на каждую строку и предлагает словарь."
+    },
+    "MRA-X1": {
+      "verdict": "FOUND",
+      "quote": "Товары из отклонённых (`Rejected`) и ещё не принятых (`New`) заказов попадают в отчёт по продажам",
+      "why": "Находка #2 называет учёт выручки по неоплаченным и отклонённым заказам."
+    },
+    "MRA-X2": {
+      "verdict": "FOUND",
+      "quote": "`int.TryParse(parts[1], out var qty)` пропускает отрицательные значения как валидные",
+      "why": "Находка #3 называет запись отрицательного остатка без проверки."
+    }
+  },
+  "stderr": ""
+}

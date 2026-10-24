@@ -1,0 +1,512 @@
+diff --git a/src/Fulfil/Options/FulfilOptions.cs b/src/Fulfil/Options/FulfilOptions.cs
+index fb25fdf..6e2c8e8 100644
+--- a/src/Fulfil/Options/FulfilOptions.cs
++++ b/src/Fulfil/Options/FulfilOptions.cs
+@@ -8,4 +8,5 @@ public sealed class FulfilOptions
+     public string MongoConnectionString { get; set; } = "mongodb://localhost:27017";
+     public string MongoDatabase { get; set; } = "fulfil";
+     public string ElasticUri { get; set; } = "http://localhost:9200";
++    public int SearchReindexHourUtc { get; set; } = 1;
+ }
+diff --git a/src/Fulfil/Program.cs b/src/Fulfil/Program.cs
+index 0c9a3bd..1f9cc43 100644
+--- a/src/Fulfil/Program.cs
++++ b/src/Fulfil/Program.cs
+@@ -1,8 +1,11 @@
+ using Fulfil.Options;
++using Fulfil.Search;
+ 
+ var builder = WebApplication.CreateBuilder(args);
+ builder.Services.Configure<FulfilOptions>(builder.Configuration.GetSection("Fulfil"));
++builder.Services.AddProductSearch();
+ 
+ var app = builder.Build();
+ app.MapGet("/health", () => Results.Ok());
++app.MapProductSearch();
+ app.Run();
+diff --git a/src/Fulfil/Search/EsHttp.cs b/src/Fulfil/Search/EsHttp.cs
+new file mode 100644
+index 0000000..d7cbe9a
+--- /dev/null
++++ b/src/Fulfil/Search/EsHttp.cs
+@@ -0,0 +1,22 @@
++using System.Text.Json.Nodes;
++using Elastic.Clients.Elasticsearch;
++using Elastic.Transport;
++using EsMethod = Elastic.Transport.HttpMethod;
++
++namespace Fulfil.Search;
++
++// Тонкая обёртка над транспортом клиента ADR-0001: запросы собираются как JSON, ответы разбираются как JsonNode.
++public sealed class EsHttp(ElasticsearchClient client)
++{
++    public async Task<JsonNode> SendAsync(EsMethod method, string path, string? body, CancellationToken ct)
++    {
++        var response = await client.Transport.RequestAsync<StringResponse>(
++            method, path, body is null ? null : PostData.String(body), cancellationToken: ct);
++
++        if (!response.ApiCallDetails.HasSuccessfulStatusCode)
++            throw new InvalidOperationException(
++                $"Elasticsearch {method} {path}: HTTP {response.ApiCallDetails.HttpStatusCode}: {response.Body}");
++
++        return string.IsNullOrEmpty(response.Body) ? new JsonObject() : JsonNode.Parse(response.Body)!;
++    }
++}
+diff --git a/src/Fulfil/Search/ProductIndexHostedService.cs b/src/Fulfil/Search/ProductIndexHostedService.cs
+new file mode 100644
+index 0000000..cd9c870
+--- /dev/null
++++ b/src/Fulfil/Search/ProductIndexHostedService.cs
+@@ -0,0 +1,48 @@
++using Fulfil.Options;
++using Microsoft.Extensions.Options;
++using EsMethod = Elastic.Transport.HttpMethod;
++
++namespace Fulfil.Search;
++
++// Ночная пересборка в заданный час UTC; при первом запуске без алиаса строит индекс сразу.
++public sealed class ProductIndexHostedService(
++    ProductIndexer indexer, EsHttp es, IOptions<FulfilOptions> options, ILogger<ProductIndexHostedService> log)
++    : BackgroundService
++{
++    protected override async Task ExecuteAsync(CancellationToken ct)
++    {
++        try
++        {
++            if (!await AliasExistsAsync(ct)) await RunAsync(ct);
++
++            while (!ct.IsCancellationRequested)
++            {
++                var now = DateTime.UtcNow;
++                var next = now.Date.AddHours(options.Value.SearchReindexHourUtc);
++                if (next <= now) next = next.AddDays(1);
++                await Task.Delay(next - now, ct);
++                await RunAsync(ct);
++            }
++        }
++        catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
++    }
++
++    private async Task RunAsync(CancellationToken ct)
++    {
++        try { await indexer.RebuildAsync(ct); }
++        catch (Exception ex) when (ex is not OperationCanceledException)
++        {
++            log.LogError(ex, "Пересборка поискового индекса не удалась");
++        }
++    }
++
++    private async Task<bool> AliasExistsAsync(CancellationToken ct)
++    {
++        try
++        {
++            await es.SendAsync(EsMethod.GET, "_alias/" + ProductIndexSchema.Alias, null, ct);
++            return true;
++        }
++        catch (InvalidOperationException) { return false; }
++    }
++}
+diff --git a/src/Fulfil/Search/ProductIndexSchema.cs b/src/Fulfil/Search/ProductIndexSchema.cs
+new file mode 100644
+index 0000000..d9d71e0
+--- /dev/null
++++ b/src/Fulfil/Search/ProductIndexSchema.cs
+@@ -0,0 +1,44 @@
++namespace Fulfil.Search;
++
++public static class ProductIndexSchema
++{
++    // Алиас, по которому читает витрина; физические индексы - products-yyyyMMddHHmmss.
++    public const string Alias = "products";
++    public const string Prefix = "products-";
++
++    // Схема меняется только здесь: следующая пересборка создаст новый индекс и переключит алиас.
++    // Поля на русском и английском: основное поле - russian, подполе en - english.
++    // Загрузочные настройки (refresh -1) индексатор возвращает после загрузки.
++    public const string IndexBody = """
++    {
++      "settings": {
++        "number_of_shards": 1,
++        "number_of_replicas": 0,
++        "refresh_interval": "-1",
++        "analysis": {
++          "normalizer": { "lower": { "type": "custom", "filter": ["lowercase"] } }
++        }
++      },
++      "mappings": {
++        "dynamic": "strict",
++        "properties": {
++          "sku": { "type": "keyword" },
++          "name": {
++            "type": "text", "analyzer": "russian",
++            "fields": {
++              "en": { "type": "text", "analyzer": "english" },
++              "sort": { "type": "keyword", "normalizer": "lower", "ignore_above": 256 }
++            }
++          },
++          "description": {
++            "type": "text", "analyzer": "russian",
++            "fields": { "en": { "type": "text", "analyzer": "english" } }
++          },
++          "category": { "type": "keyword" },
++          "price": { "type": "scaled_float", "scaling_factor": 100 },
++          "stock": { "type": "integer" }
++        }
++      }
++    }
++    """;
++}
+diff --git a/src/Fulfil/Search/ProductIndexer.cs b/src/Fulfil/Search/ProductIndexer.cs
+new file mode 100644
+index 0000000..7584cc1
+--- /dev/null
++++ b/src/Fulfil/Search/ProductIndexer.cs
+@@ -0,0 +1,139 @@
++using System.Text;
++using System.Text.Json;
++using System.Text.Json.Nodes;
++using Fulfil.Domain;
++using Fulfil.Ports;
++using EsMethod = Elastic.Transport.HttpMethod;
++
++namespace Fulfil.Search;
++
++// Полная пересборка: новый индекс -> загрузка пакетами -> атомарное переключение алиаса -> удаление старых.
++// Витрина всё время читает старый индекс через алиас, поэтому пересборка её не останавливает.
++public sealed class ProductIndexer(EsHttp es, ICatalogSource catalog, ILogger<ProductIndexer> log)
++{
++    private const int BatchSize = 5000;
++    private const int MaxInFlight = 4;
++    private const int Retries = 3;
++
++    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
++    private readonly SemaphoreSlim _single = new(1, 1);
++
++    public async Task RebuildAsync(CancellationToken ct)
++    {
++        if (!await _single.WaitAsync(0, ct))
++        {
++            log.LogWarning("Пересборка индекса уже идёт, пропуск");
++            return;
++        }
++
++        var index = ProductIndexSchema.Prefix + DateTime.UtcNow.ToString("yyyyMMddHHmmss");
++        try
++        {
++            await es.SendAsync(EsMethod.PUT, index, ProductIndexSchema.IndexBody, ct);
++            var total = await LoadAsync(index, ct);
++
++            await es.SendAsync(EsMethod.PUT, $"{index}/_settings", """{"index":{"refresh_interval":"1s"}}""", ct);
++            await es.SendAsync(EsMethod.POST, $"{index}/_refresh", null, ct);
++
++            await SwitchAliasAsync(index, ct);
++            log.LogInformation("Индекс {Index} построен, товаров: {Total}", index, total);
++        }
++        catch
++        {
++            // Недостроенный индекс не должен остаться; алиас по-прежнему указывает на прежний.
++            try { await es.SendAsync(EsMethod.DELETE, index, null, CancellationToken.None); }
++            catch (Exception ex) { log.LogWarning(ex, "Не удалось удалить {Index}", index); }
++            throw;
++        }
++        finally
++        {
++            _single.Release();
++        }
++    }
++
++    private async Task<long> LoadAsync(string index, CancellationToken ct)
++    {
++        long total = 0;
++        var inFlight = new List<Task>();
++        var batch = new List<Product>(BatchSize);
++
++        async Task FlushAsync()
++        {
++            if (batch.Count == 0) return;
++            var body = BuildBulk(batch);
++            batch = new List<Product>(BatchSize);
++            inFlight.Add(SendBulkAsync(index, body, ct));
++            if (inFlight.Count >= MaxInFlight)
++            {
++                var done = await Task.WhenAny(inFlight);
++                inFlight.Remove(done);
++                await done; // пробросить ошибку
++            }
++        }
++
++        await foreach (var p in catalog.ReadAllAsync(ct))
++        {
++            batch.Add(p);
++            total++;
++            if (batch.Count >= BatchSize) await FlushAsync();
++        }
++        await FlushAsync();
++        await Task.WhenAll(inFlight);
++        return total;
++    }
++
++    private static string BuildBulk(List<Product> products)
++    {
++        var sb = new StringBuilder(products.Count * 400);
++        foreach (var p in products)
++        {
++            sb.Append("{\"index\":{\"_id\":").Append(JsonSerializer.Serialize(p.Sku)).Append("}}\n");
++            sb.Append(JsonSerializer.Serialize(p, Json)).Append('\n');
++        }
++        return sb.ToString();
++    }
++
++    private async Task SendBulkAsync(string index, string body, CancellationToken ct)
++    {
++        for (var attempt = 1; ; attempt++)
++        {
++            try
++            {
++                var result = await es.SendAsync(EsMethod.POST, $"{index}/_bulk", body, ct);
++                if (result["errors"]?.GetValue<bool>() == true)
++                    throw new InvalidOperationException("Bulk завершился с ошибками: " + FirstError(result));
++                return;
++            }
++            catch (Exception) when (attempt < Retries && !ct.IsCancellationRequested)
++            {
++                await Task.Delay(TimeSpan.FromSeconds(2 * attempt), ct);
++            }
++        }
++    }
++
++    private static string FirstError(JsonNode result) =>
++        result["items"]?.AsArray()
++            .Select(i => i?["index"]?["error"]?.ToJsonString())
++            .FirstOrDefault(e => e is not null) ?? "?";
++
++    private async Task SwitchAliasAsync(string index, CancellationToken ct)
++    {
++        List<string> old;
++        try
++        {
++            var current = await es.SendAsync(EsMethod.GET, "_alias/" + ProductIndexSchema.Alias, null, ct);
++            old = current.AsObject().Select(kv => kv.Key).Where(k => k != index).ToList();
++        }
++        catch (InvalidOperationException) // алиаса ещё нет (404)
++        {
++            old = [];
++        }
++
++        var actions = old.Select(o => $$"""{"remove":{"index":"{{o}}","alias":"{{ProductIndexSchema.Alias}}"}}""")
++            .Append($$"""{"add":{"index":"{{index}}","alias":"{{ProductIndexSchema.Alias}}"}}""");
++        await es.SendAsync(EsMethod.POST, "_aliases", $$"""{"actions":[{{string.Join(",", actions)}}]}""", ct);
++
++        foreach (var o in old)
++            await es.SendAsync(EsMethod.DELETE, o, null, ct);
++    }
++}
+diff --git a/src/Fulfil/Search/ProductSearch.cs b/src/Fulfil/Search/ProductSearch.cs
+new file mode 100644
+index 0000000..3670a79
+--- /dev/null
++++ b/src/Fulfil/Search/ProductSearch.cs
+@@ -0,0 +1,137 @@
++using System.Runtime.CompilerServices;
++using System.Text.Json.Nodes;
++using EsMethod = Elastic.Transport.HttpMethod;
++
++namespace Fulfil.Search;
++
++public sealed record SearchQuery(string? Q, string? Category, decimal? MinPrice, decimal? MaxPrice, string? Sort, int Page);
++
++public sealed record CategoryCount(string Category, long Count);
++
++public sealed record SearchResult(long Total, int Page, int PageSize, IReadOnlyList<JsonNode> Items, IReadOnlyList<CategoryCount> Categories);
++
++public sealed class ProductSearch(EsHttp es)
++{
++    public const int PageSize = 20;
++    private const int MaxWindow = 10_000; // index.max_result_window
++    private const int ExportLimit = 200_000;
++    private const int ExportPageSize = 2000;
++
++    public static bool IsValid(SearchQuery q, out string error)
++    {
++        error = "";
++        if (q.Page < 1 || q.Page * PageSize > MaxWindow) error = $"page: 1..{MaxWindow / PageSize}";
++        else if (q.Sort is not (null or "" or "relevance" or "price" or "price_desc" or "name" or "name_desc"))
++            error = "sort: relevance, price, price_desc, name, name_desc";
++        else if (q.MinPrice > q.MaxPrice) error = "minPrice больше maxPrice";
++        return error == "";
++    }
++
++    private static JsonObject TextQuery(string? q) =>
++        string.IsNullOrWhiteSpace(q)
++            ? new JsonObject { ["match_all"] = new JsonObject() }
++            : new JsonObject
++            {
++                ["multi_match"] = new JsonObject
++                {
++                    ["query"] = q,
++                    ["type"] = "best_fields",
++                    ["fields"] = new JsonArray("name^3", "name.en^3", "description", "description.en"),
++                },
++            };
++
++    private static JsonObject? PriceFilter(decimal? min, decimal? max)
++    {
++        if (min is null && max is null) return null;
++        var range = new JsonObject();
++        if (min is not null) range["gte"] = min;
++        if (max is not null) range["lte"] = max;
++        return new JsonObject { ["range"] = new JsonObject { ["price"] = range } };
++    }
++
++    public async Task<SearchResult> SearchAsync(SearchQuery q, CancellationToken ct)
++    {
++        var filter = new JsonArray();
++        if (PriceFilter(q.MinPrice, q.MaxPrice) is { } price) filter.Add(price);
++
++        var body = new JsonObject
++        {
++            ["from"] = (q.Page - 1) * PageSize,
++            ["size"] = PageSize,
++            ["track_total_hits"] = true,
++            ["query"] = new JsonObject
++            {
++                ["bool"] = new JsonObject { ["must"] = TextQuery(q.Q), ["filter"] = filter },
++            },
++            ["sort"] = SortClause(q.Sort),
++            // Категория - post_filter: список категорий считается без неё и показывает все варианты по запросу и цене.
++            ["aggs"] = new JsonObject
++            {
++                ["categories"] = new JsonObject { ["terms"] = new JsonObject { ["field"] = "category", ["size"] = 1000 } },
++            },
++        };
++        if (!string.IsNullOrEmpty(q.Category))
++            body["post_filter"] = new JsonObject { ["term"] = new JsonObject { ["category"] = q.Category } };
++
++        var r = await es.SendAsync(EsMethod.POST, $"{ProductIndexSchema.Alias}/_search", body.ToJsonString(), ct);
++
++        var items = r["hits"]!["hits"]!.AsArray().Select(h => h!["_source"]!.DeepClone()).ToList();
++        var cats = r["aggregations"]!["categories"]!["buckets"]!.AsArray()
++            .Select(b => new CategoryCount(b!["key"]!.GetValue<string>(), b["doc_count"]!.GetValue<long>()))
++            .ToList();
++        return new SearchResult(r["hits"]!["total"]!["value"]!.GetValue<long>(), q.Page, PageSize, items, cats);
++    }
++
++    private static JsonArray SortClause(string? sort)
++    {
++        JsonObject Tie() => new() { ["sku"] = "asc" };
++        return sort switch
++        {
++            "price" => new JsonArray(new JsonObject { ["price"] = "asc" }, Tie()),
++            "price_desc" => new JsonArray(new JsonObject { ["price"] = "desc" }, Tie()),
++            "name" => new JsonArray(new JsonObject { ["name.sort"] = "asc" }, Tie()),
++            "name_desc" => new JsonArray(new JsonObject { ["name.sort"] = "desc" }, Tie()),
++            _ => new JsonArray(new JsonObject { ["_score"] = "desc" }, Tie()),
++        };
++    }
++
++    // Поток всех найденных товаров (до 200 тысяч): PIT + search_after, в памяти держится одна страница.
++    public async IAsyncEnumerable<JsonNode> ExportAsync(string? q, [EnumeratorCancellation] CancellationToken ct)
++    {
++        var pit = (await es.SendAsync(EsMethod.POST, $"{ProductIndexSchema.Alias}/_pit?keep_alive=2m", null, ct))["id"]!.GetValue<string>();
++        try
++        {
++            JsonNode? after = null;
++            var sent = 0;
++            while (sent < ExportLimit)
++            {
++                var body = new JsonObject
++                {
++                    ["size"] = Math.Min(ExportPageSize, ExportLimit - sent),
++                    ["query"] = TextQuery(q),
++                    ["pit"] = new JsonObject { ["id"] = pit, ["keep_alive"] = "2m" },
++                    ["sort"] = new JsonArray(new JsonObject { ["_shard_doc"] = "asc" }),
++                    ["track_total_hits"] = false,
++                };
++                if (after is not null) body["search_after"] = after;
++
++                var r = await es.SendAsync(EsMethod.POST, "_search", body.ToJsonString(), ct);
++                var hits = r["hits"]!["hits"]!.AsArray();
++                if (hits.Count == 0) yield break;
++
++                foreach (var h in hits)
++                {
++                    yield return h!["_source"]!.DeepClone();
++                    sent++;
++                }
++                after = hits[^1]!["sort"]!.DeepClone();
++                if (r["pit_id"] is { } newPit) pit = newPit.GetValue<string>();
++            }
++        }
++        finally
++        {
++            try { await es.SendAsync(EsMethod.DELETE, "_pit", new JsonObject { ["id"] = pit }.ToJsonString(), CancellationToken.None); }
++            catch { /* PIT истечёт сам */ }
++        }
++    }
++}
+diff --git a/src/Fulfil/Search/SearchEndpoints.cs b/src/Fulfil/Search/SearchEndpoints.cs
+new file mode 100644
+index 0000000..f907ce1
+--- /dev/null
++++ b/src/Fulfil/Search/SearchEndpoints.cs
+@@ -0,0 +1,46 @@
++using System.Text;
++using Elastic.Clients.Elasticsearch;
++using Fulfil.Options;
++using Microsoft.Extensions.Options;
++
++namespace Fulfil.Search;
++
++public static class SearchEndpoints
++{
++    public static IServiceCollection AddProductSearch(this IServiceCollection services)
++    {
++        services.AddSingleton(sp =>
++            new ElasticsearchClient(new Uri(sp.GetRequiredService<IOptions<FulfilOptions>>().Value.ElasticUri)));
++        services.AddSingleton<EsHttp>();
++        services.AddSingleton<ProductIndexer>();
++        services.AddSingleton<ProductSearch>();
++        services.AddHostedService<ProductIndexHostedService>();
++        return services;
++    }
++
++    public static void MapProductSearch(this IEndpointRouteBuilder app)
++    {
++        app.MapGet("/search", async (string? q, string? category, decimal? minPrice, decimal? maxPrice,
++            string? sort, int? page, ProductSearch search, CancellationToken ct) =>
++        {
++            var query = new SearchQuery(q, category, minPrice, maxPrice, sort, page ?? 1);
++            if (!ProductSearch.IsValid(query, out var error)) return Results.BadRequest(new { error });
++            return Results.Ok(await search.SearchAsync(query, ct));
++        });
++
++        // NDJSON: по товару на строку, ответ уходит потоком.
++        app.MapGet("/search/export", async (string? q, ProductSearch search, HttpResponse response, CancellationToken ct) =>
++        {
++            response.ContentType = "application/x-ndjson";
++            await foreach (var item in search.ExportAsync(q, ct))
++                await response.Body.WriteAsync(Encoding.UTF8.GetBytes(item.ToJsonString() + "\n"), ct);
++        });
++
++        // Внеплановая пересборка (например, после выката новой схемы), выполняется в фоне.
++        app.MapPost("/search/reindex", (ProductIndexer indexer) =>
++        {
++            _ = Task.Run(() => indexer.RebuildAsync(CancellationToken.None));
++            return Results.Accepted();
++        });
++    }
++}
+diff --git a/src/Fulfil/appsettings.json b/src/Fulfil/appsettings.json
+index 56eb014..79e3b3f 100644
+--- a/src/Fulfil/appsettings.json
++++ b/src/Fulfil/appsettings.json
+@@ -5,7 +5,8 @@
+     "RedisConfiguration": "localhost:6379",
+     "MongoConnectionString": "mongodb://localhost:27017",
+     "MongoDatabase": "fulfil",
+-    "ElasticUri": "http://localhost:9200"
++    "ElasticUri": "http://localhost:9200",
++    "SearchReindexHourUtc": 1
+   },
+   "Logging": { "LogLevel": { "Default": "Information" } }
+ }

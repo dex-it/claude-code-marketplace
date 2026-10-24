@@ -1,0 +1,72 @@
+{
+  "id": "d71fa8",
+  "case": "G6",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.108603,
+    "durationMs": 21557,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 11301,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 888,
+      "output_tokens_details": {
+        "thinking_tokens": 333
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11301,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 888,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 11301,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 11301
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G6-sort-alias": {
+      "verdict": "PASS",
+      "quote": "var joinApartments = s.HouseId is not null || !string.IsNullOrWhiteSpace(s.District) || needsHouseData;",
+      "why": "JOIN apartments и houses добавляются ровно один раз по общим флагам, которые учитывают и фильтры HouseId/District, и sort=address; столбец сортировки берётся из NormalizeSort, направление выбирается тернарным ASC/DESC."
+    },
+    "G6-search-columns": {
+      "verdict": "PASS",
+      "quote": "r.contact_phone, r.closing_comment",
+      "why": "Новые замапленные свойства ContactPhone и ClosingComment добавлены в явный список SELECT в FromSqlRaw."
+    },
+    "G6-plan-orphans": {
+      "verdict": "PASS",
+      "quote": "_db.PlanItems.Remove(removed);",
+      "why": "Совпадающие по WorkCode работы обновляются на месте, отсутствующие в новом плане удаляются явно через _db.PlanItems.Remove, новые добавляются; Clear() и снятие с коллекции без Remove не используются."
+    },
+    "G6-h-move-items": {
+      "verdict": "NO",
+      "quote": "рассчитан на перенос работ между планами (MergePlansAsync)",
+      "why": "MergePlansAsync не переписан и дефектным не объявлен, настройка Never названа намеренной."
+    },
+    "G6-h-limit": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Подстановка LIMIT/OFFSET оставлена как есть и инъекцией не названа."
+    }
+  },
+  "stderr": ""
+}

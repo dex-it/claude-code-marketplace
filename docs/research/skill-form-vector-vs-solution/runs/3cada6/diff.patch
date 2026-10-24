@@ -1,0 +1,39 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..86dce45
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,33 @@
++# Ревью MR: Notify.Worker (outbox-воркер рассылки)
++
++## Критично
++
++1. **OutboxWorker.cs (конструктор, `ExecuteAsync`) / Program.cs:10** — используется `IOptions<OutboxOptions>` вместо `IOptionsMonitor<OutboxOptions>`. `IOptions<T>.Value` вычисляется один раз и кешируется на всё время жизни синглтона (`OutboxWorker` — `BackgroundService`, живёт всю жизнь процесса). Правка `MaxInFlight`/`MaxBatchSize` в appsettings без рестарта **не подхватится**, хотя это прямое требование MR ("должны меняться на лету... без рестарта"). Нужно `IOptionsMonitor<OutboxOptions>` и `.CurrentValue`.
++
++2. **Program.cs:11** — `Configure<SmtpOptions>(builder.Configuration.GetSection("Mail"))`: секция называется `"Mail"`, а во всех appsettings-файлах (`appsettings.json`, `.Staging`, `.Production`) секция называется `"Smtp"`. В результате `SmtpOptions` никогда не забиндится реальными значениями (Host/FromAddress останутся `null`, Port — `0`), и `SmtpMailSender.SendAsync` упадёт при первой попытке подключения.
++
++3. **ThrottleService.cs:`WaitAsync`** — читает `"Throttle:MessagesPerMinute"`, но во всех appsettings ключ называется `"Throttle:PerMinute"`. `GetValue<int>` на несуществующем ключе вернёт `0`, и `60_000 / perMinute` даст `DivideByZeroException` на **каждой** попытке отправки. В сочетании с п.4 это означает, что ни одно письмо не будет успешно доставлено, при этом все сообщения будут помечены как отправленные.
++
++4. **OutboxWorker.cs:`ProcessBatchAsync`** — `m.SentAt = now;` выставляется в цикле **до** реальной попытки отправки и никогда не откатывается в `catch` при ошибке. Если отправка провалилась (в том числе из-за бага п.3), сообщение всё равно навсегда считается отправленным (`SentAt` заполнен), а выборка следующего батча фильтрует именно по `SentAt == null`. Поле `Attempts`/`MaxRetries` фактически бесполезно — механизм повторных попыток не работает, уведомления теряются без следа и без ретраев.
++
++5. **Options/OutboxOptions.cs (`PollInterval`) + OutboxWorker.cs:33** — имя настройки без единицы измерения; код трактует значение как секунды (`TimeSpan.FromSeconds(o.PollInterval)`), при этом конфигурационное значение `500` и текст MR ("опрос раз в полсекунды") явно указывают на миллисекунды. В итоге воркер опрашивает outbox раз в ~8.3 минуты, а не раз в 0.5 секунды — ключевое требование MR не выполняется.
++
++6. **appsettings.Production.json:3,16** — в репозитории закоммичены реальные секреты в открытом виде: пароль БД (`Kx7!pQ2vR9wz`) и ключ SMTP-релея (`rl_live_9f3a1c77e2b04d6d`). Секреты не должны храниться в appsettings-файлах внутри репозитория (в Staging для пароля БД правильно используется плейсхолдер переменной окружения — в Production так не сделано).
++
++## Высокая
++
++7. **Program.cs / Options/OutboxOptionsValidator.cs** — валидатор реализован и покрыт тестами, но **не зарегистрирован** в DI: нет `services.AddSingleton<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>()` (или `AddOptions<OutboxOptions>().ValidateOnStart()`). Невалидная конфигурация (например, `MaxBatchSize <= 0`, отрицательный `MaxRetries`, нулевой `LockTimeout`) не будет отловлена при старте — код валидатора сейчас мёртвый.
++
++8. **Options/OutboxOptionsValidator.cs** — отсутствует проверка кросс-полевого инварианта `MinBatchSize <= MaxBatchSize` (и `PollInterval > 0`). Это не абстрактный риск: `appsettings.Production.json` реально задаёт `MinBatchSize: 200` при неизменном `MaxBatchSize: 100` (наследуется из базового файла) — `Min > Max`. Из-за этого в `OutboxWorker.ExecuteAsync` условие `if (o.MinBatchSize < o.MaxBatchSize)` в проде всегда `false`, и адаптивный батчинг тихо отключается, что могло остаться незамеченным именно из-за отсутствия валидации.
++
++9. **appsettings.Staging.json:3** — плейсхолдер `Password=${NOTIFY_DB_PASSWORD}` внутри строки подключения не раскрывается стандартным конфиг-пайплайном: в `Program.cs` не добавлено ничего, что делало бы такую интерполяцию (`${...}` внутри значения), а провайдер переменных окружения подставляет значения только по полному ключу конфигурации (`ConnectionStrings__Notify`), а не как токен внутри строки. Строка подключения к БД в Staging окажется буквально с `${NOTIFY_DB_PASSWORD}` и не будет работать.
++
++## Средняя
++
++10. **appsettings.Staging.json vs appsettings.Production.json (`Outbox:MaxInFlight`)** — в Staging `MaxInFlight = 20`, в Production `MaxInFlight = 5`. Staging параллелит отправку в 4 раза агрессивнее продакшена — нарушение принятого в команде правила "Staging агрессивнее Production" (стейджинг должен быть не агрессивнее прода).
++
++11. **Options/SmtpOptions.cs** — `Host` и `FromAddress` объявлены как non-nullable `string` без значения по умолчанию и без отдельного `IValidateOptions<SmtpOptions>`. В сочетании с багом п.2 ошибка проявится только в рантайме на первой отправке письма (глубоко внутри MailKit), а не на старте приложения.
++
++12. **tests/OutboxOptionsValidatorTests.cs** — файл тестов не привязан ни к одному `.csproj`/`.sln`: в MR присутствует только `Notify.Worker.csproj` (Worker SDK-проект, без пакета xUnit и без ссылки на тестовый раннер). Как есть, этот тест не компилируется и не выполняется в CI — реального покрытия валидатора нет, несмотря на видимость тестов в MR.
++
++13. **OutboxWorker.cs:`ProcessBatchAsync`** — выбор сообщений (`SELECT ... Where SentAt == null ...`) и их "захват" (`UPDATE LockedUntil/SentAt`) не атомарны и не защищены построчной блокировкой (`FOR UPDATE SKIP LOCKED`) или токеном конкурентности. При запуске нескольких реплик воркера возможна гонка: два инстанса выберут одно и то же сообщение до того, как первый сохранит `SentAt`, и письмо будет отправлено дважды.

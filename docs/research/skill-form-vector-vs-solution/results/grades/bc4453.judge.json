@@ -1,0 +1,67 @@
+{
+  "id": "bc4453",
+  "case": "G1",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.084967,
+    "durationMs": 8317,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 8644,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 769,
+      "output_tokens_details": {
+        "thinking_tokens": 322
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8644,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 769,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 8644,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 8644
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G1-debtors-fine": {
+      "verdict": "FAIL",
+      "quote": ".ToLoanRows(today, _rules)\n            .OrderByDescending(r => r.Fine)",
+      "why": "Сортировка по Fine/DaysOverdue применена к IQueryable после ToLoanRows до ToListAsync, поэтому EF не транслирует клиентский Fines.Amount и запрос падает; Sum выполняется в памяти, но это не спасает OrderBy."
+    },
+    "G1-period-offset": {
+      "verdict": "FAIL",
+      "quote": "период сравнивается напрямую по `DateTimeOffset`",
+      "why": "From/To со смещением +05:00 передаются в сравнение с IssuedAt (timestamptz) без ToUniversalTime/ToOffset(Zero), Npgsql такой параметр отвергает."
+    },
+    "G1-h-loanrows": {
+      "verdict": "NO",
+      "quote": "переиспользует существующую проекцию `ToLoanRows`/`LoanRow`",
+      "why": "ToLoanRows и GetActiveLoansAsync дефектом не названы и не изменены."
+    },
+    "G1-h-today-utc": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "CountIssuedTodayAsync не упоминается и не переписан."
+    }
+  },
+  "stderr": ""
+}

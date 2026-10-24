@@ -1,0 +1,67 @@
+diff --git a/.gitlab-ci.yml b/.gitlab-ci.yml
+new file mode 100644
+index 0000000..53efa2a
+--- /dev/null
++++ b/.gitlab-ci.yml
+@@ -0,0 +1,31 @@
++default:
++  image: python:3.12-slim
++  before_script:
++    - pip install --no-cache-dir uv
++    # только dev-группа: тяжёлые ML-зависимости для проверок не нужны
++    - uv sync --only-group dev
++    - export PATH="$PWD/.venv/bin:$PATH"
++
++stages:
++  - lint
++  - test
++
++ruff-check:
++  stage: lint
++  script:
++    - ruff check src tests
++
++ruff-format:
++  stage: lint
++  script:
++    - ruff format --check src tests
++
++mypy:
++  stage: lint
++  script:
++    - mypy
++
++pytest:
++  stage: test
++  script:
++    - pytest
+diff --git a/pyproject.toml b/pyproject.toml
+index f5a748c..e16f800 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -37,3 +37,25 @@ build-backend = "setuptools.build_meta"
+ 
+ [tool.setuptools.packages.find]
+ where = ["src"]
++
++[tool.ruff]
++line-length = 88
++target-version = "py312"
++src = ["src", "tests"]
++extend-exclude = ["data", "artifacts"]
++
++[tool.ruff.lint]
++select = ["E", "F", "W", "I", "B", "UP"]
++
++[tool.mypy]
++python_version = "3.12"
++files = ["src", "tests"]
++mypy_path = ["src"]
++explicit_package_bases = true
++strict = true
++warn_unused_configs = true
++
++[tool.pytest.ini_options]
++testpaths = ["tests"]
++pythonpath = ["src"]
++addopts = "-ra --strict-markers --strict-config"

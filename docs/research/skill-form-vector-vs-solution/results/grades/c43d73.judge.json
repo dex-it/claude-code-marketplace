@@ -1,0 +1,71 @@
+{
+  "id": "c43d73",
+  "case": "E1",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0422034,
+    "durationMs": 7293,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 3301,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 768,
+      "output_tokens_details": {
+        "thinking_tokens": 205
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3301,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 768,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 3301,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 3301
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "E1-filter": {
+      "verdict": "PASS",
+      "quote": ".Where(o => o.ShippedAt == null && o.CreatedAt.AddDays(3) < now)",
+      "why": "Условие IsOverdue записано инлайн в Where над IQueryable до ToListAsync, поэтому транслируется в SQL без вызова Order.IsOverdue и без фильтра в памяти."
+    },
+    "E1-tracking": {
+      "verdict": "PASS",
+      "quote": "public IQueryable<Order> Query() => _db.Orders.AsNoTracking();",
+      "why": "Все три метода строятся над Query() с AsNoTracking и проецируют в DTO или анонимный тип, так что отслеживаемые сущности не материализуются."
+    },
+    "E1-m-n1": {
+      "verdict": "NO",
+      "quote": ".Select(o => new ActiveOrderReportItem(o.Id, o.Customer.Name, o.Total, o.Items.Count))",
+      "why": "Customer.Name и Items.Count стоят внутри серверной проекции Select и транслируются в JOIN и подзапрос, ленивой загрузки после материализации нет."
+    },
+    "E1-m-agg": {
+      "verdict": "NO",
+      "quote": ".GroupBy(o => o.Category).Select(g => new { Category = g.Key, Count = g.Count() })",
+      "why": "Группировка и подсчёт выполняются на сервере, ToDictionaryAsync применяется уже к агрегированному результату."
+    },
+    "E1-m-getall": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "GetAllAsync в отчётах не используется, все методы работают через Query()."
+    }
+  },
+  "stderr": ""
+}

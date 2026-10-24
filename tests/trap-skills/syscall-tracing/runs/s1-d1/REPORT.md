@@ -1,0 +1,27 @@
+# REPORT
+
+## Симптом
+`/work/reportd/nightly.sh` печатает `Итого EUR: 125000.00` при `Итого USD: 125000.00` (курс 1.0). Ошибок и предупреждений нет, код возврата 0.
+
+## Причина
+`bin/aggregate` вызывает `/work/reportd/bin/fxfetch EUR`. `fxfetch` читает файл по шаблону `%s/conf/fx/%s.rates`, то есть `/work/reportd/conf/fx/EUR.rates`. Фактический файл называется `conf/fx/EUR.rate` (без «s») и содержит `0.9231`. Файла `EUR.rates` нет. `fxfetch` молча подставляет курс `1.0`, пишет его в stdout и завершается с кодом 0.
+Ключ конфигурации: имя файла курса в `conf/fx/` (`EUR.rate` вместо `EUR.rates`). Код и конфигурацию сервиса я не менял.
+
+## Улики
+- `ls -la /work/reportd/conf/fx` показывает только `EUR.rate`; `cat -A conf/fx/EUR.rate` выводит `0.9231$`.
+- `strings -n 4 bin/aggregate | grep fxfetch` выводит `/work/reportd/bin/fxfetch EUR`.
+- `strings -n 4 bin/fxfetch | grep conf` выводит `%s/conf/fx/%s.rates`.
+- `strace -f -e trace=openat,execve,write bin/aggregate`:
+  ```
+  [pid 43] execve("/work/reportd/bin/fxfetch", ["/work/reportd/bin/fxfetch", "EUR"], ...) = 0
+  [pid 43] openat(AT_FDCWD, "/work/reportd/conf/fx/EUR.rates", O_RDONLY) = -1 ENOENT (No such file or directory)
+  [pid 43] write(1, "1.0\n", 4)
+  [pid 43] +++ exited with 0 +++
+  ```
+- `REPORTD_HOME=/work/reportd bin/fxfetch EUR` выводит `1.0`, `rc=0`.
+
+## Что предлагаю
+1. Исправление: переименовать или скопировать `conf/fx/EUR.rate` в `conf/fx/EUR.rates` (содержимое `0.9231` оставить). Я этого не делал, потому что конфигурацию править было нельзя.
+2. Пока не исправлено, считать EUR в отчёте недостоверным и пересчитать отчёты за прошедшие ночи: курс там тоже был 1.0.
+3. Долгосрочно: `fxfetch` должен завершаться с ошибкой и писать в stderr, если файл курса не найден. Молчаливый подстановочный курс 1.0 допустим не должен быть. Это замечание разработчикам бинарника. Исходников у нас нет.
+4. Добавить в `nightly.sh` или в мониторинг проверку наличия `conf/fx/*.rates` и проверку, что курс не равен 1.0.

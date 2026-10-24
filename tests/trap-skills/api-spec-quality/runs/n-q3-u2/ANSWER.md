@@ -1,0 +1,1 @@
+verdict: passed. Находок: blocker 0, major 0, minor 2.

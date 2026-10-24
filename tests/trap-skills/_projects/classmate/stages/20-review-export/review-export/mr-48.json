@@ -1,0 +1,38 @@
+{
+  "iid": 48,
+  "title": "CM-20: перенос урока",
+  "author": "petr",
+  "created_at": "2026-09-22T12:05:00+03:00",
+  "merged_at": "2026-09-24T10:00:00+03:00",
+  "commits": [
+    {
+      "title": "CM-20: перенос урока (!48)",
+      "authored_at": "2026-09-22T12:00:00+03:00"
+    },
+    {
+      "title": "CM-20: даты в UTC, шаг слотов по stepMin (!48)",
+      "authored_at": "2026-09-23T15:00:00+03:00"
+    }
+  ],
+  "threads": [
+    {
+      "id": "t1",
+      "author": "olga",
+      "created_at": "2026-09-23T10:00:00+03:00",
+      "file": "src/booking/reschedule.js",
+      "body": "Даты храним и передаём только в UTC ISO-строкой - как в `src/util/time.js:5`, `src/booking/slots.js:9` и `src/billing/refund.js:5`. Локальное время - только при выводе пользователю.",
+      "resolved": true,
+      "notes": []
+    },
+    {
+      "id": "t2",
+      "author": "olga",
+      "created_at": "2026-09-23T10:20:00+03:00",
+      "file": "src/booking/slots.js",
+      "body": "Все параметры функций должны использоваться: `stepMin` тут объявлен, а цикл шагает по `durationMin`.",
+      "resolved": true,
+      "notes": []
+    }
+  ],
+  "state": "merged"
+}

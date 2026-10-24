@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             id="cancellation" targetNamespace="https://classmate.example/bpmn">
+
+  <collaboration id="collab">
+    <participant id="p_student" name="Ученик" processRef="proc_student"/>
+    <participant id="p_platform" name="Платформа Classmate" processRef="proc_platform"/>
+    <participant id="p_payflow" name="PayFlow" processRef="proc_payflow"/>
+    <messageFlow id="mf_cancel" sourceRef="st_cancel" targetRef="start_cancel"/>
+    <messageFlow id="mf_refund" sourceRef="t_request_refund" targetRef="pf_start"/>
+  </collaboration>
+
+  <process id="proc_student" isExecutable="false">
+    <startEvent id="st_start" name="Ученик решил отменить урок"/>
+    <task id="st_cancel" name="Нажать «Отменить урок»"/>
+    <endEvent id="st_end" name="Запрос отправлен"/>
+    <sequenceFlow id="sf_s1" sourceRef="st_start" targetRef="st_cancel"/>
+    <sequenceFlow id="sf_s2" sourceRef="st_cancel" targetRef="st_end"/>
+  </process>
+
+  <process id="proc_platform" isExecutable="false">
+    <startEvent id="start_cancel" name="Запрос отмены получен">
+      <messageEventDefinition/>
+    </startEvent>
+    <parallelGateway id="g_fork_audit" name="Журнал и обработка"/>
+    <task id="t_audit" name="Записать запрос отмены в журнал аудита"/>
+    <endEvent id="end_audit" name="Запрос записан"/>
+    <task id="t_process" name="Обработать данные"/>
+    <task id="t_hours" name="Рассчитать часы до начала урока"/>
+    <exclusiveGateway id="g_too_late" name="До урока меньше 4 часов?"/>
+    <endEvent id="end_rejected" name="Отмена отклонена"/>
+    <parallelGateway id="g_amount" name="Сумма возврата"/>
+    <task id="t_full" name="Назначить полный возврат"/>
+    <task id="t_half" name="Назначить возврат 50%"/>
+    <parallelGateway id="g_amount_join"/>
+    <exclusiveGateway id="g_restore" name="Что восстановить?"/>
+    <task id="t_package" name="Вернуть урок в пакет"/>
+    <task id="t_promo" name="Восстановить промокод"/>
+    <exclusiveGateway id="g_restore_join"/>
+    <exclusiveGateway id="g_actions" name="Действия отмены"/>
+    <task id="t_free_slot" name="Освободить слот"/>
+    <task id="t_notify_tutor" name="Уведомить репетитора об отмене"/>
+    <sendTask id="t_request_refund" name="Запросить возврат у PayFlow"/>
+    <exclusiveGateway id="g_actions_join"/>
+    <exclusiveGateway id="g_answer" name="Ответ PayFlow?"/>
+    <intermediateCatchEvent id="ev_refund_ok" name="Возврат подтверждён">
+      <messageEventDefinition/>
+    </intermediateCatchEvent>
+    <intermediateCatchEvent id="ev_3days" name="Прошло 3 дня">
+      <timerEventDefinition>
+        <timeDuration xsi:type="tFormalExpression">P3D</timeDuration>
+      </timerEventDefinition>
+    </intermediateCatchEvent>
+    <sendTask id="t_receipt" name="Отправить ученику чек возврата"/>
+    <task id="t_support" name="Сделать действия"/>
+    <parallelGateway id="g_finish_join"/>
+    <endEvent id="end_done" name="Отмена обработана"/>
+
+    <sequenceFlow id="sf1" sourceRef="start_cancel" targetRef="g_fork_audit"/>
+    <sequenceFlow id="sf2" sourceRef="g_fork_audit" targetRef="t_audit"/>
+    <sequenceFlow id="sf3" sourceRef="t_audit" targetRef="end_audit"/>
+    <sequenceFlow id="sf4" sourceRef="g_fork_audit" targetRef="t_process"/>
+    <sequenceFlow id="sf5" sourceRef="t_process" targetRef="t_hours"/>
+    <sequenceFlow id="sf8" sourceRef="t_hours" targetRef="g_too_late"/>
+    <sequenceFlow id="sf6" name="да" sourceRef="g_too_late" targetRef="end_rejected">
+      <conditionExpression xsi:type="tFormalExpression">hoursToLesson &lt; 4</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="sf7" name="нет" sourceRef="g_too_late" targetRef="g_amount">
+      <conditionExpression xsi:type="tFormalExpression">hoursToLesson &gt;= 4</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="sf9" name="24 часа и больше" sourceRef="g_amount" targetRef="t_full">
+      <conditionExpression xsi:type="tFormalExpression">hoursToLesson &gt;= 24</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="sf10" name="от 4 до 24 часов" sourceRef="g_amount" targetRef="t_half">
+      <conditionExpression xsi:type="tFormalExpression">hoursToLesson &lt; 24</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="sf11" sourceRef="t_full" targetRef="g_amount_join"/>
+    <sequenceFlow id="sf12" sourceRef="t_half" targetRef="g_amount_join"/>
+    <sequenceFlow id="sf13" sourceRef="g_amount_join" targetRef="g_restore"/>
+    <sequenceFlow id="sf14" name="урок из пакета" sourceRef="g_restore" targetRef="t_package">
+      <conditionExpression xsi:type="tFormalExpression">fromPackage</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="sf15" name="был промокод" sourceRef="g_restore" targetRef="t_promo">
+      <conditionExpression xsi:type="tFormalExpression">hadPromo</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="sf16" name="ничего" sourceRef="g_restore" targetRef="g_restore_join"/>
+    <sequenceFlow id="sf17" sourceRef="t_promo" targetRef="g_restore_join"/>
+    <sequenceFlow id="sf18" sourceRef="g_restore_join" targetRef="g_actions"/>
+    <sequenceFlow id="sf19" sourceRef="g_actions" targetRef="t_free_slot"/>
+    <sequenceFlow id="sf20" sourceRef="g_actions" targetRef="t_notify_tutor"/>
+    <sequenceFlow id="sf21" sourceRef="g_actions" targetRef="t_request_refund"/>
+    <sequenceFlow id="sf22" sourceRef="t_free_slot" targetRef="g_actions_join"/>
+    <sequenceFlow id="sf23" sourceRef="t_notify_tutor" targetRef="g_actions_join"/>
+    <sequenceFlow id="sf24" sourceRef="t_request_refund" targetRef="g_actions_join"/>
+    <sequenceFlow id="sf25" sourceRef="g_actions_join" targetRef="g_answer"/>
+    <sequenceFlow id="sf26" sourceRef="g_answer" targetRef="ev_refund_ok"/>
+    <sequenceFlow id="sf27" sourceRef="g_answer" targetRef="ev_3days"/>
+    <sequenceFlow id="sf28" sourceRef="ev_refund_ok" targetRef="t_receipt"/>
+    <sequenceFlow id="sf29" sourceRef="ev_3days" targetRef="t_support"/>
+    <sequenceFlow id="sf30" sourceRef="t_receipt" targetRef="g_finish_join"/>
+    <sequenceFlow id="sf31" sourceRef="t_support" targetRef="g_finish_join"/>
+    <sequenceFlow id="sf32" sourceRef="g_finish_join" targetRef="end_done"/>
+  </process>
+
+  <process id="proc_payflow" isExecutable="false">
+    <startEvent id="pf_start" name="Запрос возврата получен">
+      <messageEventDefinition/>
+    </startEvent>
+    <task id="pf_refund" name="Провести возврат"/>
+    <endEvent id="pf_end" name="Возврат проведён"/>
+    <sequenceFlow id="pf_sf1" sourceRef="pf_start" targetRef="pf_refund"/>
+    <sequenceFlow id="pf_sf2" sourceRef="pf_refund" targetRef="pf_end"/>
+    <sequenceFlow id="pf_sf3" sourceRef="pf_refund" targetRef="ev_refund_ok"/>
+  </process>
+</definitions>

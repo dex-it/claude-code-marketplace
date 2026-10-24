@@ -1,0 +1,85 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..2fe5360
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,79 @@
++# Ревью MR !87: Результаты
++
++## Критические дефекты
++
++### 1. BatchService.CompliancePercentAsync (строка 105)
++**Нетранслируемое условие фильтра** – нарушение правила SKILL.md #10
++
++```csharp
++var compliant = await _db.Samples
++    .CountAsync(s => s.BatchId == batchId && s.Results.All(r => r.Value <= r.Limit));
++```
++
++**Проблема:** `.All()` на коллекции не транслируется в SQL. EF Core выбросит `InvalidOperationException: "could not be translated"`. Нужно переформулировать условие для выполнения в БД.
++
++**Severity:** CRITICAL
++
++**Решение:** Использовать проекцию или переформулировать через NOT EXISTS:
++```csharp
++var compliant = await _db.Samples
++    .Where(s => s.BatchId == batchId && !s.Results.Any(r => r.Value > r.Limit))
++    .CountAsync();
++```
++
++---
++
++## Ошибки высокого приоритета
++
++### 2. BatchService.ListAsync (строка 49)
++**Ошибка бизнес-логики в постраничном выводе**
++
++```csharp
++.Skip(page * pageSize)  // page начинается с 1
++```
++
++**Проблема:** При `page=1, pageSize=20`: пропустит 20 элементов, вернёт 2-ю страницу. Должно быть `(page - 1) * pageSize`, так как параметр документирован как "Номер страницы, начиная с 1".
++
++**Severity:** HIGH
++
++---
++
++### 3. BatchService.CloseAsync (строка 58)
++**Нарушение правила #12: неправильный оператор для уникального условия**
++
++```csharp
++var batch = await _db.Batches.FirstOrDefaultAsync(b => b.Id == batchId)
++    ?? throw new KeyNotFoundException();
++```
++
++**Проблема:** `FirstOrDefaultAsync` возвращает первую строку без гарантии. Условие `b.Id == batchId` уникально (PK), поэтому должен быть `SingleOrDefaultAsync`. Правило SKILL.md #12: "Single/SingleOrDefault — только на условии с гарантированной уникальностью (PK/уникальный индекс)".
++
++**Severity:** HIGH
++
++---
++
++### 4. SampleRepository.GetRecentBySiteAsync (строка 25–26)
++**Проблема с часовыми поясами**
++
++```csharp
++var since = DateTime.UtcNow.Date.AddDays(-days);
++// ...
++WHERE t.code = {siteCode} AND s.collected_at >= {since}
++```
++
++**Проблема:** 
++- `DateTime.UtcNow.Date` это полночь в UTC
++- Комментарий обещает "пробы за последние N дней", логично интерпретировать как "за последние N дней по местному времени объекта"
++- Site имеет `TimeZoneId`, но метод его не использует
++- Если объект в Moscow (UTC+3), полночь UTC это уже 03:00 Moscow, что может исключить пробы из вчерашнего дня в локальном времени
++- Колонка `collected_at` хранится в `timestamp без time zone`, что усугубляет проблему несоответствия часовых поясов
++
++**Severity:** HIGH
++
++**Решение:** Либо уточнить требование (за N дней в UTC?), либо использовать TimeZoneInfo от Site и конвертировать дату в локальный часовой пояс объекта перед фильтрацией.
++
++---
++
++## Итого
++- **CRITICAL:** 1 (CompliancePercentAsync)
++- **HIGH:** 3 (ListAsync, CloseAsync, GetRecentBySiteAsync)

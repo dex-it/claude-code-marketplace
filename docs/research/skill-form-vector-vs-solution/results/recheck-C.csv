@@ -1,0 +1,128 @@
+run_id,item_id,verdict,note
+7bb6cf,K1-key,pass,константы NotificationChannels
+9bab1f,K1-key,pass,константы NotificationChannels
+b872eb,K1-key,pass,константы NotificationChannels
+1edff1,L5-dedup,pass,HashSet seen.Add до Chunk
+1edff1,L5-h-chunk,yes,"Chunk(1000): «список может быть большим»"
+1edff1,L5-m-enum,no,один проход
+791f29,L5-dedup,pass,Distinct до Chunk
+791f29,L5-h-chunk,yes,"Chunk(500): «не раздувать список параметров»"
+791f29,L5-m-enum,no,Distinct().ToList()
+d6a65e,L5-dedup,pass,Distinct
+d6a65e,L5-h-chunk,no,один параметр = ANY
+d6a65e,L5-m-enum,no,
+3f6123,E2-single,pass,исключение при >1 складе
+3f6123,E2-h-split,yes,"карточка AsSingleQuery: одна сущность - один round-trip"
+3f6123,E2-m-cart,no,выгрузка AsSplitQuery
+3f6123,E2-m-nullagg,no,фильтр != null
+029685,FVB-KB1,pass,опровергнут для 1.10
+029685,FVB-KB2,pass,extra ignore
+029685,FVB-h-PB1,no,
+029685,FVB-OB1,found,
+029685,FVB-OB2,found,
+029685,FVB-OB3,found,
+029685,FVB-OB4,missed,
+6fc627,FVB-KB1,pass,опровергнут для 1.10
+6fc627,FVB-KB2,pass,extra ignore
+6fc627,FVB-h-PB1,no,
+6fc627,FVB-OB1,found,
+6fc627,FVB-OB2,found,
+6fc627,FVB-OB3,found,
+6fc627,FVB-OB4,missed,
+b1e6c9,FVB-KB1,pass,опровергнут для 1.10
+b1e6c9,FVB-KB2,pass,extra ignore
+b1e6c9,FVB-h-PB1,no,
+b1e6c9,FVB-OB1,found,
+b1e6c9,FVB-OB2,found,
+b1e6c9,FVB-OB3,found,
+b1e6c9,FVB-OB4,found,
+43af44,CFG-K9,pass,
+43af44,CFG-K8,pass,
+43af44,CFG-h-required,no,required предложен вместе с валидацией при старте
+43af44,CFG-K1,found,
+43af44,CFG-K2,found,
+43af44,CFG-K3,found,
+43af44,CFG-K4,found,
+43af44,CFG-K5,found,
+43af44,CFG-K6,found,
+43af44,CFG-K7,found,
+43af44,CFG-O1,found,
+43af44,CFG-O2,found,
+43af44,CFG-O3,found,
+43af44,CFG-h-P1,no,
+43af44,CFG-h-P2,no,
+53a7cf,CFG-K9,pass,
+53a7cf,CFG-K8,fail,
+53a7cf,CFG-h-required,no,required предложен вместе с валидацией при старте
+53a7cf,CFG-K1,found,
+53a7cf,CFG-K2,found,
+53a7cf,CFG-K3,found,
+53a7cf,CFG-K4,found,
+53a7cf,CFG-K5,found,
+53a7cf,CFG-K6,found,
+53a7cf,CFG-K7,found,
+53a7cf,CFG-O1,found,
+53a7cf,CFG-O2,found,
+53a7cf,CFG-O3,found,
+53a7cf,CFG-h-P1,no,
+53a7cf,CFG-h-P2,no,
+715785,CFG-K9,pass,
+715785,CFG-K8,fail,
+715785,CFG-h-required,no,required предложен вместе с валидацией при старте
+715785,CFG-K1,found,
+715785,CFG-K2,found,
+715785,CFG-K3,found,
+715785,CFG-K4,found,
+715785,CFG-K5,found,
+715785,CFG-K6,found,
+715785,CFG-K7,found,
+715785,CFG-O1,found,
+715785,CFG-O2,found,
+715785,CFG-O3,found,
+715785,CFG-h-P1,no,
+715785,CFG-h-P2,no,
+7f9b1d,CFG-K9,pass,
+7f9b1d,CFG-K8,pass,
+7f9b1d,CFG-h-required,no,required предложен вместе с валидацией при старте
+7f9b1d,CFG-K1,found,
+7f9b1d,CFG-K2,found,
+7f9b1d,CFG-K3,found,
+7f9b1d,CFG-K4,found,
+7f9b1d,CFG-K5,found,
+7f9b1d,CFG-K6,found,
+7f9b1d,CFG-K7,found,
+7f9b1d,CFG-O1,found,
+7f9b1d,CFG-O2,found,
+7f9b1d,CFG-O3,found,
+7f9b1d,CFG-h-P1,no,
+7f9b1d,CFG-h-P2,no,
+7fcf60,CFG-K9,fail,
+7fcf60,CFG-K8,fail,
+7fcf60,CFG-h-required,no,required предложен вместе с валидацией при старте
+7fcf60,CFG-K1,found,
+7fcf60,CFG-K2,found,
+7fcf60,CFG-K3,found,
+7fcf60,CFG-K4,found,
+7fcf60,CFG-K5,found,
+7fcf60,CFG-K6,found,
+7fcf60,CFG-K7,found,
+7fcf60,CFG-O1,found,
+7fcf60,CFG-O2,found,
+7fcf60,CFG-O3,found,
+7fcf60,CFG-h-P1,no,
+7fcf60,CFG-h-P2,no,
+c4db0f,CFG-K9,fail,
+c4db0f,CFG-K8,fail,
+c4db0f,CFG-h-required,no,required предложен вместе с валидацией при старте
+c4db0f,CFG-K1,found,
+c4db0f,CFG-K2,found,
+c4db0f,CFG-K3,found,
+c4db0f,CFG-K4,found,
+c4db0f,CFG-K5,found,
+c4db0f,CFG-K6,found,
+c4db0f,CFG-K7,found,
+c4db0f,CFG-O1,found,
+c4db0f,CFG-O2,found,
+c4db0f,CFG-O3,found,
+c4db0f,CFG-h-P1,no,
+c4db0f,CFG-h-P2,no,

@@ -1,0 +1,18 @@
+src/shelfwatch/torch_train.py:41 - `shuffle=True` вместе с `sampler=` в DataLoader: взаимоисключающие параметры, ValueError при создании загрузчика, обучение не стартует - blocker
+src/shelfwatch/torch_train.py:61 - нет `optimizer.zero_grad()` перед `loss.backward()`: градиенты копятся по всем батчам и эпохам, обучение расходится/не сходится - blocker
+src/shelfwatch/torch_train.py:110 - `scheduler.step()` без метрики для ReduceLROnPlateau: TypeError после первой эпохи при `--sched plateau`; нужно `step(score)` - blocker
+src/shelfwatch/torch_train.py:110 - OneCycleLR рассчитан на шаг на батч (total_steps=epochs*len(loader)), а шагается раз в эпоху: LR застревает в начале фазы разогрева, до аннилинга не доходит, итоговое качество хуже - major
+src/shelfwatch/torch_train.py:69 - `evaluate` без `model.eval()`: BatchNorm в train-режиме, статистики портятся валидационными данными, macro-F1 нестабилен и недостоверен, Dropout/BN влияют на предсказания - major
+src/shelfwatch/torch_train.py:98 - `--resume` грузит только веса: оптимизатор (momentum), планировщик и номер эпохи не сохраняются, цикл идёт с эпохи 0 и расписание LR стартует заново; возобновление не продолжает прерванный запуск - major
+src/shelfwatch/torch_train.py:111 - чекпоинт всегда перезаписывает один `last.pt` непосредственно через torch.save: падение посреди записи оставляет битый файл, лучшей по macro-F1 эпохи не сохраняется (последняя может быть хуже) - major
+src/shelfwatch/torch_train.py:115 - `export` нигде не вызывается (ни из `fit`, ни из `main`): заявленный экспорт модели в хранилище не происходит - major
+src/shelfwatch/torch_train.py:123 - `except Exception: pass` глотает ошибки загрузки (сеть, 401, таймаут), ответ тоже не проверяется: экспорт «успешен», а модели в хранилище нет - major
+src/shelfwatch/torch_train.py:117 - `torch.save(model)` пиклит весь объект: артефакт привязан к версиям классов/torch, для загрузки нужен `weights_only=False` (выполнение произвольного кода при загрузке); модель ещё и на DEVICE; лучше state_dict - major
+src/shelfwatch/torch_train.py:22 - токен доступа захардкожен в исходнике (и URL тоже): попадает в историю git; при замене на настоящий ключ утечёт; брать из окружения - minor
+src/shelfwatch/torch_train.py:20 - порядок CLASSES (full, empty, misplaced) не совпадает с индексами ImageFolder (алфавитный: empty, full, misplaced): потребители `predict` будут подписывать классы неверно, full/empty перепутаны - major
+src/shelfwatch/torch_train.py:33 - ожидается `DATA_DIR/shelf/train` и `val` в структуре ImageFolder, а docs/data.md описывает `shelf/` как 600 фото без разбиения и каталогов по классам (разметка YOLO): на данных из документации FileNotFoundError; разбиение (и отсутствие утечки между фото одного магазина) нигде не задано - major
+src/shelfwatch/torch_train.py:83 - `predict` без `torch.no_grad()`: строится граф автограда, лишняя память и время в сервисе разметки, под нагрузкой OOM - minor
+src/shelfwatch/torch_train.py:91 - `torch.load` без `map_location`: чекпоинт, сохранённый на GPU, не загрузится на машине без CUDA при `--resume` - minor
+src/shelfwatch/torch_train.py:37 - `WeightedRandomSampler` без `replacement=True` явно и без seed/генератора, seed'ов нигде нет: запуски невоспроизводимы, сравнение метрик между запусками шумное - minor
+src/shelfwatch/torch_train.py:46 - `pin_memory=True` и `num_workers=4` зашиты в коде: на CPU-машине предупреждения, в контейнерах с малым /dev/shm падения воркеров - minor
+tests/test_torch_train.py:6 - единственный тест проверяет только форму `predict`; цикл обучения, resume, планировщики, evaluate и export не покрыты (ни один из блокеров выше не был бы пойман); `build_model` скачивает ImageNet-веса из сети - minor

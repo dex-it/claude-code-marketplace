@@ -1,0 +1,147 @@
+{
+  "repo": "<run>/ws/parcel",
+  "base": "009870eb10d53814805c2aa636b3abe5bd888eb1",
+  "testFiles": [
+    "test/courier-service.test.js",
+    "test/eta.test.js",
+    "test/order.test.js",
+    "test/orders-api.test.js",
+    "test/sms.test.js",
+    "test/store.test.js",
+    "test/tariff.test.js",
+    "web/test/order-view.test.js"
+  ],
+  "baselineGreen": 57,
+  "baselineFailing": [
+    "test/order.test.js > createOrder: зона и сумма для СПб с опциями",
+    "test/tariff.test.js > зона: 19xxxx -> B",
+    "test/tariff.test.js > зона: прочие шестизначные -> C",
+    "test/tariff.test.js > quote: ставки зон за 0,5 кг"
+  ],
+  "mutants": {
+    "w-max": {
+      "killed": true,
+      "by": [
+        "test/tariff.test.js > вес: округление вверх до 0,5 кг",
+        "test/tariff.test.js > вес: границы диапазона включительно",
+        "test/tariff.test.js > quote: максимальный вес 30 кг"
+      ]
+    },
+    "w-min": {
+      "killed": true,
+      "by": [
+        "test/tariff.test.js > вес: округление вверх до 0,5 кг",
+        "test/tariff.test.js > вес: границы диапазона включительно",
+        "test/tariff.test.js > quote: минимальный вес тарифицируется как 0,5 кг",
+        "test/tariff.test.js > quote: итог - целое число рублей"
+      ]
+    },
+    "ret-14": {
+      "killed": true,
+      "by": [
+        "test/order.test.js > возврат: на 14-е сутки принимается"
+      ]
+    },
+    "w-nan": {
+      "killed": true,
+      "by": [
+        "test/tariff.test.js > вес не число -> WEIGHT_TYPE"
+      ]
+    },
+    "w-str": {
+      "killed": true,
+      "by": [
+        "test/tariff.test.js > вес не число -> WEIGHT_TYPE",
+        "test/tariff.test.js > quote: сквозные ошибки"
+      ]
+    },
+    "pc-5": {
+      "killed": true,
+      "by": [
+        "test/tariff.test.js > зона: индекс не из шести цифр -> POSTCODE"
+      ]
+    },
+    "zone-x": {
+      "killed": true,
+      "by": [
+        "test/tariff.test.js > срок: неизвестная зона -> ZONE"
+      ]
+    },
+    "skip-pack": {
+      "killed": true,
+      "by": [
+        "test/order.test.js > переходы: допустим только следующий шаг цепочки, остальные - TRANSITION без изменения заказа"
+      ]
+    },
+    "cancel-shipped": {
+      "killed": true,
+      "by": [
+        "test/order.test.js > отмена запрещена из shipped, delivered, cancelled, returned"
+      ]
+    },
+    "ret-shipped": {
+      "killed": true,
+      "by": [
+        "test/order.test.js > возврат не из delivered -> RETURN_FORBIDDEN, заказ и деньги не тронуты",
+        "test/order.test.js > повторный возврат -> RETURN_FORBIDDEN, одно списание"
+      ]
+    },
+    "no-refund-packed": {
+      "killed": true,
+      "by": [
+        "test/order.test.js > отмена из paid и packed: возврат суммы заказа и снятие резерва"
+      ]
+    },
+    "no-release-created": {
+      "killed": true,
+      "by": [
+        "test/order.test.js > отмена из created: только снятие резерва, без возврата денег"
+      ]
+    },
+    "ef": {
+      "killed": true,
+      "by": [
+        "test/tariff.test.js > quote: хрупкое при экспрессе +600 ₽"
+      ]
+    },
+    "el": {
+      "killed": true,
+      "by": [
+        "test/tariff.test.js > quote: при экспрессе скидка лояльности не действует"
+      ]
+    },
+    "fl": {
+      "killed": true,
+      "by": [
+        "test/tariff.test.js > quote: скидка лояльности считается после надбавки за хрупкость"
+      ]
+    },
+    "efl": {
+      "killed": true,
+      "by": [
+        "test/tariff.test.js > quote: при экспрессе скидка лояльности не действует"
+      ]
+    },
+    "none": {
+      "killed": true,
+      "by": [
+        "test/order.test.js > createOrder: статус created, сумма и зона по тарифу",
+        "test/order.test.js > отмена из paid и packed: возврат суммы заказа и снятие резерва",
+        "test/order.test.js > возврат: сразу после доставки - деньги возвращены, статус returned",
+        "test/tariff.test.js > quote: пример из требований - 1,2 кг в зону A, 360 ₽",
+        "test/tariff.test.js > quote: минимальный вес тарифицируется как 0,5 кг"
+      ]
+    },
+    "exp-ignored": {
+      "killed": true,
+      "by": [
+        "test/tariff.test.js > срок: экспресс"
+      ]
+    }
+  },
+  "summary": {
+    "total": 18,
+    "killed": 18,
+    "alive": []
+  }
+}

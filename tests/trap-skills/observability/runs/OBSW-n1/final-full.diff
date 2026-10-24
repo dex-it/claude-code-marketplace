@@ -1,0 +1,312 @@
+diff --git a/services/orders-api/Observability/HealthChecks.cs b/services/orders-api/Observability/HealthChecks.cs
+new file mode 100644
+index 0000000..011ea45
+--- /dev/null
++++ b/services/orders-api/Observability/HealthChecks.cs
+@@ -0,0 +1,87 @@
++using Microsoft.Extensions.Diagnostics.HealthChecks;
++using Npgsql;
++using StackExchange.Redis;
++
++namespace OrdersApi.Observability;
++
++// Every probe gets its own deadline, so a hung dependency cannot hang the probe request.
++public abstract class DeadlineHealthCheck(TimeSpan timeout) : IHealthCheck
++{
++    public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken ct = default)
++    {
++        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
++        cts.CancelAfter(timeout);
++        try
++        {
++            await ProbeAsync(cts.Token);
++            return HealthCheckResult.Healthy();
++        }
++        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
++        {
++            return HealthCheckResult.Unhealthy($"timed out after {timeout.TotalSeconds:0.#}s");
++        }
++        catch (Exception ex)
++        {
++            return HealthCheckResult.Unhealthy(ex.GetType().Name, ex);
++        }
++    }
++
++    protected abstract Task ProbeAsync(CancellationToken ct);
++}
++
++public sealed class PostgresHealthCheck(IConfiguration cfg, TimeSpan timeout) : DeadlineHealthCheck(timeout)
++{
++    private readonly string _cs = cfg.GetConnectionString("Orders")!;
++
++    protected override async Task ProbeAsync(CancellationToken ct)
++    {
++        await using var c = new NpgsqlConnection(_cs);
++        await c.OpenAsync(ct);
++        await using var cmd = new NpgsqlCommand("select 1", c);
++        await cmd.ExecuteScalarAsync(ct);
++    }
++}
++
++public sealed class RedisHealthCheck : DeadlineHealthCheck
++{
++    private readonly Lazy<Task<ConnectionMultiplexer>> _mux;
++
++    public RedisHealthCheck(IConfiguration cfg, TimeSpan timeout) : base(timeout)
++    {
++        var options = ConfigurationOptions.Parse(cfg.GetConnectionString("Redis")!);
++        options.AbortOnConnectFail = false; // keep retrying in background instead of failing forever
++        options.ConnectTimeout = (int)timeout.TotalMilliseconds;
++        options.AsyncTimeout = (int)timeout.TotalMilliseconds;
++        _mux = new Lazy<Task<ConnectionMultiplexer>>(() => ConnectionMultiplexer.ConnectAsync(options));
++    }
++
++    protected override async Task ProbeAsync(CancellationToken ct)
++    {
++        var mux = await _mux.Value.WaitAsync(ct);
++        await mux.GetDatabase().PingAsync().WaitAsync(ct);
++    }
++}
++
++// Probes arrive every few seconds from kubelet (and from several replicas of the platform stack):
++// reuse the last result instead of hitting the dependency each time.
++public sealed class CachedHealthCheck(IHealthCheck inner, TimeSpan ttl, TimeProvider clock) : IHealthCheck
++{
++    private readonly SemaphoreSlim _gate = new(1, 1);
++    private HealthCheckResult _last;
++    private long _expiresAt;
++
++    public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken ct = default)
++    {
++        if (clock.GetTimestamp() < Interlocked.Read(ref _expiresAt)) return _last;
++
++        await _gate.WaitAsync(ct);
++        try
++        {
++            if (clock.GetTimestamp() < Interlocked.Read(ref _expiresAt)) return _last;
++            _last = await inner.CheckHealthAsync(context, ct);
++            Interlocked.Exchange(ref _expiresAt, clock.GetTimestamp() + (long)(ttl.TotalSeconds * clock.TimestampFrequency));
++            return _last;
++        }
++        finally { _gate.Release(); }
++    }
++}
+diff --git a/services/orders-api/Observability/Telemetry.cs b/services/orders-api/Observability/Telemetry.cs
+new file mode 100644
+index 0000000..04bb973
+--- /dev/null
++++ b/services/orders-api/Observability/Telemetry.cs
+@@ -0,0 +1,38 @@
++using System.Diagnostics;
++using System.Diagnostics.Metrics;
++
++namespace OrdersApi.Observability;
++
++public static class Telemetry
++{
++    public const string Name = "OrdersApi";
++
++    public static readonly ActivitySource Source = new(Name);
++    public static readonly Meter Meter = new(Name);
++
++    public static readonly Counter<long> OrdersCreated =
++        Meter.CreateCounter<long>("orders.created", "{order}", "Orders processed by channel and resulting status");
++
++    public static readonly Histogram<double> OrderCreateDuration =
++        Meter.CreateHistogram<double>("orders.create.duration", "s", "Order creation duration");
++
++    // Channel comes from the request body: keep metric cardinality bounded.
++    public static string ChannelTag(string? channel) => channel switch
++    {
++        "web" or "mobile" or "partner" => channel,
++        _ => "other",
++    };
++
++    public static void RecordError(this Activity? activity, Exception ex)
++    {
++        if (activity is null) return;
++        activity.SetStatus(ActivityStatusCode.Error, ex.Message);
++        // Activity.AddException is not available on .NET 8: follow the OTel semantic conventions by hand.
++        activity.AddEvent(new ActivityEvent("exception", tags: new ActivityTagsCollection
++        {
++            ["exception.type"] = ex.GetType().FullName,
++            ["exception.message"] = ex.Message,
++            ["exception.stacktrace"] = ex.ToString(),
++        }));
++    }
++}
+diff --git a/services/orders-api/Orders/OrderRepository.cs b/services/orders-api/Orders/OrderRepository.cs
+index 1e86132..e3c79d5 100644
+--- a/services/orders-api/Orders/OrderRepository.cs
++++ b/services/orders-api/Orders/OrderRepository.cs
+@@ -1,4 +1,6 @@
++using System.Diagnostics;
+ using Npgsql;
++using OrdersApi.Observability;
+ 
+ namespace OrdersApi.Orders;
+ 
+@@ -14,6 +16,11 @@ public class OrderRepository(IConfiguration cfg) : IOrderRepository
+ 
+     public async Task SaveAsync(Order o, CancellationToken ct)
+     {
++        using var activity = Telemetry.Source.StartActivity("orders.db.insert", ActivityKind.Client);
++        activity?.SetTag("db.system", "postgresql");
++        activity?.SetTag("db.operation", "INSERT");
++        try
++        {
+         await using var c = new NpgsqlConnection(_cs);
+         await c.OpenAsync(ct);
+         await using var cmd = new NpgsqlCommand("insert into orders(id, customer_id, channel, status, total, created_at) values (@id,@c,@ch,@s,@t,@at)", c);
+@@ -21,15 +28,24 @@ public class OrderRepository(IConfiguration cfg) : IOrderRepository
+         cmd.Parameters.AddWithValue("ch", o.Channel); cmd.Parameters.AddWithValue("s", o.Status);
+         cmd.Parameters.AddWithValue("t", o.Total); cmd.Parameters.AddWithValue("at", o.CreatedAt);
+         await cmd.ExecuteNonQueryAsync(ct);
++        }
++        catch (Exception ex) { activity.RecordError(ex); throw; }
+     }
+ 
+     public async Task<Order?> FindAsync(Guid id, CancellationToken ct)
+     {
++        using var activity = Telemetry.Source.StartActivity("orders.db.select", ActivityKind.Client);
++        activity?.SetTag("db.system", "postgresql");
++        activity?.SetTag("db.operation", "SELECT");
++        try
++        {
+         await using var c = new NpgsqlConnection(_cs);
+         await c.OpenAsync(ct);
+         await using var cmd = new NpgsqlCommand("select id, customer_id, channel, status, total, created_at from orders where id=@id", c);
+         cmd.Parameters.AddWithValue("id", id);
+         await using var r = await cmd.ExecuteReaderAsync(ct);
+         return await r.ReadAsync(ct) ? new Order(r.GetGuid(0), r.GetGuid(1), r.GetString(2), r.GetString(3), r.GetDecimal(4), r.GetDateTime(5)) : null;
++        }
++        catch (Exception ex) { activity.RecordError(ex); throw; }
+     }
+ }
+diff --git a/services/orders-api/Orders/OrderService.cs b/services/orders-api/Orders/OrderService.cs
+index 108eefa..2481766 100644
+--- a/services/orders-api/Orders/OrderService.cs
++++ b/services/orders-api/Orders/OrderService.cs
+@@ -1,3 +1,6 @@
++using System.Diagnostics;
++using OrdersApi.Observability;
++
+ namespace OrdersApi.Orders;
+ 
+ public record CreateOrderRequest(Guid CustomerId, string Channel, List<OrderLine> Lines);
+@@ -8,11 +11,32 @@ public class OrderService(IOrderRepository repo, ILogger<OrderService> log)
+ {
+     public async Task<Order> CreateAsync(CreateOrderRequest r, CancellationToken ct)
+     {
+-        if (r.Lines.Count == 0) throw new ArgumentException("empty order");
+-        var total = r.Lines.Sum(l => l.Qty * l.Price);
+-        var order = new Order(Guid.NewGuid(), r.CustomerId, r.Channel, "new", total, DateTime.UtcNow);
+-        await repo.SaveAsync(order, ct);
+-        log.LogInformation("Order {OrderId} created, total {Total}", order.Id, total);
+-        return order;
++        using var activity = Telemetry.Source.StartActivity("orders.create");
++        var channel = Telemetry.ChannelTag(r.Channel);
++        activity?.SetTag("order.channel", channel);
++        var started = Stopwatch.GetTimestamp();
++        var status = "failed";
++        try
++        {
++            if (r.Lines.Count == 0) throw new ArgumentException("empty order");
++            var total = r.Lines.Sum(l => l.Qty * l.Price);
++            var order = new Order(Guid.NewGuid(), r.CustomerId, r.Channel, "new", total, DateTime.UtcNow);
++            activity?.SetTag("order.id", order.Id);
++            await repo.SaveAsync(order, ct);
++            status = order.Status;
++            log.LogInformation("Order {OrderId} created, total {Total}", order.Id, total);
++            return order;
++        }
++        catch (Exception ex)
++        {
++            activity.RecordError(ex);
++            throw;
++        }
++        finally
++        {
++            var tags = new TagList { { "channel", channel }, { "status", status } };
++            Telemetry.OrdersCreated.Add(1, tags);
++            Telemetry.OrderCreateDuration.Record(Stopwatch.GetElapsedTime(started).TotalSeconds, tags);
++        }
+     }
+ }
+diff --git a/services/orders-api/OrdersApi.csproj b/services/orders-api/OrdersApi.csproj
+index 538c77d..cb50f2f 100644
+--- a/services/orders-api/OrdersApi.csproj
++++ b/services/orders-api/OrdersApi.csproj
+@@ -2,7 +2,12 @@
+   <PropertyGroup><TargetFramework>net8.0</TargetFramework><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings></PropertyGroup>
+   <ItemGroup>
+     <PackageReference Include="Serilog.AspNetCore" Version="8.0.2" />
++    <PackageReference Include="Serilog.Enrichers.Span" Version="3.1.0" />
+     <PackageReference Include="Npgsql" Version="8.0.4" />
+     <PackageReference Include="StackExchange.Redis" Version="2.7.33" />
++    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.9.0" />
++    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.9.0" />
++    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.9.0" />
++    <PackageReference Include="OpenTelemetry.Exporter.Prometheus.AspNetCore" Version="1.9.0-beta.2" />
+   </ItemGroup>
+ </Project>
+diff --git a/services/orders-api/Program.cs b/services/orders-api/Program.cs
+index 3111b18..a57551a 100644
+--- a/services/orders-api/Program.cs
++++ b/services/orders-api/Program.cs
+@@ -1,12 +1,54 @@
++using Microsoft.AspNetCore.Diagnostics.HealthChecks;
++using Microsoft.Extensions.Diagnostics.HealthChecks;
++using OpenTelemetry.Metrics;
++using OpenTelemetry.Resources;
++using OpenTelemetry.Trace;
++using OrdersApi.Observability;
+ using OrdersApi.Orders;
+ using Serilog;
+ 
+ var builder = WebApplication.CreateBuilder(args);
+-builder.Host.UseSerilog((ctx, cfg) => cfg.ReadFrom.Configuration(ctx.Configuration).WriteTo.Console());
++builder.Host.UseSerilog((ctx, cfg) => cfg
++    .ReadFrom.Configuration(ctx.Configuration)
++    .Enrich.WithSpan()
++    .WriteTo.Console(outputTemplate:
++        "[{Timestamp:HH:mm:ss} {Level:u3}] trace={TraceId} span={SpanId} {Message:lj}{NewLine}{Exception}"));
+ builder.Services.AddSingleton<IOrderRepository, OrderRepository>();
+ builder.Services.AddScoped<OrderService>();
+ 
++var probeTimeout = TimeSpan.FromSeconds(2);
++var probeCacheTtl = TimeSpan.FromSeconds(10);
++builder.Services.AddHealthChecks()
++    .Add(new HealthCheckRegistration("postgres",
++        sp => new CachedHealthCheck(new PostgresHealthCheck(sp.GetRequiredService<IConfiguration>(), probeTimeout), probeCacheTtl, TimeProvider.System),
++        HealthStatus.Unhealthy, ["ready"], probeTimeout + TimeSpan.FromSeconds(1)))
++    .Add(new HealthCheckRegistration("redis",
++        sp => new CachedHealthCheck(new RedisHealthCheck(sp.GetRequiredService<IConfiguration>(), probeTimeout), probeCacheTtl, TimeProvider.System),
++        HealthStatus.Unhealthy, ["ready"], probeTimeout + TimeSpan.FromSeconds(1)));
++
++// OTLP endpoint/protocol come from the standard OTEL_EXPORTER_OTLP_* environment variables.
++builder.Services.AddOpenTelemetry()
++    .ConfigureResource(r => r.AddService("orders-api"))
++    .WithTracing(t => t
++        .AddSource(Telemetry.Name)
++        .AddAspNetCoreInstrumentation(o =>
++        {
++            o.RecordException = true;
++            // Kubernetes probes and Prometheus scrapes would otherwise dominate the traces.
++            o.Filter = ctx => !ctx.Request.Path.StartsWithSegments("/health")
++                           && !ctx.Request.Path.StartsWithSegments("/metrics");
++        }))
++    .WithMetrics(m => m
++        .AddMeter(Telemetry.Name)
++        .AddAspNetCoreInstrumentation()
++        .AddPrometheusExporter())
++    .UseOtlpExporter();
++
+ var app = builder.Build();
++app.UseOpenTelemetryPrometheusScrapingEndpoint(); // /metrics
++// liveness: process only (a dependency outage must not restart the pod); readiness: dependencies
++app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
++app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = r => r.Tags.Contains("ready") });
+ app.MapPost("/orders", async (CreateOrderRequest r, OrderService s, CancellationToken ct) =>
+     Results.Created("/orders", await s.CreateAsync(r, ct)));
+ app.MapGet("/orders/{id:guid}", async (Guid id, IOrderRepository repo, CancellationToken ct) =>

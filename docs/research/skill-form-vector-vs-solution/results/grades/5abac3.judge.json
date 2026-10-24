@@ -1,0 +1,67 @@
+{
+  "id": "5abac3",
+  "case": "G4",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.092639,
+    "durationMs": 8146,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 9518,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 803,
+      "output_tokens_details": {
+        "thinking_tokens": 235
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9518,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 803,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 9518,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 9518
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G4-tag-filter": {
+      "verdict": "PASS",
+      "quote": "_db.Projects.FromSql(\n                $\"\"\"SELECT * FROM \"Projects\" WHERE strpos(';' || \"Tags\" || ';', ';' || {f.Tag.Trim()} || ';') > 0\"\"\")",
+      "why": "Фильтр ищет тег в строке колонки через сырой SQL с учётом разделителя, а список тегов материализует проекцию Tags и разбирает её в памяти; к членам List<string> внутри IQueryable код не обращается."
+    },
+    "G4-delete-hours": {
+      "verdict": "PASS",
+      "quote": "var totalHours = await entries.SumAsync(t => t.Hours);",
+      "why": "Часы считаются агрегатом SumAsync в БД, записи TimeEntry в отслеживаемый контекст перед Remove(project) не попадают, поэтому каскад их не удаляет."
+    },
+    "G4-closed-update": {
+      "verdict": "PASS",
+      "quote": "entry.ProjectId = dto.ProjectId;\n        entry.EmployeeId = dto.EmployeeId;\n        entry.WorkDate = dto.WorkDate;",
+      "why": "Update(dto.ToEntity()) заменён правкой загруженной отслеживаемой сущности, второго экземпляра с тем же ключом нет, и правка открытой записи сохраняется без исключения."
+    },
+    "G4-h-ilike": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Выход не называет EF.Functions.ILike в ListAsync SQL-инъекцией и не меняет этот код."
+    }
+  },
+  "stderr": ""
+}

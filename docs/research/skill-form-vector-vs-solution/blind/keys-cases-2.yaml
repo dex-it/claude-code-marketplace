@@ -1,0 +1,135 @@
+K1:
+  source: заведён калиброванной слепой стадией (раунд 2)
+  items:
+    - {id: K1-debtors-fine, kind: unit, unit: untranslatable-filter,
+       pass: "Список должников не падает: отбор просроченных выдач в запросе выражен через маппленные колонки (ReturnedAt == null, DueDate < сегодняшней даты филиала параметром) до ToLoanRows, а сортировка по штрафу, отбор по Fine/DaysOverdue и итоговая сумма считаются после материализации строк (в памяти) либо выражением в SQL, эквивалентным Fines.Amount (льготный период, освобождение детей, потолок).",
+       fail: "Where/OrderBy/OrderByDescending/Sum/SumAsync по полям Fine или DaysOverdue применены к IQueryable после ToLoanRows() (или Fines.* вызван внутри Where/OrderBy/агрегата запроса) - эти поля вычисляются клиентским методом в проекции, EF не транслирует их вне конечной проекции, GET /branches/{id}/debtors падает InvalidOperationException «could not be translated»."}
+    - {id: K1-period-offset, kind: unit, unit: datetime-column,
+       pass: "Границы периода из тела запроса (DateTimeOffset со смещением +05:00) приводятся к смещению 0 до использования в запросе (ToUniversalTime(), ToOffset(TimeSpan.Zero), new DateTimeOffset(x.UtcDateTime)), сохраняя тот же момент времени; отчёт с примером из задачи выполняется без исключения.",
+       fail: "DateTimeOffset со смещением +05:00 передаётся в сравнение с Loan.IssuedAt (timestamptz) как есть - Npgsql не отправляет DateTimeOffset с ненулевым смещением в timestamptz, отчёт падает; либо смещение отброшено без пересчёта (new DateTimeOffset(x.DateTime, TimeSpan.Zero), x.DateTime как UTC) - границы сдвигаются на 5 часов, в отчёт попадают чужие выдачи."}
+    - {id: K1-h-loanrows, kind: harm, unit: untranslatable-filter,
+       what: "Называет дефектом существующий ToLoanRows (Fines.DaysOverdue/Fines.Amount в Select) или GetActiveLoansAsync, утверждая, что запрос упадёт или выполнит фильтр на клиенте: клиентский метод в конечной проекции EF Core исполняет после выборки, ToLoanRows вызывается последним перед ToListAsync."}
+    - {id: K1-h-today-utc, kind: harm, unit: datetime-column,
+       what: "Утверждает, что CountIssuedTodayAsync упадёт или сравнивает неверно (Kind=Unspecified из DateOnly.ToDateTime, «нужен DateTime.UtcNow.Date») или переписывает его: ConvertTimeToUtc возвращает DateTime с Kind=Utc, new DateTimeOffset от него имеет смещение 0, границы - начало местных суток филиала."}
+
+K2:
+  source: заведён калиброванной слепой стадией (раунд 2)
+  items:
+    - {id: K2-freeze-fresh, kind: unit, unit: readonly-tracking,
+       pass: "Решение «абонемент заморожен» в TurnstileWorker принимается по текущему значению из БД на момент обработки прохода: признак заморозки читается неотслеживаемым запросом или скалярной проекцией (AsNoTracking, Select(m => m.FrozenUntil), условие в Where запроса), либо обработчик создаёт новый scope/DbContext на каждую итерацию, либо сбрасывает отслеживаемые сущности (ChangeTracker.Clear(), Reload) перед проверкой. Заморозка и её снятие через API влияют на следующие проходы без перезапуска сервиса.",
+       fail: "Проверка берёт признак заморозки из Member, полученного отслеживающим запросом (существующий FirstOrDefaultAsync по CardNumber, FindAsync, Include) в контексте, созданном один раз на всё время работы TurnstileWorker: для уже загруженного клиента EF возвращает отслеживаемый экземпляр без обновления значений из БД - заморозка, поставленная после первого прохода клиента, не действует (посещения засчитываются), снятие заморозки не видно до перезапуска."}
+    - {id: K2-random-session, kind: unit, unit: split-single,
+       pass: "Случайное занятие и его записавшиеся относятся к одному занятию: сначала отдельным запросом выбирается Id (random()/Guid.NewGuid()/случайный Skip по уникальному порядку), затем занятие с записями грузится по Id; либо запрос с коллекцией выполнен AsSingleQuery; либо случайный выбор сделан в памяти после загрузки.",
+       fail: "Один запрос с OrderBy(EF.Functions.Random()/Guid.NewGuid()) (или Skip(n) по неуникальному порядку, например StartsAt) + First/FirstOrDefault/Take(1) и Include(Enrollments)/проекцией коллекции записавшихся при глобальном SplitQuery (Program.cs) - запрос записей заново вычисляет случайный порядок, на экране список записавшихся другого занятия или пустой."}
+    - {id: K2-h-course-split, kind: harm, unit: split-single,
+       what: "Называет дефектом (риск перемешанных данных) GetCourseAsync под глобальным SplitQuery или переводит его в AsSingleQuery как исправление: выборка по первичному ключу (c.Id == id) однозначна во всех split-запросах."}
+    - {id: K2-m-passes-notracking, kind: mine,
+       what: "Делает запрос проходов в TurnstileWorker неотслеживаемым (AsNoTracking на TurnstilePasses, AsNoTracking на запросе записи Enrollment или глобальный UseQueryTrackingBehavior(NoTracking)) без явного сохранения изменений - ProcessedAt/Note проходов и статус Attended не сохраняются SaveChanges, одни и те же проходы обрабатываются на каждой итерации, посещения не засчитываются."}
+
+K3:
+  source: заведён калиброванной слепой стадией (раунд 2)
+  items:
+    - {id: K3-contract-null, kind: unit, unit: single-not-unique,
+       pass: "Если в назначении платежа номер договора не распознан (ExtractContractNo вернул null), абонент по ContractNo не ищется - строка уходит в «неразобранные»; поиск по ContractNo выполняется только с непустым номером. Выписка с такими строками загружается без исключения, платёж не зачисляется заявке без договора.",
+       fail: "Поиск Single/SingleOrDefault/First/FirstOrDefault(s => s.ContractNo == no) выполняется и при no == null - EF переводит сравнение с null в contract_no IS NULL, уникальный индекс по ContractNo допускает много NULL (все заявки Lead): при нескольких заявках загрузка выписки падает InvalidOperationException, при одной - платёж зачисляется на баланс этой заявки."}
+    - {id: K3-credit-time, kind: unit, unit: datetime-column,
+       pass: "Значения DateTime, которые новый код пишет в БД или передаёт в запрос (момент зачисления платежа, загрузки «неразобранной» строки, возврата в Active), имеют Kind Local/Unspecified - DateTime.Now, как существующие CreatedAt/ConnectedAt, либо явно Unspecified; загрузка выписки и возврат в Active выполняются без исключения.",
+       fail: "Новый код пишет DateTime.UtcNow (или иное значение с Kind=Utc, например DateTimeOffset.UtcDateTime) в DateTime-свойство или передаёт его параметром в сравнение с такой колонкой - все DateTime через ConfigureConventions замаплены на timestamp without time zone, Npgsql отказывается отправлять Kind=Utc в этот тип, SaveChanges загрузки выписки падает.",
+       disputed: "DateTime.Now даёт время сервера; если зона сервера отличается от зоны, в которой записаны существующие значения, моменты будут сдвинуты, но так же пишут существующие методы", primary: pass}
+    - {id: K3-h-bycontract, kind: harm, unit: single-not-unique,
+       what: "Называет дефектом SingleOrDefaultAsync(x => x.ContractNo == contractNo) в GetByContractAsync или меняет его на First*: номер приходит из маршрута и не бывает null, непустой ContractNo уникален по индексу."}
+    - {id: K3-m-utcnow, kind: mine,
+       what: "Заменяет DateTime.Now на DateTime.UtcNow в существующих CreateLeadAsync/SignContractAsync («правильнее хранить UTC») без смены типа колонок - запись Kind=Utc в timestamp without time zone падает, заведение заявок и подписание договоров перестают работать."}
+
+K4:
+  source: заведён калиброванной слепой стадией (раунд 2)
+  items:
+    - {id: K4-year-closed, kind: unit, unit: untranslatable-filter,
+       pass: "Отбор закрытых месяцев года не обращается к членам YearMonth внутри запроса к ClosedPeriods: месяц сравнивается значением целиком (p.Month == new YearMonth(year, m)), либо закрытые периоды загружаются и фильтруются по году в памяти; сводка выполняется без исключения.",
+       fail: "Where(p => p.Month.Year == year) / p.Month.Key / p.Month.FirstDay / p.Month.Month в IQueryable ClosedPeriods - Month замаплен через HasConversion в int, EF не транслирует обращение к членам сконвертированного типа, GET /reports/year/{year} падает InvalidOperationException."}
+    - {id: K4-client-projects, kind: unit, unit: softdelete-cascade,
+       pass: "Проекты клиента удаляются мягко (IsDeleted/DeletedAt): Remove/RemoveRange + SaveChangesAsync без загрузки записей времени в контекст, либо ExecuteUpdate, выставляющий IsDeleted и DeletedAt; записи времени остаются в БД, RestoreProjectAsync возвращает проект вместе с часами.",
+       fail: "ExecuteDelete/ExecuteDeleteAsync по Projects - обходит переопределённый SaveChangesAsync, проекты удаляются физически, ON DELETE CASCADE удаляет их записи времени (в том числе часы закрытых актами месяцев), восстановить нечего; либо проекты загружены с Include(p => p.Entries) и удалены через Remove - EF помечает записи времени Deleted каскадом, override переводит в мягкое удаление только проекты, записи времени удаляются физически."}
+    - {id: K4-code-index, kind: unit, unit: prod-migration,
+       pass: "Ограничение уникальности кода не падает на prod, где у удалённого проекта и заведённого заново тот же код: уникальный индекс частичный по неудалённым (HasFilter по IsDeleted), что совпадает с проверкой CreateAsync через фильтр запроса; либо миграция до создания индекса устраняет совпадения, не теряя проекты и их часы; либо в ответе явно сказано, что полный уникальный индекс на prod не создастся, и предложен порядок действий.",
+       fail: "Миграция создаёт полный уникальный индекс по Projects.Code без учёта мягко удалённых строк - CREATE UNIQUE INDEX падает на существующих парах «удалённый + заведённый заново проект», efbundle в релизе завершается ошибкой.",
+       disputed: "Полный уникальный индекс плюс миграция, переименовывающая коды удалённых дублей (например, суффикс -DEL-id), выкатится, но меняет коды в старых актах при восстановлении", primary: pass}
+    - {id: K4-h-month-equality, kind: harm, unit: untranslatable-filter,
+       what: "Называет дефектом p.Month == month в EnsureOpenAsync (утверждает, что сравнение value object не транслируется) или переписывает его: сравнение сконвертированного свойства с параметром того же типа целиком EF переводит через конвертер в сравнение int."}
+
+K5:
+  source: заведён калиброванной слепой стадией (раунд 2)
+  items:
+    - {id: K5-login-email, kind: unit, unit: single-not-unique,
+       pass: "Поиск карточки по e-mail без учёта регистра не использует Single/SingleOrDefault (или сначала ищет точное совпадение, а без учёта регистра обрабатывает несколько найденных: детерминированный выбор, отказ с сообщением); при двух карточках школы, e-mail которых различаются только регистром, запрос и проверка кода не падают и работают с одной и той же карточкой.",
+       fail: "SingleOrDefault/Single по ToLower()/ToUpper()/ILike/EF.Functions.Collate-сравнению e-mail - уникальный индекс (SchoolId, Email) в PostgreSQL регистрозависим, а RegisterAsync сохраняет e-mail как введён: при двух карточках «Ivan@…» и «ivan@…» вход падает InvalidOperationException."}
+    - {id: K5-graduates-school, kind: unit, unit: softdelete-cascade,
+       pass: "Отчёт включает выпускников уволенных инструкторов с их именами и только данные текущей автошколы: при IgnoreQueryFilters условие SchoolId == текущая школа явно добавлено для каждой сущности запроса (студенты и инструкторы), либо уволенные инструкторы подтягиваются отдельным запросом с IgnoreQueryFilters и явным фильтром по SchoolId.",
+       fail: "IgnoreQueryFilters без явного условия по SchoolId - в EF Core 8 фильтр Instructor (SchoolId && !IsDeleted) и фильтр Student снимаются целиком, в отчёт попадают выпускники и инструкторы других автошкол; либо уволенные инструкторы и их выпускники в отчёт не попадают (без имени/строки) при требовании «включая уволенных»."}
+    - {id: K5-instructor-list, kind: unit, unit: readonly-tracking,
+       pass: "Паспорт и e-mail учеников в БД после запроса GET /api/instructor/students не меняются: маска применяется к DTO, либо ученики загружены AsNoTracking/проекцией, либо MaskForInstructor вызывается только на неотслеживаемых экземплярах.",
+       fail: "Обработчик в группе /api загружает Student отслеживающим запросом и вызывает MaskForInstructor (по образцу ExportForInstructorCsvAsync) - SaveChangesFilter после успешного ответа вызывает SaveChangesAsync, замаскированные паспорт и e-mail записываются в БД, исходные данные учеников потеряны."}
+    - {id: K5-h-find-exact, kind: harm, unit: single-not-unique,
+       what: "Называет дефектом SingleOrDefaultAsync(x => x.Email == email) в FindByEmailAsync или меняет его: точное сравнение в пределах школы (фильтр запроса по SchoolId) покрыто уникальным индексом (SchoolId, Email)."}
+    - {id: K5-m-notracking, kind: mine,
+       what: "Включает NoTracking по умолчанию (UseQueryTrackingBehavior(NoTracking), ChangeTracker.QueryTrackingBehavior) или убирает SaveChangesFilter ради (в) - UpdateContactsAsync и GraduateAsync перестают сохранять изменения."}
+
+K6:
+  source: заведён калиброванной слепой стадией (раунд 2)
+  items:
+    - {id: K6-sort-alias, kind: unit, unit: fromsql-alias,
+       pass: "Реестр работает при любой комбинации фильтров и сортировки: для sort=address нужные JOIN apartments a / houses h добавляются ровно один раз (общий флаг/набор присоединённых таблиц, учитывающий и фильтры HouseId/District), либо сортировка вынесена в LINQ/отдельный запрос; направление и столбец - из белого списка.",
+       fail: "ORDER BY по h.address/a.number добавлен без гарантии JOIN - при запросе без фильтров HouseId/District PostgreSQL падает (таблица h/a не указана во FROM); либо для сортировки JOIN apartments a/houses h добавлен безусловно - при фильтре по дому или району тот же алиас присоединяется второй раз, запрос падает; либо dir/sort подставляются в SQL без белого списка."}
+    - {id: K6-search-columns, kind: unit, unit: fromsql-alias,
+       pass: "После добавления в ServiceRequest новых маппленных свойств (телефон заявителя, комментарий закрытия и т.п.) реестр SearchAsync продолжает работать: новые колонки добавлены в явный список SELECT сырого SQL (или свойства исключены из модели осознанно), реестр возвращает данные.",
+       fail: "Новое свойство ServiceRequest замаплено в колонку (миграция добавлена), а явный список колонок в SearchAsync не дополнен - EF требует, чтобы результат FromSqlRaw содержал все свойства сущности, реестр заявок падает на каждом запросе."}
+    - {id: K6-plan-orphans, kind: unit, unit: required-orphans,
+       pass: "Замена плана не падает и сохраняет историю по остающимся работам: существующие PlanItem обновляются на месте, отсутствующие в новом плане удаляются явно (_db.PlanItems.Remove/RemoveRange, ExecuteDelete), новые добавляются; удаление из коллекции Items без явного Remove не используется.",
+       fail: "Работы убираются из plan.Items (Clear(), Remove из коллекции, присваивание нового списка) без явного удаления сущностей - при ChangeTracker.DeleteOrphansTiming = CascadeTiming.Never (конструктор HousingDbContext) сироты не удаляются, SaveChanges бросает InvalidOperationException о разорванной обязательной связи; либо план заменяется удалением всех PlanItem и созданием новых - каскад удаляет историю выполнения по остающимся работам."}
+    - {id: K6-h-move-items, kind: harm, unit: required-orphans,
+       what: "Утверждает, что MergePlansAsync упадёт при DeleteOrphansTiming = Never или удалит переносимые работы, либо переписывает его: позиция удаляется из одного плана и добавляется в другой до SaveChanges, сиротой не становится."}
+    - {id: K6-h-limit, kind: harm, unit: fromsql-alias,
+       what: "Называет SQL-инъекцией существующую подстановку LIMIT {pageSize} OFFSET {offset} в SearchAsync: это вычисленные int (pageSize ограничен Clamp), пользовательский текст идёт параметрами NpgsqlParameter."}
+
+KR:
+  source: заведён калиброванной слепой стадией (раунд 2)
+  items:
+    - {id: KR-offday-rows, kind: unit, unit: untranslatable-filter,
+       pass: "Отмечено, что OffDayTripsAsync фильтрует по TripRow.OffDay после ToRows(): OffDay вычисляется клиентским WorkCalendar.IsWorkingDay в проекции, Where по нему EF не транслирует - отчёт FLEET-109 падает при каждом вызове; предложено фильтровать после материализации или выразить условие в SQL.",
+       fail: "Дефект не найден."}
+    - {id: KR-open-semicolon, kind: unit, unit: fromsql-alias,
+       pass: "Отмечено, что SQL в GetOpenWaybillsAsync заканчивается точкой с запятой, а при заданном vehicleId поверх FromSqlRaw компонуется Where - EF оборачивает SQL в подзапрос, PostgreSQL падает с синтаксической ошибкой (без фильтра запрос не компонуется и работает, поэтому прошёл локальную проверку); предложено убрать ';' (ORDER BY - в LINQ) или внести фильтр в SQL параметром.",
+       fail: "Дефект не найден или замечание ограничено стилем («зачем сырой SQL»)."}
+    - {id: KR-equipment-clear, kind: unit, unit: required-orphans,
+       pass: "Отмечено, что ReplaceEquipmentAsync получает машину через FindVehicleAsync без Include(Equipment): Clear() на незагруженной коллекции ничего не удаляет, старые позиции остаются, совпадающие коды нарушают уникальный индекс (vehicle_id, code) - SaveChanges падает DbUpdateException, несовпадающие дописываются к старым; нужно загрузить оснащение или удалить старые позиции явно.",
+       fail: "Дефект не найден или предложено только сменить поведение удаления связи."}
+    - {id: KR-model-length, kind: unit, unit: prod-migration,
+       pass: "Отмечено, что AlterColumn vehicles.model до varchar(40) упадёт на prod, где есть более длинные названия (их обрезал принтер - MR.md): PostgreSQL при смене типа не укорачивает значения, ALTER TABLE падает, bundle не применится; предложено укоротить/перенести данные в миграции до смены типа или ограничивать длину только в печатной форме и на вводе.",
+       fail: "Миграция пропущена как корректная."}
+    - {id: KR-last-inspection, kind: unit, unit: split-single,
+       pass: "Отмечено, что GetLastInspectionAsync выбирает последний осмотр с Include(Defects) по OrderByDescending(CreatedAt) при глобальном SplitQuery, а порядок не уникален (CreatedAt = now() одинаков у осмотров одной пачки синхронизации, сохраняемой одним SaveChanges): запрос замечаний может взять другой осмотр, машина с блокирующим замечанием выпускается на линию или исправная не выпускается; нужен уникальный порядок (ThenByDescending(Id)) или AsSingleQuery.",
+       fail: "Дефект не найден."}
+    - {id: KR-permit-lastday, kind: coverage, what: "StartTripAsync сравнивает p.ValidUntil > today, хотя допуск действует по дату включительно (MR.md) - в последний день допуска водителя не выпускают на линию."}
+    - {id: KR-equipment-auth, kind: coverage, what: "PUT /api/vehicles/{id}/equipment без политики (Mechanic/FleetManager) - любой аутентифицированный сотрудник, в том числе водитель, может заменить комплектацию машины."}
+    - {id: KR-h-permits-clear, kind: harm, unit: required-orphans,
+       what: "Называет дефектом driver.Permits.Clear() в ReplacePermitsAsync (утверждает, что упадёт или оставит сирот): допуски загружены Include, связь обязательная с каскадом по умолчанию - EF удаляет их как сирот."}
+    - {id: KR-h-plate-fromsql, kind: harm, unit: fromsql-alias,
+       what: "Называет SQL-инъекцией или ошибкой композиции FindByPlateAsync: FromSql с интерполяцией передаёт plate параметром, SQL без ';' и компонуется с Where/FirstOrDefault корректно."}
+
+KN:
+  source: заведён калиброванной слепой стадией
+  items:
+    - {id: KN-h-datetime, kind: harm, unit: datetime-column,
+       what: "Утверждает, что DateTime.UtcNow.Date (Batch.ReportDate, since в GetRecentBySiteAsync) теряет Kind=Utc и упадёт при записи/сравнении с timestamptz, или что PlannedLocal = day.ToDateTime(time) (Kind Unspecified) упадёт; либо меняет Kind/тип колонки PlannedLocal. .Date сохраняет Kind, PlannedLocal замаплен на timestamp without time zone, куда Unspecified пишется штатно. Нейтральная рекомендация хранить UTC без утверждения о дефекте - не вред."}
+    - {id: KN-h-card-split, kind: harm, unit: split-single,
+       what: "Называет дефектом (риск неверных/перемешанных данных) AsSplitQuery в GetCardAsync или требует его убрать: выборка по первичному ключу однозначна, две коллекции на одном уровне - типичный случай для split. Неблокирующее упоминание о согласованности при конкурентных изменениях - не вред."}
+    - {id: KN-h-inanalysis-tracking, kind: harm, unit: readonly-tracking,
+       what: "Предлагает добавить AsNoTracking в SampleRepository.GetInAnalysisForBatchAsync («метод только читает») или правит так: CloseAsync меняет Status полученных проб и вызывает SaveChanges - без отслеживания закрытие партии перестанет сохранять статусы проб."}
+    - {id: KN-h-fromsql, kind: harm, unit: fromsql-alias,
+       what: "Называет SQL-инъекцией GetRecentBySiteAsync: FromSql с интерполированной строкой передаёт siteCode и since как DbParameter."}
+    - {id: KN-h-retag-clear, kind: harm, unit: required-orphans,
+       what: "Утверждает, что sample.Tags.Clear() в RetagAsync упадёт или оставит сирот: связь SampleTag->Sample обязательная с каскадом по умолчанию, теги загружены Include - EF удаляет их как сирот."}
+    - {id: KN-h-labcode-single, kind: harm, unit: single-not-unique,
+       what: "Называет дефектом SingleOrDefaultAsync по LabCode в FindByLabCodeAsync: LabCode покрыт уникальным индексом."}
+    - {id: KN-percent-int, kind: coverage, what: "CompliancePercentAsync: compliant / total * 100 в int - 0 для любой доли меньше 100%, для пустой партии DivideByZeroException."}
+    - {id: KN-page-offset, kind: coverage, what: "ListAsync: page по документации начинается с 1, Skip(page * pageSize) пропускает первую страницу (нужно (page - 1) * pageSize)."}

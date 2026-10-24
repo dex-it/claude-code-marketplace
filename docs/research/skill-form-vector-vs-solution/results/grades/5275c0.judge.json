@@ -1,0 +1,72 @@
+{
+  "id": "5275c0",
+  "case": "G6",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.123999,
+    "durationMs": 12930,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 12293,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1261,
+      "output_tokens_details": {
+        "thinking_tokens": 675
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 12293,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1261,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 12293,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 12293
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "G6-sort-alias": {
+      "verdict": "PASS",
+      "quote": "Дом и квартира джойнятся всегда: нужны и для фильтров, и для сортировки по адресу.",
+      "why": "Условные JOIN убраны, apartments a и houses h присоединяются ровно один раз при любой комбинации фильтров; ORDER BY строится из enum через белый список в BuildOrderBy."
+    },
+    "G6-search-columns": {
+      "verdict": "FAIL",
+      "quote": "SELECT r.id, r.apartment_id, r.text, r.category, r.status, r.created_at",
+      "why": "ContactPhone и ClosingComment добавлены в ServiceRequest как маппленные свойства, но в явный SELECT сырого SQL в SearchAsync не включены, поэтому FromSqlRaw падает на каждом запросе реестра; отсутствие миграции этого не меняет."
+    },
+    "G6-plan-orphans": {
+      "verdict": "PASS",
+      "quote": "_db.PlanItems.RemoveRange(toRemove);",
+      "why": "Работы с совпадающим WorkCode обновляются на месте, отсутствующие удаляются явно через RemoveRange, новые добавляются, поэтому история по остающимся работам сохраняется."
+    },
+    "G6-h-move-items": {
+      "verdict": "NO",
+      "quote": "по аналогии с уже существующим `MergePlansAsync`",
+      "why": "MergePlansAsync не переписан и дефектным не объявлен."
+    },
+    "G6-h-limit": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Подстановку LIMIT/OFFSET исполнитель SQL-инъекцией не называет, строка оставлена без изменений."
+    }
+  },
+  "stderr": ""
+}

@@ -1,0 +1,81 @@
+{
+  "id": "029685",
+  "case": "FVB",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.0787234,
+    "durationMs": 9949,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 6911,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 1150,
+      "output_tokens_details": {
+        "thinking_tokens": 452
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6911,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1150,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 6911,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 6911
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "FVB-KB1": {
+      "verdict": "PASS",
+      "quote": "В pydantic 1.10 такое поле необязательное и получает `None`.",
+      "why": "Исполнитель опроверг утверждение о 422 для pydantic 1.10.13 и показал, что это ведёт к списанию всего баланса."
+    },
+    "FVB-KB2": {
+      "verdict": "PASS",
+      "quote": "На деле по умолчанию стоит `Extra.ignore`, то есть лишние поля молча отбрасываются.",
+      "why": "Утверждение об отклонении лишних полей опровергнуто; последствие опечатки (None, затем списание всего баланса) названо в находке 1."
+    },
+    "FVB-h-PB1": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Замены req.dict() на model_dump() исполнитель не требует; req.dict() упомянут только в контексте содержимого аудита."
+    },
+    "FVB-OB1": {
+      "verdict": "FOUND",
+      "quote": "Два параллельных запроса проходят проверку оба, и получается двойное списание.",
+      "why": "Находка 3 описывает гонку чтения и записи без блокировки, из-за которой возможно двойное списание."
+    },
+    "FVB-OB2": {
+      "verdict": "FOUND",
+      "quote": "`Decimal(0.1)` на деле равен `0.1000000000000000055…`",
+      "why": "Находка 4 называет неточную стоимость балла из-за Decimal от float 0.1."
+    },
+    "FVB-OB3": {
+      "verdict": "FOUND",
+      "quote": "При отрицательной сумме проверка `amount > balance` проходит, и `points -= int(-X/0.1)` начисляет баллы.",
+      "why": "Находка 2 прямо описывает начисление баллов при отрицательном confirm_amount."
+    },
+    "FVB-OB4": {
+      "verdict": "MISSED",
+      "quote": "нет",
+      "why": "Ни в ответе, ни в _answer.md не сказано, что member_id берётся из тела запроса без аутентификации (IDOR)."
+    }
+  },
+  "stderr": ""
+}

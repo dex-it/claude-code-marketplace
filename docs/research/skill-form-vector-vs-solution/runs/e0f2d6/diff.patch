@@ -1,0 +1,85 @@
+diff --git a/Model.cs b/Model.cs
+index cc90064..27c3870 100644
+--- a/Model.cs
++++ b/Model.cs
+@@ -11,7 +11,8 @@ public class Order
+     public string Status { get; set; } = "active";
+     public string Category { get; set; } = "";
+     public decimal Total { get; set; }
+-    public DateTime CreatedAt { get; set; }          // column: timestamp without time zone
++    public int? Complexity { get; set; }             // сложность комплектации 1..5; null - исторические заказы до появления поля
++    public DateTime CreatedAt { get; set; }          // column: timestamp without time zone; в коде всегда Kind=Utc
+     public DateTime? ShippedAt { get; set; }
+     public bool IsDeleted { get; set; }
+     public List<OrderItem> Items { get; set; } = new();
+@@ -44,7 +45,33 @@ public class ShopDbContext : DbContext
+     protected override void OnModelCreating(ModelBuilder b)
+     {
+         b.Entity<Order>().HasQueryFilter(o => !o.IsDeleted);
+-        b.Entity<Order>().Property(o => o.CreatedAt).HasColumnType("timestamp without time zone");
++
++        b.Entity<Order>().ToTable(t => t.HasCheckConstraint("CK_Orders_Complexity", "\"Complexity\" BETWEEN 1 AND 5"));
++
++        // Колонка остаётся timestamp without time zone и хранит UTC-время.
++        // Npgsql 6+ в такую колонку принимает только Kind=Unspecified (Utc бросает), читает Unspecified -
++        // поэтому на записи приводим к UTC и снимаем Kind, на чтении помечаем Utc.
++        b.Entity<Order>().Property(o => o.CreatedAt)
++            .HasColumnType("timestamp without time zone")
++            .HasConversion(
++                v => DateTime.SpecifyKind(v.Kind == DateTimeKind.Local ? v.ToUniversalTime() : v, DateTimeKind.Unspecified),
++                v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
++
++        // Заказы удаляются мягко: каскада в БД нет, физическое удаление Order с зависимыми - ошибка FK.
++        // Позиции/платежи удаляет код явно (см. OrderRepository.ClearItems).
++        b.Entity<Order>()
++            .HasMany(o => o.Items)
++            .WithOne()
++            .HasForeignKey(i => i.OrderId)
++            .IsRequired()
++            .OnDelete(DeleteBehavior.Restrict);
++
++        b.Entity<Order>()
++            .HasMany(o => o.Payments)
++            .WithOne()
++            .HasForeignKey(p => p.OrderId)
++            .IsRequired()
++            .OnDelete(DeleteBehavior.Restrict);
+     }
+ }
+ // Options: UseNpgsql(cs).UseLazyLoadingProxies()
+diff --git a/OrderRepository.cs b/OrderRepository.cs
+index 72637b8..5d5cb6c 100644
+--- a/OrderRepository.cs
++++ b/OrderRepository.cs
+@@ -6,4 +6,16 @@ public class OrderRepository
+     public OrderRepository(ShopDbContext db) => _db = db;
+     public Task<List<Order>> GetAllAsync() => _db.Orders.ToListAsync();
+     public Task<Order?> GetAsync(Guid id) => _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
++
++    // Связь Order -> Items required + Restrict: одно Items.Clear() в SaveChanges бросит InvalidOperationException,
++    // поэтому позиции удаляются явно. false - заказ не найден или мягко удалён.
++    public async Task<bool> ClearItems(Guid orderId)
++    {
++        var order = await _db.Orders.Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == orderId);
++        if (order == null) return false;
++
++        _db.RemoveRange(order.Items);
++        await _db.SaveChangesAsync();
++        return true;
++    }
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..d97fb10
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,9 @@
++Изменённые файлы:
++- `Model.cs`: в `Order` добавлено поле `Complexity`; в `OnModelCreating` — check-ограничение 1..5, конвертер для `CreatedAt`, связи Order -> Items и Order -> Payments.
++- `OrderRepository.cs`: добавлен метод `ClearItems(Guid orderId)`.
++- `_answer.md`: этот ответ.
++
++Решения:
++- `Complexity` — обычная колонка `int?` с `CHECK BETWEEN 1 AND 5`. Owned-тип ради одного поля не нужен. `NULL` оставлен для старых заказов, иначе миграция добавила бы `NOT NULL DEFAULT 0` и нарушила check.
++- `CreatedAt` остаётся `timestamp without time zone`. При записи значение приводится к UTC и получает `Kind=Unspecified`: Npgsql 6+ не даёт записать `Utc` в такую колонку. При чтении значение помечается как `Utc`.
++- Items и Payments: связь required, `DeleteBehavior.Restrict`, в БД без каскада, потому что удаление мягкое. Поэтому `ClearItems` не вызывает `Items.Clear()` (при Restrict это даёт `InvalidOperationException`). Метод загружает заказ с позициями через `Include`, удаляет их через `RemoveRange` и сохраняет одним `SaveChanges`. Если заказ не найден или мягко удалён, возвращается `false`.

@@ -1,0 +1,96 @@
+diff --git a/OwnerService.cs b/OwnerService.cs
+index 763c160..1454cd7 100644
+--- a/OwnerService.cs
++++ b/OwnerService.cs
+@@ -14,6 +14,18 @@ public class OwnerService(ClinicDbContext db)
+             .SingleOrDefaultAsync(o => o.Email == normalized);
+     }
+ 
++    // Телефон не уникален (может быть записан на несколько членов семьи),
++    // поэтому неоднозначность возвращается явно - списком, а не выбором "первого".
++    public async Task<List<Owner>> FindByPhoneAsync(string phone)
++    {
++        var normalized = PhoneFormat.Normalize(phone);
++        return await db.Owners
++            .Include(o => o.Pets)
++            .AsNoTracking()
++            .Where(o => o.Phone == normalized)
++            .ToListAsync();
++    }
++
+     public async Task<Owner> CreateAsync(string fullName, string phone, string? email, bool smsConsent)
+     {
+         var owner = new Owner
+@@ -35,6 +47,14 @@ public class OwnerService(ClinicDbContext db)
+         owner.Email = email?.Trim().ToLowerInvariant();
+         await db.SaveChangesAsync();
+     }
++
++    public async Task RevokeSmsConsentAsync(int ownerId)
++    {
++        var owner = await db.Owners.SingleAsync(o => o.Id == ownerId);
++        owner.SmsConsent = false;
++        owner.SmsConsentChangedAt = DateTime.UtcNow;
++        await db.SaveChangesAsync();
++    }
+ }
+ 
+ public static class PhoneFormat
+diff --git a/ReminderReportService.cs b/ReminderReportService.cs
+new file mode 100644
+index 0000000..7b8cd1e
+--- /dev/null
++++ b/ReminderReportService.cs
+@@ -0,0 +1,36 @@
++using Microsoft.EntityFrameworkCore;
++using VetClinic.Reception.Data;
++using VetClinic.Reception.Domain;
++
++namespace VetClinic.Reception.Services;
++
++public record ReminderReportRow(string PetName, Species Species, string OwnerFullName, string OwnerPhone);
++
++public class ReminderReportService(ClinicDbContext db)
++{
++    // Pet.IsSenior вычисляется в памяти (switch + DateTime.Today) и не транслируется EF Core,
++    // поэтому тот же порог возраста выражается в IQueryable через пороговые даты по видам -
++    // условие целиком остаётся в запросе и не требует материализации 250 тыс. питомцев.
++    public async Task<List<ReminderReportRow>> GetOverdueRabiesReportAsync(CancellationToken ct = default)
++    {
++        var today = DateOnly.FromDateTime(DateTime.UtcNow);
++        var dogThreshold = today.AddYears(-8);
++        var catThreshold = today.AddYears(-10);
++        var ferretThreshold = today.AddYears(-5);
++        var rabbitThreshold = today.AddYears(-6);
++        var rabiesCutoff = DateTime.UtcNow.AddMonths(-12);
++
++        return await db.Pets
++            .Where(p => p.Owner.SmsConsent)
++            .Where(p =>
++                (p.Species == Species.Dog && p.BirthDate <= dogThreshold) ||
++                (p.Species == Species.Cat && p.BirthDate <= catThreshold) ||
++                (p.Species == Species.Ferret && p.BirthDate <= ferretThreshold) ||
++                (p.Species == Species.Rabbit && p.BirthDate <= rabbitThreshold))
++            .Where(p => !p.Vaccinations.Any(v =>
++                v.VaccineCode == VaccineCodes.Rabies && v.AdministeredAt > rabiesCutoff))
++            .AsNoTracking()
++            .Select(p => new ReminderReportRow(p.Name, p.Species, p.Owner.FullName, p.Owner.Phone))
++            .ToListAsync(ct);
++    }
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..d39e0c9
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,10 @@
++# Изменённые/новые файлы
++
++- **Новый**: `ReminderReportService.cs` — сервис `ReminderReportService.GetOverdueRabiesReportAsync()` и DTO `ReminderReportRow`.
++- **Изменён**: `OwnerService.cs` — добавлены методы `FindByPhoneAsync` и `RevokeSmsConsentAsync`.
++
++## Решения
++
++- Отчёт (а): `Pet.IsSenior` построен на `AgeYears`/`DateTime.Today` и не транслируется EF Core, поэтому условие "возрастной" выражено прямо в `IQueryable` через пороговые даты по видам (вместо `Where` после материализации). Отсутствие/давность прививки от бешенства — через `!Vaccinations.Any(...)` с cutoff `DateTime.UtcNow.AddMonths(-12)` (Kind=Utc, т.к. колонка `timestamptz`); запрос уходит в БД одним проходом с проекцией и `AsNoTracking`, без загрузки 250 тыс. питомцев в память.
++- Поиск по телефону (б): номер нормализуется тем же `PhoneFormat.Normalize`, что и при сохранении. Телефон не unique (см. комментарий к `Owner.Phone`), поэтому метод возвращает `List<Owner>`, а не `SingleOrDefaultAsync`/"первый попавшийся" — неоднозначность не скрывается молча. Чтение — `AsNoTracking`.
++- Отказ от SMS (в): `RevokeSmsConsentAsync` по аналогии с `UpdateContactsAsync` берёт владельца по уникальному `Id` (`SingleAsync`), ставит `SmsConsent = false` и `SmsConsentChangedAt = DateTime.UtcNow` (Utc для `timestamptz`).

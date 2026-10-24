@@ -1,0 +1,13 @@
+diff --git a/api/src/services/promo.ts b/api/src/services/promo.ts
+index 3cff3e3..77e0229 100644
+--- a/api/src/services/promo.ts
++++ b/api/src/services/promo.ts
+@@ -17,7 +17,7 @@ const RULES: Record<string, PromoRule> = {
+ export function applyPromo(code: string | undefined, subtotalKopecks: number): PromoResult {
+   if (!code) return { applied: false, discountKopecks: 0 };
+   const rule = RULES[code.trim().toUpperCase()];
+-  if (!rule || subtotalKopecks < rule.minSubtotalKopecks) return { applied: false, discountKopecks: 0 };
++  if (!rule || subtotalKopecks <= rule.minSubtotalKopecks) return { applied: false, discountKopecks: 0 };
+   const raw =
+     rule.percent !== undefined ? Math.floor((subtotalKopecks * rule.percent) / 100) : (rule.fixedKopecks ?? 0);
+   return { applied: true, discountKopecks: Math.min(raw, subtotalKopecks) };

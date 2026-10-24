@@ -1,0 +1,109 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..beecc69
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,103 @@
++# Ревью кода MR: Notify.Worker
++
++## Найденные дефекты
++
++### 1. ThrottleService.cs:7 — Mismatch конфигурационного пути
++**Проблема:** Код ищет `"Throttle:MessagesPerMinute"`, но в конфиге ключ `"PerMinute"`
++```csharp
++var perMinute = config.GetValue<int>("Throttle:MessagesPerMinute");
++```
++Конфиг:
++```json
++"Throttle": {
++    "PerMinute": 600
++}
++```
++**Последствие:** GetValue вернет null, деление на null на line 8 приведет к исключению `DivideByZeroException` или `NullReferenceException`.
++**Severity:** CRITICAL
++
++---
++
++### 2. OutboxWorker.cs:53 — SentAt устанавливается до отправки
++**Проблема:** `m.SentAt = now;` на line 53 устанавливается и сохраняется (line 55) ДО попытки отправки. Если SendAsync упадет (line 64), письмо будет помечено как отправленное.
++
++**Процесс:**
++1. Line 53: `m.SentAt = now;` (письмо помечено как отправленное)
++2. Line 55: `SaveChangesAsync()` (сохранено)
++3. Line 64: `await sender.SendAsync()` может упасть
++4. Line 68: `m.Attempts++` (счетчик увеличен)
++5. Line 77: `SaveChangesAsync()` (сохранено)
++6. На следующем цикле: filter `m.SentAt == null` (line 44) исключит письмо
++
++**Последствие:** Письмо с ошибкой будет помечено как отправленное и никогда не повторится, нарушаются требования по retry логике.
++**Severity:** CRITICAL
++
++---
++
++### 3. OutboxWorker.cs:25-30 — Adaptive batching не работает при MinBatchSize ≥ MaxBatchSize
++**Проблема:** Условие `if (o.MinBatchSize < o.MaxBatchSize)` на line 25 препятствует обновлению `_batchSize` при обновлении конфигурации в Production.
++
++Production конфиг содержит логическую ошибку:
++```json
++"MinBatchSize": 200,
++"MaxBatchSize": 100,
++```
++
++Когда MinBatchSize ≥ MaxBatchSize:
++- Условие на line 25 = false
++- `_batchSize` никогда не обновляется
++- Требование "размер пачки должны меняться на лету" нарушается
++
++**Severity:** HIGH
++
++---
++
++### 4. OutboxOptions.cs:5 — PollInterval как int не поддерживает дробные значения
++**Проблема:** Требование: "опрос outbox раз в полсекунды" (0.5 сек), но `PollInterval` это `int` (целое число секунд).
++
++```csharp
++public int PollInterval { get; set; }
++```
++
++Код на line 33:
++```csharp
++await Task.Delay(TimeSpan.FromSeconds(o.PollInterval), ct);
++```
++
++**Последствие:** Невозможно задать 0.5 секунды. Current value в appsettings.json (500 сек) явно ошибочен.
++**Severity:** HIGH
++
++---
++
++### 5. OutboxOptionsValidator.cs — Неполная валидация
++**Проблемы:**
++1. Не проверяет `PollInterval` (должно быть > 0)
++2. Не проверяет `MinBatchSize` (должно быть >= 0)
++3. Не проверяет условие `MinBatchSize <= MaxBatchSize`
++
++**Последствие:** Production конфиг с MinBatchSize=200, MaxBatchSize=100 проходит валидацию, хотя это логическая ошибка.
++**Severity:** HIGH
++
++---
++
++### 6. SmtpMailSender.cs:17 — Все письма отправляются как HTML
++**Проблема:** Письма всегда отправляются как HTML:
++```csharp
++msg.Body = new TextPart("html") { Text = body };
++```
++
++**Последствие:** Нет гибкости для отправки plain text писем. Если body содержит HTML entities или raw HTML, они будут некорректно отображены в client-ах без поддержки HTML.
++**Severity:** MEDIUM
++
++---
++
++## Сводка
++
++| Файл | Метод | Дефект | Severity |
++|------|-------|--------|----------|
++| ThrottleService.cs | WaitAsync | Конфигурационный путь "Throttle:MessagesPerMinute" не совпадает с конфигом "PerMinute" → RuntimeError | CRITICAL |
++| OutboxWorker.cs | ProcessBatchAsync | SentAt устанавливается до отправки → retry не работает | CRITICAL |
++| OutboxWorker.cs | ExecuteAsync | Adaptive batching не работает при MinBatchSize ≥ MaxBatchSize → конфиг не обновляется на лету | HIGH |
++| OutboxOptions.cs | (property) | PollInterval как int не поддерживает 0.5 сек → требование не выполняется | HIGH |
++| OutboxOptionsValidator.cs | Validate | Не проверяет PollInterval, MinBatchSize, MinBatchSize ≤ MaxBatchSize → invalid конфиги не ловятся | HIGH |
++| SmtpMailSender.cs | SendAsync | Все письма как HTML → нет гибкости для plain text | MEDIUM |

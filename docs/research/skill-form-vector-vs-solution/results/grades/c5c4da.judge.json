@@ -1,0 +1,92 @@
+{
+  "id": "c5c4da",
+  "case": "V4",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.115287,
+    "durationMs": 9281,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 11824,
+      "cache_read_input_tokens": 2135,
+      "output_tokens": 1013,
+      "output_tokens_details": {
+        "thinking_tokens": 0
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11824,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1013,
+          "cache_read_input_tokens": 2135,
+          "cache_creation_input_tokens": 11824,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 11824
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  },
+  "items": {
+    "V4-container-count": {
+      "verdict": "FOUND",
+      "quote": "`net = gross - container.TareKg` вычитает массу одной фляги, хотя `ContainerCount` принимается и сохраняется",
+      "why": "Названо вычитание тары одной единицы без умножения на ContainerCount и переплата, предложено `TareKg * data.ContainerCount`."
+    },
+    "V4-honeytype-moisture": {
+      "verdict": "FOUND",
+      "quote": "Используются константы 18,5 % и 20 %, а `HoneyType.MaxMoistureGradeA/B` (у каждого вида своя норма, например у верескового) не читаются",
+      "why": "Указано, что нормы влажности берутся не из HoneyType, и названо последствие для верескового мёда."
+    },
+    "V4-correction-after-payout": {
+      "verdict": "FOUND",
+      "quote": "`CorrectAsync`: можно исправить партию, которая уже в выплате или оплачена",
+      "why": "Названо исправление партии в выплате без пересчёта сумм и с затиранием статуса, предложен ответ 409."
+    },
+    "V4-delete-draft-advance": {
+      "verdict": "FOUND",
+      "quote": "`DeleteDraftAsync` удаляет выплату, но баланс аванса не восстанавливает",
+      "why": "Удаление черновика связано с невосстановленным AdvanceBalance и потерей удержания при пересчёте."
+    },
+    "V4-adjust-four-eyes": {
+      "verdict": "FOUND",
+      "quote": "Бухгалтер Б может сам начислить премию в черновике бухгалтера А и сам же его утвердить",
+      "why": "Ручная правка черновика связана с проверкой одного CreatedBy при утверждении."
+    },
+    "V4-registry-upload-swallowed": {
+      "verdict": "FOUND",
+      "quote": "Если загрузка падает, `BankGatewayException` только логируется, а метод возвращает 200 с `RegistryDto`, будто реестр ушёл",
+      "why": "Связаны пометка ExportedAt до отправки, проглоченная ошибка и фильтр ExportedAt == null."
+    },
+    "V4-temp-key-fk": {
+      "verdict": "PASS",
+      "quote": "До `SaveChangesAsync` значение `entry.Id` равно 0: начиная с EF Core 3 временные ключи не записываются в свойство сущности",
+      "why": "Названы Id = 0, нарушение FK, падение Add и исправление через навигацию или сохранение в два шага в одной транзакции."
+    },
+    "V4-h-decimal-numeric": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находок про точность decimal или HasPrecision нет."
+    },
+    "V4-h-executeupdate-in-transaction": {
+      "verdict": "NO",
+      "quote": "нет",
+      "why": "Находка 12 про ApproveAsync касается бизнес-смысла статуса Paid, а не атомарности ExecuteUpdate или отсутствия SaveChanges."
+    }
+  },
+  "stderr": ""
+}

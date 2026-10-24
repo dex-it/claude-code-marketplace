@@ -1,0 +1,87 @@
+diff --git a/OrderQueries.cs b/OrderQueries.cs
+new file mode 100644
+index 0000000..7ec8aa5
+--- /dev/null
++++ b/OrderQueries.cs
+@@ -0,0 +1,68 @@
++namespace Shop.Data;
++
++public record OrderItemDto(int Id, Guid ProductId, int Qty);
++public record PaymentDto(int Id, decimal Amount);
++public record OrderCardDto(
++    Guid Id, Guid CustomerId, string Status, string Category, decimal Total,
++    DateTime CreatedAt, DateTime? ShippedAt,
++    List<OrderItemDto> Items, List<PaymentDto> Payments);
++
++public class AmbiguousSkuException : InvalidOperationException
++{
++    public AmbiguousSkuException(string sku)
++        : base($"SKU '{sku}' is stored in several warehouses; warehouse must be specified.") { }
++}
++
++// Read-only queries: projection to DTOs (no tracking, no lazy-loading proxies leak out).
++// Register as scoped together with ShopDbContext.
++public class OrderQueries
++{
++    private readonly ShopDbContext _db;
++    public OrderQueries(ShopDbContext db) => _db = db;
++
++    // (a) One order: items x payments of a single order is small, so one round-trip is cheaper than split query.
++    public Task<OrderCardDto?> GetOrderCardAsync(Guid orderId, CancellationToken ct = default) =>
++        ToCard(_db.Orders.Where(o => o.Id == orderId))
++            .AsSingleQuery()
++            .SingleOrDefaultAsync(ct);
++
++    // (b) Thousands of orders: split query avoids the Items x Payments cartesian explosion.
++    public Task<List<OrderCardDto>> GetCustomerOrdersAsync(Guid customerId, CancellationToken ct = default) =>
++        ToCard(_db.Orders.Where(o => o.CustomerId == customerId).OrderBy(o => o.CreatedAt).ThenBy(o => o.Id))
++            .AsSplitQuery()
++            .ToListAsync(ct);
++
++    // (c) SKU is unique only within a warehouse. Without warehouse: return the product if SKU is
++    // in exactly one warehouse, otherwise fail explicitly instead of picking an arbitrary one.
++    public async Task<Product?> GetProductBySku(string sku, string? warehouse, CancellationToken ct = default)
++    {
++        var query = _db.Products.AsNoTracking().Where(p => p.Sku == sku);
++
++        if (warehouse is not null)
++            return await query.SingleOrDefaultAsync(p => p.Warehouse == warehouse, ct);
++
++        var found = await query.Take(2).ToListAsync(ct);
++        return found.Count switch
++        {
++            0 => null,
++            1 => found[0],
++            _ => throw new AmbiguousSkuException(sku),
++        };
++    }
++
++    // (d) Aggregate in SQL; MAX over nullable column returns null when the customer has no shipped orders.
++    public async Task<DateTime> GetLastShippedAtAsync(Guid customerId, CancellationToken ct = default)
++    {
++        var last = await _db.Orders
++            .Where(o => o.CustomerId == customerId && o.ShippedAt != null)
++            .MaxAsync(o => o.ShippedAt, ct);
++
++        return last ?? throw new InvalidOperationException($"Customer {customerId} has no shipped orders.");
++    }
++
++    private static IQueryable<OrderCardDto> ToCard(IQueryable<Order> orders) =>
++        orders.Select(o => new OrderCardDto(
++            o.Id, o.CustomerId, o.Status, o.Category, o.Total, o.CreatedAt, o.ShippedAt,
++            o.Items.OrderBy(i => i.Id).Select(i => new OrderItemDto(i.Id, i.ProductId, i.Qty)).ToList(),
++            o.Payments.OrderBy(p => p.Id).Select(p => new PaymentDto(p.Id, p.Amount)).ToList()));
++}
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..db44c87
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,7 @@
++Файлы:
++- `OrderQueries.cs` — создан. В нём сервис `OrderQueries`, DTO `OrderCardDto`, `OrderItemDto`, `PaymentDto` и исключение `AmbiguousSkuException`. Больше ничего не менял. Сборку и тесты не запускал.
++
++Решения:
++- **Чтение заказов.** Результат проецируется в DTO, поэтому отслеживания изменений нет и прокси ленивой загрузки наружу не попадают; фильтр soft-delete применяется. Карточка одного заказа (а) грузится одним запросом (`AsSingleQuery`): позиций × платежей у одного заказа немного. Выгрузка по клиенту (б) идёт через `AsSplitQuery`, иначе на тысячах заказов строки Items × Payments перемножаются. Но части split-запроса не читают один снимок данных, так что при параллельных изменениях выгрузка может разойтись.
++- **(в) `GetProductBySku`.** Параметр склада объявлен как `string?`. Если склад передан — `SingleOrDefault` по паре (sku, warehouse). Если `null`: товар найден на одном складе — возвращается он; на нескольких — бросается `AmbiguousSkuException`, чтобы не отдавать случайный. Уникального индекса (Sku, Warehouse) в модели нет — его нужно добавить отдельной миграцией после проверки данных.
++- **(г) Дата последней отгрузки.** `MAX(ShippedAt)` считается в SQL. Если у клиента нет отгруженных заказов, метод бросает `InvalidOperationException`: сигнатура требует не-nullable `DateTime`, а подставлять `default` было бы неверно. Стоит обсудить с бизнесом, не сделать ли тип `DateTime?`. Ещё: у `ShippedAt` не задан тип колонки, поэтому Npgsql 8 сопоставит её с `timestamp with time zone` и вернёт значение с Kind=Utc (у `CreatedAt` тип `without time zone`).

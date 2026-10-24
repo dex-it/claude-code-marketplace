@@ -1,0 +1,15 @@
+pyproject.toml:46 - в select стоят Q и W (и E, D), конфликтующие с форматтером правила (W191, Q000, D206 и др.) выбраны без ignore, при indent-style = "tab" (строка 51) W191/D206 ругаются на код, который выдаёт ruff format; ruff check и ruff format будут спорить, джоб lint не станет зелёным - blocker
+pyproject.toml:56 - ignore_missing_imports = true на весь проект: у numpy/torch/tensorflow/xgboost и др. типы молча превращаются в Any, mypy пропустит ошибки в вызовах библиотек и опечатки в импортах - major
+pyproject.toml:58 - секция [tool.pytest.ini_options] мертва: pytest.ini приоритетнее, поэтому addopts с --cov и testpaths не применяются, покрытие в CI не измеряется, маркеры дублируются в двух местах и уже расходятся (gpu только в pytest.ini) - major
+pyproject.toml:60 - покрытие измеряется (если бы работало), но нет --cov-fail-under: покрытие может упасть до нуля при зелёном CI - major
+pytest.ini:1 - нет filterwarnings = error и strict-markers: предупреждения (в т.ч. PytestUnknownMarkWarning) не эскалируются, деградации и опечатки проходят молча - major
+tests/test_legacy_features.py:6 - опечатка в маркере slwo вместо slow: без --strict-markers тест не помечен как медленный, фильтр -m "not slow" его не исключит, только предупреждение, которое никто не увидит - minor
+src/shelfwatch/legacy_features.py:8 - total + " руб." складывает число и строку: store_score всегда падает с TypeError (в т.ч. при пустом rows, total = 0), функция неработоспособна; дымовой тест test_store_score_runs упадёт, джоб tests красный; mypy тоже даст ошибку на этой строке (и на отсутствующие аннотации только при strict) - blocker
+src/shelfwatch/legacy_features.py:4 - нет докстринга у публичной функции (D103) при select "D": ruff check . упадёт на «перенесённом как есть» коде; то же для test_store_score_runs в tests/test_legacy_features.py:7 - major
+.gitlab-ci.yml:13 - ruff format . без --check переписывает файлы в CI и всегда выходит с 0: проверка форматирования ничего не гейтит, нарушения форматирования проходят - major
+.gitlab-ci.yml:21 - pytest . запускается без аргументов покрытия/порога и при pytest.ini игнорирует addopts из pyproject; гейт покрытия отсутствует - major
+.gitlab-ci.yml:17 - mypy src проверяет только src, а конфиг files включает tests: локальный и CI-прогоны расходятся, ошибки типов в тестах не ловятся в CI - minor
+.gitlab-ci.yml:6 - нет шага аудита зависимостей (pip-audit есть в dev-группе, но в CI не вызывается): уязвимые версии попадут в релиз незамеченными - major
+.gitlab-ci.yml:7 - инструменты ставятся pip install -U без версий вместо закреплённых версий из dependency-groups dev: CI не воспроизводим, новая версия ruff/mypy сломает пайплайн без изменений в коде - minor
+.gitlab-ci.yml:4 - PYPI_TOKEN объявлен в variables репозитория (значение помечено как тестовое, но секрет в VCS - плохая практика, виден всем с доступом и в логах джобов) - minor
+.gitlab-ci.yml:6 - before_script ставит все зависимости (torch, tensorflow, bitsandbytes и т.д.) в каждый из трёх джобов без кэша: пайплайн долгий, а bitsandbytes на CPU-раннере может не установиться - minor

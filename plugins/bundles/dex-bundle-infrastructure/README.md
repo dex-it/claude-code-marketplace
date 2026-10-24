@@ -25,9 +25,11 @@ Complete infrastructure bundle: databases, messaging, containers, CI/CD, monitor
 .\install-bundle\uninstall-bundle.ps1 infrastructure
 ```
 
-## Included Components (37)
+## Included Components
 
-### Specialists (14)
+Полный состав - `bundle.json`: `includes[]` (профиль роли) плюс `dependencies[]` (подтянутое замыканием); ниже - ключевые компоненты роли, не весь перечень.
+
+### Specialists
 - `dex-postgresql-specialist` - PostgreSQL databases
 - `dex-mongodb-specialist` - MongoDB databases
 - `dex-rabbitmq-specialist` - RabbitMQ messaging
@@ -43,13 +45,12 @@ Complete infrastructure bundle: databases, messaging, containers, CI/CD, monitor
 - `dex-logging-seq` - Seq logging
 - `dex-monitoring-grafana` - Grafana monitoring
 
-### Skills (13)
+### Skills
 - `dex-skill-rabbitmq` - RabbitMQ patterns
 - `dex-skill-kafka` - Kafka patterns
 - `dex-skill-elasticsearch` - Elasticsearch patterns
 - `dex-skill-redis` - Redis patterns
 - `dex-skill-mongodb` - MongoDB patterns
-- `dex-skill-docker` - Docker best practices
 - `dex-skill-kubernetes` - Kubernetes patterns
 - `dex-skill-gitlab-ci` - GitLab CI/CD patterns
 - `dex-skill-github-actions` - GitHub Actions patterns
@@ -58,7 +59,7 @@ Complete infrastructure bundle: databases, messaging, containers, CI/CD, monitor
 - `dex-skill-dotnet-logging` - Logging patterns
 - `dex-skill-observability` - Observability patterns
 
-### CLI Utilities (10)
+### CLI Utilities
 - `dex-gitlab-cli` - GitLab CLI: pipelines, MRs, logs (`glab`)
 - `dex-github-cli` - GitHub CLI: workflow runs, PRs, logs (`gh`)
 - `dex-kubectl-cli` - Kubernetes CLI: pods, logs, deployments, contexts (`kubectl`)

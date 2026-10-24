@@ -1,0 +1,121 @@
+{
+  "id": "43af44",
+  "case": "CFG",
+  "judge": "claude-opus-5-5/high",
+  "exitCode": 0,
+  "cost": {
+    "usd": 0.1175834,
+    "durationMs": 17293,
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 8811,
+      "cache_read_input_tokens": 2137,
+      "output_tokens": 2333,
+      "output_tokens_details": {
+        "thinking_tokens": 737
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8811,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 2333,
+          "cache_read_input_tokens": 2137,
+          "cache_creation_input_tokens": 8811,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 8811
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    }
+  },
+  "items": {
+    "CFG-K9": {
+      "verdict": "PASS",
+      "quote": "на staging `MaxInFlight` 20, в проде 5, и причина нигде не описана",
+      "why": "Находка 14 прямо указывает, что MaxInFlight на staging выше, чем в проде."
+    },
+    "CFG-K8": {
+      "verdict": "PASS",
+      "quote": "В проде повторяются `MaxBatchSize: 100`, `MaxInFlight: 5`, `MaxRetries: 5`, на staging `MaxRetries: 5`. Это то же, что в `appsettings.json`.",
+      "why": "Находка 17 называет повтор MaxRetries 5 в обоих env-файлах при том же дефолте."
+    },
+    "CFG-h-required": {
+      "verdict": "NO",
+      "quote": "Что сделать: `required` плюс валидация (`[Required]`, `ValidateDataAnnotations().ValidateOnStart()`).",
+      "why": "required предложен вместе с валидацией опций, а не вместо неё, и нигде не утверждается, что required ловит отсутствие значения в конфиге."
+    },
+    "CFG-K1": {
+      "verdict": "FOUND",
+      "quote": "в репозитории лежат пароль БД (`Kx7!pQ2vR9wz`) и пароль SMTP-релея (`rl_live_…`)",
+      "why": "Находка 1 называет оба секрета в prod-конфиге."
+    },
+    "CFG-K2": {
+      "verdict": "FOUND",
+      "quote": "Значение становится 0, и `60_000 / 0` бросает `DivideByZeroException` на каждой отправке",
+      "why": "Находка 4 описывает неверный ключ, значение 0 и деление на ноль."
+    },
+    "CFG-K3": {
+      "verdict": "FOUND",
+      "quote": "не подключён в DI, и нет `ValidateOnStart`, так что он никогда не выполняется",
+      "why": "Находка 7 указывает, что валидатор не зарегистрирован и ValidateOnStart отсутствует."
+    },
+    "CFG-K4": {
+      "verdict": "FOUND",
+      "quote": "используется `IOptions<OutboxOptions>`, который читается один раз при старте",
+      "why": "Находка 6 связывает IOptions в воркере с невыполненным требованием менять настройки на лету."
+    },
+    "CFG-K5": {
+      "verdict": "FOUND",
+      "quote": "Условие `if (Min < Max)` из-за этого не срабатывает, и адаптивный размер пачки в проде молча выключен",
+      "why": "Находка 8 описывает тихое отключение adaptive batching при 200/100."
+    },
+    "CFG-K6": {
+      "verdict": "FOUND",
+      "quote": "`PollInterval: 500` задуман как миллисекунды, а код использует `TimeSpan.FromSeconds`",
+      "why": "Находка 5 описывает паузу 500 секунд вместо 0,5 секунды."
+    },
+    "CFG-K7": {
+      "verdict": "FOUND",
+      "quote": "`Host` и `FromAddress` объявлены как non-nullable, но без `required` и без проверки",
+      "why": "Находка 16 называет non-nullable свойства без дефолта и без проверки."
+    },
+    "CFG-h-P1": {
+      "verdict": "NO",
+      "quote": "То же касается `SmtpMailSender`, если SMTP-настройки тоже должны перечитываться.",
+      "why": "Упоминание условное и не объявляет IOptions<SmtpOptions> дефектом; отдельной находки против него нет."
+    },
+    "CFG-h-P2": {
+      "verdict": "NO",
+      "quote": "нужно следить, чтобы `LockTimeout` был больше худшего времени обработки пачки",
+      "why": "Находка 19 касается величины таймаута, а не формата \"00:00:30\" как TimeSpan."
+    },
+    "CFG-O1": {
+      "verdict": "FOUND",
+      "quote": "`SentAt = now` сохраняется до отправки. Если отправка упала, письмо всё равно остаётся «отправленным»",
+      "why": "Находка 2 описывает именно этот дефект."
+    },
+    "CFG-O2": {
+      "verdict": "FOUND",
+      "quote": "`SmtpOptions` читаются из секции `\"Mail\"`, а в конфиге она называется `\"Smtp\"`",
+      "why": "Находка 3 указывает на пустые SmtpOptions из-за неверного имени секции."
+    },
+    "CFG-O3": {
+      "verdict": "FOUND",
+      "quote": ".NET не подставляет `${NOTIFY_DB_PASSWORD}`, и в Npgsql уйдёт буквальная строка",
+      "why": "Находка 13 называет отсутствие подстановки плейсхолдера в конфигурации .NET."
+    }
+  },
+  "stderr": ""
+}

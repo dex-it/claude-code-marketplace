@@ -1,0 +1,110 @@
+diff --git a/Model.cs b/Model.cs
+index cc90064..dcb5268 100644
+--- a/Model.cs
++++ b/Model.cs
+@@ -1,21 +1,26 @@
+ // Shop.Data - EF Core 8, PostgreSQL (Npgsql.EntityFrameworkCore.PostgreSQL 8)
+ namespace Shop.Data;
+ 
+-public class Customer { public Guid Id { get; set; } public string Name { get; set; } = ""; public List<Order> Orders { get; set; } = new(); }
++// Навигации virtual: включён UseLazyLoadingProxies, без virtual модель не строится.
++public class Customer { public Guid Id { get; set; } public string Name { get; set; } = ""; public virtual List<Order> Orders { get; set; } = new(); }
+ 
+ public class Order
+ {
++    public const int MinComplexity = 1;
++    public const int MaxComplexity = 5;
++
+     public Guid Id { get; set; }
+     public Guid CustomerId { get; set; }
+     public virtual Customer Customer { get; set; } = null!;
+     public string Status { get; set; } = "active";
+     public string Category { get; set; } = "";
+     public decimal Total { get; set; }
+-    public DateTime CreatedAt { get; set; }          // column: timestamp without time zone
++    public DateTime CreatedAt { get; set; }          // column: timestamp without time zone; в коде всегда Kind=Utc
+     public DateTime? ShippedAt { get; set; }
+     public bool IsDeleted { get; set; }
+-    public List<OrderItem> Items { get; set; } = new();
+-    public List<Payment> Payments { get; set; } = new();
++    public int Complexity { get; set; } = MinComplexity;   // сложность комплектации, 1..5 (CHECK в БД)
++    public virtual List<OrderItem> Items { get; set; } = new();
++    public virtual List<Payment> Payments { get; set; } = new();
+     public bool IsOverdue(DateTime now) => ShippedAt == null && CreatedAt.AddDays(3) < now;
+ }
+ 
+@@ -43,8 +48,37 @@ public class ShopDbContext : DbContext
+     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+     protected override void OnModelCreating(ModelBuilder b)
+     {
+-        b.Entity<Order>().HasQueryFilter(o => !o.IsDeleted);
+-        b.Entity<Order>().Property(o => o.CreatedAt).HasColumnType("timestamp without time zone");
++        var order = b.Entity<Order>();
++        order.HasQueryFilter(o => !o.IsDeleted);
++
++        // Колонка остаётся timestamp without time zone и хранит UTC-время.
++        // Npgsql 6+ не даёт писать Kind=Utc в такую колонку, поэтому на записи снимаем Kind
++        // (Local предварительно переводим в UTC), на чтении помечаем значение как Utc.
++        order.Property(o => o.CreatedAt)
++            .HasColumnType("timestamp without time zone")
++            .HasConversion(
++                v => DateTime.SpecifyKind(v.Kind == DateTimeKind.Local ? v.ToUniversalTime() : v, DateTimeKind.Unspecified),
++                v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
++
++        // Без HasDefaultValue: иначе явно заданный 0 молча превратился бы в дефолт БД вместо ошибки CHECK.
++        order.Property(o => o.Complexity).IsRequired();
++        order.ToTable(t => t.HasCheckConstraint(
++            "CK_Orders_Complexity",
++            $"\"Complexity\" BETWEEN {Order.MinComplexity} AND {Order.MaxComplexity}"));
++
++        // Мягкое удаление не каскадируется: позиции и платежи остаются в БД при IsDeleted = true.
++        // У OrderItem/Payment нет своих DbSet, они доступны только через Order, на котором стоит фильтр.
++        order.HasMany(o => o.Items)
++            .WithOne()
++            .HasForeignKey(i => i.OrderId)
++            .IsRequired()
++            .OnDelete(DeleteBehavior.Cascade);   // позиции без заказа не имеют смысла; Items.Clear() удаляет строки
++
++        order.HasMany(o => o.Payments)
++            .WithOne()
++            .HasForeignKey(p => p.OrderId)
++            .IsRequired()
++            .OnDelete(DeleteBehavior.Restrict);  // финансовые записи: физическое удаление заказа с платежами запрещено
+     }
+ }
+ // Options: UseNpgsql(cs).UseLazyLoadingProxies()
+diff --git a/OrderRepository.cs b/OrderRepository.cs
+index 72637b8..09ccd3a 100644
+--- a/OrderRepository.cs
++++ b/OrderRepository.cs
+@@ -6,4 +6,16 @@ public class OrderRepository
+     public OrderRepository(ShopDbContext db) => _db = db;
+     public Task<List<Order>> GetAllAsync() => _db.Orders.ToListAsync();
+     public Task<Order?> GetAsync(Guid id) => _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
++
++    // Мягко удалённый заказ отсекается фильтром и считается отсутствующим.
++    public async Task ClearItems(Guid orderId)
++    {
++        // Include, а не lazy loading: один запрос вместо двух.
++        var order = await _db.Orders.Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == orderId)
++            ?? throw new KeyNotFoundException($"Order {orderId} not found");
++
++        // FK обязательный, поэтому осиротевшие позиции EF удаляет (DELETE), а не обнуляет OrderId.
++        order.Items.Clear();
++        await _db.SaveChangesAsync();
++    }
+ }
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..e2f7692
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,8 @@
++Изменённые файлы:
++- `Model.cs`: добавлены `Order.Complexity` и CHECK 1..5, конвертер для `CreatedAt`, связи Items/Payments, навигации сделаны `virtual`.
++- `OrderRepository.cs`: добавлен `ClearItems(Guid orderId)`.
++
++Решения:
++- `CreatedAt`: колонка остаётся `timestamp without time zone`. Npgsql 8 выбрасывает исключение при записи `Kind=Utc` в такую колонку, поэтому конвертер при записи снимает Kind (Local сначала переводится в UTC), а при чтении помечает значение как Utc. В БД лежит время UTC без зоны.
++- `Complexity`: тип `int`, в коде по умолчанию 1, в БД стоит CHECK `BETWEEN 1 AND 5`. `HasDefaultValue` не ставил: с ним явно заданный 0 без ошибки заменялся бы дефолтом. При добавлении колонки в миграции существующие строки нужно заполнить `defaultValue: 1`.
++- Связи: Items — Cascade (при `Clear()` строки удаляются через DELETE), Payments — Restrict (удалить из БД заказ с платежами нельзя). Мягкое удаление ничего не каскадирует. `ClearItems` загружает позиции через `Include`, удалённый или несуществующий заказ даёт `KeyNotFoundException`. `Total` не пересчитывается, это надо решить с бизнесом. Сборку и тесты не запускал.

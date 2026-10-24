@@ -1,0 +1,71 @@
+commit d03daff
+BILL-25: дата разбиения рассрочки считается по Москве
+
+Раньше бралась зона сервера (TimeZoneInfo.Local), а серверы в UTC:
+разбиение после 21:00 UTC давало график от вчерашней даты по МСК.
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+
+
+ .../Application/Installments/InstallmentScheduleBuilder.cs            | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+diff --git a/src/Billing.Api/Application/Installments/InstallmentScheduleBuilder.cs b/src/Billing.Api/Application/Installments/InstallmentScheduleBuilder.cs
+index d142174..fdffba6 100644
+--- a/src/Billing.Api/Application/Installments/InstallmentScheduleBuilder.cs
++++ b/src/Billing.Api/Application/Installments/InstallmentScheduleBuilder.cs
+@@ -5,9 +5,11 @@ namespace Billing.Api.Application.Installments;
+ 
+ public sealed class InstallmentScheduleBuilder(TimeProvider clock)
+ {
++    private static readonly TimeZoneInfo Moscow = TimeZoneInfo.FindSystemTimeZoneById("Europe/Moscow");
++
+     public IReadOnlyList<Installment> Build(Invoice invoice, int count)
+     {
+-        var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(clock.GetUtcNow(), TimeZoneInfo.Local).DateTime);
++        var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(clock.GetUtcNow(), Moscow).DateTime);
+         var holidays = File.ReadAllLines(Path.Combine(AppContext.BaseDirectory, "calendar", "holidays.txt"))
+             .Where(line => !string.IsNullOrWhiteSpace(line))
+             .Select(line => DateOnly.ParseExact(line.Trim(), "yyyy-MM-dd", CultureInfo.InvariantCulture))
+commit ccbbaf8
+BILL-25: остаток от деления суммы рассрочки - в первый платёж
+
+По задаче остаток уходит в первый платёж, а не в последний. Тест
+переименован и ждёт 334, 333, 333.
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+
+
+ src/Billing.Api/Application/Installments/MoneySplit.cs | 2 +-
+ tests/Billing.Tests/InstallmentScheduleTests.cs        | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+diff --git a/src/Billing.Api/Application/Installments/MoneySplit.cs b/src/Billing.Api/Application/Installments/MoneySplit.cs
+index 926ab2b..0e715f2 100644
+--- a/src/Billing.Api/Application/Installments/MoneySplit.cs
++++ b/src/Billing.Api/Application/Installments/MoneySplit.cs
+@@ -9,7 +9,7 @@ public static class MoneySplit
+         var share = total.Minor / parts;
+         var remainder = total.Minor % parts;
+         return Enumerable.Range(0, parts)
+-            .Select(i => total with { Minor = share + (i == parts - 1 ? remainder : 0) })
++            .Select(i => total with { Minor = share + (i == 0 ? remainder : 0) })
+             .ToList();
+     }
+ }
+diff --git a/tests/Billing.Tests/InstallmentScheduleTests.cs b/tests/Billing.Tests/InstallmentScheduleTests.cs
+index ce436ad..ce25a4d 100644
+--- a/tests/Billing.Tests/InstallmentScheduleTests.cs
++++ b/tests/Billing.Tests/InstallmentScheduleTests.cs
+@@ -24,11 +24,11 @@ public sealed class InstallmentScheduleTests
+     }
+ 
+     [Fact]
+-    public void Split_RemainderGoesToOnePayment()
++    public void Split_RemainderGoesToFirstPayment()
+     {
+         var parts = MoneySplit.Split(new Money(1000, "RUB"), 3);
+ 
+-        Assert.Equal(new long[] { 333, 333, 334 }, parts.Select(p => p.Minor));
++        Assert.Equal(new long[] { 334, 333, 333 }, parts.Select(p => p.Minor));
+     }
+ 
+     [Fact]

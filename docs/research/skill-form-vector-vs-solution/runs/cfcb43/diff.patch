@@ -1,0 +1,77 @@
+diff --git a/_answer.md b/_answer.md
+new file mode 100644
+index 0000000..24566bf
+--- /dev/null
++++ b/_answer.md
+@@ -0,0 +1,71 @@
++# Ревью MR !238: Список находок
++
++## Дефекты для исправления перед мержем
++
++### 1. TripService.cs: StartTripAsync, line 111
++**Дефект**: Неправильная проверка срока действия допуска.
++
++**Код**:
++```csharp
++if (!driver.Permits.Any(p => p.Class == vehicle.Class && p.ValidUntil > today))
++```
++
++**Проблема**: Условие использует `>` (больше), но согласно описанию MR "допуск действует по указанную в нём дату включительно". Это означает, что допуск, действующий до сегодняшнего дня включительно, должен быть валидным. Текущий код отклонит допуск, если `ValidUntil == today`, что неправильно.
++
++**Почему это дефект**: Водители с допусками, заканчивающимися сегодня, не смогут выйти на линию, хотя допуск еще действует. Функциональность не соответствует требованиям (FLEET-107).
++
++**Исправление**: Изменить условие на `p.ValidUntil >= today`.
++
++**Severity**: CRITICAL
++
++---
++
++### 2. VehicleService.cs: ReplaceEquipmentAsync, lines 35-44
++**Дефект**: Коллекция Equipment не загружена перед очисткой.
++
++**Код**:
++```csharp
++public async Task ReplaceEquipmentAsync(int vehicleId, IReadOnlyList<EquipmentDto> items)
++{
++    var vehicle = await FindVehicleAsync(vehicleId) ?? throw new KeyNotFoundException();
++    
++    vehicle.Equipment.Clear();  // Equipment не загружена!
++    foreach (var item in items.DistinctBy(i => i.Code))
++        vehicle.Equipment.Add(new VehicleEquipment { Code = item.Code, Qty = item.Qty });
++```
++
++**Проблема**: `FindVehicleAsync` не использует `.Include(v => v.Equipment)`, поэтому коллекция Equipment в памяти пуста. Вызов `.Clear()` очищает локальный список, но не удаляет старые записи из БД. Новые элементы добавляются, но старые остаются.
++
++**Почему это дефект**: При замене комплектации машины будут накапливаться старые записи в таблице `vehicle_equipment`, нарушая целостность данных и требование FLEET-104 ("заменяем на присланную").
++
++**Исправление**: Загрузить коллекцию: `var vehicle = await _db.Vehicles.Include(v => v.Equipment).FirstOrDefaultAsync(...)`.
++
++**Severity**: CRITICAL
++
++---
++
++### 3. Program.cs: PUT /vehicles/{id:int}/equipment endpoint, lines 53-57
++**Дефект**: Отсутствует требование авторизации и указание ролей.
++
++**Код**:
++```csharp
++api.MapPut("/vehicles/{id:int}/equipment", async (int id, List<EquipmentDto> items, VehicleService s) =>
++{
++    await s.ReplaceEquipmentAsync(id, items);
++    return Results.NoContent();
++});
++```
++
++**Проблема**: Endpoint не имеет `.RequireAuthorization()` с указанием роли. Все остальные чувствительные операции имеют явное требование роли (Hr, FleetManager, Mechanic, Dispatcher), но этот эндпоинт открыт. Операция замены комплектации машины должна быть доступна только механикам (FLEET-104).
++
++**Почему это дефект**: Уязвимость безопасности - любой пользователь с доступом к API может изменить комплектацию любой машины, включая изменение или удаление критического оборудования (огнетушители, аптечка).
++
++**Исправление**: Добавить `.RequireAuthorization("Mechanic")` перед закрывающей скобкой.
++
++**Severity**: HIGH
++
++---
++
++## Итого
++- **CRITICAL**: 2 дефекта (логика допусков, управление данными Equipment)
++- **HIGH**: 1 дефект (безопасность)
