@@ -113,6 +113,12 @@ try {
   console.error(`Не прочитано: ${e.message}`);
   process.exit(2);
 }
+// README заменён пометкой о переезде проекта: витрины в нём нет, сверять не с чем. Пропуск
+// включается только явным маркером в начале файла, обычный README без таблиц по-прежнему падает.
+if (/^<!-- readme:moved -->/.test(readme)) {
+  console.log('README заменён пометкой о переезде (readme:moved): витрина не проверяется');
+  process.exit(0);
+}
 const plugins = catalog.plugins;
 if (!Array.isArray(plugins)) {
   console.error('В marketplace.json нет массива `plugins` - витрину не с чем сверять');
